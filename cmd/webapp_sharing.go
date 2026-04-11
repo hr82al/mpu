@@ -12,6 +12,9 @@ var webAppSharingCmd = &cobra.Command{
 	Example: `  mpu webApp sharing -s <id> --access ANYONE_WITH_LINK --perm EDIT
   mpu webApp sharing -s <id> --access PRIVATE --perm NONE`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkProtected(); err != nil {
+			return err
+		}
 		sid, err := requireFlag(cmd, "spreadsheet-id")
 		if err != nil {
 			return err

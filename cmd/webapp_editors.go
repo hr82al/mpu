@@ -46,6 +46,9 @@ var editorsAddCmd = &cobra.Command{
 	Short:   "Add editors",
 	Example: `  mpu webApp editors add -s <id> -e user@example.com -e other@example.com`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkProtected(); err != nil {
+			return err
+		}
 		sid, err := requireFlag(cmd, "spreadsheet-id")
 		if err != nil {
 			return err
@@ -79,6 +82,9 @@ var editorsSetCmd = &cobra.Command{
 	Short:   "Set exact list of editors",
 	Example: `  mpu webApp editors set -s <id> -e user@example.com`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkProtected(); err != nil {
+			return err
+		}
 		sid, err := requireFlag(cmd, "spreadsheet-id")
 		if err != nil {
 			return err
@@ -112,6 +118,9 @@ var editorsRemoveCmd = &cobra.Command{
 	Short:   "Remove editors",
 	Example: `  mpu webApp editors remove -s <id> -e user@example.com`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkProtected(); err != nil {
+			return err
+		}
 		sid, err := requireFlag(cmd, "spreadsheet-id")
 		if err != nil {
 			return err

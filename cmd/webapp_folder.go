@@ -11,6 +11,9 @@ var webAppFolderCmd = &cobra.Command{
 	Short: "Create a folder in Google Drive",
 	Example: `  mpu webApp folder --folder-url <parent-url> --name "New Folder"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkProtected(); err != nil {
+			return err
+		}
 		folderURL, err := requireFlag(cmd, "folder-url")
 		if err != nil {
 			return err

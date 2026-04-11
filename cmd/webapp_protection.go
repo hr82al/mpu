@@ -15,6 +15,9 @@ var webAppProtectionCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Example: `  mpu webApp protection -s <id> '[{"sheetName":"Sheet1","protectedRanges":[{"editors":["a@b.c"]}]}]'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkProtected(); err != nil {
+			return err
+		}
 		sid, err := requireFlag(cmd, "spreadsheet-id")
 		if err != nil {
 			return err

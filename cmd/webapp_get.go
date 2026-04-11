@@ -20,8 +20,8 @@ var webAppGetCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		headerRow, _ := cmd.Flags().GetInt("header-row")
-		dataRow, _ := cmd.Flags().GetInt("data-row")
+		headerRow := getIntFlag(cmd, "header-row")
+		dataRow := getIntFlag(cmd, "data-row")
 
 		c, err := newClient()
 		if err != nil {

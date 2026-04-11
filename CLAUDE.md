@@ -38,6 +38,11 @@ go test ./internal/webapp/ -run TestSpreadsheetsGet -v  # single test
 
 Response: `{"success": true/false, "result": ..., "error": "..."}`
 
+
 ## Environment
 
 `.env` file must contain `WB_PLUS_WEB_APP_URL` (Google Apps Script endpoint). This is the same endpoint used by `sl-back/src/webApp/webApp.service.js`.
+
+### Test spreadsheet
+
+`1eJfRwbYlkyHbtTxmWzH6nCxeIJHgbqZwPwn5tfsRRZo` — read/write access, used by all integration tests.

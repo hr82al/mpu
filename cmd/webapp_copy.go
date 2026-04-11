@@ -11,6 +11,9 @@ var webAppCopyCmd = &cobra.Command{
 	Short: "Copy a spreadsheet from template",
 	Example: `  mpu webApp copy --folder-url <url> --name "Copy" --template <spreadsheet-id>`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkProtected(); err != nil {
+			return err
+		}
 		folderURL, err := requireFlag(cmd, "folder-url")
 		if err != nil {
 			return err

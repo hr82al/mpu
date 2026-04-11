@@ -15,6 +15,9 @@ var webAppValuesUpdateCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Example: `  mpu webApp values-update -s <id> '{"valueInputOption":"USER_ENTERED","data":[{"range":"Sheet1!A1","values":[["hello"]]}]}'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkProtected(); err != nil {
+			return err
+		}
 		sid, err := requireFlag(cmd, "spreadsheet-id")
 		if err != nil {
 			return err

@@ -16,6 +16,9 @@ var webAppSetCmd = &cobra.Command{
 	Example: `  mpu webApp set -s <id> -n Sheet1 '[{"col1":"val1","col2":"val2"}]'
   mpu webApp set -s <id> -n Sheet1 --header-row 1 --data-row 3 '[{"A":"1"}]'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkProtected(); err != nil {
+			return err
+		}
 		sid, err := requireFlag(cmd, "spreadsheet-id")
 		if err != nil {
 			return err
@@ -24,8 +27,8 @@ var webAppSetCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		headerRow, _ := cmd.Flags().GetInt("header-row")
-		dataRow, _ := cmd.Flags().GetInt("data-row")
+		headerRow := getIntFlag(cmd, "header-row")
+		dataRow := getIntFlag(cmd, "data-row")
 
 		var data []interface{}
 		if err := json.Unmarshal([]byte(args[0]), &data); err != nil {

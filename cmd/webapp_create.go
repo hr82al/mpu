@@ -11,6 +11,9 @@ var webAppCreateCmd = &cobra.Command{
 	Short: "Create a new spreadsheet",
 	Example: `  mpu webApp create --email user@example.com --name "My Sheet"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkProtected(); err != nil {
+			return err
+		}
 		email, err := requireFlag(cmd, "email")
 		if err != nil {
 			return err

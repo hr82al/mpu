@@ -15,6 +15,9 @@ var webAppInsertCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Example: `  mpu webApp insert -s <id> -n Sheet1 '[{"col1":"val1"}]'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := checkProtected(); err != nil {
+			return err
+		}
 		sid, err := requireFlag(cmd, "spreadsheet-id")
 		if err != nil {
 			return err
@@ -23,8 +26,8 @@ var webAppInsertCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		headerRow, _ := cmd.Flags().GetInt("header-row")
-		dataRow, _ := cmd.Flags().GetInt("data-row")
+		headerRow := getIntFlag(cmd, "header-row")
+		dataRow := getIntFlag(cmd, "data-row")
 
 		var data []interface{}
 		if err := json.Unmarshal([]byte(args[0]), &data); err != nil {
