@@ -35,6 +35,8 @@ TOP-LEVEL COMMANDS
   PostgreSQL (direct schema access):
     ldb [id] <sql>       Run SQL on local schema (127.0.0.1:5441)
     rdb [id] <sql>       Run SQL on remote schema (host from .env)
+    lsdb <sql>           Run SQL on local schema with explicit --scheme
+    rsdb <sql>           Run SQL on remote schema with explicit --scheme and --host
 
 SMART REPEAT
   Running 'mpu' with no arguments repeats the last command.
@@ -81,8 +83,9 @@ TOKEN CACHE
   Auth token valid 10 minutes, cached in ~/.config/mpu/db.
   All sl-back commands reuse automatically.
 
-POSTGRESQL COMMANDS (ldb/rdb)
-  Both share client-id default with 'mpu client'.
+POSTGRESQL COMMANDS (ldb/rdb/lsdb/rsdb)
+  ldb and rdb share client-id default with 'mpu client'.
+  lsdb and rsdb use explicit --scheme (and --host for rsdb).
 
   Local (ldb):
     mpu ldb 54 "SELECT * FROM wb_cards"  # local 127.0.0.1:5441, saves id=54
@@ -92,7 +95,15 @@ POSTGRESQL COMMANDS (ldb/rdb)
     mpu rdb 54 "SELECT * FROM wb_cards"  # resolves host via client.server field
     mpu rdb "SELECT COUNT(*) FROM x"     # reuses id=54
 
-  Host resolution (rdb):
+  Local explicit schema (lsdb):
+    mpu lsdb --scheme schema_42 "SELECT 1"  # saves --scheme
+    mpu lsdb "SELECT 1"                     # reuses saved scheme
+
+  Remote explicit schema (rsdb):
+    mpu rsdb --scheme schema_42 --host sl-1 "SELECT 1"  # saves both
+    mpu rsdb "SELECT 1"                                  # reuses saved
+
+  Host resolution (rdb/rsdb):
     Client's 'server' field (e.g., "sl-1") → env var "sl_1" → address
     Error if env var missing. Add to ~/.config/mpu/.env:
       sl_1=192.168.150.31

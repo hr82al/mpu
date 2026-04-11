@@ -30,7 +30,7 @@ go test ./internal/pgclient/ -v                            # pgclient tests (con
 |-------|----------|-------------|
 | sheets | `webApp *` (aliased at root) | Google Sheets CRUD via Apps Script |
 | sl | `client`, `clients`, `token`, `update-spreadsheets` | sl-back API: client lookup, sync, auth, spreadsheet cache |
-| meta | `ldb`, `rdb`, `lrdb`, `lsdb`, `config-path` | Database queries, config location |
+| meta | `ldb`, `rdb`, `rsdb`, `lsdb`, `config-path` | Database queries, config location |
 
 ### Flows
 
@@ -121,7 +121,7 @@ Response: `{"success": true/false, "result": ..., "error": "..."}`
 **PostgreSQL (required for ldb/rdb):**
 - `PG_LOCAL_PORT`, `PG_PORT`, `PG_DB_NAME`, `PG_CLIENT_USER_PASSWORD`
 - `PG_HOST` — optional, defaults to 127.0.0.1
-- `PG_MY_USER_NAME`, `PG_MY_USER_PASSWORD` — remote access for lrdb / update-spreadsheets
+- `PG_MY_USER_NAME`, `PG_MY_USER_PASSWORD` — remote access for rsdb / update-spreadsheets
 - `PG_MAIN_USER_NAME`, `PG_MAIN_USER_PASSWORD` — local access for lsdb
 - Server-name env vars (e.g., `sl_1=192.168.150.31`) — for remote host resolution in `rdb`
 

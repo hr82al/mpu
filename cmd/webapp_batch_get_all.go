@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"mpu/internal/webapp"
 
@@ -91,6 +93,7 @@ func mergeValuesAndFormulas(valRaw, fmlRaw json.RawMessage) (any, error) {
 	}
 
 	type cell struct {
+		A string `json:"a"`
 		V any    `json:"v"`
 		F string `json:"f"`
 	}
@@ -106,6 +109,8 @@ func mergeValuesAndFormulas(valRaw, fmlRaw json.RawMessage) (any, error) {
 		if i < len(fmlResult.ValueRanges) {
 			fr = fmlResult.ValueRanges[i]
 		}
+
+		startCol, startRow := parseRangeStart(vr.Range)
 
 		rows := max(len(vr.Values), len(fr.Values))
 		merged := make([][]cell, rows)
@@ -136,13 +141,60 @@ func mergeValuesAndFormulas(valRaw, fmlRaw json.RawMessage) (any, error) {
 					formula = fStr
 				}
 
-				merged[r][c] = cell{V: v, F: formula}
+				addr := colToLetters(startCol+c) + strconv.Itoa(startRow+r)
+				merged[r][c] = cell{A: addr, V: v, F: formula}
 			}
 		}
 		out[i] = mergedRange{Range: vr.Range, Values: merged}
 	}
 
 	return out, nil
+}
+
+// parseRangeStart extracts the starting column (0-based) and row (1-based)
+// from a range string like "Sheet1!A1:Z100" or "A1:B2".
+// Returns (0, 1) if parsing fails.
+func parseRangeStart(rangeStr string) (col, row int) {
+	// Strip sheet name prefix (e.g. "'Sheet 1'!A1:B2" → "A1:B2")
+	if idx := strings.LastIndex(rangeStr, "!"); idx >= 0 {
+		rangeStr = rangeStr[idx+1:]
+	}
+	// Take only the start cell (before ":")
+	if idx := strings.Index(rangeStr, ":"); idx >= 0 {
+		rangeStr = rangeStr[:idx]
+	}
+	// Split into letters and digits
+	i := 0
+	for i < len(rangeStr) && rangeStr[i] >= 'A' && rangeStr[i] <= 'Z' {
+		i++
+	}
+	if i == 0 || i == len(rangeStr) {
+		return 0, 1
+	}
+	letters := rangeStr[:i]
+	num, err := strconv.Atoi(rangeStr[i:])
+	if err != nil || num < 1 {
+		return 0, 1
+	}
+	// Convert column letters to 0-based index: A=0, B=1, ..., Z=25, AA=26
+	col = 0
+	for _, ch := range letters {
+		col = col*26 + int(ch-'A') + 1
+	}
+	col-- // make 0-based
+	return col, num
+}
+
+// colToLetters converts a 0-based column index to spreadsheet letters: 0→A, 25→Z, 26→AA.
+func colToLetters(col int) string {
+	result := ""
+	col++ // 1-based
+	for col > 0 {
+		col--
+		result = string(rune('A'+col%26)) + result
+		col /= 26
+	}
+	return result
 }
 
 func init() {

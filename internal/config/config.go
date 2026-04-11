@@ -72,7 +72,7 @@ type PGConfig struct {
 	DBName         string // PG_DB_NAME (required)
 	ClientPassword string // PG_CLIENT_USER_PASSWORD (required)
 
-	// Credentials for lrdb / update-spreadsheets (remote, optional).
+	// Credentials for rsdb / update-spreadsheets (remote, optional).
 	MyUserName     string // PG_MY_USER_NAME
 	MyUserPassword string // PG_MY_USER_PASSWORD
 
