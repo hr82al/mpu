@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
+
+	"mpu/internal/config"
+	"mpu/internal/pgclient"
 )
 
 // resolveDBArgs parses positional args for ldb/rdb commands:
@@ -33,6 +37,31 @@ func resolveDBArgs(args []string) (id int64, sql string, err error) {
 		return 0, "", fmt.Errorf("invalid saved client-id; run 'mpu ldb <id> <sql>' to set it")
 	}
 	return int64(fval), sql, nil
+}
+
+// runQuery connects to PostgreSQL at host:port as the given user and runs sql.
+func runQuery(cfg *config.PGConfig, host, port, user, sql string) error {
+	ctx := context.Background()
+	conn, err := pgclient.NewConn(ctx, host, port, user, cfg.ClientPassword, cfg.DBName)
+	if err != nil {
+		return err
+	}
+	defer conn.Close(ctx)
+
+	rows, err := pgclient.QueryJSON(ctx, conn, sql)
+	if err != nil {
+		return err
+	}
+	printJSON(rows)
+	return nil
+}
+
+// resolveHost tries to resolve name via .env, falls back to using it as direct address.
+func resolveHost(name string) string {
+	if resolved, err := resolveRemoteHost(name); err == nil {
+		return resolved
+	}
+	return name
 }
 
 // resolveRemoteHost looks up the host address for a server name.

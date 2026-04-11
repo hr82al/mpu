@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"mpu/internal/config"
-	"mpu/internal/pgclient"
 
 	"github.com/spf13/cobra"
 )
@@ -30,26 +28,11 @@ The SQL argument is never saved to defaults.`,
 		if err != nil {
 			return err
 		}
-
 		cfg, err := config.LoadPG()
 		if err != nil {
 			return err
 		}
-
-		ctx := context.Background()
-		user := fmt.Sprintf("client_%d", id)
-		conn, err := pgclient.NewConn(ctx, cfg.Host, cfg.LocalPort, user, cfg.ClientPassword, cfg.DBName)
-		if err != nil {
-			return err
-		}
-		defer conn.Close(ctx)
-
-		rows, err := pgclient.QueryJSON(ctx, conn, sql)
-		if err != nil {
-			return err
-		}
-		printJSON(rows)
-		return nil
+		return runQuery(cfg, cfg.Host, cfg.LocalPort, fmt.Sprintf("client_%d", id), sql)
 	},
 }
 

@@ -49,6 +49,7 @@ func init() {
 		webAppKeysCmd,
 		webAppInfoCmd,
 		webAppBatchGetCmd,
+		webAppBatchGetAllCmd,
 		webAppBatchUpdateCmd,
 		webAppValuesUpdateCmd,
 		webAppDeleteCmd,

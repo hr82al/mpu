@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"mpu/internal/webapp"
 
 	"github.com/spf13/cobra"
@@ -11,16 +9,18 @@ import (
 var webAppBatchGetCmd = &cobra.Command{
 	Use:   "batch-get",
 	Short: "Batch get values from multiple ranges",
-	Example: `  mpu webApp batch-get -s <id> -r 'Sheet1!A1:B2' -r 'Sheet1!C1:D2'`,
+	Example: `  mpu webApp batch-get -s <id> -r 'Sheet1!A1:B2' -r 'Sheet1!C1:D2'
+  mpu batch-get -s <id> -n UNIT`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		sid, err := requireFlag(cmd, "spreadsheet-id")
 		if err != nil {
 			return err
 		}
-		ranges, _ := cmd.Flags().GetStringArray("range")
-		if len(ranges) == 0 {
-			return fmt.Errorf("--range (-r) is required")
+		ranges, err := resolveRanges(cmd)
+		if err != nil {
+			return err
 		}
+		vro, _ := cmd.Flags().GetString("value-render")
 
 		c, err := newClient()
 		if err != nil {
@@ -28,11 +28,11 @@ var webAppBatchGetCmd = &cobra.Command{
 		}
 
 		resp, err := c.Do(webapp.Request{
-			"action":               "spreadsheets/data/batchGet",
+			"action":               "spreadsheets/values/batchGet",
 			"ssId":                 sid,
 			"ranges":               ranges,
 			"majorDimension":       "ROWS",
-			"valueRenderOption":    "UNFORMATTED_VALUE",
+			"valueRenderOption":    vro,
 			"dateTimeRenderOption": "SERIAL_NUMBER",
 		})
 		if err != nil {
@@ -48,6 +48,11 @@ var webAppBatchGetCmd = &cobra.Command{
 
 func init() {
 	addSpreadsheetFlag(webAppBatchGetCmd)
+	addSheetNameFlag(webAppBatchGetCmd)
 	webAppBatchGetCmd.Flags().StringArrayP("range", "r", nil, "range(s) to fetch (repeatable)")
+	webAppBatchGetCmd.Flags().String("value-render", "UNFORMATTED_VALUE", "value render option: UNFORMATTED_VALUE, FORMATTED_VALUE, FORMULA")
+	_ = webAppBatchGetCmd.RegisterFlagCompletionFunc("value-render", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"UNFORMATTED_VALUE", "FORMATTED_VALUE", "FORMULA"}, cobra.ShellCompDirectiveNoFileComp
+	})
 	webAppCmd.AddCommand(webAppBatchGetCmd)
 }

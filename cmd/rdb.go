@@ -1,13 +1,11 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"mpu/internal/auth"
 	"mpu/internal/cache"
 	"mpu/internal/config"
-	"mpu/internal/pgclient"
 	"mpu/internal/slapi"
 
 	"github.com/spf13/cobra"
@@ -68,7 +66,6 @@ The SQL argument is never saved to defaults.`,
 			}
 		}
 
-		// LoadPG loads .env, which makes env vars available for resolveRemoteHost
 		cfg, err := config.LoadPG()
 		if err != nil {
 			return err
@@ -79,20 +76,7 @@ The SQL argument is never saved to defaults.`,
 			return err
 		}
 
-		ctx := context.Background()
-		user := fmt.Sprintf("client_%d", id)
-		conn, err := pgclient.NewConn(ctx, host, cfg.RemotePort, user, cfg.ClientPassword, cfg.DBName)
-		if err != nil {
-			return err
-		}
-		defer conn.Close(ctx)
-
-		result, err := pgclient.QueryJSON(ctx, conn, sql)
-		if err != nil {
-			return err
-		}
-		printJSON(result)
-		return nil
+		return runQuery(cfg, host, cfg.RemotePort, fmt.Sprintf("client_%d", id), sql)
 	},
 }
 

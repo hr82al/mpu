@@ -106,6 +106,20 @@ func addSheetNameFlag(cmd *cobra.Command) {
 	cmd.Flags().StringP("sheet-name", "n", "", "sheet tab name")
 }
 
+// resolveRanges returns ranges from -r flags, or builds a full-sheet range
+// from -n (sheet-name) when no -r is provided: "SheetName!A:ZZZ".
+func resolveRanges(cmd *cobra.Command) ([]string, error) {
+	ranges, _ := cmd.Flags().GetStringArray("range")
+	if len(ranges) > 0 {
+		return ranges, nil
+	}
+	name, err := requireFlag(cmd, "sheet-name")
+	if err != nil {
+		return nil, fmt.Errorf("--range (-r) or --sheet-name (-n) is required")
+	}
+	return []string{"'" + name + "'!A:ZZZ"}, nil
+}
+
 func checkProtected() error {
 	if currentConfig.Protected {
 		return fmt.Errorf(
