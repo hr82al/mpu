@@ -1,0 +1,59 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+)
+
+// resolveDBArgs parses positional args for ldb/rdb commands:
+//
+//	1 arg  → SQL only; client-id loaded from defaults
+//	2 args → args[0] is client-id (saved to defaults), args[1] is SQL
+func resolveDBArgs(args []string) (id int64, sql string, err error) {
+	if len(args) == 2 {
+		id, err = strconv.ParseInt(args[0], 10, 64)
+		if err != nil {
+			return 0, "", fmt.Errorf("invalid id %q: %w", args[0], err)
+		}
+		currentConfig.Defaults["client-id"] = float64(id)
+		sql = args[1]
+		return id, sql, nil
+	}
+
+	// 1 arg: SQL only, load id from defaults.
+	sql = args[0]
+	v, ok := currentConfig.Defaults["client-id"]
+	if !ok {
+		return 0, "", fmt.Errorf("client-id is required: run 'mpu ldb <id> <sql>' first")
+	}
+	fval, ok := v.(float64)
+	if !ok || fval <= 0 {
+		return 0, "", fmt.Errorf("invalid saved client-id; run 'mpu ldb <id> <sql>' to set it")
+	}
+	return int64(fval), sql, nil
+}
+
+// resolveRemoteHost looks up the host address for a server name.
+// Server name uses dashes (e.g. "sl-1"), env vars use underscores (e.g. "sl_1").
+// Tries exact env var name first (lowercase), then uppercase.
+func resolveRemoteHost(server string) (string, error) {
+	// Convert dashes to underscores for env var lookup
+	envKey := strings.ReplaceAll(server, "-", "_")
+
+	// Try exact case first
+	if h := os.Getenv(envKey); h != "" {
+		return h, nil
+	}
+
+	// Try uppercase
+	if h := os.Getenv(strings.ToUpper(envKey)); h != "" {
+		return h, nil
+	}
+
+	return "", fmt.Errorf(
+		"host for server %q not found in .env\nplease add: %s=<host address>",
+		server, envKey,
+	)
+}

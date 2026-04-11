@@ -18,65 +18,102 @@ const (
 
 var rootCmd = &cobra.Command{
 	Use:   "mpu",
-	Short: "Multi-purpose utility",
-	Long: `mpu — multi-purpose CLI for Google Sheets and sl-back.
+	Short: "Multi-purpose utility for Google Sheets and PostgreSQL",
+	Long: `mpu — CLI for Google Sheets (webApp), sl-back API (token/clients/client),
+and PostgreSQL client schema access (ldb/rdb).
+
+TOP-LEVEL COMMANDS
+  Google Sheets:
+    get, set, insert, upsert, keys, info, batch-get, batch-update, values-update,
+    delete, sharing, protection, editors, create, copy, folder
+
+  sl-back API:
+    token                Fetch and cache auth token
+    clients              Fetch and sync all clients to cache
+    client <id>          Get single client by ID (cache + optional API sync)
+
+  PostgreSQL (direct schema access):
+    ldb [id] <sql>       Run SQL on local schema (127.0.0.1:5441)
+    rdb [id] <sql>       Run SQL on remote schema (host from .env)
 
 SMART REPEAT
   Running 'mpu' with no arguments repeats the last command.
-  Commands that require a positional argument cannot be auto-repeated and
-  will print a clear error instead.
+  Commands that require positional arguments cannot be auto-repeated.
 
-    mpu get -s SHEET_ID -n Sheet1   # run and remember flags
-    mpu                             # repeats: mpu get (with saved -s and -n)
+    mpu get -s SHEET_ID -n Sheet1   # run and save flags
+    mpu                             # repeats: mpu get (with saved flags)
 
-REMEMBERED FLAGS
-  Most flags are persisted in ~/.config/mpu/config.json after the first use.
-  On subsequent calls you can omit them entirely:
+REMEMBERED FLAGS & DEFAULTS
+  Persisted in ~/.config/mpu/config.json after first use:
+    -s / --spreadsheet-id   Google Sheets ID (webApp commands)
+    -n / --sheet-name       Sheet tab name (webApp commands)
+    --fields                Fields to return (client command)
+    client-id               Client ID for ldb/rdb/client commands
 
+  Examples:
     mpu get -s 1eJfR... -n Prices  # saves -s and -n
-    mpu get                         # reuses saved -s and -n
-    mpu set '[{"a":1}]'            # also reuses saved -s and -n
-    mpu get -n Other                # overrides -n for this run and saves it
-
-  Flags that support defaults:
-    -s / --spreadsheet-id   Google Sheets spreadsheet ID
-    -n / --sheet-name       Sheet tab name
-    --fields                Fields to return in 'client' command (see below)
+    mpu get                         # reuses saved flags
+    mpu client 42                   # saves id=42
+    mpu client                      # reuses id=42
+    mpu ldb "SELECT 1"              # reuses id=42 (same key)
+    mpu rdb "SELECT 1"              # reuses id=42 (same key)
 
 COMMAND SHORTCUTS
-  All 'webApp' subcommands are available at the root level:
+  All 'webApp' subcommands are available at root level:
+    mpu webApp get  ≡  mpu get
+    mpu webApp set  ≡  mpu set
 
-    mpu webApp get   ≡   mpu get
-    mpu webApp set   ≡   mpu set
-
-  The 'webApp' prefix can always be omitted.
+  (webApp prefix optional)
 
 --fields FLAG  (mpu client <id>)
-  Controls which fields are returned. Persisted in defaults.
+  Controls output format. Persisted in defaults.
 
     mpu client 42                      # full JSON object
-    mpu client 42 --fields server      # sl-1        (raw value, no JSON)
-    mpu client 42 --fields id,server   # {"id":42,"server":"sl-1"}
-    mpu client 42 --fields ""          # clears saved fields → full JSON
+    mpu client 42 --fields server      # raw value (no JSON)
+    mpu client 42 --fields id,server   # JSON with subset of fields
+    mpu client 42 --fields ""          # clears saved fields
 
-  On subsequent calls, omit --fields to reuse the last value:
-
-    mpu client 42 --fields server      # saves "server"
-    mpu client 99                      # returns only "server" field of client 99
-
-CLIENT CACHE
-  'mpu client <id>' checks ~/.config/mpu/db first.
-  If the client is not cached, it calls the API (same as 'mpu clients'),
-  syncs everything, then returns the requested record.
-  'mpu clients' always does a full replace of the cached list.
+CLIENT CACHE & SYNC
+  'mpu client <id>' checks ~/.config/mpu/db first. If not found, syncs from
+  API. 'mpu clients' always does full replace.
 
 TOKEN CACHE
-  The auth token is valid for 10 minutes and cached in ~/.config/mpu/db.
-  All sl-back commands reuse it automatically — no manual 'mpu token' needed.
+  Auth token valid 10 minutes, cached in ~/.config/mpu/db.
+  All sl-back commands reuse automatically.
+
+POSTGRESQL COMMANDS (ldb/rdb)
+  Both share client-id default with 'mpu client'.
+
+  Local (ldb):
+    mpu ldb 54 "SELECT * FROM wb_cards"  # local 127.0.0.1:5441, saves id=54
+    mpu ldb "SELECT COUNT(*) FROM x"     # reuses id=54
+
+  Remote (rdb):
+    mpu rdb 54 "SELECT * FROM wb_cards"  # resolves host via client.server field
+    mpu rdb "SELECT COUNT(*) FROM x"     # reuses id=54
+
+  Host resolution (rdb):
+    Client's 'server' field (e.g., "sl-1") → env var "sl_1" → address
+    Error if env var missing. Add to ~/.config/mpu/.env:
+      sl_1=192.168.150.31
+      sl_2=192.168.150.32
 
 CONFIG FILE
-  ~/.config/mpu/config.json  — saved flag defaults and last command name.
-  Set protected=true to block destructive webApp operations (set/delete/etc).`,
+  ~/.config/mpu/config.json  — saved defaults and last command.
+  ~/.config/mpu/.env         — PostgreSQL and webApp credentials.
+  ~/.config/mpu/db           — SQLite cache (tokens, clients).
+
+ENV VARIABLES (.env)
+  WebApp:
+    WB_PLUS_WEB_APP_URL, WB_PLUS_WEB_APP_EMAIL
+
+  sl-back API:
+    NEXT_PUBLIC_SERVER_URL, BASE_API_URL, TOKEN_EMAIL, TOKEN_PASSWORD
+
+  PostgreSQL:
+    PG_DB_NAME, PG_LOCAL_PORT, PG_PORT, PG_CLIENT_USER_PASSWORD
+    PG_HOST (optional, default 127.0.0.1)
+    sl_0, sl_1, ... (host mappings for rdb)`,
 
 	RunE: func(cmd *cobra.Command, args []string) error {
 		last := strings.TrimSpace(currentConfig.Command)

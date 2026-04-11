@@ -64,6 +64,52 @@ func LoadAuth() (*AuthConfig, error) {
 	}, nil
 }
 
+// PGConfig holds PostgreSQL connection settings for client schema access.
+type PGConfig struct {
+	Host           string // PG_HOST, default "127.0.0.1"
+	LocalPort      string // PG_LOCAL_PORT (required)
+	RemotePort     string // PG_PORT (required for remote)
+	DBName         string // PG_DB_NAME (required)
+	ClientPassword string // PG_CLIENT_USER_PASSWORD (required)
+}
+
+// LoadPG loads PostgreSQL config from .env.
+// Required: PG_DB_NAME, PG_LOCAL_PORT, PG_PORT, PG_CLIENT_USER_PASSWORD.
+// Optional: PG_HOST (default 127.0.0.1).
+func LoadPG() (*PGConfig, error) {
+	loadDotEnv()
+
+	dbName := os.Getenv("PG_DB_NAME")
+	if dbName == "" {
+		return nil, fmt.Errorf("PG_DB_NAME is not set")
+	}
+	clientPassword := os.Getenv("PG_CLIENT_USER_PASSWORD")
+	if clientPassword == "" {
+		return nil, fmt.Errorf("PG_CLIENT_USER_PASSWORD is not set")
+	}
+	localPort := os.Getenv("PG_LOCAL_PORT")
+	if localPort == "" {
+		return nil, fmt.Errorf("PG_LOCAL_PORT is not set")
+	}
+	remotePort := os.Getenv("PG_PORT")
+	if remotePort == "" {
+		return nil, fmt.Errorf("PG_PORT is not set")
+	}
+
+	host := os.Getenv("PG_HOST")
+	if host == "" {
+		host = "127.0.0.1"
+	}
+
+	return &PGConfig{
+		Host:           host,
+		LocalPort:      localPort,
+		RemotePort:     remotePort,
+		DBName:         dbName,
+		ClientPassword: clientPassword,
+	}, nil
+}
+
 // loadDotEnv loads ~/.config/mpu/.env if it exists.
 func loadDotEnv() {
 	home, err := os.UserHomeDir()
