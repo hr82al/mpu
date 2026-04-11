@@ -71,6 +71,14 @@ type PGConfig struct {
 	RemotePort     string // PG_PORT (required for remote)
 	DBName         string // PG_DB_NAME (required)
 	ClientPassword string // PG_CLIENT_USER_PASSWORD (required)
+
+	// Credentials for lrdb / update-spreadsheets (remote, optional).
+	MyUserName     string // PG_MY_USER_NAME
+	MyUserPassword string // PG_MY_USER_PASSWORD
+
+	// Credentials for lsdb (local, optional).
+	MainUserName     string // PG_MAIN_USER_NAME
+	MainUserPassword string // PG_MAIN_USER_PASSWORD
 }
 
 // LoadPG loads PostgreSQL config from .env.
@@ -107,6 +115,11 @@ func LoadPG() (*PGConfig, error) {
 		RemotePort:     remotePort,
 		DBName:         dbName,
 		ClientPassword: clientPassword,
+
+		MyUserName:       os.Getenv("PG_MY_USER_NAME"),
+		MyUserPassword:   os.Getenv("PG_MY_USER_PASSWORD"),
+		MainUserName:     os.Getenv("PG_MAIN_USER_NAME"),
+		MainUserPassword: os.Getenv("PG_MAIN_USER_PASSWORD"),
 	}, nil
 }
 

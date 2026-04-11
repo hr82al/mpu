@@ -41,12 +41,24 @@ func resolveDBArgs(args []string) (id int64, sql string, err error) {
 
 // runQuery connects to PostgreSQL at host:port as the given user and runs sql.
 func runQuery(cfg *config.PGConfig, host, port, user, sql string) error {
+	return runQueryWithCreds(cfg.DBName, host, port, user, cfg.ClientPassword, "", sql)
+}
+
+// runQueryWithCreds connects to PostgreSQL with explicit credentials.
+// If searchPath is non-empty, SET search_path is executed before the main query.
+func runQueryWithCreds(dbName, host, port, user, password, searchPath, sql string) error {
 	ctx := context.Background()
-	conn, err := pgclient.NewConn(ctx, host, port, user, cfg.ClientPassword, cfg.DBName)
+	conn, err := pgclient.NewConn(ctx, host, port, user, password, dbName)
 	if err != nil {
 		return err
 	}
 	defer conn.Close(ctx)
+
+	if searchPath != "" {
+		if _, err := conn.Exec(ctx, fmt.Sprintf("SET search_path TO %s", searchPath)); err != nil {
+			return fmt.Errorf("set search_path: %w", err)
+		}
+	}
 
 	rows, err := pgclient.QueryJSON(ctx, conn, sql)
 	if err != nil {

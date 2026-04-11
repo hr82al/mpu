@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"mpu/internal/config"
 
 	"github.com/spf13/cobra"
@@ -29,7 +31,11 @@ Flag --scheme is saved to defaults after first use:
 		if err != nil {
 			return err
 		}
-		return runQuery(cfg, cfg.Host, cfg.LocalPort, scheme, args[0])
+		if cfg.MainUserName == "" || cfg.MainUserPassword == "" {
+			return fmt.Errorf("PG_MAIN_USER_NAME and PG_MAIN_USER_PASSWORD are required for lsdb")
+		}
+		return runQueryWithCreds(cfg.DBName, cfg.Host, cfg.LocalPort,
+			cfg.MainUserName, cfg.MainUserPassword, scheme, args[0])
 	},
 }
 

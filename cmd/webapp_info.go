@@ -8,10 +8,11 @@ import (
 
 var webAppInfoCmd = &cobra.Command{
 	Use:   "info",
+	Args:  cobra.MaximumNArgs(1),
 	Short: "Get spreadsheet metadata",
 	Example: `  mpu webApp info -s <spreadsheet-id>`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, _, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}

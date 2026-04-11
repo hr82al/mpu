@@ -8,11 +8,12 @@ import (
 
 var webAppBatchGetCmd = &cobra.Command{
 	Use:   "batch-get",
+	Args:  cobra.MaximumNArgs(1),
 	Short: "Batch get values from multiple ranges",
 	Example: `  mpu webApp batch-get -s <id> -r 'Sheet1!A1:B2' -r 'Sheet1!C1:D2'
   mpu batch-get -s <id> -n UNIT`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, _, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}

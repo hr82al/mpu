@@ -12,19 +12,19 @@ import (
 var webAppBatchUpdateCmd = &cobra.Command{
 	Use:   "batch-update <json>",
 	Short: "Batch delete+update data in sheets",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.RangeArgs(1, 2),
 	Example: `  mpu webApp batch-update -s <id> '[{"sheetName":"Sheet1","dataRowFirst":3,"values":[["a","b"]]}]'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := checkProtected(); err != nil {
 			return err
 		}
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, bodyArgs, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}
 
 		var data []interface{}
-		if err := json.Unmarshal([]byte(args[0]), &data); err != nil {
+		if err := json.Unmarshal([]byte(bodyArgs[0]), &data); err != nil {
 			return fmt.Errorf("invalid JSON: %w", err)
 		}
 

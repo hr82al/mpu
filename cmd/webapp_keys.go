@@ -10,10 +10,11 @@ import (
 
 var webAppKeysCmd = &cobra.Command{
 	Use:   "keys",
+	Args:  cobra.MaximumNArgs(1),
 	Short: "Get header keys (first row) from a sheet",
 	Example: `  mpu webApp keys -s <spreadsheet-id> -n Sheet1`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, _, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}

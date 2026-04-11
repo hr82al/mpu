@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"mpu/internal/config"
 
 	"github.com/spf13/cobra"
@@ -34,7 +36,11 @@ Flags --scheme and --host are saved to defaults after first use:
 		if err != nil {
 			return err
 		}
-		return runQuery(cfg, resolveHost(hostFlag), cfg.RemotePort, scheme, args[0])
+		if cfg.MyUserName == "" || cfg.MyUserPassword == "" {
+			return fmt.Errorf("PG_MY_USER_NAME and PG_MY_USER_PASSWORD are required for lrdb")
+		}
+		return runQueryWithCreds(cfg.DBName, resolveHost(hostFlag), cfg.RemotePort,
+			cfg.MyUserName, cfg.MyUserPassword, scheme, args[0])
 	},
 }
 

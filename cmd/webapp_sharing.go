@@ -8,6 +8,7 @@ import (
 
 var webAppSharingCmd = &cobra.Command{
 	Use:   "sharing",
+	Args:  cobra.MaximumNArgs(1),
 	Short: "Set general sharing permissions",
 	Example: `  mpu webApp sharing -s <id> --access ANYONE_WITH_LINK --perm EDIT
   mpu webApp sharing -s <id> --access PRIVATE --perm NONE`,
@@ -15,7 +16,7 @@ var webAppSharingCmd = &cobra.Command{
 		if err := checkProtected(); err != nil {
 			return err
 		}
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, _, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}

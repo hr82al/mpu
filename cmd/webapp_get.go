@@ -8,11 +8,12 @@ import (
 
 var webAppGetCmd = &cobra.Command{
 	Use:   "get",
+	Args:  cobra.MaximumNArgs(1),
 	Short: "Get data items from a sheet",
 	Example: `  mpu webApp get -s <spreadsheet-id> -n Sheet1
   mpu webApp get -s <spreadsheet-id> -n Sheet1 --header-row 1 --data-row 3`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, _, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}

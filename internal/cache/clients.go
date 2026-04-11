@@ -96,6 +96,24 @@ func (db *DB) ListClientIDs() ([]string, error) {
 	return ids, rows.Err()
 }
 
+// ActiveServers returns distinct server names from active clients.
+func (db *DB) ActiveServers() ([]string, error) {
+	rows, err := db.Query(`SELECT DISTINCT server FROM sl_clients WHERE is_active = 1 AND server != '' ORDER BY server`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var servers []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			continue
+		}
+		servers = append(servers, s)
+	}
+	return servers, rows.Err()
+}
+
 // — helpers —
 
 func scanClient(row *sql.Row) (*ClientRow, error) {

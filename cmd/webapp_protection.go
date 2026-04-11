@@ -12,19 +12,19 @@ import (
 var webAppProtectionCmd = &cobra.Command{
 	Use:   "protection <json>",
 	Short: "Set sheet protection configs",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.RangeArgs(1, 2),
 	Example: `  mpu webApp protection -s <id> '[{"sheetName":"Sheet1","protectedRanges":[{"editors":["a@b.c"]}]}]'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := checkProtected(); err != nil {
 			return err
 		}
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, bodyArgs, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}
 
 		var configs []interface{}
-		if err := json.Unmarshal([]byte(args[0]), &configs); err != nil {
+		if err := json.Unmarshal([]byte(bodyArgs[0]), &configs); err != nil {
 			return fmt.Errorf("invalid JSON: %w", err)
 		}
 

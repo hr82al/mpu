@@ -8,13 +8,14 @@ import (
 
 var webAppDeleteCmd = &cobra.Command{
 	Use:   "delete",
+	Args:  cobra.MaximumNArgs(1),
 	Short: "Delete a spreadsheet",
 	Example: `  mpu webApp delete -s <spreadsheet-id>`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := checkProtected(); err != nil {
 			return err
 		}
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, _, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}

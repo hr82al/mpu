@@ -29,8 +29,8 @@ go test ./internal/pgclient/ -v                            # pgclient tests (con
 | Group | Commands | Description |
 |-------|----------|-------------|
 | sheets | `webApp *` (aliased at root) | Google Sheets CRUD via Apps Script |
-| sl | `client`, `clients`, `token` | sl-back API: client lookup, sync, auth |
-| meta | `ldb`, `rdb`, `config-path` | Database queries, config location |
+| sl | `client`, `clients`, `token`, `update-spreadsheets` | sl-back API: client lookup, sync, auth, spreadsheet cache |
+| meta | `ldb`, `rdb`, `lrdb`, `lsdb`, `config-path` | Database queries, config location |
 
 ### Flows
 
@@ -42,11 +42,11 @@ go test ./internal/pgclient/ -v                            # pgclient tests (con
 
 ### Key packages
 
-- **`cmd/`** — One file per command. WebApp subcommands share persistent flags (`-s`, `-n`) and helpers (`newClient`, `requireFlag`, `checkResp`, `printRaw`, `checkProtected`) in `cmd/webapp.go`. Shortcuts in `cmd/zzz_shortcuts.go` register all webApp subcommands at root level (e.g., `mpu get` = `mpu webApp get`).
+- **`cmd/`** — One file per command. WebApp subcommands share persistent flags (`-s`, `-n`) and helpers (`newClient`, `requireFlag`, `resolveSpreadsheetID`, `checkResp`, `printRaw`, `checkProtected`) in `cmd/webapp.go`. Shortcuts in `cmd/zzz_shortcuts.go` register all webApp subcommands at root level (e.g., `mpu get` = `mpu webApp get`).
 - **`internal/webapp/`** — `Client` interface with `Do(Request) (*Response, error)`. Retries up to 10 attempts; sleeps 60s on "Quota exceeded". HTTP timeout 120s.
 - **`internal/config/`** — Loads `.env` from `~/.config/mpu/.env` via godotenv. Three config types: `Config` (webApp), `AuthConfig` (sl-back), `PGConfig` (PostgreSQL).
 - **`internal/defaults/`** — Persisted CLI state in `~/.config/mpu/config.json`: last command, saved flags, protected mode. File permissions 0600.
-- **`internal/cache/`** — SQLite cache at `~/.config/mpu/db` with migration system. Stores JWT tokens (10min TTL) and client rows. Atomic client replacement via transactions.
+- **`internal/cache/`** — SQLite cache at `~/.config/mpu/db` with migration system. Stores JWT tokens (10min TTL), client rows, and spreadsheet rows. Atomic client replacement via transactions. Spreadsheets use versioned updates (write new version → commit/rollback) with chunked inserts.
 - **`internal/auth/`** — Token retrieval with cache-aside pattern: check SQLite cache → fetch from sl-back → cache → return.
 - **`internal/slapi/`** — sl-back REST client. `GetClients(token)` → `[]cache.ClientRow`.
 - **`internal/pgclient/`** — PostgreSQL via pgx. `QueryJSON(sql)` returns `[]map[string]any`.
@@ -58,7 +58,19 @@ Flags are remembered across invocations in `~/.config/mpu/config.json`:
 - `mpu` with no args repeats the last executed command ("smart repeat")
 - `protected=true` (default) blocks destructive operations; must be set to `false` manually
 
-Flag resolution: explicit flag > saved default > cobra default.
+Flag resolution: explicit flag > positional arg > saved default > cobra default.
+
+### Spreadsheet ID resolution
+
+WebApp commands accept a positional argument to resolve spreadsheet ID instead of `-s`:
+- `mpu get 54 -n UNIT` — lookup by client ID, interactive menu if multiple
+- `mpu get "Cool Flaps" -n UNIT` — fuzzy search by title (sahilm/fuzzy), ranked menu
+- `mpu get -s <id> -n UNIT` — explicit `-s` always wins
+- For commands with JSON body: `mpu set 42 '[...]'` — query arg first, then body
+
+Data comes from `sl_spreadsheets` table, populated by `mpu update-spreadsheets`.
+Menu shows: `client_id`, `is_active`, `spreadsheet_id`, `title`, `template_name` (max 50 items).
+Selected spreadsheet ID is saved to defaults.
 
 ### Adding a new webApp command
 
@@ -91,7 +103,7 @@ Response: `{"success": true/false, "result": ..., "error": "..."}`
 |------|---------|
 | `~/.config/mpu/config.json` | Persisted defaults, protected flag, last command |
 | `~/.config/mpu/.env` | Environment variables (credentials, URLs, ports) |
-| `~/.config/mpu/db` | SQLite cache (tokens, clients) |
+| `~/.config/mpu/db` | SQLite cache (tokens, clients, spreadsheets) |
 | `~/.local/bin/mpu` | Installed binary |
 
 ## Environment
@@ -109,6 +121,8 @@ Response: `{"success": true/false, "result": ..., "error": "..."}`
 **PostgreSQL (required for ldb/rdb):**
 - `PG_LOCAL_PORT`, `PG_PORT`, `PG_DB_NAME`, `PG_CLIENT_USER_PASSWORD`
 - `PG_HOST` — optional, defaults to 127.0.0.1
+- `PG_MY_USER_NAME`, `PG_MY_USER_PASSWORD` — remote access for lrdb / update-spreadsheets
+- `PG_MAIN_USER_NAME`, `PG_MAIN_USER_PASSWORD` — local access for lsdb
 - Server-name env vars (e.g., `sl_1=192.168.150.31`) — for remote host resolution in `rdb`
 
 ### Test spreadsheet

@@ -4,11 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
+	"mpu/internal/cache"
 	"mpu/internal/config"
 	"mpu/internal/defaults"
 	"mpu/internal/webapp"
 
+	"github.com/manifoldco/promptui"
+	"github.com/sahilm/fuzzy"
 	"github.com/spf13/cobra"
 )
 
@@ -119,6 +124,190 @@ func resolveRanges(cmd *cobra.Command) ([]string, error) {
 	}
 	return []string{"'" + name + "'!A:ZZZ"}, nil
 }
+
+const maxMenuItems = 50
+
+// resolveSpreadsheetID resolves a spreadsheet ID from multiple sources.
+// Priority: explicit -s flag > positional arg > saved default.
+// Returns the spreadsheet ID and remaining args (after consuming the optional query).
+func resolveSpreadsheetID(cmd *cobra.Command, args []string) (string, []string, error) {
+	// 1. Explicit -s flag wins.
+	if cmd.Flags().Changed("spreadsheet-id") {
+		val, _ := cmd.Flags().GetString("spreadsheet-id")
+		currentConfig.Defaults["spreadsheet-id"] = val
+		return val, args, nil
+	}
+
+	// 2. Positional arg: first arg that is not JSON.
+	if len(args) > 0 && !isJSONArg(args[0]) {
+		query := args[0]
+		remaining := args[1:]
+
+		sid, err := resolveSpreadsheetQuery(query)
+		if err != nil {
+			return "", nil, err
+		}
+		currentConfig.Defaults["spreadsheet-id"] = sid
+		return sid, remaining, nil
+	}
+
+	// 3. Fallback to saved default.
+	if def, ok := currentConfig.Defaults["spreadsheet-id"].(string); ok && def != "" {
+		return def, args, nil
+	}
+
+	return "", nil, fmt.Errorf("spreadsheet-id is required: use -s, pass a client ID, or a name to search")
+}
+
+// resolveSpreadsheetQuery looks up spreadsheets by client ID (number) or fuzzy title search (string).
+func resolveSpreadsheetQuery(query string) (string, error) {
+	db, err := cache.Open()
+	if err != nil {
+		return "", err
+	}
+	defer db.Close()
+
+	if !db.HasSpreadsheets() {
+		return "", fmt.Errorf("no cached spreadsheets; run 'mpu update-spreadsheets' first")
+	}
+
+	// Try numeric → client ID lookup.
+	if clientID, err := strconv.ParseInt(query, 10, 64); err == nil {
+		rows, err := db.SpreadsheetsByClientID(clientID)
+		if err != nil {
+			return "", err
+		}
+		if len(rows) == 0 {
+			return "", fmt.Errorf("no spreadsheets found for client %d; run 'mpu update-spreadsheets' or check the ID", clientID)
+		}
+		sortActiveFirst(rows)
+		return pickSpreadsheet(rows)
+	}
+
+	// Text → fuzzy search by title.
+	all, err := db.AllSpreadsheets()
+	if err != nil {
+		return "", err
+	}
+
+	source := spreadsheetSource(all)
+	matches := fuzzy.FindFrom(strings.ToLower(query), source)
+	if len(matches) == 0 {
+		return "", fmt.Errorf("no spreadsheets matching %q; run 'mpu update-spreadsheets' or check input", query)
+	}
+
+	// Take top N matches (already sorted by score).
+	limit := maxMenuItems
+	if len(matches) < limit {
+		limit = len(matches)
+	}
+	ranked := make([]cache.SpreadsheetRow, limit)
+	for i := 0; i < limit; i++ {
+		ranked[i] = all[matches[i].Index]
+	}
+
+	// Sort: is_active=true first, then preserve fuzzy rank within each group.
+	sortActiveFirst(ranked)
+
+	return pickSpreadsheet(ranked)
+}
+
+// pickSpreadsheet shows a selection menu or auto-selects if only one result.
+func pickSpreadsheet(rows []cache.SpreadsheetRow) (string, error) {
+	if len(rows) == 1 {
+		r := rows[0]
+		fmt.Fprintf(os.Stderr, "auto-selected: [%d] %s (%s)\n", r.ClientID, r.Title, r.SpreadsheetID)
+		return r.SpreadsheetID, nil
+	}
+
+	// Compute column widths from data.
+	wID, wSID, wTitle, wTmpl := 0, 0, 0, 0
+	for _, r := range rows {
+		if n := len(strconv.FormatInt(r.ClientID, 10)); n > wID {
+			wID = n
+		}
+		if n := len(r.SpreadsheetID); n > wSID {
+			wSID = n
+		}
+		if n := runeLen(r.Title); n > wTitle {
+			wTitle = n
+		}
+		if n := runeLen(r.TemplateName); n > wTmpl {
+			wTmpl = n
+		}
+	}
+
+	items := make([]string, len(rows))
+	for i, r := range rows {
+		active := "no "
+		if r.IsActive {
+			active = "yes"
+		}
+		idStr := strconv.FormatInt(r.ClientID, 10)
+		items[i] = padRight(idStr, wID) + "  " + active + "  " +
+			padRight(r.SpreadsheetID, wSID) + "  " +
+			padRight(r.Title, wTitle) + "  " + r.TemplateName
+	}
+
+	prompt := promptui.Select{
+		Label: fmt.Sprintf("Select spreadsheet (%d results)", len(rows)),
+		Items: items,
+		Size:  20,
+	}
+
+	idx, _, err := prompt.Run()
+	if err != nil {
+		return "", fmt.Errorf("selection cancelled: %w", err)
+	}
+
+	r := rows[idx]
+	fmt.Fprintf(os.Stderr, "selected: [%d] %s (%s)\n", r.ClientID, r.Title, r.SpreadsheetID)
+	return r.SpreadsheetID, nil
+}
+
+// sortActiveFirst moves is_active=true rows to the top, preserving relative order within each group.
+func sortActiveFirst(rows []cache.SpreadsheetRow) {
+	active := make([]cache.SpreadsheetRow, 0, len(rows))
+	inactive := make([]cache.SpreadsheetRow, 0, len(rows))
+	for _, r := range rows {
+		if r.IsActive {
+			active = append(active, r)
+		} else {
+			inactive = append(inactive, r)
+		}
+	}
+	copy(rows, active)
+	copy(rows[len(active):], inactive)
+}
+
+func runeLen(s string) int {
+	return len([]rune(s))
+}
+
+func padRight(s string, width int) string {
+	n := runeLen(s)
+	if n >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-n)
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max-3] + "..."
+}
+
+func isJSONArg(s string) bool {
+	return strings.HasPrefix(s, "{") || strings.HasPrefix(s, "[")
+}
+
+// spreadsheetSource implements fuzzy.Source for SpreadsheetRow slices.
+type spreadsheetSource []cache.SpreadsheetRow
+
+func (s spreadsheetSource) String(i int) string { return strings.ToLower(s[i].Title) }
+func (s spreadsheetSource) Len() int            { return len(s) }
 
 func checkProtected() error {
 	if currentConfig.Protected {

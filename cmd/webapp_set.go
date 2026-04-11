@@ -12,14 +12,14 @@ import (
 var webAppSetCmd = &cobra.Command{
 	Use:   "set <json-array>",
 	Short: "Replace data items in a sheet",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.RangeArgs(1, 2),
 	Example: `  mpu webApp set -s <id> -n Sheet1 '[{"col1":"val1","col2":"val2"}]'
   mpu webApp set -s <id> -n Sheet1 --header-row 1 --data-row 3 '[{"A":"1"}]'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := checkProtected(); err != nil {
 			return err
 		}
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, bodyArgs, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}
@@ -31,7 +31,7 @@ var webAppSetCmd = &cobra.Command{
 		dataRow := getIntFlag(cmd, "data-row")
 
 		var data []interface{}
-		if err := json.Unmarshal([]byte(args[0]), &data); err != nil {
+		if err := json.Unmarshal([]byte(bodyArgs[0]), &data); err != nil {
 			return fmt.Errorf("invalid JSON array: %w", err)
 		}
 

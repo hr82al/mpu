@@ -16,9 +16,10 @@ var webAppEditorsCmd = &cobra.Command{
 var editorsGetCmd = &cobra.Command{
 	Use:     "get",
 	Short:   "List editors",
+	Args:    cobra.MaximumNArgs(1),
 	Example: `  mpu webApp editors get -s <spreadsheet-id>`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, _, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}
@@ -44,12 +45,13 @@ var editorsGetCmd = &cobra.Command{
 var editorsAddCmd = &cobra.Command{
 	Use:     "add",
 	Short:   "Add editors",
+	Args:    cobra.MaximumNArgs(1),
 	Example: `  mpu webApp editors add -s <id> -e user@example.com -e other@example.com`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := checkProtected(); err != nil {
 			return err
 		}
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, _, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}
@@ -80,12 +82,13 @@ var editorsAddCmd = &cobra.Command{
 var editorsSetCmd = &cobra.Command{
 	Use:     "set",
 	Short:   "Set exact list of editors",
+	Args:    cobra.MaximumNArgs(1),
 	Example: `  mpu webApp editors set -s <id> -e user@example.com`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := checkProtected(); err != nil {
 			return err
 		}
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, _, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}
@@ -116,12 +119,13 @@ var editorsSetCmd = &cobra.Command{
 var editorsRemoveCmd = &cobra.Command{
 	Use:     "remove",
 	Short:   "Remove editors",
+	Args:    cobra.MaximumNArgs(1),
 	Example: `  mpu webApp editors remove -s <id> -e user@example.com`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := checkProtected(); err != nil {
 			return err
 		}
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, _, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}

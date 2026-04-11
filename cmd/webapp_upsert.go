@@ -12,13 +12,13 @@ import (
 var webAppUpsertCmd = &cobra.Command{
 	Use:   "upsert <json-array>",
 	Short: "Upsert data items into a sheet by key field",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.RangeArgs(1, 2),
 	Example: `  mpu webApp upsert -s <id> -n Sheet1 --key id '[{"id":1,"name":"updated"},{"id":99,"name":"new"}]'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := checkProtected(); err != nil {
 			return err
 		}
-		sid, err := requireFlag(cmd, "spreadsheet-id")
+		sid, bodyArgs, err := resolveSpreadsheetID(cmd, args)
 		if err != nil {
 			return err
 		}
@@ -34,7 +34,7 @@ var webAppUpsertCmd = &cobra.Command{
 		dataRow := getIntFlag(cmd, "data-row")
 
 		var incoming []map[string]interface{}
-		if err := json.Unmarshal([]byte(args[0]), &incoming); err != nil {
+		if err := json.Unmarshal([]byte(bodyArgs[0]), &incoming); err != nil {
 			return fmt.Errorf("invalid JSON array: %w", err)
 		}
 		if len(incoming) == 0 {

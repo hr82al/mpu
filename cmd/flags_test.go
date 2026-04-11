@@ -67,7 +67,7 @@ func resetFlags(t *testing.T) {
 	flagsToReset := []string{"spreadsheet-id", "sheet-name"}
 	cmds := []*cobra.Command{
 		webAppGetCmd, webAppSetCmd, webAppInsertCmd, webAppUpsertCmd,
-		webAppKeysCmd, webAppInfoCmd, webAppBatchGetCmd, webAppBatchUpdateCmd,
+		webAppKeysCmd, webAppInfoCmd, webAppBatchGetCmd, webAppBatchGetAllCmd, webAppBatchUpdateCmd,
 		webAppValuesUpdateCmd, webAppDeleteCmd, webAppSharingCmd, webAppProtectionCmd,
 		editorsGetCmd, editorsAddCmd, editorsSetCmd, editorsRemoveCmd,
 	}
