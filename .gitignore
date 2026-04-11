@@ -1,0 +1,24 @@
+# Binary outputs
+mpu
+mpu-release
+mpu-*
+
+# Environment secrets
+.env
+.env.*
+
+# Go toolchain
+vendor/
+*.test
+*.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
