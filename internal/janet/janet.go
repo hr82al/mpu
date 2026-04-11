@@ -1,7 +1,7 @@
 package janet
 
 /*
-#cgo CFLAGS: -std=c99 -DJANET_NO_DYNAMIC_MODULES -DJANET_NO_EV -DJANET_NO_NET -DJANET_NO_PROCESSES -DJANET_NO_FFI
+#cgo CFLAGS: -std=c99 -DJANET_NO_DYNAMIC_MODULES -DJANET_NO_FFI
 #cgo LDFLAGS: -lm
 
 #include "janet.h"
@@ -72,11 +72,53 @@ static void register_cfun(JanetTable *env, const char *prefix, const char *name,
 	regs[1].documentation = NULL;
 	janet_cfuns_prefix(env, prefix, regs);
 }
+
+// ── Rich type helpers ────────────────────────────────────────────
+
+static int janet_value_type(Janet x) {
+	return (int)janet_type(x);
+}
+
+// Extract indexed sequence (array/tuple) as array of Janet string reprs.
+// Returns count, fills buf with C strings (caller must free each).
+static int janet_indexed_to_strings(Janet x, const char ***out) {
+	const Janet *data;
+	int32_t len;
+	if (!janet_indexed_view(x, &data, &len)) {
+		*out = NULL;
+		return 0;
+	}
+	const char **buf = (const char **)malloc(sizeof(const char *) * len);
+	if (!buf) { *out = NULL; return 0; }
+	for (int32_t i = 0; i < len; i++) {
+		const uint8_t *s = janet_to_string(data[i]);
+		buf[i] = (const char *)s;
+	}
+	*out = buf;
+	return (int)len;
+}
+
+// Get Janet value as double. Returns 0 if not a number.
+static double janet_to_double(Janet x) {
+	if (janet_checktype(x, JANET_NUMBER)) {
+		return janet_unwrap_number(x);
+	}
+	return 0.0;
+}
+
+// Get Janet value as boolean.
+static int janet_to_bool(Janet x) {
+	if (janet_checktype(x, JANET_BOOLEAN)) {
+		return janet_unwrap_boolean(x);
+	}
+	return janet_truthy(x);
+}
 */
 import "C"
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 	"unsafe"
 )
@@ -86,6 +128,37 @@ const maxFuncs = 64
 // GoFunc is a function callable from Janet.
 // Receives string arguments, returns a string result or error.
 type GoFunc func(args []string) (string, error)
+
+// Type represents a Janet value type.
+type Type int
+
+const (
+	TypeNumber   Type = 0 // C.JANET_NUMBER
+	TypeNil      Type = 1 // C.JANET_NIL
+	TypeBoolean  Type = 2 // C.JANET_BOOLEAN
+	TypeFiber    Type = 3
+	TypeString   Type = 4
+	TypeSymbol   Type = 5
+	TypeKeyword  Type = 6
+	TypeArray    Type = 7
+	TypeTuple    Type = 8
+	TypeTable    Type = 9
+	TypeStruct   Type = 10
+	TypeBuffer   Type = 11
+	TypeFunction Type = 12
+	TypeCFunction Type = 13
+	TypeAbstract Type = 14
+	TypePointer  Type = 15
+)
+
+// Result holds a typed Janet evaluation result.
+type Result struct {
+	Type   Type
+	Str    string   // string representation (always set)
+	Num    float64  // set for TypeNumber
+	Bool   bool     // set for TypeBoolean
+	Arr    []string // set for TypeArray/TypeTuple (string repr of each element)
+}
 
 // VM is an embedded Janet virtual machine.
 type VM struct {
@@ -142,7 +215,13 @@ func janet_go_cfunc_bridge(argc C.int32_t, argv *C.Janet) C.Janet {
 }
 
 // New creates and initialises a Janet VM.
+// It pins the calling goroutine to the current OS thread
+// (runtime.LockOSThread) because Janet uses C thread-local storage.
+// The caller MUST call Close() from the same goroutine to unlock the thread.
+// All VM methods (DoString, Register) must also be called from this goroutine.
 func New() (*VM, error) {
+	runtime.LockOSThread()
+
 	vmMu.Lock()
 	defer vmMu.Unlock()
 
@@ -153,7 +232,8 @@ func New() (*VM, error) {
 	return vm, nil
 }
 
-// Close shuts down the Janet VM.
+// Close shuts down the Janet VM and unlocks the OS thread.
+// Must be called from the same goroutine that called New().
 func (vm *VM) Close() {
 	vm.mu.Lock()
 	defer vm.mu.Unlock()
@@ -163,6 +243,7 @@ func (vm *VM) Close() {
 	}
 	vmMu.Unlock()
 	C.janet_deinit()
+	runtime.UnlockOSThread()
 }
 
 // Register adds a Go function to the Janet environment as "prefix/name".
@@ -213,4 +294,88 @@ func (vm *VM) DoString(code string) (string, error) {
 
 	result := C.janet_to_string(out)
 	return C.GoString((*C.char)(unsafe.Pointer(result))), nil
+}
+
+// DoEval executes Janet code and returns a typed Result.
+func (vm *VM) DoEval(code string) (*Result, error) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+
+	cCode := C.CString(code)
+	defer C.free(unsafe.Pointer(cCode))
+	cSource := C.CString("repl")
+	defer C.free(unsafe.Pointer(cSource))
+
+	var out C.Janet
+	rc := C.janet_dostring(vm.env, cCode, cSource, &out)
+	if rc != 0 {
+		errStr := C.janet_to_string(out)
+		return nil, fmt.Errorf("%s", C.GoString((*C.char)(unsafe.Pointer(errStr))))
+	}
+
+	return janetToResult(out), nil
+}
+
+// EvalStringSlice executes Janet code that must return an indexed sequence
+// (array or tuple) and returns the elements as Go strings.
+func (vm *VM) EvalStringSlice(code string) ([]string, error) {
+	vm.mu.Lock()
+	defer vm.mu.Unlock()
+
+	cCode := C.CString(code)
+	defer C.free(unsafe.Pointer(cCode))
+	cSource := C.CString("repl")
+	defer C.free(unsafe.Pointer(cSource))
+
+	var out C.Janet
+	rc := C.janet_dostring(vm.env, cCode, cSource, &out)
+	if rc != 0 {
+		errStr := C.janet_to_string(out)
+		return nil, fmt.Errorf("%s", C.GoString((*C.char)(unsafe.Pointer(errStr))))
+	}
+
+	var cStrings **C.char
+	n := C.janet_indexed_to_strings(out, (***C.char)(unsafe.Pointer(&cStrings)))
+	if n == 0 || cStrings == nil {
+		return nil, nil
+	}
+	defer C.free(unsafe.Pointer(cStrings))
+
+	result := make([]string, int(n))
+	for i := range int(n) {
+		ptr := *(**C.char)(unsafe.Add(unsafe.Pointer(cStrings), uintptr(i)*unsafe.Sizeof(cStrings)))
+		result[i] = C.GoString(ptr)
+	}
+	return result, nil
+}
+
+func janetToResult(val C.Janet) *Result {
+	t := Type(C.janet_value_type(val))
+	strRepr := C.janet_to_string(val)
+	r := &Result{
+		Type: t,
+		Str:  C.GoString((*C.char)(unsafe.Pointer(strRepr))),
+	}
+
+	switch t {
+	case TypeNumber:
+		r.Num = float64(C.janet_to_double(val))
+	case TypeBoolean:
+		r.Bool = C.janet_to_bool(val) != 0
+	case TypeNil:
+		r.Str = ""
+	case TypeArray, TypeTuple:
+		var cStrings **C.char
+		n := C.janet_indexed_to_strings(val, (***C.char)(unsafe.Pointer(&cStrings)))
+		if n > 0 && cStrings != nil {
+			r.Arr = make([]string, int(n))
+			for i := range int(n) {
+				ptr := *(**C.char)(unsafe.Add(unsafe.Pointer(cStrings), uintptr(i)*unsafe.Sizeof(cStrings)))
+				r.Arr[i] = C.GoString(ptr)
+			}
+			C.free(unsafe.Pointer(cStrings))
+		}
+	}
+
+	return r
 }

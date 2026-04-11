@@ -3,9 +3,9 @@ mpu
 mpu-release
 mpu-*
 
-# Environment secrets
+# Environment secrets (plaintext)
 .env
-.env.*
+!.env.enc
 
 # Go toolchain
 vendor/
