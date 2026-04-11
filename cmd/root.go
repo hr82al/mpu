@@ -157,6 +157,11 @@ ENV VARIABLES (.env)
 	},
 
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		// Commands with skipDefaults annotation save config but keep
+		// the previous Command value so smart-repeat is unaffected.
+		if cmd.Annotations[skipDefaultsAnnotation] == "true" {
+			return defaults.Save(currentConfig)
+		}
 		// Record any leaf command for smart repeat.
 		// Strip the binary name so "mpu webApp get" → "webApp get" → findable via cmd.Find.
 		path := strings.TrimPrefix(cmd.CommandPath(), "mpu ")

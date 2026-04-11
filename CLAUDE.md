@@ -14,6 +14,7 @@ go test ./cmd/ -v                                          # unit tests (no .env
 go test ./internal/cache/ -v                               # cache unit tests
 go test ./internal/defaults/ -v                            # defaults unit tests
 go test ./internal/pgclient/ -v                            # pgclient tests (connection test skipped without PG)
+go test ./internal/janet/ -v                               # janet VM unit tests
 ```
 
 ## Architecture
@@ -23,6 +24,7 @@ go test ./internal/pgclient/ -v                            # pgclient tests (con
 1. **Google Sheets** — proxy operations through a Google Apps Script endpoint (not the Sheets API directly)
 2. **sl-back API** — client management, JWT auth, client data caching
 3. **PostgreSQL** — direct SQL queries against local/remote databases per client schema
+4. **Janet REPL** — embedded Janet scripting with access to all mpu commands at runtime
 
 ### Command groups
 
@@ -30,7 +32,7 @@ go test ./internal/pgclient/ -v                            # pgclient tests (con
 |-------|----------|-------------|
 | sheets | `webApp *` (aliased at root) | Google Sheets CRUD via Apps Script |
 | sl | `client`, `clients`, `token`, `update-spreadsheets` | sl-back API: client lookup, sync, auth, spreadsheet cache |
-| meta | `ldb`, `rdb`, `rsdb`, `lsdb`, `config-path` | Database queries, config location |
+| meta | `ldb`, `rdb`, `rsdb`, `lsdb`, `config-path`, `repl` | Database queries, config location, Janet REPL |
 
 ### Flows
 
@@ -39,6 +41,8 @@ go test ./internal/pgclient/ -v                            # pgclient tests (con
 **Client lookup:** CLI → `cmd/client.go` → `internal/cache` (SQLite) → miss → `internal/auth.GetToken()` + `internal/slapi.GetClients()` → cache → return
 
 **Database query:** CLI → `cmd/ldb.go`/`cmd/rdb.go` → `internal/pgclient.QueryJSON()` → PostgreSQL → JSON output
+
+**Janet REPL:** CLI → `cmd/repl.go` → `internal/janet.VM` (cgo + libjanet amalgamation) → registers all cobra commands as `mpu/*` Janet functions → interactive REPL or script execution
 
 ### Key packages
 
@@ -50,6 +54,7 @@ go test ./internal/pgclient/ -v                            # pgclient tests (con
 - **`internal/auth/`** — Token retrieval with cache-aside pattern: check SQLite cache → fetch from sl-back → cache → return.
 - **`internal/slapi/`** — sl-back REST client. `GetClients(token)` → `[]cache.ClientRow`.
 - **`internal/pgclient/`** — PostgreSQL via pgx. `QueryJSON(sql)` returns `[]map[string]any`.
+- **`internal/janet/`** — Embedded Janet VM via cgo. Contains Janet v1.41.2 amalgamation (`janet.c`, `janet.h`) and Go wrapper (`janet.go`). Provides `VM` type with `New()`, `Close()`, `Register()`, `DoString()`. Up to 64 Go functions can be registered via C trampoline dispatch.
 
 ### Smart defaults pattern
 
@@ -59,6 +64,8 @@ Flags are remembered across invocations in `~/.config/mpu/config.json`:
 - `protected=true` (default) blocks destructive operations; must be set to `false` manually
 
 Flag resolution: explicit flag > positional arg > saved default > cobra default.
+
+Commands annotated with `skipDefaultsAnnotation` (e.g., `repl`) save config but do not update the `Command` field, preserving the previous command for smart repeat.
 
 ### Spreadsheet ID resolution
 
@@ -81,6 +88,31 @@ Selected spreadsheet ID is saved to defaults.
 5. Register via `webAppCmd.AddCommand()` in `init()`
 6. Add root-level shortcut in `cmd/zzz_shortcuts.go` via `shortcut()`
 
+### Janet REPL
+
+`mpu repl` starts an interactive Janet session with all mpu commands available:
+
+```bash
+mpu repl                          # interactive REPL
+mpu repl script.janet             # execute a Janet script file
+```
+
+All leaf cobra commands are registered as `mpu/<name>` Janet functions. Arguments are passed as strings:
+
+```janet
+(mpu/config-path)                              # → "/home/user/.config/mpu/config.json"
+(mpu/get "-s" "SHEET_ID" "-n" "Sheet1")        # same as: mpu get -s SHEET_ID -n Sheet1
+(mpu/client "42")                              # same as: mpu client 42
+(mpu/ldb "42" "SELECT 1")                      # same as: mpu ldb 42 "SELECT 1"
+(mpu/editors/get "-s" "ID" "-n" "Sheet1")      # nested commands use / separator
+```
+
+Commands that have subcommands (e.g., `webApp`, `editors`) are not registered directly — only their leaf subcommands are.
+
+The `repl` command does **not** update the saved last-command in `config.json`, so `mpu` (smart repeat) still repeats the command before the REPL session.
+
+**Implementation:** Janet v1.41.2 is embedded via cgo using the single-file amalgamation (`internal/janet/janet.c`). Go functions are dispatched to Janet through C trampolines (64 slots). Requires a C compiler (gcc/cc) for building. Janet is compiled with `JANET_NO_DYNAMIC_MODULES`, `JANET_NO_EV`, `JANET_NO_NET`, `JANET_NO_PROCESSES`, `JANET_NO_FFI` — only `-lm` is linked, no `-ldl`/`-lpthread` required (works on glibc, musl/Alpine, and other Linux distros).
+
 ### Request format to Apps Script
 
 ```json
@@ -96,6 +128,8 @@ Response: `{"success": true/false, "result": ..., "error": "..."}`
 - **Mock pattern**: `testClientFn` in `cmd/webapp.go` allows injecting a mock `webapp.Client` for command tests
 - **Test helpers**: `setupTest()`, `resetFlags()`, `run()` in `cmd/flags_test.go`
 - **PG tests**: connection test only; query tests skipped without running PostgreSQL
+- **Janet tests** (`internal/janet/janet_test.go`): VM lifecycle, DoString, function registration and dispatch
+- **REPL tests** (`cmd/repl_test.go`): script execution, error handling, `skipDefaults` annotation (command not saved)
 
 ## File locations
 

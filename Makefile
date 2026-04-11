@@ -5,7 +5,7 @@ CONFIG_DIR := $(HOME)/.config/mpu
 .PHONY: build install
 
 build:
-	go build -ldflags="-s -w" -o $(BIN) .
+	CGO_ENABLED=1 go build -ldflags="-s -w" -o $(BIN) .
 
 install: build
 	install -Dm755 $(BIN) $(INSTALL_DIR)/$(BIN)
