@@ -47,6 +47,8 @@ var webAppGetCmd = &cobra.Command{
 }
 
 func init() {
+	addSpreadsheetFlag(webAppGetCmd)
+	addSheetNameFlag(webAppGetCmd)
 	webAppGetCmd.Flags().Int("header-row", 1, "header row number")
 	webAppGetCmd.Flags().Int("data-row", 3, "first data row number")
 	webAppCmd.AddCommand(webAppGetCmd)

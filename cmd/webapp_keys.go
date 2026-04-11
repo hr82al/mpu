@@ -47,5 +47,7 @@ var webAppKeysCmd = &cobra.Command{
 }
 
 func init() {
+	addSpreadsheetFlag(webAppKeysCmd)
+	addSheetNameFlag(webAppKeysCmd)
 	webAppCmd.AddCommand(webAppKeysCmd)
 }

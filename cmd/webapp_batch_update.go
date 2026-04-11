@@ -50,5 +50,6 @@ var webAppBatchUpdateCmd = &cobra.Command{
 }
 
 func init() {
+	addSpreadsheetFlag(webAppBatchUpdateCmd)
 	webAppCmd.AddCommand(webAppBatchUpdateCmd)
 }

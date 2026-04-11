@@ -50,5 +50,6 @@ var webAppProtectionCmd = &cobra.Command{
 }
 
 func init() {
+	addSpreadsheetFlag(webAppProtectionCmd)
 	webAppCmd.AddCommand(webAppProtectionCmd)
 }

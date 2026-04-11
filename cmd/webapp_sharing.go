@@ -51,6 +51,7 @@ var webAppSharingCmd = &cobra.Command{
 }
 
 func init() {
+	addSpreadsheetFlag(webAppSharingCmd)
 	webAppSharingCmd.Flags().String("access", "", "access type (e.g. ANYONE_WITH_LINK, PRIVATE)")
 	webAppSharingCmd.Flags().String("perm", "", "permission type (e.g. EDIT, VIEW)")
 	webAppCmd.AddCommand(webAppSharingCmd)

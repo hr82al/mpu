@@ -9,12 +9,24 @@ package cmd
 
 import "github.com/spf13/cobra"
 
-const groupWebApp = "webApp"
-
 // shortcut creates a root-level alias that shares RunE with src and copies its
-// local flags. The Annotation["commandGroup"] is used by root's PersistentPostRunE
-// to record which group was last used.
-func shortcut(src *cobra.Command) *cobra.Command {
+// local flags. GroupID must be set by the caller for top-level commands.
+func shortcut(src *cobra.Command, groupID string) *cobra.Command {
+	dst := &cobra.Command{
+		Use:         src.Use,
+		Short:       src.Short,
+		Args:        src.Args,
+		Example:     src.Example,
+		RunE:        src.RunE,
+		GroupID:     groupID,
+		Annotations: map[string]string{"commandGroup": groupWebApp},
+	}
+	dst.Flags().AddFlagSet(src.Flags())
+	return dst
+}
+
+// subShortcut creates an alias for a sub-subcommand (no GroupID needed).
+func subShortcut(src *cobra.Command) *cobra.Command {
 	dst := &cobra.Command{
 		Use:         src.Use,
 		Short:       src.Short,
@@ -28,7 +40,7 @@ func shortcut(src *cobra.Command) *cobra.Command {
 }
 
 func init() {
-	// Simple (leaf) commands.
+	// Simple (leaf) commands — registered directly at root, get groupSheets.
 	for _, src := range []*cobra.Command{
 		webAppGetCmd,
 		webAppSetCmd,
@@ -46,13 +58,14 @@ func init() {
 		webAppSharingCmd,
 		webAppProtectionCmd,
 	} {
-		rootCmd.AddCommand(shortcut(src))
+		rootCmd.AddCommand(shortcut(src, groupSheets))
 	}
 
-	// editors has sub-subcommands.
+	// editors has sub-subcommands — the parent gets groupSheets, children get no group.
 	editorsShortcut := &cobra.Command{
 		Use:         webAppEditorsCmd.Use,
 		Short:       webAppEditorsCmd.Short,
+		GroupID:     groupSheets,
 		Annotations: map[string]string{"commandGroup": groupWebApp},
 	}
 	for _, src := range []*cobra.Command{
@@ -61,7 +74,10 @@ func init() {
 		editorsSetCmd,
 		editorsRemoveCmd,
 	} {
-		editorsShortcut.AddCommand(shortcut(src))
+		editorsShortcut.AddCommand(subShortcut(src))
 	}
 	rootCmd.AddCommand(editorsShortcut)
+
+	// webApp parent itself goes under sheets group.
+	webAppCmd.GroupID = groupSheets
 }

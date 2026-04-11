@@ -119,6 +119,8 @@ var webAppUpsertCmd = &cobra.Command{
 }
 
 func init() {
+	addSpreadsheetFlag(webAppUpsertCmd)
+	addSheetNameFlag(webAppUpsertCmd)
 	webAppUpsertCmd.Flags().String("key", "", "key field name for matching rows")
 	webAppUpsertCmd.Flags().Int("header-row", 1, "header row number")
 	webAppUpsertCmd.Flags().Int("data-row", 3, "first data row number")

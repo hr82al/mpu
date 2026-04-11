@@ -10,6 +10,8 @@ import (
 
 	"mpu/internal/defaults"
 	"mpu/internal/webapp"
+
+	"github.com/spf13/cobra"
 )
 
 // ── mock client ───────────────────────────────────────────────────────────────
@@ -58,15 +60,29 @@ func setupTest(t *testing.T) (home string, mock *mockClient) {
 	return
 }
 
-// resetFlags clears Changed state on rootCmd's persistent flags so tests don't
-// bleed into each other.
+// resetFlags clears Changed state and values on all local flags that
+// webApp commands use, so tests don't bleed into each other.
 func resetFlags(t *testing.T) {
 	t.Helper()
-	for _, name := range []string{"spreadsheet-id", "sheet-name"} {
-		if f := rootCmd.PersistentFlags().Lookup(name); f != nil {
-			_ = f.Value.Set("")
-			f.Changed = false
+	flagsToReset := []string{"spreadsheet-id", "sheet-name"}
+	cmds := []*cobra.Command{
+		webAppGetCmd, webAppSetCmd, webAppInsertCmd, webAppUpsertCmd,
+		webAppKeysCmd, webAppInfoCmd, webAppBatchGetCmd, webAppBatchUpdateCmd,
+		webAppValuesUpdateCmd, webAppDeleteCmd, webAppSharingCmd, webAppProtectionCmd,
+		editorsGetCmd, editorsAddCmd, editorsSetCmd, editorsRemoveCmd,
+	}
+	for _, c := range cmds {
+		for _, name := range flagsToReset {
+			if f := c.Flags().Lookup(name); f != nil {
+				_ = f.Value.Set("")
+				f.Changed = false
+			}
 		}
+	}
+	// Also reset --fields on clientCmd.
+	if f := clientCmd.Flags().Lookup("fields"); f != nil {
+		_ = f.Value.Set("")
+		f.Changed = false
 	}
 }
 
@@ -97,13 +113,12 @@ func readConfig(t *testing.T, home string) defaults.Config {
 
 func run(args ...string) error {
 	rootCmd.SetArgs(args)
-	// Discard output for cleaner test logs.
 	buf := &bytes.Buffer{}
 	rootCmd.SetOut(buf)
 	return rootCmd.Execute()
 }
 
-// ── tests ─────────────────────────────────────────────────────────────────────
+// ── webApp flag defaults tests ─────────────────────────────────────────────────
 
 // Explicit flag is used in the request and saved to defaults.
 func TestExplicitFlagOverridesAndSaves(t *testing.T) {
@@ -174,21 +189,20 @@ func TestExplicitFlagWinsOverSavedDefault(t *testing.T) {
 	}
 
 	req := mock.lastRequest()
-	// -s not provided → falls back to default
 	if req["ssId"] != "saved-id" {
 		t.Errorf("ssId: got %v, want saved-id", req["ssId"])
 	}
-	// -n provided explicitly → overrides saved default
 	if req["sheetName"] != "OtherSheet" {
 		t.Errorf("sheetName: got %v, want OtherSheet", req["sheetName"])
 	}
 
-	// saved default for sheet-name is updated to the new explicit value
 	cfg := readConfig(t, home)
 	if cfg.Defaults["sheet-name"] != "OtherSheet" {
 		t.Errorf("sheet-name not updated in defaults: got %v", cfg.Defaults["sheet-name"])
 	}
 }
+
+// ── smart repeat tests ────────────────────────────────────────────────────────
 
 // `mpu` with no args repeats the last command using all defaults.
 func TestBareMpuRepeatsLastCommand(t *testing.T) {
@@ -212,39 +226,9 @@ func TestBareMpuRepeatsLastCommand(t *testing.T) {
 	}
 }
 
-// `mpu -n OtherSheet` uses the explicit flag, ignoring the saved default.
-func TestBareMpuWithExplicitFlagOverridesDefault(t *testing.T) {
-	home, mock := setupTest(t)
-	writeConfig(t, home, defaults.Config{
-		Protected: false,
-		Command:   "get",
-		Defaults:  defaults.Values{"spreadsheet-id": "saved-id", "sheet-name": "SavedSheet"},
-	})
-
-	if err := run("-n", "OtherSheet"); err != nil {
-		t.Fatalf("run: %v", err)
-	}
-
-	req := mock.lastRequest()
-	if req["sheetName"] != "OtherSheet" {
-		t.Errorf("sheetName: got %v, want OtherSheet", req["sheetName"])
-	}
-	// -s not provided → still uses saved default
-	if req["ssId"] != "saved-id" {
-		t.Errorf("ssId: got %v, want saved-id", req["ssId"])
-	}
-
-	// saved default is updated
-	cfg := readConfig(t, home)
-	if cfg.Defaults["sheet-name"] != "OtherSheet" {
-		t.Errorf("saved sheet-name: got %v, want OtherSheet", cfg.Defaults["sheet-name"])
-	}
-}
-
 // `mpu` with no saved command returns no error (shows help).
 func TestBareMpuNoSavedCommandShowsHelp(t *testing.T) {
 	setupTest(t)
-	// No config → empty command
 
 	if err := run(); err != nil {
 		t.Fatalf("expected no error from help, got: %v", err)
@@ -266,6 +250,26 @@ func TestBareMpuCannotRepeatCommandWithArgs(t *testing.T) {
 	}
 }
 
+// `mpu` can also repeat commands stored by their full path ("webApp get").
+func TestBareMpuRepeatsWebAppFullPath(t *testing.T) {
+	home, mock := setupTest(t)
+	writeConfig(t, home, defaults.Config{
+		Protected: false,
+		Command:   "webApp get",
+		Defaults:  defaults.Values{"spreadsheet-id": "sid", "sheet-name": "Sheet1"},
+	})
+
+	if err := run(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if mock.lastRequest()["ssId"] != "sid" {
+		t.Errorf("ssId: got %v, want sid", mock.lastRequest()["ssId"])
+	}
+}
+
+// ── command name persistence tests ───────────────────────────────────────────
+
 // Shortcut `mpu get` saves "get" as the command in config.
 func TestShortcutSavesCommandName(t *testing.T) {
 	home, _ := setupTest(t)
@@ -284,7 +288,7 @@ func TestShortcutSavesCommandName(t *testing.T) {
 	}
 }
 
-// `mpu webApp get` also saves "get" as the command.
+// `mpu webApp get` saves "webApp get" as the command (full path, not stripped).
 func TestWebAppGetSavesCommandName(t *testing.T) {
 	home, _ := setupTest(t)
 	writeConfig(t, home, defaults.Config{
@@ -297,7 +301,20 @@ func TestWebAppGetSavesCommandName(t *testing.T) {
 	}
 
 	cfg := readConfig(t, home)
-	if cfg.Command != "get" {
-		t.Errorf("command: got %q, want %q", cfg.Command, "get")
+	if cfg.Command != "webApp get" {
+		t.Errorf("command: got %q, want %q", cfg.Command, "webApp get")
+	}
+}
+
+// Non-webApp commands (token, clients) also have their names saved.
+func TestNonWebAppCommandSavesName(t *testing.T) {
+	home, _ := setupTest(t)
+
+	// token needs .env vars which aren't set → will error, but name should still save.
+	_ = run("token")
+
+	cfg := readConfig(t, home)
+	if cfg.Command != "token" {
+		t.Errorf("command: got %q, want %q", cfg.Command, "token")
 	}
 }

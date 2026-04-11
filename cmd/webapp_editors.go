@@ -150,6 +150,9 @@ var editorsRemoveCmd = &cobra.Command{
 }
 
 func init() {
+	for _, cmd := range []*cobra.Command{editorsGetCmd, editorsAddCmd, editorsSetCmd, editorsRemoveCmd} {
+		addSpreadsheetFlag(cmd)
+	}
 	editorsAddCmd.Flags().StringArrayP("editor", "e", nil, "editor email (repeatable)")
 	editorsSetCmd.Flags().StringArrayP("editor", "e", nil, "editor email (repeatable)")
 	editorsRemoveCmd.Flags().StringArrayP("editor", "e", nil, "editor email (repeatable)")

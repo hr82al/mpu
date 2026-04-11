@@ -47,6 +47,7 @@ var webAppBatchGetCmd = &cobra.Command{
 }
 
 func init() {
+	addSpreadsheetFlag(webAppBatchGetCmd)
 	webAppBatchGetCmd.Flags().StringArrayP("range", "r", nil, "range(s) to fetch (repeatable)")
 	webAppCmd.AddCommand(webAppBatchGetCmd)
 }

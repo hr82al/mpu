@@ -9,7 +9,8 @@ import (
 )
 
 var configPathCmd = &cobra.Command{
-	Use:   "config-path",
+	Use:     "config-path",
+	GroupID: groupMeta,
 	Short: "Print the path to config.json",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println(defaults.FilePath())

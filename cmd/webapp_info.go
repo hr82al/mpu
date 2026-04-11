@@ -37,5 +37,6 @@ var webAppInfoCmd = &cobra.Command{
 }
 
 func init() {
+	addSpreadsheetFlag(webAppInfoCmd)
 	webAppCmd.AddCommand(webAppInfoCmd)
 }

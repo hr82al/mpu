@@ -96,6 +96,16 @@ func checkResp(resp *webapp.Response) error {
 
 // checkProtected returns an error when protected=true is set in config.json.
 // Called at the start of any destructive or structural command.
+// addSpreadsheetFlag adds -s / --spreadsheet-id to cmd as a local flag.
+func addSpreadsheetFlag(cmd *cobra.Command) {
+	cmd.Flags().StringP("spreadsheet-id", "s", "", "spreadsheet ID")
+}
+
+// addSheetNameFlag adds -n / --sheet-name to cmd as a local flag.
+func addSheetNameFlag(cmd *cobra.Command) {
+	cmd.Flags().StringP("sheet-name", "n", "", "sheet tab name")
+}
+
 func checkProtected() error {
 	if currentConfig.Protected {
 		return fmt.Errorf(

@@ -40,5 +40,6 @@ var webAppDeleteCmd = &cobra.Command{
 }
 
 func init() {
+	addSpreadsheetFlag(webAppDeleteCmd)
 	webAppCmd.AddCommand(webAppDeleteCmd)
 }
