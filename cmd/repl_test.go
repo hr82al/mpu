@@ -1314,6 +1314,95 @@ func TestKeywordsToCLI(t *testing.T) {
 	}
 }
 
+// ── resetCobraFlags tests ────────────────────────────────────────
+
+// resetCobraFlags must not leave a literal "[]" in StringArray flags.
+// pflag's StringArrayValue.Set appends rather than replaces, so calling
+// Set(f.DefValue) (where DefValue is "[]") corrupts the slice. The fix
+// uses pflag.SliceValue.Replace(nil) for slice-valued flags.
+func TestResetCobraFlagsStringArray(t *testing.T) {
+	setupTest(t)
+
+	// Simulate a prior invocation populating --range.
+	if err := webAppBatchGetCmd.Flags().Set("range", "Sheet1!A1:B2"); err != nil {
+		t.Fatalf("initial set: %v", err)
+	}
+	got, _ := webAppBatchGetCmd.Flags().GetStringArray("range")
+	if len(got) != 1 || got[0] != "Sheet1!A1:B2" {
+		t.Fatalf("before reset: got %v, want [Sheet1!A1:B2]", got)
+	}
+
+	// Reset — must empty the slice, not leave ["[]"] or ["Sheet1!A1:B2", "[]"].
+	resetCobraFlags(webAppBatchGetCmd)
+
+	got, _ = webAppBatchGetCmd.Flags().GetStringArray("range")
+	if len(got) != 0 {
+		t.Errorf("after reset: got %v, want empty slice", got)
+	}
+
+	// A fresh Set after reset must start cleanly at ["UNIT"].
+	if err := webAppBatchGetCmd.Flags().Set("range", "UNIT!A:Z"); err != nil {
+		t.Fatalf("post-reset set: %v", err)
+	}
+	got, _ = webAppBatchGetCmd.Flags().GetStringArray("range")
+	if len(got) != 1 || got[0] != "UNIT!A:Z" {
+		t.Errorf("post-reset populate: got %v, want [UNIT!A:Z]", got)
+	}
+}
+
+// When the Janet REPL invokes batch-get, resolveRanges must build the
+// sheet-based range from -n and must NOT include a stray "[]" entry that
+// would otherwise come from a buggy reset of the StringArray flag.
+// This is a regression test for the bug where Google's API returned
+// "Unable to parse range: []" for every REPL batch-get call.
+func TestReplBridgeBatchGetRanges(t *testing.T) {
+	_, mock := setupTest(t)
+
+	// Provide spreadsheet-id via saved defaults so resolveSpreadsheetID
+	// doesn't need the SQLite cache.
+	currentConfig.Defaults["spreadsheet-id"] = "test-sid"
+
+	jDir := projectJanetDir(t)
+	t.Setenv("MPU_JANET_DIR", jDir)
+
+	vm, err := janet.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { vm.Close() })
+
+	if err := registerAllCommands(vm); err != nil {
+		t.Fatal(err)
+	}
+
+	// Call batch-get twice via the Janet bridge — the second call is the
+	// one that would previously fail because resetCobraFlags corrupted
+	// the stringArray `range` flag.
+	for i, expr := range []string{
+		`(mpu/batch-get :s "test-sid" :n "UNIT")`,
+		`(mpu/batch-get :s "test-sid" :n "UNIT")`,
+	} {
+		if _, err := vm.DoString(expr); err != nil {
+			t.Fatalf("call %d: %v", i+1, err)
+		}
+		req := mock.lastRequest()
+		if req == nil {
+			t.Fatalf("call %d: no request captured", i+1)
+		}
+		ranges, ok := req["ranges"].([]string)
+		if !ok {
+			t.Fatalf("call %d: ranges type = %T, want []string", i+1, req["ranges"])
+		}
+		if len(ranges) != 1 {
+			t.Fatalf("call %d: ranges = %v, want single entry", i+1, ranges)
+		}
+		want := "'UNIT'!A:ZZZ"
+		if ranges[0] != want {
+			t.Errorf("call %d: ranges[0] = %q, want %q", i+1, ranges[0], want)
+		}
+	}
+}
+
 // ── Keyword flag completion tests ────────────────────────────────
 
 func TestCompleterKeywordFlags(t *testing.T) {

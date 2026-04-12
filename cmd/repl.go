@@ -98,7 +98,8 @@ type replState struct {
 	counter  int
 	jDir     string
 	histFile string
-	compCtx  string // current command context for keyword completion
+	compCtx  string         // current command context for keyword completion
+	hintR    *hintRenderer  // inline-hint listener (updates prompt on context change)
 
 	// Channel-based completion: readline's goroutine sends a request,
 	// main goroutine (which owns the Janet VM) processes it.
@@ -137,10 +138,12 @@ func runInteractiveREPL(cmd *cobra.Command, vm *janet.VM) error {
 	home, _ := os.UserHomeDir()
 	state.histFile = filepath.Join(home, ".config", "mpu", "history")
 
+	state.hintR = newHintRenderer(state)
 	rl, err := readline.NewEx(&readline.Config{
 		Prompt:            "\033[1;36mmpu\033[0m:\033[33m0\033[0m> ",
 		HistoryFile:       state.histFile,
 		AutoComplete:      &mpuCompleter{state: state},
+		Listener:          state.hintR,
 		InterruptPrompt:   "^C",
 		EOFPrompt:         "",
 		HistorySearchFold: true,
@@ -237,6 +240,11 @@ func runInteractiveREPL(cmd *cobra.Command, vm *janet.VM) error {
 				prompt = fmt.Sprintf("\033[1;36mmpu\033[0m:\033[33m%d\033[0m> ", state.counter)
 			}
 			rl.SetPrompt(prompt)
+			// Counter advanced — force the next OnChange to re-render the
+			// hint frame on top of the new prompt.
+			if state.hintR != nil {
+				state.hintR.Reset()
+			}
 			startRead()
 		}
 	}
@@ -518,6 +526,7 @@ func loadJanetScripts(vm *janet.VM) {
 		"help.janet",
 		"completion.janet",
 		"prompt.janet",
+		"hint.janet",
 		"init.janet",
 	}
 	for _, name := range scripts {
@@ -659,10 +668,18 @@ func registerCobraCmd(vm *janet.VM, name, doc string, cobraCmd *cobra.Command) e
 // local and inherited flags so each REPL call behaves like a fresh invocation.
 // Flag defaults are restored from f.DefValue; persisted smart-defaults still
 // apply because commands read from currentConfig.Defaults, not flag values.
+//
+// SliceValue flags (StringArray, StringSlice) need Replace(nil) instead of
+// Set(DefValue): their Set appends, and DefValue is the literal "[]", so
+// calling Set("[]") would leave a stray "[]" entry in the slice.
 func resetCobraFlags(cmd *cobra.Command) {
 	reset := func(fs *pflag.FlagSet) {
 		fs.VisitAll(func(f *pflag.Flag) {
-			_ = f.Value.Set(f.DefValue)
+			if sv, ok := f.Value.(pflag.SliceValue); ok {
+				_ = sv.Replace(nil)
+			} else {
+				_ = f.Value.Set(f.DefValue)
+			}
 			f.Changed = false
 		})
 	}

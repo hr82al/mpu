@@ -185,6 +185,30 @@ func TestProtectedNotOverwrittenBySave(t *testing.T) {
 	}
 }
 
+// After Save, config.json must contain every user-facing top-level option
+// (even at its zero value) so users can see and edit all knobs without
+// recalling their names. forceCache in particular used to be omitempty.
+func TestSaveWritesAllTopLevelOptions(t *testing.T) {
+	home := withTempHome(t)
+	if err := defaults.Save(defaults.Config{Defaults: defaults.Values{}}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(home, ".config", "mpu", "config.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"protected", "forceCache", "remotePostgresOnly", "defaults"} {
+		if _, ok := raw[key]; !ok {
+			t.Errorf("config.json missing top-level key %q", key)
+		}
+	}
+}
+
 func TestSaveFileIsValidJSON(t *testing.T) {
 	home := withTempHome(t)
 	if err := defaults.Save(defaults.Config{

@@ -119,6 +119,9 @@ static int janet_to_bool(Janet x) {
 static int janet_is_keyword(Janet x) {
 	return janet_checktype(x, JANET_KEYWORD);
 }
+
+// Installs json/encode and json/decode (spork/json, vendored in json.c).
+extern void spork_json_register(JanetTable *env);
 */
 import "C"
 
@@ -240,6 +243,9 @@ func New() (*VM, error) {
 	C.janet_init()
 
 	vm := &VM{env: C.janet_core_env(nil)}
+	// Install vendored spork/json so json/encode and json/decode are always
+	// available in the VM without requiring dynamic modules.
+	C.spork_json_register(vm.env)
 	globalVM = vm
 	return vm, nil
 }

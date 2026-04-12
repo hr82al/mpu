@@ -19,9 +19,14 @@ const (
 )
 
 // Config is the top-level structure of ~/.config/mpu/config.json.
+// Settings exposed to the user (Protected, ForceCache, RemotePostgresOnly)
+// are serialized unconditionally so every knob appears in the file even at
+// its zero value — users can edit without having to recall the field names.
+// Command is runtime state for smart-repeat, not a user setting, so it stays
+// omitempty.
 type Config struct {
 	Protected          bool      `json:"protected"`
-	ForceCache         CacheMode `json:"forceCache,omitempty"`
+	ForceCache         CacheMode `json:"forceCache"`
 	RemotePostgresOnly bool      `json:"remotePostgresOnly"`
 	Command            string    `json:"command,omitempty"` // last-used command group, e.g. "webApp"
 	Defaults           Values    `json:"defaults"`

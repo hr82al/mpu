@@ -118,6 +118,31 @@ func run(args ...string) error {
 	return rootCmd.Execute()
 }
 
+// After any command runs, config.json must contain every user-facing
+// top-level option — including forceCache — so the user can edit them
+// without having to recall the field names.
+func TestStartupWritesAllTopLevelOptions(t *testing.T) {
+	home, _ := setupTest(t)
+
+	if err := run("config-path"); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(home, ".config", "mpu", "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	for _, key := range []string{"protected", "forceCache", "remotePostgresOnly", "defaults"} {
+		if _, ok := raw[key]; !ok {
+			t.Errorf("config.json missing top-level key %q", key)
+		}
+	}
+}
+
 // ── webApp flag defaults tests ─────────────────────────────────────────────────
 
 // Explicit flag is used in the request and saved to defaults.

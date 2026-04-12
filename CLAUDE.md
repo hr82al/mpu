@@ -17,7 +17,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    ```
    Если Janet-функция занимает >1ms для операции автодополнения или >5ms для подсветки — это проблема. Решение: минимальное изменение в Go (bridge function или C helper) при сохранении основной логики в Janet. Пример: дополнение флагов (`:keyword`, `--flag`) — Go читает cobra FlagSet напрямую (~1μs), но дополнение символов и команд идёт через Janet (~130μs, приемлемо).
 
-4. **Справочные бенчмарки** (Intel i5-8350U):
+4. **TDD обязателен.** Любая новая функциональность или багфикс начинается с теста, который падает по той же причине, что и проблема/отсутствующая фича. Только после **red** (тест упал на ожидаемом месте) пишется минимальный код до **green**, затем — рефакторинг. Для багов тест должен воспроизводить исходный симптом, чтобы поймать регрессию (пример: `TestResetCobraFlagsStringArray` и `TestReplBridgeBatchGetRanges` — первый изолирует root cause на уровне функции, второй воспроизводит full-stack сценарий через Janet bridge). Интеграционные тесты на живые API (`internal/webapp/client_test.go`) — отдельный слой; юнит-тесты не должны требовать `.env` и внешней сети.
+
+5. **Справочные бенчмарки** (Intel i5-8350U):
    | Operation | Time | Where |
    |-----------|------|-------|
    | `highlight/result` | ~6μs | Janet |
@@ -89,7 +91,7 @@ go test ./internal/janet/ -bench . -benchmem               # VM-level benchmarks
 - **`internal/auth/`** — Token retrieval with cache-aside pattern: check SQLite cache → fetch from sl-back → cache → return.
 - **`internal/slapi/`** — sl-back REST client. `GetClients(token)` → `[]cache.ClientRow`.
 - **`internal/pgclient/`** — PostgreSQL via pgx. `QueryJSON(sql)` returns `[]map[string]any`.
-- **`internal/janet/`** — Embedded Janet v1.41.2 VM via cgo. Contains amalgamation (`janet.c`, `janet.h`) and Go wrapper (`janet.go`). `VM` type with `New()`, `Close()`, `Register()`, `DoString()`, `DoEval()`, `EvalStringSlice()`. Up to 64 Go functions registered via C trampoline dispatch. Compiled with `JANET_NO_DYNAMIC_MODULES`, `JANET_NO_FFI` — only `-lm` linked, portable across glibc and musl. Full Janet features enabled: fibers/coroutines, PEG, os/clock, event loop primitives.
+- **`internal/janet/`** — Embedded Janet v1.41.2 VM via cgo. Contains amalgamation (`janet.c`, `janet.h`) and Go wrapper (`janet.go`). `VM` type with `New()`, `Close()`, `Register()`, `DoString()`, `DoEval()`, `EvalStringSlice()`. Up to 64 Go functions registered via C trampoline dispatch. Compiled with `JANET_NO_DYNAMIC_MODULES`, `JANET_NO_FFI` — only `-lm` linked, portable across glibc and musl. Full Janet features enabled: fibers/coroutines, PEG, os/clock, event loop primitives. JSON support via vendored spork/json (`json.c`) registered on VM creation: `(json/encode x &opt tab newline buf)` and `(json/decode src &opt keywords nils)` — see `docs/janet-json.md` for Lisp-way patterns (get-in, postwalk, threading).
 
 ### Smart defaults pattern
 
