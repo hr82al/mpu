@@ -69,7 +69,7 @@ go test ./internal/janet/ -bench . -benchmem               # VM-level benchmarks
 |-------|----------|-------------|
 | sheets | `webApp *` (aliased at root) | Google Sheets CRUD via Apps Script |
 | sl | `client`, `clients`, `token`, `update-spreadsheets`, `ldb`, `rdb`, `lsdb`, `rsdb` | sl-back API, PostgreSQL per-client schema access |
-| meta | `config-path`, `repl` | Config location, Janet REPL |
+| meta | `config`, `config-path`, `repl` | Config management (`config` set/show), path, Janet REPL |
 
 ### Flows
 
@@ -86,9 +86,9 @@ go test ./internal/janet/ -bench . -benchmem               # VM-level benchmarks
 - **`cmd/`** — One file per command. WebApp subcommands share persistent flags (`-s`, `-n`) and helpers (`newClient`, `requireFlag`, `resolveSpreadsheetID`, `checkResp`, `printRaw`, `checkProtected`) in `cmd/webapp.go`. Shortcuts in `cmd/zzz_shortcuts.go` register all webApp subcommands at root level (e.g., `mpu get` = `mpu webApp get`).
 - **`internal/webapp/`** — `Client` interface with `Do(Request) (*Response, error)`. Retries up to 10 attempts; sleeps 60s on "Quota exceeded". HTTP timeout 120s.
 - **`internal/config/`** — Loads `.env` from `~/.config/mpu/.env` via godotenv. Three config types: `Config` (webApp), `AuthConfig` (sl-back), `PGConfig` (PostgreSQL).
-- **`internal/defaults/`** — Persisted CLI state in `~/.config/mpu/config.json`: last command, saved flags, protected mode. File permissions 0600.
-- **`internal/cache/`** — SQLite cache at `~/.config/mpu/db` with migration system. Stores JWT tokens (10min TTL), client rows, and spreadsheet rows. Atomic client replacement via transactions. Spreadsheets use versioned updates (write new version → commit/rollback) with chunked inserts.
-- **`internal/auth/`** — Token retrieval with cache-aside pattern: check SQLite cache → fetch from sl-back → cache → return.
+- **`internal/defaults/`** — Persisted CLI state in `~/.config/mpu/config.json`: last command, saved flags, protected mode, `forceCache` policy. File permissions 0600. User-facing top-level options (`protected`, `forceCache`, `remotePostgresOnly`) are serialized unconditionally — even at zero value — so the file is self-documenting. `Config.CacheTTL()` parses `forceCache` as a positive integer (seconds) when it isn't one of the symbolic modes.
+- **`internal/cache/`** — SQLite cache at `~/.config/mpu/db` with migration system. Stores JWT tokens (10min TTL), client rows, and spreadsheet rows. Atomic client replacement via transactions (`synced_at` stamped at INSERT time). Spreadsheets use versioned updates (write new version → commit/rollback) with chunked inserts. `ClientsOldestSyncedAt()` feeds the numeric-TTL mode.
+- **`internal/auth/`** — Token retrieval with cache-aside pattern: check SQLite cache → fetch from sl-back → cache → return. The 10-minute token TTL is authoritative and is NOT overridden by `forceCache=<seconds>` (only `forceCache=use` bypasses the network — returns an error if no cached token exists).
 - **`internal/slapi/`** — sl-back REST client. `GetClients(token)` → `[]cache.ClientRow`.
 - **`internal/pgclient/`** — PostgreSQL via pgx. `QueryJSON(sql)` returns `[]map[string]any`.
 - **`internal/janet/`** — Embedded Janet v1.41.2 VM via cgo. Contains amalgamation (`janet.c`, `janet.h`) and Go wrapper (`janet.go`). `VM` type with `New()`, `Close()`, `Register()`, `DoString()`, `DoEval()`, `EvalStringSlice()`. Up to 64 Go functions registered via C trampoline dispatch. Compiled with `JANET_NO_DYNAMIC_MODULES`, `JANET_NO_FFI` — only `-lm` linked, portable across glibc and musl. Full Janet features enabled: fibers/coroutines, PEG, os/clock, event loop primitives. JSON support via vendored spork/json (`json.c`) registered on VM creation: `(json/encode x &opt tab newline buf)` and `(json/decode src &opt keywords nils)` — see `docs/janet-json.md` for Lisp-way patterns (get-in, postwalk, threading).
@@ -102,7 +102,46 @@ Flags are remembered across invocations in `~/.config/mpu/config.json`:
 
 Flag resolution: explicit flag > positional arg > saved default > cobra default.
 
-Commands annotated with `skipDefaultsAnnotation` (e.g., `repl`) save config but do not update the `Command` field, preserving the previous command for smart repeat.
+Commands annotated with `skipDefaultsAnnotation` (e.g., `repl`, `config`, Janet user commands) save config but do not update the `Command` field, preserving the previous command for smart repeat.
+
+### Top-level config options (`mpu config`)
+
+The `config` command edits user-facing options in `config.json` with
+tab-completion of keys and allowed values. Registry lives in `cmd/config.go`
+(`configOptions`).
+
+```
+mpu config                          # list all options with current values
+mpu config forceCache               # show one option + allowed values
+mpu config forceCache 300           # set — 5-minute TTL
+mpu config protected false          # unlock destructive webApp operations
+```
+
+Options:
+
+| Key | Values | Effect |
+|-----|--------|--------|
+| `protected` | `true` / `false` | block destructive webApp ops when true |
+| `remotePostgresOnly` | `true` / `false` | force all PG to the remote instance |
+| `forceCache` | `""` / `accumulate` / `use` / `<seconds>` | cache policy (see below) |
+
+### `forceCache` cache policy
+
+Four modes, stored as a single string in `config.json`:
+
+| Value | Meaning |
+|-------|---------|
+| `""` (default) | cache-aside: read cache; on miss, hit API & refresh |
+| `"accumulate"` | merge new rows into cache, keep old ones |
+| `"use"` | read only from cache, never touch the network (error on miss) |
+| `"<N>"` (positive int) | TTL in seconds — if `synced_at` within `N`s, use cache; else refetch, overwrite, restamp |
+
+Numeric TTL uses `MIN(synced_at)` across rows so a partial resync can't be
+mistaken for "everyone fresh". The token cache is an **exception**: it
+keeps its built-in 10-minute TTL regardless of this setting. `use` mode is
+the second exception — no network ever, even if the cached entry is stale
+or missing. See `cmd/cache_helpers.go:syncClientsFromAPI` and
+`internal/defaults.Config.CacheTTL`.
 
 ### Spreadsheet ID resolution
 
@@ -125,6 +164,41 @@ Selected spreadsheet ID is saved to defaults.
 5. Register via `webAppCmd.AddCommand()` in `init()`
 6. Add root-level shortcut in `cmd/zzz_shortcuts.go` via `shortcut()`
 
+### Janet user commands
+
+Any `.janet` file in `~/.config/mpu/janet/commands/` (override via
+`MPU_COMMANDS_DIR`) is automatically registered as `mpu <name>`. The
+filename (minus `.janet`) is the command name; positional args are bound to
+the global array `*args*`; all mpu/* functions, vendored JSON,
+highlight/hint/completion scripts are available.
+
+```janet
+# ~/.config/mpu/janet/commands/sync-clients.janet
+(each id *args*
+  (printf "syncing %s" id)
+  (try
+    (mpu/client id)
+    ([e] (printf "  skip %s: %s" id e))))
+```
+
+```bash
+mpu sync-clients 42 54 99
+```
+
+**Error handling:** Go errors from `mpu/*` raise real Janet panics (via the
+trampoline's `janet_panic` after the Go callback unwinds — calling `janet_panic`
+directly from a Go cgo callback would longjmp across Go's stack and corrupt
+the runtime). Catch them idiomatically:
+
+```janet
+(try (mpu/something-risky) ([e] (handle-error e)))
+```
+
+**Recovery REPL:** when a script errors without `(try ...)`, mpu drops into
+an interactive Janet REPL with the script's VM still alive — inspect bindings,
+try fixes, Ctrl-D to exit and propagate the original error. Disable with
+`MPU_JANET_NO_RECOVER=1` (used by tests and CI).
+
 ### Janet REPL
 
 `mpu repl` starts an interactive Janet session with all mpu commands available:
@@ -136,6 +210,7 @@ mpu repl script.janet             # execute a Janet script file
 
 **Features (IPython-like):**
 - Tab completion for mpu commands, flags, and Janet symbols
+- **Inline hints**: multi-line description + examples appear above the prompt as you type, from a precomputed cache (see `cmd/hint.go`, `janet/hint.janet`). Trigger: entering an enclosing call `(fn ...`, or when the typed prefix uniquely resolves to one `mpu/*` command.
 - Persistent history with Ctrl-R reverse search (`~/.config/mpu/history`)
 - Multi-line input (unclosed parens auto-continue)
 - Syntax-highlighted output (values colored by type via Janet)
@@ -196,6 +271,7 @@ Janet REPL scripts live in `janet/` (project) and are installed to `~/.config/mp
 | `help.janet` | `(commands)`, `(?)`, `(apropos)` — с показом keyword-флагов для каждой команды |
 | `completion.janet` | `complete/candidates` → array для `EvalStringSlice`; `complete/mpu-names`, `complete/keyword-flags`, `complete/janet-symbols` |
 | `prompt.janet` | Prompt generation, `(set-prompt fn)` |
+| `hint.janet` | `(hint/for name)` → inline help lines; `(hint/register …)` to override; curated examples for all `mpu/*` and 40+ core Janet functions |
 | `init.janet` | Final init hook (documentation only) |
 | `rc.janet` | User customization (optional, not overwritten by install) |
 
@@ -247,6 +323,12 @@ Go wrapper exposes three levels of Janet interaction:
 
 `DoEval` and `EvalStringSlice` use C helpers (`janet_indexed_to_strings`, `janet_value_type`) to avoid stringifying and re-parsing — native type transfer between Janet and Go.
 
+**Go errors → Janet panics.** A registered Go function returning `error` does NOT get its message wrapped as a string. The Go callback writes the message into a TLS buffer (`_panic_msg`) and sets `_panic_flag`; the C trampoline that called the callback checks the flag after Go unwinds and invokes `janet_panic`. The longjmp stays entirely in C land — calling `janet_panic` directly from a cgo callback would corrupt Go's stack. See `set_go_panic` in `internal/janet/janet.go`. Janet-side callers use `(try (mpu/fn …) ([e] …))` as expected.
+
+**Goroutine pinning.** `janet.New()` calls `runtime.LockOSThread()` because Janet uses C TLS. All VM methods MUST run on that goroutine — including `DoString`. The REPL's Listener-based hint system fires on readline's goroutine, so hint lookups **must** go through the precomputed `hintRenderer.cache` (see `cmd/hint.go:buildHintCache`) and never call back into the VM. Same pattern applies to Tab completion, which routes requests through `compReq`/`compResp` channels back to the main goroutine.
+
+**Janet stdout is buffered.** `(print ...)` writes via `FILE *stdout` with libc line-buffering on a pipe/non-tty. When capturing output (tests, Janet-user-commands), `runJanetScript` calls `(flush) (eflush)` after the script runs. Tests that redirect FD 1 via `syscall.Dup2` must do the same or explicitly `(flush)` inside the script.
+
 ### Request format to Apps Script
 
 ```json
@@ -262,8 +344,12 @@ Response: `{"success": true/false, "result": ..., "error": "..."}`
 - **Mock pattern**: `testClientFn` in `cmd/webapp.go` allows injecting a mock `webapp.Client` for command tests
 - **Test helpers**: `setupTest()`, `resetFlags()`, `run()` in `cmd/flags_test.go`
 - **PG tests**: connection test only; query tests skipped without running PostgreSQL
-- **Janet tests** (`internal/janet/janet_test.go`): VM lifecycle, DoString, DoEval (all types), EvalStringSlice, function registration and dispatch, Janet features (fibers, PEG, os/clock)
+- **Janet tests** (`internal/janet/janet_test.go`): VM lifecycle, DoString, DoEval (all types), EvalStringSlice, function registration and dispatch, Janet features (fibers, PEG, os/clock); `json_test.go` covers spork/json round-trips + Lisp-way patterns; `errors_test.go` verifies Go errors surface as catchable Janet panics via the trampoline buffer
 - **REPL tests** (`cmd/repl_test.go`): script execution, error handling, `skipDefaults`, completer (mpu commands, flags, Janet symbols, edge cases), bridge functions, Janet script loading, highlight/prompt/completion/prelude scripts
+- **Hint tests** (`cmd/hint_test.go`): `hint/for` registry coverage, context detection, unique-prefix fallback, goroutine-safety guard (`TestBuildPromptDoesNotTouchJanet` nulls `state.vm` before calling buildPrompt — buildPrompt must only read the precomputed cache, never cgo into Janet from readline's goroutine)
+- **Janet user commands tests** (`cmd/janet_commands_test.go`): discovery, `*args*` binding, `try` catching Go errors, syntax errors, `recoveryHook` is testable via a package-level var; `MPU_JANET_NO_RECOVER=1` skips the interactive drop-in REPL
+- **Cache TTL tests** (`cmd/cache_ttl_test.go`, `internal/defaults/defaults_test.go`): numeric `forceCache` parsing, fresh/stale branch behaviour against a fake sl-back HTTP server, token's 10-min TTL unaffected by numeric forceCache, `use` mode never touches network. Tests use `t.Setenv` for auth env vars (godotenv does not override already-set vars)
+- **Config tests** (`cmd/config_test.go`): get/set/list, bool/enum parsing, rejection of invalid values, completion of keys and values with descriptions
 
 ## File locations
 
@@ -273,8 +359,9 @@ Response: `{"success": true/false, "result": ..., "error": "..."}`
 | `~/.config/mpu/.env` | Environment variables (credentials, URLs, ports) |
 | `~/.config/mpu/db` | SQLite cache (tokens, clients, spreadsheets) |
 | `~/.config/mpu/history` | REPL command history (readline) |
-| `~/.config/mpu/janet/` | Janet REPL scripts (highlight, help, completion, prompt, prelude) |
+| `~/.config/mpu/janet/` | Janet REPL scripts (highlight, help, completion, prompt, prelude, hint) |
 | `~/.config/mpu/janet/rc.janet` | User REPL customization (optional, not overwritten) |
+| `~/.config/mpu/janet/commands/` | User-defined `mpu <name>` commands — one `.janet` file each |
 | `~/.local/bin/mpu` | Installed binary |
 
 ## Environment

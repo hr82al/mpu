@@ -142,13 +142,15 @@ func TestRegister_Error(t *testing.T) {
 		t.Fatalf("Register: %v", err)
 	}
 
-	// The error is returned as a string value, not a Janet error.
-	result, err := vm.DoString(`(test/fail)`)
-	if err != nil {
-		t.Fatalf("DoString: %v", err)
+	// An uncaught Go error raises a Janet panic, which DoString surfaces
+	// as a Go error containing the message. (try ...) in Janet can catch
+	// it — see errors_test.go:TestGoErrorPropagatesAsJanetException.
+	_, err = vm.DoString(`(test/fail)`)
+	if err == nil {
+		t.Fatal("expected DoString error, got nil")
 	}
-	if !strings.Contains(result, "something went wrong") {
-		t.Errorf("got %q, want error message", result)
+	if !strings.Contains(err.Error(), "something went wrong") {
+		t.Errorf("error should contain original message: %v", err)
 	}
 }
 

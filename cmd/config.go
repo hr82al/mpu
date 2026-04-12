@@ -47,11 +47,12 @@ var configOptions = []configOption{
 	},
 	{
 		Name: "forceCache",
-		Desc: "client cache policy (overrides per-command behavior)",
+		Desc: "cache policy: symbolic mode or TTL in seconds",
 		Values: []configValue{
 			{"", "default — cache-aside: read from cache, refresh on miss"},
-			{"accumulate", "merge new clients into cache without dropping old entries"},
-			{"use", "read only from cache, never hit the API"},
+			{"accumulate", "merge new rows into cache without dropping old entries"},
+			{"use", "read only from cache, never hit the network"},
+			{"<seconds>", "positive integer: TTL in seconds (e.g. 300 → 5 min). Token keeps its fixed 10-min TTL."},
 		},
 		Get: func(c *defaults.Config) string { return string(c.ForceCache) },
 		Set: func(c *defaults.Config, v string) error {
@@ -60,7 +61,14 @@ var configOptions = []configOption{
 				c.ForceCache = defaults.CacheMode(v)
 				return nil
 			}
-			return fmt.Errorf("forceCache: expected one of \"\"/accumulate/use, got %q", v)
+			// Numeric TTL (seconds) — delegate validation to CacheTTL so
+			// the same parser governs both config set and runtime lookup.
+			probe := defaults.Config{ForceCache: defaults.CacheMode(v)}
+			if _, ok := probe.CacheTTL(); ok {
+				c.ForceCache = defaults.CacheMode(v)
+				return nil
+			}
+			return fmt.Errorf("forceCache: expected \"\"/accumulate/use or a positive integer seconds, got %q", v)
 		},
 	},
 	{

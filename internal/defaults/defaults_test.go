@@ -185,6 +185,54 @@ func TestProtectedNotOverwrittenBySave(t *testing.T) {
 	}
 }
 
+// ── CacheTTL parsing ────────────────────────────────────────────────────
+// forceCache accepts a numeric string (seconds) in addition to the three
+// symbolic modes. It must NOT collide with "" / "accumulate" / "use" —
+// those return (0, false) from CacheTTL().
+
+func TestCacheTTLNumeric(t *testing.T) {
+	tests := map[string]int{
+		"60":    60,
+		"300":   300,
+		"3600":  3600,
+		"86400": 86400,
+	}
+	for raw, wantSec := range tests {
+		c := defaults.Config{ForceCache: defaults.CacheMode(raw)}
+		got, ok := c.CacheTTL()
+		if !ok {
+			t.Errorf("CacheTTL(%q) ok=false, want true", raw)
+			continue
+		}
+		if got.Seconds() != float64(wantSec) {
+			t.Errorf("CacheTTL(%q) = %v, want %ds", raw, got, wantSec)
+		}
+	}
+}
+
+func TestCacheTTLSymbolicModesReturnFalse(t *testing.T) {
+	for _, m := range []defaults.CacheMode{
+		defaults.CacheModeNone,
+		defaults.CacheModeAccumulate,
+		defaults.CacheModeUse,
+	} {
+		c := defaults.Config{ForceCache: m}
+		if _, ok := c.CacheTTL(); ok {
+			t.Errorf("CacheTTL for %q should be false", m)
+		}
+	}
+}
+
+// Negative / zero / garbage → not a TTL.
+func TestCacheTTLInvalid(t *testing.T) {
+	for _, raw := range []string{"0", "-5", "abc", "3.14", "1e2", " 60 "} {
+		c := defaults.Config{ForceCache: defaults.CacheMode(raw)}
+		if _, ok := c.CacheTTL(); ok {
+			t.Errorf("CacheTTL(%q) should be false", raw)
+		}
+	}
+}
+
 // After Save, config.json must contain every user-facing top-level option
 // (even at its zero value) so users can see and edit all knobs without
 // recalling their names. forceCache in particular used to be omitempty.

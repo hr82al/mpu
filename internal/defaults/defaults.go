@@ -4,12 +4,26 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 )
 
 // Values holds last-used flag values keyed by flag name.
 type Values map[string]any
 
 // CacheMode controls caching behavior.
+//
+// Symbolic modes:
+//
+//	""             cache-aside: read cache, refresh from API on miss
+//	"accumulate"   merge new rows into cache, keep the old ones
+//	"use"          read only from cache, never hit the network
+//
+// Numeric modes: a positive integer string (e.g. "300") is interpreted as
+// a TTL in seconds — cache entries are considered fresh only within that
+// window. The token cache is an exception: it always uses its built-in
+// 10-minute TTL regardless of this setting (except in "use" mode, where
+// the network is never touched at all).
 type CacheMode string
 
 const (
@@ -17,6 +31,21 @@ const (
 	CacheModeAccumulate CacheMode = "accumulate"
 	CacheModeUse        CacheMode = "use"
 )
+
+// CacheTTL returns the numeric TTL interpretation of ForceCache. Returns
+// (0, false) for the symbolic modes and for any non-positive-integer
+// string, so callers can use the boolean to branch.
+func (c Config) CacheTTL() (time.Duration, bool) {
+	s := string(c.ForceCache)
+	if s == "" {
+		return 0, false
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n <= 0 {
+		return 0, false
+	}
+	return time.Duration(n) * time.Second, true
+}
 
 // Config is the top-level structure of ~/.config/mpu/config.json.
 // Settings exposed to the user (Protected, ForceCache, RemotePostgresOnly)

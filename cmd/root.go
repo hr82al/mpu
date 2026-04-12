@@ -181,5 +181,8 @@ func init() {
 }
 
 func Execute() error {
+	// Discover Janet user commands from ~/.config/mpu/commands/ lazily on
+	// every Execute so adding a new file doesn't require rebuilding.
+	reloadJanetCommands()
 	return rootCmd.Execute()
 }

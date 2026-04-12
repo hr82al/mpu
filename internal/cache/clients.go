@@ -77,6 +77,22 @@ func (db *DB) HasClients() bool {
 	return count > 0
 }
 
+// ClientsOldestSyncedAt returns the oldest synced_at timestamp across all
+// cached clients, or (zero, false) when the table is empty. Used by the
+// numeric-TTL forceCache mode to decide whether the cache is still fresh.
+func (db *DB) ClientsOldestSyncedAt() (time.Time, bool) {
+	var raw sql.NullString
+	err := db.QueryRow(`SELECT MIN(synced_at) FROM sl_clients`).Scan(&raw)
+	if err != nil || !raw.Valid || raw.String == "" {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(time.DateTime, raw.String)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
 // ListClientIDs returns all client IDs as strings, sorted ascending.
 // Used for shell completion.
 func (db *DB) ListClientIDs() ([]string, error) {

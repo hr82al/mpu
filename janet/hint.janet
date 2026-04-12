@@ -121,8 +121,9 @@
 
     "mpu/config"
     @["Show or set top-level options in config.json"
-      "(mpu/config)                        # list all"
-      "(mpu/config \"forceCache\" \"use\")     # set"]
+      "(mpu/config)                         # list all"
+      "(mpu/config \"forceCache\" \"use\")      # cache-only mode"
+      "(mpu/config \"forceCache\" \"300\")      # 5-min TTL (token keeps 10m)"]
 
     "mpu/config-path"
     @["Print path to ~/.config/mpu/config.json"

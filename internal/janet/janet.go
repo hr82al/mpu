@@ -18,11 +18,31 @@ static int get_current_trampoline_idx(void) {
 	return _current_trampoline_idx;
 }
 
-// Each trampoline records its index, then calls into Go.
+// When a registered Go function returns an error we CANNOT call janet_panic
+// from within the Go callback — it uses longjmp, which corrupts Go's stack.
+// Instead Go stores the error message in a thread-local buffer and returns
+// wrap_nil; the trampoline checks the buffer and calls janet_panic from C,
+// so longjmp only unwinds the C stack up to the nearest janet_pcall frame.
+static __thread int _panic_flag = 0;
+static __thread char _panic_msg[1024];
+
+static void set_go_panic(const char *msg) {
+	size_t n = strlen(msg);
+	if (n >= sizeof(_panic_msg)) n = sizeof(_panic_msg) - 1;
+	memcpy(_panic_msg, msg, n);
+	_panic_msg[n] = '\0';
+	_panic_flag = 1;
+}
+
+// Each trampoline records its index, clears the panic flag, invokes the Go
+// bridge, then raises a Janet panic if the Go side signalled one.
 #define T(N) \
 	static Janet _trampoline_##N(int32_t argc, Janet *argv) { \
 		_current_trampoline_idx = N; \
-		return janet_go_cfunc_bridge(argc, argv); \
+		_panic_flag = 0; \
+		Janet _r = janet_go_cfunc_bridge(argc, argv); \
+		if (_panic_flag) { janet_panic(_panic_msg); } \
+		return _r; \
 	}
 
 T(0)  T(1)  T(2)  T(3)  T(4)  T(5)  T(6)  T(7)
@@ -214,10 +234,13 @@ func janet_go_cfunc_bridge(argc C.int32_t, argv *C.Janet) C.Janet {
 
 	result, err := vm.funcs[idx](args)
 	if err != nil {
+		// Stash the message for the trampoline to turn into a Janet panic
+		// AFTER the Go callback has fully unwound (longjmp across a cgo
+		// boundary breaks Go's stack management).
 		errStr := C.CString(err.Error())
 		defer C.free(unsafe.Pointer(errStr))
-		cjstr := C.janet_cstring(errStr)
-		return C.janet_wrap_string(cjstr)
+		C.set_go_panic(errStr)
+		return C.janet_wrap_nil()
 	}
 
 	if result == "" {
