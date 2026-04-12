@@ -12,6 +12,7 @@ import (
 	"mpu/internal/webapp"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // ── mock client ───────────────────────────────────────────────────────────────
@@ -22,7 +23,13 @@ type mockClient struct {
 
 func (m *mockClient) Do(req webapp.Request) (*webapp.Response, error) {
 	m.requests = append(m.requests, req)
-	return &webapp.Response{Success: true, Result: json.RawMessage(`[]`)}, nil
+	// Shape matches the Apps Script batchGet envelope with zero value
+	// ranges. Real commands (batch-get, batch-get-all) would otherwise
+	// fail to parse an empty array into batchGetResult.
+	return &webapp.Response{
+		Success: true,
+		Result:  json.RawMessage(`{"spreadsheetId":"","valueRanges":[]}`),
+	}, nil
 }
 
 func (m *mockClient) lastRequest() webapp.Request {
@@ -48,6 +55,12 @@ func setupTest(t *testing.T) (home string, mock *mockClient) {
 		currentConfig = defaults.Config{Defaults: make(defaults.Values)}
 		rootCmd.SilenceErrors = false
 		rootCmd.SilenceUsage = false
+		// Clear the writer overrides completely — follow-up tests that
+		// bypass cobra (e.g. captureStdout → printJSON →
+		// rootCmd.OutOrStdout) expect OutOrStdout() to evaluate
+		// os.Stdout lazily, not hold a stale *os.File from this test.
+		rootCmd.SetOut(nil)
+		rootCmd.SetErr(nil)
 	})
 
 	rootCmd.SilenceErrors = true
@@ -61,10 +74,13 @@ func setupTest(t *testing.T) (home string, mock *mockClient) {
 }
 
 // resetFlags clears Changed state and values on all local flags that
-// webApp commands use, so tests don't bleed into each other.
+// webApp commands use, so tests don't bleed into each other. Repeatable
+// flags (StringArray) need Replace(nil) because their Set APPENDS —
+// bitten by this via the -r flag carrying across sheet-cache tests.
 func resetFlags(t *testing.T) {
 	t.Helper()
-	flagsToReset := []string{"spreadsheet-id", "sheet-name"}
+	stringFlags := []string{"spreadsheet-id", "sheet-name"}
+	sliceFlags := []string{"range"}
 	cmds := []*cobra.Command{
 		webAppGetCmd, webAppSetCmd, webAppInsertCmd, webAppUpsertCmd,
 		webAppKeysCmd, webAppInfoCmd, webAppBatchGetCmd, webAppBatchGetAllCmd, webAppBatchUpdateCmd,
@@ -72,9 +88,17 @@ func resetFlags(t *testing.T) {
 		editorsGetCmd, editorsAddCmd, editorsSetCmd, editorsRemoveCmd,
 	}
 	for _, c := range cmds {
-		for _, name := range flagsToReset {
+		for _, name := range stringFlags {
 			if f := c.Flags().Lookup(name); f != nil {
 				_ = f.Value.Set("")
+				f.Changed = false
+			}
+		}
+		for _, name := range sliceFlags {
+			if f := c.Flags().Lookup(name); f != nil {
+				if sv, ok := f.Value.(pflag.SliceValue); ok {
+					_ = sv.Replace(nil)
+				}
 				f.Changed = false
 			}
 		}

@@ -76,6 +76,10 @@ so the previous command is preserved for smart repeat.`,
 				return err
 			}
 			_, err = vm.DoString(string(data))
+			// Janet buffers (print)/(eprint) on FILE* stdout — without
+			// an explicit flush, output vanishes when stdout is a pipe
+			// (test runners, make, shell redirection).
+			_, _ = vm.DoString(`(flush) (eflush)`)
 			return err
 		}
 
@@ -527,6 +531,7 @@ func loadJanetScripts(vm *janet.VM) {
 		"completion.janet",
 		"prompt.janet",
 		"hint.janet",
+		"ss-analyze.janet",
 		"init.janet",
 	}
 	for _, name := range scripts {

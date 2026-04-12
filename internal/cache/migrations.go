@@ -63,4 +63,35 @@ var allMigrations = []Migration{
 			cached_at  DATETIME NOT NULL DEFAULT (datetime('now'))
 		)`,
 	},
+	{
+		// Per-cell cache for batch-get / batch-get-all. Empty cells are
+		// intentionally NOT stored — sidecar sheet_fetches remembers what
+		// rectangles we've actually fetched so absence is unambiguous.
+		// webapp_cache stays around for non-batch webApp commands.
+		Version: 6,
+		SQL: `CREATE TABLE sheet_cells (
+			spreadsheet_id TEXT NOT NULL,
+			sheet_name     TEXT NOT NULL,
+			address        TEXT NOT NULL,
+			formula        TEXT,
+			row_value      TEXT,
+			created_at     DATETIME NOT NULL DEFAULT (datetime('now')),
+			PRIMARY KEY (spreadsheet_id, address, sheet_name)
+		);
+		CREATE INDEX idx_sheet_cells_sheet
+			ON sheet_cells(spreadsheet_id, sheet_name);
+		CREATE TABLE sheet_fetches (
+			spreadsheet_id TEXT    NOT NULL,
+			sheet_name     TEXT    NOT NULL,
+			start_row      INTEGER NOT NULL,
+			start_col      INTEGER NOT NULL,
+			end_row        INTEGER NOT NULL,
+			end_col        INTEGER NOT NULL,
+			has_formula    INTEGER NOT NULL DEFAULT 0,
+			has_value      INTEGER NOT NULL DEFAULT 0,
+			fetched_at     DATETIME NOT NULL DEFAULT (datetime('now'))
+		);
+		CREATE INDEX idx_sheet_fetches
+			ON sheet_fetches(spreadsheet_id, sheet_name)`,
+	},
 }

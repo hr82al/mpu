@@ -4,10 +4,32 @@ CONFIG_DIR := $(HOME)/.config/mpu
 JANET_DIR := $(CONFIG_DIR)/janet
 ENVAULT := scripts/envault.sh
 
-.PHONY: build install env-encrypt env-decrypt env-sync
+.PHONY: build install test test-integration env-encrypt env-decrypt env-sync
 
 build:
 	CGO_ENABLED=1 go build -ldflags="-s -w" -o $(BIN) .
+
+# Full unit-test suite: Go tests + Janet tests executed by the real mpu
+# binary so scripts run in the same VM the user hits in production. Janet
+# tests are plain .janet files in janet/tests/; each one raises on failure
+# (assert), which bubbles up as a non-zero exit so `make` stops on the
+# first break.
+#
+# internal/webapp/ is excluded because it hits the live Apps Script API
+# and needs .env credentials; run `make test-integration` for that layer.
+test: build
+	go test $$(go list ./... | grep -v /internal/webapp) -timeout 120s
+	@for f in janet/tests/*_test.janet; do \
+		[ -e "$$f" ] || continue; \
+		echo "→ janet: $$f"; \
+		MPU_JANET_DIR=$(PWD)/janet ./$(BIN) repl "$$f" || exit 1; \
+	done
+	@echo "✓ all tests passed"
+
+# Integration tests (hit real Google Apps Script + Sheets). Requires
+# ~/.config/mpu/.env with WB_PLUS_WEB_APP_URL and test-spreadsheet access.
+test-integration:
+	go test ./internal/webapp/ -v -timeout 120s
 
 install: build ensure-env
 	install -Dm755 $(BIN) $(INSTALL_DIR)/$(BIN)
@@ -20,10 +42,18 @@ install: build ensure-env
 	else \
 		echo "$(CONFIG_DIR)/.env already exists — skipping"; \
 	fi
-	@mkdir -p $(JANET_DIR)
+	@mkdir -p $(JANET_DIR) $(JANET_DIR)/commands $(JANET_DIR)/tests
 	@for f in janet/*.janet; do \
 		[ -f "$$f" ] && install -Dm644 "$$f" "$(JANET_DIR)/$$(basename $$f)" && \
 		echo "Copied $$f → $(JANET_DIR)/$$(basename $$f)"; \
+	done
+	@for f in janet/commands/*.janet; do \
+		[ -f "$$f" ] && install -Dm644 "$$f" "$(JANET_DIR)/commands/$$(basename $$f)" && \
+		echo "Copied $$f → $(JANET_DIR)/commands/$$(basename $$f)"; \
+	done
+	@for f in janet/tests/*.janet; do \
+		[ -f "$$f" ] && install -Dm644 "$$f" "$(JANET_DIR)/tests/$$(basename $$f)" && \
+		echo "Copied $$f → $(JANET_DIR)/tests/$$(basename $$f)"; \
 	done
 	@echo "Janet scripts installed to $(JANET_DIR)"
 

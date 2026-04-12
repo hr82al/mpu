@@ -145,8 +145,17 @@ func getIntFlag(cmd *cobra.Command, name string) int {
 	return val
 }
 
+// printJSON writes a value as indented JSON to rootCmd's current output
+// writer. Going through rootCmd.OutOrStdout() (instead of os.Stdout
+// directly) matters for two callers:
+//   * tests that set rootCmd.SetOut(buf) to capture output
+//   * the Janet bridge in registerCobraCmd, which also SetOuts a buffer
+//     so (mpu/<cmd> ...) returns the command's output as a string
+//
+// In normal CLI invocation OutOrStdout() falls back to os.Stdout, so
+// terminal behaviour is unchanged.
 func printJSON(v any) {
-	enc := json.NewEncoder(os.Stdout)
+	enc := json.NewEncoder(rootCmd.OutOrStdout())
 	enc.SetIndent("", "  ")
 	enc.Encode(v)
 }
@@ -156,7 +165,7 @@ func printRaw(data json.RawMessage) {
 	if json.Unmarshal(data, &v) == nil {
 		printJSON(v)
 	} else {
-		fmt.Println(string(data))
+		fmt.Fprintln(rootCmd.OutOrStdout(), string(data))
 	}
 }
 
