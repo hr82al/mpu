@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -386,9 +387,160 @@ func TestCompleterEmpty(t *testing.T) {
 		t.Errorf("expected no candidates for empty, got %d", len(resp.suffixes))
 	}
 
-	resp = state.doComplete(compRequest{line: "(mpu/get ", pos: 9})
+	// Top-level whitespace outside any call: no completions.
+	resp = state.doComplete(compRequest{line: "   ", pos: 3})
 	if len(resp.suffixes) != 0 {
-		t.Errorf("expected no candidates after space, got %d", len(resp.suffixes))
+		t.Errorf("expected no candidates for top-level whitespace, got %d", len(resp.suffixes))
+	}
+}
+
+func TestCompleterMpuKeywordFlagsEmpty(t *testing.T) {
+	setupTest(t)
+	state := newCompleterState(t)
+
+	// After "(mpu/get " with empty word, Janet should return keyword flags.
+	resp := state.doComplete(compRequest{line: "(mpu/get ", pos: 9})
+	if resp.length != 0 {
+		t.Errorf("length = %d, want 0 for empty word", resp.length)
+	}
+	if len(resp.suffixes) == 0 {
+		t.Fatal("expected candidates after '(mpu/get '")
+	}
+	got := map[string]bool{}
+	for _, s := range resp.suffixes {
+		got[string(s)] = true
+	}
+	for _, want := range []string{":spreadsheet-id", ":sheet-name"} {
+		if !got[want] {
+			t.Errorf("missing keyword flag %q in %v", want, keysOf(got))
+		}
+	}
+}
+
+func keysOf(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func TestCompleterUserFunctionParams(t *testing.T) {
+	setupTest(t)
+	state := newCompleterState(t)
+
+	if _, err := state.vm.DoString(`(defn foo [a bb ccc] :ok)`); err != nil {
+		t.Fatalf("defn foo: %v", err)
+	}
+
+	// Empty word after "(foo " → all three params.
+	resp := state.doComplete(compRequest{line: "(foo ", pos: 5})
+	if len(resp.suffixes) == 0 {
+		t.Fatal("expected param candidates for (foo ")
+	}
+	got := map[string]bool{}
+	for _, s := range resp.suffixes {
+		got[string(s)] = true
+	}
+	for _, want := range []string{"a", "bb", "ccc"} {
+		if !got[want] {
+			t.Errorf("missing param %q in %v", want, keysOf(got))
+		}
+	}
+	if got["foo"] {
+		t.Errorf("self-reference 'foo' should be filtered out")
+	}
+
+	// Prefix filter: "(foo bb" → only "bb".
+	resp = state.doComplete(compRequest{line: "(foo bb", pos: 7})
+	if resp.length != 2 {
+		t.Errorf("length = %d, want 2", resp.length)
+	}
+	// Suffix after "bb" is "" (exact match).
+	foundBB := false
+	for _, s := range resp.suffixes {
+		if "bb"+string(s) == "bb" {
+			foundBB = true
+		}
+	}
+	if !foundBB {
+		var ss []string
+		for _, s := range resp.suffixes {
+			ss = append(ss, "bb"+string(s))
+		}
+		t.Errorf("expected 'bb' among candidates, got %v", ss)
+	}
+}
+
+func TestCompleterEnclosingCallSkipsStrings(t *testing.T) {
+	setupTest(t)
+	state := newCompleterState(t)
+
+	if _, err := state.vm.DoString(`(defn bar [xx yy] :ok)`); err != nil {
+		t.Fatalf("defn bar: %v", err)
+	}
+
+	// A '(' inside a string literal must not confuse the parser.
+	resp := state.doComplete(compRequest{line: `(bar "(" `, pos: 9})
+	got := map[string]bool{}
+	for _, s := range resp.suffixes {
+		got[string(s)] = true
+	}
+	for _, want := range []string{"xx", "yy"} {
+		if !got[want] {
+			t.Errorf("missing param %q in %v (string paren confused parser?)",
+				want, keysOf(got))
+		}
+	}
+}
+
+func TestCompleterUnterminatedString(t *testing.T) {
+	setupTest(t)
+	state := newCompleterState(t)
+
+	// Must not hang or panic; deterministic empty result.
+	resp := state.doComplete(compRequest{line: `(foo "abc `, pos: 10})
+	if len(resp.suffixes) != 0 {
+		t.Errorf("expected no candidates for unterminated string, got %d",
+			len(resp.suffixes))
+	}
+}
+
+func TestEnclosingCallParser(t *testing.T) {
+	setupTest(t)
+	state := newCompleterState(t)
+
+	cases := []struct {
+		line string
+		want string // empty means nil
+	}{
+		{"(foo ", "foo"},
+		{"(mpu/get ", "mpu/get"},
+		{`(foo "(" `, "foo"},
+		{"(foo (bar 1 2) ", "foo"},
+		{"(foo (bar ", "bar"},
+		{`(foo "abc `, ""}, // unterminated string
+		{"", ""},
+		{"top-level ", ""},
+		{"(foo \n bar\n  ", "foo"},   // multi-line
+		{`(foo "\\"`, "foo"},          // even backslashes: closing quote real
+		{`(foo "a\"b" `, "foo"},       // escaped quote inside string
+	}
+	for _, tc := range cases {
+		code := fmt.Sprintf(`(let [r (complete/enclosing-call %q)] (if r (get r :name) ""))`, tc.line)
+		arr, err := state.vm.EvalStringSlice(fmt.Sprintf(`@[%s]`, code))
+		if err != nil {
+			t.Errorf("line %q: eval error: %v", tc.line, err)
+			continue
+		}
+		got := ""
+		if len(arr) > 0 {
+			got = arr[0]
+		}
+		if got != tc.want {
+			t.Errorf("line %q: got %q, want %q", tc.line, got, tc.want)
+		}
 	}
 }
 
@@ -1383,7 +1535,7 @@ func BenchmarkJanetCompletion(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		vm.EvalStringSlice(`(complete/candidates "mpu/g")`)
+		vm.EvalStringSlice(`(complete/candidates "(mpu/g" "mpu/g")`)
 	}
 }
 

@@ -47,4 +47,20 @@ var allMigrations = []Migration{
 		CREATE INDEX idx_sl_spreadsheets_spreadsheet_id ON sl_spreadsheets(spreadsheet_id);
 		CREATE INDEX idx_sl_spreadsheets_version ON sl_spreadsheets(version)`,
 	},
+	{
+		Version: 4,
+		SQL: `CREATE TABLE webapp_cache (
+			key        TEXT PRIMARY KEY,
+			response   TEXT NOT NULL,
+			cached_at  DATETIME NOT NULL DEFAULT (datetime('now'))
+		)`,
+	},
+	{
+		Version: 5,
+		SQL: `CREATE TABLE pgquery_cache (
+			key        TEXT PRIMARY KEY,
+			result     TEXT NOT NULL,
+			cached_at  DATETIME NOT NULL DEFAULT (datetime('now'))
+		)`,
+	},
 }

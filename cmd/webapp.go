@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -39,11 +41,77 @@ func newClient() (webapp.Client, error) {
 	if testClientFn != nil {
 		return testClientFn()
 	}
-	cfg, err := config.Load()
+
+	switch currentConfig.ForceCache {
+	case defaults.CacheModeUse:
+		return &webAppCachedClient{}, nil
+	case defaults.CacheModeAccumulate:
+		cfg, err := config.Load()
+		if err != nil {
+			return nil, err
+		}
+		return &webAppCachingClient{inner: webapp.NewClient(cfg.WebAppURL)}, nil
+	default:
+		cfg, err := config.Load()
+		if err != nil {
+			return nil, err
+		}
+		return webapp.NewClient(cfg.WebAppURL), nil
+	}
+}
+
+// webAppCachedClient reads responses only from cache.
+type webAppCachedClient struct{}
+
+func (c *webAppCachedClient) Do(req webapp.Request) (*webapp.Response, error) {
+	db, err := cache.Open()
+	if err != nil {
+		return nil, fmt.Errorf("open cache: %w", err)
+	}
+	defer db.Close()
+
+	key := webAppCacheKey(req)
+	data, ok := db.GetWebAppResponse(key)
+	if !ok {
+		return nil, fmt.Errorf("no cached response for this request (forceCache=use mode: run the same command without forceCache=use to populate cache first)")
+	}
+
+	var resp webapp.Response
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, fmt.Errorf("decode cached response: %w", err)
+	}
+	return &resp, nil
+}
+
+// webAppCachingClient makes real requests and caches results.
+type webAppCachingClient struct {
+	inner webapp.Client
+}
+
+func (c *webAppCachingClient) Do(req webapp.Request) (*webapp.Response, error) {
+	resp, err := c.inner.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	return webapp.NewClient(cfg.WebAppURL), nil
+
+	// Cache the result (best-effort).
+	if db, dbErr := cache.Open(); dbErr == nil {
+		defer db.Close()
+		key := webAppCacheKey(req)
+		if data, merr := json.Marshal(resp); merr == nil {
+			_ = db.SetWebAppResponse(key, data)
+		}
+	}
+
+	return resp, nil
+}
+
+// webAppCacheKey generates a deterministic cache key for a request.
+func webAppCacheKey(req webapp.Request) string {
+	// json.Marshal sorts map keys deterministically
+	data, _ := json.Marshal(req)
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 // requireFlag returns the value of a string flag, falling back to saved defaults.

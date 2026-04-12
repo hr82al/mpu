@@ -113,6 +113,12 @@ static int janet_to_bool(Janet x) {
 	}
 	return janet_truthy(x);
 }
+
+// Report whether a Janet value is a keyword — callers prepend ':' on the
+// Go side so keyword/string arguments stay distinguishable after janet_to_string.
+static int janet_is_keyword(Janet x) {
+	return janet_checktype(x, JANET_KEYWORD);
+}
 */
 import "C"
 
@@ -188,13 +194,19 @@ func janet_go_cfunc_bridge(argc C.int32_t, argv *C.Janet) C.Janet {
 		return C.janet_wrap_nil()
 	}
 
-	// Convert Janet args to Go strings.
+	// Convert Janet args to Go strings. janet_to_string strips the leading ':'
+	// from keywords, so prepend it here to preserve the distinction between
+	// keyword and string arguments on the Go side.
 	n := int(argc)
 	args := make([]string, n)
 	for i := range n {
 		arg := *(*C.Janet)(unsafe.Add(unsafe.Pointer(argv), uintptr(i)*unsafe.Sizeof(C.Janet{})))
 		cstr := C.janet_to_string(arg)
-		args[i] = C.GoString((*C.char)(unsafe.Pointer(cstr)))
+		s := C.GoString((*C.char)(unsafe.Pointer(cstr)))
+		if C.janet_is_keyword(arg) != 0 {
+			s = ":" + s
+		}
+		args[i] = s
 	}
 
 	result, err := vm.funcs[idx](args)

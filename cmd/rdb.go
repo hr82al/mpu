@@ -3,10 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"mpu/internal/auth"
 	"mpu/internal/cache"
 	"mpu/internal/config"
-	"mpu/internal/slapi"
 
 	"github.com/spf13/cobra"
 )
@@ -49,16 +47,8 @@ The SQL argument is never saved to defaults.`,
 		client, ok := db.GetClient(id)
 		if !ok {
 			// Not cached — sync from API and retry.
-			token, err := auth.GetToken(db)
-			if err != nil {
+			if err := syncClientsFromAPI(db); err != nil {
 				return err
-			}
-			rows, err := slapi.GetClients(token)
-			if err != nil {
-				return err
-			}
-			if err := db.ReplaceClients(rows); err != nil {
-				return fmt.Errorf("store clients: %w", err)
 			}
 			client, ok = db.GetClient(id)
 			if !ok {

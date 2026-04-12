@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"mpu/internal/cache"
 	"mpu/internal/config"
 
 	"github.com/spf13/cobra"
@@ -21,7 +22,9 @@ The client ID is optional after the first use — it is saved to defaults:
   mpu ldb 42 "SELECT COUNT(*) FROM orders"   # runs query, saves id=42
   mpu ldb "SELECT 1"                          # reuses saved id=42
 
-The SQL argument is never saved to defaults.`,
+The SQL argument is never saved to defaults.
+
+When remotePostgresOnly is enabled, routes to remote PostgreSQL instead.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, sql, err := resolveDBArgs(args)
@@ -32,6 +35,35 @@ The SQL argument is never saved to defaults.`,
 		if err != nil {
 			return err
 		}
+
+		// If remotePostgresOnly, resolve host via client's server field
+		if currentConfig.RemotePostgresOnly {
+			db, err := cache.Open()
+			if err != nil {
+				return err
+			}
+			defer db.Close()
+
+			client, ok := db.GetClient(id)
+			if !ok {
+				// Not cached — sync from API and retry.
+				if err := syncClientsFromAPI(db); err != nil {
+					return err
+				}
+				client, ok = db.GetClient(id)
+				if !ok {
+					return fmt.Errorf("client %d not found", id)
+				}
+			}
+
+			host, err := resolveRemoteHost(client.Server)
+			if err != nil {
+				return err
+			}
+
+			return runQuery(cfg, host, cfg.RemotePort, fmt.Sprintf("client_%d", id), sql)
+		}
+
 		return runQuery(cfg, cfg.Host, cfg.LocalPort, fmt.Sprintf("client_%d", id), sql)
 	},
 }

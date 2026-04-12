@@ -8,6 +8,7 @@ import (
 	"mpu/internal/auth"
 	"mpu/internal/cache"
 	"mpu/internal/config"
+	"mpu/internal/defaults"
 	"mpu/internal/pgclient"
 	"mpu/internal/slapi"
 
@@ -36,6 +37,10 @@ func init() {
 }
 
 func runUpdateSpreadsheets(cmd *cobra.Command, args []string) error {
+	if currentConfig.ForceCache == defaults.CacheModeUse {
+		return fmt.Errorf("forceCache=use: update-spreadsheets requires network access to PostgreSQL servers")
+	}
+
 	db, err := cache.Open()
 	if err != nil {
 		return err

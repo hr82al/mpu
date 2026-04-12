@@ -2,12 +2,17 @@ package cmd
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
+	"mpu/internal/cache"
 	"mpu/internal/config"
+	"mpu/internal/defaults"
 	"mpu/internal/pgclient"
 )
 
@@ -46,7 +51,21 @@ func runQuery(cfg *config.PGConfig, host, port, user, sql string) error {
 
 // runQueryWithCreds connects to PostgreSQL with explicit credentials.
 // If searchPath is non-empty, SET search_path is executed before the main query.
+// Respects forceCache setting: reads from cache in use mode, accumulates cache in accumulate mode.
 func runQueryWithCreds(dbName, host, port, user, password, searchPath, sql string) error {
+	key := pgCacheKey(host, port, user, sql)
+
+	// Check cache if in use mode
+	if currentConfig.ForceCache == defaults.CacheModeUse {
+		rows, ok := loadPGResultFromCache(key)
+		if !ok {
+			return fmt.Errorf("no cached result for this query (forceCache=use mode: run the same query without forceCache=use to populate cache first)")
+		}
+		printJSON(rows)
+		return nil
+	}
+
+	// Real query execution
 	ctx := context.Background()
 	conn, err := pgclient.NewConn(ctx, host, port, user, password, dbName)
 	if err != nil {
@@ -64,8 +83,52 @@ func runQueryWithCreds(dbName, host, port, user, password, searchPath, sql strin
 	if err != nil {
 		return err
 	}
+
+	// Cache result if in accumulate mode (best-effort)
+	if currentConfig.ForceCache == defaults.CacheModeAccumulate {
+		_ = savePGResultToCache(key, rows)
+	}
+
 	printJSON(rows)
 	return nil
+}
+
+// pgCacheKey generates a deterministic cache key for a PG query.
+func pgCacheKey(host, port, user, sql string) string {
+	input := host + "\x00" + port + "\x00" + user + "\x00" + sql
+	sum := sha256.Sum256([]byte(input))
+	return hex.EncodeToString(sum[:])
+}
+
+// loadPGResultFromCache retrieves cached PG query result.
+func loadPGResultFromCache(key string) ([]map[string]any, bool) {
+	db, err := cache.Open()
+	if err != nil {
+		return nil, false
+	}
+	defer db.Close()
+
+	data, ok := db.GetPGResult(key)
+	if !ok {
+		return nil, false
+	}
+
+	var rows []map[string]any
+	if err := json.Unmarshal(data, &rows); err != nil {
+		return nil, false
+	}
+	return rows, true
+}
+
+// savePGResultToCache stores PG query result in cache.
+func savePGResultToCache(key string, rows []map[string]any) error {
+	db, err := cache.Open()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	return db.SetPGResultFromRows(key, rows)
 }
 
 // resolveHost tries to resolve name via .env, falls back to using it as direct address.

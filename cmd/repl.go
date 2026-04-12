@@ -215,13 +215,14 @@ func runInteractiveREPL(cmd *cobra.Command, vm *janet.VM) error {
 			vm.DoString(fmt.Sprintf(`(set *counter* %d)`, state.counter))
 			vm.DoString(fmt.Sprintf(`(set _iii _ii) (set _ii _i) (set _i %q)`, input))
 
-			result, execErr := vm.DoEval(input)
+			// Rotate result history inside the eval so the actual Janet value
+			// is bound — avoids re-parsing result.Str, which breaks on strings
+			// containing spaces/brackets (e.g. error messages).
+			wrapped := fmt.Sprintf(`(let [r (do %s)] (set ___ __) (set __ _) (set _ r) r)`, input)
+			result, execErr := vm.DoEval(wrapped)
 			if execErr != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "\033[31merror:\033[0m %s\n", execErr)
 			} else if result.Str != "" || result.Type != janet.TypeNil {
-				vm.DoString(fmt.Sprintf(
-					`(try (do (set ___ __) (set __ _) (set _ %s)) ([e] nil))`, result.Str))
-
 				highlighted, hlErr := vm.DoString(
 					fmt.Sprintf(`(highlight/result %d %q)`, int(result.Type), result.Str))
 				if hlErr == nil && highlighted != "" {
@@ -247,9 +248,6 @@ func runInteractiveREPL(cmd *cobra.Command, vm *janet.VM) error {
 func (s *replState) doComplete(req compRequest) compResponse {
 	line := req.line[:req.pos]
 	word := extractCurrentWord(line)
-	if word == "" {
-		return compResponse{}
-	}
 
 	var candidates []string
 
@@ -301,21 +299,21 @@ func (s *replState) doComplete(req compRequest) compResponse {
 		if len(candidates) == 0 {
 			s.compCtx = findEnclosingCommand(line)
 			arr, err := s.vm.EvalStringSlice(
-				fmt.Sprintf(`(complete/candidates %q)`, word))
+				fmt.Sprintf(`(complete/candidates %q %q)`, line, word))
 			if err == nil && len(arr) > 0 {
 				candidates = arr
 			}
 		}
 
 	default:
-		// Ask Janet for completions (commands + symbols).
+		// Ask Janet for completions (commands + symbols + params).
 		s.compCtx = findEnclosingCommand(line)
 		arr, err := s.vm.EvalStringSlice(
-			fmt.Sprintf(`(complete/candidates %q)`, word))
+			fmt.Sprintf(`(complete/candidates %q %q)`, line, word))
 		if err == nil && len(arr) > 0 {
 			candidates = arr
 		}
-		if len(candidates) == 0 {
+		if len(candidates) == 0 && word != "" {
 			// Fallback to Go-only for mpu/ commands.
 			for _, name := range s.cmdNames {
 				full := "mpu/" + name
@@ -643,12 +641,33 @@ func registerCobraCmd(vm *janet.VM, name, doc string, cobraCmd *cobra.Command) e
 			cmdArgs = cmdArgs[1:]
 		}
 		rootCmd.SetArgs(cmdArgs)
+
+		// Clear sticky flag state from prior invocations so a fresh call
+		// behaves like a new CLI process (positional args resolve via
+		// resolveSpreadsheetID, saved defaults still apply via currentConfig).
+		resetCobraFlags(cobraCmd)
+
 		if err := rootCmd.Execute(); err != nil {
 			return "", err
 		}
 
 		return strings.TrimRight(buf.String(), "\n"), nil
 	})
+}
+
+// resetCobraFlags clears sticky flag state (Changed + Value) on the command's
+// local and inherited flags so each REPL call behaves like a fresh invocation.
+// Flag defaults are restored from f.DefValue; persisted smart-defaults still
+// apply because commands read from currentConfig.Defaults, not flag values.
+func resetCobraFlags(cmd *cobra.Command) {
+	reset := func(fs *pflag.FlagSet) {
+		fs.VisitAll(func(f *pflag.Flag) {
+			_ = f.Value.Set(f.DefValue)
+			f.Changed = false
+		})
+	}
+	reset(cmd.Flags())
+	reset(cmd.InheritedFlags())
 }
 
 // keywordsToCLI converts Janet keyword arguments to CLI flags.

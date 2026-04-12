@@ -6,9 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"mpu/internal/auth"
 	"mpu/internal/cache"
-	"mpu/internal/slapi"
 
 	"github.com/spf13/cobra"
 )
@@ -35,7 +33,9 @@ and reused on subsequent calls:
 
   mpu client 42 --fields server          # sl-1
   mpu client 42 --fields id,server       # {"id":42,"server":"sl-1"}
-  mpu client 42 --fields ""              # clears saved fields → full JSON`,
+  mpu client 42 --fields ""              # clears saved fields → full JSON
+
+In forceCache=use mode, returns error if client not in cache.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, err := resolveClientID(args)
@@ -53,16 +53,8 @@ and reused on subsequent calls:
 		client, ok := db.GetClient(id)
 		if !ok {
 			// Not in cache → sync from API then retry.
-			token, err := auth.GetToken(db)
-			if err != nil {
+			if err := syncClientsFromAPI(db); err != nil {
 				return err
-			}
-			rows, err := slapi.GetClients(token)
-			if err != nil {
-				return err
-			}
-			if err := db.ReplaceClients(rows); err != nil {
-				return fmt.Errorf("store clients: %w", err)
 			}
 			client, ok = db.GetClient(id)
 			if !ok {

@@ -9,11 +9,22 @@ import (
 // Values holds last-used flag values keyed by flag name.
 type Values map[string]any
 
+// CacheMode controls caching behavior.
+type CacheMode string
+
+const (
+	CacheModeNone       CacheMode = ""
+	CacheModeAccumulate CacheMode = "accumulate"
+	CacheModeUse        CacheMode = "use"
+)
+
 // Config is the top-level structure of ~/.config/mpu/config.json.
 type Config struct {
-	Protected bool   `json:"protected"`
-	Command   string `json:"command,omitempty"` // last-used command group, e.g. "webApp"
-	Defaults  Values `json:"defaults"`
+	Protected          bool      `json:"protected"`
+	ForceCache         CacheMode `json:"forceCache,omitempty"`
+	RemotePostgresOnly bool      `json:"remotePostgresOnly"`
+	Command            string    `json:"command,omitempty"` // last-used command group, e.g. "webApp"
+	Defaults           Values    `json:"defaults"`
 }
 
 func filePath() (string, error) {

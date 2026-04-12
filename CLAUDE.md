@@ -46,6 +46,12 @@ go test ./cmd/ -bench . -benchmem -timeout 120s            # REPL Janet script b
 go test ./internal/janet/ -bench . -benchmem               # VM-level benchmarks
 ```
 
+**Important:** During build and test:
+- Do **NOT** delete the SQLite cache (`~/.config/mpu/db`) or any config files
+- Do **NOT** reset cached data between test runs
+- Only create default files/directories if they don't already exist
+- Tests and build artifacts must preserve user state and existing cache
+
 ## Architecture
 
 `mpu` is a multi-purpose CLI utility (cobra) with four domains:

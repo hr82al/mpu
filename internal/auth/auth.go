@@ -36,6 +36,18 @@ func GetToken(db *cache.DB) (string, error) {
 	return tok, nil
 }
 
+// GetTokenForced returns token from cache without TTL check.
+// Used in forceCache=use mode when network is unavailable.
+// Returns error if no cached token exists.
+func GetTokenForced(db *cache.DB) (string, error) {
+	var token string
+	err := db.QueryRow(`SELECT token FROM token_cache WHERE key = ?`, cacheKey).Scan(&token)
+	if err != nil || token == "" {
+		return "", fmt.Errorf("no cached token (run 'mpu token' without forceCache=use first)")
+	}
+	return token, nil
+}
+
 func fetchToken(cfg *config.AuthConfig) (string, error) {
 	body, _ := json.Marshal(map[string]string{
 		"email":    cfg.Email,
