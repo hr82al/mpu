@@ -29,5 +29,6 @@
 (def merged (json/decode raw))
 (def src (ss-analyze/find-source merged target))
 (if src
-  (print src)
+  (let [[addr formula] src]
+    (printf `("%s" "%s")` addr formula))
   (errorf "ss-analyze: no source formula found for %s" target))

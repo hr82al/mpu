@@ -32,11 +32,12 @@
   formula, given `merged` — the decoded output of mpu batch-get-all: an
   array of {\"range\" \"values\"} tables whose values are 2-D arrays of
   {\"a\" \"v\" \"f\"} cells.
-  Returns the address string of that formula cell, or nil if none qualify.
+  Returns [address formula] of that formula cell, or nil if none qualify.
   Ties resolve toward the smallest Manhattan distance from target."
   [merged target]
   (def [tr tc] (ss-analyze/cell->rc target))
   (var best-addr nil)
+  (var best-formula nil)
   (var best-dist nil)
   (each rng merged
     (each row (get rng "values")
@@ -48,5 +49,6 @@
             (def dist (+ (- tr r) (- tc c)))
             (when (or (nil? best-dist) (< dist best-dist))
               (set best-dist dist)
-              (set best-addr (get cell "a"))))))))
-  best-addr)
+              (set best-addr (get cell "a"))
+              (set best-formula f)))))))
+  (when best-addr [best-addr best-formula]))

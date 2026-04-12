@@ -25,16 +25,18 @@
       @[(cell "R4" 42  "=ARRAYFORMULA(R4:T6 + 1)")]
       @[(cell "T6" "x" "")]])])
 
-(assert (= "R4" (ss-analyze/find-source merged-spill "T6"))
-        "spilled T6 must resolve to R4")
+(assert (deep= ["R4" "=ARRAYFORMULA(R4:T6 + 1)"]
+               (ss-analyze/find-source merged-spill "T6"))
+        "spilled T6 must resolve to [R4 formula]")
 
 # ── find-source: target itself carries the formula ───────────────
 
 (def merged-self
   @[(range- @[@[(cell "B2" 99 "=SUM(A1:A2)")]])])
 
-(assert (= "B2" (ss-analyze/find-source merged-self "B2"))
-        "B2 with its own formula is its own source")
+(assert (deep= ["B2" "=SUM(A1:A2)"]
+               (ss-analyze/find-source merged-self "B2"))
+        "B2 with its own formula must return [B2 formula]")
 
 # ── find-source: no qualifying formula → nil ─────────────────────
 
@@ -63,7 +65,7 @@
       @[(cell "R4" "y" "=NEAR()")]
       @[(cell "T6" "v" "")]])])
 
-(assert (= "R4" (ss-analyze/find-source merged-two "T6"))
+(assert (deep= ["R4" "=NEAR()"] (ss-analyze/find-source merged-two "T6"))
         "closer formula R4 must win over distant A1")
 
 (print "ss-analyze_test: all assertions passed")
