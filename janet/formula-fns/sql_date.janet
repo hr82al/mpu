@@ -1,11 +1,19 @@
-# formula-fns/sql_date.janet — Sheets function "SQL_DATE".
+# SQL_DATE(date) — named wrapper producing a SQL DATE literal.
 #
-# Receives raw AST args; evaluate with (formula-eval/eval arg ctx).
-# Replace the stub body with real behavior. Delete this file to
-# regenerate the scaffold on the next auto-run.
+# Body (from the sheet's defined names):
+#
+#   ="DATE '" & TEXT(date; "yyyy-MM-dd") & "'"
+
+(def- sql-date/*body-ast*
+  (formula-parser/parse
+    ``="DATE '" & TEXT(date; "yyyy-MM-dd") & "'"``))
 
 (formula-eval/register "SQL_DATE"
   (fn [args ctx]
-    (def evaluated (map (fn [a] (formula-eval/eval a ctx)) args))
-    (printf "# STUB %s at %s: %j" "SQL_DATE" (get ctx :addr) evaluated)
-    [:stub "SQL_DATE"]))
+    (when (< (length args) 1)
+      (error "SQL_DATE: expected (date)"))
+    (formula-eval/eval
+      [:call "LET"
+             [[:name "date"] (get args 0)
+              sql-date/*body-ast*]]
+      ctx)))

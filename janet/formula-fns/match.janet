@@ -1,0 +1,35 @@
+# MATCH(key, range, [match_type])
+#   0  → exact
+#   1  → largest ≤ key (range must be asc-sorted; default)
+#  -1  → smallest ≥ key (range must be desc-sorted)
+(formula-eval/register "MATCH"
+  (fn [args ctx]
+    (def key (formula-eval/eval (get args 0) ctx))
+    (def raw (formula-eval/eval (get args 1) ctx))
+    (def type (if (>= (length args) 3)
+                (math/trunc (formula-eval/eval (get args 2) ctx)) 1))
+    (def flat
+      (if (and (indexed? raw) (indexed? (get raw 0)))
+        (let [out @[]]
+          (each r raw (each e r (array/push out e)))
+          out)
+        raw))
+    (def n (length flat))
+    (var hit nil)
+    (cond
+      (= type 0)
+      (do (var i 0)
+          (while (and (nil? hit) (< i n))
+            (when (= (get flat i) key) (set hit (+ i 1)))
+            (++ i)))
+      (= type 1)
+      (do (var i 0)
+          (while (< i n)
+            (when (<= (get flat i) key) (set hit (+ i 1)))
+            (++ i)))
+      (= type -1)
+      (do (var i 0)
+          (while (< i n)
+            (when (>= (get flat i) key) (set hit (+ i 1)))
+            (++ i))))
+    (or hit (error "MATCH: not found"))))

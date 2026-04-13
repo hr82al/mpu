@@ -1,11 +1,10 @@
-# formula-fns/isblank.janet — Sheets function "ISBLANK".
+# ISBLANK(value) — true when cell contains no value.
+# https://support.google.com/docs/answer/3093290
 #
-# Receives raw AST args; evaluate with (formula-eval/eval arg ctx).
-# Replace the stub body with real behavior. Delete this file to
-# regenerate the scaffold on the next auto-run.
+# Semantics: nil (absent) and empty string are blank; 0 is NOT blank.
 
 (formula-eval/register "ISBLANK"
   (fn [args ctx]
-    (def evaluated (map (fn [a] (formula-eval/eval a ctx)) args))
-    (printf "# STUB %s at %s: %j" "ISBLANK" (get ctx :addr) evaluated)
-    [:stub "ISBLANK"]))
+    (when (empty? args) (error "ISBLANK needs a value"))
+    (def v (formula-eval/eval (get args 0) ctx))
+    (or (nil? v) (and (string? v) (empty? v)))))

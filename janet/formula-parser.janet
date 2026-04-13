@@ -231,9 +231,11 @@
       (let [piece (read-ref-piece s i)
             piece-end (if piece (get piece 1) i)
             nxt (if (< piece-end n) (get s piece-end))
-            ident-cont? (or (lower? nxt) (= nxt C-_))
-            # If piece didn't match OR if the run continues into ident
-            # chars after the ref-piece, treat as a word.
+            piece-had-digit (and piece (has-digit? (get piece 0)))
+            # Lowercase / underscore / (uppercase-after-digits) continue
+            # the run — this was an identifier like BIN2DEC, not a cell.
+            ident-cont? (or (lower? nxt) (= nxt C-_)
+                            (and piece-had-digit (upper? nxt)))
             fallback-to-word (or (nil? piece) ident-cont?)]
         (if fallback-to-word
           (let [j (word-end s i)
@@ -268,6 +270,11 @@
                   (array/push out [:range text1 t2])
                   (set i k)))
 
+              # function call: an A1-looking piece followed by `(` is
+              # actually a function name (LOG10, BASE64, SHA256, …).
+              (and (< j n) (= (get s j) (chr "(")))
+              (do (array/push out [:ident text1]) (set i j))
+
               # sheet qualifier (piece is sheet name)
               (and (< j n) (= (get s j) (chr "!")))
               (let [p2 (read-ref-piece s (+ j 1))]
@@ -301,8 +308,11 @@
       (= c (chr ")")) (do (array/push out [:rparen]) (++ i))
       (= c (chr "{")) (do (array/push out [:lbrace]) (++ i))
       (= c (chr "}")) (do (array/push out [:rbrace]) (++ i))
-      # `,` `;` `\` all end an argument/array-element slot.
-      (or (= c (chr ",")) (= c (chr ";")) (= c (chr "\\")))
+      # `;` starts a new row inside `{…}` array literals (and also serves
+      # as arg-separator in EU locale, handled in parse-args).
+      (= c (chr ";"))
+      (do (array/push out [:semicolon]) (++ i))
+      (or (= c (chr ",")) (= c (chr "\\")))
       (do (array/push out [:comma]) (++ i))
 
       # fallback: operator
@@ -332,19 +342,24 @@
     (errorf "expected %s, got %j" tag t))
   t)
 
+(defn- slot-sep? [t]
+  (and t (or (= (get t 0) :comma) (= (get t 0) :semicolon))))
+
 (defn- parse-arg-slot [st]
-  # Empty slot when the next token is a comma or rparen (as in F(,x), IF(a;b;)).
+  # Empty slot when the next token is a sep, rparen, or rbrace.
   (def t (peek-tok st))
-  (if (and t (or (= (get t 0) :comma) (= (get t 0) :rparen)))
+  (if (and t (or (slot-sep? t)
+                 (= (get t 0) :rparen) (= (get t 0) :rbrace)))
     [:empty]
     (parse-expr- st 0)))
 
 (defn- parse-args [st]
+  # Accepts `,` and `;` as arg-separators (EU-locale formulas use `;`).
   (def args @[])
   (def first (peek-tok st))
   (when (and first (not= (get first 0) :rparen))
     (array/push args (parse-arg-slot st))
-    (while (let [t (peek-tok st)] (and t (= (get t 0) :comma)))
+    (while (slot-sep? (peek-tok st))
       (advance-tok st)
       (array/push args (parse-arg-slot st))))
   args)
@@ -379,15 +394,36 @@
       e)
 
     (= tag :lbrace)
-    (let [elems @[]]
+    # Array literal. `,` / `\` separate columns, `;` separates rows.
+    # If no `;` appears, return flat [:array …] for back-compat; else
+    # emit [:matrix rows] preserving 2-D shape (ROWS/COLUMNS need it).
+    (let [rows @[]]
+      (var current @[])
+      (var saw-row-sep false)
       (def nxt (peek-tok st))
       (when (and nxt (not= (get nxt 0) :rbrace))
-        (array/push elems (parse-arg-slot st))
-        (while (let [t (peek-tok st)] (and t (= (get t 0) :comma)))
-          (advance-tok st)
-          (array/push elems (parse-arg-slot st))))
+        (array/push current (parse-arg-slot st))
+        (var going true)
+        (while going
+          (def t (peek-tok st))
+          (cond
+            (nil? t) (set going false)
+            (= (get t 0) :rbrace) (set going false)
+            (= (get t 0) :comma)
+            (do (advance-tok st) (array/push current (parse-arg-slot st)))
+            (= (get t 0) :semicolon)
+            (do (advance-tok st)
+                (set saw-row-sep true)
+                (array/push rows (tuple/slice current))
+                (set current @[])
+                (array/push current (parse-arg-slot st)))
+            (set going false))))
+      (when (not (empty? current)) (array/push rows (tuple/slice current)))
       (expect st :rbrace)
-      [:array [;elems]])
+      (cond
+        (empty? rows) [:array []]
+        saw-row-sep  [:matrix [;rows]]
+        [:array (get rows 0)]))
 
     (= tag :op)
     (let [op (get t 1)]

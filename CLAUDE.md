@@ -274,8 +274,39 @@ Janet REPL scripts live in `janet/` (project) and are installed to `~/.config/mp
 | `hint.janet` | `(hint/for name)` → inline help lines; `(hint/register …)` to override; curated examples for all `mpu/*` and 40+ core Janet functions |
 | `init.janet` | Final init hook (documentation only) |
 | `rc.janet` | User customization (optional, not overwritten by install) |
+| `formula-finder.janet` | Locate the formula cell writing into a target (`resolve` → `:formula` / `:direct` / nil) |
+| `formula-parser.janet` | Tokenizer + Pratt parser → tagged-tuple AST |
+| `formula-eval.janet` | AST walker with env/lambdas; `:call` dispatches via `formula-eval/*fns*` |
 
 Override the scripts directory via `MPU_JANET_DIR` env var.
+
+### Formula evaluator (`formula-eval`)
+
+Built-in functions live one-per-file in `janet/formula-fns/<name>.janet` and
+self-register via `(formula-eval/register "NAME" handler)`. Unknown `:call`
+names auto-generate a stub file with diagnostic behavior; replace the stub
+with real logic and rerun.
+
+**Canonical reference for Sheets functions:**
+<https://support.google.com/docs/table/25273>
+
+When implementing or fixing a `formula-fns/<name>.janet`, consult that table.
+**If the function name is NOT listed there, it is a sheet-specific named
+function (user-defined in the spreadsheet). Stop and request its body from
+the sheet owner** — there is no way to recover the definition from the data
+alone. Examples already captured: `CL_QUERY`, `KEYSQUERY`, `SQL_DATE`.
+Wrapper pattern for named functions: parse the body once at file load time
+(long-string, no escape interpretation) and wrap into `LET` at each call so
+caller args bind to the parameter names.
+
+Run the bulk evaluator on a sheet to surface unimplemented functions:
+
+```bash
+mpu ss-eval -s <spreadsheet-id> -n <sheet>
+```
+
+It prints match/stub/mismatch counts and the list of missing names; each
+stub call writes a scaffold into `formula-fns/` on first encounter.
 
 ### Color theme system
 
@@ -416,4 +447,4 @@ Workflow:
 
 ### Test spreadsheet
 
-`1eJfRwbYlkyHbtTxmWzH6nCxeIJHgbqZwPwn5tfsRRZo` — read/write access, used by all integration tests.
+`1e-YcucjBPBCtrX95o3ln0DQ2qhCuhJxP7D7myiw9SqE` — read/write access. Use this spreadsheet ID for **all** integration tests, checks, and experiments — including `mpu ss-eval`, manual `mpu get/set`, and ad-hoc formula evaluator runs.

@@ -20,7 +20,9 @@
                                   (do (def c (table/clone ctx))
                                       (put c :env env)
                                       c)))
-      (put env name val)
+      # (put tbl key nil) removes the key in Janet; use sentinel so
+      # blank/nil values survive the lookup in :name eval.
+      (put env name (if (nil? val) formula-eval/*nil-cell* val))
       (+= i 2))
     (formula-eval/eval (get args (- n 1))
                        (do (def c (table/clone ctx))

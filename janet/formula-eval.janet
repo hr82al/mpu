@@ -28,6 +28,12 @@
 (defn formula-eval/register [name handler]
   (put formula-eval/*fns* (string/ascii-upper name) handler))
 
+# Sentinel for nil/blank stored in env tables (LET bindings and lambda params).
+# Janet's (put tbl key nil) removes the key, so we cannot store nil
+# directly. This keyword stands for "this binding is nil/blank".
+# :name eval unwraps it back to nil. Public so let.janet can reference it.
+(def formula-eval/*nil-cell* :formula-nil-cell)
+
 # ── cell / range helpers ─────────────────────────────────────────
 
 (defn- strip-dollars [s]
@@ -107,17 +113,46 @@
     (set c (div (- c 1) 26)))
   (string (string/reverse (string b)) row))
 
+# Compute max occupied row/col by scanning cell addresses in merged data.
+(defn- sheet-max-row [merged]
+  (var mx 0)
+  (each rng merged
+    (each row (get rng "values")
+      (each cell row
+        (when (get cell "a")
+          (def [r _] (formula-finder/cell->rc (get cell "a")))
+          (when (> r mx) (set mx r))))))
+  mx)
+
+(defn- sheet-max-col [merged]
+  (var mx 0)
+  (each rng merged
+    (each row (get rng "values")
+      (each cell row
+        (when (get cell "a")
+          (def [_ c] (formula-finder/cell->rc (get cell "a")))
+          (when (> c mx) (set mx c))))))
+  mx)
+
 (defn- resolve-range [a1 a2 ctx]
   (def [sheet1 raw1] (split-sheet-ref a1))
   (def addr1 (strip-dollars raw1))
   (def addr2 (strip-dollars a2))
   (def [l1 r1] (split-addr addr1))
   (def [l2 r2] (split-addr addr2))
-  (def c1 (if l1 (col-index l1) 1))
-  (def c2 (if l2 (col-index l2) c1))
-  (def rr1 (or r1 1))
-  (def rr2 (or r2 rr1))
   (def merged (merged-for ctx sheet1))
+  # Column bounds:
+  #   • $1:$1 style (no letters in either addr) → whole row: 1…max-col
+  #   • normal: explicit col-index, defaulting to c1 when l2 absent
+  (def c1 (if l1 (col-index l1) 1))
+  (def c2 (cond
+    (and (nil? l1) (nil? l2)) (sheet-max-col merged)   # whole-row ref
+    l2                        (col-index l2)
+    c1))
+  # Row bounds:
+  #   • r2 absent (e.g. $A$3:$AAB — column with no row) → open-ended: rr1…max-row
+  (def rr1 (or r1 1))
+  (def rr2 (if (nil? r2) (sheet-max-row merged) r2))
   (def out @[])
   (for r (min rr1 rr2) (+ (max rr1 rr2) 1)
     (def row @[])
@@ -135,8 +170,9 @@
     "/" (fn [a b] (/ a b))
     "^" (fn [a b] (math/pow a b))
     "&" (fn [a b] (string (or a "") (or b "")))
-    "=" (fn [a b] (= a b))
-    "<>" (fn [a b] (not= a b))
+    # Sheets semantics: blank cell (nil) compares as "" in equality tests.
+    "=" (fn [a b] (= (if (nil? a) "" a) (if (nil? b) "" b)))
+    "<>" (fn [a b] (not= (if (nil? a) "" a) (if (nil? b) "" b)))
     "<" (fn [a b] (< a b))
     ">" (fn [a b] (> a b))
     "<=" (fn [a b] (<= a b))
@@ -181,14 +217,26 @@
   (put copy :env env)
   copy)
 
-(defn formula-eval/invoke-lambda [lam args ctx]
+(defn formula-eval/invoke-lambda-with-values
+  "Invoke a [:lambda …] with pre-evaluated values (skip eval-time arg walk).
+   Use from MAP/REDUCE/FILTER and similar higher-order functions that
+   iterate over data values, not ASTs."
+  [lam values ctx]
   (def [_ params body captured] lam)
   (def base (or (get captured :env) @{}))
   (def env (table/clone base))
-  (for i 0 (min (length params) (length args))
-    (put env (get params i)
-         (formula-eval/eval (get args i) ctx)))
+  (for i 0 (min (length params) (length values))
+    # (put tbl key nil) removes the key in Janet, so store a sentinel
+    # for nil/blank values and unwrap in :name eval.
+    (def v (get values i))
+    (put env (get params i) (if (nil? v) formula-eval/*nil-cell* v)))
   (formula-eval/eval body (with-env ctx env)))
+
+(defn formula-eval/invoke-lambda [lam args ctx]
+  (formula-eval/invoke-lambda-with-values
+    lam
+    (map (fn [a] (formula-eval/eval a ctx)) args)
+    ctx))
 
 (defn formula-eval/stub-call [name args ctx]
   (put (ctx :missing-fns) name true)
@@ -234,6 +282,12 @@
     (= tag :array)
     (map (fn [e] (formula-eval/eval e ctx)) (get ast 1))
 
+    (= tag :matrix)
+    # Preserve 2-D shape: array of rows.
+    (map (fn [row]
+           (map (fn [e] (formula-eval/eval e ctx)) row))
+         (get ast 1))
+
     (= tag :call)
     (let [name (get ast 1)
           args (get ast 2)
@@ -252,10 +306,10 @@
 
     (= tag :name)
     (let [n (get ast 1)
-          env (get ctx :env)
-          bound (and env (get env n))]
-      (if (not (nil? bound))
-        bound
+          env (get ctx :env)]
+      (if (and env (has-key? env n))
+        (let [v (get env n)]
+          (if (= v formula-eval/*nil-cell*) nil v))
         (do
           (array/push (ctx :unresolved) [:name n (get ctx :addr)])
           [:unresolved n])))
