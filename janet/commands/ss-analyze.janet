@@ -27,8 +27,16 @@
   (error "ss-analyze: mpu/batch-get-all returned no data"))
 
 (def merged (json/decode raw))
-(def src (ss-analyze/find-source merged target))
-(if src
-  (let [[addr formula] src]
-    (printf `("%s" "%s")` addr formula))
+(def src (formula-finder/find-source merged target))
+(unless src
   (errorf "ss-analyze: no source formula found for %s" target))
+
+(def [addr formula] src)
+(printf "# %s → %s" target addr)
+(printf "# raw: %s" formula)
+(def ast
+  (try (formula-parser/parse formula)
+    ([e]
+      (errorf "formula-parser failed on %s: %s\n  formula: %s"
+              addr e formula))))
+(printf "%j" ast)

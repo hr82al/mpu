@@ -531,7 +531,9 @@ func loadJanetScripts(vm *janet.VM) {
 		"completion.janet",
 		"prompt.janet",
 		"hint.janet",
-		"ss-analyze.janet",
+		"formula-finder.janet",
+		"formula-parser.janet",
+		"formula-eval.janet",
 		"init.janet",
 	}
 	for _, name := range scripts {
@@ -541,6 +543,20 @@ func loadJanetScripts(vm *janet.VM) {
 			continue
 		}
 		vm.DoString(string(data))
+	}
+	// Load every .janet in formula-fns/ so each handler registers itself
+	// via (formula-eval/register …). Order within the directory doesn't
+	// matter — registration overwrites by name.
+	fnsDir := filepath.Join(dir, "formula-fns")
+	if entries, err := os.ReadDir(fnsDir); err == nil {
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".janet") {
+				continue
+			}
+			if data, err := os.ReadFile(filepath.Join(fnsDir, e.Name())); err == nil {
+				vm.DoString(string(data))
+			}
+		}
 	}
 	rcPath := filepath.Join(dir, "rc.janet")
 	if data, err := os.ReadFile(rcPath); err == nil {

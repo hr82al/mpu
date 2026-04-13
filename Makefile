@@ -42,7 +42,7 @@ install: build ensure-env
 	else \
 		echo "$(CONFIG_DIR)/.env already exists — skipping"; \
 	fi
-	@mkdir -p $(JANET_DIR) $(JANET_DIR)/commands $(JANET_DIR)/tests
+	@mkdir -p $(JANET_DIR) $(JANET_DIR)/commands $(JANET_DIR)/tests $(JANET_DIR)/formula-fns
 	@for f in janet/*.janet; do \
 		[ -f "$$f" ] && install -Dm644 "$$f" "$(JANET_DIR)/$$(basename $$f)" && \
 		echo "Copied $$f → $(JANET_DIR)/$$(basename $$f)"; \
@@ -54,6 +54,10 @@ install: build ensure-env
 	@for f in janet/tests/*.janet; do \
 		[ -f "$$f" ] && install -Dm644 "$$f" "$(JANET_DIR)/tests/$$(basename $$f)" && \
 		echo "Copied $$f → $(JANET_DIR)/tests/$$(basename $$f)"; \
+	done
+	@for f in janet/formula-fns/*.janet; do \
+		[ -f "$$f" ] && install -Dm644 "$$f" "$(JANET_DIR)/formula-fns/$$(basename $$f)" && \
+		echo "Copied $$f → $(JANET_DIR)/formula-fns/$$(basename $$f)"; \
 	done
 	@echo "Janet scripts installed to $(JANET_DIR)"
 

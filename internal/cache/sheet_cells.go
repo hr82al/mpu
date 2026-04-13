@@ -45,68 +45,145 @@ func (db *DB) UpsertSheetCells(spreadsheetID, sheetName string, cells []SheetCel
 	return tx.Commit()
 }
 
-// ReplaceSheetCellsInRect atomically evicts every stored cell inside
-// [r1..r2]×[c1..c2] for (spreadsheetID, sheetName), then inserts the
-// supplied non-empty cells. Use this after a fresh fetch so a cell that
-// was cleared in the sheet also disappears from the cache — otherwise
-// GetSheetCells would keep returning yesterday's content for that cell.
-func (db *DB) ReplaceSheetCellsInRect(
+// ApplyFetchedRect merges a fresh fetch into sheet_cells, updating only
+// the render columns the caller actually fetched. Cells absent from the
+// fetched set but present inside the rect have their fetched render
+// cleared (they disappeared from the sheet). Rows that end up with both
+// row_value and formula NULL get deleted. Rows with at least one live
+// render survive so a value-only refetch does NOT wipe formulas a prior
+// batch-get-all had stored (and vice versa).
+func (db *DB) ApplyFetchedRect(
 	spreadsheetID, sheetName string,
 	r1, c1, r2, c2 int,
-	cells []SheetCell,
+	wantValue, wantFormula bool,
+	fetched []SheetCell,
 ) error {
+	if !wantValue && !wantFormula {
+		return fmt.Errorf("ApplyFetchedRect: at least one of wantValue/wantFormula must be true")
+	}
+
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin: %w", err)
 	}
 	defer tx.Rollback()
 
-	// Pull every address for the sheet so we can filter by rect in Go
-	// without needing an indexed row/col column in the schema.
+	byAddr := make(map[string]SheetCell, len(fetched))
+	for _, c := range fetched {
+		byAddr[c.Address] = c
+	}
+
+	existing, err := readSheetCellsInRectTx(tx, spreadsheetID, sheetName, r1, c1, r2, c2)
+	if err != nil {
+		return err
+	}
+
+	upsert, err := tx.Prepare(`
+		INSERT OR REPLACE INTO sheet_cells
+			(spreadsheet_id, sheet_name, address, formula, row_value, created_at)
+		VALUES (?, ?, ?, ?, ?, datetime('now'))`)
+	if err != nil {
+		return fmt.Errorf("prepare upsert: %w", err)
+	}
+	defer upsert.Close()
+
+	del, err := tx.Prepare(`
+		DELETE FROM sheet_cells
+		WHERE spreadsheet_id = ? AND sheet_name = ? AND address = ?`)
+	if err != nil {
+		return fmt.Errorf("prepare delete: %w", err)
+	}
+	defer del.Close()
+
+	// 1. Reconcile existing cells against the fresh fetch.
+	seen := make(map[string]bool, len(existing))
+	for _, ex := range existing {
+		seen[ex.Address] = true
+		newCell, inFetch := byAddr[ex.Address]
+		val, fml := ex.Value, ex.Formula
+		if wantValue {
+			if inFetch {
+				val = newCell.Value
+			} else {
+				val = nil
+			}
+		}
+		if wantFormula {
+			if inFetch {
+				fml = newCell.Formula
+			} else {
+				fml = nil
+			}
+		}
+		if isBlank(val) && isBlank(fml) {
+			if _, err := del.Exec(spreadsheetID, sheetName, ex.Address); err != nil {
+				return fmt.Errorf("delete %s: %w", ex.Address, err)
+			}
+			continue
+		}
+		if _, err := upsert.Exec(spreadsheetID, sheetName, ex.Address,
+			nullable(fml), nullable(val)); err != nil {
+			return fmt.Errorf("upsert %s: %w", ex.Address, err)
+		}
+	}
+
+	// 2. Insert cells that are new in the fresh fetch. Empties (both
+	//    renders blank) are skipped: they stay implicit under the
+	//    sheet_fetches rect.
+	for _, nc := range fetched {
+		if seen[nc.Address] {
+			continue
+		}
+		if isBlank(nc.Value) && isBlank(nc.Formula) {
+			continue
+		}
+		if _, err := upsert.Exec(spreadsheetID, sheetName, nc.Address,
+			nullable(nc.Formula), nullable(nc.Value)); err != nil {
+			return fmt.Errorf("upsert new %s: %w", nc.Address, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// readSheetCellsInRectTx pulls cells inside the rect within a tx —
+// same filter logic as GetSheetCells but sharing the caller's tx so
+// ApplyFetchedRect's reconciliation is atomic with its writes.
+func readSheetCellsInRectTx(
+	tx *sql.Tx, spreadsheetID, sheetName string, r1, c1, r2, c2 int,
+) ([]SheetCell, error) {
 	rows, err := tx.Query(`
-		SELECT address FROM sheet_cells
+		SELECT address, formula, row_value
+		FROM sheet_cells
 		WHERE spreadsheet_id = ? AND sheet_name = ?`,
 		spreadsheetID, sheetName)
 	if err != nil {
-		return fmt.Errorf("enumerate: %w", err)
+		return nil, fmt.Errorf("enumerate: %w", err)
 	}
-	var victims []string
+	defer rows.Close()
+	var out []SheetCell
 	for rows.Next() {
 		var addr string
-		if err := rows.Scan(&addr); err != nil {
-			rows.Close()
-			return err
+		var fml, val sql.NullString
+		if err := rows.Scan(&addr, &fml, &val); err != nil {
+			return nil, err
 		}
 		r, c, ok := parseAddress(addr)
-		if !ok {
+		if !ok || r < r1 || r > r2 || c < c1 || c > c2 {
 			continue
 		}
-		if r >= r1 && r <= r2 && c >= c1 && c <= c2 {
-			victims = append(victims, addr)
+		sc := SheetCell{Address: addr}
+		if fml.Valid {
+			v := fml.String
+			sc.Formula = &v
 		}
-	}
-	rows.Close()
-
-	if len(victims) > 0 {
-		del, err := tx.Prepare(`
-			DELETE FROM sheet_cells
-			WHERE spreadsheet_id = ? AND sheet_name = ? AND address = ?`)
-		if err != nil {
-			return fmt.Errorf("prepare delete: %w", err)
+		if val.Valid {
+			v := val.String
+			sc.Value = &v
 		}
-		for _, addr := range victims {
-			if _, err := del.Exec(spreadsheetID, sheetName, addr); err != nil {
-				del.Close()
-				return fmt.Errorf("delete %s: %w", addr, err)
-			}
-		}
-		del.Close()
+		out = append(out, sc)
 	}
-
-	if err := upsertCellsTx(tx, spreadsheetID, sheetName, cells); err != nil {
-		return err
-	}
-	return tx.Commit()
+	return out, rows.Err()
 }
 
 // upsertCellsTx is the INSERT OR REPLACE loop shared by UpsertSheetCells
@@ -193,7 +270,7 @@ func (db *DB) GetSheetCells(
 			cell.Value = &v
 		}
 		// Best-effort parse; ignore error — timestamp is informational.
-		cell.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+		cell.CreatedAt = parseSqliteTime(createdAt)
 		out = append(out, cell)
 	}
 	return out, rows.Err()
@@ -226,6 +303,31 @@ func parseAddress(addr string) (row, col int, ok bool) {
 		return 0, 0, false
 	}
 	return row, col, true
+}
+
+// EvictSheetEntriesBefore removes every sheet_fetches row older than
+// cutoff, and every sheet_cells row whose created_at is older than
+// cutoff — the TTL-mode auto-cleanup the user asked for. Returns the
+// number of rows removed from each table so callers can log or test.
+func (db *DB) EvictSheetEntriesBefore(cutoff time.Time) (cells, fetches int, err error) {
+	stamp := cutoff.UTC().Format("2006-01-02 15:04:05")
+
+	res, err := db.Exec(`DELETE FROM sheet_cells WHERE created_at < ?`, stamp)
+	if err != nil {
+		return 0, 0, fmt.Errorf("evict cells: %w", err)
+	}
+	if n, cerr := res.RowsAffected(); cerr == nil {
+		cells = int(n)
+	}
+
+	res, err = db.Exec(`DELETE FROM sheet_fetches WHERE fetched_at < ?`, stamp)
+	if err != nil {
+		return cells, 0, fmt.Errorf("evict fetches: %w", err)
+	}
+	if n, cerr := res.RowsAffected(); cerr == nil {
+		fetches = int(n)
+	}
+	return cells, fetches, nil
 }
 
 // RecordSheetFetch appends a new fetched-rectangle row. Overlap with
@@ -285,6 +387,20 @@ func (db *DB) FindCoveringFetch(
 	if err != nil {
 		return [4]int{}, time.Time{}, false, err
 	}
-	fetchedAt, _ = time.Parse("2006-01-02 15:04:05", fetchedStr)
+	fetchedAt = parseSqliteTime(fetchedStr)
 	return rect, fetchedAt, true, nil
+}
+
+// parseSqliteTime decodes a timestamp coming out of the modernc.org/sqlite
+// driver. The driver returns DATETIME columns as either RFC3339 with a "Z"
+// suffix ("2026-04-13T03:24:04Z") or the bare "YYYY-MM-DD HH:MM:SS" that
+// older rows used — so we try both and fall through to the zero time on
+// failure. A zero time means "treat as infinitely old" for TTL callers.
+func parseSqliteTime(s string) time.Time {
+	for _, layout := range []string{time.RFC3339, time.DateTime, "2006-01-02T15:04:05.999Z07:00"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
 }

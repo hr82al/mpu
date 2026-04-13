@@ -52,6 +52,14 @@ func (f sheetFetch) run(cfg defaults.Config, client webapp.Client) ([]sheetRange
 	}
 	defer db.Close()
 
+	// In TTL mode, every incoming request sweeps rows older than the
+	// configured window so stale data doesn't linger forever.
+	if ttl, hasTTL := cfg.CacheTTL(); hasTTL {
+		if _, _, err := db.EvictSheetEntriesBefore(time.Now().Add(-ttl)); err != nil {
+			return nil, fmt.Errorf("evict expired: %w", err)
+		}
+	}
+
 	out := make([]sheetRange, len(f.ranges))
 	for i, rng := range f.ranges {
 		sheet, c1, r1, c2, r2, _, err := parseRangeRect(rng)
@@ -186,10 +194,9 @@ func (f sheetFetch) fetchAndStore(
 		}
 	}
 
-	// Parse the request's bounding rect. ReplaceSheetCellsInRect evicts
-	// any stored cells inside the box that are absent from this fresh
-	// response — without that step, a cell the user cleared in Sheets
-	// would keep reappearing from cache forever.
+	// ApplyFetchedRect merges per-render: a value-only refetch updates
+	// row_value without touching formula (and vice-versa), so prior
+	// batch-get-all data isn't wiped by a later partial fetch.
 	_, rc1, rr1, rc2, rr2, _, parseErr := parseRangeRect(rng)
 	if parseErr != nil {
 		// Fall back to pure upsert if the range wouldn't parse; at least
@@ -198,10 +205,11 @@ func (f sheetFetch) fetchAndStore(
 			return sheetRange{}, fmt.Errorf("upsert: %w", err)
 		}
 	} else {
-		if err := db.ReplaceSheetCellsInRect(
-			f.spreadsheetID, sheet, rr1, rc1, rr2, rc2, cells,
+		if err := db.ApplyFetchedRect(
+			f.spreadsheetID, sheet, rr1, rc1, rr2, rc2,
+			f.wantValue, f.wantFormula, cells,
 		); err != nil {
-			return sheetRange{}, fmt.Errorf("replace in rect: %w", err)
+			return sheetRange{}, fmt.Errorf("apply fetched rect: %w", err)
 		}
 		if err := db.RecordSheetFetch(
 			f.spreadsheetID, sheet, rr1, rc1, rr2, rc2,

@@ -152,28 +152,26 @@ func TestGetSheetCells_RectFilters(t *testing.T) {
 // A cell that existed before but is absent from a fresh fetch (because
 // the user cleared it) must disappear from the cache too — otherwise
 // subsequent cache-served requests return stale content masquerading as
-// live data. ReplaceSheetCellsInRect is the atomic primitive: delete
-// everything inside the rect, then insert the fresh non-empty cells.
-func TestReplaceSheetCellsInRect_ClearsStaleCells(t *testing.T) {
+// live data. ApplyFetchedRect is the atomic primitive: cells absent
+// from the fetch have their fetched render cleared, and rows that
+// end up with neither render are deleted.
+func TestApplyFetchedRect_ClearsStaleCells(t *testing.T) {
 	withTempHome(t)
 	db := openDB(t)
 
-	// First "fetch" inserts three non-empty cells.
 	_ = db.UpsertSheetCells("ss", "UNIT", []cache.SheetCell{
 		{Address: "A1", Value: strp("1")},
 		{Address: "B1", Value: strp("2")},
 		{Address: "C1", Value: strp("3")},
 	})
 
-	// Second fetch of the same rect (A1:C1) returns only A1 — B1 and C1
-	// were cleared in the sheet. Both must be evicted.
-	err := db.ReplaceSheetCellsInRect("ss", "UNIT",
-		1, 0, 1, 2, // r1,c1,r2,c2
+	err := db.ApplyFetchedRect("ss", "UNIT",
+		1, 0, 1, 2, true, false,
 		[]cache.SheetCell{
 			{Address: "A1", Value: strp("still-here")},
 		})
 	if err != nil {
-		t.Fatalf("ReplaceSheetCellsInRect: %v", err)
+		t.Fatalf("ApplyFetchedRect: %v", err)
 	}
 
 	got, _ := db.GetSheetCells("ss", "UNIT", 1, 0, 1, 2)
@@ -184,7 +182,7 @@ func TestReplaceSheetCellsInRect_ClearsStaleCells(t *testing.T) {
 
 // Cells OUTSIDE the replaced rect must be preserved — we're cleaning
 // stale data only within what we just fetched.
-func TestReplaceSheetCellsInRect_PreservesOutsideRect(t *testing.T) {
+func TestApplyFetchedRect_PreservesOutsideRect(t *testing.T) {
 	withTempHome(t)
 	db := openDB(t)
 
@@ -193,10 +191,8 @@ func TestReplaceSheetCellsInRect_PreservesOutsideRect(t *testing.T) {
 		{Address: "Z99", Value: strp("outside")},
 	})
 
-	// Replace only the (1,0)..(1,0) box — Z99 must survive.
-	_ = db.ReplaceSheetCellsInRect("ss", "UNIT", 1, 0, 1, 0, []cache.SheetCell{
-		{Address: "A1", Value: strp("new")},
-	})
+	_ = db.ApplyFetchedRect("ss", "UNIT", 1, 0, 1, 0, true, false,
+		[]cache.SheetCell{{Address: "A1", Value: strp("new")}})
 
 	got, _ := db.GetSheetCells("ss", "UNIT", 1, 0, 100, 100)
 	addrs := map[string]string{}
@@ -210,6 +206,36 @@ func TestReplaceSheetCellsInRect_PreservesOutsideRect(t *testing.T) {
 	}
 	if addrs["Z99"] != "outside" {
 		t.Errorf("Z99 must survive the replacement: %v", addrs)
+	}
+}
+
+// A value-only refetch must leave previously stored formulas intact
+// for the same cell — otherwise a later batch-get-all cache hit
+// returns value-only rows and downstream tooling (e.g., ss-analyze)
+// sees no formulas.
+func TestApplyFetchedRect_ValueOnlyPreservesFormula(t *testing.T) {
+	withTempHome(t)
+	db := openDB(t)
+
+	_ = db.UpsertSheetCells("ss", "UNIT", []cache.SheetCell{
+		{Address: "A1", Value: strp("1"), Formula: strp("=B1+1")},
+	})
+
+	err := db.ApplyFetchedRect("ss", "UNIT", 1, 0, 1, 0, true, false,
+		[]cache.SheetCell{{Address: "A1", Value: strp("2")}})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	got, _ := db.GetSheetCells("ss", "UNIT", 1, 0, 1, 0)
+	if len(got) != 1 {
+		t.Fatalf("got %d cells, want 1", len(got))
+	}
+	if got[0].Value == nil || *got[0].Value != "2" {
+		t.Errorf("value not updated: %+v", got[0].Value)
+	}
+	if got[0].Formula == nil || *got[0].Formula != "=B1+1" {
+		t.Errorf("formula lost during value-only refetch: %+v", got[0].Formula)
 	}
 }
 
