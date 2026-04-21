@@ -12,7 +12,7 @@ import (
 var webAppInsertCmd = &cobra.Command{
 	Use:   "insert <json-array>",
 	Short: "Insert data items into a sheet",
-	Args:  cobra.RangeArgs(1, 2),
+	Args:  cobra.MaximumNArgs(2),
 	Example: `  mpu webApp insert -s <id> -n Sheet1 '[{"col1":"val1"}]'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := checkProtected(); err != nil {
@@ -29,8 +29,12 @@ var webAppInsertCmd = &cobra.Command{
 		headerRow := getIntFlag(cmd, "header-row")
 		dataRow := getIntFlag(cmd, "data-row")
 
+		bodyStr, err := readBody(bodyArgs, cmd.InOrStdin())
+		if err != nil {
+			return err
+		}
 		var data []interface{}
-		if err := json.Unmarshal([]byte(bodyArgs[0]), &data); err != nil {
+		if err := json.Unmarshal([]byte(bodyStr), &data); err != nil {
 			return fmt.Errorf("invalid JSON array: %w", err)
 		}
 

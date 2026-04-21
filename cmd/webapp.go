@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -378,6 +379,22 @@ func truncate(s string, max int) string {
 
 func isJSONArg(s string) bool {
 	return strings.HasPrefix(s, "{") || strings.HasPrefix(s, "[")
+}
+
+// readBody returns the JSON body from args[0] or, when args is empty, from r (stdin).
+func readBody(bodyArgs []string, r io.Reader) (string, error) {
+	if len(bodyArgs) > 0 {
+		return bodyArgs[0], nil
+	}
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return "", fmt.Errorf("reading stdin: %w", err)
+	}
+	body := strings.TrimSpace(string(data))
+	if body == "" {
+		return "", fmt.Errorf("body is required: pass as argument or pipe via stdin")
+	}
+	return body, nil
 }
 
 // spreadsheetSource implements fuzzy.Source for SpreadsheetRow slices.

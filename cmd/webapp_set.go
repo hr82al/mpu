@@ -12,7 +12,7 @@ import (
 var webAppSetCmd = &cobra.Command{
 	Use:   "set <json-array>",
 	Short: "Replace data items in a sheet",
-	Args:  cobra.RangeArgs(1, 2),
+	Args:  cobra.MaximumNArgs(2),
 	Example: `  mpu webApp set -s <id> -n Sheet1 '[{"col1":"val1","col2":"val2"}]'
   mpu webApp set -s <id> -n Sheet1 --header-row 1 --data-row 3 '[{"A":"1"}]'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -30,8 +30,12 @@ var webAppSetCmd = &cobra.Command{
 		headerRow := getIntFlag(cmd, "header-row")
 		dataRow := getIntFlag(cmd, "data-row")
 
+		bodyStr, err := readBody(bodyArgs, cmd.InOrStdin())
+		if err != nil {
+			return err
+		}
 		var data []interface{}
-		if err := json.Unmarshal([]byte(bodyArgs[0]), &data); err != nil {
+		if err := json.Unmarshal([]byte(bodyStr), &data); err != nil {
 			return fmt.Errorf("invalid JSON array: %w", err)
 		}
 

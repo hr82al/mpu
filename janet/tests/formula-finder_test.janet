@@ -94,4 +94,95 @@
 (assert (nil? (formula-finder/resolve merged-mixed "A2"))
         "A2 absent and no formula up-left → nil")
 
+# ── multi-column spill: closer unrelated formula must not win ────
+#
+# Scenario from production (UNIT sheet, S20):
+#   R4 carries a LET formula that returns a 4-column array
+#     { col_R \ col_S \ col_T \ col_U }
+#   so R4 is the home cell and S4 / T4 / U4 are spilled (no formula,
+#   have values).  The same spill continues downward: S20, T20, U20
+#   are all produced by R4.
+#
+#   Separately, I20 holds an unrelated formula.  I20 is closer to S20
+#   by Manhattan distance (|20-20|+|19-9|=10) than R4 is (|20-4|+|19-18|=17),
+#   so the current nearest-formula heuristic incorrectly picks I20.
+#
+#   The correct answer for find-source "S20" is R4: the formula whose
+#   spill range covers column S.  We detect spill width from the data:
+#   R4 has a formula and S4/T4/U4 in the same row are spilled
+#   (value present, formula absent), giving an effective col-range R..U.
+#
+# These tests are RED until find-source is updated to use spill-width
+# detection instead of raw Manhattan distance.
+
+(def merged-multicol
+  @[(range- @[
+      # Row 4: R4 is formula home; S4 / T4 / U4 are spilled (no formula).
+      @[(cell "R4" "vR" "=LET(a;1;{a\\a\\a\\a})")
+        (cell "S4" "vS" "")
+        (cell "T4" "vT" "")
+        (cell "U4" "vU" "")]
+      # Row 20: I20 is an unrelated formula; S20/T20/U20 are spilled from R4.
+      @[(cell "I20" 0.15 "=UNRELATED(A1)")
+        (cell "S20" "vS20" "")
+        (cell "T20" "vT20" "")
+        (cell "U20" "vU20" "")]])])
+
+# Home cell: R4 resolves to itself.
+(assert (deep= ["R4" "=LET(a;1;{a\\a\\a\\a})"]
+               (formula-finder/find-source merged-multicol "R4"))
+        "multi-col: R4 (home) resolves to itself")
+
+# S4 is one column into the spill — must resolve to R4, not to something
+# further left (there's nothing further left in this dataset).
+(assert (deep= ["R4" "=LET(a;1;{a\\a\\a\\a})"]
+               (formula-finder/find-source merged-multicol "S4"))
+        "multi-col: S4 (spilled in same row) resolves to R4")
+
+# S20 is the key failing case: I20 (Manhattan=10) beats R4 (Manhattan=17)
+# under the current heuristic, but R4 is the correct source.
+(assert (deep= ["R4" "=LET(a;1;{a\\a\\a\\a})"]
+               (formula-finder/find-source merged-multicol "S20"))
+        "multi-col: S20 resolves to R4, not closer I20")
+
+# T20 is 2 columns into the spill — also covered by R4.
+(assert (deep= ["R4" "=LET(a;1;{a\\a\\a\\a})"]
+               (formula-finder/find-source merged-multicol "T20"))
+        "multi-col: T20 (2 cols into spill) resolves to R4")
+
+# U20 is the last column of the spill — must also resolve to R4.
+(assert (deep= ["R4" "=LET(a;1;{a\\a\\a\\a})"]
+               (formula-finder/find-source merged-multicol "U20"))
+        "multi-col: U20 (last spill col) resolves to R4")
+
+# Sanity: I20 itself must resolve to its own formula.
+(assert (deep= ["I20" "=UNRELATED(A1)"]
+               (formula-finder/find-source merged-multicol "I20"))
+        "multi-col: I20 resolves to its own formula (not affected)")
+
+# ── multi-column spill with competing formula in spill row ───────
+#
+# Edge case: a formula exists in the same row as the spill target but
+# outside the spill band.  Formula at B2 writes 2 columns (B2, C2).
+# Another formula exists at A4 (same col as B2, but below).
+# D2 is one column past the spill → outside the band → should NOT
+# resolve to B2 (and there's no qualifying formula for D2 at all).
+
+(def merged-spilledge
+  @[(range- @[
+      # Row 2: B2 is formula home; C2 is spilled (no formula).
+      @[(cell "B2" 10 "=LET(x;1;{x\\x})")
+        (cell "C2" 10 "")]
+      # Row 4: A4 is a formula below and to the left of C2.
+      @[(cell "A4" 5 "=OTHER()")]])])
+
+# C2 is within the 2-column spill of B2 → resolves to B2.
+(assert (deep= ["B2" "=LET(x;1;{x\\x})"]
+               (formula-finder/find-source merged-spilledge "C2"))
+        "spill-edge: C2 (last spill col) resolves to B2")
+
+# D2 is one column past the spill boundary → no qualifying formula.
+(assert (nil? (formula-finder/find-source merged-spilledge "D2"))
+        "spill-edge: D2 is outside spill, no formula → nil")
+
 (print "formula-finder_test: all assertions passed")

@@ -534,6 +534,7 @@ func loadJanetScripts(vm *janet.VM) {
 		"formula-finder.janet",
 		"formula-parser.janet",
 		"formula-eval.janet",
+		"formula-deps.janet",
 		"init.janet",
 	}
 	for _, name := range scripts {

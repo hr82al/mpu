@@ -16,7 +16,15 @@
       "Bash(time ./mpu ss-analyze -s 1NHoyZVE_zj6KG6K7UE2EeBsMVlM_Xqi1-3OeFgFlttM -n UNIT -a V6)",
       "Bash(sqlite3:*)",
       "Read(//usr/bin/**)",
-      "Bash(python3 -c \"import sqlite3; c = sqlite3.connect\\('/home/user/.config/mpu/db'\\); print\\('cells:', c.execute\\('SELECT COUNT\\(*\\) FROM sheet_cells'\\).fetchone\\(\\)\\); print\\('fetches:', list\\(c.execute\\('SELECT spreadsheet_id, sheet_name, start_row, start_col, end_row, end_col, has_value, has_formula FROM sheet_fetches'\\)\\)\\)\")"
+      "Bash(python3 -c \"import sqlite3; c = sqlite3.connect\\('/home/user/.config/mpu/db'\\); print\\('cells:', c.execute\\('SELECT COUNT\\(*\\) FROM sheet_cells'\\).fetchone\\(\\)\\); print\\('fetches:', list\\(c.execute\\('SELECT spreadsheet_id, sheet_name, start_row, start_col, end_row, end_col, has_value, has_formula FROM sheet_fetches'\\)\\)\\)\")",
+      "Bash(mpu get:*)",
+      "Bash(timeout 60 mpu repl:*)",
+      "Bash(timeout 90 mpu repl /tmp/trace-s20.janet)",
+      "Bash(timeout 120 mpu repl /tmp/trace-s20.janet)",
+      "Bash(mpu token:*)",
+      "Bash(cat)",
+      "Bash(mpu repl:*)",
+      "Bash(grep \"\\\\.go$\")"
     ]
   }
 }

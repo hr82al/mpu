@@ -12,7 +12,7 @@ import (
 var webAppValuesUpdateCmd = &cobra.Command{
 	Use:   "values-update <json>",
 	Short: "Batch update cell values (pure batchUpdate)",
-	Args:  cobra.RangeArgs(1, 2),
+	Args:  cobra.MaximumNArgs(2),
 	Example: `  mpu webApp values-update -s <id> '{"valueInputOption":"USER_ENTERED","data":[{"range":"Sheet1!A1","values":[["hello"]]}]}'`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := checkProtected(); err != nil {
@@ -23,8 +23,12 @@ var webAppValuesUpdateCmd = &cobra.Command{
 			return err
 		}
 
+		bodyStr, err := readBody(bodyArgs, cmd.InOrStdin())
+		if err != nil {
+			return err
+		}
 		var data map[string]interface{}
-		if err := json.Unmarshal([]byte(bodyArgs[0]), &data); err != nil {
+		if err := json.Unmarshal([]byte(bodyStr), &data); err != nil {
 			return fmt.Errorf("invalid JSON: %w", err)
 		}
 		if _, ok := data["valueInputOption"]; !ok {

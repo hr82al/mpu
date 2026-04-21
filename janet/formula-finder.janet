@@ -42,31 +42,104 @@
           (set found cell)))))
   found)
 
+(defn- formula-finder/spill-width
+  "Return the horizontal spill width of the formula at (fr, fc): the number
+  of consecutive cells in row fr (starting at fc+1) that are present in the
+  data and carry no formula of their own.
+
+  Two corrections versus a naive scan:
+
+  1. No value filter — spill cells produced by MAP/LET may legitimately hold
+     an empty string in the formula's home row while containing real data in
+     all rows below.  We rely on the cell's *presence* in the data (batch-get-all
+     only returns occupied cells) rather than its value.
+
+  2. Per-row formula guard — if the cell directly below the candidate formula
+     (fr+1, fc) also carries a formula, the candidate is a single-cell
+     repeated-per-row formula (e.g. the same LET expression copied down
+     column I), not an array formula.  Such formulas produce exactly one value
+     and cannot spill horizontally into adjacent columns; return 0 immediately."
+  [merged fr fc]
+  # Build a [row col] → cell map covering rows fr and fr+1.
+  (def cells @{})
+  (each rng merged
+    (each row (get rng "values")
+      (each cell row
+        (def a (get cell "a"))
+        (when a
+          (def ok (protect (formula-finder/cell->rc a)))
+          (when (get ok 0)
+            (def [r c] (get ok 1))
+            (put cells [r c] cell))))))
+  # Per-row guard: if (fr+1, fc) has a formula, this formula is per-row → sw=0.
+  (def below (get cells [(+ fr 1) fc]))
+  (def below-f (and below (get below "f")))
+  (when (and (string? below-f) (not (empty? below-f)))
+    (break 0))
+  # Count consecutive present-but-no-formula cells in row fr right of fc.
+  (var w 0)
+  (var c (+ fc 1))
+  (var going true)
+  (while going
+    (def cell (get cells [fr c]))
+    (def f (and cell (get cell "f")))
+    (if (and cell (or (nil? f) (= f "")))   # cell exists, no formula
+      (do (++ w) (++ c))
+      (set going false)))
+  w)
+
 (defn formula-finder/find-source
-  "Locate the nearest cell at (row ≤ tr, col ≤ tc) that carries a non-empty
-  formula, given `merged` — the decoded output of mpu batch-get-all: an
-  array of {\"range\" \"values\"} tables whose values are 2-D arrays of
-  {\"a\" \"v\" \"f\"} cells.
-  Returns [address formula] of that formula cell, or nil if none qualify.
-  Ties resolve toward the smallest Manhattan distance from target."
+  "Locate the formula cell that fills `target`.
+
+  Two-group algorithm (prevents a nearer unrelated formula from winning over
+  a formula whose multi-column spill actually covers the target):
+
+    Group A — formula cells that have a detected horizontal spill (≥1
+              spilled cells in the same row) AND whose spill covers the
+              target column: fc ≤ tc ≤ fc+sw.
+              Winner: smallest vertical distance (tr-fr), then horizontal.
+
+    Group B — formula cells with no horizontal spill (sw=0).
+              Used only when group A is empty.
+              Winner: smallest Manhattan distance (original behaviour).
+
+  A formula with sw>0 that does NOT cover tc is excluded from both groups
+  (e.g. it writes columns fc..fc+sw-1, and the target is to the right)."
   [merged target]
   (def [tr tc] (formula-finder/cell->rc target))
-  (var best-addr nil)
-  (var best-formula nil)
-  (var best-dist nil)
+  # Group A (spill-covers target column)
+  (var a-addr nil) (var a-formula nil)
+  (var a-vdist nil) (var a-hdist nil)
+  # Group B (no horizontal spill — fallback)
+  (var b-addr nil) (var b-formula nil)
+  (var b-dist nil)
   (each rng merged
     (each row (get rng "values")
       (each cell row
         (def f (get cell "f"))
         (when (and (string? f) (not (empty? f)))
-          (def [r c] (formula-finder/cell->rc (get cell "a")))
+          (def a (get cell "a"))
+          (def [r c] (formula-finder/cell->rc a))
           (when (and (<= r tr) (<= c tc))
-            (def dist (+ (- tr r) (- tc c)))
-            (when (or (nil? best-dist) (< dist best-dist))
-              (set best-dist dist)
-              (set best-addr (get cell "a"))
-              (set best-formula f)))))))
-  (when best-addr [best-addr best-formula]))
+            (def sw (formula-finder/spill-width merged r c))
+            (cond
+              # Group A: has horizontal spill that covers tc
+              (and (> sw 0) (>= (+ c sw) tc))
+              (let [vd (- tr r) hd (- tc c)]
+                (when (or (nil? a-vdist)
+                          (< vd a-vdist)
+                          (and (= vd a-vdist) (< hd a-hdist)))
+                  (set a-vdist vd) (set a-hdist hd)
+                  (set a-addr a)  (set a-formula f)))
+              # Group B: no horizontal spill (plain / vertical-only)
+              (= sw 0)
+              (let [dist (+ (- tr r) (- tc c))]
+                (when (or (nil? b-dist) (< dist b-dist))
+                  (set b-dist dist)
+                  (set b-addr a) (set b-formula f)))))))))
+  (if a-addr
+    [a-addr a-formula]
+    (when b-addr [b-addr b-formula])))
 
 (defn formula-finder/resolve
   "Explain where target's value comes from:
