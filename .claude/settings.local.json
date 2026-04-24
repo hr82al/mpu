@@ -24,7 +24,28 @@
       "Bash(mpu token:*)",
       "Bash(cat)",
       "Bash(mpu repl:*)",
-      "Bash(grep \"\\\\.go$\")"
+      "Bash(grep \"\\\\.go$\")",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(node dist/bin/mpu.js --version)",
+      "Bash(node dist/bin/mpu.js --help)",
+      "Bash(grep -v \"^d.*mpu-old\\\\|^d.*node_modules\\\\|^d.*\\\\.git$\")",
+      "Bash(MPU_DB=/tmp/mpu-smoke.db node dist/bin/mpu.js config)",
+      "Bash(MPU_DB=/tmp/mpu-smoke.db node dist/bin/mpu.js config cache.enabled off)",
+      "Bash(MPU_DB=/tmp/mpu-smoke.db node dist/bin/mpu.js config cache.ttl 300)",
+      "Bash(MPU_DB=/tmp/mpu-smoke.db node dist/bin/mpu.js config cache.enabled)",
+      "Bash(MPU_DB=/tmp/mpu-smoke.db node dist/bin/mpu.js config --unset cache.ttl)",
+      "Bash(HOME=/tmp/xyz node *)",
+      "Bash(node dist/bin/mpu.js completion bash)",
+      "Bash(HOME=/tmp/fakehome node dist/bin/mpu.js completion path bash)",
+      "Bash(node dist/bin/mpu.js __complete bash -- \"\")",
+      "Bash(node dist/bin/mpu.js __complete bash -- \"co\")",
+      "Bash(node dist/bin/mpu.js __complete bash -- config \"\")",
+      "Bash(node *)",
+      "Bash(MPU_DB=/tmp/mpu-single-knob.db node dist/bin/mpu.js config)",
+      "Bash(MPU_DB=/tmp/mpu-single-knob.db node dist/bin/mpu.js config cache.ttl 0)",
+      "Bash(MPU_DB=/tmp/mpu-single-knob.db node dist/bin/mpu.js config cache.ttl 600)"
     ]
   }
 }

@@ -1,14 +1,17 @@
+# Binary outputs
+mpu
+mpu-release
+mpu-*
+
 # Environment secrets (plaintext)
 .env
 !.env.enc
 
-# Node.js
-node_modules/
-dist/
-coverage/
-*.tsbuildinfo
-npm-debug.log*
-.npm/
+# Go toolchain
+vendor/
+*.test
+*.out
+coverage.html
 
 # IDE
 .idea/
