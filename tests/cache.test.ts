@@ -108,6 +108,25 @@ describe('Cache', () => {
     expect(cache.get('k')).toBeUndefined();
   });
 
+  it('Проверяет: wrap с refresh=true пересчитывает и перезаписывает кэш', () => {
+    let calls = 0;
+    cache.wrap('k', () => ++calls);
+    cache.wrap('k', () => ++calls);
+    expect(calls).toBe(1);
+    const v = cache.wrap('k', () => ++calls, { refresh: true });
+    expect(calls).toBe(2);
+    expect(v).toBe(2);
+    expect(cache.get('k')).toBe(2);
+  });
+
+  it('Проверяет: wrapAsync с refresh=true пересчитывает асинхронно', async () => {
+    let calls = 0;
+    await cache.wrapAsync('k', async () => ++calls);
+    expect(await cache.wrapAsync('k', async () => ++calls, { refresh: true })).toBe(2);
+    expect(calls).toBe(2);
+    expect(cache.get('k')).toBe(2);
+  });
+
   it('Проверяет: cache.ttl=0 заставляет wrap() вычислять каждый раз', () => {
     config.set('cache.ttl', 0);
     let calls = 0;

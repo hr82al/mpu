@@ -14,17 +14,32 @@ import { getDefaultConfig } from '../lib/config.js';
 import type { Config } from '../lib/config.js';
 import { getDefaultDb } from '../lib/db.js';
 import { SheetCache } from '../lib/sheet-cache.js';
+import { Cache, getDefaultCache } from '../lib/cache.js';
+import { MAIN_BIN } from '../lib/branding.js';
+import { parseA1, colNumToA1, A1ParseError } from '../lib/a1.js';
 
 export interface BatchGetResult {
   valueRanges: Array<{ range: string; values?: unknown[][]; majorDimension?: string }>;
 }
 
+export interface SheetCallOptions {
+  /**
+   * Пропустить чтение из кэша (если он есть), но всё равно сохранить результат.
+   */
+  refresh?: boolean;
+}
+
 export interface SheetClient {
-  do: <T = unknown>(action: string, payload: Record<string, unknown>) => Promise<T>;
+  do: <T = unknown>(
+    action: string,
+    payload: Record<string, unknown>,
+    opts?: SheetCallOptions,
+  ) => Promise<T>;
 }
 
 export interface SheetDeps {
   getClient: () => SheetClient;
+  getCache: () => Cache;
   env: (key: string) => string | undefined;
   configDefault: () => string | undefined;
   readFile: (path: string) => Promise<string>;
@@ -37,6 +52,9 @@ const RENDER_MAP: Record<string, string> = {
   formulas: 'FORMULA',
   formatted: 'FORMATTED_VALUE',
 };
+
+type RenderMode = 'both' | 'values' | 'formulas' | 'formatted';
+const VALID_RENDER: ReadonlyArray<RenderMode> = ['both', 'values', 'formulas', 'formatted'];
 
 export type OutputFormat = 'json' | 'raw' | 'tsv';
 
@@ -66,7 +84,10 @@ export function sheetCommand(deps: SheetDeps = defaultDeps()): Command {
       { cmd: 'echo "S!A1" | sheet get --from -', note: 'stdin' },
       { cmd: "sheet get 'S!A1' --raw", note: 'bare value (single cell)' },
       { cmd: "sheet get 'S!A1:C3' --tsv", note: 'TSV output' },
-      { cmd: "sheet get 'S!A1' --render formulas", note: 'fetch formulas instead of values' },
+      { cmd: "sheet get 'S!A1'", note: 'default: both values and formulas (cached)' },
+      { cmd: "sheet get 'S!A1' --render values", note: 'only values, single batchGet' },
+      { cmd: "sheet get 'S!A1' --render formulas", note: 'only formulas (FORMULA mode)' },
+      { cmd: "sheet get 'S!A1' --render formatted", note: 'locale-formatted display values' },
     ],
   });
 
@@ -82,12 +103,16 @@ export function sheetCommand(deps: SheetDeps = defaultDeps()): Command {
     .option('--from <file>', 'read ranges from file (one per line, # comments). Use - for stdin')
     .option(
       '--render <mode>',
-      'value render mode: values (default, UNFORMATTED_VALUE) | formulas (FORMULA) | formatted (FORMATTED_VALUE)',
-      'values',
+      'render mode: both (default — values + formulas) | values | formulas | formatted',
+      'both',
     )
     .option('--json', 'output structured JSON (default)')
     .option('--raw', 'bare values; single cell prints without trailing newline')
     .option('--tsv', 'TSV output (tab-separated, range-separated by blank line)')
+    .option(
+      '-R, --refresh',
+      'skip cache lookup, fetch fresh from network and overwrite cache',
+    )
     .action(
       async (
         positional: string[],
@@ -99,12 +124,13 @@ export function sheetCommand(deps: SheetDeps = defaultDeps()): Command {
           json?: boolean;
           raw?: boolean;
           tsv?: boolean;
+          refresh?: boolean;
         },
       ) => {
-        const renderMode = RENDER_MAP[opts.render];
-        if (!renderMode) {
+        const render = opts.render as RenderMode;
+        if (!VALID_RENDER.includes(render)) {
           throw new Error(
-            `unknown --render value "${opts.render}". Valid: values | formulas | formatted`,
+            `unknown --render value "${opts.render}". Valid: ${VALID_RENDER.join(' | ')}`,
           );
         }
         const formats = [opts.json, opts.raw, opts.tsv].filter(Boolean).length;
@@ -127,21 +153,152 @@ export function sheetCommand(deps: SheetDeps = defaultDeps()): Command {
         });
 
         const client = deps.getClient();
-        const result = await client.do<BatchGetResult>('spreadsheets/values/batchGet', {
-          ssId,
-          ranges,
-          majorDimension: 'ROWS',
-          valueRenderOption: renderMode,
-          dateTimeRenderOption: 'SERIAL_NUMBER',
-        });
+        const fetchOne = (vro: string): Promise<BatchGetResult> =>
+          client.do<BatchGetResult>(
+            'spreadsheets/values/batchGet',
+            {
+              ssId,
+              ranges,
+              majorDimension: 'ROWS',
+              valueRenderOption: vro,
+              dateTimeRenderOption: 'SERIAL_NUMBER',
+            },
+            { refresh: !!opts.refresh },
+          );
 
-        deps.print(formatOutput(ssId, result, { format }));
+        let valuesResult: BatchGetResult | undefined;
+        let formulasResult: BatchGetResult | undefined;
+        if (render === 'both') {
+          [valuesResult, formulasResult] = await Promise.all([
+            fetchOne('UNFORMATTED_VALUE'),
+            fetchOne('FORMULA'),
+          ]);
+        } else if (render === 'formulas') {
+          formulasResult = await fetchOne('FORMULA');
+        } else {
+          valuesResult = await fetchOne(RENDER_MAP[render]!);
+        }
+
+        const cells = expandCells(valuesResult, formulasResult, render);
+        deps.print(formatCells(ssId, cells, format, columnsForRender(render)));
       },
     );
 
   cmd.addCommand(get);
   cmd.addCommand(resolveSubcommand(deps));
+  cmd.addCommand(lsSubcommand(deps));
   return cmd;
+}
+
+interface SheetSummary {
+  title: string;
+  sheetId: number;
+  index: number;
+  rows: number;
+  cols: number;
+}
+
+interface SheetEntry {
+  properties?: {
+    title?: string;
+    sheetId?: number;
+    index?: number;
+    gridProperties?: { rowCount?: number; columnCount?: number };
+  };
+}
+
+interface SpreadsheetsGetResponse {
+  spreadsheetId: string;
+  sheets?: SheetEntry[];
+}
+
+function lsSubcommand(deps: SheetDeps): Command {
+  const cmd = new Command('ls');
+  describe(cmd, {
+    summary: 'List sheets in a spreadsheet',
+    description: [
+      'List sheet (tab) names in a Google Spreadsheet.',
+      '',
+      'Default output: one title per line (Unix-style, pipe-friendly).',
+      'Spreadsheet resolution: --spreadsheet/-s → env MPU_SS → config sheet.default.',
+    ].join('\n'),
+    examples: [
+      { cmd: 'sheet ls', note: 'just the names, one per line' },
+      { cmd: 'sheet ls -l', note: 'long: title, rows×cols, sheetId, index' },
+      { cmd: 'sheet ls --json', note: 'structured array (for AI/scripts)' },
+      { cmd: 'sheet ls -s 1abc...', note: 'specific spreadsheet' },
+      { cmd: 'sheet ls | grep -i план', note: 'pipe to grep' },
+    ],
+  });
+  cmd
+    .option('-s, --spreadsheet <id-or-url>', 'spreadsheet ID or full Google Sheets URL')
+    .option('-l, --long', 'detailed output: title, rows×cols, sheetId, index')
+    .option('--json', 'structured JSON array')
+    .option(
+      '-R, --refresh',
+      'skip cache lookup, fetch fresh from network and overwrite cache',
+    )
+    .action(
+      async (opts: { spreadsheet?: string; long?: boolean; json?: boolean; refresh?: boolean }) => {
+        if (opts.long && opts.json) throw new Error('only one of --long / --json can be set');
+        const format: LsFormat = opts.json ? 'json' : opts.long ? 'long' : 'short';
+        const { id: ssId } = resolveSpreadsheetId({
+          flag: opts.spreadsheet,
+          env: () => deps.env('MPU_SS'),
+          configDefault: deps.configDefault,
+        });
+        const client = deps.getClient();
+        const cache = deps.getCache();
+        const result = await cache.wrapAsync(
+          `sheet:info:${ssId}`,
+          () => client.do<SpreadsheetsGetResponse>('spreadsheets/get', { ssId }),
+          { refresh: !!opts.refresh },
+        );
+        const sheets = (result.sheets ?? []).map(toSheetSummary);
+        deps.print(formatLs(sheets, { format }));
+      },
+    );
+  return cmd;
+}
+
+function toSheetSummary(s: SheetEntry): SheetSummary {
+  const p = s.properties ?? {};
+  const g = p.gridProperties ?? {};
+  return {
+    title: p.title ?? '',
+    sheetId: p.sheetId ?? 0,
+    index: p.index ?? 0,
+    rows: g.rowCount ?? 0,
+    cols: g.columnCount ?? 0,
+  };
+}
+
+export type LsFormat = 'short' | 'long' | 'json';
+
+export function formatLs(sheets: SheetSummary[], opts: { format: LsFormat }): string {
+  if (sheets.length === 0) return '';
+  switch (opts.format) {
+    case 'short':
+      return sheets.map((s) => s.title).join('\n') + '\n';
+    case 'json':
+      return JSON.stringify(sheets, null, 2);
+    case 'long': {
+      const titleW = Math.max(...sheets.map((s) => visualWidth(s.title)));
+      const sizeW = Math.max(...sheets.map((s) => `${s.rows}×${s.cols}`.length));
+      const idW = Math.max(...sheets.map((s) => String(s.sheetId).length));
+      const lines = sheets.map((s) => {
+        const titlePad = ' '.repeat(Math.max(0, titleW - visualWidth(s.title)));
+        const size = `${s.rows}×${s.cols}`.padStart(sizeW);
+        const id = String(s.sheetId).padStart(idW);
+        return `${s.title}${titlePad}  ${size}  ${id}  #${s.index}`;
+      });
+      return lines.join('\n') + '\n';
+    }
+  }
+}
+
+function visualWidth(s: string): number {
+  return [...s].length;
 }
 
 function resolveSubcommand(deps: SheetDeps): Command {
@@ -214,43 +371,112 @@ function formatResolveHumanMissing(insp: SpreadsheetInspection): string {
   }
   lines.push(
     '',
-    'Pass --spreadsheet, export MPU_SS, or run `new-mpu config sheet.default <ID>`.',
+    `Pass --spreadsheet, export MPU_SS, or run \`${MAIN_BIN} config sheet.default <ID>\`.`,
   );
   return lines.join('\n');
 }
 
-export function formatOutput(
-  spreadsheetId: string,
-  result: BatchGetResult,
-  opts: { format: OutputFormat },
-): string {
-  switch (opts.format) {
-    case 'json':
-      return JSON.stringify(
-        { spreadsheetId, valueRanges: result.valueRanges ?? [] },
-        null,
-        2,
-      );
-    case 'raw': {
-      const ranges = result.valueRanges ?? [];
-      if (ranges.length === 1) {
-        const values = ranges[0]!.values ?? [];
-        if (values.length === 1 && values[0]!.length === 1) {
-          return stringifyCell(values[0]![0]);
+export interface Cell {
+  range: string;
+  value?: unknown;
+  formula?: string;
+}
+
+export function expandCells(
+  values: BatchGetResult | undefined,
+  formulas: BatchGetResult | undefined,
+  render: RenderMode,
+): Cell[] {
+  const fByRange = new Map<string, unknown[][]>();
+  for (const r of formulas?.valueRanges ?? []) fByRange.set(r.range, r.values ?? []);
+  const vByRange = new Map<string, unknown[][]>();
+  for (const r of values?.valueRanges ?? []) vByRange.set(r.range, r.values ?? []);
+
+  const allKeys = new Set<string>([...vByRange.keys(), ...fByRange.keys()]);
+  const cells: Cell[] = [];
+  const wantValue = render === 'values' || render === 'both' || render === 'formatted';
+  const wantFormula = render === 'formulas' || render === 'both';
+
+  for (const rangeStr of allKeys) {
+    let rect;
+    try {
+      rect = parseA1(rangeStr);
+    } catch (e) {
+      if (e instanceof A1ParseError) continue;
+      throw e;
+    }
+    if (rect.wholeSheet) continue;
+
+    const vMatrix = vByRange.get(rangeStr);
+    const fMatrix = fByRange.get(rangeStr);
+    const rows = rect.r2 - rect.r1 + 1;
+    const cols = rect.c2 - rect.c1 + 1;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cellRange = `${rect.sheet}!${colNumToA1(rect.c1 + c)}${rect.r1 + r}`;
+        const cell: Cell = { range: cellRange };
+        if (wantValue) {
+          const row = vMatrix?.[r];
+          cell.value = row && c < row.length ? row[c] ?? null : null;
         }
-        return rangeToTsv(values);
+        if (wantFormula) {
+          const row = fMatrix?.[r];
+          const f = row && c < row.length ? row[c] : null;
+          if (typeof f === 'string' && f.startsWith('=')) {
+            cell.formula = f;
+          }
+        }
+        cells.push(cell);
       }
-      return ranges.map((r) => rangeToTsv(r.values ?? [])).join('\n');
     }
-    case 'tsv': {
-      const ranges = result.valueRanges ?? [];
-      return ranges.map((r) => rangeToTsv(r.values ?? [])).join('\n');
-    }
+  }
+
+  return cells;
+}
+
+export type CellColumn = 'value' | 'formula';
+
+export function columnsForRender(render: RenderMode): CellColumn[] {
+  switch (render) {
+    case 'values':
+    case 'formatted':
+      return ['value'];
+    case 'formulas':
+      return ['formula'];
+    case 'both':
+      return ['value', 'formula'];
   }
 }
 
-function rangeToTsv(values: unknown[][]): string {
-  return values.map((row) => row.map(stringifyCell).join('\t')).join('\n') + '\n';
+export function formatCells(
+  spreadsheetId: string,
+  cells: Cell[],
+  format: OutputFormat,
+  columns: CellColumn[],
+): string {
+  if (format === 'json') {
+    return JSON.stringify({ spreadsheetId, cells }, null, 2);
+  }
+  const cols: Array<'range' | CellColumn> = ['range', ...columns];
+  const lines: string[] = [];
+  if (format === 'tsv') {
+    lines.push(cols.join('\t'));
+  }
+  for (const cell of cells) {
+    const row = cols.map((k) => {
+      const v = (cell as unknown as Record<string, unknown>)[k];
+      return v === undefined ? '' : escapeTsv(v);
+    });
+    lines.push(row.join('\t'));
+  }
+  return lines.join('\n') + (lines.length > 0 ? '\n' : '');
+}
+
+function escapeTsv(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  const s = typeof v === 'string' ? v : String(v);
+  return s.replaceAll('\\', '\\\\').replaceAll('\n', '\\n').replaceAll('\r', '\\r').replaceAll('\t', '\\t');
 }
 
 function stringifyCell(v: unknown): string {
@@ -303,6 +529,7 @@ function defaultDeps(): SheetDeps {
   };
   return {
     getClient,
+    getCache: () => getDefaultCache(),
     env: (k) => env.get(k),
     configDefault: () => {
       const v = cfg().get('sheet.default') as string;

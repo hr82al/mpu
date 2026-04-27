@@ -249,6 +249,76 @@ describe('SheetCache', () => {
     expect(r.valueRanges[0]!.values).toEqual([['1', '=A1*2']]);
   });
 
+  it('Проверяет: усечённый ответ Apps Script всё равно полностью кэширует rect', async () => {
+    inner.do.mockResolvedValueOnce({
+      valueRanges: [{ range: 'Sheet1!A1:C5', values: [['x'], ['a', 'b', 'c']] }],
+    } as never);
+    await cache.do('spreadsheets/values/batchGet', {
+      ssId,
+      ranges: ['Sheet1!A1:C5'],
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const cnt = db.prepare('SELECT COUNT(*) AS n FROM sheet_cells').get() as { n: number };
+    expect(cnt.n).toBe(15);
+
+    inner.do.mockClear();
+    const r = await cache.do<{ valueRanges: ValueRange[] }>(
+      'spreadsheets/values/batchGet',
+      { ssId, ranges: ['Sheet1!A1:C5'], valueRenderOption: 'UNFORMATTED_VALUE' },
+    );
+    expect(inner.do).not.toHaveBeenCalled();
+    expect(r.valueRanges[0]!.values).toEqual([
+      ['x', null, null],
+      ['a', 'b', 'c'],
+      [null, null, null],
+      [null, null, null],
+      [null, null, null],
+    ]);
+
+    const r2 = await cache.do<{ valueRanges: ValueRange[] }>(
+      'spreadsheets/values/batchGet',
+      { ssId, ranges: ['Sheet1!B2:C3'], valueRenderOption: 'UNFORMATTED_VALUE' },
+    );
+    expect(inner.do).not.toHaveBeenCalled();
+    expect(r2.valueRanges[0]!.values).toEqual([
+      ['b', 'c'],
+      [null, null],
+    ]);
+  });
+
+  it('Проверяет: refresh=true — все диапазоны идут в сеть, кэш перезаписывается', async () => {
+    inner.do.mockResolvedValueOnce({
+      valueRanges: [{ range: 'Sheet1!A1:B1', values: [['a', 'b']] }],
+    } as never);
+    await cache.do('spreadsheets/values/batchGet', {
+      ssId,
+      ranges: ['Sheet1!A1:B1'],
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    inner.do.mockClear();
+    inner.do.mockResolvedValueOnce({
+      valueRanges: [{ range: 'Sheet1!A1:B1', values: [['x', 'y']] }],
+    } as never);
+
+    const r = await cache.do<{ valueRanges: ValueRange[] }>(
+      'spreadsheets/values/batchGet',
+      { ssId, ranges: ['Sheet1!A1:B1'], valueRenderOption: 'UNFORMATTED_VALUE' },
+      { refresh: true },
+    );
+    expect(inner.do).toHaveBeenCalledTimes(1);
+    const sentRanges = (inner.do.mock.calls[0]![1] as { ranges: string[] }).ranges;
+    expect(sentRanges).toEqual(['Sheet1!A1:B1']);
+    expect(r.valueRanges[0]!.values).toEqual([['x', 'y']]);
+
+    inner.do.mockClear();
+    const r2 = await cache.do<{ valueRanges: ValueRange[] }>(
+      'spreadsheets/values/batchGet',
+      { ssId, ranges: ['Sheet1!A1:B1'], valueRenderOption: 'UNFORMATTED_VALUE' },
+    );
+    expect(inner.do).not.toHaveBeenCalled();
+    expect(r2.valueRanges[0]!.values).toEqual([['x', 'y']]);
+  });
+
   it('Проверяет: некэшируемое action делегирует в inner без сохранения', async () => {
     inner.do.mockResolvedValueOnce({ ok: true } as never);
     const r = await cache.do<{ ok: boolean }>('spreadsheets/values/batchUpdate', {

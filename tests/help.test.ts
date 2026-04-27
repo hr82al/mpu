@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { describe as describeHelp } from '../src/lib/help.js';
 import { buildProgram } from '../src/program.js';
 import { complete } from '../src/lib/completion.js';
+import { MAIN_BIN } from '../src/lib/branding.js';
 
 function renderHelp(cmd: Command): string {
   const chunks: string[] = [];
@@ -90,8 +91,8 @@ describe('buildProgram() — help integration', () => {
     const config = program.commands.find((c) => c.name() === 'config')!;
     const help = renderHelp(config);
     expect(help).toContain('Examples:');
-    expect(help).toContain('new-mpu config cache.enabled off');
-    expect(help).toContain('new-mpu config cache.ttl 300');
+    expect(help).toContain(`${MAIN_BIN} config cache.enabled off`);
+    expect(help).toContain(`${MAIN_BIN} config cache.ttl 300`);
   });
 
   it('Проверяет: completion install --help содержит Examples', () => {
@@ -100,7 +101,7 @@ describe('buildProgram() — help integration', () => {
     const installSub = completion.commands.find((c) => c.name() === 'install')!;
     const help = renderHelp(installSub);
     expect(help).toContain('Examples:');
-    expect(help).toContain('new-mpu completion install fish');
+    expect(help).toContain(`${MAIN_BIN} completion install fish`);
   });
 
   it('Проверяет: help subcommand зарегистрирован в program.commands и не hidden', () => {

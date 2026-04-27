@@ -3,6 +3,9 @@ import { Command } from 'commander';
 import { sheetCommand } from '../src/commands/sheet.js';
 import type { SheetDeps, SheetClient } from '../src/commands/sheet.js';
 import { inspectSpreadsheetSources } from '../src/lib/spreadsheet.js';
+import { Cache } from '../src/lib/cache.js';
+import { Config } from '../src/lib/config.js';
+import { openDb } from '../src/lib/db.js';
 
 type DoFn = <T = unknown>(action: string, payload: Record<string, unknown>) => Promise<T>;
 
@@ -13,8 +16,12 @@ function makeDeps(over: Partial<SheetDeps> = {}): {
   const doMock = jest.fn<DoFn>();
   const client = { do: doMock };
   const output: string[] = [];
+  const db = openDb(':memory:');
+  const config = new Config(db);
+  const cache = new Cache(db, config);
   const deps: SheetDeps = {
     getClient: () => client as unknown as SheetClient,
+    getCache: () => cache,
     env: () => undefined,
     configDefault: () => undefined,
     readFile: async () => '',

@@ -12,6 +12,7 @@ import {
   installPath,
   SHELLS,
 } from '../src/lib/completion.js';
+import { MAIN_BIN, SHEET_BIN } from '../src/lib/branding.js';
 
 describe('complete()', () => {
   let program = buildProgram();
@@ -69,34 +70,52 @@ describe('complete()', () => {
 });
 
 describe('emit()', () => {
-  it('Проверяет: bash-скрипт регистрирует complete -F', () => {
-    const s = emit('bash');
-    expect(s).toContain('complete -F _new_mpu new-mpu');
-    expect(s).toContain('new-mpu __complete bash');
+  const mainFn = `_${MAIN_BIN.replaceAll('-', '_')}`;
+  const sheetFn = `_${SHEET_BIN.replaceAll('-', '_')}`;
+
+  it(`Проверяет: bash для ${MAIN_BIN} — complete -F и вызов __complete`, () => {
+    const s = emit('bash', MAIN_BIN);
+    expect(s).toContain(`complete -F ${mainFn} ${MAIN_BIN}`);
+    expect(s).toContain(`${MAIN_BIN} __complete bash`);
   });
 
-  it('Проверяет: fish-скрипт использует commandline и __complete', () => {
-    const s = emit('fish');
-    expect(s).toContain('new-mpu __complete fish');
-    expect(s).toContain("complete -c new-mpu -f -a '(__new_mpu_complete)'");
+  it(`Проверяет: bash для ${SHEET_BIN} — complete -F и вызов __complete`, () => {
+    const s = emit('bash', SHEET_BIN);
+    expect(s).toContain(`complete -F ${sheetFn} ${SHEET_BIN}`);
+    expect(s).toContain(`${SHEET_BIN} __complete bash`);
   });
 
-  it('Проверяет: zsh-скрипт компдеф', () => {
-    const s = emit('zsh');
-    expect(s).toContain('#compdef new-mpu');
-    expect(s).toContain('new-mpu __complete zsh');
+  it(`Проверяет: fish для ${SHEET_BIN} — completions для bin`, () => {
+    const s = emit('fish', SHEET_BIN);
+    expect(s).toContain(`${SHEET_BIN} __complete fish`);
+    expect(s).toContain(`complete -c ${SHEET_BIN} -f -a '(__${SHEET_BIN.replaceAll('-', '_')}_complete)'`);
+  });
+
+  it(`Проверяет: zsh для ${SHEET_BIN} — compdef`, () => {
+    const s = emit('zsh', SHEET_BIN);
+    expect(s).toContain(`#compdef ${SHEET_BIN}`);
+    expect(s).toContain(`${SHEET_BIN} __complete zsh`);
   });
 });
 
 describe('installPath()', () => {
-  it('Проверяет: bash → ~/.local/share/bash-completion/...', () => {
-    expect(installPath('bash')).toMatch(/bash-completion\/completions\/new-mpu$/);
+  it(`bash + ${MAIN_BIN}`, () => {
+    expect(installPath('bash', MAIN_BIN)).toMatch(
+      new RegExp(`bash-completion/completions/${MAIN_BIN}$`),
+    );
   });
-  it('Проверяет: fish → ~/.config/fish/completions/new-mpu.fish', () => {
-    expect(installPath('fish')).toMatch(/fish\/completions\/new-mpu\.fish$/);
+  it(`bash + ${SHEET_BIN}`, () => {
+    expect(installPath('bash', SHEET_BIN)).toMatch(
+      new RegExp(`bash-completion/completions/${SHEET_BIN}$`),
+    );
   });
-  it('Проверяет: zsh → ~/.zfunc/_new-mpu', () => {
-    expect(installPath('zsh')).toMatch(/\.zfunc\/_new-mpu$/);
+  it(`fish + ${SHEET_BIN}`, () => {
+    expect(installPath('fish', SHEET_BIN)).toMatch(
+      new RegExp(`fish/completions/${SHEET_BIN}\\.fish$`),
+    );
+  });
+  it(`zsh + ${SHEET_BIN}`, () => {
+    expect(installPath('zsh', SHEET_BIN)).toMatch(new RegExp(`\\.zfunc/_${SHEET_BIN}$`));
   });
 });
 
@@ -120,18 +139,25 @@ describe('install()', () => {
     rmSync(tmp, { recursive: true, force: true });
   });
 
-  it('Проверяет: install(bash) создаёт файл с корректным содержимым', () => {
-    const path = install('bash');
-    expect(path).toBe(join(dataHome, 'bash-completion/completions/new-mpu'));
-    expect(existsSync(path)).toBe(true);
-    expect(readFileSync(path, 'utf8')).toBe(emit('bash'));
+  it(`Проверяет: install(bash) создаёт файлы для ${MAIN_BIN} и ${SHEET_BIN}`, () => {
+    const paths = install('bash');
+    expect(paths).toEqual([
+      join(dataHome, `bash-completion/completions/${MAIN_BIN}`),
+      join(dataHome, `bash-completion/completions/${SHEET_BIN}`),
+    ]);
+    expect(existsSync(paths[0]!)).toBe(true);
+    expect(existsSync(paths[1]!)).toBe(true);
+    expect(readFileSync(paths[0]!, 'utf8')).toBe(emit('bash', MAIN_BIN));
+    expect(readFileSync(paths[1]!, 'utf8')).toBe(emit('bash', SHEET_BIN));
   });
 
-  it('Проверяет: install(fish) в $XDG_CONFIG_HOME/fish/completions/new-mpu.fish', () => {
-    const path = install('fish');
-    expect(path).toBe(join(configHome, 'fish/completions/new-mpu.fish'));
-    expect(existsSync(path)).toBe(true);
-    expect(readFileSync(path, 'utf8')).toBe(emit('fish'));
+  it('Проверяет: install(fish) — оба файла в $XDG_CONFIG_HOME/fish/completions', () => {
+    const paths = install('fish');
+    expect(paths).toEqual([
+      join(configHome, `fish/completions/${MAIN_BIN}.fish`),
+      join(configHome, `fish/completions/${SHEET_BIN}.fish`),
+    ]);
+    for (const p of paths) expect(existsSync(p)).toBe(true);
   });
 });
 

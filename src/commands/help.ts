@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { describe } from '../lib/help.js';
 import { setProvider } from '../lib/completion.js';
+import { MAIN_BIN } from '../lib/branding.js';
 
 export function helpCommand(getRoot: () => Command): Command {
   const cmd = new Command('help')
@@ -18,9 +19,9 @@ export function helpCommand(getRoot: () => Command): Command {
   describe(cmd, {
     summary: 'Show help for a command',
     examples: [
-      { cmd: 'new-mpu help', note: 'list all commands' },
-      { cmd: 'new-mpu help config' },
-      { cmd: 'new-mpu help completion install' },
+      { cmd: `${MAIN_BIN} help`, note: 'list all commands' },
+      { cmd: `${MAIN_BIN} help config` },
+      { cmd: `${MAIN_BIN} help completion install` },
     ],
   });
 

@@ -4,6 +4,7 @@ import type { ConfigListEntry } from '../lib/config.js';
 import { setProvider } from '../lib/completion.js';
 import type { ProviderContext } from '../lib/completion.js';
 import { describe } from '../lib/help.js';
+import { MAIN_BIN } from '../lib/branding.js';
 
 export function configCommand(configFactory: () => Config = getDefaultConfig): Command {
   const cmd = new Command('config');
@@ -23,11 +24,11 @@ export function configCommand(configFactory: () => Config = getDefaultConfig): C
     summary: 'Show or change mpu configuration',
     description: 'Show or change mpu configuration. Values are stored in SQLite.',
     examples: [
-      { cmd: 'new-mpu config', note: 'list all settings' },
-      { cmd: 'new-mpu config cache.enabled', note: 'show one value' },
-      { cmd: 'new-mpu config cache.enabled off', note: 'disable caching' },
-      { cmd: 'new-mpu config cache.ttl 300', note: 'set default TTL to 300 seconds' },
-      { cmd: 'new-mpu config --unset cache.ttl', note: 'reset key to default' },
+      { cmd: `${MAIN_BIN} config`, note: 'list all settings' },
+      { cmd: `${MAIN_BIN} config cache.enabled`, note: 'show one value' },
+      { cmd: `${MAIN_BIN} config cache.enabled off`, note: 'disable caching' },
+      { cmd: `${MAIN_BIN} config cache.ttl 300`, note: 'set default TTL to 300 seconds' },
+      { cmd: `${MAIN_BIN} config --unset cache.ttl`, note: 'reset key to default' },
     ],
   });
   cmd

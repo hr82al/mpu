@@ -10,6 +10,12 @@ export interface CacheOptions {
    * - Infinity: никогда не истекает
    */
   ttl?: number;
+  /**
+   * При true `wrap`/`wrapAsync` пропускают чтение из кэша, выполняют `fn()` и
+   * перезаписывают сохранённое значение. Master-switch `cache.ttl=0` всё равно
+   * выигрывает (сохранение становится no-op).
+   */
+  refresh?: boolean;
 }
 
 interface CacheRow {
@@ -78,16 +84,20 @@ export class Cache {
   }
 
   wrap<T>(key: string, fn: () => T, opts?: CacheOptions): T {
-    const hit = this.get<T>(key);
-    if (hit !== undefined) return hit;
+    if (!opts?.refresh) {
+      const hit = this.get<T>(key);
+      if (hit !== undefined) return hit;
+    }
     const value = fn();
     this.set(key, value, opts);
     return value;
   }
 
   async wrapAsync<T>(key: string, fn: () => Promise<T>, opts?: CacheOptions): Promise<T> {
-    const hit = this.get<T>(key);
-    if (hit !== undefined) return hit;
+    if (!opts?.refresh) {
+      const hit = this.get<T>(key);
+      if (hit !== undefined) return hit;
+    }
     const value = await fn();
     this.set(key, value, opts);
     return value;

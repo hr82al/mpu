@@ -93,67 +93,84 @@ export async function complete(root: Command, args: string[]): Promise<string[]>
 }
 
 /**
- * Shell-скрипты делегируют в `new-mpu __complete <shell> -- <words...>` и
- * фильтруют кандидатов на стороне shell'а. Сам скрипт — минимальный.
+ * Каждый bin получает свой шелл-скрипт. Скрипт делегирует в
+ * `<bin> __complete <shell> -- <words...>` и фильтрует кандидатов на стороне shell.
  */
-const SCRIPTS: Record<Shell, string> = {
-  bash: `# mpu bash completion
-_new_mpu() {
+export { BINS } from './branding.js';
+export type { BinName } from './branding.js';
+import { BINS } from './branding.js';
+import type { BinName } from './branding.js';
+
+function shellFunctionName(bin: BinName): string {
+  return `_${bin.replaceAll('-', '_')}`;
+}
+
+export function emit(shell: Shell, bin: BinName): string {
+  const fn = shellFunctionName(bin);
+  switch (shell) {
+    case 'bash':
+      return `# ${bin} bash completion
+${fn}() {
   local IFS=$'\\n'
   local cur="\${COMP_WORDS[COMP_CWORD]}"
   local candidates
-  candidates="$(new-mpu __complete bash -- "\${COMP_WORDS[@]:1}" 2>/dev/null)"
+  candidates="$(${bin} __complete bash -- "\${COMP_WORDS[@]:1}" 2>/dev/null)"
   COMPREPLY=( $(compgen -W "$candidates" -- "$cur") )
 }
-complete -F _new_mpu new-mpu
-`,
-  fish: `# new-mpu.fish completion
-function __new_mpu_complete
+complete -F ${fn} ${bin}
+`;
+    case 'fish': {
+      const fishFn = `__${bin.replaceAll('-', '_')}_complete`;
+      return `# ${bin} fish completion
+function ${fishFn}
   set -l tokens (commandline -opc) (commandline -ct)
   set -e tokens[1]
-  new-mpu __complete fish -- $tokens 2>/dev/null
+  ${bin} __complete fish -- $tokens 2>/dev/null
 end
-complete -c new-mpu -f -a '(__new_mpu_complete)'
-`,
-  zsh: `#compdef new-mpu
-_new_mpu() {
+complete -c ${bin} -f -a '(${fishFn})'
+`;
+    }
+    case 'zsh':
+      return `#compdef ${bin}
+${fn}() {
   local -a candidates
-  candidates=(\${(f)"$(new-mpu __complete zsh -- "\${words[@]:1}" 2>/dev/null)"})
+  candidates=(\${(f)"$(${bin} __complete zsh -- "\${words[@]:1}" 2>/dev/null)"})
   compadd -a candidates
 }
-compdef _new_mpu new-mpu
-`,
-};
-
-export function emit(shell: Shell): string {
-  const s = SCRIPTS[shell];
-  if (!s) throw new Error(`unsupported shell: ${shell}`);
-  return s;
+compdef ${fn} ${bin}
+`;
+  }
 }
 
-export function installPath(shell: Shell): string {
+export function installPath(shell: Shell, bin: BinName): string {
   const home = homedir();
   switch (shell) {
     case 'bash':
       return join(
         process.env['XDG_DATA_HOME'] ?? join(home, '.local/share'),
-        'bash-completion/completions/new-mpu',
+        'bash-completion/completions',
+        bin,
       );
     case 'fish':
       return join(
         process.env['XDG_CONFIG_HOME'] ?? join(home, '.config'),
-        'fish/completions/new-mpu.fish',
+        'fish/completions',
+        `${bin}.fish`,
       );
     case 'zsh':
-      return join(home, '.zfunc/_new-mpu');
+      return join(home, '.zfunc', `_${bin}`);
   }
 }
 
-export function install(shell: Shell): string {
-  const path = installPath(shell);
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, emit(shell), { mode: 0o644 });
-  return path;
+export function install(shell: Shell): string[] {
+  const paths: string[] = [];
+  for (const bin of BINS) {
+    const path = installPath(shell, bin);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, emit(shell, bin), { mode: 0o644 });
+    paths.push(path);
+  }
+  return paths;
 }
 
 export function detectShell(): Shell | null {

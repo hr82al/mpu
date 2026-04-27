@@ -1,5 +1,5 @@
 import type { DB } from './db.js';
-import type { SheetClient } from '../commands/sheet.js';
+import type { SheetClient, SheetCallOptions } from '../commands/sheet.js';
 import { parseA1, type A1Range } from './a1.js';
 
 export interface SheetCacheDeps {
@@ -70,20 +70,26 @@ export class SheetCache implements SheetClient {
     );
   }
 
-  async do<T = unknown>(action: string, payload: Record<string, unknown>): Promise<T> {
+  async do<T = unknown>(
+    action: string,
+    payload: Record<string, unknown>,
+    opts?: SheetCallOptions,
+  ): Promise<T> {
     if (action !== ACTION_BATCH_GET || this.ttlMs === 0) {
-      return this.inner.do<T>(action, payload);
+      return this.inner.do<T>(action, payload, opts);
     }
     const p = payload as unknown as BatchGetPayload;
     const vro = p.valueRenderOption ?? 'UNFORMATTED_VALUE';
     if (vro === 'FORMATTED_VALUE') {
-      return this.inner.do<T>(action, payload);
+      return this.inner.do<T>(action, payload, opts);
     }
     const mode: Mode = vro === 'FORMULA' ? 'formula' : 'value';
 
     const ssId = p.ssId;
     const ranges = p.ranges ?? [];
-    const slots: Slot[] = ranges.map((r) => this.classifyRange(ssId, r, mode));
+    const slots: Slot[] = opts?.refresh
+      ? ranges.map((r) => this.refreshSlot(ssId, r))
+      : ranges.map((r) => this.classifyRange(ssId, r, mode));
 
     const missing = slots.filter((s) => s.kind === 'miss' || s.kind === 'bypass');
     if (missing.length === 0) {
@@ -111,6 +117,17 @@ export class SheetCache implements SheetClient {
     }
 
     return { spreadsheetId: ssId, valueRanges } as unknown as T;
+  }
+
+  private refreshSlot(_ssId: string, range: string): Slot {
+    let parsed: A1Range;
+    try {
+      parsed = parseA1(range);
+    } catch {
+      return { kind: 'bypass', range };
+    }
+    if (parsed.wholeSheet) return { kind: 'bypass', range };
+    return { kind: 'miss', range, parsed };
   }
 
   private classifyRange(ssId: string, range: string, mode: Mode): Slot {
@@ -158,11 +175,13 @@ export class SheetCache implements SheetClient {
     mode: Mode,
     now: number,
   ): void {
+    const rows = rect.r2 - rect.r1 + 1;
+    const cols = rect.c2 - rect.c1 + 1;
     const tx = this.db.transaction(() => {
-      for (let r = 0; r < values.length; r++) {
+      for (let r = 0; r < rows; r++) {
         const row = values[r] ?? [];
-        for (let c = 0; c < row.length; c++) {
-          const cell = row[c];
+        for (let c = 0; c < cols; c++) {
+          const cell = c < row.length ? row[c] : null;
           if (mode === 'value') {
             this.upsertValue.run(
               ssId,
