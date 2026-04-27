@@ -2,7 +2,12 @@ import { Command } from 'commander';
 import { readFile as fsReadFile } from 'node:fs/promises';
 import { describe } from '../lib/help.js';
 import { setProvider } from '../lib/completion.js';
-import { resolveRanges, resolveSpreadsheetId } from '../lib/spreadsheet.js';
+import {
+  inspectSpreadsheetSources,
+  resolveRanges,
+  resolveSpreadsheetId,
+  type SpreadsheetInspection,
+} from '../lib/spreadsheet.js';
 import { WebappClient } from '../lib/webapp.js';
 import { envLookup } from '../lib/env.js';
 import { getDefaultConfig } from '../lib/config.js';
@@ -135,7 +140,83 @@ export function sheetCommand(deps: SheetDeps = defaultDeps()): Command {
     );
 
   cmd.addCommand(get);
+  cmd.addCommand(resolveSubcommand(deps));
   return cmd;
+}
+
+function resolveSubcommand(deps: SheetDeps): Command {
+  const cmd = new Command('resolve');
+  describe(cmd, {
+    summary: 'Show which spreadsheet ID will be used and where it comes from',
+    description: [
+      'Diagnostic: prints the resolved spreadsheet ID (if any) and the full list of',
+      'sources checked. Resolution order: --spreadsheet/-s → env MPU_SS → config sheet.default.',
+      '',
+      'Useful for AIs and humans to understand why a particular ID is picked, or why none is.',
+    ].join('\n'),
+    examples: [
+      { cmd: 'sheet resolve', note: 'human-readable, exits 1 if no source set' },
+      { cmd: 'sheet resolve --json', note: 'structured output (resolved + all sources)' },
+      { cmd: 'sheet resolve -s 1abc... --json', note: 'inspect a specific input' },
+    ],
+  });
+  cmd
+    .option('-s, --spreadsheet <id-or-url>', 'spreadsheet ID or full Google Sheets URL')
+    .option('--json', 'structured JSON output (does not throw if no source set)')
+    .action((opts: { spreadsheet?: string; json?: boolean }) => {
+      const inspection = inspectSpreadsheetSources({
+        flag: opts.spreadsheet,
+        env: () => deps.env('MPU_SS'),
+        configDefault: deps.configDefault,
+      });
+      if (opts.json) {
+        deps.print(formatResolveJson(inspection));
+        return;
+      }
+      if (!inspection.resolved) {
+        throw new Error(formatResolveHumanMissing(inspection));
+      }
+      deps.print(formatResolveHuman(inspection));
+    });
+  return cmd;
+}
+
+function formatResolveJson(insp: SpreadsheetInspection): string {
+  return JSON.stringify(
+    {
+      resolved: insp.resolved ?? null,
+      checked: insp.checked,
+    },
+    null,
+    2,
+  );
+}
+
+function formatResolveHuman(insp: SpreadsheetInspection): string {
+  const r = insp.resolved!;
+  const used = insp.checked.find((c) => c.used)!;
+  const lines = [`${r.id}  (source: ${used.label})`, ''];
+  for (const c of insp.checked) {
+    const marker = c.used ? '*' : ' ';
+    const value = c.value ? c.value : '(unset)';
+    lines.push(`${marker} ${c.label.padEnd(24)}  ${value}`);
+  }
+  return lines.join('\n') + '\n';
+}
+
+function formatResolveHumanMissing(insp: SpreadsheetInspection): string {
+  const lines = [
+    'no spreadsheet ID resolved. Sources checked (in order):',
+    '',
+  ];
+  for (const c of insp.checked) {
+    lines.push(`  • ${c.label.padEnd(24)}  ${c.value ? c.value : '(unset)'}`);
+  }
+  lines.push(
+    '',
+    'Pass --spreadsheet, export MPU_SS, or run `new-mpu config sheet.default <ID>`.',
+  );
+  return lines.join('\n');
 }
 
 export function formatOutput(

@@ -36,12 +36,50 @@ export interface ResolvedSpreadsheet {
   source: 'flag' | 'env' | 'config';
 }
 
+export type SpreadsheetSource = 'flag' | 'env' | 'config';
+
+export interface SpreadsheetSourceEntry {
+  source: SpreadsheetSource;
+  label: string;
+  value: string | undefined;
+  used: boolean;
+}
+
+export interface SpreadsheetInspection {
+  checked: SpreadsheetSourceEntry[];
+  resolved: ResolvedSpreadsheet | undefined;
+}
+
+export function inspectSpreadsheetSources(deps: ResolveSpreadsheetDeps): SpreadsheetInspection {
+  const flagRaw = deps.flag || undefined;
+  const envRaw = deps.env() || undefined;
+  const cfgRaw = deps.configDefault() || undefined;
+
+  const order: Array<{ source: SpreadsheetSource; label: string; raw: string | undefined }> = [
+    { source: 'flag', label: '--spreadsheet/-s', raw: flagRaw },
+    { source: 'env', label: 'env MPU_SS', raw: envRaw },
+    { source: 'config', label: 'config sheet.default', raw: cfgRaw },
+  ];
+
+  let resolved: ResolvedSpreadsheet | undefined;
+  for (const o of order) {
+    if (resolved || !o.raw) continue;
+    resolved = { id: parseSpreadsheetUrl(o.raw), source: o.source };
+  }
+
+  const checked: SpreadsheetSourceEntry[] = order.map((o) => ({
+    source: o.source,
+    label: o.label,
+    value: o.raw,
+    used: resolved?.source === o.source,
+  }));
+
+  return { checked, resolved };
+}
+
 export function resolveSpreadsheetId(deps: ResolveSpreadsheetDeps): ResolvedSpreadsheet {
-  if (deps.flag) return { id: parseSpreadsheetUrl(deps.flag), source: 'flag' };
-  const fromEnv = deps.env();
-  if (fromEnv) return { id: parseSpreadsheetUrl(fromEnv), source: 'env' };
-  const fromCfg = deps.configDefault();
-  if (fromCfg) return { id: parseSpreadsheetUrl(fromCfg), source: 'config' };
+  const { resolved } = inspectSpreadsheetSources(deps);
+  if (resolved) return resolved;
   throw new SpreadsheetResolveError(
     [
       'no spreadsheet ID provided. Tried (in order):',
