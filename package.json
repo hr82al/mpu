@@ -4,13 +4,14 @@
   "description": "Multi-purpose CLI utility",
   "type": "module",
   "bin": {
-    "mpu": "./dist/bin/mpu.js"
+    "mpu": "./dist/bin/mpu.js",
+    "sheet": "./dist/bin/sheet.js"
   },
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc && chmod +x dist/bin/mpu.js",
+    "build": "tsc && chmod +x dist/bin/mpu.js dist/bin/sheet.js",
     "dev": "tsc --watch",
     "start": "node dist/bin/mpu.js",
     "test": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' jest",

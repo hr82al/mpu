@@ -19,6 +19,29 @@ export const CONFIG_REGISTRY: Record<string, ConfigEntry> = {
     description: 'Default TTL for cached values, in seconds (0 = caching disabled)',
     validate: (v) => (typeof v === 'number' && v >= 0 ? true : 'must be an integer >= 0'),
   },
+  'sheet.default': {
+    type: 'string',
+    default: '',
+    description: 'Default Google Spreadsheet ID (or URL) used when --spreadsheet/-s is omitted',
+  },
+  'sheet.url': {
+    type: 'string',
+    default: '',
+    description:
+      'Google Apps Script webapp URL (overrides env WB_PLUS_WEB_APP_URL). Required for sheet operations.',
+  },
+  'http.retries': {
+    type: 'int',
+    default: 5,
+    description: 'Max attempts for retryable HTTP errors (network, 5xx, 429)',
+    validate: (v) => (typeof v === 'number' && v >= 1 ? true : 'must be an integer >= 1'),
+  },
+  'http.timeout': {
+    type: 'int',
+    default: 120,
+    description: 'HTTP request timeout in seconds',
+    validate: (v) => (typeof v === 'number' && v >= 1 ? true : 'must be an integer >= 1'),
+  },
 };
 
 export interface ConfigListEntry {
