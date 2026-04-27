@@ -17,6 +17,17 @@ const MIGRATIONS: string[] = [
      expires_at INTEGER
    )`,
   `CREATE INDEX IF NOT EXISTS idx_cache_expires ON cache(expires_at)`,
+  `CREATE TABLE IF NOT EXISTS sheet_cells (
+     ss_id      TEXT NOT NULL,
+     sheet      TEXT NOT NULL,
+     row        INTEGER NOT NULL,
+     col        INTEGER NOT NULL,
+     v_json     TEXT,
+     f_text     TEXT,
+     fetched_at INTEGER NOT NULL,
+     PRIMARY KEY (ss_id, sheet, row, col)
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_sheet_cells_rect ON sheet_cells(ss_id, sheet, row, col)`,
 ];
 
 export function openDb(path: string = defaultDbPath()): DB {

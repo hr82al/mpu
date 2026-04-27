@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import { sheetCommand } from '../commands/sheet.js';
 
 const root = new Command();
-root.name('sheet').description('Read and write Google Spreadsheets via Apps Script (alias of `mpu sheet`)');
+root.name('sheet').description('Read and write Google Spreadsheets via Apps Script (alias of `new-mpu sheet`)');
 
 const sheet = sheetCommand();
 for (const sub of sheet.commands) {

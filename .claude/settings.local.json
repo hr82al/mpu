@@ -45,7 +45,8 @@
       "Bash(node *)",
       "Bash(MPU_DB=/tmp/mpu-single-knob.db node dist/bin/mpu.js config)",
       "Bash(MPU_DB=/tmp/mpu-single-knob.db node dist/bin/mpu.js config cache.ttl 0)",
-      "Bash(MPU_DB=/tmp/mpu-single-knob.db node dist/bin/mpu.js config cache.ttl 600)"
+      "Bash(MPU_DB=/tmp/mpu-single-knob.db node dist/bin/mpu.js config cache.ttl 600)",
+      "Bash(grep -rn \"'mpu \\\\|\\\\`mpu \" /home/user/mr/workspace/go/mpu/src/ /home/user/mr/workspace/go/mpu/tests/)"
     ]
   }
 }

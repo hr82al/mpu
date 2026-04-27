@@ -18,9 +18,9 @@ export function helpCommand(getRoot: () => Command): Command {
   describe(cmd, {
     summary: 'Show help for a command',
     examples: [
-      { cmd: 'mpu help', note: 'list all commands' },
-      { cmd: 'mpu help config' },
-      { cmd: 'mpu help completion install' },
+      { cmd: 'new-mpu help', note: 'list all commands' },
+      { cmd: 'new-mpu help config' },
+      { cmd: 'new-mpu help completion install' },
     ],
   });
 

@@ -28,10 +28,10 @@ export function completionCommand(): Command {
     summary: 'Generate or install shell completion scripts',
     description: 'Generate or install shell completion scripts for bash, fish, or zsh.',
     examples: [
-      { cmd: 'mpu completion bash', note: 'print bash script to stdout' },
-      { cmd: 'mpu completion install', note: 'install for detected shell' },
-      { cmd: 'mpu completion install fish', note: 'install for fish explicitly' },
-      { cmd: 'mpu completion path zsh', note: 'show install path' },
+      { cmd: 'new-mpu completion bash', note: 'print bash script to stdout' },
+      { cmd: 'new-mpu completion install', note: 'install for detected shell' },
+      { cmd: 'new-mpu completion install fish', note: 'install for fish explicitly' },
+      { cmd: 'new-mpu completion path zsh', note: 'show install path' },
     ],
   });
   setProvider(cmd, shellProvider);
@@ -57,8 +57,8 @@ export function completionCommand(): Command {
   describe(installSub, {
     summary: 'Install completion script (auto-detect shell)',
     examples: [
-      { cmd: 'mpu completion install', note: 'detect $SHELL and install' },
-      { cmd: 'mpu completion install fish' },
+      { cmd: 'new-mpu completion install', note: 'detect $SHELL and install' },
+      { cmd: 'new-mpu completion install fish' },
     ],
   });
   setProvider(installSub, shellProvider);
@@ -83,8 +83,8 @@ export function completionCommand(): Command {
   describe(pathSub, {
     summary: 'Print install path for the given shell',
     examples: [
-      { cmd: 'mpu completion path', note: 'detected shell' },
-      { cmd: 'mpu completion path zsh' },
+      { cmd: 'new-mpu completion path', note: 'detected shell' },
+      { cmd: 'new-mpu completion path zsh' },
     ],
   });
   setProvider(pathSub, shellProvider);

@@ -47,9 +47,9 @@ export function resolveSpreadsheetId(deps: ResolveSpreadsheetDeps): ResolvedSpre
       'no spreadsheet ID provided. Tried (in order):',
       '  1. --spreadsheet/-s <ID-or-URL>',
       '  2. environment variable MPU_SS',
-      '  3. config key sheet.default (set via `mpu config sheet.default <ID>`)',
+      '  3. config key sheet.default (set via `new-mpu config sheet.default <ID>`)',
       '',
-      'Pass --spreadsheet, export MPU_SS, or run `mpu config sheet.default <ID>`.',
+      'Pass --spreadsheet, export MPU_SS, or run `new-mpu config sheet.default <ID>`.',
     ].join('\n'),
   );
 }

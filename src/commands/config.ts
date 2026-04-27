@@ -23,11 +23,11 @@ export function configCommand(configFactory: () => Config = getDefaultConfig): C
     summary: 'Show or change mpu configuration',
     description: 'Show or change mpu configuration. Values are stored in SQLite.',
     examples: [
-      { cmd: 'mpu config', note: 'list all settings' },
-      { cmd: 'mpu config cache.enabled', note: 'show one value' },
-      { cmd: 'mpu config cache.enabled off', note: 'disable caching' },
-      { cmd: 'mpu config cache.ttl 300', note: 'set default TTL to 300 seconds' },
-      { cmd: 'mpu config --unset cache.ttl', note: 'reset key to default' },
+      { cmd: 'new-mpu config', note: 'list all settings' },
+      { cmd: 'new-mpu config cache.enabled', note: 'show one value' },
+      { cmd: 'new-mpu config cache.enabled off', note: 'disable caching' },
+      { cmd: 'new-mpu config cache.ttl 300', note: 'set default TTL to 300 seconds' },
+      { cmd: 'new-mpu config --unset cache.ttl', note: 'reset key to default' },
     ],
   });
   cmd

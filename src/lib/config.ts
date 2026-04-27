@@ -42,6 +42,13 @@ export const CONFIG_REGISTRY: Record<string, ConfigEntry> = {
     description: 'HTTP request timeout in seconds',
     validate: (v) => (typeof v === 'number' && v >= 1 ? true : 'must be an integer >= 1'),
   },
+  'sheet.cache.ttl': {
+    type: 'int',
+    default: 3600,
+    description:
+      'Per-cell sheet cache TTL in seconds (0 = covering cache disabled, network always)',
+    validate: (v) => (typeof v === 'number' && v >= 0 ? true : 'must be an integer >= 0'),
+  },
 };
 
 export interface ConfigListEntry {

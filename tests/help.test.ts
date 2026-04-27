@@ -90,8 +90,8 @@ describe('buildProgram() — help integration', () => {
     const config = program.commands.find((c) => c.name() === 'config')!;
     const help = renderHelp(config);
     expect(help).toContain('Examples:');
-    expect(help).toContain('mpu config cache.enabled off');
-    expect(help).toContain('mpu config cache.ttl 300');
+    expect(help).toContain('new-mpu config cache.enabled off');
+    expect(help).toContain('new-mpu config cache.ttl 300');
   });
 
   it('Проверяет: completion install --help содержит Examples', () => {
@@ -100,7 +100,7 @@ describe('buildProgram() — help integration', () => {
     const installSub = completion.commands.find((c) => c.name() === 'install')!;
     const help = renderHelp(installSub);
     expect(help).toContain('Examples:');
-    expect(help).toContain('mpu completion install fish');
+    expect(help).toContain('new-mpu completion install fish');
   });
 
   it('Проверяет: help subcommand зарегистрирован в program.commands и не hidden', () => {

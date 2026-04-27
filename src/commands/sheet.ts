@@ -7,6 +7,8 @@ import { WebappClient } from '../lib/webapp.js';
 import { envLookup } from '../lib/env.js';
 import { getDefaultConfig } from '../lib/config.js';
 import type { Config } from '../lib/config.js';
+import { getDefaultDb } from '../lib/db.js';
+import { SheetCache } from '../lib/sheet-cache.js';
 
 export interface BatchGetResult {
   valueRanges: Array<{ range: string; values?: unknown[][]; majorDimension?: string }>;
@@ -211,6 +213,10 @@ function defaultDeps(): SheetDeps {
           quotaDelayMs: 60_000,
         },
       });
+    }
+    const cacheTtl = cfg().get('sheet.cache.ttl') as number;
+    if (cacheTtl > 0) {
+      return new SheetCache({ db: getDefaultDb(), inner: cachedClient, ttlSec: cacheTtl });
     }
     return cachedClient;
   };

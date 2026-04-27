@@ -93,35 +93,35 @@ export async function complete(root: Command, args: string[]): Promise<string[]>
 }
 
 /**
- * Shell-скрипты делегируют в `mpu __complete <shell> -- <words...>` и
+ * Shell-скрипты делегируют в `new-mpu __complete <shell> -- <words...>` и
  * фильтруют кандидатов на стороне shell'а. Сам скрипт — минимальный.
  */
 const SCRIPTS: Record<Shell, string> = {
   bash: `# mpu bash completion
-_mpu() {
+_new_mpu() {
   local IFS=$'\\n'
   local cur="\${COMP_WORDS[COMP_CWORD]}"
   local candidates
-  candidates="$(mpu __complete bash -- "\${COMP_WORDS[@]:1}" 2>/dev/null)"
+  candidates="$(new-mpu __complete bash -- "\${COMP_WORDS[@]:1}" 2>/dev/null)"
   COMPREPLY=( $(compgen -W "$candidates" -- "$cur") )
 }
-complete -F _mpu mpu
+complete -F _new_mpu new-mpu
 `,
-  fish: `# mpu fish completion
-function __mpu_complete
+  fish: `# new-mpu.fish completion
+function __new_mpu_complete
   set -l tokens (commandline -opc) (commandline -ct)
   set -e tokens[1]
-  mpu __complete fish -- $tokens 2>/dev/null
+  new-mpu __complete fish -- $tokens 2>/dev/null
 end
-complete -c mpu -f -a '(__mpu_complete)'
+complete -c new-mpu -f -a '(__new_mpu_complete)'
 `,
-  zsh: `#compdef mpu
-_mpu() {
+  zsh: `#compdef new-mpu
+_new_mpu() {
   local -a candidates
-  candidates=(\${(f)"$(mpu __complete zsh -- "\${words[@]:1}" 2>/dev/null)"})
+  candidates=(\${(f)"$(new-mpu __complete zsh -- "\${words[@]:1}" 2>/dev/null)"})
   compadd -a candidates
 }
-compdef _mpu mpu
+compdef _new_mpu new-mpu
 `,
 };
 
@@ -137,15 +137,15 @@ export function installPath(shell: Shell): string {
     case 'bash':
       return join(
         process.env['XDG_DATA_HOME'] ?? join(home, '.local/share'),
-        'bash-completion/completions/mpu',
+        'bash-completion/completions/new-mpu',
       );
     case 'fish':
       return join(
         process.env['XDG_CONFIG_HOME'] ?? join(home, '.config'),
-        'fish/completions/mpu.fish',
+        'fish/completions/new-mpu.fish',
       );
     case 'zsh':
-      return join(home, '.zfunc/_mpu');
+      return join(home, '.zfunc/_new-mpu');
   }
 }
 

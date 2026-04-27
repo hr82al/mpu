@@ -7,7 +7,7 @@ import { sheetCommand } from './commands/sheet.js';
 
 export function buildProgram(): Command {
   const program = new Command();
-  program.name('mpu').description('Multi-purpose CLI utility').version('0.1.0');
+  program.name('new-mpu').description('Multi-purpose CLI utility').version('0.1.0');
 
   program.addCommand(configCommand());
   program.addCommand(completionCommand());
@@ -15,7 +15,7 @@ export function buildProgram(): Command {
   program.addCommand(helpCommand(() => program));
   program.addCommand(internalCompleteCommand(() => program), { hidden: true });
 
-  program.showHelpAfterError('(run `mpu help` for a list of commands)');
+  program.showHelpAfterError('(run `new-mpu help` for a list of commands)');
 
   return program;
 }
