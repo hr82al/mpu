@@ -3,7 +3,9 @@ import { readFile as fsReadFile } from 'node:fs/promises';
 import { describe } from '../lib/help.js';
 import { setProvider } from '../lib/completion.js';
 import {
+  AmbiguousSpreadsheetError,
   inspectSpreadsheetSources,
+  parseSpreadsheetUrl,
   resolveRanges,
   resolveSpreadsheetId,
   type SpreadsheetInspection,
@@ -17,6 +19,9 @@ import { SheetCache } from '../lib/sheet-cache.js';
 import { Cache, getDefaultCache } from '../lib/cache.js';
 import { MAIN_BIN } from '../lib/branding.js';
 import { parseA1, colNumToA1, A1ParseError } from '../lib/a1.js';
+import { SheetAliases, getDefaultSheetAliases } from '../lib/sheet-aliases.js';
+import { SlSpreadsheets, getDefaultSlSpreadsheets, type SlSpreadsheetRow } from '../lib/sl-spreadsheets.js';
+import { SlApi } from '../lib/slapi.js';
 
 export interface BatchGetResult {
   valueRanges: Array<{ range: string; values?: unknown[][]; majorDimension?: string }>;
@@ -40,11 +45,17 @@ export interface SheetClient {
 export interface SheetDeps {
   getClient: () => SheetClient;
   getCache: () => Cache;
+  getAliases: () => SheetAliases;
+  getSlStore: () => SlSpreadsheets;
+  /** Lazy SlApi factory (throws if BASE_API_URL/credentials missing). */
+  buildSlApi: () => SlApi;
   env: (key: string) => string | undefined;
   configDefault: () => string | undefined;
+  isProtected: () => boolean;
   readFile: (path: string) => Promise<string>;
   readStdin: () => Promise<string>;
   print: (text: string) => void;
+  openUrl: (url: string) => Promise<void>;
 }
 
 const RENDER_MAP: Record<string, string> = {
@@ -143,6 +154,8 @@ export function sheetCommand(deps: SheetDeps = defaultDeps()): Command {
           flag: opts.spreadsheet,
           env: () => deps.env('MPU_SS'),
           configDefault: deps.configDefault,
+          lookupAlias: (n) => deps.getAliases().get(n),
+          lookupCandidates: (q) => smartLookup(deps.getSlStore(), q),
         });
         const ranges = await resolveRanges({
           positional,
@@ -187,6 +200,333 @@ export function sheetCommand(deps: SheetDeps = defaultDeps()): Command {
   cmd.addCommand(get);
   cmd.addCommand(resolveSubcommand(deps));
   cmd.addCommand(lsSubcommand(deps));
+  cmd.addCommand(openSubcommand(deps));
+  cmd.addCommand(aliasSubcommand(deps));
+  cmd.addCommand(setSubcommand(deps));
+  cmd.addCommand(syncSubcommand(deps));
+  return cmd;
+}
+
+export function smartLookup(store: SlSpreadsheets, raw: string): SlSpreadsheetRow[] {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  if (store.count() === 0) {
+    throw new Error(
+      [
+        `cannot smart-resolve "${trimmed}": local sl_spreadsheets is empty.`,
+        'Run `sheet sync` first to enable lookup by client_id or title,',
+        'or pass --spreadsheet <full-ID-or-URL>.',
+      ].join('\n'),
+    );
+  }
+  if (/^\d+$/.test(trimmed)) {
+    return store.byClientId(Number.parseInt(trimmed, 10));
+  }
+  return store.fuzzyByTitle(trimmed, 20);
+}
+
+function syncSubcommand(deps: SheetDeps): Command {
+  const cmd = new Command('sync');
+  describe(cmd, {
+    summary: 'Pull spreadsheet metadata from sl-back into local cache',
+    description: [
+      'Fetch the full list of spreadsheets via sl-back GET /admin/ss and store',
+      'in the local SQLite database (sl_spreadsheets). Enables smart resolve:',
+      '  • numeric -s 42  → match by client_id',
+      '  • text -s "cool flaps" → fuzzy match by title',
+      '',
+      'Requires env: BASE_API_URL (or NEXT_PUBLIC_SERVER_URL), TOKEN_EMAIL, TOKEN_PASSWORD.',
+    ].join('\n'),
+    examples: [
+      { cmd: 'sheet sync', note: 'fetch and store (token cached 10 min)' },
+      { cmd: 'sheet sync --json', note: 'print synced rows' },
+    ],
+  });
+  cmd
+    .option('--json', 'print synced rows as JSON')
+    .action(async (opts: { json?: boolean }) => {
+      const api = deps.buildSlApi();
+      const rows = await api.getSpreadsheets();
+      deps.getSlStore().replaceAll(rows);
+      if (opts.json) {
+        deps.print(JSON.stringify(rows, null, 2));
+      } else {
+        deps.print(`synced ${rows.length} spreadsheets\n`);
+      }
+    });
+  return cmd;
+}
+
+export interface UpdateEntry {
+  range: string;
+  value: string;
+}
+
+export function parseUpdates(text: string): UpdateEntry[] {
+  const out: UpdateEntry[] = [];
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]!;
+    const line = raw.trim();
+    if (line === '' || line.startsWith('#')) continue;
+    const tab = line.indexOf('\t');
+    if (tab < 0) {
+      throw new Error(
+        `parseUpdates: line ${i + 1} has no tab separator. Expected "range<TAB>value", got "${line}"`,
+      );
+    }
+    out.push({
+      range: line.slice(0, tab).trim(),
+      value: unescapeTsv(line.slice(tab + 1)),
+    });
+  }
+  return out;
+}
+
+function unescapeTsv(s: string): string {
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch !== '\\' || i + 1 >= s.length) {
+      out += ch;
+      continue;
+    }
+    const next = s[i + 1];
+    if (next === 'n') out += '\n';
+    else if (next === 'r') out += '\r';
+    else if (next === 't') out += '\t';
+    else if (next === '\\') out += '\\';
+    else out += ch + next;
+    i++;
+  }
+  return out;
+}
+
+interface BatchUpdateResponse {
+  spreadsheetId?: string;
+  responses?: Array<{ updatedRange?: string; updatedCells?: number }>;
+}
+
+function setSubcommand(deps: SheetDeps): Command {
+  const cmd = new Command('set');
+  describe(cmd, {
+    summary: 'Write values to one or more cells/ranges',
+    description: [
+      'Write values via spreadsheets/values/batchUpdate.',
+      '',
+      'Default valueInputOption is USER_ENTERED — strings like "=A1*2" become formulas, "123" becomes a number.',
+      'Use --literal/-l to write values as RAW (no parsing).',
+      '',
+      'Protected mode: by default writes require explicit --force/-f. Disable globally with',
+      `\`${MAIN_BIN} config sheet.protected false\`.`,
+      '',
+      'After a successful update the covering cache invalidates the touched cells automatically.',
+    ].join('\n'),
+    examples: [
+      { cmd: "sheet set 'Sheet1!A1' hello -f", note: 'single cell' },
+      { cmd: "sheet set 'Sheet1!A1' '=A2*2' -f", note: 'formula' },
+      { cmd: 'sheet set --from updates.tsv -f', note: 'batch (range<TAB>value per line)' },
+      { cmd: "echo 'S!A1\\thi' | sheet set --from - -f", note: 'stdin' },
+      { cmd: 'sheet set "S!A1" abc -f --literal', note: 'RAW mode — write "=foo" literally' },
+    ],
+  });
+  cmd
+    .argument('[range]', 'A1 range (single update form)')
+    .argument('[value]', 'value to write (single update form)')
+    .option('-s, --spreadsheet <id-or-url>', 'spreadsheet ID, URL, or alias')
+    .option('--from <file>', 'batch from file (one "range<TAB>value" per line, # comments). Use - for stdin')
+    .option('-f, --force', 'allow write when sheet.protected=true (which is the default)')
+    .option('-l, --literal', 'use RAW value input (do not parse formulas/numbers)')
+    .action(
+      async (
+        range: string | undefined,
+        value: string | undefined,
+        opts: { spreadsheet?: string; from?: string; force?: boolean; literal?: boolean },
+      ) => {
+        if (deps.isProtected() && !opts.force) {
+          throw new Error(
+            [
+              'sheet.protected is true; write blocked.',
+              'Pass --force/-f for one-off writes, or disable globally:',
+              `  ${MAIN_BIN} config sheet.protected false`,
+            ].join('\n'),
+          );
+        }
+
+        let updates: UpdateEntry[];
+        if (opts.from !== undefined) {
+          const text = opts.from === '-' ? await deps.readStdin() : await deps.readFile(opts.from);
+          updates = parseUpdates(text);
+        } else {
+          if (!range || value === undefined) {
+            throw new Error(
+              'sheet set requires <range> <value> or --from <file>. ' +
+                'Examples:\n  sheet set Sheet1!A1 hello -f\n  sheet set --from updates.tsv -f',
+            );
+          }
+          updates = [{ range, value }];
+        }
+        if (updates.length === 0) {
+          throw new Error('no updates to apply (empty input)');
+        }
+
+        const { id: ssId } = resolveSpreadsheetId({
+          flag: opts.spreadsheet,
+          env: () => deps.env('MPU_SS'),
+          configDefault: deps.configDefault,
+          lookupAlias: (n) => deps.getAliases().get(n),
+          lookupCandidates: (q) => smartLookup(deps.getSlStore(), q),
+        });
+
+        const client = deps.getClient();
+        const data = updates.map((u) => ({ range: u.range, values: [[u.value]] }));
+        const result = await client.do<BatchUpdateResponse>('spreadsheets/values/batchUpdate', {
+          ssId,
+          requestBody: {
+            valueInputOption: opts.literal ? 'RAW' : 'USER_ENTERED',
+            data,
+          },
+        });
+
+        const responses = result.responses ?? [];
+        const updatesOut = responses.map((r, i) => ({
+          range: r.updatedRange ?? updates[i]?.range ?? '',
+          updatedCells: r.updatedCells ?? 0,
+        }));
+        deps.print(
+          JSON.stringify(
+            { spreadsheetId: result.spreadsheetId ?? ssId, updates: updatesOut },
+            null,
+            2,
+          ),
+        );
+      },
+    );
+  return cmd;
+}
+
+function aliasSubcommand(deps: SheetDeps): Command {
+  const cmd = new Command('alias');
+  describe(cmd, {
+    summary: 'Manage spreadsheet aliases (short names → IDs)',
+    description: [
+      'Map a short name to a spreadsheet ID/URL. Aliases work anywhere a spreadsheet is accepted:',
+      '--spreadsheet/-s, env MPU_SS, config sheet.default.',
+      '',
+      'Names must match [A-Za-z0-9_.-]+ (no spaces, shell-friendly).',
+    ].join('\n'),
+    examples: [
+      { cmd: 'sheet alias add prod 1abc...', note: 'create or replace' },
+      { cmd: 'sheet alias add dev https://docs.google.com/spreadsheets/d/1xyz/edit' },
+      { cmd: 'sheet alias ls', note: 'list all aliases' },
+      { cmd: 'sheet alias rm prod' },
+      { cmd: 'sheet get -s prod "UNIT!A1"', note: 'use alias instead of ID' },
+    ],
+  });
+
+  const add = new Command('add');
+  describe(add, { summary: 'Add or replace an alias' });
+  add
+    .argument('<name>', 'alias name ([A-Za-z0-9_.-]+)')
+    .argument('<id-or-url>', 'spreadsheet ID or full Google Sheets URL')
+    .action((name: string, idOrUrl: string) => {
+      const ssId = parseSpreadsheetUrl(idOrUrl);
+      deps.getAliases().add(name, ssId);
+      deps.print(`alias ${name} → ${ssId}\n`);
+    });
+  cmd.addCommand(add);
+
+  const ls = new Command('ls');
+  describe(ls, { summary: 'List all aliases' });
+  ls.option('--json', 'structured JSON output').action((opts: { json?: boolean }) => {
+    const entries = deps.getAliases().list();
+    if (opts.json) {
+      deps.print(JSON.stringify(entries, null, 2));
+      return;
+    }
+    if (entries.length === 0) {
+      deps.print('');
+      return;
+    }
+    const w = Math.max(...entries.map((e) => e.name.length));
+    const lines = entries.map((e) => `${e.name.padEnd(w)}  ${e.ssId}`);
+    deps.print(lines.join('\n') + '\n');
+  });
+  cmd.addCommand(ls);
+
+  const rm = new Command('rm');
+  describe(rm, { summary: 'Remove an alias' });
+  rm.argument('<name>', 'alias name').action((name: string) => {
+    deps.getAliases().remove(name);
+    deps.print(`removed ${name}\n`);
+  });
+  cmd.addCommand(rm);
+
+  return cmd;
+}
+
+export function buildSpreadsheetUrl(ssId: string, gid?: number): string {
+  const base = `https://docs.google.com/spreadsheets/d/${ssId}/edit`;
+  return gid === undefined ? base : `${base}#gid=${gid}`;
+}
+
+function openSubcommand(deps: SheetDeps): Command {
+  const cmd = new Command('open');
+  describe(cmd, {
+    summary: 'Open a spreadsheet (or specific sheet) in the browser',
+    description: [
+      'Open the Google Sheets editor URL for the resolved spreadsheet.',
+      'When a sheet name is given, jumps to that tab via #gid=N (resolved from cached metadata).',
+    ].join('\n'),
+    examples: [
+      { cmd: 'sheet open', note: 'open default spreadsheet' },
+      { cmd: 'sheet open UNIT', note: 'open and jump to sheet "UNIT"' },
+      { cmd: 'sheet open --print', note: 'just print URL (for piping into xdg-open, clipboard, etc.)' },
+      { cmd: 'sheet open -s 1abc... TabName' },
+    ],
+  });
+  cmd
+    .argument('[sheet]', 'sheet (tab) name to jump to')
+    .option('-s, --spreadsheet <id-or-url>', 'spreadsheet ID or full Google Sheets URL')
+    .option('--print', 'print URL to stdout instead of launching browser')
+    .action(async (sheetName: string | undefined, opts: { spreadsheet?: string; print?: boolean }) => {
+      const { id: ssId } = resolveSpreadsheetId({
+        flag: opts.spreadsheet,
+        env: () => deps.env('MPU_SS'),
+        configDefault: deps.configDefault,
+          lookupAlias: (n) => deps.getAliases().get(n),
+          lookupCandidates: (q) => smartLookup(deps.getSlStore(), q),
+      });
+
+      let gid: number | undefined;
+      if (sheetName) {
+        const client = deps.getClient();
+        const cache = deps.getCache();
+        const result = await cache.wrapAsync(
+          `sheet:info:${ssId}`,
+          () => client.do<SpreadsheetsGetResponse>('spreadsheets/get', { ssId }),
+        );
+        const matched = (result.sheets ?? []).find(
+          (s) => s.properties?.title === sheetName,
+        );
+        if (!matched) {
+          const titles = (result.sheets ?? [])
+            .map((s) => s.properties?.title ?? '')
+            .filter(Boolean);
+          throw new Error(
+            `sheet "${sheetName}" not found. Available: ${titles.join(', ')}`,
+          );
+        }
+        gid = matched.properties?.sheetId;
+      }
+
+      const url = buildSpreadsheetUrl(ssId, gid);
+      if (opts.print) {
+        deps.print(`${url}\n`);
+        return;
+      }
+      await deps.openUrl(url);
+    });
   return cmd;
 }
 
@@ -246,6 +586,8 @@ function lsSubcommand(deps: SheetDeps): Command {
           flag: opts.spreadsheet,
           env: () => deps.env('MPU_SS'),
           configDefault: deps.configDefault,
+          lookupAlias: (n) => deps.getAliases().get(n),
+          lookupCandidates: (q) => smartLookup(deps.getSlStore(), q),
         });
         const client = deps.getClient();
         const cache = deps.getCache();
@@ -321,12 +663,38 @@ function resolveSubcommand(deps: SheetDeps): Command {
     .option('-s, --spreadsheet <id-or-url>', 'spreadsheet ID or full Google Sheets URL')
     .option('--json', 'structured JSON output (does not throw if no source set)')
     .action((opts: { spreadsheet?: string; json?: boolean }) => {
-      const inspection = inspectSpreadsheetSources({
-        flag: opts.spreadsheet,
-        env: () => deps.env('MPU_SS'),
-        configDefault: deps.configDefault,
-      });
+      let inspection: SpreadsheetInspection;
+      let ambiguous: AmbiguousSpreadsheetError | undefined;
+      try {
+        inspection = inspectSpreadsheetSources({
+          flag: opts.spreadsheet,
+          env: () => deps.env('MPU_SS'),
+          configDefault: deps.configDefault,
+          lookupAlias: (n) => deps.getAliases().get(n),
+          lookupCandidates: (q) => smartLookup(deps.getSlStore(), q),
+        });
+      } catch (e) {
+        if (e instanceof AmbiguousSpreadsheetError && opts.json) {
+          ambiguous = e;
+          inspection = { checked: [], resolved: undefined };
+        } else {
+          throw e;
+        }
+      }
       if (opts.json) {
+        if (ambiguous) {
+          deps.print(
+            JSON.stringify(
+              {
+                resolved: null,
+                ambiguous: { query: ambiguous.query, candidates: ambiguous.candidates },
+              },
+              null,
+              2,
+            ),
+          );
+          return;
+        }
         deps.print(formatResolveJson(inspection));
         return;
       }
@@ -530,7 +898,11 @@ function defaultDeps(): SheetDeps {
   return {
     getClient,
     getCache: () => getDefaultCache(),
+    getAliases: () => getDefaultSheetAliases(),
+    getSlStore: () => getDefaultSlSpreadsheets(),
+    buildSlApi: () => buildDefaultSlApi(env.get.bind(env)),
     env: (k) => env.get(k),
+    isProtected: () => cfg().get('sheet.protected') as boolean,
     configDefault: () => {
       const v = cfg().get('sheet.default') as string;
       return v || undefined;
@@ -542,5 +914,54 @@ function defaultDeps(): SheetDeps {
       return Buffer.concat(chunks).toString('utf8');
     },
     print: (s) => process.stdout.write(s),
+    openUrl: launchBrowser,
   };
+}
+
+function buildDefaultSlApi(getEnv: (k: string) => string | undefined): SlApi {
+  const host = getEnv('NEXT_PUBLIC_SERVER_URL');
+  const apiBase = getEnv('BASE_API_URL');
+  // BASE_API_URL может быть full URL или path-prefix ("/api"). Комбинируем с host если path.
+  let baseUrl: string | undefined;
+  if (apiBase?.startsWith('http')) baseUrl = apiBase;
+  else if (apiBase && host) baseUrl = host.replace(/\/+$/, '') + '/' + apiBase.replace(/^\/+/, '');
+  else if (host) baseUrl = host;
+  const email = getEnv('TOKEN_EMAIL');
+  const password = getEnv('TOKEN_PASSWORD');
+  const missing = [
+    !baseUrl && 'NEXT_PUBLIC_SERVER_URL or BASE_API_URL (full URL)',
+    !email && 'TOKEN_EMAIL',
+    !password && 'TOKEN_PASSWORD',
+  ].filter(Boolean);
+  if (missing.length > 0) {
+    throw new Error(
+      [
+        `sl-back credentials missing in env: ${missing.join(', ')}`,
+        'Set them in process env or in ~/.config/mpu/.env',
+      ].join('\n'),
+    );
+  }
+  const cache = getDefaultCache();
+  const tokenKey = 'sl:token';
+  return new SlApi({
+    baseUrl: baseUrl as string,
+    email: email as string,
+    password: password as string,
+    getCachedToken: () => cache.get<string>(tokenKey),
+    setCachedToken: (t) => cache.set(tokenKey, t, { ttl: 600 }),
+  });
+}
+
+async function launchBrowser(url: string): Promise<void> {
+  const { spawn } = await import('node:child_process');
+  const launcher =
+    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(launcher, [url], { stdio: 'ignore', detached: true });
+    child.on('error', reject);
+    child.on('spawn', () => {
+      child.unref();
+      resolve();
+    });
+  });
 }

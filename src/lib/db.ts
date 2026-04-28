@@ -28,6 +28,22 @@ const MIGRATIONS: string[] = [
      PRIMARY KEY (ss_id, sheet, row, col)
    )`,
   `CREATE INDEX IF NOT EXISTS idx_sheet_cells_rect ON sheet_cells(ss_id, sheet, row, col)`,
+  `CREATE TABLE IF NOT EXISTS sheet_aliases (
+     name       TEXT PRIMARY KEY,
+     ss_id      TEXT NOT NULL,
+     created_at INTEGER NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS sl_spreadsheets (
+     ss_id          TEXT PRIMARY KEY,
+     client_id      INTEGER NOT NULL,
+     title          TEXT NOT NULL,
+     template_name  TEXT,
+     is_active      INTEGER NOT NULL,
+     server         TEXT,
+     synced_at      INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_sl_ss_client ON sl_spreadsheets(client_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_sl_ss_title ON sl_spreadsheets(title)`,
 ];
 
 export function openDb(path: string = defaultDbPath()): DB {

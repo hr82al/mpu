@@ -5,6 +5,8 @@ import type { SheetDeps, SheetClient } from '../src/commands/sheet.js';
 import { Cache } from '../src/lib/cache.js';
 import { Config } from '../src/lib/config.js';
 import { openDb } from '../src/lib/db.js';
+import { SheetAliases } from '../src/lib/sheet-aliases.js';
+import { SlSpreadsheets } from '../src/lib/sl-spreadsheets.js';
 
 type DoFn = <T = unknown>(action: string, payload: Record<string, unknown>) => Promise<T>;
 
@@ -27,6 +29,10 @@ function makeDeps(over: Partial<SheetDeps> = {}): {
   const deps: SheetDeps = {
     getClient: () => client as unknown as SheetClient,
     getCache: () => cache,
+    getAliases: () => new SheetAliases(db),
+    isProtected: () => true,
+    getSlStore: () => new SlSpreadsheets(db),
+    buildSlApi: () => { throw new Error('SlApi not configured in tests'); },
     env: () => '1abcDEF_xyz-1234567890ABCDE',
     configDefault: () => undefined,
     readFile: async () => '',
@@ -34,6 +40,7 @@ function makeDeps(over: Partial<SheetDeps> = {}): {
     print: (s) => {
       output.push(s);
     },
+    openUrl: async () => {},
     ...over,
   };
   return { deps, client, output, cache };
@@ -112,8 +119,8 @@ describe('sheet ls', () => {
   it('Проверяет: --spreadsheet перекрывает env', async () => {
     const m = makeDeps();
     m.client.do.mockResolvedValueOnce(fakeInfo as never);
-    await run(['ls', '-s', 'OVERRIDE_ID'], m.deps);
-    expect(m.client.do.mock.calls[0]![1]).toEqual({ ssId: 'OVERRIDE_ID' });
+    await run(['ls', '-s', 'OVERRIDE_ID_xxxxxxxxxxxxxxxxxxxx'], m.deps);
+    expect(m.client.do.mock.calls[0]![1]).toEqual({ ssId: 'OVERRIDE_ID_xxxxxxxxxxxxxxxxxxxx' });
   });
 
   it('Проверяет: пустой spreadsheet → пустой вывод (без падения)', async () => {
@@ -141,8 +148,8 @@ describe('sheet ls', () => {
       spreadsheetId: 'Y',
       sheets: [{ properties: { title: 'Other', sheetId: 7, index: 0, gridProperties: { rowCount: 1, columnCount: 1 } } }],
     } as never);
-    await run(['ls', '-s', 'ID_AAA'], m.deps);
-    await run(['ls', '-s', 'ID_BBB'], m.deps);
+    await run(['ls', '-s', 'ID_AAAxxxxxxxxxxxxxxxxxxxxx'], m.deps);
+    await run(['ls', '-s', 'ID_BBBxxxxxxxxxxxxxxxxxxxxx'], m.deps);
     expect(m.client.do).toHaveBeenCalledTimes(2);
   });
 

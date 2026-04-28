@@ -27,15 +27,62 @@ export function looksLikeSpreadsheetId(input: string): boolean {
   return ID_PATTERN.test(input);
 }
 
+export interface SmartResolveCandidate {
+  ssId: string;
+  clientId: number;
+  title: string;
+  templateName: string | null;
+  isActive: boolean;
+  server: string | null;
+}
+
 export interface ResolveSpreadsheetDeps {
   flag: string | undefined;
   env: () => string | undefined;
   configDefault: () => string | undefined;
+  /** Optional alias resolver: name → ssId. */
+  lookupAlias?: (name: string) => string | undefined;
+  /**
+   * Optional smart-resolve over sl_spreadsheets. Receives raw input string;
+   * returns one or more matches (numeric → by client_id; non-numeric → fuzzy by title).
+   * Empty array = no matches.
+   */
+  lookupCandidates?: (input: string) => SmartResolveCandidate[];
 }
 
 export interface ResolvedSpreadsheet {
   id: string;
   source: 'flag' | 'env' | 'config';
+  /** Alias name used (if any). */
+  alias?: string;
+  /** Smart-resolve match (if any). */
+  candidate?: SmartResolveCandidate;
+}
+
+export class AmbiguousSpreadsheetError extends Error {
+  readonly query: string;
+  readonly candidates: SmartResolveCandidate[];
+  constructor(query: string, candidates: SmartResolveCandidate[]) {
+    const list = candidates
+      .slice(0, 10)
+      .map(
+        (c) =>
+          `  client=${c.clientId}${c.isActive ? '' : ' (inactive)'}  ${c.ssId}  ${c.title}`,
+      )
+      .join('\n');
+    const more = candidates.length > 10 ? `\n  …and ${candidates.length - 10} more` : '';
+    super(
+      [
+        `multiple spreadsheets match "${query}" (${candidates.length}):`,
+        list + more,
+        '',
+        'Disambiguate by passing --spreadsheet <full-id-or-url>, or use a more specific query.',
+      ].join('\n'),
+    );
+    this.name = 'AmbiguousSpreadsheetError';
+    this.query = query;
+    this.candidates = candidates;
+  }
 }
 
 export type SpreadsheetSource = 'flag' | 'env' | 'config';
@@ -66,6 +113,26 @@ export function inspectSpreadsheetSources(deps: ResolveSpreadsheetDeps): Spreads
   let resolved: ResolvedSpreadsheet | undefined;
   for (const o of order) {
     if (resolved || !o.raw) continue;
+    if (o.raw.startsWith('http') || looksLikeSpreadsheetId(o.raw)) {
+      resolved = { id: parseSpreadsheetUrl(o.raw), source: o.source };
+      continue;
+    }
+    const aliasId = deps.lookupAlias?.(o.raw);
+    if (aliasId) {
+      resolved = { id: aliasId, source: o.source, alias: o.raw };
+      continue;
+    }
+    if (deps.lookupCandidates) {
+      const cands = deps.lookupCandidates(o.raw);
+      if (cands.length === 1) {
+        const c = cands[0]!;
+        resolved = { id: c.ssId, source: o.source, candidate: c };
+        continue;
+      }
+      if (cands.length > 1) {
+        throw new AmbiguousSpreadsheetError(o.raw, cands);
+      }
+    }
     resolved = { id: parseSpreadsheetUrl(o.raw), source: o.source };
   }
 

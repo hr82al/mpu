@@ -6,6 +6,8 @@ import { inspectSpreadsheetSources } from '../src/lib/spreadsheet.js';
 import { Cache } from '../src/lib/cache.js';
 import { Config } from '../src/lib/config.js';
 import { openDb } from '../src/lib/db.js';
+import { SheetAliases } from '../src/lib/sheet-aliases.js';
+import { SlSpreadsheets } from '../src/lib/sl-spreadsheets.js';
 
 type DoFn = <T = unknown>(action: string, payload: Record<string, unknown>) => Promise<T>;
 
@@ -22,6 +24,10 @@ function makeDeps(over: Partial<SheetDeps> = {}): {
   const deps: SheetDeps = {
     getClient: () => client as unknown as SheetClient,
     getCache: () => cache,
+    getAliases: () => new SheetAliases(db),
+    isProtected: () => true,
+    getSlStore: () => new SlSpreadsheets(db),
+    buildSlApi: () => { throw new Error('SlApi not configured in tests'); },
     env: () => undefined,
     configDefault: () => undefined,
     readFile: async () => '',
@@ -29,6 +35,7 @@ function makeDeps(over: Partial<SheetDeps> = {}): {
     print: (s) => {
       output.push(s);
     },
+    openUrl: async () => {},
     ...over,
   };
   return { deps, output };
@@ -101,9 +108,9 @@ describe('sheet resolve', () => {
 
   it('Проверяет: --spreadsheet перекрывает env и помечает used=flag', async () => {
     const m = makeDeps({ env: () => 'envid', configDefault: () => 'cfgid' });
-    await run(['resolve', '-s', 'OVERRIDE_ID', '--json'], m.deps);
+    await run(['resolve', '-s', 'OVERRIDE_ID_xxxxxxxxxxxxxxxxxxxx', '--json'], m.deps);
     const obj = JSON.parse(m.output.join(''));
-    expect(obj.resolved).toEqual({ id: 'OVERRIDE_ID', source: 'flag' });
+    expect(obj.resolved).toEqual({ id: 'OVERRIDE_ID_xxxxxxxxxxxxxxxxxxxx', source: 'flag' });
     expect(obj.checked.find((c: { source: string }) => c.source === 'flag').used).toBe(true);
     expect(obj.checked.find((c: { source: string }) => c.source === 'env').used).toBe(false);
   });

@@ -54,7 +54,11 @@
       "Bash(sheet __complete fish -- '')",
       "Bash(sheet __complete fish -- 'g')",
       "Bash(sheet __complete fish -- 'get' '')",
-      "Bash(sheet __complete fish -- 'get' '-')"
+      "Bash(sheet __complete fish -- 'get' '-')",
+      "Bash(sheet open *)",
+      "Bash(sheet alias *)",
+      "Bash(sheet set *)",
+      "Bash(time sheet *)"
     ]
   }
 }

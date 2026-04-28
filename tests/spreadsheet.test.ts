@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import {
   parseSpreadsheetUrl,
   resolveSpreadsheetId,
@@ -85,6 +85,82 @@ describe('resolveSpreadsheetId', () => {
         configDefault: () => undefined,
       }),
     ).toEqual({ id: '1abc', source: 'flag' });
+  });
+
+  it('Проверяет: alias во флаге резолвится через lookupAlias', () => {
+    const r = resolveSpreadsheetId({
+      flag: 'prod',
+      env: () => undefined,
+      configDefault: () => undefined,
+      lookupAlias: (n) => (n === 'prod' ? '1prodID_xxxxxxxxxxxxxxxx' : undefined),
+    });
+    expect(r).toEqual({ id: '1prodID_xxxxxxxxxxxxxxxx', source: 'flag', alias: 'prod' });
+  });
+
+  it('Проверяет: smart-resolve — единственный кандидат разрешается', () => {
+    const r = resolveSpreadsheetId({
+      flag: '42',
+      env: () => undefined,
+      configDefault: () => undefined,
+      lookupCandidates: (q) =>
+        q === '42'
+          ? [
+              {
+                ssId: '1abcID_xxxxxxxxxxxxxxxx',
+                clientId: 42,
+                title: 'Cool',
+                templateName: 'unit',
+                isActive: true,
+                server: 'sl-1',
+              },
+            ]
+          : [],
+    });
+    expect(r.id).toBe('1abcID_xxxxxxxxxxxxxxxx');
+    expect(r.candidate?.clientId).toBe(42);
+  });
+
+  it('Проверяет: smart-resolve — неоднозначность бросает AmbiguousSpreadsheetError', async () => {
+    const { AmbiguousSpreadsheetError } = await import('../src/lib/spreadsheet.js');
+    let err: unknown;
+    try {
+      resolveSpreadsheetId({
+        flag: 'cool',
+        env: () => undefined,
+        configDefault: () => undefined,
+        lookupCandidates: () => [
+          { ssId: 'A', clientId: 1, title: 'Cool A', templateName: null, isActive: true, server: null },
+          { ssId: 'B', clientId: 2, title: 'Cool B', templateName: null, isActive: true, server: null },
+        ],
+      });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(AmbiguousSpreadsheetError);
+    expect((err as Error).message).toMatch(/multiple/);
+    expect((err as Error).message).toMatch(/Cool A/);
+    expect((err as Error).message).toMatch(/Cool B/);
+  });
+
+  it('Проверяет: smart-resolve — пустой результат → fallback к parseSpreadsheetUrl', () => {
+    const r = resolveSpreadsheetId({
+      flag: 'mystery',
+      env: () => undefined,
+      configDefault: () => undefined,
+      lookupCandidates: () => [],
+    });
+    expect(r.id).toBe('mystery');
+  });
+
+  it('Проверяет: длинный ID не идёт через alias-lookup', () => {
+    const lookup = jest.fn<(n: string) => string | undefined>();
+    resolveSpreadsheetId({
+      flag: '1abcDEF_xyz_12345678901234567890',
+      env: () => undefined,
+      configDefault: () => undefined,
+      lookupAlias: lookup,
+    });
+    expect(lookup).not.toHaveBeenCalled();
   });
 });
 

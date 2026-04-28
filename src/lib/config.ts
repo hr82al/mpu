@@ -42,6 +42,12 @@ export const CONFIG_REGISTRY: Record<string, ConfigEntry> = {
     description: 'HTTP request timeout in seconds',
     validate: (v) => (typeof v === 'number' && v >= 1 ? true : 'must be an integer >= 1'),
   },
+  'sheet.protected': {
+    type: 'bool',
+    default: true,
+    description:
+      'When true, write operations (sheet set) require explicit --force/-f. Set to false to disable the guard globally.',
+  },
   'sheet.cache.ttl': {
     type: 'int',
     default: 3600,

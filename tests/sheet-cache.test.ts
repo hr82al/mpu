@@ -321,12 +321,57 @@ describe('SheetCache', () => {
 
   it('Проверяет: некэшируемое action делегирует в inner без сохранения', async () => {
     inner.do.mockResolvedValueOnce({ ok: true } as never);
-    const r = await cache.do<{ ok: boolean }>('spreadsheets/values/batchUpdate', {
+    const r = await cache.do<{ ok: boolean }>('spreadsheets/some-other-action', {
       ssId,
       data: [],
     });
     expect(r).toEqual({ ok: true });
     const cnt = db.prepare('SELECT COUNT(*) AS n FROM sheet_cells').get() as { n: number };
     expect(cnt.n).toBe(0);
+  });
+
+  it('Проверяет: batchUpdate инвалидирует затронутые ячейки в кэше', async () => {
+    inner.do.mockResolvedValueOnce({
+      valueRanges: [{ range: 'Sheet1!A1:C3', values: [['a','b','c'],['d','e','f'],['g','h','i']] }],
+    } as never);
+    await cache.do('spreadsheets/values/batchGet', {
+      ssId,
+      ranges: ['Sheet1!A1:C3'],
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM sheet_cells').get()).toEqual({ n: 9 });
+
+    inner.do.mockResolvedValueOnce({
+      spreadsheetId: ssId,
+      responses: [{ updatedRange: 'Sheet1!B2:C3', updatedCells: 4 }],
+    } as never);
+    await cache.do('spreadsheets/values/batchUpdate', {
+      ssId,
+      data: [{ range: 'Sheet1!B2:C3', values: [['X','Y'],['Z','W']] }],
+    });
+    const remaining = db.prepare('SELECT row, col FROM sheet_cells ORDER BY row, col').all() as Array<{ row: number; col: number }>;
+    expect(remaining).toEqual([
+      { row: 1, col: 1 }, { row: 1, col: 2 }, { row: 1, col: 3 },
+      { row: 2, col: 1 },
+      { row: 3, col: 1 },
+    ]);
+  });
+
+  it('Проверяет: batchUpdate без успеха (исключение) — кэш не трогается', async () => {
+    inner.do.mockResolvedValueOnce({
+      valueRanges: [{ range: 'Sheet1!A1', values: [['v']] }],
+    } as never);
+    await cache.do('spreadsheets/values/batchGet', {
+      ssId, ranges: ['Sheet1!A1'], valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM sheet_cells').get()).toEqual({ n: 1 });
+
+    inner.do.mockRejectedValueOnce(new Error('boom') as never);
+    await expect(
+      cache.do('spreadsheets/values/batchUpdate', {
+        ssId, data: [{ range: 'Sheet1!A1', values: [['X']] }],
+      }),
+    ).rejects.toThrow(/boom/);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM sheet_cells').get()).toEqual({ n: 1 });
   });
 });

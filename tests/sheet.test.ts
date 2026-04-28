@@ -5,6 +5,8 @@ import type { SheetDeps, SheetClient } from '../src/commands/sheet.js';
 import { Cache } from '../src/lib/cache.js';
 import { Config } from '../src/lib/config.js';
 import { openDb } from '../src/lib/db.js';
+import { SheetAliases } from '../src/lib/sheet-aliases.js';
+import { SlSpreadsheets } from '../src/lib/sl-spreadsheets.js';
 
 type DoFn = <T = unknown>(
   action: string,
@@ -26,6 +28,10 @@ function makeDeps(over: Partial<SheetDeps> = {}): { deps: SheetDeps; client: Fak
   const deps: SheetDeps = {
     getClient: () => client as unknown as SheetClient,
     getCache: () => cache,
+    getAliases: () => new SheetAliases(db),
+    isProtected: () => true,
+    getSlStore: () => new SlSpreadsheets(db),
+    buildSlApi: () => { throw new Error('SlApi not configured in tests'); },
     env: () => undefined,
     configDefault: () => undefined,
     readFile: async () => '',
@@ -33,6 +39,7 @@ function makeDeps(over: Partial<SheetDeps> = {}): { deps: SheetDeps; client: Fak
     print: (s) => {
       output.push(s);
     },
+    openUrl: async () => {},
     ...over,
   };
   return { deps, client, output };
@@ -256,6 +263,32 @@ describe('sheet get', () => {
     expect(error!.message).toMatch(/--spreadsheet/);
     expect(error!.message).toMatch(/MPU_SS/);
     expect(error!.message).toMatch(/sheet\.default/);
+  });
+});
+
+describe('smartLookup', () => {
+  it('Проверяет: пустой store + числовой query → ошибка с подсказкой sync', async () => {
+    const { smartLookup } = await import('../src/commands/sheet.js');
+    const db = openDb(':memory:');
+    const store = new SlSpreadsheets(db);
+    expect(() => smartLookup(store, '42')).toThrow(/sheet sync/);
+  });
+
+  it('Проверяет: пустой store + текстовый query → ошибка с подсказкой sync', async () => {
+    const { smartLookup } = await import('../src/commands/sheet.js');
+    const db = openDb(':memory:');
+    const store = new SlSpreadsheets(db);
+    expect(() => smartLookup(store, 'checklist')).toThrow(/sheet sync/);
+  });
+
+  it('Проверяет: непустой store + 0 matches → пустой массив (fallback)', async () => {
+    const { smartLookup } = await import('../src/commands/sheet.js');
+    const db = openDb(':memory:');
+    const store = new SlSpreadsheets(db);
+    store.replaceAll([
+      { ssId: '1abc', clientId: 1, title: 'A', templateName: null, isActive: true, server: null },
+    ]);
+    expect(smartLookup(store, '99999')).toEqual([]);
   });
 });
 

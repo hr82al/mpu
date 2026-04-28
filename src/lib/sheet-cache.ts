@@ -31,6 +31,7 @@ interface BatchGetResponse {
 type Mode = 'value' | 'formula';
 
 const ACTION_BATCH_GET = 'spreadsheets/values/batchGet';
+const ACTION_BATCH_UPDATE = 'spreadsheets/values/batchUpdate';
 
 export class SheetCache implements SheetClient {
   private readonly db: DB;
@@ -41,6 +42,7 @@ export class SheetCache implements SheetClient {
   private readonly selectRect;
   private readonly upsertValue;
   private readonly upsertFormula;
+  private readonly deleteRect;
 
   constructor(deps: SheetCacheDeps) {
     this.db = deps.db;
@@ -68,6 +70,10 @@ export class SheetCache implements SheetClient {
        ON CONFLICT(ss_id, sheet, row, col)
          DO UPDATE SET f_text = excluded.f_text, fetched_at = excluded.fetched_at`,
     );
+    this.deleteRect = this.db.prepare(
+      `DELETE FROM sheet_cells
+        WHERE ss_id = ? AND sheet = ? AND row BETWEEN ? AND ? AND col BETWEEN ? AND ?`,
+    );
   }
 
   async do<T = unknown>(
@@ -75,6 +81,11 @@ export class SheetCache implements SheetClient {
     payload: Record<string, unknown>,
     opts?: SheetCallOptions,
   ): Promise<T> {
+    if (action === ACTION_BATCH_UPDATE) {
+      const result = await this.inner.do<T>(action, payload, opts);
+      this.invalidateUpdate(payload);
+      return result;
+    }
     if (action !== ACTION_BATCH_GET || this.ttlMs === 0) {
       return this.inner.do<T>(action, payload, opts);
     }
@@ -117,6 +128,31 @@ export class SheetCache implements SheetClient {
     }
 
     return { spreadsheetId: ssId, valueRanges } as unknown as T;
+  }
+
+  private invalidateUpdate(payload: Record<string, unknown>): void {
+    const ssId = typeof payload['ssId'] === 'string' ? payload['ssId'] : undefined;
+    if (!ssId) return;
+    const body =
+      typeof payload['requestBody'] === 'object' && payload['requestBody'] !== null
+        ? (payload['requestBody'] as Record<string, unknown>)
+        : payload;
+    const data = Array.isArray(body['data']) ? (body['data'] as Array<Record<string, unknown>>) : [];
+    const tx = this.db.transaction(() => {
+      for (const entry of data) {
+        const range = typeof entry['range'] === 'string' ? entry['range'] : undefined;
+        if (!range) continue;
+        let rect: A1Range;
+        try {
+          rect = parseA1(range);
+        } catch {
+          continue;
+        }
+        if (rect.wholeSheet) continue;
+        this.deleteRect.run(ssId, rect.sheet, rect.r1, rect.r2, rect.c1, rect.c2);
+      }
+    });
+    tx();
   }
 
   private refreshSlot(_ssId: string, range: string): Slot {
