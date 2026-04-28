@@ -266,6 +266,22 @@ describe('sheet get', () => {
   });
 });
 
+describe('sheet alias ls', () => {
+  it('Проверяет: пустой список → подсказка про sheet alias add', async () => {
+    const { deps, output } = makeDeps();
+    await run(['alias', 'ls'], deps);
+    const out = output.join('');
+    expect(out).toMatch(/no aliases/i);
+    expect(out).toMatch(/sheet alias add/);
+  });
+
+  it('Проверяет: пустой список + --json → пустой массив без подсказки', async () => {
+    const { deps, output } = makeDeps();
+    await run(['alias', 'ls', '--json'], deps);
+    expect(JSON.parse(output.join(''))).toEqual([]);
+  });
+});
+
 describe('smartLookup', () => {
   it('Проверяет: пустой store + числовой query → ошибка с подсказкой sync', async () => {
     const { smartLookup } = await import('../src/commands/sheet.js');

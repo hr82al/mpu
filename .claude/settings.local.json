@@ -58,7 +58,8 @@
       "Bash(sheet open *)",
       "Bash(sheet alias *)",
       "Bash(sheet set *)",
-      "Bash(time sheet *)"
+      "Bash(time sheet *)",
+      "Bash(MPU_DB=/tmp/mpu-test.db node dist/bin/mpu.js sheet get 'S!A1')"
     ]
   }
 }

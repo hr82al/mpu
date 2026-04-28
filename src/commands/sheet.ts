@@ -445,7 +445,7 @@ function aliasSubcommand(deps: SheetDeps): Command {
       return;
     }
     if (entries.length === 0) {
-      deps.print('');
+      deps.print('no aliases configured; add one with: mpu sheet alias add <name> <id-or-url>\n');
       return;
     }
     const w = Math.max(...entries.map((e) => e.name.length));
