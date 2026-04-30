@@ -59,7 +59,26 @@
       "Bash(sheet alias *)",
       "Bash(sheet set *)",
       "Bash(time sheet *)",
-      "Bash(MPU_DB=/tmp/mpu-test.db node dist/bin/mpu.js sheet get 'S!A1')"
+      "Bash(MPU_DB=/tmp/mpu-test.db node dist/bin/mpu.js sheet get 'S!A1')",
+      "Bash(ros --version)",
+      "Bash(ros install *)",
+      "Bash(tee /tmp/lem-install.log)",
+      "Read(//tmp/**)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(ros run *)",
+      "Read(//proc/sys/kernel/**)",
+      "Bash(~/.roswell/bin/qlot --version)",
+      "Bash(fish -c 'echo $PATH')",
+      "Read(//home/user/**)",
+      "Read(//home/user/.local/bin/**)",
+      "Bash(chmod +x ~/.local/bin/claude-usage)",
+      "Bash(~/.local/bin/claude-usage)",
+      "Bash(~/.local/bin/claude-usage *)",
+      "Bash(export PATH=\"$HOME/.roswell/bin:$PATH\")",
+      "Bash(qlot --version)",
+      "Bash(echo \"rc=$?\")",
+      "Bash(awk '/Unhandled/{flag=1} flag{print; if\\(NR-start>15\\)exit} flag&&!start{start=NR}' /tmp/lem4.log)",
+      "Bash(ros help *)"
     ]
   }
 }
