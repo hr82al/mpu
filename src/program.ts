@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { configCommand } from './commands/config.js';
 import { completionCommand } from './commands/completion.js';
+import { dbCommand } from './commands/db.js';
 import { helpCommand } from './commands/help.js';
 import { internalCompleteCommand } from './commands/internal-complete.js';
 import { sheetCommand } from './commands/sheet.js';
@@ -12,6 +13,7 @@ export function buildProgram(): Command {
 
   program.addCommand(configCommand());
   program.addCommand(completionCommand());
+  program.addCommand(dbCommand());
   program.addCommand(sheetCommand());
   program.addCommand(helpCommand(() => program));
   program.addCommand(internalCompleteCommand(() => program), { hidden: true });

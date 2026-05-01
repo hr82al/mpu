@@ -1,4 +1,5 @@
 import type { SlSpreadsheetRow } from './sl-spreadsheets.js';
+import type { SlClientRow } from './sl-clients.js';
 
 export interface SlApiDeps {
   baseUrl: string;
@@ -89,6 +90,24 @@ export class SlApi {
     const data = JSON.parse(text) as Array<Record<string, unknown>>;
     return data.map(toRow).filter((r): r is SlSpreadsheetRow => r !== null);
   }
+
+  async getClients(): Promise<SlClientRow[]> {
+    const token = await this.getToken();
+    const url = `${this.baseUrl}/admin/client`;
+    const resp = await this.fetchImpl(url, {
+      method: 'GET',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const text = await resp.text();
+    if (!resp.ok) {
+      throw new SlApiError(`GET /admin/client failed: HTTP ${resp.status}`, {
+        status: resp.status,
+        body: truncate(text, 500),
+      });
+    }
+    const data = JSON.parse(text) as Array<Record<string, unknown>>;
+    return data.map(toClientRow).filter((r): r is SlClientRow => r !== null);
+  }
 }
 
 function toRow(item: Record<string, unknown>): SlSpreadsheetRow | null {
@@ -108,6 +127,24 @@ function toRow(item: Record<string, unknown>): SlSpreadsheetRow | null {
       typeof item['template_name'] === 'string' ? item['template_name'] : null,
     isActive: item['is_active'] !== false,
     server: typeof item['server'] === 'string' ? item['server'] : null,
+  };
+}
+
+function toClientRow(item: Record<string, unknown>): SlClientRow | null {
+  const idRaw = item['id'];
+  const clientId =
+    typeof idRaw === 'number'
+      ? idRaw
+      : typeof idRaw === 'string'
+        ? Number.parseInt(idRaw, 10)
+        : null;
+  if (clientId === null || Number.isNaN(clientId)) return null;
+  return {
+    clientId,
+    server: typeof item['server'] === 'string' ? item['server'] : null,
+    isActive: item['is_active'] !== false,
+    isLocked: item['is_locked'] === true,
+    isDeleted: item['is_deleted'] === true,
   };
 }
 

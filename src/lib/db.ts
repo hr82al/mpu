@@ -44,6 +44,15 @@ const MIGRATIONS: string[] = [
    )`,
   `CREATE INDEX IF NOT EXISTS idx_sl_ss_client ON sl_spreadsheets(client_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sl_ss_title ON sl_spreadsheets(title)`,
+  `CREATE TABLE IF NOT EXISTS sl_clients (
+     client_id   INTEGER PRIMARY KEY,
+     server      TEXT,
+     is_active   INTEGER NOT NULL,
+     is_locked   INTEGER NOT NULL,
+     is_deleted  INTEGER NOT NULL,
+     synced_at   INTEGER NOT NULL
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_sl_clients_server ON sl_clients(server)`,
 ];
 
 export function openDb(path: string = defaultDbPath()): DB {

@@ -78,7 +78,11 @@
       "Bash(qlot --version)",
       "Bash(echo \"rc=$?\")",
       "Bash(awk '/Unhandled/{flag=1} flag{print; if\\(NR-start>15\\)exit} flag&&!start{start=NR}' /tmp/lem4.log)",
-      "Bash(ros help *)"
+      "Bash(ros help *)",
+      "Bash(git stash *)",
+      "Bash(bash /home/user/mr/workspace/go/mpu/scripts/install.sh --no-build)",
+      "Bash(python3 -m json.tool .claude/settings.local.json)",
+      "Bash(git add *)"
     ]
   }
 }

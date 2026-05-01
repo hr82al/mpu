@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build": "tsc && chmod +x dist/bin/mpu.js dist/bin/sheet.js",
+    "install:local": "bash scripts/install.sh",
     "dev": "tsc --watch",
     "start": "node dist/bin/mpu.js",
     "test": "NODE_OPTIONS='--experimental-vm-modules --disable-warning=ExperimentalWarning' jest",
@@ -24,9 +25,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@types/pg": "^8.20.0",
     "better-sqlite3": "^12.9.0",
     "commander": "^12.1.0",
-    "fuse.js": "^7.3.0"
+    "fuse.js": "^7.3.0",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",

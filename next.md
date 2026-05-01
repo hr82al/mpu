@@ -4,13 +4,13 @@
 
 ---
 
-## 1. Текущее состояние (на 2026-04-27)
+## 1. Текущее состояние (на 2026-05-01)
 
-**Бинари (`npm run build && npm link`):**
-- `new-mpu` — основной CLI (Go-`mpu` остаётся в PATH).
+**Бинари (`npm run build && npm link` → симлинки в `~/.local/bin`):**
+- `new-mpu` — основной CLI (Go-`mpu` остаётся в PATH как `mpu`).
 - `sheet` — алиас `new-mpu sheet`.
 
-**Команды:**
+**Команды (sheet):**
 - `sheet get` — read с per-cell {range, value, formula} (formula только у реальных формул); covering-cache; `--render values|formulas|formatted|both`; `--raw`/`--tsv`/`--json`; `-R/--refresh`; `--from <file|->`.
 - `sheet set` — write через `spreadsheets/values/batchUpdate`; protected-режим (config `sheet.protected=true` default); `--force/-f`; `--literal/-l` (RAW); `--from`; cache-инвалидация через `SheetCache.invalidateUpdate`.
 - `sheet ls` — список листов через `spreadsheets/get`; кэш `sheet:info:<ssId>`; `-l`/`--json`/`-R`.
@@ -18,26 +18,39 @@
 - `sheet resolve` — диагностика резолва; `--json` с `ambiguous` секцией для ИИ.
 - `sheet alias add/ls/rm` — короткие имена → ID, работают как `-s`/env/config.
 - `sheet sync` — pull `/admin/ss` от sl-back в `sl_spreadsheets`; токен 10 мин в общем Cache.
+
+**Команды (db) — новое:**
+- `new-mpu db sync` — pull `/admin/client` (включая `server`-поле) → `sl_clients`. Источник правды для client→server. Без него `db query`/`db server` падают.
+- `new-mpu db server <hint>` — резолвит hint в `client_id, server, ip`. Hint: full/partial ssId, client_id, IP, server name, title (exact-title fast-path → fuzzy fallback). `--ss/--client/--server/--schema` как явные перекрытия. `--json` для ИИ.
+- `new-mpu db ip <name>` — `sl-1`/`sl_1`/`SL_1` → IP через env. IP идёт обратно как есть.
+- `new-mpu db query <hint> [sql]` — основная команда. Резолвит target, выбирает mode и пускает SQL. SQL — позиционный или через stdin (когда не TTY). Форматы: `--json` (default — массив объектов), `--tsv`, `--csv` (RFC 4180). **PG-запросы НЕ кэшируются** (явное решение пользователя, см. memory feedback).
+
+**db query — выбор mode:**
+- *client mode* (когда есть `client_id`): user=`client_<id>`, password=`PG_CLIENT_USER_PASSWORD`. Без `SET search_path` — у роли `client_<id>` стоит дефолтный `search_path` на `schema_<id>`.
+- *direct mode* (`--server` + `--schema`): user=`PG_MY_USER_NAME`, password=`PG_MY_USER_PASSWORD`, выполняется `SET search_path TO "<schema>"` до основного запроса.
+
+**Прочее:**
 - `new-mpu config` — все ключи: `cache.ttl`, `sheet.default`, `sheet.url`, `sheet.protected`, `sheet.cache.ttl`, `http.retries`, `http.timeout`.
 - `new-mpu completion install [shell]` — ставит **оба bin** (`new-mpu` + `sheet`) для bash/fish/zsh.
 
 **Архитектурные принципы (CLAUDE.md разделы 0/0a/0b/0c/1):**
 - 0 — команды для ИИ и людей одновременно
-- 0a — все read-команды кэшируются
+- 0a — все read-команды кэшируются (исключение: `db query` — см. memory feedback)
 - 0b — семантика > синтаксис: ключ присутствует ⇔ имеет смысл (например, `formula` только если реально формула)
 - DRY — имена bin в `src/lib/branding.ts`
 - UNIX-way и зависимости — таблица рекомендованных библиотек
 
-**Тесты:** 217 ✓ через `npm test`.
+**Тесты:** 268 (266 ✓ / 2 ✕ pre-existing — `sheet-open` и `sheet-resolve --json` пред-сущие падения, не связаны с db). Через `npm test`.
 
 **Структура:**
 ```
 src/
   bin/{mpu,sheet}.ts
   program.ts
-  lib/{a1,branding,cache,completion,config,db,env,help,paths,retry,
-       sheet-aliases,sheet-cache,slapi,sl-spreadsheets,spreadsheet,webapp}.ts
-  commands/{config,completion,help,internal-complete,sheet}.ts
+  lib/{a1,branding,cache,completion,config,db,db-resolve,env,help,paths,
+       pgclient,retry,server-resolve,sheet-aliases,sheet-cache,sl-clients,
+       slapi,sl-spreadsheets,spreadsheet,webapp}.ts
+  commands/{config,completion,db,help,internal-complete,sheet}.ts
 tests/                # *.test.ts
 ```
 
@@ -51,20 +64,82 @@ cp .env ~/.config/mpu/.env                 # для дев-окружения
 new-mpu config sheet.url <APPS_SCRIPT_URL> # либо WB_PLUS_WEB_APP_URL в env
 new-mpu config sheet.default 1e-YcucjBPBCtrX95o3ln0DQ2qhCuhJxP7D7myiw9SqE
 sheet sync                                  # ~3.5s, ~6000 spreadsheets
+new-mpu db sync                              # ~4600 clients — populate sl_clients
 
-# проверка
+# проверка sheet
 sheet resolve --json
 sheet get 'UNIT!A1:C5' --json | head
 sheet ls | head
+
+# проверка db
+new-mpu db ip sl-1                                              # → IP из .env
+new-mpu db server 1YCG33sFWPditVaTNOdHUaWNtW3o-kj7wsmtx76jGEvs  # client+server+ip
+new-mpu db server 3377 --json                                   # JSON для ИИ
+new-mpu db query 3377 "SELECT current_database(), current_schema(), current_user"
+echo "SELECT now()" | new-mpu db query 1YCG33                   # SQL через stdin, prefix-резолв
+new-mpu db query 3377 "SELECT 1 AS n, 'hi' AS s" --tsv           # TSV
+new-mpu db query --server sl-1 --schema 42 "SELECT 1"            # direct mode
 ```
 
 **Инвалидация кэша руками** (для отладки):
 ```bash
 sqlite3 ~/.config/mpu/mpu.db 'DELETE FROM sheet_cells'
 sqlite3 ~/.config/mpu/mpu.db "DELETE FROM cache WHERE key LIKE 'sheet:info:%'"
+sqlite3 ~/.config/mpu/mpu.db 'DELETE FROM sl_clients'      # форсит db sync
 ```
 
 **Тестовый spreadsheet:** `1e-YcucjBPBCtrX95o3ln0DQ2qhCuhJxP7D7myiw9SqE` (есть write-доступ; safe-zone — `Sheet1!Z1`).
+**Тестовый db-таргет:** `1YCG33sFWPditVaTNOdHUaWNtW3o-kj7wsmtx76jGEvs` → client `3377`, server `sl-4`, schema `schema_3377`.
+
+---
+
+## 2a. db — шпаргалка для ИИ
+
+**Когда использовать.** Любой запрос к PG-данным конкретного клиента: «сколько строк в orders у клиента 3377?», «какая схема у `1YCG33...`?», «на каком сервере живёт «PrintPortal | 10X WB»?». Не путать со `sheet` — это Google Sheets. `db` — это PostgreSQL.
+
+**Резолвер `<hint>` пробует все интерпретации одновременно** (порядок описан в `lib/db-resolve.ts`):
+
+| Тип hint                            | Пример                                        | Источник            |
+|-------------------------------------|-----------------------------------------------|---------------------|
+| Полный spreadsheet ID               | `1YCG33sFWPditVaTNOdHUaWNtW3o-kj7wsmtx76jGEvs` | `sl_spreadsheets`   |
+| Любой фрагмент ssId (не только начало) | `1YCG33`, `FWPditVaTNOdHUaWN`              | `sl_spreadsheets`   |
+| Числовой `client_id`                | `3377`                                        | `sl_clients`        |
+| IP                                  | `10.0.0.1` (требует `--schema`)               | прямо               |
+| Имя сервера                         | `sl-1`, `sl_1` (если 1 client → client mode)  | env + `sl_clients`  |
+| Title (точный, case-insensitive)    | `"PrintPortal \| 10X WB"`                     | `sl_spreadsheets`   |
+| Title fuzzy (Fuse.js)               | `"printportal"`                               | `sl_spreadsheets`   |
+
+Если интерпретаций несколько и они дают разные `(server, schema)` — ошибка `ambiguous` с перечислением вариантов. Снимать неоднозначность через `--ss/--client/(--server + --schema)`.
+
+**Семантика выходных JSON для ИИ (правило 0b):**
+- `db server --json` → `{kind: "client", clientId, server, ip}` или `{kind: "direct", server, ip, schema}`. **`kind` всегда есть.**
+- `db query` (default JSON) → массив объектов `{column: value}`. `null` ↔ NULL в БД (правило 0b: один смысл — одно представление).
+- `db query --tsv/--csv` — заголовок + строки; пустые ячейки = пустая строка.
+
+**Type quirks pg→JS** (проверено `node-postgres` v8):
+- `BIGINT` / `NUMERIC` → строка (`"1"`, `"1.5"`). Дефолт node-postgres — потеря точности недопустима. ИИ не должен это интерпретировать как «число потеряно».
+- `DATE` / `TIMESTAMP` / `TIMESTAMPTZ` → JS `Date` → ISO-строка в JSON (`"2026-05-01T07:26:45.036Z"`).
+- `JSONB` → уже распарсенный объект (не строка).
+- `BYTEA` → Buffer; в JSON выйдет как `{type:"Buffer", data:[…]}`.
+- `BOOLEAN` → JS `true`/`false`.
+- `NULL` → `null`.
+
+**Типичные ошибки и что делать:**
+| Сообщение                                                          | Решение                                                          |
+|--------------------------------------------------------------------|------------------------------------------------------------------|
+| `client X not found in local sl_clients`                           | `new-mpu db sync`                                                |
+| `client X has no server in sl_clients (server=NULL)`               | На стороне sl-back клиент без server. Уточнить с владельцем БД. |
+| `host for server "sl-N" not found in env`                          | Добавить `sl_N=<IP>` в `~/.config/mpu/.env`                       |
+| `IP "X" requires --schema`                                         | Добавить `--schema <client_id>` или `--schema schema_<id>`       |
+| `ambiguous: server "X" has N clients`                              | `--client <id>` или `--schema <id>`                              |
+| `ambiguous ssId fragment "X" — multiple spreadsheets match`        | Удлинить фрагмент или дать full ssId                             |
+| `ambiguous title "X" — multiple spreadsheets match`                | Использовать `--ss <id>` или более конкретный title              |
+| `no SQL provided`                                                  | Передать SQL позиционно или через stdin                          |
+| `PG_DB_NAME is required`                                           | Прописать в `~/.config/mpu/.env` (см. `mpu-old/CLAUDE.md` env)   |
+
+**Безопасность.** SQL не парсится — что передал, то и выполнится. **Кэширования нет** — каждый вызов идёт в живую БД. Нет автоматического `LIMIT` — если запрос выходит большой, добавляйте `LIMIT N` сами.
+
+**Без `db sync` — не работает.** `sl_clients` обязательна. Если `--ss`/`--client`-резолв падает с «not found in sl_clients», первое — `new-mpu db sync`.
 
 ---
 

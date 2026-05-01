@@ -127,3 +127,52 @@ describe('SlApi.getSpreadsheets', () => {
     expect(headers['authorization']).toBe('Bearer T');
   });
 });
+
+describe('SlApi.getClients', () => {
+  it('Проверяет: GET /admin/client с Bearer, преобразование в SlClientRow[]', async () => {
+    const fetchImpl = fakeFetch([
+      { status: 200, body: { accessToken: 'T' } },
+      {
+        status: 200,
+        body: [
+          {
+            id: 42,
+            server: 'sl-1',
+            is_active: true,
+            is_locked: false,
+            is_deleted: false,
+          },
+          { id: 54, server: null, is_active: false, is_locked: false, is_deleted: false },
+          { id: '99', server: 'sl-2', is_active: true },
+        ],
+      },
+    ]);
+    const api = makeApi({ fetch: fetchImpl as unknown as typeof fetch });
+    const r = await api.getClients();
+    expect(r).toEqual([
+      { clientId: 42, server: 'sl-1', isActive: true, isLocked: false, isDeleted: false },
+      { clientId: 54, server: null, isActive: false, isLocked: false, isDeleted: false },
+      { clientId: 99, server: 'sl-2', isActive: true, isLocked: false, isDeleted: false },
+    ]);
+    const [url, init] = fetchImpl.mock.calls[1]!;
+    expect(url).toBe('https://example/api/admin/client');
+    const headers = (init as RequestInit).headers as Record<string, string>;
+    expect(headers['authorization']).toBe('Bearer T');
+  });
+
+  it('Проверяет: пропускает строки без id', async () => {
+    const fetchImpl = fakeFetch([
+      { status: 200, body: { accessToken: 'T' } },
+      {
+        status: 200,
+        body: [
+          { id: 42, server: 'sl-1', is_active: true },
+          { server: 'sl-2', is_active: true },
+        ],
+      },
+    ]);
+    const api = makeApi({ fetch: fetchImpl as unknown as typeof fetch });
+    const r = await api.getClients();
+    expect(r.map((x) => x.clientId)).toEqual([42]);
+  });
+});
