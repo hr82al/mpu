@@ -65,7 +65,7 @@ def main(
     ] = False,
 ) -> None:
     try:
-        server_number, _ = resolve_server(selector, server_override=server)
+        server_number, candidates = resolve_server(selector, server_override=server)
     except ResolveError as e:
         typer.echo(f"mpu-sql: {e}", err=True)
         if e.candidates:
@@ -77,7 +77,14 @@ def main(
         typer.echo("mpu-sql: empty SQL", err=True)
         raise typer.Exit(code=2)
 
-    code = sql_runner.run_sql(server_number, sql_text, dry=dry, json_out=json_out)
+    # Если все кандидаты указывают на одного клиента — ставим search_path
+    # на schema_<client_id>, чтобы запросы могли обращаться к таблицам без префикса.
+    distinct_client_ids = {cid for c in candidates if isinstance(cid := c.get("client_id"), int)}
+    client_id = next(iter(distinct_client_ids)) if len(distinct_client_ids) == 1 else None
+
+    code = sql_runner.run_sql(
+        server_number, sql_text, client_id=client_id, dry=dry, json_out=json_out
+    )
     raise typer.Exit(code=code)
 
 

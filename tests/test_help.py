@@ -40,3 +40,13 @@ def test_help_flag() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "Usage" in result.stdout or "Список" in result.stdout
+
+
+def test_renders_target_command_help() -> None:
+    """`mpu-help mpu-search` рендерит --help целевой команды без subprocess."""
+    result = runner.invoke(app, ["mpu-search"])
+    assert result.exit_code == 0
+    assert "mpu-search" in result.stdout
+    # Маркеры из docstring/options самой mpu-search:
+    assert "client_id" in result.stdout
+    assert "--no-update" in result.stdout

@@ -1,32 +1,42 @@
 """`mpu-help` — список доступных команд и справка по ним."""
 
-import subprocess
 from typing import Annotated
 
+import click
 import typer
 
-_COMMANDS: dict[str, str] = {
-    "mpu-search": "Поиск клиента / spreadsheet в локальном кэше",
-    "mpu-update": "Синхронизировать кэш клиентов из sl-back",
-    "mpu-sql": "Выполнить SQL на удалённом PG по селектору",
-    "mpu-backup-wb-unit-proto": "CTAS-бэкап wb_unit_proto в backups-схему",
-    "mpu-backup-ozon-unit-proto": "CTAS-бэкап ozon_unit_proto в backups-схему",
-    "mpu-help": "Список команд",
-}
+from mpu.commands import (
+    backup_ozon_unit_proto,
+    backup_wb_unit_proto,
+    search,
+    sql,
+    update,
+)
 
 
 def _print_list() -> None:
     typer.echo("Available commands:\n")
     max_name_len = max(len(name) for name in _COMMANDS)
-    for name, desc in _COMMANDS.items():
+    for name, (desc, _) in _COMMANDS.items():
         padding = " " * (max_name_len - len(name) + 2)
         typer.echo(f"  {name}{padding}{desc}")
     typer.echo("\nRun `<command> --help` for detailed usage.")
 
 
+def _render_help(prog_name: str, target: typer.Typer) -> str:
+    """Сгенерировать `--help` чужого typer-app без subprocess.
+
+    typer.main.get_command(app) возвращает click.Group/Command; ctx.get_help()
+    отдаёт ровно тот же текст, что и `<cmd> --help`, но без SystemExit.
+    """
+    cmd = typer.main.get_command(target)
+    ctx = click.Context(cmd, info_name=prog_name)
+    return cmd.get_help(ctx)
+
+
 app = typer.Typer(
     add_completion=False,
-    no_args_is_help=True,
+    no_args_is_help=False,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
@@ -42,13 +52,30 @@ def main(
         _print_list()
         return
 
-    if command not in _COMMANDS:
+    entry = _COMMANDS.get(command)
+    if entry is None:
         typer.echo(f"mpu-help: unknown command '{command}'", err=True)
         typer.echo(f"Known commands: {', '.join(_COMMANDS.keys())}", err=True)
         raise typer.Exit(code=2)
 
-    result = subprocess.run([command, "--help"], text=False)
-    raise typer.Exit(code=result.returncode)
+    _, target_app = entry
+    typer.echo(_render_help(command, target_app))
+
+
+_COMMANDS: dict[str, tuple[str, typer.Typer]] = {
+    "mpu-search": ("Поиск клиента / spreadsheet в локальном кэше", search.app),
+    "mpu-update": ("Синхронизировать кэш клиентов из sl-back", update.app),
+    "mpu-sql": ("Выполнить SQL на удалённом PG по селектору", sql.app),
+    "mpu-backup-wb-unit-proto": (
+        "CTAS-бэкап wb_unit_proto в backups-схему",
+        backup_wb_unit_proto.app,
+    ),
+    "mpu-backup-ozon-unit-proto": (
+        "CTAS-бэкап ozon_unit_proto в backups-схему",
+        backup_ozon_unit_proto.app,
+    ),
+    "mpu-help": ("Список команд", app),
+}
 
 
 def run() -> None:

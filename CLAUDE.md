@@ -39,32 +39,37 @@
 
 Не добавлять зависимости, которых нет в этом списке, без согласования с пользователем (см. `dependencies-unix-way` в монорепозиториях соседей — заводить аналог skill, если эта тема понадобится регулярно).
 
-## Структура (фиксированная)
+## Архитектура bin'ов
+
+Каждая subcommand — **отдельный bin** в `[project.scripts]` (`mpu-search`, `mpu-sql`, `mpu-update`, `mpu-backup-wb-unit-proto`, `mpu-backup-ozon-unit-proto`, `mpu-help`). Корневой `mpu` — только cross-cutting (на сейчас — `mpu version`). Подсистему `mpu <subcommand>` не строим: каждая команда — автономная shell-команда, со своим `--help` и автодополнением, без двойной точки входа.
+
+Регистрация новой команды: `[project.scripts]` в `pyproject.toml` + `def run(): app()` в модуле + запись в `_COMMANDS` в `commands/help.py`.
+
+## Структура
 
 ```
-pyproject.toml              # uv-managed, зависимости, скрипты
+pyproject.toml              # uv-managed, зависимости, [project.scripts]
 uv.lock
 src/mpu/
-  __init__.py
+  __init__.py               # __version__
   __main__.py               # `python -m mpu` → cli.app()
-  cli.py                    # build_app() — собирает root + subcommands
+  cli.py                    # `mpu` root — на сейчас только `mpu version`
   commands/
     __init__.py
-    <name>.py               # одна subcommand — один файл
+    <name>.py               # одна subcommand — один файл (typer.Typer + run())
+    _<shared>.py            # private helper для группы команд (напр. _backup_unit_proto.py)
   lib/
     __init__.py
-    paths.py                # XDG-aware пути (db, cache, config)
-    db.py                   # open_db(), миграции для config+cache
-    config.py               # Config + CONFIG_REGISTRY (тип, default, описание)
-    cache.py                # cache.wrap()/wrap_async() — TTL поверх sqlite
-    help.py                 # describe(cmd, summary, examples) helper
+    servers.py              # резолв sl-N → server_number → IP из ~/.config/mpu/.env
+    store.py                # SQLite-кэш ~/.config/mpu/mpu.db (sl_clients, sl_spreadsheets)
+    pg.py                   # psycopg-коннект к PG-серверам (main = sl-0, инстансы sl-N)
+    sql_runner.py           # выполнение SQL на удалённом PG, форматирование вывода
+    backup_sql.py           # SQL-шаблон CTAS-бэкапа unit_proto в backups-схему
+    resolver.py             # селектор → server_number (через store + servers)
 tests/                      # test_<module>.py, выровнены по модулям src/mpu/
 ```
 
-Конвенции по областям — рядом с кодом, в локальных CLAUDE.md, когда появятся:
-- команды (describe, completion-провайдеры) → `src/mpu/commands/CLAUDE.md`
-- библиотеки (Config, Cache, CONFIG_REGISTRY) → `src/mpu/lib/CLAUDE.md`
-- тесты (изоляция, `:memory:` SQLite, конвенции имён) → `tests/CLAUDE.md`
+Локальных CLAUDE.md в подкаталогах пока нет — заводить, когда конвенции области устаканятся и потребуют отдельного места.
 
 ## Принципы (специфичные для CLI-утилит)
 
@@ -72,7 +77,7 @@ tests/                      # test_<module>.py, выровнены по моду
 
 1. **Команды — для нейросетей и людей одновременно.**
    - Имена команд / флагов / ключей конфига — самодокументирующиеся (`--spreadsheet`, не `--ss-id`).
-   - `--help` команды — полный, со всеми примерами. Использовать `lib/help.py:describe()`.
+   - `--help` команды — полный, со всеми примерами (typer docstring + `help=` на каждом аргументе/опции).
    - Ошибки — машинно-читаемые: `<действие>: <причина> [контекст]; попробуй: <подсказка>`. Никаких `unknown error`.
    - Дефолтный вывод — структурный (JSON) для AI/pipe; флаги `--tsv`/`--csv`/`--raw` — для людей.
 
@@ -81,12 +86,9 @@ tests/                      # test_<module>.py, выровнены по моду
    - Унифицированные пустоты: везде `None` (в JSON — `null`); в TSV — пустая ячейка. Не смешивать `None` / `""` / отсутствующий ключ для одного семантического состояния.
    - Tabular-вывод (TSV/CSV) — ровный по колонкам: пустая ячейка, не выкинутая колонка.
 
-3. **Все read-команды против внешних систем кэшируются.**
-   - Любой `get`/`ls`/`info` против сети идёт через `lib/cache.wrap()` или специализированный кэш в `lib/`.
-   - Master switch — `cache.ttl=0` отключает кэш целиком (хождение в сеть напрямую без сохранения).
-   - Имя ключа — `<область>:<идентификатор>[:<вариант>]` (`spreadsheet:info:<id>`, `pg:tables:<schema>`). Не вкладывать payload в ключ.
+3. **Read-команды против внешних систем кэшируются.** Когда такой кэш заводится — отдельный модуль в `lib/`, master-switch на отключение, имя ключа в форме `<область>:<идентификатор>[:<вариант>]`, payload в ключе не вкладываем. На сейчас единственная закэшированная read-команда — `mpu-search` против локального SQLite-снапшота из `mpu-update`.
 
-4. **PG-запросы — без кэша.** Ad-hoc SELECT'ы против клиентских БД должны видеть свежие данные.
+4. **PG-запросы (ad-hoc SQL) — без кэша.** SELECT'ы против клиентских БД должны видеть свежие данные.
 
 5. **Строгая типизация.**
    - `pyright strict` обязателен. `Any`, `cast` без обоснования в комменте, `# type: ignore` без указания причины — запрещены.
@@ -121,14 +123,22 @@ uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run 
 1. Понять задачу. Если она ссылается на уже существующее поведение в `new-mpu` (`~/mr/workspace/go/mpu/`) — прочитать соответствующий код TS-версии для контекста и **подтвердить с пользователем**, нужно ли такое же поведение, или другое.
 2. Перед новой зависимостью / новым файлом в корне / новой схемой БД / новой командой / именами флагов — **спросить пользователя до создания**.
 3. Внутри согласованной структуры — действовать самостоятельно:
-   - новая команда → `src/mpu/commands/<name>.py` с typer-app, `describe()` для help, регистрация в `cli.py`
-   - новый ключ конфига → добавить в `CONFIG_REGISTRY` (`lib/config.py`)
-   - кэширование внешнего вызова → `cache.wrap(key, fn, ttl=...)`
+   - новая команда → `src/mpu/commands/<name>.py` с `app = typer.Typer(...)`, `def run(): app()`, регистрация в `[project.scripts]` `pyproject.toml` и в `_COMMANDS` `commands/help.py`
+   - shared логика для группы команд → `commands/_<name>.py` (см. `_backup_unit_proto.py`)
+   - shared утилита уровня lib (резолв, БД, env) → `lib/<name>.py`
    - тесты — рядом с модулем в `tests/test_<module>.py`
 
 ## Сейчас в репо
 
-Скелет ещё не создан. Первая задача — `pyproject.toml` + `src/mpu/__main__.py` + `cli.py` + одна минимальная команда (например `mpu config get/set`). Делать итеративно, согласовывая структуру до коммита.
+| bin | модуль | назначение |
+| --- | ------ | ---------- |
+| `mpu version` | `cli.py` | версия пакета |
+| `mpu-search` | `commands/search.py` | поиск клиента / spreadsheet в локальном SQLite-кэше |
+| `mpu-update` | `commands/update.py` | синк `~/.config/mpu/mpu.db` со всех PG-серверов |
+| `mpu-sql` | `commands/sql.py` | выполнить SQL на удалённом PG по селектору |
+| `mpu-backup-wb-unit-proto` | `commands/backup_wb_unit_proto.py` | CTAS-бэкап `wb_unit_proto` в `backups`-схему |
+| `mpu-backup-ozon-unit-proto` | `commands/backup_ozon_unit_proto.py` | CTAS-бэкап `ozon_unit_proto` в `backups`-схему |
+| `mpu-help` | `commands/help.py` | список команд + проброс `--help` каждой |
 
 ## Язык
 

@@ -17,9 +17,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     db_path = tmp_path / "mpu.db"
     monkeypatch.setattr(store, "DB_PATH", db_path)
     env_file = tmp_path / ".env"
-    env_file.write_text(
-        "sl_1='10.0.0.1'\nsl_2='10.0.0.2'\npg_1='10.1.0.1'\npg_2='10.1.0.2'\n"
-    )
+    env_file.write_text("sl_1='10.0.0.1'\nsl_2='10.0.0.2'\npg_1='10.1.0.1'\npg_2='10.1.0.2'\n")
     monkeypatch.setattr(servers, "ENV_PATH", env_file)
     servers.reset_cache()
 
@@ -48,9 +46,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     servers.reset_cache()
 
 
-def test_dry_with_explicit_sql_arg(
-    env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_dry_with_explicit_sql_arg(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
     def fake_run(server_number: int, sql: str, **kw: object) -> int:
@@ -65,6 +61,7 @@ def test_dry_with_explicit_sql_arg(
     assert captured["server"] == 1
     assert captured["sql"] == "SELECT 1"
     assert captured["dry"] is True
+    assert captured["client_id"] == 10
 
 
 def test_sql_from_stdin(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -106,21 +103,19 @@ def test_empty_sql_returns_2(env: None, monkeypatch: pytest.MonkeyPatch) -> None
     assert "empty SQL" in res.stderr
 
 
-def test_server_override_skips_resolver(
-    env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_server_override_skips_resolver(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
     def fake_run(server_number: int, sql: str, **kw: object) -> int:
         captured["server"] = server_number
+        captured.update(kw)
         return 0
 
     monkeypatch.setattr(sql_runner, "run_sql", fake_run)
-    res = runner.invoke(
-        sql_cmd.app, ["doesnt-matter", "SELECT 1", "--server", "sl-7", "--dry"]
-    )
+    res = runner.invoke(sql_cmd.app, ["doesnt-matter", "SELECT 1", "--server", "sl-7", "--dry"])
     assert res.exit_code == 0, res.stderr
     assert captured["server"] == 7
+    assert captured["client_id"] is None
 
 
 def test_nothing_matched(env: None, monkeypatch: pytest.MonkeyPatch) -> None:

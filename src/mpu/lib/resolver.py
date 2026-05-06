@@ -36,13 +36,9 @@ def resolve_server(
     if not results:
         raise ResolveError(f"nothing matched: {value!r}")
 
-    distinct: set[int] = {
-        n for r in results if isinstance(n := r.get("server_number"), int)
-    }
+    distinct: set[int] = {n for r in results if isinstance(n := r.get("server_number"), int)}
     if not distinct:
-        raise ResolveError(
-            f"matched but no server resolvable: {value!r}", candidates=results
-        )
+        raise ResolveError(f"matched but no server resolvable: {value!r}", candidates=results)
     if len(distinct) > 1:
         raise ResolveError(
             f"ambiguous selector {value!r} — {len(results)} candidates on different servers",

@@ -14,7 +14,9 @@ import typer
 from mpu.lib import pg, servers
 
 
-def _print_meta(server_number: int, sql: str, *, stream: IO[str]) -> None:
+def _print_meta(
+    server_number: int, sql: str, *, stream: IO[str], schema: str | None = None
+) -> None:
     host = servers.pg_ip(server_number)
     port = servers.env_value("PG_PORT") or "5432"
     db = servers.env_value("PG_DB_NAME") or "wb"
@@ -22,6 +24,8 @@ def _print_meta(server_number: int, sql: str, *, stream: IO[str]) -> None:
     print(f"pg_host: {host}", file=stream)
     print(f"pg_port: {port}", file=stream)
     print(f"database: {db}", file=stream)
+    if schema:
+        print(f"search_path: {schema}, public", file=stream)
     print("sql:", file=stream)
     print(sql, file=stream)
 
@@ -45,21 +49,29 @@ def run_sql(
     server_number: int,
     sql: str,
     *,
+    client_id: int | None = None,
     dry: bool = False,
     json_out: bool = False,
     stdout: IO[str] | None = None,
     stderr: IO[str] | None = None,
 ) -> int:
-    """Выполнить SQL на sl-<server_number>. Возвращает exit code (0 / 1)."""
+    """Выполнить SQL на sl-<server_number>. Возвращает exit code (0 / 1).
+
+    Если задан `client_id` — перед SQL ставится `SET search_path TO "schema_<client_id>", public`,
+    чтобы можно было обращаться к клиентским таблицам без префикса схемы.
+    """
     out = stdout if stdout is not None else sys.stdout
     err = stderr if stderr is not None else sys.stderr
-    _print_meta(server_number, sql, stream=err)
+    schema = f"schema_{client_id}" if client_id is not None else None
+    _print_meta(server_number, sql, stream=err, schema=schema)
 
     if dry:
         return 0
 
     try:
         with pg.connect_to(server_number) as conn, conn.cursor() as cur:
+            if schema is not None:
+                cur.execute(f'SET search_path TO "{schema}", public')  # type: ignore[arg-type]
             cur.execute(sql)  # type: ignore[arg-type]
             if cur.description is None:
                 if json_out:

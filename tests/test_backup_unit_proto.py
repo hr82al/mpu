@@ -34,9 +34,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     servers.reset_cache()
 
 
-def test_wb_dry_emits_expected_sql(
-    env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_wb_dry_emits_expected_sql(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
     def fake_run(server_number: int, sql: str, **kw: object) -> int:
@@ -46,9 +44,7 @@ def test_wb_dry_emits_expected_sql(
         return 0
 
     monkeypatch.setattr(sql_runner, "run_sql", fake_run)
-    res = runner.invoke(
-        backup_wb_unit_proto.app, ["1311", "--date", "20260322", "--dry"]
-    )
+    res = runner.invoke(backup_wb_unit_proto.app, ["1311", "--date", "20260322", "--dry"])
     assert res.exit_code == 0, res.stderr
     assert captured["server"] == 1
     assert captured["dry"] is True
@@ -58,9 +54,7 @@ def test_wb_dry_emits_expected_sql(
     )
 
 
-def test_ozon_dry_emits_expected_sql(
-    env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_ozon_dry_emits_expected_sql(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
     def fake_run(server_number: int, sql: str, **kw: object) -> int:
@@ -68,9 +62,7 @@ def test_ozon_dry_emits_expected_sql(
         return 0
 
     monkeypatch.setattr(sql_runner, "run_sql", fake_run)
-    res = runner.invoke(
-        backup_ozon_unit_proto.app, ["1311", "--date", "20260322", "--dry"]
-    )
+    res = runner.invoke(backup_ozon_unit_proto.app, ["1311", "--date", "20260322", "--dry"])
     assert res.exit_code == 0, res.stderr
     assert captured["sql"] == (
         "CREATE TABLE backups.ozon_unit_proto_1311_20260322 AS\n"
@@ -113,9 +105,7 @@ def _noop_run(*_a: object, **_kw: object) -> int:
     return 0
 
 
-def test_backup_unknown_client_returns_2(
-    env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_backup_unknown_client_returns_2(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sql_runner, "run_sql", _noop_run)
     res = runner.invoke(backup_wb_unit_proto.app, ["99999", "--dry"])
     assert res.exit_code == 2

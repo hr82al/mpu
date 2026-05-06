@@ -9,9 +9,7 @@ from mpu.lib.backup_sql import MSK, build_backup_sql, now_msk_yyyymmdd
 
 
 def test_build_backup_wb() -> None:
-    sql, table, date = build_backup_sql(
-        marketplace="wb", client_id=1311, date_suffix="20260322"
-    )
+    sql, table, date = build_backup_sql(marketplace="wb", client_id=1311, date_suffix="20260322")
     assert table == "wb_unit_proto"
     assert date == "20260322"
     assert sql == (
@@ -21,9 +19,7 @@ def test_build_backup_wb() -> None:
 
 
 def test_build_backup_ozon() -> None:
-    sql, table, _ = build_backup_sql(
-        marketplace="ozon", client_id=42, date_suffix="20260101"
-    )
+    sql, table, _ = build_backup_sql(marketplace="ozon", client_id=42, date_suffix="20260101")
     assert table == "ozon_unit_proto"
     assert sql == (
         "CREATE TABLE backups.ozon_unit_proto_42_20260101 AS\n"

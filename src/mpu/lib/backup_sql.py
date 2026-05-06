@@ -43,8 +43,5 @@ def build_backup_sql(
     sid = schema_id if schema_id is not None else client_id
     date = date_suffix or now_msk_yyyymmdd()
     backup_name = f"{safe_table}_{sid}_{date}"
-    sql = (
-        f"CREATE TABLE backups.{backup_name} AS\n"
-        f"SELECT * FROM schema_{sid}.{safe_table};"
-    )
+    sql = f"CREATE TABLE backups.{backup_name} AS\nSELECT * FROM schema_{sid}.{safe_table};"
     return sql, safe_table, date
