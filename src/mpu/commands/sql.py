@@ -42,7 +42,11 @@ def _read_sql(sql_arg: str | None) -> str:
     return sys.stdin.read()
 
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
+app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 
 
 @app.command()
@@ -54,12 +58,8 @@ def main(
         str | None,
         typer.Argument(help="SQL для выполнения; если не задан — берётся из stdin"),
     ] = None,
-    server: Annotated[
-        str | None, typer.Option("--server", help="Override резолва: sl-N")
-    ] = None,
-    dry: Annotated[
-        bool, typer.Option("--dry", help="Только meta + SQL, без коннекта")
-    ] = False,
+    server: Annotated[str | None, typer.Option("--server", help="Override резолва: sl-N")] = None,
+    dry: Annotated[bool, typer.Option("--dry", help="Только meta + SQL, без коннекта")] = False,
     json_out: Annotated[
         bool, typer.Option("--json", help="Результат как JSON-array объектов")
     ] = False,

@@ -42,7 +42,11 @@ def run_backup(
 
 
 def make_app(marketplace: Marketplace) -> typer.Typer:
-    app = typer.Typer(add_completion=False, no_args_is_help=True)
+    app = typer.Typer(
+        add_completion=False,
+        no_args_is_help=True,
+        context_settings={"help_option_names": ["-h", "--help"]},
+    )
 
     @app.command()
     def main(  # pyright: ignore[reportUnusedFunction]
@@ -58,9 +62,7 @@ def make_app(marketplace: Marketplace) -> typer.Typer:
         server: Annotated[
             str | None, typer.Option("--server", help="Override резолва: sl-N")
         ] = None,
-        dry: Annotated[
-            bool, typer.Option("--dry", help="Только meta + SQL, без коннекта")
-        ] = False,
+        dry: Annotated[bool, typer.Option("--dry", help="Только meta + SQL, без коннекта")] = False,
     ) -> None:
         code = run_backup(
             marketplace,

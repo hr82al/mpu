@@ -87,7 +87,11 @@ def _project(results: list[dict[str, object]], field: str) -> list[str]:
     return ["" if r.get(field) is None else str(r.get(field)) for r in results]
 
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
+app = typer.Typer(
+    add_completion=False,
+    no_args_is_help=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 
 
 @app.command()

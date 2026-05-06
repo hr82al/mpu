@@ -126,7 +126,10 @@ def run_update(quiet: bool = False) -> tuple[int, int, float]:
     return len(clients), total_spreadsheets, elapsed
 
 
-app = typer.Typer(add_completion=False)
+app = typer.Typer(
+    add_completion=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
 
 
 @app.command()
