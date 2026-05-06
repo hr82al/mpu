@@ -18,6 +18,7 @@ from mpu.lib.cli_wrap import (
     emit_node_cli,
     require,
     resolve_selector,
+    resolve_server_only,
 )
 from mpu.lib.resolver import ResolveError
 
@@ -395,3 +396,56 @@ def test_ssh_wrap_without_ip_errors(capsys: pytest.CaptureFixture[str]) -> None:
             command_name="t",
         )
     assert "internal error" in capsys.readouterr().err
+
+
+# 21. resolve_server_only — happy path (ssh)
+def test_resolve_server_only_ssh(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli_wrap, "resolve_server", _empty_resolve)
+    monkeypatch.setattr(servers, "sl_ip", _fake_sl_ip)
+    monkeypatch.setattr(servers, "env_value", _fake_env_value)
+    r = resolve_server_only(server="sl-3", command_name="t")
+    assert r.server_number == 3
+    assert r.sl_ip == "10.0.0.3"
+    assert r.user == "alice"
+    assert r.candidates == []
+
+
+# 22. resolve_server_only — local (no ssh creds lookup)
+def test_resolve_server_only_local(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli_wrap, "resolve_server", _empty_resolve)
+    calls: list[str] = []
+
+    def _spy_sl_ip(_n: int) -> str | None:
+        calls.append("sl_ip")
+        return None
+
+    def _spy_env_value(_k: str) -> str | None:
+        calls.append("env_value")
+        return None
+
+    monkeypatch.setattr(servers, "sl_ip", _spy_sl_ip)
+    monkeypatch.setattr(servers, "env_value", _spy_env_value)
+    r = resolve_server_only(server="sl-3", command_name="t", require_ssh=False)
+    assert r.sl_ip is None and r.user is None and r.candidates == []
+    assert calls == []
+
+
+# 23. resolve_server_only — empty server
+def test_resolve_server_only_empty_server(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(typer.Exit):
+        resolve_server_only(server="", command_name="mpu-foo")
+    assert "--server is required" in capsys.readouterr().err
+
+
+# 24. resolve_server_only — bad server format propagates ResolveError
+def test_resolve_server_only_bad_server(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def _raise(_v: str, *, server_override: str | None = None) -> Any:
+        _ = server_override
+        raise ResolveError(f"bad --server: {server_override!r} (expected sl-N)")
+
+    monkeypatch.setattr(cli_wrap, "resolve_server", _raise)
+    with pytest.raises(typer.Exit):
+        resolve_server_only(server="x", command_name="mpu-foo")
+    assert "bad --server" in capsys.readouterr().err

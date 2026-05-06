@@ -45,8 +45,8 @@ from mpu.lib.resolver import ResolveError, resolve_server
 # Whitelist для значений, попадающих в shell-обёртку.
 # Запрещаем spaces, $, `, ', ", \, ;, &, |, (, ), {, } —
 # quoting инвариант строится на их отсутствии.
-# Разрешаем `[` и `]` для JSON-массивов вида `[1,2,3]` (без пробелов).
-_SAFE_TOKEN = re.compile(r"\A[A-Za-z0-9_./:\-,\[\]]+\Z")
+# Разрешаем `[` `]` для JSON-массивов вида `[1,2,3]` (без пробелов) и `@` для email.
+_SAFE_TOKEN = re.compile(r"\A[A-Za-z0-9_./:\-,@\[\]]+\Z")
 
 EntryPoint = Literal["cli", "sl-main", "sl-instance", "wb-main", "wb-instance"]
 DispatchType = Literal["service", "model", "dataset", "proxy"]
@@ -102,6 +102,25 @@ def resolve_selector(
         raise typer.Exit(code=2)
 
     return Resolved(server_number=server_number, sl_ip=ip, user=user, candidates=candidates)
+
+
+def resolve_server_only(
+    *,
+    server: str,
+    command_name: str,
+    require_ssh: bool = True,
+) -> Resolved:
+    """Резолв только по `--server sl-N` без client/spreadsheet selector.
+
+    Для команд без `client_id` (jobs, app-migrations, users): SQLite-поиск пропускается,
+    `candidates` всегда пустой. Если `server` пустой — `typer.Exit(2)`.
+    """
+    if not server:
+        typer.echo(f"{command_name}: --server is required", err=True)
+        raise typer.Exit(code=2)
+    return resolve_selector(
+        value="", server=server, command_name=command_name, require_ssh=require_ssh
+    )
 
 
 def auto_pick_int(candidates: list[dict[str, object]], field: str) -> int | None:
