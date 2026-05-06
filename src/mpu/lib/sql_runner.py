@@ -71,7 +71,9 @@ def run_sql(
     try:
         with pg.connect_to(server_number) as conn, conn.cursor() as cur:
             if schema is not None:
+                # psycopg expects LiteralString; schema is f-string of int client_id (safe).
                 cur.execute(f'SET search_path TO "{schema}", public')  # type: ignore[arg-type]
+            # User-supplied ad-hoc SQL is plain str, not LiteralString; параметризовать нельзя.
             cur.execute(sql)  # type: ignore[arg-type]
             if cur.description is None:
                 if json_out:

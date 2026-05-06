@@ -62,20 +62,12 @@ def main(
     typer.echo(_render_help(command, target_app))
 
 
+_REGISTERED_MODULES = (search, update, sql, backup_wb_unit_proto, backup_ozon_unit_proto)
+
 _COMMANDS: dict[str, tuple[str, typer.Typer]] = {
-    "mpu-search": ("Поиск клиента / spreadsheet в локальном кэше", search.app),
-    "mpu-update": ("Синхронизировать кэш клиентов из sl-back", update.app),
-    "mpu-sql": ("Выполнить SQL на удалённом PG по селектору", sql.app),
-    "mpu-backup-wb-unit-proto": (
-        "CTAS-бэкап wb_unit_proto в backups-схему",
-        backup_wb_unit_proto.app,
-    ),
-    "mpu-backup-ozon-unit-proto": (
-        "CTAS-бэкап ozon_unit_proto в backups-схему",
-        backup_ozon_unit_proto.app,
-    ),
-    "mpu-help": ("Список команд", app),
+    m.COMMAND_NAME: (m.COMMAND_SUMMARY, m.app) for m in _REGISTERED_MODULES
 }
+_COMMANDS["mpu-help"] = ("Список команд", app)
 
 
 def run() -> None:

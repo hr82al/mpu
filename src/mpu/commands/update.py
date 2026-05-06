@@ -8,20 +8,16 @@
    накопительно по spreadsheets — DELETE один раз перед циклом, INSERT на каждый сервер).
 """
 
-import re
 import time
 from typing import Annotated, Any
 
+import psycopg
 import typer
 
-from mpu.lib import pg, store
+from mpu.lib import pg, servers, store
 
-
-def _server_to_number(server: str | None) -> int | None:
-    if not server:
-        return None
-    m = re.fullmatch(r"sl-(\d+)", server)
-    return int(m.group(1)) if m else None
+COMMAND_NAME = "mpu-update"
+COMMAND_SUMMARY = "Синхронизировать кэш клиентов из sl-back"
 
 
 def _fetch_clients() -> list[tuple[Any, ...]]:
@@ -51,7 +47,7 @@ def run_update(quiet: bool = False) -> tuple[int, int, float]:
 
     # Уникальные сервера, на которых живут активные клиенты (sl-1, sl-2, ...).
     server_numbers: list[int] = sorted(
-        {n for row in clients if (n := _server_to_number(row[1])) is not None and n > 0}
+        {n for row in clients if (n := servers.server_number(row[1])) is not None and n > 0}
     )
 
     spreadsheets_per_server: dict[int, list[tuple[Any, ...]]] = {}
@@ -59,55 +55,49 @@ def run_update(quiet: bool = False) -> tuple[int, int, float]:
     for n in server_numbers:
         try:
             spreadsheets_per_server[n] = _fetch_spreadsheets_for_server(n)
-        except Exception as e:
+        except (psycopg.Error, OSError, pg.PgConfigError) as e:
             failed_servers.append((n, str(e).splitlines()[0]))
 
     total_spreadsheets = sum(len(v) for v in spreadsheets_per_server.values())
 
-    with store.store() as conn:
-        conn.execute("BEGIN")
-        try:
-            conn.execute("DELETE FROM sl_clients")
+    with store.store() as conn, conn:
+        conn.execute("DELETE FROM sl_clients")
+        conn.executemany(
+            "INSERT INTO sl_clients "
+            "(client_id, server, is_active, is_locked, is_deleted, synced_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    row[0],
+                    row[1],
+                    1 if row[2] else 0,
+                    1 if row[3] else 0,
+                    1 if row[4] else 0,
+                    synced_at,
+                )
+                for row in clients
+            ],
+        )
+        conn.execute("DELETE FROM sl_spreadsheets")
+        for n, ss_rows in spreadsheets_per_server.items():
+            server_name = f"sl-{n}"
             conn.executemany(
-                "INSERT INTO sl_clients "
-                "(client_id, server, is_active, is_locked, is_deleted, synced_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT OR REPLACE INTO sl_spreadsheets "
+                "(ss_id, client_id, title, template_name, is_active, server, synced_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 [
                     (
-                        row[0],
                         row[1],
-                        1 if row[2] else 0,
-                        1 if row[3] else 0,
+                        row[0],
+                        row[2] or "",
+                        row[3],
                         1 if row[4] else 0,
+                        server_name,
                         synced_at,
                     )
-                    for row in clients
+                    for row in ss_rows
                 ],
             )
-            conn.execute("DELETE FROM sl_spreadsheets")
-            for n, ss_rows in spreadsheets_per_server.items():
-                server_name = f"sl-{n}"
-                conn.executemany(
-                    "INSERT OR REPLACE INTO sl_spreadsheets "
-                    "(ss_id, client_id, title, template_name, is_active, server, synced_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    [
-                        (
-                            row[1],
-                            row[0],
-                            row[2] or "",
-                            row[3],
-                            1 if row[4] else 0,
-                            server_name,
-                            synced_at,
-                        )
-                        for row in ss_rows
-                    ],
-                )
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
 
     elapsed = time.monotonic() - started
     if not quiet:

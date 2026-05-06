@@ -52,3 +52,15 @@ def test_now_msk_format() -> None:
     s = now_msk_yyyymmdd()
     assert len(s) == 8
     assert s.isdigit()
+
+
+def test_build_backup_rejects_non_yyyymmdd_date() -> None:
+    """Произвольный date_suffix должен отвергаться, чтобы не попасть в SQL identifier."""
+    with pytest.raises(ValueError):
+        build_backup_sql(marketplace="wb", client_id=1, date_suffix="20260101; DROP TABLE x")
+    with pytest.raises(ValueError):
+        build_backup_sql(marketplace="wb", client_id=1, date_suffix="2026-01-01")
+    with pytest.raises(ValueError):
+        build_backup_sql(marketplace="wb", client_id=1, date_suffix="abc")
+    with pytest.raises(ValueError):
+        build_backup_sql(marketplace="wb", client_id=1, date_suffix="")

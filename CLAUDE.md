@@ -43,7 +43,7 @@
 
 Каждая subcommand — **отдельный bin** в `[project.scripts]` (`mpu-search`, `mpu-sql`, `mpu-update`, `mpu-backup-wb-unit-proto`, `mpu-backup-ozon-unit-proto`, `mpu-help`). Корневой `mpu` — только cross-cutting (на сейчас — `mpu version`). Подсистему `mpu <subcommand>` не строим: каждая команда — автономная shell-команда, со своим `--help` и автодополнением, без двойной точки входа.
 
-Регистрация новой команды: `[project.scripts]` в `pyproject.toml` + `def run(): app()` в модуле + запись в `_COMMANDS` в `commands/help.py`.
+Регистрация новой команды: `[project.scripts]` в `pyproject.toml` + в модуле — `COMMAND_NAME` / `COMMAND_SUMMARY` константы, `app = typer.Typer(...)` и `def run(): app()` + добавить модуль в `_REGISTERED_MODULES` в `commands/help.py` (откуда `mpu-help` собирает список и проброс `--help`).
 
 ## Структура
 
@@ -123,7 +123,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run 
 1. Понять задачу. Если она ссылается на уже существующее поведение в `new-mpu` (`~/mr/workspace/go/mpu/`) — прочитать соответствующий код TS-версии для контекста и **подтвердить с пользователем**, нужно ли такое же поведение, или другое.
 2. Перед новой зависимостью / новым файлом в корне / новой схемой БД / новой командой / именами флагов — **спросить пользователя до создания**.
 3. Внутри согласованной структуры — действовать самостоятельно:
-   - новая команда → `src/mpu/commands/<name>.py` с `app = typer.Typer(...)`, `def run(): app()`, регистрация в `[project.scripts]` `pyproject.toml` и в `_COMMANDS` `commands/help.py`
+   - новая команда → `src/mpu/commands/<name>.py` с `COMMAND_NAME` / `COMMAND_SUMMARY` константами, `app = typer.Typer(...)`, `def run(): app()`; зарегистрировать в `[project.scripts]` `pyproject.toml` и добавить модуль в `_REGISTERED_MODULES` `commands/help.py`
    - shared логика для группы команд → `commands/_<name>.py` (см. `_backup_unit_proto.py`)
    - shared утилита уровня lib (резолв, БД, env) → `lib/<name>.py`
    - тесты — рядом с модулем в `tests/test_<module>.py`

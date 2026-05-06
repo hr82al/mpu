@@ -16,6 +16,9 @@ import typer
 from mpu.lib import sql_runner
 from mpu.lib.resolver import ResolveError, resolve_server
 
+COMMAND_NAME = "mpu-sql"
+COMMAND_SUMMARY = "Выполнить SQL на удалённом PG по селектору"
+
 
 def _format_candidates(candidates: list[dict[str, object]]) -> str:
     lines: list[str] = []

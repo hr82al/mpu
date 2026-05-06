@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Any
 
+import psycopg
 import pytest
 
 from mpu.commands import update
@@ -142,7 +143,7 @@ def test_run_update_handles_failed_server(tmp_path: Path, monkeypatch: pytest.Mo
 
     def flaky_connect_to(n: int, *, timeout: int = 10):
         if n == 2:
-            raise RuntimeError("boom: connection refused")
+            raise psycopg.OperationalError("boom: connection refused")
         return _real_fake_to(n, timeout=timeout)
 
     monkeypatch.setattr("mpu.commands.update.pg.connect_main", fake_main)

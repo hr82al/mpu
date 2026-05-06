@@ -8,6 +8,9 @@ import typer
 
 from mpu.lib import servers, store
 
+COMMAND_NAME = "mpu-search"
+COMMAND_SUMMARY = "Поиск клиента / spreadsheet в локальном кэше"
+
 
 def _row_to_result(row: sqlite3.Row) -> dict[str, object]:
     server = row["server"]
@@ -110,15 +113,18 @@ def main(
     ] = False,
     sl_ip: Annotated[bool, typer.Option("--sl-ip", help="Plain: только IP sl-сервера")] = False,
     pg_ip: Annotated[bool, typer.Option("--pg-ip", help="Plain: только IP pg-сервера")] = False,
-    no_update: Annotated[
+    update: Annotated[
         bool,
-        typer.Option("--no-update", help="Не запускать auto-update на пустом результате"),
-    ] = False,
+        typer.Option(
+            "--update/--no-update",
+            help="Auto-update кэша на пустом результате (default: on)",
+        ),
+    ] = True,
 ) -> None:
     """Поиск по локальному ~/.config/mpu/mpu.db.
 
     По умолчанию — JSON-array строк со всеми полями. На пустом результате
-    автоматически вызывает `mpu-update` и повторяет поиск (если не --no-update).
+    автоматически вызывает `mpu-update` и повторяет поиск (отключается через `--no-update`).
     """
     chosen = [
         name
@@ -139,11 +145,11 @@ def main(
 
     with store.store() as conn:
         results = search(conn, value)
-        if not results and not no_update:
+        if not results and update:
             # lazy import — тесты search-логики не должны тянуть psycopg.
-            from mpu.commands import update
+            from mpu.commands import update as update_cmd
 
-            update.run_update(quiet=True)
+            update_cmd.run_update(quiet=True)
             results = search(conn, value)
 
     if chosen:

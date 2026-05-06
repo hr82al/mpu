@@ -46,20 +46,14 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _resolve_path(path: Path | str) -> Path | str:
-    if isinstance(path, Path):
-        path.parent.mkdir(parents=True, exist_ok=True)
-    return path
-
-
 def open_store(path: Path | str | None = None) -> sqlite3.Connection:
     """Открыть/создать `mpu.db`, гарантировать схему. Возвращает Connection.
 
     `path=None` ⇒ использовать текущее значение `store.DB_PATH` (даёт тестам
     возможность подменить путь через monkeypatch).
     """
-    target = DB_PATH if path is None else path
-    target = _resolve_path(target)
+    target = Path(DB_PATH if path is None else path)
+    target.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(target))
     conn.row_factory = sqlite3.Row
     _ensure_schema(conn)

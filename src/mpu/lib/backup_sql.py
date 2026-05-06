@@ -41,7 +41,12 @@ def build_backup_sql(
         raise ValueError("Empty/invalid source table name")
 
     sid = schema_id if schema_id is not None else client_id
-    date = date_suffix or now_msk_yyyymmdd()
+    if date_suffix is None:
+        date = now_msk_yyyymmdd()
+    elif re.fullmatch(r"\d{8}", date_suffix):
+        date = date_suffix
+    else:
+        raise ValueError(f"date_suffix must be YYYYMMDD (8 digits), got: {date_suffix!r}")
     backup_name = f"{safe_table}_{sid}_{date}"
     sql = f"CREATE TABLE backups.{backup_name} AS\nSELECT * FROM schema_{sid}.{safe_table};"
     return sql, safe_table, date
