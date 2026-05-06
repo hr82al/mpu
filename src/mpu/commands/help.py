@@ -8,6 +8,8 @@ import typer
 from mpu.commands import (
     backup_ozon_unit_proto,
     backup_wb_unit_proto,
+    recalculate_wb_expenses,
+    save_wb_expenses,
     search,
     sql,
     update,
@@ -35,7 +37,6 @@ def _render_help(prog_name: str, target: typer.Typer) -> str:
 
 
 app = typer.Typer(
-    add_completion=False,
     no_args_is_help=False,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
@@ -62,7 +63,15 @@ def main(
     typer.echo(_render_help(command, target_app))
 
 
-_REGISTERED_MODULES = (search, update, sql, backup_wb_unit_proto, backup_ozon_unit_proto)
+_REGISTERED_MODULES = (
+    search,
+    update,
+    sql,
+    backup_wb_unit_proto,
+    backup_ozon_unit_proto,
+    recalculate_wb_expenses,
+    save_wb_expenses,
+)
 
 _COMMANDS: dict[str, tuple[str, typer.Typer]] = {
     m.COMMAND_NAME: (m.COMMAND_SUMMARY, m.app) for m in _REGISTERED_MODULES

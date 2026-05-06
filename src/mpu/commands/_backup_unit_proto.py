@@ -43,7 +43,6 @@ def run_backup(
 
 def make_app(marketplace: Marketplace) -> typer.Typer:
     app = typer.Typer(
-        add_completion=False,
         no_args_is_help=True,
         context_settings={"help_option_names": ["-h", "--help"]},
     )

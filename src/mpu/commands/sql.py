@@ -46,7 +46,6 @@ def _read_sql(sql_arg: str | None) -> str:
 
 
 app = typer.Typer(
-    add_completion=False,
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
