@@ -8,10 +8,12 @@ import typer
 from mpu.commands import (
     backup_ozon_unit_proto,
     backup_wb_unit_proto,
+    process,
     recalculate_wb_expenses,
     save_wb_expenses,
     search,
     sql,
+    ss_update,
     update,
 )
 
@@ -71,6 +73,8 @@ _REGISTERED_MODULES = (
     backup_ozon_unit_proto,
     recalculate_wb_expenses,
     save_wb_expenses,
+    process,
+    ss_update,
 )
 
 _COMMANDS: dict[str, tuple[str, typer.Typer]] = {

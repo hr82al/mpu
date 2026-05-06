@@ -18,6 +18,8 @@ mpu-backup-wb-unit-proto = "mpu.commands.backup_wb_unit_proto:run"
 mpu-backup-ozon-unit-proto = "mpu.commands.backup_ozon_unit_proto:run"
 mpu-wb-recalculate-expenses = "mpu.commands.recalculate_wb_expenses:run"
 mpu-wb-save-expenses = "mpu.commands.save_wb_expenses:run"
+mpu-process = "mpu.commands.process:run"
+mpu-ss-update = "mpu.commands.ss_update:run"
 mpu-help = "mpu.commands.help:run"
 
 [build-system]
