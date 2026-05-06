@@ -1,15 +1,15 @@
-"""`mpu-ss-update` — печать `docker exec` команды для ssUpdater.update.
+"""`mpu-ss-update` — печать ssh+docker команды для ssUpdater.update.
 
 Печатает команду формата:
-    docker exec mp-sl-N-cli sh -c 'node cli service:ssUpdater update
-        --client-id <id> --spreadsheet-id <ssid>
-        --update-type <type> --logs <level>'
+    ssh -i <key> -t <user>@<sl_ip> 'docker exec -it mp-sl-N-cli sh -c
+        "node cli service:ssUpdater update --client-id <id> --spreadsheet-id <ssid>
+            --update-type <type> --logs <level>"'
 
-Команда только выводится в stdout, не выполняется. Без ssh-обёртки —
-пользователь сам решает, как до сервера sl-N добраться.
+Команда только выводится в stdout, не выполняется — пользователь сам копирует и запускает.
 Селектор — то же, что у `mpu-search` (client_id / spreadsheet_id substring / title substring).
 """
 
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -20,21 +20,26 @@ from mpu.commands._ssh_node_cli import (
     pick_client_id,
     pick_spreadsheet_id,
 )
+from mpu.lib import servers
+from mpu.lib.clipboard import copy_to_clipboard
 from mpu.lib.resolver import ResolveError, resolve_server
 
 COMMAND_NAME = "mpu-ss-update"
-COMMAND_SUMMARY = "Печать docker-команды для ssUpdater.update"
+COMMAND_SUMMARY = "Печать ssh+docker команды для ssUpdater.update"
 
 
 def _build_command(
     *,
     server_number: int,
+    sl_ip: str,
+    user: str,
     client_id: int,
     spreadsheet_id: str,
     update_type: str,
     logs: str,
 ) -> str:
-    """Собрать `docker exec ...` строку. Все входы предполагаются прошедшими `check_safe`."""
+    """Собрать ssh-обёрнутую `docker exec ...` строку. Все входы предполагаются прошедшими `check_safe`."""
+    key_path = str(Path.home() / ".ssh" / "id_rsa")
     container = f"mp-sl-{server_number}-cli"
     inner_args = [
         "node",
@@ -51,7 +56,8 @@ def _build_command(
         logs,
     ]
     inner = " ".join(inner_args)
-    return f"docker exec {container} sh -c '{inner}'"
+    docker_block = f'docker exec -it {container} sh -c "{inner}"'
+    return f"ssh -i {key_path} -t {user}@{sl_ip} '{docker_block}'"
 
 
 app = typer.Typer(
@@ -124,19 +130,37 @@ def main(
             typer.echo(format_candidates(candidates), err=True)
         raise typer.Exit(code=2)
 
+    ip = servers.sl_ip(server_number)
+    if ip is None:
+        typer.echo(
+            f"{COMMAND_NAME}: no sl_{server_number} in ~/.config/mpu/.env",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    user = servers.env_value("PG_MY_USER_NAME")
+    if not user:
+        typer.echo(
+            f"{COMMAND_NAME}: PG_MY_USER_NAME not set in ~/.config/mpu/.env",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
     check_safe("--spreadsheet-id", ssid)
     check_safe("--update-type", update_type)
     check_safe("--logs", logs)
 
-    typer.echo(
-        _build_command(
-            server_number=server_number,
-            client_id=cid,
-            spreadsheet_id=ssid,
-            update_type=update_type,
-            logs=logs,
-        )
+    cmd = _build_command(
+        server_number=server_number,
+        sl_ip=ip,
+        user=user,
+        client_id=cid,
+        spreadsheet_id=ssid,
+        update_type=update_type,
+        logs=logs,
     )
+    typer.echo(cmd)
+    copy_to_clipboard(cmd)
 
 
 def run() -> None:

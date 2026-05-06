@@ -17,6 +17,7 @@ from typing import Annotated
 import typer
 
 from mpu.lib import servers
+from mpu.lib.clipboard import copy_to_clipboard
 from mpu.lib.resolver import ResolveError, resolve_server
 
 # Whitelist для значений, попадающих в shell-обёртку.
@@ -145,19 +146,19 @@ def _run_print(
     if nm_ids is not None:
         check_safe("--nm-ids", nm_ids)
 
-    typer.echo(
-        build_ssh_command(
-            service=service,
-            method=method,
-            server_number=server_number,
-            sl_ip=ip,
-            user=user,
-            client_id=cid,
-            date_from=date_from,
-            date_to=dt_to,
-            nm_ids=nm_ids,
-        )
+    cmd = build_ssh_command(
+        service=service,
+        method=method,
+        server_number=server_number,
+        sl_ip=ip,
+        user=user,
+        client_id=cid,
+        date_from=date_from,
+        date_to=dt_to,
+        nm_ids=nm_ids,
     )
+    typer.echo(cmd)
+    copy_to_clipboard(cmd)
 
 
 def make_app(
