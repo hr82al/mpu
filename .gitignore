@@ -1,14 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# uv / venv
+.venv/
+venv/
+.python-version
+
+# Build / dist
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Type checkers
+.mypy_cache/
+.pyright/
+.pytype/
+
+# Lint / format caches
+.ruff_cache/
+
 # Environment secrets (plaintext)
 .env
 !.env.enc
-
-# Node.js
-node_modules/
-dist/
-coverage/
-*.tsbuildinfo
-npm-debug.log*
-.npm/
 
 # IDE
 .idea/
