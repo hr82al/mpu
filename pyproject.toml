@@ -5,10 +5,14 @@ description = "Monorepo Python utilities — multi-purpose CLI for ad-hoc operat
 requires-python = ">=3.12"
 dependencies = [
     "typer>=0.12.0",
+    "psycopg[binary]>=3.2",
+    "python-dotenv>=1.0",
 ]
 
 [project.scripts]
 mpu = "mpu.cli:app"
+mpu-search = "mpu.commands.search:run"
+mpu-update = "mpu.commands.update:run"
 
 [build-system]
 requires = ["hatchling"]
@@ -38,6 +42,11 @@ select = [
     "B",             # bugbear
     "SIM",           # simplify
     "RUF",           # ruff-specific
+]
+ignore = [
+    "RUF001",  # Russian comments/strings: cyrillic letters are intentional
+    "RUF002",
+    "RUF003",
 ]
 
 [tool.ruff.lint.isort]
