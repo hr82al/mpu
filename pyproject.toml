@@ -37,6 +37,7 @@ mpu-app-migrations = "mpu.commands.app_migrations:run"
 mpu-users = "mpu.commands.users:run"
 mpu-data-loader = "mpu.commands.data_loader:run"
 mpu-data-loader-jobs = "mpu.commands.data_loader_jobs:run"
+mpu-d2-miro = "mpu.commands.d2_miro:run"
 mpu-help = "mpu.commands.help:run"
 
 [build-system]
