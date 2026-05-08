@@ -2,6 +2,7 @@
 
 import typer
 
+from mpu.lib.cli_wrap import run_with_wrapper
 from mpu.lib.factories import migrations_with_dataset
 
 COMMAND_NAME = "mpu-datasets-migrations"
@@ -28,3 +29,8 @@ migrations_with_dataset.register(
 def run() -> None:
     """Entry point для `mpu-datasets-migrations`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-datasets-migrations` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")

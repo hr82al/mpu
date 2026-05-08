@@ -47,7 +47,7 @@ def init_cmd(
     """Discover все контейнеры через Portainer API и закэшировать в `~/.config/mpu/mpu.db`.
 
     Кэшируем все контейнеры, помечая `mp-sl-N-cli` через `server_number`. Этот кэш
-    потом читает `mpu-pssh` для резолва Portainer-транспорта.
+    потом читает `mpup-ssh` для резолва Portainer-транспорта.
     """
     # Шаг 1: bootstrap SQLite-схемы (отсюда — всегда, других мест нет).
     with store.store() as conn:

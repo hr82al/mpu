@@ -271,7 +271,7 @@ def test_run_via_portainer_verify_tls_env(
     assert stub_portainer.instances[0].kwargs["verify_tls"] is True
 
 
-# ---------- mpu-pssh CLI ----------
+# ---------- mpup-ssh CLI ----------
 
 
 def test_pssh_cli_dispatches_to_pssh_run(

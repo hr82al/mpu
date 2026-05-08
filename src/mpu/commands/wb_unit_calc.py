@@ -10,6 +10,7 @@ from mpu.lib.cli_wrap import (
     emit_node_cli,
     require,
     resolve_selector,
+    run_with_wrapper,
 )
 
 COMMAND_NAME = "mpu-wb-unit-calc"
@@ -73,3 +74,8 @@ def get_unit_data_by_date_nm_id(
 def run() -> None:
     """Entry point для `mpu-wb-unit-calc`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-wb-unit-calc` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")

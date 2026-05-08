@@ -10,6 +10,7 @@ from mpu.lib.cli_wrap import (
     emit_node_cli,
     require,
     resolve_selector,
+    run_with_wrapper,
 )
 
 COMMAND_NAME = "mpu-data-loader"
@@ -72,3 +73,8 @@ def find_candidate(
 def run() -> None:
     """Entry point для `mpu-data-loader`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-data-loader` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")

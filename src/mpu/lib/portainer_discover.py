@@ -2,7 +2,7 @@
 
 Кэшируем **все** контейнеры всех endpoint'ов, не только `mp-sl-N-cli`. Поле
 `server_number` заполнено только для контейнеров, чьё имя матчит `mp-sl-(\\d+)-cli` —
-используется в `mpu-pssh` для резолва Portainer-транспорта.
+используется в `mpup-ssh` для резолва Portainer-транспорта.
 
 Источник конфига Portainer: `~/.config/mpu/.env` (`PORTAINER_URL`, `PORTAINER_API_KEY`,
 `PORTAINER_VERIFY_TLS`). Один URL на запуск — для нескольких Portainer'ов запускать

@@ -9,7 +9,7 @@ from typing import Annotated
 
 import typer
 
-from mpu.lib.cli_wrap import emit_node_cli, resolve_server_only
+from mpu.lib.cli_wrap import emit_node_cli, resolve_selector, run_with_wrapper
 from mpu.lib.factories import migrations_with_type
 
 COMMAND_NAME = "mpu-clients-migrations"
@@ -35,14 +35,19 @@ migrations_with_type.register(
 
 @app.command(name="latest-all")
 def latest_all(
-    server: Annotated[str, typer.Option("--server", help="Server: sl-N (required)")],
+    selector: Annotated[
+        str,
+        typer.Argument(help="sl-N либо client_id / spreadsheet / title (универсальный селектор)"),
+    ],
     type_: Annotated[str, typer.Option("--type", help="Migration type: wb, main, ozon (required)")],
     local: Annotated[
         bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
     ] = False,
 ) -> None:
     """Распечатать ssh-команду для service:clientsMigrations latestAll (fan-out по NATS)."""
-    resolved = resolve_server_only(server=server, command_name=COMMAND_NAME, require_ssh=not local)
+    resolved = resolve_selector(
+        value=selector, server=None, command_name=COMMAND_NAME, require_ssh=not local
+    )
     emit_node_cli(
         name="clientsMigrations",
         method="latestAll",
@@ -56,3 +61,8 @@ def latest_all(
 def run() -> None:
     """Entry point для `mpu-clients-migrations`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-clients-migrations` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")

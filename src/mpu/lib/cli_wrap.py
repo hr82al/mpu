@@ -1,8 +1,19 @@
-"""Helper'ы для команд, печатающих ssh+docker обёртку над `node <entry> <type>:<name> <method>`.
+"""Helper'ы для команд, печатающих обёртку над `node <entry> <type>:<name> <method>`.
 
 Команда печатается в stdout и копируется в clipboard. Не выполняется.
 Цель библиотеки — убрать boilerplate (resolve, pick, ip+user lookup, quoting, print+copy)
 из typer-команд, оставив каждой команде только декларацию её собственных флагов.
+
+Обёртки:
+- `wrapper="ssh"` (default) → `ssh -i ... user@ip 'docker exec -it mp-sl-N-cli sh -c "..."'`
+- `wrapper="local"` (`--local`) → `sl-N-cli sh -c "..."`
+- `wrapper="portainer"` (env `MPU_WRAPPER=portainer`, ставится `mpup-*` entry-point'ами)
+  → `mpup-ssh <selector> --no-stdin -- node ...`. `mpup-ssh` сам выбирает Portainer/ssh
+  по `~/.config/mpu/.env` — эта строка лишь готова к запуску.
+
+`MPU_WRAPPER` переопределяет `wrapper` в `emit_node_cli` и снимает требование
+sl_ip/PG_MY_USER_NAME в `resolve_selector` — это позволяет иметь зеркальные `mpup-*`
+bin'ы без дублирования typer-команд.
 
 Типичный консьюмер:
 
@@ -30,11 +41,13 @@
         )
 """
 
+import os
 import re
+import shlex
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal, get_args
 
 import typer
 
@@ -50,7 +63,13 @@ _SAFE_TOKEN = re.compile(r"\A[A-Za-z0-9_./:\-,@\[\]]+\Z")
 
 EntryPoint = Literal["cli", "sl-main", "sl-instance", "wb-main", "wb-instance"]
 DispatchType = Literal["service", "model", "dataset", "proxy"]
-Wrapper = Literal["ssh", "local"]
+Wrapper = Literal["ssh", "local", "portainer"]
+
+# Глобальный override обёртки через env. Используется `mpup-*` entry-point'ами:
+# каждый ставит `MPU_WRAPPER=portainer` и переиспользует тот же `app()` что и `mpu-*`.
+# Нет смысла дублировать typer-команды — env-флаг подменяет финальный wrapper в `emit_node_cli`
+# и снимает требование sl_ip/PG_MY_USER_NAME в `resolve_selector`.
+WRAPPER_ENV = "MPU_WRAPPER"
 
 # None / False → флаг пропускается.
 # True → флаг печатается без значения (boolean).
@@ -61,12 +80,37 @@ FlagValue = str | int | bool | Sequence[str | int] | None
 
 @dataclass(frozen=True, slots=True)
 class Resolved:
-    """Результат resolve_selector. sl_ip/user заполнены только при require_ssh=True."""
+    """Результат resolve_selector. sl_ip/user заполнены только при require_ssh=True.
+
+    `selector` — оригинальный аргумент, который пользователь дал команде (`12345`,
+    `"Тортуга"`, `sl-3`). Используется portainer-обёрткой, чтобы передать тот же
+    селектор в `mpup-ssh`. Default `""` для обратной совместимости с прямыми
+    конструкторами в тестах.
+    """
 
     server_number: int
     sl_ip: str | None
     user: str | None
     candidates: list[dict[str, object]]
+    selector: str = ""
+
+
+def _wrapper_override() -> Wrapper | None:
+    """Прочитать `MPU_WRAPPER` и вернуть валидное значение либо None."""
+    raw = os.environ.get(WRAPPER_ENV)
+    if raw is None:
+        return None
+    if raw in get_args(Wrapper):
+        return raw  # type: ignore[return-value]  # narrowed by membership check
+    return None
+
+
+def _effective_require_ssh(require_ssh: bool) -> bool:
+    """Снизить `require_ssh` до False, если env-override указывает на не-ssh wrapper."""
+    override = _wrapper_override()
+    if override in ("local", "portainer"):
+        return False
+    return require_ssh
 
 
 def resolve_selector(
@@ -78,9 +122,11 @@ def resolve_selector(
 ) -> Resolved:
     """Резолв селектора + (опционально) sl_ip/PG_MY_USER_NAME из ~/.config/mpu/.env.
 
-    `require_ssh=False` пропускает lookup sl_ip/user — нужно для wrapper="local".
+    `require_ssh=False` пропускает lookup sl_ip/user — нужно для wrapper="local"/"portainer".
+    Env `MPU_WRAPPER=local|portainer` тоже снимает требование (используется `mpup-*` bin'ами).
     На любой ошибке печатает в stderr и вызывает typer.Exit(2).
     """
+    require_ssh = _effective_require_ssh(require_ssh)
     try:
         server_number, candidates = resolve_server(value, server_override=server)
     except ResolveError as e:
@@ -89,8 +135,16 @@ def resolve_selector(
             typer.echo(_format_candidates(e.candidates), err=True)
         raise typer.Exit(code=2) from None
 
+    selector = value or server or f"sl-{server_number}"
+
     if not require_ssh:
-        return Resolved(server_number=server_number, sl_ip=None, user=None, candidates=candidates)
+        return Resolved(
+            server_number=server_number,
+            sl_ip=None,
+            user=None,
+            candidates=candidates,
+            selector=selector,
+        )
 
     ip = servers.sl_ip(server_number)
     if ip is None:
@@ -101,7 +155,13 @@ def resolve_selector(
         typer.echo(f"{command_name}: PG_MY_USER_NAME not set in ~/.config/mpu/.env", err=True)
         raise typer.Exit(code=2)
 
-    return Resolved(server_number=server_number, sl_ip=ip, user=user, candidates=candidates)
+    return Resolved(
+        server_number=server_number,
+        sl_ip=ip,
+        user=user,
+        candidates=candidates,
+        selector=selector,
+    )
 
 
 def resolve_server_only(
@@ -165,17 +225,80 @@ def emit_node_cli(
     wrapper: Wrapper = "ssh",
     command_name: str,
 ) -> str:
-    """Сборка inner-команды + ssh/local обёртка, typer.echo + copy_to_clipboard, возврат строки."""
+    """Сборка inner-команды + ssh/local/portainer обёртка, typer.echo + copy_to_clipboard."""
     inner = _build_inner(
         entry=entry, type_=type_, name=name, method=method, flags=flags, command_name=command_name
     )
-    if wrapper == "ssh":
+    effective = _wrapper_override() or wrapper
+    if effective == "ssh":
         cmd = _wrap_ssh(inner=inner, resolved=resolved, command_name=command_name)
+    elif effective == "portainer":
+        cmd = _wrap_portainer(inner=inner, resolved=resolved)
     else:
         cmd = _wrap_local(inner=inner, server_number=resolved.server_number)
     typer.echo(cmd)
     copy_to_clipboard(cmd)
     return cmd
+
+
+def run_with_wrapper(app: typer.Typer, wrapper: Wrapper) -> None:
+    """Поднять `MPU_WRAPPER` и вызвать typer-app. Используется `mpup-*` entry-point'ами.
+
+    Не сбрасываем env обратно: процесс CLI завершается сразу после `app()`.
+    """
+    os.environ[WRAPPER_ENV] = wrapper
+    app()
+
+
+def attach_selector_callback(*, app: typer.Typer, command_name: str) -> None:
+    """App-level callback: positional `selector` + `--local`. Subcommands читают `ctx.obj`.
+
+    Поведение:
+      - `<bin> <selector> <subcommand> [args]` — селектор перед subcommand.
+      - `selector` принимает `sl-N` либо client_id/spreadsheet_id substring/title substring
+        (резолвится через `resolve_server` универсально).
+      - `--local` — общий для всех subcommand'ов флаг.
+
+    Subcommand читает резолв через `resolve_from_ctx(ctx)`.
+    """
+
+    @app.callback()
+    def _cb(  # pyright: ignore[reportUnusedFunction]
+        ctx: typer.Context,
+        selector: Annotated[
+            str,
+            typer.Argument(help="sl-N либо client_id / spreadsheet_id substring / title substring"),
+        ],
+        local: Annotated[
+            bool,
+            typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)"),
+        ] = False,
+    ) -> None:
+        ctx.ensure_object(dict)
+        # ctx.obj типизирован typer'ом как Any; явно аннотируем после ensure_object().
+        obj: dict[str, object] = ctx.obj
+        obj["selector"] = selector
+        obj["local"] = local
+        obj["command_name"] = command_name
+
+
+def resolve_from_ctx(ctx: typer.Context) -> tuple[Resolved, Wrapper]:
+    """Прочитать selector/local/command_name из ctx.obj и резолвнуть.
+
+    Возвращает `(Resolved, wrapper)` где wrapper готов для `emit_node_cli`.
+    """
+    obj: dict[str, object] = ctx.obj
+    selector_raw = obj["selector"]
+    local_raw = obj["local"]
+    cn_raw = obj["command_name"]
+    assert isinstance(selector_raw, str)
+    assert isinstance(local_raw, bool)
+    assert isinstance(cn_raw, str)
+    resolved = resolve_selector(
+        value=selector_raw, server=None, command_name=cn_raw, require_ssh=not local_raw
+    )
+    wrapper: Wrapper = "local" if local_raw else "ssh"
+    return resolved, wrapper
 
 
 # ── private ──────────────────────────────────────────────────────────────────
@@ -266,3 +389,16 @@ def _wrap_local(*, inner: str, server_number: int) -> str:
     Пользователь сам набирает в shell, где alias загружен (`alias sl-N-cli="sl-N exec -it cli"`).
     """
     return f'sl-{server_number}-cli sh -c "{inner}"'
+
+
+def _wrap_portainer(*, inner: str, resolved: Resolved) -> str:
+    """`mpup-ssh <selector> --no-stdin -- node ...` — выполнение через mpup-ssh.
+
+    `mpup-ssh` выбирает Portainer/ssh transparently из `~/.config/mpu/.env`. Эта обёртка
+    лишь конструирует строку для ручного запуска (не выполняет). Селектор берётся из
+    `resolved.selector` — оригинальный аргумент пользователя; если его нет (пустой
+    `value` в `resolve_server_only`), фоллбек на `sl-N`. `shlex.quote` страхует от
+    пробелов / не-ASCII в title-селекторах.
+    """
+    selector = resolved.selector or f"sl-{resolved.server_number}"
+    return f"mpup-ssh {shlex.quote(selector)} --no-stdin -- {inner}"

@@ -449,3 +449,98 @@ def test_resolve_server_only_bad_server(
     with pytest.raises(typer.Exit):
         resolve_server_only(server="x", command_name="mpu-foo")
     assert "bad --server" in capsys.readouterr().err
+
+
+# 25. wrapper="portainer" — emits `mpup-ssh <selector> --no-stdin -- node ...`
+def test_wrapper_portainer_with_selector(capsys: pytest.CaptureFixture[str]) -> None:
+    resolved = Resolved(server_number=3, sl_ip=None, user=None, candidates=[], selector="12345")
+    cmd = emit_node_cli(
+        name="foo",
+        method="bar",
+        flags={"--client-id": 12345},
+        resolved=resolved,
+        wrapper="portainer",
+        command_name="mpup-test",
+    )
+    out = capsys.readouterr().out.strip()
+    assert cmd == out
+    assert cmd == "mpup-ssh 12345 --no-stdin -- node cli service:foo bar --client-id 12345"
+
+
+# 26. wrapper="portainer" — пустой selector → fallback на sl-N
+def test_wrapper_portainer_empty_selector_falls_back_to_sl_n() -> None:
+    resolved = Resolved(server_number=7, sl_ip=None, user=None, candidates=[], selector="")
+    cmd = emit_node_cli(
+        name="foo",
+        method="bar",
+        flags={"--client-id": 1},
+        resolved=resolved,
+        wrapper="portainer",
+        command_name="t",
+    )
+    assert cmd.startswith("mpup-ssh sl-7 --no-stdin -- ")
+
+
+# 27. wrapper="portainer" — селектор с пробелами/Unicode проходит через shlex.quote
+def test_wrapper_portainer_quotes_unicode_selector() -> None:
+    resolved = Resolved(server_number=3, sl_ip=None, user=None, candidates=[], selector="ACME main")
+    cmd = emit_node_cli(
+        name="foo",
+        method="bar",
+        flags={"--client-id": 1},
+        resolved=resolved,
+        wrapper="portainer",
+        command_name="t",
+    )
+    assert cmd.startswith("mpup-ssh 'ACME main' --no-stdin -- ")
+
+
+# 28. MPU_WRAPPER=portainer — env override переписывает wrapper="ssh"
+def test_env_override_promotes_to_portainer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MPU_WRAPPER", "portainer")
+    resolved = Resolved(
+        server_number=3, sl_ip="10.0.0.3", user="alice", candidates=[], selector="42"
+    )
+    # wrapper="ssh" — но env переписывает в portainer.
+    cmd = emit_node_cli(
+        name="foo",
+        method="bar",
+        flags={"--client-id": 42},
+        resolved=resolved,
+        wrapper="ssh",
+        command_name="t",
+    )
+    assert cmd.startswith("mpup-ssh 42 --no-stdin -- ")
+    assert "ssh -i" not in cmd
+
+
+# 29. MPU_WRAPPER=portainer — resolve_selector не требует sl_ip/PG_MY_USER_NAME
+def test_env_override_skips_ssh_creds(monkeypatch: pytest.MonkeyPatch, fake_resolve: None) -> None:
+    _ = fake_resolve
+    monkeypatch.setenv("MPU_WRAPPER", "portainer")
+    sl_ip_calls: list[int] = []
+
+    def _spy_sl_ip(n: int) -> str | None:
+        sl_ip_calls.append(n)
+        return None  # would fail require_ssh=True path
+
+    monkeypatch.setattr(servers, "sl_ip", _spy_sl_ip)
+    # require_ssh=True по умолчанию у вызывающей команды; env должен снять требование.
+    resolved = resolve_selector(value="X", server=None, command_name="t", require_ssh=True)
+    assert resolved.server_number == 3
+    assert resolved.sl_ip is None  # пропустили
+    assert sl_ip_calls == []
+
+
+# 30. resolve_selector сохраняет оригинальный value в Resolved.selector
+def test_resolve_selector_stores_value(fake_resolve: None) -> None:
+    _ = fake_resolve
+    r = resolve_selector(value="ACME", server=None, command_name="t", require_ssh=False)
+    assert r.selector == "ACME"
+
+
+# 31. resolve_server_only сохраняет server в Resolved.selector
+def test_resolve_server_only_stores_server(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli_wrap, "resolve_server", _empty_resolve)
+    r = resolve_server_only(server="sl-3", command_name="t", require_ssh=False)
+    assert r.selector == "sl-3"

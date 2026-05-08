@@ -7,7 +7,7 @@
 
 **Default — Portainer**, если оба источника заданы. Override через `via="ssh"|"portainer"`.
 Причина: Portainer — единственный универсальный путь до всех серверов фермы; ssh
-доступен только до части. Унифицируем поведение `mpu-pssh` / `mpu-run-js --all`.
+доступен только до части. Унифицируем поведение `mpup-ssh` / `mpu-run-js --all`.
 
 stdout/stderr выполняемой команды пишутся напрямую в `sys.stdout.buffer` / `sys.stderr.buffer`,
 так что вызов indistinguishable от обычного subprocess: stream'ятся по мере прихода.
@@ -48,13 +48,11 @@ def _resolve_transport(n: int, via: str | None) -> Transport:
         return via
     if via is not None:
         typer.echo(
-            f"mpu-pssh: --via должен быть ssh|portainer, получено {via!r}",
+            f"mpup-ssh: --via должен быть ssh|portainer, получено {via!r}",
             err=True,
         )
         raise typer.Exit(code=2)
-    has_ssh = (
-        servers.sl_ip(n) is not None and servers.env_value("PG_MY_USER_NAME") is not None
-    )
+    has_ssh = servers.sl_ip(n) is not None and servers.env_value("PG_MY_USER_NAME") is not None
     has_ptr = (
         servers.portainer_target(n) is not None
         and servers.env_value("PORTAINER_API_KEY") is not None
@@ -65,7 +63,7 @@ def _resolve_transport(n: int, via: str | None) -> Transport:
     if has_ssh:
         return "ssh"
     typer.echo(
-        f"mpu-pssh: для sl-{n} не задано ни sl_{n} (+PG_MY_USER_NAME) "
+        f"mpup-ssh: для sl-{n} не задано ни sl_{n} (+PG_MY_USER_NAME) "
         f"ни sl_{n}_portainer (+PORTAINER_API_KEY)",
         err=True,
     )
@@ -79,10 +77,7 @@ def _run_via_ssh(n: int, cmd: list[str], stdin: bytes) -> int:
     key = str(Path.home() / ".ssh" / "id_rsa")
     container = f"mp-sl-{n}-cli"
     inner = " ".join(shlex.quote(a) for a in cmd)
-    full = (
-        f"ssh -i {key} {user}@{ip} "
-        f"'docker exec -i {container} sh -c {shlex.quote(inner)}'"
-    )
+    full = f"ssh -i {key} {user}@{ip} 'docker exec -i {container} sh -c {shlex.quote(inner)}'"
     result = subprocess.run(["bash", "-c", full], input=stdin, check=False)
     return result.returncode
 

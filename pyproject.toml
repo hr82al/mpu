@@ -40,8 +40,34 @@ mpu-data-loader = "mpu.commands.data_loader:run"
 mpu-data-loader-jobs = "mpu.commands.data_loader_jobs:run"
 mpu-d2-miro = "mpu.commands.d2_miro:run"
 mpu-run-js = "mpu.commands.run_js:run"
-mpu-pssh = "mpu.commands.pssh:run"
+mpup-ssh = "mpu.commands.pssh:run"
 mpu-help = "mpu.commands.help:run"
+
+# `mpup-*` — параллельные bin'ы к `mpu-*` cli_wrap-командам. Печатают
+# `mpup-ssh <selector> --no-stdin -- node ...` вместо ssh+docker обёртки.
+# Реализованы через env-override `MPU_WRAPPER=portainer` (см. `mpu.lib.cli_wrap`)
+# — typer-команды и резолв параметров общие с `mpu-*`.
+mpup-data-loader = "mpu.commands.data_loader:run_portainer"
+mpup-data-loader-jobs = "mpu.commands.data_loader_jobs:run_portainer"
+mpup-users = "mpu.commands.users:run_portainer"
+mpup-iu-wb = "mpu.commands.iu_wb:run_portainer"
+mpup-ss-datasets = "mpu.commands.ss_datasets:run_portainer"
+mpup-ss-load = "mpu.commands.ss_load:run_portainer"
+mpup-ss-update = "mpu.commands.ss_update:run_portainer"
+mpup-ozon-loader = "mpu.commands.ozon_loader:run_portainer"
+mpup-ozon-jobs = "mpu.commands.ozon_jobs:run_portainer"
+mpup-wb-loader = "mpu.commands.wb_loader:run_portainer"
+mpup-wb-jobs = "mpu.commands.wb_jobs:run_portainer"
+mpup-wb-unit-calc = "mpu.commands.wb_unit_calc:run_portainer"
+mpup-wb-unit-proto-new = "mpu.commands.wb_unit_proto_new:run_portainer"
+mpup-clients-migrations = "mpu.commands.clients_migrations:run_portainer"
+mpup-datasets-migrations = "mpu.commands.datasets_migrations:run_portainer"
+mpup-app-migrations = "mpu.commands.app_migrations:run_portainer"
+mpup-process = "mpu.commands.process:run_portainer"
+mpup-wb-save-expenses = "mpu.commands.save_wb_expenses:run_portainer"
+mpup-ozon-save-expenses = "mpu.commands.save_ozon_expenses:run_portainer"
+mpup-wb-recalculate-expenses = "mpu.commands.recalculate_wb_expenses:run_portainer"
+mpup-ozon-recalculate-expenses = "mpu.commands.recalculate_ozon_expenses:run_portainer"
 
 [build-system]
 requires = ["hatchling"]

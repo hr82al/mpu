@@ -2,6 +2,7 @@
 
 import typer
 
+from mpu.lib.cli_wrap import run_with_wrapper
 from mpu.lib.factories import migrations_app
 
 COMMAND_NAME = "mpu-app-migrations"
@@ -25,3 +26,8 @@ migrations_app.register(
 def run() -> None:
     """Entry point для `mpu-app-migrations`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-app-migrations` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")

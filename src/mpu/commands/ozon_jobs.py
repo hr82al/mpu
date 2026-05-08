@@ -2,6 +2,7 @@
 
 import typer
 
+from mpu.lib.cli_wrap import run_with_wrapper
 from mpu.lib.factories import jobs_show
 
 COMMAND_NAME = "mpu-ozon-jobs"
@@ -22,3 +23,8 @@ jobs_show.register(
 def run() -> None:
     """Entry point для `mpu-ozon-jobs`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-ozon-jobs` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")

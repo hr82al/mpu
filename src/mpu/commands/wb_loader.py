@@ -7,6 +7,7 @@ Subcommand'ы:
 
 import typer
 
+from mpu.lib.cli_wrap import run_with_wrapper
 from mpu.lib.factories import loader_by_sid
 
 COMMAND_NAME = "mpu-wb-loader"
@@ -36,3 +37,8 @@ loader_by_sid.register(
 def run() -> None:
     """Entry point для `mpu-wb-loader`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-wb-loader` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")

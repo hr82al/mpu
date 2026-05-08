@@ -9,6 +9,7 @@ from mpu.lib.cli_wrap import (
     emit_node_cli,
     require,
     resolve_selector,
+    run_with_wrapper,
 )
 
 COMMAND_NAME = "mpu-wb-unit-proto-new"
@@ -66,3 +67,8 @@ def copy_data_from_old_table(
 def run() -> None:
     """Entry point для `mpu-wb-unit-proto-new`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-wb-unit-proto-new` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")

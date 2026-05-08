@@ -1,10 +1,16 @@
-"""`mpu-iu-wb get-source-data` — service:iuWb getSourceData без флагов."""
+"""`mpu-iu-wb <selector> get-source-data` — service:iuWb getSourceData.
 
-from typing import Annotated
+Селектор универсальный: `sl-N` либо `client_id` / spreadsheet / title substring.
+"""
 
 import typer
 
-from mpu.lib.cli_wrap import emit_node_cli, resolve_server_only
+from mpu.lib.cli_wrap import (
+    attach_selector_callback,
+    emit_node_cli,
+    resolve_from_ctx,
+    run_with_wrapper,
+)
 
 COMMAND_NAME = "mpu-iu-wb"
 
@@ -13,27 +19,19 @@ app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
-
-@app.callback()
-def _root() -> None:  # pyright: ignore[reportUnusedFunction]
-    """Force group-mode: typer схлопывает в flat-app при единственном subcommand'е."""
+attach_selector_callback(app=app, command_name=COMMAND_NAME)
 
 
 @app.command(name="get-source-data")
-def get_source_data(
-    server: Annotated[str, typer.Option("--server", help="Server: sl-N (required)")],
-    local: Annotated[
-        bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
-    ] = False,
-) -> None:
+def get_source_data(ctx: typer.Context) -> None:
     """Распечатать ssh-команду для service:iuWb getSourceData."""
-    resolved = resolve_server_only(server=server, command_name=COMMAND_NAME, require_ssh=not local)
+    resolved, wrapper = resolve_from_ctx(ctx)
     emit_node_cli(
         name="iuWb",
         method="getSourceData",
         flags={},
         resolved=resolved,
-        wrapper="local" if local else "ssh",
+        wrapper=wrapper,
         command_name=COMMAND_NAME,
     )
 
@@ -41,3 +39,8 @@ def get_source_data(
 def run() -> None:
     """Entry point для `mpu-iu-wb`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-iu-wb` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")

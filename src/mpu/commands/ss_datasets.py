@@ -10,6 +10,7 @@ from mpu.lib.cli_wrap import (
     emit_node_cli,
     require,
     resolve_selector,
+    run_with_wrapper,
 )
 
 COMMAND_NAME = "mpu-ss-datasets"
@@ -84,3 +85,8 @@ def add(
 def run() -> None:
     """Entry point для `mpu-ss-datasets`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-ss-datasets` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")

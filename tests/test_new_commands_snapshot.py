@@ -50,12 +50,16 @@ SSH_PREFIX = (
 @pytest.fixture
 def fake_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     def _fake_resolve(
-        _value: str, *, server_override: str | None = None
+        value: str, *, server_override: str | None = None
     ) -> tuple[int, list[dict[str, object]]]:
         if server_override:
             n = servers.server_number(server_override)
             assert n is not None, f"bad --server in test: {server_override!r}"
             return n, []
+        # Short-circuit sl-N (mirrors real resolver.resolve_server).
+        sn = servers.server_number(value)
+        if sn is not None:
+            return sn, []
         return 2, [CANDIDATE]
 
     def _sl_ip(_n: int) -> str | None:
@@ -106,7 +110,7 @@ def test_wb_loader_ssh(fake_env: None, args: list[str], method: str) -> None:
 # ── wb_jobs ──────────────────────────────────────────────────────────────────
 def test_wb_jobs_show_ssh(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(wb_jobs.app, ["show", "--server", "sl-2"])
+    result = runner.invoke(wb_jobs.app, ["sl-2", "show"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh("node cli service:wbJobs showJobs")
 
@@ -138,7 +142,7 @@ def test_wb_unit_proto_new_copy_ssh(fake_env: None) -> None:
 # ── iu_wb ────────────────────────────────────────────────────────────────────
 def test_iu_wb_get_source_data_ssh(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(iu_wb.app, ["get-source-data", "--server", "sl-2"])
+    result = runner.invoke(iu_wb.app, ["sl-2", "get-source-data"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh("node cli service:iuWb getSourceData")
 
@@ -185,7 +189,7 @@ def test_ozon_loader_load_data_ssh(fake_env: None) -> None:
 )
 def test_ozon_jobs_ssh(fake_env: None, sub: str, method: str) -> None:
     _ = fake_env
-    result = runner.invoke(ozon_jobs.app, [sub, "--server", "sl-2"])
+    result = runner.invoke(ozon_jobs.app, ["sl-2", sub])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh(f"node cli service:ozonJobs {method}")
 
@@ -253,9 +257,7 @@ def test_clients_migrations_up_with_name_forced(fake_env: None) -> None:
 
 def test_clients_migrations_latest_all_ssh(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(
-        clients_migrations.app, ["latest-all", "--server", "sl-2", "--type", "wb"]
-    )
+    result = runner.invoke(clients_migrations.app, ["latest-all", "sl-2", "--type", "wb"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh("node cli service:clientsMigrations latestAll --type wb")
 
@@ -281,7 +283,7 @@ def test_datasets_migrations_ssh(fake_env: None, sub: str) -> None:
 @pytest.mark.parametrize("sub", ["latest", "up"])
 def test_app_migrations_ssh(fake_env: None, sub: str) -> None:
     _ = fake_env
-    result = runner.invoke(app_migrations.app, [sub, "--server", "sl-2"])
+    result = runner.invoke(app_migrations.app, ["sl-2", sub])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh(f"node cli service:appMigrations {sub}")
 
@@ -316,7 +318,7 @@ def test_users_add_ssh(fake_env: None) -> None:
     _ = fake_env
     result = runner.invoke(
         users.app,
-        ["add", "--server", "sl-1", "--email", "test@example.com", "--id", "10"],
+        ["sl-1", "add", "--email", "test@example.com", "--id", "10"],
     )
     assert result.exit_code == 0, result.output
     inner = "node cli service:users add --email test@example.com --id 10"
@@ -330,7 +332,7 @@ def test_users_add_role_ssh(fake_env: None) -> None:
     _ = fake_env
     result = runner.invoke(
         users.app,
-        ["add-role", "--server", "sl-1", "--id", "70", "--role", "client"],
+        ["sl-1", "add-role", "--id", "70", "--role", "client"],
     )
     assert result.exit_code == 0, result.output
     expected_prefix = (
@@ -358,7 +360,7 @@ def test_data_loader_find_candidate_ssh(fake_env: None) -> None:
 # ── data_loader_jobs ─────────────────────────────────────────────────────────
 def test_data_loader_jobs_show_ssh(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(data_loader_jobs.app, ["show", "--server", "sl-2"])
+    result = runner.invoke(data_loader_jobs.app, ["sl-2", "show"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh("node cli service:dataLoaderJobs showJobs")
 
@@ -375,7 +377,7 @@ def test_wb_loader_local(fake_env: None) -> None:
 
 def test_wb_jobs_local(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(wb_jobs.app, ["show", "--server", "sl-2", "--local"])
+    result = runner.invoke(wb_jobs.app, ["--local", "sl-2", "show"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == 'sl-2-cli sh -c "node cli service:wbJobs showJobs"'
 
@@ -393,7 +395,7 @@ def test_clients_migrations_local(fake_env: None) -> None:
 
 def test_app_migrations_local(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(app_migrations.app, ["latest", "--server", "sl-2", "--local"])
+    result = runner.invoke(app_migrations.app, ["--local", "sl-2", "latest"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == 'sl-2-cli sh -c "node cli service:appMigrations latest"'
 

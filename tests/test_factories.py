@@ -176,7 +176,7 @@ def test_migrations_app(fake_env: None) -> None:
         methods=[("latest", "latest")],
         command_name="mpu-test",
     )
-    result = runner.invoke(app, ["latest", "--server", "sl-2"])
+    result = runner.invoke(app, ["sl-2", "latest"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (f'{SSH_PREFIX} "node cli service:appMigrations latest"\'')
 
@@ -190,7 +190,7 @@ def test_migrations_app_with_name(fake_env: None) -> None:
         methods=[("up", "up")],
         command_name="mpu-test",
     )
-    result = runner.invoke(app, ["up", "--server", "sl-2", "--name", "20260101000000_test"])
+    result = runner.invoke(app, ["sl-2", "up", "--name", "20260101000000_test"])
     assert result.exit_code == 0, result.output
     inner = "node cli service:appMigrations up --name 20260101000000_test"
     assert result.stdout.strip() == f'{SSH_PREFIX} "{inner}"\''
@@ -205,7 +205,7 @@ def test_jobs_show(fake_env: None) -> None:
         methods=[("show", "showJobs")],
         command_name="mpu-test",
     )
-    result = runner.invoke(app, ["show", "--server", "sl-2"])
+    result = runner.invoke(app, ["sl-2", "show"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == f'{SSH_PREFIX} "node cli service:wbJobs showJobs"\''
 
@@ -219,7 +219,8 @@ def test_jobs_show_with_pattern_local(fake_env: None) -> None:
         methods=[("show", "showJobs")],
         command_name="mpu-test",
     )
-    result = runner.invoke(app, ["show", "--server", "sl-2", "--pattern", "wbReports", "--local"])
+    # `--local` option goes ДО positional selector (callback-level option).
+    result = runner.invoke(app, ["--local", "sl-2", "show", "--pattern", "wbReports"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (
         'sl-2-cli sh -c "node cli service:ozonJobs showJobs --pattern wbReports"'

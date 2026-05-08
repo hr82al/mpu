@@ -10,6 +10,7 @@ from mpu.lib.cli_wrap import (
     emit_node_cli,
     require,
     resolve_selector,
+    run_with_wrapper,
 )
 from mpu.lib.factories import loader_by_seller_client
 
@@ -117,3 +118,8 @@ def load_data(
 def run() -> None:
     """Entry point для `mpu-ozon-loader`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-ozon-loader` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")

@@ -1,10 +1,20 @@
-"""`mpu-users <method>` — печать ssh+docker команд для service:users (на main)."""
+"""`mpu-users <selector> <method>` — печать ssh+docker команд для service:users (на main).
+
+Селектор универсальный: `sl-N` (обычно `sl-1` — main) либо `client_id` / spreadsheet /
+title substring. UX: `mpu-users sl-1 add --email foo@example.com`.
+"""
 
 from typing import Annotated
 
 import typer
 
-from mpu.lib.cli_wrap import FlagValue, emit_node_cli, resolve_server_only
+from mpu.lib.cli_wrap import (
+    FlagValue,
+    attach_selector_callback,
+    emit_node_cli,
+    resolve_from_ctx,
+    run_with_wrapper,
+)
 
 COMMAND_NAME = "mpu-users"
 
@@ -13,14 +23,13 @@ app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
+attach_selector_callback(app=app, command_name=COMMAND_NAME)
+
 
 @app.command(name="add")
 def add(
-    server: Annotated[str, typer.Option("--server", help="Server: sl-N (main, обычно sl-1)")],
+    ctx: typer.Context,
     email: Annotated[str, typer.Option("--email", help="User email (required)")],
-    local: Annotated[
-        bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
-    ] = False,
     user_id: Annotated[
         int | None, typer.Option("--id", help="User id (опц., автогенерация если не задан)")
     ] = None,
@@ -37,7 +46,7 @@ def add(
     ] = None,
 ) -> None:
     """Распечатать ssh-команду для service:users add."""
-    resolved = resolve_server_only(server=server, command_name=COMMAND_NAME, require_ssh=not local)
+    resolved, wrapper = resolve_from_ctx(ctx)
     flags: dict[str, FlagValue] = {
         "--email": email,
         "--id": user_id,
@@ -51,28 +60,25 @@ def add(
         method="add",
         flags=flags,
         resolved=resolved,
-        wrapper="local" if local else "ssh",
+        wrapper=wrapper,
         command_name=COMMAND_NAME,
     )
 
 
 @app.command(name="add-role")
 def add_role(
-    server: Annotated[str, typer.Option("--server", help="Server: sl-N (main)")],
+    ctx: typer.Context,
     user_id: Annotated[int, typer.Option("--id", help="User id (required)")],
     role: Annotated[str, typer.Option("--role", help="Role name, например 'client'")],
-    local: Annotated[
-        bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
-    ] = False,
 ) -> None:
     """Распечатать ssh-команду для service:users addRole."""
-    resolved = resolve_server_only(server=server, command_name=COMMAND_NAME, require_ssh=not local)
+    resolved, wrapper = resolve_from_ctx(ctx)
     emit_node_cli(
         name="users",
         method="addRole",
         flags={"--id": user_id, "--role": role},
         resolved=resolved,
-        wrapper="local" if local else "ssh",
+        wrapper=wrapper,
         command_name=COMMAND_NAME,
     )
 
@@ -80,3 +86,8 @@ def add_role(
 def run() -> None:
     """Entry point для `mpu-users`."""
     app()
+
+
+def run_portainer() -> None:
+    """Entry point для `mpup-users` — `mpup-ssh <selector> -- node ...`."""
+    run_with_wrapper(app, "portainer")
