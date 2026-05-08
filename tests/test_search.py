@@ -25,6 +25,7 @@ def db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[sqlite3.Conn
     servers.reset_cache()
 
     conn = store.open_store(db_path)
+    store.bootstrap(conn)
     conn.executemany(
         "INSERT INTO sl_clients "
         "(client_id, server, is_active, is_locked, is_deleted, synced_at) "

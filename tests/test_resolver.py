@@ -21,6 +21,7 @@ def db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     servers.reset_cache()
 
     conn = store.open_store(db_path)
+    store.bootstrap(conn)
     conn.executemany(
         "INSERT INTO sl_clients "
         "(client_id, server, is_active, is_locked, is_deleted, synced_at) "
@@ -93,6 +94,7 @@ def db_no_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[No
     servers.reset_cache()
 
     conn = store.open_store(db_path)
+    store.bootstrap(conn)
     cur: sqlite3.Cursor = conn.executemany(
         "INSERT INTO sl_clients "
         "(client_id, server, is_active, is_locked, is_deleted, synced_at) "

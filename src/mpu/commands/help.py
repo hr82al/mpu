@@ -9,7 +9,9 @@ from mpu.commands import (
     backup_ozon_unit_proto,
     backup_wb_unit_proto,
     process,
+    pssh,
     recalculate_wb_expenses,
+    run_js,
     save_wb_expenses,
     search,
     sql,
@@ -75,6 +77,8 @@ _REGISTERED_MODULES = (
     save_wb_expenses,
     process,
     ss_update,
+    run_js,
+    pssh,
 )
 
 _COMMANDS: dict[str, tuple[str, typer.Typer]] = {

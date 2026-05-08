@@ -24,9 +24,10 @@ NS = "{http://www.w3.org/2000/svg}"
 class D2Shape:
     """Описание шейпа из d2-исходника."""
 
-    kind: str  # rectangle, cloud, cylinder, hexagon, page, markdown, ...
+    kind: str  # rectangle, cloud, cylinder, hexagon, page, markdown, card, ...
     label: str
     fill: str | None  # hex color from style.fill, если задан в исходнике
+    stroke: str | None = None  # hex / "transparent" / "none" из style.stroke
 
 
 @dataclass
@@ -49,6 +50,14 @@ class Edge:
 
 
 # ---------- d2 source parser ----------
+
+
+def _unescape(s: str) -> str:
+    """Развернуть escape-последовательности в d2-string-литерале (`\\n`, `\\t`,
+    `\\"`, `\\\\`). d2 в SVG рендерит их как реальные newline'ы (через tspan),
+    поэтому при чтении напрямую из d2-source нужно сделать то же — иначе
+    дальнейшая обработка label'а (partition по \\n, html-конвертация) не сработает."""
+    return s.replace("\\\\", "\x00").replace("\\n", "\n").replace("\\t", "\t").replace('\\"', '"').replace("\x00", "\\")
 
 
 def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:
@@ -124,8 +133,11 @@ def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:
                 i += 1
                 continue
 
-        # property: shape / style.fill / style.stroke
-        m_prop = re.match(r'^(shape|style\.fill|style\.stroke)\s*:\s*"?([^"\s{}]+)"?', ls)
+        # property: shape / style.fill / style.stroke / class
+        # `class: card` — sentinel: рендерим как Miro card (см. d2_miro.py).
+        # d2 само валидирует имя класса по объявленному `classes: {...}` блоку,
+        # поэтому соответствующий блок должен быть определён в исходнике.
+        m_prop = re.match(r'^(shape|style\.fill|style\.stroke|class)\s*:\s*"?([^"\s{}]+)"?', ls)
         if m_prop and stack:
             owner = ".".join(stack)
             sh = shapes.setdefault(owner, D2Shape(kind="rectangle", label=stack[-1], fill=None))
@@ -135,6 +147,10 @@ def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:
                 sh.kind = val
             elif key == "style.fill":
                 sh.fill = val
+            elif key == "style.stroke":
+                sh.stroke = val
+            elif key == "class" and val == "card":
+                sh.kind = "card"
             i += 1
             continue
 
@@ -147,6 +163,10 @@ def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:
             name = m_open.group(1)
             # `style { ... }` — это inline-стили шейпа, а не вложенный шейп.
             # Пропускаем содержимое до парной закрывающей скобки, не пушим stack.
+            # `classes { ... }` парсим как обычный nested-блок: каждый дочерний класс
+            # становится шейпом `classes.<name>` со своими style.fill/stroke,
+            # к которым потом обращается рендерер для применения дефолтов
+            # к пользовательским shape, имеющим `class: <name>`.
             if name == "style":
                 depth = 1
                 i += 1
@@ -160,7 +180,12 @@ def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:
                 continue
             full = ".".join([*stack, name])
             shapes.setdefault(
-                full, D2Shape(kind="rectangle", label=m_open.group(2) or name, fill=None)
+                full,
+                D2Shape(
+                    kind="rectangle",
+                    label=_unescape(m_open.group(2)) if m_open.group(2) else name,
+                    fill=None,
+                ),
             )
             stack.append(name)
             i += 1
@@ -169,7 +194,7 @@ def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:
         # leaf with label: `name: "label"` или `name: "label" {`
         m_leaf = re.match(r'^([a-zA-Z_]\w*)\s*:\s*"([^"]*)"\s*(\{?)\s*$', ls)
         if m_leaf:
-            name, label, brace = m_leaf.group(1), m_leaf.group(2), m_leaf.group(3)
+            name, label, brace = m_leaf.group(1), _unescape(m_leaf.group(2)), m_leaf.group(3)
             full = ".".join([*stack, name])
             existing = shapes.get(full)
             if existing is None:
@@ -323,9 +348,13 @@ def parse_svg(
     edges: list[Edge] = []
     for g in root.iter(NS + "g"):
         cls = g.get("class", "") or ""
-        if not cls or " " in cls:
+        if not cls:
             continue
-        name = _b64dec(cls)
+        # d2 пишет class="<base64> <classnames...>" когда у элемента указан `class:`
+        # в исходнике. Берём первый токен (base64 от d2-path), остальные —
+        # имена пользовательских классов, для нас не важны (kind мы тащим из d2-source).
+        first_token = cls.split(" ", 1)[0]
+        name = _b64dec(first_token)
         if name is None:
             continue
         # edge: name like `(src -&gt; dst)[N]` or `parent.(src -&gt; dst)[N]`

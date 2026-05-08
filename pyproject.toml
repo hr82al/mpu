@@ -7,6 +7,7 @@ dependencies = [
     "typer>=0.12.0",
     "psycopg[binary]>=3.2",
     "python-dotenv>=1.0",
+    "httpx>=0.27",
 ]
 
 [project.scripts]
@@ -38,6 +39,8 @@ mpu-users = "mpu.commands.users:run"
 mpu-data-loader = "mpu.commands.data_loader:run"
 mpu-data-loader-jobs = "mpu.commands.data_loader_jobs:run"
 mpu-d2-miro = "mpu.commands.d2_miro:run"
+mpu-run-js = "mpu.commands.run_js:run"
+mpu-pssh = "mpu.commands.pssh:run"
 mpu-help = "mpu.commands.help:run"
 
 [build-system]

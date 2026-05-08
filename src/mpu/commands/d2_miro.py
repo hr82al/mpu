@@ -23,6 +23,7 @@ import typer
 
 from mpu.lib import env
 from mpu.lib.d2_parser import (
+    D2Shape,
     LayoutShape,
     container_names,
     normalize_hex,
@@ -472,9 +473,13 @@ def main(
         for name in sorted(layout):
             d2info = d2_shapes.get(name)
             kind = d2info.kind if d2info else "rectangle"
-            typer.echo(f"  shape  {name}  kind={kind}  miro={to_miro_shape(kind)}")
+            target = "card" if kind == "card" else f"shape({to_miro_shape(kind)})"
+            typer.echo(f"  {target:20} {name}  kind={kind}")
         for e in edges:
-            typer.echo(f"  edge   {e.src} -> {e.dst}  label={e.label[:30]!r}")
+            src_kind = (d2_shapes.get(e.src) or D2Shape("rectangle", "", None)).kind
+            dst_kind = (d2_shapes.get(e.dst) or D2Shape("rectangle", "", None)).kind
+            note = " [skipped: card→card]" if src_kind == "card" and dst_kind == "card" else ""
+            typer.echo(f"  edge   {e.src} -> {e.dst}  label={e.label[:30]!r}{note}")
         return
 
     client = MiroClient(token, board_id)
@@ -503,6 +508,37 @@ def main(
     containers = container_names(list(layout.keys()))
     ordered = sorted(layout.keys(), key=lambda n: (n not in containers, n))
     name_to_id: dict[str, str] = {}
+
+    # L-indent для card-колонок: контейнер с ребёнком `header` (class=card) +
+    # другими card-детьми → подзадачи смещаем вправо относительно header.
+    # Header остаётся на левой границе колонки, подзадачи отступают на CARD_INDENT.
+    CARD_INDENT = 60.0
+    for cont in containers:
+        depth = cont.count(".") + 1
+        direct = [
+            n for n in layout
+            if n != cont and n.startswith(cont + ".") and n.count(".") == depth
+        ]
+        cards = [
+            n for n in direct
+            if (s := d2_shapes.get(n)) is not None and s.kind == "card"
+        ]
+        header_name = f"{cont}.header"
+        if header_name not in cards or len(cards) < 2:
+            continue
+        for st in cards:
+            if st == header_name:
+                continue
+            layout[st].x += CARD_INDENT
+        # пересчитать bbox контейнера, чтобы он покрыл смещённые подзадачи
+        x1 = min(layout[c].x for c in direct)
+        y1 = min(layout[c].y for c in direct)
+        x2 = max(layout[c].x + layout[c].w for c in direct)
+        y2 = max(layout[c].y + layout[c].h for c in direct)
+        layout[cont].x = x1
+        layout[cont].y = y1
+        layout[cont].w = x2 - x1
+        layout[cont].h = y2 - y1
 
     # Размер контейнера считаем заново: bbox прямых детей + щедрый padding +
     # дополнительная подушка сверху под заголовок контейнера. Так дети
@@ -556,7 +592,53 @@ def main(
                 typer.echo(f"[skip] markdown {name}: {e}", err=True)
             continue
 
+        if kind == "card":
+            # Card: рендерим как round_rectangle shape, не как Miro card-item.
+            # Причина: у Miro card нет отдельного border-color (style.cardTheme —
+            # это лишь цветная полоска), а пользователь хочет жёлтую рамку вокруг
+            # всего элемента. round_rectangle визуально похож на card и даёт
+            # полный контроль над border'ом.
+            raw = (d2info.label if d2info else shape.label) or shape.label or name.split(".")[-1]
+            class_default = d2_shapes.get("classes.card")
+            border_color = normalize_hex(
+                (d2info.stroke if d2info else None)
+                or (class_default.stroke if class_default else None),
+                "#ffd54f",
+            )
+            fill = normalize_hex(
+                shape.fill
+                or (d2info.fill if d2info else None)
+                or (class_default.fill if class_default else None),
+                "#ffffff",
+            )
+            try:
+                sid = client.create_shape(
+                    parent_id=frame.id,
+                    kind="round_rectangle",
+                    content_html=f"<p>{_html(raw)}</p>",
+                    x=mx, y=my, width=mw, height=mh,
+                    fill=fill,
+                    border_color=border_color,
+                    border_width="3",
+                    font_size="12",
+                    text_align="left",
+                    text_align_vertical="top",
+                )
+                name_to_id[name] = sid
+            except Exception as e:
+                typer.echo(f"[skip] card {name}: {e}", err=True)
+            continue
+
         fill = normalize_hex(shape.fill or (d2info.fill if d2info else None), "#ffffff")
+        # Прозрачный/none stroke в d2 → border_width=0 (контейнер-обёртка без видимого outline).
+        stroke_raw = (d2info.stroke if d2info else None)
+        invisible_border = stroke_raw in ("transparent", "none")
+        if invisible_border:
+            border_width = "0"
+            border_color = "#ffffff"
+        else:
+            border_width = "2" if is_container else "1"
+            border_color = normalize_hex(stroke_raw, "#1a1a1a")
 
         try:
             sid = client.create_shape(
@@ -566,8 +648,9 @@ def main(
                 x=mx, y=my, width=mw, height=mh,
                 fill=fill,
                 fill_opacity="0.5" if is_container else "1.0",
-                border_width="2" if is_container else "1",
-                border_style="dashed" if is_container else "normal",
+                border_color=border_color,
+                border_width=border_width,
+                border_style="dashed" if (is_container and not invisible_border) else "normal",
                 font_size="18" if is_container else "12",
                 # Заголовок контейнера прижимаем к верху (по умолчанию middle), чтобы
                 # содержимое внутри читалось без перекрытия с названием группы.

@@ -236,6 +236,31 @@ class MiroClient:
         res = self._request("POST", "/shapes", body)
         return res["id"]
 
+    def create_card(
+        self,
+        *,
+        parent_id: str,
+        title: str,
+        description: str,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        theme: str = "#2d9bf0",
+    ) -> str:
+        """Создать Miro card. Description поддерживает ограниченный HTML
+        (p/strong/em/ul/li/br). theme = hex цвет «полоски» слева у card."""
+        # Miro REST API требует width >= 256 для cards (валидация на сервере).
+        body: dict[str, Any] = {
+            "data": {"title": title, "description": description},
+            "style": {"cardTheme": theme},
+            "position": {"x": x, "y": y},
+            "geometry": {"width": max(width, 256), "height": max(height, 40)},
+            "parent": {"id": parent_id},
+        }
+        res = self._request("POST", "/cards", body)
+        return res["id"]
+
     def create_text(
         self,
         *,

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from mpu.lib import servers
+from mpu.lib import servers, store
 
 
 @pytest.fixture
@@ -23,6 +23,7 @@ def env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
         encoding="utf-8",
     )
     monkeypatch.setattr(servers, "ENV_PATH", p)
+    monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
     servers.reset_cache()
     yield p
     servers.reset_cache()

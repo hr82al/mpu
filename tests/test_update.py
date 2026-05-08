@@ -57,6 +57,8 @@ def _make_fake_pg(
 def test_run_update_iterates_all_servers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     db_path = tmp_path / "mpu.db"
     monkeypatch.setattr(store, "DB_PATH", db_path)
+    with store.store(db_path) as _c:
+        store.bootstrap(_c)
 
     clients_rows = [
         (10, "sl-1", True, False, False),
@@ -102,6 +104,8 @@ def test_run_update_replaces_old_data(tmp_path: Path, monkeypatch: pytest.Monkey
     """Второй update полностью заменяет старые данные."""
     db_path = tmp_path / "mpu.db"
     monkeypatch.setattr(store, "DB_PATH", db_path)
+    with store.store(db_path) as _c:
+        store.bootstrap(_c)
 
     fake_main, fake_to = _make_fake_pg(
         [(10, "sl-1", True, False, False)],
@@ -130,6 +134,8 @@ def test_run_update_handles_failed_server(tmp_path: Path, monkeypatch: pytest.Mo
     """Если один инстанс не отвечает — остальные всё равно синкаются."""
     db_path = tmp_path / "mpu.db"
     monkeypatch.setattr(store, "DB_PATH", db_path)
+    with store.store(db_path) as _c:
+        store.bootstrap(_c)
 
     clients_rows = [
         (10, "sl-1", True, False, False),

@@ -22,6 +22,7 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     servers.reset_cache()
 
     conn = store.open_store(db_path)
+    store.bootstrap(conn)
     conn.executemany(
         "INSERT INTO sl_clients "
         "(client_id, server, is_active, is_locked, is_deleted, synced_at) "
