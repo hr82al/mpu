@@ -1,10 +1,13 @@
 """Transport abstraction: запуск команды внутри `mp-sl-N-cli`.
 
 Транспорт выбирается per-server:
-  - `ssh` если в `~/.config/mpu/.env` есть `sl_<N>=<ip>` и `PG_MY_USER_NAME`;
-  - `portainer` если есть `sl_<N>_portainer=<base_url>/<endpoint_id>` и `PORTAINER_API_KEY`.
+  - `portainer` если есть таргет (SQLite после `mpu init` или `sl_<N>_portainer` в .env)
+    плюс `PORTAINER_API_KEY`;
+  - `ssh` если в `~/.config/mpu/.env` есть `sl_<N>=<ip>` и `PG_MY_USER_NAME`.
 
-Если оба заданы — приоритет ssh (быстрее, проще). Override через `via="ssh"|"portainer"`.
+**Default — Portainer**, если оба источника заданы. Override через `via="ssh"|"portainer"`.
+Причина: Portainer — единственный универсальный путь до всех серверов фермы; ssh
+доступен только до части. Унифицируем поведение `mpu-pssh` / `mpu-run-js --all`.
 
 stdout/stderr выполняемой команды пишутся напрямую в `sys.stdout.buffer` / `sys.stderr.buffer`,
 так что вызов indistinguishable от обычного subprocess: stream'ятся по мере прихода.
@@ -56,10 +59,11 @@ def _resolve_transport(n: int, via: str | None) -> Transport:
         servers.portainer_target(n) is not None
         and servers.env_value("PORTAINER_API_KEY") is not None
     )
-    if has_ssh:
-        return "ssh"
+    # Portainer-first: единый путь до всей фермы; ssh — fallback для legacy конфигов.
     if has_ptr:
         return "portainer"
+    if has_ssh:
+        return "ssh"
     typer.echo(
         f"mpu-pssh: для sl-{n} не задано ни sl_{n} (+PG_MY_USER_NAME) "
         f"ни sl_{n}_portainer (+PORTAINER_API_KEY)",

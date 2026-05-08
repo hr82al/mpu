@@ -79,16 +79,13 @@ def env_value(key: str) -> str | None:
 
 
 def list_instance_server_numbers() -> list[int]:
-    """Все sl-N (N>0): ssh из `sl_N` ∪ legacy portainer `sl_N_portainer` ∪ SQLite-кэш."""
-    out: set[int] = set()
-    for key, value in _env().items():
-        if not value:
-            continue
-        m = re.fullmatch(r"sl_(\d+)", key) or re.fullmatch(r"sl_(\d+)_portainer", key)
-        if m and (n := int(m.group(1))) > 0:
-            out.add(n)
-    out.update(_portainer_db_map().keys())
-    return sorted(out)
+    """Все sl-N (N>0) из SQLite-кэша `mpu init` (поле `server_number IS NOT NULL`).
+
+    Источник истины — SQLite. `.env` сюда не смотрим: `sl_N=<ip>` теперь
+    используется только для ssh-fallback в `pssh._resolve_transport()`, а не как
+    источник `--all`. Если сервера нет после `mpu init` — он и не попадёт в fan-out.
+    """
+    return sorted(_portainer_db_map().keys())
 
 
 def portainer_target(n: int) -> tuple[str, int] | None:

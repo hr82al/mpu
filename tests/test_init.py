@@ -236,15 +236,15 @@ def test_portainer_target_falls_back_to_env(
     assert servers.portainer_target(99) == ("https://legacy:9443", 77)
 
 
-def test_list_instance_server_numbers_unions_all_sources(
+def test_list_instance_server_numbers_only_from_sqlite(
     env_with_portainer: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Union: ssh-only из sl_N + legacy sl_N_portainer + SQLite portainer_containers."""
+    """Источник истины — SQLite. ssh-only из `sl_N` и legacy `sl_N_portainer` игнорируются."""
     env = env_with_portainer
     env.write_text(
         env.read_text()
-        + "sl_2='10.0.0.2'\n"  # ssh-only
-        + "sl_99_portainer=https://legacy:9443/77\n",  # legacy portainer
+        + "sl_2='10.0.0.2'\n"  # ssh-only — НЕ должен попасть в --all
+        + "sl_99_portainer=https://legacy:9443/77\n",  # legacy env — тоже НЕ должен
         encoding="utf-8",
     )
     monkeypatch.setattr(servers, "ENV_PATH", env)
@@ -271,7 +271,7 @@ def test_list_instance_server_numbers_unions_all_sources(
                     endpoint_name="",
                     container_id="y",
                     container_name="postgres",
-                    server_number=None,
+                    server_number=None,  # non-mp-sl-N-cli — server_number IS NULL
                     state="running",
                     image="",
                 ),
@@ -279,8 +279,8 @@ def test_list_instance_server_numbers_unions_all_sources(
             conn,
         )
     servers.reset_cache()
-    # 2 (ssh-only), 7 (SQLite), 99 (legacy env). server_number=None не считается.
-    assert servers.list_instance_server_numbers() == [2, 7, 99]
+    # Только sl-7 — единственный mp-sl-N-cli в SQLite. Env-источники намеренно не учитываются.
+    assert servers.list_instance_server_numbers() == [7]
 
 
 # ---------- mpu init CLI ----------

@@ -13,7 +13,31 @@ import typer
 from typer.testing import CliRunner
 
 from mpu.commands import run_js
-from mpu.lib import clipboard, servers, store
+from mpu.lib import clipboard, portainer_discover, servers, store
+
+
+def _seed_sqlite(db_path: Path, server_numbers: list[int]) -> None:
+    """Bootstrap + добавить mp-sl-N-cli записи в portainer_containers для тестов `--all`.
+
+    После рефакторинга `list_instance_server_numbers()` берёт sl-N исключительно
+    из SQLite (наполнение через `mpu init`); тесты должны это поведение зеркалить.
+    """
+    with store.store(db_path) as conn:
+        store.bootstrap(conn)
+        items = [
+            portainer_discover.DiscoveredContainer(
+                portainer_url="https://example:9443",
+                endpoint_id=1,
+                endpoint_name="local",
+                container_id=f"id-{n}",
+                container_name=f"mp-sl-{n}-cli",
+                server_number=n,
+                state="running",
+                image="node:22",
+            )
+            for n in server_numbers
+        ]
+        portainer_discover.store_discovered(items, conn)
 
 
 @pytest.fixture
@@ -21,6 +45,7 @@ def env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     p = tmp_path / ".env"
     p.write_text(
         "PG_MY_USER_NAME=alice\n"
+        "PORTAINER_API_KEY=ptr_test\n"
         "sl_0='192.168.150.90'\n"
         "sl_1='192.168.150.91'\n"
         "sl_2='192.168.150.92'\n"
@@ -28,8 +53,9 @@ def env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
         encoding="utf-8",
     )
     monkeypatch.setattr(servers, "ENV_PATH", p)
-    # Изолируем тест от prod SQLite — без bootstrap, чтобы portainer-таблица была пуста.
-    monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
+    db_path = tmp_path / "mpu.db"
+    monkeypatch.setattr(store, "DB_PATH", db_path)
+    _seed_sqlite(db_path, [1, 2, 3])
     servers.reset_cache()
     yield p
     servers.reset_cache()

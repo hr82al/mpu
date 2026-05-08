@@ -80,8 +80,10 @@ def test_resolve_portainer_when_only_portainer(env_portainer_only: Path) -> None
     assert pssh._resolve_transport(11, None) == "portainer"
 
 
-def test_resolve_prefers_ssh_when_both(env_mixed: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Если для одного сервера задан и ssh, и portainer — приоритет у ssh."""
+def test_resolve_prefers_portainer_when_both(
+    env_mixed: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Если для одного сервера задан и ssh, и portainer — приоритет у Portainer."""
     p = env_mixed
     p.write_text(
         p.read_text(encoding="utf-8") + "sl_1_portainer=https://x:9443/19\n",
@@ -89,7 +91,7 @@ def test_resolve_prefers_ssh_when_both(env_mixed: Path, monkeypatch: pytest.Monk
     )
     monkeypatch.setattr(servers, "ENV_PATH", p)
     servers.reset_cache()
-    assert pssh._resolve_transport(1, None) == "ssh"
+    assert pssh._resolve_transport(1, None) == "portainer"
 
 
 def test_resolve_via_override(env_mixed: Path) -> None:
