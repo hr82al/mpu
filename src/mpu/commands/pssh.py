@@ -1,7 +1,12 @@
 """`mpu-pssh` — выполнить команду внутри `mp-sl-N-cli`; ssh+docker или Portainer transparently.
 
-UX: `mpu-pssh sl-N <cmd...>` — единый интерфейс независимо от того, есть ли прямой ssh
-или только Portainer-доступ. Источники stdin (по аналогии с `mpu-sql` / `mpu-run-js`):
+UX: `mpu-pssh <selector> <cmd...>` — единый интерфейс независимо от того, есть ли прямой ssh
+или только Portainer-доступ. Селектор универсальный (см. `mpu.lib.resolver.resolve_server`):
+  - `sl-N` — прямой указатель сервера (без обращения к SQLite-кэшу);
+  - `client_id` (число), кусок `spreadsheet_id`, кусок `title` — резолв через `mpu-search`
+    (локальный SQLite-кэш `~/.config/mpu/mpu.db`, обновляется через `mpu-update`).
+
+Источники stdin (по аналогии с `mpu-sql` / `mpu-run-js`):
   1. `--stdin-text "..."` — inline-строка;
   2. `--stdin-file ./x` — содержимое файла;
   3. pipe: `cat x | mpu-pssh ...` (stdin не TTY);
@@ -17,6 +22,8 @@ stdout/stderr ребёнка — напрямую в наш stdout/stderr. Exit 
 
 Примеры:
   mpu-pssh sl-1 --no-stdin -- ls -la /app
+  mpu-pssh 12345 --no-stdin -- ls /app           # client_id → server через mpu-search
+  mpu-pssh "Тортуга" --no-stdin -- ls /app       # title → server через mpu-search
   cat script.mjs | mpu-pssh sl-11 -- node --input-type=module -
   mpu-pssh sl-11 --stdin-text 'console.log(1)' -- node --input-type=module -
   mpu-pssh sl-1 --via portainer --no-stdin -- ls /app
@@ -30,10 +37,10 @@ from typing import Annotated
 import typer
 
 from mpu.lib import pssh as _pssh
-from mpu.lib import servers
+from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 COMMAND_NAME = "mpu-pssh"
-COMMAND_SUMMARY = "Запустить cmd в mp-sl-N-cli (ssh+docker или Portainer transparently)"
+COMMAND_SUMMARY = "Запустить cmd в mp-sl-N-cli по селектору (ssh+docker или Portainer)"
 
 
 app = typer.Typer(
@@ -42,17 +49,22 @@ app = typer.Typer(
 )
 
 
-def _parse_server_arg(value: str) -> int:
-    n = servers.server_number(value)
-    if n is None or n <= 0:
-        typer.echo(f"{COMMAND_NAME}: ожидается sl-N (N>0), получено: {value!r}", err=True)
+def _resolve_server_number(selector: str) -> int:
+    """Резолв селектора → server_number с проверкой N>0 (sl-0 = main, не cli-таргет)."""
+    try:
+        n, _candidates = resolve_server(selector)
+    except ResolveError as e:
+        typer.echo(f"{COMMAND_NAME}: {e}", err=True)
+        if e.candidates:
+            typer.echo(format_candidates(e.candidates), err=True)
+        raise typer.Exit(code=2) from None
+    if n <= 0:
+        typer.echo(f"{COMMAND_NAME}: ожидается sl-N (N>0), получено: {selector!r}", err=True)
         raise typer.Exit(code=2)
     return n
 
 
-def _resolve_stdin(
-    *, stdin_text: str | None, stdin_file: Path | None, no_stdin: bool
-) -> bytes:
+def _resolve_stdin(*, stdin_text: str | None, stdin_file: Path | None, no_stdin: bool) -> bytes:
     """Источники stdin (mutex): inline-строка / файл / pipe / TTY.
 
     `--no-stdin` сразу даёт `b""` — для команд (ls, echo), которым stdin не нужен,
@@ -67,9 +79,7 @@ def _resolve_stdin(
             raise typer.Exit(code=2)
         return b""
     if stdin_text is not None and stdin_file is not None:
-        typer.echo(
-            f"{COMMAND_NAME}: --stdin-text и --stdin-file взаимоисключающи", err=True
-        )
+        typer.echo(f"{COMMAND_NAME}: --stdin-text и --stdin-file взаимоисключающи", err=True)
         raise typer.Exit(code=2)
     if stdin_text is not None:
         return stdin_text.encode("utf-8")
@@ -89,7 +99,12 @@ def _resolve_stdin(
 )
 def main(
     ctx: typer.Context,
-    server: Annotated[str, typer.Argument(help="sl-N — номер сервера")],
+    selector: Annotated[
+        str,
+        typer.Argument(
+            help="sl-N (прямо) или client_id / spreadsheet_id / title (через mpu-search)"
+        ),
+    ],
     via: Annotated[
         str | None,
         typer.Option("--via", help="Override транспорта: ssh | portainer"),
@@ -113,14 +128,12 @@ def main(
         typer.Option("--no-stdin", help="Не читать stdin (для cmd, которым не нужен)"),
     ] = False,
 ) -> None:
-    n = _parse_server_arg(server)
+    n = _resolve_server_number(selector)
     cmd = list(ctx.args)
     if not cmd:
         typer.echo(f"{COMMAND_NAME}: пустая команда", err=True)
         raise typer.Exit(code=2)
-    stdin_bytes = _resolve_stdin(
-        stdin_text=stdin_text, stdin_file=stdin_file, no_stdin=no_stdin
-    )
+    stdin_bytes = _resolve_stdin(stdin_text=stdin_text, stdin_file=stdin_file, no_stdin=no_stdin)
     rc = _pssh.pssh_run(server_number=n, cmd=cmd, stdin=stdin_bytes, via=via)
     raise typer.Exit(code=rc)
 

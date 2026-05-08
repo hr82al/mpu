@@ -1,7 +1,12 @@
-"""Резолв селектора (client_id / spreadsheet_id / title / sl-N override) в server_number.
+"""Резолв селектора (sl-N / client_id / spreadsheet_id / title) в server_number.
 
-Использует `mpu-search` логику для поиска и проверяет однозначность по серверу.
-Если несколько кандидатов указывают на разные сервера — ошибка с .candidates.
+Универсальный селектор: если value матчит `sl-N` — шорт-цикл (поиск пропускается),
+иначе ищет через `mpu-search` (client_id / spreadsheet_id substring / title substring)
+и проверяет однозначность по серверу. Несколько кандидатов на разных серверах →
+`ResolveError` с `.candidates`.
+
+Для backwards-compat сохранён `server_override` — отдельный sl-N override
+поверх селектора (используется в `mpu-sql`).
 """
 
 from mpu.commands.search import search
@@ -21,13 +26,21 @@ def resolve_server(
 ) -> tuple[int, list[dict[str, object]]]:
     """Резолв селектора в (server_number, candidates).
 
-    `server_override="sl-N"` обходит SQLite-резолв.
+    Порядок:
+      1. `server_override="sl-N"` — приоритетный override, обходит селектор и поиск.
+      2. `value` матчит `sl-N` — шорт-цикл, возвращает (N, []), без обращения к SQLite.
+      3. Иначе — поиск через `mpu-search` (client_id / spreadsheet_id / title).
+
     Бросает `ResolveError` если 0 кандидатов или они на разных серверах.
     """
     if server_override:
         n = servers.server_number(server_override)
         if n is None:
             raise ResolveError(f"bad --server: {server_override!r} (expected sl-N)")
+        return n, []
+
+    n = servers.server_number(value)
+    if n is not None:
         return n, []
 
     with store.store() as conn:
@@ -45,3 +58,20 @@ def resolve_server(
             candidates=results,
         )
     return next(iter(distinct)), results
+
+
+def format_candidates(candidates: list[dict[str, object]]) -> str:
+    """Человекочитаемое представление списка кандидатов для err-вывода."""
+    lines: list[str] = []
+    for c in candidates:
+        client_id = c.get("client_id")
+        server = c.get("server")
+        title = c.get("title")
+        ss = c.get("spreadsheet_id")
+        parts = [f"client_id={client_id}", f"server={server}"]
+        if title:
+            parts.append(f'title="{title}"')
+        if ss:
+            parts.append(f"spreadsheet_id={ss}")
+        lines.append("  " + "  ".join(parts))
+    return "\n".join(lines)

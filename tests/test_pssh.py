@@ -22,9 +22,7 @@ def _isolate_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 def env_ssh_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     p = tmp_path / ".env"
     p.write_text(
-        "PG_MY_USER_NAME=alice\n"
-        "sl_1='192.168.150.91'\n"
-        "sl_2='192.168.150.92'\n",
+        "PG_MY_USER_NAME=alice\nsl_1='192.168.150.91'\nsl_2='192.168.150.92'\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(servers, "ENV_PATH", p)
@@ -171,9 +169,7 @@ class _StubClient:
         self.stderr_to_emit = b""
         _StubClient.instances.append(self)
 
-    def upload_tar(
-        self, container: str, dest: str, files: dict[str, bytes]
-    ) -> None:
+    def upload_tar(self, container: str, dest: str, files: dict[str, bytes]) -> None:
         self.uploads.append((container, dest, files))
 
     def create_exec(self, container: str, cmd: list[str]) -> str:
@@ -228,9 +224,7 @@ def test_run_via_portainer_with_stdin_uploads_and_wraps(
     env_portainer_only: Path, stub_portainer: type[_StubClient]
 ) -> None:
     _ = env_portainer_only
-    rc = pssh._run_via_portainer(
-        11, ["node", "--input-type=module", "-"], stdin=b"console.log(1)"
-    )
+    rc = pssh._run_via_portainer(11, ["node", "--input-type=module", "-"], stdin=b"console.log(1)")
     assert rc == 0
     c = stub_portainer.instances[0]
     # Upload tarred stdin в /tmp.
@@ -293,9 +287,7 @@ def test_pssh_cli_dispatches_to_pssh_run(
         stdin: bytes = b"",
         via: str | None = None,
     ) -> int:
-        captured.update(
-            server_number=server_number, cmd=list(cmd), stdin=stdin, via=via
-        )
+        captured.update(server_number=server_number, cmd=list(cmd), stdin=stdin, via=via)
         return 0
 
     monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
@@ -307,9 +299,7 @@ def test_pssh_cli_dispatches_to_pssh_run(
     assert captured["via"] is None
 
 
-def test_pssh_cli_via_override(
-    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_pssh_cli_via_override(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _ = env_ssh_only
     captured: dict[str, object] = {}
 
@@ -320,9 +310,7 @@ def test_pssh_cli_via_override(
 
     monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
     runner = CliRunner()
-    result = runner.invoke(
-        pssh_cmd.app, ["sl-1", "--via", "portainer", "--", "echo", "hi"]
-    )
+    result = runner.invoke(pssh_cmd.app, ["sl-1", "--via", "portainer", "--", "echo", "hi"])
     assert result.exit_code == 0
     assert captured["via"] == "portainer"
 
@@ -342,9 +330,7 @@ def test_pssh_cli_empty_command_rejected(
     assert "пустая команда" in result.output
 
 
-def test_pssh_cli_propagates_exit_code(
-    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_pssh_cli_propagates_exit_code(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _ = env_ssh_only
 
     def _fake_run(**_kw: object) -> int:
@@ -356,9 +342,7 @@ def test_pssh_cli_propagates_exit_code(
     assert result.exit_code == 13
 
 
-def test_pssh_cli_rejects_sl_0(
-    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_pssh_cli_rejects_sl_0(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _ = env_ssh_only
 
     def _fake_run(**_kw: object) -> int:
@@ -373,9 +357,7 @@ def test_pssh_cli_rejects_sl_0(
 # ---------- stdin sources ----------
 
 
-def test_pssh_cli_stdin_pipe(
-    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_pssh_cli_stdin_pipe(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _ = env_ssh_only
     captured: dict[str, object] = {}
 
@@ -391,9 +373,7 @@ def test_pssh_cli_stdin_pipe(
     assert captured["stdin"] == b"hello\nworld"
 
 
-def test_pssh_cli_stdin_text(
-    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_pssh_cli_stdin_text(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _ = env_ssh_only
     captured: dict[str, object] = {}
 
@@ -404,9 +384,7 @@ def test_pssh_cli_stdin_text(
 
     monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
     runner = CliRunner()
-    result = runner.invoke(
-        pssh_cmd.app, ["sl-1", "--stdin-text", "console.log(1)", "--", "cat"]
-    )
+    result = runner.invoke(pssh_cmd.app, ["sl-1", "--stdin-text", "console.log(1)", "--", "cat"])
     assert result.exit_code == 0, result.output
     assert captured["stdin"] == b"console.log(1)"
 
@@ -426,16 +404,12 @@ def test_pssh_cli_stdin_file(
 
     monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
     runner = CliRunner()
-    result = runner.invoke(
-        pssh_cmd.app, ["sl-1", "--stdin-file", str(p), "--", "cat"]
-    )
+    result = runner.invoke(pssh_cmd.app, ["sl-1", "--stdin-file", str(p), "--", "cat"])
     assert result.exit_code == 0, result.output
     assert captured["stdin"] == b"file content\n"
 
 
-def test_pssh_cli_no_stdin(
-    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_pssh_cli_no_stdin(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _ = env_ssh_only
     captured: dict[str, object] = {}
 
@@ -447,9 +421,7 @@ def test_pssh_cli_no_stdin(
     monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
     runner = CliRunner()
     # --no-stdin → b"", даже если pipe-stdin есть.
-    result = runner.invoke(
-        pssh_cmd.app, ["sl-1", "--no-stdin", "--", "ls"], input="ignored"
-    )
+    result = runner.invoke(pssh_cmd.app, ["sl-1", "--no-stdin", "--", "ls"], input="ignored")
     assert result.exit_code == 0, result.output
     assert captured["stdin"] == b""
 
@@ -484,7 +456,5 @@ def test_pssh_cli_no_stdin_with_text_rejected(
 
     monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
     runner = CliRunner()
-    result = runner.invoke(
-        pssh_cmd.app, ["sl-1", "--no-stdin", "--stdin-text", "x", "--", "cat"]
-    )
+    result = runner.invoke(pssh_cmd.app, ["sl-1", "--no-stdin", "--stdin-text", "x", "--", "cat"])
     assert result.exit_code == 2

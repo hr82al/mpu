@@ -53,6 +53,20 @@ def test_resolve_by_client_id(db: None) -> None:
     assert {c["client_id"] for c in candidates} == {10}
 
 
+def test_resolve_sl_n_short_circuit(db: None) -> None:
+    """`sl-N` в value — шорт-цикл, поиск пропускается."""
+    n, candidates = resolve_server("sl-7")
+    assert n == 7
+    assert candidates == []
+
+
+def test_resolve_sl_0_short_circuit(db: None) -> None:
+    """sl-0 — валидный server_number=0 (callers сами решают, отвергать ли)."""
+    n, candidates = resolve_server("sl-0")
+    assert n == 0
+    assert candidates == []
+
+
 def test_resolve_single_server_multiple_rows_ok(db: None) -> None:
     n, candidates = resolve_server("Тортуга main")
     assert n == 1

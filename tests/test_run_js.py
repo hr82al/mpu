@@ -76,39 +76,33 @@ def silence_clipboard(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_resolve_servers_single(env_file: Path) -> None:
     _ = env_file
-    assert run_js._resolve_servers("sl-1", None, False) == [1]
-
-
-def test_resolve_servers_csv_dedupes_and_sorts(env_file: Path) -> None:
-    _ = env_file
-    assert run_js._resolve_servers(None, "sl-3,sl-1,sl-1", False) == [1, 3]
+    assert run_js._resolve_servers("sl-1", False) == [1]
 
 
 def test_resolve_servers_all_active(env_file: Path) -> None:
     _ = env_file
-    assert run_js._resolve_servers(None, None, True) == [1, 2, 3]
+    assert run_js._resolve_servers(None, True) == [1, 2, 3]
 
 
 def test_resolve_servers_requires_exactly_one() -> None:
     with pytest.raises(typer.Exit):
-        run_js._resolve_servers(None, None, False)
+        run_js._resolve_servers(None, False)
     with pytest.raises(typer.Exit):
-        run_js._resolve_servers("sl-1", "sl-2", False)
-    with pytest.raises(typer.Exit):
-        run_js._resolve_servers("sl-1", None, True)
+        run_js._resolve_servers("sl-1", True)
 
 
 def test_resolve_servers_rejects_sl_0(env_file: Path) -> None:
     _ = env_file
     with pytest.raises(typer.Exit) as ei:
-        run_js._resolve_servers("sl-0", None, False)
+        run_js._resolve_servers("sl-0", False)
     assert ei.value.exit_code == 2
 
 
 def test_resolve_servers_rejects_garbage(env_file: Path) -> None:
+    """`foo` не sl-N и в SQLite-кэше нет — `mpu-search` вернёт пусто → ResolveError."""
     _ = env_file
     with pytest.raises(typer.Exit):
-        run_js._resolve_servers("foo", None, False)
+        run_js._resolve_servers("foo", False)
 
 
 # ---------- _resolve_js_source ----------
@@ -181,9 +175,7 @@ def fake_pssh(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
         stdin: bytes = b"",
         via: str | None = None,
     ) -> int:
-        calls.append(
-            {"server_number": server_number, "cmd": list(cmd), "stdin": stdin, "via": via}
-        )
+        calls.append({"server_number": server_number, "cmd": list(cmd), "stdin": stdin, "via": via})
         return 0
 
     monkeypatch.setattr(run_js, "pssh_run", _fake_run)
@@ -193,7 +185,7 @@ def fake_pssh(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
 def test_cli_execute_single_server(env_file: Path, fake_pssh: list[dict[str, object]]) -> None:
     _ = env_file
     runner = CliRunner()
-    result = runner.invoke(run_js.app, ["console.log(1)", "--server", "sl-1"])
+    result = runner.invoke(run_js.app, ["sl-1", "console.log(1)"])
     assert result.exit_code == 0, result.output
     assert len(fake_pssh) == 1
     call = fake_pssh[0]
@@ -204,26 +196,27 @@ def test_cli_execute_single_server(env_file: Path, fake_pssh: list[dict[str, obj
 
 
 def test_cli_execute_fan_out(env_file: Path, fake_pssh: list[dict[str, object]]) -> None:
+    """--all + inline code: позиционный repurpose'ится в <code>."""
     _ = env_file
     runner = CliRunner()
-    result = runner.invoke(run_js.app, ["console.log(1)", "--all"])
+    result = runner.invoke(run_js.app, ["--all", "console.log(1)"])
     assert result.exit_code == 0, result.output
     assert [c["server_number"] for c in fake_pssh] == [1, 2, 3]
+    assert all(c["stdin"] == b"console.log(1)" for c in fake_pssh)
 
 
 def test_cli_dry_run_does_not_exec(env_file: Path, fake_pssh: list[dict[str, object]]) -> None:
     _ = env_file
     runner = CliRunner()
-    result = runner.invoke(run_js.app, ["console.log(1)", "--server", "sl-1", "--dry-run"])
+    result = runner.invoke(run_js.app, ["sl-1", "console.log(1)", "--dry-run"])
     assert result.exit_code == 0, result.output
     assert fake_pssh == []  # нет exec при dry-run
     assert "mpu-pssh sl-1 -- node --input-type=module -" in result.output
     assert "console.log(1)" in result.output
 
 
-def test_cli_aborts_on_first_failure(
-    env_file: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cli_aborts_on_first_failure(env_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--all → fan-out по [1,2,3]; sl-1 fail → abort до sl-2/sl-3."""
     _ = env_file
     calls: list[int] = []
 
@@ -236,35 +229,33 @@ def test_cli_aborts_on_first_failure(
     ) -> int:
         _ = cmd, stdin, via
         calls.append(server_number)
-        # sl-1 → fail; sl-2 не должен быть вызван
         return 1 if server_number == 1 else 0
 
     monkeypatch.setattr(run_js, "pssh_run", _fake_run)
     runner = CliRunner()
-    result = runner.invoke(run_js.app, ["console.log(1)", "--servers", "sl-1,sl-2"])
+    result = runner.invoke(run_js.app, ["--all", "console.log(1)"])
     assert result.exit_code == 1
     assert calls == [1]
-
-
-def test_cli_servers_csv_normalizes_and_dedupes(
-    env_file: Path, fake_pssh: list[dict[str, object]]
-) -> None:
-    _ = env_file
-    runner = CliRunner()
-    result = runner.invoke(run_js.app, ["console.log(1)", "--servers", "sl-2, sl-1, sl-2"])
-    assert result.exit_code == 0
-    assert [c["server_number"] for c in fake_pssh] == [1, 2]
 
 
 def test_cli_via_passthrough(env_file: Path, fake_pssh: list[dict[str, object]]) -> None:
     """--via прокидывается во все вызовы pssh_run."""
     _ = env_file
     runner = CliRunner()
-    result = runner.invoke(
-        run_js.app, ["console.log(1)", "--server", "sl-1", "--via", "portainer"]
-    )
+    result = runner.invoke(run_js.app, ["sl-1", "console.log(1)", "--via", "portainer"])
     assert result.exit_code == 0
     assert fake_pssh[0]["via"] == "portainer"
+
+
+def test_cli_all_with_two_positionals_rejected(
+    env_file: Path, fake_pssh: list[dict[str, object]]
+) -> None:
+    """`mpu-run-js --all sl-1 'js'` — два позиционных при --all: ошибка."""
+    _ = env_file
+    runner = CliRunner()
+    result = runner.invoke(run_js.app, ["--all", "sl-1", "console.log(1)"])
+    assert result.exit_code == 2
+    assert fake_pssh == []
 
 
 # ---------- list_instance_server_numbers (sanity для run_js fan-out source) ----------
