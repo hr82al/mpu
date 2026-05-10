@@ -1,29 +1,32 @@
-"""`mpup-logs` — вывести последние строки логов контейнера на sl-N через Portainer.
+"""`mpu-logs` — логи контейнеров со стенда.
+
+По умолчанию (`--via loki`) запрос идёт в Loki через `LOKI_URL` (см. `~/.config/mpu/.env`):
+длинная история, фильтры по labels (host / compose_service / level / stream),
+text grep, кросс-сервисный поиск по client_id (substring в строке).
+
+`--via portainer` — fallback к старому поведению `mpup-logs`: один контейнер за вызов
+через Portainer Docker API. Полезно если Loki недоступен или нужен свежий snapshot
+конкретного container'а сразу после деплоя.
+
+Naming: эта команда — намеренное исключение из конвенции `mpu-* = print, mpup-* = portainer`.
+Для logs "print command" use-case никогда не использовался; `mpu-logs` стал
+основной командой с интегрированным переключателем источника.
 
 Использование:
-    mpup-logs <selector> <container> [--tail N] [--since 10m] [--no-stderr] [--no-stdout]
-
-`<selector>` — `sl-N` либо client_id / spreadsheet_id / title (через `mpu-search`).
-`<container>` — точное имя контейнера ИЛИ подстрока. Если по подстроке найдено
-несколько — печатается список и Exit(2). Подсказка: `mpup-ps <selector>`.
-
-`--tail` (default 200) — число последних строк. `--since 10m` / `--since 1h` /
-`--since 30s` или ISO-8601 — относительное / абсолютное время. Stderr/stdout
-демультиплексируются Docker-фреймингом и печатаются в наши stderr/stdout
-соответственно (структура сохраняется).
+    mpu-logs <selector> [--service api] [--tail 200] [--since 10m] [--level error]
+    mpu-logs <selector> --grep "ECONNREFUSED" --since 1h
+    mpu-logs <selector> --client 123 --since 30m              # cross-service по client_id
+    mpu-logs <selector> --via portainer <container> [--tail 200] [--since 10m]
 """
 
-import sys
 from typing import Annotated
 
-import httpx
 import typer
 
-from mpu.commands._portainer_resolve import resolve_portainer
-from mpu.lib.duration import DurationParseError, parse_since
+from mpu.commands import _logs_loki, _logs_portainer
 
-COMMAND_NAME = "mpup-logs"
-COMMAND_SUMMARY = "Логи контейнера на sl-N через Portainer (docker logs --tail)"
+COMMAND_NAME = "mpu-logs"
+COMMAND_SUMMARY = "Логи со стенда: Loki по умолчанию, --via portainer для одиночного контейнера"
 
 
 app = typer.Typer(
@@ -36,12 +39,27 @@ app = typer.Typer(
 def main(
     selector: Annotated[
         str,
-        typer.Argument(help="sl-N либо client_id / spreadsheet_id / title (через mpu-search)"),
+        typer.Argument(
+            help="sl-N / wb-N / dt-N / wb-(clusters|positions) либо client_id / spreadsheet/title",
+        ),
     ],
     container: Annotated[
+        str | None,
+        typer.Argument(
+            help="Имя контейнера (только при --via portainer; для loki укажи --service)",
+        ),
+    ] = None,
+    via: Annotated[
         str,
-        typer.Argument(help="Имя контейнера или подстрока (если уникальна)"),
-    ],
+        typer.Option("--via", help="Источник: 'loki' (default) или 'portainer'"),
+    ] = "loki",
+    service: Annotated[
+        str | None,
+        typer.Option(
+            "--service",
+            help="Loki: фильтр по compose_service (api / data-loader / wb-loader / ...)",
+        ),
+    ] = None,
     tail: Annotated[
         int,
         typer.Option("--tail", "-n", help="Сколько последних строк показать"),
@@ -50,7 +68,7 @@ def main(
         str | None,
         typer.Option(
             "--since",
-            help="Относительное (10m, 1h, 30s, 2d) или Unix-timestamp; пусто = без ограничения",
+            help="Relative (10m/1h/30s/2d) или Unix-ts; default loki=5m, portainer=без ограничения",
         ),
     ] = None,
     timestamps: Annotated[
@@ -65,80 +83,63 @@ def main(
         bool,
         typer.Option("--no-stderr", help="Не показывать stderr"),
     ] = False,
+    grep: Annotated[
+        str | None,
+        typer.Option("--grep", help="Loki: подстрока в строке лога (LogQL `|=`)"),
+    ] = None,
+    level: Annotated[
+        str | None,
+        typer.Option("--level", help="Loki: фильтр по parsed level (info / warn / error / ...)"),
+    ] = None,
+    client_id: Annotated[
+        int | None,
+        typer.Option("--client", help="Loki: substring `<client_id>` в строке (для cross-service)"),
+    ] = None,
 ) -> None:
-    """Tail-логи контейнера на sl-N (Docker logs API через Portainer)."""
-    pr = resolve_portainer(selector=selector, command_name=COMMAND_NAME)
-    name = _resolve_container_name(pr, container)
-    since_ts = _since_or_exit(since)
-    try:
-        out, err = pr.client.container_logs(
-            name,
+    """Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot)."""
+    if via == "portainer":
+        if container is None:
+            typer.echo(f"{COMMAND_NAME}: --via portainer требует <container>", err=True)
+            raise typer.Exit(code=2)
+        _logs_portainer.run(
+            command_name=COMMAND_NAME,
+            selector=selector,
+            container=container,
             tail=tail,
-            since=since_ts,
+            since=since,
             timestamps=timestamps,
-            stdout=not no_stdout,
-            stderr=not no_stderr,
+            no_stdout=no_stdout,
+            no_stderr=no_stderr,
         )
-    except httpx.HTTPError as e:
-        typer.echo(f"{COMMAND_NAME}: portainer error: {e}", err=True)
-        raise typer.Exit(code=1) from None
+        return
 
-    if not no_stdout and out:
-        sys.stdout.buffer.write(out)
-        sys.stdout.buffer.flush()
-    if not no_stderr and err:
-        sys.stderr.buffer.write(err)
-        sys.stderr.buffer.flush()
-
-
-def _resolve_container_name(pr: object, query: str) -> str:
-    """Точное имя или однозначная подстрока. На неоднозначность — typer.Exit(2).
-
-    `pr` типизирован как `object` чтобы избежать circular import; реально это
-    `_portainer_resolve.PortainerResolved` (см. caller).
-    """
-    from mpu.commands._portainer_resolve import PortainerResolved
-
-    assert isinstance(pr, PortainerResolved)
-    items = pr.client.list_containers(pr.endpoint_id)
-    names: list[str] = []
-    for it in items:
-        ns = it.get("Names")
-        if isinstance(ns, list):
-            for n_raw in ns:  # type: ignore[reportUnknownVariableType]
-                if isinstance(n_raw, str):
-                    names.append(n_raw.lstrip("/"))
-    exact = [n for n in names if n == query]
-    if exact:
-        return exact[0]
-    matches = [n for n in names if query in n]
-    sl = f"sl-{pr.server_number}"
-    if not matches:
-        typer.echo(f"{COMMAND_NAME}: контейнер {query!r} не найден на {sl}", err=True)
-        typer.echo(f"  подсказка: mpup-ps {sl}", err=True)
+    if via != "loki":
+        typer.echo(f"{COMMAND_NAME}: --via {via!r}, ожидается 'loki' или 'portainer'", err=True)
         raise typer.Exit(code=2)
-    if len(matches) > 1:
+
+    if container is not None:
         typer.echo(
-            f"{COMMAND_NAME}: подстрока {query!r} даёт несколько контейнеров на {sl}:",
+            f"{COMMAND_NAME}: позиционный <container> используется только с --via portainer; "
+            f"для loki укажи --service",
             err=True,
         )
-        for n in sorted(matches):
-            typer.echo(f"  {n}", err=True)
         raise typer.Exit(code=2)
-    return matches[0]
 
-
-def _since_or_exit(s: str | None) -> int | None:
-    """Обёртка над `lib.duration.parse_since` с CLI-friendly ошибкой."""
-    if s is None:
-        return None
-    try:
-        return parse_since(s)
-    except DurationParseError as e:
-        typer.echo(f"{COMMAND_NAME}: --since: {e}", err=True)
-        raise typer.Exit(code=2) from None
+    _logs_loki.run(
+        command_name=COMMAND_NAME,
+        selector=selector,
+        service=service,
+        tail=tail,
+        since=since,
+        timestamps=timestamps,
+        no_stdout=no_stdout,
+        no_stderr=no_stderr,
+        grep=grep,
+        level=level,
+        client_id=client_id,
+    )
 
 
 def run() -> None:
-    """Entry point для `mpup-logs`."""
+    """Entry point для `mpu-logs`."""
     app()

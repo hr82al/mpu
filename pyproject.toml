@@ -42,7 +42,7 @@ mpu-d2-miro = "mpu.commands.d2_miro:run"
 mpu-run-js = "mpu.commands.run_js:run"
 mpup-ssh = "mpu.commands.pssh:run"
 mpup-ps = "mpu.commands.ps:run"
-mpup-logs = "mpu.commands.logs:run"
+mpu-logs = "mpu.commands.logs:run"
 mpup-health = "mpu.commands.health:run"
 mpu-help = "mpu.commands.help:run"
 

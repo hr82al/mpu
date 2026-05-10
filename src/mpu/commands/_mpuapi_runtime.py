@@ -161,7 +161,9 @@ def _build_body(spec: CommandSpec, kwargs: dict[str, Any]) -> Any:
 
 
 def _execute(spec: CommandSpec, kwargs: dict[str, Any]) -> None:
-    path_values = {p.name: kwargs[p.name] for p in spec.path_params}
+    # click нормализует имена argument'ов к lowercase (clientId → clientid),
+    # но в spec.path и _format_path плейсхолдеры остаются camelCase из URL.
+    path_values = {p.name: kwargs[p.name.lower()] for p in spec.path_params}
     body: Any = _build_body(spec, kwargs)
 
     # get-token: cache-first. При неявных кредах (берутся из env) — отдаём токен из
