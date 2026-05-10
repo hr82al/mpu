@@ -287,6 +287,8 @@ COMMANDS: tuple[CommandSpec, ...] = (
         accepts_raw_body=True,
     ),
     # ─── /admin/client/:clientId/modules ─────────────────────────────────────
+    # Контроллер реализует только GET / GET :module / PATCH :module (toggle is_active);
+    # add/remove не существует — модули предзаведены, можно лишь активировать/деактивировать.
     CommandSpec(
         name="list-client-modules",
         method="GET",
@@ -295,19 +297,19 @@ COMMANDS: tuple[CommandSpec, ...] = (
         path_params=(CLIENT_ID,),
     ),
     CommandSpec(
-        name="add-client-module",
-        method="POST",
-        path="/admin/client/:clientId/modules",
-        summary="POST /admin/client/:clientId/modules",
-        path_params=(CLIENT_ID,),
-        body_fields=(BodyField("module_name", "string", "module name", required=True),),
+        name="get-client-module",
+        method="GET",
+        path="/admin/client/:clientId/modules/:module",
+        summary="GET /admin/client/:clientId/modules/:module",
+        path_params=(CLIENT_ID, PathParam("module", "module name")),
     ),
     CommandSpec(
-        name="remove-client-module",
-        method="DELETE",
-        path="/admin/client/:clientId/modules/:module_name",
-        summary="DELETE /admin/client/:clientId/modules/:module_name",
-        path_params=(CLIENT_ID, PathParam("module_name", "module name")),
+        name="update-client-module",
+        method="PATCH",
+        path="/admin/client/:clientId/modules/:module",
+        summary="PATCH /admin/client/:clientId/modules/:module — toggle is_active",
+        path_params=(CLIENT_ID, PathParam("module", "module name")),
+        body_fields=(BodyField("is_active", "boolean", "is_active flag", required=True),),
     ),
     # ─── /admin/wb-cabinets ──────────────────────────────────────────────────
     CommandSpec(
@@ -331,6 +333,8 @@ COMMANDS: tuple[CommandSpec, ...] = (
         path_params=(CLIENT_ID,),
     ),
     # ─── /admin/client/:clientId/wb-cabinets-modules ─────────────────────────
+    # Контроллер реализует только GET / GET :sid/:module / PATCH :sid/:module
+    # (toggle is_active); add/remove не существует.
     CommandSpec(
         name="list-wb-cabinet-modules",
         method="GET",
@@ -339,26 +343,27 @@ COMMANDS: tuple[CommandSpec, ...] = (
         path_params=(CLIENT_ID,),
     ),
     CommandSpec(
-        name="add-wb-cabinet-module",
-        method="POST",
-        path="/admin/client/:clientId/wb-cabinets-modules",
-        summary="POST /admin/client/:clientId/wb-cabinets-modules",
-        path_params=(CLIENT_ID,),
-        body_fields=(
-            BodyField("sid", "string", "WB seller sid", required=True),
-            BodyField("module_name", "string", "module name", required=True),
-        ),
-    ),
-    CommandSpec(
-        name="remove-wb-cabinet-module",
-        method="DELETE",
-        path="/admin/client/:clientId/wb-cabinets-modules/:sid/:module_name",
-        summary="DELETE /admin/client/:clientId/wb-cabinets-modules/:sid/:module_name",
+        name="get-wb-cabinet-module",
+        method="GET",
+        path="/admin/client/:clientId/wb-cabinets-modules/:sid/:module",
+        summary="GET /admin/client/:clientId/wb-cabinets-modules/:sid/:module",
         path_params=(
             CLIENT_ID,
             PathParam("sid", "WB seller sid"),
-            PathParam("module_name", "module name"),
+            PathParam("module", "module name"),
         ),
+    ),
+    CommandSpec(
+        name="update-wb-cabinet-module",
+        method="PATCH",
+        path="/admin/client/:clientId/wb-cabinets-modules/:sid/:module",
+        summary="PATCH /admin/client/:clientId/wb-cabinets-modules/:sid/:module — toggle is_active",
+        path_params=(
+            CLIENT_ID,
+            PathParam("sid", "WB seller sid"),
+            PathParam("module", "module name"),
+        ),
+        body_fields=(BodyField("is_active", "boolean", "is_active flag", required=True),),
     ),
     # ─── /admin/ss ───────────────────────────────────────────────────────────
     CommandSpec(name="list-spreadsheets", method="GET", path="/admin/ss", summary="GET /admin/ss"),
@@ -497,24 +502,27 @@ COMMANDS: tuple[CommandSpec, ...] = (
         body_fields=(BodyField("dataset_name", "string", "dataset name", required=True),),
     ),
     CommandSpec(
+        name="get-client-ss-dataset",
+        method="GET",
+        path="/admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
+        summary="GET /admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
+        path_params=(CLIENT_ID, SS_ID, PathParam("sheetName", "sheet (=dataset) name")),
+    ),
+    CommandSpec(
         name="update-client-ss-dataset",
         method="PATCH",
-        path="/admin/client/:clientId/ss/:spreadsheetId/dataset",
-        summary="PATCH /admin/client/:clientId/ss/:spreadsheetId/dataset",
-        path_params=(CLIENT_ID, SS_ID),
+        path="/admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
+        summary="PATCH /admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
+        path_params=(CLIENT_ID, SS_ID, PathParam("sheetName", "sheet (=dataset) name")),
         accepts_raw_body=True,
-        body_fields=(
-            BodyField("dataset_name", "string", "dataset name"),
-            BodyField("is_active", "boolean", "is_active flag"),
-        ),
+        body_fields=(BodyField("is_active", "boolean", "is_active flag"),),
     ),
     CommandSpec(
         name="delete-client-ss-dataset",
         method="DELETE",
-        path="/admin/client/:clientId/ss/:spreadsheetId/dataset",
-        summary="DELETE /admin/client/:clientId/ss/:spreadsheetId/dataset",
-        path_params=(CLIENT_ID, SS_ID),
-        accepts_raw_body=True,
+        path="/admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
+        summary="DELETE /admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
+        path_params=(CLIENT_ID, SS_ID, PathParam("sheetName", "sheet (=dataset) name")),
     ),
     # ─── /admin/client/:clientId/wb/token ────────────────────────────────────
     CommandSpec(
