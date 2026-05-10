@@ -451,8 +451,17 @@ def test_resolve_server_only_bad_server(
     assert "bad --server" in capsys.readouterr().err
 
 
-# 25. wrapper="portainer" — emits `mpup-ssh <selector> --no-stdin -- node ...`
-def test_wrapper_portainer_with_selector(capsys: pytest.CaptureFixture[str]) -> None:
+# wrapper="portainer" по умолчанию ВЫПОЛНЯЕТ команду через Portainer API.
+# `MPU_PRINT_ONLY=1` (флаг `--print` в `mpup-*` bin'ах) возвращает старое поведение —
+# печать `mpup-ssh ... -- node ...` строки + clipboard. Тесты ниже фиксируют контракт
+# print-mode (выполнение проверяется отдельно через mock pssh, см. ниже).
+
+
+# 25. portainer + MPU_PRINT_ONLY=1 — emits `mpup-ssh <selector> --no-stdin -- node ...`
+def test_wrapper_portainer_with_selector(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("MPU_PRINT_ONLY", "1")
     resolved = Resolved(server_number=3, sl_ip=None, user=None, candidates=[], selector="12345")
     cmd = emit_node_cli(
         name="foo",
@@ -467,8 +476,11 @@ def test_wrapper_portainer_with_selector(capsys: pytest.CaptureFixture[str]) -> 
     assert cmd == "mpup-ssh 12345 --no-stdin -- node cli service:foo bar --client-id 12345"
 
 
-# 26. wrapper="portainer" — пустой selector → fallback на sl-N
-def test_wrapper_portainer_empty_selector_falls_back_to_sl_n() -> None:
+# 26. portainer print-mode — пустой selector → fallback на sl-N
+def test_wrapper_portainer_empty_selector_falls_back_to_sl_n(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MPU_PRINT_ONLY", "1")
     resolved = Resolved(server_number=7, sl_ip=None, user=None, candidates=[], selector="")
     cmd = emit_node_cli(
         name="foo",
@@ -481,8 +493,9 @@ def test_wrapper_portainer_empty_selector_falls_back_to_sl_n() -> None:
     assert cmd.startswith("mpup-ssh sl-7 --no-stdin -- ")
 
 
-# 27. wrapper="portainer" — селектор с пробелами/Unicode проходит через shlex.quote
-def test_wrapper_portainer_quotes_unicode_selector() -> None:
+# 27. portainer print-mode — селектор с пробелами/Unicode проходит через shlex.quote
+def test_wrapper_portainer_quotes_unicode_selector(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MPU_PRINT_ONLY", "1")
     resolved = Resolved(server_number=3, sl_ip=None, user=None, candidates=[], selector="ACME main")
     cmd = emit_node_cli(
         name="foo",
@@ -495,13 +508,13 @@ def test_wrapper_portainer_quotes_unicode_selector() -> None:
     assert cmd.startswith("mpup-ssh 'ACME main' --no-stdin -- ")
 
 
-# 28. MPU_WRAPPER=portainer — env override переписывает wrapper="ssh"
+# 28. MPU_WRAPPER=portainer — env override переписывает wrapper="ssh" (print-mode)
 def test_env_override_promotes_to_portainer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MPU_WRAPPER", "portainer")
+    monkeypatch.setenv("MPU_PRINT_ONLY", "1")
     resolved = Resolved(
         server_number=3, sl_ip="10.0.0.3", user="alice", candidates=[], selector="42"
     )
-    # wrapper="ssh" — но env переписывает в portainer.
     cmd = emit_node_cli(
         name="foo",
         method="bar",
@@ -512,6 +525,34 @@ def test_env_override_promotes_to_portainer(monkeypatch: pytest.MonkeyPatch) -> 
     )
     assert cmd.startswith("mpup-ssh 42 --no-stdin -- ")
     assert "ssh -i" not in cmd
+
+
+# 28a. portainer без MPU_PRINT_ONLY — emit_node_cli вызывает pssh.pssh_run.
+def test_wrapper_portainer_default_executes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MPU_PRINT_ONLY", raising=False)
+    captured: dict[str, object] = {}
+
+    def fake_run(*, server_number: int, cmd: list[str], stdin: bytes = b"") -> int:
+        captured["server_number"] = server_number
+        captured["cmd"] = cmd
+        captured["stdin"] = stdin
+        return 0
+
+    from mpu.lib import pssh as _pssh
+
+    monkeypatch.setattr(_pssh, "pssh_run", fake_run)
+    resolved = Resolved(server_number=3, sl_ip=None, user=None, candidates=[], selector="12345")
+    emit_node_cli(
+        name="foo",
+        method="bar",
+        flags={"--client-id": 12345},
+        resolved=resolved,
+        wrapper="portainer",
+        command_name="t",
+    )
+    assert captured["server_number"] == 3
+    assert captured["cmd"] == ["node", "cli", "service:foo", "bar", "--client-id", "12345"]
+    assert captured["stdin"] == b""
 
 
 # 29. MPU_WRAPPER=portainer — resolve_selector не требует sl_ip/PG_MY_USER_NAME

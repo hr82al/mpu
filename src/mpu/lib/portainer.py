@@ -66,6 +66,52 @@ class Client:
             data = r.json()
         return _filter_dict_list(data)
 
+    def inspect_container(self, container: str) -> dict[str, object]:
+        """`GET /containers/{name}/json` — full state (включая Health / RestartCount / Pid)."""
+        with self._client() as c:
+            r = c.get(f"/containers/{container}/json")
+            r.raise_for_status()
+            data = r.json()
+        if not isinstance(data, dict):
+            return {}
+        out: dict[str, object] = {}
+        for k, v in data.items():  # type: ignore[reportUnknownVariableType]
+            if isinstance(k, str):
+                out[k] = v
+        return out
+
+    def container_logs(
+        self,
+        container: str,
+        *,
+        tail: int = 200,
+        since: int | None = None,
+        timestamps: bool = False,
+        stdout: bool = True,
+        stderr: bool = True,
+    ) -> tuple[bytes, bytes]:
+        """`GET /containers/{name}/logs?stdout=...&stderr=...&tail=...` → (stdout, stderr).
+
+        Docker отдаёт демультиплексированный поток с тем же 8-байтовым framing'ом, что и
+        `/exec/{id}/start` (для `Tty=false`). Парсим тот же буфер; для TTY-контейнеров
+        фрейминга нет — детектируем по полному отсутствию валидных заголовков и
+        отдаём всё в stdout как есть.
+        """
+        params: dict[str, str] = {
+            "stdout": "true" if stdout else "false",
+            "stderr": "true" if stderr else "false",
+            "tail": str(tail),
+            "follow": "false",
+            "timestamps": "true" if timestamps else "false",
+        }
+        if since is not None:
+            params["since"] = str(since)
+        with self._client() as c:
+            r = c.get(f"/containers/{container}/logs", params=params)
+            r.raise_for_status()
+            raw = r.content
+        return _demux_docker_stream(raw)
+
     def upload_tar(self, container: str, dest_path: str, files: dict[str, bytes]) -> None:
         """Tar files {name: bytes} и `PUT /containers/{name}/archive?path={dest}`."""
         buf = io.BytesIO()
@@ -152,6 +198,33 @@ class Client:
             typer.echo("portainer: ExitCode is null (Running=true?) — return 1", err=True)
             return 1
         return int(code)
+
+
+def _demux_docker_stream(raw: bytes) -> tuple[bytes, bytes]:
+    """Демультиплексор Docker logs/exec output (Tty=false framing).
+
+    Frame: byte0 stream_type (1=stdout,2=stderr), byte1:4 padding, byte4:8 size BE,
+    byte8:8+size payload. Если первый байт не 1/2 — считаем TTY-режим (поток без
+    фрейминга) и возвращаем raw как stdout.
+    """
+    out_parts: list[bytes] = []
+    err_parts: list[bytes] = []
+    i = 0
+    n = len(raw)
+    while i + 8 <= n:
+        st = raw[i]
+        if st not in (0, 1, 2):
+            return raw, b""
+        size = struct.unpack(">I", raw[i + 4 : i + 8])[0]
+        if i + 8 + size > n:
+            break
+        payload = raw[i + 8 : i + 8 + size]
+        if st == 1:
+            out_parts.append(payload)
+        elif st == 2:
+            err_parts.append(payload)
+        i += 8 + size
+    return b"".join(out_parts), b"".join(err_parts)
 
 
 def _filter_dict_list(data: object) -> list[dict[str, object]]:

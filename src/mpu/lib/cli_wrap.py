@@ -44,6 +44,7 @@ bin'ы без дублирования typer-команд.
 import os
 import re
 import shlex
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -70,6 +71,12 @@ Wrapper = Literal["ssh", "local", "portainer"]
 # Нет смысла дублировать typer-команды — env-флаг подменяет финальный wrapper в `emit_node_cli`
 # и снимает требование sl_ip/PG_MY_USER_NAME в `resolve_selector`.
 WRAPPER_ENV = "MPU_WRAPPER"
+
+# Если выставлен в "1" — `mpup-*` команды печатают строку обёртки + копируют в clipboard
+# (старое поведение). По умолчанию `mpup-*` сразу выполняют команду через Portainer.
+# Ставится в `run_with_wrapper` при наличии флага `--print` в argv.
+PRINT_ONLY_ENV = "MPU_PRINT_ONLY"
+PRINT_FLAGS = ("--print", "-p")
 
 # None / False → флаг пропускается.
 # True → флаг печатается без значения (boolean).
@@ -225,11 +232,31 @@ def emit_node_cli(
     wrapper: Wrapper = "ssh",
     command_name: str,
 ) -> str:
-    """Сборка inner-команды + ssh/local/portainer обёртка, typer.echo + copy_to_clipboard."""
+    """Сборка inner-команды + ssh/local/portainer обёртка.
+
+    Поведение:
+    - wrapper=ssh / wrapper=local — печать обёртки в stdout + copy_to_clipboard (всегда).
+    - wrapper=portainer — по умолчанию ВЫПОЛНЯЕТСЯ через Portainer API
+      (`pssh.pssh_run`); если выставлен env `MPU_PRINT_ONLY=1` (флаг `--print` в
+      `mpup-*` bin'ах) — печатает строку `mpup-ssh <selector> ... -- node ...` +
+      кладёт в clipboard, не выполняя.
+    """
     inner = _build_inner(
         entry=entry, type_=type_, name=name, method=method, flags=flags, command_name=command_name
     )
     effective = _wrapper_override() or wrapper
+    if effective == "portainer" and os.environ.get(PRINT_ONLY_ENV) != "1":
+        return _exec_portainer(
+            inner_parts=_build_inner_parts(
+                entry=entry,
+                type_=type_,
+                name=name,
+                method=method,
+                flags=flags,
+                command_name=command_name,
+            ),
+            resolved=resolved,
+        )
     if effective == "ssh":
         cmd = _wrap_ssh(inner=inner, resolved=resolved, command_name=command_name)
     elif effective == "portainer":
@@ -241,13 +268,58 @@ def emit_node_cli(
     return cmd
 
 
+def _exec_portainer(*, inner_parts: list[str], resolved: Resolved) -> str:
+    """Выполнить inner-команду в `mp-sl-N-cli` через Portainer; вернуть пустую строку.
+
+    Stdout/stderr дочернего процесса стримятся напрямую через `pssh_run`. Exit code
+    inner-команды наследуется через `typer.Exit`. Возвращаемое значение функции
+    остаётся для совместимости сигнатуры с print-mode (но не используется).
+    """
+    # Локальный импорт: pssh.py импортирует cli_wrap опосредованно через servers,
+    # но прямой круговой зависимости нет — оставляем lazy ради explicit boundary.
+    from mpu.lib import pssh
+
+    rc = pssh.pssh_run(server_number=resolved.server_number, cmd=inner_parts, stdin=b"")
+    if rc != 0:
+        raise typer.Exit(code=rc)
+    return ""
+
+
 def run_with_wrapper(app: typer.Typer, wrapper: Wrapper) -> None:
-    """Поднять `MPU_WRAPPER` и вызвать typer-app. Используется `mpup-*` entry-point'ами.
+    """Поднять `MPU_WRAPPER` (+ опционально `MPU_PRINT_ONLY`) и вызвать typer-app.
+
+    Перехватывает `--print` / `-p` из `sys.argv` ДО передачи в typer и удаляет флаг,
+    чтобы каждой `mpup-*` команде не нужно было его декларировать. Если флаг есть —
+    `MPU_PRINT_ONLY=1`, и `emit_node_cli` печатает строку обёртки вместо выполнения.
 
     Не сбрасываем env обратно: процесс CLI завершается сразу после `app()`.
     """
     os.environ[WRAPPER_ENV] = wrapper
+    if _consume_print_flag():
+        os.environ[PRINT_ONLY_ENV] = "1"
     app()
+
+
+def _consume_print_flag() -> bool:
+    """Удалить `--print` / `-p` из `sys.argv` и вернуть, был ли он там.
+
+    Удаляем все вхождения (на случай дублирования), чтобы typer не упал на
+    неизвестном флаге. Не трогаем токены после `--` (там user-payload для inner).
+    """
+    new_argv: list[str] = []
+    found = False
+    saw_dashdash = False
+    for arg in sys.argv:
+        if not saw_dashdash and arg == "--":
+            saw_dashdash = True
+            new_argv.append(arg)
+            continue
+        if not saw_dashdash and arg in PRINT_FLAGS:
+            found = True
+            continue
+        new_argv.append(arg)
+    sys.argv = new_argv
+    return found
 
 
 def attach_selector_callback(*, app: typer.Typer, command_name: str) -> None:
@@ -341,7 +413,7 @@ def _emit_value(flag: str, v: str | int, *, command_name: str) -> str:
     return s
 
 
-def _build_inner(
+def _build_inner_parts(
     *,
     entry: EntryPoint,
     type_: DispatchType,
@@ -349,7 +421,8 @@ def _build_inner(
     method: str,
     flags: dict[str, FlagValue],
     command_name: str,
-) -> str:
+) -> list[str]:
+    """Список argv-токенов inner-команды (без shell-обёртки, без квотирования)."""
     parts: list[str] = ["node", entry, f"{type_}:{name}", method]
     for raw_flag, value in flags.items():
         if value is None or value is False:
@@ -366,7 +439,28 @@ def _build_inner(
         if not emitted:
             continue
         parts += [flag, *emitted]
-    return " ".join(parts)
+    return parts
+
+
+def _build_inner(
+    *,
+    entry: EntryPoint,
+    type_: DispatchType,
+    name: str,
+    method: str,
+    flags: dict[str, FlagValue],
+    command_name: str,
+) -> str:
+    return " ".join(
+        _build_inner_parts(
+            entry=entry,
+            type_=type_,
+            name=name,
+            method=method,
+            flags=flags,
+            command_name=command_name,
+        )
+    )
 
 
 def _wrap_ssh(*, inner: str, resolved: Resolved, command_name: str) -> str:

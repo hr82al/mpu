@@ -77,7 +77,7 @@ def _resolve_js_source(*, code: str | None, file: Path | None) -> str:
 
 
 def _resolve_selector_to_number(selector: str) -> int:
-    """Селектор → server_number (N>0). sl-0 — main, не cli-таргет."""
+    """Селектор → server_number (N>=0). sl-0 = main; `--all` его не включает."""
     try:
         n, _candidates = resolve_server(selector)
     except ResolveError as e:
@@ -85,8 +85,8 @@ def _resolve_selector_to_number(selector: str) -> int:
         if e.candidates:
             typer.echo(format_candidates(e.candidates), err=True)
         raise typer.Exit(code=2) from None
-    if n <= 0:
-        typer.echo(f"{COMMAND_NAME}: ожидается sl-N (N>0), получено: {selector!r}", err=True)
+    if n < 0:
+        typer.echo(f"{COMMAND_NAME}: ожидается sl-N (N>=0), получено: {selector!r}", err=True)
         raise typer.Exit(code=2)
     return n
 

@@ -85,7 +85,7 @@ def list_instance_server_numbers() -> list[int]:
     используется только для ssh-fallback в `pssh._resolve_transport()`, а не как
     источник `--all`. Если сервера нет после `mpu init` — он и не попадёт в fan-out.
     """
-    return sorted(_portainer_db_map().keys())
+    return sorted(n for n in _portainer_db_map() if n > 0)
 
 
 def portainer_target(n: int) -> tuple[str, int] | None:

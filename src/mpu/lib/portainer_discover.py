@@ -34,13 +34,15 @@ class DiscoveredContainer:
 
 
 def _extract_server_number(names: list[str]) -> int | None:
-    """Берём первое имя, матчащее `mp-sl-N-cli`. None если ни одно не подошло."""
+    """Берём первое имя, матчащее `mp-sl-N-cli`. None если ни одно не подошло.
+
+    Включаем N=0 (`mp-sl-0-cli` = main). `--all` всё ещё его исключает —
+    фильтр на N>0 в `list_instance_server_numbers()`.
+    """
     for raw in names:
         m = _SERVER_NAME_PATTERN.match(raw)
         if m:
-            n = int(m.group(1))
-            if n > 0:
-                return n
+            return int(m.group(1))
     return None
 
 
