@@ -30,6 +30,9 @@ class Client:
             base_url=f"{self.base_url}/api/endpoints/{self.endpoint_id}/docker",
             headers={"X-API-Key": self.api_key},
             verify=self.verify_tls,
+            # Portainer всегда на private endpoint — игнорируем HTTPS_PROXY из окружения,
+            # иначе локальный прокси (Privoxy и т.п.) роняет TLS-handshake.
+            trust_env=False,
             # connect timeout ограничен; read=None — не падать на длинных exec.
             timeout=httpx.Timeout(30.0, connect=10.0, read=None),
         )
@@ -40,6 +43,7 @@ class Client:
             base_url=f"{self.base_url}/api",
             headers={"X-API-Key": self.api_key},
             verify=self.verify_tls,
+            trust_env=False,
             timeout=httpx.Timeout(30.0, connect=10.0),
         )
 
