@@ -98,6 +98,26 @@ def test_resolve_server_override_bad(db: None) -> None:
         resolve_server("anything", server_override="garbage")
 
 
+def test_resolve_by_pg_ip(db: None) -> None:
+    """IP из `.env` (`pg_2='10.1.0.2'`) → server_number=2 через search-fallback."""
+    n, candidates = resolve_server("10.1.0.2")
+    assert n == 2
+    assert len(candidates) == 1
+    assert candidates[0]["server_number"] == 2
+    assert candidates[0]["client_id"] is None
+
+
+def test_resolve_by_sl_ip(db: None) -> None:
+    n, _ = resolve_server("10.0.0.1")
+    assert n == 1
+
+
+def test_resolve_unknown_ip_raises(db: None) -> None:
+    with pytest.raises(ResolveError) as ei:
+        resolve_server("9.9.9.9")
+    assert ei.value.candidates == []
+
+
 @pytest.fixture
 def db_no_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     db_path = tmp_path / "mpu.db"

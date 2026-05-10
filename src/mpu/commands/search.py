@@ -1,6 +1,15 @@
-"""`mpu-search` — поиск spreadsheet/клиента в локальном SQLite-кэше."""
+"""`mpu-search` — поиск spreadsheet/клиента в локальном SQLite-кэше.
+
+Селектор:
+  - `client_id` (целое) — точный match.
+  - IPv4 (`192.168.150.31`) — резолв через `sl_<N>` / `pg_<N>` из
+    `~/.config/mpu/.env` в синтетический row с `server_number=N` (без клиентов).
+  - `spreadsheet_id` substring — case-insensitive.
+  - `title` substring — case-insensitive (только если `spreadsheet_id` не нашёл).
+"""
 
 import json
+import re
 import sqlite3
 from typing import Annotated
 
@@ -76,10 +85,36 @@ def _is_int(value: str) -> bool:
     return bool(s) and s.isdigit()
 
 
+_IPV4_RE = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+
+
+def _looks_like_ip(value: str) -> bool:
+    return bool(_IPV4_RE.match(value))
+
+
+def _by_ip(value: str) -> list[dict[str, object]]:
+    n = servers.server_number_by_ip(value)
+    if n is None:
+        return []
+    return [
+        {
+            "client_id": None,
+            "spreadsheet_id": None,
+            "title": None,
+            "server": f"sl-{n}",
+            "server_number": n,
+            "sl_ip": servers.sl_ip(n),
+            "pg_ip": servers.pg_ip(n),
+        }
+    ]
+
+
 def search(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
     """Однопроходный поиск по правилам из плана (без auto-update fallback)."""
     if _is_int(value):
         return _by_client_id(conn, int(value))
+    if _looks_like_ip(value):
+        return _by_ip(value)
     found = _by_spreadsheet_id(conn, value)
     if found:
         return found
@@ -98,7 +133,12 @@ app = typer.Typer(
 
 @app.command()
 def main(
-    value: Annotated[str, typer.Argument(help="client_id (число), кусок spreadsheet_id или title")],
+    value: Annotated[
+        str,
+        typer.Argument(
+            help="client_id (число), IPv4 (sl_/pg_ из .env), кусок spreadsheet_id или title",
+        ),
+    ],
     client_id: Annotated[bool, typer.Option("--client-id", help="Plain: только client_id")] = False,
     spreadsheet_id: Annotated[
         bool, typer.Option("--spreadsheet-id", help="Plain: только spreadsheet_id")
@@ -144,7 +184,8 @@ def main(
 
     with store.store() as conn:
         results = search(conn, value)
-        if not results and update:
+        # IP резолвится из ~/.config/mpu/.env, а не из SQLite — `mpu-update` не поможет.
+        if not results and update and not _looks_like_ip(value):
             # lazy import — тесты search-логики не должны тянуть psycopg.
             from mpu.commands import update as update_cmd
 

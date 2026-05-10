@@ -66,6 +66,29 @@ def server_number(name: str | None) -> int | None:
     return int(m.group(1)) if m else None
 
 
+_IP_KEY_RE = re.compile(r"^(sl|pg)_(\d+)$")
+
+
+def server_number_by_ip(ip: str | None) -> int | None:
+    """`"192.168.150.31"` → `1`, если в `.env` есть `sl_1=<ip>` или `pg_1=<ip>`.
+
+    Возвращает `None` если IP не найден или совпадения указывают на разные `N`
+    (защита от противоречивого конфига).
+    """
+    if not ip:
+        return None
+    found: set[int] = set()
+    for key, value in _env().items():
+        if value != ip:
+            continue
+        m = _IP_KEY_RE.match(key)
+        if m:
+            found.add(int(m.group(2)))
+    if len(found) == 1:
+        return next(iter(found))
+    return None
+
+
 def sl_ip(n: int) -> str | None:
     return _env().get(f"sl_{n}")
 

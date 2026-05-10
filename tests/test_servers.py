@@ -59,3 +59,44 @@ def test_missing_env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     assert servers.sl_ip(0) is None
     assert servers.pg_ip(0) is None
     servers.reset_cache()
+
+
+def test_server_number_by_ip_pg(env_file: Path) -> None:
+    assert servers.server_number_by_ip("192.168.150.31") == 1
+    assert servers.server_number_by_ip("192.168.150.30") == 0
+    assert servers.server_number_by_ip("192.168.150.52") == 12
+
+
+def test_server_number_by_ip_sl(env_file: Path) -> None:
+    assert servers.server_number_by_ip("192.168.150.91") == 1
+    assert servers.server_number_by_ip("192.168.150.90") == 0
+
+
+def test_server_number_by_ip_unknown(env_file: Path) -> None:
+    assert servers.server_number_by_ip("10.0.0.99") is None
+    assert servers.server_number_by_ip("") is None
+    assert servers.server_number_by_ip(None) is None
+
+
+def test_server_number_by_ip_ambiguous(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """IP, попавший под разные `N` (битый конфиг) → `None`."""
+    p = tmp_path / ".env"
+    p.write_text("sl_1='1.1.1.1'\npg_2='1.1.1.1'\n", encoding="utf-8")
+    monkeypatch.setattr(servers, "ENV_PATH", p)
+    monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
+    servers.reset_cache()
+    assert servers.server_number_by_ip("1.1.1.1") is None
+    servers.reset_cache()
+
+
+def test_server_number_by_ip_same_n_sl_and_pg(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Одинаковый IP в `sl_N` и `pg_N` (теоретически) — не амбигуально, оба → N."""
+    p = tmp_path / ".env"
+    p.write_text("sl_3='2.2.2.2'\npg_3='2.2.2.2'\n", encoding="utf-8")
+    monkeypatch.setattr(servers, "ENV_PATH", p)
+    monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
+    servers.reset_cache()
+    assert servers.server_number_by_ip("2.2.2.2") == 3
+    servers.reset_cache()

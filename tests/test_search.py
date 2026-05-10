@@ -105,6 +105,31 @@ def test_search_empty(db: sqlite3.Connection) -> None:
     assert search.search(db, "DEFINITELY_NOT_THERE_xyz") == []
 
 
+def test_search_by_pg_ip(db: sqlite3.Connection) -> None:
+    """IP из `.env` → синтетический row с `server_number`, без клиентов/spreadsheets."""
+    results = search.search(db, "10.1.0.2")
+    assert len(results) == 1
+    r = results[0]
+    assert r["client_id"] is None
+    assert r["spreadsheet_id"] is None
+    assert r["title"] is None
+    assert r["server"] == "sl-2"
+    assert r["server_number"] == 2
+    assert r["sl_ip"] == "10.0.0.2"
+    assert r["pg_ip"] == "10.1.0.2"
+
+
+def test_search_by_sl_ip(db: sqlite3.Connection) -> None:
+    results = search.search(db, "10.0.0.1")
+    assert len(results) == 1
+    assert results[0]["server_number"] == 1
+
+
+def test_search_unknown_ip_empty(db: sqlite3.Connection) -> None:
+    """Похоже на IP, но не в `.env` — пустой результат, без fallback на title-substring."""
+    assert search.search(db, "9.9.9.9") == []
+
+
 def test_cli_default_outputs_json(db: sqlite3.Connection) -> None:
     res = runner.invoke(search.app, ["10", "--no-update"])
     assert res.exit_code == 0
@@ -158,3 +183,31 @@ def test_cli_empty_triggers_auto_update(
     assert res.exit_code == 0
     assert calls == [True]
     assert json.loads(res.stdout) == []
+
+
+def test_cli_unknown_ip_skips_auto_update(
+    db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Похоже на IP, но не в `.env` — auto-update не вызывается (он не трогает `.env`)."""
+    calls: list[bool] = []
+
+    def fake_update(quiet: bool = False) -> tuple[int, int, float]:
+        calls.append(quiet)
+        return (0, 0, 0.0)
+
+    from mpu.commands import update as update_mod
+
+    monkeypatch.setattr(update_mod, "run_update", fake_update)
+
+    res = runner.invoke(search.app, ["9.9.9.9"])
+    assert res.exit_code == 0
+    assert calls == []
+    assert json.loads(res.stdout) == []
+
+
+def test_cli_pg_ip_projection(db: sqlite3.Connection) -> None:
+    """`mpu-search <pg_ip> --server-number` → номер сервера plain."""
+    res = runner.invoke(search.app, ["10.1.0.1", "--server-number", "--no-update"])
+    assert res.exit_code == 0
+    lines = [ln for ln in res.stdout.splitlines() if ln]
+    assert lines == ["1"]
