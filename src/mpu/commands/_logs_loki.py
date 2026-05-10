@@ -10,16 +10,21 @@
 Selector → host:
     1. sl-N / wb-N / dt-N / wb-(clusters|positions)  →  host=<value>
     2. иначе — резолв через resolver.resolve_server (client_id / spreadsheet / title) → host=sl-N
+
+Кэш hosts/services для autocompletion и `ls` — таблицы `loki_hosts` /
+`loki_services_by_host` в `~/.config/mpu/mpu.db`. Заполняются `mpu init` и
+`mpu-update` через `lib/loki_discover.py`.
 """
 
 import re
+import sqlite3
 import sys
 import time
 
 import httpx
 import typer
 
-from mpu.lib import loki, servers
+from mpu.lib import loki, servers, store
 from mpu.lib.duration import DurationParseError, parse_since
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
@@ -161,3 +166,65 @@ def _format_ts(ts_ns: int) -> str:
     s, ns_rem = divmod(ts_ns, 1_000_000_000)
     ms = ns_rem // 1_000_000
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(s)) + f".{ms:03d}Z"
+
+
+def cached_hosts() -> list[str]:
+    """Hosts из SQLite-кэша `loki_hosts`. Пустой список если кэш ещё не заполнен."""
+    try:
+        with store.store() as conn:
+            rows = conn.execute("SELECT host FROM loki_hosts ORDER BY host").fetchall()
+    except sqlite3.Error:
+        return []
+    return [r["host"] for r in rows]
+
+
+def cached_services_for_host(host: str) -> list[str]:
+    """Services для конкретного host из SQLite-кэша `loki_services_by_host`."""
+    try:
+        with store.store() as conn:
+            rows = conn.execute(
+                "SELECT service FROM loki_services_by_host WHERE host = ? ORDER BY service",
+                (host,),
+            ).fetchall()
+    except sqlite3.Error:
+        return []
+    return [r["service"] for r in rows]
+
+
+def cached_all_services() -> list[str]:
+    """Все уникальные compose_service из кэша (для autocomplete без явного host)."""
+    try:
+        with store.store() as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT service FROM loki_services_by_host ORDER BY service"
+            ).fetchall()
+    except sqlite3.Error:
+        return []
+    return [r["service"] for r in rows]
+
+
+def print_hosts_ls(*, command_name: str) -> None:
+    """`mpu-logs ls` — печатает hosts из кэша. Подсказывает `mpu init` если пусто."""
+    hosts = cached_hosts()
+    if not hosts:
+        typer.echo(
+            f"{command_name}: кэш hosts пуст. Запусти `mpu init` или `mpu-update`.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    for h in hosts:
+        typer.echo(h)
+
+
+def print_services_ls(host: str, *, command_name: str) -> None:
+    """`mpu-logs <host> ls` — печатает services для host из кэша."""
+    services = cached_services_for_host(host)
+    if not services:
+        typer.echo(
+            f"{command_name}: для host={host!r} нет services в кэше. "
+            f"Проверь host через `mpu-logs ls` или обнови кэш через `mpu-update`.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    for s in services:
+        typer.echo(s)

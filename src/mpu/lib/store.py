@@ -59,6 +59,21 @@ _DDL = [
         "CREATE INDEX IF NOT EXISTS idx_portainer_container_name "
         "ON portainer_containers(container_name)"
     ),
+    """
+    CREATE TABLE IF NOT EXISTS loki_hosts (
+        host          TEXT PRIMARY KEY,
+        discovered_at INTEGER NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS loki_services_by_host (
+        host          TEXT NOT NULL,
+        service       TEXT NOT NULL,
+        discovered_at INTEGER NOT NULL,
+        PRIMARY KEY (host, service)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_loki_services_host ON loki_services_by_host(host)",
 ]
 
 

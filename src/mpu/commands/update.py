@@ -14,7 +14,7 @@ from typing import Annotated, Any
 import psycopg
 import typer
 
-from mpu.lib import pg, servers, store
+from mpu.lib import loki_discover, pg, servers, store
 
 COMMAND_NAME = "mpu-update"
 COMMAND_SUMMARY = "Синхронизировать кэш клиентов из sl-back"
@@ -99,6 +99,10 @@ def run_update(quiet: bool = False) -> tuple[int, int, float]:
                 ],
             )
 
+    # Дополнительно — обновить Loki-кэш для shell completion (hosts/services).
+    # Best-effort: пропускаем если LOKI_URL не задан или Loki недоступен.
+    loki_result = loki_discover.discover_and_store()
+
     elapsed = time.monotonic() - started
     if not quiet:
         n_servers = len(spreadsheets_per_server)
@@ -107,6 +111,14 @@ def run_update(quiet: bool = False) -> tuple[int, int, float]:
             f"spreadsheets: {total_spreadsheets} rows from {n_servers} servers, "
             f"took {elapsed:.2f}s"
         )
+        if loki_result.error:
+            typer.echo(f"loki: пропущено ({loki_result.error})", err=True)
+        else:
+            n_services = sum(len(v) for v in loki_result.services_by_host.values())
+            typer.echo(
+                f"loki: {len(loki_result.hosts)} hosts, "
+                f"{n_services} (host, service) пар"
+            )
         if failed_servers:
             typer.echo(
                 "warning: failed to query servers: "

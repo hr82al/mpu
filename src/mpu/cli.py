@@ -5,7 +5,7 @@ from typing import Annotated
 import typer
 
 from mpu import __version__
-from mpu.lib import portainer_discover, store
+from mpu.lib import loki_discover, portainer_discover, store
 
 app = typer.Typer(
     name="mpu",
@@ -89,3 +89,15 @@ def init_cmd(
         f"# записано {len(items)} контейнеров в {store.DB_PATH}",
         err=True,
     )
+
+    # Шаг 3: discover Loki labels (hosts/services) для shell completion. Best-effort:
+    # если LOKI_URL не задан / Loki недоступен — пропускаем без ошибки.
+    loki_result = loki_discover.discover_and_store()
+    if loki_result.error:
+        typer.echo(f"# loki: пропущено ({loki_result.error})", err=True)
+    else:
+        n_services = sum(len(v) for v in loki_result.services_by_host.values())
+        typer.echo(
+            f"# loki: {len(loki_result.hosts)} hosts, {n_services} (host, service) пар",
+            err=True,
+        )
