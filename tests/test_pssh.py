@@ -172,8 +172,8 @@ class _StubClient:
     def upload_tar(self, container: str, dest: str, files: dict[str, bytes]) -> None:
         self.uploads.append((container, dest, files))
 
-    def create_exec(self, container: str, cmd: list[str]) -> str:
-        _ = container
+    def create_exec(self, container: str, cmd: list[str], *, tty: bool = False) -> str:
+        _ = container, tty
         self.execs.append(list(cmd))
         return f"exec-{len(self.execs)}"
 
@@ -183,7 +183,9 @@ class _StubClient:
         *,
         on_stdout: object,
         on_stderr: object,
+        tty: bool = False,
     ) -> None:
+        _ = tty
         self.starts.append(exec_id)
         if self.stdout_to_emit:
             on_stdout(self.stdout_to_emit)  # type: ignore[operator]
@@ -215,9 +217,14 @@ def test_run_via_portainer_no_stdin(
     assert c.kwargs["endpoint_id"] == 19
     assert c.kwargs["api_key"] == "ptr_test"
     assert c.kwargs["verify_tls"] is False
-    # Без stdin — никакого upload и cmd передаётся как есть.
+    # Без stdin upload'а нет. Команда обёрнута в shell-prelude, пишущий PID в файл
+    # (для Ctrl+C → kill remote). Второй exec — финальный rm -f pidfile.
     assert c.uploads == []
-    assert c.execs == [["ls", "/app"]]
+    assert c.execs[0][0:2] == ["sh", "-c"]
+    wrapped = c.execs[0][2]
+    assert "echo $$ > /tmp/__MPU_PSSH_PID" in wrapped
+    assert "exec ls /app" in wrapped  # `exec` сразу команду, без промежуточного sh -c
+    assert c.execs[1] == ["rm", "-f", "/tmp/__MPU_PSSH_PID"]
 
 
 def test_run_via_portainer_with_stdin_uploads_and_wraps(
@@ -229,14 +236,15 @@ def test_run_via_portainer_with_stdin_uploads_and_wraps(
     c = stub_portainer.instances[0]
     # Upload tarred stdin в /tmp.
     assert c.uploads == [("mp-sl-11-cli", "/tmp", {"__MPU_PSSH_STDIN": b"console.log(1)"})]
-    # Команда обёрнута в sh -c с редиректом из /tmp/__MPU_PSSH_STDIN.
-    assert c.execs[0][0] == "sh"
-    assert c.execs[0][1] == "-c"
+    # Команда обёрнута: shell-prelude пишет PID в файл, exec'ит inner с командой
+    # и редиректом stdin из /tmp/__MPU_PSSH_STDIN.
+    assert c.execs[0][0:2] == ["sh", "-c"]
     wrapped = c.execs[0][2]
-    assert "node" in wrapped and "--input-type=module" in wrapped
+    assert "echo $$ > /tmp/__MPU_PSSH_PID" in wrapped
+    assert "exec node" in wrapped and "--input-type=module" in wrapped
     assert "< /tmp/__MPU_PSSH_STDIN" in wrapped
-    # Второй exec — cleanup.
-    assert c.execs[1] == ["rm", "-f", "/tmp/__MPU_PSSH_STDIN"]
+    # Второй exec — финальный cleanup: pidfile + stdin tar.
+    assert c.execs[1] == ["rm", "-f", "/tmp/__MPU_PSSH_PID", "/tmp/__MPU_PSSH_STDIN"]
 
 
 def test_run_via_portainer_propagates_exit_code(

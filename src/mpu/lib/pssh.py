@@ -14,6 +14,7 @@ stdout/stderr выполняемой команды пишутся напрям�
 """
 
 import shlex
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -27,6 +28,12 @@ Transport = Literal["ssh", "portainer"]
 
 _STDIN_TMP_NAME = "__MPU_PSSH_STDIN"
 _STDIN_TMP_PATH = f"/tmp/{_STDIN_TMP_NAME}"
+
+# Файл с PID запущенной команды в контейнерной PID-namespace. Используем чтобы
+# на Ctrl+C из локального процесса послать `kill -INT` второму exec'у. Просто
+# закрытия WS-соединения недостаточно: Docker НЕ шлёт SIGHUP exec-процессу при
+# disconnect (проверено эмпирически даже с Tty=true).
+_PIDFILE = "/tmp/__MPU_PSSH_PID"
 
 
 def pssh_run(
@@ -83,6 +90,13 @@ def _run_via_ssh(n: int, cmd: list[str], stdin: bytes) -> int:
 
 
 def _run_via_portainer(n: int, cmd: list[str], stdin: bytes) -> int:
+    # Восстанавливаем дефолтный SIGINT handler. Если bash backgrounding (`&`) или
+    # другой parent установил SIGINT=SIG_IGN до exec'а, Python не восстанавливает
+    # его сам, и Ctrl+C в нашем процессе становится no-op. Без этого `kill -INT`
+    # на mpup-process не вызывает KeyboardInterrupt, и remote-cleanup в except
+    # не сработает.
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+
     target = servers.portainer_target(n)
     api_key = servers.env_value("PORTAINER_API_KEY")
     assert target is not None and api_key is not None
@@ -97,38 +111,100 @@ def _run_via_portainer(n: int, cmd: list[str], stdin: bytes) -> int:
         verify_tls=verify_tls,
     )
 
-    final_cmd = cmd
+    # Оборачиваем команду: `sh -c 'echo $$ > pidfile; exec <inner>'`. `exec` заменяет
+    # sh реальной командой с тем же PID, поэтому pidfile содержит PID именно команды
+    # (node/sleep/etc). `kill $(cat pidfile)` шлёт сигнал прямо в неё, а не в
+    # промежуточный sh — иначе настоящий процесс осиротел бы и пережил отмену.
+    inner = " ".join(shlex.quote(a) for a in cmd)
     if stdin:
         client.upload_tar(container, "/tmp", {_STDIN_TMP_NAME: stdin})
-        cmd_str = " ".join(shlex.quote(a) for a in cmd)
-        final_cmd = ["sh", "-c", f"{cmd_str} < {_STDIN_TMP_PATH}"]
+        inner = f"{inner} < {_STDIN_TMP_PATH}"
+    final_cmd = ["sh", "-c", f"echo $$ > {_PIDFILE}; exec {inner}"]
 
+    # Flush после каждого чанка: sys.stdout.buffer — BufferedWriter с блочным буфером
+    # (~8 KB), line-buffering у TextIOWrapper в обход. Без flush'а вывод копится,
+    # пока буфер не наполнится, и команда выглядит зависшей.
     def _write_stdout(b: bytes) -> None:
         sys.stdout.buffer.write(b)
+        sys.stdout.buffer.flush()
 
     def _write_stderr(b: bytes) -> None:
         sys.stderr.buffer.write(b)
-
-    try:
-        exec_id = client.create_exec(container, final_cmd)
-        client.start_exec_stream(exec_id, on_stdout=_write_stdout, on_stderr=_write_stderr)
-        sys.stdout.buffer.flush()
         sys.stderr.buffer.flush()
+
+    interrupted = False
+    try:
+        # TTY=True заставляет Node-внутри-контейнера переключить process.stdout
+        # на синхронные write'ы (POSIX-поведение), иначе он батчит console.log
+        # пакетами до ~16 KB и пользователь видит бурсты вместо построчного стрима.
+        # Trade-off: stdout/stderr приходят одним потоком без 8-byte framing'а.
+        exec_id = client.create_exec(container, final_cmd, tty=True)
+        try:
+            client.start_exec_stream(
+                exec_id, on_stdout=_write_stdout, on_stderr=_write_stderr, tty=True
+            )
+        except KeyboardInterrupt:
+            # Закрытие WS НЕ вызывает SIGHUP в Docker exec — нужно явно убить процесс
+            # вторым exec'ом. Сообщаем пользователю, что мы не просто бросили команду.
+            sys.stderr.write("\nmpu: Ctrl+C → killing remote process...\n")
+            sys.stderr.flush()
+            interrupted = True
+            _kill_remote_process(client, container)
+            raise
         return client.inspect_exec_exit_code(exec_id)
     finally:
-        if stdin:
-            _best_effort_cleanup(client, container)
+        # Cleanup pidfile + stdin tar даже после Ctrl+C — иначе следующий запуск может
+        # подцепить устаревший pidfile (race), а stdin file висит до рестарта контейнера.
+        _best_effort_cleanup(client, container, with_stdin=bool(stdin), suppress=interrupted)
 
 
-def _best_effort_cleanup(client: portainer.Client, container: str) -> None:
-    """Удалить /tmp/__MPU_PSSH_STDIN. Любые ошибки молча проглатываем — файл живёт до рестарта."""
+def _kill_remote_process(client: portainer.Client, container: str) -> None:
+    """SIGINT → SIGKILL процессу, чей PID лежит в /tmp/__MPU_PSSH_PID.
+
+    `kill -0` тест бесполезен (gone race), поэтому шлём INT, ждём 1 секунду
+    на graceful shutdown, затем KILL. Errors глотаем — на Ctrl+C главное не
+    зависнуть, а не диагностировать корректный exit. После kill'а pidfile
+    подчищает `_best_effort_cleanup` в finally вызывающего.
+    """
+    script = (
+        f"PID=$(cat {_PIDFILE} 2>/dev/null); "
+        f'[ -n "$PID" ] || exit 0; '
+        f'kill -INT "$PID" 2>/dev/null; '
+        f"sleep 1; "
+        f'kill -KILL "$PID" 2>/dev/null; '
+        f"exit 0"
+    )
     try:
-        cleanup_id = client.create_exec(container, ["rm", "-f", _STDIN_TMP_PATH])
+        kill_id = client.create_exec(container, ["sh", "-c", script])
+        client.start_exec_stream(
+            kill_id,
+            on_stdout=lambda _b: None,
+            on_stderr=lambda _b: None,
+        )
+    except Exception:
+        # best-effort: на Ctrl+C UX важнее чем корректный shutdown — не задерживаемся
+        pass
+
+
+def _best_effort_cleanup(
+    client: portainer.Client,
+    container: str,
+    *,
+    with_stdin: bool,
+    suppress: bool = False,
+) -> None:
+    """rm -f /tmp/__MPU_PSSH_PID (+ stdin tar если был). Файлы живут до рестарта."""
+    paths = [_PIDFILE]
+    if with_stdin:
+        paths.append(_STDIN_TMP_PATH)
+    try:
+        cleanup_id = client.create_exec(container, ["rm", "-f", *paths])
         client.start_exec_stream(
             cleanup_id,
             on_stdout=lambda _b: None,
             on_stderr=lambda _b: None,
         )
     except Exception:
-        # best-effort cleanup — файл живёт до рестарта контейнера, не критично
-        pass
+        # best-effort cleanup — файлы живут до рестарта контейнера, не критично
+        if not suppress:
+            pass

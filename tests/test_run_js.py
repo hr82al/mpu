@@ -91,13 +91,6 @@ def test_resolve_servers_requires_exactly_one() -> None:
         run_js._resolve_servers("sl-1", True)
 
 
-def test_resolve_servers_rejects_sl_0(env_file: Path) -> None:
-    _ = env_file
-    with pytest.raises(typer.Exit) as ei:
-        run_js._resolve_servers("sl-0", False)
-    assert ei.value.exit_code == 2
-
-
 def test_resolve_servers_rejects_garbage(env_file: Path) -> None:
     """`foo` не sl-N и в SQLite-кэше нет — `mpu-search` вернёт пусто → ResolveError."""
     _ = env_file

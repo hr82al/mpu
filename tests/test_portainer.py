@@ -123,50 +123,30 @@ def test_upload_tar_builds_archive() -> None:
         assert member.mode == 0o644
 
 
-def test_start_exec_stream_demuxes_frames() -> None:
-    """Стрим возвращает 3 фрейма: stdout, stderr, stdout. Демультиплексор разводит."""
-    body = (
-        _frame(1, b"out1\n")
-        + _frame(2, b"err1\n")
-        + _frame(1, b"out2\n")
-    )
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert request.method == "POST"
-        return httpx.Response(200, content=body)
-
-    c = _make_client(httpx.MockTransport(handler))
+def test_demux_docker_frames_splits_stdout_stderr() -> None:
+    """3 фрейма (stdout, stderr, stdout) — демультиплексор разводит по callback'ам."""
+    buf = bytearray(_frame(1, b"out1\n") + _frame(2, b"err1\n") + _frame(1, b"out2\n"))
     out: list[bytes] = []
     err: list[bytes] = []
-    c.start_exec_stream(
-        "exec-abc",
-        on_stdout=lambda b: out.append(b),
-        on_stderr=lambda b: err.append(b),
-    )
+    portainer._demux_docker_frames(buf, out.append, err.append)
     assert b"".join(out) == b"out1\nout2\n"
     assert b"".join(err) == b"err1\n"
+    assert bytes(buf) == b""
 
 
-def test_start_exec_stream_handles_split_chunks() -> None:
-    """Демультиплексор устойчив к разрыву фрейма посередине header'а или payload'а."""
-    full: bytes = _frame(1, b"hello") + _frame(2, b"world!!")
-    # Чанки разной формы — один из них режет header посередине.
-    chunks: list[bytes] = [full[:3], full[3:9], full[9:14], full[14:]]
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        _ = request
-        return httpx.Response(200, content=iter(chunks))
-
-    c = _make_client(httpx.MockTransport(handler))
+def test_demux_docker_frames_keeps_incomplete_tail() -> None:
+    """Неполный хвост остаётся в буфере до следующего вызова — устойчив к разрезам."""
+    full = _frame(1, b"hello") + _frame(2, b"world!!")
     out: list[bytes] = []
     err: list[bytes] = []
-    c.start_exec_stream(
-        "exec-abc",
-        on_stdout=out.append,
-        on_stderr=err.append,
-    )
+    buf = bytearray()
+    # Скармливаем чанками разной формы — один режет header посередине.
+    for chunk in (full[:3], full[3:9], full[9:14], full[14:]):
+        buf.extend(chunk)
+        portainer._demux_docker_frames(buf, out.append, err.append)
     assert b"".join(out) == b"hello"
     assert b"".join(err) == b"world!!"
+    assert bytes(buf) == b""
 
 
 def test_create_exec_raises_on_http_error() -> None:
