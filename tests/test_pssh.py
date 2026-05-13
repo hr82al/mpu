@@ -417,21 +417,45 @@ def test_pssh_cli_stdin_file(
     assert captured["stdin"] == b"file content\n"
 
 
-def test_pssh_cli_no_stdin(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _ = env_ssh_only
-    captured: dict[str, object] = {}
+class _FakeStdin:
+    """Минимальный shim под sys.stdin: isatty + buffer.read()."""
 
-    def _fake_run(*, stdin: bytes, **kw: object) -> int:
-        captured["stdin"] = stdin
-        captured.update(kw)
-        return 0
+    def __init__(self, *, is_tty: bool, payload: bytes | None) -> None:
+        self._is_tty = is_tty
+        self._payload = payload
 
-    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
-    runner = CliRunner()
-    # --no-stdin → b"", даже если pipe-stdin есть.
-    result = runner.invoke(pssh_cmd.app, ["sl-1", "--no-stdin", "--", "ls"], input="ignored")
-    assert result.exit_code == 0, result.output
-    assert captured["stdin"] == b""
+    def isatty(self) -> bool:
+        return self._is_tty
+
+    @property
+    def buffer(self) -> "_FakeStdin":
+        return self
+
+    def read(self) -> bytes:
+        if self._payload is None:
+            pytest.fail("read() не должен вызываться")
+        return self._payload
+
+
+def test_resolve_stdin_tty_default_skips(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TTY без явного --stdin-* → b"", не блокируемся на read()."""
+    monkeypatch.setattr(pssh_cmd.sys, "stdin", _FakeStdin(is_tty=True, payload=None))
+    out = pssh_cmd._resolve_stdin(stdin_text=None, stdin_file=None, stdin_tty=False)
+    assert out == b""
+
+
+def test_resolve_stdin_tty_explicit_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """--stdin-tty при TTY → читаем до EOF, печатаем подсказку в stderr."""
+    monkeypatch.setattr(pssh_cmd.sys, "stdin", _FakeStdin(is_tty=True, payload=b"typed input"))
+    out = pssh_cmd._resolve_stdin(stdin_text=None, stdin_file=None, stdin_tty=True)
+    assert out == b"typed input"
+
+
+def test_resolve_stdin_pipe_forwarded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """stdin не TTY (pipe) → forward'им содержимое."""
+    monkeypatch.setattr(pssh_cmd.sys, "stdin", _FakeStdin(is_tty=False, payload=b"piped"))
+    out = pssh_cmd._resolve_stdin(stdin_text=None, stdin_file=None, stdin_tty=False)
+    assert out == b"piped"
 
 
 def test_pssh_cli_stdin_text_and_file_mutex(
@@ -454,7 +478,7 @@ def test_pssh_cli_stdin_text_and_file_mutex(
     assert "взаимоисключающи" in result.output
 
 
-def test_pssh_cli_no_stdin_with_text_rejected(
+def test_pssh_cli_stdin_tty_and_text_mutex(
     env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _ = env_ssh_only
@@ -464,5 +488,6 @@ def test_pssh_cli_no_stdin_with_text_rejected(
 
     monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
     runner = CliRunner()
-    result = runner.invoke(pssh_cmd.app, ["sl-1", "--no-stdin", "--stdin-text", "x", "--", "cat"])
+    result = runner.invoke(pssh_cmd.app, ["sl-1", "--stdin-tty", "--stdin-text", "x", "--", "cat"])
     assert result.exit_code == 2
+    assert "взаимоисключающи" in result.output

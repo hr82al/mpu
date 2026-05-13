@@ -8,7 +8,7 @@
 - `wrapper="ssh"` (default) → `ssh -i ... user@ip 'docker exec -it mp-sl-N-cli sh -c "..."'`
 - `wrapper="local"` (`--local`) → `sl-N-cli sh -c "..."`
 - `wrapper="portainer"` (env `MPU_WRAPPER=portainer`, ставится `mpup-*` entry-point'ами)
-  → `mpup-ssh <selector> --no-stdin -- node ...`. `mpup-ssh` сам выбирает Portainer/ssh
+  → `mpup-ssh <selector> -- node ...`. `mpup-ssh` сам выбирает Portainer/ssh
   по `~/.config/mpu/.env` — эта строка лишь готова к запуску.
 
 `MPU_WRAPPER` переопределяет `wrapper` в `emit_node_cli` и снимает требование
@@ -486,7 +486,7 @@ def _wrap_local(*, inner: str, server_number: int) -> str:
 
 
 def _wrap_portainer(*, inner: str, resolved: Resolved) -> str:
-    """`mpup-ssh <selector> --no-stdin -- node ...` — выполнение через mpup-ssh.
+    """`mpup-ssh <selector> -- node ...` — выполнение через mpup-ssh.
 
     `mpup-ssh` выбирает Portainer/ssh transparently из `~/.config/mpu/.env`. Эта обёртка
     лишь конструирует строку для ручного запуска (не выполняет). Селектор берётся из
@@ -495,4 +495,4 @@ def _wrap_portainer(*, inner: str, resolved: Resolved) -> str:
     пробелов / не-ASCII в title-селекторах.
     """
     selector = resolved.selector or f"sl-{resolved.server_number}"
-    return f"mpup-ssh {shlex.quote(selector)} --no-stdin -- {inner}"
+    return f"mpup-ssh {shlex.quote(selector)} -- {inner}"

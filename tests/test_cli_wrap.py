@@ -457,7 +457,7 @@ def test_resolve_server_only_bad_server(
 # print-mode (выполнение проверяется отдельно через mock pssh, см. ниже).
 
 
-# 25. portainer + MPU_PRINT_ONLY=1 — emits `mpup-ssh <selector> --no-stdin -- node ...`
+# 25. portainer + MPU_PRINT_ONLY=1 — emits `mpup-ssh <selector> -- node ...`
 def test_wrapper_portainer_with_selector(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -473,7 +473,7 @@ def test_wrapper_portainer_with_selector(
     )
     out = capsys.readouterr().out.strip()
     assert cmd == out
-    assert cmd == "mpup-ssh 12345 --no-stdin -- node cli service:foo bar --client-id 12345"
+    assert cmd == "mpup-ssh 12345 -- node cli service:foo bar --client-id 12345"
 
 
 # 26. portainer print-mode — пустой selector → fallback на sl-N
@@ -490,7 +490,7 @@ def test_wrapper_portainer_empty_selector_falls_back_to_sl_n(
         wrapper="portainer",
         command_name="t",
     )
-    assert cmd.startswith("mpup-ssh sl-7 --no-stdin -- ")
+    assert cmd.startswith("mpup-ssh sl-7 -- ")
 
 
 # 27. portainer print-mode — селектор с пробелами/Unicode проходит через shlex.quote
@@ -505,7 +505,7 @@ def test_wrapper_portainer_quotes_unicode_selector(monkeypatch: pytest.MonkeyPat
         wrapper="portainer",
         command_name="t",
     )
-    assert cmd.startswith("mpup-ssh 'ACME main' --no-stdin -- ")
+    assert cmd.startswith("mpup-ssh 'ACME main' -- ")
 
 
 # 28. MPU_WRAPPER=portainer — env override переписывает wrapper="ssh" (print-mode)
@@ -523,7 +523,7 @@ def test_env_override_promotes_to_portainer(monkeypatch: pytest.MonkeyPatch) -> 
         wrapper="ssh",
         command_name="t",
     )
-    assert cmd.startswith("mpup-ssh 42 --no-stdin -- ")
+    assert cmd.startswith("mpup-ssh 42 -- ")
     assert "ssh -i" not in cmd
 
 
