@@ -138,6 +138,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run 
 | `mpu-sql` | `commands/sql.py` | выполнить SQL на удалённом PG по селектору |
 | `mpu-backup-wb-unit-proto` | `commands/backup_wb_unit_proto.py` | CTAS-бэкап `wb_unit_proto` в `backups`-схему |
 | `mpu-backup-ozon-unit-proto` | `commands/backup_ozon_unit_proto.py` | CTAS-бэкап `ozon_unit_proto` в `backups`-схему |
+| `mpu-backup-wb-unit-manual-data` | `commands/backup_wb_unit_manual_data.py` | CTAS-бэкап `wb_unit_manual_data` в `backups`-схему |
 | `mpu-help` | `commands/help.py` | список команд + проброс `--help` каждой |
 
 ## Язык

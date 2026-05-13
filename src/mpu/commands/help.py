@@ -7,6 +7,7 @@ import typer
 
 from mpu.commands import (
     backup_ozon_unit_proto,
+    backup_wb_unit_manual_data,
     backup_wb_unit_proto,
     health,
     logs,
@@ -76,6 +77,7 @@ _REGISTERED_MODULES = (
     sql,
     backup_wb_unit_proto,
     backup_ozon_unit_proto,
+    backup_wb_unit_manual_data,
     recalculate_wb_expenses,
     save_wb_expenses,
     process,
