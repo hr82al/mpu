@@ -1,9 +1,9 @@
-"""`mpup-health` — быстрый health-check sl-N: статусы контейнеров + tail логов loader'ов.
+"""`mpu p health` — быстрый health-check sl-N: статусы контейнеров + tail логов loader'ов.
 
 Использование:
-    mpup-health <selector> [--tail N] [--since 30m] [--all]
+    mpu p health <selector> [--tail N] [--since 30m] [--all]
 
-`<selector>` — `sl-N` либо client_id / spreadsheet_id / title (через `mpu-search`).
+`<selector>` — `sl-N` либо client_id / spreadsheet_id / title (через `mpu search`).
 
 Что делает:
 1. `docker ps` через Portainer → таблица всех `mp-*` контейнеров.
@@ -18,7 +18,7 @@
    (то есть не из one-shot набора); иначе 0.
 
 Дальше использовать `mpup-logs <selector> <container>` для углублённого разбора
-конкретного контейнера и `mpup-ssh <selector> -- <cmd>` для exec-проверок
+конкретного контейнера и `mpu p ssh <selector> -- <cmd>` для exec-проверок
 (Redis / NATS / токены — TODO следующей итерацией: набор `node cli service:...`
 команд для BullMQ-stats / NATS-consumer-info / wb_tokens-freshness).
 """
@@ -31,7 +31,7 @@ import typer
 
 from mpu.commands._portainer_resolve import PortainerResolved, resolve_portainer
 
-COMMAND_NAME = "mpup-health"
+COMMAND_NAME = "mpu p health"
 COMMAND_SUMMARY = "Health-check sl-N: статусы контейнеров + tail логов loader'ов"
 
 
@@ -68,7 +68,7 @@ app = typer.Typer(
 def main(
     selector: Annotated[
         str,
-        typer.Argument(help="sl-N либо client_id / spreadsheet_id / title (через mpu-search)"),
+        typer.Argument(help="sl-N либо client_id / spreadsheet_id / title (через mpu search)"),
     ],
     tail: Annotated[
         int,
@@ -205,8 +205,3 @@ def _tail_logs(pr: PortainerResolved, names: list[str], *, tail: int, since: str
             continue
         sys.stdout.buffer.write(err)
         sys.stdout.buffer.flush()
-
-
-def run() -> None:
-    """Entry point для `mpup-health`."""
-    app()

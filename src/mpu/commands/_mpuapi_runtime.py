@@ -266,54 +266,47 @@ def _build_command(spec: CommandSpec) -> click.Command:
     )
 
 
-def _make_run(spec: CommandSpec) -> Callable[[], None]:
-    cmd = _build_command(spec)
-
-    def run() -> None:
-        try:
-            cmd.main(prog_name=f"mpuapi-{spec.name}", args=sys.argv[1:])
-        except SystemExit:
-            raise
-        except SlApiError as e:
-            _fail(spec, e)
-        except Exception as e:
-            click.echo(f"mpuapi-{spec.name}: unexpected error: {e}", err=True)
-            sys.exit(1)
-
-    run.__doc__ = spec.summary
-    return run
-
-
 # ──────────────────────────────────────────────────────────────────────────────
-# Авто-генерация run_<name>() для каждой команды.
-# `pyproject.toml#[project.scripts]` ссылается на эти имена.
+# `mpu api <X>` — click.Group, монтируется в root Typer-app через bridge.
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def python_name_for(spec_name: str) -> str:
-    """`get-token` → `run_get_token`."""
-    return "run_" + spec_name.replace("-", "_")
+def build_api_group() -> click.Group:
+    """Lazy-build click.Group со всеми `mpuapi-X` как subcommand'ы (без префикса).
 
+    Используется `cli.py` для монтажа `mpu api <X>`. Каждая subcommand'а — обычная
+    click.Command из `_build_command`, с переименованным `name` (без `mpuapi-`).
+    Ошибки `SlApiError` ловим в callback вокруг `_execute` каждой команды.
+    """
+    group = click.Group(
+        name="api",
+        help="HTTP API клиенты для sl-back (бывшие `mpuapi-*`).",
+        context_settings={"help_option_names": ["-h", "--help"]},
+    )
+    for spec in COMMANDS:
+        cmd = _build_command(spec)
+        # `_build_command` ставит name=f"mpuapi-{spec.name}" — убираем префикс для
+        # `mpu api <X>` UX. Имя самой команды и `prog_name` теперь будет `<X>`.
+        cmd.name = spec.name
+        # Обернём callback для перехвата `SlApiError` (старый `_make_run` делал это в run()).
+        original = cmd.callback
 
-_GENERATED_RUNNERS: dict[str, Callable[[], None]] = {
-    python_name_for(spec.name): _make_run(spec) for spec in COMMANDS
-}
+        def _wrapped(  # pyright: ignore[reportRedeclaration]
+            *args: Any,
+            _original: Callable[..., None] = original,  # type: ignore[assignment]
+            _spec: CommandSpec = spec,
+            **kwargs: Any,
+        ) -> None:
+            try:
+                _original(*args, **kwargs)
+            except SlApiError as e:
+                _fail(_spec, e)
+            except SystemExit:
+                raise
+            except Exception as e:
+                click.echo(f"mpu api {_spec.name}: unexpected error: {e}", err=True)
+                sys.exit(1)
 
-# Сделать run_* атрибутами модуля, чтобы entry-point'ы могли их импортировать.
-globals().update(_GENERATED_RUNNERS)
-
-
-def list_run_names() -> list[str]:
-    """Имена всех `run_*` функций — для self-проверки и генерации pyproject.toml."""
-    return sorted(_GENERATED_RUNNERS.keys())
-
-
-def get_runner(spec_name: str) -> Callable[[], None]:
-    """Найти runner по имени спеки (без префикса `mpuapi-`). Бросает KeyError если нет."""
-    return _GENERATED_RUNNERS[python_name_for(spec_name)]
-
-
-# `__all__` намеренно опущен — динамические `run_*` атрибуты не должны попадать
-# в статический экспорт-лист (pyright reportUnsupportedDunderAll). Entry-point'ы
-# импортируют их по имени через `mpu.commands._mpuapi_runtime:run_<name>`,
-# что работает через `globals().update()` выше.
+        cmd.callback = _wrapped
+        group.add_command(cmd)
+    return group

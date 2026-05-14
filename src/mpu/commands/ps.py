@@ -1,6 +1,6 @@
-"""`mpup-ps` — статусы Docker-контейнеров на sl-N через Portainer.
+"""`mpu p ps` — статусы Docker-контейнеров на sl-N через Portainer.
 
-Селектор первый аргумент — как у `mpu-search`: `sl-N` либо client_id /
+Селектор первый аргумент — как у `mpu search`: `sl-N` либо client_id /
 spreadsheet_id substring / title substring (резолв через `lib.resolver`).
 
 По умолчанию — таблица: NAME, STATE, STATUS, IMAGE. С `--filter <substr>` режет
@@ -15,7 +15,7 @@ import typer
 
 from mpu.commands._portainer_resolve import resolve_portainer
 
-COMMAND_NAME = "mpup-ps"
+COMMAND_NAME = "mpu p ps"
 COMMAND_SUMMARY = "Список контейнеров на sl-N через Portainer (статусы)"
 
 
@@ -29,7 +29,7 @@ app = typer.Typer(
 def main(
     selector: Annotated[
         str,
-        typer.Argument(help="sl-N либо client_id / spreadsheet_id / title (через mpu-search)"),
+        typer.Argument(help="sl-N либо client_id / spreadsheet_id / title (через mpu search)"),
     ],
     name_filter: Annotated[
         str | None,
@@ -100,8 +100,3 @@ def _print_table(rows: list[dict[str, str]]) -> None:
     typer.echo(fmt.format(*headers))
     for r in rows:
         typer.echo(fmt.format(r["name"], r["state"], r["status"], r["image"]))
-
-
-def run() -> None:
-    """Entry point для `mpup-ps`."""
-    app()

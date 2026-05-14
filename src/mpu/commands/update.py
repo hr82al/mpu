@@ -1,4 +1,4 @@
-"""`mpu-update` — синхронизация локального SQLite со всеми серверами.
+"""`mpu update` — синхронизация локального SQLite со всеми серверами.
 
 Стратегия:
 1. main (sl-0): SELECT public.clients → авторитет по `(client_id, server)`.
@@ -16,7 +16,7 @@ import typer
 
 from mpu.lib import loki_discover, pg, servers, store
 
-COMMAND_NAME = "mpu-update"
+COMMAND_NAME = "mpu update"
 COMMAND_SUMMARY = "Синхронизировать кэш клиентов из sl-back"
 
 
@@ -139,8 +139,3 @@ def main(
 ) -> None:
     """Синхронизировать ~/.config/mpu/mpu.db со всеми PG-серверами."""
     run_update(quiet=quiet)
-
-
-def run() -> None:
-    """Entry point для `mpu-update`."""
-    app()

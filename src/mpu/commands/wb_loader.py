@@ -1,4 +1,4 @@
-"""`mpu-wb-loader <method>` — печать ssh+docker команд для service:wbLoader.
+"""`mpu wb-loader <method>` — печать ssh+docker команд для service:wbLoader.
 
 Subcommand'ы:
 - reports, cards, adv-auto-keywords-stats, adv-fullstats, search-texts,
@@ -7,10 +7,9 @@ Subcommand'ы:
 
 import typer
 
-from mpu.lib.cli_wrap import run_with_wrapper
 from mpu.lib.factories import loader_by_sid
 
-COMMAND_NAME = "mpu-wb-loader"
+COMMAND_NAME = "mpu wb-loader"
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -32,13 +31,3 @@ loader_by_sid.register(
     ],
     command_name=COMMAND_NAME,
 )
-
-
-def run() -> None:
-    """Entry point для `mpu-wb-loader`."""
-    app()
-
-
-def run_portainer() -> None:
-    """Entry point для `mpup-wb-loader` — `mpup-ssh <selector> -- node ...`."""
-    run_with_wrapper(app, "portainer")

@@ -2,7 +2,7 @@
 
 Используется командами, которые гоняют `node ./src/clientsTransfer.js` /
 `node ./src/pgDataTransfer.js` локально, с подключением к удалённому source-PG
-и локальному target-PG (порт 5441). См. `mpu-copy-client`, `mpu-copy-shared`.
+и локальному target-PG (порт 5441). См. `mpu copy-client`, `mpu copy-shared`.
 
 Каталог `mp-config-local` — по умолчанию `~/mr/mp/mp-config-local`, override
 через env `MPU_MP_CONFIG_LOCAL`. Env-файлы (`.sl-base.env`, `.sl-dt.env`, `.env`)

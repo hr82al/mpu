@@ -1,29 +1,29 @@
-"""`mpu-logs` — логи контейнеров со стенда.
+"""`mpu logs` — логи контейнеров со стенда.
 
 По умолчанию (`--via loki`) запрос идёт в Loki через `LOKI_URL` (см. `~/.config/mpu/.env`):
 длинная история, фильтры по labels (host / compose_service / level / stream),
 text grep, кросс-сервисный поиск по client_id (substring в строке).
 
-`--via portainer` — fallback к старому поведению `mpup-logs`: один контейнер за вызов
+`--via portainer` — fallback к старому поведению `mpu logs`: один контейнер за вызов
 через Portainer Docker API. Полезно если Loki недоступен или нужен свежий snapshot
 конкретного container'а сразу после деплоя.
 
 Naming: эта команда — намеренное исключение из конвенции `mpu-* = print, mpup-* = portainer`.
-Для logs "print command" use-case никогда не использовался; `mpu-logs` стал
+Для logs "print command" use-case никогда не использовался; `mpu logs` стал
 основной командой с интегрированным переключателем источника.
 
 Использование:
-    mpu-logs ls                                   # список hosts из кэша
-    mpu-logs sl-1 ls                              # список services для sl-1
-    mpu-logs sl-1                                 # все логи sl-1 (последние 5 мин)
-    mpu-logs sl-1 wb-loader [--tail 200] [--since 1h]
-    mpu-logs sl-1 --grep "ECONNREFUSED" --since 1h
-    mpu-logs sl-1 --client 123 --since 30m        # cross-service по client_id
-    mpu-logs sl-1 wb-loader --via portainer       # legacy snapshot одного контейнера
+    mpu logs ls                                   # список hosts из кэша
+    mpu logs sl-1 ls                              # список services для sl-1
+    mpu logs sl-1                                 # все логи sl-1 (последние 5 мин)
+    mpu logs sl-1 wb-loader [--tail 200] [--since 1h]
+    mpu logs sl-1 --grep "ECONNREFUSED" --since 1h
+    mpu logs sl-1 --client 123 --since 30m        # cross-service по client_id
+    mpu logs sl-1 wb-loader --via portainer       # legacy snapshot одного контейнера
 
 Shell completion (hosts/services из SQLite-кэша) — установить через
-`scripts/reinstall.sh` или `mpu-logs --install-completion`. Кэш заполняет
-`mpu init` (bootstrap) и `mpu-update` (refresh).
+`scripts/reinstall.sh` или `mpu logs --install-completion`. Кэш заполняет
+`mpu init` (bootstrap) и `mpu update` (refresh).
 """
 
 from typing import Annotated
@@ -32,7 +32,7 @@ import typer
 
 from mpu.commands import _logs_loki, _logs_portainer
 
-COMMAND_NAME = "mpu-logs"
+COMMAND_NAME = "mpu logs"
 COMMAND_SUMMARY = "Логи со стенда: Loki по умолчанию, --via portainer для одиночного контейнера"
 
 _LS = "ls"
@@ -189,8 +189,3 @@ def main(
         level=level,
         client_id=client_id,
     )
-
-
-def run() -> None:
-    """Entry point для `mpu-logs`."""
-    app()

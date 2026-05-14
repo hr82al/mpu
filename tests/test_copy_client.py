@@ -1,4 +1,4 @@
-"""Тесты `mpu-copy-client` (mpu.commands.copy_client)."""
+"""Тесты `mpu copy-client` (mpu.commands.copy_client)."""
 
 from collections.abc import Iterator
 
@@ -69,7 +69,7 @@ def test_happy_path(fake_resolve: dict[str, object], fake_exec: dict[str, object
     assert "--source sl-2" in inner
     assert "--target sl-1" in inner
     assert "--skip INIT CREATE_TARGET_SCHEMA VERIFY_CLIENT_SCHEMA" in inner
-    assert fake_exec["command_name"] == "mpu-copy-client"
+    assert fake_exec["command_name"] == "mpu copy-client"
 
 
 def test_resolve_error_bubbles_up(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -82,7 +82,7 @@ def test_resolve_error_bubbles_up(monkeypatch: pytest.MonkeyPatch) -> None:
     res = runner.invoke(cmd.app, ["missing"])
 
     assert res.exit_code == 2
-    assert "mpu-copy-client: nothing matched" in res.output
+    assert "mpu copy-client: nothing matched" in res.output
 
 
 def test_ambiguous_client_ids(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -119,7 +119,7 @@ def test_no_pg_ip(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_sl_selector_without_client_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    """`mpu-copy-client sl-2` — резолвится в сервер без клиента → ошибка."""
+    """`mpu copy-client sl-2` — резолвится в сервер без клиента → ошибка."""
 
     def _resolve(
         value: str, *, server_override: str | None = None

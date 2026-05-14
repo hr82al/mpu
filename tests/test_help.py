@@ -1,4 +1,4 @@
-"""Tests for mpu-help command."""
+"""Tests for mpu help command."""
 
 from typer.testing import CliRunner
 
@@ -11,12 +11,12 @@ def test_list_no_args() -> None:
     """Вывод списка без аргументов должен содержать все команды."""
     result = runner.invoke(app, [])
     assert result.exit_code == 0
-    assert "mpu-search" in result.stdout
-    assert "mpu-update" in result.stdout
-    assert "mpu-sql" in result.stdout
-    assert "mpu-backup-wb-unit-proto" in result.stdout
-    assert "mpu-backup-ozon-unit-proto" in result.stdout
-    assert "mpu-help" in result.stdout
+    assert "mpu search" in result.stdout
+    assert "mpu update" in result.stdout
+    assert "mpu sql" in result.stdout
+    assert "mpu backup-wb-unit-proto" in result.stdout
+    assert "mpu backup-ozon-unit-proto" in result.stdout
+    assert "mpu help" in result.stdout
     assert "Available commands" in result.stdout
     assert "Run `<command> --help`" in result.stdout
 
@@ -43,10 +43,10 @@ def test_help_flag() -> None:
 
 
 def test_renders_target_command_help() -> None:
-    """`mpu-help mpu-search` рендерит --help целевой команды без subprocess."""
-    result = runner.invoke(app, ["mpu-search"])
+    """`mpu help mpu search` рендерит --help целевой команды без subprocess."""
+    result = runner.invoke(app, ["mpu search"])
     assert result.exit_code == 0
-    assert "mpu-search" in result.stdout
-    # Маркеры из docstring/options самой mpu-search:
+    assert "mpu search" in result.stdout
+    # Маркеры из docstring/options самой mpu search:
     assert "client_id" in result.stdout
     assert "--no-update" in result.stdout

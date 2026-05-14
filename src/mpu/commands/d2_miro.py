@@ -1,4 +1,4 @@
-"""`mpu-d2-miro` — рендер d2-диаграммы в Miro как редактируемый фрейм.
+"""`mpu d2-miro` — рендер d2-диаграммы в Miro как редактируемый фрейм.
 
 Поведение:
 - Берёт <file>.d2 (+ его SVG, при отсутствии вызывает локальный `d2`).
@@ -33,7 +33,7 @@ from mpu.lib.d2_parser import (
 )
 from mpu.lib.miro import MiroClient
 
-COMMAND_NAME = "mpu-d2-miro"
+COMMAND_NAME = "mpu d2-miro"
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -724,10 +724,5 @@ def main(
     )
 
 
-def run() -> None:
-    """Entry point для `mpu-d2-miro`."""
-    app()
-
-
 if __name__ == "__main__":
-    sys.exit(run())
+    sys.exit(app())

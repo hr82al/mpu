@@ -1,6 +1,6 @@
-"""`mpu-move-client <selector> [--target sl-N]` — перенос клиента между sl-серверами.
+"""`mpu move-client <selector> [--target sl-N]` — перенос клиента между sl-серверами.
 
-Сценарий: source-server резолвится из селектора (`mpu-search`-семантика), target
+Сценарий: source-server резолвится из селектора (`mpu search`-семантика), target
 по умолчанию `sl-1`, `--destroy` всегда включён (это move, а не copy).
 
 Запускает `node cli service:clientsTransfer createJob ...` в контейнере `mp-dt-cli`
@@ -19,7 +19,7 @@ from mpu.lib.resolver import ResolveError, resolve_server
 
 MP_DT_CONTAINER = "mp-dt-cli"
 
-COMMAND_NAME = "mpu-move-client"
+COMMAND_NAME = "mpu move-client"
 COMMAND_SUMMARY = "Перенести клиента между sl-серверами (createJob через mp-dt-cli)"
 
 app = typer.Typer(
@@ -136,8 +136,3 @@ def main(
             )
         raise typer.Exit(code=2) from None
     raise typer.Exit(code=rc)
-
-
-def run() -> None:
-    """Entry point для `mpu-move-client`."""
-    app()

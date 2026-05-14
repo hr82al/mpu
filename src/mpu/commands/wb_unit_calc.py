@@ -1,4 +1,4 @@
-"""`mpu-wb-unit-calc get-unit-data-by-date-nm-id` — read-only debug."""
+"""`mpu wb-unit-calc get-unit-data-by-date-nm-id` — read-only debug."""
 
 import datetime
 from typing import Annotated
@@ -10,10 +10,9 @@ from mpu.lib.cli_wrap import (
     emit_node_cli,
     require,
     resolve_selector,
-    run_with_wrapper,
 )
 
-COMMAND_NAME = "mpu-wb-unit-calc"
+COMMAND_NAME = "mpu wb-unit-calc"
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -69,13 +68,3 @@ def get_unit_data_by_date_nm_id(
         wrapper="local" if local else "ssh",
         command_name=COMMAND_NAME,
     )
-
-
-def run() -> None:
-    """Entry point для `mpu-wb-unit-calc`."""
-    app()
-
-
-def run_portainer() -> None:
-    """Entry point для `mpup-wb-unit-calc` — `mpup-ssh <selector> -- node ...`."""
-    run_with_wrapper(app, "portainer")

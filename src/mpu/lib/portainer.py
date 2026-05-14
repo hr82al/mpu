@@ -219,7 +219,7 @@ class Client:
         # socket.create_connection напрямую, без HTTPS_PROXY — Portainer на private
         # endpoint, локальный прокси (Privoxy) роняет TLS, как и в httpx-клиенте.
         raw = socket.create_connection((host, port))
-        # TCP-keepalive: для длинных exec'ов (`mpup-process` бывает 30+ мин) защищает
+        # TCP-keepalive: для длинных exec'ов (`mpu p process` бывает 30+ мин) защищает
         # от тихих обрывов в кернеле. Без явных значений настройки kernel-defaults
         # ловят dead-peer только через ~2 часа idle — слишком долго.
         raw.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)

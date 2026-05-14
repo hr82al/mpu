@@ -4,8 +4,8 @@
 Команда per-server (БД main); селектор универсальный (sl-N | client_id | spreadsheet | title).
 
 UX: `<bin> <selector> <subcommand> [--name <name>]`, e.g.
-    `mpu-app-migrations sl-1 latest`
-    `mpup-app-migrations 12345 up --name 20260101_test`
+    `mpu app-migrations sl-1 latest`
+    `mpu p app-migrations 12345 up --name 20260101_test`
 """
 
 from typing import Annotated

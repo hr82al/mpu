@@ -1,6 +1,6 @@
-"""Общая логика для `mpu-backup-{wb,ozon}-unit-proto` и `mpu-backup-wb-unit-manual-data`.
+"""Общая логика для `mpu-backup-{wb,ozon}-unit-proto` и `mpu backup-wb-unit-manual-data`.
 
-Аргумент — селектор `mpu-search` (sl-N / client_id / spreadsheet_id substring / title
+Аргумент — селектор `mpu search` (sl-N / client_id / spreadsheet_id substring / title
 substring). Резолв в `(server_number, candidates)` через `resolve_server`; client_id
 для имени схемы берётся из единственного `client_id` среди кандидатов. Если
 кандидатов нет (например, при `--server sl-N` override) и селектор — чистое число,
@@ -17,7 +17,7 @@ from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 
 def _derive_client_id(selector: str, candidates: list[dict[str, object]]) -> int | None:
-    """client_id из mpu-search кандидатов (один уникальный) или чистого numeric selector."""
+    """client_id из mpu search кандидатов (один уникальный) или чистого numeric selector."""
     distinct = {cid for c in candidates if isinstance(cid := c.get("client_id"), int)}
     if len(distinct) == 1:
         return next(iter(distinct))
@@ -108,7 +108,7 @@ def make_app(
             int | None,
             typer.Option(
                 "--schema-id",
-                help="Переопределить номер схемы (default = client_id из mpu-search)",
+                help="Переопределить номер схемы (default = client_id из mpu search)",
             ),
         ] = None,
         server: Annotated[

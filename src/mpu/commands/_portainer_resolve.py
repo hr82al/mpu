@@ -1,4 +1,4 @@
-"""Shared helper для команд `mpup-ps` / `mpup-logs` / `mpup-health`.
+"""Shared helper для команд `mpu p ps` / `mpup-logs` / `mpu p health`.
 
 Резолв `selector → server_number → portainer.Client + endpoint_id` с единым
 форматом ошибок (typer.Exit(2)) и шорт-циклом для прямого `sl-N`.

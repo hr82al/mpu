@@ -1,4 +1,4 @@
-"""`mpu-ss-update` — печать ssh+docker команды для ssUpdater.update."""
+"""`mpu ss-update` — печать ssh+docker команды для ssUpdater.update."""
 
 from typing import Annotated
 
@@ -10,10 +10,9 @@ from mpu.lib.cli_wrap import (
     emit_node_cli,
     require,
     resolve_selector,
-    run_with_wrapper,
 )
 
-COMMAND_NAME = "mpu-ss-update"
+COMMAND_NAME = "mpu ss-update"
 COMMAND_SUMMARY = "Печать ssh+docker команды для ssUpdater.update"
 
 
@@ -87,13 +86,3 @@ def main(
         wrapper="local" if local else "ssh",
         command_name=COMMAND_NAME,
     )
-
-
-def run() -> None:
-    """Entry point для `mpu-ss-update`."""
-    app()
-
-
-def run_portainer() -> None:
-    """Entry point для `mpup-ss-update` — `mpup-ssh <selector> -- node ...`."""
-    run_with_wrapper(app, "portainer")

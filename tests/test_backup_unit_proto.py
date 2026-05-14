@@ -1,4 +1,4 @@
-"""Тесты CLI `mpu-backup-wb-unit-proto` и `mpu-backup-ozon-unit-proto`."""
+"""Тесты CLI `mpu backup-wb-unit-proto` и `mpu backup-ozon-unit-proto`."""
 
 from collections.abc import Iterator
 from pathlib import Path
@@ -150,7 +150,7 @@ def test_backup_unknown_client_returns_2(env: None, monkeypatch: pytest.MonkeyPa
 def test_backup_title_selector_resolves_to_client_id(
     env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Селектор-title из mpu-search резолвится в client_id для имени схемы."""
+    """Селектор-title из mpu search резолвится в client_id для имени схемы."""
     captured: dict[str, object] = {}
 
     def fake_run(server_number: int, sql: str, **_kw: object) -> int:
@@ -181,7 +181,7 @@ def test_backup_sl_n_selector_requires_schema_id(
 def test_backup_sl_n_selector_with_schema_id(
     env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`sl-N` + --schema-id 999 — резолв сервера без mpu-search, schema_999."""
+    """`sl-N` + --schema-id 999 — резолв сервера без mpu search, schema_999."""
     captured: dict[str, object] = {}
 
     def fake_run(server_number: int, sql: str, **_kw: object) -> int:

@@ -7,7 +7,7 @@
 
 **Default — Portainer**, если оба источника заданы. Override через `via="ssh"|"portainer"`.
 Причина: Portainer — единственный универсальный путь до всех серверов фермы; ssh
-доступен только до части. Унифицируем поведение `mpup-ssh` / `mpu-run-js --all`.
+доступен только до части. Унифицируем поведение `mpu p ssh` / `mpu run-js --all`.
 
 stdout/stderr выполняемой команды пишутся напрямую в `sys.stdout.buffer` / `sys.stderr.buffer`,
 так что вызов indistinguishable от обычного subprocess: stream'ятся по мере прихода.
@@ -64,13 +64,13 @@ def pssh_run_container(
 
     На неоднозначное имя (несколько Portainer-endpoint'ов с тем же `container_name`)
     или отсутствие — бросает `containers.ContainerResolveError` (вызывающий код
-    форматирует и решает, fall back на `mpu-search` или показать ошибку).
+    форматирует и решает, fall back на `mpu search` или показать ошибку).
     """
     base_url, endpoint_id = containers.resolve_container_target(container)
     api_key = servers.env_value("PORTAINER_API_KEY")
     if not api_key:
         typer.echo(
-            "mpup-ssh: PORTAINER_API_KEY не задан в ~/.config/mpu/.env",
+            "mpu p ssh: PORTAINER_API_KEY не задан в ~/.config/mpu/.env",
             err=True,
         )
         raise typer.Exit(code=2)
@@ -91,7 +91,7 @@ def _resolve_transport(n: int, via: str | None) -> Transport:
         return via
     if via is not None:
         typer.echo(
-            f"mpup-ssh: --via должен быть ssh|portainer, получено {via!r}",
+            f"mpu p ssh: --via должен быть ssh|portainer, получено {via!r}",
             err=True,
         )
         raise typer.Exit(code=2)
@@ -106,7 +106,7 @@ def _resolve_transport(n: int, via: str | None) -> Transport:
     if has_ssh:
         return "ssh"
     typer.echo(
-        f"mpup-ssh: для sl-{n} не задано ни sl_{n} (+PG_MY_USER_NAME) "
+        f"mpu p ssh: для sl-{n} не задано ни sl_{n} (+PG_MY_USER_NAME) "
         f"ни sl_{n}_portainer (+PORTAINER_API_KEY)",
         err=True,
     )
@@ -161,7 +161,7 @@ def run_in_container_via_portainer(
     # Восстанавливаем дефолтный SIGINT handler. Если bash backgrounding (`&`) или
     # другой parent установил SIGINT=SIG_IGN до exec'а, Python не восстанавливает
     # его сам, и Ctrl+C в нашем процессе становится no-op. Без этого `kill -INT`
-    # на mpup-process не вызывает KeyboardInterrupt, и remote-cleanup в except
+    # на mpu p process не вызывает KeyboardInterrupt, и remote-cleanup в except
     # не сработает.
     signal.signal(signal.SIGINT, signal.default_int_handler)
 

@@ -1,4 +1,4 @@
-"""`mpu-search` — поиск spreadsheet/клиента в локальном SQLite-кэше.
+"""`mpu search` — поиск spreadsheet/клиента в локальном SQLite-кэше.
 
 Селектор:
   - `client_id` (целое) — точный match.
@@ -17,7 +17,7 @@ import typer
 
 from mpu.lib import servers, store
 
-COMMAND_NAME = "mpu-search"
+COMMAND_NAME = "mpu search"
 COMMAND_SUMMARY = "Поиск клиента / spreadsheet в локальном кэше"
 
 
@@ -163,7 +163,7 @@ def main(
     """Поиск по локальному ~/.config/mpu/mpu.db.
 
     По умолчанию — JSON-array строк со всеми полями. На пустом результате
-    автоматически вызывает `mpu-update` и повторяет поиск (отключается через `--no-update`).
+    автоматически вызывает `mpu update` и повторяет поиск (отключается через `--no-update`).
     """
     chosen = [
         name
@@ -179,12 +179,12 @@ def main(
         if flag
     ]
     if len(chosen) > 1:
-        typer.echo("mpu-search: only one projection flag allowed", err=True)
+        typer.echo("mpu search: only one projection flag allowed", err=True)
         raise typer.Exit(code=2)
 
     with store.store() as conn:
         results = search(conn, value)
-        # IP резолвится из ~/.config/mpu/.env, а не из SQLite — `mpu-update` не поможет.
+        # IP резолвится из ~/.config/mpu/.env, а не из SQLite — `mpu update` не поможет.
         if not results and update and not _looks_like_ip(value):
             # lazy import — тесты search-логики не должны тянуть psycopg.
             from mpu.commands import update as update_cmd
@@ -198,8 +198,3 @@ def main(
         return
 
     typer.echo(json.dumps(results, ensure_ascii=False, indent=2))
-
-
-def run() -> None:
-    """Entry point для `mpu-search`."""
-    app()

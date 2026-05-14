@@ -2,11 +2,11 @@
 
 Покрывает: wbJobs.showJobs, ozonJobs.{showJobs, pruneJobs}, dataLoaderJobs.showJobs.
 Команда per-server (BullMQ Redis); селектор универсальный — `sl-N` либо
-`client_id` / `spreadsheet_id` / `title` (резолв через `mpu-search`).
+`client_id` / `spreadsheet_id` / `title` (резолв через `mpu search`).
 
 UX: `<bin> <selector> <subcommand> [--pattern <p>]`, e.g.
-    `mpu-ozon-jobs sl-2 show`
-    `mpup-ozon-jobs 12345 prune --pattern 'foo*'`
+    `mpu ozon-jobs sl-2 show`
+    `mpu p ozon-jobs 12345 prune --pattern 'foo*'`
 """
 
 from typing import Annotated

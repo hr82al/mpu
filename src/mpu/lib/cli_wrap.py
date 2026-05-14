@@ -8,7 +8,7 @@
 - `wrapper="ssh"` (default) → `ssh -i ... user@ip 'docker exec -it mp-sl-N-cli sh -c "..."'`
 - `wrapper="local"` (`--local`) → `sl-N-cli sh -c "..."`
 - `wrapper="portainer"` (env `MPU_WRAPPER=portainer`, ставится `mpup-*` entry-point'ами)
-  → `mpup-ssh <selector> -- node ...`. `mpup-ssh` сам выбирает Portainer/ssh
+  → `mpu p ssh <selector> -- node ...`. `mpu p ssh` сам выбирает Portainer/ssh
   по `~/.config/mpu/.env` — эта строка лишь готова к запуску.
 
 `MPU_WRAPPER` переопределяет `wrapper` в `emit_node_cli` и снимает требование
@@ -44,7 +44,6 @@ bin'ы без дублирования typer-команд.
 import os
 import re
 import shlex
-import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -66,17 +65,16 @@ EntryPoint = Literal["cli", "sl-main", "sl-instance", "wb-main", "wb-instance"]
 DispatchType = Literal["service", "model", "dataset", "proxy"]
 Wrapper = Literal["ssh", "local", "portainer"]
 
-# Глобальный override обёртки через env. Используется `mpup-*` entry-point'ами:
-# каждый ставит `MPU_WRAPPER=portainer` и переиспользует тот же `app()` что и `mpu-*`.
-# Нет смысла дублировать typer-команды — env-флаг подменяет финальный wrapper в `emit_node_cli`
+# Глобальный override обёртки через env. Ставится callback'ом `_p_root` в `mpu.cli`
+# для namespace `mpu p <X>`: тот же `app()` используется и в root (print-mode), и в
+# `p` (exec через Portainer) — env-флаг подменяет финальный wrapper в `emit_node_cli`
 # и снимает требование sl_ip/PG_MY_USER_NAME в `resolve_selector`.
 WRAPPER_ENV = "MPU_WRAPPER"
 
-# Если выставлен в "1" — `mpup-*` команды печатают строку обёртки + копируют в clipboard
-# (старое поведение). По умолчанию `mpup-*` сразу выполняют команду через Portainer.
-# Ставится в `run_with_wrapper` при наличии флага `--print` в argv.
+# Если выставлен в "1" — `mpu p <X>` печатает строку обёртки + копирует в clipboard
+# (старое поведение `mpup-X --print`). По умолчанию `mpu p <X>` сразу выполняет
+# через Portainer. Ставится callback'ом `_p_root` при флаге `mpu p --print`.
 PRINT_ONLY_ENV = "MPU_PRINT_ONLY"
-PRINT_FLAGS = ("--print", "-p")
 
 # None / False → флаг пропускается.
 # True → флаг печатается без значения (boolean).
@@ -91,7 +89,7 @@ class Resolved:
 
     `selector` — оригинальный аргумент, который пользователь дал команде (`12345`,
     `"Тортуга"`, `sl-3`). Используется portainer-обёрткой, чтобы передать тот же
-    селектор в `mpup-ssh`. Default `""` для обратной совместимости с прямыми
+    селектор в `mpu p ssh`. Default `""` для обратной совместимости с прямыми
     конструкторами в тестах.
     """
 
@@ -238,7 +236,7 @@ def emit_node_cli(
     - wrapper=ssh / wrapper=local — печать обёртки в stdout + copy_to_clipboard (всегда).
     - wrapper=portainer — по умолчанию ВЫПОЛНЯЕТСЯ через Portainer API
       (`pssh.pssh_run`); если выставлен env `MPU_PRINT_ONLY=1` (флаг `--print` в
-      `mpup-*` bin'ах) — печатает строку `mpup-ssh <selector> ... -- node ...` +
+      `mpup-*` bin'ах) — печатает строку `mpu p ssh <selector> ... -- node ...` +
       кладёт в clipboard, не выполняя.
     """
     inner = _build_inner(
@@ -283,43 +281,6 @@ def _exec_portainer(*, inner_parts: list[str], resolved: Resolved) -> str:
     if rc != 0:
         raise typer.Exit(code=rc)
     return ""
-
-
-def run_with_wrapper(app: typer.Typer, wrapper: Wrapper) -> None:
-    """Поднять `MPU_WRAPPER` (+ опционально `MPU_PRINT_ONLY`) и вызвать typer-app.
-
-    Перехватывает `--print` / `-p` из `sys.argv` ДО передачи в typer и удаляет флаг,
-    чтобы каждой `mpup-*` команде не нужно было его декларировать. Если флаг есть —
-    `MPU_PRINT_ONLY=1`, и `emit_node_cli` печатает строку обёртки вместо выполнения.
-
-    Не сбрасываем env обратно: процесс CLI завершается сразу после `app()`.
-    """
-    os.environ[WRAPPER_ENV] = wrapper
-    if _consume_print_flag():
-        os.environ[PRINT_ONLY_ENV] = "1"
-    app()
-
-
-def _consume_print_flag() -> bool:
-    """Удалить `--print` / `-p` из `sys.argv` и вернуть, был ли он там.
-
-    Удаляем все вхождения (на случай дублирования), чтобы typer не упал на
-    неизвестном флаге. Не трогаем токены после `--` (там user-payload для inner).
-    """
-    new_argv: list[str] = []
-    found = False
-    saw_dashdash = False
-    for arg in sys.argv:
-        if not saw_dashdash and arg == "--":
-            saw_dashdash = True
-            new_argv.append(arg)
-            continue
-        if not saw_dashdash and arg in PRINT_FLAGS:
-            found = True
-            continue
-        new_argv.append(arg)
-    sys.argv = new_argv
-    return found
 
 
 def attach_selector_callback(*, app: typer.Typer, command_name: str) -> None:
@@ -486,13 +447,13 @@ def _wrap_local(*, inner: str, server_number: int) -> str:
 
 
 def _wrap_portainer(*, inner: str, resolved: Resolved) -> str:
-    """`mpup-ssh <selector> -- node ...` — выполнение через mpup-ssh.
+    """`mpu p ssh <selector> -- node ...` — выполнение через mpu p ssh.
 
-    `mpup-ssh` выбирает Portainer/ssh transparently из `~/.config/mpu/.env`. Эта обёртка
+    `mpu p ssh` выбирает Portainer/ssh transparently из `~/.config/mpu/.env`. Эта обёртка
     лишь конструирует строку для ручного запуска (не выполняет). Селектор берётся из
     `resolved.selector` — оригинальный аргумент пользователя; если его нет (пустой
     `value` в `resolve_server_only`), фоллбек на `sl-N`. `shlex.quote` страхует от
     пробелов / не-ASCII в title-селекторах.
     """
     selector = resolved.selector or f"sl-{resolved.server_number}"
-    return f"mpup-ssh {shlex.quote(selector)} -- {inner}"
+    return f"mpu p ssh {shlex.quote(selector)} -- {inner}"

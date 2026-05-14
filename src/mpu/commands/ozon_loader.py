@@ -1,4 +1,4 @@
-"""`mpu-ozon-loader <method>` — печать ssh+docker команд для service:ozonLoader."""
+"""`mpu ozon-loader <method>` — печать ssh+docker команд для service:ozonLoader."""
 
 from typing import Annotated
 
@@ -10,11 +10,10 @@ from mpu.lib.cli_wrap import (
     emit_node_cli,
     require,
     resolve_selector,
-    run_with_wrapper,
 )
 from mpu.lib.factories import loader_by_seller_client
 
-COMMAND_NAME = "mpu-ozon-loader"
+COMMAND_NAME = "mpu ozon-loader"
 
 # Дефолтная sequence для ozonLoader.loadData — 18-этапный пайплайн загрузки Ozon.
 # Выводим как массив пробельно-разделённых токенов (sl-back parseMethodArgs читает массивом),
@@ -113,13 +112,3 @@ def load_data(
         wrapper="local" if local else "ssh",
         command_name=COMMAND_NAME,
     )
-
-
-def run() -> None:
-    """Entry point для `mpu-ozon-loader`."""
-    app()
-
-
-def run_portainer() -> None:
-    """Entry point для `mpup-ozon-loader` — `mpup-ssh <selector> -- node ...`."""
-    run_with_wrapper(app, "portainer")

@@ -41,23 +41,34 @@
 
 ## Архитектура bin'ов
 
-Каждая subcommand — **отдельный bin** в `[project.scripts]` (`mpu-search`, `mpu-sql`, `mpu-update`, `mpu-backup-wb-unit-proto`, `mpu-backup-ozon-unit-proto`, `mpu-help`). Корневой `mpu` — только cross-cutting (на сейчас — `mpu version`). Подсистему `mpu <subcommand>` не строим: каждая команда — автономная shell-команда, со своим `--help` и автодополнением, без двойной точки входа.
+Один бинарь — `mpu` (`[project.scripts]` → `mpu.cli:main`). Подкоманды диспатчатся внутри в три namespace'а:
 
-Регистрация новой команды: `[project.scripts]` в `pyproject.toml` + в модуле — `COMMAND_NAME` / `COMMAND_SUMMARY` константы, `app = typer.Typer(...)` и `def run(): app()` + добавить модуль в `_REGISTERED_MODULES` в `commands/help.py` (откуда `mpu-help` собирает список и проброс `--help`).
+- `mpu <X>` — print + clipboard для ssh+docker обёртки (бывший `mpu-X`)
+- `mpu p <X>` — exec через Portainer (бывший `mpup-X`); `--print` на p-callback возвращает в print-mode
+- `mpu api <X>` — HTTP-клиенты sl-back (бывший `mpuapi-X`)
+
+Source of truth: `src/mpu/cli_registry.py` (root и `p`) + `src/mpu/commands/_mpuapi_spec.COMMANDS` (api). Mount происходит в `cli.py` через `_mount(parent, registry)` и `build_api_group()`.
+
+Регистрация новой команды:
+- print/portainer subcommand: модуль в `src/mpu/commands/<name>.py` — `COMMAND_NAME` / `COMMAND_SUMMARY` константы, `app = typer.Typer(...)`. Добавить kebab-имя в `PRINT_COMMANDS` и/или `PORTAINER_COMMANDS` в `cli_registry.py`. Добавить модуль в `_REGISTERED_MODULES` в `commands/help.py` (откуда `mpu help` собирает список).
+- api subcommand: добавить `CommandSpec` в `_mpuapi_spec.COMMANDS`.
 
 ## Структура
 
 ```
-pyproject.toml              # uv-managed, зависимости, [project.scripts]
+pyproject.toml              # uv-managed, зависимости, [project.scripts] → mpu = mpu.cli:main
 uv.lock
 src/mpu/
   __init__.py               # __version__
-  __main__.py               # `python -m mpu` → cli.app()
-  cli.py                    # `mpu` root — на сейчас только `mpu version`
+  __main__.py               # `python -m mpu` → cli.main()
+  cli.py                    # root Typer app + p-subgroup + api click.Group bridge
+  cli_registry.py           # PRINT_COMMANDS / PORTAINER_COMMANDS (kebab → module)
   commands/
     __init__.py
-    <name>.py               # одна subcommand — один файл (typer.Typer + run())
+    <name>.py               # одна subcommand — один файл (typer.Typer app)
     _<shared>.py            # private helper для группы команд (напр. _backup_unit_proto.py)
+    _mpuapi_spec.py         # COMMANDS — спека всех `mpu api <X>` endpoint'ов
+    _mpuapi_runtime.py      # build_api_group() — click.Group для `mpu api`
   lib/
     __init__.py
     servers.py              # резолв sl-N → server_number → IP из ~/.config/mpu/.env
@@ -86,7 +97,7 @@ tests/                      # test_<module>.py, выровнены по моду
    - Унифицированные пустоты: везде `None` (в JSON — `null`); в TSV — пустая ячейка. Не смешивать `None` / `""` / отсутствующий ключ для одного семантического состояния.
    - Tabular-вывод (TSV/CSV) — ровный по колонкам: пустая ячейка, не выкинутая колонка.
 
-3. **Read-команды против внешних систем кэшируются.** Когда такой кэш заводится — отдельный модуль в `lib/`, master-switch на отключение, имя ключа в форме `<область>:<идентификатор>[:<вариант>]`, payload в ключе не вкладываем. На сейчас единственная закэшированная read-команда — `mpu-search` против локального SQLite-снапшота из `mpu-update`.
+3. **Read-команды против внешних систем кэшируются.** Когда такой кэш заводится — отдельный модуль в `lib/`, master-switch на отключение, имя ключа в форме `<область>:<идентификатор>[:<вариант>]`, payload в ключе не вкладываем. На сейчас единственная закэшированная read-команда — `mpu search` против локального SQLite-снапшота из `mpu update`.
 
 4. **PG-запросы (ad-hoc SQL) — без кэша.** SELECT'ы против клиентских БД должны видеть свежие данные.
 
@@ -123,23 +134,28 @@ uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run 
 1. Понять задачу. Если она ссылается на уже существующее поведение в `new-mpu` (`~/mr/workspace/go/mpu/`) — прочитать соответствующий код TS-версии для контекста и **подтвердить с пользователем**, нужно ли такое же поведение, или другое.
 2. Перед новой зависимостью / новым файлом в корне / новой схемой БД / новой командой / именами флагов — **спросить пользователя до создания**.
 3. Внутри согласованной структуры — действовать самостоятельно:
-   - новая команда → `src/mpu/commands/<name>.py` с `COMMAND_NAME` / `COMMAND_SUMMARY` константами, `app = typer.Typer(...)`, `def run(): app()`; зарегистрировать в `[project.scripts]` `pyproject.toml` и добавить модуль в `_REGISTERED_MODULES` `commands/help.py`
+   - новая команда → `src/mpu/commands/<name>.py` с `COMMAND_NAME` / `COMMAND_SUMMARY` константами и `app = typer.Typer(...)`; зарегистрировать kebab-имя в `cli_registry.py` (в `PRINT_COMMANDS` и/или `PORTAINER_COMMANDS`) и добавить модуль в `_REGISTERED_MODULES` `commands/help.py`
    - shared логика для группы команд → `commands/_<name>.py` (см. `_backup_unit_proto.py`)
    - shared утилита уровня lib (резолв, БД, env) → `lib/<name>.py`
    - тесты — рядом с модулем в `tests/test_<module>.py`
 
 ## Сейчас в репо
 
-| bin | модуль | назначение |
-| --- | ------ | ---------- |
+| subcommand | модуль | назначение |
+| ---------- | ------ | ---------- |
 | `mpu version` | `cli.py` | версия пакета |
-| `mpu-search` | `commands/search.py` | поиск клиента / spreadsheet в локальном SQLite-кэше |
-| `mpu-update` | `commands/update.py` | синк `~/.config/mpu/mpu.db` со всех PG-серверов |
-| `mpu-sql` | `commands/sql.py` | выполнить SQL на удалённом PG по селектору |
-| `mpu-backup-wb-unit-proto` | `commands/backup_wb_unit_proto.py` | CTAS-бэкап `wb_unit_proto` в `backups`-схему |
-| `mpu-backup-ozon-unit-proto` | `commands/backup_ozon_unit_proto.py` | CTAS-бэкап `ozon_unit_proto` в `backups`-схему |
-| `mpu-backup-wb-unit-manual-data` | `commands/backup_wb_unit_manual_data.py` | CTAS-бэкап `wb_unit_manual_data` в `backups`-схему |
-| `mpu-help` | `commands/help.py` | список команд + проброс `--help` каждой |
+| `mpu init` | `cli.py` | bootstrap SQLite + Portainer/Loki discovery |
+| `mpu search` | `commands/search.py` | поиск клиента / spreadsheet в локальном SQLite-кэше |
+| `mpu update` | `commands/update.py` | синк `~/.config/mpu/mpu.db` со всех PG-серверов |
+| `mpu sql` | `commands/sql.py` | выполнить SQL на удалённом PG по селектору |
+| `mpu backup-wb-unit-proto` | `commands/backup_wb_unit_proto.py` | CTAS-бэкап `wb_unit_proto` в `backups`-схему |
+| `mpu backup-ozon-unit-proto` | `commands/backup_ozon_unit_proto.py` | CTAS-бэкап `ozon_unit_proto` в `backups`-схему |
+| `mpu backup-wb-unit-manual-data` | `commands/backup_wb_unit_manual_data.py` | CTAS-бэкап `wb_unit_manual_data` в `backups`-схему |
+| `mpu help` | `commands/help.py` | список команд + проброс `--help` каждой |
+| `mpu p <X>` | `commands/<X>.py` | exec через Portainer (`mpu p --print <X>` — print-mode) |
+| `mpu api <X>` | `commands/_mpuapi_*.py` | HTTP-клиенты для sl-back endpoints (~86 шт) |
+
+Полный список subcommand'ов root и `p`: см. `PRINT_COMMANDS` и `PORTAINER_COMMANDS` в `cli_registry.py`. Полный список api: `mpu api --help` или `COMMANDS` в `commands/_mpuapi_spec.py`.
 
 ## Язык
 

@@ -206,7 +206,7 @@ def test_cli_unknown_ip_skips_auto_update(
 
 
 def test_cli_pg_ip_projection(db: sqlite3.Connection) -> None:
-    """`mpu-search <pg_ip> --server-number` → номер сервера plain."""
+    """`mpu search <pg_ip> --server-number` → номер сервера plain."""
     res = runner.invoke(search.app, ["10.1.0.1", "--server-number", "--no-update"])
     assert res.exit_code == 0
     lines = [ln for ln in res.stdout.splitlines() if ln]

@@ -1,9 +1,9 @@
-"""`mpu-run-js` — выполнить произвольный ESM-код внутри `mp-sl-N-cli` контейнера.
+"""`mpu run-js` — выполнить произвольный ESM-код внутри `mp-sl-N-cli` контейнера.
 
 Селектор сервера — позиционный, универсальный (см. `mpu.lib.resolver.resolve_server`):
   - `sl-N` — прямой указатель сервера (без обращения к SQLite-кэшу);
-  - `client_id` (число), кусок `spreadsheet_id`, кусок `title` — резолв через `mpu-search`
-    (локальный SQLite-кэш `~/.config/mpu/mpu.db`, обновляется через `mpu-update`).
+  - `client_id` (число), кусок `spreadsheet_id`, кусок `title` — резолв через `mpu search`
+    (локальный SQLite-кэш `~/.config/mpu/mpu.db`, обновляется через `mpu update`).
 
 Альтернатива — `--all`: fan-out по всем sl-N (N>0) из SQLite-кэша
 (`mpu init` наполняет `portainer_containers`). Селектор и `--all` взаимоисключающи.
@@ -11,22 +11,22 @@
 JS поступает из (в порядке приоритета):
   1. Позиционный аргумент `code` после селектора (для однострочников);
   2. `--file/-f path/to/script.mjs`;
-  3. stdin: pipe (`cat x.mjs | mpu-run-js ...`) либо интерактивный TTY с EOF (Ctrl+D).
+  3. stdin: pipe (`cat x.mjs | mpu run-js ...`) либо интерактивный TTY с EOF (Ctrl+D).
 
 По умолчанию JS выполняется через `mpu.lib.pssh.pssh_run` (ssh+docker exec или Portainer
 HTTP API — выбирается per-server по `~/.config/mpu/.env`); при `--dry-run` печатается
-copy-pasteable `mpup-ssh sl-N -- node ... <<HEREDOC` блок и копируется в clipboard.
+copy-pasteable `mpu p ssh sl-N -- node ... <<HEREDOC` блок и копируется в clipboard.
 
 Скрипт исполняется через `node --input-type=module -`, поэтому ему доступны
 node_modules sl-back, import aliases (`#bullmq/...`), env (Redis/PG hosts),
 `"type": "module"` из `package.json`. Cwd внутри контейнера — корень приложения.
 
 Примеры:
-  mpu-run-js sl-1 'console.log(1)'
-  mpu-run-js 12345 'console.log(1)'           # client_id → server через mpu-search
-  mpu-run-js "Тортуга main" -f script.mjs     # title → server через mpu-search
-  cat script.mjs | mpu-run-js sl-11
-  mpu-run-js --all 'console.log("on every sl-N")'
+  mpu run-js sl-1 'console.log(1)'
+  mpu run-js 12345 'console.log(1)'           # client_id → server через mpu search
+  mpu run-js "Тортуга main" -f script.mjs     # title → server через mpu search
+  cat script.mjs | mpu run-js sl-11
+  mpu run-js --all 'console.log("on every sl-N")'
 """
 
 import sys
@@ -40,7 +40,7 @@ from mpu.lib.clipboard import copy_to_clipboard
 from mpu.lib.pssh import pssh_run
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
-COMMAND_NAME = "mpu-run-js"
+COMMAND_NAME = "mpu run-js"
 COMMAND_SUMMARY = "Запустить произвольный JS внутри mp-sl-N-cli по селектору (или --all)"
 
 # Команда, которой кормим JS на каждом сервере: ESM из stdin.
@@ -113,16 +113,16 @@ def _resolve_servers(selector: str | None, all_active: bool) -> list[int]:
 
 
 def _build_dry_run_block(target_numbers: list[int], js: str) -> str:
-    """Печать `mpup-ssh sl-N -- node --input-type=module - <<HEREDOC` блока.
+    """Печать `mpu p ssh sl-N -- node --input-type=module - <<HEREDOC` блока.
 
-    Одинаково для ssh и Portainer — `mpup-ssh` сам выберет транспорт при paste'е.
+    Одинаково для ssh и Portainer — `mpu p ssh` сам выберет транспорт при paste'е.
     """
     js_body = js.rstrip("\n")
     lines: list[str] = []
     for n in target_numbers:
         if len(target_numbers) > 1:
             lines.append(f"# server=sl-{n}")
-        lines.append(f"mpup-ssh sl-{n} -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'")
+        lines.append(f"mpu p ssh sl-{n} -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'")
         lines.append(js_body)
         lines.append("__MPU_RUN_JS_EOF__")
     return "\n".join(lines)
@@ -133,7 +133,7 @@ def main(
     selector: Annotated[
         str | None,
         typer.Argument(
-            help="sl-N (прямо) или client_id / spreadsheet_id / title (через mpu-search). "
+            help="sl-N (прямо) или client_id / spreadsheet_id / title (через mpu search). "
             "Взаимоисключающе с --all."
         ),
     ] = None,
@@ -194,8 +194,3 @@ def main(
         if rc != 0:
             typer.echo(f"{COMMAND_NAME}: sl-{n} exit={rc} — abort", err=True)
             raise typer.Exit(code=rc)
-
-
-def run() -> None:
-    """Entry point для `mpu-run-js`."""
-    app()

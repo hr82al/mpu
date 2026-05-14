@@ -1,12 +1,12 @@
 """Резолв селектора (sl-N / client_id / spreadsheet_id / title) в server_number.
 
 Универсальный селектор: если value матчит `sl-N` — шорт-цикл (поиск пропускается),
-иначе ищет через `mpu-search` (client_id / spreadsheet_id substring / title substring)
+иначе ищет через `mpu search` (client_id / spreadsheet_id substring / title substring)
 и проверяет однозначность по серверу. Несколько кандидатов на разных серверах →
 `ResolveError` с `.candidates`.
 
 Для backwards-compat сохранён `server_override` — отдельный sl-N override
-поверх селектора (используется в `mpu-sql`).
+поверх селектора (используется в `mpu sql`).
 """
 
 from mpu.commands.search import search
@@ -29,7 +29,7 @@ def resolve_server(
     Порядок:
       1. `server_override="sl-N"` — приоритетный override, обходит селектор и поиск.
       2. `value` матчит `sl-N` — шорт-цикл, возвращает (N, []), без обращения к SQLite.
-      3. Иначе — поиск через `mpu-search` (client_id / spreadsheet_id / title).
+      3. Иначе — поиск через `mpu search` (client_id / spreadsheet_id / title).
 
     Бросает `ResolveError` если 0 кандидатов или они на разных серверах.
     """

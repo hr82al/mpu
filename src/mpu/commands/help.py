@@ -1,4 +1,4 @@
-"""`mpu-help` — список доступных команд и справка по ним."""
+"""`mpu help` — список доступных команд и справка по ним."""
 
 from typing import Annotated
 
@@ -66,7 +66,7 @@ def main(
 
     entry = _COMMANDS.get(command)
     if entry is None:
-        typer.echo(f"mpu-help: unknown command '{command}'", err=True)
+        typer.echo(f"mpu help: unknown command '{command}'", err=True)
         typer.echo(f"Known commands: {', '.join(_COMMANDS.keys())}", err=True)
         raise typer.Exit(code=2)
 
@@ -98,9 +98,4 @@ _REGISTERED_MODULES = (
 _COMMANDS: dict[str, tuple[str, typer.Typer]] = {
     m.COMMAND_NAME: (m.COMMAND_SUMMARY, m.app) for m in _REGISTERED_MODULES
 }
-_COMMANDS["mpu-help"] = ("Список команд", app)
-
-
-def run() -> None:
-    """Entry point для `mpu-help`."""
-    app()
+_COMMANDS["mpu help"] = ("Список команд", app)

@@ -1,4 +1,4 @@
-"""Loki-backend для `mpu-logs` — `query_range` против `LOKI_URL` без auth.
+"""Loki-backend для `mpu logs` — `query_range` против `LOKI_URL` без auth.
 
 Маппинг labels стенда (см. вывод `/loki/api/v1/labels`):
     host             — sl-0..sl-14, wb-0..wb-3, dt-1, wb-clusters, wb-positions
@@ -13,7 +13,7 @@ Selector → host:
 
 Кэш hosts/services для autocompletion и `ls` — таблицы `loki_hosts` /
 `loki_services_by_host` в `~/.config/mpu/mpu.db`. Заполняются `mpu init` и
-`mpu-update` через `lib/loki_discover.py`.
+`mpu update` через `lib/loki_discover.py`.
 """
 
 import re
@@ -204,11 +204,11 @@ def cached_all_services() -> list[str]:
 
 
 def print_hosts_ls(*, command_name: str) -> None:
-    """`mpu-logs ls` — печатает hosts из кэша. Подсказывает `mpu init` если пусто."""
+    """`mpu logs ls` — печатает hosts из кэша. Подсказывает `mpu init` если пусто."""
     hosts = cached_hosts()
     if not hosts:
         typer.echo(
-            f"{command_name}: кэш hosts пуст. Запусти `mpu init` или `mpu-update`.",
+            f"{command_name}: кэш hosts пуст. Запусти `mpu init` или `mpu update`.",
             err=True,
         )
         raise typer.Exit(code=2)
@@ -217,12 +217,12 @@ def print_hosts_ls(*, command_name: str) -> None:
 
 
 def print_services_ls(host: str, *, command_name: str) -> None:
-    """`mpu-logs <host> ls` — печатает services для host из кэша."""
+    """`mpu logs <host> ls` — печатает services для host из кэша."""
     services = cached_services_for_host(host)
     if not services:
         typer.echo(
             f"{command_name}: для host={host!r} нет services в кэше. "
-            f"Проверь host через `mpu-logs ls` или обнови кэш через `mpu-update`.",
+            f"Проверь host через `mpu logs ls` или обнови кэш через `mpu update`.",
             err=True,
         )
         raise typer.Exit(code=2)

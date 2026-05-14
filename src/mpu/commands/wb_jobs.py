@@ -1,11 +1,10 @@
-"""`mpu-wb-jobs <method>` — печать ssh+docker команд для service:wbJobs."""
+"""`mpu wb-jobs <method>` — печать ssh+docker команд для service:wbJobs."""
 
 import typer
 
-from mpu.lib.cli_wrap import run_with_wrapper
 from mpu.lib.factories import jobs_show
 
-COMMAND_NAME = "mpu-wb-jobs"
+COMMAND_NAME = "mpu wb-jobs"
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -24,13 +23,3 @@ jobs_show.register(
     methods=[("show", "showJobs")],
     command_name=COMMAND_NAME,
 )
-
-
-def run() -> None:
-    """Entry point для `mpu-wb-jobs`."""
-    app()
-
-
-def run_portainer() -> None:
-    """Entry point для `mpup-wb-jobs` — `mpup-ssh <selector> -- node ...`."""
-    run_with_wrapper(app, "portainer")

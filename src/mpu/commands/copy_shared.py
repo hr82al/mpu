@@ -1,4 +1,4 @@
-"""`mpu-copy-shared <selector>` — скопировать общие справочные таблицы (schema=shared)
+"""`mpu copy-shared <selector>` — скопировать общие справочные таблицы (schema=shared)
 с удалённого PG в локальный dev-PG.
 
 Source-PG резолвится из селектора. Прогоняет `node src/pgDataTransfer.js transferTables`
@@ -14,7 +14,7 @@ import typer
 from mpu.lib import dt_host, servers
 from mpu.lib.resolver import ResolveError, resolve_server
 
-COMMAND_NAME = "mpu-copy-shared"
+COMMAND_NAME = "mpu copy-shared"
 COMMAND_SUMMARY = "Скопировать shared-таблицы с удалённого PG в локальный dev-PG"
 
 SHARED_TABLES: tuple[str, ...] = (
@@ -94,8 +94,3 @@ def main(
 
     rc = dt_host.exec_cli(inner, command_name=COMMAND_NAME)
     raise typer.Exit(code=rc)
-
-
-def run() -> None:
-    """Entry point для `mpu-copy-shared`."""
-    app()

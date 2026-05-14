@@ -1,7 +1,7 @@
-"""`mpu-copy-client <selector>` — скопировать клиента с удалённого PG в локальный dev-PG.
+"""`mpu copy-client <selector>` — скопировать клиента с удалённого PG в локальный dev-PG.
 
 Гонит `node ./src/clientsTransfer.js copy` внутри локального `dt-host-cli` контейнера
-(`compose.sl-dt-host.yaml`). Source-PG резолвится из селектора (`mpu-search`-семантика:
+(`compose.sl-dt-host.yaml`). Source-PG резолвится из селектора (`mpu search`-семантика:
 client_id / spreadsheet_id substring / title substring / sl-N). Target — всегда `sl-1`
 (локальный dev), `127.0.0.1:5441`.
 
@@ -16,7 +16,7 @@ import typer
 from mpu.lib import dt_host, servers
 from mpu.lib.resolver import ResolveError, resolve_server
 
-COMMAND_NAME = "mpu-copy-client"
+COMMAND_NAME = "mpu copy-client"
 COMMAND_SUMMARY = "Скопировать клиента с удалённого PG в локальный dev-PG через dt-host"
 
 app = typer.Typer(
@@ -111,8 +111,3 @@ def main(
 
     rc = dt_host.exec_cli(inner, command_name=COMMAND_NAME)
     raise typer.Exit(code=rc)
-
-
-def run() -> None:
-    """Entry point для `mpu-copy-client`."""
-    app()

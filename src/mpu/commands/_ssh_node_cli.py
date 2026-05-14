@@ -6,7 +6,7 @@
             --client-id <id> --date-from <df> --date-to <dt>[ --nm-ids <nms>]"'
 
 Команда только выводится в stdout, не выполняется — пользователь сам копирует и запускает.
-Селектор — то же, что у `mpu-search` (client_id / spreadsheet_id substring / title substring).
+Селектор — то же, что у `mpu search` (client_id / spreadsheet_id substring / title substring).
 
 С флагом `--local` обёртка меняется на `sl-N-cli sh -c "..."` (alias из mp-config-local).
 

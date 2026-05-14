@@ -1,4 +1,4 @@
-"""Тесты `mpu-move-client` (mpu.commands.move_client)."""
+"""Тесты `mpu move-client` (mpu.commands.move_client)."""
 
 from collections.abc import Iterator
 from typing import cast
@@ -113,7 +113,7 @@ def test_resolve_error(monkeypatch: pytest.MonkeyPatch, fake_run: dict[str, obje
     res = runner.invoke(cmd.app, ["missing"])
 
     assert res.exit_code == 2
-    assert "mpu-move-client: nothing matched" in res.output
+    assert "mpu move-client: nothing matched" in res.output
 
 
 def test_ambiguous_client_ids(monkeypatch: pytest.MonkeyPatch, fake_run: dict[str, object]) -> None:

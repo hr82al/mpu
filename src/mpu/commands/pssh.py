@@ -1,18 +1,18 @@
-"""`mpup-ssh` — выполнить команду в произвольном контейнере; ssh+docker или Portainer transparently.
+"""`mpu p ssh` — выполнить команду в произвольном контейнере (ssh+docker или Portainer).
 
-UX: `mpup-ssh <selector> <cmd...>` — единый интерфейс независимо от того, есть ли прямой ssh
+UX: `mpu p ssh <selector> <cmd...>` — единый интерфейс независимо от того, есть ли прямой ssh
 или только Portainer-доступ. Селектор универсальный (порядок резолва):
   - `sl-N` — прямой указатель sl-сервера; контейнер `mp-sl-N-cli`; ssh+docker или Portainer.
   - точное имя контейнера в Portainer-кэше (например `mp-dt-cli`) — Portainer-only,
     транспорт ssh для произвольного контейнера не поддерживается. На неоднозначность
     (одно имя на нескольких endpoint'ах) — печатается список Portainer-endpoint'ов.
-  - `client_id` (число), кусок `spreadsheet_id`, кусок `title` — резолв через `mpu-search`
-    (локальный SQLite-кэш `~/.config/mpu/mpu.db`, обновляется через `mpu-update`).
+  - `client_id` (число), кусок `spreadsheet_id`, кусок `title` — резолв через `mpu search`
+    (локальный SQLite-кэш `~/.config/mpu/mpu.db`, обновляется через `mpu update`).
 
 Источники stdin (по приоритету; первый победивший — он и используется):
   1. `--stdin-text "..."` — inline-строка;
   2. `--stdin-file ./x` — содержимое файла;
-  3. pipe: `cat x | mpup-ssh ...` (stdin не TTY) — forward'ится в команду;
+  3. pipe: `cat x | mpu p ssh ...` (stdin не TTY) — forward'ится в команду;
   4. `--stdin-tty` — интерактивный TTY-ввод: подсказка про Ctrl+D, читаем до EOF.
 По умолчанию из TTY ничего не читается — большинству команд (ls, ps, echo) stdin не нужен,
 блокироваться на prompt'е нет смысла. Если команда внутри контейнера читает stdin —
@@ -26,14 +26,14 @@ stdout/stderr ребёнка — напрямую в наш stdout/stderr. Exit 
   - оба заданы → ssh (быстрее); override через `--via portainer`
 
 Примеры:
-  mpup-ssh sl-1 -- ls -la /app
-  mpup-ssh mp-dt-cli -- node cli service:clientsTransfer createJob ...  # direct container
-  mpup-ssh 12345 -- ps -eo pid,etime,args        # client_id → server через mpu-search
-  mpup-ssh "Тортуга" -- ls /app                   # title → server через mpu-search
-  cat script.mjs | mpup-ssh sl-11 -- node --input-type=module -
-  mpup-ssh sl-11 --stdin-text 'console.log(1)' -- node --input-type=module -
-  mpup-ssh sl-1 --via portainer -- ls /app
-  mpup-ssh sl-11 --stdin-tty -- cat   # явный интерактивный ввод, Ctrl+D для EOF
+  mpu p ssh sl-1 -- ls -la /app
+  mpu p ssh mp-dt-cli -- node cli service:clientsTransfer createJob ...  # direct container
+  mpu p ssh 12345 -- ps -eo pid,etime,args        # client_id → server через mpu search
+  mpu p ssh "Тортуга" -- ls /app                   # title → server через mpu search
+  cat script.mjs | mpu p ssh sl-11 -- node --input-type=module -
+  mpu p ssh sl-11 --stdin-text 'console.log(1)' -- node --input-type=module -
+  mpu p ssh sl-1 --via portainer -- ls /app
+  mpu p ssh sl-11 --stdin-tty -- cat   # явный интерактивный ввод, Ctrl+D для EOF
 """
 
 import sys
@@ -47,7 +47,7 @@ from mpu.lib import containers, servers
 from mpu.lib import pssh as _pssh
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
-COMMAND_NAME = "mpup-ssh"
+COMMAND_NAME = "mpu p ssh"
 COMMAND_SUMMARY = "Запустить cmd в mp-sl-N-cli по селектору (ssh+docker или Portainer)"
 
 
@@ -73,9 +73,9 @@ def _resolve_target(selector: str) -> _ServerTarget | _ContainerTarget:
     Порядок:
       1. `sl-N` формат → `_ServerTarget(N)`; N>0 валидируется здесь же.
       2. Точное имя контейнера в Portainer-кэше (1 совпадение) → `_ContainerTarget(name)`.
-      3. >1 совпадение по имени контейнера → ошибка с вариантами (без fallback в mpu-search,
+      3. >1 совпадение по имени контейнера → ошибка с вариантами (без fallback в mpu search,
          чтобы не маскировать опечатку с легитимным client-селектором).
-      4. Иначе — `resolve_server` (mpu-search по client_id/spreadsheet_id/title).
+      4. Иначе — `resolve_server` (mpu search по client_id/spreadsheet_id/title).
     """
     n = servers.server_number(selector)
     if n is not None:
@@ -152,7 +152,7 @@ def main(
         str,
         typer.Argument(
             help="sl-N | точное имя контейнера (e.g. mp-dt-cli) | "
-            "client_id / spreadsheet_id / title (через mpu-search)"
+            "client_id / spreadsheet_id / title (через mpu search)"
         ),
     ],
     via: Annotated[
@@ -201,8 +201,3 @@ def main(
             raise typer.Exit(code=2)
         rc = _pssh.pssh_run_container(container=target.container, cmd=cmd, stdin=stdin_bytes)
     raise typer.Exit(code=rc)
-
-
-def run() -> None:
-    """Entry point для `mpup-ssh`."""
-    app()

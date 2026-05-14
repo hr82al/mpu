@@ -1,4 +1,4 @@
-"""Portainer-backend для `mpu-logs --via portainer` — `docker logs --tail`.
+"""Portainer-backend для `mpu logs --via portainer` — `docker logs --tail`.
 
 Извлечён без изменений поведения из старой `commands/logs.py`. Используется как
 fallback, когда нужен свежий snapshot конкретного контейнера на конкретном sl-N
@@ -67,7 +67,7 @@ def _resolve_container_name(pr: PortainerResolved, query: str, *, command_name: 
     sl = f"sl-{pr.server_number}"
     if not matches:
         typer.echo(f"{command_name}: контейнер {query!r} не найден на {sl}", err=True)
-        typer.echo(f"  подсказка: mpup-ps {sl}", err=True)
+        typer.echo(f"  подсказка: mpu p ps {sl}", err=True)
         raise typer.Exit(code=2)
     if len(matches) > 1:
         typer.echo(

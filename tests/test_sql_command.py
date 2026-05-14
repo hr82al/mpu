@@ -1,4 +1,4 @@
-"""Тесты CLI `mpu-sql` (mpu.commands.sql)."""
+"""Тесты CLI `mpu sql` (mpu.commands.sql)."""
 
 from collections.abc import Iterator
 from pathlib import Path

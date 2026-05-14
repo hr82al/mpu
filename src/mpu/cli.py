@@ -1,11 +1,22 @@
-"""mpu — top-level Typer CLI. Subcommands are added via `app.add_typer(...)`."""
+"""mpu — top-level Typer CLI. Subcommands are added via `app.add_typer(...)`.
 
-from typing import Annotated
+Три namespace'а монтируются в один `app`:
+- root: `mpu <X>` (бывший `mpu-X`) — print + clipboard
+- `mpu p <X>` (бывший `mpup-X`) — exec через Portainer; `--print` возвращает в print-mode
+- `mpu api <X>` (бывший `mpuapi-X`) — HTTP-клиенты sl-back (click.Group)
+"""
 
+import importlib
+import os
+from typing import Annotated, cast
+
+import click
 import typer
 
 from mpu import __version__
+from mpu.cli_registry import PORTAINER_COMMANDS, PRINT_COMMANDS
 from mpu.lib import loki_discover, portainer_discover, store
+from mpu.lib.cli_wrap import PRINT_ONLY_ENV, WRAPPER_ENV
 
 app = typer.Typer(
     name="mpu",
@@ -18,6 +29,73 @@ app = typer.Typer(
 @app.callback()
 def _root() -> None:  # pyright: ignore[reportUnusedFunction]
     """Удерживает multi-command структуру: без callback typer схлопывает single command в root."""
+
+
+def _mount(parent: typer.Typer, registry: dict[str, tuple[str, str]]) -> None:
+    """Смонтировать подкоманды из registry в `parent` Typer-app.
+
+    Для single-command Typer-app'ов (например `search.py` с одной `@app.command()`)
+    регистрируем команду напрямую — иначе при `add_typer` Typer требует явный
+    subcommand-name (`mpu search main 1` вместо ожидаемого `mpu search 1`).
+    Для multi-command app'ов (`data-loader find-candidate`, и т.п.) — обычный `add_typer`.
+    """
+    for name, (module, attr) in registry.items():
+        sub_app = getattr(importlib.import_module(module), attr)
+        registered = sub_app.registered_commands
+        if len(registered) == 1 and not sub_app.registered_groups:
+            # Single-command — re-register функцию напрямую под kebab-name.
+            # Иначе `mpu search 1` → "Missing command", потребует `mpu search main 1`.
+            help_text = sub_app.info.help if isinstance(sub_app.info.help, str) else None
+            parent.command(name=name, help=help_text)(registered[0].callback)
+        else:
+            parent.add_typer(sub_app, name=name)
+
+
+_mount(app, PRINT_COMMANDS)
+
+p_app = typer.Typer(
+    name="p",
+    help="Portainer-exec namespace (бывший `mpup-*`). Дефолт — выполнение через Portainer; "
+    "`--print` возвращает в print + clipboard.",
+    no_args_is_help=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+
+
+@p_app.callback()
+def _p_root(  # pyright: ignore[reportUnusedFunction]
+    print_only: Annotated[
+        bool,
+        typer.Option("--print", "-p", help="Печатать строку обёртки + clipboard, не выполнять."),
+    ] = False,
+) -> None:
+    """Перед диспатчем subcommand: `MPU_WRAPPER=portainer` (+ опционально `MPU_PRINT_ONLY=1`).
+
+    Существующая логика `emit_node_cli()` в `mpu.lib.cli_wrap` читает обе env'ы.
+    """
+    os.environ[WRAPPER_ENV] = "portainer"
+    if print_only:
+        os.environ[PRINT_ONLY_ENV] = "1"
+
+
+_mount(p_app, PORTAINER_COMMANDS)
+app.add_typer(p_app)
+
+
+def main() -> None:
+    """Entry point для `mpu` бинаря (pyproject.toml#[project.scripts]).
+
+    Конвертирует Typer-app в click.Group и добавляет `api` (нативный click.Group)
+    как subcommand. Прямое монтирование через `app.add_typer(...)` не подходит:
+    `build_api_group()` возвращает `click.Group`, не `typer.Typer`.
+    """
+    from mpu.commands._mpuapi_runtime import build_api_group
+
+    # Typer.main.get_command возвращает click.Command (на уровне типов),
+    # но при multi-command typer-app — это всегда click.Group.
+    click_app = cast(click.Group, typer.main.get_command(app))
+    click_app.add_command(build_api_group(), name="api")
+    click_app()
 
 
 @app.command(name="version")
@@ -47,7 +125,7 @@ def init_cmd(
     """Discover все контейнеры через Portainer API и закэшировать в `~/.config/mpu/mpu.db`.
 
     Кэшируем все контейнеры, помечая `mp-sl-N-cli` через `server_number`. Этот кэш
-    потом читает `mpup-ssh` для резолва Portainer-транспорта.
+    потом читает `mpu p ssh` для резолва Portainer-транспорта.
     """
     # Шаг 1: bootstrap SQLite-схемы (отсюда — всегда, других мест нет).
     with store.store() as conn:

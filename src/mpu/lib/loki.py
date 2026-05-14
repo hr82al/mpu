@@ -1,4 +1,4 @@
-"""Loki HTTP client — `/loki/api/v1/query_range` для tail-семантики `mpu-logs`.
+"""Loki HTTP client — `/loki/api/v1/query_range` для tail-семантики `mpu logs`.
 
 Без auth (Loki в стенде доступен напрямую по приватной сети). `LOKI_URL` берётся
 из `~/.config/mpu/.env` через `servers.env_value`. Если поле не задано — caller

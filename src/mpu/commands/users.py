@@ -1,7 +1,7 @@
-"""`mpu-users <selector> <method>` — печать ssh+docker команд для service:users (на main).
+"""`mpu users <selector> <method>` — печать ssh+docker команд для service:users (на main).
 
 Селектор универсальный: `sl-N` (обычно `sl-1` — main) либо `client_id` / spreadsheet /
-title substring. UX: `mpu-users sl-1 add --email foo@example.com`.
+title substring. UX: `mpu users sl-1 add --email foo@example.com`.
 """
 
 from typing import Annotated
@@ -13,10 +13,9 @@ from mpu.lib.cli_wrap import (
     attach_selector_callback,
     emit_node_cli,
     resolve_from_ctx,
-    run_with_wrapper,
 )
 
-COMMAND_NAME = "mpu-users"
+COMMAND_NAME = "mpu users"
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -81,13 +80,3 @@ def add_role(
         wrapper=wrapper,
         command_name=COMMAND_NAME,
     )
-
-
-def run() -> None:
-    """Entry point для `mpu-users`."""
-    app()
-
-
-def run_portainer() -> None:
-    """Entry point для `mpup-users` — `mpup-ssh <selector> -- node ...`."""
-    run_with_wrapper(app, "portainer")

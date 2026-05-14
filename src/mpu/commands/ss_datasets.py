@@ -1,4 +1,4 @@
-"""`mpu-ss-datasets <method>` — печать ssh+docker команд для service:ssDatasets."""
+"""`mpu ss-datasets <method>` — печать ssh+docker команд для service:ssDatasets."""
 
 from typing import Annotated
 
@@ -10,10 +10,9 @@ from mpu.lib.cli_wrap import (
     emit_node_cli,
     require,
     resolve_selector,
-    run_with_wrapper,
 )
 
-COMMAND_NAME = "mpu-ss-datasets"
+COMMAND_NAME = "mpu ss-datasets"
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -80,13 +79,3 @@ def add(
         wrapper="local" if local else "ssh",
         command_name=COMMAND_NAME,
     )
-
-
-def run() -> None:
-    """Entry point для `mpu-ss-datasets`."""
-    app()
-
-
-def run_portainer() -> None:
-    """Entry point для `mpup-ss-datasets` — `mpup-ssh <selector> -- node ...`."""
-    run_with_wrapper(app, "portainer")

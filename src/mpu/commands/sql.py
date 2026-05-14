@@ -1,6 +1,6 @@
-"""`mpu-sql` — выполнить SQL на удалённом PG, выбираемом по селектору.
+"""`mpu sql` — выполнить SQL на удалённом PG, выбираемом по селектору.
 
-Селектор — то же, что у `mpu-search` (client_id / spreadsheet_id substring / title substring).
+Селектор — то же, что у `mpu search` (client_id / spreadsheet_id substring / title substring).
 
 SQL берётся (в порядке приоритета):
   1. Аргумент после селектора.
@@ -16,7 +16,7 @@ import typer
 from mpu.lib import sql_runner
 from mpu.lib.resolver import ResolveError, resolve_server
 
-COMMAND_NAME = "mpu-sql"
+COMMAND_NAME = "mpu sql"
 COMMAND_SUMMARY = "Выполнить SQL на удалённом PG по селектору"
 
 
@@ -69,14 +69,14 @@ def main(
     try:
         server_number, candidates = resolve_server(selector, server_override=server)
     except ResolveError as e:
-        typer.echo(f"mpu-sql: {e}", err=True)
+        typer.echo(f"mpu sql: {e}", err=True)
         if e.candidates:
             typer.echo(_format_candidates(e.candidates), err=True)
         raise typer.Exit(code=2) from None
 
     sql_text = _read_sql(sql)
     if not sql_text.strip():
-        typer.echo("mpu-sql: empty SQL", err=True)
+        typer.echo("mpu sql: empty SQL", err=True)
         raise typer.Exit(code=2)
 
     # Если все кандидаты указывают на одного клиента — ставим search_path
@@ -88,8 +88,3 @@ def main(
         server_number, sql_text, client_id=client_id, dry=dry, json_out=json_out
     )
     raise typer.Exit(code=code)
-
-
-def run() -> None:
-    """Entry point для `mpu-sql`."""
-    app()

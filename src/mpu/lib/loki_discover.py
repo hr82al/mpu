@@ -6,7 +6,7 @@
 
 Идемпотентно: при `discover_and_store(...)` — DELETE+INSERT в одной транзакции.
 Best-effort: если `LOKI_URL` не задан или Loki недоступен — возвращает `(0, 0)`,
-не бросает. Вызывается из `mpu init` и `mpu-update`.
+не бросает. Вызывается из `mpu init` и `mpu update`.
 """
 
 import time

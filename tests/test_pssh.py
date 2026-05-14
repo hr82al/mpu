@@ -281,7 +281,7 @@ def test_run_via_portainer_verify_tls_env(
     assert stub_portainer.instances[0].kwargs["verify_tls"] is True
 
 
-# ---------- mpup-ssh CLI ----------
+# ---------- mpu p ssh CLI ----------
 
 
 def test_pssh_cli_dispatches_to_pssh_run(
@@ -495,7 +495,7 @@ def test_pssh_cli_stdin_tty_and_text_mutex(
     assert "взаимоисключающи" in result.output
 
 
-# ---------- mpup-ssh CLI: container-name dispatch ----------
+# ---------- mpu p ssh CLI: container-name dispatch ----------
 
 
 def _seed_container(
@@ -524,7 +524,7 @@ def test_pssh_cli_dispatches_to_container_path(
     bootstrap_db: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`mpup-ssh mp-dt-cli -- ls` → pssh_run_container с этим именем (не pssh_run)."""
+    """`mpu p ssh mp-dt-cli -- ls` → pssh_run_container с этим именем (не pssh_run)."""
     _ = env_portainer_only
     _seed_container(
         bootstrap_db,
@@ -619,7 +619,7 @@ def test_pssh_cli_falls_through_to_mpu_search_when_container_not_found(
     bootstrap_db: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Незнакомое имя контейнера → mpu-search; sl-N path остаётся через pssh_run."""
+    """Незнакомое имя контейнера → mpu search; sl-N path остаётся через pssh_run."""
     _ = env_ssh_only
     # Бутстрапим пустую таблицу portainer_containers — `unknown-name` там нет.
     bootstrap_db(store.DB_PATH)  # type: ignore[operator]

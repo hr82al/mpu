@@ -1,4 +1,4 @@
-"""`mpu-wb-unit-proto-new copy-data-from-old-table` — миграция старой proto-таблицы в новую."""
+"""`mpu wb-unit-proto-new copy-data-from-old-table` — миграция старой proto-таблицы в новую."""
 
 from typing import Annotated
 
@@ -9,10 +9,9 @@ from mpu.lib.cli_wrap import (
     emit_node_cli,
     require,
     resolve_selector,
-    run_with_wrapper,
 )
 
-COMMAND_NAME = "mpu-wb-unit-proto-new"
+COMMAND_NAME = "mpu wb-unit-proto-new"
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -62,13 +61,3 @@ def copy_data_from_old_table(
         wrapper="local" if local else "ssh",
         command_name=COMMAND_NAME,
     )
-
-
-def run() -> None:
-    """Entry point для `mpu-wb-unit-proto-new`."""
-    app()
-
-
-def run_portainer() -> None:
-    """Entry point для `mpup-wb-unit-proto-new` — `mpup-ssh <selector> -- node ...`."""
-    run_with_wrapper(app, "portainer")

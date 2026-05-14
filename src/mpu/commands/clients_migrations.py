@@ -1,4 +1,4 @@
-"""`mpu-clients-migrations <method>` — печать ssh+docker команд для service:clientsMigrations.
+"""`mpu clients-migrations <method>` — печать ssh+docker команд для service:clientsMigrations.
 
 Subcommand'ы:
 - latest, up, rollback, down, init  — через фабрику (`<value>` + `--type` + `--client-id`)
@@ -9,10 +9,10 @@ from typing import Annotated
 
 import typer
 
-from mpu.lib.cli_wrap import emit_node_cli, resolve_selector, run_with_wrapper
+from mpu.lib.cli_wrap import emit_node_cli, resolve_selector
 from mpu.lib.factories import migrations_with_type
 
-COMMAND_NAME = "mpu-clients-migrations"
+COMMAND_NAME = "mpu clients-migrations"
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -56,13 +56,3 @@ def latest_all(
         wrapper="local" if local else "ssh",
         command_name=COMMAND_NAME,
     )
-
-
-def run() -> None:
-    """Entry point для `mpu-clients-migrations`."""
-    app()
-
-
-def run_portainer() -> None:
-    """Entry point для `mpup-clients-migrations` — `mpup-ssh <selector> -- node ...`."""
-    run_with_wrapper(app, "portainer")

@@ -1,6 +1,6 @@
 """Парсер relative-duration строк (`10m`, `1h`, `30s`, `2d`) в Unix-timestamp.
 
-Используется `mpup-logs --since` и `mpup-health --since` для unified-семантики.
+Используется `mpup-logs --since` и `mpu p health --since` для unified-семантики.
 """
 
 import re

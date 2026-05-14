@@ -1,4 +1,4 @@
-"""Тесты `mpu-copy-shared` (mpu.commands.copy_shared)."""
+"""Тесты `mpu copy-shared` (mpu.commands.copy_shared)."""
 
 from collections.abc import Iterator
 
@@ -63,7 +63,7 @@ def test_happy_path(fake_resolve: dict[str, object], fake_exec: dict[str, object
     # Список таблиц идёт после --tables одним пробельным блоком.
     tables_part = inner.split("--tables ", 1)[1]
     assert tables_part.split() == list(cmd.SHARED_TABLES)
-    assert fake_exec["command_name"] == "mpu-copy-shared"
+    assert fake_exec["command_name"] == "mpu copy-shared"
 
 
 def test_works_with_client_selector(
@@ -88,7 +88,7 @@ def test_resolve_error(monkeypatch: pytest.MonkeyPatch) -> None:
     res = runner.invoke(cmd.app, ["x"])
 
     assert res.exit_code == 2
-    assert "mpu-copy-shared: nothing matched" in res.output
+    assert "mpu copy-shared: nothing matched" in res.output
 
 
 def test_no_pg_ip(monkeypatch: pytest.MonkeyPatch) -> None:
