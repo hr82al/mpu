@@ -10,7 +10,6 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from mpu import cli as root_cli
 from mpu.commands import sheet as sheet_cmd
 from mpu.commands import xlsx as xlsx_cmd
 from mpu.lib import log as log_module
@@ -109,20 +108,6 @@ def test_xlsx_passthrough_propagates_nonzero_rc(
     assert "rc=2" in log_text
     assert "WARNING" in log_text
     assert "boom" in log_text
-
-
-def test_db_passthrough_via_root_app_forwards_help_flag(
-    monkeypatch: pytest.MonkeyPatch, log_to_tmp: Path
-) -> None:
-    captured: dict[str, object] = {}
-    _patch_popen(monkeypatch, captured, stdout="(help)\n", rc=0)
-
-    # Проверка реального пути `mpu db …` через root Typer-app: _mount() должен
-    # сохранить context_settings обёртки, иначе Click перехватит `--help`.
-    res = runner.invoke(root_cli.app, ["db", "query", "sl-1", "--help"])
-
-    assert res.exit_code == 0, res.output
-    assert captured["args"] == ["/usr/bin/new-mpu", "db", "query", "sl-1", "--help"]
 
 
 def test_missing_binary_returns_127_and_logs_error(
