@@ -22,7 +22,7 @@ from typing import Literal
 
 import typer
 
-from mpu.lib import portainer, servers
+from mpu.lib import containers, portainer, servers
 
 Transport = Literal["ssh", "portainer"]
 
@@ -48,6 +48,42 @@ def pssh_run(
     if transport == "ssh":
         return _run_via_ssh(server_number, cmd, stdin)
     return _run_via_portainer(server_number, cmd, stdin)
+
+
+def pssh_run_container(
+    *,
+    container: str,
+    cmd: list[str],
+    stdin: bytes = b"",
+) -> int:
+    """Выполнить cmd в произвольном контейнере по точному имени; вернуть exit code.
+
+    Транспорт — всегда Portainer: для контейнеров без `server_number` (например
+    `mp-dt-cli`) sl-N маппинга нет, а на ssh-side у нас нет per-container ключей
+    и pg-credentials. Если нужно `mp-sl-N-cli` через ssh — используй `pssh_run`.
+
+    На неоднозначное имя (несколько Portainer-endpoint'ов с тем же `container_name`)
+    или отсутствие — бросает `containers.ContainerResolveError` (вызывающий код
+    форматирует и решает, fall back на `mpu-search` или показать ошибку).
+    """
+    base_url, endpoint_id = containers.resolve_container_target(container)
+    api_key = servers.env_value("PORTAINER_API_KEY")
+    if not api_key:
+        typer.echo(
+            "mpup-ssh: PORTAINER_API_KEY не задан в ~/.config/mpu/.env",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    verify_tls = (servers.env_value("PORTAINER_VERIFY_TLS") or "").lower() == "true"
+    return run_in_container_via_portainer(
+        base_url=base_url,
+        endpoint_id=endpoint_id,
+        api_key=api_key,
+        container=container,
+        cmd=cmd,
+        stdin=stdin,
+        verify_tls=verify_tls,
+    )
 
 
 def _resolve_transport(n: int, via: str | None) -> Transport:
@@ -90,19 +126,44 @@ def _run_via_ssh(n: int, cmd: list[str], stdin: bytes) -> int:
 
 
 def _run_via_portainer(n: int, cmd: list[str], stdin: bytes) -> int:
+    target = servers.portainer_target(n)
+    api_key = servers.env_value("PORTAINER_API_KEY")
+    assert target is not None and api_key is not None
+    base_url, endpoint_id = target
+    verify_tls = (servers.env_value("PORTAINER_VERIFY_TLS") or "").lower() == "true"
+    return run_in_container_via_portainer(
+        base_url=base_url,
+        endpoint_id=endpoint_id,
+        api_key=api_key,
+        container=f"mp-sl-{n}-cli",
+        cmd=cmd,
+        stdin=stdin,
+        verify_tls=verify_tls,
+    )
+
+
+def run_in_container_via_portainer(
+    *,
+    base_url: str,
+    endpoint_id: int,
+    api_key: str,
+    container: str,
+    cmd: list[str],
+    stdin: bytes = b"",
+    verify_tls: bool = False,
+) -> int:
+    """Ws-exec в произвольный Portainer-контейнер; стримит stdio; вернуть exit code.
+
+    Включает PID-файл (для kill при Ctrl+C), upload tar для stdin, и cleanup
+    pidfile/stdin в `finally`. Используется как `mp-sl-{N}-cli` (через
+    `_run_via_portainer`), так и `mp-dt-cli` (через `mp_dt.run_in_mp_dt_cli`).
+    """
     # Восстанавливаем дефолтный SIGINT handler. Если bash backgrounding (`&`) или
     # другой parent установил SIGINT=SIG_IGN до exec'а, Python не восстанавливает
     # его сам, и Ctrl+C в нашем процессе становится no-op. Без этого `kill -INT`
     # на mpup-process не вызывает KeyboardInterrupt, и remote-cleanup в except
     # не сработает.
     signal.signal(signal.SIGINT, signal.default_int_handler)
-
-    target = servers.portainer_target(n)
-    api_key = servers.env_value("PORTAINER_API_KEY")
-    assert target is not None and api_key is not None
-    base_url, endpoint_id = target
-    container = f"mp-sl-{n}-cli"
-    verify_tls = (servers.env_value("PORTAINER_VERIFY_TLS") or "").lower() == "true"
 
     client = portainer.Client(
         base_url=base_url,

@@ -10,7 +10,7 @@ import typer
 from typer.testing import CliRunner
 
 from mpu.commands import pssh as pssh_cmd
-from mpu.lib import portainer, pssh, servers, store
+from mpu.lib import containers, portainer, pssh, servers, store
 
 
 def _isolate_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -163,6 +163,7 @@ class _StubClient:
         self.kwargs = kwargs
         self.uploads: list[tuple[str, str, dict[str, bytes]]] = []
         self.execs: list[list[str]] = []
+        self.exec_containers: list[str] = []
         self.starts: list[str] = []
         self.exit_code = 0
         self.stdout_to_emit = b""
@@ -173,7 +174,8 @@ class _StubClient:
         self.uploads.append((container, dest, files))
 
     def create_exec(self, container: str, cmd: list[str], *, tty: bool = False) -> str:
-        _ = container, tty
+        _ = tty
+        self.exec_containers.append(container)
         self.execs.append(list(cmd))
         return f"exec-{len(self.execs)}"
 
@@ -491,3 +493,220 @@ def test_pssh_cli_stdin_tty_and_text_mutex(
     result = runner.invoke(pssh_cmd.app, ["sl-1", "--stdin-tty", "--stdin-text", "x", "--", "cat"])
     assert result.exit_code == 2
     assert "взаимоисключающи" in result.output
+
+
+# ---------- mpup-ssh CLI: container-name dispatch ----------
+
+
+def _seed_container(
+    bootstrap_db: "object",
+    *,
+    url: str,
+    endpoint_id: int,
+    endpoint_name: str,
+    container_name: str,
+    container_id: str = "ctr-1",
+) -> None:
+    # bootstrap_db — Callable[[Path | str], None] из conftest.py; используем object для краткости
+    bootstrap_db(store.DB_PATH)  # type: ignore[operator]
+    with store.store() as conn:
+        conn.execute(
+            "INSERT INTO portainer_containers "
+            "(portainer_url, endpoint_id, endpoint_name, container_id, container_name, "
+            " server_number, discovered_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (url, endpoint_id, endpoint_name, container_id, container_name, None, 100),
+        )
+        conn.commit()
+
+
+def test_pssh_cli_dispatches_to_container_path(
+    env_portainer_only: Path,
+    bootstrap_db: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`mpup-ssh mp-dt-cli -- ls` → pssh_run_container с этим именем (не pssh_run)."""
+    _ = env_portainer_only
+    _seed_container(
+        bootstrap_db,
+        url="https://p:9443",
+        endpoint_id=12,
+        endpoint_name="mp-dt",
+        container_name="mp-dt-cli",
+    )
+    captured: dict[str, object] = {}
+
+    def _fake_run_container(*, container: str, cmd: list[str], stdin: bytes = b"") -> int:
+        captured.update(container=container, cmd=list(cmd), stdin=stdin)
+        return 0
+
+    def _fake_pssh_run(**_kw: object) -> int:
+        raise AssertionError("для имени контейнера должен вызваться pssh_run_container")
+
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run_container", _fake_run_container)
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_pssh_run)
+    runner = CliRunner()
+    result = runner.invoke(pssh_cmd.app, ["mp-dt-cli", "--", "ls", "/app"])
+    assert result.exit_code == 0, result.output
+    assert captured["container"] == "mp-dt-cli"
+    assert captured["cmd"] == ["ls", "/app"]
+
+
+def test_pssh_cli_container_ambiguous_prints_candidates(
+    env_portainer_only: Path,
+    bootstrap_db: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Одинаковое имя на нескольких endpoint'ах → exit 2 + список вариантов."""
+    _ = env_portainer_only
+    _seed_container(
+        bootstrap_db,
+        url="https://p:9443",
+        endpoint_id=12,
+        endpoint_name="mp-dt",
+        container_name="cli",
+        container_id="c1",
+    )
+    _seed_container(
+        bootstrap_db,
+        url="https://p:9443",
+        endpoint_id=14,
+        endpoint_name="wb-positions-parser",
+        container_name="cli",
+        container_id="c2",
+    )
+
+    def _no_call(**_kw: object) -> int:
+        raise AssertionError("на ambiguous контейнер не должно быть вызова")
+
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run_container", _no_call)
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _no_call)
+    runner = CliRunner()
+    result = runner.invoke(pssh_cmd.app, ["cli", "--", "ls"])
+    assert result.exit_code == 2
+    assert "ambiguous" in result.output
+    assert "endpoint=mp-dt" in result.output
+    assert "endpoint=wb-positions-parser" in result.output
+
+
+def test_pssh_cli_container_rejects_via_ssh(
+    env_portainer_only: Path,
+    bootstrap_db: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`--via ssh` для имени контейнера → exit 2 (не поддерживается)."""
+    _ = env_portainer_only
+    _seed_container(
+        bootstrap_db,
+        url="https://p:9443",
+        endpoint_id=12,
+        endpoint_name="mp-dt",
+        container_name="mp-dt-cli",
+    )
+
+    def _no_call(**_kw: object) -> int:
+        raise AssertionError("не должно вызываться")
+
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run_container", _no_call)
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _no_call)
+    runner = CliRunner()
+    result = runner.invoke(pssh_cmd.app, ["mp-dt-cli", "--via", "ssh", "--", "ls"])
+    assert result.exit_code == 2
+    assert "--via ssh" in result.output
+
+
+def test_pssh_cli_falls_through_to_mpu_search_when_container_not_found(
+    env_ssh_only: Path,
+    bootstrap_db: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Незнакомое имя контейнера → mpu-search; sl-N path остаётся через pssh_run."""
+    _ = env_ssh_only
+    # Бутстрапим пустую таблицу portainer_containers — `unknown-name` там нет.
+    bootstrap_db(store.DB_PATH)  # type: ignore[operator]
+
+    def _fake_resolve(
+        value: str, *, server_override: str | None = None
+    ) -> tuple[int, list[dict[str, object]]]:
+        assert value == "unknown-name"
+        return 1, [{"client_id": 7, "server_number": 1, "server": "sl-1"}]
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(*, server_number: int, cmd: list[str], **_kw: object) -> int:
+        captured.update(server_number=server_number, cmd=list(cmd))
+        return 0
+
+    monkeypatch.setattr(pssh_cmd, "resolve_server", _fake_resolve)
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
+    runner = CliRunner()
+    result = runner.invoke(pssh_cmd.app, ["unknown-name", "--", "ls"])
+    assert result.exit_code == 0, result.output
+    assert captured["server_number"] == 1
+    assert captured["cmd"] == ["ls"]
+
+
+# ---------- lib/pssh.pssh_run_container ----------
+
+
+def test_pssh_run_container_routes_to_portainer(
+    env_portainer_only: Path,
+    bootstrap_db: object,
+    monkeypatch: pytest.MonkeyPatch,
+    stub_portainer: type["_StubClient"],
+) -> None:
+    """pssh_run_container резолвит target из SQLite и шлёт exec через _StubClient."""
+    _ = env_portainer_only
+    _seed_container(
+        bootstrap_db,
+        url="https://192.168.150.12:9443",
+        endpoint_id=12,
+        endpoint_name="mp-dt",
+        container_name="mp-dt-cli",
+    )
+    _ = monkeypatch
+    rc = pssh.pssh_run_container(container="mp-dt-cli", cmd=["echo", "hi"])
+    assert rc == 0
+    c = stub_portainer.instances[0]
+    assert c.kwargs["base_url"] == "https://192.168.150.12:9443"
+    assert c.kwargs["endpoint_id"] == 12
+    assert c.kwargs["api_key"] == "ptr_test"
+    # Контейнер в exec — mp-dt-cli (не mp-sl-N-cli)
+    assert all(ctr == "mp-dt-cli" for ctr in c.exec_containers)
+    # cmd обёрнут shell-prelude'ом: `sh -c 'echo $$ > pidfile; exec echo hi'`
+    wrapped = c.execs[0][2]
+    assert "exec echo hi" in wrapped
+
+
+def test_pssh_run_container_not_found_raises(
+    env_portainer_only: Path,
+    bootstrap_db: object,
+) -> None:
+    _ = env_portainer_only
+    bootstrap_db(store.DB_PATH)  # type: ignore[operator]
+    with pytest.raises(containers.ContainerResolveError):
+        pssh.pssh_run_container(container="nope", cmd=["echo"])
+
+
+def test_pssh_run_container_no_api_key(
+    tmp_path: Path,
+    bootstrap_db: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("", encoding="utf-8")
+    monkeypatch.setattr(servers, "ENV_PATH", env_file)
+    monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
+    servers.reset_cache()
+    try:
+        _seed_container(
+            bootstrap_db,
+            url="https://p:9443",
+            endpoint_id=12,
+            endpoint_name="mp-dt",
+            container_name="mp-dt-cli",
+        )
+        with pytest.raises(typer.Exit) as excinfo:
+            pssh.pssh_run_container(container="mp-dt-cli", cmd=["echo"])
+        assert excinfo.value.exit_code == 2
+    finally:
+        servers.reset_cache()

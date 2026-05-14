@@ -9,8 +9,11 @@ from mpu.commands import (
     backup_ozon_unit_proto,
     backup_wb_unit_manual_data,
     backup_wb_unit_proto,
+    copy_client,
+    copy_shared,
     health,
     logs,
+    move_client,
     process,
     ps,
     pssh,
@@ -87,6 +90,9 @@ _REGISTERED_MODULES = (
     ps,
     logs,
     health,
+    copy_client,
+    copy_shared,
+    move_client,
 )
 
 _COMMANDS: dict[str, tuple[str, typer.Typer]] = {
