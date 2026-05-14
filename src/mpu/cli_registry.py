@@ -20,6 +20,11 @@ PRINT_COMMANDS: dict[str, tuple[str, str]] = {
     "search": ("mpu.commands.search", "app"),
     "update": ("mpu.commands.update", "app"),
     "sql": ("mpu.commands.sql", "app"),
+    # Passthrough-обёртки `new-mpu` (см. mpu.lib.new_mpu). Будут заменены нативной
+    # реализацией по мере переноса из Go/Node CLI.
+    "sheet": ("mpu.commands.sheet", "app"),
+    "xlsx": ("mpu.commands.xlsx", "app"),
+    "db": ("mpu.commands.db", "app"),
     "backup-wb-unit-proto": ("mpu.commands.backup_wb_unit_proto", "app"),
     "backup-ozon-unit-proto": ("mpu.commands.backup_ozon_unit_proto", "app"),
     "backup-wb-unit-manual-data": ("mpu.commands.backup_wb_unit_manual_data", "app"),

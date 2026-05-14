@@ -46,7 +46,13 @@ def _mount(parent: typer.Typer, registry: dict[str, tuple[str, str]]) -> None:
             # Single-command — re-register функцию напрямую под kebab-name.
             # Иначе `mpu search 1` → "Missing command", потребует `mpu search main 1`.
             help_text = sub_app.info.help if isinstance(sub_app.info.help, str) else None
-            parent.command(name=name, help=help_text)(registered[0].callback)
+            # context_settings per-command важны для passthrough-обёрток
+            # (allow_extra_args / ignore_unknown_options / help_option_names=[]),
+            # см. mpu.commands.{sheet,xlsx,db}. Без проброса Click перехватывает `--help`.
+            ctx_settings = registered[0].context_settings
+            parent.command(name=name, help=help_text, context_settings=ctx_settings)(
+                registered[0].callback
+            )
         else:
             parent.add_typer(sub_app, name=name)
 
