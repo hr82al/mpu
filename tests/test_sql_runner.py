@@ -130,6 +130,44 @@ def test_select_json(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     assert parsed == [{"id": 1, "name": "alpha"}]
 
 
+def test_select_md(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    cur = _FakeCursor(
+        description=[_FakeColumn("id"), _FakeColumn("name")],
+        rows=[(1, "alpha"), (2, None)],
+    )
+
+    def _fake_connect(_n: int, **_kw: object) -> _FakeConn:
+        return _FakeConn(cur)
+
+    monkeypatch.setattr(pg, "connect_to", _fake_connect)
+    out, err = io.StringIO(), io.StringIO()
+    code = sql_runner.run_sql(1, "SELECT 1", md_out=True, stdout=out, stderr=err)
+    assert code == 0
+    lines = out.getvalue().splitlines()
+    assert lines == [
+        "| id | name |",
+        "| --- | --- |",
+        "| 1 | alpha |",
+        "| 2 |  |",
+    ]
+
+
+def test_md_escapes_pipe_and_newline(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    cur = _FakeCursor(
+        description=[_FakeColumn("v")],
+        rows=[("a|b\nc",)],
+    )
+
+    def _fake_connect(_n: int, **_kw: object) -> _FakeConn:
+        return _FakeConn(cur)
+
+    monkeypatch.setattr(pg, "connect_to", _fake_connect)
+    out, err = io.StringIO(), io.StringIO()
+    code = sql_runner.run_sql(1, "SELECT 1", md_out=True, stdout=out, stderr=err)
+    assert code == 0
+    assert "| a\\|b<br>c |" in out.getvalue()
+
+
 def test_ddl_json(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     cur = _FakeCursor(description=None, rows=[], rowcount=3)
 
@@ -194,11 +232,47 @@ def test_client_id_sets_search_path(env: None, monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(pg, "connect_to", _fake_connect)
     out, err = io.StringIO(), io.StringIO()
-    code = sql_runner.run_sql(1, "SELECT 1", client_id=2190, stdout=out, stderr=err)
+    code = sql_runner.run_sql(
+        1, "SELECT 1", client_id=2190, verbose=True, stdout=out, stderr=err
+    )
     assert code == 0
     assert cur.executed[0] == 'SET search_path TO "schema_2190", public'
     assert cur.executed[1] == "SELECT 1"
     assert "search_path: schema_2190, public" in err.getvalue()
+
+
+def test_meta_hidden_by_default(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    cur = _FakeCursor(
+        description=[_FakeColumn("id")],
+        rows=[(1,)],
+    )
+
+    def _fake_connect(_n: int, **_kw: object) -> _FakeConn:
+        return _FakeConn(cur)
+
+    monkeypatch.setattr(pg, "connect_to", _fake_connect)
+    out, err = io.StringIO(), io.StringIO()
+    code = sql_runner.run_sql(1, "SELECT 1", stdout=out, stderr=err)
+    assert code == 0
+    assert err.getvalue() == ""
+    assert "id" in out.getvalue()
+
+
+def test_meta_shown_when_verbose(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    cur = _FakeCursor(
+        description=[_FakeColumn("id")],
+        rows=[(1,)],
+    )
+
+    def _fake_connect(_n: int, **_kw: object) -> _FakeConn:
+        return _FakeConn(cur)
+
+    monkeypatch.setattr(pg, "connect_to", _fake_connect)
+    out, err = io.StringIO(), io.StringIO()
+    code = sql_runner.run_sql(1, "SELECT 1", verbose=True, stdout=out, stderr=err)
+    assert code == 0
+    assert "pg_host: 10.1.0.1" in err.getvalue()
+    assert "SELECT 1" in err.getvalue()
 
 
 def test_no_client_id_skips_search_path(env: None, monkeypatch: pytest.MonkeyPatch) -> None:

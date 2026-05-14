@@ -65,7 +65,20 @@ def main(
     json_out: Annotated[
         bool, typer.Option("--json", help="Результат как JSON-array объектов")
     ] = False,
+    md_out: Annotated[
+        bool, typer.Option("--md", help="Результат как markdown-таблица")
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "-v", "--verbose", help="Печатать meta-блок (server, host, db, search_path, SQL)"
+        ),
+    ] = False,
 ) -> None:
+    if json_out and md_out:
+        typer.echo("mpu sql: --json и --md взаимоисключающие", err=True)
+        raise typer.Exit(code=2)
+
     try:
         server_number, candidates = resolve_server(selector, server_override=server)
     except ResolveError as e:
@@ -85,6 +98,12 @@ def main(
     client_id = next(iter(distinct_client_ids)) if len(distinct_client_ids) == 1 else None
 
     code = sql_runner.run_sql(
-        server_number, sql_text, client_id=client_id, dry=dry, json_out=json_out
+        server_number,
+        sql_text,
+        client_id=client_id,
+        dry=dry,
+        json_out=json_out,
+        md_out=md_out,
+        verbose=verbose,
     )
     raise typer.Exit(code=code)

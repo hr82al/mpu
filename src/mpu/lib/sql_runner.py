@@ -45,6 +45,20 @@ def _print_table(cols: list[str], rows: list[tuple[Any, ...]], stream: IO[str]) 
     print(f"({len(rows)} rows)", file=stream)
 
 
+def _md_escape(v: Any) -> str:
+    if v is None:
+        return ""
+    s = str(v)
+    return s.replace("\\", "\\\\").replace("|", "\\|").replace("\n", "<br>")
+
+
+def _print_md_table(cols: list[str], rows: list[tuple[Any, ...]], stream: IO[str]) -> None:
+    print("| " + " | ".join(_md_escape(c) for c in cols) + " |", file=stream)
+    print("| " + " | ".join("---" for _ in cols) + " |", file=stream)
+    for r in rows:
+        print("| " + " | ".join(_md_escape(v) for v in r) + " |", file=stream)
+
+
 def run_sql(
     server_number: int,
     sql: str,
@@ -52,6 +66,8 @@ def run_sql(
     client_id: int | None = None,
     dry: bool = False,
     json_out: bool = False,
+    md_out: bool = False,
+    verbose: bool = False,
     stdout: IO[str] | None = None,
     stderr: IO[str] | None = None,
 ) -> int:
@@ -63,7 +79,8 @@ def run_sql(
     out = stdout if stdout is not None else sys.stdout
     err = stderr if stderr is not None else sys.stderr
     schema = f"schema_{client_id}" if client_id is not None else None
-    _print_meta(server_number, sql, stream=err, schema=schema)
+    if verbose or dry:
+        _print_meta(server_number, sql, stream=err, schema=schema)
 
     if dry:
         return 0
@@ -92,6 +109,8 @@ def run_sql(
                     ),
                     file=out,
                 )
+            elif md_out:
+                _print_md_table(cols, rows, out)
             else:
                 _print_table(cols, rows, out)
             return 0

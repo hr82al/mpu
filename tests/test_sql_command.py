@@ -124,3 +124,24 @@ def test_nothing_matched(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     res = runner.invoke(sql_cmd.app, ["NOTHING_HERE", "SELECT 1"])
     assert res.exit_code == 2
     assert "nothing matched" in res.stderr
+
+
+def test_md_flag_passed_through(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(server_number: int, sql: str, **kw: object) -> int:
+        captured.update(kw)
+        return 0
+
+    monkeypatch.setattr(sql_runner, "run_sql", fake_run)
+    res = runner.invoke(sql_cmd.app, ["10", "SELECT 1", "--md", "--dry"])
+    assert res.exit_code == 0, res.stderr
+    assert captured["md_out"] is True
+    assert captured["json_out"] is False
+
+
+def test_md_and_json_mutually_exclusive(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sql_runner, "run_sql", _noop_run)
+    res = runner.invoke(sql_cmd.app, ["10", "SELECT 1", "--md", "--json"])
+    assert res.exit_code == 2
+    assert "взаимоисключающие" in res.stderr
