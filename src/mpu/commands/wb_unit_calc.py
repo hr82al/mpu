@@ -8,6 +8,7 @@ import typer
 from mpu.lib.cli_wrap import (
     auto_pick_int,
     emit_node_cli,
+    pick_wrapper,
     require,
     resolve_selector,
 )
@@ -36,6 +37,10 @@ def get_unit_data_by_date_nm_id(
     local: Annotated[
         bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
     ] = False,
+    print_mode: Annotated[
+        bool,
+        typer.Option("--print", "-p", help="Печатать обёртку в stdout + clipboard, не выполнять"),
+    ] = False,
     client_id: Annotated[
         int | None,
         typer.Option(
@@ -49,9 +54,10 @@ def get_unit_data_by_date_nm_id(
         typer.Option("--date", help="Дата (YYYY-MM-DD); по умолчанию — сегодня"),
     ] = None,
 ) -> None:
-    """Распечатать ssh-команду для service:wbUnitCalc getUnitDataByDateNmId."""
+    """Выполнить через Portainer; `--print` — печать обёртки без выполнения."""
+    wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
     resolved = resolve_selector(
-        value=value, server=server, command_name=COMMAND_NAME, require_ssh=not local
+        value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
     )
     cid = require(
         client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
@@ -65,6 +71,6 @@ def get_unit_data_by_date_nm_id(
         method="getUnitDataByDateNmId",
         flags={"--client-id": cid, "--nm-id": nm_id, "--date": dt},
         resolved=resolved,
-        wrapper="local" if local else "ssh",
+        wrapper=wrapper,
         command_name=COMMAND_NAME,
     )

@@ -136,7 +136,7 @@ def test_dry_run_single_server() -> None:
     block = run_js._build_dry_run_block([1], "console.log(1)")
     # Без префикса `# server=sl-N` для одного таргета.
     assert "# server=sl-" not in block
-    assert "mpu p ssh sl-1 -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'" in block
+    assert "mpu ssh sl-1 -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'" in block
     assert "console.log(1)" in block
     assert block.count("__MPU_RUN_JS_EOF__") == 2
 
@@ -145,8 +145,8 @@ def test_dry_run_multi_server_uses_heredoc() -> None:
     block = run_js._build_dry_run_block([1, 2], "import x;\nawait x();\n")
     assert "# server=sl-1" in block
     assert "# server=sl-2" in block
-    assert "mpu p ssh sl-1 -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'" in block
-    assert "mpu p ssh sl-2 -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'" in block
+    assert "mpu ssh sl-1 -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'" in block
+    assert "mpu ssh sl-2 -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'" in block
     assert "import x;" in block
     assert "await x();" in block
     # Каждый блок закрыт, итого 4 маркера.
@@ -204,7 +204,7 @@ def test_cli_dry_run_does_not_exec(env_file: Path, fake_pssh: list[dict[str, obj
     result = runner.invoke(run_js.app, ["sl-1", "console.log(1)", "--dry-run"])
     assert result.exit_code == 0, result.output
     assert fake_pssh == []  # нет exec при dry-run
-    assert "mpu p ssh sl-1 -- node --input-type=module -" in result.output
+    assert "mpu ssh sl-1 -- node --input-type=module -" in result.output
     assert "console.log(1)" in result.output
 
 

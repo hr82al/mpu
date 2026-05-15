@@ -16,6 +16,7 @@ from mpu.lib.cli_wrap import (
     auto_pick_int,
     auto_pick_str,
     emit_node_cli,
+    pick_wrapper,
     require,
     resolve_selector,
     resolve_server_only,
@@ -71,6 +72,7 @@ def test_basic_emit_ssh(capsys: pytest.CaptureFixture[str]) -> None:
         method="bar",
         flags={"--client-id": 42, "--dataset": "ds"},
         resolved=_resolved_ssh(),
+        wrapper="ssh",
         command_name="mpu-test",
     )
     out = capsys.readouterr().out.strip()
@@ -125,6 +127,7 @@ def test_true_bool_bare() -> None:
         method="bar",
         flags={"--forced": True},
         resolved=_resolved_ssh(),
+        wrapper="ssh",
         command_name="mpu-test",
     )
     # Inner внутри двойных кавычек — `--forced"` без пробела перед `"`.
@@ -319,6 +322,7 @@ def test_emit_returns_and_prints(fake_resolve: None, capsys: pytest.CaptureFixtu
         method="bar",
         flags={"--client-id": 42},
         resolved=resolved,
+        wrapper="ssh",
         command_name="t",
     )
     assert cmd == capsys.readouterr().out.strip()
@@ -364,6 +368,7 @@ def test_emit_copies_to_clipboard(monkeypatch: pytest.MonkeyPatch) -> None:
         method="bar",
         flags={"--client-id": 1},
         resolved=_resolved_ssh(),
+        wrapper="ssh",
         command_name="t",
     )
     assert captured == [cmd]
@@ -451,85 +456,12 @@ def test_resolve_server_only_bad_server(
     assert "bad --server" in capsys.readouterr().err
 
 
-# wrapper="portainer" по умолчанию ВЫПОЛНЯЕТ команду через Portainer API.
-# `MPU_PRINT_ONLY=1` (флаг `--print` в `mpup-*` bin'ах) возвращает старое поведение —
-# печать `mpu p ssh ... -- node ...` строки + clipboard. Тесты ниже фиксируют контракт
-# print-mode (выполнение проверяется отдельно через mock pssh, см. ниже).
+# wrapper="portainer" — дефолтный режим. Выполняет команду в `mp-sl-N-cli` через
+# `pssh.pssh_run`. wrapper="ssh"/"local" — print + clipboard.
 
 
-# 25. portainer + MPU_PRINT_ONLY=1 — emits `mpu p ssh <selector> -- node ...`
-def test_wrapper_portainer_with_selector(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.setenv("MPU_PRINT_ONLY", "1")
-    resolved = Resolved(server_number=3, sl_ip=None, user=None, candidates=[], selector="12345")
-    cmd = emit_node_cli(
-        name="foo",
-        method="bar",
-        flags={"--client-id": 12345},
-        resolved=resolved,
-        wrapper="portainer",
-        command_name="mpup-test",
-    )
-    out = capsys.readouterr().out.strip()
-    assert cmd == out
-    assert cmd == "mpu p ssh 12345 -- node cli service:foo bar --client-id 12345"
-
-
-# 26. portainer print-mode — пустой selector → fallback на sl-N
-def test_wrapper_portainer_empty_selector_falls_back_to_sl_n(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("MPU_PRINT_ONLY", "1")
-    resolved = Resolved(server_number=7, sl_ip=None, user=None, candidates=[], selector="")
-    cmd = emit_node_cli(
-        name="foo",
-        method="bar",
-        flags={"--client-id": 1},
-        resolved=resolved,
-        wrapper="portainer",
-        command_name="t",
-    )
-    assert cmd.startswith("mpu p ssh sl-7 -- ")
-
-
-# 27. portainer print-mode — селектор с пробелами/Unicode проходит через shlex.quote
-def test_wrapper_portainer_quotes_unicode_selector(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MPU_PRINT_ONLY", "1")
-    resolved = Resolved(server_number=3, sl_ip=None, user=None, candidates=[], selector="ACME main")
-    cmd = emit_node_cli(
-        name="foo",
-        method="bar",
-        flags={"--client-id": 1},
-        resolved=resolved,
-        wrapper="portainer",
-        command_name="t",
-    )
-    assert cmd.startswith("mpu p ssh 'ACME main' -- ")
-
-
-# 28. MPU_WRAPPER=portainer — env override переписывает wrapper="ssh" (print-mode)
-def test_env_override_promotes_to_portainer(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MPU_WRAPPER", "portainer")
-    monkeypatch.setenv("MPU_PRINT_ONLY", "1")
-    resolved = Resolved(
-        server_number=3, sl_ip="10.0.0.3", user="alice", candidates=[], selector="42"
-    )
-    cmd = emit_node_cli(
-        name="foo",
-        method="bar",
-        flags={"--client-id": 42},
-        resolved=resolved,
-        wrapper="ssh",
-        command_name="t",
-    )
-    assert cmd.startswith("mpu p ssh 42 -- ")
-    assert "ssh -i" not in cmd
-
-
-# 28a. portainer без MPU_PRINT_ONLY — emit_node_cli вызывает pssh.pssh_run.
+# 25. portainer default — emit_node_cli вызывает pssh.pssh_run
 def test_wrapper_portainer_default_executes(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("MPU_PRINT_ONLY", raising=False)
     captured: dict[str, object] = {}
 
     def fake_run(*, server_number: int, cmd: list[str], stdin: bytes = b"") -> int:
@@ -542,12 +474,12 @@ def test_wrapper_portainer_default_executes(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(_pssh, "pssh_run", fake_run)
     resolved = Resolved(server_number=3, sl_ip=None, user=None, candidates=[], selector="12345")
+    # wrapper не указан → дефолт = "portainer" → выполнение
     emit_node_cli(
         name="foo",
         method="bar",
         flags={"--client-id": 12345},
         resolved=resolved,
-        wrapper="portainer",
         command_name="t",
     )
     assert captured["server_number"] == 3
@@ -555,22 +487,22 @@ def test_wrapper_portainer_default_executes(monkeypatch: pytest.MonkeyPatch) -> 
     assert captured["stdin"] == b""
 
 
-# 29. MPU_WRAPPER=portainer — resolve_selector не требует sl_ip/PG_MY_USER_NAME
-def test_env_override_skips_ssh_creds(monkeypatch: pytest.MonkeyPatch, fake_resolve: None) -> None:
-    _ = fake_resolve
-    monkeypatch.setenv("MPU_WRAPPER", "portainer")
-    sl_ip_calls: list[int] = []
+# 26. pick_wrapper matrix — три комбинации `--print` / `--local`
+def test_pick_wrapper_default_exec() -> None:
+    assert pick_wrapper(print_mode=False, local=False) == ("portainer", False)
 
-    def _spy_sl_ip(n: int) -> str | None:
-        sl_ip_calls.append(n)
-        return None  # would fail require_ssh=True path
 
-    monkeypatch.setattr(servers, "sl_ip", _spy_sl_ip)
-    # require_ssh=True по умолчанию у вызывающей команды; env должен снять требование.
-    resolved = resolve_selector(value="X", server=None, command_name="t", require_ssh=True)
-    assert resolved.server_number == 3
-    assert resolved.sl_ip is None  # пропустили
-    assert sl_ip_calls == []
+def test_pick_wrapper_print_ssh() -> None:
+    assert pick_wrapper(print_mode=True, local=False) == ("ssh", True)
+
+
+def test_pick_wrapper_print_local() -> None:
+    assert pick_wrapper(print_mode=True, local=True) == ("local", False)
+
+
+def test_pick_wrapper_local_without_print_still_executes() -> None:
+    # --local без --print не имеет смысла, но не падает — wrapper=portainer выигрывает
+    assert pick_wrapper(print_mode=False, local=True) == ("portainer", False)
 
 
 # 30. resolve_selector сохраняет оригинальный value в Resolved.selector

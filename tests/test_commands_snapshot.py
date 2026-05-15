@@ -74,7 +74,7 @@ SSH_PREFIX = (
 
 def test_ss_update_ssh(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(ss_update.app, ["MODERNICA"])
+    result = runner.invoke(ss_update.app, ["MODERNICA", "--print"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (
         f"{SSH_PREFIX} "
@@ -90,13 +90,14 @@ def test_process_ssh(fake_env: None) -> None:
     _ = fake_env
     result = runner.invoke(
         process.app,
-        ["MODERNICA", "--date-from", "2025-01-01", "--date-to", "2026-05-06"],
+        ["MODERNICA", "--date-from", "2025-01-01", "--date-to", "2026-05-06", "--print"],
     )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (
         f"{SSH_PREFIX} "
         '"node cli service:dataProcessor process '
         "--client-id 2190 "
+        "--spreadsheet-id 1Mrx_IHT2ov-aWGcE8pt1Ml60VZe3oDyN2_kudxZ_u7c "
         "--date-from 2025-01-01 "
         "--date-to 2026-05-06\"'"
     )
@@ -106,7 +107,7 @@ def test_recalculate_wb_expenses_ssh(fake_env: None) -> None:
     _ = fake_env
     result = runner.invoke(
         recalculate_wb_expenses.app,
-        ["MODERNICA", "--date-from", "2025-01-01", "--date-to", "2025-01-31"],
+        ["MODERNICA", "--date-from", "2025-01-01", "--date-to", "2025-01-31", "--print"],
     )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (
@@ -122,7 +123,7 @@ def test_save_wb_expenses_ssh(fake_env: None) -> None:
     _ = fake_env
     result = runner.invoke(
         save_wb_expenses.app,
-        ["MODERNICA", "--date-from", "2025-01-01", "--date-to", "2025-01-31"],
+        ["MODERNICA", "--date-from", "2025-01-01", "--date-to", "2025-01-31", "--print"],
     )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (
@@ -140,7 +141,7 @@ def test_save_wb_expenses_ssh(fake_env: None) -> None:
 
 def test_ss_update_local(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(ss_update.app, ["MODERNICA", "--local"])
+    result = runner.invoke(ss_update.app, ["MODERNICA", "--local", "--print"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (
         'sl-2-cli sh -c "node cli service:ssUpdater update '
@@ -155,12 +156,13 @@ def test_process_local(fake_env: None) -> None:
     _ = fake_env
     result = runner.invoke(
         process.app,
-        ["MODERNICA", "--local", "--date-from", "2025-01-01", "--date-to", "2026-05-06"],
+        ["MODERNICA", "--local", "--date-from", "2025-01-01", "--date-to", "2026-05-06", "--print"],
     )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (
         'sl-2-cli sh -c "node cli service:dataProcessor process '
         "--client-id 2190 "
+        "--spreadsheet-id 1Mrx_IHT2ov-aWGcE8pt1Ml60VZe3oDyN2_kudxZ_u7c "
         "--date-from 2025-01-01 "
         '--date-to 2026-05-06"'
     )
@@ -170,7 +172,7 @@ def test_recalculate_wb_expenses_local(fake_env: None) -> None:
     _ = fake_env
     result = runner.invoke(
         recalculate_wb_expenses.app,
-        ["MODERNICA", "--local", "--date-from", "2025-01-01", "--date-to", "2025-01-31"],
+        ["MODERNICA", "--local", "--date-from", "2025-01-01", "--date-to", "2025-01-31", "--print"],
     )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (
@@ -185,7 +187,7 @@ def test_save_wb_expenses_local(fake_env: None) -> None:
     _ = fake_env
     result = runner.invoke(
         save_wb_expenses.app,
-        ["MODERNICA", "--local", "--date-from", "2025-01-01", "--date-to", "2025-01-31"],
+        ["MODERNICA", "--local", "--date-from", "2025-01-01", "--date-to", "2025-01-31", "--print"],
     )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (
@@ -194,3 +196,103 @@ def test_save_wb_expenses_local(fake_env: None) -> None:
         "--date-from 2025-01-01 "
         '--date-to 2025-01-31"'
     )
+
+
+# ── process: новые опции после рефактора ──────────────────────────────────────
+
+
+def test_process_forced(fake_env: None) -> None:
+    _ = fake_env
+    result = runner.invoke(
+        process.app,
+        ["MODERNICA", "--forced", "--date-from", "2025-05-01", "--print"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "--forced" in result.stdout
+    assert "--date-from 2025-05-01" in result.stdout
+
+
+def test_process_dry_run_and_logs(fake_env: None) -> None:
+    _ = fake_env
+    result = runner.invoke(
+        process.app,
+        ["MODERNICA", "--dry-run", "--logs", "debug", "--print"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "--dry-run" in result.stdout
+    assert "--logs debug" in result.stdout
+
+
+def test_process_domain_and_tags(fake_env: None) -> None:
+    _ = fake_env
+    result = runner.invoke(
+        process.app,
+        [
+            "MODERNICA",
+            "--domain", "wb",
+            "--with-tags", "persistent",
+            "--with-tags", "wb",
+            "--print",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "--domain wb" in result.stdout
+    assert "--with-tags persistent wb" in result.stdout
+
+
+def test_process_with_tags_single_value_duplicated(fake_env: None) -> None:
+    """sl-back parseMethodArgs single-value collapse workaround: mpu дублирует."""
+    _ = fake_env
+    result = runner.invoke(
+        process.app,
+        ["MODERNICA", "--with-tags", "persistent", "--print"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "--with-tags persistent persistent" in result.stdout
+
+
+def test_process_exclude_datasets(fake_env: None) -> None:
+    _ = fake_env
+    result = runner.invoke(
+        process.app,
+        [
+            "MODERNICA",
+            "--exclude-datasets", "wb10xUnit_v1",
+            "--exclude-datasets", "wb10xPromotions_v3",
+            "--print",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "--exclude-datasets wb10xUnit_v1 wb10xPromotions_v3" in result.stdout
+
+
+def test_process_skus_emitted_as_bracket(fake_env: None) -> None:
+    _ = fake_env
+    result = runner.invoke(
+        process.app,
+        ["MODERNICA", "--skus", "1", "--skus", "2", "--print"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "--skus [1,2]" in result.stdout
+
+
+def test_process_no_deps_and_dataset(fake_env: None) -> None:
+    _ = fake_env
+    result = runner.invoke(
+        process.app,
+        ["MODERNICA", "--no-deps", "--dataset", "wb10xUnit_v1", "--print"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "--no-deps" in result.stdout
+    assert "--dataset wb10xUnit_v1" in result.stdout
+
+
+def test_process_verbose_prints_inner_to_stderr(fake_env: None) -> None:
+    _ = fake_env
+    result = runner.invoke(
+        process.app,
+        ["MODERNICA", "--forced", "-v", "--print"],
+    )
+    assert result.exit_code == 0, result.output
+    assert "# inner: node cli service:dataProcessor process" in result.output
+    assert "--forced" in result.output

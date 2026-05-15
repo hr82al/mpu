@@ -13,6 +13,7 @@ from mpu.lib.cli_wrap import (
     auto_pick_int,
     auto_pick_str,
     emit_node_cli,
+    pick_wrapper,
     require,
     resolve_selector,
 )
@@ -35,6 +36,10 @@ def main(
     server: Annotated[str | None, typer.Option("--server", help="Override резолва: sl-N")] = None,
     local: Annotated[
         bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
+    ] = False,
+    print_mode: Annotated[
+        bool,
+        typer.Option("--print", "-p", help="Печатать обёртку в stdout + clipboard, не выполнять"),
     ] = False,
     client_id: Annotated[
         int | None,
@@ -59,9 +64,10 @@ def main(
     forced: Annotated[bool, typer.Option("--forced", help="Принудительная перезагрузка")] = False,
     logs: Annotated[str, typer.Option("--logs", help="Logs level: info, debug, ...")] = "info",
 ) -> None:
-    """Распечатать ssh-команду для service:ssLoader load."""
+    """Выполнить через Portainer; `--print` — печать обёртки без выполнения."""
+    wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
     resolved = resolve_selector(
-        value=value, server=server, command_name=COMMAND_NAME, require_ssh=not local
+        value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
     )
     cid = require(
         client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
@@ -90,6 +96,6 @@ def main(
         method="load",
         flags=flags,
         resolved=resolved,
-        wrapper="local" if local else "ssh",
+        wrapper=wrapper,
         command_name=COMMAND_NAME,
     )

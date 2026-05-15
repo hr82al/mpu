@@ -8,6 +8,7 @@ from mpu.lib.cli_wrap import (
     FlagValue,
     auto_pick_int,
     emit_node_cli,
+    pick_wrapper,
     require,
     resolve_selector,
 )
@@ -80,6 +81,10 @@ def load_data(
     local: Annotated[
         bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
     ] = False,
+    print_mode: Annotated[
+        bool,
+        typer.Option("--print", "-p", help="Печатать обёртку в stdout + clipboard, не выполнять"),
+    ] = False,
     client_id: Annotated[
         int | None,
         typer.Option(
@@ -89,9 +94,10 @@ def load_data(
         ),
     ] = None,
 ) -> None:
-    """Распечатать ssh-команду для service:ozonLoader loadData c дефолтной 18-этапной sequence."""
+    """ozonLoader loadData с дефолтной 18-этапной sequence. По умолчанию выполняет через Portainer."""
+    wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
     resolved = resolve_selector(
-        value=value, server=server, command_name=COMMAND_NAME, require_ssh=not local
+        value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
     )
     cid = require(
         client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
@@ -109,6 +115,6 @@ def load_data(
         method="loadData",
         flags=flags,
         resolved=resolved,
-        wrapper="local" if local else "ssh",
+        wrapper=wrapper,
         command_name=COMMAND_NAME,
     )

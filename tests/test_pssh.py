@@ -281,7 +281,7 @@ def test_run_via_portainer_verify_tls_env(
     assert stub_portainer.instances[0].kwargs["verify_tls"] is True
 
 
-# ---------- mpu p ssh CLI ----------
+# ---------- mpu ssh CLI ----------
 
 
 def test_pssh_cli_dispatches_to_pssh_run(
@@ -495,7 +495,7 @@ def test_pssh_cli_stdin_tty_and_text_mutex(
     assert "взаимоисключающи" in result.output
 
 
-# ---------- mpu p ssh CLI: container-name dispatch ----------
+# ---------- mpu ssh CLI: container-name dispatch ----------
 
 
 def _seed_container(
@@ -524,7 +524,7 @@ def test_pssh_cli_dispatches_to_container_path(
     bootstrap_db: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`mpu p ssh mp-dt-cli -- ls` → pssh_run_container с этим именем (не pssh_run)."""
+    """`mpu ssh mp-dt-cli -- ls` → pssh_run_container с этим именем (не pssh_run)."""
     _ = env_portainer_only
     _seed_container(
         bootstrap_db,

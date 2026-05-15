@@ -8,6 +8,7 @@ from mpu.lib.cli_wrap import (
     FlagValue,
     auto_pick_str,
     emit_node_cli,
+    pick_wrapper,
     require,
     resolve_selector,
 )
@@ -36,6 +37,10 @@ def add(
     local: Annotated[
         bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
     ] = False,
+    print_mode: Annotated[
+        bool,
+        typer.Option("--print", "-p", help="Печатать обёртку в stdout + clipboard, не выполнять"),
+    ] = False,
     spreadsheet_id: Annotated[
         str | None,
         typer.Option(
@@ -53,9 +58,10 @@ def add(
         typer.Option("--is-active/--no-is-active", help="is_active flag (опц.)"),
     ] = None,
 ) -> None:
-    """Распечатать ssh-команду для service:ssDatasets add."""
+    """Выполнить через Portainer; `--print` — печать обёртки без выполнения."""
+    wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
     resolved = resolve_selector(
-        value=value, server=server, command_name=COMMAND_NAME, require_ssh=not local
+        value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
     )
     ssid = require(
         spreadsheet_id
@@ -76,6 +82,6 @@ def add(
         method="add",
         flags=flags,
         resolved=resolved,
-        wrapper="local" if local else "ssh",
+        wrapper=wrapper,
         command_name=COMMAND_NAME,
     )

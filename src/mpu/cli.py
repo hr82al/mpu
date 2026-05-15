@@ -1,22 +1,20 @@
 """mpu — top-level Typer CLI. Subcommands are added via `app.add_typer(...)`.
 
-Три namespace'а монтируются в один `app`:
-- root: `mpu <X>` (бывший `mpu-X`) — print + clipboard
-- `mpu p <X>` (бывший `mpup-X`) — exec через Portainer; `--print` возвращает в print-mode
-- `mpu api <X>` (бывший `mpuapi-X`) — HTTP-клиенты sl-back (click.Group)
+Два namespace'а монтируются в один `app`:
+- root: `mpu <X>` — по дефолту ВЫПОЛНЯЕТ через Portainer; `--print` / `-p` возвращает в
+  print + clipboard режим.
+- `mpu api <X>` — HTTP-клиенты sl-back (click.Group)
 """
 
 import importlib
-import os
 from typing import Annotated, cast
 
 import click
 import typer
 
 from mpu import __version__
-from mpu.cli_registry import PORTAINER_COMMANDS, PRINT_COMMANDS
+from mpu.cli_registry import COMMANDS
 from mpu.lib import loki_discover, portainer_discover, store
-from mpu.lib.cli_wrap import PRINT_ONLY_ENV, WRAPPER_ENV
 
 app = typer.Typer(
     name="mpu",
@@ -57,35 +55,7 @@ def _mount(parent: typer.Typer, registry: dict[str, tuple[str, str]]) -> None:
             parent.add_typer(sub_app, name=name)
 
 
-_mount(app, PRINT_COMMANDS)
-
-p_app = typer.Typer(
-    name="p",
-    help="Portainer-exec namespace (бывший `mpup-*`). Дефолт — выполнение через Portainer; "
-    "`--print` возвращает в print + clipboard.",
-    no_args_is_help=True,
-    context_settings={"help_option_names": ["-h", "--help"]},
-)
-
-
-@p_app.callback()
-def _p_root(  # pyright: ignore[reportUnusedFunction]
-    print_only: Annotated[
-        bool,
-        typer.Option("--print", "-p", help="Печатать строку обёртки + clipboard, не выполнять."),
-    ] = False,
-) -> None:
-    """Перед диспатчем subcommand: `MPU_WRAPPER=portainer` (+ опционально `MPU_PRINT_ONLY=1`).
-
-    Существующая логика `emit_node_cli()` в `mpu.lib.cli_wrap` читает обе env'ы.
-    """
-    os.environ[WRAPPER_ENV] = "portainer"
-    if print_only:
-        os.environ[PRINT_ONLY_ENV] = "1"
-
-
-_mount(p_app, PORTAINER_COMMANDS)
-app.add_typer(p_app)
+_mount(app, COMMANDS)
 
 
 def main() -> None:

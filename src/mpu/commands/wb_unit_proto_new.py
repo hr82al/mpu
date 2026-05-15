@@ -7,6 +7,7 @@ import typer
 from mpu.lib.cli_wrap import (
     auto_pick_int,
     emit_node_cli,
+    pick_wrapper,
     require,
     resolve_selector,
 )
@@ -34,6 +35,10 @@ def copy_data_from_old_table(
     local: Annotated[
         bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
     ] = False,
+    print_mode: Annotated[
+        bool,
+        typer.Option("--print", "-p", help="Печатать обёртку в stdout + clipboard, не выполнять"),
+    ] = False,
     client_id: Annotated[
         int | None,
         typer.Option(
@@ -43,9 +48,10 @@ def copy_data_from_old_table(
         ),
     ] = None,
 ) -> None:
-    """Распечатать ssh-команду для service:wbUnitProtoNew copyDataFromOldTable."""
+    """Выполнить через Portainer; `--print` — печать обёртки без выполнения."""
+    wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
     resolved = resolve_selector(
-        value=value, server=server, command_name=COMMAND_NAME, require_ssh=not local
+        value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
     )
     cid = require(
         client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
@@ -58,6 +64,6 @@ def copy_data_from_old_table(
         method="copyDataFromOldTable",
         flags={"--client-id": cid},
         resolved=resolved,
-        wrapper="local" if local else "ssh",
+        wrapper=wrapper,
         command_name=COMMAND_NAME,
     )

@@ -14,6 +14,7 @@ import typer
 from mpu.lib.cli_wrap import (
     auto_pick_int,
     emit_node_cli,
+    pick_wrapper,
     require,
     resolve_selector,
 )
@@ -68,6 +69,13 @@ def _register_one(
         local: Annotated[
             bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
         ] = False,
+        print_mode: Annotated[
+            bool,
+            typer.Option(
+                "--print", "-p",
+                help="Печатать обёртку в stdout + clipboard, не выполнять",
+            ),
+        ] = False,
         client_id: Annotated[
             int | None,
             typer.Option(
@@ -77,8 +85,9 @@ def _register_one(
             ),
         ] = None,
     ) -> None:
+        wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
         resolved = resolve_selector(
-            value=value, server=server, command_name=command_name, require_ssh=not local
+            value=value, server=server, command_name=command_name, require_ssh=require_ssh
         )
         cid = require(
             client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
@@ -91,6 +100,6 @@ def _register_one(
             method=method_name,
             flags={"--client-id": cid, "--seller-client-id": seller_client_id},
             resolved=resolved,
-            wrapper="local" if local else "ssh",
+            wrapper=wrapper,
             command_name=command_name,
         )

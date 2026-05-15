@@ -23,6 +23,7 @@ import typer
 from mpu.lib.cli_wrap import (
     auto_pick_int,
     emit_node_cli,
+    pick_wrapper,
     require,
     resolve_selector,
 )
@@ -36,13 +37,15 @@ def _emit(
     value: str,
     server: str | None,
     local: bool,
+    print_mode: bool,
     client_id: int | None,
     date_from: str,
     date_to: str | None,
     nm_ids: str | None,
 ) -> None:
+    wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
     resolved = resolve_selector(
-        value=value, server=server, command_name=command_name, require_ssh=not local
+        value=value, server=server, command_name=command_name, require_ssh=require_ssh
     )
     cid = require(
         client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
@@ -61,7 +64,7 @@ def _emit(
             "--nm-ids": nm_ids,
         },
         resolved=resolved,
-        wrapper="local" if local else "ssh",
+        wrapper=wrapper,
         command_name=command_name,
     )
 
@@ -101,6 +104,13 @@ def make_app(
                 bool,
                 typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)"),
             ] = False,
+            print_mode: Annotated[
+                bool,
+                typer.Option(
+                    "--print", "-p",
+                    help="Печатать обёртку в stdout + clipboard, не выполнять",
+                ),
+            ] = False,
             client_id: Annotated[
                 int | None,
                 typer.Option(
@@ -130,7 +140,7 @@ def make_app(
                 ),
             ] = None,
         ) -> None:
-            """Распечатать ssh-команду в stdout (без выполнения)."""
+            """Выполнить через Portainer; `--print` — печать обёртки без выполнения."""
             _emit(
                 service=service,
                 method=method,
@@ -138,6 +148,7 @@ def make_app(
                 value=value,
                 server=server,
                 local=local,
+                print_mode=print_mode,
                 client_id=client_id,
                 date_from=date_from,
                 date_to=date_to,
@@ -158,6 +169,13 @@ def make_app(
             local: Annotated[
                 bool,
                 typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)"),
+            ] = False,
+            print_mode: Annotated[
+                bool,
+                typer.Option(
+                    "--print", "-p",
+                    help="Печатать обёртку в stdout + clipboard, не выполнять",
+                ),
             ] = False,
             client_id: Annotated[
                 int | None,
@@ -180,7 +198,7 @@ def make_app(
                 ),
             ] = None,
         ) -> None:
-            """Распечатать ssh-команду в stdout (без выполнения)."""
+            """Выполнить через Portainer; `--print` — печать обёртки без выполнения."""
             _emit(
                 service=service,
                 method=method,
@@ -188,6 +206,7 @@ def make_app(
                 value=value,
                 server=server,
                 local=local,
+                print_mode=print_mode,
                 client_id=client_id,
                 date_from=date_from,
                 date_to=date_to,

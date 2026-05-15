@@ -15,7 +15,7 @@ JS поступает из (в порядке приоритета):
 
 По умолчанию JS выполняется через `mpu.lib.pssh.pssh_run` (ssh+docker exec или Portainer
 HTTP API — выбирается per-server по `~/.config/mpu/.env`); при `--dry-run` печатается
-copy-pasteable `mpu p ssh sl-N -- node ... <<HEREDOC` блок и копируется в clipboard.
+copy-pasteable `mpu ssh sl-N -- node ... <<HEREDOC` блок и копируется в clipboard.
 
 Скрипт исполняется через `node --input-type=module -`, поэтому ему доступны
 node_modules sl-back, import aliases (`#bullmq/...`), env (Redis/PG hosts),
@@ -113,16 +113,16 @@ def _resolve_servers(selector: str | None, all_active: bool) -> list[int]:
 
 
 def _build_dry_run_block(target_numbers: list[int], js: str) -> str:
-    """Печать `mpu p ssh sl-N -- node --input-type=module - <<HEREDOC` блока.
+    """Печать `mpu ssh sl-N -- node --input-type=module - <<HEREDOC` блока.
 
-    Одинаково для ssh и Portainer — `mpu p ssh` сам выберет транспорт при paste'е.
+    Одинаково для ssh и Portainer — `mpu ssh` сам выберет транспорт при paste'е.
     """
     js_body = js.rstrip("\n")
     lines: list[str] = []
     for n in target_numbers:
         if len(target_numbers) > 1:
             lines.append(f"# server=sl-{n}")
-        lines.append(f"mpu p ssh sl-{n} -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'")
+        lines.append(f"mpu ssh sl-{n} -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'")
         lines.append(js_body)
         lines.append("__MPU_RUN_JS_EOF__")
     return "\n".join(lines)

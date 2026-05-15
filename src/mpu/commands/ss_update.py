@@ -8,6 +8,7 @@ from mpu.lib.cli_wrap import (
     auto_pick_int,
     auto_pick_str,
     emit_node_cli,
+    pick_wrapper,
     require,
     resolve_selector,
 )
@@ -33,6 +34,10 @@ def main(
         bool,
         typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)"),
     ] = False,
+    print_mode: Annotated[
+        bool,
+        typer.Option("--print", "-p", help="Печатать обёртку в stdout + clipboard, не выполнять"),
+    ] = False,
     client_id: Annotated[
         int | None,
         typer.Option(
@@ -55,9 +60,10 @@ def main(
     ] = "schedule",
     logs: Annotated[str, typer.Option("--logs", help="Logs level (info, debug, ...)")] = "info",
 ) -> None:
-    """Распечатать docker-команду в stdout (без выполнения)."""
+    """Выполнить через Portainer; `--print` — печать обёртки без выполнения."""
+    wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
     resolved = resolve_selector(
-        value=value, server=server, command_name=COMMAND_NAME, require_ssh=not local
+        value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
     )
     cid = require(
         client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
@@ -83,6 +89,6 @@ def main(
             "--logs": logs,
         },
         resolved=resolved,
-        wrapper="local" if local else "ssh",
+        wrapper=wrapper,
         command_name=COMMAND_NAME,
     )
