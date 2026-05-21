@@ -697,6 +697,154 @@ def test_pssh_cli_falls_through_to_mpu_search_when_container_not_found(
     assert captured["cmd"] == ["ls"]
 
 
+# ---------- mpu ssh CLI: --all-containers fan-out ----------
+
+
+def test_pssh_cli_all_containers_fan_out(
+    env_portainer_only: Path,
+    bootstrap_db: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`mpu ssh --all-containers wb-loader -- ls` → pssh_run_container на каждое имя."""
+    _ = env_portainer_only
+    _seed_container(
+        bootstrap_db,
+        url="https://p:9443",
+        endpoint_id=1,
+        endpoint_name="ep1",
+        container_name="mp-sl-1-wb-loader",
+        container_id="c1",
+    )
+    _seed_container(
+        bootstrap_db,
+        url="https://p:9443",
+        endpoint_id=2,
+        endpoint_name="ep2",
+        container_name="mp-sl-2-wb-loader",
+        container_id="c2",
+    )
+    calls: list[dict[str, object]] = []
+
+    def _fake_run_container(*, container: str, cmd: list[str], stdin: bytes = b"") -> int:
+        calls.append({"container": container, "cmd": list(cmd), "stdin": stdin})
+        return 0
+
+    def _no_pssh_run(**_kw: object) -> int:
+        raise AssertionError("--all-containers должен звать pssh_run_container")
+
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run_container", _fake_run_container)
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _no_pssh_run)
+    runner = CliRunner()
+    result = runner.invoke(pssh_cmd.app, ["--all-containers", "wb-loader", "--", "ls"])
+    assert result.exit_code == 0, result.output
+    assert [c["container"] for c in calls] == ["mp-sl-1-wb-loader", "mp-sl-2-wb-loader"]
+    assert all(c["cmd"] == ["ls"] for c in calls)
+
+
+def test_pssh_cli_all_containers_aborts_on_first_failure(
+    env_portainer_only: Path,
+    bootstrap_db: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Первый ненулевой rc → abort до остальных контейнеров."""
+    _ = env_portainer_only
+    _seed_container(
+        bootstrap_db,
+        url="https://p:9443",
+        endpoint_id=1,
+        endpoint_name="ep1",
+        container_name="mp-sl-1-wb-loader",
+        container_id="c1",
+    )
+    _seed_container(
+        bootstrap_db,
+        url="https://p:9443",
+        endpoint_id=2,
+        endpoint_name="ep2",
+        container_name="mp-sl-2-wb-loader",
+        container_id="c2",
+    )
+    calls: list[str] = []
+
+    def _fake_run_container(*, container: str, cmd: list[str], stdin: bytes = b"") -> int:
+        _ = cmd, stdin
+        calls.append(container)
+        return 5 if container == "mp-sl-1-wb-loader" else 0
+
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run_container", _fake_run_container)
+    runner = CliRunner()
+    result = runner.invoke(pssh_cmd.app, ["--all-containers", "wb-loader", "--", "ls"])
+    assert result.exit_code == 5
+    assert calls == ["mp-sl-1-wb-loader"]
+
+
+def test_pssh_cli_all_containers_no_match_rejected(
+    env_portainer_only: Path,
+    bootstrap_db: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """--all-containers без совпадений → exit 2."""
+    _ = env_portainer_only
+    bootstrap_db(store.DB_PATH)  # type: ignore[operator]
+
+    def _no_call(**_kw: object) -> int:
+        raise AssertionError("на пустой фильтр ничего не запускается")
+
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run_container", _no_call)
+    runner = CliRunner()
+    result = runner.invoke(pssh_cmd.app, ["--all-containers", "nonexistent", "--", "ls"])
+    assert result.exit_code == 2
+    assert "не найдены" in result.output
+
+
+def test_pssh_cli_all_containers_folds_first_token_into_cmd(
+    env_portainer_only: Path,
+    bootstrap_db: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """При --all-containers первый токен команды парсер сажает в optional-позиционный
+    `selector` — он возвращается в начало команды (а не трактуется как mutex-violation)."""
+    _ = env_portainer_only
+    _seed_container(
+        bootstrap_db,
+        url="https://p:9443",
+        endpoint_id=1,
+        endpoint_name="ep1",
+        container_name="mp-sl-1-wb-loader",
+        container_id="c1",
+    )
+    calls: list[dict[str, object]] = []
+
+    def _fake_run_container(*, container: str, cmd: list[str], stdin: bytes = b"") -> int:
+        calls.append({"container": container, "cmd": list(cmd), "stdin": stdin})
+        return 0
+
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run_container", _fake_run_container)
+    runner = CliRunner()
+    result = runner.invoke(
+        pssh_cmd.app, ["--all-containers", "wb-loader", "--", "node", "cli", "x"]
+    )
+    assert result.exit_code == 0, result.output
+    # `node` (попал в selector) + `cli x` (ctx.args) собрались обратно в команду целиком.
+    assert calls[0]["cmd"] == ["node", "cli", "x"]
+
+
+def test_pssh_cli_no_selector_no_command_rejected(
+    env_ssh_only: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ни <selector>, ни команды → exit 2 (пустая команда)."""
+    _ = env_ssh_only
+
+    def _no_call(**_kw: object) -> int:
+        raise AssertionError("не должно вызываться")
+
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _no_call)
+    runner = CliRunner()
+    result = runner.invoke(pssh_cmd.app, [])
+    assert result.exit_code in (0, 2)  # no_args_is_help=True → help; либо exit 2
+
+
 # ---------- lib/pssh.pssh_run_container ----------
 
 

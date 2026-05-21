@@ -71,31 +71,86 @@ def silence_clipboard(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(run_js, "copy_to_clipboard", _noop_clipboard)
 
 
-# ---------- _resolve_servers ----------
+# ---------- _resolve_targets ----------
 
 
-def test_resolve_servers_single(env_file: Path) -> None:
+def test_resolve_targets_single(env_file: Path) -> None:
     _ = env_file
-    assert run_js._resolve_servers("sl-1", False) == [1]
+    assert run_js._resolve_targets("sl-1", False, None) == [run_js._ServerTarget(1)]
 
 
-def test_resolve_servers_all_active(env_file: Path) -> None:
+def test_resolve_targets_all_active(env_file: Path) -> None:
     _ = env_file
-    assert run_js._resolve_servers(None, True) == [1, 2, 3]
+    assert run_js._resolve_targets(None, True, None) == [
+        run_js._ServerTarget(1),
+        run_js._ServerTarget(2),
+        run_js._ServerTarget(3),
+    ]
 
 
-def test_resolve_servers_requires_exactly_one() -> None:
+def test_resolve_targets_requires_exactly_one() -> None:
     with pytest.raises(typer.Exit):
-        run_js._resolve_servers(None, False)
+        run_js._resolve_targets(None, False, None)
     with pytest.raises(typer.Exit):
-        run_js._resolve_servers("sl-1", True)
+        run_js._resolve_targets("sl-1", True, None)
+    with pytest.raises(typer.Exit):
+        run_js._resolve_targets("sl-1", False, "wb-loader")
 
 
-def test_resolve_servers_rejects_garbage(env_file: Path) -> None:
+def test_resolve_targets_rejects_garbage(env_file: Path) -> None:
     """`foo` не sl-N и в SQLite-кэше нет — `mpu search` вернёт пусто → ResolveError."""
     _ = env_file
     with pytest.raises(typer.Exit):
-        run_js._resolve_servers("foo", False)
+        run_js._resolve_targets("foo", False, None)
+
+
+def test_resolve_targets_container_by_exact_name(env_file: Path) -> None:
+    """Точное имя НЕ-cli контейнера из кэша → _ContainerTarget."""
+    _ = env_file
+    with store.store() as conn:
+        conn.execute(
+            "INSERT INTO portainer_containers "
+            "(portainer_url, endpoint_id, endpoint_name, container_id, container_name, "
+            " server_number, discovered_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("https://example:9443", 1, "local", "id-wb", "mp-sl-9-wb-loader", None, 100),
+        )
+        conn.commit()
+    assert run_js._resolve_targets("mp-sl-9-wb-loader", False, None) == [
+        run_js._ContainerTarget("mp-sl-9-wb-loader")
+    ]
+
+
+def test_resolve_targets_all_containers(env_file: Path) -> None:
+    """--all-containers <filter> → _ContainerTarget по подстроке имени."""
+    _ = env_file
+    with store.store() as conn:
+        for n in (1, 2):
+            conn.execute(
+                "INSERT INTO portainer_containers "
+                "(portainer_url, endpoint_id, endpoint_name, container_id, container_name, "
+                " server_number, discovered_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    "https://example:9443",
+                    1,
+                    "local",
+                    f"id-wb-{n}",
+                    f"mp-sl-{n}-wb-loader",
+                    None,
+                    100,
+                ),
+            )
+        conn.commit()
+    assert run_js._resolve_targets(None, False, "wb-loader") == [
+        run_js._ContainerTarget("mp-sl-1-wb-loader"),
+        run_js._ContainerTarget("mp-sl-2-wb-loader"),
+    ]
+
+
+def test_resolve_targets_all_containers_empty_rejected(env_file: Path) -> None:
+    """--all-containers без совпадений → exit 2."""
+    _ = env_file
+    with pytest.raises(typer.Exit):
+        run_js._resolve_targets(None, False, "nonexistent")
 
 
 # ---------- _resolve_js_source ----------
@@ -133,24 +188,34 @@ def test_resolve_js_source_stdin(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_dry_run_single_server() -> None:
-    block = run_js._build_dry_run_block([1], "console.log(1)")
-    # Без префикса `# server=sl-N` для одного таргета.
-    assert "# server=sl-" not in block
+    block = run_js._build_dry_run_block([run_js._ServerTarget(1)], "console.log(1)")
+    # Без префикса `# target=...` для одного таргета.
+    assert "# target=" not in block
     assert "mpu ssh sl-1 -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'" in block
     assert "console.log(1)" in block
     assert block.count("__MPU_RUN_JS_EOF__") == 2
 
 
 def test_dry_run_multi_server_uses_heredoc() -> None:
-    block = run_js._build_dry_run_block([1, 2], "import x;\nawait x();\n")
-    assert "# server=sl-1" in block
-    assert "# server=sl-2" in block
+    block = run_js._build_dry_run_block(
+        [run_js._ServerTarget(1), run_js._ServerTarget(2)], "import x;\nawait x();\n"
+    )
+    assert "# target=sl-1" in block
+    assert "# target=sl-2" in block
     assert "mpu ssh sl-1 -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'" in block
     assert "mpu ssh sl-2 -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'" in block
     assert "import x;" in block
     assert "await x();" in block
     # Каждый блок закрыт, итого 4 маркера.
     assert block.count("__MPU_RUN_JS_EOF__") == 4
+
+
+def test_dry_run_container_target_uses_name_as_ref() -> None:
+    """_ContainerTarget → в `mpu ssh` блоке используется точное имя контейнера."""
+    block = run_js._build_dry_run_block(
+        [run_js._ContainerTarget("mp-sl-9-wb-loader")], "console.log(1)"
+    )
+    assert "mpu ssh mp-sl-9-wb-loader -- node --input-type=module -" in block
 
 
 # ---------- end-to-end CLI ----------
@@ -249,6 +314,94 @@ def test_cli_all_with_two_positionals_rejected(
     result = runner.invoke(run_js.app, ["--all", "sl-1", "console.log(1)"])
     assert result.exit_code == 2
     assert fake_pssh == []
+
+
+@pytest.fixture
+def fake_pssh_container(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
+    """Заменяет pssh_run_container в run_js: пишет каждый вызов в список, возвращает rc=0."""
+    calls: list[dict[str, object]] = []
+
+    def _fake_run(*, container: str, cmd: list[str], stdin: bytes = b"") -> int:
+        calls.append({"container": container, "cmd": list(cmd), "stdin": stdin})
+        return 0
+
+    monkeypatch.setattr(run_js, "pssh_run_container", _fake_run)
+    return calls
+
+
+def test_cli_execute_container_by_name(
+    env_file: Path,
+    fake_pssh: list[dict[str, object]],
+    fake_pssh_container: list[dict[str, object]],
+) -> None:
+    """Точное имя контейнера → pssh_run_container, не pssh_run."""
+    _ = env_file
+    with store.store() as conn:
+        conn.execute(
+            "INSERT INTO portainer_containers "
+            "(portainer_url, endpoint_id, endpoint_name, container_id, container_name, "
+            " server_number, discovered_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("https://example:9443", 1, "local", "id-wb", "mp-sl-9-wb-loader", None, 100),
+        )
+        conn.commit()
+    runner = CliRunner()
+    result = runner.invoke(run_js.app, ["mp-sl-9-wb-loader", "console.log(1)"])
+    assert result.exit_code == 0, result.output
+    assert fake_pssh == []
+    assert len(fake_pssh_container) == 1
+    call = fake_pssh_container[0]
+    assert call["container"] == "mp-sl-9-wb-loader"
+    assert call["cmd"] == ["node", "--input-type=module", "-"]
+    assert call["stdin"] == b"console.log(1)"
+
+
+def test_cli_execute_all_containers(
+    env_file: Path,
+    fake_pssh: list[dict[str, object]],
+    fake_pssh_container: list[dict[str, object]],
+) -> None:
+    """--all-containers + inline code: позиционный repurpose'ится в <code>."""
+    _ = env_file
+    with store.store() as conn:
+        for n in (1, 2):
+            conn.execute(
+                "INSERT INTO portainer_containers "
+                "(portainer_url, endpoint_id, endpoint_name, container_id, container_name, "
+                " server_number, discovered_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    "https://example:9443",
+                    1,
+                    "local",
+                    f"id-wb-{n}",
+                    f"mp-sl-{n}-wb-loader",
+                    None,
+                    100,
+                ),
+            )
+        conn.commit()
+    runner = CliRunner()
+    result = runner.invoke(run_js.app, ["--all-containers", "wb-loader", "console.log(1)"])
+    assert result.exit_code == 0, result.output
+    assert fake_pssh == []
+    assert [c["container"] for c in fake_pssh_container] == [
+        "mp-sl-1-wb-loader",
+        "mp-sl-2-wb-loader",
+    ]
+    assert all(c["stdin"] == b"console.log(1)" for c in fake_pssh_container)
+
+
+def test_cli_all_containers_no_match_rejected(
+    env_file: Path,
+    fake_pssh: list[dict[str, object]],
+    fake_pssh_container: list[dict[str, object]],
+) -> None:
+    """--all-containers без совпадений в кэше → exit 2, ничего не запущено."""
+    _ = env_file
+    runner = CliRunner()
+    result = runner.invoke(run_js.app, ["--all-containers", "nonexistent", "console.log(1)"])
+    assert result.exit_code == 2
+    assert fake_pssh == []
+    assert fake_pssh_container == []
 
 
 # ---------- list_instance_server_numbers (sanity для run_js fan-out source) ----------

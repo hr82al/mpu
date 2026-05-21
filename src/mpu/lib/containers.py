@@ -23,16 +23,20 @@ class ContainerResolveError(RuntimeError):
 
 
 def find_container_targets(name: str) -> list[dict[str, object]]:
-    """Все строки `portainer_containers` с `container_name = name`.
+    """Уникальные Portainer-эндпоинты с `container_name = name`.
 
     Возвращает пустой список если кэш пуст, БД нет, таблицы нет или совпадений нет.
     Возвращаемые dict содержат `portainer_url`, `endpoint_id`, `endpoint_name`,
     `container_name` — этого достаточно для exec'а и формирования сообщения об ошибке.
+
+    DISTINCT по `(portainer_url, endpoint_id)`: сервисы-реплики (WB_LOADER_THREADS=N,
+    deploy.replicas) порождают N строк с одним именем на одном эндпоинте — они схлопываются
+    в одну запись, поэтому `resolve_container_target` не видит ложной неоднозначности.
     """
     try:
         with store.store() as conn:
             rows = conn.execute(
-                "SELECT portainer_url, endpoint_id, endpoint_name, container_name "
+                "SELECT DISTINCT portainer_url, endpoint_id, endpoint_name, container_name "
                 "FROM portainer_containers WHERE container_name = ?",
                 (name,),
             ).fetchall()
@@ -74,3 +78,20 @@ def format_container_candidates(candidates: list[dict[str, object]]) -> str:
         ]
         lines.append("  " + "  ".join(parts))
     return "\n".join(lines)
+
+
+def find_containers_by_filter(name_filter: str) -> list[str]:
+    """Все уникальные имена контейнеров из portainer_containers, содержащие name_filter.
+
+    Возвращает пустой список если кэш пуст, БД нет, таблицы нет или совпадений нет.
+    """
+    try:
+        with store.store() as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT container_name FROM portainer_containers "
+                "WHERE container_name LIKE ? ORDER BY container_name",
+                (f"%{name_filter}%",),
+            ).fetchall()
+    except sqlite3.Error:
+        return []
+    return [r["container_name"] for r in rows]

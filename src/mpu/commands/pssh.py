@@ -48,7 +48,10 @@ from mpu.lib import pssh as _pssh
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 COMMAND_NAME = "mpu ssh"
-COMMAND_SUMMARY = "Запустить cmd в mp-sl-N-cli по селектору (ssh+docker или Portainer)"
+COMMAND_SUMMARY = (
+    "Запустить cmd в контейнере по селектору (ssh+docker или Portainer) "
+    "или fan-out через --all-containers"
+)
 
 
 app = typer.Typer(
@@ -149,15 +152,23 @@ def _resolve_stdin(*, stdin_text: str | None, stdin_file: Path | None, stdin_tty
 def main(
     ctx: typer.Context,
     selector: Annotated[
-        str,
+        str | None,
         typer.Argument(
-            help="sl-N | точное имя контейнера (e.g. mp-dt-cli) | "
-            "client_id / spreadsheet_id / title (через mpu search)"
+            help="sl-N | точное имя контейнера | client_id / spreadsheet_id / title. "
+            "Взаимоисключающе с --all-containers."
         ),
-    ],
+    ] = None,
     via: Annotated[
         str | None,
         typer.Option("--via", help="Override транспорта: ssh | portainer"),
+    ] = None,
+    all_containers_filter: Annotated[
+        str | None,
+        typer.Option(
+            "--all-containers",
+            help="Fan-out: запустить команду во всех контейнерах Portainer-кэша "
+            "с этой подстрокой в имени",
+        ),
     ] = None,
     stdin_text: Annotated[
         str | None,
@@ -190,17 +201,49 @@ def main(
     Portainer-exec прямо в этот НЕ-cli контейнер (`--via ssh` тут не поддержан). Так
     читают реальный runtime-конфиг прод-сервиса (`env`, `/proc/1/cmdline`, `/app/*`).
 
+    `--all-containers <filter>` — fan-out: команда исполняется во всех контейнерах
+    Portainer-кэша, чьё имя содержит подстроку `<filter>`. Взаимоисключающе с <selector>.
+
     Replica-сервисы (`deploy.replicas` / `WB_LOADER_THREADS=N`) → N контейнеров с одним
     именем → `ambiguous — matches N Portainer endpoints` (НЕ баг). Воркэраунд: схлопнуть
     дубли в `~/.config/mpu/mpu.db` (`portainer_containers`, keep MIN(rowid)); `mpu update`
     пересоберёт. stdin: `--stdin-text` / `--stdin-file` / `--stdin-tty`.
     """
-    target = _resolve_target(selector)
     cmd = list(ctx.args)
+    if all_containers_filter is not None and selector is not None:
+        # Без отдельного <selector> (fan-out по фильтру) typer-парсер из-за
+        # `ignore_unknown_options` сажает первый токен команды в optional-позиционный
+        # `selector`. Возвращаем его в начало команды: при --all-containers выделенного
+        # селектора быть не может, всё после фильтра — это команда.
+        cmd = [selector, *cmd]
+        selector = None
     if not cmd:
         typer.echo(f"{COMMAND_NAME}: пустая команда", err=True)
         raise typer.Exit(code=2)
     stdin_bytes = _resolve_stdin(stdin_text=stdin_text, stdin_file=stdin_file, stdin_tty=stdin_tty)
+
+    if all_containers_filter is not None:
+        names = containers.find_containers_by_filter(all_containers_filter)
+        if not names:
+            typer.echo(
+                f"{COMMAND_NAME}: контейнеры с подстрокой {all_containers_filter!r} не найдены; "
+                f"запусти `mpu init`",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        typer.echo(f"# {COMMAND_NAME}: containers = [{', '.join(names)}]", err=True)
+        for name in names:
+            typer.echo(f"# container={name}", err=True)
+            rc = _pssh.pssh_run_container(container=name, cmd=cmd, stdin=stdin_bytes)
+            if rc != 0:
+                raise typer.Exit(code=rc)
+        return
+
+    if selector is None:
+        typer.echo(f"{COMMAND_NAME}: укажите <selector> или --all-containers", err=True)
+        raise typer.Exit(code=2)
+
+    target = _resolve_target(selector)
     if isinstance(target, _ServerTarget):
         rc = _pssh.pssh_run(server_number=target.server_number, cmd=cmd, stdin=stdin_bytes, via=via)
     else:

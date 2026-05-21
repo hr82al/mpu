@@ -20,6 +20,8 @@ Naming: эта команда — намеренное исключение из
     mpu logs sl-1 --grep "ECONNREFUSED" --since 1h
     mpu logs sl-1 --client 123 --since 30m        # cross-service по client_id
     mpu logs sl-1 wb-loader --via portainer       # legacy snapshot одного контейнера
+    mpu logs --since 1h --grep "error"            # все хосты без фильтра по host
+    mpu logs wb-loader --since 30m               # wb-loader со всех хостов
 
 Shell completion (hosts/services из SQLite-кэша) — установить через
 `scripts/reinstall.sh` или `mpu logs --install-completion`. Кэш заполняет
@@ -81,12 +83,13 @@ app = typer.Typer(
 @app.command()
 def main(
     selector: Annotated[
-        str,
+        str | None,
         typer.Argument(
-            help="'ls' | sl-N / wb-N / dt-N / wb-(clusters|positions) | client_id / ss / title",
+            help="'ls' | sl-N / wb-N / dt-N / wb-(clusters|positions) | client_id / ss / title; "
+            "если не указан — запрос без фильтра по host (все хосты)",
             autocompletion=_complete_selector,
         ),
-    ],
+    ] = None,
     service: Annotated[
         str | None,
         typer.Argument(
@@ -153,22 +156,54 @@ def main(
         int | None,
         typer.Option("--client", help="Loki: substring `<client_id>` в строке (cross-service)"),
     ] = None,
+    follow: Annotated[
+        bool,
+        typer.Option("--follow", "-f", help="Loki: следить за новыми записями (аналог tail -f)"),
+    ] = False,
 ) -> None:
-    """Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot)."""
+    """Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).
+
+    Без <selector> — запрос идёт без фильтра по host (все хосты в одном LogQL).
+    """
     # `ls` режим — листинг из SQLite-кэша.
     if selector == _LS:
         _logs_loki.print_hosts_ls(command_name=COMMAND_NAME)
         return
     if service == _LS:
-        _logs_loki.print_services_ls(selector, command_name=COMMAND_NAME)
+        if selector is None:
+            _logs_loki.print_all_services_ls(command_name=COMMAND_NAME)
+        else:
+            _logs_loki.print_services_ls(selector, command_name=COMMAND_NAME)
         return
 
+    # Если первый позиционный не выглядит как host и совпадает с именем сервиса в кэше,
+    # трактуем его как service (без фильтра по host).
+    # Пример: `mpu logs wb-loader --since 1h` → service=wb-loader, host=all
+    if (
+        selector is not None
+        and service is None
+        and via != "portainer"
+        and not _logs_loki.is_direct_host(selector)
+        and selector in set(_logs_loki.cached_all_services())
+    ):
+        service = selector
+        selector = None
+
     if via == "portainer":
+        if selector is None:
+            typer.echo(
+                f"{COMMAND_NAME}: --via portainer требует <selector>",
+                err=True,
+            )
+            raise typer.Exit(code=2)
         if service is None:
             typer.echo(
                 f"{COMMAND_NAME}: --via portainer требует <container> (2-й позиционный аргумент)",
                 err=True,
             )
+            raise typer.Exit(code=2)
+        if follow:
+            typer.echo(f"{COMMAND_NAME}: --follow не поддерживается с --via portainer", err=True)
             raise typer.Exit(code=2)
         _logs_portainer.run(
             command_name=COMMAND_NAME,
@@ -185,6 +220,22 @@ def main(
     if via != "loki":
         typer.echo(f"{COMMAND_NAME}: --via {via!r}, ожидается 'loki' или 'portainer'", err=True)
         raise typer.Exit(code=2)
+
+    if follow:
+        _logs_loki.follow(
+            command_name=COMMAND_NAME,
+            selector=selector,
+            service=service,
+            since=since,
+            timestamps=timestamps,
+            no_stdout=no_stdout,
+            no_stderr=no_stderr,
+            grep=list(grep or []),
+            grep_regex=list(grep_regex or []),
+            level=level,
+            client_id=client_id,
+        )
+        return
 
     _logs_loki.run(
         command_name=COMMAND_NAME,

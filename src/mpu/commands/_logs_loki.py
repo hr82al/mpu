@@ -30,12 +30,14 @@ from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 _DIRECT_HOST_RE = re.compile(r"\A(sl-\d+|wb-\d+|dt-\d+|wb-clusters|wb-positions)\Z")
 _DEFAULT_SINCE_SECONDS = 5 * 60
+_FOLLOW_POLL_INTERVAL = 2.0
+_FOLLOW_INITIAL_SECONDS = 10
 
 
 def run(
     *,
     command_name: str,
-    selector: str,
+    selector: str | None,
     service: str | None,
     tail: int,
     since: str | None,
@@ -53,7 +55,7 @@ def run(
         typer.echo(f"{command_name}: LOKI_URL не задан в ~/.config/mpu/.env", err=True)
         raise typer.Exit(code=2)
 
-    host = _selector_to_host(selector, command_name=command_name)
+    host = _selector_to_host(selector, command_name=command_name) if selector is not None else None
     start_ns, end_ns = _time_range(since, command_name=command_name)
     logql = _build_logql(
         host=host,
@@ -85,12 +87,126 @@ def run(
 
     entries.sort(key=lambda e: e.ts_ns)
     for entry in entries:
-        line = entry.line.rstrip("\n")
-        if timestamps:
-            sys.stdout.write(f"{_format_ts(entry.ts_ns)} {line}\n")
-        else:
-            sys.stdout.write(f"{line}\n")
+        _print_entry(entry, timestamps=timestamps)
     sys.stdout.flush()
+
+
+def _print_entry(entry: loki.LogEntry, *, timestamps: bool) -> None:
+    line = entry.line.rstrip("\n")
+    if timestamps:
+        sys.stdout.write(f"{_format_ts(entry.ts_ns)} {line}\n")
+    else:
+        sys.stdout.write(f"{line}\n")
+
+
+def follow(
+    *,
+    command_name: str,
+    selector: str | None,
+    service: str | None,
+    since: str | None,
+    timestamps: bool,
+    no_stdout: bool,
+    no_stderr: bool,
+    grep: list[str],
+    grep_regex: list[str],
+    level: str | None,
+    client_id: int | None,
+) -> None:
+    """Следить за новыми логами в реальном времени (аналог `tail -f`).
+
+    Начинает с `--since` (или последних 10 сек), затем каждые 2 сек опрашивает
+    Loki за новые записи. Выход — Ctrl+C.
+    """
+    base_url = servers.env_value("LOKI_URL")
+    if not base_url:
+        typer.echo(f"{command_name}: LOKI_URL не задан в ~/.config/mpu/.env", err=True)
+        raise typer.Exit(code=2)
+
+    host = _selector_to_host(selector, command_name=command_name) if selector is not None else None
+    logql = _build_logql(
+        host=host,
+        service=service,
+        level=level,
+        no_stdout=no_stdout,
+        no_stderr=no_stderr,
+        grep=grep,
+        grep_regex=grep_regex,
+        client_id=client_id,
+    )
+
+    now_s = int(time.time())
+    if since is not None:
+        try:
+            start_s = parse_since(since)
+        except DurationParseError as e:
+            typer.echo(f"{command_name}: --since: {e}", err=True)
+            raise typer.Exit(code=2) from None
+    else:
+        start_s = now_s - _FOLLOW_INITIAL_SECONDS
+
+    last_ts_ns = start_s * 1_000_000_000
+
+    # Начальная порция: показать историю за [since, now]
+    try:
+        initial = loki.query_range(
+            base_url=base_url,
+            logql=logql,
+            start_ns=last_ts_ns,
+            end_ns=now_s * 1_000_000_000,
+            limit=500,
+            direction="forward",
+        )
+    except httpx.HTTPStatusError as e:
+        body = e.response.text.strip()[:500]
+        typer.echo(f"{command_name}: loki HTTP {e.response.status_code}: {body}", err=True)
+        typer.echo(f"  query: {logql}", err=True)
+        raise typer.Exit(code=1) from None
+    except httpx.HTTPError as e:
+        typer.echo(f"{command_name}: loki error: {e}", err=True)
+        raise typer.Exit(code=1) from None
+
+    initial.sort(key=lambda e: e.ts_ns)
+    for entry in initial:
+        _print_entry(entry, timestamps=timestamps)
+    if initial:
+        sys.stdout.flush()
+        last_ts_ns = initial[-1].ts_ns
+
+    try:
+        while True:
+            time.sleep(_FOLLOW_POLL_INTERVAL)
+            now_ns = int(time.time()) * 1_000_000_000
+            try:
+                entries = loki.query_range(
+                    base_url=base_url,
+                    logql=logql,
+                    start_ns=last_ts_ns + 1,
+                    end_ns=now_ns,
+                    limit=1000,
+                    direction="forward",
+                )
+            except httpx.HTTPStatusError as e:
+                body = e.response.text.strip()[:200]
+                typer.echo(f"\n{command_name}: loki HTTP {e.response.status_code}: {body}", err=True)
+                continue
+            except httpx.HTTPError as e:
+                typer.echo(f"\n{command_name}: loki error: {e}", err=True)
+                continue
+            entries.sort(key=lambda e: e.ts_ns)
+            for entry in entries:
+                _print_entry(entry, timestamps=timestamps)
+            if entries:
+                sys.stdout.flush()
+                last_ts_ns = entries[-1].ts_ns
+    except KeyboardInterrupt:
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+
+
+def is_direct_host(selector: str) -> bool:
+    """True если selector — прямой host-паттерн (sl-N / wb-N / dt-N / wb-clusters / wb-positions)."""
+    return bool(_DIRECT_HOST_RE.fullmatch(selector))
 
 
 def _selector_to_host(selector: str, *, command_name: str) -> str:
@@ -123,7 +239,7 @@ def _time_range(since: str | None, *, command_name: str) -> tuple[int, int]:
 
 def _build_logql(
     *,
-    host: str,
+    host: str | None,
     service: str | None,
     level: str | None,
     no_stdout: bool,
@@ -138,7 +254,11 @@ def _build_logql(
     `grep_regex` → по одному `|~` (regex) на каждый. Несколько фильтров
     AND-ятся (как отдельные contains-клаузы в Grafana).
     """
-    label_parts = [f'host="{_escape_label(host)}"']
+    label_parts = []
+    if host is not None:
+        label_parts.append(f'host="{_escape_label(host)}"')
+    else:
+        label_parts.append('host=~".+"')
     if service is not None:
         label_parts.append(f'compose_service="{_escape_label(service)}"')
     if no_stdout:
@@ -224,6 +344,19 @@ def print_hosts_ls(*, command_name: str) -> None:
         raise typer.Exit(code=2)
     for h in hosts:
         typer.echo(h)
+
+
+def print_all_services_ls(*, command_name: str) -> None:
+    """`mpu logs ls` (без host) — все уникальные services из кэша."""
+    services = cached_all_services()
+    if not services:
+        typer.echo(
+            f"{command_name}: кэш services пуст. Запусти `mpu init` или `mpu update`.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    for s in services:
+        typer.echo(s)
 
 
 def print_services_ls(host: str, *, command_name: str) -> None:

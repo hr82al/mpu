@@ -84,6 +84,44 @@ def test_resolve_ambiguous_raises_with_candidates(
     assert endpoint_names == {"mp-dt", "wb-positions-parser", "wb-clusters-parser"}
 
 
+def test_find_by_filter_returns_empty_when_no_db() -> None:
+    """Нет файла БД — graceful empty list, не падение."""
+    assert containers.find_containers_by_filter("wb-loader") == []
+
+
+def test_find_by_filter_matches_substring(bootstrap_db: Callable[[Path | str], None]) -> None:
+    """Подстрока в имени → все уникальные совпадения, отсортированы."""
+    _seed(
+        bootstrap_db,
+        [
+            ("https://p:9443", 1, "ep1", "c1", "mp-sl-1-wb-loader"),
+            ("https://p:9443", 2, "ep2", "c2", "mp-sl-2-wb-loader"),
+            ("https://p:9443", 3, "ep3", "c3", "mp-sl-1-cli"),
+        ],
+    )
+    assert containers.find_containers_by_filter("wb-loader") == [
+        "mp-sl-1-wb-loader",
+        "mp-sl-2-wb-loader",
+    ]
+
+
+def test_find_by_filter_deduplicates(bootstrap_db: Callable[[Path | str], None]) -> None:
+    """Одно имя на нескольких endpoint'ах (replicas) → одна строка в результате."""
+    _seed(
+        bootstrap_db,
+        [
+            ("https://p:9443", 1, "ep1", "c1", "mp-dt-cli"),
+            ("https://p:9443", 2, "ep2", "c2", "mp-dt-cli"),
+        ],
+    )
+    assert containers.find_containers_by_filter("dt-cli") == ["mp-dt-cli"]
+
+
+def test_find_by_filter_no_match(bootstrap_db: Callable[[Path | str], None]) -> None:
+    _seed(bootstrap_db, [("https://p:9443", 1, "ep1", "c1", "mp-sl-1-cli")])
+    assert containers.find_containers_by_filter("nonexistent") == []
+
+
 def test_format_candidates_contains_endpoint_and_url() -> None:
     out = containers.format_container_candidates(
         [
