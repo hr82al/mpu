@@ -7,7 +7,7 @@
 
 **Default — Portainer**, если оба источника заданы. Override через `via="ssh"|"portainer"`.
 Причина: Portainer — единственный универсальный путь до всех серверов фермы; ssh
-доступен только до части. Унифицируем поведение `mpu p ssh` / `mpu run-js --all`.
+доступен только до части. Унифицируем поведение `mpu ssh` / `mpu run-js --all`.
 
 stdout/stderr выполняемой команды пишутся напрямую в `sys.stdout.buffer` / `sys.stderr.buffer`,
 так что вызов indistinguishable от обычного subprocess: stream'ятся по мере прихода.
@@ -34,6 +34,22 @@ _STDIN_TMP_PATH = f"/tmp/{_STDIN_TMP_NAME}"
 # закрытия WS-соединения недостаточно: Docker НЕ шлёт SIGHUP exec-процессу при
 # disconnect (проверено эмпирически даже с Tty=true).
 _PIDFILE = "/tmp/__MPU_PSSH_PID"
+
+
+def _cmd_to_shell(cmd: list[str]) -> str:
+    """Превратить переданную команду в строку для `sh -c`.
+
+    Один элемент → это уже готовая shell-командная строка: `mpu ssh sl-5 "VAR=x node cli ..."`.
+    Отдаём как есть, чтобы env-присваивания, пайпы и redirect'ы исполнил шелл. `shlex.quote`
+    тут схлопнул бы всю строку в один токен, и `exec`/`sh` искали бы программу с таким
+    буквальным именем (`... node cli ...: not found`).
+
+    Несколько элементов → argv-форма: `mpu ssh sl-5 -- ls -la /app`. Квотируем каждый,
+    чтобы пробелы и спецсимволы внутри отдельного аргумента не разъехались по словам.
+    """
+    if len(cmd) == 1:
+        return cmd[0]
+    return " ".join(shlex.quote(a) for a in cmd)
 
 
 def pssh_run(
@@ -70,7 +86,7 @@ def pssh_run_container(
     api_key = servers.env_value("PORTAINER_API_KEY")
     if not api_key:
         typer.echo(
-            "mpu p ssh: PORTAINER_API_KEY не задан в ~/.config/mpu/.env",
+            "mpu ssh: PORTAINER_API_KEY не задан в ~/.config/mpu/.env",
             err=True,
         )
         raise typer.Exit(code=2)
@@ -91,7 +107,7 @@ def _resolve_transport(n: int, via: str | None) -> Transport:
         return via
     if via is not None:
         typer.echo(
-            f"mpu p ssh: --via должен быть ssh|portainer, получено {via!r}",
+            f"mpu ssh: --via должен быть ssh|portainer, получено {via!r}",
             err=True,
         )
         raise typer.Exit(code=2)
@@ -106,7 +122,7 @@ def _resolve_transport(n: int, via: str | None) -> Transport:
     if has_ssh:
         return "ssh"
     typer.echo(
-        f"mpu p ssh: для sl-{n} не задано ни sl_{n} (+PG_MY_USER_NAME) "
+        f"mpu ssh: для sl-{n} не задано ни sl_{n} (+PG_MY_USER_NAME) "
         f"ни sl_{n}_portainer (+PORTAINER_API_KEY)",
         err=True,
     )
@@ -119,9 +135,14 @@ def _run_via_ssh(n: int, cmd: list[str], stdin: bytes) -> int:
     assert ip is not None and user is not None  # _resolve_transport уже проверил
     key = str(Path.home() / ".ssh" / "id_rsa")
     container = f"mp-sl-{n}-cli"
-    inner = " ".join(shlex.quote(a) for a in cmd)
-    full = f"ssh -i {key} {user}@{ip} 'docker exec -i {container} sh -c {shlex.quote(inner)}'"
-    result = subprocess.run(["bash", "-c", full], input=stdin, check=False)
+    inner = _cmd_to_shell(cmd)
+    # remote — единственный позиционный arg ssh: удалённый шелл сам исполнит строку.
+    # Передаём argv напрямую (без локального `bash -c`), чтобы не плодить ещё один
+    # уровень квотирования поверх ssh+`sh -c`.
+    remote = f"docker exec -i {container} sh -c {shlex.quote(inner)}"
+    result = subprocess.run(
+        ["ssh", "-i", key, f"{user}@{ip}", remote], input=stdin, check=False
+    )
     return result.returncode
 
 
@@ -172,15 +193,17 @@ def run_in_container_via_portainer(
         verify_tls=verify_tls,
     )
 
-    # Оборачиваем команду: `sh -c 'echo $$ > pidfile; exec <inner>'`. `exec` заменяет
-    # sh реальной командой с тем же PID, поэтому pidfile содержит PID именно команды
-    # (node/sleep/etc). `kill $(cat pidfile)` шлёт сигнал прямо в неё, а не в
-    # промежуточный sh — иначе настоящий процесс осиротел бы и пережил отмену.
-    inner = " ".join(shlex.quote(a) for a in cmd)
+    # Оборачиваем команду: `sh -c 'echo $$ > pidfile; exec sh -c <inner>'`. Внутренний
+    # `sh -c` нужен, чтобы <inner> прошёл через шелл — env-присваивания (`VAR=x cmd`),
+    # пайпы и redirect'ы не отработают, если отдать строку напрямую в `exec`. `exec`
+    # заменяет внешний sh, сохраняя PID; внутренний sh при единственной команде exec'ает
+    # её на месте, поэтому pidfile содержит PID самой команды (node/sleep/etc) —
+    # `kill $(cat pidfile)` на Ctrl+C попадает в неё, а не в промежуточный процесс.
+    inner = _cmd_to_shell(cmd)
     if stdin:
         client.upload_tar(container, "/tmp", {_STDIN_TMP_NAME: stdin})
         inner = f"{inner} < {_STDIN_TMP_PATH}"
-    final_cmd = ["sh", "-c", f"echo $$ > {_PIDFILE}; exec {inner}"]
+    final_cmd = ["sh", "-c", f"echo $$ > {_PIDFILE}; exec sh -c {shlex.quote(inner)}"]
 
     # Flush после каждого чанка: sys.stdout.buffer — BufferedWriter с блочным буфером
     # (~8 KB), line-buffering у TextIOWrapper в обход. Без flush'а вывод копится,

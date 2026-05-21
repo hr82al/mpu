@@ -11,7 +11,7 @@
 import json
 import re
 import sqlite3
-from typing import Annotated
+from typing import Annotated, TypeGuard
 
 import typer
 
@@ -21,7 +21,27 @@ COMMAND_NAME = "mpu search"
 COMMAND_SUMMARY = "Поиск клиента / spreadsheet в локальном кэше"
 
 
-def _row_to_result(row: sqlite3.Row) -> dict[str, object]:
+def _sids_for_client(conn: sqlite3.Connection, client_id: object) -> list[str]:
+    """Все WB sid клиента из локального кэша (отсортированы). Пусто → `[]`.
+
+    Таблица `sl_wb_sids` добавлена позже остальной схемы — на кэшах,
+    забутстрапленных старым `mpu init`, её ещё нет. Тогда деградируем в `[]`
+    (резолв селектора не должен падать); схема дотянется на следующем
+    `mpu update` / `mpu init`.
+    """
+    if client_id is None:
+        return []
+    try:
+        cur = conn.execute(
+            "SELECT sid FROM sl_wb_sids WHERE client_id = ? ORDER BY sid",
+            (client_id,),
+        )
+    except sqlite3.OperationalError:
+        return []
+    return [r["sid"] for r in cur.fetchall()]
+
+
+def _row_to_result(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, object]:
     server = row["server"]
     n = servers.server_number(server)
     return {
@@ -32,6 +52,7 @@ def _row_to_result(row: sqlite3.Row) -> dict[str, object]:
         "server_number": n,
         "sl_ip": servers.sl_ip(n) if n is not None else None,
         "pg_ip": servers.pg_ip(n) if n is not None else None,
+        "sids": _sids_for_client(conn, row["client_id"]),
     }
 
 
@@ -51,7 +72,7 @@ def _by_client_id(conn: sqlite3.Connection, value: int) -> list[dict[str, object
         """,
         (value,),
     )
-    return [_row_to_result(r) for r in cur.fetchall()]
+    return [_row_to_result(conn, r) for r in cur.fetchall()]
 
 
 def _by_spreadsheet_id(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
@@ -64,7 +85,7 @@ def _by_spreadsheet_id(conn: sqlite3.Connection, value: str) -> list[dict[str, o
         """,
         (f"%{value}%",),
     )
-    return [_row_to_result(r) for r in cur.fetchall()]
+    return [_row_to_result(conn, r) for r in cur.fetchall()]
 
 
 def _by_title(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
@@ -77,7 +98,7 @@ def _by_title(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
         """,
         (f"%{value}%",),
     )
-    return [_row_to_result(r) for r in cur.fetchall()]
+    return [_row_to_result(conn, r) for r in cur.fetchall()]
 
 
 def _is_int(value: str) -> bool:
@@ -105,23 +126,71 @@ def _by_ip(value: str) -> list[dict[str, object]]:
             "server_number": n,
             "sl_ip": servers.sl_ip(n),
             "pg_ip": servers.pg_ip(n),
+            "sids": [],
         }
     ]
 
 
+def _by_sid(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
+    """sid → клиент(ы). Сначала точное совпадение, иначе substring (LIKE %v%).
+
+    Возвращает строки клиента так же, как `_by_client_id` (со spreadsheets и
+    полным списком `sids`), чтобы контракт результата был единым.
+    """
+
+    def _client_ids(where: str, param: str) -> list[object]:
+        # sl_wb_sids может отсутствовать на старом кэше (см. _sids_for_client) —
+        # тогда sid-матч просто пустой, search падает дальше на ss_id/title.
+        try:
+            cur = conn.execute(
+                f"SELECT DISTINCT client_id FROM sl_wb_sids WHERE {where} ORDER BY client_id",
+                (param,),
+            )
+        except sqlite3.OperationalError:
+            return []
+        return [r["client_id"] for r in cur.fetchall()]
+
+    client_ids = _client_ids("sid = ?", value) or _client_ids("sid LIKE ?", f"%{value}%")
+    out: list[dict[str, object]] = []
+    for cid in client_ids:
+        if isinstance(cid, int):
+            out.extend(_by_client_id(conn, cid))
+    return out
+
+
 def search(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
-    """Однопроходный поиск по правилам из плана (без auto-update fallback)."""
+    """Однопроходный поиск. Порядок: client_id → IP → sid → ss_id → title.
+
+    `sid` (exact, затем substring) идёт перед ss_id/title — sid'ы из
+    `sl_wb_sids` достаточно специфичны; если ничего не нашли — fallback дальше.
+    """
     if _is_int(value):
         return _by_client_id(conn, int(value))
     if _looks_like_ip(value):
         return _by_ip(value)
+    by_sid = _by_sid(conn, value)
+    if by_sid:
+        return by_sid
     found = _by_spreadsheet_id(conn, value)
     if found:
         return found
     return _by_title(conn, value)
 
 
+def _is_str_list(o: object) -> TypeGuard[list[str]]:
+    """Явный type-guard (CLAUDE.md §5). `sids` по построению — list[str]
+    (`_sids_for_client` тянет TEXT-колонку), поэтому достаточно проверки list."""
+    return isinstance(o, list)
+
+
 def _project(results: list[dict[str, object]], field: str) -> list[str]:
+    if field == "sids":
+        # Список → одна строка через запятую (одна строка на result-row).
+        out: list[str] = []
+        for r in results:
+            v = r.get(field)
+            out.append(",".join(v) if _is_str_list(v) else "")
+        return out
     return ["" if r.get(field) is None else str(r.get(field)) for r in results]
 
 
@@ -136,7 +205,10 @@ def main(
     value: Annotated[
         str,
         typer.Argument(
-            help="client_id (число), IPv4 (sl_/pg_ из .env), кусок spreadsheet_id или title",
+            help=(
+                "client_id (число), IPv4 (sl_/pg_ из .env), WB sid "
+                "(точное/substring), кусок spreadsheet_id или title"
+            ),
         ),
     ],
     client_id: Annotated[bool, typer.Option("--client-id", help="Plain: только client_id")] = False,
@@ -152,6 +224,9 @@ def main(
     ] = False,
     sl_ip: Annotated[bool, typer.Option("--sl-ip", help="Plain: только IP sl-сервера")] = False,
     pg_ip: Annotated[bool, typer.Option("--pg-ip", help="Plain: только IP pg-сервера")] = False,
+    sids: Annotated[
+        bool, typer.Option("--sids", help="Plain: WB sid'ы клиента через запятую")
+    ] = False,
     update: Annotated[
         bool,
         typer.Option(
@@ -175,6 +250,7 @@ def main(
             ("server_number", server_number),
             ("sl_ip", sl_ip),
             ("pg_ip", pg_ip),
+            ("sids", sids),
         ]
         if flag
     ]

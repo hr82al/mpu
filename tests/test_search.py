@@ -48,6 +48,14 @@ def db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[sqlite3.Conn
             ("ssGAMMA999", 30, "ИП Сидоров", "tmpl", 1, "sl-1", 100),
         ],
     )
+    conn.executemany(
+        "INSERT INTO sl_wb_sids (sid, client_id, server, synced_at) VALUES (?, ?, ?, ?)",
+        [
+            ("aaaa1111-2222-3333-4444-555566667777", 10, "sl-1", 100),
+            ("aaaa1111-9999-0000-0000-000000000000", 10, "sl-1", 100),
+            ("bbbb2222-2222-3333-4444-555566667777", 20, "sl-2", 100),
+        ],
+    )
     conn.commit()
     yield conn
     conn.close()
@@ -211,3 +219,60 @@ def test_cli_pg_ip_projection(db: sqlite3.Connection) -> None:
     assert res.exit_code == 0
     lines = [ln for ln in res.stdout.splitlines() if ln]
     assert lines == ["1"]
+
+
+# ── sid ──────────────────────────────────────────────────────────────────────
+
+
+def test_results_include_sids_for_client(db: sqlite3.Connection) -> None:
+    results = search.search(db, "10")
+    assert all("sids" in r for r in results)
+    assert results[0]["sids"] == [
+        "aaaa1111-2222-3333-4444-555566667777",
+        "aaaa1111-9999-0000-0000-000000000000",
+    ]
+
+
+def test_results_sids_empty_list_when_none(db: sqlite3.Connection) -> None:
+    # client 30 без sid → [], не None (унифицированная пустота)
+    results = search.search(db, "30")
+    assert results[0]["sids"] == []
+
+
+def test_search_by_sid_exact(db: sqlite3.Connection) -> None:
+    results = search.search(db, "bbbb2222-2222-3333-4444-555566667777")
+    assert {r["client_id"] for r in results} == {20}
+
+
+def test_search_by_sid_substring(db: sqlite3.Connection) -> None:
+    # уникальный кусок sid клиента 20
+    results = search.search(db, "bbbb2222")
+    assert {r["client_id"] for r in results} == {20}
+
+
+def test_search_sid_substring_multi_client(db: sqlite3.Connection) -> None:
+    # 'aaaa1111' встречается у двух sid клиента 10 → один клиент, его строки
+    results = search.search(db, "aaaa1111")
+    assert {r["client_id"] for r in results} == {10}
+
+
+def test_search_missing_sl_wb_sids_table_degrades(db: sqlite3.Connection) -> None:
+    """Старый кэш без sl_wb_sids: search не падает, sid-матч пустой, sids=[]."""
+    db.execute("DROP TABLE sl_wb_sids")
+    db.commit()
+    # ss-substring всё ещё работает, sids деградирует в []
+    results = search.search(db, "GAMMA")
+    assert len(results) == 1
+    assert results[0]["spreadsheet_id"] == "ssGAMMA999"
+    assert results[0]["sids"] == []
+
+
+def test_cli_projection_sids(db: sqlite3.Connection) -> None:
+    res = runner.invoke(search.app, ["10", "--sids", "--no-update"])
+    assert res.exit_code == 0
+    lines = [ln for ln in res.stdout.splitlines() if ln]
+    # 2 spreadsheets под client 10 → 2 строки, в каждой оба sid через запятую
+    assert lines == [
+        "aaaa1111-2222-3333-4444-555566667777,aaaa1111-9999-0000-0000-000000000000",
+        "aaaa1111-2222-3333-4444-555566667777,aaaa1111-9999-0000-0000-000000000000",
+    ]

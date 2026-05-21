@@ -39,6 +39,7 @@ def test_bootstrap_creates_all_schema(tmp_path: Path) -> None:
         }
         assert "sl_clients" in tables
         assert "sl_spreadsheets" in tables
+        assert "sl_wb_sids" in tables
         assert "portainer_containers" in tables
 
         idx = {

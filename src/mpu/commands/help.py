@@ -23,6 +23,7 @@ from mpu.commands import (
     search,
     sql,
     ss_update,
+    sun,
     update,
 )
 
@@ -78,6 +79,7 @@ _REGISTERED_MODULES = (
     search,
     update,
     sql,
+    sun,
     backup_wb_unit_proto,
     backup_ozon_unit_proto,
     backup_wb_unit_manual_data,

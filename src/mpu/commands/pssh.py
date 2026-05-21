@@ -1,6 +1,6 @@
-"""`mpu p ssh` — выполнить команду в произвольном контейнере (ssh+docker или Portainer).
+"""`mpu ssh` — выполнить команду в произвольном контейнере (ssh+docker или Portainer).
 
-UX: `mpu p ssh <selector> <cmd...>` — единый интерфейс независимо от того, есть ли прямой ssh
+UX: `mpu ssh <selector> <cmd...>` — единый интерфейс независимо от того, есть ли прямой ssh
 или только Portainer-доступ. Селектор универсальный (порядок резолва):
   - `sl-N` — прямой указатель sl-сервера; контейнер `mp-sl-N-cli`; ssh+docker или Portainer.
   - точное имя контейнера в Portainer-кэше (например `mp-dt-cli`) — Portainer-only,
@@ -12,7 +12,7 @@ UX: `mpu p ssh <selector> <cmd...>` — единый интерфейс неза
 Источники stdin (по приоритету; первый победивший — он и используется):
   1. `--stdin-text "..."` — inline-строка;
   2. `--stdin-file ./x` — содержимое файла;
-  3. pipe: `cat x | mpu p ssh ...` (stdin не TTY) — forward'ится в команду;
+  3. pipe: `cat x | mpu ssh ...` (stdin не TTY) — forward'ится в команду;
   4. `--stdin-tty` — интерактивный TTY-ввод: подсказка про Ctrl+D, читаем до EOF.
 По умолчанию из TTY ничего не читается — большинству команд (ls, ps, echo) stdin не нужен,
 блокироваться на prompt'е нет смысла. Если команда внутри контейнера читает stdin —
@@ -26,14 +26,14 @@ stdout/stderr ребёнка — напрямую в наш stdout/stderr. Exit 
   - оба заданы → ssh (быстрее); override через `--via portainer`
 
 Примеры:
-  mpu p ssh sl-1 -- ls -la /app
-  mpu p ssh mp-dt-cli -- node cli service:clientsTransfer createJob ...  # direct container
-  mpu p ssh 12345 -- ps -eo pid,etime,args        # client_id → server через mpu search
-  mpu p ssh "Тортуга" -- ls /app                   # title → server через mpu search
-  cat script.mjs | mpu p ssh sl-11 -- node --input-type=module -
-  mpu p ssh sl-11 --stdin-text 'console.log(1)' -- node --input-type=module -
-  mpu p ssh sl-1 --via portainer -- ls /app
-  mpu p ssh sl-11 --stdin-tty -- cat   # явный интерактивный ввод, Ctrl+D для EOF
+  mpu ssh sl-1 -- ls -la /app
+  mpu ssh mp-dt-cli -- node cli service:clientsTransfer createJob ...  # direct container
+  mpu ssh 12345 -- ps -eo pid,etime,args        # client_id → server через mpu search
+  mpu ssh "Тортуга" -- ls /app                   # title → server через mpu search
+  cat script.mjs | mpu ssh sl-11 -- node --input-type=module -
+  mpu ssh sl-11 --stdin-text 'console.log(1)' -- node --input-type=module -
+  mpu ssh sl-1 --via portainer -- ls /app
+  mpu ssh sl-11 --stdin-tty -- cat   # явный интерактивный ввод, Ctrl+D для EOF
 """
 
 import sys
@@ -47,7 +47,7 @@ from mpu.lib import containers, servers
 from mpu.lib import pssh as _pssh
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
-COMMAND_NAME = "mpu p ssh"
+COMMAND_NAME = "mpu ssh"
 COMMAND_SUMMARY = "Запустить cmd в mp-sl-N-cli по селектору (ssh+docker или Portainer)"
 
 
@@ -181,6 +181,20 @@ def main(
         ),
     ] = False,
 ) -> None:
+    """Выполнить команду в `mp-sl-N-cli` ИЛИ в произвольном контейнере по точному имени.
+
+    Селектор `sl-N` / client_id / ss_id / title → лендится в `mp-sl-N-cli` (это уже
+    docker exec — НЕ оборачивать в `docker exec` повторно, бинаря docker внутри нет).
+
+    Селектор = точное compose-имя контейнера (`mp-sl-3-wb-loader`, `*-instance-app`) →
+    Portainer-exec прямо в этот НЕ-cli контейнер (`--via ssh` тут не поддержан). Так
+    читают реальный runtime-конфиг прод-сервиса (`env`, `/proc/1/cmdline`, `/app/*`).
+
+    Replica-сервисы (`deploy.replicas` / `WB_LOADER_THREADS=N`) → N контейнеров с одним
+    именем → `ambiguous — matches N Portainer endpoints` (НЕ баг). Воркэраунд: схлопнуть
+    дубли в `~/.config/mpu/mpu.db` (`portainer_containers`, keep MIN(rowid)); `mpu update`
+    пересоберёт. stdin: `--stdin-text` / `--stdin-file` / `--stdin-tty`.
+    """
     target = _resolve_target(selector)
     cmd = list(ctx.args)
     if not cmd:

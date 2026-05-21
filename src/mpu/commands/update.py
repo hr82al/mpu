@@ -35,6 +35,17 @@ def _fetch_spreadsheets_for_server(n: int) -> list[tuple[Any, ...]]:
         return list(cur.fetchall())
 
 
+def _fetch_wb_sids() -> list[tuple[Any, ...]]:
+    """`(client_id, sid)` из public.wb_tokens на main (authoritative).
+
+    DISTINCT — на один sid может быть несколько токенов. `sid` имеет тип uuid;
+    приводим к str на этапе записи в SQLite.
+    """
+    with pg.connect_main() as conn, conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT client_id, sid FROM public.wb_tokens WHERE sid IS NOT NULL")
+        return list(cur.fetchall())
+
+
 def run_update(quiet: bool = False) -> tuple[int, int, float]:
     """Перезаписать `sl_clients` и `sl_spreadsheets` свежими данными.
 
@@ -60,43 +71,63 @@ def run_update(quiet: bool = False) -> tuple[int, int, float]:
 
     total_spreadsheets = sum(len(v) for v in spreadsheets_per_server.values())
 
-    with store.store() as conn, conn:
-        conn.execute("DELETE FROM sl_clients")
-        conn.executemany(
-            "INSERT INTO sl_clients "
-            "(client_id, server, is_active, is_locked, is_deleted, synced_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            [
-                (
-                    row[0],
-                    row[1],
-                    1 if row[2] else 0,
-                    1 if row[3] else 0,
-                    1 if row[4] else 0,
-                    synced_at,
-                )
-                for row in clients
-            ],
-        )
-        conn.execute("DELETE FROM sl_spreadsheets")
-        for n, ss_rows in spreadsheets_per_server.items():
-            server_name = f"sl-{n}"
+    # client_id → server (sl-N) для проставления server у sid-строк.
+    server_by_client: dict[Any, str] = {row[0]: row[1] for row in clients}
+    wb_sid_rows = _fetch_wb_sids()
+    sid_rows: list[tuple[str, Any, str, int]] = [
+        (str(sid), client_id, server_by_client[client_id], synced_at)
+        for client_id, sid in wb_sid_rows
+        if client_id in server_by_client
+    ]
+
+    with store.store() as conn:
+        # Идемпотентный self-heal схемы: на кэшах, забутстрапленных старым
+        # `mpu init`, ещё нет `sl_wb_sids` — добьём недостающие таблицы, чтобы
+        # `mpu update` не падал на `DELETE FROM sl_wb_sids` (CREATE IF NOT EXISTS).
+        store.bootstrap(conn)
+        with conn:
+            conn.execute("DELETE FROM sl_clients")
             conn.executemany(
-                "INSERT OR REPLACE INTO sl_spreadsheets "
-                "(ss_id, client_id, title, template_name, is_active, server, synced_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO sl_clients "
+                "(client_id, server, is_active, is_locked, is_deleted, synced_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 [
                     (
-                        row[1],
                         row[0],
-                        row[2] or "",
-                        row[3],
+                        row[1],
+                        1 if row[2] else 0,
+                        1 if row[3] else 0,
                         1 if row[4] else 0,
-                        server_name,
                         synced_at,
                     )
-                    for row in ss_rows
+                    for row in clients
                 ],
+            )
+            conn.execute("DELETE FROM sl_spreadsheets")
+            for n, ss_rows in spreadsheets_per_server.items():
+                server_name = f"sl-{n}"
+                conn.executemany(
+                    "INSERT OR REPLACE INTO sl_spreadsheets "
+                    "(ss_id, client_id, title, template_name, is_active, server, synced_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        (
+                            row[1],
+                            row[0],
+                            row[2] or "",
+                            row[3],
+                            1 if row[4] else 0,
+                            server_name,
+                            synced_at,
+                        )
+                        for row in ss_rows
+                    ],
+                )
+            conn.execute("DELETE FROM sl_wb_sids")
+            conn.executemany(
+                "INSERT OR REPLACE INTO sl_wb_sids (sid, client_id, server, synced_at) "
+                "VALUES (?, ?, ?, ?)",
+                sid_rows,
             )
 
     # Дополнительно — обновить Loki-кэш для shell completion (hosts/services).
@@ -109,16 +140,14 @@ def run_update(quiet: bool = False) -> tuple[int, int, float]:
         typer.echo(
             f"clients: {len(clients)} rows, "
             f"spreadsheets: {total_spreadsheets} rows from {n_servers} servers, "
+            f"wb sids: {len(sid_rows)} rows, "
             f"took {elapsed:.2f}s"
         )
         if loki_result.error:
             typer.echo(f"loki: пропущено ({loki_result.error})", err=True)
         else:
             n_services = sum(len(v) for v in loki_result.services_by_host.values())
-            typer.echo(
-                f"loki: {len(loki_result.hosts)} hosts, "
-                f"{n_services} (host, service) пар"
-            )
+            typer.echo(f"loki: {len(loki_result.hosts)} hosts, {n_services} (host, service) пар")
         if failed_servers:
             typer.echo(
                 "warning: failed to query servers: "

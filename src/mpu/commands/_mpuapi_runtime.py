@@ -309,4 +309,14 @@ def build_api_group() -> click.Group:
 
         cmd.callback = _wrapped
         group.add_command(cmd)
+
+    # Кастомные команды (не декларативные спеки). Локальный импорт — избегаем
+    # цикла на import-времени.
+    # - wb-loader-resume: резолв селектора + многошаговый find→resume.
+    # - wb-loader-blocked: глобальный список блокировок по всем серверам (без селектора).
+    from mpu.commands.wb_loader_blocked import build_command as _build_wb_loader_blocked
+    from mpu.commands.wb_loader_resume import build_command as _build_wb_loader_resume
+
+    group.add_command(_build_wb_loader_resume())
+    group.add_command(_build_wb_loader_blocked())
     return group

@@ -16,6 +16,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "search": ("mpu.commands.search", "app"),
     "update": ("mpu.commands.update", "app"),
     "sql": ("mpu.commands.sql", "app"),
+    "sun": ("mpu.commands.sun", "app"),
     # Passthrough-обёртки `new-mpu` (см. mpu.lib.new_mpu). Будут заменены нативной
     # реализацией по мере переноса из Go/Node CLI.
     "sheet": ("mpu.commands.sheet", "app"),

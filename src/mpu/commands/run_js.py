@@ -165,6 +165,16 @@ def main(
         typer.Option("--via", help="Override транспорта для всех целей: ssh | portainer"),
     ] = None,
 ) -> None:
+    """Выполнить ESM-код ВНУТРИ `mp-sl-N-cli` (всегда cli, не loader/instance-app).
+
+    Селектор → sl-N; код летит в `mp-sl-N-cli` как `node --input-type=module -`.
+    Нужен runtime-конфиг НЕ-cli сервиса (`mp-sl-N-wb-loader`, `*-instance-app`,
+    реплики) — это НЕ сюда: `mpu ssh <точное-имя-контейнера> --via portainer ... -- sh`.
+
+    Код (приоритет): позиционный <code> → `--file` → stdin. `--all` — fan-out по
+    всем sl-N (N>0); тогда первый позиционный трактуется как <code>. `--dry-run` —
+    только напечатать команду(ы) без выполнения.
+    """
     # При --all позиционный <selector> не имеет смысла (нет per-server резолва).
     # Repurpose: первый позиционный (попавший в `selector`) трактуем как inline-код.
     if all_active and selector is not None:

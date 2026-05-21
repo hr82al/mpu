@@ -42,7 +42,8 @@ def run(
     timestamps: bool,
     no_stdout: bool,
     no_stderr: bool,
-    grep: str | None,
+    grep: list[str],
+    grep_regex: list[str],
     level: str | None,
     client_id: int | None,
 ) -> None:
@@ -61,6 +62,7 @@ def run(
         no_stdout=no_stdout,
         no_stderr=no_stderr,
         grep=grep,
+        grep_regex=grep_regex,
         client_id=client_id,
     )
 
@@ -126,10 +128,16 @@ def _build_logql(
     level: str | None,
     no_stdout: bool,
     no_stderr: bool,
-    grep: str | None,
+    grep: list[str],
+    grep_regex: list[str],
     client_id: int | None,
 ) -> str:
-    """Сборка LogQL: `{labels} | line_filters`."""
+    """Сборка LogQL: `{labels} | line_filters`.
+
+    `grep` → по одному `|=` (литеральная подстрока) на каждый элемент;
+    `grep_regex` → по одному `|~` (regex) на каждый. Несколько фильтров
+    AND-ятся (как отдельные contains-клаузы в Grafana).
+    """
     label_parts = [f'host="{_escape_label(host)}"']
     if service is not None:
         label_parts.append(f'compose_service="{_escape_label(service)}"')
@@ -140,8 +148,10 @@ def _build_logql(
 
     selector_str = "{" + ",".join(label_parts) + "}"
     parts = [selector_str]
-    if grep is not None:
-        parts.append(f"|= {_quote_line_filter(grep)}")
+    for needle in grep:
+        parts.append(f"|= {_quote_line_filter(needle)}")
+    for pattern in grep_regex:
+        parts.append(f"|~ {_quote_line_filter(pattern)}")
     if client_id is not None:
         parts.append(f"|= {_quote_line_filter(str(client_id))}")
     if level is not None:

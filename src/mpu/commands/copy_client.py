@@ -98,6 +98,7 @@ def main(
     inner = (
         f"USE_NATS_PROXY=false "
         f"WB_PLUS_WEB_APP_EMAIL='dev007.btlz@gmail.com' "
+        f"DATA_TRANSFER_LOGS=trace "
         f"SOURCE_HOST={source_host} "
         f"SOURCE_PORT=5432 "
         f"TARGET_HOST=127.0.0.1 "

@@ -13,18 +13,27 @@ from mpu.lib import store
 def _make_fake_pg(
     clients_rows: list[tuple[Any, ...]],
     spreadsheets_per_server: dict[int, list[tuple[Any, ...]]],
+    wb_sids_rows: list[tuple[Any, ...]] | None = None,
 ):
-    """Возвращает (connect_main_fn, connect_to_fn) которые отдают заглушки."""
+    """Возвращает (connect_main_fn, connect_to_fn) которые отдают заглушки.
+
+    Курсор query-aware: на main запрос с `wb_tokens` отдаёт `wb_sids_rows`
+    (DISTINCT client_id, sid), любой другой — `clients_rows`.
+    """
+    sids_rows = wb_sids_rows if wb_sids_rows is not None else []
 
     class _Cur:
-        def __init__(self, rows: list[tuple[Any, ...]]) -> None:
-            self._rows = rows
+        def __init__(self, default_rows: list[tuple[Any, ...]]) -> None:
+            self._default = default_rows
+            self._q = ""
 
-        def execute(self, _q: str) -> None:
-            pass
+        def execute(self, q: str) -> None:
+            self._q = q
 
         def fetchall(self) -> list[tuple[Any, ...]]:
-            return self._rows
+            if "wb_tokens" in self._q:
+                return sids_rows
+            return self._default
 
         def __enter__(self) -> "_Cur":
             return self
@@ -161,3 +170,59 @@ def test_run_update_handles_failed_server(tmp_path: Path, monkeypatch: pytest.Mo
     with store.store(db_path) as conn:
         ss_rows = conn.execute("SELECT ss_id, server FROM sl_spreadsheets").fetchall()
         assert [tuple(r) for r in ss_rows] == [("ssA", "sl-1")]
+
+
+def test_run_update_populates_wb_sids(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """wb_tokens → sl_wb_sids: server из clients-карты; неизвестный клиент отброшен."""
+    db_path = tmp_path / "mpu.db"
+    monkeypatch.setattr(store, "DB_PATH", db_path)
+    with store.store(db_path) as _c:
+        store.bootstrap(_c)
+
+    clients_rows = [(10, "sl-1", True, False, False), (20, "sl-2", True, False, False)]
+    ss_per_server = {1: [(10, "ss10", "T", None, True)]}
+    wb_sids = [
+        (10, "sid-a"),
+        (10, "sid-b"),
+        (20, "sid-c"),
+        (999, "sid-orphan"),  # клиента нет в clients → отбрасывается
+    ]
+    fake_main, fake_to = _make_fake_pg(clients_rows, ss_per_server, wb_sids)
+    monkeypatch.setattr("mpu.commands.update.pg.connect_main", fake_main)
+    monkeypatch.setattr("mpu.commands.update.pg.connect_to", fake_to)
+
+    update.run_update(quiet=True)
+
+    with store.store(db_path) as conn:
+        rows = conn.execute("SELECT sid, client_id, server FROM sl_wb_sids ORDER BY sid").fetchall()
+        assert [tuple(r) for r in rows] == [
+            ("sid-a", 10, "sl-1"),
+            ("sid-b", 10, "sl-1"),
+            ("sid-c", 20, "sl-2"),
+        ]
+
+
+def test_run_update_self_heals_missing_sl_wb_sids(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Старый кэш без sl_wb_sids: run_update сам добутстрапит таблицу, не падает."""
+    db_path = tmp_path / "mpu.db"
+    monkeypatch.setattr(store, "DB_PATH", db_path)
+    with store.store(db_path) as conn:
+        store.bootstrap(conn)
+        conn.execute("DROP TABLE sl_wb_sids")
+        conn.commit()
+
+    fake_main, fake_to = _make_fake_pg(
+        [(10, "sl-1", True, False, False)],
+        {1: [(10, "ss1", "T", None, True)]},
+        [(10, "sid-x")],
+    )
+    monkeypatch.setattr("mpu.commands.update.pg.connect_main", fake_main)
+    monkeypatch.setattr("mpu.commands.update.pg.connect_to", fake_to)
+
+    update.run_update(quiet=True)  # не должно бросить OperationalError
+
+    with store.store(db_path) as conn:
+        rows = conn.execute("SELECT sid, client_id FROM sl_wb_sids").fetchall()
+        assert [tuple(r) for r in rows] == [("sid-x", 10)]

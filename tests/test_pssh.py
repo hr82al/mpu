@@ -136,19 +136,41 @@ def test_run_via_ssh_builds_correct_command(
     assert rc == 7
     args = captured["args"]
     assert isinstance(args, list)
-    assert args[:2] == ["bash", "-c"]
-    full_str: str = args[2]  # pyright: ignore[reportUnknownVariableType]
-    assert isinstance(full_str, str)
-    # ssh без -t (TTY) и docker exec -i (а не -it) — иначе stdin не уйдёт как pipe.
-    assert "ssh -i " in full_str
-    assert "ssh -it" not in full_str
-    assert "docker exec -i mp-sl-1-cli sh -c " in full_str
-    assert "docker exec -it" not in full_str
-    # Команда квотируется через shlex.
-    assert "ls -la /app" in full_str
+    # ssh argv напрямую (без локального `bash -c`-обёртки).
+    assert args[0] == "ssh"
+    assert args[1] == "-i"
+    assert args[3] == "alice@192.168.150.91"
+    remote: str = args[4]  # pyright: ignore[reportUnknownVariableType]
+    assert isinstance(remote, str)
+    # docker exec -i (а не -it) — иначе stdin не уйдёт как pipe.
+    assert remote.startswith("docker exec -i mp-sl-1-cli sh -c ")
+    assert "docker exec -it" not in remote
+    # Многоэлементная команда квотируется через shlex.
+    assert "ls -la /app" in remote
     kw = captured["kw"]
     assert isinstance(kw, dict)
     assert kw["input"] == b"data"
+
+
+def test_run_via_ssh_single_string_kept_raw(
+    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Команда-строка целиком уходит в `sh -c` неразобранной — env-присваивания работают."""
+    _ = env_ssh_only
+    captured: dict[str, object] = {}
+
+    class _Result:
+        returncode = 0
+
+    def _fake_run(args: list[str], **kw: object) -> _Result:
+        captured["args"] = args
+        return _Result()
+
+    monkeypatch.setattr(pssh.subprocess, "run", _fake_run)
+    pssh._run_via_ssh(1, ["WB_LOADER_LOGS=all node cli foo"], stdin=b"")
+    remote: str = captured["args"][4]  # pyright: ignore[reportIndexIssue,reportUnknownVariableType]
+    # shlex.quote всей строки целиком → один токен в одинарных кавычках для `sh -c`.
+    assert "sh -c 'WB_LOADER_LOGS=all node cli foo'" in remote
 
 
 # ---------- _run_via_portainer ----------
@@ -225,7 +247,8 @@ def test_run_via_portainer_no_stdin(
     assert c.execs[0][0:2] == ["sh", "-c"]
     wrapped = c.execs[0][2]
     assert "echo $$ > /tmp/__MPU_PSSH_PID" in wrapped
-    assert "exec ls /app" in wrapped  # `exec` сразу команду, без промежуточного sh -c
+    # `exec sh -c '<inner>'` — внутренний sh, чтобы шелл-конструкции в <inner> работали.
+    assert "exec sh -c 'ls /app'" in wrapped
     assert c.execs[1] == ["rm", "-f", "/tmp/__MPU_PSSH_PID"]
 
 
@@ -243,7 +266,7 @@ def test_run_via_portainer_with_stdin_uploads_and_wraps(
     assert c.execs[0][0:2] == ["sh", "-c"]
     wrapped = c.execs[0][2]
     assert "echo $$ > /tmp/__MPU_PSSH_PID" in wrapped
-    assert "exec node" in wrapped and "--input-type=module" in wrapped
+    assert "exec sh -c " in wrapped and "--input-type=module" in wrapped
     assert "< /tmp/__MPU_PSSH_STDIN" in wrapped
     # Второй exec — финальный cleanup: pidfile + stdin tar.
     assert c.execs[1] == ["rm", "-f", "/tmp/__MPU_PSSH_PID", "/tmp/__MPU_PSSH_STDIN"]
@@ -279,6 +302,35 @@ def test_run_via_portainer_verify_tls_env(
     servers.reset_cache()
     pssh._run_via_portainer(11, ["ls"], stdin=b"")
     assert stub_portainer.instances[0].kwargs["verify_tls"] is True
+
+
+def test_run_via_portainer_single_string_runs_via_shell(
+    env_portainer_only: Path, stub_portainer: type[_StubClient]
+) -> None:
+    """Команда-строка с env-присваиванием оборачивается в `exec sh -c '...'` и работает."""
+    _ = env_portainer_only
+    rc = pssh._run_via_portainer(11, ["WB_LOADER_LOGS=all node cli x"], stdin=b"")
+    assert rc == 0
+    wrapped = stub_portainer.instances[0].execs[0][2]
+    assert "exec sh -c 'WB_LOADER_LOGS=all node cli x'" in wrapped
+
+
+# ---------- _cmd_to_shell ----------
+
+
+def test_cmd_to_shell_single_element_kept_raw() -> None:
+    """Один элемент = готовая shell-строка, отдаётся без квотирования."""
+    assert (
+        pssh._cmd_to_shell(["WB_LOADER_LOGS=all node cli foo --bar"])
+        == "WB_LOADER_LOGS=all node cli foo --bar"
+    )
+    assert pssh._cmd_to_shell(["ls"]) == "ls"
+
+
+def test_cmd_to_shell_multi_element_quoted() -> None:
+    """Несколько элементов = argv-форма, каждый квотируется по отдельности."""
+    assert pssh._cmd_to_shell(["ls", "-la", "/app"]) == "ls -la /app"
+    assert pssh._cmd_to_shell(["echo", "a b"]) == "echo 'a b'"
 
 
 # ---------- mpu ssh CLI ----------
@@ -672,9 +724,9 @@ def test_pssh_run_container_routes_to_portainer(
     assert c.kwargs["api_key"] == "ptr_test"
     # Контейнер в exec — mp-dt-cli (не mp-sl-N-cli)
     assert all(ctr == "mp-dt-cli" for ctr in c.exec_containers)
-    # cmd обёрнут shell-prelude'ом: `sh -c 'echo $$ > pidfile; exec echo hi'`
+    # cmd обёрнут shell-prelude'ом: `sh -c 'echo $$ > pidfile; exec sh -c '\''echo hi'\'''`
     wrapped = c.execs[0][2]
-    assert "exec echo hi" in wrapped
+    assert "exec sh -c 'echo hi'" in wrapped
 
 
 def test_pssh_run_container_not_found_raises(

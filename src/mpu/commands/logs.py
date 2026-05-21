@@ -127,8 +127,19 @@ def main(
         typer.Option("--no-stderr", help="Не показывать stderr"),
     ] = False,
     grep: Annotated[
-        str | None,
-        typer.Option("--grep", help="Loki: подстрока в строке лога (LogQL `|=`)"),
+        list[str] | None,
+        typer.Option(
+            "--grep",
+            help="Loki: подстрока (LogQL `|=`); повторяемый, AND: --grep A --grep B",
+        ),
+    ] = None,
+    grep_regex: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--grep-regex",
+            "--grep_regex",
+            help="Loki: regex по строке (LogQL `|~`); повторяемый, AND с --grep",
+        ),
     ] = None,
     level: Annotated[
         str | None,
@@ -155,8 +166,7 @@ def main(
     if via == "portainer":
         if service is None:
             typer.echo(
-                f"{COMMAND_NAME}: --via portainer требует <container> "
-                f"(2-й позиционный аргумент)",
+                f"{COMMAND_NAME}: --via portainer требует <container> (2-й позиционный аргумент)",
                 err=True,
             )
             raise typer.Exit(code=2)
@@ -185,7 +195,8 @@ def main(
         timestamps=timestamps,
         no_stdout=no_stdout,
         no_stderr=no_stderr,
-        grep=grep,
+        grep=list(grep or []),
+        grep_regex=list(grep_regex or []),
         level=level,
         client_id=client_id,
     )

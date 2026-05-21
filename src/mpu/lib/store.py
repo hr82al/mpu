@@ -36,6 +36,19 @@ _DDL = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_sl_ss_client ON sl_spreadsheets(client_id)",
     "CREATE INDEX IF NOT EXISTS idx_sl_ss_title ON sl_spreadsheets(title)",
+    # WB sid ↔ client (источник — public.wb_tokens на main, DISTINCT). Один
+    # клиент → N sid; один sid обычно у одного клиента (PK защищает от дублей).
+    """
+    CREATE TABLE IF NOT EXISTS sl_wb_sids (
+        sid         TEXT NOT NULL,
+        client_id   INTEGER NOT NULL,
+        server      TEXT,
+        synced_at   INTEGER NOT NULL,
+        PRIMARY KEY (sid, client_id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_sl_wb_sids_sid ON sl_wb_sids(sid)",
+    "CREATE INDEX IF NOT EXISTS idx_sl_wb_sids_client ON sl_wb_sids(client_id)",
     """
     CREATE TABLE IF NOT EXISTS portainer_containers (
         portainer_url   TEXT NOT NULL,
