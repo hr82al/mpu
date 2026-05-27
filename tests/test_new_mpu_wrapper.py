@@ -1,4 +1,7 @@
-"""Тесты passthrough-обёрток `mpu sheet|xlsx|db` → `new-mpu <sub>` (mpu.lib.new_mpu)."""
+"""Тесты passthrough-обёрток `mpu xlsx` → `new-mpu xlsx` (mpu.lib.new_mpu).
+
+`mpu sheet` после миграции стал native Python, passthrough-тесты для него удалены.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +13,6 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from mpu.commands import sheet as sheet_cmd
 from mpu.commands import xlsx as xlsx_cmd
 from mpu.lib import log as log_module
 from mpu.lib import new_mpu
@@ -71,22 +73,6 @@ def _patch_popen(
     monkeypatch.setattr(subprocess, "Popen", _factory)
 
 
-def test_sheet_passthrough_forwards_argv_and_rc(
-    monkeypatch: pytest.MonkeyPatch, log_to_tmp: Path
-) -> None:
-    captured: dict[str, object] = {}
-    _patch_popen(monkeypatch, captured, stdout="row1\nrow2\n", rc=0)
-
-    res = runner.invoke(sheet_cmd.app, ["get", "ID", "A1:B10"])
-
-    assert res.exit_code == 0
-    assert captured["args"] == ["/usr/bin/new-mpu", "sheet", "get", "ID", "A1:B10"]
-    log_text = log_to_tmp.read_text()
-    assert "new-mpu sheet get ID A1:B10" in log_text
-    assert "rc=0" in log_text
-    assert "row1" in log_text
-
-
 def test_xlsx_passthrough_propagates_nonzero_rc(
     monkeypatch: pytest.MonkeyPatch, log_to_tmp: Path
 ) -> None:
@@ -134,7 +120,8 @@ def test_excerpt_truncates_long_output(
     long_stdout = "".join(f"line {i}\n" for i in range(100))
     _patch_popen(monkeypatch, captured, stdout=long_stdout, rc=0)
 
-    res = runner.invoke(sheet_cmd.app, ["get", "ID", "A1"])
+    # Используем xlsx — sheet после миграции на native больше не passthrough.
+    res = runner.invoke(xlsx_cmd.app, ["get", "--file", "a.xlsx", "A1"])
 
     assert res.exit_code == 0
     log_text = log_to_tmp.read_text()

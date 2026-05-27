@@ -87,6 +87,48 @@ _DDL = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_loki_services_host ON loki_services_by_host(host)",
+    # --- sheet (Google Spreadsheets) ---
+    # Whole-tab кэш: один tab = одна запись с gzipped JSON payload.
+    # Любой `sheet get X!A1:C3` тянет весь tab X разом → кладёт сюда → последующие
+    # чтения любых ranges того же tab отвечают из этой таблицы.
+    """
+    CREATE TABLE IF NOT EXISTS sheet_tabs (
+        ss_id      TEXT NOT NULL,
+        tab_name   TEXT NOT NULL,
+        payload    BLOB NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        fetched_at INTEGER NOT NULL,
+        PRIMARY KEY (ss_id, tab_name)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_sheet_tabs_fetched_at ON sheet_tabs(fetched_at)",
+    # Алиасы spreadsheet'ов (short name → ss_id). Совместима со схемой new-mpu.
+    """
+    CREATE TABLE IF NOT EXISTS sheet_aliases (
+        name       TEXT PRIMARY KEY,
+        ss_id      TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+    )
+    """,
+    # Generic key-value config (sheet.default, sheet.cache.tab_ttl, …).
+    # Совместима со схемой new-mpu.
+    """
+    CREATE TABLE IF NOT EXISTS config (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    )
+    """,
+    # Generic kv-кэш с TTL: метаданные tabs (`sheet:info:{ss_id}`), мелкие fetches.
+    # Совместима со схемой new-mpu.
+    """
+    CREATE TABLE IF NOT EXISTS cache (
+        key        TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_cache_expires_at ON cache(expires_at)",
 ]
 
 
@@ -116,6 +158,8 @@ def open_store(path: Path | str | None = None) -> sqlite3.Connection:
     target.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(target))
     conn.row_factory = sqlite3.Row
+    # WAL — БД делится с new-mpu (Node), позволяет concurrent read/write.
+    conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
 
