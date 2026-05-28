@@ -161,6 +161,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "astral" },
+    { name = "click" },
     { name = "httpx" },
     { name = "loguru" },
     { name = "psycopg", extra = ["binary"] },
@@ -178,6 +179,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "astral", specifier = ">=3.2" },
+    { name = "click", specifier = ">=8.1" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "loguru", specifier = ">=0.7" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },

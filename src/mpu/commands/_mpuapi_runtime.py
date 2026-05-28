@@ -245,8 +245,7 @@ def _build_command(spec: CommandSpec) -> click.Command:
     if spec.accepts_raw_body:
         params.append(
             click.Option(
-                ["--body", "-b"],
-                "body_raw",
+                ["--body", "-b", "body_raw"],
                 required=False,
                 default=None,
                 type=str,
@@ -314,9 +313,12 @@ def build_api_group() -> click.Group:
     # цикла на import-времени.
     # - wb-loader-resume: резолв селектора + многошаговый find→resume.
     # - wb-loader-blocked: глобальный список блокировок по всем серверам (без селектора).
+    # - ss-access: подгруппа MyAccess (request/status/revoke/reset) с авто-телом и DB-резолвом.
+    from mpu.commands.ss_access import build_command as _build_ss_access
     from mpu.commands.wb_loader_blocked import build_command as _build_wb_loader_blocked
     from mpu.commands.wb_loader_resume import build_command as _build_wb_loader_resume
 
     group.add_command(_build_wb_loader_resume())
     group.add_command(_build_wb_loader_blocked())
+    group.add_command(_build_ss_access())
     return group

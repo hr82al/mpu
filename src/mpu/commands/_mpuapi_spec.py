@@ -425,13 +425,8 @@ COMMANDS: tuple[CommandSpec, ...] = (
         ),
     ),
     # ─── /admin/ss/:spreadsheetId/my-access ──────────────────────────────────
-    CommandSpec(
-        name="get-ss-my-access",
-        method="GET",
-        path="/admin/ss/:spreadsheetId/my-access",
-        summary="GET /admin/ss/:spreadsheetId/my-access",
-        path_params=(SS_ID,),
-    ),
+    # MyAccess (request/status/revoke/reset) — кастомная подгруппа `mpu api ss-access`
+    # (см. commands/ss_access.py), а не декларативные спеки: нужно авто-тело и DB-резолв.
     # ─── /admin/client/:clientId/ss ──────────────────────────────────────────
     CommandSpec(
         name="list-client-spreadsheets",
@@ -640,6 +635,26 @@ COMMANDS: tuple[CommandSpec, ...] = (
         summary="POST /admin/jobs/ss/abort",
         accepts_raw_body=True,
         body_fields=JOBS_BODY,
+    ),
+    CommandSpec(
+        name="ss-jobs-submit",
+        method="POST",
+        path="/admin/jobs/ss",
+        summary="POST /admin/jobs/ss — поставить любой ss-job {type, data}",
+        accepts_raw_body=True,
+        body_fields=(
+            BodyField(
+                "type", "string", "тип job'а: accessGrantRevoke|accessGrantApply|...", required=True
+            ),
+            BodyField("data", "json", 'данные job\'а, напр. {"grantId":"<uuid>"}'),
+        ),
+        description=(
+            'Generic submit в очередь ss-jobs. Тело: {"type":..., "data":{...}}, '
+            "передавать через --body '<json>' (camelCase-ключи). "
+            "Reset застрявшего MyAccess-grant: --body "
+            '\'{"type":"accessGrantRevoke","data":'
+            '{"grantId":"<uuid>","revokedByUserId":null,"reason":"reset"}}\'.'
+        ),
     ),
     # ─── /admin/jobs/jobsControl/{wb,ozon,dataLoader} ────────────────────────
     *_jobs_group("wb-jobs", "wb"),
