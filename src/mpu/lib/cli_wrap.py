@@ -270,13 +270,52 @@ def _exec_portainer(*, inner_parts: list[str], resolved: Resolved) -> str:
     return ""
 
 
+def complete_selector(incomplete: str) -> list[tuple[str, str]]:
+    """Автодополнение селектора из локального кэша: server (sl-N) и client_id (с title в help).
+
+    Best-effort и быстрое — на каждый Tab. Пустой кэш / любая ошибка → `[]` (без сети).
+    Значения space-free (sl-N / client_id), чтобы fish-completion их не ломал; title — в help.
+    """
+    import sqlite3
+
+    from mpu.lib import store
+
+    items: list[tuple[str, str]] = []
+    try:
+        with store.store() as conn:
+            servers_rows = conn.execute(
+                "SELECT DISTINCT server FROM sl_spreadsheets "
+                "WHERE server IS NOT NULL AND server LIKE ? ORDER BY server",
+                (f"{incomplete}%",),
+            ).fetchall()
+            client_rows = conn.execute(
+                "SELECT DISTINCT client_id, title, server FROM sl_spreadsheets "
+                "WHERE client_id IS NOT NULL AND ("
+                "  CAST(client_id AS TEXT) LIKE ? OR LOWER(title) LIKE LOWER(?)) "
+                "ORDER BY title LIMIT 50",
+                (f"{incomplete}%", f"%{incomplete}%"),
+            ).fetchall()
+    except (sqlite3.Error, OSError):
+        return []
+    for r in servers_rows:
+        items.append((str(r["server"]), "server"))
+    seen: set[str] = set()
+    for r in client_rows:
+        cid = str(r["client_id"])
+        if cid in seen:
+            continue
+        seen.add(cid)
+        items.append((cid, f"{r['title'] or ''} [{r['server']}]"))
+    return items
+
+
 def attach_selector_callback(*, app: typer.Typer, command_name: str) -> None:
     """App-level callback: positional `selector` + `--local` / `--print`. Subcommands читают `ctx.obj`.
 
     Поведение:
       - `<bin> <selector> <subcommand> [args]` — селектор перед subcommand.
       - `selector` принимает `sl-N` либо client_id/spreadsheet_id substring/title substring
-        (резолвится через `resolve_server` универсально).
+        (резолвится через `resolve_server` универсально), с автодополнением из кэша.
       - `--local`, `--print` / `-p` — общие для всех subcommand'ов флаги.
 
     Subcommand читает резолв через `resolve_from_ctx(ctx)`.
@@ -287,7 +326,10 @@ def attach_selector_callback(*, app: typer.Typer, command_name: str) -> None:
         ctx: typer.Context,
         selector: Annotated[
             str,
-            typer.Argument(help="sl-N либо client_id / spreadsheet_id substring / title substring"),
+            typer.Argument(
+                help="sl-N либо client_id / spreadsheet_id substring / title substring",
+                autocompletion=complete_selector,
+            ),
         ],
         local: Annotated[
             bool,

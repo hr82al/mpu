@@ -25,11 +25,11 @@ import sys
 import time
 import webbrowser
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 import typer
 
-from mpu.lib import store
+from mpu.lib import env, store
 from mpu.lib.log import logger
 from mpu.lib.sheet_api import SheetApiError, WebappClient
 from mpu.lib.sheet_cache import (
@@ -334,6 +334,72 @@ def resolve_cmd(
 # set
 # ────────────────────────────────────────────────────────────────────────────
 
+_FALSEY = ("false", "0", "no", "off")
+
+
+def _is_protected() -> bool:
+    """Защита записи — только env `protect`/`PROTECT` из ~/.config/mpu/.env.
+    Не задано → защита включена; `protect=false`/`0`/`no`/`off` → запись разрешена."""
+    raw = env.get("protect") or env.get("PROTECT")
+    return raw is None or raw.strip().lower() not in _FALSEY
+
+
+# Открытый одностолбцовый range: `[Tab!]Col<from>:Col` (конец — тот же столбец без строки).
+_OPEN_COL_RE = re.compile(
+    r"^(?P<prefix>(?:'[^']*'|[^'!]+)!)?(?P<col>[A-Za-z]+)(?P<from>\d+):(?P=col)$"
+)
+
+
+def _set_entries_from_json(text: str) -> list[tuple[str, str, str]]:
+    """Парсинг stdin JSON `[{range, formula|value}]` → [(range, value, value_input_option)].
+
+    `formula` → USER_ENTERED, `value` → RAW (имя свойства решает тип).
+    """
+    try:
+        loaded: Any = json.loads(text)
+    except json.JSONDecodeError as e:
+        typer.echo(f"mpu sheet set: невалидный JSON stdin: {e}", err=True)
+        raise typer.Exit(code=2) from e
+    if not isinstance(loaded, list) or not loaded:
+        typer.echo(
+            "mpu sheet set: ожидался непустой JSON-массив [{range, formula|value}]", err=True
+        )
+        raise typer.Exit(code=2)
+    out: list[tuple[str, str, str]] = []
+    for i, item in enumerate(cast("list[Any]", loaded)):
+        if not isinstance(item, dict):
+            typer.echo(f"mpu sheet set: элемент #{i} не объект: {item!r}", err=True)
+            raise typer.Exit(code=2)
+        entry = cast("dict[str, Any]", item)
+        rng = entry.get("range")
+        if not isinstance(rng, str) or not rng:
+            typer.echo(f"mpu sheet set: элемент #{i} без поля range", err=True)
+            raise typer.Exit(code=2)
+        if "formula" in entry:
+            out.append((rng, str(entry["formula"]), "USER_ENTERED"))
+        elif "value" in entry:
+            out.append((rng, str(entry["value"]), "RAW"))
+        else:
+            typer.echo(f"mpu sheet set: элемент #{i} без formula/value", err=True)
+            raise typer.Exit(code=2)
+    return out
+
+
+def _expand_fill(api: WebappClient, ss_id: str, rng: str, value: str) -> dict[str, Any]:
+    """{range, values}: открытый столбец `Col<from>:Col` + скаляр → fill до последней строки
+    с данными столбца; иначе — одна ячейка."""
+    m = _OPEN_COL_RE.match(rng)
+    if not m:
+        return {"range": rng, "values": [[value]]}
+    prefix, col, start = m.group("prefix") or "", m.group("col"), int(m.group("from"))
+    resp = api.batch_get(ss_id, [f"{prefix}{col}:{col}"], value_render="UNFORMATTED_VALUE")
+    vrs = cast("list[Any]", resp.get("valueRanges") or [])
+    vals = cast("list[Any]", (vrs[0].get("values") if vrs else None) or [])
+    last = len(vals)
+    if last < start:
+        return {"range": f"{prefix}{col}{start}", "values": [[value]]}
+    return {"range": f"{prefix}{col}{start}:{col}{last}", "values": [[value]] * (last - start + 1)}
+
 
 @app.command(name="set")
 def set_(
@@ -349,7 +415,7 @@ def set_(
     ] = None,
     force: Annotated[
         bool,
-        typer.Option("-f", "--force", help="Allow write (sheet.protected=true default)."),
+        typer.Option("-f", "--force", help="Allow write (см. protect в ~/.config/mpu/.env)."),
     ] = False,
     literal: Annotated[
         bool, typer.Option("-l", "--literal", help="RAW value (не парсить формулы/числа).")
@@ -358,24 +424,27 @@ def set_(
     """Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW)."""
     conn = _open_db()
     try:
-        protected_row = conn.execute(
-            "SELECT value FROM config WHERE key = 'sheet.protected'"
-        ).fetchone()
-        protected = (protected_row["value"] if protected_row else "true").lower() != "false"
-        if protected and not force:
+        if _is_protected() and not force:
             typer.echo(
-                "mpu sheet set: write protected. Use --force/-f или "
-                "`mpu sheet config sheet.protected false`.",
+                "mpu sheet set: запись защищена. Сними защиту: `--force/-f` "
+                "или `protect=false` (PROTECT=false) в ~/.config/mpu/.env.",
                 err=True,
             )
             raise typer.Exit(code=2)
 
-        data: list[dict[str, Any]] = []
+        try:
+            api = WebappClient.from_env()
+        except SheetApiError as e:
+            typer.echo(f"mpu sheet set: {e}", err=True)
+            raise typer.Exit(code=1) from e
+
+        # groups[value_input_option] -> list of {range, values}
+        default_opt = "RAW" if literal else "USER_ENTERED"
+        groups: dict[str, list[dict[str, Any]]] = {"USER_ENTERED": [], "RAW": []}
+
         if from_file:
-            if from_file == "-":
-                text = sys.stdin.read()
-            else:
-                text = Path(from_file).read_text(encoding="utf-8")
+            resolved = _resolve_ss(conn, spreadsheet)
+            text = sys.stdin.read() if from_file == "-" else Path(from_file).read_text("utf-8")
             for line in text.splitlines():
                 s = line.rstrip("\n")
                 if not s.strip() or s.lstrip().startswith("#"):
@@ -384,39 +453,47 @@ def set_(
                     typer.echo(f"mpu sheet set --from: missing TAB in line: {s!r}", err=True)
                     raise typer.Exit(code=2)
                 r, v = s.split("\t", 1)
-                data.append({"range": r.strip(), "values": [[v]]})
+                groups[default_opt].append({"range": r.strip(), "values": [[v]]})
+        elif value is None and not sys.stdin.isatty():
+            # JSON из stdin: [{range, formula|value}, ...]. Единственный позиционный (если есть)
+            # трактуется как селектор таблицы; иначе -s/--spreadsheet / env. Ranges — из JSON.
+            resolved = _resolve_ss(conn, spreadsheet or range_arg)
+            for rng, val, opt in _set_entries_from_json(sys.stdin.read()):
+                groups[opt].append(_expand_fill(api, resolved.ss_id, rng, val))
+        elif range_arg is not None and value is not None:
+            resolved = _resolve_ss(conn, spreadsheet)
+            groups[default_opt].append({"range": range_arg, "values": [[value]]})
         else:
-            if not range_arg or value is None:
-                typer.echo(
-                    "Usage: mpu sheet set RANGE VALUE  OR  "
-                    "mpu sheet set --from FILE",
-                    err=True,
-                )
-                raise typer.Exit(code=2)
-            data.append({"range": range_arg, "values": [[value]]})
-
-        resolved = _resolve_ss(conn, spreadsheet)
-        try:
-            api = WebappClient.from_env()
-            resp = api.batch_update(
-                resolved.ss_id, data, value_input_option="RAW" if literal else "USER_ENTERED"
+            typer.echo(
+                "Usage: mpu sheet set RANGE VALUE | --from FILE | echo JSON | mpu sheet set [SSID]",
+                err=True,
             )
+            raise typer.Exit(code=2)
+
+        try:
+            responses = [
+                api.batch_update(resolved.ss_id, d, value_input_option=opt)
+                for opt, d in groups.items()
+                if d
+            ]
         except SheetApiError as e:
             typer.echo(f"mpu sheet set: {e}", err=True)
             raise typer.Exit(code=1) from e
 
         # Invalidate каждого затронутого tab'а.
         invalidated: set[str] = set()
-        for d in data:
-            try:
-                ref = parse_range(d["range"])
-                if ref.tab not in invalidated:
-                    invalidate_tab(conn, resolved.ss_id, ref.tab)
-                    invalidated.add(ref.tab)
-            except ValueError:
-                continue
+        for data in groups.values():
+            for d in data:
+                try:
+                    ref = parse_range(d["range"])
+                    if ref.tab not in invalidated:
+                        invalidate_tab(conn, resolved.ss_id, ref.tab)
+                        invalidated.add(ref.tab)
+                except ValueError:
+                    continue
 
-        print(json.dumps(resp, ensure_ascii=False, indent=2))
+        out_resp = responses[0] if len(responses) == 1 else responses
+        print(json.dumps(out_resp, ensure_ascii=False, indent=2))
     finally:
         conn.close()
 

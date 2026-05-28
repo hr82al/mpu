@@ -30,6 +30,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "copy-shared": ("mpu.commands.copy_shared", "app"),
     "move-client": ("mpu.commands.move_client", "app"),
     "logs": ("mpu.commands.logs", "app"),
+    "confirm": ("mpu.commands.confirm", "app"),
     "help": ("mpu.commands.help", "app"),
     # ── Node-CLI обёртки (имеют --print / -p) ───────────────────────────────
     "wb-recalculate-expenses": ("mpu.commands.recalculate_wb_expenses", "app"),

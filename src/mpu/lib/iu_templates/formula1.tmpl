@@ -1,0 +1,15 @@
+=LET(
+  subject_name; CHOOSEROWS($E:$E; ROW());
+  iu_; {
+  };
+  IF(
+    ISBLANK(subject_name);
+    ;
+    IFERROR(
+      IFERROR(
+        XLOOKUP(subject_name; CHOOSECOLS(iu_;1); CHOOSECOLS(iu_;2)) / 100;
+        VLOOKUP(subject_name; {'КомиссииВБ'!$B$3:$B \ 'КомиссииВБ'!$C$3:$C}; 2; FALSE) / 100
+      );
+    )
+  )
+)

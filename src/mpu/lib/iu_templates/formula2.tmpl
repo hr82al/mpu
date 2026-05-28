@@ -1,0 +1,127 @@
+=LET(
+  col; LAMBDA(key; INDEX($A$4:$ZZ;; MATCH(key; $1:$1; 0)));
+  nm_ids; col("nm_id");
+  buyout_percent; col("buyout_percent");
+  volume; col("volume");
+
+  ce_headers; ce!$1:$1;
+  ce_data; ce!$A3:$BI;
+
+  avg_tarrifs; KEYSQUERY(
+    'ТарифыКороба'!$1:$1;
+    'ТарифыКороба'!$A3:$ZZ;
+    "SELECT AVG(box_delivery_base), AVG(box_delivery_liter), AVG(box_storage_base), AVG(box_storage_liter)
+     WHERE warehouse_name = 'Алексин (Тула)' OR warehouse_name = 'Казань' OR warehouse_name = 'Коледино'
+     LABEL AVG(box_delivery_base) '', AVG(box_delivery_liter) '', AVG(box_storage_base) '', AVG(box_storage_liter) '' ";
+    0
+  );
+
+  avg_step_tarrifs; KEYSQUERY(
+    'ТарифыКороба'!$1:$1;
+    'ТарифыКороба'!$A3:$ZZ;
+    "SELECT AVG(box_delivery_0_001), AVG(box_delivery_0_201), AVG(box_delivery_0_401), AVG(box_delivery_0_601), AVG(box_delivery_0_801)
+     WHERE warehouse_name = 'Алексин (Тула)' OR warehouse_name = 'Казань' OR warehouse_name = 'Коледино'
+     LABEL AVG(box_delivery_0_001) '', AVG(box_delivery_0_201) '', AVG(box_delivery_0_401) '', AVG(box_delivery_0_601) '', AVG(box_delivery_0_801) '' ";
+    0
+  );
+
+  volume_thresholds; {0,2; 0,4; 0,6; 0,8; 1};
+  step_tariffs; {
+    IFERROR(INDEX(avg_step_tarrifs;1;1); 0);
+    IFERROR(INDEX(avg_step_tarrifs;1;2); 0);
+    IFERROR(INDEX(avg_step_tarrifs;1;3); 0);
+    IFERROR(INDEX(avg_step_tarrifs;1;4); 0);
+    IFERROR(INDEX(avg_step_tarrifs;1;5); 0)
+  };
+
+  logistic_plan; ARRAYFORMULA(
+    IF(
+      nm_ids<>"";
+      INDEX(avg_tarrifs;1;1)*1 + IF(volume<=1; 0; (volume-1)*INDEX(avg_tarrifs;1;2));
+    )
+  );
+
+  reverse_logistics; ARRAYFORMULA(
+    IF(
+      nm_ids<>"";
+      IF(volume>=1;
+        46+(volume-1)*14;
+        XLOOKUP(volume; volume_thresholds; step_tariffs; ;1;1)
+      );
+    )
+  );
+
+  logistic_plan_with_buyout_perc; ARRAYFORMULA(
+    IF(
+      nm_ids<>"";
+      IFERROR((reverse_logistics/buyout_percent-reverse_logistics) + (logistic_plan/buyout_percent));
+    )
+  );
+
+  storage_plan; ARRAYFORMULA(
+    IF(
+      nm_ids<>"";
+      INDEX(avg_tarrifs;1;3)*1 + IF(volume<=1; 0; (volume-1)*INDEX(avg_tarrifs;1;4));
+    )
+  );
+
+  ce_col; LAMBDA(field_name; CHOOSECOLS(ce_data; MATCH(field_name; ce_headers; 0)));
+  average_logistics; ARRAYFORMULA(XLOOKUP(nm_ids; ce_col("nm_id"); ce_col("average_logistics"); ;0;1));
+  average_storage; ARRAYFORMULA(XLOOKUP(nm_ids; ce_col("nm_id"); ce_col("average_storage"); ;0;1));
+
+  get_step_tariff; LAMBDA(v;
+    IF(v<=1; XLOOKUP(v; volume_thresholds; step_tariffs; ;1;1); 0)
+  );
+
+  plan_under_1l; ARRAYFORMULA(
+    IF(
+      nm_ids<>"";
+      get_step_tariff(volume);
+    )
+  );
+
+  plan_under_1l_with_buyout; ARRAYFORMULA(
+    IF(
+      nm_ids<>"";
+      IFERROR((reverse_logistics/buyout_percent-reverse_logistics) + (plan_under_1l/buyout_percent));
+    )
+  );
+
+  logistic_plan_final; ARRAYFORMULA(
+    IF(
+      nm_ids<>"";
+      IF(
+        volume<=1;
+        IF(plan_under_1l>0; plan_under_1l_with_buyout; logistic_plan_with_buyout_perc);
+        logistic_plan_with_buyout_perc
+      );
+    )
+  );
+
+  logistic_final; ARRAYFORMULA(
+    IF(
+      nm_ids<>"";
+      IF(average_logistics>0; average_logistics; logistic_plan_final);
+    )
+  );
+
+  average_storage_or_plan; ARRAYFORMULA(IF(average_storage>0; average_storage; storage_plan));
+
+  iu_zero_nm_ids; {
+  };
+
+  iu_zero_mask; MAP(nm_ids; LAMBDA(nm_id; IF(nm_id=""; ; COUNTIF(iu_zero_nm_ids; nm_id)>0)));
+
+  logistic_plan_final_iu; ARRAYFORMULA(IF(nm_ids<>""; IF(iu_zero_mask; 0; logistic_plan_final); ));
+  logistic_final_iu; ARRAYFORMULA(IF(nm_ids<>""; IF(iu_zero_mask; 0; logistic_final); ));
+  storage_plan_iu; ARRAYFORMULA(IF(nm_ids<>""; IF(iu_zero_mask; 0; storage_plan); ));
+  average_storage_or_plan_iu; ARRAYFORMULA(IF(nm_ids<>""; IF(iu_zero_mask; 0; average_storage_or_plan); ));
+
+  result; { {logistic_plan_with_buyout_perc\ average_logistics_or_plan \ storage_plan\ average_storage_or_plan} };
+  dummy_row; {0 \ 0 \ 0 \ 0};
+  empty_row; {"" \ "" \ "" \ ""};
+  iu_zeros; MAP(nm_ids; LAMBDA(nm_id; dummy_row));
+  result_vals; ARRAY_CONSTRAIN(iu_zeros; COUNTA(CHOOSECOLS(iu_zeros; 1)) - 2; 4);
+  result_iu; {empty_row; empty_row; result_vals};
+  result_iu
+)
