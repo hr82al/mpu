@@ -413,10 +413,6 @@ def set_(
             help="Batch из файла (`range<TAB>value` на строку, `#` — комментарий, `-` stdin).",
         ),
     ] = None,
-    force: Annotated[
-        bool,
-        typer.Option("-f", "--force", help="Allow write (см. protect в ~/.config/mpu/.env)."),
-    ] = False,
     literal: Annotated[
         bool, typer.Option("-l", "--literal", help="RAW value (не парсить формулы/числа).")
     ] = False,
@@ -424,10 +420,10 @@ def set_(
     """Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW)."""
     conn = _open_db()
     try:
-        if _is_protected() and not force:
+        if _is_protected():
             typer.echo(
-                "mpu sheet set: запись защищена. Сними защиту: `--force/-f` "
-                "или `protect=false` (PROTECT=false) в ~/.config/mpu/.env.",
+                "mpu sheet set: запись защищена. "
+                "Сними защиту: `protect=false` (PROTECT=false) в ~/.config/mpu/.env.",
                 err=True,
             )
             raise typer.Exit(code=2)

@@ -11,7 +11,7 @@ from typing import IO, Any
 import psycopg
 import typer
 
-from mpu.lib import pg, servers
+from mpu.lib import pg, servers, sql_guard
 
 
 def _print_meta(
@@ -75,6 +75,9 @@ def run_sql(
 
     Если задан `client_id` — перед SQL ставится `SET search_path TO "schema_<client_id>", public`,
     чтобы можно было обращаться к клиентским таблицам без префикса схемы.
+
+    При `sql_guard.is_protected()` модифицирующие запросы блокируются (exit 1) до
+    коннекта к серверу. Снять защиту — только `PROTECT=false` в ~/.config/mpu/.env.
     """
     out = stdout if stdout is not None else sys.stdout
     err = stderr if stderr is not None else sys.stderr
@@ -84,6 +87,13 @@ def run_sql(
 
     if dry:
         return 0
+
+    if sql_guard.is_protected():
+        try:
+            sql_guard.check_read_only(sql)
+        except sql_guard.SqlGuardError as e:
+            print(f"mpu sql: {e}", file=err)
+            return 1
 
     try:
         with pg.connect_to(server_number) as conn, conn.cursor() as cur:
