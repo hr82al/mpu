@@ -7,6 +7,9 @@ POST на `WB_PLUS_WEB_APP_URL` с телом `{ action: str, ...payload }`.
 Retry-стратегия:
 - Сетевая ошибка / 5xx → exponential backoff 250ms..8s, до `max_retries` попыток.
 - 429 / "Quota exceeded" → пауза `quota_delay` (default 60s), retry без счётчика.
+- 404 → Apps Script иногда отдаёт HTML "Страница не найдена" вместо JSON
+  (транзиентный сбой деплоя/редиректа). Фиксированный retry `not_found_retries`
+  раз (default 3) с паузой `not_found_delay` (default 10s).
 - 2xx + `success: false` → SheetApiError с текстом из `error` (без retry).
 
 Apps Script deployment URL — public (без авторизации), достаточно знать URL.
@@ -27,6 +30,8 @@ from mpu.lib.log import logger
 DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_MAX_RETRIES = 5
 DEFAULT_QUOTA_DELAY_SECONDS = 60.0
+DEFAULT_NOT_FOUND_RETRIES = 3
+DEFAULT_NOT_FOUND_DELAY_SECONDS = 10.0
 _BACKOFF_BASE_MS = 250
 _BACKOFF_CAP_MS = 8000
 
@@ -81,6 +86,8 @@ class WebappClient:
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
     max_retries: int = DEFAULT_MAX_RETRIES
     quota_delay_seconds: float = DEFAULT_QUOTA_DELAY_SECONDS
+    not_found_retries: int = DEFAULT_NOT_FOUND_RETRIES
+    not_found_delay_seconds: float = DEFAULT_NOT_FOUND_DELAY_SECONDS
     _sleeper: Any = field(default=time.sleep)
     _transport: Any = field(default=None)  # для тестов — httpx.MockTransport
 
@@ -103,6 +110,7 @@ class WebappClient:
         """POST `{action, **payload}` → возвращает `result` поле ответа."""
         body: dict[str, Any] = {"action": action, **payload}
         last_error: str = ""
+        not_found_attempts = 0
         for attempt in range(self.max_retries + 1):
             try:
                 with self._make_httpx_client() as client:
@@ -144,6 +152,17 @@ class WebappClient:
                         body=text[:500],
                     )
                 self._sleeper(_backoff_delay_seconds(attempt))
+                continue
+
+            if status == 404 and not_found_attempts < self.not_found_retries:
+                not_found_attempts += 1
+                last_error = f"HTTP 404: {text[:200]}"
+                logger.warning(
+                    f"sheet_api {action}: {last_error} "
+                    f"(404 retry {not_found_attempts}/{self.not_found_retries}, "
+                    f"sleeping {self.not_found_delay_seconds}s)"
+                )
+                self._sleeper(self.not_found_delay_seconds)
                 continue
 
             if status >= 400:

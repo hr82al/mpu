@@ -140,6 +140,39 @@ def test_max_retries_exhausted() -> None:
     assert exc.value.status == 500
 
 
+def test_404_retried_then_success() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            return httpx.Response(404, text="<html>Страница не найдена</html>")
+        return httpx.Response(200, json=_ok({"ok": True}))
+
+    client, sleeps = _make_client(httpx.MockTransport(handler))
+    client.not_found_delay_seconds = 10.0
+    assert client.call("spreadsheets/values/batchGet", ssId="X") == {"ok": True}
+    assert calls["n"] == 3
+    assert sleeps[:2] == [10.0, 10.0]
+
+
+def test_404_exhausted_then_fatal() -> None:
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(404, text="<html>Страница не найдена</html>")
+
+    client, sleeps = _make_client(httpx.MockTransport(handler))
+    client.not_found_delay_seconds = 10.0
+    with pytest.raises(SheetApiError) as exc:
+        client.call("spreadsheets/values/batchGet", ssId="X")
+    assert exc.value.status == 404
+    # 3 retries (paused 10s each) + 1 final fatal attempt = 4 requests.
+    assert calls["n"] == 4
+    assert sleeps == [10.0, 10.0, 10.0]
+
+
 def test_429_treated_as_quota() -> None:
     calls = {"n": 0}
 
