@@ -148,14 +148,22 @@ def test_reverse_title_selector_resolves(
     assert fake_clear == [1589]
 
 
-# ── Список (-l / без аргументов) ─────────────────────────────────────────────
+# ── Список (ls / без аргументов) ─────────────────────────────────────────────
+
+
+def _set_list(monkeypatch: pytest.MonkeyPatch, moves: list[Move]) -> dict[str, bool]:
+    called: dict[str, bool] = {"list": False}
+
+    def _list() -> list[Move]:
+        called["list"] = True
+        return moves
+
+    monkeypatch.setattr(cmd, "list_moves", _list)
+    return called
 
 
 def test_list_no_args(fake_run: dict[str, object], monkeypatch: pytest.MonkeyPatch) -> None:
-    def _list() -> list[Move]:
-        return [Move(client_id=1589, source="sl-13", target="sl-1", moved_at=1000)]
-
-    monkeypatch.setattr(cmd, "list_moves", _list)
+    _set_list(monkeypatch, [Move(client_id=1589, source="sl-13", target="sl-1", moved_at=1000)])
 
     res = runner.invoke(cmd.app, [])
 
@@ -166,31 +174,61 @@ def test_list_no_args(fake_run: dict[str, object], monkeypatch: pytest.MonkeyPat
     assert fake_run["called"] is False
 
 
-def test_list_flag_with_selector_does_not_reverse(
-    fake_run: dict[str, object], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    called: dict[str, bool] = {"list": False}
+def test_list_ls_keyword(fake_run: dict[str, object], monkeypatch: pytest.MonkeyPatch) -> None:
+    called = _set_list(
+        monkeypatch, [Move(client_id=1589, source="sl-13", target="sl-1", moved_at=1000)]
+    )
 
-    def _list() -> list[Move]:
-        called["list"] = True
-        return []
-
-    monkeypatch.setattr(cmd, "list_moves", _list)
-
-    res = runner.invoke(cmd.app, ["1589", "-l"])
+    res = runner.invoke(cmd.app, ["ls"])
 
     assert res.exit_code == 0, res.output
     assert called["list"] is True
+    assert "1589" in res.output
     assert fake_run["called"] is False
 
 
 def test_list_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    def _list() -> list[Move]:
-        return []
+    _set_list(monkeypatch, [])
 
-    monkeypatch.setattr(cmd, "list_moves", _list)
-
-    res = runner.invoke(cmd.app, ["-l"])
+    res = runner.invoke(cmd.app, ["ls"])
 
     assert res.exit_code == 0, res.output
     assert "нет записанных ходов" in res.output
+
+
+# ── Удаление записи (rm) ─────────────────────────────────────────────────────
+
+
+def test_rm_happy(
+    fake_run: dict[str, object], fake_clear: list[int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _set_last(monkeypatch, Move(client_id=1589, source="sl-13", target="sl-1", moved_at=1000))
+
+    res = runner.invoke(cmd.app, ["rm", "1589"])
+
+    assert res.exit_code == 0, res.output
+    assert fake_clear == [1589]
+    assert "удалена запись хода client 1589" in res.output
+    assert fake_run["called"] is False  # rm не переносит
+
+
+def test_rm_no_record(
+    fake_run: dict[str, object], fake_clear: list[int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _set_last(monkeypatch, None)
+
+    res = runner.invoke(cmd.app, ["rm", "1589"])
+
+    assert res.exit_code == 0, res.output
+    assert "нет записи хода для client 1589" in res.output
+    assert fake_clear == []
+    assert fake_run["called"] is False
+
+
+def test_rm_requires_selector(fake_run: dict[str, object], monkeypatch: pytest.MonkeyPatch) -> None:
+    _ = monkeypatch
+    res = runner.invoke(cmd.app, ["rm"])
+
+    assert res.exit_code == 2
+    assert "`rm` требует селектор" in res.output
+    assert fake_run["called"] is False

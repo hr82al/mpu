@@ -1,14 +1,17 @@
-"""`mpu move-client-back [<selector>] [-l]` — вернуть клиента на исходный sl-сервер.
+"""`mpu move-client-back` — вернуть клиента на исходный sl-сервер / управлять историей.
 
 Обратная к `mpu move-client`: читает последний записанный ход клиента из SQLite-таблицы
 `client_moves` (см. `mpu.lib.client_moves`) и переносит его обратно — реверс source↔target.
 После успешного обратного переноса запись удаляется.
 
-Режимы:
+Формы (первый позиционный аргумент — диспетчер):
 - `mpu move-client-back <selector>` — реверс одного клиента (selector как у `move-client`:
   client_id / spreadsheet_id / title / sl-N).
-- `mpu move-client-back -l` (или без аргументов) — показать незавершённые ходы (всё, что
-  ещё не возвращено).
+- `mpu move-client-back ls` (или без аргументов) — показать незавершённые ходы.
+- `mpu move-client-back rm <selector>` — удалить запись хода клиента из истории (без переноса).
+
+`ls` / `rm` — зарезервированные ключевые слова: клиент с таким селектором недоступен через
+эту команду напрямую (используй client_id).
 """
 
 import time
@@ -22,7 +25,7 @@ from mpu.lib.client_transfer import run_transfer
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 COMMAND_NAME = "mpu move-client-back"
-COMMAND_SUMMARY = "Вернуть клиента на исходный sl-сервер (или `-l` — список ходов)"
+COMMAND_SUMMARY = "Вернуть клиента на исходный sl-сервер (ls — список, rm — удалить запись)"
 
 app = typer.Typer(
     no_args_is_help=False,
@@ -77,25 +80,22 @@ def _print_moves(moves: list[Move]) -> None:
         typer.echo(f"{str(m['client_id']).ljust(id_w)}  {route.ljust(23)}  {when}")
 
 
-@app.command()
-def main(
-    selector: Annotated[
-        str | None,
-        typer.Argument(
-            help="client_id / spreadsheet_id substring / title substring / sl-N "
-            "(чей последний ход вернуть). Без аргумента — список ходов."
-        ),
-    ] = None,
-    list_: Annotated[
-        bool,
-        typer.Option("-l", "--list", help="Показать незавершённые ходы (не переносить)"),
-    ] = False,
-) -> None:
-    """Вернуть клиента на исходный сервер по записи `move-client` (или `-l` — список)."""
-    if list_ or selector is None:
-        _print_moves(list_moves())
+def _do_remove(selector: str) -> None:
+    """`rm <selector>` — удалить запись хода клиента из истории (перенос не выполняется)."""
+    client_id = _resolve_client_id(selector)
+    move = last_move(client_id)
+    if move is None:
+        typer.echo(f"{COMMAND_NAME}: нет записи хода для client {client_id}", err=True)
         return
+    clear_move(client_id)
+    typer.echo(
+        f"{COMMAND_NAME}: удалена запись хода client {client_id}: "
+        f"{move['source']} → {move['target']}"
+    )
 
+
+def _do_reverse(selector: str) -> None:
+    """`<selector>` — перенести клиента обратно по последней записи `move-client`."""
     client_id = _resolve_client_id(selector)
     move = last_move(client_id)
     if move is None:
@@ -131,3 +131,32 @@ def main(
     if rc == 0:
         clear_move(client_id)
     raise typer.Exit(code=rc)
+
+
+@app.command()
+def main(
+    action: Annotated[
+        str | None,
+        typer.Argument(
+            metavar="[SELECTOR|ls|rm]",
+            help="selector — реверс клиента; `ls` — список ходов; `rm` — удалить запись",
+        ),
+    ] = None,
+    selector: Annotated[
+        str | None,
+        typer.Argument(metavar="[SELECTOR]", help="селектор клиента для `rm`"),
+    ] = None,
+) -> None:
+    """Реверс переноса по записи `move-client`; `ls` — список, `rm <selector>` — удалить запись."""
+    if action is None or action in ("ls", "list"):
+        _print_moves(list_moves())
+        return
+
+    if action == "rm":
+        if selector is None:
+            typer.echo(f"{COMMAND_NAME}: `rm` требует селектор (rm <selector>)", err=True)
+            raise typer.Exit(code=2)
+        _do_remove(selector)
+        return
+
+    _do_reverse(action)
