@@ -15,6 +15,7 @@ from mpu.commands import (
     health,
     logs,
     move_client,
+    move_client_back,
     process,
     ps,
     pssh,
@@ -97,6 +98,7 @@ _REGISTERED_MODULES = (
     copy_client,
     copy_shared,
     move_client,
+    move_client_back,
 )
 
 _COMMANDS: dict[str, tuple[str, typer.Typer]] = {

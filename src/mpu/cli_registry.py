@@ -29,6 +29,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "copy-client": ("mpu.commands.copy_client", "app"),
     "copy-shared": ("mpu.commands.copy_shared", "app"),
     "move-client": ("mpu.commands.move_client", "app"),
+    "move-client-back": ("mpu.commands.move_client_back", "app"),
     "logs": ("mpu.commands.logs", "app"),
     "confirm": ("mpu.commands.confirm", "app"),
     "help": ("mpu.commands.help", "app"),

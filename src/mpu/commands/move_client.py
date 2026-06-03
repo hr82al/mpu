@@ -4,20 +4,20 @@
 по умолчанию `sl-1`, `--destroy` всегда включён (это move, а не copy).
 
 Запускает `node cli service:clientsTransfer createJob ...` в контейнере `mp-dt-cli`
-через Portainer (универсальный путь `pssh.pssh_run_container`). `createJob` кладёт
-BullMQ-job в очередь `transferClient` (см. `clientsTransfer.service.js:createJob`);
-реальный перенос исполняют воркеры `mp-dt-clients-transfer-workers`.
+(общий путь `client_transfer.run_transfer`). `createJob` кладёт BullMQ-job в очередь
+`transferClient` (см. `clientsTransfer.service.js:createJob`); реальный перенос исполняют
+воркеры `mp-dt-clients-transfer-workers`. После успешной постановки job'а ход source→target
+запоминается в SQLite (`client_moves`) — это читает `mpu move-client-back` для реверса.
 """
 
-import shlex
 from typing import Annotated
 
 import typer
 
-from mpu.lib import containers, pssh, servers
+from mpu.lib import servers
+from mpu.lib.client_moves import record_move
+from mpu.lib.client_transfer import run_transfer
 from mpu.lib.resolver import ResolveError, resolve_server
-
-MP_DT_CONTAINER = "mp-dt-cli"
 
 COMMAND_NAME = "mpu move-client"
 COMMAND_SUMMARY = "Перенести клиента между sl-серверами (createJob через mp-dt-cli)"
@@ -109,30 +109,7 @@ def main(
         )
         raise typer.Exit(code=2)
 
-    cmd = [
-        "node",
-        "cli",
-        "service:clientsTransfer",
-        "createJob",
-        "--source",
-        f"sl-{source_n}",
-        "--target",
-        f"sl-{target_n}",
-        "--client-id",
-        str(client_id),
-        "--destroy",
-    ]
-    typer.echo(f"$ {shlex.join(cmd)}  (in {MP_DT_CONTAINER})", err=True)
-    try:
-        rc = pssh.pssh_run_container(container=MP_DT_CONTAINER, cmd=cmd)
-    except containers.ContainerResolveError as e:
-        typer.echo(f"{COMMAND_NAME}: {e}", err=True)
-        if e.candidates:
-            typer.echo(containers.format_container_candidates(e.candidates), err=True)
-        else:
-            typer.echo(
-                f"{COMMAND_NAME}: запусти `mpu init` для обновления Portainer-кэша",
-                err=True,
-            )
-        raise typer.Exit(code=2) from None
+    rc = run_transfer(COMMAND_NAME, client_id, source_n=source_n, target_n=target_n)
+    if rc == 0:
+        record_move(client_id, f"sl-{source_n}", f"sl-{target_n}")
     raise typer.Exit(code=rc)

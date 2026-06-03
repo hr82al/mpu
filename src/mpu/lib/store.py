@@ -49,6 +49,17 @@ _DDL = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_sl_wb_sids_sid ON sl_wb_sids(sid)",
     "CREATE INDEX IF NOT EXISTS idx_sl_wb_sids_client ON sl_wb_sids(client_id)",
+    # Журнал последнего переноса клиента (`mpu move-client`): откуда → куда. Одна
+    # строка на клиента (PK client_id) = последний ход; `mpu move-client-back`
+    # читает её для реверса и удаляет после успешного переноса.
+    """
+    CREATE TABLE IF NOT EXISTS client_moves (
+        client_id INTEGER PRIMARY KEY,
+        source    TEXT NOT NULL,
+        target    TEXT NOT NULL,
+        moved_at  INTEGER NOT NULL
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS portainer_containers (
         portainer_url   TEXT NOT NULL,

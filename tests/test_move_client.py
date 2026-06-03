@@ -49,8 +49,22 @@ def fake_run(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
     return captured
 
 
+@pytest.fixture
+def fake_record(monkeypatch: pytest.MonkeyPatch) -> list[tuple[int, str, str]]:
+    recorded: list[tuple[int, str, str]] = []
+
+    def _record(client_id: int, source: str, target: str, *, now: int | None = None) -> None:
+        _ = now
+        recorded.append((client_id, source, target))
+
+    monkeypatch.setattr(cmd, "record_move", _record)
+    return recorded
+
+
 def test_happy_path_default_target_sl_1(
-    fake_resolve: dict[str, object], fake_run: dict[str, object]
+    fake_resolve: dict[str, object],
+    fake_run: dict[str, object],
+    fake_record: list[tuple[int, str, str]],
 ) -> None:
     res = runner.invoke(cmd.app, ["1589"])
 
@@ -70,9 +84,14 @@ def test_happy_path_default_target_sl_1(
         "--destroy",
     ]
     assert fake_run["container"] == "mp-dt-cli"
+    assert fake_record == [(1589, "sl-13", "sl-1")]
 
 
-def test_custom_target(fake_resolve: dict[str, object], fake_run: dict[str, object]) -> None:
+def test_custom_target(
+    fake_resolve: dict[str, object],
+    fake_run: dict[str, object],
+    fake_record: list[tuple[int, str, str]],
+) -> None:
     res = runner.invoke(cmd.app, ["1589", "--target", "sl-5"])
 
     assert res.exit_code == 0, res.output
@@ -80,6 +99,7 @@ def test_custom_target(fake_resolve: dict[str, object], fake_run: dict[str, obje
     assert "--target" in cmd_argv
     target_idx = cmd_argv.index("--target")
     assert cmd_argv[target_idx + 1] == "sl-5"
+    assert fake_record == [(1589, "sl-13", "sl-5")]
 
 
 def test_bad_target_format(fake_resolve: dict[str, object], fake_run: dict[str, object]) -> None:
@@ -152,7 +172,9 @@ def test_sl_selector_without_client_id(
 
 
 def test_run_failure_propagates(
-    fake_resolve: dict[str, object], monkeypatch: pytest.MonkeyPatch
+    fake_resolve: dict[str, object],
+    fake_record: list[tuple[int, str, str]],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def _run(*, container: str, cmd: list[str], stdin: bytes = b"") -> int:
         _ = container, cmd, stdin
@@ -162,3 +184,4 @@ def test_run_failure_propagates(
     res = runner.invoke(cmd.app, ["1589"])
 
     assert res.exit_code == 17
+    assert fake_record == []  # запись хода только при rc == 0
