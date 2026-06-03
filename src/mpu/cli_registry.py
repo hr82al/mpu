@@ -48,6 +48,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "ozon-jobs": ("mpu.commands.ozon_jobs", "app"),
     "ozon-recalculate-expenses": ("mpu.commands.recalculate_ozon_expenses", "app"),
     "ozon-save-expenses": ("mpu.commands.save_ozon_expenses", "app"),
+    "ozon-fix-fo-tax": ("mpu.commands.ozon_fix_fo_tax", "app"),
     "clients-migrations": ("mpu.commands.clients_migrations", "app"),
     "datasets-migrations": ("mpu.commands.datasets_migrations", "app"),
     "app-migrations": ("mpu.commands.app_migrations", "app"),
