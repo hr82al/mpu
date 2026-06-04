@@ -13,6 +13,8 @@ dependencies = [
     "astral>=3.2",
     "sqlglot>=25",
     "rich>=13",
+    "term-image>=0.7.2",
+    "pillow>=10.4.0",
 ]
 
 [project.scripts]

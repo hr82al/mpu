@@ -137,6 +137,17 @@ _DDL = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_kaiten_columns_board ON kaiten_columns(board_id)",
+    # Определения кастомных полей (id → name) для `mpu kiten card`: ключи карточки
+    # вида `id_NNNNNN` резолвятся в человекочитаемые имена. Lazy-populate из GET
+    # /company/custom-properties (см. kaiten_cache.property_names).
+    """
+    CREATE TABLE IF NOT EXISTS kaiten_custom_properties (
+        id            INTEGER PRIMARY KEY,
+        name          TEXT NOT NULL,
+        type          TEXT,
+        discovered_at INTEGER NOT NULL
+    )
+    """,
     # --- sheet (Google Spreadsheets) ---
     # Whole-tab кэш: один tab = одна запись с gzipped JSON payload.
     # Любой `sheet get X!A1:C3` тянет весь tab X разом → кладёт сюда → последующие

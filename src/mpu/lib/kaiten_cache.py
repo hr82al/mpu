@@ -24,6 +24,7 @@ from mpu.lib.kaiten import (
     KaitenBoard,
     KaitenClient,
     KaitenColumn,
+    KaitenCustomProperty,
     KaitenLane,
     KaitenSpace,
 )
@@ -45,6 +46,12 @@ class KaitenLanesResult:
 @dataclass(frozen=True, slots=True)
 class KaitenColumnsResult:
     columns: list[KaitenColumn]
+    error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class KaitenCustomPropertiesResult:
+    properties: list[KaitenCustomProperty]
     error: str | None = None
 
 
@@ -148,6 +155,34 @@ def discover_columns_and_store(board_ids: list[int]) -> KaitenColumnsResult:
     return KaitenColumnsResult(columns=columns, error=None)
 
 
+def discover_custom_properties_and_store() -> KaitenCustomPropertiesResult:
+    """`GET /company/custom-properties` → запись в SQLite (DELETE+INSERT). Best-effort.
+
+    Определения общие для всей доски (не скоупятся), поэтому полный refresh одним
+    запросом — как `discover_and_store`. Вызывается лениво из `property_names()`.
+    """
+    if not env.get("KITEN_API_KEY"):
+        return KaitenCustomPropertiesResult(properties=[], error="KITEN_API_KEY не задан")
+
+    try:
+        client = KaitenClient.from_env()
+        properties = client.list_custom_properties()
+    except (KaitenAPIError, URLError, OSError) as e:
+        return KaitenCustomPropertiesResult(properties=[], error=f"kaiten: {e}")
+
+    discovered_at = int(time.time())
+    with store.store() as conn, conn:
+        store.bootstrap(conn)  # идемпотентно: таблица может отсутствовать без mpu init
+        conn.execute("DELETE FROM kaiten_custom_properties")
+        conn.executemany(
+            "INSERT INTO kaiten_custom_properties (id, name, type, discovered_at) "
+            "VALUES (?, ?, ?, ?)",
+            [(p.id, p.name, p.type, discovered_at) for p in properties],
+        )
+
+    return KaitenCustomPropertiesResult(properties=properties, error=None)
+
+
 # ── Тонкие ридеры кэша (I/O; try/except → [], как _logs_loki.cached_hosts) ──────
 
 
@@ -211,6 +246,27 @@ def cached_columns(board_id: int | None = None) -> list[tuple[int, str]]:
     except sqlite3.Error:
         return []
     return [(int(r["id"]), r["title"]) for r in rows]
+
+
+def cached_custom_properties() -> dict[int, str]:
+    """{id: name} кастомных полей из кэша. Пусто, если кэш не заполнен."""
+    try:
+        with store.store() as conn:
+            rows = conn.execute("SELECT id, name FROM kaiten_custom_properties").fetchall()
+    except sqlite3.Error:
+        return {}
+    return {int(r["id"]): r["name"] for r in rows}
+
+
+def property_names() -> dict[int, str]:
+    """{id: name} кастомных полей; lazy-populate: пустой кэш → один `GET
+    /company/custom-properties` и перечитать. Так `mpu kiten card` работает без
+    `mpu init`. Сетевой сбой → возвращаем что есть (best-effort, никогда не бросает)."""
+    cached = cached_custom_properties()
+    if cached:
+        return cached
+    discover_custom_properties_and_store()
+    return cached_custom_properties()
 
 
 # ── Чистые хелперы (без БД/сети, тестируемые) ──────────────────────────────────

@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, cast
 from urllib.error import HTTPError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from mpu.lib import env
@@ -42,6 +42,7 @@ class KaitenCard:
     state: int | None
     condition: int | None
     due_date: str | None
+    updated: str | None
     board_id: int | None
     column_id: int | None
     url: str
@@ -73,6 +74,65 @@ class KaitenColumn:
     id: int
     board_id: int
     title: str
+
+
+@dataclass
+class KaitenFile:
+    id: int
+    url: str
+    name: str
+    mime_type: str | None
+    comment_id: int | None  # None = card-level, иначе вложение комментария
+    card_cover: bool
+
+
+@dataclass
+class KaitenMember:
+    id: int
+    full_name: str
+    email: str
+    username: str
+
+
+@dataclass
+class KaitenComment:
+    id: int
+    text: str  # GFM markdown
+    author_name: str
+    created: str | None
+
+
+@dataclass
+class KaitenCustomProperty:
+    id: int
+    name: str
+    type: str | None
+
+
+@dataclass
+class KaitenCardDetail:
+    id: int
+    key: str | None
+    title: str
+    state: int | None
+    condition: int | None
+    due_date: str | None
+    board_id: int | None
+    board_title: str | None
+    column_id: int | None
+    column_title: str | None
+    lane_title: str | None
+    size_text: str | None
+    created: str | None
+    updated: str | None
+    type_name: str | None
+    description: str | None  # GFM markdown
+    owner: KaitenMember | None
+    url: str
+    tags: list[str]
+    members: list[KaitenMember]
+    files: list[KaitenFile]
+    properties: dict[str, str]
 
 
 class KaitenAPIError(Exception):
@@ -108,6 +168,7 @@ def parse_card(raw: dict[str, Any], base_url: str) -> KaitenCard:
         state=raw.get("state"),
         condition=raw.get("condition"),
         due_date=raw.get("due_date"),
+        updated=raw.get("updated"),
         board_id=raw.get("board_id"),
         column_id=raw.get("column_id"),
         url=card_url(base_url, card_id),
@@ -123,6 +184,8 @@ def build_cards_query(
     board_id: int | None = None,
     lane_id: int | None = None,
     column_id: int | None = None,
+    updated_after: str | None = None,
+    updated_before: str | None = None,
     limit: int = CARDS_PAGE_LIMIT,
     offset: int = 0,
 ) -> dict[str, str]:
@@ -131,6 +194,10 @@ def build_cards_query(
     NB: фильтр дорожки в API — `lane_id` (единственное число), в отличие от
     `member_ids` (множественное). Плюральный `lane_ids` сервером игнорируется.
     Колонка — `column_id`.
+
+    `updated_after` / `updated_before` — окно активности (последнее обновление
+    карточки), формат ISO 8601 (`YYYY-MM-DDThh:mm:ssZ`). Сервер фильтрует по полю
+    `updated`; неизвестные имена он молча игнорирует, поэтому имена точные.
     """
     query: dict[str, str] = {"limit": str(limit), "offset": str(offset)}
     if member_ids is not None:
@@ -147,6 +214,10 @@ def build_cards_query(
         query["lane_id"] = str(lane_id)
     if column_id is not None:
         query["column_id"] = str(column_id)
+    if updated_after is not None:
+        query["updated_after"] = updated_after
+    if updated_before is not None:
+        query["updated_before"] = updated_before
     return query
 
 
@@ -195,6 +266,145 @@ def parse_boards_of_space(raw: dict[str, Any]) -> list[KaitenBoard]:
             )
         )
     return parsed
+
+
+def parse_card_ref(ref: str) -> int:
+    """Селектор → id карточки. Принимает голый id, короткий URL btlz.kaiten.ru/<id>
+    или глубокий URL .../boards/card/<id>?filter=…
+
+    id — **последний** полностью числовой сегмент пути (так `.../space/286794/boards/
+    card/65634936` резолвится в карточку 65634936, а не в space 286794); query/fragment
+    отбрасываются `urlparse`. Нет числового сегмента → ValueError.
+    """
+    s = ref.strip()
+    if s.isdigit():
+        return int(s)
+    path = urlparse(s).path
+    segments = [seg for seg in path.split("/") if seg.isdigit()]
+    if not segments:
+        raise ValueError(f"не удалось извлечь id карточки из {ref!r}")
+    return int(segments[-1])
+
+
+def _member_name(raw: dict[str, Any] | None) -> str:
+    """full_name автора из вложенного `author`/`owner` объекта; пусто, если нет."""
+    if not isinstance(raw, dict):
+        return ""
+    return str(raw.get("full_name") or raw.get("username") or "")
+
+
+def parse_member(raw: dict[str, Any]) -> KaitenMember:
+    """JSON-участник (members[]/owner) → KaitenMember. Недостающие поля → пусто."""
+    return KaitenMember(
+        id=int(raw["id"]),
+        full_name=str(raw.get("full_name") or ""),
+        email=str(raw.get("email") or ""),
+        username=str(raw.get("username") or ""),
+    )
+
+
+def parse_file(raw: dict[str, Any]) -> KaitenFile:
+    """JSON-файл (files[]) → KaitenFile. `comment_id=null` ⇒ вложение карточки."""
+    return KaitenFile(
+        id=int(raw["id"]),
+        url=str(raw.get("url") or ""),
+        name=str(raw.get("name") or ""),
+        mime_type=raw.get("mime_type"),
+        comment_id=raw.get("comment_id"),
+        card_cover=bool(raw.get("card_cover")),
+    )
+
+
+def parse_comment(raw: dict[str, Any]) -> KaitenComment:
+    """JSON-комментарий (GET /cards/{id}/comments) → KaitenComment. `text` — GFM markdown."""
+    return KaitenComment(
+        id=int(raw["id"]),
+        text=str(raw.get("text") or ""),
+        author_name=_member_name(raw.get("author")),
+        created=raw.get("created"),
+    )
+
+
+def parse_custom_property(raw: dict[str, Any]) -> KaitenCustomProperty:
+    """JSON-определение кастомного поля (GET /company/custom-properties) → KaitenCustomProperty."""
+    return KaitenCustomProperty(
+        id=int(raw["id"]),
+        name=str(raw.get("name") or ""),
+        type=raw.get("type"),
+    )
+
+
+def _nested_title(raw: dict[str, Any], key: str) -> str | None:
+    """`title` вложенного объекта (`board`/`column`/`lane`); None, если нет."""
+    obj = raw.get(key)
+    if isinstance(obj, dict):
+        title = cast("dict[str, Any]", obj).get("title")
+        return str(title) if title is not None else None
+    return None
+
+
+def _string_properties(raw: dict[str, Any]) -> dict[str, str]:
+    """`properties` карточки → только строковые значения (ключи id_NNN). Не-строки
+    (select/catalog → id/массив) приводим к str, чтобы не терять поле."""
+    props = raw.get("properties")
+    if not isinstance(props, dict):
+        return {}
+    out: dict[str, str] = {}
+    for key, value in cast("dict[str, Any]", props).items():
+        if value is None:
+            continue
+        out[str(key)] = value if isinstance(value, str) else str(value)
+    return out
+
+
+def _dict_items(raw_value: object) -> list[dict[str, Any]]:
+    """Значение API → список dict-элементов (не список / не-dict элементы отбрасываются).
+
+    Зеркало `parse_boards_of_space`: cast к list[object] + isinstance-narrow, чтобы
+    строгий pyright видел реальный тип, а не Unknown.
+    """
+    if not isinstance(raw_value, list):
+        return []
+    items: list[dict[str, Any]] = []
+    for entry in cast("list[object]", raw_value):
+        if isinstance(entry, dict):
+            items.append(cast("dict[str, Any]", entry))
+    return items
+
+
+def _tag_names(raw_value: object) -> list[str]:
+    """`tags[].name` → list[str]."""
+    return [str(t.get("name") or "") for t in _dict_items(raw_value)]
+
+
+def parse_card_detail(raw: dict[str, Any], base_url: str) -> KaitenCardDetail:
+    """Полный JSON карточки (GET /cards/{id}) → KaitenCardDetail. Недостающее → None/[]."""
+    card_id = int(raw["id"])
+    owner = raw.get("owner")
+    return KaitenCardDetail(
+        id=card_id,
+        key=raw.get("key"),
+        title=str(raw.get("title") or ""),
+        state=raw.get("state"),
+        condition=raw.get("condition"),
+        due_date=raw.get("due_date"),
+        board_id=raw.get("board_id"),
+        board_title=_nested_title(raw, "board"),
+        column_id=raw.get("column_id"),
+        column_title=_nested_title(raw, "column"),
+        lane_title=_nested_title(raw, "lane"),
+        size_text=raw.get("size_text"),
+        created=raw.get("created"),
+        updated=raw.get("updated"),
+        type_name=_nested_title(raw, "type"),
+        description=raw.get("description"),
+        owner=parse_member(cast("dict[str, Any]", owner)) if isinstance(owner, dict) else None,
+        url=card_url(base_url, card_id),
+        tags=_tag_names(raw.get("tags")),
+        members=[parse_member(m) for m in _dict_items(raw.get("members"))],
+        files=[parse_file(f) for f in _dict_items(raw.get("files"))],
+        properties=_string_properties(raw),
+    )
 
 
 # ── I/O-клиент (HTTP, тестами не покрывается — как miro/slapi) ──────────────────
@@ -260,6 +470,8 @@ class KaitenClient:
         board_id: int | None = None,
         lane_id: int | None = None,
         column_id: int | None = None,
+        updated_after: str | None = None,
+        updated_before: str | None = None,
     ) -> list[KaitenCard]:
         """GET /cards с фильтрами + пагинацией по offset (limit=100, до пустой страницы)."""
         cards: list[KaitenCard] = []
@@ -273,6 +485,8 @@ class KaitenClient:
                 board_id=board_id,
                 lane_id=lane_id,
                 column_id=column_id,
+                updated_after=updated_after,
+                updated_before=updated_before,
                 limit=CARDS_PAGE_LIMIT,
                 offset=offset,
             )
@@ -332,3 +546,22 @@ class KaitenClient:
             for raw in cast("list[dict[str, Any]]", res):
                 columns.append(parse_column(raw))
         return columns
+
+    def get_card(self, card_id: int) -> KaitenCardDetail:
+        """GET /cards/{id} — полная карточка (описание, файлы, участники, properties)."""
+        res = self._request("GET", f"/cards/{card_id}")
+        return parse_card_detail(res, self.base_url)
+
+    def get_comments(self, card_id: int) -> list[KaitenComment]:
+        """GET /cards/{id}/comments — комментарии (хронологически). `text` — GFM markdown."""
+        res = self._request("GET", f"/cards/{card_id}/comments")
+        if not res:
+            return []
+        return [parse_comment(c) for c in cast("list[dict[str, Any]]", res)]
+
+    def list_custom_properties(self) -> list[KaitenCustomProperty]:
+        """GET /company/custom-properties — определения кастомных полей (id → name)."""
+        res = self._request("GET", "/company/custom-properties")
+        if not res:
+            return []
+        return [parse_custom_property(p) for p in cast("list[dict[str, Any]]", res)]
