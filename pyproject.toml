@@ -12,6 +12,7 @@ dependencies = [
     "loguru>=0.7",
     "astral>=3.2",
     "sqlglot>=25",
+    "rich>=13",
 ]
 
 [project.scripts]

@@ -11,6 +11,14 @@
   - `--all` — по всем sl-N (N>0) из SQLite-кэша (`mpu init` наполняет `portainer_containers`);
   - `--all-containers <filter>` — по всем контейнерам Portainer-кэша с подстрокой в имени.
 
+Режимы выполнения fan-out:
+  - по умолчанию — последовательно, abort-on-first-failure, стрим вывода;
+  - `--parallel [--jobs N]` — все цели одновременно (N потоков, 0=все), вывод
+    группируется по таргету по завершении; гоняет все цели, exit=1 если хоть одна упала;
+  - `--detach/-d` — фоновый запуск: скрипт заливается в `/tmp/mpu-run-<id>.mjs` и стартует
+    node детачем (вывод → `/tmp/mpu-run-<id>.log`), команда возвращается сразу. Процесс
+    переживает закрытие exec/WS/ssh — для долгих прогонов с последующим disconnect.
+
 JS поступает из (в порядке приоритета):
   1. Позиционный аргумент `code` после селектора (для однострочников);
   2. `--file/-f path/to/script.mjs`;
@@ -32,10 +40,14 @@ node_modules sl-back, import aliases (`#bullmq/...`), env (Redis/PG hosts),
   mpu run-js mp-sl-9-wb-loader 'console.log(1)'        # точное имя контейнера → Portainer
   cat script.mjs | mpu run-js sl-11
   mpu run-js --all 'console.log("on every sl-N")'
+  mpu run-js --all --parallel -f script.mjs           # все sl-N одновременно
+  mpu run-js --all --detach -f script.mjs             # фоном на каждом sl-N, вернуться сразу
   mpu run-js --all-containers wb-loader 'console.log(1)'
 """
 
+import concurrent.futures
 import dataclasses
+import secrets
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -44,7 +56,13 @@ import typer
 
 from mpu.lib import containers, servers
 from mpu.lib.clipboard import copy_to_clipboard
-from mpu.lib.pssh import pssh_run, pssh_run_container
+from mpu.lib.pssh import (
+    detach_script_paths,
+    pssh_detach,
+    pssh_detach_container,
+    pssh_run,
+    pssh_run_container,
+)
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 COMMAND_NAME = "mpu run-js"
@@ -68,6 +86,11 @@ class _ServerTarget:
 @dataclasses.dataclass(frozen=True, slots=True)
 class _ContainerTarget:
     container: str
+
+
+def _target_label(t: "_ServerTarget | _ContainerTarget") -> str:
+    """Человекочитаемая метка таргета: `sl-N` или точное имя контейнера."""
+    return f"sl-{t.server_number}" if isinstance(t, _ServerTarget) else t.container
 
 
 def _resolve_js_source(*, code: str | None, file: Path | None) -> str:
@@ -181,6 +204,136 @@ def _build_dry_run_block(targets: list[_ServerTarget | _ContainerTarget], js: st
     return "\n".join(lines)
 
 
+def _run_parallel(
+    targets: list[_ServerTarget | _ContainerTarget],
+    js_bytes: bytes,
+    via: str | None,
+    jobs: int,
+) -> None:
+    """Параллельный fan-out: каждый таргет в своём потоке, вывод буферизуется и
+    печатается сгруппированно по мере завершения (без перемешивания строк серверов).
+
+    НЕ abort-on-first-failure (в отличие от последовательного режима) — гоняем все
+    таргеты, собираем фейлы, в конце exit=1 если хоть один упал. `manage_signals=False`
+    обязателен: `signal.signal` доступен только из главного потока.
+    """
+    max_workers = jobs if jobs > 0 else len(targets)
+    typer.echo(
+        f"# {COMMAND_NAME}: parallel — {len(targets)} targets, {max_workers} workers; "
+        f"вывод по каждому таргету печатается по его завершении",
+        err=True,
+    )
+
+    def _one(t: _ServerTarget | _ContainerTarget) -> tuple[int, bytes, bytes]:
+        out = bytearray()
+        err = bytearray()
+
+        def on_out(b: bytes) -> None:
+            out.extend(b)
+
+        def on_err(b: bytes) -> None:
+            err.extend(b)
+
+        if isinstance(t, _ServerTarget):
+            rc = pssh_run(
+                server_number=t.server_number,
+                cmd=_NODE_CMD,
+                stdin=js_bytes,
+                via=via,
+                on_stdout=on_out,
+                on_stderr=on_err,
+                manage_signals=False,
+            )
+        else:
+            rc = pssh_run_container(
+                container=t.container,
+                cmd=_NODE_CMD,
+                stdin=js_bytes,
+                on_stdout=on_out,
+                on_stderr=on_err,
+                manage_signals=False,
+            )
+        return rc, bytes(out), bytes(err)
+
+    failures: list[str] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
+        fut_to_target = {ex.submit(_one, t): t for t in targets}
+        for fut in concurrent.futures.as_completed(fut_to_target):
+            label = _target_label(fut_to_target[fut])
+            try:
+                rc, out, err = fut.result()
+            except Exception as e:  # изолируем сбой одного таргета, гоним остальные
+                rc, out, err = 1, b"", f"{e}\n".encode()
+            typer.echo(f"# ===== {label} (exit={rc}) =====", err=True)
+            if out:
+                sys.stdout.buffer.write(out)
+                sys.stdout.buffer.flush()
+            if err:
+                sys.stderr.buffer.write(err)
+                sys.stderr.buffer.flush()
+            if rc != 0:
+                failures.append(label)
+
+    if failures:
+        typer.echo(f"{COMMAND_NAME}: failures on [{', '.join(failures)}]", err=True)
+        raise typer.Exit(code=1)
+
+
+def _run_detached(
+    targets: list[_ServerTarget | _ContainerTarget],
+    js_bytes: bytes,
+    via: str | None,
+) -> None:
+    """Фоновый запуск: на каждом таргете залить скрипт и стартовать node детачем.
+
+    Возвращается сразу — node продолжает работать на сервере после disconnect.
+    Печатает путь лога на каждом таргете и подсказку, как его потом прочитать.
+    Один `run_id` на все таргеты — лог называется одинаково везде.
+    """
+    run_id = secrets.token_hex(4)
+    _, log_path = detach_script_paths(run_id)
+    typer.echo(
+        f"# {COMMAND_NAME}: detached run_id={run_id} — лог на каждом сервере: {log_path}",
+        err=True,
+    )
+
+    failures: list[str] = []
+    for t in targets:
+        label = _target_label(t)
+        try:
+            if isinstance(t, _ServerTarget):
+                rc, log = pssh_detach(
+                    server_number=t.server_number, js=js_bytes, run_id=run_id, via=via
+                )
+            else:
+                rc, log = pssh_detach_container(container=t.container, js=js_bytes, run_id=run_id)
+        except Exception as e:  # один таргет не должен валить остальные
+            typer.echo(f"# {label}: detach FAILED — {e}", err=True)
+            failures.append(label)
+            continue
+        if rc != 0:
+            typer.echo(f"# {label}: launch exit={rc}", err=True)
+            failures.append(label)
+        else:
+            typer.echo(f"# {label}: started → {log}", err=True)
+
+    # Подсказка, как собрать логи позже (для server-таргетов через тот же run-js).
+    server_labels = [_target_label(t) for t in targets if isinstance(t, _ServerTarget)]
+    if server_labels:
+        reader = (
+            f'import fs from "node:fs"; '
+            f'process.stdout.write(fs.existsSync("{log_path}") '
+            f'? fs.readFileSync("{log_path}","utf8") : "no log yet\\n")'
+        )
+        scope = "--all" if len(server_labels) > 1 else server_labels[0]
+        typer.echo(f"# собрать логи: mpu run-js {scope} {reader!r}", err=True)
+        typer.echo(f"# или вживую: mpu ssh {server_labels[0]} -- tail -f {log_path}", err=True)
+
+    if failures:
+        typer.echo(f"{COMMAND_NAME}: detach failures on [{', '.join(failures)}]", err=True)
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def main(
     selector: Annotated[
@@ -224,6 +377,27 @@ def main(
         str | None,
         typer.Option("--via", help="Override транспорта для всех sl-N целей: ssh | portainer"),
     ] = None,
+    parallel: Annotated[
+        bool,
+        typer.Option(
+            "--parallel",
+            help="Параллельный fan-out по всем целям (для --all / --all-containers): "
+            "вывод группируется по таргету; НЕ abort-on-first-failure",
+        ),
+    ] = False,
+    jobs: Annotated[
+        int,
+        typer.Option("--jobs", "-j", help="Макс. одновременных целей при --parallel (0 = все)"),
+    ] = 0,
+    detach: Annotated[
+        bool,
+        typer.Option(
+            "--detach",
+            "-d",
+            help="Фоновый запуск: залить скрипт и стартовать node детачем на каждом таргете, "
+            "сразу вернуться. Процесс переживает disconnect; вывод пишется в /tmp лог",
+        ),
+    ] = False,
 ) -> None:
     """Выполнить ESM-код внутри контейнера sl-back через `node --input-type=module -`.
 
@@ -234,7 +408,8 @@ def main(
     Код (приоритет): позиционный <code> → `--file` → stdin. `--all` — fan-out по всем
     sl-N (N>0); `--all-containers <filter>` — fan-out по всем контейнерам с подстрокой
     в имени. При `--all` / `--all-containers` первый позиционный трактуется как <code>.
-    `--dry-run` — только напечатать команду(ы) без выполнения.
+    `--dry-run` — только напечатать команду(ы) без выполнения. `--parallel` — все цели
+    одновременно. `--detach/-d` — фоном на сервере (переживает disconnect), вернуться сразу.
     """
     # При --all / --all-containers позиционный <selector> не имеет смысла (нет
     # per-server резолва). Repurpose: первый позиционный трактуем как inline-код.
@@ -257,14 +432,22 @@ def main(
         copy_to_clipboard(block)
         return
 
-    labels: list[str] = []
-    for t in targets:
-        labels.append(f"sl-{t.server_number}" if isinstance(t, _ServerTarget) else t.container)
+    labels = [_target_label(t) for t in targets]
     typer.echo(f"# {COMMAND_NAME}: targets = [{', '.join(labels)}]", err=True)
 
     js_bytes = js.encode("utf-8")
+
+    if detach:
+        # Фоновый запуск возвращается сразу — стрим/parallel неприменимы.
+        _run_detached(targets, js_bytes, via)
+        return
+
+    if parallel and len(targets) > 1:
+        _run_parallel(targets, js_bytes, via, jobs)
+        return
+
     for t in targets:
-        label = f"sl-{t.server_number}" if isinstance(t, _ServerTarget) else t.container
+        label = _target_label(t)
         typer.echo(f"# target={label}", err=True)
         if isinstance(t, _ServerTarget):
             rc = pssh_run(server_number=t.server_number, cmd=_NODE_CMD, stdin=js_bytes, via=via)

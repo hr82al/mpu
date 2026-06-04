@@ -31,6 +31,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "move-client": ("mpu.commands.move_client", "app"),
     "move-client-back": ("mpu.commands.move_client_back", "app"),
     "logs": ("mpu.commands.logs", "app"),
+    "kiten": ("mpu.commands.kiten", "app"),
     "confirm": ("mpu.commands.confirm", "app"),
     "help": ("mpu.commands.help", "app"),
     # ── Node-CLI обёртки (имеют --print / -p) ───────────────────────────────

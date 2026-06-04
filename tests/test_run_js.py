@@ -404,6 +404,110 @@ def test_cli_all_containers_no_match_rejected(
     assert fake_pssh_container == []
 
 
+# ---------- --parallel ----------
+
+
+def test_cli_parallel_runs_all_without_abort(
+    env_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--all --parallel: все таргеты отрабатывают (НЕ abort), sl-2 fail → exit 1."""
+    _ = env_file
+    seen: list[dict[str, object]] = []
+
+    def _fake_run(
+        *,
+        server_number: int,
+        cmd: list[str],
+        stdin: bytes = b"",
+        via: str | None = None,
+        on_stdout: object = None,
+        on_stderr: object = None,
+        manage_signals: bool = True,
+    ) -> int:
+        _ = cmd, stdin, via, on_stderr
+        seen.append({"server_number": server_number, "manage_signals": manage_signals})
+        if callable(on_stdout):
+            on_stdout(f"out sl-{server_number}\n".encode())
+        return 1 if server_number == 2 else 0
+
+    monkeypatch.setattr(run_js, "pssh_run", _fake_run)
+    runner = CliRunner()
+    result = runner.invoke(run_js.app, ["--all", "--parallel", "console.log(1)"])
+    assert result.exit_code == 1  # sl-2 упал
+    assert sorted(int(s["server_number"]) for s in seen) == [1, 2, 3]  # но все отработали
+    # вне главного потока signal.signal недопустим → manage_signals выключен
+    assert all(s["manage_signals"] is False for s in seen)
+
+
+def test_cli_parallel_jobs_passthrough(env_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--jobs ограничивает воркеры, но все таргеты всё равно отрабатывают."""
+    _ = env_file
+    seen: list[int] = []
+
+    def _fake_run(
+        *,
+        server_number: int,
+        cmd: list[str],
+        stdin: bytes = b"",
+        via: str | None = None,
+        on_stdout: object = None,
+        on_stderr: object = None,
+        manage_signals: bool = True,
+    ) -> int:
+        _ = cmd, stdin, via, on_stdout, on_stderr, manage_signals
+        seen.append(server_number)
+        return 0
+
+    monkeypatch.setattr(run_js, "pssh_run", _fake_run)
+    runner = CliRunner()
+    result = runner.invoke(run_js.app, ["--all", "--parallel", "--jobs", "1", "console.log(1)"])
+    assert result.exit_code == 0, result.output
+    assert sorted(seen) == [1, 2, 3]
+
+
+# ---------- --detach ----------
+
+
+def test_cli_detach_launches_all(env_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--all --detach: на каждом таргете fire-and-forget, один общий run_id, подсказка лога."""
+    _ = env_file
+    seen: list[dict[str, object]] = []
+
+    def _fake_detach(
+        *, server_number: int, js: bytes, run_id: str, via: str | None = None
+    ) -> tuple[int, str]:
+        seen.append({"server_number": server_number, "run_id": run_id, "js": js, "via": via})
+        return 0, f"/tmp/mpu-run-{run_id}.log"
+
+    monkeypatch.setattr(run_js, "pssh_detach", _fake_detach)
+    runner = CliRunner()
+    result = runner.invoke(run_js.app, ["--all", "--detach", "console.log(1)"])
+    assert result.exit_code == 0, result.output
+    assert sorted(int(s["server_number"]) for s in seen) == [1, 2, 3]
+    assert len({s["run_id"] for s in seen}) == 1  # один run_id на все таргеты
+    assert all(s["js"] == b"console.log(1)" for s in seen)
+    assert "собрать логи" in result.output
+
+
+def test_cli_detach_failure_exit1(env_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Падение launch'а на одном таргете → exit 1, но остальные запущены."""
+    _ = env_file
+    launched: list[int] = []
+
+    def _fake_detach(
+        *, server_number: int, js: bytes, run_id: str, via: str | None = None
+    ) -> tuple[int, str]:
+        _ = js, via
+        launched.append(server_number)
+        return (1 if server_number == 3 else 0), f"/tmp/mpu-run-{run_id}.log"
+
+    monkeypatch.setattr(run_js, "pssh_detach", _fake_detach)
+    runner = CliRunner()
+    result = runner.invoke(run_js.app, ["--all", "--detach", "console.log(1)"])
+    assert result.exit_code == 1
+    assert sorted(launched) == [1, 2, 3]  # не abort — все запущены
+
+
 # ---------- list_instance_server_numbers (sanity для run_js fan-out source) ----------
 
 
