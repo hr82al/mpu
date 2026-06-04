@@ -152,6 +152,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run 
 | `mpu backup-wb-unit-proto` | `commands/backup_wb_unit_proto.py` | CTAS-бэкап `wb_unit_proto` в `backups`-схему |
 | `mpu backup-ozon-unit-proto` | `commands/backup_ozon_unit_proto.py` | CTAS-бэкап `ozon_unit_proto` в `backups`-схему |
 | `mpu backup-wb-unit-manual-data` | `commands/backup_wb_unit_manual_data.py` | CTAS-бэкап `wb_unit_manual_data` в `backups`-схему |
+| `mpu telegram` | `commands/telegram.py` | Telegram от имени пользователя (telethon): `send` — отправить сообщение, `ls` — диалоги; вход — при `mpu init`, прокси только для telethon через `TELEGRAM_PROXY` (НЕ `HTTPS_PROXY` в .env — утечёт в окружение и проксирует весь mpu) |
 | `mpu help` | `commands/help.py` | список команд + проброс `--help` каждой |
 | (любая node-CLI обёртка) | `commands/<X>.py` | по дефолту exec через Portainer; `mpu <X> --print` / `-p` — print + clipboard режим |
 | `mpu api <X>` | `commands/_mpuapi_*.py` | HTTP-клиенты для sl-back endpoints (~86 шт) |

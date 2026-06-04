@@ -113,7 +113,7 @@ def test_resolve_env_when_no_flag(
     # env.get использует dotenv который кэширует — заходим напрямую через os.environ.
     from mpu.lib import env as env_mod
 
-    monkeypatch.setattr(env_mod, "_LOADED", True)
+    monkeypatch.setattr(env_mod, "_loaded", True)
     monkeypatch.setenv("MPU_SS", "42")
     result = resolve(None, conn)
     assert result.source == "env"
@@ -123,7 +123,7 @@ def test_resolve_env_when_no_flag(
 def test_resolve_config_fallback(conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch) -> None:
     from mpu.lib import env as env_mod
 
-    monkeypatch.setattr(env_mod, "_LOADED", True)
+    monkeypatch.setattr(env_mod, "_loaded", True)
     monkeypatch.delenv("MPU_SS", raising=False)
     conn.execute("INSERT INTO config (key, value) VALUES (?, ?)", ("sheet.default", "test"))
     conn.commit()
@@ -136,7 +136,7 @@ def test_resolve_config_fallback(conn: sqlite3.Connection, monkeypatch: pytest.M
 def test_resolve_nothing_set(conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch) -> None:
     from mpu.lib import env as env_mod
 
-    monkeypatch.setattr(env_mod, "_LOADED", True)
+    monkeypatch.setattr(env_mod, "_loaded", True)
     monkeypatch.delenv("MPU_SS", raising=False)
     with pytest.raises(SpreadsheetNotFoundError):
         resolve(None, conn)

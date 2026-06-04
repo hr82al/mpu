@@ -142,7 +142,7 @@ def test_wb_unit_proto_new_copy_ssh(fake_env: None) -> None:
 # ── iu_wb ────────────────────────────────────────────────────────────────────
 def test_iu_wb_get_source_data_ssh(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(iu_wb.app, ["--print", "sl-2", "get-source-data"])
+    result = runner.invoke(iu_wb.app, ["get-source-data", "sl-2", "--print"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh("node cli service:iuWb getSourceData")
 

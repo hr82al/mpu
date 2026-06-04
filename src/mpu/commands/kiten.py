@@ -6,7 +6,10 @@
   (резолв по кэшу). `--date-from`/`--date-to` (YYYY-MM-DD, CLI-only) — окно активности
   (`updated`); их наличие включает **глобальный** поиск (по всем доскам, плюс архив и
   завершённые), env-скоуп игнорируется, но явные флаги всё ещё сужают. Без даты вывод как
-  раньше. `--json` — машинный вывод.
+  раньше. Вывод: `--json` (машинный); `--only-url` (строки `[title](url)`); `--md`
+  (GFM-таблица); `--format '<шаблон>'` — произвольный шаблон с плейсхолдерами `{n}` `{id}`
+  `{title}` `{url}` `{state}` `{due}` `{column}` `{column_mapped}`. `{column_mapped}` берёт
+  метку из `.env` `KITEN_COLUMN_MAP` (JSON: id-ИЛИ-имя колонки → метка), иначе исходное имя.
 - `mpu kiten card <selector>` — одна карточка наглядно: markdown + GFM-таблицы + инлайн-
   скриншоты (notebook-flow через rich + term-image). Селектор — id ИЛИ URL btlz.kaiten.ru
   (короткий `/65634936` или глубокий `.../boards/card/65634936?filter=…`). `--md` — чистый
@@ -24,7 +27,8 @@
 `--lane`/`--column` показывает только сущности этой доски.
 
 ENV (~/.config/mpu/.env): KITEN_API_KEY, KITEN_BASE_URL, KITEN_LS_CONDITION,
-KITEN_LS_STATES, KITEN_LS_SPACE_ID, KITEN_LS_BOARD_ID, KITEN_LS_LANE_ID, KITEN_LS_COLUMN_ID.
+KITEN_LS_STATES, KITEN_LS_SPACE_ID, KITEN_LS_BOARD_ID, KITEN_LS_LANE_ID, KITEN_LS_COLUMN_ID,
+KITEN_COLUMN_MAP (JSON id-или-имя колонки → метка, для `--format {column_mapped}`).
 
 Стиль: фильтры сводятся декларативно через `coalesce(cli, env, default)` поосно, таблица
 описана data-driven спекой колонок `_COLUMNS` и рендерится через rich.
@@ -38,7 +42,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
 from rich.console import Console
@@ -360,6 +364,24 @@ def ls(
         ),
     ] = None,
     out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")] = False,
+    md: Annotated[
+        bool,
+        typer.Option("--md", help="Markdown-вывод: GFM-таблица (с --only-url — строки ссылок)"),
+    ] = False,
+    only_url: Annotated[
+        bool,
+        typer.Option(
+            "--only-url",
+            help="Только ссылки [title](url), по одной на строку (пайп в `mpu telegram send --md`)",
+        ),
+    ] = False,
+    out_format: Annotated[
+        str | None,
+        typer.Option(
+            "--format",
+            help="Шаблон строки: {n} {id} {title} {url} {state} {due} {column} {column_mapped}",
+        ),
+    ] = None,
 ) -> None:
     """Карточки Kaiten, где я участник (member). Дефолты фильтров — из .env (KITEN_LS_*).
 
@@ -415,6 +437,19 @@ def ls(
 
     if out_json:
         typer.echo(_json.dumps([_card_dict(c) for c in cards], ensure_ascii=False, indent=2))
+        return
+    if out_format is not None:
+        col_names = dict(kaiten_cache.cached_columns())
+        col_map = _load_column_map()
+        for i, c in enumerate(cards, start=1):
+            typer.echo(_format_card(out_format, i, c, col_names, col_map))
+        return
+    if only_url:
+        for c in cards:
+            typer.echo(f"[{_md_link_text(c.title)}]({c.url})")
+        return
+    if md:
+        typer.echo(_cards_to_md_table(cards, dict(kaiten_cache.cached_columns())))
         return
     _print_cards(cards)
 
@@ -686,6 +721,75 @@ def _card_dict(c: KaitenCard) -> dict[str, object]:
     }
 
 
+def _load_column_map() -> dict[str, str]:
+    """Маппинг для `{column_mapped}` из .env `KITEN_COLUMN_MAP` (JSON: id-ИЛИ-имя → метка).
+
+    Пусто/некорректный JSON → `{}` (с предупреждением в stderr), `{column_mapped}` тогда
+    равен исходному имени колонки. Ключи нормализуются в строки (id или название колонки).
+    """
+    raw = env.get("KITEN_COLUMN_MAP")
+    if not raw or not raw.strip():
+        return {}
+    try:
+        data = _json.loads(raw)
+    except _json.JSONDecodeError as e:
+        typer.echo(f"{COMMAND_NAME} ls: некорректный JSON в KITEN_COLUMN_MAP: {e}", err=True)
+        return {}
+    if not isinstance(data, dict):
+        typer.echo(f"{COMMAND_NAME} ls: KITEN_COLUMN_MAP должен быть JSON-объектом", err=True)
+        return {}
+    data_dict = cast("dict[str, object]", data)
+    return {str(k): str(v) for k, v in data_dict.items()}
+
+
+def _format_card(
+    template: str, n: int, card: KaitenCard, col_names: dict[int, str], col_map: dict[str, str]
+) -> str:
+    """Подставить плейсхолдеры шаблона для карточки (через replace — безопасно к `{` в данных)."""
+    raw_col = _column_cell(card, col_names)
+    if card.column_id is not None and str(card.column_id) in col_map:
+        mapped_col = col_map[str(card.column_id)]
+    else:
+        mapped_col = col_map.get(raw_col, raw_col)
+    values = {
+        "n": str(n),
+        "id": str(card.id),
+        "title": card.title,
+        "url": card.url,
+        "state": state_label(card.state),
+        "due": (card.due_date or "")[:10],
+        "column": raw_col,
+        "column_mapped": mapped_col,
+    }
+    out = template
+    for key, val in values.items():
+        out = out.replace("{" + key + "}", val)
+    return out
+
+
+def _md_link_text(text: str) -> str:
+    """Экранировать `[` и `]` в тексте markdown-ссылки `[текст](url)`."""
+    return text.replace("[", "\\[").replace("]", "\\]")
+
+
+def _md_cell(text: str) -> str:
+    """Ячейка GFM-таблицы: экранировать `|` и убрать переводы строк."""
+    return text.replace("|", "\\|").replace("\n", " ")
+
+
+def _cards_to_md_table(cards: list[KaitenCard], col_names: dict[int, str]) -> str:
+    """Карточки → GFM-таблица (те же колонки, что и rich-вывод `_print_cards`)."""
+    headers = [header for header, _extract in _COLUMNS]
+    rows = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
+    for c in cards:
+        cells = [_md_cell(extract(c, col_names)) for _header, extract in _COLUMNS]
+        rows.append("| " + " | ".join(cells) + " |")
+    return "\n".join(rows)
+
+
 def _print_cards(cards: list[KaitenCard]) -> None:
     if not cards:
         typer.echo("(нет карточек)")
@@ -782,9 +886,7 @@ def _member_dict(member: KaitenMember) -> dict[str, object]:
     }
 
 
-def _card_detail_dict(
-    detail: KaitenCardDetail, comments: list[KaitenComment]
-) -> dict[str, object]:
+def _card_detail_dict(detail: KaitenCardDetail, comments: list[KaitenComment]) -> dict[str, object]:
     return {
         "id": detail.id,
         "key": detail.key,

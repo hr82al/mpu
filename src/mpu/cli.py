@@ -6,7 +6,9 @@
 - `mpu api <X>` — HTTP-клиенты sl-back (click.Group)
 """
 
+import asyncio
 import importlib
+import sys
 from typing import Annotated, cast
 
 import click
@@ -14,7 +16,7 @@ import typer
 
 from mpu import __version__
 from mpu.cli_registry import COMMANDS
-from mpu.lib import kaiten_cache, loki_discover, portainer_discover, store
+from mpu.lib import env, kaiten_cache, loki_discover, portainer_discover, store, telegram
 
 app = typer.Typer(
     name="mpu",
@@ -174,3 +176,115 @@ def init_cmd(
             f"{len(kaiten_result.boards)} boards, {n_lanes} lanes, {n_columns} columns",
             err=True,
         )
+
+    # Шаг 5: telegram login (best-effort, интерактивный). Логинимся ОДИН раз и пишем
+    # creds + StringSession в .env. Уже залогинены → пропуск; нет TTY → пропуск (init
+    # остаётся неинтерактивным в пайпах/CI); нет creds → спрашиваем (с объяснением, где взять).
+    _telegram_login_step()
+
+
+def _read_stdin_line() -> str:
+    """Прочитать строку из stdin В ОБХОД readline.
+
+    `input()` под GNU readline на ряде терминалов/локалей падает UnicodeDecodeError даже на
+    ASCII-промпте (readline при перерисовке строки подмешивает байты предыдущего вывода).
+    Читаем сырые байты и декодируем utf-8 с заменой битых — line-editing для setup-промптов
+    не нужен. EOF → пустая строка.
+    """
+    raw = sys.stdin.buffer.readline()
+    return raw.decode("utf-8", "replace").strip()
+
+
+def _ask(label: str) -> str:
+    """Видимый вопрос: label → stderr (без перевода строки), ответ ← stdin (без readline)."""
+    typer.echo(label, nl=False, err=True)
+    return _read_stdin_line()
+
+
+def _ask_yes_no(label: str) -> bool:
+    """y/N вопрос (дефолт — No)."""
+    return _ask(f"{label} [y/N]: ").lower() in ("y", "yes")
+
+
+def _ask_secret(label: str) -> str:
+    """Скрытый ввод (2FA-пароль). getpass не использует GNU readline; при сбое — видимый ввод."""
+    import getpass
+
+    try:
+        return getpass.getpass(label).strip()
+    except (EOFError, OSError, UnicodeError):
+        return _ask(label)
+
+
+def _ensure_telegram_creds() -> bool:
+    """Гарантировать TELEGRAM_API_ID/HASH в .env. Спросить с объяснением, если их нет.
+
+    Возвращает True, если creds на месте (или введены), False — если пользователь отказался
+    / ввёл пусто. Пишет введённые значения в ~/.config/mpu/.env.
+    """
+    if env.get("TELEGRAM_API_ID") and env.get("TELEGRAM_API_HASH"):
+        return True
+    typer.echo(
+        "# telegram: не настроен. Для отправки сообщений от вашего имени нужны api_id и\n"
+        "#   api_hash с https://my.telegram.org → 'API development tools' (войти по номеру,\n"
+        "#   создать приложение: App title / short name любые, Platform — Other).",
+        err=True,
+    )
+    if not _ask_yes_no("Set up Telegram now?"):
+        typer.echo(
+            "# telegram: пропущено (позже: заполнить TELEGRAM_API_ID/HASH в .env и `mpu init`)",
+            err=True,
+        )
+        return False
+    typer.echo(
+        "# После создания приложения на my.telegram.org страница покажет два значения\n"
+        "#   (блок 'App configuration'):\n"
+        "#   • api_id   — целое число, идентификатор приложения (напр. 1234567);\n"
+        "#   • api_hash — строка из 32 hex-символов, секрет приложения\n"
+        "#                (напр. 0123456789abcdef0123456789abcdef).\n"
+        "#   Это креды ПРИЛОЖЕНИЯ (не вашего аккаунта), общие для всех ваших чатов;\n"
+        "#   вводятся один раз, хранятся в ~/.config/mpu/.env.",
+        err=True,
+    )
+    api_id = _ask("api_id (integer): ")
+    api_hash = _ask("api_hash (32 hex chars): ")
+    if not (api_id and api_hash):
+        typer.echo("# telegram: пропущено (api_id/api_hash пустые)", err=True)
+        return False
+    env.set_persistent("TELEGRAM_API_ID", api_id)
+    env.set_persistent("TELEGRAM_API_HASH", api_hash)
+    typer.echo("# telegram: api_id/api_hash записаны в .env", err=True)
+    return True
+
+
+def _telegram_login_step() -> None:
+    """Интерактивный вход в Telegram при `mpu init` (идемпотентно, best-effort)."""
+    if env.get("TELEGRAM_SESSION"):
+        typer.echo("# telegram: уже авторизован, пропускаю", err=True)
+        return
+    if not sys.stdin.isatty():
+        typer.echo(
+            "# telegram: пропущено (нет TTY; заполни TELEGRAM_API_ID/HASH в .env вручную)",
+            err=True,
+        )
+        return
+    if not _ensure_telegram_creds():
+        return
+    try:
+        cfg = telegram.TgConfig.from_env()
+        phone = env.get("TELEGRAM_PHONE")
+        if not phone:
+            phone = _ask("Telegram phone (e.g. +79991234567): ")
+            env.set_persistent("TELEGRAM_PHONE", phone)
+        session = asyncio.run(
+            telegram.interactive_login(
+                cfg,
+                phone=phone,
+                prompt_code=lambda: _ask("Telegram login code (from Telegram): "),
+                prompt_password=lambda: _ask_secret("2FA password: "),
+            )
+        )
+        env.set_persistent("TELEGRAM_SESSION", session)
+        typer.echo("# telegram: авторизован, сессия записана в .env", err=True)
+    except telegram.TgError as e:
+        typer.echo(f"# telegram: пропущено ({e})", err=True)

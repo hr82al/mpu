@@ -27,6 +27,7 @@ from mpu.commands import (
     sql,
     ss_update,
     sun,
+    telegram,
     update,
 )
 
@@ -95,6 +96,7 @@ _REGISTERED_MODULES = (
     ps,
     logs,
     kiten,
+    telegram,
     health,
     confirm,
     copy_client,
