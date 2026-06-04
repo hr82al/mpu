@@ -14,7 +14,7 @@ import typer
 
 from mpu import __version__
 from mpu.cli_registry import COMMANDS
-from mpu.lib import loki_discover, portainer_discover, store
+from mpu.lib import kaiten_cache, loki_discover, portainer_discover, store
 
 app = typer.Typer(
     name="mpu",
@@ -153,5 +153,24 @@ def init_cmd(
         n_services = sum(len(v) for v in loki_result.services_by_host.values())
         typer.echo(
             f"# loki: {len(loki_result.hosts)} hosts, {n_services} (host, service) пар",
+            err=True,
+        )
+
+    # Шаг 4: discover Kaiten spaces/boards/lanes/columns для дискаверабилити + shell
+    # completion `mpu kiten ls` (--space / --board / --lane / --column). Best-effort: нет
+    # KITEN_API_KEY / Kaiten недоступен — пропускаем без ошибки. Дорожки и колонки —
+    # по +1 запросу на доску каждая.
+    kaiten_result = kaiten_cache.discover_and_store()
+    if kaiten_result.error:
+        typer.echo(f"# kaiten: пропущено ({kaiten_result.error})", err=True)
+    else:
+        board_ids = [b.id for b in kaiten_result.boards]
+        lanes_result = kaiten_cache.discover_lanes_and_store(board_ids)
+        columns_result = kaiten_cache.discover_columns_and_store(board_ids)
+        n_lanes = "?" if lanes_result.error else str(len(lanes_result.lanes))
+        n_columns = "?" if columns_result.error else str(len(columns_result.columns))
+        typer.echo(
+            f"# kaiten: {len(kaiten_result.spaces)} spaces, "
+            f"{len(kaiten_result.boards)} boards, {n_lanes} lanes, {n_columns} columns",
             err=True,
         )

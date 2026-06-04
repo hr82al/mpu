@@ -98,6 +98,45 @@ _DDL = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_loki_services_host ON loki_services_by_host(host)",
+    # --- kaiten (доска btlz.kaiten.ru) ---
+    # Справочник spaces/boards для дискаверабилити и shell completion `mpu kiten ls`
+    # (--space / --board). Заполняет `mpu init` и `mpu kiten spaces/boards` одним
+    # запросом `GET /spaces` (boards встроены в каждый space).
+    """
+    CREATE TABLE IF NOT EXISTS kaiten_spaces (
+        id            INTEGER PRIMARY KEY,
+        title         TEXT NOT NULL,
+        archived      INTEGER NOT NULL DEFAULT 0,
+        discovered_at INTEGER NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS kaiten_boards (
+        id            INTEGER PRIMARY KEY,
+        space_id      INTEGER NOT NULL,
+        title         TEXT NOT NULL,
+        discovered_at INTEGER NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_kaiten_boards_space ON kaiten_boards(space_id)",
+    """
+    CREATE TABLE IF NOT EXISTS kaiten_lanes (
+        id            INTEGER PRIMARY KEY,
+        board_id      INTEGER NOT NULL,
+        title         TEXT NOT NULL,
+        discovered_at INTEGER NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_kaiten_lanes_board ON kaiten_lanes(board_id)",
+    """
+    CREATE TABLE IF NOT EXISTS kaiten_columns (
+        id            INTEGER PRIMARY KEY,
+        board_id      INTEGER NOT NULL,
+        title         TEXT NOT NULL,
+        discovered_at INTEGER NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_kaiten_columns_board ON kaiten_columns(board_id)",
     # --- sheet (Google Spreadsheets) ---
     # Whole-tab кэш: один tab = одна запись с gzipped JSON payload.
     # Любой `sheet get X!A1:C3` тянет весь tab X разом → кладёт сюда → последующие

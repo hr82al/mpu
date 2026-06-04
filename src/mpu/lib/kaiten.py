@@ -14,7 +14,7 @@ import json
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -43,7 +43,36 @@ class KaitenCard:
     condition: int | None
     due_date: str | None
     board_id: int | None
+    column_id: int | None
     url: str
+
+
+@dataclass
+class KaitenSpace:
+    id: int
+    title: str
+    archived: bool
+
+
+@dataclass
+class KaitenBoard:
+    id: int
+    space_id: int
+    title: str
+
+
+@dataclass
+class KaitenLane:
+    id: int
+    board_id: int
+    title: str
+
+
+@dataclass
+class KaitenColumn:
+    id: int
+    board_id: int
+    title: str
 
 
 class KaitenAPIError(Exception):
@@ -80,6 +109,7 @@ def parse_card(raw: dict[str, Any], base_url: str) -> KaitenCard:
         condition=raw.get("condition"),
         due_date=raw.get("due_date"),
         board_id=raw.get("board_id"),
+        column_id=raw.get("column_id"),
         url=card_url(base_url, card_id),
     )
 
@@ -91,10 +121,17 @@ def build_cards_query(
     states: str | None = None,
     space_id: int | None = None,
     board_id: int | None = None,
+    lane_id: int | None = None,
+    column_id: int | None = None,
     limit: int = CARDS_PAGE_LIMIT,
     offset: int = 0,
 ) -> dict[str, str]:
-    """Собрать query-dict для GET /cards. None-фильтры не попадают в запрос."""
+    """Собрать query-dict для GET /cards. None-фильтры не попадают в запрос.
+
+    NB: фильтр дорожки в API — `lane_id` (единственное число), в отличие от
+    `member_ids` (множественное). Плюральный `lane_ids` сервером игнорируется.
+    Колонка — `column_id`.
+    """
     query: dict[str, str] = {"limit": str(limit), "offset": str(offset)}
     if member_ids is not None:
         query["member_ids"] = member_ids
@@ -106,7 +143,58 @@ def build_cards_query(
         query["space_id"] = str(space_id)
     if board_id is not None:
         query["board_id"] = str(board_id)
+    if lane_id is not None:
+        query["lane_id"] = str(lane_id)
+    if column_id is not None:
+        query["column_id"] = str(column_id)
     return query
+
+
+def parse_space(raw: dict[str, Any]) -> KaitenSpace:
+    """JSON-space из GET /spaces → KaitenSpace. `boards[]` извлекается отдельно."""
+    return KaitenSpace(
+        id=int(raw["id"]),
+        title=str(raw.get("title") or ""),
+        archived=bool(raw.get("archived")),
+    )
+
+
+def parse_lane(raw: dict[str, Any]) -> KaitenLane:
+    """JSON-lane из GET /boards/{id}/lanes → KaitenLane."""
+    return KaitenLane(
+        id=int(raw["id"]),
+        board_id=int(raw["board_id"]),
+        title=str(raw.get("title") or ""),
+    )
+
+
+def parse_column(raw: dict[str, Any]) -> KaitenColumn:
+    """JSON-column из GET /boards/{id}/columns → KaitenColumn. `card.column_id` → column.id."""
+    return KaitenColumn(
+        id=int(raw["id"]),
+        board_id=int(raw["board_id"]),
+        title=str(raw.get("title") or ""),
+    )
+
+
+def parse_boards_of_space(raw: dict[str, Any]) -> list[KaitenBoard]:
+    """Встроенный в space `boards[]` → list[KaitenBoard]. Нет ключа / не список → []."""
+    boards = raw.get("boards")
+    if not isinstance(boards, list):
+        return []
+    parsed: list[KaitenBoard] = []
+    for entry in cast("list[object]", boards):
+        if not isinstance(entry, dict):
+            continue
+        b = cast("dict[str, Any]", entry)
+        parsed.append(
+            KaitenBoard(
+                id=int(b["id"]),
+                space_id=int(b.get("space_id") or raw["id"]),
+                title=str(b.get("title") or ""),
+            )
+        )
+    return parsed
 
 
 # ── I/O-клиент (HTTP, тестами не покрывается — как miro/slapi) ──────────────────
@@ -170,6 +258,8 @@ class KaitenClient:
         states: str | None = None,
         space_id: int | None = None,
         board_id: int | None = None,
+        lane_id: int | None = None,
+        column_id: int | None = None,
     ) -> list[KaitenCard]:
         """GET /cards с фильтрами + пагинацией по offset (limit=100, до пустой страницы)."""
         cards: list[KaitenCard] = []
@@ -181,6 +271,8 @@ class KaitenClient:
                 states=states,
                 space_id=space_id,
                 board_id=board_id,
+                lane_id=lane_id,
+                column_id=column_id,
                 limit=CARDS_PAGE_LIMIT,
                 offset=offset,
             )
@@ -192,3 +284,51 @@ class KaitenClient:
                 break
             offset += CARDS_PAGE_LIMIT
         return cards
+
+    def list_spaces(self) -> tuple[list[KaitenSpace], list[KaitenBoard]]:
+        """GET /spaces — справочник. Boards встроены в каждый space, отдаём их плоско.
+
+        Глобального GET /boards у Kaiten нет (405), поэтому boards собираются из
+        вложенного `boards[]` каждого space за один запрос.
+        """
+        res = self._request("GET", "/spaces")
+        spaces: list[KaitenSpace] = []
+        boards: list[KaitenBoard] = []
+        if not res:
+            return spaces, boards
+        for raw in cast("list[dict[str, Any]]", res):
+            spaces.append(parse_space(raw))
+            boards.extend(parse_boards_of_space(raw))
+        return spaces, boards
+
+    def list_lanes(self, board_ids: list[int]) -> list[KaitenLane]:
+        """GET /boards/{id}/lanes для каждой доски, плоский список.
+
+        Best-effort: доска, которая отдала ошибку (нет доступа и т.п.), пропускается,
+        чтобы один сбой не валил весь обход. Глобального списка дорожек у Kaiten нет.
+        """
+        lanes: list[KaitenLane] = []
+        for board_id in board_ids:
+            try:
+                res = self._request("GET", f"/boards/{board_id}/lanes")
+            except KaitenAPIError:
+                continue
+            if not res:
+                continue
+            for raw in cast("list[dict[str, Any]]", res):
+                lanes.append(parse_lane(raw))
+        return lanes
+
+    def list_columns(self, board_ids: list[int]) -> list[KaitenColumn]:
+        """GET /boards/{id}/columns по доскам, плоский список. Best-effort (как list_lanes)."""
+        columns: list[KaitenColumn] = []
+        for board_id in board_ids:
+            try:
+                res = self._request("GET", f"/boards/{board_id}/columns")
+            except KaitenAPIError:
+                continue
+            if not res:
+                continue
+            for raw in cast("list[dict[str, Any]]", res):
+                columns.append(parse_column(raw))
+        return columns
