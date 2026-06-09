@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from mpu.commands import (
     _ssh_node_cli,
+    make_schema,
     process,
     recalculate_wb_expenses,
     save_wb_expenses,
@@ -296,3 +297,30 @@ def test_process_verbose_prints_inner_to_stderr(fake_env: None) -> None:
     assert result.exit_code == 0, result.output
     assert "# inner: node cli service:dataProcessor process" in result.output
     assert "--forced" in result.output
+
+
+# ── make-schema (порт fish-функции make-schema — локальный docker exec) ───────
+
+
+def test_make_schema_print_defaults_to_sl1(fake_env: None) -> None:
+    """--print печатает локальную docker-exec команду; контейнер по умолчанию sl-1."""
+    _ = fake_env
+    result = runner.invoke(make_schema.app, ["MODERNICA", "--print"])
+    assert result.exit_code == 0, result.output
+    assert result.stdout.strip() == (
+        "docker exec mp-sl-1-cli "
+        "node cli service:clientsMigrations init "
+        "--client-id 2190 --server sl-1"
+    )
+
+
+def test_make_schema_print_server_override(fake_env: None) -> None:
+    """--server переопределяет дефолтный sl-1 (fake-резолв → sl-2)."""
+    _ = fake_env
+    result = runner.invoke(make_schema.app, ["MODERNICA", "--server", "sl-2", "--print"])
+    assert result.exit_code == 0, result.output
+    assert result.stdout.strip() == (
+        "docker exec mp-sl-2-cli "
+        "node cli service:clientsMigrations init "
+        "--client-id 2190 --server sl-2"
+    )
