@@ -247,6 +247,22 @@ class WebappClient:
             requestBody={"valueInputOption": value_input_option, "data": data},
         )
 
+    def batch_update_spreadsheet(
+        self,
+        ss_id: str,
+        requests: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """`spreadsheets/batchUpdate` — структурный (insertDimension/updateCells/…).
+
+        В отличие от `batch_update` (values-only) принимает массив Sheets API
+        `requests[]` и применяет их атомарно за один вызов webapp.
+        """
+        return self.call(
+            "spreadsheets/batchUpdate",
+            ssId=ss_id,
+            requestBody={"requests": requests},
+        )
+
     def get_metadata(self, ss_id: str) -> dict[str, Any]:
         """`spreadsheets/get` — sheets[*].properties."""
         return self.call("spreadsheets/get", ssId=ss_id)

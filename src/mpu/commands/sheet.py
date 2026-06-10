@@ -24,6 +24,7 @@ import sqlite3
 import sys
 import time
 import webbrowser
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any, cast
 
@@ -32,9 +33,21 @@ import typer
 from mpu.lib import env, store
 from mpu.lib.log import logger
 from mpu.lib.sheet_api import SheetApiError, WebappClient
+from mpu.lib.sheet_batch import (
+    BatchScriptError,
+    collect_sheet_ids,
+    compile_read,
+    compile_update,
+    filter_meta,
+    hex_to_rgb,
+    parse_range_token,
+    parse_update_script,
+    range_ref_to_gridrange,
+)
 from mpu.lib.sheet_cache import (
     FetchResult,
     clear_all,
+    col_num_to_letters,
     enforce_size_cap,
     get_metadata,
     get_ranges,
@@ -82,8 +95,6 @@ def _open_db() -> sqlite3.Connection:
     except sqlite3.OperationalError as e:
         logger.warning(f"sheet: sweep skipped (schema missing?): {e}")
     return conn
-
-
 
 
 def _resolve_ss(conn: sqlite3.Connection, flag_value: str | None) -> ResolvedSpreadsheet:
@@ -269,12 +280,8 @@ def ls(
     long_: Annotated[
         bool, typer.Option("-l", "--long", help="Title, rows×cols, sheetId, index.")
     ] = False,
-    json_out: Annotated[
-        bool, typer.Option("--json", help="Structured JSON array.")
-    ] = False,
-    refresh: Annotated[
-        bool, typer.Option("-R", "--refresh", help="Skip metadata cache.")
-    ] = False,
+    json_out: Annotated[bool, typer.Option("--json", help="Structured JSON array.")] = False,
+    refresh: Annotated[bool, typer.Option("-R", "--refresh", help="Skip metadata cache.")] = False,
 ) -> None:
     """List sheet (tab) names in a Google Spreadsheet."""
     conn = _open_db()
@@ -495,6 +502,340 @@ def set_(
 
 
 # ────────────────────────────────────────────────────────────────────────────
+# batch-update / batch-get — декларативный мини-язык (один atomic batchUpdate / batchGet)
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def _gather_script(expr: list[str] | None, from_file: str | None) -> str:
+    """Собрать скрипт мини-языка из `-e` (повторяемо), `--from FILE`/`-`(stdin) или pipe."""
+    parts: list[str] = list(expr or [])
+    if from_file:
+        parts.append(sys.stdin.read() if from_file == "-" else Path(from_file).read_text("utf-8"))
+    elif not parts and not sys.stdin.isatty():
+        parts.append(sys.stdin.read())
+    return "\n".join(parts)
+
+
+def _make_run_py(
+    api: WebappClient, ss_id: str, sid_by_title: dict[str, int], default_tab: str | None
+) -> Callable[[str], tuple[list[str], list[dict[str, Any]]]]:
+    """Фабрика compile-time исполнителя `py{ … }` (operator-trusted exec, как `mpu run-js`)."""
+
+    def run_py(body: str) -> tuple[list[str], list[dict[str, Any]]]:
+        emitted_stmts: list[str] = []
+        emitted_reqs: list[dict[str, Any]] = []
+
+        def gridrange(a1: str) -> dict[str, Any]:
+            ref = parse_range_token(a1, default_tab)
+            return range_ref_to_gridrange(ref, sid_by_title[ref.tab])
+
+        def read(a1: str) -> list[list[Any]]:
+            resp = api.batch_get(ss_id, [a1])
+            vrs = cast("list[Any]", resp.get("valueRanges") or [])
+            return cast("list[list[Any]]", (vrs[0].get("values") if vrs else None) or [])
+
+        def emit(s: object) -> None:
+            emitted_stmts.append(str(s))
+
+        def request(d: dict[str, Any]) -> None:
+            emitted_reqs.append(d)
+
+        def col(i: int) -> str:
+            return col_num_to_letters(int(i))
+
+        def sheetid(t: str) -> int:
+            return sid_by_title[t]
+
+        env: dict[str, Any] = {
+            "emit": emit,
+            "request": request,
+            "col": col,
+            "rgb": hex_to_rgb,
+            "sheetid": sheetid,
+            "gridrange": gridrange,
+            "read": read,
+        }
+        exec(body, env)  # operator-trusted, под флагом --allow-py
+        return emitted_stmts, emitted_reqs
+
+    return run_py
+
+
+@app.command("batch-update")
+def batch_update(
+    expr: Annotated[
+        list[str] | None,
+        typer.Option(
+            "-e",
+            "--expr",
+            help="Инструкции мини-языка (повторяемо; разделять ; или новой строкой).",
+        ),
+    ] = None,
+    spreadsheet: Annotated[
+        str | None,
+        typer.Option("-s", "--spreadsheet", help="Spreadsheet ID/URL/alias/client_id/title."),
+    ] = None,
+    sheet: Annotated[
+        str | None, typer.Option("-n", "--sheet", help="Лист по умолчанию (range без 'Tab!').")
+    ] = None,
+    from_file: Annotated[
+        str | None, typer.Option("--from", help="Скрипт из файла (`-` — stdin).")
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Скомпилировать и напечатать requests[], НЕ отправлять."),
+    ] = False,
+    allow_py: Annotated[
+        bool, typer.Option("--allow-py", help="Разрешить py{…} (exec Python для логики/генерации).")
+    ] = False,
+    literal: Annotated[
+        bool,
+        typer.Option(
+            "-l", "--literal", help="Значения как строки (RAW, не парсить формулы/числа)."
+        ),
+    ] = False,
+) -> None:
+    r"""Пакетная ЗАПИСЬ в таблицу: простые инструкции → ОДИН запрос Google (batchUpdate).
+
+    Пишешь по одной инструкции на строку (или через ;). Все они уходят вместе, одним запросом.
+    Сначала проверь с --dry-run — покажет готовый requests[] и НЕ отправит.
+
+    ОТКУДА БРАТЬ СКРИПТ
+      -e "..."      инструкции прямо в команде (флаг можно повторять)
+      --from FILE   из файла; FILE = -  → читать со stdin (pipe)
+      -s ТАБЛИЦА    какая таблица: ID, ссылка, alias, client_id или часть названия
+      -n ЛИСТ       лист по умолчанию для диапазонов без префикса 'Лист'!
+
+    ДИАПАЗОН — пиши как удобно, приведётся к нужному виду
+      H  или  8         столбец (буквой или номером — без разницы)
+      H:J  или  8:10    несколько столбцов
+      H5  или  r5c8     одна ячейка (A1 или R1C1)
+      H2:J10            прямоугольник
+      H:H               весь столбец;   H2:H — со 2-й строки вниз
+      4:4  или  4       вся строка
+      'Чек-лист'!H2:H   с явным листом (кавычки нужны для имён с дефисом/пробелом)
+
+    ЗНАЧЕНИЯ (set)
+      set A1 = =СУММ(B:B)   формула (после первого '=' идёт формула, тоже с '=')
+      set A1 "привет"        текст
+      set A1 42              число;   set A1 true — булево
+      флаг -l/--literal → писать как есть, не превращать в формулу/число
+
+    НАДПИСИ, СТИЛЬ, ФОРМАТ
+      label H1 "Заголовок" bg=#EA4335 fg=#fff bold center
+      style F5:F bg=#FCE8E6 fmt="0.00%"
+      note H1 "комментарий"
+      clear A2:A all            (all | values | formats)
+      флаги стиля: bold italic strike underline · center left right · middle top bottom ·
+                   wrap clip · bg=#.. fg=#.. size=N font=Arial fmt="0.00%"
+      цвет: #EA4335, #fff, #AARRGGBB
+
+    КОЛОНКИ И СТРОКИ (cols … / rows …)
+      cols insert H +10 inherit=before      вставить 10 колонок начиная с H
+      cols delete M:Q                        удалить
+      cols move B:D after H                  переместить
+      cols resize H:J px=120                 ширина (для строк — высота)
+      cols autosize H:J                      авто-ширина
+      cols hide M:Q   /   cols show M:Q      скрыть / показать
+      append cols 5   /   append rows 100    дорастить лист
+      freeze rows=4 cols=7                    закрепить шапку (лист берётся из -n)
+
+    ОБЪЕДИНЕНИЕ И РАМКИ
+      merge A1:C1               объединить (по умолч. всё; ещё: merge A1:C1 rows|cols)
+      unmerge A1:C1
+      border A1:C3 all          рамки (all|top|bottom|left|right|inner|around, style=, color=)
+
+    ПРОВЕРКА ВВОДА И УСЛОВНЫЙ ФОРМАТ
+      validate AJ18:AJ81 num>=0 strict msg="≥ 0"
+      cond add F5:F custom='=AND(E5<>"";G5="")' bg=#EA4335
+      cond clear 'Чек-лист' index=0
+      условия: num>=0 num>0 num<=N num<N num=N num!=N · one-of=a,b,c ·
+               text-contains=… text-eq=… · custom='=ФОРМУЛА' · blank not-blank checkbox
+
+    ПОИСК И ЗАМЕНА
+      find-replace старое новое              в текущем листе (из -n)
+      find-replace /\bfoo\b/ bar             /.../ → по регулярке
+      доп. слова: case · formulas · allsheets
+
+    ЛИСТЫ
+      sheet add "Новый" rows=1000 cols=26
+      sheet delete 'Старый'        sheet rename 'Старый' "Новый"
+      sheet dup 'Чек-лист' as "Копия"        sheet tab 'Чек-лист' color=#EA4335
+
+    ПРОЧЕЕ
+      name add my_rng 'Чек-лист'!A1:B2       name del id=123
+      sort A2:F by=A,C:desc
+      autofill A2:A3 -> A2:A100
+      copy A1:B2 -> C1 type=FORMAT           (cut — вырезать)
+      dedupe A2:F cols=A,B       trim A2:F
+      group cols H:M             ungroup cols H:M
+      protect 4:4 editors=a@b.com warn       unprotect id=123
+
+    ЛЮБОЙ ДРУГОЙ ТИП (всего их ~70 у Google)
+      @kind { json }   тело как в доках Google; @'Лист'!A1 → диапазон, #hex → цвет
+        @deleteRange {"range": "@'Лист'!A1:B2", "shiftDimension": "ROWS"}
+      raw { json }     дословно, без подстановок
+        raw {"deleteSheet": {"sheetId": 12345}}
+
+    PYTHON ДЛЯ ЛОГИКИ (флаг --allow-py)
+      py{ ... } — выполняется при сборке. Доступно: emit("инструкция"), request({...}),
+      col(i), rgb("#.."), gridrange("'Л'!A1"), sheetid("Л"), read("'Л'!A1")
+
+    ПРИМЕРЫ ЦЕЛИКОМ
+      mpu sheet batch-update -s 1AbC -n 'Чек-лист' -e "cols insert H +10 inherit=before"
+      mpu sheet batch-update -s 1AbC -e "find-replace /\bold\b/ new formulas allsheets"
+      mpu sheet batch-update -s 1AbC -n 'Чек-лист' -e "
+        cols insert H +1
+        label H1 'Новая' bg=#EA4335 bold
+        set H2 = =A2*1.2"
+
+    ЗАЩИТА: запись выключена, пока не задан protect=false в ~/.config/mpu/.env
+    (или разово: env protect=false mpu sheet batch-update …). Подробно: mpu/docs/sheet-batch.md
+    """
+    script = _gather_script(expr, from_file)
+    if not script.strip():
+        typer.echo("mpu sheet batch-update: пустой скрипт (-e / --from / stdin)", err=True)
+        raise typer.Exit(code=2)
+    try:
+        stmts = parse_update_script(script)
+    except BatchScriptError as e:
+        typer.echo(f"mpu sheet batch-update: {e}", err=True)
+        raise typer.Exit(code=2) from e
+
+    conn = _open_db()
+    try:
+        if not dry_run and _is_protected():
+            typer.echo(
+                "mpu sheet batch-update: запись защищена — protect=false в ~/.config/mpu/.env",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        resolved = _resolve_ss(conn, spreadsheet)
+        try:
+            api = WebappClient.from_env()
+            tabs = get_metadata(conn, api, resolved.ss_id, refresh=True)
+            sid_by_title = {t.title: t.sheet_id for t in tabs}
+            run_py = _make_run_py(api, resolved.ss_id, sid_by_title, sheet) if allow_py else None
+            requests = compile_update(
+                stmts,
+                sid_by_title,
+                default_tab=sheet,
+                allow_py=allow_py,
+                run_py=run_py,
+                literal=literal,
+            )
+        except BatchScriptError as e:
+            typer.echo(f"mpu sheet batch-update: {e}", err=True)
+            raise typer.Exit(code=2) from e
+        except SheetApiError as e:
+            typer.echo(f"mpu sheet batch-update: {e}", err=True)
+            raise typer.Exit(code=1) from e
+
+        if not requests:
+            typer.echo("нет операций")
+            return
+        if dry_run:
+            print(json.dumps({"requests": requests}, ensure_ascii=False, indent=2))
+            return
+        try:
+            resp = api.batch_update_spreadsheet(resolved.ss_id, requests)
+        except SheetApiError as e:
+            typer.echo(f"mpu sheet batch-update: {e}", err=True)
+            raise typer.Exit(code=1) from e
+
+        title_by_id = {sid: title for title, sid in sid_by_title.items()}
+        for sid in collect_sheet_ids(requests):
+            if sid in title_by_id:
+                invalidate_tab(conn, resolved.ss_id, title_by_id[sid])
+        print(json.dumps(resp, ensure_ascii=False, indent=2))
+    finally:
+        conn.close()
+
+
+@app.command("batch-get")
+def batch_get_cmd(
+    expr: Annotated[
+        list[str] | None,
+        typer.Option("-e", "--expr", help="Инструкции чтения (get/read; повторяемо)."),
+    ] = None,
+    spreadsheet: Annotated[str | None, typer.Option("-s", "--spreadsheet")] = None,
+    sheet: Annotated[
+        str | None, typer.Option("-n", "--sheet", help="Лист по умолчанию (range без 'Tab!').")
+    ] = None,
+    from_file: Annotated[
+        str | None, typer.Option("--from", help="Скрипт из файла (`-` — stdin).")
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Напечатать план чтения, НЕ запрашивать.")
+    ] = False,
+) -> None:
+    r"""Пакетное ЧТЕНИЕ таблицы: значения + структура листа. Тот же язык диапазонов.
+
+    Два глагола: get — значения ячеек; read — структура листа (объединения, правила, защиты…).
+    Несколько инструкций — через ; или новой строкой. Ответ — JSON.
+
+    GET — ЗНАЧЕНИЯ ЯЧЕЕК
+      get 'Чек-лист'!A1:F             значения как на экране
+      get A1:F formula                формулы (а не результат)
+      get A1:F unformatted            «сырые» числа без форматирования
+      get H2:H cols                   развернуть по столбцам (по умолчанию по строкам)
+      get D2:D datestr                даты строкой (по умолч. число-serial)
+      слова-модификаторы: values | formula | unformatted | formatted ·
+                          rows | cols · serial | datestr
+      (лист по умолчанию — из -n/--sheet; иначе пиши 'Лист'!A1)
+
+    READ — СТРУКТУРА ЛИСТА
+      read 'Чек-лист' merges cond protected     по одному листу
+      read named                                имена диапазонов всей таблицы
+      аспекты: merges · cond (условный формат) · protected (защиты) · charts · banding ·
+               filters · named · props (свойства листа) · meta · dims
+
+    ВАЖНО: оформление КОНКРЕТНЫХ ячеек (цвет/шрифт/заметка/проверка ввода) сейчас прочитать
+    нельзя — webApp не отдаёт по-ячеечные данные. Эти слова дадут понятную ошибку.
+
+    ПРИМЕРЫ ЦЕЛИКОМ
+      mpu sheet batch-get -s 1AbC -e "get 'Чек-лист'!A1:F formula"
+      mpu sheet batch-get -s 1AbC -n 'Чек-лист' -e "get H2:H unformatted cols"
+      mpu sheet batch-get -s 1AbC -e "read 'Чек-лист' merges cond protected"
+      mpu sheet batch-get -s 1AbC -e "read named"
+
+    Подробно: mpu/docs/sheet-batch.md
+    """
+    script = _gather_script(expr, from_file)
+    if not script.strip():
+        typer.echo("mpu sheet batch-get: пустой скрипт (-e / --from / stdin)", err=True)
+        raise typer.Exit(code=2)
+    try:
+        plan = compile_read(script, default_tab=sheet)
+    except BatchScriptError as e:
+        typer.echo(f"mpu sheet batch-get: {e}", err=True)
+        raise typer.Exit(code=2) from e
+
+    if dry_run:
+        print(json.dumps({"values": plan.values, "meta": plan.meta}, ensure_ascii=False, indent=2))
+        return
+
+    conn = _open_db()
+    try:
+        resolved = _resolve_ss(conn, spreadsheet)
+        out: dict[str, Any] = {"spreadsheetId": resolved.ss_id}
+        try:
+            api = WebappClient.from_env()
+            if plan.values is not None:
+                resp = api.call("spreadsheets/values/batchGet", ssId=resolved.ss_id, **plan.values)
+                out["valueRanges"] = resp.get("valueRanges", [])
+            if plan.meta is not None:
+                full = api.call("spreadsheets/get", ssId=resolved.ss_id)
+                out["meta"] = filter_meta(full, plan.meta["aspects"], plan.meta["sheets"])
+        except SheetApiError as e:
+            typer.echo(f"mpu sheet batch-get: {e}", err=True)
+            raise typer.Exit(code=1) from e
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+    finally:
+        conn.close()
+
+
+# ────────────────────────────────────────────────────────────────────────────
 # open
 # ────────────────────────────────────────────────────────────────────────────
 
@@ -574,9 +915,7 @@ def alias_ls() -> None:
     conn = _open_db()
     try:
         try:
-            rows = conn.execute(
-                "SELECT name, ss_id FROM sheet_aliases ORDER BY name"
-            ).fetchall()
+            rows = conn.execute("SELECT name, ss_id FROM sheet_aliases ORDER BY name").fetchall()
         except sqlite3.OperationalError:
             rows = []
         for r in rows:
