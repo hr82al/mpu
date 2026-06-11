@@ -32,6 +32,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "move-client-back": ("mpu.commands.move_client_back", "app"),
     "logs": ("mpu.commands.logs", "app"),
     "kiten": ("mpu.commands.kiten", "app"),
+    "mr": ("mpu.commands.mr", "app"),
     "telegram": ("mpu.commands.telegram", "app"),
     "confirm": ("mpu.commands.confirm", "app"),
     "help": ("mpu.commands.help", "app"),
