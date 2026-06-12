@@ -423,7 +423,13 @@ class KaitenClient:
         base_url = env.get("KITEN_BASE_URL") or DEFAULT_BASE_URL
         return cls(token=token, base_url=base_url)
 
-    def _request(self, method: str, path: str, query: dict[str, str] | None = None) -> Any:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        query: dict[str, str] | None = None,
+        body: Any | None = None,
+    ) -> Any:
         url = f"{self.api_base}{path}"
         if query:
             url = f"{url}?{urlencode(query)}"
@@ -431,10 +437,14 @@ class KaitenClient:
             "Authorization": f"Bearer {self.token}",
             "Accept": "application/json",
         }
+        data: bytes | None = None
+        if body is not None:
+            data = json.dumps(body).encode("utf-8")
+            headers["Content-Type"] = "application/json"
 
         backoff = 1.0
         for _ in range(6):
-            req = Request(url, method=method, headers=headers)
+            req = Request(url, method=method, headers=headers, data=data)
             try:
                 with urlopen(req) as r:
                     txt = r.read().decode("utf-8")
@@ -565,3 +575,36 @@ class KaitenClient:
         if not res:
             return []
         return [parse_custom_property(p) for p in cast("list[dict[str, Any]]", res)]
+
+    def add_comment(self, card_id: int, text: str) -> KaitenComment:
+        """POST /cards/{id}/comments — добавить комментарий от имени владельца токена.
+
+        Автор определяется сервером по `KITEN_API_KEY` (отдельного поля автора нет —
+        комментарий всегда «от моего имени»). Возвращает созданный комментарий.
+        """
+        res = self._request("POST", f"/cards/{card_id}/comments", body={"text": text})
+        return parse_comment(res)
+
+    def move_card(
+        self,
+        card_id: int,
+        *,
+        lane_id: int | None = None,
+        column_id: int | None = None,
+        board_id: int | None = None,
+    ) -> KaitenCardDetail:
+        """PATCH /cards/{id} — переместить карточку: дорожка / колонка / доска.
+
+        В тело попадают только заданные оси (None — не трогаем). `board_id` нужен при
+        переносе на другую доску (дорожка/колонка тогда должны принадлежать ей).
+        Возвращает обновлённую карточку (с новым положением во вложенных `board`/`column`/`lane`).
+        """
+        body: dict[str, int] = {}
+        if board_id is not None:
+            body["board_id"] = board_id
+        if column_id is not None:
+            body["column_id"] = column_id
+        if lane_id is not None:
+            body["lane_id"] = lane_id
+        res = self._request("PATCH", f"/cards/{card_id}", body=body)
+        return parse_card_detail(res, self.base_url)

@@ -1,4 +1,4 @@
-"""`mpu kiten <ls|card|spaces|boards|lanes|whoami>` — Kaiten (доска btlz.kaiten.ru) из терминала.
+"""`mpu kiten` — Kaiten (доска btlz.kaiten.ru) из терминала.
 
 - `mpu kiten ls`     — карточки, где я участник (member). Фильтры по умолчанию из
   `.env` (KITEN_LS_*); CLI-флаг переопределяет **только свою** ось, остальные берутся
@@ -14,6 +14,12 @@
   скриншоты (notebook-flow через rich + term-image). Селектор — id ИЛИ URL btlz.kaiten.ru
   (короткий `/65634936` или глубокий `.../boards/card/65634936?filter=…`). `--md` — чистый
   GFM для LLM (ссылки/таблицы целы, без ANSI; авто при пайпе); `--json` — сырой JSON.
+- `mpu kiten comment <selector> <-m TEXT | -F FILE>` — добавить комментарий от своего имени
+  (автор — владелец `KITEN_API_KEY`). Тело из `-m`/`--message` ИЛИ `-F`/`--body-file`
+  (`-` = stdin), как у `mpu mr comment`. Селектор — как у `card`.
+- `mpu kiten move <selector> [--lane L] [--column C] [--board B]` — переместить карточку по
+  дорожке / колонке / доске (хотя бы одна ось). `--lane`/`--column` принимают ID или подстроку,
+  резолв в скоупе целевой доски (`--board`, иначе текущая доска карточки).
 - `mpu kiten spaces` — список пространств (ID — title); обновляет кэш автодополнения.
 - `mpu kiten boards` — список досок (ID — title), `--space` фильтрует; обновляет кэш.
 - `mpu kiten lanes`  — список дорожек (ID — title), `--space`/`--board` фильтруют; обновляет кэш.
@@ -42,6 +48,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Annotated, cast
 
 import typer
@@ -57,14 +64,15 @@ from mpu.lib.kaiten import (
     KaitenClient,
     KaitenComment,
     KaitenMember,
+    card_url,
     parse_card_ref,
     state_label,
 )
 
 COMMAND_NAME = "mpu kiten"
 COMMAND_SUMMARY = (
-    "Kaiten: `ls` — мои карточки (member); `spaces`/`boards`/`lanes`/`columns` — справочник "
-    "фильтров; `whoami` — текущий пользователь"
+    "Kaiten: `ls` — мои карточки (member); `card` — одна карточка; `comment`/`move` — "
+    "комментарий/перемещение; `spaces`/`boards`/`lanes`/`columns` — справочник; `whoami`"
 )
 
 app = typer.Typer(
@@ -495,6 +503,121 @@ def card(
         typer.echo(_card_to_markdown(detail, comment_list, prop_names))
         return
     _render_card_rich(detail, comment_list, prop_names, images=images)
+
+
+def resolve_comment_text(
+    message: str | None, body_file: str | None, *, stdin_read: Callable[[], str]
+) -> str:
+    """Текст комментария из ровно одного источника: `-m TEXT` или `-F PATH` (`-` — stdin).
+
+    Чистая функция (stdin приходит callback'ом, файл читается по пути) — тестируется без
+    сети. Зеркало `mpu mr`.resolve_body, держится локально, чтобы `mpu kiten` не тянул
+    зависимости command-модуля mr.
+    """
+    if (message is None) == (body_file is None):
+        raise typer.BadParameter("нужно ровно одно из -m/--message и -F/--body-file")
+    if message is not None:
+        text = message
+    elif body_file == "-":
+        text = stdin_read()
+    else:
+        try:
+            text = Path(str(body_file)).read_text(encoding="utf-8")
+        except OSError as e:
+            raise typer.BadParameter(f"не удалось прочитать {body_file}: {e}") from None
+    if not text.strip():
+        raise typer.BadParameter("пустой текст комментария")
+    return text
+
+
+@app.command("comment")
+def comment(
+    selector: Annotated[
+        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
+    ],
+    message: Annotated[
+        str | None, typer.Option("--message", "-m", help="Текст комментария (markdown)")
+    ] = None,
+    body_file: Annotated[
+        str | None, typer.Option("--body-file", "-F", help="Файл с телом; `-` — stdin")
+    ] = None,
+) -> None:
+    """Добавить комментарий к карточке от своего имени (автор — владелец KITEN_API_KEY)."""
+    try:
+        card_id = parse_card_ref(selector)
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from None
+    text = resolve_comment_text(message, body_file, stdin_read=sys.stdin.read)
+    client = KaitenClient.from_env()
+    try:
+        created = client.add_comment(card_id, text)
+    except KaitenAPIError as e:
+        typer.echo(f"{COMMAND_NAME} comment: kaiten error: {e}", err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"ok: комментарий {created.id} → {card_url(client.base_url, card_id)}")
+
+
+@app.command("move")
+def move(
+    selector: Annotated[
+        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
+    ],
+    lane: Annotated[
+        str | None,
+        typer.Option(
+            "--lane",
+            help="Дорожка назначения: ID или подстрока названия (см. `mpu kiten lanes`)",
+            autocompletion=_complete_lane,
+        ),
+    ] = None,
+    column: Annotated[
+        str | None,
+        typer.Option(
+            "--column",
+            help="Колонка назначения: ID или подстрока названия (см. `mpu kiten columns`)",
+            autocompletion=_complete_column,
+        ),
+    ] = None,
+    board: Annotated[
+        str | None,
+        typer.Option(
+            "--board",
+            help="Доска назначения: ID/подстрока (перенос на другую доску; `mpu kiten boards`)",
+            autocompletion=_complete_board,
+        ),
+    ] = None,
+) -> None:
+    """Переместить карточку: по дорожке (`--lane`), колонке (`--column`) и/или доске (`--board`).
+
+    Нужна хотя бы одна ось. Подстроки `--lane`/`--column` резолвятся в скоупе целевой доски
+    (`--board`, иначе текущая доска карточки), чтобы одноимённые дорожки/колонки разных досок
+    не путались.
+    """
+    if lane is None and column is None and board is None:
+        raise typer.BadParameter("нужно хотя бы одно из --lane / --column / --board")
+    try:
+        card_id = parse_card_ref(selector)
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from None
+    cli_board = _resolve_board(board)
+    client = KaitenClient.from_env()
+    try:
+        before = client.get_card(card_id)
+        # Скоуп резолва дорожки/колонки — целевая доска: явный --board, иначе текущая карточки.
+        scope_board = cli_board if cli_board is not None else before.board_id
+        lane_id = _resolve_lane(lane, scope_board)
+        column_id = _resolve_column(column, scope_board)
+        after = client.move_card(card_id, lane_id=lane_id, column_id=column_id, board_id=cli_board)
+    except KaitenAPIError as e:
+        typer.echo(f"{COMMAND_NAME} move: kaiten error: {e}", err=True)
+        raise typer.Exit(code=1) from None
+    typer.echo(f"ok: {_location_label(before)} → {_location_label(after)} · {after.url}")
+
+
+def _location_label(detail: KaitenCardDetail) -> str:
+    """`Доска · Колонка · Дорожка` карточки (непустые части); пусто → «—»."""
+    parts = (detail.board_title, detail.column_title, detail.lane_title)
+    return " · ".join(x for x in parts if x) or "—"
 
 
 @app.command("whoami")

@@ -8,6 +8,7 @@ URL и precedence фильтров (CLI > env > дефолт).
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 import typer
@@ -17,6 +18,7 @@ from mpu.commands.kiten import (
     _card_to_markdown,
     build_updated_window,
     coalesce,
+    resolve_comment_text,
     resolve_ls_filters,
 )
 from mpu.lib.kaiten import (
@@ -581,9 +583,7 @@ def test_parse_card_detail_full() -> None:
         "tags": [{"name": "OZON"}, {"name": "WB"}],
         "owner": {"id": 1, "full_name": "Owner", "email": "o@x", "username": "own"},
         "members": [{"id": 2, "full_name": "Mem", "email": "m@x", "username": "mem"}],
-        "files": [
-            {"id": 5, "url": "https://files/x.png", "name": "x.png", "comment_id": None}
-        ],
+        "files": [{"id": 5, "url": "https://files/x.png", "name": "x.png", "comment_id": None}],
         "properties": {"id_1": "val", "id_2": "https://link", "id_3": None},
     }
     d = parse_card_detail(raw, "https://btlz.kaiten.ru")
@@ -682,3 +682,42 @@ def test_card_to_markdown_preserves_tables_links_and_resolves_props() -> None:
     assert "- Ссылка на Pull Request: https://gitlab/mr/1" in md  # имя свойства зарезолвлено
     assert "### Bob · 2026-06-03 06:39" in md  # шапка комментария
     assert "hello" in md
+
+
+# ── resolve_comment_text: тело из ровно одного источника (-m / -F / stdin) ───────
+
+
+def _no_stdin() -> str:
+    raise AssertionError("stdin не должен читаться без `-F -`")
+
+
+def test_resolve_comment_text_message() -> None:
+    assert resolve_comment_text("привет", None, stdin_read=_no_stdin) == "привет"
+
+
+def test_resolve_comment_text_file(tmp_path: Path) -> None:
+    body_file = tmp_path / "body.md"
+    body_file.write_text("**из файла**", encoding="utf-8")
+    assert resolve_comment_text(None, str(body_file), stdin_read=_no_stdin) == "**из файла**"
+
+
+def test_resolve_comment_text_stdin() -> None:
+    assert resolve_comment_text(None, "-", stdin_read=lambda: "из stdin") == "из stdin"
+
+
+def test_resolve_comment_text_exactly_one_source() -> None:
+    # ни одного источника...
+    with pytest.raises(typer.BadParameter):
+        resolve_comment_text(None, None, stdin_read=_no_stdin)
+    # ...и оба сразу — оба запрещены.
+    with pytest.raises(typer.BadParameter):
+        resolve_comment_text("a", "-", stdin_read=_no_stdin)
+
+
+def test_resolve_comment_text_empty_and_missing_file(tmp_path: Path) -> None:
+    # пустое тело (только пробелы) → ошибка.
+    with pytest.raises(typer.BadParameter):
+        resolve_comment_text("   \n", None, stdin_read=_no_stdin)
+    # несуществующий файл → BadParameter, не OSError наружу.
+    with pytest.raises(typer.BadParameter):
+        resolve_comment_text(None, str(tmp_path / "nope.md"), stdin_read=_no_stdin)
