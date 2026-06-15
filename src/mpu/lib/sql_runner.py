@@ -30,7 +30,7 @@ def _print_meta(
     print(sql, file=stream)
 
 
-def _print_table(cols: list[str], rows: list[tuple[Any, ...]], stream: IO[str]) -> None:
+def print_table(cols: list[str], rows: list[tuple[Any, ...]], stream: IO[str]) -> None:
     if not rows:
         print("\t".join(cols), file=stream)
         print("(0 rows)", file=stream)
@@ -52,7 +52,7 @@ def _md_escape(v: Any) -> str:
     return s.replace("\\", "\\\\").replace("|", "\\|").replace("\n", "<br>")
 
 
-def _print_md_table(cols: list[str], rows: list[tuple[Any, ...]], stream: IO[str]) -> None:
+def print_md_table(cols: list[str], rows: list[tuple[Any, ...]], stream: IO[str]) -> None:
     print("| " + " | ".join(_md_escape(c) for c in cols) + " |", file=stream)
     print("| " + " | ".join("---" for _ in cols) + " |", file=stream)
     for r in rows:
@@ -120,9 +120,9 @@ def run_sql(
                     file=out,
                 )
             elif md_out:
-                _print_md_table(cols, rows, out)
+                print_md_table(cols, rows, out)
             else:
-                _print_table(cols, rows, out)
+                print_table(cols, rows, out)
             return 0
     except psycopg.Error as e:
         typer.echo(f"db error: {e}", err=True)

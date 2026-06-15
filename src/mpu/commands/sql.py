@@ -1,6 +1,11 @@
 """`mpu sql` — выполнить SQL на удалённом PG, выбираемом по селектору.
 
-Селектор — то же, что у `mpu search` (client_id / spreadsheet_id substring / title substring).
+Селектор — то же, что у `mpu search` (client_id / spreadsheet_id substring / title substring),
+либо sw-PG алиас (`sw` / `sw-pg` / `ws` / `workspaces` / `sw-back`) — база sw-back
+`workspaces`: SQL выполняется ВНУТРИ контейнера sw-back (механизм `mpu run-js`),
+коннект к PG идёт изнутри по `DATABASE_URL` контейнера (prod sw-PG закрыт
+`pg_hba` на внешние хосты). Таргет — `SW_PG_RUN_TARGET` (default `sw-api`),
+см. `mpu.lib.sql_sw`.
 
 SQL берётся (в порядке приоритета):
   1. Аргумент после селектора.
@@ -13,7 +18,7 @@ from typing import Annotated
 
 import typer
 
-from mpu.lib import sql_runner
+from mpu.lib import sql_runner, sql_sw
 from mpu.lib.resolver import ResolveError, resolve_server
 
 COMMAND_NAME = "mpu sql"
@@ -54,7 +59,11 @@ app = typer.Typer(
 @app.command()
 def main(
     selector: Annotated[
-        str, typer.Argument(help="client_id, spreadsheet_id substring, или title substring")
+        str,
+        typer.Argument(
+            help="client_id, spreadsheet_id substring, title substring, "
+            "или sw-PG алиас (sw / sw-pg / ws / workspaces)"
+        ),
     ],
     sql: Annotated[
         str | None,
@@ -65,9 +74,7 @@ def main(
     json_out: Annotated[
         bool, typer.Option("--json", help="Результат как JSON-array объектов")
     ] = False,
-    md_out: Annotated[
-        bool, typer.Option("--md", help="Результат как markdown-таблица")
-    ] = False,
+    md_out: Annotated[bool, typer.Option("--md", help="Результат как markdown-таблица")] = False,
     verbose: Annotated[
         bool,
         typer.Option(
@@ -78,6 +85,24 @@ def main(
     if json_out and md_out:
         typer.echo("mpu sql: --json и --md взаимоисключающие", err=True)
         raise typer.Exit(code=2)
+
+    if sql_sw.is_sw_selector(selector):
+        if server:
+            typer.echo("mpu sql: --server не сочетается с sw-селектором", err=True)
+            raise typer.Exit(code=2)
+        sw_sql_text = _read_sql(sql)
+        if not sw_sql_text.strip():
+            typer.echo("mpu sql: empty SQL", err=True)
+            raise typer.Exit(code=2)
+        raise typer.Exit(
+            code=sql_sw.run_sql_sw(
+                sw_sql_text,
+                dry=dry,
+                json_out=json_out,
+                md_out=md_out,
+                verbose=verbose,
+            )
+        )
 
     try:
         server_number, candidates = resolve_server(selector, server_override=server)
