@@ -7,6 +7,8 @@ host/port/db захардкожены как дефолты (`DEV_PG_*` override
 `PG_MAIN_USER_NAME` + `PG_PASSWORD` (под hr82al dev-PG отклоняет auth).
 """
 
+from typing import NamedTuple
+
 import psycopg
 
 from mpu.lib import servers
@@ -15,6 +17,19 @@ from mpu.lib import servers
 DEV_PG_HOST = "192.168.150.40"
 DEV_PG_PORT = "5434"
 DEV_PG_DB = "mp_sl_1_dev"
+
+# Dev sw-back (workspaces): отдельный PG (multi-tenant по `workspace.id`).
+DEV_WORKSPACES_HOST = "192.168.150.41"
+DEV_WORKSPACES_PORT = "5432"
+DEV_WORKSPACES_DB = "workspaces"
+
+# Локальный docker-стек: sl-1 (`mp-sl-1-pg`, БД `wb`) и sw-back (`mp-sw-pg`, `workspaces`).
+LOCAL_HOST = "127.0.0.1"
+LOCAL_SL_PORT = "5441"
+LOCAL_SL_DB = "wb"
+LOCAL_WORKSPACES_PORT = "5451"
+LOCAL_WORKSPACES_DB = "workspaces"
+LOCAL_WORKSPACES_USER = "workspacesapp"
 
 
 class PgConfigError(RuntimeError):
@@ -90,3 +105,72 @@ def connect_to(server_number: int, *, timeout: int = 10) -> psycopg.Connection:
 def connect_main() -> psycopg.Connection:
     """Открыть psycopg-соединение с main PG (sl-0)."""
     return connect_to(0)
+
+
+class PgConn(NamedTuple):
+    """Параметры подключения к PG — для shell-out (`pg_dump`/`pg_restore`/`psql`) и psycopg.
+
+    `mpu copy-dev` копирует данные `pg_dump`/`pg_restore` (dt-host тут не подходит — dev на
+    отдельном сервере), поэтому нужны именно параметры, а не открытое соединение.
+    """
+
+    host: str
+    port: str
+    dbname: str
+    user: str
+    password: str
+
+    def connect(self, *, timeout: int = 10) -> psycopg.Connection:
+        return psycopg.connect(
+            host=self.host,
+            port=int(self.port),
+            user=self.user,
+            password=self.password,
+            dbname=self.dbname,
+            connect_timeout=timeout,
+        )
+
+
+def dev_sl_conn() -> PgConn:
+    """Dev sl-PG (`mp_sl_1_dev`, все схемы `schema_<id>` + public). Источник для `copy-dev <id>`."""
+    host, port, dbname = dev_params()
+    user, password = _dev_credentials()
+    return PgConn(host, port, dbname, user, password)
+
+
+def dev_workspaces_conn() -> PgConn:
+    """Dev sw-back PG (БД `workspaces`). Источник для `copy-dev` (без аргумента).
+
+    Кредиты не угадываем — `DEV_WORKSPACES_USER`/`DEV_WORKSPACES_PASSWORD` в `~/.config/mpu/.env`.
+    """
+    host = servers.env_value("DEV_WORKSPACES_HOST") or DEV_WORKSPACES_HOST
+    port = servers.env_value("DEV_WORKSPACES_PORT") or DEV_WORKSPACES_PORT
+    dbname = servers.env_value("DEV_WORKSPACES_DB") or DEV_WORKSPACES_DB
+    user = servers.env_value("DEV_WORKSPACES_USER")
+    password = servers.env_value("DEV_WORKSPACES_PASSWORD")
+    if not user or not password:
+        raise PgConfigError(
+            "dev workspaces creds: задайте DEV_WORKSPACES_USER/DEV_WORKSPACES_PASSWORD "
+            "в ~/.config/mpu/.env"
+        )
+    return PgConn(host, port, dbname, user, password)
+
+
+def local_sl_conn() -> PgConn:
+    """Локальный sl-1 PG (`mp-sl-1-pg`, БД `wb`). Таргет для `copy-dev <id>`."""
+    port = servers.env_value("PG_LOCAL_PORT") or LOCAL_SL_PORT
+    dbname = servers.env_value("PG_DB_NAME") or LOCAL_SL_DB
+    user = servers.env_value("PG_MAIN_USER_NAME") or "wb_plus_db_admin"
+    password = servers.env_value("PG_MAIN_USER_PASSWORD") or servers.env_value("PG_PASSWORD")
+    if not password:
+        raise PgConfigError("local sl password: не задано PG_MAIN_USER_PASSWORD/PG_PASSWORD")
+    return PgConn(LOCAL_HOST, port, dbname, user, password)
+
+
+def local_workspaces_conn() -> PgConn:
+    """Локальный sw-back PG (`mp-sw-pg`, БД `workspaces`). Таргет для `copy-dev` (без аргумента)."""
+    port = servers.env_value("LOCAL_WORKSPACES_PORT") or LOCAL_WORKSPACES_PORT
+    dbname = servers.env_value("LOCAL_WORKSPACES_DB") or LOCAL_WORKSPACES_DB
+    user = servers.env_value("LOCAL_WORKSPACES_USER") or LOCAL_WORKSPACES_USER
+    password = servers.env_value("LOCAL_WORKSPACES_PASSWORD") or "postgres"
+    return PgConn(LOCAL_HOST, port, dbname, user, password)
