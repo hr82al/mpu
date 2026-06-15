@@ -66,6 +66,14 @@ def server_number(name: str | None) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def dev_server_number(rest: str) -> int | None:
+    """Номер sl-сервера из хвоста `dev:`-селектора: `"1"` / `"sl-1"` → `1`, иначе `None`."""
+    rest = rest.strip()
+    if rest.startswith("sl-"):
+        return server_number(rest)
+    return int(rest) if rest.isdigit() else None
+
+
 _IP_KEY_RE = re.compile(r"^(sl|pg)_(\d+)$")
 
 

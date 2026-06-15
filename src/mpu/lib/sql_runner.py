@@ -15,12 +15,16 @@ from mpu.lib import pg, servers, sql_guard
 
 
 def _print_meta(
-    server_number: int, sql: str, *, stream: IO[str], schema: str | None = None
+    server_number: int, sql: str, *, stream: IO[str], schema: str | None = None, dev: bool = False
 ) -> None:
-    host = servers.pg_ip(server_number)
-    port = servers.env_value("PG_PORT") or "5432"
-    db = servers.env_value("PG_DB_NAME") or "wb"
-    print(f"server: sl-{server_number}", file=stream)
+    if dev:
+        host, port, db = pg.dev_params()
+        print("server: dev", file=stream)
+    else:
+        host = servers.pg_ip(server_number) or ""
+        port = servers.env_value("PG_PORT") or "5432"
+        db = servers.env_value("PG_DB_NAME") or "wb"
+        print(f"server: sl-{server_number}", file=stream)
     print(f"pg_host: {host}", file=stream)
     print(f"pg_port: {port}", file=stream)
     print(f"database: {db}", file=stream)
@@ -64,6 +68,7 @@ def run_sql(
     sql: str,
     *,
     client_id: int | None = None,
+    dev: bool = False,
     dry: bool = False,
     json_out: bool = False,
     md_out: bool = False,
@@ -71,10 +76,13 @@ def run_sql(
     stdout: IO[str] | None = None,
     stderr: IO[str] | None = None,
 ) -> int:
-    """Выполнить SQL на sl-<server_number>. Возвращает exit code (0 / 1).
+    """Выполнить SQL на sl-<server_number> (или на dev-PG при `dev=True`). Возвращает exit code.
 
     Если задан `client_id` — перед SQL ставится `SET search_path TO "schema_<client_id>", public`,
     чтобы можно было обращаться к клиентским таблицам без префикса схемы.
+
+    При `dev=True` коннект идёт к dev-стенду (`mp_sl_1_dev`, все схемы в одной БД),
+    `server_number` игнорируется.
 
     При `sql_guard.is_protected()` модифицирующие запросы блокируются (exit 1) до
     коннекта к серверу. Снять защиту — только `PROTECT=false` в ~/.config/mpu/.env.
@@ -83,7 +91,7 @@ def run_sql(
     err = stderr if stderr is not None else sys.stderr
     schema = f"schema_{client_id}" if client_id is not None else None
     if verbose or dry:
-        _print_meta(server_number, sql, stream=err, schema=schema)
+        _print_meta(server_number, sql, stream=err, schema=schema, dev=dev)
 
     if dry:
         return 0
@@ -96,7 +104,8 @@ def run_sql(
             return 1
 
     try:
-        with pg.connect_to(server_number) as conn, conn.cursor() as cur:
+        conn_cm = pg.connect_dev() if dev else pg.connect_to(server_number)
+        with conn_cm as conn, conn.cursor() as cur:
             if schema is not None:
                 # psycopg expects LiteralString; schema is f-string of int client_id (safe).
                 cur.execute(f'SET search_path TO "{schema}", public')  # type: ignore[arg-type]

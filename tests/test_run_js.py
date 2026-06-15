@@ -232,8 +232,17 @@ def fake_pssh(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
         cmd: list[str],
         stdin: bytes = b"",
         via: str | None = None,
+        dev: bool = False,
     ) -> int:
-        calls.append({"server_number": server_number, "cmd": list(cmd), "stdin": stdin, "via": via})
+        calls.append(
+            {
+                "server_number": server_number,
+                "cmd": list(cmd),
+                "stdin": stdin,
+                "via": via,
+                "dev": dev,
+            }
+        )
         return 0
 
     monkeypatch.setattr(run_js, "pssh_run", _fake_run)
@@ -251,6 +260,28 @@ def test_cli_execute_single_server(env_file: Path, fake_pssh: list[dict[str, obj
     assert call["cmd"] == ["node", "--input-type=module", "-"]
     assert call["stdin"] == b"console.log(1)"
     assert call["via"] is None
+    assert call["dev"] is False
+
+
+def test_cli_dev_selector_routes_with_dev_flag(
+    env_file: Path, fake_pssh: list[dict[str, object]]
+) -> None:
+    """`dev:N` → pssh_run(server_number=N, dev=True)."""
+    _ = env_file
+    result = CliRunner().invoke(run_js.app, ["dev:1", "console.log(1)"])
+    assert result.exit_code == 0, result.output
+    assert len(fake_pssh) == 1
+    assert fake_pssh[0]["server_number"] == 1
+    assert fake_pssh[0]["dev"] is True
+
+
+def test_cli_dev_dry_run_uses_dev_ref(env_file: Path, fake_pssh: list[dict[str, object]]) -> None:
+    """dry-run для dev-таргета печатает `mpu ssh dev:N`."""
+    _ = env_file
+    result = CliRunner().invoke(run_js.app, ["dev:1", "console.log(1)", "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert fake_pssh == []
+    assert "mpu ssh dev:1 -- node --input-type=module -" in result.output
 
 
 def test_cli_execute_fan_out(env_file: Path, fake_pssh: list[dict[str, object]]) -> None:
@@ -284,8 +315,9 @@ def test_cli_aborts_on_first_failure(env_file: Path, monkeypatch: pytest.MonkeyP
         cmd: list[str],
         stdin: bytes = b"",
         via: str | None = None,
+        dev: bool = False,
     ) -> int:
-        _ = cmd, stdin, via
+        _ = cmd, stdin, via, dev
         calls.append(server_number)
         return 1 if server_number == 1 else 0
 
@@ -420,11 +452,12 @@ def test_cli_parallel_runs_all_without_abort(
         cmd: list[str],
         stdin: bytes = b"",
         via: str | None = None,
+        dev: bool = False,
         on_stdout: object = None,
         on_stderr: object = None,
         manage_signals: bool = True,
     ) -> int:
-        _ = cmd, stdin, via, on_stderr
+        _ = cmd, stdin, via, dev, on_stderr
         seen.append({"server_number": server_number, "manage_signals": manage_signals})
         if callable(on_stdout):
             on_stdout(f"out sl-{server_number}\n".encode())
@@ -450,11 +483,12 @@ def test_cli_parallel_jobs_passthrough(env_file: Path, monkeypatch: pytest.Monke
         cmd: list[str],
         stdin: bytes = b"",
         via: str | None = None,
+        dev: bool = False,
         on_stdout: object = None,
         on_stderr: object = None,
         manage_signals: bool = True,
     ) -> int:
-        _ = cmd, stdin, via, on_stdout, on_stderr, manage_signals
+        _ = cmd, stdin, via, dev, on_stdout, on_stderr, manage_signals
         seen.append(server_number)
         return 0
 
@@ -474,7 +508,7 @@ def test_cli_detach_launches_all(env_file: Path, monkeypatch: pytest.MonkeyPatch
     seen: list[dict[str, object]] = []
 
     def _fake_detach(
-        *, server_number: int, js: bytes, run_id: str, via: str | None = None
+        *, server_number: int, js: bytes, run_id: str, via: str | None = None, dev: bool = False
     ) -> tuple[int, str]:
         seen.append({"server_number": server_number, "run_id": run_id, "js": js, "via": via})
         return 0, f"/tmp/mpu-run-{run_id}.log"
@@ -495,9 +529,9 @@ def test_cli_detach_failure_exit1(env_file: Path, monkeypatch: pytest.MonkeyPatc
     launched: list[int] = []
 
     def _fake_detach(
-        *, server_number: int, js: bytes, run_id: str, via: str | None = None
+        *, server_number: int, js: bytes, run_id: str, via: str | None = None, dev: bool = False
     ) -> tuple[int, str]:
-        _ = js, via
+        _ = js, via, dev
         launched.append(server_number)
         return (1 if server_number == 3 else 0), f"/tmp/mpu-run-{run_id}.log"
 

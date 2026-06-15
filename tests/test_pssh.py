@@ -348,8 +348,9 @@ def test_pssh_cli_dispatches_to_pssh_run(
         cmd: list[str],
         stdin: bytes = b"",
         via: str | None = None,
+        dev: bool = False,
     ) -> int:
-        captured.update(server_number=server_number, cmd=list(cmd), stdin=stdin, via=via)
+        captured.update(server_number=server_number, cmd=list(cmd), stdin=stdin, via=via, dev=dev)
         return 0
 
     monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
@@ -359,6 +360,31 @@ def test_pssh_cli_dispatches_to_pssh_run(
     assert captured["server_number"] == 1
     assert captured["cmd"] == ["ls", "-la", "/app"]
     assert captured["via"] is None
+    assert captured["dev"] is False
+
+
+def test_pssh_cli_dev_selector_routes_with_dev_flag(
+    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`dev:N` → pssh_run(server_number=N, dev=True)."""
+    _ = env_ssh_only
+    captured: dict[str, object] = {}
+
+    def _fake_run(*, server_number: int, dev: bool = False, **_kw: object) -> int:
+        captured.update(server_number=server_number, dev=dev)
+        return 0
+
+    monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
+    result = CliRunner().invoke(pssh_cmd.app, ["dev:2", "--", "ls", "/app"])
+    assert result.exit_code == 0, result.output
+    assert captured == {"server_number": 2, "dev": True}
+
+
+def test_pssh_cli_dev_selector_bad_value(env_ssh_only: Path) -> None:
+    """`dev:` без валидного номера sl-сервера → exit 2."""
+    _ = env_ssh_only
+    result = CliRunner().invoke(pssh_cmd.app, ["dev:foo", "--", "ls"])
+    assert result.exit_code == 2
 
 
 def test_pssh_cli_via_override(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -27,6 +27,12 @@ from mpu.lib import containers, portainer, servers
 
 Transport = Literal["ssh", "portainer"]
 
+# Dev-стенд (`mp-dev`, 192.168.150.8): один хост с контейнерами mp-sl-0/1/2-cli, в
+# Portainer-ферму (.12) НЕ входит — достаётся только по ssh под отдельным юзером.
+# Транспорт принудительно ssh+docker (минуя `_resolve_transport`).
+DEV_NODE_HOST = "192.168.150.8"
+DEV_NODE_USER = "develop"
+
 _STDIN_TMP_NAME = "__MPU_PSSH_STDIN"
 _STDIN_TMP_PATH = f"/tmp/{_STDIN_TMP_NAME}"
 
@@ -53,22 +59,41 @@ def _cmd_to_shell(cmd: list[str]) -> str:
     return " ".join(shlex.quote(a) for a in cmd)
 
 
+def _ssh_conn(server_number: int, *, dev: bool) -> tuple[str, str, str]:
+    """`(host, user, key_path)` для ssh+docker exec. `dev=True` → dev-нода под `develop`."""
+    key = str(Path.home() / ".ssh" / "id_rsa")
+    if dev:
+        host = servers.env_value("DEV_NODE_HOST") or DEV_NODE_HOST
+        user = servers.env_value("DEV_NODE_USER") or DEV_NODE_USER
+        return host, user, key
+    ip = servers.sl_ip(server_number)
+    user = servers.env_value("PG_MY_USER_NAME")
+    assert ip is not None and user is not None  # _resolve_transport уже проверил
+    return ip, user, key
+
+
 def pssh_run(
     *,
     server_number: int,
     cmd: list[str],
     stdin: bytes = b"",
     via: str | None = None,
+    dev: bool = False,
     on_stdout: Callable[[bytes], None] | None = None,
     on_stderr: Callable[[bytes], None] | None = None,
     manage_signals: bool = True,
 ) -> int:
     """Выполнить cmd внутри `mp-sl-{server_number}-cli`; вернуть exit code.
 
+    `dev=True` — таргет на dev-ноде (`mp-dev`, ssh+docker под `develop`), `via` игнорируется.
     `on_stdout`/`on_stderr` (если заданы) — захват вывода вместо стрима в `sys.stdout`
     (нужен для параллельного fan-out: каждый таргет пишет в свой буфер). `manage_signals`
     выключать при запуске вне главного потока — `signal.signal` доступен только из него.
     """
+    if dev:
+        return _run_via_ssh(
+            server_number, cmd, stdin, dev=True, on_stdout=on_stdout, on_stderr=on_stderr
+        )
     transport = _resolve_transport(server_number, via)
     if transport == "ssh":
         return _run_via_ssh(server_number, cmd, stdin, on_stdout=on_stdout, on_stderr=on_stderr)
@@ -155,13 +180,12 @@ def _run_via_ssh(
     n: int,
     cmd: list[str],
     stdin: bytes,
+    *,
+    dev: bool = False,
     on_stdout: Callable[[bytes], None] | None = None,
     on_stderr: Callable[[bytes], None] | None = None,
 ) -> int:
-    ip = servers.sl_ip(n)
-    user = servers.env_value("PG_MY_USER_NAME")
-    assert ip is not None and user is not None  # _resolve_transport уже проверил
-    key = str(Path.home() / ".ssh" / "id_rsa")
+    ip, user, key = _ssh_conn(n, dev=dev)
     container = f"mp-sl-{n}-cli"
     inner = _cmd_to_shell(cmd)
     # remote — единственный позиционный arg ssh: удалённый шелл сам исполнит строку.
@@ -315,15 +339,20 @@ def pssh_detach(
     js: bytes,
     run_id: str,
     via: str | None = None,
+    dev: bool = False,
 ) -> tuple[int, str]:
     """Запустить ESM детачем в `mp-sl-{server_number}-cli` — фон, переживающий disconnect.
 
     Заливает скрипт в `/tmp/mpu-run-{run_id}.mjs`, стартует node в фоне с выводом в
     `/tmp/mpu-run-{run_id}.log` и сразу возвращается. Node переподхватывается init'ом
     контейнера (PID 1) и живёт после закрытия exec/WS/ssh. Возвращает (rc_запуска, log_path).
+
+    `dev=True` — на dev-ноде (ssh+docker под `develop`), `via` игнорируется.
     """
-    transport = _resolve_transport(server_number, via)
     container = f"mp-sl-{server_number}-cli"
+    if dev:
+        return _detach_via_ssh(server_number, container, js, run_id, dev=True)
+    transport = _resolve_transport(server_number, via)
     if transport == "ssh":
         return _detach_via_ssh(server_number, container, js, run_id)
     target = servers.portainer_target(server_number)
@@ -410,12 +439,11 @@ def detach_in_container_via_portainer(
     return client.inspect_exec_exit_code(exec_id), log_path
 
 
-def _detach_via_ssh(n: int, container: str, js: bytes, run_id: str) -> tuple[int, str]:
+def _detach_via_ssh(
+    n: int, container: str, js: bytes, run_id: str, *, dev: bool = False
+) -> tuple[int, str]:
     """ssh-путь: залить скрипт через stdin, запустить `docker exec -d` (detached)."""
-    ip = servers.sl_ip(n)
-    user = servers.env_value("PG_MY_USER_NAME")
-    assert ip is not None and user is not None
-    key = str(Path.home() / ".ssh" / "id_rsa")
+    ip, user, key = _ssh_conn(n, dev=dev)
     script_path, log_path = detach_script_paths(run_id)
     put = f"docker exec -i {container} sh -c {shlex.quote(f'cat > {script_path}')}"
     up = subprocess.run(["ssh", "-i", key, f"{user}@{ip}", put], input=js, check=False)

@@ -35,6 +35,7 @@ node_modules sl-back, import aliases (`#bullmq/...`), env (Redis/PG hosts),
 
 Примеры:
   mpu run-js sl-1 'console.log(1)'
+  mpu run-js dev:1 'console.log(1)'                    # mp-sl-1-cli на dev-ноде (ssh+docker)
   mpu run-js 12345 'console.log(1)'                    # client_id → server через mpu search
   mpu run-js "Тортуга main" -f script.mjs              # title → server через mpu search
   mpu run-js mp-sl-9-wb-loader 'console.log(1)'        # точное имя контейнера → Portainer
@@ -81,6 +82,7 @@ app = typer.Typer(
 @dataclasses.dataclass(frozen=True, slots=True)
 class _ServerTarget:
     server_number: int
+    dev: bool = False
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -88,9 +90,14 @@ class _ContainerTarget:
     container: str
 
 
+def _server_ref(t: _ServerTarget) -> str:
+    """Селектор-ссылка на серверный таргет: `dev:N` для dev-ноды, иначе `sl-N`."""
+    return f"dev:{t.server_number}" if t.dev else f"sl-{t.server_number}"
+
+
 def _target_label(t: "_ServerTarget | _ContainerTarget") -> str:
-    """Человекочитаемая метка таргета: `sl-N` или точное имя контейнера."""
-    return f"sl-{t.server_number}" if isinstance(t, _ServerTarget) else t.container
+    """Человекочитаемая метка таргета: `sl-N` / `dev:N` или точное имя контейнера."""
+    return _server_ref(t) if isinstance(t, _ServerTarget) else t.container
 
 
 def _resolve_js_source(*, code: str | None, file: Path | None) -> str:
@@ -152,6 +159,17 @@ def _resolve_targets(
         return [_ContainerTarget(n) for n in names]
 
     assert selector is not None
+    # 0. dev:N — sl-N на dev-ноде (`mp-dev`, ssh+docker)
+    if selector.startswith("dev:"):
+        dn = servers.dev_server_number(selector[len("dev:") :])
+        if dn is None or dn < 0:
+            typer.echo(
+                f"{COMMAND_NAME}: dev-селектор ожидает номер sl-сервера: `dev:N` (например dev:1), "
+                f"получено: {selector!r}",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        return [_ServerTarget(dn, dev=True)]
     # 1. sl-N формат → server target
     n = servers.server_number(selector)
     if n is not None:
@@ -194,10 +212,9 @@ def _build_dry_run_block(targets: list[_ServerTarget | _ContainerTarget], js: st
     js_body = js.rstrip("\n")
     lines: list[str] = []
     for t in targets:
+        ref = _server_ref(t) if isinstance(t, _ServerTarget) else t.container
         if len(targets) > 1:
-            label = f"sl-{t.server_number}" if isinstance(t, _ServerTarget) else t.container
-            lines.append(f"# target={label}")
-        ref = f"sl-{t.server_number}" if isinstance(t, _ServerTarget) else t.container
+            lines.append(f"# target={ref}")
         lines.append(f"mpu ssh {ref} -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'")
         lines.append(js_body)
         lines.append("__MPU_RUN_JS_EOF__")
@@ -240,6 +257,7 @@ def _run_parallel(
                 cmd=_NODE_CMD,
                 stdin=js_bytes,
                 via=via,
+                dev=t.dev,
                 on_stdout=on_out,
                 on_stderr=on_err,
                 manage_signals=False,
@@ -303,7 +321,7 @@ def _run_detached(
         try:
             if isinstance(t, _ServerTarget):
                 rc, log = pssh_detach(
-                    server_number=t.server_number, js=js_bytes, run_id=run_id, via=via
+                    server_number=t.server_number, js=js_bytes, run_id=run_id, via=via, dev=t.dev
                 )
             else:
                 rc, log = pssh_detach_container(container=t.container, js=js_bytes, run_id=run_id)
@@ -339,8 +357,9 @@ def main(
     selector: Annotated[
         str | None,
         typer.Argument(
-            help="sl-N | точное имя контейнера | client_id / spreadsheet_id / title "
-            "(через mpu search). Взаимоисключающе с --all / --all-containers."
+            help="sl-N | dev:N (sl-N на dev-ноде) | точное имя контейнера | "
+            "client_id / spreadsheet_id / title (через mpu search). "
+            "Взаимоисключающе с --all / --all-containers."
         ),
     ] = None,
     code: Annotated[
@@ -450,7 +469,9 @@ def main(
         label = _target_label(t)
         typer.echo(f"# target={label}", err=True)
         if isinstance(t, _ServerTarget):
-            rc = pssh_run(server_number=t.server_number, cmd=_NODE_CMD, stdin=js_bytes, via=via)
+            rc = pssh_run(
+                server_number=t.server_number, cmd=_NODE_CMD, stdin=js_bytes, via=via, dev=t.dev
+            )
         else:
             rc = pssh_run_container(container=t.container, cmd=_NODE_CMD, stdin=js_bytes)
         if rc != 0:

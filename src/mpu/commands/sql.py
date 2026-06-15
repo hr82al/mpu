@@ -62,7 +62,8 @@ def main(
         str,
         typer.Argument(
             help="client_id, spreadsheet_id substring, title substring, "
-            "или sw-PG алиас (sw / sw-pg / ws / workspaces)"
+            "sw-PG алиас (sw / sw-pg / ws / workspaces), "
+            "или dev-стенд `dev:<client_id>` (БД mp_sl_1_dev, search_path schema_<client_id>)"
         ),
     ],
     sql: Annotated[
@@ -85,6 +86,29 @@ def main(
     if json_out and md_out:
         typer.echo("mpu sql: --json и --md взаимоисключающие", err=True)
         raise typer.Exit(code=2)
+
+    if selector.startswith("dev:"):
+        if server:
+            typer.echo("mpu sql: --server не сочетается с dev-селектором", err=True)
+            raise typer.Exit(code=2)
+        rest = selector[len("dev:") :].strip()
+        dev_client_id = int(rest) if rest.isdigit() else None
+        dev_sql_text = _read_sql(sql)
+        if not dev_sql_text.strip():
+            typer.echo("mpu sql: empty SQL", err=True)
+            raise typer.Exit(code=2)
+        raise typer.Exit(
+            code=sql_runner.run_sql(
+                0,
+                dev_sql_text,
+                client_id=dev_client_id,
+                dev=True,
+                dry=dry,
+                json_out=json_out,
+                md_out=md_out,
+                verbose=verbose,
+            )
+        )
 
     if sql_sw.is_sw_selector(selector):
         if server:

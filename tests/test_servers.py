@@ -39,6 +39,15 @@ def test_server_number_parsing() -> None:
     assert servers.server_number("sl-1a") is None
 
 
+def test_dev_server_number_parsing() -> None:
+    assert servers.dev_server_number("1") == 1
+    assert servers.dev_server_number("0") == 0
+    assert servers.dev_server_number("sl-2") == 2
+    assert servers.dev_server_number(" 3 ") == 3
+    assert servers.dev_server_number("foo") is None
+    assert servers.dev_server_number("") is None
+
+
 def test_ip_lookup(env_file: Path) -> None:
     assert servers.sl_ip(0) == "192.168.150.90"
     assert servers.sl_ip(1) == "192.168.150.91"

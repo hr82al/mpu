@@ -27,6 +27,7 @@ stdout/stderr ребёнка — напрямую в наш stdout/stderr. Exit 
 
 Примеры:
   mpu ssh sl-1 -- ls -la /app
+  mpu ssh dev:1 -- ls -la /app                   # mp-sl-1-cli на dev-ноде (ssh+docker)
   mpu ssh mp-dt-cli -- node cli service:clientsTransfer createJob ...  # direct container
   mpu ssh 12345 -- ps -eo pid,etime,args        # client_id → server через mpu search
   mpu ssh "Тортуга" -- ls /app                   # title → server через mpu search
@@ -63,6 +64,7 @@ app = typer.Typer(
 @dataclass(frozen=True, slots=True)
 class _ServerTarget:
     server_number: int
+    dev: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,12 +76,24 @@ def _resolve_target(selector: str) -> _ServerTarget | _ContainerTarget:
     """Универсальный резолв селектора → server (sl-N CLI) или контейнер по точному имени.
 
     Порядок:
+      0. `dev:N` — sl-N на dev-ноде (`mp-dev`, ssh+docker) → `_ServerTarget(N, dev=True)`.
       1. `sl-N` формат → `_ServerTarget(N)`; N>0 валидируется здесь же.
       2. Точное имя контейнера в Portainer-кэше (1 совпадение) → `_ContainerTarget(name)`.
       3. >1 совпадение по имени контейнера → ошибка с вариантами (без fallback в mpu search,
          чтобы не маскировать опечатку с легитимным client-селектором).
       4. Иначе — `resolve_server` (mpu search по client_id/spreadsheet_id/title).
     """
+    if selector.startswith("dev:"):
+        dn = servers.dev_server_number(selector[len("dev:") :])
+        if dn is None or dn < 0:
+            typer.echo(
+                f"{COMMAND_NAME}: dev-селектор ожидает номер sl-сервера: `dev:N` (например dev:1), "
+                f"получено: {selector!r}",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        return _ServerTarget(dn, dev=True)
+
     n = servers.server_number(selector)
     if n is not None:
         if n <= 0:
@@ -154,8 +168,8 @@ def main(
     selector: Annotated[
         str | None,
         typer.Argument(
-            help="sl-N | точное имя контейнера | client_id / spreadsheet_id / title. "
-            "Взаимоисключающе с --all-containers."
+            help="sl-N | dev:N (sl-N на dev-ноде) | точное имя контейнера | "
+            "client_id / spreadsheet_id / title. Взаимоисключающе с --all-containers."
         ),
     ] = None,
     via: Annotated[
@@ -245,7 +259,13 @@ def main(
 
     target = _resolve_target(selector)
     if isinstance(target, _ServerTarget):
-        rc = _pssh.pssh_run(server_number=target.server_number, cmd=cmd, stdin=stdin_bytes, via=via)
+        rc = _pssh.pssh_run(
+            server_number=target.server_number,
+            cmd=cmd,
+            stdin=stdin_bytes,
+            via=via,
+            dev=target.dev,
+        )
     else:
         # Точное имя контейнера → Portainer-only. `--via ssh` для произвольных контейнеров
         # не поддерживаем (нет per-container SSH-credentials). Для `--via portainer` — no-op.
