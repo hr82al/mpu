@@ -253,6 +253,37 @@ def emit_node_cli(
     return cmd
 
 
+def exec_node_cli_dev(
+    *,
+    name: str,
+    method: str,
+    flags: dict[str, FlagValue],
+    server_number: int,
+    print_mode: bool,
+    command_name: str,
+    type_: DispatchType = "service",
+    entry: EntryPoint = "cli",
+) -> None:
+    """Выполнить inner-команду в `mp-sl-N-cli` на dev-ноде (ssh+docker, `pssh_run(dev=True)`).
+
+    Dev-стенд (`mp-dev`) не входит в Portainer-ферму, поэтому транспорт всегда ssh под
+    `develop`. `print_mode` → печать `mpu ssh dev:N -- <inner>` + clipboard, без выполнения.
+    """
+    inner_parts = _build_inner_parts(
+        entry=entry, type_=type_, name=name, method=method, flags=flags, command_name=command_name
+    )
+    if print_mode:
+        cmd = f"mpu ssh dev:{server_number} -- {' '.join(inner_parts)}"
+        typer.echo(cmd)
+        copy_to_clipboard(cmd)
+        return
+    from mpu.lib import pssh
+
+    rc = pssh.pssh_run(server_number=server_number, cmd=inner_parts, stdin=b"", dev=True)
+    if rc != 0:
+        raise typer.Exit(code=rc)
+
+
 def _exec_portainer(*, inner_parts: list[str], resolved: Resolved) -> str:
     """Выполнить inner-команду в `mp-sl-N-cli` через Portainer; вернуть пустую строку.
 
@@ -338,7 +369,8 @@ def attach_selector_callback(*, app: typer.Typer, command_name: str) -> None:
         print_mode: Annotated[
             bool,
             typer.Option(
-                "--print", "-p",
+                "--print",
+                "-p",
                 help="Печатать обёртку в stdout + clipboard, не выполнять",
             ),
         ] = False,

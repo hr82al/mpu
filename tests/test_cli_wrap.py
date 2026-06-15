@@ -84,6 +84,54 @@ def test_basic_emit_ssh(capsys: pytest.CaptureFixture[str]) -> None:
     )
 
 
+def test_exec_node_cli_dev_print(capsys: pytest.CaptureFixture[str]) -> None:
+    """print_mode → печать `mpu ssh dev:N -- <inner>`, без выполнения."""
+    cli_wrap.exec_node_cli_dev(
+        name="dataProcessor",
+        method="process",
+        flags={"--client-id": 183, "--datasets": ["a", "a"], "--forced": True},
+        server_number=1,
+        print_mode=True,
+        command_name="mpu-test",
+    )
+    out = capsys.readouterr().out.strip()
+    assert out == (
+        "mpu ssh dev:1 -- node cli service:dataProcessor process "
+        "--client-id 183 --datasets a a --forced"
+    )
+
+
+def test_exec_node_cli_dev_exec(monkeypatch: pytest.MonkeyPatch) -> None:
+    """exec → pssh.pssh_run(server_number=N, dev=True) с собранным argv."""
+    from mpu.lib import pssh
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(*, server_number: int, cmd: list[str], stdin: bytes, dev: bool = False) -> int:
+        captured.update(server_number=server_number, cmd=list(cmd), dev=dev)
+        return 0
+
+    monkeypatch.setattr(pssh, "pssh_run", _fake_run)
+    cli_wrap.exec_node_cli_dev(
+        name="dataProcessor",
+        method="process",
+        flags={"--client-id": 183},
+        server_number=2,
+        print_mode=False,
+        command_name="mpu-test",
+    )
+    assert captured["server_number"] == 2
+    assert captured["dev"] is True
+    assert captured["cmd"] == [
+        "node",
+        "cli",
+        "service:dataProcessor",
+        "process",
+        "--client-id",
+        "183",
+    ]
+
+
 # 2. None skipped
 def test_none_value_skipped() -> None:
     inner = _build_inner(

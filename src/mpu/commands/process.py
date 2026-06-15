@@ -35,12 +35,15 @@ from typing import Annotated
 
 import typer
 
-from mpu.lib import pg
+from mpu.lib import pg, servers
 from mpu.lib.cli_wrap import (
     FlagValue,
+    Resolved,
+    Wrapper,
     auto_pick_int,
     auto_pick_str,
     emit_node_cli,
+    exec_node_cli_dev,
     pick_wrapper,
     require,
     resolve_selector,
@@ -159,21 +162,24 @@ def main(
     client_id: Annotated[
         int | None,
         typer.Option(
-            "--client-id", "--client_id",
+            "--client-id",
+            "--client_id",
             help="Override client_id если selector неоднозначен",
         ),
     ] = None,
     spreadsheet_id: Annotated[
         str | None,
         typer.Option(
-            "--spreadsheet-id", "--spreadsheet_id",
+            "--spreadsheet-id",
+            "--spreadsheet_id",
             help="Override spreadsheet_id если selector неоднозначен",
         ),
     ] = None,
     date_from: Annotated[
         str | None,
         typer.Option(
-            "--date-from", "--date_from",
+            "--date-from",
+            "--date_from",
             help="Начальная дата (YYYY-MM-DD)",
             autocompletion=_complete_date_from,
         ),
@@ -181,7 +187,8 @@ def main(
     date_to: Annotated[
         str | None,
         typer.Option(
-            "--date-to", "--date_to",
+            "--date-to",
+            "--date_to",
             help="Конечная дата (YYYY-MM-DD)",
             autocompletion=_complete_today,
         ),
@@ -209,21 +216,24 @@ def main(
     exclude_datasets: Annotated[
         list[str] | None,
         typer.Option(
-            "--exclude-datasets", "--exclude_datasets",
+            "--exclude-datasets",
+            "--exclude_datasets",
             help="Исключить датасеты (повторяемый)",
         ),
     ] = None,
     exclude_modules: Annotated[
         list[str] | None,
         typer.Option(
-            "--exclude-modules", "--exclude_modules",
+            "--exclude-modules",
+            "--exclude_modules",
             help="Исключить модули (повторяемый)",
         ),
     ] = None,
     with_tags: Annotated[
         list[str] | None,
         typer.Option(
-            "--with-tags", "--with_tags",
+            "--with-tags",
+            "--with_tags",
             help="Фильтр по тегам — нужны ВСЕ указанные (повторяемый)",
             autocompletion=_complete_tag,
         ),
@@ -231,7 +241,8 @@ def main(
     without_tags: Annotated[
         list[str] | None,
         typer.Option(
-            "--without-tags", "--without_tags",
+            "--without-tags",
+            "--without_tags",
             help="Исключить теги — НИ ОДИН из указанных (повторяемый)",
             autocompletion=_complete_tag,
         ),
@@ -247,7 +258,8 @@ def main(
     forced_update: Annotated[
         bool,
         typer.Option(
-            "--forced-update", "--forced_update",
+            "--forced-update",
+            "--forced_update",
             help="Всегда обновлять строку в upsert (skip JSONB-сравнения)",
         ),
     ] = False,
@@ -262,7 +274,8 @@ def main(
     nm_ids: Annotated[
         str | None,
         typer.Option(
-            "--nm-ids", "--nm_ids",
+            "--nm-ids",
+            "--nm_ids",
             help="WB nm_ids как JSON-литерал, например [1,2,3] (без пробелов)",
         ),
     ] = None,
@@ -285,28 +298,48 @@ def main(
     verbose: Annotated[
         bool,
         typer.Option(
-            "-v", "--verbose",
+            "-v",
+            "--verbose",
             help="Печатать собранную inner-команду в stderr перед выполнением",
         ),
     ] = False,
 ) -> None:
-    """Выполнить через Portainer; `--print` — печать обёртки без выполнения."""
-    wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
-    resolved = resolve_selector(
-        value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
-    )
-    cid = require(
-        client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
-        flag="--client-id",
-        candidates=resolved.candidates,
-        command_name=COMMAND_NAME,
-    )
-    # spreadsheet_id опционально; если selector однозначно резолвится в один — подставим.
-    ssid = (
-        spreadsheet_id
-        if spreadsheet_id is not None
-        else auto_pick_str(resolved.candidates, "spreadsheet_id")
-    )
+    """Выполнить через Portainer; `--print` — печать обёртки без выполнения.
+
+    Селектор `dev:N` → выполнение в `mp-sl-N-cli` на dev-ноде (ssh+docker); для dev
+    `--client-id` обязателен (prod-поиск по client/title недоступен).
+    """
+    is_dev = value.startswith("dev:")
+    resolved: Resolved | None = None
+    wrapper: Wrapper = "portainer"
+    dev_server: int | None = None
+    if is_dev:
+        dev_server = servers.dev_server_number(value[len("dev:") :])
+        if dev_server is None or dev_server < 0:
+            typer.echo(
+                f"{COMMAND_NAME}: dev-селектор ожидает номер sl-сервера: `dev:N` (например dev:1)",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        cid = require(client_id, flag="--client-id", candidates=[], command_name=COMMAND_NAME)
+        ssid = spreadsheet_id
+    else:
+        wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
+        resolved = resolve_selector(
+            value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
+        )
+        cid = require(
+            client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
+            flag="--client-id",
+            candidates=resolved.candidates,
+            command_name=COMMAND_NAME,
+        )
+        # spreadsheet_id опционально; если selector однозначно резолвится в один — подставим.
+        ssid = (
+            spreadsheet_id
+            if spreadsheet_id is not None
+            else auto_pick_str(resolved.candidates, "spreadsheet_id")
+        )
 
     flags: dict[str, FlagValue] = {
         "--client-id": cid,
@@ -348,6 +381,19 @@ def main(
         )
         typer.echo(f"# inner: {inner}", err=True)
 
+    if is_dev:
+        assert dev_server is not None
+        exec_node_cli_dev(
+            name="dataProcessor",
+            method="process",
+            flags=flags,
+            server_number=dev_server,
+            print_mode=print_mode,
+            command_name=COMMAND_NAME,
+        )
+        return
+
+    assert resolved is not None
     emit_node_cli(
         name="dataProcessor",
         method="process",
