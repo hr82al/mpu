@@ -20,19 +20,32 @@ class _Result:
 @pytest.fixture
 def stack(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, object]:
     """Фейковый mp-config-local + перехват `_run`. `.env` намеренно отсутствует."""
-    files = (".sw-back.base.env", "compose.mp-nats.yaml", "compose.sw-back.yaml", ".sl-base.env")
+    files = (
+        ".sl-base.env",
+        ".sl-0.env",
+        ".sl-1.env",
+        ".sw-back.base.env",
+        "compose.mp-nats.yaml",
+        "compose.sl-base.yaml",
+        "compose.sl-pg.yaml",
+        "compose.sl-main.yaml",
+        "compose.pgbouncer.yaml",
+        "compose.sl-instance.yaml",
+        "compose.sw-back.yaml",
+    )
     for name in files:
         (tmp_path / name).write_text("x")
     monkeypatch.setattr(dt_host, "mp_config_local_dir", lambda: tmp_path)
+    monkeypatch.setattr(cmd.time, "sleep", lambda _s: None)
 
-    state: dict[str, object] = {"calls": [], "network_exists": True, "sl_running": True}
+    state: dict[str, object] = {"calls": [], "network_exists": True, "sl_image_exists": True}
 
     def _run(argv: list[str], *, capture: bool = False) -> _Result:
         state["calls"].append(argv)  # type: ignore[union-attr]
         if argv[:3] == ["docker", "network", "inspect"]:
             return _Result(0 if state["network_exists"] else 1)
-        if argv[:2] == ["docker", "ps"]:
-            return _Result(0, "mp-sl-1-i-internal-api\n" if state["sl_running"] else "")
+        if argv[:3] == ["docker", "image", "inspect"]:
+            return _Result(0 if state["sl_image_exists"] else 1)
         return _Result(0)
 
     monkeypatch.setattr(cmd, "_run", _run)
@@ -50,6 +63,15 @@ def test_basic_up(stack: dict[str, object]) -> None:
     joined = _joined(stack)
     assert any("network inspect mp-shared-net" in j for j in joined)
     assert any("compose.mp-nats.yaml" in j and " up -d" in j for j in joined)
+    # sl-0 (main) и sl-1 (instance) полные стеки подняты
+    sl0 = next(j for j in joined if "compose.sl-main.yaml" in j)
+    assert ".sl-0.env" in sl0 and " up -d" in sl0
+    sl1 = next(j for j in joined if "compose.sl-instance.yaml" in j)
+    assert ".sl-1.env" in sl1 and "compose.pgbouncer.yaml" in sl1
+    # appMigrations гоняются на обоих серверах
+    assert any(j == "docker exec mp-sl-0-cli node cli service:appMigrations latest" for j in joined)
+    assert any(j == "docker exec mp-sl-1-cli node cli service:appMigrations latest" for j in joined)
+    # sw-back собирается
     sw = next(j for j in joined if "compose.sw-back.yaml" in j)
     assert "--build" in sw
     assert "--force-recreate" not in sw
@@ -62,8 +84,10 @@ def test_force_recreate(stack: dict[str, object]) -> None:
     res = runner.invoke(cmd.app, ["--force-recreate"])
 
     assert res.exit_code == 0, res.output
-    sw = next(j for j in _joined(stack) if "compose.sw-back.yaml" in j)
-    assert "--force-recreate" in sw
+    joined = _joined(stack)
+    for marker in ("compose.sl-main.yaml", "compose.sl-instance.yaml", "compose.sw-back.yaml"):
+        up = next(j for j in joined if marker in j and " up -d" in j)
+        assert "--force-recreate" in up, marker
 
 
 def test_no_build(stack: dict[str, object]) -> None:
@@ -82,9 +106,9 @@ def test_creates_network_when_missing(stack: dict[str, object]) -> None:
     assert any("network create" in j for j in _joined(stack))
 
 
-def test_warns_when_sl_internal_api_down(stack: dict[str, object]) -> None:
-    stack["sl_running"] = False
+def test_errors_when_sl_image_missing(stack: dict[str, object]) -> None:
+    stack["sl_image_exists"] = False
     res = runner.invoke(cmd.app, [])
 
-    assert res.exit_code == 0, res.output
-    assert "mp-sl-1-i-internal-api не запущен" in res.output
+    assert res.exit_code == 2, res.output
+    assert "sl-build-image" in res.output
