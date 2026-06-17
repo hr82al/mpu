@@ -173,7 +173,7 @@ def _emit_curl(*, base_url: str, filter_: dict[str, object], server: str | None)
         f"-d '{body}'",
     ]
     if server is not None:
-        lines.append(f"# затем клиентский фильтр: .data[] | select(.server == \"{server}\")")
+        lines.append(f'# затем клиентский фильтр: .data[] | select(.server == "{server}")')
     snippet = "\n".join(lines)
     click.echo(snippet)
     copy_to_clipboard(snippet)

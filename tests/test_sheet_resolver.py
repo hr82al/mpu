@@ -18,9 +18,7 @@ from mpu.lib.sheet_resolver import (
 
 
 @pytest.fixture
-def conn(
-    tmp_path: Path, bootstrap_db: Callable[[Path | str], None]
-) -> sqlite3.Connection:
+def conn(tmp_path: Path, bootstrap_db: Callable[[Path | str], None]) -> sqlite3.Connection:
     db = tmp_path / "mpu.db"
     bootstrap_db(db)
     c = store.open_store(db)
@@ -53,9 +51,7 @@ def conn(
 
 
 def test_parse_input_url(conn: sqlite3.Connection) -> None:
-    ss_id, kind = parse_input(
-        "https://docs.google.com/spreadsheets/d/1abcXYZ123/edit#gid=0", conn
-    )
+    ss_id, kind = parse_input("https://docs.google.com/spreadsheets/d/1abcXYZ123/edit#gid=0", conn)
     assert ss_id == "1abcXYZ123"
     assert kind == "url"
 

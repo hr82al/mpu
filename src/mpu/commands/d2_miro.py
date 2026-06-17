@@ -90,9 +90,7 @@ def _md_blocks(md: str) -> list[tuple[str, object]]:
                 rows.append(cells)
                 i += 1
             # удалить separator (вторая строка из ---/:: только)
-            if len(rows) > 1 and all(
-                _re.fullmatch(r"[-:\s]*", c) for c in rows[1]
-            ):
+            if len(rows) > 1 and all(_re.fullmatch(r"[-:\s]*", c) for c in rows[1]):
                 rows = [rows[0], *rows[2:]]
             if rows:
                 blocks.append(("table", rows))
@@ -151,9 +149,7 @@ _TABLE_MIN_COL_W = 80.0
 _TABLE_PAD = 24.0
 
 
-def _table_layout(
-    rows: list[list[str]], total_width: float
-) -> tuple[list[float], list[float]]:
+def _table_layout(rows: list[list[str]], total_width: float) -> tuple[list[float], list[float]]:
     """Вычислить размеры колонок и строк таблицы для оптимального fit.
 
     Колонки: ширина по самой длинной строке в любой ячейке колонки. Если сумма
@@ -278,8 +274,10 @@ def _render_markdown(
                             parent_id=frame_id,
                             kind="rectangle",
                             content_html=f"<p>{_html_inline(cell)}</p>",
-                            x=cx, y=cy,
-                            width=col_w[ci], height=row_h[ri],
+                            x=cx,
+                            y=cy,
+                            width=col_w[ci],
+                            height=row_h[ri],
                             fill="#e8eaf6" if is_header else "#ffffff",
                             border_width="1",
                             border_color="#9e9e9e",
@@ -369,9 +367,16 @@ def _build_frame_size(viewbox_w: float, viewbox_h: float) -> tuple[float, float,
 
 
 def _to_miro_xy(
-    sx: float, sy: float, sw: float, sh: float,
-    vb_x: float, vb_y: float, vb_w: float, vb_h: float,
-    frame_w: float, frame_h: float,
+    sx: float,
+    sy: float,
+    sw: float,
+    sh: float,
+    vb_x: float,
+    vb_y: float,
+    vb_w: float,
+    vb_h: float,
+    frame_w: float,
+    frame_h: float,
     scale: float,
 ) -> tuple[float, float, float, float]:
     """SVG top-left -> Miro shape center в системе координат «от top-left фрейма».
@@ -444,9 +449,7 @@ def main(
     # Под markdown-блоки (annotation/summary) расширяем высоту фрейма.
     # Высоту считаем точно по структуре блоков — таблица занимает row_count * row_h,
     # text-блок ~ visible_lines * line_h.
-    md_only_in_d2 = [
-        n for n, sh in d2_shapes.items() if sh.kind == "markdown" and n not in layout
-    ]
+    md_only_in_d2 = [n for n, sh in d2_shapes.items() if sh.kind == "markdown" and n not in layout]
     md_padding = 80.0
     md_blocks_per_name: dict[str, list[tuple[str, object]]] = {
         n: _md_blocks(d2_shapes[n].label) for n in md_only_in_d2
@@ -511,25 +514,21 @@ def main(
 
     # L-indent для card-колонок: контейнер с ребёнком `header` (class=card) +
     # другими card-детьми → подзадачи смещаем вправо относительно header.
-    # Header остаётся на левой границе колонки, подзадачи отступают на CARD_INDENT.
-    CARD_INDENT = 60.0
+    # Header остаётся на левой границе колонки, подзадачи отступают на card_indent.
+    card_indent = 60.0
     for cont in containers:
         depth = cont.count(".") + 1
         direct = [
-            n for n in layout
-            if n != cont and n.startswith(cont + ".") and n.count(".") == depth
+            n for n in layout if n != cont and n.startswith(cont + ".") and n.count(".") == depth
         ]
-        cards = [
-            n for n in direct
-            if (s := d2_shapes.get(n)) is not None and s.kind == "card"
-        ]
+        cards = [n for n in direct if (s := d2_shapes.get(n)) is not None and s.kind == "card"]
         header_name = f"{cont}.header"
         if header_name not in cards or len(cards) < 2:
             continue
         for st in cards:
             if st == header_name:
                 continue
-            layout[st].x += CARD_INDENT
+            layout[st].x += card_indent
         # пересчитать bbox контейнера, чтобы он покрыл смещённые подзадачи
         x1 = min(layout[c].x for c in direct)
         y1 = min(layout[c].y for c in direct)
@@ -550,8 +549,7 @@ def main(
     for cont in containers:
         depth = cont.count(".") + 1
         direct = [
-            n for n in layout
-            if n != cont and n.startswith(cont + ".") and n.count(".") == depth
+            n for n in layout if n != cont and n.startswith(cont + ".") and n.count(".") == depth
         ]
         if not direct:
             continue
@@ -575,7 +573,17 @@ def main(
         else:
             sx, sy, sw, sh = shape.x, shape.y, shape.w, shape.h
         mx, my, mw, mh = _to_miro_xy(
-            sx, sy, sw, sh, vb_x, vb_y, vb_w, vb_h, frame_w, frame_h, scale,
+            sx,
+            sy,
+            sw,
+            sh,
+            vb_x,
+            vb_y,
+            vb_w,
+            vb_h,
+            frame_w,
+            frame_h,
+            scale,
         )
 
         if kind == "markdown":
@@ -584,7 +592,8 @@ def main(
                 tid = client.create_text(
                     parent_id=frame.id,
                     content_html=f"<p>{_html(md_text)}</p>",
-                    x=mx, y=my,
+                    x=mx,
+                    y=my,
                     width=max(mw, 360),
                 )
                 name_to_id[name] = tid
@@ -616,7 +625,10 @@ def main(
                     parent_id=frame.id,
                     kind="round_rectangle",
                     content_html=f"<p>{_html(raw)}</p>",
-                    x=mx, y=my, width=mw, height=mh,
+                    x=mx,
+                    y=my,
+                    width=mw,
+                    height=mh,
                     fill=fill,
                     border_color=border_color,
                     border_width="3",
@@ -631,7 +643,7 @@ def main(
 
         fill = normalize_hex(shape.fill or (d2info.fill if d2info else None), "#ffffff")
         # Прозрачный/none stroke в d2 → border_width=0 (контейнер-обёртка без видимого outline).
-        stroke_raw = (d2info.stroke if d2info else None)
+        stroke_raw = d2info.stroke if d2info else None
         invisible_border = stroke_raw in ("transparent", "none")
         if invisible_border:
             border_width = "0"
@@ -645,7 +657,10 @@ def main(
                 parent_id=frame.id,
                 kind=to_miro_shape(kind),
                 content_html=f"<p>{_html(shape.label or name.split('.')[-1])}</p>",
-                x=mx, y=my, width=mw, height=mh,
+                x=mx,
+                y=my,
+                width=mw,
+                height=mh,
                 fill=fill,
                 fill_opacity="0.5" if is_container else "1.0",
                 border_color=border_color,
@@ -703,9 +718,7 @@ def main(
             else:
                 snap_start = snap_end = "bottom"
         try:
-            label_html = (
-                f'<span style="font-size:10px">{_html(e.label)}</span>' if e.label else ""
-            )
+            label_html = f'<span style="font-size:10px">{_html(e.label)}</span>' if e.label else ""
             client.create_connector(
                 src_id=src_id,
                 dst_id=dst_id,

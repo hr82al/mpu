@@ -95,9 +95,7 @@ def test_ddl_no_description_prints_ok(env: None, monkeypatch: pytest.MonkeyPatch
     assert cur.executed_sql == "UPDATE t SET x=1"
 
 
-def test_protected_blocks_dml_without_connect(
-    env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_protected_blocks_dml_without_connect(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(_n: int, **_kw: object) -> _FakeConn:
         raise AssertionError("must not connect when guard blocks")
 
@@ -263,9 +261,7 @@ def test_client_id_sets_search_path(env: None, monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(pg, "connect_to", _fake_connect)
     out, err = io.StringIO(), io.StringIO()
-    code = sql_runner.run_sql(
-        1, "SELECT 1", client_id=2190, verbose=True, stdout=out, stderr=err
-    )
+    code = sql_runner.run_sql(1, "SELECT 1", client_id=2190, verbose=True, stdout=out, stderr=err)
     assert code == 0
     assert cur.executed[0] == 'SET search_path TO "schema_2190", public'
     assert cur.executed[1] == "SELECT 1"

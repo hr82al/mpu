@@ -96,9 +96,7 @@ def make_app(
     def main(  # pyright: ignore[reportUnusedFunction]
         selector: Annotated[
             str,
-            typer.Argument(
-                help="client_id / spreadsheet_id substring / title substring / sl-N"
-            ),
+            typer.Argument(help="client_id / spreadsheet_id substring / title substring / sl-N"),
         ],
         date: Annotated[
             str | None,

@@ -105,7 +105,9 @@ def test_loader_by_seller_client(fake_env: None) -> None:
         methods=[("postings-reports", "ozonPostingsReports")],
         command_name="mpu-test",
     )
-    result = runner.invoke(app, ["postings-reports", "ACME", "--seller-client-id", "777", "--print"])
+    result = runner.invoke(
+        app, ["postings-reports", "ACME", "--seller-client-id", "777", "--print"]
+    )
     assert result.exit_code == 0, result.output
     inner = (
         "node cli service:ozonLoader ozonPostingsReports --client-id 2190 --seller-client-id 777"
@@ -158,7 +160,9 @@ def test_migrations_with_dataset(fake_env: None) -> None:
         methods=[("latest", "latest")],
         command_name="mpu-test",
     )
-    result = runner.invoke(app, ["latest", "ACME", "--dataset", "wb10xSalesFinReport_v1", "--print"])
+    result = runner.invoke(
+        app, ["latest", "ACME", "--dataset", "wb10xSalesFinReport_v1", "--print"]
+    )
     assert result.exit_code == 0, result.output
     inner = (
         "node cli service:datasetsMigrations latest "
@@ -220,9 +224,7 @@ def test_jobs_show_with_pattern_local(fake_env: None) -> None:
         command_name="mpu-test",
     )
     # `--local` / `--print` опции — callback-level, ДО positional selector.
-    result = runner.invoke(
-        app, ["--local", "--print", "sl-2", "show", "--pattern", "wbReports"]
-    )
+    result = runner.invoke(app, ["--local", "--print", "sl-2", "show", "--pattern", "wbReports"])
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (
         'sl-2-cli sh -c "node cli service:ozonJobs showJobs --pattern wbReports"'

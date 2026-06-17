@@ -42,9 +42,7 @@ def test_success_returns_result() -> None:
         return httpx.Response(200, json=_ok({"values": [[1]]}))
 
     client, _ = _make_client(httpx.MockTransport(handler))
-    assert client.call("spreadsheets/values/batchGet", ssId="X", ranges=["A1"]) == {
-        "values": [[1]]
-    }
+    assert client.call("spreadsheets/values/batchGet", ssId="X", ranges=["A1"]) == {"values": [[1]]}
 
 
 def test_5xx_retried_then_success() -> None:
@@ -105,9 +103,7 @@ def test_quota_in_app_error_retries_with_quota_delay() -> None:
 
 def test_app_error_non_quota_is_fatal() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200, json={"success": False, "error": 'Sheet "WAT" not found'}
-        )
+        return httpx.Response(200, json={"success": False, "error": 'Sheet "WAT" not found'})
 
     client, _ = _make_client(httpx.MockTransport(handler))
     with pytest.raises(SheetApiError) as exc:
@@ -228,9 +224,7 @@ def test_get_metadata_action() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         captured.append(json.loads(request.content))
-        return httpx.Response(
-            200, json=_ok({"sheets": [{"properties": {"title": "Sheet1"}}]})
-        )
+        return httpx.Response(200, json=_ok({"sheets": [{"properties": {"title": "Sheet1"}}]}))
 
     client, _ = _make_client(httpx.MockTransport(handler))
     result = client.get_metadata("SS_X")

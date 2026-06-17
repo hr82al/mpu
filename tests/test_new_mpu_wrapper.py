@@ -113,9 +113,7 @@ def test_missing_binary_returns_127_and_logs_error(
     assert "rc=127" in log_text
 
 
-def test_excerpt_truncates_long_output(
-    monkeypatch: pytest.MonkeyPatch, log_to_tmp: Path
-) -> None:
+def test_excerpt_truncates_long_output(monkeypatch: pytest.MonkeyPatch, log_to_tmp: Path) -> None:
     captured: dict[str, object] = {}
     long_stdout = "".join(f"line {i}\n" for i in range(100))
     _patch_popen(monkeypatch, captured, stdout=long_stdout, rc=0)

@@ -94,7 +94,7 @@ def load_data(
         ),
     ] = None,
 ) -> None:
-    """ozonLoader loadData с дефолтной 18-этапной sequence. По умолчанию выполняет через Portainer."""
+    """ozonLoader loadData с дефолтной 18-этапной sequence. По умолчанию — через Portainer."""
     wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
     resolved = resolve_selector(
         value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh

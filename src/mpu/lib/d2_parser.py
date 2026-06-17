@@ -57,7 +57,13 @@ def _unescape(s: str) -> str:
     `\\"`, `\\\\`). d2 в SVG рендерит их как реальные newline'ы (через tspan),
     поэтому при чтении напрямую из d2-source нужно сделать то же — иначе
     дальнейшая обработка label'а (partition по \\n, html-конвертация) не сработает."""
-    return s.replace("\\\\", "\x00").replace("\\n", "\n").replace("\\t", "\t").replace('\\"', '"').replace("\x00", "\\")
+    return (
+        s.replace("\\\\", "\x00")
+        .replace("\\n", "\n")
+        .replace("\\t", "\t")
+        .replace('\\"', '"')
+        .replace("\x00", "\\")
+    )
 
 
 def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:
@@ -224,9 +230,14 @@ def _b64dec(s: str) -> str | None:
 _PATH_TOKEN_RE = re.compile(r"([MmLlHhVvCcSsQqTtAaZz])|(-?\d+\.?\d*)")
 # Сколько чисел потребляет каждая команда (per command iteration после первой пары для M).
 _ARGS_PER_CMD: dict[str, int] = {
-    "M": 2, "L": 2, "T": 2,
-    "H": 1, "V": 1,
-    "C": 6, "S": 4, "Q": 4,
+    "M": 2,
+    "L": 2,
+    "T": 2,
+    "H": 1,
+    "V": 1,
+    "C": 6,
+    "S": 4,
+    "Q": 4,
     "A": 7,
 }
 
@@ -359,9 +370,7 @@ def parse_svg(
             continue
         # edge: name like `(src -&gt; dst)[N]` or `parent.(src -&gt; dst)[N]`
         if "-&gt;" in name or "->" in name:
-            m = re.match(
-                r"^(?:(.+)\.)?\(\s*(.+?)\s*-(?:&gt;|>)\s*(.+?)\s*\)(?:\[\d+\])?\s*$", name
-            )
+            m = re.match(r"^(?:(.+)\.)?\(\s*(.+?)\s*-(?:&gt;|>)\s*(.+?)\s*\)(?:\[\d+\])?\s*$", name)
             if not m:
                 continue
             prefix = m.group(1) or ""

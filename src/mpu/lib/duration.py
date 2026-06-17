@@ -20,9 +20,7 @@ def parse_since(s: str) -> int:
         return int(s)
     m = _SINCE_RE.fullmatch(s)
     if not m:
-        raise DurationParseError(
-            f"ожидается <число>{{s|m|h|d}} или unix-ts, получено {s!r}"
-        )
+        raise DurationParseError(f"ожидается <число>{{s|m|h|d}} или unix-ts, получено {s!r}")
     n = int(m.group(1))
     unit = m.group(2)
     return int(time.time()) - _SECONDS[unit] * n

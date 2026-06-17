@@ -78,9 +78,7 @@ def test_empty_sql_blocked() -> None:
         (" off ", False),
     ],
 )
-def test_is_protected(
-    value: str | None, expected: bool, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_is_protected(value: str | None, expected: bool, monkeypatch: pytest.MonkeyPatch) -> None:
     def _get(name: str, default: str | None = None) -> str | None:
         if name in ("protect", "PROTECT"):
             return value

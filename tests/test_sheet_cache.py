@@ -53,9 +53,7 @@ class _ScriptedTransport:
         action = body["action"]
         if action == "spreadsheets/get":
             assert self.metadata_response is not None, "metadata not scripted"
-            return httpx.Response(
-                200, json={"success": True, "result": self.metadata_response}
-            )
+            return httpx.Response(200, json={"success": True, "result": self.metadata_response})
         if action == "spreadsheets/values/batchGet":
             assert self.batch_get_responses, "batchGet not scripted"
             r = self.batch_get_responses.pop(0)
@@ -68,9 +66,7 @@ class _ScriptedTransport:
 
 
 @pytest.fixture
-def conn(
-    tmp_path: Path, bootstrap_db: Callable[[Path | str], None]
-) -> sqlite3.Connection:
+def conn(tmp_path: Path, bootstrap_db: Callable[[Path | str], None]) -> sqlite3.Connection:
     db = tmp_path / "mpu.db"
     bootstrap_db(db)
     c = store.open_store(db)
@@ -175,9 +171,7 @@ def test_first_read_misses_and_caches_whole_tab(
         _make_values_response("Sheet1!A1:C3", [["", "", ""], ["", "", ""], ["", "", ""]]),
     ]
 
-    results = get_ranges(
-        conn, api, SS_ID, [parse_range("Sheet1!A1:B2")], render="both"
-    )
+    results = get_ranges(conn, api, SS_ID, [parse_range("Sheet1!A1:B2")], render="both")
     assert len(results) == 1
     assert results[0].from_cache is False
     assert results[0].values == [["a", "b"], ["d", "e"]]
@@ -248,9 +242,7 @@ def test_refresh_bypasses_cache(
         _make_values_response("Sheet1!A1:A1", [["v2"]]),
         _make_values_response("Sheet1!A1:A1", [[""]]),
     ]
-    results = get_ranges(
-        conn, api, SS_ID, [parse_range("Sheet1!A1")], render="both", refresh=True
-    )
+    results = get_ranges(conn, api, SS_ID, [parse_range("Sheet1!A1")], render="both", refresh=True)
     assert results[0].from_cache is False
     assert results[0].values == [["v2"]]
 
@@ -262,9 +254,7 @@ def test_formatted_render_bypasses_whole_tab_cache(
     scripted.batch_get_responses = [
         _make_values_response("Sheet1!A1:B1", [["100,5 ₽", "30%"]]),
     ]
-    results = get_ranges(
-        conn, api, SS_ID, [parse_range("Sheet1!A1:B1")], render="formatted"
-    )
+    results = get_ranges(conn, api, SS_ID, [parse_range("Sheet1!A1:B1")], render="formatted")
     assert results[0].formatted == [["100,5 ₽", "30%"]]
     # В sheet_tabs ничего не сохранено.
     n = conn.execute("SELECT COUNT(*) AS n FROM sheet_tabs").fetchone()["n"]
@@ -288,9 +278,9 @@ def test_invalidate_tab_drops_cache_entry(conn: sqlite3.Connection) -> None:
     )
     conn.commit()
     invalidate_tab(conn, SS_ID, "Sheet1")
-    n = conn.execute(
-        "SELECT COUNT(*) AS n FROM sheet_tabs WHERE ss_id = ?", (SS_ID,)
-    ).fetchone()["n"]
+    n = conn.execute("SELECT COUNT(*) AS n FROM sheet_tabs WHERE ss_id = ?", (SS_ID,)).fetchone()[
+        "n"
+    ]
     assert n == 0
     n_meta = conn.execute(
         "SELECT COUNT(*) AS n FROM cache WHERE key = ?", (f"sheet:info:{SS_ID}",)
@@ -325,9 +315,7 @@ def test_sweep_expired_removes_old_entries(conn: sqlite3.Connection) -> None:
 
 def test_enforce_size_cap_evicts_oldest(conn: sqlite3.Connection) -> None:
     # Cap = 1MB, поставим три записи по 500KB каждая, общий объём 1.5MB.
-    conn.execute(
-        "INSERT INTO config (key, value) VALUES ('sheet.cache.max_total_mb', '1')"
-    )
+    conn.execute("INSERT INTO config (key, value) VALUES ('sheet.cache.max_total_mb', '1')")
     now = int(time.time())
     half_mb = 500 * 1024
     for i, age in enumerate([300, 200, 100]):  # самый старый — first
@@ -340,9 +328,7 @@ def test_enforce_size_cap_evicts_oldest(conn: sqlite3.Connection) -> None:
 
     evicted = enforce_size_cap(conn)
     assert evicted >= 1
-    total = conn.execute(
-        "SELECT COALESCE(SUM(size_bytes), 0) AS t FROM sheet_tabs"
-    ).fetchone()["t"]
+    total = conn.execute("SELECT COALESCE(SUM(size_bytes), 0) AS t FROM sheet_tabs").fetchone()["t"]
     assert total <= 1024 * 1024
 
 
@@ -370,9 +356,7 @@ def test_large_tab_bypasses_whole_tab_cache(
 ) -> None:
     """Tab с estimate > sheet.cache.max_tab_bytes → direct fetch, не кэшируем."""
     # Поставим лимит 1KB → 10×10 tab с est_bytes=10*10*16=1600 уже > 1024.
-    conn.execute(
-        "INSERT INTO config (key, value) VALUES ('sheet.cache.max_tab_bytes', '1024')"
-    )
+    conn.execute("INSERT INTO config (key, value) VALUES ('sheet.cache.max_tab_bytes', '1024')")
     conn.commit()
 
     scripted.metadata_response = _make_meta([("Big", 10, 10)])

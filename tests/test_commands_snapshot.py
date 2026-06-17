@@ -230,9 +230,12 @@ def test_process_domain_and_tags(fake_env: None) -> None:
         process.app,
         [
             "MODERNICA",
-            "--domain", "wb",
-            "--with-tags", "persistent",
-            "--with-tags", "wb",
+            "--domain",
+            "wb",
+            "--with-tags",
+            "persistent",
+            "--with-tags",
+            "wb",
             "--print",
         ],
     )
@@ -258,8 +261,10 @@ def test_process_exclude_datasets(fake_env: None) -> None:
         process.app,
         [
             "MODERNICA",
-            "--exclude-datasets", "wb10xUnit_v1",
-            "--exclude-datasets", "wb10xPromotions_v3",
+            "--exclude-datasets",
+            "wb10xUnit_v1",
+            "--exclude-datasets",
+            "wb10xPromotions_v3",
             "--print",
         ],
     )

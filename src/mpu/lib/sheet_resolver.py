@@ -152,9 +152,7 @@ def resolve(flag_value: str | None, conn: sqlite3.Connection) -> ResolvedSpreads
     for value, source in candidates:
         if value:
             ss_id, kind = parse_input(value, conn)
-            return ResolvedSpreadsheet(
-                ss_id=ss_id, source=source, kind=kind, original_input=value
-            )
+            return ResolvedSpreadsheet(ss_id=ss_id, source=source, kind=kind, original_input=value)
     raise SpreadsheetNotFoundError(
         "Spreadsheet не указан. Используй --spreadsheet/-s, "
         "export MPU_SS=<id-or-name>, или установи `sheet.default` в config."

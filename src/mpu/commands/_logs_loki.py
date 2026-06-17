@@ -188,7 +188,9 @@ def follow(
                 )
             except httpx.HTTPStatusError as e:
                 body = e.response.text.strip()[:200]
-                typer.echo(f"\n{command_name}: loki HTTP {e.response.status_code}: {body}", err=True)
+                typer.echo(
+                    f"\n{command_name}: loki HTTP {e.response.status_code}: {body}", err=True
+                )
                 continue
             except httpx.HTTPError as e:
                 typer.echo(f"\n{command_name}: loki error: {e}", err=True)
@@ -205,7 +207,7 @@ def follow(
 
 
 def is_direct_host(selector: str) -> bool:
-    """True если selector — прямой host-паттерн (sl-N / wb-N / dt-N / wb-clusters / wb-positions)."""
+    """selector — прямой host-паттерн (sl-N / wb-N / dt-N / wb-clusters / wb-positions)?"""
     return bool(_DIRECT_HOST_RE.fullmatch(selector))
 
 

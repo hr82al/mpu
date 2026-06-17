@@ -110,8 +110,16 @@ def _run_pg_tool(argv: list[str], conn: PgConn, label: str, heartbeat: float = 1
 def _pg_dump_argv(conn: PgConn, extra: list[str]) -> list[str]:
     return [
         "pg_dump",
-        "-h", conn.host, "-p", conn.port, "-U", conn.user, "-d", conn.dbname,
-        "-Fc", "--verbose",
+        "-h",
+        conn.host,
+        "-p",
+        conn.port,
+        "-U",
+        conn.user,
+        "-d",
+        conn.dbname,
+        "-Fc",
+        "--verbose",
         *extra,
     ]
 
@@ -119,7 +127,14 @@ def _pg_dump_argv(conn: PgConn, extra: list[str]) -> list[str]:
 def _pg_restore_argv(conn: PgConn, extra: list[str], path: Path) -> list[str]:
     return [
         "pg_restore",
-        "-h", conn.host, "-p", conn.port, "-U", conn.user, "-d", conn.dbname,
+        "-h",
+        conn.host,
+        "-p",
+        conn.port,
+        "-U",
+        conn.user,
+        "-d",
+        conn.dbname,
         "--verbose",
         *extra,
         str(path),

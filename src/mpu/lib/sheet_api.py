@@ -58,8 +58,7 @@ def resolve_webapp_url() -> str:
     url = env.get("WB_PLUS_WEB_APP_URL")
     if not url:
         raise SheetApiError(
-            "WB_PLUS_WEB_APP_URL не задан. "
-            f"Добавь в {env.env_path()} или export в shell."
+            f"WB_PLUS_WEB_APP_URL не задан. Добавь в {env.env_path()} или export в shell."
         )
     return url
 
@@ -195,8 +194,7 @@ class WebappClient:
                 err = str(data.get("error", "unknown error"))
                 if "quota" in err.lower():
                     logger.warning(
-                        f"sheet_api {action}: quota in body, "
-                        f"sleeping {self.quota_delay_seconds}s"
+                        f"sheet_api {action}: quota in body, sleeping {self.quota_delay_seconds}s"
                     )
                     self._sleeper(self.quota_delay_seconds)
                     continue
@@ -211,8 +209,7 @@ class WebappClient:
             return result if isinstance(result, dict) else {"value": result}
 
         raise SheetApiError(
-            f"{action}: исчерпан лимит попыток ({self.max_retries + 1}). "
-            f"Last error: {last_error}",
+            f"{action}: исчерпан лимит попыток ({self.max_retries + 1}). Last error: {last_error}",
             action=action,
         )
 

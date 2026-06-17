@@ -17,8 +17,7 @@ from mpu.lib import portainer, portainer_discover, servers, store
 def env_with_portainer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     env = tmp_path / ".env"
     env.write_text(
-        "PORTAINER_API_KEY=ptr_test\n"
-        "PORTAINER_URL=https://example:9443\n",
+        "PORTAINER_API_KEY=ptr_test\nPORTAINER_URL=https://example:9443\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(servers, "ENV_PATH", env)
@@ -224,8 +223,7 @@ def test_portainer_target_falls_back_to_env(
     """Если в SQLite нет sl-N, а в .env есть legacy `sl_N_portainer` — используем его."""
     env = tmp_path / ".env"
     env.write_text(
-        "PORTAINER_API_KEY=x\n"
-        "sl_99_portainer=https://legacy:9443/77\n",
+        "PORTAINER_API_KEY=x\nsl_99_portainer=https://legacy:9443/77\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(servers, "ENV_PATH", env)

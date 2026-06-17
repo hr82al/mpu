@@ -204,7 +204,7 @@ def test_print_server_is_client_side(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     _patch(monkeypatch, tmp_path, api=None)
     result = runner.invoke(_cmd(), ["--server", "wb-2", "--print"])
     assert result.exit_code == 0, result.output
-    assert '-d \'{"filter": {}}\'' in result.output  # server НЕ в теле
+    assert "-d '{\"filter\": {}}'" in result.output  # server НЕ в теле
     assert 'select(.server == "wb-2")' in result.output  # клиентский фильтр-подсказка
 
 

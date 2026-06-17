@@ -20,7 +20,9 @@ from mpu.commands._portainer_resolve import resolve_portainer
 from mpu.lib import store
 
 COMMAND_NAME = "mpu ps"
-COMMAND_SUMMARY = "Список контейнеров: без селектора — все из кэша; с sl-N — live запрос к Portainer"
+COMMAND_SUMMARY = (
+    "Список контейнеров: без селектора — все из кэша; с sl-N — live запрос к Portainer"
+)
 
 
 app = typer.Typer(
@@ -33,8 +35,10 @@ app = typer.Typer(
 def main(
     selector: Annotated[
         str | None,
-        typer.Argument(help="sl-N либо client_id / spreadsheet_id / title (через mpu search). "
-                       "Без аргумента — все контейнеры из кэша."),
+        typer.Argument(
+            help="sl-N либо client_id / spreadsheet_id / title (через mpu search). "
+            "Без аргумента — все контейнеры из кэша."
+        ),
     ] = None,
     name_filter: Annotated[
         str | None,

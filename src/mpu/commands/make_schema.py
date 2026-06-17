@@ -69,9 +69,17 @@ def main(
     n = resolved.server_number if server is not None else 1
     container = f"mp-sl-{n}-cli"
     cmd = [
-        "docker", "exec", container,
-        "node", "cli", "service:clientsMigrations", "init",
-        "--client-id", str(cid), "--server", f"sl-{n}",
+        "docker",
+        "exec",
+        container,
+        "node",
+        "cli",
+        "service:clientsMigrations",
+        "init",
+        "--client-id",
+        str(cid),
+        "--server",
+        f"sl-{n}",
     ]
 
     if print_mode:

@@ -93,9 +93,7 @@ def test_wb_unit_manual_data_dry_emits_expected_sql(
         return 0
 
     monkeypatch.setattr(sql_runner, "run_sql", fake_run)
-    res = runner.invoke(
-        backup_wb_unit_manual_data.app, ["1311", "--date", "20260322", "--dry"]
-    )
+    res = runner.invoke(backup_wb_unit_manual_data.app, ["1311", "--date", "20260322", "--dry"])
     assert res.exit_code == 0, res.stderr
     assert captured["server"] == 1
     assert captured["dry"] is True
@@ -178,9 +176,7 @@ def test_backup_sl_n_selector_requires_schema_id(
     assert "cannot derive client_id" in res.stderr
 
 
-def test_backup_sl_n_selector_with_schema_id(
-    env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_backup_sl_n_selector_with_schema_id(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     """`sl-N` + --schema-id 999 — резолв сервера без mpu search, schema_999."""
     captured: dict[str, object] = {}
 

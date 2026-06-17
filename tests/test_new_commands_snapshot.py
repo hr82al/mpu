@@ -88,7 +88,10 @@ def _ssh(inner: str) -> str:
 WB_LOADER_CASES: list[tuple[list[str], str]] = [
     (["reports", "MODERNICA", "--sid", "abcd", "--print"], "wbReports"),
     (["cards", "MODERNICA", "--sid", "abcd", "--print"], "wbCards"),
-    (["adv-auto-keywords-stats", "MODERNICA", "--sid", "abcd", "--print"], "wbAdvAutoKeywordsStats"),
+    (
+        ["adv-auto-keywords-stats", "MODERNICA", "--sid", "abcd", "--print"],
+        "wbAdvAutoKeywordsStats",
+    ),
     (["adv-fullstats", "MODERNICA", "--sid", "abcd", "--print"], "wbAdvFullstats"),
     (["search-texts", "MODERNICA", "--sid", "abcd", "--print"], "wbSearchTexts"),
     (["analytics-by-period", "MODERNICA", "--sid", "abcd", "--print"], "wbAnalyticsByPeriod"),
@@ -120,7 +123,15 @@ def test_wb_unit_calc_get_unit_data_ssh(fake_env: None) -> None:
     _ = fake_env
     result = runner.invoke(
         wb_unit_calc.app,
-        ["get-unit-data-by-date-nm-id", "MODERNICA", "--nm-id", "139", "--date", "2026-04-01", "--print"],
+        [
+            "get-unit-data-by-date-nm-id",
+            "MODERNICA",
+            "--nm-id",
+            "139",
+            "--date",
+            "2026-04-01",
+            "--print",
+        ],
     )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh(
@@ -132,7 +143,9 @@ def test_wb_unit_calc_get_unit_data_ssh(fake_env: None) -> None:
 # ── wb_unit_proto_new ────────────────────────────────────────────────────────
 def test_wb_unit_proto_new_copy_ssh(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(wb_unit_proto_new.app, ["copy-data-from-old-table", "MODERNICA", "--print"])
+    result = runner.invoke(
+        wb_unit_proto_new.app, ["copy-data-from-old-table", "MODERNICA", "--print"]
+    )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh(
         "node cli service:wbUnitProtoNew copyDataFromOldTable --client-id 2190"
@@ -149,8 +162,14 @@ def test_iu_wb_get_source_data_ssh(fake_env: None) -> None:
 
 # ── ozon_loader ──────────────────────────────────────────────────────────────
 OZON_LOADER_CASES: list[tuple[list[str], str]] = [
-    (["postings-reports", "MODERNICA", "--seller-client-id", "777", "--print"], "ozonPostingsReports"),
-    (["performance-reports", "MODERNICA", "--seller-client-id", "777", "--print"], "ozonPerformanceReports"),
+    (
+        ["postings-reports", "MODERNICA", "--seller-client-id", "777", "--print"],
+        "ozonPostingsReports",
+    ),
+    (
+        ["performance-reports", "MODERNICA", "--seller-client-id", "777", "--print"],
+        "ozonPerformanceReports",
+    ),
     (["search-promo", "MODERNICA", "--seller-client-id", "777", "--print"], "ozonSearchPromo"),
     (
         ["campaign-daily-statistics", "MODERNICA", "--seller-client-id", "777", "--print"],
@@ -217,10 +236,14 @@ def test_ozon_recalculate_with_ref_date_and_logs_level(fake_env: None) -> None:
         recalculate_ozon_expenses.app,
         [
             "MODERNICA",
-            "--date-from", "2025-01-01",
-            "--date-to", "2025-01-31",
-            "--ref-date", "2025-06-17",
-            "--logs-level", "debug",
+            "--date-from",
+            "2025-01-01",
+            "--date-to",
+            "2025-01-31",
+            "--ref-date",
+            "2025-06-17",
+            "--logs-level",
+            "debug",
             "--print",
         ],
     )
@@ -235,9 +258,12 @@ def test_ozon_recalculate_ref_fields_multiple(fake_env: None) -> None:
         recalculate_ozon_expenses.app,
         [
             "MODERNICA",
-            "--date-from", "2025-01-01",
-            "--ref-fields", "sebes_rub",
-            "--ref-fields", "markirovka_rub",
+            "--date-from",
+            "2025-01-01",
+            "--ref-fields",
+            "sebes_rub",
+            "--ref-fields",
+            "markirovka_rub",
             "--print",
         ],
     )
@@ -261,8 +287,18 @@ def test_ozon_recalculate_skus_multiple(fake_env: None) -> None:
     _ = fake_env
     result = runner.invoke(
         recalculate_ozon_expenses.app,
-        ["MODERNICA", "--date-from", "2025-01-01",
-         "--skus", "1", "--skus", "2", "--skus", "4", "--print"],
+        [
+            "MODERNICA",
+            "--date-from",
+            "2025-01-01",
+            "--skus",
+            "1",
+            "--skus",
+            "2",
+            "--skus",
+            "4",
+            "--print",
+        ],
     )
     assert result.exit_code == 0, result.output
     # Эмитим JSON-литерал — sl-back-парсер распознаёт через tryToParseJson
@@ -287,10 +323,14 @@ def test_ozon_recalculate_verbose_prints_inner_to_stderr(fake_env: None) -> None
         recalculate_ozon_expenses.app,
         [
             "MODERNICA",
-            "--date-from", "2025-01-01",
-            "--date-to", "2025-01-31",
-            "--ref-date", "2025-06-17",
-            "--skus", "5",
+            "--date-from",
+            "2025-01-01",
+            "--date-to",
+            "2025-01-31",
+            "--ref-date",
+            "2025-06-17",
+            "--skus",
+            "5",
             "-v",
             "--print",
         ],
@@ -354,7 +394,9 @@ def test_clients_migrations_up_with_name_forced(fake_env: None) -> None:
 
 def test_clients_migrations_latest_all_ssh(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(clients_migrations.app, ["latest-all", "sl-2", "--type", "wb", "--print"])
+    result = runner.invoke(
+        clients_migrations.app, ["latest-all", "sl-2", "--type", "wb", "--print"]
+    )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh("node cli service:clientsMigrations latestAll --type wb")
 
@@ -389,7 +431,9 @@ def test_app_migrations_ssh(fake_env: None, sub: str) -> None:
 # ── ss_load ──────────────────────────────────────────────────────────────────
 def test_ss_load_ssh(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(ss_load.app, ["MODERNICA", "--dataset", "wb10x_promotions_v3", "--print"])
+    result = runner.invoke(
+        ss_load.app, ["MODERNICA", "--dataset", "wb10x_promotions_v3", "--print"]
+    )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh(
         "node cli service:ssLoader load --dataset wb10x_promotions_v3 "
@@ -448,7 +492,13 @@ def test_data_loader_find_candidate_ssh(fake_env: None) -> None:
     _ = fake_env
     result = runner.invoke(
         data_loader.app,
-        ["find-candidate", "MODERNICA", "--sids", "41a47777-e1e3-41ca-9708-d9656be3deb7", "--print"],
+        [
+            "find-candidate",
+            "MODERNICA",
+            "--sids",
+            "41a47777-e1e3-41ca-9708-d9656be3deb7",
+            "--print",
+        ],
     )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == _ssh(
@@ -468,7 +518,9 @@ def test_data_loader_jobs_show_ssh(fake_env: None) -> None:
 # ── --local sanity (по одному на category) ───────────────────────────────────
 def test_wb_loader_local(fake_env: None) -> None:
     _ = fake_env
-    result = runner.invoke(wb_loader.app, ["reports", "MODERNICA", "--sid", "abcd", "--print", "--local"])
+    result = runner.invoke(
+        wb_loader.app, ["reports", "MODERNICA", "--sid", "abcd", "--print", "--local"]
+    )
     assert result.exit_code == 0, result.output
     assert result.stdout.strip() == (
         'sl-2-cli sh -c "node cli service:wbLoader wbReports --client-id 2190 --sid abcd"'

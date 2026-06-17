@@ -116,9 +116,7 @@ def parse_range(range_str: str, *, default_tab: str | None = None) -> RangeRef:
         span = s
     elif ":" in s or _CELL_STRICT_RE.match(s):
         # Похоже на span (A1, A1:B2, 1:5), но tab не задан → ошибка.
-        raise ValueError(
-            f"Range '{range_str}' has no tab name and no default tab provided"
-        )
+        raise ValueError(f"Range '{range_str}' has no tab name and no default tab provided")
     else:
         # Без `!`, без default_tab, не похоже на span → весь input это tab name.
         tab = s
@@ -225,9 +223,7 @@ def enforce_size_cap(conn: sqlite3.Connection) -> int:
 
 def invalidate_tab(conn: sqlite3.Connection, ss_id: str, tab_name: str) -> None:
     try:
-        conn.execute(
-            "DELETE FROM sheet_tabs WHERE ss_id = ? AND tab_name = ?", (ss_id, tab_name)
-        )
+        conn.execute("DELETE FROM sheet_tabs WHERE ss_id = ? AND tab_name = ?", (ss_id, tab_name))
         conn.execute("DELETE FROM cache WHERE key = ?", (f"sheet:info:{ss_id}",))
     except sqlite3.OperationalError:
         return
@@ -276,9 +272,7 @@ def _unpack(blob: bytes) -> TabPayload:
     )
 
 
-def _load_tab(
-    conn: sqlite3.Connection, ss_id: str, tab_name: str
-) -> tuple[TabPayload, int] | None:
+def _load_tab(conn: sqlite3.Connection, ss_id: str, tab_name: str) -> tuple[TabPayload, int] | None:
     """Возвращает (payload, fetched_at) если запись свежее TTL, иначе None."""
     try:
         row = conn.execute(
@@ -389,9 +383,7 @@ def _tab_info(tabs: list[TabInfo], name: str) -> TabInfo | None:
 # ────────────────────────────────────────────────────────────────────────────
 
 
-def slice_layer(
-    layer: list[list[Any]], ref: RangeRef, dims: tuple[int, int]
-) -> list[list[Any]]:
+def slice_layer(layer: list[list[Any]], ref: RangeRef, dims: tuple[int, int]) -> list[list[Any]]:
     """Вырезать прямоугольник [r1..r2] × [c1..c2] из layer, паддить '' до прямоугольника."""
     rows_total, cols_total = dims
     r1 = max(1, ref.row1) if ref.row1 is not None else 1
@@ -437,11 +429,7 @@ def _pad_layer(layer: list[list[Any]], rows: int, cols: int) -> list[list[Any]]:
     out: list[list[Any]] = []
     for r in range(rows):
         src = layer[r] if r < len(layer) else []
-        row = (
-            list(src) + [""] * (cols - len(src))
-            if len(src) < cols
-            else list(src[:cols])
-        )
+        row = list(src) + [""] * (cols - len(src)) if len(src) < cols else list(src[:cols])
         out.append(row)
     return out
 
@@ -514,9 +502,7 @@ def get_ranges(
                 f"sheet_cache: tab '{ref.tab}' too large for whole-tab cache "
                 f"(~{est_bytes // 1024}KB > {max_bytes // 1024}KB), direct fetch"
             )
-            results.extend(
-                _fetch_uncached(api, ss_id, [ref], value_render=_value_render(render))
-            )
+            results.extend(_fetch_uncached(api, ss_id, [ref], value_render=_value_render(render)))
             continue
 
         loaded = None if refresh else _load_tab(conn, ss_id, ref.tab)
@@ -528,9 +514,7 @@ def get_ranges(
             payload, _ = loaded
             from_cache = True
 
-        results.append(
-            _slice_to_result(ref, payload, render=render, from_cache=from_cache)
-        )
+        results.append(_slice_to_result(ref, payload, render=render, from_cache=from_cache))
 
     return results
 
@@ -549,14 +533,10 @@ def _slice_to_result(
 ) -> FetchResult:
     range_str = format_range_a1(ref.tab, ref, payload.dims)
     values = (
-        slice_layer(payload.values, ref, payload.dims)
-        if render in ("values", "both")
-        else None
+        slice_layer(payload.values, ref, payload.dims) if render in ("values", "both") else None
     )
     formulas = (
-        slice_layer(payload.formulas, ref, payload.dims)
-        if render in ("formulas", "both")
-        else None
+        slice_layer(payload.formulas, ref, payload.dims) if render in ("formulas", "both") else None
     )
     return FetchResult(
         range=range_str,
@@ -571,9 +551,7 @@ def _fetch_uncached(
     api: WebappClient, ss_id: str, refs: list[RangeRef], *, value_render: str
 ) -> list[FetchResult]:
     """Прямой batchGet без кэширования — для `--render formatted` и больших tabs."""
-    range_strs = [
-        _ref_to_string(r) for r in refs
-    ]
+    range_strs = [_ref_to_string(r) for r in refs]
     resp = api.batch_get(ss_id, range_strs, value_render=value_render)
     value_ranges = resp.get("valueRanges") or []
     out: list[FetchResult] = []

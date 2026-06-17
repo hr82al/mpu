@@ -53,7 +53,9 @@ _RESET_PATH_TMPL = "/admin/wb-loader/loaders/{sid}/cards/v1/reset"
 _RESET_BODY: dict[str, object] = {"state": {"cursor": None}}
 
 # UUID-форма WB sid (8-4-4-4-12 hex).
-_SID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+_SID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 def _looks_like_sid(value: str) -> bool:

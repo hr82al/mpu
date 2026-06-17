@@ -65,7 +65,8 @@ def _register_one(
         print_mode: Annotated[
             bool,
             typer.Option(
-                "--print", "-p",
+                "--print",
+                "-p",
                 help="Печатать обёртку в stdout + clipboard, не выполнять",
             ),
         ] = False,

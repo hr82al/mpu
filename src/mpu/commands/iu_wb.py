@@ -184,9 +184,7 @@ def _read_unit_formulas(ss_id: str, i_cell: str, s_cell: str) -> tuple[str, str]
     """Прямой batchGet двух ячеек с FORMULA-render (без whole-tab кэша — он медленный на UNIT)."""
     try:
         api = WebappClient.from_env()
-        resp = api.batch_get(
-            ss_id, [f"UNIT!{i_cell}", f"UNIT!{s_cell}"], value_render="FORMULA"
-        )
+        resp = api.batch_get(ss_id, [f"UNIT!{i_cell}", f"UNIT!{s_cell}"], value_render="FORMULA")
     except SheetApiError as e:
         typer.echo(f"{COMMAND_NAME}: sheet: {e}", err=True)
         raise typer.Exit(1) from e

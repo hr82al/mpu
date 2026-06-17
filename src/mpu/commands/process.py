@@ -97,7 +97,7 @@ def _complete_sku(ctx: typer.Context, incomplete: str) -> list[str]:
         return []
     try:
         server_number, candidates = resolve_server(selector, server_override=None)
-    except Exception:  # noqa: BLE001 — TAB completion must not raise
+    except Exception:
         return []
     cids = {cid for c in candidates if isinstance(cid := c.get("client_id"), int)}
     if len(cids) != 1:
@@ -109,11 +109,10 @@ def _complete_sku(ctx: typer.Context, incomplete: str) -> list[str]:
         f"WHERE sku::text LIKE %s ORDER BY sku LIMIT 50"
     )
     try:
-        with pg.connect_to(server_number, timeout=2) as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql, (safe_prefix + "%",))
-                return [str(row[0]) for row in cur.fetchall()]
-    except Exception:  # noqa: BLE001
+        with pg.connect_to(server_number, timeout=2) as conn, conn.cursor() as cur:
+            cur.execute(sql, (safe_prefix + "%",))
+            return [str(row[0]) for row in cur.fetchall()]
+    except Exception:
         return []
 
 

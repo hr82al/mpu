@@ -99,7 +99,7 @@ def pick_wrapper(*, print_mode: bool, local: bool) -> tuple[Wrapper, bool]:
     Матрица:
     - `--print --local` → `("local", False)` — печать `sl-N-cli sh -c "..."`, ssh lookup не нужен.
     - `--print` без `--local` → `("ssh", True)` — печать ssh-обёртки, нужен sl_ip / PG_MY_USER_NAME.
-    - без `--print` (дефолт) → `("portainer", False)` — exec через Portainer API, ssh lookup не нужен.
+    - без `--print` (дефолт) → `("portainer", False)` — exec через Portainer, ssh lookup не нужен.
     """
     if print_mode and local:
         return "local", False
@@ -341,7 +341,9 @@ def complete_selector(incomplete: str) -> list[tuple[str, str]]:
 
 
 def attach_selector_callback(*, app: typer.Typer, command_name: str) -> None:
-    """App-level callback: positional `selector` + `--local` / `--print`. Subcommands читают `ctx.obj`.
+    """App-level callback: positional `selector` + `--local` / `--print`.
+
+    Subcommands читают `ctx.obj`.
 
     Поведение:
       - `<bin> <selector> <subcommand> [args]` — селектор перед subcommand.

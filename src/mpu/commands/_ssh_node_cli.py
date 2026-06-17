@@ -107,7 +107,8 @@ def make_app(
             print_mode: Annotated[
                 bool,
                 typer.Option(
-                    "--print", "-p",
+                    "--print",
+                    "-p",
                     help="Печатать обёртку в stdout + clipboard, не выполнять",
                 ),
             ] = False,
@@ -173,7 +174,8 @@ def make_app(
             print_mode: Annotated[
                 bool,
                 typer.Option(
-                    "--print", "-p",
+                    "--print",
+                    "-p",
                     help="Печатать обёртку в stdout + clipboard, не выполнять",
                 ),
             ] = False,
