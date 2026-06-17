@@ -146,6 +146,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run 
 | ---------- | ------ | ---------- |
 | `mpu version` | `cli.py` | версия пакета |
 | `mpu init` | `cli.py` | bootstrap SQLite + Portainer/Loki discovery |
+| `mpu mp-init` | `commands/mp_init.py` | поднять core локального dev-стека (mp-config-local): создать `mp-shared-net` + `up -d --force-recreate` для nats/sl-0/sl-1/nginx/dt-host (все сервисы, в т.ч. простаивающие `cli`/`dt-host-cli`); образы НЕ собирает (стоп с подсказкой при отсутствии `mp-back`/`mp-pg`/`mp-dt:local`); `--dry-run`; ENV `MPU_MP_CONFIG_LOCAL` |
 | `mpu search` | `commands/search.py` | поиск клиента / spreadsheet в локальном SQLite-кэше |
 | `mpu update` | `commands/update.py` | синк `~/.config/mpu/mpu.db` со всех PG-серверов |
 | `mpu sql` | `commands/sql.py` | выполнить SQL на удалённом PG по селектору |
