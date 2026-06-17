@@ -581,3 +581,25 @@ class GitLabClient:
             f"{self._mr_path(project, iid)}/discussions/{discussion_id}",
             params={"resolved": "true" if resolved else "false"},
         )
+
+    def set_description(self, project: str, iid: int, description: str) -> MrInfo:
+        """PUT …/merge_requests/:iid — заменить описание MR; возвращает обновлённый MR."""
+        res = self._request("PUT", self._mr_path(project, iid), data={"description": description})
+        return parse_mr_info(cast("dict[str, Any]", res), project)
+
+    def create_mr(
+        self,
+        project: str,
+        source_branch: str,
+        target_branch: str,
+        title: str,
+        description: str | None = None,
+    ) -> MrInfo:
+        """POST …/merge_requests — создать MR source_branch → target_branch."""
+        data = {"source_branch": source_branch, "target_branch": target_branch, "title": title}
+        if description:
+            data["description"] = description
+        res = self._request(
+            "POST", f"/projects/{encode_project(project)}/merge_requests", data=data
+        )
+        return parse_mr_info(cast("dict[str, Any]", res), project)
