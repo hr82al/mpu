@@ -47,7 +47,11 @@ class MrInfo:
     title: str
     state: str
     source_branch: str
+    target_branch: str
     web_url: str
+    author_name: str
+    author_username: str
+    description: str
     diff_refs: DiffRefs | None  # None у MR без коммитов
 
 
@@ -262,6 +266,25 @@ def format_ranges(ranges: list[tuple[int, int]]) -> str:
     return ", ".join(f"{a}" if a == b else f"{a}-{b}" for a, b in ranges)
 
 
+def diff_stat(diff_text: str) -> tuple[int, int]:
+    """(added, removed) — число +/- строк в unified-diff файла (для сводки `mr files`)."""
+    lines = parse_unified_diff(diff_text)
+    added = sum(1 for dl in lines if dl.kind == "added")
+    removed = sum(1 for dl in lines if dl.kind == "removed")
+    return added, removed
+
+
+def file_status(file_diff: FileDiff) -> str:
+    """Статус файла в MR одной буквой: A(dded)/D(eleted)/R(enamed)/M(odified)."""
+    if file_diff.new_file:
+        return "A"
+    if file_diff.deleted_file:
+        return "D"
+    if file_diff.renamed_file:
+        return "R"
+    return "M"
+
+
 def build_position_params(
     diff_refs: DiffRefs, file_diff: FileDiff, target: DiffLine
 ) -> dict[str, str]:
@@ -406,13 +429,19 @@ def parse_mr_info(raw: dict[str, Any], project: str) -> MrInfo:
         base, start, head = refs.get("base_sha"), refs.get("start_sha"), refs.get("head_sha")
         if base and start and head:
             diff_refs = DiffRefs(base_sha=str(base), start_sha=str(start), head_sha=str(head))
+    author_raw = raw.get("author")
+    author = cast("dict[str, Any]", author_raw) if isinstance(author_raw, dict) else {}
     return MrInfo(
         project=project,
         iid=int(raw["iid"]),
         title=str(raw.get("title") or ""),
         state=str(raw.get("state") or ""),
         source_branch=str(raw.get("source_branch") or ""),
+        target_branch=str(raw.get("target_branch") or ""),
         web_url=str(raw.get("web_url") or ""),
+        author_name=str(author.get("name") or ""),
+        author_username=str(author.get("username") or ""),
+        description=str(raw.get("description") or ""),
         diff_refs=diff_refs,
     )
 
@@ -496,9 +525,19 @@ class GitLabClient:
         return [parse_mr_info(raw, project) for raw in res]
 
     def list_diffs(self, project: str, iid: int) -> list[FileDiff]:
-        """GET …/diffs — изменённые файлы MR (пагинация: дефолтный per_page мал)."""
-        res = self._get_paginated(f"{self._mr_path(project, iid)}/diffs")
-        return [parse_file_diff(raw) for raw in res]
+        """GET …/changes?access_raw_diffs=true — изменённые файлы MR с полным diff.
+
+        Не `/diffs`: тот в крупных MR отдаёт часть файлов свёрнутыми (`collapsed:true`,
+        пустой `diff`), из-за чего терялись и сам дифф, и привязка инлайн-комментария к
+        строке такого файла. `/changes` с raw-диффами возвращает всё одним ответом (без
+        пагинации) и без свёртки."""
+        res = self._request(
+            "GET",
+            f"{self._mr_path(project, iid)}/changes",
+            params={"access_raw_diffs": "true"},
+        )
+        payload = cast("dict[str, Any]", res) if isinstance(res, dict) else {}
+        return [parse_file_diff(raw) for raw in _dict_items(payload.get("changes"))]
 
     def list_discussions(self, project: str, iid: int) -> list[Discussion]:
         """GET …/discussions — все треды MR."""

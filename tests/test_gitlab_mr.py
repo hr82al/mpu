@@ -18,7 +18,9 @@ from mpu.lib.gitlab_mr import (
     NotePosition,
     build_position_params,
     commentable_ranges,
+    diff_stat,
     encode_project,
+    file_status,
     filter_discussions,
     find_diff_line,
     format_ranges,
@@ -156,6 +158,56 @@ def test_find_diff_line_sides():
     assert find_diff_line(lines, line=10, side="new") == DiffLine("context", 10, 10)
     assert find_diff_line(lines, line=11, side="old") == DiffLine("removed", 11, None)
     assert find_diff_line(lines, line=999, side="new") is None
+
+
+def test_diff_stat_counts_added_removed():
+    # 1 removed (-a), 1 added (+b), context (c) не считается; во втором hunk'е +y.
+    diff = "@@ -1,2 +1,2 @@\n-a\n+b\n c\n@@ -100,1 +100,2 @@\n x\n+y\n"
+    assert diff_stat(diff) == (2, 1)
+    assert diff_stat("@@ -0,0 +1,3 @@\n+one\n+two\n+three\n") == (3, 0)
+    assert diff_stat("") == (0, 0)
+
+
+def test_file_status_letters():
+    def fd(*, new: bool = False, deleted: bool = False, renamed: bool = False) -> FileDiff:
+        return FileDiff(
+            old_path="a",
+            new_path="b",
+            diff="",
+            new_file=new,
+            renamed_file=renamed,
+            deleted_file=deleted,
+        )
+
+    assert file_status(fd(new=True)) == "A"
+    assert file_status(fd(deleted=True)) == "D"
+    assert file_status(fd(renamed=True)) == "R"
+    assert file_status(fd()) == "M"
+
+
+def test_parse_mr_info_fields():
+    raw = {
+        "iid": 555,
+        "title": "t",
+        "state": "opened",
+        "source_branch": "feat/x",
+        "target_branch": "dev",
+        "web_url": "https://x/-/merge_requests/555",
+        "author": {"name": "Артём Козырев", "username": "akozirev"},
+        "description": "тело MR",
+    }
+    info = parse_mr_info(raw, "wb/sw-front")
+    assert info.target_branch == "dev"
+    assert info.author_username == "akozirev"
+    assert info.author_name == "Артём Козырев"
+    assert info.description == "тело MR"
+
+
+def test_parse_mr_info_missing_fields_default_empty():
+    info = parse_mr_info({"iid": 1, "title": "t"}, "wb/sw-front")
+    assert info.target_branch == ""
+    assert info.author_username == ""
+    assert info.description == ""
 
 
 def test_commentable_ranges_and_format():
