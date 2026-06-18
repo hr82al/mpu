@@ -108,6 +108,8 @@ tests/                      # test_<module>.py, выровнены по моду
 
 6. **Никаких magic env без документации.** Любая env-переменная, которую читает код, упомянута в `--help` команды или в общем help.
 
+7. **Read/write split.** Команда, мутирующая удалённое состояние, обязана иметь enforced read-only вариант (read → `permissions.allow`, write → `permissions.ask`); `run-js`/`ssh` — исключения (только подтверждение, RO-версии нет). Образец — `mpu sql` → `mpu sql-ro`. Подробности — skill `conv-mpu-readonly-split`.
+
 ## Gate перед сдачей
 
 Прежде чем сказать «готово», прогнать локально:
@@ -149,7 +151,8 @@ uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run 
 | `mpu mp-init` | `commands/mp_init.py` | поднять core локального dev-стека (mp-config-local): создать `mp-shared-net` + `up -d --force-recreate` для nats/sl-0/sl-1/nginx/dt-host (все сервисы, в т.ч. простаивающие `cli`/`dt-host-cli`); образы НЕ собирает (стоп с подсказкой при отсутствии `mp-back`/`mp-pg`/`mp-dt:local`); `--dry-run`; ENV `MPU_MP_CONFIG_LOCAL` |
 | `mpu search` | `commands/search.py` | поиск клиента / spreadsheet в локальном SQLite-кэше |
 | `mpu update` | `commands/update.py` | синк `~/.config/mpu/mpu.db` со всех PG-серверов |
-| `mpu sql` | `commands/sql.py` | выполнить SQL на удалённом PG по селектору |
+| `mpu sql` | `commands/sql.py` | выполнить SQL на удалённом PG по селектору (read+write; для записи требует подтверждения в Claude Code) |
+| `mpu sql-ro` | `commands/sql_ro.py` | enforced read-only SQL (`default_transaction_read_only=on`, запись → SQLSTATE 25006); авто-разрешаемый read-вариант `mpu sql`. См. skill `conv-mpu-readonly-split` |
 | `mpu sheet` | `commands/sheet.py` | Google Spreadsheets (прокси к `new-mpu sheet`, переходный) |
 | `mpu xlsx` | `commands/xlsx.py` | локальные `.xlsx` (прокси к `new-mpu xlsx`, переходный) |
 | `mpu backup-wb-unit-proto` | `commands/backup_wb_unit_proto.py` | CTAS-бэкап `wb_unit_proto` в `backups`-схему |

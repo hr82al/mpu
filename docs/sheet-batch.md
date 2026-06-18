@@ -144,11 +144,6 @@ py{
 EOF
 ```
 
-### Защита записи
-
-Запись по умолчанию **защищена**. Снять: `protect=false` (или `PROTECT=false`) в
-`~/.config/mpu/.env`, либо разово: `env protect=false mpu sheet batch-update …`.
-
 ## `batch-get` — чтение
 
 ```

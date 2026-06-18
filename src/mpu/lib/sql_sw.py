@@ -20,14 +20,15 @@ SQL оборачивается в одноразовый ESM-скрипт (pg.Cl
                      контейнера); коннект всё равно идёт изнутри контейнера.
 
 Prisma-параметры query-string (`?schema=public`, …) вычищаются — драйвер `pg`
-их не понимает. Write-защита — тот же `sql_guard` (`PROTECT=false` снимает).
+их не понимает. При `read_only=True` (для `mpu sql-ro`) в ESM добавляется
+`SET default_transaction_read_only = on` — запись отклоняется sw-PG (SQLSTATE 25006).
 """
 
 import json
 import sys
 from typing import IO, Any
 
-from mpu.lib import containers, pssh, servers, sql_guard
+from mpu.lib import containers, pssh, servers
 from mpu.lib.sql_runner import print_md_table, print_table
 
 SW_ALIASES = frozenset({"sw", "sw-pg", "swpg", "sw-back", "swback", "ws", "workspaces"})
@@ -52,7 +53,7 @@ for (const p of prismaParams) url.searchParams.delete(p);
 
 const client = new pg.Client({ connectionString: url.toString() });
 await client.connect();
-try {
+__RO_SETUP__try {
     const res = await client.query({ text: __SQL_JSON__, rowMode: "array" });
     const last = Array.isArray(res) ? res[res.length - 1] : res;
     const fields = last.fields ?? [];
@@ -89,12 +90,16 @@ def _dsn_js_expr(var: str) -> str:
     return f"process.env[{json.dumps(var)}]"
 
 
-def _build_js(sql: str, var: str) -> str:
+def _build_js(sql: str, var: str, *, read_only: bool = False) -> str:
+    ro_setup = (
+        'await client.query("SET default_transaction_read_only = on");\n' if read_only else ""
+    )
     return (
         _JS_TEMPLATE.replace("__DSN_EXPR__", _dsn_js_expr(var))
         .replace("__VAR_JSON__", json.dumps(var))
         .replace("__SQL_JSON__", json.dumps(sql))
         .replace("__MARKER_JSON__", json.dumps(_RESULT_MARKER))
+        .replace("__RO_SETUP__", ro_setup)
     )
 
 
@@ -116,15 +121,18 @@ def run_sql_sw(
     json_out: bool = False,
     md_out: bool = False,
     verbose: bool = False,
+    read_only: bool = False,
     stdout: IO[str] | None = None,
     stderr: IO[str] | None = None,
 ) -> int:
     """Выполнить SQL на sw-PG изнутри контейнера sw-back. Возвращает exit code.
 
     Семантика флагов и формат вывода — как у `sql_runner.run_sql`: `--dry`
-    печатает meta без exec, guard блокирует модифицирующие запросы при `PROTECT`
-    (default), результат — таблица / `--json` / `--md`, statement без result-set
-    → `OK (rowcount=N)`.
+    печатает meta без exec, результат — таблица / `--json` / `--md`, statement без
+    result-set → `OK (rowcount=N)`.
+
+    При `read_only=True` (для `mpu sql-ro`) ESM открывает сессию с
+    `default_transaction_read_only=on` — запись отклоняется sw-PG (SQLSTATE 25006).
     """
     out = stdout if stdout is not None else sys.stdout
     err = stderr if stderr is not None else sys.stderr
@@ -138,19 +146,14 @@ def run_sql_sw(
         print("server: sw-pg (база sw-back)", file=err)
         print(f"run_target: {target}", file=err)
         print(f"dsn_source: {dsn_src} (коннект изнутри контейнера)", file=err)
+        if read_only:
+            print("mode: read-only", file=err)
         print("sql:", file=err)
         print(sql, file=err)
     if dry:
         return 0
 
-    if sql_guard.is_protected():
-        try:
-            sql_guard.check_read_only(sql)
-        except sql_guard.SqlGuardError as e:
-            print(f"mpu sql: {e}", file=err)
-            return 1
-
-    js = _build_js(sql, var)
+    js = _build_js(sql, var, read_only=read_only)
     out_buf = bytearray()
     err_buf = bytearray()
     server_n = servers.server_number(target)

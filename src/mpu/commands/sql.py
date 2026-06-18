@@ -50,6 +50,98 @@ def _read_sql(sql_arg: str | None) -> str:
     return sys.stdin.read()
 
 
+def dispatch(
+    selector: str,
+    sql: str | None,
+    *,
+    server: str | None,
+    dry: bool,
+    json_out: bool,
+    md_out: bool,
+    verbose: bool,
+    read_only: bool,
+    prog: str,
+) -> None:
+    """Общее тело `mpu sql` и `mpu sql-ro`. `read_only` прокидывается в исполнители
+    (enforced PG read-only), `prog` — имя команды для текста ошибок. Бросает `typer.Exit`."""
+    if json_out and md_out:
+        typer.echo(f"{prog}: --json и --md взаимоисключающие", err=True)
+        raise typer.Exit(code=2)
+
+    if selector.startswith("dev:"):
+        if server:
+            typer.echo(f"{prog}: --server не сочетается с dev-селектором", err=True)
+            raise typer.Exit(code=2)
+        rest = selector[len("dev:") :].strip()
+        dev_client_id = int(rest) if rest.isdigit() else None
+        dev_sql_text = _read_sql(sql)
+        if not dev_sql_text.strip():
+            typer.echo(f"{prog}: empty SQL", err=True)
+            raise typer.Exit(code=2)
+        raise typer.Exit(
+            code=sql_runner.run_sql(
+                0,
+                dev_sql_text,
+                client_id=dev_client_id,
+                dev=True,
+                dry=dry,
+                json_out=json_out,
+                md_out=md_out,
+                verbose=verbose,
+                read_only=read_only,
+            )
+        )
+
+    if sql_sw.is_sw_selector(selector):
+        if server:
+            typer.echo(f"{prog}: --server не сочетается с sw-селектором", err=True)
+            raise typer.Exit(code=2)
+        sw_sql_text = _read_sql(sql)
+        if not sw_sql_text.strip():
+            typer.echo(f"{prog}: empty SQL", err=True)
+            raise typer.Exit(code=2)
+        raise typer.Exit(
+            code=sql_sw.run_sql_sw(
+                sw_sql_text,
+                dry=dry,
+                json_out=json_out,
+                md_out=md_out,
+                verbose=verbose,
+                read_only=read_only,
+            )
+        )
+
+    try:
+        server_number, candidates = resolve_server(selector, server_override=server)
+    except ResolveError as e:
+        typer.echo(f"{prog}: {e}", err=True)
+        if e.candidates:
+            typer.echo(_format_candidates(e.candidates), err=True)
+        raise typer.Exit(code=2) from None
+
+    sql_text = _read_sql(sql)
+    if not sql_text.strip():
+        typer.echo(f"{prog}: empty SQL", err=True)
+        raise typer.Exit(code=2)
+
+    # Если все кандидаты указывают на одного клиента — ставим search_path
+    # на schema_<client_id>, чтобы запросы могли обращаться к таблицам без префикса.
+    distinct_client_ids = {cid for c in candidates if isinstance(cid := c.get("client_id"), int)}
+    client_id = next(iter(distinct_client_ids)) if len(distinct_client_ids) == 1 else None
+
+    code = sql_runner.run_sql(
+        server_number,
+        sql_text,
+        client_id=client_id,
+        dry=dry,
+        json_out=json_out,
+        md_out=md_out,
+        verbose=verbose,
+        read_only=read_only,
+    )
+    raise typer.Exit(code=code)
+
+
 app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -83,76 +175,14 @@ def main(
         ),
     ] = False,
 ) -> None:
-    if json_out and md_out:
-        typer.echo("mpu sql: --json и --md взаимоисключающие", err=True)
-        raise typer.Exit(code=2)
-
-    if selector.startswith("dev:"):
-        if server:
-            typer.echo("mpu sql: --server не сочетается с dev-селектором", err=True)
-            raise typer.Exit(code=2)
-        rest = selector[len("dev:") :].strip()
-        dev_client_id = int(rest) if rest.isdigit() else None
-        dev_sql_text = _read_sql(sql)
-        if not dev_sql_text.strip():
-            typer.echo("mpu sql: empty SQL", err=True)
-            raise typer.Exit(code=2)
-        raise typer.Exit(
-            code=sql_runner.run_sql(
-                0,
-                dev_sql_text,
-                client_id=dev_client_id,
-                dev=True,
-                dry=dry,
-                json_out=json_out,
-                md_out=md_out,
-                verbose=verbose,
-            )
-        )
-
-    if sql_sw.is_sw_selector(selector):
-        if server:
-            typer.echo("mpu sql: --server не сочетается с sw-селектором", err=True)
-            raise typer.Exit(code=2)
-        sw_sql_text = _read_sql(sql)
-        if not sw_sql_text.strip():
-            typer.echo("mpu sql: empty SQL", err=True)
-            raise typer.Exit(code=2)
-        raise typer.Exit(
-            code=sql_sw.run_sql_sw(
-                sw_sql_text,
-                dry=dry,
-                json_out=json_out,
-                md_out=md_out,
-                verbose=verbose,
-            )
-        )
-
-    try:
-        server_number, candidates = resolve_server(selector, server_override=server)
-    except ResolveError as e:
-        typer.echo(f"mpu sql: {e}", err=True)
-        if e.candidates:
-            typer.echo(_format_candidates(e.candidates), err=True)
-        raise typer.Exit(code=2) from None
-
-    sql_text = _read_sql(sql)
-    if not sql_text.strip():
-        typer.echo("mpu sql: empty SQL", err=True)
-        raise typer.Exit(code=2)
-
-    # Если все кандидаты указывают на одного клиента — ставим search_path
-    # на schema_<client_id>, чтобы запросы могли обращаться к таблицам без префикса.
-    distinct_client_ids = {cid for c in candidates if isinstance(cid := c.get("client_id"), int)}
-    client_id = next(iter(distinct_client_ids)) if len(distinct_client_ids) == 1 else None
-
-    code = sql_runner.run_sql(
-        server_number,
-        sql_text,
-        client_id=client_id,
+    dispatch(
+        selector,
+        sql,
+        server=server,
         dry=dry,
         json_out=json_out,
         md_out=md_out,
         verbose=verbose,
+        read_only=False,
+        prog=COMMAND_NAME,
     )
-    raise typer.Exit(code=code)

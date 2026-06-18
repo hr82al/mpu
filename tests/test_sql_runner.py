@@ -9,7 +9,7 @@ from typing import Any
 import psycopg
 import pytest
 
-from mpu.lib import pg, servers, sql_guard, sql_runner
+from mpu.lib import pg, servers, sql_runner
 
 
 class _FakeColumn:
@@ -86,7 +86,6 @@ def test_ddl_no_description_prints_ok(env: None, monkeypatch: pytest.MonkeyPatch
     def _fake_connect(_n: int, **_kw: object) -> _FakeConn:
         return _FakeConn(cur)
 
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: False)
     monkeypatch.setattr(pg, "connect_to", _fake_connect)
     out, err = io.StringIO(), io.StringIO()
     code = sql_runner.run_sql(1, "UPDATE t SET x=1", stdout=out, stderr=err)
@@ -95,31 +94,34 @@ def test_ddl_no_description_prints_ok(env: None, monkeypatch: pytest.MonkeyPatch
     assert cur.executed_sql == "UPDATE t SET x=1"
 
 
-def test_protected_blocks_dml_without_connect(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    def boom(_n: int, **_kw: object) -> _FakeConn:
-        raise AssertionError("must not connect when guard blocks")
+def test_read_only_passes_flag_to_connect(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    cur = _FakeCursor(description=[_FakeColumn("n")], rows=[(1,)])
+    captured: dict[str, object] = {}
 
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: True)
-    monkeypatch.setattr(pg, "connect_to", boom)
-    out, err = io.StringIO(), io.StringIO()
-    code = sql_runner.run_sql(1, "DELETE FROM t", stdout=out, stderr=err)
-    assert code == 1
-    assert "заблокировано" in err.getvalue()
-    assert out.getvalue() == ""
-
-
-def test_protect_disabled_allows_dml(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    cur = _FakeCursor(description=None, rows=[], rowcount=1)
-
-    def _fake_connect(_n: int, **_kw: object) -> _FakeConn:
+    def _fake_connect(_n: int, **kw: object) -> _FakeConn:
+        captured.update(kw)
         return _FakeConn(cur)
 
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: False)
     monkeypatch.setattr(pg, "connect_to", _fake_connect)
     out, err = io.StringIO(), io.StringIO()
-    code = sql_runner.run_sql(1, "DELETE FROM t", stdout=out, stderr=err)
+    code = sql_runner.run_sql(1, "SELECT 1", read_only=True, verbose=True, stdout=out, stderr=err)
     assert code == 0
-    assert cur.executed_sql == "DELETE FROM t"
+    assert captured["read_only"] is True
+    assert "mode: read-only" in err.getvalue()
+
+
+def test_read_only_write_maps_25006_to_exit_1(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    def raiser(_n: int, **_kw: object) -> _FakeConn:
+        raise psycopg.errors.ReadOnlySqlTransaction(
+            "cannot execute UPDATE in a read-only transaction"
+        )
+
+    monkeypatch.setattr(pg, "connect_to", raiser)
+    out, err = io.StringIO(), io.StringIO()
+    code = sql_runner.run_sql(1, "UPDATE t SET x=1", read_only=True, stdout=out, stderr=err)
+    assert code == 1
+    assert "read-only" in err.getvalue()
+    assert out.getvalue() == ""
 
 
 def test_select_prints_table(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -202,7 +204,6 @@ def test_ddl_json(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     def _fake_connect(_n: int, **_kw: object) -> _FakeConn:
         return _FakeConn(cur)
 
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: False)
     monkeypatch.setattr(pg, "connect_to", _fake_connect)
     out, err = io.StringIO(), io.StringIO()
     code = sql_runner.run_sql(1, "DELETE FROM t", json_out=True, stdout=out, stderr=err)

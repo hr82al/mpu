@@ -17,7 +17,7 @@
   4. `process --forced --domain ozon` → `dataProcessor.process` (пересбор финреп `ds_*`).
   5. `ss-update` → `ssUpdater.update` (заливка в Google Sheets).
 
-Шаг 1 идёт через run-js (привилегированный коннект `#db/db.js`, в обход sql_guard);
+Шаг 1 идёт через run-js (привилегированный коннект `#db/db.js`);
 шаги 2–5 — через те же node-CLI вызовы, что и одноимённые standalone-команды.
 Бэкапы не делаем (по решению пользователя) — ни `ozon_postings_reports`, ни `ozon_unit_proto`.
 

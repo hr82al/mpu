@@ -30,7 +30,7 @@ from typing import Annotated, Any, cast
 
 import typer
 
-from mpu.lib import env, store
+from mpu.lib import store
 from mpu.lib.log import logger
 from mpu.lib.sheet_api import SheetApiError, WebappClient
 from mpu.lib.sheet_batch import (
@@ -341,16 +341,6 @@ def resolve_cmd(
 # set
 # ────────────────────────────────────────────────────────────────────────────
 
-_FALSEY = ("false", "0", "no", "off")
-
-
-def _is_protected() -> bool:
-    """Защита записи — только env `protect`/`PROTECT` из ~/.config/mpu/.env.
-    Не задано → защита включена; `protect=false`/`0`/`no`/`off` → запись разрешена."""
-    raw = env.get("protect") or env.get("PROTECT")
-    return raw is None or raw.strip().lower() not in _FALSEY
-
-
 # Открытый одностолбцовый range: `[Tab!]Col<from>:Col` (конец — тот же столбец без строки).
 _OPEN_COL_RE = re.compile(
     r"^(?P<prefix>(?:'[^']*'|[^'!]+)!)?(?P<col>[A-Za-z]+)(?P<from>\d+):(?P=col)$"
@@ -427,14 +417,6 @@ def set_(
     """Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW)."""
     conn = _open_db()
     try:
-        if _is_protected():
-            typer.echo(
-                "mpu sheet set: запись защищена. "
-                "Сними защиту: `protect=false` (PROTECT=false) в ~/.config/mpu/.env.",
-                err=True,
-            )
-            raise typer.Exit(code=2)
-
         try:
             api = WebappClient.from_env()
         except SheetApiError as e:
@@ -689,8 +671,7 @@ def batch_update(
         label H1 'Новая' bg=#EA4335 bold
         set H2 = =A2*1.2"
 
-    ЗАЩИТА: запись выключена, пока не задан protect=false в ~/.config/mpu/.env
-    (или разово: env protect=false mpu sheet batch-update …). Подробно: mpu/docs/sheet-batch.md
+    Подробно про мини-язык: mpu/docs/sheet-batch.md
     """
     script = _gather_script(expr, from_file)
     if not script.strip():
@@ -704,12 +685,6 @@ def batch_update(
 
     conn = _open_db()
     try:
-        if not dry_run and _is_protected():
-            typer.echo(
-                "mpu sheet batch-update: запись защищена — protect=false в ~/.config/mpu/.env",
-                err=True,
-            )
-            raise typer.Exit(code=2)
         resolved = _resolve_ss(conn, spreadsheet)
         try:
             api = WebappClient.from_env()

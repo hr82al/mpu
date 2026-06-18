@@ -38,6 +38,18 @@ class PgConfigError(RuntimeError):
     pass
 
 
+# libpq-опция для read-only сессии: любой INSERT/UPDATE/DELETE/DDL отклоняется
+# Postgres'ом (SQLSTATE 25006). Сильнее, чем разовый `SET TRANSACTION READ ONLY`:
+# применяется ко всем implicit-транзакциям сессии. Используется `mpu sql-ro`.
+# psycopg.make_conninfo отбрасывает kwargs со значением None, поэтому при
+# read_only=False опция не попадает в строку подключения.
+_RO_OPTIONS = "-c default_transaction_read_only=on"
+
+
+def _ro_options(read_only: bool) -> str | None:
+    return _RO_OPTIONS if read_only else None
+
+
 def dev_params() -> tuple[str, str, str]:
     """`(host, port, dbname)` dev-PG. Дефолты захардкожены, override через `DEV_PG_*`."""
     host = servers.env_value("DEV_PG_HOST") or DEV_PG_HOST
@@ -58,8 +70,13 @@ def _dev_credentials() -> tuple[str, str]:
     return user, password
 
 
-def connect_dev(*, timeout: int = 10) -> psycopg.Connection:
-    """Открыть psycopg-соединение к dev-PG (`mp_sl_1_dev`, все схемы в одной БД)."""
+def connect_dev(*, timeout: int = 10, read_only: bool = False) -> psycopg.Connection:
+    """Открыть psycopg-соединение к dev-PG (`mp_sl_1_dev`, все схемы в одной БД).
+
+    :param timeout: connect_timeout в секундах.
+    :param read_only: при True сессия открывается с `default_transaction_read_only=on`
+        — запись отклоняется Postgres'ом (SQLSTATE 25006). Для `mpu sql-ro`.
+    """
     host, port, dbname = dev_params()
     user, password = _dev_credentials()
     return psycopg.connect(
@@ -69,6 +86,7 @@ def connect_dev(*, timeout: int = 10) -> psycopg.Connection:
         password=password,
         dbname=dbname,
         connect_timeout=timeout,
+        options=_ro_options(read_only),
     )
 
 
@@ -88,8 +106,15 @@ def _credentials() -> tuple[str, str, str, str]:
     return port, user, password, dbname
 
 
-def connect_to(server_number: int, *, timeout: int = 10) -> psycopg.Connection:
-    """Открыть psycopg-соединение к PG сервера `sl-<server_number>`."""
+def connect_to(
+    server_number: int, *, timeout: int = 10, read_only: bool = False
+) -> psycopg.Connection:
+    """Открыть psycopg-соединение к PG сервера `sl-<server_number>`.
+
+    :param timeout: connect_timeout в секундах.
+    :param read_only: при True сессия открывается с `default_transaction_read_only=on`
+        — запись отклоняется Postgres'ом (SQLSTATE 25006). Для `mpu sql-ro`.
+    """
     host = servers.pg_ip(server_number)
     if not host:
         raise PgConfigError(f"PG host: не найдено pg_{server_number} в ~/.config/mpu/.env")
@@ -101,6 +126,7 @@ def connect_to(server_number: int, *, timeout: int = 10) -> psycopg.Connection:
         password=password,
         dbname=dbname,
         connect_timeout=timeout,
+        options=_ro_options(read_only),
     )
 
 

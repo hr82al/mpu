@@ -11,11 +11,17 @@ from typing import IO, Any
 import psycopg
 import typer
 
-from mpu.lib import pg, servers, sql_guard
+from mpu.lib import pg, servers
 
 
 def _print_meta(
-    server_number: int, sql: str, *, stream: IO[str], schema: str | None = None, dev: bool = False
+    server_number: int,
+    sql: str,
+    *,
+    stream: IO[str],
+    schema: str | None = None,
+    dev: bool = False,
+    read_only: bool = False,
 ) -> None:
     if dev:
         host, port, db = pg.dev_params()
@@ -30,6 +36,8 @@ def _print_meta(
     print(f"database: {db}", file=stream)
     if schema:
         print(f"search_path: {schema}, public", file=stream)
+    if read_only:
+        print("mode: read-only", file=stream)
     print("sql:", file=stream)
     print(sql, file=stream)
 
@@ -73,6 +81,7 @@ def run_sql(
     json_out: bool = False,
     md_out: bool = False,
     verbose: bool = False,
+    read_only: bool = False,
     stdout: IO[str] | None = None,
     stderr: IO[str] | None = None,
 ) -> int:
@@ -84,27 +93,25 @@ def run_sql(
     При `dev=True` коннект идёт к dev-стенду (`mp_sl_1_dev`, все схемы в одной БД),
     `server_number` игнорируется.
 
-    При `sql_guard.is_protected()` модифицирующие запросы блокируются (exit 1) до
-    коннекта к серверу. Снять защиту — только `PROTECT=false` в ~/.config/mpu/.env.
+    При `read_only=True` (для `mpu sql-ro`) сессия открывается с
+    `default_transaction_read_only=on`; любой пишущий запрос отклоняется Postgres'ом
+    (SQLSTATE 25006) → exit 1.
     """
     out = stdout if stdout is not None else sys.stdout
     err = stderr if stderr is not None else sys.stderr
     schema = f"schema_{client_id}" if client_id is not None else None
     if verbose or dry:
-        _print_meta(server_number, sql, stream=err, schema=schema, dev=dev)
+        _print_meta(server_number, sql, stream=err, schema=schema, dev=dev, read_only=read_only)
 
     if dry:
         return 0
 
-    if sql_guard.is_protected():
-        try:
-            sql_guard.check_read_only(sql)
-        except sql_guard.SqlGuardError as e:
-            print(f"mpu sql: {e}", file=err)
-            return 1
-
     try:
-        conn_cm = pg.connect_dev() if dev else pg.connect_to(server_number)
+        conn_cm = (
+            pg.connect_dev(read_only=read_only)
+            if dev
+            else pg.connect_to(server_number, read_only=read_only)
+        )
         with conn_cm as conn, conn.cursor() as cur:
             if schema is not None:
                 # psycopg expects LiteralString; schema is f-string of int client_id (safe).
@@ -133,6 +140,13 @@ def run_sql(
             else:
                 print_table(cols, rows, out)
             return 0
+    except psycopg.errors.ReadOnlySqlTransaction:
+        print(
+            "mpu sql-ro: запрос пытается писать — заблокировано read-only сессией. "
+            "Для записи используйте `mpu sql`.",
+            file=err,
+        )
+        return 1
     except psycopg.Error as e:
         typer.echo(f"db error: {e}", err=True)
         return 1

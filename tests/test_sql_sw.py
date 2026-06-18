@@ -14,7 +14,7 @@ import pytest
 from typer.testing import CliRunner
 
 from mpu.commands import sql as sql_cmd
-from mpu.lib import pssh, servers, sql_guard, sql_sw
+from mpu.lib import pssh, servers, sql_sw
 
 runner = CliRunner()
 
@@ -126,7 +126,6 @@ def test_default_target_container_and_table_output(
     sw_env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     captured: dict[str, object] = {}
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: False)
     monkeypatch.setattr(
         pssh,
         "pssh_run_container",
@@ -154,7 +153,6 @@ def test_custom_target_and_dsn_env(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         "SW_PG_RUN_TARGET='sl-0'\nSW_PG_DSN_ENV='SW_DATABASE_URL'\n",
     )
     captured: dict[str, object] = {}
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: False)
     monkeypatch.setattr(pssh, "pssh_run", _fake_pssh_run(captured, _payload(["n"], [[1]])))
 
     rc = sql_sw.run_sql_sw("SELECT 1 AS n", stdout=io.StringIO(), stderr=io.StringIO())
@@ -173,7 +171,6 @@ def test_sw_pg_dsn_override_literal(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         "SW_PG_DSN='postgresql://u:p@h:5432/workspaces'\n",
     )
     captured: dict[str, object] = {}
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: False)
     monkeypatch.setattr(
         pssh, "pssh_run_container", _fake_pssh_container(captured, _payload(["n"], [[1]]))
     )
@@ -188,19 +185,31 @@ def test_sw_pg_dsn_override_literal(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     servers.reset_cache()
 
 
-def test_guard_blocks_write_before_exec(sw_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: True)
-
-    def explode(**kw: object) -> int:
-        raise AssertionError("must not exec when guard blocks")
-
-    monkeypatch.setattr(pssh, "pssh_run_container", explode)
-    err = io.StringIO()
-    rc = sql_sw.run_sql_sw(
-        "INSERT INTO workspaces (id) VALUES (1)", stdout=io.StringIO(), stderr=err
+def test_read_only_injects_set_in_esm(sw_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        pssh,
+        "pssh_run_container",
+        _fake_pssh_container(captured, _payload(["id"], [[4800]])),
     )
-    assert rc == 1
-    assert "mpu sql" in err.getvalue()
+    err = io.StringIO()
+    rc = sql_sw.run_sql_sw("SELECT id FROM t", read_only=True, stdout=io.StringIO(), stderr=err)
+    assert rc == 0
+    js = bytes(captured["stdin"]).decode()  # type: ignore[arg-type]
+    assert "SET default_transaction_read_only = on" in js
+
+
+def test_no_read_only_omits_set_in_esm(sw_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        pssh,
+        "pssh_run_container",
+        _fake_pssh_container(captured, _payload(["id"], [[4800]])),
+    )
+    rc = sql_sw.run_sql_sw("SELECT id FROM t", stdout=io.StringIO(), stderr=io.StringIO())
+    assert rc == 0
+    js = bytes(captured["stdin"]).decode()  # type: ignore[arg-type]
+    assert "default_transaction_read_only" not in js
 
 
 def test_dry_prints_meta_without_exec(sw_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -218,7 +227,6 @@ def test_dry_prints_meta_without_exec(sw_env: None, monkeypatch: pytest.MonkeyPa
 
 def test_no_result_set(sw_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: False)
     monkeypatch.setattr(
         pssh,
         "pssh_run_container",
@@ -232,7 +240,6 @@ def test_no_result_set(sw_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_json_output(sw_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: False)
     monkeypatch.setattr(
         pssh, "pssh_run_container", _fake_pssh_container(captured, _payload(["id"], [[4800]]))
     )
@@ -243,8 +250,6 @@ def test_json_output(sw_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_exec_failure_surfaces_stderr(sw_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: False)
-
     def fake(
         *,
         container: str,
@@ -267,8 +272,6 @@ def test_exec_failure_surfaces_stderr(sw_env: None, monkeypatch: pytest.MonkeyPa
 
 def test_container_resolve_error(sw_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     from mpu.lib import containers
-
-    monkeypatch.setattr(sql_guard, "is_protected", lambda: False)
 
     def fake(**kw: object) -> int:
         raise containers.ContainerResolveError("container 'sw-api' not found in Portainer cache")
