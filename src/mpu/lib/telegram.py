@@ -1,9 +1,9 @@
 """Telethon-слой для `mpu telegram` — отправка сообщений от имени пользователя (user-session).
 
 Изолирует всё взаимодействие с telethon (внешняя библиотека, типизирована неполно, без
-py.typed). Наружу отдаёт собственные dataclass'ы (TgDialog / TgSentMessage); чистые функции
-(resolve_chat / parse_chat_target / parse_proxy_url / dialog_to_dict) тестируются без сети —
-сам сетевой I/O, как и в lib/kaiten.py, тестами не покрывается.
+py.typed). Наружу отдаёт собственные dataclass'ы (TgDialog / TgSentMessage / TgMessage); чистые
+функции (resolve_chat / parse_chat_target / parse_proxy_url / dialog_to_dict / message_to_dict /
+message_link) тестируются без сети — сам сетевой I/O, как и в lib/kaiten.py, тестами не покрывается.
 
 Прокси: трафик telethon идёт через TELEGRAM_PROXY (если задан), иначе через стандартные
 HTTPS_PROXY/https_proxy. Поддержаны http/https (CONNECT) и socks5/socks4. ВАЖНО: HTTPS_PROXY
@@ -42,6 +42,14 @@ if TYPE_CHECKING:
 # уровне = +400 ms к старту любой команды. Чистые функции и dataclass'ы telethon не требуют.
 
 _INT_RE = re.compile(r"-?\d+")
+
+# Маркировка id супергрупп/каналов в telethon (utils.get_peer_id): `-(10^12 + raw)`.
+_CHANNEL_ID_BASE = 1_000_000_000_000
+
+# Сколько глобальных текстовых совпадений просканировать при клиентском from-фильтре
+# (см. search_messages: глобальный from-поиск telethon делать не умеет). Совпадений
+# по отправителю наберём максимум `limit`, но сам скан этим числом ограничен.
+_GLOBAL_FROM_SCAN_LIMIT = 1000
 
 _PROXY_SCHEMES: dict[str, str] = {
     "http": "http",
@@ -102,6 +110,17 @@ class TgSentMessage:
     date: str | None  # ISO 8601 (UTC, как отдаёт Telegram)
 
 
+@dataclass(frozen=True)
+class TgMessage:
+    id: int
+    chat_id: int
+    chat_title: str
+    sender: str | None  # имя/username отправителя; None если Telegram его не отдал
+    date: str | None  # ISO 8601 (UTC, как отдаёт Telegram)
+    text: str
+    link: str | None  # t.me-ссылка на сообщение; None если чат без публичной ссылки
+
+
 def _require(name: str) -> str:
     """env.require, но ошибка обёрнута в TgError (единый тип для перехвата в команде)."""
     try:
@@ -147,6 +166,34 @@ def parse_chat_target(raw: str) -> str | int:
 def dialog_to_dict(d: TgDialog) -> dict[str, object]:
     """TgDialog → dict для JSON-вывода (ключ присутствует ⇔ значение осмысленно)."""
     return {"id": d.id, "title": d.title, "kind": d.kind, "username": d.username}
+
+
+def message_to_dict(m: TgMessage) -> dict[str, object]:
+    """TgMessage → dict для JSON-вывода."""
+    return {
+        "id": m.id,
+        "chat_id": m.chat_id,
+        "chat_title": m.chat_title,
+        "sender": m.sender,
+        "date": m.date,
+        "text": m.text,
+        "link": m.link,
+    }
+
+
+def message_link(chat_id: int, message_id: int, username: str | None) -> str | None:
+    """t.me-ссылка на сообщение по id чата и сообщения.
+
+    - публичный чат/канал с username → `https://t.me/<username>/<id>`;
+    - супергруппа/канал без username (marked id `-(10^12 + raw)`) → `https://t.me/c/<raw>/<id>`;
+    - приватный диалог / базовая группа (нет публичной ссылки) → None.
+    """
+    if username:
+        return f"https://t.me/{username}/{message_id}"
+    if chat_id <= -_CHANNEL_ID_BASE:
+        raw = -chat_id - _CHANNEL_ID_BASE
+        return f"https://t.me/c/{raw}/{message_id}"
+    return None
 
 
 class ProxyDict(TypedDict):
@@ -320,6 +367,93 @@ async def search_entities(cfg: TgConfig, query: str, limit: int) -> list[TgDialo
     return out
 
 
+async def search_messages(
+    cfg: TgConfig,
+    query: str,
+    *,
+    chat: str | int | None,
+    from_user: str | int | None,
+    limit: int,
+) -> list[TgMessage]:
+    """Полнотекстовый поиск сообщений (history-search).
+
+    - `chat=None` → глобально по всем диалогам (`messages.searchGlobal`); иначе — внутри чата
+      (`messages.search`).
+    - `from_user` (опц.) — оставить только сообщения этого отправителя. ВНУТРИ `chat` фильтр
+      серверный; ГЛОБАЛЬНО (без `chat`) telethon его не умеет (подставляет InputPeerEmpty →
+      messages.search падает), поэтому глобальный from-фильтр делаем КЛИЕНТСКИ поверх текстового
+      searchGlobal — нужен непустой `query`, скан ограничен `_GLOBAL_FROM_SCAN_LIMIT`.
+    - пустой `query` вместе с `chat` → просто история чата (без текстового фильтра).
+
+    Пустой `query` БЕЗ `chat` запрещён (глобальный дамп всего) → TgError.
+    """
+    from telethon.errors import FloodWaitError, RPCError
+
+    client = _make_client(cfg)
+    out: list[TgMessage] = []
+    try:
+        await _ensure_authorized(client)
+        entity = None
+        if chat is not None:
+            try:
+                entity = await client.get_input_entity(chat)
+            except (ValueError, TypeError) as e:
+                raise TgError(f"telegram: не удалось найти чат {chat!r}: {e}") from None
+        sender = None
+        if from_user is not None:
+            try:
+                sender = await client.get_input_entity(from_user)
+            except (ValueError, TypeError) as e:
+                raise TgError(
+                    f"telegram: не удалось найти отправителя {from_user!r}: {e}"
+                ) from None
+
+        # Глобальный from-фильтр (sender задан, chat — нет) фильтруем клиентски: нужен текст.
+        global_from = entity is None and sender is not None
+        if global_from and not query:
+            raise TgError(
+                "telegram: --from без --chat требует текст запроса "
+                "(глобальный поиск по отправителю — только с текстом)"
+            )
+        if entity is None and not query:
+            raise TgError(
+                "telegram: нужен текст запроса или --chat (пустой глобальный поиск запрещён)"
+            )
+
+        want_sender_id = None
+        if global_from and sender is not None:  # sender гарантирован, `is not None` — для типов
+            want_sender_id = await client.get_peer_id(sender)
+        # server-side from_user — только в пределах чата; глобально передавать нельзя.
+        iter_from = None if global_from else sender
+        # при клиентском фильтре тянем с запасом: `limit` — про совпавших, не про скан.
+        fetch_limit = _GLOBAL_FROM_SCAN_LIMIT if global_from else limit
+
+        # search="" эквивалентно None: telethon всё равно уходит в messages.search с q=''
+        # (q = search or '') — поведение «все сообщения». entity=None → searchGlobal.
+        # Оба None валидны в рантайме, но стаб типизирует их как non-optional EntityLike —
+        # точечно подавляем ложный reportArgumentType.
+        try:
+            messages = client.iter_messages(
+                entity,  # pyright: ignore[reportArgumentType]
+                limit=fetch_limit,
+                search=query,
+                from_user=iter_from,  # pyright: ignore[reportArgumentType]
+            )
+            async for msg in messages:
+                if global_from and getattr(msg, "sender_id", None) != want_sender_id:
+                    continue
+                out.append(_message_from_telethon(msg))
+                if global_from and len(out) >= limit:
+                    break
+        except FloodWaitError as e:
+            raise TgError(f"telegram: rate-limit, подожди {e.seconds}s") from None
+        except RPCError as e:
+            raise TgError(f"telegram: RPC error: {e}") from None
+    finally:
+        await _disconnect(client)
+    return out
+
+
 async def interactive_login(
     cfg: TgConfig,
     *,
@@ -368,6 +502,49 @@ async def interactive_login(
         return _save_session(client)
     finally:
         await _disconnect(client)
+
+
+def _display_name(entity: object) -> str:
+    """Человекочитаемое имя сущности (чат/канал/пользователь). Пусто → "".
+
+    title (чат/канал) → имя+фамилия (пользователь) → username → "".
+    """
+    title = getattr(entity, "title", None)
+    if isinstance(title, str) and title:
+        return title
+    first = getattr(entity, "first_name", None) or ""
+    last = getattr(entity, "last_name", None) or ""
+    name = f"{first} {last}".strip()
+    if name:
+        return name
+    username = getattr(entity, "username", None)
+    return username if isinstance(username, str) else ""
+
+
+def _message_from_telethon(msg: object) -> TgMessage:
+    """Telethon Message → TgMessage. Атрибуты читаем через getattr (тип неизвестен pyright).
+
+    `chat`/`sender` — кэш-проперти telethon (без сети; заполнены из ответа поиска); если
+    Telegram их не вернул, деградируем мягко (chat_title="" / sender=None).
+    """
+    message_id = int(getattr(msg, "id", 0))
+    chat = getattr(msg, "chat", None)
+    sender = getattr(msg, "sender", None)
+    chat_id_raw = getattr(msg, "chat_id", None)
+    chat_id = int(chat_id_raw) if chat_id_raw is not None else 0
+    username = getattr(chat, "username", None)
+    date = getattr(msg, "date", None)
+    text = getattr(msg, "message", None)
+    sender_name = _display_name(sender) if sender is not None else ""
+    return TgMessage(
+        id=message_id,
+        chat_id=chat_id,
+        chat_title=_display_name(chat) if chat is not None else "",
+        sender=sender_name or None,
+        date=date.isoformat() if date is not None else None,
+        text=text if isinstance(text, str) else "",
+        link=message_link(chat_id, message_id, username if isinstance(username, str) else None),
+    )
 
 
 def _dialog_from_telethon(dialog: object) -> TgDialog:

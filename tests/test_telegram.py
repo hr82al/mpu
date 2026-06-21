@@ -92,6 +92,47 @@ def test_dialog_to_dict_shape() -> None:
     }
 
 
+# ── message_link ─────────────────────────────────────────────────────────────
+
+
+def test_message_link_public_username() -> None:
+    assert telegram.message_link(-100123, 7, "devchat") == "https://t.me/devchat/7"
+
+
+def test_message_link_private_channel_uses_raw_id() -> None:
+    # marked id супергруппы/канала: -(10^12 + raw) → ссылка /c/<raw>/<msg>
+    assert telegram.message_link(-(1_000_000_000_000 + 555), 9, None) == "https://t.me/c/555/9"
+
+
+def test_message_link_user_dialog_none() -> None:
+    assert telegram.message_link(42, 9, None) is None  # личный диалог — нет публичной ссылки
+    assert telegram.message_link(-42, 9, None) is None  # базовая группа (Chat) — тоже нет
+
+
+# ── message_to_dict ──────────────────────────────────────────────────────────
+
+
+def test_message_to_dict_shape() -> None:
+    m = telegram.TgMessage(
+        id=1,
+        chat_id=-100777,
+        chat_title="Dev",
+        sender="Иван",
+        date="2026-06-18T10:00:00+00:00",
+        text="залил не в ту ветку",
+        link="https://t.me/c/777/1",
+    )
+    assert telegram.message_to_dict(m) == {
+        "id": 1,
+        "chat_id": -100777,
+        "chat_title": "Dev",
+        "sender": "Иван",
+        "date": "2026-06-18T10:00:00+00:00",
+        "text": "залил не в ту ветку",
+        "link": "https://t.me/c/777/1",
+    }
+
+
 # ── parse_proxy_url / resolve_proxy ──────────────────────────────────────────
 
 
@@ -372,3 +413,162 @@ def test_search_entities_finds_user_and_channel(monkeypatch: pytest.MonkeyPatch)
     assert by_kind["user"].title == "Иван Изран"
     assert by_kind["channel"].id == -(1_000_000_000_000 + 100)
     assert by_kind["channel"].username == "news"
+
+
+# ── search_messages (фейковый клиент; косвенно проверяет _message_from_telethon) ─
+
+
+class _FakeMessagesClient:
+    """Async-стаб: iter_messages(entity, search=, from_user=, limit=) → async-итератор Message."""
+
+    def __init__(self, messages: list[object], peer_id: int = 0) -> None:
+        self.session = _FakeSession()
+        self._messages = messages
+        self._peer_id = peer_id
+        self.iter_kwargs: dict[str, object] = {}
+        self.iter_entity: object = "UNSET"
+
+    async def connect(self) -> None:
+        pass
+
+    async def is_user_authorized(self) -> bool:
+        return True
+
+    async def get_input_entity(self, target: object) -> object:
+        return ("input", target)
+
+    async def get_peer_id(self, _entity: object) -> int:
+        return self._peer_id
+
+    def iter_messages(self, entity: object, **kwargs: object) -> object:
+        self.iter_entity = entity
+        self.iter_kwargs = kwargs
+        messages = self._messages
+
+        async def _gen() -> object:
+            for m in messages:
+                yield m
+
+        return _gen()
+
+    def disconnect(self) -> object:
+        async def _noop() -> None:
+            return None
+
+        return _noop()
+
+
+def test_search_messages_global_maps_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    msg = SimpleNamespace(
+        id=7,
+        chat_id=-(1_000_000_000_000 + 999),
+        message="ты залил не в ту ветку",
+        date=SimpleNamespace(isoformat=lambda: "2026-06-18T10:00:00+00:00"),
+        chat=SimpleNamespace(title="Dev chat", username=None),
+        sender=SimpleNamespace(first_name="Иван", last_name="П", username="ivan"),
+    )
+    fake = _FakeMessagesClient([msg])
+
+    def _fake_make_client(_cfg: telegram.TgConfig) -> _FakeMessagesClient:
+        return fake
+
+    monkeypatch.setattr(telegram, "_make_client", _fake_make_client)
+    res = asyncio.run(
+        telegram.search_messages(
+            telegram.TgConfig(api_id=1, api_hash="h", session=None),
+            "ветку",
+            chat=None,
+            from_user=None,
+            limit=50,
+        )
+    )
+    assert fake.iter_entity is None  # глобальный поиск
+    assert fake.iter_kwargs == {"search": "ветку", "limit": 50, "from_user": None}
+    assert len(res) == 1
+    m = res[0]
+    assert m.id == 7
+    assert m.chat_title == "Dev chat"
+    assert m.sender == "Иван П"
+    assert m.text == "ты залил не в ту ветку"
+    assert m.date == "2026-06-18T10:00:00+00:00"
+    assert m.link == "https://t.me/c/999/7"  # супергруппа без username → /c/<raw>
+
+
+def test_search_messages_empty_query_no_scope_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeMessagesClient([])
+
+    def _fake_make_client(_cfg: telegram.TgConfig) -> _FakeMessagesClient:
+        return fake
+
+    monkeypatch.setattr(telegram, "_make_client", _fake_make_client)
+    with pytest.raises(TgError):  # пустой запрос без --chat = глобальный дамп, запрещён
+        asyncio.run(
+            telegram.search_messages(
+                telegram.TgConfig(api_id=1, api_hash="h", session=None),
+                "",
+                chat=None,
+                from_user=None,
+                limit=50,
+            )
+        )
+
+
+def _fake_msg(msg_id: int, sender_id: int, text: str) -> object:
+    return SimpleNamespace(
+        id=msg_id,
+        chat_id=-(1_000_000_000_000 + 1),
+        sender_id=sender_id,
+        message=text,
+        date=SimpleNamespace(isoformat=lambda: "2026-06-18T10:00:00+00:00"),
+        chat=SimpleNamespace(title="Some chat", username=None),
+        sender=SimpleNamespace(first_name="X", last_name="", username=None),
+    )
+
+
+def test_search_messages_global_from_filters_client_side(monkeypatch: pytest.MonkeyPatch) -> None:
+    # глобальный from-фильтр: telethon не умеет → фильтруем по sender_id клиентски.
+    wanted = 555
+    msgs = [
+        _fake_msg(1, 111, "чужое"),
+        _fake_msg(2, wanted, "залил не в ту ветку"),
+        _fake_msg(3, 222, "ещё чужое"),
+    ]
+    fake = _FakeMessagesClient(msgs, peer_id=wanted)
+
+    def _fake_make_client(_cfg: telegram.TgConfig) -> _FakeMessagesClient:
+        return fake
+
+    monkeypatch.setattr(telegram, "_make_client", _fake_make_client)
+
+    res = asyncio.run(
+        telegram.search_messages(
+            telegram.TgConfig(api_id=1, api_hash="h", session=None),
+            "ветку",
+            chat=None,
+            from_user="cicadaaaa",
+            limit=50,
+        )
+    )
+    assert fake.iter_entity is None  # глобальный поиск
+    assert fake.iter_kwargs["from_user"] is None  # серверный from НЕ передаём при глобальном
+    assert [m.id for m in res] == [2]  # только сообщение от нужного отправителя
+    assert res[0].text == "залил не в ту ветку"
+
+
+def test_search_messages_global_from_without_query_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeMessagesClient([], peer_id=555)
+
+    def _fake_make_client(_cfg: telegram.TgConfig) -> _FakeMessagesClient:
+        return fake
+
+    monkeypatch.setattr(telegram, "_make_client", _fake_make_client)
+    with pytest.raises(TgError):  # глобальный from без текста — нечего сканировать
+        asyncio.run(
+            telegram.search_messages(
+                telegram.TgConfig(api_id=1, api_hash="h", session=None),
+                "",
+                chat=None,
+                from_user="cicadaaaa",
+                limit=50,
+            )
+        )

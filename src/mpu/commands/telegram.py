@@ -7,6 +7,10 @@
 - `mpu telegram ls [запрос] [--limit N] [--table]` — найти адресата (id, title, kind,
   username): с аргументом — поиск по имени/@username (контакты + глобально), без — последние
   диалоги. По умолчанию JSON; `--table` — для человека.
+- `mpu telegram search [текст] [--chat X] [--from Y] [--limit N] [--table]` — полнотекстовый
+  поиск ПО СОДЕРЖИМОМУ сообщений: без `--chat` — глобально по всем диалогам, с `--chat` — в
+  одном; `--from` — только от этого отправителя (внутри `--chat` серверно, глобально —
+  клиентски, нужен текст). Выводит chat/sender/date/text/link. Пустой текст — только с `--chat`.
 
 Вход (логин) выполняется один раз при `mpu init` (см. cli.py). Креды и сессия — в
 ~/.config/mpu/.env: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION (пишется
@@ -29,7 +33,9 @@ from mpu.lib import env, telegram
 from mpu.lib.telegram import TgError, TgNotAuthorizedError
 
 COMMAND_NAME = "mpu telegram"
-COMMAND_SUMMARY = "Telegram от имени пользователя: `send` — отправить сообщение, `ls` — диалоги"
+COMMAND_SUMMARY = (
+    "Telegram от имени пользователя: `send` — отправить, `ls` — диалоги, `search` — поиск сообщений"
+)
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -39,7 +45,7 @@ app = typer.Typer(
 
 @app.callback()
 def _root() -> None:  # pyright: ignore[reportUnusedFunction]
-    """Telegram от имени пользователя (telethon): send — отправить сообщение, ls — диалоги.
+    """Telegram от имени пользователя (telethon): send — отправить, ls — диалоги, search — поиск.
 
     Вход выполняется один раз при `mpu init`. Креды/сессия — в ~/.config/mpu/.env.
     """
@@ -135,3 +141,76 @@ def ls(
         rich_table.add_row(str(d.id), d.kind, d.username or "", d.title)
     Console().print(rich_table)
     typer.echo(f"({len(dialogs)} dialogs)")
+
+
+@app.command("search")
+def search(
+    query: Annotated[
+        str,
+        typer.Argument(
+            help="Текст для поиска по содержимому сообщений (по словам). "
+            "Можно опустить только если задан --chat (история чата)"
+        ),
+    ] = "",
+    chat: Annotated[
+        str | None,
+        typer.Option(
+            "--chat",
+            help="Искать только в этом чате (@username / id / t.me / телефон / me). "
+            "По умолчанию — глобально по всем диалогам",
+        ),
+    ] = None,
+    from_user: Annotated[
+        str | None,
+        typer.Option(
+            "--from",
+            help="Оставить только сообщения этого отправителя (@username / id / телефон). "
+            "Без --chat — клиентский фильтр поверх глобального поиска (нужен текст)",
+        ),
+    ] = None,
+    limit: Annotated[int, typer.Option("--limit", min=1, max=500, help="Сколько сообщений")] = 50,
+    table: Annotated[
+        bool, typer.Option("--table", help="Таблица для человека вместо JSON")
+    ] = False,
+) -> None:
+    """Поиск ПО СОДЕРЖИМОМУ сообщений: без --chat — глобально, с --chat — в одном чате.
+
+    `--from` фильтрует по отправителю (внутри --chat — серверно; глобально — клиентски, нужен
+    текст). Пустой текст допустим только с --chat (история чата). Выводит id, chat_id,
+    chat_title, sender, date, text, link. По умолчанию JSON; `--table` — для человека.
+    """
+    try:
+        cfg = telegram.TgConfig.from_env()
+        chat_target = (
+            telegram.parse_chat_target(telegram.resolve_chat(chat, None)) if chat else None
+        )
+        from_target = (
+            telegram.parse_chat_target(telegram.resolve_chat(from_user, None))
+            if from_user
+            else None
+        )
+        messages = asyncio.run(
+            telegram.search_messages(
+                cfg, query, chat=chat_target, from_user=from_target, limit=limit
+            )
+        )
+    except (TgNotAuthorizedError, TgError) as e:
+        _fail(str(e))
+
+    if not table:
+        typer.echo(
+            json.dumps(
+                [telegram.message_to_dict(m) for m in messages], ensure_ascii=False, indent=2
+            )
+        )
+        return
+    if not messages:
+        typer.echo("(ничего не найдено)")
+        return
+    rich_table = Table(header_style="bold")
+    for header in ("DATE", "CHAT", "SENDER", "TEXT"):
+        rich_table.add_column(header, overflow="fold")
+    for m in messages:
+        rich_table.add_row(m.date or "", m.chat_title, m.sender or "", m.text)
+    Console().print(rich_table)
+    typer.echo(f"({len(messages)} messages)")
