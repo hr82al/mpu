@@ -148,6 +148,19 @@ _DDL = [
         discovered_at INTEGER NOT NULL
     )
     """,
+    # Журнал привязок карточек к значениям кастомных полей (MR-ссылки, гипотеза,
+    # что сделано, результат). История: несколько строк на (card_id, field). Пишет
+    # `mpu kiten field set/update/rm`; поле карточки = последняя по времени строка.
+    """
+    CREATE TABLE IF NOT EXISTS kaiten_card_links (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        card_id     INTEGER NOT NULL,
+        field       TEXT NOT NULL,
+        value       TEXT NOT NULL,
+        created_at  INTEGER NOT NULL
+    )
+    """,
+    ("CREATE INDEX IF NOT EXISTS idx_kaiten_card_links_card ON kaiten_card_links(card_id, field)"),
     # --- sheet (Google Spreadsheets) ---
     # Whole-tab кэш: один tab = одна запись с gzipped JSON payload.
     # Любой `sheet get X!A1:C3` тянет весь tab X разом → кладёт сюда → последующие

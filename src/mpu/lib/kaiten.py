@@ -608,3 +608,10 @@ class KaitenClient:
             body["lane_id"] = lane_id
         res = self._request("PATCH", f"/cards/{card_id}", body=body)
         return parse_card_detail(res, self.base_url)
+
+    def set_card_property(self, card_id: int, property_key: str, value: str | None) -> None:
+        """PATCH /cards/{id} — установить кастомное поле (`value=None` — очистить).
+
+        `property_key` — ключ поля карточки вида `id_NNN` (см. `kaiten_links.property_key`).
+        """
+        self._request("PATCH", f"/cards/{card_id}", body={"properties": {property_key: value}})
