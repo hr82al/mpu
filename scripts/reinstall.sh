@@ -27,11 +27,4 @@ else
     echo "  warn: mpu --install-completion failed" >&2
 fi
 
-# echo "→ mpu init (bootstrap SQLite, Portainer + Loki labels discovery)"
-# if mpu init; then
-#     :
-# else
-#     echo "  warn: mpu init returned non-zero (см. вывод выше; обычно — нет PORTAINER_API_KEY/LOKI_URL в ~/.config/mpu/.env)" >&2
-# fi
-
 echo "✓ done. Open a new $SHELL_NAME session to activate completions."

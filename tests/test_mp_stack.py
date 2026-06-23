@@ -114,3 +114,45 @@ def test_missing_images_preserves_spec_order(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setattr(mp_stack.subprocess, "run", _run)
     assert mp_stack.missing_images() == ["mp-back:local", "mp-dt:local"]
+
+
+def test_build_up_argv_appends_service_filter(tmp_path: Path) -> None:
+    argv = mp_stack.build_up_argv(mp_stack.SW_BACK_DEPS, tmp_path)
+    assert argv[-5:] == ["up", "-d", "--force-recreate", "pg", "redis"]
+    assert _env_names(argv) == [".sw-back.base.env"]
+    assert _compose_names(argv) == ["compose.sw-back.yaml"]
+
+
+def test_build_local_stack_up_argv(tmp_path: Path) -> None:
+    argv = mp_stack.build_local_stack_up_argv(tmp_path / "local-stack")
+    assert argv[:3] == ["docker", "compose", "-f"]
+    assert Path(argv[3]).name == "docker-compose.yml"
+    assert argv[-3:] == ["up", "-d", "--force-recreate"]
+
+
+def test_local_stack_dir_is_sibling() -> None:
+    assert mp_stack.local_stack_dir(Path("/x/mp/mp-config-local")) == Path("/x/mp/local-stack")
+
+
+def test_running_conflicts_filters_running(monkeypatch: pytest.MonkeyPatch) -> None:
+    running = {"mp-sw-api"}
+
+    def _cr(name: str) -> bool:
+        return name in running
+
+    monkeypatch.setattr(mp_stack, "container_running", _cr)
+    assert mp_stack.running_conflicts(("mp-sw-api", "nextjs-dev", "mp-sl-front-dev")) == [
+        "mp-sw-api"
+    ]
+
+
+def test_stop_containers_argv() -> None:
+    assert mp_stack.stop_containers_argv(["a", "b"]) == ["docker", "stop", "a", "b"]
+
+
+def test_missing_web_images(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _no_img(ref: str) -> bool:
+        return False
+
+    monkeypatch.setattr(mp_stack, "image_exists", _no_img)
+    assert mp_stack.missing_web_images() == ["sl-front-dev:local"]

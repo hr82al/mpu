@@ -136,3 +136,76 @@ def test_creates_network_when_absent(tmp_path: Path, monkeypatch: pytest.MonkeyP
     res = runner.invoke(cmd.app, [])
     assert res.exit_code == 0, res.output
     assert created == [("mp-shared-net", "178.20.0.0/16")]
+
+
+def _web_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """core готов + каталог local-stack существует + web-образы на месте → web поднимается."""
+    _setup_ok(tmp_path, monkeypatch)
+    ls = tmp_path / "local-stack"
+    ls.mkdir()
+
+    def _ls(base: Path) -> Path:
+        return ls
+
+    monkeypatch.setattr(mp_stack, "local_stack_dir", _ls)
+    monkeypatch.setattr(mp_stack, "missing_web_images", _no_missing)
+    return ls
+
+
+def test_web_dry_run_prints_deps_stop_and_local_stack(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _web_setup(tmp_path, monkeypatch)
+    monkeypatch.setattr(subprocess, "run", _boom)  # dry-run ничего не выполняет
+
+    res = runner.invoke(cmd.app, ["--dry-run"])
+    assert res.exit_code == 0, res.output
+    assert "compose.sw-back.yaml" in res.output  # sw-back deps (pg+redis)
+    assert "docker stop mp-sw-api nextjs-dev mp-sl-front-dev" in res.output
+    assert "docker-compose.yml" in res.output  # local-stack up -d --force-recreate
+    assert "dry-run: ничего не выполнено" in res.output
+
+
+def test_web_real_run_executes_deps_stop_local_stack(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ls = _web_setup(tmp_path, monkeypatch)
+
+    def _conflicts(names: tuple[str, ...]) -> list[str]:
+        return ["mp-sw-api"]
+
+    monkeypatch.setattr(mp_stack, "running_conflicts", _conflicts)
+    calls: list[list[str]] = []
+    cwds: list[object] = []
+
+    def _run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[bytes]:
+        calls.append(argv)
+        cwds.append(kwargs.get("cwd"))
+        return subprocess.CompletedProcess[bytes](args=argv, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", _run)
+    res = runner.invoke(cmd.app, [])
+
+    assert res.exit_code == 0, res.output
+    assert len(calls) == 8  # 5 core + sw-back-deps + docker stop + local-stack
+    assert "compose.sw-back.yaml" in " ".join(calls[5]) and cwds[5] == tmp_path
+    assert calls[6] == ["docker", "stop", "mp-sw-api"]
+    assert calls[7][:3] == ["docker", "compose", "-f"] and cwds[7] == ls
+    assert "mp-init: поднят core" in res.output and "web" in res.output
+
+
+def test_web_skipped_when_local_stack_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _setup_ok(tmp_path, monkeypatch)
+
+    def _absent(base: Path) -> Path:
+        return tmp_path / "absent"
+
+    monkeypatch.setattr(mp_stack, "local_stack_dir", _absent)
+    monkeypatch.setattr(subprocess, "run", _ok_run)
+
+    res = runner.invoke(cmd.app, [])
+    assert res.exit_code == 0, res.output
+    assert "web-стек пропущен" in res.output
+    assert "mp-init: core поднят" in res.output
