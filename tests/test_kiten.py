@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 import pytest
 import typer
@@ -16,6 +17,7 @@ import typer
 from mpu.commands.kiten import (
     LsFilters,
     _card_to_markdown,
+    _left_neighbor_column,
     build_updated_window,
     coalesce,
     resolve_comment_text,
@@ -23,6 +25,8 @@ from mpu.commands.kiten import (
 )
 from mpu.lib.kaiten import (
     KaitenCardDetail,
+    KaitenClient,
+    KaitenColumn,
     KaitenComment,
     KaitenFile,
     build_cards_query,
@@ -721,3 +725,64 @@ def test_resolve_comment_text_empty_and_missing_file(tmp_path: Path) -> None:
     # несуществующий файл → BadParameter, не OSError наружу.
     with pytest.raises(typer.BadParameter):
         resolve_comment_text(None, str(tmp_path / "nope.md"), stdin_read=_no_stdin)
+
+
+# ── resolve_ref: точное совпадение названия в приоритете над подстрокой ──────────
+
+
+def test_resolve_ref_exact_wins_over_substring() -> None:
+    # «Готово» резолвится в точную колонку, хотя есть «Готово к код-ревью» и т.п.
+    rows = [(1, "Готово к код-ревью"), (2, "Готово к тестированию QA"), (3, "Готово")]
+    assert resolve_ref("Готово", rows, kind="column") == 3
+
+
+def test_resolve_ref_exact_casefold() -> None:
+    assert resolve_ref("готово", [(3, "Готово")], kind="column") == 3
+
+
+def test_resolve_ref_duplicate_exact_is_ambiguous() -> None:
+    # два одинаковых точных названия → неоднозначно (нельзя выбрать).
+    with pytest.raises(ValueError, match="неоднозначен"):
+        resolve_ref("Готово", [(3, "Готово"), (4, "Готово")], kind="column")
+
+
+# ── _left_neighbor_column: соседняя слева колонка для релог-bump ─────────────────
+
+
+class _FakeColumnsClient:
+    """Мини-клиент, отдаёт фиксированный список колонок (нужен только list_columns)."""
+
+    def __init__(self, columns: list[KaitenColumn]) -> None:
+        self._columns = columns
+
+    def list_columns(self, board_ids: list[int]) -> list[KaitenColumn]:
+        _ = board_ids
+        return self._columns
+
+
+def _board_columns() -> list[KaitenColumn]:
+    return [
+        KaitenColumn(id=10, board_id=1, title="Очередь", sort_order=1.0),
+        KaitenColumn(id=20, board_id=1, title="Разработка", sort_order=2.0),
+        KaitenColumn(id=30, board_id=1, title="Готово", sort_order=3.0),
+    ]
+
+
+def _fake_client(columns: list[KaitenColumn]) -> KaitenClient:
+    # cast: фейк покрывает только list_columns, единственное, что нужно _left_neighbor_column.
+    return cast("KaitenClient", _FakeColumnsClient(columns))
+
+
+def test_left_neighbor_picks_left() -> None:
+    assert _left_neighbor_column(_fake_client(_board_columns()), 1, 30) == 20
+
+
+def test_left_neighbor_leftmost_uses_right() -> None:
+    # крайняя левая колонка → берём правую соседку.
+    assert _left_neighbor_column(_fake_client(_board_columns()), 1, 10) == 20
+
+
+def test_left_neighbor_single_column_errors() -> None:
+    one = [KaitenColumn(id=10, board_id=1, title="Одна", sort_order=1.0)]
+    with pytest.raises(typer.BadParameter):
+        _left_neighbor_column(_fake_client(one), 1, 10)

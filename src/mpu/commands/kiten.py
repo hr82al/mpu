@@ -72,8 +72,9 @@ from mpu.lib.kaiten import (
 
 COMMAND_NAME = "mpu kiten"
 COMMAND_SUMMARY = (
-    "Kaiten: `ls` — мои карточки (member); `card` — одна карточка; `comment`/`move` — "
-    "комментарий/перемещение; `spaces`/`boards`/`lanes`/`columns` — справочник; `whoami`"
+    "Kaiten: `ls` — мои карточки (member); `card` — одна карточка; `comment` — комментарий; "
+    "`move`/`ready`/`review` — перемещение (+ лог в журнал); "
+    "`spaces`/`boards`/`lanes`/`columns` — справочник; `whoami`"
 )
 
 app = typer.Typer(
@@ -608,17 +609,173 @@ def move(
         scope_board = cli_board if cli_board is not None else before.board_id
         lane_id = _resolve_lane(lane, scope_board)
         column_id = _resolve_column(column, scope_board)
-        after = client.move_card(card_id, lane_id=lane_id, column_id=column_id, board_id=cli_board)
+        # Перевод только по колонке, и карточка уже в ней → релог-bump (влево→обратно),
+        # чтобы Kaiten записал перемещение (в ту же колонку он его игнорирует).
+        relogged = (
+            lane_id is None
+            and cli_board is None
+            and column_id is not None
+            and before.column_id == column_id
+        )
+        if relogged and column_id is not None:
+            neighbor_id = _left_neighbor_column(client, before.board_id, column_id)
+            client.move_card(card_id, column_id=neighbor_id)
+            after = client.move_card(card_id, column_id=column_id)
+        else:
+            after = client.move_card(
+                card_id, lane_id=lane_id, column_id=column_id, board_id=cli_board
+            )
     except KaitenAPIError as e:
         typer.echo(f"{COMMAND_NAME} move: kaiten error: {e}", err=True)
         raise typer.Exit(code=1) from None
-    typer.echo(f"ok: {_location_label(before)} → {_location_label(after)} · {after.url}")
+    _record_card_move(card_id, before, after)
+    suffix = " (релог)" if relogged else ""
+    typer.echo(f"ok: {_location_label(before)} → {_location_label(after)}{suffix} · {after.url}")
 
 
 def _location_label(detail: KaitenCardDetail) -> str:
     """`Доска · Колонка · Дорожка` карточки (непустые части); пусто → «—»."""
     parts = (detail.board_title, detail.column_title, detail.lane_title)
     return " · ".join(x for x in parts if x) or "—"
+
+
+def _record_card_move(
+    card_id: int, before: KaitenCardDetail, after: KaitenCardDetail, *, note: str | None = None
+) -> None:
+    """Записать перемещение в локальный журнал `kaiten_card_moves` (для `mpu telegram status`)."""
+    with store.store() as conn:
+        store.bootstrap(conn)
+        kaiten_links.record_move(
+            conn,
+            card_id,
+            to_column=after.column_title or "—",
+            title=after.title,
+            url=after.url,
+            from_column=before.column_title,
+            lane=after.lane_title,
+            board=after.board_title,
+            note=note,
+        )
+
+
+def _left_neighbor_column(client: KaitenClient, board_id: int | None, target_id: int) -> int:
+    """Колонка слева от `target_id` (по `sort_order`); если цель крайняя левая — берём правую
+    соседку. Нужна для релог-bump: перевести карточку в соседнюю колонку и обратно."""
+    cols = client.list_columns([board_id] if board_id is not None else [])
+    if not cols:
+        raise typer.BadParameter("не удалось получить колонки доски для релога")
+    ordered = sorted(cols, key=lambda c: (c.sort_order if c.sort_order is not None else 0.0, c.id))
+    ids = [c.id for c in ordered]
+    if target_id not in ids:
+        raise typer.BadParameter("целевая колонка не найдена на доске карточки")
+    i = ids.index(target_id)
+    if i > 0:
+        return ids[i - 1]
+    if len(ids) > 1:
+        return ids[i + 1]
+    raise typer.BadParameter("на доске одна колонка — релог невозможен")
+
+
+def _move_to_target_column(
+    selector: str, target_name: str, *, note: str | None, dry_run: bool
+) -> None:
+    """Перевести карточку в колонку `target_name` (точное имя в приоритете) на её текущей доске;
+    дорожка/доска сохраняются. Если карточка уже в целевой колонке — релог-bump (влево→обратно),
+    чтобы Kaiten зафиксировал перемещение как моё сегодня. Логирует в `kaiten_card_moves`."""
+    try:
+        card_id = parse_card_ref(selector)
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from None
+    client = KaitenClient.from_env()
+    try:
+        before = client.get_card(card_id)
+    except KaitenAPIError as e:
+        typer.echo(f"{COMMAND_NAME}: kaiten error: {e}", err=True)
+        raise typer.Exit(code=1) from None
+    target_id = _resolve_column(target_name, before.board_id)
+    if target_id is None:  # target_name не None → вернётся int либо BadParameter; защита для типов
+        raise typer.BadParameter(f"колонка «{target_name}» не найдена")
+    already = before.column_id == target_id
+    if dry_run:
+        action = "релог (влево→обратно)" if already else "перемещение"
+        typer.echo(
+            f"dry-run: {action} → «{target_name}» (колонка {target_id}); "
+            f"сейчас {_location_label(before)}; PATCH не отправлен"
+        )
+        return
+    try:
+        if already:
+            neighbor_id = _left_neighbor_column(client, before.board_id, target_id)
+            client.move_card(card_id, column_id=neighbor_id)
+        after = client.move_card(card_id, column_id=target_id)
+    except KaitenAPIError as e:
+        typer.echo(f"{COMMAND_NAME}: kaiten error: {e}", err=True)
+        raise typer.Exit(code=1) from None
+    _record_card_move(card_id, before, after, note=note)
+    suffix = " (релог)" if already else ""
+    typer.echo(f"ok: {_location_label(before)} → {_location_label(after)}{suffix} · {after.url}")
+
+
+@app.command("ready")
+def ready(
+    selector: Annotated[
+        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
+    ],
+    column: Annotated[
+        str | None,
+        typer.Option(
+            "--column",
+            help="Целевая колонка (ID/имя); по умолчанию env KITEN_READY_COLUMN или «Готово»",
+            autocompletion=_complete_column,
+        ),
+    ] = None,
+    note: Annotated[
+        str | None, typer.Option("--note", help="Заметка, сохраняется в журнал перемещений")
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Показать намеченное действие без PATCH и без лога")
+    ] = False,
+) -> None:
+    """Перевести карточку в колонку «Готово» (дорожка/доска сохраняются) + лог в журнал.
+
+    Цель — точное имя колонки на текущей доске карточки (env `KITEN_READY_COLUMN`, по
+    умолчанию «Готово»; переопределяется `--column`). Если карточка уже в этой колонке —
+    делается релог-bump (перевод в соседнюю колонку и обратно), т.к. перевод в ту же колонку
+    Kaiten не логирует.
+    """
+    target = column or env.get("KITEN_READY_COLUMN") or "Готово"
+    _move_to_target_column(selector, target, note=note, dry_run=dry_run)
+
+
+@app.command("review")
+def review(
+    selector: Annotated[
+        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
+    ],
+    column: Annotated[
+        str | None,
+        typer.Option(
+            "--column",
+            help="Целевая колонка (ID/имя); по умолчанию env KITEN_REVIEW_COLUMN или «Код-ревью»",
+            autocompletion=_complete_column,
+        ),
+    ] = None,
+    note: Annotated[
+        str | None, typer.Option("--note", help="Заметка, сохраняется в журнал перемещений")
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Показать намеченное действие без PATCH и без лога")
+    ] = False,
+) -> None:
+    """Перевести карточку в колонку ревью (дорожка/доска сохраняются) + лог в журнал.
+
+    Цель — точное имя колонки на текущей доске (env `KITEN_REVIEW_COLUMN`, по умолчанию
+    «Код-ревью»; переопределяется `--column`). Если карточку уже двинул в ревью кто-то другой —
+    делается релог-bump (соседняя колонка и обратно), чтобы Kaiten записал это как моё
+    перемещение сегодня (перевод в ту же колонку Kaiten не логирует).
+    """
+    target = column or env.get("KITEN_REVIEW_COLUMN") or "Код-ревью"
+    _move_to_target_column(selector, target, note=note, dry_run=dry_run)
 
 
 @app.command("whoami")

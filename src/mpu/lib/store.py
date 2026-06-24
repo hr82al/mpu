@@ -161,6 +161,26 @@ _DDL = [
     )
     """,
     ("CREATE INDEX IF NOT EXISTS idx_kaiten_card_links_card ON kaiten_card_links(card_id, field)"),
+    # Журнал перемещений карточек (`mpu kiten move`/`ready`/`review`): по строке на
+    # каждый перевод. `title`/`url` — снимок карточки на момент перевода (для отчёта
+    # `mpu telegram status` без обращения к Kaiten). `to_column`/`from_column` — названия
+    # колонок, `lane`/`board` — сохраняемое положение. Автор всегда владелец токена → не храним.
+    """
+    CREATE TABLE IF NOT EXISTS kaiten_card_moves (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        card_id     INTEGER NOT NULL,
+        title       TEXT,
+        url         TEXT,
+        to_column   TEXT NOT NULL,
+        from_column TEXT,
+        lane        TEXT,
+        board       TEXT,
+        note        TEXT,
+        moved_at    INTEGER NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_kaiten_card_moves_card ON kaiten_card_moves(card_id)",
+    "CREATE INDEX IF NOT EXISTS idx_kaiten_card_moves_moved_at ON kaiten_card_moves(moved_at)",
     # --- sheet (Google Spreadsheets) ---
     # Whole-tab кэш: один tab = одна запись с gzipped JSON payload.
     # Любой `sheet get X!A1:C3` тянет весь tab X разом → кладёт сюда → последующие

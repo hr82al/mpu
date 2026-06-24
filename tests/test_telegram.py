@@ -572,3 +572,40 @@ def test_search_messages_global_from_without_query_raises(monkeypatch: pytest.Mo
                 limit=50,
             )
         )
+
+
+# ── telegram status: _truncate + dry-run (локальный журнал, без сети) ────────────
+
+
+def test_truncate_status_message() -> None:
+    from mpu.commands.telegram import _truncate
+
+    assert _truncate("короткий", 100) == "короткий"
+    out = _truncate("x" * 5000, 100)
+    assert len(out) <= 100
+    assert out.endswith("…(обрезано)")
+
+
+def test_status_dry_run_local_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+
+    from mpu.commands import telegram as telegram_cmd
+    from mpu.lib import kaiten_links, kiten_status, store
+
+    db = tmp_path / "mpu.db"
+    monkeypatch.setattr(store, "DB_PATH", db)
+    since, _until = kiten_status.today_epoch_window()
+    with store.store(db) as conn:
+        store.bootstrap(conn)
+        kaiten_links.record_move(
+            conn,
+            111,
+            to_column="Готово",
+            title="Моя карточка",
+            url="https://btlz.kaiten.ru/111",
+            now=since + 60,
+        )
+    result = CliRunner().invoke(telegram_cmd.app, ["status", "--dry-run", "--no-live"])
+    assert result.exit_code == 0, result.output
+    assert "[Моя карточка](https://btlz.kaiten.ru/111)" in result.output
+    assert "✅" in result.output

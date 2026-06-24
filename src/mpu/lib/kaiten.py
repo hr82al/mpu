@@ -74,6 +74,7 @@ class KaitenColumn:
     id: int
     board_id: int
     title: str
+    sort_order: float | None = None  # порядок колонки на доске (слева→направо); для релог-bump
 
 
 @dataclass
@@ -107,6 +108,19 @@ class KaitenCustomProperty:
     id: int
     name: str
     type: str | None
+
+
+@dataclass
+class KaitenLocationChange:
+    """Запись перемещения карточки (GET /cards/{id}/location-history): кто и когда сменил
+    колонку/дорожку. `changed` — ISO-8601 UTC; `author_id` — кто двигал."""
+
+    card_id: int
+    column_id: int | None
+    lane_id: int | None
+    author_id: int | None
+    author_name: str | None
+    changed: str | None
 
 
 @dataclass
@@ -241,10 +255,12 @@ def parse_lane(raw: dict[str, Any]) -> KaitenLane:
 
 def parse_column(raw: dict[str, Any]) -> KaitenColumn:
     """JSON-column из GET /boards/{id}/columns → KaitenColumn. `card.column_id` → column.id."""
+    raw_sort = raw.get("sort_order")
     return KaitenColumn(
         id=int(raw["id"]),
         board_id=int(raw["board_id"]),
         title=str(raw.get("title") or ""),
+        sort_order=None if raw_sort is None else float(raw_sort),
     )
 
 
@@ -331,6 +347,19 @@ def parse_custom_property(raw: dict[str, Any]) -> KaitenCustomProperty:
         id=int(raw["id"]),
         name=str(raw.get("name") or ""),
         type=raw.get("type"),
+    )
+
+
+def parse_location_change(raw: dict[str, Any]) -> KaitenLocationChange:
+    """JSON-запись истории перемещений (GET /cards/{id}/location-history) → KaitenLocationChange."""
+    author_id = raw.get("author_id")
+    return KaitenLocationChange(
+        card_id=int(raw["card_id"]),
+        column_id=None if raw.get("column_id") is None else int(raw["column_id"]),
+        lane_id=None if raw.get("lane_id") is None else int(raw["lane_id"]),
+        author_id=None if author_id is None else int(author_id),
+        author_name=_member_name(raw.get("author")) or None,
+        changed=raw.get("changed"),
     )
 
 
@@ -568,6 +597,20 @@ class KaitenClient:
         if not res:
             return []
         return [parse_comment(c) for c in cast("list[dict[str, Any]]", res)]
+
+    def location_history(self, card_id: int) -> list[KaitenLocationChange]:
+        """GET /cards/{id}/location-history — кто и когда менял колонку/дорожку карточки.
+
+        Хронология перемещений (есть `author_id` и `changed` ISO-UTC). Используется
+        `telegram status --live`, чтобы поймать перемещения, сделанные не через инструмент.
+        Best-effort: ошибка/пусто → []."""
+        try:
+            res = self._request("GET", f"/cards/{card_id}/location-history")
+        except KaitenAPIError:
+            return []
+        if not res:
+            return []
+        return [parse_location_change(c) for c in cast("list[dict[str, Any]]", res)]
 
     def list_custom_properties(self) -> list[KaitenCustomProperty]:
         """GET /company/custom-properties — определения кастомных полей (id → name)."""

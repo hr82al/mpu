@@ -33,7 +33,9 @@ class Stack:
     `name` — отображаемое имя (как алиас: `sl-0`, `dt-host`). `env_files` / `compose_files`
     — имена файлов внутри каталога mp-config-local в порядке передачи (поздние env
     переопределяют ранние). `profiles` — значения `--profile` (для core-стеков пусто).
-    `services` — фильтр сервисов для `up` (пусто = все сервисы стека).
+    `services` — фильтр сервисов для `up` (пусто = все сервисы стека). `overrides` —
+    доп. compose-`-f` из каталога local-stack (применяются, только если файл существует;
+    напр. отключение OpenTelemetry для локального sl-back флота).
     """
 
     name: str
@@ -41,6 +43,7 @@ class Stack:
     compose_files: tuple[str, ...]
     profiles: tuple[str, ...] = ()
     services: tuple[str, ...] = ()
+    overrides: tuple[str, ...] = ()
 
 
 # Core SL backend. Порядок кортежа = порядок запуска:
@@ -60,6 +63,10 @@ CORE_STACKS: tuple[Stack, ...] = (
             "compose.sl-pg.yaml",
             "compose.sl-main.yaml",
         ),
+        overrides=(
+            "overrides/sl-base.observability-off.yaml",
+            "overrides/sl-main.observability-off.yaml",
+        ),
     ),
     Stack(
         name="sl-1",
@@ -69,6 +76,10 @@ CORE_STACKS: tuple[Stack, ...] = (
             "compose.sl-pg.yaml",
             "compose.pgbouncer.yaml",
             "compose.sl-instance.yaml",
+        ),
+        overrides=(
+            "overrides/sl-base.observability-off.yaml",
+            "overrides/sl-instance.observability-off.yaml",
         ),
     ),
     Stack(
@@ -125,8 +136,10 @@ def build_up_argv(stack: Stack, base: Path) -> list[str]:
     """Собрать argv `docker compose ... up -d --force-recreate` для стека.
 
     Env- и compose-файлы подаются абсолютными путями (под `base`). Опциональный `.env`
-    включается только если существует на диске. Без `stack.services` → ВСЕ сервисы стека
-    (в т.ч. простаивающие `cli` / `migrations`); с фильтром — только указанные. БЕЗ
+    включается только если существует на диске. `stack.overrides` — доп. compose-`-f` из
+    каталога local-stack (sibling `base`), добавляются ПОСЛЕ основных (поздний `-f`
+    переопределяет) и только если файл существует. Без `stack.services` → ВСЕ сервисы
+    стека (в т.ч. простаивающие `cli` / `migrations`); с фильтром — только указанные. БЕЗ
     `--remove-orphans` — иначе снесёт контейнеры соседних стеков того же compose-проекта.
     """
     argv = ["docker", "compose"]
@@ -136,6 +149,11 @@ def build_up_argv(stack: Stack, base: Path) -> list[str]:
         argv += ["--env-file", str(base / env)]
     for compose in stack.compose_files:
         argv += ["-f", str(base / compose)]
+    stack_dir = local_stack_dir(base)
+    for override in stack.overrides:
+        override_path = stack_dir / override
+        if override_path.is_file():
+            argv += ["-f", str(override_path)]
     for profile in stack.profiles:
         argv += ["--profile", profile]
     argv += ["up", "-d", "--force-recreate"]

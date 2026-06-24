@@ -287,16 +287,23 @@ def filter_refs(incomplete: str, rows: list[tuple[int, str]]) -> list[tuple[str,
 
 
 def resolve_ref(ref: str, rows: list[tuple[int, str]], *, kind: str) -> int:
-    """ID-или-подстрока-названия → числовой ID по кэшу `rows`.
+    """ID-или-название → числовой ID по кэшу `rows`.
 
-    Чисто-цифровой `ref` трактуется как ID (работает и при пустом кэше). Иначе —
-    casefold-substring по title: 0 совпадений → ValueError, >1 → ValueError со списком
-    кандидатов (обработка коллизий). `kind` ∈ {"space", "board"} — для текста ошибок.
+    Приоритет: чисто-цифровой `ref` → ID (работает и при пустом кэше); иначе точное
+    (casefold) совпадение названия; иначе casefold-substring. 0 совпадений → ValueError,
+    >1 → ValueError со списком кандидатов (обработка коллизий). Точный матч в приоритете,
+    чтобы «Готово» резолвилось, даже когда есть «Готово к код-ревью» и т.п. `kind` — для
+    текста ошибок (column/lane/board/space).
     """
     ref = ref.strip()
     if ref.isdigit():
         return int(ref)
-    matches = [(rid, title) for rid, title in rows if ref.casefold() in title.casefold()]
+    needle = ref.casefold()
+    exact = [(rid, title) for rid, title in rows if title.casefold() == needle]
+    if len(exact) == 1:
+        return exact[0][0]
+    # >1 точных (дубль названий) — проваливаемся в substring-ветку, чтобы вывести кандидатов.
+    matches = [(rid, title) for rid, title in rows if needle in title.casefold()]
     if len(matches) == 1:
         return matches[0][0]
     if not matches:

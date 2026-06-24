@@ -35,6 +35,20 @@ class CardLink:
     created_at: int
 
 
+@dataclass(frozen=True, slots=True)
+class CardMove:
+    id: int
+    card_id: int
+    title: str | None
+    url: str | None
+    to_column: str
+    from_column: str | None
+    lane: str | None
+    board: str | None
+    note: str | None
+    moved_at: int
+
+
 def property_key(field: str) -> str:
     """Ключ кастомного поля карточки (`id_NNN`) для тела PATCH /cards."""
     return f"id_{FIELD_PROPERTY_IDS[field]}"
@@ -124,3 +138,94 @@ def latest_value(conn: sqlite3.Connection, card_id: int, field: str) -> str | No
     """Значение последней по времени записи для (card, field); None — если записей нет."""
     links = list_links(conn, card_id=card_id, field=field)
     return links[0].value if links else None
+
+
+# ── Перемещения карточек (kaiten_card_moves) — журнал для `mpu telegram status` ──
+
+
+def _opt_str(value: object) -> str | None:
+    return None if value is None else str(value)
+
+
+def _row_to_move(row: sqlite3.Row) -> CardMove:
+    return CardMove(
+        id=int(row["id"]),
+        card_id=int(row["card_id"]),
+        title=_opt_str(row["title"]),
+        url=_opt_str(row["url"]),
+        to_column=str(row["to_column"]),
+        from_column=_opt_str(row["from_column"]),
+        lane=_opt_str(row["lane"]),
+        board=_opt_str(row["board"]),
+        note=_opt_str(row["note"]),
+        moved_at=int(row["moved_at"]),
+    )
+
+
+def record_move(
+    conn: sqlite3.Connection,
+    card_id: int,
+    to_column: str,
+    *,
+    title: str | None = None,
+    url: str | None = None,
+    from_column: str | None = None,
+    lane: str | None = None,
+    board: str | None = None,
+    note: str | None = None,
+    now: int | None = None,
+) -> CardMove:
+    """Записать перемещение карточки в `kaiten_card_moves`. Возвращает созданную строку."""
+    ts = int(time.time()) if now is None else now
+    cur = conn.execute(
+        "INSERT INTO kaiten_card_moves"
+        " (card_id, title, url, to_column, from_column, lane, board, note, moved_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (card_id, title, url, to_column, from_column, lane, board, note, ts),
+    )
+    conn.commit()
+    rowid = cur.lastrowid
+    if rowid is None:
+        raise RuntimeError("kaiten_card_moves insert returned no rowid")
+    return CardMove(
+        id=int(rowid),
+        card_id=card_id,
+        title=title,
+        url=url,
+        to_column=to_column,
+        from_column=from_column,
+        lane=lane,
+        board=board,
+        note=note,
+        moved_at=ts,
+    )
+
+
+def list_moves(
+    conn: sqlite3.Connection,
+    *,
+    card_id: int | None = None,
+    since: int | None = None,
+    until: int | None = None,
+) -> list[CardMove]:
+    """Журнал перемещений, новые сверху. Фильтры: card_id и инклюзивное окно [since, until]
+    по `moved_at` (epoch-секунды)."""
+    where: list[str] = []
+    params: list[int] = []
+    if card_id is not None:
+        where.append("card_id = ?")
+        params.append(card_id)
+    if since is not None:
+        where.append("moved_at >= ?")
+        params.append(since)
+    if until is not None:
+        where.append("moved_at <= ?")
+        params.append(until)
+    sql = (
+        "SELECT id, card_id, title, url, to_column, from_column, lane, board, note, moved_at"
+        " FROM kaiten_card_moves"
+    )
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY moved_at DESC, id DESC"
+    return [_row_to_move(r) for r in conn.execute(sql, params).fetchall()]

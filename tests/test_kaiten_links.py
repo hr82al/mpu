@@ -69,3 +69,64 @@ def test_delete_link_resyncs_latest(conn: sqlite3.Connection) -> None:
     kaiten_links.delete_link(conn, a.id)
     assert kaiten_links.latest_value(conn, 1, "mr") is None
     assert kaiten_links.delete_link(conn, 99999) is None
+
+
+# ── kaiten_card_moves: record_move / list_moves ─────────────────────────────────
+
+
+def test_record_move_round_trip(conn: sqlite3.Connection) -> None:
+    m = kaiten_links.record_move(
+        conn,
+        100,
+        to_column="Готово",
+        title="Карточка A",
+        url="https://btlz.kaiten.ru/100",
+        from_column="Код-ревью",
+        lane="Экстренные задачи",
+        board="Разработка",
+        note="done",
+        now=1000,
+    )
+    assert m.id > 0
+    rows = kaiten_links.list_moves(conn, card_id=100)
+    assert len(rows) == 1
+    r = rows[0]
+    assert (r.card_id, r.title, r.url, r.to_column, r.from_column) == (
+        100,
+        "Карточка A",
+        "https://btlz.kaiten.ru/100",
+        "Готово",
+        "Код-ревью",
+    )
+    assert (r.lane, r.board, r.note, r.moved_at) == (
+        "Экстренные задачи",
+        "Разработка",
+        "done",
+        1000,
+    )
+
+
+def test_record_move_nullable_fields(conn: sqlite3.Connection) -> None:
+    m = kaiten_links.record_move(conn, 7, to_column="Очередь", now=5)
+    assert m.title is None and m.url is None and m.from_column is None
+    assert m.lane is None and m.board is None and m.note is None
+
+
+def test_list_moves_empty(conn: sqlite3.Connection) -> None:
+    assert kaiten_links.list_moves(conn) == []
+
+
+def test_list_moves_newest_first(conn: sqlite3.Connection) -> None:
+    kaiten_links.record_move(conn, 1, to_column="A", now=10)
+    kaiten_links.record_move(conn, 2, to_column="B", now=30)
+    kaiten_links.record_move(conn, 3, to_column="C", now=20)
+    assert [m.card_id for m in kaiten_links.list_moves(conn)] == [2, 3, 1]
+
+
+def test_list_moves_window_inclusive(conn: sqlite3.Connection) -> None:
+    kaiten_links.record_move(conn, 1, to_column="A", now=100)  # на нижней границе
+    kaiten_links.record_move(conn, 2, to_column="B", now=200)  # на верхней границе
+    kaiten_links.record_move(conn, 3, to_column="C", now=99)  # вне окна слева
+    kaiten_links.record_move(conn, 4, to_column="D", now=201)  # вне окна справа
+    rows = kaiten_links.list_moves(conn, since=100, until=200)
+    assert sorted(m.card_id for m in rows) == [1, 2]

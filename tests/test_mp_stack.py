@@ -156,3 +156,42 @@ def test_missing_web_images(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(mp_stack, "image_exists", _no_img)
     assert mp_stack.missing_web_images() == ["sl-front-dev:local"]
+
+
+def test_core_stacks_sl_have_observability_overrides() -> None:
+    sl0 = _stack("sl-0")
+    sl1 = _stack("sl-1")
+    assert sl0.overrides == (
+        "overrides/sl-base.observability-off.yaml",
+        "overrides/sl-main.observability-off.yaml",
+    )
+    assert sl1.overrides == (
+        "overrides/sl-base.observability-off.yaml",
+        "overrides/sl-instance.observability-off.yaml",
+    )
+    # стеки без отношения к sl-back флоту override'ов не несут
+    assert _stack("mp-nats").overrides == ()
+
+
+def test_build_up_argv_appends_existing_overrides_after_compose(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ls = tmp_path / "ls"
+    (ls / "overrides").mkdir(parents=True)
+    (ls / "overrides" / "sl-main.observability-off.yaml").write_text("services: {}\n")
+
+    def _ls(base: Path) -> Path:
+        return ls
+
+    monkeypatch.setattr(mp_stack, "local_stack_dir", _ls)
+    stack = mp_stack.Stack(
+        name="t",
+        env_files=(),
+        compose_files=("compose.sl-main.yaml",),
+        overrides=("overrides/sl-main.observability-off.yaml", "overrides/missing.yaml"),
+    )
+    names = _compose_names(mp_stack.build_up_argv(stack, tmp_path))
+    assert "sl-main.observability-off.yaml" in names  # существующий override добавлен
+    assert "missing.yaml" not in names  # отсутствующий — пропущен (graceful)
+    # override идёт ПОСЛЕ основного compose-файла (поздний -f переопределяет)
+    assert names.index("compose.sl-main.yaml") < names.index("sl-main.observability-off.yaml")
