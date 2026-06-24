@@ -620,11 +620,11 @@ def move(
         if relogged and column_id is not None:
             neighbor_id = _left_neighbor_column(client, before.board_id, column_id)
             client.move_card(card_id, column_id=neighbor_id)
-            after = client.move_card(card_id, column_id=column_id)
+            client.move_card(card_id, column_id=column_id)
         else:
-            after = client.move_card(
-                card_id, lane_id=lane_id, column_id=column_id, board_id=cli_board
-            )
+            client.move_card(card_id, lane_id=lane_id, column_id=column_id, board_id=cli_board)
+        # PATCH-ответ Kaiten не несёт title'ов колонки/доски/дорожки (только id) → свежий GET.
+        after = client.get_card(card_id)
     except KaitenAPIError as e:
         typer.echo(f"{COMMAND_NAME} move: kaiten error: {e}", err=True)
         raise typer.Exit(code=1) from None
@@ -707,7 +707,9 @@ def _move_to_target_column(
         if already:
             neighbor_id = _left_neighbor_column(client, before.board_id, target_id)
             client.move_card(card_id, column_id=neighbor_id)
-        after = client.move_card(card_id, column_id=target_id)
+        client.move_card(card_id, column_id=target_id)
+        # PATCH-ответ Kaiten не несёт title'ов колонки/доски (только id) → свежий GET.
+        after = client.get_card(card_id)
     except KaitenAPIError as e:
         typer.echo(f"{COMMAND_NAME}: kaiten error: {e}", err=True)
         raise typer.Exit(code=1) from None
