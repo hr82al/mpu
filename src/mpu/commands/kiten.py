@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import datetime
 import json as _json
+import re
 import sqlite3
 import sys
 from collections.abc import Callable
@@ -532,6 +533,61 @@ def resolve_comment_text(
     return text
 
 
+# В Kaiten нет литерального «@all»: упоминание — это plain-текст `@username`, который сервер
+# резолвит в реальный логин и уведомляет. `@all` сам по себе не логин → не уведомляет.
+# Токен ловим как самостоятельный (в начале строки/после пробела, не часть e-mail/слова).
+ALL_MENTION_RE = re.compile(r"(?<!\S)@all(?!\w)", re.IGNORECASE)
+
+
+def expand_all_mention(text: str, handles: list[str]) -> str:
+    """Развернуть токен `@all` в перечисление `@handle` (обычно — `@username` владельца карточки).
+
+    Чистая функция (логины приходят аргументом). Пустой `handles` → текст без изменений
+    (разворачивать нечего, литеральный `@all` оставляем как есть — он безвреден).
+    """
+    if not handles:
+        return text
+    mention = " ".join(f"@{h}" for h in handles)
+    return ALL_MENTION_RE.sub(lambda _m: mention, text)
+
+
+def _expand_all_to_owner(text: str, card: KaitenCardDetail) -> tuple[str, list[str]]:
+    """`@all` → `@{username владельца карточки}` (заказчик). Возврат: (новый текст, упомянутые).
+
+    Нет токена `@all` → текст без изменений и `[]`. Нет владельца/username → текст как есть и `[]`
+    (вызывающий предупреждает). Владелец один, поэтому список — не более одного логина.
+    """
+    if not ALL_MENTION_RE.search(text):
+        return text, []
+    owner = card.owner
+    if owner and owner.username:
+        return expand_all_mention(text, [owner.username]), [owner.username]
+    return text, []
+
+
+def plan_field_actions(
+    current: dict[str, str | None], provided: dict[str, str | None], *, force: bool
+) -> tuple[list[tuple[str, str]], list[str]]:
+    """Какие обязательные поля писать при закрытии. Чистая функция.
+
+    `current` — текущее значение поля на карточке по kind; `provided` — переданный текст по kind
+    (None = не передан). Пишем переданное поле, если на карточке оно пусто ИЛИ `force`; иначе
+    пропускаем (вручную/ранее заполненные не перезатираем). Возврат: (`[(kind, value)]` к записи,
+    `[kind]` пропущенных как уже заполненные).
+    """
+    to_set: list[tuple[str, str]] = []
+    skipped: list[str] = []
+    for kind, value in provided.items():
+        if value is None:
+            continue
+        cur = current.get(kind)
+        if force or not (cur and cur.strip()):
+            to_set.append((kind, value))
+        else:
+            skipped.append(kind)
+    return to_set, skipped
+
+
 @app.command("comment")
 def comment(
     selector: Annotated[
@@ -544,19 +600,35 @@ def comment(
         str | None, typer.Option("--body-file", "-F", help="Файл с телом; `-` — stdin")
     ] = None,
 ) -> None:
-    """Добавить комментарий к карточке от своего имени (автор — владелец KITEN_API_KEY)."""
+    """Добавить комментарий к карточке от своего имени (автор — владелец KITEN_API_KEY).
+
+    Токен `@all` разворачивается в `@username` ВЛАДЕЛЬЦА карточки (заказчик — кому отвечаем):
+    в Kaiten нет литерального `@all`, это алиас редактора → `@<username владельца>` (берётся
+    из `owner` самой карточки); упоминание = plain-текст `@логин`, сервер уведомляет.
+    """
     try:
         card_id = parse_card_ref(selector)
     except ValueError as e:
         raise typer.BadParameter(str(e)) from None
     text = resolve_comment_text(message, body_file, stdin_read=sys.stdin.read)
     client = KaitenClient.from_env()
+    mentioned: list[str] = []
     try:
+        if ALL_MENTION_RE.search(text):
+            text, mentioned = _expand_all_to_owner(text, client.get_card(card_id))
+            if not mentioned:
+                typer.echo(
+                    f"{COMMAND_NAME} comment: у карточки нет владельца с username — "
+                    "оставляю '@all' как есть",
+                    err=True,
+                )
         created = client.add_comment(card_id, text)
     except KaitenAPIError as e:
         typer.echo(f"{COMMAND_NAME} comment: kaiten error: {e}", err=True)
         raise typer.Exit(code=1) from None
     typer.echo(f"ok: комментарий {created.id} → {card_url(client.base_url, card_id)}")
+    if mentioned:
+        typer.echo(f"   @all → {' '.join('@' + h for h in mentioned)}")
 
 
 @app.command("move")
@@ -778,6 +850,123 @@ def review(
     """
     target = column or env.get("KITEN_REVIEW_COLUMN") or "Код-ревью"
     _move_to_target_column(selector, target, note=note, dry_run=dry_run)
+
+
+@app.command("close")
+def close(
+    selector: Annotated[
+        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
+    ],
+    hypothesis: Annotated[
+        str | None, typer.Option("--hypothesis", help="«Причина/гипотеза» (если поле пусто)")
+    ] = None,
+    done: Annotated[str | None, typer.Option("--done", help="«Что сделано» (если пусто)")] = None,
+    result: Annotated[str | None, typer.Option("--result", help="«Результат» (если пусто)")] = None,
+    mr: Annotated[str | None, typer.Option("--mr", help="Ссылка на MR (если поле пусто)")] = None,
+    reply: Annotated[
+        str | None, typer.Option("--reply", help="Ответ клиенту (markdown; `@all`→владелец)")
+    ] = None,
+    reply_file: Annotated[
+        str | None, typer.Option("--reply-file", help="Файл с телом ответа; `-` — stdin")
+    ] = None,
+    column: Annotated[
+        str | None,
+        typer.Option(
+            "--column",
+            help="Колонка переноса (по умолч. KITEN_READY_COLUMN или «Готово»)",
+            autocompletion=_complete_column,
+        ),
+    ] = None,
+    force_fields: Annotated[
+        bool, typer.Option("--force-fields", help="Перезаписать поля, даже если заполнены")
+    ] = False,
+    no_move: Annotated[
+        bool, typer.Option("--no-move", help="Не переносить карточку (только поля/ответ)")
+    ] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Показать план без записей")] = False,
+) -> None:
+    """Закрыть карточку: пустые обязательные поля + (опц.) ответ клиенту + перенос в «Готово».
+
+    Детерминированный оркестратор: тексты полей/ответа готовит вызывающий, передаёт аргументами.
+    Поля пишутся только если на карточке пусты (вручную/ранее заполненные пропускаются;
+    `--force-fields` перезаписывает). `@all` в ответе → `@username` владельца (заказчик). Перенос —
+    с релогом, если уже в колонке. Порядок: поля → ответ → перенос. `--dry-run` — только план.
+    """
+    try:
+        card_id = parse_card_ref(selector)
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from None
+    if reply is not None and reply_file is not None:
+        raise typer.BadParameter("--reply и --reply-file взаимоисключающи")
+    reply_text: str | None = reply
+    if reply_file == "-":
+        reply_text = sys.stdin.read()
+    elif reply_file is not None:
+        try:
+            reply_text = Path(reply_file).read_text(encoding="utf-8")
+        except OSError as e:
+            raise typer.BadParameter(f"не удалось прочитать {reply_file}: {e}") from None
+    if reply_text is not None and not reply_text.strip():
+        raise typer.BadParameter("пустой текст ответа")
+
+    client = KaitenClient.from_env()
+    try:
+        before = client.get_card(card_id)
+    except KaitenAPIError as e:
+        typer.echo(f"{COMMAND_NAME} close: kaiten error: {e}", err=True)
+        raise typer.Exit(code=1) from None
+
+    provided = {"hypothesis": hypothesis, "done": done, "result": result, "mr": mr}
+    current = {k: before.properties.get(kaiten_links.property_key(k)) for k in provided}
+    to_set, skipped = plan_field_actions(current, provided, force=force_fields)
+
+    mentioned: list[str] = []
+    if reply_text is not None:
+        had_all = ALL_MENTION_RE.search(reply_text) is not None
+        reply_text, mentioned = _expand_all_to_owner(reply_text, before)
+        if had_all and not mentioned:
+            typer.echo(
+                f"{COMMAND_NAME} close: у карточки нет владельца — '@all' оставлен как есть",
+                err=True,
+            )
+
+    target = column or env.get("KITEN_READY_COLUMN") or "Готово"
+    set_lbl = ", ".join(k for k, _ in to_set) or "—"
+    skip_lbl = f"; пропущены (заполнены) [{', '.join(skipped)}]" if skipped else ""
+    men_lbl = f" (@all → {' '.join('@' + h for h in mentioned)})" if mentioned else ""
+
+    if dry_run:
+        typer.echo(f"dry-run close · {before.url}")
+        typer.echo(f"  поля: записать [{set_lbl}]{skip_lbl}")
+        typer.echo(f"  ответ: {'запостить' + men_lbl if reply_text is not None else 'без ответа'}")
+        if no_move:
+            typer.echo("  перенос: пропущен (--no-move)")
+        else:
+            _move_to_target_column(selector, target, note=None, dry_run=True)
+        return
+
+    if to_set:
+        with store.store() as conn:
+            store.bootstrap(conn)
+            try:
+                for kind, value in to_set:
+                    kaiten_links.record_link(conn, card_id, kind, value)
+                    _sync_card_field(conn, client, card_id, kind)
+            except KaitenAPIError as e:
+                typer.echo(f"{COMMAND_NAME} close: kaiten error (поля): {e}", err=True)
+                raise typer.Exit(code=1) from None
+    reply_comment_id: int | None = None
+    if reply_text is not None:
+        try:
+            reply_comment_id = client.add_comment(card_id, reply_text).id
+        except KaitenAPIError as e:
+            typer.echo(f"{COMMAND_NAME} close: kaiten error (ответ): {e}", err=True)
+            raise typer.Exit(code=1) from None
+    typer.echo(f"ok close: поля [{set_lbl}]{skip_lbl}")
+    if reply_comment_id is not None:
+        typer.echo(f"   ответ: комментарий {reply_comment_id}{men_lbl}")
+    if not no_move:
+        _move_to_target_column(selector, target, note=None, dry_run=False)
 
 
 @app.command("whoami")

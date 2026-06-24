@@ -17,9 +17,12 @@ import typer
 from mpu.commands.kiten import (
     LsFilters,
     _card_to_markdown,
+    _expand_all_to_owner,
     _left_neighbor_column,
     build_updated_window,
     coalesce,
+    expand_all_mention,
+    plan_field_actions,
     resolve_comment_text,
     resolve_ls_filters,
 )
@@ -786,3 +789,74 @@ def test_left_neighbor_single_column_errors() -> None:
     one = [KaitenColumn(id=10, board_id=1, title="Одна", sort_order=1.0)]
     with pytest.raises(typer.BadParameter):
         _left_neighbor_column(_fake_client(one), 1, 10)
+
+
+def test_expand_all_mention_basic() -> None:
+    # `@all` в начале строки → перечисление логинов участников.
+    assert expand_all_mention("@all\n\nтекст", ["ivan", "petr"]) == "@ivan @petr\n\nтекст"
+
+
+def test_expand_all_mention_no_token_unchanged() -> None:
+    assert expand_all_mention("привет команда", ["ivan"]) == "привет команда"
+
+
+def test_expand_all_mention_empty_handles_left_as_is() -> None:
+    # нечего разворачивать → литеральный `@all` остаётся (безвреден).
+    assert expand_all_mention("@all привет", []) == "@all привет"
+
+
+def test_expand_all_mention_word_boundary_skips_emails_and_words() -> None:
+    # не часть e-mail/слова — не трогаем.
+    assert expand_all_mention("see karkhaninas@all.com", ["ivan"]) == "see karkhaninas@all.com"
+    assert expand_all_mention("@allies сегодня", ["ivan"]) == "@allies сегодня"
+
+
+def test_expand_all_mention_case_insensitive_and_multiple() -> None:
+    assert expand_all_mention("@all и ещё @ALL", ["a", "b"]) == "@a @b и ещё @a @b"
+
+
+def _card_with_owner(username: str | None) -> KaitenCardDetail:
+    raw: dict[str, object] = {"id": 1}
+    if username is not None:
+        raw["owner"] = {"id": 9, "full_name": "Василий", "email": "e@x", "username": username}
+    return parse_card_detail(raw, "https://btlz.kaiten.ru")
+
+
+def test_expand_all_to_owner_uses_owner_username() -> None:
+    card = _card_with_owner("10XSystPod1")
+    text, mentioned = _expand_all_to_owner("@all\n\nответ", card)
+    assert text == "@10XSystPod1\n\nответ"
+    assert mentioned == ["10XSystPod1"]
+
+
+def test_expand_all_to_owner_no_owner_left_as_is() -> None:
+    text, mentioned = _expand_all_to_owner("@all привет", _card_with_owner(None))
+    assert text == "@all привет"
+    assert mentioned == []
+
+
+def test_expand_all_to_owner_no_token_unchanged() -> None:
+    text, mentioned = _expand_all_to_owner("просто текст", _card_with_owner("10XSystPod1"))
+    assert text == "просто текст"
+    assert mentioned == []
+
+
+def test_plan_field_actions_sets_only_empty() -> None:
+    current = {"hypothesis": "уже есть", "done": None, "result": "  "}
+    provided = {"hypothesis": "h", "done": "d", "result": "r", "mr": None}
+    to_set, skipped = plan_field_actions(current, provided, force=False)
+    assert to_set == [("done", "d"), ("result", "r")]  # done=None и result=пробелы → пишем
+    assert skipped == ["hypothesis"]  # непустое → пропуск
+
+
+def test_plan_field_actions_force_overwrites() -> None:
+    current = {"hypothesis": "уже есть"}
+    to_set, skipped = plan_field_actions(current, {"hypothesis": "h"}, force=True)
+    assert to_set == [("hypothesis", "h")]
+    assert skipped == []
+
+
+def test_plan_field_actions_skips_not_provided() -> None:
+    to_set, skipped = plan_field_actions({}, {"hypothesis": None, "done": None}, force=False)
+    assert to_set == []
+    assert skipped == []
