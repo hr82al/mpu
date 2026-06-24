@@ -85,13 +85,29 @@ def test_missing_data_field_raises() -> None:
         _api(httpx.MockTransport(handler)).login()
 
 
-def test_resolve_credentials_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    from mpu.lib import x10api
+def test_resolve_credentials_and_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mpu.lib import env, x10api
 
-    monkeypatch.delenv("X10_TOKEN_EMAIL", raising=False)
-    monkeypatch.delenv("X10_TOKEN_PASSWORD", raising=False)
+    monkeypatch.setattr(env, "_loaded", True)  # не читать реальный ~/.config/mpu/.env
+    monkeypatch.setenv("X10_LOGIN", "staff@x")
+    monkeypatch.setenv("X10_PASSWORD", "pw")
+    assert x10api.resolve_credentials() == ("staff@x", "pw")
+
+    # X10_URL без /api → суффикс добавляется; с /api → как есть; без X10_URL → дефолт
+    monkeypatch.setenv("X10_URL", "https://system10x.btlz-api.ru")
+    assert x10api.resolve_base_url() == "https://system10x.btlz-api.ru/api"
+    monkeypatch.setenv("X10_URL", "https://app.system10x.ru/api/")
+    assert x10api.resolve_base_url() == "https://app.system10x.ru/api"
+    monkeypatch.delenv("X10_URL", raising=False)
     monkeypatch.delenv("X10_API_URL", raising=False)
-    monkeypatch.setenv("TOKEN_EMAIL", "e")
-    monkeypatch.setenv("TOKEN_PASSWORD", "p")
-    assert x10api.resolve_credentials() == ("e", "p")
     assert x10api.resolve_base_url() == x10api.DEFAULT_BASE_URL
+
+
+def test_resolve_credentials_missing_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    from mpu.lib import env, x10api
+
+    monkeypatch.setattr(env, "_loaded", True)
+    monkeypatch.delenv("X10_LOGIN", raising=False)
+    monkeypatch.delenv("X10_PASSWORD", raising=False)
+    with pytest.raises(x10api.X10ApiError):
+        x10api.resolve_credentials()

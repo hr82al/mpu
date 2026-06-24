@@ -362,3 +362,17 @@ def test_cli_email_projection(db: sqlite3.Connection, monkeypatch: pytest.Monkey
     assert res.exit_code == 0
     lines = [ln for ln in res.stdout.splitlines() if ln]
     assert lines == ["10", "10"]  # client 10 has 2 spreadsheets
+
+
+def test_cli_email_shows_sessions(db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(x10_resolve, "fetch_email_bundle", _fake_bundle)
+    db.execute(
+        "INSERT OR REPLACE INTO x10_sessions "
+        "(kind, subject, token, reason, created_at, expires_at) "
+        "VALUES ('impersonation', '42', 'IMPTOK', 'ТП 2026-06-24', 1, 9999999999)"
+    )
+    db.commit()
+    res = runner.invoke(search.app, ["a@b.ru"])
+    assert res.exit_code == 0
+    sess = json.loads(res.stdout)["sessions"]
+    assert any(s["kind"] == "impersonation" and s["token"] == "IMPTOK" and s["valid"] for s in sess)

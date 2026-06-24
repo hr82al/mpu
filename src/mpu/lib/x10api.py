@@ -10,12 +10,11 @@ sw-back оборачивает успешные ответы в `{success, messa
 возвращают распакованный `data`. Ошибки (non-2xx) → `X10ApiError(status, body)`.
 
 Env:
-- `X10_API_URL` — base URL c глобальным префиксом `/api`
-  (default `https://app.system10x.ru/api`; dev — `https://devsystem10x.btlz-api.ru/api`).
-- `X10_TOKEN_EMAIL` / `X10_TOKEN_PASSWORD` — staff-креды для `/auth/login`
-  (fallback на `TOKEN_EMAIL` / `TOKEN_PASSWORD`).
-  ВНИМАНИЕ: sl-back-аккаунт из `TOKEN_EMAIL` обычно НЕ является staff-аккаунтом
-  10X (отдельная auth-система sw-back) — для резолва email нужны 10X-staff-креды.
+- `X10_URL` — хост 10X (напр. `https://system10x.btlz-api.ru` или `https://app.system10x.ru`);
+  суффикс `/api` добавляется автоматически. Дефолт — `https://app.system10x.ru/api`.
+- `X10_LOGIN` / `X10_PASSWORD` — staff-аккаунт 10X для `/auth/login`.
+  ВНИМАНИЕ: это ОТДЕЛЬНАЯ от sl-back auth-система (sw-back) — sl-back `TOKEN_*` тут
+  НЕ подходят (401). Нужен реальный staff-аккаунт 10X.
 """
 
 from __future__ import annotations
@@ -50,29 +49,29 @@ def _truncate(s: str, n: int) -> str:
 
 
 def resolve_base_url() -> str:
-    """`X10_API_URL` или дефолтный прод-URL. Всегда с префиксом `/api`."""
-    return (env.get("X10_API_URL") or DEFAULT_BASE_URL).rstrip("/")
+    """`X10_URL` (хост, напр. `https://system10x.btlz-api.ru` или `https://app.system10x.ru`).
+
+    Суффикс `/api` добавляется автоматически. Дефолт — прод `app.system10x.ru/api`.
+    """
+    raw = (env.get("X10_URL") or env.get("X10_API_URL") or DEFAULT_BASE_URL).rstrip("/")
+    return raw if raw.endswith("/api") else raw + "/api"
 
 
 def resolve_credentials() -> tuple[str, str]:
-    """`X10_TOKEN_EMAIL` / `X10_TOKEN_PASSWORD` (fallback `TOKEN_EMAIL` / `TOKEN_PASSWORD`)."""
-    email = env.get("X10_TOKEN_EMAIL") or env.get("TOKEN_EMAIL")
-    password = env.get("X10_TOKEN_PASSWORD") or env.get("TOKEN_PASSWORD")
-    missing = [
-        name
-        for name, val in (
-            ("X10_TOKEN_EMAIL (или TOKEN_EMAIL)", email),
-            ("X10_TOKEN_PASSWORD (или TOKEN_PASSWORD)", password),
-        )
-        if not val
-    ]
+    """`X10_LOGIN` / `X10_PASSWORD` — staff-аккаунт 10X (sw-back).
+
+    Это ОТДЕЛЬНАЯ от sl-back auth-система — sl-back `TOKEN_*` тут НЕ подходят (401).
+    """
+    login = env.get("X10_LOGIN")
+    password = env.get("X10_PASSWORD")
+    missing = [name for name, val in (("X10_LOGIN", login), ("X10_PASSWORD", password)) if not val]
     if missing:
         raise X10ApiError(
             f"10X credentials missing: {', '.join(missing)}. "
             f"Add to {env.env_path()} or export in shell."
         )
-    assert email is not None and password is not None
-    return email, password
+    assert login is not None and password is not None
+    return login, password
 
 
 @dataclass

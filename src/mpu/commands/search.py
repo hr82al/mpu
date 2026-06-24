@@ -11,6 +11,7 @@
 import json
 import re
 import sqlite3
+import time
 from datetime import date
 from typing import Annotated, TypeGuard, cast
 
@@ -270,7 +271,37 @@ def _owned_rows(conn: sqlite3.Connection, row: sqlite3.Row) -> list[dict[str, ob
     return out
 
 
-def _email_output_obj(row: sqlite3.Row, owned_rows: list[dict[str, object]]) -> dict[str, object]:
+def _sessions_for(conn: sqlite3.Connection, target_user_id: str) -> list[dict[str, object]]:
+    """Кэшированные 10X-сессии (`x10_sessions`): staff + impersonation целевого юзера.
+    Токен показываем целиком — он переиспользуем для ручных вызовов 10X API."""
+    try:
+        cur = conn.execute(
+            "SELECT kind, subject, token, reason, created_at, expires_at FROM x10_sessions "
+            "WHERE kind = 'staff' OR (kind = 'impersonation' AND subject = ?) ORDER BY kind",
+            (str(target_user_id),),
+        )
+    except sqlite3.OperationalError:
+        return []
+    now = int(time.time())
+    out: list[dict[str, object]] = []
+    for r in cur.fetchall():
+        out.append(
+            {
+                "kind": r["kind"],
+                "subject": r["subject"],
+                "reason": r["reason"],
+                "created_at": r["created_at"],
+                "expires_at": r["expires_at"],
+                "valid": int(r["expires_at"]) > now,
+                "token": r["token"],
+            }
+        )
+    return out
+
+
+def _email_output_obj(
+    conn: sqlite3.Connection, row: sqlite3.Row, owned_rows: list[dict[str, object]]
+) -> dict[str, object]:
     """Полный объект для дефолтного вывода `mpu search <email>` — показать ВСЁ."""
     try:
         parsed = json.loads(row["workspaces_json"])
@@ -301,6 +332,7 @@ def _email_output_obj(row: sqlite3.Row, owned_rows: list[dict[str, object]]) -> 
         "fetched_at": row["fetched_at"],
         "owned": owned_rows,
         "member_only": member_only,
+        "sessions": _sessions_for(conn, uid),
         "workspaces": ws_list,
     }
 
@@ -328,7 +360,7 @@ def _run_email_command(
         except (x10_resolve.X10ResolveError, x10api.X10ApiError) as e:
             hint = ""
             if isinstance(e, x10api.X10ApiError) and e.status in (401, 403):
-                hint = " (нужны 10X staff-креды в X10_TOKEN_EMAIL/X10_TOKEN_PASSWORD)"
+                hint = " (нужны 10X staff-креды X10_LOGIN/X10_PASSWORD, не sl-back TOKEN_*)"
             typer.echo(f"mpu search: {e}{hint}", err=True)
             raise typer.Exit(code=2) from None
         from mpu.commands import update as update_cmd
@@ -353,7 +385,9 @@ def _run_email_command(
         for line in _project(owned_rows, projection):
             typer.echo(line)
         return
-    typer.echo(json.dumps(_email_output_obj(cached, owned_rows), ensure_ascii=False, indent=2))
+    typer.echo(
+        json.dumps(_email_output_obj(conn, cached, owned_rows), ensure_ascii=False, indent=2)
+    )
 
 
 app = typer.Typer(
@@ -402,7 +436,8 @@ def main(
             "--reason",
             help=(
                 "email-селектор: причина impersonation (логируется на проде 10X). "
-                "Обычно — ссылка на Kaiten-карточку. Default: 'ТП <YYYY-MM-DD>'."
+                "Рекомендуется ссылка на Kaiten-карточку (для аудита). "
+                "Default: 'ТП <YYYY-MM-DD>'."
             ),
         ),
     ] = None,
