@@ -11,7 +11,8 @@
 import json
 import re
 import sqlite3
-from typing import Annotated, TypeGuard
+from datetime import date
+from typing import Annotated, TypeGuard, cast
 
 import typer
 
@@ -158,12 +159,64 @@ def _by_sid(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
     return out
 
 
-def search(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
-    """Однопроходный поиск. Порядок: client_id → IP → sid → ss_id → title.
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
-    `sid` (exact, затем substring) идёт перед ss_id/title — sid'ы из
-    `sl_wb_sids` достаточно специфичны; если ничего не нашли — fallback дальше.
+
+def looks_like_email(value: str) -> bool:
+    return bool(_EMAIL_RE.match(value))
+
+
+def _owned_ids(row: sqlite3.Row) -> list[int]:
+    """`owned_client_ids` (JSON [int]) из строки `x10_email_clients`."""
+    try:
+        parsed = json.loads(row["owned_client_ids"])
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    # owned_client_ids пишется нами как JSON list[int] (см. x10_resolve._upsert_email_client)
+    items: list[object] = cast("list[object]", parsed)
+    return [c for c in items if isinstance(c, int)]
+
+
+def _get_email_client_row(conn: sqlite3.Connection, email: str) -> sqlite3.Row | None:
+    """Строка кэша email→client (lower-case email) или `None`. Нет таблицы → `None`."""
+    try:
+        cur = conn.execute(
+            "SELECT email, target_user_id, target_name, is_email_verified, "
+            "owned_client_ids, workspaces_json, reason, fetched_at "
+            "FROM x10_email_clients WHERE email = ?",
+            (email,),
+        )
+    except sqlite3.OperationalError:
+        return None
+    return cur.fetchone()
+
+
+def _by_email(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
+    """email → owned client_id(ы) → строки клиента. ТОЛЬКО из кэша `x10_email_clients`.
+
+    Cache-miss → `[]`: сам fetch через 10X API делает ТОЛЬКО `mpu search` (не
+    shared-резолв), резолвер на miss бросает подсказку «сначала mpu search <email>».
     """
+    row = _get_email_client_row(conn, value.lower())
+    if row is None:
+        return []
+    out: list[dict[str, object]] = []
+    for cid in _owned_ids(row):
+        out.extend(_by_client_id(conn, cid))
+    return out
+
+
+def search(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
+    """Однопроходный поиск. Порядок: email → client_id → IP → sid → ss_id → title.
+
+    `email` — cache-only (через `_by_email`); `sid` (exact, затем substring) идёт
+    перед ss_id/title — sid'ы из `sl_wb_sids` достаточно специфичны; если ничего
+    не нашли — fallback дальше.
+    """
+    if looks_like_email(value):
+        return _by_email(conn, value)
     if _is_int(value):
         return _by_client_id(conn, int(value))
     if _looks_like_ip(value):
@@ -192,6 +245,115 @@ def _project(results: list[dict[str, object]], field: str) -> list[str]:
             out.append(",".join(v) if _is_str_list(v) else "")
         return out
     return ["" if r.get(field) is None else str(r.get(field)) for r in results]
+
+
+def _bare_client_row(client_id: int) -> dict[str, object]:
+    """owned client_id, которого нет в локальном снапшоте (свежий web-клиент, не
+    подтянулся даже точечно) — показываем «голым», без server/ss/sids."""
+    return {
+        "client_id": client_id,
+        "spreadsheet_id": None,
+        "title": None,
+        "server": None,
+        "server_number": None,
+        "sl_ip": None,
+        "pg_ip": None,
+        "sids": [],
+    }
+
+
+def _owned_rows(conn: sqlite3.Connection, row: sqlite3.Row) -> list[dict[str, object]]:
+    out: list[dict[str, object]] = []
+    for cid in _owned_ids(row):
+        rows = _by_client_id(conn, cid)
+        out.extend(rows if rows else [_bare_client_row(cid)])
+    return out
+
+
+def _email_output_obj(row: sqlite3.Row, owned_rows: list[dict[str, object]]) -> dict[str, object]:
+    """Полный объект для дефолтного вывода `mpu search <email>` — показать ВСЁ."""
+    try:
+        parsed = json.loads(row["workspaces_json"])
+    except (ValueError, TypeError):
+        parsed = []
+    # workspaces_json — сырой data[] (list[dict]) из 10X /workspaces
+    ws_list: list[object] = cast("list[object]", parsed) if isinstance(parsed, list) else []
+    uid = str(row["target_user_id"])
+    member_only: list[dict[str, object]] = []
+    for w in ws_list:
+        if not isinstance(w, dict):
+            continue
+        wd: dict[str, object] = cast("dict[str, object]", w)
+        if str(wd.get("ownerId")) != uid:
+            member_only.append(
+                {
+                    "workspace_id": wd.get("id"),
+                    "name": wd.get("name"),
+                    "marketplace": wd.get("marketplace"),
+                }
+            )
+    return {
+        "email": row["email"],
+        "target_user_id": uid,
+        "target_name": row["target_name"],
+        "is_email_verified": bool(row["is_email_verified"]),
+        "reason": row["reason"],
+        "fetched_at": row["fetched_at"],
+        "owned": owned_rows,
+        "member_only": member_only,
+        "workspaces": ws_list,
+    }
+
+
+def _run_email_command(
+    conn: sqlite3.Connection,
+    value: str,
+    *,
+    reason: str | None,
+    refresh_cache: bool,
+    projection: str | None,
+) -> None:
+    """email-ветка `mpu search`: fetch-on-miss / `--refresh-cache` через 10X API,
+    ensure-registry, вывод всего (или проекция по флагу). Единственный путь к
+    impersonation (audited) — см. mpu/CLAUDE.md §7."""
+    from mpu.lib import x10_resolve, x10api  # lazy: тянет httpx
+
+    email = value.lower()
+    store.bootstrap(conn)  # на старом кэше может не быть x10_* таблиц
+    cached = _get_email_client_row(conn, email)
+    if refresh_cache or cached is None:
+        eff_reason = reason if reason is not None else f"ТП {date.today().isoformat()}"
+        try:
+            bundle = x10_resolve.fetch_email_bundle(conn, email, reason=eff_reason)
+        except (x10_resolve.X10ResolveError, x10api.X10ApiError) as e:
+            hint = ""
+            if isinstance(e, x10api.X10ApiError) and e.status in (401, 403):
+                hint = " (нужны 10X staff-креды в X10_TOKEN_EMAIL/X10_TOKEN_PASSWORD)"
+            typer.echo(f"mpu search: {e}{hint}", err=True)
+            raise typer.Exit(code=2) from None
+        from mpu.commands import update as update_cmd
+
+        for owned in bundle.owned:
+            if not _by_client_id(conn, owned.workspace_id) and not update_cmd.fetch_single_client(
+                owned.workspace_id
+            ):
+                typer.echo(
+                    f"warning: client {owned.workspace_id} не найден в реестре "
+                    "(показан без таблицы)",
+                    err=True,
+                )
+        cached = _get_email_client_row(conn, email)
+
+    if cached is None:
+        typer.echo(f"mpu search: {email} не резолвится в client_id", err=True)
+        raise typer.Exit(code=2)
+
+    owned_rows = _owned_rows(conn, cached)
+    if projection:
+        for line in _project(owned_rows, projection):
+            typer.echo(line)
+        return
+    typer.echo(json.dumps(_email_output_obj(cached, owned_rows), ensure_ascii=False, indent=2))
 
 
 app = typer.Typer(
@@ -234,11 +396,32 @@ def main(
             help="Auto-update кэша на пустом результате (default: on)",
         ),
     ] = True,
+    reason: Annotated[
+        str | None,
+        typer.Option(
+            "--reason",
+            help=(
+                "email-селектор: причина impersonation (логируется на проде 10X). "
+                "Обычно — ссылка на Kaiten-карточку. Default: 'ТП <YYYY-MM-DD>'."
+            ),
+        ),
+    ] = None,
+    refresh_cache: Annotated[
+        bool,
+        typer.Option(
+            "--refresh-cache",
+            help="email-селектор: перезапросить из 10X API и обновить кэш (иначе из кэша)",
+        ),
+    ] = False,
 ) -> None:
     """Поиск по локальному ~/.config/mpu/mpu.db.
 
     По умолчанию — JSON-array строк со всеми полями. На пустом результате
     автоматически вызывает `mpu update` и повторяет поиск (отключается через `--no-update`).
+
+    email-селектор (`mpu search user@example.com`) резолвит email → client_id через
+    10X (sw-back) admin API (impersonation, audited на проде) и кэширует всё в sqlite;
+    повторные запросы — из кэша, `--refresh-cache` форсит. См. mpu/CLAUDE.md §7.
     """
     chosen = [
         name
@@ -258,7 +441,24 @@ def main(
         typer.echo("mpu search: only one projection flag allowed", err=True)
         raise typer.Exit(code=2)
 
+    is_email = looks_like_email(value)
+    if (reason is not None or refresh_cache) and not is_email:
+        typer.echo(
+            "mpu search: --reason/--refresh-cache применимы только к email-селектору", err=True
+        )
+        raise typer.Exit(code=2)
+
     with store.store() as conn:
+        if is_email:
+            _run_email_command(
+                conn,
+                value,
+                reason=reason,
+                refresh_cache=refresh_cache,
+                projection=chosen[0] if chosen else None,
+            )
+            return
+
         results = search(conn, value)
         # IP резолвится из ~/.config/mpu/.env, а не из SQLite — `mpu update` не поможет.
         if not results and update and not _looks_like_ip(value):

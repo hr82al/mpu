@@ -9,7 +9,7 @@ import pytest
 from typer.testing import CliRunner
 
 from mpu.commands import search
-from mpu.lib import servers, store
+from mpu.lib import resolver, servers, store, x10_resolve
 
 runner = CliRunner()
 
@@ -276,3 +276,89 @@ def test_cli_projection_sids(db: sqlite3.Connection) -> None:
         "aaaa1111-2222-3333-4444-555566667777,aaaa1111-9999-0000-0000-000000000000",
         "aaaa1111-2222-3333-4444-555566667777,aaaa1111-9999-0000-0000-000000000000",
     ]
+
+
+# ── email-селектор (10X резолв) ──────────────────────────────────────────────
+
+
+def _insert_email_client(conn: sqlite3.Connection, email: str, client_ids: list[int]) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO x10_email_clients "
+        "(email, target_user_id, target_name, is_email_verified, owned_client_ids, "
+        "workspaces_json, reason, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (email, "42", "Ann", 1, json.dumps(client_ids), "[]", "ТП 2026-06-24", 1),
+    )
+    conn.commit()
+
+
+def _fake_bundle(
+    conn: sqlite3.Connection, email: str, *, reason: str, api: object = None
+) -> x10_resolve.EmailBundle:
+    _insert_email_client(conn, email, [10])
+    return x10_resolve.EmailBundle(
+        email=email,
+        target_user_id="42",
+        target_name="Ann",
+        is_email_verified=True,
+        reason=reason,
+        owned=[x10_resolve.OwnedWorkspace(10, "WS", None, None)],
+        workspaces_json="[]",
+        fetched_at=1,
+    )
+
+
+def test_looks_like_email() -> None:
+    assert search.looks_like_email("a@b.ru")
+    assert not search.looks_like_email("10")
+    assert not search.looks_like_email("192.168.1.1")
+    assert not search.looks_like_email("Тортуга")
+
+
+def test_by_email_cache_hit_returns_client_rows(db: sqlite3.Connection) -> None:
+    _insert_email_client(db, "a@b.ru", [10])
+    results = search.search(db, "A@B.ru")  # case-insensitive
+    assert {r["client_id"] for r in results} == {10}
+    assert {r["spreadsheet_id"] for r in results} == {"1NHoyZVE_alpha", "1NHoyZVE_beta"}
+
+
+def test_by_email_cache_miss_does_not_fetch(
+    db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise AssertionError("shared search() не должен дёргать 10X API")
+
+    monkeypatch.setattr(x10_resolve, "fetch_email_bundle", _boom)
+    assert search.search(db, "missing@b.ru") == []
+
+
+def test_resolver_email_miss_hint(db: sqlite3.Connection) -> None:
+    with pytest.raises(resolver.ResolveError) as ei:
+        resolver.resolve_server("missing@b.ru")
+    assert "mpu search" in str(ei.value)
+
+
+def test_cli_reason_on_non_email_errors(db: sqlite3.Connection) -> None:
+    res = runner.invoke(search.app, ["10", "--reason", "x", "--no-update"])
+    assert res.exit_code == 2
+
+
+def test_cli_refresh_cache_on_non_email_errors(db: sqlite3.Connection) -> None:
+    res = runner.invoke(search.app, ["10", "--refresh-cache", "--no-update"])
+    assert res.exit_code == 2
+
+
+def test_cli_email_fetch_on_miss(db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(x10_resolve, "fetch_email_bundle", _fake_bundle)
+    res = runner.invoke(search.app, ["a@b.ru"])
+    assert res.exit_code == 0
+    obj = json.loads(res.stdout)
+    assert obj["target_user_id"] == "42"
+    assert {r["client_id"] for r in obj["owned"]} == {10}
+
+
+def test_cli_email_projection(db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(x10_resolve, "fetch_email_bundle", _fake_bundle)
+    res = runner.invoke(search.app, ["a@b.ru", "--client-id"])
+    assert res.exit_code == 0
+    lines = [ln for ln in res.stdout.splitlines() if ln]
+    assert lines == ["10", "10"]  # client 10 has 2 spreadsheets

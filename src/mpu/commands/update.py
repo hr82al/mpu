@@ -157,6 +157,98 @@ def run_update(quiet: bool = False) -> tuple[int, int, float]:
     return len(clients), total_spreadsheets, elapsed
 
 
+def fetch_single_client(client_id: int) -> bool:
+    """Точечно подтянуть одного клиента (его spreadsheets + WB sids) в локальный кэш.
+
+    Для свежих web-клиентов, которых ещё нет в снапшоте `mpu update` (резолв email
+    через 10X может дать client_id раньше, чем общий sync). Возвращает True, если
+    клиент найден на main; False — если не найден или main недоступен. Ошибки PG —
+    best-effort: что удалось прочитать, то и кладём (sids/ss могут деградировать в []).
+    """
+    synced_at = int(time.time())
+    try:
+        with pg.connect_main() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, server, is_active, is_locked, is_deleted "
+                "FROM public.clients WHERE id = %s",
+                (client_id,),
+            )
+            client_row = cur.fetchone()
+    except (psycopg.Error, OSError, pg.PgConfigError):
+        return False
+    if client_row is None:
+        return False
+
+    server = client_row[1]
+    n = servers.server_number(server)
+
+    ss_rows: list[tuple[Any, ...]] = []
+    if n is not None and n > 0:
+        try:
+            with pg.connect_to(n) as conn, conn.cursor() as cur:
+                cur.execute(
+                    "SELECT client_id, spreadsheet_id, title, template_name, is_active "
+                    "FROM public.spreadsheets WHERE client_id = %s",
+                    (client_id,),
+                )
+                ss_rows = list(cur.fetchall())
+        except (psycopg.Error, OSError, pg.PgConfigError):
+            ss_rows = []
+
+    sid_rows: list[tuple[Any, ...]] = []
+    try:
+        with pg.connect_main() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT DISTINCT client_id, sid FROM public.wb_tokens "
+                "WHERE client_id = %s AND sid IS NOT NULL",
+                (client_id,),
+            )
+            sid_rows = list(cur.fetchall())
+    except (psycopg.Error, OSError, pg.PgConfigError):
+        sid_rows = []
+
+    server_name = f"sl-{n}" if n is not None and n > 0 else server
+    with store.store() as conn:
+        store.bootstrap(conn)
+        with conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO sl_clients "
+                "(client_id, server, is_active, is_locked, is_deleted, synced_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    client_row[0],
+                    server,
+                    1 if client_row[2] else 0,
+                    1 if client_row[3] else 0,
+                    1 if client_row[4] else 0,
+                    synced_at,
+                ),
+            )
+            conn.executemany(
+                "INSERT OR REPLACE INTO sl_spreadsheets "
+                "(ss_id, client_id, title, template_name, is_active, server, synced_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        row[1],
+                        row[0],
+                        row[2] or "",
+                        row[3],
+                        1 if row[4] else 0,
+                        server_name,
+                        synced_at,
+                    )
+                    for row in ss_rows
+                ],
+            )
+            conn.executemany(
+                "INSERT OR REPLACE INTO sl_wb_sids (sid, client_id, server, synced_at) "
+                "VALUES (?, ?, ?, ?)",
+                [(str(sid), cid, server, synced_at) for cid, sid in sid_rows],
+            )
+    return True
+
+
 app = typer.Typer(
     context_settings={"help_option_names": ["-h", "--help"]},
 )

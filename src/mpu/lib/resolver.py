@@ -9,7 +9,7 @@
 поверх селектора (используется в `mpu sql`).
 """
 
-from mpu.commands.search import search
+from mpu.commands.search import looks_like_email, search
 from mpu.lib import servers, store
 
 
@@ -47,6 +47,8 @@ def resolve_server(
         results = search(conn, value)
 
     if not results:
+        if looks_like_email(value):
+            raise ResolveError(f"email {value!r} не в кэше; сначала запусти: mpu search {value}")
         raise ResolveError(f"nothing matched: {value!r}")
 
     distinct: set[int] = {n for r in results if isinstance(n := r.get("server_number"), int)}

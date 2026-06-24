@@ -203,6 +203,36 @@ _DDL = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_cache_expires_at ON cache(expires_at)",
+    # --- 10X (sw-back) ---
+    # Кэш сессий 10X API: staff-токен (subject = email кред) + per-user
+    # impersonation-токены (subject = target_user_id). expires_at — из `exp` JWT
+    # минус skew. Solid-примитив для любых 10X-вызовов (см. lib/x10_session.py).
+    """
+    CREATE TABLE IF NOT EXISTS x10_sessions (
+        kind        TEXT NOT NULL,
+        subject     TEXT NOT NULL,
+        token       TEXT NOT NULL,
+        reason      TEXT,
+        created_at  INTEGER NOT NULL,
+        expires_at  INTEGER NOT NULL,
+        PRIMARY KEY (kind, subject)
+    )
+    """,
+    # Кэш резолва email → client_id (== workspace.id) через 10X impersonation.
+    # owned_client_ids — JSON [int]; spreadsheet/server/sids НЕ дублируем (берём по
+    # client_id из sl_clients/sl_spreadsheets/sl_wb_sids). Заполняет `mpu search`.
+    """
+    CREATE TABLE IF NOT EXISTS x10_email_clients (
+        email             TEXT PRIMARY KEY,
+        target_user_id    TEXT NOT NULL,
+        target_name       TEXT,
+        is_email_verified INTEGER NOT NULL,
+        owned_client_ids  TEXT NOT NULL,
+        workspaces_json   TEXT NOT NULL,
+        reason            TEXT NOT NULL,
+        fetched_at        INTEGER NOT NULL
+    )
+    """,
 ]
 
 
