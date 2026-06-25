@@ -609,3 +609,711 @@ def test_status_dry_run_local_only(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert result.exit_code == 0, result.output
     assert "[Моя карточка](https://btlz.kaiten.ru/111)" in result.output
     assert "✅" in result.output
+
+
+# ── async I/O: общие хелперы для фейкового клиента ─────────────────────────────
+
+
+def _make_cfg() -> telegram.TgConfig:
+    return telegram.TgConfig(api_id=1, api_hash="h", session=None)
+
+
+def _iso(value: str = "2026-06-18T10:00:00+00:00") -> object:
+    return SimpleNamespace(isoformat=lambda: value)
+
+
+def _patch_client(monkeypatch: pytest.MonkeyPatch, fake: object) -> None:
+    """Подменить _make_client так, чтобы I/O-функции получили наш фейк вместо telethon."""
+
+    def _fake_make_client(_cfg: telegram.TgConfig) -> object:
+        return fake
+
+    monkeypatch.setattr(telegram, "_make_client", _fake_make_client)
+
+
+def _flood_error(seconds: int = 7) -> Exception:
+    from telethon.errors import FloodWaitError  # pyright: ignore[reportMissingTypeStubs]
+
+    return FloodWaitError(request=None, capture=seconds)
+
+
+def _rpc_error() -> Exception:
+    from telethon.errors import RPCError  # pyright: ignore[reportMissingTypeStubs]
+
+    return RPCError(request=None, message="boom", code=400)
+
+
+# ── send_message ─────────────────────────────────────────────────────────────
+
+
+class _FakeSendClient:
+    """Async-стаб клиента для send_message: connect/auth/send/disconnect, запись аргументов."""
+
+    def __init__(
+        self,
+        *,
+        authorized: bool = True,
+        send_result: object = None,
+        send_error: Exception | None = None,
+        disconnect_none: bool = False,
+    ) -> None:
+        self.session = _FakeSession()
+        self._authorized = authorized
+        self._send_result = send_result
+        self._send_error = send_error
+        self._disconnect_none = disconnect_none
+        self.sent: tuple[object, object, object] | None = None
+
+    async def connect(self) -> None:
+        pass
+
+    async def is_user_authorized(self) -> bool:
+        return self._authorized
+
+    async def send_message(
+        self, target: object, text: object, *, parse_mode: object = None
+    ) -> object:
+        self.sent = (target, text, parse_mode)
+        if self._send_error is not None:
+            raise self._send_error
+        return self._send_result
+
+    def disconnect(self) -> object:
+        if self._disconnect_none:
+            return None  # покрывает ветку _disconnect, где закрывать нечего
+
+        async def _noop() -> None:
+            return None
+
+        return _noop()
+
+
+def test_send_message_via_real_make_client(
+    isolated_env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """send_message строит клиент через НАСТОЯЩИЙ _make_client (telethon-классы замоканы)."""
+    os.environ["TELEGRAM_PROXY"] = "socks5://proxy.local:1080"
+    captured: dict[str, object] = {}
+
+    class _StubSession:
+        def __init__(self, value: str) -> None:
+            captured["session_value"] = value
+
+    fake = _FakeSendClient(send_result=SimpleNamespace(id=10, date=_iso(), chat_id=-100777))
+
+    def _stub_client(
+        session: object, api_id: object, api_hash: object, *, proxy: object = None
+    ) -> _FakeSendClient:
+        captured["client_args"] = (api_id, api_hash, proxy)
+        return fake
+
+    monkeypatch.setattr("telethon.sessions.StringSession", _StubSession)
+    monkeypatch.setattr("telethon.TelegramClient", _stub_client)
+
+    res = asyncio.run(
+        telegram.send_message(
+            telegram.TgConfig(api_id=99, api_hash="hh", session="SESS"), "@dev", "привет"
+        )
+    )
+    assert captured["session_value"] == "SESS"
+    assert captured["client_args"] == (
+        99,
+        "hh",
+        {
+            "proxy_type": "socks5",
+            "addr": "proxy.local",
+            "port": 1080,
+            "rdns": True,
+            "username": None,
+            "password": None,
+        },
+    )
+    assert fake.sent == ("@dev", "привет", None)
+    assert res.id == 10
+    assert res.chat_id == -100777
+    assert res.date == "2026-06-18T10:00:00+00:00"
+
+
+def test_send_message_null_date_and_chat_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Telegram не вернул date/chat_id → date=None, chat_id=0; disconnect без coroutine."""
+    fake = _FakeSendClient(
+        send_result=SimpleNamespace(id=3, date=None, chat_id=None), disconnect_none=True
+    )
+    _patch_client(monkeypatch, fake)
+    res = asyncio.run(telegram.send_message(_make_cfg(), 12345, "hi", parse_mode="md"))
+    assert res.id == 3
+    assert res.chat_id == 0
+    assert res.date is None
+    assert fake.sent == (12345, "hi", "md")
+
+
+def test_send_message_not_authorized_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeSendClient(authorized=False)
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(telegram.TgNotAuthorizedError):
+        asyncio.run(telegram.send_message(_make_cfg(), "@dev", "hi"))
+    assert fake.sent is None  # до отправки не дошли
+
+
+def test_send_message_value_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeSendClient(send_error=ValueError("no such chat"))
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(telegram.send_message(_make_cfg(), "@ghost", "hi"))
+
+
+def test_send_message_flood_wait_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeSendClient(send_error=_flood_error(30))
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError) as excinfo:
+        asyncio.run(telegram.send_message(_make_cfg(), "@dev", "hi"))
+    assert "30s" in str(excinfo.value)
+
+
+def test_send_message_rpc_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeSendClient(send_error=_rpc_error())
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(telegram.send_message(_make_cfg(), "@dev", "hi"))
+
+
+# ── list_dialogs ─────────────────────────────────────────────────────────────
+
+
+class _FakeDialogsClient:
+    """Async-стаб: iter_dialogs(limit=) → async-итератор Dialog (или ошибка)."""
+
+    def __init__(self, dialogs: list[object], *, error: Exception | None = None) -> None:
+        self.session = _FakeSession()
+        self._dialogs = dialogs
+        self._error = error
+        self.iter_limit: int | None = None
+
+    async def connect(self) -> None:
+        pass
+
+    async def is_user_authorized(self) -> bool:
+        return True
+
+    def iter_dialogs(self, *, limit: int) -> object:
+        self.iter_limit = limit
+        dialogs = self._dialogs
+        error = self._error
+
+        async def _gen() -> object:
+            if error is not None:
+                raise error
+            for d in dialogs:
+                yield d
+
+        return _gen()
+
+    def disconnect(self) -> object:
+        async def _noop() -> None:
+            return None
+
+        return _noop()
+
+
+def test_list_dialogs_maps_all_kinds(monkeypatch: pytest.MonkeyPatch) -> None:
+    dialogs: list[object] = [
+        SimpleNamespace(
+            is_user=True,
+            is_group=False,
+            is_channel=False,
+            id=1,
+            name="Alice",
+            entity=SimpleNamespace(bot=False, username="alice"),
+        ),
+        SimpleNamespace(
+            is_user=True,
+            is_group=False,
+            is_channel=False,
+            id=2,
+            name="Botty",
+            entity=SimpleNamespace(bot=True, username=None),
+        ),
+        SimpleNamespace(
+            is_user=False,
+            is_group=True,
+            is_channel=False,
+            id=-5,
+            name="Grp",
+            entity=SimpleNamespace(username=None),
+        ),
+        SimpleNamespace(
+            is_user=False,
+            is_group=False,
+            is_channel=True,
+            id=-100,
+            name="Chan",
+            entity=SimpleNamespace(username="chan"),
+        ),
+        SimpleNamespace(
+            is_user=False, is_group=False, is_channel=False, id=0, name=None, entity=None
+        ),
+    ]
+    fake = _FakeDialogsClient(dialogs)
+    _patch_client(monkeypatch, fake)
+    res = asyncio.run(telegram.list_dialogs(_make_cfg(), 25))
+    assert fake.iter_limit == 25
+    by_id = {d.id: d for d in res}
+    assert by_id[1].kind == "user" and by_id[1].username == "alice"
+    assert by_id[2].kind == "bot" and by_id[2].username is None and by_id[2].title == "Botty"
+    assert by_id[-5].kind == "group"
+    assert by_id[-100].kind == "channel" and by_id[-100].username == "chan"
+    assert by_id[0].kind == "unknown" and by_id[0].title == ""
+
+
+def test_list_dialogs_flood_wait_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeDialogsClient([], error=_flood_error(5))
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(telegram.list_dialogs(_make_cfg(), 10))
+
+
+def test_list_dialogs_rpc_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeDialogsClient([], error=_rpc_error())
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(telegram.list_dialogs(_make_cfg(), 10))
+
+
+# ── search_entities (ошибки + остальные ветки _entity_to_dialog) ─────────────
+
+
+class _FakeSearchErrClient:
+    """Async-стаб поиска сущностей: __call__ всегда бросает заданную ошибку."""
+
+    def __init__(self, error: Exception) -> None:
+        self.session = _FakeSession()
+        self._error = error
+
+    async def connect(self) -> None:
+        pass
+
+    async def is_user_authorized(self) -> bool:
+        return True
+
+    async def __call__(self, _request: object) -> object:
+        raise self._error
+
+    def disconnect(self) -> object:
+        async def _noop() -> None:
+            return None
+
+        return _noop()
+
+
+def test_search_entities_flood_wait_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_client(monkeypatch, _FakeSearchErrClient(_flood_error(9)))
+    with pytest.raises(TgError):
+        asyncio.run(telegram.search_entities(_make_cfg(), "x", 10))
+
+
+def test_search_entities_rpc_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_client(monkeypatch, _FakeSearchErrClient(_rpc_error()))
+    with pytest.raises(TgError):
+        asyncio.run(telegram.search_entities(_make_cfg(), "x", 10))
+
+
+def test_search_entities_kinds_and_dedup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """megagroup → group, Chat-с-title → group, bot → bot, username-only → user; дедуп по id."""
+    users: list[object] = [
+        SimpleNamespace(id=42, first_name="A", username="dup"),
+        SimpleNamespace(id=42, first_name="B", username="dup"),  # дубль того же id
+        SimpleNamespace(id=400, first_name="Botty", bot=True, username="bot"),
+        SimpleNamespace(id=500, username="ghost"),  # ни title, ни имени → title из username
+    ]
+    chats: list[object] = [
+        SimpleNamespace(id=200, broadcast=False, megagroup=True, title="MG", username="mg"),
+        SimpleNamespace(id=300, title="BG", username=None),  # базовая группа (Chat)
+    ]
+    _patch_client(monkeypatch, _FakeSearchClient(users, chats))
+    res = asyncio.run(telegram.search_entities(_make_cfg(), "q", 50))
+    by_id = {d.id: d for d in res}
+    assert sum(1 for d in res if d.id == 42) == 1  # дедуп
+    assert by_id[42].kind == "user"
+    assert by_id[400].kind == "bot"
+    assert by_id[500].kind == "user" and by_id[500].title == "ghost"
+    assert by_id[-(1_000_000_000_000 + 200)].kind == "group"  # megagroup
+    assert by_id[-300].kind == "group" and by_id[-300].title == "BG"  # базовая группа
+
+
+# ── search_messages (scope/from-ветки, ошибки, деградация полей) ─────────────
+
+
+class _FakeMsgSearchClient:
+    """Async-стаб: get_input_entity/get_peer_id/iter_messages с настраиваемыми ошибками."""
+
+    def __init__(
+        self,
+        messages: list[object],
+        *,
+        peer_id: int = 0,
+        bad_targets: tuple[object, ...] = (),
+        iter_error: Exception | None = None,
+    ) -> None:
+        self.session = _FakeSession()
+        self._messages = messages
+        self._peer_id = peer_id
+        self._bad_targets: set[object] = set(bad_targets)
+        self._iter_error = iter_error
+        self.iter_kwargs: dict[str, object] = {}
+        self.iter_entity: object = "UNSET"
+
+    async def connect(self) -> None:
+        pass
+
+    async def is_user_authorized(self) -> bool:
+        return True
+
+    async def get_input_entity(self, target: object) -> object:
+        if target in self._bad_targets:
+            raise ValueError(f"no entity for {target!r}")
+        return ("input", target)
+
+    async def get_peer_id(self, _entity: object) -> int:
+        return self._peer_id
+
+    def iter_messages(self, entity: object, **kwargs: object) -> object:
+        self.iter_entity = entity
+        self.iter_kwargs = kwargs
+        messages = self._messages
+        error = self._iter_error
+
+        async def _gen() -> object:
+            if error is not None:
+                raise error
+            for m in messages:
+                yield m
+
+        return _gen()
+
+    def disconnect(self) -> object:
+        async def _noop() -> None:
+            return None
+
+        return _noop()
+
+
+def test_search_messages_in_chat_passes_entity(monkeypatch: pytest.MonkeyPatch) -> None:
+    msg = SimpleNamespace(
+        id=1,
+        chat_id=-100,
+        message="hi",
+        date=_iso(),
+        chat=SimpleNamespace(title="C", username="cc"),
+        sender=SimpleNamespace(first_name="X", last_name="Y", username="x"),
+    )
+    fake = _FakeMsgSearchClient([msg])
+    _patch_client(monkeypatch, fake)
+    res = asyncio.run(
+        telegram.search_messages(_make_cfg(), "hi", chat="@dev", from_user=None, limit=10)
+    )
+    assert fake.iter_entity == ("input", "@dev")  # поиск внутри чата
+    assert fake.iter_kwargs == {"search": "hi", "limit": 10, "from_user": None}
+    assert len(res) == 1
+    assert res[0].link == "https://t.me/cc/1"  # публичный username → прямая ссылка
+
+
+def test_search_messages_in_chat_server_side_from(monkeypatch: pytest.MonkeyPatch) -> None:
+    """from внутри чата — серверный фильтр: sender передаётся в iter_messages."""
+    fake = _FakeMsgSearchClient([])
+    _patch_client(monkeypatch, fake)
+    res = asyncio.run(
+        telegram.search_messages(_make_cfg(), "x", chat="@dev", from_user="@bob", limit=7)
+    )
+    assert fake.iter_entity == ("input", "@dev")
+    assert fake.iter_kwargs["from_user"] == ("input", "@bob")  # серверный from
+    assert fake.iter_kwargs["limit"] == 7
+    assert res == []
+
+
+def test_search_messages_empty_query_with_chat_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Пустой query + chat → история чата без текстового фильтра (не запрещён)."""
+    fake = _FakeMsgSearchClient([])
+    _patch_client(monkeypatch, fake)
+    res = asyncio.run(
+        telegram.search_messages(_make_cfg(), "", chat="@dev", from_user=None, limit=10)
+    )
+    assert fake.iter_entity == ("input", "@dev")
+    assert fake.iter_kwargs["search"] == ""
+    assert res == []
+
+
+def test_search_messages_bad_chat_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeMsgSearchClient([], bad_targets=("@bad",))
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(
+            telegram.search_messages(_make_cfg(), "x", chat="@bad", from_user=None, limit=10)
+        )
+
+
+def test_search_messages_bad_from_user_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeMsgSearchClient([], bad_targets=("@baduser",))
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(
+            telegram.search_messages(_make_cfg(), "x", chat="@dev", from_user="@baduser", limit=10)
+        )
+
+
+def test_search_messages_flood_wait_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeMsgSearchClient([], iter_error=_flood_error(3))
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(
+            telegram.search_messages(_make_cfg(), "x", chat="@dev", from_user=None, limit=10)
+        )
+
+
+def test_search_messages_rpc_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeMsgSearchClient([], iter_error=_rpc_error())
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(
+            telegram.search_messages(_make_cfg(), "x", chat="@dev", from_user=None, limit=10)
+        )
+
+
+def test_search_messages_degraded_message_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Telegram отдал минимум — мягкая деградация (chat_title='', sender=None, text='')."""
+    fake = _FakeMsgSearchClient([SimpleNamespace(id=5)])
+    _patch_client(monkeypatch, fake)
+    res = asyncio.run(
+        telegram.search_messages(_make_cfg(), "x", chat=None, from_user=None, limit=10)
+    )
+    assert fake.iter_entity is None  # глобальный поиск
+    m = res[0]
+    assert m.id == 5
+    assert m.chat_id == 0
+    assert m.chat_title == ""
+    assert m.sender is None
+    assert m.date is None
+    assert m.text == ""
+    assert m.link is None
+
+
+def test_search_messages_global_from_stops_at_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Глобальный from: набрав limit совпадений по отправителю, прекращаем скан (break)."""
+    wanted = 555
+    msgs = [_fake_msg(1, wanted, "ветку one"), _fake_msg(2, wanted, "ветку two")]
+    fake = _FakeMsgSearchClient(msgs, peer_id=wanted)
+    _patch_client(monkeypatch, fake)
+    res = asyncio.run(
+        telegram.search_messages(_make_cfg(), "ветку", chat=None, from_user="@bob", limit=1)
+    )
+    assert [m.id for m in res] == [1]  # остановились на первом совпадении из-за limit=1
+
+
+def test_search_messages_sender_username_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """sender без title/имени → отображаемое имя = username."""
+    msg = SimpleNamespace(
+        id=6,
+        chat_id=-100,
+        message="hey",
+        date=_iso(),
+        chat=SimpleNamespace(title="C", username=None),
+        sender=SimpleNamespace(username="bob"),
+    )
+    fake = _FakeMsgSearchClient([msg])
+    _patch_client(monkeypatch, fake)
+    res = asyncio.run(
+        telegram.search_messages(_make_cfg(), "hey", chat=None, from_user=None, limit=10)
+    )
+    assert res[0].sender == "bob"
+
+
+# ── interactive_login (остальные ветки) ──────────────────────────────────────
+
+
+def _password_needed_error() -> Exception:
+    from telethon.errors import (  # pyright: ignore[reportMissingTypeStubs]
+        SessionPasswordNeededError,
+    )
+
+    return SessionPasswordNeededError(request=None)
+
+
+def _code_invalid_error() -> Exception:
+    from telethon.errors import (  # pyright: ignore[reportMissingTypeStubs]
+        PhoneCodeInvalidError,
+    )
+
+    return PhoneCodeInvalidError(request=None)
+
+
+def _code_expired_error() -> Exception:
+    from telethon.errors import (  # pyright: ignore[reportMissingTypeStubs]
+        PhoneCodeExpiredError,
+    )
+
+    return PhoneCodeExpiredError(request=None)
+
+
+class _FakeLoginClient:
+    """Async-стаб login: настраиваемые авторизация/сессия/ошибки send_code и sign_in (очередь)."""
+
+    def __init__(
+        self,
+        *,
+        authorized: bool = False,
+        session: _FakeSession | None = None,
+        send_code_error: Exception | None = None,
+        sign_in_errors: tuple[Exception, ...] = (),
+    ) -> None:
+        self.session = session
+        self._authorized = authorized
+        self._send_code_error = send_code_error
+        self._sign_in_errors: list[Exception] = list(sign_in_errors)
+        self.code_phone: str | None = None
+        self.signed: list[tuple[object, object, object]] = []
+
+    async def connect(self) -> None:
+        pass
+
+    async def is_user_authorized(self) -> bool:
+        return self._authorized
+
+    async def send_code_request(self, phone: str) -> None:
+        self.code_phone = phone
+        if self._send_code_error is not None:
+            raise self._send_code_error
+
+    async def sign_in(
+        self, phone: object = None, code: object = None, password: object = None
+    ) -> None:
+        self.signed.append((phone, code, password))
+        if self._sign_in_errors:
+            raise self._sign_in_errors.pop(0)
+
+    def disconnect(self) -> object:
+        async def _noop() -> None:
+            return None
+
+        return _noop()
+
+
+def test_interactive_login_already_authorized_returns_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = _FakeLoginClient(authorized=True, session=_FakeSession())
+    _patch_client(monkeypatch, fake)
+    result = asyncio.run(
+        telegram.interactive_login(
+            _make_cfg(),
+            phone="+79990000000",
+            prompt_code=lambda: "1",
+            prompt_password=lambda: "p",
+        )
+    )
+    assert result == "SESSION_STR"
+    assert fake.code_phone is None  # код не запрашивали
+    assert fake.signed == []
+
+
+def test_interactive_login_already_authorized_no_session_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = _FakeLoginClient(authorized=True, session=None)
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(
+            telegram.interactive_login(
+                _make_cfg(),
+                phone="+79990000000",
+                prompt_code=lambda: "1",
+                prompt_password=lambda: "p",
+            )
+        )
+
+
+def test_interactive_login_send_code_flood_wait_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeLoginClient(
+        authorized=False, session=_FakeSession(), send_code_error=_flood_error(60)
+    )
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(
+            telegram.interactive_login(
+                _make_cfg(),
+                phone="+79990000000",
+                prompt_code=lambda: "1",
+                prompt_password=lambda: "p",
+            )
+        )
+    assert fake.signed == []  # до sign_in не дошли
+
+
+def test_interactive_login_2fa_password_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeLoginClient(
+        authorized=False, session=_FakeSession(), sign_in_errors=(_password_needed_error(),)
+    )
+    pw_calls: list[str] = []
+
+    def prompt_password() -> str:
+        pw_calls.append("called")
+        return "secret"
+
+    _patch_client(monkeypatch, fake)
+    result = asyncio.run(
+        telegram.interactive_login(
+            _make_cfg(),
+            phone="+79990000000",
+            prompt_code=lambda: "11111",
+            prompt_password=prompt_password,
+        )
+    )
+    assert result == "SESSION_STR"
+    assert pw_calls == ["called"]
+    assert fake.signed[-1] == (None, None, "secret")  # повторный sign_in с паролем
+
+
+def test_interactive_login_code_invalid_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeLoginClient(
+        authorized=False, session=_FakeSession(), sign_in_errors=(_code_invalid_error(),)
+    )
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(
+            telegram.interactive_login(
+                _make_cfg(),
+                phone="+79990000000",
+                prompt_code=lambda: "1",
+                prompt_password=lambda: "p",
+            )
+        )
+
+
+def test_interactive_login_code_expired_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeLoginClient(
+        authorized=False, session=_FakeSession(), sign_in_errors=(_code_expired_error(),)
+    )
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(
+            telegram.interactive_login(
+                _make_cfg(),
+                phone="+79990000000",
+                prompt_code=lambda: "1",
+                prompt_password=lambda: "p",
+            )
+        )
+
+
+def test_interactive_login_rpc_error_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeLoginClient(
+        authorized=False, session=_FakeSession(), sign_in_errors=(_rpc_error(),)
+    )
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(
+            telegram.interactive_login(
+                _make_cfg(),
+                phone="+79990000000",
+                prompt_code=lambda: "1",
+                prompt_password=lambda: "p",
+            )
+        )
