@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
+from mpu.commands import _wb_loader
 from mpu.commands import wb_loader_resume as wlr
 from mpu.lib.resolver import ResolveError
 
@@ -83,9 +84,11 @@ def _patch(
         assert api is not None
         return api
 
-    monkeypatch.setattr(wlr, "resolve_server", _fake_resolve)
+    # resolve_server / copy_to_clipboard теперь живут в _wb_loader (resolve_sids /
+    # cids_for_sid / emit_curl); resolve_base_url и SlApi — в самой команде.
+    monkeypatch.setattr(_wb_loader, "resolve_server", _fake_resolve)
+    monkeypatch.setattr(_wb_loader, "copy_to_clipboard", _clip)
     monkeypatch.setattr(wlr, "resolve_base_url", _base)
-    monkeypatch.setattr(wlr, "copy_to_clipboard", _clip)
     if api is not None:
         monkeypatch.setattr(wlr.SlApi, "from_env", _from_env)
     return clip

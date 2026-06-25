@@ -40,15 +40,46 @@ main перетирает его из сессии (email `TOKEN_EMAIL`). Для
 
 from __future__ import annotations
 
-import json
-import re
-from typing import NoReturn, TypeGuard
+from typing import NoReturn
 
 import click
 
-from mpu.lib.cli_wrap import auto_pick_int
-from mpu.lib.clipboard import copy_to_clipboard
-from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
+from mpu.commands._wb_loader import (
+    cid_json as _cid_json,
+)
+from mpu.commands._wb_loader import (
+    cid_label as _cid_label,
+)
+from mpu.commands._wb_loader import (
+    cids_for_sid as _cids_for_sid,
+)
+from mpu.commands._wb_loader import (
+    emit_curl,
+)
+from mpu.commands._wb_loader import (
+    fail as _fail_base,
+)
+from mpu.commands._wb_loader import (
+    is_obj_list as _is_obj_list,
+)
+from mpu.commands._wb_loader import (
+    is_str_dict as _is_str_dict,
+)
+from mpu.commands._wb_loader import (
+    looks_like_sid as _looks_like_sid,
+)
+from mpu.commands._wb_loader import (
+    pick_sid as _pick_sid_base,
+)
+from mpu.commands._wb_loader import (
+    print_json as _print_json,
+)
+from mpu.commands._wb_loader import (
+    resolve_sids as _resolve_base,
+)
+from mpu.commands._wb_loader import (
+    sid_from_selector as _sid_from_selector,
+)
 from mpu.lib.slapi import SlApi, SlApiError, resolve_base_url
 
 COMMAND = "mpu api wb-loader-resume"
@@ -57,7 +88,8 @@ COMMAND = "mpu api wb-loader-resume"
 # sl-back/src/wbLoaderInstanceApp/wbLoaderInstanceApp.constants.js:142-152.
 # Источник истины — там; здесь список нужен только для shell-автодополнения и
 # защиты от опечатки в позиционном `loader` (sl-back-фильтр сам по себе принял
-# бы любую строку и молча ничего не разлочил).
+# бы любую строку и молча ничего не разлочил). ВАЖНО: blocked-loaders фильтр
+# использует camelCase-имена (НЕ kebab-слаги стандартных loader-роутов).
 LOADER_NAMES: list[str] = [
     "wbAnalytics",
     "wbCards",
@@ -87,29 +119,16 @@ def _complete_loader(ctx: click.Context, param: click.Parameter, incomplete: str
 
 
 def _fail(reason: str, *, code: int, hint: str | None = None, extra: str | None = None) -> NoReturn:
-    """Машинно-читаемая ошибка: `<команда>: <причина>; попробуй: <подсказка>` → exit."""
-    msg = f"{COMMAND}: {reason}"
-    if hint:
-        msg += f"; попробуй: {hint}"
-    click.echo(msg, err=True)
-    if extra:
-        click.echo(extra, err=True)
-    raise SystemExit(code)
+    """`fail` с зафиксированным `COMMAND` (сохраняет существующие call-site'ы)."""
+    _fail_base(COMMAND, reason, code=code, hint=hint, extra=extra)
 
 
-def _print_json(value: object) -> None:
-    click.echo(json.dumps(value, ensure_ascii=False, indent=2))
+def _resolve(selector: str, client_id: int | None) -> tuple[int, list[str]]:
+    return _resolve_base(selector, client_id, command=COMMAND)
 
 
-# Явные TypeGuard'ы для границы JSON-ответа (CLAUDE.md §5 — type-guard, не cast/Any).
-# Используем positive-narrowing (`if guard: ...` + `_fail()` NoReturn в else),
-# т.к. plain TypeGuard не даёт negative-narrowing, а TypeIs нет в py3.12 stdlib.
-def _is_obj_list(o: object) -> TypeGuard[list[object]]:
-    return isinstance(o, list)
-
-
-def _is_str_dict(o: object) -> TypeGuard[dict[str, object]]:
-    return isinstance(o, dict)
+def _pick_sid(selector: str, sids: list[str]) -> str:
+    return _pick_sid_base(selector, sids, command=COMMAND)
 
 
 def _as_list(value: object, *, what: str) -> list[object]:
@@ -153,142 +172,16 @@ def _emit_curl(*, base_url: str, sid: str, loader: str | None, resume_all: bool)
     """Напечатать эквивалентный curl (+ буфер), ничего не выполняя.
 
     SHOW-режим (нет loader/`--all`) → curl на `/find`; иначе — на `/resume`.
-    Токен НЕ кладём в команду напрямую — через `$(mpu api get-token)`, чтобы он
-    не утёк в буфер/историю.
     """
     if loader or resume_all:
-        path, filter_ = _RESUME_PATH, {"sid": sid}
+        path = _RESUME_PATH
+        filter_: dict[str, str] = {"sid": sid}
         if loader:
             filter_["loader"] = loader
     else:
-        path, filter_ = _FIND_PATH, {"sid": sid}
-    body = json.dumps({"filter": filter_}, ensure_ascii=False)
-    snippet = (
-        "TOKEN=$(mpu api get-token)\n"
-        f'curl -sS -X POST "{base_url}{path}" '
-        '-H "authorization: Bearer $TOKEN" '
-        "-H 'content-type: application/json' "
-        f"-d '{body}'"
-    )
-    click.echo(snippet)
-    copy_to_clipboard(snippet)
-
-
-def _resolve(selector: str, client_id: int | None) -> tuple[int, list[str]]:
-    """Селектор → `(client_id, sids)` из локального кэша (`mpu search`).
-
-    `--client-id` переопределяет выбор клиента среди кандидатов (как в
-    `data_loader.py`), но резолв всё равно выполняется — чтобы достать
-    кэшированные `sids` без сетевого вызова.
-    """
-    try:
-        _server, candidates = resolve_server(selector)
-    except ResolveError as e:
-        _fail(
-            str(e),
-            code=2,
-            hint="уточни селектор или передай --client-id <id>",
-            extra=format_candidates(e.candidates) if e.candidates else None,
-        )
-    cid = client_id if client_id is not None else auto_pick_int(candidates, "client_id")
-    if cid is None:
-        _fail(
-            f"не удалось однозначно определить client_id из {selector!r}",
-            code=2,
-            hint="передай --client-id <id> (или селектор клиента, не sl-N)",
-            extra=format_candidates(candidates) if candidates else None,
-        )
-    sids: list[str] = []
-    for cand in candidates:
-        if cand.get("client_id") != cid:
-            continue
-        raw = cand.get("sids")
-        if _is_obj_list(raw):
-            for s in raw:
-                if isinstance(s, str) and s and s not in sids:
-                    sids.append(s)
-    return cid, sids
-
-
-# UUID-форма WB sid (8-4-4-4-12 hex). Полный sid → find/resume идут по sid
-# напрямую (см. `_looks_like_sid`).
-_SID_RE = re.compile(
-    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
-)
-
-
-def _looks_like_sid(value: str) -> bool:
-    """`value` — полный WB sid (UUID-форма).
-
-    Тогда find/resume идут по sid напрямую: на wb-loader-app загрузчик keyed
-    by sid (schema-per-sid), а client_id / server — косметика. Резолв клиента
-    не нужен и может быть неоднозначным (один кабинет висит на нескольких
-    клиентах / разных серверах) — это не должно блокировать показ/разлок.
-    """
-    return bool(_SID_RE.match(value))
-
-
-def _cids_for_sid(sid: str) -> list[int]:
-    """client_id(ы) этого sid из локального кэша — только для лейбла вывода.
-
-    Никогда не падает: на wb-loader-app sid однозначен, даже если в нашем
-    кэше он висит на нескольких клиентах / серверах. Пустой кэш → `[]`.
-    """
-    try:
-        _n, cands = resolve_server(sid)
-    except ResolveError as e:
-        cands = e.candidates
-    return sorted({c for x in cands if isinstance(c := x.get("client_id"), int)})
-
-
-def _cid_json(cids: list[int]) -> object:
-    """`client_id` для JSON: int если однозначен, список если несколько, иначе null."""
-    if len(cids) == 1:
-        return cids[0]
-    return cids or None
-
-
-def _cid_label(cids: list[int]) -> str:
-    """`client_id` для человекочитаемой stderr-строки."""
-    return ",".join(str(c) for c in cids) if cids else "?"
-
-
-def _sid_from_selector(selector: str, sids: list[str]) -> str | None:
-    """sid, явно названный самим селектором: точное совпадение или
-    однозначный substring среди `sids` клиента. Иначе `None`."""
-    exact = [s for s in sids if s == selector]
-    if len(exact) == 1:
-        return exact[0]
-    substr = [s for s in sids if selector and selector in s]
-    if not exact and len(substr) == 1:
-        return substr[0]
-    return None
-
-
-def _pick_sid(selector: str, sids: list[str]) -> str:
-    """Выбрать sid: sid из селектора > единственный > exit 2.
-
-    Вызывается только когда явного `--sid` нет и селектор — не полный sid:
-    в этих случаях работаем по sid напрямую (см. `_run`), резолв клиента не
-    нужен.
-    """
-    named = _sid_from_selector(selector, sids)
-    if named is not None:
-        return named
-    if len(sids) == 1:
-        return sids[0]
-    if not sids:
-        _fail(
-            "не удалось определить sid клиента (кэш пуст?)",
-            code=2,
-            hint="укажи --sid <sid> или обнови кэш: mpu update",
-        )
-    _fail(
-        f"у клиента несколько WB sid ({len(sids)})",
-        code=2,
-        hint="укажи --sid <sid>",
-        extra="\n".join(f"  --sid {s}" for s in sids),
-    )
+        path = _FIND_PATH
+        filter_ = {"sid": sid}
+    emit_curl(base_url=base_url, method="POST", path=path, body={"filter": filter_})
 
 
 def _run(
@@ -312,10 +205,6 @@ def _run(
     show_mode = not loader and not resume_all
 
     # Прямой режим по sid: задан явный `--sid` ИЛИ селектор сам — полный sid.
-    # Тогда find/resume идут по sid напрямую, без резолва клиента: на
-    # wb-loader-app загрузчик keyed by sid, а резолв может быть неоднозначным
-    # (общий кабинет у нескольких клиентов / на разных серверах) либо кэш
-    # `sl_wb_sids` отстаёт. client_id — best-effort только для лейбла.
     direct_sid = sid if sid is not None else (selector if _looks_like_sid(selector) else None)
     if direct_sid is not None:
         sid_targets = [direct_sid]
