@@ -7,13 +7,21 @@ position-параметров, резолв дискуссии по префик
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from urllib.parse import parse_qs
+
+import httpx
 import pytest
 
+from mpu.lib import env
 from mpu.lib.gitlab_mr import (
+    DEFAULT_BASE_URL,
     DiffLine,
     DiffRefs,
     Discussion,
     FileDiff,
+    GitLabAPIError,
+    GitLabClient,
     Note,
     NotePosition,
     build_position_params,
@@ -30,9 +38,16 @@ from mpu.lib.gitlab_mr import (
     parse_file_diff,
     parse_mr_info,
     parse_mr_ref,
+    parse_note,
     parse_unified_diff,
     project_from_remote_url,
 )
+
+# Захватываем настоящий httpx.Client ДО любой подмены — фабрика создаёт реальный
+# клиент с MockTransport (по образцу tests/test_slapi.py).
+_REAL_HTTPX_CLIENT = httpx.Client
+
+Handler = Callable[[httpx.Request], httpx.Response]
 
 BASE_URL = "https://gitlab.btlz-api.ru"
 
@@ -412,3 +427,512 @@ def test_parse_file_diff_defaults():
     fd = parse_file_diff({"old_path": "a", "new_path": "a", "diff": None})
     assert fd.diff == ""
     assert fd.deleted_file is False
+
+
+# ── pure-helper edge cases (доборка пропущенных веток) ───────────────────────────
+
+
+def test_parse_mr_ref_url_no_marker():
+    # Хост свой, но в пути нет `/-/merge_requests/` → парс не удался.
+    with pytest.raises(ValueError, match="не удалось разобрать MR-URL"):
+        parse_mr_ref("https://gitlab.btlz-api.ru/wb/sl-back", BASE_URL)
+
+
+def test_parse_mr_ref_url_non_digit_iid():
+    with pytest.raises(ValueError, match="не удалось разобрать MR-URL"):
+        parse_mr_ref("https://gitlab.btlz-api.ru/wb/sl-back/-/merge_requests/abc", BASE_URL)
+
+
+def test_parse_mr_ref_url_empty_project():
+    with pytest.raises(ValueError, match="не удалось разобрать MR-URL"):
+        parse_mr_ref("https://gitlab.btlz-api.ru/-/merge_requests/5", BASE_URL)
+
+
+def test_remote_url_unparseable():
+    # Ни схемы `://`, ни scp-формы `host:path` → разобрать нечего.
+    with pytest.raises(ValueError, match="не удалось разобрать git remote"):
+        project_from_remote_url("garbage-without-colon", HOST)
+
+
+def test_remote_url_empty_project():
+    # Путь после хоста пуст → нет project.
+    with pytest.raises(ValueError, match="пустой project"):
+        project_from_remote_url("https://gitlab.btlz-api.ru/", HOST)
+
+
+def test_remote_scp_only_git_suffix_is_empty_project():
+    # `git@host:.git` → path=".git" → после removesuffix пусто.
+    with pytest.raises(ValueError, match="пустой project"):
+        project_from_remote_url("git@gitlab.btlz-api.ru:.git", HOST)
+
+
+def test_parse_discussion_notes_not_a_list():
+    # `notes` не список (или отсутствует) → _dict_items вернёт [] (без падения).
+    disc = parse_discussion({"id": "a" * 40, "notes": "garbage"})
+    assert disc.notes == []
+    disc_missing = parse_discussion({"id": "b" * 40})
+    assert disc_missing.notes == []
+    assert disc_missing.individual_note is False
+
+
+def test_parse_note_missing_fields_and_no_position():
+    # Минимальная нота: всё кроме id отсутствует → None/пусто, position=None.
+    note = parse_note({"id": 7})
+    assert note.id == 7
+    assert note.body == ""
+    assert note.author_name == ""
+    assert note.author_username == ""
+    assert note.created_at is None
+    assert note.position is None
+    assert note.system is False
+    assert note.resolvable is False
+
+
+def test_parse_note_author_not_dict():
+    # author не объект → имя/username пустые (без падения).
+    note = parse_note({"id": 8, "author": "not-a-dict", "position": "not-a-dict"})
+    assert note.author_name == ""
+    assert note.position is None
+
+
+def test_parse_mr_info_full_with_diff_refs_and_status_fields():
+    raw = {
+        "iid": 1499,
+        "title": "feat",
+        "state": "merged",
+        "source_branch": "feat/x",
+        "target_branch": "dev",
+        "web_url": "https://x/wb/sl-back/-/merge_requests/1499",
+        "author": {"name": "Имя", "username": "user"},
+        "description": "тело",
+        "diff_refs": {"base_sha": "b" * 40, "start_sha": "s" * 40, "head_sha": "h" * 40},
+        "project_id": 321,
+        "sha": "f" * 40,
+        "merge_commit_sha": "m" * 40,
+        "squash_commit_sha": "q" * 40,
+    }
+    info = parse_mr_info(raw, "wb/sl-back")
+    assert info.diff_refs is not None
+    assert info.diff_refs.base_sha == "b" * 40
+    assert info.diff_refs.head_sha == "h" * 40
+    assert info.project_id == 321
+    assert info.sha == "f" * 40
+    assert info.merge_commit_sha == "m" * 40
+    assert info.squash_commit_sha == "q" * 40
+
+
+def test_parse_mr_info_partial_diff_refs_is_none():
+    # Один из трёх SHA пуст → diff_refs целиком None (нельзя позиционировать).
+    raw = {
+        "iid": 5,
+        "diff_refs": {"base_sha": "b" * 40, "start_sha": "", "head_sha": "h" * 40},
+    }
+    info = parse_mr_info(raw, "wb/sl-back")
+    assert info.diff_refs is None
+    assert info.project_id is None
+    assert info.sha is None
+
+
+# ── GitLabAPIError ──────────────────────────────────────────────────────────────
+
+
+def test_gitlab_api_error_attrs_and_message():
+    err = GitLabAPIError("POST", "/projects/1/merge_requests", 422, "Z" * 500)
+    assert err.method == "POST"
+    assert err.path == "/projects/1/merge_requests"
+    assert err.status == 422
+    assert err.body == "Z" * 500  # полное тело сохранено
+    text = str(err)
+    assert "gitlab POST /projects/1/merge_requests -> 422:" in text
+    # В сообщении тело усечено до 300 символов.
+    assert "Z" * 300 in text
+    assert "Z" * 301 not in text
+
+
+# ── GitLabClient (httpx.MockTransport) ──────────────────────────────────────────
+
+
+def _patch_transport(monkeypatch: pytest.MonkeyPatch, handler: Handler) -> None:
+    """Подменить httpx.Client фабрикой, гоняющей все запросы в MockTransport."""
+    transport = httpx.MockTransport(handler)
+
+    def factory(
+        *,
+        base_url: str,
+        headers: dict[str, str],
+        timeout: httpx.Timeout,
+        trust_env: bool,
+    ) -> httpx.Client:
+        _ = trust_env  # MockTransport не выходит в сеть — флаг не важен
+        return _REAL_HTTPX_CLIENT(
+            transport=transport, base_url=base_url, headers=headers, timeout=timeout
+        )
+
+    monkeypatch.setattr(httpx, "Client", factory)
+
+
+def _client(monkeypatch: pytest.MonkeyPatch, handler: Handler) -> GitLabClient:
+    _patch_transport(monkeypatch, handler)
+    return GitLabClient("TESTTOKEN", DEFAULT_BASE_URL)
+
+
+def test_client_host_and_base_url_strip_slash():
+    client = GitLabClient("tok", "https://gitlab.btlz-api.ru/")
+    assert client.base_url == "https://gitlab.btlz-api.ru"
+    assert client.host == "gitlab.btlz-api.ru"
+
+
+# ── from_env ────────────────────────────────────────────────────────────────────
+
+
+def test_from_env_builds_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(env, "_loaded", True)
+    monkeypatch.setenv("GLAB_TOKEN", "TOK")
+    monkeypatch.setenv("GITLAB_BASE_URL", "https://gl.example.com/")
+    client = GitLabClient.from_env()
+    assert client.base_url == "https://gl.example.com"
+    assert client.host == "gl.example.com"
+
+
+def test_from_env_default_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(env, "_loaded", True)
+    monkeypatch.setenv("GLAB_TOKEN", "TOK")
+    monkeypatch.delenv("GITLAB_BASE_URL", raising=False)
+    assert GitLabClient.from_env().base_url == DEFAULT_BASE_URL
+
+
+def test_from_env_missing_token_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(env, "_loaded", True)
+    monkeypatch.delenv("GLAB_TOKEN", raising=False)
+    with pytest.raises(RuntimeError):
+        GitLabClient.from_env()
+
+
+# ── _request: успех / ошибка / транспорт / пустой ответ ──────────────────────────
+
+
+def test_get_mr_sends_token_and_parses(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["path"] = request.url.path
+        captured["token"] = request.headers.get("private-token")
+        captured["accept"] = request.headers.get("accept")
+        return httpx.Response(200, json={"iid": 5, "title": "T", "state": "opened"})
+
+    info = _client(monkeypatch, handler).get_mr("wb/sl-back", 5)
+    assert info.iid == 5
+    assert info.title == "T"
+    assert captured["method"] == "GET"
+    # encode_project + _mr_path: `wb/sl-back` уходит URL-encoded, путь декодируется.
+    assert captured["path"] == "/api/v4/projects/wb/sl-back/merge_requests/5"
+    assert captured["token"] == "TESTTOKEN"
+    assert captured["accept"] == "application/json"
+
+
+def test_request_non_2xx_raises_gitlab_api_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        _ = request
+        return httpx.Response(403, text="forbidden")
+
+    with pytest.raises(GitLabAPIError) as ei:
+        _client(monkeypatch, handler).get_mr("wb/sl-back", 5)
+    assert ei.value.status == 403
+    assert ei.value.body == "forbidden"
+    assert ei.value.method == "GET"
+
+
+def test_request_transport_error_status_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("dns fail", request=request)
+
+    with pytest.raises(GitLabAPIError) as ei:
+        _client(monkeypatch, handler).get_mr("wb/sl-back", 5)
+    assert ei.value.status == 0
+    assert "dns fail" in ei.value.body
+
+
+def test_delete_note_empty_response_returns_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["path"] = request.url.path
+        return httpx.Response(204, text="")
+
+    assert _client(monkeypatch, handler).delete_note("wb/sl-back", 5, 99) is None
+    assert captured["method"] == "DELETE"
+    assert captured["path"] == "/api/v4/projects/wb/sl-back/merge_requests/5/notes/99"
+
+
+# ── пагинация ────────────────────────────────────────────────────────────────────
+
+
+def test_find_open_mrs_paginates(monkeypatch: pytest.MonkeyPatch) -> None:
+    pages: list[int] = []
+    branches: list[str | None] = []
+    states: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        page = int(request.url.params["page"])
+        pages.append(page)
+        branches.append(request.url.params.get("source_branch"))
+        states.append(request.url.params.get("state"))
+        if page == 1:
+            body = [{"iid": i, "title": "t"} for i in range(100)]
+        else:
+            body = [{"iid": 100, "title": "last"}]
+        return httpx.Response(200, json=body)
+
+    mrs = _client(monkeypatch, handler).find_open_mrs("wb/sl-back", "feat/x")
+    assert len(mrs) == 101
+    assert pages == [1, 2]  # вторая страница неполная → стоп
+    assert branches == ["feat/x", "feat/x"]
+    assert states == ["opened", "opened"]
+
+
+def test_list_discussions_single_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["path"] = request.url.path
+        return httpx.Response(200, json=[{"id": "a" * 40, "notes": []}])
+
+    discs = _client(monkeypatch, handler).list_discussions("wb/sl-back", 5)
+    assert len(discs) == 1
+    assert discs[0].id == "a" * 40
+    assert captured["path"] == "/api/v4/projects/wb/sl-back/merge_requests/5/discussions"
+
+
+def test_list_my_merge_requests_global_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["path"] = request.url.path
+        captured["scope"] = request.url.params.get("scope")
+        captured["updated_after"] = request.url.params.get("updated_after")
+        captured["order_by"] = request.url.params.get("order_by")
+        return httpx.Response(
+            200,
+            json=[{"iid": 7, "title": "t", "web_url": "https://x/wb/sl-back/-/merge_requests/7"}],
+        )
+
+    mrs = _client(monkeypatch, handler).list_my_merge_requests("2026-06-18T00:00:00Z")
+    assert mrs[0].iid == 7
+    assert mrs[0].project == ""  # глобальный эндпоинт без пути проекта
+    assert captured["path"] == "/api/v4/merge_requests"
+    assert captured["scope"] == "created_by_me"
+    assert captured["updated_after"] == "2026-06-18T00:00:00Z"
+    assert captured["order_by"] == "created_at"
+
+
+# ── commit_branch_names: успех / 404 / прочая ошибка ─────────────────────────────
+
+
+def test_commit_branch_names_success_filters_nameless(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["path"] = request.url.path
+        captured["type"] = request.url.params.get("type")
+        return httpx.Response(200, json=[{"name": "main"}, {"name": "dev"}, {"foo": "bar"}])
+
+    names = _client(monkeypatch, handler).commit_branch_names(42, "abc123")
+    assert names == ["main", "dev"]
+    assert captured["path"] == "/api/v4/projects/42/repository/commits/abc123/refs"
+    assert captured["type"] == "branch"
+
+
+def test_commit_branch_names_404_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        _ = request
+        return httpx.Response(404, text="not found")
+
+    assert _client(monkeypatch, handler).commit_branch_names(42, "deadbeef") == []
+
+
+def test_commit_branch_names_other_error_reraises(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        _ = request
+        return httpx.Response(500, text="boom")
+
+    with pytest.raises(GitLabAPIError) as ei:
+        _client(monkeypatch, handler).commit_branch_names(42, "deadbeef")
+    assert ei.value.status == 500
+
+
+# ── list_diffs: dict-ответ vs не-dict ───────────────────────────────────────────
+
+
+def test_list_diffs_parses_changes(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["path"] = request.url.path
+        captured["raw"] = request.url.params.get("access_raw_diffs")
+        return httpx.Response(
+            200,
+            json={
+                "changes": [
+                    {"old_path": "a", "new_path": "b", "diff": "@@ -1 +1 @@\n-x\n+y\n"},
+                ]
+            },
+        )
+
+    diffs = _client(monkeypatch, handler).list_diffs("wb/sl-back", 5)
+    assert len(diffs) == 1
+    assert diffs[0].new_path == "b"
+    assert captured["path"] == "/api/v4/projects/wb/sl-back/merge_requests/5/changes"
+    assert captured["raw"] == "true"
+
+
+def test_list_diffs_non_dict_payload_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        _ = request
+        return httpx.Response(200, json=[1, 2, 3])
+
+    assert _client(monkeypatch, handler).list_diffs("wb/sl-back", 5) == []
+
+
+# ── мутации: form-encoded data (position[...] и тела) ────────────────────────────
+
+
+def test_create_discussion_general(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["path"] = request.url.path
+        captured["form"] = parse_qs(request.content.decode())
+        return httpx.Response(201, json={"id": "d" * 40, "notes": []})
+
+    disc = _client(monkeypatch, handler).create_discussion("wb/sl-back", 5, "hello")
+    assert disc.id == "d" * 40
+    assert captured["method"] == "POST"
+    assert captured["path"] == "/api/v4/projects/wb/sl-back/merge_requests/5/discussions"
+    assert captured["form"] == {"body": ["hello"]}
+
+
+def test_create_discussion_with_position(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["form"] = parse_qs(request.content.decode())
+        return httpx.Response(201, json={"id": "e" * 40, "notes": []})
+
+    position = {"position[new_line]": "5", "position[new_path]": "src/a.ts"}
+    _client(monkeypatch, handler).create_discussion("wb/sl-back", 5, "body", position=position)
+    assert captured["form"] == {
+        "body": ["body"],
+        "position[new_line]": ["5"],
+        "position[new_path]": ["src/a.ts"],
+    }
+
+
+def test_reply_posts_note(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["path"] = request.url.path
+        captured["form"] = parse_qs(request.content.decode())
+        return httpx.Response(
+            201,
+            json={"id": 123, "body": "ok", "author": {"name": "A", "username": "a"}},
+        )
+
+    note = _client(monkeypatch, handler).reply("wb/sl-back", 5, "d" * 40, "my reply")
+    assert note.id == 123
+    assert note.author_username == "a"
+    assert captured["path"] == (
+        "/api/v4/projects/wb/sl-back/merge_requests/5/discussions/" + "d" * 40 + "/notes"
+    )
+    assert captured["form"] == {"body": ["my reply"]}
+
+
+def test_update_note_puts_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["path"] = request.url.path
+        captured["form"] = parse_qs(request.content.decode())
+        return httpx.Response(200, json={"id": 77, "body": "edited"})
+
+    note = _client(monkeypatch, handler).update_note("wb/sl-back", 5, 77, "edited")
+    assert note.body == "edited"
+    assert captured["method"] == "PUT"
+    assert captured["path"] == "/api/v4/projects/wb/sl-back/merge_requests/5/notes/77"
+    assert captured["form"] == {"body": ["edited"]}
+
+
+def test_set_resolved_true_and_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["resolved"] = request.url.params.get("resolved")
+        return httpx.Response(200, text="")
+
+    client = _client(monkeypatch, handler)
+    assert client.set_resolved("wb/sl-back", 5, "d" * 40, True) is None
+    assert captured["method"] == "PUT"
+    assert captured["resolved"] == "true"
+    client.set_resolved("wb/sl-back", 5, "d" * 40, False)
+    assert captured["resolved"] == "false"
+
+
+def test_set_description_replaces_and_returns_mr(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["path"] = request.url.path
+        captured["form"] = parse_qs(request.content.decode())
+        return httpx.Response(200, json={"iid": 5, "description": "new desc"})
+
+    info = _client(monkeypatch, handler).set_description("wb/sl-back", 5, "new desc")
+    assert info.description == "new desc"
+    assert captured["method"] == "PUT"
+    assert captured["path"] == "/api/v4/projects/wb/sl-back/merge_requests/5"
+    assert captured["form"] == {"description": ["new desc"]}
+
+
+def test_create_mr_with_description(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["path"] = request.url.path
+        captured["form"] = parse_qs(request.content.decode())
+        return httpx.Response(
+            201,
+            json={"iid": 9, "source_branch": "feat/x", "target_branch": "dev", "title": "T"},
+        )
+
+    info = _client(monkeypatch, handler).create_mr("wb/sl-back", "feat/x", "dev", "T", "body text")
+    assert info.iid == 9
+    assert captured["method"] == "POST"
+    assert captured["path"] == "/api/v4/projects/wb/sl-back/merge_requests"
+    assert captured["form"] == {
+        "source_branch": ["feat/x"],
+        "target_branch": ["dev"],
+        "title": ["T"],
+        "description": ["body text"],
+    }
+
+
+def test_create_mr_without_description_omits_field(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["form"] = parse_qs(request.content.decode())
+        return httpx.Response(201, json={"iid": 10, "title": "T"})
+
+    info = _client(monkeypatch, handler).create_mr("wb/sl-back", "feat/x", "dev", "T")
+    assert info.iid == 10
+    assert captured["form"] == {
+        "source_branch": ["feat/x"],
+        "target_branch": ["dev"],
+        "title": ["T"],
+    }
