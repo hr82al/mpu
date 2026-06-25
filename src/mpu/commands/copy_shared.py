@@ -12,7 +12,7 @@ from typing import Annotated
 import typer
 
 from mpu.lib import dt_host, servers
-from mpu.lib.resolver import ResolveError, resolve_server
+from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 COMMAND_NAME = "mpu copy-shared"
 COMMAND_SUMMARY = "Скопировать shared-таблицы с удалённого PG в локальный dev-PG"
@@ -44,18 +44,6 @@ app = typer.Typer(
 )
 
 
-def _format_candidates(candidates: list[dict[str, object]]) -> str:
-    lines: list[str] = []
-    for c in candidates:
-        parts = [f"client_id={c.get('client_id')}", f"server={c.get('server')}"]
-        if title := c.get("title"):
-            parts.append(f'title="{title}"')
-        if ss := c.get("spreadsheet_id"):
-            parts.append(f"spreadsheet_id={ss}")
-        lines.append("  " + "  ".join(parts))
-    return "\n".join(lines)
-
-
 @app.command()
 def main(
     selector: Annotated[
@@ -72,7 +60,7 @@ def main(
     except ResolveError as e:
         typer.echo(f"{COMMAND_NAME}: {e}", err=True)
         if e.candidates:
-            typer.echo(_format_candidates(e.candidates), err=True)
+            typer.echo(format_candidates(e.candidates), err=True)
         raise typer.Exit(code=2) from None
 
     source_host = servers.pg_ip(server_number)

@@ -17,7 +17,7 @@ import typer
 from mpu.lib import servers
 from mpu.lib.client_moves import record_move
 from mpu.lib.client_transfer import run_transfer
-from mpu.lib.resolver import ResolveError, resolve_server
+from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 COMMAND_NAME = "mpu move-client"
 COMMAND_SUMMARY = "Перенести клиента между sl-серверами (createJob через mp-dt-cli)"
@@ -26,18 +26,6 @@ app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-
-
-def _format_candidates(candidates: list[dict[str, object]]) -> str:
-    lines: list[str] = []
-    for c in candidates:
-        parts = [f"client_id={c.get('client_id')}", f"server={c.get('server')}"]
-        if title := c.get("title"):
-            parts.append(f'title="{title}"')
-        if ss := c.get("spreadsheet_id"):
-            parts.append(f"spreadsheet_id={ss}")
-        lines.append("  " + "  ".join(parts))
-    return "\n".join(lines)
 
 
 def _pick_client_id(candidates: list[dict[str, object]]) -> int:
@@ -49,14 +37,14 @@ def _pick_client_id(candidates: list[dict[str, object]]) -> int:
             err=True,
         )
         if candidates:
-            typer.echo(_format_candidates(candidates), err=True)
+            typer.echo(format_candidates(candidates), err=True)
         raise typer.Exit(code=2)
     if len(ids) > 1:
         typer.echo(
             f"{COMMAND_NAME}: selector matches {len(ids)} clients — narrow it down",
             err=True,
         )
-        typer.echo(_format_candidates(candidates), err=True)
+        typer.echo(format_candidates(candidates), err=True)
         raise typer.Exit(code=2)
     return next(iter(ids))
 
@@ -81,7 +69,7 @@ def main(
     except ResolveError as e:
         typer.echo(f"{COMMAND_NAME}: {e}", err=True)
         if e.candidates:
-            typer.echo(_format_candidates(e.candidates), err=True)
+            typer.echo(format_candidates(e.candidates), err=True)
         raise typer.Exit(code=2) from None
 
     if not candidates:
