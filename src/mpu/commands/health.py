@@ -1,7 +1,7 @@
-"""`mpu p health` — быстрый health-check sl-N: статусы контейнеров + tail логов loader'ов.
+"""`mpu health` — быстрый health-check sl-N: статусы контейнеров + tail логов loader'ов.
 
 Использование:
-    mpu p health <selector> [--tail N] [--since 30m] [--all]
+    mpu health <selector> [--tail N] [--since 30m] [--all]
 
 `<selector>` — `sl-N` либо client_id / spreadsheet_id / title (через `mpu search`).
 
@@ -31,7 +31,7 @@ import typer
 
 from mpu.commands._portainer_resolve import PortainerResolved, resolve_portainer
 
-COMMAND_NAME = "mpu p health"
+COMMAND_NAME = "mpu health"
 COMMAND_SUMMARY = "Health-check sl-N: статусы контейнеров + tail логов loader'ов"
 
 
