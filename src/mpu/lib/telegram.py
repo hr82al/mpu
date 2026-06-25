@@ -581,9 +581,9 @@ def _entity_to_dialog(entity: object) -> TgDialog:
         or getattr(entity, "last_name", None) is not None
     )
     if getattr(entity, "broadcast", False):
-        kind, marked = "channel", -(1_000_000_000_000 + raw_id)
+        kind, marked = "channel", -(_CHANNEL_ID_BASE + raw_id)
     elif getattr(entity, "megagroup", False):
-        kind, marked = "group", -(1_000_000_000_000 + raw_id)
+        kind, marked = "group", -(_CHANNEL_ID_BASE + raw_id)
     elif has_title and not is_user:
         kind, marked = "group", -raw_id  # базовая группа (Chat)
     elif getattr(entity, "bot", False):
