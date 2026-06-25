@@ -233,9 +233,13 @@ def _build_command(spec: CommandSpec) -> click.Command:
     for body_field in spec.body_fields:
         # Все body-options — str на уровне click; парсинг типов в _coerce_value.
         # Это позволяет boolean писать как `--is_active true` без отдельного флага.
+        # Явное второе объявление (`body_field.name` без дефисов) фиксирует имя
+        # kwargs-ключа: иначе click нормализует `--newPassword` к `newpassword`, и
+        # `_build_body` (лукап по camelCase) терял поле — для required падал
+        # «обязателен», для optional молча отбрасывал фильтр (jobId и пр.).
         params.append(
             click.Option(
-                [f"--{body_field.name}"],
+                [f"--{body_field.name}", body_field.name],
                 required=False,
                 default=None,
                 type=str,

@@ -598,6 +598,33 @@ def test_cli_command_required_field_missing_exit_2(monkeypatch: pytest.MonkeyPat
     assert fake.requests == []
 
 
+def test_cli_camelcase_required_field_collected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """camelCase body-поля (newPassword/jobId/...) должны доходить до тела запроса.
+
+    Регрессия: click нормализует имя опции `--newPassword` к ключу kwargs
+    `newpassword`, а `_build_body` ищет по `newPassword` — поле терялось. Для
+    required-поля команда падала «обязателен» даже при переданном флаге.
+    """
+    spec = COMMANDS_BY_NAME["auth-change-password"]  # email/password/newPassword — все required
+    fake = FakeSlApi(response={"ok": True})
+    _install_api(monkeypatch, fake)
+    cmd = rt._build_command(spec)
+    res = runner.invoke(cmd, ["--email", "u@x", "--password", "old", "--newPassword", "new"])
+    assert res.exit_code == 0, res.output
+    assert fake.requests[0]["body"] == {"email": "u@x", "password": "old", "newPassword": "new"}
+
+
+def test_cli_camelcase_optional_field_collected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Optional camelCase поле (`jobId`) тоже доходит до тела, не теряется молча."""
+    spec = COMMANDS_BY_NAME["ss-jobs-job"]  # accepts_raw_body, jobId optional
+    fake = FakeSlApi(response={"job": None})
+    _install_api(monkeypatch, fake)
+    cmd = rt._build_command(spec)
+    res = runner.invoke(cmd, ["--queue", "wb10x", "--jobId", "job-42"])
+    assert res.exit_code == 0, res.output
+    assert fake.requests[0]["body"] == {"queue": "wb10x", "jobId": "job-42"}
+
+
 # --------------------------------------------------------------------------- #
 # build_api_group
 # --------------------------------------------------------------------------- #
