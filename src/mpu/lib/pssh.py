@@ -299,7 +299,6 @@ def run_in_container_via_portainer(
     out_cb = on_stdout if on_stdout is not None else _write_stdout
     err_cb = on_stderr if on_stderr is not None else _write_stderr
 
-    interrupted = False
     try:
         # TTY=True заставляет Node-внутри-контейнера переключить process.stdout
         # на синхронные write'ы (POSIX-поведение), иначе он батчит console.log
@@ -313,14 +312,13 @@ def run_in_container_via_portainer(
             # вторым exec'ом. Сообщаем пользователю, что мы не просто бросили команду.
             sys.stderr.write("\nmpu: Ctrl+C → killing remote process...\n")
             sys.stderr.flush()
-            interrupted = True
             _kill_remote_process(client, container)
             raise
         return client.inspect_exec_exit_code(exec_id)
     finally:
         # Cleanup pidfile + stdin tar даже после Ctrl+C — иначе следующий запуск может
         # подцепить устаревший pidfile (race), а stdin file висит до рестарта контейнера.
-        _best_effort_cleanup(client, container, with_stdin=bool(stdin), suppress=interrupted)
+        _best_effort_cleanup(client, container, with_stdin=bool(stdin))
 
 
 # --- detached launch: процесс переживает закрытие exec/WS (фоновый прогон на сервере) ---
@@ -491,7 +489,6 @@ def _best_effort_cleanup(
     container: str,
     *,
     with_stdin: bool,
-    suppress: bool = False,
 ) -> None:
     """rm -f /tmp/__MPU_PSSH_PID (+ stdin tar если был). Файлы живут до рестарта."""
     paths = [_PIDFILE]
@@ -506,5 +503,4 @@ def _best_effort_cleanup(
         )
     except Exception:
         # best-effort cleanup — файлы живут до рестарта контейнера, не критично
-        if not suppress:
-            pass
+        pass
