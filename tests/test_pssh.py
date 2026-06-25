@@ -1,9 +1,11 @@
 """Тесты `mpu/lib/pssh.py` и `mpu/commands/pssh.py`."""
 # pyright: reportPrivateUsage=false
 
-from collections.abc import Iterator
+import io
+from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import ClassVar
+from types import SimpleNamespace
+from typing import ClassVar, cast
 
 import pytest
 import typer
@@ -11,6 +13,7 @@ from typer.testing import CliRunner
 
 from mpu.commands import pssh as pssh_cmd
 from mpu.lib import containers, portainer, pssh, servers, store
+from mpu.lib.resolver import ResolveError
 
 
 def _isolate_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -936,3 +939,646 @@ def test_pssh_run_container_no_api_key(
         assert excinfo.value.exit_code == 2
     finally:
         servers.reset_cache()
+
+
+# ---------- _ssh_conn ----------
+
+
+def test_ssh_conn_dev_uses_defaults(env_ssh_only: Path) -> None:
+    """`dev=True` без DEV_NODE_* в .env → встроенные дефолты dev-ноды."""
+    _ = env_ssh_only
+    host, user, key = pssh._ssh_conn(1, dev=True)
+    assert host == pssh.DEV_NODE_HOST
+    assert user == pssh.DEV_NODE_USER
+    assert key.endswith("id_rsa")
+
+
+def test_ssh_conn_dev_env_override(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """DEV_NODE_HOST / DEV_NODE_USER в .env переопределяют встроенные дефолты."""
+    p = env_ssh_only
+    p.write_text(
+        p.read_text(encoding="utf-8") + "DEV_NODE_HOST=10.0.0.5\nDEV_NODE_USER=tester\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(servers, "ENV_PATH", p)
+    servers.reset_cache()
+    host, user, _key = pssh._ssh_conn(1, dev=True)
+    assert host == "10.0.0.5"
+    assert user == "tester"
+
+
+def test_ssh_conn_non_dev(env_ssh_only: Path) -> None:
+    """`dev=False` → IP из .env (`sl_1`) + `PG_MY_USER_NAME`."""
+    _ = env_ssh_only
+    host, user, _key = pssh._ssh_conn(1, dev=False)
+    assert host == "192.168.150.91"
+    assert user == "alice"
+
+
+# ---------- pssh_run dispatch ----------
+
+
+def test_pssh_run_dev_routes_to_ssh(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`dev=True` → `_run_via_ssh(..., dev=True)`, `via` игнорируется."""
+    _ = env_ssh_only
+    captured: dict[str, object] = {}
+
+    def _fake_ssh(
+        n: int,
+        cmd: list[str],
+        stdin: bytes,
+        *,
+        dev: bool = False,
+        on_stdout: object = None,
+        on_stderr: object = None,
+    ) -> int:
+        _ = on_stdout, on_stderr
+        captured.update(n=n, cmd=list(cmd), stdin=stdin, dev=dev)
+        return 3
+
+    monkeypatch.setattr(pssh, "_run_via_ssh", _fake_ssh)
+    rc = pssh.pssh_run(server_number=5, cmd=["ls", "/app"], stdin=b"x", via="portainer", dev=True)
+    assert rc == 3
+    assert captured == {"n": 5, "cmd": ["ls", "/app"], "stdin": b"x", "dev": True}
+
+
+def test_pssh_run_transport_ssh(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ssh-only конфиг → `pssh_run` диспатчит на `_run_via_ssh`."""
+    _ = env_ssh_only
+    captured: dict[str, object] = {}
+
+    def _fake_ssh(
+        n: int,
+        cmd: list[str],
+        stdin: bytes,
+        *,
+        dev: bool = False,
+        on_stdout: object = None,
+        on_stderr: object = None,
+    ) -> int:
+        _ = stdin, dev, on_stdout, on_stderr
+        captured.update(n=n, cmd=list(cmd))
+        return 0
+
+    monkeypatch.setattr(pssh, "_run_via_ssh", _fake_ssh)
+    rc = pssh.pssh_run(server_number=1, cmd=["ls"])
+    assert rc == 0
+    assert captured == {"n": 1, "cmd": ["ls"]}
+
+
+def test_pssh_run_transport_portainer(
+    env_portainer_only: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """portainer-only конфиг → `pssh_run` диспатчит на `_run_via_portainer`."""
+    _ = env_portainer_only
+    captured: dict[str, object] = {}
+
+    def _fake_ptr(
+        n: int,
+        cmd: list[str],
+        stdin: bytes,
+        on_stdout: object = None,
+        on_stderr: object = None,
+        manage_signals: bool = True,
+    ) -> int:
+        _ = stdin, on_stdout, on_stderr, manage_signals
+        captured.update(n=n, cmd=list(cmd))
+        return 9
+
+    monkeypatch.setattr(pssh, "_run_via_portainer", _fake_ptr)
+    rc = pssh.pssh_run(server_number=11, cmd=["ls"])
+    assert rc == 9
+    assert captured == {"n": 11, "cmd": ["ls"]}
+
+
+# ---------- _run_via_ssh capture path ----------
+
+
+def test_run_via_ssh_capture_forwards_to_callbacks(
+    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """on_stdout/on_stderr заданы → capture_output=True, вывод уходит в колбэки."""
+    _ = env_ssh_only
+    captured_kw: dict[str, object] = {}
+
+    class _Result:
+        stdout = b"out-bytes"
+        stderr = b"err-bytes"
+        returncode = 4
+
+    def _fake_run(args: list[str], **kw: object) -> _Result:
+        _ = args
+        captured_kw.update(kw)
+        return _Result()
+
+    monkeypatch.setattr(pssh.subprocess, "run", _fake_run)
+    outs: list[bytes] = []
+    errs: list[bytes] = []
+    rc = pssh._run_via_ssh(1, ["ls"], b"", on_stdout=outs.append, on_stderr=errs.append)
+    assert rc == 4
+    assert outs == [b"out-bytes"]
+    assert errs == [b"err-bytes"]
+    assert captured_kw["capture_output"] is True
+
+
+def test_run_via_ssh_capture_only_stderr(
+    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Только on_stderr → capture-ветка, stdout не форвардится (on_stdout=None)."""
+    _ = env_ssh_only
+
+    class _Result:
+        stdout = b"ignored"
+        stderr = b"err-bytes"
+        returncode = 0
+
+    def _fake_run(*_a: object, **_kw: object) -> _Result:
+        return _Result()
+
+    monkeypatch.setattr(pssh.subprocess, "run", _fake_run)
+    errs: list[bytes] = []
+    rc = pssh._run_via_ssh(1, ["ls"], b"", on_stderr=errs.append)
+    assert rc == 0
+    assert errs == [b"err-bytes"]
+
+
+def test_run_via_ssh_capture_only_stdout(
+    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Только on_stdout → capture-ветка, stderr не форвардится (on_stderr=None)."""
+    _ = env_ssh_only
+
+    class _Result:
+        stdout = b"out-bytes"
+        stderr = b"ignored"
+        returncode = 0
+
+    def _fake_run(*_a: object, **_kw: object) -> _Result:
+        return _Result()
+
+    monkeypatch.setattr(pssh.subprocess, "run", _fake_run)
+    outs: list[bytes] = []
+    rc = pssh._run_via_ssh(1, ["ls"], b"", on_stdout=outs.append)
+    assert rc == 0
+    assert outs == [b"out-bytes"]
+
+
+# ---------- run_in_container_via_portainer: default callbacks + manage_signals=False ----------
+
+
+class _CaptureStream:
+    """Fake sys.stdout/sys.stderr: bytes-буфер + текстовый write (для KBI-сообщения)."""
+
+    def __init__(self) -> None:
+        self.buffer = io.BytesIO()
+        self.text = ""
+
+    def write(self, s: str) -> int:
+        self.text += s
+        return len(s)
+
+    def flush(self) -> None:
+        pass
+
+
+class _EmitClient:
+    """portainer.Client-стаб, чей stream всегда эмитит OUT в stdout и ERR в stderr."""
+
+    instances: ClassVar[list["_EmitClient"]] = []
+
+    def __init__(self, **kwargs: object) -> None:
+        self.kwargs = kwargs
+        self.uploads: list[tuple[str, str, dict[str, bytes]]] = []
+        self.execs: list[list[str]] = []
+        _EmitClient.instances.append(self)
+
+    def upload_tar(self, container: str, dest: str, files: dict[str, bytes]) -> None:
+        self.uploads.append((container, dest, files))
+
+    def create_exec(self, container: str, cmd: list[str], *, tty: bool = False) -> str:
+        _ = container, tty
+        self.execs.append(list(cmd))
+        return f"e{len(self.execs)}"
+
+    def start_exec_stream(
+        self,
+        exec_id: str,
+        *,
+        on_stdout: Callable[[bytes], None],
+        on_stderr: Callable[[bytes], None],
+        tty: bool = False,
+    ) -> None:
+        _ = exec_id, tty
+        on_stdout(b"OUT")
+        on_stderr(b"ERR")
+
+    def inspect_exec_exit_code(self, exec_id: str) -> int:
+        _ = exec_id
+        return 0
+
+
+def test_run_in_container_default_callbacks_and_no_signals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """on_stdout/on_stderr=None → дефолтные _write_*; manage_signals=False → без signal.signal."""
+    _EmitClient.instances.clear()
+    fake_out = _CaptureStream()
+    fake_err = _CaptureStream()
+    monkeypatch.setattr(pssh.sys, "stdout", fake_out)
+    monkeypatch.setattr(pssh.sys, "stderr", fake_err)
+    monkeypatch.setattr(pssh.portainer, "Client", _EmitClient)
+    rc = pssh.run_in_container_via_portainer(
+        base_url="https://x:9443",
+        endpoint_id=1,
+        api_key="k",
+        container="mp-dt-cli",
+        cmd=["ls"],
+        manage_signals=False,
+    )
+    assert rc == 0
+    # Дефолтные колбэки пишут в sys.stdout.buffer / sys.stderr.buffer.
+    assert fake_out.buffer.getvalue() == b"OUT"
+    assert fake_err.buffer.getvalue() == b"ERR"
+
+
+# ---------- run_in_container_via_portainer: Ctrl+C path ----------
+
+
+class _KbiClient:
+    """portainer.Client-стаб: первый start_exec_stream бросает KeyboardInterrupt."""
+
+    instances: ClassVar[list["_KbiClient"]] = []
+
+    def __init__(self, **kwargs: object) -> None:
+        self.kwargs = kwargs
+        self.execs: list[list[str]] = []
+        self.start_calls = 0
+        _KbiClient.instances.append(self)
+
+    def upload_tar(self, container: str, dest: str, files: dict[str, bytes]) -> None:
+        _ = container, dest, files
+
+    def create_exec(self, container: str, cmd: list[str], *, tty: bool = False) -> str:
+        _ = container, tty
+        self.execs.append(list(cmd))
+        return f"e{len(self.execs)}"
+
+    def start_exec_stream(
+        self,
+        exec_id: str,
+        *,
+        on_stdout: Callable[[bytes], None],
+        on_stderr: Callable[[bytes], None],
+        tty: bool = False,
+    ) -> None:
+        _ = exec_id, on_stdout, on_stderr, tty
+        self.start_calls += 1
+        if self.start_calls == 1:
+            raise KeyboardInterrupt
+
+    def inspect_exec_exit_code(self, exec_id: str) -> int:
+        _ = exec_id
+        return 0
+
+
+def test_run_in_container_keyboard_interrupt_kills_and_cleans(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ctrl+C во время стрима → kill remote process + cleanup pidfile, KBI пробрасывается."""
+    _KbiClient.instances.clear()
+    fake_err = _CaptureStream()
+    monkeypatch.setattr(pssh.sys, "stderr", fake_err)
+    monkeypatch.setattr(pssh.portainer, "Client", _KbiClient)
+    with pytest.raises(KeyboardInterrupt):
+        pssh.run_in_container_via_portainer(
+            base_url="https://x:9443",
+            endpoint_id=1,
+            api_key="k",
+            container="mp-dt-cli",
+            cmd=["sleep", "100"],
+            manage_signals=False,
+        )
+    assert "killing remote process" in fake_err.text
+    c = _KbiClient.instances[0]
+    # execs[0] — основной wrapped-cmd; execs[1] — kill-скрипт; execs[2] — cleanup rm.
+    assert len(c.execs) == 3
+    kill_script = c.execs[1][2]
+    assert pssh._PIDFILE in kill_script
+    assert "kill -INT" in kill_script
+    assert "kill -KILL" in kill_script
+    assert c.execs[2] == ["rm", "-f", pssh._PIDFILE]
+
+
+# ---------- detach: script paths + cmd builder ----------
+
+
+def test_detach_script_paths() -> None:
+    sp, lp = pssh.detach_script_paths("abc123")
+    assert sp == "/tmp/mpu-run-abc123.mjs"
+    assert lp == "/tmp/mpu-run-abc123.log"
+
+
+def test_portainer_detach_cmd() -> None:
+    cmd = pssh._portainer_detach_cmd("/tmp/x.mjs", "/tmp/x.log")
+    assert cmd.startswith("nohup node ")
+    assert "/tmp/x.mjs" in cmd
+    assert "/tmp/x.log" in cmd
+    assert "< /dev/null" in cmd
+
+
+# ---------- detach_in_container_via_portainer ----------
+
+
+def test_detach_in_container_uploads_runs_and_prints_blob(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Заливает скрипт, запускает detached-exec, печатает blob вывода, → (rc, log_path)."""
+    _EmitClient.instances.clear()
+    fake_out = _CaptureStream()
+    monkeypatch.setattr(pssh.sys, "stdout", fake_out)
+    monkeypatch.setattr(pssh.portainer, "Client", _EmitClient)
+    rc, log = pssh.detach_in_container_via_portainer(
+        base_url="https://x:9443",
+        endpoint_id=1,
+        api_key="k",
+        container="mp-dt-cli",
+        js=b"console.log(1)",
+        run_id="rid",
+    )
+    assert rc == 0
+    assert log == "/tmp/mpu-run-rid.log"
+    c = _EmitClient.instances[0]
+    assert c.uploads == [("mp-dt-cli", "/tmp", {"mpu-run-rid.mjs": b"console.log(1)"})]
+    # blob = stdout(OUT) + stderr(ERR) → пишется в sys.stdout.buffer.
+    assert fake_out.buffer.getvalue() == b"OUTERR"
+
+
+# ---------- pssh_detach dispatch ----------
+
+
+def test_pssh_detach_dev_routes_to_ssh(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`dev=True` → `_detach_via_ssh(..., dev=True)` с контейнером mp-sl-N-cli."""
+    _ = env_ssh_only
+    captured: dict[str, object] = {}
+
+    def _fake_detach(
+        n: int, container: str, js: bytes, run_id: str, *, dev: bool = False
+    ) -> tuple[int, str]:
+        captured.update(n=n, container=container, js=js, run_id=run_id, dev=dev)
+        return 0, "/tmp/mpu-run-r.log"
+
+    monkeypatch.setattr(pssh, "_detach_via_ssh", _fake_detach)
+    rc, log = pssh.pssh_detach(server_number=2, js=b"code", run_id="r", dev=True)
+    assert rc == 0
+    assert log == "/tmp/mpu-run-r.log"
+    assert captured == {
+        "n": 2,
+        "container": "mp-sl-2-cli",
+        "js": b"code",
+        "run_id": "r",
+        "dev": True,
+    }
+
+
+def test_pssh_detach_transport_ssh(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ssh-only конфиг → `pssh_detach` диспатчит на `_detach_via_ssh`."""
+    _ = env_ssh_only
+    captured: dict[str, object] = {}
+
+    def _fake_detach(
+        n: int, container: str, js: bytes, run_id: str, *, dev: bool = False
+    ) -> tuple[int, str]:
+        _ = js
+        captured.update(n=n, container=container, run_id=run_id, dev=dev)
+        return 0, "/tmp/mpu-run-r.log"
+
+    monkeypatch.setattr(pssh, "_detach_via_ssh", _fake_detach)
+    rc, _log = pssh.pssh_detach(server_number=1, js=b"code", run_id="r")
+    assert rc == 0
+    assert captured == {"n": 1, "container": "mp-sl-1-cli", "run_id": "r", "dev": False}
+
+
+def test_pssh_detach_transport_portainer(
+    env_portainer_only: Path, stub_portainer: type[_StubClient]
+) -> None:
+    """portainer-only конфиг → `pssh_detach` идёт через Portainer detached-exec."""
+    _ = env_portainer_only
+    rc, log = pssh.pssh_detach(server_number=11, js=b"code", run_id="rid")
+    assert rc == 0
+    assert log == "/tmp/mpu-run-rid.log"
+    c = stub_portainer.instances[0]
+    assert c.uploads == [("mp-sl-11-cli", "/tmp", {"mpu-run-rid.mjs": b"code"})]
+
+
+# ---------- pssh_detach_container ----------
+
+
+def test_pssh_detach_container_routes_to_portainer(
+    env_portainer_only: Path,
+    bootstrap_db: object,
+    stub_portainer: type[_StubClient],
+) -> None:
+    """pssh_detach_container резолвит target из SQLite и шлёт detached-exec."""
+    _ = env_portainer_only
+    _seed_container(
+        bootstrap_db,
+        url="https://192.168.150.12:9443",
+        endpoint_id=12,
+        endpoint_name="mp-dt",
+        container_name="mp-dt-cli",
+    )
+    rc, log = pssh.pssh_detach_container(container="mp-dt-cli", js=b"code", run_id="rid")
+    assert rc == 0
+    assert log == "/tmp/mpu-run-rid.log"
+    c = stub_portainer.instances[0]
+    assert c.kwargs["endpoint_id"] == 12
+    assert c.uploads == [("mp-dt-cli", "/tmp", {"mpu-run-rid.mjs": b"code"})]
+
+
+def test_pssh_detach_container_no_api_key(
+    tmp_path: Path,
+    bootstrap_db: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("", encoding="utf-8")
+    monkeypatch.setattr(servers, "ENV_PATH", env_file)
+    monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
+    servers.reset_cache()
+    try:
+        _seed_container(
+            bootstrap_db,
+            url="https://p:9443",
+            endpoint_id=12,
+            endpoint_name="mp-dt",
+            container_name="mp-dt-cli",
+        )
+        with pytest.raises(typer.Exit) as excinfo:
+            pssh.pssh_detach_container(container="mp-dt-cli", js=b"code", run_id="rid")
+        assert excinfo.value.exit_code == 2
+    finally:
+        servers.reset_cache()
+
+
+# ---------- _detach_via_ssh ----------
+
+
+def test_detach_via_ssh_happy(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Успех: put-скрипт через stdin (rc=0), затем `docker exec -d`; два ssh-вызова."""
+    _ = env_ssh_only
+    argvs: list[list[str]] = []
+    inputs: list[object] = []
+
+    class _Result:
+        returncode = 0
+
+    def _fake_run(argv: list[str], **kw: object) -> _Result:
+        argvs.append(argv)
+        inputs.append(kw.get("input"))
+        return _Result()
+
+    monkeypatch.setattr(pssh.subprocess, "run", _fake_run)
+    rc, log = pssh._detach_via_ssh(1, "mp-sl-1-cli", b"code", "rid")
+    assert rc == 0
+    assert log == "/tmp/mpu-run-rid.log"
+    assert len(argvs) == 2
+    # Первый вызов — put: js уходит в stdin (input=).
+    assert inputs[0] == b"code"
+
+
+def test_detach_via_ssh_put_fails_returns_early(
+    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Если put-скрипт упал (rc!=0) → ранний выход, второй ssh не запускается."""
+    _ = env_ssh_only
+    calls: list[list[str]] = []
+
+    class _Result:
+        returncode = 5
+
+    def _fake_run(argv: list[str], **kw: object) -> _Result:
+        _ = kw
+        calls.append(argv)
+        return _Result()
+
+    monkeypatch.setattr(pssh.subprocess, "run", _fake_run)
+    rc, log = pssh._detach_via_ssh(1, "mp-sl-1-cli", b"code", "rid")
+    assert rc == 5
+    assert log == "/tmp/mpu-run-rid.log"
+    assert len(calls) == 1
+
+
+# ---------- _kill_remote_process / _best_effort_cleanup error paths ----------
+
+
+class _RaisingClient:
+    """portainer.Client-стаб, чей create_exec всегда падает — для best-effort error path."""
+
+    def upload_tar(self, *args: object, **kwargs: object) -> None:
+        _ = args, kwargs
+
+    def create_exec(self, container: str, cmd: list[str], *, tty: bool = False) -> str:
+        _ = container, cmd, tty
+        raise RuntimeError("boom")
+
+    def start_exec_stream(self, *args: object, **kwargs: object) -> None:
+        _ = args, kwargs
+
+    def inspect_exec_exit_code(self, exec_id: str) -> int:
+        _ = exec_id
+        return 0
+
+
+def test_kill_remote_process_swallows_errors() -> None:
+    """create_exec падает — _kill_remote_process глотает (на Ctrl+C важнее не зависнуть)."""
+    # cast: стаб реализует только используемый _kill_remote_process'ом интерфейс Client.
+    fake = cast(portainer.Client, _RaisingClient())
+    pssh._kill_remote_process(fake, "mp-sl-1-cli")  # не должно бросить
+
+
+def test_best_effort_cleanup_swallows_errors() -> None:
+    """create_exec падает — _best_effort_cleanup глотает (файлы живут до рестарта)."""
+    # cast: стаб реализует только используемый _best_effort_cleanup'ом интерфейс Client.
+    fake = cast(portainer.Client, _RaisingClient())
+    pssh._best_effort_cleanup(fake, "mp-sl-1-cli", with_stdin=True)  # не должно бросить
+
+
+# ---------- mpu ssh CLI: resolve_server error / non-positive / selector None ----------
+
+
+def test_pssh_cli_resolve_server_error_prints_candidates(
+    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """resolve_server бросает ResolveError → exit 2 + список кандидатов в stderr."""
+    _ = env_ssh_only
+
+    def _fake_resolve(
+        value: str, *, server_override: str | None = None
+    ) -> tuple[int, list[dict[str, object]]]:
+        _ = server_override
+        raise ResolveError(
+            f"ambiguous {value!r}",
+            candidates=[
+                {"client_id": 1, "server": "sl-1"},
+                {"client_id": 2, "server": "sl-2"},
+            ],
+        )
+
+    monkeypatch.setattr(pssh_cmd, "resolve_server", _fake_resolve)
+    result = CliRunner().invoke(pssh_cmd.app, ["weird-title", "--", "ls"])
+    assert result.exit_code == 2
+    assert "ambiguous" in result.output
+    assert "client_id=1" in result.output
+    assert "client_id=2" in result.output
+
+
+def test_pssh_cli_resolve_server_error_no_candidates(
+    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ResolveError без кандидатов → exit 2, печатается только сообщение об ошибке."""
+    _ = env_ssh_only
+
+    def _fake_resolve(
+        value: str, *, server_override: str | None = None
+    ) -> tuple[int, list[dict[str, object]]]:
+        _ = server_override
+        raise ResolveError(f"nothing matched: {value!r}")
+
+    monkeypatch.setattr(pssh_cmd, "resolve_server", _fake_resolve)
+    result = CliRunner().invoke(pssh_cmd.app, ["weird-title", "--", "ls"])
+    assert result.exit_code == 2
+    assert "nothing matched" in result.output
+
+
+def test_pssh_cli_resolve_server_non_positive(
+    env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """resolve_server вернул sn<=0 → exit 2 (ожидается sl-N, N>0)."""
+    _ = env_ssh_only
+
+    def _fake_resolve(
+        value: str, *, server_override: str | None = None
+    ) -> tuple[int, list[dict[str, object]]]:
+        _ = value, server_override
+        return 0, []
+
+    monkeypatch.setattr(pssh_cmd, "resolve_server", _fake_resolve)
+    result = CliRunner().invoke(pssh_cmd.app, ["weird-title", "--", "ls"])
+    assert result.exit_code == 2
+    assert "N>0" in result.output
+
+
+def test_pssh_cli_selector_none_with_command_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Команда есть, но <selector>=None и нет --all-containers → exit 2 (укажите selector).
+
+    Прямой вызов handler'а: typer-парсер обычно сажает первый токен в `selector`,
+    поэтому это состояние воспроизводится только в обход парсинга.
+    """
+    monkeypatch.setattr(pssh_cmd.sys, "stdin", _FakeStdin(is_tty=True, payload=None))
+    # cast: handler читает только ctx.args.
+    fake_ctx = cast(typer.Context, SimpleNamespace(args=["ls", "-la"]))
+    with pytest.raises(typer.Exit) as ei:
+        pssh_cmd.main(fake_ctx, selector=None)
+    assert ei.value.exit_code == 2

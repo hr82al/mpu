@@ -8,13 +8,20 @@ miro/slapi). Здесь: notebook-split markdown по картинкам, изв
 from __future__ import annotations
 
 import base64
+import io
 
+import httpx
 import pytest
+from rich.console import Console
 
+from mpu.lib import kaiten_render
 from mpu.lib.kaiten_render import (
     decode_data_uri,
+    fetch_image_bytes,
     inline_image_urls,
     is_image_url,
+    render_image,
+    render_markdown_with_images,
     split_markdown_images,
 )
 
@@ -87,3 +94,105 @@ def test_decode_data_uri_non_data_uri() -> None:
 
 def test_decode_data_uri_malformed() -> None:
     assert decode_data_uri("data:image/png;base64,!!!not-base64!!!") is None
+
+
+# ── fetch_image_bytes: сеть мокируется на kaiten_render.httpx.get ────────────────
+# Минимальный валидный 1×1 PNG — для реального term-image рендера ниже.
+_PNG_1x1_B64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
+    "+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
+_PNG_1x1 = base64.b64decode(_PNG_1x1_B64)
+
+
+def _resp_ok(url: str, **_kwargs: object) -> httpx.Response:
+    return httpx.Response(200, content=b"PNGBYTES", request=httpx.Request("GET", url))
+
+
+def _resp_500(url: str, **_kwargs: object) -> httpx.Response:
+    return httpx.Response(500, request=httpx.Request("GET", url))
+
+
+def _raise_connect(url: str, **_kwargs: object) -> httpx.Response:
+    raise httpx.ConnectError("boom")
+
+
+def test_fetch_image_bytes_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(kaiten_render.httpx, "get", _resp_ok)
+    assert fetch_image_bytes("https://files.kaiten.ru/x.png") == b"PNGBYTES"
+
+
+def test_fetch_image_bytes_status_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 500 → raise_for_status → HTTPStatusError (подкласс HTTPError) → None.
+    monkeypatch.setattr(kaiten_render.httpx, "get", _resp_500)
+    assert fetch_image_bytes("https://files.kaiten.ru/x.png") is None
+
+
+def test_fetch_image_bytes_connect_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(kaiten_render.httpx, "get", _raise_connect)
+    assert fetch_image_bytes("https://files.kaiten.ru/x.png") is None
+
+
+# ── render_image: реальный term-image (детект→unicode-блоки вне терминала) ───────
+
+
+def test_render_image_success_with_valid_png() -> None:
+    # валидный PNG → AutoImage рисует (на не-терминале падает в unicode-блоки) → True.
+    assert render_image(_PNG_1x1, max_width=10) is True
+
+
+def test_render_image_garbage_returns_false() -> None:
+    # битые байты → PIL.Image.open кидает → except → False (вызывающий печатает ссылку).
+    assert render_image(b"not-a-png") is False
+
+
+# ── render_markdown_with_images: notebook-flow (текст→rich, картинка→на месте) ───
+
+
+def _render_to_buffer(md: str, *, images: bool) -> str:
+    buf = io.StringIO()
+    console = Console(file=buf, width=100, force_terminal=False, color_system=None)
+    render_markdown_with_images(console, md, images=images)
+    return buf.getvalue()
+
+
+def test_render_markdown_images_off_falls_back_to_link() -> None:
+    # images=False → картинка как кликабельная ссылка; пустой хвостовой текст пропускается.
+    out = _render_to_buffer("intro\n![](https://f/a.png)\n", images=False)
+    assert "intro" in out
+    assert "🖼" in out
+    assert "https://f/a.png" in out
+
+
+def test_render_markdown_data_uri_renders_inline(capsys: pytest.CaptureFixture[str]) -> None:
+    # images=True + валидный data:-PNG → _image_bytes(data:)→decode→render_image True →
+    # рисуется на месте (в stdout), в буфере консоли фолбэк-ссылки НЕТ.
+    out = _render_to_buffer(f"![](data:image/png;base64,{_PNG_1x1_B64})", images=True)
+    assert "🖼" not in out
+    capsys.readouterr()  # поглотить term-image вывод в stdout
+
+
+def test_render_markdown_http_image_render_failure_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # images=True, http-URL → fetch вернул не-картинку → render_image False → фолбэк-ссылка.
+    def _fetch_garbage(url: str, *, timeout: float = 15.0) -> bytes | None:
+        return b"not-a-png"
+
+    monkeypatch.setattr(kaiten_render, "fetch_image_bytes", _fetch_garbage)
+    out = _render_to_buffer("![](https://f/a.png)", images=True)
+    assert "🖼" in out
+    assert "https://f/a.png" in out
+
+
+def test_render_markdown_http_download_failed_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # images=True, http-URL → скачивание упало (None) → data None → фолбэк-ссылка.
+    def _fetch_none(url: str, *, timeout: float = 15.0) -> bytes | None:
+        return None
+
+    monkeypatch.setattr(kaiten_render, "fetch_image_bytes", _fetch_none)
+    out = _render_to_buffer("![](https://f/b.png)", images=True)
+    assert "🖼" in out
+    assert "https://f/b.png" in out

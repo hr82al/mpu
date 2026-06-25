@@ -7,18 +7,27 @@ URL и precedence фильтров (CLI > env > дефолт).
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 import typer
+from typer.testing import CliRunner
 
+from mpu.commands import kiten as kiten_mod
 from mpu.commands.kiten import (
     LsFilters,
+    _board_id_from_ctx,  # pyright: ignore[reportPrivateUsage]
     _card_to_markdown,  # pyright: ignore[reportPrivateUsage]
+    _complete_board,  # pyright: ignore[reportPrivateUsage]
+    _complete_column,  # pyright: ignore[reportPrivateUsage]
+    _complete_lane,  # pyright: ignore[reportPrivateUsage]
+    _complete_space,  # pyright: ignore[reportPrivateUsage]
     _expand_all_to_owner,  # pyright: ignore[reportPrivateUsage]
     _left_neighbor_column,  # pyright: ignore[reportPrivateUsage]
+    app,
     build_updated_window,
     coalesce,
     expand_all_mention,
@@ -30,12 +39,20 @@ from mpu.commands.kiten import (
     resolve_comment_text,
     resolve_ls_filters,
 )
+from mpu.lib import env, kaiten_cache, kaiten_links, kaiten_render, store
 from mpu.lib.kaiten import (
+    KaitenAPIError,
+    KaitenBoard,
+    KaitenCard,
     KaitenCardDetail,
     KaitenClient,
     KaitenColumn,
     KaitenComment,
     KaitenFile,
+    KaitenLane,
+    KaitenMember,
+    KaitenSpace,
+    KaitenUser,
     build_cards_query,
     build_multipart,
     card_url,
@@ -52,7 +69,13 @@ from mpu.lib.kaiten import (
     parse_space,
     state_label,
 )
-from mpu.lib.kaiten_cache import filter_refs, resolve_ref
+from mpu.lib.kaiten_cache import (
+    KaitenColumnsResult,
+    KaitenDiscoveryResult,
+    KaitenLanesResult,
+    filter_refs,
+    resolve_ref,
+)
 
 
 def _env(values: dict[str, str]) -> Callable[[str], str | None]:
@@ -963,3 +986,1442 @@ def test_plan_field_actions_skips_not_provided() -> None:
     to_set, skipped = plan_field_actions({}, {"hypothesis": None, "done": None}, force=False)
     assert to_set == []
     assert skipped == []
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# CLI-уровень: драйв `app` через CliRunner. Весь I/O-клиент (`KaitenClient.from_env`),
+# кэш (`kaiten_cache.*`), журнал (`store`/`kaiten_links`) и env замоканы на именованных
+# швах — сети/PG/ssh нет. Зеркало паттерна test_kaiten_cache.py (_FakeKaitenClient + _Stub).
+# ════════════════════════════════════════════════════════════════════════════════
+
+runner = CliRunner()
+
+
+class FakeKaitenClient:
+    """Фейк `KaitenClient` для CLI-команд: фиксированные фикстуры + журнал вызовов.
+
+    `get_card` отдаёт элементы `details` по очереди (последний остаётся «залипшим»),
+    что позволяет различать before/after одного card_id. Метод из `fail` бросает
+    `KaitenAPIError` — для error-веток команд.
+    """
+
+    def __init__(
+        self,
+        *,
+        base_url: str = "https://btlz.kaiten.ru",
+        user: KaitenUser | None = None,
+        cards: list[KaitenCard] | None = None,
+        details: list[KaitenCardDetail] | None = None,
+        comments: list[KaitenComment] | None = None,
+        columns: list[KaitenColumn] | None = None,
+        new_comment_id: int = 777,
+        fail: set[str] | None = None,
+    ) -> None:
+        self.base_url = base_url
+        self._user = user
+        self._cards = cards if cards is not None else []
+        self._details = details if details is not None else [_detail()]
+        self._comments = comments if comments is not None else []
+        self._columns = columns if columns is not None else []
+        self._new_comment_id = new_comment_id
+        self._fail: set[str] = fail if fail is not None else set()
+        self.get_card_ids: list[int] = []
+        self.list_cards_kwargs: dict[str, object] = {}
+        self.move_calls: list[dict[str, int | None]] = []
+        self.added_comments: list[dict[str, object]] = []
+        self.props_set: list[tuple[int, str, str | None]] = []
+
+    def _maybe_fail(self, name: str) -> None:
+        if name in self._fail:
+            raise KaitenAPIError("GET", f"/{name}", 500, "boom")
+
+    def current_user(self) -> KaitenUser:
+        self._maybe_fail("current_user")
+        assert self._user is not None
+        return self._user
+
+    def list_cards(self, **kwargs: object) -> list[KaitenCard]:
+        self._maybe_fail("list_cards")
+        self.list_cards_kwargs = dict(kwargs)
+        return self._cards
+
+    def get_card(self, card_id: int) -> KaitenCardDetail:
+        self._maybe_fail("get_card")
+        self.get_card_ids.append(card_id)
+        if len(self._details) > 1:
+            return self._details.pop(0)
+        return self._details[0]
+
+    def get_comments(self, card_id: int) -> list[KaitenComment]:
+        self._maybe_fail("get_comments")
+        _ = card_id
+        return self._comments
+
+    def add_comment(
+        self, card_id: int, text: str, files: list[tuple[str, bytes]] | None = None
+    ) -> KaitenComment:
+        self._maybe_fail("add_comment")
+        self.added_comments.append({"card_id": card_id, "text": text, "files": files})
+        return KaitenComment(id=self._new_comment_id, text=text, author_name="me", created=None)
+
+    def move_card(
+        self,
+        card_id: int,
+        *,
+        lane_id: int | None = None,
+        column_id: int | None = None,
+        board_id: int | None = None,
+    ) -> KaitenCardDetail:
+        self._maybe_fail("move_card")
+        self.move_calls.append(
+            {"card_id": card_id, "lane_id": lane_id, "column_id": column_id, "board_id": board_id}
+        )
+        return self._details[-1]
+
+    def list_columns(self, board_ids: list[int]) -> list[KaitenColumn]:
+        self._maybe_fail("list_columns")
+        _ = board_ids
+        return self._columns
+
+    def set_card_property(self, card_id: int, property_key: str, value: str | None) -> None:
+        self._maybe_fail("set_card_property")
+        self.props_set.append((card_id, property_key, value))
+
+
+def _detail(
+    *,
+    card_id: int = 100,
+    title: str = "Card",
+    board_id: int | None = 1,
+    board_title: str | None = "Board",
+    column_id: int | None = 10,
+    column_title: str | None = "Очередь",
+    lane_title: str | None = "Lane",
+    owner_username: str | None = None,
+    properties: dict[str, str] | None = None,
+) -> KaitenCardDetail:
+    """Собрать `KaitenCardDetail` напрямую (без сети) с управляемым положением/владельцем."""
+    owner = (
+        KaitenMember(id=9, full_name="Owner", email="o@x", username=owner_username)
+        if owner_username is not None
+        else None
+    )
+    return KaitenCardDetail(
+        id=card_id,
+        key=None,
+        title=title,
+        state=2,
+        condition=1,
+        due_date=None,
+        board_id=board_id,
+        board_title=board_title,
+        column_id=column_id,
+        column_title=column_title,
+        lane_title=lane_title,
+        size_text=None,
+        created=None,
+        updated=None,
+        type_name=None,
+        description=None,
+        owner=owner,
+        url=f"https://btlz.kaiten.ru/{card_id}",
+        tags=[],
+        members=[],
+        files=[],
+        properties=properties or {},
+    )
+
+
+def _install_client(monkeypatch: pytest.MonkeyPatch, fake: FakeKaitenClient) -> None:
+    """Подменить `KaitenClient.from_env()` в модуле команды — возвращает фейк."""
+
+    class _Stub:
+        @staticmethod
+        def from_env() -> FakeKaitenClient:
+            return fake
+
+    monkeypatch.setattr(kiten_mod, "KaitenClient", _Stub)
+
+
+def _install_env(monkeypatch: pytest.MonkeyPatch, values: dict[str, str]) -> None:
+    """Подменить `env.get` словарём (изоляция от реального ~/.config/mpu/.env)."""
+
+    def _get(name: str, default: str | None = None) -> str | None:
+        return values.get(name, default)
+
+    monkeypatch.setattr(env, "get", _get)
+
+
+def _patch_columns_cache(monkeypatch: pytest.MonkeyPatch, rows: list[tuple[int, str]]) -> None:
+    def _cached(board_id: int | None = None) -> list[tuple[int, str]]:
+        _ = board_id
+        return rows
+
+    monkeypatch.setattr(kaiten_cache, "cached_columns", _cached)
+
+
+def _patch_spaces_cache(monkeypatch: pytest.MonkeyPatch, rows: list[tuple[int, str]]) -> None:
+    def _cached() -> list[tuple[int, str]]:
+        return rows
+
+    monkeypatch.setattr(kaiten_cache, "cached_spaces", _cached)
+
+
+def _patch_prop_names(monkeypatch: pytest.MonkeyPatch, names: dict[int, str]) -> None:
+    def _names() -> dict[int, str]:
+        return names
+
+    monkeypatch.setattr(kaiten_cache, "property_names", _names)
+
+
+def _patch_discover(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    spaces: list[KaitenSpace] | None = None,
+    boards: list[KaitenBoard] | None = None,
+    error: str | None = None,
+) -> None:
+    result = KaitenDiscoveryResult(spaces=spaces or [], boards=boards or [], error=error)
+
+    def _disc() -> KaitenDiscoveryResult:
+        return result
+
+    monkeypatch.setattr(kaiten_cache, "discover_and_store", _disc)
+
+
+def _patch_lanes(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    lanes: list[KaitenLane] | None = None,
+    error: str | None = None,
+) -> None:
+    result = KaitenLanesResult(lanes=lanes or [], error=error)
+
+    def _disc(board_ids: list[int]) -> KaitenLanesResult:
+        _ = board_ids
+        return result
+
+    monkeypatch.setattr(kaiten_cache, "discover_lanes_and_store", _disc)
+
+
+def _patch_columns_disc(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    columns: list[KaitenColumn] | None = None,
+    error: str | None = None,
+) -> None:
+    result = KaitenColumnsResult(columns=columns or [], error=error)
+
+    def _disc(board_ids: list[int]) -> KaitenColumnsResult:
+        _ = board_ids
+        return result
+
+    monkeypatch.setattr(kaiten_cache, "discover_columns_and_store", _disc)
+
+
+@pytest.fixture
+def db_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Временный путь `mpu.db` + redirect `store.DB_PATH` (журнал перемещений/привязок)."""
+    path = tmp_path / "kiten.db"
+    monkeypatch.setattr(store, "DB_PATH", path)
+    return path
+
+
+def _moves() -> list[kaiten_links.CardMove]:
+    with store.store() as conn:
+        store.bootstrap(conn)
+        return kaiten_links.list_moves(conn)
+
+
+def _links() -> list[kaiten_links.CardLink]:
+    with store.store() as conn:
+        store.bootstrap(conn)
+        return kaiten_links.list_links(conn)
+
+
+def _seed_link(card_id: int, field: str, value: str) -> kaiten_links.CardLink:
+    with store.store() as conn:
+        store.bootstrap(conn)
+        return kaiten_links.record_link(conn, card_id, field, value)
+
+
+def _user() -> KaitenUser:
+    return KaitenUser(id=42, full_name="Me", username="me", email="me@x")
+
+
+_BOARD_COLS: list[tuple[int, str]] = [(10, "Очередь"), (20, "Разработка"), (30, "Готово")]
+
+
+def _ordered_columns() -> list[KaitenColumn]:
+    return [
+        KaitenColumn(id=10, board_id=1, title="Очередь", sort_order=1.0),
+        KaitenColumn(id=20, board_id=1, title="Разработка", sort_order=2.0),
+        KaitenColumn(id=30, board_id=1, title="Готово", sort_order=3.0),
+    ]
+
+
+# ── whoami ──────────────────────────────────────────────────────────────────────
+
+
+def test_whoami_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_client(monkeypatch, FakeKaitenClient(user=_user()))
+    res = runner.invoke(app, ["whoami"])
+    assert res.exit_code == 0, res.stderr
+    assert "id:    42" in res.output
+    assert "login: me" in res.output
+    assert "email: me@x" in res.output
+
+
+def test_whoami_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_client(monkeypatch, FakeKaitenClient(user=_user()))
+    res = runner.invoke(app, ["whoami", "--json"])
+    assert res.exit_code == 0, res.stderr
+    payload: dict[str, Any] = json.loads(res.output)
+    assert payload == {"id": 42, "full_name": "Me", "username": "me", "email": "me@x"}
+
+
+def test_whoami_error_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_client(monkeypatch, FakeKaitenClient(user=_user(), fail={"current_user"}))
+    res = runner.invoke(app, ["whoami"])
+    assert res.exit_code == 1
+    assert "kaiten error" in res.stderr
+
+
+# ── ls ──────────────────────────────────────────────────────────────────────────
+
+
+def _card(card_id: int = 42, *, state: int | None = 2, column_id: int | None = 10) -> KaitenCard:
+    return KaitenCard(
+        id=card_id,
+        title=f"Card {card_id}",
+        state=state,
+        condition=1,
+        due_date="2026-06-30T23:59:59Z",
+        updated="2026-06-04T10:00:00Z",
+        board_id=7,
+        column_id=column_id,
+        url=f"https://btlz.kaiten.ru/{card_id}",
+    )
+
+
+def test_ls_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {})
+    _install_client(monkeypatch, FakeKaitenClient(user=_user(), cards=[_card(42)]))
+    res = runner.invoke(app, ["ls", "--json"])
+    assert res.exit_code == 0, res.stderr
+    payload: list[dict[str, Any]] = json.loads(res.output)
+    assert payload[0]["id"] == 42
+    assert payload[0]["state"] == "in progress"
+    assert payload[0]["url"] == "https://btlz.kaiten.ru/42"
+
+
+def test_ls_empty_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {})
+    _install_client(monkeypatch, FakeKaitenClient(user=_user(), cards=[]))
+    res = runner.invoke(app, ["ls"])
+    assert res.exit_code == 0, res.stderr
+    assert "(нет карточек)" in res.output
+
+
+def test_ls_table_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {})
+    _install_client(monkeypatch, FakeKaitenClient(user=_user(), cards=[_card(42), _card(43)]))
+    res = runner.invoke(app, ["ls"])
+    assert res.exit_code == 0, res.stderr
+    assert "(2 cards)" in res.output
+
+
+def test_ls_only_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {})
+    _install_client(monkeypatch, FakeKaitenClient(user=_user(), cards=[_card(42)]))
+    res = runner.invoke(app, ["ls", "--only-url"])
+    assert res.exit_code == 0, res.stderr
+    assert "[Card 42](https://btlz.kaiten.ru/42)" in res.output
+
+
+def test_ls_md_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {})
+    _install_client(monkeypatch, FakeKaitenClient(user=_user(), cards=[_card(42)]))
+    res = runner.invoke(app, ["ls", "--md"])
+    assert res.exit_code == 0, res.stderr
+    assert "| ID | STATE | COLUMN | DUE | TITLE | URL |" in res.output
+    assert "https://btlz.kaiten.ru/42" in res.output
+
+
+def test_ls_format_template(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {})
+    _patch_columns_cache(monkeypatch, [(10, "Очередь")])
+    _install_client(monkeypatch, FakeKaitenClient(user=_user(), cards=[_card(42)]))
+    res = runner.invoke(app, ["ls", "--format", "{id}|{state}|{column}|{due}"])
+    assert res.exit_code == 0, res.stderr
+    assert "42|in progress|Очередь|2026-06-30" in res.output
+
+
+def test_ls_filters_passed_to_list_cards(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {})
+    fake = FakeKaitenClient(user=_user(), cards=[])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(
+        app,
+        [
+            "ls",
+            "--json",
+            "--space",
+            "5",
+            "--board",
+            "7",
+            "--lane",
+            "9",
+            "--column",
+            "11",
+            "--state",
+            "done",
+        ],
+    )
+    assert res.exit_code == 0, res.stderr
+    assert fake.list_cards_kwargs["member_ids"] == "42"
+    assert fake.list_cards_kwargs["condition"] == 1
+    assert fake.list_cards_kwargs["states"] == "3"
+    assert fake.list_cards_kwargs["space_id"] == 5
+    assert fake.list_cards_kwargs["board_id"] == 7
+    assert fake.list_cards_kwargs["lane_id"] == 9
+    assert fake.list_cards_kwargs["column_id"] == 11
+
+
+def test_ls_date_window_scope_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Дата → глобальный режим: env-скоуп игнорируется, condition=None, окно проставлено.
+    _install_env(monkeypatch, {"KITEN_LS_BOARD_ID": "7"})
+    fake = FakeKaitenClient(user=_user(), cards=[])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(
+        app, ["ls", "--json", "--date-from", "2026-05-01", "--date-to", "2026-06-04"]
+    )
+    assert res.exit_code == 0, res.stderr
+    assert fake.list_cards_kwargs["condition"] is None
+    assert fake.list_cards_kwargs["board_id"] is None
+    assert fake.list_cards_kwargs["updated_after"] == "2026-05-01T00:00:00Z"
+    assert fake.list_cards_kwargs["updated_before"] == "2026-06-04T23:59:59Z"
+
+
+def test_ls_space_substring_resolved(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {})
+    _patch_spaces_cache(monkeypatch, [(5, "10X Support")])
+    fake = FakeKaitenClient(user=_user(), cards=[])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["ls", "--json", "--space", "Support"])
+    assert res.exit_code == 0, res.stderr
+    assert fake.list_cards_kwargs["space_id"] == 5
+
+
+def test_ls_bad_space_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {})
+    _patch_spaces_cache(monkeypatch, [])
+    _install_client(monkeypatch, FakeKaitenClient(user=_user()))
+    res = runner.invoke(app, ["ls", "--space", "Nope"])
+    assert res.exit_code == 2
+    assert "не найден" in res.stderr
+
+
+def test_ls_error_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {})
+    _install_client(monkeypatch, FakeKaitenClient(user=_user(), fail={"list_cards"}))
+    res = runner.invoke(app, ["ls"])
+    assert res.exit_code == 1
+    assert "ls: kaiten error" in res.stderr
+
+
+# ── card ────────────────────────────────────────────────────────────────────────
+
+
+def _rich_detail() -> KaitenCardDetail:
+    return KaitenCardDetail(
+        id=100,
+        key="ABC-1",
+        title="Title",
+        state=2,
+        condition=1,
+        due_date="2026-06-30T00:00:00Z",
+        board_id=7,
+        board_title="Board7",
+        column_id=9,
+        column_title="Col9",
+        lane_title="Lane",
+        size_text="M",
+        created="2026-01-01",
+        updated="2026-02-02",
+        type_name="Bug",
+        description="| A | B |\n|---|---|\n| 1 | 2 |",
+        owner=KaitenMember(id=1, full_name="Owner", email="o@x", username="own"),
+        url="https://btlz.kaiten.ru/100",
+        tags=["OZON"],
+        members=[KaitenMember(id=2, full_name="Mem", email="m@x", username="mem")],
+        files=[],
+        properties={"id_398965": "https://gitlab/mr/1"},
+    )
+
+
+def test_card_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_prop_names(monkeypatch, {})
+    comments = [
+        KaitenComment(id=2, text="hello", author_name="Bob", created="2026-06-03T06:39:25Z")
+    ]
+    _install_client(monkeypatch, FakeKaitenClient(details=[_rich_detail()], comments=comments))
+    res = runner.invoke(app, ["card", "100", "--json"])
+    assert res.exit_code == 0, res.stderr
+    payload: dict[str, Any] = json.loads(res.output)
+    assert payload["id"] == 100
+    assert payload["title"] == "Title"
+    assert payload["comments"][0]["text"] == "hello"
+
+
+def test_card_markdown_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Под CliRunner stdout не tty → дефолт даёт markdown (без rich/term-image).
+    _patch_prop_names(monkeypatch, {398965: "Ссылка на Pull Request"})
+    comments = [
+        KaitenComment(id=2, text="hello", author_name="Bob", created="2026-06-03T06:39:25Z")
+    ]
+    _install_client(monkeypatch, FakeKaitenClient(details=[_rich_detail()], comments=comments))
+    res = runner.invoke(app, ["card", "100"])
+    assert res.exit_code == 0, res.stderr
+    assert "# Title" in res.output
+    assert "Ссылка на Pull Request: https://gitlab/mr/1" in res.output
+    assert "### Bob · 2026-06-03 06:39" in res.output
+
+
+def test_card_no_comments(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_prop_names(monkeypatch, {})
+    fake = FakeKaitenClient(details=[_rich_detail()], comments=[])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["card", "100", "--md", "--no-comments"])
+    assert res.exit_code == 0, res.stderr
+    assert "## Комментарии" not in res.output
+
+
+def test_card_error_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_prop_names(monkeypatch, {})
+    _install_client(monkeypatch, FakeKaitenClient(details=[_rich_detail()], fail={"get_card"}))
+    res = runner.invoke(app, ["card", "100"])
+    assert res.exit_code == 1
+    assert "card: kaiten error" in res.stderr
+
+
+def test_card_bad_selector_exits_2() -> None:
+    res = runner.invoke(app, ["card", "not-a-card"])
+    assert res.exit_code == 2
+    assert "не удалось извлечь id" in res.stderr
+
+
+# ── comment ─────────────────────────────────────────────────────────────────────
+
+
+def test_comment_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeKaitenClient()
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["comment", "100", "-m", "привет"])
+    assert res.exit_code == 0, res.stderr
+    assert "ok: комментарий 777 → https://btlz.kaiten.ru/100" in res.output
+    assert fake.added_comments == [{"card_id": 100, "text": "привет", "files": None}]
+    assert fake.get_card_ids == []  # владелец не нужен → get_card не звался
+
+
+def test_comment_body_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    body = tmp_path / "body.md"
+    body.write_text("**из файла**", encoding="utf-8")
+    fake = FakeKaitenClient()
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["comment", "100", "-F", str(body)])
+    assert res.exit_code == 0, res.stderr
+    assert fake.added_comments[0]["text"] == "**из файла**"
+
+
+def test_comment_with_attachments(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    att = tmp_path / "a.png"
+    att.write_bytes(b"\x89PNG")
+    fake = FakeKaitenClient()
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["comment", "100", "-f", str(att)])
+    assert res.exit_code == 0, res.stderr
+    assert "вложения: a.png" in res.output
+    files = fake.added_comments[0]["files"]
+    assert files == [("a.png", b"\x89PNG")]
+
+
+def test_comment_to_all_expands_owner(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeKaitenClient(details=[_detail(owner_username="ownerlogin")])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["comment", "100", "-m", "ответ", "--to", "@all"])
+    assert res.exit_code == 0, res.stderr
+    assert "адресаты: @ownerlogin" in res.output
+    text = fake.added_comments[0]["text"]
+    assert isinstance(text, str)
+    assert text.startswith("@ownerlogin")
+
+
+def test_comment_to_all_no_owner_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeKaitenClient(details=[_detail(owner_username=None)])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["comment", "100", "-m", "ответ", "--to", "@all"])
+    assert res.exit_code == 0, res.stderr
+    assert "нет владельца" in res.stderr
+
+
+def test_comment_all_mention_in_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeKaitenClient(details=[_detail(owner_username="ownerlogin")])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["comment", "100", "-m", "@all внимание"])
+    assert res.exit_code == 0, res.stderr
+    text = fake.added_comments[0]["text"]
+    assert text == "@ownerlogin внимание"
+
+
+def test_comment_no_text_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_client(monkeypatch, FakeKaitenClient())
+    res = runner.invoke(app, ["comment", "100"])
+    assert res.exit_code == 2
+    assert "ровно одно" in res.stderr
+
+
+def test_comment_error_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_client(monkeypatch, FakeKaitenClient(fail={"add_comment"}))
+    res = runner.invoke(app, ["comment", "100", "-m", "x"])
+    assert res.exit_code == 1
+    assert "comment: kaiten error" in res.stderr
+
+
+# ── move ────────────────────────────────────────────────────────────────────────
+
+
+def test_move_no_axis_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_client(monkeypatch, FakeKaitenClient())
+    res = runner.invoke(app, ["move", "100"])
+    assert res.exit_code == 2
+    assert "хотя бы одно" in res.stderr
+
+
+def test_move_column_numeric(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    before = _detail(column_id=10, column_title="Очередь")
+    after = _detail(column_id=30, column_title="Готово")
+    fake = FakeKaitenClient(details=[before, after])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["move", "100", "--column", "30"])
+    assert res.exit_code == 0, res.stderr
+    assert "→ Board · Готово · Lane" in res.output
+    assert fake.move_calls == [{"card_id": 100, "lane_id": None, "column_id": 30, "board_id": None}]
+    moves = _moves()
+    assert len(moves) == 1
+    assert moves[0].to_column == "Готово"
+    assert moves[0].from_column == "Очередь"
+
+
+def test_move_column_name_resolved(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _patch_columns_cache(monkeypatch, _BOARD_COLS)
+    before = _detail(column_id=10, column_title="Очередь")
+    after = _detail(column_id=30, column_title="Готово")
+    fake = FakeKaitenClient(details=[before, after])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["move", "100", "--column", "Готово"])
+    assert res.exit_code == 0, res.stderr
+    assert fake.move_calls[0]["column_id"] == 30
+
+
+def test_move_relog_when_already_in_column(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    before = _detail(column_id=30, column_title="Готово")
+    after = _detail(column_id=30, column_title="Готово")
+    fake = FakeKaitenClient(details=[before, after], columns=_ordered_columns())
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["move", "100", "--column", "30"])
+    assert res.exit_code == 0, res.stderr
+    assert "(релог)" in res.output
+    assert [c["column_id"] for c in fake.move_calls] == [20, 30]  # сосед слева → обратно
+
+
+def test_move_to_board(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    before = _detail(column_id=10, column_title="Очередь")
+    after = _detail(column_id=10, column_title="Очередь", board_title="Other")
+    fake = FakeKaitenClient(details=[before, after])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["move", "100", "--board", "2"])
+    assert res.exit_code == 0, res.stderr
+    assert fake.move_calls[0]["board_id"] == 2
+
+
+def test_move_error_exits_1(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    fake = FakeKaitenClient(details=[_detail()], fail={"get_card"})
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["move", "100", "--column", "30"])
+    assert res.exit_code == 1
+    assert "move: kaiten error" in res.stderr
+    assert _moves() == []
+
+
+# ── ready / review (через _move_to_target_column) ───────────────────────────────
+
+
+def test_ready_default_target(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    _patch_columns_cache(monkeypatch, _BOARD_COLS)
+    before = _detail(column_id=10, column_title="Очередь")
+    after = _detail(column_id=30, column_title="Готово")
+    fake = FakeKaitenClient(details=[before, after])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["ready", "100"])
+    assert res.exit_code == 0, res.stderr
+    assert fake.move_calls[0]["column_id"] == 30
+    moves = _moves()
+    assert moves[0].to_column == "Готово"
+
+
+def test_ready_env_column_override(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {"KITEN_READY_COLUMN": "Разработка"})
+    _patch_columns_cache(monkeypatch, _BOARD_COLS)
+    before = _detail(column_id=10, column_title="Очередь")
+    after = _detail(column_id=20, column_title="Разработка")
+    fake = FakeKaitenClient(details=[before, after])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["ready", "100"])
+    assert res.exit_code == 0, res.stderr
+    assert fake.move_calls[0]["column_id"] == 20
+
+
+def test_ready_column_flag_numeric(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    before = _detail(column_id=10, column_title="Очередь")
+    after = _detail(column_id=20, column_title="Разработка")
+    fake = FakeKaitenClient(details=[before, after])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["ready", "100", "--column", "20"])
+    assert res.exit_code == 0, res.stderr
+    assert fake.move_calls[0]["column_id"] == 20
+
+
+def test_ready_dry_run(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    _patch_columns_cache(monkeypatch, _BOARD_COLS)
+    fake = FakeKaitenClient(details=[_detail(column_id=10, column_title="Очередь")])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["ready", "100", "--dry-run"])
+    assert res.exit_code == 0, res.stderr
+    assert "dry-run:" in res.output
+    assert "PATCH не отправлен" in res.output
+    assert fake.move_calls == []
+    assert _moves() == []
+
+
+def test_ready_relog(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    _patch_columns_cache(monkeypatch, _BOARD_COLS)
+    before = _detail(column_id=30, column_title="Готово")
+    after = _detail(column_id=30, column_title="Готово")
+    fake = FakeKaitenClient(details=[before, after], columns=_ordered_columns())
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["ready", "100"])
+    assert res.exit_code == 0, res.stderr
+    assert "(релог)" in res.output
+    assert [c["column_id"] for c in fake.move_calls] == [20, 30]
+
+
+def test_ready_error_exits_1(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    fake = FakeKaitenClient(details=[_detail()], fail={"get_card"})
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["ready", "100"])
+    assert res.exit_code == 1
+    assert "kaiten error" in res.stderr
+
+
+def test_review_default_target(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    _patch_columns_cache(monkeypatch, [(10, "Очередь"), (40, "Код-ревью")])
+    before = _detail(column_id=10, column_title="Очередь")
+    after = _detail(column_id=40, column_title="Код-ревью")
+    fake = FakeKaitenClient(details=[before, after])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["review", "100"])
+    assert res.exit_code == 0, res.stderr
+    assert fake.move_calls[0]["column_id"] == 40
+    assert _moves()[0].to_column == "Код-ревью"
+
+
+# ── close ───────────────────────────────────────────────────────────────────────
+
+
+def test_close_dry_run(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    _patch_columns_cache(monkeypatch, _BOARD_COLS)
+    before = _detail(owner_username="ownerlogin", properties={})
+    fake = FakeKaitenClient(details=[before, before])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(
+        app,
+        ["close", "100", "--hypothesis", "h", "--done", "d", "--reply", "@all привет", "--dry-run"],
+    )
+    assert res.exit_code == 0, res.stderr
+    assert "dry-run close" in res.output
+    assert "поля: записать [hypothesis, done]" in res.output
+    assert "ответ: запостить (@all → @ownerlogin)" in res.output
+    assert fake.props_set == []
+    assert fake.added_comments == []
+    assert _moves() == []
+
+
+def test_close_dry_run_no_move(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    fake = FakeKaitenClient(details=[_detail(properties={})])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["close", "100", "--hypothesis", "h", "--no-move", "--dry-run"])
+    assert res.exit_code == 0, res.stderr
+    assert "перенос: пропущен (--no-move)" in res.output
+
+
+def test_close_fills_fields_reply_and_moves(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    _patch_columns_cache(monkeypatch, _BOARD_COLS)
+    before = _detail(column_id=10, column_title="Очередь", properties={})
+    before2 = _detail(column_id=10, column_title="Очередь", properties={})
+    after = _detail(column_id=30, column_title="Готово", properties={})
+    fake = FakeKaitenClient(details=[before, before2, after])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(
+        app,
+        ["close", "100", "--hypothesis", "h", "--done", "d", "--result", "r", "--reply", "Спасибо"],
+    )
+    assert res.exit_code == 0, res.stderr
+    assert "ok close: поля [hypothesis, done, result]" in res.output
+    assert "ответ: комментарий 777" in res.output
+    assert fake.props_set == [
+        (100, "id_291984", "h"),
+        (100, "id_291985", "d"),
+        (100, "id_291990", "r"),
+    ]
+    assert fake.added_comments[0]["text"] == "Спасибо"
+    assert _moves()[0].to_column == "Готово"
+    # три записи лога полей.
+    assert {link.field for link in _links()} == {"hypothesis", "done", "result"}
+
+
+def test_close_skips_filled_field(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    _patch_columns_cache(monkeypatch, _BOARD_COLS)
+    before = _detail(column_id=10, properties={"id_291984": "уже есть"})
+    before2 = _detail(column_id=10, properties={"id_291984": "уже есть"})
+    after = _detail(column_id=30, column_title="Готово")
+    fake = FakeKaitenClient(details=[before, before2, after])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["close", "100", "--hypothesis", "new"])
+    assert res.exit_code == 0, res.stderr
+    assert "пропущены (заполнены) [hypothesis]" in res.output
+    assert fake.props_set == []  # ничего не записали (поле уже заполнено)
+
+
+def test_close_no_move(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    fake = FakeKaitenClient(details=[_detail(properties={})])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["close", "100", "--hypothesis", "h", "--no-move"])
+    assert res.exit_code == 0, res.stderr
+    assert fake.props_set == [(100, "id_291984", "h")]
+    assert _moves() == []  # перенос пропущен
+
+
+def test_close_reply_file(monkeypatch: pytest.MonkeyPatch, db_path: Path, tmp_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    reply = tmp_path / "reply.md"
+    reply.write_text("ответ из файла", encoding="utf-8")
+    fake = FakeKaitenClient(details=[_detail(properties={})])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["close", "100", "--reply-file", str(reply), "--no-move"])
+    assert res.exit_code == 0, res.stderr
+    assert fake.added_comments[0]["text"] == "ответ из файла"
+
+
+def test_close_reply_and_reply_file_exclusive(
+    monkeypatch: pytest.MonkeyPatch, db_path: Path
+) -> None:
+    _install_env(monkeypatch, {})
+    _install_client(monkeypatch, FakeKaitenClient(details=[_detail()]))
+    res = runner.invoke(app, ["close", "100", "--reply", "a", "--reply-file", "-"])
+    assert res.exit_code == 2
+    assert "взаимоисключающи" in res.stderr
+
+
+def test_close_empty_reply_exits_2(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    _install_client(monkeypatch, FakeKaitenClient(details=[_detail()]))
+    res = runner.invoke(app, ["close", "100", "--reply", "   "])
+    assert res.exit_code == 2
+    assert "пустой текст ответа" in res.stderr
+
+
+def test_close_reply_all_no_owner_warns(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    fake = FakeKaitenClient(details=[_detail(owner_username=None, properties={})])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["close", "100", "--reply", "@all привет", "--no-move"])
+    assert res.exit_code == 0, res.stderr
+    assert "нет владельца" in res.stderr
+
+
+def test_close_error_before_exits_1(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    fake = FakeKaitenClient(details=[_detail()], fail={"get_card"})
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["close", "100", "--hypothesis", "h"])
+    assert res.exit_code == 1
+    assert "close: kaiten error" in res.stderr
+
+
+def test_close_error_in_fields_exits_1(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    fake = FakeKaitenClient(details=[_detail(properties={})], fail={"set_card_property"})
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["close", "100", "--hypothesis", "h", "--no-move"])
+    assert res.exit_code == 1
+    assert "kaiten error (поля)" in res.stderr
+
+
+def test_close_error_in_reply_exits_1(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_env(monkeypatch, {})
+    fake = FakeKaitenClient(details=[_detail(properties={})], fail={"add_comment"})
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["close", "100", "--reply", "текст", "--no-move"])
+    assert res.exit_code == 1
+    assert "kaiten error (ответ)" in res.stderr
+
+
+# ── spaces / boards / lanes / columns ───────────────────────────────────────────
+
+
+def test_spaces_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, spaces=[KaitenSpace(id=5, title="Support", archived=False)])
+    res = runner.invoke(app, ["spaces", "--json"])
+    assert res.exit_code == 0, res.stderr
+    payload: list[dict[str, Any]] = json.loads(res.output)
+    assert payload == [{"id": 5, "title": "Support", "archived": False}]
+
+
+def test_spaces_table_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, spaces=[KaitenSpace(id=5, title="Support", archived=False)])
+    res = runner.invoke(app, ["spaces"])
+    assert res.exit_code == 0, res.stderr
+    assert "(1 spaces)" in res.output
+
+
+def test_spaces_hides_archived_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(
+        monkeypatch,
+        spaces=[
+            KaitenSpace(id=5, title="Active", archived=False),
+            KaitenSpace(id=6, title="Old", archived=True),
+        ],
+    )
+    res = runner.invoke(app, ["spaces", "--json"])
+    assert res.exit_code == 0, res.stderr
+    payload: list[dict[str, Any]] = json.loads(res.output)
+    assert [s["id"] for s in payload] == [5]
+    res_all = runner.invoke(app, ["spaces", "--all", "--json"])
+    payload_all: list[dict[str, Any]] = json.loads(res_all.output)
+    assert [s["id"] for s in payload_all] == [5, 6]
+
+
+def test_spaces_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, spaces=[])
+    res = runner.invoke(app, ["spaces"])
+    assert res.exit_code == 0, res.stderr
+    assert "(нет пространств)" in res.output
+
+
+def test_spaces_error_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, error="kaiten: boom")
+    res = runner.invoke(app, ["spaces"])
+    assert res.exit_code == 1
+    assert "spaces: kaiten error: kaiten: boom" in res.stderr
+
+
+def test_boards_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, boards=[KaitenBoard(id=7, space_id=5, title="B")])
+    res = runner.invoke(app, ["boards", "--json"])
+    assert res.exit_code == 0, res.stderr
+    payload: list[dict[str, Any]] = json.loads(res.output)
+    assert payload == [{"id": 7, "space_id": 5, "title": "B"}]
+
+
+def test_boards_space_filter_numeric(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(
+        monkeypatch,
+        boards=[
+            KaitenBoard(id=7, space_id=5, title="B5"),
+            KaitenBoard(id=8, space_id=6, title="B6"),
+        ],
+    )
+    res = runner.invoke(app, ["boards", "--json", "--space", "5"])
+    assert res.exit_code == 0, res.stderr
+    payload: list[dict[str, Any]] = json.loads(res.output)
+    assert [b["id"] for b in payload] == [7]
+
+
+def test_boards_space_substring(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_spaces_cache(monkeypatch, [(5, "Support")])
+    _patch_discover(monkeypatch, boards=[KaitenBoard(id=7, space_id=5, title="B")])
+    res = runner.invoke(app, ["boards", "--json", "--space", "Supp"])
+    assert res.exit_code == 0, res.stderr
+    payload: list[dict[str, Any]] = json.loads(res.output)
+    assert [b["id"] for b in payload] == [7]
+
+
+def test_boards_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, boards=[])
+    res = runner.invoke(app, ["boards"])
+    assert res.exit_code == 0, res.stderr
+    assert "(нет досок)" in res.output
+
+
+def test_boards_error_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, error="kaiten: down")
+    res = runner.invoke(app, ["boards"])
+    assert res.exit_code == 1
+    assert "boards: kaiten error" in res.stderr
+
+
+def test_lanes_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, boards=[KaitenBoard(id=7, space_id=5, title="B")])
+    _patch_lanes(monkeypatch, lanes=[KaitenLane(id=9, board_id=7, title="Support")])
+    res = runner.invoke(app, ["lanes", "--json"])
+    assert res.exit_code == 0, res.stderr
+    payload: list[dict[str, Any]] = json.loads(res.output)
+    assert payload == [{"id": 9, "board_id": 7, "title": "Support"}]
+
+
+def test_lanes_board_filter(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(
+        monkeypatch,
+        boards=[
+            KaitenBoard(id=7, space_id=5, title="B7"),
+            KaitenBoard(id=8, space_id=5, title="B8"),
+        ],
+    )
+    _patch_lanes(monkeypatch, lanes=[KaitenLane(id=9, board_id=7, title="L")])
+    res = runner.invoke(app, ["lanes", "--json", "--board", "7"])
+    assert res.exit_code == 0, res.stderr
+    payload: list[dict[str, Any]] = json.loads(res.output)
+    assert payload == [{"id": 9, "board_id": 7, "title": "L"}]
+
+
+def test_lanes_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, boards=[KaitenBoard(id=7, space_id=5, title="B")])
+    _patch_lanes(monkeypatch, lanes=[])
+    res = runner.invoke(app, ["lanes"])
+    assert res.exit_code == 0, res.stderr
+    assert "(нет дорожек)" in res.output
+
+
+def test_lanes_discover_error_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, error="kaiten: down")
+    res = runner.invoke(app, ["lanes"])
+    assert res.exit_code == 1
+    assert "lanes: kaiten error" in res.stderr
+
+
+def test_lanes_lanes_error_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, boards=[KaitenBoard(id=7, space_id=5, title="B")])
+    _patch_lanes(monkeypatch, error="kaiten: lane boom")
+    res = runner.invoke(app, ["lanes"])
+    assert res.exit_code == 1
+    assert "lanes: kaiten error: kaiten: lane boom" in res.stderr
+
+
+def test_columns_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, boards=[KaitenBoard(id=7, space_id=5, title="B")])
+    _patch_columns_disc(monkeypatch, columns=[KaitenColumn(id=30, board_id=7, title="Готово")])
+    res = runner.invoke(app, ["columns", "--json"])
+    assert res.exit_code == 0, res.stderr
+    payload: list[dict[str, Any]] = json.loads(res.output)
+    assert payload == [{"id": 30, "board_id": 7, "title": "Готово"}]
+
+
+def test_columns_error_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, boards=[KaitenBoard(id=7, space_id=5, title="B")])
+    _patch_columns_disc(monkeypatch, error="kaiten: col boom")
+    res = runner.invoke(app, ["columns"])
+    assert res.exit_code == 1
+    assert "columns: kaiten error: kaiten: col boom" in res.stderr
+
+
+# ── field set / ls / update / rm ────────────────────────────────────────────────
+
+
+def test_field_set(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    fake = FakeKaitenClient()
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["field", "set", "100", "mr", "https://mr/1"])
+    assert res.exit_code == 0, res.stderr
+    assert "ok: mr → https://mr/1" in res.output
+    assert fake.props_set == [(100, "id_398965", "https://mr/1")]
+    assert _links()[0].value == "https://mr/1"
+
+
+def test_field_set_error_exits_1(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    fake = FakeKaitenClient(fail={"set_card_property"})
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["field", "set", "100", "mr", "https://mr/1"])
+    assert res.exit_code == 1
+    assert "field set: kaiten error" in res.stderr
+
+
+def test_field_ls_empty(db_path: Path) -> None:
+    res = runner.invoke(app, ["field", "ls"])
+    assert res.exit_code == 0, res.stderr
+    assert "(пусто)" in res.output
+
+
+def test_field_ls_json(db_path: Path) -> None:
+    _seed_link(100, "mr", "https://mr/1")
+    res = runner.invoke(app, ["field", "ls", "--json"])
+    assert res.exit_code == 0, res.stderr
+    payload: list[dict[str, Any]] = json.loads(res.output)
+    assert payload[0]["card_id"] == 100
+    assert payload[0]["field"] == "mr"
+    assert payload[0]["value"] == "https://mr/1"
+
+
+def test_field_ls_filter_by_card_and_kind(db_path: Path) -> None:
+    _seed_link(100, "mr", "https://mr/1")
+    _seed_link(200, "done", "сделано")
+    res = runner.invoke(app, ["field", "ls", "--card", "100", "--kind", "mr", "--json"])
+    assert res.exit_code == 0, res.stderr
+    payload: list[dict[str, Any]] = json.loads(res.output)
+    assert [link["card_id"] for link in payload] == [100]
+
+
+def test_field_update(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    link = _seed_link(100, "mr", "https://old")
+    fake = FakeKaitenClient()
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["field", "update", str(link.id), "https://new"])
+    assert res.exit_code == 0, res.stderr
+    assert f"ok: #{link.id} mr → https://new" in res.output
+    assert fake.props_set == [(100, "id_398965", "https://new")]
+
+
+def test_field_update_missing_exits_1(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_client(monkeypatch, FakeKaitenClient())
+    res = runner.invoke(app, ["field", "update", "999", "x"])
+    assert res.exit_code == 1
+    assert "записи #999 нет" in res.stderr
+
+
+def test_field_rm_resyncs_to_previous(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _seed_link(100, "mr", "https://v1")
+    link2 = _seed_link(100, "mr", "https://v2")
+    fake = FakeKaitenClient()
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["field", "rm", str(link2.id)])
+    assert res.exit_code == 0, res.stderr
+    assert "удалена" in res.output
+    assert fake.props_set == [(100, "id_398965", "https://v1")]  # откат к предыдущей записи
+
+
+def test_field_rm_last_clears_field(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    link = _seed_link(100, "mr", "https://only")
+    fake = FakeKaitenClient()
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["field", "rm", str(link.id)])
+    assert res.exit_code == 0, res.stderr
+    assert "(очищено)" in res.output
+    assert fake.props_set == [(100, "id_398965", None)]
+
+
+def test_field_rm_missing_exits_1(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _install_client(monkeypatch, FakeKaitenClient())
+    res = runner.invoke(app, ["field", "rm", "999"])
+    assert res.exit_code == 1
+    assert "записи #999 нет" in res.stderr
+
+
+def test_field_update_error_exits_1(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    link = _seed_link(100, "mr", "https://old")
+    _install_client(monkeypatch, FakeKaitenClient(fail={"set_card_property"}))
+    res = runner.invoke(app, ["field", "update", str(link.id), "https://new"])
+    assert res.exit_code == 1
+    assert "field update: kaiten error" in res.stderr
+
+
+def test_field_rm_error_exits_1(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    link = _seed_link(100, "mr", "https://only")
+    _install_client(monkeypatch, FakeKaitenClient(fail={"set_card_property"}))
+    res = runner.invoke(app, ["field", "rm", str(link.id)])
+    assert res.exit_code == 1
+    assert "field rm: kaiten error" in res.stderr
+
+
+# ── card: наглядный rich-рендер (TTY) ───────────────────────────────────────────
+
+
+class _FakeStdout:
+    @staticmethod
+    def isatty() -> bool:
+        return True
+
+
+class _FakeSys:
+    """Подмена `kiten.sys` для card: stdout.isatty() == True → ветка rich-рендера."""
+
+    stdout = _FakeStdout()
+
+
+def _patch_render(monkeypatch: pytest.MonkeyPatch, *, image_ok: bool = True) -> None:
+    """No-op заглушки kaiten_render (без term-image/сети): картинки рендерятся «успешно»."""
+
+    def _render_md(console: object, md: str, *, images: bool, max_width: int = 80) -> None:
+        _ = (console, md, images, max_width)
+
+    def _inline(md: str) -> list[str]:
+        _ = md
+        return []
+
+    def _is_image(url_or_name: str) -> bool:
+        return url_or_name.endswith(".png")
+
+    def _fetch(url: str, *, timeout: float = 15.0) -> bytes | None:
+        _ = (url, timeout)
+        return b"PNGDATA"
+
+    def _render_image(data: bytes, *, max_width: int = 80) -> bool:
+        _ = (data, max_width)
+        return image_ok
+
+    monkeypatch.setattr(kaiten_render, "render_markdown_with_images", _render_md)
+    monkeypatch.setattr(kaiten_render, "inline_image_urls", _inline)
+    monkeypatch.setattr(kaiten_render, "is_image_url", _is_image)
+    monkeypatch.setattr(kaiten_render, "fetch_image_bytes", _fetch)
+    monkeypatch.setattr(kaiten_render, "render_image", _render_image)
+
+
+def _detail_with_image() -> KaitenCardDetail:
+    return KaitenCardDetail(
+        id=100,
+        key="ABC-1",
+        title="Title",
+        state=2,
+        condition=1,
+        due_date="2026-06-30T00:00:00Z",
+        board_id=7,
+        board_title="Board7",
+        column_id=9,
+        column_title="Col9",
+        lane_title="Lane",
+        size_text="M",
+        created="2026-01-01",
+        updated="2026-02-02",
+        type_name="Bug",
+        description="desc",
+        owner=KaitenMember(id=1, full_name="Owner", email="o@x", username="own"),
+        url="https://btlz.kaiten.ru/100",
+        tags=["OZON"],
+        members=[KaitenMember(id=2, full_name="Mem", email="m@x", username="mem")],
+        files=[
+            KaitenFile(
+                id=5,
+                url="https://files/pic.png",
+                name="pic.png",
+                mime_type="image/png",
+                comment_id=None,
+                card_cover=False,
+            )
+        ],
+        properties={"id_398965": "https://gitlab/mr/1"},
+    )
+
+
+def test_card_rich_render_full(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(kiten_mod, "sys", _FakeSys)
+    _patch_render(monkeypatch, image_ok=True)
+    _patch_prop_names(monkeypatch, {398965: "Ссылка на PR"})
+    comments = [KaitenComment(id=2, text="hi", author_name="Bob", created="2026-06-03T06:39:25Z")]
+    _install_client(
+        monkeypatch, FakeKaitenClient(details=[_detail_with_image()], comments=comments)
+    )
+    res = runner.invoke(app, ["card", "100"])
+    assert res.exit_code == 0, res.stderr
+    assert "Title" in res.output  # шапка-панель отрисована
+
+
+def test_card_rich_render_no_images(monkeypatch: pytest.MonkeyPatch) -> None:
+    # --no-images → fetch не зовётся, вложение-картинка показывается ссылкой (ветка fallback).
+    monkeypatch.setattr(kiten_mod, "sys", _FakeSys)
+    _patch_render(monkeypatch, image_ok=False)
+    _patch_prop_names(monkeypatch, {})
+    _install_client(monkeypatch, FakeKaitenClient(details=[_detail_with_image()], comments=[]))
+    res = runner.invoke(app, ["card", "100", "--no-images"])
+    assert res.exit_code == 0, res.stderr
+    assert "files/pic.png" in res.output  # ссылка на вложение
+
+
+def test_card_markdown_nonnumeric_property(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Ключ свойства не `id_<число>` → имя поля = сырой ключ (ветка ValueError в _format_property).
+    _patch_prop_names(monkeypatch, {})
+    detail = _detail(properties={"id_xx": "значение"})
+    _install_client(monkeypatch, FakeKaitenClient(details=[detail], comments=[]))
+    res = runner.invoke(app, ["card", "100", "--md"])
+    assert res.exit_code == 0, res.stderr
+    assert "- id_xx: значение" in res.output
+
+
+# ── ls --format {column_mapped}: KITEN_COLUMN_MAP (валидный / битый / не-объект) ─
+
+
+def test_ls_format_column_mapped_valid(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {"KITEN_COLUMN_MAP": '{"10": "DONE"}'})
+    _patch_columns_cache(monkeypatch, [(10, "Очередь")])
+    _install_client(monkeypatch, FakeKaitenClient(user=_user(), cards=[_card(42, column_id=10)]))
+    res = runner.invoke(app, ["ls", "--format", "{column_mapped}"])
+    assert res.exit_code == 0, res.stderr
+    assert "DONE" in res.output
+
+
+def test_ls_format_column_map_bad_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {"KITEN_COLUMN_MAP": "{not json"})
+    _patch_columns_cache(monkeypatch, [(10, "Очередь")])
+    _install_client(monkeypatch, FakeKaitenClient(user=_user(), cards=[_card(42, column_id=10)]))
+    res = runner.invoke(app, ["ls", "--format", "{column_mapped}"])
+    assert res.exit_code == 0, res.stderr
+    assert "некорректный JSON в KITEN_COLUMN_MAP" in res.stderr
+    assert "Очередь" in res.output  # фолбэк на сырое имя колонки
+
+
+def test_ls_format_column_map_not_object(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {"KITEN_COLUMN_MAP": "[]"})
+    _patch_columns_cache(monkeypatch, [(10, "Очередь")])
+    _install_client(monkeypatch, FakeKaitenClient(user=_user(), cards=[_card(42, column_id=10)]))
+    res = runner.invoke(app, ["ls", "--format", "{column_mapped}"])
+    assert res.exit_code == 0, res.stderr
+    assert "должен быть JSON-объектом" in res.stderr
+
+
+# ── resolve-ошибки осей перемещения → BadParameter (exit 2) ──────────────────────
+
+
+def test_move_bad_column_exits_2(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    _patch_columns_cache(monkeypatch, [])  # пустой кэш → подстрока не резолвится
+    _install_client(monkeypatch, FakeKaitenClient(details=[_detail()]))
+    res = runner.invoke(app, ["move", "100", "--column", "Неизвестная"])
+    assert res.exit_code == 2
+    assert "не найден" in res.stderr
+
+
+def test_move_bad_board_exits_2(monkeypatch: pytest.MonkeyPatch, db_path: Path) -> None:
+    def _no_boards(space_id: int | None = None) -> list[tuple[int, str]]:
+        _ = space_id
+        return []
+
+    monkeypatch.setattr(kaiten_cache, "cached_boards", _no_boards)
+    _install_client(monkeypatch, FakeKaitenClient(details=[_detail()]))
+    res = runner.invoke(app, ["move", "100", "--board", "Неизвестная"])
+    assert res.exit_code == 2
+    assert "не найден" in res.stderr
+
+
+# ── table-smoke (rich-вывод непустых таблиц boards/lanes/columns/field ls) ───────
+
+
+def test_boards_table_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, boards=[KaitenBoard(id=7, space_id=5, title="B")])
+    res = runner.invoke(app, ["boards"])
+    assert res.exit_code == 0, res.stderr
+    assert "(1 boards)" in res.output
+
+
+def test_lanes_table_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, boards=[KaitenBoard(id=7, space_id=5, title="B")])
+    _patch_lanes(monkeypatch, lanes=[KaitenLane(id=9, board_id=7, title="L")])
+    res = runner.invoke(app, ["lanes"])
+    assert res.exit_code == 0, res.stderr
+    assert "(1 lanes)" in res.output
+
+
+def test_columns_table_smoke(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, boards=[KaitenBoard(id=7, space_id=5, title="B")])
+    _patch_columns_disc(monkeypatch, columns=[KaitenColumn(id=30, board_id=7, title="Готово")])
+    res = runner.invoke(app, ["columns"])
+    assert res.exit_code == 0, res.stderr
+    assert "(1 columns)" in res.output
+
+
+def test_columns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_discover(monkeypatch, boards=[KaitenBoard(id=7, space_id=5, title="B")])
+    _patch_columns_disc(monkeypatch, columns=[])
+    res = runner.invoke(app, ["columns"])
+    assert res.exit_code == 0, res.stderr
+    assert "(нет колонок)" in res.output
+
+
+def test_field_ls_table_smoke(db_path: Path) -> None:
+    _seed_link(100, "mr", "https://mr/1")
+    res = runner.invoke(app, ["field", "ls"])
+    assert res.exit_code == 0, res.stderr
+    assert "https://mr/1" in res.output
+
+
+# ── completion-хелперы (best-effort, при ошибке → []) ────────────────────────────
+
+
+def test_complete_space_filters_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_spaces_cache(monkeypatch, [(5, "Support"), (6, "Backlog")])
+    assert _complete_space("Sup") == [("5", "Support")]
+
+
+def test_complete_space_swallows_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _boom() -> list[tuple[int, str]]:
+        raise RuntimeError("cache down")
+
+    monkeypatch.setattr(kaiten_cache, "cached_spaces", _boom)
+    assert _complete_space("x") == []
+
+
+def test_complete_board_scoped_by_space(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_spaces_cache(monkeypatch, [(5, "Support")])
+
+    def _boards(space_id: int | None = None) -> list[tuple[int, str]]:
+        assert space_id == 5
+        return [(7, "Board")]
+
+    monkeypatch.setattr(kaiten_cache, "cached_boards", _boards)
+    ctx = cast("typer.Context", _FakeCtx({"space": "Support"}))
+    assert _complete_board(ctx, "") == [("7", "Board")]
+
+
+def test_complete_lane_and_column_use_board_ctx(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _lanes(board_id: int | None = None) -> list[tuple[int, str]]:
+        return [(9, "Lane")]
+
+    def _columns(board_id: int | None = None) -> list[tuple[int, str]]:
+        return [(30, "Готово")]
+
+    monkeypatch.setattr(kaiten_cache, "cached_lanes", _lanes)
+    monkeypatch.setattr(kaiten_cache, "cached_columns", _columns)
+    ctx = cast("typer.Context", _FakeCtx({"board": "7"}))
+    assert _complete_lane(ctx, "") == [("9", "Lane")]
+    assert _complete_column(ctx, "Гот") == [("30", "Готово")]
+
+
+def test_board_id_from_ctx_explicit_board(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {})
+
+    def _boards(space_id: int | None = None) -> list[tuple[int, str]]:
+        return [(7, "Board")]
+
+    monkeypatch.setattr(kaiten_cache, "cached_boards", _boards)
+    ctx = cast("typer.Context", _FakeCtx({"board": "Board"}))
+    assert _board_id_from_ctx(ctx) == 7
+
+
+def test_board_id_from_ctx_falls_back_to_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_env(monkeypatch, {"KITEN_LS_BOARD_ID": "7"})
+    ctx = cast("typer.Context", _FakeCtx({"board": None}))
+    assert _board_id_from_ctx(ctx) == 7
+
+
+class _FakeCtx:
+    """Минимальный stand-in для typer.Context: только `params` для completion-хелперов."""
+
+    def __init__(self, params: dict[str, object]) -> None:
+        self.params = params

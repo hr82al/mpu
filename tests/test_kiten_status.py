@@ -139,3 +139,55 @@ def test_build_status_missing_title_fallback_and_escape() -> None:
     # квадратные скобки в заголовке экранированы полноширинными.
     assert "［draft］" in text
     assert "[draft]" not in text
+
+
+# ── today_label ─────────────────────────────────────────────────────────────────
+
+
+def test_today_label() -> None:
+    now = datetime(2026, 6, 24, 1, 0, 0, tzinfo=MSK)
+    assert kiten_status.today_label(now) == "2026-06-24 МСК"
+
+
+# ── load_emoji_overrides (из .env KITEN_STATUS_EMOJI, ключ — имя колонки) ─────────
+
+
+def test_load_emoji_overrides_by_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(kiten_status.env, "_loaded", True)
+    monkeypatch.setenv("KITEN_STATUS_EMOJI", '{"Очередь": "🅾️"}')
+    assert kiten_status.load_emoji_overrides() == {"очередь": "🅾️"}
+
+
+def test_load_emoji_overrides_empty_bad_and_nonobject(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(kiten_status.env, "_loaded", True)
+    monkeypatch.delenv("KITEN_STATUS_EMOJI", raising=False)
+    assert kiten_status.load_emoji_overrides() == {}
+    monkeypatch.setenv("KITEN_STATUS_EMOJI", "не json")
+    assert kiten_status.load_emoji_overrides() == {}
+    # валидный JSON, но не объект (массив) → {} (дефолтная карта).
+    monkeypatch.setenv("KITEN_STATUS_EMOJI", '["x"]')
+    assert kiten_status.load_emoji_overrides() == {}
+
+
+# ── load_column_map: валидный JSON, но не объект ─────────────────────────────────
+
+
+def test_load_column_map_nonobject(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(kiten_status.env, "_loaded", True)
+    monkeypatch.setenv("KITEN_COLUMN_MAP", "[1, 2]")
+    assert kiten_status.load_column_map() == {}
+
+
+# ── build_status_text: дедуп оставляет запись с бОльшим moved_at ──────────────────
+
+
+def test_build_status_dedup_keeps_earlier_when_later_is_smaller() -> None:
+    # первый apply бОльший moved_at, второй для той же карточки меньший → остаётся первый.
+    entries = [
+        _entry(100, title="A", column="Готово", moved_at=50),
+        _entry(100, title="A", column="Код-ревью", moved_at=10),
+    ]
+    text = build_status_text(entries, label="L")
+    assert text.count("https://btlz.kaiten.ru/100") == 1
+    assert "Готово ✅" in text
+    assert "Код-ревью" not in text

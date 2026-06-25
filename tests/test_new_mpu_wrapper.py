@@ -126,3 +126,37 @@ def test_excerpt_truncates_long_output(monkeypatch: pytest.MonkeyPatch, log_to_t
     assert "lines truncated" in log_text
     assert "line 0" in log_text  # head
     assert "line 99" in log_text  # tail
+
+
+def test_keyboard_interrupt_retries_wait_then_completes(
+    monkeypatch: pytest.MonkeyPatch, log_to_tmp: Path
+) -> None:
+    """Ctrl+C во время первого `proc.wait()` → SIGINT доставлен child'у, ждём повторно."""
+
+    def _which(_name: str) -> str:
+        return "/usr/bin/new-mpu"
+
+    monkeypatch.setattr(new_mpu.shutil, "which", _which)
+
+    class InterruptOnceFakePopen(FakePopen):
+        def __init__(self, args: list[str], **_kw: object) -> None:
+            super().__init__(args, stdout_text="done\n", rc=0)
+            self._calls = 0
+
+        def wait(self) -> int:
+            self._calls += 1
+            if self._calls == 1:
+                raise KeyboardInterrupt
+            return self.returncode
+
+    def _factory(args: list[str], **kw: object) -> InterruptOnceFakePopen:
+        return InterruptOnceFakePopen(args, **kw)
+
+    monkeypatch.setattr(subprocess, "Popen", _factory)
+
+    rc = new_mpu.run_new_mpu("xlsx", ["get", "A1"])
+
+    assert rc == 0
+    log_text = log_to_tmp.read_text()
+    assert "rc=0" in log_text
+    assert "INFO" in log_text
