@@ -1,9 +1,12 @@
-"""mpu — top-level Typer CLI. Subcommands are added via `app.add_typer(...)`.
+"""mpu — top-level CLI: root-команды (Typer-app) + `api`-namespace (click.Group).
 
-Два namespace'а монтируются в один `app`:
-- root: `mpu <X>` — по дефолту ВЫПОЛНЯЕТ через Portainer; `--print` / `-p` возвращает в
-  print + clipboard режим.
-- `mpu api <X>` — HTTP-клиенты sl-back (click.Group)
+Монтаж root-подкоманд — `_mount(app, COMMANDS)`: single-command app'ы регистрируются
+напрямую через `app.command(...)`, multi-command — через `app.add_typer(...)`. Дефолтное
+поведение root-команды — выполнение inner-команды (через Portainer для node-CLI обёрток,
+нативно для native-команд); `--print` / `-p` в обёртках возвращает в print + clipboard режим.
+
+`mpu api <X>` — HTTP-клиенты sl-back; click.Group из `build_api_group()`, добавляется в
+`main()` на уровне click поверх сконвертированного Typer-app (не входит в `COMMANDS`).
 """
 
 import asyncio
