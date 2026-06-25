@@ -318,6 +318,14 @@ def _resolve_column(ref: str | None, board_id: int | None) -> int | None:
         raise typer.BadParameter(str(e)) from None
 
 
+def _parse_card_ref(ref: str) -> int:
+    """Селектор карточки → id; ValueError парсера → BadParameter."""
+    try:
+        return parse_card_ref(ref)
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from None
+
+
 @app.command("ls")
 def ls(
     archived: Annotated[
@@ -483,10 +491,7 @@ def card(
 ) -> None:
     """Одна карточка Kaiten: наглядный рендер (markdown + таблицы + скриншоты), либо
     `--md` (чистый GFM для LLM), либо `--json`. При пайпе по умолчанию — markdown."""
-    try:
-        card_id = parse_card_ref(selector)
-    except ValueError as e:
-        raise typer.BadParameter(str(e)) from None
+    card_id = _parse_card_ref(selector)
     client = KaitenClient.from_env()
     try:
         detail = client.get_card(card_id)
@@ -706,10 +711,7 @@ def comment(
     в Kaiten нет литерального `@all`, это алиас → `@<username владельца>` (берётся из `owner`
     карточки); упоминание = plain-текст `@логин`, сервер уведомляет.
     """
-    try:
-        card_id = parse_card_ref(selector)
-    except ValueError as e:
-        raise typer.BadParameter(str(e)) from None
+    card_id = _parse_card_ref(selector)
     attachments = read_attachments(files) if files else []
     recipients = parse_recipients(to or [])
     text = resolve_comment_text(
@@ -789,10 +791,7 @@ def move(
     """
     if lane is None and column is None and board is None:
         raise typer.BadParameter("нужно хотя бы одно из --lane / --column / --board")
-    try:
-        card_id = parse_card_ref(selector)
-    except ValueError as e:
-        raise typer.BadParameter(str(e)) from None
+    card_id = _parse_card_ref(selector)
     cli_board = _resolve_board(board)
     client = KaitenClient.from_env()
     try:
@@ -874,10 +873,7 @@ def _move_to_target_column(
     """Перевести карточку в колонку `target_name` (точное имя в приоритете) на её текущей доске;
     дорожка/доска сохраняются. Если карточка уже в целевой колонке — релог-bump (влево→обратно),
     чтобы Kaiten зафиксировал перемещение как моё сегодня. Логирует в `kaiten_card_moves`."""
-    try:
-        card_id = parse_card_ref(selector)
-    except ValueError as e:
-        raise typer.BadParameter(str(e)) from None
+    card_id = _parse_card_ref(selector)
     client = KaitenClient.from_env()
     try:
         before = client.get_card(card_id)
@@ -1012,10 +1008,7 @@ def close(
     `--force-fields` перезаписывает). `@all` в ответе → `@username` владельца (заказчик). Перенос —
     с релогом, если уже в колонке. Порядок: поля → ответ → перенос. `--dry-run` — только план.
     """
-    try:
-        card_id = parse_card_ref(selector)
-    except ValueError as e:
-        raise typer.BadParameter(str(e)) from None
+    card_id = _parse_card_ref(selector)
     if reply is not None and reply_file is not None:
         raise typer.BadParameter("--reply и --reply-file взаимоисключающи")
     reply_text: str | None = reply
@@ -1629,10 +1622,7 @@ def field_set(
     вызывать несколько раз — каждый запуск добавляет MR в историю; в поле карточки
     «Ссылка на Merge Request» остаётся последний.
     """
-    try:
-        card_id = parse_card_ref(selector)
-    except ValueError as e:
-        raise typer.BadParameter(str(e)) from None
+    card_id = _parse_card_ref(selector)
     client = KaitenClient.from_env()
     with store.store() as conn:
         store.bootstrap(conn)
@@ -1660,10 +1650,7 @@ def field_ls(
     """История привязок (read-only): id, карточка, поле, значение, время."""
     card_id: int | None = None
     if card is not None:
-        try:
-            card_id = parse_card_ref(card)
-        except ValueError as e:
-            raise typer.BadParameter(str(e)) from None
+        card_id = _parse_card_ref(card)
     with store.store() as conn:
         store.bootstrap(conn)
         links = kaiten_links.list_links(
