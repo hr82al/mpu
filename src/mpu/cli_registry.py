@@ -36,6 +36,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "logs": ("mpu.commands.logs", "app"),
     "kiten": ("mpu.commands.kiten", "app"),
     "mr": ("mpu.commands.mr", "app"),
+    "glab-status": ("mpu.commands.glab_status", "app"),
     "telegram": ("mpu.commands.telegram", "app"),
     "confirm": ("mpu.commands.confirm", "app"),
     "help": ("mpu.commands.help", "app"),

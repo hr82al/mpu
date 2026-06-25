@@ -53,6 +53,12 @@ class MrInfo:
     author_username: str
     description: str
     diff_refs: DiffRefs | None  # None у MR без коммитов
+    # Поля для `mpu glab-status` (есть в list-payload `/merge_requests`; default None,
+    # чтобы не ломать конструирование MrInfo из get_mr/create_mr).
+    project_id: int | None = None
+    sha: str | None = None  # head исходной ветки на момент последнего апдейта
+    merge_commit_sha: str | None = None
+    squash_commit_sha: str | None = None
 
 
 @dataclass
@@ -431,6 +437,7 @@ def parse_mr_info(raw: dict[str, Any], project: str) -> MrInfo:
             diff_refs = DiffRefs(base_sha=str(base), start_sha=str(start), head_sha=str(head))
     author_raw = raw.get("author")
     author = cast("dict[str, Any]", author_raw) if isinstance(author_raw, dict) else {}
+    project_id_raw = raw.get("project_id")
     return MrInfo(
         project=project,
         iid=int(raw["iid"]),
@@ -443,6 +450,10 @@ def parse_mr_info(raw: dict[str, Any], project: str) -> MrInfo:
         author_username=str(author.get("username") or ""),
         description=str(raw.get("description") or ""),
         diff_refs=diff_refs,
+        project_id=int(project_id_raw) if project_id_raw is not None else None,
+        sha=str(raw["sha"]) if raw.get("sha") else None,
+        merge_commit_sha=str(raw["merge_commit_sha"]) if raw.get("merge_commit_sha") else None,
+        squash_commit_sha=str(raw["squash_commit_sha"]) if raw.get("squash_commit_sha") else None,
     )
 
 
@@ -523,6 +534,39 @@ class GitLabClient:
             {"source_branch": branch, "state": "opened"},
         )
         return [parse_mr_info(raw, project) for raw in res]
+
+    def list_my_merge_requests(self, updated_after_iso: str) -> list[MrInfo]:
+        """GET /merge_requests?scope=created_by_me&updated_after= — мои MR во всех проектах.
+
+        Глобальный (без project) эндпоинт: payload не содержит пути проекта, поэтому
+        `project` остаётся пустым — caller достаёт его из `web_url`. `state` не задаём
+        (нужны и open, и merged); фильтрация состояний — на стороне команды."""
+        res = self._get_paginated(
+            "/merge_requests",
+            {
+                "scope": "created_by_me",
+                "updated_after": updated_after_iso,
+                "order_by": "created_at",
+                "sort": "asc",
+            },
+        )
+        return [parse_mr_info(raw, "") for raw in res]
+
+    def commit_branch_names(self, project_id: int, sha: str) -> list[str]:
+        """GET …/repository/commits/:sha/refs?type=branch — ветки, СОДЕРЖАЩИЕ коммит.
+
+        Используется `mpu glab-status`, чтобы понять, в какие ветки деплой-пайплайна
+        долетел merge-коммит MR. 404 (коммит недоступен на хосте / уехал) → []."""
+        try:
+            res = self._get_paginated(
+                f"/projects/{project_id}/repository/commits/{quote(sha, safe='')}/refs",
+                {"type": "branch"},
+            )
+        except GitLabAPIError as e:
+            if e.status == 404:
+                return []
+            raise
+        return [str(item["name"]) for item in res if item.get("name")]
 
     def list_diffs(self, project: str, iid: int) -> list[FileDiff]:
         """GET …/changes?access_raw_diffs=true — изменённые файлы MR с полным diff.

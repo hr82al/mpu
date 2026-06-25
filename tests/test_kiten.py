@@ -22,7 +22,11 @@ from mpu.commands.kiten import (
     build_updated_window,
     coalesce,
     expand_all_mention,
+    expand_recipients,
+    parse_recipients,
     plan_field_actions,
+    prepend_recipients,
+    read_attachments,
     resolve_comment_text,
     resolve_ls_filters,
 )
@@ -33,6 +37,7 @@ from mpu.lib.kaiten import (
     KaitenComment,
     KaitenFile,
     build_cards_query,
+    build_multipart,
     card_url,
     parse_boards_of_space,
     parse_card,
@@ -728,6 +733,104 @@ def test_resolve_comment_text_empty_and_missing_file(tmp_path: Path) -> None:
     # несуществующий файл → BadParameter, не OSError наружу.
     with pytest.raises(typer.BadParameter):
         resolve_comment_text(None, str(tmp_path / "nope.md"), stdin_read=_no_stdin)
+
+
+def test_resolve_comment_text_optional_with_attachments() -> None:
+    # есть вложения (require_text=False): оба источника опущены → пустой текст, не ошибка.
+    assert resolve_comment_text(None, None, stdin_read=_no_stdin, require_text=False) == ""
+    # текст при этом всё ещё можно передать.
+    assert (
+        resolve_comment_text("подпись", None, stdin_read=_no_stdin, require_text=False) == "подпись"
+    )
+    # оба источника сразу запрещены даже с вложениями.
+    with pytest.raises(typer.BadParameter):
+        resolve_comment_text("a", "-", stdin_read=_no_stdin, require_text=False)
+
+
+# ── read_attachments: пути → (имя, байты); понятная ошибка на промахе ────────────
+
+
+def test_read_attachments_reads_in_order(tmp_path: Path) -> None:
+    a = tmp_path / "a.md"
+    a.write_text("# A", encoding="utf-8")
+    b = tmp_path / "b.bin"
+    b.write_bytes(b"\x00\x01\x02")
+    got = read_attachments([str(a), str(b)])
+    assert got == [("a.md", b"# A"), ("b.bin", b"\x00\x01\x02")]
+
+
+def test_read_attachments_missing_file(tmp_path: Path) -> None:
+    with pytest.raises(typer.BadParameter):
+        read_attachments([str(tmp_path / "nope.png")])
+
+
+def test_read_attachments_directory_is_not_a_file(tmp_path: Path) -> None:
+    with pytest.raises(typer.BadParameter):
+        read_attachments([str(tmp_path)])
+
+
+# ── build_multipart: текст + файлы под именем files[] ───────────────────────────
+
+
+def test_build_multipart_text_and_files() -> None:
+    body, content_type = build_multipart(
+        {"text": "привет"}, [("one.txt", b"ONE"), ("two.md", b"# TWO")]
+    )
+    assert content_type.startswith("multipart/form-data; boundary=")
+    boundary = content_type.split("boundary=", 1)[1]
+    assert boundary.encode() in body
+    # текстовое поле и оба файла под одним именем files[].
+    assert b'name="text"' in body
+    assert b"\r\n\r\n\xd0\xbf\xd1\x80\xd0\xb8\xd0\xb2\xd0\xb5\xd1\x82\r\n" in body  # utf-8 «привет»
+    assert body.count(b'name="files[]"') == 2
+    assert b'filename="one.txt"' in body
+    assert b'filename="two.md"' in body
+    assert b"ONE" in body
+    assert b"# TWO" in body
+    # корректный завершающий разделитель.
+    assert body.rstrip(b"\r\n").endswith(f"--{boundary}--".encode())
+
+
+def test_build_multipart_sanitizes_filename() -> None:
+    body, _ = build_multipart({}, [('a"b\n.txt', b"x")])
+    assert b'filename="a%22b .txt"' in body
+
+
+# ── --to адресаты: разбор, раскрытие @all, постановка строкой в начало ───────────
+
+
+def test_parse_recipients_flatten_normalize_dedup() -> None:
+    # повторяемый + значения через пробел; ведущая @ добавляется; дубли (регистр) убираются.
+    assert parse_recipients(["@all @ivan", "petr", "@IVAN"]) == ["@all", "@ivan", "@petr"]
+    assert parse_recipients([]) == []
+
+
+def test_expand_recipients_all_to_owner() -> None:
+    line, mentioned = expand_recipients(["@all", "@ivan"], "ownerlogin")
+    assert line == "@ownerlogin @ivan"
+    assert mentioned == ["ownerlogin", "ivan"]
+
+
+def test_expand_recipients_all_dedup_with_explicit_owner() -> None:
+    # @all → owner, а owner уже указан явно — без дубля.
+    line, mentioned = expand_recipients(["@all", "@ownerlogin"], "ownerlogin")
+    assert line == "@ownerlogin"
+    assert mentioned == ["ownerlogin"]
+
+
+def test_expand_recipients_no_owner_keeps_all_literal() -> None:
+    line, mentioned = expand_recipients(["@all", "@ivan"], None)
+    assert line == "@all @ivan"
+    # @all не резолвится → в список упомянутых логинов не попадает.
+    assert mentioned == ["ivan"]
+
+
+def test_prepend_recipients_separate_line() -> None:
+    assert prepend_recipients("привет", "@ivan") == "@ivan\n\nпривет"
+    # пустой текст → только строка адресатов.
+    assert prepend_recipients("   ", "@ivan") == "@ivan"
+    # нет адресатов → текст без изменений.
+    assert prepend_recipients("привет", "") == "привет"
 
 
 # ── resolve_ref: точное совпадение названия в приоритете над подстрокой ──────────

@@ -11,8 +11,10 @@ Bearer-auth, retry на 429 (rate-limit Kaiten — 5 req/s). Новых зави
 from __future__ import annotations
 
 import json
+import mimetypes
 import sys
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Any, cast
 from urllib.error import HTTPError
@@ -436,6 +438,36 @@ def parse_card_detail(raw: dict[str, Any], base_url: str) -> KaitenCardDetail:
     )
 
 
+def build_multipart(fields: dict[str, str], files: list[tuple[str, bytes]]) -> tuple[bytes, str]:
+    """Собрать тело multipart/form-data: текстовые поля + файлы.
+
+    Чистая функция (без I/O), покрыта тестами. Каждый файл кладётся отдельным part'ом
+    под именем `files[]` — именно так Kaiten принимает вложения комментария (поле `files[]`,
+    по одному part на файл), привязывая их к создаваемому комментарию. `files` — список
+    `(имя_файла, содержимое)`. Возврат: `(тело, значение заголовка Content-Type)`.
+    """
+    boundary = f"----mpu{uuid.uuid4().hex}"
+    crlf = b"\r\n"
+    chunks: list[bytes] = []
+    for name, value in fields.items():
+        chunks.append(f"--{boundary}".encode())
+        chunks.append(f'Content-Disposition: form-data; name="{name}"'.encode())
+        chunks.append(b"")
+        chunks.append(value.encode("utf-8"))
+    for filename, content in files:
+        # Имя в заголовке не должно содержать кавычек/переводов строки — иначе ломается part.
+        safe = filename.replace('"', "%22").replace("\r", " ").replace("\n", " ")
+        mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        chunks.append(f"--{boundary}".encode())
+        chunks.append(f'Content-Disposition: form-data; name="files[]"; filename="{safe}"'.encode())
+        chunks.append(f"Content-Type: {mime}".encode())
+        chunks.append(b"")
+        chunks.append(content)
+    chunks.append(f"--{boundary}--".encode())
+    chunks.append(b"")
+    return crlf.join(chunks), f"multipart/form-data; boundary={boundary}"
+
+
 # ── I/O-клиент (HTTP, тестами не покрывается — как miro/slapi) ──────────────────
 
 
@@ -458,6 +490,7 @@ class KaitenClient:
         path: str,
         query: dict[str, str] | None = None,
         body: Any | None = None,
+        raw: tuple[bytes, str] | None = None,
     ) -> Any:
         url = f"{self.api_base}{path}"
         if query:
@@ -467,7 +500,11 @@ class KaitenClient:
             "Accept": "application/json",
         }
         data: bytes | None = None
-        if body is not None:
+        if raw is not None:
+            # Готовое тело (напр. multipart/form-data) — не сериализуем как JSON.
+            data, content_type = raw
+            headers["Content-Type"] = content_type
+        elif body is not None:
             data = json.dumps(body).encode("utf-8")
             headers["Content-Type"] = "application/json"
 
@@ -619,13 +656,23 @@ class KaitenClient:
             return []
         return [parse_custom_property(p) for p in cast("list[dict[str, Any]]", res)]
 
-    def add_comment(self, card_id: int, text: str) -> KaitenComment:
+    def add_comment(
+        self, card_id: int, text: str, files: list[tuple[str, bytes]] | None = None
+    ) -> KaitenComment:
         """POST /cards/{id}/comments — добавить комментарий от имени владельца токена.
 
         Автор определяется сервером по `KITEN_API_KEY` (отдельного поля автора нет —
         комментарий всегда «от моего имени»). Возвращает созданный комментарий.
+
+        Без `files` — JSON-тело `{text}`. С вложениями (`[(имя, байты)]`) — один POST
+        multipart/form-data: поле `text` + по одному `files[]` на файл; Kaiten создаёт
+        комментарий и привязывает файлы к нему (`file.comment_id` = id комментария).
         """
-        res = self._request("POST", f"/cards/{card_id}/comments", body={"text": text})
+        if not files:
+            res = self._request("POST", f"/cards/{card_id}/comments", body={"text": text})
+            return parse_comment(res)
+        raw = build_multipart({"text": text}, files)
+        res = self._request("POST", f"/cards/{card_id}/comments", raw=raw)
         return parse_comment(res)
 
     def move_card(

@@ -509,16 +509,27 @@ def card(
 
 
 def resolve_comment_text(
-    message: str | None, body_file: str | None, *, stdin_read: Callable[[], str]
+    message: str | None,
+    body_file: str | None,
+    *,
+    stdin_read: Callable[[], str],
+    require_text: bool = True,
 ) -> str:
     """Текст комментария из ровно одного источника: `-m TEXT` или `-F PATH` (`-` — stdin).
 
     Чистая функция (stdin приходит callback'ом, файл читается по пути) — тестируется без
     сети. Зеркало `mpu mr`.resolve_body, держится локально, чтобы `mpu kiten` не тянул
     зависимости command-модуля mr.
+
+    `require_text=False` (есть вложения) — текст необязателен: оба источника опущены → `""`,
+    пустой текст не считается ошибкой (комментарий-вложение без подписи допустим).
     """
-    if (message is None) == (body_file is None):
-        raise typer.BadParameter("нужно ровно одно из -m/--message и -F/--body-file")
+    if message is not None and body_file is not None:
+        raise typer.BadParameter("нельзя одновременно -m/--message и -F/--body-file")
+    if message is None and body_file is None:
+        if require_text:
+            raise typer.BadParameter("нужно ровно одно из -m/--message и -F/--body-file")
+        return ""
     if message is not None:
         text = message
     elif body_file == "-":
@@ -528,9 +539,27 @@ def resolve_comment_text(
             text = Path(str(body_file)).read_text(encoding="utf-8")
         except OSError as e:
             raise typer.BadParameter(f"не удалось прочитать {body_file}: {e}") from None
-    if not text.strip():
+    if require_text and not text.strip():
         raise typer.BadParameter("пустой текст комментария")
     return text
+
+
+def read_attachments(paths: list[str]) -> list[tuple[str, bytes]]:
+    """Прочитать файлы-вложения по путям → `[(имя_файла, байты)]` (в порядке аргументов).
+
+    Несуществующий путь или не обычный файл → `typer.BadParameter` (не голый `OSError`),
+    чтобы CLI дал понятную ошибку. Имя в Kaiten — базовое имя файла (без каталога).
+    """
+    out: list[tuple[str, bytes]] = []
+    for path in paths:
+        p = Path(path)
+        if not p.is_file():
+            raise typer.BadParameter(f"файл-вложение не найден: {path}")
+        try:
+            out.append((p.name, p.read_bytes()))
+        except OSError as e:
+            raise typer.BadParameter(f"не удалось прочитать вложение {path}: {e}") from None
+    return out
 
 
 # В Kaiten нет литерального «@all»: упоминание — это plain-текст `@username`, который сервер
@@ -563,6 +592,55 @@ def _expand_all_to_owner(text: str, card: KaitenCardDetail) -> tuple[str, list[s
     if owner and owner.username:
         return expand_all_mention(text, [owner.username]), [owner.username]
     return text, []
+
+
+def parse_recipients(values: list[str]) -> list[str]:
+    """`--to` (повторяемый; каждое значение — один или несколько хэндлов через пробел) →
+    плоский список токенов в порядке появления, без дублей (без учёта регистра), с ведущим `@`.
+
+    `@all` сохраняется как есть — раскрывается в владельца карточки на следующем шаге
+    (`expand_recipients`). Чистая функция.
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        for token in value.split():
+            handle = token if token.startswith("@") else f"@{token}"
+            key = handle.lower()
+            if key not in seen:
+                seen.add(key)
+                out.append(handle)
+    return out
+
+
+def expand_recipients(tokens: list[str], owner_username: str | None) -> tuple[str, list[str]]:
+    """Токены адресатов (`@handle`, `@all`) → (строка `@a @b`, реально упомянутые логины).
+
+    `@all` → `@<owner_username>` (заказчик карточки); если владельца нет — токен остаётся `@all`
+    (вызывающий предупреждает, сервер его не резолвит). Дубликаты после раскрытия убираются
+    (без учёта регистра, порядок сохраняется). Пустой вход → `("", [])`. Чистая функция.
+    """
+    handles: list[str] = []
+    seen: set[str] = set()
+    for token in tokens:
+        handle = f"@{owner_username}" if (token.lower() == "@all" and owner_username) else token
+        if handle.lower() not in seen:
+            seen.add(handle.lower())
+            handles.append(handle)
+    line = " ".join(handles)
+    mentioned = [h[1:] for h in handles if h.lower() != "@all"]
+    return line, mentioned
+
+
+def prepend_recipients(text: str, recipients_line: str) -> str:
+    """Строку адресатов — в начало ОТДЕЛЬНОЙ строкой; ниже (если есть) текст через пустую строку.
+
+    Пустая строка адресатов → текст без изменений. Пустой текст → только строка адресатов.
+    Чистая функция.
+    """
+    if not recipients_line:
+        return text
+    return f"{recipients_line}\n\n{text}" if text.strip() else recipients_line
 
 
 def plan_field_actions(
@@ -599,36 +677,78 @@ def comment(
     body_file: Annotated[
         str | None, typer.Option("--body-file", "-F", help="Файл с телом; `-` — stdin")
     ] = None,
+    files: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--file",
+            "-f",
+            help="Файл-вложение (САМ файл, не его текст); повторяй -f для нескольких файлов",
+        ),
+    ] = None,
+    to: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--to",
+            help="Адресат(ы): @all (→ заказчик) и/или @username; в начало отдельной строкой. "
+            'Повторяй --to или передай несколько через пробел в кавычках ("@all @ivan")',
+        ),
+    ] = None,
 ) -> None:
     """Добавить комментарий к карточке от своего имени (автор — владелец KITEN_API_KEY).
 
-    Токен `@all` разворачивается в `@username` ВЛАДЕЛЬЦА карточки (заказчик — кому отвечаем):
-    в Kaiten нет литерального `@all`, это алиас редактора → `@<username владельца>` (берётся
-    из `owner` самой карточки); упоминание = plain-текст `@логин`, сервер уведомляет.
+    Текст — `-m TEXT` или `-F PATH` (`-` — stdin). Вложения — `-f PATH` (повторяемо): сами
+    файлы прикрепляются к комментарию (не их содержимое в текст). С вложениями/адресатами
+    текст необязателен — можно прислать один комментарий из текста, файлов и упоминаний сразу.
+
+    Адресаты — `--to @all @username …` (повторяемо или через пробел в кавычках): пишутся
+    самой первой ОТДЕЛЬНОЙ строкой, затем пустая строка и текст. `@all` в `--to` и в самом
+    тексте разворачивается в `@username` ВЛАДЕЛЬЦА карточки (заказчик — кому отвечаем):
+    в Kaiten нет литерального `@all`, это алиас → `@<username владельца>` (берётся из `owner`
+    карточки); упоминание = plain-текст `@логин`, сервер уведомляет.
     """
     try:
         card_id = parse_card_ref(selector)
     except ValueError as e:
         raise typer.BadParameter(str(e)) from None
-    text = resolve_comment_text(message, body_file, stdin_read=sys.stdin.read)
+    attachments = read_attachments(files) if files else []
+    recipients = parse_recipients(to or [])
+    text = resolve_comment_text(
+        message,
+        body_file,
+        stdin_read=sys.stdin.read,
+        require_text=not (attachments or recipients),
+    )
     client = KaitenClient.from_env()
     mentioned: list[str] = []
     try:
-        if ALL_MENTION_RE.search(text):
-            text, mentioned = _expand_all_to_owner(text, client.get_card(card_id))
-            if not mentioned:
-                typer.echo(
-                    f"{COMMAND_NAME} comment: у карточки нет владельца с username — "
-                    "оставляю '@all' как есть",
-                    err=True,
-                )
-        created = client.add_comment(card_id, text)
+        # Владелец нужен, если есть `--to` или `@all` в тексте — берём карточку один раз.
+        need_owner = bool(recipients) or bool(ALL_MENTION_RE.search(text))
+        card = client.get_card(card_id) if need_owner else None
+        owner_username = card.owner.username if (card and card.owner) else None
+        no_owner = need_owner and not owner_username
+        if no_owner:
+            typer.echo(
+                f"{COMMAND_NAME} comment: у карточки нет владельца с username — "
+                "оставляю '@all' как есть",
+                err=True,
+            )
+        if card is not None and ALL_MENTION_RE.search(text):
+            text, in_text = _expand_all_to_owner(text, card)
+            mentioned.extend(in_text)
+        if recipients:
+            line, to_mentioned = expand_recipients(recipients, owner_username)
+            text = prepend_recipients(text, line)
+            mentioned.extend(to_mentioned)
+        created = client.add_comment(card_id, text, files=attachments or None)
     except KaitenAPIError as e:
         typer.echo(f"{COMMAND_NAME} comment: kaiten error: {e}", err=True)
         raise typer.Exit(code=1) from None
     typer.echo(f"ok: комментарий {created.id} → {card_url(client.base_url, card_id)}")
+    if attachments:
+        typer.echo(f"   вложения: {', '.join(name for name, _ in attachments)}")
     if mentioned:
-        typer.echo(f"   @all → {' '.join('@' + h for h in mentioned)}")
+        unique = list(dict.fromkeys(mentioned))
+        typer.echo(f"   адресаты: {' '.join('@' + h for h in unique)}")
 
 
 @app.command("move")
