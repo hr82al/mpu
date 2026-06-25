@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import random
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -87,7 +88,7 @@ class WebappClient:
     quota_delay_seconds: float = DEFAULT_QUOTA_DELAY_SECONDS
     not_found_retries: int = DEFAULT_NOT_FOUND_RETRIES
     not_found_delay_seconds: float = DEFAULT_NOT_FOUND_DELAY_SECONDS
-    _sleeper: Any = field(default=time.sleep)
+    _sleeper: Callable[[float], None] = field(default=time.sleep)
     _transport: Any = field(default=None)  # для тестов — httpx.MockTransport
 
     @classmethod

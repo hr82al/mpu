@@ -10,7 +10,7 @@ import json
 import sys
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -26,6 +26,16 @@ class FrameRef:
     y: float
     w: float
     h: float
+
+
+class MiroItem(TypedDict):
+    """Элемент доски из Miro REST (`GET /items`) — только поля, которые мы читаем."""
+
+    id: str
+    type: NotRequired[str]
+    position: NotRequired[dict[str, float]]
+    geometry: NotRequired[dict[str, float]]
+    data: NotRequired[dict[str, str]]
 
 
 class MiroClient:
@@ -72,12 +82,13 @@ class MiroClient:
         while True:
             qs = "?limit=50" + (f"&cursor={cursor}" if cursor else "")
             res = self._request("GET", f"/items{qs}&type=frame")
-            for it in res.get("data", []):
+            items: list[MiroItem] = res.get("data", []) or []
+            for it in items:
                 if it.get("type") != "frame":
                     continue
-                pos = it.get("position", {}) or {}
-                geo = it.get("geometry", {}) or {}
-                title = ((it.get("data") or {}).get("title")) or ""
+                pos: dict[str, float] = it.get("position") or {}
+                geo: dict[str, float] = it.get("geometry") or {}
+                title = (it.get("data") or {}).get("title") or ""
                 out.append(
                     FrameRef(
                         id=it["id"],
@@ -170,7 +181,8 @@ class MiroClient:
             if cursor:
                 qs += f"&cursor={cursor}"
             res = self._request("GET", f"/items{qs}")
-            for it in res.get("data", []) or []:
+            items: list[MiroItem] = res.get("data", []) or []
+            for it in items:
                 out.append((it["id"], it.get("type", "")))
             cursor = (res.get("cursor") or "") or None
             if not cursor:

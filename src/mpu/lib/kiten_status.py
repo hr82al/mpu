@@ -111,12 +111,29 @@ def load_emoji_overrides() -> dict[str, str]:
     return {str(k).casefold(): str(v) for k, v in data_dict.items()}
 
 
+def load_column_map() -> dict[str, str]:
+    """Переопределения имя_колонки→метка из .env `KITEN_COLUMN_MAP` (JSON; ключ — имя колонки).
+
+    Пусто/невалидный JSON/не объект → `{}` (без замены). Ключи casefold."""
+    raw = env.get("KITEN_COLUMN_MAP")
+    if not raw or not raw.strip():
+        return {}
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    data_dict = cast("dict[str, object]", data)
+    return {str(k).casefold(): str(v) for k, v in data_dict.items()}
+
+
 def emoji_for(column: str, overrides: dict[str, str] | None = None) -> str:
-    """Эмодзи статуса по названию колонки: override → точное «Готово» (✅) → правила → дефолт."""
+    """Эмодзи по колонке: override → точные «Готово»/«Выполнено» (✅) → правила → дефолт."""
     key = column.casefold()
     if overrides and key in overrides:
         return overrides[key]
-    if key == "готово":
+    if key in ("готово", "выполнено"):
         return _DONE_EMOJI
     for sub, emo in _EMOJI_RULES:
         if sub in key:
@@ -134,11 +151,14 @@ def build_status_text(
     *,
     label: str,
     emoji_overrides: dict[str, str] | None = None,
+    column_overrides: dict[str, str] | None = None,
 ) -> str:
     """Нумерованный markdown-список перемещённых сегодня карточек (новые сверху).
 
     Дедуп по `card_id` — остаётся запись с наибольшим `moved_at`. Формат строки:
-    `N. [Title](url) — Колонка эмодзи`. Пустой список → строка «перемещений не было»."""
+    `N. [Title](url) — Колонка эмодзи`. Имя колонки заменяется по `column_overrides`
+    (из .env `KITEN_COLUMN_MAP`) при совпадении, и эмодзи берётся уже по заменённому имени.
+    Пустой список → строка «перемещений не было»."""
     latest: dict[int, StatusEntry] = {}
     for entry in entries:
         current = latest.get(entry.card_id)
@@ -151,6 +171,11 @@ def build_status_text(
     lines = [header, ""]
     for n, entry in enumerate(items, start=1):
         title = _md_escape(entry.title) if entry.title else f"#{entry.card_id}"
-        emo = emoji_for(entry.column, emoji_overrides)
-        lines.append(f"{n}. [{title}]({entry.url}) — {entry.column} {emo}")
+        column = (
+            column_overrides.get(entry.column.casefold(), entry.column)
+            if column_overrides
+            else entry.column
+        )
+        emo = emoji_for(column, emoji_overrides)
+        lines.append(f"{n}. [{title}]({entry.url}) — {column} {emo}")
     return "\n".join(lines)

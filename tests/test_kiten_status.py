@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+import pytest
+
 from mpu.lib import kiten_status
 from mpu.lib.kiten_status import MSK, StatusEntry, build_status_text
 
@@ -58,6 +60,8 @@ def test_iso_to_epoch() -> None:
 
 def test_emoji_done_exact_only() -> None:
     assert kiten_status.emoji_for("Готово") == "✅"
+    # «Выполнено» — тоже done-колонка → зелёная галочка.
+    assert kiten_status.emoji_for("Выполнено") == "✅"
     # «Готово к код-ревью» — НЕ done: получает эмодзи своего этапа (ревью), не галочку.
     assert kiten_status.emoji_for("Готово к код-ревью") == "👀"
 
@@ -65,6 +69,23 @@ def test_emoji_done_exact_only() -> None:
 def test_emoji_default_and_override() -> None:
     assert kiten_status.emoji_for("Нечто непонятное") == "🔹"
     assert kiten_status.emoji_for("Очередь", {"очередь": "🅾️"}) == "🅾️"
+
+
+# ── load_column_map (из .env KITEN_COLUMN_MAP, ключ — имя колонки) ─────────────────
+
+
+def test_load_column_map_by_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(kiten_status.env, "_loaded", True)
+    monkeypatch.setenv("KITEN_COLUMN_MAP", '{"Тут только выполненные карточки!": "Выполнено"}')
+    assert kiten_status.load_column_map() == {"тут только выполненные карточки!": "Выполнено"}
+
+
+def test_load_column_map_empty_and_bad(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(kiten_status.env, "_loaded", True)
+    monkeypatch.delenv("KITEN_COLUMN_MAP", raising=False)
+    assert kiten_status.load_column_map() == {}
+    monkeypatch.setenv("KITEN_COLUMN_MAP", "не json")
+    assert kiten_status.load_column_map() == {}
 
 
 # ── build_status_text ───────────────────────────────────────────────────────────
@@ -97,6 +118,15 @@ def test_build_status_dedup_latest_wins() -> None:
     assert text.count("https://btlz.kaiten.ru/100") == 1
     assert "Готово ✅" in text
     assert "Код-ревью" not in text
+
+
+def test_build_status_column_override_renames_and_checkmarks() -> None:
+    # длинное имя done-колонки заменяется по KITEN_COLUMN_MAP → «Выполнено» + ✅.
+    entries = [_entry(100, title="A", column="Тут только выполненные карточки!", moved_at=20)]
+    overrides = {"тут только выполненные карточки!": "Выполнено"}
+    text = build_status_text(entries, label="L", column_overrides=overrides)
+    assert "— Выполнено ✅" in text
+    assert "Тут только выполненные карточки!" not in text
 
 
 def test_build_status_missing_title_fallback_and_escape() -> None:

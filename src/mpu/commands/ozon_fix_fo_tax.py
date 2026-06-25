@@ -149,7 +149,7 @@ def _node_step(
     это и есть fail-fast для всей цепочки.
     """
     if dry_run:
-        from mpu.lib.cli_wrap import _build_inner  # private helper, ok inside package
+        from mpu.lib.cli_wrap import _build_inner  # pyright: ignore[reportPrivateUsage]
 
         inner = _build_inner(
             entry="cli",

@@ -110,7 +110,8 @@ def _complete_sku(ctx: typer.Context, incomplete: str) -> list[str]:
     )
     try:
         with pg.connect_to(server_number, timeout=2) as conn, conn.cursor() as cur:
-            cur.execute(sql, (safe_prefix + "%",))
+            # psycopg expects LiteralString; sql — f-string из валидированного int client_id (safe).
+            cur.execute(sql, (safe_prefix + "%",))  # type: ignore[arg-type]
             return [str(row[0]) for row in cur.fetchall()]
     except Exception:
         return []
@@ -368,7 +369,7 @@ def main(
     }
 
     if verbose:
-        from mpu.lib.cli_wrap import _build_inner  # private helper, ok inside package
+        from mpu.lib.cli_wrap import _build_inner  # pyright: ignore[reportPrivateUsage]
 
         inner = _build_inner(
             entry="cli",

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -18,7 +18,9 @@ from mpu.lib.sheet_resolver import (
 
 
 @pytest.fixture
-def conn(tmp_path: Path, bootstrap_db: Callable[[Path | str], None]) -> sqlite3.Connection:
+def conn(
+    tmp_path: Path, bootstrap_db: Callable[[Path | str], None]
+) -> Iterator[sqlite3.Connection]:
     db = tmp_path / "mpu.db"
     bootstrap_db(db)
     c = store.open_store(db)

@@ -256,7 +256,7 @@ def _build_logql(
     `grep_regex` → по одному `|~` (regex) на каждый. Несколько фильтров
     AND-ятся (как отдельные contains-клаузы в Grafana).
     """
-    label_parts = []
+    label_parts: list[str] = []
     if host is not None:
         label_parts.append(f'host="{_escape_label(host)}"')
     else:

@@ -7,6 +7,7 @@
 
 from collections.abc import Iterator
 from pathlib import Path
+from typing import cast
 
 import pytest
 import typer
@@ -467,7 +468,8 @@ def test_cli_parallel_runs_all_without_abort(
     runner = CliRunner()
     result = runner.invoke(run_js.app, ["--all", "--parallel", "console.log(1)"])
     assert result.exit_code == 1  # sl-2 упал
-    assert sorted(int(s["server_number"]) for s in seen) == [1, 2, 3]  # но все отработали
+    # server_number — int (см. _fake_run); dict-значение шире (object) → сужаем.
+    assert sorted(cast(int, s["server_number"]) for s in seen) == [1, 2, 3]  # но все отработали
     # вне главного потока signal.signal недопустим → manage_signals выключен
     assert all(s["manage_signals"] is False for s in seen)
 
@@ -517,7 +519,8 @@ def test_cli_detach_launches_all(env_file: Path, monkeypatch: pytest.MonkeyPatch
     runner = CliRunner()
     result = runner.invoke(run_js.app, ["--all", "--detach", "console.log(1)"])
     assert result.exit_code == 0, result.output
-    assert sorted(int(s["server_number"]) for s in seen) == [1, 2, 3]
+    # server_number — int (см. _fake_detach); dict-значение шире (object) → сужаем.
+    assert sorted(cast(int, s["server_number"]) for s in seen) == [1, 2, 3]
     assert len({s["run_id"] for s in seen}) == 1  # один run_id на все таргеты
     assert all(s["js"] == b"console.log(1)" for s in seen)
     assert "собрать логи" in result.output

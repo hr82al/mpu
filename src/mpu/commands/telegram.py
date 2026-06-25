@@ -206,6 +206,7 @@ def status(
         entries,
         label=kiten_status.today_label(),
         emoji_overrides=kiten_status.load_emoji_overrides(),
+        column_overrides=kiten_status.load_column_map(),
     )
     if dry_run:
         typer.echo(text)

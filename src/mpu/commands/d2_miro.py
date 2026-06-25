@@ -55,7 +55,11 @@ def _html_inline(s: str) -> str:
     return _re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
 
 
-def _md_blocks(md: str) -> list[tuple[str, object]]:
+# Блок markdown: ('text', html_str) | ('table', list[list[str]] строк).
+Block = tuple[str, str | list[list[str]]]
+
+
+def _md_blocks(md: str) -> list[Block]:
     """Разбить markdown на последовательность блоков:
     ('text', html_str) — обычный текст (заголовки, абзацы, списки, **bold**)
     ('table', rows)   — таблица как list[list[str]], первый ряд — заголовок
@@ -67,7 +71,7 @@ def _md_blocks(md: str) -> list[tuple[str, object]]:
     import re as _re
 
     lines = md.split("\n")
-    blocks: list[tuple[str, object]] = []
+    blocks: list[Block] = []
     cur_text: list[str] = []
 
     def flush_text() -> None:
@@ -202,10 +206,10 @@ def _table_layout(rows: list[list[str]], total_width: float) -> tuple[list[float
 
 
 def _render_markdown(
-    client,  # type: ignore[no-untyped-def]
+    client: MiroClient,
     *,
     frame_id: str,
-    blocks: list[tuple[str, object]],
+    blocks: list[Block],
     x_center: float,
     y_top: float,
     width: float,
@@ -231,7 +235,7 @@ def _render_markdown(
             # Если за текстом идёт таблица — выравниваем ширину текста под таблицу,
             # чтобы заголовок встал ровно над ней (а не растянулся на весь md-блок).
             text_width = width
-            if next_is_table:
+            if next_is_table and next_block:
                 next_rows = next_block[1] if isinstance(next_block[1], list) else []
                 if next_rows:
                     next_col_w, _ = _table_layout(next_rows, width)
@@ -292,7 +296,7 @@ def _render_markdown(
     return cur_y
 
 
-def _estimate_md_height(blocks: list[tuple[str, object]], width: float) -> float:
+def _estimate_md_height(blocks: list[Block], width: float) -> float:
     """Оценить высоту markdown-блока в Miro. Симметрично с _render_markdown,
     включая компактную упаковку «заголовок + таблица»."""
     text_line_h = 24.0
@@ -316,12 +320,6 @@ def _estimate_md_height(blocks: list[tuple[str, object]], width: float) -> float
                 _, row_h = _table_layout(rows, width)
                 h += sum(row_h) + _TABLE_PAD
     return h
-
-
-def _md_to_html(md: str) -> str:
-    """Backward-compat wrapper: только не-табличная часть markdown -> HTML.
-    Для полного рендера (с таблицами) используйте _md_blocks + _render_markdown."""
-    return _text_lines_to_html(md)
 
 
 def _ensure_svg(d2_path: Path, skip_render: bool) -> Path:
@@ -451,7 +449,7 @@ def main(
     # text-блок ~ visible_lines * line_h.
     md_only_in_d2 = [n for n, sh in d2_shapes.items() if sh.kind == "markdown" and n not in layout]
     md_padding = 80.0
-    md_blocks_per_name: dict[str, list[tuple[str, object]]] = {
+    md_blocks_per_name: dict[str, list[Block]] = {
         n: _md_blocks(d2_shapes[n].label) for n in md_only_in_d2
     }
     # Ширина markdown-области = 90% фрейма (та же, что в рендере) — нужна для

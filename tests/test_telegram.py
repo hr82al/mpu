@@ -578,7 +578,7 @@ def test_search_messages_global_from_without_query_raises(monkeypatch: pytest.Mo
 
 
 def test_truncate_status_message() -> None:
-    from mpu.commands.telegram import _truncate
+    from mpu.commands.telegram import _truncate  # pyright: ignore[reportPrivateUsage]
 
     assert _truncate("короткий", 100) == "короткий"
     out = _truncate("x" * 5000, 100)

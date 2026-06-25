@@ -23,6 +23,7 @@ import typer
 
 from mpu.lib import pg
 from mpu.lib.cli_wrap import (
+    FlagValue,
     auto_pick_int,
     emit_node_cli,
     pick_wrapper,
@@ -97,7 +98,8 @@ def _complete_sku(ctx: typer.Context, incomplete: str) -> list[str]:
     )
     try:
         with pg.connect_to(server_number, timeout=2) as conn, conn.cursor() as cur:
-            cur.execute(sql, (safe_prefix + "%",))
+            # psycopg expects LiteralString; sql — f-string из валидированного int client_id (safe).
+            cur.execute(sql, (safe_prefix + "%",))  # type: ignore[arg-type]
             return [str(row[0]) for row in cur.fetchall()]
     except Exception:
         return []
@@ -227,7 +229,7 @@ def main(
     )
     dt_to = date_to or datetime.date.today().isoformat()
 
-    flags = {
+    flags: dict[str, FlagValue] = {
         "--client-id": cid,
         "--date-from": date_from,
         "--date-to": dt_to,
@@ -240,7 +242,7 @@ def main(
     if verbose:
         # _build_inner — приватный helper из mpu.lib.cli_wrap. Используем для
         # верификационной печати inner-команды без выполнения.
-        from mpu.lib.cli_wrap import _build_inner
+        from mpu.lib.cli_wrap import _build_inner  # pyright: ignore[reportPrivateUsage]
 
         inner = _build_inner(
             entry="cli",

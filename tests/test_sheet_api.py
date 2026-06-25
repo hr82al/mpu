@@ -98,7 +98,8 @@ def test_quota_in_app_error_retries_with_quota_delay() -> None:
 
     client, sleeps = _make_client(httpx.MockTransport(handler))
     assert client.call("x") == {"ok": True}
-    assert sleeps[0] == pytest.approx(0.001)
+    # pytest 9 типизирует approx как частично-unknown (стаб) → подавляем на строке.
+    assert sleeps[0] == pytest.approx(0.001)  # pyright: ignore[reportUnknownMemberType]
 
 
 def test_app_error_non_quota_is_fatal() -> None:
@@ -180,7 +181,8 @@ def test_429_treated_as_quota() -> None:
 
     client, sleeps = _make_client(httpx.MockTransport(handler))
     assert client.call("x") == {"ok": True}
-    assert sleeps[0] == pytest.approx(0.001)
+    # pytest 9 типизирует approx как частично-unknown (стаб) → подавляем на строке.
+    assert sleeps[0] == pytest.approx(0.001)  # pyright: ignore[reportUnknownMemberType]
 
 
 def test_batch_get_payload_shape() -> None:

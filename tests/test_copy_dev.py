@@ -1,5 +1,7 @@
 """Тесты `mpu copy-dev` (mpu.commands.copy_dev)."""
 
+from typing import TypedDict
+
 import pytest
 from typer.testing import CliRunner
 
@@ -9,9 +11,20 @@ from mpu.lib.pg import PgConfigError
 
 runner = CliRunner()
 
+# Лог вызовов `_FakeCursor`/`_FakeDb`: ("execute", sql) | ("commit",) и т.п.
+_LogRow = tuple[str, ...]
+
+
+class _Captured(TypedDict):
+    """Перехваченные в фикстуре `captured` вызовы pg-инструментов и копирований строк."""
+
+    pg_tools: list[tuple[str, list[str]]]  # (label, argv)
+    public_rows: list[int]  # client_id
+    main_rows: list[int]  # client_id
+
 
 class _FakeCursor:
-    def __init__(self, log: list) -> None:
+    def __init__(self, log: list[_LogRow]) -> None:
         self._log = log
 
     def __enter__(self) -> "_FakeCursor":
@@ -25,7 +38,7 @@ class _FakeCursor:
 
 
 class _FakeDb:
-    def __init__(self, log: list) -> None:
+    def __init__(self, log: list[_LogRow]) -> None:
         self._log = log
 
     def __enter__(self) -> "_FakeDb":
@@ -50,7 +63,7 @@ class _FakeConn:
         self.dbname = dbname
         self.user = "u"
         self.password = "p"
-        self.db_log: list = []
+        self.db_log: list[_LogRow] = []
 
     def connect(self, **_: object) -> _FakeDb:
         return _FakeDb(self.db_log)
@@ -66,8 +79,8 @@ def fake_conns(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def captured(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
-    calls: dict[str, list] = {"pg_tools": [], "public_rows": [], "main_rows": []}
+def captured(monkeypatch: pytest.MonkeyPatch) -> _Captured:
+    calls: _Captured = {"pg_tools": [], "public_rows": [], "main_rows": []}
 
     def _tool(argv: list[str], conn: object, label: str) -> None:
         calls["pg_tools"].append((label, argv))
@@ -84,7 +97,7 @@ def captured(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
     return calls
 
 
-def test_workspaces_no_arg(fake_conns: None, captured: dict[str, list]) -> None:
+def test_workspaces_no_arg(fake_conns: None, captured: _Captured) -> None:
     res = runner.invoke(cmd.app, [])
 
     assert res.exit_code == 0, res.output
@@ -100,7 +113,7 @@ def test_workspaces_no_arg(fake_conns: None, captured: dict[str, list]) -> None:
     assert captured["main_rows"] == []  # workspaces — без токен-строк на sl-0
 
 
-def test_client_arg(fake_conns: None, captured: dict[str, list]) -> None:
+def test_client_arg(fake_conns: None, captured: _Captured) -> None:
     res = runner.invoke(cmd.app, ["54"])
 
     assert res.exit_code == 0, res.output
@@ -113,9 +126,7 @@ def test_client_arg(fake_conns: None, captured: dict[str, list]) -> None:
     assert captured["main_rows"] == [54]  # токен-строки → sl-0 (main)
 
 
-def test_pg_config_error_bubbles_up(
-    monkeypatch: pytest.MonkeyPatch, captured: dict[str, list]
-) -> None:
+def test_pg_config_error_bubbles_up(monkeypatch: pytest.MonkeyPatch, captured: _Captured) -> None:
     def _raise() -> pg.PgConn:
         raise PgConfigError("dev workspaces creds: задайте DEV_WORKSPACES_USER")
 

@@ -16,9 +16,9 @@ import typer
 
 from mpu.commands.kiten import (
     LsFilters,
-    _card_to_markdown,
-    _expand_all_to_owner,
-    _left_neighbor_column,
+    _card_to_markdown,  # pyright: ignore[reportPrivateUsage]
+    _expand_all_to_owner,  # pyright: ignore[reportPrivateUsage]
+    _left_neighbor_column,  # pyright: ignore[reportPrivateUsage]
     build_updated_window,
     coalesce,
     expand_all_mention,
@@ -953,7 +953,7 @@ def test_plan_field_actions_sets_only_empty() -> None:
 
 
 def test_plan_field_actions_force_overwrites() -> None:
-    current = {"hypothesis": "уже есть"}
+    current: dict[str, str | None] = {"hypothesis": "уже есть"}
     to_set, skipped = plan_field_actions(current, {"hypothesis": "h"}, force=True)
     assert to_set == [("hypothesis", "h")]
     assert skipped == []
