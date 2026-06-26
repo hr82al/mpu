@@ -43,6 +43,7 @@ class _FakeTg:
         self.resolve_calls: list[tuple[str | None, str | None]] = []
         self.parse_calls: list[str] = []
         self.send_calls: list[tuple[str | int, str, str | None]] = []
+        self.send_file_calls: list[tuple[str | int, list[str], str | None, str | None]] = []
         self.list_calls: list[int] = []
         self.search_entities_calls: list[tuple[str, int]] = []
         self.search_messages_calls: list[tuple[str, str | int | None, str | int | None, int]] = []
@@ -73,6 +74,21 @@ class _FakeTg:
     ) -> telegram.TgSentMessage:
         _ = cfg
         self.send_calls.append((target, text, parse_mode))
+        if self.send_error is not None:
+            raise self.send_error
+        return self.sent
+
+    async def send_file(
+        self,
+        cfg: telegram.TgConfig,
+        target: str | int,
+        files: list[str],
+        *,
+        caption: str | None = None,
+        parse_mode: str | None = None,
+    ) -> telegram.TgSentMessage:
+        _ = cfg
+        self.send_file_calls.append((target, files, caption, parse_mode))
         if self.send_error is not None:
             raise self.send_error
         return self.sent
@@ -132,6 +148,7 @@ def fake_tg(monkeypatch: pytest.MonkeyPatch) -> _FakeTg:
     monkeypatch.setattr(telegram, "resolve_chat", fake.resolve_chat)
     monkeypatch.setattr(telegram, "parse_chat_target", fake.parse_chat_target)
     monkeypatch.setattr(telegram, "send_message", fake.send_message)
+    monkeypatch.setattr(telegram, "send_file", fake.send_file)
     monkeypatch.setattr(telegram, "list_dialogs", fake.list_dialogs)
     monkeypatch.setattr(telegram, "search_entities", fake.search_entities)
     monkeypatch.setattr(telegram, "search_messages", fake.search_messages)
@@ -231,6 +248,50 @@ def test_send_from_env_error(fake_tg: _FakeTg, monkeypatch: pytest.MonkeyPatch) 
     result = runner.invoke(telegram_cmd.app, ["send", "привет", "--chat", "me"])
     assert result.exit_code == 1
     assert "TELEGRAM_API_ID" in result.output
+    assert fake_tg.send_calls == []
+
+
+def test_send_with_file(fake_tg: _FakeTg, tmp_path: Path) -> None:
+    f = tmp_path / "diff.zip"
+    f.write_bytes(b"zip")
+    result = runner.invoke(telegram_cmd.app, ["send", "url", "--chat", "me", "-f", str(f)])
+    assert result.exit_code == 0, result.output
+    # текст ушёл подписью, путь — в send_file; текстовый send не дёргался.
+    assert fake_tg.send_file_calls == [("target-chat", [str(f)], "url", None)]
+    assert fake_tg.send_calls == []
+    assert json.loads(result.output) == {
+        "id": 99,
+        "chat_id": -100500,
+        "date": "2026-06-25T10:00:00+00:00",
+    }
+
+
+def test_send_multiple_files_with_md(fake_tg: _FakeTg, tmp_path: Path) -> None:
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    a.write_text("a")
+    b.write_text("b")
+    result = runner.invoke(
+        telegram_cmd.app, ["send", "cap", "--chat", "me", "--md", "-f", str(a), "-f", str(b)]
+    )
+    assert result.exit_code == 0, result.output
+    assert fake_tg.send_file_calls == [("target-chat", [str(a), str(b)], "cap", "md")]
+
+
+def test_send_file_empty_caption(fake_tg: _FakeTg, tmp_path: Path) -> None:
+    """Пустой текст при наличии файла допустим → подпись None (не падаем на «пустой текст»)."""
+    f = tmp_path / "x.zip"
+    f.write_bytes(b"x")
+    result = runner.invoke(telegram_cmd.app, ["send", "", "-f", str(f)])
+    assert result.exit_code == 0, result.output
+    assert fake_tg.send_file_calls == [("target-chat", [str(f)], None, None)]
+
+
+def test_send_missing_file_fails_without_io(fake_tg: _FakeTg, tmp_path: Path) -> None:
+    missing = tmp_path / "nope.zip"
+    result = runner.invoke(telegram_cmd.app, ["send", "url", "-f", str(missing)])
+    assert result.exit_code != 0
+    assert fake_tg.send_file_calls == []  # валидация до сети
     assert fake_tg.send_calls == []
 
 

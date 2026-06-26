@@ -318,6 +318,54 @@ async def send_message(
         await _disconnect(client)
 
 
+async def send_file(
+    cfg: TgConfig,
+    target: str | int,
+    files: list[str],
+    *,
+    caption: str | None = None,
+    parse_mode: str | None = None,
+) -> TgSentMessage:
+    """Отправить файл(ы) `files` в `target` как документ-вложение (force_document).
+
+    `caption` — подпись (к последнему файлу при нескольких); `parse_mode="md"` — Markdown в
+    подписи. Несколько путей telethon шлёт альбомом и возвращает list[Message] — берём
+    последнее. TgNotAuthorizedError если нет сессии.
+    """
+    from telethon.errors import FloodWaitError, RPCError
+
+    client = _make_client(cfg)
+    try:
+        await _ensure_authorized(client)
+        try:
+            # telethon-стаб типизирует caption/parse_mode строго (str, без None), но рантайм
+            # принимает None как «без подписи / без разметки» (дефолты метода). Как с proxy в
+            # _make_client — стаб строже рантайма, подавляем точечно.
+            sent = await client.send_file(
+                target,
+                files,
+                force_document=True,
+                caption=caption,  # pyright: ignore[reportArgumentType]
+                parse_mode=parse_mode,  # pyright: ignore[reportArgumentType]
+            )
+        except ValueError as e:
+            raise TgError(f"telegram: не удалось найти чат {target!r}: {e}") from None
+        except FloodWaitError as e:
+            raise TgError(f"telegram: rate-limit, подожди {e.seconds}s") from None
+        except RPCError as e:
+            raise TgError(f"telegram: RPC error: {e}") from None
+        msg = sent[-1] if isinstance(sent, list) else sent
+        date = msg.date.isoformat() if msg.date is not None else None
+        chat_id = getattr(msg, "chat_id", None)
+        return TgSentMessage(
+            id=int(msg.id),
+            chat_id=int(chat_id) if chat_id is not None else 0,
+            date=date,
+        )
+    finally:
+        await _disconnect(client)
+
+
 async def list_dialogs(cfg: TgConfig, limit: int) -> list[TgDialog]:
     """Последние диалоги (id, title, kind, username) — чтобы найти адресата для --chat."""
     from telethon.errors import FloodWaitError, RPCError

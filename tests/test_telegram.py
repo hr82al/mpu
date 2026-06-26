@@ -663,6 +663,7 @@ class _FakeSendClient:
         self._send_error = send_error
         self._disconnect_none = disconnect_none
         self.sent: tuple[object, object, object] | None = None
+        self.sent_file: tuple[object, object, object, object, object] | None = None
 
     async def connect(self) -> None:
         pass
@@ -674,6 +675,20 @@ class _FakeSendClient:
         self, target: object, text: object, *, parse_mode: object = None
     ) -> object:
         self.sent = (target, text, parse_mode)
+        if self._send_error is not None:
+            raise self._send_error
+        return self._send_result
+
+    async def send_file(
+        self,
+        target: object,
+        file: object,
+        *,
+        caption: object = None,
+        parse_mode: object = None,
+        force_document: object = None,
+    ) -> object:
+        self.sent_file = (target, file, caption, parse_mode, force_document)
         if self._send_error is not None:
             raise self._send_error
         return self._send_result
@@ -775,6 +790,64 @@ def test_send_message_rpc_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None
     _patch_client(monkeypatch, fake)
     with pytest.raises(TgError):
         asyncio.run(telegram.send_message(_make_cfg(), "@dev", "hi"))
+
+
+# ── send_file ────────────────────────────────────────────────────────────────
+
+
+def test_send_file_single_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Один путь → отправка документом (force_document=True), метаданные из Message."""
+    fake = _FakeSendClient(send_result=SimpleNamespace(id=42, date=_iso(), chat_id=-100500))
+    _patch_client(monkeypatch, fake)
+    res = asyncio.run(
+        telegram.send_file(_make_cfg(), "me", ["/tmp/a.zip"], caption="hi", parse_mode="md")
+    )
+    assert fake.sent_file == ("me", ["/tmp/a.zip"], "hi", "md", True)
+    assert res.id == 42
+    assert res.chat_id == -100500
+    assert res.date == "2026-06-18T10:00:00+00:00"
+
+
+def test_send_file_list_result_takes_last(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Альбом → telethon отдаёт list[Message]; берём последнее (тут date/chat_id пусты)."""
+    first = SimpleNamespace(id=1, date=_iso(), chat_id=-1)
+    last = SimpleNamespace(id=2, date=None, chat_id=None)
+    fake = _FakeSendClient(send_result=[first, last])
+    _patch_client(monkeypatch, fake)
+    res = asyncio.run(telegram.send_file(_make_cfg(), 7, ["/tmp/a", "/tmp/b"]))
+    assert res.id == 2
+    assert res.chat_id == 0
+    assert res.date is None
+
+
+def test_send_file_not_authorized_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeSendClient(authorized=False)
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(telegram.TgNotAuthorizedError):
+        asyncio.run(telegram.send_file(_make_cfg(), "me", ["/tmp/a"]))
+    assert fake.sent_file is None  # до отправки не дошли
+
+
+def test_send_file_value_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeSendClient(send_error=ValueError("no such chat"))
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(telegram.send_file(_make_cfg(), "@ghost", ["/tmp/a"]))
+
+
+def test_send_file_flood_wait_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeSendClient(send_error=_flood_error(15))
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError) as excinfo:
+        asyncio.run(telegram.send_file(_make_cfg(), "me", ["/tmp/a"]))
+    assert "15s" in str(excinfo.value)
+
+
+def test_send_file_rpc_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeSendClient(send_error=_rpc_error())
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(telegram.send_file(_make_cfg(), "me", ["/tmp/a"]))
 
 
 # ── list_dialogs ─────────────────────────────────────────────────────────────

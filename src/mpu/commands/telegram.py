@@ -1,9 +1,10 @@
 """`mpu telegram <send|ls>` — Telegram от имени пользователя (telethon, user-session).
 
-- `mpu telegram send "<текст>" [--chat X] [--md]` — отправить сообщение. Адресат: `--chat`
-  (override) или `TELEGRAM_DEFAULT_CHAT` из .env. Принимает `@username`, числовой id,
-  ссылку t.me, телефон или `me` (Избранное). `-` вместо текста → читать из stdin.
-  `--md` — Markdown (`[текст](url)` → ссылка).
+- `mpu telegram send "<текст>" [--chat X] [--md] [-f PATH ...]` — отправить сообщение или
+  файл(ы). Адресат: `--chat` (override) или `TELEGRAM_DEFAULT_CHAT` из .env. Принимает
+  `@username`, числовой id, ссылку t.me, телефон или `me` (Избранное). `-` вместо текста →
+  читать из stdin. `--md` — Markdown (`[текст](url)` → ссылка). `-f/--file PATH` — приложить
+  файл документом (повторяй для нескольких); текст становится подписью (допускается пустой).
 - `mpu telegram ls [запрос] [--limit N] [--table]` — найти адресата (id, title, kind,
   username): с аргументом — поиск по имени/@username (контакты + глобально), без — последние
   диалоги. По умолчанию JSON; `--table` — для человека.
@@ -28,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+from pathlib import Path
 from typing import Annotated, NoReturn
 
 import typer
@@ -66,6 +68,14 @@ def _fail(message: str) -> NoReturn:
     raise typer.Exit(code=1)
 
 
+def _validate_files(paths: list[str]) -> list[str]:
+    """Проверить, что каждый путь-вложение существует и это файл; вернуть пути как есть."""
+    for path in paths:
+        if not Path(path).is_file():
+            raise typer.BadParameter(f"файл-вложение не найден: {path}", param_hint="--file")
+    return paths
+
+
 @app.command("send")
 def send(
     message: Annotated[str, typer.Argument(help="Текст сообщения; `-` — читать из stdin")],
@@ -81,22 +91,38 @@ def send(
         bool,
         typer.Option("--md", help="Markdown: [текст](url) → ссылка, **жирный**, `код` и т.п."),
     ] = False,
+    files: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--file",
+            "-f",
+            help="Файл-вложение (САМ файл, не его текст); повторяй -f для нескольких. "
+            "Текст становится подписью.",
+        ),
+    ] = None,
 ) -> None:
-    """Отправить сообщение в чат/группу/канал от имени пользователя.
+    """Отправить сообщение или файл(ы) в чат/группу/канал от имени пользователя.
 
     `--md` включает Markdown-разметку: `[текст](url)` становится кликабельной ссылкой.
+    `-f PATH` — приложить файл(ы) документом; текст уходит подписью (можно пустой).
     """
     text = sys.stdin.read() if message == "-" else message
-    if not text.strip():
+    paths = _validate_files(files) if files else []
+    if not paths and not text.strip():
         _fail("telegram: пустой текст сообщения")
     try:
         cfg = telegram.TgConfig.from_env()
         target = telegram.parse_chat_target(
             telegram.resolve_chat(chat, env.get("TELEGRAM_DEFAULT_CHAT"))
         )
-        result = asyncio.run(
-            telegram.send_message(cfg, target, text, parse_mode="md" if md else None)
-        )
+        parse_mode = "md" if md else None
+        if paths:
+            caption = text if text.strip() else None
+            result = asyncio.run(
+                telegram.send_file(cfg, target, paths, caption=caption, parse_mode=parse_mode)
+            )
+        else:
+            result = asyncio.run(telegram.send_message(cfg, target, text, parse_mode=parse_mode))
     except (TgNotAuthorizedError, TgError) as e:
         _fail(str(e))
     typer.echo(
