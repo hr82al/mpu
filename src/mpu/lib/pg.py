@@ -166,6 +166,20 @@ def dev_sl_conn() -> PgConn:
     return PgConn(host, port, dbname, user, password)
 
 
+def instance_conn(server_number: int) -> PgConn:
+    """PgConn к PG прод-инстанса `sl-<server_number>` — источник для `copy-client`.
+
+    Хост — `pg_<n>` из `~/.config/mpu/.env`; порт/пользователь/пароль/БД — те же
+    кредиты, что `connect_to` (`PG_MY_*`→`PG_MAIN_*`, `PG_PORT`, `PG_DB_NAME`). Нужен
+    как параметры (а не открытое соединение) для shell-out `pg_dump`.
+    """
+    host = servers.pg_ip(server_number)
+    if not host:
+        raise PgConfigError(f"PG host: не найдено pg_{server_number} в ~/.config/mpu/.env")
+    port, user, password, dbname = _credentials()
+    return PgConn(host, port, dbname, user, password)
+
+
 def dev_workspaces_conn() -> PgConn:
     """Dev sw-back PG (БД `workspaces`). Источник для `copy-dev` (без аргумента).
 

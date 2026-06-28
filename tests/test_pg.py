@@ -194,6 +194,23 @@ def test_connect_to_missing_password_raises(write_env: Callable[[str], Path]) ->
         pg.connect_to(1)
 
 
+# --- instance_conn: PgConn прод-инстанса (источник copy-client) --------------
+
+
+def test_instance_conn_params(write_env: Callable[[str], Path]) -> None:
+    write_env(
+        "pg_3='10.3.0.3'\nPG_PORT='5433'\nPG_DB_NAME='wbx'\n"
+        "PG_MY_USER_NAME='u'\nPG_MY_USER_PASSWORD='p'\n"
+    )
+    assert pg.instance_conn(3) == pg.PgConn("10.3.0.3", "5433", "wbx", "u", "p")
+
+
+def test_instance_conn_missing_host_raises(write_env: Callable[[str], Path]) -> None:
+    write_env("PG_MY_USER_NAME='u'\nPG_MY_USER_PASSWORD='p'\n")
+    with pytest.raises(pg.PgConfigError, match="pg_7"):
+        pg.instance_conn(7)
+
+
 def test_connect_main_uses_server_zero(
     write_env: Callable[[str], Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
