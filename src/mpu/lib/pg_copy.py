@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import tempfile
@@ -30,6 +31,9 @@ from psycopg import sql
 
 from mpu.lib import servers
 from mpu.lib.pg import PgConn
+
+# Контейнер Redis локального sl-main (sl-0). main internal-api читает clients-кэш отсюда.
+_MAIN_REDIS_CONTAINER = "mp-sl-0-redis"
 
 # public-таблицы клиента (фильтр по client_id). `spreadsheets` — родитель SPREADSHEET_TABLES.
 CLIENT_ID_TABLES = (
@@ -281,11 +285,15 @@ def dump_restore_schema(src_conn: PgConn, dst_conn: PgConn, schema: str, *, src_
 
 
 def grant_client_role(dst_conn: PgConn, client_id: int) -> None:
-    """Завести роль `client_<id>` (если нет) и выдать ей права на `schema_<id>`.
+    """Завести роль `client_<id>` (если нет), выдать права на `schema_<id>` и задать
+    её role-default `search_path`.
 
     Локальный sl-back ходит в клиентскую схему per-client ролью `client_<id>`
-    (`clientDB.getConnection`), а `pg_restore --no-privileges` прав не переносит —
-    без этого гранта web видит «relation … does not exist». Идемпотентно. Пароль роли —
+    (`clientDB.getConnection`), а `pg_restore --no-privileges` ни прав, ни search_path не
+    переносит. Без ГРАНТА web видит «permission denied»; без `search_path` — unqualified
+    запросы (`SELECT … FROM wb_unit_nm_id`) ищут таблицу в `public` и падают
+    «relation … does not exist» (clientDB резолвит схему ТОЛЬКО через role-default
+    search_path, выставляемый при логине). Идемпотентно. Пароль роли —
     `PG_CLIENT_USER_PASSWORD` из `~/.config/mpu/.env` (под ним коннектится clientDB).
     """
     role = f"client_{client_id}"
@@ -314,8 +322,69 @@ def grant_client_role(dst_conn: PgConn, client_id: int) -> None:
             cur.execute(
                 sql.SQL("GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA {} TO {}").format(sch, r)
             )
+            # Role-default search_path: при логине под client_<id> PG выставляет его,
+            # и unqualified запросы из clientDB резолвятся в schema_<id> (зеркало миграции
+            # 00000000000003_update_search_path__to_schema_and_shared). ALTER ROLE SET —
+            # идемпотентен (перезаписывает значение).
+            cur.execute(sql.SQL("ALTER ROLE {} SET search_path TO {}, shared").format(r, sch))
         conn.commit()
-    typer.echo(f"  · права на {schema} выданы роли {role} (clientDB-доступ web)", err=True)
+    typer.echo(
+        f"  · права + search_path на {schema} выданы роли {role} (clientDB-доступ web)", err=True
+    )
+
+
+def seed_main_clients_cache(main_conn: PgConn, client_id: int) -> bool:
+    """Засеять Redis-кэш `sl-main:clients:<id>` на sl-main (mp-sl-0-redis) из `public.clients`.
+
+    `proxyToInstance` в main internal-api резолвит клиента в инстанс ТОЛЬКО через этот
+    Redis-кэш (`clientsCache.findOne`, без PG-fallback): нет ключа → `404 client <id> not
+    found` на всех web-data ручках (`/v1/filters/unit`, `/checklist`, `/rnp`, …). copy-client
+    пишет строку `clients` в PG напрямую (минуя `MainClientsService.set`, который и кладёт
+    ключ), поэтому кэш не наполняется сам. Значение — `row_to_json` строки клиента (тот же
+    JSON, что писал бы сервис). Best-effort: запись через `docker exec redis-cli`
+    (паритет с `sw_seed.flush_sw_redis`), ошибки контейнера не валят копию. Возвращает
+    `True`, если строка клиента нашлась и команда отправлена.
+    """
+    with main_conn.connect() as conn, conn.cursor() as cur:
+        cur.execute(
+            sql.SQL("SELECT row_to_json(c) FROM public.clients c WHERE id = {}").format(
+                sql.Literal(client_id)
+            )
+        )
+        row = cur.fetchone()
+    if not row or row[0] is None:
+        typer.echo(
+            f"  · clients-кэш sl-main:clients:{client_id} НЕ засеян: нет строки в public.clients",
+            err=True,
+        )
+        return False
+    payload = row[0] if isinstance(row[0], str) else json.dumps(row[0])
+    try:
+        subprocess.run(
+            [
+                "docker",
+                "exec",
+                "-i",
+                _MAIN_REDIS_CONTAINER,
+                "redis-cli",
+                "-x",
+                "SET",
+                f"sl-main:clients:{client_id}",
+            ],
+            input=payload,
+            text=True,
+            check=False,
+            capture_output=True,
+            timeout=15,
+        )
+    except Exception as e:  # best-effort: контейнера/docker нет — копия в PG уже готова
+        typer.echo(f"  · WARN clients-кэш sl-main:clients:{client_id} не записан ({e})", err=True)
+        return False
+    typer.echo(
+        f"  · clients-кэш sl-main:clients:{client_id} засеян (proxy-резолв main internal-api)",
+        err=True,
+    )
+    return True
 
 
 def copy_public_rows(

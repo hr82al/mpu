@@ -32,6 +32,12 @@ def _stub_seed(
     monkeypatch.setattr(sw_seed, "flush_sw_redis", lambda: None)
     monkeypatch.setattr(sw_seed, "seed_login_workspace", _seed)
 
+    # main clients-кэш пишется через docker exec redis-cli — заглушить (тест не ходит в docker).
+    def _seed_cache(conn: object, cid: int) -> bool:
+        return True
+
+    monkeypatch.setattr(pg_copy, "seed_main_clients_cache", _seed_cache)
+
 
 def _resolve_to(server: int, candidates: list[dict[str, object]]):
     def _resolve(
@@ -217,7 +223,9 @@ def test_full_flow_schema_present(fake_resolve: None, monkeypatch: pytest.Monkey
     assert "public.clients" in res.output and "public.wb_tokens" in res.output
     assert "2 строк" in res.output and "? строк" in res.output  # rowcount>=0 и <0
     assert "pg_dump schema_54" in res.output and "pg_restore schema_54" in res.output
-    assert "права на schema_54 выданы роли client_54" in res.output  # grant clientDB-доступа
+    assert (
+        "права + search_path на schema_54 выданы роли client_54" in res.output
+    )  # grant + search_path
     assert "client 54" in res.output
     assert (
         "http://sw.localhost/login → client_54@local.host / 123123" in res.output

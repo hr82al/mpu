@@ -109,6 +109,9 @@ def main(
     pg_copy.grant_client_role(dst, client_id)
     pg_copy.copy_public_rows(src, dst, client_id)
     pg_copy.copy_main_rows(src, main_dst, client_id)
+    # main internal-api резолвит клиента через Redis clients-кэш (без PG-fallback) — засеять,
+    # иначе web-data ручки отвечают «client not found» даже при наличии строки в public.clients.
+    pg_copy.seed_main_clients_cache(main_dst, client_id)
 
     # пост-действие: вход в локальный sw-front под этим клиентом (idempotent).
     # Не фейлит копию: схема+данные уже на месте, проводку sw-back можно догнать повтором.
