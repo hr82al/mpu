@@ -18,9 +18,7 @@
 - production-сервисы, реактивные джобы, листенеры — это домен sl-back / sw-back;
 - код, который вызывается из sl-back / sw-back при обработке запросов клиентов.
 
-Отдельный `.git` — `mpu` версионируется независимо, как `sl-back` / `sw-back` / `sw-front`.
-
-**Ветки не создавать.** Вся работа в `mpu` идёт прямо в `main`: без feature-веток и без MR (в отличие от sl-back/sw-back/sw-front с их `dev` + MR). Коммитить и пушить в `main`.
+Отдельный `.git` — `mpu` версионируется независимо, как `sl-back` / `sw-back` / `sw-front`. Ветки/MR не создавать, работать прямо в `main` (как и `mp`; см. корневой Git & MR workflow).
 
 ## Стек (зафиксирован)
 
@@ -145,37 +143,27 @@ uv run pytest --cov=mpu --cov-report=term-missing --cov-fail-under=95
 1. Понять задачу. Если она ссылается на уже существующее поведение в `new-mpu` (`~/mr/workspace/go/mpu/`) — прочитать соответствующий код TS-версии для контекста и **подтвердить с пользователем**, нужно ли такое же поведение, или другое.
 2. Перед новой зависимостью / новым файлом в корне / новой схемой БД / новой командой / именами флагов — **спросить пользователя до создания**.
 3. Внутри согласованной структуры — действовать самостоятельно:
-   - новая команда → `src/mpu/commands/<name>.py` с `COMMAND_NAME` / `COMMAND_SUMMARY` константами и `app = typer.Typer(...)`; зарегистрировать kebab-имя в `cli_registry.py` (в `COMMANDS`) и добавить модуль в `_REGISTERED_MODULES` `commands/help.py`
+   - новая команда → см. «Регистрация новой команды» (раздел «Архитектура bin'ов»)
    - shared логика для группы команд → `commands/_<name>.py` (см. `_backup_unit_proto.py`)
    - shared утилита уровня lib (резолв, БД, env) → `lib/<name>.py`
    - тесты — рядом с модулем в `tests/test_<module>.py`
 
 ## Сейчас в репо
 
-| subcommand | модуль | назначение |
+Источник истины по командам — `cli_registry.COMMANDS` + `mpu help` / `<cmd> --help` (root и `p`-обёртки: `PRINT_COMMANDS`/`PORTAINER_COMMANDS`); по api — `mpu api --help` / `_mpuapi_spec.COMMANDS`. Доменные детали команды — в её `--help` и в соответствующем `tool-*`/`conv-*` скиле; здесь только тонкий индекс `команда → модуль`.
+
+| subcommand | модуль | назначение (детали — `--help` / skill) |
 | ---------- | ------ | ---------- |
-| `mpu version` | `cli.py` | версия пакета |
-| `mpu init` | `cli.py` | bootstrap SQLite + Portainer/Loki discovery |
-| `mpu mp-init` | `commands/mp_init.py` | поднять локальный dev-стек (mp-config-local): создать `mp-shared-net` + `up -d --force-recreate` для core (nats/sl-0/sl-1/nginx/dt-host, в т.ч. простаивающие `cli`/`dt-host-cli`; sl-0/sl-1 — с local-stack override'ами `OBSERVABILITY_ENABLED=false`, иначе otel-preload роняет флот на образе без otel-пакетов) и web-стека (`mp/local-stack`: sw-front/sw-back/sl-front + sw-back pg/redis; гасит конфликтующие mp-sw-api/nextjs-dev/mp-sl-front-dev); core-образы НЕ собирает (стоп при отсутствии `mp-back`/`mp-pg`/`mp-dt:local`), нет `sl-front-dev:local` → warning; `--dry-run`; ENV `MPU_MP_CONFIG_LOCAL` |
-| `mpu search` | `commands/search.py` | поиск клиента / spreadsheet в локальном SQLite-кэше; **email-селектор** (`mpu search user@example.com`) резолвит email→client_id через 10X (sw-back) admin API: staff-login→impersonation→workspace.id; кэш результата+сессий в sqlite (`x10_email_clients`/`x10_sessions`), `--refresh-cache` форсит, `--reason` (default `ТП <дата>`) логируется на проде. Только `mpu search` инициирует impersonation; прочие команды на email — cache-only. ENV `X10_URL` (хост, `/api` добавляется авто) + `X10_LOGIN`/`X10_PASSWORD` (staff-аккаунт 10X — ОТДЕЛЬНАЯ от sl-back auth, `TOKEN_*` тут → 401). См. skill `tool-mpu-search-email` |
-| `mpu update` | `commands/update.py` | синк `~/.config/mpu/mpu.db` со всех PG-серверов |
-| `mpu sql` | `commands/sql.py` | выполнить SQL на удалённом PG по селектору (read+write; для записи требует подтверждения в Claude Code) |
-| `mpu sql-ro` | `commands/sql_ro.py` | enforced read-only SQL (`default_transaction_read_only=on`, запись → SQLSTATE 25006); авто-разрешаемый read-вариант `mpu sql`. См. skill `conv-mpu-readonly-split` |
-| `mpu sheet` | `commands/sheet.py` | Google Spreadsheets (прокси к `new-mpu sheet`, переходный) |
-| `mpu xlsx` | `commands/xlsx.py` | локальные `.xlsx` (прокси к `new-mpu xlsx`, переходный) |
-| `mpu backup-wb-unit-proto` | `commands/backup_wb_unit_proto.py` | CTAS-бэкап `wb_unit_proto` в `backups`-схему |
-| `mpu backup-ozon-unit-proto` | `commands/backup_ozon_unit_proto.py` | CTAS-бэкап `ozon_unit_proto` в `backups`-схему |
-| `mpu backup-wb-unit-manual-data` | `commands/backup_wb_unit_manual_data.py` | CTAS-бэкап `wb_unit_manual_data` в `backups`-схему |
-| `mpu telegram` | `commands/telegram.py` | Telegram от имени пользователя (telethon): `send` — отправить сообщение, `ls` — диалоги, `search` — поиск ПО СОДЕРЖИМОМУ сообщений (без `--chat` — глобально; `--chat` — в одном чате; `--from` — фильтр по отправителю: внутри чата серверно, глобально клиентски), `status [--chat][--live/--no-live][--dry-run]` — нумерованный список карточек Kaiten, перемещённых мной сегодня (МСК) из журнала `kaiten_card_moves` + live `location-history`, `N. [title](url) — колонка эмодзи`; вход — при `mpu init`, прокси только для telethon через `TELEGRAM_PROXY` (НЕ `HTTPS_PROXY` в .env — утечёт в окружение и проксирует весь mpu) |
-| `mpu mr` | `commands/mr.py` | GitLab MR code-review: `view`/`files`/`diff` — чтение MR (шапка+описание / список файлов +N/-M / unified-diff с `--file`); `create --target --title` — создать MR (source/project из cwd); `describe` — заменить описание MR; `comment FILE:LINE` — инлайн-комментарий под строкой диффа; `comments`/`show` — треды (`--unresolved`/`--md`/`--json`); `reply`/`edit`/`delete`/`resolve`; `--mr` URL \| `'group/repo!iid'` \| iid, без флага — MR текущей ветки; ENV `GLAB_TOKEN` |
-| `mpu glab-status` | `commands/glab_status.py` | Мои GitLab MR одной таблицей: строка — MR, колонки-ветки `trunk/main/dev/qa/predprod/prod` с галочкой `✅` там, куда merge-коммит уже долетел (ветка содержит коммит, через `commits/:sha/refs`). `--since` (дефолт 7d, по `updated_at`), `--repos` (дефолт sw-front/sl-front/sw-back/sl-back/mp-config-local, группа `wb/`; короткое имя или путь, через запятую/повтором), `--json`. Состояния open+merged, сортировка `(репо, id)`, адаптивная ширина (режется только `title`). ENV `GLAB_TOKEN`/`GITLAB_BASE_URL` |
-| `mpu kiten` | `commands/kiten.py` | Kaiten (btlz.kaiten.ru): `card <id\|url>` — карточка (`--md`/`--json`); `ls` — мои карточки + фильтры space/board/lane/column/state/дата; `comment <card> -m\|-F` — коммент от своего имени (+ `-f PATH` повторяемо — прикрепить САМИ файлы к комментарию через multipart `files[]`; + `--to @all @user` — адресаты первой отдельной строкой, `@all`→владелец; с файлами/адресатами текст необязателен); `move <card> --lane\|--column\|--board` / `ready <card>` (→«Готово») / `review <card>` (→ревью) — перемещение (точный матч названия колонки в приоритете; каждое пишется в журнал `kaiten_card_moves`; уже в целевой колонке → авто релог-bump влево→обратно, т.к. Kaiten не логирует ход в ту же колонку); `close <card>` — «закрыть»: заполнить ПУСТЫЕ обязательные поля + (опц.) ответ клиенту (`@all`→`@username` владельца) + перенос в «Готово» с релогом, `--dry-run`/`--force-fields`/`--no-move` (детерминированный оркестратор для скила `proc-kiten-close`); `field set\|ls\|update\|rm <card> <mr\|hypothesis\|done\|result>` — значение в кастомное поле карточки + история в sqlite (несколько MR на карточку); `spaces`/`boards`/`lanes`/`columns` — справочник + кэш; `whoami`; ENV `KITEN_API_KEY`, `KITEN_LS_*`, `KITEN_READY_COLUMN`/`KITEN_REVIEW_COLUMN`/`KITEN_STATUS_EMOJI` |
-| `mpu help` | `commands/help.py` | список команд + проброс `--help` каждой |
-| (любая node-CLI обёртка) | `commands/<X>.py` | по дефолту exec через Portainer; `mpu <X> --print` / `-p` — print + clipboard режим |
-| `mpu api <X>` | `commands/_mpuapi_*.py` | HTTP-клиенты для sl-back endpoints (~86 шт) |
-
-Полный список subcommand'ов root и `p`: см. `PRINT_COMMANDS` и `PORTAINER_COMMANDS` в `cli_registry.py`. Полный список api: `mpu api --help` или `COMMANDS` в `commands/_mpuapi_spec.py`.
-
-## Язык
-
-Документация и общение — русский. Идентификаторы, имена команд, имена флагов — английский. (Совпадает с конвенциями монорепо.)
+| `version` / `init` / `update` | `cli.py` / `update.py` | версия / bootstrap SQLite+discovery / синк локального кэша с PG |
+| `mp-init` | `mp_init.py` | поднять локальный dev-стек (mp-config-local + `mp/local-stack`); ловушка: sl-0/sl-1 с `OBSERVABILITY_ENABLED=false` (иначе otel-preload роняет флот без otel-пакетов); core-образы не собирает; `--dry-run`; ENV `MPU_MP_CONFIG_LOCAL` |
+| `search` | `search.py` | поиск клиента/spreadsheet; email→client_id (10X impersonation) — skill `tool-mpu-search-email` |
+| `sql` / `sql-ro` | `sql.py` / `sql_ro.py` | ad-hoc SQL по селектору (write c подтверждением / enforced read-only) — skill `conv-mpu-readonly-split` |
+| `sheet` / `xlsx` | `sheet.py` / `xlsx.py` | Google Sheets / локальные `.xlsx` — skill `tool-mpu-sheet-xlsx` |
+| `backup-{wb,ozon}-unit-proto`, `backup-wb-unit-manual-data` | `backup_*.py` | CTAS-бэкап `*_proto` / `wb_unit_manual_data` в `backups`-схему |
+| `telegram` | `telegram.py` | Telegram от лица пользователя — skill `tool-mpu-telegram`. Ловушка: прокси только через `TELEGRAM_PROXY`, НЕ `HTTPS_PROXY` (утечёт на весь `mpu`) |
+| `mr` | `mr.py` | GitLab MR ревью — skill `tool-mpu-mr`; ENV `GLAB_TOKEN` |
+| `glab-status` | `glab_status.py` | мои GitLab MR одной таблицей (колонки-ветки `trunk/main/dev/qa/predprod/prod`, `✅`=merge долетел); `--since`/`--repos`/`--json`; ENV `GLAB_TOKEN`/`GITLAB_BASE_URL` |
+| `kiten` | `kiten.py` | Kaiten-карточки (`card`/`ls`/`comment`/`move`/`ready`/`review`/`close`/`field`/справочник) — skill `tool-mpu-kiten` |
+| `help` | `help.py` | список команд + проброс `--help` |
+| (node-CLI обёртка) | `commands/<X>.py` | exec через Portainer; `--print`/`-p` — print+clipboard |
+| `api <X>` | `_mpuapi_*.py` | HTTP-клиенты sl-back endpoints (~86) |
