@@ -83,8 +83,8 @@ def _resolve_target(selector: str) -> _ServerTarget | _ContainerTarget:
          чтобы не маскировать опечатку с легитимным client-селектором).
       4. Иначе — `resolve_server` (mpu search по client_id/spreadsheet_id/title).
     """
-    if selector.startswith("dev:"):
-        dn = servers.dev_server_number(selector[len("dev:") :])
+    if (dev_rest := servers.parse_dev_selector(selector)) is not None:
+        dn = servers.dev_server_number(dev_rest)
         if dn is None or dn < 0:
             typer.echo(
                 f"{COMMAND_NAME}: dev-селектор ожидает номер sl-сервера: `dev:N` (например dev:1), "

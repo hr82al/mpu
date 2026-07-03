@@ -309,12 +309,13 @@ def main(  # noqa: PLR0913
     Селектор `dev:N` → выполнение в `mp-sl-N-cli` на dev-ноде (ssh+docker); для dev
     `--client-id` обязателен (prod-поиск по client/title недоступен).
     """
-    is_dev = value.startswith("dev:")
+    dev_rest = servers.parse_dev_selector(value)
+    is_dev = dev_rest is not None
     resolved: Resolved | None = None
     wrapper: Wrapper = "portainer"
     dev_server: int | None = None
-    if is_dev:
-        dev_server = servers.dev_server_number(value[len("dev:") :])
+    if dev_rest is not None:
+        dev_server = servers.dev_server_number(dev_rest)
         if dev_server is None or dev_server < 0:
             typer.echo(
                 f"{COMMAND_NAME}: dev-селектор ожидает номер sl-сервера: `dev:N` (например dev:1)",

@@ -109,3 +109,16 @@ def test_server_number_by_ip_same_n_sl_and_pg(
     servers.reset_cache()
     assert servers.server_number_by_ip("2.2.2.2") == 3
     servers.reset_cache()
+
+
+def test_parse_dev_selector_extracts_rest() -> None:
+    """`dev:<rest>` → `<rest>` как есть (семантику хвоста трактует caller)."""
+    assert servers.parse_dev_selector("dev:1") == "1"
+    assert servers.parse_dev_selector("dev:sl-2") == "sl-2"
+    assert servers.parse_dev_selector("dev:") == ""
+
+
+def test_parse_dev_selector_non_dev_is_none() -> None:
+    assert servers.parse_dev_selector("sl-1") is None
+    assert servers.parse_dev_selector("4601") is None
+    assert servers.parse_dev_selector("Devclient") is None

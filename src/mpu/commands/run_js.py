@@ -160,8 +160,8 @@ def _resolve_targets(  # noqa: C901, PLR0912
 
     assert selector is not None
     # 0. dev:N — sl-N на dev-ноде (`mp-dev`, ssh+docker)
-    if selector.startswith("dev:"):
-        dn = servers.dev_server_number(selector[len("dev:") :])
+    if (dev_rest := servers.parse_dev_selector(selector)) is not None:
+        dn = servers.dev_server_number(dev_rest)
         if dn is None or dn < 0:
             typer.echo(
                 f"{COMMAND_NAME}: dev-селектор ожидает номер sl-сервера: `dev:N` (например dev:1), "

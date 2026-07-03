@@ -66,6 +66,21 @@ def server_number(name: str | None) -> int | None:
     return int(m.group(1)) if m else None
 
 
+DEV_SELECTOR_PREFIX = "dev:"
+
+
+def parse_dev_selector(value: str) -> str | None:
+    """`dev:<rest>` → `<rest>`; не dev-селектор → None.
+
+    Единственное место знания о префиксе. Семантику хвоста трактует caller:
+    у большинства команд это номер sl-сервера (`dev_server_number`), у `mpu sql` —
+    client_id на dev-ноде.
+    """
+    if not value.startswith(DEV_SELECTOR_PREFIX):
+        return None
+    return value[len(DEV_SELECTOR_PREFIX) :]
+
+
 def dev_server_number(rest: str) -> int | None:
     """Номер sl-сервера из хвоста `dev:`-селектора: `"1"` / `"sl-1"` → `1`, иначе `None`."""
     rest = rest.strip()

@@ -55,7 +55,7 @@ import typer
 
 from mpu.lib import servers
 from mpu.lib.clipboard import copy_to_clipboard
-from mpu.lib.resolver import ResolveError, resolve_server
+from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 # Whitelist для значений, попадающих в shell-обёртку.
 # Запрещаем spaces, $, `, ', ", \, ;, &, |, (, ), {, } —
@@ -125,7 +125,7 @@ def resolve_selector(
     except ResolveError as e:
         typer.echo(f"{command_name}: {e}", err=True)
         if e.candidates:
-            typer.echo(_format_candidates(e.candidates), err=True)
+            typer.echo(format_candidates(e.candidates), err=True)
         raise typer.Exit(code=2) from None
 
     selector = value or server or f"sl-{server_number}"
@@ -202,7 +202,7 @@ def require[T](
             err=True,
         )
         if candidates:
-            typer.echo(_format_candidates(candidates), err=True)
+            typer.echo(format_candidates(candidates), err=True)
         raise typer.Exit(code=2)
     return value
 
@@ -417,22 +417,6 @@ def _check_safe(flag: str, value: str, *, command_name: str) -> None:
             err=True,
         )
         raise typer.Exit(code=2)
-
-
-def _format_candidates(candidates: list[dict[str, object]]) -> str:
-    lines: list[str] = []
-    for c in candidates:
-        client_id = c.get("client_id")
-        server = c.get("server")
-        title = c.get("title")
-        ss = c.get("spreadsheet_id")
-        parts = [f"client_id={client_id}", f"server={server}"]
-        if title:
-            parts.append(f'title="{title}"')
-        if ss:
-            parts.append(f"spreadsheet_id={ss}")
-        lines.append("  " + "  ".join(parts))
-    return "\n".join(lines)
 
 
 def _kebab(flag_name: str) -> str:

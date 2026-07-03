@@ -18,7 +18,7 @@ from typing import Annotated
 
 import typer
 
-from mpu.lib import sql_runner, sql_sw
+from mpu.lib import servers, sql_runner, sql_sw
 from mpu.lib.resolver import ResolveError, resolve_server
 
 COMMAND_NAME = "mpu sql"
@@ -68,11 +68,11 @@ def dispatch(  # noqa: PLR0913
         typer.echo(f"{prog}: --json и --md взаимоисключающие", err=True)
         raise typer.Exit(code=2)
 
-    if selector.startswith("dev:"):
+    if (dev_rest := servers.parse_dev_selector(selector)) is not None:
         if server:
             typer.echo(f"{prog}: --server не сочетается с dev-селектором", err=True)
             raise typer.Exit(code=2)
-        rest = selector[len("dev:") :].strip()
+        rest = dev_rest.strip()
         dev_client_id = int(rest) if rest.isdigit() else None
         dev_sql_text = _read_sql(sql)
         if not dev_sql_text.strip():
