@@ -16,18 +16,24 @@ from __future__ import annotations
 import sqlite3
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from urllib.error import URLError
 
 from mpu.lib import env, store
 from mpu.lib.kaiten import (
     KaitenAPIError,
-    KaitenBoard,
     KaitenClient,
-    KaitenColumn,
-    KaitenCustomProperty,
-    KaitenLane,
-    KaitenSpace,
 )
+
+if TYPE_CHECKING:
+    # Только аннотации: runtime-импорт моделей тянет pydantic (~150 мс) в startup.
+    from mpu.lib.kaiten_models import (
+        KaitenBoard,
+        KaitenColumn,
+        KaitenCustomProperty,
+        KaitenLane,
+        KaitenSpace,
+    )
 
 
 @dataclass(frozen=True, slots=True)

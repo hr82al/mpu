@@ -509,18 +509,57 @@ def _live_client(*, fail: KaitenAPIError | None = None) -> KaitenClient:
     один чужой (B → отбрасывается), один без колонки (C → «—»)."""
     iso_from, _iso_to = kiten_status.today_iso_window()
     cards = [
-        KaitenCard(900, "Live A", 3, 1, None, iso_from, 7, 30, "https://btlz.kaiten.ru/900"),
-        KaitenCard(901, "Live B", 2, 1, None, iso_from, 7, 20, "https://btlz.kaiten.ru/901"),
-        KaitenCard(902, "Live C", 2, 1, None, iso_from, 7, None, "https://btlz.kaiten.ru/902"),
+        KaitenCard(
+            id=900,
+            title="Live A",
+            state=3,
+            condition=1,
+            updated=iso_from,
+            board_id=7,
+            column_id=30,
+            url="https://btlz.kaiten.ru/900",
+        ),
+        KaitenCard(
+            id=901,
+            title="Live B",
+            state=2,
+            condition=1,
+            updated=iso_from,
+            board_id=7,
+            column_id=20,
+            url="https://btlz.kaiten.ru/901",
+        ),
+        KaitenCard(
+            id=902,
+            title="Live C",
+            state=2,
+            condition=1,
+            updated=iso_from,
+            board_id=7,
+            column_id=None,
+            url="https://btlz.kaiten.ru/902",
+        ),
     ]
     columns = [
         KaitenColumn(id=30, board_id=7, title="Готово", sort_order=3.0),
         KaitenColumn(id=20, board_id=7, title="Разработка", sort_order=2.0),
     ]
     history: dict[int, list[KaitenLocationChange]] = {
-        900: [KaitenLocationChange(900, 30, None, ME_ID, "Me", iso_from)],
-        901: [KaitenLocationChange(901, 20, None, 999, "Other", iso_from)],
-        902: [KaitenLocationChange(902, None, None, ME_ID, "Me", iso_from)],
+        900: [
+            KaitenLocationChange(
+                card_id=900, column_id=30, author_id=ME_ID, author_name="Me", changed=iso_from
+            )
+        ],
+        901: [
+            KaitenLocationChange(
+                card_id=901, column_id=20, author_id=999, author_name="Other", changed=iso_from
+            )
+        ],
+        902: [
+            KaitenLocationChange(
+                card_id=902, column_id=None, author_id=ME_ID, author_name="Me", changed=iso_from
+            )
+        ],
     }
     return cast("KaitenClient", _FakeLiveClient(cards, columns, history, fail=fail))
 

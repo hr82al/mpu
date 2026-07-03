@@ -51,7 +51,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, cast
+from typing import TYPE_CHECKING, Annotated, cast
 
 import typer
 from rich.console import Console
@@ -62,15 +62,20 @@ from mpu.lib import env, kaiten_cache, kaiten_links, kaiten_render, store
 from mpu.lib.cli_out import print_json
 from mpu.lib.kaiten import (
     KaitenAPIError,
-    KaitenCard,
-    KaitenCardDetail,
     KaitenClient,
-    KaitenComment,
-    KaitenMember,
     card_url,
     parse_card_ref,
     state_label,
 )
+
+if TYPE_CHECKING:
+    # Только аннотации: runtime-импорт моделей тянет pydantic (~150 мс) в startup.
+    from mpu.lib.kaiten_models import (
+        KaitenCard,
+        KaitenCardDetail,
+        KaitenComment,
+        KaitenMember,
+    )
 
 COMMAND_NAME = "mpu kiten"
 COMMAND_SUMMARY = (
