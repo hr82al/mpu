@@ -24,7 +24,8 @@ import sqlite3
 import sys
 import time
 import webbrowser
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -547,41 +548,24 @@ def _make_run_py(
     return run_py
 
 
-@app.command("batch-update")
-def batch_update(
-    expr: Annotated[
-        list[str] | None,
-        typer.Option(
-            "-e",
-            "--expr",
-            help="Инструкции мини-языка (повторяемо; разделять ; или новой строкой).",
-        ),
-    ] = None,
-    spreadsheet: Annotated[
-        str | None,
-        typer.Option("-s", "--spreadsheet", help="Spreadsheet ID/URL/alias/client_id/title."),
-    ] = None,
-    sheet: Annotated[
-        str | None, typer.Option("-n", "--sheet", help="Лист по умолчанию (range без 'Tab!').")
-    ] = None,
-    from_file: Annotated[
-        str | None, typer.Option("--from", help="Скрипт из файла (`-` — stdin).")
-    ] = None,
-    dry_run: Annotated[
-        bool,
-        typer.Option("--dry-run", help="Скомпилировать и напечатать requests[], НЕ отправлять."),
-    ] = False,
-    allow_py: Annotated[
-        bool, typer.Option("--allow-py", help="Разрешить py{…} (exec Python для логики/генерации).")
-    ] = False,
-    literal: Annotated[
-        bool,
-        typer.Option(
-            "-l", "--literal", help="Значения как строки (RAW, не парсить формулы/числа)."
-        ),
-    ] = False,
-) -> None:
-    r"""Пакетная ЗАПИСЬ в таблицу: простые инструкции → ОДИН запрос Google (batchUpdate).
+@contextmanager
+def _exit_on_batch_errors() -> Generator[None]:
+    """BatchScriptError (ошибка скрипта, exit 2) / SheetApiError (ошибка API, exit 1)
+    → сообщение + typer.Exit. Общий обработчик четырёх одинаковых except-блоков."""
+    try:
+        yield
+    except BatchScriptError as e:
+        typer.echo(f"mpu sheet batch-update: {e}", err=True)
+        raise typer.Exit(code=2) from e
+    except SheetApiError as e:
+        typer.echo(f"mpu sheet batch-update: {e}", err=True)
+        raise typer.Exit(code=1) from e
+
+
+# Полный мануал мини-языка batch-update (тот же текст, что был докстрингом — --help не менялся).
+_BATCH_UPDATE_HELP = (
+    "Пакетная ЗАПИСЬ в таблицу: простые инструкции → ОДИН запрос Google (batchUpdate)."
+    r"""
 
     Пишешь по одной инструкции на строку (или через ;). Все они уходят вместе, одним запросом.
     Сначала проверь с --dry-run — покажет готовый requests[] и НЕ отправит.
@@ -676,21 +660,57 @@ def batch_update(
         set H2 = =A2*1.2"
 
     Подробно про мини-язык: mpu/docs/sheet-batch.md
-    """
+"""
+)
+
+
+@app.command("batch-update", help=_BATCH_UPDATE_HELP)
+def batch_update(
+    expr: Annotated[
+        list[str] | None,
+        typer.Option(
+            "-e",
+            "--expr",
+            help="Инструкции мини-языка (повторяемо; разделять ; или новой строкой).",
+        ),
+    ] = None,
+    spreadsheet: Annotated[
+        str | None,
+        typer.Option("-s", "--spreadsheet", help="Spreadsheet ID/URL/alias/client_id/title."),
+    ] = None,
+    sheet: Annotated[
+        str | None, typer.Option("-n", "--sheet", help="Лист по умолчанию (range без 'Tab!').")
+    ] = None,
+    from_file: Annotated[
+        str | None, typer.Option("--from", help="Скрипт из файла (`-` — stdin).")
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Скомпилировать и напечатать requests[], НЕ отправлять."),
+    ] = False,
+    allow_py: Annotated[
+        bool, typer.Option("--allow-py", help="Разрешить py{…} (exec Python для логики/генерации).")
+    ] = False,
+    literal: Annotated[
+        bool,
+        typer.Option(
+            "-l", "--literal", help="Значения как строки (RAW, не парсить формулы/числа)."
+        ),
+    ] = False,
+) -> None:
+    """Пакетная запись в таблицу одним batchUpdate; полный мануал мини-языка — в `--help`
+    (см. `_BATCH_UPDATE_HELP`) и `mpu/docs/sheet-batch.md`."""
     script = _gather_script(expr, from_file)
     if not script.strip():
         typer.echo("mpu sheet batch-update: пустой скрипт (-e / --from / stdin)", err=True)
         raise typer.Exit(code=2)
-    try:
+    with _exit_on_batch_errors():
         stmts = parse_update_script(script)
-    except BatchScriptError as e:
-        typer.echo(f"mpu sheet batch-update: {e}", err=True)
-        raise typer.Exit(code=2) from e
 
     conn = _open_db()
     try:
         resolved = _resolve_ss(conn, spreadsheet)
-        try:
+        with _exit_on_batch_errors():
             api = WebappClient.from_env()
             tabs = get_metadata(conn, api, resolved.ss_id, refresh=True)
             sid_by_title = {t.title: t.sheet_id for t in tabs}
@@ -703,12 +723,6 @@ def batch_update(
                 run_py=run_py,
                 literal=literal,
             )
-        except BatchScriptError as e:
-            typer.echo(f"mpu sheet batch-update: {e}", err=True)
-            raise typer.Exit(code=2) from e
-        except SheetApiError as e:
-            typer.echo(f"mpu sheet batch-update: {e}", err=True)
-            raise typer.Exit(code=1) from e
 
         if not requests:
             typer.echo("нет операций")
@@ -716,11 +730,8 @@ def batch_update(
         if dry_run:
             print_json({"requests": requests})
             return
-        try:
+        with _exit_on_batch_errors():
             resp = api.batch_update_spreadsheet(resolved.ss_id, requests)
-        except SheetApiError as e:
-            typer.echo(f"mpu sheet batch-update: {e}", err=True)
-            raise typer.Exit(code=1) from e
 
         title_by_id = {sid: title for title, sid in sid_by_title.items()}
         for sid in collect_sheet_ids(requests):

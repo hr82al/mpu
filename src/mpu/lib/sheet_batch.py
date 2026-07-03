@@ -89,7 +89,28 @@ def split_statements(text: str) -> list[str]:  # noqa: C901, PLR0912
     return out
 
 
-def tokenize(stmt: str) -> list[str]:  # noqa: C901, PLR0912, PLR0915
+def _scan_word(s: str, i: int) -> int:
+    """Индекс за концом слова от `s[i]`: пробел — граница, кавычки защищают пробелы
+    (`\\`-escape внутри кавычек). Общий автомат `tokenize`/`_rest_after`."""
+    n = len(s)
+    quote: str | None = None
+    while i < n and (quote is not None or not s[i].isspace()):
+        c = s[i]
+        if quote is not None:
+            if c == "\\":
+                i += 2
+                continue
+            if c == quote:
+                quote = None
+            i += 1
+            continue
+        if c in ("'", '"'):
+            quote = c
+        i += 1
+    return i
+
+
+def tokenize(stmt: str) -> list[str]:  # noqa: C901
     """Statement → токены. Кавычки защищают пробелы (кавычки сохраняются в токене); `{ … }` —
     один токен (балансировка скобок). Используй `unquote()` где ожидается строковое значение."""
     toks: list[str] = []
@@ -127,20 +148,7 @@ def tokenize(stmt: str) -> list[str]:  # noqa: C901, PLR0912, PLR0915
             toks.append(stmt[start:i])
             continue
         start = i
-        quote = None
-        while i < n and (quote is not None or not stmt[i].isspace()):
-            c = stmt[i]
-            if quote is not None:
-                if c == "\\":
-                    i += 2
-                    continue
-                if c == quote:
-                    quote = None
-                i += 1
-                continue
-            if c in ("'", '"'):
-                quote = c
-            i += 1
+        i = _scan_word(stmt, i)
         toks.append(stmt[start:i])
     return toks
 
@@ -466,25 +474,12 @@ def _rest_after(stmt: str, n_words: int) -> str:
     """Подстрока после первых n_words токенов (quote-aware: имя листа с пробелами — один токен)."""
     i = 0
     n = len(stmt)
-    count = 0
-    while i < n and count < n_words:
+    for _ in range(n_words):
+        if i >= n:
+            break
         while i < n and stmt[i].isspace():
             i += 1
-        quote: str | None = None
-        while i < n and (quote is not None or not stmt[i].isspace()):
-            c = stmt[i]
-            if quote is not None:
-                if c == "\\":
-                    i += 2
-                    continue
-                if c == quote:
-                    quote = None
-                i += 1
-                continue
-            if c in ("'", '"'):
-                quote = c
-            i += 1
-        count += 1
+        i = _scan_word(stmt, i)
     return stmt[i:].lstrip()
 
 
