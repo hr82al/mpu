@@ -37,6 +37,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from mpu.lib import env
+from mpu.lib.cli_err import die
 from mpu.lib.duration import DurationParseError, parse_since
 from mpu.lib.gitlab_mr import GitLabAPIError, GitLabClient, MrInfo
 
@@ -134,8 +135,7 @@ def title_budget(console_width: int, rows: list[dict[str, Any]]) -> int:
 
 
 def _fail(message: str) -> NoReturn:
-    typer.echo(f"{COMMAND_NAME}: {message}", err=True)
-    raise typer.Exit(code=1)
+    die(f"{COMMAND_NAME}: {message}")
 
 
 def _err_msg(e: GitLabAPIError) -> str:

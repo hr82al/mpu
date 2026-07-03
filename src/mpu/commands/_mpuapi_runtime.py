@@ -35,6 +35,7 @@ from mpu.commands._mpuapi_spec import (
     CommandSpec,
     FieldType,
 )
+from mpu.lib.cli_err import fail
 from mpu.lib.slapi import (
     SlApi,
     SlApiError,
@@ -213,12 +214,8 @@ def _execute(spec: CommandSpec, kwargs: dict[str, Any]) -> None:
 
 
 def _fail(spec: CommandSpec, error: SlApiError) -> NoReturn:
-    """Печать ошибки и `sys.exit(1)`. NoReturn → pyright знает, что код после _fail
-    недостижим (поэтому переменные из try-блоков не считаются `possibly unbound`)."""
-    click.echo(f"mpuapi-{spec.name}: {error}", err=True)
-    if error.body:
-        click.echo(error.body, err=True)
-    sys.exit(1)
+    """`fail` с командным префиксом `mpuapi-<name>` и телом ошибки как extra."""
+    fail(f"mpuapi-{spec.name}", str(error), code=1, extra=error.body or None)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

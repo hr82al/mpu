@@ -26,6 +26,7 @@ from typing import Any, NoReturn
 import click
 import psycopg
 
+from mpu.lib.cli_err import fail
 from mpu.lib.pg import PgConfigError, connect_main
 from mpu.lib.slapi import SlApi, SlApiError, resolve_credentials
 
@@ -45,14 +46,8 @@ _REVOKE_POLL_TIMEOUT_S = 60.0
 
 
 def _fail(reason: str, *, code: int, hint: str | None = None, extra: str | None = None) -> NoReturn:
-    """Машинно-читаемая ошибка `<команда>: <причина>[; попробуй: <подсказка>]` → exit."""
-    msg = f"{COMMAND}: {reason}"
-    if hint:
-        msg += f"; попробуй: {hint}"
-    click.echo(msg, err=True)
-    if extra:
-        click.echo(extra, err=True)
-    raise SystemExit(code)
+    """`fail` с зафиксированным `COMMAND` (сохраняет существующие call-site'ы)."""
+    fail(COMMAND, reason, code=code, hint=hint, extra=extra)
 
 
 def _print_json(value: object) -> None:

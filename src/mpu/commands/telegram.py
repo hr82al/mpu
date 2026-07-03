@@ -37,6 +37,7 @@ from rich.console import Console
 from rich.table import Table
 
 from mpu.lib import env, kaiten_links, kiten_status, store, telegram
+from mpu.lib.cli_err import die
 from mpu.lib.kaiten import DEFAULT_BASE_URL, KaitenAPIError, KaitenClient, card_url
 from mpu.lib.kiten_status import StatusEntry
 from mpu.lib.telegram import TgError, TgNotAuthorizedError
@@ -64,8 +65,7 @@ def _root() -> None:  # pyright: ignore[reportUnusedFunction]
 
 def _fail(message: str) -> NoReturn:
     """Машинно-читаемая ошибка в stderr + выход с кодом 1."""
-    typer.echo(message, err=True)
-    raise typer.Exit(code=1)
+    die(message)
 
 
 def _validate_files(paths: list[str]) -> list[str]:

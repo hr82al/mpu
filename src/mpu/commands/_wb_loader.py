@@ -17,10 +17,12 @@ from __future__ import annotations
 
 import json
 import re
-from typing import NoReturn, TypeGuard
+from typing import TypeGuard
 
 import click
 
+# re-export `fail`: команды wb-loader-семейства исторически импортируют его отсюда
+from mpu.lib.cli_err import fail as fail
 from mpu.lib.cli_wrap import auto_pick_int
 from mpu.lib.clipboard import copy_to_clipboard
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
@@ -147,19 +149,6 @@ def loader_path(sid: str, entity: str, action: str) -> str:
     return f"/admin/wb-loader/loaders/{sid}/{entity}/v1/{action}"
 
 
-def fail(
-    command: str, reason: str, *, code: int, hint: str | None = None, extra: str | None = None
-) -> NoReturn:
-    """Машинно-читаемая ошибка `<команда>: <причина>; попробуй: <подсказка>` → exit."""
-    msg = f"{command}: {reason}"
-    if hint:
-        msg += f"; попробуй: {hint}"
-    click.echo(msg, err=True)
-    if extra:
-        click.echo(extra, err=True)
-    raise SystemExit(code)
-
-
 def print_json(value: object) -> None:
     click.echo(json.dumps(value, ensure_ascii=False, indent=2))
 
@@ -217,7 +206,7 @@ def sid_from_selector(selector: str, sids: list[str]) -> str | None:
     return None
 
 
-def pick_sid(selector: str, sids: list[str], *, command: str) -> str:
+def pick_sid(selector: str, sids: list[str], *, command: str) -> str:  # noqa: RET503 — fail() NoReturn, ruff не видит через импорт
     """sid из селектора > единственный > exit 2."""
     named = sid_from_selector(selector, sids)
     if named is not None:

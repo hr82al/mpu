@@ -58,6 +58,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from mpu.lib import env
+from mpu.lib.cli_err import die
 from mpu.lib.gitlab_mr import (
     Discussion,
     FileDiff,
@@ -193,8 +194,7 @@ def line_not_in_diff_message(file_diff: FileDiff, path: str, line: int, side: Si
 
 
 def _fail(sub: str, message: str) -> NoReturn:
-    typer.echo(f"{COMMAND_NAME} {sub}: {message}", err=True)
-    raise typer.Exit(code=1)
+    die(f"{COMMAND_NAME} {sub}: {message}")
 
 
 def _err_msg(e: Exception) -> str:
