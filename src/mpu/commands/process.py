@@ -128,6 +128,11 @@ def _avoid_singleton_collapse_str(values: list[str]) -> list[str]:
     return values * 2 if len(values) == 1 else values
 
 
+def _str_array(values: list[str] | None) -> list[str] | None:
+    """string-array флаг: None/пусто → None (флаг не эмитится), иначе анти-collapse."""
+    return _avoid_singleton_collapse_str(values) if values else None
+
+
 def _join_int_bracket(values: list[int] | None) -> str | None:
     """Список чисел → single JSON-литерал `[1,2,3]` (без пробелов).
 
@@ -349,16 +354,12 @@ def main(  # noqa: PLR0913
         "--date-to": date_to,
         "--domain": domain,
         "--dataset": dataset,
-        "--datasets": _avoid_singleton_collapse_str(datasets) if datasets else None,
-        "--modules": _avoid_singleton_collapse_str(modules) if modules else None,
-        "--exclude-datasets": (
-            _avoid_singleton_collapse_str(exclude_datasets) if exclude_datasets else None
-        ),
-        "--exclude-modules": (
-            _avoid_singleton_collapse_str(exclude_modules) if exclude_modules else None
-        ),
-        "--with-tags": _avoid_singleton_collapse_str(with_tags) if with_tags else None,
-        "--without-tags": _avoid_singleton_collapse_str(without_tags) if without_tags else None,
+        "--datasets": _str_array(datasets),
+        "--modules": _str_array(modules),
+        "--exclude-datasets": _str_array(exclude_datasets),
+        "--exclude-modules": _str_array(exclude_modules),
+        "--with-tags": _str_array(with_tags),
+        "--without-tags": _str_array(without_tags),
         "--no-deps": no_deps,
         "--forced": forced,
         "--forced-update": forced_update,
