@@ -189,7 +189,7 @@ def _emit_curl(*, base_url: str, filter_: dict[str, object], server: str | None)
 # ── Основная логика ──────────────────────────────────────────────────────────
 
 
-def _run(
+def _run(  # noqa: C901, PLR0912
     *,
     loader: str | None,
     reason: str | None,
@@ -237,7 +237,7 @@ def _run(
     try:
         raw: object = api.request("POST", _FIND_PATH, body={"filter": filter_})
     except SlApiError as e:
-        if e.status == 403:
+        if e.status == 403:  # noqa: PLR2004
             _fail(
                 "find запрещён (HTTP 403)",
                 code=1,

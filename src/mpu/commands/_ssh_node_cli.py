@@ -29,7 +29,7 @@ from mpu.lib.cli_wrap import (
 )
 
 
-def _emit(
+def _emit(  # noqa: PLR0913
     *,
     service: str,
     method: str,

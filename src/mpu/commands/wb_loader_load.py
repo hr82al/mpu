@@ -57,7 +57,7 @@ def _run(
     try:
         raw: object = api.request("POST", path)
     except SlApiError as e:
-        if e.status == 403:
+        if e.status == 403:  # noqa: PLR2004
             fail(
                 COMMAND,
                 "load запрещён (HTTP 403)",

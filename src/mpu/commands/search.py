@@ -397,7 +397,7 @@ app = typer.Typer(
 
 
 @app.command()
-def main(
+def main(  # noqa: PLR0913
     value: Annotated[
         str,
         typer.Argument(

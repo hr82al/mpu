@@ -146,7 +146,7 @@ app = typer.Typer(
 
 
 @app.command()
-def main(
+def main(  # noqa: PLR0913
     value: Annotated[
         str,
         typer.Argument(help="client_id, spreadsheet_id substring, или title substring"),

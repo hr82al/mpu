@@ -37,7 +37,7 @@ _OPEN = {"(": ")", "[": "]", "{": "}"}
 _CLOSE = {")", "]", "}"}
 
 
-def split_statements(text: str) -> list[str]:
+def split_statements(text: str) -> list[str]:  # noqa: C901, PLR0912
     """Текст → список statements. Граница — `\\n` или `;` при глубине скобок 0 вне кавычек.
 
     `#` вне кавычек при глубине 0 — комментарий до конца строки. Многострочные `py{ … }` и
@@ -89,7 +89,7 @@ def split_statements(text: str) -> list[str]:
     return out
 
 
-def tokenize(stmt: str) -> list[str]:
+def tokenize(stmt: str) -> list[str]:  # noqa: C901, PLR0912, PLR0915
     """Statement → токены. Кавычки защищают пробелы (кавычки сохраняются в токене); `{ … }` —
     один токен (балансировка скобок). Используй `unquote()` где ожидается строковое значение."""
     toks: list[str] = []
@@ -147,7 +147,7 @@ def tokenize(stmt: str) -> list[str]:
 
 def unquote(s: str) -> str:
     """Снять обрамляющие кавычки и развернуть `\\`-escape; иначе вернуть как есть."""
-    if len(s) >= 2 and s[0] in ("'", '"') and s[-1] == s[0]:
+    if len(s) >= 2 and s[0] in ("'", '"') and s[-1] == s[0]:  # noqa: PLR2004
         return re.sub(r"\\(.)", r"\1", s[1:-1])
     return s
 
@@ -160,7 +160,7 @@ def unquote(s: str) -> str:
 def hex_to_rgb(s: str) -> dict[str, float]:
     """`#RRGGBB` / `#RGB` → `{red,green,blue}` (0..1). С `#AARRGGBB` берёт alpha."""
     h = s.lstrip("#")
-    if len(h) == 3:
+    if len(h) == 3:  # noqa: PLR2004
         h = "".join(ch * 2 for ch in h)
     if len(h) not in (6, 8):
         raise BatchScriptError(f"плохой цвет: {s!r}")
@@ -168,7 +168,7 @@ def hex_to_rgb(s: str) -> dict[str, float]:
         parts = [int(h[i : i + 2], 16) / 255 for i in range(0, len(h), 2)]
     except ValueError as e:
         raise BatchScriptError(f"плохой цвет: {s!r}") from e
-    if len(parts) == 4:
+    if len(parts) == 4:  # noqa: PLR2004
         a, r, g, b = parts
         return {"red": r, "green": g, "blue": b, "alpha": a}
     r, g, b = parts
@@ -235,7 +235,7 @@ def _split_tab(tok: str, default_tab: str | None) -> tuple[str, str]:
     if "!" in tok:
         tab_part, span = tok.split("!", 1)
         tab_part = tab_part.strip()
-        if tab_part.startswith("'") and tab_part.endswith("'") and len(tab_part) >= 2:
+        if tab_part.startswith("'") and tab_part.endswith("'") and len(tab_part) >= 2:  # noqa: PLR2004
             tab = tab_part[1:-1].replace("''", "'")
         else:
             tab = tab_part
@@ -281,7 +281,7 @@ _HALIGN = {"left": "LEFT", "center": "CENTER", "right": "RIGHT"}
 _VALIGN = {"top": "TOP", "middle": "MIDDLE", "bottom": "BOTTOM"}
 
 
-def parse_style_flags(tokens: list[str]) -> tuple[dict[str, Any], list[str]]:
+def parse_style_flags(tokens: list[str]) -> tuple[dict[str, Any], list[str]]:  # noqa: C901
     """Стиль-флаги (bold/bg=/fg=/fmt=) → (userEnteredFormat, fields). Неизв. флаг → ошибка."""
     fmt: dict[str, Any] = {}
     text_fmt: dict[str, Any] = {}
@@ -513,7 +513,7 @@ def _b_set(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[st
     if after.startswith("="):
         value_raw = after[1:].strip()
         quoted = False
-    elif len(toks) >= 2:
+    elif len(toks) >= 2:  # noqa: PLR2004
         value_raw = unquote(toks[1])
         quoted = toks[1] != value_raw
     else:
@@ -539,7 +539,7 @@ def _start_of(gr: dict[str, Any]) -> dict[str, Any]:
 
 
 def _b_label(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[str, Any]]:
-    if len(toks) < 2:
+    if len(toks) < 2:  # noqa: PLR2004
         raise BatchScriptError("label: нужен range и текст")
     gr = ctx.grid(toks[0])
     text = unquote(toks[1])
@@ -561,7 +561,7 @@ def _b_label(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[
 
 
 def _b_note(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[str, Any]]:
-    if len(toks) < 2:
+    if len(toks) < 2:  # noqa: PLR2004
         raise BatchScriptError("note: нужен range и текст")
     gr = ctx.grid(toks[0])
     return [
@@ -652,7 +652,7 @@ def _b_rows_move(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[d
 
 def _move_dim(toks: list[str], ctx: _Ctx, dimension: str) -> list[dict[str, Any]]:
     # `cols move B:D after H`
-    if len(toks) < 3 or toks[1] != "after":
+    if len(toks) < 3 or toks[1] != "after":  # noqa: PLR2004
         raise BatchScriptError("move: `<src> after <dest>`")
     src = ctx.dim(toks[0], dimension)
     dest = _dim_index(_split_tab(toks[2], ctx.default_tab)[1], dimension) + 1
@@ -724,14 +724,14 @@ def _hide_dim(toks: list[str], ctx: _Ctx, dimension: str, hidden: bool) -> list[
 
 def _b_append(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[str, Any]]:
     # `append cols N` / `append rows N` — на лист из -n/--sheet или из `on 'Tab'`.
-    if len(toks) < 2:
+    if len(toks) < 2:  # noqa: PLR2004
         raise BatchScriptError("append: `cols|rows N [on 'Tab']`")
     dimension = {"cols": "COLUMNS", "rows": "ROWS"}.get(toks[0])
     if dimension is None:
         raise BatchScriptError("append: cols|rows")
     length = int(toks[1])
     tab = ctx.default_tab
-    if len(toks) >= 4 and toks[2] == "on":
+    if len(toks) >= 4 and toks[2] == "on":  # noqa: PLR2004
         tab = unquote(toks[3])
     if not tab:
         raise BatchScriptError("append: нужен лист (-n/--sheet или `on 'Tab'`)")
@@ -816,11 +816,11 @@ def _b_border(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict
 
 
 def _b_find_replace(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[str, Any]]:
-    if len(toks) < 2:
+    if len(toks) < 2:  # noqa: PLR2004
         raise BatchScriptError("find-replace: нужны find и replacement")
     find_tok = toks[0]
     regex = False
-    if len(find_tok) >= 2 and find_tok.startswith("/") and find_tok.endswith("/"):
+    if len(find_tok) >= 2 and find_tok.startswith("/") and find_tok.endswith("/"):  # noqa: PLR2004
         find = find_tok[1:-1]
         regex = True
     else:
@@ -850,7 +850,7 @@ def _b_find_replace(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> lis
 
 
 def _b_validate(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[str, Any]]:
-    if len(toks) < 2:
+    if len(toks) < 2:  # noqa: PLR2004
         raise BatchScriptError("validate: нужен range и условие")
     gr = ctx.grid(toks[0])
     cond, idx = _parse_condition(toks, 1)
@@ -984,13 +984,13 @@ def _b_sheet_dup(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[d
     if not toks:
         raise BatchScriptError("sheet dup: нужен лист")
     req: dict[str, Any] = {"sourceSheetId": ctx.sid(unquote(toks[0]))}
-    if len(toks) >= 3 and toks[1] == "as":
+    if len(toks) >= 3 and toks[1] == "as":  # noqa: PLR2004
         req["newSheetName"] = unquote(toks[2])
     return [{"duplicateSheet": req}]
 
 
 def _b_sheet_rename(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[str, Any]]:
-    if len(toks) < 2:
+    if len(toks) < 2:  # noqa: PLR2004
         raise BatchScriptError("sheet rename: `<old> <new>`")
     return [
         {
@@ -1003,7 +1003,7 @@ def _b_sheet_rename(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> lis
 
 
 def _b_sheet_tab(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[str, Any]]:
-    if len(toks) < 2:
+    if len(toks) < 2:  # noqa: PLR2004
         raise BatchScriptError("sheet tab: `<лист> color=#..`")
     sid = ctx.sid(unquote(toks[0]))
     for t in toks[1:]:
@@ -1062,7 +1062,7 @@ def _b_trim(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[s
 
 
 def _b_name_add(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[str, Any]]:
-    if len(toks) < 2:
+    if len(toks) < 2:  # noqa: PLR2004
         raise BatchScriptError("name add: `<имя> <range>`")
     return [
         {"addNamedRange": {"namedRange": {"name": unquote(toks[0]), "range": ctx.grid(toks[1])}}}
@@ -1078,7 +1078,7 @@ def _b_name_del(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[di
 
 def _b_autofill(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[str, Any]]:
     # `autofill <src> -> <dest>` — заполнить dest по серии (источник внутри dest-диапазона).
-    if len(toks) < 3 or toks[1] != "->":
+    if len(toks) < 3 or toks[1] != "->":  # noqa: PLR2004
         raise BatchScriptError("autofill: `<src> -> <dest>`")
     return [{"autoFill": {"range": ctx.grid(toks[2]), "useAlternateSeries": False}}]
 
@@ -1092,7 +1092,7 @@ def _b_cut(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dict[st
 
 
 def _paste(toks: list[str], ctx: _Ctx, kind: str) -> list[dict[str, Any]]:
-    if len(toks) < 3 or toks[1] != "->":
+    if len(toks) < 3 or toks[1] != "->":  # noqa: PLR2004
         raise BatchScriptError(f"{kind}: `<src> -> <dest>`")
     req: dict[str, Any] = {"source": ctx.grid(toks[0]), "destination": ctx.grid(toks[2])}
     if kind == "copyPaste":
@@ -1113,7 +1113,7 @@ def _b_ungroup(toks: list[str], rest: str, ctx: _Ctx, literal: bool) -> list[dic
 
 
 def _group(toks: list[str], ctx: _Ctx, kind: str) -> list[dict[str, Any]]:
-    if len(toks) < 2 or toks[0] not in ("cols", "rows"):
+    if len(toks) < 2 or toks[0] not in ("cols", "rows"):  # noqa: PLR2004
         raise BatchScriptError(f"{kind}: `cols|rows <range>`")
     dimension = "COLUMNS" if toks[0] == "cols" else "ROWS"
     return [{kind: {"range": ctx.dim(toks[1], dimension)}}]
@@ -1239,7 +1239,7 @@ class ReadPlan:
     meta: dict[str, Any] | None
 
 
-def compile_read(text: str, default_tab: str | None = None) -> ReadPlan:
+def compile_read(text: str, default_tab: str | None = None) -> ReadPlan:  # noqa: C901, PLR0912
     """Скрипт чтения → ReadPlan. Глаголы `get` (values) и `read` (sheet-level)."""
     values_ranges: list[str] = []
     major = "ROWS"

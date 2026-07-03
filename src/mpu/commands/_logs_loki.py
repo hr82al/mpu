@@ -34,7 +34,7 @@ _FOLLOW_POLL_INTERVAL = 2.0
 _FOLLOW_INITIAL_SECONDS = 10
 
 
-def run(
+def run(  # noqa: PLR0913
     *,
     command_name: str,
     selector: str | None,
@@ -99,7 +99,7 @@ def _print_entry(entry: loki.LogEntry, *, timestamps: bool) -> None:
         sys.stdout.write(f"{line}\n")
 
 
-def follow(
+def follow(  # noqa: C901, PLR0912, PLR0913, PLR0915
     *,
     command_name: str,
     selector: str | None,

@@ -200,9 +200,9 @@ def _fail(sub: str, message: str) -> NoReturn:
 def _err_msg(e: Exception) -> str:
     if isinstance(e, GitLabAPIError):
         message = f"gitlab error: {e}"
-        if e.status == 401:
+        if e.status == 401:  # noqa: PLR2004
             message += f"; проверь GLAB_TOKEN в {env.env_path()}"
-        elif e.status == 404:
+        elif e.status == 404:  # noqa: PLR2004
             message += "; проверь --mr (URL | 'group/repo!iid' | iid)"
         return message
     return str(e)
@@ -256,7 +256,7 @@ def _find_file_diff(diffs: list[FileDiff], path: str) -> FileDiff:
         if path in (file_diff.new_path, file_diff.old_path):
             return file_diff
     changed = sorted({fd.new_path or fd.old_path for fd in diffs})
-    listed = ", ".join(changed[:20]) + ("…" if len(changed) > 20 else "")
+    listed = ", ".join(changed[:20]) + ("…" if len(changed) > 20 else "")  # noqa: PLR2004
     raise MrUsageError(f"файл {path!r} не изменён в этом MR; изменённые: {listed}")
 
 
@@ -270,7 +270,7 @@ def _discussion_payload(d: Discussion) -> dict[str, Any]:
     }
 
 
-def _note_header(d_note: Any) -> str:
+def _note_header(d_note: Any) -> str:  # noqa: ANN401
     when = (d_note.created_at or "")[:16].replace("T", " ")
     name = d_note.author_name or d_note.author_username
     return f"**{name}** (@{d_note.author_username}) · note {d_note.id} · {when}"

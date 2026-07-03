@@ -65,7 +65,7 @@ class MiroClient:
                     return json.loads(txt) if txt else {}
             except HTTPError as e:
                 err_body = e.read().decode("utf-8", "replace")
-                if e.code == 429:
+                if e.code == 429:  # noqa: PLR2004
                     wait = int(e.headers.get("Retry-After", str(int(backoff))))
                     print(f"[miro] 429 rate-limit, sleep {wait}s", file=sys.stderr)
                     time.sleep(wait)
@@ -145,28 +145,28 @@ class MiroClient:
             try:
                 self._request("DELETE", f"/items/{item_id}")
             except MiroAPIError as e:
-                if e.status == 404:
+                if e.status == 404:  # noqa: PLR2004
                     continue
-                if e.status == 400 and "locked" in e.body.lower():
+                if e.status == 400 and "locked" in e.body.lower():  # noqa: PLR2004
                     self.unlock_item(item_id)
                     try:
                         self._request("DELETE", f"/items/{item_id}")
                     except MiroAPIError as e2:
-                        if e2.status != 404:
+                        if e2.status != 404:  # noqa: PLR2004
                             raise
                     continue
                 raise
         try:
             self._request("DELETE", f"/frames/{frame_id}")
         except MiroAPIError as e:
-            if e.status == 404:
+            if e.status == 404:  # noqa: PLR2004
                 return
-            if e.status == 400 and "locked" in e.body.lower():
+            if e.status == 400 and "locked" in e.body.lower():  # noqa: PLR2004
                 self.unlock_item(frame_id)
                 try:
                     self._request("DELETE", f"/frames/{frame_id}")
                 except MiroAPIError as e2:
-                    if e2.status == 404:
+                    if e2.status == 404:  # noqa: PLR2004
                         return
                     raise
                 return
@@ -209,7 +209,7 @@ class MiroClient:
 
     # ---------- shapes / connectors / texts ----------
 
-    def create_shape(
+    def create_shape(  # noqa: PLR0913
         self,
         *,
         parent_id: str,

@@ -66,7 +66,7 @@ def _unescape(s: str) -> str:
     )
 
 
-def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:
+def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:  # noqa: C901, PLR0912, PLR0915
     """Парсит d2 текст. Возвращает {full_path: D2Shape}, [Edge].
 
     Поддерживает:
@@ -242,7 +242,7 @@ _ARGS_PER_CMD: dict[str, int] = {
 }
 
 
-def _path_bbox(d: str) -> tuple[float, float, float, float] | None:
+def _path_bbox(d: str) -> tuple[float, float, float, float] | None:  # noqa: C901, PLR0912, PLR0915
     """Точный bbox SVG-path. Учитывает все команды + относительные варианты + H/V (1 число).
 
     Для C/S/Q включаем control-points в bbox — для d2-шейпов это даёт небольшой
@@ -338,7 +338,7 @@ def _text_lines(text_el: ET.Element) -> str:
     return "\n".join(p for p in parts if p)
 
 
-def parse_svg(
+def parse_svg(  # noqa: PLR0915
     svg_text: str,
 ) -> tuple[dict[str, LayoutShape], list[Edge], tuple[float, float, float, float]]:
     """Парсит d2 SVG. Возвращает layout, edges, viewBox=(x, y, w, h).

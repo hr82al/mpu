@@ -233,7 +233,7 @@ def _run_via_portainer(
     )
 
 
-def run_in_container_via_portainer(
+def run_in_container_via_portainer(  # noqa: PLR0913
     *,
     base_url: str,
     endpoint_id: int,

@@ -51,7 +51,7 @@ def query_range(
     return _parse_query_range_response(data)
 
 
-def _parse_query_range_response(data: object) -> list[LogEntry]:
+def _parse_query_range_response(data: object) -> list[LogEntry]:  # noqa: C901, PLR0912
     """Извлечь LogEntry из JSON. На любые отклонения схемы — пустой список."""
     if not isinstance(data, dict):
         return []
@@ -78,7 +78,7 @@ def _parse_query_range_response(data: object) -> list[LogEntry]:
         if not isinstance(values_raw, list):
             continue
         for pair in cast(list[object], values_raw):
-            if not isinstance(pair, list) or len(cast(list[object], pair)) < 2:
+            if not isinstance(pair, list) or len(cast(list[object], pair)) < 2:  # noqa: PLR2004
                 continue
             pair_list = cast(list[object], pair)
             ts_str = pair_list[0]

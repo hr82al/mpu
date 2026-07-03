@@ -65,7 +65,7 @@ def resolve_webapp_url() -> str:
 
 
 def _is_quota_error(status: int, body: str) -> bool:
-    if status == 429:
+    if status == 429:  # noqa: PLR2004
         return True
     lowered = body.lower()
     return "quota exceeded" in lowered or "too many requests" in lowered
@@ -106,7 +106,7 @@ class WebappClient:
             kwargs["transport"] = self._transport
         return httpx.Client(**kwargs)
 
-    def call(self, action: str, **payload: Any) -> dict[str, Any]:
+    def call(self, action: str, **payload: Any) -> dict[str, Any]:  # noqa: ANN401, C901
         """POST `{action, **payload}` → возвращает `result` поле ответа."""
         body: dict[str, Any] = {"action": action, **payload}
         last_error: str = ""
@@ -141,7 +141,7 @@ class WebappClient:
                 self._sleeper(self.quota_delay_seconds)
                 continue
 
-            if status >= 500:
+            if status >= 500:  # noqa: PLR2004
                 last_error = f"HTTP {status}: {text[:200]}"
                 logger.warning(f"sheet_api {action}: {last_error} (attempt {attempt + 1})")
                 if attempt >= self.max_retries:
@@ -154,7 +154,7 @@ class WebappClient:
                 self._sleeper(_backoff_delay_seconds(attempt))
                 continue
 
-            if status == 404 and not_found_attempts < self.not_found_retries:
+            if status == 404 and not_found_attempts < self.not_found_retries:  # noqa: PLR2004
                 not_found_attempts += 1
                 last_error = f"HTTP 404: {text[:200]}"
                 logger.warning(
@@ -165,7 +165,7 @@ class WebappClient:
                 self._sleeper(self.not_found_delay_seconds)
                 continue
 
-            if status >= 400:
+            if status >= 400:  # noqa: PLR2004
                 raise SheetApiError(
                     f"{action}: HTTP {status}: {text[:500]}",
                     action=action,

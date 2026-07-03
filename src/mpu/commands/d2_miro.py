@@ -364,7 +364,7 @@ def _build_frame_size(viewbox_w: float, viewbox_h: float) -> tuple[float, float,
     return viewbox_w, viewbox_h, 1.0
 
 
-def _to_miro_xy(
+def _to_miro_xy(  # noqa: PLR0913
     sx: float,
     sy: float,
     sw: float,
@@ -393,7 +393,7 @@ def _to_miro_xy(
 
 
 @app.command()
-def main(
+def main(  # noqa: C901, PLR0912, PLR0915
     d2_file: Annotated[
         Path,
         typer.Argument(exists=True, dir_okay=False, readable=True, help=".d2 source file"),
@@ -521,7 +521,7 @@ def main(
         ]
         cards = [n for n in direct if (s := d2_shapes.get(n)) is not None and s.kind == "card"]
         header_name = f"{cont}.header"
-        if header_name not in cards or len(cards) < 2:
+        if header_name not in cards or len(cards) < 2:  # noqa: PLR2004
             continue
         for st in cards:
             if st == header_name:

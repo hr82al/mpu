@@ -106,7 +106,7 @@ def parse_range(range_str: str, *, default_tab: str | None = None) -> RangeRef:
     if "!" in s:
         tab_part, span = s.split("!", 1)
         tab_part = tab_part.strip()
-        if tab_part.startswith("'") and tab_part.endswith("'") and len(tab_part) >= 2:
+        if tab_part.startswith("'") and tab_part.endswith("'") and len(tab_part) >= 2:  # noqa: PLR2004
             tab = tab_part[1:-1].replace("''", "'")
         else:
             tab = tab_part

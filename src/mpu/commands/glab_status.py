@@ -140,7 +140,7 @@ def _fail(message: str) -> NoReturn:
 
 def _err_msg(e: GitLabAPIError) -> str:
     message = f"gitlab error: {e}"
-    if e.status == 401:
+    if e.status == 401:  # noqa: PLR2004
         message += f"; проверь GLAB_TOKEN в {env.env_path()}"
     return message
 

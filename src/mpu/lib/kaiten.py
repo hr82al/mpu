@@ -191,7 +191,7 @@ def parse_card(raw: dict[str, Any], base_url: str) -> KaitenCard:
     )
 
 
-def build_cards_query(
+def build_cards_query(  # noqa: PLR0913
     *,
     member_ids: str | None = None,
     condition: int | None = None,
@@ -489,9 +489,9 @@ class KaitenClient:
         method: str,
         path: str,
         query: dict[str, str] | None = None,
-        body: Any | None = None,
+        body: Any | None = None,  # noqa: ANN401
         raw: tuple[bytes, str] | None = None,
-    ) -> Any:
+    ) -> Any:  # noqa: ANN401
         url = f"{self.api_base}{path}"
         if query:
             url = f"{url}?{urlencode(query)}"
@@ -517,7 +517,7 @@ class KaitenClient:
                     return json.loads(txt) if txt else None
             except HTTPError as e:
                 err_body = e.read().decode("utf-8", "replace")
-                if e.code == 429:
+                if e.code == 429:  # noqa: PLR2004
                     wait = int(e.headers.get("Retry-After", str(int(backoff))))
                     print(f"[kaiten] 429 rate-limit, sleep {wait}s", file=sys.stderr)
                     time.sleep(wait)
@@ -536,7 +536,7 @@ class KaitenClient:
             email=str(res.get("email") or ""),
         )
 
-    def list_cards(
+    def list_cards(  # noqa: PLR0913
         self,
         *,
         member_ids: str | None = None,

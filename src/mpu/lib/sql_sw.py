@@ -114,7 +114,7 @@ def _extract_payload(stdout_text: str) -> dict[str, Any] | None:
     return None
 
 
-def run_sql_sw(
+def run_sql_sw(  # noqa: C901, PLR0912, PLR0915
     sql: str,
     *,
     dry: bool = False,

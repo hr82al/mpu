@@ -57,7 +57,7 @@ def print_table(cols: list[str], rows: list[tuple[Any, ...]], stream: IO[str]) -
     print(f"({len(rows)} rows)", file=stream)
 
 
-def _md_escape(v: Any) -> str:
+def _md_escape(v: Any) -> str:  # noqa: ANN401
     if v is None:
         return ""
     s = str(v)
@@ -71,7 +71,7 @@ def print_md_table(cols: list[str], rows: list[tuple[Any, ...]], stream: IO[str]
         print("| " + " | ".join(_md_escape(v) for v in r) + " |", file=stream)
 
 
-def run_sql(
+def run_sql(  # noqa: PLR0913
     server_number: int,
     sql: str,
     *,

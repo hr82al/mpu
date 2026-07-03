@@ -64,7 +64,6 @@ def _patch_from_env(monkeypatch: pytest.MonkeyPatch, api: object) -> None:
 
 def _noop_open(_url: str) -> None:
     """Заглушка `webbrowser.open` — ничего не делает."""
-    return None
 
 
 def _insert_ss(conn: sqlite3.Connection, ss_id: str, client_id: int, title: str) -> None:

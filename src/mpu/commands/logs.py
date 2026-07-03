@@ -81,7 +81,7 @@ app = typer.Typer(
 
 
 @app.command()
-def main(
+def main(  # noqa: PLR0913
     selector: Annotated[
         str | None,
         typer.Argument(

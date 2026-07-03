@@ -100,9 +100,9 @@ class X10Api:
         pathname: str,
         *,
         token: str | None = None,
-        body: Any = None,
+        body: Any = None,  # noqa: ANN401
         query: Mapping[str, Any] | None = None,
-    ) -> Any:
+    ) -> Any:  # noqa: ANN401
         """HTTP-вызов под bearer `token` (если задан). Non-2xx → `X10ApiError`.
 
         Возвращает распарсенный JSON (`dict`/`list`/…); пустой ответ → `None`.
@@ -121,7 +121,7 @@ class X10Api:
             raise X10ApiError(f"{method} {pathname}: transport error: {e}") from e
 
         text = resp.text
-        if resp.status_code >= 400:
+        if resp.status_code >= 400:  # noqa: PLR2004
             raise X10ApiError(
                 f"{method} {pathname}: HTTP {resp.status_code}",
                 status=resp.status_code,
@@ -136,7 +136,7 @@ class X10Api:
                 f"{method} {pathname}: non-JSON response: {_truncate(text, 200)}"
             ) from e
 
-    def _unwrap(self, resp: Any, ctx: str) -> Any:
+    def _unwrap(self, resp: Any, ctx: str) -> Any:  # noqa: ANN401
         """Достать `data` из `{success, message, data}`-обёртки sw-back."""
         if not isinstance(resp, dict):
             raise X10ApiError(f"{ctx}: ответ не объект: {_truncate(str(resp), 200)}")

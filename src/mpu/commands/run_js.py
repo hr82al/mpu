@@ -123,7 +123,7 @@ def _resolve_js_source(*, code: str | None, file: Path | None) -> str:
     return js
 
 
-def _resolve_targets(
+def _resolve_targets(  # noqa: C901, PLR0912
     selector: str | None,
     all_active: bool,
     all_containers_filter: str | None,
@@ -353,7 +353,7 @@ def _run_detached(
 
 
 @app.command()
-def main(
+def main(  # noqa: PLR0913
     selector: Annotated[
         str | None,
         typer.Argument(

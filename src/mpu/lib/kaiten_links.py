@@ -162,7 +162,7 @@ def _row_to_move(row: sqlite3.Row) -> CardMove:
     )
 
 
-def record_move(
+def record_move(  # noqa: PLR0913
     conn: sqlite3.Connection,
     card_id: int,
     to_column: str,

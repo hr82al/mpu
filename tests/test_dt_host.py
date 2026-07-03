@@ -27,7 +27,7 @@ def test_build_compose_argv_respects_env_override(
     argv = dt_host.build_compose_argv("X")
 
     # Все файлы должны быть под tmp_path.
-    file_args = [a for a in argv if a.endswith(".env") or a.endswith(".yaml")]
+    file_args = [a for a in argv if a.endswith((".env", ".yaml"))]
     assert file_args, "expected at least one file path in argv"
     for f in file_args:
         assert f.startswith(str(tmp_path)), f

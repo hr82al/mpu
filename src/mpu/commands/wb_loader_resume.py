@@ -149,7 +149,7 @@ def _resume(api: SlApi, filter_: dict[str, str]) -> dict[str, object]:
     try:
         raw: object = api.request("POST", _RESUME_PATH, body={"filter": filter_})
     except SlApiError as e:
-        if e.status == 403:
+        if e.status == 403:  # noqa: PLR2004
             _fail(
                 "resume запрещён (HTTP 403)",
                 code=1,
@@ -176,7 +176,7 @@ def _emit_curl(*, base_url: str, sid: str, loader: str | None, resume_all: bool)
     emit_curl(base_url=base_url, method="POST", path=path, body={"filter": filter_})
 
 
-def _run(
+def _run(  # noqa: C901, PLR0912, PLR0915
     *,
     selector: str,
     loader: str | None,

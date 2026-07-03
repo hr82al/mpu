@@ -491,7 +491,7 @@ class GitLabClient:
         *,
         params: dict[str, str] | None = None,
         data: dict[str, str] | None = None,
-    ) -> Any:
+    ) -> Any:  # noqa: ANN401
         """HTTP-запрос к API v4. `data` уходит form-encoded — обязательное условие
         для скобочных `position[...]`-ключей. Не-2xx → GitLabAPIError."""
         try:
@@ -563,7 +563,7 @@ class GitLabClient:
                 {"type": "branch"},
             )
         except GitLabAPIError as e:
-            if e.status == 404:
+            if e.status == 404:  # noqa: PLR2004
                 return []
             raise
         return [str(item["name"]) for item in res if item.get("name")]

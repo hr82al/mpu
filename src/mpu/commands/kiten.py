@@ -327,7 +327,7 @@ def _parse_card_ref(ref: str) -> int:
 
 
 @app.command("ls")
-def ls(
+def ls(  # noqa: PLR0913
     archived: Annotated[
         bool, typer.Option("--archived", help="Архивные карточки (condition=2) вместо активных")
     ] = False,
@@ -969,7 +969,7 @@ def review(
 
 
 @app.command("close")
-def close(
+def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
     selector: Annotated[
         str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
     ],
@@ -1510,7 +1510,7 @@ def _card_detail_dict(detail: KaitenCardDetail, comments: list[KaitenComment]) -
     }
 
 
-def _render_card_rich(
+def _render_card_rich(  # noqa: C901
     detail: KaitenCardDetail,
     comments: list[KaitenComment],
     prop_names: dict[int, str],

@@ -74,7 +74,7 @@ def _token_email() -> str:
     return email
 
 
-def _read_body(raw: str) -> Any:
+def _read_body(raw: str) -> Any:  # noqa: ANN401
     """`--body` значение: `@path` → читать файл, иначе — JSON-литерал."""
     if raw.startswith("@"):
         path = Path(raw[1:])
@@ -106,7 +106,7 @@ def _resolve_grant_ids(spreadsheet_id: str, email: str) -> list[str]:
     return [str(row[0]) for row in rows]
 
 
-def _submit_revoke(api: SlApi, grant_id: str, reason: str) -> Any:
+def _submit_revoke(api: SlApi, grant_id: str, reason: str) -> Any:  # noqa: ANN401
     """Поставить job accessGrantRevoke через POST /admin/jobs/ss."""
     body = {
         "type": "accessGrantRevoke",
@@ -118,14 +118,14 @@ def _submit_revoke(api: SlApi, grant_id: str, reason: str) -> Any:
         _fail(f"revoke job submit ({grant_id}): {e}", code=1, extra=e.body)
 
 
-def _do_request(api: SlApi, spreadsheet_id: str, payload: Any) -> Any:
+def _do_request(api: SlApi, spreadsheet_id: str, payload: Any) -> Any:  # noqa: ANN401
     try:
         return api.request("POST", f"/admin/ss/{spreadsheet_id}/my-access/request", body=payload)
     except SlApiError as e:
         _fail(f"request: {e}", code=1, extra=e.body)
 
 
-def _request_payload(role: str, reason: str, template: str | None, body: str | None) -> Any:
+def _request_payload(role: str, reason: str, template: str | None, body: str | None) -> Any:  # noqa: ANN401
     """Полный override через --body, иначе авто-тело из дефолтов кнопки."""
     if body is not None:
         return _read_body(body)

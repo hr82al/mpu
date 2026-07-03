@@ -35,7 +35,7 @@ def _now() -> int:
 def jwt_exp(token: str) -> int | None:
     """Unix-`exp` из payload JWT (без верификации подписи). Любой сбой → `None`."""
     parts = token.split(".")
-    if len(parts) < 2:
+    if len(parts) < 2:  # noqa: PLR2004
         return None
     payload = parts[1]
     pad = "=" * (-len(payload) % 4)
@@ -122,7 +122,7 @@ def get_impersonation_token(
     try:
         data = api.impersonate(target_user_id, reason, token=get_staff_token(conn, api))
     except X10ApiError as e:
-        if e.status != 401:
+        if e.status != 401:  # noqa: PLR2004
             raise
         data = api.impersonate(target_user_id, reason, token=get_staff_token(conn, api, force=True))
     token = data.get("access_token")

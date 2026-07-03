@@ -54,7 +54,7 @@ class AmbiguousSpreadsheetError(SpreadsheetResolveError):
 
     def __init__(self, query: str, candidates: list[tuple[str, str]]) -> None:
         sample = "\n".join(f"  {ss_id}  {title}" for ss_id, title in candidates[:10])
-        more = f"\n  …(+{len(candidates) - 10} more)" if len(candidates) > 10 else ""
+        more = f"\n  …(+{len(candidates) - 10} more)" if len(candidates) > 10 else ""  # noqa: PLR2004
         super().__init__(
             f"Несколько spreadsheet'ов матчат '{query}':\n{sample}{more}\n"
             f"Уточни через --spreadsheet/-s или используй точный ID/alias."

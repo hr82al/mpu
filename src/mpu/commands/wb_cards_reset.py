@@ -79,7 +79,7 @@ def _run(*, selector: str, sid: str | None, client_id: int | None, print_mode: b
     try:
         raw: object = api.request("POST", path, body=_RESET_BODY)
     except SlApiError as e:
-        if e.status == 403:
+        if e.status == 403:  # noqa: PLR2004
             _fail(
                 "reset запрещён (HTTP 403)",
                 code=1,

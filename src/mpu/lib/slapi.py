@@ -201,10 +201,10 @@ class SlApi:
         method: HttpMethod,
         pathname: str,
         *,
-        body: Any = None,
+        body: Any = None,  # noqa: ANN401
         query: Mapping[str, Any] | None = None,
         no_auth: bool = False,
-    ) -> Any:
+    ) -> Any:  # noqa: ANN401
         """Generic HTTP вызов. Добавляет bearer (если не `no_auth`), сериализует JSON.
 
         Возвращает разпарсенный JSON-ответ (`dict` / `list` / `int` / `str` / `None`).
@@ -223,7 +223,7 @@ class SlApi:
             raise SlApiError(f"{method} {pathname} failed: transport error: {e}") from e
 
         text = resp.text
-        if resp.status_code >= 400:
+        if resp.status_code >= 400:  # noqa: PLR2004
             raise SlApiError(
                 f"{method} {pathname} failed: HTTP {resp.status_code}",
                 status=resp.status_code,

@@ -268,7 +268,7 @@ class Client:
         sock._mpu_ws_buf = bytearray(leftover)  # type: ignore[attr-defined]
         return sock
 
-    def _read_ws_frames(
+    def _read_ws_frames(  # noqa: C901
         self,
         sock: ssl.SSLSocket | socket.socket,
         *,
@@ -304,12 +304,12 @@ class Client:
             opcode = b1 & 0x0F
             plen = b2 & 0x7F
             off = 2
-            if plen == 126:
+            if plen == 126:  # noqa: PLR2004
                 if not fill(off + 2):
                     return
                 plen = struct.unpack(">H", bytes(buf[off : off + 2]))[0]
                 off += 2
-            elif plen == 127:
+            elif plen == 127:  # noqa: PLR2004
                 if not fill(off + 8):
                     return
                 plen = struct.unpack(">Q", bytes(buf[off : off + 8]))[0]
@@ -322,9 +322,9 @@ class Client:
             if opcode in (0x0, 0x1, 0x2):  # continuation / text / binary
                 if payload:
                     on_data(payload)
-            elif opcode == 0x8:  # close
+            elif opcode == 0x8:  # close  # noqa: PLR2004
                 return
-            elif opcode == 0x9:  # ping → pong
+            elif opcode == 0x9:  # ping → pong  # noqa: PLR2004
                 self._send_ws_frame(sock, opcode=0xA, payload=payload)
             # 0xA pong — игнорируем
 
@@ -338,9 +338,9 @@ class Client:
         """Маскированный client→server WS-фрейм. RFC 6455 §5.3 требует маски от клиента."""
         frame = bytearray([0x80 | (opcode & 0x0F)])
         plen = len(payload)
-        if plen < 126:
+        if plen < 126:  # noqa: PLR2004
             frame.append(0x80 | plen)
-        elif plen < 65536:
+        elif plen < 65536:  # noqa: PLR2004
             frame.append(0x80 | 126)
             frame.extend(struct.pack(">H", plen))
         else:
@@ -376,7 +376,7 @@ def _demux_docker_frames(
     нового куска — несклеившиеся хвосты от предыдущих вызовов остаются в `buf` до тех
     пор, пока не наберётся header+payload целиком.
     """
-    while len(buf) >= 8:
+    while len(buf) >= 8:  # noqa: PLR2004
         stream_type = buf[0]
         size = struct.unpack(">I", bytes(buf[4:8]))[0]
         if len(buf) < 8 + size:
@@ -385,7 +385,7 @@ def _demux_docker_frames(
         del buf[: 8 + size]
         if stream_type == 1:
             on_stdout(payload)
-        elif stream_type == 2:
+        elif stream_type == 2:  # noqa: PLR2004
             on_stderr(payload)
 
 
@@ -410,7 +410,7 @@ def _demux_docker_stream(raw: bytes) -> tuple[bytes, bytes]:
         payload = raw[i + 8 : i + 8 + size]
         if st == 1:
             out_parts.append(payload)
-        elif st == 2:
+        elif st == 2:  # noqa: PLR2004
             err_parts.append(payload)
         i += 8 + size
     return b"".join(out_parts), b"".join(err_parts)

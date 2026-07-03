@@ -415,7 +415,7 @@ async def search_entities(cfg: TgConfig, query: str, limit: int) -> list[TgDialo
     return out
 
 
-async def search_messages(
+async def search_messages(  # noqa: C901, PLR0912
     cfg: TgConfig,
     query: str,
     *,

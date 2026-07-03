@@ -58,12 +58,37 @@ select = [
     "B",             # bugbear
     "SIM",           # simplify
     "RUF",           # ruff-specific
+    "C90",           # mccabe — сложность (порог ниже)
+    "PLR0912",       # too-many-branches
+    "PLR0915",       # too-many-statements
+    "PLR0913",       # too-many-args (порог pylint.max-args ниже)
+    "PLR2004",       # magic values
+    "ANN401",        # bare Any — единственное, чего pyright strict не ловит
+    "RET",           # return-style — ~0 хитов, фиксирует чистоту от регресса
+    "PIE",           # misc lints — ~0 хитов
+    "PTH",           # pathlib — ~0 хитов
 ]
 ignore = [
     "RUF001",  # Russian comments/strings: cyrillic letters are intentional
     "RUF002",
     "RUF003",
 ]
+
+# Осознанно НЕ включены: TRY003/EM10x (конфликт с принципом 1 — богатые сообщения
+# в raise-сайте), D (docstring-шум, 98% в тестах), ANN кроме ANN401 (дублирует
+# pyright strict), FBT (ложится на идиоматичные Typer bool-флаги), ARG (все хиты —
+# осознанная единая сигнатура dispatch-таблицы sheet_batch).
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12  # дефолт 10 слишком строг для CLI-диспетчеров
+
+[tool.ruff.lint.pylint]
+max-args = 8  # дефолт 5 душит Typer-энтрипоинты (каждая опция = параметр)
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR2004", "ANN401", "C90", "PLR0913"]  # magic-числа, Any, сложные фейки и многоаргументные фабрики в тестах — норма
+"src/mpu/commands/_mpuapi_runtime.py" = ["ANN401"]  # динамический CLI-dispatch, Any легален
+"src/mpu/lib/sheet_batch.py" = ["ANN401"]           # обход произвольного Sheets-JSON
 
 [tool.ruff.lint.isort]
 known-first-party = ["mpu"]

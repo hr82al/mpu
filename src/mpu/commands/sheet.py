@@ -399,7 +399,7 @@ def _expand_fill(api: WebappClient, ss_id: str, rng: str, value: str) -> dict[st
 
 
 @app.command(name="set")
-def set_(
+def set_(  # noqa: C901, PLR0912
     range_arg: Annotated[str | None, typer.Argument(metavar="RANGE")] = None,
     value: Annotated[str | None, typer.Argument(metavar="VALUE")] = None,
     spreadsheet: Annotated[str | None, typer.Option("-s", "--spreadsheet")] = None,

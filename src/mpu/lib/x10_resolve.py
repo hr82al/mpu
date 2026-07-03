@@ -51,13 +51,13 @@ def _now() -> int:
     return int(time.time())
 
 
-def _retry_on_401(get_token: Callable[[bool], str], call: Callable[[str], Any]) -> Any:
+def _retry_on_401(get_token: Callable[[bool], str], call: Callable[[str], Any]) -> Any:  # noqa: ANN401
     """`call(token)` со свежим токеном; на 401 — пере-получить токен (`force=True`) и
     повторить один раз. Покрывает случай, когда сервер отозвал сессию раньше exp."""
     try:
         return call(get_token(False))
     except X10ApiError as e:
-        if e.status != 401:
+        if e.status != 401:  # noqa: PLR2004
             raise
         return call(get_token(True))
 

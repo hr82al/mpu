@@ -9,6 +9,7 @@ import base64
 import os
 import shutil
 import subprocess
+from pathlib import Path
 
 
 def _try_osc52(text: str) -> bool:
@@ -18,7 +19,7 @@ def _try_osc52(text: str) -> bool:
         # tmux passthrough: оборачиваем в DCS, иначе tmux съест последовательность.
         seq = f"\x1bPtmux;\x1b{seq}\x1b\\"
     try:
-        with open("/dev/tty", "w") as tty:
+        with Path("/dev/tty").open("w") as tty:
             tty.write(seq)
             tty.flush()
         return True

@@ -50,7 +50,7 @@ def _read_sql(sql_arg: str | None) -> str:
     return sys.stdin.read()
 
 
-def dispatch(
+def dispatch(  # noqa: PLR0913
     selector: str,
     sql: str | None,
     *,
