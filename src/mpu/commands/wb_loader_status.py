@@ -19,12 +19,14 @@ import click
 
 from mpu.commands._wb_loader import (
     LOADER_ENTITIES,
+    LOADER_REFERENCE_HELP,
     complete_entity,
     emit_curl,
     fail,
     loader_path,
     print_json,
     resolve_target_sid,
+    wrong_form_hint,
 )
 from mpu.lib.slapi import SlApi, SlApiError, resolve_base_url
 
@@ -39,7 +41,7 @@ def _run(
             COMMAND,
             f"неизвестный loader {loader!r}",
             code=2,
-            hint=f"один из: {', '.join(LOADER_ENTITIES)}",
+            hint=wrong_form_hint(loader) or f"один из: {', '.join(LOADER_ENTITIES)}",
         )
     target_sid, cid_human = resolve_target_sid(selector, sid, client_id, command=COMMAND)
     path = loader_path(target_sid, loader, "status")
@@ -99,6 +101,6 @@ def build_command() -> click.Command:
         name="wb-loader-status",
         params=params,
         callback=callback,
-        help=__doc__,
+        help=(__doc__ or "") + LOADER_REFERENCE_HELP,
         context_settings={"help_option_names": ["-h", "--help"]},
     )

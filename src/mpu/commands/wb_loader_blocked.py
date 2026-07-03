@@ -40,6 +40,8 @@ from typing import NoReturn
 
 import click
 
+from mpu.commands._wb_loader import LOADER_REFERENCE_HELP, wrong_form_hint
+
 # Переиспользуем стабильные символы из соседней команды (DRY; источник истины
 # для path/loader-имён/JSON-guard'ов — там). Cross-module private — осознанно,
 # тот же приём, что в tests/test_wb_loader_resume.py.
@@ -56,15 +58,17 @@ from mpu.lib.slapi import SlApi, SlApiError, resolve_base_url, token_cache_path
 
 COMMAND = "mpu api wb-loader-blocked"
 
-# Зеркало BLOCKED_REASONS из
-# sl-back/src/wbLoaderInstanceApp/wbLoaderInstanceApp.constants.js:230-243.
-# Источник истины — там; здесь нужно для shell-автодополнения и защиты от
-# опечатки в `--reason` (sl-back Zod-схема сама отвергнет неизвестное значение,
-# но локальная проверка даёт понятную ошибку до сети).
+# Полное зеркало `BLOCKED_REASONS` из sl-back `wbLoaderInstanceApp.constants.js`
+# (порядок — как там). Источник истины — там; здесь нужно для shell-автодополнения
+# и защиты от опечатки в `--reason` (sl-back Zod-схема сама отвергнет неизвестное
+# значение, но локальная проверка даёт понятную ошибку до сети). Operational-причины
+# (верхняя группа) восстанавливаются сами; permanent (нижняя) требуют wb-loader-resume.
 BLOCKED_REASON_NAMES: list[str] = [
     "no_token",
     "cards_not_loaded",
     "cards_filter_not_ready",
+    "adverts_detailed_not_loaded",
+    "fbs_warehouses_not_loaded",
     "feature_disabled",
     "endpoint_forbidden",
     "invalid_token",
@@ -73,6 +77,9 @@ BLOCKED_REASON_NAMES: list[str] = [
     "dto_mapping_error",
     "db_write_error",
     "unexpected_http_status",
+    "network_error",
+    "paid_storage_recreate_limit",
+    "not_using",
     "unknown_error",
 ]
 
@@ -195,7 +202,7 @@ def _run(
         _fail(
             f"неизвестный loader {loader!r}",
             code=2,
-            hint=f"один из: {', '.join(LOADER_NAMES)}",
+            hint=wrong_form_hint(loader) or f"один из: {', '.join(LOADER_NAMES)}",
         )
     if reason is not None and reason not in BLOCKED_REASON_NAMES:
         _fail(
@@ -330,6 +337,6 @@ def build_command() -> click.Command:
         name="wb-loader-blocked",
         params=params,
         callback=callback,
-        help=__doc__,
+        help=(__doc__ or "") + LOADER_REFERENCE_HELP,
         context_settings={"help_option_names": ["-h", "--help"]},
     )

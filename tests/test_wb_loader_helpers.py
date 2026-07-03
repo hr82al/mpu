@@ -31,6 +31,42 @@ def test_entities_lists() -> None:
     assert "cards" not in wl.FORWARD_ONLY_ENTITIES
 
 
+def test_loaders_map_complete() -> None:
+    # Полный набор WB_LOADERS = 25; оба списка выведены из единой карты и согласованы.
+    assert len(wl.LOADERS) == 25
+    assert list(wl.LOADERS) == wl.LOADER_NAMES
+    assert sorted(wl.LOADERS.values()) == wl.LOADER_ENTITIES
+    assert {v: k for k, v in wl.LOADERS.items()} == wl.LOADER_NAME_BY_ENTITY
+    # Загрузчики, которых раньше НЕ было в resume/blocked-списке (11 → 25):
+    for name in ("wbFbsStocks", "wbPrices", "wbSellerInfo", "wbTariffsBox", "wbAdvBudget"):
+        assert name in wl.LOADER_NAMES
+        assert wl.LOADERS[name] in wl.LOADER_ENTITIES
+
+
+def test_wrong_form_hint() -> None:
+    # camelCase передан туда, где ждут kebab → советуем kebab.
+    assert wl.wrong_form_hint("wbCards") == "используй kebab-слаг: cards"
+    assert wl.wrong_form_hint("wbFbsStocks") == "используй kebab-слаг: fbs-stocks"
+    # kebab передан туда, где ждут camelCase → советуем camelCase.
+    assert wl.wrong_form_hint("cards") == "используй camelCase-имя: wbCards"
+    assert wl.wrong_form_hint("adverts-detailed") == "используй camelCase-имя: wbAdvertsDetailed"
+    # Обычная опечатка — подсказки формы нет.
+    assert wl.wrong_form_hint("wbBogus") is None
+    assert wl.wrong_form_hint("bogus") is None
+
+
+def test_loader_reference_help() -> None:
+    ref = wl.LOADER_REFERENCE_HELP
+    # Обе формы имени и legend причин присутствуют — агенту всё сразу.
+    assert "wbCards" in ref and "cards" in ref
+    assert "wbFbsStocks" in ref and "fbs-stocks" in ref
+    assert "blocked_reason" in ref
+    assert "wb-loader-resume" in ref
+    # Все 25 camelCase-имён перечислены в карте справки.
+    for name in wl.LOADERS:
+        assert name in ref
+
+
 def test_complete_entity() -> None:
     out = wl.complete_entity(None, None, "adv-normquery")  # pyright: ignore[reportArgumentType]
     assert "adv-normquery-stats" in out

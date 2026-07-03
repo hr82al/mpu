@@ -165,6 +165,14 @@ def test_unknown_loader(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "неизвестный loader" in result.stderr
 
 
+# 5b. Не та форма имени (kebab вместо camelCase) → подсказка правильной формы.
+def test_wrong_form_loader(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch(monkeypatch, api=None)
+    result = runner.invoke(_cmd(), ["42", "cards"])
+    assert result.exit_code == 2
+    assert "используй camelCase-имя: wbCards" in result.stderr
+
+
 # 6. Несколько sid, селектор не sid, без --sid → exit 2 + список.
 def test_multi_sid_requires_sid(monkeypatch: pytest.MonkeyPatch) -> None:
     api = FakeSlApi({})

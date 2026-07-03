@@ -113,6 +113,14 @@ def test_unknown_loader(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "неизвестный loader" in result.stderr
 
 
+def test_wrong_form_loader(monkeypatch: pytest.MonkeyPatch) -> None:
+    # camelCase имя туда, где ждут kebab-слаг → подсказать kebab.
+    _patch(monkeypatch, api=None)
+    result = runner.invoke(_cmd(), ["42", "wbCards"])
+    assert result.exit_code == 2
+    assert "используй kebab-слаг: cards" in result.stderr
+
+
 def test_print_emits_get_curl(monkeypatch: pytest.MonkeyPatch) -> None:
     clip = _patch(monkeypatch, api=None)  # from_env не подменён → его вызов = AssertionError
     result = runner.invoke(_cmd(), ["42", "adv-normquery-stats", "--print"])

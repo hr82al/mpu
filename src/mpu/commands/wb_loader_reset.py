@@ -29,6 +29,7 @@ import click
 from mpu.commands._wb_loader import (
     FORWARD_ONLY_ENTITIES,
     LOADER_ENTITIES,
+    LOADER_REFERENCE_HELP,
     complete_entity,
     emit_curl,
     fail,
@@ -36,6 +37,7 @@ from mpu.commands._wb_loader import (
     loader_path,
     print_json,
     resolve_target_sid,
+    wrong_form_hint,
 )
 from mpu.lib.slapi import SlApi, SlApiError, resolve_base_url
 
@@ -88,7 +90,7 @@ def _run(
             COMMAND,
             f"неизвестный loader {loader!r}",
             code=2,
-            hint=f"один из: {', '.join(LOADER_ENTITIES)}",
+            hint=wrong_form_hint(loader) or f"один из: {', '.join(LOADER_ENTITIES)}",
         )
     state = _build_state(loader, state_json, from_date)
     body: dict[str, object] | None = {"state": state} if state is not None else None
@@ -203,6 +205,6 @@ def build_command() -> click.Command:
         name="wb-loader-reset",
         params=params,
         callback=callback,
-        help=__doc__,
+        help=(__doc__ or "") + LOADER_REFERENCE_HELP,
         context_settings={"help_option_names": ["-h", "--help"]},
     )

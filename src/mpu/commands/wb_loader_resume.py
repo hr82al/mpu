@@ -45,6 +45,11 @@ from typing import NoReturn
 import click
 
 from mpu.commands._wb_loader import (
+    LOADER_NAMES,
+    LOADER_REFERENCE_HELP,
+    emit_curl,
+)
+from mpu.commands._wb_loader import (
     cid_json as _cid_json,
 )
 from mpu.commands._wb_loader import (
@@ -52,9 +57,6 @@ from mpu.commands._wb_loader import (
 )
 from mpu.commands._wb_loader import (
     cids_for_sid as _cids_for_sid,
-)
-from mpu.commands._wb_loader import (
-    emit_curl,
 )
 from mpu.commands._wb_loader import (
     fail as _fail_base,
@@ -80,29 +82,19 @@ from mpu.commands._wb_loader import (
 from mpu.commands._wb_loader import (
     sid_from_selector as _sid_from_selector,
 )
+from mpu.commands._wb_loader import (
+    wrong_form_hint as _wrong_form_hint,
+)
 from mpu.lib.slapi import SlApi, SlApiError, resolve_base_url
 
 COMMAND = "mpu api wb-loader-resume"
 
-# Зеркало WB_*_LOADER из
-# sl-back/src/wbLoaderInstanceApp/wbLoaderInstanceApp.constants.js:142-152.
-# Источник истины — там; здесь список нужен только для shell-автодополнения и
-# защиты от опечатки в позиционном `loader` (sl-back-фильтр сам по себе принял
-# бы любую строку и молча ничего не разлочил). ВАЖНО: blocked-loaders фильтр
-# использует camelCase-имена (НЕ kebab-слаги стандартных loader-роутов).
-LOADER_NAMES: list[str] = [
-    "wbAnalytics",
-    "wbCards",
-    "wbOrders",
-    "wbSales",
-    "wbReports",
-    "wbFeedbacks",
-    "wbAdvertsDetailed",
-    "wbSearchTexts",
-    "wbSupplies",
-    "wbAnalyticsStocks",
-    "wbAcceptanceReports",
-]
+# `LOADER_NAMES` (все 25 camelCase-имени) — единый источник в `_wb_loader.LOADERS`.
+# blocked-loaders фильтр использует camelCase-имена (НЕ kebab-слаги стандартных
+# loader-роутов). Список нужен только для shell-автодополнения и защиты от опечатки
+# в позиционном `loader` (sl-back-фильтр сам принял бы любую строку и молча ничего
+# не разлочил). Реэкспортируется: `wb_loader_blocked` импортирует `LOADER_NAMES`
+# отсюда.
 
 # sl-back main проксирует `/admin/wb-loader/<rest>` → wb-main `/api/<rest>`.
 # wb-main aggregation-router слушает именно `/api/blocked-loaders/v1/{find,resume}`
@@ -199,7 +191,7 @@ def _run(
         _fail(
             f"неизвестный loader {loader!r}",
             code=2,
-            hint=f"один из: {', '.join(LOADER_NAMES)}",
+            hint=_wrong_form_hint(loader) or f"один из: {', '.join(LOADER_NAMES)}",
         )
 
     show_mode = not loader and not resume_all
@@ -324,6 +316,6 @@ def build_command() -> click.Command:
         name="wb-loader-resume",
         params=params,
         callback=callback,
-        help=__doc__,
+        help=(__doc__ or "") + LOADER_REFERENCE_HELP,
         context_settings={"help_option_names": ["-h", "--help"]},
     )
