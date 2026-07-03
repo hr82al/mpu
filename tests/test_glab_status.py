@@ -8,7 +8,6 @@ I/O (GitLabClient, list_my_merge_requests, commit_branch_names) тестами �
 from __future__ import annotations
 
 import json
-from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -269,9 +268,13 @@ def test_cli_json_states_sort_and_landed(monkeypatch: pytest.MonkeyPatch) -> Non
     # порядок строк — (короткое имя репо, iid).
     mrs = [
         _mr(iid=2, web_url="https://h/wb/sl-back/-/merge_requests/2", merge_commit_sha="m2"),
-        replace(_mr(iid=5, web_url="https://h/wb/sl-back/-/merge_requests/5"), state="opened"),
+        _mr(iid=5, web_url="https://h/wb/sl-back/-/merge_requests/5").model_copy(
+            update={"state": "opened"}
+        ),
         _mr(iid=1, web_url="https://h/wb/sw-back/-/merge_requests/1", merge_commit_sha="m1"),
-        replace(_mr(iid=9, web_url="https://h/wb/sl-back/-/merge_requests/9"), state="closed"),
+        _mr(iid=9, web_url="https://h/wb/sl-back/-/merge_requests/9").model_copy(
+            update={"state": "closed"}
+        ),
         _mr(iid=7, web_url="https://h/wb/other/-/merge_requests/7", merge_commit_sha="mx"),
     ]
     client = _FakeClient(mrs, refs_by_sha={"m2": ["dev", "main", "feat/z"], "m1": list(COLUMNS)})
@@ -360,10 +363,9 @@ def test_cli_table_render(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_cli_table_truncates_long_title(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("COLUMNS", "80")
     long_title = "A" * 60
-    mr = replace(
-        _mr(iid=1, web_url="https://h/wb/sl-back/-/merge_requests/1", merge_commit_sha="m1"),
-        title=long_title,
-    )
+    mr = _mr(
+        iid=1, web_url="https://h/wb/sl-back/-/merge_requests/1", merge_commit_sha="m1"
+    ).model_copy(update={"title": long_title})
     client = _FakeClient([mr], refs_by_sha={"m1": ["dev"]})
     _use_client(monkeypatch, client)
     res = runner.invoke(glab_status.app, ["--since", str(_FIXED_TS)])

@@ -47,9 +47,8 @@ from __future__ import annotations
 import subprocess
 import sys
 from collections.abc import Callable
-from dataclasses import asdict
 from pathlib import Path
-from typing import Annotated, Any, NoReturn
+from typing import TYPE_CHECKING, Annotated, Any, NoReturn
 
 import typer
 from rich.console import Console
@@ -60,12 +59,8 @@ from mpu.lib import env
 from mpu.lib.cli_err import die
 from mpu.lib.cli_out import print_json
 from mpu.lib.gitlab_mr import (
-    Discussion,
-    FileDiff,
     GitLabAPIError,
     GitLabClient,
-    MrInfo,
-    NotePosition,
     Side,
     build_position_params,
     commentable_ranges,
@@ -80,6 +75,15 @@ from mpu.lib.gitlab_mr import (
     parse_unified_diff,
     project_from_remote_url,
 )
+
+if TYPE_CHECKING:
+    # Только аннотации: runtime-импорт моделей тянет pydantic (~150 мс) в startup.
+    from mpu.lib.gitlab_mr_models import (
+        Discussion,
+        FileDiff,
+        MrInfo,
+        NotePosition,
+    )
 
 COMMAND_NAME = "mpu mr"
 COMMAND_SUMMARY = (
@@ -266,7 +270,7 @@ def _discussion_payload(d: Discussion) -> dict[str, Any]:
         "resolvable": d.resolvable,
         "resolved": d.resolved,
         "location": position_label(d.location()) or None,
-        "notes": [asdict(n) for n in d.notes],
+        "notes": [n.model_dump() for n in d.notes],
     }
 
 
@@ -348,7 +352,7 @@ def view(
     except _CATCHABLE as e:
         _fail("view", _err_msg(e))
     if out_json:
-        print_json(asdict(mr))
+        print_json(mr.model_dump())
         return
     typer.echo(f"MR {mr.project}!{mr.iid} — {mr.title} [{mr.state}]")
     typer.echo(f"author: {mr.author_name or mr.author_username} (@{mr.author_username})")
@@ -462,7 +466,7 @@ def diff(
         if not diffs:
             _fail("diff", f"нет изменённых файлов по подстроке {file_filter!r}")
     if out_json:
-        print_json([asdict(fd) for fd in diffs])
+        print_json([fd.model_dump() for fd in diffs])
         return
     if not diffs:
         typer.echo("(MR без изменённых файлов)")

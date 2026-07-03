@@ -25,6 +25,7 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from mpu.lib import env
+from mpu.lib.jsonx import dict_items
 
 if TYPE_CHECKING:
     from mpu.lib.kaiten_models import (
@@ -382,7 +383,7 @@ class KaitenClient:
         res = self._request("GET", "/spaces")
         spaces: list[KaitenSpace] = []
         boards: list[KaitenBoard] = []
-        for raw in km.dict_items(res):
+        for raw in dict_items(res):
             spaces.append(km.parse_space(raw))
             boards.extend(km.parse_boards_of_space(raw))
         return spaces, boards
@@ -401,7 +402,7 @@ class KaitenClient:
                 res = self._request("GET", f"/boards/{board_id}/lanes")
             except KaitenAPIError:
                 continue
-            lanes.extend(km.parse_lane(raw) for raw in km.dict_items(res))
+            lanes.extend(km.parse_lane(raw) for raw in dict_items(res))
         return lanes
 
     def list_columns(self, board_ids: list[int]) -> list[KaitenColumn]:
@@ -414,7 +415,7 @@ class KaitenClient:
                 res = self._request("GET", f"/boards/{board_id}/columns")
             except KaitenAPIError:
                 continue
-            columns.extend(km.parse_column(raw) for raw in km.dict_items(res))
+            columns.extend(km.parse_column(raw) for raw in dict_items(res))
         return columns
 
     def get_card(self, card_id: int) -> KaitenCardDetail:
@@ -429,7 +430,7 @@ class KaitenClient:
         from mpu.lib import kaiten_models as km
 
         res = self._request("GET", f"/cards/{card_id}/comments")
-        return [km.parse_comment(c) for c in km.dict_items(res)]
+        return [km.parse_comment(c) for c in dict_items(res)]
 
     def location_history(self, card_id: int) -> list[KaitenLocationChange]:
         """GET /cards/{id}/location-history — кто и когда менял колонку/дорожку карточки.
@@ -443,14 +444,14 @@ class KaitenClient:
             res = self._request("GET", f"/cards/{card_id}/location-history")
         except KaitenAPIError:
             return []
-        return [km.parse_location_change(c) for c in km.dict_items(res)]
+        return [km.parse_location_change(c) for c in dict_items(res)]
 
     def list_custom_properties(self) -> list[KaitenCustomProperty]:
         """GET /company/custom-properties — определения кастомных полей (id → name)."""
         from mpu.lib import kaiten_models as km
 
         res = self._request("GET", "/company/custom-properties")
-        return [km.parse_custom_property(p) for p in km.dict_items(res)]
+        return [km.parse_custom_property(p) for p in dict_items(res)]
 
     def add_comment(
         self, card_id: int, text: str, files: list[tuple[str, bytes]] | None = None

@@ -11,21 +11,14 @@ pydantic ~150 мс импорта, top-level импорт из commands/ и жа
 
 from __future__ import annotations
 
-from typing import Annotated, TypeGuard
+from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
+from mpu.lib.jsonx import dict_items, is_dict
 from mpu.lib.kaiten import card_url
 
 # ── Общие примитивы терпимого декода ────────────────────────────────────────────
-
-
-def _as_dict(o: object) -> TypeGuard[dict[object, object]]:
-    return isinstance(o, dict)
-
-
-def _as_list(o: object) -> TypeGuard[list[object]]:
-    return isinstance(o, list)
 
 
 def _falsy_to_empty(v: object) -> object:
@@ -39,16 +32,9 @@ EmptyStr = Annotated[str, BeforeValidator(_falsy_to_empty)]
 TruthyBool = Annotated[bool, BeforeValidator(bool)]
 
 
-def dict_items(raw_value: object) -> list[dict[object, object]]:
-    """Значение API → список dict-элементов (не список / не-dict элементы отбрасываются)."""
-    if not _as_list(raw_value):
-        return []
-    return [entry for entry in raw_value if _as_dict(entry)]
-
-
 def _member_name(raw: object) -> str:
     """full_name автора из вложенного `author`/`owner` объекта; пусто, если нет."""
-    if not _as_dict(raw):
+    if not is_dict(raw):
         return ""
     return str(raw.get("full_name") or raw.get("username") or "")
 
@@ -56,7 +42,7 @@ def _member_name(raw: object) -> str:
 def _nested_title(raw: dict[object, object], key: str) -> str | None:
     """`title` вложенного объекта (`board`/`column`/`lane`/`type`); None, если нет."""
     obj = raw.get(key)
-    if _as_dict(obj):
+    if is_dict(obj):
         title = obj.get("title")
         return str(title) if title is not None else None
     return None
@@ -65,7 +51,7 @@ def _nested_title(raw: dict[object, object], key: str) -> str | None:
 def _string_properties(props: object) -> dict[str, str]:
     """`properties` карточки → только строковые значения (ключи id_NNN). Не-строки
     (select/catalog → id/массив) приводим к str, чтобы не терять поле."""
-    if not _as_dict(props):
+    if not is_dict(props):
         return {}
     out: dict[str, str] = {}
     for key, value in props.items():
@@ -153,7 +139,7 @@ class KaitenComment(_ApiModel):
     @model_validator(mode="before")
     @classmethod
     def _author_name_from_nested(cls, raw: object) -> object:
-        if _as_dict(raw) and "author_name" not in raw:
+        if is_dict(raw) and "author_name" not in raw:
             out = dict(raw)
             out["author_name"] = _member_name(raw.get("author"))
             return out
@@ -180,7 +166,7 @@ class KaitenLocationChange(_ApiModel):
     @model_validator(mode="before")
     @classmethod
     def _author_name_from_nested(cls, raw: object) -> object:
-        if _as_dict(raw) and "author_name" not in raw:
+        if is_dict(raw) and "author_name" not in raw:
             out = dict(raw)
             out["author_name"] = _member_name(raw.get("author")) or None
             return out
@@ -226,7 +212,7 @@ def _flatten_card_detail_wire(raw: dict[object, object]) -> dict[object, object]
     out["lane_title"] = _nested_title(raw, "lane")
     out["type_name"] = _nested_title(raw, "type")
     owner = raw.get("owner")
-    out["owner"] = owner if _as_dict(owner) else None
+    out["owner"] = owner if is_dict(owner) else None
     out["tags"] = [str(t.get("name") or "") for t in dict_items(raw.get("tags"))]
     out["members"] = dict_items(raw.get("members"))
     out["files"] = dict_items(raw.get("files"))
@@ -268,7 +254,7 @@ def parse_boards_of_space(raw: object) -> list[KaitenBoard]:
 
     `space_id` доски может отсутствовать во вложенном виде — тогда берётся id самого space.
     """
-    if not _as_dict(raw):
+    if not is_dict(raw):
         return []
     parsed: list[KaitenBoard] = []
     for entry in dict_items(raw.get("boards")):
@@ -306,6 +292,6 @@ def parse_location_change(raw: object) -> KaitenLocationChange:
 
 def parse_card_detail(raw: object, base_url: str) -> KaitenCardDetail:
     """Полный JSON карточки (GET /cards/{id}) → KaitenCardDetail. Недостающее → None/[]."""
-    wire = _flatten_card_detail_wire(raw) if _as_dict(raw) else raw
+    wire = _flatten_card_detail_wire(raw) if is_dict(raw) else raw
     detail = KaitenCardDetail.model_validate(wire)
     return detail.model_copy(update={"url": card_url(base_url, detail.id)})

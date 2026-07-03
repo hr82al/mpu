@@ -8,19 +8,10 @@
 ровно этой единицы, остальное парсится.
 """
 
-from typing import TypeGuard
-
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
+from mpu.lib.jsonx import is_dict, is_list
 from mpu.lib.loki import LogEntry
-
-
-def _as_dict(o: object) -> TypeGuard[dict[object, object]]:
-    return isinstance(o, dict)
-
-
-def _as_list(o: object) -> TypeGuard[list[object]]:
-    return isinstance(o, list)
 
 
 class StreamBlock(BaseModel):
@@ -33,7 +24,7 @@ class StreamBlock(BaseModel):
     @classmethod
     def _keep_str_pairs(cls, raw: object) -> dict[str, str]:
         """Не-dict → пустые лейблы; нестроковые ключи/значения отбрасываются поштучно."""
-        if not _as_dict(raw):
+        if not is_dict(raw):
             return {}
         return {k: v for k, v in raw.items() if isinstance(k, str) and isinstance(v, str)}
 
@@ -41,11 +32,11 @@ class StreamBlock(BaseModel):
     @classmethod
     def _keep_valid_pairs(cls, raw: object) -> list[tuple[str, str]]:
         """Пара не-list / короткая / нестроковая / непарсимый ts — пропуск; хвост >2 игнор."""
-        if not _as_list(raw):
+        if not is_list(raw):
             return []
         pairs: list[tuple[str, str]] = []
         for pair in raw:
-            if not _as_list(pair) or len(pair) < 2:  # noqa: PLR2004
+            if not is_list(pair) or len(pair) < 2:  # noqa: PLR2004
                 continue
             ts, line = pair[0], pair[1]
             if isinstance(ts, str) and isinstance(line, str) and _is_int(ts):

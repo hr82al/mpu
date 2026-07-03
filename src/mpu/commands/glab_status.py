@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import Annotated, Any, NoReturn
+from typing import TYPE_CHECKING, Annotated, Any, NoReturn
 from urllib.parse import urlparse
 
 import typer
@@ -39,7 +39,11 @@ from mpu.lib import env
 from mpu.lib.cli_err import die
 from mpu.lib.cli_out import print_json
 from mpu.lib.duration import DurationParseError, parse_since
-from mpu.lib.gitlab_mr import GitLabAPIError, GitLabClient, MrInfo
+from mpu.lib.gitlab_mr import GitLabAPIError, GitLabClient
+
+if TYPE_CHECKING:
+    # Только аннотации: runtime-импорт моделей тянет pydantic (~150 мс) в startup.
+    from mpu.lib.gitlab_mr_models import MrInfo
 
 COMMAND_NAME = "mpu glab-status"
 COMMAND_SUMMARY = (

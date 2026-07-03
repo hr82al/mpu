@@ -19,12 +19,45 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote, urlparse
 
 import httpx
 
 from mpu.lib import env
+from mpu.lib.jsonx import dict_items, is_dict
+
+if TYPE_CHECKING:
+    from mpu.lib.gitlab_mr_models import (
+        DiffRefs as DiffRefs,
+    )
+    from mpu.lib.gitlab_mr_models import (
+        Discussion as Discussion,
+    )
+    from mpu.lib.gitlab_mr_models import (
+        FileDiff as FileDiff,
+    )
+    from mpu.lib.gitlab_mr_models import (
+        MrInfo as MrInfo,
+    )
+    from mpu.lib.gitlab_mr_models import (
+        Note as Note,
+    )
+    from mpu.lib.gitlab_mr_models import (
+        NotePosition as NotePosition,
+    )
+    from mpu.lib.gitlab_mr_models import (
+        parse_discussion as parse_discussion,
+    )
+    from mpu.lib.gitlab_mr_models import (
+        parse_file_diff as parse_file_diff,
+    )
+    from mpu.lib.gitlab_mr_models import (
+        parse_mr_info as parse_mr_info,
+    )
+    from mpu.lib.gitlab_mr_models import (
+        parse_note as parse_note,
+    )
 
 DEFAULT_BASE_URL = "https://gitlab.btlz-api.ru"
 PER_PAGE = 100
@@ -32,86 +65,31 @@ MIN_DISCUSSION_PREFIX = 6
 
 Side = Literal["new", "old"]
 
-
-@dataclass
-class DiffRefs:
-    base_sha: str
-    start_sha: str
-    head_sha: str
-
-
-@dataclass
-class MrInfo:
-    project: str  # "wb/sl-back" — прокидывается caller'ом, API в этом виде не возвращает
-    iid: int
-    title: str
-    state: str
-    source_branch: str
-    target_branch: str
-    web_url: str
-    author_name: str
-    author_username: str
-    description: str
-    diff_refs: DiffRefs | None  # None у MR без коммитов
-    # Поля для `mpu glab-status` (есть в list-payload `/merge_requests`; default None,
-    # чтобы не ломать конструирование MrInfo из get_mr/create_mr).
-    project_id: int | None = None
-    sha: str | None = None  # head исходной ветки на момент последнего апдейта
-    merge_commit_sha: str | None = None
-    squash_commit_sha: str | None = None
+# Имена, живущие в lib/gitlab_mr_models.py (pydantic) — реэкспортируются лениво:
+# pydantic грузится при первом обращении, не на старте CLI (см. CLAUDE.md «Стек»).
+_MODEL_EXPORTS = frozenset(
+    {
+        "DiffRefs",
+        "Discussion",
+        "FileDiff",
+        "MrInfo",
+        "Note",
+        "NotePosition",
+        "parse_discussion",
+        "parse_file_diff",
+        "parse_mr_info",
+        "parse_note",
+    }
+)
 
 
-@dataclass
-class FileDiff:
-    old_path: str
-    new_path: str
-    diff: str  # unified diff: hunks `@@ -A,B +C,D @@`; пустой у binary
-    new_file: bool
-    renamed_file: bool
-    deleted_file: bool
+def __getattr__(name: str) -> object:
+    """Ленивый re-export моделей/парсеров: pydantic грузится при первом обращении."""
+    if name in _MODEL_EXPORTS:
+        from mpu.lib import gitlab_mr_models
 
-
-@dataclass
-class NotePosition:
-    old_path: str | None
-    new_path: str | None
-    old_line: int | None
-    new_line: int | None
-
-
-@dataclass
-class Note:
-    id: int
-    body: str
-    author_name: str
-    author_username: str
-    created_at: str | None
-    updated_at: str | None
-    system: bool
-    resolvable: bool
-    resolved: bool
-    type: str | None  # "DiffNote" (инлайн) | "DiscussionNote" | None
-    position: NotePosition | None
-
-
-@dataclass
-class Discussion:
-    id: str  # 40-hex
-    individual_note: bool
-    notes: list[Note]
-
-    @property
-    def resolvable(self) -> bool:
-        return any(n.resolvable for n in self.notes)
-
-    @property
-    def resolved(self) -> bool:
-        resolvable_notes = [n for n in self.notes if n.resolvable]
-        return bool(resolvable_notes) and all(n.resolved for n in resolvable_notes)
-
-    def location(self) -> NotePosition | None:
-        """Позиция треда — position первой позиционированной ноты; None у general."""
-        return next((n.position for n in self.notes if n.position is not None), None)
+        return getattr(gitlab_mr_models, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 @dataclass(frozen=True)
@@ -341,6 +319,8 @@ def filter_discussions(
     """Треды для `mpu mr comments`: system-ноты выкинуты всегда (тред из одних
     system-нот — целиком); затем --unresolved / --file (substring по old/new path) /
     --author (substring по имени или username автора первой ноты, без регистра)."""
+    from mpu.lib.gitlab_mr_models import Discussion  # lazy: pydantic не в startup
+
     out: list[Discussion] = []
     for d in discussions:
         notes = [n for n in d.notes if not n.system]
@@ -361,100 +341,6 @@ def filter_discussions(
                 continue
         out.append(item)
     return out
-
-
-def _dict_items(raw_value: object) -> list[dict[str, Any]]:
-    """Значение API → список dict-элементов (не список / не-dict элементы отбрасываются)."""
-    if not isinstance(raw_value, list):
-        return []
-    items: list[dict[str, Any]] = []
-    for entry in cast("list[object]", raw_value):
-        if isinstance(entry, dict):
-            items.append(cast("dict[str, Any]", entry))
-    return items
-
-
-def _parse_position(raw: object) -> NotePosition | None:
-    if not isinstance(raw, dict):
-        return None
-    p = cast("dict[str, Any]", raw)
-    return NotePosition(
-        old_path=p.get("old_path"),
-        new_path=p.get("new_path"),
-        old_line=p.get("old_line"),
-        new_line=p.get("new_line"),
-    )
-
-
-def parse_note(raw: dict[str, Any]) -> Note:
-    """JSON-нота из discussions[].notes[] → Note. Недостающие поля → None/пусто."""
-    author_raw = raw.get("author")
-    author = cast("dict[str, Any]", author_raw) if isinstance(author_raw, dict) else {}
-    return Note(
-        id=int(raw["id"]),
-        body=str(raw.get("body") or ""),
-        author_name=str(author.get("name") or ""),
-        author_username=str(author.get("username") or ""),
-        created_at=raw.get("created_at"),
-        updated_at=raw.get("updated_at"),
-        system=bool(raw.get("system")),
-        resolvable=bool(raw.get("resolvable")),
-        resolved=bool(raw.get("resolved")),
-        type=raw.get("type"),
-        position=_parse_position(raw.get("position")),
-    )
-
-
-def parse_discussion(raw: dict[str, Any]) -> Discussion:
-    """JSON-дискуссия из GET …/discussions → Discussion."""
-    return Discussion(
-        id=str(raw["id"]),
-        individual_note=bool(raw.get("individual_note")),
-        notes=[parse_note(n) for n in _dict_items(raw.get("notes"))],
-    )
-
-
-def parse_file_diff(raw: dict[str, Any]) -> FileDiff:
-    """JSON-элемент GET …/diffs → FileDiff."""
-    return FileDiff(
-        old_path=str(raw.get("old_path") or ""),
-        new_path=str(raw.get("new_path") or ""),
-        diff=str(raw.get("diff") or ""),
-        new_file=bool(raw.get("new_file")),
-        renamed_file=bool(raw.get("renamed_file")),
-        deleted_file=bool(raw.get("deleted_file")),
-    )
-
-
-def parse_mr_info(raw: dict[str, Any], project: str) -> MrInfo:
-    """JSON MR (GET …/merge_requests/:iid) → MrInfo. `diff_refs` с null-SHA → None."""
-    refs_raw = raw.get("diff_refs")
-    diff_refs: DiffRefs | None = None
-    if isinstance(refs_raw, dict):
-        refs = cast("dict[str, Any]", refs_raw)
-        base, start, head = refs.get("base_sha"), refs.get("start_sha"), refs.get("head_sha")
-        if base and start and head:
-            diff_refs = DiffRefs(base_sha=str(base), start_sha=str(start), head_sha=str(head))
-    author_raw = raw.get("author")
-    author = cast("dict[str, Any]", author_raw) if isinstance(author_raw, dict) else {}
-    project_id_raw = raw.get("project_id")
-    return MrInfo(
-        project=project,
-        iid=int(raw["iid"]),
-        title=str(raw.get("title") or ""),
-        state=str(raw.get("state") or ""),
-        source_branch=str(raw.get("source_branch") or ""),
-        target_branch=str(raw.get("target_branch") or ""),
-        web_url=str(raw.get("web_url") or ""),
-        author_name=str(author.get("name") or ""),
-        author_username=str(author.get("username") or ""),
-        description=str(raw.get("description") or ""),
-        diff_refs=diff_refs,
-        project_id=int(project_id_raw) if project_id_raw is not None else None,
-        sha=str(raw["sha"]) if raw.get("sha") else None,
-        merge_commit_sha=str(raw["merge_commit_sha"]) if raw.get("merge_commit_sha") else None,
-        squash_commit_sha=str(raw["squash_commit_sha"]) if raw.get("squash_commit_sha") else None,
-    )
 
 
 # ── I/O-клиент (HTTP, тестами не покрывается — как kaiten/miro/slapi) ───────────
@@ -506,14 +392,14 @@ class GitLabClient:
 
     def _get_paginated(
         self, path: str, params: dict[str, str] | None = None
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[object, object]]:
         """GET с пагинацией per_page=100 до неполной страницы."""
-        items: list[dict[str, Any]] = []
+        items: list[dict[object, object]] = []
         page = 1
         while True:
             query = dict(params or {})
             query.update({"per_page": str(PER_PAGE), "page": str(page)})
-            batch = _dict_items(self._request("GET", path, params=query))
+            batch = dict_items(self._request("GET", path, params=query))
             items.extend(batch)
             if len(batch) < PER_PAGE:
                 return items
@@ -524,8 +410,10 @@ class GitLabClient:
 
     def get_mr(self, project: str, iid: int) -> MrInfo:
         """GET …/merge_requests/:iid — заголовок MR + diff_refs (3 SHA для position)."""
+        from mpu.lib import gitlab_mr_models as gm
+
         res = self._request("GET", self._mr_path(project, iid))
-        return parse_mr_info(cast("dict[str, Any]", res), project)
+        return gm.parse_mr_info(res, project)
 
     def find_open_mrs(self, project: str, branch: str) -> list[MrInfo]:
         """GET …/merge_requests?source_branch=&state=opened — открытые MR ветки."""
@@ -533,7 +421,9 @@ class GitLabClient:
             f"/projects/{encode_project(project)}/merge_requests",
             {"source_branch": branch, "state": "opened"},
         )
-        return [parse_mr_info(raw, project) for raw in res]
+        from mpu.lib import gitlab_mr_models as gm
+
+        return [gm.parse_mr_info(raw, project) for raw in res]
 
     def list_my_merge_requests(self, updated_after_iso: str) -> list[MrInfo]:
         """GET /merge_requests?scope=created_by_me&updated_after= — мои MR во всех проектах.
@@ -550,7 +440,9 @@ class GitLabClient:
                 "sort": "asc",
             },
         )
-        return [parse_mr_info(raw, "") for raw in res]
+        from mpu.lib import gitlab_mr_models as gm
+
+        return [gm.parse_mr_info(raw, "") for raw in res]
 
     def commit_branch_names(self, project_id: int, sha: str) -> list[str]:
         """GET …/repository/commits/:sha/refs?type=branch — ветки, СОДЕРЖАЩИЕ коммит.
@@ -580,13 +472,17 @@ class GitLabClient:
             f"{self._mr_path(project, iid)}/changes",
             params={"access_raw_diffs": "true"},
         )
-        payload = cast("dict[str, Any]", res) if isinstance(res, dict) else {}
-        return [parse_file_diff(raw) for raw in _dict_items(payload.get("changes"))]
+        from mpu.lib import gitlab_mr_models as gm
+
+        payload = res if is_dict(res) else {}
+        return [gm.parse_file_diff(raw) for raw in dict_items(payload.get("changes"))]
 
     def list_discussions(self, project: str, iid: int) -> list[Discussion]:
         """GET …/discussions — все треды MR."""
+        from mpu.lib import gitlab_mr_models as gm
+
         res = self._get_paginated(f"{self._mr_path(project, iid)}/discussions")
-        return [parse_discussion(raw) for raw in res]
+        return [gm.parse_discussion(raw) for raw in res]
 
     def create_discussion(
         self, project: str, iid: int, body: str, position: dict[str, str] | None = None
@@ -596,7 +492,9 @@ class GitLabClient:
         if position:
             data.update(position)
         res = self._request("POST", f"{self._mr_path(project, iid)}/discussions", data=data)
-        return parse_discussion(cast("dict[str, Any]", res))
+        from mpu.lib import gitlab_mr_models as gm
+
+        return gm.parse_discussion(res)
 
     def reply(self, project: str, iid: int, discussion_id: str, body: str) -> Note:
         """POST …/discussions/:id/notes — ответ в тред."""
@@ -605,14 +503,18 @@ class GitLabClient:
             f"{self._mr_path(project, iid)}/discussions/{discussion_id}/notes",
             data={"body": body},
         )
-        return parse_note(cast("dict[str, Any]", res))
+        from mpu.lib import gitlab_mr_models as gm
+
+        return gm.parse_note(res)
 
     def update_note(self, project: str, iid: int, note_id: int, body: str) -> Note:
         """PUT …/notes/:note_id — заменить тело своей ноты."""
         res = self._request(
             "PUT", f"{self._mr_path(project, iid)}/notes/{note_id}", data={"body": body}
         )
-        return parse_note(cast("dict[str, Any]", res))
+        from mpu.lib import gitlab_mr_models as gm
+
+        return gm.parse_note(res)
 
     def delete_note(self, project: str, iid: int, note_id: int) -> None:
         """DELETE …/notes/:note_id."""
@@ -629,7 +531,9 @@ class GitLabClient:
     def set_description(self, project: str, iid: int, description: str) -> MrInfo:
         """PUT …/merge_requests/:iid — заменить описание MR; возвращает обновлённый MR."""
         res = self._request("PUT", self._mr_path(project, iid), data={"description": description})
-        return parse_mr_info(cast("dict[str, Any]", res), project)
+        from mpu.lib import gitlab_mr_models as gm
+
+        return gm.parse_mr_info(res, project)
 
     def create_mr(
         self,
@@ -646,4 +550,6 @@ class GitLabClient:
         res = self._request(
             "POST", f"/projects/{encode_project(project)}/merge_requests", data=data
         )
-        return parse_mr_info(cast("dict[str, Any]", res), project)
+        from mpu.lib import gitlab_mr_models as gm
+
+        return gm.parse_mr_info(res, project)
