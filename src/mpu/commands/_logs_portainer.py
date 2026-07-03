@@ -12,6 +12,7 @@ import typer
 
 from mpu.commands._portainer_resolve import PortainerResolved, resolve_portainer
 from mpu.lib.duration import DurationParseError, parse_since
+from mpu.lib.jsonx import is_list
 
 
 def run(
@@ -56,10 +57,8 @@ def _resolve_container_name(pr: PortainerResolved, query: str, *, command_name: 
     names: list[str] = []
     for it in items:
         ns = it.get("Names")
-        if isinstance(ns, list):
-            for n_raw in ns:  # type: ignore[reportUnknownVariableType]
-                if isinstance(n_raw, str):
-                    names.append(n_raw.lstrip("/"))
+        if is_list(ns):
+            names.extend(n_raw.lstrip("/") for n_raw in ns if isinstance(n_raw, str))
     exact = [n for n in names if n == query]
     if exact:
         return exact[0]

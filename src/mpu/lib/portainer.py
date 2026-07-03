@@ -27,6 +27,8 @@ from dataclasses import dataclass
 import httpx
 import typer
 
+from mpu.lib.jsonx import dict_items, is_dict
+
 # Периодичность WS-ping'а с клиента в idle — короче типичного NAT/proxy idle-timeout'а.
 _WS_PING_INTERVAL = 30.0
 
@@ -86,10 +88,10 @@ class Client:
             r = c.get(f"/containers/{container}/json")
             r.raise_for_status()
             data = r.json()
-        if not isinstance(data, dict):
+        if not is_dict(data):
             return {}
         out: dict[str, object] = {}
-        for k, v in data.items():  # type: ignore[reportUnknownVariableType]
+        for k, v in data.items():
             if isinstance(k, str):
                 out[k] = v
         return out
@@ -418,15 +420,8 @@ def _demux_docker_stream(raw: bytes) -> tuple[bytes, bytes]:
 
 def _filter_dict_list(data: object) -> list[dict[str, object]]:
     """Принять `Any` JSON и вернуть только dict-элементы списка с явным типом."""
-    if not isinstance(data, list):
-        return []
     out: list[dict[str, object]] = []
-    for item in data:  # type: ignore[reportUnknownVariableType]
-        if isinstance(item, dict):
-            # JSON-ключи всегда str; явное копирование чтобы pyright увидел dict[str, object].
-            normalized: dict[str, object] = {}
-            for k, v in item.items():  # type: ignore[reportUnknownVariableType]
-                if isinstance(k, str):
-                    normalized[k] = v
-            out.append(normalized)
+    for item in dict_items(data):
+        # JSON-ключи всегда str; явное копирование чтобы pyright увидел dict[str, object].
+        out.append({k: v for k, v in item.items() if isinstance(k, str)})
     return out

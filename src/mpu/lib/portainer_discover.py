@@ -17,6 +17,7 @@ from dataclasses import dataclass
 import typer
 
 from mpu.lib import portainer, servers
+from mpu.lib.jsonx import is_list
 
 _SERVER_NAME_PATTERN = re.compile(r"^/?mp-sl-(\d+)-cli$")
 
@@ -53,13 +54,9 @@ def _primary_name(names: list[str]) -> str:
 
 def _coerce_str_list(value: object) -> list[str]:
     """`object` (из JSON `Any`) → `list[str]` с фильтрацией не-str элементов."""
-    if not isinstance(value, list):
+    if not is_list(value):
         return []
-    out: list[str] = []
-    for s in value:  # type: ignore[reportUnknownVariableType]
-        if isinstance(s, str):
-            out.append(s)
-    return out
+    return [s for s in value if isinstance(s, str)]
 
 
 def discover(client: portainer.Client) -> list[DiscoveredContainer]:

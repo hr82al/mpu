@@ -26,12 +26,13 @@ import time
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated, Any, cast
+from typing import Annotated, Any
 
 import typer
 
 from mpu.lib import store
 from mpu.lib.cli_out import print_json
+from mpu.lib.jsonx import dict_items, is_dict, is_list
 from mpu.lib.log import logger
 from mpu.lib.sheet_api import SheetApiError, WebappClient
 from mpu.lib.sheet_batch import (
@@ -354,21 +355,20 @@ def _set_entries_from_json(text: str) -> list[tuple[str, str, str]]:
     `formula` → USER_ENTERED, `value` → RAW (имя свойства решает тип).
     """
     try:
-        loaded: Any = json.loads(text)
+        loaded: object = json.loads(text)
     except json.JSONDecodeError as e:
         typer.echo(f"mpu sheet set: невалидный JSON stdin: {e}", err=True)
         raise typer.Exit(code=2) from e
-    if not isinstance(loaded, list) or not loaded:
+    if not is_list(loaded) or not loaded:
         typer.echo(
             "mpu sheet set: ожидался непустой JSON-массив [{range, formula|value}]", err=True
         )
         raise typer.Exit(code=2)
     out: list[tuple[str, str, str]] = []
-    for i, item in enumerate(cast("list[Any]", loaded)):
-        if not isinstance(item, dict):
-            typer.echo(f"mpu sheet set: элемент #{i} не объект: {item!r}", err=True)
+    for i, entry in enumerate(loaded):
+        if not is_dict(entry):
+            typer.echo(f"mpu sheet set: элемент #{i} не объект: {entry!r}", err=True)
             raise typer.Exit(code=2)
-        entry = cast("dict[str, Any]", item)
         rng = entry.get("range")
         if not isinstance(rng, str) or not rng:
             typer.echo(f"mpu sheet set: элемент #{i} без поля range", err=True)
@@ -391,8 +391,9 @@ def _expand_fill(api: WebappClient, ss_id: str, rng: str, value: str) -> dict[st
         return {"range": rng, "values": [[value]]}
     prefix, col, start = m.group("prefix") or "", m.group("col"), int(m.group("from"))
     resp = api.batch_get(ss_id, [f"{prefix}{col}:{col}"], value_render="UNFORMATTED_VALUE")
-    vrs = cast("list[Any]", resp.get("valueRanges") or [])
-    vals = cast("list[Any]", (vrs[0].get("values") if vrs else None) or [])
+    value_ranges = dict_items(resp.get("valueRanges"))
+    values_raw = value_ranges[0].get("values") if value_ranges else None
+    vals = values_raw if is_list(values_raw) else []
     last = len(vals)
     if last < start:
         return {"range": f"{prefix}{col}{start}", "values": [[value]]}
@@ -512,10 +513,12 @@ def _make_run_py(
             ref = parse_range_token(a1, default_tab)
             return range_ref_to_gridrange(ref, sid_by_title[ref.tab])
 
-        def read(a1: str) -> list[list[Any]]:
+        def read(a1: str) -> list[list[object]]:
             resp = api.batch_get(ss_id, [a1])
-            vrs = cast("list[Any]", resp.get("valueRanges") or [])
-            return cast("list[list[Any]]", (vrs[0].get("values") if vrs else None) or [])
+            value_ranges = dict_items(resp.get("valueRanges"))
+            values_raw = value_ranges[0].get("values") if value_ranges else None
+            rows = values_raw if is_list(values_raw) else []
+            return [row for row in rows if is_list(row)]
 
         def emit(s: object) -> None:
             emitted_stmts.append(str(s))

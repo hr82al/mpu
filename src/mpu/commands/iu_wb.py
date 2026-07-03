@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import datetime
 import json
-from typing import Annotated, Any, cast
+from typing import Annotated
 
 import psycopg
 import typer
@@ -31,6 +31,7 @@ from mpu.lib.cli_wrap import (
 from mpu.lib.iu_common import read_iu_input
 from mpu.lib.iu_formula import merge_iu_perc, merge_iu_zero
 from mpu.lib.iu_sql import build_iu_sql
+from mpu.lib.jsonx import dict_items, is_list
 from mpu.lib.sheet_api import SheetApiError, WebappClient
 
 COMMAND_NAME = "mpu iu-wb"
@@ -188,14 +189,16 @@ def _read_unit_formulas(ss_id: str, i_cell: str, s_cell: str) -> tuple[str, str]
     except SheetApiError as e:
         typer.echo(f"{COMMAND_NAME}: sheet: {e}", err=True)
         raise typer.Exit(1) from e
-    vrs = cast("list[Any]", resp.get("valueRanges") or [])
+    value_ranges = dict_items(resp.get("valueRanges"))
 
     def _cell(idx: int) -> str:
-        if idx >= len(vrs):
+        if idx >= len(value_ranges):
             return ""
-        vals = cast("list[Any]", vrs[idx].get("values") or [])
-        if vals and vals[0] and vals[0][0] is not None:
-            return str(vals[0][0])
+        values_raw = value_ranges[idx].get("values")
+        rows = values_raw if is_list(values_raw) else []
+        first = rows[0] if rows else None
+        if is_list(first) and first and first[0] is not None:
+            return str(first[0])
         return ""
 
     return _cell(0), _cell(1)

@@ -30,6 +30,7 @@ import httpx
 import typer
 
 from mpu.commands._portainer_resolve import PortainerResolved, resolve_portainer
+from mpu.lib.jsonx import is_list
 
 COMMAND_NAME = "mpu health"
 COMMAND_SUMMARY = "Health-check sl-N: статусы контейнеров + tail логов loader'ов"
@@ -134,8 +135,8 @@ def main(
 def _row(item: dict[str, object]) -> dict[str, str]:
     names_raw = item.get("Names")
     name = ""
-    if isinstance(names_raw, list) and names_raw:
-        first = names_raw[0]  # type: ignore[reportUnknownVariableType]
+    if is_list(names_raw) and names_raw:
+        first = names_raw[0]
         if isinstance(first, str):
             name = first.lstrip("/")
     state = _str_field(item, "State")

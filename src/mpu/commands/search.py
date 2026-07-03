@@ -13,12 +13,13 @@ import re
 import sqlite3
 import time
 from datetime import date
-from typing import Annotated, TypeGuard, cast
+from typing import Annotated, TypeGuard
 
 import typer
 
 from mpu.lib import servers, store
 from mpu.lib.cli_out import print_json
+from mpu.lib.jsonx import is_list
 
 COMMAND_NAME = "mpu search"
 COMMAND_SUMMARY = "Поиск клиента / spreadsheet в локальном кэше"
@@ -174,11 +175,10 @@ def _owned_ids(row: sqlite3.Row) -> list[int]:
         parsed = json.loads(row["owned_client_ids"])
     except (ValueError, TypeError):
         return []
-    if not isinstance(parsed, list):
-        return []
     # owned_client_ids пишется нами как JSON list[int] (см. x10_resolve._upsert_email_client)
-    items: list[object] = cast("list[object]", parsed)
-    return [c for c in items if isinstance(c, int)]
+    if not is_list(parsed):
+        return []
+    return [c for c in parsed if isinstance(c, int)]
 
 
 def _get_email_client_row(conn: sqlite3.Connection, email: str) -> sqlite3.Row | None:
@@ -305,25 +305,19 @@ def _email_output_obj(
 ) -> dict[str, object]:
     """Полный объект для дефолтного вывода `mpu search <email>` — показать ВСЁ."""
     try:
-        parsed = json.loads(row["workspaces_json"])
+        parsed: object = json.loads(row["workspaces_json"])
     except (ValueError, TypeError):
         parsed = []
     # workspaces_json — сырой data[] (list[dict]) из 10X /workspaces
-    ws_list: list[object] = cast("list[object]", parsed) if isinstance(parsed, list) else []
+    ws_list: list[object] = parsed if is_list(parsed) else []
     uid = str(row["target_user_id"])
-    member_only: list[dict[str, object]] = []
-    for w in ws_list:
-        if not isinstance(w, dict):
-            continue
-        wd: dict[str, object] = cast("dict[str, object]", w)
-        if str(wd.get("ownerId")) != uid:
-            member_only.append(
-                {
-                    "workspace_id": wd.get("id"),
-                    "name": wd.get("name"),
-                    "marketplace": wd.get("marketplace"),
-                }
-            )
+    from mpu.lib.x10_models import parse_workspaces  # lazy: pydantic не в startup
+
+    member_only: list[dict[str, object]] = [
+        {"workspace_id": w.id, "name": w.name, "marketplace": w.marketplace}
+        for w in parse_workspaces(ws_list)
+        if w.owner_id != uid
+    ]
     return {
         "email": row["email"],
         "target_user_id": uid,
