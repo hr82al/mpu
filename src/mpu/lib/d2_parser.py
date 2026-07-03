@@ -66,7 +66,79 @@ def _unescape(s: str) -> str:
     )
 
 
-def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:  # noqa: C901, PLR0912, PLR0915
+def _skip_braced_block(lines: list[str], i: int, *, depth: int = 0) -> int:
+    """Пропустить `{ ... }`-блок: скан от `lines[i]` с начальной глубиной `depth`,
+    вернуть индекс первой строки ПОСЛЕ закрывающей скобки."""
+    while i < len(lines):
+        for ch in lines[i]:
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+        i += 1
+        if depth <= 0:
+            break
+    return i
+
+
+def _read_md_block(lines: list[str], i: int, close_pipes: str) -> tuple[str, int]:
+    """Тело `|md ... |`-блока: строки до закрывающих пайпов + пропуск опционального
+    модификатора `{ near: ... }`. Возврат: (markdown, индекс строки после блока)."""
+    buf: list[str] = []
+    while i < len(lines):
+        stripped = lines[i].lstrip()
+        if stripped.startswith(close_pipes) and (
+            stripped.rstrip() == close_pipes
+            or re.match(rf"^\s*{re.escape(close_pipes)}\s*\{{", lines[i])
+        ):
+            break
+        buf.append(lines[i])
+        i += 1
+    i += 1  # закрывающая линия пайпов
+    if i < len(lines) and lines[i].lstrip().startswith("{"):
+        i = _skip_braced_block(lines, i)
+    return "\n".join(buf).strip(), i
+
+
+def _apply_property(sh: D2Shape, key: str, val: str) -> None:
+    """`shape:` / `style.fill:` / `style.stroke:` / `class: card` → поля шейпа."""
+    if key == "shape":
+        sh.kind = val
+    elif key == "style.fill":
+        sh.fill = val
+    elif key == "style.stroke":
+        sh.stroke = val
+    elif key == "class" and val == "card":
+        sh.kind = "card"
+
+
+def _add_block_shape(
+    shapes: dict[str, D2Shape], stack: list[str], name: str, raw_label: str | None
+) -> None:
+    """Открыватель `name {` / `name: "label" {` → шейп + push в stack."""
+    full = ".".join([*stack, name])
+    shapes.setdefault(
+        full,
+        D2Shape(kind="rectangle", label=_unescape(raw_label) if raw_label else name, fill=None),
+    )
+    stack.append(name)
+
+
+def _add_leaf_shape(
+    shapes: dict[str, D2Shape], stack: list[str], name: str, label: str, *, opens_block: bool
+) -> None:
+    """Лист `name: "label"` (возможно с `{`): создать шейп или обновить label."""
+    full = ".".join([*stack, name])
+    existing = shapes.get(full)
+    if existing is None:
+        shapes[full] = D2Shape(kind="rectangle", label=label, fill=None)
+    else:
+        existing.label = label
+    if opens_block:
+        stack.append(name)
+
+
+def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:
     """Парсит d2 текст. Возвращает {full_path: D2Shape}, [Edge].
 
     Поддерживает:
@@ -98,34 +170,9 @@ def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:  # noqa
         # Закрывающая линия — те же N пайпов плюс возможный модификатор `{ near: ... }`.
         m_md = re.match(r"^([a-zA-Z_]\w*)\s*:\s*(\|+)md\s*$", ls)
         if m_md:
-            name = m_md.group(1)
-            close_pipes = m_md.group(2)  # столько же пайпов — закрытие блока
-            full = ".".join([*stack, name])
-            buf: list[str] = []
-            i += 1
-            while i < len(lines):
-                stripped = lines[i].lstrip()
-                if stripped.startswith(close_pipes) and (
-                    stripped.rstrip() == close_pipes
-                    or re.match(rf"^\s*{re.escape(close_pipes)}\s*\{{", lines[i])
-                ):
-                    break
-                buf.append(lines[i])
-                i += 1
-            shapes[full] = D2Shape(kind="markdown", label="\n".join(buf).strip(), fill=None)
-            i += 1  # skip closing line
-            # skip optional modifier block { ... }
-            if i < len(lines) and lines[i].lstrip().startswith("{"):
-                depth = 0
-                while i < len(lines):
-                    for ch in lines[i]:
-                        if ch == "{":
-                            depth += 1
-                        elif ch == "}":
-                            depth -= 1
-                    i += 1
-                    if depth <= 0:
-                        break
+            full = ".".join([*stack, m_md.group(1)])
+            label, i = _read_md_block(lines, i + 1, m_md.group(2))
+            shapes[full] = D2Shape(kind="markdown", label=label, fill=None)
             continue
 
         # connection: `a -> b` или `a -> b: "label"` (исключаем `shape: ...` etc.)
@@ -147,16 +194,7 @@ def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:  # noqa
         if m_prop and stack:
             owner = ".".join(stack)
             sh = shapes.setdefault(owner, D2Shape(kind="rectangle", label=stack[-1], fill=None))
-            key = m_prop.group(1)
-            val = m_prop.group(2)
-            if key == "shape":
-                sh.kind = val
-            elif key == "style.fill":
-                sh.fill = val
-            elif key == "style.stroke":
-                sh.stroke = val
-            elif key == "class" and val == "card":
-                sh.kind = "card"
+            _apply_property(sh, m_prop.group(1), m_prop.group(2))
             i += 1
             continue
 
@@ -174,41 +212,22 @@ def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:  # noqa
             # к которым потом обращается рендерер для применения дефолтов
             # к пользовательским shape, имеющим `class: <name>`.
             if name == "style":
-                depth = 1
-                i += 1
-                while i < len(lines) and depth > 0:
-                    for ch in lines[i]:
-                        if ch == "{":
-                            depth += 1
-                        elif ch == "}":
-                            depth -= 1
-                    i += 1
+                i = _skip_braced_block(lines, i + 1, depth=1)
                 continue
-            full = ".".join([*stack, name])
-            shapes.setdefault(
-                full,
-                D2Shape(
-                    kind="rectangle",
-                    label=_unescape(m_open.group(2)) if m_open.group(2) else name,
-                    fill=None,
-                ),
-            )
-            stack.append(name)
+            _add_block_shape(shapes, stack, name, m_open.group(2))
             i += 1
             continue
 
         # leaf with label: `name: "label"` или `name: "label" {`
         m_leaf = re.match(r'^([a-zA-Z_]\w*)\s*:\s*"([^"]*)"\s*(\{?)\s*$', ls)
         if m_leaf:
-            name, label, brace = m_leaf.group(1), _unescape(m_leaf.group(2)), m_leaf.group(3)
-            full = ".".join([*stack, name])
-            existing = shapes.get(full)
-            if existing is None:
-                shapes[full] = D2Shape(kind="rectangle", label=label, fill=None)
-            else:
-                existing.label = label
-            if brace == "{":
-                stack.append(name)
+            _add_leaf_shape(
+                shapes,
+                stack,
+                m_leaf.group(1),
+                _unescape(m_leaf.group(2)),
+                opens_block=m_leaf.group(3) == "{",
+            )
             i += 1
             continue
 
@@ -242,7 +261,14 @@ _ARGS_PER_CMD: dict[str, int] = {
 }
 
 
-def _path_bbox(d: str) -> tuple[float, float, float, float] | None:  # noqa: C901, PLR0912, PLR0915
+def _coord(cur: float, value: float, *, relative: bool) -> float:
+    """Абсолютная координата SVG-path: относительная команда — сдвиг от текущей."""
+    return cur + value if relative else value
+
+
+def _path_bbox(  # noqa: C901, PLR0912, PLR0915 — плоский dispatch по 8 SVG-командам
+    d: str,
+) -> tuple[float, float, float, float] | None:
     """Точный bbox SVG-path. Учитывает все команды + относительные варианты + H/V (1 число).
 
     Для C/S/Q включаем control-points в bbox — для d2-шейпов это даёт небольшой
@@ -279,48 +305,40 @@ def _path_bbox(d: str) -> tuple[float, float, float, float] | None:  # noqa: C90
         i += args_n
 
         if upper == "H":
-            x = cur_x + args[0] if relative else args[0]
-            cur_x = x
-            xs.append(x)
+            cur_x = _coord(cur_x, args[0], relative=relative)
+            xs.append(cur_x)
             ys.append(cur_y)
         elif upper == "V":
-            y = cur_y + args[0] if relative else args[0]
-            cur_y = y
+            cur_y = _coord(cur_y, args[0], relative=relative)
             xs.append(cur_x)
-            ys.append(y)
+            ys.append(cur_y)
         elif upper == "M":
-            x = cur_x + args[0] if relative else args[0]
-            y = cur_y + args[1] if relative else args[1]
-            cur_x, cur_y = x, y
-            start_x, start_y = x, y
-            xs.append(x)
-            ys.append(y)
+            cur_x = _coord(cur_x, args[0], relative=relative)
+            cur_y = _coord(cur_y, args[1], relative=relative)
+            start_x, start_y = cur_x, cur_y
+            xs.append(cur_x)
+            ys.append(cur_y)
             cmd = "l" if relative else "L"
         elif upper in ("L", "T"):
-            x = cur_x + args[0] if relative else args[0]
-            y = cur_y + args[1] if relative else args[1]
-            cur_x, cur_y = x, y
-            xs.append(x)
-            ys.append(y)
+            cur_x = _coord(cur_x, args[0], relative=relative)
+            cur_y = _coord(cur_y, args[1], relative=relative)
+            xs.append(cur_x)
+            ys.append(cur_y)
         elif upper == "C":
             for k in (0, 2, 4):
-                px = cur_x + args[k] if relative else args[k]
-                py = cur_y + args[k + 1] if relative else args[k + 1]
-                xs.append(px)
-                ys.append(py)
-            cur_x = cur_x + args[4] if relative else args[4]
-            cur_y = cur_y + args[5] if relative else args[5]
+                xs.append(_coord(cur_x, args[k], relative=relative))
+                ys.append(_coord(cur_y, args[k + 1], relative=relative))
+            cur_x = _coord(cur_x, args[4], relative=relative)
+            cur_y = _coord(cur_y, args[5], relative=relative)
         elif upper in ("S", "Q"):
             for k in (0, 2):
-                px = cur_x + args[k] if relative else args[k]
-                py = cur_y + args[k + 1] if relative else args[k + 1]
-                xs.append(px)
-                ys.append(py)
-            cur_x = cur_x + args[2] if relative else args[2]
-            cur_y = cur_y + args[3] if relative else args[3]
+                xs.append(_coord(cur_x, args[k], relative=relative))
+                ys.append(_coord(cur_y, args[k + 1], relative=relative))
+            cur_x = _coord(cur_x, args[2], relative=relative)
+            cur_y = _coord(cur_y, args[3], relative=relative)
         elif upper == "A":
-            cur_x = cur_x + args[5] if relative else args[5]
-            cur_y = cur_y + args[6] if relative else args[6]
+            cur_x = _coord(cur_x, args[5], relative=relative)
+            cur_y = _coord(cur_y, args[6], relative=relative)
             xs.append(cur_x)
             ys.append(cur_y)
     if not xs:
