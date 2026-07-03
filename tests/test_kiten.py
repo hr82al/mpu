@@ -16,7 +16,6 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from mpu.commands import kiten as kiten_mod
 from mpu.commands.kiten import (
     LsFilters,
     _board_id_from_ctx,  # pyright: ignore[reportPrivateUsage]
@@ -39,6 +38,12 @@ from mpu.commands.kiten import (
     resolve_comment_text,
     resolve_ls_filters,
 )
+from mpu.commands.kiten import card as kiten_card
+from mpu.commands.kiten import comment as kiten_comment
+from mpu.commands.kiten import field as kiten_field
+from mpu.commands.kiten import ls as kiten_ls
+from mpu.commands.kiten import move as kiten_move
+from mpu.commands.kiten import refs as kiten_refs
 from mpu.lib import env, kaiten_cache, kaiten_links, kaiten_render, store
 from mpu.lib.kaiten import (
     KaitenAPIError,
@@ -1133,14 +1138,15 @@ def _detail(
 
 
 def _install_client(monkeypatch: pytest.MonkeyPatch, fake: FakeKaitenClient) -> None:
-    """Подменить `KaitenClient.from_env()` в модуле команды — возвращает фейк."""
+    """Подменить `KaitenClient.from_env()` в модулях команд `kiten` — возвращает фейк."""
 
     class _Stub:
         @staticmethod
         def from_env() -> FakeKaitenClient:
             return fake
 
-    monkeypatch.setattr(kiten_mod, "KaitenClient", _Stub)
+    for mod in (kiten_card, kiten_comment, kiten_field, kiten_ls, kiten_move, kiten_refs):
+        monkeypatch.setattr(mod, "KaitenClient", _Stub)
 
 
 def _install_env(monkeypatch: pytest.MonkeyPatch, values: dict[str, str]) -> None:
@@ -2233,7 +2239,7 @@ def _detail_with_image() -> KaitenCardDetail:
 
 
 def test_card_rich_render_full(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(kiten_mod, "sys", _FakeSys)
+    monkeypatch.setattr(kiten_card, "sys", _FakeSys)
     _patch_render(monkeypatch, image_ok=True)
     _patch_prop_names(monkeypatch, {398965: "Ссылка на PR"})
     comments = [KaitenComment(id=2, text="hi", author_name="Bob", created="2026-06-03T06:39:25Z")]
@@ -2247,7 +2253,7 @@ def test_card_rich_render_full(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_card_rich_render_no_images(monkeypatch: pytest.MonkeyPatch) -> None:
     # --no-images → fetch не зовётся, вложение-картинка показывается ссылкой (ветка fallback).
-    monkeypatch.setattr(kiten_mod, "sys", _FakeSys)
+    monkeypatch.setattr(kiten_card, "sys", _FakeSys)
     _patch_render(monkeypatch, image_ok=False)
     _patch_prop_names(monkeypatch, {})
     _install_client(monkeypatch, FakeKaitenClient(details=[_detail_with_image()], comments=[]))
