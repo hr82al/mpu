@@ -33,6 +33,7 @@
 | SQLite | `sqlite3` (stdlib) для конфига и кэша |
 | HTTP | **httpx** (sync) |
 | PostgreSQL | **psycopg[binary]** v3, sync режим |
+| Модели JSON-границ | **pydantic** v2 — ТОЛЬКО в `lib/<x>_models.py`, импортируемых ЛЕНИВО из тел функций (cli.py жадно грузит все команды; импорт pydantic ~150 мс → top-level импорт в commands/lib запрещён, проверка: `python -X importtime -c "from mpu import cli" \| grep pydantic` пусто) |
 | Fuzzy search | **rapidfuzz** (если понадобится) |
 
 Распространение — `uv tool install --from .` + симлинк в `~/.local/bin/`.

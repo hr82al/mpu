@@ -6,7 +6,6 @@
 """
 
 from dataclasses import dataclass
-from typing import cast
 
 import httpx
 
@@ -51,43 +50,10 @@ def query_range(
     return _parse_query_range_response(data)
 
 
-def _parse_query_range_response(data: object) -> list[LogEntry]:  # noqa: C901, PLR0912
+def _parse_query_range_response(data: object) -> list[LogEntry]:
     """Извлечь LogEntry из JSON. На любые отклонения схемы — пустой список."""
-    if not isinstance(data, dict):
-        return []
-    result_obj = cast(dict[str, object], data).get("data")
-    if not isinstance(result_obj, dict):
-        return []
-    streams = cast(dict[str, object], result_obj).get("result")
-    if not isinstance(streams, list):
-        return []
+    # Ленивая граница: pydantic (~150 мс импорта) грузится только при реальном
+    # разборе ответа, не при старте CLI (cli.py жадно импортирует все команды).
+    from mpu.lib import loki_models
 
-    out: list[LogEntry] = []
-    streams_list = cast(list[object], streams)
-    for stream in streams_list:
-        if not isinstance(stream, dict):
-            continue
-        stream_obj = cast(dict[str, object], stream)
-        labels_raw = stream_obj.get("stream")
-        labels: dict[str, str] = {}
-        if isinstance(labels_raw, dict):
-            for k, v in cast(dict[object, object], labels_raw).items():
-                if isinstance(k, str) and isinstance(v, str):
-                    labels[k] = v
-        values_raw = stream_obj.get("values")
-        if not isinstance(values_raw, list):
-            continue
-        for pair in cast(list[object], values_raw):
-            if not isinstance(pair, list) or len(cast(list[object], pair)) < 2:  # noqa: PLR2004
-                continue
-            pair_list = cast(list[object], pair)
-            ts_str = pair_list[0]
-            line = pair_list[1]
-            if not isinstance(ts_str, str) or not isinstance(line, str):
-                continue
-            try:
-                ts_ns = int(ts_str)
-            except ValueError:
-                continue
-            out.append(LogEntry(ts_ns=ts_ns, line=line, labels=labels))
-    return out
+    return loki_models.parse_query_range(data)

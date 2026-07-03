@@ -17,6 +17,7 @@ dependencies = [
     "pillow>=10.4.0",
     "telethon>=1.36",
     "python-socks[asyncio]>=2.4",
+    "pydantic>=2.9",
 ]
 
 [project.scripts]
