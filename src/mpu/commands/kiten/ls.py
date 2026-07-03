@@ -34,6 +34,7 @@ from mpu.commands.kiten._render import (
     _print_cards,
 )
 from mpu.lib import env, kaiten_cache
+from mpu.lib.cli_err import die
 from mpu.lib.cli_out import print_json
 from mpu.lib.kaiten import KaitenAPIError, KaitenClient
 
@@ -226,8 +227,7 @@ def ls(  # noqa: PLR0913
             updated_before=updated_before,
         )
     except KaitenAPIError as e:
-        typer.echo(f"{COMMAND_NAME} ls: kaiten error: {e}", err=True)
-        raise typer.Exit(code=1) from None
+        die(f"{COMMAND_NAME} ls: kaiten error: {e}")
 
     if out_json:
         print_json([_card_dict(c) for c in cards])

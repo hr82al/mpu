@@ -19,6 +19,7 @@ from mpu.commands.kiten._common import (
     _resolve_space,
 )
 from mpu.lib import kaiten_cache
+from mpu.lib.cli_err import die
 from mpu.lib.cli_out import print_json
 from mpu.lib.kaiten import KaitenAPIError, KaitenClient
 
@@ -32,8 +33,7 @@ def whoami(
     try:
         me = client.current_user()
     except KaitenAPIError as e:
-        typer.echo(f"{COMMAND_NAME} whoami: kaiten error: {e}", err=True)
-        raise typer.Exit(code=1) from None
+        die(f"{COMMAND_NAME} whoami: kaiten error: {e}")
 
     if out_json:
         payload = {
@@ -60,8 +60,7 @@ def spaces(
     """Пространства Kaiten (живой GET /spaces + обновление кэша автодополнения)."""
     result = kaiten_cache.discover_and_store()
     if result.error:
-        typer.echo(f"{COMMAND_NAME} spaces: kaiten error: {result.error}", err=True)
-        raise typer.Exit(code=1)
+        die(f"{COMMAND_NAME} spaces: kaiten error: {result.error}")
 
     items = [s for s in result.spaces if show_all or not s.archived]
     if out_json:
@@ -95,8 +94,7 @@ def boards(
     """Доски Kaiten (живой GET /spaces + обновление кэша). --space фильтрует."""
     result = kaiten_cache.discover_and_store()
     if result.error:
-        typer.echo(f"{COMMAND_NAME} boards: kaiten error: {result.error}", err=True)
-        raise typer.Exit(code=1)
+        die(f"{COMMAND_NAME} boards: kaiten error: {result.error}")
 
     space_id = _resolve_space(space)
     items = [b for b in result.boards if space_id is None or b.space_id == space_id]
@@ -143,8 +141,7 @@ def lanes(
     """
     disc = kaiten_cache.discover_and_store()
     if disc.error:
-        typer.echo(f"{COMMAND_NAME} lanes: kaiten error: {disc.error}", err=True)
-        raise typer.Exit(code=1)
+        die(f"{COMMAND_NAME} lanes: kaiten error: {disc.error}")
 
     space_id = _resolve_space(space)
     board_id = _resolve_board(board)
@@ -157,8 +154,7 @@ def lanes(
 
     result = kaiten_cache.discover_lanes_and_store([b.id for b in target])
     if result.error:
-        typer.echo(f"{COMMAND_NAME} lanes: kaiten error: {result.error}", err=True)
-        raise typer.Exit(code=1)
+        die(f"{COMMAND_NAME} lanes: kaiten error: {result.error}")
 
     if out_json:
         payload = [{"id": ln.id, "board_id": ln.board_id, "title": ln.title} for ln in result.lanes]
@@ -203,8 +199,7 @@ def columns(
     """
     disc = kaiten_cache.discover_and_store()
     if disc.error:
-        typer.echo(f"{COMMAND_NAME} columns: kaiten error: {disc.error}", err=True)
-        raise typer.Exit(code=1)
+        die(f"{COMMAND_NAME} columns: kaiten error: {disc.error}")
 
     space_id = _resolve_space(space)
     board_id = _resolve_board(board)
@@ -217,8 +212,7 @@ def columns(
 
     result = kaiten_cache.discover_columns_and_store([b.id for b in target])
     if result.error:
-        typer.echo(f"{COMMAND_NAME} columns: kaiten error: {result.error}", err=True)
-        raise typer.Exit(code=1)
+        die(f"{COMMAND_NAME} columns: kaiten error: {result.error}")
 
     if out_json:
         payload = [{"id": c.id, "board_id": c.board_id, "title": c.title} for c in result.columns]

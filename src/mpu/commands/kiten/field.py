@@ -16,6 +16,7 @@ from rich.table import Table
 from mpu.commands.kiten._app import app
 from mpu.commands.kiten._common import COMMAND_NAME, _parse_card_ref
 from mpu.lib import kaiten_links, store
+from mpu.lib.cli_err import die
 from mpu.lib.kaiten import KaitenAPIError, KaitenClient, card_url
 
 # `_sync_card_field` — `_`-имя, общее для `move.close`; `__all__` помечает намеренный
@@ -80,8 +81,7 @@ def field_set(
         try:
             applied = _sync_card_field(conn, client, card_id, kind.value)
         except KaitenAPIError as e:
-            typer.echo(f"{COMMAND_NAME} field set: kaiten error: {e}", err=True)
-            raise typer.Exit(code=1) from None
+            die(f"{COMMAND_NAME} field set: kaiten error: {e}")
     typer.echo(f"ok: {kind.value} → {applied} · {card_url(client.base_url, card_id)}")
 
 
@@ -144,13 +144,11 @@ def field_update(
         store.bootstrap(conn)
         link = kaiten_links.update_link(conn, record_id, value)
         if link is None:
-            typer.echo(f"{COMMAND_NAME} field update: записи #{record_id} нет", err=True)
-            raise typer.Exit(code=1)
+            die(f"{COMMAND_NAME} field update: записи #{record_id} нет")
         try:
             applied = _sync_card_field(conn, client, link.card_id, link.field)
         except KaitenAPIError as e:
-            typer.echo(f"{COMMAND_NAME} field update: kaiten error: {e}", err=True)
-            raise typer.Exit(code=1) from None
+            die(f"{COMMAND_NAME} field update: kaiten error: {e}")
     url = card_url(client.base_url, link.card_id)
     typer.echo(f"ok: #{record_id} {link.field} → {applied} · {url}")
 
@@ -165,13 +163,11 @@ def field_rm(
         store.bootstrap(conn)
         link = kaiten_links.delete_link(conn, record_id)
         if link is None:
-            typer.echo(f"{COMMAND_NAME} field rm: записи #{record_id} нет", err=True)
-            raise typer.Exit(code=1)
+            die(f"{COMMAND_NAME} field rm: записи #{record_id} нет")
         try:
             applied = _sync_card_field(conn, client, link.card_id, link.field)
         except KaitenAPIError as e:
-            typer.echo(f"{COMMAND_NAME} field rm: kaiten error: {e}", err=True)
-            raise typer.Exit(code=1) from None
+            die(f"{COMMAND_NAME} field rm: kaiten error: {e}")
     tail = "(очищено)" if applied is None else f"→ {applied}"
     url = card_url(client.base_url, link.card_id)
     typer.echo(f"ok: удалена #{record_id} {link.field} {tail} · {url}")

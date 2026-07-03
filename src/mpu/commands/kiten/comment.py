@@ -12,6 +12,7 @@ import typer
 
 from mpu.commands.kiten._app import app
 from mpu.commands.kiten._common import COMMAND_NAME, _parse_card_ref
+from mpu.lib.cli_err import die
 from mpu.lib.kaiten import KaitenAPIError, KaitenClient, card_url
 
 if TYPE_CHECKING:
@@ -263,8 +264,7 @@ def comment(
             mentioned.extend(to_mentioned)
         created = client.add_comment(card_id, text, files=attachments or None)
     except KaitenAPIError as e:
-        typer.echo(f"{COMMAND_NAME} comment: kaiten error: {e}", err=True)
-        raise typer.Exit(code=1) from None
+        die(f"{COMMAND_NAME} comment: kaiten error: {e}")
     typer.echo(f"ok: комментарий {created.id} → {card_url(client.base_url, card_id)}")
     if attachments:
         typer.echo(f"   вложения: {', '.join(name for name, _ in attachments)}")

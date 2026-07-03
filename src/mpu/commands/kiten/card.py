@@ -11,6 +11,7 @@ from mpu.commands.kiten._app import app
 from mpu.commands.kiten._common import COMMAND_NAME, _parse_card_ref
 from mpu.commands.kiten._render import _card_detail_dict, _card_to_markdown, _render_card_rich
 from mpu.lib import kaiten_cache
+from mpu.lib.cli_err import die
 from mpu.lib.cli_out import print_json
 from mpu.lib.kaiten import KaitenAPIError, KaitenClient
 
@@ -39,8 +40,7 @@ def card(
         detail = client.get_card(card_id)
         comment_list = client.get_comments(card_id) if comments else []
     except KaitenAPIError as e:
-        typer.echo(f"{COMMAND_NAME} card: kaiten error: {e}", err=True)
-        raise typer.Exit(code=1) from None
+        die(f"{COMMAND_NAME} card: kaiten error: {e}")
 
     prop_names = kaiten_cache.property_names()
     if out_json:

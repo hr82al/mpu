@@ -23,6 +23,7 @@ from mpu.commands.kiten._common import (
 from mpu.commands.kiten.comment import ALL_MENTION_RE, _expand_all_to_owner, plan_field_actions
 from mpu.commands.kiten.field import _sync_card_field
 from mpu.lib import env, kaiten_links, store
+from mpu.lib.cli_err import die
 from mpu.lib.kaiten import KaitenAPIError, KaitenClient
 
 if TYPE_CHECKING:
@@ -98,8 +99,7 @@ def move(
         # PATCH-ответ Kaiten не несёт title'ов колонки/доски/дорожки (только id) → свежий GET.
         after = client.get_card(card_id)
     except KaitenAPIError as e:
-        typer.echo(f"{COMMAND_NAME} move: kaiten error: {e}", err=True)
-        raise typer.Exit(code=1) from None
+        die(f"{COMMAND_NAME} move: kaiten error: {e}")
     _record_card_move(card_id, before, after)
     suffix = " (релог)" if relogged else ""
     typer.echo(f"ok: {_location_label(before)} → {_location_label(after)}{suffix} · {after.url}")
@@ -159,8 +159,7 @@ def _move_to_target_column(
     try:
         before = client.get_card(card_id)
     except KaitenAPIError as e:
-        typer.echo(f"{COMMAND_NAME}: kaiten error: {e}", err=True)
-        raise typer.Exit(code=1) from None
+        die(f"{COMMAND_NAME}: kaiten error: {e}")
     target_id = _resolve_column(target_name, before.board_id)
     if target_id is None:  # target_name не None → вернётся int либо BadParameter; защита для типов
         raise typer.BadParameter(f"колонка «{target_name}» не найдена")
@@ -180,8 +179,7 @@ def _move_to_target_column(
         # PATCH-ответ Kaiten не несёт title'ов колонки/доски (только id) → свежий GET.
         after = client.get_card(card_id)
     except KaitenAPIError as e:
-        typer.echo(f"{COMMAND_NAME}: kaiten error: {e}", err=True)
-        raise typer.Exit(code=1) from None
+        die(f"{COMMAND_NAME}: kaiten error: {e}")
     _record_card_move(card_id, before, after, note=note)
     suffix = " (релог)" if already else ""
     typer.echo(f"ok: {_location_label(before)} → {_location_label(after)}{suffix} · {after.url}")
@@ -307,8 +305,7 @@ def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
     try:
         before = client.get_card(card_id)
     except KaitenAPIError as e:
-        typer.echo(f"{COMMAND_NAME} close: kaiten error: {e}", err=True)
-        raise typer.Exit(code=1) from None
+        die(f"{COMMAND_NAME} close: kaiten error: {e}")
 
     provided = {"hypothesis": hypothesis, "done": done, "result": result, "mr": mr}
     current = {k: before.properties.get(kaiten_links.property_key(k)) for k in provided}
@@ -347,15 +344,13 @@ def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
                     kaiten_links.record_link(conn, card_id, kind, value)
                     _sync_card_field(conn, client, card_id, kind)
             except KaitenAPIError as e:
-                typer.echo(f"{COMMAND_NAME} close: kaiten error (поля): {e}", err=True)
-                raise typer.Exit(code=1) from None
+                die(f"{COMMAND_NAME} close: kaiten error (поля): {e}")
     reply_comment_id: int | None = None
     if reply_text is not None:
         try:
             reply_comment_id = client.add_comment(card_id, reply_text).id
         except KaitenAPIError as e:
-            typer.echo(f"{COMMAND_NAME} close: kaiten error (ответ): {e}", err=True)
-            raise typer.Exit(code=1) from None
+            die(f"{COMMAND_NAME} close: kaiten error (ответ): {e}")
     typer.echo(f"ok close: поля [{set_lbl}]{skip_lbl}")
     if reply_comment_id is not None:
         typer.echo(f"   ответ: комментарий {reply_comment_id}{men_lbl}")
