@@ -17,7 +17,7 @@ from urllib.request import Request
 
 import pytest
 
-from mpu.lib import kaiten
+from mpu.lib import http_retry, kaiten
 from mpu.lib.kaiten import (
     CARDS_PAGE_LIMIT,
     DEFAULT_BASE_URL,
@@ -194,8 +194,8 @@ def _no_sleep(seconds: float) -> None:
 
 def _make_client(monkeypatch: pytest.MonkeyPatch) -> tuple[KaitenClient, _FakeTransport]:
     transport = _FakeTransport()
-    monkeypatch.setattr(kaiten, "urlopen", transport)
-    monkeypatch.setattr(kaiten.time, "sleep", _no_sleep)
+    monkeypatch.setattr(http_retry, "urlopen", transport)
+    monkeypatch.setattr(http_retry.time, "sleep", _no_sleep)
     return KaitenClient(token="tok", base_url="https://btlz.kaiten.ru"), transport
 
 

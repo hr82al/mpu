@@ -21,7 +21,7 @@ from urllib.request import Request
 
 import pytest
 
-from mpu.lib import miro
+from mpu.lib import http_retry
 from mpu.lib.miro import API_BASE, FrameRef, MiroAPIError, MiroClient
 
 BASE = f"{API_BASE}/v2/boards/B"
@@ -95,8 +95,8 @@ def _make_client(monkeypatch: pytest.MonkeyPatch) -> tuple[MiroClient, _FakeTran
     def _sleep(seconds: float) -> None:
         transport.sleeps.append(seconds)
 
-    monkeypatch.setattr(miro, "urlopen", transport)
-    monkeypatch.setattr(miro.time, "sleep", _sleep)
+    monkeypatch.setattr(http_retry, "urlopen", transport)
+    monkeypatch.setattr(http_retry.time, "sleep", _sleep)
     return MiroClient(token="tok", board_id_raw="B"), transport
 
 

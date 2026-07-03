@@ -7,13 +7,12 @@ urllib из stdlib + json. С rate-limit retry на 429.
 from __future__ import annotations
 
 import json
-import sys
-import time
 from dataclasses import dataclass
 from typing import Any, NotRequired, TypedDict
-from urllib.error import HTTPError
 from urllib.parse import quote
-from urllib.request import Request, urlopen
+from urllib.request import Request
+
+from mpu.lib.http_retry import request_with_retry
 
 API_BASE = "https://api.miro.com"
 
@@ -56,23 +55,12 @@ class MiroClient:
         if data is not None:
             headers["Content-Type"] = "application/json"
 
-        backoff = 1.0
-        for _ in range(6):
-            req = Request(url, data=data, method=method, headers=headers)
-            try:
-                with urlopen(req) as r:
-                    txt = r.read().decode("utf-8")
-                    return json.loads(txt) if txt else {}
-            except HTTPError as e:
-                err_body = e.read().decode("utf-8", "replace")
-                if e.code == 429:  # noqa: PLR2004
-                    wait = int(e.headers.get("Retry-After", str(int(backoff))))
-                    print(f"[miro] 429 rate-limit, sleep {wait}s", file=sys.stderr)
-                    time.sleep(wait)
-                    backoff = min(backoff * 2, 30)
-                    continue
-                raise MiroAPIError(method, path, e.code, err_body) from None
-        raise MiroAPIError(method, path, 429, "exhausted retries")
+        txt = request_with_retry(
+            lambda: Request(url, data=data, method=method, headers=headers),
+            log_tag="miro",
+            on_error=lambda status, body: MiroAPIError(method, path, status, body),
+        )
+        return json.loads(txt) if txt else {}
 
     # ---------- frames ----------
 

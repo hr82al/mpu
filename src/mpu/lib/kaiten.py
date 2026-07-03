@@ -16,15 +16,13 @@ from __future__ import annotations
 
 import json
 import mimetypes
-import sys
-import time
 import uuid
 from typing import TYPE_CHECKING, Any
-from urllib.error import HTTPError
 from urllib.parse import urlencode, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from mpu.lib import env
+from mpu.lib.http_retry import request_with_retry
 from mpu.lib.jsonx import dict_items
 
 if TYPE_CHECKING:
@@ -306,23 +304,12 @@ class KaitenClient:
             data = json.dumps(body).encode("utf-8")
             headers["Content-Type"] = "application/json"
 
-        backoff = 1.0
-        for _ in range(6):
-            req = Request(url, method=method, headers=headers, data=data)
-            try:
-                with urlopen(req) as r:
-                    txt = r.read().decode("utf-8")
-                    return json.loads(txt) if txt else None
-            except HTTPError as e:
-                err_body = e.read().decode("utf-8", "replace")
-                if e.code == 429:  # noqa: PLR2004
-                    wait = int(e.headers.get("Retry-After", str(int(backoff))))
-                    print(f"[kaiten] 429 rate-limit, sleep {wait}s", file=sys.stderr)
-                    time.sleep(wait)
-                    backoff = min(backoff * 2, 30)
-                    continue
-                raise KaitenAPIError(method, path, e.code, err_body) from None
-        raise KaitenAPIError(method, path, 429, "exhausted retries")
+        txt = request_with_retry(
+            lambda: Request(url, method=method, headers=headers, data=data),
+            log_tag="kaiten",
+            on_error=lambda status, body: KaitenAPIError(method, path, status, body),
+        )
+        return json.loads(txt) if txt else None
 
     def current_user(self) -> KaitenUser:
         """GET /users/current — текущий пользователь по токену."""

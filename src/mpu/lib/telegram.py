@@ -27,7 +27,8 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypedDict
 from urllib.parse import unquote, urlparse
@@ -286,6 +287,34 @@ def _save_session(client: TelegramClient) -> str:
     return str(session.save())
 
 
+@asynccontextmanager
+async def _session(cfg: TgConfig) -> AsyncGenerator[TelegramClient]:
+    """Подключённый и авторизованный клиент; отключение гарантировано.
+
+    Общий скелет пяти публичных корутин (interactive_login подключается сам —
+    авторизации ещё нет).
+    """
+    client = _make_client(cfg)
+    try:
+        await _ensure_authorized(client)
+        yield client
+    finally:
+        await _disconnect(client)
+
+
+@asynccontextmanager
+async def _translated_rpc_errors() -> AsyncGenerator[None]:
+    """FloodWaitError / RPCError telethon → TgError с человекочитаемым текстом."""
+    from telethon.errors import FloodWaitError, RPCError
+
+    try:
+        yield
+    except FloodWaitError as e:
+        raise TgError(f"telegram: rate-limit, подожди {e.seconds}s") from None
+    except RPCError as e:
+        raise TgError(f"telegram: RPC error: {e}") from None
+
+
 async def send_message(
     cfg: TgConfig, target: str | int, text: str, *, parse_mode: str | None = None
 ) -> TgSentMessage:
@@ -293,19 +322,11 @@ async def send_message(
 
     `parse_mode="md"` — Markdown: `[текст](url)` → ссылка, `**жирный**` и т.п. None — как есть.
     """
-    from telethon.errors import FloodWaitError, RPCError
-
-    client = _make_client(cfg)
-    try:
-        await _ensure_authorized(client)
+    async with _session(cfg) as client, _translated_rpc_errors():
         try:
             msg = await client.send_message(target, text, parse_mode=parse_mode)
         except ValueError as e:
             raise TgError(f"telegram: не удалось найти чат {target!r}: {e}") from None
-        except FloodWaitError as e:
-            raise TgError(f"telegram: rate-limit, подожди {e.seconds}s") from None
-        except RPCError as e:
-            raise TgError(f"telegram: RPC error: {e}") from None
         date = msg.date.isoformat() if msg.date is not None else None
         # chat_id — property Message (есть в рантайме, нет в стабе) → читаем через getattr.
         chat_id = getattr(msg, "chat_id", None)
@@ -314,8 +335,6 @@ async def send_message(
             chat_id=int(chat_id) if chat_id is not None else 0,
             date=date,
         )
-    finally:
-        await _disconnect(client)
 
 
 async def send_file(
@@ -332,11 +351,7 @@ async def send_file(
     подписи. Несколько путей telethon шлёт альбомом и возвращает list[Message] — берём
     последнее. TgNotAuthorizedError если нет сессии.
     """
-    from telethon.errors import FloodWaitError, RPCError
-
-    client = _make_client(cfg)
-    try:
-        await _ensure_authorized(client)
+    async with _session(cfg) as client, _translated_rpc_errors():
         try:
             # telethon-стаб типизирует caption/parse_mode строго (str, без None), но рантайм
             # принимает None как «без подписи / без разметки» (дефолты метода). Как с proxy в
@@ -350,10 +365,6 @@ async def send_file(
             )
         except ValueError as e:
             raise TgError(f"telegram: не удалось найти чат {target!r}: {e}") from None
-        except FloodWaitError as e:
-            raise TgError(f"telegram: rate-limit, подожди {e.seconds}s") from None
-        except RPCError as e:
-            raise TgError(f"telegram: RPC error: {e}") from None
         msg = sent[-1] if isinstance(sent, list) else sent
         date = msg.date.isoformat() if msg.date is not None else None
         chat_id = getattr(msg, "chat_id", None)
@@ -362,27 +373,14 @@ async def send_file(
             chat_id=int(chat_id) if chat_id is not None else 0,
             date=date,
         )
-    finally:
-        await _disconnect(client)
 
 
 async def list_dialogs(cfg: TgConfig, limit: int) -> list[TgDialog]:
     """Последние диалоги (id, title, kind, username) — чтобы найти адресата для --chat."""
-    from telethon.errors import FloodWaitError, RPCError
-
-    client = _make_client(cfg)
     out: list[TgDialog] = []
-    try:
-        await _ensure_authorized(client)
-        try:
-            async for dialog in client.iter_dialogs(limit=limit):
-                out.append(_dialog_from_telethon(dialog))
-        except FloodWaitError as e:
-            raise TgError(f"telegram: rate-limit, подожди {e.seconds}s") from None
-        except RPCError as e:
-            raise TgError(f"telegram: RPC error: {e}") from None
-    finally:
-        await _disconnect(client)
+    async with _session(cfg) as client, _translated_rpc_errors():
+        async for dialog in client.iter_dialogs(limit=limit):
+            out.append(_dialog_from_telethon(dialog))
     return out
 
 
@@ -391,31 +389,22 @@ async def search_entities(cfg: TgConfig, query: str, limit: int) -> list[TgDialo
 
     Нужен, чтобы найти адресата, которого нет в недавних диалогах (`list_dialogs`).
     """
-    from telethon.errors import FloodWaitError, RPCError
     from telethon.tl.functions.contacts import SearchRequest
 
-    client = _make_client(cfg)
     out: list[TgDialog] = []
     seen: set[int] = set()
-    try:
-        await _ensure_authorized(client)
-        try:
+    async with _session(cfg) as client:
+        async with _translated_rpc_errors():
             res = await client(SearchRequest(q=query, limit=limit))
-        except FloodWaitError as e:
-            raise TgError(f"telegram: rate-limit, подожди {e.seconds}s") from None
-        except RPCError as e:
-            raise TgError(f"telegram: RPC error: {e}") from None
         for entity in [*res.users, *res.chats]:
             dialog = _entity_to_dialog(entity)
             if dialog.id not in seen:
                 seen.add(dialog.id)
                 out.append(dialog)
-    finally:
-        await _disconnect(client)
     return out
 
 
-async def search_messages(  # noqa: C901, PLR0912
+async def search_messages(
     cfg: TgConfig,
     query: str,
     *,
@@ -435,12 +424,8 @@ async def search_messages(  # noqa: C901, PLR0912
 
     Пустой `query` БЕЗ `chat` запрещён (глобальный дамп всего) → TgError.
     """
-    from telethon.errors import FloodWaitError, RPCError
-
-    client = _make_client(cfg)
     out: list[TgMessage] = []
-    try:
-        await _ensure_authorized(client)
+    async with _session(cfg) as client:
         entity = None
         if chat is not None:
             try:
@@ -480,7 +465,7 @@ async def search_messages(  # noqa: C901, PLR0912
         # (q = search or '') — поведение «все сообщения». entity=None → searchGlobal.
         # Оба None валидны в рантайме, но стаб типизирует их как non-optional EntityLike —
         # точечно подавляем ложный reportArgumentType.
-        try:
+        async with _translated_rpc_errors():
             messages = client.iter_messages(
                 entity,  # pyright: ignore[reportArgumentType]
                 limit=fetch_limit,
@@ -493,12 +478,6 @@ async def search_messages(  # noqa: C901, PLR0912
                 out.append(_message_from_telethon(msg))
                 if global_from and len(out) >= limit:
                     break
-        except FloodWaitError as e:
-            raise TgError(f"telegram: rate-limit, подожди {e.seconds}s") from None
-        except RPCError as e:
-            raise TgError(f"telegram: RPC error: {e}") from None
-    finally:
-        await _disconnect(client)
     return out
 
 
