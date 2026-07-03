@@ -24,7 +24,7 @@ from typer.testing import CliRunner
 
 from mpu.commands import d2_miro
 from mpu.lib.d2_parser import D2Shape, Edge, LayoutShape
-from mpu.lib.miro import FrameRef, MiroClient
+from mpu.lib.miro import FrameRef, MiroAPIError, MiroClient
 
 runner = CliRunner()
 
@@ -131,7 +131,7 @@ class _FakeMiroClient(MiroClient):
         self, *, parent_id: str, content_html: str, x: float, y: float, width: float
     ) -> str:
         if self._rec.raise_text:
-            raise RuntimeError("boom-text")
+            raise MiroAPIError("POST", "/texts", 500, "boom-text")
         self._rec.text_seq += 1
         self._rec.texts.append(_TextCall(parent_id, content_html, x, y, width))
         return f"text-{self._rec.text_seq}"
@@ -156,7 +156,7 @@ class _FakeMiroClient(MiroClient):
         text_align_vertical: str = "middle",
     ) -> str:
         if self._rec.raise_shape:
-            raise RuntimeError("boom-shape")
+            raise MiroAPIError("POST", "/shapes", 500, "boom-shape")
         self._rec.shape_seq += 1
         self._rec.shapes.append(
             _ShapeCall(
@@ -190,7 +190,7 @@ class _FakeMiroClient(MiroClient):
         snap_end: str | None = None,
     ) -> str:
         if self._rec.raise_connector:
-            raise RuntimeError("boom-conn")
+            raise MiroAPIError("POST", "/connectors", 500, "boom-conn")
         self._rec.conn_seq += 1
         self._rec.connectors.append(
             _ConnectorCall(src_id, dst_id, label, shape, snap_start, snap_end)
@@ -812,7 +812,7 @@ def test_cli_markdown_summary_render_failure_is_skipped(
         width: float,
     ) -> float:
         _ = client, frame_id, blocks, x_center, y_top, width
-        raise RuntimeError("render exploded")
+        raise MiroAPIError("POST", "/items", 500, "render exploded")
 
     monkeypatch.setattr(d2_miro, "_render_markdown", _boom)
     result = runner.invoke(d2_miro.app, [str(d2)])

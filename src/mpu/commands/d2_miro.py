@@ -16,6 +16,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
@@ -24,6 +25,7 @@ import typer
 from mpu.lib import env
 from mpu.lib.d2_parser import (
     D2Shape,
+    Edge,
     LayoutShape,
     container_names,
     normalize_hex,
@@ -31,7 +33,7 @@ from mpu.lib.d2_parser import (
     parse_svg,
     to_miro_shape,
 )
-from mpu.lib.miro import MiroClient
+from mpu.lib.miro import FrameRef, MiroAPIError, MiroClient
 
 COMMAND_NAME = "mpu d2-miro"
 
@@ -392,8 +394,380 @@ def _to_miro_xy(  # noqa: PLR0913
     return mx, my, sw * scale, sh * scale
 
 
+# ── Константы рендера ───────────────────────────────────────────────────────────
+_CARD_INDENT = 60.0  # сдвиг card-подзадач вправо от header внутри card-колонки
+_MD_PADDING = 80.0  # вертикальный зазор вокруг markdown-блоков под диаграммой
+_CONTAINER_PAD = 50.0  # запас bbox контейнера вокруг прямых детей
+_CONTAINER_TITLE_PAD = 80.0  # подушка сверху под заголовок контейнера
+_CARD_BORDER_FALLBACK = "#ffd54f"  # жёлтая рамка card, если stroke не задан
+_FILL_FALLBACK = "#ffffff"
+_STROKE_FALLBACK = "#1a1a1a"
+
+
+@dataclass(frozen=True)
+class _Geometry:
+    """viewBox → фрейм: всё для пересчёта координат одного шейпа (`_to_miro_xy`)."""
+
+    vb_x: float
+    vb_y: float
+    vb_w: float
+    vb_h: float
+    frame_w: float
+    frame_h: float
+    scale: float
+
+    def to_miro(
+        self, sx: float, sy: float, sw: float, sh: float
+    ) -> tuple[float, float, float, float]:
+        return _to_miro_xy(
+            sx,
+            sy,
+            sw,
+            sh,
+            self.vb_x,
+            self.vb_y,
+            self.vb_w,
+            self.vb_h,
+            self.frame_w,
+            self.frame_h,
+            self.scale,
+        )
+
+
+@dataclass(frozen=True)
+class _MdPlan:
+    """Markdown-блоки без SVG-layout (annotation/summary — рендерятся под диаграммой)."""
+
+    names: list[str]
+    blocks_by_name: dict[str, list[Block]]
+    heights: dict[str, float]
+    block_w: float
+    total_h: float
+
+
+def _plan_markdown_area(
+    d2_shapes: dict[str, D2Shape], layout: dict[str, LayoutShape], frame_w: float
+) -> _MdPlan:
+    """Высота — точно по структуре блоков: таблица row_count*row_h, текст ~видимые строки."""
+    names = [n for n, sh in d2_shapes.items() if sh.kind == "markdown" and n not in layout]
+    blocks_by_name = {n: _md_blocks(d2_shapes[n].label) for n in names}
+    # Ширина markdown-области = 90% фрейма (та же, что в рендере) — для word-wrap таблиц.
+    block_w = max(frame_w * 0.9, 600.0)
+    heights = {n: _estimate_md_height(blocks_by_name[n], block_w) for n in names}
+    total_h = sum(heights.values()) + _MD_PADDING * (len(names) + 1)
+    return _MdPlan(names, blocks_by_name, heights, block_w, total_h)
+
+
+def _warn_layout_mismatch(layout: dict[str, LayoutShape], d2_shapes: dict[str, D2Shape]) -> None:
+    only_in_layout = sorted(set(layout) - set(d2_shapes))
+    only_in_d2 = sorted(set(d2_shapes) - set(layout))
+    if only_in_layout:
+        typer.echo(f"[warn] in SVG but not in d2 source: {only_in_layout}", err=True)
+    if only_in_d2:
+        typer.echo(f"[warn] in d2 source but not in SVG: {only_in_d2}", err=True)
+
+
+def _emit_dry_run(
+    layout: dict[str, LayoutShape], d2_shapes: dict[str, D2Shape], edges: list[Edge]
+) -> None:
+    typer.echo("[dry-run] would create:")
+    for name in sorted(layout):
+        d2info = d2_shapes.get(name)
+        kind = d2info.kind if d2info else "rectangle"
+        target = "card" if kind == "card" else f"shape({to_miro_shape(kind)})"
+        typer.echo(f"  {target:20} {name}  kind={kind}")
+    for e in edges:
+        src_kind = (d2_shapes.get(e.src) or D2Shape("rectangle", "", None)).kind
+        dst_kind = (d2_shapes.get(e.dst) or D2Shape("rectangle", "", None)).kind
+        note = " [skipped: card→card]" if src_kind == "card" and dst_kind == "card" else ""
+        typer.echo(f"  edge   {e.src} -> {e.dst}  label={e.label[:30]!r}{note}")
+
+
+def _place_frame(
+    client: MiroClient, frame_title: str, position_flag: str | None, frame_w: float, frame_h: float
+) -> FrameRef:
+    """Идемпотентная позиция: существующий фрейм с тем же title даёт свои координаты
+    (повторный рендер не «переезжает», даже если фрейм двигали руками), и только потом
+    удаляется; иначе — справа от самого правого фрейма + зазор."""
+    existing = client.find_frame_by_title(frame_title)
+    pos = _parse_position(position_flag)
+    if pos is None:
+        if existing is not None:
+            pos = (existing.x, existing.y)
+        else:
+            right_x, avg_y = client.rightmost_frame_edge()
+            pos = (right_x + 200 + frame_w / 2, avg_y)
+    if existing is not None:
+        typer.echo(f"[info] removing existing frame {frame_title!r} ({existing.id})", err=True)
+        client.delete_frame(existing.id)
+    frame = client.create_frame(
+        title=frame_title, x=pos[0], y=pos[1], width=frame_w, height=frame_h
+    )
+    typer.echo(f"[info] created frame {frame.id} at ({pos[0]:.0f}, {pos[1]:.0f})", err=True)
+    return frame
+
+
+def _direct_children(layout: dict[str, LayoutShape], cont: str) -> list[str]:
+    depth = cont.count(".") + 1
+    return [n for n in layout if n != cont and n.startswith(cont + ".") and n.count(".") == depth]
+
+
+def _children_bbox(
+    layout: dict[str, LayoutShape], names: list[str]
+) -> tuple[float, float, float, float]:
+    x1 = min(layout[c].x for c in names)
+    y1 = min(layout[c].y for c in names)
+    x2 = max(layout[c].x + layout[c].w for c in names)
+    y2 = max(layout[c].y + layout[c].h for c in names)
+    return x1, y1, x2 - x1, y2 - y1
+
+
+def _apply_card_indent(
+    layout: dict[str, LayoutShape], containers: set[str], d2_shapes: dict[str, D2Shape]
+) -> None:
+    """L-indent для card-колонок: контейнер с ребёнком `header` (class=card) + другими
+    card-детьми → подзадачи смещаются вправо на _CARD_INDENT, header остаётся на левой
+    границе; bbox контейнера пересчитывается под смещённых детей."""
+    for cont in containers:
+        direct = _direct_children(layout, cont)
+        cards = [n for n in direct if (s := d2_shapes.get(n)) is not None and s.kind == "card"]
+        header_name = f"{cont}.header"
+        if header_name not in cards or len(cards) < 2:  # noqa: PLR2004
+            continue
+        for st in cards:
+            if st == header_name:
+                continue
+            layout[st].x += _CARD_INDENT
+        layout[cont].x, layout[cont].y, layout[cont].w, layout[cont].h = _children_bbox(
+            layout, direct
+        )
+
+
+def _container_bboxes(
+    layout: dict[str, LayoutShape], containers: set[str]
+) -> dict[str, tuple[float, float, float, float]]:
+    """bbox прямых детей каждого контейнера; padding добавляется при рендере — так дети
+    гарантированно не пересекают границу группы."""
+    out: dict[str, tuple[float, float, float, float]] = {}
+    for cont in containers:
+        direct = _direct_children(layout, cont)
+        if direct:
+            out[cont] = _children_bbox(layout, direct)
+    return out
+
+
+def _create_markdown_text(
+    client: MiroClient,
+    frame_id: str,
+    name: str,
+    md_text: str,
+    coords: tuple[float, float, float, float],
+) -> str | None:
+    mx, my, mw, _mh = coords
+    try:
+        return client.create_text(
+            parent_id=frame_id,
+            content_html=f"<p>{_html(md_text)}</p>",
+            x=mx,
+            y=my,
+            width=max(mw, 360),
+        )
+    except MiroAPIError as e:
+        typer.echo(f"[skip] markdown {name}: {e}", err=True)
+        return None
+
+
+def _create_card_shape(
+    client: MiroClient,
+    frame_id: str,
+    name: str,
+    d2info: D2Shape | None,
+    shape: LayoutShape,
+    coords: tuple[float, float, float, float],
+    class_default: D2Shape | None,
+) -> str | None:
+    """Card → round_rectangle shape, не Miro card-item: у card нет отдельного
+    border-color (style.cardTheme — лишь полоска), а нужна рамка вокруг всего элемента;
+    round_rectangle визуально похож и даёт полный контроль над border."""
+    mx, my, mw, mh = coords
+    raw = (d2info.label if d2info else shape.label) or shape.label or name.split(".")[-1]
+    border_color = normalize_hex(
+        (d2info.stroke if d2info else None) or (class_default.stroke if class_default else None),
+        _CARD_BORDER_FALLBACK,
+    )
+    fill = normalize_hex(
+        shape.fill
+        or (d2info.fill if d2info else None)
+        or (class_default.fill if class_default else None),
+        _FILL_FALLBACK,
+    )
+    try:
+        return client.create_shape(
+            parent_id=frame_id,
+            kind="round_rectangle",
+            content_html=f"<p>{_html(raw)}</p>",
+            x=mx,
+            y=my,
+            width=mw,
+            height=mh,
+            fill=fill,
+            border_color=border_color,
+            border_width="3",
+            font_size="12",
+            text_align="left",
+            text_align_vertical="top",
+        )
+    except MiroAPIError as e:
+        typer.echo(f"[skip] card {name}: {e}", err=True)
+        return None
+
+
+def _create_plain_shape(
+    client: MiroClient,
+    frame_id: str,
+    name: str,
+    kind: str,
+    d2info: D2Shape | None,
+    shape: LayoutShape,
+    coords: tuple[float, float, float, float],
+    *,
+    is_container: bool,
+) -> str | None:
+    mx, my, mw, mh = coords
+    fill = normalize_hex(shape.fill or (d2info.fill if d2info else None), _FILL_FALLBACK)
+    # Прозрачный/none stroke в d2 → border_width=0 (контейнер-обёртка без видимого outline).
+    stroke_raw = d2info.stroke if d2info else None
+    invisible_border = stroke_raw in ("transparent", "none")
+    if invisible_border:
+        border_width = "0"
+        border_color = "#ffffff"
+    else:
+        border_width = "2" if is_container else "1"
+        border_color = normalize_hex(stroke_raw, _STROKE_FALLBACK)
+    try:
+        return client.create_shape(
+            parent_id=frame_id,
+            kind=to_miro_shape(kind),
+            content_html=f"<p>{_html(shape.label or name.split('.')[-1])}</p>",
+            x=mx,
+            y=my,
+            width=mw,
+            height=mh,
+            fill=fill,
+            fill_opacity="0.5" if is_container else "1.0",
+            border_color=border_color,
+            border_width=border_width,
+            border_style="dashed" if (is_container and not invisible_border) else "normal",
+            font_size="18" if is_container else "12",
+            # Заголовок контейнера прижимаем к верху (по умолчанию middle), чтобы
+            # содержимое внутри читалось без перекрытия с названием группы.
+            text_align="left" if is_container else "center",
+            text_align_vertical="top" if is_container else "middle",
+        )
+    except MiroAPIError as e:
+        typer.echo(f"[skip] shape {name}: {e}", err=True)
+        return None
+
+
+def _render_shapes(
+    client: MiroClient,
+    frame_id: str,
+    layout: dict[str, LayoutShape],
+    d2_shapes: dict[str, D2Shape],
+    containers: set[str],
+    geom: _Geometry,
+) -> dict[str, str]:
+    """Шейпы в порядке «контейнеры сначала» (z-order); возврат — id по имени для connectors."""
+    bboxes = _container_bboxes(layout, containers)
+    ordered = sorted(layout.keys(), key=lambda n: (n not in containers, n))
+    name_to_id: dict[str, str] = {}
+    for name in ordered:
+        shape = layout[name]
+        d2info = d2_shapes.get(name)
+        kind = d2info.kind if d2info else "rectangle"
+        is_container = name in containers
+        if is_container and name in bboxes:
+            bx, by, bw, bh = bboxes[name]
+            sx = bx - _CONTAINER_PAD
+            sy = by - _CONTAINER_PAD - _CONTAINER_TITLE_PAD
+            sw = bw + _CONTAINER_PAD * 2
+            sh = bh + _CONTAINER_PAD * 2 + _CONTAINER_TITLE_PAD
+        else:
+            sx, sy, sw, sh = shape.x, shape.y, shape.w, shape.h
+        coords = geom.to_miro(sx, sy, sw, sh)
+
+        if kind == "markdown":
+            md_text = (d2info.label if d2info else shape.label) or shape.label
+            item_id = _create_markdown_text(client, frame_id, name, md_text, coords)
+        elif kind == "card":
+            item_id = _create_card_shape(
+                client, frame_id, name, d2info, shape, coords, d2_shapes.get("classes.card")
+            )
+        else:
+            item_id = _create_plain_shape(
+                client, frame_id, name, kind, d2info, shape, coords, is_container=is_container
+            )
+        if item_id is not None:
+            name_to_id[name] = item_id
+    return name_to_id
+
+
+def _render_footnotes(
+    client: MiroClient, frame_id: str, plan: _MdPlan, frame_h_diagram: float, frame_w: float
+) -> None:
+    """Markdown-блоки без SVG layout (footnotes/summary): text-части — text-widget,
+    таблицы — сетка rectangle-шейпов (каждая ячейка редактируется отдельно)."""
+    cur_y = frame_h_diagram + _MD_PADDING
+    x_center = frame_w / 2
+    for name in plan.names:
+        try:
+            end_y = _render_markdown(
+                client,
+                frame_id=frame_id,
+                blocks=plan.blocks_by_name[name],
+                x_center=x_center,
+                y_top=cur_y,
+                width=plan.block_w,
+            )
+            cur_y = end_y + _MD_PADDING
+        except MiroAPIError as e:
+            typer.echo(f"[skip] markdown {name}: {e}", err=True)
+            cur_y += plan.heights[name] + _MD_PADDING
+
+
+def _render_connectors(client: MiroClient, edges: list[Edge], name_to_id: dict[str, str]) -> int:
+    """Bidirectional пары (A→B и B→A) разводим по сторонам: «алфавитно меньшая»
+    вершина edge — top, обратная — bottom (детерминированно)."""
+    edge_set = {(e.src, e.dst) for e in edges}
+    created = 0
+    for e in edges:
+        src_id = name_to_id.get(e.src)
+        dst_id = name_to_id.get(e.dst)
+        if not src_id or not dst_id:
+            missing = [n for n in (e.src, e.dst) if n not in name_to_id]
+            typer.echo(f"[skip] edge {e.src} -> {e.dst} (no shape: {missing})", err=True)
+            continue
+        snap: str | None = None
+        if (e.dst, e.src) in edge_set:
+            snap = "top" if e.src < e.dst else "bottom"
+        try:
+            label_html = f'<span style="font-size:10px">{_html(e.label)}</span>' if e.label else ""
+            client.create_connector(
+                src_id=src_id,
+                dst_id=dst_id,
+                label=label_html,
+                shape="curved",
+                snap_start=snap,
+                snap_end=snap,
+            )
+            created += 1
+        except MiroAPIError as exc:
+            typer.echo(f"[skip] connector {e.src} -> {e.dst}: {exc}", err=True)
+    return created
+
+
 @app.command()
-def main(  # noqa: C901, PLR0912, PLR0915
+def main(
     d2_file: Annotated[
         Path,
         typer.Argument(exists=True, dir_okay=False, readable=True, help=".d2 source file"),
@@ -428,306 +802,38 @@ def main(  # noqa: C901, PLR0912, PLR0915
     frame_title = title or d2_file.stem
 
     svg_path = _ensure_svg(d2_file, skip_render=skip_render)
-    d2_text = d2_file.read_text(encoding="utf-8")
-    svg_text = svg_path.read_text(encoding="utf-8")
+    d2_shapes, _d2_edges = parse_d2_source(d2_file.read_text(encoding="utf-8"))
+    layout, edges, viewbox = parse_svg(svg_path.read_text(encoding="utf-8"))
+    _warn_layout_mismatch(layout, d2_shapes)
 
-    d2_shapes, _d2_edges = parse_d2_source(d2_text)
-    layout, edges, viewbox = parse_svg(svg_text)
     vb_x, vb_y, vb_w, vb_h = viewbox
-
-    only_in_layout = sorted(set(layout) - set(d2_shapes))
-    only_in_d2 = sorted(set(d2_shapes) - set(layout))
-    if only_in_layout:
-        typer.echo(f"[warn] in SVG but not in d2 source: {only_in_layout}", err=True)
-    if only_in_d2:
-        typer.echo(f"[warn] in d2 source but not in SVG: {only_in_d2}", err=True)
-
     frame_w, frame_h_diagram, scale = _build_frame_size(vb_w, vb_h)
-
     # Под markdown-блоки (annotation/summary) расширяем высоту фрейма.
-    # Высоту считаем точно по структуре блоков — таблица занимает row_count * row_h,
-    # text-блок ~ visible_lines * line_h.
-    md_only_in_d2 = [n for n, sh in d2_shapes.items() if sh.kind == "markdown" and n not in layout]
-    md_padding = 80.0
-    md_blocks_per_name: dict[str, list[Block]] = {
-        n: _md_blocks(d2_shapes[n].label) for n in md_only_in_d2
-    }
-    # Ширина markdown-области = 90% фрейма (та же, что в рендере) — нужна для
-    # расчёта word-wrap в таблицах.
-    md_block_w = max(frame_w * 0.9, 600.0)
-    md_block_heights: dict[str, float] = {
-        n: _estimate_md_height(md_blocks_per_name[n], md_block_w) for n in md_only_in_d2
-    }
-    md_total_h = sum(md_block_heights.values()) + md_padding * (len(md_only_in_d2) + 1)
-    frame_h = frame_h_diagram + md_total_h
+    md_plan = _plan_markdown_area(d2_shapes, layout, frame_w)
+    frame_h = frame_h_diagram + md_plan.total_h
+    geom = _Geometry(vb_x, vb_y, vb_w, vb_h, frame_w, frame_h, scale)
 
     typer.echo(
         f"[info] {d2_file.name}: {len(layout)} shapes, {len(edges)} edges, "
-        f"{len(md_only_in_d2)} markdown blocks; "
+        f"{len(md_plan.names)} markdown blocks; "
         f"viewBox {vb_w:.0f}x{vb_h:.0f} -> frame {frame_w:.0f}x{frame_h:.0f} "
         f"(scale={scale:.3f})",
         err=True,
     )
 
     if dry_run:
-        typer.echo("[dry-run] would create:")
-        for name in sorted(layout):
-            d2info = d2_shapes.get(name)
-            kind = d2info.kind if d2info else "rectangle"
-            target = "card" if kind == "card" else f"shape({to_miro_shape(kind)})"
-            typer.echo(f"  {target:20} {name}  kind={kind}")
-        for e in edges:
-            src_kind = (d2_shapes.get(e.src) or D2Shape("rectangle", "", None)).kind
-            dst_kind = (d2_shapes.get(e.dst) or D2Shape("rectangle", "", None)).kind
-            note = " [skipped: card→card]" if src_kind == "card" and dst_kind == "card" else ""
-            typer.echo(f"  edge   {e.src} -> {e.dst}  label={e.label[:30]!r}{note}")
+        _emit_dry_run(layout, d2_shapes, edges)
         return
 
     client = MiroClient(token, board_id)
+    frame = _place_frame(client, frame_title, position, frame_w, frame_h)
 
-    # 1. Если фрейм с таким title уже есть — берём его позицию (idempotent: при
-    # повторном рендере фрейм не «переезжает», даже если пользователь сам его
-    # подвинул на доске). Только потом удаляем старый.
-    existing = client.find_frame_by_title(frame_title)
-    pos = _parse_position(position)
-    if pos is None:
-        if existing is not None:
-            pos = (existing.x, existing.y)
-        else:
-            # Кладём справа от самого правого *оставшегося* фрейма + зазор.
-            right_x, avg_y = client.rightmost_frame_edge()
-            pos = (right_x + 200 + frame_w / 2, avg_y)
-    if existing is not None:
-        typer.echo(f"[info] removing existing frame {frame_title!r} ({existing.id})", err=True)
-        client.delete_frame(existing.id)
-    frame = client.create_frame(
-        title=frame_title, x=pos[0], y=pos[1], width=frame_w, height=frame_h
-    )
-    typer.echo(f"[info] created frame {frame.id} at ({pos[0]:.0f}, {pos[1]:.0f})", err=True)
-
-    # 3. shapes (containers first for proper z-order)
     containers = container_names(list(layout.keys()))
-    ordered = sorted(layout.keys(), key=lambda n: (n not in containers, n))
-    name_to_id: dict[str, str] = {}
-
-    # L-indent для card-колонок: контейнер с ребёнком `header` (class=card) +
-    # другими card-детьми → подзадачи смещаем вправо относительно header.
-    # Header остаётся на левой границе колонки, подзадачи отступают на card_indent.
-    card_indent = 60.0
-    for cont in containers:
-        depth = cont.count(".") + 1
-        direct = [
-            n for n in layout if n != cont and n.startswith(cont + ".") and n.count(".") == depth
-        ]
-        cards = [n for n in direct if (s := d2_shapes.get(n)) is not None and s.kind == "card"]
-        header_name = f"{cont}.header"
-        if header_name not in cards or len(cards) < 2:  # noqa: PLR2004
-            continue
-        for st in cards:
-            if st == header_name:
-                continue
-            layout[st].x += card_indent
-        # пересчитать bbox контейнера, чтобы он покрыл смещённые подзадачи
-        x1 = min(layout[c].x for c in direct)
-        y1 = min(layout[c].y for c in direct)
-        x2 = max(layout[c].x + layout[c].w for c in direct)
-        y2 = max(layout[c].y + layout[c].h for c in direct)
-        layout[cont].x = x1
-        layout[cont].y = y1
-        layout[cont].w = x2 - x1
-        layout[cont].h = y2 - y1
-
-    # Размер контейнера считаем заново: bbox прямых детей + щедрый padding +
-    # дополнительная подушка сверху под заголовок контейнера. Так дети
-    # гарантированно не пересекают границу группы при любом рендере.
-    container_pad = 50.0
-    container_title_pad = 80.0
-
-    container_bboxes: dict[str, tuple[float, float, float, float]] = {}
-    for cont in containers:
-        depth = cont.count(".") + 1
-        direct = [
-            n for n in layout if n != cont and n.startswith(cont + ".") and n.count(".") == depth
-        ]
-        if not direct:
-            continue
-        x1 = min(layout[c].x for c in direct)
-        y1 = min(layout[c].y for c in direct)
-        x2 = max(layout[c].x + layout[c].w for c in direct)
-        y2 = max(layout[c].y + layout[c].h for c in direct)
-        container_bboxes[cont] = (x1, y1, x2 - x1, y2 - y1)
-
-    for name in ordered:
-        shape: LayoutShape = layout[name]
-        d2info = d2_shapes.get(name)
-        kind = d2info.kind if d2info else "rectangle"
-        is_container = name in containers
-        if is_container and name in container_bboxes:
-            bx, by, bw, bh = container_bboxes[name]
-            sx = bx - container_pad
-            sy = by - container_pad - container_title_pad
-            sw = bw + container_pad * 2
-            sh = bh + container_pad * 2 + container_title_pad
-        else:
-            sx, sy, sw, sh = shape.x, shape.y, shape.w, shape.h
-        mx, my, mw, mh = _to_miro_xy(
-            sx,
-            sy,
-            sw,
-            sh,
-            vb_x,
-            vb_y,
-            vb_w,
-            vb_h,
-            frame_w,
-            frame_h,
-            scale,
-        )
-
-        if kind == "markdown":
-            md_text = (d2info.label if d2info else shape.label) or shape.label
-            try:
-                tid = client.create_text(
-                    parent_id=frame.id,
-                    content_html=f"<p>{_html(md_text)}</p>",
-                    x=mx,
-                    y=my,
-                    width=max(mw, 360),
-                )
-                name_to_id[name] = tid
-            except Exception as e:
-                typer.echo(f"[skip] markdown {name}: {e}", err=True)
-            continue
-
-        if kind == "card":
-            # Card: рендерим как round_rectangle shape, не как Miro card-item.
-            # Причина: у Miro card нет отдельного border-color (style.cardTheme —
-            # это лишь цветная полоска), а пользователь хочет жёлтую рамку вокруг
-            # всего элемента. round_rectangle визуально похож на card и даёт
-            # полный контроль над border'ом.
-            raw = (d2info.label if d2info else shape.label) or shape.label or name.split(".")[-1]
-            class_default = d2_shapes.get("classes.card")
-            border_color = normalize_hex(
-                (d2info.stroke if d2info else None)
-                or (class_default.stroke if class_default else None),
-                "#ffd54f",
-            )
-            fill = normalize_hex(
-                shape.fill
-                or (d2info.fill if d2info else None)
-                or (class_default.fill if class_default else None),
-                "#ffffff",
-            )
-            try:
-                sid = client.create_shape(
-                    parent_id=frame.id,
-                    kind="round_rectangle",
-                    content_html=f"<p>{_html(raw)}</p>",
-                    x=mx,
-                    y=my,
-                    width=mw,
-                    height=mh,
-                    fill=fill,
-                    border_color=border_color,
-                    border_width="3",
-                    font_size="12",
-                    text_align="left",
-                    text_align_vertical="top",
-                )
-                name_to_id[name] = sid
-            except Exception as e:
-                typer.echo(f"[skip] card {name}: {e}", err=True)
-            continue
-
-        fill = normalize_hex(shape.fill or (d2info.fill if d2info else None), "#ffffff")
-        # Прозрачный/none stroke в d2 → border_width=0 (контейнер-обёртка без видимого outline).
-        stroke_raw = d2info.stroke if d2info else None
-        invisible_border = stroke_raw in ("transparent", "none")
-        if invisible_border:
-            border_width = "0"
-            border_color = "#ffffff"
-        else:
-            border_width = "2" if is_container else "1"
-            border_color = normalize_hex(stroke_raw, "#1a1a1a")
-
-        try:
-            sid = client.create_shape(
-                parent_id=frame.id,
-                kind=to_miro_shape(kind),
-                content_html=f"<p>{_html(shape.label or name.split('.')[-1])}</p>",
-                x=mx,
-                y=my,
-                width=mw,
-                height=mh,
-                fill=fill,
-                fill_opacity="0.5" if is_container else "1.0",
-                border_color=border_color,
-                border_width=border_width,
-                border_style="dashed" if (is_container and not invisible_border) else "normal",
-                font_size="18" if is_container else "12",
-                # Заголовок контейнера прижимаем к верху (по умолчанию middle), чтобы
-                # содержимое внутри читалось без перекрытия с названием группы.
-                text_align="left" if is_container else "center",
-                text_align_vertical="top" if is_container else "middle",
-            )
-            name_to_id[name] = sid
-        except Exception as e:
-            typer.echo(f"[skip] shape {name}: {e}", err=True)
-
-    # 3b. markdown-блоки, которых нет в SVG layout (footnotes/summary внизу).
-    # d2 не выкладывает их с base64-class в SVG. Рендерим: text-части как text widget,
-    # таблицы — как сетку rectangle-шейпов (каждая ячейка editable отдельно).
-    if md_only_in_d2:
-        cur_y = frame_h_diagram + md_padding
-        x_center = frame_w / 2
-        for name in md_only_in_d2:
-            blocks = md_blocks_per_name[name]
-            try:
-                end_y = _render_markdown(
-                    client,
-                    frame_id=frame.id,
-                    blocks=blocks,
-                    x_center=x_center,
-                    y_top=cur_y,
-                    width=md_block_w,
-                )
-                cur_y = end_y + md_padding
-            except Exception as e:
-                typer.echo(f"[skip] markdown {name}: {e}", err=True)
-                cur_y += md_block_heights[name] + md_padding
-
-    # 4. connectors. Для bidirectional пар (A→B и B→A) разводим по разным
-    # сторонам шейпов: «алфавитно меньшая» вершина edge — снизу, обратная — сверху.
-    edge_set = {(e.src, e.dst) for e in edges}
-    created_edges = 0
-    for e in edges:
-        src_id = name_to_id.get(e.src)
-        dst_id = name_to_id.get(e.dst)
-        if not src_id or not dst_id:
-            missing = [n for n in (e.src, e.dst) if n not in name_to_id]
-            typer.echo(f"[skip] edge {e.src} -> {e.dst} (no shape: {missing})", err=True)
-            continue
-        snap_start: str | None = None
-        snap_end: str | None = None
-        if (e.dst, e.src) in edge_set:
-            # bidirectional pair: deterministic split — forward use top, backward use bottom
-            if e.src < e.dst:
-                snap_start = snap_end = "top"
-            else:
-                snap_start = snap_end = "bottom"
-        try:
-            label_html = f'<span style="font-size:10px">{_html(e.label)}</span>' if e.label else ""
-            client.create_connector(
-                src_id=src_id,
-                dst_id=dst_id,
-                label=label_html,
-                shape="curved",
-                snap_start=snap_start,
-                snap_end=snap_end,
-            )
-            created_edges += 1
-        except Exception as exc:
-            typer.echo(f"[skip] connector {e.src} -> {e.dst}: {exc}", err=True)
+    _apply_card_indent(layout, containers, d2_shapes)
+    name_to_id = _render_shapes(client, frame.id, layout, d2_shapes, containers, geom)
+    if md_plan.names:
+        _render_footnotes(client, frame.id, md_plan, frame_h_diagram, frame_w)
+    created_edges = _render_connectors(client, edges, name_to_id)
 
     typer.echo(
         f"[done] frame={frame_title!r} shapes={len(name_to_id)} connectors={created_edges}",
