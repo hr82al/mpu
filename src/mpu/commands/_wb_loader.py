@@ -21,8 +21,9 @@ from typing import TypeGuard
 
 import click
 
-# re-export `fail`: команды wb-loader-семейства исторически импортируют его отсюда
+# re-export `fail`/`print_json`: команды wb-loader-семейства исторически импортируют их отсюда
 from mpu.lib.cli_err import fail as fail
+from mpu.lib.cli_out import print_json as print_json
 from mpu.lib.cli_wrap import auto_pick_int
 from mpu.lib.clipboard import copy_to_clipboard
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
@@ -147,10 +148,6 @@ def loader_path(sid: str, entity: str, action: str) -> str:
     sl-back main `/admin/wb-loader/<rest>` → wb-main `/api/<rest>`; `v1` обязателен.
     """
     return f"/admin/wb-loader/loaders/{sid}/{entity}/v1/{action}"
-
-
-def print_json(value: object) -> None:
-    click.echo(json.dumps(value, ensure_ascii=False, indent=2))
 
 
 # Явные TypeGuard'ы для границы JSON-ответа (CLAUDE.md §5 — type-guard, не cast/Any).

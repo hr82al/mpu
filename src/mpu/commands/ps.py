@@ -9,7 +9,6 @@
 машинно-читаемые форматы.
 """
 
-import json as _json
 import sqlite3
 from typing import Annotated
 
@@ -18,6 +17,7 @@ import typer
 
 from mpu.commands._portainer_resolve import resolve_portainer
 from mpu.lib import store
+from mpu.lib.cli_out import print_json
 
 COMMAND_NAME = "mpu ps"
 COMMAND_SUMMARY = (
@@ -75,7 +75,7 @@ def main(
     rows.sort(key=lambda r: r["name"])
 
     if out_json:
-        typer.echo(_json.dumps(rows, ensure_ascii=False, indent=2))
+        print_json(rows)
         return
     if out_tsv:
         for r in rows:
@@ -127,7 +127,7 @@ def _all_from_cache(
     typer.echo("# кэш — запусти `mpu init` для обновления", err=True)
 
     if out_json:
-        typer.echo(_json.dumps(rows, ensure_ascii=False, indent=2))
+        print_json(rows)
         return
     if out_tsv:
         for r in rows:

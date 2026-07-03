@@ -36,6 +36,7 @@ from mpu.commands._mpuapi_spec import (
     FieldType,
 )
 from mpu.lib.cli_err import fail
+from mpu.lib.cli_out import print_json
 from mpu.lib.slapi import (
     SlApi,
     SlApiError,
@@ -108,7 +109,7 @@ def _print_result(value: Any) -> None:
     """JSON pretty-print (UTF-8, без ASCII-escape)."""
     if value is None:
         return
-    click.echo(json.dumps(value, ensure_ascii=False, indent=2))
+    print_json(value)
 
 
 def _is_optional_get_token_field(spec: CommandSpec, field_def: BodyField) -> bool:

@@ -1,13 +1,14 @@
 """`mpu sun` — восход / зенит / закат / длина дня по координатам (offline, astral)."""
 
 import datetime
-import json
 from datetime import timedelta, timezone
 from typing import Annotated
 
 import typer
 from astral import Observer
 from astral.sun import sun
+
+from mpu.lib.cli_out import print_json
 
 COMMAND_NAME = "mpu sun"
 COMMAND_SUMMARY = "Восход / закат / зенит / длина дня по координатам (offline)"
@@ -58,4 +59,4 @@ def main(
         "sunset": s["sunset"].strftime(fmt),
         "day_length": str(day_length),  # H:MM:SS
     }
-    typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+    print_json(result)

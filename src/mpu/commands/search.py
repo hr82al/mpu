@@ -18,6 +18,7 @@ from typing import Annotated, TypeGuard, cast
 import typer
 
 from mpu.lib import servers, store
+from mpu.lib.cli_out import print_json
 
 COMMAND_NAME = "mpu search"
 COMMAND_SUMMARY = "Поиск клиента / spreadsheet в локальном кэше"
@@ -385,9 +386,7 @@ def _run_email_command(
         for line in _project(owned_rows, projection):
             typer.echo(line)
         return
-    typer.echo(
-        json.dumps(_email_output_obj(conn, cached, owned_rows), ensure_ascii=False, indent=2)
-    )
+    print_json(_email_output_obj(conn, cached, owned_rows))
 
 
 app = typer.Typer(
@@ -508,4 +507,4 @@ def main(  # noqa: PLR0913
             typer.echo(line)
         return
 
-    typer.echo(json.dumps(results, ensure_ascii=False, indent=2))
+    print_json(results)

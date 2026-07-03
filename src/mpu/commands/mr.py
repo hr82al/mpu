@@ -44,7 +44,6 @@ ENV (~/.config/mpu/.env): GLAB_TOKEN — PAT со scope `api`; GITLAB_BASE_URL �
 
 from __future__ import annotations
 
-import json as _json
 import subprocess
 import sys
 from collections.abc import Callable
@@ -59,6 +58,7 @@ from rich.table import Table
 
 from mpu.lib import env
 from mpu.lib.cli_err import die
+from mpu.lib.cli_out import print_json
 from mpu.lib.gitlab_mr import (
     Discussion,
     FileDiff,
@@ -348,7 +348,7 @@ def view(
     except _CATCHABLE as e:
         _fail("view", _err_msg(e))
     if out_json:
-        typer.echo(_json.dumps(asdict(mr), ensure_ascii=False, indent=2))
+        print_json(asdict(mr))
         return
     typer.echo(f"MR {mr.project}!{mr.iid} — {mr.title} [{mr.state}]")
     typer.echo(f"author: {mr.author_name or mr.author_username} (@{mr.author_username})")
@@ -424,7 +424,7 @@ def files(
     except _CATCHABLE as e:
         _fail("files", _err_msg(e))
     if out_json:
-        typer.echo(_json.dumps(rows, ensure_ascii=False, indent=2))
+        print_json(rows)
         return
     table = Table(header_style="bold")
     for column in ("ST", "+", "-", "FILE"):
@@ -462,7 +462,7 @@ def diff(
         if not diffs:
             _fail("diff", f"нет изменённых файлов по подстроке {file_filter!r}")
     if out_json:
-        typer.echo(_json.dumps([asdict(fd) for fd in diffs], ensure_ascii=False, indent=2))
+        print_json([asdict(fd) for fd in diffs])
         return
     if not diffs:
         typer.echo("(MR без изменённых файлов)")
@@ -557,7 +557,7 @@ def comments(
         _fail("comments", _err_msg(e))
     if out_json:
         payload = [_discussion_payload(d) for d in discussions]
-        typer.echo(_json.dumps(payload, ensure_ascii=False, indent=2))
+        print_json(payload)
         return
     if out_md:
         typer.echo(_comments_markdown(mr, discussions))
@@ -596,7 +596,7 @@ def show(
     except _CATCHABLE as e:
         _fail("show", _err_msg(e))
     if out_json:
-        typer.echo(_json.dumps(_discussion_payload(d), ensure_ascii=False, indent=2))
+        print_json(_discussion_payload(d))
         return
     location = position_label(d.location()) or "general"
     typer.echo(f"discussion {d.id} · {location} · {_discussion_status(d)}")

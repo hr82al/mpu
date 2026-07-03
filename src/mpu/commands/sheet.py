@@ -31,6 +31,7 @@ from typing import Annotated, Any, cast
 import typer
 
 from mpu.lib import store
+from mpu.lib.cli_out import print_json
 from mpu.lib.log import logger
 from mpu.lib.sheet_api import SheetApiError, WebappClient
 from mpu.lib.sheet_batch import (
@@ -295,7 +296,7 @@ def ls(
             raise typer.Exit(code=1) from e
 
         if json_out:
-            print(json.dumps([t.__dict__ for t in tabs], ensure_ascii=False, indent=2))
+            print_json([t.__dict__ for t in tabs])
             return
 
         if long_:
@@ -478,7 +479,7 @@ def set_(  # noqa: C901, PLR0912
                     continue
 
         out_resp = responses[0] if len(responses) == 1 else responses
-        print(json.dumps(out_resp, ensure_ascii=False, indent=2))
+        print_json(out_resp)
     finally:
         conn.close()
 
@@ -710,7 +711,7 @@ def batch_update(
             typer.echo("нет операций")
             return
         if dry_run:
-            print(json.dumps({"requests": requests}, ensure_ascii=False, indent=2))
+            print_json({"requests": requests})
             return
         try:
             resp = api.batch_update_spreadsheet(resolved.ss_id, requests)
@@ -722,7 +723,7 @@ def batch_update(
         for sid in collect_sheet_ids(requests):
             if sid in title_by_id:
                 invalidate_tab(conn, resolved.ss_id, title_by_id[sid])
-        print(json.dumps(resp, ensure_ascii=False, indent=2))
+        print_json(resp)
     finally:
         conn.close()
 
@@ -787,7 +788,7 @@ def batch_get_cmd(
         raise typer.Exit(code=2) from e
 
     if dry_run:
-        print(json.dumps({"values": plan.values, "meta": plan.meta}, ensure_ascii=False, indent=2))
+        print_json({"values": plan.values, "meta": plan.meta})
         return
 
     conn = _open_db()
@@ -805,7 +806,7 @@ def batch_get_cmd(
         except SheetApiError as e:
             typer.echo(f"mpu sheet batch-get: {e}", err=True)
             raise typer.Exit(code=1) from e
-        print(json.dumps(out, ensure_ascii=False, indent=2))
+        print_json(out)
     finally:
         conn.close()
 

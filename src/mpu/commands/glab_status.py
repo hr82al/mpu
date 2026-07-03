@@ -24,7 +24,6 @@ ENV (~/.config/mpu/.env): GLAB_TOKEN — PAT со scope `api`; GITLAB_BASE_URL �
 
 from __future__ import annotations
 
-import json as _json
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Annotated, Any, NoReturn
@@ -38,6 +37,7 @@ from rich.table import Table
 
 from mpu.lib import env
 from mpu.lib.cli_err import die
+from mpu.lib.cli_out import print_json
 from mpu.lib.duration import DurationParseError, parse_since
 from mpu.lib.gitlab_mr import GitLabAPIError, GitLabClient, MrInfo
 
@@ -235,7 +235,7 @@ def main(
     except GitLabAPIError as e:
         _fail(_err_msg(e))
     if out_json:
-        typer.echo(_json.dumps(rows, ensure_ascii=False, indent=2))
+        print_json(rows)
         return
     if not rows:
         typer.echo("(нет моих MR за интервал в выбранных репозиториях)", err=True)

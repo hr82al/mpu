@@ -27,6 +27,7 @@ import click
 import psycopg
 
 from mpu.lib.cli_err import fail
+from mpu.lib.cli_out import print_json as _print_json
 from mpu.lib.pg import PgConfigError, connect_main
 from mpu.lib.slapi import SlApi, SlApiError, resolve_credentials
 
@@ -48,10 +49,6 @@ _REVOKE_POLL_TIMEOUT_S = 60.0
 def _fail(reason: str, *, code: int, hint: str | None = None, extra: str | None = None) -> NoReturn:
     """`fail` с зафиксированным `COMMAND` (сохраняет существующие call-site'ы)."""
     fail(COMMAND, reason, code=code, hint=hint, extra=extra)
-
-
-def _print_json(value: object) -> None:
-    click.echo(json.dumps(value, ensure_ascii=False, indent=2))
 
 
 def _api() -> SlApi:

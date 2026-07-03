@@ -59,6 +59,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from mpu.lib import env, kaiten_cache, kaiten_links, kaiten_render, store
+from mpu.lib.cli_out import print_json
 from mpu.lib.kaiten import (
     KaitenAPIError,
     KaitenCard,
@@ -455,7 +456,7 @@ def ls(  # noqa: PLR0913
         raise typer.Exit(code=1) from None
 
     if out_json:
-        typer.echo(_json.dumps([_card_dict(c) for c in cards], ensure_ascii=False, indent=2))
+        print_json([_card_dict(c) for c in cards])
         return
     if out_format is not None:
         col_names = dict(kaiten_cache.cached_columns())
@@ -502,9 +503,7 @@ def card(
 
     prop_names = kaiten_cache.property_names()
     if out_json:
-        typer.echo(
-            _json.dumps(_card_detail_dict(detail, comment_list), ensure_ascii=False, indent=2)
-        )
+        print_json(_card_detail_dict(detail, comment_list))
         return
     # Пайп (не TTY) и не --json → markdown: `mpu kiten card X | <llm>` отдаёт чистый GFM.
     if md or not sys.stdout.isatty():
@@ -1125,7 +1124,7 @@ def spaces(
     items = [s for s in result.spaces if show_all or not s.archived]
     if out_json:
         payload = [{"id": s.id, "title": s.title, "archived": s.archived} for s in items]
-        typer.echo(_json.dumps(payload, ensure_ascii=False, indent=2))
+        print_json(payload)
         return
     if not items:
         typer.echo("(нет пространств)")
@@ -1161,7 +1160,7 @@ def boards(
     items = [b for b in result.boards if space_id is None or b.space_id == space_id]
     if out_json:
         payload = [{"id": b.id, "space_id": b.space_id, "title": b.title} for b in items]
-        typer.echo(_json.dumps(payload, ensure_ascii=False, indent=2))
+        print_json(payload)
         return
     if not items:
         typer.echo("(нет досок)")
@@ -1221,7 +1220,7 @@ def lanes(
 
     if out_json:
         payload = [{"id": ln.id, "board_id": ln.board_id, "title": ln.title} for ln in result.lanes]
-        typer.echo(_json.dumps(payload, ensure_ascii=False, indent=2))
+        print_json(payload)
         return
     if not result.lanes:
         typer.echo("(нет дорожек)")
@@ -1281,7 +1280,7 @@ def columns(
 
     if out_json:
         payload = [{"id": c.id, "board_id": c.board_id, "title": c.title} for c in result.columns]
-        typer.echo(_json.dumps(payload, ensure_ascii=False, indent=2))
+        print_json(payload)
         return
     if not result.columns:
         typer.echo("(нет колонок)")

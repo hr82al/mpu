@@ -38,6 +38,7 @@ from rich.table import Table
 
 from mpu.lib import env, kaiten_links, kiten_status, store, telegram
 from mpu.lib.cli_err import die
+from mpu.lib.cli_out import print_json
 from mpu.lib.kaiten import DEFAULT_BASE_URL, KaitenAPIError, KaitenClient, card_url
 from mpu.lib.kiten_status import StatusEntry
 from mpu.lib.telegram import TgError, TgNotAuthorizedError
@@ -282,9 +283,7 @@ def ls(
         _fail(str(e))
 
     if not table:
-        typer.echo(
-            json.dumps([telegram.dialog_to_dict(d) for d in dialogs], ensure_ascii=False, indent=2)
-        )
+        print_json([telegram.dialog_to_dict(d) for d in dialogs])
         return
     if not dialogs:
         typer.echo("(нет диалогов)")
@@ -353,11 +352,7 @@ def search(
         _fail(str(e))
 
     if not table:
-        typer.echo(
-            json.dumps(
-                [telegram.message_to_dict(m) for m in messages], ensure_ascii=False, indent=2
-            )
-        )
+        print_json([telegram.message_to_dict(m) for m in messages])
         return
     if not messages:
         typer.echo("(ничего не найдено)")
