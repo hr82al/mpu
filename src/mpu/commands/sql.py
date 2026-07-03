@@ -19,26 +19,10 @@ from typing import Annotated
 import typer
 
 from mpu.lib import servers, sql_runner, sql_sw
-from mpu.lib.resolver import ResolveError, resolve_server
+from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 COMMAND_NAME = "mpu sql"
 COMMAND_SUMMARY = "Выполнить SQL на удалённом PG по селектору"
-
-
-def _format_candidates(candidates: list[dict[str, object]]) -> str:
-    lines: list[str] = []
-    for c in candidates:
-        client_id = c.get("client_id")
-        server = c.get("server")
-        title = c.get("title")
-        ss = c.get("spreadsheet_id")
-        parts = [f"client_id={client_id}", f"server={server}"]
-        if title:
-            parts.append(f'title="{title}"')
-        if ss:
-            parts.append(f"spreadsheet_id={ss}")
-        lines.append("  " + "  ".join(parts))
-    return "\n".join(lines)
 
 
 def _read_sql(sql_arg: str | None) -> str:
@@ -48,6 +32,22 @@ def _read_sql(sql_arg: str | None) -> str:
         return sys.stdin.read()
     print("-- enter SQL, end with EOF (Ctrl+D):", file=sys.stderr)
     return sys.stdin.read()
+
+
+def _read_sql_or_exit(sql_arg: str | None, prog: str) -> str:
+    """SQL из аргумента/stdin; пустой → сообщение + `typer.Exit(2)`."""
+    text = _read_sql(sql_arg)
+    if not text.strip():
+        typer.echo(f"{prog}: empty SQL", err=True)
+        raise typer.Exit(code=2)
+    return text
+
+
+def _reject_server_override(server: str | None, prog: str, *, kind: str) -> None:
+    """`--server` не сочетается с dev-/sw-селектором (у них свой транспорт)."""
+    if server:
+        typer.echo(f"{prog}: --server не сочетается с {kind}", err=True)
+        raise typer.Exit(code=2)
 
 
 def dispatch(  # noqa: PLR0913
@@ -63,66 +63,52 @@ def dispatch(  # noqa: PLR0913
     prog: str,
 ) -> None:
     """Общее тело `mpu sql` и `mpu sql-ro`. `read_only` прокидывается в исполнители
-    (enforced PG read-only), `prog` — имя команды для текста ошибок. Бросает `typer.Exit`."""
+    (enforced PG read-only), `prog` — имя команды для текста ошибок. Бросает `typer.Exit`.
+
+    Три исполнителя по виду селектора: `dev:<client_id>` → dev-нода, sw-алиас →
+    контейнер sw-back, иначе — резолв в sl-N через `mpu search`.
+    """
     if json_out and md_out:
         typer.echo(f"{prog}: --json и --md взаимоисключающие", err=True)
         raise typer.Exit(code=2)
 
     if (dev_rest := servers.parse_dev_selector(selector)) is not None:
-        if server:
-            typer.echo(f"{prog}: --server не сочетается с dev-селектором", err=True)
-            raise typer.Exit(code=2)
+        _reject_server_override(server, prog, kind="dev-селектором")
         rest = dev_rest.strip()
-        dev_client_id = int(rest) if rest.isdigit() else None
-        dev_sql_text = _read_sql(sql)
-        if not dev_sql_text.strip():
-            typer.echo(f"{prog}: empty SQL", err=True)
-            raise typer.Exit(code=2)
-        raise typer.Exit(
-            code=sql_runner.run_sql(
-                0,
-                dev_sql_text,
-                client_id=dev_client_id,
-                dev=True,
-                dry=dry,
-                json_out=json_out,
-                md_out=md_out,
-                verbose=verbose,
-                read_only=read_only,
-            )
+        code = sql_runner.run_sql(
+            0,
+            _read_sql_or_exit(sql, prog),
+            client_id=int(rest) if rest.isdigit() else None,
+            dev=True,
+            dry=dry,
+            json_out=json_out,
+            md_out=md_out,
+            verbose=verbose,
+            read_only=read_only,
         )
+        raise typer.Exit(code=code)
 
     if sql_sw.is_sw_selector(selector):
-        if server:
-            typer.echo(f"{prog}: --server не сочетается с sw-селектором", err=True)
-            raise typer.Exit(code=2)
-        sw_sql_text = _read_sql(sql)
-        if not sw_sql_text.strip():
-            typer.echo(f"{prog}: empty SQL", err=True)
-            raise typer.Exit(code=2)
-        raise typer.Exit(
-            code=sql_sw.run_sql_sw(
-                sw_sql_text,
-                dry=dry,
-                json_out=json_out,
-                md_out=md_out,
-                verbose=verbose,
-                read_only=read_only,
-            )
+        _reject_server_override(server, prog, kind="sw-селектором")
+        code = sql_sw.run_sql_sw(
+            _read_sql_or_exit(sql, prog),
+            dry=dry,
+            json_out=json_out,
+            md_out=md_out,
+            verbose=verbose,
+            read_only=read_only,
         )
+        raise typer.Exit(code=code)
 
     try:
         server_number, candidates = resolve_server(selector, server_override=server)
     except ResolveError as e:
         typer.echo(f"{prog}: {e}", err=True)
         if e.candidates:
-            typer.echo(_format_candidates(e.candidates), err=True)
+            typer.echo(format_candidates(e.candidates), err=True)
         raise typer.Exit(code=2) from None
 
-    sql_text = _read_sql(sql)
-    if not sql_text.strip():
-        typer.echo(f"{prog}: empty SQL", err=True)
-        raise typer.Exit(code=2)
+    sql_text = _read_sql_or_exit(sql, prog)
 
     # Если все кандидаты указывают на одного клиента — ставим search_path
     # на schema_<client_id>, чтобы запросы могли обращаться к таблицам без префикса.
