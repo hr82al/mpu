@@ -196,7 +196,7 @@ _DDL = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_sheet_tabs_fetched_at ON sheet_tabs(fetched_at)",
-    # Алиасы spreadsheet'ов (short name → ss_id). Совместима со схемой new-mpu.
+    # Алиасы spreadsheet'ов (short name → ss_id).
     """
     CREATE TABLE IF NOT EXISTS sheet_aliases (
         name       TEXT PRIMARY KEY,
@@ -204,7 +204,7 @@ _DDL = [
         created_at INTEGER NOT NULL
     )
     """,
-    # Алиасы локальных .xlsx (short name → путь как введён). Совместима со схемой new-mpu.
+    # Алиасы локальных .xlsx (short name → путь как введён).
     """
     CREATE TABLE IF NOT EXISTS xlsx_aliases (
         name       TEXT PRIMARY KEY,
@@ -213,7 +213,6 @@ _DDL = [
     )
     """,
     # Generic key-value config (sheet.default, xlsx.default, sheet.cache.tab_ttl, …).
-    # Совместима со схемой new-mpu.
     """
     CREATE TABLE IF NOT EXISTS config (
         key   TEXT PRIMARY KEY,
@@ -221,7 +220,6 @@ _DDL = [
     )
     """,
     # Generic kv-кэш с TTL: метаданные tabs (`sheet:info:{ss_id}`), мелкие fetches.
-    # Совместима со схемой new-mpu.
     """
     CREATE TABLE IF NOT EXISTS cache (
         key        TEXT PRIMARY KEY,

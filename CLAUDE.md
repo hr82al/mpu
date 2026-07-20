@@ -8,7 +8,7 @@
 
 ## Контекст проекта
 
-`mpu` (от monorepo python utilities) — multi-purpose CLI на Python для вспомогательных операций над данными монорепо: data-fix скрипты, единичные миграции данных, интеграции, ad-hoc аналитика, поддержка ручных операций. Архитектурно — по образцу `new-mpu` (`~/mr/workspace/go/mpu/`): один bin с subcommands, каждая subcommand — самостоятельный модуль.
+`mpu` (от monorepo python utilities) — multi-purpose CLI на Python для вспомогательных операций над данными монорепо: data-fix скрипты, единичные миграции данных, интеграции, ad-hoc аналитика, поддержка ручных операций. Архитектурно: один bin с subcommands, каждая subcommand — самостоятельный модуль.
 
 **Скоуп — что сюда:**
 - одноразовые утилиты, которые не должны жить в production-кодовой базе sl-back / sw-back;
@@ -145,7 +145,7 @@ uv run pytest --cov=mpu --cov-report=term-missing --cov-fail-under=95
 
 ## Как начинать работу
 
-1. Понять задачу. Если она ссылается на уже существующее поведение в `new-mpu` (`~/mr/workspace/go/mpu/`) — прочитать соответствующий код TS-версии для контекста и **подтвердить с пользователем**, нужно ли такое же поведение, или другое.
+1. Понять задачу. `mpu` самодостаточен: внешних бинарей-предшественников больше нет, весь код здесь.
 2. Перед новой зависимостью / новым файлом в корне / новой схемой БД / новой командой / именами флагов — **спросить пользователя до создания**.
 3. Внутри согласованной структуры — действовать самостоятельно:
    - новая команда → см. «Регистрация новой команды» (раздел «Архитектура bin'ов»)
@@ -163,6 +163,7 @@ uv run pytest --cov=mpu --cov-report=term-missing --cov-fail-under=95
 | `mp-init` | `mp_init.py` | поднять локальный dev-стек (mp-config-local + `mp/local-stack`); ловушка: sl-0/sl-1 с `OBSERVABILITY_ENABLED=false` (иначе otel-preload роняет флот без otel-пакетов); core-образы не собирает; `--dry-run`; ENV `MPU_MP_CONFIG_LOCAL` |
 | `search` | `search.py` | поиск клиента/spreadsheet; email→client_id (10X impersonation) — skill `tool-mpu-search-email` |
 | `sql` / `sql-ro` | `sql.py` / `sql_ro.py` | ad-hoc SQL по селектору (write c подтверждением / enforced read-only) — skill `conv-mpu-readonly-split` |
+| `config` | `config.py` | ключи в таблице `config` (`sheet.default`, `xlsx.default`, `sheet.cache.*`): показать/задать/`--unset`, с источником значения (env/config/default) |
 | `sheet` / `xlsx` | `sheet.py` / `xlsx.py` | Google Sheets / локальные `.xlsx` (собственный OOXML-ридер на stdlib, `lib/xlsx_reader.py`) — skill `tool-mpu-sheet-xlsx` |
 | `backup-{wb,ozon}-unit-proto`, `backup-wb-unit-manual-data` | `backup_*.py` | CTAS-бэкап `*_proto` / `wb_unit_manual_data` в `backups`-схему |
 | `telegram` | `telegram.py` | Telegram от лица пользователя — skill `tool-mpu-telegram`. Ловушка: прокси только через `TELEGRAM_PROXY`, НЕ `HTTPS_PROXY` (утечёт на весь `mpu`) |
