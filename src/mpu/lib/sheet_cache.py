@@ -15,10 +15,6 @@ Sweep (lazy):
 
 Invalidation:
     - `sheet set` после успешного batchUpdate → DELETE по затронутым (ss_id, tab).
-
-Совместимость:
-    - НЕ трогает `sheet_cells` (cell-level cache от new-mpu) — обе кэш-схемы
-      сосуществуют, пока new-mpu не выведен из эксплуатации.
 """
 
 from __future__ import annotations

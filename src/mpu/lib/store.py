@@ -204,7 +204,15 @@ _DDL = [
         created_at INTEGER NOT NULL
     )
     """,
-    # Generic key-value config (sheet.default, sheet.cache.tab_ttl, …).
+    # Алиасы локальных .xlsx (short name → путь как введён). Совместима со схемой new-mpu.
+    """
+    CREATE TABLE IF NOT EXISTS xlsx_aliases (
+        name       TEXT PRIMARY KEY,
+        path       TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+    )
+    """,
+    # Generic key-value config (sheet.default, xlsx.default, sheet.cache.tab_ttl, …).
     # Совместима со схемой new-mpu.
     """
     CREATE TABLE IF NOT EXISTS config (
@@ -282,7 +290,7 @@ def open_store(path: Path | str | None = None) -> sqlite3.Connection:
     target.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(target))
     conn.row_factory = sqlite3.Row
-    # WAL — БД делится с new-mpu (Node), позволяет concurrent read/write.
+    # WAL — позволяет concurrent read/write (параллельные вызовы `mpu`).
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
 

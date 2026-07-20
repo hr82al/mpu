@@ -1,7 +1,7 @@
-"""Loguru-based file logger для записи вызовов wrapper'а `new-mpu`.
+"""Loguru-based file logger для диагностических сообщений команд `mpu`.
 
-Sink — rotating file в `~/.config/mpu/logs/new-mpu.log`. Console sink выключен,
-чтобы не шуметь в stderr пользователя поверх вывода обёрнутой команды.
+Sink — rotating file в `~/.config/mpu/logs/mpu.log`. Console sink выключен,
+чтобы не шуметь в stderr пользователя поверх вывода самой команды.
 
 Путь к файлу можно переопределить через env `MPU_LOG_FILE` (используется в тестах).
 """
@@ -16,7 +16,7 @@ from loguru import logger
 __all__ = ["log_file_path", "logger", "setup"]
 
 _DEFAULT_LOG_DIR = Path.home() / ".config" / "mpu" / "logs"
-_DEFAULT_LOG_FILE = _DEFAULT_LOG_DIR / "new-mpu.log"
+_DEFAULT_LOG_FILE = _DEFAULT_LOG_DIR / "mpu.log"
 
 _initialised = False
 _log_file: Path | None = None

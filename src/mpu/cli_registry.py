@@ -18,8 +18,6 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "sql": ("mpu.commands.sql", "app"),
     "sql-ro": ("mpu.commands.sql_ro", "app"),
     "sun": ("mpu.commands.sun", "app"),
-    # Passthrough-обёртки `new-mpu` (см. mpu.lib.new_mpu). Будут заменены нативной
-    # реализацией по мере переноса из Go/Node CLI.
     "sheet": ("mpu.commands.sheet", "app"),
     "xlsx": ("mpu.commands.xlsx", "app"),
     "backup-wb-unit-proto": ("mpu.commands.backup_wb_unit_proto", "app"),

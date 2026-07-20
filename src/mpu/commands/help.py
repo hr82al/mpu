@@ -28,12 +28,14 @@ from mpu.commands import (
     run_js,
     save_wb_expenses,
     search,
+    sheet,
     sql,
     sql_ro,
     ss_update,
     sun,
     telegram,
     update,
+    xlsx,
 )
 
 
@@ -87,6 +89,8 @@ def main(
 _REGISTERED_MODULES = (
     search,
     update,
+    sheet,
+    xlsx,
     sql,
     sql_ro,
     sun,

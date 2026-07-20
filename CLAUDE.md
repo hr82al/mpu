@@ -163,7 +163,7 @@ uv run pytest --cov=mpu --cov-report=term-missing --cov-fail-under=95
 | `mp-init` | `mp_init.py` | поднять локальный dev-стек (mp-config-local + `mp/local-stack`); ловушка: sl-0/sl-1 с `OBSERVABILITY_ENABLED=false` (иначе otel-preload роняет флот без otel-пакетов); core-образы не собирает; `--dry-run`; ENV `MPU_MP_CONFIG_LOCAL` |
 | `search` | `search.py` | поиск клиента/spreadsheet; email→client_id (10X impersonation) — skill `tool-mpu-search-email` |
 | `sql` / `sql-ro` | `sql.py` / `sql_ro.py` | ad-hoc SQL по селектору (write c подтверждением / enforced read-only) — skill `conv-mpu-readonly-split` |
-| `sheet` / `xlsx` | `sheet.py` / `xlsx.py` | Google Sheets / локальные `.xlsx` — skill `tool-mpu-sheet-xlsx` |
+| `sheet` / `xlsx` | `sheet.py` / `xlsx.py` | Google Sheets / локальные `.xlsx` (собственный OOXML-ридер на stdlib, `lib/xlsx_reader.py`) — skill `tool-mpu-sheet-xlsx` |
 | `backup-{wb,ozon}-unit-proto`, `backup-wb-unit-manual-data` | `backup_*.py` | CTAS-бэкап `*_proto` / `wb_unit_manual_data` в `backups`-схему |
 | `telegram` | `telegram.py` | Telegram от лица пользователя — skill `tool-mpu-telegram`. Ловушка: прокси только через `TELEGRAM_PROXY`, НЕ `HTTPS_PROXY` (утечёт на весь `mpu`) |
 | `mr` | `mr.py` | GitLab MR ревью — skill `tool-mpu-mr`; ENV `GLAB_TOKEN` |
