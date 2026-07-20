@@ -5,8 +5,8 @@
 и локальному target-PG (порт 5441). См. `mpu copy-client`, `mpu copy-shared`.
 
 Каталог `mp-config-local` — по умолчанию `~/mr/mp/mp-config-local`, override
-через env `MPU_MP_CONFIG_LOCAL`. Env-файлы (`.sl-base.env`, `.sl-dt.env`, `.env`)
-и `compose.sl-dt-host.yaml` обязательны.
+через env `MPU_MP_CONFIG_LOCAL`. Env-слои — `mp_stack.DT_HOST_ENV_FILES` (личные слои
+опциональны); `compose.sl-dt-host.yaml` обязателен.
 """
 
 import os
@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 
 import typer
+
+from mpu.lib import mp_stack
 
 ENV_DIR = "MPU_MP_CONFIG_LOCAL"
 _DEFAULT_DIR = Path.home() / "mr" / "mp" / "mp-config-local"
@@ -32,12 +34,7 @@ def build_compose_argv(inner: str) -> list[str]:
     return [
         "docker",
         "compose",
-        "--env-file",
-        str(base / ".sl-base.env"),
-        "--env-file",
-        str(base / ".sl-dt.env"),
-        "--env-file",
-        str(base / ".env"),
+        *mp_stack.env_file_argv(base, mp_stack.DT_HOST_ENV_FILES),
         "-f",
         str(base / "compose.sl-dt-host.yaml"),
         "exec",

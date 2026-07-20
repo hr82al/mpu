@@ -20,6 +20,23 @@ def test_build_compose_argv_uses_default_dir(monkeypatch: pytest.MonkeyPatch) ->
     assert any(arg.endswith("compose.sl-dt-host.yaml") for arg in argv)
 
 
+def test_build_compose_argv_env_layer_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Имена env-слоёв должны совпадать с mp-config-local, иначе docker падает на missing file.
+
+    Регрессия: после переименования `.sl-dt.env` → `.sl-dt.base.env` команда падала
+    «couldn't find env file». Проверяем имена, а не просто наличие `--env-file`.
+    """
+    monkeypatch.setenv(dt_host.ENV_DIR, str(tmp_path))
+    (tmp_path / ".sl-dt.base.env").write_text("")
+    (tmp_path / ".env").write_text("")  # опциональные слои присутствуют → включаются
+
+    argv = dt_host.build_compose_argv("X")
+    names = [Path(argv[i + 1]).name for i, a in enumerate(argv) if a == "--env-file"]
+    assert names == [".sl-base.env", ".env", ".sl-dt.base.env"]  # .sl-dt.env отсутствует → пропущен
+
+
 def test_build_compose_argv_respects_env_override(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

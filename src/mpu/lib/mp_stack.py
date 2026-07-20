@@ -32,6 +32,11 @@ SHARED_NODE_MODULES_VOLUME = "mp-back-node-modules"
 # (напр. SL_BACK_SRC=<worktree>), грузится ПОСЛЕ tracked-базы `.sl-N.base.env` и перекрывает её.
 OPTIONAL_ENVS: frozenset[str] = frozenset({".env", ".sl-0.env", ".sl-1.env", ".sl-dt.env"})
 
+# Env-слои dt-host (`mpu copy-client` / `copy-shared` через lib.dt_host), порядок = приоритет
+# по возрастанию — как алиас `_mp_dt` в mp-config-local/aliases.d/42-sl-dt.sh. Тот же кортеж
+# подан стеку "dt-host" в CORE_STACKS ниже.
+DT_HOST_ENV_FILES: tuple[str, ...] = (".sl-base.env", ".env", ".sl-dt.base.env", ".sl-dt.env")
+
 
 @dataclass(frozen=True, slots=True)
 class Stack:
@@ -96,7 +101,7 @@ CORE_STACKS: tuple[Stack, ...] = (
     ),
     Stack(
         name="dt-host",
-        env_files=(".sl-base.env", ".env", ".sl-dt.base.env", ".sl-dt.env"),
+        env_files=DT_HOST_ENV_FILES,
         compose_files=("compose.sl-dt-host.yaml",),
     ),
 )
@@ -150,10 +155,7 @@ def build_up_argv(stack: Stack, base: Path) -> list[str]:
     `--remove-orphans` — иначе снесёт контейнеры соседних стеков того же compose-проекта.
     """
     argv = ["docker", "compose"]
-    for env in stack.env_files:
-        if env in OPTIONAL_ENVS and not (base / env).is_file():
-            continue
-        argv += ["--env-file", str(base / env)]
+    argv += env_file_argv(base, stack.env_files)
     for compose in stack.compose_files:
         argv += ["-f", str(base / compose)]
     stack_dir = local_stack_dir(base)
@@ -165,6 +167,20 @@ def build_up_argv(stack: Stack, base: Path) -> list[str]:
         argv += ["--profile", profile]
     argv += ["up", "-d", "--force-recreate"]
     argv += list(stack.services)
+    return argv
+
+
+def env_file_argv(base: Path, names: tuple[str, ...]) -> list[str]:
+    """Собрать `--env-file <abs>` пары для `names` в порядке передачи (поздние перекрывают).
+
+    Имена из `OPTIONAL_ENVS` (gitignored личные слои) пропускаются, если файла нет на диске:
+    `docker compose` падает на отсутствующем `--env-file`, а не игнорирует его.
+    """
+    argv: list[str] = []
+    for name in names:
+        if name in OPTIONAL_ENVS and not (base / name).is_file():
+            continue
+        argv += ["--env-file", str(base / name)]
     return argv
 
 

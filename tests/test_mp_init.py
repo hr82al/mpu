@@ -172,8 +172,15 @@ def test_volume_create_failure_aborts(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.setattr(dt_host, "mp_config_local_dir", lambda: tmp_path)
     monkeypatch.setattr(mp_stack, "missing_images", _no_missing)
     monkeypatch.setattr(mp_stack, "network_exists", _net_present)
-    monkeypatch.setattr(mp_stack, "volume_exists", lambda name: False)
-    monkeypatch.setattr(mp_stack, "create_volume", lambda name: 5)
+
+    def _vol_absent(name: str) -> bool:
+        return False
+
+    def _create_fails(name: str) -> int:
+        return 5
+
+    monkeypatch.setattr(mp_stack, "volume_exists", _vol_absent)
+    monkeypatch.setattr(mp_stack, "create_volume", _create_fails)
     monkeypatch.setattr(subprocess, "run", _boom)  # до up дойти не должно
 
     res = runner.invoke(cmd.app, [])
