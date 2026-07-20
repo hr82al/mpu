@@ -1,7 +1,8 @@
 """`mpu mp-init` — поднять локальный dev-стек (mp-config-local) целиком.
 
 Одной командой приводит локальное окружение в рабочее состояние: создаёт сеть
-`mp-shared-net` (если её нет), проверяет наличие локально собранных образов и поднимает
+`mp-shared-net` и общий том node_modules `mp-back-node-modules` (если их нет,
+оба объявлены в compose как external), проверяет наличие локально собранных образов и поднимает
 core SL backend — `mp-nats`, `sl-0` (main), `sl-1` (instance), `mp-nginx`, `dt-host` —
 каждый со ВСЕМИ сервисами через `docker compose ... up -d --force-recreate`. Затем поверх
 core поднимает always-on web-стек: БД-зависимости sw-back (pg+redis) и `mp/local-stack`
@@ -64,6 +65,7 @@ def main(
         raise typer.Exit(code=2)
 
     _ensure_network(dry_run=dry_run)
+    _ensure_node_modules_volume(dry_run=dry_run)
     _check_images(dry_run=dry_run)
 
     for stack in mp_stack.CORE_STACKS:
@@ -106,6 +108,24 @@ def _ensure_network(*, dry_run: bool) -> None:
             f"{COMMAND_NAME}: не удалось создать сеть {mp_stack.SHARED_NET} (rc={rc})",
             err=True,
         )
+        raise typer.Exit(code=rc)
+
+
+def _ensure_node_modules_volume(*, dry_run: bool) -> None:
+    """Создать общий том node_modules, если его нет. В dry-run — только напечатать команду.
+
+    Том объявлен в compose как `external: true` (одна копия node_modules на все sl/wb
+    контейнеры вместо анонимного тома на каждый) → без него `up` падает сразу.
+    """
+    name = mp_stack.SHARED_NODE_MODULES_VOLUME
+    if mp_stack.volume_exists(name):
+        return
+    typer.echo(f"$ {shlex.join(mp_stack.volume_create_argv(name))}", err=True)
+    if dry_run:
+        return
+    rc = mp_stack.create_volume(name)
+    if rc != 0:
+        typer.echo(f"{COMMAND_NAME}: не удалось создать том {name} (rc={rc})", err=True)
         raise typer.Exit(code=rc)
 
 

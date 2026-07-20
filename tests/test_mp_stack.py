@@ -33,12 +33,13 @@ def test_core_stacks_names_and_order() -> None:
 
 def test_build_up_argv_sl1_full(tmp_path: Path) -> None:
     (tmp_path / ".env").write_text("X=1\n")  # .env присутствует → включается
+    (tmp_path / ".sl-1.env").write_text("X=2\n")  # личный слой присутствует → включается
     argv = mp_stack.build_up_argv(_stack("sl-1"), tmp_path)
 
     assert argv[:2] == ["docker", "compose"]
     assert argv[-3:] == ["up", "-d", "--force-recreate"]
     assert "--remove-orphans" not in argv  # иначе снесёт соседние стеки проекта
-    assert _env_names(argv) == [".sl-base.env", ".env", ".sl-1.env"]
+    assert _env_names(argv) == [".sl-base.env", ".env", ".sl-1.base.env", ".sl-1.env"]
     assert _compose_names(argv) == [
         "compose.sl-base.yaml",
         "compose.sl-pg.yaml",
@@ -51,23 +52,50 @@ def test_build_up_argv_sl1_full(tmp_path: Path) -> None:
             assert argv[i + 1].startswith(str(tmp_path))
 
 
-def test_build_up_argv_omits_missing_dotenv(tmp_path: Path) -> None:
-    # .env не создаём → опциональный env пропускается (docker иначе падает на missing file)
+def test_build_up_argv_omits_missing_optional_envs(tmp_path: Path) -> None:
+    # ни .env, ни личного .sl-0.env нет → оба пропускаются (docker падает на missing file),
+    # остаётся только tracked-база
     argv = mp_stack.build_up_argv(_stack("sl-0"), tmp_path)
-    assert _env_names(argv) == [".sl-base.env", ".sl-0.env"]
+    assert _env_names(argv) == [".sl-base.env", ".sl-0.base.env"]
 
 
-def test_build_up_argv_includes_present_dotenv(tmp_path: Path) -> None:
+def test_build_up_argv_includes_present_optional_envs(tmp_path: Path) -> None:
     (tmp_path / ".env").write_text("")
+    (tmp_path / ".sl-0.env").write_text("SL_BACK_SRC=../../wt/sl-back/x\n")
     argv = mp_stack.build_up_argv(_stack("sl-0"), tmp_path)
-    assert _env_names(argv) == [".sl-base.env", ".env", ".sl-0.env"]
+    # личный слой идёт ПОСЛЕ tracked-базы → перекрывает её
+    assert _env_names(argv) == [".sl-base.env", ".env", ".sl-0.base.env", ".sl-0.env"]
 
 
 def test_build_up_argv_dt_host(tmp_path: Path) -> None:
     argv = mp_stack.build_up_argv(_stack("dt-host"), tmp_path)
-    # .sl-dt.env обязателен (не опциональный), .env отсутствует → пропущен
-    assert _env_names(argv) == [".sl-base.env", ".sl-dt.env"]
+    # tracked-база обязательна; .env и личный .sl-dt.env отсутствуют → пропущены
+    assert _env_names(argv) == [".sl-base.env", ".sl-dt.base.env"]
     assert _compose_names(argv) == ["compose.sl-dt-host.yaml"]
+
+
+def test_volume_create_argv() -> None:
+    assert mp_stack.volume_create_argv("mp-back-node-modules") == [
+        "docker",
+        "volume",
+        "create",
+        "mp-back-node-modules",
+    ]
+
+
+def test_volume_exists_true(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mp_stack.subprocess, "run", _fake_run(0))
+    assert mp_stack.volume_exists("mp-back-node-modules") is True
+
+
+def test_volume_exists_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mp_stack.subprocess, "run", _fake_run(1))
+    assert mp_stack.volume_exists("nope") is False
+
+
+def test_create_volume_returns_rc(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mp_stack.subprocess, "run", _fake_run(3))
+    assert mp_stack.create_volume("mp-back-node-modules") == 3
 
 
 def test_network_create_argv() -> None:

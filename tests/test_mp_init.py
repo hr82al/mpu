@@ -24,6 +24,7 @@ def _setup_ok(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Каталог есть, сеть есть, образы на месте — путь к подъёму стеков открыт."""
     monkeypatch.setattr(dt_host, "mp_config_local_dir", lambda: tmp_path)
     monkeypatch.setattr(mp_stack, "network_exists", _net_present)
+    monkeypatch.setattr(mp_stack, "volume_exists", _net_present)
     monkeypatch.setattr(mp_stack, "missing_images", _no_missing)
 
 
@@ -103,6 +104,7 @@ def test_fail_fast_stops_on_first_nonzero(tmp_path: Path, monkeypatch: pytest.Mo
 def test_missing_image_aborts_with_hint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(dt_host, "mp_config_local_dir", lambda: tmp_path)
     monkeypatch.setattr(mp_stack, "network_exists", _net_present)
+    monkeypatch.setattr(mp_stack, "volume_exists", _net_present)
 
     def _missing() -> list[str]:
         return ["mp-back:local"]
@@ -123,6 +125,7 @@ def test_creates_network_when_absent(tmp_path: Path, monkeypatch: pytest.MonkeyP
         return False
 
     monkeypatch.setattr(mp_stack, "network_exists", _net_absent)
+    monkeypatch.setattr(mp_stack, "volume_exists", _net_present)
 
     created: list[tuple[str, str]] = []
 
@@ -136,6 +139,46 @@ def test_creates_network_when_absent(tmp_path: Path, monkeypatch: pytest.MonkeyP
     res = runner.invoke(cmd.app, [])
     assert res.exit_code == 0, res.output
     assert created == [("mp-shared-net", "178.20.0.0/16")]
+
+
+def test_creates_node_modules_volume_when_absent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Общий том объявлен `external: true` → без него `up` падает; mp-init создаёт его сам."""
+    monkeypatch.setattr(dt_host, "mp_config_local_dir", lambda: tmp_path)
+    monkeypatch.setattr(mp_stack, "missing_images", _no_missing)
+    monkeypatch.setattr(mp_stack, "network_exists", _net_present)
+
+    def _vol_absent(name: str) -> bool:
+        return False
+
+    monkeypatch.setattr(mp_stack, "volume_exists", _vol_absent)
+
+    created: list[str] = []
+
+    def _create(name: str) -> int:
+        created.append(name)
+        return 0
+
+    monkeypatch.setattr(mp_stack, "create_volume", _create)
+    monkeypatch.setattr(subprocess, "run", _ok_run)
+
+    res = runner.invoke(cmd.app, [])
+    assert res.exit_code == 0, res.output
+    assert created == ["mp-back-node-modules"]
+
+
+def test_volume_create_failure_aborts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dt_host, "mp_config_local_dir", lambda: tmp_path)
+    monkeypatch.setattr(mp_stack, "missing_images", _no_missing)
+    monkeypatch.setattr(mp_stack, "network_exists", _net_present)
+    monkeypatch.setattr(mp_stack, "volume_exists", lambda name: False)
+    monkeypatch.setattr(mp_stack, "create_volume", lambda name: 5)
+    monkeypatch.setattr(subprocess, "run", _boom)  # до up дойти не должно
+
+    res = runner.invoke(cmd.app, [])
+    assert res.exit_code == 5
+    assert "не удалось создать том mp-back-node-modules" in res.output
 
 
 def _web_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:

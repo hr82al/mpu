@@ -21,9 +21,16 @@ from pathlib import Path
 SHARED_NET = "mp-shared-net"
 SHARED_NET_SUBNET = "178.20.0.0/16"
 
-# Опциональный env-файл: gitignored, может отсутствовать (readme). Включаем в argv
-# только если существует — иначе `docker compose --env-file <missing>` падает.
-OPTIONAL_ENV = ".env"
+# Общий external-том node_modules: ОДНА копия на все sl/wb контейнеры (образ mp-back:local).
+# Объявлен `external: true` в compose.sl-{base,main,instance}.yaml и compose.wb-loader-app.yaml
+# → без него `up` падает «external volume not found». One-time setup, как и сеть.
+SHARED_NODE_MODULES_VOLUME = "mp-back-node-modules"
+
+# Опциональные env-файлы: gitignored личные слои, могут отсутствовать. Включаем в argv
+# только если существуют — иначе `docker compose --env-file <missing>` падает.
+# `.env` — глобальный локальный оверрайд; `.sl-N.env` / `.sl-dt.env` — личный per-server слой
+# (напр. SL_BACK_SRC=<worktree>), грузится ПОСЛЕ tracked-базы `.sl-N.base.env` и перекрывает её.
+OPTIONAL_ENVS: frozenset[str] = frozenset({".env", ".sl-0.env", ".sl-1.env", ".sl-dt.env"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,12 +59,12 @@ class Stack:
 CORE_STACKS: tuple[Stack, ...] = (
     Stack(
         name="mp-nats",
-        env_files=(".sl-base.env", OPTIONAL_ENV),
+        env_files=(".sl-base.env", ".env"),
         compose_files=("compose.mp-nats.yaml",),
     ),
     Stack(
         name="sl-0",
-        env_files=(".sl-base.env", OPTIONAL_ENV, ".sl-0.env"),
+        env_files=(".sl-base.env", ".env", ".sl-0.base.env", ".sl-0.env"),
         compose_files=(
             "compose.sl-base.yaml",
             "compose.sl-pg.yaml",
@@ -70,7 +77,7 @@ CORE_STACKS: tuple[Stack, ...] = (
     ),
     Stack(
         name="sl-1",
-        env_files=(".sl-base.env", OPTIONAL_ENV, ".sl-1.env"),
+        env_files=(".sl-base.env", ".env", ".sl-1.base.env", ".sl-1.env"),
         compose_files=(
             "compose.sl-base.yaml",
             "compose.sl-pg.yaml",
@@ -84,12 +91,12 @@ CORE_STACKS: tuple[Stack, ...] = (
     ),
     Stack(
         name="mp-nginx",
-        env_files=(".shared.env", OPTIONAL_ENV),
+        env_files=(".shared.env", ".env"),
         compose_files=("compose.mp-nginx.yaml",),
     ),
     Stack(
         name="dt-host",
-        env_files=(".sl-base.env", ".sl-dt.env", OPTIONAL_ENV),
+        env_files=(".sl-base.env", ".env", ".sl-dt.base.env", ".sl-dt.env"),
         compose_files=("compose.sl-dt-host.yaml",),
     ),
 )
@@ -135,8 +142,8 @@ WEB_REQUIRED_IMAGES: dict[str, str] = {
 def build_up_argv(stack: Stack, base: Path) -> list[str]:
     """Собрать argv `docker compose ... up -d --force-recreate` для стека.
 
-    Env- и compose-файлы подаются абсолютными путями (под `base`). Опциональный `.env`
-    включается только если существует на диске. `stack.overrides` — доп. compose-`-f` из
+    Env- и compose-файлы подаются абсолютными путями (под `base`). Файлы из `OPTIONAL_ENVS`
+    включаются только если существуют на диске. `stack.overrides` — доп. compose-`-f` из
     каталога local-stack (sibling `base`), добавляются ПОСЛЕ основных (поздний `-f`
     переопределяет) и только если файл существует. Без `stack.services` → ВСЕ сервисы
     стека (в т.ч. простаивающие `cli` / `migrations`); с фильтром — только указанные. БЕЗ
@@ -144,7 +151,7 @@ def build_up_argv(stack: Stack, base: Path) -> list[str]:
     """
     argv = ["docker", "compose"]
     for env in stack.env_files:
-        if env == OPTIONAL_ENV and not (base / env).is_file():
+        if env in OPTIONAL_ENVS and not (base / env).is_file():
             continue
         argv += ["--env-file", str(base / env)]
     for compose in stack.compose_files:
@@ -192,6 +199,21 @@ def network_exists(name: str) -> bool:
 def create_network(name: str, subnet: str) -> int:
     """Создать bridge-сеть `name` с `subnet`. Вернуть returncode docker."""
     return subprocess.run(network_create_argv(name, subnet), check=False).returncode
+
+
+def volume_create_argv(name: str) -> list[str]:
+    """argv создания docker-тома (`docker volume create <name>`)."""
+    return ["docker", "volume", "create", name]
+
+
+def volume_exists(name: str) -> bool:
+    """True если docker-том `name` существует (`docker volume inspect`)."""
+    return _quiet_rc(["docker", "volume", "inspect", name]) == 0
+
+
+def create_volume(name: str) -> int:
+    """Создать docker-том `name`. Вернуть returncode docker."""
+    return subprocess.run(volume_create_argv(name), check=False).returncode
 
 
 def image_exists(ref: str) -> bool:
