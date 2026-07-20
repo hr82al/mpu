@@ -19,10 +19,13 @@ from mpu.lib.kaiten import parse_card_ref
 __all__ = [
     "COMMAND_NAME",
     "COMMAND_SUMMARY",
+    "DEFAULT_ROLE_ID",
     "_board_id_from_ctx",
+    "_check_date",
     "_complete_board",
     "_complete_column",
     "_complete_lane",
+    "_complete_role",
     "_complete_space",
     "_env_int",
     "_env_str",
@@ -31,6 +34,7 @@ __all__ = [
     "_resolve_board",
     "_resolve_column",
     "_resolve_lane",
+    "_resolve_role",
     "_resolve_space",
     "build_updated_window",
     "coalesce",
@@ -39,9 +43,13 @@ __all__ = [
 COMMAND_NAME = "mpu kiten"
 COMMAND_SUMMARY = (
     "Kaiten: `ls` — мои карточки (member); `card` — одна карточка; `comment` — комментарий; "
-    "`move`/`ready`/`review` — перемещение (+ лог в журнал); "
-    "`spaces`/`boards`/`lanes`/`columns` — справочник; `whoami`"
+    "`move`/`ready`/`review` — перемещение (+ лог в журнал); `time` — учёт времени и таймер; "
+    "`spaces`/`boards`/`lanes`/`columns`/`roles` — справочник; `whoami`"
 )
+
+# Роль записи учёта времени по умолчанию — «Техподдержка» (GET /user-roles).
+# Именно ID, а не название: переименование роли на доске не должно ломать `mpu kiten time`.
+DEFAULT_ROLE_ID = 12058
 
 
 def coalesce[T](*values: T | None) -> T | None:
@@ -137,6 +145,38 @@ def _resolve_board(ref: str | None) -> int | None:
         return None
     try:
         return kaiten_cache.resolve_ref(ref, kaiten_cache.cached_boards(), kind="board")
+    except ValueError as e:
+        raise typer.BadParameter(str(e)) from None
+
+
+def _complete_role(incomplete: str) -> list[tuple[str, str]]:
+    """TAB по --role: роли из кэша (`mpu init` / `mpu kiten roles`)."""
+    try:
+        return kaiten_cache.filter_refs(incomplete, kaiten_cache.cached_roles())
+    except Exception:  # TAB-completion не должен падать ни при какой ошибке
+        return []
+
+
+def _resolve_role(ref: str | None) -> int:
+    """`--role` (ID или подстрока названия) → role_id. Всегда даёт роль: есть дефолт.
+
+    Precedence: явный `--role` → env `KITEN_TIME_ROLE` → `DEFAULT_ROLE_ID` (Техподдержка).
+    Дефолт — числовой ID, а не название: роль на доске могут переименовать, и тогда
+    зашитое имя обвалило бы каждый `time add`.
+
+    Нерезолвимое значение env НЕ откатывается молча на дефолт — это ошибка с именем
+    переменной, иначе опечатка в `.env` тихо списывала бы время не на ту роль.
+    """
+    if ref is None:
+        env_ref = _env_str(env.get, "KITEN_TIME_ROLE")
+        if env_ref is None:
+            return DEFAULT_ROLE_ID
+        try:
+            return kaiten_cache.resolve_ref(env_ref, kaiten_cache.roles(), kind="role")
+        except ValueError as e:
+            raise typer.BadParameter(f"KITEN_TIME_ROLE: {e}") from None
+    try:
+        return kaiten_cache.resolve_ref(ref, kaiten_cache.roles(), kind="role")
     except ValueError as e:
         raise typer.BadParameter(str(e)) from None
 

@@ -22,6 +22,7 @@ from mpu.lib.kaiten import (
     KaitenColumn,
     KaitenCustomProperty,
     KaitenLane,
+    KaitenRole,
     KaitenSpace,
 )
 from mpu.lib.kaiten_cache import (
@@ -29,14 +30,17 @@ from mpu.lib.kaiten_cache import (
     cached_columns,
     cached_custom_properties,
     cached_lanes,
+    cached_roles,
     cached_spaces,
     discover_and_store,
     discover_columns_and_store,
     discover_custom_properties_and_store,
     discover_lanes_and_store,
+    discover_roles_and_store,
     filter_refs,
     property_names,
     resolve_ref,
+    roles,
 )
 
 # ── Фейк Kaiten-клиента + установка швов ────────────────────────────────────────
@@ -57,6 +61,7 @@ class _FakeKaitenClient:
         lanes: list[KaitenLane] | None = None,
         columns: list[KaitenColumn] | None = None,
         properties: list[KaitenCustomProperty] | None = None,
+        roles: list[KaitenRole] | None = None,
         raises: Exception | None = None,
     ) -> None:
         self._spaces = spaces or []
@@ -64,9 +69,11 @@ class _FakeKaitenClient:
         self._lanes = lanes or []
         self._columns = columns or []
         self._properties = properties or []
+        self._roles = roles or []
         self._raises = raises
         self.space_calls = 0
         self.property_calls = 0
+        self.role_calls = 0
         self.lane_calls: list[list[int]] = []
         self.column_calls: list[list[int]] = []
 
@@ -93,6 +100,12 @@ class _FakeKaitenClient:
         if self._raises is not None:
             raise self._raises
         return self._properties
+
+    def list_roles(self) -> list[KaitenRole]:
+        self.role_calls += 1
+        if self._raises is not None:
+            raise self._raises
+        return self._roles
 
 
 def _set_key(monkeypatch: pytest.MonkeyPatch, value: str | None) -> None:
@@ -644,3 +657,87 @@ def test_resolve_ref_ambiguous_lists_candidates() -> None:
         resolve_ref("WB", _REF_ROWS, kind="space")
     assert "286791" in str(exc.value)
     assert "368441" in str(exc.value)
+
+
+# ── discover_roles_and_store / roles (кэш «типов работ» для `mpu kiten time`) ────
+
+
+def _role(role_id: int, name: str) -> KaitenRole:
+    return KaitenRole(id=role_id, name=name)
+
+
+def test_discover_roles_no_api_key(db_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_key(monkeypatch, None)
+    fake = _FakeKaitenClient(roles=[_role(1, "X")])
+    _install_client(monkeypatch, fake)
+
+    result = discover_roles_and_store()
+
+    assert result.roles == []
+    assert result.error == "KITEN_API_KEY не задан"
+    assert fake.role_calls == 0
+
+
+@pytest.mark.parametrize("exc", _CLIENT_ERRORS)
+def test_discover_roles_client_error(
+    db_path: Path, monkeypatch: pytest.MonkeyPatch, exc: Exception
+) -> None:
+    _set_key(monkeypatch, "tok")
+    _install_client(monkeypatch, _FakeKaitenClient(raises=exc))
+
+    result = discover_roles_and_store()
+
+    assert result.roles == []
+    assert result.error is not None
+    assert result.error.startswith("kaiten:")
+
+
+def test_discover_roles_happy_writes_rows(db_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_key(monkeypatch, "tok")
+    fixtures = [_role(12058, "Техподдержка"), _role(12057, "Разработка")]
+    _install_client(monkeypatch, _FakeKaitenClient(roles=fixtures))
+
+    result = discover_roles_and_store()
+
+    assert result.error is None
+    assert cached_roles() == [(12057, "Разработка"), (12058, "Техподдержка")]
+
+
+def test_discover_roles_idempotent_replaces(db_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_key(monkeypatch, "tok")
+    _install_client(monkeypatch, _FakeKaitenClient(roles=[_role(1, "Old")]))
+    discover_roles_and_store()
+    _install_client(monkeypatch, _FakeKaitenClient(roles=[_role(2, "New")]))
+    discover_roles_and_store()
+
+    assert cached_roles() == [(2, "New")]
+
+
+def test_roles_lazy_populates_on_cold_cache(
+    db_path: Path, monkeypatch: pytest.MonkeyPatch, bootstrap_db: Callable[[Path | str], None]
+) -> None:
+    # Холодный кэш → один запрос и перечитать: команда работает без `mpu init`.
+    bootstrap_db(db_path)
+    _set_key(monkeypatch, "tok")
+    fake = _FakeKaitenClient(roles=[_role(12058, "Техподдержка")])
+    _install_client(monkeypatch, fake)
+
+    assert roles() == [(12058, "Техподдержка")]
+    assert fake.role_calls == 1
+
+
+def test_roles_warm_cache_does_not_call_network(
+    db_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _set_key(monkeypatch, "tok")
+    _install_client(monkeypatch, _FakeKaitenClient(roles=[_role(12058, "Техподдержка")]))
+    roles()  # прогрев
+
+    fake = _FakeKaitenClient(roles=[])
+    _install_client(monkeypatch, fake)
+    assert roles() == [(12058, "Техподдержка")]
+    assert fake.role_calls == 0
+
+
+def test_cached_roles_missing_table_returns_empty(db_path: Path) -> None:
+    assert cached_roles() == []

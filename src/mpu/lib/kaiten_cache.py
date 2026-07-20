@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         KaitenColumn,
         KaitenCustomProperty,
         KaitenLane,
+        KaitenRole,
         KaitenSpace,
     )
 
@@ -58,6 +59,12 @@ class KaitenColumnsResult:
 @dataclass(frozen=True, slots=True)
 class KaitenCustomPropertiesResult:
     properties: list[KaitenCustomProperty]
+    error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class KaitenRolesResult:
+    roles: list[KaitenRole]
     error: str | None = None
 
 
@@ -189,6 +196,34 @@ def discover_custom_properties_and_store() -> KaitenCustomPropertiesResult:
     return KaitenCustomPropertiesResult(properties=properties, error=None)
 
 
+def discover_roles_and_store() -> KaitenRolesResult:
+    """`GET /user-roles` → запись в SQLite (DELETE+INSERT). Best-effort.
+
+    Роли общие для компании (не скоупятся доской), поэтому полный refresh одним запросом —
+    как `discover_custom_properties_and_store`. Вызывается лениво из `roles()`, а также из
+    `mpu init` и `mpu kiten roles`.
+    """
+    if not env.get("KITEN_API_KEY"):
+        return KaitenRolesResult(roles=[], error="KITEN_API_KEY не задан")
+
+    try:
+        client = KaitenClient.from_env()
+        roles_list = client.list_roles()
+    except (KaitenAPIError, URLError, OSError) as e:
+        return KaitenRolesResult(roles=[], error=f"kaiten: {e}")
+
+    discovered_at = int(time.time())
+    with store.store() as conn, conn:
+        store.bootstrap(conn)  # идемпотентно: таблица может отсутствовать без mpu init
+        conn.execute("DELETE FROM kaiten_roles")
+        conn.executemany(
+            "INSERT INTO kaiten_roles (id, name, discovered_at) VALUES (?, ?, ?)",
+            [(r.id, r.name, discovered_at) for r in roles_list],
+        )
+
+    return KaitenRolesResult(roles=roles_list, error=None)
+
+
 # ── Тонкие ридеры кэша (I/O; try/except → [], как _logs_loki.cached_hosts) ──────
 
 
@@ -262,6 +297,31 @@ def cached_custom_properties() -> dict[int, str]:
     except sqlite3.Error:
         return {}
     return {int(r["id"]): r["name"] for r in rows}
+
+
+def cached_roles() -> list[tuple[int, str]]:
+    """(id, name) ролей из кэша. Форма кортежей — чтобы `resolve_ref`/`filter_refs`
+    работали над ними без единой строчки нового кода резолва."""
+    try:
+        with store.store() as conn:
+            rows = conn.execute("SELECT id, name FROM kaiten_roles ORDER BY name").fetchall()
+    except sqlite3.Error:
+        return []
+    return [(int(r["id"]), r["name"]) for r in rows]
+
+
+def roles() -> list[tuple[int, str]]:
+    """(id, name) ролей; lazy-populate: пустой кэш → один `GET /user-roles` и перечитать.
+
+    Так `mpu kiten time` работает без `mpu init`. Сетевой сбой → возвращаем что есть
+    (best-effort, никогда не бросает): числовой `--role 12058` всё равно резолвится
+    без кэша, это и есть оффлайн-лазейка.
+    """
+    cached = cached_roles()
+    if cached:
+        return cached
+    discover_roles_and_store()
+    return cached_roles()
 
 
 def property_names() -> dict[int, str]:

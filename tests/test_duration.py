@@ -1,12 +1,12 @@
-"""Тесты `parse_since` в `lib/duration.py` — relative-duration → Unix-ts.
+"""Тесты `lib/duration.py` — `parse_since` (→ Unix-ts) и `parse_minutes` (→ минуты).
 
 `time.time` замокан фиксированным значением, чтобы относительные сдвиги
-(`30s`/`10m`/`2h`/`7d`) были детерминированы.
+(`30s`/`10m`/`2h`/`7d`) были детерминированы. `parse_minutes` чистая — мокать нечего.
 """
 
 import pytest
 
-from mpu.lib.duration import DurationParseError, parse_since
+from mpu.lib.duration import DurationParseError, format_minutes, parse_minutes, parse_since
 
 # Фиксированный "сейчас" — ровный unix-ts, чтобы expected считались очевидно.
 _NOW = 1_700_000_000
@@ -134,3 +134,101 @@ def test_error_message_contains_input_and_hint() -> None:
     msg = str(exc.value)
     assert "'nope'" in msg
     assert "unix-ts" in msg
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# parse_minutes / format_minutes — длительность работы в минутах (`mpu kiten time`)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # часовая форма Ч:ММ
+        ("1:15", 75),
+        ("0:45", 45),
+        ("1:5", 65),  # одна цифра после ':' читается буквально как 5 минут
+        ("10:00", 600),
+        ("24:00", 1440),  # ровно потолок — проходит
+        # составная форма
+        ("3h", 180),
+        ("1h15m", 75),
+        ("15m1h", 75),  # порядок единиц свободен
+        ("45m", 45),
+        ("1ч30м", 90),  # кириллические единицы
+        ("1Ч15М", 75),  # регистр не важен
+        ("1h 15m", 75),  # внутренние пробелы игнорируются
+        # дробные — округление ВВЕРХ (паритет с серверным ceil)
+        ("2.5h", 150),
+        ("2,5h", 150),  # запятая как десятичный разделитель
+        ("0.1h", 6),
+        ("0.01h", 1),  # 0.6 мин → 1
+        # голое число = минуты
+        ("90", 90),
+        ("1", 1),
+        ("115", 115),  # НЕ 1:15 — пин на неоднозначность голого числа
+    ],
+)
+def test_parse_minutes_accepts(raw: str, expected: int) -> None:
+    assert parse_minutes(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "fragment"),
+    [
+        ("1:60", "00–59"),
+        ("1:75", "00–59"),
+        ("0", "нулевая длительность"),
+        ("0m", "нулевая длительность"),
+        ("0:00", "нулевая длительность"),
+        ("25h", "больше 24 ч"),
+        ("1441", "больше 24 ч"),
+        ("1h15", "1h15m"),  # подсказка про забытую единицу
+        ("", "пустая длительность"),
+        ("abc", "неразобранная"),
+        ("1h2h", "неразобранная"),  # дублирующаяся единица
+        (":15", "неразобранная"),
+        ("-30", "неразобранная"),
+        ("-5m", "неразобранная"),
+        ("1x", "неразобранная"),
+        ("30s", "неразобранная"),  # секунды намеренно не поддержаны
+    ],
+)
+def test_parse_minutes_rejects(raw: str, fragment: str) -> None:
+    with pytest.raises(DurationParseError) as exc:
+        parse_minutes(raw)
+    assert fragment in str(exc.value)
+
+
+def test_parse_minutes_error_mentions_input_and_forms() -> None:
+    # сообщение общего отказа несёт сам вход и перечень принимаемых форм
+    with pytest.raises(DurationParseError) as exc:
+        parse_minutes("nope")
+    msg = str(exc.value)
+    assert "'nope'" in msg
+    assert "1h15m" in msg
+    assert "2.5h" in msg
+
+
+def test_parse_minutes_disagrees_with_parse_since_on_bare_number() -> None:
+    # Ключевое различие двух парсеров: голое число — минуты здесь и unix-ts там.
+    # Тест существует, чтобы попытка «объединить их» упала явно.
+    assert parse_minutes("90") == 90
+    assert parse_since("90") == 90  # это момент времени, а не 90 минут
+
+
+@pytest.mark.parametrize(
+    ("total", "expected"),
+    [
+        (1, "1 мин"),
+        (45, "45 мин"),
+        (59, "59 мин"),
+        (60, "1 ч"),
+        (75, "1 ч 15 мин"),
+        (120, "2 ч"),
+        (1440, "24 ч"),
+        (0, "0 мин"),
+    ],
+)
+def test_format_minutes(total: int, expected: str) -> None:
+    assert format_minutes(total) == expected

@@ -148,6 +148,35 @@ _DDL = [
         discovered_at INTEGER NOT NULL
     )
     """,
+    # Роли компании (id → name) = «типы работ» для `mpu kiten time`: резолв `--role`
+    # по подстроке названия и shell completion. Lazy-populate из GET /user-roles
+    # (см. kaiten_cache.roles), полный refresh — `mpu init` / `mpu kiten roles`.
+    """
+    CREATE TABLE IF NOT EXISTS kaiten_roles (
+        id            INTEGER PRIMARY KEY,
+        name          TEXT NOT NULL,
+        discovered_at INTEGER NOT NULL
+    )
+    """,
+    # Локальные подсказки учёта времени (`mpu kiten time`) — строка на карточку.
+    # Закрывает ровно то, чего нет в API: роль/описание, выбранные при старте таймера
+    # (сам таймер роль не хранит), какой таймер где идёт (глобального списка таймеров
+    # у Kaiten нет) и на какие карточки я писал время (для сводки).
+    #
+    # ⚠️ Это ПОДСКАЗКА, а не истина: сами записи времени здесь не дублируются (источник
+    # правды — Kaiten, `GET /cards/{id}/time-logs`). Каждое чтение сверяется с сервером
+    # до того, как повлияет на решение; расхождение → строка молча удаляется.
+    """
+    CREATE TABLE IF NOT EXISTS kaiten_time_hints (
+        card_id        INTEGER PRIMARY KEY,
+        timer_id       INTEGER,
+        role_id        INTEGER,
+        comment        TEXT,
+        started_at     TEXT,
+        last_logged_at INTEGER NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_kaiten_time_hints_logged ON kaiten_time_hints(last_logged_at)",
     # Журнал привязок карточек к значениям кастомных полей (MR-ссылки, гипотеза,
     # что сделано, результат). История: несколько строк на (card_id, field). Пишет
     # `mpu kiten field set/update/rm`; поле карточки = последняя по времени строка.

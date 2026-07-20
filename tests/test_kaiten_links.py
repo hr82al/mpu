@@ -130,3 +130,60 @@ def test_list_moves_window_inclusive(conn: sqlite3.Connection) -> None:
     kaiten_links.record_move(conn, 4, to_column="D", now=201)  # вне окна справа
     rows = kaiten_links.list_moves(conn, since=100, until=200)
     assert sorted(m.card_id for m in rows) == [1, 2]
+
+
+# ── Подсказки учёта времени (`kaiten_time_hints`) ───────────────────────────────
+#
+# Подсказка — НЕ зеркало серверных данных: сами записи времени здесь не хранятся.
+# Тесты фиксируют ровно то поведение, на которое опирается `mpu kiten time`.
+
+
+def test_record_time_hint_creates_row(conn: sqlite3.Connection) -> None:
+    hint = kaiten_links.record_time_hint(
+        conn, 100, timer_id=900, role_id=12058, comment="правлю", started_at="2026-07-20T09:00:00Z"
+    )
+    assert hint.card_id == 100
+    assert hint.timer_id == 900
+    assert hint.role_id == 12058
+    assert kaiten_links.get_time_hint(conn, 100) == hint
+
+
+def test_record_time_hint_upserts_and_keeps_unset_fields(conn: sqlite3.Connection) -> None:
+    # None-поля сохраняют прежнее значение: `stop` обновляет отметку времени,
+    # не затирая роль, выбранную при `start`.
+    kaiten_links.record_time_hint(conn, 100, timer_id=900, role_id=12058, comment="старт")
+    updated = kaiten_links.record_time_hint(conn, 100, timer_id=901)
+    assert updated.timer_id == 901
+    assert updated.role_id == 12058
+    assert updated.comment == "старт"
+    assert len(kaiten_links.list_time_hints(conn)) == 1  # одна строка на карточку
+
+
+def test_get_time_hint_missing(conn: sqlite3.Connection) -> None:
+    assert kaiten_links.get_time_hint(conn, 404) is None
+
+
+def test_clear_time_hint_timer_only_keeps_row(conn: sqlite3.Connection) -> None:
+    kaiten_links.record_time_hint(conn, 100, timer_id=900, role_id=12058, started_at="x")
+    kaiten_links.clear_time_hint(conn, 100, timer_only=True)
+    hint = kaiten_links.get_time_hint(conn, 100)
+    assert hint is not None
+    assert hint.timer_id is None
+    assert hint.started_at is None
+    assert hint.role_id == 12058  # строка карточки остаётся — она нужна сводке
+
+
+def test_clear_time_hint_removes_row(conn: sqlite3.Connection) -> None:
+    kaiten_links.record_time_hint(conn, 100, timer_id=900)
+    kaiten_links.clear_time_hint(conn, 100)
+    assert kaiten_links.get_time_hint(conn, 100) is None
+
+
+def test_list_time_hints_filters(conn: sqlite3.Connection) -> None:
+    kaiten_links.record_time_hint(conn, 100, timer_id=900, now=1000)
+    kaiten_links.record_time_hint(conn, 200, now=2000)
+    kaiten_links.record_time_hint(conn, 300, timer_id=901, now=3000)
+
+    assert [h.card_id for h in kaiten_links.list_time_hints(conn)] == [300, 200, 100]
+    assert [h.card_id for h in kaiten_links.list_time_hints(conn, since=2000)] == [300, 200]
+    assert [h.card_id for h in kaiten_links.list_time_hints(conn, running_only=True)] == [300, 100]

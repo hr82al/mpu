@@ -79,6 +79,39 @@ def spaces(
     typer.echo(f"({len(items)} spaces)")
 
 
+@app.command("roles")
+def roles(
+    show_all: Annotated[
+        bool, typer.Option("--all", help="Показать и системные роли (Employee)")
+    ] = False,
+    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")] = False,
+) -> None:
+    """Роли компании = «типы работ» для `mpu kiten time` (живой GET /user-roles + кэш).
+
+    Кэш нужен, чтобы `--role техподдержка` резолвился по подстроке названия и работало
+    автодополнение. Системная роль Employee (ID -1) по умолчанию скрыта: временем её
+    не помечают, а в списке она только мешает.
+    """
+    result = kaiten_cache.discover_roles_and_store()
+    if result.error:
+        die(f"{COMMAND_NAME} roles: kaiten error: {result.error}")
+
+    items = [r for r in result.roles if show_all or r.id > 0]
+    if out_json:
+        print_json([{"id": r.id, "name": r.name} for r in items])
+        return
+    if not items:
+        typer.echo("(нет ролей)")
+        return
+    table = Table(header_style="bold")
+    for header in ("ID", "NAME"):
+        table.add_column(header, overflow="fold")
+    for r in items:
+        table.add_row(str(r.id), r.name)
+    Console().print(table)
+    typer.echo(f"({len(items)} roles)")
+
+
 @app.command("boards")
 def boards(
     space: Annotated[

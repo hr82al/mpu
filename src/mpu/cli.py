@@ -161,10 +161,10 @@ def init_cmd(
             err=True,
         )
 
-    # Шаг 4: discover Kaiten spaces/boards/lanes/columns для дискаверабилити + shell
-    # completion `mpu kiten ls` (--space / --board / --lane / --column). Best-effort: нет
-    # KITEN_API_KEY / Kaiten недоступен — пропускаем без ошибки. Дорожки и колонки —
-    # по +1 запросу на доску каждая.
+    # Шаг 4: discover Kaiten spaces/boards/lanes/columns/roles для дискаверабилити + shell
+    # completion `mpu kiten ls` (--space / --board / --lane / --column) и `time` (--role).
+    # Best-effort: нет KITEN_API_KEY / Kaiten недоступен — пропускаем без ошибки. Дорожки и
+    # колонки — по +1 запросу на доску каждая; роли — один запрос на компанию.
     kaiten_result = kaiten_cache.discover_and_store()
     if kaiten_result.error:
         typer.echo(f"# kaiten: пропущено ({kaiten_result.error})", err=True)
@@ -172,11 +172,14 @@ def init_cmd(
         board_ids = [b.id for b in kaiten_result.boards]
         lanes_result = kaiten_cache.discover_lanes_and_store(board_ids)
         columns_result = kaiten_cache.discover_columns_and_store(board_ids)
+        roles_result = kaiten_cache.discover_roles_and_store()
         n_lanes = "?" if lanes_result.error else str(len(lanes_result.lanes))
         n_columns = "?" if columns_result.error else str(len(columns_result.columns))
+        n_roles = "?" if roles_result.error else str(len(roles_result.roles))
         typer.echo(
             f"# kaiten: {len(kaiten_result.spaces)} spaces, "
-            f"{len(kaiten_result.boards)} boards, {n_lanes} lanes, {n_columns} columns",
+            f"{len(kaiten_result.boards)} boards, {n_lanes} lanes, {n_columns} columns, "
+            f"{n_roles} roles",
             err=True,
         )
 

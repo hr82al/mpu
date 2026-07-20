@@ -32,6 +32,21 @@ EmptyStr = Annotated[str, BeforeValidator(_falsy_to_empty)]
 TruthyBool = Annotated[bool, BeforeValidator(bool)]
 
 
+def _date_only(v: object) -> object:
+    """Календарный день из wire-значения `for_date`: срез первых 10 символов.
+
+    Kaiten отдаёт это поле двумя формами — `2026-07-20` (GET списка) и
+    `2026-07-20T00:00:00.000Z` (ответ POST/PATCH). Это ЯРЛЫК ДНЯ, а не момент времени:
+    парсить его как инстант и конвертировать в локальную зону нельзя — в UTC-5 полночь
+    20-го станет 19-м, то есть тихий сдвиг записи на день назад.
+    """
+    return str(v)[:10] if v else ""
+
+
+# Дата-ярлык `YYYY-MM-DD`, нормализованная из обеих wire-форм (см. `_date_only`).
+DateOnly = Annotated[str, BeforeValidator(_date_only)]
+
+
 def _member_name(raw: object) -> str:
     """full_name автора из вложенного `author`/`owner` объекта; пусто, если нет."""
     if not is_dict(raw):
@@ -153,6 +168,66 @@ class KaitenCustomProperty(_ApiModel):
     type: str | None = None
 
 
+class KaitenRole(_ApiModel):
+    """Роль пользователя = «тип работы» записи учёта времени (GET /user-roles)."""
+
+    id: int
+    name: EmptyStr = ""
+
+
+class KaitenTimeLog(_ApiModel):
+    """Запись учёта времени карточки (GET/POST /cards/{id}/time-logs).
+
+    `time_spent` — МИНУТЫ (единица Kaiten). `for_date` — календарный день записи; wire отдаёт
+    его двумя формами (`2026-07-20` из GET, `2026-07-20T00:00:00.000Z` из POST/PATCH), поэтому
+    он режется до `YYYY-MM-DD` валидатором `DateOnly` — см. его док про запрет конвертации зон.
+
+    ⚠️ Вложенные объекты `user`/`author` НЕ объявлены намеренно: в них сидит base64-PNG
+    аватара (~4 КБ на запись), который иначе утёк бы в `--json`. Из них вытаскиваются
+    только плоские строки `role_name`/`user_name` — новых полей-объектов сюда не добавлять.
+    """
+
+    id: int
+    card_id: int
+    user_id: int | None = None
+    author_id: int | None = None
+    role_id: int | None = None
+    role_name: str | None = None
+    user_name: str | None = None
+    time_spent: int = 0
+    for_date: DateOnly = ""
+    comment: EmptyStr = ""  # очищенный комментарий приходит как null → ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _names_from_nested(cls, raw: object) -> object:
+        if not is_dict(raw):
+            return raw
+        out = dict(raw)
+        if "role_name" not in raw:
+            role = raw.get("role")
+            out["role_name"] = str(role.get("name") or "") if is_dict(role) else None
+        if "user_name" not in raw:
+            out["user_name"] = _member_name(raw.get("user")) or None
+        return out
+
+
+class KaitenTimer(_ApiModel):
+    """Таймер пользователя на карточке (GET /cards/{id} → `timer`, POST/PATCH /user-timers).
+
+    Роли у таймера НЕТ: `role_id` при старте API принимает, но не сохраняет — тип работы
+    выбирается в момент остановки. `card_time_log_id` заполняется только после остановки.
+    """
+
+    id: int
+    card_id: int | None = None
+    card_title: EmptyStr = ""
+    comment: EmptyStr = ""
+    started_at: str | None = None
+    finished_at: str | None = None
+    card_time_log_id: int | None = None
+
+
 class KaitenLocationChange(_ApiModel):
     """Запись перемещения карточки (GET /cards/{id}/location-history): кто и когда сменил
     колонку/дорожку. `changed` — ISO-8601 UTC; `author_id` — кто двигал."""
@@ -192,6 +267,8 @@ class KaitenCardDetail(_ApiModel):
     type_name: str | None = None
     description: str | None = None  # GFM markdown
     owner: KaitenMember | None = None
+    time_spent_sum: int | None = None  # суммарно списано по карточке, МИНУТЫ
+    timer: KaitenTimer | None = None  # запущенный таймер текущего пользователя; None — нет
     url: str = ""  # web-URL; не из wire — подставляет parse_card_detail
     tags: list[str] = Field(default_factory=list[str])
     members: list[KaitenMember] = Field(default_factory=list[KaitenMember])
@@ -214,6 +291,8 @@ def _flatten_card_detail_wire(raw: dict[object, object]) -> dict[object, object]
     out["type_name"] = _nested_title(raw, "type")
     owner = raw.get("owner")
     out["owner"] = owner if is_dict(owner) else None
+    timer = raw.get("timer")
+    out["timer"] = timer if is_dict(timer) else None
     out["tags"] = [str(t.get("name") or "") for t in dict_items(raw.get("tags"))]
     out["members"] = dict_items(raw.get("members"))
     out["files"] = dict_items(raw.get("files"))
@@ -284,6 +363,21 @@ def parse_comment(raw: object) -> KaitenComment:
 def parse_custom_property(raw: object) -> KaitenCustomProperty:
     """JSON-определение кастомного поля (GET /company/custom-properties) → KaitenCustomProperty."""
     return KaitenCustomProperty.model_validate(raw)
+
+
+def parse_role(raw: object) -> KaitenRole:
+    """JSON-роль (GET /user-roles) → KaitenRole. Роль = «тип работы» в учёте времени."""
+    return KaitenRole.model_validate(raw)
+
+
+def parse_time_log(raw: object) -> KaitenTimeLog:
+    """JSON-запись учёта времени (GET/POST /cards/{id}/time-logs) → KaitenTimeLog."""
+    return KaitenTimeLog.model_validate(raw)
+
+
+def parse_timer(raw: object) -> KaitenTimer:
+    """JSON-таймер (POST/PATCH /user-timers) → KaitenTimer."""
+    return KaitenTimer.model_validate(raw)
 
 
 def parse_location_change(raw: object) -> KaitenLocationChange:

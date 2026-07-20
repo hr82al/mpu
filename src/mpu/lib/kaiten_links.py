@@ -1,12 +1,18 @@
-"""Журнал привязок карточек Kaiten к значениям кастомных полей в `~/.config/mpu/mpu.db`.
+"""Локальные таблицы `mpu kiten` в `~/.config/mpu/mpu.db`: журналы полей/перемещений
+и подсказки учёта времени.
 
 `mpu kiten field set/ls/update/rm` кладёт значение (MR-ссылка / гипотеза / что сделано /
 результат) в кастомное поле карточки И ведёт историю в SQLite — на одну карточку может быть
 несколько записей (например несколько MR). Само поле карточки отражает **последнюю по времени**
 запись для пары (card, field); полная история живёт в логе.
 
-Здесь — чистые SQLite-функции (без сети), покрытые тестами; сетевую часть (PATCH /cards) делает
-команда `mpu kiten field` через `KaitenClient.set_card_property`.
+`mpu kiten time` хранит здесь ПОДСКАЗКИ (`kaiten_time_hints`) — и только их: сами записи
+учёта времени не дублируются, источник правды по ним Kaiten. Разница принципиальная: журналы
+полей и перемещений существуют потому, что этой истории в Kaiten не достать, а записи времени
+читаются одним `GET /cards/{id}/time-logs` — локальная копия могла бы только разъехаться.
+
+Здесь — чистые SQLite-функции (без сети), покрытые тестами; сетевую часть делают команды
+`mpu kiten field` / `time` через `KaitenClient`.
 """
 
 from __future__ import annotations
@@ -233,3 +239,117 @@ def list_moves(
         sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY moved_at DESC, id DESC"
     return [_row_to_move(r) for r in conn.execute(sql, params).fetchall()]
+
+
+# ── Подсказки учёта времени (`mpu kiten time`) ─────────────────────────────────
+#
+# ⚠️ Инвариант: подсказка — НЕ истина. Строка отражает лишь то, что делал этот CLI;
+# таймер, запущенный в вебе, ей неизвестен, а остановленный в вебе делает её протухшей.
+# Поэтому вызывающий обязан СВЕРИТЬ подсказку с сервером до того, как она повлияет на
+# решение, и при расхождении молча вызвать `clear_time_hint`. Цена лжи — один лишний GET.
+
+
+@dataclass(frozen=True, slots=True)
+class TimeHint:
+    card_id: int
+    timer_id: int | None
+    role_id: int | None
+    comment: str | None
+    started_at: str | None
+    last_logged_at: int
+
+
+def _row_to_time_hint(row: sqlite3.Row) -> TimeHint:
+    return TimeHint(
+        card_id=int(row["card_id"]),
+        timer_id=None if row["timer_id"] is None else int(row["timer_id"]),
+        role_id=None if row["role_id"] is None else int(row["role_id"]),
+        comment=_opt_str(row["comment"]),
+        started_at=_opt_str(row["started_at"]),
+        last_logged_at=int(row["last_logged_at"]),
+    )
+
+
+def record_time_hint(
+    conn: sqlite3.Connection,
+    card_id: int,
+    *,
+    timer_id: int | None = None,
+    role_id: int | None = None,
+    comment: str | None = None,
+    started_at: str | None = None,
+    now: int | None = None,
+) -> TimeHint:
+    """Записать/обновить подсказку по карточке (одна строка на карточку).
+
+    Не-None поля перезаписывают старые, None — СОХРАНЯЮТ предыдущее значение: так
+    `time stop` может обновить отметку времени, не затирая роль, выбранную при `start`.
+    Чтобы обнулить поля, используйте `clear_time_hint`.
+    """
+    ts = int(time.time()) if now is None else now
+    prev = get_time_hint(conn, card_id)
+    if prev is not None:
+        timer_id = timer_id if timer_id is not None else prev.timer_id
+        role_id = role_id if role_id is not None else prev.role_id
+        comment = comment if comment is not None else prev.comment
+        started_at = started_at if started_at is not None else prev.started_at
+    conn.execute(
+        "INSERT OR REPLACE INTO kaiten_time_hints"
+        " (card_id, timer_id, role_id, comment, started_at, last_logged_at)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (card_id, timer_id, role_id, comment, started_at, ts),
+    )
+    conn.commit()
+    return TimeHint(
+        card_id=card_id,
+        timer_id=timer_id,
+        role_id=role_id,
+        comment=comment,
+        started_at=started_at,
+        last_logged_at=ts,
+    )
+
+
+def get_time_hint(conn: sqlite3.Connection, card_id: int) -> TimeHint | None:
+    """Подсказка по карточке; None — если строки нет."""
+    row = conn.execute(
+        "SELECT card_id, timer_id, role_id, comment, started_at, last_logged_at"
+        " FROM kaiten_time_hints WHERE card_id = ?",
+        (card_id,),
+    ).fetchone()
+    return None if row is None else _row_to_time_hint(row)
+
+
+def clear_time_hint(conn: sqlite3.Connection, card_id: int, *, timer_only: bool = False) -> None:
+    """Убрать подсказку. `timer_only` — обнулить только сведения о таймере, сохранив
+    строку карточки (роль/описание и отметку «сюда писалось время» для сводки)."""
+    if timer_only:
+        conn.execute(
+            "UPDATE kaiten_time_hints SET timer_id = NULL, started_at = NULL WHERE card_id = ?",
+            (card_id,),
+        )
+    else:
+        conn.execute("DELETE FROM kaiten_time_hints WHERE card_id = ?", (card_id,))
+    conn.commit()
+
+
+def list_time_hints(
+    conn: sqlite3.Connection, *, since: int | None = None, running_only: bool = False
+) -> list[TimeHint]:
+    """Подсказки, свежие сверху. `since` — нижняя граница `last_logged_at` (epoch-секунды),
+    `running_only` — только карточки с запущенным (по мнению CLI) таймером."""
+    where: list[str] = []
+    params: list[int] = []
+    if since is not None:
+        where.append("last_logged_at >= ?")
+        params.append(since)
+    if running_only:
+        where.append("timer_id IS NOT NULL")
+    sql = (
+        "SELECT card_id, timer_id, role_id, comment, started_at, last_logged_at"
+        " FROM kaiten_time_hints"
+    )
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY last_logged_at DESC, card_id DESC"
+    return [_row_to_time_hint(r) for r in conn.execute(sql, params).fetchall()]

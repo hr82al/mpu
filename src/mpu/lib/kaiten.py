@@ -23,7 +23,7 @@ from urllib.request import Request
 
 from mpu.lib import env
 from mpu.lib.http_retry import request_with_retry
-from mpu.lib.jsonx import dict_items
+from mpu.lib.jsonx import dict_items, is_dict
 
 if TYPE_CHECKING:
     from mpu.lib.kaiten_models import (
@@ -57,7 +57,16 @@ if TYPE_CHECKING:
         KaitenMember as KaitenMember,
     )
     from mpu.lib.kaiten_models import (
+        KaitenRole as KaitenRole,
+    )
+    from mpu.lib.kaiten_models import (
         KaitenSpace as KaitenSpace,
+    )
+    from mpu.lib.kaiten_models import (
+        KaitenTimeLog as KaitenTimeLog,
+    )
+    from mpu.lib.kaiten_models import (
+        KaitenTimer as KaitenTimer,
     )
     from mpu.lib.kaiten_models import (
         KaitenUser as KaitenUser,
@@ -93,7 +102,16 @@ if TYPE_CHECKING:
         parse_member as parse_member,
     )
     from mpu.lib.kaiten_models import (
+        parse_role as parse_role,
+    )
+    from mpu.lib.kaiten_models import (
         parse_space as parse_space,
+    )
+    from mpu.lib.kaiten_models import (
+        parse_time_log as parse_time_log,
+    )
+    from mpu.lib.kaiten_models import (
+        parse_timer as parse_timer,
     )
     from mpu.lib.kaiten_models import (
         parse_user as parse_user,
@@ -117,7 +135,10 @@ _MODEL_EXPORTS = frozenset(
         "KaitenLane",
         "KaitenLocationChange",
         "KaitenMember",
+        "KaitenRole",
         "KaitenSpace",
+        "KaitenTimeLog",
+        "KaitenTimer",
         "KaitenUser",
         "parse_boards_of_space",
         "parse_card",
@@ -129,7 +150,10 @@ _MODEL_EXPORTS = frozenset(
         "parse_lane",
         "parse_location_change",
         "parse_member",
+        "parse_role",
         "parse_space",
+        "parse_time_log",
+        "parse_timer",
         "parse_user",
     }
 )
@@ -517,6 +541,110 @@ class KaitenClient:
             "PUT", f"/cards/{card_id}/custom-properties/{property_id}/files", raw=raw
         )
         return km.parse_file(res)
+
+    # ── Учёт времени: справочник ролей, записи, таймер ──────────────────────────
+    #
+    # Ретраи на мутациях ниже НЕ добавлять. Существующий `request_with_retry` повторяет
+    # только 429 (запрос гарантированно не обработан) — это безопасно. Повтор упавшего по
+    # таймауту POST/PATCH запишет время дважды или ударит в 404 по уже созданному объекту.
+
+    def list_roles(self) -> list[KaitenRole]:
+        """GET /user-roles — роли компании («типы работ» для записей учёта времени)."""
+        from mpu.lib import kaiten_models as km
+
+        res = self._request("GET", "/user-roles")
+        return [km.parse_role(r) for r in dict_items(res)]
+
+    def list_time_logs(self, card_id: int) -> list[KaitenTimeLog]:
+        """GET /cards/{id}/time-logs — записи учёта времени карточки (ВСЕХ пользователей)."""
+        from mpu.lib import kaiten_models as km
+
+        res = self._request("GET", f"/cards/{card_id}/time-logs")
+        return [km.parse_time_log(r) for r in dict_items(res)]
+
+    def add_time_log(
+        self, card_id: int, *, for_date: str, minutes: int, role_id: int, comment: str = ""
+    ) -> KaitenTimeLog:
+        """POST /cards/{id}/time-logs — создать запись. `minutes` — единица API (`time_spent`)."""
+        from mpu.lib import kaiten_models as km
+
+        body: dict[str, object] = {
+            "for_date": for_date,
+            "time_spent": minutes,
+            "role_id": role_id,
+            "comment": comment,
+        }
+        return km.parse_time_log(self._request("POST", f"/cards/{card_id}/time-logs", body=body))
+
+    def update_time_log(self, card_id: int, log_id: int, body: dict[str, object]) -> KaitenTimeLog:
+        """PATCH /cards/{id}/time-logs/{logId} — частичное обновление записи.
+
+        `body` собирает вызывающий (`build_time_log_patch`): попадают только заданные оси.
+        Пустая строка в `comment` очищает поле (сервер нормализует её в null).
+        """
+        from mpu.lib import kaiten_models as km
+
+        res = self._request("PATCH", f"/cards/{card_id}/time-logs/{log_id}", body=body)
+        return km.parse_time_log(res)
+
+    def delete_time_log(self, card_id: int, log_id: int) -> None:
+        """DELETE /cards/{id}/time-logs/{logId} — удалить запись учёта времени."""
+        self._request("DELETE", f"/cards/{card_id}/time-logs/{log_id}")
+
+    def start_timer(self, card_id: int, *, comment: str = "") -> KaitenTimer | None:
+        """POST /user-timers — запустить таймер на карточке.
+
+        Роль здесь передавать бессмысленно: API её принимает, но не хранит (тип работы
+        выбирается при остановке) — поэтому параметра нет.
+
+        Таймер на карточке уже есть → сервер отвечает телом-сообщением
+        (`{"message": "User timer already created"}`) БЕЗ `id`, и не обязательно
+        HTTP-ошибкой. Ветвимся по форме ответа: в этом случае возвращаем None.
+        """
+        from mpu.lib import kaiten_models as km
+
+        body: dict[str, object] = {"card_id": card_id}
+        if comment:
+            body["comment"] = comment
+        res = self._request("POST", "/user-timers", body=body)
+        if not is_dict(res) or "id" not in res:
+            return None
+        return km.parse_timer(res)
+
+    def stop_timer(
+        self,
+        timer_id: int,
+        *,
+        finished_at: str,
+        started_at: str | None = None,
+        comment: str | None = None,
+        role_id: int | None = None,
+    ) -> KaitenTimer:
+        """PATCH /user-timers/{id} — остановить таймер; создаёт запись учёта времени.
+
+        `finished_at` — обязательный keyword ПО КОНСТРУКЦИИ: PATCH без `started_at` и без
+        `finished_at` отвечает HTTP 500, и требование на уровне сигнатуры делает эту ветку
+        недостижимой. Передавать `finished_at=None` нельзя — сервер вернёт 400.
+
+        Длительность записи сервер считает как `finished_at - started_at` с округлением
+        ВВЕРХ до минуты; `started_at` передаём только когда нужно записать не фактическое,
+        а заданное время (см. `timer_window`). Роль применяется именно здесь.
+        Возвращённый таймер несёт `card_time_log_id` созданной записи.
+        """
+        from mpu.lib import kaiten_models as km
+
+        body: dict[str, object] = {"finished_at": finished_at}
+        if started_at is not None:
+            body["started_at"] = started_at
+        if comment is not None:
+            body["comment"] = comment
+        if role_id is not None:
+            body["role_id"] = role_id
+        return km.parse_timer(self._request("PATCH", f"/user-timers/{timer_id}", body=body))
+
+    def discard_timer(self, timer_id: int) -> None:
+        """DELETE /user-timers/{id} — сбросить таймер БЕЗ создания записи учёта времени."""
+        self._request("DELETE", f"/user-timers/{timer_id}")
 
     def delete_card_file(self, card_id: int, file_id: int) -> None:
         """DELETE /cards/{id}/files/{fileId} — удалить файл карточки.

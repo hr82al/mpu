@@ -169,7 +169,7 @@ uv run pytest --cov=mpu --cov-report=term-missing --cov-fail-under=95
 | `telegram` | `telegram.py` | Telegram от лица пользователя — skill `tool-mpu-telegram`. Ловушка: прокси только через `TELEGRAM_PROXY`, НЕ `HTTPS_PROXY` (утечёт на весь `mpu`) |
 | `mr` | `mr.py` | GitLab MR ревью — skill `tool-mpu-mr`; ENV `GLAB_TOKEN` |
 | `glab-status` | `glab_status.py` | мои GitLab MR одной таблицей (колонки-ветки `trunk/main/dev/qa/predprod/prod`, `✅`=merge долетел); `--since`/`--repos`/`--json`; ENV `GLAB_TOKEN`/`GITLAB_BASE_URL` |
-| `kiten` | `kiten.py` | Kaiten-карточки (`card`/`ls`/`comment`/`move`/`ready`/`review`/`close`/`field`/справочник) — skill `tool-mpu-kiten` |
+| `kiten` | `kiten/` | Kaiten-карточки (`card`/`ls`/`comment`/`move`/`ready`/`review`/`close`/`field`/`time`/справочник) — skill `tool-mpu-kiten` |
 | `help` | `help.py` | список команд + проброс `--help` |
 | (node-CLI обёртка) | `commands/<X>.py` | exec через Portainer; `--print`/`-p` — print+clipboard |
 | `api <X>` | `_mpuapi_*.py` | HTTP-клиенты sl-back endpoints (~86) |

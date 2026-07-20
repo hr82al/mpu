@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import datetime
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
@@ -19,16 +20,20 @@ from mpu.commands.kiten._common import (
     _resolve_board,
     _resolve_column,
     _resolve_lane,
+    _resolve_role,
 )
 from mpu.commands.kiten.comment import ALL_MENTION_RE, _expand_all_to_owner, plan_field_actions
 from mpu.commands.kiten.field import _sync_card_field
+from mpu.commands.kiten.timelog import elapsed_minutes, parse_timestamp, stop_running_timer
 from mpu.lib import env, kaiten_links, store
 from mpu.lib.cli_err import die
+from mpu.lib.duration import format_minutes
 from mpu.lib.kaiten import KaitenAPIError, KaitenClient
+from mpu.lib.kiten_status import MSK
 
 if TYPE_CHECKING:
     # Только аннотации: runtime-импорт моделей тянет pydantic (~150 мс) в startup.
-    from mpu.lib.kaiten_models import KaitenCardDetail
+    from mpu.lib.kaiten_models import KaitenCardDetail, KaitenTimeLog
 
 # `_left_neighbor_column` — `_`-имя, реэкспортируется пакетом для тестов; `__all__`
 # помечает его как намеренный package-internal экспорт (снимает reportPrivateUsage).
@@ -146,6 +151,29 @@ def _left_neighbor_column(client: KaitenClient, board_id: int | None, target_id:
     if len(ids) > 1:
         return ids[i + 1]
     raise typer.BadParameter("на доске одна колонка — релог невозможен")
+
+
+def _timer_plan(card: KaitenCardDetail, *, stop_timer: bool) -> str:
+    """Строка про таймер для плана `close` и для предупреждения без `--stop-timer`.
+
+    Длительность в тексте не косметика: именно она показывает, что таймер забыт со среды,
+    и удерживает от «останавливаю не глядя».
+    """
+    timer = card.timer
+    if timer is None:
+        return "не запущен"
+    since = "?"
+    ran = ""
+    if timer.started_at:
+        started = parse_timestamp(timer.started_at)
+        since = started.astimezone(MSK).strftime("%d.%m %H:%M МСК")
+        ran = f", {format_minutes(elapsed_minutes(timer.started_at, datetime.datetime.now(MSK)))}"
+    if stop_timer:
+        return f"остановить (запущен с {since}{ran})"
+    return (
+        f"на карточке запущен таймер (с {since}{ran}); он НЕ остановлен — "
+        f"`{COMMAND_NAME} time stop {card.id}` (или --stop-timer)"
+    )
 
 
 def _move_to_target_column(
@@ -278,6 +306,9 @@ def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
     no_move: Annotated[
         bool, typer.Option("--no-move", help="Не переносить карточку (только поля/ответ)")
     ] = False,
+    stop_timer: Annotated[
+        bool, typer.Option("--stop-timer", help="Остановить запущенный таймер и записать время")
+    ] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Показать план без записей")] = False,
 ) -> None:
     """Закрыть карточку: пустые обязательные поля + (опц.) ответ клиенту + перенос в «Готово».
@@ -285,7 +316,14 @@ def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
     Детерминированный оркестратор: тексты полей/ответа готовит вызывающий, передаёт аргументами.
     Поля пишутся только если на карточке пусты (вручную/ранее заполненные пропускаются;
     `--force-fields` перезаписывает). `@all` в ответе → `@username` владельца (заказчик). Перенос —
-    с релогом, если уже в колонке. Порядок: поля → ответ → перенос. `--dry-run` — только план.
+    с релогом, если уже в колонке. Порядок: таймер → поля → ответ → перенос. `--dry-run` — план.
+
+    Таймер останавливается ТОЛЬКО по `--stop-timer`; без флага о запущенном таймере громко
+    предупреждаем, но не трогаем его. Создавать запись учёта времени побочным эффектом закрытия
+    нельзя: забытый трёхдневный таймер молча превратился бы в запись на 70 часов. Нужна
+    конкретная длительность или роль — сперва `mpu kiten time stop`, потом `close` (он тогда
+    просто не найдёт таймера). Остановка идёт ПЕРВОЙ: время уже отработано, и сбой на ответе
+    клиенту не должен его потерять.
     """
     card_id = _parse_card_ref(selector)
     if reply is not None and reply_file is not None:
@@ -326,8 +364,11 @@ def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
     skip_lbl = f"; пропущены (заполнены) [{', '.join(skipped)}]" if skipped else ""
     men_lbl = f" (@all → {' '.join('@' + h for h in mentioned)})" if mentioned else ""
 
+    timer_lbl = _timer_plan(before, stop_timer=stop_timer)
+
     if dry_run:
         typer.echo(f"dry-run close · {before.url}")
+        typer.echo(f"  таймер: {timer_lbl}")
         typer.echo(f"  поля: записать [{set_lbl}]{skip_lbl}")
         typer.echo(f"  ответ: {'запостить' + men_lbl if reply_text is not None else 'без ответа'}")
         if no_move:
@@ -335,6 +376,17 @@ def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
         else:
             _move_to_target_column(selector, target, note=None, dry_run=True)
         return
+
+    # Таймер — ПЕРВЫМ: отработанное время должно быть записано до полей, ответа и переноса,
+    # любой из которых может упасть на полпути.
+    logged: KaitenTimeLog | None = None
+    if stop_timer and before.timer is not None:
+        try:
+            logged = stop_running_timer(client, before, role_id=_resolve_role(None))
+        except KaitenAPIError as e:
+            die(f"{COMMAND_NAME} close: kaiten error (таймер): {e}")
+    elif before.timer is not None:
+        typer.echo(f"внимание: {timer_lbl}", err=True)
 
     if to_set:
         with store.store() as conn:
@@ -352,6 +404,9 @@ def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
         except KaitenAPIError as e:
             die(f"{COMMAND_NAME} close: kaiten error (ответ): {e}")
     typer.echo(f"ok close: поля [{set_lbl}]{skip_lbl}")
+    if logged is not None:
+        parts = [format_minutes(logged.time_spent), logged.role_name or "", f"запись {logged.id}"]
+        typer.echo("   таймер: " + " · ".join(p for p in parts if p))
     if reply_comment_id is not None:
         typer.echo(f"   ответ: комментарий {reply_comment_id}{men_lbl}")
     if not no_move:
