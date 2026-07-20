@@ -121,6 +121,7 @@ class KaitenFile(_ApiModel):
     mime_type: str | None = None
     comment_id: int | None = None  # None = card-level, иначе вложение комментария
     card_cover: TruthyBool = False
+    custom_property_id: int | None = None  # None = не в поле, иначе id файлового кастомного поля
 
 
 class KaitenMember(_ApiModel):

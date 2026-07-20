@@ -824,6 +824,24 @@ def test_build_multipart_sanitizes_filename() -> None:
     assert b'filename="a%22b .txt"' in body
 
 
+def test_build_multipart_custom_file_field() -> None:
+    # Загрузка файла карточки: поле называется `file` (не `files[]`) + текстовый custom_property_id.
+    body, _ = build_multipart(
+        {"custom_property_id": "610303"}, [("a.md", b"# A")], file_field="file"
+    )
+    assert b'name="custom_property_id"' in body
+    assert b'name="file"; filename="a.md"' in body
+    assert b'name="files[]"' not in body
+    assert b"# A" in body
+
+
+def test_is_markdown() -> None:
+    assert kiten_field._is_markdown("67531635-slug.md")
+    assert kiten_field._is_markdown("UPPER.MD")
+    assert not kiten_field._is_markdown("report.txt")
+    assert not kiten_field._is_markdown("noext")
+
+
 # ── --to адресаты: разбор, раскрытие @all, постановка строкой в начало ───────────
 
 
@@ -1035,6 +1053,8 @@ class FakeKaitenClient:
         self.move_calls: list[dict[str, int | None]] = []
         self.added_comments: list[dict[str, object]] = []
         self.props_set: list[tuple[int, str, str | None]] = []
+        self.uploaded_files: list[dict[str, object]] = []
+        self.deleted_files: list[tuple[int, int]] = []
 
     def _maybe_fail(self, name: str) -> None:
         if name in self._fail:
@@ -1092,6 +1112,24 @@ class FakeKaitenClient:
         self._maybe_fail("set_card_property")
         self.props_set.append((card_id, property_key, value))
 
+    def upload_property_file(
+        self, card_id: int, property_id: int, filename: str, content: bytes
+    ) -> KaitenFile:
+        self._maybe_fail("upload_property_file")
+        self.uploaded_files.append(
+            {
+                "card_id": card_id,
+                "property_id": property_id,
+                "filename": filename,
+                "content": content,
+            }
+        )
+        return KaitenFile(id=555, url=f"https://files.kaiten.ru/{filename}", name=filename)
+
+    def delete_card_file(self, card_id: int, file_id: int) -> None:
+        self._maybe_fail("delete_card_file")
+        self.deleted_files.append((card_id, file_id))
+
 
 def _detail(
     *,
@@ -1104,6 +1142,7 @@ def _detail(
     lane_title: str | None = "Lane",
     owner_username: str | None = None,
     properties: dict[str, str] | None = None,
+    files: list[KaitenFile] | None = None,
 ) -> KaitenCardDetail:
     """Собрать `KaitenCardDetail` напрямую (без сети) с управляемым положением/владельцем."""
     owner = (
@@ -1132,7 +1171,7 @@ def _detail(
         url=f"https://btlz.kaiten.ru/{card_id}",
         tags=[],
         members=[],
-        files=[],
+        files=files or [],
         properties=properties or {},
     )
 
@@ -2071,6 +2110,90 @@ def test_field_set_error_exits_1(monkeypatch: pytest.MonkeyPatch, db_path: Path)
     res = runner.invoke(app, ["field", "set", "100", "mr", "https://mr/1"])
     assert res.exit_code == 1
     assert "field set: kaiten error" in res.stderr
+
+
+def test_field_artefact_set_uploads_to_property(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake = FakeKaitenClient()
+    _install_client(monkeypatch, fake)
+    md = tmp_path / "67531635-slug.md"
+    md.write_text("# 67531635 test = ok\n", encoding="utf-8")
+    res = runner.invoke(app, ["field", "artefact", "set", "67531635", str(md)])
+    assert res.exit_code == 0, res.stderr
+    assert "ok: артефакт 67531635-slug.md" in res.output
+    assert fake.uploaded_files == [
+        {
+            "card_id": 67531635,
+            "property_id": kaiten_links.ARTEFACT_PROPERTY_ID,
+            "filename": "67531635-slug.md",
+            "content": b"# 67531635 test = ok\n",
+        }
+    ]
+
+
+def test_field_artefact_set_rejects_non_md(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    fake = FakeKaitenClient()
+    _install_client(monkeypatch, fake)
+    txt = tmp_path / "report.txt"
+    txt.write_text("x", encoding="utf-8")
+    res = runner.invoke(app, ["field", "artefact", "set", "100", str(txt)])
+    assert res.exit_code != 0
+    assert "должен быть .md" in res.stderr
+    assert fake.uploaded_files == []  # guard срабатывает до сети
+
+
+def test_field_artefact_set_error_exits_1(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    fake = FakeKaitenClient(fail={"upload_property_file"})
+    _install_client(monkeypatch, fake)
+    md = tmp_path / "a.md"
+    md.write_text("# A", encoding="utf-8")
+    res = runner.invoke(app, ["field", "artefact", "set", "100", str(md)])
+    assert res.exit_code == 1
+    assert "field artefact set: kaiten error" in res.stderr
+
+
+def _artefact_file(file_id: int, name: str, *, in_field: bool) -> KaitenFile:
+    return KaitenFile(
+        id=file_id,
+        name=name,
+        custom_property_id=kaiten_links.ARTEFACT_PROPERTY_ID if in_field else None,
+    )
+
+
+def test_field_artefact_rm_deletes_only_field_files(monkeypatch: pytest.MonkeyPatch) -> None:
+    detail = _detail(
+        card_id=100,
+        files=[
+            _artefact_file(1, "old-artefact.md", in_field=True),
+            _artefact_file(2, "изображение.png", in_field=False),  # card-level, не трогать
+        ],
+    )
+    fake = FakeKaitenClient(details=[detail])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["field", "artefact", "rm", "100"])
+    assert res.exit_code == 0, res.stderr
+    assert "удалено из «AI-артефакт»: old-artefact.md" in res.output
+    assert fake.deleted_files == [(100, 1)]  # только файл поля
+
+
+def test_field_artefact_rm_empty_field(monkeypatch: pytest.MonkeyPatch) -> None:
+    detail = _detail(card_id=100, files=[_artefact_file(2, "изображение.png", in_field=False)])
+    fake = FakeKaitenClient(details=[detail])
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["field", "artefact", "rm", "100"])
+    assert res.exit_code == 0, res.stderr
+    assert "уже пусто" in res.output
+    assert fake.deleted_files == []
+
+
+def test_field_artefact_rm_error_exits_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    detail = _detail(card_id=100, files=[_artefact_file(1, "a.md", in_field=True)])
+    fake = FakeKaitenClient(details=[detail], fail={"delete_card_file"})
+    _install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["field", "artefact", "rm", "100"])
+    assert res.exit_code == 1
+    assert "field artefact rm: kaiten error" in res.stderr
 
 
 def test_field_ls_empty(db_path: Path) -> None:

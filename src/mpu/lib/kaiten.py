@@ -232,13 +232,16 @@ def parse_card_ref(ref: str) -> int:
     return int(segments[-1])
 
 
-def build_multipart(fields: dict[str, str], files: list[tuple[str, bytes]]) -> tuple[bytes, str]:
+def build_multipart(
+    fields: dict[str, str], files: list[tuple[str, bytes]], file_field: str = "files[]"
+) -> tuple[bytes, str]:
     """Собрать тело multipart/form-data: текстовые поля + файлы.
 
     Чистая функция (без I/O), покрыта тестами. Каждый файл кладётся отдельным part'ом
-    под именем `files[]` — именно так Kaiten принимает вложения комментария (поле `files[]`,
-    по одному part на файл), привязывая их к создаваемому комментарию. `files` — список
-    `(имя_файла, содержимое)`. Возврат: `(тело, значение заголовка Content-Type)`.
+    под именем `file_field`. По умолчанию `files[]` — так Kaiten принимает вложения
+    комментария (по одному part на файл), привязывая их к создаваемому комментарию;
+    для загрузки файла карточки (PUT /cards/{id}/files) поле называется `file`.
+    `files` — список `(имя_файла, содержимое)`. Возврат: `(тело, значение заголовка Content-Type)`.
     """
     boundary = f"----mpu{uuid.uuid4().hex}"
     crlf = b"\r\n"
@@ -253,7 +256,9 @@ def build_multipart(fields: dict[str, str], files: list[tuple[str, bytes]]) -> t
         safe = filename.replace('"', "%22").replace("\r", " ").replace("\n", " ")
         mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
         chunks.append(f"--{boundary}".encode())
-        chunks.append(f'Content-Disposition: form-data; name="files[]"; filename="{safe}"'.encode())
+        chunks.append(
+            f'Content-Disposition: form-data; name="{file_field}"; filename="{safe}"'.encode()
+        )
         chunks.append(f"Content-Type: {mime}".encode())
         chunks.append(b"")
         chunks.append(content)
@@ -493,3 +498,30 @@ class KaitenClient:
         `property_key` — ключ поля карточки вида `id_NNN` (см. `kaiten_links.property_key`).
         """
         self._request("PATCH", f"/cards/{card_id}", body={"properties": {property_key: value}})
+
+    def upload_property_file(
+        self, card_id: int, property_id: int, filename: str, content: bytes
+    ) -> KaitenFile:
+        """PUT /cards/{id}/custom-properties/{propertyId}/files — загрузить файл в файловое
+        (attachment) кастомное поле карточки (multipart, поле `file`).
+
+        Именно этот эндпоинт привязывает файл к полю: у созданного файла `custom_property_id`
+        становится равен `property_id`, а значение поля карточки — массив `uid` его файлов.
+        (Обычный POST/PUT /cards/{id}/files кладёт файл на уровень карточки и к полю НЕ
+        привязывает.) Возвращает созданный файл (id / url / name / uid).
+        """
+        from mpu.lib import kaiten_models as km
+
+        raw = build_multipart({}, [(filename, content)], file_field="file")
+        res = self._request(
+            "PUT", f"/cards/{card_id}/custom-properties/{property_id}/files", raw=raw
+        )
+        return km.parse_file(res)
+
+    def delete_card_file(self, card_id: int, file_id: int) -> None:
+        """DELETE /cards/{id}/files/{fileId} — удалить файл карточки.
+
+        Если файл был привязан к файловому кастомному полю (`custom_property_id`), значение
+        поля карточки при этом очищается автоматически. Идемпотентно на уровне вызывающего.
+        """
+        self._request("DELETE", f"/cards/{card_id}/files/{file_id}")

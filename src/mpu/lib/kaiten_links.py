@@ -25,6 +25,10 @@ FIELD_PROPERTY_IDS: dict[str, int] = {
 
 FIELD_KINDS: tuple[str, ...] = tuple(FIELD_PROPERTY_IDS)
 
+# «9. AI-артефакт» — файловое поле (тип `attachment`), заполняется вложением md, а не
+# скаляром → отдельно от FIELD_PROPERTY_IDS (не скалярный KIND, не пишется в sqlite-лог).
+ARTEFACT_PROPERTY_ID = 610303
+
 
 @dataclass(frozen=True, slots=True)
 class CardLink:

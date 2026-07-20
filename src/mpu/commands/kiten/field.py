@@ -7,6 +7,7 @@ import datetime
 import json as _json
 import sqlite3
 from enum import StrEnum
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -19,9 +20,10 @@ from mpu.lib import kaiten_links, store
 from mpu.lib.cli_err import die
 from mpu.lib.kaiten import KaitenAPIError, KaitenClient, card_url
 
-# `_sync_card_field` — `_`-имя, общее для `move.close`; `__all__` помечает намеренный
-# package-internal экспорт (снимает reportPrivateUsage).
-__all__ = ["_sync_card_field"]
+# `_sync_card_field` — `_`-имя, общее для `move.close`; `_is_markdown` — чистый предикат,
+# читается тестами. `__all__` помечает намеренный package-internal экспорт (снимает
+# reportPrivateUsage).
+__all__ = ["_is_markdown", "_sync_card_field"]
 
 # --- field: кастомные поля карточки (MR-ссылка / гипотеза / что сделано / результат) ---
 #
@@ -83,6 +85,94 @@ def field_set(
         except KaitenAPIError as e:
             die(f"{COMMAND_NAME} field set: kaiten error: {e}")
     typer.echo(f"ok: {kind.value} → {applied} · {card_url(client.base_url, card_id)}")
+
+
+def _is_markdown(filename: str) -> bool:
+    """Артефакт — md-файл: имя оканчивается на `.md` (без учёта регистра)."""
+    return filename.lower().endswith(".md")
+
+
+# --- artefact: файловое поле «9. AI-артефакт» (тип attachment) ---
+#
+# Отдельная подгруппа (не скалярный `set`): `set` загружает md в поле и привязывает файл к
+# нему; `rm` удаляет приложенные к полю файлы (очищает поле). SQLite-лог не ведётся — значение
+# поля файловое, а не строка.
+
+artefact_app = typer.Typer(
+    no_args_is_help=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help=(
+        "Файловое поле «9. AI-артефакт»: `set` — прикрепить md-артефакт "
+        "(по правилам ai_artefact/); `rm` — очистить поле (удалить приложенные файлы)."
+    ),
+)
+field_app.add_typer(artefact_app, name="artefact")
+
+
+@artefact_app.command("set")
+def artefact_set(
+    selector: Annotated[
+        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
+    ],
+    path: Annotated[
+        Path,
+        typer.Argument(
+            exists=True,
+            dir_okay=False,
+            readable=True,
+            help="Путь к md-артефакту (составляется по правилам ai_artefact/)",
+        ),
+    ],
+) -> None:
+    """Прикрепить md-артефакт в файловое поле карточки «9. AI-артефакт» (тип attachment).
+
+    Загружает файл в поле и привязывает к нему. В отличие от `field set`, история в SQLite
+    не ведётся — поле файловое, а не скалярное значение.
+    """
+    if not _is_markdown(path.name):
+        raise typer.BadParameter(f"артефакт должен быть .md-файлом, получен '{path.name}'")
+    card_id = _parse_card_ref(selector)
+    client = KaitenClient.from_env()
+    try:
+        uploaded = client.upload_property_file(
+            card_id,
+            kaiten_links.ARTEFACT_PROPERTY_ID,
+            path.name,
+            path.read_bytes(),
+        )
+    except KaitenAPIError as e:
+        die(f"{COMMAND_NAME} field artefact set: kaiten error: {e}")
+    typer.echo(
+        f"ok: артефакт {uploaded.name} → {card_url(client.base_url, card_id)} (файл {uploaded.url})"
+    )
+
+
+@artefact_app.command("rm")
+def artefact_rm(
+    selector: Annotated[
+        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
+    ],
+) -> None:
+    """Очистить поле «9. AI-артефакт»: удалить приложенные к нему файлы (идемпотентно).
+
+    Удаляет все файлы карточки, привязанные к этому полю (`custom_property_id`); значение поля
+    при этом очищается. Файлы, приложенные к комментариям/карточке вне поля, не трогает.
+    """
+    card_id = _parse_card_ref(selector)
+    client = KaitenClient.from_env()
+    try:
+        card = client.get_card(card_id)
+        files = [f for f in card.files if f.custom_property_id == kaiten_links.ARTEFACT_PROPERTY_ID]
+        for f in files:
+            client.delete_card_file(card_id, f.id)
+    except KaitenAPIError as e:
+        die(f"{COMMAND_NAME} field artefact rm: kaiten error: {e}")
+    url = card_url(client.base_url, card_id)
+    if not files:
+        typer.echo(f"ok: поле «AI-артефакт» уже пусто · {url}")
+        return
+    names = ", ".join(f.name for f in files)
+    typer.echo(f"ok: удалено из «AI-артефакт»: {names} · {url}")
 
 
 @field_app.command("ls")
