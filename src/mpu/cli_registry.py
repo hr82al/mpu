@@ -18,6 +18,7 @@ COMMANDS: dict[str, tuple[str, str]] = {
     "sql": ("mpu.commands.sql", "app"),
     "sql-ro": ("mpu.commands.sql_ro", "app"),
     "sun": ("mpu.commands.sun", "app"),
+    "config": ("mpu.commands.config", "app"),
     "sheet": ("mpu.commands.sheet", "app"),
     "xlsx": ("mpu.commands.xlsx", "app"),
     "backup-wb-unit-proto": ("mpu.commands.backup_wb_unit_proto", "app"),

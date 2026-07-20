@@ -10,6 +10,7 @@ from mpu.commands import (
     backup_wb_unit_manual_data,
     backup_wb_unit_proto,
     clean_local_clients,
+    config,
     confirm,
     copy_client,
     copy_shared,
@@ -89,6 +90,7 @@ def main(
 _REGISTERED_MODULES = (
     search,
     update,
+    config,
     sheet,
     xlsx,
     sql,
