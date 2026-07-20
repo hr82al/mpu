@@ -1,8 +1,18 @@
 """`mpu copy-shared <selector>` — скопировать общие справочные таблицы (schema=shared)
 с удалённого PG в локальный dev-PG.
 
-Source-PG резолвится из селектора. Прогоняет `node src/pgDataTransfer.js transferTables`
-в `dt-host-cli` контейнере (`compose.sl-dt-host.yaml`). Target — локальный `127.0.0.1:5441`.
+Source-PG резолвится из селектора. Прогоняет `node src/pgDataTransfer.js
+transferTablesViaPsql --clear-tables` в `dt-host-cli` контейнере
+(`compose.sl-dt-host.yaml`). Target — локальный `127.0.0.1:5441`.
+
+Идемпотентно: каждая таблица TRUNCATE'ится перед `\\copy`, поэтому команду можно
+гонять повторно. Без очистки перенос шёл `--data-only` поверх наполненных таблиц и
+падал на `duplicate key value violates unique constraint` по каждой из них.
+
+TRUNCATE — без CASCADE: если на shared-таблицу ссылается FK, перенос честно упадёт,
+а не снесёт зависимые данные. Структуру таблиц не трогаем (в отличие от
+`transferTables --clear-tables`, который делает DROP + пересоздание из дампа source),
+поэтому новые колонки с прода приезжают миграциями, а не этой командой.
 
 Список таблиц — захардкожен (соответствует старой fish-функции `copy-shared`).
 """
@@ -73,10 +83,11 @@ def main(
 
     tables = " ".join(SHARED_TABLES)
     inner = (
-        f"node src/pgDataTransfer.js transferTables "
+        f"node src/pgDataTransfer.js transferTablesViaPsql "
         f"--s-host={source_host} --s-port=5432 "
         f"--t-port 5441 "
         f"--schema shared "
+        f"--clear-tables "
         f"--tables {tables}"
     )
 

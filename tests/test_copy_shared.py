@@ -52,7 +52,9 @@ def test_happy_path(fake_resolve: dict[str, object], fake_exec: dict[str, object
     assert res.exit_code == 0, res.output
     inner = fake_exec["inner"]
     assert isinstance(inner, str)
-    assert "node src/pgDataTransfer.js transferTables" in inner
+    assert "node src/pgDataTransfer.js transferTablesViaPsql" in inner
+    # Идемпотентность: TRUNCATE перед \copy, иначе повтор падает на duplicate key.
+    assert "--clear-tables" in inner
     assert "--s-host=192.168.150.32" in inner
     assert "--s-port=5432" in inner
     assert "--t-port 5441" in inner
