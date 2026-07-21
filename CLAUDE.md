@@ -42,7 +42,8 @@
 
 ## Архитектура bin'ов
 
-Один бинарь — `mpu` (`[project.scripts]` → `mpu.cli:main`). Подкоманды диспатчатся внутри в два namespace'а:
+Один бинарь — `mpu` (`[project.scripts]` → `mpu.entry:main`; `entry.py` оборачивает вызов логом и
+уже внутри него импортирует `mpu.cli`). Подкоманды диспатчатся внутри в два namespace'а:
 
 - `mpu <X>` — по умолчанию ВЫПОЛНЯЕТ inner-команду (через Portainer для node-CLI обёрток; нативно для local-команд). Флаг `--print` / `-p` возвращает в print + clipboard режим. `--local` (вместе с `--print`) переключает на `sl-N-cli sh -c "..."` форму.
 - `mpu api <X>` — HTTP-клиенты sl-back (бывший `mpuapi-X`)
@@ -56,11 +57,12 @@ Source of truth: `src/mpu/cli_registry.COMMANDS` (root) + `src/mpu/commands/_mpu
 ## Структура
 
 ```
-pyproject.toml              # uv-managed, зависимости, [project.scripts] → mpu = mpu.cli:main
+pyproject.toml              # uv-managed, зависимости, [project.scripts] → mpu = mpu.entry:main
 uv.lock
 src/mpu/
   __init__.py               # __version__
-  __main__.py               # `python -m mpu` → cli.main()
+  __main__.py               # `python -m mpu` → entry.main()
+  entry.py                  # обёртка лога вызовов вокруг всего процесса (см. lib/log.py)
   cli.py                    # root Typer app + api click.Group bridge
   cli_registry.py           # COMMANDS (kebab → module)
   commands/
@@ -170,6 +172,7 @@ uv run pytest --cov=mpu --cov-report=term-missing --cov-fail-under=95
 | `mr` | `mr.py` | GitLab MR ревью — skill `tool-mpu-mr`; ENV `GLAB_TOKEN` |
 | `glab-status` | `glab_status.py` | мои GitLab MR одной таблицей (колонки-ветки `trunk/main/dev/qa/predprod/prod`, `✅`=merge долетел); `--since`/`--repos`/`--json`; ENV `GLAB_TOKEN`/`GITLAB_BASE_URL` |
 | `kiten` | `kiten/` | Kaiten-карточки (`card`/`ls`/`comment`/`move`/`ready`/`review`/`close`/`field`/`time`/справочник) — skill `tool-mpu-kiten` |
+| `log` | `log.py` | журнал вызовов самого `mpu` (`~/.config/mpu/mpu.log`): команда, вывод, ошибки, exit; фильтры `--failed`/`--cmd`/`--since`/`--run`. Пишет `lib/log.py` + `lib/capture.py`; ENV `MPU_LOG_*` (см. `.env.example`) |
 | `help` | `help.py` | список команд + проброс `--help` |
 | (node-CLI обёртка) | `commands/<X>.py` | exec через Portainer; `--print`/`-p` — print+clipboard |
 | `api <X>` | `_mpuapi_*.py` | HTTP-клиенты sl-back endpoints (~86) |

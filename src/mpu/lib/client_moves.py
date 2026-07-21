@@ -14,7 +14,7 @@ import time
 from typing import TypedDict
 
 from mpu.lib import store
-from mpu.lib.log import logger
+from mpu.lib.log import note
 
 
 class Move(TypedDict):
@@ -49,7 +49,7 @@ def record_move(client_id: int, source: str, target: str, *, now: int | None = N
             )
             conn.commit()
     except sqlite3.OperationalError as e:
-        logger.warning(f"client_moves: запись хода пропущена (запусти `mpu init`?): {e}")
+        note(f"client_moves: запись хода пропущена (запусти `mpu init`?): {e}")
 
 
 def last_move(client_id: int) -> Move | None:

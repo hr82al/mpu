@@ -7,6 +7,26 @@ import pytest
 
 from mpu.lib import store
 
+_LOG_DEFAULTS = {
+    "MPU_LOG_ENABLED": "1",
+    "MPU_LOG_MAX_OUTPUT_BYTES": "0",  # 0 = без обрезки: тесты сверяют вывод целиком
+    "MPU_LOG_MAX_BYTES": "52428800",
+    "MPU_LOG_KEEP": "5",
+}
+
+
+@pytest.fixture(autouse=True)
+def isolate_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Лог тестов — в tmp, режим детерминированный.
+
+    Пинятся ВСЕ переменные лога, а не только путь: `env.load()` вызывает `load_dotenv`
+    с `override=False`, поэтому отсутствующую переменную подставил бы личный
+    `~/.config/mpu/.env` разработчика. `monkeypatch.delenv` по той же причине не годится.
+    """
+    monkeypatch.setenv("MPU_LOG_FILE", str(tmp_path / "mpu-test.log"))
+    for name, value in _LOG_DEFAULTS.items():
+        monkeypatch.setenv(name, value)
+
 
 @pytest.fixture
 def bootstrap_db() -> Callable[[Path | str], None]:

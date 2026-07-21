@@ -9,7 +9,6 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "python-dotenv>=1.0",
     "httpx>=0.27",
-    "loguru>=0.7",
     "astral>=3.2",
     "sqlglot>=25",
     "rich>=13",
@@ -26,7 +25,7 @@ dependencies = [
 #   mpu p <X>          — exec через Portainer (бывший `mpup-X`); `--print` возвращает в print-mode
 #   mpu api <X>        — HTTP-клиенты sl-back (бывший `mpuapi-X`)
 # Reg'и подкоманд: `mpu.cli_registry` (root + p), `mpu.commands._mpuapi_spec.COMMANDS` (api).
-mpu = "mpu.cli:main"
+mpu = "mpu.entry:main"
 
 [build-system]
 requires = ["hatchling"]

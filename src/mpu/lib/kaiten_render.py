@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import base64
+import os
 import re
 
 import httpx
@@ -83,6 +84,31 @@ def _image_bytes(url: str) -> bytes | None:
     return fetch_image_bytes(url)
 
 
+def _bind_term_image_to_real_tty() -> None:
+    """Показать term-image НАСТОЯЩИЙ терминал, если fd 1 подменён перехватом вызова.
+
+    term-image при импорте запоминает терминал как `ttyname(sys.__stdout__)` и шлёт туда
+    capability-запросы, ожидая ответ оттуда же. Под перехватом (`lib/capture.py`) это
+    подставной pty: запросы уходят в никуда, все протоколы детектятся как неподдержанные
+    (картинка деградирует до Unicode-блоков), а ответы настоящего терминала сыплются в
+    шелл мусором. Сами байты картинки при этом по-прежнему идут в перехваченный fd 1,
+    поэтому в логе вызова они остаются.
+    """
+    from mpu.lib import capture
+
+    real_tty = capture.real_tty_path()
+    if real_tty is None:
+        return
+    try:
+        # term-image без stubs: подменяем задокументированный модульный дескриптор.
+        from term_image import utils as term_utils  # pyright: ignore[reportMissingTypeStubs]
+
+        fd = os.open(real_tty, os.O_RDWR)
+    except (ImportError, OSError):
+        return
+    term_utils._tty_fd = fd  # pyright: ignore[reportPrivateUsage]
+
+
 def render_image(data: bytes, *, max_width: int = 80) -> bool:
     """Нарисовать картинку через term-image (kitty/sixel/iterm2 → блоки). True — успех.
 
@@ -105,6 +131,7 @@ def render_image(data: bytes, *, max_width: int = 80) -> bool:
             AutoImage,  # pyright: ignore[reportUnknownVariableType]
         )
 
+        _bind_term_image_to_real_tty()
         img = AutoImage(Image.open(io.BytesIO(data)), width=max_width)
         print(str(img))
         return True

@@ -34,7 +34,7 @@ import typer
 from mpu.lib import store
 from mpu.lib.cli_out import print_json
 from mpu.lib.jsonx import dict_items, is_dict, is_list
-from mpu.lib.log import logger
+from mpu.lib.log import note
 from mpu.lib.sheet_api import SheetApiError, WebappClient
 from mpu.lib.sheet_batch import (
     BatchScriptError,
@@ -96,7 +96,7 @@ def _open_db() -> sqlite3.Connection:
         sweep_expired(conn)
         enforce_size_cap(conn)
     except sqlite3.OperationalError as e:
-        logger.warning(f"sheet: sweep skipped (schema missing?): {e}")
+        note(f"sheet: sweep skipped (schema missing?): {e}")
     return conn
 
 

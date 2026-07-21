@@ -26,7 +26,7 @@ from typing import Any
 import httpx
 
 from mpu.lib import env
-from mpu.lib.log import logger
+from mpu.lib.log import note
 
 DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_MAX_RETRIES = 5
@@ -121,7 +121,7 @@ class WebappClient:
                     )
             except httpx.HTTPError as e:
                 last_error = f"transport: {e}"
-                logger.warning(f"sheet_api {action}: {last_error} (attempt {attempt + 1})")
+                note(f"sheet_api {action}: {last_error} (attempt {attempt + 1})")
                 if attempt >= self.max_retries:
                     raise SheetApiError(
                         f"{action} failed after {attempt + 1} attempts: {last_error}",
@@ -134,7 +134,7 @@ class WebappClient:
             status = resp.status_code
 
             if _is_quota_error(status, text):
-                logger.warning(
+                note(
                     f"sheet_api {action}: quota exceeded "
                     f"(status={status}), sleeping {self.quota_delay_seconds}s"
                 )
@@ -143,7 +143,7 @@ class WebappClient:
 
             if status >= 500:  # noqa: PLR2004
                 last_error = f"HTTP {status}: {text[:200]}"
-                logger.warning(f"sheet_api {action}: {last_error} (attempt {attempt + 1})")
+                note(f"sheet_api {action}: {last_error} (attempt {attempt + 1})")
                 if attempt >= self.max_retries:
                     raise SheetApiError(
                         f"{action} failed after {attempt + 1} attempts: {last_error}",
@@ -157,7 +157,7 @@ class WebappClient:
             if status == 404 and not_found_attempts < self.not_found_retries:  # noqa: PLR2004
                 not_found_attempts += 1
                 last_error = f"HTTP 404: {text[:200]}"
-                logger.warning(
+                note(
                     f"sheet_api {action}: {last_error} "
                     f"(404 retry {not_found_attempts}/{self.not_found_retries}, "
                     f"sleeping {self.not_found_delay_seconds}s)"
@@ -194,9 +194,7 @@ class WebappClient:
             if not data.get("success"):
                 err = str(data.get("error", "unknown error"))
                 if "quota" in err.lower():
-                    logger.warning(
-                        f"sheet_api {action}: quota in body, sleeping {self.quota_delay_seconds}s"
-                    )
+                    note(f"sheet_api {action}: quota in body, sleeping {self.quota_delay_seconds}s")
                     self._sleeper(self.quota_delay_seconds)
                     continue
                 raise SheetApiError(

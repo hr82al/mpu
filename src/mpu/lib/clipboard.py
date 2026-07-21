@@ -42,6 +42,10 @@ def _try_external(text: str) -> bool:
                 input=text.encode(),
                 check=True,
                 timeout=2,
+                # stdout — DEVNULL обязателен: wl-copy/xclip уходят в фон, удерживая
+                # владение selection'ом, и вместе с ним унаследованный fd 1. Читатель
+                # нашего stdout (пайп или перехват вызова) не увидел бы EOF до их смерти.
+                stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
             return True

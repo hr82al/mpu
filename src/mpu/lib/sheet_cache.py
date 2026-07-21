@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from mpu.lib import env
-from mpu.lib.log import logger
+from mpu.lib.log import note
 from mpu.lib.sheet_api import WebappClient
 
 # Defaults — могут быть перекрыты через таблицу `config` или env.
@@ -145,7 +145,7 @@ def _config_int(conn: sqlite3.Connection, key: str, default: int) -> int:
         try:
             return int(env_val)
         except ValueError:
-            logger.warning(f"sheet_cache: env {env_var}='{env_val}' is not int, using default")
+            note(f"sheet_cache: env {env_var}='{env_val}' is not int, using default")
     try:
         row = conn.execute("SELECT value FROM config WHERE key = ?", (key,)).fetchone()
     except sqlite3.OperationalError:
@@ -213,7 +213,7 @@ def enforce_size_cap(conn: sqlite3.Connection) -> int:
         deleted += 1
     conn.commit()
     if deleted:
-        logger.info(f"sheet_cache: evicted {deleted} tabs to fit cap {cap_bytes} bytes")
+        note(f"sheet_cache: evicted {deleted} tabs to fit cap {cap_bytes} bytes")
     return deleted
 
 
@@ -494,7 +494,7 @@ def get_ranges(
         est_bytes = info.rows * info.cols * 16  # rough estimate
         max_bytes = get_max_tab_bytes(conn)
         if est_bytes > max_bytes:
-            logger.info(
+            note(
                 f"sheet_cache: tab '{ref.tab}' too large for whole-tab cache "
                 f"(~{est_bytes // 1024}KB > {max_bytes // 1024}KB), direct fetch"
             )
