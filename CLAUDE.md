@@ -170,7 +170,7 @@ uv run pytest --cov=mpu --cov-report=term-missing --cov-fail-under=95
 | `backup-{wb,ozon}-unit-proto`, `backup-wb-unit-manual-data` | `backup_*.py` | CTAS-бэкап `*_proto` / `wb_unit_manual_data` в `backups`-схему |
 | `telegram` | `telegram.py` | Telegram от лица пользователя — skill `tool-mpu-telegram`. Ловушка: прокси только через `TELEGRAM_PROXY`, НЕ `HTTPS_PROXY` (утечёт на весь `mpu`) |
 | `mr` | `mr.py` | GitLab MR ревью — skill `tool-mpu-mr`; ENV `GLAB_TOKEN` |
-| `glab-status` | `glab_status.py` | мои GitLab MR одной таблицей (колонки-ветки `trunk/main/dev/qa/predprod/prod`, `✅`=merge долетел); `--since`/`--repos`/`--json`; ENV `GLAB_TOKEN`/`GITLAB_BASE_URL` |
+| `glab-status` | `glab_status.py` | GitLab MR одной таблицей (колонки-ветки `trunk/main/dev/qa/predprod/prod`, `✅`=merge долетел): без аргументов — мои MR за `--since`, с адресами MR (URL / `group/repo!iid` / `iid`) — ровно эти MR любых авторов (шапка + «прочие ветки», `--branches`); `--repos`/`--json`; ENV `GLAB_TOKEN`/`GITLAB_BASE_URL` |
 | `kiten` | `kiten/` | Kaiten-карточки (`card`/`ls`/`comment`/`move`/`ready`/`review`/`close`/`field`/`time`/справочник) — skill `tool-mpu-kiten` |
 | `log` | `log.py` | журнал вызовов самого `mpu` (`~/.config/mpu/mpu.log`): команда, вывод, ошибки, exit; фильтры `--failed`/`--cmd`/`--since`/`--run`. Пишет `lib/log.py` + `lib/capture.py`; ENV `MPU_LOG_*` (см. `.env.example`) |
 | `help` | `help.py` | список команд + проброс `--help` |

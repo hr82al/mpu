@@ -44,7 +44,6 @@ ENV (~/.config/mpu/.env): GLAB_TOKEN — PAT со scope `api`; GITLAB_BASE_URL �
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -69,11 +68,12 @@ from mpu.lib.gitlab_mr import (
     filter_discussions,
     find_diff_line,
     format_ranges,
+    git_output,
     match_discussion,
     note_url,
     parse_mr_ref,
     parse_unified_diff,
-    project_from_remote_url,
+    project_from_cwd,
 )
 
 if TYPE_CHECKING:
@@ -219,17 +219,6 @@ def _client(sub: str) -> GitLabClient:
         _fail(sub, str(e))
 
 
-def _git(*args: str) -> str:
-    try:
-        proc = subprocess.run(["git", *args], capture_output=True, text=True, check=True)
-    except FileNotFoundError:
-        raise MrUsageError("git не найден в PATH — укажи MR через --mr") from None
-    except subprocess.CalledProcessError as e:
-        detail = (e.stderr or "").strip() or f"git {' '.join(args)}: ошибка"
-        raise MrUsageError(f"{detail} — укажи MR через --mr") from None
-    return proc.stdout.strip()
-
-
 def _resolve_target(client: GitLabClient, mr_ref: str | None) -> tuple[str, int]:
     """(project, iid) из --mr; недостающее — из cwd: проект из git remote origin,
     IID из единственного открытого MR текущей ветки."""
@@ -238,9 +227,9 @@ def _resolve_target(client: GitLabClient, mr_ref: str | None) -> tuple[str, int]
     if mr_ref is not None:
         project, iid = parse_mr_ref(mr_ref, client.base_url)
     if project is None:
-        project = project_from_remote_url(_git("remote", "get-url", "origin"), client.host)
+        project = project_from_cwd(client.host)
     if iid is None:
-        branch = _git("rev-parse", "--abbrev-ref", "HEAD")
+        branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
         if branch == "HEAD":
             raise MrUsageError("detached HEAD — не определить ветку, укажи MR через --mr")
         mrs = client.find_open_mrs(project, branch)
@@ -383,10 +372,8 @@ def create(
         description = resolve_body(message, body_file, stdin_read=sys.stdin.read)
     client = _client("create")
     try:
-        project = project_opt or project_from_remote_url(
-            _git("remote", "get-url", "origin"), client.host
-        )
-        src = source or _git("rev-parse", "--abbrev-ref", "HEAD")
+        project = project_opt or project_from_cwd(client.host)
+        src = source or git_output("rev-parse", "--abbrev-ref", "HEAD")
         if src == "HEAD":
             raise MrUsageError("detached HEAD — укажи --source")
         mr = client.create_mr(project, src, target, title, description)

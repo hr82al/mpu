@@ -1,9 +1,12 @@
 """Тонкий клиент GitLab REST API v4 для code-review merge-request'ов.
 
-Используется из `mpu mr`. По образцу `mpu/lib/kaiten.py`: чистые функции (парсинг
-ссылок на MR, line-mapping unified-diff, сборка position-параметров, фильтры тредов)
-отделены от I/O (`GitLabClient`, httpx) и покрыты тестами без сети — сам HTTP-клиент,
-как kaiten/miro/slapi, тестами не покрывается.
+Используется из `mpu mr` и `mpu glab-status`. По образцу `mpu/lib/kaiten.py`: чистые
+функции (парсинг ссылок на MR, line-mapping unified-diff, сборка position-параметров,
+фильтры тредов) отделены от I/O (`GitLabClient`, httpx) и покрыты тестами без сети —
+сам HTTP-клиент, как kaiten/miro/slapi, тестами не покрывается.
+
+Здесь же — резолв проекта из cwd (`git_output` / `project_from_cwd`): обе команды
+принимают голый iid и достают project из `git remote origin` текущего каталога.
 
 Position-параметры инлайн-комментария GitLab принимает **form-encoded** скобочными
 ключами (`position[base_sha]=…`). Вложенный JSON-объект инсталляция игнорирует молча —
@@ -18,6 +21,7 @@ added-строка → `new_line`; removed → `old_line`; context (неизме
 from __future__ import annotations
 
 import re
+import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote, urlparse
@@ -62,6 +66,10 @@ if TYPE_CHECKING:
 DEFAULT_BASE_URL = "https://gitlab.btlz-api.ru"
 PER_PAGE = 100
 MIN_DISCUSSION_PREFIX = 6
+
+# Подсказка «как задать MR явно» в ошибках резолва — форма `mpu mr`. Команды с другой
+# формой адресации (у `mpu glab-status` MR — позиционный аргумент) передают свою.
+MR_REF_HINT = "укажи MR через --mr"
 
 Side = Literal["new", "old"]
 
@@ -121,8 +129,9 @@ def note_url(web_url: str, note_id: int) -> str:
     return f"{web_url}#note_{note_id}"
 
 
-def parse_mr_ref(ref: str, base_url: str) -> tuple[str | None, int | None]:
-    """Селектор MR → (project, iid); недостающая часть — None (деривация из cwd снаружи).
+def parse_mr_ref(ref: str, base_url: str) -> tuple[str | None, int]:
+    """Селектор MR → (project, iid); project — None, если его нет в селекторе
+    (деривация из cwd снаружи). iid присутствует всегда — иначе ValueError.
 
     Формы: полный URL `<base_url>/<group>/<repo>/-/merge_requests/<iid>[/…][?…]`
     (URL чужого хоста → ValueError), `group/repo!iid`, голый `iid`.
@@ -147,18 +156,18 @@ def parse_mr_ref(ref: str, base_url: str) -> tuple[str | None, int | None]:
         if not project or not iid_str.isdigit():
             raise ValueError(f"ожидается 'group/repo!iid', получено {ref!r}")
         return project, int(iid_str)
-    raise ValueError(f"не удалось разобрать --mr {ref!r}; формы: URL | 'group/repo!iid' | iid")
+    raise ValueError(f"не удалось разобрать MR {ref!r}; формы: URL | 'group/repo!iid' | iid")
 
 
 _SCP_REMOTE_RE = re.compile(r"^(?:[\w.+-]+@)?([\w.-]+):(.+)$")
 
 
-def project_from_remote_url(remote_url: str, expected_host: str) -> str:
+def project_from_remote_url(remote_url: str, expected_host: str, *, hint: str = MR_REF_HINT) -> str:
     """URL из `git remote get-url origin` → project path (`wb/sl-back`).
 
     Поддержаны ssh://- (с портом), scp- (`git@host:path.git`) и https-формы.
     Хост, отличный от `expected_host` (например github-remote самого mpu) →
-    ValueError с подсказкой указать --mr явно.
+    ValueError с подсказкой `hint`, как задать MR явно.
     """
     url = remote_url.strip()
     host: str | None = None
@@ -175,9 +184,7 @@ def project_from_remote_url(remote_url: str, expected_host: str) -> str:
     if not host or not path:
         raise ValueError(f"не удалось разобрать git remote {remote_url!r}")
     if host != expected_host:
-        raise ValueError(
-            f"git remote смотрит на {host!r}, а не на {expected_host!r} — укажи MR через --mr"
-        )
+        raise ValueError(f"git remote смотрит на {host!r}, а не на {expected_host!r} — {hint}")
     project = path.strip("/").removesuffix(".git")
     if not project:
         raise ValueError(f"пустой project в git remote {remote_url!r}")
@@ -553,3 +560,26 @@ class GitLabClient:
         from mpu.lib import gitlab_mr_models as gm
 
         return gm.parse_mr_info(res, project)
+
+
+# ── Резолв проекта из cwd (git) ────────────────────────────────────────────────
+
+
+def git_output(*args: str, hint: str = MR_REF_HINT) -> str:
+    """`git <args>` в cwd → stdout.strip(). git не найден / ненулевой код → ValueError
+    с подсказкой `hint`, как задать MR явно (вместо деривации из каталога)."""
+    try:
+        proc = subprocess.run(["git", *args], capture_output=True, text=True, check=True)
+    except FileNotFoundError:
+        raise ValueError(f"git не найден в PATH — {hint}") from None
+    except subprocess.CalledProcessError as e:
+        detail = (e.stderr or "").strip() or f"git {' '.join(args)}: ошибка"
+        raise ValueError(f"{detail} — {hint}") from None
+    return proc.stdout.strip()
+
+
+def project_from_cwd(expected_host: str, *, hint: str = MR_REF_HINT) -> str:
+    """`git remote get-url origin` текущего каталога → project path (`wb/sl-back`)."""
+    return project_from_remote_url(
+        git_output("remote", "get-url", "origin", hint=hint), expected_host, hint=hint
+    )

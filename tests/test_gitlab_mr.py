@@ -7,6 +7,7 @@ position-параметров, резолв дискуссии по префик
 
 from __future__ import annotations
 
+import subprocess
 from collections.abc import Callable
 from urllib.parse import parse_qs
 
@@ -32,6 +33,7 @@ from mpu.lib.gitlab_mr import (
     filter_discussions,
     find_diff_line,
     format_ranges,
+    git_output,
     match_discussion,
     note_url,
     parse_discussion,
@@ -40,6 +42,7 @@ from mpu.lib.gitlab_mr import (
     parse_mr_ref,
     parse_note,
     parse_unified_diff,
+    project_from_cwd,
     project_from_remote_url,
 )
 
@@ -936,3 +939,76 @@ def test_create_mr_without_description_omits_field(monkeypatch: pytest.MonkeyPat
         "target_branch": ["dev"],
         "title": ["T"],
     }
+
+
+# ── git_output / project_from_cwd ────────────────────────────────────────────────
+
+
+def _fake_git(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    stdout: str = "",
+    error: Exception | None = None,
+) -> list[list[str]]:
+    calls: list[list[str]] = []
+
+    def fake_run(
+        args: list[str],
+        *,
+        capture_output: bool = False,
+        text: bool = False,
+        check: bool = False,
+    ) -> subprocess.CompletedProcess[str]:
+        _ = (capture_output, text, check)
+        calls.append(args)
+        if error is not None:
+            raise error
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    return calls
+
+
+def test_git_output_strips(monkeypatch: pytest.MonkeyPatch):
+    calls = _fake_git(monkeypatch, stdout="  feat/x \n")
+    assert git_output("rev-parse", "--abbrev-ref", "HEAD") == "feat/x"
+    assert calls == [["git", "rev-parse", "--abbrev-ref", "HEAD"]]
+
+
+def test_git_output_not_found_uses_default_hint(monkeypatch: pytest.MonkeyPatch):
+    # дефолтный hint — форма `mpu mr`; щит на неизменность её сообщений
+    _fake_git(monkeypatch, error=FileNotFoundError())
+    with pytest.raises(ValueError, match=r"git не найден в PATH — укажи MR через --mr"):
+        git_output("status")
+
+
+def test_git_output_failed_uses_stderr(monkeypatch: pytest.MonkeyPatch):
+    err = subprocess.CalledProcessError(128, ["git"], stderr="fatal: not a git repository\n")
+    _fake_git(monkeypatch, error=err)
+    with pytest.raises(ValueError, match=r"fatal: not a git repository — как хочешь"):
+        git_output("status", hint="как хочешь")
+
+
+def test_git_output_failed_without_stderr_falls_back(monkeypatch: pytest.MonkeyPatch):
+    _fake_git(monkeypatch, error=subprocess.CalledProcessError(1, ["git"], stderr=""))
+    with pytest.raises(ValueError, match=r"git remote get-url origin: ошибка"):
+        git_output("remote", "get-url", "origin")
+
+
+def test_project_from_cwd_composes(monkeypatch: pytest.MonkeyPatch):
+    calls = _fake_git(monkeypatch, stdout="ssh://git@gitlab.btlz-api.ru:2222/wb/sl-back.git\n")
+    assert project_from_cwd(HOST) == "wb/sl-back"
+    assert calls == [["git", "remote", "get-url", "origin"]]
+
+
+def test_project_from_cwd_passes_hint_through(monkeypatch: pytest.MonkeyPatch):
+    _fake_git(monkeypatch, stdout="git@github.com-work:hr82al/mpu.git\n")
+    with pytest.raises(ValueError, match=r"github\.com-work.*— своя подсказка"):
+        project_from_cwd(HOST, hint="своя подсказка")
+
+
+def test_parse_mr_ref_garbage_message_is_command_neutral():
+    # сообщение общее для `mpu mr` и `mpu glab-status` — имени флага в нём нет
+    with pytest.raises(ValueError, match=r"не удалось разобрать MR 'garbage'") as e:
+        parse_mr_ref("garbage", BASE_URL)
+    assert "--mr" not in str(e.value)

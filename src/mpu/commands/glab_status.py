@@ -1,22 +1,19 @@
-"""`mpu glab-status` — обзор моих GitLab MR и их прохождения по веткам деплоя.
+"""`mpu glab-status` — прохождение GitLab MR по веткам деплоя.
 
-Одна таблица: строка — мой merge-request, колонки-ветки (`trunk`/`main`/`dev`/`qa`/
+Одна таблица: строка — merge-request, колонки-ветки (`trunk`/`main`/`dev`/`qa`/
 `predprod`/`prod`) — галочка `✅` там, куда merge-коммит MR уже попал (т.е. ветка
 содержит этот коммит). Открытый (не смерженный) MR — строка без галочек.
 
-По умолчанию: окно `7d` (последняя неделя по `updated_at`), репозитории
-`sw-front, sl-front, sw-back, sl-back, mp-config-local` (группа `wb/`), состояния
-open + merged. Сортировка — `(репозиторий, id)`. Репо без MR за интервал строк не дают.
+Два режима:
+- без аргументов — МОИ MR за окно `--since` (дефолт `7d` по `updated_at`) в репозиториях
+  `sw-front, sl-front, sw-back, sl-back, mp-config-local` (группа `wb/`), состояния
+  open + merged, сортировка `(репозиторий, id)`;
+- с адресами MR — ровно эти MR, любых авторов и репозиториев, без окна и фильтра репо;
+  над таблицей — шапка `project!iid · состояние · source → target`, под ней — «прочие
+  ветки» (содержащие landing-коммит, но вне 6 колонок пайплайна).
 
 Адаптивно по ширине терминала: при нехватке места обрезается только колонка `title`
 (заголовок MR) с многоточием; остальные колонки и галочки остаются на месте.
-
-Примеры:
-  mpu glab-status                              # дефолт: 7d, 5 репо, таблица
-  mpu glab-status --since 2d                   # окно — последние 2 дня
-  mpu glab-status --repos sl-back,sw-back      # только эти репозитории
-  mpu glab-status --repos sl-back --repos sw-back   # то же повторяемым флагом
-  mpu glab-status --json                       # машинный вывод
 
 ENV (~/.config/mpu/.env): GLAB_TOKEN — PAT со scope `api`; GITLAB_BASE_URL —
 инстанс (по умолчанию https://gitlab.btlz-api.ru).
@@ -36,10 +33,10 @@ from rich.markup import escape
 from rich.table import Table
 
 from mpu.lib import env
-from mpu.lib.cli_err import die
+from mpu.lib.cli_err import fail
 from mpu.lib.cli_out import print_json
 from mpu.lib.duration import DurationParseError, parse_since
-from mpu.lib.gitlab_mr import GitLabAPIError, GitLabClient
+from mpu.lib.gitlab_mr import GitLabAPIError, GitLabClient, parse_mr_ref, project_from_cwd
 
 if TYPE_CHECKING:
     # Только аннотации: runtime-импорт моделей тянет pydantic (~150 мс) в startup.
@@ -47,15 +44,18 @@ if TYPE_CHECKING:
 
 COMMAND_NAME = "mpu glab-status"
 COMMAND_SUMMARY = (
-    "Мои GitLab MR таблицей: галочки в колонках веток (trunk/main/dev/qa/predprod/prod) — "
-    "куда merge-коммит MR уже долетел; `--since`, `--repos`, `--json`"
+    "GitLab MR таблицей: галочки в колонках веток (trunk/main/dev/qa/predprod/prod) — "
+    "куда merge-коммит MR уже долетел; без аргументов — мои MR за `--since`, "
+    "с адресами MR — ровно эти MR (любых авторов); `--repos`, `--branches`, `--json`"
 )
 
 GROUP = "wb"
 DEFAULT_REPOS = ("sw-front", "sl-front", "sw-back", "sl-back", "mp-config-local")
 COLUMNS = ("trunk", "main", "dev", "qa", "predprod", "prod")
 CHECK = "✅"
+DEFAULT_SINCE = "7d"
 _VISIBLE_STATES = {"opened", "merged"}
+_MR_ARG_HINT = "укажи MR как 'group/repo!iid' или полным URL"
 
 app = typer.Typer(
     no_args_is_help=False,
@@ -104,6 +104,70 @@ def landed_columns(branch_names: Iterable[str]) -> list[str]:
     return [column for column in COLUMNS if column in present]
 
 
+def other_branches(branch_names: Iterable[str], *, source_branch: str) -> list[str]:
+    """Ветки с landing-коммитом вне COLUMNS — зеркало `landed_columns`.
+
+    Своя ветка MR исключается: у смерженного fast-forward без squash landing-коммит —
+    head исходной ветки, и она попала бы в «прочие» сразу под шапкой, где уже названа.
+    Сортировка — ради идемпотентности вывода (порядок refs API не гарантирует)."""
+    return sorted({name for name in branch_names if name not in COLUMNS and name != source_branch})
+
+
+def mr_header(row: dict[str, Any]) -> str:
+    """Строка над таблицей: `wb/sw-front!830 · merged · fix/x → dev`.
+
+    Сегмент веток опускается, если обе пусты (MR без коммитов)."""
+    segments = [f"{row['project']}!{row['iid']}", row["state"] or "?"]
+    source, target = row["source_branch"], row["target_branch"]
+    if source or target:
+        segments.append(f"{source} → {target}")
+    return " · ".join(segments)
+
+
+def format_other_branches(names: list[str] | None, state: str, *, full: bool) -> str:
+    """Ячейка подвала. `None` = refs не запрашивались (у несмерженного — by design,
+    у merged без landing-sha/project_id — нет данных). По умолчанию печатается счётчик:
+    refs merge-коммита содержат ВСЕ ветки, ответвлённые от целевой позже (десятки)."""
+    if names is None:
+        return "(MR не смержен)" if state != "merged" else "(нет данных)"
+    if not names:
+        return "(нет)"
+    if full:
+        return ", ".join(names)
+    return f"{len(names)} (показать: --branches)"
+
+
+def other_branches_report(rows: list[dict[str, Any]], *, full: bool) -> list[str]:
+    """Подвал MR-отчёта: одна строка на один MR, блок с отбивкой — на несколько."""
+    cells = [format_other_branches(r["other_branches"], r["state"], full=full) for r in rows]
+    if len(rows) == 1:
+        return [f"прочие ветки: {cells[0]}"]
+    return ["прочие ветки:"] + [
+        f"  {r['project']}!{r['iid']}: {cell}" for r, cell in zip(rows, cells, strict=True)
+    ]
+
+
+def conflicting_window_flags(since: str | None, repos: list[str] | None) -> list[str]:
+    """Опции режима «мои MR», заданные явно — при адресах MR они бессмысленны."""
+    flags: list[str] = []
+    if since is not None:
+        flags.append("--since")
+    if repos is not None:
+        flags.append("--repos")
+    return flags
+
+
+def dedupe_targets(targets: list[tuple[str, int]]) -> list[tuple[str, int]]:
+    """Схлопнуть повторы (`830` и `wb/x!830` из каталога x — один MR), сохранив порядок."""
+    seen: set[tuple[str, int]] = set()
+    result: list[tuple[str, int]] = []
+    for target in targets:
+        if target not in seen:
+            seen.add(target)
+            result.append(target)
+    return result
+
+
 def fit_title(title: str, budget: int) -> str:
     """Обрезать title до budget терминальных ячеек (emoji=2 ячейки) с хвостом `…`.
 
@@ -138,14 +202,19 @@ def title_budget(console_width: int, rows: list[dict[str, Any]]) -> int:
 # ── I/O-хелперы ─────────────────────────────────────────────────────────────────
 
 
-def _fail(message: str) -> NoReturn:
-    die(f"{COMMAND_NAME}: {message}")
+def _fail(message: str, *, hint: str | None = None) -> NoReturn:
+    fail(COMMAND_NAME, message, code=1, hint=hint)
 
 
-def _err_msg(e: GitLabAPIError) -> str:
+def _err_msg(e: Exception, *, mr_mode: bool = False) -> str:
+    if not isinstance(e, GitLabAPIError):
+        return str(e)
     message = f"gitlab error: {e}"
     if e.status == 401:  # noqa: PLR2004
         message += f"; проверь GLAB_TOKEN в {env.env_path()}"
+    elif mr_mode and e.status == 404:  # noqa: PLR2004
+        # 404 приходит только из get_mr: commit_branch_names гасит его сама.
+        message += "; проверь адрес MR (URL | 'group/repo!iid' | iid)"
     return message
 
 
@@ -163,14 +232,18 @@ def _iso_utc(ts: int) -> str:
 def _build_rows(client: GitLabClient, mrs: list[MrInfo]) -> list[dict[str, Any]]:
     """Для каждого MR — строка с пометкой веток, куда он долетел. refs запрашиваем
     только у смерженных (у открытого landing-коммит — head ветки, ни в одной из
-    6 колонок его нет → пусто без лишнего запроса)."""
+    6 колонок его нет → пусто без лишнего запроса).
+
+    Асимметрия намеренная: `landed` у несмерженного — `[]` (правда: ни в одну колонку
+    не попал), `other_branches` — `None` (не знаем, refs не спрашивали). 404 от
+    `commit_branch_names` (коммит уехал) приходит как `[]` — неотличимо от «веток нет»."""
     rows: list[dict[str, Any]] = []
     for mr in mrs:
         project = project_from_web_url(mr.web_url) or mr.project
         sha = landing_sha(mr)
-        landed: list[str] = []
+        names: list[str] | None = None
         if mr.state == "merged" and sha and mr.project_id is not None:
-            landed = landed_columns(client.commit_branch_names(mr.project_id, sha))
+            names = client.commit_branch_names(mr.project_id, sha)
         rows.append(
             {
                 "repo": repo_short_name(project),
@@ -178,7 +251,15 @@ def _build_rows(client: GitLabClient, mrs: list[MrInfo]) -> list[dict[str, Any]]
                 "title": mr.title,
                 "state": mr.state,
                 "web_url": mr.web_url,
-                "landed": landed,
+                "landed": landed_columns(names) if names is not None else [],
+                "project": project or None,
+                "source_branch": mr.source_branch,
+                "target_branch": mr.target_branch,
+                "other_branches": (
+                    other_branches(names, source_branch=mr.source_branch)
+                    if names is not None
+                    else None
+                ),
             }
         )
     return rows
@@ -201,26 +282,46 @@ def _render_table(rows: list[dict[str, Any]]) -> None:
     console.print(table)
 
 
-@app.command()
-def main(
-    since: Annotated[
-        str,
-        typer.Option("--since", help="Окно по updated_at: 1h / 30m / 2d / unix-ts. Дефолт 7d"),
-    ] = "7d",
-    repos: Annotated[
-        list[str] | None,
-        typer.Option(
-            "--repos",
-            help="Репозитории (короткое имя или group/repo; повторяемый и/или через запятую). "
-            "Дефолт: sw-front, sl-front, sw-back, sl-back, mp-config-local",
-        ),
-    ] = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод (вместо таблицы)")] = False,
-) -> None:
-    """Мои MR таблицей с галочками прохождения по веткам деплой-пайплайна."""
-    client = _client()
+def _render_mr_report(rows: list[dict[str, Any]], *, full_branches: bool) -> None:
+    """Шапки → пустая строка → таблица → подвал. Шапка и подвал печатаются `typer.echo`,
+    а не через rich: plain-текст не парсит markup, поэтому имена веток и ветвей MR
+    не могут внести разметку — безопасно by construction, а не за счёт `escape()`."""
+    for row in rows:
+        typer.echo(mr_header(row))
+    typer.echo("")
+    _render_table(rows)
+    for line in other_branches_report(rows, full=full_branches):
+        typer.echo(line)
+
+
+def _resolve_ref(client: GitLabClient, ref: str) -> tuple[str, int]:
+    """Адрес MR → (project, iid); проект без явного указания — из git remote cwd."""
+    project, iid = parse_mr_ref(ref, client.base_url)  # ошибки парсинга сами называют ref
+    if project is None:
+        try:
+            project = project_from_cwd(client.host, hint=_MR_ARG_HINT)
+        except ValueError as e:
+            # Ошибка git про ref не знает — иначе при нескольких MR не найти виноватого.
+            raise ValueError(f"MR {ref!r}: {e}") from None
+    return project, iid
+
+
+def _rows_for_refs(client: GitLabClient, refs: list[str]) -> list[dict[str, Any]]:
+    """Строки для явно названных MR — в порядке аргументов, повторы схлопнуты."""
     try:
-        since_ts = parse_since(since)
+        targets = dedupe_targets([_resolve_ref(client, ref) for ref in refs])
+        mrs = [client.get_mr(project, iid) for project, iid in targets]
+        return _build_rows(client, mrs)
+    except (GitLabAPIError, ValueError) as e:
+        _fail(_err_msg(e, mr_mode=True))
+
+
+def _rows_for_window(
+    client: GitLabClient, since: str | None, repos: list[str] | None
+) -> list[dict[str, Any]]:
+    """Строки для моих MR за окно `--since` в выбранных репозиториях."""
+    try:
+        since_ts = parse_since(since if since is not None else DEFAULT_SINCE)
     except DurationParseError as e:
         _fail(f"--since: {e}")
     selected = resolve_repos(repos)
@@ -235,11 +336,84 @@ def main(
     ]
     mrs.sort(key=mr_sort_key)
     try:
-        rows = _build_rows(client, mrs)
+        return _build_rows(client, mrs)
     except GitLabAPIError as e:
         _fail(_err_msg(e))
+
+
+@app.command()
+def main(
+    mr_refs: Annotated[
+        list[str] | None,
+        typer.Argument(
+            metavar="[MR]...",
+            help="Адреса MR: URL | 'group/repo!iid' (в кавычках — `!` раскрывает shell) | iid "
+            "(проект — из `git remote origin` ТЕКУЩЕГО каталога). Можно несколько, повторы "
+            "схлопываются; показываются ровно эти MR — любых авторов и репозиториев. "
+            "Без адресов — мои MR за окно --since",
+        ),
+    ] = None,
+    since: Annotated[
+        str | None,
+        typer.Option(
+            "--since",
+            help="Окно по updated_at: 1h / 30m / 2d / unix-ts. Дефолт 7d. "
+            "Только для режима «мои MR» — с адресом MR несовместимо",
+        ),
+    ] = None,
+    repos: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--repos",
+            help="Репозитории (короткое имя или group/repo; повторяемый и/или через запятую). "
+            "Дефолт: sw-front, sl-front, sw-back, sl-back, mp-config-local. "
+            "Только для режима «мои MR» — с адресом MR несовместимо",
+        ),
+    ] = None,
+    branches: Annotated[
+        bool,
+        typer.Option(
+            "--branches",
+            help="Печатать «прочие ветки» полным списком вместо счётчика (только с адресом MR)",
+        ),
+    ] = False,
+    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод (вместо таблицы)")] = False,
+) -> None:
+    """Таблица прохождения MR по веткам деплой-пайплайна.
+
+    Без аргументов — мои MR за окно; с адресами MR — ровно эти MR (шапка + «прочие ветки»).
+
+      mpu glab-status                                   # дефолт: 7d, 5 репо
+      mpu glab-status --since 2d --repos sl-back,sw-back
+      mpu glab-status 'wb/sw-front!830'                 # конкретный MR
+      mpu glab-status 830                               # проект — из git remote cwd
+      mpu glab-status 2117 'wb/sw-front!830' --branches # несколько MR, ветки списком
+      mpu glab-status --json                            # машинный вывод (оба режима)
+
+    Адрес, начинающийся с дефиса, отделять `--` (иначе click примет его за опцию).
+    """
+    refs = mr_refs or []
+    if refs:
+        conflicts = conflicting_window_flags(since, repos)
+        if conflicts:
+            flags = "/".join(conflicts)
+            # Валидация до _client(): usage-ошибка не должна требовать GLAB_TOKEN.
+            _fail(
+                f"{flags} — только для режима «мои MR», с адресом MR не сочетается",
+                hint=f"убрать {flags} либо вызвать mpu glab-status без адресов MR",
+            )
+    elif branches:
+        _fail(
+            "--branches применяется только с адресом MR",
+            hint="указать адрес MR либо убрать флаг",
+        )
+    client = _client()
+    rows = _rows_for_refs(client, refs) if refs else _rows_for_window(client, since, repos)
     if out_json:
         print_json(rows)
+        return
+    if refs:
+        _render_mr_report(rows, full_branches=branches)
         return
     if not rows:
         typer.echo("(нет моих MR за интервал в выбранных репозиториях)", err=True)
