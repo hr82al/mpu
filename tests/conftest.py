@@ -19,6 +19,44 @@ _LOG_DEFAULTS = {
 }
 
 
+class ContainerRunRecorder:
+    """Двойник `pssh_run_container`: пишет вызовы, возвращает заданный код.
+
+    Сигнатура `__call__` — точная копия продакшн-функции и в этом смысле сама является
+    проверкой: если вызывающий код начнёт передавать аргументы иначе, упадут все тесты,
+    а не тот один, где двойник поправили.
+    """
+
+    def __init__(self, rc: int = 0) -> None:
+        self.calls: list[dict[str, object]] = []
+        self.rc = rc
+
+    def __call__(self, *, container: str, cmd: list[str], stdin: bytes = b"") -> int:
+        self.calls.append({"container": container, "cmd": list(cmd), "stdin": stdin})
+        return self.rc
+
+    @property
+    def containers(self) -> list[str]:
+        return [str(c["container"]) for c in self.calls]
+
+
+@pytest.fixture
+def container_run(monkeypatch: pytest.MonkeyPatch) -> Callable[..., ContainerRunRecorder]:
+    """Подменить `pssh_run_container` в указанных модулях и записывать вызовы.
+
+    Модули передаются явно: часть команд импортирует функцию в своё пространство имён,
+    и подмена в `mpu.lib.pssh` их не перехватит.
+    """
+
+    def _install(*targets: object, rc: int = 0) -> ContainerRunRecorder:
+        recorder = ContainerRunRecorder(rc)
+        for target in targets:
+            monkeypatch.setattr(target, "pssh_run_container", recorder)
+        return recorder
+
+    return _install
+
+
 @pytest.fixture(autouse=True)
 def isolate_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Лог тестов — в tmp, режим детерминированный.

@@ -1,11 +1,12 @@
 """Тесты `mpu move-client` (mpu.commands.move_client)."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import cast
 
 import pytest
 from typer.testing import CliRunner
 
+from conftest import ContainerRunRecorder
 from mpu.commands import move_client as cmd
 from mpu.lib import pssh, resolver
 from mpu.lib.resolver import ResolveError
@@ -36,17 +37,8 @@ def fake_resolve(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, object]]
 
 
 @pytest.fixture
-def fake_run(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
-    captured: dict[str, object] = {}
-
-    def _run(*, container: str, cmd: list[str], stdin: bytes = b"") -> int:
-        _ = stdin
-        captured["cmd"] = cmd
-        captured["container"] = container
-        return 0
-
-    monkeypatch.setattr(pssh, "pssh_run_container", _run)
-    return captured
+def fake_run(container_run: Callable[..., ContainerRunRecorder]) -> ContainerRunRecorder:
+    return container_run(pssh)
 
 
 @pytest.fixture
@@ -63,13 +55,13 @@ def fake_record(monkeypatch: pytest.MonkeyPatch) -> list[tuple[int, str, str]]:
 
 def test_happy_path_default_target_sl_1(
     fake_resolve: dict[str, object],
-    fake_run: dict[str, object],
+    fake_run: ContainerRunRecorder,
     fake_record: list[tuple[int, str, str]],
 ) -> None:
     res = runner.invoke(cmd.app, ["1589"])
 
     assert res.exit_code == 0, res.output
-    cmd_argv = fake_run["cmd"]
+    cmd_argv = fake_run.calls[0]["cmd"]
     assert cmd_argv == [
         "node",
         "cli",
@@ -83,26 +75,26 @@ def test_happy_path_default_target_sl_1(
         "1589",
         "--destroy",
     ]
-    assert fake_run["container"] == "mp-dt-cli"
+    assert fake_run.calls[0]["container"] == "mp-dt-cli"
     assert fake_record == [(1589, "sl-13", "sl-1")]
 
 
 def test_custom_target(
     fake_resolve: dict[str, object],
-    fake_run: dict[str, object],
+    fake_run: ContainerRunRecorder,
     fake_record: list[tuple[int, str, str]],
 ) -> None:
     res = runner.invoke(cmd.app, ["1589", "--target", "sl-5"])
 
     assert res.exit_code == 0, res.output
-    cmd_argv = cast(list[str], fake_run["cmd"])
+    cmd_argv = cast(list[str], fake_run.calls[0]["cmd"])
     assert "--target" in cmd_argv
     target_idx = cmd_argv.index("--target")
     assert cmd_argv[target_idx + 1] == "sl-5"
     assert fake_record == [(1589, "sl-13", "sl-5")]
 
 
-def test_bad_target_format(fake_resolve: dict[str, object], fake_run: dict[str, object]) -> None:
+def test_bad_target_format(fake_resolve: dict[str, object], fake_run: ContainerRunRecorder) -> None:
     _ = fake_run
     res = runner.invoke(cmd.app, ["1589", "--target", "xx-5"])
 
@@ -111,7 +103,7 @@ def test_bad_target_format(fake_resolve: dict[str, object], fake_run: dict[str, 
 
 
 def test_source_equals_target_aborts(
-    fake_resolve: dict[str, object], fake_run: dict[str, object]
+    fake_resolve: dict[str, object], fake_run: ContainerRunRecorder
 ) -> None:
     _ = fake_run
     # fake_resolve возвращает sl-13; ставим target=sl-13 → должен отказать
@@ -121,7 +113,7 @@ def test_source_equals_target_aborts(
     assert "оба sl-13" in res.output
 
 
-def test_resolve_error(monkeypatch: pytest.MonkeyPatch, fake_run: dict[str, object]) -> None:
+def test_resolve_error(monkeypatch: pytest.MonkeyPatch, fake_run: ContainerRunRecorder) -> None:
     _ = fake_run
 
     def _raise(
@@ -136,7 +128,9 @@ def test_resolve_error(monkeypatch: pytest.MonkeyPatch, fake_run: dict[str, obje
     assert "mpu move-client: nothing matched" in res.output
 
 
-def test_ambiguous_client_ids(monkeypatch: pytest.MonkeyPatch, fake_run: dict[str, object]) -> None:
+def test_ambiguous_client_ids(
+    monkeypatch: pytest.MonkeyPatch, fake_run: ContainerRunRecorder
+) -> None:
     _ = fake_run
 
     def _resolve(
@@ -155,7 +149,7 @@ def test_ambiguous_client_ids(monkeypatch: pytest.MonkeyPatch, fake_run: dict[st
 
 
 def test_sl_selector_without_client_id(
-    monkeypatch: pytest.MonkeyPatch, fake_run: dict[str, object]
+    monkeypatch: pytest.MonkeyPatch, fake_run: ContainerRunRecorder
 ) -> None:
     _ = fake_run
 
@@ -174,13 +168,9 @@ def test_sl_selector_without_client_id(
 def test_run_failure_propagates(
     fake_resolve: dict[str, object],
     fake_record: list[tuple[int, str, str]],
-    monkeypatch: pytest.MonkeyPatch,
+    container_run: Callable[..., ContainerRunRecorder],
 ) -> None:
-    def _run(*, container: str, cmd: list[str], stdin: bytes = b"") -> int:
-        _ = container, cmd, stdin
-        return 17
-
-    monkeypatch.setattr(pssh, "pssh_run_container", _run)
+    container_run(pssh, rc=17)
     res = runner.invoke(cmd.app, ["1589"])
 
     assert res.exit_code == 17

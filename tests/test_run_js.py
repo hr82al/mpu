@@ -5,7 +5,7 @@
 """
 # pyright: reportPrivateUsage=false
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import cast
 
@@ -13,6 +13,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
+from conftest import ContainerRunRecorder
 from mpu.commands import run_js
 from mpu.commands._target_resolve import ContainerTarget, ServerTarget
 from mpu.lib import clipboard, portainer_discover, servers, store
@@ -348,22 +349,17 @@ def test_cli_all_with_two_positionals_rejected(
 
 
 @pytest.fixture
-def fake_pssh_container(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, object]]:
-    """Заменяет pssh_run_container в run_js: пишет каждый вызов в список, возвращает rc=0."""
-    calls: list[dict[str, object]] = []
-
-    def _fake_run(*, container: str, cmd: list[str], stdin: bytes = b"") -> int:
-        calls.append({"container": container, "cmd": list(cmd), "stdin": stdin})
-        return 0
-
-    monkeypatch.setattr(run_js, "pssh_run_container", _fake_run)
-    return calls
+def fake_pssh_container(
+    container_run: Callable[..., ContainerRunRecorder],
+) -> ContainerRunRecorder:
+    """Заменяет pssh_run_container в run_js: пишет каждый вызов, возвращает rc=0."""
+    return container_run(run_js)
 
 
 def test_cli_execute_container_by_name(
     env_file: Path,
     fake_pssh: list[dict[str, object]],
-    fake_pssh_container: list[dict[str, object]],
+    fake_pssh_container: ContainerRunRecorder,
 ) -> None:
     """Точное имя контейнера → pssh_run_container, не pssh_run."""
     _ = env_file
@@ -379,8 +375,8 @@ def test_cli_execute_container_by_name(
     result = runner.invoke(run_js.app, ["mp-sl-9-wb-loader", "console.log(1)"])
     assert result.exit_code == 0, result.output
     assert fake_pssh == []
-    assert len(fake_pssh_container) == 1
-    call = fake_pssh_container[0]
+    assert len(fake_pssh_container.calls) == 1
+    call = fake_pssh_container.calls[0]
     assert call["container"] == "mp-sl-9-wb-loader"
     assert call["cmd"] == ["node", "--input-type=module", "-"]
     assert call["stdin"] == b"console.log(1)"
@@ -389,7 +385,7 @@ def test_cli_execute_container_by_name(
 def test_cli_execute_all_containers(
     env_file: Path,
     fake_pssh: list[dict[str, object]],
-    fake_pssh_container: list[dict[str, object]],
+    fake_pssh_container: ContainerRunRecorder,
 ) -> None:
     """--all-containers + inline code: позиционный repurpose'ится в <code>."""
     _ = env_file
@@ -414,17 +410,17 @@ def test_cli_execute_all_containers(
     result = runner.invoke(run_js.app, ["--all-containers", "wb-loader", "console.log(1)"])
     assert result.exit_code == 0, result.output
     assert fake_pssh == []
-    assert [c["container"] for c in fake_pssh_container] == [
+    assert fake_pssh_container.containers == [
         "mp-sl-1-wb-loader",
         "mp-sl-2-wb-loader",
     ]
-    assert all(c["stdin"] == b"console.log(1)" for c in fake_pssh_container)
+    assert all(c["stdin"] == b"console.log(1)" for c in fake_pssh_container.calls)
 
 
 def test_cli_all_containers_no_match_rejected(
     env_file: Path,
     fake_pssh: list[dict[str, object]],
-    fake_pssh_container: list[dict[str, object]],
+    fake_pssh_container: ContainerRunRecorder,
 ) -> None:
     """--all-containers без совпадений в кэше → exit 2, ничего не запущено."""
     _ = env_file
@@ -432,7 +428,7 @@ def test_cli_all_containers_no_match_rejected(
     result = runner.invoke(run_js.app, ["--all-containers", "nonexistent", "console.log(1)"])
     assert result.exit_code == 2
     assert fake_pssh == []
-    assert fake_pssh_container == []
+    assert fake_pssh_container.calls == []
 
 
 # ---------- --parallel ----------
