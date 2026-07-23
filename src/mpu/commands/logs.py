@@ -74,6 +74,46 @@ def _complete_level(incomplete: str) -> list[str]:
     return [v for v in ("error", "warn", "info", "debug") if v.startswith(incomplete)]
 
 
+def _print_ls(selector: str | None, service: str | None) -> bool:
+    """Режимы листинга (`ls` вместо host или service). True — команда отработала."""
+    if selector == _LS:
+        _logs_loki.print_hosts_ls(command_name=COMMAND_NAME)
+        return True
+    if service == _LS:
+        if selector is None:
+            _logs_loki.print_all_services_ls(command_name=COMMAND_NAME)
+        else:
+            _logs_loki.print_services_ls(selector, command_name=COMMAND_NAME)
+        return True
+    return False
+
+
+def _as_service_if_not_host(
+    selector: str | None, service: str | None, via: str
+) -> tuple[str | None, str | None]:
+    """`mpu logs wb-loader` — первый позиционный это сервис, а не host.
+
+    Срабатывает только когда host-фильтр не задан, значение не похоже на host и совпадает
+    с именем сервиса в кэше; иначе аргументы возвращаются как есть.
+    """
+    if (
+        selector is not None
+        and service is None
+        and via != "portainer"
+        and not _logs_loki.is_direct_host(selector)
+        and selector in set(_logs_loki.cached_all_services())
+    ):
+        return None, selector
+    return selector, service
+
+
+def _require(condition: bool, message: str) -> None:
+    """Условие для `--via portainer`, при нарушении — сообщение и выход 2."""
+    if not condition:
+        typer.echo(f"{COMMAND_NAME}: {message}", err=True)
+        raise typer.Exit(code=2)
+
+
 app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -165,46 +205,18 @@ def main(  # noqa: PLR0913
 
     Без <selector> — запрос идёт без фильтра по host (все хосты в одном LogQL).
     """
-    # `ls` режим — листинг из SQLite-кэша.
-    if selector == _LS:
-        _logs_loki.print_hosts_ls(command_name=COMMAND_NAME)
+    if _print_ls(selector, service):
         return
-    if service == _LS:
-        if selector is None:
-            _logs_loki.print_all_services_ls(command_name=COMMAND_NAME)
-        else:
-            _logs_loki.print_services_ls(selector, command_name=COMMAND_NAME)
-        return
-
-    # Если первый позиционный не выглядит как host и совпадает с именем сервиса в кэше,
-    # трактуем его как service (без фильтра по host).
-    # Пример: `mpu logs wb-loader --since 1h` → service=wb-loader, host=all
-    if (
-        selector is not None
-        and service is None
-        and via != "portainer"
-        and not _logs_loki.is_direct_host(selector)
-        and selector in set(_logs_loki.cached_all_services())
-    ):
-        service = selector
-        selector = None
+    selector, service = _as_service_if_not_host(selector, service, via)
 
     if via == "portainer":
-        if selector is None:
-            typer.echo(
-                f"{COMMAND_NAME}: --via portainer требует <selector>",
-                err=True,
-            )
-            raise typer.Exit(code=2)
-        if service is None:
-            typer.echo(
-                f"{COMMAND_NAME}: --via portainer требует <container> (2-й позиционный аргумент)",
-                err=True,
-            )
-            raise typer.Exit(code=2)
-        if follow:
-            typer.echo(f"{COMMAND_NAME}: --follow не поддерживается с --via portainer", err=True)
-            raise typer.Exit(code=2)
+        _require(selector is not None, "--via portainer требует <selector>")
+        _require(
+            service is not None,
+            "--via portainer требует <container> (2-й позиционный аргумент)",
+        )
+        _require(not follow, "--follow не поддерживается с --via portainer")
+        assert selector is not None and service is not None
         _logs_portainer.run(
             command_name=COMMAND_NAME,
             selector=selector,
@@ -217,9 +229,7 @@ def main(  # noqa: PLR0913
         )
         return
 
-    if via != "loki":
-        typer.echo(f"{COMMAND_NAME}: --via {via!r}, ожидается 'loki' или 'portainer'", err=True)
-        raise typer.Exit(code=2)
+    _require(via == "loki", f"--via {via!r}, ожидается 'loki' или 'portainer'")
 
     if follow:
         _logs_loki.follow(
