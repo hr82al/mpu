@@ -28,104 +28,38 @@ from mpu.lib.jsonx import dict_items, is_dict
 if TYPE_CHECKING:
     from mpu.lib.kaiten_models import (
         KaitenActivity as KaitenActivity,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenBoard as KaitenBoard,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenCard as KaitenCard,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenCardDetail as KaitenCardDetail,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenColumn as KaitenColumn,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenComment as KaitenComment,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenCustomProperty as KaitenCustomProperty,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenFile as KaitenFile,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenLane as KaitenLane,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenLocationChange as KaitenLocationChange,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenMember as KaitenMember,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenRole as KaitenRole,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenSpace as KaitenSpace,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenTimeLog as KaitenTimeLog,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenTimeLogEntry as KaitenTimeLogEntry,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenTimer as KaitenTimer,
-    )
-    from mpu.lib.kaiten_models import (
         KaitenUser as KaitenUser,
-    )
-    from mpu.lib.kaiten_models import (
         parse_activity as parse_activity,
-    )
-    from mpu.lib.kaiten_models import (
         parse_boards_of_space as parse_boards_of_space,
-    )
-    from mpu.lib.kaiten_models import (
         parse_card as parse_card,
-    )
-    from mpu.lib.kaiten_models import (
         parse_card_detail as parse_card_detail,
-    )
-    from mpu.lib.kaiten_models import (
         parse_column as parse_column,
-    )
-    from mpu.lib.kaiten_models import (
         parse_comment as parse_comment,
-    )
-    from mpu.lib.kaiten_models import (
         parse_custom_property as parse_custom_property,
-    )
-    from mpu.lib.kaiten_models import (
         parse_file as parse_file,
-    )
-    from mpu.lib.kaiten_models import (
         parse_lane as parse_lane,
-    )
-    from mpu.lib.kaiten_models import (
         parse_location_change as parse_location_change,
-    )
-    from mpu.lib.kaiten_models import (
         parse_member as parse_member,
-    )
-    from mpu.lib.kaiten_models import (
         parse_role as parse_role,
-    )
-    from mpu.lib.kaiten_models import (
         parse_space as parse_space,
-    )
-    from mpu.lib.kaiten_models import (
         parse_time_log as parse_time_log,
-    )
-    from mpu.lib.kaiten_models import (
         parse_time_log_entry as parse_time_log_entry,
-    )
-    from mpu.lib.kaiten_models import (
         parse_timer as parse_timer,
-    )
-    from mpu.lib.kaiten_models import (
         parse_user as parse_user,
     )
 

@@ -44,8 +44,7 @@ from typing import Annotated
 
 import typer
 
-from mpu.lib import containers, servers
-from mpu.lib import pssh as _pssh
+from mpu.lib import containers, pssh as _pssh, servers
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 COMMAND_NAME = "mpu ssh"

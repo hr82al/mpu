@@ -92,6 +92,10 @@ max-args = 8  # дефолт 5 душит Typer-энтрипоинты (кажд
 
 [tool.ruff.lint.isort]
 known-first-party = ["mpu"]
+# Реэкспорт моделей под `if TYPE_CHECKING` пишется как `X as X` на каждое имя; без этого
+# флага isort разносит каждое имя в отдельный `from ... import (...)`-блок (34 имени = 103
+# строки в lib/kaiten.py). С ним — один блок на модуль.
+combine-as-imports = true
 
 [tool.pyright]
 include = ["src", "tests"]

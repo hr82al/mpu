@@ -40,11 +40,11 @@ import click
 
 from mpu.commands._wb_loader import (
     emit_curl,
+    fail as _fail_base,
     loader_path,
     print_json,
     resolve_target_sid,
 )
-from mpu.commands._wb_loader import fail as _fail_base
 from mpu.lib.slapi import SlApi, SlApiError, resolve_base_url
 
 COMMAND = "mpu api wb-cards-reset"
@@ -94,9 +94,6 @@ def _run(*, selector: str, sid: str | None, client_id: int | None, print_mode: b
 def build_command() -> click.Command:
     """Собрать `click.Command` для монтажа в `mpu api`-группу."""
 
-    def callback(selector: str, sid: str | None, client_id: int | None, print_mode: bool) -> None:
-        _run(selector=selector, sid=sid, client_id=client_id, print_mode=print_mode)
-
     params: list[click.Parameter] = [
         click.Argument(["selector"], required=True, type=str),
         click.Option(
@@ -122,7 +119,7 @@ def build_command() -> click.Command:
     return click.Command(
         name="wb-cards-reset",
         params=params,
-        callback=callback,
+        callback=_run,
         help=__doc__,
         context_settings={"help_option_names": ["-h", "--help"]},
     )

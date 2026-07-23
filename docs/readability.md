@@ -7,6 +7,9 @@
 командами из раздела «Как мерить». Каждая находка ниже проверена по коду: место открыто, код сверен
 с описанием; две находки при проверке отклонены и вынесены в §10 отдельно.
 
+Сделанное помечается **✅** прямо в тексте находки — так видно, что осталось. Шаги 1–2 очереди (§11)
+выполнены 2026-07-23: −178 строк нетто в 26 файлах, тесты 3045 зелёные, покрытие 95,31%.
+
 ---
 
 ## 0. Главный вывод
@@ -70,10 +73,10 @@ ClientIdOpt = Annotated[int | None, typer.Option("--client-id", "--client_id", h
 
 Объём: M · выигрыш: high.
 
-**Смежное, почти бесплатное.** `lib/kaiten.py:28-130` — реэкспорт моделей под `if TYPE_CHECKING`:
-34 отдельных импорт-стейтмента на 103 строки; то же в `lib/gitlab_mr.py:34-65`. Причина — дефолт
-isort в ruff. Флаг `combine-as-imports = true` в `[tool.ruff.lint.isort]` + `ruff check --fix`
-убирает ~84 строки чистого шума без единой правки логики. Объём: S · выигрыш: medium.
+**✅ Смежное, почти бесплатное — сделано.** `lib/kaiten.py:28-130` — реэкспорт моделей под
+`if TYPE_CHECKING`: 34 отдельных импорт-стейтмента на 103 строки; то же в `lib/gitlab_mr.py:34-65`.
+Причина — дефолт isort в ruff. Флаг `combine-as-imports = true` в `[tool.ruff.lint.isort]`
+плюс `ruff check --fix` убрал 108 строк импорт-шума в 8 файлах без единой правки логики.
 
 ---
 
@@ -89,7 +92,7 @@ isort в ruff. Флаг `combine-as-imports = true` в `[tool.ruff.lint.isort]` 
 
 | Место | Что продублировано | Лечение | Объём |
 | ----- | ------------------ | ------- | ----- |
-| `commands/wb_cards_reset.py:97` + `wb_loader_{load,status,reset,resume,blocked}.py` | 6 click-callback'ов, дословно форвардящих kwargs в `_run(*, ...)` | имена параметров совпадают с destination'ами `click.Parameter` → передать `callback=_run` напрямую (проверено на click 8.3.2) | S |
+| ✅ `commands/wb_cards_reset.py:97` + `wb_loader_{load,status,reset,resume,blocked}.py` | 6 click-callback'ов, дословно форвардящих kwargs в `_run(*, ...)` | **сделано:** `callback=_run` напрямую, −68 строк | S |
 | `commands/process.py:93` vs `recalculate_ozon_expenses.py:81` | `_complete_sku` — дословная копия (различие только в докстринге), плюс `_avoid_singleton_collapse` / `_join_int_bracket` | вынести три чистые функции в `commands/_ozon_completers.py` | S |
 | `commands/process.py:374`, `recalculate_ozon_expenses.py:245`, `ozon_fix_fo_tax.py:152` | verbose-печать лезет за приватным `cli_wrap._build_inner` через `pyright: ignore[reportPrivateUsage]` | сделать публичным (или завести `debug_echo_inner`) — приватный импорт из соседа не должен быть штатным приёмом | S |
 
@@ -164,13 +167,22 @@ apply_close_plan(client, plan)                                    # только
 неожиданный отказ; из кода не видно, намеренная это разница или расхождение копий.
 Лечение: общий `commands/_target_resolve.py` с одной зафиксированной границей. Объём: M · выигрыш: high.
 
-**5.2. A1-кавычки имени листа — `sheet_cache.py:408,419,580`, `commands/sheet.py:135`.** Четыре копии
+**✅ 5.2. A1-кавычки имени листа — `sheet_cache.py:408,419,580`, `commands/sheet.py:135`.** Четыре копии
 одной эвристики `f"'{tab}'" if any(ch in tab for ch in " '!")`, и **ни одна не экранирует апостроф**
 (`'` → `''`): имя `John's` даёт сломанный A1-диапазон `'John's'!A1:…`. Условие про `'` в них есть —
 значит про апостроф помнили, а экранирование потеряли. Корректная версия существует, но в другом
 файле и не переиспользуется: `sheet_batch.py:1299` (`"'" + default_tab.replace("'", "''") + "'"`).
-Это уже не читаемость, а тихая ошибка на листе с апострофом в имени. Лечение: `quote_tab_name()` /
-`split_tab_prefix()` в `sheet_cache.py`, все места — через них. Объём: S · выигрыш: medium (плюс корректность).
+Это уже не читаемость, а тихая ошибка на листе с апострофом в имени. **Сделано:** `quote_tab_name()`
+в `sheet_cache.py`, все 5 мест (включая `sheet_batch.py`) — через неё.
+
+Побочный эффект, который стоит знать: критерий кавычек подтянут к строгому (кавычить всё, что
+не `[A-Za-z0-9_]`) — тому, что уже был документирован в `docs/sheet-batch.md:46` и жил в
+`sheet_batch._full_range`. Поэтому кавычки теперь ставятся шире: `Чек-лист`, `01.2026`,
+`План(черновик)` раньше уходили без кавычек, теперь — в кавычках. Это безопасно в обе стороны:
+новый критерий — надмножество старого (кавычки только добавляются), Sheets API принимает обе формы
+и сам канонизирует ответ в квотированную (проверено live-запросом), ключи локального кэша хранят
+сырое имя листа и не затронуты. Заодно устранён рассинхрон вывода: поле `range` из кэша печаталось
+`Чек-лист!A1:B2`, а из живого ответа API — `'Чек-лист'!A1:B2`.
 
 **5.3. `_pick_client_id` — `copy_client.py:37` vs `move_client.py:31` (+ `move_client_back.py:52`).**
 Дословная копия, включая тексты ошибок. Лечение: `resolver.require_single_client_id(candidates, command_name)`.
@@ -189,8 +201,8 @@ apply_close_plan(client, plan)                                    # только
 | Место | Что | Лечение | Объём |
 | ----- | --- | ------- | ----- |
 | `lib/kaiten_cache.py:71,104,138,171,199` | 5 × скелет «env-check → try/except → DELETE+INSERT» | `_best_effort(fetch) -> T \| str` | S |
-| `lib/kiten_status.py:97` и `:114` | две функции с идентичным телом, различие — имя env-переменной | `_load_casefold_json_map(env_var)` | S |
-| `lib/miro.py:121 delete_frame` | политика «DELETE, терпимый к 404 и к 400+locked с разлочкой и повтором» написана дважды подряд, `try` внутри `try` внутри `for` (глубина 5) | `_delete_tolerant(path)` | S · **high** |
+| ✅ `lib/kiten_status.py:97` и `:114` | две функции с идентичным телом, различие — имя env-переменной | **сделано:** `_load_casefold_json_map(env_var)` | S |
+| ✅ `lib/miro.py:121 delete_frame` | политика «DELETE, терпимый к 404 и к 400+locked с разлочкой и повтором» написана дважды подряд, `try` внутри `try` внутри `for` (глубина 5) | **сделано:** `_delete_tolerant(path, item_id=…)`, тело `delete_frame` — 3 строки | S · high |
 | `lib/sql_runner.py:121` vs `lib/sql_sw.py` | хвост форматирования результата — 2 копии | `sql_runner.emit_result(...)` | S |
 | `commands/kiten/refs.py:53` (+ roles/boards/lanes/columns) | 5 команд копируют скелет «discover → filter → (json \| table + счётчик)», ~230 строк | `_print_ref_table(...)` в `_render.py` | S |
 | `commands/kiten/timelog.py:232` | таблица записей времени: `_print_logs` и инлайн-копия в `_summary` | параметризовать `_print_logs` | M |
@@ -204,7 +216,7 @@ apply_close_plan(client, plan)                                    # только
 | ----- | ---------- | ------- | --------------- |
 | `commands/update.py:23` | строки клиента — позиционные кортежи, читаются как `row[0]…row[4]` в 4 местах | `@dataclass(frozen=True) ClientRow` / `SpreadsheetRow`, мапить сразу после курсора | M · medium |
 | `commands/glab_status.py:219` | строка отчёта — `dict[str, Any]` на 10 произвольных ключей, читается по всему модулю | `@dataclass(frozen=True) MrRow` | M · medium |
-| `lib/portainer.py:270` | остаток буфера WS-хендшейка передаётся **monkeypatch-атрибутом на объекте socket** вместо возврата | `_open_ws() -> tuple[socket, bytearray]`, `leftover` — явным параметром | S · **high** |
+| ✅ `lib/portainer.py:270` | остаток буфера WS-хендшейка передавался **monkeypatch-атрибутом на объекте socket** вместо возврата | **сделано:** `_open_ws() -> tuple[socket, bytearray]`, `leftover` — явный параметр `_read_ws_frames`; `# type: ignore` убран | S · high |
 | `lib/iu_formula.py:62` | `pairs` + `seen` вручную воспроизводят то, что даёт обычный `dict` (порядок вставки гарантирован) | один `dict[str, str]` | S · medium |
 
 ---
@@ -225,8 +237,8 @@ apply_close_plan(client, plan)                                    # только
 и разрезать файл по швам, которые уже прочерчены комментариями: лексер / компилятор записи /
 компилятор чтения. Объём: L · выигрыш: medium — трогают редко, приоритет ниже §1–§4.
 
-Отдельно: `commands/sheet.py:196` — блок `conn = _open_db()` + `try/finally: conn.close()`
-повторён **13 раз**; лечится одним `@contextmanager def sheet_db()` без изменения логики. S · medium.
+✅ Отдельно: `commands/sheet.py:196` — блок `conn = _open_db()` + `try/finally: conn.close()`
+был повторён **13 раз**; **сделано:** `@contextmanager def _sheet_db()`, все 13 сайтов — `with _sheet_db() as conn:`.
 
 ---
 
@@ -281,8 +293,8 @@ apply_close_plan(client, plan)                                    # только
 
 | # | Шаг | Объём | Выигрыш |
 | - | --- | ----- | ------- |
-| 1 | `combine-as-imports = true` + `ruff --fix` (−84 строки импорт-шума) | S | medium |
-| 2 | Точечные S-фиксы: `miro._delete_tolerant`, `portainer` явный возврат, `kiten_status` общая функция, `sheet_db()` контекст-менеджер ×13, `callback=_run` ×6, A1-кавычки (§5.2) | S каждый | high |
+| ✅ 1 | `combine-as-imports = true` + `ruff --fix` — сделано (−108 строк в 8 файлах) | S | medium |
+| ✅ 2 | Точечные S-фиксы — сделано: `miro._delete_tolerant`, `portainer` явный возврат, `kiten_status` общая функция, `_sheet_db()` ×13, `callback=_run` ×6, `quote_tab_name` ×5 (§5.2, с фиксом экранирования) | S каждый | high |
 | 3 | `lib/cli_opts.py` + перевод модулей с повторяющимися опциями | M | high |
 | 4 | `resolver.resolve_server_or_exit` + `require_single_client_id` + `cli_err.bind` | M | high |
 | 5 | Общие фикстуры в `tests/conftest.py` (`fake_node_cli`, `fake_resolve`, `fake_pg`) | M | high |
@@ -299,18 +311,20 @@ apply_close_plan(client, plan)                                    # только
 
 Ratchet-проверки — числа в комментариях текущие, они должны только убывать:
 
+Значения — на 2026-07-23, после шагов 1–2 очереди.
+
 ```sh
 # структурные пороги (см. CLAUDE.md, принцип 8)
-uv run ruff check --preview --select PLR1702 --config 'lint.pylint.max-nested-blocks=4' src   # 8
-uv run ruff check --select C901 --config 'lint.mccabe.max-complexity=10' src                   # 10
+uv run ruff check --preview --select PLR1702 --config 'lint.pylint.max-nested-blocks=4' src   # 7 (было 8)
+uv run ruff check --select C901 --config 'lint.mccabe.max-complexity=10' src                   # 9 (было 10)
 uv run ruff check --select PLR0915 --config 'lint.pylint.max-statements=40' src                # 11
 
 # обходы канонов
 grep -rn 'err=True' src | wc -l                    # 318 → убывает
 grep -rn 'json.dumps' src | wc -l                  # 37  → 0 вне lib/cli_out.py
-grep -rn 'except ResolveError' src | wc -l         # 11  → 0 вне lib/resolver.py
-grep -rn 'monkeypatch.setattr' tests | wc -l       # 889 → убывает
-grep -rn '# noqa' src | wc -l                      # 119 → убывает
+grep -rn 'except ResolveError' src | wc -l         # 13  → 0 вне lib/resolver.py
+grep -rn 'monkeypatch.setattr' tests | wc -l       # 895 → убывает
+grep -rn '# noqa' src | wc -l                      # 113 (было 119) → убывает
 
 # самые длинные функции и доля деклараций
 uv run python - <<'PY'

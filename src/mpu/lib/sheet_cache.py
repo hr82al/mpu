@@ -90,6 +90,16 @@ def _parse_cell(s: str) -> tuple[int | None, int | None]:
     return row, col
 
 
+def quote_tab_name(tab: str) -> str:
+    """Имя листа → A1-форма: кавычки для всего, что не `[A-Za-z0-9_]`, с `'` → `''`.
+
+    Обратная к разбору кавычек в `parse_range`. Лишние кавычки безвредны, отсутствующие —
+    ломают запрос, поэтому критерий строгий."""
+    if tab.replace("_", "").isalnum():
+        return tab
+    return "'" + tab.replace("'", "''") + "'"
+
+
 def parse_range(range_str: str, *, default_tab: str | None = None) -> RangeRef:
     """Парсит range в формате `[Tab!]A1[:C3]`. `Tab` или `'Tab name'!`."""
     s = range_str.strip()
@@ -405,7 +415,7 @@ def format_range_a1(tab: str, ref: RangeRef, dims: tuple[int, int]) -> str:
     r2 = ref.row2 if ref.row2 is not None else rows_total
     c1 = ref.col1 if ref.col1 is not None else 1
     c2 = ref.col2 if ref.col2 is not None else cols_total
-    tab_part = f"'{tab}'" if any(ch in tab for ch in " '!") else tab
+    tab_part = quote_tab_name(tab)
     return f"{tab_part}!{col_num_to_letters(c1)}{r1}:{col_num_to_letters(c2)}{r2}"
 
 
@@ -416,7 +426,7 @@ def format_range_a1(tab: str, ref: RangeRef, dims: tuple[int, int]) -> str:
 
 def _whole_tab_range(tab: str, info: TabInfo) -> str:
     end_col = col_num_to_letters(info.cols)
-    tab_part = f"'{tab}'" if any(ch in tab for ch in " '!") else tab
+    tab_part = quote_tab_name(tab)
     return f"{tab_part}!A1:{end_col}{info.rows}"
 
 
@@ -577,7 +587,7 @@ def _fetch_uncached(
 
 def _ref_to_string(ref: RangeRef) -> str:
     """Сериализовать RangeRef в строку для Apps Script (без полных dims — open ranges OK)."""
-    tab_part = f"'{ref.tab}'" if any(ch in ref.tab for ch in " '!") else ref.tab
+    tab_part = quote_tab_name(ref.tab)
     if ref.is_whole_tab:
         return tab_part
     parts: list[str] = []

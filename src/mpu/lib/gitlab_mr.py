@@ -34,32 +34,14 @@ from mpu.lib.jsonx import dict_items, is_dict
 if TYPE_CHECKING:
     from mpu.lib.gitlab_mr_models import (
         DiffRefs as DiffRefs,
-    )
-    from mpu.lib.gitlab_mr_models import (
         Discussion as Discussion,
-    )
-    from mpu.lib.gitlab_mr_models import (
         FileDiff as FileDiff,
-    )
-    from mpu.lib.gitlab_mr_models import (
         MrInfo as MrInfo,
-    )
-    from mpu.lib.gitlab_mr_models import (
         Note as Note,
-    )
-    from mpu.lib.gitlab_mr_models import (
         NotePosition as NotePosition,
-    )
-    from mpu.lib.gitlab_mr_models import (
         parse_discussion as parse_discussion,
-    )
-    from mpu.lib.gitlab_mr_models import (
         parse_file_diff as parse_file_diff,
-    )
-    from mpu.lib.gitlab_mr_models import (
         parse_mr_info as parse_mr_info,
-    )
-    from mpu.lib.gitlab_mr_models import (
         parse_note as parse_note,
     )
 

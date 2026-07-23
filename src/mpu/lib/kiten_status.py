@@ -94,11 +94,11 @@ def iso_to_epoch(changed_iso: str | None) -> int:
         return 0
 
 
-def load_emoji_overrides() -> dict[str, str]:
-    """Переопределения колонка→эмодзи из .env `KITEN_STATUS_EMOJI` (JSON; ключ — имя колонки).
+def _load_casefold_json_map(env_var: str) -> dict[str, str]:
+    """JSON-объект из .env `env_var` → `{casefold(ключ): str(значение)}`.
 
-    Пусто/невалидный JSON/не объект → `{}` (дефолтная карта). Ключи casefold."""
-    raw = env.get("KITEN_STATUS_EMOJI")
+    Пусто / невалидный JSON / не объект → `{}`."""
+    raw = env.get(env_var)
     if not raw or not raw.strip():
         return {}
     try:
@@ -109,23 +109,20 @@ def load_emoji_overrides() -> dict[str, str]:
         return {}
     data_dict = cast("dict[str, object]", data)
     return {str(k).casefold(): str(v) for k, v in data_dict.items()}
+
+
+def load_emoji_overrides() -> dict[str, str]:
+    """Переопределения колонка→эмодзи из .env `KITEN_STATUS_EMOJI` (JSON; ключ — имя колонки).
+
+    Пусто/невалидный JSON/не объект → `{}` (дефолтная карта). Ключи casefold."""
+    return _load_casefold_json_map("KITEN_STATUS_EMOJI")
 
 
 def load_column_map() -> dict[str, str]:
     """Переопределения имя_колонки→метка из .env `KITEN_COLUMN_MAP` (JSON; ключ — имя колонки).
 
     Пусто/невалидный JSON/не объект → `{}` (без замены). Ключи casefold."""
-    raw = env.get("KITEN_COLUMN_MAP")
-    if not raw or not raw.strip():
-        return {}
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return {}
-    if not isinstance(data, dict):
-        return {}
-    data_dict = cast("dict[str, object]", data)
-    return {str(k).casefold(): str(v) for k, v in data_dict.items()}
+    return _load_casefold_json_map("KITEN_COLUMN_MAP")
 
 
 def emoji_for(column: str, overrides: dict[str, str] | None = None) -> str:

@@ -193,10 +193,12 @@ class Client:
             byte[8:8+size] payload
           демультиплексируем и зовём `on_stdout` / `on_stderr` соответственно.
         """
-        sock = self._open_ws(f"/api/websocket/exec?id={exec_id}&endpointId={self.endpoint_id}")
+        sock, leftover = self._open_ws(
+            f"/api/websocket/exec?id={exec_id}&endpointId={self.endpoint_id}"
+        )
         try:
             if tty:
-                self._read_ws_frames(sock, on_data=on_stdout)
+                self._read_ws_frames(sock, on_data=on_stdout, leftover=leftover)
                 return
             demux_buf = bytearray()
 
@@ -204,13 +206,16 @@ class Client:
                 demux_buf.extend(payload)
                 _demux_docker_frames(demux_buf, on_stdout, on_stderr)
 
-            self._read_ws_frames(sock, on_data=_on_data)
+            self._read_ws_frames(sock, on_data=_on_data, leftover=leftover)
         finally:
             with contextlib.suppress(OSError):
                 sock.close()
 
-    def _open_ws(self, path: str) -> ssl.SSLSocket | socket.socket:
-        """TCP+TLS-сокет с пройденным HTTP/1.1 Upgrade handshake.
+    def _open_ws(self, path: str) -> tuple[ssl.SSLSocket | socket.socket, bytearray]:
+        """TCP+TLS-сокет с пройденным HTTP/1.1 Upgrade handshake + приёмный остаток.
+
+        Остаток — байты, прочитанные вместе с ответом handshake'а: первые WS-фреймы могут
+        приехать в том же TCP-сегменте, и читатель фреймов должен начать с них.
 
         Не используем httpx — он не делает 101-upgrade. Не используем `websockets`
         пакет — он не в whitelist'е зависимостей mpu, а ручной WS-клиент короткий.
@@ -266,15 +271,14 @@ class Client:
             raise httpx.HTTPError(
                 f"portainer ws handshake failed: {status_line}; body={leftover[:200]!r}"
             )
-        # Сохраняем приёмный остаток как атрибут — `_read_ws_frames` ниже подберёт.
-        sock._mpu_ws_buf = bytearray(leftover)  # type: ignore[attr-defined]
-        return sock
+        return sock, bytearray(leftover)
 
     def _read_ws_frames(  # noqa: C901
         self,
         sock: ssl.SSLSocket | socket.socket,
         *,
         on_data: Callable[[bytes], None],
+        leftover: bytearray | None = None,
     ) -> None:
         """Чтение WS-фреймов до Close. Опкоды: 0x1/0x2 — данные, 0x9 — ping, 0x8 — close.
 
@@ -283,7 +287,7 @@ class Client:
         idle WS-сокет через минуты). Reset происходит при любом входящем фрейме —
         ping шлём только если recv реально упёрся в таймаут.
         """
-        buf: bytearray = getattr(sock, "_mpu_ws_buf", bytearray())
+        buf: bytearray = leftover if leftover is not None else bytearray()
         sock.settimeout(_WS_PING_INTERVAL)
 
         def fill(n: int) -> bool:

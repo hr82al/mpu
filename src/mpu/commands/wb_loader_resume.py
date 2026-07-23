@@ -47,42 +47,18 @@ import click
 from mpu.commands._wb_loader import (
     LOADER_NAMES,
     LOADER_REFERENCE_HELP,
-    emit_curl,
-)
-from mpu.commands._wb_loader import (
     cid_json as _cid_json,
-)
-from mpu.commands._wb_loader import (
     cid_label as _cid_label,
-)
-from mpu.commands._wb_loader import (
     cids_for_sid as _cids_for_sid,
-)
-from mpu.commands._wb_loader import (
+    emit_curl,
     fail as _fail_base,
-)
-from mpu.commands._wb_loader import (
     is_obj_list as _is_obj_list,
-)
-from mpu.commands._wb_loader import (
     is_str_dict as _is_str_dict,
-)
-from mpu.commands._wb_loader import (
     looks_like_sid as _looks_like_sid,
-)
-from mpu.commands._wb_loader import (
     pick_sid as _pick_sid_base,
-)
-from mpu.commands._wb_loader import (
     print_json as _print_json,
-)
-from mpu.commands._wb_loader import (
     resolve_sids as _resolve_base,
-)
-from mpu.commands._wb_loader import (
     sid_from_selector as _sid_from_selector,
-)
-from mpu.commands._wb_loader import (
     wrong_form_hint as _wrong_form_hint,
 )
 from mpu.lib.slapi import SlApi, SlApiError, resolve_base_url
@@ -266,23 +242,6 @@ def _run(  # noqa: C901, PLR0912, PLR0915
 def build_command() -> click.Command:
     """Собрать `click.Command` для монтажа в `mpu api`-группу."""
 
-    def callback(
-        selector: str,
-        loader: str | None,
-        sid: str | None,
-        resume_all: bool,
-        client_id: int | None,
-        print_mode: bool,
-    ) -> None:
-        _run(
-            selector=selector,
-            loader=loader,
-            sid=sid,
-            resume_all=resume_all,
-            client_id=client_id,
-            print_mode=print_mode,
-        )
-
     params: list[click.Parameter] = [
         click.Argument(["selector"], required=True, type=str),
         click.Argument(["loader"], required=False, type=str, shell_complete=_complete_loader),
@@ -315,7 +274,7 @@ def build_command() -> click.Command:
     return click.Command(
         name="wb-loader-resume",
         params=params,
-        callback=callback,
+        callback=_run,
         help=(__doc__ or "") + LOADER_REFERENCE_HELP,
         context_settings={"help_option_names": ["-h", "--help"]},
     )

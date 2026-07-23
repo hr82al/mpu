@@ -22,7 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from mpu.lib.sheet_cache import RangeRef, col_letters_to_num, parse_range
+from mpu.lib.sheet_cache import RangeRef, col_letters_to_num, parse_range, quote_tab_name
 
 
 class BatchScriptError(ValueError):
@@ -1294,10 +1294,7 @@ def _full_range(tok: str, default_tab: str | None) -> str:
     if "!" in tok:
         return tok
     if default_tab:
-        # A1 требует кавычек для имён не из [A-Za-z0-9_] (пробел, дефис, и т.п.); `'`→`''`.
-        simple = default_tab.replace("_", "").isalnum()
-        tab = default_tab if simple else "'" + default_tab.replace("'", "''") + "'"
-        return f"{tab}!{tok}"
+        return f"{quote_tab_name(default_tab)}!{tok}"
     return tok
 
 

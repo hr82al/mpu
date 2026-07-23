@@ -114,6 +114,24 @@ def test_cli_group_mode_aligns_rows_with_escalation_flag(monkeypatch: pytest.Mon
     assert len(starts) == 1  # обе строки доходят до колонки даты за одинаковое число ячеек
 
 
+def test_cli_matrix_right_aligns_id_column(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Номера кончаются на одной вертикали: 🔥 у эскалации уходит влево, а не сдвигает цифры."""
+    fake = FakeClient(
+        cards=[
+            card(67619846, title="горит", column_title="Эскалация"),
+            card(67619847, title="обычная", column_title="В работе"),
+        ]
+    )
+    install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["status"])
+    assert res.exit_code == 0, res.stderr
+    body = [line for line in res.stdout.splitlines() if "горит" in line or "обычная" in line]
+    assert len(body) == 2
+    # Позиция границы после колонки ID (второй `│`) обязана совпасть у обеих строк.
+    borders = {cell_len(line[: line.index("│", line.index("│") + 1)]) for line in body}
+    assert len(borders) == 1
+
+
 def test_cli_url_and_md_outputs(monkeypatch: pytest.MonkeyPatch) -> None:
     install_client(monkeypatch, FakeClient(cards=[card(1, title="карточка")]))
     urls = runner.invoke(app, ["status", "--out", "url"])

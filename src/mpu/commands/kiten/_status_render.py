@@ -151,7 +151,9 @@ def render_matrix(rows: list[StatusRow], *, console: Console, today: str, link: 
     layout = plan_layout(console.width, stages, id_width)
 
     table = Table(box=box.SQUARE, header_style="bold", show_lines=False)
-    table.add_column("ID", no_wrap=True)
+    # Вправо: у эскалации перед номером стоит 🔥 (2 ячейки), и при левом выравнивании
+    # цифры такой строки уезжали относительно остальных.
+    table.add_column("ID", justify="right", no_wrap=True)
     for header in layout.headers:
         table.add_column(header, justify="center", no_wrap=True)
     table.add_column("ВРЕМЯ", justify="right", no_wrap=True)
@@ -214,9 +216,10 @@ def group_title_budget(console_width: int, id_width: int) -> int:
 
 
 def _group_line(row: StatusRow, *, id_width: int, budget: int, today: str, link: bool) -> str:
+    # Номер прижат вправо — как в матрице: 🔥 у эскалации иначе сдвигает цифры.
     gap = " " * max(0, id_width - cell_len(id_cell(row, link=False)))
     return (
-        f"   {id_cell(row, link=link)}{gap} "
+        f"   {gap}{id_cell(row, link=link)} "
         f"{pad_to(format_minutes(row.my_minutes), MINUTES_WIDTH + 1, right=True)}  "
         f"{pad_to(escape(fit_text(lane_cell(row), GROUP_LANE_WIDTH)), GROUP_LANE_WIDTH)} "
         f"{pad_to(short_date(row.card.updated, today), DATE_WIDTH + 1)} "

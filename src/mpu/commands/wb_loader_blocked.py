@@ -269,23 +269,6 @@ def _run(  # noqa: C901, PLR0912
 def build_command() -> click.Command:
     """Собрать `click.Command` для монтажа в `mpu api`-группу."""
 
-    def callback(
-        loader: str | None,
-        reason: str | None,
-        only_permanent: bool,
-        sid: str | None,
-        server: str | None,
-        print_mode: bool,
-    ) -> None:
-        _run(
-            loader=loader,
-            reason=reason,
-            only_permanent=only_permanent,
-            sid=sid,
-            server=server,
-            print_mode=print_mode,
-        )
-
     params: list[click.Parameter] = [
         click.Option(
             ["--loader"],
@@ -331,7 +314,7 @@ def build_command() -> click.Command:
     return click.Command(
         name="wb-loader-blocked",
         params=params,
-        callback=callback,
+        callback=_run,
         help=(__doc__ or "") + LOADER_REFERENCE_HELP,
         context_settings={"help_option_names": ["-h", "--help"]},
     )

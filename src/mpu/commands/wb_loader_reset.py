@@ -139,27 +139,6 @@ def _run(
 def build_command() -> click.Command:
     """Собрать `click.Command` для монтажа в `mpu api`-группу."""
 
-    def callback(
-        selector: str,
-        loader: str,
-        sid: str | None,
-        client_id: int | None,
-        state_json: str | None,
-        from_date: str | None,
-        and_load: bool,
-        print_mode: bool,
-    ) -> None:
-        _run(
-            selector=selector,
-            loader=loader,
-            sid=sid,
-            client_id=client_id,
-            state_json=state_json,
-            from_date=from_date,
-            and_load=and_load,
-            print_mode=print_mode,
-        )
-
     params: list[click.Parameter] = [
         click.Argument(["selector"], required=True, type=str),
         click.Argument(["loader"], required=True, type=str, shell_complete=complete_entity),
@@ -204,7 +183,7 @@ def build_command() -> click.Command:
     return click.Command(
         name="wb-loader-reset",
         params=params,
-        callback=callback,
+        callback=_run,
         help=(__doc__ or "") + LOADER_REFERENCE_HELP,
         context_settings={"help_option_names": ["-h", "--help"]},
     )

@@ -56,6 +56,7 @@ from mpu.lib.sheet_cache import (
     get_ranges,
     invalidate_tab,
     parse_range,
+    quote_tab_name,
     sweep_expired,
 )
 from mpu.lib.sheet_resolver import (
@@ -89,15 +90,19 @@ app.add_typer(cache_app, name="cache")
 # ────────────────────────────────────────────────────────────────────────────
 
 
-def _open_db() -> sqlite3.Connection:
-    """Открыть БД и выполнить housekeeping (TTL sweep + size cap)."""
+@contextmanager
+def _sheet_db() -> Generator[sqlite3.Connection]:
+    """Открыть БД с housekeeping (TTL sweep + size cap) и гарантированно закрыть."""
     conn = store.open_store()
     try:
         sweep_expired(conn)
         enforce_size_cap(conn)
     except sqlite3.OperationalError as e:
         note(f"sheet: sweep skipped (schema missing?): {e}")
-    return conn
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def _resolve_ss(conn: sqlite3.Connection, flag_value: str | None) -> ResolvedSpreadsheet:
@@ -132,7 +137,7 @@ def _prefix_bare_ranges(ranges: list[str], default_tab: str | None) -> list[str]
         if "!" in r:
             out.append(r)
         else:
-            tab_part = f"'{default_tab}'" if any(ch in default_tab for ch in " '!") else default_tab
+            tab_part = quote_tab_name(default_tab)
             out.append(f"{tab_part}!{r}")
     return out
 
@@ -193,8 +198,7 @@ def get(
 
     all_ranges = _prefix_bare_ranges(all_ranges, sheet)
 
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         resolved = _resolve_ss(conn, spreadsheet)
         refs = [parse_range(r, default_tab=sheet) for r in all_ranges]
 
@@ -211,8 +215,6 @@ def get(
             _print_tsv(results)
         else:
             _print_json(resolved.ss_id, results)
-    finally:
-        conn.close()
 
 
 def _print_json(ss_id: str, results: list[FetchResult]) -> None:
@@ -287,8 +289,7 @@ def ls(
     refresh: Annotated[bool, typer.Option("-R", "--refresh", help="Skip metadata cache.")] = False,
 ) -> None:
     """List sheet (tab) names in a Google Spreadsheet."""
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         resolved = _resolve_ss(conn, spreadsheet)
         try:
             api = WebappClient.from_env()
@@ -307,8 +308,6 @@ def ls(
         else:
             for t in tabs:
                 print(t.title)
-    finally:
-        conn.close()
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -321,8 +320,7 @@ def resolve_cmd(
     spreadsheet: Annotated[str | None, typer.Option("-s", "--spreadsheet")] = None,
 ) -> None:
     """Show which spreadsheet ID will be used and source (flag/env/config)."""
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         resolved = _resolve_ss(conn, spreadsheet)
         print(
             json.dumps(
@@ -336,8 +334,6 @@ def resolve_cmd(
                 indent=2,
             )
         )
-    finally:
-        conn.close()
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -418,8 +414,7 @@ def set_(  # noqa: C901, PLR0912
     ] = False,
 ) -> None:
     """Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW)."""
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         try:
             api = WebappClient.from_env()
         except SheetApiError as e:
@@ -482,8 +477,6 @@ def set_(  # noqa: C901, PLR0912
 
         out_resp = responses[0] if len(responses) == 1 else responses
         print_json(out_resp)
-    finally:
-        conn.close()
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -707,8 +700,7 @@ def batch_update(
     with _exit_on_batch_errors():
         stmts = parse_update_script(script)
 
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         resolved = _resolve_ss(conn, spreadsheet)
         with _exit_on_batch_errors():
             api = WebappClient.from_env()
@@ -738,8 +730,6 @@ def batch_update(
             if sid in title_by_id:
                 invalidate_tab(conn, resolved.ss_id, title_by_id[sid])
         print_json(resp)
-    finally:
-        conn.close()
 
 
 @app.command("batch-get")
@@ -805,8 +795,7 @@ def batch_get_cmd(
         print_json({"values": plan.values, "meta": plan.meta})
         return
 
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         resolved = _resolve_ss(conn, spreadsheet)
         out: dict[str, Any] = {"spreadsheetId": resolved.ss_id}
         try:
@@ -821,8 +810,6 @@ def batch_get_cmd(
             typer.echo(f"mpu sheet batch-get: {e}", err=True)
             raise typer.Exit(code=1) from e
         print_json(out)
-    finally:
-        conn.close()
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -838,8 +825,7 @@ def open_(
     spreadsheet: Annotated[str | None, typer.Option("-s", "--spreadsheet")] = None,
 ) -> None:
     """Open spreadsheet (or specific sheet) in browser."""
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         resolved = _resolve_ss(conn, spreadsheet)
         url = f"https://docs.google.com/spreadsheets/d/{resolved.ss_id}/edit"
         if sheet:
@@ -860,8 +846,6 @@ def open_(
                 raise typer.Exit(code=1) from e
         webbrowser.open(url)
         print(url)
-    finally:
-        conn.close()
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -886,8 +870,7 @@ def alias_add(
             err=True,
         )
         raise typer.Exit(code=2)
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         conn.execute(
             "INSERT INTO sheet_aliases (name, ss_id, created_at) VALUES (?, ?, ?) "
             "ON CONFLICT(name) DO UPDATE SET ss_id=excluded.ss_id",
@@ -895,30 +878,24 @@ def alias_add(
         )
         conn.commit()
         print(f"alias {name} → {ss_id}")
-    finally:
-        conn.close()
 
 
 @alias_app.command(name="ls")
 def alias_ls() -> None:
     """List all spreadsheet aliases."""
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         try:
             rows = conn.execute("SELECT name, ss_id FROM sheet_aliases ORDER BY name").fetchall()
         except sqlite3.OperationalError:
             rows = []
         for r in rows:
             print(f"{r['name']}\t{r['ss_id']}")
-    finally:
-        conn.close()
 
 
 @alias_app.command(name="rm")
 def alias_rm(name: Annotated[str, typer.Argument()]) -> None:
     """Remove an alias."""
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         cur = conn.execute("DELETE FROM sheet_aliases WHERE name = ?", (name,))
         conn.commit()
         if cur.rowcount:
@@ -926,8 +903,6 @@ def alias_rm(name: Annotated[str, typer.Argument()]) -> None:
         else:
             typer.echo(f"alias {name} not found", err=True)
             raise typer.Exit(code=1)
-    finally:
-        conn.close()
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -952,8 +927,7 @@ def sync() -> None:
         raise typer.Exit(code=1)
 
     now = int(time.time())
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         # Транзакция: DELETE all + bulk INSERT — атомарная замена.
         with conn:
             conn.execute("DELETE FROM sl_spreadsheets")
@@ -979,8 +953,6 @@ def sync() -> None:
                     ),
                 )
         print(f"synced {len(rows)} spreadsheets")
-    finally:
-        conn.close()
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -996,8 +968,7 @@ def cache_clear(
     ] = None,
 ) -> None:
     """Clear local whole-tab cache."""
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         if spreadsheet:
             resolved = _resolve_ss(conn, spreadsheet)
             cur = conn.execute("DELETE FROM sheet_tabs WHERE ss_id = ?", (resolved.ss_id,))
@@ -1009,15 +980,12 @@ def cache_clear(
             conn.execute("DELETE FROM cache WHERE key LIKE 'sheet:info:%'")
             conn.commit()
             print(f"cleared {n} tabs (whole cache)")
-    finally:
-        conn.close()
 
 
 @cache_app.command(name="info")
 def cache_info() -> None:
     """Show local whole-tab cache state — total size, per-spreadsheet breakdown."""
-    conn = _open_db()
-    try:
+    with _sheet_db() as conn:
         try:
             total = conn.execute(
                 "SELECT COUNT(*) AS n, COALESCE(SUM(size_bytes), 0) AS bytes FROM sheet_tabs"
@@ -1035,5 +1003,3 @@ def cache_info() -> None:
                 f"  {r['ss_id']}  tabs={r['n']}  size={r['bytes'] / 1024:.1f}KB  "
                 f"latest={r['latest']}"
             )
-    finally:
-        conn.close()

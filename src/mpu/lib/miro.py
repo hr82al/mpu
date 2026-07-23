@@ -130,33 +130,26 @@ class MiroClient:
         через PATCH /items/{id}).
         """
         for item_id, _item_type in self._iter_children(frame_id):
-            try:
-                self._request("DELETE", f"/items/{item_id}")
-            except MiroAPIError as e:
-                if e.status == 404:  # noqa: PLR2004
-                    continue
-                if e.status == 400 and "locked" in e.body.lower():  # noqa: PLR2004
-                    self.unlock_item(item_id)
-                    try:
-                        self._request("DELETE", f"/items/{item_id}")
-                    except MiroAPIError as e2:
-                        if e2.status != 404:  # noqa: PLR2004
-                            raise
-                    continue
-                raise
+            self._delete_tolerant(f"/items/{item_id}", item_id=item_id)
+        self._delete_tolerant(f"/frames/{frame_id}", item_id=frame_id)
+
+    def _delete_tolerant(self, path: str, *, item_id: str) -> None:
+        """DELETE, терпимый к уже-удалённому и к залоченному.
+
+        404 — считаем удалённым. 400 с `locked` в теле — снять lock и повторить один раз
+        (404 на повторе тоже успех: кто-то удалил параллельно). Прочие ошибки — наружу."""
         try:
-            self._request("DELETE", f"/frames/{frame_id}")
+            self._request("DELETE", path)
         except MiroAPIError as e:
             if e.status == 404:  # noqa: PLR2004
                 return
             if e.status == 400 and "locked" in e.body.lower():  # noqa: PLR2004
-                self.unlock_item(frame_id)
+                self.unlock_item(item_id)
                 try:
-                    self._request("DELETE", f"/frames/{frame_id}")
-                except MiroAPIError as e2:
-                    if e2.status == 404:  # noqa: PLR2004
-                        return
-                    raise
+                    self._request("DELETE", path)
+                except MiroAPIError as retry_error:
+                    if retry_error.status != 404:  # noqa: PLR2004
+                        raise
                 return
             raise
 

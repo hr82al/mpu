@@ -24,6 +24,7 @@ from mpu.lib.sheet_cache import (
     get_ranges,
     invalidate_tab,
     parse_range,
+    quote_tab_name,
     slice_layer,
     sweep_expired,
 )
@@ -156,6 +157,24 @@ def test_format_range_a1_open_ended_clamped() -> None:
 def test_format_range_a1_quotes_tab_with_space() -> None:
     ref = parse_range("'My Sheet'!A1:B2")
     assert format_range_a1("My Sheet", ref, (10, 10)) == "'My Sheet'!A1:B2"
+
+
+def test_format_range_a1_escapes_apostrophe_in_tab() -> None:
+    """Апостроф в имени листа удваивается: `John's` → `'John''s'` (иначе A1 битый)."""
+    ref = parse_range("'John''s'!A1:B2")
+    assert format_range_a1("John's", ref, (10, 10)) == "'John''s'!A1:B2"
+
+
+def test_format_range_a1_quotes_tab_with_hyphen() -> None:
+    """Дефис требует кавычек: форма совпадает с канонической, которую отдаёт сам Sheets API."""
+    ref = parse_range("'Чек-лист'!A1:B2")
+    assert format_range_a1("Чек-лист", ref, (10, 10)) == "'Чек-лист'!A1:B2"
+
+
+def test_quote_tab_name_roundtrip_through_parse() -> None:
+    """quote_tab_name → parse_range возвращает исходное имя листа (все спецсимволы)."""
+    for tab in ("Sheet1", "My Sheet", "John's", "Лист-1"):
+        assert parse_range(f"{quote_tab_name(tab)}!A1:B2").tab == tab
 
 
 # ────────────────────────────────────────────────────────────────────────────

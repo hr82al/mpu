@@ -37,8 +37,7 @@ from mpu.lib.cli_err import fail
 from mpu.lib.cli_out import print_json
 from mpu.lib.duration import DurationParseError, parse_since
 from mpu.lib.gitlab_mr import GitLabAPIError, GitLabClient, parse_mr_ref, project_from_cwd
-from mpu.lib.table_fit import fit_text as fit_title
-from mpu.lib.table_fit import table_chrome
+from mpu.lib.table_fit import fit_text as fit_title, table_chrome
 
 if TYPE_CHECKING:
     # Только аннотации: runtime-импорт моделей тянет pydantic (~150 мс) в startup.

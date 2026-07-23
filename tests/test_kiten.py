@@ -32,26 +32,26 @@ from mpu.commands.kiten import (
     app,
     build_time_log_patch,
     build_updated_window,
+    card as kiten_card,
     coalesce,
+    comment as kiten_comment,
     default_for_date,
     expand_all_mention,
     expand_recipients,
+    field as kiten_field,
+    ls as kiten_ls,
+    move as kiten_move,
     parse_recipients,
     plan_field_actions,
     prepend_recipients,
     read_attachments,
+    refs as kiten_refs,
     resolve_comment_text,
     resolve_ls_filters,
+    status as kiten_status,
     summarise_logs,
+    timelog as kiten_timelog,
 )
-from mpu.commands.kiten import card as kiten_card
-from mpu.commands.kiten import comment as kiten_comment
-from mpu.commands.kiten import field as kiten_field
-from mpu.commands.kiten import ls as kiten_ls
-from mpu.commands.kiten import move as kiten_move
-from mpu.commands.kiten import refs as kiten_refs
-from mpu.commands.kiten import status as kiten_status
-from mpu.commands.kiten import timelog as kiten_timelog
 from mpu.lib import env, kaiten_cache, kaiten_links, kaiten_render, store
 from mpu.lib.kaiten import (
     KaitenAPIError,

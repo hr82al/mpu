@@ -7,8 +7,7 @@ from typing import Any
 import pytest
 from click.testing import CliRunner
 
-from mpu.commands import _wb_loader
-from mpu.commands import wb_cards_reset as wcr
+from mpu.commands import _wb_loader, wb_cards_reset as wcr
 from mpu.lib.slapi import SlApiError
 
 runner = CliRunner()
