@@ -144,14 +144,30 @@ def init_cmd(
     """
     # Импорт здесь, а не на уровне модуля: psycopg/httpx/asyncio нужны только этой команде,
     # а `mpu.cli` грузится на каждый вызов CLI (см. _LazyGroup).
-    from mpu.lib import kaiten_cache, loki_discover, portainer_discover, store
 
     # Шаг 1: bootstrap SQLite-схемы (отсюда — всегда, других мест нет).
+    _bootstrap_step()
+    if not _portainer_step(portainer_url=portainer_url, dry_run=dry_run, reset=reset):
+        return
+    _loki_step()
+    _kaiten_step()
+    # Telegram — последним: единственный интерактивный шаг, спрашивает только при TTY.
+    _telegram_login_step()
+
+
+def _bootstrap_step() -> None:
+    """Шаг 1: схема SQLite. Единственное место, где она создаётся."""
+    from mpu.lib import store
+
     with store.store() as conn:
         store.bootstrap(conn)
     typer.echo(f"# bootstrap: схема в {store.DB_PATH} готова", err=True)
 
-    # Шаг 2: discover контейнеров через Portainer API.
+
+def _portainer_step(*, portainer_url: str | None, dry_run: bool, reset: bool) -> bool:
+    """Шаг 2: контейнеры через Portainer API → SQLite. False — дальше идти не нужно (dry-run)."""
+    from mpu.lib import portainer_discover, store
+
     client = portainer_discover.make_client_from_env(portainer_url_override=portainer_url)
     items = portainer_discover.discover(client)
     if not items:
@@ -162,8 +178,6 @@ def init_cmd(
         (i for i in items if i.server_number is not None),
         key=lambda i: i.server_number or 0,
     )
-    other_count = len(items) - len(sl_items)
-
     typer.echo(f"# найдено sl-N контейнеров: {len(sl_items)}")
     for item in sl_items:
         typer.echo(
@@ -171,60 +185,56 @@ def init_cmd(
             f"@ endpoint {item.endpoint_id} ({item.endpoint_name or '?'}) "
             f"-> {item.portainer_url}/{item.endpoint_id}"
         )
-    typer.echo(f"# прочих контейнеров: {other_count}")
+    typer.echo(f"# прочих контейнеров: {len(items) - len(sl_items)}")
 
     if dry_run:
         typer.echo(f"# dry-run: всего {len(items)} контейнеров (в SQLite не записано)", err=True)
-        return
+        return False
 
     with store.store() as conn:
         if reset:
             removed = portainer_discover.reset_table(conn)
             typer.echo(f"# --reset: удалено {removed} старых записей", err=True)
         portainer_discover.store_discovered(items, conn)
+    typer.echo(f"# записано {len(items)} контейнеров в {store.DB_PATH}", err=True)
+    return True
+
+
+def _loki_step() -> None:
+    """Шаг 3: Loki labels для shell completion. Best-effort: нет LOKI_URL — просто пропуск."""
+    from mpu.lib import loki_discover
+
+    result = loki_discover.discover_and_store()
+    if result.error:
+        typer.echo(f"# loki: пропущено ({result.error})", err=True)
+        return
+    n_services = sum(len(v) for v in result.services_by_host.values())
+    typer.echo(f"# loki: {len(result.hosts)} hosts, {n_services} (host, service) пар", err=True)
+
+
+def _kaiten_step() -> None:
+    """Шаг 4: справочники Kaiten для completion `kiten ls`/`time`.
+
+    Best-effort: нет KITEN_API_KEY или Kaiten недоступен — пропуск без ошибки. Дорожки и
+    колонки стоят по запросу на доску каждая, роли — один запрос на компанию.
+    """
+    from mpu.lib import kaiten_cache
+
+    result = kaiten_cache.discover_and_store()
+    if result.error:
+        typer.echo(f"# kaiten: пропущено ({result.error})", err=True)
+        return
+    board_ids = [b.id for b in result.boards]
+    lanes = kaiten_cache.discover_lanes_and_store(board_ids)
+    columns = kaiten_cache.discover_columns_and_store(board_ids)
+    roles = kaiten_cache.discover_roles_and_store()
     typer.echo(
-        f"# записано {len(items)} контейнеров в {store.DB_PATH}",
+        f"# kaiten: {len(result.spaces)} spaces, {len(result.boards)} boards, "
+        f"{'?' if lanes.error else len(lanes.lanes)} lanes, "
+        f"{'?' if columns.error else len(columns.columns)} columns, "
+        f"{'?' if roles.error else len(roles.roles)} roles",
         err=True,
     )
-
-    # Шаг 3: discover Loki labels (hosts/services) для shell completion. Best-effort:
-    # если LOKI_URL не задан / Loki недоступен — пропускаем без ошибки.
-    loki_result = loki_discover.discover_and_store()
-    if loki_result.error:
-        typer.echo(f"# loki: пропущено ({loki_result.error})", err=True)
-    else:
-        n_services = sum(len(v) for v in loki_result.services_by_host.values())
-        typer.echo(
-            f"# loki: {len(loki_result.hosts)} hosts, {n_services} (host, service) пар",
-            err=True,
-        )
-
-    # Шаг 4: discover Kaiten spaces/boards/lanes/columns/roles для дискаверабилити + shell
-    # completion `mpu kiten ls` (--space / --board / --lane / --column) и `time` (--role).
-    # Best-effort: нет KITEN_API_KEY / Kaiten недоступен — пропускаем без ошибки. Дорожки и
-    # колонки — по +1 запросу на доску каждая; роли — один запрос на компанию.
-    kaiten_result = kaiten_cache.discover_and_store()
-    if kaiten_result.error:
-        typer.echo(f"# kaiten: пропущено ({kaiten_result.error})", err=True)
-    else:
-        board_ids = [b.id for b in kaiten_result.boards]
-        lanes_result = kaiten_cache.discover_lanes_and_store(board_ids)
-        columns_result = kaiten_cache.discover_columns_and_store(board_ids)
-        roles_result = kaiten_cache.discover_roles_and_store()
-        n_lanes = "?" if lanes_result.error else str(len(lanes_result.lanes))
-        n_columns = "?" if columns_result.error else str(len(columns_result.columns))
-        n_roles = "?" if roles_result.error else str(len(roles_result.roles))
-        typer.echo(
-            f"# kaiten: {len(kaiten_result.spaces)} spaces, "
-            f"{len(kaiten_result.boards)} boards, {n_lanes} lanes, {n_columns} columns, "
-            f"{n_roles} roles",
-            err=True,
-        )
-
-    # Шаг 5: telegram login (best-effort, интерактивный). Логинимся ОДИН раз и пишем
-    # creds + StringSession в .env. Уже залогинены → пропуск; нет TTY → пропуск (init
-    # остаётся неинтерактивным в пайпах/CI); нет creds → спрашиваем (с объяснением, где взять).
-    _telegram_login_step()
 
 
 def _read_stdin_line() -> str:

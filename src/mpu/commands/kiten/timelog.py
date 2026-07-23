@@ -802,6 +802,36 @@ def _now() -> datetime.datetime:
     return datetime.datetime.now(datetime.UTC)
 
 
+def _stop_role_id(role: str | None, hint: kaiten_links.TimeHint | None) -> int:
+    """Роль записи: явный `--role` > запомненная при `start` > дефолтная."""
+    if role is not None:
+        return _resolve_role(role)
+    if hint is not None and hint.role_id is not None:
+        return hint.role_id
+    return _resolve_role(None)
+
+
+def _render_stop_result(
+    created: KaitenTimeLog | None,
+    *,
+    log_id: int | None,
+    actual: int,
+    minutes: int | None,
+    url: str,
+) -> str:
+    """Строка итога. Печатаем перечитанную запись, а не свои вычисления: `for_date` сервер
+    берёт от `finished_at` в UTC, и остановка ночью по МСК ложится на предыдущий день."""
+    if created is None:
+        return f"ok: таймер остановлен · запись {log_id} · {url}"
+    suffix = (
+        f" (по факту {format_minutes(actual)})" if minutes is not None and minutes != actual else ""
+    )
+    return (
+        f"ok: таймер остановлен · записано {format_minutes(created.time_spent)}{suffix} · "
+        f"{created.for_date} · {_role_label(created)} · запись {created.id} · {url}"
+    )
+
+
 @time_app.command("stop")
 def time_stop(
     selector: CardArg,
@@ -837,12 +867,7 @@ def time_stop(
     minutes = _parse_duration("--time", duration) if duration is not None else None
     client = KaitenClient.from_env()
     url = card_url(client.base_url, card_id)
-    hint = _hint_for(card_id)
-    role_id = (
-        _resolve_role(role)
-        if role is not None
-        else (hint.role_id if hint and hint.role_id is not None else _resolve_role(None))
-    )
+    role_id = _stop_role_id(role, _hint_for(card_id))
     try:
         timer = _running_timer(client, card_id)
         if timer is None or timer.started_at is None:
@@ -876,16 +901,13 @@ def time_stop(
         store.bootstrap(conn)
         kaiten_links.clear_time_hint(conn, card_id, timer_only=True)
 
-    if created is None:
-        typer.echo(f"ok: таймер остановлен · запись {stopped.card_time_log_id} · {url}")
-        return
-    differs = minutes is not None and minutes != actual
-    suffix = f" (по факту {format_minutes(actual)})" if differs else ""
     typer.echo(
-        f"ok: таймер остановлен · записано {format_minutes(created.time_spent)}{suffix} · "
-        f"{created.for_date} · {_role_label(created)} · запись {created.id} · {url}"
+        _render_stop_result(
+            created, log_id=stopped.card_time_log_id, actual=actual, minutes=minutes, url=url
+        )
     )
-    _warn_if_date_shifted(created.for_date, finish_at)
+    if created is not None:
+        _warn_if_date_shifted(created.for_date, finish_at)
 
 
 def _stop_comment(explicit: str | None, timer: KaitenTimer) -> str | None:
