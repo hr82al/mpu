@@ -184,24 +184,23 @@ def test_resolve_error_with_candidates_prints_them(
     assert 'title="ACME"' in cand_block
 
 
-# ---------- n <= 0 (sl-0 / negative) ----------
+# ---------- граница n (sl-0 / negative) ----------
 
 
-def test_server_zero_rejected(monkeypatch: pytest.MonkeyPatch, echo: _EchoRecorder) -> None:
-    """n==0 (sl-0 не cli-таргет) → Exit(2) с сообщением 'ожидается sl-N (N>0)'."""
+def test_server_zero_resolved(monkeypatch: pytest.MonkeyPatch) -> None:
+    """sl-0 — обычный сервер: у него есть Portainer-endpoint и работающие контейнеры."""
     _patch_resolve(monkeypatch, result=(0, []))
-    _patch_target(monkeypatch, ("https://h:9443", 5))
+    _patch_target(monkeypatch, ("https://h:9443", 13))
     _patch_env(monkeypatch, {"PORTAINER_API_KEY": "k"})
 
-    with pytest.raises(typer.Exit) as ei:
-        resolve_portainer(selector="sl-0", command_name="cmd")
+    resolved = resolve_portainer(selector="sl-0", command_name="cmd")
 
-    assert ei.value.exit_code == 2
-    assert echo.calls == [("cmd: ожидается sl-N (N>0), получено: 'sl-0'", True)]
+    assert resolved.server_number == 0
+    assert resolved.endpoint_id == 13
 
 
 def test_server_negative_rejected(monkeypatch: pytest.MonkeyPatch, echo: _EchoRecorder) -> None:
-    """Отрицательный n тоже отвергается (граница `n <= 0`)."""
+    """Отрицательный n отвергается (граница `n < 0`)."""
     _patch_resolve(monkeypatch, result=(-1, []))
     _patch_target(monkeypatch, ("https://h:9443", 5))
     _patch_env(monkeypatch, {"PORTAINER_API_KEY": "k"})
@@ -210,7 +209,7 @@ def test_server_negative_rejected(monkeypatch: pytest.MonkeyPatch, echo: _EchoRe
         resolve_portainer(selector="weird", command_name="cmd")
 
     assert ei.value.exit_code == 2
-    assert echo.calls == [("cmd: ожидается sl-N (N>0), получено: 'weird'", True)]
+    assert echo.calls == [("cmd: ожидается sl-N (N>=0), получено: 'weird'", True)]
 
 
 # ---------- portainer_target missing ----------

@@ -20,10 +20,10 @@ class PortainerResolved:
 
 
 def resolve_portainer(*, selector: str, command_name: str) -> PortainerResolved:
-    """Резолв селектора в Portainer Client. server_number > 0 (sl-0 не cli-таргет)."""
+    """Резолв селектора в Portainer Client. sl-0 (main) — такой же таргет, как остальные."""
     n, candidates = resolve_server_or_exit(selector, command_name=command_name)
-    if n <= 0:
-        typer.echo(f"{command_name}: ожидается sl-N (N>0), получено: {selector!r}", err=True)
+    if n < 0:
+        typer.echo(f"{command_name}: ожидается sl-N (N>=0), получено: {selector!r}", err=True)
         raise typer.Exit(code=2)
     _ = candidates  # подавить неиспользуемый возврат resolve_server
 

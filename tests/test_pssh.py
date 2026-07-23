@@ -405,16 +405,27 @@ def test_pssh_cli_propagates_exit_code(env_ssh_only: Path, monkeypatch: pytest.M
     assert result.exit_code == 13
 
 
-def test_pssh_cli_rejects_sl_0(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_pssh_cli_runs_on_sl_0(env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`sl-0` исполняется как любой другой сервер — проверено вживую в `mp-sl-0-cli`."""
     _ = env_ssh_only
+    captured: dict[str, object] = {}
 
-    def _fake_run(**_kw: object) -> int:
+    def _fake_run(
+        *,
+        server_number: int,
+        cmd: list[str],
+        stdin: bytes = b"",
+        via: str | None = None,
+        dev: bool = False,
+    ) -> int:
+        captured.update(server_number=server_number, cmd=list(cmd), stdin=stdin, via=via, dev=dev)
         return 0
 
     monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
-    runner = CliRunner()
-    result = runner.invoke(pssh_cmd.app, ["sl-0", "--", "ls"])
-    assert result.exit_code == 2
+    result = CliRunner().invoke(pssh_cmd.app, ["sl-0", "--", "ls"])
+    assert result.exit_code == 0, result.output
+    assert captured["server_number"] == 0
+    assert captured["cmd"] == ["ls"]
 
 
 # ---------- stdin sources ----------
@@ -1522,10 +1533,10 @@ def test_pssh_cli_resolve_server_error_no_candidates(
     assert "nothing matched" in result.output
 
 
-def test_pssh_cli_resolve_server_non_positive(
+def test_pssh_cli_resolve_server_zero_accepted(
     env_ssh_only: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """resolve_server вернул sn<=0 → exit 2 (ожидается sl-N, N>0)."""
+    """Селектор, резолвящийся в sl-0, принимается: сервер живой, `mp-sl-0-cli` там работает."""
     _ = env_ssh_only
 
     def _fake_resolve(
@@ -1535,9 +1546,13 @@ def test_pssh_cli_resolve_server_non_positive(
         return 0, []
 
     monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
-    result = CliRunner().invoke(pssh_cmd.app, ["weird-title", "--", "ls"])
-    assert result.exit_code == 2
-    assert "N>0" in result.output
+    assert pssh_cmd._resolve_target("weird-title") == pssh_cmd._ServerTarget(0)
+
+
+def test_pssh_cli_sl_0_accepted(env_ssh_only: Path) -> None:
+    """`sl-0` — обычный сервер (main), не «нулевой»: `mpu ssh sl-0` должен работать."""
+    _ = env_ssh_only
+    assert pssh_cmd._resolve_target("sl-0") == pssh_cmd._ServerTarget(0)
 
 
 def test_pssh_cli_selector_none_with_command_rejected(

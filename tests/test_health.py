@@ -345,12 +345,13 @@ def test_health_no_portainer_target_exit_2(env_empty: None) -> None:
     assert "portainer-target" in result.output
 
 
-def test_health_rejects_sl_0(env_empty: None) -> None:
-    """sl-0 не cli-таргет → exit 2 «ожидается sl-N (N>0)»."""
+def test_health_sl_0_needs_portainer_target_like_any_server(env_empty: None) -> None:
+    """sl-0 — обычный сервер: отказ только из-за отсутствия portainer-target в пустом .env,
+    а не потому что «ноль». С реальным конфигом target у sl-0 есть (endpoint 13)."""
     _ = env_empty
     result = runner.invoke(health.app, ["sl-0"])
     assert result.exit_code == 2, result.output
-    assert "sl-N" in result.output
+    assert "portainer-target" in result.output
 
 
 def test_health_missing_api_key_exit_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
