@@ -7,6 +7,10 @@ import pytest
 
 from mpu.lib import servers, store
 
+# Фикстуры kiten-пакета (общий клиент-фейк и обвязка) — отдельным модулем,
+# иначе каждый из его тест-файлов копировал бы FakeKaitenClient заново.
+pytest_plugins = ["kiten_fakes"]
+
 _LOG_DEFAULTS = {
     "MPU_LOG_ENABLED": "1",
     "MPU_LOG_MAX_OUTPUT_BYTES": "0",  # 0 = без обрезки: тесты сверяют вывод целиком

@@ -342,7 +342,7 @@ S-порции · выигрыш: medium.
 
 | Место | Что | Лечение | Объём · выигрыш |
 | ----- | --- | ------- | --------------- |
-| `tests/test_kiten.py` | 3 885 строк тестируют 8 уже разнесённых модулей `commands/kiten/*`; внутри виден шов — стиль разделителей меняется с `# ── … ──` (×35) на `# --- … ---` (×10) | разбить по образу `src`: `test_kiten_card.py`, `test_kiten_move.py`, `test_kiten_refs.py`, … | L · high |
+| ✅ `tests/test_kiten.py` | 3 885 строк тестировали 8 уже разнесённых модулей `commands/kiten/*` | **сделано:** разрезано по подкомандам — `test_kiten_{card,comment,field,ls,move,refs,timelog}.py` (113–1250 строк каждый), общие двойники (`FakeKaitenClient` и обвязка, 139 тестов из 307) в `tests/kiten_fakes.py`, подключённом плагином в `conftest.py`; число тестов не изменилось | L · high |
 | `tests/test_telegram.py:339` | 9 `Fake*Client` копируют один async `connect`/`disconnect`-боилерплейт (8 дословных повторов) | базовый `_FakeTelegramClientBase`, наследники переопределяют только своё | M · medium |
 | `tests/test_pssh.py:342` | 15 ручных `captured: dict[str, object]` spy-замыканий + 3 стаб-класса Portainer | один `Recorder` в начале файла | S · low |
 | `tests/test_pssh.py:583` | фикстура `bootstrap_db` растипизирована до `object` в 14 сигнатурах + 4 `# type: ignore[operator]` | `Callable[[Path \| str], None]` — тип уже импортирован в файле | S · low |
