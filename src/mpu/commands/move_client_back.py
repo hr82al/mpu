@@ -22,7 +22,7 @@ import typer
 from mpu.lib import servers
 from mpu.lib.client_moves import Move, clear_move, last_move, list_moves
 from mpu.lib.client_transfer import run_transfer
-from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
+from mpu.lib.resolver import format_candidates, resolve_server_or_exit
 
 COMMAND_NAME = "mpu move-client-back"
 COMMAND_SUMMARY = "Вернуть клиента на исходный sl-сервер (ls — список, rm — удалить запись)"
@@ -41,13 +41,7 @@ def _resolve_client_id(selector: str) -> int:
     except ValueError:
         pass
 
-    try:
-        _server_n, candidates = resolve_server(selector)
-    except ResolveError as e:
-        typer.echo(f"{COMMAND_NAME}: {e}", err=True)
-        if e.candidates:
-            typer.echo(format_candidates(e.candidates), err=True)
-        raise typer.Exit(code=2) from None
+    _server_n, candidates = resolve_server_or_exit(selector, command_name=COMMAND_NAME)
 
     ids = {cid for c in candidates if isinstance(cid := c.get("client_id"), int)}
     if not ids:

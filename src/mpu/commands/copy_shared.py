@@ -22,7 +22,7 @@ from typing import Annotated
 import typer
 
 from mpu.lib import dt_host, servers
-from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
+from mpu.lib.resolver import resolve_server_or_exit
 
 COMMAND_NAME = "mpu copy-shared"
 COMMAND_SUMMARY = "Скопировать shared-таблицы с удалённого PG в локальный dev-PG"
@@ -65,13 +65,7 @@ def main(
     ],
 ) -> None:
     """Скопировать shared-таблицы с source-сервера, выбранного через селектор."""
-    try:
-        server_number, _ = resolve_server(selector)
-    except ResolveError as e:
-        typer.echo(f"{COMMAND_NAME}: {e}", err=True)
-        if e.candidates:
-            typer.echo(format_candidates(e.candidates), err=True)
-        raise typer.Exit(code=2) from None
+    server_number, _ = resolve_server_or_exit(selector, command_name=COMMAND_NAME)
 
     source_host = servers.pg_ip(server_number)
     if source_host is None:

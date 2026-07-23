@@ -159,23 +159,48 @@ apply_close_plan(client, plan)                                    # только
 
 | Тема | Канон | Обходят |
 | ---- | ----- | ------- |
-| Ошибки | `lib/cli_err.py` (`fail` / `die`) | 318 мест `typer.echo(..., err=True)`, 163 `raise typer.Exit`; каноном пользуются 18 модулей, **ни один файл `lib/`** |
+| Ошибки | `lib/cli_err.py` (`fail` / `die`) | было 318 мест `typer.echo(..., err=True)` → **288**; каноном пользуются 18 модулей, **ни один файл `lib/`** |
 | JSON-вывод | `lib/cli_out.print_json` (72 вызова) | 37 прямых `json.dumps` |
-| Резолв селектора | `lib/resolver.resolve_server` | блок `except ResolveError → echo → Exit(2)` скопирован в 11 модулях `commands/` |
-| Локальный `_fail` | — | 8 определений; 4 (`wb_loader_resume.py:113`, `wb_cards_reset.py:58`, `wb_loader_blocked.py:88`, `ss_access.py:49`) отличаются только зашитым `COMMAND` |
+| ✅ Резолв селектора | `lib/resolver.resolve_server_or_exit` | блок `except ResolveError → echo → Exit(2)` был скопирован 13 раз → **сведён**, осталось 5 обоснованных |
+| ✅ Локальный `_fail` | `lib/cli_err.bind(COMMAND)` | было 8 определений → **4**; сведены `wb_loader_resume`, `wb_cards_reset`, `wb_loader_blocked`, `ss_access`, `glab_status` |
 | Таблицы | — | ручные `ljust`-принтеры: `ps.py:140`, `ps.py:172`, `health.py:169` (+ `_row`/`_str_field` в `ps.py:154` и `health.py:135` идентичны побайтно) |
 | Portainer-конфиг | — | парсинг `PORTAINER_VERIFY_TLS` в 6 местах (`pssh.py:137,221,360,379`, `portainer_discover.py:157`, `_portainer_resolve.py:49`); проверка `PORTAINER_API_KEY` — дважды в `pssh.py` |
 
 Отдельно показательно: `lib/cli_wrap.py` — модуль, задающий стандарт для команд, — сам не пользуется
 `cli_err`: 6 ручных `echo`+`Exit` блоков (строки 125, 143, 148, 172, 199, 415, 488).
 
-**Лечение.** `cli_err.bind(COMMAND) -> Fail` (одна фабрика вместо четырёх копий `_fail`);
-`resolver.resolve_server_or_exit(selector, *, command_name)` (снимает 11 копий обработки ошибки);
-один `render_table(rows, headers)` вместо трёх ljust-принтеров; `servers.portainer_verify_tls()`
-и `require_portainer_api_key()`. Перевод модулей — по одному, начиная с тех, где `err=True` встречается
-10+ раз: `sheet.py` (28), `run_js.py` (27), `mp_init.py` (20), `_logs_loki.py` (17), `lib/pg_copy.py` (16), `pssh.py` (15).
+**✅ Сделано (шаг 4).** `cli_err.bind(COMMAND) -> Fail` — одна фабрика вместо пяти локальных
+`_fail`; `resolver.resolve_server_or_exit(value, *, command_name, server_override=None)` — снял
+9 копий в `commands/` **и десятую в самом `lib/cli_wrap.py`**, который задаёт стандарт для команд,
+а канон обходил. Побочно: `run_js._resolve_targets` упростился настолько, что `# noqa: PLR0912`
+стал не нужен, а `wb_loader_blocked` перестал тянуть приватные `_is_obj_list`/`_is_str_dict`
+из соседней команды (правило 8.7) — они взяты из общего `_wb_loader.py` вместе с выделенными туда
+`as_list`/`as_dict` (были продублированы между двумя командами).
 
-Объём: L суммарно, делится на независимые S-порции · выигрыш: medium-high.
+Что осознанно НЕ сведено (инвентарь показал, что «копии» на деле различаются):
+
+- `commands/mr.py:200` — `_fail(sub, message)` строит `mpu mr <sub>: …`; наивная привязка дала бы
+  лишнее двоеточие (`mpu mr: <sub>: …`) — видимая регрессия текста (17 вызовов);
+- `commands/telegram.py:69` — единственная обёртка **без** префикса команды: 4 из 5 вызовов
+  полагаются на то, что префикс `telegram: ` уже вшит в текст исключения (~16 мест в `lib/telegram.py`);
+- `commands/_mpuapi_runtime.py:217` — имя команды вычисляется из `spec.name` на каждый вызов
+  (~86 endpoint'ов), привязка одного имени структурно не подходит;
+- `commands/_backup_unit_proto.py:46` — возвращает `return 2`, а не бросает (вызывающий сам делает
+  `typer.Exit`);
+- `commands/_wb_loader.py:180` — уже канон, но с уникальной подсказкой; `:258` — контракт
+  «никогда не падает» (ошибка глотается осознанно).
+
+Остаток по каналу вывода: 288 мест `err=True`, 37 прямых `json.dumps`, три ручных `ljust`-принтера
+(`ps.py`, `health.py`), 6 копий парсинга `PORTAINER_VERIFY_TLS`. Объём: L, делится на независимые
+S-порции · выигрыш: medium.
+
+**Найден pre-existing баг (не правил — меняет видимый вывод).** `commands/_backup_unit_proto.py:43`:
+дефолт `label = f"mpu-backup-{marketplace}-unit-proto"` — через дефис, тогда как команда называется
+`mpu backup-wb-unit-proto` (через пробел). Две команды из трёх (`backup_wb_unit_proto`,
+`backup_ozon_unit_proto`) дефолт не переопределяют, поэтому в их сообщениях об ошибке печатается
+несуществующее имя команды — это нарушает принцип 1 («ошибки машинно-читаемы: `<команда>: …`»).
+Третья (`backup_wb_unit_manual_data`) передаёт `command_label=COMMAND_NAME` и печатает верно.
+Чинится двумя строками, но меняет вывод — отдельным решением.
 
 ---
 
@@ -209,9 +234,11 @@ apply_close_plan(client, plan)                                    # только
 сырое имя листа и не затронуты. Заодно устранён рассинхрон вывода: поле `range` из кэша печаталось
 `Чек-лист!A1:B2`, а из живого ответа API — `'Чек-лист'!A1:B2`.
 
-**5.3. `_pick_client_id` — `copy_client.py:37` vs `move_client.py:31` (+ `move_client_back.py:52`).**
-Дословная копия, включая тексты ошибок. Лечение: `resolver.require_single_client_id(candidates, command_name)`.
-Объём: M · выигрыш: medium.
+**✅ 5.3. `_pick_client_id` — `copy_client.py:37` vs `move_client.py:31`.** Дословная копия,
+включая тексты ошибок и предшествующий им pre-check «кандидатов нет». **Сделано:**
+`resolver.require_single_client_id(candidates, *, selector, server_number, command_name)`.
+`move_client_back.py:52` намеренно оставлен: там документированный обход кэша для чисто числового
+селектора и другой текст сообщения — не копия, а иное поведение.
 
 **5.4. `_logs_loki.py:53` — `run()` и `follow()` как параллельные копии** пролога подготовки запроса
 плюс три идентичных `except`-блока httpx (`:79-86`, `:160-167`, `:189-197`). Лечение: общий `_prepare()`
@@ -321,7 +348,7 @@ apply_close_plan(client, plan)                                    # только
 | ✅ 1 | `combine-as-imports = true` + `ruff --fix` — сделано (−108 строк в 8 файлах) | S | medium |
 | ✅ 2 | Точечные S-фиксы — сделано: `miro._delete_tolerant`, `portainer` явный возврат, `kiten_status` общая функция, `_sheet_db()` ×13, `callback=_run` ×6, `quote_tab_name` ×5 (§5.2, с фиксом экранирования) | S каждый | high |
 | ✅ 3 | `lib/cli_opts.py` + перевод модулей — сделано (120 объявлений, −225 строк с учётом нового каталога, справка не изменилась) | M | high |
-| 4 | `resolver.resolve_server_or_exit` + `require_single_client_id` + `cli_err.bind` | M | high |
+| ✅ 4 | `resolver.resolve_server_or_exit` + `require_single_client_id` + `cli_err.bind` — сделано (13 копий → 5, 8 `_fail` → 4) | M | high |
 | 5 | Общие фикстуры в `tests/conftest.py` (`fake_node_cli`, `fake_resolve`, `fake_pg`) | M | high |
 | 6 | `plan → render → apply` для команд с `--dry-run` (начать с `kiten close`) | M | high |
 | 7 | Общий `_target_resolve.py` для `run_js`/`pssh` (снимает расхождение `N>0`/`N>=0`) | M | high |
@@ -346,9 +373,9 @@ uv run ruff check --select C901 --config 'lint.mccabe.max-complexity=10' src    
 uv run ruff check --select PLR0915 --config 'lint.pylint.max-statements=40' src                # 11
 
 # обходы канонов
-grep -rn 'err=True' src | wc -l                    # 318 → убывает
+grep -rn 'err=True' src | wc -l                    # 288 (было 318) → убывает
 grep -rn 'json.dumps' src | wc -l                  # 37  → 0 вне lib/cli_out.py
-grep -rn 'except ResolveError' src | wc -l         # 13  → 0 вне lib/resolver.py
+grep -rn 'except ResolveError' src | wc -l         # 5 (было 13) → остальные обоснованы, см. §4
 grep -rn 'monkeypatch.setattr' tests | wc -l       # 895 → убывает
 grep -rn '# noqa' src | wc -l                      # 113 (было 119) → убывает
 

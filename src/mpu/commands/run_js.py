@@ -64,7 +64,7 @@ from mpu.lib.pssh import (
     pssh_run,
     pssh_run_container,
 )
-from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
+from mpu.lib.resolver import resolve_server_or_exit
 
 COMMAND_NAME = "mpu run-js"
 COMMAND_SUMMARY = "Запустить произвольный JS внутри контейнера sl-back по селектору (или --all)"
@@ -123,7 +123,7 @@ def _resolve_js_source(*, code: str | None, file: Path | None) -> str:
     return js
 
 
-def _resolve_targets(  # noqa: C901, PLR0912
+def _resolve_targets(  # noqa: C901
     selector: str | None,
     all_active: bool,
     all_containers_filter: str | None,
@@ -190,13 +190,7 @@ def _resolve_targets(  # noqa: C901, PLR0912
         typer.echo(containers.format_container_candidates(container_matches), err=True)
         raise typer.Exit(code=2)
     # 3. Резолв через mpu search (client_id / spreadsheet_id / title)
-    try:
-        sn, _candidates = resolve_server(selector)
-    except ResolveError as e:
-        typer.echo(f"{COMMAND_NAME}: {e}", err=True)
-        if e.candidates:
-            typer.echo(format_candidates(e.candidates), err=True)
-        raise typer.Exit(code=2) from None
+    sn, _candidates = resolve_server_or_exit(selector, command_name=COMMAND_NAME)
     if sn < 0:
         typer.echo(f"{COMMAND_NAME}: ожидается sl-N (N>=0), получено: {selector!r}", err=True)
         raise typer.Exit(code=2)

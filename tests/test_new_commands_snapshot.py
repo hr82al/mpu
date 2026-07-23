@@ -72,7 +72,6 @@ def fake_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         return True
 
     monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
-    monkeypatch.setattr(cli_wrap, "resolve_server", _fake_resolve)
     monkeypatch.setattr(servers, "sl_ip", _sl_ip)
     monkeypatch.setattr(servers, "env_value", _env_value)
     monkeypatch.setattr(clipboard, "copy_to_clipboard", _noop_copy)
@@ -565,7 +564,7 @@ def test_typer_ambiguity(monkeypatch: pytest.MonkeyPatch) -> None:
             candidates=[{"client_id": 1, "server": "sl-1"}, {"client_id": 2, "server": "sl-2"}],
         )
 
-    monkeypatch.setattr(cli_wrap, "resolve_server", _raise)
+    monkeypatch.setattr(resolver, "resolve_server", _raise)
     result = runner.invoke(wb_loader.app, ["reports", "VAGUE", "--sid", "abcd"])
     assert result.exit_code == 2
     assert "ambiguous" in result.output

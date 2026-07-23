@@ -42,7 +42,6 @@ def fake_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # cli_wrap импортирует resolve_server из mpu.lib.resolver — мокаем у источника
     # и в каждом call-site, который держит локальную ссылку.
     monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
-    monkeypatch.setattr(cli_wrap, "resolve_server", _fake_resolve)
     if hasattr(_ssh_node_cli, "resolve_server"):
         monkeypatch.setattr(_ssh_node_cli, "resolve_server", _fake_resolve)
     if hasattr(ss_update, "resolve_server"):

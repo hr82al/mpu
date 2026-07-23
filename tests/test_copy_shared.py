@@ -6,7 +6,7 @@ import pytest
 from typer.testing import CliRunner
 
 from mpu.commands import copy_shared as cmd
-from mpu.lib import dt_host, servers
+from mpu.lib import dt_host, resolver, servers
 from mpu.lib.resolver import ResolveError
 
 runner = CliRunner()
@@ -24,7 +24,7 @@ def fake_resolve(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, object]]
             {"client_id": 54, "server": "sl-2", "server_number": 2},
         ]
 
-    monkeypatch.setattr(cmd, "resolve_server", _resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _resolve)
 
     def _pg_ip(n: int) -> str | None:
         return "192.168.150.32" if n == 2 else None
@@ -86,7 +86,7 @@ def test_resolve_error(monkeypatch: pytest.MonkeyPatch) -> None:
     ) -> tuple[int, list[dict[str, object]]]:
         raise ResolveError("nothing matched: 'x'", candidates=[])
 
-    monkeypatch.setattr(cmd, "resolve_server", _raise)
+    monkeypatch.setattr(resolver, "resolve_server", _raise)
     res = runner.invoke(cmd.app, ["x"])
 
     assert res.exit_code == 2
@@ -102,7 +102,7 @@ def test_no_pg_ip(monkeypatch: pytest.MonkeyPatch) -> None:
     def _pg_ip(n: int) -> str | None:
         return None
 
-    monkeypatch.setattr(cmd, "resolve_server", _resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _resolve)
     monkeypatch.setattr(servers, "pg_ip", _pg_ip)
     res = runner.invoke(cmd.app, ["sl-9"])
 

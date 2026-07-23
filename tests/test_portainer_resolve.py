@@ -8,9 +8,8 @@
 import pytest
 import typer
 
-from mpu.commands import _portainer_resolve as pr_mod
 from mpu.commands._portainer_resolve import PortainerResolved, resolve_portainer
-from mpu.lib import portainer, servers
+from mpu.lib import portainer, resolver, servers
 from mpu.lib.resolver import ResolveError
 
 
@@ -46,7 +45,7 @@ def _patch_resolve(
         assert result is not None
         return result
 
-    monkeypatch.setattr(pr_mod, "resolve_server", _fake)
+    monkeypatch.setattr(resolver, "resolve_server", _fake)
 
 
 def _patch_target(monkeypatch: pytest.MonkeyPatch, target: tuple[str, int] | None) -> None:
@@ -142,23 +141,23 @@ def test_success_verify_tls_missing_defaults_false(
 
 
 def test_resolve_error_without_candidates_exits_2(
-    monkeypatch: pytest.MonkeyPatch, echo: _EchoRecorder
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """ResolveError без кандидатов → Exit(2), одна строка с command_name-префиксом."""
     _patch_resolve(monkeypatch, error=ResolveError("nothing matched: 'foo'"))
     _patch_target(monkeypatch, None)
     _patch_env(monkeypatch, {})
 
-    with pytest.raises(typer.Exit) as ei:
+    with pytest.raises(SystemExit) as ei:
         resolve_portainer(selector="foo", command_name="mpu p ps")
 
-    assert ei.value.exit_code == 2
-    # Кандидатов нет → format_candidates НЕ печатается (ровно один echo).
-    assert echo.calls == [("mpu p ps: nothing matched: 'foo'", True)]
+    assert ei.value.code == 2
+    # Кандидатов нет → format_candidates НЕ печатается (ровно одна строка).
+    assert capsys.readouterr().err == "mpu p ps: nothing matched: 'foo'\n"
 
 
 def test_resolve_error_with_candidates_prints_them(
-    monkeypatch: pytest.MonkeyPatch, echo: _EchoRecorder
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Ambiguous ResolveError с кандидатами → Exit(2) + список кандидатов в stderr."""
     cands: list[dict[str, object]] = [
@@ -172,18 +171,17 @@ def test_resolve_error_with_candidates_prints_them(
     _patch_target(monkeypatch, None)
     _patch_env(monkeypatch, {})
 
-    with pytest.raises(typer.Exit) as ei:
+    with pytest.raises(SystemExit) as ei:
         resolve_portainer(selector="x", command_name="cmd")
 
-    assert ei.value.exit_code == 2
-    assert len(echo.calls) == 2
-    assert echo.calls[0] == ("cmd: ambiguous selector 'x' — 2 candidates", True)
-    # Вторая строка — реальный format_candidates(): оба client_id и err=True.
-    cand_line, cand_err = echo.calls[1]
-    assert cand_err is True
-    assert "client_id=7" in cand_line
-    assert "client_id=8" in cand_line
-    assert 'title="ACME"' in cand_line
+    assert ei.value.code == 2
+    err = capsys.readouterr().err
+    head, _, cand_block = err.partition("\n")
+    assert head == "cmd: ambiguous selector 'x' — 2 candidates"
+    # Дальше — реальный format_candidates().
+    assert "client_id=7" in cand_block
+    assert "client_id=8" in cand_block
+    assert 'title="ACME"' in cand_block
 
 
 # ---------- n <= 0 (sl-0 / negative) ----------

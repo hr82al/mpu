@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import typer
 
 from mpu.lib import portainer, servers
-from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
+from mpu.lib.resolver import resolve_server_or_exit
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,13 +21,7 @@ class PortainerResolved:
 
 def resolve_portainer(*, selector: str, command_name: str) -> PortainerResolved:
     """Резолв селектора в Portainer Client. server_number > 0 (sl-0 не cli-таргет)."""
-    try:
-        n, candidates = resolve_server(selector)
-    except ResolveError as e:
-        typer.echo(f"{command_name}: {e}", err=True)
-        if e.candidates:
-            typer.echo(format_candidates(e.candidates), err=True)
-        raise typer.Exit(code=2) from None
+    n, candidates = resolve_server_or_exit(selector, command_name=command_name)
     if n <= 0:
         typer.echo(f"{command_name}: ожидается sl-N (N>0), получено: {selector!r}", err=True)
         raise typer.Exit(code=2)

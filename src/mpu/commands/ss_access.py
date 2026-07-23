@@ -21,12 +21,12 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import Any
 
 import click
 import psycopg
 
-from mpu.lib.cli_err import fail
+from mpu.lib.cli_err import bind
 from mpu.lib.cli_out import print_json as _print_json
 from mpu.lib.pg import PgConfigError, connect_main
 from mpu.lib.slapi import SlApi, SlApiError, resolve_credentials
@@ -46,9 +46,7 @@ _REVOKE_POLL_INTERVAL_S = 3.0
 _REVOKE_POLL_TIMEOUT_S = 60.0
 
 
-def _fail(reason: str, *, code: int, hint: str | None = None, extra: str | None = None) -> NoReturn:
-    """`fail` с зафиксированным `COMMAND` (сохраняет существующие call-site'ы)."""
-    fail(COMMAND, reason, code=code, hint=hint, extra=extra)
+_fail = bind(COMMAND)
 
 
 def _api() -> SlApi:

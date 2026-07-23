@@ -23,7 +23,7 @@ import typer
 
 from mpu.lib import pg, pg_copy, sw_seed
 from mpu.lib.pg import PgConfigError
-from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
+from mpu.lib.resolver import require_single_client_id, resolve_server_or_exit
 
 COMMAND_NAME = "mpu copy-client"
 COMMAND_SUMMARY = "Скопировать клиента с прод-PG в локальный dev-PG (нативный pg_dump + COPY)"
@@ -32,27 +32,6 @@ app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-
-
-def _pick_client_id(candidates: list[dict[str, object]]) -> int:
-    ids = {cid for c in candidates if isinstance(cid := c.get("client_id"), int)}
-    if not ids:
-        typer.echo(
-            f"{COMMAND_NAME}: selector resolved to a server but no client_id; "
-            f"use a selector that points to a specific client",
-            err=True,
-        )
-        if candidates:
-            typer.echo(format_candidates(candidates), err=True)
-        raise typer.Exit(code=2)
-    if len(ids) > 1:
-        typer.echo(
-            f"{COMMAND_NAME}: selector matches {len(ids)} clients — narrow it down",
-            err=True,
-        )
-        typer.echo(format_candidates(candidates), err=True)
-        raise typer.Exit(code=2)
-    return next(iter(ids))
 
 
 @app.command()
@@ -66,23 +45,11 @@ def main(
     ],
 ) -> None:
     """Скопировать клиента с прод-PG в локальный dev-PG (`sl-1`), нативно (`pg_dump`/COPY)."""
-    try:
-        server_number, candidates = resolve_server(selector)
-    except ResolveError as e:
-        typer.echo(f"{COMMAND_NAME}: {e}", err=True)
-        if e.candidates:
-            typer.echo(format_candidates(e.candidates), err=True)
-        raise typer.Exit(code=2) from None
+    server_number, candidates = resolve_server_or_exit(selector, command_name=COMMAND_NAME)
 
-    if not candidates:
-        typer.echo(
-            f"{COMMAND_NAME}: selector {selector!r} resolved to sl-{server_number} "
-            f"but does not point to a specific client; pass client_id / spreadsheet / title",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-
-    client_id = _pick_client_id(candidates)
+    client_id = require_single_client_id(
+        candidates, selector=selector, server_number=server_number, command_name=COMMAND_NAME
+    )
 
     try:
         src = pg.instance_conn(server_number)

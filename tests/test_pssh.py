@@ -12,7 +12,7 @@ import typer
 from typer.testing import CliRunner
 
 from mpu.commands import pssh as pssh_cmd
-from mpu.lib import containers, portainer, pssh, servers, store
+from mpu.lib import containers, portainer, pssh, resolver, servers, store
 from mpu.lib.resolver import ResolveError
 
 
@@ -717,7 +717,7 @@ def test_pssh_cli_falls_through_to_mpu_search_when_container_not_found(
         captured.update(server_number=server_number, cmd=list(cmd))
         return 0
 
-    monkeypatch.setattr(pssh_cmd, "resolve_server", _fake_resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
     monkeypatch.setattr(pssh_cmd._pssh, "pssh_run", _fake_run)
     runner = CliRunner()
     result = runner.invoke(pssh_cmd.app, ["unknown-name", "--", "ls"])
@@ -1524,7 +1524,7 @@ def test_pssh_cli_resolve_server_error_prints_candidates(
             ],
         )
 
-    monkeypatch.setattr(pssh_cmd, "resolve_server", _fake_resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
     result = CliRunner().invoke(pssh_cmd.app, ["weird-title", "--", "ls"])
     assert result.exit_code == 2
     assert "ambiguous" in result.output
@@ -1544,7 +1544,7 @@ def test_pssh_cli_resolve_server_error_no_candidates(
         _ = server_override
         raise ResolveError(f"nothing matched: {value!r}")
 
-    monkeypatch.setattr(pssh_cmd, "resolve_server", _fake_resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
     result = CliRunner().invoke(pssh_cmd.app, ["weird-title", "--", "ls"])
     assert result.exit_code == 2
     assert "nothing matched" in result.output
@@ -1562,7 +1562,7 @@ def test_pssh_cli_resolve_server_non_positive(
         _ = value, server_override
         return 0, []
 
-    monkeypatch.setattr(pssh_cmd, "resolve_server", _fake_resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
     result = CliRunner().invoke(pssh_cmd.app, ["weird-title", "--", "ls"])
     assert result.exit_code == 2
     assert "N>0" in result.output

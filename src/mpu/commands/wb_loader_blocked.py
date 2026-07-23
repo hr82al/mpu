@@ -36,11 +36,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import NoReturn
 
 import click
 
-from mpu.commands._wb_loader import LOADER_REFERENCE_HELP, wrong_form_hint
+from mpu.commands._wb_loader import (
+    LOADER_REFERENCE_HELP,
+    as_list,
+    is_obj_list,
+    is_str_dict,
+    wrong_form_hint,
+)
 
 # Переиспользуем стабильные символы из соседней команды (DRY; источник истины
 # для path/loader-имён/JSON-guard'ов — там). Cross-module private — осознанно,
@@ -49,11 +54,9 @@ from mpu.commands.wb_loader_resume import (  # pyright: ignore[reportPrivateUsag
     _FIND_PATH,  # pyright: ignore[reportPrivateUsage]
     LOADER_NAMES,
     _complete_loader,  # pyright: ignore[reportPrivateUsage]
-    _is_obj_list,  # pyright: ignore[reportPrivateUsage]
-    _is_str_dict,  # pyright: ignore[reportPrivateUsage]
     _print_json,  # pyright: ignore[reportPrivateUsage]
 )
-from mpu.lib.cli_err import fail
+from mpu.lib.cli_err import bind
 from mpu.lib.clipboard import copy_to_clipboard
 from mpu.lib.slapi import SlApi, SlApiError, resolve_base_url, token_cache_path
 
@@ -85,9 +88,7 @@ BLOCKED_REASON_NAMES: list[str] = [
 ]
 
 
-def _fail(reason: str, *, code: int, hint: str | None = None, extra: str | None = None) -> NoReturn:
-    """`fail` с зафиксированным `COMMAND` (сохраняет существующие call-site'ы)."""
-    fail(COMMAND, reason, code=code, hint=hint, extra=extra)
+_fail = bind(COMMAND)
 
 
 # ── Кэш имён серверов (для автодополнения `--server`) ────────────────────────
@@ -121,7 +122,7 @@ def _read_servers_cache() -> list[str]:
         data: object = json.loads(p.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return []
-    if not _is_obj_list(data):
+    if not is_obj_list(data):
         return []
     return [s for s in data if isinstance(s, str) and s]
 
@@ -143,18 +144,11 @@ def _complete_server(ctx: click.Context, param: click.Parameter, incomplete: str
 
 def _row_server(row: object) -> str | None:
     """`row.server` если row — dict со строковым `server`, иначе None."""
-    if _is_str_dict(row):
+    if is_str_dict(row):
         value = row.get("server")
         if isinstance(value, str) and value:
             return value
     return None
-
-
-def _as_list(value: object, *, what: str) -> list[object]:
-    """Ответ-поле должно быть JSON-массивом, иначе exit 1."""
-    if _is_obj_list(value):
-        return value
-    _fail(f"{what}: ожидался JSON-массив, получено {type(value).__name__}", code=1)
 
 
 # ── curl (--print) ───────────────────────────────────────────────────────────
@@ -241,10 +235,10 @@ def _run(  # noqa: C901, PLR0912
             )
         _fail(f"find не удался: {e}", code=1, extra=e.body)
 
-    if not _is_str_dict(raw):
+    if not is_str_dict(raw):
         _fail(f"find response: ожидался JSON-объект, получено {type(raw).__name__}", code=1)
-    data = _as_list(raw.get("data", []), what="find.data")
-    errors = _as_list(raw.get("errors", []), what="find.errors")
+    data = as_list(raw.get("data", []), what="find.data", command=COMMAND)
+    errors = as_list(raw.get("errors", []), what="find.errors", command=COMMAND)
 
     # Кэш серверов пишем из ПОЛНОГО ответа (до --server-фильтра), чтобы
     # автодополнение знало все инстансы, а не только отфильтрованный.

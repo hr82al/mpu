@@ -10,7 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from mpu.commands import users
-from mpu.lib import cli_wrap, clipboard, servers
+from mpu.lib import cli_wrap, clipboard, resolver, servers
 
 runner = CliRunner()
 
@@ -45,7 +45,7 @@ def fake_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     def _noop_copy(_t: str) -> bool:
         return True
 
-    monkeypatch.setattr(cli_wrap, "resolve_server", _fake_resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
     monkeypatch.setattr(servers, "sl_ip", _sl_ip)
     monkeypatch.setattr(servers, "env_value", _env_value)
     monkeypatch.setattr(clipboard, "copy_to_clipboard", _noop_copy)

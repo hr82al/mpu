@@ -7,7 +7,7 @@ import pytest
 from typer.testing import CliRunner
 
 from mpu.commands import move_client as cmd
-from mpu.lib import pssh
+from mpu.lib import pssh, resolver
 from mpu.lib.resolver import ResolveError
 
 runner = CliRunner()
@@ -31,7 +31,7 @@ def fake_resolve(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, object]]
             }
         ]
 
-    monkeypatch.setattr(cmd, "resolve_server", _resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _resolve)
     yield state
 
 
@@ -129,7 +129,7 @@ def test_resolve_error(monkeypatch: pytest.MonkeyPatch, fake_run: dict[str, obje
     ) -> tuple[int, list[dict[str, object]]]:
         raise ResolveError("nothing matched: 'missing'", candidates=[])
 
-    monkeypatch.setattr(cmd, "resolve_server", _raise)
+    monkeypatch.setattr(resolver, "resolve_server", _raise)
     res = runner.invoke(cmd.app, ["missing"])
 
     assert res.exit_code == 2
@@ -147,7 +147,7 @@ def test_ambiguous_client_ids(monkeypatch: pytest.MonkeyPatch, fake_run: dict[st
             {"client_id": 1590, "server": "sl-13", "server_number": 13},
         ]
 
-    monkeypatch.setattr(cmd, "resolve_server", _resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _resolve)
     res = runner.invoke(cmd.app, ["Acme"])
 
     assert res.exit_code == 2
@@ -164,7 +164,7 @@ def test_sl_selector_without_client_id(
     ) -> tuple[int, list[dict[str, object]]]:
         return 13, []
 
-    monkeypatch.setattr(cmd, "resolve_server", _resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _resolve)
     res = runner.invoke(cmd.app, ["sl-13"])
 
     assert res.exit_code == 2

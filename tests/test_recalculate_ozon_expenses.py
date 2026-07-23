@@ -69,7 +69,6 @@ def fake_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         return 2, [CANDIDATE]
 
     monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
-    monkeypatch.setattr(cli_wrap, "resolve_server", _fake_resolve)
     monkeypatch.setattr(reoe, "resolve_server", _fake_resolve)
 
     def _sl_ip(_n: int) -> str | None:
@@ -326,7 +325,7 @@ def test_require_client_id_error(fake_env: None, monkeypatch: pytest.MonkeyPatch
         _ = server_override
         return 2, [{"server": "sl-2", "title": "X"}]
 
-    monkeypatch.setattr(cli_wrap, "resolve_server", _no_cid)
+    monkeypatch.setattr(resolver, "resolve_server", _no_cid)
     result = runner.invoke(reoe.app, ["X", "--print"])
     assert result.exit_code == 2, result.output
     assert "cannot resolve --client-id" in result.output

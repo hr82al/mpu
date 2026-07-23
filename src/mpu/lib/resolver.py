@@ -11,6 +11,7 @@
 
 from mpu.commands.search import looks_like_email, search
 from mpu.lib import servers, store
+from mpu.lib.cli_err import fail
 
 
 class ResolveError(RuntimeError):
@@ -60,6 +61,61 @@ def resolve_server(
             candidates=results,
         )
     return next(iter(distinct)), results
+
+
+def resolve_server_or_exit(
+    value: str, *, command_name: str, server_override: str | None = None
+) -> tuple[int, list[dict[str, object]]]:
+    """`resolve_server`, но `ResolveError` → сообщение с кандидатами в stderr + exit 2.
+
+    Команде почти всегда нужен именно этот вариант: свой `except ResolveError` она писала
+    одинаково — префикс команды, список кандидатов, код 2."""
+    try:
+        return resolve_server(value, server_override=server_override)
+    except ResolveError as e:
+        fail(
+            command_name,
+            str(e),
+            code=2,
+            extra=format_candidates(e.candidates) if e.candidates else None,
+        )
+
+
+def require_single_client_id(
+    candidates: list[dict[str, object]],
+    *,
+    selector: str,
+    server_number: int,
+    command_name: str,
+) -> int:
+    """Единственный `client_id` из кандидатов `resolve_server` — иначе сообщение + exit 2.
+
+    Три исхода-отказа различаются по сообщению: селектор указал только на сервер (кандидатов
+    нет), кандидаты есть но без `client_id`, кандидатов несколько."""
+    if not candidates:
+        fail(
+            command_name,
+            f"selector {selector!r} resolved to sl-{server_number} "
+            f"but does not point to a specific client; pass client_id / spreadsheet / title",
+            code=2,
+        )
+    ids = {cid for c in candidates if isinstance(cid := c.get("client_id"), int)}
+    if not ids:
+        fail(
+            command_name,
+            "selector resolved to a server but no client_id; "
+            "use a selector that points to a specific client",
+            code=2,
+            extra=format_candidates(candidates),
+        )
+    if len(ids) > 1:
+        fail(
+            command_name,
+            f"selector matches {len(ids)} clients — narrow it down",
+            code=2,
+            extra=format_candidates(candidates),
+        )
+    return next(iter(ids))
 
 
 def format_candidates(candidates: list[dict[str, object]]) -> str:

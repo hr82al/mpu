@@ -11,7 +11,7 @@ import typer
 
 from mpu.commands import _logs_loki
 from mpu.commands._logs_loki import _build_logql
-from mpu.lib import loki, servers, store
+from mpu.lib import loki, resolver, servers, store
 from mpu.lib.resolver import ResolveError
 
 
@@ -291,7 +291,7 @@ def test_run_resolves_non_direct_selector_to_sl(
         _ = value, server_override
         return 3, []
 
-    monkeypatch.setattr(_logs_loki, "resolve_server", _resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _resolve)
     fake = _FakeQueryRange([[]])
     monkeypatch.setattr(loki, "query_range", fake)
     _call_run(selector="SOMECLIENT")
@@ -356,7 +356,7 @@ def test_selector_to_host_resolver_maps_to_sl(monkeypatch: pytest.MonkeyPatch) -
         _ = value, server_override
         return 7, []
 
-    monkeypatch.setattr(_logs_loki, "resolve_server", _resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _resolve)
     assert _logs_loki._selector_to_host("CLIENT", command_name="logs") == "sl-7"
 
 
@@ -370,10 +370,10 @@ def test_selector_to_host_resolve_error_with_candidates_exits_2(
             candidates=[{"client_id": 1, "server": "sl-1", "title": "ACME"}],
         )
 
-    monkeypatch.setattr(_logs_loki, "resolve_server", _resolve)
-    with pytest.raises(typer.Exit) as ei:
+    monkeypatch.setattr(resolver, "resolve_server", _resolve)
+    with pytest.raises(SystemExit) as ei:
         _logs_loki._selector_to_host("CLIENT", command_name="logs")
-    assert ei.value.exit_code == 2
+    assert ei.value.code == 2
     err = capsys.readouterr().err
     assert "ambiguous selector" in err
     assert "client_id=1" in err
@@ -386,10 +386,10 @@ def test_selector_to_host_resolve_error_no_candidates_exits_2(
         _ = value, server_override
         raise ResolveError("nothing matched: 'x'")
 
-    monkeypatch.setattr(_logs_loki, "resolve_server", _resolve)
-    with pytest.raises(typer.Exit) as ei:
+    monkeypatch.setattr(resolver, "resolve_server", _resolve)
+    with pytest.raises(SystemExit) as ei:
         _logs_loki._selector_to_host("x", command_name="logs")
-    assert ei.value.exit_code == 2
+    assert ei.value.code == 2
     assert "nothing matched" in capsys.readouterr().err
 
 

@@ -45,7 +45,7 @@ from typing import Annotated
 import typer
 
 from mpu.lib import containers, pssh as _pssh, servers
-from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
+from mpu.lib.resolver import resolve_server_or_exit
 
 COMMAND_NAME = "mpu ssh"
 COMMAND_SUMMARY = (
@@ -115,13 +115,7 @@ def _resolve_target(selector: str) -> _ServerTarget | _ContainerTarget:
         typer.echo(containers.format_container_candidates(container_matches), err=True)
         raise typer.Exit(code=2)
 
-    try:
-        sn, _candidates = resolve_server(selector)
-    except ResolveError as e:
-        typer.echo(f"{COMMAND_NAME}: {e}", err=True)
-        if e.candidates:
-            typer.echo(format_candidates(e.candidates), err=True)
-        raise typer.Exit(code=2) from None
+    sn, _candidates = resolve_server_or_exit(selector, command_name=COMMAND_NAME)
     if sn <= 0:
         typer.echo(f"{COMMAND_NAME}: ожидается sl-N (N>0), получено: {selector!r}", err=True)
         raise typer.Exit(code=2)

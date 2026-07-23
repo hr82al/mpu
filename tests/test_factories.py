@@ -56,7 +56,6 @@ def fake_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         return True
 
     monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
-    monkeypatch.setattr(cli_wrap, "resolve_server", _fake_resolve)
     monkeypatch.setattr(servers, "sl_ip", _sl_ip)
     monkeypatch.setattr(servers, "env_value", _env_value)
     monkeypatch.setattr(clipboard, "copy_to_clipboard", _noop_copy)

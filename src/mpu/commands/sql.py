@@ -20,7 +20,7 @@ import typer
 
 from mpu.lib import servers, sql_runner, sql_sw
 from mpu.lib.cli_opts import ServerOpt
-from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
+from mpu.lib.resolver import resolve_server_or_exit
 
 COMMAND_NAME = "mpu sql"
 COMMAND_SUMMARY = "Выполнить SQL на удалённом PG по селектору"
@@ -101,13 +101,9 @@ def dispatch(  # noqa: PLR0913
         )
         raise typer.Exit(code=code)
 
-    try:
-        server_number, candidates = resolve_server(selector, server_override=server)
-    except ResolveError as e:
-        typer.echo(f"{prog}: {e}", err=True)
-        if e.candidates:
-            typer.echo(format_candidates(e.candidates), err=True)
-        raise typer.Exit(code=2) from None
+    server_number, candidates = resolve_server_or_exit(
+        selector, server_override=server, command_name=prog
+    )
 
     sql_text = _read_sql_or_exit(sql, prog)
 

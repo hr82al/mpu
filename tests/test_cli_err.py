@@ -2,7 +2,7 @@
 
 import pytest
 
-from mpu.lib.cli_err import die, fail
+from mpu.lib.cli_err import bind, die, fail
 
 
 def test_fail_reason_only(capsys: pytest.CaptureFixture[str]) -> None:
@@ -48,3 +48,27 @@ def test_die_custom_code(capsys: pytest.CaptureFixture[str]) -> None:
         die("mpu bar: bad usage", code=2)
     assert exc_info.value.code == 2
     assert capsys.readouterr().err == "mpu bar: bad usage\n"
+
+
+def test_bind_fixes_command_prefix(capsys: pytest.CaptureFixture[str]) -> None:
+    """`bind` — тот же `fail` с зафиксированным именем команды."""
+    fail_here = bind("mpu foo")
+    with pytest.raises(SystemExit) as exc_info:
+        fail_here("не найден клиент", code=2)
+    assert exc_info.value.code == 2
+    assert capsys.readouterr().err == "mpu foo: не найден клиент\n"
+
+
+def test_bind_defaults_to_code_1(capsys: pytest.CaptureFixture[str]) -> None:
+    """Без явного `code` — выход с 1 (как у `die`)."""
+    with pytest.raises(SystemExit) as exc_info:
+        bind("mpu foo")("сеть недоступна")
+    assert exc_info.value.code == 1
+    assert capsys.readouterr().err == "mpu foo: сеть недоступна\n"
+
+
+def test_bind_passes_hint_and_extra(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        bind("mpu foo")("неоднозначный селектор", code=2, hint="уточни", extra="  cid=1\n  cid=2")
+    captured = capsys.readouterr()
+    assert captured.err == "mpu foo: неоднозначный селектор; попробуй: уточни\n  cid=1\n  cid=2\n"

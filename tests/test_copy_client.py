@@ -6,7 +6,7 @@ import pytest
 from typer.testing import CliRunner
 
 from mpu.commands import copy_client as cmd
-from mpu.lib import pg, pg_copy, sw_seed
+from mpu.lib import pg, pg_copy, resolver, sw_seed
 from mpu.lib.pg import PgConfigError, PgConn
 from mpu.lib.resolver import ResolveError
 from pg_fakes import RichConn, patch_popen
@@ -52,7 +52,7 @@ def _resolve_to(server: int, candidates: list[dict[str, object]]):
 def fake_resolve(monkeypatch: pytest.MonkeyPatch) -> None:
     """resolve_server → server=2, single client_id=54 candidate."""
     monkeypatch.setattr(
-        cmd,
+        resolver,
         "resolve_server",
         _resolve_to(
             2,
@@ -121,7 +121,7 @@ def test_resolve_error_bubbles_up(monkeypatch: pytest.MonkeyPatch) -> None:
     def _raise(value: str, *, server_override: str | None = None) -> tuple[int, list[object]]:
         raise ResolveError("nothing matched: 'missing'", candidates=[])
 
-    monkeypatch.setattr(cmd, "resolve_server", _raise)
+    monkeypatch.setattr(resolver, "resolve_server", _raise)
     res = runner.invoke(cmd.app, ["missing"])
 
     assert res.exit_code == 2
@@ -135,7 +135,7 @@ def test_resolve_error_with_candidates(monkeypatch: pytest.MonkeyPatch) -> None:
             candidates=[{"client_id": 1, "server": "sl-2", "server_number": 2}],
         )
 
-    monkeypatch.setattr(cmd, "resolve_server", _raise)
+    monkeypatch.setattr(resolver, "resolve_server", _raise)
     res = runner.invoke(cmd.app, ["Acme"])
 
     assert res.exit_code == 2
@@ -144,7 +144,7 @@ def test_resolve_error_with_candidates(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_ambiguous_client_ids(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        cmd,
+        resolver,
         "resolve_server",
         _resolve_to(
             2,
@@ -163,7 +163,7 @@ def test_ambiguous_client_ids(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_candidates_without_client_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """Кандидаты есть, но без числового client_id → _pick_client_id ругается."""
     monkeypatch.setattr(
-        cmd, "resolve_server", _resolve_to(2, [{"server": "sl-2", "server_number": 2}])
+        resolver, "resolve_server", _resolve_to(2, [{"server": "sl-2", "server_number": 2}])
     )
     res = runner.invoke(cmd.app, ["Acme"])
 
@@ -173,7 +173,7 @@ def test_candidates_without_client_id(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_sl_selector_without_client_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """`mpu copy-client sl-2` — резолвится в сервер без клиента → ошибка."""
-    monkeypatch.setattr(cmd, "resolve_server", _resolve_to(2, []))
+    monkeypatch.setattr(resolver, "resolve_server", _resolve_to(2, []))
     res = runner.invoke(cmd.app, ["sl-2"])
 
     assert res.exit_code == 2

@@ -7,7 +7,12 @@ from pathlib import Path
 import pytest
 
 from mpu.lib import servers, store
-from mpu.lib.resolver import ResolveError, resolve_server
+from mpu.lib.resolver import (
+    ResolveError,
+    require_single_client_id,
+    resolve_server,
+    resolve_server_or_exit,
+)
 
 
 @pytest.fixture
@@ -147,3 +152,78 @@ def test_resolve_no_server_in_results(db_no_server: None) -> None:
         resolve_server("50")
     assert "no server resolvable" in str(ei.value)
     assert ei.value.candidates
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# resolve_server_or_exit / require_single_client_id — общие обёртки для команд
+# ────────────────────────────────────────────────────────────────────────────
+
+
+def test_resolve_server_or_exit_passes_through(db: None) -> None:
+    """Успешный резолв — те же (server_number, candidates), что у resolve_server."""
+    assert resolve_server_or_exit("sl-2", command_name="mpu foo") == (2, [])
+
+
+def test_resolve_server_or_exit_prints_candidates_and_exits(
+    db: None, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Неоднозначный селектор → сообщение с префиксом команды, кандидаты, выход 2."""
+    with pytest.raises(SystemExit) as exc_info:
+        resolve_server_or_exit("Тортуга", command_name="mpu foo")
+    assert exc_info.value.code == 2
+    err = capsys.readouterr().err
+    assert err.startswith("mpu foo: ambiguous selector 'Тортуга'")
+    assert "client_id=10" in err and "client_id=20" in err
+
+
+def test_resolve_server_or_exit_without_candidates(
+    db: None, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Ничего не нашлось — только строка ошибки, без блока кандидатов."""
+    with pytest.raises(SystemExit) as exc_info:
+        resolve_server_or_exit("нет-такого", command_name="mpu foo")
+    assert exc_info.value.code == 2
+    assert capsys.readouterr().err == "mpu foo: nothing matched: 'нет-такого'\n"
+
+
+def test_require_single_client_id_returns_the_only_id() -> None:
+    candidates: list[dict[str, object]] = [{"client_id": 42, "server": "sl-1"}]
+    assert (
+        require_single_client_id(candidates, selector="x", server_number=1, command_name="mpu foo")
+        == 42
+    )
+
+
+def test_require_single_client_id_empty_candidates(capsys: pytest.CaptureFixture[str]) -> None:
+    """Пустой список — селектор указал на сервер, но не на клиента."""
+    with pytest.raises(SystemExit) as exc_info:
+        require_single_client_id([], selector="sl-1", server_number=1, command_name="mpu foo")
+    assert exc_info.value.code == 2
+    assert capsys.readouterr().err == (
+        "mpu foo: selector 'sl-1' resolved to sl-1 but does not point to a specific client; "
+        "pass client_id / spreadsheet / title\n"
+    )
+
+
+def test_require_single_client_id_no_int_ids(capsys: pytest.CaptureFixture[str]) -> None:
+    """Кандидаты есть, но без client_id — отдельное сообщение + список кандидатов."""
+    candidates: list[dict[str, object]] = [{"server": "sl-1", "title": "без id"}]
+    with pytest.raises(SystemExit) as exc_info:
+        require_single_client_id(candidates, selector="x", server_number=1, command_name="mpu foo")
+    assert exc_info.value.code == 2
+    err = capsys.readouterr().err
+    assert err.startswith("mpu foo: selector resolved to a server but no client_id;")
+    assert 'title="без id"' in err
+
+
+def test_require_single_client_id_ambiguous(capsys: pytest.CaptureFixture[str]) -> None:
+    candidates: list[dict[str, object]] = [
+        {"client_id": 1, "server": "sl-1"},
+        {"client_id": 2, "server": "sl-1"},
+    ]
+    with pytest.raises(SystemExit) as exc_info:
+        require_single_client_id(candidates, selector="x", server_number=1, command_name="mpu foo")
+    assert exc_info.value.code == 2
+    err = capsys.readouterr().err
+    assert err.startswith("mpu foo: selector matches 2 clients — narrow it down")
+    assert "client_id=1" in err and "client_id=2" in err

@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 import typer
 
-from mpu.lib import cli_wrap, clipboard, servers
+from mpu.lib import cli_wrap, clipboard, resolver, servers
 from mpu.lib.cli_wrap import (
     Resolved,
     _build_inner,
@@ -52,7 +52,7 @@ def fake_resolve(monkeypatch: pytest.MonkeyPatch) -> None:
         _ = server_override
         return 3, [{"client_id": 42, "spreadsheet_id": "SS", "server": "sl-3", "title": "ACME"}]
 
-    monkeypatch.setattr(cli_wrap, "resolve_server", _fake)
+    monkeypatch.setattr(resolver, "resolve_server", _fake)
     monkeypatch.setattr(servers, "sl_ip", _fake_sl_ip)
     monkeypatch.setattr(servers, "env_value", _fake_env_value)
 
@@ -259,11 +259,11 @@ def test_resolve_ambiguous(
         _ = server_override
         raise ResolveError("ambiguous", candidates=cands)
 
-    monkeypatch.setattr(cli_wrap, "resolve_server", _raise)
+    monkeypatch.setattr(resolver, "resolve_server", _raise)
 
-    with pytest.raises(typer.Exit) as exc:
+    with pytest.raises(SystemExit) as exc:
         resolve_selector(value="X", server=None, command_name="mpu-test")
-    assert exc.value.exit_code == 2
+    assert exc.value.code == 2
     err = capsys.readouterr().err
     assert "mpu-test: ambiguous" in err
     assert 'title="A"' in err
@@ -285,7 +285,7 @@ def _none_sl_ip(_n: int) -> str | None:
 def test_resolve_missing_ip_ssh(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    monkeypatch.setattr(cli_wrap, "resolve_server", _empty_resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _empty_resolve)
     monkeypatch.setattr(servers, "sl_ip", _none_sl_ip)
     with pytest.raises(typer.Exit):
         resolve_selector(value="X", server=None, command_name="mpu-test")
@@ -294,7 +294,7 @@ def test_resolve_missing_ip_ssh(
 
 # 11. resolve_selector(require_ssh=False) — пропускает sl_ip/env_value
 def test_resolve_local_skips_ssh(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(cli_wrap, "resolve_server", _empty_resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _empty_resolve)
     sl_ip_calls: list[int] = []
     env_value_calls: list[str] = []
 
@@ -453,7 +453,7 @@ def test_ssh_wrap_without_ip_errors(capsys: pytest.CaptureFixture[str]) -> None:
 
 # 21. resolve_server_only — happy path (ssh)
 def test_resolve_server_only_ssh(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(cli_wrap, "resolve_server", _empty_resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _empty_resolve)
     monkeypatch.setattr(servers, "sl_ip", _fake_sl_ip)
     monkeypatch.setattr(servers, "env_value", _fake_env_value)
     r = resolve_server_only(server="sl-3", command_name="t")
@@ -465,7 +465,7 @@ def test_resolve_server_only_ssh(monkeypatch: pytest.MonkeyPatch) -> None:
 
 # 22. resolve_server_only — local (no ssh creds lookup)
 def test_resolve_server_only_local(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(cli_wrap, "resolve_server", _empty_resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _empty_resolve)
     calls: list[str] = []
 
     def _spy_sl_ip(_n: int) -> str | None:
@@ -498,8 +498,8 @@ def test_resolve_server_only_bad_server(
         _ = server_override
         raise ResolveError(f"bad --server: {server_override!r} (expected sl-N)")
 
-    monkeypatch.setattr(cli_wrap, "resolve_server", _raise)
-    with pytest.raises(typer.Exit):
+    monkeypatch.setattr(resolver, "resolve_server", _raise)
+    with pytest.raises(SystemExit):
         resolve_server_only(server="x", command_name="mpu-foo")
     assert "bad --server" in capsys.readouterr().err
 
@@ -562,6 +562,6 @@ def test_resolve_selector_stores_value(fake_resolve: None) -> None:
 
 # 31. resolve_server_only сохраняет server в Resolved.selector
 def test_resolve_server_only_stores_server(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(cli_wrap, "resolve_server", _empty_resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _empty_resolve)
     r = resolve_server_only(server="sl-3", command_name="t", require_ssh=False)
     assert r.selector == "sl-3"

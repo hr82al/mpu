@@ -26,7 +26,7 @@ import typer
 
 from mpu.lib import loki, servers, store
 from mpu.lib.duration import DurationParseError, parse_since
-from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
+from mpu.lib.resolver import resolve_server_or_exit
 
 _DIRECT_HOST_RE = re.compile(r"\A(sl-\d+|wb-\d+|dt-\d+|wb-clusters|wb-positions)\Z")
 _DEFAULT_SINCE_SECONDS = 5 * 60
@@ -215,13 +215,7 @@ def _selector_to_host(selector: str, *, command_name: str) -> str:
     """sl-N / wb-N / dt-N / wb-clusters / wb-positions → as-is; иначе resolver → sl-N."""
     if _DIRECT_HOST_RE.fullmatch(selector):
         return selector
-    try:
-        n, _ = resolve_server(selector)
-    except ResolveError as e:
-        typer.echo(f"{command_name}: {e}", err=True)
-        if e.candidates:
-            typer.echo(format_candidates(e.candidates), err=True)
-        raise typer.Exit(code=2) from None
+    n, _ = resolve_server_or_exit(selector, command_name=command_name)
     return f"sl-{n}"
 
 

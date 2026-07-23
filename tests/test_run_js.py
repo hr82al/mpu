@@ -101,7 +101,7 @@ def test_resolve_targets_requires_exactly_one() -> None:
 def test_resolve_targets_rejects_garbage(env_file: Path) -> None:
     """`foo` не sl-N и в SQLite-кэше нет — `mpu search` вернёт пусто → ResolveError."""
     _ = env_file
-    with pytest.raises(typer.Exit):
+    with pytest.raises(SystemExit):
         run_js._resolve_targets("foo", False, None)
 
 

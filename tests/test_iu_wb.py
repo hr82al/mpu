@@ -23,7 +23,7 @@ import typer
 from typer.testing import CliRunner
 
 from mpu.commands import iu_wb
-from mpu.lib import cli_wrap, pg, servers
+from mpu.lib import cli_wrap, pg, resolver, servers
 from mpu.lib.resolver import ResolveError
 from mpu.lib.sheet_api import SheetApiError
 
@@ -56,7 +56,7 @@ def _patch_resolve(
         _ = (value, server_override)
         return server, candidates
 
-    monkeypatch.setattr(cli_wrap, "resolve_server", _fake)
+    monkeypatch.setattr(resolver, "resolve_server", _fake)
 
 
 def _sl_ip(_n: int) -> str | None:
@@ -191,7 +191,7 @@ def test_get_source_data_unresolvable_exits(monkeypatch: pytest.MonkeyPatch) -> 
         _ = (value, server_override)
         raise ResolveError("nothing matched")
 
-    monkeypatch.setattr(cli_wrap, "resolve_server", _raise)
+    monkeypatch.setattr(resolver, "resolve_server", _raise)
     result = runner.invoke(iu_wb.app, ["get-source-data", "nope", "--print"])
     assert result.exit_code == 2
     assert "mpu iu-wb" in result.stderr

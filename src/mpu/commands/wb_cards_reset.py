@@ -34,17 +34,15 @@ wb-main `/api/<rest>`, а wb-main маршрутизирует `/api/loaders/:si
 
 from __future__ import annotations
 
-from typing import NoReturn
-
 import click
 
 from mpu.commands._wb_loader import (
     emit_curl,
-    fail as _fail_base,
     loader_path,
     print_json,
     resolve_target_sid,
 )
+from mpu.lib.cli_err import bind
 from mpu.lib.slapi import SlApi, SlApiError, resolve_base_url
 
 COMMAND = "mpu api wb-cards-reset"
@@ -55,8 +53,7 @@ _ENTITY = "cards"
 _RESET_BODY: dict[str, object] = {"state": {"cursor": None}}
 
 
-def _fail(reason: str, *, code: int, hint: str | None = None, extra: str | None = None) -> NoReturn:
-    _fail_base(COMMAND, reason, code=code, hint=hint, extra=extra)
+_fail = bind(COMMAND)
 
 
 def _run(*, selector: str, sid: str | None, client_id: int | None, print_mode: bool) -> None:

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Annotated, Any, NoReturn
+from typing import TYPE_CHECKING, Annotated, Any
 from urllib.parse import urlparse
 
 import typer
@@ -33,7 +33,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from mpu.lib import env
-from mpu.lib.cli_err import fail
+from mpu.lib.cli_err import bind
 from mpu.lib.cli_out import print_json
 from mpu.lib.duration import DurationParseError, parse_since
 from mpu.lib.gitlab_mr import GitLabAPIError, GitLabClient, parse_mr_ref, project_from_cwd
@@ -188,8 +188,7 @@ def title_budget(console_width: int, rows: list[dict[str, Any]]) -> int:
 # ── I/O-хелперы ─────────────────────────────────────────────────────────────────
 
 
-def _fail(message: str, *, hint: str | None = None) -> NoReturn:
-    fail(COMMAND_NAME, message, code=1, hint=hint)
+_fail = bind(COMMAND_NAME)
 
 
 def _err_msg(e: Exception, *, mr_mode: bool = False) -> str:

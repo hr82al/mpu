@@ -159,6 +159,20 @@ def is_str_dict(o: object) -> TypeGuard[dict[str, object]]:
     return isinstance(o, dict)
 
 
+def as_list(value: object, *, what: str, command: str) -> list[object]:  # noqa: RET503 — fail() NoReturn, ruff не видит через импорт
+    """Ответ-поле должно быть JSON-массивом, иначе exit 1."""
+    if is_obj_list(value):
+        return value
+    fail(command, f"{what}: ожидался JSON-массив, получено {type(value).__name__}", code=1)
+
+
+def as_dict(value: object, *, what: str, command: str) -> dict[str, object]:  # noqa: RET503 — fail() NoReturn, ruff не видит через импорт
+    """Ответ-поле должно быть JSON-объектом, иначе exit 1."""
+    if is_str_dict(value):
+        return value
+    fail(command, f"{what}: ожидался JSON-объект, получено {type(value).__name__}", code=1)
+
+
 def resolve_sids(selector: str, client_id: int | None, *, command: str) -> tuple[int, list[str]]:
     """Селектор → `(client_id, sids)` из локального кэша (`mpu search`)."""
     try:

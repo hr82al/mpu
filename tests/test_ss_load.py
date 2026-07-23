@@ -10,7 +10,7 @@ import pytest
 from typer.testing import CliRunner
 
 from mpu.commands import ss_load
-from mpu.lib import cli_wrap, clipboard, servers
+from mpu.lib import cli_wrap, clipboard, resolver, servers
 
 runner = CliRunner()
 
@@ -49,7 +49,7 @@ def fake_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     def _noop_copy(_t: str) -> bool:
         return True
 
-    monkeypatch.setattr(cli_wrap, "resolve_server", _fake_resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
     monkeypatch.setattr(servers, "sl_ip", _sl_ip)
     monkeypatch.setattr(servers, "env_value", _env_value)
     monkeypatch.setattr(clipboard, "copy_to_clipboard", _noop_copy)
@@ -154,7 +154,7 @@ def test_ss_load_ambiguous_selector_exits(monkeypatch: pytest.MonkeyPatch) -> No
             candidates=[{"client_id": 1, "server": "sl-1"}, {"client_id": 2, "server": "sl-2"}],
         )
 
-    monkeypatch.setattr(cli_wrap, "resolve_server", _raise)
+    monkeypatch.setattr(resolver, "resolve_server", _raise)
     result = runner.invoke(ss_load.app, ["VAGUE", "--dataset", "ds", "--print"])
     assert result.exit_code == 2
     assert "ambiguous" in result.output

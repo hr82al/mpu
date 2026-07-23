@@ -56,7 +56,7 @@ import typer
 from mpu.lib import servers
 from mpu.lib.cli_opts import LocalOpt, PrintOpt
 from mpu.lib.clipboard import copy_to_clipboard
-from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
+from mpu.lib.resolver import format_candidates, resolve_server_or_exit
 
 # Whitelist для значений, попадающих в shell-обёртку.
 # Запрещаем spaces, $, `, ', ", \, ;, &, |, (, ), {, } —
@@ -119,15 +119,11 @@ def resolve_selector(
     """Резолв селектора + (опционально) sl_ip/PG_MY_USER_NAME из ~/.config/mpu/.env.
 
     `require_ssh=False` пропускает lookup sl_ip/user — нужно для wrapper="local"/"portainer".
-    На любой ошибке печатает в stderr и вызывает typer.Exit(2).
+    На любой ошибке печатает в stderr и выходит с кодом 2.
     """
-    try:
-        server_number, candidates = resolve_server(value, server_override=server)
-    except ResolveError as e:
-        typer.echo(f"{command_name}: {e}", err=True)
-        if e.candidates:
-            typer.echo(format_candidates(e.candidates), err=True)
-        raise typer.Exit(code=2) from None
+    server_number, candidates = resolve_server_or_exit(
+        value, command_name=command_name, server_override=server
+    )
 
     selector = value or server or f"sl-{server_number}"
 

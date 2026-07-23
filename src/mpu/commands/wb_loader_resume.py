@@ -40,20 +40,17 @@ main перетирает его из сессии (email `TOKEN_EMAIL`). Для
 
 from __future__ import annotations
 
-from typing import NoReturn
-
 import click
 
 from mpu.commands._wb_loader import (
     LOADER_NAMES,
     LOADER_REFERENCE_HELP,
+    as_dict,
+    as_list,
     cid_json as _cid_json,
     cid_label as _cid_label,
     cids_for_sid as _cids_for_sid,
     emit_curl,
-    fail as _fail_base,
-    is_obj_list as _is_obj_list,
-    is_str_dict as _is_str_dict,
     looks_like_sid as _looks_like_sid,
     pick_sid as _pick_sid_base,
     print_json as _print_json,
@@ -61,6 +58,7 @@ from mpu.commands._wb_loader import (
     sid_from_selector as _sid_from_selector,
     wrong_form_hint as _wrong_form_hint,
 )
+from mpu.lib.cli_err import bind
 from mpu.lib.slapi import SlApi, SlApiError, resolve_base_url
 
 COMMAND = "mpu api wb-loader-resume"
@@ -86,9 +84,7 @@ def _complete_loader(ctx: click.Context, param: click.Parameter, incomplete: str
     return [n for n in LOADER_NAMES if n.startswith(incomplete)]
 
 
-def _fail(reason: str, *, code: int, hint: str | None = None, extra: str | None = None) -> NoReturn:
-    """`fail` с зафиксированным `COMMAND` (сохраняет существующие call-site'ы)."""
-    _fail_base(COMMAND, reason, code=code, hint=hint, extra=extra)
+_fail = bind(COMMAND)
 
 
 def _resolve(selector: str, client_id: int | None) -> tuple[int, list[str]]:
@@ -99,25 +95,11 @@ def _pick_sid(selector: str, sids: list[str]) -> str:
     return _pick_sid_base(selector, sids, command=COMMAND)
 
 
-def _as_list(value: object, *, what: str) -> list[object]:
-    """Ответ должен быть JSON-массивом, иначе exit 1."""
-    if _is_obj_list(value):
-        return value
-    _fail(f"{what}: ожидался JSON-массив, получено {type(value).__name__}", code=1)
-
-
-def _as_dict(value: object, *, what: str) -> dict[str, object]:
-    """Ответ должен быть JSON-объектом, иначе exit 1."""
-    if _is_str_dict(value):
-        return value
-    _fail(f"{what}: ожидался JSON-объект, получено {type(value).__name__}", code=1)
-
-
 def _find_blocked(api: SlApi, sid: str) -> list[object]:
     """`POST /blocked-loaders/find` body `{filter:{sid}}` → `data[]`."""
     raw: object = api.request("POST", _FIND_PATH, body={"filter": {"sid": sid}})
-    payload = _as_dict(raw, what="find response")
-    return _as_list(payload.get("data", []), what="find.data")
+    payload = as_dict(raw, what="find response", command=COMMAND)
+    return as_list(payload.get("data", []), what="find.data", command=COMMAND)
 
 
 def _resume(api: SlApi, filter_: dict[str, str]) -> dict[str, object]:
@@ -133,7 +115,7 @@ def _resume(api: SlApi, filter_: dict[str, str]) -> dict[str, object]:
                 extra=e.body,
             )
         _fail(f"resume не удался: {e}", code=1, extra=e.body)
-    return _as_dict(raw, what="resume response")
+    return as_dict(raw, what="resume response", command=COMMAND)
 
 
 def _emit_curl(*, base_url: str, sid: str, loader: str | None, resume_all: bool) -> None:

@@ -4,7 +4,7 @@ import pytest
 from typer.testing import CliRunner
 
 from mpu.commands import move_client_back as cmd
-from mpu.lib import pssh
+from mpu.lib import pssh, resolver
 from mpu.lib.client_moves import Move
 
 runner = CliRunner()
@@ -132,7 +132,7 @@ def test_reverse_title_selector_resolves(
         _ = value, server_override
         return 13, [{"client_id": 1589, "server": "sl-13", "server_number": 13}]
 
-    monkeypatch.setattr(cmd, "resolve_server", _resolve)
+    monkeypatch.setattr(resolver, "resolve_server", _resolve)
     seen: dict[str, int] = {}
 
     def _last(client_id: int) -> Move | None:
