@@ -13,7 +13,7 @@ import pytest
 from rich.cells import cell_len
 from typer.testing import CliRunner
 
-from kiten_status_fakes import BASE, FakeClient, card, install_client, time_log
+from kiten_status_fakes import BASE, FakeClient, card, install_client, my_comment, time_log
 from mpu.commands.kiten import status as kiten_status
 from mpu.commands.kiten._app import app
 from mpu.commands.kiten._status_data import Collected, Window
@@ -70,6 +70,7 @@ def test_cli_matrix_shows_all_three_sources(monkeypatch: pytest.MonkeyPatch) -> 
                 id="1", created="2026-07-22T10:00:00Z", action="comment_add", card=commented
             )
         ],
+        comments={3: [my_comment()]},
     )
     install_client(monkeypatch, fake)
     res = runner.invoke(app, ["status", "--since", "3650d"])
@@ -150,6 +151,7 @@ def test_cli_source_touch_finds_foreign_card(monkeypatch: pytest.MonkeyPatch) ->
                 id="1", created="2026-07-23T10:00:00Z", action="comment_add", card=foreign
             )
         ],
+        comments={2: [my_comment()]},
     )
     install_client(monkeypatch, fake)
     res = runner.invoke(app, ["status", "--source", "touch", "--out", "json"])
@@ -167,6 +169,7 @@ def test_cli_footer_counts_touch_only_cards(monkeypatch: pytest.MonkeyPatch) -> 
                 id="1", created="2026-07-23T10:00:00Z", action="comment_add", card=foreign
             )
         ],
+        comments={2: [my_comment()]},
     )
     install_client(monkeypatch, fake)
     res = runner.invoke(app, ["status"])

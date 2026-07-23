@@ -12,7 +12,16 @@ from typing import Any
 import pytest
 from rich.cells import cell_len
 
-from kiten_status_fakes import FakeClient, card, install_directory, install_env, row, time_log
+from kiten_status_fakes import (
+    ME_ID,
+    FakeClient,
+    card,
+    install_directory,
+    install_env,
+    my_comment,
+    row,
+    time_log,
+)
 from mpu.commands.kiten._status_data import (
     SRC_TOUCH,
     STAGE_ALIASES,
@@ -21,6 +30,7 @@ from mpu.commands.kiten._status_data import (
     Window,
     apply_filters,
     collect,
+    drop_stale_comment_touches,
     fill_stages,
     in_scope,
     is_escalated,
@@ -35,6 +45,7 @@ from mpu.commands.kiten._status_data import (
     stage_of,
     summarise_minutes,
 )
+from mpu.commands.kiten._status_render import lane_cell
 from mpu.lib import kaiten_cache
 from mpu.lib.kaiten import KaitenAPIError
 from mpu.lib.kaiten_models import KaitenActivity, KaitenTimeLogEntry
@@ -273,8 +284,9 @@ def test_collect_merges_three_sources(monkeypatch: pytest.MonkeyPatch) -> None:
                 id="1", created="2026-07-22T10:00:00Z", action="comment_add", card=touched
             )
         ],
+        comments={3: [my_comment()]},  # комментарий на месте — карточка остаётся в выдаче
     )
-    collected = collect(fake, me_id=1, window=_window())  # pyright: ignore[reportArgumentType]
+    collected = collect(fake, me_id=ME_ID, window=_window())  # pyright: ignore[reportArgumentType]
     by_id = {r.card.id: r for r in collected.rows}
     assert by_id[1].sources == {"assigned"}
     assert by_id[2].sources == {"time"}
@@ -289,9 +301,79 @@ def test_collect_counts_minutes_outside_window_but_hides_card(
     install_env(monkeypatch, {})
     old = card(5, condition=2, archived=True, updated="2026-01-05T00:00:00Z")
     fake = FakeClient(logs=[time_log(old, minutes=40, for_date="2026-01-05")])
-    collected = collect(fake, me_id=1, window=_window())  # pyright: ignore[reportArgumentType]
+    collected = collect(fake, me_id=ME_ID, window=_window())  # pyright: ignore[reportArgumentType]
     assert collected.rows == []
     assert collected.logs[0].time_spent == 40
+
+
+def test_collect_drops_card_whose_comment_was_deleted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Лента — журнал истории: `comment_add` остаётся в ней и после удаления комментария.
+
+    Без сверки такая чужая карточка висела бы в выдаче до конца окна, хотя следа от меня
+    в ней уже нет.
+    """
+    install_env(monkeypatch, {})
+    foreign = card(2, title="чужая")
+    fake = FakeClient(
+        activities=[
+            KaitenActivity(
+                id="1", created="2026-07-22T10:00:00Z", action="comment_add", card=foreign
+            )
+        ],
+        comments={},  # комментарий удалён — моих в карточке нет
+    )
+    collected = collect(fake, me_id=ME_ID, window=_window())  # pyright: ignore[reportArgumentType]
+    assert collected.rows == []
+    assert fake.comments_asked == [2]
+
+
+def test_collect_keeps_card_while_my_comment_is_there(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_env(monkeypatch, {})
+    foreign = card(2, title="чужая")
+    fake = FakeClient(
+        activities=[
+            KaitenActivity(
+                id="1", created="2026-07-22T10:00:00Z", action="comment_add", card=foreign
+            )
+        ],
+        comments={2: [my_comment()]},
+    )
+    collected = collect(fake, me_id=ME_ID, window=_window())  # pyright: ignore[reportArgumentType]
+    assert [r.card.id for r in collected.rows] == [2]
+
+
+def test_collect_does_not_verify_moves_or_my_own_cards(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Перемещение отменить нельзя, а свои карточки проверять незачем — запросов нет."""
+    install_env(monkeypatch, {})
+    moved = card(2, title="чужая, но двигал")
+    mine = card(3, title="моя")
+    fake = FakeClient(
+        cards=[mine],
+        activities=[
+            KaitenActivity(id="1", created="2026-07-22T10:00:00Z", action="card_move", card=moved),
+            KaitenActivity(id="2", created="2026-07-22T11:00:00Z", action="comment_add", card=mine),
+        ],
+    )
+    collected = collect(fake, me_id=ME_ID, window=_window())  # pyright: ignore[reportArgumentType]
+    assert sorted(r.card.id for r in collected.rows) == [2, 3]
+    assert fake.comments_asked == []
+
+
+def test_drop_stale_touches_keeps_row_when_check_fails() -> None:
+    """API недоступен → лучше лишняя строка, чем молча потерянная."""
+
+    class _Failing(FakeClient):
+        def get_comments(self, card_id: int) -> list[Any]:
+            raise KaitenAPIError("GET", f"/cards/{card_id}/comments", 500, "boom")
+
+    rows = [row(card(2), sources={"activity"})]
+    kept = drop_stale_comment_touches(
+        _Failing(),  # pyright: ignore[reportArgumentType]
+        rows,
+        {2: {"comment_add"}},
+        me_id=ME_ID,
+    )
+    assert [r.card.id for r in kept] == [2]
 
 
 def test_collect_reports_activity_reach(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -302,7 +384,7 @@ def test_collect_reports_activity_reach(monkeypatch: pytest.MonkeyPatch) -> None
             KaitenActivity(id="2", created="2026-07-21T10:00:00Z", action="card_move"),
         ]
     )
-    collected = collect(fake, me_id=1, window=_window())  # pyright: ignore[reportArgumentType]
+    collected = collect(fake, me_id=ME_ID, window=_window())  # pyright: ignore[reportArgumentType]
     assert collected.activity_reach == "2026-07-21T10:00:00Z"
 
 
@@ -375,3 +457,32 @@ def test_fill_stages_fills_board_from_cache(monkeypatch: pytest.MonkeyPatch) -> 
     rows = [row(source, stage="—")]
     fill_stages(rows)
     assert rows[0].card.board_title == "10X Support"
+
+
+def test_fill_stages_fills_space_from_board(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Пространство важнее служебного имени доски: «10Х Support», а не «Не использовать!»."""
+    install_env(monkeypatch, {})
+    install_directory(
+        monkeypatch,
+        columns=[(500, "Тут только выполненные карточки!")],
+        boards=[(900, "Не использовать для новых карточек!")],
+        board_spaces={900: "10Х Support"},
+    )
+    source = card(1, board_id=900, lane_title=None).model_copy(update={"board_title": None})
+    rows = [row(source, stage="—")]
+    fill_stages(rows)
+    assert rows[0].card.space_title == "10Х Support"
+    assert lane_cell(rows[0]) == "10Х Support"
+
+
+def test_fill_stages_keeps_place_that_card_already_has(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Карточка из `/cards` несёт место сама — справочник не должен её перезаписывать."""
+    install_env(monkeypatch, {})
+    install_directory(monkeypatch, boards=[(900, "другая доска")], board_spaces={900: "другое"})
+    source = card(1, board_id=900).model_copy(
+        update={"board_title": "Дорожная карта", "space_title": "10Х"}
+    )
+    rows = [row(source, stage="—")]
+    fill_stages(rows)
+    assert rows[0].card.board_title == "Дорожная карта"
+    assert rows[0].card.space_title == "10Х"

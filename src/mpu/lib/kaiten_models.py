@@ -179,6 +179,7 @@ class KaitenComment(_ApiModel):
     id: int
     text: EmptyStr = ""  # GFM markdown
     author_name: str = ""
+    author_id: int | None = None  # нужен, чтобы отличить свой комментарий от чужого
     created: str | None = None
 
     @model_validator(mode="before")
@@ -187,6 +188,9 @@ class KaitenComment(_ApiModel):
         if is_dict(raw) and "author_name" not in raw:
             out = dict(raw)
             out["author_name"] = _member_name(raw.get("author"))
+            author = raw.get("author")
+            if "author_id" not in raw and is_dict(author):
+                out["author_id"] = author.get("id")
             return out
         return raw
 

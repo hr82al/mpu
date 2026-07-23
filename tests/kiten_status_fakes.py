@@ -15,7 +15,13 @@ from mpu.commands.kiten import status as kiten_status
 from mpu.commands.kiten._status_data import StatusRow
 from mpu.lib import env, kaiten_cache
 from mpu.lib.kaiten import KaitenAPIError
-from mpu.lib.kaiten_models import KaitenActivity, KaitenCard, KaitenTimeLogEntry, KaitenUser
+from mpu.lib.kaiten_models import (
+    KaitenActivity,
+    KaitenCard,
+    KaitenComment,
+    KaitenTimeLogEntry,
+    KaitenUser,
+)
 
 BASE = "https://btlz.kaiten.ru"
 ME_ID = 518617
@@ -80,6 +86,7 @@ class FakeClient:
         responsible: list[KaitenCard] | None = None,
         logs: list[KaitenTimeLogEntry] | None = None,
         activities: list[KaitenActivity] | None = None,
+        comments: dict[int, list[KaitenComment]] | None = None,
         error: KaitenAPIError | None = None,
     ) -> None:
         self.base_url = BASE
@@ -87,9 +94,11 @@ class FakeClient:
         self._responsible = responsible or []
         self._logs = logs or []
         self._activities = activities or []
+        self._comments = comments or {}
         self._error = error
         self.time_window: tuple[str, str] | None = None
         self.max_pages: int | None = None
+        self.comments_asked: list[int] = []
 
     def current_user(self) -> KaitenUser:
         if self._error is not None:
@@ -109,6 +118,15 @@ class FakeClient:
         self.max_pages = kw.get("max_pages")
         return self._activities
 
+    def get_comments(self, card_id: int) -> list[KaitenComment]:
+        self.comments_asked.append(card_id)
+        return self._comments.get(card_id, [])
+
+
+def my_comment(comment_id: int = 1) -> KaitenComment:
+    """Комментарий от меня — им проверяется, что касание карточки ещё в силе."""
+    return KaitenComment(id=comment_id, text="текст", author_id=ME_ID, author_name="Я")
+
 
 def install_env(monkeypatch: pytest.MonkeyPatch, values: dict[str, str]) -> None:
     """Подменить `env.get` словарём (изоляция от реального ~/.config/mpu/.env)."""
@@ -124,6 +142,7 @@ def install_directory(
     *,
     columns: list[tuple[int, str]] | None = None,
     boards: list[tuple[int, str]] | None = None,
+    board_spaces: dict[int, str] | None = None,
 ) -> None:
     """Подменить кэш справочника (изоляция от реального ~/.config/mpu/mpu.db)."""
 
@@ -135,8 +154,12 @@ def install_directory(
         _ = space_id
         return list(boards or [])
 
+    def _board_spaces() -> dict[int, str]:
+        return dict(board_spaces or {})
+
     monkeypatch.setattr(kaiten_cache, "cached_columns", _columns)
     monkeypatch.setattr(kaiten_cache, "cached_boards", _boards)
+    monkeypatch.setattr(kaiten_cache, "cached_board_spaces", _board_spaces)
 
 
 def install_client(monkeypatch: pytest.MonkeyPatch, fake: FakeClient) -> None:

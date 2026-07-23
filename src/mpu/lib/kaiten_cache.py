@@ -255,6 +255,24 @@ def cached_boards(space_id: int | None = None) -> list[tuple[int, str]]:
     return [(int(r["id"]), r["title"]) for r in rows]
 
 
+def cached_board_spaces() -> dict[int, str]:
+    """`board_id → название пространства` из кэша.
+
+    Карточка не несёт пространства плоским полем: в списочном ответе оно лежит внутри
+    `board.spaces[]`, а у карточек из ленты действий и учёта времени вложенной доски нет
+    вовсе. Этот JOIN даёт им подпись места («10Х Support») вместо служебного имени доски.
+    """
+    try:
+        with store.store() as conn:
+            rows = conn.execute(
+                "SELECT b.id AS board_id, s.title AS space_title "
+                "FROM kaiten_boards b JOIN kaiten_spaces s ON s.id = b.space_id"
+            ).fetchall()
+    except sqlite3.Error:
+        return {}
+    return {int(r["board_id"]): r["space_title"] for r in rows}
+
+
 def cached_lanes(board_id: int | None = None) -> list[tuple[int, str]]:
     """(id, title) дорожек из кэша; опц. фильтр по board_id (для скоупа --board)."""
     try:

@@ -26,6 +26,7 @@ from mpu.lib.kaiten import (
     KaitenSpace,
 )
 from mpu.lib.kaiten_cache import (
+    cached_board_spaces,
     cached_boards,
     cached_columns,
     cached_custom_properties,
@@ -484,6 +485,25 @@ def test_cached_readers_missing_tables_return_empty(db_path: Path) -> None:
     assert cached_columns() == []
     assert cached_columns(5) == []
     assert cached_custom_properties() == {}
+    assert cached_board_spaces() == {}
+
+
+def test_cached_board_spaces_joins_board_to_space(
+    db_path: Path, bootstrap_db: Callable[[Path | str], None]
+) -> None:
+    # Пространство карточка не несёт плоским полем — оно достаётся этим JOIN'ом.
+    bootstrap_db(db_path)
+    with store.store(db_path) as conn, conn:
+        conn.executemany(
+            "INSERT INTO kaiten_spaces (id, title, archived, discovered_at) VALUES (?, ?, ?, ?)",
+            [(1, "10Х Support", 0, 1)],
+        )
+        conn.executemany(
+            "INSERT INTO kaiten_boards (id, space_id, title, discovered_at) VALUES (?, ?, ?, ?)",
+            [(900, 1, "Не использовать для новых карточек!", 1), (901, 7, "Осиротевшая", 1)],
+        )
+    # Доска без своего пространства в кэше выпадает из JOIN — молча, без ошибки.
+    assert cached_board_spaces() == {900: "10Х Support"}
 
 
 def test_cached_spaces_orders_active_first(

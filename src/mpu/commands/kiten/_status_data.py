@@ -292,11 +292,42 @@ class Window:
     max_pages: int
 
 
+COMMENT_ACTION = "comment_add"
+
+
+def drop_stale_comment_touches(
+    client: KaitenClient, rows: list[StatusRow], actions: dict[int, set[str]], *, me_id: int
+) -> list[StatusRow]:
+    """Выбросить карточки, чьё единственное касание — УЖЕ УДАЛЁННЫЙ комментарий.
+
+    Лента действий — журнал истории: событие `comment_add` остаётся в ней и после того,
+    как комментарий удалили. Без сверки такая карточка висела бы в выдаче до конца окна,
+    хотя следа от меня в ней уже нет.
+
+    Сверяем только «чужие карточки, где я лишь комментировал» — их единицы, это +1 запрос
+    на каждую. Перемещения так не проверяются: карточку я двигал, и это остаётся правдой.
+    """
+    kept: list[StatusRow] = []
+    for row in rows:
+        if not (is_touch_only(row) and actions.get(row.card.id) == {COMMENT_ACTION}):
+            kept.append(row)
+            continue
+        try:
+            comments = client.get_comments(row.card.id)
+        except KaitenAPIError:
+            kept.append(row)  # не смогли проверить — лучше лишняя строка, чем потерянная
+            continue
+        if any(c.author_id == me_id for c in comments):
+            kept.append(row)
+    return kept
+
+
 def collect(client: KaitenClient, *, me_id: int, window: Window) -> Collected:
     """Собрать три источника «моего» в строки выдачи. Сеть — здесь и только здесь."""
     cards: dict[int, KaitenCard] = {}
     sources: dict[int, set[str]] = {}
     minutes: dict[int, int] = {}
+    actions: dict[int, set[str]] = {}
 
     def add(card: KaitenCard | None, source: str) -> None:
         if card is None:
@@ -322,6 +353,8 @@ def collect(client: KaitenClient, *, me_id: int, window: Window) -> Collected:
     for act in activities:
         if (act.created or "") >= window.since_iso:
             add(act.card, SRC_ACTIVITY)
+            if act.card is not None:
+                actions.setdefault(act.card.id, set()).add(act.action)
 
     rows = [
         StatusRow(
@@ -333,6 +366,7 @@ def collect(client: KaitenClient, *, me_id: int, window: Window) -> Collected:
         for card_id, card in cards.items()
         if in_scope(card, window.since_day)
     ]
+    rows = drop_stale_comment_touches(client, rows, actions, me_id=me_id)
     reach = min((a.created or "" for a in activities), default="")
     return Collected(rows=rows, logs=logs, activity_reach=reach)
 
@@ -345,25 +379,33 @@ def fill_stages(rows: list[StatusRow]) -> None:
     """
     names = column_names(rows)
     boards = dict(kaiten_cache.cached_boards())
+    spaces = kaiten_cache.cached_board_spaces()
     overrides = load_stage_overrides()
     for row in rows:
         title = row.card.column_title or names.get(row.card.column_id or -1)
-        patch = _place_patch(row, title, boards)
+        patch = _place_patch(row, title, boards, spaces)
         if patch:
             row.card = row.card.model_copy(update=patch)
         row.stage = stage_of(title, overrides)
         row.escalated = is_escalated(title)
 
 
-def _place_patch(row: StatusRow, title: str | None, boards: dict[int, str]) -> dict[str, str]:
-    """Чего не хватает карточке из усечённого источника: имени колонки и/или доски."""
+def _place_patch(
+    row: StatusRow, title: str | None, boards: dict[int, str], spaces: dict[int, str]
+) -> dict[str, str]:
+    """Чего не хватает карточке из усечённого источника: колонки, доски, пространства.
+
+    Пространство важно для подписи места: у support-карточек дорожки нет, а доска у них
+    называется «Не использовать для новых карточек!».
+    """
     patch: dict[str, str] = {}
+    board_id = row.card.board_id or -1
     if title and not row.card.column_title:
         patch["column_title"] = title
-    if not row.card.board_title:
-        board = boards.get(row.card.board_id or -1)
-        if board:
-            patch["board_title"] = board
+    if not row.card.board_title and boards.get(board_id):
+        patch["board_title"] = boards[board_id]
+    if not row.card.space_title and spaces.get(board_id):
+        patch["space_title"] = spaces[board_id]
     return patch
 
 
