@@ -37,7 +37,27 @@ _OPEN = {"(": ")", "[": "]", "{": "}"}
 _CLOSE = {")", "]", "}"}
 
 
-def split_statements(text: str) -> list[str]:  # noqa: C901, PLR0912
+def _skip_quoted(s: str, i: int) -> int:
+    """`s[i]` — открывающая кавычка. Индекс сразу ЗА закрывающей (или `len(s)`, если не закрыта).
+
+    Внутри кавычек `\\`-escape пропускает следующий символ. Один сканер на все три места,
+    где раньше жил свой посимвольный quote-автомат (split_statements / _scan_word / tokenize).
+    """
+    quote = s[i]
+    n = len(s)
+    i += 1
+    while i < n:
+        c = s[i]
+        if c == "\\":
+            i += 2
+            continue
+        i += 1
+        if c == quote:
+            break
+    return i
+
+
+def split_statements(text: str) -> list[str]:
     """Текст → список statements. Граница — `\\n` или `;` при глубине скобок 0 вне кавычек.
 
     `#` вне кавычек при глубине 0 — комментарий до конца строки. Многострочные `py{ … }` и
@@ -46,30 +66,21 @@ def split_statements(text: str) -> list[str]:  # noqa: C901, PLR0912
     out: list[str] = []
     buf: list[str] = []
     depth = 0
-    quote: str | None = None
     i = 0
     n = len(text)
     while i < n:
         c = text[i]
-        if quote is not None:
-            buf.append(c)
-            if c == "\\" and i + 1 < n:
-                buf.append(text[i + 1])
-                i += 2
-                continue
-            if c == quote:
-                quote = None
-            i += 1
-            continue
         if c in ("'", '"'):
-            quote = c
-            buf.append(c)
-        elif c == "#" and depth == 0 and (not buf or buf[-1].isspace()):
+            end = _skip_quoted(text, i)
+            buf.append(text[i:end])
+            i = end
+            continue
+        if c == "#" and depth == 0 and (not buf or buf[-1].isspace()):
             # `#` — комментарий только на границе токена (иначе это hex-цвет `bg=#EA4335`).
             while i < n and text[i] != "\n":
                 i += 1
             continue
-        elif c in _OPEN:
+        if c in _OPEN:
             depth += 1
             buf.append(c)
         elif c in _CLOSE:
@@ -93,24 +104,15 @@ def _scan_word(s: str, i: int) -> int:
     """Индекс за концом слова от `s[i]`: пробел — граница, кавычки защищают пробелы
     (`\\`-escape внутри кавычек). Общий автомат `tokenize`/`_rest_after`."""
     n = len(s)
-    quote: str | None = None
-    while i < n and (quote is not None or not s[i].isspace()):
-        c = s[i]
-        if quote is not None:
-            if c == "\\":
-                i += 2
-                continue
-            if c == quote:
-                quote = None
-            i += 1
+    while i < n and not s[i].isspace():
+        if s[i] in ("'", '"'):
+            i = _skip_quoted(s, i)
             continue
-        if c in ("'", '"'):
-            quote = c
         i += 1
     return i
 
 
-def tokenize(stmt: str) -> list[str]:  # noqa: C901
+def tokenize(stmt: str) -> list[str]:
     """Statement → токены. Кавычки защищают пробелы (кавычки сохраняются в токене); `{ … }` —
     один токен (балансировка скобок). Используй `unquote()` где ожидается строковое значение."""
     toks: list[str] = []
@@ -124,20 +126,12 @@ def tokenize(stmt: str) -> list[str]:  # noqa: C901
         if stmt[i] == "{":
             start = i
             depth = 0
-            quote: str | None = None
             while i < n:
                 c = stmt[i]
-                if quote is not None:
-                    if c == "\\":
-                        i += 2
-                        continue
-                    if c == quote:
-                        quote = None
-                    i += 1
-                    continue
                 if c in ("'", '"'):
-                    quote = c
-                elif c == "{":
+                    i = _skip_quoted(stmt, i)
+                    continue
+                if c == "{":
                     depth += 1
                 elif c == "}":
                     depth -= 1
@@ -1234,56 +1228,71 @@ class ReadPlan:
     meta: dict[str, Any] | None
 
 
-def compile_read(text: str, default_tab: str | None = None) -> ReadPlan:  # noqa: C901, PLR0912
+@dataclass
+class _GetState:
+    """Накопитель `get`-глагола: диапазоны + опции рендера значений."""
+
+    ranges: list[str]
+    major: str = "ROWS"
+    render: str = "FORMATTED_VALUE"
+    datetime_render: str = "SERIAL_NUMBER"
+
+
+def _parse_get(toks: list[str], default_tab: str | None, state: _GetState) -> None:
+    """Токены `get`: слова-опции меняют render, остальное — A1-диапазоны."""
+    for t in toks:
+        if t in _RENDER:
+            state.render = _RENDER[t]
+        elif t == "rows":
+            state.major = "ROWS"
+        elif t == "cols":
+            state.major = "COLUMNS"
+        elif t == "serial":
+            state.datetime_render = "SERIAL_NUMBER"
+        elif t == "datestr":
+            state.datetime_render = "FORMATTED_STRING"
+        else:
+            state.ranges.append(_full_range(t, default_tab))
+
+
+def _parse_read(toks: list[str], aspects: list[str], sheets: list[str]) -> None:
+    """Токены `read`: известный sheet-аспект или имя листа; per-cell аспект — ошибка."""
+    for t in toks:
+        if t in _SHEET_ASPECTS:
+            if t not in aspects:
+                aspects.append(t)
+        elif t in _PERCELL_ASPECTS:
+            raise BatchScriptError(
+                f"аспект {t!r} (per-cell) недоступен: webApp не отдаёт gridData. "
+                "Доступны: " + ", ".join(sorted(_SHEET_ASPECTS))
+            )
+        else:
+            sheets.append(unquote(t))
+
+
+def compile_read(text: str, default_tab: str | None = None) -> ReadPlan:
     """Скрипт чтения → ReadPlan. Глаголы `get` (values) и `read` (sheet-level)."""
-    values_ranges: list[str] = []
-    major = "ROWS"
-    render = "FORMATTED_VALUE"
-    datetime_render = "SERIAL_NUMBER"
+    get = _GetState(ranges=[])
     aspects: list[str] = []
     sheets: list[str] = []
     for st in split_statements(text):
         toks = tokenize(st)
         verb = toks[0] if toks else ""
         if verb == "get":
-            for t in toks[1:]:
-                if t in _RENDER:
-                    render = _RENDER[t]
-                elif t == "rows":
-                    major = "ROWS"
-                elif t == "cols":
-                    major = "COLUMNS"
-                elif t == "serial":
-                    datetime_render = "SERIAL_NUMBER"
-                elif t == "datestr":
-                    datetime_render = "FORMATTED_STRING"
-                else:
-                    values_ranges.append(_full_range(t, default_tab))
+            _parse_get(toks[1:], default_tab, get)
         elif verb == "read":
-            for t in toks[1:]:
-                if t in _SHEET_ASPECTS:
-                    if t not in aspects:
-                        aspects.append(t)
-                elif t in _PERCELL_ASPECTS:
-                    raise BatchScriptError(
-                        f"аспект {t!r} (per-cell) недоступен: webApp не отдаёт gridData. "
-                        "Доступны: " + ", ".join(sorted(_SHEET_ASPECTS))
-                    )
-                else:
-                    sheets.append(unquote(t))
+            _parse_read(toks[1:], aspects, sheets)
         else:
             raise BatchScriptError(f"read-глагол должен быть get|read, получено {verb!r}")
     values = None
-    if values_ranges:
+    if get.ranges:
         values = {
-            "ranges": values_ranges,
-            "majorDimension": major,
-            "valueRenderOption": render,
-            "dateTimeRenderOption": datetime_render,
+            "ranges": get.ranges,
+            "majorDimension": get.major,
+            "valueRenderOption": get.render,
+            "dateTimeRenderOption": get.datetime_render,
         }
-    meta = None
-    if aspects or sheets:
-        meta = {"aspects": aspects, "sheets": sheets}
+    meta = {"aspects": aspects, "sheets": sheets} if aspects or sheets else None
     if values is None and meta is None:
         raise BatchScriptError("пустой скрипт чтения")
     return ReadPlan(values=values, meta=meta)

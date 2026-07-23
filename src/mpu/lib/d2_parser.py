@@ -155,7 +155,8 @@ def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:
     stack: list[str] = []
     lines = text.split("\n")
     i = 0
-    while i < len(lines):
+    n = len(lines)
+    while i < n:
         ls = lines[i].lstrip()
         if not ls or ls.startswith("#"):
             i += 1
@@ -165,74 +166,92 @@ def parse_d2_source(text: str) -> tuple[dict[str, D2Shape], list[Edge]]:
                 stack.pop()
             i += 1
             continue
-
-        # markdown block: `name: |md ... |` или `|||md ... |||` (любое число пайпов).
-        # Закрывающая линия — те же N пайпов плюс возможный модификатор `{ near: ... }`.
-        m_md = re.match(r"^([a-zA-Z_]\w*)\s*:\s*(\|+)md\s*$", ls)
-        if m_md:
-            full = ".".join([*stack, m_md.group(1)])
-            label, i = _read_md_block(lines, i + 1, m_md.group(2))
-            shapes[full] = D2Shape(kind="markdown", label=label, fill=None)
-            continue
-
-        # connection: `a -> b` или `a -> b: "label"` (исключаем `shape: ...` etc.)
-        if "->" in ls and not re.match(r"^\s*(shape|style)", ls):
-            m_e = re.match(
-                r'^(\S[^:]*?)\s*->\s*(\S[^:]*?)(?:\s*:\s*"([^"]*)")?\s*$',
-                ls.rstrip(),
-            )
-            if m_e:
-                edges.append(Edge(m_e.group(1).strip(), m_e.group(2).strip(), m_e.group(3) or ""))
-                i += 1
-                continue
-
-        # property: shape / style.fill / style.stroke / class
-        # `class: card` — sentinel: рендерим как Miro card (см. d2_miro.py).
-        # d2 само валидирует имя класса по объявленному `classes: {...}` блоку,
-        # поэтому соответствующий блок должен быть определён в исходнике.
-        m_prop = re.match(r'^(shape|style\.fill|style\.stroke|class)\s*:\s*"?([^"\s{}]+)"?', ls)
-        if m_prop and stack:
-            owner = ".".join(stack)
-            sh = shapes.setdefault(owner, D2Shape(kind="rectangle", label=stack[-1], fill=None))
-            _apply_property(sh, m_prop.group(1), m_prop.group(2))
-            i += 1
-            continue
-
-        # block opener:
-        #   `name {`           — без двоеточия
-        #   `name: {`          — с двоеточием, без лейбла (например `style: {`)
-        #   `name: "label" {`  — с лейблом
-        m_open = re.match(r'^([a-zA-Z_]\w*)\s*(?::\s*(?:"([^"]*)")?)?\s*\{\s*$', ls)
-        if m_open:
-            name = m_open.group(1)
-            # `style { ... }` — это inline-стили шейпа, а не вложенный шейп.
-            # Пропускаем содержимое до парной закрывающей скобки, не пушим stack.
-            # `classes { ... }` парсим как обычный nested-блок: каждый дочерний класс
-            # становится шейпом `classes.<name>` со своими style.fill/stroke,
-            # к которым потом обращается рендерер для применения дефолтов
-            # к пользовательским shape, имеющим `class: <name>`.
-            if name == "style":
-                i = _skip_braced_block(lines, i + 1, depth=1)
-                continue
-            _add_block_shape(shapes, stack, name, m_open.group(2))
-            i += 1
-            continue
-
-        # leaf with label: `name: "label"` или `name: "label" {`
-        m_leaf = re.match(r'^([a-zA-Z_]\w*)\s*:\s*"([^"]*)"\s*(\{?)\s*$', ls)
-        if m_leaf:
-            _add_leaf_shape(
-                shapes,
-                stack,
-                m_leaf.group(1),
-                _unescape(m_leaf.group(2)),
-                opens_block=m_leaf.group(3) == "{",
-            )
-            i += 1
-            continue
-
-        i += 1
+        for handler in _LINE_HANDLERS:
+            nxt = handler(lines, i, ls, stack, shapes, edges)
+            if nxt is not None:
+                i = nxt
+                break
+        else:
+            i += 1  # ни один хендлер не распознал строку — пропускаем
     return shapes, edges
+
+
+# markdown block: `name: |md ... |` (любое число пайпов); закрывающая линия — те же N пайпов.
+_MD_RE = re.compile(r"^([a-zA-Z_]\w*)\s*:\s*(\|+)md\s*$")
+# connection: `a -> b` или `a -> b: "label"`.
+_EDGE_RE = re.compile(r'^(\S[^:]*?)\s*->\s*(\S[^:]*?)(?:\s*:\s*"([^"]*)")?\s*$')
+# property: shape / style.fill / style.stroke / class.
+_PROP_RE = re.compile(r'^(shape|style\.fill|style\.stroke|class)\s*:\s*"?([^"\s{}]+)"?')
+# block opener: `name {` / `name: {` / `name: "label" {`.
+_OPEN_RE = re.compile(r'^([a-zA-Z_]\w*)\s*(?::\s*(?:"([^"]*)")?)?\s*\{\s*$')
+# leaf with label: `name: "label"` или `name: "label" {`.
+_LEAF_RE = re.compile(r'^([a-zA-Z_]\w*)\s*:\s*"([^"]*)"\s*(\{?)\s*$')
+
+
+def _try_markdown(
+    lines: list[str], i: int, ls: str, stack: list[str], shapes: dict[str, D2Shape], _e: list[Edge]
+) -> int | None:
+    m = _MD_RE.match(ls)
+    if m is None:
+        return None
+    label, nxt = _read_md_block(lines, i + 1, m.group(2))
+    shapes[".".join([*stack, m.group(1)])] = D2Shape(kind="markdown", label=label, fill=None)
+    return nxt
+
+
+def _try_connection(
+    _lines: list[str], i: int, ls: str, _s: list[str], _sh: dict[str, D2Shape], edges: list[Edge]
+) -> int | None:
+    if "->" not in ls or re.match(r"^\s*(shape|style)", ls):
+        return None
+    m = _EDGE_RE.match(ls.rstrip())
+    if m is None:
+        return None
+    edges.append(Edge(m.group(1).strip(), m.group(2).strip(), m.group(3) or ""))
+    return i + 1
+
+
+def _try_property(
+    _lines: list[str], i: int, ls: str, stack: list[str], shapes: dict[str, D2Shape], _e: list[Edge]
+) -> int | None:
+    # `class: card` — sentinel: рендерим как Miro card (см. d2_miro.py). d2 валидирует имя класса
+    # по объявленному `classes: {...}` блоку, поэтому тот блок должен быть в исходнике.
+    m = _PROP_RE.match(ls)
+    if m is None or not stack:
+        return None
+    owner = ".".join(stack)
+    sh = shapes.setdefault(owner, D2Shape(kind="rectangle", label=stack[-1], fill=None))
+    _apply_property(sh, m.group(1), m.group(2))
+    return i + 1
+
+
+def _try_block(
+    lines: list[str], i: int, ls: str, stack: list[str], shapes: dict[str, D2Shape], _e: list[Edge]
+) -> int | None:
+    m = _OPEN_RE.match(ls)
+    if m is None:
+        return None
+    name = m.group(1)
+    # `style { ... }` — inline-стили шейпа, а не вложенный шейп: пропускаем содержимое, не пушим
+    # stack. `classes { ... }` парсим как обычный nested-блок — каждый дочерний класс становится
+    # шейпом `classes.<name>` со своими style.fill/stroke для дефолтов рендерера.
+    if name == "style":
+        return _skip_braced_block(lines, i + 1, depth=1)
+    _add_block_shape(shapes, stack, name, m.group(2))
+    return i + 1
+
+
+def _try_leaf(
+    _lines: list[str], i: int, ls: str, stack: list[str], shapes: dict[str, D2Shape], _e: list[Edge]
+) -> int | None:
+    m = _LEAF_RE.match(ls)
+    if m is None:
+        return None
+    _add_leaf_shape(shapes, stack, m.group(1), _unescape(m.group(2)), opens_block=m.group(3) == "{")
+    return i + 1
+
+
+_LINE_HANDLERS = (_try_markdown, _try_connection, _try_property, _try_block, _try_leaf)
 
 
 # ---------- SVG layout parser ----------
