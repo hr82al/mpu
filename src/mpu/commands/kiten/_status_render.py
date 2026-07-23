@@ -22,6 +22,7 @@ from mpu.commands.kiten._status_data import (
     Collected,
     Stage,
     StatusRow,
+    is_touch_only,
     present_stages,
     source_marks,
     summarise_minutes,
@@ -237,6 +238,11 @@ def render_footer(
     if by_role:
         roles = " · ".join(f"{escape(name)} {format_minutes(mins)}" for name, mins in by_role)
         console.print(f"[dim]   {roles}[/dim]")
+    touched = sum(1 for r in rows if is_touch_only(r))
+    if touched:
+        # Одинокий 📝 среди двух десятков строк глазом не ловится, а это как раз сигнал
+        # «написал в чужую карточку» — выносим счётчик отдельной строкой.
+        console.print(f"[dim]   📝 без участия и времени: {touched} (--source touch)[/dim]")
 
 
 # ── Машинные форматы ────────────────────────────────────────────────────────────

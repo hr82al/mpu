@@ -139,6 +139,47 @@ def test_cli_only_open_and_done(monkeypatch: pytest.MonkeyPatch) -> None:
     assert [r["id"] for r in json.loads(done.stdout)] == [2]
 
 
+def test_cli_source_touch_finds_foreign_card(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Комментарий в чужой закрытой карточке — единственный способ его заметить."""
+    mine = card(1, title="моя")
+    foreign = card(2, title="чужая", condition=2, archived=True, state=3)
+    fake = FakeClient(
+        cards=[mine],
+        activities=[
+            KaitenActivity(
+                id="1", created="2026-07-23T10:00:00Z", action="comment_add", card=foreign
+            )
+        ],
+    )
+    install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["status", "--source", "touch", "--out", "json"])
+    assert res.exit_code == 0, res.stderr
+    assert [r["id"] for r in json.loads(res.stdout)] == [2]
+
+
+def test_cli_footer_counts_touch_only_cards(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Одинокий 📝 в длинной таблице глазом не ловится — подвал называет число."""
+    foreign = card(2, title="чужая")
+    fake = FakeClient(
+        cards=[card(1)],
+        activities=[
+            KaitenActivity(
+                id="1", created="2026-07-23T10:00:00Z", action="comment_add", card=foreign
+            )
+        ],
+    )
+    install_client(monkeypatch, fake)
+    res = runner.invoke(app, ["status"])
+    assert res.exit_code == 0, res.stderr
+    assert "📝 без участия и времени: 1" in res.stdout
+
+
+def test_cli_footer_silent_without_touch_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_client(monkeypatch, FakeClient(cards=[card(1)]))
+    res = runner.invoke(app, ["status"])
+    assert "без участия и времени" not in res.stdout
+
+
 def test_cli_stage_filter(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeClient(cards=[card(1, column_title="Код-ревью"), card(2, column_title="В работе")])
     install_client(monkeypatch, fake)

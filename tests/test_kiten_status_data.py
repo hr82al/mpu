@@ -14,6 +14,7 @@ from rich.cells import cell_len
 
 from kiten_status_fakes import FakeClient, card, install_directory, install_env, row, time_log
 from mpu.commands.kiten._status_data import (
+    SRC_TOUCH,
     STAGE_ALIASES,
     STAGES,
     RowFilters,
@@ -23,6 +24,7 @@ from mpu.commands.kiten._status_data import (
     fill_stages,
     in_scope,
     is_escalated,
+    is_touch_only,
     iso_utc,
     load_stage_overrides,
     pick_card,
@@ -215,6 +217,30 @@ def test_apply_filters_open_done_and_board() -> None:
     assert [r.card.id for r in apply_filters([opened, done], RowFilters(only_open=True))] == [1]
     assert [r.card.id for r in apply_filters([opened, done], RowFilters(only_done=True))] == [2]
     assert [r.card.id for r in apply_filters([opened, done], RowFilters(board_id=901))] == [2]
+
+
+def test_is_touch_only_needs_activity_alone() -> None:
+    """«Касание» = карточка чужая: не назначена мне и время я на неё не списывал."""
+    assert is_touch_only(row(card(1), sources={"activity"}))
+    assert not is_touch_only(row(card(2), sources={"activity", "time"}))
+    assert not is_touch_only(row(card(3), sources={"assigned", "activity"}))
+
+
+def test_apply_filters_touch_finds_foreign_cards() -> None:
+    # Сценарий: написал комментарий в чужую закрытую карточку — так это и находится.
+    foreign = row(card(1), sources={"activity"})
+    mine = row(card(2), sources={"assigned", "activity"})
+    worked = row(card(3), sources={"time", "activity"})
+    picked = apply_filters([foreign, mine, worked], RowFilters(source=SRC_TOUCH))
+    assert [r.card.id for r in picked] == [1]
+
+
+def test_apply_filters_activity_still_matches_any_touch() -> None:
+    # `activity` — обычное вхождение источника, `touch` — его исключительность.
+    foreign = row(card(1), sources={"activity"})
+    mine = row(card(2), sources={"assigned", "activity"})
+    picked = apply_filters([foreign, mine], RowFilters(source="activity"))
+    assert [r.card.id for r in picked] == [1, 2]
 
 
 def test_apply_filters_empty_is_identity() -> None:

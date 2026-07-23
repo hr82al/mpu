@@ -27,6 +27,7 @@ from mpu.commands.kiten._status_data import (
     SRC_ACTIVITY,
     SRC_ASSIGNED,
     SRC_TIME,
+    SRC_TOUCH,
     STAGE_ALIASES,
     Collected,
     RowFilters,
@@ -79,11 +80,12 @@ class Only(StrEnum):
 
 
 class Source(StrEnum):
-    """Почему карточка в списке."""
+    """Почему карточка в списке; `touch` — карточка чужая, я её лишь коснулся."""
 
     assigned = SRC_ASSIGNED
     time = SRC_TIME
     activity = SRC_ACTIVITY
+    touch = SRC_TOUCH
 
 
 def activity_pages(since_ts: int, now_ts: int) -> int:
@@ -175,7 +177,11 @@ def status(
     ] = None,
     source: Annotated[
         Source | None,
-        typer.Option("--source", help="Почему карточка в списке: assigned|time|activity"),
+        typer.Option(
+            "--source",
+            help="Почему карточка в списке: assigned|time|activity; "
+            "touch — только касание (не назначена и время не списывал)",
+        ),
     ] = None,
     only: Annotated[
         Only | None,

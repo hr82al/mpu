@@ -166,6 +166,16 @@ def source_marks(sources: Iterable[str]) -> str:
     return "".join(mark if key in present else "  " for key, mark in SRC_MARKS)
 
 
+def is_touch_only(row: StatusRow) -> bool:
+    """Карточка попала в выдачу ТОЛЬКО из ленты действий: не назначена и время не списывал.
+
+    Это «касание без причастности» — комментарий или перемещение в чужой карточке. Обычно
+    таких единицы, и именно они помогают заметить, что написал не туда, поэтому из выдачи
+    они не исключаются, но их можно спросить прицельно (`--source touch`).
+    """
+    return row.sources == {SRC_ACTIVITY}
+
+
 def pick_card(current: KaitenCard | None, candidate: KaitenCard) -> KaitenCard:
     """Какую версию карточки оставить, если она пришла из нескольких источников.
 
@@ -221,6 +231,10 @@ def summarise_minutes(
 # ── Фильтры выдачи ──────────────────────────────────────────────────────────────
 
 
+# Значение `--source`, отбирающее карточки, которых я лишь коснулся (см. `is_touch_only`).
+SRC_TOUCH = "touch"
+
+
 @dataclass(frozen=True, slots=True)
 class RowFilters:
     """Сужение выдачи флагами команды; пустой фильтр — тождественная операция."""
@@ -239,7 +253,10 @@ def apply_filters(rows: list[StatusRow], filters: RowFilters) -> list[StatusRow]
         out = [r for r in out if r.stage == filters.stage]
     if filters.board_id is not None:
         out = [r for r in out if r.card.board_id == filters.board_id]
-    if filters.source:
+    if filters.source == SRC_TOUCH:
+        # `touch` — не источник, а его ОТСУТСТВИЕ у двух остальных: карточка чужая.
+        out = [r for r in out if is_touch_only(r)]
+    elif filters.source:
         out = [r for r in out if filters.source in r.sources]
     if filters.only_open:
         out = [r for r in out if not r.closed]
