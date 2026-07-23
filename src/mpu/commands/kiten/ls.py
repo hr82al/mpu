@@ -12,6 +12,7 @@ import typer
 from mpu.commands.kiten._app import app
 from mpu.commands.kiten._common import (
     COMMAND_NAME,
+    JsonOpt,
     _complete_board,
     _complete_column,
     _complete_lane,
@@ -158,7 +159,7 @@ def ls(  # noqa: PLR0913
             help="Активность ДО даты (YYYY-MM-DD), updated_before; опущено — до сейчас",
         ),
     ] = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")] = False,
+    out_json: JsonOpt = False,
     md: Annotated[
         bool,
         typer.Option("--md", help="Markdown-вывод: GFM-таблица (с --only-url — строки ссылок)"),

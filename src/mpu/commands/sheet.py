@@ -89,6 +89,10 @@ app.add_typer(cache_app, name="cache")
 # Helpers
 # ────────────────────────────────────────────────────────────────────────────
 
+# Опция выбора таблицы повторяется у пяти подкоманд `sheet` (общий каталог — mpu.lib.cli_opts;
+# эта осмысленна только здесь). Справки у неё нет исторически — см. docs/readability.md §1.
+SpreadsheetOpt = Annotated[str | None, typer.Option("-s", "--spreadsheet")]
+
 
 @contextmanager
 def _sheet_db() -> Generator[sqlite3.Connection]:
@@ -281,7 +285,7 @@ def _print_tsv(results: list[FetchResult]) -> None:
 
 @app.command()
 def ls(
-    spreadsheet: Annotated[str | None, typer.Option("-s", "--spreadsheet")] = None,
+    spreadsheet: SpreadsheetOpt = None,
     long_: Annotated[
         bool, typer.Option("-l", "--long", help="Title, rows×cols, sheetId, index.")
     ] = False,
@@ -317,7 +321,7 @@ def ls(
 
 @app.command(name="resolve")
 def resolve_cmd(
-    spreadsheet: Annotated[str | None, typer.Option("-s", "--spreadsheet")] = None,
+    spreadsheet: SpreadsheetOpt = None,
 ) -> None:
     """Show which spreadsheet ID will be used and source (flag/env/config)."""
     with _sheet_db() as conn:
@@ -401,7 +405,7 @@ def _expand_fill(api: WebappClient, ss_id: str, rng: str, value: str) -> dict[st
 def set_(  # noqa: C901, PLR0912
     range_arg: Annotated[str | None, typer.Argument(metavar="RANGE")] = None,
     value: Annotated[str | None, typer.Argument(metavar="VALUE")] = None,
-    spreadsheet: Annotated[str | None, typer.Option("-s", "--spreadsheet")] = None,
+    spreadsheet: SpreadsheetOpt = None,
     from_file: Annotated[
         str | None,
         typer.Option(
@@ -738,7 +742,7 @@ def batch_get_cmd(
         list[str] | None,
         typer.Option("-e", "--expr", help="Инструкции чтения (get/read; повторяемо)."),
     ] = None,
-    spreadsheet: Annotated[str | None, typer.Option("-s", "--spreadsheet")] = None,
+    spreadsheet: SpreadsheetOpt = None,
     sheet: Annotated[
         str | None, typer.Option("-n", "--sheet", help="Лист по умолчанию (range без 'Tab!').")
     ] = None,
@@ -822,7 +826,7 @@ def open_(
     sheet: Annotated[
         str | None, typer.Argument(help="Tab name (optional — открыть конкретный лист).")
     ] = None,
-    spreadsheet: Annotated[str | None, typer.Option("-s", "--spreadsheet")] = None,
+    spreadsheet: SpreadsheetOpt = None,
 ) -> None:
     """Open spreadsheet (or specific sheet) in browser."""
     with _sheet_db() as conn:

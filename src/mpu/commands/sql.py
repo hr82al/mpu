@@ -19,6 +19,7 @@ from typing import Annotated
 import typer
 
 from mpu.lib import servers, sql_runner, sql_sw
+from mpu.lib.cli_opts import ServerOpt
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 COMMAND_NAME = "mpu sql"
@@ -148,7 +149,7 @@ def main(
         str | None,
         typer.Argument(help="SQL для выполнения; если не задан — берётся из stdin"),
     ] = None,
-    server: Annotated[str | None, typer.Option("--server", help="Override резолва: sl-N")] = None,
+    server: ServerOpt = None,
     dry: Annotated[bool, typer.Option("--dry", help="Только meta + SQL, без коннекта")] = False,
     json_out: Annotated[
         bool, typer.Option("--json", help="Результат как JSON-array объектов")

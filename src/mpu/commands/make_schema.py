@@ -21,6 +21,7 @@ from typing import Annotated
 
 import typer
 
+from mpu.lib.cli_opts import ClientIdOpt, SelectorArg
 from mpu.lib.cli_wrap import auto_pick_int, require, resolve_selector
 from mpu.lib.clipboard import copy_to_clipboard
 
@@ -34,10 +35,7 @@ app = typer.Typer(
 
 @app.command()
 def main(
-    value: Annotated[
-        str,
-        typer.Argument(help="client_id, spreadsheet_id substring, или title substring"),
-    ],
+    value: SelectorArg,
     server: Annotated[
         str | None,
         typer.Option("--server", help="Контейнер sl-N (default sl-1)"),
@@ -46,14 +44,7 @@ def main(
         bool,
         typer.Option("--print", "-p", help="Печатать docker-команду в stdout + clipboard"),
     ] = False,
-    client_id: Annotated[
-        int | None,
-        typer.Option(
-            "--client-id",
-            "--client_id",
-            help="Override client_id если selector неоднозначен",
-        ),
-    ] = None,
+    client_id: ClientIdOpt = None,
 ) -> None:
     """clientsMigrations init: создать схему клиента в локальном mp-sl-N-cli."""
     resolved = resolve_selector(

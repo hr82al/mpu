@@ -34,6 +34,7 @@ from typing import Annotated
 import typer
 
 from mpu.lib import pssh
+from mpu.lib.cli_opts import ClientIdOpt, ServerOpt, SpreadsheetIdOpt
 from mpu.lib.cli_wrap import (
     FlagValue,
     Resolved,
@@ -177,21 +178,9 @@ def main(
         str,
         typer.Argument(help="client_id, spreadsheet_id substring, title substring, или sl-N"),
     ],
-    server: Annotated[str | None, typer.Option("--server", help="Override резолва: sl-N")] = None,
-    client_id: Annotated[
-        int | None,
-        typer.Option(
-            "--client-id", "--client_id", help="Override client_id если selector неоднозначен"
-        ),
-    ] = None,
-    spreadsheet_id: Annotated[
-        str | None,
-        typer.Option(
-            "--spreadsheet-id",
-            "--spreadsheet_id",
-            help="Override spreadsheet_id если selector неоднозначен",
-        ),
-    ] = None,
+    server: ServerOpt = None,
+    client_id: ClientIdOpt = None,
+    spreadsheet_id: SpreadsheetIdOpt = None,
     date_from: Annotated[
         str,
         typer.Option("--date-from", "--date_from", help="Начальная дата пересчёта (YYYY-MM-DD)"),

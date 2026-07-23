@@ -23,6 +23,9 @@ from rich.table import Table
 from mpu.commands.kiten._app import app
 from mpu.commands.kiten._common import (
     COMMAND_NAME,
+    CardArg,
+    CardArgOpt,
+    JsonOpt,
     _check_date,
     _complete_role,
     _parse_card_ref,
@@ -51,7 +54,6 @@ time_app = typer.Typer(
 )
 app.add_typer(time_app, name="time")
 
-_SELECTOR_HELP = "ID карточки или URL btlz.kaiten.ru (короткий/глубокий)"
 _ROLE_HELP = (
     "Тип работы: ID или подстрока названия (см. `mpu kiten roles`); "
     "по умолчанию env KITEN_TIME_ROLE или «Техподдержка»"
@@ -292,7 +294,7 @@ def _describe(log: KaitenTimeLog) -> str:
 
 @time_app.command("ls")
 def time_ls(
-    selector: Annotated[str | None, typer.Argument(help=_SELECTOR_HELP)] = None,
+    selector: CardArgOpt = None,
     show_all: Annotated[
         bool, typer.Option("--all", help="Записи всех пользователей, а не только мои")
     ] = False,
@@ -306,7 +308,7 @@ def time_ls(
         str | None,
         typer.Option("--role", help="Фильтр по типу работы", autocompletion=_complete_role),
     ] = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")] = False,
+    out_json: JsonOpt = False,
 ) -> None:
     """Записи учёта времени: по карточке или сводкой за период по всем карточкам.
 
@@ -443,7 +445,7 @@ def _summary(
 
 @time_app.command("add")
 def time_add(
-    selector: Annotated[str, typer.Argument(help=_SELECTOR_HELP)],
+    selector: CardArg,
     duration: Annotated[
         str, typer.Argument(help="Длительность: 3h | 1h15m | 1:15 | 90 (минуты) | 2.5h")
     ],
@@ -496,7 +498,7 @@ def time_add(
 
 @time_app.command("edit")
 def time_edit(
-    selector: Annotated[str, typer.Argument(help=_SELECTOR_HELP)],
+    selector: CardArg,
     log_id: Annotated[int, typer.Argument(help="ID записи (см. `mpu kiten time ls`)")],
     duration: Annotated[
         str | None,
@@ -573,7 +575,7 @@ def _changes(body: dict[str, object]) -> str:
 
 @time_app.command("rm")
 def time_rm(
-    selector: Annotated[str, typer.Argument(help=_SELECTOR_HELP)],
+    selector: CardArg,
     log_id: Annotated[int, typer.Argument(help="ID записи (см. `mpu kiten time ls`)")],
     force: Annotated[
         bool, typer.Option("--force", help="Удалить запись другого пользователя")
@@ -673,7 +675,7 @@ def _msk_hhmm(iso: str | None) -> str:
 
 @time_app.command("start")
 def time_start(
-    selector: Annotated[str, typer.Argument(help=_SELECTOR_HELP)],
+    selector: CardArg,
     role: Annotated[
         str | None, typer.Option("--role", help=_ROLE_HELP, autocompletion=_complete_role)
     ] = None,
@@ -733,7 +735,7 @@ def time_start(
 
 @time_app.command("status")
 def time_status(
-    selector: Annotated[str | None, typer.Argument(help=_SELECTOR_HELP)] = None,
+    selector: CardArgOpt = None,
     out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо текста")] = False,
 ) -> None:
     """Идёт ли таймер и сколько всего списано по карточке.
@@ -802,7 +804,7 @@ def _now() -> datetime.datetime:
 
 @time_app.command("stop")
 def time_stop(
-    selector: Annotated[str, typer.Argument(help=_SELECTOR_HELP)],
+    selector: CardArg,
     duration: Annotated[
         str | None,
         typer.Option(
@@ -929,7 +931,7 @@ def _warn_if_date_shifted(for_date: str, finished_at: str) -> None:
 
 @time_app.command("discard")
 def time_discard(
-    selector: Annotated[str, typer.Argument(help=_SELECTOR_HELP)],
+    selector: CardArg,
 ) -> None:
     """Сбросить таймер, НЕ создавая запись учёта времени.
 

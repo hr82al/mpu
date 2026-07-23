@@ -1,9 +1,8 @@
 """`mpu wb-unit-proto-new copy-data-from-old-table` — миграция старой proto-таблицы в новую."""
 
-from typing import Annotated
-
 import typer
 
+from mpu.lib.cli_opts import ClientIdOpt, LocalOpt, PrintOpt, SelectorArg, ServerOpt
 from mpu.lib.cli_wrap import (
     auto_pick_int,
     emit_node_cli,
@@ -27,26 +26,11 @@ def _root() -> None:  # pyright: ignore[reportUnusedFunction]
 
 @app.command(name="copy-data-from-old-table")
 def copy_data_from_old_table(
-    value: Annotated[
-        str,
-        typer.Argument(help="client_id, spreadsheet_id substring, или title substring"),
-    ],
-    server: Annotated[str | None, typer.Option("--server", help="Override резолва: sl-N")] = None,
-    local: Annotated[
-        bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
-    ] = False,
-    print_mode: Annotated[
-        bool,
-        typer.Option("--print", "-p", help="Печатать обёртку в stdout + clipboard, не выполнять"),
-    ] = False,
-    client_id: Annotated[
-        int | None,
-        typer.Option(
-            "--client-id",
-            "--client_id",
-            help="Override client_id если selector неоднозначен",
-        ),
-    ] = None,
+    value: SelectorArg,
+    server: ServerOpt = None,
+    local: LocalOpt = False,
+    print_mode: PrintOpt = False,
+    client_id: ClientIdOpt = None,
 ) -> None:
     """Выполнить через Portainer; `--print` — печать обёртки без выполнения."""
     wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)

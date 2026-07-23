@@ -13,6 +13,7 @@ import typer
 from mpu.commands.kiten._app import app
 from mpu.commands.kiten._common import (
     COMMAND_NAME,
+    CardArg,
     _complete_board,
     _complete_column,
     _complete_lane,
@@ -42,9 +43,7 @@ __all__ = ["_left_neighbor_column"]
 
 @app.command("move")
 def move(
-    selector: Annotated[
-        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
-    ],
+    selector: CardArg,
     lane: Annotated[
         str | None,
         typer.Option(
@@ -215,9 +214,7 @@ def _move_to_target_column(
 
 @app.command("ready")
 def ready(
-    selector: Annotated[
-        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
-    ],
+    selector: CardArg,
     column: Annotated[
         str | None,
         typer.Option(
@@ -246,9 +243,7 @@ def ready(
 
 @app.command("review")
 def review(
-    selector: Annotated[
-        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
-    ],
+    selector: CardArg,
     column: Annotated[
         str | None,
         typer.Option(
@@ -277,9 +272,7 @@ def review(
 
 @app.command("close")
 def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
-    selector: Annotated[
-        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
-    ],
+    selector: CardArg,
     hypothesis: Annotated[
         str | None, typer.Option("--hypothesis", help="«Причина/гипотеза» (если поле пусто)")
     ] = None,

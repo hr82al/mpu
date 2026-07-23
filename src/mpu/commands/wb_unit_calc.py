@@ -5,6 +5,7 @@ from typing import Annotated
 
 import typer
 
+from mpu.lib.cli_opts import ClientIdOpt, LocalOpt, PrintOpt, SelectorArg, ServerOpt
 from mpu.lib.cli_wrap import (
     auto_pick_int,
     emit_node_cli,
@@ -28,27 +29,12 @@ def _root() -> None:  # pyright: ignore[reportUnusedFunction]
 
 @app.command(name="get-unit-data-by-date-nm-id")
 def get_unit_data_by_date_nm_id(
-    value: Annotated[
-        str,
-        typer.Argument(help="client_id, spreadsheet_id substring, или title substring"),
-    ],
+    value: SelectorArg,
     nm_id: Annotated[int, typer.Option("--nm-id", "--nm_id", help="WB nm_id (required)")],
-    server: Annotated[str | None, typer.Option("--server", help="Override резолва: sl-N")] = None,
-    local: Annotated[
-        bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
-    ] = False,
-    print_mode: Annotated[
-        bool,
-        typer.Option("--print", "-p", help="Печатать обёртку в stdout + clipboard, не выполнять"),
-    ] = False,
-    client_id: Annotated[
-        int | None,
-        typer.Option(
-            "--client-id",
-            "--client_id",
-            help="Override client_id если selector неоднозначен",
-        ),
-    ] = None,
+    server: ServerOpt = None,
+    local: LocalOpt = False,
+    print_mode: PrintOpt = False,
+    client_id: ClientIdOpt = None,
     date: Annotated[
         str | None,
         typer.Option("--date", help="Дата (YYYY-MM-DD); по умолчанию — сегодня"),

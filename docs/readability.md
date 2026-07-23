@@ -7,8 +7,9 @@
 командами из раздела «Как мерить». Каждая находка ниже проверена по коду: место открыто, код сверен
 с описанием; две находки при проверке отклонены и вынесены в §10 отдельно.
 
-Сделанное помечается **✅** прямо в тексте находки — так видно, что осталось. Шаги 1–2 очереди (§11)
-выполнены 2026-07-23: −178 строк нетто в 26 файлах, тесты 3045 зелёные, покрытие 95,31%.
+Сделанное помечается **✅** прямо в тексте находки — так видно, что осталось. Шаги 1–3 очереди (§11)
+выполнены 2026-07-23: −178 и −287 строк нетто, тесты 3046 зелёные, покрытие 95,3%, справка всех
+164 команд побайтно не изменилась.
 
 ---
 
@@ -59,7 +60,7 @@ app = make_app(service="wbUnitCalculatedData", method="saveExpenses",
 Help-строка селектора `"client_id, spreadsheet_id substring, или title substring"` скопирована 16 раз —
 и уже начала расходиться между командами.
 
-**Лечение.** Каталог типов-опций `lib/cli_opts.py`:
+**✅ Сделано.** Каталог типов-опций `lib/cli_opts.py`:
 
 ```python
 SelectorArg = Annotated[str, typer.Argument(help="client_id, spreadsheet_id substring, или title substring")]
@@ -68,10 +69,34 @@ PrintOpt    = Annotated[bool, typer.Option("--print", "-p", help="Печатат
 ClientIdOpt = Annotated[int | None, typer.Option("--client-id", "--client_id", help="Override client_id если selector неоднозначен")]
 ```
 
-Приём в проекте уже признан — `commands/mr.py:108` (`MrRefOption`, `MessageOption`, `BodyFileOption`),
-просто применён в одном модуле. Сигнатура `process.main` сжимается со 160 строк примерно до 25.
+Приём в проекте уже был признан — `commands/mr.py:108` (`MrRefOption`, `MessageOption`,
+`BodyFileOption`), просто применялся в одном модуле.
 
-Объём: M · выигрыш: high.
+Итог: **120 объявлений** заменены алиасами в 31 файле: −469 строк деклараций против +244 (из них 60 — сам новый каталог), нетто −225. Из них 90 кросс-модульных
+(`SelectorArg` ×16, `ServerOpt` ×19, `LocalOpt` ×17, `PrintOpt` ×17, `ClientIdOpt` ×16,
+`SpreadsheetIdOpt` ×5) — в `lib/cli_opts.py`; 25 kaiten-специфичных (`CardArg` ×15,
+`CardArgOpt` ×2, `JsonOpt` ×8) — в `commands/kiten/_common.py`; 5 `-s/--spreadsheet` — локальным
+алиасом в `commands/sheet.py`. Сигнатура `process.main` — со 160 строк деклараций до 26.
+
+Показательный итог по одной строке: help карточки Kaiten («ID карточки или URL btlz.kaiten.ru…»)
+имел **10** независимых источников (9 литералов + локальная константа `_SELECTOR_HELP`
+в `timelog.py`) — теперь один, `_CARD_HELP` в `commands/kiten/_common.py`.
+
+Заменялись только байт-в-байт идентичные объявления, поэтому справка всех 164 команд не изменилась
+(проверено diff'ом `--help` против версии до правки). Разошедшиеся варианты не трогали — они остались
+как остаток работы:
+
+- `--json` — 11 разных формулировок на 26 объявлений (`JSON-вывод вместо таблицы`,
+  `JSON (машинный)`, `Structured JSON array.`, …);
+- `--dry-run` — 13 формулировок на 16 объявлений;
+- `--date-from` / `--date-to` — по 6 формулировок;
+- `-s/--spreadsheet` в `commands/sheet.py` — у пяти подкоманд вообще **нет** `help`, что
+  противоречит принципу 1 CLAUDE.md («`help=` на каждом аргументе/опции»);
+- селектор-аргумент — 12 вариантов описания одного и того же (`sl-N либо client_id / spreadsheet_id
+  / title`, `client_id / spreadsheet_id substring / title substring / sl-N`, …).
+
+Их сведение — уже изменение видимой справки, поэтому отдельным шагом и с явным решением, какая
+формулировка канон.
 
 **✅ Смежное, почти бесплатное — сделано.** `lib/kaiten.py:28-130` — реэкспорт моделей под
 `if TYPE_CHECKING`: 34 отдельных импорт-стейтмента на 103 строки; то же в `lib/gitlab_mr.py:34-65`.
@@ -295,7 +320,7 @@ apply_close_plan(client, plan)                                    # только
 | - | --- | ----- | ------- |
 | ✅ 1 | `combine-as-imports = true` + `ruff --fix` — сделано (−108 строк в 8 файлах) | S | medium |
 | ✅ 2 | Точечные S-фиксы — сделано: `miro._delete_tolerant`, `portainer` явный возврат, `kiten_status` общая функция, `_sheet_db()` ×13, `callback=_run` ×6, `quote_tab_name` ×5 (§5.2, с фиксом экранирования) | S каждый | high |
-| 3 | `lib/cli_opts.py` + перевод модулей с повторяющимися опциями | M | high |
+| ✅ 3 | `lib/cli_opts.py` + перевод модулей — сделано (120 объявлений, −225 строк с учётом нового каталога, справка не изменилась) | M | high |
 | 4 | `resolver.resolve_server_or_exit` + `require_single_client_id` + `cli_err.bind` | M | high |
 | 5 | Общие фикстуры в `tests/conftest.py` (`fake_node_cli`, `fake_resolve`, `fake_pg`) | M | high |
 | 6 | `plan → render → apply` для команд с `--dry-run` (начать с `kiten close`) | M | high |
@@ -304,6 +329,7 @@ apply_close_plan(client, plan)                                    # только
 | 9 | Расширить `make_app`/фабрики, перевести 14 ручных обёрток | L | high |
 | 10 | `sheet_batch.py`: общий сканер + разрез по швам; `d2_parser.py`: `_try_*`-хелперы | L | medium |
 | 11 | Ленивое монтирование команд (побочно — старт CLI) | S | (perf) |
+| 12 | Свести разошедшиеся формулировки `--json` / `--dry-run` / дат / селектора (§1) — меняет видимую справку | M | medium |
 
 ---
 

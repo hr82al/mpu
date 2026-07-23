@@ -8,6 +8,14 @@ from typing import Annotated
 
 import typer
 
+from mpu.lib.cli_opts import (
+    ClientIdOpt,
+    LocalOpt,
+    PrintOpt,
+    SelectorArg,
+    ServerOpt,
+    SpreadsheetIdOpt,
+)
 from mpu.lib.cli_wrap import (
     FlagValue,
     auto_pick_int,
@@ -28,35 +36,13 @@ app = typer.Typer(
 
 @app.command()
 def main(  # noqa: PLR0913
-    value: Annotated[
-        str,
-        typer.Argument(help="client_id, spreadsheet_id substring, или title substring"),
-    ],
+    value: SelectorArg,
     dataset: Annotated[str, typer.Option("--dataset", help="Dataset name (required)")],
-    server: Annotated[str | None, typer.Option("--server", help="Override резолва: sl-N")] = None,
-    local: Annotated[
-        bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
-    ] = False,
-    print_mode: Annotated[
-        bool,
-        typer.Option("--print", "-p", help="Печатать обёртку в stdout + clipboard, не выполнять"),
-    ] = False,
-    client_id: Annotated[
-        int | None,
-        typer.Option(
-            "--client-id",
-            "--client_id",
-            help="Override client_id если selector неоднозначен",
-        ),
-    ] = None,
-    spreadsheet_id: Annotated[
-        str | None,
-        typer.Option(
-            "--spreadsheet-id",
-            "--spreadsheet_id",
-            help="Override spreadsheet_id если selector неоднозначен",
-        ),
-    ] = None,
+    server: ServerOpt = None,
+    local: LocalOpt = False,
+    print_mode: PrintOpt = False,
+    client_id: ClientIdOpt = None,
+    spreadsheet_id: SpreadsheetIdOpt = None,
     sheet_name: Annotated[
         str | None,
         typer.Option("--sheet-name", "--sheet_name", help="Sheet name (ASCII без spaces)"),

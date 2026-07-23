@@ -15,7 +15,7 @@ from rich.console import Console
 from rich.table import Table
 
 from mpu.commands.kiten._app import app
-from mpu.commands.kiten._common import COMMAND_NAME, _parse_card_ref
+from mpu.commands.kiten._common import COMMAND_NAME, CardArg, JsonOpt, _parse_card_ref
 from mpu.lib import kaiten_links, store
 from mpu.lib.cli_err import die
 from mpu.lib.kaiten import KaitenAPIError, KaitenClient, card_url
@@ -63,9 +63,7 @@ def _sync_card_field(
 
 @field_app.command("set")
 def field_set(
-    selector: Annotated[
-        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
-    ],
+    selector: CardArg,
     kind: Annotated[FieldKind, typer.Argument(help="Поле: mr / hypothesis / done / result")],
     value: Annotated[str, typer.Argument(help="Значение (для mr — URL мерж-реквеста)")],
 ) -> None:
@@ -111,9 +109,7 @@ field_app.add_typer(artefact_app, name="artefact")
 
 @artefact_app.command("set")
 def artefact_set(
-    selector: Annotated[
-        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
-    ],
+    selector: CardArg,
     path: Annotated[
         Path,
         typer.Argument(
@@ -149,9 +145,7 @@ def artefact_set(
 
 @artefact_app.command("rm")
 def artefact_rm(
-    selector: Annotated[
-        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
-    ],
+    selector: CardArg,
 ) -> None:
     """Очистить поле «9. AI-артефакт»: удалить приложенные к нему файлы (идемпотентно).
 
@@ -185,7 +179,7 @@ def field_ls(
         FieldKind | None,
         typer.Option("--kind", help="Фильтр по полю: mr / hypothesis / done / result"),
     ] = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")] = False,
+    out_json: JsonOpt = False,
 ) -> None:
     """История привязок (read-only): id, карточка, поле, значение, время."""
     card_id: int | None = None

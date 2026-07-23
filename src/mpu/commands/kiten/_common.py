@@ -7,7 +7,7 @@ from __future__ import annotations
 import datetime
 import json as _json
 from collections.abc import Callable
-from typing import cast
+from typing import Annotated, cast
 
 import typer
 
@@ -39,6 +39,14 @@ __all__ = [
     "build_updated_window",
     "coalesce",
 ]
+
+# Опции, повторяющиеся между подкомандами kiten (общий каталог CLI — mpu.lib.cli_opts;
+# здесь — то, что осмысленно только для Kaiten).
+_CARD_HELP = "ID карточки или URL btlz.kaiten.ru (короткий/глубокий)"
+CardArg = Annotated[str, typer.Argument(help=_CARD_HELP)]
+# Тот же аргумент там, где карточка необязательна (напр. `time ls` без селектора — все карточки).
+CardArgOpt = Annotated[str | None, typer.Argument(help=_CARD_HELP)]
+JsonOpt = Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")]
 
 COMMAND_NAME = "mpu kiten"
 COMMAND_SUMMARY = (

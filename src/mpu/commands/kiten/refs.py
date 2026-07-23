@@ -13,6 +13,7 @@ from rich.table import Table
 from mpu.commands.kiten._app import app
 from mpu.commands.kiten._common import (
     COMMAND_NAME,
+    JsonOpt,
     _complete_board,
     _complete_space,
     _resolve_board,
@@ -55,7 +56,7 @@ def spaces(
     show_all: Annotated[
         bool, typer.Option("--all", help="Показать и архивные пространства")
     ] = False,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")] = False,
+    out_json: JsonOpt = False,
 ) -> None:
     """Пространства Kaiten (живой GET /spaces + обновление кэша автодополнения)."""
     result = kaiten_cache.discover_and_store()
@@ -84,7 +85,7 @@ def roles(
     show_all: Annotated[
         bool, typer.Option("--all", help="Показать и системные роли (Employee)")
     ] = False,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")] = False,
+    out_json: JsonOpt = False,
 ) -> None:
     """Роли компании = «типы работ» для `mpu kiten time` (живой GET /user-roles + кэш).
 
@@ -122,7 +123,7 @@ def boards(
             autocompletion=_complete_space,
         ),
     ] = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")] = False,
+    out_json: JsonOpt = False,
 ) -> None:
     """Доски Kaiten (живой GET /spaces + обновление кэша). --space фильтрует."""
     result = kaiten_cache.discover_and_store()
@@ -165,7 +166,7 @@ def lanes(
             autocompletion=_complete_board,
         ),
     ] = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")] = False,
+    out_json: JsonOpt = False,
 ) -> None:
     """Дорожки досок Kaiten (живой GET /boards/{id}/lanes + обновление кэша).
 
@@ -223,7 +224,7 @@ def columns(
             autocompletion=_complete_board,
         ),
     ] = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")] = False,
+    out_json: JsonOpt = False,
 ) -> None:
     """Колонки досок Kaiten (живой GET /boards/{id}/columns + обновление кэша).
 

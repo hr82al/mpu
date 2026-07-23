@@ -8,7 +8,7 @@ from typing import Annotated
 import typer
 
 from mpu.commands.kiten._app import app
-from mpu.commands.kiten._common import COMMAND_NAME, _parse_card_ref
+from mpu.commands.kiten._common import COMMAND_NAME, CardArg, _parse_card_ref
 from mpu.commands.kiten._render import _card_detail_dict, _card_to_markdown, _render_card_rich
 from mpu.lib import kaiten_cache
 from mpu.lib.cli_err import die
@@ -18,9 +18,7 @@ from mpu.lib.kaiten import KaitenAPIError, KaitenClient
 
 @app.command("card")
 def card(
-    selector: Annotated[
-        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
-    ],
+    selector: CardArg,
     md: Annotated[
         bool, typer.Option("--md", help="Чистый GFM markdown для LLM (без ANSI/картинок)")
     ] = False,

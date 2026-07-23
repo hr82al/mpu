@@ -54,6 +54,7 @@ from typing import Annotated, Literal
 import typer
 
 from mpu.lib import servers
+from mpu.lib.cli_opts import LocalOpt, PrintOpt
 from mpu.lib.clipboard import copy_to_clipboard
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
@@ -364,18 +365,8 @@ def attach_selector_callback(*, app: typer.Typer, command_name: str) -> None:
                 autocompletion=complete_selector,
             ),
         ],
-        local: Annotated[
-            bool,
-            typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)"),
-        ] = False,
-        print_mode: Annotated[
-            bool,
-            typer.Option(
-                "--print",
-                "-p",
-                help="Печатать обёртку в stdout + clipboard, не выполнять",
-            ),
-        ] = False,
+        local: LocalOpt = False,
+        print_mode: PrintOpt = False,
     ) -> None:
         ctx.ensure_object(dict)
         # ctx.obj типизирован typer'ом как Any; явно аннотируем после ensure_object().

@@ -4,6 +4,7 @@ from typing import Annotated
 
 import typer
 
+from mpu.lib.cli_opts import ClientIdOpt, LocalOpt, PrintOpt, SelectorArg, ServerOpt
 from mpu.lib.cli_wrap import (
     FlagValue,
     auto_pick_int,
@@ -28,30 +29,15 @@ def _root() -> None:  # pyright: ignore[reportUnusedFunction]
 
 @app.command(name="find-candidate")
 def find_candidate(
-    value: Annotated[
-        str,
-        typer.Argument(help="client_id, spreadsheet_id substring, или title substring"),
-    ],
+    value: SelectorArg,
     sids: Annotated[
         list[str],
         typer.Option("--sids", "--sid", help="WB cabinet sid(s); flag можно повторять"),
     ],
-    server: Annotated[str | None, typer.Option("--server", help="Override резолва: sl-N")] = None,
-    local: Annotated[
-        bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
-    ] = False,
-    print_mode: Annotated[
-        bool,
-        typer.Option("--print", "-p", help="Печатать обёртку в stdout + clipboard, не выполнять"),
-    ] = False,
-    client_id: Annotated[
-        int | None,
-        typer.Option(
-            "--client-id",
-            "--client_id",
-            help="Override client_id если selector неоднозначен",
-        ),
-    ] = None,
+    server: ServerOpt = None,
+    local: LocalOpt = False,
+    print_mode: PrintOpt = False,
+    client_id: ClientIdOpt = None,
 ) -> None:
     """Выполнить через Portainer; `--print` — печать обёртки без выполнения."""
     wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)

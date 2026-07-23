@@ -4,6 +4,7 @@ from typing import Annotated
 
 import typer
 
+from mpu.lib.cli_opts import LocalOpt, PrintOpt, SelectorArg, ServerOpt, SpreadsheetIdOpt
 from mpu.lib.cli_wrap import (
     FlagValue,
     auto_pick_str,
@@ -28,27 +29,12 @@ def _root() -> None:  # pyright: ignore[reportUnusedFunction]
 
 @app.command(name="add")
 def add(
-    value: Annotated[
-        str,
-        typer.Argument(help="client_id, spreadsheet_id substring, или title substring"),
-    ],
+    value: SelectorArg,
     dataset: Annotated[str, typer.Option("--dataset", help="Dataset name (required)")],
-    server: Annotated[str | None, typer.Option("--server", help="Override резолва: sl-N")] = None,
-    local: Annotated[
-        bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
-    ] = False,
-    print_mode: Annotated[
-        bool,
-        typer.Option("--print", "-p", help="Печатать обёртку в stdout + clipboard, не выполнять"),
-    ] = False,
-    spreadsheet_id: Annotated[
-        str | None,
-        typer.Option(
-            "--spreadsheet-id",
-            "--spreadsheet_id",
-            help="Override spreadsheet_id если selector неоднозначен",
-        ),
-    ] = None,
+    server: ServerOpt = None,
+    local: LocalOpt = False,
+    print_mode: PrintOpt = False,
+    spreadsheet_id: SpreadsheetIdOpt = None,
     sheet_name: Annotated[
         str | None,
         typer.Option("--sheet-name", "--sheet_name", help="Sheet name (ASCII без spaces)"),

@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Annotated
 import typer
 
 from mpu.commands.kiten._app import app
-from mpu.commands.kiten._common import COMMAND_NAME, _parse_card_ref
+from mpu.commands.kiten._common import COMMAND_NAME, CardArg, _parse_card_ref
 from mpu.lib.cli_err import die
 from mpu.lib.kaiten import KaitenAPIError, KaitenClient, card_url
 
@@ -194,9 +194,7 @@ def plan_field_actions(
 
 @app.command("comment")
 def comment(
-    selector: Annotated[
-        str, typer.Argument(help="ID карточки или URL btlz.kaiten.ru (короткий/глубокий)")
-    ],
+    selector: CardArg,
     message: Annotated[
         str | None, typer.Option("--message", "-m", help="Текст комментария (markdown)")
     ] = None,

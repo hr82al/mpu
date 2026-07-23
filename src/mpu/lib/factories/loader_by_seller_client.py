@@ -11,6 +11,7 @@ from typing import Annotated
 
 import typer
 
+from mpu.lib.cli_opts import ClientIdOpt, LocalOpt, PrintOpt, SelectorArg, ServerOpt
 from mpu.lib.cli_wrap import (
     auto_pick_int,
     emit_node_cli,
@@ -51,10 +52,7 @@ def _register_one(
         help=f"Распечатать ssh-команду для service:{service} {method_name}.",
     )
     def _cmd(  # pyright: ignore[reportUnusedFunction]
-        value: Annotated[
-            str,
-            typer.Argument(help="client_id, spreadsheet_id substring, или title substring"),
-        ],
+        value: SelectorArg,
         seller_client_id: Annotated[
             str,
             typer.Option(
@@ -63,28 +61,10 @@ def _register_one(
                 help="Ozon seller client_id (required)",
             ),
         ],
-        server: Annotated[
-            str | None, typer.Option("--server", help="Override резолва: sl-N")
-        ] = None,
-        local: Annotated[
-            bool, typer.Option("--local", help="Local form: sl-N-cli sh -c '...' (без ssh)")
-        ] = False,
-        print_mode: Annotated[
-            bool,
-            typer.Option(
-                "--print",
-                "-p",
-                help="Печатать обёртку в stdout + clipboard, не выполнять",
-            ),
-        ] = False,
-        client_id: Annotated[
-            int | None,
-            typer.Option(
-                "--client-id",
-                "--client_id",
-                help="Override client_id если selector неоднозначен",
-            ),
-        ] = None,
+        server: ServerOpt = None,
+        local: LocalOpt = False,
+        print_mode: PrintOpt = False,
+        client_id: ClientIdOpt = None,
     ) -> None:
         wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
         resolved = resolve_selector(

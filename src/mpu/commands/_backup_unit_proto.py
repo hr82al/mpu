@@ -13,6 +13,7 @@ import typer
 
 from mpu.lib import sql_runner
 from mpu.lib.backup_sql import Marketplace, build_backup_sql
+from mpu.lib.cli_opts import ServerOpt
 from mpu.lib.resolver import ResolveError, format_candidates, resolve_server
 
 
@@ -109,9 +110,7 @@ def make_app(
                 help="Переопределить номер схемы (default = client_id из mpu search)",
             ),
         ] = None,
-        server: Annotated[
-            str | None, typer.Option("--server", help="Override резолва: sl-N")
-        ] = None,
+        server: ServerOpt = None,
         dry: Annotated[bool, typer.Option("--dry", help="Только meta + SQL, без коннекта")] = False,
     ) -> None:
         code = run_backup(
