@@ -2,7 +2,7 @@
 # pyright: reportPrivateUsage=false
 
 import io
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 from typing import ClassVar, cast
@@ -16,56 +16,28 @@ from mpu.lib import containers, portainer, pssh, resolver, servers, store
 from mpu.lib.resolver import ResolveError
 
 
-def _isolate_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Подменить SQLite-путь на пустой tmp файл — иначе тесты читают prod ~/.config/mpu/mpu.db."""
-    monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
+@pytest.fixture
+def env_ssh_only(pg_env: Callable[..., Path]) -> Path:
+    return pg_env("PG_MY_USER_NAME=alice\nsl_1='192.168.150.91'\nsl_2='192.168.150.92'\n")
 
 
 @pytest.fixture
-def env_ssh_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    p = tmp_path / ".env"
-    p.write_text(
-        "PG_MY_USER_NAME=alice\nsl_1='192.168.150.91'\nsl_2='192.168.150.92'\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(servers, "ENV_PATH", p)
-    _isolate_db(tmp_path, monkeypatch)
-    servers.reset_cache()
-    yield p
-    servers.reset_cache()
-
-
-@pytest.fixture
-def env_portainer_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    p = tmp_path / ".env"
-    p.write_text(
+def env_portainer_only(pg_env: Callable[..., Path]) -> Path:
+    return pg_env(
         "PORTAINER_API_KEY=ptr_test\n"
         "sl_11_portainer=https://192.168.150.12:9443/19\n"
-        "sl_12_portainer=https://192.168.150.12:9443/19\n",
-        encoding="utf-8",
+        "sl_12_portainer=https://192.168.150.12:9443/19\n"
     )
-    monkeypatch.setattr(servers, "ENV_PATH", p)
-    _isolate_db(tmp_path, monkeypatch)
-    servers.reset_cache()
-    yield p
-    servers.reset_cache()
 
 
 @pytest.fixture
-def env_mixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    p = tmp_path / ".env"
-    p.write_text(
+def env_mixed(pg_env: Callable[..., Path]) -> Path:
+    return pg_env(
         "PG_MY_USER_NAME=alice\n"
         "PORTAINER_API_KEY=ptr_test\n"
         "sl_1='192.168.150.91'\n"
-        "sl_11_portainer=https://192.168.150.12:9443/19\n",
-        encoding="utf-8",
+        "sl_11_portainer=https://192.168.150.12:9443/19\n"
     )
-    monkeypatch.setattr(servers, "ENV_PATH", p)
-    _isolate_db(tmp_path, monkeypatch)
-    servers.reset_cache()
-    yield p
-    servers.reset_cache()
 
 
 # ---------- _resolve_transport ----------

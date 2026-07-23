@@ -2,7 +2,7 @@
 # pyright: reportPrivateUsage=false
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
@@ -14,18 +14,8 @@ from mpu.lib import portainer, portainer_discover, servers, store
 
 
 @pytest.fixture
-def env_with_portainer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    env = tmp_path / ".env"
-    env.write_text(
-        "PORTAINER_API_KEY=ptr_test\nPORTAINER_URL=https://example:9443\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(servers, "ENV_PATH", env)
-    db = tmp_path / "mpu.db"
-    monkeypatch.setattr(store, "DB_PATH", db)
-    servers.reset_cache()
-    yield env
-    servers.reset_cache()
+def env_with_portainer(pg_env: Callable[..., Path]) -> Path:
+    return pg_env("PORTAINER_API_KEY=ptr_test\nPORTAINER_URL=https://example:9443\n")
 
 
 def _portainer_responses(

@@ -1,11 +1,11 @@
 """Shared pytest fixtures and helpers."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 
-from mpu.lib import store
+from mpu.lib import servers, store
 
 _LOG_DEFAULTS = {
     "MPU_LOG_ENABLED": "1",
@@ -26,6 +26,38 @@ def isolate_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MPU_LOG_FILE", str(tmp_path / "mpu-test.log"))
     for name, value in _LOG_DEFAULTS.items():
         monkeypatch.setenv(name, value)
+
+
+@pytest.fixture(autouse=True)
+def reset_servers_cache() -> Iterator[None]:
+    """`servers._env` — `lru_cache` на процесс: без сброса `.env` одного теста виден следующему.
+
+    Сброс делается здесь до и после каждого теста, чтобы тестам не приходилось помнить про это
+    руками (раньше — 61 вызов `servers.reset_cache()` по файлам, и любой забытый протекал в соседа).
+    """
+    servers.reset_cache()
+    yield
+    servers.reset_cache()
+
+
+@pytest.fixture
+def pg_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Callable[..., Path]:
+    """Записать временный `.env` и направить на него `servers.ENV_PATH` (+ изолировать SQLite).
+
+    Содержимое `.env` — параметр: у каждого теста свой набор ключей (sl_N/pg_N, PG_*, PORTAINER_*),
+    и это часть теста, а не общий шаблон. Возвращает путь к файлу — его дописывают в тестах парсера.
+    """
+
+    def _write(content: str = "", *, with_db: bool = True) -> Path:
+        env_file = tmp_path / ".env"
+        env_file.write_text(content, encoding="utf-8")
+        monkeypatch.setattr(servers, "ENV_PATH", env_file)
+        if with_db:
+            monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
+        servers.reset_cache()
+        return env_file
+
+    return _write
 
 
 @pytest.fixture

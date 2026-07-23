@@ -49,7 +49,6 @@ def db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     conn.commit()
     conn.close()
     yield
-    servers.reset_cache()
 
 
 def test_resolve_by_client_id(db: None) -> None:
@@ -144,7 +143,6 @@ def db_no_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[No
     conn.commit()
     conn.close()
     yield
-    servers.reset_cache()
 
 
 def test_resolve_no_server_in_results(db_no_server: None) -> None:

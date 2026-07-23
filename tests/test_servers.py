@@ -26,7 +26,6 @@ def env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
     servers.reset_cache()
     yield p
-    servers.reset_cache()
 
 
 def test_server_number_parsing() -> None:

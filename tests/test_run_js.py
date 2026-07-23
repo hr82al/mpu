@@ -59,7 +59,6 @@ def env_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     _seed_sqlite(db_path, [1, 2, 3])
     servers.reset_cache()
     yield p
-    servers.reset_cache()
 
 
 def _noop_clipboard(_t: str) -> bool:

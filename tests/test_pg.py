@@ -10,17 +10,13 @@ from mpu.lib import pg, servers
 
 
 @pytest.fixture
-def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    env_file = tmp_path / ".env"
-    env_file.write_text(
+def env(pg_env: Callable[..., Path]) -> None:
+    pg_env(
         "pg_1='10.1.0.1'\nPG_PORT='5432'\nPG_DB_NAME='wb'\n"
         "PG_MY_USER_NAME='u'\nPG_MY_USER_PASSWORD='p'\n"
-        "DEV_PG_USER='u'\nDEV_PG_PASSWORD='p'\n"
+        "DEV_PG_USER='u'\nDEV_PG_PASSWORD='p'\n",
+        with_db=False,
     )
-    monkeypatch.setattr(servers, "ENV_PATH", env_file)
-    servers.reset_cache()
-    yield
-    servers.reset_cache()
 
 
 def _capture_connect(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
@@ -65,7 +61,6 @@ def write_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Calla
         return env_file
 
     yield _write
-    servers.reset_cache()
 
 
 # --- _ro_options (через публичные connect_*) ---------------------------------

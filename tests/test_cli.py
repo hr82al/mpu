@@ -93,7 +93,6 @@ def init_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
     servers.reset_cache()
     yield env_file
-    servers.reset_cache()
 
 
 # ── _mount: single-command напрямую vs multi-command через add_typer ──────────

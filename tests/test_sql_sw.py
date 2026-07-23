@@ -7,7 +7,7 @@ sw-PG выполняется ВНУТРИ контейнера sw-back чере�
 
 import io
 import json
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -21,19 +21,10 @@ runner = CliRunner()
 MARKER = "__MPU_SW_SQL_RESULT__"
 
 
-def _write_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, content: str) -> None:
-    env_file = tmp_path / ".env"
-    env_file.write_text(content)
-    monkeypatch.setattr(servers, "ENV_PATH", env_file)
-    servers.reset_cache()
-
-
 @pytest.fixture
-def sw_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def sw_env(pg_env: Callable[..., Path]) -> None:
     # Пустой .env: дефолтный target=sw-api, dsn из env DATABASE_URL контейнера.
-    _write_env(tmp_path, monkeypatch, "")
-    yield
-    servers.reset_cache()
+    pg_env("", with_db=False)
 
 
 def _payload(
@@ -146,12 +137,10 @@ def test_default_target_container_and_table_output(
     assert "id" in table and "4800" in table and "(1 rows)" in table
 
 
-def test_custom_target_and_dsn_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _write_env(
-        tmp_path,
-        monkeypatch,
-        "SW_PG_RUN_TARGET='sl-0'\nSW_PG_DSN_ENV='SW_DATABASE_URL'\n",
-    )
+def test_custom_target_and_dsn_env(
+    pg_env: Callable[..., Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pg_env("SW_PG_RUN_TARGET='sl-0'\nSW_PG_DSN_ENV='SW_DATABASE_URL'\n", with_db=False)
     captured: dict[str, object] = {}
     monkeypatch.setattr(pssh, "pssh_run", _fake_pssh_run(captured, _payload(["n"], [[1]])))
 
@@ -161,15 +150,12 @@ def test_custom_target_and_dsn_env(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert captured["server_number"] == 0  # target sl-0 → pssh_run, не container
     js = bytes(captured["stdin"]).decode()  # type: ignore[arg-type]
     assert 'process.env["SW_DATABASE_URL"]' in js
-    servers.reset_cache()
 
 
-def test_sw_pg_dsn_override_literal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _write_env(
-        tmp_path,
-        monkeypatch,
-        "SW_PG_DSN='postgresql://u:p@h:5432/workspaces'\n",
-    )
+def test_sw_pg_dsn_override_literal(
+    pg_env: Callable[..., Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pg_env("SW_PG_DSN='postgresql://u:p@h:5432/workspaces'\n", with_db=False)
     captured: dict[str, object] = {}
     monkeypatch.setattr(
         pssh, "pssh_run_container", _fake_pssh_container(captured, _payload(["n"], [[1]]))

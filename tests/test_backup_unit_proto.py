@@ -42,7 +42,6 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     conn.commit()
     conn.close()
     yield
-    servers.reset_cache()
 
 
 def test_wb_dry_emits_expected_sql(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -198,9 +197,7 @@ def test_backup_sl_n_selector_with_schema_id(env: None, monkeypatch: pytest.Monk
     )
 
 
-def test_error_prefix_matches_real_command_name(
-    env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_error_prefix_matches_real_command_name(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     """Префикс ошибки — имя команды как её вызывают (`mpu backup-wb-unit-proto`).
 
     Раньше дефолт склеивался через дефис (`mpu-backup-wb-unit-proto`) — в stderr

@@ -9,7 +9,7 @@ duck-type `_FakeClient` вместо реального `portainer.Client`); ч�
 # _matches / _str_field / _print_table) — отсюда file-level подавление.
 # pyright: reportPrivateUsage=false
 
-from collections.abc import Iterator
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -332,15 +332,9 @@ def test_health_garbage_items_filtered(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def env_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def env_empty(pg_env: Callable[..., Path]) -> None:
     """Пустой `.env` + изолированный (несуществующий) SQLite — никакого prod-конфига."""
-    p = tmp_path / ".env"
-    p.write_text("", encoding="utf-8")
-    monkeypatch.setattr(servers, "ENV_PATH", p)
-    monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
-    servers.reset_cache()
-    yield
-    servers.reset_cache()
+    pg_env("")
 
 
 def test_health_no_portainer_target_exit_2(env_empty: None) -> None:
@@ -366,12 +360,9 @@ def test_health_missing_api_key_exit_2(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.setattr(servers, "ENV_PATH", p)
     monkeypatch.setattr(store, "DB_PATH", tmp_path / "mpu.db")
     servers.reset_cache()
-    try:
-        result = runner.invoke(health.app, ["sl-99"])
-        assert result.exit_code == 2, result.output
-        assert "PORTAINER_API_KEY" in result.output
-    finally:
-        servers.reset_cache()
+    result = runner.invoke(health.app, ["sl-99"])
+    assert result.exit_code == 2, result.output
+    assert "PORTAINER_API_KEY" in result.output
 
 
 # ── module-private хелперы ────────────────────────────────────────────────────

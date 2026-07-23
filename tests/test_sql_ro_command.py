@@ -4,14 +4,14 @@
 (normal / dev / sw) и переиспользует резолв селектора из `mpu sql`.
 """
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
 from mpu.commands import sql_ro as sql_ro_cmd
-from mpu.lib import servers, sql_runner, sql_sw, store
+from mpu.lib import sql_runner, sql_sw, store
 
 runner = CliRunner()
 
@@ -21,13 +21,9 @@ def _noop_run(*_a: object, **_kw: object) -> int:
 
 
 @pytest.fixture
-def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    db_path = tmp_path / "mpu.db"
-    monkeypatch.setattr(store, "DB_PATH", db_path)
-    env_file = tmp_path / ".env"
-    env_file.write_text("sl_1='10.0.0.1'\nsl_2='10.0.0.2'\npg_1='10.1.0.1'\npg_2='10.1.0.2'\n")
-    monkeypatch.setattr(servers, "ENV_PATH", env_file)
-    servers.reset_cache()
+def env(pg_env: Callable[..., Path]) -> Iterator[None]:
+    pg_env("sl_1='10.0.0.1'\nsl_2='10.0.0.2'\npg_1='10.1.0.1'\npg_2='10.1.0.2'\n")
+    db_path = store.DB_PATH
 
     conn = store.open_store(db_path)
     store.bootstrap(conn)
@@ -40,7 +36,6 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     conn.commit()
     conn.close()
     yield
-    servers.reset_cache()
 
 
 def test_read_only_passed_through(env: None, monkeypatch: pytest.MonkeyPatch) -> None:

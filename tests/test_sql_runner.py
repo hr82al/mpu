@@ -64,7 +64,6 @@ def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(servers, "ENV_PATH", env_file)
     servers.reset_cache()
     yield
-    servers.reset_cache()
 
 
 def test_dry_does_not_connect(env: None, monkeypatch: pytest.MonkeyPatch) -> None:
