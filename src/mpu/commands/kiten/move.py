@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
@@ -270,8 +271,146 @@ def review(
     _move_to_target_column(selector, target, note=note, dry_run=dry_run)
 
 
+@dataclass(frozen=True, slots=True)
+class _ClosePlan:
+    """Что `close` намерен сделать. Считается без единой записи — из карточки и аргументов."""
+
+    card: KaitenCardDetail
+    to_set: list[tuple[str, str]]
+    skipped: list[str]
+    reply_text: str | None
+    mentioned: list[str]
+    target_column: str
+    timer_note: str
+    stop_timer: bool
+    no_move: bool
+    warnings: list[str]
+
+    @property
+    def fields_label(self) -> str:
+        return ", ".join(kind for kind, _ in self.to_set) or "—"
+
+    @property
+    def skipped_label(self) -> str:
+        return f"; пропущены (заполнены) [{', '.join(self.skipped)}]" if self.skipped else ""
+
+    @property
+    def mention_label(self) -> str:
+        return f" (@all → {' '.join('@' + h for h in self.mentioned)})" if self.mentioned else ""
+
+
+def _resolve_reply_text(reply: str | None, reply_file: str | None) -> str | None:
+    """Текст ответа ровно из одного источника: `--reply`, файл или stdin (`-`)."""
+    if reply is not None and reply_file is not None:
+        raise typer.BadParameter("--reply и --reply-file взаимоисключающи")
+    text = reply
+    if reply_file == "-":
+        text = sys.stdin.read()
+    elif reply_file is not None:
+        try:
+            text = Path(reply_file).read_text(encoding="utf-8")
+        except OSError as e:
+            raise typer.BadParameter(f"не удалось прочитать {reply_file}: {e}") from None
+    if text is not None and not text.strip():
+        raise typer.BadParameter("пустой текст ответа")
+    return text
+
+
+def _plan_close(
+    card: KaitenCardDetail,
+    *,
+    provided: dict[str, str | None],
+    force_fields: bool,
+    reply_text: str | None,
+    column: str | None,
+    stop_timer: bool,
+    no_move: bool,
+) -> _ClosePlan:
+    """Карточка + аргументы → план. Без сети и записей: всё, что решается заранее."""
+    current = {k: card.properties.get(kaiten_links.property_key(k)) for k in provided}
+    to_set, skipped = plan_field_actions(current, provided, force=force_fields)
+
+    mentioned: list[str] = []
+    warnings: list[str] = []
+    if reply_text is not None:
+        had_all = ALL_MENTION_RE.search(reply_text) is not None
+        reply_text, mentioned = _expand_all_to_owner(reply_text, card)
+        if had_all and not mentioned:
+            warnings.append(
+                f"{COMMAND_NAME} close: у карточки нет владельца — '@all' оставлен как есть"
+            )
+
+    return _ClosePlan(
+        card=card,
+        to_set=to_set,
+        skipped=skipped,
+        reply_text=reply_text,
+        mentioned=mentioned,
+        target_column=column or env.get("KITEN_READY_COLUMN") or "Готово",
+        timer_note=_timer_plan(card, stop_timer=stop_timer),
+        stop_timer=stop_timer,
+        no_move=no_move,
+        warnings=warnings,
+    )
+
+
+def _render_close_plan(plan: _ClosePlan) -> list[str]:
+    """Строки `--dry-run`: то же намерение, которое выполнит `_apply_close`."""
+    reply = "запостить" + plan.mention_label if plan.reply_text is not None else "без ответа"
+    lines = [
+        f"dry-run close · {plan.card.url}",
+        f"  таймер: {plan.timer_note}",
+        f"  поля: записать [{plan.fields_label}]{plan.skipped_label}",
+        f"  ответ: {reply}",
+    ]
+    if plan.no_move:
+        lines.append("  перенос: пропущен (--no-move)")
+    return lines
+
+
+def _apply_close(client: KaitenClient, plan: _ClosePlan, *, card_id: int, selector: str) -> None:
+    """Выполнить план. Порядок: таймер → поля → ответ → перенос.
+
+    Таймер ПЕРВЫМ: время уже отработано, и сбой на ответе клиенту не должен его потерять.
+    """
+    logged: KaitenTimeLog | None = None
+    if plan.stop_timer and plan.card.timer is not None:
+        try:
+            logged = stop_running_timer(client, plan.card, role_id=_resolve_role(None))
+        except KaitenAPIError as e:
+            die(f"{COMMAND_NAME} close: kaiten error (таймер): {e}")
+    elif plan.card.timer is not None:
+        typer.echo(f"внимание: {plan.timer_note}", err=True)
+
+    if plan.to_set:
+        with store.store() as conn:
+            store.bootstrap(conn)
+            try:
+                for kind, value in plan.to_set:
+                    kaiten_links.record_link(conn, card_id, kind, value)
+                    _sync_card_field(conn, client, card_id, kind)
+            except KaitenAPIError as e:
+                die(f"{COMMAND_NAME} close: kaiten error (поля): {e}")
+
+    reply_comment_id: int | None = None
+    if plan.reply_text is not None:
+        try:
+            reply_comment_id = client.add_comment(card_id, plan.reply_text).id
+        except KaitenAPIError as e:
+            die(f"{COMMAND_NAME} close: kaiten error (ответ): {e}")
+
+    typer.echo(f"ok close: поля [{plan.fields_label}]{plan.skipped_label}")
+    if logged is not None:
+        parts = [format_minutes(logged.time_spent), logged.role_name or "", f"запись {logged.id}"]
+        typer.echo("   таймер: " + " · ".join(p for p in parts if p))
+    if reply_comment_id is not None:
+        typer.echo(f"   ответ: комментарий {reply_comment_id}{plan.mention_label}")
+    if not plan.no_move:
+        _move_to_target_column(selector, plan.target_column, note=None, dry_run=False)
+
+
 @app.command("close")
-def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
+def close(  # noqa: PLR0913
     selector: CardArg,
     hypothesis: Annotated[
         str | None, typer.Option("--hypothesis", help="«Причина/гипотеза» (если поле пусто)")
@@ -319,18 +458,7 @@ def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
     клиенту не должен его потерять.
     """
     card_id = _parse_card_ref(selector)
-    if reply is not None and reply_file is not None:
-        raise typer.BadParameter("--reply и --reply-file взаимоисключающи")
-    reply_text: str | None = reply
-    if reply_file == "-":
-        reply_text = sys.stdin.read()
-    elif reply_file is not None:
-        try:
-            reply_text = Path(reply_file).read_text(encoding="utf-8")
-        except OSError as e:
-            raise typer.BadParameter(f"не удалось прочитать {reply_file}: {e}") from None
-    if reply_text is not None and not reply_text.strip():
-        raise typer.BadParameter("пустой текст ответа")
+    reply_text = _resolve_reply_text(reply, reply_file)
 
     client = KaitenClient.from_env()
     try:
@@ -338,69 +466,23 @@ def close(  # noqa: C901, PLR0912, PLR0913, PLR0915
     except KaitenAPIError as e:
         die(f"{COMMAND_NAME} close: kaiten error: {e}")
 
-    provided = {"hypothesis": hypothesis, "done": done, "result": result, "mr": mr}
-    current = {k: before.properties.get(kaiten_links.property_key(k)) for k in provided}
-    to_set, skipped = plan_field_actions(current, provided, force=force_fields)
-
-    mentioned: list[str] = []
-    if reply_text is not None:
-        had_all = ALL_MENTION_RE.search(reply_text) is not None
-        reply_text, mentioned = _expand_all_to_owner(reply_text, before)
-        if had_all and not mentioned:
-            typer.echo(
-                f"{COMMAND_NAME} close: у карточки нет владельца — '@all' оставлен как есть",
-                err=True,
-            )
-
-    target = column or env.get("KITEN_READY_COLUMN") or "Готово"
-    set_lbl = ", ".join(k for k, _ in to_set) or "—"
-    skip_lbl = f"; пропущены (заполнены) [{', '.join(skipped)}]" if skipped else ""
-    men_lbl = f" (@all → {' '.join('@' + h for h in mentioned)})" if mentioned else ""
-
-    timer_lbl = _timer_plan(before, stop_timer=stop_timer)
+    plan = _plan_close(
+        before,
+        provided={"hypothesis": hypothesis, "done": done, "result": result, "mr": mr},
+        force_fields=force_fields,
+        reply_text=reply_text,
+        column=column,
+        stop_timer=stop_timer,
+        no_move=no_move,
+    )
+    for warning in plan.warnings:
+        typer.echo(warning, err=True)
 
     if dry_run:
-        typer.echo(f"dry-run close · {before.url}")
-        typer.echo(f"  таймер: {timer_lbl}")
-        typer.echo(f"  поля: записать [{set_lbl}]{skip_lbl}")
-        typer.echo(f"  ответ: {'запостить' + men_lbl if reply_text is not None else 'без ответа'}")
-        if no_move:
-            typer.echo("  перенос: пропущен (--no-move)")
-        else:
-            _move_to_target_column(selector, target, note=None, dry_run=True)
+        for line in _render_close_plan(plan):
+            typer.echo(line)
+        if not plan.no_move:
+            _move_to_target_column(selector, plan.target_column, note=None, dry_run=True)
         return
 
-    # Таймер — ПЕРВЫМ: отработанное время должно быть записано до полей, ответа и переноса,
-    # любой из которых может упасть на полпути.
-    logged: KaitenTimeLog | None = None
-    if stop_timer and before.timer is not None:
-        try:
-            logged = stop_running_timer(client, before, role_id=_resolve_role(None))
-        except KaitenAPIError as e:
-            die(f"{COMMAND_NAME} close: kaiten error (таймер): {e}")
-    elif before.timer is not None:
-        typer.echo(f"внимание: {timer_lbl}", err=True)
-
-    if to_set:
-        with store.store() as conn:
-            store.bootstrap(conn)
-            try:
-                for kind, value in to_set:
-                    kaiten_links.record_link(conn, card_id, kind, value)
-                    _sync_card_field(conn, client, card_id, kind)
-            except KaitenAPIError as e:
-                die(f"{COMMAND_NAME} close: kaiten error (поля): {e}")
-    reply_comment_id: int | None = None
-    if reply_text is not None:
-        try:
-            reply_comment_id = client.add_comment(card_id, reply_text).id
-        except KaitenAPIError as e:
-            die(f"{COMMAND_NAME} close: kaiten error (ответ): {e}")
-    typer.echo(f"ok close: поля [{set_lbl}]{skip_lbl}")
-    if logged is not None:
-        parts = [format_minutes(logged.time_spent), logged.role_name or "", f"запись {logged.id}"]
-        typer.echo("   таймер: " + " · ".join(p for p in parts if p))
-    if reply_comment_id is not None:
-        typer.echo(f"   ответ: комментарий {reply_comment_id}{men_lbl}")
-    if not no_move:
-        _move_to_target_column(selector, target, note=None, dry_run=False)
+    _apply_close(client, plan, card_id=card_id, selector=selector)
