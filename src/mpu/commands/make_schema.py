@@ -22,7 +22,10 @@ from typing import Annotated
 import typer
 
 from mpu.lib.cli_opts import ClientIdOpt, SelectorArg
-from mpu.lib.cli_wrap import auto_pick_int, require, resolve_selector
+from mpu.lib.cli_wrap import (
+    pick_client_id,
+    resolve_selector,
+)
 from mpu.lib.clipboard import copy_to_clipboard
 
 COMMAND_NAME = "mpu make-schema"
@@ -50,12 +53,7 @@ def main(
     resolved = resolve_selector(
         value=value, server=server, command_name=COMMAND_NAME, require_ssh=False
     )
-    cid = require(
-        client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
-        flag="--client-id",
-        candidates=resolved.candidates,
-        command_name=COMMAND_NAME,
-    )
+    cid = pick_client_id(resolved, client_id, command_name=COMMAND_NAME)
     # Контейнер по умолчанию sl-1 (как в исходной fish-функции); --server переопределяет.
     n = resolved.server_number if server is not None else 1
     container = f"mp-sl-{n}-cli"

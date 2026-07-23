@@ -204,6 +204,34 @@ def require[T](
     return value
 
 
+def pick_client_id(resolved: Resolved, client_id: int | None, *, command_name: str) -> int:
+    """client_id: явный `--client-id` или единственный кандидат резолва, иначе ошибка + exit 2.
+
+    Свёртка блока `require(client_id or auto_pick_int(...), flag="--client-id", …)`, который
+    почти каждая node-CLI обёртка повторяла дословно.
+    """
+    return require(
+        client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
+        flag="--client-id",
+        candidates=resolved.candidates,
+        command_name=command_name,
+    )
+
+
+def pick_spreadsheet_id(
+    resolved: Resolved, spreadsheet_id: str | None, *, command_name: str
+) -> str:
+    """spreadsheet_id: явный `--spreadsheet-id` или единственный кандидат резолва, иначе exit 2."""
+    return require(
+        spreadsheet_id
+        if spreadsheet_id is not None
+        else auto_pick_str(resolved.candidates, "spreadsheet_id"),
+        flag="--spreadsheet-id",
+        candidates=resolved.candidates,
+        command_name=command_name,
+    )
+
+
 def emit_node_cli(
     *,
     name: str,

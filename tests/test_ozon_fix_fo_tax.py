@@ -21,7 +21,7 @@ import typer
 from typer.testing import CliRunner
 
 from mpu.commands import ozon_fix_fo_tax as cmd
-from mpu.lib import pssh
+from mpu.lib import cli_wrap, pssh
 from mpu.lib.cli_wrap import FlagValue, Resolved
 
 runner = CliRunner()
@@ -309,8 +309,10 @@ def test_auto_pick_seams_are_used(orch: _Capture, monkeypatch: pytest.MonkeyPatc
     def _pick_str(_candidates: list[dict[str, object]], _field: str) -> str | None:
         return "SSAUTO"
 
-    monkeypatch.setattr(cmd, "auto_pick_int", _pick_int)
-    monkeypatch.setattr(cmd, "auto_pick_str", _pick_str)
+    # auto_pick_* теперь вызываются внутри cli_wrap.pick_client_id/pick_spreadsheet_id —
+    # патчим источник, а не имя в модуле команды.
+    monkeypatch.setattr(cli_wrap, "auto_pick_int", _pick_int)
+    monkeypatch.setattr(cli_wrap, "auto_pick_str", _pick_str)
 
     res = runner.invoke(cmd.app, ["MODERNICA"])
     assert res.exit_code == 0, res.output

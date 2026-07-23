@@ -25,11 +25,10 @@ from mpu.lib import pg
 from mpu.lib.cli_opts import ClientIdOpt, LocalOpt, PrintOpt, SelectorArg, ServerOpt
 from mpu.lib.cli_wrap import (
     FlagValue,
-    auto_pick_int,
     build_inner_command,
     emit_node_cli,
+    pick_client_id,
     pick_wrapper,
-    require,
     resolve_selector,
 )
 from mpu.lib.resolver import resolve_server
@@ -208,12 +207,7 @@ def main(  # noqa: PLR0913
     resolved = resolve_selector(
         value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
     )
-    cid = require(
-        client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
-        flag="--client-id",
-        candidates=resolved.candidates,
-        command_name=COMMAND_NAME,
-    )
+    cid = pick_client_id(resolved, client_id, command_name=COMMAND_NAME)
     dt_to = date_to or datetime.date.today().isoformat()
 
     flags: dict[str, FlagValue] = {

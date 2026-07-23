@@ -20,10 +20,10 @@ from psycopg import sql
 
 from mpu.lib import pg
 from mpu.lib.cli_wrap import (
-    auto_pick_int,
     auto_pick_str,
     complete_selector,
     emit_node_cli,
+    pick_client_id,
     pick_wrapper,
     require,
     resolve_selector,
@@ -85,12 +85,7 @@ def _client_id(selector: str) -> tuple[int, str | None, int]:
     resolved = resolve_selector(
         value=selector, server=None, command_name=COMMAND_NAME, require_ssh=False
     )
-    client_id = require(
-        auto_pick_int(resolved.candidates, "client_id"),
-        flag="--client-id",
-        candidates=resolved.candidates,
-        command_name=COMMAND_NAME,
-    )
+    client_id = pick_client_id(resolved, None, command_name=COMMAND_NAME)
     ss_id = auto_pick_str(resolved.candidates, "spreadsheet_id")
     return client_id, ss_id, resolved.server_number
 

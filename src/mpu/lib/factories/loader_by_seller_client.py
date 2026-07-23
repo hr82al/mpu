@@ -13,10 +13,9 @@ import typer
 
 from mpu.lib.cli_opts import ClientIdOpt, LocalOpt, PrintOpt, SelectorArg, ServerOpt
 from mpu.lib.cli_wrap import (
-    auto_pick_int,
     emit_node_cli,
+    pick_client_id,
     pick_wrapper,
-    require,
     resolve_selector,
 )
 
@@ -70,12 +69,7 @@ def _register_one(
         resolved = resolve_selector(
             value=value, server=server, command_name=command_name, require_ssh=require_ssh
         )
-        cid = require(
-            client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
-            flag="--client-id",
-            candidates=resolved.candidates,
-            command_name=command_name,
-        )
+        cid = pick_client_id(resolved, client_id, command_name=command_name)
         emit_node_cli(
             name=service,
             method=method_name,

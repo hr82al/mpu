@@ -49,11 +49,11 @@ from mpu.lib.cli_wrap import (
     FlagValue,
     Resolved,
     Wrapper,
-    auto_pick_int,
     auto_pick_str,
     build_inner_command,
     emit_node_cli,
     exec_node_cli_dev,
+    pick_client_id,
     pick_wrapper,
     require,
     resolve_selector,
@@ -199,18 +199,11 @@ def _resolve_target(
         value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
     )
     return _Target(
-        client_id=require(
-            client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
-            flag="--client-id",
-            candidates=resolved.candidates,
-            command_name=COMMAND_NAME,
-        ),
+        client_id=pick_client_id(resolved, client_id, command_name=COMMAND_NAME),
         # spreadsheet_id опционально; если селектор однозначно резолвится в один — подставим.
-        spreadsheet_id=(
-            spreadsheet_id
-            if spreadsheet_id is not None
-            else auto_pick_str(resolved.candidates, "spreadsheet_id")
-        ),
+        spreadsheet_id=auto_pick_str(resolved.candidates, "spreadsheet_id")
+        if spreadsheet_id is None
+        else spreadsheet_id,
         dev_server=None,
         resolved=resolved,
         wrapper=wrapper,

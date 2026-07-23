@@ -13,11 +13,10 @@ from mpu.lib.cli_opts import (
     SpreadsheetIdOpt,
 )
 from mpu.lib.cli_wrap import (
-    auto_pick_int,
-    auto_pick_str,
     emit_node_cli,
+    pick_client_id,
+    pick_spreadsheet_id,
     pick_wrapper,
-    require,
     resolve_selector,
 )
 
@@ -50,20 +49,8 @@ def main(
     resolved = resolve_selector(
         value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
     )
-    cid = require(
-        client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
-        flag="--client-id",
-        candidates=resolved.candidates,
-        command_name=COMMAND_NAME,
-    )
-    ssid = require(
-        spreadsheet_id
-        if spreadsheet_id is not None
-        else auto_pick_str(resolved.candidates, "spreadsheet_id"),
-        flag="--spreadsheet-id",
-        candidates=resolved.candidates,
-        command_name=COMMAND_NAME,
-    )
+    cid = pick_client_id(resolved, client_id, command_name=COMMAND_NAME)
+    ssid = pick_spreadsheet_id(resolved, spreadsheet_id, command_name=COMMAND_NAME)
     emit_node_cli(
         name="ssUpdater",
         method="update",

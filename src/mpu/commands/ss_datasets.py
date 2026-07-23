@@ -7,10 +7,9 @@ import typer
 from mpu.lib.cli_opts import LocalOpt, PrintOpt, SelectorArg, ServerOpt, SpreadsheetIdOpt
 from mpu.lib.cli_wrap import (
     FlagValue,
-    auto_pick_str,
     emit_node_cli,
+    pick_spreadsheet_id,
     pick_wrapper,
-    require,
     resolve_selector,
 )
 
@@ -49,14 +48,7 @@ def add(
     resolved = resolve_selector(
         value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
     )
-    ssid = require(
-        spreadsheet_id
-        if spreadsheet_id is not None
-        else auto_pick_str(resolved.candidates, "spreadsheet_id"),
-        flag="--spreadsheet-id",
-        candidates=resolved.candidates,
-        command_name=COMMAND_NAME,
-    )
+    ssid = pick_spreadsheet_id(resolved, spreadsheet_id, command_name=COMMAND_NAME)
     flags: dict[str, FlagValue] = {
         "--spreadsheet-id": ssid,
         "--dataset": dataset,
