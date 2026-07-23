@@ -27,6 +27,9 @@ from mpu.lib.jsonx import dict_items, is_dict
 
 if TYPE_CHECKING:
     from mpu.lib.kaiten_models import (
+        KaitenActivity as KaitenActivity,
+    )
+    from mpu.lib.kaiten_models import (
         KaitenBoard as KaitenBoard,
     )
     from mpu.lib.kaiten_models import (
@@ -66,10 +69,16 @@ if TYPE_CHECKING:
         KaitenTimeLog as KaitenTimeLog,
     )
     from mpu.lib.kaiten_models import (
+        KaitenTimeLogEntry as KaitenTimeLogEntry,
+    )
+    from mpu.lib.kaiten_models import (
         KaitenTimer as KaitenTimer,
     )
     from mpu.lib.kaiten_models import (
         KaitenUser as KaitenUser,
+    )
+    from mpu.lib.kaiten_models import (
+        parse_activity as parse_activity,
     )
     from mpu.lib.kaiten_models import (
         parse_boards_of_space as parse_boards_of_space,
@@ -111,6 +120,9 @@ if TYPE_CHECKING:
         parse_time_log as parse_time_log,
     )
     from mpu.lib.kaiten_models import (
+        parse_time_log_entry as parse_time_log_entry,
+    )
+    from mpu.lib.kaiten_models import (
         parse_timer as parse_timer,
     )
     from mpu.lib.kaiten_models import (
@@ -119,12 +131,20 @@ if TYPE_CHECKING:
 
 DEFAULT_BASE_URL = "https://btlz.kaiten.ru"
 CARDS_PAGE_LIMIT = 100  # Kaiten max amount of cards per response.
+# Лента активностей: limit>100 отвергается 400 (в отличие от /cards, где он молча капается).
+ACTIVITIES_PAGE_LIMIT = 100
+# Действия ленты, по которым видно «я трогал эту карточку» (комментарий / перемещение /
+# назначение). Порядок не важен, сервер принимает csv.
+DEFAULT_ACTIVITY_ACTIONS = (
+    "card_add,card_move,card_archive,comment_add,card_assign_responsible,card_assign_member"
+)
 
 _STATE_LABELS = {1: "queued", 2: "in progress", 3: "done"}
 
 # Имена, живущие в lib/kaiten_models.py (pydantic) — реэкспортируются лениво.
 _MODEL_EXPORTS = frozenset(
     {
+        "KaitenActivity",
         "KaitenBoard",
         "KaitenCard",
         "KaitenCardDetail",
@@ -138,8 +158,10 @@ _MODEL_EXPORTS = frozenset(
         "KaitenRole",
         "KaitenSpace",
         "KaitenTimeLog",
+        "KaitenTimeLogEntry",
         "KaitenTimer",
         "KaitenUser",
+        "parse_activity",
         "parse_boards_of_space",
         "parse_card",
         "parse_card_detail",
@@ -153,6 +175,7 @@ _MODEL_EXPORTS = frozenset(
         "parse_role",
         "parse_space",
         "parse_time_log",
+        "parse_time_log_entry",
         "parse_timer",
         "parse_user",
     }
@@ -195,6 +218,7 @@ def card_url(base_url: str, card_id: int) -> str:
 def build_cards_query(  # noqa: PLR0913
     *,
     member_ids: str | None = None,
+    responsible_id: int | None = None,
     condition: int | None = None,
     states: str | None = None,
     space_id: int | None = None,
@@ -212,6 +236,9 @@ def build_cards_query(  # noqa: PLR0913
     `member_ids` (множественное). Плюральный `lane_ids` сервером игнорируется.
     Колонка — `column_id`.
 
+    `responsible_id` — ОТДЕЛЬНАЯ ось от `member_ids` (не синоним): участник и
+    ответственный — разные роли, и сервер фильтрует по ним независимо.
+
     `updated_after` / `updated_before` — окно активности (последнее обновление
     карточки), формат ISO 8601 (`YYYY-MM-DDThh:mm:ssZ`). Сервер фильтрует по полю
     `updated`; неизвестные имена он молча игнорирует, поэтому имена точные.
@@ -219,6 +246,8 @@ def build_cards_query(  # noqa: PLR0913
     query: dict[str, str] = {"limit": str(limit), "offset": str(offset)}
     if member_ids is not None:
         query["member_ids"] = member_ids
+    if responsible_id is not None:
+        query["responsible_id"] = str(responsible_id)
     if condition is not None:
         query["condition"] = str(condition)
     if states is not None:
@@ -351,6 +380,7 @@ class KaitenClient:
         self,
         *,
         member_ids: str | None = None,
+        responsible_id: int | None = None,
         condition: int | None = None,
         states: str | None = None,
         space_id: int | None = None,
@@ -368,6 +398,7 @@ class KaitenClient:
         while True:
             query = build_cards_query(
                 member_ids=member_ids,
+                responsible_id=responsible_id,
                 condition=condition,
                 states=states,
                 space_id=space_id,
@@ -561,6 +592,67 @@ class KaitenClient:
 
         res = self._request("GET", f"/cards/{card_id}/time-logs")
         return [km.parse_time_log(r) for r in dict_items(res)]
+
+    def list_user_time_logs(
+        self, user_id: int, *, from_iso: str, to_iso: str
+    ) -> list[KaitenTimeLogEntry]:
+        """GET /users/{id}/time-logs?from=&to= — записи пользователя за ОКНО, по всем карточкам.
+
+        В каждую запись вложена сама карточка — это единственный дешёвый способ увидеть
+        карточки, где время списано БЕЗ членства (обход досок стоил бы сотни запросов).
+
+        ⚠️ `from`/`to` обязательны: без них эндпоинт отвечает 500, а не «за всё время».
+        Пагинации у него нет — объём режется только шириной окна (год ≈ 6 МБ, ~3 с).
+        """
+        from mpu.lib import kaiten_models as km
+
+        res = self._request("GET", f"/users/{user_id}/time-logs", {"from": from_iso, "to": to_iso})
+        return [km.parse_time_log_entry(raw, self.base_url) for raw in dict_items(res)]
+
+    def list_my_activities(
+        self, *, actions: str = DEFAULT_ACTIVITY_ACTIONS, since_iso: str = "", max_pages: int = 3
+    ) -> list[KaitenActivity]:
+        """GET /users/current/activities — мои действия по карточкам, свежие первыми.
+
+        Серверного фильтра по дате у эндпоинта НЕТ: `from`/`to`/`since` он принимает, но
+        игнорирует (200 с той же выдачей), а `limit` больше 100 отвергает 400 — глубина
+        берётся только курсорной пагинацией по `cursor_created`/`cursor_id` последней
+        записи страницы.
+
+        Отдаёт то, что удалось достать за `max_pages` страниц. Вызывающий сравнивает
+        `created` последнего элемента с нужной датой и сообщает, если до неё не дотянулись
+        (молча обрывать охват нельзя — выдача выглядела бы полной).
+        """
+        from mpu.lib import kaiten_models as km
+
+        out: list[KaitenActivity] = []
+        cursor_created, cursor_id = "", ""
+        for _ in range(max(1, max_pages)):
+            page = dict_items(
+                self._request(
+                    "GET",
+                    "/users/current/activities",
+                    {
+                        "offset": "0",
+                        "limit": str(ACTIVITIES_PAGE_LIMIT),
+                        "actions": actions,
+                        "cursor_created": cursor_created,
+                        "cursor_id": cursor_id,
+                    },
+                )
+            )
+            if not page:
+                break
+            out.extend(km.parse_activity(raw, self.base_url) for raw in page)
+            last = page[-1]
+            cursor_created = str(last.get("created") or "")
+            cursor_id = str(last.get("id") or "")
+            if len(page) < ACTIVITIES_PAGE_LIMIT or not cursor_created or not cursor_id:
+                break
+            # ISO-8601 в одном формате сравним лексикографически: дошли до окна — хватит.
+            if since_iso and cursor_created < since_iso:
+                break
+        return out
 
     def add_time_log(
         self, card_id: int, *, for_date: str, minutes: int, role_id: int, comment: str = ""

@@ -22,6 +22,7 @@ __all__ = [
     "_card_to_markdown",
     "_cards_to_md_table",
     "_format_card",
+    "_md_cell",
     "_md_link_text",
     "_print_cards",
     "_render_card_rich",

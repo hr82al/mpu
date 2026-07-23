@@ -1,5 +1,19 @@
 """`mpu kiten` — Kaiten (доска btlz.kaiten.ru) из терминала.
 
+- `mpu kiten status` — вся моя работа одной таблицей-матрицей по ВСЕМ доскам: строка —
+  карточка, столбцы — канонические этапы (печатаются только непустые), `●` — текущий.
+  Объединяет три источника: назначенное (участник/ответственный, включая ещё не тронутое),
+  карточки, где я списывал время, и карточки, которые я комментировал/двигал — колонка
+  `ИСТ` показывает, какой именно (👤 / 🕒 / 📝). Второй и третий источники ловят чужие
+  карточки без членства (ревью, поддержка), которых `ls` не видит. Колонка `ВРЕМЯ` — всё
+  МОЁ время по карточке за `--time-since` (дефолт 365d), а `--since` (дефолт 7d) — окно
+  попадания в таблицу; живые (не архивные) карточки в неё входят всегда. Форма вывода —
+  одна ось `--out matrix|group|json|md|url` (`group` — секции по этапам) плюс
+  `--format '<шаблон>'`; сужение — `--stage` (queue|estimate|work|review|test|dev|preprod|
+  done), `--board`, `--source assigned|time|activity`, `--only open|done`. Ширина
+  подгоняется под терминал: сжимается заголовок, затем подписи этапов (полные → 3 буквы →
+  1 буква с легендой), в последнюю очередь убирается дорожка. Правила «колонка → этап»
+  переопределяются `.env` `KITEN_STAGE_MAP` (JSON: имя колонки → этап).
 - `mpu kiten ls`     — карточки, где я участник (member). Фильтры по умолчанию из
   `.env` (KITEN_LS_*); CLI-флаг переопределяет **только свою** ось, остальные берутся
   из `.env`. `--space`/`--board`/`--lane`/`--column` принимают ID ИЛИ подстроку названия
@@ -45,6 +59,7 @@
 ENV (~/.config/mpu/.env): KITEN_API_KEY, KITEN_BASE_URL, KITEN_LS_CONDITION,
 KITEN_LS_STATES, KITEN_LS_SPACE_ID, KITEN_LS_BOARD_ID, KITEN_LS_LANE_ID, KITEN_LS_COLUMN_ID,
 KITEN_COLUMN_MAP (JSON id-или-имя колонки → метка, для `--format {column_mapped}`),
+KITEN_STAGE_MAP (JSON имя колонки → канонический этап, для `status`),
 KITEN_READY_COLUMN / KITEN_REVIEW_COLUMN (колонки для `ready`/`review`),
 KITEN_TIME_ROLE (тип работы по умолчанию для `time`).
 
@@ -78,7 +93,7 @@ from mpu.commands.kiten._render import _card_to_markdown
 # `timelog` стоит ДО `move` намеренно: `move` импортирует из него остановку таймера для
 # `close`, то есть зарегистрировал бы группу `time` побочным эффектом — и порядок в `--help`
 # начал бы зависеть от направления импорта, а не от этого списка.
-for _name in ("ls", "card", "comment", "timelog", "move", "refs", "field"):
+for _name in ("status", "ls", "card", "comment", "timelog", "move", "refs", "field"):
     importlib.import_module(f"{__name__}.{_name}")
 
 from mpu.commands.kiten.comment import (  # noqa: E402

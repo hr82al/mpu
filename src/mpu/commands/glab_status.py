@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Annotated, Any, NoReturn
 from urllib.parse import urlparse
 
 import typer
-from rich.cells import cell_len, set_cell_size
+from rich.cells import cell_len
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
@@ -37,6 +37,8 @@ from mpu.lib.cli_err import fail
 from mpu.lib.cli_out import print_json
 from mpu.lib.duration import DurationParseError, parse_since
 from mpu.lib.gitlab_mr import GitLabAPIError, GitLabClient, parse_mr_ref, project_from_cwd
+from mpu.lib.table_fit import fit_text as fit_title
+from mpu.lib.table_fit import table_chrome
 
 if TYPE_CHECKING:
     # Только аннотации: runtime-импорт моделей тянет pydantic (~150 мс) в startup.
@@ -168,20 +170,6 @@ def dedupe_targets(targets: list[tuple[str, int]]) -> list[tuple[str, int]]:
     return result
 
 
-def fit_title(title: str, budget: int) -> str:
-    """Обрезать title до budget терминальных ячеек (emoji=2 ячейки) с хвостом `…`.
-
-    budget<=0 → пусто; помещается целиком → как есть. Ширина — по rich.cell_len,
-    не по len (иначе широкие глифы недосчитываются)."""
-    if budget <= 0:
-        return ""
-    if cell_len(title) <= budget:
-        return title
-    if budget == 1:
-        return "…"
-    return set_cell_size(title, budget - 1) + "…"
-
-
 def mr_sort_key(mr: MrInfo) -> tuple[str, int]:
     """Ключ сортировки таблицы: (короткое имя репо, iid)."""
     project = project_from_web_url(mr.web_url) or mr.project
@@ -195,8 +183,7 @@ def title_budget(console_width: int, rows: list[dict[str, Any]]) -> int:
     id_w = max([cell_len("id"), *(cell_len(str(r["iid"])) for r in rows)])
     branches_w = sum(max(cell_len(column), cell_len(CHECK)) for column in COLUMNS)
     num_columns = 3 + len(COLUMNS)  # repo, id, title + ветки
-    chrome = 3 * num_columns + 1  # default-box: (n+1) бордеров + 2n паддингов
-    return console_width - chrome - repo_w - id_w - branches_w
+    return console_width - table_chrome(num_columns) - repo_w - id_w - branches_w
 
 
 # ── I/O-хелперы ─────────────────────────────────────────────────────────────────

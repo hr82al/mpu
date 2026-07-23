@@ -50,6 +50,7 @@ from mpu.commands.kiten import field as kiten_field
 from mpu.commands.kiten import ls as kiten_ls
 from mpu.commands.kiten import move as kiten_move
 from mpu.commands.kiten import refs as kiten_refs
+from mpu.commands.kiten import status as kiten_status
 from mpu.commands.kiten import timelog as kiten_timelog
 from mpu.lib import env, kaiten_cache, kaiten_links, kaiten_render, store
 from mpu.lib.kaiten import (
@@ -1341,6 +1342,7 @@ _COMMAND_MODULES = (
     kiten_ls,
     kiten_move,
     kiten_refs,
+    kiten_status,
     kiten_timelog,
 )
 

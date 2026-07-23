@@ -63,6 +63,19 @@ def _nested_title(raw: dict[object, object], key: str) -> str | None:
     return None
 
 
+def _nested_label(raw: dict[object, object], key: str) -> str | None:
+    """Человекочитаемое имя вложенного объекта; None, если нет.
+
+    У `board`/`column`/`lane` оно лежит в `title`, у `type` — в `name`, поэтому берём
+    первое непустое из двух.
+    """
+    obj = raw.get(key)
+    if is_dict(obj):
+        label = obj.get("title") or obj.get("name")
+        return str(label) if label else None
+    return None
+
+
 def _string_properties(props: object) -> dict[str, str]:
     """`properties` карточки → только строковые значения (ключи id_NNN). Не-строки
     (select/catalog → id/массив) приводим к str, чтобы не терять поле."""
@@ -93,6 +106,13 @@ class KaitenUser(_ApiModel):
 
 
 class KaitenCard(_ApiModel):
+    """Карточка из списочного ответа GET /cards.
+
+    Поля ниже `column_id` добавлены для `mpu kiten status` и все опциональны: карточка
+    приходит и из усечённых источников (вложенный `card` записи учёта времени / события
+    активности), где вложенных объектов места нет — там остаётся только `*_id`.
+    """
+
     id: int
     title: EmptyStr = ""
     state: int | None = None
@@ -101,6 +121,15 @@ class KaitenCard(_ApiModel):
     updated: str | None = None
     board_id: int | None = None
     column_id: int | None = None
+    lane_id: int | None = None
+    archived: TruthyBool = False
+    last_moved_at: str | None = None
+    time_spent_sum: int | None = None  # суммарно по карточке ВСЕМИ участниками, МИНУТЫ
+    board_title: str | None = None
+    space_title: str | None = None
+    column_title: str | None = None
+    lane_title: str | None = None
+    type_name: str | None = None
     url: str = ""  # web-URL; не из wire — подставляет parse_card
 
 
@@ -212,6 +241,32 @@ class KaitenTimeLog(_ApiModel):
         return out
 
 
+class KaitenTimeLogEntry(KaitenTimeLog):
+    """Запись учёта времени из окна пользователя (GET /users/{id}/time-logs?from=&to=).
+
+    От `KaitenTimeLog` (записи одной карточки) отличается вложенной карточкой: именно она
+    даёт карточки, где пользователь работал, НЕ будучи участником, без обхода всех досок.
+    ⚠️ `user`/`author`-объекты по-прежнему не объявлены — см. предупреждение в базовом классе.
+    """
+
+    card: KaitenCard | None = None
+
+
+class KaitenActivity(_ApiModel):
+    """Событие ленты моих действий (GET /users/current/activities).
+
+    `id` здесь строковый: он же курсор пагинации (`cursor_id`) вместе с `created`
+    (`cursor_created`). Вложенные `board`/`column`/`lane` события намеренно не объявлены —
+    они описывают место НА МОМЕНТ действия, а не текущее.
+    """
+
+    id: EmptyStr = ""
+    created: str | None = None
+    action: EmptyStr = ""
+    card_id: int | None = None
+    card: KaitenCard | None = None
+
+
 class KaitenTimer(_ApiModel):
     """Таймер пользователя на карточке (GET /cards/{id} → `timer`, POST/PATCH /user-timers).
 
@@ -308,9 +363,49 @@ def parse_user(raw: object) -> KaitenUser:
     return KaitenUser.model_validate(raw)
 
 
+def _flatten_card_wire(raw: dict[object, object]) -> dict[object, object]:
+    """Wire-форма списочной карточки → плоские `*_title` / `type_name`.
+
+    Только для JSON из API: прямое конструирование модели (тесты, `model_copy`) идёт
+    мимо. Ключ пишется лишь когда вложенный объект реально есть — иначе уже переданное
+    плоское значение затиралось бы на None (карточка из записи учёта времени приходит
+    без `column`/`lane`, и её место резолвится по справочнику).
+    """
+    out = dict(raw)
+    for field, key in (
+        ("board_title", "board"),
+        ("column_title", "column"),
+        ("lane_title", "lane"),
+        ("type_name", "type"),
+    ):
+        label = _nested_label(raw, key)
+        if label is not None:
+            out[field] = label
+    space = _board_space_title(raw)
+    if space is not None:
+        out["space_title"] = space
+    return out
+
+
+def _board_space_title(raw: dict[object, object]) -> str | None:
+    """Пространство карточки: `board.spaces[].title` (плоского `space` в ответе нет).
+
+    Нужно как осмысленная подпись места: у части досок дорожек нет вовсе, а имя самой
+    доски бывает служебным («Не использовать для новых карточек!»).
+    """
+    board = raw.get("board")
+    if not is_dict(board):
+        return None
+    for space in dict_items(board.get("spaces")):
+        title = space.get("title")
+        if title:
+            return str(title)
+    return None
+
+
 def parse_card(raw: object, base_url: str) -> KaitenCard:
     """JSON-карточка из API → KaitenCard. Недостающие поля → None/пусто."""
-    card = KaitenCard.model_validate(raw)
+    card = KaitenCard.model_validate(_flatten_card_wire(raw) if is_dict(raw) else raw)
     return card.model_copy(update={"url": card_url(base_url, card.id)})
 
 
@@ -373,6 +468,26 @@ def parse_role(raw: object) -> KaitenRole:
 def parse_time_log(raw: object) -> KaitenTimeLog:
     """JSON-запись учёта времени (GET/POST /cards/{id}/time-logs) → KaitenTimeLog."""
     return KaitenTimeLog.model_validate(raw)
+
+
+def parse_time_log_entry(raw: object, base_url: str) -> KaitenTimeLogEntry:
+    """JSON-запись из GET /users/{id}/time-logs (окно from/to) → KaitenTimeLogEntry."""
+    if not is_dict(raw):
+        return KaitenTimeLogEntry.model_validate(raw)
+    out = dict(raw)
+    card = raw.get("card")
+    out["card"] = parse_card(card, base_url) if is_dict(card) else None
+    return KaitenTimeLogEntry.model_validate(out)
+
+
+def parse_activity(raw: object, base_url: str) -> KaitenActivity:
+    """JSON-событие из GET /users/current/activities → KaitenActivity."""
+    if not is_dict(raw):
+        return KaitenActivity.model_validate(raw)
+    out = dict(raw)
+    card = raw.get("card")
+    out["card"] = parse_card(card, base_url) if is_dict(card) else None
+    return KaitenActivity.model_validate(out)
 
 
 def parse_timer(raw: object) -> KaitenTimer:
