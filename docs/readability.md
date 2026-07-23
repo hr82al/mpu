@@ -437,10 +437,10 @@ S-порции · выигрыш: medium.
 | ✅ 2 | Точечные S-фиксы — сделано: `miro._delete_tolerant`, `portainer` явный возврат, `kiten_status` общая функция, `_sheet_db()` ×13, `callback=_run` ×6, `quote_tab_name` ×5 (§5.2, с фиксом экранирования) | S каждый | high |
 | ✅ 3 | `lib/cli_opts.py` + перевод модулей — сделано (120 объявлений, −225 строк с учётом нового каталога, справка не изменилась) | M | high |
 | ✅ 4 | `resolver.resolve_server_or_exit` + `require_single_client_id` + `cli_err.bind` — сделано (13 копий → 5, 8 `_fail` → 4) | M | high |
-| 5 | Общие фикстуры в `tests/conftest.py` (`fake_node_cli`, `fake_resolve`, `fake_pg`) | M | high |
+| ✅ 5 | Общие фикстуры в `tests/conftest.py` — сделано (`reset_servers_cache`, `pg_env`, `container_run`; часть двойников осознанно оставлена, см. §8) | M | high |
 | ✅ 6 | `plan → render → apply` — сделано для `kiten close`; прочие оркестраторы тем же приёмом | M | high |
 | ✅ 7 | Общий `_target_resolve.py` для `run_js`/`pssh` — сделано (расхождение `N>0`/`N>=0` снято) | M | high |
-| 8 | Разбить `tests/test_kiten.py` по модулям `commands/kiten/*` | L | high |
+| ✅ 8 | Разбить `tests/test_kiten.py` — сделано (7 файлов + `kiten_fakes.py`, число тестов не изменилось) | L | high |
 | 9 | Расширить `make_app`/фабрики, перевести 14 ручных обёрток | L | high |
 | 10 | `sheet_batch.py`: общий сканер + разрез по швам; `d2_parser.py`: `_try_*`-хелперы (риск снят оснасткой, §11a) | L | medium |
 | ✅ 11 | Ленивое монтирование команд — сделано (старт 0,87 → 0,30 с) | S | (perf) |
