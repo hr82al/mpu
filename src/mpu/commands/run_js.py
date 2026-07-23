@@ -47,7 +47,6 @@ node_modules sl-back, import aliases (`#bullmq/...`), env (Redis/PG hosts),
 """
 
 import concurrent.futures
-import dataclasses
 import secrets
 import sys
 from pathlib import Path
@@ -55,6 +54,13 @@ from typing import Annotated
 
 import typer
 
+from mpu.commands._target_resolve import (
+    ContainerTarget,
+    ServerTarget,
+    resolve_target,
+    server_ref,
+    target_label,
+)
 from mpu.lib import containers, servers
 from mpu.lib.clipboard import copy_to_clipboard
 from mpu.lib.pssh import (
@@ -64,7 +70,6 @@ from mpu.lib.pssh import (
     pssh_run,
     pssh_run_container,
 )
-from mpu.lib.resolver import resolve_server_or_exit
 
 COMMAND_NAME = "mpu run-js"
 COMMAND_SUMMARY = "Запустить произвольный JS внутри контейнера sl-back по селектору (или --all)"
@@ -77,27 +82,6 @@ app = typer.Typer(
     no_args_is_help=False,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class _ServerTarget:
-    server_number: int
-    dev: bool = False
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class _ContainerTarget:
-    container: str
-
-
-def _server_ref(t: _ServerTarget) -> str:
-    """Селектор-ссылка на серверный таргет: `dev:N` для dev-ноды, иначе `sl-N`."""
-    return f"dev:{t.server_number}" if t.dev else f"sl-{t.server_number}"
-
-
-def _target_label(t: "_ServerTarget | _ContainerTarget") -> str:
-    """Человекочитаемая метка таргета: `sl-N` / `dev:N` или точное имя контейнера."""
-    return _server_ref(t) if isinstance(t, _ServerTarget) else t.container
 
 
 def _resolve_js_source(*, code: str | None, file: Path | None) -> str:
@@ -123,11 +107,11 @@ def _resolve_js_source(*, code: str | None, file: Path | None) -> str:
     return js
 
 
-def _resolve_targets(  # noqa: C901
+def _resolve_targets(
     selector: str | None,
     all_active: bool,
     all_containers_filter: str | None,
-) -> list[_ServerTarget | _ContainerTarget]:
+) -> list[ServerTarget | ContainerTarget]:
     """Ровно один из (selector | --all | --all-containers) обязателен."""
     modes = [selector is not None, all_active, all_containers_filter is not None]
     if sum(modes) != 1:
@@ -145,7 +129,7 @@ def _resolve_targets(  # noqa: C901
                 err=True,
             )
             raise typer.Exit(code=2)
-        return [_ServerTarget(n) for n in nums]
+        return [ServerTarget(n) for n in nums]
 
     if all_containers_filter is not None:
         names = containers.find_containers_by_filter(all_containers_filter)
@@ -156,48 +140,13 @@ def _resolve_targets(  # noqa: C901
                 err=True,
             )
             raise typer.Exit(code=2)
-        return [_ContainerTarget(n) for n in names]
+        return [ContainerTarget(n) for n in names]
 
     assert selector is not None
-    # 0. dev:N — sl-N на dev-ноде (`mp-dev`, ssh+docker)
-    if (dev_rest := servers.parse_dev_selector(selector)) is not None:
-        dn = servers.dev_server_number(dev_rest)
-        if dn is None or dn < 0:
-            typer.echo(
-                f"{COMMAND_NAME}: dev-селектор ожидает номер sl-сервера: `dev:N` (например dev:1), "
-                f"получено: {selector!r}",
-                err=True,
-            )
-            raise typer.Exit(code=2)
-        return [_ServerTarget(dn, dev=True)]
-    # 1. sl-N формат → server target
-    n = servers.server_number(selector)
-    if n is not None:
-        if n < 0:
-            typer.echo(f"{COMMAND_NAME}: ожидается sl-N (N>=0), получено: {selector!r}", err=True)
-            raise typer.Exit(code=2)
-        return [_ServerTarget(n)]
-    # 2. Точное имя контейнера в Portainer-кэше
-    container_matches = containers.find_container_targets(selector)
-    if len(container_matches) == 1:
-        return [_ContainerTarget(selector)]
-    if len(container_matches) > 1:
-        typer.echo(
-            f"{COMMAND_NAME}: container {selector!r} ambiguous — "
-            f"{len(container_matches)} Portainer endpoints:",
-            err=True,
-        )
-        typer.echo(containers.format_container_candidates(container_matches), err=True)
-        raise typer.Exit(code=2)
-    # 3. Резолв через mpu search (client_id / spreadsheet_id / title)
-    sn, _candidates = resolve_server_or_exit(selector, command_name=COMMAND_NAME)
-    if sn < 0:
-        typer.echo(f"{COMMAND_NAME}: ожидается sl-N (N>=0), получено: {selector!r}", err=True)
-        raise typer.Exit(code=2)
-    return [_ServerTarget(sn)]
+    return [resolve_target(selector, command_name=COMMAND_NAME)]
 
 
-def _build_dry_run_block(targets: list[_ServerTarget | _ContainerTarget], js: str) -> str:
+def _build_dry_run_block(targets: list[ServerTarget | ContainerTarget], js: str) -> str:
     """Печать `mpu ssh <ref> -- node --input-type=module - <<HEREDOC` блока.
 
     Одинаково для ssh и Portainer — `mpu ssh` сам выберет транспорт при paste'е.
@@ -206,7 +155,7 @@ def _build_dry_run_block(targets: list[_ServerTarget | _ContainerTarget], js: st
     js_body = js.rstrip("\n")
     lines: list[str] = []
     for t in targets:
-        ref = _server_ref(t) if isinstance(t, _ServerTarget) else t.container
+        ref = server_ref(t) if isinstance(t, ServerTarget) else t.container
         if len(targets) > 1:
             lines.append(f"# target={ref}")
         lines.append(f"mpu ssh {ref} -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'")
@@ -216,7 +165,7 @@ def _build_dry_run_block(targets: list[_ServerTarget | _ContainerTarget], js: st
 
 
 def _run_parallel(
-    targets: list[_ServerTarget | _ContainerTarget],
+    targets: list[ServerTarget | ContainerTarget],
     js_bytes: bytes,
     via: str | None,
     jobs: int,
@@ -235,7 +184,7 @@ def _run_parallel(
         err=True,
     )
 
-    def _one(t: _ServerTarget | _ContainerTarget) -> tuple[int, bytes, bytes]:
+    def _one(t: ServerTarget | ContainerTarget) -> tuple[int, bytes, bytes]:
         out = bytearray()
         err = bytearray()
 
@@ -245,7 +194,7 @@ def _run_parallel(
         def on_err(b: bytes) -> None:
             err.extend(b)
 
-        if isinstance(t, _ServerTarget):
+        if isinstance(t, ServerTarget):
             rc = pssh_run(
                 server_number=t.server_number,
                 cmd=_NODE_CMD,
@@ -271,7 +220,7 @@ def _run_parallel(
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
         fut_to_target = {ex.submit(_one, t): t for t in targets}
         for fut in concurrent.futures.as_completed(fut_to_target):
-            label = _target_label(fut_to_target[fut])
+            label = target_label(fut_to_target[fut])
             try:
                 rc, out, err = fut.result()
             except Exception as e:  # изолируем сбой одного таргета, гоним остальные
@@ -292,7 +241,7 @@ def _run_parallel(
 
 
 def _run_detached(
-    targets: list[_ServerTarget | _ContainerTarget],
+    targets: list[ServerTarget | ContainerTarget],
     js_bytes: bytes,
     via: str | None,
 ) -> None:
@@ -311,9 +260,9 @@ def _run_detached(
 
     failures: list[str] = []
     for t in targets:
-        label = _target_label(t)
+        label = target_label(t)
         try:
-            if isinstance(t, _ServerTarget):
+            if isinstance(t, ServerTarget):
                 rc, log = pssh_detach(
                     server_number=t.server_number, js=js_bytes, run_id=run_id, via=via, dev=t.dev
                 )
@@ -330,7 +279,7 @@ def _run_detached(
             typer.echo(f"# {label}: started → {log}", err=True)
 
     # Подсказка, как собрать логи позже (для server-таргетов через тот же run-js).
-    server_labels = [_target_label(t) for t in targets if isinstance(t, _ServerTarget)]
+    server_labels = [target_label(t) for t in targets if isinstance(t, ServerTarget)]
     if server_labels:
         reader = (
             f'import fs from "node:fs"; '
@@ -445,7 +394,7 @@ def main(  # noqa: PLR0913
         copy_to_clipboard(block)
         return
 
-    labels = [_target_label(t) for t in targets]
+    labels = [target_label(t) for t in targets]
     typer.echo(f"# {COMMAND_NAME}: targets = [{', '.join(labels)}]", err=True)
 
     js_bytes = js.encode("utf-8")
@@ -460,9 +409,9 @@ def main(  # noqa: PLR0913
         return
 
     for t in targets:
-        label = _target_label(t)
+        label = target_label(t)
         typer.echo(f"# target={label}", err=True)
-        if isinstance(t, _ServerTarget):
+        if isinstance(t, ServerTarget):
             rc = pssh_run(
                 server_number=t.server_number, cmd=_NODE_CMD, stdin=js_bytes, via=via, dev=t.dev
             )

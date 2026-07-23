@@ -210,7 +210,7 @@ S-порции · выигрыш: medium.
 
 Это подкласс §4, вынесенный отдельно: здесь копипаста перестала быть косметикой.
 
-**5.1. Резолв таргета — `run_js.py:126` vs `pssh.py:75-129`.** Один и тот же четырёхшаговый алгоритм
+**✅ 5.1. Резолв таргета — `run_js.py:126` vs `pssh.py:75-129`.** Один и тот же четырёхшаговый алгоритм
 (`dev:N` → `sl-N` → точное имя контейнера в Portainer-кэше → fallback через поиск), включая
 структурно идентичные `_ServerTarget`/`_ContainerTarget` (`run_js.py:82-91`, `pssh.py:64-73`).
 Механический diff давал две дельты, и одна была смысловая: `run_js.py` проверял `n < 0`,
@@ -222,7 +222,10 @@ S-порции · выигрыш: medium.
 действительности. Граница выровнена на `n < 0` в обоих местах (`commands/pssh.py`,
 `commands/_portainer_resolve.py` — последний обслуживает `ps`/`health`/логи), после чего
 `mpu ssh sl-0`, `mpu ps sl-0` и `mpu health sl-0` работают.
-Лечение: общий `commands/_target_resolve.py` с одной зафиксированной границей. Объём: M · выигрыш: high.
+**Сделано:** общий `commands/_target_resolve.py` (`ServerTarget` / `ContainerTarget` /
+`resolve_target` / `server_ref` / `target_label`); обе команды зовут его, дублировавшиеся
+структуры и ~70 строк логики на каждую удалены. Проверено вживую: `mpu ssh` и `mpu run-js`
+дают одинаковый результат на `sl-0`, `sl-1`, точном имени контейнера и несуществующем селекторе.
 
 **✅ 5.2. A1-кавычки имени листа — `sheet_cache.py:408,419,580`, `commands/sheet.py:135`.** Четыре копии
 одной эвристики `f"'{tab}'" if any(ch in tab for ch in " '!")`, и **ни одна не экранирует апостроф**
@@ -394,7 +397,7 @@ S-порции · выигрыш: medium.
 | ✅ 4 | `resolver.resolve_server_or_exit` + `require_single_client_id` + `cli_err.bind` — сделано (13 копий → 5, 8 `_fail` → 4) | M | high |
 | 5 | Общие фикстуры в `tests/conftest.py` (`fake_node_cli`, `fake_resolve`, `fake_pg`) | M | high |
 | 6 | `plan → render → apply` для команд с `--dry-run` (начать с `kiten close`) | M | high |
-| 7 | Общий `_target_resolve.py` для `run_js`/`pssh` (снимает расхождение `N>0`/`N>=0`) | M | high |
+| ✅ 7 | Общий `_target_resolve.py` для `run_js`/`pssh` — сделано (расхождение `N>0`/`N>=0` снято) | M | high |
 | 8 | Разбить `tests/test_kiten.py` по модулям `commands/kiten/*` | L | high |
 | 9 | Расширить `make_app`/фабрики, перевести 14 ручных обёрток | L | high |
 | 10 | `sheet_batch.py`: общий сканер + разрез по швам; `d2_parser.py`: `_try_*`-хелперы | L | medium |

@@ -14,6 +14,7 @@ import typer
 from typer.testing import CliRunner
 
 from mpu.commands import run_js
+from mpu.commands._target_resolve import ContainerTarget, ServerTarget
 from mpu.lib import clipboard, portainer_discover, servers, store
 
 
@@ -76,15 +77,15 @@ def silence_clipboard(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_resolve_targets_single(env_file: Path) -> None:
     _ = env_file
-    assert run_js._resolve_targets("sl-1", False, None) == [run_js._ServerTarget(1)]
+    assert run_js._resolve_targets("sl-1", False, None) == [ServerTarget(1)]
 
 
 def test_resolve_targets_all_active(env_file: Path) -> None:
     _ = env_file
     assert run_js._resolve_targets(None, True, None) == [
-        run_js._ServerTarget(1),
-        run_js._ServerTarget(2),
-        run_js._ServerTarget(3),
+        ServerTarget(1),
+        ServerTarget(2),
+        ServerTarget(3),
     ]
 
 
@@ -116,7 +117,7 @@ def test_resolve_targets_container_by_exact_name(env_file: Path) -> None:
         )
         conn.commit()
     assert run_js._resolve_targets("mp-sl-9-wb-loader", False, None) == [
-        run_js._ContainerTarget("mp-sl-9-wb-loader")
+        ContainerTarget("mp-sl-9-wb-loader")
     ]
 
 
@@ -141,8 +142,8 @@ def test_resolve_targets_all_containers(env_file: Path) -> None:
             )
         conn.commit()
     assert run_js._resolve_targets(None, False, "wb-loader") == [
-        run_js._ContainerTarget("mp-sl-1-wb-loader"),
-        run_js._ContainerTarget("mp-sl-2-wb-loader"),
+        ContainerTarget("mp-sl-1-wb-loader"),
+        ContainerTarget("mp-sl-2-wb-loader"),
     ]
 
 
@@ -188,7 +189,7 @@ def test_resolve_js_source_stdin(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_dry_run_single_server() -> None:
-    block = run_js._build_dry_run_block([run_js._ServerTarget(1)], "console.log(1)")
+    block = run_js._build_dry_run_block([ServerTarget(1)], "console.log(1)")
     # Без префикса `# target=...` для одного таргета.
     assert "# target=" not in block
     assert "mpu ssh sl-1 -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'" in block
@@ -198,7 +199,7 @@ def test_dry_run_single_server() -> None:
 
 def test_dry_run_multi_server_uses_heredoc() -> None:
     block = run_js._build_dry_run_block(
-        [run_js._ServerTarget(1), run_js._ServerTarget(2)], "import x;\nawait x();\n"
+        [ServerTarget(1), ServerTarget(2)], "import x;\nawait x();\n"
     )
     assert "# target=sl-1" in block
     assert "# target=sl-2" in block
@@ -212,9 +213,7 @@ def test_dry_run_multi_server_uses_heredoc() -> None:
 
 def test_dry_run_container_target_uses_name_as_ref() -> None:
     """_ContainerTarget → в `mpu ssh` блоке используется точное имя контейнера."""
-    block = run_js._build_dry_run_block(
-        [run_js._ContainerTarget("mp-sl-9-wb-loader")], "console.log(1)"
-    )
+    block = run_js._build_dry_run_block([ContainerTarget("mp-sl-9-wb-loader")], "console.log(1)")
     assert "mpu ssh mp-sl-9-wb-loader -- node --input-type=module -" in block
 
 

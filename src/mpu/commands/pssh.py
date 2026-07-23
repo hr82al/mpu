@@ -38,14 +38,13 @@ stdout/stderr ребёнка — напрямую в наш stdout/stderr. Exit 
 """
 
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from mpu.lib import containers, pssh as _pssh, servers
-from mpu.lib.resolver import resolve_server_or_exit
+from mpu.commands._target_resolve import ServerTarget, resolve_target
+from mpu.lib import containers, pssh as _pssh
 
 COMMAND_NAME = "mpu ssh"
 COMMAND_SUMMARY = (
@@ -58,68 +57,6 @@ app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-
-
-@dataclass(frozen=True, slots=True)
-class _ServerTarget:
-    server_number: int
-    dev: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class _ContainerTarget:
-    container: str
-
-
-def _resolve_target(selector: str) -> _ServerTarget | _ContainerTarget:
-    """Универсальный резолв селектора → server (sl-N CLI) или контейнер по точному имени.
-
-    Порядок:
-      0. `dev:N` — sl-N на dev-ноде (`mp-dev`, ssh+docker) → `_ServerTarget(N, dev=True)`.
-      1. `sl-N` формат → `_ServerTarget(N)`; N>=0 валидируется здесь же (sl-0 — main-сервер).
-      2. Точное имя контейнера в Portainer-кэше (1 совпадение) → `_ContainerTarget(name)`.
-      3. >1 совпадение по имени контейнера → ошибка с вариантами (без fallback в mpu search,
-         чтобы не маскировать опечатку с легитимным client-селектором).
-      4. Иначе — `resolve_server` (mpu search по client_id/spreadsheet_id/title).
-    """
-    if (dev_rest := servers.parse_dev_selector(selector)) is not None:
-        dn = servers.dev_server_number(dev_rest)
-        if dn is None or dn < 0:
-            typer.echo(
-                f"{COMMAND_NAME}: dev-селектор ожидает номер sl-сервера: `dev:N` (например dev:1), "
-                f"получено: {selector!r}",
-                err=True,
-            )
-            raise typer.Exit(code=2)
-        return _ServerTarget(dn, dev=True)
-
-    n = servers.server_number(selector)
-    if n is not None:
-        if n < 0:
-            typer.echo(
-                f"{COMMAND_NAME}: ожидается sl-N (N>=0), получено: {selector!r}",
-                err=True,
-            )
-            raise typer.Exit(code=2)
-        return _ServerTarget(n)
-
-    container_matches = containers.find_container_targets(selector)
-    if len(container_matches) == 1:
-        return _ContainerTarget(selector)
-    if len(container_matches) > 1:
-        typer.echo(
-            f"{COMMAND_NAME}: container {selector!r} ambiguous — "
-            f"{len(container_matches)} Portainer endpoints:",
-            err=True,
-        )
-        typer.echo(containers.format_container_candidates(container_matches), err=True)
-        raise typer.Exit(code=2)
-
-    sn, _candidates = resolve_server_or_exit(selector, command_name=COMMAND_NAME)
-    if sn < 0:
-        typer.echo(f"{COMMAND_NAME}: ожидается sl-N (N>=0), получено: {selector!r}", err=True)
-        raise typer.Exit(code=2)
-    return _ServerTarget(sn)
 
 
 def _resolve_stdin(*, stdin_text: str | None, stdin_file: Path | None, stdin_tty: bool) -> bytes:
@@ -250,8 +187,8 @@ def main(
         typer.echo(f"{COMMAND_NAME}: укажите <selector> или --all-containers", err=True)
         raise typer.Exit(code=2)
 
-    target = _resolve_target(selector)
-    if isinstance(target, _ServerTarget):
+    target = resolve_target(selector, command_name=COMMAND_NAME)
+    if isinstance(target, ServerTarget):
         rc = _pssh.pssh_run(
             server_number=target.server_number,
             cmd=cmd,

@@ -12,6 +12,7 @@ import typer
 from typer.testing import CliRunner
 
 from mpu.commands import pssh as pssh_cmd
+from mpu.commands._target_resolve import ServerTarget, resolve_target
 from mpu.lib import containers, portainer, pssh, resolver, servers, store
 from mpu.lib.resolver import ResolveError
 
@@ -1546,13 +1547,13 @@ def test_pssh_cli_resolve_server_zero_accepted(
         return 0, []
 
     monkeypatch.setattr(resolver, "resolve_server", _fake_resolve)
-    assert pssh_cmd._resolve_target("weird-title") == pssh_cmd._ServerTarget(0)
+    assert resolve_target("weird-title", command_name="mpu ssh") == ServerTarget(0)
 
 
 def test_pssh_cli_sl_0_accepted(env_ssh_only: Path) -> None:
     """`sl-0` — обычный сервер (main), не «нулевой»: `mpu ssh sl-0` должен работать."""
     _ = env_ssh_only
-    assert pssh_cmd._resolve_target("sl-0") == pssh_cmd._ServerTarget(0)
+    assert resolve_target("sl-0", command_name="mpu ssh") == ServerTarget(0)
 
 
 def test_pssh_cli_selector_none_with_command_rejected(
