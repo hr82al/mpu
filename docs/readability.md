@@ -164,8 +164,15 @@ apply_close_plan(client, plan)                                    # только
 - `run_js.py main` — последовательный прогон вынесен в `_run_sequential`, и три режима
   выполнения (`detached` / `parallel` / `sequential`) стали симметричны; тело 49 строк.
 
-Осталось тем же приёмом: `logs.py main` (170), `ozon_fix_fo_tax.py main` (119),
-`cli.py init_cmd` (105), `timelog.py time_stop` (83), `sheet.py set_` / `batch_*`. Объём: M на команду · выигрыш: high.
+- `logs.py main` — 91 строка тела из пяти склеенных сценариев: два режима листинга, эвристика
+  «первый позиционный — это сервис», три валидации portainer-ветки и два вызова Loki. Выделены
+  `_print_ls`, `_as_service_if_not_host` (чистая), `_require`; тело 61 строка;
+- `ozon_fix_fo_tax.py main` — линейный сценарий из пяти шагов, где четыре последних отличались
+  только флагами: вынесены данными (`_Step` + `_steps_after_price_fix`), выполняются циклом;
+  тело 51 строка вместо 93.
+
+Осталось тем же приёмом: `cli.py init_cmd` (105), `timelog.py time_stop` (83),
+`sheet.py set_` / `batch_*`. Объём: M на команду · выигрыш: high.
 
 ---
 

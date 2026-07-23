@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import datetime
 import json
+from dataclasses import dataclass
 from typing import Annotated
 
 import typer
@@ -50,6 +51,63 @@ COMMAND_NAME = "mpu ozon-fix-fo-tax"
 COMMAND_SUMMARY = "Фикс 1₽-аномалии в ozon_postings_reports + пересчёт ОПиУ/Фин-отчёт + ss-update"
 
 _DEFAULT_DATE_FROM = "2025-01-01"  # startUnitDate в ozonUnitCalculatedData
+
+
+@dataclass(frozen=True, slots=True)
+class _Step:
+    """Шаг сценария: заголовок для stderr + что позвать в node-CLI."""
+
+    title: str
+    name: str
+    method: str
+    flags: dict[str, FlagValue]
+
+
+def _steps_after_price_fix(
+    *, client_id: int, spreadsheet_id: str, date_flags: dict[str, FlagValue]
+) -> list[_Step]:
+    """Шаги 2–5: пересчёт расходов → пин в proto → forced-пересчёт датасетов → выгрузка листа.
+
+    Порядок важен: каждый следующий читает результат предыдущего.
+    """
+    return [
+        _Step(
+            "step 2: ozonUnitCalculatedData.recalculateExpenses",
+            "ozonUnitCalculatedData",
+            "recalculateExpenses",
+            {"--client-id": client_id, **date_flags},
+        ),
+        _Step(
+            "step 3: ozonUnitCalculatedData.saveExpenses",
+            "ozonUnitCalculatedData",
+            "saveExpenses",
+            {"--client-id": client_id, **date_flags},
+        ),
+        _Step(
+            "step 4: dataProcessor.process --forced --domain ozon",
+            "dataProcessor",
+            "process",
+            {
+                "--client-id": client_id,
+                "--spreadsheet-id": spreadsheet_id,
+                "--forced": True,
+                "--domain": "ozon",
+                **date_flags,
+            },
+        ),
+        _Step(
+            "step 5: ssUpdater.update",
+            "ssUpdater",
+            "update",
+            {
+                "--client-id": client_id,
+                "--spreadsheet-id": spreadsheet_id,
+                "--update-type": "schedule",
+                "--logs": "info",
+            },
+        ),
+    ]
+
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -233,56 +291,14 @@ def main(
         raise typer.Exit(code=rc)
 
     date_flags: dict[str, FlagValue] = {"--date-from": date_from, "--date-to": dt_to}
-
-    # ── Шаг 2: recalculate-expenses ──
-    typer.echo("# step 2: ozonUnitCalculatedData.recalculateExpenses", err=True)
-    _node_step(
-        name="ozonUnitCalculatedData",
-        method="recalculateExpenses",
-        flags={"--client-id": cid, **date_flags},
-        resolved=resolved,
-        dry_run=dry_run,
-    )
-
-    # ── Шаг 3: save-expenses (пин tax_total_perc/expenses в ozon_unit_proto.json_data) ──
-    typer.echo("# step 3: ozonUnitCalculatedData.saveExpenses", err=True)
-    _node_step(
-        name="ozonUnitCalculatedData",
-        method="saveExpenses",
-        flags={"--client-id": cid, **date_flags},
-        resolved=resolved,
-        dry_run=dry_run,
-    )
-
-    # ── Шаг 4: forced пересчёт финреп-датасетов ──
-    typer.echo("# step 4: dataProcessor.process --forced --domain ozon", err=True)
-    _node_step(
-        name="dataProcessor",
-        method="process",
-        flags={
-            "--client-id": cid,
-            "--spreadsheet-id": ssid,
-            "--forced": True,
-            "--domain": "ozon",
-            **date_flags,
-        },
-        resolved=resolved,
-        dry_run=dry_run,
-    )
-
-    # ── Шаг 5: ss-update (как `mpu ss-update`) ──
-    typer.echo("# step 5: ssUpdater.update", err=True)
-    _node_step(
-        name="ssUpdater",
-        method="update",
-        flags={
-            "--client-id": cid,
-            "--spreadsheet-id": ssid,
-            "--update-type": "schedule",
-            "--logs": "info",
-        },
-        resolved=resolved,
-        dry_run=dry_run,
-    )
+    for step in _steps_after_price_fix(client_id=cid, spreadsheet_id=ssid, date_flags=date_flags):
+        typer.echo(f"# {step.title}", err=True)
+        _node_step(
+            name=step.name,
+            method=step.method,
+            flags=step.flags,
+            resolved=resolved,
+            dry_run=dry_run,
+        )
 
     typer.echo(f"# {COMMAND_NAME}: done", err=True)
