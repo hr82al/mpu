@@ -40,6 +40,7 @@ from mpu.lib.cli_wrap import (
     Resolved,
     auto_pick_int,
     auto_pick_str,
+    build_inner_command,
     emit_node_cli,
     require,
     resolve_selector,
@@ -150,15 +151,8 @@ def _node_step(
     это и есть fail-fast для всей цепочки.
     """
     if dry_run:
-        from mpu.lib.cli_wrap import _build_inner  # pyright: ignore[reportPrivateUsage]
-
-        inner = _build_inner(
-            entry="cli",
-            type_="service",
-            name=name,
-            method=method,
-            flags=flags,
-            command_name=COMMAND_NAME,
+        inner = build_inner_command(
+            name=name, method=method, flags=flags, command_name=COMMAND_NAME
         )
         typer.echo(f"#   would run: {inner}", err=True)
         return

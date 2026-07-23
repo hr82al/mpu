@@ -26,6 +26,7 @@ from mpu.lib.cli_opts import ClientIdOpt, LocalOpt, PrintOpt, SelectorArg, Serve
 from mpu.lib.cli_wrap import (
     FlagValue,
     auto_pick_int,
+    build_inner_command,
     emit_node_cli,
     pick_wrapper,
     require,
@@ -226,13 +227,7 @@ def main(  # noqa: PLR0913
     }
 
     if verbose:
-        # _build_inner — приватный helper из mpu.lib.cli_wrap. Используем для
-        # верификационной печати inner-команды без выполнения.
-        from mpu.lib.cli_wrap import _build_inner  # pyright: ignore[reportPrivateUsage]
-
-        inner = _build_inner(
-            entry="cli",
-            type_="service",
+        inner = build_inner_command(
             name="ozonUnitCalculatedData",
             method="recalculateExpenses",
             flags=flags,

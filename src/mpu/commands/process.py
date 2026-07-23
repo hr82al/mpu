@@ -31,6 +31,7 @@ Tab-complete:
 """
 
 import datetime
+from dataclasses import dataclass
 from typing import Annotated
 
 import typer
@@ -50,6 +51,7 @@ from mpu.lib.cli_wrap import (
     Wrapper,
     auto_pick_int,
     auto_pick_str,
+    build_inner_command,
     emit_node_cli,
     exec_node_cli_dev,
     pick_wrapper,
@@ -150,6 +152,69 @@ def _join_int_bracket(values: list[int] | None) -> str | None:
     if not values:
         return None
     return "[" + ",".join(str(v) for v in values) + "]"
+
+
+@dataclass(frozen=True, slots=True)
+class _Target:
+    """Куда и как выполнять: client_id/spreadsheet_id + транспорт (dev-нода или Portainer/ssh)."""
+
+    client_id: int
+    spreadsheet_id: str | None
+    dev_server: int | None
+    resolved: Resolved | None
+    wrapper: Wrapper
+
+
+def _resolve_target(
+    value: str,
+    *,
+    server: str | None,
+    client_id: int | None,
+    spreadsheet_id: str | None,
+    print_mode: bool,
+    local: bool,
+) -> _Target:
+    """Селектор → таргет. `dev:N` идёт мимо поиска: на dev-ноде prod-кэша клиентов нет."""
+    dev_rest = servers.parse_dev_selector(value)
+    if dev_rest is not None:
+        dev_server = servers.dev_server_number(dev_rest)
+        if dev_server is None or dev_server < 0:
+            typer.echo(
+                f"{COMMAND_NAME}: dev-селектор ожидает номер sl-сервера: `dev:N` (например dev:1)",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        return _Target(
+            client_id=require(
+                client_id, flag="--client-id", candidates=[], command_name=COMMAND_NAME
+            ),
+            spreadsheet_id=spreadsheet_id,
+            dev_server=dev_server,
+            resolved=None,
+            wrapper="portainer",
+        )
+
+    wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
+    resolved = resolve_selector(
+        value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
+    )
+    return _Target(
+        client_id=require(
+            client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
+            flag="--client-id",
+            candidates=resolved.candidates,
+            command_name=COMMAND_NAME,
+        ),
+        # spreadsheet_id опционально; если селектор однозначно резолвится в один — подставим.
+        spreadsheet_id=(
+            spreadsheet_id
+            if spreadsheet_id is not None
+            else auto_pick_str(resolved.candidates, "spreadsheet_id")
+        ),
+        dev_server=None,
+        resolved=resolved,
+        wrapper=wrapper,
+    )
 
 
 app = typer.Typer(
@@ -300,42 +365,18 @@ def main(  # noqa: PLR0913
     Селектор `dev:N` → выполнение в `mp-sl-N-cli` на dev-ноде (ssh+docker); для dev
     `--client-id` обязателен (prod-поиск по client/title недоступен).
     """
-    dev_rest = servers.parse_dev_selector(value)
-    is_dev = dev_rest is not None
-    resolved: Resolved | None = None
-    wrapper: Wrapper = "portainer"
-    dev_server: int | None = None
-    if dev_rest is not None:
-        dev_server = servers.dev_server_number(dev_rest)
-        if dev_server is None or dev_server < 0:
-            typer.echo(
-                f"{COMMAND_NAME}: dev-селектор ожидает номер sl-сервера: `dev:N` (например dev:1)",
-                err=True,
-            )
-            raise typer.Exit(code=2)
-        cid = require(client_id, flag="--client-id", candidates=[], command_name=COMMAND_NAME)
-        ssid = spreadsheet_id
-    else:
-        wrapper, require_ssh = pick_wrapper(print_mode=print_mode, local=local)
-        resolved = resolve_selector(
-            value=value, server=server, command_name=COMMAND_NAME, require_ssh=require_ssh
-        )
-        cid = require(
-            client_id if client_id is not None else auto_pick_int(resolved.candidates, "client_id"),
-            flag="--client-id",
-            candidates=resolved.candidates,
-            command_name=COMMAND_NAME,
-        )
-        # spreadsheet_id опционально; если selector однозначно резолвится в один — подставим.
-        ssid = (
-            spreadsheet_id
-            if spreadsheet_id is not None
-            else auto_pick_str(resolved.candidates, "spreadsheet_id")
-        )
+    target = _resolve_target(
+        value,
+        server=server,
+        client_id=client_id,
+        spreadsheet_id=spreadsheet_id,
+        print_mode=print_mode,
+        local=local,
+    )
 
     flags: dict[str, FlagValue] = {
-        "--client-id": cid,
-        "--spreadsheet-id": ssid,
+        "--client-id": target.client_id,
+        "--spreadsheet-id": target.spreadsheet_id,
         "--date-from": date_from,
         "--date-to": date_to,
         "--domain": domain,
@@ -357,36 +398,28 @@ def main(  # noqa: PLR0913
     }
 
     if verbose:
-        from mpu.lib.cli_wrap import _build_inner  # pyright: ignore[reportPrivateUsage]
-
-        inner = _build_inner(
-            entry="cli",
-            type_="service",
-            name="dataProcessor",
-            method="process",
-            flags=flags,
-            command_name=COMMAND_NAME,
+        inner = build_inner_command(
+            name="dataProcessor", method="process", flags=flags, command_name=COMMAND_NAME
         )
         typer.echo(f"# inner: {inner}", err=True)
 
-    if is_dev:
-        assert dev_server is not None
+    if target.dev_server is not None:
         exec_node_cli_dev(
             name="dataProcessor",
             method="process",
             flags=flags,
-            server_number=dev_server,
+            server_number=target.dev_server,
             print_mode=print_mode,
             command_name=COMMAND_NAME,
         )
         return
 
-    assert resolved is not None
+    assert target.resolved is not None
     emit_node_cli(
         name="dataProcessor",
         method="process",
         flags=flags,
-        resolved=resolved,
-        wrapper=wrapper,
+        resolved=target.resolved,
+        wrapper=target.wrapper,
         command_name=COMMAND_NAME,
     )

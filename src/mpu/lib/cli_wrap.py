@@ -447,6 +447,30 @@ def _build_inner_parts(
     return parts
 
 
+def build_inner_command(
+    *,
+    name: str,
+    method: str,
+    flags: dict[str, FlagValue],
+    command_name: str,
+    entry: EntryPoint = "cli",
+    type_: DispatchType = "service",
+) -> str:
+    """Inner-команда строкой — для `--verbose` / `--dry-run` печати без выполнения.
+
+    Публичная точка: команды печатают «что было бы выполнено», и лезть за этим
+    в приватный `_build_inner` им не нужно.
+    """
+    return _build_inner(
+        entry=entry,
+        type_=type_,
+        name=name,
+        method=method,
+        flags=flags,
+        command_name=command_name,
+    )
+
+
 def _build_inner(
     *,
     entry: EntryPoint,

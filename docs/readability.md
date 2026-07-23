@@ -119,7 +119,7 @@ ClientIdOpt = Annotated[int | None, typer.Option("--client-id", "--client_id", h
 | ----- | ------------------ | ------- | ----- |
 | ✅ `commands/wb_cards_reset.py:97` + `wb_loader_{load,status,reset,resume,blocked}.py` | 6 click-callback'ов, дословно форвардящих kwargs в `_run(*, ...)` | **сделано:** `callback=_run` напрямую, −68 строк | S |
 | `commands/process.py:93` vs `recalculate_ozon_expenses.py:81` | `_complete_sku` — дословная копия (различие только в докстринге), плюс `_avoid_singleton_collapse` / `_join_int_bracket` | вынести три чистые функции в `commands/_ozon_completers.py` | S |
-| `commands/process.py:374`, `recalculate_ozon_expenses.py:245`, `ozon_fix_fo_tax.py:152` | verbose-печать лезет за приватным `cli_wrap._build_inner` через `pyright: ignore[reportPrivateUsage]` | сделать публичным (или завести `debug_echo_inner`) — приватный импорт из соседа не должен быть штатным приёмом | S |
+| ✅ `commands/process.py:374`, `recalculate_ozon_expenses.py:245`, `ozon_fix_fo_tax.py:152` | verbose-печать лезла за приватным `cli_wrap._build_inner` через `pyright: ignore[reportPrivateUsage]` | **сделано:** публичная `cli_wrap.build_inner_command`, приватных импортов из соседей не осталось | S |
 
 Объём в целом: L (по модулю за раз) · выигрыш: high.
 
@@ -157,8 +157,15 @@ apply_close_plan(client, plan)                                    # только
 (11 опций у Typer-энтрипоинта — неизбежно). Вывод `--dry-run` на живой карточке побайтно не
 изменился.
 
-Остальные оркестраторы (`logs.py main`, `run_js.py main`, `update.py run_update`, `sheet.py set_`)
-— тем же приёмом, отдельными заходами. Объём: M на команду · выигрыш: high.
+Тем же приёмом расслоены ещё две команды:
+
+- `process.py main` — резолв таргета (dev-нода vs Portainer/ssh) вынесен в `_Target` +
+  `_resolve_target`; тело команды 64 строки, из них 22 — декларативный словарь флагов;
+- `run_js.py main` — последовательный прогон вынесен в `_run_sequential`, и три режима
+  выполнения (`detached` / `parallel` / `sequential`) стали симметричны; тело 49 строк.
+
+Осталось тем же приёмом: `logs.py main` (170), `ozon_fix_fo_tax.py main` (119),
+`cli.py init_cmd` (105), `timelog.py time_stop` (83), `sheet.py set_` / `batch_*`. Объём: M на команду · выигрыш: high.
 
 ---
 

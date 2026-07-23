@@ -240,6 +240,30 @@ def _run_parallel(
         raise typer.Exit(code=1)
 
 
+def _run_sequential(
+    targets: list[ServerTarget | ContainerTarget],
+    js_bytes: bytes,
+    via: str | None,
+) -> None:
+    """Последовательный прогон: вывод стримится, первый ненулевой код прерывает остальные."""
+    for target in targets:
+        label = target_label(target)
+        typer.echo(f"# target={label}", err=True)
+        if isinstance(target, ServerTarget):
+            rc = pssh_run(
+                server_number=target.server_number,
+                cmd=_NODE_CMD,
+                stdin=js_bytes,
+                via=via,
+                dev=target.dev,
+            )
+        else:
+            rc = pssh_run_container(container=target.container, cmd=_NODE_CMD, stdin=js_bytes)
+        if rc != 0:
+            typer.echo(f"{COMMAND_NAME}: {label} exit={rc} — abort", err=True)
+            raise typer.Exit(code=rc)
+
+
 def _run_detached(
     targets: list[ServerTarget | ContainerTarget],
     js_bytes: bytes,
@@ -408,15 +432,4 @@ def main(  # noqa: PLR0913
         _run_parallel(targets, js_bytes, via, jobs)
         return
 
-    for t in targets:
-        label = target_label(t)
-        typer.echo(f"# target={label}", err=True)
-        if isinstance(t, ServerTarget):
-            rc = pssh_run(
-                server_number=t.server_number, cmd=_NODE_CMD, stdin=js_bytes, via=via, dev=t.dev
-            )
-        else:
-            rc = pssh_run_container(container=t.container, cmd=_NODE_CMD, stdin=js_bytes)
-        if rc != 0:
-            typer.echo(f"{COMMAND_NAME}: {label} exit={rc} — abort", err=True)
-            raise typer.Exit(code=rc)
+    _run_sequential(targets, js_bytes, via)
