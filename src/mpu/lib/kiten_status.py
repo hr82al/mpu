@@ -155,9 +155,10 @@ def build_status_text(
 ) -> str:
     """Нумерованный markdown-список перемещённых сегодня карточек (новые сверху).
 
-    Дедуп по `card_id` — остаётся запись с наибольшим `moved_at`. Формат строки:
-    `N. [Title](url) — Колонка эмодзи`. Имя колонки заменяется по `column_overrides`
-    (из .env `KITEN_COLUMN_MAP`) при совпадении, и эмодзи берётся уже по заменённому имени.
+    Шапка — «Отчёт за сегодня (label):». Дедуп по `card_id` — остаётся запись с наибольшим
+    `moved_at`. Формат строки: `N. [Title](url) — Колонка эмодзи`. Имя колонки заменяется
+    по `column_overrides` (из .env `KITEN_COLUMN_MAP`) при совпадении, и эмодзи берётся уже
+    по заменённому имени.
     Пустой список → строка «перемещений не было»."""
     latest: dict[int, StatusEntry] = {}
     for entry in entries:
@@ -165,7 +166,7 @@ def build_status_text(
         if current is None or entry.moved_at > current.moved_at:
             latest[entry.card_id] = entry
     items = sorted(latest.values(), key=lambda e: (e.moved_at, e.card_id), reverse=True)
-    header = f"Карточки, перемещённые сегодня ({label}):"
+    header = f"Отчёт за сегодня ({label}):"
     if not items:
         return f"{header}\n\nСегодня перемещений не было."
     lines = [header, ""]

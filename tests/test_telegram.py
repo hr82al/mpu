@@ -79,6 +79,37 @@ def test_parse_chat_target_int_type() -> None:
     assert isinstance(telegram.parse_chat_target("@777"), str)
 
 
+def test_parse_chat_target_keeps_chat_title() -> None:
+    # название чата отдаётся как есть — резолв по названию делает _resolve_peer (по сети)
+    assert telegram.parse_chat_target("DEV | ALEXANDER KHROMOV") == "DEV | ALEXANDER KHROMOV"
+
+
+# ── match_dialogs_by_title ───────────────────────────────────────────────────
+
+
+def _dialog(chat_id: int, title: str) -> telegram.TgDialog:
+    return telegram.TgDialog(id=chat_id, title=title, kind="group", username=None)
+
+
+def test_match_dialogs_by_title_exact_wins_over_substring() -> None:
+    dialogs = [_dialog(1, "DEV | ALEXANDER KHROMOV"), _dialog(2, "DEV | ALEXANDER KHROMOV (архив)")]
+    assert telegram.match_dialogs_by_title(dialogs, "DEV | ALEXANDER KHROMOV") == [dialogs[0]]
+
+
+def test_match_dialogs_by_title_case_insensitive_and_trimmed() -> None:
+    dialogs = [_dialog(1, "DEV | ALEXANDER KHROMOV")]
+    assert telegram.match_dialogs_by_title(dialogs, "  dev | alexander khromov  ") == dialogs
+
+
+def test_match_dialogs_by_title_substring_may_be_ambiguous() -> None:
+    dialogs = [_dialog(1, "DEV | Иван"), _dialog(2, "DEV | Пётр"), _dialog(3, "QA | Иван")]
+    assert telegram.match_dialogs_by_title(dialogs, "dev") == [dialogs[0], dialogs[1]]
+
+
+def test_match_dialogs_by_title_no_match() -> None:
+    assert telegram.match_dialogs_by_title([_dialog(1, "DEV")], "нет такого") == []
+
+
 # ── dialog_to_dict ───────────────────────────────────────────────────────────
 
 
@@ -647,7 +678,12 @@ def _rpc_error() -> Exception:
 
 
 class _FakeSendClient:
-    """Async-стаб клиента для send_message: connect/auth/send/disconnect, запись аргументов."""
+    """Async-стаб клиента для send_message: connect/auth/резолв/send/disconnect, запись аргументов.
+
+    `get_input_entity` отдаёт `("input", target)` — так видно, что уходит именно РЕЗОЛВНУТЫЙ
+    адресат. `bad_targets` — адресаты, которые telethon не находит (как строку-название чата);
+    `found_users`/`found_chats` — что вернёт `contacts.Search` при резолве по названию.
+    """
 
     def __init__(
         self,
@@ -656,12 +692,19 @@ class _FakeSendClient:
         send_result: object = None,
         send_error: Exception | None = None,
         disconnect_none: bool = False,
+        bad_targets: tuple[object, ...] = (),
+        found_users: list[object] | None = None,
+        found_chats: list[object] | None = None,
     ) -> None:
         self.session = _FakeSession()
         self._authorized = authorized
         self._send_result = send_result
         self._send_error = send_error
         self._disconnect_none = disconnect_none
+        self._bad_targets: set[object] = set(bad_targets)
+        self._found_users = found_users or []
+        self._found_chats = found_chats or []
+        self.searched: list[object] = []
         self.sent: tuple[object, object, object] | None = None
         self.sent_file: tuple[object, object, object, object, object] | None = None
 
@@ -670,6 +713,15 @@ class _FakeSendClient:
 
     async def is_user_authorized(self) -> bool:
         return self._authorized
+
+    async def get_input_entity(self, target: object) -> object:
+        if target in self._bad_targets:
+            raise ValueError(f'Cannot find any entity corresponding to "{target}"')
+        return ("input", target)
+
+    async def __call__(self, request: object) -> object:
+        self.searched.append(request)
+        return SimpleNamespace(users=self._found_users, chats=self._found_chats)
 
     async def send_message(
         self, target: object, text: object, *, parse_mode: object = None
@@ -743,7 +795,7 @@ def test_send_message_via_real_make_client(
             "password": None,
         },
     )
-    assert fake.sent == ("@dev", "привет", None)
+    assert fake.sent == (("input", "@dev"), "привет", None)
     assert res.id == 10
     assert res.chat_id == -100777
     assert res.date == "2026-06-18T10:00:00+00:00"
@@ -759,7 +811,7 @@ def test_send_message_null_date_and_chat_id(monkeypatch: pytest.MonkeyPatch) -> 
     assert res.id == 3
     assert res.chat_id == 0
     assert res.date is None
-    assert fake.sent == (12345, "hi", "md")
+    assert fake.sent == (("input", 12345), "hi", "md")
 
 
 def test_send_message_not_authorized_raises(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -792,6 +844,77 @@ def test_send_message_rpc_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None
         asyncio.run(telegram.send_message(_make_cfg(), "@dev", "hi"))
 
 
+# ── резолв адресата по НАЗВАНИЮ чата (_resolve_peer) ─────────────────────────
+
+
+def _group_entity(chat_id: int, title: str) -> object:
+    """Супергруппа в том виде, в каком её отдаёт contacts.Search."""
+    return SimpleNamespace(id=chat_id, megagroup=True, broadcast=False, title=title, username=None)
+
+
+def test_send_message_resolves_chat_by_title(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Название telethon сам не находит → ищем как `ls` и шлём НАЙДЕННУЮ сущность."""
+    chat = _group_entity(2440699657, "DEV | ALEXANDER KHROMOV")
+    fake = _FakeSendClient(
+        send_result=SimpleNamespace(id=1, date=_iso(), chat_id=-1002440699657),
+        bad_targets=("DEV | ALEXANDER KHROMOV",),
+        found_chats=[chat],
+    )
+    _patch_client(monkeypatch, fake)
+    res = asyncio.run(telegram.send_message(_make_cfg(), "DEV | ALEXANDER KHROMOV", "привет"))
+    assert fake.sent is not None
+    assert fake.sent[0] is chat  # в telethon ушла сущность из поиска, а не строка
+    assert res.chat_id == -1002440699657
+
+
+def test_send_message_title_case_insensitive(monkeypatch: pytest.MonkeyPatch) -> None:
+    chat = _group_entity(5, "DEV | ALEXANDER KHROMOV")
+    fake = _FakeSendClient(
+        send_result=SimpleNamespace(id=1, date=_iso(), chat_id=-5),
+        bad_targets=("alexander khromov",),
+        found_chats=[chat],
+    )
+    _patch_client(monkeypatch, fake)
+    asyncio.run(telegram.send_message(_make_cfg(), "alexander khromov", "hi"))
+    assert fake.sent is not None
+    assert fake.sent[0] is chat
+
+
+def test_send_message_title_not_found_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeSendClient(bad_targets=("Нет такого чата",))
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError) as excinfo:
+        asyncio.run(telegram.send_message(_make_cfg(), "Нет такого чата", "hi"))
+    assert "mpu telegram ls" in str(excinfo.value)  # подсказка, как найти адресата
+    assert fake.sent is None
+
+
+def test_send_message_title_ambiguous_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Несколько чатов с таким названием — не угадываем, показываем кандидатов."""
+    fake = _FakeSendClient(
+        bad_targets=("DEV",),
+        found_chats=[_group_entity(1, "DEV | Иван"), _group_entity(2, "DEV | Пётр")],
+    )
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError) as excinfo:
+        asyncio.run(telegram.send_message(_make_cfg(), "DEV", "hi"))
+    message = str(excinfo.value)
+    assert "DEV | Иван" in message
+    assert "DEV | Пётр" in message
+    assert fake.sent is None
+
+
+def test_send_message_unknown_id_does_not_search_by_title(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Адресат-id не резолвится → ошибка сразу, поиск по названию для id бессмыслен."""
+    fake = _FakeSendClient(bad_targets=(-1009999999999,))
+    _patch_client(monkeypatch, fake)
+    with pytest.raises(TgError):
+        asyncio.run(telegram.send_message(_make_cfg(), -1009999999999, "hi"))
+    assert fake.searched == []
+
+
 # ── send_file ────────────────────────────────────────────────────────────────
 
 
@@ -802,7 +925,7 @@ def test_send_file_single_path(monkeypatch: pytest.MonkeyPatch) -> None:
     res = asyncio.run(
         telegram.send_file(_make_cfg(), "me", ["/tmp/a.zip"], caption="hi", parse_mode="md")
     )
-    assert fake.sent_file == ("me", ["/tmp/a.zip"], "hi", "md", True)
+    assert fake.sent_file == (("input", "me"), ["/tmp/a.zip"], "hi", "md", True)
     assert res.id == 42
     assert res.chat_id == -100500
     assert res.date == "2026-06-18T10:00:00+00:00"
@@ -1025,12 +1148,14 @@ class _FakeMsgSearchClient:
         *,
         peer_id: int = 0,
         bad_targets: tuple[object, ...] = (),
+        found_chats: list[object] | None = None,
         iter_error: Exception | None = None,
     ) -> None:
         self.session = _FakeSession()
         self._messages = messages
         self._peer_id = peer_id
         self._bad_targets: set[object] = set(bad_targets)
+        self._found_chats = found_chats or []
         self._iter_error = iter_error
         self.iter_kwargs: dict[str, object] = {}
         self.iter_entity: object = "UNSET"
@@ -1045,6 +1170,10 @@ class _FakeMsgSearchClient:
         if target in self._bad_targets:
             raise ValueError(f"no entity for {target!r}")
         return ("input", target)
+
+    async def __call__(self, _request: object) -> object:
+        # contacts.Search при резолве адресата по названию.
+        return SimpleNamespace(users=[], chats=self._found_chats)
 
     async def get_peer_id(self, _entity: object) -> int:
         return self._peer_id
@@ -1127,10 +1256,24 @@ def test_search_messages_bad_chat_raises(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_search_messages_bad_from_user_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = _FakeMsgSearchClient([], bad_targets=("@baduser",))
     _patch_client(monkeypatch, fake)
-    with pytest.raises(TgError):
+    with pytest.raises(TgError) as excinfo:
         asyncio.run(
             telegram.search_messages(_make_cfg(), "x", chat="@dev", from_user="@baduser", limit=10)
         )
+    assert "отправителя" in str(excinfo.value)  # адресат и отправитель различимы в ошибке
+
+
+def test_search_messages_resolves_chat_by_title(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`--chat "<название>"` — тот же резолв поиском, что и у send."""
+    chat = _group_entity(777, "DEV | ALEXANDER KHROMOV")
+    fake = _FakeMsgSearchClient([], bad_targets=("DEV | ALEXANDER KHROMOV",), found_chats=[chat])
+    _patch_client(monkeypatch, fake)
+    asyncio.run(
+        telegram.search_messages(
+            _make_cfg(), "релиз", chat="DEV | ALEXANDER KHROMOV", from_user=None, limit=10
+        )
+    )
+    assert fake.iter_entity is chat
 
 
 def test_search_messages_flood_wait_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:

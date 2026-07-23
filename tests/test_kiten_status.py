@@ -93,7 +93,14 @@ def test_load_column_map_empty_and_bad(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_build_status_empty() -> None:
     text = build_status_text([], label="2026-06-24 МСК")
+    assert text.startswith("Отчёт за сегодня (2026-06-24 МСК):")
     assert "Сегодня перемещений не было." in text
+
+
+def test_build_status_header() -> None:
+    entries = [_entry(100, title="Карточка A", column="Готово", moved_at=20)]
+    text = build_status_text(entries, label="2026-06-24 МСК")
+    assert text.splitlines()[0] == "Отчёт за сегодня (2026-06-24 МСК):"
 
 
 def test_build_status_numbered_links_and_emoji() -> None:

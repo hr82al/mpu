@@ -2,9 +2,11 @@
 
 - `mpu telegram send "<текст>" [--chat X] [--md] [-f PATH ...]` — отправить сообщение или
   файл(ы). Адресат: `--chat` (override) или `TELEGRAM_DEFAULT_CHAT` из .env. Принимает
-  `@username`, числовой id, ссылку t.me, телефон или `me` (Избранное). `-` вместо текста →
-  читать из stdin. `--md` — Markdown (`[текст](url)` → ссылка). `-f/--file PATH` — приложить
-  файл документом (повторяй для нескольких); текст становится подписью (допускается пустой).
+  `@username`, числовой id, ссылку t.me, телефон, `me` (Избранное) или НАЗВАНИЕ чата
+  (`DEV | ALEXANDER KHROMOV` — как в `ls`; неоднозначное название → ошибка со списком).
+  `-` вместо текста → читать из stdin. `--md` — Markdown (`[текст](url)` → ссылка).
+  `-f/--file PATH` — приложить файл документом (повторяй для нескольких); текст становится
+  подписью (допускается пустой).
 - `mpu telegram ls [запрос] [--limit N] [--table]` — найти адресата (id, title, kind,
   username): с аргументом — поиск по имени/@username (контакты + глобально), без — последние
   диалоги. По умолчанию JSON; `--table` — для человека.
@@ -84,7 +86,7 @@ def send(
         str | None,
         typer.Option(
             "--chat",
-            help="Адресат: @username / id / t.me-ссылка / телефон / me. "
+            help="Адресат: @username / id / t.me-ссылка / телефон / me / название чата. "
             "По умолчанию TELEGRAM_DEFAULT_CHAT из .env",
         ),
     ] = None,
@@ -202,7 +204,8 @@ def status(
         str | None,
         typer.Option(
             "--chat",
-            help="Адресат: @username / id / t.me / телефон / me. По умолч. TELEGRAM_DEFAULT_CHAT",
+            help="Адресат: @username / id / t.me / телефон / me / название чата. "
+            "По умолч. TELEGRAM_DEFAULT_CHAT",
         ),
     ] = None,
     live: Annotated[
@@ -310,7 +313,7 @@ def search(
         str | None,
         typer.Option(
             "--chat",
-            help="Искать только в этом чате (@username / id / t.me / телефон / me). "
+            help="Искать только в этом чате (@username / id / t.me / телефон / me / название). "
             "По умолчанию — глобально по всем диалогам",
         ),
     ] = None,
@@ -318,7 +321,7 @@ def search(
         str | None,
         typer.Option(
             "--from",
-            help="Оставить только сообщения этого отправителя (@username / id / телефон). "
+            help="Оставить только сообщения этого отправителя (@username / id / телефон / имя). "
             "Без --chat — клиентский фильтр поверх глобального поиска (нужен текст)",
         ),
     ] = None,

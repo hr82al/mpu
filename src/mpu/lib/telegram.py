@@ -2,8 +2,9 @@
 
 Изолирует всё взаимодействие с telethon (внешняя библиотека, типизирована неполно, без
 py.typed). Наружу отдаёт собственные dataclass'ы (TgDialog / TgSentMessage / TgMessage); чистые
-функции (resolve_chat / parse_chat_target / parse_proxy_url / dialog_to_dict / message_to_dict /
-message_link) тестируются без сети — сам сетевой I/O, как и в lib/kaiten.py, тестами не покрывается.
+функции (resolve_chat / parse_chat_target / match_dialogs_by_title / parse_proxy_url /
+dialog_to_dict / message_to_dict / message_link) тестируются без сети — сам сетевой I/O, как и
+в lib/kaiten.py, тестами не покрывается.
 
 Прокси: трафик telethon идёт через TELEGRAM_PROXY (если задан), иначе через стандартные
 HTTPS_PROXY/https_proxy. Поддержаны http/https (CONNECT) и socks5/socks4. ВАЖНО: HTTPS_PROXY
@@ -37,6 +38,7 @@ from mpu.lib import env
 
 if TYPE_CHECKING:
     from telethon import TelegramClient
+    from telethon.hints import EntityLike
 
 # telethon импортируется ЛЕНИВО внутри I/O-функций (≈400 ms на импорт). `_mount` в cli.py
 # грузит все командные модули eager при каждом запуске `mpu` — держать telethon на верхнем
@@ -51,6 +53,10 @@ _CHANNEL_ID_BASE = 1_000_000_000_000
 # (см. search_messages: глобальный from-поиск telethon делать не умеет). Совпадений
 # по отправителю наберём максимум `limit`, но сам скан этим числом ограничен.
 _GLOBAL_FROM_SCAN_LIMIT = 1000
+
+# Сколько кандидатов тянуть из contacts.Search при резолве адресата по НАЗВАНИЮ чата
+# (см. _resolve_peer). Столько же берёт `mpu telegram ls` по умолчанию.
+_TITLE_SEARCH_LIMIT = 50
 
 _PROXY_SCHEMES: dict[str, str] = {
     "http": "http",
@@ -150,7 +156,10 @@ def parse_chat_target(raw: str) -> str | int:
     - `https://t.me/<name>` / `t.me/<name>` → `<name>` (публичный username);
     - `@username` → `username`;
     - числовой id (в т.ч. отрицательный для групп/каналов) → int;
-    - всё прочее (телефон `+7...`, username, спец-имя `me`) → строка как есть.
+    - всё прочее (телефон `+7...`, username, спец-имя `me`, НАЗВАНИЕ чата) → строка как есть.
+
+    Название чата (`DEV | ALEXANDER KHROMOV`) telethon сам не резолвит — это делает
+    `_resolve_peer` уже на подключённом клиенте (поиском, как `mpu telegram ls`).
     """
     s = raw.strip()
     for prefix in ("https://t.me/", "http://t.me/", "t.me/"):
@@ -162,6 +171,17 @@ def parse_chat_target(raw: str) -> str | int:
     if _INT_RE.fullmatch(s):
         return int(s)
     return s
+
+
+def match_dialogs_by_title(dialogs: list[TgDialog], title: str) -> list[TgDialog]:
+    """Чаты, чьё НАЗВАНИЕ совпало с `title` (без учёта регистра).
+
+    Сначала точные совпадения; их нет — совпадения по вхождению подстроки. Ничего не
+    совпало → `[]`. Несколько кандидатов разбирает вызывающий (`_resolve_peer`).
+    """
+    needle = title.strip().casefold()
+    exact = [d for d in dialogs if d.title.casefold() == needle]
+    return exact or [d for d in dialogs if needle in d.title.casefold()]
 
 
 def dialog_to_dict(d: TgDialog) -> dict[str, object]:
@@ -315,6 +335,67 @@ async def _translated_rpc_errors() -> AsyncGenerator[None]:
         raise TgError(f"telegram: RPC error: {e}") from None
 
 
+async def _search_raw_entities(client: TelegramClient, query: str, limit: int) -> list[EntityLike]:
+    """Сущности (User/Chat/Channel) из `contacts.Search`: общий RPC для `ls` и резолва названия."""
+    from telethon.tl.functions.contacts import SearchRequest
+
+    async with _translated_rpc_errors():
+        res = await client(SearchRequest(q=query, limit=limit))
+    return [*res.users, *res.chats]
+
+
+def _dialogs_by_id(entities: list[EntityLike]) -> dict[int, tuple[TgDialog, EntityLike]]:
+    """Сущности поиска → `{id: (dialog, entity)}`: дедуп по id, порядок ответа сохраняется."""
+    out: dict[int, tuple[TgDialog, EntityLike]] = {}
+    for entity in entities:
+        dialog = _entity_to_dialog(entity)
+        out.setdefault(dialog.id, (dialog, entity))
+    return out
+
+
+async def _find_entity_by_title(client: TelegramClient, title: str) -> EntityLike | None:
+    """Найти чат/пользователя по НАЗВАНИЮ (тем же поиском, что `mpu telegram ls`). Нет — None.
+
+    Отдаётся сама сущность из ответа: в ней есть `access_hash`, поэтому telethon примет её
+    без кэша сессии. Неоднозначность (несколько подходящих названий) → TgError со списком.
+    """
+    found = _dialogs_by_id(await _search_raw_entities(client, title, _TITLE_SEARCH_LIMIT))
+    matches = match_dialogs_by_title([dialog for dialog, _ in found.values()], title)
+    if not matches:
+        return None
+    if len(matches) > 1:
+        listing = "; ".join(f"{d.title!r} → id {d.id}" for d in matches)
+        raise TgError(
+            f"telegram: под название {title!r} подходит несколько чатов: {listing}; "
+            "попробуй: указать адресата по id или @username"
+        )
+    return found[matches[0].id][1]
+
+
+async def _resolve_peer(
+    client: TelegramClient, target: str | int, *, what: str = "чат"
+) -> EntityLike:
+    """Адресат (id / @username / t.me / телефон / me / НАЗВАНИЕ чата) → сущность для telethon.
+
+    Название telethon сам не резолвит: он ищет строку среди уже виденных сущностей, а у
+    CLI-процесса этот кэш пуст (StringSession хранит его только в памяти). Поэтому на
+    неудачу штатного резолва пробуем найти чат по названию. `what` — слово для ошибки
+    («чат» / «отправителя»).
+    """
+    try:
+        return await client.get_input_entity(target)
+    except (ValueError, TypeError) as e:
+        reason = e
+    if isinstance(target, str):
+        entity = await _find_entity_by_title(client, target)
+        if entity is not None:
+            return entity
+    raise TgError(
+        f"telegram: не удалось найти {what} {target!r}: {reason}; "
+        "попробуй: mpu telegram ls '<название>' и укажи id или @username"
+    ) from None
+
+
 async def send_message(
     cfg: TgConfig, target: str | int, text: str, *, parse_mode: str | None = None
 ) -> TgSentMessage:
@@ -323,8 +404,9 @@ async def send_message(
     `parse_mode="md"` — Markdown: `[текст](url)` → ссылка, `**жирный**` и т.п. None — как есть.
     """
     async with _session(cfg) as client, _translated_rpc_errors():
+        peer = await _resolve_peer(client, target)
         try:
-            msg = await client.send_message(target, text, parse_mode=parse_mode)
+            msg = await client.send_message(peer, text, parse_mode=parse_mode)
         except ValueError as e:
             raise TgError(f"telegram: не удалось найти чат {target!r}: {e}") from None
         date = msg.date.isoformat() if msg.date is not None else None
@@ -352,12 +434,13 @@ async def send_file(
     последнее. TgNotAuthorizedError если нет сессии.
     """
     async with _session(cfg) as client, _translated_rpc_errors():
+        peer = await _resolve_peer(client, target)
         try:
             # telethon-стаб типизирует caption/parse_mode строго (str, без None), но рантайм
             # принимает None как «без подписи / без разметки» (дефолты метода). Как с proxy в
             # _make_client — стаб строже рантайма, подавляем точечно.
             sent = await client.send_file(
-                target,
+                peer,
                 files,
                 force_document=True,
                 caption=caption,  # pyright: ignore[reportArgumentType]
@@ -389,19 +472,9 @@ async def search_entities(cfg: TgConfig, query: str, limit: int) -> list[TgDialo
 
     Нужен, чтобы найти адресата, которого нет в недавних диалогах (`list_dialogs`).
     """
-    from telethon.tl.functions.contacts import SearchRequest
-
-    out: list[TgDialog] = []
-    seen: set[int] = set()
     async with _session(cfg) as client:
-        async with _translated_rpc_errors():
-            res = await client(SearchRequest(q=query, limit=limit))
-        for entity in [*res.users, *res.chats]:
-            dialog = _entity_to_dialog(entity)
-            if dialog.id not in seen:
-                seen.add(dialog.id)
-                out.append(dialog)
-    return out
+        entities = await _search_raw_entities(client, query, limit)
+    return [dialog for dialog, _ in _dialogs_by_id(entities).values()]
 
 
 async def search_messages(
@@ -426,20 +499,12 @@ async def search_messages(
     """
     out: list[TgMessage] = []
     async with _session(cfg) as client:
-        entity = None
-        if chat is not None:
-            try:
-                entity = await client.get_input_entity(chat)
-            except (ValueError, TypeError) as e:
-                raise TgError(f"telegram: не удалось найти чат {chat!r}: {e}") from None
-        sender = None
-        if from_user is not None:
-            try:
-                sender = await client.get_input_entity(from_user)
-            except (ValueError, TypeError) as e:
-                raise TgError(
-                    f"telegram: не удалось найти отправителя {from_user!r}: {e}"
-                ) from None
+        entity = await _resolve_peer(client, chat) if chat is not None else None
+        sender = (
+            await _resolve_peer(client, from_user, what="отправителя")
+            if from_user is not None
+            else None
+        )
 
         # Глобальный from-фильтр (sender задан, chat — нет) фильтруем клиентски: нужен текст.
         global_from = entity is None and sender is not None
