@@ -11,7 +11,7 @@ from typing import Annotated, cast
 
 import typer
 
-from mpu.lib import env, kaiten_cache
+from mpu.lib import cli_opts as _cli_opts, env, kaiten_cache
 from mpu.lib.kaiten import parse_card_ref
 
 # Публичный API модуля для остального пакета `kiten` (в т.ч. `_`-имена: исторически
@@ -46,7 +46,7 @@ _CARD_HELP = "ID карточки или URL btlz.kaiten.ru (короткий/г
 CardArg = Annotated[str, typer.Argument(help=_CARD_HELP)]
 # Тот же аргумент там, где карточка необязательна (напр. `time ls` без селектора — все карточки).
 CardArgOpt = Annotated[str | None, typer.Argument(help=_CARD_HELP)]
-JsonOpt = Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")]
+JsonOpt = _cli_opts.JsonOpt  # общий алиас (канон help-текста), реэкспорт для kiten
 
 COMMAND_NAME = "mpu kiten"
 COMMAND_SUMMARY = (

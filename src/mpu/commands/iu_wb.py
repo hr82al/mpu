@@ -95,11 +95,11 @@ def make_sql(
     selector: _Selector,
     payload: _Payload = None,
     date_from: Annotated[
-        str, typer.Option("--date-from", help="начало периода YYYY-MM-DD")
+        str, typer.Option("--date-from", help="Начальная дата (YYYY-MM-DD)")
     ] = "2025-01-01",
     date_to: Annotated[
         str | None,
-        typer.Option("--date-to", help="конец периода YYYY-MM-DD (по умолчанию — сегодня)"),
+        typer.Option("--date-to", help="Конечная дата (YYYY-MM-DD); по умолчанию — сегодня"),
     ] = None,
     proto_table: Annotated[
         str, typer.Option("--proto-table", help="таблица-источник nm_id в схеме клиента")

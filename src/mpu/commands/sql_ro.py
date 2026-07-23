@@ -14,7 +14,7 @@ from typing import Annotated
 import typer
 
 from mpu.commands.sql import dispatch
-from mpu.lib.cli_opts import ServerOpt
+from mpu.lib.cli_opts import JsonOpt, ServerOpt
 
 COMMAND_NAME = "mpu sql-ro"
 COMMAND_SUMMARY = "Read-only SQL на удалённом PG по селектору (enforced, без записи)"
@@ -41,9 +41,7 @@ def main(
     ] = None,
     server: ServerOpt = None,
     dry: Annotated[bool, typer.Option("--dry", help="Только meta + SQL, без коннекта")] = False,
-    json_out: Annotated[
-        bool, typer.Option("--json", help="Результат как JSON-array объектов")
-    ] = False,
+    json_out: JsonOpt = False,
     md_out: Annotated[bool, typer.Option("--md", help="Результат как markdown-таблица")] = False,
     verbose: Annotated[
         bool,

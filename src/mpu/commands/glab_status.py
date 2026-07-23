@@ -34,6 +34,7 @@ from rich.table import Table
 
 from mpu.lib import env
 from mpu.lib.cli_err import bind
+from mpu.lib.cli_opts import JsonOpt
 from mpu.lib.cli_out import print_json
 from mpu.lib.duration import DurationParseError, parse_since
 from mpu.lib.gitlab_mr import GitLabAPIError, GitLabClient, parse_mr_ref, project_from_cwd
@@ -362,7 +363,7 @@ def main(
             help="Печатать «прочие ветки» полным списком вместо счётчика (только с адресом MR)",
         ),
     ] = False,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод (вместо таблицы)")] = False,
+    out_json: JsonOpt = False,
 ) -> None:
     """Таблица прохождения MR по веткам деплой-пайплайна.
 

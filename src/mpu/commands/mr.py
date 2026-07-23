@@ -56,6 +56,7 @@ from rich.table import Table
 
 from mpu.lib import env
 from mpu.lib.cli_err import die
+from mpu.lib.cli_opts import JsonOpt
 from mpu.lib.cli_out import print_json
 from mpu.lib.gitlab_mr import (
     GitLabAPIError,
@@ -331,7 +332,7 @@ def _diff_file_header(fd: FileDiff) -> str:
 @app.command("view")
 def view(
     mr_ref: MrRefOption = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON (машинный)")] = False,
+    out_json: JsonOpt = False,
 ):
     """Шапка MR: заголовок, автор, ветки, состояние, описание."""
     client = _client("view")
@@ -405,7 +406,7 @@ def describe(
 @app.command("files")
 def files(
     mr_ref: MrRefOption = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON (машинный)")] = False,
+    out_json: JsonOpt = False,
 ):
     """Изменённые файлы MR: статус (A/D/R/M) и счётчик строк (+N/-M)."""
     client = _client("files")
@@ -528,7 +529,7 @@ def comments(
     author_filter: Annotated[
         str | None, typer.Option("--author", help="Substring-фильтр по автору первой ноты")
     ] = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON (машинный)")] = False,
+    out_json: JsonOpt = False,
     out_md: Annotated[
         bool, typer.Option("--md", help="Полные тела тредов одним markdown-выводом")
     ] = False,
@@ -576,7 +577,7 @@ def comments(
 def show(
     discussion_ref: DiscussionArg,
     mr_ref: MrRefOption = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON (машинный)")] = False,
+    out_json: JsonOpt = False,
 ):
     """Один тред целиком — все ноты verbatim."""
     client = _client("show")

@@ -32,6 +32,7 @@ from typing import Annotated, Any
 import typer
 
 from mpu.lib import store
+from mpu.lib.cli_opts import JsonOpt
 from mpu.lib.cli_out import print_json
 from mpu.lib.jsonx import dict_items, is_dict, is_list
 from mpu.lib.log import note
@@ -289,7 +290,7 @@ def ls(
     long_: Annotated[
         bool, typer.Option("-l", "--long", help="Title, rows×cols, sheetId, index.")
     ] = False,
-    json_out: Annotated[bool, typer.Option("--json", help="Structured JSON array.")] = False,
+    json_out: JsonOpt = False,
     refresh: Annotated[bool, typer.Option("-R", "--refresh", help="Skip metadata cache.")] = False,
 ) -> None:
     """List sheet (tab) names in a Google Spreadsheet."""

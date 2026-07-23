@@ -19,7 +19,7 @@ from typing import Annotated
 import typer
 
 from mpu.lib import servers, sql_runner, sql_sw
-from mpu.lib.cli_opts import ServerOpt
+from mpu.lib.cli_opts import JsonOpt, ServerOpt
 from mpu.lib.resolver import resolve_server_or_exit
 
 COMMAND_NAME = "mpu sql"
@@ -147,9 +147,7 @@ def main(
     ] = None,
     server: ServerOpt = None,
     dry: Annotated[bool, typer.Option("--dry", help="Только meta + SQL, без коннекта")] = False,
-    json_out: Annotated[
-        bool, typer.Option("--json", help="Результат как JSON-array объектов")
-    ] = False,
+    json_out: JsonOpt = False,
     md_out: Annotated[bool, typer.Option("--md", help="Результат как markdown-таблица")] = False,
     verbose: Annotated[
         bool,

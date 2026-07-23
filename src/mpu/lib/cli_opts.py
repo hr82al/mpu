@@ -58,3 +58,5 @@ SpreadsheetIdOpt = Annotated[
         help="Override spreadsheet_id если selector неоднозначен",
     ),
 ]
+
+JsonOpt = Annotated[bool, typer.Option("--json", help="JSON-вывод вместо таблицы")]

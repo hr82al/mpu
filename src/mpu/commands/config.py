@@ -19,6 +19,7 @@ import typer
 
 from mpu.lib import env, store
 from mpu.lib.cli_err import fail
+from mpu.lib.cli_opts import JsonOpt
 from mpu.lib.cli_out import print_json
 from mpu.lib.sheet_cache import (
     DEFAULT_MAX_TAB_BYTES,
@@ -126,7 +127,7 @@ def main(
         str | None, typer.Argument(help="Новое значение (без него — показать).")
     ] = None,
     unset: Annotated[bool, typer.Option("--unset", help="Сбросить ключ к дефолту.")] = False,
-    json_out: Annotated[bool, typer.Option("--json", help="Structured JSON.")] = False,
+    json_out: JsonOpt = False,
 ) -> None:
     """Show or change mpu configuration."""
     conn = store.open_store()

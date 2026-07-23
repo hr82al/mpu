@@ -27,7 +27,7 @@ from mpu.lib.kaiten import KaitenAPIError, KaitenClient
 
 @app.command("whoami")
 def whoami(
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо текста")] = False,
+    out_json: JsonOpt = False,
 ) -> None:
     """Текущий пользователь Kaiten по токену (GET /users/current)."""
     client = KaitenClient.from_env()

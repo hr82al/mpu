@@ -17,6 +17,7 @@ import typer
 
 from mpu.commands._portainer_resolve import resolve_portainer
 from mpu.lib import store
+from mpu.lib.cli_opts import JsonOpt
 from mpu.lib.cli_out import print_json
 from mpu.lib.jsonx import is_list
 
@@ -45,10 +46,7 @@ def main(
         str | None,
         typer.Option("--filter", "-f", help="Подстрока имени контейнера для фильтрации"),
     ] = None,
-    out_json: Annotated[
-        bool,
-        typer.Option("--json", help="JSON-вывод (вместо таблицы)"),
-    ] = False,
+    out_json: JsonOpt = False,
     out_tsv: Annotated[
         bool,
         typer.Option("--tsv", help="TSV-вывод"),

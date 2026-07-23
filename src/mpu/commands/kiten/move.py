@@ -228,7 +228,7 @@ def ready(
         str | None, typer.Option("--note", help="Заметка, сохраняется в журнал перемещений")
     ] = None,
     dry_run: Annotated[
-        bool, typer.Option("--dry-run", help="Показать намеченное действие без PATCH и без лога")
+        bool, typer.Option("--dry-run", help="Показать намеченное, ничего не записывая")
     ] = False,
 ) -> None:
     """Перевести карточку в колонку «Готово» (дорожка/доска сохраняются) + лог в журнал.
@@ -257,7 +257,7 @@ def review(
         str | None, typer.Option("--note", help="Заметка, сохраняется в журнал перемещений")
     ] = None,
     dry_run: Annotated[
-        bool, typer.Option("--dry-run", help="Показать намеченное действие без PATCH и без лога")
+        bool, typer.Option("--dry-run", help="Показать намеченное, ничего не записывая")
     ] = False,
 ) -> None:
     """Перевести карточку в колонку ревью (дорожка/доска сохраняются) + лог в журнал.
@@ -441,7 +441,9 @@ def close(  # noqa: PLR0913
     stop_timer: Annotated[
         bool, typer.Option("--stop-timer", help="Остановить запущенный таймер и записать время")
     ] = False,
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Показать план без записей")] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Показать намеченное, ничего не записывая")
+    ] = False,
 ) -> None:
     """Закрыть карточку: пустые обязательные поля + (опц.) ответ клиенту + перенос в «Готово».
 

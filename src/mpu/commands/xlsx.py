@@ -25,6 +25,7 @@ import typer
 
 from mpu.lib import store
 from mpu.lib.cli_err import fail
+from mpu.lib.cli_opts import JsonOpt
 from mpu.lib.sheet_cache import RangeRef, parse_range
 from mpu.lib.xlsx_reader import Cell, SheetSummary, XlsxError, XlsxFile
 from mpu.lib.xlsx_resolver import (
@@ -166,7 +167,7 @@ def get(
     render: Annotated[
         str, typer.Option("--render", help="both (значения + формулы) | values | formulas")
     ] = "both",
-    json_out: Annotated[bool, typer.Option("--json", help="Structured JSON (default).")] = False,
+    json_out: JsonOpt = False,
     raw: Annotated[
         bool, typer.Option("--raw", help="Bare values; single cell без trailing newline.")
     ] = False,
@@ -287,7 +288,7 @@ def ls(
     long_: Annotated[
         bool, typer.Option("-l", "--long", help="Detailed: title, rows×cols, index.")
     ] = False,
-    json_out: Annotated[bool, typer.Option("--json", help="Structured JSON array.")] = False,
+    json_out: JsonOpt = False,
 ) -> None:
     if long_ and json_out:
         fail(COMMAND_NAME, "only one of --long / --json can be set", code=2)
@@ -355,7 +356,7 @@ def open_(
 @app.command(name="resolve")
 def resolve_cmd(
     file: Annotated[str | None, typer.Option("-f", "--file", help=_FILE_HELP)] = None,
-    json_out: Annotated[bool, typer.Option("--json", help="Structured JSON output.")] = False,
+    json_out: JsonOpt = False,
 ) -> None:
     """Diagnostic: prints the resolved path and every source that was checked."""
     conn = store.open_store()
@@ -434,7 +435,7 @@ def alias_add_cmd(
 
 @alias_app.command("ls")
 def alias_ls_cmd(
-    json_out: Annotated[bool, typer.Option("--json", help="Structured JSON array.")] = False,
+    json_out: JsonOpt = False,
 ) -> None:
     """List all aliases."""
     conn = store.open_store()

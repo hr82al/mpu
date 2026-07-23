@@ -581,7 +581,7 @@ def time_rm(
         bool, typer.Option("--force", help="Удалить запись другого пользователя")
     ] = False,
     dry_run: Annotated[
-        bool, typer.Option("--dry-run", help="Показать намеченное, ничего не удаляя")
+        bool, typer.Option("--dry-run", help="Показать намеченное, ничего не записывая")
     ] = False,
 ) -> None:
     """Удалить запись учёта времени.
@@ -736,7 +736,7 @@ def time_start(
 @time_app.command("status")
 def time_status(
     selector: CardArgOpt = None,
-    out_json: Annotated[bool, typer.Option("--json", help="JSON-вывод вместо текста")] = False,
+    out_json: JsonOpt = False,
 ) -> None:
     """Идёт ли таймер и сколько всего списано по карточке.
 
