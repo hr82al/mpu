@@ -7,6 +7,7 @@ import io
 import sys
 from collections.abc import Iterator
 from pathlib import Path
+from typing import cast
 
 import click
 import pytest
@@ -114,18 +115,31 @@ def test_mount_single_vs_multi() -> None:
     assert "kiten" not in command_names
 
 
-def test_all_registry_commands_mounted() -> None:
-    """Все kebab-имена из COMMANDS + version/init смонтированы в root click-группу."""
+def test_all_registry_commands_listed() -> None:
+    """Все kebab-имена из COMMANDS + version/init/api видны в root click-группе.
+
+    Группа ленивая: имена берутся из реестра без импорта модулей, поэтому проверяем
+    `list_commands`, а не `.commands` (тот наполняется по мере обращения)."""
     cmd = typer.main.get_command(cli.app)
     assert isinstance(cmd, click.Group)
-    names = set(cmd.commands)
+    names = set(cmd.list_commands(click.Context(cmd)))
     for kebab in COMMANDS:
         assert kebab in names, kebab
-    assert "version" in names
-    assert "init" in names
+    assert {"version", "init", "api"} <= names
     # kebab-имена сохраняются как есть (не snake_case).
     assert "sql-ro" in names
     assert "backup-wb-unit-proto" in names
+
+
+def test_lazy_command_is_built_on_demand() -> None:
+    """Обращение к команде импортирует её модуль и кэширует результат в группе."""
+    group = cast(click.Group, typer.main.get_command(cli.app))
+    ctx = click.Context(group)
+    assert "sql-ro" not in group.commands  # до обращения — не смонтирована
+    built = group.get_command(ctx, "sql-ro")
+    assert built is not None
+    assert group.commands["sql-ro"] is built  # повторное обращение — из кэша
+    assert group.get_command(ctx, "нет-такой-команды") is None
 
 
 # ── main(): typer→click мост + добавление api-группы ──────────────────────────

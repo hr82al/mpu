@@ -9,20 +9,60 @@
 `main()` на уровне click поверх сконвертированного Typer-app (не входит в `COMMANDS`).
 """
 
-import asyncio
 import importlib
 import sys
 from typing import Annotated, cast
 
 import click
 import typer
+from typer.core import TyperGroup
 
 from mpu import __version__
 from mpu.cli_registry import COMMANDS
-from mpu.lib import env, kaiten_cache, loki_discover, portainer_discover, store, telegram
+
+_API_GROUP_NAME = "api"
+
+
+class _LazyGroup(TyperGroup):
+    """Root-группа, импортирующая модуль подкоманды только при обращении к ней.
+
+    Монтировать все 54 команды заранее — значит на каждый вызов `mpu` тянуть `psycopg`,
+    `httpx`, `asyncio` и остальное, что нужно одной-двум из них (около секунды на старте).
+    Здесь список имён берётся из реестра без импорта, а модуль грузится в `get_command`.
+    Цена: `mpu --help` печатает summary всех команд, поэтому импортирует их все — редкий
+    случай, ради которого нет смысла держать реестр с продублированными описаниями.
+    """
+
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        known = super().list_commands(ctx)
+        return [*COMMANDS, *known, *([] if _API_GROUP_NAME in known else [_API_GROUP_NAME])]
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        known = super().get_command(ctx, cmd_name)
+        if known is not None:
+            return known
+        if cmd_name == _API_GROUP_NAME:
+            from mpu.commands._mpuapi_runtime import build_api_group
+
+            api_group = build_api_group()
+            self.add_command(api_group, _API_GROUP_NAME)
+            return api_group
+        spec = COMMANDS.get(cmd_name)
+        if spec is None:
+            return None
+        holder = typer.Typer()
+        holder.callback()(lambda: None)  # без callback typer схлопнет single-command в root
+        _mount(holder, {cmd_name: spec})
+        built = cast(click.Group, typer.main.get_command(holder))
+        command = built.get_command(ctx, cmd_name)
+        if command is not None:
+            self.add_command(command, cmd_name)  # второй вызов в том же процессе — из кэша
+        return command
+
 
 app = typer.Typer(
     name="mpu",
+    cls=_LazyGroup,
     help="Monorepo Python utilities — multi-purpose CLI for ad-hoc operations.",
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -60,22 +100,16 @@ def _mount(parent: typer.Typer, registry: dict[str, tuple[str, str]]) -> None:
             parent.add_typer(sub_app, name=name)
 
 
-_mount(app, COMMANDS)
-
-
 def main() -> None:
     """Entry point для `mpu` бинаря (pyproject.toml#[project.scripts]).
 
-    Конвертирует Typer-app в click.Group и добавляет `api` (нативный click.Group)
-    как subcommand. Прямое монтирование через `app.add_typer(...)` не подходит:
-    `build_api_group()` возвращает `click.Group`, не `typer.Typer`.
+    Конвертирует Typer-app в click.Group; `api` — нативный `click.Group`, не `typer.Typer`,
+    поэтому монтируется не через `app.add_typer(...)`, а лениво в `_LazyGroup.get_command`
+    (его сборка тянет спеку ~86 endpoint'ов и httpx — не за каждый вызов CLI).
     """
-    from mpu.commands._mpuapi_runtime import build_api_group
-
     # Typer.main.get_command возвращает click.Command (на уровне типов),
     # но при multi-command typer-app — это всегда click.Group.
     click_app = cast(click.Group, typer.main.get_command(app))
-    click_app.add_command(build_api_group(), name="api")
     click_app()
 
 
@@ -108,6 +142,10 @@ def init_cmd(
     Кэшируем все контейнеры, помечая `mp-sl-N-cli` через `server_number`. Этот кэш
     потом читает `mpu p ssh` для резолва Portainer-транспорта.
     """
+    # Импорт здесь, а не на уровне модуля: psycopg/httpx/asyncio нужны только этой команде,
+    # а `mpu.cli` грузится на каждый вызов CLI (см. _LazyGroup).
+    from mpu.lib import kaiten_cache, loki_discover, portainer_discover, store
+
     # Шаг 1: bootstrap SQLite-схемы (отсюда — всегда, других мест нет).
     with store.store() as conn:
         store.bootstrap(conn)
@@ -228,6 +266,8 @@ def _ensure_telegram_creds() -> bool:
     Возвращает True, если creds на месте (или введены), False — если пользователь отказался
     / ввёл пусто. Пишет введённые значения в ~/.config/mpu/.env.
     """
+    from mpu.lib import env
+
     if env.get("TELEGRAM_API_ID") and env.get("TELEGRAM_API_HASH"):
         return True
     typer.echo(
@@ -265,6 +305,10 @@ def _ensure_telegram_creds() -> bool:
 
 def _telegram_login_step() -> None:
     """Интерактивный вход в Telegram при `mpu init` (идемпотентно, best-effort)."""
+    import asyncio
+
+    from mpu.lib import env, telegram
+
     if env.get("TELEGRAM_SESSION"):
         typer.echo("# telegram: уже авторизован, пропускаю", err=True)
         return
