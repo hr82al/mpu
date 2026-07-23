@@ -196,3 +196,17 @@ def test_backup_sl_n_selector_with_schema_id(env: None, monkeypatch: pytest.Monk
         "CREATE TABLE backups.wb_unit_proto_999_20260322 AS\n"
         "SELECT * FROM schema_999.wb_unit_proto;"
     )
+
+
+def test_error_prefix_matches_real_command_name(
+    env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Префикс ошибки — имя команды как её вызывают (`mpu backup-wb-unit-proto`).
+
+    Раньше дефолт склеивался через дефис (`mpu-backup-wb-unit-proto`) — в stderr
+    печаталось несуществующее имя команды, нарушая контракт `<команда>: <причина>`."""
+    monkeypatch.setattr(sql_runner, "run_sql", _noop_run)
+    for module in (backup_wb_unit_proto, backup_ozon_unit_proto, backup_wb_unit_manual_data):
+        res = runner.invoke(module.app, ["99999", "--dry"])
+        assert res.exit_code == 2
+        assert res.stderr.startswith(f"{module.COMMAND_NAME}: "), res.stderr

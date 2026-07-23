@@ -37,10 +37,10 @@ def run_backup(
     schema_id: int | None,
     server: str | None,
     dry: bool,
+    command_label: str,
     source_table: str | None = None,
-    command_label: str | None = None,
 ) -> int:
-    label = command_label or f"mpu-backup-{marketplace}-unit-proto"
+    label = command_label
     try:
         server_number, candidates = resolve_server(selector, server_override=server)
     except ResolveError as e:
@@ -85,9 +85,12 @@ def run_backup(
 def make_app(
     marketplace: Marketplace,
     *,
+    command_label: str,
     source_table: str | None = None,
-    command_label: str | None = None,
 ) -> typer.Typer:
+    """Приложение backup-команды. `command_label` — имя команды как её вызывают
+    (`mpu backup-wb-unit-proto`): оно идёт префиксом в сообщения об ошибках, поэтому
+    задаётся вызывающим модулем, а не собирается здесь по частям."""
     app = typer.Typer(
         no_args_is_help=True,
         context_settings={"help_option_names": ["-h", "--help"]},
