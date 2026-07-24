@@ -29,8 +29,14 @@ def mp_config_local_dir() -> Path:
 
 
 def build_compose_argv(inner: str) -> list[str]:
-    """Собрать argv для `docker compose --env-file ... -f ... exec -it cli sh -c <inner>`."""
+    """Собрать argv для `docker compose --env-file ... -f ... exec -i[t] cli sh -c <inner>`.
+
+    `-t` (tty) добавляется только если stdin процесса реально терминал: без реального
+    TTY (агент/CI/non-interactive запуск) `docker compose exec -it` виснет в ожидании
+    ввода на выделенном псевдо-TTY, вместо ошибки или завершения.
+    """
     base = mp_config_local_dir()
+    exec_flag = "-it" if sys.stdin.isatty() else "-i"
     return [
         "docker",
         "compose",
@@ -38,7 +44,7 @@ def build_compose_argv(inner: str) -> list[str]:
         "-f",
         str(base / "compose.sl-dt-host.yaml"),
         "exec",
-        "-it",
+        exec_flag,
         "cli",
         "sh",
         "-c",

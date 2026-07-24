@@ -13,11 +13,26 @@ def test_build_compose_argv_uses_default_dir(monkeypatch: pytest.MonkeyPatch) ->
     argv = dt_host.build_compose_argv("echo hi")
 
     assert argv[:2] == ["docker", "compose"]
-    # последние 5 элементов: exec -it cli sh -c <inner>
-    assert argv[-6:-1] == ["exec", "-it", "cli", "sh", "-c"]
+    # последние 5 элементов: exec -i[t] cli sh -c <inner> (флаг зависит от isatty())
+    assert argv[-6] == "exec"
+    assert argv[-5] in ("-i", "-it")
+    assert argv[-4:-1] == ["cli", "sh", "-c"]
     assert argv[-1] == "echo hi"
     assert "--env-file" in argv
     assert any(arg.endswith("compose.sl-dt-host.yaml") for arg in argv)
+
+
+def test_build_compose_argv_exec_flag_follows_isatty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Без реального TTY на stdin (агент/CI) — `-i`, не `-it` (иначе docker виснет)."""
+    monkeypatch.setattr(dt_host.sys.stdin, "isatty", lambda: False)
+    argv = dt_host.build_compose_argv("echo hi")
+    assert argv[argv.index("exec") + 1] == "-i"
+
+    monkeypatch.setattr(dt_host.sys.stdin, "isatty", lambda: True)
+    argv = dt_host.build_compose_argv("echo hi")
+    assert argv[argv.index("exec") + 1] == "-it"
 
 
 def test_build_compose_argv_env_layer_names(
