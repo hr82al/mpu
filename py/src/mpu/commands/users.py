@@ -16,10 +16,15 @@ from mpu.lib.cli_wrap import (
 )
 
 COMMAND_NAME = "mpu users"
+COMMAND_SUMMARY = "Обёртки service:users на main (exec через Portainer)"
 
 app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
+    help=(
+        "Обёртки над `node cli service:users` (sl-back). Дефолт — немедленное "
+        "выполнение метода в проде через Portainer; `--print`/`-p` — печать команды."
+    ),
 )
 
 attach_selector_callback(app=app, command_name=COMMAND_NAME)

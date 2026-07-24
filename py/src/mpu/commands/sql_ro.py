@@ -31,6 +31,7 @@ def main(
         str,
         typer.Argument(
             help="client_id, spreadsheet_id substring, title substring, "
+            "sl-N (сервер целиком, без search_path; main = sl-0), "
             "sw-PG алиас (sw / sw-pg / ws / workspaces), "
             "или dev-стенд `dev:<client_id>` (БД mp_sl_1_dev, search_path schema_<client_id>)"
         ),
@@ -50,6 +51,12 @@ def main(
         ),
     ] = False,
 ) -> None:
+    """Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).
+
+    То же, что `mpu sql`, но PG открывает сессию с `default_transaction_read_only=on`:
+    любой пишущий запрос (включая data-modifying CTE) отклоняется сервером
+    (SQLSTATE 25006) — гарантия PG, не анализ текста SQL. Для записи — `mpu sql`.
+    """
     dispatch(
         selector,
         sql,

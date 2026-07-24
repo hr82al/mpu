@@ -14,6 +14,7 @@ from mpu.lib.cli_wrap import (
 )
 
 COMMAND_NAME = "mpu wb-unit-calc"
+COMMAND_SUMMARY = "service:wbUnitCalc getUnitDataByDateNmId — read-only debug"
 
 app = typer.Typer(
     no_args_is_help=True,

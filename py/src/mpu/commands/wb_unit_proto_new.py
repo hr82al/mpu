@@ -11,10 +11,15 @@ from mpu.lib.cli_wrap import (
 )
 
 COMMAND_NAME = "mpu wb-unit-proto-new"
+COMMAND_SUMMARY = "Миграция старой wb_unit_proto в новую (copy-data-from-old-table)"
 
 app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
+    help=(
+        "Миграция старой wb_unit_proto-таблицы в новую: `copy-data-from-old-table` — "
+        "обёртка node cli через Portainer; `--print`/`-p` — только печать команды."
+    ),
 )
 
 

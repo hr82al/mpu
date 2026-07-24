@@ -6,7 +6,7 @@
 
 UX: `<bin> <selector> <subcommand> [--pattern <p>]`, e.g.
     `mpu ozon-jobs sl-2 show`
-    `mpu p ozon-jobs 12345 prune --pattern 'foo*'`
+    `mpu ozon-jobs 12345 prune --pattern 'foo*' --print`
 """
 
 from typing import Annotated
@@ -48,7 +48,8 @@ def _register_one(
 ) -> None:
     @app.command(
         name=sub_name,
-        help=f"Распечатать ssh-команду для service:{service} {method_name}.",
+        help=f"Выполнить service:{service} {method_name} через Portainer "
+        f"(дефолт — сразу в проде); `--print`/`-p` — только печать команды.",
     )
     def _cmd(  # pyright: ignore[reportUnusedFunction]
         ctx: typer.Context,

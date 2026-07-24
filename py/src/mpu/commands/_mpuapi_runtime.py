@@ -1,8 +1,8 @@
-"""Runtime для `mpuapi-*` команд.
+"""Runtime для группы `mpu api <X>` (бывшие отдельные бины `mpuapi-*`).
 
-По спеке из `_mpuapi_spec.COMMANDS` строит для каждого endpoint'а click-команду и
-экспортирует `run_<name>()` callable, на которые ссылается
-`pyproject.toml#[project.scripts]`.
+По спеке из `_mpuapi_spec.COMMANDS` строит для каждого endpoint'а click-команду
+и собирает их в click.Group через `build_api_group()` — её монтирует `cli.py`
+под `mpu api`.
 
 Парадигма:
   - path placeholders (`:clientId`, `:spreadsheetId`) → позиционные аргументы команды
@@ -11,7 +11,7 @@
   - `accepts_raw_body=True` → дополнительная опция `--body / -b '<json>' | @file.json`,
     при наличии полностью перекрывает `--<field>` опции.
   - `no_auth=True` → запрос без `Authorization` (только `/auth/login`).
-  - `token_only=True` → печать только `accessToken` (для `mpuapi-get-token`),
+  - `token_only=True` → печать только `accessToken` (для `mpu api get-token`),
     с автозаполнением email/password из env при отсутствии явных флагов.
 
 Используем `click` напрямую (не `typer.Typer`), потому что typer для команды без

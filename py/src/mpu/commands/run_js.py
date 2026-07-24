@@ -331,14 +331,17 @@ def main(  # noqa: PLR0913
     ] = None,
     code: Annotated[
         str | None,
-        typer.Argument(help="Inline ESM-код (после селектора)"),
+        typer.Argument(
+            help="Inline ESM-код (после селектора); источник кода: code → --file → stdin, "
+            "code и --file взаимоисключающие"
+        ),
     ] = None,
     file: Annotated[
         Path | None,
         typer.Option(
             "--file",
             "-f",
-            help="Путь к .mjs/.js файлу с ESM-кодом",
+            help="Путь к .mjs/.js файлу с ESM-кодом (взаимоисключающе с inline-кодом)",
             exists=True,
             dir_okay=False,
             readable=True,
@@ -361,7 +364,11 @@ def main(  # noqa: PLR0913
     ] = False,
     via: Annotated[
         str | None,
-        typer.Option("--via", help="Override транспорта для всех sl-N целей: ssh | portainer"),
+        typer.Option(
+            "--via",
+            help="Override транспорта для всех sl-N целей: ssh | portainer "
+            "(контейнеры по имени — всегда portainer)",
+        ),
     ] = None,
     parallel: Annotated[
         bool,
@@ -373,7 +380,11 @@ def main(  # noqa: PLR0913
     ] = False,
     jobs: Annotated[
         int,
-        typer.Option("--jobs", "-j", help="Макс. одновременных целей при --parallel (0 = все)"),
+        typer.Option(
+            "--jobs",
+            "-j",
+            help="Макс. одновременных целей при --parallel (0 = все; без --parallel игнорируется)",
+        ),
     ] = 0,
     detach: Annotated[
         bool,

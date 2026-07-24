@@ -1,4 +1,5 @@
-"""`mpu ss-datasets <method>` — печать ssh+docker команд для service:ssDatasets."""
+"""`mpu ss-datasets <method>` — обёртки node cli
+service:ssDatasets (exec через Portainer; `--print` — печать)."""
 
 from typing import Annotated
 
@@ -14,6 +15,7 @@ from mpu.lib.cli_wrap import (
 )
 
 COMMAND_NAME = "mpu ss-datasets"
+COMMAND_SUMMARY = "Обёртки service:ssDatasets (exec через Portainer)"
 
 app = typer.Typer(
     no_args_is_help=True,

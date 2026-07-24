@@ -134,8 +134,8 @@ _GET_HELP = """Read cell values from one or more A1-notation ranges in a local .
 
 Path resolution: --file/-f → env MPU_XLSX → config xlsx.default.
 Range sources can be combined: positional args, --sheet/-n + bare ranges,
---from <file|->. Open-ended ranges (A:A, 1:5, bare sheet name) are clamped
-to the actual sheet size.
+--from <file|->. Open-ended ranges (A:A, 1:5) are clamped to the actual
+sheet size; bare sheet name (or -n without ranges) fetches the whole sheet.
 
 No network, no caching — every call reads the file from disk.
 
@@ -337,7 +337,7 @@ def open_(
         bool, typer.Option("--print", help="Print resolved path instead of launching.")
     ] = False,
 ) -> None:
-    """Open .xlsx file in the system default application."""
+    """Open .xlsx file in the system default application (`--print` — только путь)."""
     resolved = _resolve(file)
     if print_:
         typer.echo(str(resolved.path))

@@ -96,6 +96,13 @@ COMMAND_SUMMARY = (
 app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
+    help=(
+        "GitLab MR review: инлайн-комментарии под строкой диффа, треды, create/describe.\n\n"
+        "НЕ использовать `glab api -f` для инлайн-комментариев: он кладёт `position[...]`-ключи "
+        "в JSON-боди буквально, GitLab молча создаёт комментарий БЕЗ привязки к строке. "
+        "`--mr` принимает URL / 'group/repo!iid' / голый iid (IID внутрипроектный, из cwd-remote) "
+        "/ автодетект открытого MR текущей ветки."
+    ),
 )
 
 
@@ -478,7 +485,13 @@ def comment(
         bool, typer.Option("--old", help="LINE — номер старой стороны (удалённая строка)")
     ] = False,
 ):
-    """Инлайн-комментарий под строкой диффа (новая дискуссия)."""
+    """Инлайн-комментарий под строкой диффа (новая дискуссия). Тело — ровно один из -m/-F.
+
+    LINE — номер строки в файле новой версии (правая колонка диффа GitLab), не «строка
+    диффа» и не offset. Удалённая строка существует только в старой версии — указывать
+    её старый номер + `--old`. Строка не входит в дифф → ошибка со списком комментируемых
+    диапазонов, промахнуться молча нельзя.
+    """
     path, line = parse_location(location)
     body = resolve_body(message, body_file, stdin_read=sys.stdin.read)
     side: Side = "old" if old else "new"
@@ -505,7 +518,7 @@ def note(
     message: MessageOption = None,
     body_file: BodyFileOption = None,
 ):
-    """Общий комментарий MR (тред без привязки к строке)."""
+    """Общий комментарий MR (тред без привязки к строке). Тело — ровно один из -m/-F."""
     body = resolve_body(message, body_file, stdin_read=sys.stdin.read)
     client = _client("note")
     try:
@@ -605,7 +618,7 @@ def reply(
     message: MessageOption = None,
     body_file: BodyFileOption = None,
 ):
-    """Ответ в существующий тред."""
+    """Ответ в существующий тред. Тело — ровно один из -m/-F."""
     body = resolve_body(message, body_file, stdin_read=sys.stdin.read)
     client = _client("reply")
     try:
@@ -627,7 +640,7 @@ def edit(
     message: MessageOption = None,
     body_file: BodyFileOption = None,
 ):
-    """Заменить тело своей ноты."""
+    """Заменить тело своей ноты. Новое тело — ровно один из -m/-F."""
     body = resolve_body(message, body_file, stdin_read=sys.stdin.read)
     client = _client("edit")
     try:

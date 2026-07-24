@@ -29,6 +29,7 @@ from mpu.lib.cli_wrap import (
 from mpu.lib.clipboard import copy_to_clipboard
 
 COMMAND_NAME = "mpu make-schema"
+COMMAND_SUMMARY = "Создать схему клиента локально (clientsMigrations init)"
 
 app = typer.Typer(
     no_args_is_help=True,

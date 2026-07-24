@@ -96,7 +96,13 @@ def make_app(
         context_settings={"help_option_names": ["-h", "--help"]},
     )
 
-    @app.command()
+    @app.command(
+        help=(
+            "CTAS-бэкап: CREATE TABLE backups.<table>_<schema_id>_<YYYYMMDD> "
+            "AS SELECT * FROM schema_<schema_id>.<table>. Идёт прямым PG-коннектом "
+            "(без docker exec); `--dry` — только показать SQL."
+        )
+    )
     def main(  # pyright: ignore[reportUnusedFunction]
         selector: Annotated[
             str,

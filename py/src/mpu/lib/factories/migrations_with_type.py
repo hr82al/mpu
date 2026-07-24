@@ -46,7 +46,8 @@ def _register_one(
 ) -> None:
     @app.command(
         name=sub_name,
-        help=f"Распечатать ssh-команду для service:{service} {method_name}.",
+        help=f"Выполнить service:{service} {method_name} через Portainer "
+        f"(дефолт — сразу в проде); `--print`/`-p` — только печать команды.",
     )
     def _cmd(  # pyright: ignore[reportUnusedFunction]
         value: SelectorArg,

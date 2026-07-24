@@ -224,6 +224,7 @@ def status(
     Каждая строка: `N. [Заголовок](ссылка) — Колонка эмодзи` (✅ для «Готово»). Источник —
     локальный журнал перемещений (`mpu kiten move`/`ready`/`review`); с `--live` (по умолчанию)
     добавляются перемещения из Kaiten, сделанные не через инструмент.
+    Сообщение длиннее 4096 символов (лимит Telegram) обрезается с маркером.
     """
     since, until = kiten_status.today_epoch_window()
     entries = _local_move_entries(since, until)

@@ -90,8 +90,8 @@ ClientIdOpt = Annotated[int | None, typer.Option("--client-id", "--client_id", h
   `JSON (машинный)`, `Structured JSON array.`, …);
 - `--dry-run` — 13 формулировок на 16 объявлений;
 - `--date-from` / `--date-to` — по 6 формулировок;
-- `-s/--spreadsheet` в `commands/sheet.py` — у пяти подкоманд вообще **нет** `help`, что
-  противоречит принципу 1 CLAUDE.md («`help=` на каждом аргументе/опции»);
+- ~~`-s/--spreadsheet` в `commands/sheet.py` — у пяти подкоманд вообще **нет** `help`~~
+  ✅ закрыто: help добавлен в сам алиас `SpreadsheetOpt` (sheet.py), включая MPU_SS-fallback;
 - селектор-аргумент — 12 вариантов описания одного и того же (`sl-N либо client_id / spreadsheet_id
   / title`, `client_id / spreadsheet_id substring / title substring / sl-N`, …).
 

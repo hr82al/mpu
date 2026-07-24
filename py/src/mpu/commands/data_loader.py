@@ -1,4 +1,5 @@
-"""`mpu data-loader <method>` — печать ssh+docker команд для service:dataLoader."""
+"""`mpu data-loader <method>` — обёртки node cli
+service:dataLoader (exec через Portainer; `--print` — печать)."""
 
 from typing import Annotated
 
@@ -14,10 +15,15 @@ from mpu.lib.cli_wrap import (
 )
 
 COMMAND_NAME = "mpu data-loader"
+COMMAND_SUMMARY = "Обёртки service:dataLoader (exec через Portainer)"
 
 app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
+    help=(
+        "Обёртки над `node cli service:dataLoader` (sl-back). Дефолт — немедленное "
+        "выполнение метода в проде через Portainer; `--print`/`-p` — печать команды."
+    ),
 )
 
 

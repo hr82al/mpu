@@ -1,4 +1,5 @@
-"""`mpu clients-migrations <method>` — печать ssh+docker команд для service:clientsMigrations.
+"""`mpu clients-migrations <method>` — обёртки node cli
+service:clientsMigrations (exec через Portainer; `--print` — печать).
 
 Subcommand'ы:
 - latest, up, rollback, down, init  — через фабрику (`<value>` + `--type` + `--client-id`)
@@ -14,10 +15,15 @@ from mpu.lib.cli_wrap import emit_node_cli, pick_wrapper, resolve_selector
 from mpu.lib.factories import migrations_with_type
 
 COMMAND_NAME = "mpu clients-migrations"
+COMMAND_SUMMARY = "Обёртки service:clientsMigrations (exec через Portainer)"
 
 app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
+    help=(
+        "Обёртки над `node cli service:clientsMigrations` (sl-back). Дефолт — немедленное "
+        "выполнение метода в проде через Portainer; `--print`/`-p` — печать команды."
+    ),
 )
 
 migrations_with_type.register(

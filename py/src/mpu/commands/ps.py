@@ -55,7 +55,12 @@ def main(
     """Список контейнеров.
 
     Без селектора — все контейнеры из локального кэша (mpu init).
-    С селектором sl-N — live запрос к Portainer (включает STATUS-поле).
+    С селектором sl-N — live запрос к Portainer (включает STATUS-поле);
+    нужен PORTAINER_API_KEY в ~/.config/mpu/.env (endpoint — из кэша `mpu init`).
+
+    STATE: running / exited / created / restarting. STATUS для exited — код возврата:
+    Exited(0) graceful (SIGTERM или process.exit(0)); Exited(1) uncaught exception;
+    Exited(137) SIGKILL, часто OOM; Exited(143) SIGTERM не пойман/не успел отработать.
     """
     if selector is None:
         _all_from_cache(name_filter=name_filter, out_json=out_json, out_tsv=out_tsv)

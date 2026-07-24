@@ -88,7 +88,11 @@ def _mount(parent: typer.Typer, registry: dict[str, tuple[str, str]]) -> None:
         if len(registered) == 1 and not sub_app.registered_groups:
             # Single-command — re-register функцию напрямую под kebab-name.
             # Иначе `mpu search 1` → "Missing command", потребует `mpu search main 1`.
-            help_text = sub_app.info.help if isinstance(sub_app.info.help, str) else None
+            # help команды приоритетнее group-help (Typer(help=...)): у single-command
+            # app'а пользователь видит именно команду.
+            cmd_help = registered[0].help
+            app_help = sub_app.info.help if isinstance(sub_app.info.help, str) else None
+            help_text = cmd_help if isinstance(cmd_help, str) else app_help
             # context_settings per-command важны для passthrough-обёрток
             # (allow_extra_args / ignore_unknown_options / help_option_names=[]),
             # см. mpu.commands.{sheet,xlsx,db}. Без проброса Click перехватывает `--help`.

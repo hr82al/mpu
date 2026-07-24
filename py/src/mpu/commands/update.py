@@ -258,5 +258,9 @@ app = typer.Typer(
 def main(
     quiet: Annotated[bool, typer.Option("--quiet", help="Не печатать summary")] = False,
 ) -> None:
-    """Синхронизировать ~/.config/mpu/mpu.db со всеми PG-серверами."""
+    """Синхронизировать ~/.config/mpu/mpu.db со всеми PG-серверами.
+
+    Дополнительно (best-effort) обновляет Loki-кэш hosts/services для tab-completion
+    `mpu logs` — пропускается с предупреждением, если LOKI_URL не задан в .env.
+    """
     run_update(quiet=quiet)

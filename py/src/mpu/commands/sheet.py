@@ -6,6 +6,8 @@ Subcommands:
     ls                    List sheets in a spreadsheet
     resolve               Show which spreadsheet ID will be used and source
     set [range] [value]   Write a value (or batch via --from)
+    batch-update -e ...   Пакетная запись мини-языком (один atomic batchUpdate)
+    batch-get -e ...      Пакетное чтение (значения + структура листа)
     open [sheet]          Open spreadsheet (or specific sheet) in browser
     alias add/ls/rm       Manage spreadsheet aliases
     sync                  Pull spreadsheets metadata from sl-back into local cache
@@ -91,8 +93,15 @@ app.add_typer(cache_app, name="cache")
 # ────────────────────────────────────────────────────────────────────────────
 
 # Опция выбора таблицы повторяется у пяти подкоманд `sheet` (общий каталог — mpu.lib.cli_opts;
-# эта осмысленна только здесь). Справки у неё нет исторически — см. docs/readability.md §1.
-SpreadsheetOpt = Annotated[str | None, typer.Option("-s", "--spreadsheet")]
+# эта осмысленна только здесь).
+SpreadsheetOpt = Annotated[
+    str | None,
+    typer.Option(
+        "-s",
+        "--spreadsheet",
+        help="Spreadsheet ID/URL/alias/client_id/title (иначе env MPU_SS → config sheet.default).",
+    ),
+]
 
 
 @contextmanager
@@ -404,7 +413,14 @@ def _expand_fill(api: WebappClient, ss_id: str, rng: str, value: str) -> dict[st
 
 @app.command(name="set")
 def set_(  # noqa: C901, PLR0912
-    range_arg: Annotated[str | None, typer.Argument(metavar="RANGE")] = None,
+    range_arg: Annotated[
+        str | None,
+        typer.Argument(
+            metavar="RANGE",
+            help="A1-диапазон для записи; в режиме JSON-из-stdin единственный "
+            "позиционный аргумент — селектор таблицы (вместо -s), не range.",
+        ),
+    ] = None,
     value: Annotated[str | None, typer.Argument(metavar="VALUE")] = None,
     spreadsheet: SpreadsheetOpt = None,
     from_file: Annotated[
@@ -418,7 +434,14 @@ def set_(  # noqa: C901, PLR0912
         bool, typer.Option("-l", "--literal", help="RAW value (не парсить формулы/числа).")
     ] = False,
 ) -> None:
-    """Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW)."""
+    """Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).
+
+    Три режима записи: `RANGE VALUE` — одна ячейка/формула; `--from FILE` — батч
+    `range<TAB>value` построчно (`-` — stdin); JSON `[{"range":..,"value"|"formula":..}]`
+    из stdin — тогда единственный позиционный аргумент (если есть) трактуется как
+    селектор таблицы. В JSON-режиме открытый одностолбцовый range (`Col<N>:Col`)
+    автозаполняется значением до последней занятой строки столбца.
+    """
     with _sheet_db() as conn:
         try:
             api = WebappClient.from_env()

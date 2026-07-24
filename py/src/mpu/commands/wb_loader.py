@@ -1,4 +1,5 @@
-"""`mpu wb-loader <method>` — печать ssh+docker команд для service:wbLoader.
+"""`mpu wb-loader <method>` — обёртки node cli
+service:wbLoader (exec через Portainer; `--print` — печать).
 
 Subcommand'ы:
 - reports, cards, adv-auto-keywords-stats, adv-fullstats, search-texts,
@@ -10,10 +11,15 @@ import typer
 from mpu.lib.factories import loader_by_sid
 
 COMMAND_NAME = "mpu wb-loader"
+COMMAND_SUMMARY = "Обёртки service:wbLoader (exec через Portainer)"
 
 app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
+    help=(
+        "Обёртки над `node cli service:wbLoader` (sl-back). Дефолт — немедленное "
+        "выполнение метода в проде через Portainer; `--print`/`-p` — печать команды."
+    ),
 )
 
 loader_by_sid.register(

@@ -1,4 +1,5 @@
-"""`mpu ss-load` — ssh+docker команда для service:ssLoader load.
+"""`mpu ss-load` — обёртка node cli
+service:ssLoader load (exec через Portainer; `--print` — печать).
 
 Note: `--sheet-name` принимает только ASCII-строки без шелл-спецсимволов. Для русских
 имён листов вроде "Раздачи" — проще отредактировать вывод вручную после copy-paste.
@@ -26,6 +27,7 @@ from mpu.lib.cli_wrap import (
 )
 
 COMMAND_NAME = "mpu ss-load"
+COMMAND_SUMMARY = "service:ssLoader load (exec через Portainer)"
 
 app = typer.Typer(
     no_args_is_help=True,

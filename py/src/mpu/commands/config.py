@@ -30,15 +30,15 @@ from mpu.lib.sheet_cache import (
 COMMAND_NAME = "mpu config"
 COMMAND_SUMMARY = "Ключи конфигурации (sheet.default, xlsx.default, кэш листов)"
 
-_HELP = """Show or change mpu configuration. Values are stored in SQLite.
+_HELP = """Показать или изменить конфиг mpu (хранится в SQLite; env-переменные приоритетнее).
 
-Examples:
-  mpu config                                  # list all settings
-  mpu config sheet.default                    # show one value
-  mpu config sheet.default 1AbC...            # set spreadsheet by default
-  mpu config xlsx.default ~/Downloads/r.xlsx  # set .xlsx by default
-  mpu config sheet.cache.tab_ttl 3600         # cache tabs for an hour
-  mpu config --unset sheet.default            # reset key to default
+Примеры:
+  mpu config                                  # все ключи со значениями и источником
+  mpu config sheet.default                    # показать один ключ
+  mpu config sheet.default 1AbC...            # задать дефолтную таблицу
+  mpu config xlsx.default ~/Downloads/r.xlsx  # задать дефолтный .xlsx
+  mpu config sheet.cache.tab_ttl 3600         # кэшировать tab'ы на час
+  mpu config --unset sheet.default            # сбросить ключ к дефолту
 """
 
 app = typer.Typer(
@@ -129,7 +129,7 @@ def main(
     unset: Annotated[bool, typer.Option("--unset", help="Сбросить ключ к дефолту.")] = False,
     json_out: JsonOpt = False,
 ) -> None:
-    """Show or change mpu configuration."""
+    """Показать или изменить конфиг mpu."""
     conn = store.open_store()
     try:
         if key is None:

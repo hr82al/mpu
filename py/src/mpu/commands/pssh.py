@@ -104,7 +104,11 @@ def main(
     ] = None,
     via: Annotated[
         str | None,
-        typer.Option("--via", help="Override транспорта: ssh | portainer"),
+        typer.Option(
+            "--via",
+            help="Override транспорта: ssh | portainer (ssh — только для sl-N; "
+            "контейнер по имени — всегда portainer)",
+        ),
     ] = None,
     all_containers_filter: Annotated[
         str | None,

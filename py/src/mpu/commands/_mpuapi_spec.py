@@ -1,15 +1,15 @@
-"""Декларативный каталог sl-back admin endpoints, обёрнутых в `mpuapi-*` команды.
+"""Декларативный каталог sl-back admin endpoints для группы `mpu api <X>`.
 
-Каждая запись в `COMMANDS` — отдельный bin (см. `[project.scripts]` в `pyproject.toml`).
-По имени bin'а (`mpuapi-<name>`) `_mpuapi_runtime` строит typer-app и вызывает
-`SlApi.request(method, path, body=..., query=...)`.
+Каждая запись в `COMMANDS` описывает один HTTP endpoint. `_mpuapi_runtime.build_api_group()`
+строит по спеке click.Group с subcommand'ами и вызывает `SlApi.request(method, path,
+body=...)`. Query-параметры спекой не поддерживаются.
 
 Маппинг параметров:
   - `path_params` (с `:colon` в `path`) → позиционные аргументы команды (в порядке появления).
   - `body_fields` → опции `--<key> <value>` (типизированные через `field.type`).
   - Если `accepts_raw_body=True` — добавляется опция `--body / -b '<json>'` или `@file.json`,
     которая полностью перекрывает `body_fields` при использовании.
-  - `tokenOnly=True` (только у `mpuapi-get-token`) — на выходе печатается только токен.
+  - `tokenOnly=True` (только у `mpu api get-token`) — на выходе печатается только токен.
   - `noAuth=True` — запрос без `Authorization` (только `/auth/login`).
 """
 
@@ -131,6 +131,11 @@ COMMANDS: tuple[CommandSpec, ...] = (
         method="POST",
         path="/auth/logout",
         summary="POST /auth/logout",
+        description=(
+            "Инвалидирует сессию на сервере. Локальный кэш токена "
+            "(~/.config/mpu/.api-token.json, TTL 10 мин) при этом НЕ чистится — "
+            "последующие `mpu api *` могут переиспользовать старый токен до истечения TTL."
+        ),
     ),
     CommandSpec(
         name="auth-refresh",
@@ -301,14 +306,28 @@ COMMANDS: tuple[CommandSpec, ...] = (
         method="GET",
         path="/admin/client/:clientId/modules/:module",
         summary="GET /admin/client/:clientId/modules/:module",
-        path_params=(CLIENT_ID, PathParam("module", "module name")),
+        path_params=(
+            CLIENT_ID,
+            PathParam(
+                "module",
+                "имя модуля (список — list-client-modules / list-wb-cabinet-modules; "
+                "модули предзаведены, только вкл/выкл)",
+            ),
+        ),
     ),
     CommandSpec(
         name="update-client-module",
         method="PATCH",
         path="/admin/client/:clientId/modules/:module",
         summary="PATCH /admin/client/:clientId/modules/:module — toggle is_active",
-        path_params=(CLIENT_ID, PathParam("module", "module name")),
+        path_params=(
+            CLIENT_ID,
+            PathParam(
+                "module",
+                "имя модуля (список — list-client-modules / list-wb-cabinet-modules; "
+                "модули предзаведены, только вкл/выкл)",
+            ),
+        ),
         body_fields=(BodyField("is_active", "boolean", "is_active flag", required=True),),
     ),
     # ─── /admin/wb-cabinets ──────────────────────────────────────────────────
@@ -350,7 +369,11 @@ COMMANDS: tuple[CommandSpec, ...] = (
         path_params=(
             CLIENT_ID,
             PathParam("sid", "WB seller sid"),
-            PathParam("module", "module name"),
+            PathParam(
+                "module",
+                "имя модуля (список — list-client-modules / list-wb-cabinet-modules; "
+                "модули предзаведены, только вкл/выкл)",
+            ),
         ),
     ),
     CommandSpec(
@@ -361,7 +384,11 @@ COMMANDS: tuple[CommandSpec, ...] = (
         path_params=(
             CLIENT_ID,
             PathParam("sid", "WB seller sid"),
-            PathParam("module", "module name"),
+            PathParam(
+                "module",
+                "имя модуля (список — list-client-modules / list-wb-cabinet-modules; "
+                "модули предзаведены, только вкл/выкл)",
+            ),
         ),
         body_fields=(BodyField("is_active", "boolean", "is_active flag", required=True),),
     ),

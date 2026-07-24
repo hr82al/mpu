@@ -142,7 +142,7 @@ def main(  # noqa: PLR0913
         str,
         typer.Option(
             "--via",
-            help="Источник: 'loki' (default) или 'portainer'",
+            help="Источник: 'loki' (default; нужен LOKI_URL в .env) или 'portainer'",
             autocompletion=_complete_via,
         ),
     ] = "loki",
@@ -198,12 +198,18 @@ def main(  # noqa: PLR0913
     ] = None,
     follow: Annotated[
         bool,
-        typer.Option("--follow", "-f", help="Loki: следить за новыми записями (аналог tail -f)"),
+        typer.Option(
+            "--follow",
+            "-f",
+            help="Следить за новыми записями (аналог tail -f); только с --via loki",
+        ),
     ] = False,
 ) -> None:
     """Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).
 
     Без <selector> — запрос идёт без фильтра по host (все хосты в одном LogQL).
+    Если первый аргумент — не host, а имя известного сервиса (`mpu logs wb-loader`),
+    он трактуется как <service>: логи этого сервиса со всех хостов.
     """
     if _print_ls(selector, service):
         return

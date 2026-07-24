@@ -164,7 +164,8 @@ def build_command() -> click.Command:
             ["--from", "from_date"],
             default=None,
             type=str,
-            help="YYYY-MM-DD (forward-only loader): собрать lastLoadedDate=from-1день",
+            help="YYYY-MM-DD (forward-only loader): перезагрузить начиная с этой даты "
+            "(ставит lastLoadedDate = дата минус 1 день)",
         ),
         click.Option(
             ["--and-load", "and_load"],

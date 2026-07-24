@@ -41,6 +41,10 @@ _SEL_HELP = "sl-N либо client_id / spreadsheet_id substring / title substrin
 app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
+    help=(
+        "Обёртки над `node cli service:iuWb` (sl-back). Дефолт — немедленное "
+        "выполнение метода в проде через Portainer; `--print`/`-p` — печать команды."
+    ),
 )
 
 _Selector = Annotated[str, typer.Argument(help=_SEL_HELP, autocompletion=complete_selector)]

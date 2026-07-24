@@ -137,6 +137,7 @@ def main(
         str,
         typer.Argument(
             help="client_id, spreadsheet_id substring, title substring, "
+            "sl-N (сервер целиком, без search_path; main = sl-0), "
             "sw-PG алиас (sw / sw-pg / ws / workspaces), "
             "или dev-стенд `dev:<client_id>` (БД mp_sl_1_dev, search_path schema_<client_id>)"
         ),
@@ -156,6 +157,13 @@ def main(
         ),
     ] = False,
 ) -> None:
+    """Выполнить SQL (write-capable) на PG, выбранном по селектору.
+
+    SQL берётся из аргумента, иначе из stdin. Однозначный клиент-селектор ставит
+    `search_path` на схему клиента; `sl-N` — сервер целиком, без search_path.
+    `--json` и `--md` взаимоисключающие; `--server` не сочетается с dev-/sw-селектором.
+    Для любого чтения использовать `mpu sql-ro` (enforced read-only, без подтверждения).
+    """
     dispatch(
         selector,
         sql,

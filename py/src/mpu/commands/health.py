@@ -17,8 +17,8 @@
 5. Возвращает exit-code 1 если есть хотя бы один НЕОЖИДАЕМО не-running контейнер
    (то есть не из one-shot набора); иначе 0.
 
-Дальше использовать `mpup-logs <selector> <container>` для углублённого разбора
-конкретного контейнера и `mpu p ssh <selector> -- <cmd>` для exec-проверок
+Дальше использовать `mpu logs <selector> <container>` для углублённого разбора
+конкретного контейнера и `mpu ssh <selector> -- <cmd>` для exec-проверок
 (Redis / NATS / токены — TODO следующей итерацией: набор `node cli service:...`
 команд для BullMQ-stats / NATS-consumer-info / wb_tokens-freshness).
 """
@@ -79,7 +79,7 @@ def main(
         str | None,
         typer.Option(
             "--since",
-            help="Период для логов: 30m / 1h / 2d / unix-ts (как в `mpup-logs --since`)",
+            help="Период для логов: 30m / 1h / 2d / unix-ts; без флага — весь доступный лог",
         ),
     ] = None,
     all_logs: Annotated[
@@ -90,7 +90,13 @@ def main(
         ),
     ] = False,
 ) -> None:
-    """Health-check: статусы контейнеров + tail логов потенциальных виновников."""
+    """Health-check: статусы контейнеров + tail логов потенциальных виновников.
+
+    One-shot контейнеры (migrations/init-, Exited(0)) — норма, идут в отдельный блок, не
+    в exit-code. Остальные не-running — в блок ⚠️. Tail stderr — для loader/processor/
+    updater-контейнеров (--all — для всех mp-*). Exit-code 1, если остался хотя бы один
+    неожиданно не-running контейнер (не из one-shot набора).
+    """
     pr = resolve_portainer(selector=selector, command_name=COMMAND_NAME)
     try:
         items = pr.client.list_containers(pr.endpoint_id)

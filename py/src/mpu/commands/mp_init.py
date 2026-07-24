@@ -54,7 +54,14 @@ def main(
         typer.Option("--dry-run", "-n", help="Напечатать docker-команды без выполнения"),
     ] = False,
 ) -> None:
-    """Создать сеть (если нет), поднять core SL backend + web-стек (up -d --force-recreate)."""
+    """Создать сеть (если нет), поднять core SL backend + web-стек (up -d --force-recreate).
+
+    Core: mp-nats, sl-0, sl-1, mp-nginx, dt-host со всеми сервисами (включая
+    cli-контейнеры для make-schema/copy-client); поверх — web-стек mp/local-stack.
+    Образы НЕ собираются: нет mp-back:local / mp-pg:local / mp-dt:local → стоп
+    с подсказкой. Каталог mp-config-local: ~/mr/mp/mp-config-local, override —
+    env MPU_MP_CONFIG_LOCAL.
+    """
     base = dt_host.mp_config_local_dir()
     if not base.is_dir():
         typer.echo(

@@ -36,6 +36,7 @@ from mpu.lib.d2_parser import (
 from mpu.lib.miro import FrameRef, MiroAPIError, MiroClient
 
 COMMAND_NAME = "mpu d2-miro"
+COMMAND_SUMMARY = "Рендер d2-диаграммы в Miro как редактируемый фрейм"
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -789,14 +790,25 @@ def main(
     ] = None,
     skip_render: Annotated[
         bool,
-        typer.Option("--skip-render", help="Use existing .svg without re-running d2"),
+        typer.Option(
+            "--skip-render",
+            help="Использовать существующий .svg без перегенерации "
+            "(если .svg отсутствует — d2 всё равно будет вызван)",
+        ),
     ] = False,
     dry_run: Annotated[
         bool,
         typer.Option("--dry-run", help="Parse and report plan; do not call Miro API"),
     ] = False,
 ) -> None:
-    """Render a d2 diagram into a Miro board frame."""
+    """Рендер d2-диаграммы в Miro как редактируемый фрейм.
+
+    Берёт <file>.d2 (+ его .svg; при отсутствии вызывает локальный `d2`).
+    ⚠️ Существующий фрейм с тем же title удаляется со всем содержимым и
+    пересоздаётся (идемпотентно). Позиция по умолчанию — справа от самого
+    правого фрейма. Нужны MIRO_TOKEN и MIRO_BOARD_ID в ~/.config/mpu/.env
+    (`--board` переопределяет MIRO_BOARD_ID разово).
+    """
     token = env.require("MIRO_TOKEN")
     board_id = board or env.require("MIRO_BOARD_ID")
     frame_title = title or d2_file.stem

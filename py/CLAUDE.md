@@ -211,4 +211,4 @@ grep -rn 'err=True\|json.dumps\|# noqa' src | wc -l
 | `log` | `log.py` | журнал вызовов самого `mpu` (`~/.config/mpu/mpu.log`): команда, вывод, ошибки, exit; фильтры `--failed`/`--cmd`/`--since`/`--run`. Пишет `lib/log.py` + `lib/capture.py`; ENV `MPU_LOG_*` (см. `.env.example`) |
 | `help` | `help.py` | список команд + проброс `--help` |
 | (node-CLI обёртка) | `commands/<X>.py` | exec через Portainer; `--print`/`-p` — print+clipboard |
-| `api <X>` | `_mpuapi_*.py` | HTTP-клиенты sl-back endpoints (~86) |
+| `api <X>` | `_mpuapi_*.py` | HTTP-клиенты sl-back endpoints (~97; список — `mpu api --help`) |
