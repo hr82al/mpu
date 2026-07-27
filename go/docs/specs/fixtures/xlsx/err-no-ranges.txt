@@ -1,0 +1,1 @@
+mpu xlsx: no ranges provided; попробуй: mpu xlsx get [RANGES...] [--from FILE] [--sheet SHEET]

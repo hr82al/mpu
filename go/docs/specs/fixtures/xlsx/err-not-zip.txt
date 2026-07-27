@@ -1,0 +1,1 @@
+mpu xlsx: not a valid xlsx file: "/home/user/mr/mp/mpu/go/docs/specs/fixtures/xlsx/broken.xlsx" (not a zip archive)
