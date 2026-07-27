@@ -6,6 +6,10 @@
     `~/.config/mpu/.env` в синтетический row с `server_number=N` (без клиентов).
   - `spreadsheet_id` substring — case-insensitive.
   - `title` substring — case-insensitive (только если `spreadsheet_id` не нашёл).
+
+С `--reason` / `--refresh-cache` / `--scope` селектор уходит в 10X-резолв
+(impersonation): email — напрямую, `client_id` / sid кабинета / имя / `user.id` —
+через staff-поиск sw-back, см. `commands/_search_x10.py`.
 """
 
 import json
@@ -17,12 +21,13 @@ from typing import Annotated, TypeGuard
 
 import typer
 
+from mpu.commands._search_x10 import Scope
 from mpu.lib import servers, store
 from mpu.lib.cli_out import print_json
 from mpu.lib.jsonx import is_list
 
 COMMAND_NAME = "mpu search"
-COMMAND_SUMMARY = "Поиск клиента / spreadsheet в локальном кэше"
+COMMAND_SUMMARY = "Поиск клиента / spreadsheet в кэше + доступ к web-клиенту 10X (impersonation)"
 
 
 def _sids_for_client(conn: sqlite3.Connection, client_id: object) -> list[str]:
@@ -135,16 +140,14 @@ def _by_ip(value: str) -> list[dict[str, object]]:
     ]
 
 
-def _by_sid(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
-    """sid → клиент(ы). Сначала точное совпадение, иначе substring (LIKE %v%).
+def client_ids_by_sid(conn: sqlite3.Connection, value: str) -> list[int]:
+    """client_id по WB sid: сначала точное совпадение, затем substring (LIKE %v%).
 
-    Возвращает строки клиента так же, как `_by_client_id` (со spreadsheets и
-    полным списком `sids`), чтобы контракт результата был единым.
+    `sl_wb_sids` может отсутствовать на старом кэше (см. `_sids_for_client`) —
+    тогда матч просто пустой, вызывающий деградирует дальше.
     """
 
-    def _client_ids(where: str, param: str) -> list[object]:
-        # sl_wb_sids может отсутствовать на старом кэше (см. _sids_for_client) —
-        # тогда sid-матч просто пустой, search падает дальше на ss_id/title.
+    def _client_ids(where: str, param: str) -> list[int]:
         try:
             cur = conn.execute(
                 f"SELECT DISTINCT client_id FROM sl_wb_sids WHERE {where} ORDER BY client_id",
@@ -152,13 +155,20 @@ def _by_sid(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
             )
         except sqlite3.OperationalError:
             return []
-        return [r["client_id"] for r in cur.fetchall()]
+        return [r["client_id"] for r in cur.fetchall() if isinstance(r["client_id"], int)]
 
-    client_ids = _client_ids("sid = ?", value) or _client_ids("sid LIKE ?", f"%{value}%")
+    return _client_ids("sid = ?", value) or _client_ids("sid LIKE ?", f"%{value}%")
+
+
+def _by_sid(conn: sqlite3.Connection, value: str) -> list[dict[str, object]]:
+    """sid → клиент(ы).
+
+    Возвращает строки клиента так же, как `_by_client_id` (со spreadsheets и
+    полным списком `sids`), чтобы контракт результата был единым.
+    """
     out: list[dict[str, object]] = []
-    for cid in client_ids:
-        if isinstance(cid, int):
-            out.extend(_by_client_id(conn, cid))
+    for cid in client_ids_by_sid(conn, value):
+        out.extend(_by_client_id(conn, cid))
     return out
 
 
@@ -383,6 +393,48 @@ def _run_email_command(
     print_json(_email_output_obj(conn, cached, owned_rows))
 
 
+def _access_client_id(conn: sqlite3.Connection, value: str) -> int | None:
+    """`client_id` селектора доступа: сам селектор (число) или sid → client_id из кэша."""
+    if _is_int(value):
+        return int(value)
+    ids = client_ids_by_sid(conn, value)
+    return ids[0] if len(ids) == 1 else None
+
+
+def _run_x10_command(
+    conn: sqlite3.Connection,
+    value: str,
+    *,
+    scope: Scope,
+    reason: str | None,
+    refresh_cache: bool,
+    projection: str | None,
+) -> None:
+    """Не-email селектор → email цели через staff-поиск → обычная email-ветка."""
+    from mpu.commands import _search_x10
+    from mpu.lib import x10_resolve, x10api  # lazy: тянет httpx
+
+    store.bootstrap(conn)  # на старом кэше может не быть x10_* таблиц
+    try:
+        email = _search_x10.resolve_email(
+            conn,
+            value,
+            scope=scope,
+            client_id=_access_client_id(conn, value),
+            refresh_cache=refresh_cache,
+        )
+    except x10_resolve.X10AmbiguousError as e:
+        typer.echo(f"mpu search: {e}", err=True)
+        print_json(e.candidates)
+        raise typer.Exit(code=2) from None
+    except (x10_resolve.X10ResolveError, x10api.X10ApiError) as e:
+        typer.echo(f"mpu search: {e}", err=True)
+        raise typer.Exit(code=2) from None
+    _run_email_command(
+        conn, email, reason=reason, refresh_cache=refresh_cache, projection=projection
+    )
+
+
 app = typer.Typer(
     no_args_is_help=True,
     context_settings={"help_option_names": ["-h", "--help"]},
@@ -395,8 +447,9 @@ def main(  # noqa: PLR0913
         str,
         typer.Argument(
             help=(
-                "client_id (число), IPv4 (sl_/pg_ из .env), WB sid "
-                "(точное/substring), кусок spreadsheet_id или title"
+                "Что ищем: client_id, IPv4 (sl_/pg_ из .env), WB sid, кусок "
+                "spreadsheet_id или title — в локальном кэше; email / имя / user.id — "
+                "в 10X (см. описание команды)"
             ),
         ),
     ],
@@ -428,9 +481,9 @@ def main(  # noqa: PLR0913
         typer.Option(
             "--reason",
             help=(
-                "email-селектор: причина impersonation (логируется на проде 10X). "
-                "Рекомендуется ссылка на Kaiten-карточку (для аудита). "
-                "Default: 'ТП <YYYY-MM-DD>'."
+                "10X-резолв (email / client_id / sid): причина impersonation "
+                "(логируется на проде 10X). Рекомендуется ссылка на Kaiten-карточку "
+                "(для аудита). Default: 'ТП <YYYY-MM-DD>'."
             ),
         ),
     ] = None,
@@ -438,18 +491,63 @@ def main(  # noqa: PLR0913
         bool,
         typer.Option(
             "--refresh-cache",
-            help="email-селектор: перезапросить из 10X API и обновить кэш (иначе из кэша)",
+            help=(
+                "10X-резолв (email / client_id / sid / имя): перезапросить из 10X API "
+                "и обновить кэш (иначе из кэша)"
+            ),
         ),
     ] = False,
+    scope: Annotated[
+        Scope,
+        typer.Option(
+            "--scope",
+            help=(
+                "10X-резолв: чем считать селектор. auto — целое/uuid как "
+                "client_id/sid кабинета, остальное как пользователя; user — email, "
+                "кусок email, имя или user.id; access — client_id или sid кабинета"
+            ),
+        ),
+    ] = Scope.auto,
 ) -> None:
-    """Поиск по локальному ~/.config/mpu/mpu.db.
+    """Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).
 
-    По умолчанию — JSON-array строк со всеми полями. На пустом результате
-    автоматически вызывает `mpu update` и повторяет поиск (отключается через `--no-update`).
+    Режим выбирают флаги, не селектор.
 
-    email-селектор (`mpu search user@example.com`) резолвит email → client_id через
-    10X (sw-back) admin API (impersonation, audited на проде) и кэширует всё в sqlite;
-    повторные запросы — из кэша, `--refresh-cache` форсит. См. mpu/CLAUDE.md §7.
+    \b
+    БЕЗ ФЛАГОВ — локальный кэш (сети нет): client_id · IPv4 sl_/pg_ · WB sid ·
+    кусок spreadsheet_id · кусок title → JSON-массив строк {client_id,
+    spreadsheet_id, title, server, server_number, sl_ip, pg_ip, sids}. Пусто →
+    авто-`mpu update` и повтор (`--no-update` гасит). Проекция (`--server`,
+    `--sids`, …) печатает голые значения — форма для подстановки в другие команды.
+
+    \b
+    С `--reason` / `--refresh-cache` / `--scope` — 10X: селектор → email цели →
+    impersonation-сессия (зайти в веб ОТ ЛИЦА клиента). Email идёт сюда и без
+    флагов. Пять входов, как у staff-поиска sw-back:
+
+    \b
+      email (точный)                user     mpu search user@mail.ru
+      кусок email / имя             user     mpu search Иванов --scope user
+      user.id                       user     mpu search 1029 --scope user
+      client_id (== workspace id)   access   mpu search 2759 --reason <url>
+      sid кабинета (полный uuid)    access   mpu search <sid> --reason <url>
+
+    `auto` (умолчание): целое и uuid → access, остальное → user. Число в разных
+    скоупах — разные сущности (1029: user.id есть, workspace нет), для user.id
+    нужен явный `--scope user`. Названием клиента/кабинета 10X НЕ ищет: название
+    → client_id локальным кэшем, потом client_id → 10X. Кандидатов несколько
+    («Дмитрий» → 16) — код 2 и JSON-список {user_id, email, name, match}, без
+    impersonation; повторить с точным email или user.id.
+
+    Вывод: объект с email, target_user_id, owned (client_id == workspace.id),
+    member_only, workspaces и sessions — `kind=impersonation` это Bearer ОТ ЛИЦА
+    клиента (workspace-эндпоинты, вставка в localStorage фронта), `kind=staff` —
+    для staff-эндпоинтов; протух → `--refresh-cache`.
+
+    Impersonation пишет audit-строку на ПРОДЕ → `--reason` задавать ссылкой на
+    карточку. Тёплый кэш (email или client_id из owned прошлого резолва) — 10X не
+    дёргается; `--refresh-cache` обходит кэш (+1 строка аудита). Креды —
+    `X10_LOGIN`/`X10_PASSWORD` (10X, не sl-back `TOKEN_*`: те дают 401).
     """
     chosen = [
         name
@@ -470,20 +568,27 @@ def main(  # noqa: PLR0913
         raise typer.Exit(code=2)
 
     is_email = looks_like_email(value)
-    if (reason is not None or refresh_cache) and not is_email:
-        typer.echo(
-            "mpu search: --reason/--refresh-cache применимы только к email-селектору", err=True
-        )
-        raise typer.Exit(code=2)
+    wants_x10 = reason is not None or refresh_cache or scope is not Scope.auto
 
     with store.store() as conn:
-        if is_email:
+        projection = chosen[0] if chosen else None
+        if is_email and scope is not Scope.access:
             _run_email_command(
                 conn,
                 value,
                 reason=reason,
                 refresh_cache=refresh_cache,
-                projection=chosen[0] if chosen else None,
+                projection=projection,
+            )
+            return
+        if wants_x10:
+            _run_x10_command(
+                conn,
+                value,
+                scope=scope,
+                reason=reason,
+                refresh_cache=refresh_cache,
+                projection=projection,
             )
             return
 

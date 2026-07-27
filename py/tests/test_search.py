@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from mpu.commands import search
+from mpu.commands import _search_x10, search
 from mpu.lib import resolver, servers, store, x10_resolve
 
 runner = CliRunner()
@@ -337,13 +337,15 @@ def test_resolver_email_miss_hint(db: sqlite3.Connection) -> None:
     assert "mpu search" in str(ei.value)
 
 
-def test_cli_reason_on_non_email_errors(db: sqlite3.Connection) -> None:
-    res = runner.invoke(search.app, ["10", "--reason", "x", "--no-update"])
+def test_cli_reason_on_title_selector_errors(db: sqlite3.Connection) -> None:
+    """`--reason` осмыслен только для 10X-резолва: email / client_id / полный sid."""
+    res = runner.invoke(search.app, ["Иванов", "--reason", "x", "--no-update"])
     assert res.exit_code == 2
+    assert "client_id" in res.stderr
 
 
-def test_cli_refresh_cache_on_non_email_errors(db: sqlite3.Connection) -> None:
-    res = runner.invoke(search.app, ["10", "--refresh-cache", "--no-update"])
+def test_cli_refresh_cache_on_title_selector_errors(db: sqlite3.Connection) -> None:
+    res = runner.invoke(search.app, ["Иванов", "--refresh-cache", "--no-update"])
     assert res.exit_code == 2
 
 
@@ -362,6 +364,143 @@ def test_cli_email_projection(db: sqlite3.Connection, monkeypatch: pytest.Monkey
     assert res.exit_code == 0
     lines = [ln for ln in res.stdout.splitlines() if ln]
     assert lines == ["10", "10"]  # client 10 has 2 spreadsheets
+
+
+def test_cli_access_selector_uses_cached_email(db: sqlite3.Connection) -> None:
+    """client_id уже среди owned прошлого резолва → 10X не дёргаем вовсе."""
+    _insert_email_client(db, "a@b.ru", [10])
+    res = runner.invoke(search.app, ["10", "--reason", "https://btlz.kaiten.ru/1"])
+    assert res.exit_code == 0
+    obj = json.loads(res.stdout)
+    assert obj["email"] == "a@b.ru"
+    assert {r["client_id"] for r in obj["owned"]} == {10}
+
+
+def test_cli_access_selector_sid_resolves_via_10x(
+    db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """sid без тёплого кэша → staff-поиск scope=access отдаёт email владельца."""
+    seen: list[tuple[str, str]] = []
+
+    def _fake_target(
+        conn: sqlite3.Connection, query: str, *, scope: str, api: object = None
+    ) -> x10_resolve.StaffTarget:
+        seen.append((query, scope))
+        return x10_resolve.StaffTarget(
+            email="a@b.ru",
+            user_id=42,
+            role="owner",
+            via="cabinet",
+            workspace_id=10,
+            workspace_name="WS",
+        )
+
+    monkeypatch.setattr(x10_resolve, "fetch_staff_target", _fake_target)
+    monkeypatch.setattr(x10_resolve, "fetch_email_bundle", _fake_bundle)
+    sid = "bbbb2222-2222-3333-4444-555566667777"
+    res = runner.invoke(search.app, [sid, "--reason", "https://btlz.kaiten.ru/1"])
+    assert res.exit_code == 0
+    assert seen == [(sid, "access")]
+    assert json.loads(res.stdout)["email"] == "a@b.ru"
+
+
+def test_cli_scope_user_routes_name_to_user_search(
+    db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--scope user <имя>` уходит в поиск по пользователю (и включает 10X сам по себе)."""
+    seen: list[tuple[str, str]] = []
+
+    def _fake_target(
+        conn: sqlite3.Connection, query: str, *, scope: str, api: object = None
+    ) -> x10_resolve.StaffTarget:
+        seen.append((query, scope))
+        return x10_resolve.StaffTarget(
+            email="a@b.ru", user_id=42, role=None, via=None, workspace_id=None, workspace_name=None
+        )
+
+    monkeypatch.setattr(x10_resolve, "fetch_staff_target", _fake_target)
+    monkeypatch.setattr(x10_resolve, "fetch_email_bundle", _fake_bundle)
+    res = runner.invoke(search.app, ["Иванов", "--scope", "user"])
+    assert res.exit_code == 0
+    assert seen == [("Иванов", "user")]
+
+
+def test_cli_scope_user_number_is_user_id(
+    db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Число при `--scope user` — user.id, а не client_id (в auto было бы access)."""
+    seen: list[tuple[str, str]] = []
+
+    def _fake_target(
+        conn: sqlite3.Connection, query: str, *, scope: str, api: object = None
+    ) -> x10_resolve.StaffTarget:
+        seen.append((query, scope))
+        return x10_resolve.StaffTarget(
+            email="a@b.ru",
+            user_id=1029,
+            role=None,
+            via=None,
+            workspace_id=None,
+            workspace_name=None,
+        )
+
+    monkeypatch.setattr(x10_resolve, "fetch_staff_target", _fake_target)
+    monkeypatch.setattr(x10_resolve, "fetch_email_bundle", _fake_bundle)
+    # тёплый кэш на client_id 10 не должен перехватить: скоуп user, это user.id
+    _insert_email_client(db, "cached@b.ru", [10])
+    res = runner.invoke(search.app, ["10", "--scope", "user"])
+    assert res.exit_code == 0
+    assert seen == [("10", "user")]
+
+
+def test_cli_ambiguous_candidates_printed(
+    db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Много однофамильцев → список кандидатов в выводе и код 2, без impersonation."""
+
+    def _ambiguous(*args: object, **kwargs: object) -> x10_resolve.StaffTarget:
+        raise x10_resolve.X10AmbiguousError(
+            "найдено кандидатов: 2",
+            candidates=[{"user_id": 1, "email": "a@b.ru"}, {"user_id": 2, "email": "c@d.ru"}],
+        )
+
+    monkeypatch.setattr(x10_resolve, "fetch_staff_target", _ambiguous)
+    res = runner.invoke(search.app, ["Дмитрий", "--scope", "user"])
+    assert res.exit_code == 2
+    assert {c["email"] for c in json.loads(res.stdout)} == {"a@b.ru", "c@d.ru"}
+
+
+def test_cli_access_selector_resolve_error_exits_2(
+    db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _boom(*args: object, **kwargs: object) -> x10_resolve.StaffTarget:
+        raise x10_resolve.X10ResolveError("никого не найдено")
+
+    monkeypatch.setattr(x10_resolve, "fetch_staff_target", _boom)
+    res = runner.invoke(search.app, ["999", "--reason", "r"])
+    assert res.exit_code == 2
+    assert "никого не найдено" in res.stderr
+
+
+def test_cli_access_selector_without_flags_stays_local(db: sqlite3.Connection) -> None:
+    """Без --reason/--refresh-cache client_id по-прежнему читается из локального кэша."""
+    _insert_email_client(db, "a@b.ru", [10])
+    res = runner.invoke(search.app, ["10", "--no-update"])
+    assert res.exit_code == 0
+    assert isinstance(json.loads(res.stdout), list)
+
+
+def test_access_cached_email_lookup(db: sqlite3.Connection) -> None:
+    _insert_email_client(db, "a@b.ru", [10, 20])
+    assert _search_x10.cached_email(db, 20) == "a@b.ru"
+    assert _search_x10.cached_email(db, 30) is None
+
+
+def test_access_looks_like_sid() -> None:
+    assert _search_x10.looks_like_sid("b4226391-8334-4267-a666-ebd986fabf64")
+    assert _search_x10.looks_like_sid("B4226391-8334-4267-A666-EBD986FABF64")
+    assert not _search_x10.looks_like_sid("b4226391-8334")
+    assert not _search_x10.looks_like_sid("2759")
 
 
 def test_cli_email_shows_sessions(db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch) -> None:

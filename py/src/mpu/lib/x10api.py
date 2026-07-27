@@ -154,9 +154,22 @@ class X10Api:
         )
         return self._unwrap(resp, "10X login")
 
-    def staff_search(self, email: str, *, token: str) -> list[Any]:
-        """GET /users/staff/search?query=<email> → `data[]` ({id,email,name,isEmailVerified})."""
-        resp = self.request("GET", "/users/staff/search", token=token, query={"query": email})
+    def staff_search(self, query: str, *, token: str, scope: str | None = None) -> list[Any]:
+        """GET /users/staff/search?query=<q>[&scope=<s>] → `data[]`.
+
+        Элемент — {id,email,name,isEmailVerified} + опциональный `match`
+        ({via,role,workspaceId,workspaceName,sid,cabinetName}) — он есть, когда
+        юзер найден по воркспейсу или кабинету, а не по email/имени.
+
+        `scope` (sw-back `StaffSearchScope`): `user` — искать пользователя
+        (email/имя/user.id), `access` — workspace id (== `client_id`) или полный
+        uuid sid кабинета. `None` = серверный `auto`: uuid → кабинет, цифры →
+        воркспейс, остальное → текст.
+        """
+        params: dict[str, Any] = {"query": query}
+        if scope is not None:
+            params["scope"] = scope
+        resp = self.request("GET", "/users/staff/search", token=token, query=params)
         data = self._unwrap(resp, "10X staff_search")
         if not isinstance(data, list):
             raise X10ApiError(f"10X staff_search: data не массив: {_truncate(str(data), 200)}")

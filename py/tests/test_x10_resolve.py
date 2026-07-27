@@ -121,3 +121,110 @@ def test_owns_no_workspace_empty_owned(conn: sqlite3.Connection) -> None:
     api = _api(_full_handler(users, workspaces))
     bundle = x10_resolve.fetch_email_bundle(conn, "a@b.ru", reason="r", api=api)
     assert bundle.owned == []
+
+
+# ── селектор доступа: client_id / sid → владелец воркспейса (scope=access) ───
+
+
+def _owner(email: str, uid: int, *, via: str = "workspace") -> dict[str, object]:
+    return {
+        "id": uid,
+        "email": email,
+        "name": "Дмитрий",
+        "isEmailVerified": True,
+        "match": {"via": via, "role": "owner", "workspaceId": 2759, "workspaceName": "ИП С."},
+    }
+
+
+def _member(email: str, uid: int) -> dict[str, object]:
+    return {
+        "id": uid,
+        "email": email,
+        "match": {"via": "workspace", "role": "admin", "workspaceId": 2759},
+    }
+
+
+def test_pick_access_candidate_prefers_owner() -> None:
+    picked = x10_resolve.pick_staff_candidate(
+        [_member("m@b.ru", 7), _owner("o@b.ru", 42)], "2759", scope="access"
+    )
+    assert picked["id"] == 42
+
+
+def test_pick_access_candidate_single_member_without_owner() -> None:
+    picked = x10_resolve.pick_staff_candidate([_member("m@b.ru", 7)], "2759", scope="access")
+    assert picked["id"] == 7
+
+
+def test_pick_access_candidate_ambiguous_raises() -> None:
+    with pytest.raises(x10_resolve.X10AmbiguousError) as ei:
+        x10_resolve.pick_staff_candidate(
+            [_member("m@b.ru", 7), _member("n@b.ru", 8)], "2759", scope="access"
+        )
+    assert {c["email"] for c in ei.value.candidates} == {"m@b.ru", "n@b.ru"}
+
+
+def test_pick_staff_candidate_exact_email_wins() -> None:
+    """Поиск по куску email вернул многих — точное совпадение снимает неоднозначность."""
+    picked = x10_resolve.pick_staff_candidate(
+        [{"id": 1, "email": "dselishev1@yandex.ru"}, {"id": 2, "email": "dselishev12@yandex.ru"}],
+        "DSelishev1@yandex.ru",
+        scope="user",
+    )
+    assert picked["id"] == 1
+
+
+def test_fetch_staff_target_user_scope_without_match(conn: sqlite3.Connection) -> None:
+    """scope=user: у кандидата нет блока `match` — поля воркспейса остаются пустыми."""
+    seen: list[str] = []
+    staff = _jwt(STAFF)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/auth/login"):
+            return _ok({"access_token": staff})
+        seen.append(str(request.url.params.get("scope")))
+        return _ok([{"id": 1029, "email": "d@ya.ru", "name": "Дмитрий"}])
+
+    target = x10_resolve.fetch_staff_target(conn, "1029", scope="user", api=_api(handler))
+    assert seen == ["user"]
+    assert (target.email, target.user_id) == ("d@ya.ru", 1029)
+    assert (target.role, target.via, target.workspace_id) == (None, None, None)
+
+
+def test_pick_access_candidate_empty_raises() -> None:
+    with pytest.raises(x10_resolve.X10ResolveError):
+        x10_resolve.pick_staff_candidate([], "2759", scope="access")
+
+
+def test_fetch_access_target_sends_scope_access(conn: sqlite3.Connection) -> None:
+    seen: list[str] = []
+    staff = _jwt(STAFF)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/auth/login"):
+            return _ok({"access_token": staff})
+        if request.url.path.endswith("/users/staff/search"):
+            seen.append(str(request.url.params.get("scope")))
+            return _ok([_owner("o@b.ru", 42, via="cabinet")])
+        return httpx.Response(404)
+
+    target = x10_resolve.fetch_staff_target(conn, "2759", scope="access", api=_api(handler))
+    assert seen == ["access"]
+    assert target.email == "o@b.ru"
+    assert target.user_id == 42
+    assert (target.via, target.role) == ("cabinet", "owner")
+    assert (target.workspace_id, target.workspace_name) == (2759, "ИП С.")
+
+
+def test_fetch_access_target_uppercase_email_normalised(conn: sqlite3.Connection) -> None:
+    staff = _jwt(STAFF)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/auth/login"):
+            return _ok({"access_token": staff})
+        return _ok([_owner("O@B.ru", 42)])
+
+    assert (
+        x10_resolve.fetch_staff_target(conn, "2759", scope="access", api=_api(handler)).email
+        == "o@b.ru"
+    )
