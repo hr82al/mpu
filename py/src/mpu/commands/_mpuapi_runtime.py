@@ -317,12 +317,14 @@ def build_api_group() -> click.Group:
     # - wb-loader-blocked: глобальный список блокировок по всем серверам (без селектора).
     # - wb-cards-reset: сброс курсора wbCards → full-pass (склейки/imt_id отстают
     #   после переклейки на МП, т.к. WB не бампает updatedAt).
-    # - wb-loader-status/reset/load: generic управление любым wb-loader-app загрузчиком
-    #   (status read-only; reset/load мутируют). См. commands/_wb_loader.py.
+    # - wb-loader-status/config/reset/load: generic управление любым wb-loader-app загрузчиком
+    #   (status и config без флагов read-only; config --enable/--disable/--reset, reset, load
+    #   мутируют). См. commands/_wb_loader.py.
     # - ss-access: подгруппа MyAccess (request/status/revoke/reset) с авто-телом и DB-резолвом.
     from mpu.commands.ss_access import build_command as _build_ss_access
     from mpu.commands.wb_cards_reset import build_command as _build_wb_cards_reset
     from mpu.commands.wb_loader_blocked import build_command as _build_wb_loader_blocked
+    from mpu.commands.wb_loader_config import build_command as _build_wb_loader_config
     from mpu.commands.wb_loader_load import build_command as _build_wb_loader_load
     from mpu.commands.wb_loader_reset import build_command as _build_wb_loader_reset
     from mpu.commands.wb_loader_resume import build_command as _build_wb_loader_resume
@@ -332,6 +334,7 @@ def build_api_group() -> click.Group:
     group.add_command(_build_wb_loader_blocked())
     group.add_command(_build_wb_cards_reset())
     group.add_command(_build_wb_loader_status())
+    group.add_command(_build_wb_loader_config())
     group.add_command(_build_wb_loader_reset())
     group.add_command(_build_wb_loader_load())
     group.add_command(_build_ss_access())

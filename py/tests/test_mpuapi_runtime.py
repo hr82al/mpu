@@ -633,6 +633,7 @@ _CUSTOM_COMMANDS = (
     "ss-access",
     "wb-cards-reset",
     "wb-loader-blocked",
+    "wb-loader-config",
     "wb-loader-load",
     "wb-loader-reset",
     "wb-loader-resume",
