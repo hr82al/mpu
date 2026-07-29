@@ -546,6 +546,31 @@ COMMANDS: tuple[CommandSpec, ...] = (
         summary="DELETE /admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
         path_params=(CLIENT_ID, SS_ID, PathParam("sheetName", "sheet (=dataset) name")),
     ),
+    # ─── /ss/datasets (client-facing, НЕ /admin — auth по валидному spreadsheet_id,
+    # ssAuthMiddleware не проверяет токен) ────────────────────────────────────
+    CommandSpec(
+        name="ss-datasets-update",
+        method="POST",
+        path="/ss/datasets/update",
+        summary="POST /ss/datasets/update → поставить запрос в очередь ss-updater (асинхронно)",
+        no_auth=True,
+        body_fields=(
+            BodyField("spreadsheet_id", "string", "spreadsheet_id (Google Sheets)", required=True),
+            BodyField(
+                "dataset",
+                "json",
+                'JSON {"name": "<datasetName>"} — обновить один датасет/лист; '
+                "опустить — обновить всю таблицу (все активные датасеты)",
+            ),
+        ),
+        description=(
+            "Апсертит строку в очередь spreadsheets_requests; фоновый ss-updater на клиентском "
+            "сервере подхватывает её на ближайшем тике (~2с) и выполняет пересчёт + заливку в лист "
+            "САМ, отдельным процессом — эта команда возвращается сразу после постановки в очередь, "
+            "не дожидаясь фактической записи в Google-таблицу. Auth — по валидному spreadsheet_id "
+            "в теле (ssAuthMiddleware резолвит клиента по нему, Authorization не нужен)."
+        ),
+    ),
     # ─── /admin/client/:clientId/wb/token ────────────────────────────────────
     CommandSpec(
         name="list-client-wb-tokens",

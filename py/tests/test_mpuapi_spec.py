@@ -121,11 +121,21 @@ def test_token_only_only_on_get_token() -> None:
     assert token_only == ["get-token"]
 
 
-def test_no_auth_only_on_auth_login() -> None:
-    """`no_auth` стоит только у команд с путём `/auth/login` (логин до авторизации)."""
+NO_AUTH_ALLOWED_PATHS: frozenset[str] = frozenset(
+    {
+        "/auth/login",  # логин до авторизации — токена ещё нет
+        "/ss/datasets/update",  # ssAuthMiddleware резолвит клиента по spreadsheet_id в теле,
+        # bearer-токен не проверяет вовсе (auth-схема Apps Script webhook'ов, не staff/user JWT)
+    }
+)
+
+
+def test_no_auth_only_on_known_endpoints() -> None:
+    """`no_auth` стоит только там, где backend реально не проверяет Authorization —
+    иначе случайно расставленный `no_auth=True` тихо шлёт запрос без токена."""
     for spec in COMMANDS:
         if spec.no_auth:
-            assert spec.path == "/auth/login", spec.name
+            assert spec.path in NO_AUTH_ALLOWED_PATHS, spec.name
 
 
 def test_get_token_shape() -> None:
