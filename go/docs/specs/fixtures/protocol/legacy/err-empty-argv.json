@@ -1,0 +1,6 @@
+{
+  "note": "пустой argv отклоняется до исполнения ОБЫЧНЫМ нестриминговым Response (application/json)",
+  "authorization": "valid",
+  "request": {"jsonrpc": "2.0", "id": 15, "method": "legacy.run", "params": {"argv": [], "stdin": null}},
+  "response": {"jsonrpc": "2.0", "id": 15, "error": {"code": -32602, "message": "invalid params: argv must not be empty"}}
+}

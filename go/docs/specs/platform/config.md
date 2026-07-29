@@ -49,9 +49,9 @@ CLI — `ts/docs/specs/platform/config.md`)
   (личные креды приоритетнее общих);
 - `DEV_PG_HOST/PORT/DB` (dev-стенд, одна БД на всех клиентов),
   `DEV_PG_USER/PASSWORD`;
-- учётные пары CLI-пользователей, секрет подписи JWT и TTL токена
-  (контракт auth — `specs/protocol/core.md`; формат хранения пар —
-  открытый вопрос там же);
+- учётные пары CLI-пользователей (login + хэш пароля, bcrypt/argon2id),
+  секрет подписи JWT и TTL токена (дефолт 7 дней); контракт auth —
+  `specs/protocol/core.md`;
 - лимит размера тела запроса и таймауты соединения
   (`specs/protocol/core.md`);
 - `MPU_LOG_*` — журнал вызовов (контракт — `platform/invoke-log.md`);

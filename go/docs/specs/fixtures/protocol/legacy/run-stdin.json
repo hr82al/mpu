@@ -1,0 +1,9 @@
+{
+  "note": "stdin одним куском; ненулевой exit пробрасывается как есть",
+  "authorization": "valid",
+  "request": {"jsonrpc": "2.0", "id": 11, "method": "legacy.run", "params": {"argv": ["example-cmd", "-"], "stdin": "входные данные\n"}},
+  "responseStream": [
+    {"stream": "err", "data": "example-cmd: ошибка разбора входа\n"},
+    {"jsonrpc": "2.0", "id": 11, "result": {"exit": 2}}
+  ]
+}

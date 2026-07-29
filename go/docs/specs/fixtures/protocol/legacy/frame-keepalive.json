@@ -1,0 +1,11 @@
+{
+  "note": "keepalive при молчании процесса: клиент игнорирует, в вывод не попадает",
+  "authorization": "valid",
+  "request": {"jsonrpc": "2.0", "id": 13, "method": "legacy.run", "params": {"argv": ["example-cmd", "--slow"], "stdin": null}},
+  "responseStream": [
+    {"keepalive": true},
+    {"keepalive": true},
+    {"stream": "out", "data": "готово\n"},
+    {"jsonrpc": "2.0", "id": 13, "result": {"exit": 0}}
+  ]
+}

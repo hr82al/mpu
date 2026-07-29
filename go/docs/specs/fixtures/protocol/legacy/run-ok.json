@@ -1,0 +1,11 @@
+{
+  "note": "happy-стрим: чередование out/err, финальный Response с exit",
+  "authorization": "valid",
+  "request": {"jsonrpc": "2.0", "id": 10, "method": "legacy.run", "params": {"argv": ["example-cmd", "--flag"], "stdin": null}},
+  "responseStream": [
+    {"stream": "out", "data": "строка вывода 1\n"},
+    {"stream": "err", "data": "предупреждение\n"},
+    {"stream": "out", "data": "строка вывода 2\n"},
+    {"jsonrpc": "2.0", "id": 10, "result": {"exit": 0}}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "note": "Python-mpu недоступен: поток из единственного финального error-кадра; CLI печатает message в stderr, exit 1",
+  "authorization": "valid",
+  "request": {"jsonrpc": "2.0", "id": 14, "method": "legacy.run", "params": {"argv": ["example-cmd"], "stdin": null}},
+  "responseStream": [
+    {"jsonrpc": "2.0", "id": 14, "error": {"code": 2000, "message": "legacy unavailable: python mpu is not installed (command 'example-cmd')"}}
+  ]
+}

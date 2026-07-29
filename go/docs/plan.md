@@ -30,7 +30,12 @@ CLI — Deno/TS (`ts/`). Детали — `mpu/docs/broker-architecture.md` (в�
   (login → временный JWT), формат ошибок, ядро операций
   (`auth.login`, `core.version`), enforcement `confirmed`.
   Сторона: контракт обеих сторон. Спека: к реализации (утверждена
-  2026-07-29; контрактные пары — `fixtures/protocol/core/`).
+  2026-07-29, повторно после оговорки о стриминге; учётки — хэш, TTL
+  7 дней; контрактные пары — `fixtures/protocol/core/`).
+- **protocol/legacy** — операция `legacy.run` + стриминговая форма
+  ответа (NDJSON-кадры, keepalive, обрыв = SIGTERM). Сторона: контракт
+  обеих сторон. Спека: к реализации (утверждена 2026-07-29; пары —
+  `fixtures/protocol/legacy/`).
 
 - **selector** — резолв `sl-N`/имени в сервер, PG-коннект и контейнеры.
   Сторона: брокер (CLI селектор не трактует). Спека: черновик
@@ -51,7 +56,7 @@ CLI — Deno/TS (`ts/`). Детали — `mpu/docs/broker-architecture.md` (в�
   2026-07-29).
 - **legacy-delegation** (бывш. dispatcher) — операция исполнения
   не переехавших команд Python-mpu рядом с брокером. Сторона: брокер.
-  Спека: черновик (блокер — спека протокола).
+  Спека: к реализации (2026-07-29, вместе с protocol/legacy).
 - **registry** — реестр команд Deno-CLI: маршрутизация (включая
   legacy-fallback) + `help`/`version`/completion. Сторона: CLI.
   Спека: к реализации — `ts/docs/specs/platform/registry.md`

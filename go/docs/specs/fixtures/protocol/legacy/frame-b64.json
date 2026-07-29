@@ -1,0 +1,9 @@
+{
+  "note": "бинарный кусок вывода: поле b64 вместо data (в кадре ровно одно из двух)",
+  "authorization": "valid",
+  "request": {"jsonrpc": "2.0", "id": 12, "method": "legacy.run", "params": {"argv": ["example-cmd", "--binary"], "stdin": null}},
+  "responseStream": [
+    {"stream": "out", "b64": "AAECAwQF"},
+    {"jsonrpc": "2.0", "id": 12, "result": {"exit": 0}}
+  ]
+}
