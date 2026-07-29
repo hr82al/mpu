@@ -41,3 +41,4 @@ coverage/
 /.claude/loop.md
 /.claude/.cc-writes
 /.claude/.claude
+/.claude/settings.local.json
