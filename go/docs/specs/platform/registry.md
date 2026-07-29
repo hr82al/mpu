@@ -1,6 +1,6 @@
 # platform/registry — реестр команд и справка
 
-Статус: черновик
+Статус: к реализации
 
 ## Назначение
 
@@ -10,14 +10,18 @@
 
 ## CLI-контракт
 
-- `mpu --help` ≡ `mpu -h` ≡ `mpu` без аргументов: Usage, описание CLI
+- `mpu --help` ≡ `mpu -h` (байт-в-байт, exit 0); `mpu` без аргументов —
+  тот же текст без финальной пустой строки, exit 2 (код — контракт
+  `platform/dispatcher.md`). Всё в stdout: Usage, описание CLI
   («Monorepo Python utilities — multi-purpose CLI for ad-hoc
   operations.»), панель Options (completion-опции, `--help -h`), одна
   плоская панель Commands. Порядок команд — порядок реестра, не
   алфавит; строка команды = её собственная однострока-summary.
-- `-h`/`--help` работают одинаково на любом уровне вложенности; у
-  passthrough-команд, принимающих произвольные аргументы, `--help`
-  не перехватывается обвязкой.
+- `-h`/`--help` первым аргументом работают одинаково на любом уровне
+  вложенности, включая passthrough-команды (`mpu ssh --help` и
+  `mpu run-js --help` рендерят справку, exit 0). Судьба `--help` среди
+  произвольных аргументов после позиционных — контракт конкретной
+  команды, не обвязки.
 - `mpu help` (подкоманда): заголовок `Available commands:`, затем по
   строке `mpu <kebab><выравнивание><описание>` (одна колонка описаний),
   футер `Run \`<command> --help\` for detailed usage.`; exit 0.
@@ -30,7 +34,9 @@
 - `mpu version` — одна строка версии в stdout, без префиксов, exit 0.
   Версия — константа сборки. Флага `--version` на корне нет.
 - `--install-completion` / `--show-completion` — установка/печать
-  completion-скрипта текущего shell (определяется по env `SHELL`).
+  completion-скрипта текущего shell. Shell определяется по ближайшему
+  известному shell в дереве процессов-предков; env `SHELL` не участвует
+  (при bash-родителе `SHELL=/bin/zsh` всё равно даёт bash-скрипт).
 
 ## Ввод/вывод
 
@@ -43,7 +49,8 @@
 
 ## Конфигурация
 
-нет (версия — константа сборки; `SHELL` — только для completion).
+нет (версия — константа сборки; shell для completion определяется по
+дереву процессов, не по конфигурации и не по env).
 
 ## Инварианты
 
@@ -61,16 +68,36 @@
 - `mpu help ""` → unknown, exit 2 (не путается с вызовом без аргумента).
 - `mpu help <голый-kebab>` → unknown (частая ошибка ввода; список
   Known commands подсказывает полную форму).
-- Нераспознанный/пустой `SHELL` при completion → ошибка
-  `Shell … not supported`.
 
 ## Golden-примеры
 
-Снять при переводе в «к реализации»: `mpu --help`; `mpu -h`; `mpu`;
-`mpu help`; `mpu help --help`; `mpu help "mpu search"`;
-`mpu help "mpu help"`; `mpu help does-not-exist`; `mpu help ""`;
-`mpu version`; `mpu version --help`; `mpu --show-completion` при
-`SHELL=bash` и `SHELL=zsh`.
+Фикстуры в `fixtures/platform/registry/` (`err-*` — stderr, остальное —
+stdout). Сняты с живой версии 0.1.0, 2026-07-29:
+
+| Вызов | Эталон | exit |
+| --- | --- | --- |
+| `mpu --help` ≡ `mpu -h` | `help-root.txt` | 0 |
+| `mpu` | `help-root.txt` без финальной пустой строки | 2 |
+| `mpu help` | `help-list.txt` | 0 |
+| `mpu help --help` | `help-help.txt` | 0 |
+| `mpu help "mpu search"` | `help-named-search.txt` | 0 |
+| `mpu help "mpu help"` | `help-named-self.txt` | 0 |
+| `mpu help does-not-exist` | `err-help-unknown.txt` | 2 |
+| `mpu help ""` | `err-help-empty.txt` | 2 |
+| `mpu help search` (голый kebab) | `err-help-bare-kebab.txt` | 2 |
+| `mpu version` | `version.txt` | 0 |
+| `mpu version --help` | `version-help.txt` | 0 |
+| `mpu --show-completion` (bash-родитель) | `completion-bash.txt` | 0 |
+| `mpu --show-completion` (zsh-родитель) | `completion-zsh.txt` | 0 |
+
+Списки команд в `help-list.txt` и в `Known commands:` err-фикстур несут
+дрейф оригинала (нет `api`, `init`, `version` — см. отклонения); Go-вывод
+этих поверхностей сравнивать по единому реестру, не байтами с фикстурой.
+`help-named-*.txt` несут квирк именованного рендера (см. отклонения) —
+сравнивать по prog-имени и exit-коду. Для completion «родитель» = shell,
+из которого mpu форкнут: снимать как `bash -c 'mpu --show-completion; :'`
+— голый `bash -c 'mpu …'` exec'ает mpu, и родителем остаётся внешний
+shell.
 
 ## Известные отклонения
 
@@ -78,6 +105,19 @@
   внутренних имён модулей и расходился с порядком `--help`; в Go обе
   поверхности используют порядок единого реестра. Расхождение с
   оригиналом — только порядок строк `mpu help`.
+- **fix** — рукописный список `mpu help` дрейфанул от реестра
+  (подтверждено при съёме golden): в нём и в `Known commands:` ошибок
+  нет `api`, `init`, `version` — 54 команды против 57 в `--help`.
+  Следствие проверено вживую при съёме: `mpu help "mpu version"` →
+  stderr `mpu help: unknown command 'mpu version'`, exit 2 (фикстура не
+  снималась — тот же класс unknown, что `err-help-unknown.txt`). В Go
+  все поверхности читают единый реестр — состав всегда полный.
+- **fix** — именованный рендер `mpu help "mpu <cmd>"` в оригинале
+  собирает справку заново и расходится с собственной `mpu <cmd> --help`:
+  в панель Options добавляются `--install-completion`/`--show-completion`,
+  пропадает алиас `-h` у `--help`, меняется разбивка колонок (видно по
+  `help-named-self.txt` против `help-help.txt`). В Go `mpu help <имя>`
+  выдаёт ровно тот же текст, что `<имя> --help`.
 - **fix** — байтовый паритет оформления справки не требуется
   (см. `platform/dispatcher.md`): фиксируются состав, порядок, тексты
   однострок и exit-коды.
@@ -88,3 +128,7 @@
   осознанный дизайн. Решить: сохранять ли обе опции в Go (штатный
   completion Go-фреймворка) и не добавить ли заодно `--version` —
   любое отличие фиксируется как принятое расхождение в `MIGRATION.md`.
+- Поведение completion при неопределимом shell (в дереве предков нет
+  известного shell) не снято — в реальном окружении недостижимо, у mpu
+  предком всегда является shell. Зафиксировать при реализации, если
+  Go-фреймворк потребует явного решения.

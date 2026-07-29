@@ -1,0 +1,15 @@
+                                                                                
+ Usage: mpu help [OPTIONS] [command]                                            
+                                                                                
+ Список всех mpu команд с опциональной справкой.                                
+                                                                                
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│   command      <str>  Команда для показа справки (опционально)               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --install-completion          Install completion for the current shell.      │
+│ --show-completion             Show completion for the current shell, to copy │
+│                               it or customize the installation.              │
+│ --help                        Show this message and exit.                    │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
