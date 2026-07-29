@@ -4,9 +4,9 @@
 `docs/broker-architecture.md`). Инфраструктура (изоляция `go/`, канал спецификаций
 `go/docs/` — см. `go/docs/CLAUDE.md`) развёрнута; развилки §11 решены, гейты — в
 `go/docs/implementation.md`. Языки: Go — брокер, Deno/TS — CLI (§10 — историческое
-обоснование, пересмотрено). Спеки registry/legacy-delegation пересмотрены под
-раскладку брокер/CLI; следующий шаг — спека протокола (`go/docs/specs/protocol/`)
-и канал `ts/docs/`.
+обоснование, пересмотрено). Спеки registry/legacy-delegation пересмотрены,
+`protocol/core` — к реализации (2026-07-29); следующий шаг — канал `ts/docs/` и
+пересмотр `platform/config` / `platform/invoke-log` под брокер.
 
 ## 0. Принцип
 

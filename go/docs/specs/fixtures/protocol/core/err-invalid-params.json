@@ -1,0 +1,6 @@
+{
+  "note": "строгий разбор params: неизвестное поле — ошибка, не игнор",
+  "authorization": null,
+  "request": {"jsonrpc": "2.0", "id": 5, "method": "auth.login", "params": {"login": "user", "password": "example-password", "extra": true}},
+  "response": {"jsonrpc": "2.0", "id": 5, "error": {"code": -32602, "message": "invalid params: unknown field 'extra'"}}
+}

@@ -1,0 +1,6 @@
+{
+  "note": "happy path core.version под валидным Bearer",
+  "authorization": "valid",
+  "request": {"jsonrpc": "2.0", "id": 2, "method": "core.version", "params": {}},
+  "response": {"jsonrpc": "2.0", "id": 2, "result": {"version": "<semver>"}}
+}

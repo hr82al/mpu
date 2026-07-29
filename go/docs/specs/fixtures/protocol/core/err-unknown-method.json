@@ -1,0 +1,6 @@
+{
+  "note": "закрытый словарь операций",
+  "authorization": "valid",
+  "request": {"jsonrpc": "2.0", "id": 4, "method": "core.bogus", "params": {}},
+  "response": {"jsonrpc": "2.0", "id": 4, "error": {"code": -32601, "message": "unknown method 'core.bogus'"}}
+}

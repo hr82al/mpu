@@ -24,7 +24,13 @@ CLI — Deno/TS (`ts/`). Детали — `mpu/docs/broker-architecture.md` (в�
 Порядок «сначала обвязка, затем xlsx» сохраняется по смыслу; `xlsx` —
 чисто локальная команда, первый вертикальный срез Deno-CLI без брокера.
 
-## Обвязка (едет первой, `specs/platform/`)
+## Обвязка (едет первой, `specs/platform/` + `specs/protocol/`)
+
+- **protocol/core** — транспорт HTTPS + JSON-RPC 2.0, auth
+  (login → временный JWT), формат ошибок, ядро операций
+  (`auth.login`, `core.version`), enforcement `confirmed`.
+  Сторона: контракт обеих сторон. Спека: к реализации (утверждена
+  2026-07-29; контрактные пары — `fixtures/protocol/core/`).
 
 - **selector** — резолв `sl-N`/имени в сервер, PG-коннект и контейнеры.
   Сторона: брокер. Спека: черновик.

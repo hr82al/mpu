@@ -1,0 +1,6 @@
+{
+  "note": "happy path auth.login: синтетические учётки, токен и срок — плейсхолдеры формы",
+  "authorization": null,
+  "request": {"jsonrpc": "2.0", "id": 1, "method": "auth.login", "params": {"login": "user", "password": "example-password"}},
+  "response": {"jsonrpc": "2.0", "id": 1, "result": {"token": "<jwt>", "expires_at": "<iso-8601-utc>"}}
+}
