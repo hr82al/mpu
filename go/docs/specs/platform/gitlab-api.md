@@ -34,7 +34,9 @@
      получено '<селектор>'`;
    - прочее → `не удалось разобрать MR '<селектор>'; формы: URL |
      'group/repo!iid' | iid`.
-2. project не определён → `git remote get-url origin` в cwd; формы
+2. project не определён → `git remote get-url origin` в cwd —
+   исполняется на стороне CLI (локальный git машины пользователя;
+   результат передаётся брокеру параметром операции); формы
    `ssh://[user@]host[:port]/path`, scp (`git@host:path.git`),
    `https://host/path`; project = путь без крайних `/` и суффикса
    `.git`. Хост (без порта) ≠ хосту `GITLAB_BASE_URL` → `git remote
@@ -161,9 +163,10 @@ exit 1, ошибка env-слоя с путём env-файла (`platform/config
 
 ## Побочные эффекты
 
-HTTP к `GITLAB_BASE_URL`; локальные git-подпроцессы
-(`git remote get-url origin`, `git rev-parse --abbrev-ref HEAD`)
-только при неполном селекторе. Ни записи в БД/файлы, ни кэша.
+HTTP к `GITLAB_BASE_URL` — брокер; локальные git-подпроцессы
+(`git remote get-url origin`, `git rev-parse --abbrev-ref HEAD`) —
+сторона CLI, только при неполном селекторе, результат уезжает
+параметрами операции. Ни записи в БД/файлы, ни кэша.
 
 ## Конфигурация
 

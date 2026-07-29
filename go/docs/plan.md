@@ -54,9 +54,9 @@ CLI — Deno/TS (`ts/`). Детали — `mpu/docs/broker-architecture.md` (в�
   Спека: черновик (блокер — спека протокола).
 - **registry** — реестр команд Deno-CLI: маршрутизация (включая
   legacy-fallback) + `help`/`version`/completion. Сторона: CLI.
-  Спека: черновик — `ts/docs/specs/platform/registry.md` (пересобрана
-  2026-07-29 слиянием с CLI-частью dispatcher; golden сняты и остаются
-  эталоном).
+  Спека: к реализации — `ts/docs/specs/platform/registry.md`
+  (2026-07-29; golden сняты; справка legacy-команд приходит
+  делегацией).
 
 ## Команды к переезду (по частоте)
 
