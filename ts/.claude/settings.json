@@ -11,9 +11,9 @@
     "/home/user/mr/mp/mpu/.claude/rules/**"
   ],
   "env": {
-    "GOCACHE": "/home/user/mr/mp/mpu/go/.gocache",
-    "GOTMPDIR": "/home/user/mr/mp/mpu/go/.gotmp",
-    "TMPDIR": "/home/user/mr/mp/mpu/go/.gotmp"
+    "DENO_DIR": "/home/user/mr/mp/mpu/ts/.deno",
+    "TMPDIR": "/home/user/mr/mp/mpu/ts/.tmp",
+    "DENO_NO_UPDATE_CHECK": "1"
   },
   "hooks": {
     "PreToolUse": [
@@ -24,7 +24,7 @@
             "type": "command",
             "if": "Bash(git:*)",
             "statusMessage": "Проверка git-команды",
-            "command": "c=$(jq -r '.tool_input.command'); echo \"$c\" | grep -Eq '(^|[;&|(][[:space:]]*)git([[:space:]]+-[^[:space:]]+)*[[:space:]]+(stash|add|commit)([[:space:]]|$)' || exit 0; { echo \"$c\" | grep -Eq '(^|[;&|(][[:space:]]*)git([[:space:]]+-[^[:space:]]+)*[[:space:]]+stash([[:space:]]|$)' || echo \"$c\" | grep -Eq '(^|[[:space:]])-[A-Za-z]*[Aau][A-Za-z]*([[:space:]]|$)|(^|[[:space:]])(--all|\\.\\.|:/)([[:space:]]|$)'; } || exit 0; echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"py/ и docs/ закрыты песочницей и выглядят для git удалёнными — массовая операция закоммитит удаление py/. Работать с pathspec: git add go/…, git commit -m … -- go/\"}}'"
+            "command": "c=$(jq -r '.tool_input.command'); echo \"$c\" | grep -Eq '(^|[;&|(][[:space:]]*)git([[:space:]]+-[^[:space:]]+)*[[:space:]]+(stash|add|commit)([[:space:]]|$)' || exit 0; { echo \"$c\" | grep -Eq '(^|[;&|(][[:space:]]*)git([[:space:]]+-[^[:space:]]+)*[[:space:]]+stash([[:space:]]|$)' || echo \"$c\" | grep -Eq '(^|[[:space:]])-[A-Za-z]*[Aau][A-Za-z]*([[:space:]]|$)|(^|[[:space:]])(--all|\\.\\.|:/)([[:space:]]|$)'; } || exit 0; echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"py/, go/ и docs/ закрыты песочницей и выглядят для git удалёнными — массовая операция закоммитит их удаление. Работать с pathspec: git add ts/…, git commit -m … -- ts/\"}}'"
           }
         ]
       }
@@ -33,8 +33,7 @@
   "permissions": {
     "defaultMode": "auto",
     "allow": [
-      "Bash(go:*)",
-      "Bash(gofmt:*)",
+      "Bash(deno:*)",
       "Bash(git:*)"
     ],
     "deny": [
@@ -72,7 +71,20 @@
       "Read(//home/user/mr/mp/mpu/.claude/**)",
       "Read(//home/user/mr/mp/mpu/docs/**)",
       "Read(//home/user/mr/mp/mpu/py/**)",
-      "Read(//home/user/mr/mp/mpu/ts/**)",
+      "Read(//home/user/mr/mp/mpu/go/CLAUDE.md)",
+      "Read(//home/user/mr/mp/mpu/go/.claude/**)",
+      "Read(//home/user/mr/mp/mpu/go/.gocache/**)",
+      "Read(//home/user/mr/mp/mpu/go/.gotmp/**)",
+      "Read(//home/user/mr/mp/mpu/go/go.mod)",
+      "Read(//home/user/mr/mp/mpu/go/go.sum)",
+      "Read(//home/user/mr/mp/mpu/go/docs/CLAUDE.md)",
+      "Read(//home/user/mr/mp/mpu/go/docs/implementation.md)",
+      "Read(//home/user/mr/mp/mpu/go/docs/plan.md)",
+      "Read(//home/user/mr/mp/mpu/go/docs/MIGRATION.md)",
+      "Read(//home/user/mr/mp/mpu/go/docs/glossary.md)",
+      "Read(//home/user/mr/mp/mpu/go/docs/specs/*.md)",
+      "Read(//home/user/mr/mp/mpu/go/docs/specs/platform/**)",
+      "Read(//home/user/mr/mp/mpu/go/docs/specs/fixtures/platform/**)",
       "Read(//home/user/tmp/**)",
       "Read(//tmp/**)",
       "Read(//home/user/.claude/**)",
@@ -115,7 +127,8 @@
       "Edit(//home/user/mr/mp/mpu/.claude/**)",
       "Edit(//home/user/mr/mp/mpu/docs/**)",
       "Edit(//home/user/mr/mp/mpu/py/**)",
-      "Edit(//home/user/mr/mp/mpu/ts/**)",
+      "Edit(//home/user/mr/mp/mpu/go/**)",
+      "Edit(//home/user/mr/mp/mpu/ts/docs/specs/protocol/**)",
       "Edit(//home/user/tmp/**)",
       "Edit(//tmp/**)",
       "Edit(//home/user/.claude/**)",
@@ -124,7 +137,7 @@
       "Edit(//home/user/.ssh/**)",
       "Edit(//home/user/.gnupg/**)",
       "Edit(//home/user/.cache/**)",
-      "Edit(//home/user/mr/mp/mpu/go/.claude/**)"
+      "Edit(//home/user/mr/mp/mpu/ts/.claude/**)"
     ],
     "additionalDirectories": []
   },
@@ -134,20 +147,22 @@
     "allowUnsandboxedCommands": false,
     "network": {
       "allowedDomains": [
-        "proxy.golang.org",
-        "sum.golang.org",
-        "storage.googleapis.com"
+        "deno.land",
+        "jsr.io",
+        "registry.npmjs.org"
       ]
     },
     "filesystem": {
       "denyRead": [
-        "/home/user"
+        "/home/user",
+        "/home/user/mr/mp/mpu/py",
+        "/home/user/mr/mp/mpu/docs",
+        "/home/user/mr/mp/mpu/go"
       ],
       "allowRead": [
-        "/home/user/mr/mp/mpu/go",
-        "/home/user/mr/mp/mpu/.git",
-        "/home/user/mr/mp/mpu/.gitignore",
-        "/home/user/go",
+        "/home/user/mr/mp/mpu",
+        "/home/user/mr/mp/mpu/go/docs/specs/protocol",
+        "/home/user/mr/mp/mpu/go/docs/specs/fixtures/protocol",
         "/home/user/.gitconfig",
         "/home/user/.config/git"
       ],
@@ -155,9 +170,8 @@
         "/home/user"
       ],
       "allowWrite": [
-        "/home/user/mr/mp/mpu/go",
-        "/home/user/mr/mp/mpu/.git",
-        "/home/user/go"
+        "/home/user/mr/mp/mpu/ts",
+        "/home/user/mr/mp/mpu/.git"
       ]
     }
   }

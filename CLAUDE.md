@@ -25,8 +25,10 @@ Overview дерева `mpu` целиком. Корневой CLAUDE.md моно�
 - `ts/` — Deno/TS CLI (`mpu`, собирается `deno compile`). Кода ещё нет:
   `CLAUDE.md` — правила качества/тулинга модуля (аналог `go/CLAUDE.md`
   под Deno), `docs/` — канал CLI-спек для изолированных Deno-сессий
-  (правила — `ts/docs/CLAUDE.md`; протокол брокера — общий канал
-  `go/docs/specs/protocol/`, ts-сессиям read-only). Код появится с
+  (правила — `ts/docs/CLAUDE.md`; протокол брокера доступен ts-сессиям
+  read-only как `ts/docs/specs/protocol` — симлинк на
+  `go/docs/specs/protocol/`). Изоляция ts-сессий настроена
+  (`ts/.claude/` по образцу `go/`, замок `lock.sh`). Код появится с
   первым вертикальным срезом; из монорепо-сессии внутри `ts/` не
   трогать ничего, кроме `ts/docs/`.
 

@@ -1,0 +1,43 @@
+# Скомпилированные бинари
+/mpu
+/bin/
+/dist/
+
+# Кэш Deno и временные файлы (перенаправлены внутрь ts/ через
+# .claude/settings.json)
+.deno/
+.tmp/
+
+# Покрытие
+/cov/
+coverage/
+*.lcov
+
+# Настройки IDE и редакторов
+/.idea
+/.vscode
+*.swp
+
+# Локальное окружение оболочки и инструментов
+/.bashrc
+/.bash_profile
+/.profile
+/.zshrc
+/.zprofile
+/.gitconfig
+/.ripgreprc
+/.mcp.json
+
+# Локальная обвязка Claude Code; в репозитории живут только settings.json и
+# lock.sh, остальное у каждого своё
+/.claude/agents
+/.claude/commands
+/.claude/hooks
+/.claude/skills
+/.claude/workflows
+/.claude/routines
+/.claude/output-styles
+/.claude/launch.json
+/.claude/loop.md
+/.claude/.cc-writes
+/.claude/.claude
