@@ -96,8 +96,8 @@ stdout — отчёт: список локальных client_id sl-1 (по во
 
 Снять при переводе в «к реализации» (на локальном стенде):
 `mpu clean-local-clients --help`; `mpu clean-local-clients` (dry-run,
-дефолтный keep); `mpu clean-local-clients --keep 54,776,999` (dry-run,
-расширенный keep); `--keep x` (usage-ошибка).
+дефолтный keep); `mpu clean-local-clients --yes` (реальное удаление,
+итоговый отчёт); `--keep x` (usage-ошибка).
 
 ## Известные отклонения
 

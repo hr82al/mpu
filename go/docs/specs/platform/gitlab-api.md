@@ -5,9 +5,9 @@
 ## Назначение
 
 Платформенный атом команд над GitLab merge-request'ами (`mr-read.md`,
-`mr-write.md`): авторизация, резолв MR-адреса, эндпоинты REST API v4,
-разбор unified diff и position-механика инлайн-комментариев (самая
-хрупкая часть — дословно).
+`mr-write.md`, `glab-status.md`): авторизация, резолв MR-адреса,
+эндпоинты REST API v4, разбор unified diff и position-механика
+инлайн-комментариев (самая хрупкая часть — дословно).
 
 ## CLI-контракт
 
@@ -40,8 +40,11 @@
    `.git`. Хост (без порта) ≠ хосту `GITLAB_BASE_URL` → `git remote
    смотрит на '<host>', а не на '<ожидаемый>' — укажи MR через --mr`;
    git не найден → `git не найден в PATH — укажи MR через --mr`; git
-   упал → `<stderr git без крайних пробелов> — укажи MR через --mr`;
-   remote не разобрался → `не удалось разобрать git remote '<url>'`.
+   упал → `<stderr git без крайних пробелов> — укажи MR через --mr`,
+   при пустом stderr вместо него `git <аргументы>: ошибка`; remote не
+   разобрался → `не удалось разобрать git remote '<url>'`; путь пуст
+   после снятия `/` и `.git` (после сверки хоста) → `пустой project в
+   git remote '<url>'`.
 3. iid не определён → текущая ветка `git rev-parse --abbrev-ref HEAD`;
    вывод `HEAD` (detached) → `detached HEAD — не определить ветку,
    укажи MR через --mr`; затем GET открытых MR ветки (эндпоинт ниже):
@@ -87,9 +90,17 @@ Diff файлов — ТОЛЬКО из `/changes?access_raw_diffs=true`, не �
 
 MR: project (из адресации — API в этом виде его не отдаёт), iid,
 title, state, source_branch, target_branch, web_url, автор (name,
-username), description, diff_refs `{base_sha, start_sha, head_sha}`.
-Любой SHA пуст или отсутствует → diff_refs отсутствует целиком
-(частичного не бывает; у MR без коммитов diff_refs нет).
+username), description, project_id (целое), sha (head исходной
+ветки), merge_commit_sha, squash_commit_sha (пустой → отсутствует),
+diff_refs `{base_sha, start_sha, head_sha}`. Любой SHA пуст или
+отсутствует → diff_refs отсутствует целиком (частичного не бывает;
+у MR без коммитов diff_refs нет).
+
+Эндпоинты `glab-status.md` (пагинированы; пути и параметры — в её
+спеке): глобальный список моих MR (`scope=created_by_me`) — элементы
+в форме MR выше, без project и diff_refs; ветки, содержащие коммит
+(`…/repository/commits/{sha}/refs?type=branch`) — массив объектов,
+имя ветки — поле `name`: `[{"type": "branch", "name": "trunk"}, …]`.
 
 Файл MR: old_path, new_path, diff (unified), флаги new_file /
 renamed_file / deleted_file. Статус одной буквой, в порядке проверки:
@@ -196,5 +207,4 @@ added/removed/context-строками, rename и binary; `/discussions` с
 
 ## Открытые вопросы
 
-- Атом обслуживает и `glab-status` (глобальный список моих MR, ветки,
-  содержащие коммит); эти эндпоинты фиксируются при снятии её спеки.
+нет

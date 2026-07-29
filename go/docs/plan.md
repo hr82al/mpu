@@ -31,14 +31,16 @@
    селектору. Атомы: platform/pg, табличный вывод. Спека одна.
    Спека: черновик.
 2. **logs** (392) — логи сервисов стенда (Loki; legacy — Portainer).
-   Атомы: platform/loki, фильтры по сервису/времени.
+   Атомы: platform/loki, фильтры по сервису/времени. Спека: черновик.
 3. **kiten** (390) — Kaiten из терминала. Дробится по подкомандам:
    time (153) — учёт времени и таймер; card (82) — чтение карточки;
    field (43) — кастомные поля, в т.ч. AI-артефакт; status (37) — вся
    моя работа матрицей; close (25); comment (19); ls (10); roles (8);
-   ready (2); справочники. Атом: platform/kaiten-http.
+   ready (2); справочники. Атом: platform/kaiten-http. Спеки: черновик
+   (card, ls, status, refs, time, move, close, comment, field + атом).
 4. **ssh** (177) — команда в `mp-sl-N-cli` или произвольном контейнере.
-   Атомы: platform/ssh, platform/docker-exec.
+   Атомы: platform/ssh, platform/docker-exec. Спека: черновик (+ атом
+   exec-transport).
 5. **api** (150) — HTTP-клиенты sl-back. Дробится по эндпоинтам:
    wb-loader-blocked (59), wb-loader-status (52), wb-loader-resume (4),
    остальные по мере надобности. Атом: platform/slback-http
@@ -46,30 +48,38 @@
    platform/slback-http).
 6. **sheet** (119) — Google Sheets через Apps Script webapp. Дробится:
    get (78), ls (20), batch-update (8), batch-get. Атомы:
-   platform/webapp-http, кэш листов.
+   platform/webapp-http, кэш листов. Спеки: черновик (sheet,
+   sheet-batch + атом).
 7. **mr** (103) — GitLab MR review. Дробится: view (25), comment (17),
    comments (15), files (7), create (7), describe (6), reply (5),
    note (5), diff (3), resolve (2). Атом: platform/gitlab-api
    (positioned-комментарии — самая хрупкая часть, отдельная спека).
+   Спеки: черновик (mr-read, mr-write + атом gitlab-api).
 8. **run-js** (61) — ESM-код внутри контейнера sl-back. Атомы общие
-   с `ssh` (docker-exec).
-9. **ps** (47) — список контейнеров. Атом: кэш контейнеров.
+   с `ssh` (docker-exec). Спека: черновик.
+9. **ps** (47) — список контейнеров. Атом: кэш контейнеров. Спека:
+   черновик.
 10. **telegram** (40) — от имени пользователя: status (16), search (10),
     send (6), ls (5). MTProto — может остаться на Python неограниченно
-    (§9); решать при её очереди, не раньше.
+    (§9); решать при её очереди, не раньше. Спека: черновик.
 11. **glab-status** (36) — таблица прохождения MR по веткам
-    деплой-пайплайна. Атом общий с `mr` (gitlab-api).
+    деплой-пайплайна. Атом общий с `mr` (gitlab-api). Спека: черновик.
 12. **xlsx** (27) — локальные .xlsx: get (18), ls (5). Без сети, чистый
     парсер — первая (харнесс-)команда §4.4, утверждена. Спека: к
     реализации (golden сняты 2026-07-27).
 13. **search** (25) — клиент по email/ID → client_id (локальный кэш;
     impersonation 10X). Инвариант: вывод не пишется в журнал (токены).
+    Спека: черновик.
 14. **log** (15) — просмотр журнала вызовов (запись — в обвязке).
-15. **d2-miro** (7) — рендер D2-диаграммы в Miro.
+    Спека — в `platform/invoke-log.md` (черновик).
+15. **d2-miro** (7) — рендер D2-диаграммы в Miro. Спека: черновик.
 16. **copy-shared** (6) — копия shared-таблиц с сервера по селектору.
+    Спека: черновик.
 17. **ss-update** (5) — Portainer-обёртка пересчёта таблиц. Атом:
     platform/portainer — общий для всего семейства обёрток (п. 20).
+    Спека — в `portainer-wrappers.md` (черновик).
 18. **health** (5) — статусы контейнеров + tail логов виновников.
+    Спека: черновик.
 19. **sql** (4) — write-capable SQL: мутации с подтверждением. Спека —
     поверх sql-ro (общий атом pg, разница в режиме и подтверждении).
     Спека: черновик.
@@ -78,10 +88,12 @@
     wb-loader-load (1), wb-recalculate-expenses (1),
     wb-save-expenses (1), ozon-save-expenses (1). Один общий атом
     (platform/portainer + шаблон обёртки) и тонкие спеки-строчки.
+    Спеки: черновик (portainer-wrappers + атом portainer).
 21. **Локальный стенд и переносы клиентов** — copy-client (4),
     copy-dev (2), make-schema (1), mp-init (1), move-client (1),
     move-client-back (1), clean-local-clients (1). Редкие, но
-    многоразовые; едут в хвосте.
+    многоразовые; едут в хвосте. Спеки: черновик (7 файлов,
+    move-client-back — отдельной спекой).
 22. **init** (2) / **update** (1) — инфраструктура кэша: bootstrap
     служебной БД + discovery контейнеров; полный синк снапшота кэша с
     PG (+ точечный по одному клиенту). Частота нерепрезентативна —
