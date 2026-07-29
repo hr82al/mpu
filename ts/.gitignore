@@ -42,3 +42,5 @@ coverage/
 /.claude/.cc-writes
 /.claude/.claude
 /.claude/settings.local.json
+/.gitmodules
+/.gitattributes
