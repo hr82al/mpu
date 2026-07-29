@@ -16,7 +16,7 @@ runner = CliRunner()
 
 # sl-1 → IP 192.168.150.92, user hr82al, контейнер mp-sl-1-cli.
 SSH_PREFIX_SL1 = (
-    "ssh -i /home/user/.ssh/id_rsa -t hr82al@192.168.150.92 'docker exec -it mp-sl-1-cli sh -c"
+    "ssh -i /home/user/.ssh/id_rsa -t hr82al@192.168.150.92 'docker exec -it sl-1-cli sh -c"
 )
 
 

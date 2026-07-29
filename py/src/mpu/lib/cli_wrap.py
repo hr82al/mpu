@@ -5,10 +5,10 @@ print+copy / exec через Portainer) из typer-команд, оставив 
 декларацию её собственных флагов.
 
 Обёртки:
-- `wrapper="portainer"` (default) → ВЫПОЛНЯЕТ inner-команду в `mp-sl-N-cli` через
+- `wrapper="portainer"` (default) → ВЫПОЛНЯЕТ inner-команду в `sl-N-cli` через
   Portainer API (`pssh.pssh_run`). Это default для всех команд.
 - `wrapper="ssh"` (через `--print` без `--local`) → ПЕЧАТАЕТ строку
-  `ssh -i ... user@ip 'docker exec -it mp-sl-N-cli sh -c "..."'` в stdout +
+  `ssh -i ... user@ip 'docker exec -it sl-N-cli sh -c "..."'` в stdout +
   copy_to_clipboard, не выполняет.
 - `wrapper="local"` (через `--print --local`) → ПЕЧАТАЕТ `sl-N-cli sh -c "..."`,
   не выполняет.
@@ -53,7 +53,7 @@ from typing import Annotated, Literal
 
 import typer
 
-from mpu.lib import servers
+from mpu.lib import containers, servers
 from mpu.lib.cli_opts import LocalOpt, PrintOpt
 from mpu.lib.clipboard import copy_to_clipboard
 from mpu.lib.resolver import format_candidates, resolve_server_or_exit
@@ -246,7 +246,7 @@ def emit_node_cli(
     """Сборка inner-команды + ssh/local/portainer обёртка.
 
     Поведение:
-    - wrapper=portainer (default) — ВЫПОЛНЯЕТ inner-команду в `mp-sl-N-cli` через
+    - wrapper=portainer (default) — ВЫПОЛНЯЕТ inner-команду в `sl-N-cli` через
       Portainer API (`pssh.pssh_run`). Возвращает "" (signature compat).
     - wrapper=ssh — печатает строку `ssh -i ... 'docker exec -it ... sh -c "..."'`
       в stdout + copy_to_clipboard, не выполняет.
@@ -310,7 +310,7 @@ def exec_node_cli_dev(
 
 
 def _exec_portainer(*, inner_parts: list[str], resolved: Resolved) -> str:
-    """Выполнить inner-команду в `mp-sl-N-cli` через Portainer; вернуть пустую строку.
+    """Выполнить inner-команду в `sl-N-cli` через Portainer; вернуть пустую строку.
 
     Stdout/stderr дочернего процесса стримятся напрямую через `pssh_run`. Exit code
     inner-команды наследуется через `typer.Exit`. Возвращаемое значение функции
@@ -527,7 +527,7 @@ def _wrap_ssh(*, inner: str, resolved: Resolved, command_name: str) -> str:
         typer.echo(f"{command_name}: internal error — ssh wrapper without sl_ip/user", err=True)
         raise typer.Exit(code=2)
     key_path = str(Path.home() / ".ssh" / "id_rsa")
-    container = f"mp-sl-{resolved.server_number}-cli"
+    container = containers.cli_container_name(resolved.server_number)
     return (
         f"ssh -i {key_path} -t {resolved.user}@{resolved.sl_ip} "
         f"'docker exec -it {container} sh -c \"{inner}\"'"

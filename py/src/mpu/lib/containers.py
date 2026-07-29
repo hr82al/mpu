@@ -45,6 +45,24 @@ def find_container_targets(name: str) -> list[dict[str, object]]:
     return [dict(r) for r in rows]
 
 
+# Имя cli-контейнера сервера `sl-N`: compose-проект `mp-sl-N` сейчас даёт `sl-N-cli`,
+# исторически было `mp-sl-N-cli`. Порядок = приоритет при резолве по кэшу.
+_CLI_NAME_FORMS = ("sl-{n}-cli", "mp-sl-{n}-cli")
+
+
+def cli_container_name(server_number: int) -> str:
+    """Имя cli-контейнера сервера `sl-N` по кэшу `mpu init`; при промахе — текущая форма.
+
+    Переименование контейнеров на серверах не должно ломать exec по селектору `sl-N`,
+    поэтому имя не хардкодится, а берётся из кэша. Пустой/устаревший кэш → `sl-N-cli`.
+    """
+    for form in _CLI_NAME_FORMS:
+        name = form.format(n=server_number)
+        if find_container_targets(name):
+            return name
+    return _CLI_NAME_FORMS[0].format(n=server_number)
+
+
 def resolve_container_target(name: str) -> tuple[str, int]:
     """`(base_url, endpoint_id)` для уникального контейнера с именем `name`.
 

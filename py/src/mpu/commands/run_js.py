@@ -1,8 +1,8 @@
 """`mpu run-js` — выполнить произвольный ESM-код внутри контейнера sl-back.
 
 Селектор — позиционный, универсальный:
-  - `sl-N` — прямой указатель сервера; код летит в `mp-sl-N-cli` (без обращения к кэшу);
-  - точное compose-имя контейнера (например `mp-sl-9-wb-loader`) — Portainer-exec прямо
+  - `sl-N` — прямой указатель сервера; код летит в `sl-N-cli` (без обращения к кэшу);
+  - точное compose-имя контейнера (например `sl-9-wb-loader`) — Portainer-exec прямо
     в этот контейнер (резолв через SQLite-кэш `mpu init`);
   - `client_id` (число), кусок `spreadsheet_id`, кусок `title` — резолв через `mpu search`
     (локальный SQLite-кэш `~/.config/mpu/mpu.db`, обновляется через `mpu update`).
@@ -35,10 +35,10 @@ node_modules sl-back, import aliases (`#bullmq/...`), env (Redis/PG hosts),
 
 Примеры:
   mpu run-js sl-1 'console.log(1)'
-  mpu run-js dev:1 'console.log(1)'                    # mp-sl-1-cli на dev-ноде (ssh+docker)
+  mpu run-js dev:1 'console.log(1)'                    # cli-контейнер sl-1 на dev-ноде (ssh+docker)
   mpu run-js 12345 'console.log(1)'                    # client_id → server через mpu search
   mpu run-js "Тортуга main" -f script.mjs              # title → server через mpu search
-  mpu run-js mp-sl-9-wb-loader 'console.log(1)'        # точное имя контейнера → Portainer
+  mpu run-js sl-9-wb-loader 'console.log(1)'           # точное имя контейнера → Portainer
   cat script.mjs | mpu run-js sl-11
   mpu run-js --all 'console.log("on every sl-N")'
   mpu run-js --all --parallel -f script.mjs           # все sl-N одновременно
@@ -398,9 +398,9 @@ def main(  # noqa: PLR0913
 ) -> None:
     """Выполнить ESM-код внутри контейнера sl-back через `node --input-type=module -`.
 
-    Селектор `sl-N` / client_id / ss_id / title → код летит в `mp-sl-N-cli`.
+    Селектор `sl-N` / client_id / ss_id / title → код летит в `sl-N-cli`.
     Селектор = точное compose-имя контейнера → Portainer-exec прямо в тот контейнер
-    (`mp-sl-N-wb-loader`, `*-instance-app`) — так читают runtime НЕ-cli сервиса.
+    (`sl-N-wb-loader`, `*-instance-app`) — так читают runtime НЕ-cli сервиса.
 
     Код (приоритет): позиционный <code> → `--file` → stdin. `--all` — fan-out по всем
     sl-N (N>0); `--all-containers <filter>` — fan-out по всем контейнерам с подстрокой

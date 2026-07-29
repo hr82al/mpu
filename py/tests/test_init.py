@@ -397,3 +397,24 @@ def test_mpu_init_no_url_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 def test_json_smoke() -> None:
     """Pure smoke; httpx Response с json= это json.loads-совместимо."""
     assert json.loads("[]") == []
+
+
+def test_discover_marks_server_number_for_unprefixed_cli() -> None:
+    """Контейнеры на серверах называются `sl-N-cli` — server_number обязан заполняться."""
+    endpoints: list[dict[str, object]] = [{"Id": 7, "Name": "mp-sl-2"}]
+    containers_by_ep: dict[int, list[dict[str, object]]] = {
+        7: [
+            {"Id": "abc", "Names": ["/sl-2-cli"], "State": "running", "Image": "node:22"},
+            {
+                "Id": "def",
+                "Names": ["/sl-2-wb-loader"],
+                "State": "running",
+                "Image": "node:22",
+            },
+        ],
+    }
+    transport = _portainer_responses(endpoints, containers_by_ep)
+    client = _make_client_with_transport(transport)
+    by_name = {i.container_name: i for i in portainer_discover.discover(client)}
+    assert by_name["sl-2-cli"].server_number == 2
+    assert by_name["sl-2-wb-loader"].server_number is None

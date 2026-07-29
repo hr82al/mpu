@@ -23,7 +23,7 @@ from mpu.lib.factories import (
 
 runner = CliRunner()
 SSH_PREFIX = (
-    "ssh -i /home/user/.ssh/id_rsa -t hr82al@192.168.150.92 'docker exec -it mp-sl-2-cli sh -c"
+    "ssh -i /home/user/.ssh/id_rsa -t hr82al@192.168.150.92 'docker exec -it sl-2-cli sh -c"
 )
 
 

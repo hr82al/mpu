@@ -79,7 +79,7 @@ def test_basic_emit_ssh(capsys: pytest.CaptureFixture[str]) -> None:
     assert cmd == out
     assert cmd == (
         "ssh -i /home/user/.ssh/id_rsa -t alice@10.0.0.3 "
-        "'docker exec -it mp-sl-3-cli sh -c "
+        "'docker exec -it sl-3-cli sh -c "
         '"node cli service:foo bar --client-id 42 --dataset ds"\''
     )
 
@@ -504,7 +504,7 @@ def test_resolve_server_only_bad_server(
     assert "bad --server" in capsys.readouterr().err
 
 
-# wrapper="portainer" — дефолтный режим. Выполняет команду в `mp-sl-N-cli` через
+# wrapper="portainer" — дефолтный режим. Выполняет команду в `sl-N-cli` через
 # `pssh.pssh_run`. wrapper="ssh"/"local" — print + clipboard.
 
 

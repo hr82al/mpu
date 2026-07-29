@@ -1,7 +1,7 @@
 """Обнаружение контейнеров через Portainer API и кэш в SQLite (`portainer_containers`).
 
-Кэшируем **все** контейнеры всех endpoint'ов, не только `mp-sl-N-cli`. Поле
-`server_number` заполнено только для контейнеров, чьё имя матчит `mp-sl-(\\d+)-cli` —
+Кэшируем **все** контейнеры всех endpoint'ов, не только cli. Поле
+`server_number` заполнено только для контейнеров, чьё имя матчит `(mp-)?sl-(\\d+)-cli` —
 используется в `mpu p ssh` для резолва Portainer-транспорта.
 
 Источник конфига Portainer: `~/.config/mpu/.env` (`PORTAINER_URL`, `PORTAINER_API_KEY`,
@@ -19,7 +19,9 @@ import typer
 from mpu.lib import portainer, servers
 from mpu.lib.jsonx import is_list
 
-_SERVER_NAME_PATTERN = re.compile(r"^/?mp-sl-(\d+)-cli$")
+# Префикс `mp-` опционален: compose-проект `mp-sl-N` даёт контейнеру имя `sl-N-cli`,
+# исторически же оно было `mp-sl-N-cli` — матчим обе формы.
+_SERVER_NAME_PATTERN = re.compile(r"^/?(?:mp-)?sl-(\d+)-cli$")
 
 
 @dataclass(frozen=True)
@@ -29,15 +31,15 @@ class DiscoveredContainer:
     endpoint_name: str
     container_id: str
     container_name: str
-    server_number: int | None  # для mp-sl-N-cli; иначе None
+    server_number: int | None  # для sl-N-cli / mp-sl-N-cli; иначе None
     state: str
     image: str
 
 
 def _extract_server_number(names: list[str]) -> int | None:
-    """Берём первое имя, матчащее `mp-sl-N-cli`. None если ни одно не подошло.
+    """Берём первое имя, матчащее `sl-N-cli` / `mp-sl-N-cli`. None если ни одно не подошло.
 
-    Включаем N=0 (`mp-sl-0-cli` = main). `--all` всё ещё его исключает —
+    Включаем N=0 (`sl-0-cli` = main). `--all` всё ещё его исключает —
     фильтр на N>0 в `list_instance_server_numbers()`.
     """
     for raw in names:

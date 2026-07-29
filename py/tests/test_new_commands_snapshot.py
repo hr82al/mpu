@@ -43,7 +43,7 @@ CANDIDATE: dict[str, object] = {
 }
 
 SSH_PREFIX = (
-    "ssh -i /home/user/.ssh/id_rsa -t hr82al@192.168.150.92 'docker exec -it mp-sl-2-cli sh -c"
+    "ssh -i /home/user/.ssh/id_rsa -t hr82al@192.168.150.92 'docker exec -it sl-2-cli sh -c"
 )
 
 
@@ -466,7 +466,7 @@ def test_users_add_ssh(fake_env: None) -> None:
     assert result.exit_code == 0, result.output
     inner = "node cli service:users add --email test@example.com --id 10"
     expected_prefix = (
-        "ssh -i /home/user/.ssh/id_rsa -t hr82al@192.168.150.92 'docker exec -it mp-sl-1-cli sh -c"
+        "ssh -i /home/user/.ssh/id_rsa -t hr82al@192.168.150.92 'docker exec -it sl-1-cli sh -c"
     )
     assert result.stdout.strip() == f'{expected_prefix} "{inner}"\''
 
@@ -479,7 +479,7 @@ def test_users_add_role_ssh(fake_env: None) -> None:
     )
     assert result.exit_code == 0, result.output
     expected_prefix = (
-        "ssh -i /home/user/.ssh/id_rsa -t hr82al@192.168.150.92 'docker exec -it mp-sl-1-cli sh -c"
+        "ssh -i /home/user/.ssh/id_rsa -t hr82al@192.168.150.92 'docker exec -it sl-1-cli sh -c"
     )
     assert result.stdout.strip() == (
         f'{expected_prefix} "node cli service:users addRole --id 70 --role client"\''

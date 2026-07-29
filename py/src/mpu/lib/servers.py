@@ -135,7 +135,7 @@ def list_instance_server_numbers() -> list[int]:
 
 
 def portainer_target(n: int) -> tuple[str, int] | None:
-    """`(base_url, endpoint_id)` для `mp-sl-N-cli`. Lookup-order: SQLite → .env legacy.
+    """`(base_url, endpoint_id)` для cli-контейнера `sl-N`. Lookup-order: SQLite → .env legacy.
 
     SQLite-источник заполняется через `mpu init` (см. `lib/portainer_discover.py`).
     .env-fallback (`sl_<N>_portainer=<base>/<id>`) поддерживается для обратной

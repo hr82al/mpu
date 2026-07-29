@@ -1,4 +1,4 @@
-"""Transport abstraction: запуск команды внутри `mp-sl-N-cli`.
+"""Transport abstraction: запуск команды внутри cli-контейнера сервера (`sl-N-cli`).
 
 Транспорт выбирается per-server:
   - `portainer` если есть таргет (SQLite после `mpu init` или `sl_<N>_portainer` в .env)
@@ -59,6 +59,13 @@ def _cmd_to_shell(cmd: list[str]) -> str:
     return " ".join(shlex.quote(a) for a in cmd)
 
 
+def _cli_container(server_number: int, *, dev: bool) -> str:
+    """Имя cli-контейнера сервера. Dev-нода вне Portainer-фермы → кэш её не знает."""
+    if dev:
+        return f"mp-sl-{server_number}-cli"
+    return containers.cli_container_name(server_number)
+
+
 def _ssh_conn(server_number: int, *, dev: bool) -> tuple[str, str, str]:
     """`(host, user, key_path)` для ssh+docker exec. `dev=True` → dev-нода под `develop`."""
     key = str(Path.home() / ".ssh" / "id_rsa")
@@ -83,7 +90,7 @@ def pssh_run(
     on_stderr: Callable[[bytes], None] | None = None,
     manage_signals: bool = True,
 ) -> int:
-    """Выполнить cmd внутри `mp-sl-{server_number}-cli`; вернуть exit code.
+    """Выполнить cmd внутри cli-контейнера `sl-{server_number}`; вернуть exit code.
 
     `dev=True` — таргет на dev-ноде (`mp-dev`, ssh+docker под `develop`), `via` игнорируется.
     `on_stdout`/`on_stderr` (если заданы) — захват вывода вместо стрима в `sys.stdout`
@@ -120,7 +127,7 @@ def pssh_run_container(
 
     Транспорт — всегда Portainer: для контейнеров без `server_number` (например
     `mp-dt-cli`) sl-N маппинга нет, а на ssh-side у нас нет per-container ключей
-    и pg-credentials. Если нужно `mp-sl-N-cli` через ssh — используй `pssh_run`.
+    и pg-credentials. Если нужно cli-контейнер `sl-N` через ssh — используй `pssh_run`.
 
     На неоднозначное имя (несколько Portainer-endpoint'ов с тем же `container_name`)
     или отсутствие — бросает `containers.ContainerResolveError` (вызывающий код
@@ -186,7 +193,7 @@ def _run_via_ssh(
     on_stderr: Callable[[bytes], None] | None = None,
 ) -> int:
     ip, user, key = _ssh_conn(n, dev=dev)
-    container = f"mp-sl-{n}-cli"
+    container = _cli_container(n, dev=dev)
     inner = _cmd_to_shell(cmd)
     # remote — единственный позиционный arg ssh: удалённый шелл сам исполнит строку.
     # Передаём argv напрямую (без локального `bash -c`), чтобы не плодить ещё один
@@ -223,7 +230,7 @@ def _run_via_portainer(
         base_url=base_url,
         endpoint_id=endpoint_id,
         api_key=api_key,
-        container=f"mp-sl-{n}-cli",
+        container=containers.cli_container_name(n),
         cmd=cmd,
         stdin=stdin,
         verify_tls=verify_tls,
@@ -249,7 +256,7 @@ def run_in_container_via_portainer(  # noqa: PLR0913
     """Ws-exec в произвольный Portainer-контейнер; стримит stdio; вернуть exit code.
 
     Включает PID-файл (для kill при Ctrl+C), upload tar для stdin, и cleanup
-    pidfile/stdin в `finally`. Используется как `mp-sl-{N}-cli` (через
+    pidfile/stdin в `finally`. Используется как `sl-{N}-cli` (через
     `_run_via_portainer`), так и `mp-dt-cli` (через `mp_dt.run_in_mp_dt_cli`).
 
     `on_stdout`/`on_stderr` (если заданы) перехватывают вывод вместо записи в
@@ -339,7 +346,7 @@ def pssh_detach(
     via: str | None = None,
     dev: bool = False,
 ) -> tuple[int, str]:
-    """Запустить ESM детачем в `mp-sl-{server_number}-cli` — фон, переживающий disconnect.
+    """Запустить ESM детачем в cli-контейнере `sl-{server_number}` — фон, переживающий disconnect.
 
     Заливает скрипт в `/tmp/mpu-run-{run_id}.mjs`, стартует node в фоне с выводом в
     `/tmp/mpu-run-{run_id}.log` и сразу возвращается. Node переподхватывается init'ом
@@ -347,7 +354,7 @@ def pssh_detach(
 
     `dev=True` — на dev-ноде (ssh+docker под `develop`), `via` игнорируется.
     """
-    container = f"mp-sl-{server_number}-cli"
+    container = _cli_container(server_number, dev=dev)
     if dev:
         return _detach_via_ssh(server_number, container, js, run_id, dev=True)
     transport = _resolve_transport(server_number, via)

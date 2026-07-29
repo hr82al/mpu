@@ -171,7 +171,7 @@ def test_get_source_data_print_ssh(monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(iu_wb.app, ["get-source-data", "2190", "--print"])
     assert result.exit_code == 0, result.output
     assert result.stdout.startswith("ssh -i ")
-    assert "mp-sl-2-cli" in result.stdout
+    assert "sl-2-cli" in result.stdout
     assert 'sh -c "node cli service:iuWb getSourceData"' in result.stdout
 
 

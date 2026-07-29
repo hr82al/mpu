@@ -1,7 +1,7 @@
 """Фабрика typer-команд для семейства "client-id + date-from/to + опциональный nm-ids".
 
 Печатает ssh-команду формата:
-    ssh -i <key> -t <user>@<sl_ip> 'docker exec -it mp-sl-N-cli sh -c
+    ssh -i <key> -t <user>@<sl_ip> 'docker exec -it sl-N-cli sh -c
         "node cli service:<service> <method>
             --client-id <id> --date-from <df> --date-to <dt>[ --nm-ids <nms>]"'
 

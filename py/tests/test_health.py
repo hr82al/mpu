@@ -454,3 +454,13 @@ def test_print_table_aligns_columns(capsys: pytest.CaptureFixture[str]) -> None:
     assert "a-very-long-container-name" in out
     assert len(lines) == 3  # заголовок + 2 строки
     assert all(len(line) == len(lines[0]) for line in lines)
+
+
+def test_project_container_matches_both_name_forms() -> None:
+    """Контейнеры сервиса называются и `sl-2-*`, и `mp-sl-2-*` — ловим обе формы."""
+    assert health._is_project_container("sl-2-wb-loader")
+    assert health._is_project_container("mp-sl-2-i-wb-unit-calc-worker-1")
+    assert health._is_project_container("wb-3-instance-app")
+    assert not health._is_project_container("cadvisor")
+    assert not health._is_project_container("portainer_agent")
+    assert not health._is_project_container("grafana-alloy-logs")

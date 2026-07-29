@@ -136,3 +136,30 @@ def test_format_candidates_contains_endpoint_and_url() -> None:
     assert "endpoint=mp-dt" in out
     assert "id=12" in out
     assert "url=https://p:9443" in out
+
+
+def test_cli_container_name_prefers_current_form(
+    bootstrap_db: Callable[[Path | str], None],
+) -> None:
+    """В кэше есть обе формы — берём текущую (`sl-N-cli`)."""
+    _seed(
+        bootstrap_db,
+        [
+            ("https://p:9443", 7, "mp-sl-2", "c1", "sl-2-cli"),
+            ("https://p:9443", 7, "mp-sl-2", "c2", "mp-sl-2-cli"),
+        ],
+    )
+    assert containers.cli_container_name(2) == "sl-2-cli"
+
+
+def test_cli_container_name_falls_back_to_legacy_form(
+    bootstrap_db: Callable[[Path | str], None],
+) -> None:
+    """Сервер ещё не переименован — берём историческое имя из кэша."""
+    _seed(bootstrap_db, [("https://p:9443", 7, "mp-sl-2", "c1", "mp-sl-2-cli")])
+    assert containers.cli_container_name(2) == "mp-sl-2-cli"
+
+
+def test_cli_container_name_without_cache() -> None:
+    """Пустой кэш — текущая форма имени, а не падение."""
+    assert containers.cli_container_name(5) == "sl-5-cli"

@@ -2,7 +2,7 @@
 
 UX: `mpu ssh <selector> <cmd...>` — единый интерфейс независимо от того, есть ли прямой ssh
 или только Portainer-доступ. Селектор универсальный (порядок резолва):
-  - `sl-N` — прямой указатель sl-сервера; контейнер `mp-sl-N-cli`; ssh+docker или Portainer.
+  - `sl-N` — прямой указатель sl-сервера; контейнер `sl-N-cli`; ssh+docker или Portainer.
   - точное имя контейнера в Portainer-кэше (например `mp-dt-cli`) — Portainer-only,
     транспорт ssh для произвольного контейнера не поддерживается. На неоднозначность
     (одно имя на нескольких endpoint'ах) — печатается список Portainer-endpoint'ов.
@@ -27,7 +27,7 @@ stdout/stderr ребёнка — напрямую в наш stdout/stderr. Exit 
 
 Примеры:
   mpu ssh sl-1 -- ls -la /app
-  mpu ssh dev:1 -- ls -la /app                   # mp-sl-1-cli на dev-ноде (ssh+docker)
+  mpu ssh dev:1 -- ls -la /app                   # cli-контейнер sl-1 на dev-ноде (ssh+docker)
   mpu ssh mp-dt-cli -- node cli service:clientsTransfer createJob ...  # direct container
   mpu ssh 12345 -- ps -eo pid,etime,args        # client_id → server через mpu search
   mpu ssh "Тортуга" -- ls /app                   # title → server через mpu search
@@ -140,12 +140,12 @@ def main(
         ),
     ] = False,
 ) -> None:
-    """Выполнить команду в `mp-sl-N-cli` ИЛИ в произвольном контейнере по точному имени.
+    """Выполнить команду в `sl-N-cli` ИЛИ в произвольном контейнере по точному имени.
 
-    Селектор `sl-N` / client_id / ss_id / title → лендится в `mp-sl-N-cli` (это уже
+    Селектор `sl-N` / client_id / ss_id / title → лендится в `sl-N-cli` (это уже
     docker exec — НЕ оборачивать в `docker exec` повторно, бинаря docker внутри нет).
 
-    Селектор = точное compose-имя контейнера (`mp-sl-3-wb-loader`, `*-instance-app`) →
+    Селектор = точное compose-имя контейнера (`sl-3-wb-loader`, `*-instance-app`) →
     Portainer-exec прямо в этот НЕ-cli контейнер (`--via ssh` тут не поддержан). Так
     читают реальный runtime-конфиг прод-сервиса (`env`, `/proc/1/cmdline`, `/app/*`).
 

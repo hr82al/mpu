@@ -23,6 +23,7 @@
 команд для BullMQ-stats / NATS-consumer-info / wb_tokens-freshness).
 """
 
+import re
 import sys
 from typing import Annotated
 
@@ -57,6 +58,16 @@ _ONE_SHOT_KEYWORDS = (
     "migrations",
     "init-",
 )
+
+# Контейнеры сервиса на ноде. Префикс `mp-` опционален: часть сервисов уже переименована
+# (`sl-2-wb-loader`), часть ещё с историческим именем (`mp-sl-2-i-wb-unit-calc-worker-1`) —
+# без обеих форм таблица теряет большинство контейнеров и exit-code врёт.
+_PROJECT_NAME_PATTERN = re.compile(r"^(?:mp-)?(?:sl|wb)-")
+
+
+def _is_project_container(name: str) -> bool:
+    """Имя принадлежит контейнеру сервиса (а не cadvisor / portainer_agent / alloy)."""
+    return _PROJECT_NAME_PATTERN.match(name) is not None
 
 
 app = typer.Typer(
@@ -108,7 +119,7 @@ def main(
     rows = [r for r in rows if r["name"]]
     rows.sort(key=lambda r: r["name"])
 
-    mp_rows = [r for r in rows if r["name"].startswith(("mp-sl-", "mp-wb-"))]
+    mp_rows = [r for r in rows if _is_project_container(r["name"])]
 
     typer.echo(f"=== sl-{pr.server_number}: {len(mp_rows)} mp-* containers ===\n")
     _print_table(mp_rows or rows)

@@ -119,7 +119,7 @@ def test_run_via_ssh_builds_correct_command(
     remote: str = args[4]  # pyright: ignore[reportUnknownVariableType]
     assert isinstance(remote, str)
     # docker exec -i (а не -it) — иначе stdin не уйдёт как pipe.
-    assert remote.startswith("docker exec -i mp-sl-1-cli sh -c ")
+    assert remote.startswith("docker exec -i sl-1-cli sh -c ")
     assert "docker exec -it" not in remote
     # Многоэлементная команда квотируется через shlex.
     assert "ls -la /app" in remote
@@ -236,7 +236,7 @@ def test_run_via_portainer_with_stdin_uploads_and_wraps(
     assert rc == 0
     c = stub_portainer.instances[0]
     # Upload tarred stdin в /tmp.
-    assert c.uploads == [("mp-sl-11-cli", "/tmp", {"__MPU_PSSH_STDIN": b"console.log(1)"})]
+    assert c.uploads == [("sl-11-cli", "/tmp", {"__MPU_PSSH_STDIN": b"console.log(1)"})]
     # Команда обёрнута: shell-prelude пишет PID в файл, exec'ит inner с командой
     # и редиректом stdin из /tmp/__MPU_PSSH_STDIN.
     assert c.execs[0][0:2] == ["sh", "-c"]
@@ -883,7 +883,7 @@ def test_pssh_run_container_routes_to_portainer(
     assert c.kwargs["base_url"] == "https://192.168.150.12:9443"
     assert c.kwargs["endpoint_id"] == 12
     assert c.kwargs["api_key"] == "ptr_test"
-    # Контейнер в exec — mp-dt-cli (не mp-sl-N-cli)
+    # Контейнер в exec — mp-dt-cli (не cli-контейнер sl-N)
     assert all(ctr == "mp-dt-cli" for ctr in c.exec_containers)
     # cmd обёрнут shell-prelude'ом: `sh -c 'echo $$ > pidfile; exec sh -c '\''echo hi'\'''`
     wrapped = c.execs[0][2]
@@ -1339,7 +1339,7 @@ def test_pssh_detach_transport_ssh(env_ssh_only: Path, monkeypatch: pytest.Monke
     monkeypatch.setattr(pssh, "_detach_via_ssh", _fake_detach)
     rc, _log = pssh.pssh_detach(server_number=1, js=b"code", run_id="r")
     assert rc == 0
-    assert captured == {"n": 1, "container": "mp-sl-1-cli", "run_id": "r", "dev": False}
+    assert captured == {"n": 1, "container": "sl-1-cli", "run_id": "r", "dev": False}
 
 
 def test_pssh_detach_transport_portainer(
@@ -1351,7 +1351,7 @@ def test_pssh_detach_transport_portainer(
     assert rc == 0
     assert log == "/tmp/mpu-run-rid.log"
     c = stub_portainer.instances[0]
-    assert c.uploads == [("mp-sl-11-cli", "/tmp", {"mpu-run-rid.mjs": b"code"})]
+    assert c.uploads == [("sl-11-cli", "/tmp", {"mpu-run-rid.mjs": b"code"})]
 
 
 # ---------- pssh_detach_container ----------

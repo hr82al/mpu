@@ -15,7 +15,7 @@ from mpu.lib.resolver import resolve_server_or_exit
 
 @dataclass(frozen=True, slots=True)
 class ServerTarget:
-    """Сервер: команда пойдёт в `mp-sl-{server_number}-cli` (или на dev-ноду при `dev`)."""
+    """Сервер: команда пойдёт в cli-контейнер `sl-{server_number}` (или на dev-ноду при `dev`)."""
 
     server_number: int
     dev: bool = False
