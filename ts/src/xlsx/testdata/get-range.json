@@ -1,0 +1,41 @@
+{
+  "file": "/home/user/mr/mp/mpu/go/docs/specs/fixtures/xlsx/sample.xlsx",
+  "cells": [
+    {
+      "range": "Данные!A1",
+      "value": "товар"
+    },
+    {
+      "range": "Данные!B1",
+      "value": "цена"
+    },
+    {
+      "range": "Данные!C1",
+      "value": "актив"
+    },
+    {
+      "range": "Данные!A2",
+      "value": "молоко"
+    },
+    {
+      "range": "Данные!B2",
+      "value": 42
+    },
+    {
+      "range": "Данные!C2",
+      "value": true
+    },
+    {
+      "range": "Данные!A3",
+      "value": "хлеб"
+    },
+    {
+      "range": "Данные!B3",
+      "value": 3.5
+    },
+    {
+      "range": "Данные!C3",
+      "value": false
+    }
+  ]
+}

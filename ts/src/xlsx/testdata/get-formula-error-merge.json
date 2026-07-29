@@ -1,0 +1,18 @@
+{
+  "file": "/home/user/mr/mp/mpu/go/docs/specs/fixtures/xlsx/sample.xlsx",
+  "cells": [
+    {
+      "range": "Данные!A4",
+      "value": 84,
+      "formula": "=B2*2"
+    },
+    {
+      "range": "Данные!A5",
+      "value": "#DIV/0!"
+    },
+    {
+      "range": "Данные!A6",
+      "value": "объединено"
+    }
+  ]
+}
