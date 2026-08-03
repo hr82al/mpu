@@ -2,7 +2,7 @@
 
 Этот файл — инструкции для Claude Code при работе в `mp/mpu/py/` (Python-дерево `mpu`).
 
-Корневой CLAUDE.md монорепо (`../../CLAUDE.md`) применяется как есть: token economy для CLAUDE.md, sandbox-правила, четыре принципа (думать до кода / минимум кода / хирургические правки / цели вместо процесса), language policy, MR-workflow. `../CLAUDE.md` (`mpu/CLAUDE.md`) — overview дерева `mpu` целиком (py/ + go/) и правило коммита прямо в main.
+Корневой CLAUDE.md монорепо (`../../CLAUDE.md`) применяется как есть: token economy для CLAUDE.md, sandbox-правила, пять принципов (думать до кода / минимум кода / хирургические правки / цели вместо процесса / экономия токенов — сузить, делегировать лёгким моделям, проверить пруфы), language policy, MR-workflow. `../CLAUDE.md` (`mpu/CLAUDE.md`) — overview дерева `mpu` целиком (py/ + go/) и правило коммита прямо в main.
 
 Здесь — только то, что специфично для Python-реализации `mpu`.
 
