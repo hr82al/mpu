@@ -1,24 +1,40 @@
-/** Подкоманда `mpu xlsx ls` — список листов книги. */
+/** Команда `mpu xlsx ls` — список листов книги. */
 
-import { loadWorkbook, resolvePath, type Subcommand } from "./command.ts";
-import { lastValue, parseOptions } from "./cli.ts";
-import { renderLeafHelp } from "./help.ts";
-import { UsageError } from "./errors.ts";
+import { z } from "@zod/zod";
+import { defineCommand } from "../command/mod.ts";
+import { loadWorkbook } from "./book.ts";
+import { resolvePath } from "./settings.ts";
 import { pathNotSetError } from "./resolve.ts";
-import { renderLsJson, renderLsLong, renderLsPlain } from "./render.ts";
+import { renderLsLong, renderLsPlain } from "./render.ts";
 
-export const lsCommand: Subcommand = {
-  name: "ls",
-  help: {
-    usage: "mpu xlsx ls [-f PATH] [-l|--long] [--json]",
-    summary: "список листов книги",
-    body: `Флаги:
+const argsSchema = z.object({
+  file: z.string().optional().describe(
+    "путь или алиас .xlsx; без флага источники по порядку: " +
+      "env MPU_XLSX, config xlsx.default",
+  ),
+  long: z.boolean().default(false).describe(
+    "колонки: имя, строки×колонки, #индекс (0-based)",
+  ),
+});
+
+const resultSchema = z.object({
+  sheets: z.array(z.object({
+    title: z.string(),
+    /** Порядковый номер листа в книге, 0-based. */
+    index: z.number().int(),
+    rows: z.number().int(),
+    cols: z.number().int(),
+  })),
+});
+
+export const lsCommand = defineCommand({
+  path: ["xlsx", "ls"],
+  summary: "список листов книги",
+  usage: "mpu xlsx ls [-f PATH] [-l|--long]",
+  help: `Флаги:
   -f, --file PATH  путь или алиас .xlsx; без флага источники по
                    порядку: env MPU_XLSX, config xlsx.default
   -l, --long       колонки: имя, строки×колонки, #индекс (0-based)
-      --json       JSON-массив {"title","index","rows","cols"},
-                   indent 2, без финального перевода строки
-  -l и --json вместе — ошибка (exit 2).
 
 Вывод по умолчанию: имя листа на строку, порядок как в книге.
 rows/cols — фактический максимум встреченных ячеек (учитывая merge);
@@ -26,34 +42,24 @@ rows/cols — фактический максимум встреченных я�
 
 Exit: 0 — успех; 2 — ошибка ввода; 1 — файл не найден / не xlsx.
 
-Пример: mpu xlsx ls -f report.xlsx --json`,
-  },
+Пример: mpu xlsx ls -f report.xlsx --long`,
+  policy: "ro",
+  argsSchema,
+  forms: { file: { short: "f" }, long: { short: "l" } },
+  resultSchema,
   run: async (args, io) => {
-    const opts = parseOptions(args, [
-      { long: "help", short: "h", kind: "boolean" },
-      { long: "file", short: "f", kind: "string" },
-      { long: "long", short: "l", kind: "boolean" },
-      { long: "json", kind: "boolean" },
-    ]);
-    if (opts.flags.has("help")) {
-      io.stdout(renderLeafHelp(lsCommand.help));
-      return 0;
-    }
-    if (opts.positional.length > 0) {
-      throw new UsageError(
-        `unexpected argument "${opts.positional[0]}"`,
-        { hint: "mpu xlsx ls --help" },
-      );
-    }
-    if (opts.flags.has("long") && opts.flags.has("json")) {
-      throw new UsageError("only one of --long / --json can be set");
-    }
-    const report = await resolvePath(io, lastValue(opts, "file"));
+    const report = await resolvePath(io, args.file);
     if (report.resolved === null) throw pathNotSetError();
-    const wb = await loadWorkbook(io, report.resolved.path);
-    if (opts.flags.has("json")) io.stdout(renderLsJson(wb.sheets));
-    else if (opts.flags.has("long")) io.stdout(renderLsLong(wb.sheets));
-    else io.stdout(renderLsPlain(wb.sheets));
-    return 0;
+    const workbook = await loadWorkbook(io, report.resolved.path);
+    return {
+      sheets: workbook.sheets.map((sheet) => ({
+        title: sheet.title,
+        index: sheet.index,
+        rows: sheet.rows,
+        cols: sheet.cols,
+      })),
+    };
   },
-};
+  render: (result, args) =>
+    args.long ? renderLsLong(result.sheets) : renderLsPlain(result.sheets),
+});

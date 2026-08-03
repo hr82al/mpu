@@ -101,9 +101,7 @@ export function parseWorkbookParts(
     }
     const relId = attr(sheetEl, "id");
     const target = relId === undefined ? undefined : relTargets.get(relId);
-    const sheetXml = target === undefined
-      ? undefined
-      : readPart(parts, target);
+    const sheetXml = target === undefined ? undefined : readPart(parts, target);
     if (sheetXml === undefined) {
       throw new WorkbookError(`missing worksheet part for sheet "${title}"`);
     }

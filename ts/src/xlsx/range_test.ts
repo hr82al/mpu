@@ -9,7 +9,7 @@ import {
   type RangeTarget,
   resolveArea,
 } from "./range.ts";
-import { UsageError } from "./errors.ts";
+import { UsageError } from "../command/mod.ts";
 
 function area(
   startCol?: number,

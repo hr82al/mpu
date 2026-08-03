@@ -4,7 +4,7 @@
  * границ к фактическим размерам листа (контракт спеки xlsx.md).
  */
 
-import { UsageError } from "./errors.ts";
+import { UsageError } from "../command/mod.ts";
 
 /** Пределы сетки Excel; ссылки за ними считаются невалидными. */
 const MAX_COL = 16384; // XFD

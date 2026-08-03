@@ -1,5 +1,5 @@
 {
-  "file": "/home/user/mr/mp/mpu/go/docs/specs/fixtures/xlsx/sample.xlsx",
+  "file": "{{SNAPSHOT_DIR}}/sample.xlsx",
   "cells": [
     {
       "range": "Данные!A1",

@@ -1,20 +1,35 @@
-/** Подкоманда `mpu xlsx open` — открыть книгу системным приложением. */
+/** Команда `mpu xlsx open` — открыть книгу системным приложением. */
 
-import { resolvePath, type Subcommand } from "./command.ts";
-import { lastValue, parseOptions } from "./cli.ts";
-import { renderLeafHelp } from "./help.ts";
-import { FileError, UsageError } from "./errors.ts";
+import { z } from "@zod/zod";
+import { defineCommand, DomainError } from "../command/mod.ts";
+import { resolvePath } from "./settings.ts";
 import { pathNotSetError } from "./resolve.ts";
 
 /** Кандидаты-открыватели по порядку попыток. */
 const OPENERS = ["xdg-open", "open"] as const;
 
-export const openCommand: Subcommand = {
-  name: "open",
-  help: {
-    usage: "mpu xlsx open [-f PATH] [-p|--print]",
-    summary: "открыть книгу в системном приложении",
-    body: `Флаги:
+const argsSchema = z.object({
+  file: z.string().optional().describe(
+    "путь или алиас .xlsx; без флага источники по порядку: " +
+      "env MPU_XLSX, config xlsx.default",
+  ),
+  print: z.boolean().default(false).describe(
+    "напечатать резолвленный путь и не открывать",
+  ),
+});
+
+const resultSchema = z.object({
+  /** Абсолютный путь к книге. */
+  path: z.string(),
+  /** Открыватель запущен; при `--print` открывать не пытались. */
+  launched: z.boolean(),
+});
+
+export const openCommand = defineCommand({
+  path: ["xlsx", "open"],
+  summary: "открыть книгу в системном приложении",
+  usage: "mpu xlsx open [-f PATH] [-p|--print]",
+  help: `Флаги:
   -f, --file PATH  путь или алиас .xlsx; без флага: env MPU_XLSX,
                    затем config xlsx.default
   -p, --print      напечатать резолвленный путь и не открывать
@@ -26,34 +41,25 @@ export const openCommand: Subcommand = {
 Exit: 0 — успех; 2 — ошибка ввода/путь не задан; 1 — нет открывателя.
 
 Пример: mpu xlsx open -f report.xlsx --print`,
-  },
+  // Мутирующая при любом значении --print: параметр класс команды не
+  // меняет (`platform/command-contract.md`, отклонение-fix про --print).
+  policy: "rw",
+  argsSchema,
+  forms: { file: { short: "f" }, print: { short: "p" } },
+  resultSchema,
   run: async (args, io) => {
-    const opts = parseOptions(args, [
-      { long: "help", short: "h", kind: "boolean" },
-      { long: "file", short: "f", kind: "string" },
-      { long: "print", short: "p", kind: "boolean" },
-    ]);
-    if (opts.flags.has("help")) {
-      io.stdout(renderLeafHelp(openCommand.help));
-      return 0;
-    }
-    if (opts.positional.length > 0) {
-      throw new UsageError(
-        `unexpected argument "${opts.positional[0]}"`,
-        { hint: "mpu xlsx open --help" },
-      );
-    }
-    const report = await resolvePath(io, lastValue(opts, "file"));
+    const report = await resolvePath(io, args.file);
     if (report.resolved === null) throw pathNotSetError();
-    if (opts.flags.has("print")) {
-      io.stdout(`${report.resolved.path}\n`);
-      return 0;
-    }
+    const path = report.resolved.path;
+    if (args.print) return { path, launched: false };
     for (const opener of OPENERS) {
-      if (io.launchOpener(opener, report.resolved.path)) return 0;
+      if (io.launchOpener(opener, path)) return { path, launched: true };
     }
-    throw new FileError(`no opener found (${OPENERS.join(", ")})`, {
+    throw new DomainError(`no opener found (${OPENERS.join(", ")})`, {
       hint: "--print",
     });
   },
-};
+  // Печатать нечего, когда открыватель уже запущен: путь показывает
+  // только режим --print, в котором запуска не было.
+  render: (result) => result.launched ? "" : `${result.path}\n`,
+});

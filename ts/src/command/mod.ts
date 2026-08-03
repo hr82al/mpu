@@ -1,0 +1,202 @@
+/**
+ * Контракт команды маршрута `native` (`platform/command-contract.md`):
+ * из одного объявления обе точки входа — CLI для человека и MCP-сервер
+ * для агента — получают разбор входа, исполнение, текст и структурный
+ * результат со схемами.
+ *
+ * Объявление типизировано (`defineCommand`), а реестр хранит команды с
+ * стёртыми типами аргументов и результата: снаружи доступны только
+ * операции, которым конкретные типы не нужны. Приведений типов при этом
+ * нет — сужение делает схема.
+ */
+
+import { z } from "@zod/zod";
+import { type InputForm, type InputSpec, parseArgv } from "./args.ts";
+import { type ObjectSchema, readObjectSchema } from "./schema.ts";
+import { UsageError } from "./errors.ts";
+
+export { DomainError, NotFoundIoError, UsageError } from "./errors.ts";
+export type { InputForm, InputSpec } from "./args.ts";
+export type { ObjectSchema, SchemaField } from "./schema.ts";
+
+/** Объявленный класс команды: читающая или мутирующая. */
+export type Policy = "ro" | "rw";
+
+/**
+ * Зависимости исполнения. Приёмников вывода здесь нет намеренно:
+ * исполнение не печатает (инвариант 1), печать — дело точки входа.
+ */
+export interface CommandIo {
+  readonly env: (name: string) => string | undefined;
+  readonly cwd: () => string;
+  /** Байты файла; отсутствие файла — `NotFoundIoError`. */
+  readonly readFile: (path: string) => Promise<Uint8Array>;
+  /** Текст файла; отсутствие файла — `NotFoundIoError`. */
+  readonly readTextFile: (path: string) => Promise<string>;
+  readonly readTextStdin: () => Promise<string>;
+  /** Содержимое файла хранилища; файла нет — `undefined`. */
+  readonly readConfigStore: () => Promise<string | undefined>;
+  /** Запись хранилища: каталог создаётся, права файла 0600. */
+  readonly writeConfigStore: (text: string) => Promise<void>;
+  /** Запуск открывателя отвязанно; нет бинаря — `false`. */
+  readonly launchOpener: (cmd: string, target: string) => boolean;
+}
+
+/** Объявление команды: семь вещей контракта плюс формы записи в argv. */
+export interface CommandSpec<A, R> {
+  /** Сегменты имени после `mpu`. */
+  readonly path: readonly string[];
+  /** Назначение: одна строка для индекса родителя. */
+  readonly summary: string;
+  /** Строка использования листовой справки. */
+  readonly usage: string;
+  /** Подробная справка листовой команды. */
+  readonly help: string;
+  readonly policy: Policy;
+  /** Схема аргументов: имена, типы, обязательность, дефолты, описания. */
+  readonly argsSchema: z.ZodType<A>;
+  /** Как входы записываются в argv; без записи вход читается как флаг. */
+  readonly forms?: Readonly<Record<string, InputForm>>;
+  readonly resultSchema: z.ZodType<R>;
+  /** Исполнение: разобранные аргументы → результат. Не печатает. */
+  readonly run: (args: A, io: CommandIo) => Promise<R>;
+  /** Рендер результата в текст для человека. Чист. */
+  readonly render: (result: R, args: A) => string;
+  /**
+   * Код завершения текстовой формы, когда результат сам сообщает о
+   * неуспехе (`mpu xlsx resolve` без пути). Структурный результат
+   * отдаётся всегда и с кодом 0 — форма вывода класс команды не меняет.
+   */
+  readonly textExitCode?: (result: R) => number;
+}
+
+/** Команда в реестре: типы аргументов и результата скрыты внутри. */
+export interface Command {
+  readonly path: readonly string[];
+  readonly summary: string;
+  readonly usage: string;
+  readonly help: string;
+  readonly policy: Policy;
+  /** Схема входа как JSON Schema: разбор argv и схема входа тула. */
+  readonly argsJsonSchema: ObjectSchema;
+  /** Схема выхода как JSON Schema: схема результата тула. */
+  readonly resultJsonSchema: ObjectSchema;
+  /** Входы, принимаемые из argv: имя, тип и форма записи (инвариант 4). */
+  readonly inputs: readonly InputSpec[];
+  /** Обязательные имена argv (инвариант 5). */
+  readonly requiredInputNames: readonly string[];
+  /**
+   * Разбирает argv в аргументы команды, не исполняя её: тем же путём,
+   * что и `invoke`, поэтому по результату видно, какие имена argv
+   * действительно принимает.
+   */
+  readonly parseArgs: (
+    argv: readonly string[],
+  ) => Readonly<Record<string, unknown>>;
+  /** Разбирает argv и исполняет; возвращает результат, ничего не печатая. */
+  readonly invoke: (
+    argv: readonly string[],
+    io: CommandIo,
+  ) => Promise<unknown>;
+  /** Текст результата для человека; окружения не касается. */
+  readonly renderResult: (
+    result: unknown,
+    argv: readonly string[],
+  ) => string;
+  /** Код завершения текстовой формы для этого результата. */
+  readonly textExitCode: (result: unknown) => number;
+  /** Проверяет образец результата объявленной схемой. */
+  readonly assertResult: (value: unknown) => void;
+}
+
+/**
+ * Собирает команду реестра из объявления: выводит из схемы аргументов
+ * формы записи в argv и связывает разбор, исполнение и рендер.
+ */
+export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
+  const name = spec.path.join(" ");
+  const argsJsonSchema = readObjectSchema(
+    z.toJSONSchema(spec.argsSchema, { io: "input" }),
+    `${name}: схема аргументов`,
+  );
+  const resultJsonSchema = readObjectSchema(
+    z.toJSONSchema(spec.resultSchema, { io: "output" }),
+    `${name}: схема результата`,
+  );
+  const specs = inputSpecs(argsJsonSchema, spec.forms ?? {});
+  const helpHint = `mpu ${name} --help`;
+  const parse = (argv: readonly string[]): A =>
+    parseArgs(spec.argsSchema, parseArgv(argv, specs, helpHint), helpHint);
+
+  return {
+    path: spec.path,
+    summary: spec.summary,
+    usage: spec.usage,
+    help: spec.help,
+    policy: spec.policy,
+    argsJsonSchema,
+    resultJsonSchema,
+    inputs: specs,
+    requiredInputNames: argsJsonSchema.required ?? [],
+    parseArgs: (argv) => asRecord(parse(argv), `${name}: аргументы`),
+    invoke: (argv, io) => spec.run(parse(argv), io),
+    renderResult: (result, argv) =>
+      spec.render(spec.resultSchema.parse(result), parse(argv)),
+    textExitCode: (result) =>
+      spec.textExitCode === undefined
+        ? 0
+        : spec.textExitCode(spec.resultSchema.parse(result)),
+    assertResult: (value) => void spec.resultSchema.parse(value),
+  };
+}
+
+/**
+ * Проверяет сырые значения схемой. Сообщение первой проблемы уходит
+ * пользователю дословно: тексты ошибок ввода — часть контракта команды,
+ * поэтому объявляются там же, где схема.
+ */
+function parseArgs<A>(
+  schema: z.ZodType<A>,
+  raw: unknown,
+  helpHint: string,
+): A {
+  const parsed = schema.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  // Имя входа в сообщение не подставляется: тексты ошибок ввода —
+  // наблюдаемая поверхность команды, поэтому пишутся в схеме целиком.
+  throw new UsageError(parsed.error.issues[0].message, {
+    hint: helpHint,
+    cause: parsed.error,
+  });
+}
+
+/** Выводит описание входов из схемы: имена и типы берутся только оттуда. */
+function inputSpecs(
+  schema: ObjectSchema,
+  forms: Readonly<Record<string, InputForm>>,
+): readonly InputSpec[] {
+  return Object.entries(schema.properties).map(([name, field]) => ({
+    name,
+    kind: kindOf(field.type),
+    form: forms[name] ?? {},
+  }));
+}
+
+function kindOf(type: string | undefined): InputSpec["kind"] {
+  if (type === "boolean") return "boolean";
+  if (type === "array") return "strings";
+  return "string";
+}
+
+/** Разобранные аргументы как словарь; корень схемы — объект (инвариант 7). */
+function asRecord(
+  value: unknown,
+  what: string,
+): Readonly<Record<string, unknown>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TypeError(`${what}: разбор дал не объект`);
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) out[key] = item;
+  return out;
+}

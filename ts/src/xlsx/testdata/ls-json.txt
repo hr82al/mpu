@@ -1,14 +1,16 @@
-[
-  {
-    "title": "Данные",
-    "index": 0,
-    "rows": 6,
-    "cols": 3
-  },
-  {
-    "title": "Пустой",
-    "index": 1,
-    "rows": 0,
-    "cols": 0
-  }
-]
+{
+  "sheets": [
+    {
+      "title": "Данные",
+      "index": 0,
+      "rows": 6,
+      "cols": 3
+    },
+    {
+      "title": "Пустой",
+      "index": 1,
+      "rows": 0,
+      "cols": 0
+    }
+  ]
+}

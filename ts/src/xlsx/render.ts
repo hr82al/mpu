@@ -1,19 +1,21 @@
 /**
- * Рендеры вывода команды xlsx: get в json/tsv/raw и три формы ls.
- * Все функции чистые «данные → строка»; вызывающий пишет строку в
- * stdout как есть (json — без финального перевода строки, контракт
- * спеки).
+ * Текстовые рендеры результатов команд xlsx: get в tsv/raw и две формы
+ * ls. Все функции чистые «данные → строка»; вызывающий пишет строку как
+ * есть. Формы «результат как JSON» здесь нет: её даёт точка входа из
+ * самого результата.
  */
 
 import type { CellValue } from "./workbook.ts";
 
-/** Режим `--render`: что попадает в вывод get. */
+/** Режим `--render`: что попадает в ячейку результата get. */
 export type RenderMode = "both" | "values" | "formulas";
 
-/** Ячейка вывода get: адрес с листом, значение, формула (если есть). */
+/** Ячейка результата get: адрес с листом, значение, формула. */
 export interface OutputCell {
   readonly range: string;
-  readonly value: CellValue;
+  /** Отсутствует в режиме `--render formulas`. */
+  readonly value?: CellValue;
+  /** Есть ⇔ у ячейки есть формула. */
   readonly formula?: string;
 }
 
@@ -23,31 +25,6 @@ export interface SheetInfo {
   readonly index: number;
   readonly rows: number;
   readonly cols: number;
-}
-
-/** JSON get: indent 2, юникод как есть, без финального `\n`. */
-export function renderGetJson(
-  file: string,
-  cells: readonly OutputCell[],
-  mode: RenderMode,
-): string {
-  const rendered = cells.map((cell) => {
-    switch (mode) {
-      case "both":
-        return cell.formula === undefined
-          ? { range: cell.range, value: cell.value }
-          : { range: cell.range, value: cell.value, formula: cell.formula };
-      case "values":
-        return { range: cell.range, value: cell.value };
-      case "formulas":
-        return cell.formula === undefined
-          ? { range: cell.range }
-          : { range: cell.range, formula: cell.formula };
-      default:
-        return unreachable(mode);
-    }
-  });
-  return JSON.stringify({ file, cells: rendered }, null, 2);
 }
 
 /** TSV get: шапка по режиму, строка на ячейку, финальный `\n`. */
@@ -103,25 +80,14 @@ export function renderLsLong(sheets: readonly SheetInfo[]): string {
   }).join("");
 }
 
-/** ls --json: массив листов, indent 2, без финального `\n`. */
-export function renderLsJson(sheets: readonly SheetInfo[]): string {
-  const rendered = sheets.map((sheet) => ({
-    title: sheet.title,
-    index: sheet.index,
-    rows: sheet.rows,
-    cols: sheet.cols,
-  }));
-  return JSON.stringify(rendered, null, 2);
-}
-
 /**
  * Строковый рендер значения для tsv/raw. Bool печатается как
  * `True`/`False` — preserve-отклонение спеки (строковый рендер
  * оригинала; differential харнесс-команды обязан быть пустым;
  * идея унификации с JSON true/false — в журнале переезда).
  */
-function stringValue(value: CellValue): string {
-  if (value === null) return "";
+function stringValue(value: CellValue | undefined): string {
+  if (value === null || value === undefined) return "";
   if (value === true) return "True";
   if (value === false) return "False";
   return String(value);

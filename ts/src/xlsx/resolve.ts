@@ -5,7 +5,7 @@
  * все источники передаются параметрами.
  */
 
-import { UsageError } from "./errors.ts";
+import { UsageError } from "../command/mod.ts";
 
 /** Идентификатор источника пути. */
 export type SourceKind = "flag" | "env" | "config";

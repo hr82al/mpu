@@ -116,8 +116,12 @@ Deno.test("parseWorkbookParts: пустые и нечисловые значен
     ["str-результат", `<c r="A1" t="str"><v>текст</v></c>`, {
       value: "текст",
     }],
-    ["inline rich text", `<c r="A1" t="inlineStr"><is><r><t>х</t></r>` +
-    `<r><t>леб</t></r></is></c>`, { value: "хлеб" }],
+    [
+      "inline rich text",
+      `<c r="A1" t="inlineStr"><is><r><t>х</t></r>` +
+      `<r><t>леб</t></r></is></c>`,
+      { value: "хлеб" },
+    ],
   ];
   for (const [name, cellXml, expected] of cases) {
     await t.step(name, () => {

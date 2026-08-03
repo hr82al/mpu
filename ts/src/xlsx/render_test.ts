@@ -1,10 +1,8 @@
 import { assertEquals } from "@std/assert";
 import {
   type OutputCell,
-  renderGetJson,
   renderGetRaw,
   renderGetTsv,
-  renderLsJson,
   renderLsLong,
   renderLsPlain,
 } from "./render.ts";
@@ -15,53 +13,6 @@ const cells: readonly OutputCell[] = [
   { range: "Л!A3", value: null },
   { range: "Л!A4", value: true },
 ];
-
-Deno.test("renderGetJson: режимы both/values/formulas", () => {
-  assertEquals(
-    renderGetJson("/tmp/f.xlsx", cells.slice(0, 2), "both"),
-    `{
-  "file": "/tmp/f.xlsx",
-  "cells": [
-    {
-      "range": "Л!A1",
-      "value": 84,
-      "formula": "=B2*2"
-    },
-    {
-      "range": "Л!A2",
-      "value": "текст"
-    }
-  ]
-}`,
-  );
-  assertEquals(
-    renderGetJson("/f", cells.slice(0, 1), "values"),
-    `{
-  "file": "/f",
-  "cells": [
-    {
-      "range": "Л!A1",
-      "value": 84
-    }
-  ]
-}`,
-  );
-  assertEquals(
-    renderGetJson("/f", cells.slice(0, 2), "formulas"),
-    `{
-  "file": "/f",
-  "cells": [
-    {
-      "range": "Л!A1",
-      "formula": "=B2*2"
-    },
-    {
-      "range": "Л!A2"
-    }
-  ]
-}`,
-  );
-});
 
 Deno.test("renderGetTsv: шапка, строковый рендер, экранирование", () => {
   assertEquals(
@@ -119,23 +70,6 @@ Deno.test("renderLs*: формы вывода списка листов", () => 
   assertEquals(
     renderLsLong(sampleSheets),
     "Данные  6×3  #0\nПустой  0×0  #1\n",
-  );
-  assertEquals(
-    renderLsJson(sampleSheets),
-    `[
-  {
-    "title": "Данные",
-    "index": 0,
-    "rows": 6,
-    "cols": 3
-  },
-  {
-    "title": "Пустой",
-    "index": 1,
-    "rows": 0,
-    "cols": 0
-  }
-]`,
   );
 });
 
