@@ -1,0 +1,80 @@
+{
+  "class": "успешный tools/list профиля ro; состав — эталон формы, не полный список",
+  "request": {
+    "method": "POST",
+    "path": "/ro",
+    "headers": {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Authorization": "Bearer <токен доступа>",
+      "MCP-Protocol-Version": "2026-07-28",
+      "Mcp-Method": "tools/list"
+    },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "tools/list",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": { "name": "ExampleClient", "version": "1.0.0" },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "tools": [
+          {
+            "name": "xlsx_ls",
+            "title": "mpu xlsx ls",
+            "description": "Листы книги .xlsx: имя, порядковый номер, число строк и столбцов.",
+            "annotations": { "readOnlyHint": true },
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "file": {
+                  "type": "string",
+                  "description": "путь или алиас .xlsx; без него — значение конфига xlsx.default"
+                },
+                "long": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "развёрнутая текстовая форма; на структурный результат не влияет"
+                }
+              },
+              "additionalProperties": false
+            },
+            "outputSchema": {
+              "type": "object",
+              "properties": {
+                "sheets": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "title": { "type": "string" },
+                      "index": { "type": "integer" },
+                      "rows": { "type": "integer" },
+                      "cols": { "type": "integer" }
+                    },
+                    "required": ["title", "index", "rows", "cols"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["sheets"],
+              "additionalProperties": false
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "class": "успешный tools/call: структурное содержимое по схеме результата",
+  "request": {
+    "method": "POST",
+    "path": "/ro",
+    "headers": {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Authorization": "Bearer <токен доступа>",
+      "MCP-Protocol-Version": "2026-07-28",
+      "Mcp-Method": "tools/call",
+      "Mcp-Name": "xlsx_ls"
+    },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+        "name": "xlsx_ls",
+        "arguments": { "file": "sample.xlsx" },
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": { "name": "ExampleClient", "version": "1.0.0" },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": {
+        "structuredContent": {
+          "sheets": [
+            { "title": "Данные", "index": 0, "rows": 6, "cols": 3 },
+            { "title": "Пустой", "index": 1, "rows": 0, "cols": 0 }
+          ]
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"sheets\":[{\"title\":\"Данные\",\"index\":0,\"rows\":6,\"cols\":3},{\"title\":\"Пустой\",\"index\":1,\"rows\":0,\"cols\":0}]}"
+          }
+        ]
+      }
+    }
+  }
+}
