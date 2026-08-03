@@ -71,13 +71,14 @@ JOBS_BODY: tuple[BodyField, ...] = (
 
 
 def _jobs_group(prefix: str, segment: str) -> list[CommandSpec]:
-    """5 endpoints контроллера jobs-control: queue-status / active-jobs / by-state / job / abort."""
+    """6 endpoints jobs-control: queue-status / active-jobs / by-state / job / abort / remove."""
     pairs = (
         ("queue-status", "queue-status"),
         ("active-jobs", "active-jobs"),
         ("by-state", "jobs-by-state"),
         ("job", "job"),
         ("abort", "abort"),
+        ("remove", "remove"),
     )
     return [
         CommandSpec(

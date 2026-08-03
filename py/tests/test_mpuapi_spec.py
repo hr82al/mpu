@@ -197,7 +197,7 @@ def test_jobs_body_field_names_unique() -> None:
 
 
 def test_jobs_group_structure() -> None:
-    """`_jobs_group` строит 5 POST-команд с raw-body и общим JOBS_BODY."""
+    """`_jobs_group` строит 6 POST-команд с raw-body и общим JOBS_BODY."""
     group = _jobs_group("wb-jobs", "wb")
     assert [c.name for c in group] == [
         "wb-jobs-queue-status",
@@ -205,6 +205,7 @@ def test_jobs_group_structure() -> None:
         "wb-jobs-by-state",
         "wb-jobs-job",
         "wb-jobs-abort",
+        "wb-jobs-remove",
     ]
     for spec in group:
         assert spec.method == "POST"
@@ -229,10 +230,10 @@ def test_jobs_group_segment_used_in_path() -> None:
 
 
 def test_jobs_groups_present_in_catalog() -> None:
-    """Все три jobs-группы (wb/ozon/dl) развёрнуты в каталог — 15 команд."""
+    """Все три jobs-группы (wb/ozon/dl) развёрнуты в каталог — 18 команд."""
     for prefix in ("wb-jobs", "ozon-jobs", "dl-jobs"):
         present = [c.name for c in COMMANDS if c.name.startswith(f"{prefix}-")]
-        assert len(present) == 5, prefix
+        assert len(present) == 6, prefix
 
 
 # ──────────────────────────────────────────────────────────────────────────────
