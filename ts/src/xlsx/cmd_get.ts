@@ -132,15 +132,24 @@ Exit: 0 — успех (пустой результат — не ошибка); 
 
 /** Оставляет в ячейке то, что просит `--render`; порядок ключей — спеки. */
 function project(cell: OutputCell, mode: RenderChoice): OutputCell {
-  if (mode === "values") return { range: cell.range, value: cell.value };
-  if (mode === "formulas") {
-    return cell.formula === undefined
-      ? { range: cell.range }
-      : { range: cell.range, formula: cell.formula };
+  switch (mode) {
+    case "values":
+      return { range: cell.range, value: cell.value };
+    case "formulas":
+      return cell.formula === undefined
+        ? { range: cell.range }
+        : { range: cell.range, formula: cell.formula };
+    case "both":
+      return cell.formula === undefined
+        ? { range: cell.range, value: cell.value }
+        : { range: cell.range, value: cell.value, formula: cell.formula };
+    default:
+      return unreachable(mode);
   }
-  return cell.formula === undefined
-    ? { range: cell.range, value: cell.value }
-    : { range: cell.range, value: cell.value, formula: cell.formula };
+}
+
+function unreachable(mode: never): never {
+  throw new TypeError(`неизвестный режим --render: ${String(mode)}`);
 }
 
 type RenderChoice = z.infer<typeof argsSchema>["render"];

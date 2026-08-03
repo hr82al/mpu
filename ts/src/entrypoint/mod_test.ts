@@ -105,7 +105,10 @@ Deno.test("группа: индекс уровня и неизвестная п�
   await t.step("неизвестная подкоманда группы — exit 2", async () => {
     const cli = makeCli();
     assertEquals(await cli.run("xlsx", "alias", "wat"), 2);
-    assertStringIncludes(cli.stderr(), `mpu xlsx: unknown subcommand "wat"`);
+    assertEquals(
+      cli.stderr(),
+      "No such command 'xlsx alias wat'.\nTry 'mpu -h' for help.\n",
+    );
   });
 });
 

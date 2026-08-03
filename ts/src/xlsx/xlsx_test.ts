@@ -2,6 +2,7 @@ import { assertEquals, assertMatch, assertStringIncludes } from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { makeDenoIo } from "../runtime/mod.ts";
+import { xlsxCommands } from "./mod.ts";
 
 /** Плейсхолдер снапшот-каталога в golden-эталонах спеки. */
 const SNAPSHOT_DIR = "{{SNAPSHOT_DIR}}";
@@ -501,7 +502,7 @@ Deno.test("alias: add/ls/rm, права хранилища, использова
         [["alias", "rm"], "ожидает один аргумент"],
         [["alias", "add", "x"], "ожидает два аргумента"],
         [["alias", "add", "a", "b", "c"], `unexpected argument "c"`],
-        [["alias", "wat"], `unknown subcommand "wat"`],
+        [["alias", "wat"], "No such command 'xlsx alias wat'."],
       ];
       for (const [args, snippet] of cases) {
         // Хранилище бросает: разбор аргументов обязан упасть до него.
@@ -599,6 +600,25 @@ Deno.test("open: --print и отсутствие открывателя", async 
   });
 });
 
+Deno.test("политики подкоманд — поимённо по таблице спеки", () => {
+  // docs/specs/xlsx.md: «ls, get, resolve, alias ls — ro; open,
+  // alias add, alias rm — rw». Профиль ro MCP-сервера собирается по
+  // этим значениям, поэтому они закреплены поимённо, а не «объявлены».
+  const expected: Readonly<Record<string, "ro" | "rw">> = {
+    "xlsx ls": "ro",
+    "xlsx get": "ro",
+    "xlsx resolve": "ro",
+    "xlsx alias ls": "ro",
+    "xlsx open": "rw",
+    "xlsx alias add": "rw",
+    "xlsx alias rm": "rw",
+  };
+  const actual = Object.fromEntries(
+    xlsxCommands.map((command) => [command.path.join(" "), command.policy]),
+  );
+  assertEquals(actual, expected);
+});
+
 Deno.test("справка: каждый уровень, без io, bare — exit 2", async (t) => {
   await t.step("bare и --help", async () => {
     const bare = makeTestCli();
@@ -633,6 +653,9 @@ Deno.test("справка: каждый уровень, без io, bare — exit
   await t.step("неизвестная подкоманда — exit 2", async () => {
     const cli = makeTestCli();
     assertEquals(await cli.run("wat"), 2);
-    assertStringIncludes(cli.stderr(), `unknown subcommand "wat"`);
+    assertEquals(
+      cli.stderr(),
+      "No such command 'xlsx wat'.\nTry 'mpu -h' for help.\n",
+    );
   });
 });

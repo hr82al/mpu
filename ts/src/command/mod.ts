@@ -115,6 +115,12 @@ export interface Command {
  */
 export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
   const name = spec.path.join(" ");
+  // Справочные тексты обязательны: команда без них собирает пустой
+  // индекс родителя и пустое описание тула. Ловим при сборке реестра —
+  // это паника инициализации, а не пустой вывод у пользователя.
+  requireText(spec.summary, `${name}: назначение`);
+  requireText(spec.usage, `${name}: строка использования`);
+  requireText(spec.help, `${name}: справка`);
   const argsJsonSchema = readObjectSchema(
     z.toJSONSchema(spec.argsSchema, { io: "input" }),
     `${name}: схема аргументов`,
@@ -180,6 +186,13 @@ function inputSpecs(
     kind: kindOf(field.type),
     form: forms[name] ?? {},
   }));
+}
+
+/** Обязательный справочный текст команды; пустой — дефект объявления. */
+function requireText(text: string, what: string): void {
+  if (text.trim() === "") {
+    throw new TypeError(`${what}: текст обязателен и не может быть пустым`);
+  }
 }
 
 function kindOf(type: string | undefined): InputSpec["kind"] {

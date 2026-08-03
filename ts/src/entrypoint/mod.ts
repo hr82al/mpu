@@ -59,7 +59,7 @@ export async function runCli(
 
   const { path, rest: args } = matchPath(rest);
   if (path.length === 0) {
-    output.stderr(`No such command '${rest[0]}'.\nTry 'mpu -h' for help.\n`);
+    output.stderr(noSuchCommand(rest[0]));
     return 2;
   }
 
@@ -121,9 +121,14 @@ function runGroup(
     output.stdout(groupIndex(group));
     return 0;
   }
-  throw new UsageError(`unknown subcommand "${args[0]}"`, {
-    hint: `mpu ${path.join(" ")} --help`,
-  });
+  // Имя вне реестра называется одинаково на любом уровне: ключевые
+  // фразы ошибок — фиксируемая часть контракта (`platform/registry.md`).
+  output.stderr(noSuchCommand([...path, args[0]].join(" ")));
+  return 2;
+}
+
+function noSuchCommand(name: string): string {
+  return `No such command '${name}'.\nTry 'mpu -h' for help.\n`;
 }
 
 /**

@@ -128,13 +128,17 @@ Deno.test("инвариант 3: политика объявлена и не з�
       command.policy === "ro" || command.policy === "rw",
       `${name}: политика не объявлена`,
     );
-    // Политика — поле записи, а не функция от разобранных аргументов:
-    // одно и то же значение при любом входе гарантировано типом.
-    assertEquals(
-      typeof command.policy,
-      "string",
-      `${name}: политика выводится, а не объявлена`,
-    );
+    // Значения аргументов на политику не влияют: класс команды не
+    // выводится из входа (отклонение-fix про `--print` и `--dry`).
+    const before = command.policy;
+    for (const input of command.inputs) {
+      command.parseArgs(argvFor(command, [...required(command), input.name]));
+      assertEquals(
+        command.policy,
+        before,
+        `${name}: политика изменилась после разбора "${input.name}"`,
+      );
+    }
   }
 });
 
@@ -159,6 +163,20 @@ Deno.test("инвариант 4: имена входа совпадают со �
       [...schemaNames].sort(),
       `${name}: схема объявляет входы, которых нет у разбора argv`,
     );
+    // Короткая форма — то же имя схемы, записанное иначе.
+    for (const input of command.inputs) {
+      if (input.form.short === undefined) continue;
+      const value = sampleValue(command, input);
+      const written = input.kind === "boolean"
+        ? [`-${input.form.short}`]
+        : [`-${input.form.short}`, String(value)];
+      const parsed = command.parseArgs([...requiredArgv(command), ...written]);
+      assertEquals(
+        parsed[input.name],
+        value,
+        `${name}: короткая форма "-${input.form.short}" не принята`,
+      );
+    }
     // И ничего сверх схемы: постороннее имя отвергается как опция.
     const err = assertThrows(
       () => command.parseArgs([...requiredArgv(command), "--нет-такого-входа"]),
@@ -279,27 +297,34 @@ function mustFind(path: string): Command {
 async function withCapturedOutput(fn: () => Promise<void>): Promise<string> {
   const chunks: string[] = [];
   const decoder = new TextDecoder();
-  const origLog = console.log;
-  const origError = console.error;
-  const origOut = Deno.stdout.write;
-  const origErr = Deno.stderr.write;
-  console.log = (...args: unknown[]) => void chunks.push(args.join(" "));
-  console.error = (...args: unknown[]) => void chunks.push(args.join(" "));
-  Deno.stdout.write = (bytes: Uint8Array) => {
-    chunks.push(decoder.decode(bytes));
-    return Promise.resolve(bytes.length);
-  };
-  Deno.stderr.write = (bytes: Uint8Array) => {
-    chunks.push(decoder.decode(bytes));
-    return Promise.resolve(bytes.length);
-  };
+  // Перехватываются все пути печати процесса, а не только привычные:
+  // проверка обязана ловить и console.warn, и синхронную запись в
+  // поток, иначе «ничего не напечатано» доказывает слишком мало.
+  const levels = ["log", "error", "warn", "info", "debug"] as const;
+  const origConsole = levels.map((level) => console[level]);
+  const origWrite = [Deno.stdout.write, Deno.stderr.write];
+  const origWriteSync = [Deno.stdout.writeSync, Deno.stderr.writeSync];
+  for (const level of levels) {
+    console[level] = (...args: unknown[]) => void chunks.push(args.join(" "));
+  }
+  for (const stream of [Deno.stdout, Deno.stderr]) {
+    stream.write = (bytes: Uint8Array) => {
+      chunks.push(decoder.decode(bytes));
+      return Promise.resolve(bytes.length);
+    };
+    stream.writeSync = (bytes: Uint8Array) => {
+      chunks.push(decoder.decode(bytes));
+      return bytes.length;
+    };
+  }
   try {
     await fn();
   } finally {
-    console.log = origLog;
-    console.error = origError;
-    Deno.stdout.write = origOut;
-    Deno.stderr.write = origErr;
+    levels.forEach((level, i) => void (console[level] = origConsole[i]));
+    Deno.stdout.write = origWrite[0];
+    Deno.stderr.write = origWrite[1];
+    Deno.stdout.writeSync = origWriteSync[0];
+    Deno.stderr.writeSync = origWriteSync[1];
   }
   return chunks.join("");
 }
