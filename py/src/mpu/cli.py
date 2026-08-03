@@ -22,6 +22,12 @@ from mpu.cli_registry import COMMANDS
 
 _API_GROUP_NAME = "api"
 
+# Служебный слепок дерева команд. Резолвится по имени, но в `list_commands` не входит:
+# в `mpu --help`, `mpu help` и completion его быть не должно — это машинный интерфейс,
+# а не команда пользователя, и его появление изменило бы наблюдаемую поверхность CLI.
+_MANIFEST_NAME = "manifest"
+_MANIFEST_SPEC = ("mpu.commands.manifest", "app")
+
 
 class _LazyGroup(TyperGroup):
     """Root-группа, импортирующая модуль подкоманды только при обращении к ней.
@@ -48,6 +54,8 @@ class _LazyGroup(TyperGroup):
             self.add_command(api_group, _API_GROUP_NAME)
             return api_group
         spec = COMMANDS.get(cmd_name)
+        if spec is None and cmd_name == _MANIFEST_NAME:
+            spec = _MANIFEST_SPEC
         if spec is None:
             return None
         holder = typer.Typer()
