@@ -128,7 +128,6 @@
       "Edit(//home/user/mr/mp/mpu/docs/**)",
       "Edit(//home/user/mr/mp/mpu/py/**)",
       "Edit(//home/user/mr/mp/mpu/go/**)",
-      "Edit(//home/user/mr/mp/mpu/ts/docs/specs/protocol/**)",
       "Edit(//home/user/tmp/**)",
       "Edit(//tmp/**)",
       "Edit(//home/user/.claude/**)",
@@ -161,8 +160,6 @@
       ],
       "allowRead": [
         "/home/user/mr/mp/mpu",
-        "/home/user/mr/mp/mpu/go/docs/specs/protocol",
-        "/home/user/mr/mp/mpu/go/docs/specs/fixtures/protocol",
         "/home/user/.gitconfig",
         "/home/user/.config/git"
       ],
