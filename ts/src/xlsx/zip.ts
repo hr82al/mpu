@@ -118,7 +118,11 @@ async function readEntry(
 }
 
 async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
-  const stream = new Blob([data]).stream()
+  // `slice()` — не перестраховка: `Uint8Array` без параметра типа может
+  // лежать над `SharedArrayBuffer`, которого `Blob` не принимает. Копия
+  // одного сжатого блока даёт буфер нужного вида, не сужая тип входа
+  // ридера до `Uint8Array<ArrayBuffer>` во всей цепочке вызовов.
+  const stream = new Blob([data.slice()]).stream()
     .pipeThrough(new DecompressionStream("deflate-raw"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }

@@ -18,7 +18,9 @@ interface RawEntry {
   readonly stored: Uint8Array;
 }
 
-async function deflate(data: Uint8Array): Promise<Uint8Array> {
+// Параметр сужен до буфера, который принимает `Blob`: фикстуры теста
+// строит `TextEncoder`, и обходить это копией, как в самом ридере, незачем.
+async function deflate(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
   const stream = new Blob([data]).stream()
     .pipeThrough(new CompressionStream("deflate-raw"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
