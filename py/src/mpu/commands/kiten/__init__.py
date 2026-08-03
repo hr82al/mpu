@@ -33,6 +33,14 @@
 - `mpu kiten comment <selector> <-m TEXT | -F FILE>` — добавить комментарий от своего имени
   (автор — владелец `KITEN_API_KEY`). Тело из `-m`/`--message` ИЛИ `-F`/`--body-file`
   (`-` = stdin), как у `mpu mr comment`. Селектор — как у `card`.
+- `mpu kiten desc <selector> <-m TEXT | -F FILE>` — заменить ОПИСАНИЕ карточки целиком
+  (markdown уходит в API как есть — чинит «md вставился экранированным» после веб-вставки).
+  ⚠️ `- [ ]` в описании Kaiten НЕ становится чекбоксом — интерактивные чекбоксы только в
+  чек-листе карточки (`checklist`). Read-аналог — `card --md`.
+- `mpu kiten checklist ls|add|check|uncheck` — чек-листы карточки (единственные
+  интерактивные чекбоксы Kaiten): `add --name N -i "пункт"...` — создать/дополнить
+  (идемпотентно по названию и тексту пункта), `check`/`uncheck <selector> <id|подстрока>` —
+  отметить/снять пункт.
 - `mpu kiten move <selector> [--lane L] [--column C] [--board B]` — переместить карточку по
   дорожке / колонке / доске (хотя бы одна ось). `--lane`/`--column` принимают ID или подстроку,
   резолв в скоупе целевой доски (`--board`, иначе текущая доска карточки).
@@ -95,9 +103,25 @@ from mpu.commands.kiten._render import _card_to_markdown
 # `timelog` стоит ДО `move` намеренно: `move` импортирует из него остановку таймера для
 # `close`, то есть зарегистрировал бы группу `time` побочным эффектом — и порядок в `--help`
 # начал бы зависеть от направления импорта, а не от этого списка.
-for _name in ("status", "ls", "card", "comment", "timelog", "move", "refs", "field"):
+for _name in (
+    "status",
+    "ls",
+    "card",
+    "comment",
+    "desc",
+    "timelog",
+    "move",
+    "refs",
+    "checklist",
+    "field",
+):
     importlib.import_module(f"{__name__}.{_name}")
 
+from mpu.commands.kiten.checklist import (  # noqa: E402
+    ItemRef,
+    ordered_items,
+    resolve_checklist_item,
+)
 from mpu.commands.kiten.comment import (  # noqa: E402
     _expand_all_to_owner,
     expand_all_mention,
@@ -119,6 +143,7 @@ from mpu.commands.kiten.timelog import (  # noqa: E402
 __all__ = [
     "COMMAND_NAME",
     "COMMAND_SUMMARY",
+    "ItemRef",
     "LsFilters",
     "_board_id_from_ctx",
     "_card_to_markdown",
@@ -137,10 +162,12 @@ __all__ = [
     "default_for_date",
     "expand_all_mention",
     "expand_recipients",
+    "ordered_items",
     "parse_recipients",
     "plan_field_actions",
     "prepend_recipients",
     "read_attachments",
+    "resolve_checklist_item",
     "resolve_comment_text",
     "resolve_ls_filters",
     "summarise_logs",

@@ -51,6 +51,7 @@ JsonOpt = _cli_opts.JsonOpt  # общий алиас (канон help-текст
 COMMAND_NAME = "mpu kiten"
 COMMAND_SUMMARY = (
     "Kaiten: `ls` — мои карточки (member); `card` — одна карточка; `comment` — комментарий; "
+    "`desc` — заменить описание; `checklist` — чек-листы (интерактивные чекбоксы); "
     "`move`/`ready`/`review` — перемещение (+ лог в журнал); `time` — учёт времени и таймер; "
     "`spaces`/`boards`/`lanes`/`columns`/`roles` — справочник; `whoami`"
 )

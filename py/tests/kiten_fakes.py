@@ -19,8 +19,10 @@ from mpu.commands.kiten import (
     _card_to_markdown,  # pyright: ignore[reportPrivateUsage]
     build_updated_window,
     card as kiten_card,
+    checklist as kiten_checklist,
     coalesce,
     comment as kiten_comment,
+    desc as kiten_desc,
     expand_recipients,
     field as kiten_field,
     ls as kiten_ls,
@@ -40,6 +42,8 @@ from mpu.lib.kaiten import (
     KaitenBoard,
     KaitenCard,
     KaitenCardDetail,
+    KaitenChecklist,
+    KaitenChecklistItem,
     KaitenColumn,
     KaitenComment,
     KaitenFile,
@@ -906,7 +910,9 @@ class FakeColumnsClient:
 
 COMMAND_MODULES = (
     kiten_card,
+    kiten_checklist,
     kiten_comment,
+    kiten_desc,
     kiten_field,
     kiten_ls,
     kiten_move,
@@ -938,6 +944,8 @@ class FakeKaitenClient:
         roles: list[KaitenRole] | None = None,
         new_log_id: int = 4471,
         timer_already_running: bool = False,
+        new_checklist_id: int = 501,
+        new_item_id: int = 9001,
         fail: set[str] | None = None,
     ) -> None:
         self.base_url = base_url
@@ -955,6 +963,12 @@ class FakeKaitenClient:
         self.props_set: list[tuple[int, str, str | None]] = []
         self.uploaded_files: list[dict[str, object]] = []
         self.deleted_files: list[tuple[int, int]] = []
+        self._new_checklist_id = new_checklist_id
+        self._new_item_id = new_item_id
+        self.descriptions_set: list[tuple[int, str]] = []
+        self.checklists_added: list[tuple[int, str]] = []
+        self.items_added: list[dict[str, object]] = []
+        self.items_checked: list[tuple[int, int, int, bool]] = []
         self._time_logs = time_logs if time_logs is not None else []
         self._roles = roles if roles is not None else []
         self._new_log_id = new_log_id
@@ -1039,6 +1053,48 @@ class FakeKaitenClient:
     def delete_card_file(self, card_id: int, file_id: int) -> None:
         self._maybe_fail("delete_card_file")
         self.deleted_files.append((card_id, file_id))
+
+    # ── описание и чек-листы ───────────────────────────────────────────────────
+
+    def update_card_description(self, card_id: int, text: str) -> None:
+        self._maybe_fail("update_card_description")
+        self.descriptions_set.append((card_id, text))
+
+    def add_checklist(self, card_id: int, name: str) -> KaitenChecklist:
+        self._maybe_fail("add_checklist")
+        self.checklists_added.append((card_id, name))
+        return KaitenChecklist(id=self._new_checklist_id, name=name, items=[])
+
+    def add_checklist_item(
+        self,
+        card_id: int,
+        checklist_id: int,
+        text: str,
+        *,
+        sort_order: float | None = None,
+        checked: bool = False,
+    ) -> KaitenChecklistItem:
+        self._maybe_fail("add_checklist_item")
+        self.items_added.append(
+            {
+                "card_id": card_id,
+                "checklist_id": checklist_id,
+                "text": text,
+                "sort_order": sort_order,
+                "checked": checked,
+            }
+        )
+        item = KaitenChecklistItem(
+            id=self._new_item_id, text=text, checked=checked, sort_order=sort_order
+        )
+        self._new_item_id += 1
+        return item
+
+    def set_checklist_item_checked(
+        self, card_id: int, checklist_id: int, item_id: int, checked: bool
+    ) -> None:
+        self._maybe_fail("set_checklist_item_checked")
+        self.items_checked.append((card_id, checklist_id, item_id, checked))
 
     # ── учёт времени ───────────────────────────────────────────────────────────
 
@@ -1169,6 +1225,7 @@ def card_detail(
     files: list[KaitenFile] | None = None,
     timer: KaitenTimer | None = None,
     time_spent_sum: int | None = None,
+    checklists: list[KaitenChecklist] | None = None,
 ) -> KaitenCardDetail:
     """Собрать `KaitenCardDetail` напрямую (без сети) с управляемым положением/владельцем."""
     owner = (
@@ -1201,6 +1258,24 @@ def card_detail(
         members=[],
         files=files or [],
         properties=properties or {},
+        checklists=checklists or [],
+    )
+
+
+def checklist(
+    *,
+    checklist_id: int = 500,
+    name: str = "Подзадачи",
+    items: list[tuple[int, str, bool]] | None = None,
+) -> KaitenChecklist:
+    """Чек-лист карточки из троек `(id, текст, отмечен)` — порядок = `sort_order` 1, 2, 3…"""
+    return KaitenChecklist(
+        id=checklist_id,
+        name=name,
+        items=[
+            KaitenChecklistItem(id=item_id, text=text, checked=checked, sort_order=float(n))
+            for n, (item_id, text, checked) in enumerate(items or [], start=1)
+        ],
     )
 
 

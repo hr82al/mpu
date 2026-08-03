@@ -308,6 +308,19 @@ class KaitenLocationChange(_ApiModel):
         return raw
 
 
+class KaitenChecklistItem(_ApiModel):
+    id: int
+    text: EmptyStr = ""
+    checked: TruthyBool = False
+    sort_order: float | None = None  # у Kaiten дробный (перестановки пунктов)
+
+
+class KaitenChecklist(_ApiModel):
+    id: int
+    name: EmptyStr = ""
+    items: list[KaitenChecklistItem] = Field(default_factory=list[KaitenChecklistItem])
+
+
 class KaitenCardDetail(_ApiModel):
     id: int
     key: str | None = None
@@ -333,6 +346,12 @@ class KaitenCardDetail(_ApiModel):
     members: list[KaitenMember] = Field(default_factory=list[KaitenMember])
     files: list[KaitenFile] = Field(default_factory=list[KaitenFile])
     properties: dict[str, str] = Field(default_factory=dict[str, str])
+    checklists: list[KaitenChecklist] = Field(default_factory=list[KaitenChecklist])
+
+
+def _checklist_wire(raw: dict[object, object]) -> dict[object, object]:
+    """Wire-форма чек-листа → поля модели: `items` отсутствует/null/с мусором → чистый список."""
+    return {**raw, "items": dict_items(raw.get("items"))}
 
 
 def _flatten_card_detail_wire(raw: dict[object, object]) -> dict[object, object]:
@@ -356,6 +375,7 @@ def _flatten_card_detail_wire(raw: dict[object, object]) -> dict[object, object]
     out["members"] = dict_items(raw.get("members"))
     out["files"] = dict_items(raw.get("files"))
     out["properties"] = _string_properties(raw.get("properties"))
+    out["checklists"] = [_checklist_wire(cl) for cl in dict_items(raw.get("checklists"))]
     return out
 
 
@@ -509,3 +529,13 @@ def parse_card_detail(raw: object, base_url: str) -> KaitenCardDetail:
     wire = _flatten_card_detail_wire(raw) if is_dict(raw) else raw
     detail = KaitenCardDetail.model_validate(wire)
     return detail.model_copy(update={"url": card_url(base_url, detail.id)})
+
+
+def parse_checklist(raw: object) -> KaitenChecklist:
+    """JSON POST /cards/{id}/checklists → KaitenChecklist (items обычно пусты)."""
+    return KaitenChecklist.model_validate(_checklist_wire(raw) if is_dict(raw) else raw)
+
+
+def parse_checklist_item(raw: object) -> KaitenChecklistItem:
+    """JSON POST/PATCH /cards/{id}/checklists/{clId}/items → KaitenChecklistItem."""
+    return KaitenChecklistItem.model_validate(raw)

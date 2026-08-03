@@ -207,7 +207,7 @@ grep -rn 'err=True\|json.dumps\|# noqa' src | wc -l
 | `telegram` | `telegram.py` | Telegram от лица пользователя — skill `tool-mpu-telegram`. Ловушка: прокси только через `TELEGRAM_PROXY`, НЕ `HTTPS_PROXY` (утечёт на весь `mpu`) |
 | `mr` | `mr.py` | GitLab MR ревью — skill `tool-mpu-mr`; ENV `GLAB_TOKEN` |
 | `glab-status` | `glab_status.py` | GitLab MR одной таблицей (колонки-ветки `trunk/main/dev/qa/predprod/prod`, `✅`=merge долетел): без аргументов — мои MR за `--since`, с адресами MR (URL / `group/repo!iid` / `iid`) — ровно эти MR любых авторов (шапка + «прочие ветки», `--branches`); `--repos`/`--json`; ENV `GLAB_TOKEN`/`GITLAB_BASE_URL` |
-| `kiten` | `kiten/` | Kaiten-карточки (`status`/`card`/`ls`/`comment`/`move`/`ready`/`review`/`close`/`field`/`time`/справочник) — skill `tool-mpu-kiten`. `status` — вся моя работа матрицей по всем доскам (назначенное + где списывал время + где что-то делал); ENV `KITEN_STAGE_MAP` |
+| `kiten` | `kiten/` | Kaiten-карточки (`status`/`card`/`ls`/`comment`/`desc`/`checklist`/`move`/`ready`/`review`/`close`/`field`/`time`/справочник) — skill `tool-mpu-kiten`. `status` — вся моя работа матрицей по всем доскам (назначенное + где списывал время + где что-то делал); ENV `KITEN_STAGE_MAP` |
 | `log` | `log.py` | журнал вызовов самого `mpu` (`~/.config/mpu/mpu.log`): команда, вывод, ошибки, exit; фильтры `--failed`/`--cmd`/`--since`/`--run`. Пишет `lib/log.py` + `lib/capture.py`; ENV `MPU_LOG_*` (см. `.env.example`) |
 | `help` | `help.py` | список команд + проброс `--help` |
 | (node-CLI обёртка) | `commands/<X>.py` | exec через Portainer; `--print`/`-p` — print+clipboard |

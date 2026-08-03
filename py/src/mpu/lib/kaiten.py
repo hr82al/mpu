@@ -31,6 +31,8 @@ if TYPE_CHECKING:
         KaitenBoard as KaitenBoard,
         KaitenCard as KaitenCard,
         KaitenCardDetail as KaitenCardDetail,
+        KaitenChecklist as KaitenChecklist,
+        KaitenChecklistItem as KaitenChecklistItem,
         KaitenColumn as KaitenColumn,
         KaitenComment as KaitenComment,
         KaitenCustomProperty as KaitenCustomProperty,
@@ -48,6 +50,8 @@ if TYPE_CHECKING:
         parse_boards_of_space as parse_boards_of_space,
         parse_card as parse_card,
         parse_card_detail as parse_card_detail,
+        parse_checklist as parse_checklist,
+        parse_checklist_item as parse_checklist_item,
         parse_column as parse_column,
         parse_comment as parse_comment,
         parse_custom_property as parse_custom_property,
@@ -82,6 +86,8 @@ _MODEL_EXPORTS = frozenset(
         "KaitenBoard",
         "KaitenCard",
         "KaitenCardDetail",
+        "KaitenChecklist",
+        "KaitenChecklistItem",
         "KaitenColumn",
         "KaitenComment",
         "KaitenCustomProperty",
@@ -99,6 +105,8 @@ _MODEL_EXPORTS = frozenset(
         "parse_boards_of_space",
         "parse_card",
         "parse_card_detail",
+        "parse_checklist",
+        "parse_checklist_item",
         "parse_column",
         "parse_comment",
         "parse_custom_property",
@@ -480,6 +488,60 @@ class KaitenClient:
             body["lane_id"] = lane_id
         res = self._request("PATCH", f"/cards/{card_id}", body=body)
         return km.parse_card_detail(res, self.base_url)
+
+    def update_card_description(self, card_id: int, text: str) -> None:
+        """PATCH /cards/{id} — заменить описание карточки (GFM markdown) ЦЕЛИКОМ.
+
+        ⚠️ Kaiten-редактор описания НЕ поддерживает GFM-чекбоксы: `- [ ]` в description
+        рендерится обычным списком с литеральным «[ ]» в тексте (а вставка через веб ещё
+        и экранирует скобки в `\\[ \\]`). Интерактивные чекбоксы в Kaiten — только
+        отдельная сущность «чек-лист карточки»: `add_checklist`/`add_checklist_item`.
+        """
+        self._request("PATCH", f"/cards/{card_id}", body={"description": text})
+
+    def add_checklist(self, card_id: int, name: str) -> KaitenChecklist:
+        """POST /cards/{id}/checklists — создать чек-лист карточки (пустой).
+
+        Пункты добавляются отдельно (`add_checklist_item`). Чек-лист — единственный
+        способ получить интерактивные чекбоксы в Kaiten (см. `update_card_description`).
+        """
+        from mpu.lib import kaiten_models as km
+
+        res = self._request("POST", f"/cards/{card_id}/checklists", body={"name": name})
+        return km.parse_checklist(res)
+
+    def add_checklist_item(
+        self,
+        card_id: int,
+        checklist_id: int,
+        text: str,
+        *,
+        sort_order: float | None = None,
+        checked: bool = False,
+    ) -> KaitenChecklistItem:
+        """POST /cards/{id}/checklists/{checklistId}/items — добавить пункт чек-листа.
+
+        `sort_order=None` — не передавать (Kaiten поставит в конец); явное значение
+        фиксирует позицию (используется при пакетном добавлении, чтобы порядок не
+        зависел от гонок сервера).
+        """
+        from mpu.lib import kaiten_models as km
+
+        body: dict[str, object] = {"text": text, "checked": checked}
+        if sort_order is not None:
+            body["sort_order"] = sort_order
+        res = self._request("POST", f"/cards/{card_id}/checklists/{checklist_id}/items", body=body)
+        return km.parse_checklist_item(res)
+
+    def set_checklist_item_checked(
+        self, card_id: int, checklist_id: int, item_id: int, checked: bool
+    ) -> None:
+        """PATCH /cards/{id}/checklists/{checklistId}/items/{itemId} — отметить/снять пункт."""
+        self._request(
+            "PATCH",
+            f"/cards/{card_id}/checklists/{checklist_id}/items/{item_id}",
+            body={"checked": checked},
+        )
 
     def set_card_property(self, card_id: int, property_key: str, value: str | None) -> None:
         """PATCH /cards/{id} — установить кастомное поле (`value=None` — очистить).
