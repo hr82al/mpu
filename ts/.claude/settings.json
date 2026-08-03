@@ -160,6 +160,7 @@
       ],
       "allowRead": [
         "/home/user/mr/mp/mpu",
+        "/home/user/.deno",
         "/home/user/.gitconfig",
         "/home/user/.config/git"
       ],
