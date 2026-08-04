@@ -35,7 +35,7 @@
       "result": {
         "isError": true,
         "content": [
-          { "type": "text", "text": "mpu xlsx: file not found: \"нет-такого.xlsx\"" }
+          { "type": "text", "text": "mpu xlsx: file not found: \"{{CWD}}/нет-такого.xlsx\"" }
         ]
       }
     }

@@ -131,7 +131,8 @@ Env `MPU_XLSX`; конфиг-ключ `xlsx.default` и хранилище ал�
 
 ## Граничные случаи и ошибки
 
-- Файл не существует → exit 1: `file not found: "<путь>"`.
+- Файл не существует → exit 1: `file not found: "<путь>"`, где путь —
+  резолвленный абсолютный, а не как он записан в аргументе.
 - Не zip → exit 1: `not a valid xlsx file: "<путь>" (not a zip archive)`.
 - Zip без книги → exit 1: `… (missing xl/workbook.xml)`.
 - Битый XML → exit 1: `… (malformed XML: <детали>)`.
