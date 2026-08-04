@@ -64,6 +64,10 @@ const JSON_FLAG = "--json";
 /** Общий флаг справки: он есть на каждом уровне дерева. */
 const HELP_FLAG = "--help";
 
+/** Описания общих флагов: у них нет объявления, откуда их взять. */
+const HELP_FLAG_SUMMARY = "справка по этому уровню";
+const JSON_FLAG_SUMMARY = "результат как JSON вместо текста";
+
 /** Имя справочной поверхности: `mpu help [<полное имя>]`. */
 const HELP_COMMAND = "help";
 
@@ -223,10 +227,21 @@ function levelFlags(path: readonly string[]): readonly CompletionItem[] {
   const flag = (name: string, summary = "") => ({ name, summary });
   const command = findCommand(path);
   if (command !== undefined) {
+    // Описание флага — то же, что в справке: оно объявлено в схеме
+    // аргументов и второго источника не заводится.
     const declared = command.inputs
       .filter((input) => input.form.positional === undefined)
-      .map((input) => flag(`--${input.name}`));
-    return [...declared, flag(JSON_FLAG), flag(HELP_FLAG)];
+      .map((input) =>
+        flag(
+          `--${input.name}`,
+          command.argsJsonSchema.properties[input.name].description ?? "",
+        )
+      );
+    return [
+      ...declared,
+      flag(JSON_FLAG, JSON_FLAG_SUMMARY),
+      flag(HELP_FLAG, HELP_FLAG_SUMMARY),
+    ];
   }
   const leaf = legacyLeaf(path);
   if (leaf !== undefined) {
@@ -235,12 +250,16 @@ function levelFlags(path: readonly string[]): readonly CompletionItem[] {
       .map((param) =>
         flag(
           param.opts?.find((opt) => opt.startsWith("--")) ?? `--${param.name}`,
+          param.help ?? "",
         )
       );
-    return [...declared, flag(HELP_FLAG)];
+    // Общий параметр формы вывода командам этого маршрута не
+    // предлагается: он ими не распознаётся и уходит подпроцессу как
+    // обычный аргумент (`platform/registry.md`).
+    return [...declared, flag(HELP_FLAG, HELP_FLAG_SUMMARY)];
   }
   // Уровень без собственных флагов (группа) — только общие.
-  return [flag(HELP_FLAG)];
+  return [flag(HELP_FLAG, HELP_FLAG_SUMMARY)];
 }
 
 /** Лист слепка по пути: у записи маршрута `legacy` флаги описаны там. */

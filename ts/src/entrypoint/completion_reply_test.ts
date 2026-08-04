@@ -12,11 +12,15 @@
  * теперь берутся из объявления команд, и это следствие переезда.
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import { completionReply } from "./completion.ts";
 import { runCli } from "./mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { readManifest } from "../mcp/legacy_tools.ts";
+import { findCommand } from "../registry/mod.ts";
+
+/** Общий параметр формы вывода: он есть только у маршрута `native`. */
+const JSON_FLAG = "--json";
 import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };
@@ -161,11 +165,64 @@ Deno.test("флаги берутся из того же источника, чт
     assertEquals(stdout.split("\n").filter(Boolean), ["--help"]);
   });
 
-  await t.step("описания флагов пусты: подсказка — имя флага", async () => {
+  await t.step("описание флага — из того же слепка", async () => {
     const { stdout } = await complete({
       _MPU_COMPLETE: "complete_zsh",
       _TYPER_COMPLETE_ARGS: "mpu sql-ro --d",
     });
-    assertEquals(stdout, `_arguments '*: :(("--dry":""))'\n`);
+    const leaf = readManifest(treeManifest).commands.find(
+      (item) => item.path.join(" ") === "sql-ro",
+    );
+    const dry = leaf?.params.find((param) => param.name === "dry");
+    assertEquals(
+      stdout,
+      completionReply("zsh", [{ name: "--dry", summary: dry?.help ?? "" }]),
+    );
+    assertStringIncludes(stdout, "Только meta");
+  });
+
+  await t.step("описание флага команды контракта — из её схемы", async () => {
+    const { stdout } = await complete({
+      _MPU_COMPLETE: "complete_zsh",
+      _TYPER_COMPLETE_ARGS: "mpu xlsx get --ts",
+    });
+    const command = findCommand(["xlsx", "get"]);
+    const declared = command?.argsJsonSchema.properties["tsv"].description ??
+      "";
+    // Тот же текст, что в справке команды: второго источника нет, а
+    // обрезку по длине делает общее форматирование ответа.
+    assertEquals(
+      stdout,
+      completionReply("zsh", [{ name: "--tsv", summary: declared }]),
+    );
+    assertStringIncludes(stdout, "таблица с шапкой range/value");
+  });
+
+  await t.step("общий --json командам legacy не добавляется", async () => {
+    // Точка входа его для этого маршрута не распознаёт: он уходит
+    // подпроцессу как обычный аргумент (`platform/registry.md`).
+    // У `mpu health` своего `--json` в слепке нет — значит и в
+    // подсказке ему взяться неоткуда.
+    const legacy = await complete({
+      _MPU_COMPLETE: "complete_bash",
+      COMP_WORDS: "mpu health -",
+      COMP_CWORD: "2",
+    });
+    assertEquals(legacy.stdout.split("\n").includes(JSON_FLAG), false);
+    // А там, где команда объявляет его сама (`mpu ps`), он есть — и
+    // приходит из слепка, а не от точки входа.
+    const own = await complete({
+      _MPU_COMPLETE: "complete_bash",
+      COMP_WORDS: "mpu ps -",
+      COMP_CWORD: "2",
+    });
+    assertEquals(own.stdout.split("\n").includes(JSON_FLAG), true);
+    // Команде контракта общий параметр предлагается всегда.
+    const native = await complete({
+      _MPU_COMPLETE: "complete_bash",
+      COMP_WORDS: "mpu xlsx get -",
+      COMP_CWORD: "3",
+    });
+    assertEquals(native.stdout.split("\n").includes(JSON_FLAG), true);
   });
 });
