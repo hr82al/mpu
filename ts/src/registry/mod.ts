@@ -73,6 +73,10 @@ export const surfaces: readonly LegacyCommand[] = [
     path: ["help"],
     summary: "Список всех mpu команд с опциональной справкой.",
   },
+  {
+    path: ["version"],
+    summary: "Show mpu version.",
+  },
 ];
 
 /**

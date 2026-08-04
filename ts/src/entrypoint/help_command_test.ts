@@ -39,6 +39,14 @@ Deno.test("mpu help: список всех команд обоих маршру�
   assertEquals(cli.stderr(), "");
 });
 
+Deno.test("mpu help --help — своя справка, а не список", async () => {
+  const cli = makeCli();
+  assertEquals(await cli.run("help", "--help"), 0);
+  assertStringIncludes(cli.stdout(), "Использование: mpu help");
+  assertStringIncludes(cli.stdout(), "Список всех mpu команд");
+  assertEquals(cli.stdout().includes("Available commands:"), false);
+});
+
 Deno.test("mpu help <имя>: справка целевой команды", async (t) => {
   await t.step("полное имя команды маршрута native", async () => {
     const cli = makeCli();

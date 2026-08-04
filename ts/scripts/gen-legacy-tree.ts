@@ -13,11 +13,12 @@ import tree from "../docs/specs/fixtures/platform/registry/tree.json" with {
 
 /**
  * Имена, которых в списке маршрута `legacy` быть не должно: `xlsx`
- * реализован командами контракта, `help` — поверхность точки входа,
- * печатающая список из единого реестра (`platform/registry.md`).
- * Однострокў `help` берёт оттуда же, из слепка, — см. `registry/mod.ts`.
+ * реализован командами контракта; `help` и `version` — поверхности
+ * точки входа (`platform/registry.md`: список берётся из единого
+ * реестра, версия — константа сборки). Однострокѝ обеих берутся из
+ * слепка — см. `registry/mod.ts`.
  */
-const NOT_LEGACY = new Set(["xlsx", "help"]);
+const NOT_LEGACY = new Set(["xlsx", "help", "version"]);
 
 const own = new Map<string, string>();
 const children = new Map<string, string[]>();

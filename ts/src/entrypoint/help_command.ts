@@ -10,7 +10,7 @@
 
 import type { Command, CommandIo } from "../command/mod.ts";
 import { type LegacyCommand, runLegacyCommand } from "../legacy/mod.ts";
-import { renderCommandHelp } from "./help.ts";
+import { renderCommandHelp, renderSurfaceHelp } from "./help.ts";
 
 /** Приёмник вывода: столько от потоков процесса нужно этой поверхности. */
 export interface HelpSink {
@@ -71,6 +71,13 @@ export async function runHelpCommand(
   output: HelpSink,
 ): Promise<number> {
   const wanted = args[0];
+  if (wanted === "-h" || wanted === "--help") {
+    // Своя справка: однострока берётся из той же записи реестра, что
+    // и в списке, — второй копии текста не заводится.
+    const self = entries.find((entry) => entry.name === SELF_NAME);
+    output.stdout(renderSurfaceHelp(HELP_USAGE, self?.summary ?? ""));
+    return 0;
+  }
   if (wanted === undefined) {
     output.stdout(renderList(entries));
     return 0;
@@ -99,6 +106,12 @@ export async function runHelpCommand(
   output.stdout(renderCommandHelp(entry.command));
   return 0;
 }
+
+/** Полное имя самой поверхности — как её спрашивают у `mpu help`. */
+const SELF_NAME = "mpu help";
+
+/** Строка использования справочной поверхности. */
+const HELP_USAGE = "mpu help [<полное имя команды>]";
 
 /** Список: заголовок, колонка имён с описаниями, футер (спека). */
 function renderList(entries: readonly HelpEntry[]): string {

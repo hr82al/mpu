@@ -8,11 +8,16 @@ import { assertEquals, assertMatch, assertStringIncludes } from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeDenoIo } from "../runtime/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
+import { type CommandIo, NotFoundIoError } from "../command/mod.ts";
 import { commands } from "../registry/mod.ts";
 import { runMcpServer } from "./cli.ts";
 import { LOOPBACK, type RunningServer, serveMcp } from "./server.ts";
 import { ensureAccessToken } from "./token.ts";
 import { VERSION } from "../version.ts";
+
+/** Реализация той же версии: сервер спрашивает её при старте. */
+const sameVersion = () =>
+  Promise.resolve({ code: 0, stdout: `${VERSION}\n`, stderr: "" });
 
 /** Буфер вывода: коды завершения проверяются вместе с текстом. */
 function makeOutput() {
@@ -30,11 +35,12 @@ function makeOutput() {
 
 /** Временный конфиг-каталог с настоящим io поверх файловой системы. */
 async function withStore(
-  fn: (io: ReturnType<typeof makeDenoIo>, dir: string) => Promise<void>,
+  fn: (io: CommandIo, dir: string) => Promise<void>,
 ): Promise<void> {
   const dir = await Deno.makeTempDir();
   try {
-    await fn(makeDenoIo(`${dir}/config.json`), dir);
+    const real = makeDenoIo(`${dir}/config.json`);
+    await fn({ ...real, runLegacy: sameVersion }, dir);
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
@@ -100,7 +106,7 @@ Deno.test("значение --profile вне ro/rw — exit 2", async (t) => {
     await t.step(`--profile ${value || "(пусто)"}`, async () => {
       const output = makeOutput();
       const code = await runMcpServer(["--profile", value], {
-        io: makeFakeIo(),
+        io: makeFakeIo({ runLegacy: sameVersion }),
         output: output.sink,
         commands,
       });
@@ -113,7 +119,7 @@ Deno.test("значение --profile вне ro/rw — exit 2", async (t) => {
 Deno.test("неизвестный флаг запуска — exit 2", async () => {
   const output = makeOutput();
   const code = await runMcpServer(["--host", "0.0.0.0"], {
-    io: makeFakeIo(),
+    io: makeFakeIo({ runLegacy: sameVersion }),
     output: output.sink,
     commands,
   });
@@ -182,7 +188,7 @@ Deno.test("значение --port не порт — exit 2", async (t) => {
     await t.step(`--port ${value}`, async () => {
       const output = makeOutput();
       const code = await runMcpServer([`--port=${value}`], {
-        io: makeFakeIo(),
+        io: makeFakeIo({ runLegacy: sameVersion }),
         output: output.sink,
         commands,
       });
@@ -200,7 +206,11 @@ Deno.test("порт берётся из конфига, когда флага н
       port: 0,
       profiles: ["ro"],
       token: "proba",
-      deps: { io: makeFakeIo(), commands, version: VERSION },
+      deps: {
+        io: makeFakeIo({ runLegacy: sameVersion }),
+        commands,
+        version: VERSION,
+      },
     });
     const wanted = probe.port;
     await probe.shutdown();
@@ -250,6 +260,81 @@ Deno.test("--profile поднимает только названные пути
     assertEquals(await response.text(), "");
     stop.abort();
     await running;
+  });
+});
+
+Deno.test("расхождение версии реализации — предупреждение при старте", async (t) => {
+  await t.step("другая версия — сказано в stderr, сервер поднят", async () => {
+    await withStore(async (io) => {
+      const output = makeOutput();
+      const stop = new AbortController();
+      const listening = Promise.withResolvers<RunningServer>();
+      const running = runMcpServer(["--port", "0"], {
+        io: {
+          ...io,
+          runLegacy: () =>
+            Promise.resolve({ code: 0, stdout: "0.9.9\n", stderr: "" }),
+        },
+        output: output.sink,
+        commands,
+        signal: stop.signal,
+        onListen: listening.resolve,
+      });
+      await listening.promise;
+      assertStringIncludes(output.stderr(), "0.9.9");
+      assertStringIncludes(output.stderr(), VERSION);
+      stop.abort();
+      assertEquals(await running, 0);
+    });
+  });
+
+  await t.step("реализация не ответила версией — молчание", async () => {
+    await withStore(async (io) => {
+      const output = makeOutput();
+      const stop = new AbortController();
+      const listening = Promise.withResolvers<RunningServer>();
+      const running = runMcpServer(["--port", "0"], {
+        io: {
+          ...io,
+          // Ненулевой код: у старой реализации команды `version` могло
+          // не быть вовсе — сравнивать не с чем.
+          runLegacy: () =>
+            Promise.resolve({ code: 2, stdout: "", stderr: "no such command" }),
+        },
+        output: output.sink,
+        commands,
+        signal: stop.signal,
+        onListen: listening.resolve,
+      });
+      await listening.promise;
+      assertEquals(output.stderr().includes("расходится"), false);
+      stop.abort();
+      assertEquals(await running, 0);
+    });
+  });
+
+  await t.step("реализации нет — сервер поднимается молча", async () => {
+    await withStore(async (io) => {
+      const output = makeOutput();
+      const stop = new AbortController();
+      const listening = Promise.withResolvers<RunningServer>();
+      const running = runMcpServer(["--port", "0"], {
+        io: {
+          ...io,
+          runLegacy: () => Promise.reject(new NotFoundIoError("нет бинаря")),
+        },
+        output: output.sink,
+        commands,
+        signal: stop.signal,
+        onListen: listening.resolve,
+      });
+      await listening.promise;
+      // Про версию ничего: тулы маршрута `legacy` откажут при вызове,
+      // а сервер полезен и без них.
+      assertEquals(output.stderr().includes("расходится"), false);
+      stop.abort();
+      assertEquals(await running, 0);
+    });
   });
 });
 

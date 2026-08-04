@@ -79,7 +79,7 @@ export class LegacyBinMissingError extends DomainError {
 }
 
 /** Путь к реализации: ключ конфига, иначе умолчание спеки. */
-async function resolveLegacyBin(io: CommandIo): Promise<string> {
+export async function resolveLegacyBin(io: CommandIo): Promise<string> {
   const store = parseStore(await io.readConfigStore());
   return legacyBinPath(store.values[LEGACY_BIN_KEY], io.env("HOME"));
 }

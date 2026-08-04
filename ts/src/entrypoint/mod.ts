@@ -19,12 +19,14 @@ import {
   findCommand,
   findGroup,
   findLegacy,
+  findSurface,
   legacyCommands,
   surfaces,
 } from "../registry/mod.ts";
 import { helpEntries, runHelpCommand } from "./help_command.ts";
+import { VERSION } from "../version.ts";
 import { LegacyBinMissingError, runLegacyCommand } from "../legacy/mod.ts";
-import { renderCommandHelp, renderIndex } from "./help.ts";
+import { renderCommandHelp, renderIndex, renderSurfaceHelp } from "./help.ts";
 
 /** Приёмник вывода процесса. */
 export interface Output {
@@ -46,6 +48,9 @@ const JSON_FLAG = "--json";
 /** Имя справочной поверхности: `mpu help [<полное имя>]`. */
 const HELP_COMMAND = "help";
 
+/** Имя поверхности версии: `mpu version`. */
+const VERSION_COMMAND = "version";
+
 /** Исполняет вызов CLI и возвращает код завершения процесса. */
 export async function runCli(
   argv: readonly string[],
@@ -65,6 +70,20 @@ export async function runCli(
   if (rest[0].startsWith("-")) {
     output.stderr(`No such option "${rest[0]}"\n`);
     return 2;
+  }
+
+  if (rest[0] === VERSION_COMMAND) {
+    if (rest.length > 1 && isHelpRequest(rest[1])) {
+      output.stdout(renderSurfaceHelp(
+        "mpu version",
+        findSurface([VERSION_COMMAND])?.summary ?? "",
+      ));
+      return 0;
+    }
+    // Версия — константа сборки, а не вопрос к Python-реализации
+    // (`platform/registry.md`): одна строка, без префиксов.
+    output.stdout(`${VERSION}\n`);
+    return 0;
   }
 
   if (rest[0] === HELP_COMMAND) {

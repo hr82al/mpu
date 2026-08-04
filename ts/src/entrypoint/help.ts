@@ -44,6 +44,16 @@ export function renderCommandHelp(command: Command): string {
     `${command.help}\n`;
 }
 
+/**
+ * Справка поверхности точки входа: ни схемы аргументов, ни результата
+ * у неё нет, поэтому рендерить нечего, кроме строки использования и
+ * однострокѝ. Формат тот же, что у листовой команды: читателю не
+ * должно быть видно, чем они отличаются внутри.
+ */
+export function renderSurfaceHelp(usage: string, summary: string): string {
+  return `Использование: ${usage}\n\n${summary}\n`;
+}
+
 /** Секции «Аргументы» и «Флаги»; входов нет — пустая строка. */
 function renderInputs(command: Command): string {
   const required = new Set(command.requiredInputNames);
