@@ -1,0 +1,2 @@
+# bootstrap: схема в <путь к кэш-БД> готова
+mpu init: укажите --portainer <url> либо PORTAINER_URL в ~/.config/mpu/.env

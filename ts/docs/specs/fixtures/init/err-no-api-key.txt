@@ -1,0 +1,2 @@
+# bootstrap: схема в <путь к кэш-БД> готова
+mpu init: в ~/.config/mpu/.env нет PORTAINER_API_KEY
