@@ -17,6 +17,7 @@
 
 import type { Command, CommandIo } from "../command/mod.ts";
 import type { LegacyCommand } from "../legacy/mod.ts";
+import { LEGACY_TREE } from "./legacy_tree.ts";
 import { xlsxCommands } from "../xlsx/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
@@ -52,15 +53,18 @@ export const commands: readonly Command[] = [
 
 /**
  * Команды, ещё не переехавшие: исполняются подпроцессом Python-версии.
- * Перевод команды на маршрут `native` и откат — перенос строки между
- * этим списком и `commands` (`platform/registry.md`).
+ * Состав и однострокѝ порождены из машинного слепка дерева
+ * (`legacy_tree.ts`); перевод команды на маршрут `native` — перенос
+ * записи отсюда в `commands` (`platform/registry.md`).
  */
-export const legacyCommands: readonly LegacyCommand[] = [
-  {
-    path: ["sql-ro"],
-    summary: "read-only SQL к базе клиента",
-  },
-];
+export const legacyCommands: readonly LegacyCommand[] = LEGACY_TREE;
+
+/**
+ * Имена верхнего уровня, которых в Python-реализации не было: их нет и
+ * не может быть в слепке. Список явный, чтобы новая собственная
+ * команда не проскочила мимо проверки состава.
+ */
+export const OWN_COMMANDS: readonly string[] = ["mcp"];
 
 /** Все промежуточные уровни; каждый префикс пути команды описан здесь. */
 export const groups: readonly CommandGroup[] = [

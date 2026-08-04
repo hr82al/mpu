@@ -74,6 +74,9 @@
     //     Deno»): запускается то, что пользователь сам прописал в своём
     //     конфиге, и его же правами. Сузить обратно можно будет, когда
     //     путь перестанет быть настраиваемым.
+    // Пересборка записей маршрута `legacy` из слепка дерева: запускать
+    // после его пересъёма. Правки записей руками тест не пропустит.
+    "registry:sync": "deno run --allow-read --allow-write=src/registry/legacy_tree.ts scripts/gen-legacy-tree.ts && deno fmt src/registry/legacy_tree.ts",
     "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu --allow-env=MPU_XLSX,HOME --allow-run --allow-net=127.0.0.1 -o $HOME/.local/bin/mpu main.ts"
   }
 }
