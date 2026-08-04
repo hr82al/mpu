@@ -10,7 +10,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { commands, legacyCommands, OWN_COMMANDS } from "./mod.ts";
+import { commands, legacyCommands, OWN_COMMANDS, surfaces } from "./mod.ts";
 import tree from "../../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };
@@ -42,20 +42,35 @@ function topLevels(): readonly TopLevel[] {
   }
   return order.map((name) => ({
     name,
-    summary: own.get(name) ??
-      `${name}: ${(children.get(name) ?? []).join(" | ")}`,
+    summary: own.get(name) ?? composed(name, children.get(name) ?? []),
   }));
+}
+
+/**
+ * Однострока составного имени: подкоманды, сколько влезает в ширину
+ * колонки, и счётчик скрытых. Правило воспроизведено здесь намеренно —
+ * тест обязан выводить ожидание сам, а не сверяться с генератором.
+ */
+function composed(name: string, children: readonly string[]): string {
+  const limit = 64;
+  const shown: string[] = [];
+  let width = 0;
+  for (const child of children) {
+    if (shown.length > 0 && width + child.length + 3 > limit) break;
+    width += child.length + (shown.length > 0 ? 3 : 0);
+    shown.push(child);
+  }
+  const hidden = children.length - shown.length;
+  return `${name}: ${shown.join(" | ")}${hidden > 0 ? ` … (+${hidden})` : ""}`;
 }
 
 Deno.test("верхний уровень реестра равен верхнему уровню слепка", () => {
   const expected = topLevels().map((entry) => entry.name);
   assertEquals(expected.length, 57, "слепок изменился: имён не 57");
 
-  const registered = [
-    ...commands.map((command) => command.path[0]),
-    ...legacyCommands.map((command) => command.path[0]),
-  ];
-  const inherited = registered.filter((name) => !OWN_COMMANDS.includes(name));
+  const inherited = registeredNames().filter(
+    (name) => !OWN_COMMANDS.includes(name),
+  );
   assertEquals(
     [...new Set(inherited)].sort(),
     [...expected].sort(),
@@ -71,18 +86,30 @@ Deno.test("сверх слепка в реестре только собстве
     ...topLevels().map((entry) => entry.name),
     ...OWN_COMMANDS,
   ]);
-  const registered = [
+  assertEquals(registeredNames().filter((name) => !known.has(name)), []);
+});
+
+/**
+ * Имена верхнего уровня всего дерева: команды контракта, записи
+ * маршрута `legacy` и поверхности точки входа. Способ исполнения на
+ * состав не влияет — иначе поверхность вроде `mpu help` выпала бы из
+ * проверки и разошлась со слепком незаметно.
+ */
+function registeredNames(): readonly string[] {
+  return [
     ...commands.map((command) => command.path[0]),
     ...legacyCommands.map((command) => command.path[0]),
+    ...surfaces.map((surface) => surface.path[0]),
   ];
-  assertEquals(registered.filter((name) => !known.has(name)), []);
-});
+}
 
 Deno.test("однострокѝ записей взяты из слепка", () => {
   const expected = new Map(
     topLevels().map((entry) => [entry.name, entry.summary]),
   );
-  for (const command of legacyCommands) {
+  // Поверхности проверяются наравне с записями маршрута: `mpu help`
+  // исполняется своим кодом, но имя и описание у неё унаследованные.
+  for (const command of [...legacyCommands, ...surfaces]) {
     assertEquals(
       command.summary,
       expected.get(command.path[0]),

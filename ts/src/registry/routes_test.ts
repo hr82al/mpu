@@ -7,7 +7,7 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { commands, findLegacy, legacyCommands } from "./mod.ts";
+import { commands, findLegacy, legacyCommands, surfaces } from "./mod.ts";
 import { type Profile, profileTools } from "../mcp/mod.ts";
 
 const PROFILES: readonly Profile[] = ["ro", "rw"];
@@ -90,10 +90,17 @@ Deno.test("инварианты записей реестра", async (t) => {
   });
 });
 
-Deno.test("справка перечисляет команды обоих маршрутов", async () => {
+Deno.test("индекс корня перечисляет всё дерево", async () => {
   const index = await help("--help");
-  assertStringIncludes(index, "sql-ro");
   assertStringIncludes(index, "xlsx");
+  assertStringIncludes(index, "sql-ro");
+  // Поверхности точки входа — наравне с записями маршрутов: способ
+  // исполнения на состав справки не влияет.
+  assertStringIncludes(index, "help");
+  assertStringIncludes(index, "mcp");
+  for (const surface of surfaces) {
+    assertStringIncludes(index, surface.summary);
+  }
   // Порядок — порядок реестра: native впереди, legacy следом.
   assertEquals(index.indexOf("xlsx") < index.indexOf("sql-ro"), true);
 });

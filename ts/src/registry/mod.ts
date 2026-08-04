@@ -60,11 +60,34 @@ export const commands: readonly Command[] = [
 export const legacyCommands: readonly LegacyCommand[] = LEGACY_TREE;
 
 /**
+ * Поверхности точки входа: исполняются кодом CLI, но командами
+ * контракта не являются — ни схем, ни результата у них нет. `mpu help`
+ * печатает список из единого реестра (`platform/registry.md`), `mpu mcp`
+ * поднимает долгоживущий процесс (`platform/command-contract.md`).
+ *
+ * Однострока `help` — из слепка дерева: поверхность своя, но имя и
+ * описание унаследованы, и расхождение с оригиналом здесь ни к чему.
+ */
+export const surfaces: readonly LegacyCommand[] = [
+  {
+    path: ["help"],
+    summary: "Список всех mpu команд с опциональной справкой.",
+  },
+];
+
+/**
  * Имена верхнего уровня, которых в Python-реализации не было: их нет и
  * не может быть в слепке. Список явный, чтобы новая собственная
  * команда не проскочила мимо проверки состава.
  */
 export const OWN_COMMANDS: readonly string[] = ["mcp"];
+
+/** Поверхность точки входа с ровно таким путём. */
+export function findSurface(
+  path: readonly string[],
+): LegacyCommand | undefined {
+  return surfaces.find((surface) => samePath(surface.path, path));
+}
 
 /** Все промежуточные уровни; каждый префикс пути команды описан здесь. */
 export const groups: readonly CommandGroup[] = [
@@ -112,9 +135,9 @@ export function childrenOf(
 ): readonly { name: string; summary: string }[] {
   const seen = new Set<string>();
   const out: { name: string; summary: string }[] = [];
-  // Маршрут на состав справки не влияет: обе поверхности перечисляют
-  // команды обоих маршрутов (`platform/registry.md`).
-  for (const command of [...commands, ...legacyCommands]) {
+  // Ни маршрут, ни способ исполнения на состав справки не влияют:
+  // индекс перечисляет всё дерево команд (`platform/registry.md`).
+  for (const command of [...commands, ...legacyCommands, ...surfaces]) {
     if (!startsWith(command.path, prefix)) continue;
     const name = command.path[prefix.length];
     if (name === undefined || seen.has(name)) continue;
@@ -123,7 +146,8 @@ export function childrenOf(
     const group = findGroup(childPath);
     const summary = group?.summary ??
       findCommand(childPath)?.summary ??
-      findLegacy(childPath)?.summary ?? "";
+      findLegacy(childPath)?.summary ??
+      findSurface(childPath)?.summary ?? "";
     out.push({ name, summary });
   }
   return out;

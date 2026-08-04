@@ -11,8 +11,13 @@ import tree from "../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };
 
-/** Имя, которое реализовано на TS и в списке маршрута `legacy` не нужно. */
-const NATIVE = new Set(["xlsx"]);
+/**
+ * Имена, которых в списке маршрута `legacy` быть не должно: `xlsx`
+ * реализован командами контракта, `help` — поверхность точки входа,
+ * печатающая список из единого реестра (`platform/registry.md`).
+ * Однострокў `help` берёт оттуда же, из слепка, — см. `registry/mod.ts`.
+ */
+const NOT_LEGACY = new Set(["xlsx", "help"]);
 
 const own = new Map<string, string>();
 const children = new Map<string, string[]>();
@@ -27,12 +32,31 @@ for (const leaf of tree.commands) {
   }
 }
 
-const entries = order.filter((name) => !NATIVE.has(name)).map((name) => ({
+/**
+ * Однострока составного имени: перечисление подкоманд, обрезанное по
+ * ширине колонки индекса. Полностью его писать нельзя — у `api` 90
+ * подкоманд и строка вышла бы в 1700 символов; сколько именно скрыто,
+ * видно из счётчика, а весь список — в справке самой команды.
+ */
+function composeSummary(name: string, children: readonly string[]): string {
+  const LIMIT = 64;
+  const shown: string[] = [];
+  let width = 0;
+  for (const child of children) {
+    if (shown.length > 0 && width + child.length + 3 > LIMIT) break;
+    width += child.length + (shown.length > 0 ? 3 : 0);
+    shown.push(child);
+  }
+  const hidden = children.length - shown.length;
+  const tail = hidden > 0 ? ` … (+${hidden})` : "";
+  return `${name}: ${shown.join(" | ")}${tail}`;
+}
+
+const entries = order.filter((name) => !NOT_LEGACY.has(name)).map((name) => ({
   name,
   // У составного имени своей однострокѝ в слепке нет: её собирает
   // перечисление подкоманд — данные те же, ничего не выдумано.
-  summary: own.get(name) ??
-    `${name}: ${(children.get(name) ?? []).join(" | ")}`,
+  summary: own.get(name) ?? composeSummary(name, children.get(name) ?? []),
 }));
 
 const body = entries

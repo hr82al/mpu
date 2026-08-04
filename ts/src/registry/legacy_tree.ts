@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 56 команд верхнего уровня, ещё не переехавших на TS. */
+/** 55 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["search"],
@@ -45,7 +45,7 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sheet"],
     summary:
-      "sheet: get | ls | resolve | set | batch-update | batch-get | open | sync | alias | cache",
+      "sheet: get | ls | resolve | set | batch-update | batch-get | open … (+3)",
   },
   {
     path: ["backup-wb-unit-proto"],
@@ -119,12 +119,12 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["kiten"],
     summary:
-      "kiten: status | ls | card | comment | desc | move | ready | review | close | whoami | spaces | roles | boards | lanes | columns | time | field | checklist",
+      "kiten: status | ls | card | comment | desc | move | ready | review … (+10)",
   },
   {
     path: ["mr"],
     summary:
-      "mr: view | create | describe | files | diff | comment | note | comments | show | reply | edit | delete | resolve | unresolve",
+      "mr: view | create | describe | files | diff | comment | note … (+7)",
   },
   {
     path: ["glab-status"],
@@ -134,10 +134,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["confirm"],
     summary: "Пропустить stdin → stdout по подтверждению; иначе прервать pipe.",
-  },
-  {
-    path: ["help"],
-    summary: "Список всех mpu команд с опциональной справкой.",
   },
   {
     path: ["wb-recalculate-expenses"],
@@ -172,7 +168,7 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["wb-loader"],
     summary:
-      "wb-loader: reports | cards | adv-auto-keywords-stats | adv-fullstats | search-texts | analytics-by-period | adverts | search-clusters-bids",
+      "wb-loader: reports | cards | adv-auto-keywords-stats | adv-fullstats … (+4)",
   },
   {
     path: ["wb-jobs"],
@@ -196,7 +192,7 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["ozon-loader"],
     summary:
-      "ozon-loader: postings-reports | performance-reports | search-promo | campaign-daily-statistics | campaigns | transactions | load-data",
+      "ozon-loader: postings-reports | performance-reports | search-promo … (+4)",
   },
   { path: ["ozon-jobs"], summary: "ozon-jobs: show | prune" },
   {
@@ -259,6 +255,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["api"],
     summary:
-      "api: add-client-ozon-key | add-client-wb-token | auth-change-password | auth-login | auth-logout | auth-refresh | auth-resend-email | auth-verify | cli-log-heartbeat | cli-log-subscribe | cli-log-unsubscribe | cli-manifest | cli-run | cli-servers | create-client | create-client-spreadsheet | create-client-ss-dataset | create-spreadsheet | create-user | dataset-get | dataset-save | dataset-wb-unit-source | delete-client | delete-client-ozon-key | delete-client-spreadsheet | delete-client-ss-dataset | delete-client-wb-token | delete-spreadsheet | delete-user | destroy-client | dl-jobs-abort | dl-jobs-active-jobs | dl-jobs-by-state | dl-jobs-job | dl-jobs-queue-status | dl-jobs-remove | get-client | get-client-module | get-client-spreadsheet | get-client-ss-dataset | get-spreadsheet | get-ss-values | get-token | get-user | get-wb-cabinet-module | get-wb-cabinets-by-sid | integrity-findings | integrity-runs | integrity-skips | integrity-trigger | list-client-modules | list-client-ozon-keys | list-client-spreadsheets | list-client-ss-datasets | list-client-wb-cabinets | list-client-wb-tokens | list-clients | list-roles | list-spreadsheets | list-users | list-wb-cabinet-modules | list-wb-cabinets | ozon-jobs-abort | ozon-jobs-active-jobs | ozon-jobs-by-state | ozon-jobs-job | ozon-jobs-queue-status | ozon-jobs-remove | ss-access | ss-datasets-update | ss-jobs-abort | ss-jobs-active-jobs | ss-jobs-by-state | ss-jobs-job | ss-jobs-queue-status | ss-jobs-submit | update-client | update-client-module | update-client-spreadsheet | update-client-ss-dataset | update-spreadsheet | update-user | update-wb-cabinet-module | wb-cards-reset | wb-jobs-abort | wb-jobs-active-jobs | wb-jobs-by-state | wb-jobs-job | wb-jobs-queue-status | wb-jobs-remove | wb-loader-blocked | wb-loader-config | wb-loader-load | wb-loader-reset | wb-loader-resume | wb-loader-status | wb-token-ping-content | wb-token-seller-info",
+      "api: add-client-ozon-key | add-client-wb-token | auth-change-password … (+95)",
   },
 ];
