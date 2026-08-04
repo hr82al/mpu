@@ -1,11 +1,65 @@
 /**
- * Разбор формата dotenv env-файла (`docs/specs/platform/env-file.md`,
- * раздел «Ввод/вывод»). Модуль чистый: без обращения к файловой системе —
- * чтение файла и приоритет с переменными окружения процесса делает слой,
- * который стоит над этим разбором.
+ * Разбор и построение текста dotenv env-файла
+ * (`docs/specs/platform/env-file.md`, раздел «Ввод/вывод»). Модуль чистый:
+ * без обращения к файловой системе — чтение и атомарную запись файла,
+ * приоритет с переменными окружения процесса делает слой, который стоит
+ * над этим кодом.
  */
 
 const EXPORT_PREFIX = "export";
+
+/** Значение непригодно для записи в env-файл. */
+export class EnvValueError extends Error {
+  override name = "EnvValueError";
+}
+
+/**
+ * Текст файла с присвоением `ИМЯ=значение`: первая строка ключа
+ * заменяется целиком, иначе строка дописывается в конец.
+ * Бросает `EnvValueError`, если значение содержит перевод строки или
+ * одинарную кавычку.
+ */
+export function assignEnvValue(
+  text: string,
+  name: string,
+  value: string,
+): string {
+  if (value.includes("\n") || value.includes("'")) {
+    throw new EnvValueError(
+      "env value contains a newline or a single quote",
+    );
+  }
+
+  const lines = text === "" ? [] : text.split("\n");
+  // Разбиение по "\n" на файле с завершающим переводом строки даёт
+  // хвостовую пустую строку — убираем её, чтобы не задваивать перевод
+  // строки при сборке результата в конце функции.
+  if (lines.length > 0 && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+
+  const assignment = `${name}=${formatEnvValue(value)}`;
+  const pattern = new RegExp(`^\\s*(export\\s+)?${escapeRegExp(name)}\\s*=`);
+  const index = lines.findIndex((line) => pattern.test(line));
+  if (index === -1) {
+    lines.push(assignment);
+  } else {
+    lines[index] = assignment;
+  }
+
+  return lines.join("\n") + "\n";
+}
+
+/** Форма значения: простое — как есть, иначе целиком в одинарных кавычках. */
+function formatEnvValue(value: string): string {
+  const isSimple = value !== "" && !/[\s#'"]/.test(value);
+  return isSimple ? value : `'${value}'`;
+}
+
+/** Экранирует спецсимволы regex, чтобы имя ключа искалось как есть. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 /** Разбор dotenv: имя → значение. Дубликат ключа — побеждает последний. */
 export function parseEnvFile(text: string): Record<string, string> {
