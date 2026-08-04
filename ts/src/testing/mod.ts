@@ -32,6 +32,11 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     appendFile: mustNotTouch("appendFile"),
     launchOpener: mustNotTouch("opener"),
     runLegacy: mustNotTouch("runLegacy"),
+    envFile: {
+      get: mustNotTouch("envFile"),
+      require: mustNotTouch("envFile"),
+      set: mustNotTouch("envFile"),
+    },
     ...overrides,
   };
 }

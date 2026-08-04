@@ -5,6 +5,7 @@ import {
   defaultConfigStorePath,
   makeDenoIo,
   makeDenoOutput,
+  makeEnvFileStore,
   parseProcStat,
   type ProcStat,
   shellInAncestors,
@@ -215,6 +216,60 @@ Deno.test("дозапись в файл создаёт его и не затир
     await io.appendFile(path, "первая\n");
     await io.appendFile(path, "вторая\n");
     assertEquals(await Deno.readTextFile(path), "первая\nвторая\n");
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("env-файл: атомарная запись создаёт каталог и права 0600", async () => {
+  const dir = await Deno.makeTempDir();
+  try {
+    const path = `${dir}/cfg/mpu/.env`;
+    const store = makeEnvFileStore(path);
+    assertEquals(store.readSync(), undefined);
+
+    await store.write("A=1\n");
+    assertEquals(store.readSync(), "A=1\n");
+    const modeAfterFirst = (await Deno.stat(path)).mode;
+    assertEquals(
+      modeAfterFirst === null ? null : modeAfterFirst & 0o777,
+      0o600,
+    );
+
+    await store.write("A=2\n");
+    assertEquals(store.readSync(), "A=2\n");
+    const modeAfterSecond = (await Deno.stat(path)).mode;
+    assertEquals(
+      modeAfterSecond === null ? null : modeAfterSecond & 0o777,
+      0o600,
+    );
+
+    // Временных файлов не осталось: в каталоге только сам .env.
+    const entries: string[] = [];
+    for await (const entry of Deno.readDir(`${dir}/cfg/mpu`)) {
+      entries.push(entry.name);
+    }
+    assertEquals(entries, [".env"]);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("env-файл: сбой rename убирает временный файл, а не выдаёт его за успех", async () => {
+  const dir = await Deno.makeTempDir();
+  try {
+    const path = `${dir}/.env`;
+    // Цель — каталог, а не файл: Deno.rename поверх него не сработает,
+    // и это единственный надёжный способ уронить именно последний шаг
+    // записи (сам временный файл к этому моменту уже создан).
+    await Deno.mkdir(path);
+    const store = makeEnvFileStore(path);
+    await assertRejects(() => store.write("A=1\n"));
+
+    const entries: string[] = [];
+    for await (const entry of Deno.readDir(dir)) entries.push(entry.name);
+    // Только сам каталог-цель — временный файл убран, мусора нет.
+    assertEquals(entries, [".env"]);
   } finally {
     await Deno.remove(dir, { recursive: true });
   }

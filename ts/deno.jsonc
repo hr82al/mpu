@@ -47,9 +47,12 @@
   "tasks": {
     // Тестам нужны чтение исходников с фикстурами, временные каталоги
     // (Deno.makeTempDir пишет в $TMPDIR) и env — подстановка HOME/MPU_*
-    // в тестах хранилища. Сеть — только петля: тесты транспорта поднимают
-    // MCP-сервер на 127.0.0.1 и ходят в него fetch'ем. Наружу тест не
-    // ходит: ему нужен фейк, а не право.
+    // в тестах хранилища; `--allow-env` здесь без списка (тесты сами
+    // переставляют разные переменные, включая XDG_CONFIG_HOME для
+    // `src/env`, — сузить список так, чтобы не гнаться за ним на
+    // каждый новый тест, не даёт смысла). Сеть — только петля: тесты
+    // транспорта поднимают MCP-сервер на 127.0.0.1 и ходят в него
+    // fetch'ем. Наружу тест не ходит: ему нужен фейк, а не право.
     // `--allow-run=…` — только для теста запуска подпроцесса маршрута
     // `legacy`: сам маршрут в тестах подставляет фейкового исполнителя,
     // а этими путями проверяется обёртка над API Deno — захват потоков,
@@ -71,11 +74,21 @@
     //     дописывает скрипт в конец файла и другого места записи не
     //     знает. Списком именно этих файлов, а не всего $HOME: промах
     //     мимо них — ошибка, и её видно сразу;
-    //   --allow-env=MPU_XLSX,HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS
+    //   --allow-env=MPU_XLSX,HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS
     //     HOME даёт путь конфига, rc-файла и реализации маршрута
     //     `legacy`; MPU_XLSX — env-слой ключа xlsx.default
     //     (`platform/config.md`), прочие MPU_* добавляются вместе с
-    //     командами, которые их читают; остальные четыре — режим
+    //     командами, которые их читают; XDG_CONFIG_HOME — путь env-файла
+    //     секретов (`platform/env-file.md`, «Известные отклонения»:
+    //     учёт этой переменной — внешний контракт существующей машины,
+    //     вердикт preserve, не наша идея). Ни одна команда ещё не читает
+    //     значения из env-файла (`envFile.get/require/set`), но право уже
+    //     нужно на каждый запуск бинаря: `makeDenoIo` (`src/runtime/mod.ts`)
+    //     безусловно резолвит путь файла через `envFilePath`, чтобы решить,
+    //     заводить ли хранилище, — до всякого обращения к самому файлу.
+    //     Поэтому право уже покрыто любой из проверок ниже (мутация
+    //     «убрать XDG_CONFIG_HOME» роняет их все с «Requires env access»),
+    //     отдельный smoke-сценарий не нужен; остальные четыре — режим
     //     дополнения: `_MPU_COMPLETE` включает его и читается до
     //     разбора argv, то есть на любой команде, а COMP_WORDS с
     //     COMP_CWORD (bash) и `_TYPER_COMPLETE_ARGS` (zsh) сообщают
@@ -98,7 +111,7 @@
     // Пересборка записей маршрута `legacy` из слепка дерева: запускать
     // после его пересъёма. Правки записей руками тест не пропустит.
     "registry:sync": "deno run --allow-read --allow-write=src/registry/legacy_tree.ts scripts/gen-legacy-tree.ts && deno fmt src/registry/legacy_tree.ts",
-    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc --allow-env=MPU_XLSX,HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS --allow-run --allow-net=127.0.0.1 -o $HOME/.local/bin/mpu main.ts",
+    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc --allow-env=MPU_XLSX,HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS --allow-run --allow-net=127.0.0.1 -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь

@@ -66,6 +66,8 @@ export interface CommandIo {
     bin: string,
     args: readonly string[],
   ) => Promise<LegacyOutcome>;
+  /** Слой env-файла (`platform/env-file.md`): секреты, адреса внешних систем. */
+  readonly envFile: EnvFile;
 }
 
 /** Итог подпроцесса маршрута `legacy`: потоки и код возврата. */

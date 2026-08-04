@@ -12,6 +12,7 @@ import {
   NotFoundIoError,
 } from "../command/mod.ts";
 import type { Output } from "../entrypoint/mod.ts";
+import { envFilePath, type EnvFileStore, makeEnvFile } from "../env/mod.ts";
 
 /** Достаточная часть Deno.stdout/stderr: синхронная запись. */
 interface SyncSink {
@@ -171,9 +172,53 @@ async function writeSecret(path: string, text: string): Promise<void> {
   await Deno.chmod(path, 0o600);
 }
 
+/**
+ * Доступ к env-файлу на диске (`platform/env-file.md`, раздел
+ * «Ввод/вывод»): чтение снапшотом, атомарная запись. Запись идёт через
+ * временный файл-сосед в том же каталоге — так читатели никогда не видят
+ * файл в промежуточном состоянии, — права 0600 выставляются до
+ * переименования поверх цели. Сбой до `Deno.rename` убирает временный
+ * файл, чтобы он не копился; сбой самой уборки не важнее исходной
+ * причины отказа записи и её не затирает.
+ */
+export function makeEnvFileStore(path: string): EnvFileStore {
+  const dir = path.slice(0, path.lastIndexOf("/"));
+  return {
+    path,
+    readSync: () => {
+      try {
+        return Deno.readTextFileSync(path);
+      } catch (err) {
+        if (err instanceof Deno.errors.NotFound) return undefined;
+        throw err;
+      }
+    },
+    write: async (text) => {
+      await Deno.mkdir(dir, { recursive: true });
+      const tmpPath = `${path}.${crypto.randomUUID()}.tmp`;
+      try {
+        await Deno.writeTextFile(tmpPath, text, { mode: 0o600 });
+        // При существующем временном файле mode из writeTextFile не
+        // применяется — права выравниваются явно, как в writeSecret выше.
+        await Deno.chmod(tmpPath, 0o600);
+        await Deno.rename(tmpPath, path);
+      } catch (err) {
+        try {
+          await Deno.remove(tmpPath);
+        } catch {
+          // Файла может не быть, если сбой случился до writeTextFile —
+          // это ожидаемый исход уборки, а не отдельная ошибка.
+        }
+        throw err;
+      }
+    },
+  };
+}
+
 /** Реальные зависимости исполнения команд поверх API Deno. */
 export function makeDenoIo(storePath: string | undefined): CommandIo {
   const tokenPath = accessTokenPath(storePath);
+  const envPath = envFilePath((name) => Deno.env.get(name));
   return {
     env: (name) => Deno.env.get(name),
     cwd: () => Deno.cwd(),
@@ -242,6 +287,10 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
         stderr: decoder.decode(output.stderr),
       };
     },
+    envFile: makeEnvFile(
+      (name) => Deno.env.get(name),
+      envPath === undefined ? undefined : makeEnvFileStore(envPath),
+    ),
     currentShell: () => detectShell(),
     appendFile: async (path, text) => {
       await Deno.writeTextFile(path, text, { append: true, create: true });

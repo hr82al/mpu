@@ -375,6 +375,17 @@ function makeIo(dir: string): CommandIo {
     runLegacy: () => {
       throw new Error("legacy must not be touched");
     },
+    envFile: {
+      get: () => {
+        throw new Error("envFile must not be touched");
+      },
+      require: () => {
+        throw new Error("envFile must not be touched");
+      },
+      set: () => {
+        throw new Error("envFile must not be touched");
+      },
+    },
     readAccessToken: () => Promise.resolve("проба-токена"),
     writeAccessToken: (token) =>
       Deno.writeTextFile(`${dir}/token`, token, { mode: 0o600 }),
