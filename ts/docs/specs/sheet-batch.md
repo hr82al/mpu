@@ -20,7 +20,7 @@
 пустой скрипт (-e / --from / stdin)`; у batch-get — свой префикс. `-n/--sheet` — лист по
 умолчанию для диапазонов без `'Лист'!`. Резолв таблицы (`-s` → env `MPU_SS` → конфиг
 `sheet.default`; ID/URL/алиас/client_id/подстрока названия) — общий для семейства, тексты —
-`specs/sheet-get.md`; его ошибка → exit 2. Примеры (обезличены): `batch-update -s <ss-id> -n
+`sheet.md`; его ошибка → exit 2. Примеры (обезличены): `batch-update -s <ss-id> -n
 'Лист1' -e "cols insert H +10; label H1 'Итого' bg=#EA4335 bold; set H2 = =SUM(A2:G2)"` и
 `batch-get -s <ss-id> -e "get 'Лист1'!A1:F formula"`.
 
@@ -136,7 +136,7 @@ sheetId, title; обновляет строку метаданных локал�
 `--dry-run`; затем (не dry-run, непустая компиляция) ровно 1× `spreadsheets/batchUpdate {ssId,
 requestBody: {"requests": […]}}` — весь скрипт одним вызовом, без чанкования и
 переупорядочивания; при успехе — инвалидация whole-tab кэша каждого листа, чей sheetId
-встречается в отправленных запросах (контракт кэша — `specs/sheet-get.md`). `read()` в `py{}`
+встречается в отправленных запросах (контракт кэша — `platform/webapp-http.md`). `read()` в `py{}`
 — дополнительный `spreadsheets/values/batchGet` на каждый вызов, вне атомарности. batch-get:
 до двух независимых вызовов — `spreadsheets/values/batchGet {ssId, ranges, majorDimension,
 valueRenderOption, dateTimeRenderOption}` и/или `spreadsheets/get {ssId}`; кэш не читается и
@@ -145,7 +145,7 @@ valueRenderOption, dateTimeRenderOption}` и/или `spreadsheets/get {ssId}`; �
 ## Конфигурация
 
 Env `WB_PLUS_WEB_APP_URL` — `platform/webapp-http.md`; резолв `-s`: env `MPU_SS`, конфиг-ключ
-`sheet.default` — `specs/sheet-get.md`. Собственных ключей у мини-языка нет.
+`sheet.default` — `sheet.md`. Собственных ключей у мини-языка нет.
 
 ## Инварианты
 
@@ -197,6 +197,4 @@ props dims`; `read formats` (per-cell ошибка, exit 2).
 
 - `py{…}` — компайл-тайм выполнение Python; в новой реализации аналога нет. Предложение: не поддерживать
   (`py{…}` → понятная ошибка, генерация скриптов — на вызывающем); решить до «к реализации».
-- `specs/sheet-get.md` (резолв `-s`, его тексты ошибок, кэш листов) и
-  `platform/webapp-http.md` (конверт вызова, env, ретраи) ещё не сняты — здесь только ссылки.
 - Форма `replies` ответа batchUpdate не зафиксирована фикстурой — снять вместе с golden.
