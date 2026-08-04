@@ -1,7 +1,8 @@
 """`mpu manifest` — машинный слепок дерева команд для внешнего потребителя.
 
-Печатает JSON: по записи на каждую листовую команду — путь, однострока, справка
-и описание параметров. Нужен реализации CLI на другом языке, чтобы строить
+Печатает JSON: по записи на каждый узел дерева — и на листовую команду, и на
+составное имя — путь, однострока, справка и описание параметров. Узел с
+подкомандами помечен `group`. Нужен реализации CLI на другом языке, чтобы строить
 поверхность инструментов, не дублируя объявления руками и не расходясь с этим
 деревом при каждом изменении.
 
@@ -31,7 +32,7 @@ app = typer.Typer(
 
 # Версия формата слепка. Растёт при несовместимом изменении структуры — потребитель
 # обязан отказаться разбирать незнакомую версию, а не угадывать.
-MANIFEST_VERSION = 1
+MANIFEST_VERSION = 2
 
 _TYPE_NAMES: dict[type[click.ParamType], str] = {
     click.types.StringParamType: "string",
@@ -93,32 +94,43 @@ def _describe_param(param: click.Parameter) -> dict[str, Any] | None:
     return described
 
 
-def _describe_leaf(path: list[str], command: click.Command) -> dict[str, Any]:
-    """Описание листовой команды: путь без `mpu`, тексты справки, параметры."""
+def _describe_command(
+    path: list[str], command: click.Command, *, group: bool = False
+) -> dict[str, Any]:
+    """Описание узла дерева: путь без `mpu`, тексты справки, параметры."""
     params = [d for d in (_describe_param(p) for p in command.params) if d is not None]
-    leaf: dict[str, Any] = {"path": path[1:], "params": params}
+    described: dict[str, Any] = {"path": path[1:], "params": params}
     summary = command.get_short_help_str(limit=200)
     if summary:
-        leaf["summary"] = summary
+        described["summary"] = summary
     if command.help:
-        leaf["help"] = command.help
+        described["help"] = command.help
     if command.hidden:
-        leaf["hidden"] = True
-    return leaf
+        described["hidden"] = True
+    if group:
+        described["group"] = True
+    return described
 
 
 def _walk(command: click.Command, path: list[str], ctx: click.Context) -> list[dict[str, Any]]:
-    """Обход дерева вглубь; группы сами в слепок не входят, только их листья."""
+    """Обход дерева вглубь: и составные имена, и листья.
+
+    Составное имя несёт собственные однострокѝ и справку (docstring группы), а
+    потребителю они нужны для справочных поверхностей и дополнения. Корень `mpu`
+    записью не является: его путь пуст, а описание CLI — не команда дерева.
+    """
     if not isinstance(command, click.Group):
-        return [_describe_leaf(path, command)]
-    leaves: list[dict[str, Any]] = []
+        return [_describe_command(path, command)]
+    nodes: list[dict[str, Any]] = []
+    if len(path) > 1:
+        nodes.append(_describe_command(path, command, group=True))
     for name in command.list_commands(ctx):
         child = command.get_command(ctx, name)
         if child is None:
             continue
         child_ctx = click.Context(child, info_name=name, parent=ctx)
-        leaves.extend(_walk(child, [*path, name], child_ctx))
-    return leaves
+        nodes.extend(_walk(child, [*path, name], child_ctx))
+    return nodes
 
 
 def build_manifest() -> dict[str, Any]:

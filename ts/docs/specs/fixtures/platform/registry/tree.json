@@ -1,5 +1,5 @@
 {
-  "manifestVersion": 1,
+  "manifestVersion": 2,
   "mpuVersion": "0.1.0",
   "commands": [
     {
@@ -418,6 +418,15 @@
       ],
       "summary": "Показать или изменить конфиг mpu (хранится в SQLite; env-переменные приоритетнее).",
       "help": "Показать или изменить конфиг mpu (хранится в SQLite; env-переменные приоритетнее).\n\nПримеры:\n  mpu config                                  # все ключи со значениями и источником\n  mpu config sheet.default                    # показать один ключ\n  mpu config sheet.default 1AbC...            # задать дефолтную таблицу\n  mpu config xlsx.default ~/Downloads/r.xlsx  # задать дефолтный .xlsx\n  mpu config sheet.cache.tab_ttl 3600         # кэшировать tab'ы на час\n  mpu config --unset sheet.default            # сбросить ключ к дефолту"
+    },
+    {
+      "path": [
+        "sheet"
+      ],
+      "params": [],
+      "summary": "Google Spreadsheets через Apps Script webapp (native Python).",
+      "help": "Google Spreadsheets через Apps Script webapp (native Python).",
+      "group": true
     },
     {
       "path": [
@@ -840,6 +849,16 @@
     {
       "path": [
         "sheet",
+        "alias"
+      ],
+      "params": [],
+      "summary": "Manage spreadsheet aliases.",
+      "help": "Manage spreadsheet aliases.",
+      "group": true
+    },
+    {
+      "path": [
+        "sheet",
         "alias",
         "add"
       ],
@@ -892,6 +911,16 @@
     {
       "path": [
         "sheet",
+        "cache"
+      ],
+      "params": [],
+      "summary": "Inspect or clear local cache.",
+      "help": "Inspect or clear local cache.",
+      "group": true
+    },
+    {
+      "path": [
+        "sheet",
         "cache",
         "clear"
       ],
@@ -920,6 +949,15 @@
       "params": [],
       "summary": "Show local whole-tab cache state — total size, per-spreadsheet breakdown.",
       "help": "Show local whole-tab cache state — total size, per-spreadsheet breakdown."
+    },
+    {
+      "path": [
+        "xlsx"
+      ],
+      "params": [],
+      "summary": "Read local Excel (.xlsx) files.",
+      "help": "Read local Excel (.xlsx) files.\n\nPath resolution: --file/-f → env MPU_XLSX → config xlsx.default.\nAliases (xlsx alias add ...) work in any of those slots.",
+      "group": true
     },
     {
       "path": [
@@ -1122,6 +1160,16 @@
       ],
       "summary": "Diagnostic: prints the resolved path and every source that was checked.",
       "help": "Diagnostic: prints the resolved path and every source that was checked."
+    },
+    {
+      "path": [
+        "xlsx",
+        "alias"
+      ],
+      "params": [],
+      "summary": "Manage xlsx file aliases (short names → paths).",
+      "help": "Manage xlsx file aliases (short names → paths). Names must match [A-Za-z0-9_.-]+ (no spaces, shell-friendly).",
+      "group": true
     },
     {
       "path": [
@@ -1904,6 +1952,15 @@
       ],
       "summary": "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).",
       "help": "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).\n\nБез <selector> — запрос идёт без фильтра по host (все хосты в одном LogQL).\nЕсли первый аргумент — не host, а имя известного сервиса (`mpu logs wb-loader`),\nон трактуется как <service>: логи этого сервиса со всех хостов."
+    },
+    {
+      "path": [
+        "kiten"
+      ],
+      "params": [],
+      "summary": "Kaiten (btlz.kaiten.ru) из терминала: `ls`/`card`/`comment`/`desc`/`move`/`ready`/`review`/`close` — работа с карточкой; `checklist` — чек-листы (интерактивные чекбоксы); `time` — учёт времени и...",
+      "help": "Kaiten (btlz.kaiten.ru) из терминала: `ls`/`card`/`comment`/`desc`/`move`/`ready`/`review`/`close` — работа с карточкой; `checklist` — чек-листы (интерактивные чекбоксы); `time` — учёт времени и таймер; `field` — кастомные поля; `status` — вся моя работа одной матрицей; `spaces`/`boards`/`lanes`/`columns`/`roles`/`whoami` — справочник.",
+      "group": true
     },
     {
       "path": [
@@ -2799,6 +2856,16 @@
     {
       "path": [
         "kiten",
+        "time"
+      ],
+      "params": [],
+      "summary": "Учёт времени карточки: `ls`/`add`/`edit`/`rm` — записи; `start`/`status`/`stop`/`discard` — таймер.",
+      "help": "Учёт времени карточки: `ls`/`add`/`edit`/`rm` — записи; `start`/`status`/`stop`/`discard` — таймер. Тип работы — `--role` (имя или ID, см. `mpu kiten roles`; по умолчанию env KITEN_TIME_ROLE или «Техподдержка»). Длительность: 3h | 1h15m | 1:15 | 90 (минуты) | 2.5h.",
+      "group": true
+    },
+    {
+      "path": [
+        "kiten",
         "time",
         "ls"
       ],
@@ -3230,6 +3297,16 @@
     {
       "path": [
         "kiten",
+        "field"
+      ],
+      "params": [],
+      "summary": "Кастомные поля карточки + лог в SQLite: `set` — записать значение в поле (mr/hypothesis/done/result) и в историю; `ls` — история (read-only); `update`/`rm` — правка/удаление записи лога.",
+      "help": "Кастомные поля карточки + лог в SQLite: `set` — записать значение в поле (mr/hypothesis/done/result) и в историю; `ls` — история (read-only); `update`/`rm` — правка/удаление записи лога. Несколько записей на карточку (напр. несколько MR); поле карточки = последняя по времени запись.",
+      "group": true
+    },
+    {
+      "path": [
+        "kiten",
         "field",
         "set"
       ],
@@ -3360,6 +3437,17 @@
       "path": [
         "kiten",
         "field",
+        "artefact"
+      ],
+      "params": [],
+      "summary": "Файловое поле «9.",
+      "help": "Файловое поле «9. AI-артефакт»: `set` — прикрепить md-артефакт (по правилам ai_artefact/); `rm` — очистить поле (удалить приложенные файлы).",
+      "group": true
+    },
+    {
+      "path": [
+        "kiten",
+        "field",
         "artefact",
         "set"
       ],
@@ -3400,6 +3488,16 @@
       ],
       "summary": "Очистить поле «9.",
       "help": "Очистить поле «9. AI-артефакт»: удалить приложенные к нему файлы (идемпотентно).\n\nУдаляет все файлы карточки, привязанные к этому полю (`custom_property_id`); значение поля\nпри этом очищается. Файлы, приложенные к комментариям/карточке вне поля, не трогает."
+    },
+    {
+      "path": [
+        "kiten",
+        "checklist"
+      ],
+      "params": [],
+      "summary": "Чек-листы карточки — единственные ИНТЕРАКТИВНЫЕ чекбоксы Kaiten (`- [ ]` в описании рендерится текстом).",
+      "help": "Чек-листы карточки — единственные ИНТЕРАКТИВНЫЕ чекбоксы Kaiten (`- [ ]` в описании рендерится текстом). `ls` — чек-листы с пунктами (read-only); `add` — создать чек-лист и/или добавить пункты; `check`/`uncheck` — отметить/снять пункт (по id или уникальной подстроке текста).",
+      "group": true
     },
     {
       "path": [
@@ -3520,6 +3618,15 @@
       ],
       "summary": "Снять отметку выполнения с пункта чек-листа (идемпотентно).",
       "help": "Снять отметку выполнения с пункта чек-листа (идемпотентно)."
+    },
+    {
+      "path": [
+        "mr"
+      ],
+      "params": [],
+      "summary": "GitLab MR review: инлайн-комментарии под строкой диффа, треды, create/describe.",
+      "help": "GitLab MR review: инлайн-комментарии под строкой диффа, треды, create/describe.\n\nНЕ использовать `glab api -f` для инлайн-комментариев: он кладёт `position[...]`-ключи в JSON-боди буквально, GitLab молча создаёт комментарий БЕЗ привязки к строке. `--mr` принимает URL / 'group/repo!iid' / голый iid (IID внутрипроектный, из cwd-remote) / автодетект открытого MR текущей ветки.",
+      "group": true
     },
     {
       "path": [
@@ -4200,6 +4307,15 @@
       ],
       "summary": "Таблица прохождения MR по веткам деплой-пайплайна.",
       "help": "Таблица прохождения MR по веткам деплой-пайплайна.\n\nБез аргументов — мои MR за окно; с адресами MR — ровно эти MR (шапка + «прочие ветки»).\n\n  mpu glab-status                                   # дефолт: 7d, 5 репо\n  mpu glab-status --since 2d --repos sl-back,sw-back\n  mpu glab-status 'wb/sw-front!830'                 # конкретный MR\n  mpu glab-status 830                               # проект — из git remote cwd\n  mpu glab-status 2117 'wb/sw-front!830' --branches # несколько MR, ветки списком\n  mpu glab-status --json                            # машинный вывод (оба режима)\n\nАдрес, начинающийся с дефиса, отделять `--` (иначе click примет его за опцию)."
+    },
+    {
+      "path": [
+        "telegram"
+      ],
+      "params": [],
+      "summary": "Telegram от имени пользователя (telethon): send — отправить, ls — диалоги, search — поиск.",
+      "help": "Telegram от имени пользователя (telethon): send — отправить, ls — диалоги, search — поиск.\n\nВход выполняется один раз при `mpu init`. Креды/сессия — в ~/.config/mpu/.env.",
+      "group": true
     },
     {
       "path": [
@@ -5220,6 +5336,15 @@
     },
     {
       "path": [
+        "wb-loader"
+      ],
+      "params": [],
+      "summary": "Обёртки над `node cli service:wbLoader` (sl-back).",
+      "help": "Обёртки над `node cli service:wbLoader` (sl-back). Дефолт — немедленное выполнение метода в проде через Portainer; `--print`/`-p` — печать команды.",
+      "group": true
+    },
+    {
+      "path": [
         "wb-loader",
         "reports"
       ],
@@ -5948,6 +6073,15 @@
     },
     {
       "path": [
+        "iu-wb"
+      ],
+      "params": [],
+      "summary": "Обёртки над `node cli service:iuWb` (sl-back).",
+      "help": "Обёртки над `node cli service:iuWb` (sl-back). Дефолт — немедленное выполнение метода в проде через Portainer; `--print`/`-p` — печать команды.",
+      "group": true
+    },
+    {
+      "path": [
         "iu-wb",
         "get-source-data"
       ],
@@ -6098,6 +6232,15 @@
       ],
       "summary": "Напечатать JSON [{range, formula}] для UNIT: мердж ИУ в формулы I (subject) и S4 (nm_id).",
       "help": "Напечатать JSON [{range, formula}] для UNIT: мердж ИУ в формулы I (subject) и S4 (nm_id)."
+    },
+    {
+      "path": [
+        "ozon-loader"
+      ],
+      "params": [],
+      "summary": "Обёртки над `node cli service:ozonLoader` (sl-back).",
+      "help": "Обёртки над `node cli service:ozonLoader` (sl-back). Дефолт — немедленное выполнение метода в проде через Portainer; `--print`/`-p` — печать команды.",
+      "group": true
     },
     {
       "path": [
@@ -6608,6 +6751,46 @@
     },
     {
       "path": [
+        "ozon-jobs"
+      ],
+      "params": [
+        {
+          "name": "selector",
+          "kind": "argument",
+          "type": "string",
+          "required": true,
+          "help": "sl-N либо client_id / spreadsheet_id substring / title substring"
+        },
+        {
+          "name": "local",
+          "kind": "option",
+          "type": "boolean",
+          "required": false,
+          "opts": [
+            "--local"
+          ],
+          "default": false,
+          "help": "Local form: sl-N-cli sh -c '...' (без ssh)"
+        },
+        {
+          "name": "print_mode",
+          "kind": "option",
+          "type": "boolean",
+          "required": false,
+          "opts": [
+            "--print",
+            "-p"
+          ],
+          "default": false,
+          "help": "Печатать обёртку в stdout + clipboard, не выполнять"
+        }
+      ],
+      "summary": "Обёртки над `node cli service:ozonJobs` (sl-back).",
+      "help": "Обёртки над `node cli service:ozonJobs` (sl-back). Дефолт — немедленное выполнение метода в проде через Portainer; `--print`/`-p` — печать команды.",
+      "group": true
+    },
+    {
+      "path": [
         "ozon-jobs",
         "show"
       ],
@@ -6951,6 +7134,15 @@
       ],
       "summary": "Починить источник 1₽ и прогнать штатную цепочку пересчёта ОПиУ / Фин отчет SKU.",
       "help": "Починить источник 1₽ и прогнать штатную цепочку пересчёта ОПиУ / Фин отчет SKU."
+    },
+    {
+      "path": [
+        "clients-migrations"
+      ],
+      "params": [],
+      "summary": "Обёртки над `node cli service:clientsMigrations` (sl-back).",
+      "help": "Обёртки над `node cli service:clientsMigrations` (sl-back). Дефолт — немедленное выполнение метода в проде через Portainer; `--print`/`-p` — печать команды.",
+      "group": true
     },
     {
       "path": [
@@ -7513,6 +7705,15 @@
     },
     {
       "path": [
+        "datasets-migrations"
+      ],
+      "params": [],
+      "summary": "Обёртки над `node cli service:datasetsMigrations` (sl-back).",
+      "help": "Обёртки над `node cli service:datasetsMigrations` (sl-back). Дефолт — немедленное выполнение метода в проде через Portainer; `--print`/`-p` — печать команды.",
+      "group": true
+    },
+    {
+      "path": [
         "datasets-migrations",
         "latest"
       ],
@@ -7918,6 +8119,46 @@
     },
     {
       "path": [
+        "app-migrations"
+      ],
+      "params": [
+        {
+          "name": "selector",
+          "kind": "argument",
+          "type": "string",
+          "required": true,
+          "help": "sl-N либо client_id / spreadsheet_id substring / title substring"
+        },
+        {
+          "name": "local",
+          "kind": "option",
+          "type": "boolean",
+          "required": false,
+          "opts": [
+            "--local"
+          ],
+          "default": false,
+          "help": "Local form: sl-N-cli sh -c '...' (без ssh)"
+        },
+        {
+          "name": "print_mode",
+          "kind": "option",
+          "type": "boolean",
+          "required": false,
+          "opts": [
+            "--print",
+            "-p"
+          ],
+          "default": false,
+          "help": "Печатать обёртку в stdout + clipboard, не выполнять"
+        }
+      ],
+      "summary": "Обёртки над `node cli service:appMigrations` (sl-back).",
+      "help": "Обёртки над `node cli service:appMigrations` (sl-back). Дефолт — немедленное выполнение метода в проде через Portainer; `--print`/`-p` — печать команды.",
+      "group": true
+    },
+    {
+      "path": [
         "app-migrations",
         "latest"
       ],
@@ -7955,6 +8196,46 @@
       ],
       "summary": "Выполнить service:appMigrations up через Portainer (дефолт — сразу в проде); `--print`/`-p` — только печать команды.",
       "help": "Выполнить service:appMigrations up через Portainer (дефолт — сразу в проде); `--print`/`-p` — только печать команды."
+    },
+    {
+      "path": [
+        "users"
+      ],
+      "params": [
+        {
+          "name": "selector",
+          "kind": "argument",
+          "type": "string",
+          "required": true,
+          "help": "sl-N либо client_id / spreadsheet_id substring / title substring"
+        },
+        {
+          "name": "local",
+          "kind": "option",
+          "type": "boolean",
+          "required": false,
+          "opts": [
+            "--local"
+          ],
+          "default": false,
+          "help": "Local form: sl-N-cli sh -c '...' (без ssh)"
+        },
+        {
+          "name": "print_mode",
+          "kind": "option",
+          "type": "boolean",
+          "required": false,
+          "opts": [
+            "--print",
+            "-p"
+          ],
+          "default": false,
+          "help": "Печатать обёртку в stdout + clipboard, не выполнять"
+        }
+      ],
+      "summary": "Обёртки над `node cli service:users` (sl-back).",
+      "help": "Обёртки над `node cli service:users` (sl-back). Дефолт — немедленное выполнение метода в проде через Portainer; `--print`/`-p` — печать команды.",
+      "group": true
     },
     {
       "path": [
@@ -8363,6 +8644,15 @@
       ],
       "summary": "Discover все контейнеры через Portainer API и закэшировать в `~/.config/mpu/mpu.db`.",
       "help": "Discover все контейнеры через Portainer API и закэшировать в `~/.config/mpu/mpu.db`.\n\nКэшируем все контейнеры, помечая cli-контейнеры серверов через `server_number`. Этот кэш\nпотом читает `mpu p ssh` для резолва Portainer-транспорта."
+    },
+    {
+      "path": [
+        "api"
+      ],
+      "params": [],
+      "summary": "HTTP API клиенты для sl-back (бывшие `mpuapi-*`).",
+      "help": "HTTP API клиенты для sl-back (бывшие `mpuapi-*`).",
+      "group": true
     },
     {
       "path": [
@@ -11120,6 +11410,16 @@
       ],
       "summary": "POST /admin/jobs/jobsControl/ozon/remove",
       "help": "POST /admin/jobs/jobsControl/ozon/remove\n\nBody fields (use as --<name> <value>):\n  --client_id (number): client_id\n  --queue (string): BullMQ queue name\n  --state (string): active|waiting|completed|failed|delayed|paused\n  --jobId (string): BullMQ job id\n  --sid (string): (wb only) WB seller sid\n  --seller_client_id (string): (ozon only) seller client id\n  --limit (number): page size\n\n--body / -b: JSON literal или @file.json (перекрывает --<field>)"
+    },
+    {
+      "path": [
+        "api",
+        "ss-access"
+      ],
+      "params": [],
+      "summary": "`mpu api ss-access <verb> <spreadsheet_id>` — доступ к Google-таблице клиента (MyAccess).",
+      "help": "`mpu api ss-access <verb> <spreadsheet_id>` — доступ к Google-таблице клиента (MyAccess).\n\nСвод всех операций над доступом к таблице в одну подгруппу. Тело запроса строится\nавтоматически из дефолтов кнопки-ключа sl-front — `--body` писать не нужно (но можно),\nостальные параметры опциональны.\n\nVerbs:\n- `request <ss>` — выдать/продлить себе (TOKEN_EMAIL) доступ. Авто-тело\n  `{googleSheetsRole: editor, reason: <дефолт>, accessTemplateId: null}`; override через\n  `--role/--reason/--template` или полный `--body '<json>'`.\n- `status <ss>`  — показать текущие активные доступы (`GET /admin/ss/<ss>/my-access`).\n- `revoke <ss>`  — отозвать доступ (job `accessGrantRevoke`). `grant_id` резолвится из main-БД\n  по (ss + TOKEN_EMAIL + status в unique-индексе), либо явный `--grant-id`.\n- `reset <ss>`   — revoke + дождаться выхода grant'а из индекса + request (разрулить застрявший).\n\n`grantee` всегда = `TOKEN_EMAIL` (как у кнопки): эндпоинт выдаёт доступ владельцу токена.\n",
+      "group": true
     },
     {
       "path": [
