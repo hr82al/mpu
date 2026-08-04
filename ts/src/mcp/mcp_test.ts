@@ -102,9 +102,7 @@ Deno.test("tools/call: доменная ошибка — результат с �
       makeFakeIo({ readFile: real.readFile, cwd: () => dir }),
     );
     assertEquals(actual.status, response.status);
-    // Путь книги в тексте ошибки абсолютный (резолв спеки xlsx), а
-    // фикстура снята с относительным: сверяется он же от cwd теста.
-    assertEquals(actual.body, absolutizePath(response.body, dir));
+    assertEquals(actual.body, withCwd(response.body, dir));
   });
 });
 
@@ -389,9 +387,11 @@ function shapeOf(value: unknown): unknown {
   return out;
 }
 
-/** Подставляет абсолютный путь книги в текст доменной ошибки. */
-function absolutizePath(body: unknown, dir: string): unknown {
-  return JSON.parse(
-    JSON.stringify(body).replaceAll('\\"нет-такого', `\\"${dir}/нет-такого`),
-  );
+/**
+ * Подставляет рабочий каталог в плейсхолдер `{{CWD}}` эталона: путь в
+ * тексте доменной ошибки резолвлен командой и потому машинозависим
+ * (спека, «Golden-примеры»).
+ */
+function withCwd(body: unknown, dir: string): unknown {
+  return JSON.parse(JSON.stringify(body).replaceAll("{{CWD}}", dir));
 }
