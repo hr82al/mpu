@@ -121,6 +121,7 @@ export function makeEnvFile(
       throw new DomainError("cannot write env file: no config directory");
     }
     const nextText = buildNextText(snapshotOf().text, name, value);
+    const nextValues = parseEnvFile(nextText);
     // Запись (`assignEnvValue`) заменяет первую строку ключа — так велит
     // спека; разбор (`parseEnvFile`) отдаёт значение последней строки —
     // так ведёт себя живой разборщик, с которым паритет обязателен. На
@@ -130,14 +131,14 @@ export function makeEnvFile(
     // бы его при следующем разборе. Меняя ни одну из половин нельзя (обе
     // зафиксированы), поэтому расхождение ловится здесь и отказывает
     // громко, до того как `store.write` тронет диск.
-    if (parseEnvFile(nextText)[name] !== value) {
+    if (nextValues[name] !== value) {
       throw new DomainError(
         `cannot write env value for ${name}: a later line in ` +
           `${store.path} repeats the key and would override the write`,
       );
     }
     await store.write(nextText);
-    snapshot = { text: nextText, values: parseEnvFile(nextText) };
+    snapshot = { text: nextText, values: nextValues };
   }
 
   return { get, require, set };
