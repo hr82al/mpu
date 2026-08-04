@@ -59,11 +59,27 @@
     //   --allow-read                     без ограничения пути: аргумент
     //     команды — произвольный файл пользователя (`mpu xlsx <файл>`),
     //     заранее известного корня у него нет;
-    //   --allow-write=$HOME/.config/mpu  единственное, что бинарь пишет:
-    //     хранилище настроек и файл токена доступа (оба 0600);
-    //   --allow-env=MPU_XLSX,HOME        HOME даёт путь конфига, MPU_XLSX —
-    //     env-слой ключа xlsx.default (`platform/config.md`); прочие
-    //     MPU_* добавляются вместе с командами, которые их читают;
+    //   --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc
+    //     конфиг-каталог — хранилище настроек и файл токена доступа
+    //     (оба 0600); rc-файлы — установка дополнения
+    //     (`mpu --install-completion`, `platform/registry.md`): она
+    //     дописывает скрипт в конец файла и другого места записи не
+    //     знает. Списком именно этих файлов, а не всего $HOME: промах
+    //     мимо них — ошибка, и её видно сразу;
+    //   --allow-env=MPU_XLSX,HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS
+    //     HOME даёт путь конфига, rc-файла и реализации маршрута
+    //     `legacy`; MPU_XLSX — env-слой ключа xlsx.default
+    //     (`platform/config.md`), прочие MPU_* добавляются вместе с
+    //     командами, которые их читают; остальные четыре — режим
+    //     дополнения: `_MPU_COMPLETE` включает его и читается до
+    //     разбора argv, то есть на любой команде, а COMP_WORDS с
+    //     COMP_CWORD (bash) и `_TYPER_COMPLETE_ARGS` (zsh) сообщают
+    //     набранную строку. Имена задаёт не код, а скрипт дополнения в
+    //     rc-файле пользователя (эталон
+    //     `fixtures/platform/registry/completion-*.txt`) — сузить
+    //     список нельзя. `SHELL` в списке нет намеренно: shell
+    //     определяется по дереву процессов-предков (`src/runtime`), а
+    //     не по этой переменной;
     //   --allow-net=127.0.0.1            слушающий сокет `mpu mcp`: только
     //     локальный интерфейс, наружу сервер не ходит;
     //   --allow-run                      открыватель файла (xdg-open,
@@ -77,6 +93,12 @@
     // Пересборка записей маршрута `legacy` из слепка дерева: запускать
     // после его пересъёма. Правки записей руками тест не пропустит.
     "registry:sync": "deno run --allow-read --allow-write=src/registry/legacy_tree.ts scripts/gen-legacy-tree.ts && deno fmt src/registry/legacy_tree.ts",
-    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu --allow-env=MPU_XLSX,HOME --allow-run --allow-net=127.0.0.1 -o $HOME/.local/bin/mpu main.ts"
+    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc --allow-env=MPU_XLSX,HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS --allow-run --allow-net=127.0.0.1 -o $HOME/.local/bin/mpu main.ts",
+    // Проверка собранного бинаря: `deno test` идёт с широкими правами и
+    // нехватку прав в задаче `build` не видит — её ловит только запуск
+    // бинаря. Права самого скрипта широки по делу: он собирает бинарь
+    // во временный каталог (`--allow-write`) и запускает сначала `deno`,
+    // потом собранное (`--allow-run`) — оба пути заранее неизвестны.
+    "smoke": "deno run --allow-read --allow-write --allow-run scripts/smoke.ts"
   }
 }
