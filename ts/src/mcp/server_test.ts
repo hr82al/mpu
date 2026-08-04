@@ -86,6 +86,38 @@ async function errorOf(response: Response) {
   };
 }
 
+/**
+ * Сервер с реестром, разошедшимся с закрытым списком публикации:
+ * сборка тулов отказывает, и отказ обязан прийти клиенту в его
+ * формате. Ближайший достижимый способ уронить обработчик.
+ */
+async function withBrokenRegistry(
+  fn: (call: () => Promise<Response>) => Promise<void>,
+): Promise<void> {
+  const broken = commands.map((command) =>
+    command.path.join(" ") === "xlsx ls"
+      ? { ...command, policy: "rw" as const }
+      : command
+  );
+  const server = await serveMcp({
+    port: 0,
+    profiles: ["ro"],
+    token: TOKEN,
+    deps: { io: makeFakeIo(), commands: broken, version: VERSION },
+  });
+  try {
+    await fn(() =>
+      fetch(`http://${LOOPBACK}:${server.port}/ro`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify(listBody()),
+      })
+    );
+  } finally {
+    await server.shutdown();
+  }
+}
+
 Deno.test("сокет слушает только петлю", async () => {
   await withServer((_call, server) => {
     assertEquals(server.hostname, LOOPBACK);
@@ -375,7 +407,21 @@ Deno.test("поднятый профиль один — путь второго 
   }
 });
 
-Deno.test("ни один ответ не содержит токена доступа", async () => {
+Deno.test("сбой реализации — 500 с JSON-RPC-ошибкой, сервер жив", async () => {
+  await withBrokenRegistry(async (call) => {
+    const response = await call();
+    assertEquals(response.status, 500);
+    const error = await errorOf(response);
+    assertEquals(error.code, -32603);
+    assertStringIncludes(error.message, "расходится");
+    // Процесс не упал: следующий запрос обслуживается тем же сервером.
+    const again = await call();
+    assertEquals(again.status, 500);
+    await again.body?.cancel();
+  });
+});
+
+Deno.test("ни один ответ не содержит токена доступа", async (t) => {
   await withServer(async (call) => {
     const probes: readonly [string, RequestInit][] = [
       ["/ro", {}],
@@ -398,5 +444,15 @@ Deno.test("ни один ответ не содержит токена дост�
         `токен утёк в ответ ${path} (${response.status})`,
       );
     }
+  });
+
+  await t.step("в том числе в ответе о сбое реализации", async () => {
+    // Сообщение сбоя несёт текст исключения — проверяем, что вместе с
+    // ним наружу не уходит секрет.
+    await withBrokenRegistry(async (call) => {
+      const response = await call();
+      assertEquals(response.status, 500);
+      assertEquals((await response.text()).includes(TOKEN), false);
+    });
   });
 });

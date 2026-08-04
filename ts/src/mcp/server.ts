@@ -8,7 +8,11 @@
 
 import { Hono } from "@hono/hono";
 import { handleMcp, type McpDeps, type Profile } from "./mod.ts";
-import { errorBody, RPC_INVALID_REQUEST } from "./jsonrpc.ts";
+import {
+  errorBody,
+  RPC_INTERNAL_ERROR,
+  RPC_INVALID_REQUEST,
+} from "./jsonrpc.ts";
 
 /** Интерфейс, на котором сервер слушает: только петля. */
 export const LOOPBACK = "127.0.0.1";
@@ -52,6 +56,12 @@ export function createMcpApp(options: ServerOptions): Hono {
   // Путь вне профилей — 404 без тела: тела протокол здесь не
   // предполагает, а Hono по умолчанию пишет «404 Not Found» текстом.
   app.notFound(() => new Response(null, { status: 404 }));
+  // Сбой самой реализации (например, реестр разошёлся с закрытым
+  // списком публикации) — 500 с JSON-RPC-ошибкой, а не текстовая
+  // страница Hono и не падение процесса: клиент разбирает один формат.
+  app.onError((err) =>
+    json(500, errorBody(null, RPC_INTERNAL_ERROR, internalReason(err)))
+  );
 
   for (const profile of options.profiles) {
     app.all(
@@ -117,11 +127,6 @@ export async function serveMcp(
     port: options.port,
     signal: options.signal,
     onListen: address.resolve,
-    onError: (err) => {
-      // Сбой обработчика не должен ронять процесс сервера.
-      const reason = err instanceof Error ? err.message : String(err);
-      return json(500, errorBody(null, RPC_INVALID_REQUEST, reason));
-    },
   }, app.fetch);
   const bound = await address.promise;
   return {
@@ -146,6 +151,11 @@ function isAllowedOrigin(origin: string): boolean {
     // Неразбираемый Origin — заведомо не свой: отказ, а не падение.
     return false;
   }
+}
+
+/** Причина сбоя для ответа: текст ошибки, а не её объект. */
+function internalReason(err: unknown): string {
+  return `Internal error: ${err instanceof Error ? err.message : String(err)}`;
 }
 
 function forbidden(origin: string): string {
