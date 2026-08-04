@@ -5,7 +5,13 @@
  */
 
 import type { Command, Policy } from "../command/mod.ts";
-import toolPolicies from "./tool-policies.json" with { type: "json" };
+// Закрытый список публикации читается из канала спецификаций
+// напрямую: копия рядом с кодом дала бы второй источник истины и
+// тест, стерегущий их совпадение (`docs/CLAUDE.md`). Импорт
+// статический — список попадает в бинарь при `deno compile`.
+import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
+  type: "json",
+};
 
 /** Профиль сервера: путь `/ro` или `/rw`. */
 export type Profile = "ro" | "rw";

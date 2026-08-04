@@ -13,7 +13,9 @@ import {
   toolName,
   ToolPolicyError,
 } from "./mod.ts";
-import toolPolicies from "./tool-policies.json" with { type: "json" };
+import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
+  type: "json",
+};
 
 const PROFILES: readonly Profile[] = ["ro", "rw"];
 
@@ -115,7 +117,7 @@ Deno.test("snapshot списка тулов по каждому профилю",
 });
 
 Deno.test("публикация подчинена закрытому списку", async (t) => {
-  const policies = await loadPolicies();
+  const policies = loadPolicies();
   const published = PROFILES.flatMap((profile) =>
     profileTools(commands, profile).map((entry) => ({
       profile,
@@ -176,9 +178,7 @@ function publishableCount(): number {
     .length;
 }
 
-/** Закрытый список публикации — тот же файл, что читает код. */
-async function loadPolicies(): Promise<{ ro: string[]; rw: string[] }> {
-  const url = new URL("tool-policies.json", import.meta.url);
-  const raw = JSON.parse(await Deno.readTextFile(url));
-  return { ro: raw.ro, rw: raw.rw };
+/** Закрытый список публикации — тот же файл канала, что читает код. */
+function loadPolicies(): { ro: readonly string[]; rw: readonly string[] } {
+  return { ro: toolPolicies.ro, rw: toolPolicies.rw };
 }
