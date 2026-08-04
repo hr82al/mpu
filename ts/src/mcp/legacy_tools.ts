@@ -12,7 +12,9 @@
  */
 
 import { UsageError } from "../command/mod.ts";
-import type { JsonSchema } from "./tools.ts";
+import type { JsonSchema, Profile, ToolEntry } from "./tool.ts";
+import { toolName } from "./tool.ts";
+import { resolveLegacyBin } from "../legacy/mod.ts";
 
 /** Версия формата слепка, которую понимает этот код. */
 export const MANIFEST_VERSION = 1;
@@ -241,8 +243,12 @@ function scalarType(type: LegacyParam["type"]): string {
  */
 export function checkLegacyArgs(
   leaf: LegacyLeaf,
-  args: Readonly<Record<string, unknown>>,
-): void {
+  raw: unknown,
+): Readonly<Record<string, unknown>> {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new UsageError("arguments must be an object");
+  }
+  const args: Record<string, unknown> = { ...raw };
   const known = new Set(leaf.params.map((param) => param.name));
   for (const name of Object.keys(args)) {
     if (!known.has(name)) {
@@ -262,6 +268,45 @@ export function checkLegacyArgs(
       throw new UsageError(`${param.name}: ${problem}`);
     }
   }
+  return args;
+}
+
+/**
+ * Проекция команды маршрута `legacy` в тул: описание и схема — из
+ * слепка, исполнение — подпроцессом. Ненулевой код возврата приходит
+ * признаком ошибки в результате, а не JSON-RPC-ошибкой: доменную
+ * ошибку агент читает и исправляет, транспортный сбой — нет.
+ */
+export function legacyEntry(leaf: LegacyLeaf, profile: Profile): ToolEntry {
+  return {
+    tool: {
+      name: toolName(leaf.path),
+      title: `mpu ${leaf.path.join(" ")}`,
+      description: legacyToolDescription(leaf),
+      annotations: { readOnlyHint: profile === "ro" },
+      inputSchema: legacyToolSchema(leaf),
+    },
+    policy: profile,
+    path: leaf.path,
+    invoke: async (args, io) => {
+      // Проверка до запуска: неизвестное имя и пропущенный обязательный
+      // параметр — ошибка ввода, её агент исправляет сам, а не узнаёт
+      // из молчания подпроцесса.
+      const checked = checkLegacyArgs(leaf, args);
+      const bin = await resolveLegacyBin(io);
+      const outcome = await io.runLegacy(bin, legacyToolArgv(leaf, checked));
+      if (outcome.code === 0) {
+        return { isError: false, text: truncateOutput(outcome.stdout) };
+      }
+      return {
+        isError: true,
+        text: truncateOutput(
+          `${outcome.stdout}${outcome.stderr}`.trim() ||
+            `команда завершилась с кодом ${outcome.code}`,
+        ),
+      };
+    },
+  };
 }
 
 /** Несоответствие значения объявленному типу; всё в порядке — undefined. */

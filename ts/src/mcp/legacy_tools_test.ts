@@ -245,6 +245,13 @@ Deno.test("аргументы проверяются до запуска под�
     checkLegacyArgs(spec, { selector: "sl-1", ranges: ["A1"], limit: 10 });
   });
 
+  await t.step("не объект — ошибка ввода, а не падение", () => {
+    for (const raw of [42, "строка", ["массив"], null]) {
+      const err = assertThrows(() => checkLegacyArgs(spec, raw), UsageError);
+      assertStringIncludes(String(err), "arguments must be an object");
+    }
+  });
+
   await t.step("неизвестное имя — ошибка ввода", () => {
     const err = assertThrows(
       () => checkLegacyArgs(spec, { selector: "sl-1", нетТакого: 1 }),

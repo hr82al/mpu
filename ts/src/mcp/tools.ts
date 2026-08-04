@@ -1,25 +1,17 @@
 /**
- * Проекция реестра команд в тулы профиля (`platform/mcp-server.md`).
- * Профиль — это множество тулов, а не фильтр при вызове: на `/ro`
- * мутирующий тул не зарегистрирован вовсе.
+ * Сборка профилей MCP-сервера (`platform/mcp-server.md`). Профиль — это
+ * множество тулов, а не фильтр при вызове: на `/ro` мутирующий тул не
+ * зарегистрирован вовсе.
+ *
+ * Что публиковать, решает закрытый список; как выглядит и как
+ * исполняется тул — проекции: `native_tool.ts` для команд контракта,
+ * `legacy_tools.ts` для команд, исполняемых подпроцессом.
  */
 
-import type { Command, CommandIo, Policy } from "../command/mod.ts";
-import { resolveLegacyBin } from "../legacy/mod.ts";
-import {
-  checkLegacyArgs,
-  type LegacyLeaf,
-  legacyToolArgv,
-  legacyToolDescription,
-  legacyToolSchema,
-  readManifest,
-  truncateOutput,
-} from "./legacy_tools.ts";
-// Слепок дерева — часть канала: в рантайме он ниоткуда не снимается,
-// а незнакомая версия формата отвергается (`platform/registry.md`).
-import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
-  type: "json",
-};
+import type { Command, Policy } from "../command/mod.ts";
+import type { Profile, ToolEntry } from "./tool.ts";
+import { nativeEntry } from "./native_tool.ts";
+import { legacyEntry, type LegacyLeaf, readManifest } from "./legacy_tools.ts";
 // Закрытый список публикации читается из канала спецификаций
 // напрямую: копия рядом с кодом дала бы второй источник истины и
 // тест, стерегущий их совпадение (`docs/CLAUDE.md`). Импорт
@@ -27,51 +19,20 @@ import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json"
 import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
   type: "json",
 };
+// Слепок дерева — часть канала: в рантайме он ниоткуда не снимается,
+// а незнакомая версия формата отвергается (`platform/registry.md`).
+import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
+  type: "json",
+};
 
-/** Профиль сервера: путь `/ro` или `/rw`. */
-export type Profile = "ro" | "rw";
-
-/** JSON Schema как она уходит клиенту. */
-export type JsonSchema = Readonly<Record<string, unknown>>;
-
-/**
- * Тул в ответе `tools/list`. Схема результата есть только у команд
- * маршрута `native`: у подпроцесса её нет и быть не может — он отдаёт
- * текст (`platform/mcp-server.md`, «Ответ legacy-тула»).
- */
-export interface Tool {
-  readonly name: string;
-  readonly title: string;
-  readonly description: string;
-  readonly annotations: { readonly readOnlyHint: boolean };
-  readonly inputSchema: JsonSchema;
-  readonly outputSchema?: JsonSchema;
-}
-
-/** Итог вызова тула: текст для агента и, у native, структурный результат. */
-export interface ToolCallResult {
-  /** Команда сообщила о неуспехе; для агента это доменная ошибка. */
-  readonly isError: boolean;
-  readonly text: string;
-  /** Структурное содержимое; у маршрута `legacy` его нет. */
-  readonly structured?: unknown;
-}
-
-/**
- * Тул и способ его исполнить. Ядро диспетчера не различает источники:
- * ему нужен вызов, а откуда взялись схема и описание — забота этого
- * модуля.
- */
-export interface ToolEntry {
-  readonly tool: Tool;
-  readonly policy: Policy;
-  /** Путь команды: по нему тул восстанавливает имя в ошибках. */
-  readonly path: readonly string[];
-  readonly invoke: (
-    args: unknown,
-    io: CommandIo,
-  ) => Promise<ToolCallResult>;
-}
+export type {
+  JsonSchema,
+  Profile,
+  Tool,
+  ToolCallResult,
+  ToolEntry,
+} from "./tool.ts";
+export { toolName } from "./tool.ts";
 
 /**
  * Инструкции профиля: они не перечисляют тулы, а объясняют, для каких
@@ -94,13 +55,15 @@ export class ToolPolicyError extends Error {
 }
 
 /**
- * Тулы профиля в порядке реестра. Порядок и содержимое зависят только
- * от реестра и закрытого списка — отсюда побитовое совпадение между
- * вызовами.
+ * Тулы профиля: сперва команды контракта в порядке реестра, затем
+ * команды маршрута `legacy` в порядке слепка. Порядок и содержимое
+ * зависят только от этих двух источников — отсюда побитовое совпадение
+ * между вызовами.
  *
- * Публикуется не всё дерево: команда, которой нет в списке, тула не
- * получает (fail-closed). Правило не косметическое — оно решает,
- * увидит ли агент команду вроде `mpu mcp token`, печатающую секрет.
+ * Публикуется не всё дерево: команда, которой нет в закрытом списке,
+ * тула не получает (fail-closed). Правило не косметическое — оно
+ * решает, увидит ли агент команду вроде `mpu mcp token`, печатающую
+ * секрет, или `mpu copy-client`, копирующую клиента.
  */
 export function profileTools(
   commands: readonly Command[],
@@ -119,15 +82,16 @@ export function profileTools(
   return [...native, ...legacy];
 }
 
-/** Листья слепка в его порядке; версия формата проверяется один раз. */
+/** Листья слепка в его порядке; версия формата проверяется при чтении. */
 function legacyLeaves(): readonly LegacyLeaf[] {
   return readManifest(treeManifest).commands;
 }
 
 /**
- * Профиль команды по закрытому списку; команды нет в списке — она не
- * публикуется. Расхождение политики в коде с политикой списка — отказ
- * собрать тулы, а не молчаливый выбор одной из двух (инвариант спеки).
+ * Профиль команды контракта по закрытому списку; команды нет в списке —
+ * она не публикуется. Расхождение политики в коде с политикой списка —
+ * отказ собрать тулы, а не молчаливый выбор одной из двух (инвариант
+ * спеки).
  */
 function publishedPolicy(command: Command): Policy | undefined {
   const name = command.path.join(" ");
@@ -157,108 +121,4 @@ export function findTool(
   return profileTools(commands, profile).find(
     (entry) => entry.tool.name === name,
   );
-}
-
-/**
- * Имя тула из пути команды: сегменты соединяются `_`, дефисы внутри
- * сегмента тоже становятся `_`.
- */
-export function toolName(path: readonly string[]): string {
-  return path.join("_").replaceAll("-", "_");
-}
-
-/** Запись тула для команды контракта: схемы и рендер объявлены кодом. */
-function nativeEntry(command: Command): ToolEntry {
-  return {
-    tool: {
-      name: toolName(command.path),
-      title: `mpu ${command.path.join(" ")}`,
-      // Описание тула и текст `--help` — одно объявление команды: у
-      // справки два читателя, и оба читают одни и те же слова.
-      description: `${command.summary}\n\n${command.help}`,
-      annotations: { readOnlyHint: command.policy === "ro" },
-      inputSchema: publishedSchema(command.argsJsonSchema.json),
-      outputSchema: publishedSchema(command.resultJsonSchema.json),
-    },
-    policy: command.policy,
-    path: command.path,
-    invoke: async (args, io) => {
-      const result = await command.invokeInput(args, io);
-      return {
-        isError: false,
-        text: JSON.stringify(result),
-        structured: result,
-      };
-    },
-  };
-}
-
-/**
- * Запись тула для команды маршрута `legacy`: описание и схема — из
- * слепка, исполнение — подпроцессом. Ненулевой код возврата приходит
- * признаком ошибки в результате, а не JSON-RPC-ошибкой: доменную
- * ошибку агент читает и исправляет, транспортный сбой — нет.
- */
-function legacyEntry(leaf: LegacyLeaf, profile: Profile): ToolEntry {
-  return {
-    tool: {
-      name: toolName(leaf.path),
-      title: `mpu ${leaf.path.join(" ")}`,
-      description: legacyToolDescription(leaf),
-      annotations: { readOnlyHint: profile === "ro" },
-      inputSchema: legacyToolSchema(leaf),
-    },
-    policy: profile,
-    path: leaf.path,
-    invoke: async (args, io) => {
-      const checked = asArgs(args);
-      // Проверка до запуска: неизвестное имя и пропущенный обязательный
-      // параметр — ошибка ввода, её агент исправляет сам, а не узнаёт
-      // из молчания подпроцесса.
-      checkLegacyArgs(leaf, checked);
-      const bin = await resolveLegacyBin(io);
-      const outcome = await io.runLegacy(bin, legacyToolArgv(leaf, checked));
-      if (outcome.code === 0) {
-        return { isError: false, text: truncateOutput(outcome.stdout) };
-      }
-      return {
-        isError: true,
-        text: truncateOutput(
-          `${outcome.stdout}${outcome.stderr}`.trim() ||
-            `команда завершилась с кодом ${outcome.code}`,
-        ),
-      };
-    },
-  };
-}
-
-/** Аргументы вызова как словарь; чужая форма — пустой набор. */
-function asArgs(args: unknown): Readonly<Record<string, unknown>> {
-  if (typeof args !== "object" || args === null || Array.isArray(args)) {
-    return {};
-  }
-  return { ...args };
-}
-
-/**
- * Схема для публикации: без метаключей генератора и с закрытым набором
- * полей на каждом уровне. Закрытость объявлена намеренно — по ней
- * клиент отличает опечатку в имени поля от нового параметра. Обход
- * идёт по всему дереву: `additionalProperties` дописывается каждому
- * узлу-объекту, включая элементы массивов результата.
- */
-function publishedSchema(schema: JsonSchema): JsonSchema {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(schema)) {
-    if (key === "$schema") continue;
-    out[key] = publishedValue(value);
-  }
-  if (out["type"] === "object") out["additionalProperties"] = false;
-  return out;
-}
-
-function publishedValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(publishedValue);
-  if (typeof value !== "object" || value === null) return value;
-  return publishedSchema({ ...value });
 }
