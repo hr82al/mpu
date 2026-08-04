@@ -12,7 +12,12 @@
     // Отдельно golden-фикстуры (обе стороны сверки: канал и его копия в
     // тестовом каталоге) сверяются байт-в-байт: отформатировать одну из
     // них — молча развести их.
-    "exclude": ["docs", "src/mcp/testdata", "src/xlsx/testdata"]
+    "exclude": [
+      "docs",
+      "src/env/testdata",
+      "src/mcp/testdata",
+      "src/xlsx/testdata"
+    ]
   },
   "imports": {
     // тесты: assertEquals/assertThrows с читаемыми сообщениями.
