@@ -54,7 +54,7 @@ live-стрим вывода инструментов, heartbeat раз в 10 с
 
 ## Конфигурация
 
-Env-файл (`platform/config.md`):
+Env-файл (`platform/env-file.md`):
 
 - dev sl-PG (источник режима клиента): `DEV_PG_HOST` (192.168.150.40),
   `DEV_PG_PORT` (5434), `DEV_PG_DB` (`mp_sl_1_dev`); пользователь

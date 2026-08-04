@@ -107,7 +107,7 @@ GET-запросы к Kaiten. PostgreSQL не используется.
 
 ## Конфигурация
 
-env-файл (слой — `platform/config.md`); все ошибки конфига ниже — exit 1:
+env-файл (слой — `platform/env-file.md`); все ошибки конфига ниже — exit 1:
 
 - `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` — обязательны; отсутствие любой →
   stderr начинается с `telegram: environment variable <ИМЯ> is not set.`

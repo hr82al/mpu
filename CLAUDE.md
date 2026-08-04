@@ -17,18 +17,22 @@ Overview дерева `mpu` целиком. Корневой CLAUDE.md моно�
   командам — CLI для человека (`~/.local/bin/mpu`, `deno compile`) и MCP-сервер
   для агента (Streamable HTTP, Hono). Код пишется, не пустой каталог. Правила
   качества и тулинга модуля — `ts/CLAUDE.md`.
-- `go/` — **отменён**. Кода в нём нет и не будет; каталог и `docs/go-migration.md`
-  с `docs/broker-architecture.md` оставлены как история решений. Не развивать, в
-  новых задачах не упоминать.
+- Каталога `go/` больше нет (2026-08-04): спеки отменённой Go-редакции
+  адаптированы под один бинарь и переехали в `ts/docs/specs/`, план — в
+  `docs/plans/command-migration.md`, журнал — в `docs/migration-log.md`.
+  `docs/go-migration.md` и `docs/broker-architecture.md` оставлены как история
+  решений — не развивать.
 
 ## Переезд: где что лежит
 
 - `docs/ts-mcp-architecture.md` — принятые архитектурные решения. Заменяет
   `broker-architecture.md`.
 - `docs/plans/2026-08-03-ts-mcp-mvp.md` — план MVP: задачи, порядок, роли.
-- `docs/migration-playbook.md` — процедура для оператора-человека. Написан под
-  отменённую Go-редакцию: последовательность шагов актуальна, имена каталогов и
-  гейты — нет.
+- `docs/migration-playbook.md` — процедура для оператора-человека.
+- `docs/plans/command-migration.md` — план переезда команд: частоты, порядок,
+  «не едут».
+- `docs/migration-log.md` — журнал переезда: «умрёт вместе с Python», принятые
+  расхождения сверок.
 
 ## Роли сессий
 

@@ -119,7 +119,7 @@ impersonate; workspaces); impersonate создаёт audit-запись на п�
 
 ## Конфигурация
 
-Env-файл (`platform/config.md`): `X10_URL` (fallback `X10_API_URL`) —
+Env-файл (`platform/env-file.md`): `X10_URL` (fallback `X10_API_URL`) —
 базовый URL 10X (хвостовые `/` отрезаются, суффикс `/api` добавляется,
 если его нет), дефолт `https://app.system10x.ru/api`; `X10_LOGIN` /
 `X10_PASSWORD` — staff-креды 10X (auth-система sw-back, не sl-back),

@@ -125,7 +125,7 @@ stdout — строки логов (или списки `ls`); stderr — оши
 
 ## Конфигурация
 
-Env (`platform/config.md`): `LOKI_URL` — обязателен для Loki-пути;
+Env (`platform/env-file.md`): `LOKI_URL` — обязателен для Loki-пути;
 `PORTAINER_API_KEY` — обязателен для portainer-пути; `PORTAINER_VERIFY_TLS`;
 `sl_<N>_portainer` — legacy-fallback цели. Кэш-БД: таблицы `loki_hosts(host)`
 и `loki_services_by_host(host, service)` — здесь только читаются; заполняются

@@ -132,7 +132,7 @@ exec и печатается в форматах выше. Target вида `sl-N
 
 ## Конфигурация
 
-Адреса `pg_<N>`, порт/БД/креды PG и dev-стенд — `platform/config.md`.
+Адреса `pg_<N>`, порт/БД/креды PG и dev-стенд — `platform/env-file.md`.
 Маршрут sw (env-файл): `SW_PG_RUN_TARGET` — target exec (дефолт
 `sw-api`); `SW_PG_DSN_ENV` — имя env-переменной с DSN в контейнере
 (дефолт `DATABASE_URL`); `SW_PG_DSN` — литеральный override DSN

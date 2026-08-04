@@ -7,7 +7,7 @@
 Общая обвязка семейства `mpu sheet` (спека `sheet.md`; будущие спеки
 записи и batch-операций): транспорт Apps Script webapp, retry,
 A1-диапазоны, whole-tab кэш листов и метаданных, housekeeping,
-инвалидация, резолв цели-spreadsheet. Контракт — не Go-API.
+инвалидация, резолв цели-spreadsheet. Контракт — не API реализации.
 
 ## CLI-контракт
 
@@ -149,15 +149,15 @@ A1-диапазоны, whole-tab кэш листов и метаданных, ho
 
 ## Побочные эффекты
 
-Сеть — только POST на webapp-URL. Кэш-БД (`Store`, контракт —
-`platform/config.md`): чтение `config`, `sheet_aliases`,
+Сеть — только POST на webapp-URL. Кэш-БД (`Store`, bootstrap —
+`init.md`): чтение `config`, `sheet_aliases`,
 `sl_spreadsheets`; чтение и запись `sheet_tabs` и `cache`.
 
 ## Конфигурация
 
 - `WB_PLUS_WEB_APP_URL` — обязателен для сетевых операций; не задан →
   ошибка до первого запроса: `WB_PLUS_WEB_APP_URL не задан. Добавь в
-  <путь env-файла> или export в shell.` (путь — `platform/config.md`).
+  <путь env-файла> или export в shell.` (путь — `platform/env-file.md`).
 - Цель: env `MPU_SS`, конфиг-ключ `sheet.default` (str). Int-ключи
   (приоритет env → config → default — `platform/config.md`):
   `sheet.cache.tab_ttl` (7200), `sheet.cache.max_tab_bytes` (10485760),

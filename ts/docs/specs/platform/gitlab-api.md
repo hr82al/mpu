@@ -35,8 +35,7 @@
    - прочее → `не удалось разобрать MR '<селектор>'; формы: URL |
      'group/repo!iid' | iid`.
 2. project не определён → `git remote get-url origin` в cwd —
-   исполняется на стороне CLI (локальный git машины пользователя;
-   результат передаётся брокеру параметром операции); формы
+   исполняется локально (git машины пользователя); формы
    `ssh://[user@]host[:port]/path`, scp (`git@host:path.git`),
    `https://host/path`; project = путь без крайних `/` и суффикса
    `.git`. Хост (без порта) ≠ хосту `GITLAB_BASE_URL` → `git remote
@@ -159,20 +158,19 @@ context → оба (GitLab требует обе для неизменённой
 командные спеки). API-ошибка: `gitlab error: <сообщение атома>`; при
 401 добавляется `; проверь GLAB_TOKEN в <путь env-файла>`, при 404 —
 `; проверь --mr (URL | 'group/repo!iid' | iid)`. Нет GLAB_TOKEN →
-exit 1, ошибка env-слоя с путём env-файла (`platform/config.md`).
+exit 1, ошибка env-слоя с путём env-файла (`platform/env-file.md`).
 
 ## Побочные эффекты
 
-HTTP к `GITLAB_BASE_URL` — брокер; локальные git-подпроцессы
+HTTP к `GITLAB_BASE_URL`; локальные git-подпроцессы
 (`git remote get-url origin`, `git rev-parse --abbrev-ref HEAD`) —
-сторона CLI, только при неполном селекторе, результат уезжает
-параметрами операции. Ни записи в БД/файлы, ни кэша.
+только при неполном селекторе. Ни записи в БД/файлы, ни кэша.
 
 ## Конфигурация
 
 `GLAB_TOKEN` — обязателен (personal access token со scope `api`);
 `GITLAB_BASE_URL` — опционален, дефолт `https://gitlab.btlz-api.ru`.
-Оба — env-слой (`platform/config.md`).
+Оба — env-слой (`platform/env-file.md`).
 
 ## Инварианты
 

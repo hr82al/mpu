@@ -111,7 +111,7 @@ heartbeat-строка с прошедшим временем, по таблиц
 
 ## Конфигурация
 
-Env-файл (`platform/config.md`):
+Env-файл (`platform/env-file.md`):
 
 - источник (прод-инстанс `sl-N`): host `pg_<N>`; `PG_PORT` (5432);
   `PG_MY_USER_NAME` → `PG_MAIN_USER_NAME`; `PG_MY_USER_PASSWORD` →
@@ -146,7 +146,7 @@ Env-файл (`platform/config.md`):
   exit 2, тексты второй ступени `platform/selector.md`.
 - Конфигурация подключений неполна → stderr
   `mpu copy-client: <текст ошибки конфигурации>`, exit 2 (тексты —
-  «Конфигурация» + `platform/config.md`).
+  «Конфигурация» + `platform/env-file.md`).
 - `pg_dump`/`pg_restore` завершился ненулевым rc → stderr
   `pg_dump schema_<id> failed (exit <rc>, <N>s)` (или `pg_restore …`),
   exit 1.

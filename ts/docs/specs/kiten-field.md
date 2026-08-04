@@ -11,8 +11,8 @@
 поле «9. AI-артефакт» (md-вложение, без истории). Тем же механизмом
 записи полей пользуется `mpu kiten close` (`kiten-close.md`).
 
-Обвязка Kaiten — `platform/kaiten-http.md`; кэш-БД —
-`platform/config.md`.
+Обвязка Kaiten — `platform/kaiten-http.md`; кэш-БД — bootstrap схемы:
+`init.md`.
 
 ## CLI-контракт
 
@@ -114,7 +114,7 @@ Kaiten: PATCH поля (`set`/`update`/`rm`), PUT загрузки и DELETE ф�
 ## Конфигурация
 
 `KITEN_API_KEY`, `KITEN_BASE_URL` — `platform/kaiten-http.md` (для
-`ls` не нужны). Кэш-БД — `platform/config.md`.
+`ls` не нужны). Кэш-БД — `platform/env-file.md`.
 
 ## Инварианты
 

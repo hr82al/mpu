@@ -135,7 +135,7 @@ API (кроме dry-run).
 
 ## Конфигурация
 
-Env-файл (контракт — `platform/config.md`): `MIRO_TOKEN` (обязателен),
+Env-файл (контракт — `platform/env-file.md`): `MIRO_TOKEN` (обязателен),
 `MIRO_BOARD_ID` (обязателен, если нет `--board`). Внешний бинарь `d2`
 в PATH — опционален при актуальном SVG.
 

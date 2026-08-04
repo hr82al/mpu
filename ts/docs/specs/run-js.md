@@ -98,7 +98,7 @@ exit 1; иначе 0.
 
 ## Конфигурация
 
-Через `platform/exec-transport.md` и `platform/config.md`; собственных
+Через `platform/exec-transport.md` и `platform/env-file.md`; собственных
 ключей у команды нет.
 
 ## Инварианты

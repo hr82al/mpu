@@ -7,7 +7,7 @@
 Общая обвязка неймспейса `mpu api` (спеки `api.md`, `api-*.md`): резолв
 базового URL, креды и логин, файловый кэш JWT-токена, форма
 HTTP-запросов к sl-back и формат ошибок. Контракт возможности — не
-Go-API.
+API реализации.
 
 ## CLI-контракт
 
@@ -91,7 +91,7 @@ Go-API.
   полный URL.
 - `TOKEN_EMAIL`, `TOKEN_PASSWORD` — креды `/auth/login`.
 - Все — из env-файла mpu либо окружения (контракт слоя —
-  `platform/config.md`); `XDG_CONFIG_HOME` смещает и env-файл, и
+  `platform/env-file.md`); `XDG_CONFIG_HOME` смещает и env-файл, и
   токен-кэш.
 
 ## Инварианты

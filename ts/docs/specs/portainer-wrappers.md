@@ -78,7 +78,7 @@ print-режимы — без выполнения и сети (кроме чт�
 
 Всё — через `platform/portainer.md` (env `sl_<N>`, `PG_MY_USER_NAME` —
 только ssh-печать), `platform/exec-transport.md` (Portainer) и
-`platform/config.md`; собственных ключей у семейства нет.
+`platform/env-file.md`; собственных ключей у семейства нет.
 
 ## Инварианты
 

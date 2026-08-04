@@ -49,7 +49,7 @@ stdout у команды нет.
 ## Конфигурация
 
 Транспорт до `mp-dt-cli` — `platform/exec-transport.md`; кэш-БД —
-`platform/config.md`. Собственных настроек нет.
+`platform/env-file.md`. Собственных настроек нет.
 
 ## Инварианты
 

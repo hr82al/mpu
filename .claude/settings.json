@@ -24,7 +24,7 @@
             "type": "command",
             "if": "Bash(git:*)",
             "statusMessage": "Проверка git-команды",
-            "command": "c=$(jq -r '.tool_input.command'); echo \"$c\" | grep -Eq '(^|[;&|(][[:space:]]*)git([[:space:]]+-[^[:space:]]+)*[[:space:]]+(stash|add|commit)([[:space:]]|$)' || exit 0; { echo \"$c\" | grep -Eq '(^|[;&|(][[:space:]]*)git([[:space:]]+-[^[:space:]]+)*[[:space:]]+stash([[:space:]]|$)' || echo \"$c\" | grep -Eq '(^|[[:space:]])-[A-Za-z]*[Aau][A-Za-z]*([[:space:]]|$)|(^|[[:space:]])(--all|\\.\\.|:/)([[:space:]]|$)'; } || exit 0; echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"py/, go/ и docs/ закрыты песочницей и выглядят для git удалёнными — массовая операция закоммитит их удаление. Работать с pathspec: git add ts/…, git commit -m … -- ts/\"}}'"
+            "command": "c=$(jq -r '.tool_input.command'); echo \"$c\" | grep -Eq '(^|[;&|(][[:space:]]*)git([[:space:]]+-[^[:space:]]+)*[[:space:]]+(stash|add|commit)([[:space:]]|$)' || exit 0; { echo \"$c\" | grep -Eq '(^|[;&|(][[:space:]]*)git([[:space:]]+-[^[:space:]]+)*[[:space:]]+stash([[:space:]]|$)' || echo \"$c\" | grep -Eq '(^|[[:space:]])-[A-Za-z]*[Aau][A-Za-z]*([[:space:]]|$)|(^|[[:space:]])(--all|\\.\\.|:/)([[:space:]]|$)'; } || exit 0; echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"py/ и docs/ закрыты песочницей и выглядят для git удалёнными — массовая операция закоммитит их удаление. Работать с pathspec: git add ts/…, git commit -m … -- ts/\"}}'"
           }
         ]
       }
@@ -71,20 +71,6 @@
       "Read(//home/user/mr/mp/mpu/.claude/**)",
       "Read(//home/user/mr/mp/mpu/docs/**)",
       "Read(//home/user/mr/mp/mpu/py/**)",
-      "Read(//home/user/mr/mp/mpu/go/CLAUDE.md)",
-      "Read(//home/user/mr/mp/mpu/go/.claude/**)",
-      "Read(//home/user/mr/mp/mpu/go/.gocache/**)",
-      "Read(//home/user/mr/mp/mpu/go/.gotmp/**)",
-      "Read(//home/user/mr/mp/mpu/go/go.mod)",
-      "Read(//home/user/mr/mp/mpu/go/go.sum)",
-      "Read(//home/user/mr/mp/mpu/go/docs/CLAUDE.md)",
-      "Read(//home/user/mr/mp/mpu/go/docs/implementation.md)",
-      "Read(//home/user/mr/mp/mpu/go/docs/plan.md)",
-      "Read(//home/user/mr/mp/mpu/go/docs/MIGRATION.md)",
-      "Read(//home/user/mr/mp/mpu/go/docs/glossary.md)",
-      "Read(//home/user/mr/mp/mpu/go/docs/specs/*.md)",
-      "Read(//home/user/mr/mp/mpu/go/docs/specs/platform/**)",
-      "Read(//home/user/mr/mp/mpu/go/docs/specs/fixtures/platform/**)",
       "Read(//home/user/tmp/**)",
       "Read(//tmp/**)",
       "Read(//home/user/.claude/**)",
@@ -127,7 +113,6 @@
       "Edit(//home/user/mr/mp/mpu/.claude/**)",
       "Edit(//home/user/mr/mp/mpu/docs/**)",
       "Edit(//home/user/mr/mp/mpu/py/**)",
-      "Edit(//home/user/mr/mp/mpu/go/**)",
       "Edit(//home/user/tmp/**)",
       "Edit(//tmp/**)",
       "Edit(//home/user/.claude/**)",
@@ -154,8 +139,7 @@
       "denyRead": [
         "/home/user",
         "/home/user/mr/mp/mpu/py",
-        "/home/user/mr/mp/mpu/docs",
-        "/home/user/mr/mp/mpu/go"
+        "/home/user/mr/mp/mpu/docs"
       ],
       "allowRead": [
         "/home/user/mr/mp/mpu",

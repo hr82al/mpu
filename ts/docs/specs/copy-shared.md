@@ -75,7 +75,7 @@ source-PG изнутри локального контейнера перено�
 
 ## Конфигурация
 
-Env-файл (контракт — `platform/config.md`): `pg_<N>` — адрес source-PG
+Env-файл (контракт — `platform/env-file.md`): `pg_<N>` — адрес source-PG
 резолвнутого сервера. Env `MPU_MP_CONFIG_LOCAL` — каталог
 mp-config-local (default `<HOME>/mr/mp/mp-config-local`). Целевой
 адрес 127.0.0.1:5441 фиксирован (см. «Известные отклонения»).
