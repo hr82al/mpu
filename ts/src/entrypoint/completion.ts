@@ -58,6 +58,15 @@ ${COMPLETE_ENV}=${COMPLETE_MODE.zsh} mpu)
 compdef _mpu_completion mpu
 `;
 
+/**
+ * Признак того, что скрипт уже установлен: повторный запуск не должен
+ * дописывать вторую копию. Имя функции дополнения уникально и есть в
+ * обоих скриптах.
+ */
+export function completionInstalled(rc: string): boolean {
+  return rc.includes("_mpu_completion");
+}
+
 /** Куда установка допишет скрипт: rc-файл в домашнем каталоге. */
 export function completionRcPath(
   shell: Shell,
@@ -65,6 +74,39 @@ export function completionRcPath(
 ): string | undefined {
   if (home === undefined || home === "") return undefined;
   return `${home}/${RC_FILE[shell]}`;
+}
+
+/** Что набрано в строке к моменту дополнения. */
+export interface CompletionInput {
+  /** Уже завершённые сегменты имени команды, без самого `mpu`. */
+  readonly prefix: readonly string[];
+  /** Слово, которое дополняется; после пробела — пустое. */
+  readonly word: string;
+}
+
+/**
+ * Разбирает служебные переменные shell в «что уже набрано». Своего
+ * разбора командной строки у режима дополнения нет: слова и позицию
+ * курсора сообщает сам shell.
+ *
+ * `COMP_CWORD` называет индекс дополняемого слова — по нему видно, что
+ * курсор стоит после пробела и слово пустое; у zsh той же цели служит
+ * хвостовой пробел в строке.
+ */
+export function completionInput(
+  words: string,
+  cword: string | undefined,
+): CompletionInput {
+  const parts = words.split(/\s+/).filter(Boolean);
+  const index = cword === undefined ? undefined : Number(cword);
+  const atEmpty = index === undefined
+    ? /\s$/.test(words)
+    : index >= parts.length;
+  // Первое слово — само `mpu`; дополняем то, что идёт после него.
+  const typed = parts.slice(1);
+  return atEmpty
+    ? { prefix: typed, word: "" }
+    : { prefix: typed.slice(0, -1), word: typed[typed.length - 1] ?? "" };
 }
 
 /**

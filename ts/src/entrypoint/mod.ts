@@ -10,6 +10,7 @@ import {
   type CommandIo,
   DomainError,
   formatCommandError,
+  NotFoundIoError,
   UsageError,
 } from "../command/mod.ts";
 import {
@@ -30,6 +31,8 @@ import { renderCommandHelp, renderIndex, renderSurfaceHelp } from "./help.ts";
 import {
   COMPLETE_ENV,
   completionCandidates,
+  completionInput,
+  completionInstalled,
   completionMode,
   completionRcPath,
   completionReply,
@@ -184,15 +187,17 @@ async function runCommand(
  * режим дополнения командную строку не разбирает.
  */
 function candidates(io: CommandIo): readonly string[] {
-  const fromBash = (io.env("COMP_WORDS") ?? "").split(/\s+/).filter(Boolean);
-  const fromZsh = (io.env("_TYPER_COMPLETE_ARGS") ?? "").split(/\s+/)
-    .filter(Boolean);
-  const words = fromBash.length > 0 ? fromBash : fromZsh;
-  // Первое слово — само `mpu`; дополняем то, что набрано после него.
-  const word = words.length > 1 ? words[words.length - 1] : "";
+  const bash = io.env("COMP_WORDS");
+  const line = bash ?? io.env("_TYPER_COMPLETE_ARGS") ?? "";
+  const input = completionInput(
+    line,
+    bash === undefined ? undefined : io.env("COMP_CWORD"),
+  );
+  // Дополняется тот уровень дерева, до которого дошли: после `mpu xlsx`
+  // предлагаются его подкоманды, а не имена верхнего уровня.
   return completionCandidates(
-    childrenOf([]).map((child) => child.name),
-    word,
+    childrenOf(input.prefix).map((child) => child.name),
+    input.word,
   );
 }
 
@@ -225,9 +230,25 @@ async function runCompletionOption(
     output.stderr("mpu: HOME не задан, некуда устанавливать completion\n");
     return 1;
   }
+  if (completionInstalled(await readRcFile(io, path))) {
+    // Повторный запуск не плодит копии: вторая ничего не меняет, но
+    // засоряет rc-файл и путает при чтении.
+    output.stdout(`completion для ${shell} уже установлен в ${path}\n`);
+    return 0;
+  }
   await io.appendFile(path, `\n${script}`);
   output.stdout(`completion для ${shell} дописан в ${path}\n`);
   return 0;
+}
+
+/** Содержимое rc-файла; файла ещё нет — пустая строка. */
+async function readRcFile(io: CommandIo, path: string): Promise<string> {
+  try {
+    return await io.readTextFile(path);
+  } catch (err) {
+    if (err instanceof NotFoundIoError) return "";
+    throw err;
+  }
 }
 
 /**

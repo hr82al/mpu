@@ -19,21 +19,29 @@ export interface HelpSink {
   readonly stderr: (text: string) => void;
 }
 
-/** Что показывает `mpu help`: полное имя и однострока каждой записи. */
-export interface HelpEntry {
-  /** Полное имя команды: `mpu <путь>` — в этой же форме её и спрашивают. */
-  readonly name: string;
-  readonly summary: string;
-  /** Команда контракта: её справка рендерится из объявления. */
-  readonly command?: Command;
-  /**
-   * Запись маршрута `legacy`: подробную справку печатает сама
-   * Python-реализация, реестр хранит только однострокў (спека).
-   */
-  readonly legacy?: LegacyCommand;
-  /** Поверхность точки входа: справка складывается из полей реестра. */
-  readonly surface?: SurfaceCommand;
-}
+/**
+ * Что показывает `mpu help`: полное имя, однострока и то, откуда взять
+ * подробную справку. Вид записи — размеченное объединение: у каждой
+ * ровно один источник справки, и «четвёртого вида» не бывает по типам,
+ * а не по проверке в рантайме.
+ */
+export type HelpEntry =
+  & {
+    /** Полное имя команды: `mpu <путь>` — в той же форме её спрашивают. */
+    readonly name: string;
+    readonly summary: string;
+  }
+  & (
+    /** Команда контракта: справка рендерится из объявления. */
+    | { readonly kind: "command"; readonly command: Command }
+    /**
+     * Запись маршрута `legacy`: подробную справку печатает сама
+     * Python-реализация, реестр хранит только однострокў (спека).
+     */
+    | { readonly kind: "legacy"; readonly legacy: LegacyCommand }
+    /** Поверхность точки входа: справка складывается из полей реестра. */
+    | { readonly kind: "surface"; readonly surface: SurfaceCommand }
+  );
 
 /**
  * Всё дерево команд в порядке реестра: команды контракта, записи
@@ -46,17 +54,20 @@ export function helpEntries(
   surfaces: readonly SurfaceCommand[],
 ): readonly HelpEntry[] {
   return [
-    ...commands.map((command) => ({
+    ...commands.map((command): HelpEntry => ({
+      kind: "command",
       name: `mpu ${command.path.join(" ")}`,
       summary: command.summary,
       command,
     })),
-    ...legacyCommands.map((command) => ({
+    ...legacyCommands.map((command): HelpEntry => ({
+      kind: "legacy",
       name: `mpu ${command.path.join(" ")}`,
       summary: command.summary,
       legacy: command,
     })),
-    ...surfaces.map((surface) => ({
+    ...surfaces.map((surface): HelpEntry => ({
+      kind: "surface",
       name: `mpu ${surface.path.join(" ")}`,
       summary: surface.summary,
       surface,
@@ -78,11 +89,8 @@ export async function runHelpCommand(
   if (wanted === "-h" || wanted === "--help") {
     // Своя справка: и строка использования, и однострока — из той же
     // записи реестра, что и в списке; второй копии текста не заводится.
-    const self = entries.find((entry) =>
-      entry.surface !== undefined &&
-      entry.surface.path[0] === "help"
-    );
-    output.stdout(surfaceHelp(self));
+    const self = entries.find(isOwnSurface);
+    output.stdout(self === undefined ? "" : surfaceHelp(self));
     return 0;
   }
   if (wanted === undefined) {
@@ -99,30 +107,41 @@ export async function runHelpCommand(
     );
     return 2;
   }
-  if (entry.legacy !== undefined) {
-    // Тот же текст, что у `mpu <cmd> --help`: у маршрута `legacy` его
-    // печатает сама реализация, а не реестр (спека).
-    return await runLegacyCommand(entry.legacy, ["--help"], io, output);
+  switch (entry.kind) {
+    case "legacy":
+      // Тот же текст, что у `mpu <cmd> --help`: у маршрута `legacy` его
+      // печатает сама реализация, а не реестр (спека).
+      return await runLegacyCommand(entry.legacy, ["--help"], io, output);
+    case "surface":
+      // Поверхность точки входа: тот же текст, что у `<имя> --help`, —
+      // именованный рендер от прямого вызова не отличается (спека).
+      output.stdout(surfaceHelp(entry));
+      return 0;
+    case "command":
+      output.stdout(renderCommandHelp(entry.command));
+      return 0;
+    default: {
+      // Исчерпывающая проверка: новый вид записи не соберётся, пока его
+      // не обработают здесь (правило модуля про `never` в `default`).
+      const impossible: never = entry;
+      throw new TypeError(
+        `неизвестный вид записи справки: ${JSON.stringify(impossible)}`,
+      );
+    }
   }
-  if (entry.surface !== undefined) {
-    // Поверхность точки входа: тот же текст, что у `<имя> --help`, —
-    // именованный рендер от прямого вызова не отличается (спека).
-    output.stdout(surfaceHelp(entry));
-    return 0;
-  }
-  if (entry.command === undefined) {
-    throw new TypeError(`${entry.name}: запись без способа показать справку`);
-  }
-  output.stdout(renderCommandHelp(entry.command));
-  return 0;
+}
+
+/** Запись самой справочной поверхности среди прочих. */
+type SurfaceEntry = Extract<HelpEntry, { readonly kind: "surface" }>;
+
+/** Она же — по имени: `mpu help` описывает сама себя из реестра. */
+function isOwnSurface(entry: HelpEntry): entry is SurfaceEntry {
+  return entry.kind === "surface" && entry.surface.path[0] === "help";
 }
 
 /** Справка поверхности: строка использования и однострока из реестра. */
-function surfaceHelp(entry: HelpEntry | undefined): string {
-  return renderSurfaceHelp(
-    entry?.surface?.usage ?? "",
-    entry?.summary ?? "",
-  );
+function surfaceHelp(entry: SurfaceEntry): string {
+  return renderSurfaceHelp(entry.surface.usage, entry.summary);
 }
 
 /** Список: заголовок, колонка имён с описаниями, футер (спека). */

@@ -14,7 +14,7 @@ import { runCli } from "./mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { completionScript } from "./completion.ts";
 import { childrenOf } from "../registry/mod.ts";
-import type { CommandIo } from "../command/mod.ts";
+import { type CommandIo, NotFoundIoError } from "../command/mod.ts";
 
 async function run(
   argv: readonly string[],
@@ -64,17 +64,38 @@ Deno.test("shell не определён и не задан — понятный
   assertStringIncludes(stderr, "неизвестный shell");
 });
 
-Deno.test("--install-completion дописывает скрипт в rc-файл", async () => {
+Deno.test("--install-completion дописывает скрипт в rc-файл", async (t) => {
   const dir = await Deno.makeTempDir();
+  const io: Partial<CommandIo> = {
+    env: (name) => (name === "HOME" ? dir : undefined),
+    readTextFile: async (path) => {
+      try {
+        return await Deno.readTextFile(path);
+      } catch (err) {
+        if (err instanceof Deno.errors.NotFound) {
+          throw new NotFoundIoError("нет файла", { cause: err });
+        }
+        throw err;
+      }
+    },
+    appendFile: (path, text) =>
+      Deno.writeTextFile(path, text, { append: true, create: true }),
+  };
   try {
-    const { code, stdout } = await run(["--install-completion", "zsh"], {
-      env: (name) => (name === "HOME" ? dir : undefined),
-      appendFile: (path, text) =>
-        Deno.writeTextFile(path, text, { append: true, create: true }),
+    await t.step("первый запуск создаёт файл", async () => {
+      const { code, stdout } = await run(["--install-completion", "zsh"], io);
+      assertEquals(code, 0);
+      assertStringIncludes(stdout, `${dir}/.zshrc`);
+      assertStringIncludes(await Deno.readTextFile(`${dir}/.zshrc`), "compdef");
     });
-    assertEquals(code, 0);
-    assertStringIncludes(stdout, `${dir}/.zshrc`);
-    assertStringIncludes(await Deno.readTextFile(`${dir}/.zshrc`), "compdef");
+
+    await t.step("повторный не плодит вторую копию", async () => {
+      const before = await Deno.readTextFile(`${dir}/.zshrc`);
+      const { code, stdout } = await run(["--install-completion", "zsh"], io);
+      assertEquals(code, 0);
+      assertStringIncludes(stdout, "уже установлен");
+      assertEquals(await Deno.readTextFile(`${dir}/.zshrc`), before);
+    });
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
@@ -117,6 +138,31 @@ Deno.test("режим дополнения печатает варианты, а
     assertEquals(lines.length < names.length, true);
   });
 
+  await t.step("zsh: хвостовой пробел — курсор на новом слове", async () => {
+    // У zsh нет COMP_CWORD: то, что слово ещё не начато, видно только
+    // по пробелу в конце строки.
+    const { stdout } = await run([], {
+      env: (name) =>
+        name === "_MPU_COMPLETE"
+          ? "complete_zsh"
+          : name === "_TYPER_COMPLETE_ARGS"
+          ? "mpu xlsx "
+          : undefined,
+    });
+    assertStringIncludes(stdout, "compadd -- ");
+    assertStringIncludes(stdout, "alias");
+    // Без пробела то же самое слово дополняется как частичное.
+    const partial = await run([], {
+      env: (name) =>
+        name === "_MPU_COMPLETE"
+          ? "complete_zsh"
+          : name === "_TYPER_COMPLETE_ARGS"
+          ? "mpu xlsx"
+          : undefined,
+    });
+    assertStringIncludes(partial.stdout, "compadd -- xlsx");
+  });
+
   await t.step("zsh: вывод — код для eval", async () => {
     const { stdout } = await run([], {
       env: (name) =>
@@ -127,6 +173,37 @@ Deno.test("режим дополнения печатает варианты, а
           : undefined,
     });
     assertStringIncludes(stdout, "compadd -- xlsx");
+  });
+
+  await t.step("после имени группы — её подкоманды", async () => {
+    const { stdout } = await run([], {
+      env: (name) =>
+        name === "_MPU_COMPLETE"
+          ? "complete_bash"
+          : name === "COMP_WORDS"
+          ? "mpu xlsx a"
+          : name === "COMP_CWORD"
+          ? "2"
+          : undefined,
+    });
+    // Дополняется уровень, до которого дошли, а не корень дерева.
+    assertEquals(stdout.split("\n").filter(Boolean), ["alias"]);
+  });
+
+  await t.step("курсор после пробела — весь уровень целиком", async () => {
+    const { stdout } = await run([], {
+      env: (name) =>
+        name === "_MPU_COMPLETE"
+          ? "complete_bash"
+          : name === "COMP_WORDS"
+          ? "mpu xlsx"
+          : name === "COMP_CWORD"
+          ? "2"
+          : undefined,
+    });
+    const lines = stdout.split("\n").filter(Boolean);
+    assertEquals(lines.includes("ls"), true);
+    assertEquals(lines.includes("alias"), true);
   });
 
   await t.step("пустое слово — все имена верхнего уровня", async () => {
