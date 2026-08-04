@@ -15,10 +15,13 @@ import {
 import {
   childrenOf,
   type CommandGroup,
+  commands,
   findCommand,
   findGroup,
   findLegacy,
+  legacyCommands,
 } from "../registry/mod.ts";
+import { helpEntries, runHelpCommand } from "./help_command.ts";
 import { LegacyBinMissingError, runLegacyCommand } from "../legacy/mod.ts";
 import { renderCommandHelp, renderIndex } from "./help.ts";
 
@@ -39,6 +42,9 @@ const ROOT_SUMMARY =
  */
 const JSON_FLAG = "--json";
 
+/** Имя справочной подкоманды: `mpu help [<полное имя>]`. */
+const HELP_COMMAND = "help";
+
 /** Исполняет вызов CLI и возвращает код завершения процесса. */
 export async function runCli(
   argv: readonly string[],
@@ -58,6 +64,12 @@ export async function runCli(
   if (rest[0].startsWith("-")) {
     output.stderr(`No such option "${rest[0]}"\n`);
     return 2;
+  }
+
+  if (rest[0] === HELP_COMMAND) {
+    // Своя поверхность точки входа: печатает справку чужих команд, а
+    // результата и схем у неё нет (`platform/registry.md`).
+    return await runHelpCommand(rest.slice(1), entries(), io, output);
   }
 
   const { path, rest: args } = matchPath(rest);
@@ -217,6 +229,11 @@ function matchPath(
     index++;
   }
   return { path, rest: argv.slice(index) };
+}
+
+/** Состав `mpu help`: обе поверхности реестра плюс сама `mpu help`. */
+function entries() {
+  return helpEntries(commands, legacyCommands);
 }
 
 function rootIndex(): string {
