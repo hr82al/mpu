@@ -1,0 +1,43 @@
+{
+  "class": "доменная ошибка: вход корректен, выполнить не удалось — результат с признаком ошибки",
+  "request": {
+    "method": "POST",
+    "path": "/ro",
+    "headers": {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Authorization": "Bearer <токен доступа>",
+      "MCP-Protocol-Version": "2026-07-28",
+      "Mcp-Method": "tools/call",
+      "Mcp-Name": "xlsx_ls"
+    },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "method": "tools/call",
+      "params": {
+        "name": "xlsx_ls",
+        "arguments": { "file": "нет-такого.xlsx" },
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": { "name": "ExampleClient", "version": "1.0.0" },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": {
+        "isError": true,
+        "content": [
+          { "type": "text", "text": "mpu xlsx: file not found: \"нет-такого.xlsx\"" }
+        ]
+      }
+    }
+  }
+}

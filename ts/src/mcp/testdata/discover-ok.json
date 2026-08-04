@@ -1,0 +1,43 @@
+{
+  "class": "успешный server/discover: версии, возможности, идентичность, инструкции профиля",
+  "request": {
+    "method": "POST",
+    "path": "/ro",
+    "headers": {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Authorization": "Bearer <токен доступа>",
+      "MCP-Protocol-Version": "2026-07-28",
+      "Mcp-Method": "server/discover"
+    },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": "discover-1",
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": { "name": "ExampleClient", "version": "1.0.0" },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": "discover-1",
+      "result": {
+        "resultType": "complete",
+        "supportedVersions": ["2026-07-28"],
+        "capabilities": { "tools": {} },
+        "_meta": {
+          "io.modelcontextprotocol/serverInfo": { "name": "mpu", "version": "0.1.0" }
+        },
+        "instructions": "Читающие операции над данными и инфраструктурой монорепо: выборки из баз клиентов, состояние загрузчиков и сервисов, чтение таблиц и локальных книг, карточки задач и merge request'ы. Искать здесь, когда нужно посмотреть состояние, а не изменить его."
+      }
+    }
+  }
+}

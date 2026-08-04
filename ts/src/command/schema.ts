@@ -23,6 +23,13 @@ export interface ObjectSchema {
   readonly type: string;
   readonly properties: Readonly<Record<string, SchemaField>>;
   readonly required?: readonly string[];
+  /**
+   * Исходная JSON Schema целиком. Дескриптор выше описывает только
+   * верхний уровень — этого хватает разбору argv, но схема тула
+   * публикуется агенту со всей вложенностью, включая элементы
+   * массивов (`platform/mcp-server.md`).
+   */
+  readonly json: Readonly<Record<string, unknown>>;
 }
 
 /** Схема нечитаема как объект с полями — дефект объявления команды. */
@@ -48,7 +55,12 @@ export function readObjectSchema(value: unknown, what: string): ObjectSchema {
       properties[key] = readField(field, `${what}.${key}`);
     }
   }
-  return { type, properties, required: readRequired(root["required"], what) };
+  return {
+    type,
+    properties,
+    required: readRequired(root["required"], what),
+    json: root,
+  };
 }
 
 function readField(value: unknown, what: string): SchemaField {

@@ -1,0 +1,311 @@
+[
+  {
+    "name": "xlsx_ls",
+    "title": "mpu xlsx ls",
+    "description": "список листов книги\n\nФлаги:\n  -f, --file PATH  путь или алиас .xlsx; без флага источники по\n                   порядку: env MPU_XLSX, config xlsx.default\n  -l, --long       колонки: имя, строки×колонки, #индекс (0-based)\n\nВывод по умолчанию: имя листа на строку, порядок как в книге.\nrows/cols — фактический максимум встреченных ячеек (учитывая merge);\nу пустого листа 0×0.\n\nExit: 0 — успех; 2 — ошибка ввода; 1 — файл не найден / не xlsx.\n\nПример: mpu xlsx ls -f report.xlsx --long",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "description": "путь или алиас .xlsx; без флага источники по порядку: env MPU_XLSX, config xlsx.default",
+          "type": "string"
+        },
+        "long": {
+          "default": false,
+          "description": "колонки: имя, строки×колонки, #индекс (0-based)",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "sheets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "rows": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "cols": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "title",
+              "index",
+              "rows",
+              "cols"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "sheets"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "xlsx_get",
+    "title": "mpu xlsx get",
+    "description": "значения диапазонов книги\n\nДиапазоны: 'Лист!A1', 'Лист!A1:C3', открытые 'Лист!A:A',\n'Лист!1:5', 'Лист!A5:A' (клэмп к данным; заданная граница не\nуменьшается), голое имя листа — весь лист. Имя с пробелом/'/! — в\nодинарных кавычках, кавычка внутри удваивается.\n\nИсточники складываются: аргументы + --from (файл построчно, «-» —\nstdin; строка с # — комментарий, пустые пропускаются). Дубликаты\nубираются, порядок первого вхождения сохраняется.\n\nФлаги:\n  -f, --file PATH    путь или алиас .xlsx; иначе env MPU_XLSX, затем\n                     config xlsx.default\n  -n, --sheet NAME   префикс диапазонов без «!»; без них — весь лист\n      --from FILE|-  файл с диапазонами; повторяем; «-» — stdin\n      --render MODE  both (по умолчанию) | values | formulas\n      --raw | --tsv  форма вывода, не больше одной (exit 2)\n\nВывод по умолчанию — JSON (indent 2, без финального \\n): file и\ncells[{range, value, formula}]; formula только у реальных формул,\nпустые ячейки включены (value null). --tsv: шапка range/value/formula,\nэкранирование \\ \\n \\r \\t, bool → True/False, null — пусто. --raw:\nодна ячейка — голое значение без \\n; несколько — строка на ячейку.\n\nExit: 0 — успех (пустой результат не ошибка); 2 — ошибка ввода;\n1 — файл не найден / не xlsx / лист не найден.\n\nПримеры:\n  mpu xlsx get 'Данные!A1:C3' -f report.xlsx\n  mpu xlsx get A1:C3 --sheet Данные --tsv",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "ranges": {
+          "default": [],
+          "description": "диапазоны вида 'Лист!A1:C3', открытые 'Лист!A:A', голое имя листа",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "file": {
+          "description": "путь или алиас .xlsx; без флага: env MPU_XLSX, config xlsx.default",
+          "type": "string"
+        },
+        "sheet": {
+          "description": "префиксует диапазоны без «!»; без диапазонов — весь лист",
+          "type": "string"
+        },
+        "from": {
+          "default": [],
+          "description": "файл с диапазонами построчно; повторяем; «-» — stdin",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "render": {
+          "default": "both",
+          "description": "что попадает в ячейку результата",
+          "type": "string",
+          "enum": [
+            "both",
+            "values",
+            "formulas"
+          ]
+        },
+        "raw": {
+          "default": false,
+          "description": "голые значения без шапки",
+          "type": "boolean"
+        },
+        "tsv": {
+          "default": false,
+          "description": "таблица с шапкой range/value",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "range": {
+                "type": "string"
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "formula": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "range"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "file",
+        "cells"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "xlsx_resolve",
+    "title": "mpu xlsx resolve",
+    "description": "диагностика резолва пути к книге\n\nПоказывает три источника пути в порядке приоритета\n(--file/-f, env MPU_XLSX, config xlsx.default), их значения и\nпобедителя. Значение-алиас разворачивается в путь алиаса.\n\nФлаги:\n  -f, --file PATH  проверить с этим значением флага\n\nСтруктурный результат отдаётся всегда, в том числе когда путь не\nрезолвится; текстовая форма в этом случае завершается кодом 2.\n\nExit: 0 — путь резолвится; 2 — не резолвится (текстовая форма) или\nошибка ввода.\n\nПример: mpu xlsx resolve -f report.xlsx",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "description": "проверить с этим значением флага",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "resolved": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "flag",
+                    "env",
+                    "config"
+                  ]
+                },
+                "alias": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "source"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "checked": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "enum": [
+                  "flag",
+                  "env",
+                  "config"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "value": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "used": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "source",
+              "label",
+              "value",
+              "used"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "resolved",
+        "checked"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "xlsx_alias_ls",
+    "title": "mpu xlsx alias ls",
+    "description": "список алиасов\n\n«имя<TAB>путь» на строку, сортировка по имени. Пустой список —\nпустой вывод.\n\nExit: 0 — всегда при читаемом хранилище; 1 — хранилище битое.\n\nПример: mpu xlsx alias ls",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "path"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "aliases"
+      ],
+      "additionalProperties": false
+    }
+  }
+]

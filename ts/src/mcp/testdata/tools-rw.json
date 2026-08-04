@@ -1,0 +1,125 @@
+[
+  {
+    "name": "xlsx_open",
+    "title": "mpu xlsx open",
+    "description": "открыть книгу в системном приложении\n\nФлаги:\n  -f, --file PATH  путь или алиас .xlsx; без флага: env MPU_XLSX,\n                   затем config xlsx.default\n  -p, --print      напечатать резолвленный путь и не открывать\n\nОткрыватель (xdg-open, затем open) запускается отвязанным процессом:\nрезультат и существование файла не проверяются. Ни одного открывателя\nнет — exit 1 с подсказкой --print.\n\nExit: 0 — успех; 2 — ошибка ввода/путь не задан; 1 — нет открывателя.\n\nПример: mpu xlsx open -f report.xlsx --print",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "description": "путь или алиас .xlsx; без флага источники по порядку: env MPU_XLSX, config xlsx.default",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать резолвленный путь и не открывать",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "launched": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path",
+        "launched"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "xlsx_alias_add",
+    "title": "mpu xlsx alias add",
+    "description": "добавить или заменить алиас\n\nNAME — по [A-Za-z0-9_.-]+, иначе exit 2. PATH — непустой;\nхранится как введён, существование файла не проверяется. Повторное\nadd того же имени заменяет путь (upsert). Успех молчалив.\n\nExit: 0 — успех; 2 — ошибка ввода; 1 — хранилище недоступно.\n\nПример: mpu xlsx alias add otchet ~/docs/report.xlsx",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "имя алиаса по [A-Za-z0-9_.-]+"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "путь к книге; хранится как введён"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "created": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "created"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "xlsx_alias_rm",
+    "title": "mpu xlsx alias rm",
+    "description": "удалить алиас (идемпотентно)\n\nУдаляет алиас NAME; отсутствие имени в хранилище — не ошибка,\nexit 0 всегда. Успех молчалив.\n\nExit: 0 — всегда; 2 — NAME не передан; 1 — хранилище недоступно.\n\nПример: mpu xlsx alias rm otchet",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "имя удаляемого алиаса"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "removed"
+      ],
+      "additionalProperties": false
+    }
+  }
+]

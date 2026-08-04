@@ -15,7 +15,12 @@ import { type InputForm, type InputSpec, parseArgv } from "./args.ts";
 import { type ObjectSchema, readObjectSchema } from "./schema.ts";
 import { UsageError } from "./errors.ts";
 
-export { DomainError, NotFoundIoError, UsageError } from "./errors.ts";
+export {
+  DomainError,
+  formatCommandError,
+  NotFoundIoError,
+  UsageError,
+} from "./errors.ts";
 export type { InputForm, InputSpec } from "./args.ts";
 export type { ObjectSchema, SchemaField } from "./schema.ts";
 
@@ -98,6 +103,16 @@ export interface Command {
     argv: readonly string[],
     io: CommandIo,
   ) => Promise<unknown>;
+  /**
+   * Исполняет по объекту аргументов — форма входа MCP: агент присылает
+   * не argv, а объект по опубликованной схеме входа тула
+   * (`platform/command-contract.md`). Имя вне схемы — ошибка ввода:
+   * схема тула объявлена закрытой.
+   */
+  readonly invokeInput: (
+    input: unknown,
+    io: CommandIo,
+  ) => Promise<unknown>;
   /** Текст результата для человека; окружения не касается. */
   readonly renderResult: (
     result: unknown,
@@ -133,6 +148,8 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
   const helpHint = `mpu ${name} --help`;
   const parse = (argv: readonly string[]): A =>
     parseArgs(spec.argsSchema, parseArgv(argv, specs, helpHint), helpHint);
+  const parseInput = (input: unknown): A =>
+    parseInputObject(spec.argsSchema, onlyKnownInputs(input, specs));
 
   return {
     path: spec.path,
@@ -146,6 +163,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     requiredInputNames: argsJsonSchema.required ?? [],
     parseArgs: (argv) => asRecord(parse(argv), `${name}: аргументы`),
     invoke: (argv, io) => spec.run(parse(argv), io),
+    invokeInput: (input, io) => spec.run(parseInput(input), io),
     renderResult: (result, argv) =>
       spec.render(spec.resultSchema.parse(result), parse(argv)),
     textExitCode: (result) =>
@@ -186,6 +204,46 @@ function inputSpecs(
     kind: kindOf(field.type),
     form: forms[name] ?? {},
   }));
+}
+
+/**
+ * Проверяет объект аргументов схемой. От разбора argv отличается только
+ * сообщением: у объекта имя поля не видно из формы записи, поэтому оно
+ * ставится в начало — агенту иначе не понять, какой аргумент чинить.
+ */
+function parseInputObject<A>(schema: z.ZodType<A>, raw: unknown): A {
+  const parsed = schema.safeParse(raw);
+  if (parsed.success) return parsed.data;
+  const issue = parsed.error.issues[0];
+  const where = issue.path.join(".");
+  // Префикс дописывает генератор сообщений схемы, а имя поля мы ставим
+  // сами — вместе получилось бы «long: Invalid input: expected …».
+  // Смена префикса в апстриме видна по golden-паре invalid-args.
+  const reason = issue.message.replace(/^Invalid input: /, "");
+  throw new UsageError(where === "" ? issue.message : `${where}: ${reason}`, {
+    cause: parsed.error,
+  });
+}
+
+/**
+ * Проверяет, что объект аргументов не несёт имён вне схемы. Схема
+ * пропустила бы их молча, а опубликованная схема тула объявлена
+ * закрытой — агент должен узнать об опечатке, а не потерять параметр.
+ */
+function onlyKnownInputs(
+  input: unknown,
+  specs: readonly InputSpec[],
+): unknown {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    throw new UsageError("arguments must be an object");
+  }
+  const known = new Set(specs.map((spec) => spec.name));
+  for (const name of Object.keys(input)) {
+    if (!known.has(name)) {
+      throw new UsageError(`unknown argument "${name}"`);
+    }
+  }
+  return input;
 }
 
 /** Обязательный справочный текст команды; пустой — дефект объявления. */

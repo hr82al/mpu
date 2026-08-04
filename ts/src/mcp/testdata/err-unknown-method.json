@@ -1,0 +1,35 @@
+{
+  "class": "граница протокола: метод JSON-RPC не реализован",
+  "request": {
+    "method": "POST",
+    "path": "/ro",
+    "headers": {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Authorization": "Bearer <токен доступа>",
+      "MCP-Protocol-Version": "2026-07-28",
+      "Mcp-Method": "prompts/list"
+    },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "method": "prompts/list",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": { "name": "ExampleClient", "version": "1.0.0" },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 404,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "error": { "code": -32601, "message": "Method not found: prompts/list" }
+    }
+  }
+}

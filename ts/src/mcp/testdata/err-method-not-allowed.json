@@ -1,0 +1,14 @@
+{
+  "class": "граница транспорта: путь профиля принимает только POST",
+  "request": {
+    "method": "GET",
+    "path": "/ro",
+    "headers": { "Accept": "application/json, text/event-stream" },
+    "body": null
+  },
+  "response": {
+    "status": 405,
+    "headers": { "Allow": "POST" },
+    "body": null
+  }
+}

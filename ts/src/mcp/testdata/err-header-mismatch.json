@@ -1,0 +1,41 @@
+{
+  "class": "граница транспорта: Mcp-Name расходится с телом",
+  "request": {
+    "method": "POST",
+    "path": "/ro",
+    "headers": {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+      "Authorization": "Bearer <токен доступа>",
+      "MCP-Protocol-Version": "2026-07-28",
+      "Mcp-Method": "tools/call",
+      "Mcp-Name": "xlsx_get"
+    },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "method": "tools/call",
+      "params": {
+        "name": "xlsx_ls",
+        "arguments": {},
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": { "name": "ExampleClient", "version": "1.0.0" },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  },
+  "response": {
+    "status": 400,
+    "headers": { "Content-Type": "application/json" },
+    "body": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "error": {
+        "code": -32020,
+        "message": "Header mismatch: Mcp-Name header value 'xlsx_get' does not match body value 'xlsx_ls'"
+      }
+    }
+  }
+}

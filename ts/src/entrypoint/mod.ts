@@ -9,6 +9,7 @@ import {
   type Command,
   type CommandIo,
   DomainError,
+  formatCommandError,
   UsageError,
 } from "../command/mod.ts";
 import {
@@ -73,11 +74,11 @@ export async function runCli(
     return await runCommand(command, args, json, io, output);
   } catch (err) {
     if (err instanceof UsageError) {
-      output.stderr(`${errorLine(path, err)}\n`);
+      output.stderr(`${formatCommandError(path, err)}\n`);
       return 2;
     }
     if (err instanceof DomainError) {
-      output.stderr(`${errorLine(path, err)}\n`);
+      output.stderr(`${formatCommandError(path, err)}\n`);
       return 1;
     }
     throw err;
@@ -182,17 +183,4 @@ function groupIndex(group: CommandGroup): string {
 
 function isHelpRequest(arg: string): boolean {
   return arg === "-h" || arg === "--help";
-}
-
-/**
- * Строка stderr: `mpu <команда>: <причина>[; попробуй: <подсказка>]`.
- * Префикс — первый сегмент пути, а не весь путь: он называет команду,
- * с которой разговаривает пользователь (контракт спек команд).
- */
-function errorLine(
-  path: readonly string[],
-  err: UsageError | DomainError,
-): string {
-  const hint = err.hint === undefined ? "" : `; попробуй: ${err.hint}`;
-  return `mpu ${path[0]}: ${err.message}${hint}`;
 }
