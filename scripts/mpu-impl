@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# mpu-impl — переключатель реализации `mpu` на время переезда.
+#
+#   mpu-impl enable  [--build]   активировать Deno/TS-бинарь
+#   mpu-impl disable             вернуть Python-реализацию
+#   mpu-impl status              что активно сейчас
+#
+# Переключение — это подмена симлинка ~/.local/bin/mpu. Обе реализации лежат
+# на своих местах и друг друга не затирают: Python остаётся установленной через
+# uv, TS-бинарь живёт в ts/bin/ (каталог в .gitignore). Поэтому откат мгновенен
+# и не требует пересборки.
+#
+# После переключения гоняется smoke-проверка. Если новая реализация не отвечает,
+# симлинк возвращается на Python сам: `mpu` — рабочий инструмент, и оставлять
+# его сломанным нельзя даже на минуту.
+
+set -uo pipefail
+
+REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+TS_DIR="$REPO/ts"
+TS_BIN="$TS_DIR/bin/mpu"
+PY_BIN="$HOME/.local/share/uv/tools/mpu/bin/mpu"
+LINK="$HOME/.local/bin/mpu"
+
+die() { printf 'mpu-impl: %s\n' "$1" >&2; exit 1; }
+
+# Куда сейчас смотрит симлинк: ts | py | иное
+current() {
+  local target
+  target=$(readlink -f "$LINK" 2>/dev/null) || { echo "нет"; return; }
+  case "$target" in
+    "$(readlink -f "$TS_BIN" 2>/dev/null)") echo "ts" ;;
+    "$(readlink -f "$PY_BIN" 2>/dev/null)") echo "py" ;;
+    *) echo "иное: $target" ;;
+  esac
+}
+
+build() {
+  command -v deno >/dev/null || die "deno не найден в PATH"
+  echo "== сборка =="
+  # Команда сборки берётся из deno.jsonc, а не переписывается здесь: список
+  # --allow-* обязан жить в одном месте, иначе права бинаря и права,
+  # объявленные модулем, разъедутся молча. Меняется только путь вывода —
+  # задача `build` пишет прямо в ~/.local/bin/mpu, а нам нужно собрать рядом,
+  # не трогая активную установку.
+  local cmd
+  cmd=$(grep -o 'deno compile[^"]*' "$TS_DIR/deno.jsonc") \
+    || die "в deno.jsonc не нашлась команда сборки"
+  cmd=${cmd/-o \$HOME\/.local\/bin\/mpu/-o "$TS_BIN"}
+  [[ "$cmd" == *"-o $TS_BIN"* ]] || die "путь вывода в deno.jsonc изменился — поправь скрипт"
+  mkdir -p "$TS_DIR/bin"
+  # deno compile отказывается писать поверх существующего файла.
+  rm -f "$TS_BIN"
+  ( cd "$TS_DIR" && eval "$cmd" ) || die "сборка упала"
+  [ -x "$TS_BIN" ] || die "после сборки нет $TS_BIN"
+}
+
+# Проверка живости активной реализации: версия, полнота дерева, мост в Python.
+smoke() {
+  local out
+  out=$("$LINK" version 2>&1) || { echo "  version: не отвечает — $out"; return 1; }
+  echo "  version: $out"
+  out=$("$LINK" --help 2>&1) || { echo "  --help: не отвечает"; return 1; }
+  local n
+  n=$(grep -cE '^\s{2,}[a-z][a-z0-9-]*\s{2,}\S' <<<"$out")
+  echo "  команд в --help: $n"
+  [ "$n" -ge 50 ] || { echo "  дерево неполное"; return 1; }
+  "$LINK" kiten --help >/dev/null 2>&1 || { echo "  мост в Python не работает"; return 1; }
+  echo "  мост в Python: ок"
+  return 0
+}
+
+link_to() { ln -sfn "$1" "$LINK"; }
+
+case "${1:-status}" in
+  enable)
+    [ -x "$PY_BIN" ] || die "нет Python-реализации по $PY_BIN — откатываться будет некуда"
+    { [ "${2:-}" = "--build" ] || [ ! -x "$TS_BIN" ]; } && build
+    link_to "$TS_BIN"
+    echo "== активна реализация ts =="
+    if smoke; then
+      echo "готово. вернуть Python: mpu-impl disable"
+    else
+      link_to "$PY_BIN"
+      die "smoke не прошёл — симлинк возвращён на Python"
+    fi
+    ;;
+  disable)
+    [ -x "$PY_BIN" ] || die "нет Python-реализации по $PY_BIN"
+    link_to "$PY_BIN"
+    echo "== активна реализация py =="
+    smoke || die "Python-реализация не отвечает — чинить установку uv"
+    echo "готово. включить обратно: mpu-impl enable"
+    ;;
+  status)
+    echo "симлинк:  $LINK -> $(readlink "$LINK" 2>/dev/null || echo '(нет)')"
+    echo "активна:  $(current)"
+    if [ -x "$TS_BIN" ]; then
+      echo "ts-бинарь: $("$TS_BIN" version 2>&1 | head -1)"
+    else
+      echo "ts-бинарь: не собран"
+    fi
+    echo "py-бинарь: $([ -x "$PY_BIN" ] && "$PY_BIN" version 2>/dev/null || echo 'нет')"
+    ;;
+  *)
+    die "неизвестная команда '${1}'; доступны: enable [--build] | disable | status"
+    ;;
+esac
