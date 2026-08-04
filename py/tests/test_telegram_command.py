@@ -5,10 +5,15 @@
 а `TgConfig.from_env` / `KaitenClient.from_env` / журнал `kaiten_card_moves` — фейками.
 Проверяем happy/error/empty пути + что `send` НЕ вызывается на `--dry-run`.
 """
+# Тесты login-хелперов дёргают приватные `_read_stdin_line`/`_ask*`/`_ensure_telegram_creds`
+# (commands/telegram.py) — отключаем reportPrivateUsage.
+# pyright: reportPrivateUsage=false
 
 from __future__ import annotations
 
+import io
 import json
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
@@ -634,3 +639,266 @@ def test_status_live_error_skipped(
     # live-сбой не валит команду: предупреждение в stderr + локальный журнал остаётся.
     assert "live-обогащение пропущено" in result.output
     assert "Локальная" in result.output
+
+
+# ── login: stdin/ask/creds helpers ────────────────────────────────────────────
+
+
+class _FakeStdin:
+    """Подмена `sys.stdin`: байтовый `buffer.readline()` + управляемый `isatty()`."""
+
+    def __init__(self, data: bytes = b"", *, tty: bool = False) -> None:
+        self.buffer = io.BytesIO(data)
+        self._tty = tty
+
+    def isatty(self) -> bool:
+        return self._tty
+
+
+def _must_not_write(name: str, value: str) -> None:
+    raise AssertionError(f"set_persistent не должен вызываться ({name}={value})")
+
+
+# ── _read_stdin_line ────────────────────────────────────────────────────────
+
+
+def test_read_stdin_line_strips(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "stdin", _FakeStdin(b"  hello \n"))
+    assert telegram_cmd._read_stdin_line() == "hello"
+
+
+def test_read_stdin_line_eof_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """EOF (пустой buffer) → пустая строка, не исключение."""
+    monkeypatch.setattr(sys, "stdin", _FakeStdin(b""))
+    assert telegram_cmd._read_stdin_line() == ""
+
+
+def test_read_stdin_line_replaces_bad_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Битые utf-8 байты заменяются на U+FFFD, без UnicodeDecodeError."""
+    monkeypatch.setattr(sys, "stdin", _FakeStdin(b"\xff\xfe\n"))
+    assert telegram_cmd._read_stdin_line() == "��"
+
+
+# ── _ask / _ask_yes_no / _ask_secret ──────────────────────────────────────────
+
+
+def test_ask_returns_stdin_line(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(telegram_cmd, "_read_stdin_line", lambda: "answer")
+    assert telegram_cmd._ask("Question: ") == "answer"
+    assert "Question:" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        ("y", True),
+        ("yes", True),
+        ("Y", True),
+        ("YES", True),
+        ("n", False),
+        ("", False),
+        ("nope", False),
+    ],
+)
+def test_ask_yes_no(monkeypatch: pytest.MonkeyPatch, answer: str, expected: bool) -> None:
+    monkeypatch.setattr(telegram_cmd, "_read_stdin_line", lambda: answer)
+    assert telegram_cmd._ask_yes_no("OK?") is expected
+
+
+def test_ask_secret_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """getpass-путь: значение возвращается обрезанным."""
+    import getpass
+
+    def fake_getpass(prompt: str = "") -> str:
+        _ = prompt
+        return "  secret  "
+
+    monkeypatch.setattr(getpass, "getpass", fake_getpass)
+    assert telegram_cmd._ask_secret("pw: ") == "secret"
+
+
+def test_ask_secret_fallback_on_oserror(monkeypatch: pytest.MonkeyPatch) -> None:
+    """getpass упал (нет TTY) → деградация в видимый ввод через _ask."""
+    import getpass
+
+    def raising(prompt: str = "") -> str:
+        _ = prompt
+        raise OSError("no tty")
+
+    monkeypatch.setattr(getpass, "getpass", raising)
+    monkeypatch.setattr(telegram_cmd, "_read_stdin_line", lambda: "typed")
+    assert telegram_cmd._ask_secret("pw: ") == "typed"
+
+
+# ── _ensure_telegram_creds ────────────────────────────────────────────────────
+
+
+def test_ensure_creds_short_circuit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Креды уже в env → True без вопросов."""
+    monkeypatch.setattr(env, "get", _env_get({"TELEGRAM_API_ID": "1", "TELEGRAM_API_HASH": "h"}))
+    assert telegram_cmd._ensure_telegram_creds() is True
+
+
+def test_ensure_creds_user_declines(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(env, "get", _env_get({}))
+
+    def no(label: str) -> bool:
+        _ = label
+        return False
+
+    monkeypatch.setattr(telegram_cmd, "_ask_yes_no", no)
+    assert telegram_cmd._ensure_telegram_creds() is False
+    assert "пропущено" in capsys.readouterr().err
+
+
+def test_ensure_creds_empty_input(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Согласился, но ввёл пусто → False, без записи."""
+    monkeypatch.setattr(env, "get", _env_get({}))
+
+    def yes(label: str) -> bool:
+        _ = label
+        return True
+
+    def empty(label: str) -> str:
+        _ = label
+        return ""
+
+    monkeypatch.setattr(telegram_cmd, "_ask_yes_no", yes)
+    monkeypatch.setattr(telegram_cmd, "_ask", empty)
+    monkeypatch.setattr(env, "set_persistent", _must_not_write)
+    assert telegram_cmd._ensure_telegram_creds() is False
+
+
+def test_ensure_creds_writes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Согласился и ввёл значения → пишет оба ключа через set_persistent, возвращает True."""
+    monkeypatch.setattr(env, "get", _env_get({}))
+
+    def yes(label: str) -> bool:
+        _ = label
+        return True
+
+    def val(label: str) -> str:
+        _ = label
+        return "value"
+
+    saved: dict[str, str] = {}
+
+    def fake_set(name: str, value: str) -> None:
+        saved[name] = value
+
+    monkeypatch.setattr(telegram_cmd, "_ask_yes_no", yes)
+    monkeypatch.setattr(telegram_cmd, "_ask", val)
+    monkeypatch.setattr(env, "set_persistent", fake_set)
+    assert telegram_cmd._ensure_telegram_creds() is True
+    assert saved["TELEGRAM_API_ID"] == "value"
+    assert saved["TELEGRAM_API_HASH"] == "value"
+
+
+# ── run_login_step ─────────────────────────────────────────────────────────────
+
+
+def test_run_login_step_already_authorized(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(env, "get", _env_get({"TELEGRAM_SESSION": "sess"}))
+    telegram_cmd.run_login_step()
+    assert "уже авторизован" in capsys.readouterr().err
+
+
+def test_run_login_step_no_tty(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(env, "get", _env_get({}))
+    monkeypatch.setattr(sys, "stdin", _FakeStdin(tty=False))
+    telegram_cmd.run_login_step()
+    assert "нет TTY" in capsys.readouterr().err
+
+
+def test_run_login_step_creds_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Нет creds и пользователь отказался → тихий выход (без падения)."""
+    monkeypatch.setattr(env, "get", _env_get({}))
+    monkeypatch.setattr(sys, "stdin", _FakeStdin(tty=True))
+    monkeypatch.setattr(telegram_cmd, "_ensure_telegram_creds", lambda: False)
+    monkeypatch.setattr(env, "set_persistent", _must_not_write)
+    telegram_cmd.run_login_step()
+
+
+def test_run_login_step_success(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Полный happy-path: спрашиваем телефон, логинимся, пишем phone+session."""
+    monkeypatch.setattr(env, "get", _env_get({}))  # SESSION и PHONE отсутствуют
+    monkeypatch.setattr(sys, "stdin", _FakeStdin(tty=True))
+    monkeypatch.setattr(telegram_cmd, "_ensure_telegram_creds", lambda: True)
+
+    def fake_from_env() -> telegram.TgConfig:
+        return telegram.TgConfig(api_id=1, api_hash="h", session=None)
+
+    monkeypatch.setattr(telegram.TgConfig, "from_env", staticmethod(fake_from_env))
+
+    def ask_phone(label: str) -> str:
+        _ = label
+        return "+79990001122"
+
+    monkeypatch.setattr(telegram_cmd, "_ask", ask_phone)
+
+    async def fake_login(
+        cfg: telegram.TgConfig, *, phone: str, prompt_code: object, prompt_password: object
+    ) -> str:
+        _ = (cfg, phone, prompt_code, prompt_password)
+        return "SESSIONXYZ"
+
+    monkeypatch.setattr(telegram, "interactive_login", fake_login)
+
+    saved: dict[str, str] = {}
+
+    def fake_set(name: str, value: str) -> None:
+        saved[name] = value
+
+    monkeypatch.setattr(env, "set_persistent", fake_set)
+
+    telegram_cmd.run_login_step()
+    assert "авторизован" in capsys.readouterr().err
+    assert saved["TELEGRAM_PHONE"] == "+79990001122"
+    assert saved["TELEGRAM_SESSION"] == "SESSIONXYZ"
+
+
+def test_run_login_step_tg_error(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """TgError при входе → best-effort пропуск (init не падает)."""
+    # SESSION нет → пробуем вход
+    monkeypatch.setattr(env, "get", _env_get({"TELEGRAM_PHONE": "+700"}))
+    monkeypatch.setattr(sys, "stdin", _FakeStdin(tty=True))
+    monkeypatch.setattr(telegram_cmd, "_ensure_telegram_creds", lambda: True)
+
+    def fake_from_env() -> telegram.TgConfig:
+        return telegram.TgConfig(api_id=1, api_hash="h", session=None)
+
+    monkeypatch.setattr(telegram.TgConfig, "from_env", staticmethod(fake_from_env))
+
+    async def fake_login_err(
+        cfg: telegram.TgConfig, *, phone: str, prompt_code: object, prompt_password: object
+    ) -> str:
+        _ = (cfg, phone, prompt_code, prompt_password)
+        raise telegram.TgError("boom")
+
+    monkeypatch.setattr(telegram, "interactive_login", fake_login_err)
+    telegram_cmd.run_login_step()
+    assert "пропущено (boom)" in capsys.readouterr().err
+
+
+# ── login (CLI command) ─────────────────────────────────────────────────────────
+
+
+def test_login_command_already_authorized(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`telegram login` зарегистрирована как подкоманда; при валидной TELEGRAM_SESSION —
+    идемпотентный no-op (без интерактивного входа), exit 0."""
+    monkeypatch.setattr(env, "get", _env_get({"TELEGRAM_SESSION": "sess"}))
+    result = runner.invoke(telegram_cmd.app, ["login"])
+    assert result.exit_code == 0, result.output
+    assert "уже авторизован" in result.output

@@ -1,9 +1,7 @@
-"""Smoke-тест верхнего уровня CLI + unit-тесты cli.py (mount/init/telegram-helpers/main)."""
-# Тесты дёргают приватные хелперы cli.py (_mount / _ask* / _read_stdin_line /
-# _ensure_telegram_creds / _telegram_login_step) — отключаем reportPrivateUsage.
+"""Smoke-тест верхнего уровня CLI + unit-тесты cli.py (mount/init/main)."""
+# Тесты дёргают приватный хелпер cli.py (_mount) — отключаем reportPrivateUsage.
 # pyright: reportPrivateUsage=false
 
-import io
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -17,7 +15,8 @@ from typer.testing import CliRunner
 from mpu import __version__, cli
 from mpu.cli import app
 from mpu.cli_registry import COMMANDS
-from mpu.lib import env, kaiten_cache, loki_discover, portainer_discover, servers, store, telegram
+from mpu.commands import telegram as telegram_cmd_module
+from mpu.lib import kaiten_cache, loki_discover, portainer_discover, servers, store
 from mpu.lib.kaiten import KaitenBoard, KaitenColumn, KaitenLane, KaitenSpace
 
 runner = CliRunner()
@@ -38,27 +37,6 @@ def test_version() -> None:
 
 
 # ── Общие фейки / хелперы ─────────────────────────────────────────────────────
-
-
-class _FakeStdin:
-    """Подмена `sys.stdin`: байтовый `buffer.readline()` + управляемый `isatty()`."""
-
-    def __init__(self, data: bytes = b"", *, tty: bool = False) -> None:
-        self.buffer = io.BytesIO(data)
-        self._tty = tty
-
-    def isatty(self) -> bool:
-        return self._tty
-
-
-def _set_env_get(monkeypatch: pytest.MonkeyPatch, values: dict[str, str | None]) -> None:
-    """Подменить `env.get` детерминированной таблицей (всё незаданное → default)."""
-
-    def fake_get(name: str, default: str | None = None) -> str | None:
-        return values.get(name, default)
-
-    monkeypatch.setattr(env, "get", fake_get)
-
 
 _ITEM = portainer_discover.DiscoveredContainer(
     portainer_url="https://example:9443",
@@ -167,242 +145,6 @@ def test_main_adds_api_group(
     assert "sl-back" in capsys.readouterr().out
 
 
-# ── _read_stdin_line ──────────────────────────────────────────────────────────
-
-
-def test_read_stdin_line_strips(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sys, "stdin", _FakeStdin(b"  hello \n"))
-    assert cli._read_stdin_line() == "hello"
-
-
-def test_read_stdin_line_eof_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    """EOF (пустой buffer) → пустая строка, не исключение."""
-    monkeypatch.setattr(sys, "stdin", _FakeStdin(b""))
-    assert cli._read_stdin_line() == ""
-
-
-def test_read_stdin_line_replaces_bad_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Битые utf-8 байты заменяются на U+FFFD, без UnicodeDecodeError."""
-    monkeypatch.setattr(sys, "stdin", _FakeStdin(b"\xff\xfe\n"))
-    assert cli._read_stdin_line() == "��"
-
-
-# ── _ask / _ask_yes_no / _ask_secret ──────────────────────────────────────────
-
-
-def test_ask_returns_stdin_line(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.setattr(cli, "_read_stdin_line", lambda: "answer")
-    assert cli._ask("Question: ") == "answer"
-    assert "Question:" in capsys.readouterr().err
-
-
-@pytest.mark.parametrize(
-    ("answer", "expected"),
-    [
-        ("y", True),
-        ("yes", True),
-        ("Y", True),
-        ("YES", True),
-        ("n", False),
-        ("", False),
-        ("nope", False),
-    ],
-)
-def test_ask_yes_no(monkeypatch: pytest.MonkeyPatch, answer: str, expected: bool) -> None:
-    monkeypatch.setattr(cli, "_read_stdin_line", lambda: answer)
-    assert cli._ask_yes_no("OK?") is expected
-
-
-def test_ask_secret_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    """getpass-путь: значение возвращается обрезанным."""
-    import getpass
-
-    def fake_getpass(prompt: str = "") -> str:
-        _ = prompt
-        return "  secret  "
-
-    monkeypatch.setattr(getpass, "getpass", fake_getpass)
-    assert cli._ask_secret("pw: ") == "secret"
-
-
-def test_ask_secret_fallback_on_oserror(monkeypatch: pytest.MonkeyPatch) -> None:
-    """getpass упал (нет TTY) → деградация в видимый ввод через _ask."""
-    import getpass
-
-    def raising(prompt: str = "") -> str:
-        _ = prompt
-        raise OSError("no tty")
-
-    monkeypatch.setattr(getpass, "getpass", raising)
-    monkeypatch.setattr(cli, "_read_stdin_line", lambda: "typed")
-    assert cli._ask_secret("pw: ") == "typed"
-
-
-# ── _ensure_telegram_creds ────────────────────────────────────────────────────
-
-
-def test_ensure_creds_short_circuit(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Креды уже в env → True без вопросов."""
-    _set_env_get(monkeypatch, {"TELEGRAM_API_ID": "1", "TELEGRAM_API_HASH": "h"})
-    assert cli._ensure_telegram_creds() is True
-
-
-def test_ensure_creds_user_declines(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    _set_env_get(monkeypatch, {})
-
-    def no(label: str) -> bool:
-        _ = label
-        return False
-
-    monkeypatch.setattr(cli, "_ask_yes_no", no)
-    assert cli._ensure_telegram_creds() is False
-    assert "пропущено" in capsys.readouterr().err
-
-
-def test_ensure_creds_empty_input(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Согласился, но ввёл пусто → False, без записи."""
-    _set_env_get(monkeypatch, {})
-
-    def yes(label: str) -> bool:
-        _ = label
-        return True
-
-    def empty(label: str) -> str:
-        _ = label
-        return ""
-
-    monkeypatch.setattr(cli, "_ask_yes_no", yes)
-    monkeypatch.setattr(cli, "_ask", empty)
-    monkeypatch.setattr(env, "set_persistent", _must_not_write)
-    assert cli._ensure_telegram_creds() is False
-
-
-def test_ensure_creds_writes(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Согласился и ввёл значения → пишет оба ключа через set_persistent, возвращает True."""
-    _set_env_get(monkeypatch, {})
-
-    def yes(label: str) -> bool:
-        _ = label
-        return True
-
-    def val(label: str) -> str:
-        _ = label
-        return "value"
-
-    saved: dict[str, str] = {}
-
-    def fake_set(name: str, value: str) -> None:
-        saved[name] = value
-
-    monkeypatch.setattr(cli, "_ask_yes_no", yes)
-    monkeypatch.setattr(cli, "_ask", val)
-    monkeypatch.setattr(env, "set_persistent", fake_set)
-    assert cli._ensure_telegram_creds() is True
-    assert saved["TELEGRAM_API_ID"] == "value"
-    assert saved["TELEGRAM_API_HASH"] == "value"
-
-
-def _must_not_write(name: str, value: str) -> None:
-    raise AssertionError(f"set_persistent не должен вызываться ({name}={value})")
-
-
-# ── _telegram_login_step ──────────────────────────────────────────────────────
-
-
-def test_telegram_login_step_already_authorized(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    _set_env_get(monkeypatch, {"TELEGRAM_SESSION": "sess"})
-    cli._telegram_login_step()
-    assert "уже авторизован" in capsys.readouterr().err
-
-
-def test_telegram_login_step_no_tty(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    _set_env_get(monkeypatch, {})
-    monkeypatch.setattr(sys, "stdin", _FakeStdin(tty=False))
-    cli._telegram_login_step()
-    assert "нет TTY" in capsys.readouterr().err
-
-
-def test_telegram_login_step_creds_refused(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Нет creds и пользователь отказался → тихий выход (без падения)."""
-    _set_env_get(monkeypatch, {})
-    monkeypatch.setattr(sys, "stdin", _FakeStdin(tty=True))
-    monkeypatch.setattr(cli, "_ensure_telegram_creds", lambda: False)
-    monkeypatch.setattr(env, "set_persistent", _must_not_write)
-    cli._telegram_login_step()
-
-
-def test_telegram_login_step_success(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """Полный happy-path: спрашиваем телефон, логинимся, пишем phone+session."""
-    _set_env_get(monkeypatch, {})  # SESSION и PHONE отсутствуют
-    monkeypatch.setattr(sys, "stdin", _FakeStdin(tty=True))
-    monkeypatch.setattr(cli, "_ensure_telegram_creds", lambda: True)
-
-    def fake_from_env() -> telegram.TgConfig:
-        return telegram.TgConfig(api_id=1, api_hash="h", session=None)
-
-    monkeypatch.setattr(telegram.TgConfig, "from_env", staticmethod(fake_from_env))
-
-    def ask_phone(label: str) -> str:
-        _ = label
-        return "+79990001122"
-
-    monkeypatch.setattr(cli, "_ask", ask_phone)
-
-    async def fake_login(
-        cfg: telegram.TgConfig, *, phone: str, prompt_code: object, prompt_password: object
-    ) -> str:
-        _ = (cfg, phone, prompt_code, prompt_password)
-        return "SESSIONXYZ"
-
-    monkeypatch.setattr(telegram, "interactive_login", fake_login)
-
-    saved: dict[str, str] = {}
-
-    def fake_set(name: str, value: str) -> None:
-        saved[name] = value
-
-    monkeypatch.setattr(env, "set_persistent", fake_set)
-
-    cli._telegram_login_step()
-    assert "авторизован" in capsys.readouterr().err
-    assert saved["TELEGRAM_PHONE"] == "+79990001122"
-    assert saved["TELEGRAM_SESSION"] == "SESSIONXYZ"
-
-
-def test_telegram_login_step_tg_error(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """TgError при входе → best-effort пропуск (init не падает)."""
-    _set_env_get(monkeypatch, {"TELEGRAM_PHONE": "+700"})  # SESSION нет → пробуем вход
-    monkeypatch.setattr(sys, "stdin", _FakeStdin(tty=True))
-    monkeypatch.setattr(cli, "_ensure_telegram_creds", lambda: True)
-
-    def fake_from_env() -> telegram.TgConfig:
-        return telegram.TgConfig(api_id=1, api_hash="h", session=None)
-
-    monkeypatch.setattr(telegram.TgConfig, "from_env", staticmethod(fake_from_env))
-
-    async def fake_login_err(
-        cfg: telegram.TgConfig, *, phone: str, prompt_code: object, prompt_password: object
-    ) -> str:
-        _ = (cfg, phone, prompt_code, prompt_password)
-        raise telegram.TgError("boom")
-
-    monkeypatch.setattr(telegram, "interactive_login", fake_login_err)
-    cli._telegram_login_step()
-    assert "пропущено (boom)" in capsys.readouterr().err
-
-
 # ── mpu init: discovery best-effort оркестрация ───────────────────────────────
 
 
@@ -410,7 +152,7 @@ def test_init_no_containers_exits_1(init_env: Path, monkeypatch: pytest.MonkeyPa
     """Пустой discover → exit 1 с понятным сообщением."""
     _ = init_env
     monkeypatch.setattr(portainer_discover, "discover", _fake_discover_empty)
-    monkeypatch.setattr(cli, "_telegram_login_step", lambda: None)
+    monkeypatch.setattr(telegram_cmd_module, "run_login_step", lambda: None)
     result = runner.invoke(cli.app, ["init"])
     assert result.exit_code == 1
     assert "ни одного контейнера не найдено" in result.output
@@ -420,7 +162,7 @@ def test_init_discovery_errors_do_not_fail(init_env: Path, monkeypatch: pytest.M
     """Loki/Kaiten вернули ошибку → init всё равно exit 0 и пишет контейнеры."""
     _ = init_env
     monkeypatch.setattr(portainer_discover, "discover", _fake_discover)
-    monkeypatch.setattr(cli, "_telegram_login_step", lambda: None)
+    monkeypatch.setattr(telegram_cmd_module, "run_login_step", lambda: None)
 
     def loki_err() -> loki_discover.DiscoveryResult:
         return loki_discover.DiscoveryResult(
@@ -450,7 +192,7 @@ def test_init_discovery_success_prints_summary(
     """Успешный discovery → сводки Loki/Kaiten (включая lanes/columns) в выводе."""
     _ = init_env
     monkeypatch.setattr(portainer_discover, "discover", _fake_discover)
-    monkeypatch.setattr(cli, "_telegram_login_step", lambda: None)
+    monkeypatch.setattr(telegram_cmd_module, "run_login_step", lambda: None)
 
     def loki_ok() -> loki_discover.DiscoveryResult:
         return loki_discover.DiscoveryResult(
@@ -493,7 +235,7 @@ def test_init_kaiten_lanes_columns_error_marked_unknown(
     """spaces/boards есть, но lanes/columns упали → счётчики помечены '?'."""
     _ = init_env
     monkeypatch.setattr(portainer_discover, "discover", _fake_discover)
-    monkeypatch.setattr(cli, "_telegram_login_step", lambda: None)
+    monkeypatch.setattr(telegram_cmd_module, "run_login_step", lambda: None)
     monkeypatch.setattr(
         loki_discover,
         "discover_and_store",
