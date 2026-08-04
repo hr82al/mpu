@@ -8,5 +8,7 @@
   "BARE_URL": "https://api.example.test/path?a=1&b=2",
   "BASE64_LIKE": "AbCd012+/=",
   "TRAILING_COMMENT": "value",
-  "UNDER_SCORE_1": "ok"
+  "UNDER_SCORE_1": "ok",
+  "INLINE_HASH": "va#lue",
+  "DUP_KEY": "last"
 }
