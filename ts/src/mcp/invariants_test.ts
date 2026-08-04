@@ -16,7 +16,9 @@ import {
 import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
   type: "json",
 };
+import type { LegacyLeaf } from "./legacy_tools.ts";
 import { readManifest } from "./legacy_tools.ts";
+import { publishableLegacy } from "./tools.ts";
 import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };
@@ -176,6 +178,35 @@ Deno.test("публикация подчинена закрытому списк
       published.filter((item) => outside.includes(item.command)),
       [],
     );
+  });
+
+  await t.step("узел дерева тулом не становится", () => {
+    const groups = readManifest(treeManifest).commands
+      .filter((node) => node.group === true)
+      .map((node) => node.path.join(" "));
+    assertEquals(groups.length > 0, true, "в слепке нет ни одной группы");
+    // Сегодня групп в списке нет — это проверяем...
+    assertEquals(
+      [...policies.ro, ...policies.rw].filter((name) => groups.includes(name)),
+      [],
+    );
+    assertEquals(
+      published.filter((item) => groups.includes(item.command)),
+      [],
+    );
+    // ...но правку списка это не стережёт, поэтому правило проверяется
+    // и само по себе: узел с признаком группы не публикуется, даже
+    // если его имя в списке есть.
+    const asGroup: LegacyLeaf = {
+      path: ["xlsx", "ls"],
+      params: [],
+      summary: "проба",
+      help: "проба",
+      group: true,
+    };
+    assertEquals(publishableLegacy([asGroup], "ro"), []);
+    const asLeaf: LegacyLeaf = { ...asGroup, group: undefined };
+    assertEquals(publishableLegacy([asLeaf], "ro").length, 1);
   });
 
   await t.step("расхождение политики со списком — отказ собрать тулы", () => {

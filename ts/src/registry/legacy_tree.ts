@@ -44,8 +44,7 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   },
   {
     path: ["sheet"],
-    summary:
-      "sheet: get | ls | resolve | set | batch-update | batch-get | open … (+3)",
+    summary: "Google Spreadsheets через Apps Script webapp (native Python).",
   },
   {
     path: ["backup-wb-unit-proto"],
@@ -119,18 +118,22 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["kiten"],
     summary:
-      "kiten: status | ls | card | comment | desc | move | ready | review … (+10)",
+      "Kaiten (btlz.kaiten.ru) из терминала: `ls`/`card`/`comment`/`desc`/`move`/`ready`/`review`/`close` — работа с карточкой; `checklist` — чек-листы (интерактивные чекбоксы); `time` — учёт времени и...",
   },
   {
     path: ["mr"],
     summary:
-      "mr: view | create | describe | files | diff | comment | note … (+7)",
+      "GitLab MR review: инлайн-комментарии под строкой диффа, треды, create/describe.",
   },
   {
     path: ["glab-status"],
     summary: "Таблица прохождения MR по веткам деплой-пайплайна.",
   },
-  { path: ["telegram"], summary: "telegram: send | status | ls | search" },
+  {
+    path: ["telegram"],
+    summary:
+      "Telegram от имени пользователя (telethon): send — отправить, ls — диалоги, search — поиск.",
+  },
   {
     path: ["confirm"],
     summary: "Пропустить stdin → stdout по подтверждению; иначе прервать pipe.",
@@ -167,8 +170,7 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   },
   {
     path: ["wb-loader"],
-    summary:
-      "wb-loader: reports | cards | adv-auto-keywords-stats | adv-fullstats … (+4)",
+    summary: "Обёртки над `node cli service:wbLoader` (sl-back).",
   },
   {
     path: ["wb-jobs"],
@@ -187,14 +189,16 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   },
   {
     path: ["iu-wb"],
-    summary: "iu-wb: get-source-data | make-sql | fix-formulas",
+    summary: "Обёртки над `node cli service:iuWb` (sl-back).",
   },
   {
     path: ["ozon-loader"],
-    summary:
-      "ozon-loader: postings-reports | performance-reports | search-promo … (+4)",
+    summary: "Обёртки над `node cli service:ozonLoader` (sl-back).",
   },
-  { path: ["ozon-jobs"], summary: "ozon-jobs: show | prune" },
+  {
+    path: ["ozon-jobs"],
+    summary: "Обёртки над `node cli service:ozonJobs` (sl-back).",
+  },
   {
     path: ["ozon-recalculate-expenses"],
     summary:
@@ -212,8 +216,7 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   },
   {
     path: ["clients-migrations"],
-    summary:
-      "clients-migrations: latest | up | rollback | down | init | latest-all",
+    summary: "Обёртки над `node cli service:clientsMigrations` (sl-back).",
   },
   {
     path: ["make-schema"],
@@ -222,10 +225,16 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   },
   {
     path: ["datasets-migrations"],
-    summary: "datasets-migrations: latest | up | rollback | down | list",
+    summary: "Обёртки над `node cli service:datasetsMigrations` (sl-back).",
   },
-  { path: ["app-migrations"], summary: "app-migrations: latest | up" },
-  { path: ["users"], summary: "users: add | add-role" },
+  {
+    path: ["app-migrations"],
+    summary: "Обёртки над `node cli service:appMigrations` (sl-back).",
+  },
+  {
+    path: ["users"],
+    summary: "Обёртки над `node cli service:users` (sl-back).",
+  },
   {
     path: ["data-loader"],
     summary: "Обёртки над `node cli service:dataLoader` (sl-back).",
@@ -253,7 +262,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   },
   {
     path: ["api"],
-    summary:
-      "api: add-client-ozon-key | add-client-wb-token | auth-change-password … (+95)",
+    summary: "HTTP API клиенты для sl-back (бывшие `mpuapi-*`).",
   },
 ];

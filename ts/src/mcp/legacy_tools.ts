@@ -16,8 +16,12 @@ import type { JsonSchema, Profile, ToolEntry } from "./tool.ts";
 import { toolName } from "./tool.ts";
 import { resolveLegacyBin } from "../legacy/mod.ts";
 
-/** Версия формата слепка, которую понимает этот код. */
-export const MANIFEST_VERSION = 1;
+/**
+ * Версия формата слепка, которую понимает этот код. Версия 2 добавила
+ * записи узлов дерева: у группы есть свои summary и help, признак —
+ * поле `group` (`platform/registry.md`).
+ */
+export const MANIFEST_VERSION = 2;
 
 /**
  * Предел вывода подпроцесса. Фиксирован реализацией и параметром тула
@@ -50,12 +54,17 @@ export interface LegacyParam {
   readonly nargs?: number;
 }
 
-/** Лист слепка: одна исполнимая команда дерева. */
+/**
+ * Узел слепка: исполнимая команда либо группа. Тулом становится только
+ * лист — у группы нечего исполнять (`platform/mcp-server.md`).
+ */
 export interface LegacyLeaf {
   readonly path: readonly string[];
   readonly params: readonly LegacyParam[];
   readonly summary: string;
   readonly help: string;
+  /** Узел дерева, а не команда: подкоманды есть, исполнения нет. */
+  readonly group?: boolean;
 }
 
 /** Слепок дерева команд целиком. */
@@ -113,6 +122,7 @@ function readLeaf(raw: unknown, index: number): LegacyLeaf {
     summary: text(leaf["summary"], `${where}: summary`),
     help: text(leaf["help"], `${where}: help`),
     params: params.map((param) => readParam(param, name.join(" "))),
+    ...(leaf["group"] === true ? { group: true } : {}),
   };
 }
 

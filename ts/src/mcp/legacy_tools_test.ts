@@ -341,18 +341,22 @@ Deno.test("слепок незнакомой версии — отказ, а н�
       ["слепок не объект", ["массив"], "ожидался объект"],
       [
         "commands не массив",
-        { manifestVersion: 1, mpuVersion: "0.1.0", commands: {} },
+        {
+          manifestVersion: MANIFEST_VERSION,
+          mpuVersion: "0.1.0",
+          commands: {},
+        },
         "commands не массив",
       ],
       [
         "mpuVersion не строка",
-        { manifestVersion: 1, mpuVersion: 1, commands: [] },
+        { manifestVersion: MANIFEST_VERSION, mpuVersion: 1, commands: [] },
         "mpuVersion: ожидалась строка",
       ],
       [
         "пустой путь листа",
         {
-          manifestVersion: 1,
+          manifestVersion: MANIFEST_VERSION,
           mpuVersion: "0.1.0",
           commands: [{ ...good, path: [] }],
         },
@@ -361,7 +365,7 @@ Deno.test("слепок незнакомой версии — отказ, а н�
       [
         "params не массив",
         {
-          manifestVersion: 1,
+          manifestVersion: MANIFEST_VERSION,
           mpuVersion: "0.1.0",
           commands: [{ ...good, params: "нет" }],
         },
@@ -370,7 +374,7 @@ Deno.test("слепок незнакомой версии — отказ, а н�
       [
         "неизвестный kind параметра",
         {
-          manifestVersion: 1,
+          manifestVersion: MANIFEST_VERSION,
           mpuVersion: "0.1.0",
           commands: [{
             ...good,
@@ -387,7 +391,7 @@ Deno.test("слепок незнакомой версии — отказ, а н�
       [
         "неизвестный type параметра",
         {
-          manifestVersion: 1,
+          manifestVersion: MANIFEST_VERSION,
           mpuVersion: "0.1.0",
           commands: [{
             ...good,
@@ -404,7 +408,7 @@ Deno.test("слепок незнакомой версии — отказ, а н�
       [
         "summary не строка",
         {
-          manifestVersion: 1,
+          manifestVersion: MANIFEST_VERSION,
           mpuVersion: "0.1.0",
           commands: [{ ...good, summary: 7 }],
         },
@@ -417,6 +421,20 @@ Deno.test("слепок незнакомой версии — отказ, а н�
         assertStringIncludes(String(err), expected);
       });
     }
+  });
+
+  await t.step("признак группы читается", () => {
+    const manifest = readManifest({
+      manifestVersion: MANIFEST_VERSION,
+      mpuVersion: "0.1.0",
+      commands: [
+        { path: ["kiten"], params: [], summary: "s", help: "h", group: true },
+        { path: ["kiten", "ls"], params: [], summary: "s", help: "h" },
+      ],
+    });
+    assertEquals(manifest.commands[0].group, true);
+    // У листа поля нет вовсе, а не `false`: слепок его не пишет.
+    assertEquals(manifest.commands[1].group, undefined);
   });
 
   await t.step("чужая версия — ManifestError с обеими версиями", () => {

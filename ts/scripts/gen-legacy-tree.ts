@@ -21,44 +21,26 @@ import tree from "../docs/specs/fixtures/platform/registry/tree.json" with {
 const NOT_LEGACY = new Set(["xlsx", "help", "version"]);
 
 const own = new Map<string, string>();
-const children = new Map<string, string[]>();
 const order: string[] = [];
 
-for (const leaf of tree.commands) {
-  const [name, child] = leaf.path;
+for (const node of tree.commands) {
+  const [name] = node.path;
   if (!order.includes(name)) order.push(name);
-  if (child === undefined) own.set(name, leaf.summary);
-  else if (!children.get(name)?.includes(child)) {
-    children.set(name, [...children.get(name) ?? [], child]);
-  }
+  // Однострока верхнего имени — из его собственной записи: у листа она
+  // своя, у группы своя же (слепок v2). Собирать её перечислением
+  // подкоманд больше не нужно — источник появился.
+  if (node.path.length === 1) own.set(name, node.summary);
 }
 
-/**
- * Однострока составного имени: перечисление подкоманд, обрезанное по
- * ширине колонки индекса. Полностью его писать нельзя — у `api` 90
- * подкоманд и строка вышла бы в 1700 символов; сколько именно скрыто,
- * видно из счётчика, а весь список — в справке самой команды.
- */
-function composeSummary(name: string, children: readonly string[]): string {
-  const LIMIT = 64;
-  const shown: string[] = [];
-  let width = 0;
-  for (const child of children) {
-    if (shown.length > 0 && width + child.length + 3 > LIMIT) break;
-    width += child.length + (shown.length > 0 ? 3 : 0);
-    shown.push(child);
+const entries = order.filter((name) => !NOT_LEGACY.has(name)).map((name) => {
+  const summary = own.get(name);
+  if (summary === undefined) {
+    // Слепок v2 несёт запись каждого узла: пропуск означает, что дамп
+    // снят не полностью, и молча подставлять суррогат нельзя.
+    throw new Error(`в слепке нет записи верхнего уровня для "${name}"`);
   }
-  const hidden = children.length - shown.length;
-  const tail = hidden > 0 ? ` … (+${hidden})` : "";
-  return `${name}: ${shown.join(" | ")}${tail}`;
-}
-
-const entries = order.filter((name) => !NOT_LEGACY.has(name)).map((name) => ({
-  name,
-  // У составного имени своей однострокѝ в слепке нет: её собирает
-  // перечисление подкоманд — данные те же, ничего не выдумано.
-  summary: own.get(name) ?? composeSummary(name, children.get(name) ?? []),
-}));
+  return { name, summary };
+});
 
 const body = entries
   .map((entry) =>

@@ -73,13 +73,30 @@ export function profileTools(
     .filter((command) => publishedPolicy(command) === profile)
     .map(nativeEntry);
   const published = new Set(native.map((entry) => entry.path.join(" ")));
-  const legacy = legacyLeaves()
-    .filter((leaf) => {
-      const name = leaf.path.join(" ");
-      return !published.has(name) && listedPolicy(name) === profile;
-    })
+  const legacy = publishableLegacy(legacyLeaves(), profile, published)
     .map((leaf) => legacyEntry(leaf, profile));
   return [...native, ...legacy];
+}
+
+/**
+ * Узлы слепка, публикуемые в профиле. Правило вынесено из сборки, чтобы
+ * проверяться отдельно от текущего содержимого списка: сегодня групп в
+ * списке нет, но правка списка не должна молча сделать группу тулом.
+ *
+ * Группа отсеивается раньше списка: исполнять у неё нечего, и её
+ * присутствие в списке — ошибка списка, а не повод собрать тул
+ * (`platform/mcp-server.md`).
+ */
+export function publishableLegacy(
+  nodes: readonly LegacyLeaf[],
+  profile: Profile,
+  alreadyPublished: ReadonlySet<string> = new Set(),
+): readonly LegacyLeaf[] {
+  return nodes.filter((node) => {
+    if (node.group === true) return false;
+    const name = node.path.join(" ");
+    return !alreadyPublished.has(name) && listedPolicy(name) === profile;
+  });
 }
 
 /** Листья слепка в его порядке; версия формата проверяется при чтении. */
