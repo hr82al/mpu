@@ -31,13 +31,10 @@ const resultSchema = z.object({
 export const resolveCommand = defineCommand({
   path: ["xlsx", "resolve"],
   summary: "диагностика резолва пути к книге",
-  usage: "mpu xlsx resolve [-f PATH]",
+  usage: "mpu xlsx resolve [-f FILE]",
   help: `Показывает три источника пути в порядке приоритета
 (--file/-f, env MPU_XLSX, config xlsx.default), их значения и
 победителя. Значение-алиас разворачивается в путь алиаса.
-
-Флаги:
-  -f, --file PATH  проверить с этим значением флага
 
 Структурный результат отдаётся всегда, в том числе когда путь не
 резолвится; текстовая форма в этом случае завершается кодом 2.

@@ -1,24 +1,12 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { runCli } from "./mod.ts";
-import type { CommandIo } from "../command/mod.ts";
+import { makeFakeIo } from "../testing/mod.ts";
 
 /** Точка входа маршрутизирует и печатает; io при этом не нужен. */
 function makeCli() {
   const out: string[] = [];
   const err: string[] = [];
-  const mustNotTouch = (what: string) => () => {
-    throw new Error(`${what} must not be touched`);
-  };
-  const io: CommandIo = {
-    env: () => undefined,
-    cwd: () => "/nowhere",
-    readFile: mustNotTouch("readFile"),
-    readTextFile: mustNotTouch("readTextFile"),
-    readTextStdin: mustNotTouch("stdin"),
-    readConfigStore: () => Promise.resolve(undefined),
-    writeConfigStore: mustNotTouch("writeConfigStore"),
-    launchOpener: mustNotTouch("opener"),
-  };
+  const io = makeFakeIo();
   const output = {
     stdout: (text: string) => void out.push(text),
     stderr: (text: string) => void err.push(text),
@@ -117,4 +105,64 @@ Deno.test("листовая справка печатается вместо и�
   assertEquals(await cli.run("xlsx", "get", "--help"), 0);
   assertStringIncludes(cli.stdout(), "Использование: mpu xlsx get");
   assertStringIncludes(cli.stdout(), "значения диапазонов книги");
+});
+
+/**
+ * Тело секции справки без заголовка. Сверять по всему тексту нельзя:
+ * те же слова есть в строке использования, и тест прошёл бы, даже если
+ * секция не печатается вовсе.
+ */
+function sectionOf(help: string, title: string): string {
+  const start = help.indexOf(`${title}:\n`);
+  if (start < 0) throw new Error(`в справке нет секции «${title}»`);
+  const body = help.slice(start + title.length + 2);
+  return body.slice(0, body.indexOf("\n\n"));
+}
+
+Deno.test("перечень входов справки собирается из схемы", async (t) => {
+  await t.step(
+    "флаги: обе формы записи, место значения, умолчание",
+    async () => {
+      const cli = makeCli();
+      assertEquals(await cli.run("xlsx", "get", "--help"), 0);
+      const flags = sectionOf(cli.stdout(), "Флаги");
+      assertStringIncludes(flags, "-f, --file FILE");
+      // Вход без короткой формы выравнивается по длинным именам.
+      assertStringIncludes(flags, "      --from FROM");
+      // Ограниченный набор значений виден на месте значения, а не в тексте.
+      assertStringIncludes(flags, "--render both|values|formulas");
+      // Умолчание берётся из схемы; перенос строки может разорвать
+      // скобку, поэтому сверяется хвост.
+      assertStringIncludes(flags, "умолчанию: both)");
+      // Описание входа приходит из схемы, а не из текста справки.
+      assertStringIncludes(flags, "что попадает в ячейку результата");
+    },
+  );
+
+  await t.step("позиционные входы — отдельной секцией", async () => {
+    const cli = makeCli();
+    assertEquals(await cli.run("xlsx", "alias", "add", "--help"), 0);
+    const args = sectionOf(cli.stdout(), "Аргументы");
+    assertStringIncludes(args, "NAME");
+    assertStringIncludes(args, "имя алиаса");
+    assertStringIncludes(args, "(обязателен)");
+    // Флагов у команды нет — пустой секции тоже.
+    assertEquals(cli.stdout().includes("Флаги:"), false);
+  });
+
+  await t.step(
+    "вход, забирающий остаток argv, помечен многоточием",
+    async () => {
+      const cli = makeCli();
+      assertEquals(await cli.run("xlsx", "get", "--help"), 0);
+      assertStringIncludes(sectionOf(cli.stdout(), "Аргументы"), "RANGES...");
+    },
+  );
+
+  await t.step("команда без входов обходится без секций", async () => {
+    const cli = makeCli();
+    assertEquals(await cli.run("xlsx", "alias", "ls", "--help"), 0);
+    assertEquals(cli.stdout().includes("Флаги:"), false);
+    assertEquals(cli.stdout().includes("Аргументы:"), false);
+  });
 });

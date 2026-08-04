@@ -2,6 +2,7 @@ import { assertEquals, assertMatch, assertStringIncludes } from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { makeDenoIo } from "../runtime/mod.ts";
+import { makeFakeIo } from "../testing/mod.ts";
 import { xlsxCommands } from "./mod.ts";
 
 /** Плейсхолдер снапшот-каталога в golden-эталонах спеки. */
@@ -32,20 +33,7 @@ interface TestCli {
 function makeTestCli(overrides: Partial<CommandIo> = {}): TestCli {
   const out: string[] = [];
   const err: string[] = [];
-  const mustNotTouch = (what: string) => () => {
-    throw new Error(`${what} must not be touched`);
-  };
-  const io: CommandIo = {
-    env: () => undefined,
-    cwd: () => "/nowhere",
-    readFile: mustNotTouch("readFile"),
-    readTextFile: mustNotTouch("readTextFile"),
-    readTextStdin: mustNotTouch("stdin"),
-    readConfigStore: () => Promise.resolve(undefined),
-    writeConfigStore: mustNotTouch("writeConfigStore"),
-    launchOpener: mustNotTouch("opener"),
-    ...overrides,
-  };
+  const io = makeFakeIo(overrides);
   const output = {
     stdout: (text: string) => void out.push(text),
     stderr: (text: string) => void err.push(text),

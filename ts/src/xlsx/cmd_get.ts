@@ -34,13 +34,17 @@ const argsSchema = z.object({
     "префиксует диапазоны без «!»; без диапазонов — весь лист",
   ),
   from: z.array(z.string()).default([]).describe(
-    "файл с диапазонами построчно; повторяем; «-» — stdin",
+    "файл с диапазонами построчно; флаг повторяем; «-» — stdin",
   ),
   render: z.enum(["both", "values", "formulas"], {
     error: (issue) => `invalid --render value "${String(issue.input)}"`,
   }).default("both").describe("что попадает в ячейку результата"),
-  raw: z.boolean().default(false).describe("голые значения без шапки"),
-  tsv: z.boolean().default(false).describe("таблица с шапкой range/value"),
+  raw: z.boolean().default(false).describe(
+    "голые значения без шапки; с --tsv несовместим (exit 2)",
+  ),
+  tsv: z.boolean().default(false).describe(
+    "таблица с шапкой range/value; с --raw несовместим (exit 2)",
+  ),
 }).refine((args) => !(args.raw && args.tsv), {
   error: "only one of --raw / --tsv can be set",
 });
@@ -62,8 +66,8 @@ const resultSchema = z.object({
 export const getCommand = defineCommand({
   path: ["xlsx", "get"],
   summary: "значения диапазонов книги",
-  usage: "mpu xlsx get [RANGES...] [-f PATH] [-n|--sheet NAME] " +
-    "[--from FILE|-] [--render both|values|formulas] [--raw|--tsv]",
+  usage: "mpu xlsx get [RANGES...] [-f FILE] [-n|--sheet SHEET] " +
+    "[--from FROM] [--render both|values|formulas] [--raw|--tsv]",
   help: `Диапазоны: 'Лист!A1', 'Лист!A1:C3', открытые 'Лист!A:A',
 'Лист!1:5', 'Лист!A5:A' (клэмп к данным; заданная граница не
 уменьшается), голое имя листа — весь лист. Имя с пробелом/'/! — в
@@ -72,14 +76,6 @@ export const getCommand = defineCommand({
 Источники складываются: аргументы + --from (файл построчно, «-» —
 stdin; строка с # — комментарий, пустые пропускаются). Дубликаты
 убираются, порядок первого вхождения сохраняется.
-
-Флаги:
-  -f, --file PATH    путь или алиас .xlsx; иначе env MPU_XLSX, затем
-                     config xlsx.default
-  -n, --sheet NAME   префикс диапазонов без «!»; без них — весь лист
-      --from FILE|-  файл с диапазонами; повторяем; «-» — stdin
-      --render MODE  both (по умолчанию) | values | formulas
-      --raw | --tsv  форма вывода, не больше одной (exit 2)
 
 Вывод по умолчанию — JSON (indent 2, без финального \\n): file и
 cells[{range, value, formula}]; formula только у реальных формул,

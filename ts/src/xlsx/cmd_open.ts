@@ -28,13 +28,8 @@ const resultSchema = z.object({
 export const openCommand = defineCommand({
   path: ["xlsx", "open"],
   summary: "открыть книгу в системном приложении",
-  usage: "mpu xlsx open [-f PATH] [-p|--print]",
-  help: `Флаги:
-  -f, --file PATH  путь или алиас .xlsx; без флага: env MPU_XLSX,
-                   затем config xlsx.default
-  -p, --print      напечатать резолвленный путь и не открывать
-
-Открыватель (xdg-open, затем open) запускается отвязанным процессом:
+  usage: "mpu xlsx open [-f FILE] [-p|--print]",
+  help: `Открыватель (xdg-open, затем open) запускается отвязанным процессом:
 результат и существование файла не проверяются. Ни одного открывателя
 нет — exit 1 с подсказкой --print.
 

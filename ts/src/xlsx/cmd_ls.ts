@@ -30,13 +30,8 @@ const resultSchema = z.object({
 export const lsCommand = defineCommand({
   path: ["xlsx", "ls"],
   summary: "список листов книги",
-  usage: "mpu xlsx ls [-f PATH] [-l|--long]",
-  help: `Флаги:
-  -f, --file PATH  путь или алиас .xlsx; без флага источники по
-                   порядку: env MPU_XLSX, config xlsx.default
-  -l, --long       колонки: имя, строки×колонки, #индекс (0-based)
-
-Вывод по умолчанию: имя листа на строку, порядок как в книге.
+  usage: "mpu xlsx ls [-f FILE] [-l|--long]",
+  help: `Вывод по умолчанию: имя листа на строку, порядок как в книге.
 rows/cols — фактический максимум встреченных ячеек (учитывая merge);
 у пустого листа 0×0.
 
