@@ -17,6 +17,8 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { VERSION } from "../src/version.ts";
+import { REQUIRES_INTERACTION } from "../src/mcp/tool.ts";
+import { PROTOCOL_VERSION } from "../src/mcp/jsonrpc.ts";
 import { DEFAULT_LEGACY_BIN } from "../src/legacy/mod.ts";
 
 /**
@@ -127,22 +129,28 @@ async function installFakeLegacy(subject: Subject): Promise<void> {
 /** Ждёт сообщение о старте сервера; поток кончился — сервер не встал. */
 async function waitForListening(
   stderr: ReadableStream<Uint8Array>,
-): Promise<void> {
+): Promise<number> {
   let text = "";
   for await (const chunk of stderr) {
     text += decoder.decode(chunk);
-    if (text.includes(LISTEN_MARKER)) return;
+    // Порт выдаёт ОС (`--port 0`), и узнать его можно только отсюда.
+    const port = /слушаю http:\/\/127\.0\.0\.1:(\d+)/.exec(text);
+    if (port !== null) return Number(port[1]);
+    if (text.includes(LISTEN_MARKER)) {
+      throw new Error(`в сообщении о старте нет порта: ${text.trim()}`);
+    }
   }
   throw new Error(`сервер не сообщил о старте: ${text.trim()}`);
 }
 
 /**
- * `mpu mcp` разом проверяет три права: слушающий сокет, запись файла
- * токена в конфиг-каталог и подпроцесс сверки версий.
+ * `mpu mcp` разом проверяет права слушающего сокета, записи токена и
+ * подпроцесса сверки версий, а поднятый сервер — то, что видно только
+ * снаружи: аннотации тулов в ответе `tools/list`.
  */
 async function checkMcpServer(subject: Subject): Promise<void> {
   const child = new Deno.Command(subject.bin, {
-    args: ["mcp", "--port", "0", "--profile", "ro"],
+    args: ["mcp", "--port", "0", "--profile", "rw"],
     env: { HOME: subject.home },
     clearEnv: true,
     stdin: "null",
@@ -150,7 +158,10 @@ async function checkMcpServer(subject: Subject): Promise<void> {
     stderr: "piped",
   }).spawn();
   try {
-    await waitForListening(child.stderr);
+    const port = await waitForListening(child.stderr);
+    const token = (await Deno.readTextFile(`${subject.home}/.config/mpu/token`))
+      .trim();
+    await checkToolAnnotations(port, token);
     const info = await Deno.stat(`${subject.home}/.config/mpu/token`);
     // mode отсутствует там, где у файловой системы нет прав POSIX.
     if (info.mode === null) return;
@@ -163,6 +174,49 @@ async function checkMcpServer(subject: Subject): Promise<void> {
     stopServer(child);
     await child.status;
   }
+}
+
+/** Тул в ответе `tools/list` — ровно то, что нужно этой проверке. */
+interface ListedTool {
+  readonly name: string;
+  readonly annotations: { readonly destructiveHint?: boolean };
+  readonly _meta?: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Аннотации необратимых тулов видны только снаружи: `deno test` берёт
+ * их из сборки профилей, а клиент — из ответа по HTTP. Здесь проверяем
+ * именно ответ поднятого бинаря.
+ */
+async function checkToolAnnotations(
+  port: number,
+  token: string,
+): Promise<void> {
+  const response = await fetch(`http://127.0.0.1:${port}/rw`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "MCP-Protocol-Version": PROTOCOL_VERSION,
+      "Mcp-Method": "tools/list",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+  });
+  assertEquals(response.status, 200, "tools/list не ответил");
+  const body = await response.json() as { result: { tools: ListedTool[] } };
+  const find = (name: string) => {
+    const tool = body.result.tools.find((item) => item.name === name);
+    assert(tool !== undefined, `в профиле rw нет тула ${name}`);
+    return tool;
+  };
+  // Необратимый: помечен обоими способами — аннотацией и `_meta`.
+  const destructive = find("sql");
+  assertEquals(destructive.annotations.destructiveHint, true);
+  assertEquals(destructive._meta?.[REQUIRES_INTERACTION], true);
+  // Мутирующий, но локальный: не помечен ни тем, ни другим.
+  const local = find("xlsx_alias_add");
+  assertEquals(local.annotations.destructiveHint, undefined);
+  assertEquals(local._meta, undefined);
 }
 
 /**
@@ -237,7 +291,7 @@ function checks(subject: Subject): readonly Check[] {
         `подпроцесс не отработал: ${JSON.stringify(outcome.stdout)}`,
       );
     }],
-    ["mcp: сокет, токен, сверка версий", () => checkMcpServer(subject)],
+    ["mcp: сокет, токен, аннотации тулов", () => checkMcpServer(subject)],
   ];
 }
 

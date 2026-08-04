@@ -99,6 +99,6 @@
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь
     // во временный каталог (`--allow-write`) и запускает сначала `deno`,
     // потом собранное (`--allow-run`) — оба пути заранее неизвестны.
-    "smoke": "deno run --allow-read --allow-write --allow-run scripts/smoke.ts"
+    "smoke": "deno run --allow-read --allow-write --allow-run --allow-net=127.0.0.1 scripts/smoke.ts"
   }
 }
