@@ -27,7 +27,10 @@ Overview дерева `mpu` целиком. Корневой CLAUDE.md моно�
 
 - `docs/ts-mcp-architecture.md` — принятые архитектурные решения. Заменяет
   `broker-architecture.md`.
-- `docs/plans/2026-08-03-ts-mcp-mvp.md` — план MVP: задачи, порядок, роли.
+- `docs/plans/2026-08-04-full-migration.md` — **мастер-план** полного переезда:
+  фазы до вывода Python из эксплуатации, критерии выхода, точки решения.
+- `docs/plans/2026-08-03-ts-mcp-mvp.md` — план MVP (выполнен): задачи, порядок,
+  роли.
 - `docs/migration-playbook.md` — процедура для оператора-человека.
 - `docs/plans/command-migration.md` — план переезда команд: частоты, порядок,
   «не едут».
