@@ -75,6 +75,20 @@ export interface LegacyOutcome {
   readonly stderr: string;
 }
 
+/**
+ * Слой env-файла (`platform/env-file.md`): секреты и адреса внешних
+ * систем с приоритетом «окружение процесса → env-файл». Объявлен на
+ * стороне потребителя — реализация в `src/env/mod.ts`.
+ */
+export interface EnvFile {
+  /** Значение по приоритету «окружение процесса → env-файл». */
+  readonly get: (name: string) => string | undefined;
+  /** То же; отсутствие или пустая строка — DomainError текстом спеки. */
+  readonly require: (name: string) => string;
+  /** Атомарная запись в файл; значение действует немедленно. */
+  readonly set: (name: string, value: string) => Promise<void>;
+}
+
 /** Объявление команды: семь вещей контракта плюс формы записи в argv. */
 export interface CommandSpec<A, R> {
   /** Сегменты имени после `mpu`. */
