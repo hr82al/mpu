@@ -1,9 +1,4 @@
-import {
-  assertEquals,
-  assertRejects,
-  assertStringIncludes,
-  assertThrows,
-} from "@std/assert";
+import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { DomainError } from "../command/mod.ts";
 import { envFilePath, type EnvFileStore, makeEnvFile } from "./mod.ts";
 
@@ -117,23 +112,27 @@ Deno.test("set: записывает файл и действует немедл
   assertEquals(envFile.get("TOKEN"), "abc");
 });
 
-Deno.test("set: без файла хранилища — DomainError, записи нет", async () => {
+Deno.test("set: без файла хранилища — текст ошибки дословно из спеки", async () => {
   const envFile = makeEnvFile(() => undefined, undefined);
-  await assertRejects(() => envFile.set("A", "1"), DomainError);
+  const err = await assertRejects(() => envFile.set("A", "1"), DomainError);
+  assertEquals(err.message, "cannot write env file: no config directory");
 });
 
-Deno.test("set: непригодное значение — DomainError, store.write не вызван", async () => {
+Deno.test("set: непригодное значение — текст ошибки дословно из спеки", async () => {
   const { store, written } = fakeStore("A=1\n");
   const envFile = makeEnvFile(() => undefined, store);
   const err = await assertRejects(() => envFile.set("A", "a'b"), DomainError);
   assertEquals(written, []);
-  // Сообщение называет причину (перевод строки/кавычка), но не значение —
-  // это секрет, ему нельзя попадать в текст ошибки.
-  assertStringIncludes(err.message, "A");
-  assertEquals(err.message.includes("a'b"), false);
+  // Сверка целиком, а не подстрокой: раз всё сообщение сверяется дословно,
+  // само значение (секрет) не может незаметно оказаться в тексте ошибки —
+  // отдельная проверка на его отсутствие избыточна.
+  assertEquals(
+    err.message,
+    "cannot write env value for A: value contains a newline or a single quote",
+  );
 });
 
-Deno.test("set: дубликат ключа в файле — запись отклоняется, store.write не вызван", async () => {
+Deno.test("set: дубликат ключа в файле — текст ошибки дословно из спеки", async () => {
   // Запись меняет только первую строку ключа (см. `assignEnvValue`), а
   // разбор берёт последнее значение (см. `parseEnvFile`) — на файле с
   // дубликатом эти две половины расходятся: записанное значение не то,
@@ -147,10 +146,14 @@ Deno.test("set: дубликат ключа в файле — запись от�
     DomainError,
   );
   assertEquals(written, []);
-  assertStringIncludes(err.message, "PG_PORT");
-  assertStringIncludes(err.message, store.path);
-  // Значение для записи — секрет, в тексте ошибки его быть не должно.
-  assertEquals(err.message.includes("7777"), false);
+  // Сверка целиком, а не подстрокой: раз всё сообщение сверяется дословно,
+  // значение для записи (секрет) не может незаметно оказаться в тексте
+  // ошибки — отдельная проверка на его отсутствие избыточна.
+  assertEquals(
+    err.message,
+    "cannot write env value for PG_PORT: a later line in " +
+      `${store.path} repeats the key and would override the write`,
+  );
 });
 
 Deno.test("set: обычный файл без дубликатов — пишется как раньше", async () => {
