@@ -1,0 +1,5 @@
+_arguments '*: :(("get":"Read cell values from one or more..."
+"ls":"List sheet (tab) names in a local .xlsx file."
+"open":"Open .xlsx file in the system default..."
+"resolve":"Diagnostic\\: prints the resolved path and..."
+"alias":"Manage xlsx file aliases (short names →..."))'
