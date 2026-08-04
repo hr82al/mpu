@@ -182,8 +182,12 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     inputs: specs,
     requiredInputNames: argsJsonSchema.required ?? [],
     parseArgs: (argv) => asRecord(parse(argv), `${name}: аргументы`),
-    invoke: (argv, io) => spec.run(parse(argv), io),
-    invokeInput: (input, io) => spec.run(parseInput(input), io),
+    // Оба исполнения асинхронны целиком: ошибка разбора приходит
+    // отказом промиса, а не броском до его создания. Иначе вызывающий
+    // обязан и `try`, и `.catch()` — на одну ветку больше на каждом
+    // месте вызова.
+    invoke: async (argv, io) => await spec.run(parse(argv), io),
+    invokeInput: async (input, io) => await spec.run(parseInput(input), io),
     renderResult: (result, argv) =>
       spec.render(spec.resultSchema.parse(result), parse(argv)),
     textExitCode: (result) =>

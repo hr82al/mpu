@@ -16,6 +16,16 @@ Deno.test("файл токена — сосед хранилища конфиг�
   assertEquals(accessTokenPath(undefined), undefined);
 });
 
+Deno.test("без конфиг-каталога хранилище не читается и не пишется", async () => {
+  const io = makeDenoIo(undefined);
+  assertEquals(await io.readConfigStore(), undefined);
+  await assertRejects(
+    () => io.writeConfigStore("{}"),
+    DomainError,
+    "config store is unavailable",
+  );
+});
+
 Deno.test("без конфиг-каталога токен не читается и не пишется", async () => {
   const io = makeDenoIo(undefined);
   assertEquals(await io.readAccessToken(), undefined);
@@ -111,13 +121,18 @@ Deno.test("открыватель: нет бинаря — false, прочий �
   }
 });
 
-Deno.test("битый файл хранилища не выдаётся за пустое", async () => {
+Deno.test("нечитаемое не выдаётся за пустое или отсутствующее", async () => {
   const dir = await Deno.makeTempDir();
   try {
     const io = makeDenoIo(`${dir}/config.json`);
-    // Каталог вместо файла: ошибка чтения не NotFound и наружу проходит.
+    // Каталог вместо файла: ошибка чтения не NotFound и наружу проходит
+    // как есть — ни `undefined`, ни NotFoundIoError.
     await Deno.mkdir(`${dir}/config.json`);
+    await Deno.mkdir(`${dir}/token`);
     await assertRejects(() => io.readConfigStore());
+    await assertRejects(() => io.readAccessToken());
+    await assertRejects(() => io.readFile(dir));
+    await assertRejects(() => io.readTextFile(dir));
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
