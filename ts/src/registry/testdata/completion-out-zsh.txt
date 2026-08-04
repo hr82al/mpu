@@ -1,0 +1,2 @@
+_arguments '*: :(("sql":"Выполнить SQL (write-capable) на PG,..."
+"sql-ro":"Выполнить SQL в enforced read-only сессии..."))'

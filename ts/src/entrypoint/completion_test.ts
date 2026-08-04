@@ -149,8 +149,8 @@ Deno.test("режим дополнения печатает варианты, а
           ? "mpu xlsx "
           : undefined,
     });
-    assertStringIncludes(stdout, "compadd -- ");
-    assertStringIncludes(stdout, "alias");
+    assertStringIncludes(stdout, "_arguments '*: :((");
+    assertStringIncludes(stdout, '"alias":"');
     // Без пробела то же самое слово дополняется как частичное.
     const partial = await run([], {
       env: (name) =>
@@ -160,7 +160,7 @@ Deno.test("режим дополнения печатает варианты, а
           ? "mpu xlsx"
           : undefined,
     });
-    assertStringIncludes(partial.stdout, "compadd -- xlsx");
+    assertStringIncludes(partial.stdout, '"xlsx":"');
   });
 
   await t.step("zsh: вывод — код для eval", async () => {
@@ -172,7 +172,7 @@ Deno.test("режим дополнения печатает варианты, а
           ? "mpu xl"
           : undefined,
     });
-    assertStringIncludes(stdout, "compadd -- xlsx");
+    assertStringIncludes(stdout, '"xlsx":"');
   });
 
   await t.step("после имени группы — её подкоманды", async () => {

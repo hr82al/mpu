@@ -26,6 +26,10 @@ import {
 } from "../registry/mod.ts";
 import { helpEntries, runHelpCommand } from "./help_command.ts";
 import { VERSION } from "../version.ts";
+import { readManifest } from "../mcp/legacy_tools.ts";
+import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
+  type: "json",
+};
 import { LegacyBinMissingError, runLegacyCommand } from "../legacy/mod.ts";
 import { renderCommandHelp, renderIndex, renderSurfaceHelp } from "./help.ts";
 import {
@@ -33,6 +37,7 @@ import {
   completionCandidates,
   completionInput,
   completionInstalled,
+  type CompletionItem,
   completionMode,
   completionRcPath,
   completionReply,
@@ -55,6 +60,9 @@ const ROOT_SUMMARY =
  * (`platform/registry.md`).
  */
 const JSON_FLAG = "--json";
+
+/** Общий флаг справки: он есть на каждом уровне дерева. */
+const HELP_FLAG = "--help";
 
 /** Имя справочной поверхности: `mpu help [<полное имя>]`. */
 const HELP_COMMAND = "help";
@@ -186,18 +194,60 @@ async function runCommand(
  * набранному слову. Слово берётся из служебных переменных shell — сам
  * режим дополнения командную строку не разбирает.
  */
-function candidates(io: CommandIo): readonly string[] {
+function candidates(io: CommandIo): readonly CompletionItem[] {
   const bash = io.env("COMP_WORDS");
   const line = bash ?? io.env("_TYPER_COMPLETE_ARGS") ?? "";
   const input = completionInput(
     line,
     bash === undefined ? undefined : io.env("COMP_CWORD"),
   );
-  // Дополняется тот уровень дерева, до которого дошли: после `mpu xlsx`
-  // предлагаются его подкоманды, а не имена верхнего уровня.
-  return completionCandidates(
-    childrenOf(input.prefix).map((child) => child.name),
-    input.word,
+  // Слово с дефиса — это флаг: предлагаются флаги уровня, а не имена
+  // подкоманд (`platform/registry.md`).
+  const items = input.word.startsWith("-")
+    ? levelFlags(input.prefix)
+    // Дополняется тот уровень дерева, до которого дошли: после
+    // `mpu xlsx` — его подкоманды, а не имена верхнего уровня.
+    : childrenOf(input.prefix).map((child) => ({
+      name: child.name,
+      summary: child.summary,
+    }));
+  return completionCandidates(items, input.word);
+}
+
+/**
+ * Флаги уровня. У команды контракта они выводятся из схемы аргументов,
+ * у записи маршрута `legacy` — из описания параметров в слепке; общий
+ * параметр точки входа и `--help` доступны обеим.
+ */
+function levelFlags(path: readonly string[]): readonly CompletionItem[] {
+  const flag = (name: string, summary = "") => ({ name, summary });
+  const command = findCommand(path);
+  if (command !== undefined) {
+    const declared = command.inputs
+      .filter((input) => input.form.positional === undefined)
+      .map((input) => flag(`--${input.name}`));
+    return [...declared, flag(JSON_FLAG), flag(HELP_FLAG)];
+  }
+  const leaf = legacyLeaf(path);
+  if (leaf !== undefined) {
+    const declared = leaf.params
+      .filter((param) => param.kind === "option")
+      .map((param) =>
+        flag(
+          param.opts?.find((opt) => opt.startsWith("--")) ?? `--${param.name}`,
+        )
+      );
+    return [...declared, flag(HELP_FLAG)];
+  }
+  // Уровень без собственных флагов (группа) — только общие.
+  return [flag(HELP_FLAG)];
+}
+
+/** Лист слепка по пути: у записи маршрута `legacy` флаги описаны там. */
+function legacyLeaf(path: readonly string[]) {
+  const name = path.join(" ");
+  return readManifest(treeManifest).commands.find(
+    (leaf) => leaf.path.join(" ") === name,
   );
 }
 

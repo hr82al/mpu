@@ -115,24 +115,72 @@ export function completionInput(
  * невозможен по построению (инвариант спеки про единый реестр).
  */
 export function completionCandidates(
-  names: readonly string[],
+  items: readonly CompletionItem[],
   word: string,
-): readonly string[] {
-  return names.filter((name) => name.startsWith(word));
+): readonly CompletionItem[] {
+  return items.filter((item) => item.name.startsWith(word));
+}
+
+/** Вариант дополнения: что подставить и как он описан в справке. */
+export interface CompletionItem {
+  readonly name: string;
+  /** Однострока из того же источника, что и справка; у флагов пуста. */
+  readonly summary: string;
 }
 
 /**
- * Ответ режима дополнения. bash читает по строке на вариант, zsh
- * исполняет вывод как код, поэтому там варианты передаются `compadd`.
+ * Длина описания варианта в ответе zsh, включая многоточие обрезки.
+ * Значение снято с эталонов: описание длиннее не помещается в колонку
+ * подсказки и обрезается по границе слова.
+ */
+const SUMMARY_LIMIT = 45;
+
+/**
+ * Ответ режима дополнения (`platform/registry.md`). bash собирает из
+ * него массив — значит нужен список строк; zsh **исполняет** ответ,
+ * поэтому там это вызов `_arguments` с парами «вариант : описание».
  */
 export function completionReply(
   shell: Shell,
-  candidates: readonly string[],
+  items: readonly CompletionItem[],
 ): string {
-  if (candidates.length === 0) return "";
-  return shell === "bash"
-    ? `${candidates.join("\n")}\n`
-    : `compadd -- ${candidates.join(" ")}\n`;
+  if (items.length === 0) return "";
+  if (shell === "bash") {
+    return `${items.map((item) => item.name).join("\n")}\n`;
+  }
+  const pairs = items.map(
+    (item) => `"${item.name}":"${zshSummary(item.summary)}"`,
+  );
+  return `_arguments '*: :((${pairs.join("\n")}))'\n`;
+}
+
+/**
+ * Описание варианта для zsh: обрезка по границе слова и экранирование
+ * двоеточия — оно разделяет вариант и описание, и неэкранированное
+ * рвёт разбор на стороне shell.
+ */
+function zshSummary(summary: string): string {
+  return escapeColon(truncateSummary(summary));
+}
+
+function truncateSummary(summary: string): string {
+  if (summary.length <= SUMMARY_LIMIT) return summary;
+  const ellipsis = "...";
+  const limit = SUMMARY_LIMIT - ellipsis.length;
+  const kept: string[] = [];
+  let width = 0;
+  for (const word of summary.split(" ")) {
+    const next = width === 0 ? word.length : width + 1 + word.length;
+    if (next > limit) break;
+    width = next;
+    kept.push(word);
+  }
+  return `${kept.join(" ")}${ellipsis}`;
+}
+
+/** `:` → `\\:`: ровно так экранирует живая реализация (эталон). */
+function escapeColon(text: string): string {
+  return text.replaceAll(":", "\\\\:");
 }
 
 /** Режим дополнения по значению `_MPU_COMPLETE`; чужое значение — нет. */
