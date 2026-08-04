@@ -366,6 +366,12 @@ function makeIo(dir: string): CommandIo {
     readFile: (path) => Deno.readFile(inDir(path)),
     readTextFile: (path) => Deno.readTextFile(inDir(path)),
     readTextStdin: () => Promise.resolve(""),
+    currentShell: () => undefined,
+    appendFile: (path, text) =>
+      Deno.writeTextFile(inDir(path), text, {
+        append: true,
+        create: true,
+      }),
     runLegacy: () => {
       throw new Error("legacy must not be touched");
     },

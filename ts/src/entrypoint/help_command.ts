@@ -10,6 +10,7 @@
 
 import type { Command, CommandIo } from "../command/mod.ts";
 import { type LegacyCommand, runLegacyCommand } from "../legacy/mod.ts";
+import type { SurfaceCommand } from "../registry/mod.ts";
 import { renderCommandHelp, renderSurfaceHelp } from "./help.ts";
 
 /** Приёмник вывода: столько от потоков процесса нужно этой поверхности. */
@@ -30,6 +31,8 @@ export interface HelpEntry {
    * Python-реализация, реестр хранит только однострокў (спека).
    */
   readonly legacy?: LegacyCommand;
+  /** Поверхность точки входа: справка складывается из полей реестра. */
+  readonly surface?: SurfaceCommand;
 }
 
 /**
@@ -40,7 +43,7 @@ export interface HelpEntry {
 export function helpEntries(
   commands: readonly Command[],
   legacyCommands: readonly LegacyCommand[],
-  surfaces: readonly LegacyCommand[],
+  surfaces: readonly SurfaceCommand[],
 ): readonly HelpEntry[] {
   return [
     ...commands.map((command) => ({
@@ -56,6 +59,7 @@ export function helpEntries(
     ...surfaces.map((surface) => ({
       name: `mpu ${surface.path.join(" ")}`,
       summary: surface.summary,
+      surface,
     })),
   ];
 }
@@ -72,10 +76,13 @@ export async function runHelpCommand(
 ): Promise<number> {
   const wanted = args[0];
   if (wanted === "-h" || wanted === "--help") {
-    // Своя справка: однострока берётся из той же записи реестра, что
-    // и в списке, — второй копии текста не заводится.
-    const self = entries.find((entry) => entry.name === SELF_NAME);
-    output.stdout(renderSurfaceHelp(HELP_USAGE, self?.summary ?? ""));
+    // Своя справка: и строка использования, и однострока — из той же
+    // записи реестра, что и в списке; второй копии текста не заводится.
+    const self = entries.find((entry) =>
+      entry.surface !== undefined &&
+      entry.surface.path[0] === "help"
+    );
+    output.stdout(surfaceHelp(self));
     return 0;
   }
   if (wanted === undefined) {
@@ -97,21 +104,26 @@ export async function runHelpCommand(
     // печатает сама реализация, а не реестр (спека).
     return await runLegacyCommand(entry.legacy, ["--help"], io, output);
   }
-  if (entry.command === undefined) {
-    // Поверхность точки входа: подробной справки у неё нет — её
-    // назначение исчерпывается однострокой.
-    output.stdout(`${entry.name}\t${entry.summary}\n`);
+  if (entry.surface !== undefined) {
+    // Поверхность точки входа: тот же текст, что у `<имя> --help`, —
+    // именованный рендер от прямого вызова не отличается (спека).
+    output.stdout(surfaceHelp(entry));
     return 0;
+  }
+  if (entry.command === undefined) {
+    throw new TypeError(`${entry.name}: запись без способа показать справку`);
   }
   output.stdout(renderCommandHelp(entry.command));
   return 0;
 }
 
-/** Полное имя самой поверхности — как её спрашивают у `mpu help`. */
-const SELF_NAME = "mpu help";
-
-/** Строка использования справочной поверхности. */
-const HELP_USAGE = "mpu help [<полное имя команды>]";
+/** Справка поверхности: строка использования и однострока из реестра. */
+function surfaceHelp(entry: HelpEntry | undefined): string {
+  return renderSurfaceHelp(
+    entry?.surface?.usage ?? "",
+    entry?.summary ?? "",
+  );
+}
 
 /** Список: заголовок, колонка имён с описаниями, футер (спека). */
 function renderList(entries: readonly HelpEntry[]): string {

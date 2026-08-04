@@ -47,6 +47,14 @@ export interface CommandIo {
   readonly readAccessToken: () => Promise<string | undefined>;
   /** Запись токена: отдельный файл конфиг-каталога, права 0600. */
   readonly writeAccessToken: (token: string) => Promise<void>;
+  /**
+   * Shell, из которого запущен процесс: ближайший известный shell в
+   * дереве предков (`platform/registry.md`). Переменная `SHELL` в этом
+   * не участвует — при bash-родителе и `SHELL=/bin/zsh` нужен bash.
+   */
+  readonly currentShell: () => string | undefined;
+  /** Дозапись в конец файла: установка completion в rc-файл shell. */
+  readonly appendFile: (path: string, text: string) => Promise<void>;
   /** Запуск открывателя отвязанно; нет бинаря — `false`. */
   readonly launchOpener: (cmd: string, target: string) => boolean;
   /**

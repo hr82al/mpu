@@ -5,6 +5,9 @@ import {
   defaultConfigStorePath,
   makeDenoIo,
   makeDenoOutput,
+  parseProcStat,
+  type ProcStat,
+  shellInAncestors,
 } from "./mod.ts";
 
 Deno.test("файл токена — сосед хранилища конфига", () => {
@@ -179,5 +182,103 @@ Deno.test("подпроцесс legacy: потоки и код возврата 
     } finally {
       await Deno.remove(dir, { recursive: true });
     }
+  });
+});
+
+Deno.test("shell определяется по дереву предков, а не по SHELL", () => {
+  const io = makeDenoIo(undefined);
+  const shell = io.currentShell();
+  // Из-под `deno test` предок — не shell, поэтому ожидается либо
+  // неопределённость, либо одно из известных имён. Само определение по
+  // дереву предков проверяет оператор: подменить дерево нечем.
+  assertEquals(
+    shell === undefined || shell === "bash" || shell === "zsh",
+    true,
+    `неожиданный shell: ${shell}`,
+  );
+  // SHELL при этом не участвует: подмена переменной ничего не меняет.
+  const before = Deno.env.get("SHELL");
+  try {
+    Deno.env.set("SHELL", "/bin/nonexistent-shell");
+    assertEquals(io.currentShell(), shell);
+  } finally {
+    if (before === undefined) Deno.env.delete("SHELL");
+    else Deno.env.set("SHELL", before);
+  }
+});
+
+Deno.test("дозапись в файл создаёт его и не затирает", async () => {
+  const dir = await Deno.makeTempDir();
+  try {
+    const io = makeDenoIo(undefined);
+    const path = `${dir}/rc`;
+    await io.appendFile(path, "первая\n");
+    await io.appendFile(path, "вторая\n");
+    assertEquals(await Deno.readTextFile(path), "первая\nвторая\n");
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("разбор строки /proc/<pid>/stat", async (t) => {
+  await t.step("обычная запись", () => {
+    assertEquals(parseProcStat("42 (bash) S 17 42 42 0 -1"), {
+      name: "bash",
+      ppid: 17,
+    });
+  });
+
+  await t.step("имя со скобками и пробелом", () => {
+    // Режем по последней скобке: имя процесса может содержать что угодно.
+    assertEquals(parseProcStat("7 (my (odd) proc) S 3 7"), {
+      name: "my (odd) proc",
+      ppid: 3,
+    });
+  });
+
+  await t.step("испорченная строка — не запись", () => {
+    assertEquals(parseProcStat("мусор без скобок"), undefined);
+    assertEquals(parseProcStat(")42( S 1"), undefined);
+  });
+
+  await t.step("нечитаемый ppid — считаем предком init", () => {
+    assertEquals(parseProcStat("42 (bash) S ?? 42")?.ppid, 1);
+  });
+});
+
+Deno.test("поиск shell в цепочке предков", async (t) => {
+  const chain = (stats: Readonly<Record<number, ProcStat>>) => (pid: number) =>
+    stats[pid];
+
+  await t.step("shell найден через промежуточные процессы", () => {
+    const read = chain({
+      10: { name: "deno", ppid: 9 },
+      9: { name: "make", ppid: 8 },
+      8: { name: "zsh", ppid: 1 },
+    });
+    assertEquals(shellInAncestors(read, 10), "zsh");
+  });
+
+  await t.step("login-shell с дефисом — тот же shell", () => {
+    const read = chain({ 5: { name: "-bash", ppid: 1 } });
+    assertEquals(shellInAncestors(read, 5), "bash");
+  });
+
+  await t.step("shell в цепочке нет", () => {
+    const read = chain({
+      4: { name: "deno", ppid: 3 },
+      3: { name: "systemd", ppid: 1 },
+    });
+    assertEquals(shellInAncestors(read, 4), undefined);
+  });
+
+  await t.step("цепочка не читается — неопределённость", () => {
+    assertEquals(shellInAncestors(() => undefined, 99), undefined);
+  });
+
+  await t.step("зацикленная цепочка обрывается по глубине", () => {
+    // Испорченный procfs не должен вешать процесс.
+    const read = (pid: number) => ({ name: "deno", ppid: pid });
+    assertEquals(shellInAncestors(read, 42), undefined);
   });
 });

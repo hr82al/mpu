@@ -1,0 +1,58 @@
+Available commands:
+
+  mpu app-migrations              Обёртки service:appMigrations (exec через Portainer)
+  mpu backup-ozon-unit-proto      CTAS-бэкап ozon_unit_proto в backups-схему
+  mpu backup-wb-unit-manual-data  CTAS-бэкап wb_unit_manual_data в backups-схему
+  mpu backup-wb-unit-proto        CTAS-бэкап wb_unit_proto в backups-схему
+  mpu clean-local-clients         Удалить локальные данные всех клиентов кроме keep-листа (default 54,776) и shared
+  mpu clients-migrations          Обёртки service:clientsMigrations (exec через Portainer)
+  mpu config                      Ключи конфигурации (sheet.default, xlsx.default, кэш листов)
+  mpu confirm                     y/N gate в pipe: показать stdin, спросить, пропустить дальше или прервать
+  mpu copy-client                 Скопировать клиента с прод-PG в локальный dev-PG (нативный pg_dump + COPY)
+  mpu copy-dev                    Скопировать workspaces / клиента с dev в локальный docker-стек (pg_dump)
+  mpu copy-shared                 Скопировать shared-таблицы с удалённого PG в локальный dev-PG
+  mpu d2-miro                     Рендер d2-диаграммы в Miro как редактируемый фрейм
+  mpu data-loader                 Обёртки service:dataLoader (exec через Portainer)
+  mpu data-loader-jobs            Обёртки service:dataLoaderJobs (exec через Portainer)
+  mpu datasets-migrations         Обёртки service:datasetsMigrations (exec через Portainer)
+  mpu glab-status                 GitLab MR таблицей: галочки в колонках веток (trunk/main/dev/qa/predprod/prod) — куда merge-коммит MR уже долетел; без аргументов — мои MR за `--since`, с адресами MR — ровно эти MR (любых авторов); `--repos`, `--branches`, `--json`
+  mpu health                      Health-check sl-N: статусы контейнеров + tail логов loader'ов
+  mpu iu-wb                       ИУ для WB: get-source-data / make-sql / fix-formulas
+  mpu kiten                       Kaiten: `ls` — мои карточки (member); `card` — одна карточка; `comment` — комментарий; `move`/`ready`/`review` — перемещение (+ лог в журнал); `time` — учёт времени и таймер; `spaces`/`boards`/`lanes`/`columns`/`roles` — справочник; `whoami`
+  mpu log                         Журнал вызовов mpu: команда, вывод, ошибки, код возврата
+  mpu logs                        Логи со стенда: Loki по умолчанию, --via portainer для одиночного контейнера
+  mpu make-schema                 Создать схему клиента локально (clientsMigrations init)
+  mpu move-client                 Перенести клиента между sl-серверами (createJob через mp-dt-cli)
+  mpu move-client-back            Вернуть клиента на исходный sl-сервер (ls — список, rm — удалить запись)
+  mpu mp-init                     Поднять локальный dev-стек: сеть + core (nats/sl-0/sl-1/nginx/dt-host) + web (sw-front/sw-back/sl-front) через up -d --force-recreate
+  mpu mr                          GitLab MR: `view`/`files`/`diff` — чтение MR; `create` — создать MR (source → target); `describe` — заменить описание MR; `comment FILE:LINE` — инлайн-комментарий под строкой диффа; `comments`/`show` — треды ревью; `reply`/`edit`/`delete`/`resolve`
+  mpu ozon-fix-fo-tax             Фикс 1₽-аномалии в ozon_postings_reports + пересчёт ОПиУ/Фин-отчёт + ss-update
+  mpu ozon-jobs                   Обёртки service:ozonJobs (exec через Portainer)
+  mpu ozon-loader                 Обёртки service:ozonLoader (exec через Portainer)
+  mpu process                     dataProcessor.process (выполнение через Portainer; --print для печати)
+  mpu ps                          Список контейнеров: без селектора — все из кэша; с sl-N — live запрос к Portainer
+  mpu ssh                         Запустить cmd в контейнере по селектору (ssh+docker или Portainer) или fan-out через --all-containers
+  mpu ozon-recalculate-expenses   ozonUnitCalculatedData.recalculateExpenses (выполнение через Portainer; --print для печати)
+  mpu wb-recalculate-expenses     Печать ssh-команды для wbUnitCalculatedData.recalculateExpenses
+  mpu run-js                      Запустить произвольный JS внутри контейнера sl-back по селектору (или --all)
+  mpu ozon-save-expenses          Печать ssh-команды для ozonUnitCalculatedData.saveExpenses
+  mpu wb-save-expenses            Печать ssh-команды для wbUnitCalculatedData.saveExpenses
+  mpu search                      Поиск клиента / spreadsheet в кэше + доступ к web-клиенту 10X (impersonation)
+  mpu sheet                       Google Spreadsheets read/write (whole-tab кэш на 2 часа)
+  mpu sql                         Выполнить SQL на удалённом PG по селектору
+  mpu sql-ro                      Read-only SQL на удалённом PG по селектору (enforced, без записи)
+  mpu ss-datasets                 Обёртки service:ssDatasets (exec через Portainer)
+  mpu ss-load                     service:ssLoader load (exec через Portainer)
+  mpu ss-update                   Печать ssh+docker команды для ssUpdater.update
+  mpu sun                         Восход / закат / зенит / длина дня по координатам (offline)
+  mpu telegram                    Telegram от имени пользователя: `send` — отправить, `ls` — диалоги, `search` — поиск, `status` — карточки, перемещённые сегодня
+  mpu update                      Синхронизировать кэш клиентов из sl-back
+  mpu users                       Обёртки service:users на main (exec через Portainer)
+  mpu wb-jobs                     Обёртки service:wbJobs (exec через Portainer)
+  mpu wb-loader                   Обёртки service:wbLoader (exec через Portainer)
+  mpu wb-unit-calc                service:wbUnitCalc getUnitDataByDateNmId — read-only debug
+  mpu wb-unit-proto-new           Миграция старой wb_unit_proto в новую (copy-data-from-old-table)
+  mpu xlsx                        Чтение локальных .xlsx (без сети и кэша)
+  mpu help                        Список команд
+
+Run `<command> --help` for detailed usage.

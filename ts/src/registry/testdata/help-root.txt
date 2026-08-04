@@ -1,0 +1,160 @@
+                                                                                
+ Usage: mpu [OPTIONS] COMMAND [ARGS]...                                         
+                                                                                
+ Monorepo Python utilities — multi-purpose CLI for ad-hoc operations.           
+                                                                                
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --install-completion            Install completion for the current shell.    │
+│ --show-completion               Show completion for the current shell, to    │
+│                                 copy it or customize the installation.       │
+│ --help                -h        Show this message and exit.                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ search                      Найти клиента (локальный кэш) ИЛИ получить       │
+│                             доступ к web-клиенту 10X (impersonation).        │
+│ update                      Синхронизировать ~/.config/mpu/mpu.db со всеми   │
+│                             PG-серверами.                                    │
+│ sql                         Выполнить SQL (write-capable) на PG, выбранном   │
+│                             по селектору.                                    │
+│ sql-ro                      Выполнить SQL в enforced read-only сессии        │
+│                             (безопасный дефолт для чтения).                  │
+│ sun                         Считает локально (astral, без сети)              │
+│                             восход/закат/зенит и длину дня.                  │
+│ config                      Показать или изменить конфиг mpu (хранится в     │
+│                             SQLite; env-переменные приоритетнее).            │
+│ sheet                       Google Spreadsheets через Apps Script webapp     │
+│                             (native Python).                                 │
+│ xlsx                        Read local Excel (.xlsx) files.                  │
+│ backup-wb-unit-proto        CTAS-бэкап: CREATE TABLE                         │
+│                             backups.<table>_<schema_id>_<YYYYMMDD> AS SELECT │
+│                             * FROM schema_<schema_id>.<table>. Идёт прямым   │
+│                             PG-коннектом (без docker exec); `--dry` — только │
+│                             показать SQL.                                    │
+│ backup-ozon-unit-proto      CTAS-бэкап: CREATE TABLE                         │
+│                             backups.<table>_<schema_id>_<YYYYMMDD> AS SELECT │
+│                             * FROM schema_<schema_id>.<table>. Идёт прямым   │
+│                             PG-коннектом (без docker exec); `--dry` — только │
+│                             показать SQL.                                    │
+│ backup-wb-unit-manual-data  CTAS-бэкап: CREATE TABLE                         │
+│                             backups.<table>_<schema_id>_<YYYYMMDD> AS SELECT │
+│                             * FROM schema_<schema_id>.<table>. Идёт прямым   │
+│                             PG-коннектом (без docker exec); `--dry` — только │
+│                             показать SQL.                                    │
+│ d2-miro                     Рендер d2-диаграммы в Miro как редактируемый     │
+│                             фрейм.                                           │
+│ run-js                      Выполнить ESM-код внутри контейнера sl-back      │
+│                             через `node --input-type=module -`.              │
+│ copy-client                 Скопировать клиента с прод-PG в локальный dev-PG │
+│                             (`sl-1`), нативно (`pg_dump`/COPY).              │
+│ copy-dev                    Скопировать данные с dev в локальный docker-стек │
+│                             (`pg_dump`/`pg_restore`).                        │
+│ copy-shared                 Скопировать shared-таблицы с source-сервера,     │
+│                             выбранного через селектор.                       │
+│ clean-local-clients         Снести локальные данные клиентов кроме           │
+│                             keep-листа (`--yes` — выполнить, иначе dry-run). │
+│ mp-init                     Создать сеть (если нет), поднять core SL backend │
+│                             + web-стек (up -d --force-recreate).             │
+│ move-client                 Перенести клиента с source-sl на target-sl через │
+│                             mp-dt-cli (BullMQ createJob).                    │
+│ move-client-back            Реверс переноса по записи `move-client`; `ls` —  │
+│                             список, `rm <selector>` — удалить запись.        │
+│ log                         `mpu log` — журнал вызовов самого `mpu` (не логи │
+│                             стенда, для них есть `mpu logs`).                │
+│ logs                        Логи со стенда (Loki по умолчанию, --via         │
+│                             portainer для legacy snapshot).                  │
+│ kiten                       Kaiten (btlz.kaiten.ru) из терминала:            │
+│                             `ls`/`card`/`comment`/`move`/`ready`/`review`/`… │
+│                             — работа с карточкой; `time` — учёт времени и    │
+│                             таймер; `field` — кастомные поля; `status` — вся │
+│                             моя работа одной матрицей;                       │
+│                             `spaces`/`boards`/`lanes`/`columns`/`roles`/`wh… │
+│                             — справочник.                                    │
+│ mr                          GitLab MR review: инлайн-комментарии под строкой │
+│                             диффа, треды, create/describe.                   │
+│ glab-status                 Таблица прохождения MR по веткам                 │
+│                             деплой-пайплайна.                                │
+│ telegram                    Telegram от имени пользователя (telethon): send  │
+│                             — отправить, ls — диалоги, search — поиск.       │
+│ confirm                     Пропустить stdin → stdout по подтверждению;      │
+│                             иначе прервать pipe.                             │
+│ help                        Список всех mpu команд с опциональной справкой.  │
+│ wb-recalculate-expenses     Выполнить через Portainer; `--print` — печать    │
+│                             обёртки без выполнения.                          │
+│ wb-save-expenses            Выполнить через Portainer; `--print` — печать    │
+│                             обёртки без выполнения.                          │
+│ process                     Выполнить через Portainer; `--print` — печать    │
+│                             обёртки без выполнения.                          │
+│ ss-update                   Выполнить через Portainer; `--print` — печать    │
+│                             обёртки без выполнения.                          │
+│ ss-load                     Выполнить через Portainer; `--print` — печать    │
+│                             обёртки без выполнения.                          │
+│ ss-datasets                 Выполнить через Portainer; `--print` — печать    │
+│                             обёртки без выполнения.                          │
+│ wb-loader                   Обёртки над `node cli service:wbLoader`          │
+│                             (sl-back). Дефолт — немедленное выполнение       │
+│                             метода в проде через Portainer; `--print`/`-p` — │
+│                             печать команды.                                  │
+│ wb-jobs                     Выполнить service:wbJobs showJobs через          │
+│                             Portainer (дефолт — сразу в проде);              │
+│                             `--print`/`-p` — только печать команды.          │
+│ wb-unit-calc                Выполнить через Portainer; `--print` — печать    │
+│                             обёртки без выполнения.                          │
+│ wb-unit-proto-new           Миграция старой wb_unit_proto-таблицы в новую:   │
+│                             `copy-data-from-old-table` — обёртка node cli    │
+│                             через Portainer; `--print`/`-p` — только печать  │
+│                             команды.                                         │
+│ iu-wb                       Обёртки над `node cli service:iuWb` (sl-back).   │
+│                             Дефолт — немедленное выполнение метода в проде   │
+│                             через Portainer; `--print`/`-p` — печать         │
+│                             команды.                                         │
+│ ozon-loader                 Обёртки над `node cli service:ozonLoader`        │
+│                             (sl-back). Дефолт — немедленное выполнение       │
+│                             метода в проде через Portainer; `--print`/`-p` — │
+│                             печать команды.                                  │
+│ ozon-jobs                   Обёртки над `node cli service:ozonJobs`          │
+│                             (sl-back). Дефолт — немедленное выполнение       │
+│                             метода в проде через Portainer; `--print`/`-p` — │
+│                             печать команды.                                  │
+│ ozon-recalculate-expenses   Выполнить через Portainer; `--print` — печать    │
+│                             обёртки без выполнения.                          │
+│ ozon-save-expenses          Выполнить через Portainer; `--print` — печать    │
+│                             обёртки без выполнения.                          │
+│ ozon-fix-fo-tax             Починить источник 1₽ и прогнать штатную цепочку  │
+│                             пересчёта ОПиУ / Фин отчет SKU.                  │
+│ clients-migrations          Обёртки над `node cli service:clientsMigrations` │
+│                             (sl-back). Дефолт — немедленное выполнение       │
+│                             метода в проде через Portainer; `--print`/`-p` — │
+│                             печать команды.                                  │
+│ make-schema                 clientsMigrations init: создать схему клиента в  │
+│                             локальном mp-sl-N-cli.                           │
+│ datasets-migrations         Обёртки над `node cli                            │
+│                             service:datasetsMigrations` (sl-back). Дефолт —  │
+│                             немедленное выполнение метода в проде через      │
+│                             Portainer; `--print`/`-p` — печать команды.      │
+│ app-migrations              Обёртки над `node cli service:appMigrations`     │
+│                             (sl-back). Дефолт — немедленное выполнение       │
+│                             метода в проде через Portainer; `--print`/`-p` — │
+│                             печать команды.                                  │
+│ users                       Обёртки над `node cli service:users` (sl-back).  │
+│                             Дефолт — немедленное выполнение метода в проде   │
+│                             через Portainer; `--print`/`-p` — печать         │
+│                             команды.                                         │
+│ data-loader                 Обёртки над `node cli service:dataLoader`        │
+│                             (sl-back). Дефолт — немедленное выполнение       │
+│                             метода в проде через Portainer; `--print`/`-p` — │
+│                             печать команды.                                  │
+│ data-loader-jobs            Выполнить service:dataLoaderJobs showJobs через  │
+│                             Portainer (дефолт — сразу в проде);              │
+│                             `--print`/`-p` — только печать команды.          │
+│ ssh                         Выполнить команду в `sl-N-cli` ИЛИ в             │
+│                             произвольном контейнере по точному имени.        │
+│ ps                          Список контейнеров.                              │
+│ health                      Health-check: статусы контейнеров + tail логов   │
+│                             потенциальных виновников.                        │
+│ version                     Show mpu version.                                │
+│ init                        Discover все контейнеры через Portainer API и    │
+│                             закэшировать в `~/.config/mpu/mpu.db`.           │
+│ api                         HTTP API клиенты для sl-back (бывшие             │
+│                             `mpuapi-*`).                                     │
+╰──────────────────────────────────────────────────────────────────────────────╯
+

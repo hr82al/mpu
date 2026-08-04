@@ -27,6 +27,14 @@ import { helpEntries, runHelpCommand } from "./help_command.ts";
 import { VERSION } from "../version.ts";
 import { LegacyBinMissingError, runLegacyCommand } from "../legacy/mod.ts";
 import { renderCommandHelp, renderIndex, renderSurfaceHelp } from "./help.ts";
+import {
+  COMPLETE_ENV,
+  completionCandidates,
+  completionMode,
+  completionRcPath,
+  completionReply,
+  completionScript,
+} from "./completion.ts";
 
 /** Приёмник вывода процесса. */
 export interface Output {
@@ -51,12 +59,24 @@ const HELP_COMMAND = "help";
 /** Имя поверхности версии: `mpu version`. */
 const VERSION_COMMAND = "version";
 
+/** Опции дополнения: печать скрипта и его установка в rc-файл shell. */
+const SHOW_COMPLETION = "--show-completion";
+const INSTALL_COMPLETION = "--install-completion";
+
 /** Исполняет вызов CLI и возвращает код завершения процесса. */
 export async function runCli(
   argv: readonly string[],
   io: CommandIo,
   output: Output,
 ): Promise<number> {
+  const mode = completionMode(io.env(COMPLETE_ENV));
+  if (mode !== undefined) {
+    // Режим дополнения: печатаем варианты и молчим обо всём прочем —
+    // сюда попадают из shell, а не из рук пользователя.
+    output.stdout(completionReply(mode, candidates(io)));
+    return 0;
+  }
+
   const { args: rest, json } = takeJsonFlag(argv);
   if (rest.length === 0) {
     // Вызов без команды: справка печатается, но это ошибка (спека).
@@ -67,6 +87,9 @@ export async function runCli(
     output.stdout(rootIndex());
     return 0;
   }
+  if (rest[0] === SHOW_COMPLETION || rest[0] === INSTALL_COMPLETION) {
+    return await runCompletionOption(rest[0], rest[1], io, output);
+  }
   if (rest[0].startsWith("-")) {
     output.stderr(`No such option "${rest[0]}"\n`);
     return 2;
@@ -74,10 +97,10 @@ export async function runCli(
 
   if (rest[0] === VERSION_COMMAND) {
     if (rest.length > 1 && isHelpRequest(rest[1])) {
-      output.stdout(renderSurfaceHelp(
-        "mpu version",
-        findSurface([VERSION_COMMAND])?.summary ?? "",
-      ));
+      const surface = findSurface([VERSION_COMMAND]);
+      output.stdout(
+        renderSurfaceHelp(surface?.usage ?? "", surface?.summary ?? ""),
+      );
       return 0;
     }
     // Версия — константа сборки, а не вопрос к Python-реализации
@@ -153,6 +176,58 @@ async function runCommand(
   }
   output.stdout(command.renderResult(result, args));
   return command.textExitCode(result);
+}
+
+/**
+ * Варианты дополнения: имена верхнего уровня, отфильтрованные по уже
+ * набранному слову. Слово берётся из служебных переменных shell — сам
+ * режим дополнения командную строку не разбирает.
+ */
+function candidates(io: CommandIo): readonly string[] {
+  const fromBash = (io.env("COMP_WORDS") ?? "").split(/\s+/).filter(Boolean);
+  const fromZsh = (io.env("_TYPER_COMPLETE_ARGS") ?? "").split(/\s+/)
+    .filter(Boolean);
+  const words = fromBash.length > 0 ? fromBash : fromZsh;
+  // Первое слово — само `mpu`; дополняем то, что набрано после него.
+  const word = words.length > 1 ? words[words.length - 1] : "";
+  return completionCandidates(
+    childrenOf([]).map((child) => child.name),
+    word,
+  );
+}
+
+/**
+ * `--show-completion` печатает скрипт, `--install-completion` дописывает
+ * его в rc-файл. Shell берётся из аргумента, если он задан, иначе от
+ * окружения: определение по дереву процессов-предков — забота адаптера
+ * рантайма, а не этой функции (`platform/registry.md`).
+ */
+async function runCompletionOption(
+  option: string,
+  argument: string | undefined,
+  io: CommandIo,
+  output: Output,
+): Promise<number> {
+  const shell = argument ?? io.currentShell();
+  if (shell !== "bash" && shell !== "zsh") {
+    output.stderr(
+      `mpu: неизвестный shell для completion: ${shell ?? "(не определён)"}\n`,
+    );
+    return 2;
+  }
+  const script = completionScript(shell);
+  if (option === SHOW_COMPLETION) {
+    output.stdout(script);
+    return 0;
+  }
+  const path = completionRcPath(shell, io.env("HOME"));
+  if (path === undefined) {
+    output.stderr("mpu: HOME не задан, некуда устанавливать completion\n");
+    return 1;
+  }
+  await io.appendFile(path, `\n${script}`);
+  output.stdout(`completion для ${shell} дописан в ${path}\n`);
+  return 0;
 }
 
 /**

@@ -32,6 +32,18 @@ export type BareHandler = (
   output: ErrorSink,
 ) => Promise<number>;
 
+/**
+ * Поверхность точки входа: запись реестра со строкой использования.
+ * Подробной справки у неё нет — назначение исчерпывается однострокой,
+ * поэтому `mpu help <имя>` и `<имя> --help` печатают одно и то же
+ * (`platform/registry.md`, отклонение про именованный рендер).
+ */
+export interface SurfaceCommand {
+  readonly path: readonly string[];
+  readonly summary: string;
+  readonly usage: string;
+}
+
 /** Промежуточный уровень дерева команд. */
 export interface CommandGroup {
   readonly path: readonly string[];
@@ -68,14 +80,16 @@ export const legacyCommands: readonly LegacyCommand[] = LEGACY_TREE;
  * Однострока `help` — из слепка дерева: поверхность своя, но имя и
  * описание унаследованы, и расхождение с оригиналом здесь ни к чему.
  */
-export const surfaces: readonly LegacyCommand[] = [
+export const surfaces: readonly SurfaceCommand[] = [
   {
     path: ["help"],
     summary: "Список всех mpu команд с опциональной справкой.",
+    usage: "mpu help [<полное имя команды>]",
   },
   {
     path: ["version"],
     summary: "Show mpu version.",
+    usage: "mpu version",
   },
 ];
 
@@ -89,7 +103,7 @@ export const OWN_COMMANDS: readonly string[] = ["mcp"];
 /** Поверхность точки входа с ровно таким путём. */
 export function findSurface(
   path: readonly string[],
-): LegacyCommand | undefined {
+): SurfaceCommand | undefined {
   return surfaces.find((surface) => samePath(surface.path, path));
 }
 

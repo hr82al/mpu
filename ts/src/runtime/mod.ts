@@ -90,6 +90,77 @@ async function requireExecutable(bin: string): Promise<void> {
   }
 }
 
+/** Shell, которые умеет дополнять CLI (`platform/registry.md`). */
+const KNOWN_SHELLS = ["bash", "zsh"];
+
+/**
+ * Ближайший известный shell в дереве процессов-предков. Переменная
+ * `SHELL` не участвует намеренно: она называет login-shell
+ * пользователя, а нужен тот, из которого запущен процесс (спека).
+ *
+ * Дерево читается из procfs: у каждого процесса там есть имя и ppid.
+ * Нет procfs — shell не определён, и вызывающий просит указать его
+ * аргументом.
+ */
+function detectShell(): string | undefined {
+  return shellInAncestors(readProcStatFile, Deno.ppid);
+}
+
+/** Запись `/proc/<pid>/stat`: имя процесса и его родитель. */
+export interface ProcStat {
+  readonly name: string;
+  readonly ppid: number;
+}
+
+/**
+ * Ближайший известный shell в цепочке предков. Чтение передаётся
+ * параметром: сам обход — чистая логика, и проверяется без procfs,
+ * которого у чужих процессов в песочнице всё равно нет.
+ */
+export function shellInAncestors(
+  read: (pid: number) => ProcStat | undefined,
+  startPid: number,
+): string | undefined {
+  let pid = startPid;
+  // Ограничение на глубину: цепочка предков конечна, но испорченный
+  // procfs не должен превращаться в бесконечный цикл.
+  for (let depth = 0; depth < 16 && pid > 1; depth++) {
+    const stat = read(pid);
+    if (stat === undefined) return undefined;
+    // Login-shell записан с дефисом («-bash») — это тот же shell.
+    const name = stat.name.replace(/^-/, "");
+    if (KNOWN_SHELLS.includes(name)) return name;
+    pid = stat.ppid;
+  }
+  return undefined;
+}
+
+/**
+ * Разбор строки `/proc/<pid>/stat`. Формат: «pid (comm) state ppid …»;
+ * имя в скобках может содержать пробелы и сами скобки, поэтому режется
+ * по последней закрывающей.
+ */
+export function parseProcStat(raw: string): ProcStat | undefined {
+  const open = raw.indexOf("(");
+  const close = raw.lastIndexOf(")");
+  if (open < 0 || close < open) return undefined;
+  const rest = raw.slice(close + 2).split(" ");
+  const ppid = Number(rest[1]);
+  return {
+    name: raw.slice(open + 1, close),
+    ppid: Number.isNaN(ppid) ? 1 : ppid,
+  };
+}
+
+function readProcStatFile(pid: number): ProcStat | undefined {
+  try {
+    return parseProcStat(Deno.readTextFileSync(`/proc/${pid}/stat`));
+  } catch {
+    // Нет procfs или процесс исчез — shell не определён; это не сбой.
+    return undefined;
+  }
+}
+
 /** Запись файла с секретом: каталог создаётся, права ровно 0600. */
 async function writeSecret(path: string, text: string): Promise<void> {
   const dir = path.slice(0, path.lastIndexOf("/"));
@@ -170,6 +241,10 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
         stdout: decoder.decode(output.stdout),
         stderr: decoder.decode(output.stderr),
       };
+    },
+    currentShell: () => detectShell(),
+    appendFile: async (path, text) => {
+      await Deno.writeTextFile(path, text, { append: true, create: true });
     },
     launchOpener: (cmd, target) => {
       try {

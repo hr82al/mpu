@@ -28,6 +28,8 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     writeConfigStore: mustNotTouch("writeConfigStore"),
     readAccessToken: () => Promise.resolve(undefined),
     writeAccessToken: mustNotTouch("writeAccessToken"),
+    currentShell: () => undefined,
+    appendFile: mustNotTouch("appendFile"),
     launchOpener: mustNotTouch("opener"),
     runLegacy: mustNotTouch("runLegacy"),
     ...overrides,
