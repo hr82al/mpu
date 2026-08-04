@@ -9,12 +9,17 @@
  * то, что должен проверять.
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import { commands, legacyCommands, OWN_COMMANDS, surfaces } from "./mod.ts";
 import tree from "../../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };
 import { readManifest } from "../mcp/legacy_tools.ts";
+import {
+  legacyEntriesFrom,
+  NOT_LEGACY,
+  TreeSourceError,
+} from "./tree_source.ts";
 
 /** Верхнее имя дерева: имя и его собственная однострока. */
 interface TopLevel {
@@ -91,4 +96,57 @@ Deno.test("однострокѝ записей взяты из слепка", ()
       `${command.path[0]}: однострока разошлась со слепком`,
     );
   }
+});
+
+Deno.test("legacy_tree.ts синхронен слепку", async (t) => {
+  // Файл порождён скриптом синхронизации; скрипт руками запускают, и в
+  // прогон тестов он не попадает — поэтому проверяется его результат и
+  // само правило, по которому результат получается.
+  const expected = legacyEntriesFrom(readManifest(tree));
+
+  await t.step("состав и однострокѝ совпадают запись в запись", () => {
+    assertEquals(
+      legacyCommands.map((command) => ({
+        path: [...command.path],
+        summary: command.summary,
+      })),
+      expected.map((entry) => ({
+        path: [...entry.path],
+        summary: entry.summary,
+      })),
+    );
+  });
+
+  await t.step("имена реализованного и поверхностей исключены", () => {
+    // `xlsx` — команды контракта, `help` и `version` — поверхности.
+    for (const name of NOT_LEGACY) {
+      assertEquals(
+        legacyCommands.some((command) => command.path[0] === name),
+        false,
+        `${name} не должен быть записью маршрута legacy`,
+      );
+      // При этом в слепке они есть — исключение осознанное, а не
+      // следствие пропуска в дампе.
+      assertEquals(
+        readManifest(tree).commands.some((node) => node.path[0] === name),
+        true,
+      );
+    }
+  });
+
+  await t.step("пропуск записи в слепке — отказ, а не суррогат", () => {
+    const withoutTop = {
+      manifestVersion: tree.manifestVersion,
+      mpuVersion: tree.mpuVersion,
+      // Есть лист второго уровня, а записи его верхнего имени нет.
+      commands: [
+        { path: ["kiten", "ls"], params: [], summary: "s", help: "h" },
+      ],
+    };
+    const err = assertThrows(
+      () => legacyEntriesFrom(readManifest(withoutTop)),
+      TreeSourceError,
+    );
+    assertStringIncludes(String(err), "kiten");
+  });
 });
