@@ -9,6 +9,7 @@ import { handleMcp, type McpRequest, type McpResponse } from "./mod.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { makeDenoIo } from "../runtime/mod.ts";
 import { commands } from "../registry/mod.ts";
+import { makeFakeIo } from "../testing/mod.ts";
 
 /** Фикстура спеки: класс, запрос и ожидаемый ответ. */
 interface Fixture {
@@ -22,26 +23,9 @@ async function fixture(name: string): Promise<Fixture> {
   return JSON.parse(await Deno.readTextFile(url));
 }
 
-function makeIo(overrides: Partial<CommandIo> = {}): CommandIo {
-  const mustNotTouch = (what: string) => () => {
-    throw new Error(`${what} must not be touched`);
-  };
-  return {
-    env: () => undefined,
-    cwd: () => "/nowhere",
-    readFile: mustNotTouch("readFile"),
-    readTextFile: mustNotTouch("readTextFile"),
-    readTextStdin: mustNotTouch("stdin"),
-    readConfigStore: () => Promise.resolve(undefined),
-    writeConfigStore: mustNotTouch("writeConfigStore"),
-    launchOpener: mustNotTouch("opener"),
-    ...overrides,
-  };
-}
-
 function handle(
   request: McpRequest,
-  io: CommandIo = makeIo(),
+  io: CommandIo = makeFakeIo(),
 ): Promise<McpResponse> {
   return handleMcp(request, { io, commands, version: "0.1.0" });
 }
@@ -95,7 +79,7 @@ Deno.test("tools/call: успех — структурное содержимо�
     const real = makeDenoIo(`${dir}/config.json`);
     const actual = await handle(
       request,
-      makeIo({ readFile: real.readFile, cwd: () => dir }),
+      makeFakeIo({ readFile: real.readFile, cwd: () => dir }),
     );
     assertEquals(actual.status, 200);
     assertEquals(actual.body, response.body);
@@ -115,7 +99,7 @@ Deno.test("tools/call: доменная ошибка — результат с �
     const real = makeDenoIo(`${dir}/config.json`);
     const actual = await handle(
       request,
-      makeIo({ readFile: real.readFile, cwd: () => dir }),
+      makeFakeIo({ readFile: real.readFile, cwd: () => dir }),
     );
     assertEquals(actual.status, response.status);
     // Путь книги в тексте ошибки абсолютный (резолв спеки xlsx), а
@@ -291,7 +275,7 @@ Deno.test("границы, не покрытые фикстурами", async (t
   });
 
   await t.step("сбой реализации — внутренняя ошибка, не итог", async () => {
-    const broken = makeIo({
+    const broken = makeFakeIo({
       readConfigStore: () => Promise.reject(new Error("хранилище недоступно")),
     });
     const actual = await handle({
