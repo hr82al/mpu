@@ -275,6 +275,48 @@ Deno.test("env-файл: сбой rename убирает временный фа�
   }
 });
 
+Deno.test("makeDenoIo: envFile собран из настоящего пути, приоритет окружения не инвертирован", async () => {
+  // Стык «путь → store → политика» (`envFilePath` → `makeEnvFileStore` →
+  // `makeEnvFile` в `makeDenoIo`) ничем не проверен: мутация «всегда
+  // передавать undefined вместо store» оставила бы все прочие тесты
+  // зелёными, а `envFile` в тестах без этого теста нацелен на настоящий
+  // `~/.config/mpu/.env` машины разработчика — подмена XDG_CONFIG_HOME
+  // нужна и для изоляции, и как сама проверка стыка.
+  const dir = await Deno.makeTempDir();
+  const previousXdg = Deno.env.get("XDG_CONFIG_HOME");
+  const previousKey = Deno.env.get("MPU_TEST_ENV_KEY");
+  try {
+    Deno.env.set("XDG_CONFIG_HOME", dir);
+    Deno.env.delete("MPU_TEST_ENV_KEY");
+    await Deno.mkdir(`${dir}/mpu`, { recursive: true });
+    await Deno.writeTextFile(
+      `${dir}/mpu/.env`,
+      "MPU_TEST_ENV_KEY=from-file\n",
+    );
+
+    // Без переменной окружения значение приходит из файла по временному
+    // XDG_CONFIG_HOME — только так, если стык действительно собран.
+    assertEquals(
+      makeDenoIo(undefined).envFile.get("MPU_TEST_ENV_KEY"),
+      "from-file",
+    );
+
+    // Та же переменная теперь и в окружении процесса — приоритет
+    // «окружение процесса → файл» не инвертирован.
+    Deno.env.set("MPU_TEST_ENV_KEY", "from-process-env");
+    assertEquals(
+      makeDenoIo(undefined).envFile.get("MPU_TEST_ENV_KEY"),
+      "from-process-env",
+    );
+  } finally {
+    if (previousXdg === undefined) Deno.env.delete("XDG_CONFIG_HOME");
+    else Deno.env.set("XDG_CONFIG_HOME", previousXdg);
+    if (previousKey === undefined) Deno.env.delete("MPU_TEST_ENV_KEY");
+    else Deno.env.set("MPU_TEST_ENV_KEY", previousKey);
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("разбор строки /proc/<pid>/stat", async (t) => {
   await t.step("обычная запись", () => {
     assertEquals(parseProcStat("42 (bash) S 17 42 42 0 -1"), {

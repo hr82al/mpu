@@ -65,9 +65,14 @@ function buildNextText(text: string, name: string, value: string): string {
     return assignEnvValue(text, name, value);
   } catch (err) {
     if (!(err instanceof EnvValueError)) throw err;
-    throw new DomainError(`cannot write env value for ${name}`, {
-      cause: err,
-    });
+    // Причина называется в самом сообщении, а не только в `cause`: точка
+    // входа (`main.ts`) печатает пользователю `err.message` как есть и
+    // цепочку `cause` не разворачивает — без этого пользователь не узнал
+    // бы, что помешал перевод строки или одинарная кавычка в значении.
+    throw new DomainError(
+      `cannot write env value for ${name}: value contains a newline or a single quote`,
+      { cause: err },
+    );
   }
 }
 
@@ -116,6 +121,21 @@ export function makeEnvFile(
       throw new DomainError("cannot write env file: no config directory");
     }
     const nextText = buildNextText(snapshotOf().text, name, value);
+    // Запись (`assignEnvValue`) заменяет первую строку ключа — так велит
+    // спека; разбор (`parseEnvFile`) отдаёт значение последней строки —
+    // так ведёт себя живой разборщик, с которым паритет обязателен. На
+    // файле без дубликатов ключа обе половины согласны. На файле с
+    // дубликатом они расходятся молча: `store.write` записал бы значение,
+    // которое `get` тут же не увидел бы — более поздняя строка перекрыла
+    // бы его при следующем разборе. Меняя ни одну из половин нельзя (обе
+    // зафиксированы), поэтому расхождение ловится здесь и отказывает
+    // громко, до того как `store.write` тронет диск.
+    if (parseEnvFile(nextText)[name] !== value) {
+      throw new DomainError(
+        `cannot write env value for ${name}: a later line in ` +
+          `${store.path} repeats the key and would override the write`,
+      );
+    }
     await store.write(nextText);
     snapshot = { text: nextText, values: parseEnvFile(nextText) };
   }

@@ -32,6 +32,11 @@ export type Policy = "ro" | "rw";
  * исполнение не печатает (инвариант 1), печать — дело точки входа.
  */
 export interface CommandIo {
+  /**
+   * Служебные переменные обвязки и режима дополнения (`HOME`,
+   * `_MPU_COMPLETE` и соседи). Ключи env-файла (секреты, адреса внешних
+   * систем) читаются не отсюда, а через `envFile` ниже.
+   */
   readonly env: (name: string) => string | undefined;
   readonly cwd: () => string;
   /** Байты файла; отсутствие файла — `NotFoundIoError`. */

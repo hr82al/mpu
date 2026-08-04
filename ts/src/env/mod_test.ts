@@ -1,4 +1,9 @@
-import { assertEquals, assertRejects, assertThrows } from "@std/assert";
+import {
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { DomainError } from "../command/mod.ts";
 import { envFilePath, type EnvFileStore, makeEnvFile } from "./mod.ts";
 
@@ -120,6 +125,38 @@ Deno.test("set: без файла хранилища — DomainError, запис
 Deno.test("set: непригодное значение — DomainError, store.write не вызван", async () => {
   const { store, written } = fakeStore("A=1\n");
   const envFile = makeEnvFile(() => undefined, store);
-  await assertRejects(() => envFile.set("A", "a'b"), DomainError);
+  const err = await assertRejects(() => envFile.set("A", "a'b"), DomainError);
   assertEquals(written, []);
+  // Сообщение называет причину (перевод строки/кавычка), но не значение —
+  // это секрет, ему нельзя попадать в текст ошибки.
+  assertStringIncludes(err.message, "A");
+  assertEquals(err.message.includes("a'b"), false);
+});
+
+Deno.test("set: дубликат ключа в файле — запись отклоняется, store.write не вызван", async () => {
+  // Запись меняет только первую строку ключа (см. `assignEnvValue`), а
+  // разбор берёт последнее значение (см. `parseEnvFile`) — на файле с
+  // дубликатом эти две половины расходятся: записанное значение не то,
+  // что вернёт последующий `get`. Тихо мириться с этим нельзя (инвариант
+  // спеки «записанное значение действует немедленно»), поэтому `set`
+  // обязан отказать раньше, чем `store.write` тронет диск.
+  const { store, written } = fakeStore("PG_PORT=5432\nPG_PORT=6432\n");
+  const envFile = makeEnvFile(() => undefined, store);
+  const err = await assertRejects(
+    () => envFile.set("PG_PORT", "7777"),
+    DomainError,
+  );
+  assertEquals(written, []);
+  assertStringIncludes(err.message, "PG_PORT");
+  assertStringIncludes(err.message, store.path);
+  // Значение для записи — секрет, в тексте ошибки его быть не должно.
+  assertEquals(err.message.includes("7777"), false);
+});
+
+Deno.test("set: обычный файл без дубликатов — пишется как раньше", async () => {
+  const { store, written } = fakeStore("A=1\nB=2\n");
+  const envFile = makeEnvFile(() => undefined, store);
+  await envFile.set("A", "3");
+  assertEquals(written, ["A=3\nB=2\n"]);
+  assertEquals(envFile.get("A"), "3");
 });

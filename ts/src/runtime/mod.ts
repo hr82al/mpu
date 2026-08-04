@@ -198,8 +198,10 @@ export function makeEnvFileStore(path: string): EnvFileStore {
       const tmpPath = `${path}.${crypto.randomUUID()}.tmp`;
       try {
         await Deno.writeTextFile(tmpPath, text, { mode: 0o600 });
-        // При существующем временном файле mode из writeTextFile не
-        // применяется — права выравниваются явно, как в writeSecret выше.
+        // Файл заведомо новый (имя несёт UUID) — переиспользованием мода
+        // существующего файла дело не в этом: umask процесса режет mode
+        // при создании, поэтому права после writeTextFile выравниваются
+        // явным chmod.
         await Deno.chmod(tmpPath, 0o600);
         await Deno.rename(tmpPath, path);
       } catch (err) {
