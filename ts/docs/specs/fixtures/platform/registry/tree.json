@@ -4513,6 +4513,15 @@
     },
     {
       "path": [
+        "telegram",
+        "login"
+      ],
+      "params": [],
+      "summary": "Войти в Telegram: сохранить пользовательскую сессию (telethon) в ~/.config/mpu/.env.",
+      "help": "Войти в Telegram: сохранить пользовательскую сессию (telethon) в ~/.config/mpu/.env.\n\nИнтерактивный сценарий: если TELEGRAM_API_ID/TELEGRAM_API_HASH ещё не заданы — сначала\nспрашивает согласие их завести (с инструкцией, где на my.telegram.org взять api_id/\napi_hash) и сохраняет их. Дальше спрашивает телефон (или берёт TELEGRAM_PHONE из .env),\nкод из Telegram и, если включена 2FA, пароль (скрытый ввод через getpass). Успешный вход\nсохраняет TELEGRAM_PHONE и TELEGRAM_SESSION в ~/.config/mpu/.env — дальше `send`/`ls`/\n`search`/`status` используют их без повторного входа.\n\nИдемпотентно: если TELEGRAM_SESSION уже валидна — печатает «уже авторизован» и выходит,\nповторный вход не запускается. Без TTY (неинтерактивный запуск) — пропускает с подсказкой\nзаполнить TELEGRAM_API_ID/HASH в .env вручную. Best-effort: ошибка входа (telethon\nTgError, например неверный код) не считается фатальной — печатается в stderr, команда\nзавершается кодом 0.\n\nТо же самое действие выполняется шагом 5 `mpu init` (после discovery Portainer/Loki/\nKaiten) — вызывать отдельно, если тогда TTY не было или креды завели позже."
+    },
+    {
+      "path": [
         "confirm"
       ],
       "params": [
