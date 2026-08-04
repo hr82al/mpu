@@ -54,6 +54,26 @@
     "xlsx alias rm",
     "xlsx open"
   ],
+  "destructive": [
+    "api wb-loader-reset",
+    "kiten comment",
+    "kiten move",
+    "kiten ready",
+    "mr comment",
+    "mr create",
+    "mr delete",
+    "mr describe",
+    "mr edit",
+    "mr note",
+    "mr reply",
+    "mr resolve",
+    "mr unresolve",
+    "run-js",
+    "sheet batch-update",
+    "sheet set",
+    "sql",
+    "ssh"
+  ],
   "excluded": {
     "help": "справочная поверхность CLI, а не операция",
     "mcp": "управление самим сервером; долгоживущая поверхность без результата и рендера",
