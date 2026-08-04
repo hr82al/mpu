@@ -40,7 +40,12 @@ import {
 } from "./tools.ts";
 
 export type { Profile, Tool, ToolEntry } from "./tools.ts";
-export { PROFILE_INSTRUCTIONS, profileTools, toolName } from "./tools.ts";
+export {
+  PROFILE_INSTRUCTIONS,
+  profileTools,
+  toolName,
+  ToolPolicyError,
+} from "./tools.ts";
 
 /** Запрос к ядру: то, что адаптер извлёк из HTTP. */
 export interface McpRequest {

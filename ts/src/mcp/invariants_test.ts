@@ -3,14 +3,17 @@
  * закрытого списка публикации, без транспорта.
  */
 
-import { assertEquals, assertLess } from "@std/assert";
+import { assertEquals, assertLess, assertThrows } from "@std/assert";
+import type { Command } from "../command/mod.ts";
 import { commands } from "../registry/mod.ts";
 import {
   type Profile,
   PROFILE_INSTRUCTIONS,
   profileTools,
   toolName,
+  ToolPolicyError,
 } from "./mod.ts";
+import toolPolicies from "./tool-policies.json" with { type: "json" };
 
 const PROFILES: readonly Profile[] = ["ro", "rw"];
 
@@ -35,8 +38,9 @@ Deno.test("профили не пересекаются и на /ro нет по�
     rw.filter((entry) => entry.command.policy === "ro").map((e) => e.tool.name),
     [],
   );
-  // Профили в сумме дают весь реестр: команда не теряется молча.
-  assertEquals(ro.length + rw.length, commands.length);
+  // Профили в сумме дают ровно то, что разрешено списком: команда вне
+  // списка не публикуется, команда из списка не теряется молча.
+  assertEquals(ro.length + rw.length, publishableCount());
 });
 
 Deno.test("имя тула уникально в профиле и восстанавливает путь", () => {
@@ -144,16 +148,37 @@ Deno.test("публикация подчинена закрытому списк
     const outside = commands
       .map((command) => command.path.join(" "))
       .filter((name) => !listed.has(name));
+    // Реестр действительно несёт такие команды: `mpu mcp token` печатает
+    // токен доступа, и правило fail-closed — единственное, что держит её
+    // вне тулов.
+    assertEquals(outside.length > 0, true, "нечего проверять: список полон");
     assertEquals(
       published.filter((item) => outside.includes(item.command)),
       [],
     );
   });
+
+  await t.step("расхождение политики со списком — отказ собрать тулы", () => {
+    const misdeclared: Command = { ...commands[0], policy: "rw" };
+    assertEquals(misdeclared.path.join(" "), "xlsx ls");
+    assertThrows(
+      () => profileTools([misdeclared], "rw"),
+      ToolPolicyError,
+      "расходится",
+    );
+  });
 });
 
-/** Закрытый список публикации из фикстур спеки. */
+/** Сколько команд реестра разрешено публиковать закрытым списком. */
+function publishableCount(): number {
+  const listed = new Set([...toolPolicies.ro, ...toolPolicies.rw]);
+  return commands.filter((command) => listed.has(command.path.join(" ")))
+    .length;
+}
+
+/** Закрытый список публикации — тот же файл, что читает код. */
 async function loadPolicies(): Promise<{ ro: string[]; rw: string[] }> {
-  const url = new URL("testdata/tool-policies.json", import.meta.url);
+  const url = new URL("tool-policies.json", import.meta.url);
   const raw = JSON.parse(await Deno.readTextFile(url));
   return { ro: raw.ro, rw: raw.rw };
 }

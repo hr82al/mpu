@@ -26,6 +26,8 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     readTextStdin: mustNotTouch("stdin"),
     readConfigStore: () => Promise.resolve(undefined),
     writeConfigStore: mustNotTouch("writeConfigStore"),
+    readAccessToken: () => Promise.resolve(undefined),
+    writeAccessToken: mustNotTouch("writeAccessToken"),
     launchOpener: mustNotTouch("opener"),
     ...overrides,
   };

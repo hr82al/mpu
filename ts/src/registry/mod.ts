@@ -14,18 +14,39 @@
  * инвариантов начнут по нему фильтровать (`platform/command-contract.md`).
  */
 
-import type { Command } from "../command/mod.ts";
+import type { Command, CommandIo } from "../command/mod.ts";
 import { xlsxCommands } from "../xlsx/mod.ts";
+import { mcpTokenCommand } from "../mcp/cmd_token.ts";
+import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
+
+/**
+ * Что делает голый вызов уровня (`mpu mcp`), если он делает не индекс.
+ * Возвращает код завершения процесса.
+ */
+export type BareHandler = (
+  argv: readonly string[],
+  io: CommandIo,
+  output: ErrorSink,
+) => Promise<number>;
 
 /** Промежуточный уровень дерева команд. */
 export interface CommandGroup {
   readonly path: readonly string[];
   readonly summary: string;
   readonly usage: string;
+  /**
+   * Поверхность голого вызова уровня. Есть только у `mpu mcp`: сервер
+   * не команда контракта — у него нет результата, который рендерится
+   * (см. `mcp/cli.ts`).
+   */
+  readonly bare?: BareHandler;
 }
 
 /** Все команды CLI в порядке показа в справке. */
-export const commands: readonly Command[] = xlsxCommands;
+export const commands: readonly Command[] = [
+  ...xlsxCommands,
+  mcpTokenCommand,
+];
 
 /** Все промежуточные уровни; каждый префикс пути команды описан здесь. */
 export const groups: readonly CommandGroup[] = [
@@ -38,6 +59,12 @@ export const groups: readonly CommandGroup[] = [
     path: ["xlsx", "alias"],
     summary: "алиасы путей: add | ls | rm",
     usage: "mpu xlsx alias <подкоманда> [аргументы]",
+  },
+  {
+    path: ["mcp"],
+    summary: "MCP-сервер над реестром команд: запуск и токен доступа",
+    usage: "mpu mcp [--profile ro|rw|ro,rw] [--port N]",
+    bare: (argv, io, output) => runMcpServer(argv, { io, output, commands }),
   },
 ];
 

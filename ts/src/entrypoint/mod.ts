@@ -66,7 +66,7 @@ export async function runCli(
 
   try {
     const command = findCommand(path);
-    if (command === undefined) return runGroup(path, args, output);
+    if (command === undefined) return await runGroup(path, args, io, output);
     if (args.length > 0 && isHelpRequest(args[0])) {
       output.stdout(renderCommandHelp(command));
       return 0;
@@ -103,24 +103,33 @@ async function runCommand(
   return command.textExitCode(result);
 }
 
-/** Промежуточный уровень: собственной реализации нет, только индекс. */
-function runGroup(
+/**
+ * Промежуточный уровень: обычно только индекс, но уровень может нести
+ * собственную поверхность голого вызова (`mpu mcp` поднимает сервер).
+ */
+async function runGroup(
   path: readonly string[],
   args: readonly string[],
+  io: CommandIo,
   output: Output,
-): number {
+): Promise<number> {
   const group = findGroup(path);
   if (group === undefined) {
     // Путь опознан по реестру, значит группа обязана быть описана.
     throw new UsageError(`группа "${path.join(" ")}" не описана в реестре`);
   }
+  if (args.length > 0 && isHelpRequest(args[0])) {
+    output.stdout(groupIndex(group));
+    return 0;
+  }
+  // Подкоманду называет только первый аргумент: дальше идут значения
+  // флагов уровня, и они выглядят так же («--profile ro»).
+  if (group.bare !== undefined && (args.length === 0 || isFlag(args[0]))) {
+    return await group.bare(args, io, output);
+  }
   if (args.length === 0) {
     output.stdout(groupIndex(group));
     return 2;
-  }
-  if (isHelpRequest(args[0])) {
-    output.stdout(groupIndex(group));
-    return 0;
   }
   // Имя вне реестра называется одинаково на любом уровне: ключевые
   // фразы ошибок — фиксируемая часть контракта (`platform/registry.md`).
@@ -183,4 +192,8 @@ function groupIndex(group: CommandGroup): string {
 
 function isHelpRequest(arg: string): boolean {
   return arg === "-h" || arg === "--help";
+}
+
+function isFlag(arg: string): boolean {
+  return arg.startsWith("-");
 }

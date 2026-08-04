@@ -4,7 +4,8 @@
  * мутирующий тул не зарегистрирован вовсе.
  */
 
-import type { Command } from "../command/mod.ts";
+import type { Command, Policy } from "../command/mod.ts";
+import toolPolicies from "./tool-policies.json" with { type: "json" };
 
 /** Профиль сервера: путь `/ro` или `/rw`. */
 export type Profile = "ro" | "rw";
@@ -43,17 +44,51 @@ export const PROFILE_INSTRUCTIONS: Readonly<Record<Profile, string>> = {
     "здесь, когда действие меняет состояние, а не только читает его.",
 };
 
+/** Расхождение объявленной политики с закрытым списком публикации. */
+export class ToolPolicyError extends Error {
+  override name = "ToolPolicyError";
+}
+
 /**
  * Тулы профиля в порядке реестра. Порядок и содержимое зависят только
- * от реестра — отсюда побитовое совпадение между вызовами.
+ * от реестра и закрытого списка — отсюда побитовое совпадение между
+ * вызовами.
+ *
+ * Публикуется не всё дерево: команда, которой нет в списке, тула не
+ * получает (fail-closed). Правило не косметическое — оно решает,
+ * увидит ли агент команду вроде `mpu mcp token`, печатающую секрет.
  */
 export function profileTools(
   commands: readonly Command[],
   profile: Profile,
 ): readonly ToolEntry[] {
   return commands
-    .filter((command) => command.policy === profile)
+    .filter((command) => publishedPolicy(command) === profile)
     .map((command) => ({ tool: toolOf(command), command }));
+}
+
+/**
+ * Профиль команды по закрытому списку; команды нет в списке — она не
+ * публикуется. Расхождение политики в коде с политикой списка — отказ
+ * собрать тулы, а не молчаливый выбор одной из двух (инвариант спеки).
+ */
+function publishedPolicy(command: Command): Policy | undefined {
+  const name = command.path.join(" ");
+  const listed = listedPolicy(name);
+  if (listed === undefined) return undefined;
+  if (listed !== command.policy) {
+    throw new ToolPolicyError(
+      `${name}: политика в коде (${command.policy}) расходится ` +
+        `с закрытым списком публикации (${listed})`,
+    );
+  }
+  return listed;
+}
+
+function listedPolicy(name: string): Policy | undefined {
+  if (toolPolicies.ro.includes(name)) return "ro";
+  if (toolPolicies.rw.includes(name)) return "rw";
+  return undefined;
 }
 
 /** Тул профиля по имени; чужого имени в профиле нет. */

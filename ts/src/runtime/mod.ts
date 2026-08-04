@@ -54,8 +54,30 @@ export function makeDenoOutput(): Output {
   };
 }
 
+/**
+ * Файл токена доступа MCP-сервера: сосед хранилища конфига, но не его
+ * ключ (`platform/mcp-server.md`).
+ */
+export function accessTokenPath(
+  storePath: string | undefined,
+): string | undefined {
+  if (storePath === undefined) return undefined;
+  return `${storePath.slice(0, storePath.lastIndexOf("/"))}/token`;
+}
+
+/** Запись файла с секретом: каталог создаётся, права ровно 0600. */
+async function writeSecret(path: string, text: string): Promise<void> {
+  const dir = path.slice(0, path.lastIndexOf("/"));
+  await Deno.mkdir(dir, { recursive: true });
+  await Deno.writeTextFile(path, text, { mode: 0o600 });
+  // При существующем файле mode из writeTextFile не применяется —
+  // права выравниваются явно.
+  await Deno.chmod(path, 0o600);
+}
+
 /** Реальные зависимости исполнения команд поверх API Deno. */
 export function makeDenoIo(storePath: string | undefined): CommandIo {
+  const tokenPath = accessTokenPath(storePath);
   return {
     env: (name) => Deno.env.get(name),
     cwd: () => Deno.cwd(),
@@ -88,12 +110,22 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
         // Штатная доменная ошибка (exit 1), не «unexpected».
         throw new DomainError("config store is unavailable (HOME is not set)");
       }
-      const dir = storePath.slice(0, storePath.lastIndexOf("/"));
-      await Deno.mkdir(dir, { recursive: true });
-      await Deno.writeTextFile(storePath, text, { mode: 0o600 });
-      // При существующем файле mode из writeTextFile не применяется —
-      // права выравниваются явно (зеркалим контракт config.md).
-      await Deno.chmod(storePath, 0o600);
+      await writeSecret(storePath, text);
+    },
+    readAccessToken: async () => {
+      if (tokenPath === undefined) return undefined;
+      try {
+        return (await Deno.readTextFile(tokenPath)).trim();
+      } catch (err) {
+        if (err instanceof Deno.errors.NotFound) return undefined;
+        throw err;
+      }
+    },
+    writeAccessToken: async (token) => {
+      if (tokenPath === undefined) {
+        throw new DomainError("config store is unavailable (HOME is not set)");
+      }
+      await writeSecret(tokenPath, `${token}\n`);
     },
     launchOpener: (cmd, target) => {
       try {

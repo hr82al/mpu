@@ -86,6 +86,12 @@ const CASES: readonly CommandCase[] = [
     argv: ["otchet"],
     sampleResult: { name: "otchet", removed: true },
   },
+  {
+    path: "mcp token",
+    argv: [],
+    // Значение синтетическое: настоящий токен в образцы не попадает.
+    sampleResult: { headers: { Authorization: "Bearer проба-токена" } },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {
@@ -360,6 +366,9 @@ function makeIo(dir: string): CommandIo {
     readFile: (path) => Deno.readFile(inDir(path)),
     readTextFile: (path) => Deno.readTextFile(inDir(path)),
     readTextStdin: () => Promise.resolve(""),
+    readAccessToken: () => Promise.resolve("проба-токена"),
+    writeAccessToken: (token) =>
+      Deno.writeTextFile(`${dir}/token`, token, { mode: 0o600 }),
     readConfigStore: async () => {
       try {
         return await Deno.readTextFile(`${dir}/config.json`);
