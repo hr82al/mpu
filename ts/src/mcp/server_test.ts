@@ -150,12 +150,39 @@ Deno.test("Origin: чужой отвергается, отсутствующий
       assertEquals(error.id, null);
       assertStringIncludes(error.message, "example.com");
     });
-    await t.step("свой источник — проходит", async () => {
+    await t.step("свои хосты — проходят, схема и порт не важны", async () => {
+      // Список фиксирован спекой: 127.0.0.1, localhost, [::1].
+      const allowed = [
+        `http://${LOOPBACK}:1234`,
+        `https://${LOOPBACK}`,
+        "http://localhost:5173",
+        "https://localhost",
+        "http://[::1]:8080",
+      ];
+      for (const origin of allowed) {
+        const response = await call("/ro", { headers: headers({ origin }) });
+        assertEquals(response.status, 200, `отвергнут свой Origin ${origin}`);
+        await response.body?.cancel();
+      }
+    });
+    await t.step("неразбираемое значение отвергается", async () => {
+      // Значение без схемы источником не разбирается: отказ, а не
+      // падение обработчика (заголовок обязан быть ASCII).
       const response = await call("/ro", {
-        headers: headers({ Origin: `http://${LOOPBACK}:1234` }),
+        headers: headers({ Origin: "ne-istochnik-vovse" }),
       });
-      assertEquals(response.status, 200);
-      await response.body?.cancel();
+      assertEquals(response.status, 403);
+      assertStringIncludes((await errorOf(response)).message, "ne-istochnik");
+    });
+    await t.step("похожий, но чужой хост отвергается", async () => {
+      // Подстрока своего имени своим источником не делает.
+      for (
+        const origin of ["http://localhost.evil.com", "http://127.0.0.1.ru"]
+      ) {
+        const response = await call("/ro", { headers: headers({ origin }) });
+        assertEquals(response.status, 403, `пропущен чужой Origin ${origin}`);
+        await response.body?.cancel();
+      }
     });
     await t.step("без Origin — проходит", async () => {
       const response = await call("/ro");
