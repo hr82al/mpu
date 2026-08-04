@@ -1,0 +1,12 @@
+{
+  "SIMPLE": "plain-value",
+  "EXPORTED": "with-export-prefix",
+  "SPACED": "padded-around-equals",
+  "EMPTY": "",
+  "QUOTED_SINGLE": "значение с пробелами и #решёткой",
+  "QUOTED_DOUBLE": "в двойных кавычках",
+  "BARE_URL": "https://api.example.test/path?a=1&b=2",
+  "BASE64_LIKE": "AbCd012+/=",
+  "TRAILING_COMMENT": "value",
+  "UNDER_SCORE_1": "ok"
+}
