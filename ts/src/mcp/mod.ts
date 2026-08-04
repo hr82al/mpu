@@ -199,10 +199,24 @@ async function callTool(
   }
   const input = message.params["arguments"] ?? {};
   try {
-    const result = await entry.command.invokeInput(input, deps.io);
+    const result = await entry.invoke(input, deps.io);
+    if (result.isError) {
+      // Команда сообщила о неуспехе сама (ненулевой код подпроцесса):
+      // это доменная ошибка, её агент читает и исправляется.
+      return resultBody(id, {
+        isError: true,
+        content: [{ type: "text", text: result.text }],
+      });
+    }
+    if (result.structured === undefined) {
+      // У маршрута `legacy` схемы результата нет — только текст.
+      return resultBody(id, {
+        content: [{ type: "text", text: result.text }],
+      });
+    }
     return resultBody(id, {
-      structuredContent: result,
-      content: [{ type: "text", text: JSON.stringify(result) }],
+      structuredContent: result.structured,
+      content: [{ type: "text", text: result.text }],
     });
   } catch (err) {
     if (err instanceof UsageError) {
@@ -216,7 +230,7 @@ async function callTool(
       return resultBody(id, {
         isError: true,
         content: [
-          { type: "text", text: formatCommandError(entry.command.path, err) },
+          { type: "text", text: formatCommandError(entry.path, err) },
         ],
       });
     }

@@ -16,6 +16,10 @@ import {
 import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
   type: "json",
 };
+import { readManifest } from "./legacy_tools.ts";
+import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
+  type: "json",
+};
 
 const PROFILES: readonly Profile[] = ["ro", "rw"];
 
@@ -33,16 +37,16 @@ Deno.test("профили не пересекаются и на /ro нет по�
     [],
   );
   assertEquals(
-    ro.filter((entry) => entry.command.policy === "rw").map((e) => e.tool.name),
+    ro.filter((entry) => entry.policy === "rw").map((e) => e.tool.name),
     [],
   );
   assertEquals(
-    rw.filter((entry) => entry.command.policy === "ro").map((e) => e.tool.name),
+    rw.filter((entry) => entry.policy === "ro").map((e) => e.tool.name),
     [],
   );
-  // Профили в сумме дают ровно то, что разрешено списком: команда вне
-  // списка не публикуется, команда из списка не теряется молча.
-  assertEquals(ro.length + rw.length, publishableCount());
+  // Профили в сумме дают ровно закрытый список — ни больше, ни меньше.
+  assertEquals(ro.length, toolPolicies.ro.length);
+  assertEquals(rw.length, toolPolicies.rw.length);
 });
 
 Deno.test("имя тула уникально в профиле и восстанавливает путь", () => {
@@ -51,8 +55,8 @@ Deno.test("имя тула уникально в профиле и восста�
     const names = entries.map((entry) => entry.tool.name);
     assertEquals(new Set(names).size, names.length, `дубли имён в ${profile}`);
     for (const entry of entries) {
-      assertEquals(entry.tool.name, toolName(entry.command.path));
-      assertEquals(entry.tool.title, `mpu ${entry.command.path.join(" ")}`);
+      assertEquals(entry.tool.name, toolName(entry.path));
+      assertEquals(entry.tool.title, `mpu ${entry.path.join(" ")}`);
     }
   }
 });
@@ -122,22 +126,35 @@ Deno.test("публикация подчинена закрытому списк
     profileTools(commands, profile).map((entry) => ({
       profile,
       name: entry.tool.name,
-      command: entry.command.path.join(" "),
-      policy: entry.command.policy,
+      command: entry.path.join(" "),
+      policy: entry.policy,
     }))
   );
 
-  await t.step("опубликованное — подмножество списка", () => {
-    // Равенства пока нет и быть не может: legacy-тулы публикует
-    // отдельная задача, здесь публикуются только команды native.
-    const listed = new Set([...policies.ro, ...policies.rw]);
+  await t.step("опубликованный набор равен закрытому списку", () => {
+    // Полная форма инварианта: ослабление до включения стояло ровно
+    // из-за легаси-тулов, а они теперь публикуются.
     assertEquals(
-      published.filter((item) => !listed.has(item.command)),
+      published.map((item) => item.command).sort(),
+      [...policies.ro, ...policies.rw].sort(),
+    );
+  });
+
+  await t.step("каждое имя списка разрешается в лист слепка", () => {
+    const leaves = new Set(
+      readManifest(treeManifest).commands.map((leaf) => leaf.path.join(" ")),
+    );
+    const native = new Set(commands.map((command) => command.path.join(" ")));
+    // Команда native живёт в коде, прочие обязаны найтись в слепке —
+    // иначе тул некому описать и нечем исполнить.
+    assertEquals(
+      [...policies.ro, ...policies.rw]
+        .filter((name) => !native.has(name) && !leaves.has(name)),
       [],
     );
   });
 
-  await t.step("политика в коде совпадает со списком", () => {
+  await t.step("политика каждого тула совпадает со списком", () => {
     for (const item of published) {
       const inList = policies.ro.includes(item.command) ? "ro" : "rw";
       assertEquals(item.policy, inList, `${item.command}: политика`);
@@ -147,9 +164,10 @@ Deno.test("публикация подчинена закрытому списк
 
   await t.step("команда вне списка не публикуется", () => {
     const listed = new Set([...policies.ro, ...policies.rw]);
-    const outside = commands
-      .map((command) => command.path.join(" "))
-      .filter((name) => !listed.has(name));
+    const outside = [
+      ...commands.map((command) => command.path.join(" ")),
+      ...readManifest(treeManifest).commands.map((leaf) => leaf.path.join(" ")),
+    ].filter((name) => !listed.has(name));
     // Реестр действительно несёт такие команды: `mpu mcp token` печатает
     // токен доступа, и правило fail-closed — единственное, что держит её
     // вне тулов.
@@ -170,13 +188,6 @@ Deno.test("публикация подчинена закрытому списк
     );
   });
 });
-
-/** Сколько команд реестра разрешено публиковать закрытым списком. */
-function publishableCount(): number {
-  const listed = new Set([...toolPolicies.ro, ...toolPolicies.rw]);
-  return commands.filter((command) => listed.has(command.path.join(" ")))
-    .length;
-}
 
 /** Закрытый список публикации — тот же файл канала, что читает код. */
 function loadPolicies(): { ro: readonly string[]; rw: readonly string[] } {

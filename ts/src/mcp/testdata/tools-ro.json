@@ -307,5 +307,717 @@
       ],
       "additionalProperties": false
     }
+  },
+  {
+    "name": "sql_ro",
+    "title": "mpu sql-ro",
+    "description": "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).\n\nВыполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).\n\nТо же, что `mpu sql`, но PG открывает сессию с `default_transaction_read_only=on`:\nлюбой пишущий запрос (включая data-modifying CTE) отклоняется сервером\n(SQLSTATE 25006) — гарантия PG, не анализ текста SQL. Для записи — `mpu sql`.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "client_id, spreadsheet_id substring, title substring, sl-N (сервер целиком, без search_path; main = sl-0), sw-PG алиас (sw / sw-pg / ws / workspaces), или dev-стенд `dev:<client_id>` (БД mp_sl_1_dev, search_path schema_<client_id>)"
+        },
+        "sql": {
+          "type": "string",
+          "description": "SQL для выполнения (read-only); если не задан — берётся из stdin"
+        },
+        "server": {
+          "type": "string",
+          "description": "Override резолва: sl-N"
+        },
+        "dry": {
+          "type": "boolean",
+          "description": "Только meta + SQL, без коннекта",
+          "default": false
+        },
+        "json_out": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        },
+        "md_out": {
+          "type": "boolean",
+          "description": "Результат как markdown-таблица",
+          "default": false
+        },
+        "verbose": {
+          "type": "boolean",
+          "description": "Печатать meta-блок (server, host, db, search_path, mode, SQL)",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "selector"
+      ]
+    }
+  },
+  {
+    "name": "sheet_get",
+    "title": "mpu sheet get",
+    "description": "Read cell values from one or more A1-notation ranges.\n\nRead cell values from one or more A1-notation ranges.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "ranges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "A1-notation ranges (с префиксом 'Tab!' или без — см. --sheet)."
+        },
+        "spreadsheet": {
+          "type": "string",
+          "description": "Spreadsheet ID/URL/alias/client_id/title."
+        },
+        "sheet": {
+          "type": "string",
+          "description": "Default tab name для ranges без префикса."
+        },
+        "from_file": {
+          "type": "string",
+          "description": "Ranges из файла (`-` для stdin), один на строку."
+        },
+        "render": {
+          "type": "string",
+          "description": "both | values | formulas | formatted",
+          "default": "both"
+        },
+        "raw": {
+          "type": "boolean",
+          "description": "Bare values; single cell без trailing newline.",
+          "default": false
+        },
+        "tsv": {
+          "type": "boolean",
+          "description": "TSV (TAB-separated, ranges по blank line).",
+          "default": false
+        },
+        "refresh": {
+          "type": "boolean",
+          "description": "Skip cache, fetch fresh, overwrite cache.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "sheet_ls",
+    "title": "mpu sheet ls",
+    "description": "List sheet (tab) names in a Google Spreadsheet.\n\nList sheet (tab) names in a Google Spreadsheet.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet": {
+          "type": "string",
+          "description": "Spreadsheet ID/URL/alias/client_id/title (иначе env MPU_SS → config sheet.default)."
+        },
+        "long_": {
+          "type": "boolean",
+          "description": "Title, rows×cols, sheetId, index.",
+          "default": false
+        },
+        "json_out": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        },
+        "refresh": {
+          "type": "boolean",
+          "description": "Skip metadata cache.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "sheet_resolve",
+    "title": "mpu sheet resolve",
+    "description": "Show which spreadsheet ID will be used and source (flag/env/config).\n\nShow which spreadsheet ID will be used and source (flag/env/config).",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheet": {
+          "type": "string",
+          "description": "Spreadsheet ID/URL/alias/client_id/title (иначе env MPU_SS → config sheet.default)."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "sheet_batch_get",
+    "title": "mpu sheet batch-get",
+    "description": "Пакетное ЧТЕНИЕ таблицы: значения + структура листа.\n\nПакетное ЧТЕНИЕ таблицы: значения + структура листа. Тот же язык диапазонов.\n\nДва глагола: get — значения ячеек; read — структура листа (объединения, правила, защиты…).\nНесколько инструкций — через ; или новой строкой. Ответ — JSON.\n\nGET — ЗНАЧЕНИЯ ЯЧЕЕК\n  get 'Чек-лист'!A1:F             значения как на экране\n  get A1:F formula                формулы (а не результат)\n  get A1:F unformatted            «сырые» числа без форматирования\n  get H2:H cols                   развернуть по столбцам (по умолчанию по строкам)\n  get D2:D datestr                даты строкой (по умолч. число-serial)\n  слова-модификаторы: values | formula | unformatted | formatted ·\n                      rows | cols · serial | datestr\n  (лист по умолчанию — из -n/--sheet; иначе пиши 'Лист'!A1)\n\nREAD — СТРУКТУРА ЛИСТА\n  read 'Чек-лист' merges cond protected     по одному листу\n  read named                                имена диапазонов всей таблицы\n  аспекты: merges · cond (условный формат) · protected (защиты) · charts · banding ·\n           filters · named · props (свойства листа) · meta · dims\n\nВАЖНО: оформление КОНКРЕТНЫХ ячеек (цвет/шрифт/заметка/проверка ввода) сейчас прочитать\nнельзя — webApp не отдаёт по-ячеечные данные. Эти слова дадут понятную ошибку.\n\n[справка усечена: отброшено 351 байт]",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "expr": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Инструкции чтения (get/read; повторяемо)."
+        },
+        "spreadsheet": {
+          "type": "string",
+          "description": "Spreadsheet ID/URL/alias/client_id/title (иначе env MPU_SS → config sheet.default)."
+        },
+        "sheet": {
+          "type": "string",
+          "description": "Лист по умолчанию (range без 'Tab!')."
+        },
+        "from_file": {
+          "type": "string",
+          "description": "Скрипт из файла (`-` — stdin)."
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "Напечатать план чтения, НЕ запрашивать.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "logs",
+    "title": "mpu logs",
+    "description": "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).\n\nЛоги со стенда (Loki по умолчанию, --via portainer для legacy snapshot).\n\nБез <selector> — запрос идёт без фильтра по host (все хосты в одном LogQL).\nЕсли первый аргумент — не host, а имя известного сервиса (`mpu logs wb-loader`),\nон трактуется как <service>: логи этого сервиса со всех хостов.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "'ls' | sl-N / wb-N / dt-N / wb-(clusters|positions) | client_id / ss / title; если не указан — запрос без фильтра по host (все хосты)"
+        },
+        "service": {
+          "type": "string",
+          "description": "'ls' | для loki: compose_service (api / wb-loader / ...); для --via portainer: container substring"
+        },
+        "via": {
+          "type": "string",
+          "description": "Источник: 'loki' (default; нужен LOKI_URL в .env) или 'portainer'",
+          "default": "loki"
+        },
+        "tail": {
+          "type": "integer",
+          "description": "Сколько последних строк показать",
+          "default": 200
+        },
+        "since": {
+          "type": "string",
+          "description": "Relative (10m/1h/30s/2d) или Unix-ts; default loki=5m, portainer=без ограничения"
+        },
+        "timestamps": {
+          "type": "boolean",
+          "description": "Включить timestamp в начало строк",
+          "default": false
+        },
+        "no_stdout": {
+          "type": "boolean",
+          "description": "Не показывать stdout",
+          "default": false
+        },
+        "no_stderr": {
+          "type": "boolean",
+          "description": "Не показывать stderr",
+          "default": false
+        },
+        "grep": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Loki: подстрока (LogQL `|=`); повторяемый, AND: --grep A --grep B"
+        },
+        "grep_regex": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Loki: regex по строке (LogQL `|~`); повторяемый, AND с --grep"
+        },
+        "level": {
+          "type": "string",
+          "description": "Loki: фильтр по detected_level (error / warn / info / debug)"
+        },
+        "client_id": {
+          "type": "integer",
+          "description": "Loki: substring `<client_id>` в строке (cross-service)"
+        },
+        "follow": {
+          "type": "boolean",
+          "description": "Следить за новыми записями (аналог tail -f); только с --via loki",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_ls",
+    "title": "mpu kiten ls",
+    "description": "Карточки Kaiten, где я участник (member).\n\nКарточки Kaiten, где я участник (member). Дефолты фильтров — из .env (KITEN_LS_*).\n\n`--date-from`/`--date-to` (YYYY-MM-DD) задают окно активности (поле `updated`); обе\nопции CLI-only и необязательны. `--date-from X` без `--date-to` = «с даты X до сейчас».\n\nНаличие даты переводит `ls` в **глобальный** режим: env-скоуп (`KITEN_LS_*`, в т.ч.\nдоска по умолчанию) отключается, поиск идёт по всем доскам, а в выдачу попадают и\nархивные, и завершённые карточки (`condition` не ограничен). Любой явный флаг\n(`--board`/`--space`/`--lane`/`--column`/`--state`/`--archived`) всё ещё сужает. Без\nдаты поведение прежнее (env-скоуп, только активные).",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "type": "boolean",
+          "description": "Архивные карточки (condition=2) вместо активных",
+          "default": false
+        },
+        "state": {
+          "type": "string",
+          "description": "Фильтр по этапу: queued|in-progress|done",
+          "enum": [
+            "queued",
+            "in-progress",
+            "done"
+          ]
+        },
+        "space": {
+          "type": "string",
+          "description": "Пространство: ID или подстрока названия (см. `mpu kiten spaces`)"
+        },
+        "board": {
+          "type": "string",
+          "description": "Доска: ID или подстрока названия (см. `mpu kiten boards`)"
+        },
+        "lane": {
+          "type": "string",
+          "description": "Дорожка: ID или подстрока названия (в скоупе --board; см. `mpu kiten lanes`)"
+        },
+        "column": {
+          "type": "string",
+          "description": "Колонка: ID или подстрока названия (в скоупе --board; см. `mpu kiten columns`)"
+        },
+        "date_from": {
+          "type": "string",
+          "description": "Активность ОТ даты (YYYY-MM-DD), updated_after; опущено — без нижней границы"
+        },
+        "date_to": {
+          "type": "string",
+          "description": "Активность ДО даты (YYYY-MM-DD), updated_before; опущено — до сейчас"
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        },
+        "md": {
+          "type": "boolean",
+          "description": "Markdown-вывод: GFM-таблица (с --only-url — строки ссылок)",
+          "default": false
+        },
+        "only_url": {
+          "type": "boolean",
+          "description": "Только ссылки [title](url), по одной на строку (пайп в `mpu telegram send --md`)",
+          "default": false
+        },
+        "out_format": {
+          "type": "string",
+          "description": "Шаблон строки: {n} {id} {title} {url} {state} {due} {column} {column_mapped}"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_card",
+    "title": "mpu kiten card",
+    "description": "Одна карточка Kaiten: наглядный рендер (markdown + таблицы + скриншоты), либо `--md` (чистый GFM для LLM), либо `--json`.\n\nОдна карточка Kaiten: наглядный рендер (markdown + таблицы + скриншоты), либо\n`--md` (чистый GFM для LLM), либо `--json`. При пайпе по умолчанию — markdown.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "ID карточки или URL btlz.kaiten.ru (короткий/глубокий)"
+        },
+        "md": {
+          "type": "boolean",
+          "description": "Чистый GFM markdown для LLM (без ANSI/картинок)",
+          "default": false
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "Сырой JSON (card + comments)",
+          "default": false
+        },
+        "images": {
+          "type": "boolean",
+          "description": "Инлайн-скриншоты в наглядном режиме",
+          "default": true
+        },
+        "comments": {
+          "type": "boolean",
+          "description": "Включать комментарии",
+          "default": true
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "selector"
+      ]
+    }
+  },
+  {
+    "name": "kiten_whoami",
+    "title": "mpu kiten whoami",
+    "description": "Текущий пользователь Kaiten по токену (GET /users/current).\n\nТекущий пользователь Kaiten по токену (GET /users/current).",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_spaces",
+    "title": "mpu kiten spaces",
+    "description": "Пространства Kaiten (живой GET /spaces + обновление кэша автодополнения).\n\nПространства Kaiten (живой GET /spaces + обновление кэша автодополнения).",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "show_all": {
+          "type": "boolean",
+          "description": "Показать и архивные пространства",
+          "default": false
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_boards",
+    "title": "mpu kiten boards",
+    "description": "Доски Kaiten (живой GET /spaces + обновление кэша).\n\nДоски Kaiten (живой GET /spaces + обновление кэша). --space фильтрует.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "space": {
+          "type": "string",
+          "description": "Фильтр по пространству: ID или подстрока названия"
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_lanes",
+    "title": "mpu kiten lanes",
+    "description": "Дорожки досок Kaiten (живой GET /boards/{id}/lanes + обновление кэша).\n\nДорожки досок Kaiten (живой GET /boards/{id}/lanes + обновление кэша).\n\nБез фильтра обходит все доски (по одному запросу на доску). `--board` ограничивает\nодной доской (1 запрос), `--space` — досками пространства.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "space": {
+          "type": "string",
+          "description": "Фильтр по пространству: ID или подстрока названия"
+        },
+        "board": {
+          "type": "string",
+          "description": "Фильтр по доске: ID или подстрока названия"
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_columns",
+    "title": "mpu kiten columns",
+    "description": "Колонки досок Kaiten (живой GET /boards/{id}/columns + обновление кэша).\n\nКолонки досок Kaiten (живой GET /boards/{id}/columns + обновление кэша).\n\nБез фильтра обходит все доски (по одному запросу на доску). `--board` ограничивает\nодной доской (1 запрос), `--space` — досками пространства.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "space": {
+          "type": "string",
+          "description": "Фильтр по пространству: ID или подстрока названия"
+        },
+        "board": {
+          "type": "string",
+          "description": "Фильтр по доске: ID или подстрока названия"
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mr_view",
+    "title": "mpu mr view",
+    "description": "Шапка MR: заголовок, автор, ветки, состояние, описание.\n\nШапка MR: заголовок, автор, ветки, состояние, описание.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mr_files",
+    "title": "mpu mr files",
+    "description": "Изменённые файлы MR: статус (A/D/R/M) и счётчик строк (+N/-M).\n\nИзменённые файлы MR: статус (A/D/R/M) и счётчик строк (+N/-M).",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mr_diff",
+    "title": "mpu mr diff",
+    "description": "Unified-diff MR: все файлы или только подходящие под `--file SUBSTR`.\n\nUnified-diff MR: все файлы или только подходящие под `--file SUBSTR`.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        },
+        "file_filter": {
+          "type": "string",
+          "description": "Substring-фильтр по пути файла"
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON (машинный, список FileDiff)",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mr_comments",
+    "title": "mpu mr comments",
+    "description": "Треды ревью MR: таблица; `--md` — тела целиком; `--json` — машинно.\n\nТреды ревью MR: таблица; `--md` — тела целиком; `--json` — машинно.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        },
+        "unresolved": {
+          "type": "boolean",
+          "description": "Только нерезолвленные треды",
+          "default": false
+        },
+        "file_filter": {
+          "type": "string",
+          "description": "Substring-фильтр по пути файла"
+        },
+        "author_filter": {
+          "type": "string",
+          "description": "Substring-фильтр по автору первой ноты"
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        },
+        "out_md": {
+          "type": "boolean",
+          "description": "Полные тела тредов одним markdown-выводом",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mr_show",
+    "title": "mpu mr show",
+    "description": "Один тред целиком — все ноты verbatim.\n\nОдин тред целиком — все ноты verbatim.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion_ref": {
+          "type": "string",
+          "description": "id дискуссии или уникальный префикс (≥6)"
+        },
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "discussion_ref"
+      ]
+    }
+  },
+  {
+    "name": "ps",
+    "title": "mpu ps",
+    "description": "Список контейнеров.\n\nСписок контейнеров.\n\nБез селектора — все контейнеры из локального кэша (mpu init).\nС селектором sl-N — live запрос к Portainer (включает STATUS-поле);\nнужен PORTAINER_API_KEY в ~/.config/mpu/.env (endpoint — из кэша `mpu init`).\n\nSTATE: running / exited / created / restarting. STATUS для exited — код возврата:\nExited(0) graceful (SIGTERM или process.exit(0)); Exited(1) uncaught exception;\nExited(137) SIGKILL, часто OOM; Exited(143) SIGTERM не пойман/не успел отработать.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "sl-N либо client_id / spreadsheet_id / title (через mpu search). Без аргумента — все контейнеры из кэша."
+        },
+        "name_filter": {
+          "type": "string",
+          "description": "Подстрока имени контейнера для фильтрации"
+        },
+        "out_json": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        },
+        "out_tsv": {
+          "type": "boolean",
+          "description": "TSV-вывод",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "health",
+    "title": "mpu health",
+    "description": "Health-check: статусы контейнеров + tail логов потенциальных виновников.\n\nHealth-check: статусы контейнеров + tail логов потенциальных виновников.\n\nOne-shot контейнеры (migrations/init-, Exited(0)) — норма, идут в отдельный блок, не\nв exit-code. Остальные не-running — в блок ⚠️. Tail stderr — для loader/processor/\nupdater-контейнеров (--all — для всех mp-*). Exit-code 1, если остался хотя бы один\nнеожиданно не-running контейнер (не из one-shot набора).",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "sl-N либо client_id / spreadsheet_id / title (через mpu search)"
+        },
+        "tail": {
+          "type": "integer",
+          "description": "Сколько строк лога печатать на каждый контейнер",
+          "default": 30
+        },
+        "since": {
+          "type": "string",
+          "description": "Период для логов: 30m / 1h / 2d / unix-ts; без флага — весь доступный лог"
+        },
+        "all_logs": {
+          "type": "boolean",
+          "description": "Печатать tail для всех `mp-*` контейнеров, не только loader'ов",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "selector"
+      ]
+    }
   }
 ]

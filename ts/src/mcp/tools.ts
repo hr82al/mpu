@@ -4,7 +4,22 @@
  * мутирующий тул не зарегистрирован вовсе.
  */
 
-import type { Command, Policy } from "../command/mod.ts";
+import type { Command, CommandIo, Policy } from "../command/mod.ts";
+import { resolveLegacyBin } from "../legacy/mod.ts";
+import {
+  checkLegacyArgs,
+  type LegacyLeaf,
+  legacyToolArgv,
+  legacyToolDescription,
+  legacyToolSchema,
+  readManifest,
+  truncateOutput,
+} from "./legacy_tools.ts";
+// Слепок дерева — часть канала: в рантайме он ниоткуда не снимается,
+// а незнакомая версия формата отвергается (`platform/registry.md`).
+import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
+  type: "json",
+};
 // Закрытый список публикации читается из канала спецификаций
 // напрямую: копия рядом с кодом дала бы второй источник истины и
 // тест, стерегущий их совпадение (`docs/CLAUDE.md`). Импорт
@@ -19,20 +34,43 @@ export type Profile = "ro" | "rw";
 /** JSON Schema как она уходит клиенту. */
 export type JsonSchema = Readonly<Record<string, unknown>>;
 
-/** Тул в ответе `tools/list`. */
+/**
+ * Тул в ответе `tools/list`. Схема результата есть только у команд
+ * маршрута `native`: у подпроцесса её нет и быть не может — он отдаёт
+ * текст (`platform/mcp-server.md`, «Ответ legacy-тула»).
+ */
 export interface Tool {
   readonly name: string;
   readonly title: string;
   readonly description: string;
   readonly annotations: { readonly readOnlyHint: boolean };
   readonly inputSchema: JsonSchema;
-  readonly outputSchema: JsonSchema;
+  readonly outputSchema?: JsonSchema;
 }
 
-/** Тул и команда, которую он исполняет. */
+/** Итог вызова тула: текст для агента и, у native, структурный результат. */
+export interface ToolCallResult {
+  /** Команда сообщила о неуспехе; для агента это доменная ошибка. */
+  readonly isError: boolean;
+  readonly text: string;
+  /** Структурное содержимое; у маршрута `legacy` его нет. */
+  readonly structured?: unknown;
+}
+
+/**
+ * Тул и способ его исполнить. Ядро диспетчера не различает источники:
+ * ему нужен вызов, а откуда взялись схема и описание — забота этого
+ * модуля.
+ */
 export interface ToolEntry {
   readonly tool: Tool;
-  readonly command: Command;
+  readonly policy: Policy;
+  /** Путь команды: по нему тул восстанавливает имя в ошибках. */
+  readonly path: readonly string[];
+  readonly invoke: (
+    args: unknown,
+    io: CommandIo,
+  ) => Promise<ToolCallResult>;
 }
 
 /**
@@ -68,9 +106,22 @@ export function profileTools(
   commands: readonly Command[],
   profile: Profile,
 ): readonly ToolEntry[] {
-  return commands
+  const native = commands
     .filter((command) => publishedPolicy(command) === profile)
-    .map((command) => ({ tool: toolOf(command), command }));
+    .map(nativeEntry);
+  const published = new Set(native.map((entry) => entry.path.join(" ")));
+  const legacy = legacyLeaves()
+    .filter((leaf) => {
+      const name = leaf.path.join(" ");
+      return !published.has(name) && listedPolicy(name) === profile;
+    })
+    .map((leaf) => legacyEntry(leaf, profile));
+  return [...native, ...legacy];
+}
+
+/** Листья слепка в его порядке; версия формата проверяется один раз. */
+function legacyLeaves(): readonly LegacyLeaf[] {
+  return readManifest(treeManifest).commands;
 }
 
 /**
@@ -116,17 +167,77 @@ export function toolName(path: readonly string[]): string {
   return path.join("_").replaceAll("-", "_");
 }
 
-function toolOf(command: Command): Tool {
+/** Запись тула для команды контракта: схемы и рендер объявлены кодом. */
+function nativeEntry(command: Command): ToolEntry {
   return {
-    name: toolName(command.path),
-    title: `mpu ${command.path.join(" ")}`,
-    // Описание тула и текст `--help` — одно объявление команды: у
-    // справки два читателя, и оба читают одни и те же слова.
-    description: `${command.summary}\n\n${command.help}`,
-    annotations: { readOnlyHint: command.policy === "ro" },
-    inputSchema: publishedSchema(command.argsJsonSchema.json),
-    outputSchema: publishedSchema(command.resultJsonSchema.json),
+    tool: {
+      name: toolName(command.path),
+      title: `mpu ${command.path.join(" ")}`,
+      // Описание тула и текст `--help` — одно объявление команды: у
+      // справки два читателя, и оба читают одни и те же слова.
+      description: `${command.summary}\n\n${command.help}`,
+      annotations: { readOnlyHint: command.policy === "ro" },
+      inputSchema: publishedSchema(command.argsJsonSchema.json),
+      outputSchema: publishedSchema(command.resultJsonSchema.json),
+    },
+    policy: command.policy,
+    path: command.path,
+    invoke: async (args, io) => {
+      const result = await command.invokeInput(args, io);
+      return {
+        isError: false,
+        text: JSON.stringify(result),
+        structured: result,
+      };
+    },
   };
+}
+
+/**
+ * Запись тула для команды маршрута `legacy`: описание и схема — из
+ * слепка, исполнение — подпроцессом. Ненулевой код возврата приходит
+ * признаком ошибки в результате, а не JSON-RPC-ошибкой: доменную
+ * ошибку агент читает и исправляет, транспортный сбой — нет.
+ */
+function legacyEntry(leaf: LegacyLeaf, profile: Profile): ToolEntry {
+  return {
+    tool: {
+      name: toolName(leaf.path),
+      title: `mpu ${leaf.path.join(" ")}`,
+      description: legacyToolDescription(leaf),
+      annotations: { readOnlyHint: profile === "ro" },
+      inputSchema: legacyToolSchema(leaf),
+    },
+    policy: profile,
+    path: leaf.path,
+    invoke: async (args, io) => {
+      const checked = asArgs(args);
+      // Проверка до запуска: неизвестное имя и пропущенный обязательный
+      // параметр — ошибка ввода, её агент исправляет сам, а не узнаёт
+      // из молчания подпроцесса.
+      checkLegacyArgs(leaf, checked);
+      const bin = await resolveLegacyBin(io);
+      const outcome = await io.runLegacy(bin, legacyToolArgv(leaf, checked));
+      if (outcome.code === 0) {
+        return { isError: false, text: truncateOutput(outcome.stdout) };
+      }
+      return {
+        isError: true,
+        text: truncateOutput(
+          `${outcome.stdout}${outcome.stderr}`.trim() ||
+            `команда завершилась с кодом ${outcome.code}`,
+        ),
+      };
+    },
+  };
+}
+
+/** Аргументы вызова как словарь; чужая форма — пустой набор. */
+function asArgs(args: unknown): Readonly<Record<string, unknown>> {
+  if (typeof args !== "object" || args === null || Array.isArray(args)) {
+    return {};
+  }
+  return { ...args };
 }
 
 /**

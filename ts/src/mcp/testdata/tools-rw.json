@@ -121,5 +121,860 @@
       ],
       "additionalProperties": false
     }
+  },
+  {
+    "name": "search",
+    "title": "mpu search",
+    "description": "Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nНайти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nРежим выбирают флаги, не селектор.\n\n\b\nБЕЗ ФЛАГОВ — локальный кэш (сети нет): client_id · IPv4 sl_/pg_ · WB sid ·\nкусок spreadsheet_id · кусок title → JSON-массив строк {client_id,\nspreadsheet_id, title, server, server_number, sl_ip, pg_ip, sids}. Пусто →\nавто-`mpu update` и повтор (`--no-update` гасит). Проекция (`--server`,\n`--sids`, …) печатает голые значения — форма для подстановки в другие команды.\n\n\b\nС `--reason` / `--refresh-cache` / `--scope` — 10X: селектор → email цели →\nimpersonation-сессия (зайти в веб ОТ ЛИЦА клиента). Email идёт сюда и без\nфлагов. Пять входов, как у staff-поиска sw-back:\n\n\b\n  email (точный)                user     mpu search user@mail.ru\n  кусок email / имя             user     mpu search Иванов --scope user\n  user.id                       user     mpu search 1029 --scope user\n  client_id (== workspace id)   access   mpu search 2759 --reason <url>\n  sid кабинета (полный uuid)    access   mpu search <sid> --reason <url>\n\n`auto` (умолчание): целое и uuid → access, остальное → user. Число в разных\nскоупах — разные сущности (1029: user.id есть, workspace нет), для user.id\nнужен явный `--scope user`. Названием клиента/кабинета 10X НЕ ищет: название\n[справка усечена: отброшено 1059 байт]",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "description": "Что ищем: client_id, IPv4 (sl_/pg_ из .env), WB sid, кусок spreadsheet_id или title — в локальном кэше; email / имя / user.id — в 10X (см. описание команды)"
+        },
+        "client_id": {
+          "type": "boolean",
+          "description": "Plain: только client_id",
+          "default": false
+        },
+        "spreadsheet_id": {
+          "type": "boolean",
+          "description": "Plain: только spreadsheet_id",
+          "default": false
+        },
+        "title": {
+          "type": "boolean",
+          "description": "Plain: только title",
+          "default": false
+        },
+        "server": {
+          "type": "boolean",
+          "description": "Plain: только server name (sl-N)",
+          "default": false
+        },
+        "server_number": {
+          "type": "boolean",
+          "description": "Plain: только число N",
+          "default": false
+        },
+        "sl_ip": {
+          "type": "boolean",
+          "description": "Plain: только IP sl-сервера",
+          "default": false
+        },
+        "pg_ip": {
+          "type": "boolean",
+          "description": "Plain: только IP pg-сервера",
+          "default": false
+        },
+        "sids": {
+          "type": "boolean",
+          "description": "Plain: WB sid'ы клиента через запятую",
+          "default": false
+        },
+        "update": {
+          "type": "boolean",
+          "description": "Auto-update кэша на пустом результате (default: on)",
+          "default": true
+        },
+        "reason": {
+          "type": "string",
+          "description": "10X-резолв (email / client_id / sid): причина impersonation (логируется на проде 10X). Рекомендуется ссылка на Kaiten-карточку (для аудита). Default: 'ТП <YYYY-MM-DD>'."
+        },
+        "refresh_cache": {
+          "type": "boolean",
+          "description": "10X-резолв (email / client_id / sid / имя): перезапросить из 10X API и обновить кэш (иначе из кэша)",
+          "default": false
+        },
+        "scope": {
+          "type": "string",
+          "description": "10X-резолв: чем считать селектор. auto — целое/uuid как client_id/sid кабинета, остальное как пользователя; user — email, кусок email, имя или user.id; access — client_id или sid кабинета",
+          "enum": [
+            "auto",
+            "user",
+            "access"
+          ],
+          "default": "auto"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "value"
+      ]
+    }
+  },
+  {
+    "name": "update",
+    "title": "mpu update",
+    "description": "Синхронизировать ~/.config/mpu/mpu.db со всеми PG-серверами.\n\nСинхронизировать ~/.config/mpu/mpu.db со всеми PG-серверами.\n\nДополнительно (best-effort) обновляет Loki-кэш hosts/services для tab-completion\n`mpu logs` — пропускается с предупреждением, если LOKI_URL не задан в .env.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "quiet": {
+          "type": "boolean",
+          "description": "Не печатать summary",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "sql",
+    "title": "mpu sql",
+    "description": "Выполнить SQL (write-capable) на PG, выбранном по селектору.\n\nВыполнить SQL (write-capable) на PG, выбранном по селектору.\n\nSQL берётся из аргумента, иначе из stdin. Однозначный клиент-селектор ставит\n`search_path` на схему клиента; `sl-N` — сервер целиком, без search_path.\n`--json` и `--md` взаимоисключающие; `--server` не сочетается с dev-/sw-селектором.\nДля любого чтения использовать `mpu sql-ro` (enforced read-only, без подтверждения).",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "client_id, spreadsheet_id substring, title substring, sl-N (сервер целиком, без search_path; main = sl-0), sw-PG алиас (sw / sw-pg / ws / workspaces), или dev-стенд `dev:<client_id>` (БД mp_sl_1_dev, search_path schema_<client_id>)"
+        },
+        "sql": {
+          "type": "string",
+          "description": "SQL для выполнения; если не задан — берётся из stdin"
+        },
+        "server": {
+          "type": "string",
+          "description": "Override резолва: sl-N"
+        },
+        "dry": {
+          "type": "boolean",
+          "description": "Только meta + SQL, без коннекта",
+          "default": false
+        },
+        "json_out": {
+          "type": "boolean",
+          "description": "JSON-вывод вместо таблицы",
+          "default": false
+        },
+        "md_out": {
+          "type": "boolean",
+          "description": "Результат как markdown-таблица",
+          "default": false
+        },
+        "verbose": {
+          "type": "boolean",
+          "description": "Печатать meta-блок (server, host, db, search_path, SQL)",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "selector"
+      ]
+    }
+  },
+  {
+    "name": "sheet_set",
+    "title": "mpu sheet set",
+    "description": "Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nWrite values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nТри режима записи: `RANGE VALUE` — одна ячейка/формула; `--from FILE` — батч\n`range<TAB>value` построчно (`-` — stdin); JSON `[{\"range\":..,\"value\"|\"formula\":..}]`\nиз stdin — тогда единственный позиционный аргумент (если есть) трактуется как\nселектор таблицы. В JSON-режиме открытый одностолбцовый range (`Col<N>:Col`)\nавтозаполняется значением до последней занятой строки столбца.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "range_arg": {
+          "type": "string",
+          "description": "A1-диапазон для записи; в режиме JSON-из-stdin единственный позиционный аргумент — селектор таблицы (вместо -s), не range."
+        },
+        "value": {
+          "type": "string"
+        },
+        "spreadsheet": {
+          "type": "string",
+          "description": "Spreadsheet ID/URL/alias/client_id/title (иначе env MPU_SS → config sheet.default)."
+        },
+        "from_file": {
+          "type": "string",
+          "description": "Batch из файла (`range<TAB>value` на строку, `#` — комментарий, `-` stdin)."
+        },
+        "literal": {
+          "type": "boolean",
+          "description": "RAW value (не парсить формулы/числа).",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "sheet_batch_update",
+    "title": "mpu sheet batch-update",
+    "description": "Пакетная ЗАПИСЬ в таблицу: простые инструкции → ОДИН запрос Google (batchUpdate).\n\nПакетная ЗАПИСЬ в таблицу: простые инструкции → ОДИН запрос Google (batchUpdate).\n\nПишешь по одной инструкции на строку (или через ;). Все они уходят вместе, одним запросом.\nСначала проверь с --dry-run — покажет готовый requests[] и НЕ отправит.\n\nОТКУДА БРАТЬ СКРИПТ\n  -e \"...\"      инструкции прямо в команде (флаг можно повторять)\n  --from FILE   из файла; FILE = -  → читать со stdin (pipe)\n  -s ТАБЛИЦА    какая таблица: ID, ссылка, alias, client_id или часть названия\n  -n ЛИСТ       лист по умолчанию для диапазонов без префикса 'Лист'!\n\nДИАПАЗОН — пиши как удобно, приведётся к нужному виду\n  H  или  8         столбец (буквой или номером — без разницы)\n  H:J  или  8:10    несколько столбцов\n  H5  или  r5c8     одна ячейка (A1 или R1C1)\n  H2:J10            прямоугольник\n  H:H               весь столбец;   H2:H — со 2-й строки вниз\n  4:4  или  4       вся строка\n  'Чек-лист'!H2:H   с явным листом (кавычки нужны для имён с дефисом/пробелом)\n\nЗНАЧЕНИЯ (set)\n  set A1 = =СУММ(B:B)   формула (после первого '=' идёт формула, тоже с '=')\n  set A1 \"привет\"        текст\n  set A1 42              число;   set A1 true — булево\n[справка усечена: отброшено 3697 байт]",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "expr": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Инструкции мини-языка (повторяемо; разделять ; или новой строкой)."
+        },
+        "spreadsheet": {
+          "type": "string",
+          "description": "Spreadsheet ID/URL/alias/client_id/title."
+        },
+        "sheet": {
+          "type": "string",
+          "description": "Лист по умолчанию (range без 'Tab!')."
+        },
+        "from_file": {
+          "type": "string",
+          "description": "Скрипт из файла (`-` — stdin)."
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "Скомпилировать и напечатать requests[], НЕ отправлять.",
+          "default": false
+        },
+        "allow_py": {
+          "type": "boolean",
+          "description": "Разрешить py{…} (exec Python для логики/генерации).",
+          "default": false
+        },
+        "literal": {
+          "type": "boolean",
+          "description": "Значения как строки (RAW, не парсить формулы/числа).",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "run_js",
+    "title": "mpu run-js",
+    "description": "Выполнить ESM-код внутри контейнера sl-back через `node --input-type=module -`.\n\nВыполнить ESM-код внутри контейнера sl-back через `node --input-type=module -`.\n\nСелектор `sl-N` / client_id / ss_id / title → код летит в `sl-N-cli`.\nСелектор = точное compose-имя контейнера → Portainer-exec прямо в тот контейнер\n(`sl-N-wb-loader`, `*-instance-app`) — так читают runtime НЕ-cli сервиса.\n\nКод (приоритет): позиционный <code> → `--file` → stdin. `--all` — fan-out по всем\nsl-N (N>0); `--all-containers <filter>` — fan-out по всем контейнерам с подстрокой\nв имени. При `--all` / `--all-containers` первый позиционный трактуется как <code>.\n`--dry-run` — только напечатать команду(ы) без выполнения. `--parallel` — все цели\nодновременно. `--detach/-d` — фоном на сервере (переживает disconnect), вернуться сразу.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "sl-N | dev:N (sl-N на dev-ноде) | точное имя контейнера | client_id / spreadsheet_id / title (через mpu search). Взаимоисключающе с --all / --all-containers."
+        },
+        "code": {
+          "type": "string",
+          "description": "Inline ESM-код (после селектора); источник кода: code → --file → stdin, code и --file взаимоисключающие"
+        },
+        "file": {
+          "type": "string",
+          "description": "Путь к .mjs/.js файлу с ESM-кодом (взаимоисключающе с inline-кодом)"
+        },
+        "all_active": {
+          "type": "boolean",
+          "description": "Fan-out на все sl-N (N>0) из SQLite-кэша `mpu init`",
+          "default": false
+        },
+        "all_containers_filter": {
+          "type": "string",
+          "description": "Fan-out: запустить в всех контейнерах Portainer-кэша с этой подстрокой в имени"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "Только напечатать команду(ы) + clipboard, не выполнять",
+          "default": false
+        },
+        "via": {
+          "type": "string",
+          "description": "Override транспорта для всех sl-N целей: ssh | portainer (контейнеры по имени — всегда portainer)"
+        },
+        "parallel": {
+          "type": "boolean",
+          "description": "Параллельный fan-out по всем целям (для --all / --all-containers): вывод группируется по таргету; НЕ abort-on-first-failure",
+          "default": false
+        },
+        "jobs": {
+          "type": "integer",
+          "description": "Макс. одновременных целей при --parallel (0 = все; без --parallel игнорируется)",
+          "default": 0
+        },
+        "detach": {
+          "type": "boolean",
+          "description": "Фоновый запуск: залить скрипт и стартовать node детачем на каждом таргете, сразу вернуться. Процесс переживает disconnect; вывод пишется в /tmp лог",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mp_init",
+    "title": "mpu mp-init",
+    "description": "Создать сеть (если нет), поднять core SL backend + web-стек (up -d --force-recreate).\n\nСоздать сеть (если нет), поднять core SL backend + web-стек (up -d --force-recreate).\n\nCore: mp-nats, sl-0, sl-1, mp-nginx, dt-host со всеми сервисами (включая\ncli-контейнеры для make-schema/copy-client); поверх — web-стек mp/local-stack.\nОбразы НЕ собираются: нет mp-back:local / mp-pg:local / mp-dt:local → стоп\nс подсказкой. Каталог mp-config-local: ~/mr/mp/mp-config-local, override —\nenv MPU_MP_CONFIG_LOCAL.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dry_run": {
+          "type": "boolean",
+          "description": "Напечатать docker-команды без выполнения",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_comment",
+    "title": "mpu kiten comment",
+    "description": "Добавить комментарий к карточке от своего имени (автор — владелец KITEN_API_KEY).\n\nДобавить комментарий к карточке от своего имени (автор — владелец KITEN_API_KEY).\n\nТекст — `-m TEXT` или `-F PATH` (`-` — stdin). Вложения — `-f PATH` (повторяемо): сами\nфайлы прикрепляются к комментарию (не их содержимое в текст). С вложениями/адресатами\nтекст необязателен — можно прислать один комментарий из текста, файлов и упоминаний сразу.\n\nАдресаты — `--to @all @username …` (повторяемо или через пробел в кавычках): пишутся\nсамой первой ОТДЕЛЬНОЙ строкой, затем пустая строка и текст. `@all` в `--to` и в самом\nтексте разворачивается в `@username` ВЛАДЕЛЬЦА карточки (заказчик — кому отвечаем):\nв Kaiten нет литерального `@all`, это алиас → `@<username владельца>` (берётся из `owner`\nкарточки); упоминание = plain-текст `@логин`, сервер уведомляет.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "ID карточки или URL btlz.kaiten.ru (короткий/глубокий)"
+        },
+        "message": {
+          "type": "string",
+          "description": "Текст комментария (markdown)"
+        },
+        "body_file": {
+          "type": "string",
+          "description": "Файл с телом; `-` — stdin"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Файл-вложение (САМ файл, не его текст); повторяй -f для нескольких файлов"
+        },
+        "to": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Адресат(ы): @all (→ заказчик) и/или @username; в начало отдельной строкой. Повторяй --to или передай несколько через пробел в кавычках (\"@all @ivan\")"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "selector"
+      ]
+    }
+  },
+  {
+    "name": "kiten_move",
+    "title": "mpu kiten move",
+    "description": "Переместить карточку: по дорожке (`--lane`), колонке (`--column`) и/или доске (`--board`).\n\nПереместить карточку: по дорожке (`--lane`), колонке (`--column`) и/или доске (`--board`).\n\nНужна хотя бы одна ось. Подстроки `--lane`/`--column` резолвятся в скоупе целевой доски\n(`--board`, иначе текущая доска карточки), чтобы одноимённые дорожки/колонки разных досок\nне путались.\n\nФакт про эту рабочую область Kaiten: карточка, переносимая в «Готово» на своей исходной\nдоске (напр. «10X Support»), может фактически оказаться на общей архивной доске\n«Не использовать для новых карточек! Тут только выполненные карточки!» — это ожидаемое\nповедение (общий отстойник для готовых карточек всех досок), не ошибка `move` и не повод\nпереносить карточку обратно или дополнительно проверять её местоположение.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "ID карточки или URL btlz.kaiten.ru (короткий/глубокий)"
+        },
+        "lane": {
+          "type": "string",
+          "description": "Дорожка назначения: ID или подстрока названия (см. `mpu kiten lanes`)"
+        },
+        "column": {
+          "type": "string",
+          "description": "Колонка назначения: ID или подстрока названия (см. `mpu kiten columns`)"
+        },
+        "board": {
+          "type": "string",
+          "description": "Доска назначения: ID/подстрока (перенос на другую доску; `mpu kiten boards`)"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "selector"
+      ]
+    }
+  },
+  {
+    "name": "kiten_ready",
+    "title": "mpu kiten ready",
+    "description": "Перевести карточку в колонку «Готово» (дорожка/доска сохраняются) + лог в журнал.\n\nПеревести карточку в колонку «Готово» (дорожка/доска сохраняются) + лог в журнал.\n\nЦель — точное имя колонки на текущей доске карточки (env `KITEN_READY_COLUMN`, по\nумолчанию «Готово»; переопределяется `--column`). Если карточка уже в этой колонке —\nделается релог-bump (перевод в соседнюю колонку и обратно), т.к. перевод в ту же колонку\nKaiten не логирует.\n\nПосле переноса карточка может оказаться на общей архивной доске\n«Не использовать для новых карточек! Тут только выполненные карточки!» вместо исходной —\nв этой рабочей области Kaiten так и задумано (общий отстойник готовых карточек), не ошибка\nи не повод переносить обратно.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "ID карточки или URL btlz.kaiten.ru (короткий/глубокий)"
+        },
+        "column": {
+          "type": "string",
+          "description": "Целевая колонка (ID/имя); по умолчанию env KITEN_READY_COLUMN или «Готово»"
+        },
+        "note": {
+          "type": "string",
+          "description": "Заметка, сохраняется в журнал перемещений"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "Показать намеченное, ничего не записывая",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "selector"
+      ]
+    }
+  },
+  {
+    "name": "mr_create",
+    "title": "mpu mr create",
+    "description": "Создать MR (source → target).\n\nСоздать MR (source → target). Описание из -m/-F опционально (`-F -` — stdin).",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Заголовок MR"
+        },
+        "target": {
+          "type": "string",
+          "description": "Целевая ветка (target_branch)"
+        },
+        "source": {
+          "type": "string",
+          "description": "Исходная ветка; по умолчанию — текущая"
+        },
+        "project_opt": {
+          "type": "string",
+          "description": "group/repo; по умолчанию — из git remote origin cwd"
+        },
+        "message": {
+          "type": "string",
+          "description": "Текст комментария (markdown)"
+        },
+        "body_file": {
+          "type": "string",
+          "description": "Файл с телом; `-` — stdin"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "target"
+      ]
+    }
+  },
+  {
+    "name": "mr_describe",
+    "title": "mpu mr describe",
+    "description": "Заменить описание MR (тело из -m/-F; `-F -` — stdin).\n\nЗаменить описание MR (тело из -m/-F; `-F -` — stdin).",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        },
+        "message": {
+          "type": "string",
+          "description": "Текст комментария (markdown)"
+        },
+        "body_file": {
+          "type": "string",
+          "description": "Файл с телом; `-` — stdin"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mr_comment",
+    "title": "mpu mr comment",
+    "description": "Инлайн-комментарий под строкой диффа (новая дискуссия).\n\nИнлайн-комментарий под строкой диффа (новая дискуссия). Тело — ровно один из -m/-F.\n\nLINE — номер строки в файле новой версии (правая колонка диффа GitLab), не «строка\nдиффа» и не offset. Удалённая строка существует только в старой версии — указывать\nеё старый номер + `--old`. Строка не входит в дифф → ошибка со списком комментируемых\nдиапазонов, промахнуться молча нельзя.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "location": {
+          "type": "string",
+          "description": "Строка диффа, например src/a.js:64"
+        },
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        },
+        "message": {
+          "type": "string",
+          "description": "Текст комментария (markdown)"
+        },
+        "body_file": {
+          "type": "string",
+          "description": "Файл с телом; `-` — stdin"
+        },
+        "old": {
+          "type": "boolean",
+          "description": "LINE — номер старой стороны (удалённая строка)",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "location"
+      ]
+    }
+  },
+  {
+    "name": "mr_note",
+    "title": "mpu mr note",
+    "description": "Общий комментарий MR (тред без привязки к строке).\n\nОбщий комментарий MR (тред без привязки к строке). Тело — ровно один из -m/-F.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        },
+        "message": {
+          "type": "string",
+          "description": "Текст комментария (markdown)"
+        },
+        "body_file": {
+          "type": "string",
+          "description": "Файл с телом; `-` — stdin"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mr_reply",
+    "title": "mpu mr reply",
+    "description": "Ответ в существующий тред.\n\nОтвет в существующий тред. Тело — ровно один из -m/-F.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion_ref": {
+          "type": "string",
+          "description": "id дискуссии или уникальный префикс (≥6)"
+        },
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        },
+        "message": {
+          "type": "string",
+          "description": "Текст комментария (markdown)"
+        },
+        "body_file": {
+          "type": "string",
+          "description": "Файл с телом; `-` — stdin"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "discussion_ref"
+      ]
+    }
+  },
+  {
+    "name": "mr_edit",
+    "title": "mpu mr edit",
+    "description": "Заменить тело своей ноты.\n\nЗаменить тело своей ноты. Новое тело — ровно один из -m/-F.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "note_id": {
+          "type": "integer",
+          "description": "id ноты (см. `comments --json`)"
+        },
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        },
+        "message": {
+          "type": "string",
+          "description": "Текст комментария (markdown)"
+        },
+        "body_file": {
+          "type": "string",
+          "description": "Файл с телом; `-` — stdin"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "note_id"
+      ]
+    }
+  },
+  {
+    "name": "mr_delete",
+    "title": "mpu mr delete",
+    "description": "Удалить свою ноту.\n\nУдалить свою ноту.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "note_id": {
+          "type": "integer",
+          "description": "id ноты (см. `comments --json`)"
+        },
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        },
+        "yes": {
+          "type": "boolean",
+          "description": "Удалить без подтверждения",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "note_id"
+      ]
+    }
+  },
+  {
+    "name": "mr_resolve",
+    "title": "mpu mr resolve",
+    "description": "Пометить тред решённым.\n\nПометить тред решённым.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion_ref": {
+          "type": "string",
+          "description": "id дискуссии или уникальный префикс (≥6)"
+        },
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "discussion_ref"
+      ]
+    }
+  },
+  {
+    "name": "mr_unresolve",
+    "title": "mpu mr unresolve",
+    "description": "Снять отметку решённого.\n\nСнять отметку решённого.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion_ref": {
+          "type": "string",
+          "description": "id дискуссии или уникальный префикс (≥6)"
+        },
+        "mr_ref": {
+          "type": "string",
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "discussion_ref"
+      ]
+    }
+  },
+  {
+    "name": "ssh",
+    "title": "mpu ssh",
+    "description": "Выполнить команду в `sl-N-cli` ИЛИ в произвольном контейнере по точному имени.\n\nВыполнить команду в `sl-N-cli` ИЛИ в произвольном контейнере по точному имени.\n\nСелектор `sl-N` / client_id / ss_id / title → лендится в `sl-N-cli` (это уже\ndocker exec — НЕ оборачивать в `docker exec` повторно, бинаря docker внутри нет).\n\nСелектор = точное compose-имя контейнера (`sl-3-wb-loader`, `*-instance-app`) →\nPortainer-exec прямо в этот НЕ-cli контейнер (`--via ssh` тут не поддержан). Так\nчитают реальный runtime-конфиг прод-сервиса (`env`, `/proc/1/cmdline`, `/app/*`).\n\n`--all-containers <filter>` — fan-out: команда исполняется во всех контейнерах\nPortainer-кэша, чьё имя содержит подстроку `<filter>`. Взаимоисключающе с <selector>.\n\nReplica-сервисы (`deploy.replicas` / `WB_LOADER_THREADS=N`) → N контейнеров с одним\nименем → `ambiguous — matches N Portainer endpoints` (НЕ баг). Воркэраунд: схлопнуть\nдубли в `~/.config/mpu/mpu.db` (`portainer_containers`, keep MIN(rowid)); `mpu update`\nпересоберёт. stdin: `--stdin-text` / `--stdin-file` / `--stdin-tty`.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "sl-N | dev:N (sl-N на dev-ноде) | точное имя контейнера | client_id / spreadsheet_id / title. Взаимоисключающе с --all-containers."
+        },
+        "via": {
+          "type": "string",
+          "description": "Override транспорта: ssh | portainer (ssh — только для sl-N; контейнер по имени — всегда portainer)"
+        },
+        "all_containers_filter": {
+          "type": "string",
+          "description": "Fan-out: запустить команду во всех контейнерах Portainer-кэша с этой подстрокой в имени"
+        },
+        "stdin_text": {
+          "type": "string",
+          "description": "Inline-строка как stdin команды"
+        },
+        "stdin_file": {
+          "type": "string",
+          "description": "Файл, содержимое которого пойдёт на stdin"
+        },
+        "stdin_tty": {
+          "type": "boolean",
+          "description": "Читать stdin интерактивно (до Ctrl+D); по умолчанию TTY-вводом не интересуемся",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "init",
+    "title": "mpu init",
+    "description": "Discover все контейнеры через Portainer API и закэшировать в `~/.config/mpu/mpu.db`.\n\nDiscover все контейнеры через Portainer API и закэшировать в `~/.config/mpu/mpu.db`.\n\nКэшируем все контейнеры, помечая cli-контейнеры серверов через `server_number`. Этот кэш\nпотом читает `mpu p ssh` для резолва Portainer-транспорта.",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "portainer_url": {
+          "type": "string",
+          "description": "URL Portainer (override `PORTAINER_URL` из ~/.config/mpu/.env)"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "Только напечатать summary, не писать в SQLite",
+          "default": false
+        },
+        "reset": {
+          "type": "boolean",
+          "description": "Перед записью почистить таблицу portainer_containers",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "api_wb_loader_reset",
+    "title": "mpu api wb-loader-reset",
+    "description": "`mpu api wb-loader-reset <selector> <loader>` — сброс state + перезапуск загрузчика.\n\n`mpu api wb-loader-reset <selector> <loader>` — сброс state + перезапуск загрузчика.\n\n`POST /admin/wb-loader/loaders/<sid>/<loader>/v1/reset` (sl-back main →\nwb-loader-app): `facade.resetState` + `resetJob` — чистит progress; ближайший\nпрогон пересчитывает окно. Без опций — reset с пустым телом (forward-only пойдёт\nс `today - history_days`).\n\nОкно дозагрузки (взаимоисключающие):\n- `--state '<json>'` — partial-state как есть (любой загрузчик), напр.\n  `{\"cursor\":null}` (cursor-based) или `{\"lastLoadedDate\":\"2026-06-08\"}`.\n- `--from <YYYY-MM-DD>` — для **forward-only** загрузчиков (state с `lastLoadedDate`):\n  собирает `{\"lastLoadedDate\": <from-1день>}`, чтобы ближайший прогон пошёл с <from>.\n  ⚠️ forward-only: верхняя граница окна всегда «вчера» — участок точно не задаётся,\n  свежие дни перезальются (идемпотентно).\n\n`--and-load` — следом дёрнуть `load` (форс-прогон): типовой recovery в один вызов.\n\nМутирует прод (`wbLoaderWriteGate`, роль `support_write`+). Read-only аналог —\n`wb-loader-status`. Селектор / `--sid` / `--client-id` / `--print` — как у него.\n\n\n\b\n── ЗАГРУЗЧИКИ · справка для всех wb-loader-* команд ──\nИмя загрузчика существует в ДВУХ формах; команды принимают РАЗНЫЕ:\n  wb-loader-status / -load / -reset  → kebab-слаг   (cards, fbs-stocks …)\n  wb-loader-blocked / -resume        → camelCase имя (wbCards, wbFbsStocks …)\n[справка усечена: отброшено 2239 байт]",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string"
+        },
+        "loader": {
+          "type": "string"
+        },
+        "sid": {
+          "type": "string",
+          "description": "Явный WB sid: прямой режим, без резолва клиента"
+        },
+        "client_id": {
+          "type": "integer",
+          "description": "Явный client_id при неоднозначном селекторе"
+        },
+        "state_json": {
+          "type": "string",
+          "description": "Partial-state JSON для reset, напр. '{\"lastLoadedDate\":\"2026-06-08\"}'"
+        },
+        "from_date": {
+          "type": "string",
+          "description": "YYYY-MM-DD (forward-only loader): перезагрузить начиная с этой даты (ставит lastLoadedDate = дата минус 1 день)"
+        },
+        "and_load": {
+          "type": "boolean",
+          "description": "Следом дёрнуть load (форс-прогон)",
+          "default": false
+        },
+        "print_mode": {
+          "type": "boolean",
+          "description": "Напечатать эквивалентный curl (+ буфер), без выполнения",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "selector",
+        "loader"
+      ]
+    }
+  },
+  {
+    "name": "api_wb_loader_status",
+    "title": "mpu api wb-loader-status",
+    "description": "`mpu api wb-loader-status <selector> <loader>` — состояние wb-loader-app загрузчика.\n\n`mpu api wb-loader-status <selector> <loader>` — состояние wb-loader-app загрузчика.\n\nRead-only: `GET /admin/wb-loader/loaders/<sid>/<loader>/v1/status` (sl-back main\nпроксирует на wb-loader-app). Показывает status/state (incl. `lastLoadedDate` у\nforward-only загрузчиков) + job-progress — без мутаций. Это read-only counterpart\nмутирующих `wb-loader-reset` / `wb-loader-load`.\n\n- `<loader>` — kebab-слаг загрузчика (`adv-normquery-stats`, `cards`, `analytics`, …;\n  shell-автодополнение по списку).\n- Селектор — любой из `mpu search` (client_id / spreadsheet / title / **sid**).\n  Прямой режим по sid: явный `--sid` или селектор сам — полный sid (UUID-форма).\n- `--client-id <id>` — явный client_id при неоднозначном селекторе.\n- `--print` / `-p` — напечатать эквивалентный curl (+ буфер), без выполнения.\n\n\n\b\n── ЗАГРУЗЧИКИ · справка для всех wb-loader-* команд ──\nИмя загрузчика существует в ДВУХ формах; команды принимают РАЗНЫЕ:\n  wb-loader-status / -load / -reset  → kebab-слаг   (cards, fbs-stocks …)\n  wb-loader-blocked / -resume        → camelCase имя (wbCards, wbFbsStocks …)\nВсе 25 — per-sid state machine, любой уходит в blocked. Карта camelCase → kebab:\n    wbCards                     cards\n    wbOrders                    orders\n    wbSales                     sales\n    wbReports                   reports\n    wbAnalytics                 analytics\n    wbFeedbacks                 feedbacks\n    wbAdvertsDetailed           adverts-detailed\n[справка усечена: отброшено 1846 байт]",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string"
+        },
+        "loader": {
+          "type": "string"
+        },
+        "sid": {
+          "type": "string",
+          "description": "Явный WB sid: прямой режим, без резолва клиента"
+        },
+        "client_id": {
+          "type": "integer",
+          "description": "Явный client_id при неоднозначном селекторе"
+        },
+        "print_mode": {
+          "type": "boolean",
+          "description": "Напечатать эквивалентный curl (+ буфер), без выполнения",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "selector",
+        "loader"
+      ]
+    }
   }
 ]

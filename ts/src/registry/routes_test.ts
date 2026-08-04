@@ -105,27 +105,32 @@ Deno.test("индекс корня перечисляет всё дерево", 
   assertEquals(index.indexOf("xlsx") < index.indexOf("sql-ro"), true);
 });
 
-Deno.test("запись в реестре сама по себе состав тулов не меняет", async (t) => {
-  // Публикацией legacy-тулов занимается отдельная задача; здесь важно
-  // лишь то, что появление записи ничего не опубликовало само.
-  for (const profile of PROFILES) {
-    await t.step(profile, async () => {
-      const published = profileTools(commands, profile).map((e) => e.tool);
-      const snapshot = JSON.parse(
-        await Deno.readTextFile(
-          new URL(`../mcp/testdata/tools-${profile}.json`, import.meta.url),
-        ),
-      );
-      assertEquals(
-        published.map((tool) => tool.name),
-        snapshot.map((tool: { name: string }) => tool.name),
-      );
-      // И ни один тул не соответствует команде маршрута legacy.
-      const legacyNames = legacyCommands.map((c) => c.path.join("_"));
-      assertEquals(
-        published.filter((tool) => legacyNames.includes(tool.name)),
-        [],
-      );
-    });
-  }
+Deno.test("тулом становится команда любого маршрута", async (t) => {
+  // Маршрут не решает, публикуется ли команда: решает закрытый список
+  // (`platform/mcp-server.md`). Здесь — что обе стороны представлены.
+  const names = PROFILES.flatMap((profile) =>
+    profileTools(commands, profile).map((entry) => entry.tool.name)
+  );
+
+  await t.step("команда контракта — из объявления в коде", () => {
+    assertEquals(names.includes("xlsx_ls"), true);
+  });
+
+  await t.step("команда маршрута legacy — из слепка", () => {
+    assertEquals(names.includes("sql_ro"), true);
+    // Верхнее имя реестра, лист слепка — один и тот же `mpu sql-ro`.
+    assertEquals(findLegacy(["sql-ro"])?.path, ["sql-ro"]);
+  });
+
+  await t.step("запись реестра вне списка публикации тула не даёт", () => {
+    // `mpu copy-client` в реестре есть, в закрытом списке — нет:
+    // копирование клиента агенту не отдают (fail-closed).
+    assertEquals(
+      legacyCommands.some((command) =>
+        command.path.join(" ") === "copy-client"
+      ),
+      true,
+    );
+    assertEquals(names.includes("copy_client"), false);
+  });
 });

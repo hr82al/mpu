@@ -128,6 +128,105 @@ Deno.test("неизвестный метод JSON-RPC — 404 и код -32601",
   assertEquals(actual.body, response.body);
 });
 
+Deno.test("tools/call: команда маршрута legacy", async (t) => {
+  const meta = { "io.modelcontextprotocol/protocolVersion": "2026-07-28" };
+  const call = (args: unknown, io: CommandIo) =>
+    handle({
+      method: "POST",
+      path: "/ro",
+      headers: {
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "tools/call",
+        "Mcp-Name": "sheet_get",
+      },
+      body: {
+        jsonrpc: "2.0",
+        id: 7,
+        method: "tools/call",
+        params: { name: "sheet_get", arguments: args, _meta: meta },
+      },
+    }, io);
+
+  await t.step("stdout приходит текстом, без структурного", async () => {
+    const io = makeFakeIo({
+      runLegacy: () =>
+        Promise.resolve({ code: 0, stdout: "A1\tзначение\n", stderr: "" }),
+    });
+    const body = bodyRecord((await call({}, io)).body);
+    const result = bodyRecord(body["result"]);
+    assertEquals(result["structuredContent"], undefined);
+    assertEquals(result["isError"], undefined);
+    assertEquals(result["content"], [
+      { type: "text", text: "A1\tзначение\n" },
+    ]);
+  });
+
+  await t.step("аргументы уходят подпроцессу отдельными словами", async () => {
+    const calls: string[][] = [];
+    const io = makeFakeIo({
+      runLegacy: (_bin, args) => {
+        calls.push([...args]);
+        return Promise.resolve({ code: 0, stdout: "", stderr: "" });
+      },
+    });
+    await call({ ranges: ["Лист!A1", "Лист!B2"], sheet: "Лист" }, io);
+    // Ровно то, ради чего затевался сервер: список не склеен.
+    assertEquals(calls[0].includes("Лист!A1"), true);
+    assertEquals(calls[0].includes("Лист!B2"), true);
+    assertEquals(calls[0].includes("Лист!A1 Лист!B2"), false);
+  });
+
+  await t.step("ненулевой код — признак ошибки, а не сбой RPC", async () => {
+    const io = makeFakeIo({
+      runLegacy: () =>
+        Promise.resolve({
+          code: 2,
+          stdout: "",
+          stderr: "лист не найден\n",
+        }),
+    });
+    const body = bodyRecord((await call({}, io)).body);
+    // Именно результат с признаком ошибки: JSON-RPC-ошибку агент
+    // принял бы за поломку сервера и не стал бы исправляться.
+    assertEquals(body["error"], undefined);
+    const result = bodyRecord(body["result"]);
+    assertEquals(result["isError"], true);
+    assertStringIncludes(JSON.stringify(result["content"]), "лист не найден");
+  });
+
+  await t.step("лишний аргумент — ошибка ввода, подпроцесса нет", async () => {
+    let started = false;
+    const io = makeFakeIo({
+      runLegacy: () => {
+        started = true;
+        return Promise.resolve({ code: 0, stdout: "", stderr: "" });
+      },
+    });
+    const body = bodyRecord((await call({ нетТакого: 1 }, io)).body);
+    // Именно JSON-RPC-ошибка (ошибка ввода), и до запуска не дошло:
+    // иначе агент решил бы, что аргумент принят.
+    assertEquals(errorOf(body).code, -32602);
+    assertStringIncludes(errorOf(body).message, "нетТакого");
+    assertEquals(started, false);
+  });
+
+  await t.step("длинный вывод усечён с пометкой", async () => {
+    const io = makeFakeIo({
+      runLegacy: () =>
+        Promise.resolve({
+          code: 0,
+          stdout: "строка вывода\n".repeat(20000),
+          stderr: "",
+        }),
+    });
+    const result = bodyRecord(bodyRecord((await call({}, io)).body)["result"]);
+    assertStringIncludes(
+      JSON.stringify(result["content"]),
+      "[вывод усечён: отброшено",
+    );
+  });
+});
+
 Deno.test("границы, не покрытые фикстурами", async (t) => {
   const meta = {
     "io.modelcontextprotocol/protocolVersion": "2026-07-28",
