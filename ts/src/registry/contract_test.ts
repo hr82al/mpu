@@ -366,6 +366,9 @@ function makeIo(dir: string): CommandIo {
     readFile: (path) => Deno.readFile(inDir(path)),
     readTextFile: (path) => Deno.readTextFile(inDir(path)),
     readTextStdin: () => Promise.resolve(""),
+    runLegacy: () => {
+      throw new Error("legacy must not be touched");
+    },
     readAccessToken: () => Promise.resolve("проба-токена"),
     writeAccessToken: (token) =>
       Deno.writeTextFile(`${dir}/token`, token, { mode: 0o600 }),

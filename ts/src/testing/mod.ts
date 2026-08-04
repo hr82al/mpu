@@ -29,6 +29,7 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     readAccessToken: () => Promise.resolve(undefined),
     writeAccessToken: mustNotTouch("writeAccessToken"),
     launchOpener: mustNotTouch("opener"),
+    runLegacy: mustNotTouch("runLegacy"),
     ...overrides,
   };
 }

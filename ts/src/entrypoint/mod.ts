@@ -17,7 +17,9 @@ import {
   type CommandGroup,
   findCommand,
   findGroup,
+  findLegacy,
 } from "../registry/mod.ts";
+import { LegacyBinMissingError, runLegacyCommand } from "../legacy/mod.ts";
 import { renderCommandHelp, renderIndex } from "./help.ts";
 
 /** Приёмник вывода процесса. */
@@ -65,6 +67,13 @@ export async function runCli(
   }
 
   try {
+    const legacy = findLegacy(path);
+    if (legacy !== undefined) {
+      // Аргументы берутся из исходного argv: общий параметр точки
+      // входа для этого маршрута не распознаётся и уходит подпроцессу
+      // как обычный аргумент (`platform/registry.md`).
+      return await runLegacyCommand(legacy, dropPath(argv, path), io, output);
+    }
     const command = findCommand(path);
     if (command === undefined) return await runGroup(path, args, io, output);
     if (args.length > 0 && isHelpRequest(args[0])) {
@@ -73,6 +82,11 @@ export async function runCli(
     }
     return await runCommand(command, args, json, io, output);
   } catch (err) {
+    if (err instanceof LegacyBinMissingError) {
+      // Сообщение реестра, а не команды: до неё дело не дошло.
+      output.stderr(`mpu: ${err.message}\n`);
+      return 1;
+    }
     if (err instanceof UsageError) {
       output.stderr(`${formatCommandError(path, err)}\n`);
       return 2;
@@ -163,6 +177,27 @@ function takeJsonFlag(
   return { args, json };
 }
 
+/**
+ * Аргументы без сегментов имени команды. Вырезаются именно они, а не
+ * первые N слов: снятый ранее общий параметр мог стоять между ними, и
+ * подпроцессу он обязан достаться нетронутым.
+ */
+function dropPath(
+  argv: readonly string[],
+  path: readonly string[],
+): readonly string[] {
+  const rest: string[] = [];
+  let matched = 0;
+  for (const arg of argv) {
+    if (matched < path.length && arg === path[matched]) {
+      matched++;
+      continue;
+    }
+    rest.push(arg);
+  }
+  return rest;
+}
+
 /** Самое длинное начало argv, опознанное реестром как путь команды. */
 function matchPath(
   argv: readonly string[],
@@ -172,7 +207,9 @@ function matchPath(
   while (index < argv.length && !argv[index].startsWith("-")) {
     const candidate = [...path, argv[index]];
     if (
-      findCommand(candidate) === undefined && findGroup(candidate) === undefined
+      findCommand(candidate) === undefined &&
+      findGroup(candidate) === undefined &&
+      findLegacy(candidate) === undefined
     ) {
       break;
     }

@@ -7,14 +7,16 @@
  * своей реализации у неё нет, но однострока обязательна: без неё
  * индекс родителя нечем собрать.
  *
- * Маршрута (`native` | `legacy`) в записи пока нет: все команды здесь
- * исполняются кодом CLI, и признак с единственным значением был бы
- * абстракцией без второй реализации. Он появится вместе с первой
- * командой маршрута `legacy` — тогда же обходы реестра в тестах
- * инвариантов начнут по нему фильтровать (`platform/command-contract.md`).
+ * Маршрут выражен не признаком записи, а тем, в каком списке она
+ * лежит: `commands` исполняются кодом CLI и подчиняются контракту
+ * команды, `legacyCommands` — подпроцессом Python-реализации, и ни
+ * схем, ни рендера у них нет. Обход инвариантов контракта идёт по
+ * `commands` и потому фильтрует записи по маршруту по построению
+ * (`platform/command-contract.md`).
  */
 
 import type { Command, CommandIo } from "../command/mod.ts";
+import type { LegacyCommand } from "../legacy/mod.ts";
 import { xlsxCommands } from "../xlsx/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
@@ -48,6 +50,18 @@ export const commands: readonly Command[] = [
   mcpTokenCommand,
 ];
 
+/**
+ * Команды, ещё не переехавшие: исполняются подпроцессом Python-версии.
+ * Перевод команды на маршрут `native` и откат — перенос строки между
+ * этим списком и `commands` (`platform/registry.md`).
+ */
+export const legacyCommands: readonly LegacyCommand[] = [
+  {
+    path: ["sql-ro"],
+    summary: "read-only SQL к базе клиента",
+  },
+];
+
 /** Все промежуточные уровни; каждый префикс пути команды описан здесь. */
 export const groups: readonly CommandGroup[] = [
   {
@@ -73,6 +87,13 @@ export function findCommand(path: readonly string[]): Command | undefined {
   return commands.find((command) => samePath(command.path, path));
 }
 
+/** Запись маршрута `legacy` с ровно таким путём. */
+export function findLegacy(
+  path: readonly string[],
+): LegacyCommand | undefined {
+  return legacyCommands.find((command) => samePath(command.path, path));
+}
+
 /** Группа с ровно таким путём. */
 export function findGroup(path: readonly string[]): CommandGroup | undefined {
   return groups.find((group) => samePath(group.path, path));
@@ -87,7 +108,9 @@ export function childrenOf(
 ): readonly { name: string; summary: string }[] {
   const seen = new Set<string>();
   const out: { name: string; summary: string }[] = [];
-  for (const command of commands) {
+  // Маршрут на состав справки не влияет: обе поверхности перечисляют
+  // команды обоих маршрутов (`platform/registry.md`).
+  for (const command of [...commands, ...legacyCommands]) {
     if (!startsWith(command.path, prefix)) continue;
     const name = command.path[prefix.length];
     if (name === undefined || seen.has(name)) continue;
@@ -95,7 +118,8 @@ export function childrenOf(
     const childPath = [...prefix, name];
     const group = findGroup(childPath);
     const summary = group?.summary ??
-      findCommand(childPath)?.summary ?? "";
+      findCommand(childPath)?.summary ??
+      findLegacy(childPath)?.summary ?? "";
     out.push({ name, summary });
   }
   return out;

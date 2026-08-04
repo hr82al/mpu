@@ -49,6 +49,22 @@ export interface CommandIo {
   readonly writeAccessToken: (token: string) => Promise<void>;
   /** Запуск открывателя отвязанно; нет бинаря — `false`. */
   readonly launchOpener: (cmd: string, target: string) => boolean;
+  /**
+   * Запуск Python-реализации для маршрута `legacy`: вывод собирается
+   * целиком, чтобы точка входа перенесла его дословно. Файла нет или
+   * он не исполняем — `NotFoundIoError`.
+   */
+  readonly runLegacy: (
+    bin: string,
+    args: readonly string[],
+  ) => Promise<LegacyOutcome>;
+}
+
+/** Итог подпроцесса маршрута `legacy`: потоки и код возврата. */
+export interface LegacyOutcome {
+  readonly code: number;
+  readonly stdout: string;
+  readonly stderr: string;
 }
 
 /** Объявление команды: семь вещей контракта плюс формы записи в argv. */

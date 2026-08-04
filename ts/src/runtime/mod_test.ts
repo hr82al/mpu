@@ -122,3 +122,47 @@ Deno.test("битый файл хранилища не выдаётся за п�
     await Deno.remove(dir, { recursive: true });
   }
 });
+
+Deno.test("подпроцесс legacy: потоки и код возврата собираются", async (t) => {
+  const io = makeDenoIo(undefined);
+
+  await t.step("stdout и код 0", async () => {
+    const outcome = await io.runLegacy("/bin/echo", ["строка", "вторая"]);
+    assertEquals(outcome, {
+      code: 0,
+      stdout: "строка вторая\n",
+      stderr: "",
+    });
+  });
+
+  await t.step("ненулевой код проходит как есть", async () => {
+    const outcome = await io.runLegacy("/bin/false", []);
+    assertEquals(outcome.code, 1);
+    assertEquals(outcome.stdout, "");
+  });
+
+  await t.step("нет бинаря — NotFoundIoError, а не сырая ошибка", async () => {
+    await assertRejects(
+      () => io.runLegacy("/bin/net-takogo-binarya", []),
+      NotFoundIoError,
+      "cannot run",
+    );
+  });
+
+  await t.step("не исполняем — тот же класс ошибки", async () => {
+    // Исполнимость проверяется до запуска, поэтому права на запуск
+    // этого пути не нужно — можно взять обычный временный каталог.
+    const dir = await Deno.makeTempDir();
+    try {
+      const path = `${dir}/not-executable`;
+      await Deno.writeTextFile(path, "#!/bin/sh\n", { mode: 0o600 });
+      await assertRejects(
+        () => io.runLegacy(path, []),
+        NotFoundIoError,
+        "not executable",
+      );
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
+  });
+});
