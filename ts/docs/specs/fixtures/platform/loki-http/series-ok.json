@@ -1,0 +1,10 @@
+{
+  "status": "success",
+  "data": [
+    { "host": "sl-1", "compose_service": "api" },
+    { "host": "sl-1", "compose_service": "wb-loader" },
+    { "host": "sl-2", "compose_service": "api" },
+    { "host": "wb-1", "compose_service": "wb-loader-app" },
+    { "host": "dt-1" }
+  ]
+}
