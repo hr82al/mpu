@@ -410,7 +410,7 @@ Deno.test("голый вызов поднимает ro и rw на порту п�
         await response.body?.cancel();
       }
       stop.abort();
-      await running;
+      assertEquals(await running, 0);
     } finally {
       Deno.serve = originalServe;
     }
