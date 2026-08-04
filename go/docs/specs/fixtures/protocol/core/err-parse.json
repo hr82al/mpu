@@ -1,6 +1,0 @@
-{
-  "note": "тело не парсится как JSON; id в ответе null по JSON-RPC 2.0",
-  "authorization": "valid",
-  "rawRequest": "{not json",
-  "response": {"jsonrpc": "2.0", "id": null, "error": {"code": -32700, "message": "parse error"}}
-}

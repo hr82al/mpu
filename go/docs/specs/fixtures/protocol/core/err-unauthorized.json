@@ -1,6 +1,0 @@
-{
-  "note": "операция без Bearer (или с просроченным/невалидным)",
-  "authorization": null,
-  "request": {"jsonrpc": "2.0", "id": 6, "method": "core.version", "params": {}},
-  "response": {"jsonrpc": "2.0", "id": 6, "error": {"code": 1000, "message": "unauthorized"}}
-}

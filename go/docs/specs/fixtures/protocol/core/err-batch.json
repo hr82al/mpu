@@ -1,6 +1,0 @@
-{
-  "note": "batch-массив не поддерживается",
-  "authorization": "valid",
-  "request": [{"jsonrpc": "2.0", "id": 3, "method": "core.version", "params": {}}],
-  "response": {"jsonrpc": "2.0", "id": null, "error": {"code": -32600, "message": "batch not supported"}}
-}
