@@ -359,3 +359,60 @@ Deno.test("mpu mcp поднимает сервер на петле и гасне
     assertEquals(await running, 0);
   });
 });
+
+Deno.test("голый вызов поднимает ro и rw на порту по умолчанию", async () => {
+  await withStore(async (io) => {
+    const originalServe = Deno.serve;
+    let capturedPort: number | undefined;
+    // DEFAULT_PORT в тесте не занимаем: на машине разработчика он может
+    // быть занят настоящим `mpu mcp`. Перехватываем значение, с которым
+    // код просит поднять сокет, а сам бинд подменяем на свободный порт —
+    // на факт подъёма сервера и состав профилей подмена не влияет.
+    Deno.serve = ((
+      options: Deno.ServeTcpOptions,
+      handler: Deno.ServeHandler,
+    ) => {
+      capturedPort = options.port;
+      return originalServe({ ...options, port: 0 }, handler);
+    }) as typeof Deno.serve;
+    try {
+      const stop = new AbortController();
+      const listening = Promise.withResolvers<RunningServer>();
+      const running = runMcpServer([], {
+        io,
+        output: makeOutput().sink,
+        commands,
+        signal: stop.signal,
+        onListen: listening.resolve,
+      });
+      const server = await listening.promise;
+      // Литерал, а не импортированный DEFAULT_PORT: сверка со своим же
+      // источником не заметила бы, если умолчание сломают в server.ts.
+      assertEquals(capturedPort, 7337);
+
+      const token = await ensureAccessToken(io);
+      for (const profile of ["ro", "rw"] as const) {
+        const response = await fetch(
+          `http://${LOOPBACK}:${server.port}/${profile}`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "MCP-Protocol-Version": "2026-07-28",
+              "Mcp-Method": "tools/list",
+            },
+            body: JSON.stringify(
+              { jsonrpc: "2.0", id: 1, method: "tools/list" },
+            ),
+          },
+        );
+        assertEquals(response.status, 200, `профиль /${profile} не поднят`);
+        await response.body?.cancel();
+      }
+      stop.abort();
+      await running;
+    } finally {
+      Deno.serve = originalServe;
+    }
+  });
+});
