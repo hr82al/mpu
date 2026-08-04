@@ -9,7 +9,7 @@
  */
 
 import type { Command, Policy } from "../command/mod.ts";
-import type { Profile, ToolEntry } from "./tool.ts";
+import { asDestructive, type Profile, type ToolEntry } from "./tool.ts";
 import { nativeEntry } from "./native_tool.ts";
 import { legacyEntry, type LegacyLeaf, readManifest } from "./legacy_tools.ts";
 // Закрытый список публикации читается из канала спецификаций
@@ -75,7 +75,45 @@ export function profileTools(
   const published = new Set(native.map((entry) => entry.path.join(" ")));
   const legacy = publishableLegacy(legacyLeaves(), profile, published)
     .map((leaf) => legacyEntry(leaf, profile));
-  return [...native, ...legacy];
+  const entries = [...native, ...legacy].map(markDestructive);
+  assertDestructivePublished(toolPolicies.destructive, entries, profile);
+  return entries;
+}
+
+/**
+ * Помечает необратимый тул: состав задан секцией `destructive`
+ * закрытого списка. Пометка делается здесь, а не в проекциях: обе
+ * читают свои источники, а решение «необратим ли эффект» принимает
+ * список, и второго места для него быть не должно.
+ */
+function markDestructive(entry: ToolEntry): ToolEntry {
+  if (!toolPolicies.destructive.includes(entry.path.join(" "))) return entry;
+  return { ...entry, tool: asDestructive(entry.tool) };
+}
+
+/**
+ * Имя из секции `destructive`, которого нет среди публикуемых, — ошибка
+ * сборки списка, а не молчаливый пропуск: иначе переименование команды
+ * тихо снимет подтверждение с необратимого действия.
+ *
+ * Профиль сужает проверку: секция — подмножество `rw`, и при сборке
+ * `ro` спрашивать с неё нечего.
+ */
+export function assertDestructivePublished(
+  destructive: readonly string[],
+  entries: readonly ToolEntry[],
+  profile: Profile,
+): void {
+  if (profile !== "rw") return;
+  const published = new Set(entries.map((entry) => entry.path.join(" ")));
+  const missing = destructive.filter((name) => !published.has(name));
+  if (missing.length > 0) {
+    throw new ToolPolicyError(
+      `секция destructive называет неопубликованные команды: ${
+        missing.join(", ")
+      }`,
+    );
+  }
 }
 
 /**

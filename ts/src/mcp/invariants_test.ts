@@ -18,7 +18,7 @@ import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.jso
 };
 import type { LegacyLeaf } from "./legacy_tools.ts";
 import { readManifest } from "./legacy_tools.ts";
-import { publishableLegacy } from "./tools.ts";
+import { assertDestructivePublished, publishableLegacy } from "./tools.ts";
 import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };
@@ -120,6 +120,74 @@ Deno.test("snapshot списка тулов по каждому профилю",
       assertEquals(actual, (await Deno.readTextFile(url)).trimEnd());
     });
   }
+});
+
+Deno.test("необратимые тулы требуют подтверждения", async (t) => {
+  const destructive = new Set(toolPolicies.destructive);
+  const entries = PROFILES.flatMap((profile) =>
+    profileTools(commands, profile).map((entry) => ({ profile, entry }))
+  );
+
+  await t.step("секция destructive непуста и лежит в rw", () => {
+    assertEquals(destructive.size > 0, true);
+    assertEquals(
+      [...destructive].filter((name) => !toolPolicies.rw.includes(name)),
+      [],
+      "имя из destructive вне профиля rw",
+    );
+  });
+
+  await t.step("помеченный тул несёт и аннотацию, и _meta", () => {
+    // Аннотация описывает свойство тула для любого клиента; фактическое
+    // подтверждение наш клиент включает по `_meta` — поэтому оба.
+    for (const { entry } of entries) {
+      if (!destructive.has(entry.path.join(" "))) continue;
+      assertEquals(
+        entry.tool.annotations.destructiveHint,
+        true,
+        `${entry.tool.name}: нет destructiveHint`,
+      );
+      assertEquals(
+        entry.tool._meta?.["anthropic/requiresUserInteraction"],
+        true,
+        `${entry.tool.name}: нет требования подтверждения`,
+      );
+    }
+  });
+
+  await t.step("прочие тулы rw не помечены", () => {
+    // `mpu sql` роняет данные в клиентской БД, `mpu xlsx alias add`
+    // правит локальный алиас — и клиент обязан их различать.
+    for (const { profile, entry } of entries) {
+      if (profile !== "rw" || destructive.has(entry.path.join(" "))) continue;
+      assertEquals(entry.tool.annotations.destructiveHint, undefined);
+      assertEquals(entry.tool._meta, undefined);
+    }
+  });
+
+  await t.step("ни один тул ro не помечен", () => {
+    for (const { profile, entry } of entries) {
+      if (profile !== "ro") continue;
+      assertEquals(entry.tool.annotations.readOnlyHint, true);
+      assertEquals(entry.tool.annotations.destructiveHint, undefined);
+      assertEquals(entry.tool._meta, undefined);
+    }
+  });
+
+  await t.step("имя в секции вне публикуемых — отказ сборки", () => {
+    // Молчаливый пропуск означал бы, что переименование команды тихо
+    // снимает подтверждение с необратимого действия.
+    assertThrows(
+      () =>
+        assertDestructivePublished(
+          ["нет-такой-команды"],
+          entries.map((item) => item.entry),
+          "rw",
+        ),
+      ToolPolicyError,
+      "нет-такой-команды",
+    );
+  });
 });
 
 Deno.test("публикация подчинена закрытому списку", async (t) => {

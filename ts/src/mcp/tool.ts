@@ -23,9 +23,42 @@ export interface Tool {
   readonly name: string;
   readonly title: string;
   readonly description: string;
-  readonly annotations: { readonly readOnlyHint: boolean };
+  readonly annotations: ToolAnnotations;
   readonly inputSchema: JsonSchema;
   readonly outputSchema?: JsonSchema;
+  /**
+   * Служебные поля протокола. Здесь живёт требование подтверждения на
+   * каждый вызов: аннотация описывает свойство тула, а включает
+   * подтверждение именно это поле (`platform/mcp-server.md`).
+   */
+  readonly _meta?: Readonly<Record<string, unknown>>;
+}
+
+/** Аннотации тула: что клиент знает о нём до вызова. */
+export interface ToolAnnotations {
+  readonly readOnlyHint: boolean;
+  /**
+   * Эффект необратим вне этой машины. Выставляется только тулам из
+   * секции `destructive` закрытого списка: по описанию команды признак
+   * не выводится — `logs` и `sql` для кода выглядят одинаково.
+   */
+  readonly destructiveHint?: true;
+}
+
+/** Ключ требования подтверждения на каждый вызов. */
+export const REQUIRES_INTERACTION = "anthropic/requiresUserInteraction";
+
+/**
+ * Помечает тул как необратимый: аннотацией — для любого клиента, полем
+ * `_meta` — потому что подтверждение включает именно оно. Непомеченный
+ * тул возвращается как есть: лишние ключи в ответе — тоже расхождение.
+ */
+export function asDestructive(tool: Tool): Tool {
+  return {
+    ...tool,
+    annotations: { ...tool.annotations, destructiveHint: true },
+    _meta: { [REQUIRES_INTERACTION]: true },
+  };
 }
 
 /** Итог вызова тула: текст для агента и, у native, структурный результат. */
