@@ -548,6 +548,23 @@ Deno.test("подстрочный поиск: шаблоны LIKE и регис�
   });
 });
 
+Deno.test("порядок кандидатов: ветка таблицы — по spreadsheet_id", async () => {
+  await withCache({
+    clients: [{ id: 5, server: "sl-1" }, { id: 6, server: "sl-1" }],
+    spreadsheets: [
+      { ssId: "ss-b", clientId: 5, title: "первая", server: "sl-1" },
+      { ssId: "ss-a", clientId: 6, title: "вторая", server: "sl-1" },
+    ],
+  }, (sources) => {
+    // Не по клиенту: таблица клиента 6 идёт первой, потому что её
+    // spreadsheet_id меньше.
+    assertEquals(
+      resolveSelector(sources, "ss-").candidates.map((c) => c.spreadsheetId),
+      ["ss-a", "ss-b"],
+    );
+  });
+});
+
 Deno.test("порядок кандидатов: ветка заголовка — по заголовку, затем по таблице", async () => {
   await withCache({
     clients: [{ id: 5, server: "sl-1" }],

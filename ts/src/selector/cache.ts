@@ -76,7 +76,7 @@ export function spreadsheetCandidates(
   column: "ss_id" | "title",
   value: string,
 ): readonly Candidate[] {
-  const order = column === "ss_id" ? "client_id, ss_id" : "title, ss_id";
+  const order = column === "ss_id" ? "ss_id" : "title, ss_id";
   const rows = cache.query(
     "SELECT client_id, ss_id AS spreadsheet_id, title, server" +
       ` FROM sl_spreadsheets WHERE ${column} LIKE '%' || ? || '%'` +
