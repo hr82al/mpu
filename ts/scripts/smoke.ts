@@ -377,6 +377,33 @@ function checks(subject: Subject): readonly Check[] {
         await server.shutdown();
       }
     }],
+    // Проверка права `--allow-env=…,PGAPPNAME`: клиент PostgreSQL
+    // читает эту переменную безусловно, и без права он не создаётся
+    // вовсе — команда падала бы отказом прав вместо отказа сети. Живого
+    // PG здесь нет и не нужно: адрес заведомо закрыт, ценно то, КАКОЙ
+    // ошибкой команда завершается.
+    ["update: PG-клиент отказывает по сети, а не по правам", async () => {
+      const envPath = `${subject.home}/.config/mpu/.env`;
+      await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+        recursive: true,
+      });
+      await Deno.writeTextFile(
+        envPath,
+        "pg_0=127.0.0.1\nPG_PORT=1\n" +
+          "PG_MAIN_USER_NAME=proba\nPG_MAIN_USER_PASSWORD=proba\n",
+      );
+      const outcome = await run(subject, ["update"]);
+      assertEquals(outcome.code, 1, `stderr: ${outcome.stderr}`);
+      assert(
+        outcome.stderr.startsWith("mpu update: main (sl-0) недоступен: "),
+        `не тот отказ: ${JSON.stringify(outcome.stderr)}`,
+      );
+      assert(
+        !outcome.stderr.includes("Requires env access"),
+        `клиенту PG не хватило права: ${JSON.stringify(outcome.stderr)}`,
+      );
+      await Deno.remove(envPath);
+    }],
     ["маршрут legacy", async () => {
       const outcome = await runOk(subject, ["search", "--help"]);
       assert(

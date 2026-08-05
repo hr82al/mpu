@@ -447,6 +447,127 @@
     }
   },
   {
+    "name": "update",
+    "title": "mpu update",
+    "description": "синк снапшота кэш-БД с PG: клиенты, их таблицы, wb-sid'ы\n\nПолная перезапись снапшота кэш-БД одной транзакцией: список\nклиентов и wb-sid'ы — с main (sl-0), таблицы клиентов — с каждого\nинстанса sl-N, названного в поле server. Затем best-effort прогрев\nкэша Loki: его сбой на код выхода не влияет.\n\nКлючи env-файла ~/.config/mpu/.env (окружение процесса не читается):\npg_<N> — адреса серверов; PG_PORT (5432), PG_DB_NAME (wb);\nPG_MY_USER_NAME/PG_MAIN_USER_NAME и PG_MY_USER_PASSWORD/\nPG_MAIN_USER_PASSWORD (личные приоритетнее общих); LOKI_URL.\n\nПределы PG-обращения: 5000 ms на соединение, 20000 ms на запрос;\nсессия открывается read-only. Инстансы опрашиваются конкурентно:\nупавший даёт строку warning в stderr, в число серверов сводки не\nвходит и кода выхода не меняет.\nПрогрев Loki: 3000 ms до заголовков, 10000 ms целиком.\n\n--quiet подавляет весь вывод целиком; обращения и записи при этом\nвыполняются полностью.\n\nExit: 0 — успех, включая прогон с упавшими инстансами; 1 — недоступный\nmain (sl-0): кэш при этом не изменяется.\n\nПример: mpu update",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "quiet": {
+          "default": false,
+          "description": "не печатать ничего: ни сводку, ни строку Loki, ни предупреждения",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "clients": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "spreadsheets": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "servers": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "wbSids": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "tookSeconds": {
+          "type": "number"
+        },
+        "failedServers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "server": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "server",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "loki": {
+          "type": "object",
+          "properties": {
+            "skipped": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "hosts": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "pairs": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "skipped",
+            "hosts",
+            "pairs"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "clients",
+        "spreadsheets",
+        "servers",
+        "wbSids",
+        "tookSeconds",
+        "failedServers",
+        "loki"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "search",
     "title": "mpu search",
     "description": "Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nНайти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nРежим выбирают флаги, не селектор.\n\n\b\nБЕЗ ФЛАГОВ — локальный кэш (сети нет): client_id · IPv4 sl_/pg_ · WB sid ·\nкусок spreadsheet_id · кусок title → JSON-массив строк {client_id,\nspreadsheet_id, title, server, server_number, sl_ip, pg_ip, sids}. Пусто →\nавто-`mpu update` и повтор (`--no-update` гасит). Проекция (`--server`,\n`--sids`, …) печатает голые значения — форма для подстановки в другие команды.\n\n\b\nС `--reason` / `--refresh-cache` / `--scope` — 10X: селектор → email цели →\nimpersonation-сессия (зайти в веб ОТ ЛИЦА клиента). Email идёт сюда и без\nфлагов. Пять входов, как у staff-поиска sw-back:\n\n\b\n  email (точный)                user     mpu search user@mail.ru\n  кусок email / имя             user     mpu search Иванов --scope user\n  user.id                       user     mpu search 1029 --scope user\n  client_id (== workspace id)   access   mpu search 2759 --reason <url>\n  sid кабинета (полный uuid)    access   mpu search <sid> --reason <url>\n\n`auto` (умолчание): целое и uuid → access, остальное → user. Число в разных\nскоупах — разные сущности (1029: user.id есть, workspace нет), для user.id\nнужен явный `--scope user`. Названием клиента/кабинета 10X НЕ ищет: название\n[справка усечена: отброшено 1059 байт]",
@@ -529,25 +650,6 @@
       "required": [
         "value"
       ]
-    }
-  },
-  {
-    "name": "update",
-    "title": "mpu update",
-    "description": "Синхронизировать ~/.config/mpu/mpu.db со всеми PG-серверами.\n\nСинхронизировать ~/.config/mpu/mpu.db со всеми PG-серверами.\n\nДополнительно (best-effort) обновляет Loki-кэш hosts/services для tab-completion\n`mpu logs` — пропускается с предупреждением, если LOKI_URL не задан в .env.",
-    "annotations": {
-      "readOnlyHint": false
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "quiet": {
-          "type": "boolean",
-          "description": "Не печатать summary",
-          "default": false
-        }
-      },
-      "additionalProperties": false
     }
   },
   {

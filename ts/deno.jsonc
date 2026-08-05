@@ -42,7 +42,22 @@
     // Зависимостей у пакета нет.
     // Версия зафиксирована точно, без «^»: по тем же причинам, что у
     // `@zod/zod` выше.
-    "@hono/hono": "jsr:@hono/hono@4.12.33"
+    "@hono/hono": "jsr:@hono/hono@4.12.33",
+    // Клиент PostgreSQL для команды `mpu update` (`docs/specs/update.md`):
+    // подключение к main и инстансам стенда, выборки снапшота. Своими
+    // руками это проводной протокол PostgreSQL целиком — не тот объём,
+    // который пишут ради трёх фиксированных SELECT'ов, а в стандартной
+    // библиотеке Deno клиента БД нет вовсе. Пакет и его ветка — решение
+    // оператора в постановке порции; своих зависимостей у пакета нет
+    // (`deno info npm:postgres@3.4`: «dependencies: 0 unique»).
+    // Версия зафиксирована точно, без «^»: по тем же причинам, что у
+    // `@zod/zod` выше.
+    // Особенность, которую стоит знать при обновлении: значения опций,
+    // не переданных явно, пакет ищет в окружении процесса (`PGMAX`,
+    // `PGCONNECT_TIMEOUT`, …), а `PGAPPNAME` читает безусловно — отсюда
+    // и полный список опций в `src/update/pg.ts`, и единственное имя,
+    // добавленное в `--allow-env` задачи `build`.
+    "postgres": "npm:postgres@3.4.9"
   },
   "tasks": {
     // Тестам нужны чтение исходников с фикстурами, временные каталоги
@@ -77,7 +92,7 @@
     //     (`envFile.set`, `platform/env-file.md`) при нестандартном
     //     XDG_CONFIG_HOME целится вне $HOME/.config/mpu — этот список
     //     её не покрывает, и запись упрётся в отказ права;
-    //   --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS
+    //   --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PGAPPNAME
     //     HOME даёт путь конфига, rc-файла и реализации маршрута
     //     `legacy`; XDG_CONFIG_HOME — путь env-файла секретов
     //     (`platform/env-file.md`, «Известные отклонения»: учёт этой
@@ -103,12 +118,22 @@
     //     (эталон `fixtures/platform/registry/completion-*.txt`) —
     //     сузить список нельзя. `SHELL` в списке нет намеренно: shell
     //     определяется по дереву процессов-предков (`src/runtime`), а
-    //     не по этой переменной;
+    //     не по этой переменной. Единственное имя не из этого ряда —
+    //     `PGAPPNAME`: его безусловно читает клиент PostgreSQL
+    //     (`npm:postgres`, см. `imports` выше) прежде, чем слить свои
+    //     умолчания с нашими опциями. Конфигурацией это имя не
+    //     становится: `application_name` мы задаём явно, и он затирает
+    //     прочитанное — экспорт `PGAPPNAME` в shell на поведение не
+    //     влияет. Без права клиент не создаётся вовсе (`NotCapable`), и
+    //     это ловит smoke-проверка подключения;
     //   --allow-net                      слушающий сокет `mpu mcp` (только
     //     `127.0.0.1`, наружу сервер не ходит) и исходящие вызовы `mpu
-    //     init`: Portainer, Loki и Kaiten (`docs/specs/init.md`). Списком
+    //     init` (Portainer, Loki, Kaiten — `docs/specs/init.md`) и `mpu
+    //     update` (PostgreSQL main и инстансов, Loki —
+    //     `docs/specs/update.md`). Списком
     //     адресов это не выражается — их задаёт пользователь ключами
-    //     env-файла (`PORTAINER_URL`, `LOKI_URL`, `KITEN_BASE_URL`), а
+    //     env-файла (`PORTAINER_URL`, `LOKI_URL`, `KITEN_BASE_URL`,
+    //     `pg_<N>`), а
     //     `KITEN_BASE_URL` вдобавок имеет дефолт-адрес стенда. Сузить
     //     обратно можно будет, если адреса когда-нибудь перестанут быть
     //     настраиваемыми. Честно: smoke отличить широкое право от
@@ -127,7 +152,7 @@
     // Пересборка записей маршрута `legacy` из слепка дерева: запускать
     // после его пересъёма. Правки записей руками тест не пропустит.
     "registry:sync": "deno run --allow-read --allow-write=src/registry/legacy_tree.ts scripts/gen-legacy-tree.ts && deno fmt src/registry/legacy_tree.ts",
-    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
+    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PGAPPNAME --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь

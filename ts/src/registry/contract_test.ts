@@ -129,6 +129,19 @@ const CASES: readonly CommandCase[] = [
       telegram: { skipped: null },
     },
   },
+  {
+    path: "update",
+    argv: [],
+    sampleResult: {
+      clients: 12,
+      spreadsheets: 340,
+      servers: 4,
+      wbSids: 58,
+      tookSeconds: 1.23,
+      failedServers: [{ server: "sl-2", reason: "нет соединения за 5000ms" }],
+      loki: { skipped: null, hosts: 3, pairs: 9 },
+    },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {

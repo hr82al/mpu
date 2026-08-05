@@ -12,16 +12,12 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 53 команд верхнего уровня, ещё не переехавших на TS. */
+/** 52 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["search"],
     summary:
       "Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).",
-  },
-  {
-    path: ["update"],
-    summary: "Синхронизировать ~/.config/mpu/mpu.db со всеми PG-серверами.",
   },
   {
     path: ["sql"],
