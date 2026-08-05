@@ -1,0 +1,7 @@
+server: sl-1
+pg_host: <pg_host>
+pg_port: 5432
+database: wb
+mode: read-only
+sql:
+SELECT 1
