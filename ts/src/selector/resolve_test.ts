@@ -644,19 +644,30 @@ Deno.test("кэш-БД не инициализирована: одна ошиб�
   });
 });
 
-Deno.test("кэш-БД без части таблиц — та же ошибка, не частичный ответ", async () => {
-  await withCache(ONE_CLIENT, (sources, db) => {
-    // Кэш от старой версии: схема есть, но одной из читаемых резолвом
-    // таблиц в ней нет. Ответить «sid'ов нет» значило бы выдать неполноту
-    // за факт — резолв отказывает так же, как на пустой БД.
-    db.execute("DROP TABLE sl_wb_sids");
-    const err = assertThrows(
-      () => resolveSelector(sources, "7"),
-      SelectorError,
-    );
-    assertEquals(err.message, "кэш-БД не инициализирована");
-    assertEquals(err.hint, "mpu init");
-  });
+Deno.test("кэш-БД без части таблиц — та же ошибка, не частичный ответ", async (t) => {
+  // Кэш от старой версии: схема есть, но одной из читаемых резолвом
+  // таблиц в ней нет. Ответить «sid'ов нет» или «email не в кэше»
+  // значило бы выдать неполноту за факт — резолв отказывает так же, как
+  // на пустой БД, и так для каждой из четырёх таблиц по отдельности.
+  const tables: readonly string[] = [
+    "sl_clients",
+    "sl_spreadsheets",
+    "sl_wb_sids",
+    "x10_email_clients",
+  ];
+  for (const table of tables) {
+    await t.step(`нет таблицы ${table}`, async () => {
+      await withCache(ONE_CLIENT, (sources, db) => {
+        db.execute(`DROP TABLE ${table}`);
+        const err = assertThrows(
+          () => resolveSelector(sources, "7"),
+          SelectorError,
+        );
+        assertEquals(err.message, "кэш-БД не инициализирована");
+        assertEquals(err.hint, "mpu init");
+      });
+    });
+  }
 });
 
 Deno.test("кэш-БД не инициализирована: пути без кэша работают", async () => {
