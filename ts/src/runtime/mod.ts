@@ -49,6 +49,17 @@ export function defaultConfigStorePath(): string | undefined {
   return `${home}/.config/mpu/config.json`;
 }
 
+/**
+ * Файл журнала вызовов по умолчанию (`platform/invoke-log.md`): сосед
+ * хранилища конфига и кэш-БД, общий с Python-реализацией. Без HOME
+ * пути нет — журнал молчит, как и хранилище.
+ */
+export function defaultInvokeLogPath(): string | undefined {
+  const home = Deno.env.get("HOME");
+  if (home === undefined || home === "") return undefined;
+  return `${home}/.config/mpu/mpu.log`;
+}
+
 /** Потоки процесса как приёмник вывода точки входа. */
 export function makeDenoOutput(): Output {
   return {

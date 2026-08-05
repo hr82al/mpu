@@ -14,6 +14,7 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { commands } from "../registry/mod.ts";
+import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { LOOPBACK, type RunningServer, serveMcp } from "./server.ts";
 import { VERSION } from "../version.ts";
@@ -57,7 +58,7 @@ async function withServer(
     port: 0,
     profiles: ["ro", "rw"],
     token: TOKEN,
-    deps: { io: makeFakeIo(), commands, version: VERSION },
+    deps: { io: makeFakeIo(), commands, version: VERSION, log: NO_INVOKE_LOG },
   });
   const call: Caller = (path, init = {}) =>
     fetch(`http://${LOOPBACK}:${server.port}${path}`, {
@@ -103,7 +104,12 @@ async function withBrokenRegistry(
     port: 0,
     profiles: ["ro"],
     token: TOKEN,
-    deps: { io: makeFakeIo(), commands: broken, version: VERSION },
+    deps: {
+      io: makeFakeIo(),
+      commands: broken,
+      version: VERSION,
+      log: NO_INVOKE_LOG,
+    },
   });
   try {
     await fn(() =>
@@ -419,7 +425,7 @@ Deno.test("поднятый профиль один — путь второго 
     port: 0,
     profiles: ["ro"],
     token: TOKEN,
-    deps: { io: makeFakeIo(), commands, version: VERSION },
+    deps: { io: makeFakeIo(), commands, version: VERSION, log: NO_INVOKE_LOG },
   });
   try {
     const response = await fetch(`http://${LOOPBACK}:${server.port}/rw`, {

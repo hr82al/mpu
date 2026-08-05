@@ -33,6 +33,11 @@ import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json"
 import { LegacyBinMissingError, runLegacyCommand } from "../legacy/mod.ts";
 import { renderCommandHelp, renderIndex, renderSurfaceHelp } from "./help.ts";
 import {
+  type InvokeLog,
+  NO_INVOKE_LOG,
+  type OutputPolicy,
+} from "../invokelog/mod.ts";
+import {
   COMPLETE_ENV,
   completionCandidates,
   completionInput,
@@ -48,6 +53,19 @@ import {
 export interface Output {
   readonly stdout: (text: string) => void;
   readonly stderr: (text: string) => void;
+}
+
+/**
+ * Журнал вызовов глазами точки входа (`platform/invoke-log.md`).
+ * Обвязка сообщает ему две вещи: что вызов пошёл маршрутом `native` —
+ * только такие она журналирует, — и сам журнал, который нужен
+ * долгоживущему MCP-серверу: тот пишет свою запись на каждый вызов
+ * тула. Справка, `version`, completion и ошибки маршрутизации записей
+ * не оставляют, поэтому на их ветках отметки нет.
+ */
+export interface InvokeJournal {
+  readonly nativeCall: (command: OutputPolicy) => void;
+  readonly log: InvokeLog;
 }
 
 const ROOT_USAGE = "mpu <команда> [аргументы]";
@@ -83,12 +101,15 @@ export async function runCli(
   argv: readonly string[],
   baseIo: CommandIo,
   output: Output,
+  journal?: InvokeJournal,
 ): Promise<number> {
   // Служебные строки хода исполнения печатает точка входа, а не команда
   // (`platform/command-contract.md`, инвариант 1): команда отдаёт их
   // портом `progress`, а куда они попадут — решается здесь, рядом с
-  // печатью результата и ошибок. У второй точки входа (MCP-сервер) свой
-  // приёмник — тот, что собрал `makeDenoIo`.
+  // печатью результата и ошибок. Этот же приёмник достаётся и
+  // MCP-серверу — он поднимается голым вызовом `mpu mcp` и печатает
+  // строки хода туда же; копию в запись своего вызова тула дописывает
+  // уже он сам (`platform/invoke-log.md`).
   const io: CommandIo = {
     ...baseIo,
     progress: (line) => output.stderr(`${line}\n`),
@@ -160,11 +181,23 @@ export async function runCli(
       return await runLegacyCommand(legacy, dropPath(argv, path), io, output);
     }
     const command = findCommand(path);
-    if (command === undefined) return await runGroup(path, args, io, output);
+    if (command === undefined) {
+      return await runGroup(
+        path,
+        args,
+        io,
+        output,
+        journal?.log ?? NO_INVOKE_LOG,
+      );
+    }
     if (args.length > 0 && isHelpRequest(args[0])) {
       output.stdout(renderCommandHelp(command));
       return 0;
     }
+    // Вызов пошёл маршрутом `native`: его журналирует обвязка, и
+    // отметка стоит до исполнения — запись остаётся и у падения
+    // (`platform/invoke-log.md`).
+    journal?.nativeCall(command);
     return await runCommand(command, args, json, io, output);
   } catch (err) {
     if (err instanceof LegacyBinMissingError) {
@@ -338,6 +371,7 @@ async function runGroup(
   args: readonly string[],
   io: CommandIo,
   output: Output,
+  log: InvokeLog,
 ): Promise<number> {
   const group = findGroup(path);
   if (group === undefined) {
@@ -351,7 +385,7 @@ async function runGroup(
   // Подкоманду называет только первый аргумент: дальше идут значения
   // флагов уровня, и они выглядят так же («--profile ro»).
   if (group.bare !== undefined && (args.length === 0 || isFlag(args[0]))) {
-    return await group.bare(args, io, output);
+    return await group.bare(args, io, output, log);
   }
   if (args.length === 0) {
     output.stdout(groupIndex(group));

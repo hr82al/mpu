@@ -7,6 +7,7 @@
  */
 
 import type { CommandIo, Policy } from "../command/mod.ts";
+import type { OutputPolicy } from "../invokelog/mod.ts";
 
 /** Профиль сервера: путь `/ro` или `/rw`. */
 export type Profile = "ro" | "rw";
@@ -79,6 +80,12 @@ export interface ToolEntry {
   readonly policy: Policy;
   /** Путь команды: по нему тул восстанавливает имя в ошибках. */
   readonly path: readonly string[];
+  /**
+   * Пометка журнала вызовов (`platform/invoke-log.md`): у тула команды
+   * контракта запись делает обвязка, у тула маршрута `legacy` поля нет
+   * — запись делает сам Python-подпроцесс, и вторая была бы дублем.
+   */
+  readonly journal?: OutputPolicy;
   readonly invoke: (
     args: unknown,
     io: CommandIo,

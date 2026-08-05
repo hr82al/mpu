@@ -31,12 +31,14 @@ import {
   type RpcMessage,
   SUPPORTED_VERSIONS,
 } from "./jsonrpc.ts";
+import type { InvokeLog, InvokeRecording } from "../invokelog/mod.ts";
 import {
   findTool,
   type Profile,
   PROFILE_INSTRUCTIONS,
   profileTools,
   type Tool,
+  type ToolEntry,
 } from "./tools.ts";
 
 export type { Profile, Tool, ToolEntry } from "./tools.ts";
@@ -71,6 +73,11 @@ export interface McpDeps {
   readonly commands: readonly Command[];
   /** Версия сборки бинаря: по ней виден отставший процесс сервера. */
   readonly version: string;
+  /**
+   * Журнал вызовов: вызов тула — вторая точка входа бинаря и
+   * журналируется наравне с CLI (`platform/invoke-log.md`).
+   */
+  readonly log: InvokeLog;
 }
 
 /** Обязательные заголовки запроса; сверяются со значениями тела. */
@@ -178,6 +185,11 @@ function listTools(
  * тексту: ошибка ввода уходит JSON-RPC-ошибкой (её исправляет клиент),
  * доменная — содержимым результата с признаком ошибки, чтобы агент
  * прочитал её и исправился.
+ *
+ * Вызов тула журналируется наравне с CLI-вызовом: одна запись, `pid` и
+ * `cwd` — серверного процесса (`platform/invoke-log.md`). У тула
+ * маршрута `legacy` пометки журнала нет: там запись делает сам
+ * Python-подпроцесс, и вторая была бы дублем.
  */
 async function callTool(
   id: RpcId,
@@ -198,51 +210,108 @@ async function callTool(
     return errorBody(id, RPC_INVALID_PARAMS, `Unknown tool "${name}"`);
   }
   const input = message.params["arguments"] ?? {};
+  const record = deps.log.begin({ kind: "tool", path: entry.path, input });
+  if (entry.journal !== undefined) record.nativeCall(entry.journal);
+  const outcome = await invokeTool(entry, input, recordedIo(deps.io, record));
+  if (outcome.kind === "ok") record.out(outcome.text);
+  else record.err(outcome.text);
+  await record.finish(EXIT_CODES[outcome.kind]);
+  return bodyOf(id, outcome);
+}
+
+/** Чем кончился вызов тула. Ответ клиенту и запись — уже проекции. */
+type ToolOutcome =
+  | {
+    readonly kind: "ok";
+    readonly text: string;
+    /** У маршрута `legacy` схемы результата нет — только текст. */
+    readonly structured?: unknown;
+  }
+  | { readonly kind: "domain" | "usage" | "internal"; readonly text: string };
+
+/**
+ * Код исхода в записи журнала: те же классы, что CLI переводит в код
+ * возврата процесса, — ошибка ввода 2, всё прочее 1
+ * (`src/entrypoint/mod.ts`).
+ */
+const EXIT_CODES: Readonly<Record<ToolOutcome["kind"], number>> = {
+  ok: 0,
+  domain: 1,
+  usage: 2,
+  internal: 1,
+};
+
+async function invokeTool(
+  entry: ToolEntry,
+  input: unknown,
+  io: CommandIo,
+): Promise<ToolOutcome> {
+  const name = entry.tool.name;
   try {
-    const result = await entry.invoke(input, deps.io);
-    if (result.isError) {
-      // Команда сообщила о неуспехе сама (ненулевой код подпроцесса):
-      // это доменная ошибка, её агент читает и исправляется.
-      return resultBody(id, {
-        isError: true,
-        content: [{ type: "text", text: result.text }],
-      });
-    }
-    if (result.structured === undefined) {
-      // У маршрута `legacy` схемы результата нет — только текст.
-      return resultBody(id, {
-        content: [{ type: "text", text: result.text }],
-      });
-    }
-    return resultBody(id, {
-      structuredContent: result.structured,
-      content: [{ type: "text", text: result.text }],
-    });
+    const result = await entry.invoke(input, io);
+    // Тул сообщил о неуспехе сам (ненулевой код подпроцесса): это
+    // доменная ошибка, её агент читает и исправляется.
+    if (result.isError) return { kind: "domain", text: result.text };
+    return { kind: "ok", text: result.text, structured: result.structured };
   } catch (err) {
     if (err instanceof UsageError) {
-      return errorBody(
-        id,
-        RPC_INVALID_PARAMS,
-        `invalid arguments for tool "${name}": ${err.message}`,
-      );
+      return {
+        kind: "usage",
+        text: `invalid arguments for tool "${name}": ${err.message}`,
+      };
     }
     if (err instanceof DomainError) {
-      return resultBody(id, {
-        isError: true,
-        content: [
-          { type: "text", text: formatCommandError(entry.path, err) },
-        ],
-      });
+      return { kind: "domain", text: formatCommandError(entry.path, err) };
     }
     // Сбой самой реализации: клиенту он ошибка транспорта, а не итог
     // команды. Сервер при этом остаётся живым.
     const reason = err instanceof Error ? err.message : String(err);
-    return errorBody(
-      id,
-      RPC_INTERNAL_ERROR,
-      `Internal error in tool "${name}": ${reason}`,
-    );
+    return {
+      kind: "internal",
+      text: `Internal error in tool "${name}": ${reason}`,
+    };
   }
+}
+
+/** Ответ клиенту по исходу вызова. */
+function bodyOf(id: RpcId, outcome: ToolOutcome): RpcBody {
+  const content = [{ type: "text", text: outcome.text }];
+  switch (outcome.kind) {
+    case "ok":
+      return resultBody(
+        id,
+        outcome.structured === undefined
+          ? { content }
+          : { structuredContent: outcome.structured, content },
+      );
+    case "domain":
+      return resultBody(id, { isError: true, content });
+    case "usage":
+      return errorBody(id, RPC_INVALID_PARAMS, outcome.text);
+    case "internal":
+      return errorBody(id, RPC_INTERNAL_ERROR, outcome.text);
+    default: {
+      const unknown: never = outcome;
+      throw new TypeError(`неизвестный исход тула: ${JSON.stringify(unknown)}`);
+    }
+  }
+}
+
+/**
+ * Окружение исполнения тула, у которого служебные строки хода
+ * дублируются в его запись. У CLI то же делает перехват вывода: строки
+ * `progress` печатает точка входа, и в запись они попадают копией
+ * (`platform/invoke-log.md`, «Побочные эффекты»). У сервера печатать их
+ * некому — но в записи вызова они обязаны быть.
+ */
+function recordedIo(io: CommandIo, record: InvokeRecording): CommandIo {
+  return {
+    ...io,
+    progress: (line) => {
+      io.progress(line);
+      record.err(`${line}\n`);
+    },
+  };
 }
 
 /** Итог проверки заголовков: причина отказа либо запрошенная версия. */

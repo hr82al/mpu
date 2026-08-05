@@ -10,6 +10,7 @@ import { makeDenoIo } from "../runtime/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { type CommandIo, NotFoundIoError } from "../command/mod.ts";
 import { commands } from "../registry/mod.ts";
+import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
 import { runMcpServer } from "./cli.ts";
 import { LOOPBACK, type RunningServer, serveMcp } from "./server.ts";
 import { ensureAccessToken } from "./token.ts";
@@ -109,6 +110,7 @@ Deno.test("значение --profile вне ro/rw — exit 2", async (t) => {
         io: makeFakeIo({ runLegacy: sameVersion }),
         output: output.sink,
         commands,
+        log: NO_INVOKE_LOG,
       });
       assertEquals(code, 2);
       assertStringIncludes(output.stderr(), "--profile");
@@ -122,6 +124,7 @@ Deno.test("неизвестный флаг запуска — exit 2", async () 
     io: makeFakeIo({ runLegacy: sameVersion }),
     output: output.sink,
     commands,
+    log: NO_INVOKE_LOG,
   });
   assertEquals(code, 2);
   assertStringIncludes(output.stderr(), "--host");
@@ -132,7 +135,7 @@ Deno.test("занятый порт — exit 1 и текст спеки", async (
     port: 0,
     profiles: ["ro"],
     token: "zanyato",
-    deps: { io: makeFakeIo(), commands, version: VERSION },
+    deps: { io: makeFakeIo(), commands, version: VERSION, log: NO_INVOKE_LOG },
   });
   try {
     await withStore(async (io) => {
@@ -141,6 +144,7 @@ Deno.test("занятый порт — exit 1 и текст спеки", async (
         io,
         output: output.sink,
         commands,
+        log: NO_INVOKE_LOG,
       });
       assertEquals(code, 1);
       assertEquals(output.stderr(), `mpu mcp: порт ${busy.port} занят\n`);
@@ -191,6 +195,7 @@ Deno.test("значение --port не порт — exit 2", async (t) => {
         io: makeFakeIo({ runLegacy: sameVersion }),
         output: output.sink,
         commands,
+        log: NO_INVOKE_LOG,
       });
       assertEquals(code, 2);
       assertStringIncludes(output.stderr(), "--port");
@@ -209,6 +214,7 @@ Deno.test("порт берётся из конфига, когда флага н
       deps: {
         io: makeFakeIo({ runLegacy: sameVersion }),
         commands,
+        log: NO_INVOKE_LOG,
         version: VERSION,
       },
     });
@@ -224,6 +230,7 @@ Deno.test("порт берётся из конфига, когда флага н
       io,
       output: makeOutput().sink,
       commands,
+      log: NO_INVOKE_LOG,
       signal: stop.signal,
       onListen: listening.resolve,
     });
@@ -242,6 +249,7 @@ Deno.test("--profile поднимает только названные пути
       io,
       output: makeOutput().sink,
       commands,
+      log: NO_INVOKE_LOG,
       signal: stop.signal,
       onListen: listening.resolve,
     });
@@ -277,6 +285,7 @@ Deno.test("расхождение версии реализации — пред
         },
         output: output.sink,
         commands,
+        log: NO_INVOKE_LOG,
         signal: stop.signal,
         onListen: listening.resolve,
       });
@@ -303,6 +312,7 @@ Deno.test("расхождение версии реализации — пред
         },
         output: output.sink,
         commands,
+        log: NO_INVOKE_LOG,
         signal: stop.signal,
         onListen: listening.resolve,
       });
@@ -325,6 +335,7 @@ Deno.test("расхождение версии реализации — пред
         },
         output: output.sink,
         commands,
+        log: NO_INVOKE_LOG,
         signal: stop.signal,
         onListen: listening.resolve,
       });
@@ -349,6 +360,7 @@ Deno.test("mpu mcp поднимает сервер на петле и гасне
       io,
       output: output.sink,
       commands,
+      log: NO_INVOKE_LOG,
       signal: stop.signal,
       onListen: listening.resolve,
     });
@@ -382,6 +394,7 @@ Deno.test("голый вызов поднимает ro и rw на порту п�
         io,
         output: makeOutput().sink,
         commands,
+        log: NO_INVOKE_LOG,
         signal: stop.signal,
         onListen: listening.resolve,
       });

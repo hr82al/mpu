@@ -166,6 +166,15 @@ export interface CommandSpec<A, R> {
   /** Как входы записываются в argv; без записи вход читается как флаг. */
   readonly forms?: Readonly<Record<string, InputForm>>;
   readonly resultSchema: z.ZodType<R>;
+  /**
+   * Пишутся ли в запись журнала вызовов секции out/err этой команды
+   * (`platform/invoke-log.md`, «Инварианты»). Умолчание — да; `false`
+   * у команд, чей вывод в журнале неуместен: сам журнал (`log`), поиск
+   * (`search`) и `mcp token`, единственная поверхность, печатающая
+   * токен доступа (`platform/mcp-server.md`). Запись о вызове остаётся
+   * в любом случае — исчезают только секции вывода.
+   */
+  readonly logsOutput?: boolean;
   /** Исполнение: разобранные аргументы → результат. Не печатает. */
   readonly run: (args: A, io: CommandIo) => Promise<R>;
   /** Рендер результата в текст для человека. Чист. */
@@ -185,6 +194,8 @@ export interface Command {
   readonly usage: string;
   readonly help: string;
   readonly policy: Policy;
+  /** Пишутся ли секции out/err в журнал вызовов (см. объявление). */
+  readonly logsOutput: boolean;
   /** Схема входа как JSON Schema: разбор argv и схема входа тула. */
   readonly argsJsonSchema: ObjectSchema;
   /** Схема выхода как JSON Schema: схема результата тула. */
@@ -260,6 +271,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     usage: spec.usage,
     help: spec.help,
     policy: spec.policy,
+    logsOutput: spec.logsOutput ?? true,
     argsJsonSchema,
     resultJsonSchema,
     inputs: specs,

@@ -23,6 +23,7 @@ import {
 } from "./server.ts";
 import { ensureAccessToken } from "./token.ts";
 import { VERSION, versionMismatch } from "../version.ts";
+import type { InvokeLog } from "../invokelog/mod.ts";
 
 /** Приёмник диагностики: всё, что нужно этой поверхности от вывода. */
 export interface ErrorSink {
@@ -40,6 +41,8 @@ export interface McpServerRun {
   readonly signal?: AbortSignal;
   /** Зовётся, когда сокет уже слушает: точка синхронизации тестов. */
   readonly onListen?: (server: RunningServer) => void;
+  /** Журнал вызовов: запись на каждый вызов тула. */
+  readonly log: InvokeLog;
 }
 
 /** Ключ конфига с портом по умолчанию (`platform/config.md`). */
@@ -72,7 +75,7 @@ export async function runMcpServer(
       port,
       profiles: options.profiles,
       token,
-      deps: { io, commands, version: VERSION },
+      deps: { io, commands, version: VERSION, log: run.log },
       signal: run.signal,
     });
     // Адрес печатается в stderr: stdout этой поверхности принадлежит

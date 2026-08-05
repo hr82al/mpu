@@ -36,6 +36,12 @@ const COMPLETE_ZSH = "complete_zsh";
 /** Строка, которой `mpu mcp` сообщает, что сокет уже слушает. */
 const LISTEN_MARKER = "слушаю http://";
 
+/** Файл журнала вызовов smoke-прогона: ключ `MPU_LOG_FILE` env-файла. */
+const INVOKE_LOG_NAME = "$HOME/.config/mpu/invoke.log";
+
+/** `run_id` записи, которую оставляет заглушка вместо Python-реализации. */
+const LEGACY_RUN_ID = "20260805-000000.000-1";
+
 const decoder = new TextDecoder();
 
 /** Собранный бинарь и каталог, который служит ему домашним. */
@@ -117,15 +123,29 @@ async function compile(subject: Subject): Promise<void> {
  * Заглушка Python-реализации на месте, где её ищет маршрут `legacy`:
  * без неё подпроцесс не запускается и право `--allow-run` остаётся
  * непроверенным.
+ *
+ * Заглушка дописывает и запись в журнал вызовов: у настоящей
+ * реализации журнал свой, и проверка «обвязка второй записи не делает»
+ * без этого проверяла бы пустоту (`platform/invoke-log.md`).
  */
 async function installFakeLegacy(subject: Subject): Promise<void> {
   const path = DEFAULT_LEGACY_BIN.replace("~", subject.home);
   await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
   await Deno.writeTextFile(
     path,
-    `#!/bin/sh\nif [ "$1" = version ]; then echo ${VERSION}; else echo legacy-ok; fi\n`,
+    `#!/bin/sh
+mkdir -p "$HOME/.config/mpu"
+printf '### legacy run=%s pid=1 cwd=/\\n$ mpu %s\\n--- end run=%s exit=0 dur=0.001s ---\\n\\n' \\
+  "${LEGACY_RUN_ID}" "$*" "${LEGACY_RUN_ID}" >> "${INVOKE_LOG_NAME}"
+if [ "$1" = version ]; then echo ${VERSION}; else echo legacy-ok; fi
+`,
     { mode: 0o755 },
   );
+}
+
+/** Строки команд из журнала: по одной на запись. */
+function logRecords(text: string): readonly string[] {
+  return text.split("\n").filter((line) => line.startsWith("$ mpu "));
 }
 
 /** Ждёт сообщение о старте сервера; поток кончился — сервер не встал. */
@@ -410,6 +430,56 @@ function checks(subject: Subject): readonly Check[] {
         outcome.stdout.includes("legacy-ok"),
         `подпроцесс не отработал: ${JSON.stringify(outcome.stdout)}`,
       );
+    }],
+    // Журнал вызовов: одна запись на вызов и ни одной лишней. Права на
+    // файл берутся из `--allow-write=$HOME/.config/mpu` — журнал живёт
+    // в конфиг-каталоге, а путь приходит ключом env-файла, не
+    // окружением процесса (`platform/invoke-log.md`).
+    ["журнал вызовов: по записи на вызов, legacy пишет сам", async () => {
+      const configDir = `${subject.home}/.config/mpu`;
+      const logPath = `${configDir}/invoke.log`;
+      await Deno.mkdir(configDir, { recursive: true });
+      await Deno.writeTextFile(
+        `${configDir}/.env`,
+        `MPU_LOG_FILE=${logPath}\n`,
+      );
+      try {
+        await Deno.remove(logPath);
+      } catch {
+        // Файла ещё нет, если проверка маршрута `legacy` выше не
+        // добралась до него: считаем записи этой проверки, а не прогона.
+      }
+      try {
+        await runOk(subject, ["xlsx", "resolve", "--json"]);
+        const afterNative = await Deno.readTextFile(logPath);
+        assertEquals(
+          logRecords(afterNative),
+          ["$ mpu xlsx resolve --json"],
+          `не одна запись native-вызова: ${JSON.stringify(afterNative)}`,
+        );
+        assertEquals(
+          ((await Deno.stat(logPath)).mode ?? 0o600) & 0o777,
+          0o600,
+          "права файла журнала не 0600",
+        );
+
+        await runOk(subject, ["search", "--help"]);
+        const afterLegacy = await Deno.readTextFile(logPath);
+        // Вторая запись — от подпроцесса; обвязка для маршрута `legacy`
+        // своей не делает, иначе записей было бы три.
+        assertEquals(
+          logRecords(afterLegacy),
+          ["$ mpu xlsx resolve --json", "$ mpu search --help"],
+          `записи маршрута legacy задвоились: ${JSON.stringify(afterLegacy)}`,
+        );
+        assertEquals(
+          afterLegacy.split(`run=${LEGACY_RUN_ID}`).length - 1,
+          2,
+          "запись legacy-вызова пришла не от подпроцесса",
+        );
+      } finally {
+        await Deno.remove(`${configDir}/.env`);
+      }
     }],
     ["mcp: сокет, токен, аннотации тулов", () => checkMcpServer(subject)],
   ];

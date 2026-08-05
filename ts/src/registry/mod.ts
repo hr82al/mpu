@@ -23,6 +23,7 @@ import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "../update/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
+import type { InvokeLog } from "../invokelog/mod.ts";
 
 /**
  * Что делает голый вызов уровня (`mpu mcp`), если он делает не индекс.
@@ -32,6 +33,8 @@ export type BareHandler = (
   argv: readonly string[],
   io: CommandIo,
   output: ErrorSink,
+  /** Журнал вызовов: сервер пишет запись на каждый вызов тула. */
+  log: InvokeLog,
 ) => Promise<number>;
 
 /**
@@ -127,7 +130,8 @@ export const groups: readonly CommandGroup[] = [
     path: ["mcp"],
     summary: "MCP-сервер над реестром команд: запуск и токен доступа",
     usage: "mpu mcp [--profile ro|rw|ro,rw] [--port N]",
-    bare: (argv, io, output) => runMcpServer(argv, { io, output, commands }),
+    bare: (argv, io, output, log) =>
+      runMcpServer(argv, { io, output, commands, log }),
   },
 ];
 

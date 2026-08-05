@@ -9,6 +9,7 @@ import { handleMcp, type McpRequest, type McpResponse } from "./mod.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { makeDenoIo } from "../runtime/mod.ts";
 import { commands } from "../registry/mod.ts";
+import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 
 /** Фикстура спеки: класс, запрос и ожидаемый ответ. */
@@ -27,7 +28,12 @@ function handle(
   request: McpRequest,
   io: CommandIo = makeFakeIo(),
 ): Promise<McpResponse> {
-  return handleMcp(request, { io, commands, version: "0.1.0" });
+  return handleMcp(request, {
+    io,
+    commands,
+    version: "0.1.0",
+    log: NO_INVOKE_LOG,
+  });
 }
 
 /** Временный каталог с sample.xlsx: та же книга, что в golden xlsx. */
