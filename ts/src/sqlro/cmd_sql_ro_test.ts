@@ -27,6 +27,7 @@ import type { SqlOutcome } from "./render.ts";
 import {
   DbError,
   type OpenReadOnlySession,
+  TransactionEndedError,
   WriteRefusedError,
 } from "./session.ts";
 import type { PgTarget } from "./target.ts";
@@ -85,20 +86,30 @@ const READ_ONLY_ON: SqlOutcome = {
 
 const DONE: SqlOutcome = { kind: "done", rowcount: -1 };
 
-/** Подставная сессия: помнит запросы, цели подключения и закрытие. */
+/**
+ * Подставная сессия: помнит запросы, цели подключения и закрытие.
+ * `asked` — все запросы по порядку, `ran` — только те, что ушли методом
+ * обёртки (её форма проверяется на стороне драйвера, `pg_test.ts`).
+ */
 function fakeSessions(answer: (text: string) => Answer) {
   const asked: string[] = [];
+  const ran: string[] = [];
   const targets: PgTarget[] = [];
   let closed = 0;
+  const ask = (text: string) => {
+    asked.push(text);
+    const reply = answer(text);
+    return reply instanceof Error
+      ? Promise.reject(reply)
+      : Promise.resolve(reply);
+  };
   const open: OpenReadOnlySession = (target) => {
     targets.push(target);
     return Promise.resolve({
-      query: (text: string) => {
-        asked.push(text);
-        const reply = answer(text);
-        return reply instanceof Error
-          ? Promise.reject(reply)
-          : Promise.resolve(reply);
+      query: ask,
+      run: (sql: string) => {
+        ran.push(sql);
+        return ask(sql);
       },
       close: () => {
         closed += 1;
@@ -106,7 +117,7 @@ function fakeSessions(answer: (text: string) => Answer) {
       },
     });
   };
-  return { open, asked, targets, closed: () => closed };
+  return { open, asked, ran, targets, closed: () => closed };
 }
 
 /** Ответы по умолчанию: сессия read-only, пользовательский SQL — таблица. */
@@ -525,6 +536,21 @@ Deno.test("read-only проверяется на соединении до по�
   });
 });
 
+Deno.test("пользовательский текст исполняется обёрткой", async () => {
+  const sessions = fakeSessions(answers());
+  const { io } = harness();
+  await runSqlRo(args({ selector: "sl-1", sql: "SELECT 1" }), io, {
+    openSession: sessions.open,
+  });
+  // Служебные запросы обёртки не получают: она откатила бы их действие
+  // вместе со своей транзакцией (`platform/readonly-default.md`).
+  assertEquals(sessions.ran, ["SELECT 1"]);
+  assertEquals(sessions.asked, [
+    "SELECT current_setting('transaction_read_only')",
+    "SELECT 1",
+  ]);
+});
+
 Deno.test("отказы БД: свой текст на запись, дословный — на прочее", async (t) => {
   await t.step("write-refused-stderr.txt — текст спеки", async () => {
     const sessions = fakeSessions((text) =>
@@ -545,6 +571,32 @@ Deno.test("отказы БД: свой текст на запись, досло�
     assertEquals(
       `${formatCommandError(["sql-ro"], err)}\n`,
       await golden("write-refused-stderr.txt"),
+    );
+    assertEquals(sessions.closed(), 1);
+  });
+
+  await t.step("текст завершил транзакцию вызова — свой текст", async () => {
+    // Метка обёртки потеряна: на остаток текста гарантия не действовала,
+    // поэтому результат не печатается (`platform/readonly-default.md`).
+    const sessions = fakeSessions((text) =>
+      text.startsWith("SELECT current_setting")
+        ? READ_ONLY_ON
+        : new TransactionEndedError("no such savepoint: mpu_sql_ro")
+    );
+    const { io } = harness();
+    const err = await assertRejects(
+      () =>
+        runSqlRo(
+          args({ selector: "sl-1", sql: "COMMIT; BEGIN READ WRITE; COMMIT" }),
+          io,
+          { openSession: sessions.open },
+        ),
+      DomainError,
+    );
+    assertEquals(
+      formatCommandError(["sql-ro"], err),
+      "mpu sql-ro: текст завершил транзакцию вызова — гарантия " +
+        "только-чтения снята, результат не печатается",
     );
     assertEquals(sessions.closed(), 1);
   });

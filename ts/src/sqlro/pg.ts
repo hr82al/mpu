@@ -1,7 +1,8 @@
 /**
  * Драйвер PostgreSQL для `mpu sql-ro`: единственная реализация порта
- * `OpenReadOnlySession` (`session.ts`) поверх node-postgres. Read-only задаётся
- * опцией стартового пакета — гарантию держит сервер
+ * `OpenReadOnlySession` (`session.ts`) поверх node-postgres. Read-only
+ * задаётся опцией стартового пакета, а пользовательский текст исполняется
+ * внутри обёртки транзакцией с меткой — гарантию держит сервер
  * (`platform/readonly-default.md`), а не разбор текста запроса.
  *
  * Модуль грузится динамически из команды: npm-пакет не должен попадать в
@@ -10,11 +11,16 @@
 
 import driver from "pg";
 import type { SqlOutcome, SqlValue } from "./render.ts";
-import { DbError, type ReadOnlySession, WriteRefusedError } from "./session.ts";
+import {
+  DbError,
+  type ReadOnlySession,
+  TransactionEndedError,
+  WriteRefusedError,
+} from "./session.ts";
 import type { PgTarget } from "./target.ts";
 
 /** Клиент драйвера: одно соединение, простой протокол, без пула. */
-interface PgClient {
+export interface PgClient {
   readonly connect: () => Promise<void>;
   readonly query: (
     config: { readonly text: string; readonly rowMode: "array" },
@@ -52,7 +58,7 @@ interface PgDriver {
  */
 const pg = driver as PgDriver;
 
-interface ClientOptions {
+export interface ClientOptions {
   readonly host: string;
   readonly port: number;
   readonly database: string;
@@ -75,6 +81,38 @@ interface ClientOptions {
 /** SQLSTATE отказа записи на read-only сессии. */
 const READ_ONLY_SQL_TRANSACTION = "25006";
 
+/** SQLSTATE снятия метки вне транзакции: текст завершил её сам. */
+const NO_ACTIVE_SQL_TRANSACTION = "25P01";
+
+/**
+ * Метка подтранзакции обёртки — фиксированное имя реализации: из
+ * пользовательского текста не строится и в него не подставляется.
+ */
+const MARK = "mpu_sql_ro";
+
+/**
+ * Обёртка, внутри которой исполняется пользовательский текст
+ * (`platform/readonly-default.md`): `BEGIN READ ONLY` задаёт режим явно,
+ * второй оператор берёт снимок, `SAVEPOINT` открывает подтранзакцию —
+ * внутри неё сервер отклоняет переход в read-write безусловно, — а
+ * снятие метки превращает самовольно завершённую транзакцию в отказ
+ * вместо тихой записи. Операторы разделены переводами строк, и точка с
+ * запятой после текста пользователя стоит на своей строке: хвостовой
+ * `--`-комментарий иначе съел бы её вместе с замыкающими операторами.
+ */
+const WRAP_HEAD = "BEGIN READ ONLY;\n" +
+  "SELECT current_setting('transaction_read_only');\n" +
+  `SAVEPOINT ${MARK};\n`;
+
+const WRAP_TAIL = `\n;\nROLLBACK TO SAVEPOINT ${MARK};\nROLLBACK`;
+
+/**
+ * Номер ответа, в котором лежит результат первого оператора текста
+ * пользователя: до него в обёртке ровно три оператора. Константа формы,
+ * а не поиск по содержимому ответов.
+ */
+const USER_RESULT = 3;
+
 /**
  * Типы, значения которых берутся текстом сервера, а не разбираются
  * драйвером: у даты, времени и интервала JS-объект печатался бы не в
@@ -91,11 +129,15 @@ const TEXT_OIDS: ReadonlySet<number> = new Set([
   1266, // timetz
 ]);
 
+/** Как заводится клиент драйвера; шов для тестов без живого PostgreSQL. */
+export type OpenClient = (options: ClientOptions) => PgClient;
+
 /** Открывает сессию: соединение read-only и разбор результатов. */
 export async function openPgSession(
   target: PgTarget,
+  openClient: OpenClient = (options) => new pg.Client(options),
 ): Promise<ReadOnlySession> {
-  const client = new pg.Client(clientOptions(target));
+  const client = openClient(clientOptions(target));
   try {
     await client.connect();
   } catch (err) {
@@ -108,17 +150,36 @@ export async function openPgSession(
   return {
     query: async (text) => {
       try {
-        // `rowMode: "array"` — строки массивами, а не объектами: одинаковые
-        // имена колонок в выборке законны, а в объекте они схлопнулись бы
-        // в одну. Простой протокол при этом сохраняется (значений нет),
-        // поэтому многооператорный текст уходит одним вызовом.
-        return outcomeOf(await client.query({ text, rowMode: "array" }));
+        return outcomeOf(await send(client, text));
       } catch (err) {
         throw dbError(err, text);
       }
     },
+    run: async (sql) => {
+      try {
+        return outcomeAt(
+          await send(client, WRAP_HEAD + sql + WRAP_TAIL),
+          USER_RESULT,
+        );
+      } catch (err) {
+        // Позицию ошибки сервер считает по всему отправленному тексту:
+        // обёртка вычитается, иначе указатель встал бы мимо, а её
+        // операторы попали бы пользователю в вывод.
+        throw dbError(err, sql, WRAP_HEAD.length);
+      }
+    },
     close: () => client.end(),
   };
+}
+
+/**
+ * Один вызов серверу. `rowMode: "array"` — строки массивами, а не
+ * объектами: одинаковые имена колонок в выборке законны, а в объекте они
+ * схлопнулись бы в одну. Простой протокол при этом сохраняется (значений
+ * нет), поэтому многооператорный текст уходит одним вызовом.
+ */
+function send(client: PgClient, text: string): Promise<unknown> {
+  return client.query({ text, rowMode: "array" });
 }
 
 /**
@@ -157,37 +218,51 @@ export function clientOptions(target: PgTarget): ClientOptions {
   };
 }
 
-/** Результат первого оператора; форма ответа зависит от числа операторов. */
+/** Результат одиночного оператора: драйвер отдаёт один объект ответа. */
 export function outcomeOf(result: unknown): SqlOutcome {
-  // Один оператор — объект результата, несколько — массив таких
-  // объектов: ветку надо проверять явно, иначе на `;`-склейке полей у
-  // ответа не окажется вовсе.
-  const first = Array.isArray(result) ? result[0] : result;
-  const fields = readFields(first);
+  const fields = readFields(result);
   if (fields.length === 0) {
     // Оператор без набора строк (`SET`): затронутых строк сервер не
     // сообщает — спека печатает такой случай как `-1`.
-    return { kind: "done", rowcount: readRowCount(first) };
+    return { kind: "done", rowcount: readRowCount(result) };
   }
   return {
     kind: "rows",
     columns: fields,
-    rows: readRows(first).map((row) => row.map(toValue)),
+    rows: readRows(result).map((row) => row.map(toValue)),
   };
+}
+
+/**
+ * Результат оператора под номером `index`: на многооператорный текст
+ * драйвер отвечает массивом объектов результата. Текст пользователя, не
+ * давший ни одного оператора (один комментарий), под этим номером
+ * оставляет либо ответ замыкающего оператора обёртки, либо ничего — в
+ * обоих случаях у него нет ни колонок, ни счётчика строк, и вызов
+ * печатается как оператор без набора строк.
+ */
+export function outcomeAt(results: unknown, index: number): SqlOutcome {
+  return outcomeOf(Array.isArray(results) ? results[index] : undefined);
 }
 
 /**
  * Ошибка драйвера в классы порта. Отказ записи различается по SQLSTATE,
  * а не по тексту сообщения (`platform/readonly-default.md`).
  */
-export function dbError(err: unknown, text: string): Error {
+export function dbError(err: unknown, text: string, offset = 0): Error {
   if (err instanceof pg.DatabaseError) {
     if (err.code === READ_ONLY_SQL_TRANSACTION) {
       return new WriteRefusedError(err.message, { cause: err });
     }
-    return new DbError(serverText(err.message, text, err.position), {
-      cause: err,
-    });
+    if (err.code === NO_ACTIVE_SQL_TRANSACTION) {
+      return new TransactionEndedError(err.message, { cause: err });
+    }
+    return new DbError(
+      serverText(err.message, text, shift(err.position, offset)),
+      {
+        cause: err,
+      },
+    );
   }
   // Сюда попадает отказ соединения и прочие сбои клиента: для команды
   // это та же ошибка БД (спека даёт им один класс и один код выхода).
@@ -217,6 +292,19 @@ export function serverText(
   const label = `LINE ${before.filter((char) => char === "\n").length + 1}: `;
   const caret = " ".repeat(label.length + (at - 1 - start));
   return `${message}\n${label}${line}\n${caret}^`;
+}
+
+/**
+ * Позиция ошибки в координатах текста пользователя. Смещение — длина
+ * обёртки в символах; она из ASCII, поэтому длина строки её и считает.
+ */
+function shift(
+  position: string | undefined,
+  offset: number,
+): string | undefined {
+  if (position === undefined) return undefined;
+  const at = Number(position);
+  return Number.isInteger(at) ? String(at - offset) : position;
 }
 
 /** Имена колонок результата; их нет — оператор без набора строк. */

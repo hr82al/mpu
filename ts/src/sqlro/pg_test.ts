@@ -5,16 +5,23 @@
  * функции переводят его ответ в наблюдаемое поведение команды.
  */
 
-import { assertEquals, assertInstanceOf } from "@std/assert";
+import { assertEquals, assertInstanceOf, assertRejects } from "@std/assert";
 import driver from "pg";
 import {
   clientOptions,
   dbError,
+  type OpenClient,
+  openPgSession,
+  outcomeAt,
   outcomeOf,
   serverText,
   toValue,
 } from "./pg.ts";
-import { DbError, WriteRefusedError } from "./session.ts";
+import {
+  DbError,
+  TransactionEndedError,
+  WriteRefusedError,
+} from "./session.ts";
 
 /** Ошибка сервера как её отдаёт драйвер: SQLSTATE и позиция строками. */
 function serverError(
@@ -45,15 +52,21 @@ Deno.test("форма ответа зависит от числа операто
     });
   });
 
-  await t.step("несколько операторов — массив, берётся первый", () => {
-    // `SELECT 1 AS a; SELECT 2 AS b` — печатается результат первого
-    // оператора (спека, «Ввод/вывод»).
-    assertEquals(outcomeOf([ROWS, SET]), {
+  await t.step("несколько операторов — массив, берётся названный", () => {
+    // Ответ на текст в обёртке: результат пользовательского оператора
+    // лежит под своим номером, соседи в счёт не идут.
+    assertEquals(outcomeAt([SET, ROWS], 1), {
       kind: "rows",
       columns: ["a", "b"],
       rows: [[1, "x"], [2, null]],
     });
-    assertEquals(outcomeOf([SET, ROWS]), { kind: "done", rowcount: -1 });
+    assertEquals(outcomeAt([ROWS, SET], 1), { kind: "done", rowcount: -1 });
+  });
+
+  await t.step("оператора под номером нет — как оператор без строк", () => {
+    // Текст из одного комментария операторов не даёт: печатается
+    // `OK (rowcount=-1)`, а не отказ.
+    assertEquals(outcomeAt([SET], 3), { kind: "done", rowcount: -1 });
   });
 
   await t.step("оператор без набора строк: rowCount null — это -1", () => {
@@ -208,5 +221,217 @@ Deno.test("опции подключения: read-only и независимо�
     assertEquals(parser(1114)("2026-08-05 12:00:00"), "2026-08-05 12:00:00");
     // 23 — int4: разбирает драйвер, и это число, а не строка.
     assertEquals(parser(23)("42"), 42);
+  });
+});
+
+const TARGET = {
+  host: "10.0.0.1",
+  port: 5432,
+  database: "wb",
+  username: "u",
+  password: "p",
+};
+
+const BEGIN = { fields: [], rows: [], rowCount: null, command: "BEGIN" };
+const MARK = { fields: [], rows: [], rowCount: null, command: "SAVEPOINT" };
+const READ_ONLY = {
+  fields: [{ name: "current_setting" }],
+  rows: [["on"]],
+  rowCount: 1,
+  command: "SELECT",
+};
+
+/**
+ * Подставной клиент драйвера: помнит отправленный текст и отвечает по
+ * нему, как отвечал бы сервер. Живого PostgreSQL у тестов нет
+ * (`docs/specs/sql-ro.md`, «Golden-примеры»).
+ */
+function fakeClient(
+  reply: (text: string) => unknown,
+  connect: () => Promise<void> = () => Promise.resolve(),
+) {
+  const sent: string[] = [];
+  let ended = 0;
+  const open: OpenClient = () => ({
+    connect,
+    query: ({ text }) => {
+      sent.push(text);
+      const answer = reply(text);
+      return answer instanceof Error
+        ? Promise.reject(answer)
+        : Promise.resolve(answer);
+    },
+    end: () => {
+      ended += 1;
+      return Promise.resolve();
+    },
+  });
+  return { open, sent, ended: () => ended };
+}
+
+/** Ответ сервера на успешно исполненную обёртку с одним оператором. */
+function wrapped(user: unknown): readonly unknown[] {
+  return [BEGIN, READ_ONLY, MARK, user, MARK, BEGIN];
+}
+
+Deno.test("пользовательский текст исполняется внутри обёртки", async (t) => {
+  await t.step(
+    "обёртка собрана дословно, текст пользователя как есть",
+    async () => {
+      const client = fakeClient(() => wrapped(ROWS));
+      const session = await openPgSession(TARGET, client.open);
+      await session.run("SELECT 1 AS a; SELECT 2 AS b");
+      await session.close();
+      // Форма — `platform/readonly-default.md`: три оператора до текста
+      // пользователя и два после, метка не из его ввода.
+      assertEquals(client.sent, [
+        "BEGIN READ ONLY;\n" +
+        "SELECT current_setting('transaction_read_only');\n" +
+        "SAVEPOINT mpu_sql_ro;\n" +
+        "SELECT 1 AS a; SELECT 2 AS b\n" +
+        ";\n" +
+        "ROLLBACK TO SAVEPOINT mpu_sql_ro;\n" +
+        "ROLLBACK",
+      ]);
+    },
+  );
+
+  await t.step("хвостовой комментарий не съедает замыкающие", async () => {
+    // `SELECT 1 -- зачем-то` без перевода строки в конце: терминатор
+    // стоит на своей строке, иначе комментарий проглотил бы и его, и
+    // снятие метки — обход через `COMMIT` перестал бы обнаруживаться.
+    const client = fakeClient(() => wrapped(ROWS));
+    const session = await openPgSession(TARGET, client.open);
+    await session.run("SELECT 1 -- зачем-то");
+    await session.close();
+    assertEquals(client.sent[0].split("\n").slice(3), [
+      "SELECT 1 -- зачем-то",
+      ";",
+      "ROLLBACK TO SAVEPOINT mpu_sql_ro;",
+      "ROLLBACK",
+    ]);
+  });
+
+  await t.step("результат — у первого оператора пользователя", async () => {
+    // Смещение — константа формы обёртки: ни первый ответ (BEGIN), ни
+    // последний (ROLLBACK) результатом вызова не являются.
+    const other = { ...ROWS, fields: [{ name: "z" }], rows: [[9]] };
+    const client = fakeClient(() => [BEGIN, READ_ONLY, MARK, ROWS, other]);
+    const session = await openPgSession(TARGET, client.open);
+    assertEquals(await session.run("SELECT 1 AS a, 'x' AS b; SELECT 9 AS z"), {
+      kind: "rows",
+      columns: ["a", "b"],
+      rows: [[1, "x"], [2, null]],
+    });
+    await session.close();
+  });
+
+  await t.step("служебный запрос идёт без обёртки", async () => {
+    // Обёртка откатывает свою транзакцию, поэтому `SET search_path` под
+    // ней не пережил бы вызова: служебный текст уходит как есть.
+    const client = fakeClient(() => SET);
+    const session = await openPgSession(TARGET, client.open);
+    assertEquals(
+      await session.query('SET search_path TO "schema_42", public'),
+      {
+        kind: "done",
+        rowcount: -1,
+      },
+    );
+    await session.close();
+    assertEquals(client.sent, ['SET search_path TO "schema_42", public']);
+  });
+
+  await t.step("отказ служебного запроса — ошибка БД", async () => {
+    const client = fakeClient(() => serverError("boom", "42601"));
+    const session = await openPgSession(TARGET, client.open);
+    const err = await assertRejects(() => session.query("SET x"));
+    await session.close();
+    assertInstanceOf(err, DbError);
+    assertEquals(err.message, "boom");
+  });
+
+  await t.step(
+    "соединение не открылось — ошибка БД, клиент закрыт",
+    async () => {
+      const client = fakeClient(
+        () => SET,
+        () => Promise.reject(new Error("connect ECONNREFUSED 10.0.0.1:5432")),
+      );
+      const err = await assertRejects(() => openPgSession(TARGET, client.open));
+      assertInstanceOf(err, DbError);
+      assertEquals(err.message, "connect ECONNREFUSED 10.0.0.1:5432");
+      assertEquals(client.ended(), 1);
+    },
+  );
+});
+
+Deno.test("отказы обёртки различаются по SQLSTATE", async (t) => {
+  const run = async (reply: (text: string) => unknown) => {
+    const client = fakeClient(reply);
+    const session = await openPgSession(TARGET, client.open);
+    try {
+      return await assertRejects(() =>
+        session.run("SELECT * FROM nonexistent_table_xyz")
+      );
+    } finally {
+      await session.close();
+    }
+  };
+
+  await t.step("25006 — отказ записи своим классом", async () => {
+    const err = await run(() =>
+      serverError("cannot execute UPDATE in a read-only transaction", "25006")
+    );
+    assertInstanceOf(err, WriteRefusedError);
+  });
+
+  await t.step(
+    "25P01 на снятии метки — транзакция вызова завершена",
+    async () => {
+      // Метку снимает замыкающий оператор обёртки: без него сервер
+      // потерянной транзакции не заметит.
+      const err = await run((text) =>
+        text.includes("ROLLBACK TO SAVEPOINT mpu_sql_ro")
+          ? serverError("no such savepoint", "25P01")
+          : wrapped(ROWS)
+      );
+      assertInstanceOf(err, TransactionEndedError);
+    },
+  );
+
+  await t.step("25001 — текстом сервера, как прочие коды", async () => {
+    // Одним кодом приходит и попытка снять режим, и `VACUUM` в блоке
+    // транзакции: различать их не требуется.
+    const err = await run(() =>
+      serverError(
+        "cannot set transaction read-write mode inside a read-only transaction",
+        "25001",
+      )
+    );
+    assertInstanceOf(err, DbError);
+    assertEquals(
+      err.message,
+      "cannot set transaction read-write mode inside a read-only transaction",
+    );
+  });
+
+  await t.step("позиция ошибки считается по тексту пользователя", async () => {
+    // Сервер считает позицию по всему отправленному тексту; в выводе
+    // обёртки быть не должно — указатель встаёт под местом ошибки.
+    const err = await run((text) =>
+      serverError(
+        'relation "nonexistent_table_xyz" does not exist',
+        "42P01",
+        String(text.indexOf("nonexistent_table_xyz") + 1),
+      )
+    );
+    assertInstanceOf(err, DbError);
+    assertEquals(
+      err.message,
+      'relation "nonexistent_table_xyz" does not exist\n' +
+        "LINE 1: SELECT * FROM nonexistent_table_xyz\n" +
+        "                      ^",
+    );
   });
 });

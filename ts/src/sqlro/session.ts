@@ -10,11 +10,19 @@ import type { PgTarget } from "./target.ts";
 /** Открытое соединение: один вызов команды — одна сессия. */
 export interface ReadOnlySession {
   /**
-   * Отправляет текст серверу одним вызовом, без параметризации и
-   * разбиения, и отдаёт результат ПЕРВОГО оператора. Ошибка любого
-   * оператора — отказ всего вызова (спека, «Граничные случаи»).
+   * Служебный запрос самой команды: доверенный текст из одного оператора
+   * (проверка режима, `SET search_path`). Идёт серверу как есть —
+   * обёртка откатывала бы его действие вместе со своей транзакцией.
    */
   readonly query: (text: string) => Promise<SqlOutcome>;
+  /**
+   * Отправляет пользовательский текст серверу одним вызовом, без
+   * параметризации и разбиения, внутри обёртки транзакцией с меткой
+   * (`platform/readonly-default.md`), и отдаёт результат ПЕРВОГО его
+   * оператора. Ошибка любого оператора — отказ всего вызова (спека,
+   * «Граничные случаи»).
+   */
+  readonly run: (sql: string) => Promise<SqlOutcome>;
   readonly close: () => Promise<void>;
 }
 
@@ -30,6 +38,16 @@ export type OpenReadOnlySession = (
  */
 export class WriteRefusedError extends Error {
   override name = "WriteRefusedError";
+}
+
+/**
+ * Текст пользователя сам завершил транзакцию вызова (`COMMIT`/`ROLLBACK`
+ * внутри него), и метку обёртки снять уже не с чего — SQLSTATE 25P01.
+ * Гарантия только-чтения на остаток текста не действовала, поэтому
+ * команда печатает свой текст и не печатает результат.
+ */
+export class TransactionEndedError extends Error {
+  override name = "TransactionEndedError";
 }
 
 /**

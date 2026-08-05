@@ -23,6 +23,7 @@ import {
   DbError,
   type OpenReadOnlySession,
   type ReadOnlySession,
+  TransactionEndedError,
   WriteRefusedError,
 } from "./session.ts";
 import {
@@ -46,6 +47,10 @@ const PROMPT = "-- enter SQL, end with EOF (Ctrl+D):";
 /** Отказ сервера пишущему запросу — текст спеки дословно. */
 const WRITE_REFUSED = "запрос пытается писать — заблокировано read-only " +
   "сессией. Для записи используйте `mpu sql`.";
+
+/** Текст сам завершил транзакцию вызова — текст спеки дословно. */
+const TRANSACTION_ENDED = "текст завершил транзакцию вызова — гарантия " +
+  "только-чтения снята, результат не печатается";
 
 const argsSchema = z.object({
   // Текст отсутствия — свой: голый `mpu sql-ro` спека завершает кодом 2,
@@ -305,7 +310,7 @@ async function execute(
     if (place.searchPath !== null) {
       await session.query(`SET search_path TO "${place.searchPath}", public`);
     }
-    return await session.query(sql);
+    return await session.run(sql);
   } catch (err) {
     throw translate(err);
   } finally {
@@ -330,6 +335,9 @@ async function assertReadOnly(session: ReadOnlySession): Promise<void> {
 function translate(err: unknown): unknown {
   if (err instanceof WriteRefusedError) {
     return new DomainError(WRITE_REFUSED, { cause: err });
+  }
+  if (err instanceof TransactionEndedError) {
+    return new DomainError(TRANSACTION_ENDED, { cause: err });
   }
   if (err instanceof DbError) {
     // Текст сервера печатается без префикса команды (спека, эталон
