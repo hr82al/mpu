@@ -5,9 +5,7 @@
     "jsr:@std/assert@^1.0.6": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@zod/zod@4.4.3": "4.4.3",
-    "npm:pg@8.22.0": "8.22.0",
-    "npm:postgres@3.4": "3.4.9",
-    "npm:postgres@3.4.9": "3.4.9"
+    "npm:pg@8.22.0": "8.22.0"
   },
   "jsr": {
     "@hono/hono@4.12.33": {
@@ -89,9 +87,6 @@
         "xtend"
       ]
     },
-    "postgres@3.4.9": {
-      "integrity": "sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw=="
-    },
     "split2@4.2.0": {
       "integrity": "sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg=="
     },
@@ -104,8 +99,7 @@
       "jsr:@hono/hono@4.12.33",
       "jsr:@std/assert@^1.0.6",
       "jsr:@zod/zod@4.4.3",
-      "npm:pg@8.22.0",
-      "npm:postgres@3.4.9"
+      "npm:pg@8.22.0"
     ]
   }
 }
