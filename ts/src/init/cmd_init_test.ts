@@ -236,6 +236,28 @@ Deno.test("requirePortainerAccess: приоритет --portainer, PORTAINER_VER
       },
     },
     {
+      name:
+        'PORTAINER_VERIFY_TLS="True" — verifyTls включён (без учёта регистра)',
+      args: { portainer: "https://cli.example.com" },
+      env: { PORTAINER_API_KEY: API_KEY, PORTAINER_VERIFY_TLS: "True" },
+      expected: {
+        baseUrl: "https://cli.example.com",
+        apiKey: API_KEY,
+        verifyTls: true,
+      },
+    },
+    {
+      name:
+        'PORTAINER_VERIFY_TLS="TRUE" — verifyTls включён (без учёта регистра)',
+      args: { portainer: "https://cli.example.com" },
+      env: { PORTAINER_API_KEY: API_KEY, PORTAINER_VERIFY_TLS: "TRUE" },
+      expected: {
+        baseUrl: "https://cli.example.com",
+        apiKey: API_KEY,
+        verifyTls: true,
+      },
+    },
+    {
       name: 'PORTAINER_VERIFY_TLS="false" — verifyTls выключен',
       args: { portainer: "https://cli.example.com" },
       env: { PORTAINER_API_KEY: API_KEY, PORTAINER_VERIFY_TLS: "false" },
@@ -247,7 +269,7 @@ Deno.test("requirePortainerAccess: приоритет --portainer, PORTAINER_VER
     },
     {
       name:
-        'PORTAINER_VERIFY_TLS="1" — verifyTls выключен (сравнение только со строкой "true")',
+        'PORTAINER_VERIFY_TLS="1" — verifyTls выключен (сравнение без учёта регистра, но не с "1")',
       args: { portainer: "https://cli.example.com" },
       env: { PORTAINER_API_KEY: API_KEY, PORTAINER_VERIFY_TLS: "1" },
       expected: {
@@ -304,12 +326,12 @@ Deno.test("happy path: сводка, запись в кэш, sl-строки п�
         "# найдено sl-N контейнеров: 2\n" +
           `sl-1: sl-1-cli [exited] @ endpoint 1 (prod) -> ${baseUrl}/1\n` +
           `sl-3: sl-3-cli [running] @ endpoint 1 (prod) -> ${baseUrl}/1\n` +
-          "# прочих контейнеров: 1\n" +
-          `# записано 3 контейнеров в ${dbPath}\n`,
+          "# прочих контейнеров: 1\n",
       );
       assertEquals(
         outcome.stderr,
-        `# bootstrap: схема в ${dbPath} готова\n`,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          `# записано 3 контейнеров в ${dbPath}\n`,
       );
 
       using db = openCacheDb(dbPath);
@@ -481,14 +503,14 @@ Deno.test("ошибка одного endpoint'а: строка в stderr, обх
       assertEquals(
         outcome.stderr,
         `# bootstrap: схема в ${dbPath} готова\n` +
-          "mpu init: endpoint 1 (bad): HTTP 502\n",
+          "mpu init: endpoint 1 (bad): HTTP 502\n" +
+          `# записано 1 контейнеров в ${dbPath}\n`,
       );
       assertEquals(
         outcome.stdout,
         "# найдено sl-N контейнеров: 1\n" +
           `sl-1: sl-1-cli [running] @ endpoint 2 (good) -> ${baseUrl}/2\n` +
-          "# прочих контейнеров: 0\n" +
-          `# записано 1 контейнеров в ${dbPath}\n`,
+          "# прочих контейнеров: 0\n",
       );
 
       // Инвариант init.md «обрыв не теряет уже собранное»: собранное с
@@ -638,7 +660,11 @@ Deno.test("0 sl-контейнеров при непустых прочих — 
       assertEquals(
         outcome.stdout,
         "# найдено sl-N контейнеров: 0\n" +
-          "# прочих контейнеров: 2\n" +
+          "# прочих контейнеров: 2\n",
+      );
+      assertEquals(
+        outcome.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
           `# записано 2 контейнеров в ${dbPath}\n`,
       );
 
@@ -836,7 +862,11 @@ Deno.test("--reset: удаляет старые записи перед запи
         second.stdout,
         "# найдено sl-N контейнеров: 1\n" +
           `sl-3: sl-3-cli [running] @ endpoint 1 (prod) -> ${baseUrl}/1\n` +
-          "# прочих контейнеров: 0\n" +
+          "# прочих контейнеров: 0\n",
+      );
+      assertEquals(
+        second.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
           "# --reset: удалено 2 старых записей\n" +
           `# записано 1 контейнеров в ${dbPath}\n`,
       );
@@ -859,8 +889,11 @@ Deno.test(
       // Второй прогон отдаёт контейнер без поля Id — намеренно битые
       // данные с провода (тип клиента их не проверяет, см. `portainer.ts`
       // про JSON.parse без рантайм-схемы); биндинг такого параметра
-      // node:sqlite бросает TypeError внутри upsert. Тест проверяет
-      // инвариант preserve: DELETE не должен пережить откат upsert'а.
+      // node:sqlite бросает TypeError внутри upsert. Тест проверяет два
+      // инварианта: preserve (DELETE не должен пережить откат upsert'а) и
+      // «строка --reset печатается только после коммита» (init.md,
+      // шаг 2) — упавшая транзакция не должна оставить эту строку в
+      // выводе.
       let broken = false;
       const { baseUrl, stop } = fakeServer((req) => {
         const url = new URL(req.url);
@@ -877,6 +910,7 @@ Deno.test(
         ]);
       });
       try {
+        const capturedProgress: string[] = [];
         const io = makeIo(dbPath, {
           envFile: envFileFake({
             PORTAINER_API_KEY: API_KEY,
@@ -884,9 +918,11 @@ Deno.test(
           }),
           // Прямой вызов `runInit` ниже (в обход `invokeInit`) сам не
           // оборачивает `progress` — фейк по умолчанию (`makeFakeIo`)
-          // бросает на любом обращении, а строка шага 1 печатается до
-          // DELETE/upsert и замаскировала бы проверяемое исключение.
-          progress: () => {},
+          // бросает на любом обращении. Строки собираются вместо
+          // отбрасывания: помимо того, что это не маскирует проверяемое
+          // исключение, так видно, дошла ли строка `--reset` до печати
+          // при откаченной транзакции.
+          progress: (line) => void capturedProgress.push(line),
         });
         assertEquals((await invokeInit([], io)).code, 0);
 
@@ -904,6 +940,11 @@ Deno.test(
           threw,
           true,
           "упавший upsert обязан пробросить исключение",
+        );
+        assertEquals(
+          capturedProgress,
+          [`# bootstrap: схема в ${dbPath} готова`],
+          "строка --reset не должна печататься при откаченной транзакции",
         );
 
         using db = openCacheDb(dbPath);

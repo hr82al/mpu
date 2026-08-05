@@ -9,12 +9,11 @@
  * Маршрут остаётся `legacy`: команда не публикуется в реестре
  * (`src/registry/`) до приёмки порции Б.
  *
- * Служебные строки шага 1 и ошибок обхода уходят не печатью, а в порт
- * `io.progress`; печатает их точка входа. Инвариант 1 контракта команд
- * («исполнение не печатает», проверка — исполнение не пишет в приёмник
- * вывода процесса) этим не нарушен, но текст контракта такого вывода
- * пока не описывает: вопрос вынесен спецификатору
- * (`.tmp/spec-request-init-a.md`, п. 3).
+ * Служебные строки шагов 1–2 (bootstrap, ошибки endpoint'ов, `--reset`,
+ * запись) уходят не печатью, а в порт `io.progress`; печатает их точка
+ * входа в stderr. Инвариант 1 контракта команд
+ * (`platform/command-contract.md`: вывод, не являющийся проекцией
+ * результата, доставляется портом io) этим не нарушен.
  */
 
 import { z } from "@zod/zod";
@@ -137,9 +136,10 @@ Loki/Kaiten, вход Telegram) в этой сборке не реализова
 
 Подключение — из env-файла ~/.config/mpu/.env: PORTAINER_API_KEY
 обязателен; базовый URL — --portainer, иначе PORTAINER_URL;
-PORTAINER_VERIFY_TLS, не равный строке "true", отключает проверку
-TLS-сертификата. Каждый вызов ограничен: ${HEADERS_TIMEOUT_MS} ms до
-заголовков ответа, ${TOTAL_TIMEOUT_MS} ms на вызов целиком.
+PORTAINER_VERIFY_TLS, без учёта регистра равный "true", включает
+проверку TLS-сертификата — иначе она выключена. Каждый вызов
+ограничен: ${HEADERS_TIMEOUT_MS} ms до заголовков ответа,
+${TOTAL_TIMEOUT_MS} ms на вызов целиком.
 
 Обход endpoints конкурентный; ошибка одного (включая таймаут) идёт в
 stderr и не прерывает остальные. Найденное пишется в кэш-БД upsert'ом
@@ -168,14 +168,6 @@ Exit: 0 — успех (в т.ч. ноль sl-контейнеров при не
       );
     }
     lines.push(`# прочих контейнеров: ${result.otherCount}\n`);
-    if (result.reset !== null) {
-      lines.push(`# --reset: удалено ${result.reset.deleted} старых записей\n`);
-    }
-    if (result.write !== null) {
-      lines.push(
-        `# записано ${result.write.written} контейнеров в ${result.write.cacheDbPath}\n`,
-      );
-    }
     return lines.join("");
   },
 });
@@ -256,18 +248,25 @@ export async function runInit(
     a.serverNumber - b.serverNumber
   );
 
-  let resetOutcome: { deleted: number } | null = null;
-  let writeOutcome: { written: number; cacheDbPath: string } | null = null;
+  // Итог DELETE/upsert собирается в мутируемое свойство объекта, а не в
+  // отдельные захваченные `let`-переменные: `transaction` не типизирована
+  // для результата тела (`command/mod.ts`), значение возвращается через
+  // замыкание. Именно свойство объекта, а не `let`: после присваивания
+  // внутри замыкания TS всё ещё сужает `let`-переменную к её типу на
+  // момент объявления (`null`) и не видит написанного в неё изнутри —
+  // чтение `outcome.reset.deleted` ниже не проходило бы проверку типов.
+  const outcome: {
+    reset: { deleted: number } | null;
+    write: { written: number; cacheDbPath: string } | null;
+  } = { reset: null, write: null };
   if (!args["dry-run"]) {
     // DELETE и upsert — одна транзакция: сбой строки посреди записи не
     // должен зафиксировать пустой DELETE отдельно от откаченного upsert'а
     // (иначе обрыв стирает живые контейнеры из кэша — против причины
-    // preserve, см. комментарий у `UPSERT_CONTAINER_SQL`). `resetOutcome`
-    // возвращается из тела транзакции через захват переменной снаружи:
-    // `transaction` не типизирована для результата тела (`command/mod.ts`).
+    // preserve, см. комментарий у `UPSERT_CONTAINER_SQL`).
     db.transaction(() => {
       if (args.reset) {
-        resetOutcome = {
+        outcome.reset = {
           deleted: db.execute("DELETE FROM portainer_containers"),
         };
       }
@@ -286,7 +285,18 @@ export async function runInit(
         );
       }
     });
-    writeOutcome = { written: rows.length, cacheDbPath: db.path };
+    outcome.write = { written: rows.length, cacheDbPath: db.path };
+    // Строки печатаются строго после успешного коммита (init.md, шаг 2):
+    // анонсировать удаление, которое ещё могло откатиться вместе с
+    // упавшим upsert'ом, нельзя.
+    if (outcome.reset !== null) {
+      io.progress(
+        `# --reset: удалено ${outcome.reset.deleted} старых записей`,
+      );
+    }
+    io.progress(
+      `# записано ${outcome.write.written} контейнеров в ${outcome.write.cacheDbPath}`,
+    );
   }
 
   return {
@@ -299,8 +309,8 @@ export async function runInit(
       endpointName: row.endpointName,
     })),
     otherCount: rows.length - slRows.length,
-    reset: resetOutcome,
-    write: writeOutcome,
+    reset: outcome.reset,
+    write: outcome.write,
   };
 }
 
@@ -326,7 +336,8 @@ export function requirePortainerAccess(
       "укажите --portainer <url> либо PORTAINER_URL в ~/.config/mpu/.env",
     );
   }
-  const verifyTls = envFile.get("PORTAINER_VERIFY_TLS") === "true";
+  const verifyTls =
+    envFile.get("PORTAINER_VERIFY_TLS")?.toLowerCase() === "true";
   return { baseUrl: rawUrl.replace(/\/+$/, ""), apiKey, verifyTls };
 }
 

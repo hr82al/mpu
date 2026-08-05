@@ -306,6 +306,41 @@ Deno.test("режим WAL персистентен между открытиям
 });
 
 // mode на POSIX всегда есть; тесты не для Windows.
+Deno.test("openCacheDb создаёт новый файл БД сразу с правами 0600, до bootstrap", async () => {
+  const dir = await Deno.makeTempDir();
+  try {
+    const path = `${dir}/mpu.db`;
+    using db = openCacheDb(path);
+    assertEquals(db.path, path);
+    // Права проверяются до любого bootstrap: окна с широкими правами нет
+    // уже в момент открытия (`platform/store.md`, «Ввод/вывод»).
+    assertEquals(Deno.statSync(path).mode! & 0o777, 0o600);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+// mode на POSIX всегда есть; тесты не для Windows.
+Deno.test("openCacheDb пробрасывает ошибку создания файла, отличную от AlreadyExists", async () => {
+  const dir = await Deno.makeTempDir();
+  const noWriteDir = `${dir}/nowrite`;
+  Deno.mkdirSync(noWriteDir);
+  Deno.chmodSync(noWriteDir, 0o555);
+  try {
+    // Каталог существует (mkdirSync внутри openCacheDb — не в чем ошибаться),
+    // но без права записи создание нового файла БД падает PermissionDenied —
+    // не тем исключением, что ветка "файл уже есть" глотает.
+    assertThrows(
+      () => openCacheDb(`${noWriteDir}/mpu.db`),
+      Deno.errors.PermissionDenied,
+    );
+  } finally {
+    Deno.chmodSync(noWriteDir, 0o755);
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+// mode на POSIX всегда есть; тесты не для Windows.
 Deno.test("bootstrap приводит права файла БД к 0600", async (t) => {
   await t.step("только что созданный файл", async () => {
     const dir = await Deno.makeTempDir();
@@ -332,6 +367,24 @@ Deno.test("bootstrap приводит права файла БД к 0600", async
       await Deno.remove(dir, { recursive: true });
     }
   });
+});
+
+// mode на POSIX всегда есть; тесты не для Windows.
+Deno.test("служебные -wal/-shm рядом с БД получают права 0600", async () => {
+  const dir = await Deno.makeTempDir();
+  try {
+    const path = `${dir}/mpu.db`;
+    using db = openCacheDb(path);
+    // -wal/-shm появляются не при открытии и не от одной лишь
+    // PRAGMA journal_mode=WAL, а только у первой настоящей записи —
+    // bootstrap её и делает; проверка снята, пока соединение открыто и
+    // эта запись уже была, ровно тогда, когда файлы существуют на диске.
+    db.bootstrap();
+    assertEquals(Deno.statSync(`${path}-wal`).mode! & 0o777, 0o600);
+    assertEquals(Deno.statSync(`${path}-shm`).mode! & 0o777, 0o600);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
 });
 
 // mode на POSIX всегда есть; тесты не для Windows.

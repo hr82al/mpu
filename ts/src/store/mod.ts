@@ -24,6 +24,19 @@ import { SCHEMA_STATEMENTS } from "./schema.ts";
 export function openCacheDb(path: string): CacheDb {
   const dir = path.slice(0, path.lastIndexOf("/"));
   if (dir !== "") Deno.mkdirSync(dir, { recursive: true });
+
+  // Недостающий файл создаётся сразу с 0600 (в БД лежат токены доступа) —
+  // ДО открытия SQLite: движок копирует права главного файла на служебные
+  // -wal/-shm при их появлении, поэтому окна с широкими правами у спутников
+  // не возникает (`platform/store.md`, «Ввод/вывод»). Уже существующий файл
+  // не трогаем — его права приводит `bootstrap()`.
+  try {
+    Deno.openSync(path, { createNew: true, write: true, mode: 0o600 })
+      .close();
+  } catch (err) {
+    if (!(err instanceof Deno.errors.AlreadyExists)) throw err;
+  }
+
   const db = new DatabaseSync(path);
   try {
     // Персистентный в файле БД режим (`platform/store.md`, «Ввод/вывод»):
@@ -46,10 +59,12 @@ export function openCacheDb(path: string): CacheDb {
       // живой БД ничего не меняет, недостающие объекты досоздаются
       // независимо от прочих (без внешних ключей порядок не важен).
       for (const statement of SCHEMA_STATEMENTS) db.exec(statement);
-      // В БД лежат токены доступа: права файла — 0600 и для только что
-      // созданного файла, и для уже существующего с более широкими
-      // правами (`platform/store.md`, известное отклонение — оригинал
-      // права не выставляет).
+      // Вторая половина контракта прав (`platform/store.md`, «Ввод/вывод»):
+      // только что созданный файл уже 0600 благодаря `openCacheDb`, а
+      // уже существующий файл мог достаться с более широкими правами
+      // (например, от версии до этого вердикта, или созданный
+      // Python-оригиналом, который прав не выставляет) — bootstrap
+      // приводит его к 0600.
       Deno.chmodSync(path, 0o600);
     },
     execute: (sql, ...params) => Number(db.prepare(sql).run(...params).changes),
