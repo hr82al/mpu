@@ -194,6 +194,49 @@ Deno.test("молчащий сервер: таймаут тела не доль�
   }
 });
 
+Deno.test("гонка таймеров: причина стабильна при пределах вплотную (много прогонов)", async () => {
+  // Общий "затвор" вместо общего Response: тело ответа читается один раз,
+  // а тест шлёт много запросов — каждый вызов обработчика ждёт тот же
+  // затвор, но отдаёт свежий Response.
+  const gate = Promise.withResolvers<void>();
+  const { baseUrl, stop } = fakeServer(async () => {
+    await gate.promise;
+    return new Response("[]");
+  });
+  try {
+    const access = accessTo(baseUrl);
+    // Пределы вплотную — 1ms между ними (50ms/51ms: делать саму базу
+    // меньше в этом окружении опасно — при базе в единицы миллисекунд
+    // порядок срабатывания реальных `setTimeout` под реальным сетевым
+    // вводом-выводом сам по себе неустойчив вне зависимости от починяемой
+    // ошибки и даёт ложную красноту; проверено отдельно сотнями
+    // прогонов). Без гварда "уже сработал другой таймер" таймер общего
+    // предела успевает переписать причину после того, как таймер
+    // заголовков уже вызвал abort(), — сообщение флапает между
+    // "no response headers…" и "no response…". Цикл в несколько
+    // десятков прогонов внутри одного теста — иначе гонка не доказана
+    // однократным совпадением.
+    for (let i = 0; i < 50; i++) {
+      const err = await assertRejects(
+        () =>
+          fetchPortainerJson(access, "/api/endpoints", {
+            headersTimeoutMs: 50,
+            totalTimeoutMs: 51,
+          }),
+        PortainerError,
+      );
+      assertEquals(
+        err.message,
+        "no response headers within 50ms",
+        `прогон ${i}: причина обязана называть предел заголовков, а не общий`,
+      );
+    }
+  } finally {
+    gate.resolve();
+    await stop();
+  }
+});
+
 Deno.test("listContainers строит путь эндпоинта с ?all=true", async () => {
   let seenPath = "";
   const { baseUrl, stop } = fakeServer((req) => {

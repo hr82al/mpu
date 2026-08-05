@@ -130,13 +130,20 @@ export async function fetchPortainerJson<T>(
   // Какой из двух таймеров сработал — читается в catch, чтобы причина
   // ошибки называла свой предел, а не общий текст AbortError у fetch и
   // node:https ("The operation was aborted" — не годится как причина).
+  // Гвард "уже прерван" обязателен: при пределах вплотную (например,
+  // 1ms/2ms) оба таймера успевают тикнуть до того, как catch дочитает
+  // timeoutMessage, и без гварда таймер, сработавший вторым, тихо
+  // переписывает причину первого — сообщение флапает между двумя
+  // текстами (было проверено гонкой в portainer_test.ts).
   let timeoutMessage: string | undefined;
   const headersTimer = setTimeout(() => {
+    if (controller.signal.aborted) return;
     timeoutMessage =
       `no response headers within ${timeouts.headersTimeoutMs}ms`;
     controller.abort();
   }, timeouts.headersTimeoutMs);
   const totalTimer = setTimeout(() => {
+    if (controller.signal.aborted) return;
     timeoutMessage = `no response within ${timeouts.totalTimeoutMs}ms`;
     controller.abort();
   }, timeouts.totalTimeoutMs);

@@ -251,6 +251,35 @@ Deno.test("ошибки SQLite пробрасываются как есть", as
   }
 });
 
+Deno.test("чтение без предшествующего bootstrap падает ошибкой отсутствующей таблицы", async () => {
+  const dir = await Deno.makeTempDir();
+  try {
+    using db = openCacheDb(`${dir}/mpu.db`);
+    assertThrows(
+      () => db.query("SELECT key FROM config"),
+      Error,
+      "no such table: config",
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("повреждённый файл БД: ошибка SQLite пробрасывается, атом не лечит файл", async () => {
+  const dir = await Deno.makeTempDir();
+  try {
+    const path = `${dir}/mpu.db`;
+    await Deno.writeTextFile(path, "мусор, а не файл SQLite");
+    assertThrows(
+      () => openCacheDb(path),
+      Error,
+      "file is not a database",
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("openCacheDb устанавливает журнальный режим WAL", async () => {
   const dir = await Deno.makeTempDir();
   try {

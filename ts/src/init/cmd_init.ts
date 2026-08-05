@@ -99,6 +99,14 @@ function hasServerNumber(row: ContainerRow): row is SlContainerRow {
   return row.serverNumber !== null;
 }
 
+/**
+ * Upsert, не полная перезапись кэша (preserve, `init.md`, «Известные
+ * отклонения»): запись об исчезнувшем из Portainer контейнере остаётся
+ * до явного `--reset`. Причина из спеки: сбой одного endpoint'а при
+ * очередном init не должен вычищать живые контейнеры из кэша — резолв
+ * по кэшу продолжает работать; очистка устаревших записей — только
+ * явным решением пользователя.
+ */
 const UPSERT_CONTAINER_SQL = `
   INSERT INTO portainer_containers (portainer_url, endpoint_id, endpoint_name,
     container_id, container_name, server_number, state, image, discovered_at)
@@ -251,12 +259,18 @@ export async function runInit(
   let resetOutcome: { deleted: number } | null = null;
   let writeOutcome: { written: number; cacheDbPath: string } | null = null;
   if (!args["dry-run"]) {
-    if (args.reset) {
-      resetOutcome = {
-        deleted: db.execute("DELETE FROM portainer_containers"),
-      };
-    }
+    // DELETE и upsert — одна транзакция: сбой строки посреди записи не
+    // должен зафиксировать пустой DELETE отдельно от откаченного upsert'а
+    // (иначе обрыв стирает живые контейнеры из кэша — против причины
+    // preserve, см. комментарий у `UPSERT_CONTAINER_SQL`). `resetOutcome`
+    // возвращается из тела транзакции через захват переменной снаружи:
+    // `transaction` не типизирована для результата тела (`command/mod.ts`).
     db.transaction(() => {
+      if (args.reset) {
+        resetOutcome = {
+          deleted: db.execute("DELETE FROM portainer_containers"),
+        };
+      }
       for (const row of rows) {
         db.execute(
           UPSERT_CONTAINER_SQL,
@@ -294,9 +308,11 @@ export async function runInit(
  * Читает и проверяет конфигурацию Portainer (`docs/specs/init.md`,
  * шаг 2). Тексты ошибок — дословно из спеки: путь `~/.config/mpu/.env`
  * в них литерал, а не вычисленный путь env-файла (см. проект
- * реализации порции А).
+ * реализации порции А). Экспортирована ради теста: приоритет
+ * `--portainer` над `PORTAINER_URL` и чтение `PORTAINER_VERIFY_TLS`
+ * иначе пришлось бы поднимать TLS-сервер только ради этих двух свойств.
  */
-function requirePortainerAccess(
+export function requirePortainerAccess(
   args: { readonly portainer?: string },
   envFile: { readonly get: (name: string) => string | undefined },
 ): PortainerAccess {

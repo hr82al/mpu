@@ -22,8 +22,12 @@ import {
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
-import { initCommand, runInit } from "./cmd_init.ts";
-import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "./portainer.ts";
+import { initCommand, requirePortainerAccess, runInit } from "./cmd_init.ts";
+import {
+  HEADERS_TIMEOUT_MS,
+  type PortainerAccess,
+  TOTAL_TIMEOUT_MS,
+} from "./portainer.ts";
 
 const API_KEY = "proba-portainer-key-K7x9Qz";
 
@@ -167,6 +171,102 @@ Deno.test("golden: нет --portainer и PORTAINER_URL", async () => {
   });
 });
 
+Deno.test("requirePortainerAccess: приоритет --portainer, PORTAINER_VERIFY_TLS, нормализация URL", async (t) => {
+  interface Case {
+    readonly name: string;
+    readonly args: { readonly portainer?: string };
+    readonly env: Readonly<Record<string, string>>;
+    readonly expected: PortainerAccess;
+  }
+  const cases: readonly Case[] = [
+    {
+      name: "--portainer приоритетнее PORTAINER_URL (шаг 2 спеки)",
+      args: { portainer: "https://cli.example.com" },
+      env: {
+        PORTAINER_API_KEY: API_KEY,
+        PORTAINER_URL: "https://env.example.com",
+      },
+      expected: {
+        baseUrl: "https://cli.example.com",
+        apiKey: API_KEY,
+        verifyTls: false,
+      },
+    },
+    {
+      name: "без --portainer используется PORTAINER_URL",
+      args: {},
+      env: {
+        PORTAINER_API_KEY: API_KEY,
+        PORTAINER_URL: "https://env.example.com",
+      },
+      expected: {
+        baseUrl: "https://env.example.com",
+        apiKey: API_KEY,
+        verifyTls: false,
+      },
+    },
+    {
+      name: "хвостовые / базового URL срезаются",
+      args: { portainer: "https://cli.example.com///" },
+      env: { PORTAINER_API_KEY: API_KEY },
+      expected: {
+        baseUrl: "https://cli.example.com",
+        apiKey: API_KEY,
+        verifyTls: false,
+      },
+    },
+    {
+      name: "PORTAINER_VERIFY_TLS не задан — verifyTls выключен",
+      args: { portainer: "https://cli.example.com" },
+      env: { PORTAINER_API_KEY: API_KEY },
+      expected: {
+        baseUrl: "https://cli.example.com",
+        apiKey: API_KEY,
+        verifyTls: false,
+      },
+    },
+    {
+      name: 'PORTAINER_VERIFY_TLS="true" — verifyTls включён',
+      args: { portainer: "https://cli.example.com" },
+      env: { PORTAINER_API_KEY: API_KEY, PORTAINER_VERIFY_TLS: "true" },
+      expected: {
+        baseUrl: "https://cli.example.com",
+        apiKey: API_KEY,
+        verifyTls: true,
+      },
+    },
+    {
+      name: 'PORTAINER_VERIFY_TLS="false" — verifyTls выключен',
+      args: { portainer: "https://cli.example.com" },
+      env: { PORTAINER_API_KEY: API_KEY, PORTAINER_VERIFY_TLS: "false" },
+      expected: {
+        baseUrl: "https://cli.example.com",
+        apiKey: API_KEY,
+        verifyTls: false,
+      },
+    },
+    {
+      name:
+        'PORTAINER_VERIFY_TLS="1" — verifyTls выключен (сравнение только со строкой "true")',
+      args: { portainer: "https://cli.example.com" },
+      env: { PORTAINER_API_KEY: API_KEY, PORTAINER_VERIFY_TLS: "1" },
+      expected: {
+        baseUrl: "https://cli.example.com",
+        apiKey: API_KEY,
+        verifyTls: false,
+      },
+    },
+  ];
+  for (const c of cases) {
+    await t.step(c.name, () => {
+      assertEquals(
+        requirePortainerAccess(c.args, envFileFake(c.env)),
+        c.expected,
+      );
+    });
+  }
+});
+
 Deno.test("happy path: сводка, запись в кэш, sl-строки по возрастанию server_number", async () => {
   await withTempDb(async (dbPath) => {
     const { baseUrl, stop } = fakeServer((req) => {
@@ -291,6 +391,64 @@ Deno.test("sl-строки сортируются по server_number незав�
   });
 });
 
+Deno.test("обход endpoints конкурентный: оба запроса пришли раньше, чем сервер ответил хотя бы на один", async () => {
+  await withTempDb(async (dbPath) => {
+    // Каждый обработчик endpoint'а держит ответ, пока не пришли ОБА
+    // запроса: при последовательном обходе (`for`/`await` вместо
+    // `Promise.allSettled`) второй запрос не будет отправлен, пока не
+    // ответит первый — а первый ждёт второй запрос. Тупик снимается
+    // только конкурентной отправкой обоих вызовов.
+    let arrivals = 0;
+    const both = Promise.withResolvers<void>();
+    const { baseUrl, stop } = fakeServer(async (req) => {
+      const url = new URL(req.url);
+      if (url.pathname === "/api/endpoints") {
+        return endpointsResponse([{ id: 1, name: "e1" }, {
+          id: 2,
+          name: "e2",
+        }]);
+      }
+      if (
+        url.pathname === "/api/endpoints/1/docker/containers/json" ||
+        url.pathname === "/api/endpoints/2/docker/containers/json"
+      ) {
+        arrivals++;
+        if (arrivals === 2) both.resolve();
+        await both.promise;
+        const n = url.pathname.includes("/1/") ? 1 : 2;
+        return containersResponse([
+          {
+            id: `c${n}`,
+            names: [`/sl-${n}-cli`],
+            state: "running",
+            image: "img",
+          },
+        ]);
+      }
+      return new Response(null, { status: 404 });
+    });
+    try {
+      const io = makeIo(dbPath, {
+        envFile: envFileFake({
+          PORTAINER_API_KEY: API_KEY,
+          PORTAINER_URL: baseUrl,
+        }),
+      });
+      const outcome = await invokeInit(["--dry-run"], io);
+      assertEquals(outcome.code, 0);
+      assertEquals(
+        outcome.stdout,
+        "# найдено sl-N контейнеров: 2\n" +
+          `sl-1: sl-1-cli [running] @ endpoint 1 (e1) -> ${baseUrl}/1\n` +
+          `sl-2: sl-2-cli [running] @ endpoint 2 (e2) -> ${baseUrl}/2\n` +
+          "# прочих контейнеров: 0\n",
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
 Deno.test("ошибка одного endpoint'а: строка в stderr, обход продолжается, остальные записаны", async () => {
   await withTempDb(async (dbPath) => {
     const { baseUrl, stop } = fakeServer((req) => {
@@ -331,6 +489,16 @@ Deno.test("ошибка одного endpoint'а: строка в stderr, обх
           `sl-1: sl-1-cli [running] @ endpoint 2 (good) -> ${baseUrl}/2\n` +
           "# прочих контейнеров: 0\n" +
           `# записано 1 контейнеров в ${dbPath}\n`,
+      );
+
+      // Инвариант init.md «обрыв не теряет уже собранное»: собранное с
+      // здорового endpoint'а реально в БД, а не только в тексте сводки.
+      using db = openCacheDb(dbPath);
+      assertEquals(
+        db.query(
+          "SELECT container_id, endpoint_id FROM portainer_containers",
+        ),
+        [{ container_id: "c1", endpoint_id: 2 }],
       );
     } finally {
       await stop();
@@ -584,6 +752,58 @@ Deno.test("--dry-run: кэш не изменяется, сводка та же, 
   });
 });
 
+Deno.test("запись в кэш: image и endpoint_name дословны, discovered_at — unix-секунды", async () => {
+  await withTempDb(async (dbPath) => {
+    const { baseUrl, stop } = fakeServer((req) => {
+      const url = new URL(req.url);
+      if (url.pathname === "/api/endpoints") {
+        return endpointsResponse([{ id: 7, name: "custom-endpoint-name" }]);
+      }
+      return containersResponse([
+        {
+          id: "c1",
+          names: ["/sl-1-cli"],
+          state: "running",
+          image: "registry.example.com/sl:1.2.3",
+        },
+      ]);
+    });
+    try {
+      const io = makeIo(dbPath, {
+        envFile: envFileFake({
+          PORTAINER_API_KEY: API_KEY,
+          PORTAINER_URL: baseUrl,
+        }),
+      });
+      // Диапазон, не точное равенство: `discovered_at` берётся один раз
+      // на прогон где-то между этими двумя отметками (init.md, шаг 2).
+      const before = Math.floor(Date.now() / 1000);
+      const outcome = await invokeInit([], io);
+      const after = Math.floor(Date.now() / 1000);
+      assertEquals(outcome.code, 0);
+
+      using db = openCacheDb(dbPath);
+      const rows = db.query(
+        "SELECT image, endpoint_name, discovered_at FROM portainer_containers WHERE container_id = ?",
+        "c1",
+      );
+      assertEquals(rows.length, 1);
+      const row = rows[0];
+      assertEquals(row.image, "registry.example.com/sl:1.2.3");
+      assertEquals(row.endpoint_name, "custom-endpoint-name");
+      const discoveredAt = Number(row.discovered_at);
+      assertEquals(
+        discoveredAt >= before && discoveredAt <= after,
+        true,
+        `discovered_at ${discoveredAt} должен быть unix-секундами в ` +
+          `диапазоне [${before}, ${after}] — мс вместо с дал бы число вне диапазона`,
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
 Deno.test("--reset: удаляет старые записи перед записью новых", async () => {
   await withTempDb(async (dbPath) => {
     let containers: readonly FakeContainer[] = [
@@ -631,6 +851,73 @@ Deno.test("--reset: удаляет старые записи перед запи
     }
   });
 });
+
+Deno.test(
+  "--reset: сбой во время upsert не теряет прежний кэш — DELETE и запись в одной транзакции",
+  async () => {
+    await withTempDb(async (dbPath) => {
+      // Второй прогон отдаёт контейнер без поля Id — намеренно битые
+      // данные с провода (тип клиента их не проверяет, см. `portainer.ts`
+      // про JSON.parse без рантайм-схемы); биндинг такого параметра
+      // node:sqlite бросает TypeError внутри upsert. Тест проверяет
+      // инвариант preserve: DELETE не должен пережить откат upsert'а.
+      let broken = false;
+      const { baseUrl, stop } = fakeServer((req) => {
+        const url = new URL(req.url);
+        if (url.pathname === "/api/endpoints") {
+          return endpointsResponse([{ id: 1, name: "prod" }]);
+        }
+        if (!broken) {
+          return containersResponse([
+            { id: "c1", names: ["/sl-1-cli"], state: "running", image: "img" },
+          ]);
+        }
+        return Response.json([
+          { Names: ["/sl-2-cli"], State: "running", Image: "img" },
+        ]);
+      });
+      try {
+        const io = makeIo(dbPath, {
+          envFile: envFileFake({
+            PORTAINER_API_KEY: API_KEY,
+            PORTAINER_URL: baseUrl,
+          }),
+          // Прямой вызов `runInit` ниже (в обход `invokeInit`) сам не
+          // оборачивает `progress` — фейк по умолчанию (`makeFakeIo`)
+          // бросает на любом обращении, а строка шага 1 печатается до
+          // DELETE/upsert и замаскировала бы проверяемое исключение.
+          progress: () => {},
+        });
+        assertEquals((await invokeInit([], io)).code, 0);
+
+        broken = true;
+        let threw = false;
+        try {
+          await runInit(
+            { portainer: undefined, "dry-run": false, reset: true },
+            io,
+          );
+        } catch {
+          threw = true;
+        }
+        assertEquals(
+          threw,
+          true,
+          "упавший upsert обязан пробросить исключение",
+        );
+
+        using db = openCacheDb(dbPath);
+        assertEquals(
+          db.query("SELECT container_id FROM portainer_containers"),
+          [{ container_id: "c1" }],
+          "прежний кэш обязан пережить упавшую попытку --reset",
+        );
+      } finally {
+        await stop();
+      }
+    });
+  },
+);
 
 Deno.test("повторный прогон без --reset: дублей нет, stale-запись остаётся", async () => {
   await withTempDb(async (dbPath) => {

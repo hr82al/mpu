@@ -25,10 +25,19 @@ export function openCacheDb(path: string): CacheDb {
   const dir = path.slice(0, path.lastIndexOf("/"));
   if (dir !== "") Deno.mkdirSync(dir, { recursive: true });
   const db = new DatabaseSync(path);
-  // Персистентный в файле БД режим (`platform/store.md`, «Ввод/вывод»):
-  // конкурентные вызовы `mpu`, включая параллельную Python-реализацию,
-  // читают и пишут без взаимной блокировки.
-  db.exec("PRAGMA journal_mode=WAL");
+  try {
+    // Персистентный в файле БД режим (`platform/store.md`, «Ввод/вывод»):
+    // конкурентные вызовы `mpu`, включая параллельную Python-реализацию,
+    // читают и пишут без взаимной блокировки.
+    db.exec("PRAGMA journal_mode=WAL");
+  } catch (err) {
+    // Повреждённый файл (`platform/store.md`, «Граничные случаи»): `exec`
+    // бросает уже после того, как хендл открыт — без закрытия он остаётся
+    // висеть навсегда, потому что `CacheDb` с его `[Symbol.dispose]` ещё
+    // не создан. Ошибку не подменяем — пробрасываем исходную.
+    db.close();
+    throw err;
+  }
 
   return {
     path,

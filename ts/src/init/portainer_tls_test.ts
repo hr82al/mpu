@@ -9,6 +9,7 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import {
+  fetchPortainerJson,
   listEndpoints,
   type PortainerAccess,
   PortainerError,
@@ -72,8 +73,16 @@ RZ+kSWwgsvKk4hMMyhki4w==
 
 const API_KEY = "proba-tls-key-Vn3wq8";
 
-/** HTTPS-сервер на самоподписанном сертификате `localhost`; гасить `await stop()`. */
-function fakeTlsServer(): {
+/**
+ * HTTPS-сервер на самоподписанном сертификате `localhost`; гасить
+ * `await stop()`. Обработчик по умолчанию отдаёт happy-path ответ;
+ * параметр — для сценариев таймаута (сервер не отвечает вовсе / тело
+ * зависает), которым нужен свой обработчик поверх того же сертификата.
+ */
+function fakeTlsServer(
+  handler: (req: Request) => Response | Promise<Response> = (req) =>
+    Response.json([{ Id: 1, Name: req.headers.get("X-API-Key") ?? "" }]),
+): {
   readonly baseUrl: string;
   readonly stop: () => Promise<void>;
 } {
@@ -85,8 +94,7 @@ function fakeTlsServer(): {
       key: TEST_KEY,
       onListen: () => {},
     },
-    (req) =>
-      Response.json([{ Id: 1, Name: req.headers.get("X-API-Key") ?? "" }]),
+    handler,
   );
   // Хост в URL — "127.0.0.1", не "localhost": задача `test` даёт
   // `--allow-net=127.0.0.1` буквальной строкой (`deno.jsonc`), а разрешение
@@ -123,6 +131,65 @@ Deno.test("verifyTls: true — самоподписанный сертифика
       PortainerError,
     );
   } finally {
+    await stop();
+  }
+});
+
+// Ветка node:https включается только при verifyTls: false — «вызова без
+// таймаута не существует» обязано выполняться и здесь, но оба теста
+// таймаутов выше (portainer_test.ts) идут по ветке fetch. Регресс вроде
+// потерянного `signal` в опциях httpsRequest эти два теста не поймали бы.
+
+Deno.test("verifyTls: false — таймаут заголовков (сервер не отвечает вовсе)", async () => {
+  const gate = Promise.withResolvers<void>();
+  const { baseUrl, stop } = fakeTlsServer(async () => {
+    await gate.promise;
+    return new Response("[]");
+  });
+  try {
+    const err = await assertRejects(
+      () =>
+        fetchPortainerJson(accessTo(baseUrl, false), "/api/endpoints", {
+          headersTimeoutMs: 50,
+          totalTimeoutMs: 500,
+        }),
+      PortainerError,
+      "no response headers within 50ms",
+    );
+    assertEquals(err.message, "no response headers within 50ms");
+  } finally {
+    gate.resolve();
+    await stop();
+  }
+});
+
+Deno.test("verifyTls: false — таймаут тела (заголовки пришли, тело зависло)", async () => {
+  const bodyGate = Promise.withResolvers<void>();
+  const { baseUrl, stop } = fakeTlsServer(() => {
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        await bodyGate.promise;
+        controller.enqueue(new TextEncoder().encode("[]"));
+        controller.close();
+      },
+    });
+    return new Response(stream, { status: 200 });
+  });
+  try {
+    const err = await assertRejects(
+      () =>
+        fetchPortainerJson(accessTo(baseUrl, false), "/api/endpoints", {
+          headersTimeoutMs: 500,
+          totalTimeoutMs: 50,
+        }),
+      PortainerError,
+      "no response within 50ms",
+    );
+    assertEquals(err.message, "no response within 50ms");
+  } finally {
+    // Затвор снят до остановки сервера: поток тела обязан закрыться сам,
+    // иначе висящий ReadableStream роняет санитайзер ресурсов теста.
+    bodyGate.resolve();
     await stop();
   }
 });
