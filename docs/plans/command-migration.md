@@ -98,10 +98,11 @@ WebSocket-стрим, tty, kill, stdin tar'ом), и вперёд `sql-ro` он 
    (прогрев справочников порцией Б init). Дробится по подкомандам:
    time (266) — учёт времени и таймер; field (108) — кастомные поля,
    в т.ч. AI-артефакт; card (77) — чтение карточки; close (56);
-   checklist (36) — в прежнем окне не встречалась, спеки нет;
-   comment (32); status (7) — вся моя работа матрицей; desc (7);
-   roles (5); справочники. Спеки: черновик (card, ls, status, refs,
-   time, move, close, comment, field + атом).
+   checklist (36) — в прежнем окне не встречалась, спека заведена
+   2026-08-05; comment (32); status (7) — вся моя работа матрицей;
+   desc (7); roles (5); справочники. Спеки: черновик (card, ls, status,
+   refs, time, move, close, comment, field, checklist + атом); спек нет
+   у `desc` (7 вызовов), `ready`, `review`.
 3. **logs** (276; было 392) — логи сервисов стенда. Основной путь —
    Loki, его атом `platform/loki-http` уже реализован (init);
    legacy-путь `--via portainer` — это GET к Docker API за снимком
