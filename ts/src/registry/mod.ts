@@ -19,6 +19,7 @@ import type { Command, CommandIo } from "../command/mod.ts";
 import type { LegacyCommand } from "../legacy/mod.ts";
 import { LEGACY_TREE } from "./legacy_tree.ts";
 import { xlsxCommands } from "../xlsx/mod.ts";
+import { initCommand } from "../init/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
 
@@ -60,6 +61,7 @@ export interface CommandGroup {
 /** Все команды CLI в порядке показа в справке. */
 export const commands: readonly Command[] = [
   ...xlsxCommands,
+  initCommand,
   mcpTokenCommand,
 ];
 

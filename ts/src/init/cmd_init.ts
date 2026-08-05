@@ -1,23 +1,25 @@
 /**
- * Команда `mpu init`, шаги 1–2 (`docs/specs/init.md`, порция А): явный
- * bootstrap схемы кэш-БД, затем discovery контейнеров через Portainer
- * API — конкурентный обход endpoints с записью в
- * `portainer_containers`. Шаги 3–5 (прогрев Loki/Kaiten, вход
- * Telegram) — порция Б; заглушек для них здесь нет (проект реализации
- * порции А), справка называет это честно.
+ * Команда `mpu init` (`docs/specs/init.md`) целиком: bootstrap схемы
+ * кэш-БД, discovery контейнеров через Portainer, прогрев кэшей Loki и
+ * Kaiten, вход в Telegram подпроцессом.
  *
- * Маршрут остаётся `legacy`: команда не публикуется в реестре
- * (`src/registry/`) до приёмки порции Б.
+ * Модель исполнения — из спеки: шаг 1 первым; шаги 2–4 идут
+ * конкурентно; шаг 5 (единственный интерактивный) — строго после них.
+ * Порядок блоков вывода фиксирован (1…5) и не зависит от порядка
+ * завершения, потому что во время конкурентной фазы не печатается
+ * ничего: сбор возвращает данные, а строки рождаются уже в
+ * последовательной фазе записи. Отдельная очередь строк для этого не
+ * нужна — её роль играют сами результаты шагов.
  *
- * Служебные строки шагов 1–2 (bootstrap, ошибки endpoint'ов, `--reset`,
- * запись) уходят не печатью, а в порт `io.progress`; печатает их точка
- * входа в stderr. Инвариант 1 контракта команд
+ * Служебные строки уходят не печатью, а в порт `io.progress`; печатает
+ * их точка входа в stderr. Инвариант 1 контракта команд
  * (`platform/command-contract.md`: вывод, не являющийся проекцией
  * результата, доставляется портом io) этим не нарушен.
  */
 
 import { z } from "@zod/zod";
 import {
+  type CacheDb,
   type CommandIo,
   defineCommand,
   DomainError,
@@ -27,26 +29,61 @@ import {
   DEFAULT_TIMEOUTS,
   firstLine,
   HEADERS_TIMEOUT_MS,
+  type RequestTimeouts,
+  TOTAL_TIMEOUT_MS,
+} from "./http.ts";
+import {
   listContainers,
   listEndpoints,
   type PortainerAccess,
   type PortainerEndpoint,
-  type RequestTimeouts,
-  TOTAL_TIMEOUT_MS,
 } from "./portainer.ts";
 import { classifyContainer } from "./discovery.ts";
+import {
+  collectLokiSeries,
+  type LokiSeries,
+  requireLokiAccess,
+  writeLokiCache,
+} from "./loki.ts";
+import {
+  collectKaitenWarmup,
+  type KaitenWarmup,
+  requireKaitenAccess,
+  WARMUP_BUDGET_MS,
+  writeKaitenWarmup,
+} from "./kaiten.ts";
+import { runTelegramLogin } from "./telegram.ts";
+
+/**
+ * Пределы одного прогона. Числа названы в `--help` (инвариант спеки:
+ * значения выбирает реализация, но пользователь обязан их видеть).
+ */
+export interface InitLimits {
+  readonly timeouts: RequestTimeouts;
+  /** Бюджет шага 4: паузы retry 429 его не отменяют (`init.md`). */
+  readonly budgetMs: number;
+}
+
+/** Пределы по умолчанию; их и подставляет объявление команды. */
+export const DEFAULT_INIT_LIMITS: InitLimits = {
+  timeouts: DEFAULT_TIMEOUTS,
+  budgetMs: WARMUP_BUDGET_MS,
+};
 
 const argsSchema = z.object({
   portainer: z.string().optional().describe(
     "базовый URL Portainer API; без флага — PORTAINER_URL в env-файле",
   ),
   "dry-run": z.boolean().default(false).describe(
-    "только сводка: кэш-БД не изменяется, ничего не записывается",
+    "только сводка шага 2: кэш не изменяется, шаги 3–5 не выполняются",
   ),
   reset: z.boolean().default(false).describe(
     "перед записью удалить весь прежний кэш контейнеров",
   ),
 });
+
+/** Счётчик части прогрева; `null` печатается в сводке как `?`. */
+const countSchema = z.number().int().nullable();
 
 const resultSchema = z.object({
   /** Базовый URL Portainer после нормализации (без хвостовых `/`). */
@@ -68,12 +105,35 @@ const resultSchema = z.object({
     written: z.number().int(),
     cacheDbPath: z.string(),
   }).nullable(),
+  /** Итог шага 3; null — шаг не выполнялся (`--dry-run`). */
+  loki: z.object({
+    /** Причина пропуска шага; null — шаг отработал. */
+    skipped: z.string().nullable(),
+    hosts: countSchema,
+    pairs: countSchema,
+  }).nullable(),
+  /** Итог шага 4; null — шаг не выполнялся (`--dry-run`). */
+  kaiten: z.object({
+    skipped: z.string().nullable(),
+    spaces: countSchema,
+    boards: countSchema,
+    lanes: countSchema,
+    columns: countSchema,
+    roles: countSchema,
+    /** Доски, пропущенные в частях 2–3, по возрастанию id. */
+    skippedBoards: z.array(z.object({
+      boardId: z.number().int(),
+      reason: z.string(),
+    })),
+  }).nullable(),
+  /** Итог шага 5; null — шаг не выполнялся (`--dry-run`). */
+  telegram: z.object({ skipped: z.string().nullable() }).nullable(),
 });
 
 /** Разобранные аргументы `mpu init`. */
 export type InitArgs = z.infer<typeof argsSchema>;
 
-/** Результат шагов 1–2: из него рендерится сводка stdout. */
+/** Результат прогона: из него рендерится сводка stdout. */
 export type InitResult = z.infer<typeof resultSchema>;
 
 /** Строка кэша контейнеров (`portainer_containers`, `platform/store.md`). */
@@ -128,31 +188,33 @@ interface EndpointFailure {
 
 export const initCommand = defineCommand({
   path: ["init"],
-  summary: "первичная инициализация локальной кэш-БД (шаги 1–2 из 5)",
+  summary: "первичная инициализация локальной кэш-БД: пять шагов",
   usage: "mpu init [--portainer TEXT] [--dry-run] [--reset]",
-  help: `Порция А: два первых шага из пяти — bootstrap схемы кэш-БД и
-discovery контейнеров через Portainer API. Шаги 3–5 (прогрев
-Loki/Kaiten, вход Telegram) в этой сборке не реализованы.
+  help: `Пять шагов: 1) схема кэш-БД; 2) discovery контейнеров через
+Portainer; 3) прогрев кэша Loki; 4) прогрев справочников Kaiten;
+5) вход в Telegram (подпроцесс mpu telegram login). Шаг 1 первым,
+2-4 конкурентно, 5 после них; блоки вывода — всегда в порядке 1..5.
 
-Подключение — из env-файла ~/.config/mpu/.env: PORTAINER_API_KEY
-обязателен; базовый URL — --portainer, иначе PORTAINER_URL;
-PORTAINER_VERIFY_TLS, без учёта регистра равный "true", включает
-проверку TLS-сертификата — иначе она выключена. Каждый вызов
-ограничен: ${HEADERS_TIMEOUT_MS} ms до заголовков ответа,
-${TOTAL_TIMEOUT_MS} ms на вызов целиком.
+Ключи env-файла ~/.config/mpu/.env (окружение процесса не читается):
+PORTAINER_API_KEY, PORTAINER_URL (или --portainer),
+PORTAINER_VERIFY_TLS (=true без учёта регистра включает проверку
+TLS-сертификата, иначе выключена), LOKI_URL, KITEN_API_KEY,
+KITEN_BASE_URL.
 
-Обход endpoints конкурентный; ошибка одного (включая таймаут) идёт в
-stderr и не прерывает остальные. Найденное пишется в кэш-БД upsert'ом
-по ключу (portainer_url, endpoint_id, container_id); исчезнувшие из
-Portainer контейнеры остаются в кэше до --reset, а он удаляет весь
-прежний кэш контейнеров перед записью. --dry-run печатает только
-сводку и кэш не трогает (схема шага 1 создаётся всегда).
+Пределы вызова: ${HEADERS_TIMEOUT_MS} ms до заголовков, ${TOTAL_TIMEOUT_MS} ms целиком;
+бюджет прогрева Kaiten ${WARMUP_BUDGET_MS} ms (паузы retry 429 его не
+отменяют; исчерпан — счётчик части «?»).
 
-Exit: 0 — успех (в т.ч. ноль sl-контейнеров при непустых прочих);
-2 — нет PORTAINER_API_KEY либо URL; 1 — сбой списка endpoints либо ни
-одного контейнера не найдено.
+Шаги 3-5 best-effort: пропуск виден строкой «# <шаг>: пропущено
+(<причина>)» и кода выхода не меняет. Контейнеры пишутся upsert'ом по
+(portainer_url, endpoint_id, container_id); исчезнувшие остаются до
+--reset, а он чистит весь прежний кэш. --dry-run: только сводка шага
+2, кэш не тронут (схема шага 1 создаётся всегда), шаги 3-5 не идут.
 
-Пример: mpu init --portainer https://portainer.example.com --dry-run`,
+Exit: 0 — успех; 2 — нет PORTAINER_API_KEY/URL либо URL без схемы;
+1 — сбой списка endpoints либо ни одного контейнера.
+
+Пример: mpu init --portainer https://portainer.example.com`,
   policy: "rw",
   argsSchema,
   resultSchema,
@@ -173,18 +235,17 @@ Exit: 0 — успех (в т.ч. ноль sl-контейнеров при не
 });
 
 /**
- * Шаги 1–2: bootstrap схемы и discovery контейнеров. Вынесено из
- * объявления команды по двум причинам: тело длиннее экрана, и пределы
- * одного HTTP-вызова здесь — параметр со значением по умолчанию.
- * Параметр нужен тесту молчащего endpoint'а: без него тест ждал бы
- * реальные три секунды продуктового предела, а сон стеной в тестах
- * запрещён (`ts/CLAUDE.md`). Команда зовёт эту функцию с умолчанием, то
- * есть вызова без таймаута по-прежнему не существует.
+ * Все пять шагов. Вынесено из объявления команды по двум причинам:
+ * тело длиннее экрана, и пределы вызовов здесь — параметр со значением
+ * по умолчанию. Параметр нужен тестам молчащего источника: без него
+ * тест ждал бы реальные секунды продуктовых пределов, а сон стеной в
+ * тестах запрещён (`ts/CLAUDE.md`). Команда зовёт эту функцию с
+ * умолчанием, то есть вызова без предела по-прежнему не существует.
  */
 export async function runInit(
   args: InitArgs,
   io: CommandIo,
-  timeouts: RequestTimeouts = DEFAULT_TIMEOUTS,
+  limits: InitLimits = DEFAULT_INIT_LIMITS,
 ): Promise<InitResult> {
   using db = io.openCacheDb();
   db.bootstrap();
@@ -194,15 +255,25 @@ export async function runInit(
 
   let endpoints: readonly PortainerEndpoint[];
   try {
-    endpoints = await listEndpoints(access, timeouts);
+    endpoints = await listEndpoints(access, limits.timeouts);
   } catch (err) {
     throw new DomainError(`portainer: ${reasonOf(err)}`, { cause: err });
   }
 
+  // Прогревы не запускаются при `--dry-run` и не запускаются раньше,
+  // чем список endpoints получен: сбой этого списка обрывает команду, а
+  // спека требует, чтобы шаги 3–5 при таком обрыве не выполнялись.
+  const warm = !args["dry-run"];
   const discoveredAt = Math.floor(Date.now() / 1000);
-  const outcomes = await Promise.allSettled(
-    endpoints.map((endpoint) => listContainers(access, endpoint.id, timeouts)),
-  );
+  const [outcomes, loki, kaiten] = await Promise.all([
+    Promise.allSettled(
+      endpoints.map((endpoint) =>
+        listContainers(access, endpoint.id, limits.timeouts)
+      ),
+    ),
+    warm ? collectLoki(io, limits) : Promise.resolve(null),
+    warm ? collectKaiten(io, limits) : Promise.resolve(null),
+  ]);
 
   const failures: EndpointFailure[] = [];
   const rows: ContainerRow[] = [];
@@ -299,6 +370,15 @@ export async function runInit(
     );
   }
 
+  // Блоки 3, 4 и 5 — строго в этом порядке и строго после блока 2:
+  // запись и печать идут здесь, последовательно, а не там, где шаги
+  // собирали данные. Вызовы вынесены из литерала результата намеренно —
+  // у каждого есть побочный эффект, и порядок эффектов должен читаться
+  // из кода, а не из порядка полей объекта.
+  const lokiResult = applyLoki(db, io, loki, discoveredAt);
+  const kaitenResult = applyKaiten(db, io, kaiten, discoveredAt);
+  const telegramResult = warm ? await applyTelegram(io) : null;
+
   return {
     portainerUrl: access.baseUrl,
     containers: slRows.map((row) => ({
@@ -311,7 +391,170 @@ export async function runInit(
     otherCount: rows.length - slRows.length,
     reset: outcome.reset,
     write: outcome.write,
+    loki: lokiResult,
+    kaiten: kaitenResult,
+    telegram: telegramResult,
   };
+}
+
+/** Собранное шагом 3 либо причина, по которой собрать не вышло. */
+type LokiStep =
+  | { readonly ok: true; readonly series: LokiSeries }
+  | { readonly ok: false; readonly reason: string };
+
+/** Собранное шагом 4 либо причина отказа части 1 или конфигурации. */
+type KaitenStep =
+  | { readonly ok: true; readonly warmup: KaitenWarmup }
+  | { readonly ok: false; readonly reason: string };
+
+/**
+ * Шаг 3 без записи: только сеть. Печати здесь нет — иначе строка ушла
+ * бы в поток посреди конкурентной фазы и порядок блоков зависел бы от
+ * того, кто ответил первым.
+ */
+async function collectLoki(
+  io: CommandIo,
+  limits: InitLimits,
+): Promise<LokiStep> {
+  try {
+    const access = requireLokiAccess(io.envFile);
+    return {
+      ok: true,
+      series: await collectLokiSeries(access, limits.timeouts),
+    };
+  } catch (err) {
+    return { ok: false, reason: reasonOf(err) };
+  }
+}
+
+/** Шаг 4 без записи: только сеть (см. `collectLoki`). */
+async function collectKaiten(
+  io: CommandIo,
+  limits: InitLimits,
+): Promise<KaitenStep> {
+  try {
+    const access = requireKaitenAccess(io.envFile);
+    return {
+      ok: true,
+      warmup: await collectKaitenWarmup(access, {
+        timeouts: limits.timeouts,
+        budgetMs: limits.budgetMs,
+      }),
+    };
+  } catch (err) {
+    return { ok: false, reason: reasonOf(err) };
+  }
+}
+
+/** Запись шага 3 и его строка сводки; шаг не выполнялся — `null`. */
+function applyLoki(
+  db: CacheDb,
+  io: CommandIo,
+  step: LokiStep | null,
+  discoveredAt: number,
+): InitResult["loki"] {
+  if (step === null) return null;
+  if (!step.ok) {
+    io.progress(`# loki: пропущено (${step.reason})`);
+    return { skipped: step.reason, hosts: null, pairs: null };
+  }
+  const failed = writeOrReason(() =>
+    writeLokiCache(db, step.series, discoveredAt)
+  );
+  if (failed !== null) {
+    io.progress(`# loki: пропущено (${failed})`);
+    return { skipped: failed, hosts: null, pairs: null };
+  }
+  const hosts = step.series.hosts.length;
+  const pairs = step.series.pairs.length;
+  io.progress(`# loki: ${hosts} hosts, ${pairs} (host, service) пар`);
+  return { skipped: null, hosts, pairs };
+}
+
+/** Запись шага 4, строки пропусков досок и сводка; не выполнялся — `null`. */
+function applyKaiten(
+  db: CacheDb,
+  io: CommandIo,
+  step: KaitenStep | null,
+  discoveredAt: number,
+): InitResult["kaiten"] {
+  if (step === null) return null;
+  const empty = {
+    spaces: null,
+    boards: null,
+    lanes: null,
+    columns: null,
+    roles: null,
+    skippedBoards: [],
+  };
+  if (!step.ok) {
+    io.progress(`# kaiten: пропущено (${step.reason})`);
+    return { skipped: step.reason, ...empty };
+  }
+  const warmup = step.warmup;
+  const failed = writeOrReason(() =>
+    writeKaitenWarmup(db, warmup, discoveredAt)
+  );
+  if (failed !== null) {
+    io.progress(`# kaiten: пропущено (${failed})`);
+    return { skipped: failed, ...empty };
+  }
+  // Строки атома (повторы 429) идут первыми: они рассказывают о том, что
+  // происходило до сводки, и в ней самой следа не оставляют.
+  for (const note of warmup.notes) io.progress(note);
+  const skippedBoards = [...warmup.skips]
+    .sort((a, b) => a.boardId - b.boardId)
+    .map((skip) => ({ boardId: skip.boardId, reason: skip.reason }));
+  for (const board of skippedBoards) {
+    io.progress(
+      `# kaiten: доска ${board.boardId}: пропущена (${board.reason})`,
+    );
+  }
+  const counts = {
+    spaces: warmup.spaces.length,
+    boards: warmup.boards.length,
+    lanes: warmup.lanes === null ? null : warmup.lanes.rows.length,
+    columns: warmup.columns === null ? null : warmup.columns.rows.length,
+    roles: warmup.roles === null ? null : warmup.roles.length,
+  };
+  io.progress(
+    `# kaiten: ${counts.spaces} spaces, ${counts.boards} boards, ` +
+      `${mark(counts.lanes)} lanes, ${mark(counts.columns)} columns, ` +
+      `${mark(counts.roles)} roles`,
+  );
+  return { skipped: null, ...counts, skippedBoards };
+}
+
+/** Шаг 5: подпроцесс входа; его исход код выхода init не меняет. */
+async function applyTelegram(
+  io: CommandIo,
+): Promise<{ skipped: string | null }> {
+  const skipped = await runTelegramLogin(io);
+  if (skipped !== null) io.progress(`# telegram: пропущено (${skipped})`);
+  return { skipped };
+}
+
+/**
+ * Счётчик в сводке: `?` у части, упавшей целиком (`init.md`, шаг 4).
+ * Ноль от `?` отличается — пустой справочник это не то же, что
+ * неизвестный.
+ */
+function mark(count: number | null): string {
+  return count === null ? "?" : String(count);
+}
+
+/**
+ * Выполняет запись прогрева и возвращает причину её отказа. Сбой записи
+ * best-effort шага обрывать команду не должен: спека называет пропуском
+ * «любую ошибку» шага, а не только сетевую.
+ */
+function writeOrReason(write: () => void): string | null {
+  try {
+    write();
+    return null;
+  } catch (err) {
+    return reasonOf(err);
+  }
 }
 
 /**
@@ -336,12 +579,22 @@ export function requirePortainerAccess(
       "укажите --portainer <url> либо PORTAINER_URL в ~/.config/mpu/.env",
     );
   }
+  // Схема проверяется здесь, до какого-либо сетевого вызова: это ошибка
+  // конфигурации, симметричная отсутствию URL (`init.md`, «Граничные
+  // случаи»), а не сбой обращения к Portainer. Без проверки разбор
+  // адреса падал бы английским `Invalid URL` уже внутри клиента и
+  // приходил бы к пользователю как exit 1 вместо exit 2.
+  if (!/^https?:\/\//i.test(rawUrl)) {
+    throw new UsageError(
+      `некорректный URL Portainer: '${rawUrl}' — нужна схема http:// или https://`,
+    );
+  }
   const verifyTls =
     envFile.get("PORTAINER_VERIFY_TLS")?.toLowerCase() === "true";
   return { baseUrl: rawUrl.replace(/\/+$/, ""), apiKey, verifyTls };
 }
 
-/** Причина ошибки одной строкой (вердикт fix спеки — см. `portainer.ts`). */
+/** Причина ошибки одной строкой (вердикт fix спеки — см. `http.ts`). */
 function reasonOf(err: unknown): string {
   return firstLine(err instanceof Error ? err.message : String(err));
 }

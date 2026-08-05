@@ -42,7 +42,7 @@ export async function resolvePath(
   const store = await loadStore(io);
   return resolveXlsxPath({
     flagValue,
-    envValue: io.env("MPU_XLSX"),
+    envValue: io.envFile.get("MPU_XLSX"),
     configValue: store.values["xlsx.default"],
     aliasPath: (name) => store.aliases[name],
     cwd: io.cwd(),

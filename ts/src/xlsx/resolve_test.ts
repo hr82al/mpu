@@ -70,7 +70,7 @@ Deno.test("resolveXlsxPath: пустая строка — источник пр�
   });
   assertEquals(report.checked[1], {
     source: "env",
-    label: "env MPU_XLSX",
+    label: "MPU_XLSX (env-файл)",
     value: "x.xlsx",
     used: true,
   });

@@ -103,6 +103,17 @@ export interface CommandIo {
     bin: string,
     args: readonly string[],
   ) => Promise<LegacyOutcome>;
+  /**
+   * Запуск той же реализации с проброшенным терминалом: stdin, stdout и
+   * stderr достаются подпроцессу как есть, вывод не собирается. Нужен
+   * интерактивному шагу 5 `init` (`docs/specs/init.md`), где пользователь
+   * отвечает на вопросы входа. Файла нет или он не исполняем —
+   * `NotFoundIoError`; иначе — код возврата подпроцесса.
+   */
+  readonly runLegacyInteractive: (
+    bin: string,
+    args: readonly string[],
+  ) => Promise<number>;
   /** Слой env-файла (`platform/env-file.md`): секреты, адреса внешних систем. */
   readonly envFile: EnvFile;
   /** Открывает локальную кэш-БД (`platform/store.md`). */
@@ -120,11 +131,12 @@ export interface LegacyOutcome {
 
 /**
  * Слой env-файла (`platform/env-file.md`): секреты и адреса внешних
- * систем с приоритетом «окружение процесса → env-файл». Объявлен на
+ * систем. Читается только файл — окружение процесса на конфиг-ключи не
+ * влияет (решение 2026-08-05, там же в отклонениях). Объявлен на
  * стороне потребителя — реализация в `src/env/mod.ts`.
  */
 export interface EnvFile {
-  /** Значение по приоритету «окружение процесса → env-файл». */
+  /** Значение ключа из env-файла; ключа нет — `undefined`. */
   readonly get: (name: string) => string | undefined;
   /** То же; отсутствие или пустая строка — DomainError текстом спеки. */
   readonly require: (name: string) => string;

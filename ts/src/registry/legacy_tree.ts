@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 54 команд верхнего уровня, ещё не переехавших на TS. */
+/** 53 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["search"],
@@ -254,11 +254,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     path: ["health"],
     summary:
       "Health-check: статусы контейнеров + tail логов потенциальных виновников.",
-  },
-  {
-    path: ["init"],
-    summary:
-      "Discover все контейнеры через Portainer API и закэшировать в `~/.config/mpu/mpu.db`.",
   },
   {
     path: ["api"],

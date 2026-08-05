@@ -11,7 +11,7 @@ const OPENERS = ["xdg-open", "open"] as const;
 const argsSchema = z.object({
   file: z.string().optional().describe(
     "путь или алиас .xlsx; без флага источники по порядку: " +
-      "env MPU_XLSX, config xlsx.default",
+      "MPU_XLSX (env-файл), config xlsx.default",
   ),
   print: z.boolean().default(false).describe(
     "напечатать резолвленный путь и не открывать",

@@ -10,7 +10,7 @@
       "type": "object",
       "properties": {
         "file": {
-          "description": "путь или алиас .xlsx; без флага источники по порядку: env MPU_XLSX, config xlsx.default",
+          "description": "путь или алиас .xlsx; без флага источники по порядку: MPU_XLSX (env-файл), config xlsx.default",
           "type": "string"
         },
         "long": {
@@ -83,7 +83,7 @@
           }
         },
         "file": {
-          "description": "путь или алиас .xlsx; без флага: env MPU_XLSX, config xlsx.default",
+          "description": "путь или алиас .xlsx; без флага: MPU_XLSX (env-файл), config xlsx.default",
           "type": "string"
         },
         "sheet": {
@@ -172,7 +172,7 @@
   {
     "name": "xlsx_resolve",
     "title": "mpu xlsx resolve",
-    "description": "диагностика резолва пути к книге\n\nПоказывает три источника пути в порядке приоритета\n(--file/-f, env MPU_XLSX, config xlsx.default), их значения и\nпобедителя. Значение-алиас разворачивается в путь алиаса.\n\nСтруктурный результат отдаётся всегда, в том числе когда путь не\nрезолвится; текстовая форма в этом случае завершается кодом 2.\n\nExit: 0 — путь резолвится; 2 — не резолвится (текстовая форма) или\nошибка ввода.\n\nПример: mpu xlsx resolve -f report.xlsx",
+    "description": "диагностика резолва пути к книге\n\nПоказывает три источника пути в порядке приоритета\n(--file/-f, MPU_XLSX (env-файл), config xlsx.default), их значения и\nпобедителя. Значение-алиас разворачивается в путь алиаса.\n\nСтруктурный результат отдаётся всегда, в том числе когда путь не\nрезолвится; текстовая форма в этом случае завершается кодом 2.\n\nExit: 0 — путь резолвится; 2 — не резолвится (текстовая форма) или\nошибка ввода.\n\nПример: mpu xlsx resolve -f report.xlsx",
     "annotations": {
       "readOnlyHint": true
     },

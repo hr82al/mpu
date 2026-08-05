@@ -1,9 +1,11 @@
 /**
  * Слой политики над форматом env-файла (`docs/specs/platform/env-file.md`):
- * путь файла, ленивый однократный снапшот значений, приоритет «окружение
- * процесса → файл», обязательные ключи, атомарная запись. Модуль не
- * трогает файловую систему напрямую — доступ к диску приходит через
- * `EnvFileStore`, который передаёт вызывающий слой (`src/runtime/`).
+ * путь файла, ленивый однократный снапшот значений, обязательные ключи,
+ * атомарная запись. Окружение процесса слой не читает (решение
+ * 2026-08-05, см. «Ввод/вывод» и «Известные отклонения» спеки) — значения
+ * приходят только из файла. Модуль не трогает файловую систему напрямую —
+ * доступ к диску приходит через `EnvFileStore`, который передаёт
+ * вызывающий слой (`src/runtime/`).
  */
 
 import { DomainError, type EnvFile } from "../command/mod.ts";
@@ -76,11 +78,8 @@ function buildNextText(text: string, name: string, value: string): string {
   }
 }
 
-/** Слой поверх окружения и файла; store отсутствует — файла нет. */
-export function makeEnvFile(
-  readEnv: (name: string) => string | undefined,
-  store: EnvFileStore | undefined,
-): EnvFile {
+/** Слой поверх файла; store отсутствует — файла нет. */
+export function makeEnvFile(store: EnvFileStore | undefined): EnvFile {
   // Ленивый снапшот: до первого обращения store не читается вовсе, а
   // после — не перечитывается за всю жизнь процесса (инвариант спеки
   // «изменение файла извне не влияет на уже запущенный процесс»). `set`
@@ -97,8 +96,7 @@ export function makeEnvFile(
   }
 
   function get(name: string): string | undefined {
-    const fromEnv = readEnv(name);
-    return fromEnv !== undefined ? fromEnv : snapshotOf().values[name];
+    return snapshotOf().values[name];
   }
 
   function require(name: string): string {

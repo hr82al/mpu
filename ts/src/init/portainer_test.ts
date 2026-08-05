@@ -13,9 +13,9 @@
  */
 
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import { firstLine } from "./http.ts";
 import {
   fetchPortainerJson,
-  firstLine,
   listContainers,
   listEndpoints,
   type PortainerAccess,

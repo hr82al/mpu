@@ -77,43 +77,47 @@
     //     (`envFile.set`, `platform/env-file.md`) при нестандартном
     //     XDG_CONFIG_HOME целится вне $HOME/.config/mpu — этот список
     //     её не покрывает, и запись упрётся в отказ права;
-    //   --allow-env=MPU_XLSX,HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS
+    //   --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS
     //     HOME даёт путь конфига, rc-файла и реализации маршрута
-    //     `legacy`; MPU_XLSX — env-слой ключа xlsx.default
-    //     (`platform/config.md`), прочие MPU_* добавляются вместе с
-    //     командами, которые их читают; XDG_CONFIG_HOME — путь env-файла
-    //     секретов (`platform/env-file.md`, «Известные отклонения»:
-    //     учёт этой переменной — внешний контракт существующей машины,
-    //     вердикт preserve, не наша идея). Ни одна команда ещё не читает
-    //     значения из env-файла (`envFile.get/require/set`), но право уже
-    //     нужно на каждый запуск бинаря: `makeDenoIo` (`src/runtime/mod.ts`)
-    //     безусловно резолвит путь файла через `envFilePath`, чтобы решить,
-    //     заводить ли хранилище, — до всякого обращения к самому файлу.
-    //     Поэтому право уже покрыто любой из проверок ниже (мутация
-    //     «убрать XDG_CONFIG_HOME» роняет их все с «Requires env access»),
-    //     отдельный smoke-сценарий не нужен. Честно: список покрывает
-    //     только этот резолв пути, не сами ключи файла. `envFile.get/
-    //     require` зовут `Deno.env.get(<имя ключа>)`, а имена ключей
-    //     env-файла (`sl_<N>`, `pg_<N>`, `PG_*`, `DEV_*`, `MPU_LOG_*` —
-    //     `platform/env-file.md`, «Конфигурация») в списке отсутствуют:
-    //     в собранном бинаре чтение любого из них упадёт с «Requires
-    //     env access to "…"». Списком имён это заранее не выразить —
-    //     ключи в своём env-файле задаёт пользователь, а не код, —
-    //     поэтому расширение списка решается вместе с первой командой-
-    //     потребителем, а не сейчас; остальные четыре — режим
-    //     дополнения: `_MPU_COMPLETE` включает его и читается до
-    //     разбора argv, то есть на любой команде, а COMP_WORDS с
-    //     COMP_CWORD (bash) и `_TYPER_COMPLETE_ARGS` (zsh) сообщают
-    //     набранную строку. Имена задаёт не код, а скрипт дополнения в
-    //     rc-файле пользователя (эталон
-    //     `fixtures/platform/registry/completion-*.txt`) — сузить
-    //     список нельзя. `SHELL` в списке нет намеренно: shell
+    //     `legacy`; XDG_CONFIG_HOME — путь env-файла секретов
+    //     (`platform/env-file.md`, «Известные отклонения»: учёт этой
+    //     переменной — внешний контракт существующей машины, вердикт
+    //     preserve, не наша идея). Оба нужны на каждый запуск бинаря:
+    //     `makeDenoIo` (`src/runtime/mod.ts`) безусловно резолвит путь
+    //     env-файла через `envFilePath`, чтобы решить, заводить ли
+    //     хранилище, — до всякого обращения к самому файлу (мутация
+    //     «убрать XDG_CONFIG_HOME» роняет любую проверку ниже с
+    //     «Requires env access», отдельный smoke-сценарий не нужен).
+    //     Конфиг-ключей самого файла (MPU_XLSX, `sl_<N>`, `pg_<N>`,
+    //     `PG_*`, `DEV_*`, `MPU_LOG_*` — `platform/env-file.md`,
+    //     «Конфигурация») в списке нет и не будет: с 2026-08-05 слой
+    //     `envFile` окружение процесса не читает вовсе (решение спеки,
+    //     «Ввод/вывод» и «Известные отклонения») — `envFile.get/
+    //     require/set` разбирают только файл, `Deno.env.get` не зовут,
+    //     и расширять список под очередной ключ не придётся ни одной
+    //     команде-потребителю. Остальные четыре — режим дополнения:
+    //     `_MPU_COMPLETE` включает его и читается до разбора argv, то
+    //     есть на любой команде, а COMP_WORDS с COMP_CWORD (bash) и
+    //     `_TYPER_COMPLETE_ARGS` (zsh) сообщают набранную строку. Имена
+    //     задаёт не код, а скрипт дополнения в rc-файле пользователя
+    //     (эталон `fixtures/platform/registry/completion-*.txt`) —
+    //     сузить список нельзя. `SHELL` в списке нет намеренно: shell
     //     определяется по дереву процессов-предков (`src/runtime`), а
     //     не по этой переменной;
-    //   --allow-net=127.0.0.1            слушающий сокет `mpu mcp`: только
-    //     локальный интерфейс, наружу сервер не ходит;
+    //   --allow-net                      слушающий сокет `mpu mcp` (только
+    //     `127.0.0.1`, наружу сервер не ходит) и исходящие вызовы `mpu
+    //     init`: Portainer, Loki и Kaiten (`docs/specs/init.md`). Списком
+    //     адресов это не выражается — их задаёт пользователь ключами
+    //     env-файла (`PORTAINER_URL`, `LOKI_URL`, `KITEN_BASE_URL`), а
+    //     `KITEN_BASE_URL` вдобавок имеет дефолт-адрес стенда. Сузить
+    //     обратно можно будет, если адреса когда-нибудь перестанут быть
+    //     настраиваемыми. Честно: smoke отличить широкое право от
+    //     `=127.0.0.1` не может — его фейковые серверы живут на петле;
+    //     наружу тесты не ходят намеренно (им нужен фейк, а не право);
     //   --allow-run                      открыватель файла (xdg-open,
-    //     open) и Python-реализация маршрута `legacy`. Списком имён это
+    //     open) и Python-реализация маршрута `legacy` — её же зовёт шаг 5
+    //     `mpu init` (`mpu telegram login` с проброшенным терминалом,
+    //     `docs/specs/init.md`). Списком имён это
     //     больше не выражается: путь к реализации — ключ конфига
     //     `mcp.legacy_bin`, он задаётся пользователем и заранее
     //     неизвестен. Барьером права и не были (см. CLAUDE.md, «Права
@@ -123,7 +127,7 @@
     // Пересборка записей маршрута `legacy` из слепка дерева: запускать
     // после его пересъёма. Правки записей руками тест не пропустит.
     "registry:sync": "deno run --allow-read --allow-write=src/registry/legacy_tree.ts scripts/gen-legacy-tree.ts && deno fmt src/registry/legacy_tree.ts",
-    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc --allow-env=MPU_XLSX,HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS --allow-run --allow-net=127.0.0.1 -o $HOME/.local/bin/mpu main.ts",
+    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь

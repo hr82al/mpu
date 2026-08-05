@@ -1,8 +1,8 @@
 /**
- * Резолв пути к .xlsx: первый непустой из `--file` → env `MPU_XLSX` →
- * конфиг-ключ `xlsx.default`; значение сначала пробуется как алиас,
- * если похоже на имя алиаса (контракт спеки xlsx.md). Модуль чистый:
- * все источники передаются параметрами.
+ * Резолв пути к .xlsx: первый непустой из `--file` → ключ `MPU_XLSX`
+ * env-файла → конфиг-ключ `xlsx.default`; значение сначала пробуется как
+ * алиас, если похоже на имя алиаса (контракт спеки xlsx.md). Модуль
+ * чистый: все источники передаются параметрами.
  */
 
 import { UsageError } from "../command/mod.ts";
@@ -48,7 +48,7 @@ export interface ResolveSources {
 
 const LABELS: Readonly<Record<SourceKind, string>> = {
   flag: "--file/-f",
-  env: "env MPU_XLSX",
+  env: "MPU_XLSX (env-файл)",
   config: "config xlsx.default",
 };
 
@@ -92,9 +92,9 @@ export function isAliasLike(value: string): boolean {
 export function pathNotSetError(): UsageError {
   return new UsageError(
     "путь к .xlsx не задан. Проверены (по порядку): --file/-f, " +
-      "env MPU_XLSX, config xlsx.default",
+      "MPU_XLSX (env-файл), config xlsx.default",
     {
-      hint: "--file <путь>, export MPU_XLSX=<путь> " +
+      hint: "--file <путь>, MPU_XLSX=<путь> в ~/.config/mpu/.env " +
         "или задай config xlsx.default",
     },
   );

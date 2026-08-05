@@ -28,7 +28,8 @@ const argsSchema = z.object({
     "диапазоны вида 'Лист!A1:C3', открытые 'Лист!A:A', голое имя листа",
   ),
   file: z.string().optional().describe(
-    "путь или алиас .xlsx; без флага: env MPU_XLSX, config xlsx.default",
+    "путь или алиас .xlsx; без флага: MPU_XLSX (env-файл), " +
+      "config xlsx.default",
   ),
   sheet: z.string().optional().describe(
     "префиксует диапазоны без «!»; без диапазонов — весь лист",

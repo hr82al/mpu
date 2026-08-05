@@ -2,16 +2,16 @@
  * HTTP-клиент Portainer API (`docs/specs/init.md`, шаг 2): список
  * environment'ов и список контейнеров внутри одного из них. Модуль не
  * знает о командах, кэш-БД или конфигурации — только о протоколе
- * Portainer/Docker и о том, как ограничить один вызов по времени.
+ * Portainer/Docker и о том, как назвать его отказ. Пределы времени и
+ * транспорт — общие для трёх клиентов init (`http.ts`).
  */
 
-import { Buffer } from "node:buffer";
-import { request as httpsRequest } from "node:https";
-
-/** Таймаут ожидания заголовков ответа; часы видны в `--help` init. */
-export const HEADERS_TIMEOUT_MS = 3_000;
-/** Таймаут всего вызова, включая чтение тела; часы видны в `--help` init. */
-export const TOTAL_TIMEOUT_MS = 10_000;
+import {
+  DEFAULT_TIMEOUTS,
+  firstLine,
+  httpGet,
+  type RequestTimeouts,
+} from "./http.ts";
 
 /** Environment Portainer: пара (base_url, id) адресует Docker API сервера. */
 export interface PortainerEndpoint {
@@ -41,26 +41,12 @@ export interface PortainerAccess {
 
 /**
  * Сбой обращения к Portainer API: сеть, таймаут одного из двух
- * пределов, HTTP-код вне 2xx. Причина — всегда одной строкой (первая
- * строка исходного сообщения): у нижележащих ошибок `fetch` бывает
- * многострочное сообщение со второй строкой-подсказкой, а `init.md`
- * печатает причину в stderr одной строкой (вердикт fix спеки).
+ * пределов, HTTP-код вне 2xx. Причина — всегда одной строкой (вердикт
+ * fix спеки; одной строкой её делает `http.ts`).
  */
 export class PortainerError extends Error {
   override name = "PortainerError";
 }
-
-/** Оба предела одного вызова — параметр, не всегда константа: см. `fetchPortainerJson`. */
-export interface RequestTimeouts {
-  readonly headersTimeoutMs: number;
-  readonly totalTimeoutMs: number;
-}
-
-/** Пределы по умолчанию: их числа названы в `--help` команды init. */
-export const DEFAULT_TIMEOUTS: RequestTimeouts = {
-  headersTimeoutMs: HEADERS_TIMEOUT_MS,
-  totalTimeoutMs: TOTAL_TIMEOUT_MS,
-};
 
 /** Форма `/api/endpoints` — берутся только используемые поля. */
 interface RawEndpoint {
@@ -113,148 +99,38 @@ export async function listContainers(
  * реальные три секунды продуктового предела (`ts/CLAUDE.md`: сон стеной
  * в тестах запрещён). Тем же швом пользуется тест молчащего endpoint'а
  * на уровне команды — через `runInit`.
- *
- * Один `AbortController` держит два таймера: `headersTimeoutMs` до
- * получения заголовков ответа, `totalTimeoutMs` на весь вызов вместе с
- * чтением тела. Таймер заголовков снимается сразу, как заголовки
- * пришли, — дальше вызов ограничен только общим пределом. Вызова без
- * таймаута не существует: оба параметра обязательны.
  */
 export async function fetchPortainerJson<T>(
   access: PortainerAccess,
   path: string,
   timeouts: RequestTimeouts = DEFAULT_TIMEOUTS,
 ): Promise<T> {
-  const url = new URL(`${access.baseUrl}${path}`);
-  const controller = new AbortController();
-  // Какой из двух таймеров сработал — читается в catch, чтобы причина
-  // ошибки называла свой предел, а не общий текст AbortError у fetch и
-  // node:https ("The operation was aborted" — не годится как причина).
-  // Гвард "уже прерван" обязателен: при пределах вплотную (например,
-  // 1ms/2ms) оба таймера успевают тикнуть до того, как catch дочитает
-  // timeoutMessage, и без гварда таймер, сработавший вторым, тихо
-  // переписывает причину первого — сообщение флапает между двумя
-  // текстами (было проверено гонкой в portainer_test.ts).
-  let timeoutMessage: string | undefined;
-  const headersTimer = setTimeout(() => {
-    if (controller.signal.aborted) return;
-    timeoutMessage =
-      `no response headers within ${timeouts.headersTimeoutMs}ms`;
-    controller.abort();
-  }, timeouts.headersTimeoutMs);
-  const totalTimer = setTimeout(() => {
-    if (controller.signal.aborted) return;
-    timeoutMessage = `no response within ${timeouts.totalTimeoutMs}ms`;
-    controller.abort();
-  }, timeouts.totalTimeoutMs);
   try {
-    const { status, text } = await send(
-      url,
-      { "X-API-Key": access.apiKey },
-      access.verifyTls,
-      controller.signal,
-      () => clearTimeout(headersTimer),
-    );
-    if (status < 200 || status >= 300) {
-      // Текст `HTTP <код>` — дословный формат проекта реализации (раздел
-      // «Клиент Portainer»), не общий стиль ошибок проекта (там — с
+    const response = await httpGet(new URL(`${access.baseUrl}${path}`), {
+      headers: { "X-API-Key": access.apiKey },
+      timeouts,
+      insecure: !access.verifyTls,
+    });
+    if (response.status < 200 || response.status >= 300) {
+      // Текст `HTTP <код>` — дословная форма причины из спеки
+      // (`init.md`, шаг 2), не общий стиль ошибок проекта (там — с
       // маленькой буквы): `HTTP` здесь имя протокола, а не первое слово
       // предложения, как и заглавная буква в аналогичном исключении
       // `env/mod.ts` (`require`, комментарий рядом).
-      throw new PortainerError(`HTTP ${status}`);
+      throw new PortainerError(`HTTP ${response.status}`);
     }
     // Форма ответа фиксирована протоколом Portainer/Docker (`init.md`,
     // шаг 2): поля берутся по контракту внешней системы, а не заново
     // валидируются здесь — рантайм-схема на два эндпоинта добавила бы
     // ветки, которые нечем проверить (YAGNI), не приблизив к задаче.
-    return JSON.parse(text) as T;
+    return JSON.parse(response.text) as T;
   } catch (err) {
     if (err instanceof PortainerError) throw err;
-    const message = err instanceof Error ? err.message : String(err);
-    throw new PortainerError(timeoutMessage ?? firstLine(message), {
-      cause: err,
-    });
-  } finally {
-    clearTimeout(headersTimer);
-    clearTimeout(totalTimer);
-  }
-}
-
-/**
- * Первая строка сообщения об ошибке. Экспортирована для прямого теста
- * многострочного случая: у `fetch` он воспроизводим не в каждой среде
- * (в этом дереве не увиделся живьём ни разу — см. `portainer_test.ts`),
- * а инвариант «причина одной строкой» обязан быть проверен собственным
- * тестом, а не только косвенно через happy path.
- */
-export function firstLine(message: string): string {
-  const end = message.indexOf("\n");
-  return end === -1 ? message : message.slice(0, end);
-}
-
-interface HttpResult {
-  readonly status: number;
-  readonly text: string;
-}
-
-/**
- * Транспорт запроса: `fetch` во всех случаях, кроме отключённой
- * проверки TLS на `https:` — там у Deno нет клиентской опции, гасящей
- * проверку сертификата (`Deno.createHttpClient` её не имеет,
- * `NODE_TLS_REJECT_UNAUTHORIZED` на `fetch` не влияет — проверено в
- * этом дереве). Единственный работающий путь — `node:https` с
- * `rejectUnauthorized: false`. `http:` эту развилку не читает вовсе:
- * проверять там нечего.
- */
-async function send(
-  url: URL,
-  headers: Readonly<Record<string, string>>,
-  verifyTls: boolean,
-  signal: AbortSignal,
-  onHeaders: () => void,
-): Promise<HttpResult> {
-  if (url.protocol === "https:" && !verifyTls) {
-    return await sendInsecure(url, headers, signal, onHeaders);
-  }
-  const response = await fetch(url, { headers, signal });
-  onHeaders();
-  return { status: response.status, text: await response.text() };
-}
-
-function sendInsecure(
-  url: URL,
-  headers: Readonly<Record<string, string>>,
-  signal: AbortSignal,
-  onHeaders: () => void,
-): Promise<HttpResult> {
-  return new Promise((resolve, reject) => {
-    const req = httpsRequest(
-      {
-        hostname: url.hostname,
-        port: url.port === "" ? 443 : Number(url.port),
-        path: `${url.pathname}${url.search}`,
-        method: "GET",
-        headers,
-        rejectUnauthorized: false,
-        signal,
-      },
-      (res) => {
-        onHeaders();
-        const chunks: Buffer[] = [];
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
-        res.on("end", () =>
-          resolve({
-            // `statusCode` типизирован `number | undefined`, потому что
-            // `IncomingMessage` общий для клиента и сервера (у серверного
-            // запроса его нет); здесь ответ всегда клиентский, и к
-            // моменту события `end` статус уже разобран.
-            status: res.statusCode!,
-            text: Buffer.concat(chunks).toString("utf-8"),
-          }));
-        res.on("error", reject);
-      },
+    // Сюда попадают отказ транспорта (`HttpCallError`, причина уже одной
+    // строкой) и разбор тела, не являющегося JSON.
+    throw new PortainerError(
+      firstLine(err instanceof Error ? err.message : String(err)),
+      { cause: err },
     );
-    req.on("error", reject);
-    req.end();
-  });
+  }
 }

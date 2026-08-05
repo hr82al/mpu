@@ -290,8 +290,21 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
         stderr: decoder.decode(output.stderr),
       };
     },
+    runLegacyInteractive: async (bin, args) => {
+      await requireExecutable(bin);
+      // Все три потока — `inherit`: шаг 5 `mpu init` отдаёт терминал
+      // подпроцессу целиком (интерактивный вход), поэтому здесь нечего
+      // собирать и нечего переносить — только дождаться кода возврата.
+      const child = new Deno.Command(bin, {
+        args: [...args],
+        stdin: "inherit",
+        stdout: "inherit",
+        stderr: "inherit",
+      }).spawn();
+      const status = await child.status;
+      return status.code;
+    },
     envFile: makeEnvFile(
-      (name) => Deno.env.get(name),
       envPath === undefined ? undefined : makeEnvFileStore(envPath),
     ),
     currentShell: () => detectShell(),

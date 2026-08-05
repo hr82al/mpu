@@ -10,7 +10,7 @@ import { renderLsLong, renderLsPlain } from "./render.ts";
 const argsSchema = z.object({
   file: z.string().optional().describe(
     "путь или алиас .xlsx; без флага источники по порядку: " +
-      "env MPU_XLSX, config xlsx.default",
+      "MPU_XLSX (env-файл), config xlsx.default",
   ),
   long: z.boolean().default(false).describe(
     "колонки: имя, строки×колонки, #индекс (0-based)",

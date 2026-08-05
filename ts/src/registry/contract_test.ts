@@ -8,6 +8,7 @@
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { commands, findCommand } from "./mod.ts";
+import { openCacheDb as openStoreDb } from "../store/mod.ts";
 import { type Command, type CommandIo, UsageError } from "../command/mod.ts";
 
 /**
@@ -61,7 +62,12 @@ const CASES: readonly CommandCase[] = [
           value: "sample.xlsx",
           used: true,
         },
-        { source: "env", label: "env MPU_XLSX", value: null, used: false },
+        {
+          source: "env",
+          label: "MPU_XLSX (env-файл)",
+          value: null,
+          used: false,
+        },
         {
           source: "config",
           label: "config xlsx.default",
@@ -92,6 +98,37 @@ const CASES: readonly CommandCase[] = [
     // Значение синтетическое: настоящий токен в образцы не попадает.
     sampleResult: { headers: { Authorization: "Bearer проба-токена" } },
   },
+  {
+    path: "init",
+    argv: ["--dry-run"],
+    sampleResult: {
+      portainerUrl: "https://portainer.example.com",
+      containers: [{
+        serverNumber: 1,
+        containerName: "sl-1-cli",
+        state: "running",
+        endpointId: 1,
+        endpointName: "prod",
+      }],
+      otherCount: 2,
+      reset: null,
+      write: null,
+      loki: { skipped: null, hosts: 4, pairs: 6 },
+      kaiten: {
+        skipped: null,
+        spaces: 2,
+        boards: 3,
+        lanes: 7,
+        columns: null,
+        roles: 2,
+        skippedBoards: [{
+          boardId: 502,
+          reason: "kaiten GET /boards/502/columns -> 500: boom",
+        }],
+      },
+      telegram: { skipped: null },
+    },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {
@@ -106,7 +143,13 @@ Deno.test("инвариант 1: исполнение не печатает", as
     for (const testCase of CASES) {
       const command = mustFind(testCase.path);
       const captured = await withCapturedOutput(async () => {
-        await command.invoke(testCase.argv, makeIo(dir));
+        try {
+          await command.invoke(testCase.argv, makeIo(dir));
+        } catch {
+          // Инвариант — про печать, а не про успех: команда, которой в
+          // тестовом окружении не хватает внешней системы (`init` без
+          // конфигурации Portainer), обязана молчать и в отказе.
+        }
       });
       assertEquals(
         captured,
@@ -375,10 +418,15 @@ function makeIo(dir: string): CommandIo {
     runLegacy: () => {
       throw new Error("legacy must not be touched");
     },
+    runLegacyInteractive: () => {
+      throw new Error("legacy must not be touched");
+    },
     envFile: {
-      get: () => {
-        throw new Error("envFile must not be touched");
-      },
+      // Резолв пути xlsx (`settings.ts`) зовёт `get` безусловно ещё до
+      // проверки источников — молчаливое отсутствие ключа здесь то же
+      // самое, чем был `env: () => undefined` до переезда MPU_XLSX в
+      // env-файл (2026-08-05, env-file.md).
+      get: () => undefined,
       require: () => {
         throw new Error("envFile must not be touched");
       },
@@ -401,11 +449,13 @@ function makeIo(dir: string): CommandIo {
       Deno.writeTextFile(`${dir}/config.json`, text, { mode: 0o600 }),
     // Запуск открывателя в обходе не нужен: образец зовёт open с --print.
     launchOpener: () => false,
-    openCacheDb: () => {
-      throw new Error("openCacheDb must not be touched");
-    },
-    progress: () => {
-      throw new Error("progress must not be touched");
-    },
+    // Настоящая кэш-БД во временном каталоге: `mpu init` открывает её
+    // и создаёт схему первым же шагом, до всякой проверки конфигурации.
+    openCacheDb: () => openStoreDb(`${dir}/mpu.db`),
+    // Порт диагностики хода исполнения — не приёмник вывода: контракт
+    // разрешает командам писать в него, печатает точка входа
+    // (`platform/command-contract.md`, инвариант 1). Поэтому здесь он
+    // молча глотает строки, а не падает.
+    progress: () => {},
   };
 }

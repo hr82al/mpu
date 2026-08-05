@@ -81,9 +81,18 @@ const INSTALL_COMPLETION = "--install-completion";
 /** Исполняет вызов CLI и возвращает код завершения процесса. */
 export async function runCli(
   argv: readonly string[],
-  io: CommandIo,
+  baseIo: CommandIo,
   output: Output,
 ): Promise<number> {
+  // Служебные строки хода исполнения печатает точка входа, а не команда
+  // (`platform/command-contract.md`, инвариант 1): команда отдаёт их
+  // портом `progress`, а куда они попадут — решается здесь, рядом с
+  // печатью результата и ошибок. У второй точки входа (MCP-сервер) свой
+  // приёмник — тот, что собрал `makeDenoIo`.
+  const io: CommandIo = {
+    ...baseIo,
+    progress: (line) => output.stderr(`${line}\n`),
+  };
   const mode = completionMode(io.env(COMPLETE_ENV));
   if (mode !== undefined) {
     // Режим дополнения: печатаем варианты и молчим обо всём прочем —

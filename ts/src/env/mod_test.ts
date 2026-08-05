@@ -41,27 +41,42 @@ Deno.test("путь: XDG_CONFIG_HOME, HOME, ни того ни другого", 
   }
 });
 
-Deno.test("приоритет: окружение процесса побеждает файл", () => {
-  const { store } = fakeStore("A=from-file\nB=from-file\n");
-  const envFile = makeEnvFile(
-    (n) => (n === "A" ? "from-env" : undefined),
-    store,
-  );
-  assertEquals(envFile.get("A"), "from-env");
-  assertEquals(envFile.get("B"), "from-file");
-  assertEquals(envFile.get("C"), undefined);
-});
+Deno.test("инвариант: окружение процесса на get не влияет", async (t) => {
+  // Решение 2026-08-05 (env-file.md, «Ввод/вывод», «Известные
+  // отклонения»): слой читает только файл, право бинаря на чтение
+  // окружения конфиг-ключей не покрывает. Обе половины инварианта
+  // проверяются через настоящий Deno.env — иначе подмена читалки в
+  // самом тесте могла бы молча спрятать регресс.
+  await t.step("ключ и в окружении, и в файле — побеждает файл", () => {
+    const key = "MPU_TEST_ENV_FILE_BOTH";
+    const previous = Deno.env.get(key);
+    Deno.env.set(key, "from-process-env");
+    try {
+      const { store } = fakeStore(`${key}=from-file\n`);
+      assertEquals(makeEnvFile(store).get(key), "from-file");
+    } finally {
+      if (previous === undefined) Deno.env.delete(key);
+      else Deno.env.set(key, previous);
+    }
+  });
 
-Deno.test("приоритет: пустая переменная окружения побеждает и считается пустой", () => {
-  const { store } = fakeStore("A=from-file\n");
-  const envFile = makeEnvFile((n) => (n === "A" ? "" : undefined), store);
-  assertEquals(envFile.get("A"), "");
-  assertThrows(() => envFile.require("A"), DomainError);
+  await t.step("ключ только в окружении — не виден слою", () => {
+    const key = "MPU_TEST_ENV_ONLY_PROCESS";
+    const previous = Deno.env.get(key);
+    Deno.env.set(key, "from-process-env");
+    try {
+      const { store } = fakeStore("");
+      assertEquals(makeEnvFile(store).get(key), undefined);
+    } finally {
+      if (previous === undefined) Deno.env.delete(key);
+      else Deno.env.set(key, previous);
+    }
+  });
 });
 
 Deno.test("файл читается ровно один раз за процесс", () => {
   const { store, reads } = fakeStore("A=1\nB=2\n");
-  const envFile = makeEnvFile(() => undefined, store);
+  const envFile = makeEnvFile(store);
   envFile.get("A");
   envFile.get("B");
   envFile.get("нет такого");
@@ -70,22 +85,25 @@ Deno.test("файл читается ровно один раз за проце�
 
 Deno.test("отсутствующего файла нет — не ошибка", () => {
   const { store } = fakeStore(undefined);
-  assertEquals(makeEnvFile(() => undefined, store).get("A"), undefined);
+  assertEquals(makeEnvFile(store).get("A"), undefined);
 });
 
-Deno.test("require: возвращает значение из окружения или файла", () => {
+Deno.test("require: возвращает значение из файла", () => {
   const { store } = fakeStore("A=1\n");
-  const envFile = makeEnvFile(
-    (n) => (n === "B" ? "from-env" : undefined),
-    store,
-  );
+  const envFile = makeEnvFile(store);
   assertEquals(envFile.require("A"), "1");
-  assertEquals(envFile.require("B"), "from-env");
+});
+
+Deno.test("require: пустое значение в файле равнозначно отсутствию", () => {
+  const { store } = fakeStore("A=\n");
+  const envFile = makeEnvFile(store);
+  assertEquals(envFile.get("A"), "");
+  assertThrows(() => envFile.require("A"), DomainError);
 });
 
 Deno.test("require: текст ошибки дословно из спеки", () => {
   const { store } = fakeStore("");
-  const envFile = makeEnvFile(() => undefined, store);
+  const envFile = makeEnvFile(store);
   const err = assertThrows(() => envFile.require("PG_HOST"), DomainError);
   assertEquals(
     err.message,
@@ -95,7 +113,7 @@ Deno.test("require: текст ошибки дословно из спеки", (
 });
 
 Deno.test("require: без файла хранилища — путь-дефолт в тексте ошибки", () => {
-  const envFile = makeEnvFile(() => undefined, undefined);
+  const envFile = makeEnvFile(undefined);
   const err = assertThrows(() => envFile.require("PG_HOST"), DomainError);
   assertEquals(
     err.message,
@@ -106,21 +124,21 @@ Deno.test("require: без файла хранилища — путь-дефол
 
 Deno.test("set: записывает файл и действует немедленно", async () => {
   const { store, written } = fakeStore("KEEP=1\n");
-  const envFile = makeEnvFile(() => undefined, store);
+  const envFile = makeEnvFile(store);
   await envFile.set("TOKEN", "abc");
   assertEquals(written, ["KEEP=1\nTOKEN=abc\n"]);
   assertEquals(envFile.get("TOKEN"), "abc");
 });
 
 Deno.test("set: без файла хранилища — текст ошибки дословно из спеки", async () => {
-  const envFile = makeEnvFile(() => undefined, undefined);
+  const envFile = makeEnvFile(undefined);
   const err = await assertRejects(() => envFile.set("A", "1"), DomainError);
   assertEquals(err.message, "cannot write env file: no config directory");
 });
 
 Deno.test("set: непригодное значение — текст ошибки дословно из спеки", async () => {
   const { store, written } = fakeStore("A=1\n");
-  const envFile = makeEnvFile(() => undefined, store);
+  const envFile = makeEnvFile(store);
   const err = await assertRejects(() => envFile.set("A", "a'b"), DomainError);
   assertEquals(written, []);
   // Сверка целиком, а не подстрокой: раз всё сообщение сверяется дословно,
@@ -140,7 +158,7 @@ Deno.test("set: дубликат ключа в файле — текст оши�
   // спеки «записанное значение действует немедленно»), поэтому `set`
   // обязан отказать раньше, чем `store.write` тронет диск.
   const { store, written } = fakeStore("PG_PORT=5432\nPG_PORT=6432\n");
-  const envFile = makeEnvFile(() => undefined, store);
+  const envFile = makeEnvFile(store);
   const err = await assertRejects(
     () => envFile.set("PG_PORT", "7777"),
     DomainError,
@@ -158,7 +176,7 @@ Deno.test("set: дубликат ключа в файле — текст оши�
 
 Deno.test("set: обычный файл без дубликатов — пишется как раньше", async () => {
   const { store, written } = fakeStore("A=1\nB=2\n");
-  const envFile = makeEnvFile(() => undefined, store);
+  const envFile = makeEnvFile(store);
   await envFile.set("A", "3");
   assertEquals(written, ["A=3\nB=2\n"]);
   assertEquals(envFile.get("A"), "3");

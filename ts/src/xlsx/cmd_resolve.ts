@@ -33,7 +33,7 @@ export const resolveCommand = defineCommand({
   summary: "диагностика резолва пути к книге",
   usage: "mpu xlsx resolve [-f FILE]",
   help: `Показывает три источника пути в порядке приоритета
-(--file/-f, env MPU_XLSX, config xlsx.default), их значения и
+(--file/-f, MPU_XLSX (env-файл), config xlsx.default), их значения и
 победителя. Значение-алиас разворачивается в путь алиаса.
 
 Структурный результат отдаётся всегда, в том числе когда путь не

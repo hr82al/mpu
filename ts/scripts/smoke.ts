@@ -20,6 +20,8 @@ import { VERSION } from "../src/version.ts";
 import { REQUIRES_INTERACTION } from "../src/mcp/tool.ts";
 import { PROTOCOL_VERSION } from "../src/mcp/jsonrpc.ts";
 import { DEFAULT_LEGACY_BIN } from "../src/legacy/mod.ts";
+import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/init/http.ts";
+import { WARMUP_BUDGET_MS } from "../src/init/kaiten.ts";
 
 /**
  * Значения `_MPU_COMPLETE` и переменные, которые подставляет shell.
@@ -271,18 +273,109 @@ function checks(subject: Subject): readonly Check[] {
         assert(text.includes("_mpu_completion"), `скрипт не дописан в ${rc}`);
       }
     }],
-    ["env-слой MPU_XLSX", async () => {
-      const book = `${subject.home}/book.xlsx`;
-      await Deno.writeTextFile(book, "");
-      const outcome = await runOk(subject, ["xlsx", "resolve", "--json"], {
-        MPU_XLSX: book,
-      });
-      // Форму результата объявляет схема команды; здесь важен только
-      // победивший источник — что env вообще прочитан.
-      const result = JSON.parse(outcome.stdout) as {
-        resolved: { source: string } | null;
-      };
-      assertEquals(result.resolved?.source, "env", "путь пришёл не из env");
+    [
+      "MPU_XLSX: ключ env-файла читается, окружение процесса — нет",
+      async () => {
+        const book = `${subject.home}/book.xlsx`;
+        await Deno.writeTextFile(book, "");
+        const envPath = `${subject.home}/.config/mpu/.env`;
+        await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+          recursive: true,
+        });
+
+        await Deno.writeTextFile(envPath, `MPU_XLSX=${book}\n`);
+        const fromFile = await runOk(subject, ["xlsx", "resolve", "--json"]);
+        // Форму результата объявляет схема команды; здесь важен только
+        // победивший источник — что ключ env-файла вообще прочитан.
+        const fileResult = JSON.parse(fromFile.stdout) as {
+          resolved: { source: string } | null;
+        };
+        assertEquals(
+          fileResult.resolved?.source,
+          "env",
+          "путь пришёл не из env-файла",
+        );
+
+        // Обратный случай: та же книга, ключа в env-файле нет, но он
+        // экспортирован в окружение процесса — путь не резолвится вовсе
+        // (других источников тоже нет). Это и есть smoke-подтверждение
+        // того, что окружение процесса больше не читается.
+        await Deno.remove(envPath);
+        const fromProcessEnv = await runOk(subject, [
+          "xlsx",
+          "resolve",
+          "--json",
+        ], {
+          MPU_XLSX: book,
+        });
+        const envResult = JSON.parse(fromProcessEnv.stdout) as {
+          resolved: { source: string } | null;
+        };
+        assertEquals(
+          envResult.resolved,
+          null,
+          "путь резолвился из окружения процесса вопреки его исключению из чтения",
+        );
+      },
+    ],
+    ["init: справка собранного бинаря несёт числа пределов", async () => {
+      const outcome = await runOk(subject, ["init", "--help"]);
+      for (
+        const value of [HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS, WARMUP_BUDGET_MS]
+      ) {
+        assert(
+          outcome.stdout.includes(String(value)),
+          `в справке init нет числа ${value}`,
+        );
+      }
+    }],
+    // Единственная проверка, поднимающая сеть: она же и единственная,
+    // которой права `--allow-net` и `--allow-write=$HOME/.config/mpu`
+    // нужны одновременно — бинарь ходит в Portainer и заводит кэш-БД.
+    // Конфигурация приходит только из env-файла: окружение подпроцесса
+    // очищено (`clearEnv`), в нём есть один HOME.
+    ["init: discovery через фейковый Portainer и кэш-БД в HOME", async () => {
+      const server = Deno.serve(
+        { port: 0, hostname: "127.0.0.1", onListen: () => {} },
+        (req) => {
+          const url = new URL(req.url);
+          if (url.pathname === "/api/endpoints") {
+            return Response.json([{ Id: 1, Name: "prod" }]);
+          }
+          return Response.json([{
+            Id: "c1",
+            Names: ["/sl-1-cli"],
+            State: "running",
+            Image: "img",
+          }]);
+        },
+      );
+      try {
+        const envPath = `${subject.home}/.config/mpu/.env`;
+        await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+          recursive: true,
+        });
+        await Deno.writeTextFile(
+          envPath,
+          "PORTAINER_API_KEY=proba-kluch\n" +
+            `PORTAINER_URL=http://127.0.0.1:${server.addr.port}\n`,
+        );
+        const outcome = await runOk(subject, ["init", "--dry-run"]);
+        assert(
+          outcome.stdout.includes("sl-1: sl-1-cli [running]"),
+          `сводка не та: ${JSON.stringify(outcome.stdout)}`,
+        );
+        assert(
+          outcome.stderr.includes("# bootstrap: схема в"),
+          `нет строки шага 1: ${JSON.stringify(outcome.stderr)}`,
+        );
+        // Файл кэш-БД заведён самим бинарём — это и есть проверка права
+        // на запись в конфиг-каталог для нового файла.
+        await Deno.stat(`${subject.home}/.config/mpu/mpu.db`);
+        await Deno.remove(envPath);
+      } finally {
+        await server.shutdown();
+      }
     }],
     ["маршрут legacy", async () => {
       const outcome = await runOk(subject, ["search", "--help"]);

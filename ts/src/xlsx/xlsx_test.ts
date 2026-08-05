@@ -1,9 +1,22 @@
 import { assertEquals, assertMatch, assertStringIncludes } from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
-import type { CommandIo } from "../command/mod.ts";
+import type { CommandIo, EnvFile } from "../command/mod.ts";
 import { makeDenoIo } from "../runtime/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { xlsxCommands } from "./mod.ts";
+
+/** Заглушка env-файла: значения из карты, `require`/`set` не ожидаются. */
+function envFileFake(values: Readonly<Record<string, string>>): EnvFile {
+  return {
+    get: (name) => values[name],
+    require: () => {
+      throw new Error("envFile.require must not be touched");
+    },
+    set: () => {
+      throw new Error("envFile.set must not be touched");
+    },
+  };
+}
 
 /** Плейсхолдер снапшот-каталога в golden-эталонах спеки. */
 const SNAPSHOT_DIR = "{{SNAPSHOT_DIR}}";
@@ -64,6 +77,7 @@ function makeDirCli(
     readConfigStore: real.readConfigStore,
     writeConfigStore: real.writeConfigStore,
     env: () => undefined,
+    envFile: envFileFake({}),
     cwd: () => dir,
     launchOpener: () => {
       throw new Error("opener must not be touched");
@@ -390,9 +404,9 @@ Deno.test("get: --sheet, --from, stdin, дедупликация", async (t) => 
 
 Deno.test("резолв пути: env и config, файл не найден", async (t) => {
   await withSampleDir(async (dir) => {
-    await t.step("env MPU_XLSX", async () => {
+    await t.step("MPU_XLSX (env-файл)", async () => {
       const cli = makeDirCli(dir, {
-        env: (name) => name === "MPU_XLSX" ? `${dir}/sample.xlsx` : undefined,
+        envFile: envFileFake({ MPU_XLSX: `${dir}/sample.xlsx` }),
       });
       assertEquals(await cli.run("ls"), 0);
       assertEquals(cli.stdout(), "Данные\nПустой\n");
@@ -418,8 +432,8 @@ Deno.test("резолв пути: env и config, файл не найден", as
       assertEquals(
         cli.stderr(),
         "mpu xlsx: путь к .xlsx не задан. Проверены (по порядку): " +
-          "--file/-f, env MPU_XLSX, config xlsx.default; попробуй: " +
-          "--file <путь>, export MPU_XLSX=<путь> " +
+          "--file/-f, MPU_XLSX (env-файл), config xlsx.default; " +
+          "попробуй: --file <путь>, MPU_XLSX=<путь> в ~/.config/mpu/.env " +
           "или задай config xlsx.default\n",
       );
     });

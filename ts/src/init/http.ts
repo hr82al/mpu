@@ -1,0 +1,207 @@
+/**
+ * Общая часть HTTP-вызовов команды `mpu init` (`docs/specs/init.md`):
+ * один GET под двумя пределами времени и причина отказа одной строкой.
+ * Шов один на трёх клиентов — Portainer (`portainer.ts`), Loki
+ * (`loki.ts`) и Kaiten (`kaiten.ts`), — поэтому пределы и отмена живут
+ * здесь, а не переписываются в каждом.
+ *
+ * О самих протоколах модуль не знает: заголовки запроса, разбор тела и
+ * трактовка кода ответа — дело клиента.
+ */
+
+import { Buffer } from "node:buffer";
+import { request as httpsRequest } from "node:https";
+
+/** Предел ожидания заголовков ответа; число видно в `--help` init. */
+export const HEADERS_TIMEOUT_MS = 3_000;
+/** Предел всего вызова, включая чтение тела; число видно в `--help` init. */
+export const TOTAL_TIMEOUT_MS = 10_000;
+
+/** Оба предела одного вызова — параметр, не всегда константа: см. `httpGet`. */
+export interface RequestTimeouts {
+  readonly headersTimeoutMs: number;
+  readonly totalTimeoutMs: number;
+}
+
+/** Пределы по умолчанию: их числа названы в `--help` команды init. */
+export const DEFAULT_TIMEOUTS: RequestTimeouts = {
+  headersTimeoutMs: HEADERS_TIMEOUT_MS,
+  totalTimeoutMs: TOTAL_TIMEOUT_MS,
+};
+
+/**
+ * Сбой самого вызова: сеть, разрыв, срабатывание одного из двух
+ * пределов. Код ответа сбоем не считается — его трактует клиент, у
+ * каждого своя форма сообщения (`init.md`, шаг 2; `kaiten-http.md`).
+ *
+ * Причина — всегда одной строкой (вердикт fix `init.md`): у ошибок
+ * `fetch` бывает многострочное сообщение со второй строкой-подсказкой,
+ * а спека печатает причину одной строкой.
+ */
+export class HttpCallError extends Error {
+  override name = "HttpCallError";
+}
+
+/** Ответ как есть: код, тело текстом и заголовок паузы повтора. */
+export interface HttpResponse {
+  readonly status: number;
+  readonly text: string;
+  /** Значение `Retry-After` (контракт 429 Kaiten); заголовка нет — null. */
+  readonly retryAfter: string | null;
+}
+
+/** Что клиент добавляет к вызову сверх адреса. */
+export interface GetOptions {
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly timeouts?: RequestTimeouts;
+  /**
+   * Отключает проверку TLS-сертификата (`PORTAINER_VERIFY_TLS`,
+   * `init.md`). Читается только для `https:` — у `http:` проверять
+   * нечего.
+   */
+  readonly insecure?: boolean;
+}
+
+/**
+ * GET по адресу под двумя пределами времени. Пределы — параметр со
+ * значением по умолчанию, а не константа внутри: тест молчащего сервера
+ * обязан укладываться в доли секунды, а не ждать реальные три секунды
+ * продуктового предела (`ts/CLAUDE.md`: сон стеной в тестах запрещён).
+ *
+ * Один `AbortController` держит оба таймера: `headersTimeoutMs` до
+ * получения заголовков ответа, `totalTimeoutMs` на весь вызов вместе с
+ * чтением тела. Таймер заголовков снимается, как только заголовки
+ * пришли, — дальше вызов ограничен только общим пределом. Вызова без
+ * предела не существует: оба значения обязательны.
+ *
+ * Переменные прокси в вызове не участвуют: у собранного бинаря нет
+ * права читать их (`deno.jsonc`, список `--allow-env`), поэтому
+ * требование `platform/loki-http.md` выполнено по построению.
+ */
+export async function httpGet(
+  url: URL,
+  options: GetOptions = {},
+): Promise<HttpResponse> {
+  const timeouts = options.timeouts ?? DEFAULT_TIMEOUTS;
+  const headers = options.headers ?? {};
+  const controller = new AbortController();
+  // Какой из двух таймеров сработал — читается в catch, чтобы причина
+  // называла свой предел, а не общий текст AbortError у fetch и
+  // node:https («The operation was aborted» — не годится как причина).
+  // Гвард «уже прерван» обязателен: при пределах вплотную (например,
+  // 1ms/2ms) оба таймера успевают тикнуть до того, как catch дочитает
+  // timeoutMessage, и без гварда таймер, сработавший вторым, тихо
+  // переписывает причину первого — сообщение флапает между двумя
+  // текстами (было проверено гонкой в portainer_test.ts).
+  let timeoutMessage: string | undefined;
+  const headersTimer = setTimeout(() => {
+    if (controller.signal.aborted) return;
+    timeoutMessage =
+      `no response headers within ${timeouts.headersTimeoutMs}ms`;
+    controller.abort();
+  }, timeouts.headersTimeoutMs);
+  const totalTimer = setTimeout(() => {
+    if (controller.signal.aborted) return;
+    timeoutMessage = `no response within ${timeouts.totalTimeoutMs}ms`;
+    controller.abort();
+  }, timeouts.totalTimeoutMs);
+  try {
+    return await send(
+      url,
+      headers,
+      options.insecure === true,
+      controller.signal,
+      () => clearTimeout(headersTimer),
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new HttpCallError(timeoutMessage ?? firstLine(message), {
+      cause: err,
+    });
+  } finally {
+    clearTimeout(headersTimer);
+    clearTimeout(totalTimer);
+  }
+}
+
+/**
+ * Первая строка сообщения об ошибке. Экспортирована для прямого теста
+ * многострочного случая: у `fetch` он воспроизводим не в каждой среде
+ * (в этом дереве не увиделся живьём ни разу — см. `portainer_test.ts`),
+ * а инвариант «причина одной строкой» обязан быть проверен собственным
+ * тестом, а не только косвенно через happy path.
+ */
+export function firstLine(message: string): string {
+  const end = message.indexOf("\n");
+  return end === -1 ? message : message.slice(0, end);
+}
+
+/**
+ * Транспорт запроса: `fetch` во всех случаях, кроме отключённой
+ * проверки TLS на `https:` — там у Deno нет клиентской опции, гасящей
+ * проверку сертификата (`Deno.createHttpClient` её не имеет,
+ * `NODE_TLS_REJECT_UNAUTHORIZED` на `fetch` не влияет — проверено в
+ * этом дереве). Единственный работающий путь — `node:https` с
+ * `rejectUnauthorized: false`.
+ */
+async function send(
+  url: URL,
+  headers: Readonly<Record<string, string>>,
+  insecure: boolean,
+  signal: AbortSignal,
+  onHeaders: () => void,
+): Promise<HttpResponse> {
+  if (url.protocol === "https:" && insecure) {
+    return await sendInsecure(url, headers, signal, onHeaders);
+  }
+  const response = await fetch(url, { headers, signal });
+  onHeaders();
+  return {
+    status: response.status,
+    text: await response.text(),
+    retryAfter: response.headers.get("retry-after"),
+  };
+}
+
+function sendInsecure(
+  url: URL,
+  headers: Readonly<Record<string, string>>,
+  signal: AbortSignal,
+  onHeaders: () => void,
+): Promise<HttpResponse> {
+  return new Promise((resolve, reject) => {
+    const req = httpsRequest(
+      {
+        hostname: url.hostname,
+        port: url.port === "" ? 443 : Number(url.port),
+        path: `${url.pathname}${url.search}`,
+        method: "GET",
+        headers,
+        rejectUnauthorized: false,
+        signal,
+      },
+      (res) => {
+        onHeaders();
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () =>
+          resolve({
+            // `statusCode` типизирован `number | undefined`, потому что
+            // `IncomingMessage` общий для клиента и сервера (у серверного
+            // запроса его нет); здесь ответ всегда клиентский, и к
+            // моменту события `end` статус уже разобран.
+            status: res.statusCode!,
+            text: Buffer.concat(chunks).toString("utf-8"),
+            // Значение заголовка приходит строкой; списком — только у
+            // тех заголовков, которые повторяются (`set-cookie`).
+            retryAfter: typeof res.headers["retry-after"] === "string"
+              ? res.headers["retry-after"]
+              : null,
+          }));
+        res.on("error", reject);
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}

@@ -13,11 +13,16 @@ import type { LegacyCommand } from "../legacy/mod.ts";
 import type { Manifest } from "../mcp/legacy_tools.ts";
 
 /**
- * Имена, которых в списке маршрута `legacy` быть не должно: `xlsx`
- * реализован командами контракта; `help` и `version` — поверхности
- * точки входа (`platform/registry.md`).
+ * Имена, которых в списке маршрута `legacy` быть не должно: `xlsx` и
+ * `init` реализованы командами контракта; `help` и `version` —
+ * поверхности точки входа (`platform/registry.md`).
  */
-export const NOT_LEGACY: readonly string[] = ["xlsx", "help", "version"];
+export const NOT_LEGACY: readonly string[] = [
+  "xlsx",
+  "init",
+  "help",
+  "version",
+];
 
 /** Запись реестра не нашлась в слепке — дамп снят не полностью. */
 export class TreeSourceError extends Error {

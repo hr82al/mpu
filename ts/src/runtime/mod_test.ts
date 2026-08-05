@@ -186,6 +186,30 @@ Deno.test("подпроцесс legacy: потоки и код возврата 
   });
 });
 
+Deno.test("подпроцесс с проброшенным терминалом: только код возврата", async (t) => {
+  // Шаг 5 `mpu init` отдаёт терминал подпроцессу целиком, поэтому здесь
+  // проверяется ровно то, что видит вызывающий: код возврата и класс
+  // ошибки несостоявшегося запуска. Вывод подпроцесса не собирается —
+  // он идёт пользователю мимо нас.
+  const io = makeDenoIo(undefined);
+
+  await t.step("нулевой код", async () => {
+    assertEquals(await io.runLegacyInteractive("/bin/echo", []), 0);
+  });
+
+  await t.step("ненулевой код проходит как есть", async () => {
+    assertEquals(await io.runLegacyInteractive("/bin/false", []), 1);
+  });
+
+  await t.step("нет бинаря — NotFoundIoError, а не сырая ошибка", async () => {
+    await assertRejects(
+      () => io.runLegacyInteractive("/bin/net-takogo-binarya", []),
+      NotFoundIoError,
+      "cannot run",
+    );
+  });
+});
+
 Deno.test("shell определяется по дереву предков, а не по SHELL", () => {
   const io = makeDenoIo(undefined);
   const shell = io.currentShell();
@@ -275,7 +299,7 @@ Deno.test("env-файл: сбой rename убирает временный фа�
   }
 });
 
-Deno.test("makeDenoIo: envFile собран из настоящего пути, приоритет окружения не инвертирован", async () => {
+Deno.test("makeDenoIo: envFile собран из настоящего пути, окружение процесса не читается", async () => {
   // Стык «путь → store → политика» (`envFilePath` → `makeEnvFileStore` →
   // `makeEnvFile` в `makeDenoIo`) ничем не проверен: мутация «всегда
   // передавать undefined вместо store» оставила бы все прочие тесты
@@ -301,12 +325,13 @@ Deno.test("makeDenoIo: envFile собран из настоящего пути, 
       "from-file",
     );
 
-    // Та же переменная теперь и в окружении процесса — приоритет
-    // «окружение процесса → файл» не инвертирован.
+    // Та же переменная теперь и в окружении процесса — окружение слоем
+    // не читается (решение 2026-08-05, env-file.md): значение всё ещё
+    // из файла, а не из окружения.
     Deno.env.set("MPU_TEST_ENV_KEY", "from-process-env");
     assertEquals(
       makeDenoIo(undefined).envFile.get("MPU_TEST_ENV_KEY"),
-      "from-process-env",
+      "from-file",
     );
   } finally {
     if (previousXdg === undefined) Deno.env.delete("XDG_CONFIG_HOME");

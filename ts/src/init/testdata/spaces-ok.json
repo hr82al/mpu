@@ -1,0 +1,17 @@
+[
+  {
+    "id": 101,
+    "title": "Разработка",
+    "archived": false,
+    "boards": [
+      { "id": 501, "space_id": 101, "title": "Основная доска" },
+      { "id": 502, "space_id": 101, "title": "Баги" }
+    ]
+  },
+  {
+    "id": 102,
+    "title": "Архивное пространство",
+    "archived": true,
+    "boards": []
+  }
+]

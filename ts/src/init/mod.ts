@@ -1,9 +1,9 @@
 /**
- * Публичная поверхность команды `mpu init` (`docs/specs/init.md`).
- * Порция А: каркас команды, шаг 1 (bootstrap схемы) и шаг 2 (discovery
- * контейнеров Portainer). Шаги 3–5 — порция Б. Маршрут остаётся
- * `legacy`: реестр (`src/registry/`) эту команду не публикует —
- * единственные потребители модуля сейчас его собственные тесты.
+ * Публичная поверхность команды `mpu init` (`docs/specs/init.md`):
+ * bootstrap схемы кэш-БД, discovery контейнеров Portainer, прогревы
+ * кэшей Loki и Kaiten, вход в Telegram. Маршрут — `native`: команда
+ * лежит в реестре (`src/registry/`) и публикуется тулом по закрытому
+ * списку.
  */
 
 export { initCommand } from "./cmd_init.ts";

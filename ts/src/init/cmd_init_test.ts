@@ -1,33 +1,34 @@
 /**
- * Тесты команды `mpu init`, шаги 1–2 (`docs/specs/init.md`, порция А).
- * Команда не публикуется в реестре (маршрут остаётся `legacy`), поэтому
- * вызывается напрямую через объявление (`initCommand.invoke`), а не
- * через `runCli`. Обвязка `invokeInit` ниже собирает вывод ровно так,
- * как это делает точка входа (`src/entrypoint/mod.ts`): строки
- * `progress` уходят в stderr по ходу исполнения, класс ошибки — в код
- * выхода, `formatCommandError` формирует последнюю строку отказа.
+ * Тесты команды `mpu init` (`docs/specs/init.md`). Команда лежит в
+ * реестре маршрутом `native`, поэтому вызывается через точку входа
+ * (`runCli`) — так проверяется вся склейка: разбор argv, печать
+ * результата, служебные строки `progress` в stderr и перевод классов
+ * ошибок в коды выхода.
  *
- * Фейковый Portainer-сервер поднимается на петле (`Deno.serve`,
- * `port: 0`) — калька вспомогательной функции `portainer_test.ts`;
- * общего тестового модуля под неё нет (два места, YAGNI), см. отчёт.
+ * Фейковые серверы (Portainer, Loki, Kaiten) поднимаются на петле
+ * (`Deno.serve`, `port: 0`) — калька вспомогательной функции
+ * `portainer_test.ts`; общего тестового модуля под неё нет (несколько
+ * мест с разной формой ответов, YAGNI), см. отчёт.
  */
 
 import { assertEquals, assertNotEquals } from "@std/assert";
 import {
   type CommandIo,
-  DomainError,
   type EnvFile,
-  formatCommandError,
-  UsageError,
+  NotFoundIoError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
+import { runCli } from "../entrypoint/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
-import { initCommand, requirePortainerAccess, runInit } from "./cmd_init.ts";
 import {
-  HEADERS_TIMEOUT_MS,
-  type PortainerAccess,
-  TOTAL_TIMEOUT_MS,
-} from "./portainer.ts";
+  DEFAULT_INIT_LIMITS,
+  initCommand,
+  requirePortainerAccess,
+  runInit,
+} from "./cmd_init.ts";
+import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "./http.ts";
+import type { PortainerAccess } from "./portainer.ts";
+import { WARMUP_BUDGET_MS } from "./kaiten.ts";
 
 const API_KEY = "proba-portainer-key-K7x9Qz";
 
@@ -79,12 +80,18 @@ function envFileFake(values: Readonly<Record<string, string>> = {}): EnvFile {
   };
 }
 
+/**
+ * Окружение прогона. Шаг 5 по умолчанию отрабатывает успешно и потому
+ * молчит: его отказы проверяются отдельными тестами, а в остальных он
+ * только шумел бы в ожидаемом stderr.
+ */
 function makeIo(
   dbPath: string,
   overrides: Partial<CommandIo> = {},
 ): CommandIo {
   return makeFakeIo({
     openCacheDb: () => openCacheDb(dbPath),
+    runLegacyInteractive: () => Promise.resolve(0),
     ...overrides,
   });
 }
@@ -95,44 +102,26 @@ interface Invocation {
   readonly code: number;
 }
 
-/**
- * Исполняет `initCommand` напрямую и собирает вывод обеих точек: та же
- * склейка, что даёт `runCli` (см. заголовок файла), без обхода реестра.
- */
+/** Исполняет `mpu init` через точку входа и собирает оба потока. */
 async function invokeInit(
   argv: readonly string[],
   io: CommandIo,
 ): Promise<Invocation> {
-  const progress: string[] = [];
-  const wrapped: CommandIo = {
-    ...io,
-    progress: (line) => progress.push(`${line}\n`),
-  };
-  try {
-    const result = await initCommand.invoke(argv, wrapped);
-    return {
-      stdout: initCommand.renderResult(result, argv),
-      stderr: progress.join(""),
-      code: initCommand.textExitCode(result),
-    };
-  } catch (err) {
-    if (err instanceof UsageError) {
-      return {
-        stdout: "",
-        stderr: progress.join("") + formatCommandError(["init"], err) + "\n",
-        code: 2,
-      };
-    }
-    if (err instanceof DomainError) {
-      return {
-        stdout: "",
-        stderr: progress.join("") + formatCommandError(["init"], err) + "\n",
-        code: 1,
-      };
-    }
-    throw err;
-  }
+  const out: string[] = [];
+  const err: string[] = [];
+  const code = await runCli(["init", ...argv], io, {
+    stdout: (text) => void out.push(text),
+    stderr: (text) => void err.push(text),
+  });
+  return { stdout: out.join(""), stderr: err.join(""), code };
 }
+
+/**
+ * Строки шагов 3–4 при незаданных ключах: прогревы пропускаются, и это
+ * штатный исход для тестов, которые проверяют шаги 1–2.
+ */
+const WARMUP_SKIPPED = "# loki: пропущено (LOKI_URL не задан)\n" +
+  "# kaiten: пропущено (KITEN_API_KEY не задан)\n";
 
 async function withTempDb(
   fn: (dbPath: string, dir: string) => Promise<void>,
@@ -331,7 +320,7 @@ Deno.test("happy path: сводка, запись в кэш, sl-строки п�
       assertEquals(
         outcome.stderr,
         `# bootstrap: схема в ${dbPath} готова\n` +
-          `# записано 3 контейнеров в ${dbPath}\n`,
+          `# записано 3 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
       );
 
       using db = openCacheDb(dbPath);
@@ -504,7 +493,7 @@ Deno.test("ошибка одного endpoint'а: строка в stderr, обх
         outcome.stderr,
         `# bootstrap: схема в ${dbPath} готова\n` +
           "mpu init: endpoint 1 (bad): HTTP 502\n" +
-          `# записано 1 контейнеров в ${dbPath}\n`,
+          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
       );
       assertEquals(
         outcome.stdout,
@@ -600,19 +589,22 @@ Deno.test("таймаут молчащего endpoint'а: строка ошиб�
       // уменьшен на два порядка: через объявление команды он равен
       // продуктовым трём секундам, и тест ждал бы их стеной (`ts/CLAUDE.md`
       // такой сон запрещает). Продуктовые числа проверяет тест `--help`.
-      const timeouts = { headersTimeoutMs: 60, totalTimeoutMs: 5_000 };
+      const limits = {
+        timeouts: { headersTimeoutMs: 60, totalTimeoutMs: 5_000 },
+        budgetMs: DEFAULT_INIT_LIMITS.budgetMs,
+      };
       const start = performance.now();
       const result = await runInit(
         { portainer: undefined, "dry-run": true, reset: false },
         io,
-        timeouts,
+        limits,
       );
       const elapsed = performance.now() - start;
       assertEquals(
         progress.join(""),
         `# bootstrap: схема в ${dbPath} готова\n` +
           `mpu init: endpoint 1 (silent): no response headers within ` +
-          `${timeouts.headersTimeoutMs}ms\n`,
+          `${limits.timeouts.headersTimeoutMs}ms\n`,
       );
       assertEquals(
         initCommand.renderResult(result, ["--dry-run"]),
@@ -665,7 +657,7 @@ Deno.test("0 sl-контейнеров при непустых прочих — 
       assertEquals(
         outcome.stderr,
         `# bootstrap: схема в ${dbPath} готова\n` +
-          `# записано 2 контейнеров в ${dbPath}\n`,
+          `# записано 2 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
       );
 
       using db = openCacheDb(dbPath);
@@ -868,7 +860,7 @@ Deno.test("--reset: удаляет старые записи перед запи
         second.stderr,
         `# bootstrap: схема в ${dbPath} готова\n` +
           "# --reset: удалено 2 старых записей\n" +
-          `# записано 1 контейнеров в ${dbPath}\n`,
+          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
       );
 
       using db = openCacheDb(dbPath);
@@ -1032,12 +1024,509 @@ Deno.test("секреты: API-ключ не появляется ни в stdout
   });
 });
 
-Deno.test("--help содержит числа таймаутов и укладывается в 2048 байт с summary", () => {
+Deno.test("--help содержит числа пределов и укладывается в 2048 байт с summary", () => {
   assertEquals(initCommand.help.includes(String(HEADERS_TIMEOUT_MS)), true);
   assertEquals(initCommand.help.includes(String(TOTAL_TIMEOUT_MS)), true);
+  assertEquals(initCommand.help.includes(String(WARMUP_BUDGET_MS)), true);
   assertNotEquals(HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS);
+  assertNotEquals(TOTAL_TIMEOUT_MS, WARMUP_BUDGET_MS);
   const bytes = new TextEncoder().encode(
     `${initCommand.summary}\n\n${initCommand.help}`,
   ).length;
   assertEquals(bytes <= 2048, true, `описание не влезло: ${bytes} байт`);
+});
+
+// --- шаги 3–5 и модель исполнения -------------------------------------
+
+/** Пространства стенда: две доски, чтобы обход частей 2–3 был не вырожден. */
+const STAND_SPACES = [{
+  id: 101,
+  title: "Разработка",
+  archived: false,
+  boards: [
+    { id: 501, space_id: 101, title: "Основная доска" },
+    { id: 502, space_id: 101, title: "Баги" },
+  ],
+}];
+
+const STAND_LANES: Readonly<Record<string, unknown[]>> = {
+  "501": [
+    { id: 9001, board_id: 501, title: "Обычные" },
+    { id: 9002, board_id: 501, title: "Срочные" },
+  ],
+  "502": [{ id: 9101, board_id: 502, title: "Обычные" }],
+};
+
+const STAND_COLUMNS: Readonly<Record<string, unknown[]>> = {
+  "501": [
+    { id: 7001, board_id: 501, title: "Очередь", sort_order: 1 },
+    { id: 7002, board_id: 501, title: "В работе", sort_order: 2 },
+  ],
+  "502": [{ id: 7101, board_id: 502, title: "Очередь", sort_order: 1 }],
+};
+
+const STAND_ROLES = [{ id: 11, name: "Разработка" }, {
+  id: 12,
+  name: "Аналитика",
+}];
+
+/** Ответ series: два хоста, две пары (у одной записи сервиса нет). */
+const STAND_SERIES = {
+  status: "success",
+  data: [
+    { host: "sl-1", compose_service: "api" },
+    { host: "sl-2", compose_service: "api" },
+    { host: "sl-1" },
+  ],
+};
+
+const STAND_CONTAINERS: readonly FakeContainer[] = [
+  { id: "c1", names: ["/sl-1-cli"], state: "running", image: "img" },
+];
+
+/** Сводки прогревов стенда — их же ждут тесты порядка и конкурентности. */
+const STAND_WARMUP_LINES = "# loki: 2 hosts, 2 (host, service) пар\n" +
+  "# kaiten: 1 spaces, 2 boards, 3 lanes, 3 columns, 2 roles\n";
+
+/** Доска из пути `/api/latest/boards/<id>/<что>`; путь не тот — undefined. */
+function boardOf(pathname: string, what: string): string | undefined {
+  const match = new RegExp(`^/api/latest/boards/(\\d+)/${what}$`).exec(
+    pathname,
+  );
+  return match === null ? undefined : match[1];
+}
+
+/**
+ * Один фейковый стенд на все три источника: пути не пересекаются, а
+ * тесту достаточно одного порта и одного `stop()`. `hook` подменяет
+ * ответ по пути (вернул undefined — берётся ответ стенда по умолчанию).
+ */
+function fakeStand(
+  hook: (url: URL) => Response | Promise<Response | undefined> | undefined =
+    () => undefined,
+) {
+  return fakeServer(async (req) => {
+    const url = new URL(req.url);
+    const hooked = await hook(url);
+    if (hooked !== undefined) return hooked;
+    if (url.pathname === "/api/endpoints") {
+      return endpointsResponse([{ id: 1, name: "prod" }]);
+    }
+    if (url.pathname === "/api/endpoints/1/docker/containers/json") {
+      return containersResponse(STAND_CONTAINERS);
+    }
+    if (url.pathname === "/loki/api/v1/series") {
+      return Response.json(STAND_SERIES);
+    }
+    if (url.pathname === "/api/latest/spaces") {
+      return Response.json(STAND_SPACES);
+    }
+    if (url.pathname === "/api/latest/user-roles") {
+      return Response.json(STAND_ROLES);
+    }
+    const lanes = boardOf(url.pathname, "lanes");
+    if (lanes !== undefined) return Response.json(STAND_LANES[lanes] ?? []);
+    const columns = boardOf(url.pathname, "columns");
+    if (columns !== undefined) {
+      return Response.json(STAND_COLUMNS[columns] ?? []);
+    }
+    return new Response(null, { status: 404 });
+  });
+}
+
+/** Окружение стенда: все три источника — на одном базовом URL. */
+function standEnv(baseUrl: string): EnvFile {
+  return envFileFake({
+    PORTAINER_API_KEY: API_KEY,
+    PORTAINER_URL: baseUrl,
+    LOKI_URL: baseUrl,
+    KITEN_API_KEY: "proba-kiten-key-Q3w8Ee",
+    KITEN_BASE_URL: baseUrl,
+  });
+}
+
+Deno.test("happy path со всеми шагами: блоки stderr идут в порядке 1..5", async () => {
+  await withTempDb(async (dbPath) => {
+    const { baseUrl, stop } = fakeStand();
+    try {
+      const io = makeIo(dbPath, { envFile: standEnv(baseUrl) });
+      const outcome = await invokeInit([], io);
+      assertEquals(outcome.code, 0);
+      assertEquals(
+        outcome.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          STAND_WARMUP_LINES,
+      );
+      // Шаг 5 отработал с нулевым кодом — строки о нём нет (спека).
+      assertEquals(outcome.stderr.includes("# telegram"), false);
+
+      using db = openCacheDb(dbPath);
+      const count = (table: string) =>
+        Number(db.query(`SELECT COUNT(*) AS n FROM ${table}`)[0].n);
+      assertEquals(count("loki_hosts"), 2);
+      assertEquals(count("loki_services_by_host"), 2);
+      assertEquals(count("kaiten_spaces"), 1);
+      assertEquals(count("kaiten_boards"), 2);
+      assertEquals(count("kaiten_lanes"), 3);
+      assertEquals(count("kaiten_columns"), 3);
+      assertEquals(count("kaiten_roles"), 2);
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("порядок блоков не зависит от порядка завершения шагов", async () => {
+  await withTempDb(async (dbPath) => {
+    // Loki отвечает строго ПОСЛЕ того, как Kaiten дочитан: шаг 3
+    // завершается последним, но его блок обязан стоять перед блоком 4.
+    const rolesServed = Promise.withResolvers<void>();
+    const { baseUrl, stop } = fakeStand((url) => {
+      if (url.pathname === "/api/latest/user-roles") {
+        rolesServed.resolve();
+        return undefined;
+      }
+      if (url.pathname === "/loki/api/v1/series") {
+        return rolesServed.promise.then(() => Response.json(STAND_SERIES));
+      }
+      return undefined;
+    });
+    try {
+      const io = makeIo(dbPath, { envFile: standEnv(baseUrl) });
+      const outcome = await invokeInit([], io);
+      assertEquals(outcome.code, 0);
+      assertEquals(
+        outcome.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          STAND_WARMUP_LINES,
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("шаги 2–4 конкурентны: три запроса пришли раньше первого ответа", async () => {
+  await withTempDb(async (dbPath) => {
+    // Каждый из трёх обработчиков держит ответ, пока не пришли все три.
+    // При последовательном исполнении шагов это тупик: второй запрос не
+    // уйдёт, пока не ответит первый, а первый ждёт остальных.
+    let arrivals = 0;
+    const all = Promise.withResolvers<void>();
+    const gate = async () => {
+      arrivals++;
+      if (arrivals === 3) all.resolve();
+      await all.promise;
+    };
+    const { baseUrl, stop } = fakeStand((url) => {
+      const first = url.pathname === "/api/endpoints/1/docker/containers/json";
+      if (
+        !first && url.pathname !== "/loki/api/v1/series" &&
+        url.pathname !== "/api/latest/spaces"
+      ) {
+        return undefined;
+      }
+      return gate().then(() => undefined);
+    });
+    try {
+      const io = makeIo(dbPath, { envFile: standEnv(baseUrl) });
+      const outcome = await invokeInit([], io);
+      assertEquals(outcome.code, 0);
+      assertEquals(arrivals >= 3, true, `запросов пришло ${arrivals}`);
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("--dry-run: шаги 3–5 не выполняются вовсе", async () => {
+  await withTempDb(async (dbPath) => {
+    const touched: string[] = [];
+    const { baseUrl, stop } = fakeStand((url) => {
+      if (
+        url.pathname !== "/api/endpoints" &&
+        !url.pathname.startsWith("/api/endpoints/1/")
+      ) {
+        touched.push(url.pathname);
+      }
+      return undefined;
+    });
+    try {
+      let interactive = 0;
+      const io = makeIo(dbPath, {
+        envFile: standEnv(baseUrl),
+        runLegacyInteractive: () => {
+          interactive++;
+          return Promise.resolve(0);
+        },
+      });
+      const outcome = await invokeInit(["--dry-run"], io);
+      assertEquals(outcome.code, 0);
+      assertEquals(
+        outcome.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n`,
+      );
+      assertEquals(touched, [], "прогревы ходили в сеть при --dry-run");
+      assertEquals(interactive, 0, "шаг 5 запускался при --dry-run");
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("шаг 5: ненулевой код и несостоявшийся запуск — строка пропуска, exit 0", async (t) => {
+  const cases: readonly (readonly [string, Partial<CommandIo>, string])[] = [
+    [
+      "ненулевой код возврата",
+      { runLegacyInteractive: () => Promise.resolve(3) },
+      "# telegram: пропущено (код возврата 3)\n",
+    ],
+    [
+      "подпроцесс не запустился",
+      {
+        runLegacyInteractive: () =>
+          Promise.reject(new NotFoundIoError('cannot run "/nowhere/mpu"')),
+      },
+      "# telegram: пропущено (legacy-реализация не найдена по пути " +
+      '"/nowhere/mpu")\n',
+    ],
+  ];
+  for (const [name, override, expected] of cases) {
+    await t.step(name, async () => {
+      await withTempDb(async (dbPath) => {
+        const { baseUrl, stop } = fakeStand();
+        try {
+          const io = makeIo(dbPath, {
+            envFile: standEnv(baseUrl),
+            readConfigStore: () =>
+              Promise.resolve(JSON.stringify({
+                values: { "mcp.legacy_bin": "/nowhere/mpu" },
+              })),
+            ...override,
+          });
+          const outcome = await invokeInit([], io);
+          // Исход шага 5 код выхода init не меняет (спека).
+          assertEquals(outcome.code, 0);
+          assertEquals(
+            outcome.stderr,
+            `# bootstrap: схема в ${dbPath} готова\n` +
+              `# записано 1 контейнеров в ${dbPath}\n` +
+              STAND_WARMUP_LINES + expected,
+          );
+        } finally {
+          await stop();
+        }
+      });
+    });
+  }
+});
+
+Deno.test("шаг 5 начинается строго после шагов 2–4", async () => {
+  await withTempDb(async (dbPath) => {
+    const order: string[] = [];
+    const { baseUrl, stop } = fakeStand((url) => {
+      order.push(url.pathname);
+      return undefined;
+    });
+    try {
+      const io = makeIo(dbPath, {
+        envFile: standEnv(baseUrl),
+        runLegacyInteractive: () => {
+          order.push("telegram");
+          return Promise.resolve(0);
+        },
+      });
+      assertEquals((await invokeInit([], io)).code, 0);
+      assertEquals(
+        order[order.length - 1],
+        "telegram",
+        `шаг 5 не последний: ${JSON.stringify(order)}`,
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("пропуск одной доски Kaiten: строка и scoped-запись остальных", async () => {
+  await withTempDb(async (dbPath) => {
+    const { baseUrl, stop } = fakeStand((url) => {
+      if (boardOf(url.pathname, "lanes") === "502") {
+        return new Response("boom", { status: 500 });
+      }
+      return undefined;
+    });
+    try {
+      const io = makeIo(dbPath, { envFile: standEnv(baseUrl) });
+      const outcome = await invokeInit([], io);
+      assertEquals(outcome.code, 0);
+      assertEquals(
+        outcome.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          "# loki: 2 hosts, 2 (host, service) пар\n" +
+          "# kaiten: доска 502: пропущена " +
+          "(kaiten GET /boards/502/lanes -> 500: boom)\n" +
+          "# kaiten: 1 spaces, 2 boards, 2 lanes, 3 columns, 2 roles\n",
+      );
+
+      // Собранное по здоровой доске записано, обход не оборван.
+      using db = openCacheDb(dbPath);
+      assertEquals(
+        db.query("SELECT id FROM kaiten_lanes ORDER BY id"),
+        [{ id: 9001 }, { id: 9002 }],
+      );
+      assertEquals(
+        Number(db.query("SELECT COUNT(*) AS n FROM kaiten_columns")[0].n),
+        3,
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("часть 2 Kaiten упала целиком: счётчик в сводке — «?»", async () => {
+  await withTempDb(async (dbPath) => {
+    const { baseUrl, stop } = fakeStand((url) =>
+      boardOf(url.pathname, "lanes") === undefined
+        ? undefined
+        : new Response("boom", { status: 500 })
+    );
+    try {
+      const io = makeIo(dbPath, { envFile: standEnv(baseUrl) });
+      const outcome = await invokeInit([], io);
+      assertEquals(outcome.code, 0);
+      // Ноль от «?» отличается: пустой справочник — не то же самое, что
+      // справочник, о котором ничего не известно (init.md, шаг 4).
+      assertEquals(
+        outcome.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          "# loki: 2 hosts, 2 (host, service) пар\n" +
+          "# kaiten: доска 501: пропущена " +
+          "(kaiten GET /boards/501/lanes -> 500: boom)\n" +
+          "# kaiten: доска 502: пропущена " +
+          "(kaiten GET /boards/502/lanes -> 500: boom)\n" +
+          "# kaiten: 1 spaces, 2 boards, ? lanes, 3 columns, 2 roles\n",
+      );
+
+      // Упавшая целиком часть кэш дорожек не трогает вовсе.
+      using db = openCacheDb(dbPath);
+      assertEquals(
+        Number(db.query("SELECT COUNT(*) AS n FROM kaiten_lanes")[0].n),
+        0,
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("прогрев Loki упал: строка пропуска, остальные шаги отработали", async () => {
+  await withTempDb(async (dbPath) => {
+    const { baseUrl, stop } = fakeStand((url) =>
+      url.pathname === "/loki/api/v1/series"
+        ? new Response("nope", { status: 503 })
+        : undefined
+    );
+    try {
+      const io = makeIo(dbPath, { envFile: standEnv(baseUrl) });
+      const outcome = await invokeInit([], io);
+      assertEquals(outcome.code, 0);
+      assertEquals(
+        outcome.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          "# loki: пропущено (HTTP 503)\n" +
+          "# kaiten: 1 spaces, 2 boards, 3 lanes, 3 columns, 2 roles\n",
+      );
+
+      using db = openCacheDb(dbPath);
+      assertEquals(
+        Number(db.query("SELECT COUNT(*) AS n FROM loki_hosts")[0].n),
+        0,
+        "упавший прогрев не должен трогать кэш Loki",
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("молчащий источник прогрева не тянет команду дольше своего предела", async () => {
+  await withTempDb(async (dbPath) => {
+    const pending = Promise.withResolvers<Response>();
+    const { baseUrl, stop } = fakeStand((url) =>
+      url.pathname === "/loki/api/v1/series" ? pending.promise : undefined
+    );
+    try {
+      const progress: string[] = [];
+      const io = makeIo(dbPath, {
+        envFile: standEnv(baseUrl),
+        progress: (line) => void progress.push(`${line}\n`),
+      });
+      // Пределы уменьшены на два порядка: ждать продуктовые секунды
+      // стеной тест не имеет права (`ts/CLAUDE.md`).
+      const limits = {
+        timeouts: { headersTimeoutMs: 60, totalTimeoutMs: 5_000 },
+        budgetMs: DEFAULT_INIT_LIMITS.budgetMs,
+      };
+      const start = performance.now();
+      await runInit(
+        { portainer: undefined, "dry-run": false, reset: false },
+        io,
+        limits,
+      );
+      const elapsed = performance.now() - start;
+      assertEquals(
+        progress.join(""),
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          `# записано 1 контейнеров в ${dbPath}\n` +
+          "# loki: пропущено (no response headers within 60ms)\n" +
+          "# kaiten: 1 spaces, 2 boards, 3 lanes, 3 columns, 2 roles\n",
+      );
+      assertEquals(
+        elapsed < 2_000,
+        true,
+        `elapsed ${elapsed}ms должно быть < 2000ms`,
+      );
+    } finally {
+      pending.resolve(new Response("{}"));
+      await stop();
+    }
+  });
+});
+
+Deno.test("URL Portainer без схемы — ошибка конфигурации, exit 2", async (t) => {
+  const cases: readonly (readonly [string, readonly string[], string])[] = [
+    [
+      "флагом --portainer",
+      ["--portainer", "portainer.example.com"],
+      "portainer.example.com",
+    ],
+    ["ключом PORTAINER_URL", [], "10.0.0.7:9443"],
+  ];
+  for (const [name, argv, value] of cases) {
+    await t.step(name, async () => {
+      await withTempDb(async (dbPath) => {
+        const io = makeIo(dbPath, {
+          envFile: envFileFake({
+            PORTAINER_API_KEY: API_KEY,
+            PORTAINER_URL: value,
+          }),
+        });
+        const outcome = await invokeInit(argv, io);
+        assertEquals(outcome.code, 2);
+        assertEquals(
+          outcome.stderr,
+          `# bootstrap: схема в ${dbPath} готова\n` +
+            `mpu init: некорректный URL Portainer: '${value}' — ` +
+            "нужна схема http:// или https://\n",
+        );
+      });
+    });
+  }
 });

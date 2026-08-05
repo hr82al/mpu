@@ -32,10 +32,17 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     appendFile: mustNotTouch("appendFile"),
     launchOpener: mustNotTouch("opener"),
     runLegacy: mustNotTouch("runLegacy"),
+    runLegacyInteractive: mustNotTouch("runLegacyInteractive"),
     envFile: {
-      get: mustNotTouch("envFile"),
-      require: mustNotTouch("envFile"),
-      set: mustNotTouch("envFile"),
+      // `get` отвечает «ключа нет», а не падает: с переездом конфигурации
+      // в env-файл (2026-08-05, `platform/env-file.md`) чтение ключа стало
+      // обычным шагом команды — резолв пути `xlsx` зовёт его до всякой
+      // проверки источников, — и отсутствие ключа это штатный ответ, а не
+      // касание запретного. Запись и обязательный ключ по-прежнему падают:
+      // их тест обязан объявить сам.
+      get: () => undefined,
+      require: mustNotTouch("envFile.require"),
+      set: mustNotTouch("envFile.set"),
     },
     openCacheDb: mustNotTouch("openCacheDb"),
     progress: mustNotTouch("progress"),

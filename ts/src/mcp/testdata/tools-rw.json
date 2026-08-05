@@ -10,7 +10,7 @@
       "type": "object",
       "properties": {
         "file": {
-          "description": "путь или алиас .xlsx; без флага источники по порядку: env MPU_XLSX, config xlsx.default",
+          "description": "путь или алиас .xlsx; без флага источники по порядку: MPU_XLSX (env-файл), config xlsx.default",
           "type": "string"
         },
         "print": {
@@ -118,6 +118,330 @@
       "required": [
         "name",
         "removed"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "init",
+    "title": "mpu init",
+    "description": "первичная инициализация локальной кэш-БД: пять шагов\n\nПять шагов: 1) схема кэш-БД; 2) discovery контейнеров через\nPortainer; 3) прогрев кэша Loki; 4) прогрев справочников Kaiten;\n5) вход в Telegram (подпроцесс mpu telegram login). Шаг 1 первым,\n2-4 конкурентно, 5 после них; блоки вывода — всегда в порядке 1..5.\n\nКлючи env-файла ~/.config/mpu/.env (окружение процесса не читается):\nPORTAINER_API_KEY, PORTAINER_URL (или --portainer),\nPORTAINER_VERIFY_TLS (=true без учёта регистра включает проверку\nTLS-сертификата, иначе выключена), LOKI_URL, KITEN_API_KEY,\nKITEN_BASE_URL.\n\nПределы вызова: 3000 ms до заголовков, 10000 ms целиком;\nбюджет прогрева Kaiten 20000 ms (паузы retry 429 его не\nотменяют; исчерпан — счётчик части «?»).\n\nШаги 3-5 best-effort: пропуск виден строкой «# <шаг>: пропущено\n(<причина>)» и кода выхода не меняет. Контейнеры пишутся upsert'ом по\n(portainer_url, endpoint_id, container_id); исчезнувшие остаются до\n--reset, а он чистит весь прежний кэш. --dry-run: только сводка шага\n2, кэш не тронут (схема шага 1 создаётся всегда), шаги 3-5 не идут.\n\nExit: 0 — успех; 2 — нет PORTAINER_API_KEY/URL либо URL без схемы;\n1 — сбой списка endpoints либо ни одного контейнера.\n\nПример: mpu init --portainer https://portainer.example.com",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "portainer": {
+          "description": "базовый URL Portainer API; без флага — PORTAINER_URL в env-файле",
+          "type": "string"
+        },
+        "dry-run": {
+          "default": false,
+          "description": "только сводка шага 2: кэш не изменяется, шаги 3–5 не выполняются",
+          "type": "boolean"
+        },
+        "reset": {
+          "default": false,
+          "description": "перед записью удалить весь прежний кэш контейнеров",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "portainerUrl": {
+          "type": "string"
+        },
+        "containers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "serverNumber": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "containerName": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "endpointId": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "endpointName": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "serverNumber",
+              "containerName",
+              "state",
+              "endpointId",
+              "endpointName"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "otherCount": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "reset": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "deleted": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "deleted"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "write": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "written": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "cacheDbPath": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "written",
+                "cacheDbPath"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "loki": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "skipped": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "hosts": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "pairs": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "skipped",
+                "hosts",
+                "pairs"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kaiten": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "skipped": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "spaces": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "boards": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "lanes": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "columns": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "roles": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "skippedBoards": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "boardId": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "reason": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "boardId",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "skipped",
+                "spaces",
+                "boards",
+                "lanes",
+                "columns",
+                "roles",
+                "skippedBoards"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "telegram": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "skipped": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "skipped"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "portainerUrl",
+        "containers",
+        "otherCount",
+        "reset",
+        "write",
+        "loki",
+        "kaiten",
+        "telegram"
       ],
       "additionalProperties": false
     }
@@ -928,34 +1252,6 @@
     },
     "_meta": {
       "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "init",
-    "title": "mpu init",
-    "description": "Discover все контейнеры через Portainer API и закэшировать в `~/.config/mpu/mpu.db`.\n\nDiscover все контейнеры через Portainer API и закэшировать в `~/.config/mpu/mpu.db`.\n\nКэшируем все контейнеры, помечая cli-контейнеры серверов через `server_number`. Этот кэш\nпотом читает `mpu p ssh` для резолва Portainer-транспорта.",
-    "annotations": {
-      "readOnlyHint": false
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "portainer_url": {
-          "type": "string",
-          "description": "URL Portainer (override `PORTAINER_URL` из ~/.config/mpu/.env)"
-        },
-        "dry_run": {
-          "type": "boolean",
-          "description": "Только напечатать summary, не писать в SQLite",
-          "default": false
-        },
-        "reset": {
-          "type": "boolean",
-          "description": "Перед записью почистить таблицу portainer_containers",
-          "default": false
-        }
-      },
-      "additionalProperties": false
     }
   },
   {
