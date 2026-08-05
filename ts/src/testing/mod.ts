@@ -37,6 +37,8 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
       require: mustNotTouch("envFile"),
       set: mustNotTouch("envFile"),
     },
+    openCacheDb: mustNotTouch("openCacheDb"),
+    progress: mustNotTouch("progress"),
     ...overrides,
   };
 }

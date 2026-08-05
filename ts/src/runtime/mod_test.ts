@@ -317,6 +317,74 @@ Deno.test("makeDenoIo: envFile собран из настоящего пути, 
   }
 });
 
+Deno.test("openCacheDb: путь — литеральный ${HOME}/.config/mpu/mpu.db, XDG_CONFIG_HOME не учитывается", async () => {
+  const dir = await Deno.makeTempDir();
+  const home = Deno.env.get("HOME");
+  const xdg = Deno.env.get("XDG_CONFIG_HOME");
+  try {
+    Deno.env.set("HOME", dir);
+    // Нестандартный XDG_CONFIG_HOME не должен влиять на путь кэш-БД: файл
+    // общий с Python-реализацией, путь — её контракт (`platform/store.md`).
+    Deno.env.set("XDG_CONFIG_HOME", `${dir}/elsewhere`);
+    using db = makeDenoIo(undefined).openCacheDb();
+    assertEquals(db.path, `${dir}/.config/mpu/mpu.db`);
+    db.bootstrap();
+    assertEquals((await Deno.stat(db.path)).isFile, true);
+  } finally {
+    if (home === undefined) Deno.env.delete("HOME");
+    else Deno.env.set("HOME", home);
+    if (xdg === undefined) Deno.env.delete("XDG_CONFIG_HOME");
+    else Deno.env.set("XDG_CONFIG_HOME", xdg);
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("openCacheDb: без HOME — DomainError с текстом спеки", () => {
+  const home = Deno.env.get("HOME");
+  try {
+    Deno.env.delete("HOME");
+    assertThrows(
+      () => makeDenoIo(undefined).openCacheDb(),
+      DomainError,
+      "путь к кэш-БД не определён: HOME не задан",
+    );
+    Deno.env.set("HOME", "");
+    assertThrows(
+      () => makeDenoIo(undefined).openCacheDb(),
+      DomainError,
+      "путь к кэш-БД не определён: HOME не задан",
+    );
+  } finally {
+    if (home === undefined) Deno.env.delete("HOME");
+    else Deno.env.set("HOME", home);
+  }
+});
+
+Deno.test("progress пишет строку с переводом строки в stderr", () => {
+  const chunks: Uint8Array[] = [];
+  const stub = {
+    writeSync(data: Uint8Array): number {
+      chunks.push(data.slice());
+      return data.length;
+    },
+  };
+  const real = Deno.stderr;
+  Object.defineProperty(Deno, "stderr", { value: stub, configurable: true });
+  try {
+    makeDenoIo(undefined).progress("шаг 1: bootstrap готов");
+  } finally {
+    Object.defineProperty(Deno, "stderr", { value: real, configurable: true });
+  }
+  const total = chunks.reduce((n, c) => n + c.length, 0);
+  const joined = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    joined.set(chunk, offset);
+    offset += chunk.length;
+  }
+  assertEquals(new TextDecoder().decode(joined), "шаг 1: bootstrap готов\n");
+});
+
 Deno.test("разбор строки /proc/<pid>/stat", async (t) => {
   await t.step("обычная запись", () => {
     assertEquals(parseProcStat("42 (bash) S 17 42 42 0 -1"), {

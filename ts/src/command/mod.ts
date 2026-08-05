@@ -27,6 +27,32 @@ export type { ObjectSchema, SchemaField } from "./schema.ts";
 /** Объявленный класс команды: читающая или мутирующая. */
 export type Policy = "ro" | "rw";
 
+/** Значение, которое можно связать в SQL-запросе к кэш-БД. */
+export type SqlParam = string | number | null;
+
+/** Строка результата запроса к кэш-БД: имя столбца → значение. */
+export type SqlRow = Readonly<
+  Record<string, string | number | null | Uint8Array>
+>;
+
+/**
+ * Локальная кэш-БД (`platform/store.md`): открытие, идемпотентный
+ * bootstrap схемы, транзакции. Домен таблиц атому не известен — это дело
+ * потребителя, поэтому интерфейс объявлен здесь, а не в `src/store/`.
+ */
+export interface CacheDb extends Disposable {
+  /** Путь файла БД. */
+  readonly path: string;
+  /** Идемпотентно создаёт недостающие таблицы и индексы схемы. */
+  readonly bootstrap: () => void;
+  /** Исполняет запрос без результата; возвращает число изменённых строк. */
+  readonly execute: (sql: string, ...params: SqlParam[]) => number;
+  /** Исполняет запрос с результатом. */
+  readonly query: (sql: string, ...params: SqlParam[]) => readonly SqlRow[];
+  /** BEGIN/COMMIT вокруг тела; исключение — ROLLBACK и проброс дальше. */
+  readonly transaction: (body: () => void) => void;
+}
+
 /**
  * Зависимости исполнения. Приёмников вывода здесь нет намеренно:
  * исполнение не печатает (инвариант 1), печать — дело точки входа.
@@ -73,6 +99,10 @@ export interface CommandIo {
   ) => Promise<LegacyOutcome>;
   /** Слой env-файла (`platform/env-file.md`): секреты, адреса внешних систем. */
   readonly envFile: EnvFile;
+  /** Открывает локальную кэш-БД (`platform/store.md`). */
+  readonly openCacheDb: () => CacheDb;
+  /** Служебная строка хода исполнения; точка входа печатает её в stderr. */
+  readonly progress: (line: string) => void;
 }
 
 /** Итог подпроцесса маршрута `legacy`: потоки и код возврата. */

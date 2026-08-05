@@ -401,5 +401,11 @@ function makeIo(dir: string): CommandIo {
       Deno.writeTextFile(`${dir}/config.json`, text, { mode: 0o600 }),
     // Запуск открывателя в обходе не нужен: образец зовёт open с --print.
     launchOpener: () => false,
+    openCacheDb: () => {
+      throw new Error("openCacheDb must not be touched");
+    },
+    progress: () => {
+      throw new Error("progress must not be touched");
+    },
   };
 }

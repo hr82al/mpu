@@ -13,6 +13,7 @@ import {
 } from "../command/mod.ts";
 import type { Output } from "../entrypoint/mod.ts";
 import { envFilePath, type EnvFileStore, makeEnvFile } from "../env/mod.ts";
+import { openCacheDb as openStoreDb } from "../store/mod.ts";
 
 /** Достаточная часть Deno.stdout/stderr: синхронная запись. */
 interface SyncSink {
@@ -312,5 +313,15 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
         throw err;
       }
     },
+    openCacheDb: () => {
+      const home = Deno.env.get("HOME");
+      if (home === undefined || home === "") {
+        // Штатная доменная ошибка (exit 1): без HOME негде искать файл,
+        // общий с Python-реализацией (`platform/store.md`).
+        throw new DomainError("путь к кэш-БД не определён: HOME не задан");
+      }
+      return openStoreDb(`${home}/.config/mpu/mpu.db`);
+    },
+    progress: (line) => writeAllSync(Deno.stderr, `${line}\n`),
   };
 }
