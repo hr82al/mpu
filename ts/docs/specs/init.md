@@ -5,7 +5,8 @@
 подпроцесс `mpu telegram login`, границы прогревов вынесены в атомы
 `platform/loki-http.md` и `platform/kaiten-http.md`, кэш-БД —
 `platform/store.md`; goldens — `fixtures/init/`. Реализация — двумя
-порциями: А — шаги 1–2, Б — шаги 3–5 и конкурентная модель; маршрут
+порциями: А — шаги 1–2 (реализована и принята 2026-08-05), Б — шаги
+3–5 и конкурентная модель; маршрут
 переключается на `native` только после приёмки обеих. Уточнения по
 отчёту порции А внесены 2026-08-05: потоки строк записи шага 2,
 bootstrap при `--dry-run`, регистр `PORTAINER_VERIFY_TLS`)
@@ -50,7 +51,10 @@ env-файла: `PORTAINER_API_KEY` обязателен; базовый URL —
 `mpu init: endpoint <id> (<имя>): <причина>`, обход продолжается по
 остальным. Сбой самого списка endpoints → stderr
 `mpu init: portainer: <причина>`, exit 1, без трейсбека (см.
-отклонения). Если после обхода не найдено ни одного контейнера —
+отклонения). `<причина>` в обеих формах — одна из: `no response
+headers within <N>ms` (таймаут заголовков), `no response within <N>ms`
+(таймаут всего вызова), `HTTP <код>` (ответ вне 2xx), либо первая
+строка системной ошибки сети. Если после обхода не найдено ни одного контейнера —
 stderr `mpu init: ни одного контейнера не найдено`, exit 1, шаги 3–5
 не выполняются.
 
@@ -73,7 +77,7 @@ exit 0. Без `--dry-run` выполняется запись: при `--reset`
 endpoint_name, container_id, container_name (первое из имён контейнера
 без ведущего `/`), server_number (номер по `^/?(?:mp-)?sl-(\d+)-cli$`
 из любого из имён, включая 0; у прочих контейнеров номера нет), state,
-image, discovered_at (unix-время).
+image, discovered_at (unix-время, секунды).
 
 **Шаг 3 — прогрев Loki.** Best-effort; контракт вызова и записи —
 `platform/loki-http.md`. Успех → stderr
@@ -161,6 +165,10 @@ Env-файл (`platform/env-file.md`): `PORTAINER_URL` (или `--portainer`),
   `mpu init: в ~/.config/mpu/.env нет PORTAINER_API_KEY`, exit 2.
 - Нет ни `--portainer`, ни `PORTAINER_URL` → stderr `mpu init: укажите
   --portainer <url> либо PORTAINER_URL в ~/.config/mpu/.env`, exit 2.
+- URL Portainer без схемы `http://`/`https://` → stderr `mpu init:
+  некорректный URL Portainer: '<значение>' — нужна схема http:// или
+  https://`, exit 2; проверка выполняется до какого-либо сетевого
+  вызова (это ошибка конфигурации, симметричная отсутствию URL).
 - Сбой списка endpoints (сеть, таймаут, HTTP-ошибка) → exit 1 (см.
   шаг 2), шаги 3–5 не выполняются.
 - Все endpoints упали или контейнеров нет → exit 1 (см. шаг 2).
