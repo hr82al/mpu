@@ -20,7 +20,7 @@ import {
   LokiError,
   requireLokiAccess,
   writeLokiCache,
-} from "./loki.ts";
+} from "./mod.ts";
 
 /** Поднимает фейковый Loki на петле; гасить `await stop()` в `finally`. */
 function fakeServer(

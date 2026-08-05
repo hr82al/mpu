@@ -31,7 +31,7 @@ import {
   HEADERS_TIMEOUT_MS,
   type RequestTimeouts,
   TOTAL_TIMEOUT_MS,
-} from "./http.ts";
+} from "../http/mod.ts";
 import {
   listContainers,
   listEndpoints,
@@ -44,7 +44,7 @@ import {
   type LokiSeries,
   requireLokiAccess,
   writeLokiCache,
-} from "./loki.ts";
+} from "../loki/mod.ts";
 import {
   collectKaitenWarmup,
   type KaitenWarmup,
@@ -594,7 +594,7 @@ export function requirePortainerAccess(
   return { baseUrl: rawUrl.replace(/\/+$/, ""), apiKey, verifyTls };
 }
 
-/** Причина ошибки одной строкой (вердикт fix спеки — см. `http.ts`). */
+/** Причина ошибки одной строкой (вердикт fix спеки — см. `../http/mod.ts`). */
 function reasonOf(err: unknown): string {
   return firstLine(err instanceof Error ? err.message : String(err));
 }

@@ -1,5 +1,5 @@
 /**
- * Копии golden-фикстур в `testdata/` обязаны совпадать с каналом
+ * Копия golden-фикстуры в `testdata/` обязана совпадать с каналом
  * спецификаций байт-в-байт (`docs/CLAUDE.md`, «Правила для изолированной
  * Deno-сессии»). Без этой сверки расхождение молчит: тесты продолжают
  * проходить на устаревшей копии, а обновлённый эталон канала никто не
@@ -8,22 +8,13 @@
  * Тест на файл, а не на каталог: имя разошедшегося эталона должно быть
  * видно из отчёта, без запуска diff'а вручную. Калька с
  * `src/env/fixtures_test.ts` и `src/store/fixtures_test.ts`.
- *
- * Каталогов канала здесь два: свои golden команды и формы ответов
- * Kaiten — атома, который она зовёт прогревом шага 4. Формы ответов
- * Loki сверяет `src/loki/fixtures_test.ts`, там же, где живёт атом.
  */
 
 import { assertEquals } from "@std/assert";
 
 /** Golden-файл: имя копии и каталог канала, откуда она снята. */
 const FIXTURES: readonly (readonly [string, string])[] = [
-  ["err-no-api-key.txt", "init"],
-  ["err-no-url.txt", "init"],
-  ["spaces-ok.json", "platform/kaiten-http"],
-  ["lanes-ok.json", "platform/kaiten-http"],
-  ["columns-ok.json", "platform/kaiten-http"],
-  ["roles-ok.json", "platform/kaiten-http"],
+  ["series-ok.json", "platform/loki-http"],
 ];
 
 const channelRoot = new URL("../../docs/specs/fixtures/", import.meta.url);

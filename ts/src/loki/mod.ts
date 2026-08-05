@@ -6,9 +6,14 @@
  * `loki_hosts`/`loki_services_by_host` (`platform/store.md`), в которые
  * пишет.
  *
- * Транспорт — общий `httpGet` (`./http.ts`): пределы времени одного
+ * Транспорт — общий `httpGet` (`../http/mod.ts`): пределы времени одного
  * вызова и причина отказа одной строкой там уже решены, здесь — только
  * трактовка протокола Loki.
+ *
+ * Модуль вынесен из `src/init/`: это платформенный атом
+ * (`docs/specs/platform/loki-http.md`), а не часть команды init, и с
+ * появлением второго потребителя (`update`) импорт мимо `mod.ts`
+ * нарушил бы границу модулей.
  */
 
 import {
@@ -16,7 +21,7 @@ import {
   httpGet,
   type HttpResponse,
   type RequestTimeouts,
-} from "./http.ts";
+} from "../http/mod.ts";
 import type { CacheDb } from "../command/mod.ts";
 
 /** Путь series API относительно `baseUrl`. */

@@ -26,7 +26,7 @@ import {
   requirePortainerAccess,
   runInit,
 } from "./cmd_init.ts";
-import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "./http.ts";
+import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../http/mod.ts";
 import type { PortainerAccess } from "./portainer.ts";
 import { WARMUP_BUDGET_MS } from "./kaiten.ts";
 

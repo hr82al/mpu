@@ -13,7 +13,7 @@
  */
 
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
-import { firstLine } from "./http.ts";
+import { firstLine } from "../http/mod.ts";
 import {
   fetchPortainerJson,
   listContainers,

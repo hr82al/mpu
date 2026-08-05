@@ -5,7 +5,7 @@
  * Kaiten и о таблицах кэша `kaiten_spaces`/`kaiten_boards`/`kaiten_lanes`/
  * `kaiten_columns`/`kaiten_roles` (`platform/store.md`), в которые пишет.
  *
- * Транспорт — общий `httpGet` (`./http.ts`): пределы времени одного
+ * Транспорт — общий `httpGet` (`../http/mod.ts`): пределы времени одного
  * вызова и причина сетевого отказа одной строкой там уже решены; здесь —
  * только трактовка протокола Kaiten (пути, заголовки, retry на 429,
  * формат ошибки) и бюджет всего шага целиком (обход досок в частях 2–3).
@@ -16,7 +16,7 @@ import {
   HttpCallError,
   httpGet,
   type RequestTimeouts,
-} from "./http.ts";
+} from "../http/mod.ts";
 import type { CacheDb } from "../command/mod.ts";
 
 /** Дефолт `KITEN_BASE_URL`, когда переменная не задана (`kaiten-http.md`). */
@@ -117,7 +117,7 @@ export function requireKaitenAccess(
   }
   const rawUrl = envFile.get("KITEN_BASE_URL") ?? DEFAULT_BASE_URL;
   // Хвостовые `/` срезаются той же нормализацией, что у `requirePortainerAccess`
-  // (`cmd_init.ts`) и `requireLokiAccess` (`loki.ts`): путь строится
+  // (`cmd_init.ts`) и `requireLokiAccess` (`../loki/mod.ts`): путь строится
   // конкатенацией `baseUrl + "/api/latest" + path`, лишний `/` сложил бы
   // двойной слэш в адресе.
   return { baseUrl: rawUrl.replace(/\/+$/, ""), apiKey };
@@ -408,8 +408,8 @@ async function kaitenGet(
       response = await httpGet(url, { headers, timeouts });
     } catch (err) {
       // `httpGet` бросает только `HttpCallError` — сообщение уже одной
-      // строкой (её собственный инвариант, `http.ts`), поэтому переносится
-      // как есть, без повторного прогона через `firstLine`.
+      // строкой (её собственный инвариант, `../http/mod.ts`), поэтому
+      // переносится как есть, без повторного прогона через `firstLine`.
       if (!(err instanceof HttpCallError)) throw err;
       throw new KaitenError(err.message, { cause: err });
     }

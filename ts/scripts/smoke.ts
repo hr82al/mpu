@@ -20,7 +20,7 @@ import { VERSION } from "../src/version.ts";
 import { REQUIRES_INTERACTION } from "../src/mcp/tool.ts";
 import { PROTOCOL_VERSION } from "../src/mcp/jsonrpc.ts";
 import { DEFAULT_LEGACY_BIN } from "../src/legacy/mod.ts";
-import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/init/http.ts";
+import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/http/mod.ts";
 import { WARMUP_BUDGET_MS } from "../src/init/kaiten.ts";
 
 /**

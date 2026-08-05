@@ -11,7 +11,7 @@
 
 import { type CommandIo, NotFoundIoError } from "../command/mod.ts";
 import { resolveLegacyBin } from "../legacy/mod.ts";
-import { firstLine } from "./http.ts";
+import { firstLine } from "../http/mod.ts";
 
 /** Сегменты имени подкоманды входа — те же, что у маршрута `legacy`. */
 const LOGIN_PATH: readonly string[] = ["telegram", "login"];
