@@ -209,6 +209,76 @@ Deno.test("ошибка части 1 (/spaces): collectKaitenWarmup бросае
   }
 });
 
+// --- испорченная форма тела --------------------------------------------------
+
+Deno.test("тело успешного ответа не той формы — ошибка запроса, не пустой справочник", async (t) => {
+  // Вердикт спецификатора 2026-08-05 (`kaiten-http.md`, «Запрос»): и
+  // не-JSON, и валидный JSON не-массив — одинаково ошибка. Иначе
+  // испорченный ответ молча заменил бы справочник пустым, и пустой
+  // справочник от испорченного ответа было бы не отличить.
+  const cases: ReadonlyArray<readonly [string, string, string]> = [
+    ["объект вместо массива", '{"items": []}', "ответ не JSON-массив"],
+    ["строка вместо массива", '"нет"', "ответ не JSON-массив"],
+    ["null вместо массива", "null", "ответ не JSON-массив"],
+    ["тело не JSON", "точно не json{", "ответ не JSON"],
+  ];
+
+  await t.step("часть 1: весь шаг отказывает", async (t2) => {
+    for (const [name, body, reason] of cases) {
+      await t2.step(name, async () => {
+        const { baseUrl, stop } = fakeServer(() => new Response(body));
+        try {
+          const err = await assertRejects(
+            () => collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS),
+            KaitenError,
+          );
+          assertEquals(err.message, `kaiten GET /spaces: ${reason}`);
+        } finally {
+          await stop();
+        }
+      });
+    }
+  });
+
+  await t.step("часть 2: пропуск доски с той же причиной", async () => {
+    const fixtures = await loadGoldenFixtures();
+    const { baseUrl, stop } = fakeServer((req) => {
+      const { pathname } = new URL(req.url);
+      if (pathname === "/api/latest/spaces") {
+        return new Response(fixtures["spaces"]);
+      }
+      if (pathname === "/api/latest/boards/502/lanes") {
+        return new Response('{"lanes": []}');
+      }
+      if (pathname.endsWith("/lanes")) return new Response(fixtures["lanes"]);
+      return new Response("[]");
+    });
+    try {
+      const warmup = await collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS);
+      assertEquals(warmup.skips, [{
+        boardId: 502,
+        reason: "kaiten GET /boards/502/lanes: ответ не JSON-массив",
+      }]);
+      // Обход не оборван: здоровая доска собрана.
+      assertEquals(warmup.lanes?.boardIds, [501]);
+    } finally {
+      await stop();
+    }
+  });
+
+  await t.step("пустое тело — отсутствие данных, а не ошибка", async () => {
+    const { baseUrl, stop } = fakeServer(() => new Response(""));
+    try {
+      const warmup = await collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS);
+      assertEquals(warmup.spaces, []);
+      assertEquals(warmup.boards, []);
+      assertEquals(warmup.roles, []);
+    } finally {
+      await stop();
+    }
+  });
+});
+
 // --- ошибка части 4 ---------------------------------------------------------
 
 Deno.test("ошибка части 4 (/user-roles): roles: null, остальное собрано", async () => {
