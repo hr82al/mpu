@@ -142,6 +142,12 @@ export interface EnvFile {
   readonly require: (name: string) => string;
   /** Атомарная запись в файл; значение действует немедленно. */
   readonly set: (name: string, value: string) => Promise<void>;
+  /**
+   * Все пары «ключ → значение» файла копией. Нужно поиску сервера по
+   * адресу (`platform/selector.md`): ключи `sl_<N>`/`pg_<N>` перебираются
+   * по значению, а их номера заранее не известны — диапазон N не ограничен.
+   */
+  readonly values: () => Readonly<Record<string, string>>;
 }
 
 /** Объявление команды: семь вещей контракта плюс формы записи в argv. */

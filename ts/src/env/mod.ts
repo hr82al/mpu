@@ -99,6 +99,11 @@ export function makeEnvFile(store: EnvFileStore | undefined): EnvFile {
     return snapshotOf().values[name];
   }
 
+  /** Копия, а не сам снапшот: иначе вызывающий правил бы разбор файла. */
+  function values(): Readonly<Record<string, string>> {
+    return { ...snapshotOf().values };
+  }
+
   function require(name: string): string {
     const value = get(name);
     if (value !== undefined && value !== "") return value;
@@ -139,5 +144,5 @@ export function makeEnvFile(store: EnvFileStore | undefined): EnvFile {
     snapshot = { text: nextText, values: nextValues };
   }
 
-  return { get, require, set };
+  return { get, require, set, values };
 }

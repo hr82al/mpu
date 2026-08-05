@@ -77,6 +77,7 @@ function envFileFake(values: Readonly<Record<string, string>> = {}): EnvFile {
     set: () => {
       throw new Error("envFile.set must not be touched");
     },
+    values: () => ({ ...values }),
   };
 }
 

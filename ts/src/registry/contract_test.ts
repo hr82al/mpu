@@ -446,6 +446,7 @@ function makeIo(dir: string): CommandIo {
       set: () => {
         throw new Error("envFile must not be touched");
       },
+      values: () => ({}),
     },
     readAccessToken: () => Promise.resolve("проба-токена"),
     writeAccessToken: (token) =>
