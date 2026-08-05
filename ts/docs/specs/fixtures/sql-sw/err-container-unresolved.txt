@@ -1,0 +1,2 @@
+mpu sql sw: контейнер 'sw-api' не резолвится (container 'sw-api' not found in Portainer cache).
+  Нужен Portainer endpoint sw-хоста в кэше `mpu init`, либо задай SW_PG_RUN_TARGET (sl-N / имя контейнера).

@@ -1,0 +1,3 @@
+| pipe | bslash | nl |
+| --- | --- | --- |
+| a\|b | c\\d | e<br>f |

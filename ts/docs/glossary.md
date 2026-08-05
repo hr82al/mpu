@@ -44,6 +44,7 @@
 | сервис стенда | `ComposeService` | значение Loki-label `compose_service` (`api`, `wb-loader`, …) |
 | запись лога | `LogEntry` | единица ответа Loki: наносекундный ts + строка лога |
 | meta-блок | `MetaBlock` | служебная шапка SQL-команд в stderr (server/host/БД/search_path/режим/SQL) при `--dry`/`-v` |
+| набор строк результата | `ResultSet` | колонки + строки, отданные одним оператором SQL; печатается набор первого оператора вызова |
 | БД воркспейсов | `WorkspacesDb` | PG-база sw-back; SQL к ней исполняется изнутри контейнера sw-back (sw-алиасы селектора) |
 | транспорт | `Transport` | способ доставки exec: `ssh` \| `portainer`; выбирается per-server |
 | таргет | `Target` | адресат выполнения: сервер (`sl-N`/dev) либо контейнер по точному имени |

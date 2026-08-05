@@ -1,0 +1,6 @@
+server: sw-pg (база sw-back)
+run_target: sw-api
+dsn_source: env DATABASE_URL (коннект изнутри контейнера)
+mode: read-only
+sql:
+SELECT 1

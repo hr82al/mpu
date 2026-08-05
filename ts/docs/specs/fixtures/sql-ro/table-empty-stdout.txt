@@ -1,0 +1,2 @@
+n  longcolumnname
+(0 rows)
