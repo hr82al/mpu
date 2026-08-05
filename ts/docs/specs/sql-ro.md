@@ -176,6 +176,13 @@ exec и печатается в форматах выше. Target вида `sl-N
 отказа read-only, exit 1); `SELECT 1 AS a; SELECT 2 AS b` (вопрос о
 `;`-склейке); первый пример с `--server sl-<N>` (meta без search_path).
 
+Два мета-блока уже сняты и лежат в
+`fixtures/platform/selector/`: `dry-v-client-stderr.txt` (по client_id,
+`search_path: schema_<client_id>, public`) и `dry-v-sl0-stderr.txt`
+(по `sl-0`, без search_path); значения в них заменены плейсхолдерами
+`sl-<N>`/`<pg_host>`/`<client_id>` — подстановка на стороне теста.
+Сверяет их эта спека: резолв селектора мета-блока не печатает.
+
 ## Известные отклонения
 
 - **fix** — ошибка конфигурации PG (нет `pg_<N>`, нет кредов) в
