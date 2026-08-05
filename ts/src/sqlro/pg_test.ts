@@ -400,6 +400,28 @@ Deno.test("отказы обёртки различаются по SQLSTATE", as
     },
   );
 
+  await t.step(
+    "3B001 на снятии метки — вместо транзакции вызова открыта чужая",
+    async () => {
+      // Второй путь того же обхода: `COMMIT; BEGIN …` не закрывает
+      // транзакцию, а подменяет её, и метки в новой нет. Смысл тот же,
+      // класс тот же — различение по коду, текст сервера тут другой.
+      const err = await run(() =>
+        serverError('savepoint "mpu_sql_ro" does not exist', "3B001")
+      );
+      assertInstanceOf(err, TransactionEndedError);
+    },
+  );
+
+  await t.step("чужой код с тем же словом — не класс метки", async () => {
+    // Слово «savepoint» в сообщении сервера ничего не решает: класс
+    // отказа задаёт SQLSTATE, здесь — обычная синтаксическая ошибка.
+    const err = await run(() =>
+      serverError('syntax error at or near "SAVEPOINT"', "42601")
+    );
+    assertInstanceOf(err, DbError);
+  });
+
   await t.step("25001 — текстом сервера, как прочие коды", async () => {
     // Одним кодом приходит и попытка снять режим, и `VACUUM` в блоке
     // транзакции: различать их не требуется.

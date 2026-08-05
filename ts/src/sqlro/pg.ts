@@ -81,8 +81,15 @@ export interface ClientOptions {
 /** SQLSTATE отказа записи на read-only сессии. */
 const READ_ONLY_SQL_TRANSACTION = "25006";
 
-/** SQLSTATE снятия метки вне транзакции: текст завершил её сам. */
+/**
+ * SQLSTATE снятия потерянной метки: текст распорядился транзакцией
+ * вызова сам, и на его остаток гарантия только-чтения не действовала.
+ * Кодов два, потому что путей два: `COMMIT` закрывает транзакцию
+ * (`25P01`), а `COMMIT; BEGIN …` открывает вместо неё чужую, где метки
+ * нет (`3B001`).
+ */
 const NO_ACTIVE_SQL_TRANSACTION = "25P01";
+const INVALID_SAVEPOINT_SPECIFICATION = "3B001";
 
 /**
  * Метка подтранзакции обёртки — фиксированное имя реализации: из
@@ -254,7 +261,10 @@ export function dbError(err: unknown, text: string, offset = 0): Error {
     if (err.code === READ_ONLY_SQL_TRANSACTION) {
       return new WriteRefusedError(err.message, { cause: err });
     }
-    if (err.code === NO_ACTIVE_SQL_TRANSACTION) {
+    if (
+      err.code === NO_ACTIVE_SQL_TRANSACTION ||
+      err.code === INVALID_SAVEPOINT_SPECIFICATION
+    ) {
       return new TransactionEndedError(err.message, { cause: err });
     }
     return new DbError(

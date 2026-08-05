@@ -601,6 +601,45 @@ Deno.test("отказы БД: свой текст на запись, досло�
     assertEquals(sessions.closed(), 1);
   });
 
+  await t.step("имя метки не печатается ни на одном из путей", async () => {
+    // Метка — имя реализации: на пути подменённой транзакции сервер
+    // называет её в сообщении, и оно приходит команде в `cause`. Наружу
+    // печатается один и тот же фиксированный текст, метки в нём нет.
+    for (
+      const server of [
+        "ROLLBACK TO SAVEPOINT can only be used in transaction blocks",
+        'savepoint "mpu_sql_ro" does not exist',
+      ]
+    ) {
+      const sessions = fakeSessions((text) =>
+        text.startsWith("SELECT current_setting")
+          ? READ_ONLY_ON
+          : new TransactionEndedError(server)
+      );
+      const { io } = harness();
+      const err = await assertRejects(
+        () =>
+          runSqlRo(
+            args({
+              selector: "sl-1",
+              sql: "COMMIT; BEGIN READ WRITE; SELECT 1",
+            }),
+            io,
+            { openSession: sessions.open },
+          ),
+        DomainError,
+      );
+      const shown = formatCommandError(["sql-ro"], err);
+      assertEquals(
+        shown,
+        "mpu sql-ro: текст завершил транзакцию вызова — гарантия " +
+          "только-чтения снята, результат не печатается",
+      );
+      assertEquals(shown.includes("mpu_sql_ro"), false, shown);
+      assertEquals(sessions.closed(), 1);
+    }
+  });
+
   await t.step("отказ подключения — та же ошибка БД", async () => {
     // Соединения нет вовсе: отказ обязан прийти классом команды, иначе
     // недоступный хост печатался бы как «unexpected error».
