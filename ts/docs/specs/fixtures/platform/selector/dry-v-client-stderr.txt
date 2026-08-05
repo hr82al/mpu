@@ -1,0 +1,8 @@
+server: sl-<N>
+pg_host: <pg_host>
+pg_port: 5432
+database: wb
+search_path: schema_<client_id>, public
+mode: read-only
+sql:
+SELECT 1
