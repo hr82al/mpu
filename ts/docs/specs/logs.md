@@ -1,6 +1,11 @@
 # mpu logs
 
-Статус: черновик
+Статус: к реализации (2026-08-05; goldens сняты с живой версии —
+`fixtures/logs/`; открытые вопросы закрыты прогонами: голый вызов — не
+справка, `-h` работает, `--tail 0` отвергается разбором аргументов, окно
+`start > end` отвергает источник. Атомы `platform/loki-http.md` и
+Portainer-REST реализованы; `exec-transport` команде не нужен —
+`--via portainer` это GET за снимком логов, а не exec)
 
 ## Назначение
 
@@ -10,8 +15,10 @@ Docker API через Portainer.
 
 ## CLI-контракт
 
-`mpu logs [SELECTOR] [SERVICE] [флаги]`. Совсем без аргументов — справка,
-exit 0; `-h` = `--help`.
+`mpu logs [SELECTOR] [SERVICE] [флаги]`. `-h` = `--help`. Совсем без
+аргументов — **не справка**: выполняется обычный Loki-запрос без фильтра по
+хосту за дефолтное окно (проверено прогоном живой версии: exit 0, вывод —
+строки логов всех хостов).
 
 - `SELECTOR` — `ls` | прямой хост (`sl-N`, `wb-N`, `dt-N`, `wb-clusters`,
   `wb-positions`) | селектор клиента/таблицы (`platform/selector.md`) | имя
@@ -87,10 +94,11 @@ stdout — строки логов (или списки `ls`); stderr — оши
 
 Только чтение: HTTP GET и SELECT из кэш-БД; никакой записи, кэш не мутируется.
 
-Граница Loki: `GET {LOKI_URL}/loki/api/v1/query_range`, параметры
-`query=<LogQL>`, `start=<нс>`, `end=<нс>`, `limit=<N>`,
-`direction=backward|forward` (числа — десятичные строки). Без аутентификации;
-таймаут 30 с; прокси игнорируется (прямое соединение в приватную сеть).
+Граница Loki — атом `platform/loki-http.md` (эндпоинт `query_range`, набор
+параметров, отсутствие авторизации, проверка TLS, таймаут, игнорирование
+прокси); здесь только то, что задаёт команда: `query` — LogQL выше,
+`start`/`end` — границы окна в наносекундах, `limit` — `--tail`,
+`direction` — `backward` у разового запроса и `forward` у слежения.
 Ответ 200:
 
     {"data":{"result":[{"stream":{"host":"sl-1", …},
@@ -160,6 +168,14 @@ Env (`platform/env-file.md`): `LOKI_URL` — обязателен для Loki-п
   <selector>`; без `SERVICE` → `--via portainer требует <container>
   (2-й позиционный аргумент)`; с `--follow` →
   `--follow не поддерживается с --via portainer`.
+- `--tail 0` или отрицательный → exit 2, ошибка ввода: значение не доходит
+  ни до сети, ни до сборки запроса (замерено). Байтовый текст не
+  фиксируется — он принадлежит слою разбора аргументов.
+- Абсолютный `--since` больше текущего времени (окно `start > end`) → запрос
+  уходит и отвергается источником: exit 1, `loki HTTP 400: end timestamp
+  must not be before or equal to start time` + строка `  query: <LogQL>`.
+- Строка лога печатается как есть, включая управляющие последовательности
+  цвета, которые пишет сам сервис: команда их не удаляет и не добавляет.
 - Loki ответил не-2xx → exit 1: `loki HTTP <код>: <тело без крайних пробелов,
   максимум 500 символов>` + вторая строка `  query: <LogQL>`; прочая сетевая
   ошибка → exit 1: `loki error: <описание>`.
@@ -174,11 +190,23 @@ Env (`platform/env-file.md`): `LOKI_URL` — обязателен для Loki-п
 
 ## Golden-примеры
 
-Кандидаты — снять при переводе в «к реализации» (команды здесь не
-запускались): `mpu logs --help`; `mpu logs ls` (кэш заполнен);
-`mpu logs sl-1 ls`; `mpu logs nosuch ls` (exit 2); `mpu logs --since 5x`
-(exit 2, без сети); `mpu logs --via x` (exit 2); а также happy path
-`mpu logs sl-1 --since 1m --tail 5` (read-only GET).
+Сняты с живой версии 2026-08-05, `fixtures/logs/`:
+
+- `ls-hosts-stdout.txt` — `mpu logs ls`: хосты по одному на строку, exit 0;
+- `ls-services-stdout.txt` — `mpu logs sl-1 ls`: сервисы хоста, exit 0;
+- `err-services-empty.txt` — `mpu logs sl-99 ls`: хоста нет в кэше, exit 2;
+- `err-since-bad.txt` — `--since abc`, exit 2, без сети;
+- `err-via-unknown.txt` — `--via docker`, exit 2;
+- `err-portainer-no-selector.txt` / `err-portainer-no-container.txt` /
+  `err-follow-portainer.txt` — три отказа валидации portainer-пути, exit 2.
+
+Голденов на строки логов нет намеренно: живая строка несёт данные клиента,
+а формат печати фиксирован текстом выше (запись без хвостового перевода
+строки, при `--timestamps` — префикс). Голдена на вывод неоднозначного
+селектора нет по той же причине: его строки кандидатов содержат названия и
+идентификаторы клиентов — форма списка задана `platform/selector.md`.
+Справка голденом не сверяется: она рендерится из объявления команды и
+обязана отличаться от оригинала (`platform/registry.md`).
 
 ## Известные отклонения
 

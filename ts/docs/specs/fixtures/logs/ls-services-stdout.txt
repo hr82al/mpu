@@ -1,0 +1,14 @@
+alloy
+currency-rates-sync
+data-processor
+i-clients-migrations
+i-internal-api
+i-wb-unit-calc-worker
+instance-jobs
+migrations
+ozon-loader
+redis
+ss-loader
+ss-updater
+support-jobs
+wb-loader
