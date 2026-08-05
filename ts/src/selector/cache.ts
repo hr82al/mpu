@@ -41,7 +41,10 @@ export function assertInitialized(cache: CacheReader): void {
 /**
  * Кандидаты названных клиентов: по строке на каждую таблицу клиента, а у
  * клиента без таблиц — одна строка с пустыми полями таблицы. Сервер
- * строки берётся у её таблицы, у строки без таблицы — из реестра клиентов.
+ * строки — сервер её таблицы, а пустой замещается сервером клиента
+ * (спека, «Ввод/вывод»): иначе клиент с единственной таблицей без сервера
+ * давал бы `matched but no server resolvable` вместо успеха. Замещение —
+ * только здесь: веткам поиска по таблице оно запрещено.
  */
 export function clientCandidates(
   cache: CacheReader,
@@ -51,7 +54,7 @@ export function clientCandidates(
   const rows = cache.query(
     "SELECT c.client_id AS client_id, s.ss_id AS spreadsheet_id," +
       " s.title AS title," +
-      " CASE WHEN s.ss_id IS NULL THEN c.server ELSE s.server END AS server" +
+      " COALESCE(NULLIF(s.server, ''), c.server) AS server" +
       " FROM sl_clients c" +
       " LEFT JOIN sl_spreadsheets s ON s.client_id = c.client_id" +
       ` WHERE c.client_id IN (${placeholders(clientIds.length)})` +
@@ -61,18 +64,23 @@ export function clientCandidates(
   return withSids(cache, rows);
 }
 
-/** Кандидаты-таблицы, чей столбец содержит значение как подстроку. */
+/**
+ * Кандидаты-таблицы, чей столбец содержит значение как подстроку. Сервер
+ * берётся у самой таблицы и ничем не замещается. Порядок выдачи спека
+ * задаёт по столбцу поиска, поэтому он тут же, рядом с ним.
+ */
 export function spreadsheetCandidates(
   cache: CacheReader,
-  // Столбец подставляется в текст запроса, но это не внешние данные:
-  // union из двух литералов, других значений тип не допускает.
+  // Столбец и порядок подставляются в текст запроса, но это не внешние
+  // данные: union из двух литералов, других значений тип не допускает.
   column: "ss_id" | "title",
   value: string,
 ): readonly Candidate[] {
+  const order = column === "ss_id" ? "client_id, ss_id" : "title, ss_id";
   const rows = cache.query(
     "SELECT client_id, ss_id AS spreadsheet_id, title, server" +
       ` FROM sl_spreadsheets WHERE ${column} LIKE '%' || ? || '%'` +
-      " ORDER BY client_id, ss_id",
+      ` ORDER BY ${order}`,
     value,
   );
   return withSids(cache, rows);

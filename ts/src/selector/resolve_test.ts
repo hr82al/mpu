@@ -465,22 +465,125 @@ Deno.test("вердикт: клиент на двух серверах — ambig
 
 Deno.test("вердикт: кандидат без сервера в множестве не участвует", async () => {
   // preserve-отклонение спеки: 2 кандидата на sl-1 + 1 без сервера —
-  // однозначный успех со всеми тремя в выдаче.
+  // однозначный успех со всеми тремя в выдаче. Достижимо в ветке
+  // заголовка: там кандидаты приходят от разных клиентов, а сервер
+  // таблицы сервером её клиента (sl-9) не замещается.
   await withCache({
-    clients: [{ id: 5, server: "sl-1" }],
+    clients: [{ id: 5, server: "sl-1" }, { id: 6, server: "sl-9" }],
     spreadsheets: [
-      { ssId: "ss-1", clientId: 5, title: "а", server: "sl-1" },
-      { ssId: "ss-2", clientId: 5, title: "б", server: "sl-1" },
-      { ssId: "ss-3", clientId: 5, title: "в", server: null },
+      { ssId: "ss-1", clientId: 5, title: "общий отчёт", server: "sl-1" },
+      { ssId: "ss-2", clientId: 5, title: "общий отчёт", server: "sl-1" },
+      { ssId: "ss-3", clientId: 6, title: "общий отчёт", server: null },
     ],
   }, (sources) => {
-    const resolved = resolveSelector(sources, "5");
+    const resolved = resolveSelector(sources, "общий");
     assertEquals(resolved.serverNumber, 1);
     assertEquals(resolved.candidates.map((c) => c.spreadsheetId), [
       "ss-1",
       "ss-2",
       "ss-3",
     ]);
+    assertEquals(resolved.candidates.map((c) => c.server), [
+      "sl-1",
+      "sl-1",
+      null,
+    ]);
+  });
+});
+
+Deno.test("сервер кандидата: пустой у таблицы замещается сервером клиента", async () => {
+  // Замещение — только в ветках клиента (email, client_id, sid).
+  const cache: Cache = {
+    clients: [{ id: 4, server: "sl-2" }],
+    spreadsheets: [
+      { ssId: "ss-4", clientId: 4, title: "без сервера", server: null },
+    ],
+    sids: [{ sid: "wb-4", clientId: 4 }],
+  };
+  await withCache(cache, (sources) => {
+    for (const value of ["4", "wb-4"]) {
+      const resolved = resolveSelector(sources, value);
+      assertEquals(resolved.serverNumber, 2, `селектор: ${value}`);
+      assertEquals(resolved.candidates.map((c) => c.server), ["sl-2"]);
+    }
+  });
+  await withCache(cache, (sources) => {
+    // А в ветках поиска по таблице подстановки нет: сервера у таблицы
+    // нет — значит его не вывести, и это matched but no server resolvable.
+    assertEquals(
+      messageOf(() => resolveSelector(sources, "ss-4")),
+      "matched but no server resolvable: 'ss-4'",
+    );
+    assertEquals(
+      messageOf(() => resolveSelector(sources, "без сервера")),
+      "matched but no server resolvable: 'без сервера'",
+    );
+  });
+});
+
+Deno.test("подстрочный поиск: шаблоны LIKE и регистр — контракт спеки", async (t) => {
+  await withCache({
+    clients: [{ id: 5, server: "sl-1" }],
+    spreadsheets: [
+      { ssId: "ss-abc", clientId: 5, title: "Отчёт ALPHA", server: "sl-1" },
+    ],
+  }, async (sources) => {
+    const found = (value: string) =>
+      resolveSelector(sources, value).candidates.map((c) => c.spreadsheetId);
+    await t.step("% в значении — шаблон, а не литерал", () => {
+      assertEquals(found("ss%bc"), ["ss-abc"]);
+    });
+    await t.step("_ в значении — любой один символ", () => {
+      assertEquals(found("ss_abc"), ["ss-abc"]);
+    });
+    await t.step("регистр ASCII не учитывается", () => {
+      assertEquals(found("alpha"), ["ss-abc"]);
+    });
+    await t.step("регистр кириллицы учитывается", () => {
+      assertEquals(
+        messageOf(() => resolveSelector(sources, "отчёт")),
+        "nothing matched: 'отчёт'",
+      );
+    });
+  });
+});
+
+Deno.test("порядок кандидатов: ветка заголовка — по заголовку, затем по таблице", async () => {
+  await withCache({
+    clients: [{ id: 5, server: "sl-1" }],
+    spreadsheets: [
+      { ssId: "ss-b", clientId: 5, title: "яблоко отчёт", server: "sl-1" },
+      { ssId: "ss-a", clientId: 5, title: "яблоко отчёт", server: "sl-1" },
+      { ssId: "ss-c", clientId: 5, title: "арбуз отчёт", server: "sl-1" },
+    ],
+  }, (sources) => {
+    assertEquals(
+      resolveSelector(sources, "отчёт").candidates.map((c) => c.spreadsheetId),
+      ["ss-c", "ss-a", "ss-b"],
+    );
+  });
+});
+
+Deno.test("пустой селектор отклоняется до обращения к кэшу", async (t) => {
+  const cases: readonly (readonly [string, string])[] = [
+    ["пустая строка", ""],
+    ["одни пробелы", "  \t "],
+  ];
+  for (const [name, value] of cases) {
+    await t.step(name, () => {
+      const err = assertThrows(
+        () => resolveSelector(untouchable, value),
+        SelectorError,
+      );
+      assertEquals(err.message, "empty selector");
+      assertEquals(err.candidates, []);
+    });
+  }
+  await t.step("с override сервер назван флагом — отказа нет", () => {
+    assertEquals(
+      resolveSelector(untouchable, "", { server: "sl-1" }).serverNumber,
+      1,
+    );
   });
 });
 

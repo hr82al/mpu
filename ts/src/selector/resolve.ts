@@ -91,9 +91,14 @@ export function resolveSelector(
         `bad --server: '${options.server}' (expected sl-N)`,
       );
     }
-    // Override замещает value целиком: кэш не читается, кандидатов нет.
+    // Override замещает value целиком: кэш не читается, кандидатов нет,
+    // и пустое value здесь безвредно — сервер назван флагом.
     return { selector, serverNumber: overridden, candidates: [] };
   }
+  // Fix-отклонение спеки: пустой селектор доходит сюда как обычное
+  // значение обязательного аргумента, а подстрочный предикат с пустой
+  // подстрокой сматчил бы весь кэш. Отказ до единого обращения к нему.
+  if (selector.trim() === "") throw new SelectorError("empty selector");
   const short = serverNumberOf(selector);
   if (short !== null) return { selector, serverNumber: short, candidates: [] };
 
