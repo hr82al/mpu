@@ -311,7 +311,7 @@
   {
     "name": "sql_ro",
     "title": "mpu sql-ro",
-    "description": "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).\n\nВыполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).\n\nТо же, что `mpu sql`, но PG открывает сессию с `default_transaction_read_only=on`:\nлюбой пишущий запрос (включая data-modifying CTE) отклоняется сервером\n(SQLSTATE 25006) — гарантия PG, не анализ текста SQL. Для записи — `mpu sql`.",
+    "description": "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).\n\nЗапись отклоняет сам сервер (SQLSTATE 25006), а не разбор\nтекста запроса; для записи — `mpu sql`.\n\nSELECTOR: sl-N (сервер целиком, main — sl-0), dev:<client_id>\n(dev-стенд, схема schema_<client_id>), sw-алиас (БД воркспейсов) либо\nпоиск по кэшу. Ровно один client_id среди кандидатов — search_path на\nего схему, иначе search_path сервера. --server sl-N резолв отменяет.\n\nSQL — второй аргумент, иначе stdin целиком (с терминала — до Ctrl+D);\nпустой — ошибка ввода без подключения. Уходит серверу как есть, одним\nвызовом: печатается результат ПЕРВОГО оператора, ошибка любого — отказ\nвсего вызова.\n\nВывод: таблица, --json (массив объектов), --md; вместе --json и --md —\nошибка ввода. --dry: мета-блок и SQL без подключения; -v — тот же блок\nпри обычном прогоне.\n\nКлючи env-файла (окружение процесса не читается): pg_<N>, PG_PORT\n(5432), PG_DB_NAME (wb), PG_MY_USER_NAME/PG_MAIN_USER_NAME и пароли\nPG_MY_USER_PASSWORD/PG_MAIN_USER_PASSWORD; для dev — DEV_PG_HOST,\nDEV_PG_PORT (5434), DEV_PG_DB (mp_sl_1_dev), DEV_PG_USER,\nDEV_PG_PASSWORD.\n\nExit: 0 — успех, включая --dry и запрос без набора строк; 1 — отказ\nзаписи и ошибка БД; 2 — ошибка ввода, резолва и конфигурации.\n\nПример: mpu sql-ro 42 'SELECT count(*) FROM orders' --json",
     "annotations": {
       "readOnlyHint": true
     },
@@ -320,41 +320,183 @@
       "properties": {
         "selector": {
           "type": "string",
-          "description": "client_id, spreadsheet_id substring, title substring, sl-N (сервер целиком, без search_path; main = sl-0), sw-PG алиас (sw / sw-pg / ws / workspaces), или dev-стенд `dev:<client_id>` (БД mp_sl_1_dev, search_path schema_<client_id>)"
+          "description": "client_id / spreadsheet_id / заголовок (подстрока), sl-N, dev:<client_id> или sw-алиас"
         },
         "sql": {
-          "type": "string",
-          "description": "SQL для выполнения (read-only); если не задан — берётся из stdin"
+          "description": "SQL; не задан — читается из stdin",
+          "type": "string"
         },
         "server": {
-          "type": "string",
-          "description": "Override резолва: sl-N"
+          "description": "override резолва: sl-N",
+          "type": "string"
         },
         "dry": {
-          "type": "boolean",
-          "description": "Только meta + SQL, без коннекта",
-          "default": false
+          "default": false,
+          "description": "только мета-блок и SQL, без подключения",
+          "type": "boolean"
         },
-        "json_out": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
+        "json": {
+          "default": false,
+          "description": "результат как JSON",
+          "type": "boolean"
         },
-        "md_out": {
-          "type": "boolean",
-          "description": "Результат как markdown-таблица",
-          "default": false
+        "md": {
+          "default": false,
+          "description": "результат как markdown-таблица",
+          "type": "boolean"
         },
         "verbose": {
-          "type": "boolean",
-          "description": "Печатать meta-блок (server, host, db, search_path, mode, SQL)",
-          "default": false
+          "default": false,
+          "description": "печатать мета-блок",
+          "type": "boolean"
         }
       },
-      "additionalProperties": false,
       "required": [
         "selector"
-      ]
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "database": {
+          "type": "string"
+        },
+        "searchPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sql": {
+          "type": "string"
+        },
+        "dry": {
+          "type": "boolean"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "rows"
+                    },
+                    "columns": {
+                      "readOnly": true,
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rows": {
+                      "readOnly": true,
+                      "type": "array",
+                      "items": {
+                        "readOnly": true,
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/__schema0"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "columns",
+                    "rows"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "done"
+                    },
+                    "rowcount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "rowcount"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "server",
+        "host",
+        "port",
+        "database",
+        "searchPath",
+        "sql",
+        "dry",
+        "outcome"
+      ],
+      "additionalProperties": false,
+      "$defs": {
+        "__schema0": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/__schema0"
+              }
+            }
+          ]
+        }
+      }
     }
   },
   {

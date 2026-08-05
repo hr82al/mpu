@@ -51,7 +51,13 @@ function publishedSchema(schema: JsonSchema): JsonSchema {
     if (key === "$schema") continue;
     out[key] = publishedValue(value);
   }
-  if (out["type"] === "object") out["additionalProperties"] = false;
+  // Значение `additionalProperties`, объявленное самой схемой, не
+  // трогаем: у открытого словаря (ячейка JSON-типа в результате
+  // `sql-ro`) там описание допустимых значений, и закрытие подменило бы
+  // его на «полей быть не может» — заведомо ложную схему для агента.
+  if (out["type"] === "object" && out["additionalProperties"] === undefined) {
+    out["additionalProperties"] = false;
+  }
   return out;
 }
 

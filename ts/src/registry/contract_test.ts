@@ -130,6 +130,22 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "sql-ro",
+    // `--dry` не открывает соединений: живого PostgreSQL у обхода нет,
+    // а вызов обязан молчать и в отказе (см. инвариант 1).
+    argv: ["sl-1", "SELECT 1", "--dry"],
+    sampleResult: {
+      server: "sl-1",
+      host: "10.0.0.1",
+      port: 5432,
+      database: "wb",
+      searchPath: "schema_42",
+      sql: "SELECT 1 AS one",
+      dry: false,
+      outcome: { kind: "rows", columns: ["one"], rows: [[1]] },
+    },
+  },
+  {
     path: "update",
     argv: [],
     sampleResult: {
@@ -422,6 +438,7 @@ function makeIo(dir: string): CommandIo {
     readFile: (path) => Deno.readFile(inDir(path)),
     readTextFile: (path) => Deno.readTextFile(inDir(path)),
     readTextStdin: () => Promise.resolve(""),
+    stdinIsTerminal: () => false,
     currentShell: () => undefined,
     appendFile: (path, text) =>
       Deno.writeTextFile(inDir(path), text, {

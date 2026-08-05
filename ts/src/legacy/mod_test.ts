@@ -52,22 +52,22 @@ const ok: LegacyOutcome = { code: 0, stdout: "", stderr: "" };
 Deno.test("вывод и код возврата проходят насквозь", async (t) => {
   await t.step("stdout и код 0", async () => {
     const cli = makeCli({ code: 0, stdout: "строка\tзначение\n", stderr: "" });
-    assertEquals(await cli.run("sql-ro", "select 1"), 0);
+    assertEquals(await cli.run("logs", "sl-1"), 0);
     assertEquals(cli.stdout(), "строка\tзначение\n");
     assertEquals(cli.stderr(), "");
   });
 
   await t.step("stderr и ненулевой код не переупаковываются", async () => {
     const cli = makeCli({ code: 3, stdout: "", stderr: "boom: нет таблицы\n" });
-    assertEquals(await cli.run("sql-ro", "select 1"), 3);
+    assertEquals(await cli.run("logs", "sl-1"), 3);
     assertEquals(cli.stderr(), "boom: нет таблицы\n");
-    // Ни префикса «mpu sql-ro:», ни подсказки — реестр не вмешивается.
+    // Ни префикса «mpu logs:», ни подсказки — реестр не вмешивается.
     assertEquals(cli.stdout(), "");
   });
 
   await t.step("оба потока сразу", async () => {
     const cli = makeCli({ code: 1, stdout: "данные\n", stderr: "шум\n" });
-    assertEquals(await cli.run("sql-ro"), 1);
+    assertEquals(await cli.run("logs"), 1);
     assertEquals(cli.stdout(), "данные\n");
     assertEquals(cli.stderr(), "шум\n");
   });
@@ -76,13 +76,13 @@ Deno.test("вывод и код возврата проходят насквоз
 Deno.test("аргументы уходят как есть, включая незнакомые реестру", async (t) => {
   await t.step("флаги и позиционные", async () => {
     const cli = makeCli(ok);
-    await cli.run("sql-ro", "--limit", "10", "select 1", "--нет-такого-флага");
+    await cli.run("logs", "--tail", "10", "sl-1", "--нет-такого-флага");
     assertEquals(cli.calls().length, 1);
     assertEquals(cli.calls()[0].args, [
-      "sql-ro",
-      "--limit",
+      "logs",
+      "--tail",
       "10",
-      "select 1",
+      "sl-1",
       "--нет-такого-флага",
     ]);
   });
@@ -92,24 +92,24 @@ Deno.test("аргументы уходят как есть, включая не�
     // однострочный summary (спека).
     const cli = makeCli({
       code: 0,
-      stdout: "Usage: mpu sql-ro …\n",
+      stdout: "Usage: mpu logs …\n",
       stderr: "",
     });
-    assertEquals(await cli.run("sql-ro", "--help"), 0);
-    assertEquals(cli.calls()[0].args, ["sql-ro", "--help"]);
-    assertEquals(cli.stdout(), "Usage: mpu sql-ro …\n");
+    assertEquals(await cli.run("logs", "--help"), 0);
+    assertEquals(cli.calls()[0].args, ["logs", "--help"]);
+    assertEquals(cli.stdout(), "Usage: mpu logs …\n");
   });
 
   await t.step("--json не распознаётся и уходит подпроцессу", async () => {
     const cli = makeCli(ok);
-    await cli.run("sql-ro", "--json", "select 1");
-    assertEquals(cli.calls()[0].args, ["sql-ro", "--json", "select 1"]);
+    await cli.run("logs", "--json", "sl-1");
+    assertEquals(cli.calls()[0].args, ["logs", "--json", "sl-1"]);
   });
 
   await t.step("«--» и всё после него — тоже аргументы", async () => {
     const cli = makeCli(ok);
-    await cli.run("sql-ro", "--", "--limit");
-    assertEquals(cli.calls()[0].args, ["sql-ro", "--", "--limit"]);
+    await cli.run("logs", "--", "--tail");
+    assertEquals(cli.calls()[0].args, ["logs", "--", "--tail"]);
   });
 });
 
@@ -121,7 +121,7 @@ Deno.test("путь исполняемого файла берётся из ко
           JSON.stringify({ values: { "mcp.legacy_bin": "/opt/mpu" } }),
         ),
     });
-    await cli.run("sql-ro");
+    await cli.run("logs");
     assertEquals(cli.calls()[0].bin, "/opt/mpu");
   });
 
@@ -144,7 +144,7 @@ Deno.test("прочий сбой запуска не выдаётся за от�
   });
   // Не NotFoundIoError — значит и не сообщение «не найдена по пути»:
   // такую ошибку обрабатывает верхний обработчик точки входа.
-  const err = await cli.run("sql-ro").then(
+  const err = await cli.run("logs").then(
     () => undefined,
     (reason: unknown) => reason,
   );
@@ -161,7 +161,7 @@ Deno.test("нет исполняемого файла — exit 1 и текст �
         JSON.stringify({ values: { "mcp.legacy_bin": "/нет/такого/mpu" } }),
       ),
   });
-  assertEquals(await cli.run("sql-ro", "select 1"), 1);
+  assertEquals(await cli.run("logs", "sl-1"), 1);
   assertEquals(
     cli.stderr(),
     'mpu: legacy-реализация не найдена по пути "/нет/такого/mpu"\n',

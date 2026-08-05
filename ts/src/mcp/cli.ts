@@ -11,6 +11,7 @@ import {
   type Command,
   type CommandIo,
   NotFoundIoError,
+  UsageError,
 } from "../command/mod.ts";
 import { parseStore } from "../config/mod.ts";
 import { resolveLegacyBin } from "../legacy/mod.ts";
@@ -75,7 +76,7 @@ export async function runMcpServer(
       port,
       profiles: options.profiles,
       token,
-      deps: { io, commands, version: VERSION, log: run.log },
+      deps: { io: withoutStdin(io), commands, version: VERSION, log: run.log },
       signal: run.signal,
     });
     // Адрес печатается в stderr: stdout этой поверхности принадлежит
@@ -94,6 +95,23 @@ export async function runMcpServer(
     }
     throw err;
   }
+}
+
+/**
+ * Окружение вызова тула: stdin у него нет. Долгоживущий процесс делит
+ * один stdin на все вызовы, и команда, читающая его (`mpu sql-ro` без
+ * аргумента SQL), забрала бы поток сервера и повисла бы на нём. Отказ
+ * называет, чем это чинится, — обычная ошибка ввода вместо зависания.
+ */
+function withoutStdin(io: CommandIo): CommandIo {
+  return {
+    ...io,
+    readTextStdin: () =>
+      Promise.reject(
+        new UsageError("stdin у вызова тула нет — передай значение аргументом"),
+      ),
+    stdinIsTerminal: () => false,
+  };
 }
 
 /**

@@ -481,6 +481,48 @@ function checks(subject: Subject): readonly Check[] {
         await Deno.remove(`${configDir}/.env`);
       }
     }],
+    // Единственная проверка, поднимающая клиент PostgreSQL: она же
+    // подтверждает право `--allow-env=PG*` — без него драйвер не
+    // создаётся вовсе (`NotCapable` ещё до подключения). Живого
+    // PostgreSQL у smoke нет, поэтому адрес заведомо закрытый: важно,
+    // что отказ пришёл от драйвера, а не от прав.
+    ["sql-ro: мета-блок из env-файла и живой PG-клиент", async () => {
+      const configDir = `${subject.home}/.config/mpu`;
+      await Deno.mkdir(configDir, { recursive: true });
+      await Deno.writeTextFile(
+        `${configDir}/.env`,
+        "pg_1=127.0.0.1\nPG_PORT=1\nPG_MY_USER_NAME=u\nPG_MY_USER_PASSWORD=p\n",
+      );
+      try {
+        const dry = await runOk(subject, [
+          "sql-ro",
+          "sl-1",
+          "SELECT 1",
+          "--dry",
+          "-v",
+        ]);
+        assertEquals(dry.stdout, "", "у --dry stdout обязан быть пуст");
+        assertEquals(
+          dry.stderr,
+          "server: sl-1\npg_host: 127.0.0.1\npg_port: 1\ndatabase: wb\n" +
+            "mode: read-only\nsql:\nSELECT 1\n",
+          "мета-блок собран не из env-файла",
+        );
+
+        const live = await run(subject, ["sql-ro", "sl-1", "SELECT 1"]);
+        assertEquals(live.code, 1, `не отказ БД: ${JSON.stringify(live)}`);
+        assert(
+          live.stderr.startsWith("db error: "),
+          `отказ не от драйвера: ${JSON.stringify(live.stderr)}`,
+        );
+        assert(
+          !live.stderr.includes("NotCapable"),
+          `драйверу не хватило прав бинаря: ${live.stderr}`,
+        );
+      } finally {
+        await Deno.remove(`${configDir}/.env`);
+      }
+    }],
     ["mcp: сокет, токен, аннотации тулов", () => checkMcpServer(subject)],
   ];
 }

@@ -1,0 +1,8 @@
+server: dev
+pg_host: <dev_pg_host>
+pg_port: 5434
+database: mp_sl_1_dev
+search_path: schema_<client_id>, public
+mode: read-only
+sql:
+SELECT 1

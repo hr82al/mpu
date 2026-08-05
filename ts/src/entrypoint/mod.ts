@@ -194,11 +194,32 @@ export async function runCli(
       output.stdout(renderCommandHelp(command));
       return 0;
     }
+    // Аргументы из исходного argv: их получает и подпроцесс моста, и
+    // команда со своим `--json` — обоим он нужен на своём месте.
+    const own = dropPath(argv, path);
+    if (command.bridge(own)) {
+      // Часть поверхности команды может быть ещё не перенесена — такой
+      // вызов уходит прежней реализации целиком, до разбора аргументов
+      // и до отметки журналу: запись о нём делает сам подпроцесс
+      // (`platform/invoke-log.md`, «Разделение моста»).
+      return await runLegacyCommand(
+        { path, summary: command.summary },
+        own,
+        io,
+        output,
+      );
+    }
     // Вызов пошёл маршрутом `native`: его журналирует обвязка, и
     // отметка стоит до исполнения — запись остаётся и у падения
     // (`platform/invoke-log.md`).
     journal?.nativeCall(command);
-    return await runCommand(command, args, json, io, output);
+    // Команда, объявившая собственный `--json` (`specs/sql-ro.md`:
+    // форма результата с собственным текстом и проверкой конфликта с
+    // `--md`), разбирает флаг сама — общий параметр точки входа её не
+    // перехватывает, иначе объявленное поведение было бы недостижимо.
+    return declaresJson(command)
+      ? await runCommand(command, own, false, io, output)
+      : await runCommand(command, args, json, io, output);
   } catch (err) {
     if (err instanceof LegacyBinMissingError) {
       // Сообщение реестра, а не команды: до неё дело не дошло.
@@ -215,6 +236,12 @@ export async function runCli(
     }
     throw err;
   }
+}
+
+/** Есть ли у команды собственный вход с именем общего параметра. */
+function declaresJson(command: Command): boolean {
+  const name = JSON_FLAG.slice(2);
+  return command.inputs.some((input) => input.name === name);
 }
 
 async function runCommand(
@@ -281,7 +308,9 @@ function levelFlags(path: readonly string[]): readonly CompletionItem[] {
       );
     return [
       ...declared,
-      flag(JSON_FLAG, JSON_FLAG_SUMMARY),
+      // Свой флаг с тем же именем уже в списке — второй раз его не
+      // предлагаем (описание берётся из схемы команды).
+      ...(declaresJson(command) ? [] : [flag(JSON_FLAG, JSON_FLAG_SUMMARY)]),
       flag(HELP_FLAG, HELP_FLAG_SUMMARY),
     ];
   }

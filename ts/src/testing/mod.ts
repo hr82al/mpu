@@ -24,6 +24,9 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     readFile: mustNotTouch("readFile"),
     readTextFile: mustNotTouch("readTextFile"),
     readTextStdin: mustNotTouch("stdin"),
+    // Не терминал: тест, читающий stdin, по умолчанию в положении
+    // пайпа — приглашения ко вводу в нём быть не должно.
+    stdinIsTerminal: () => false,
     readConfigStore: () => Promise.resolve(undefined),
     writeConfigStore: mustNotTouch("writeConfigStore"),
     readAccessToken: () => Promise.resolve(undefined),

@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 52 команд верхнего уровня, ещё не переехавших на TS. */
+/** 51 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["search"],
@@ -22,11 +22,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sql"],
     summary: "Выполнить SQL (write-capable) на PG, выбранном по селектору.",
-  },
-  {
-    path: ["sql-ro"],
-    summary:
-      "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).",
   },
   {
     path: ["sun"],

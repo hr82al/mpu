@@ -5,7 +5,7 @@
  */
 
 import { UsageError } from "../command/mod.ts";
-import type { Candidate } from "./candidate.ts";
+import { type Candidate, formatCandidates } from "./candidate.ts";
 
 /**
  * Один класс на все подтипы отказа: спека даёт им общий код выхода (2) и
@@ -24,7 +24,14 @@ export class SelectorError extends UsageError {
     message: string,
     opts: { candidates?: readonly Candidate[]; hint?: string } = {},
   ) {
-    super(message, { hint: opts.hint });
-    this.candidates = opts.candidates ?? [];
+    const candidates = opts.candidates ?? [];
+    // Текст списка готовит резолв, печатает его точка входа (спека,
+    // «Ввод/вывод»): подробностями ошибки он и приезжает наружу.
+    const list = formatCandidates(candidates);
+    super(message, {
+      hint: opts.hint,
+      details: list === "" ? undefined : list.slice(0, -1),
+    });
+    this.candidates = candidates;
   }
 }

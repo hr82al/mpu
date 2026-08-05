@@ -1,0 +1,5 @@
+pipe  bslash  nl 
+----  ------  ---
+a|b   c\d     e
+f
+(1 rows)

@@ -17,9 +17,11 @@ import { UsageError } from "./errors.ts";
 
 export {
   DomainError,
+  type ErrorDetails,
   formatCommandError,
   NotFoundIoError,
   UsageError,
+  VerbatimError,
 } from "./errors.ts";
 export type { InputForm, InputSpec } from "./args.ts";
 export type { ObjectSchema, SchemaField } from "./schema.ts";
@@ -76,6 +78,12 @@ export interface CommandIo {
   /** Текст файла; отсутствие файла — `NotFoundIoError`. */
   readonly readTextFile: (path: string) => Promise<string>;
   readonly readTextStdin: () => Promise<string>;
+  /**
+   * Терминал ли stdin процесса. Команда, читающая stdin, различает по
+   * нему пайп и человека за клавиатурой: приглашение ко вводу уместно
+   * только второму (`docs/specs/sql-ro.md`, источники SQL).
+   */
+  readonly stdinIsTerminal: () => boolean;
   /** Содержимое файла хранилища; файла нет — `undefined`. */
   readonly readConfigStore: () => Promise<string | undefined>;
   /** Запись хранилища: каталог создаётся, права файла 0600. */
@@ -175,6 +183,17 @@ export interface CommandSpec<A, R> {
    * в любом случае — исчезают только секции вывода.
    */
   readonly logsOutput?: boolean;
+  /**
+   * Вызов, который команда не исполняет сама: он уходит маршрутом
+   * `legacy` прежней реализации (`platform/registry.md`). Решается по
+   * сырому argv — до разбора схемой, чтобы подпроцессу argv достался как
+   * есть и разбирала его та же реализация, что исполняет.
+   *
+   * Временная мера на время частичного переезда команды: `mpu sql-ro` с
+   * sw-селектором (`specs/sql-ro.md`, маршрут 2). Уезжает вместе с
+   * последней непереехавшей поверхностью команды.
+   */
+  readonly bridge?: (args: readonly string[]) => boolean;
   /** Исполнение: разобранные аргументы → результат. Не печатает. */
   readonly run: (args: A, io: CommandIo) => Promise<R>;
   /** Рендер результата в текст для человека. Чист. */
@@ -196,6 +215,8 @@ export interface Command {
   readonly policy: Policy;
   /** Пишутся ли секции out/err в журнал вызовов (см. объявление). */
   readonly logsOutput: boolean;
+  /** Уходит ли этот вызов прежней реализации (см. объявление). */
+  readonly bridge: (args: readonly string[]) => boolean;
   /** Схема входа как JSON Schema: разбор argv и схема входа тула. */
   readonly argsJsonSchema: ObjectSchema;
   /** Схема выхода как JSON Schema: схема результата тула. */
@@ -272,6 +293,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     help: spec.help,
     policy: spec.policy,
     logsOutput: spec.logsOutput ?? true,
+    bridge: spec.bridge ?? (() => false),
     argsJsonSchema,
     resultJsonSchema,
     inputs: specs,

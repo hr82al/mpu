@@ -1,0 +1,3 @@
+db error: relation "nonexistent_table_xyz" does not exist
+LINE 1: SELECT * FROM nonexistent_table_xyz
+                      ^

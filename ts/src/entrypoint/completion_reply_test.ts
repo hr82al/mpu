@@ -5,11 +5,13 @@
  * Сверка байтовая: это внешняя граница, и ответ для zsh **исполняется**
  * как код — вольность в формате ломает дополнение молча.
  *
- * Два эталона (`completion-out-bash-flags`, `completion-out-zsh-nested`)
- * сняты на дереве, где `xlsx` ещё был командой маршрута `legacy`.
- * Поэтому формат на них проверяется на данных слепка, а фактический
- * вывод переехавшего `xlsx` — отдельно, по свойству: описания и порядок
- * теперь берутся из объявления команд, и это следствие переезда.
+ * Часть эталонов снята на дереве, где команда ещё была на маршруте
+ * `legacy`: `completion-out-bash-flags` и `completion-out-zsh-nested` —
+ * до переезда `xlsx`, `completion-out-bash`, `completion-out-zsh` и
+ * `completion-out-zsh-flags` — до переезда `sql-ro`. Формат на них
+ * проверяется на данных слепка, а фактический вывод переехавшей команды
+ * — отдельно, по свойству: описания и порядок теперь берутся из
+ * объявления команды, и это следствие переезда.
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
@@ -61,7 +63,13 @@ Deno.test("completion-out-bash.txt: по варианту на строку", as
     COMP_CWORD: "1",
   });
   assertEquals(code, 0);
-  assertEquals(stdout, await golden("completion-out-bash"));
+  // Состав и форма — эталона (по варианту на строку); порядок теперь
+  // реестра, а не алфавита: `sql-ro` переехала на маршрут `native` и
+  // потому идёт раньше legacy-записи `sql` (то же отклонение, что у
+  // `help-list.txt`).
+  const fixture = await golden("completion-out-bash");
+  assertEquals(stdout.split("\n").sort(), fixture.split("\n").sort());
+  assertEquals(stdout, "sql-ro\nsql\n");
 });
 
 Deno.test("completion-out-zsh.txt: _arguments с описаниями", async () => {
@@ -69,7 +77,18 @@ Deno.test("completion-out-zsh.txt: _arguments с описаниями", async ()
     _MPU_COMPLETE: "complete_zsh",
     _TYPER_COMPLETE_ARGS: "mpu sq",
   });
-  assertEquals(stdout, await golden("completion-out-zsh"));
+  const fixture = await golden("completion-out-zsh");
+  const entries = /"[^"]+":"[^"]*"/g;
+  // Варианты и их описания — эталона: однострока переехавшей `sql-ro`
+  // взята из того же слепка, поэтому текст не разошёлся. Расходится
+  // только порядок — он теперь реестра (native впереди legacy).
+  assertEquals(
+    [...stdout.matchAll(entries)].map(([entry]) => entry).sort(),
+    [...fixture.matchAll(entries)].map(([entry]) => entry).sort(),
+  );
+  // Обрамление ответа — байт в байт эталона: его исполняет zsh.
+  assertEquals(stdout.replace(entries, "…"), fixture.replace(entries, "…"));
+  assertEquals(stdout.indexOf('"sql-ro"') < stdout.indexOf('"sql"'), true);
 });
 
 Deno.test("completion-out-zsh-nested.txt: вложенный уровень", async () => {
@@ -126,12 +145,12 @@ Deno.test("флаги берутся из того же источника, чт
   await t.step("команда маршрута legacy — из слепка", async () => {
     const { stdout } = await complete({
       _MPU_COMPLETE: "complete_bash",
-      COMP_WORDS: "mpu sql-ro -",
+      COMP_WORDS: "mpu logs -",
       COMP_CWORD: "2",
     });
     const flags = stdout.split("\n").filter(Boolean);
     const leaf = readManifest(treeManifest).commands.find(
-      (item) => item.path.join(" ") === "sql-ro",
+      (item) => item.path.join(" ") === "logs",
     );
     const expected = (leaf?.params ?? [])
       .filter((param) => param.kind === "option")
@@ -152,27 +171,31 @@ Deno.test("флаги берутся из того же источника, чт
   });
 
   await t.step("completion-out-zsh-flags.txt — байт в байт", async () => {
-    const { stdout } = await complete({
-      _MPU_COMPLETE: "complete_zsh",
-      _TYPER_COMPLETE_ARGS: "mpu sql-ro --d",
-    });
-    assertEquals(stdout, await golden("completion-out-zsh-flags"));
-  });
-
-  await t.step("описание флага — из того же слепка", async () => {
-    const { stdout } = await complete({
-      _MPU_COMPLETE: "complete_zsh",
-      _TYPER_COMPLETE_ARGS: "mpu sql-ro --d",
-    });
+    // Эталон снят до переезда `sql-ro`, поэтому формат проверяется на
+    // данных слепка: описание флага у переехавшей команды теперь своё
+    // (следующий шаг), а форма ответа обязана остаться прежней.
     const leaf = readManifest(treeManifest).commands.find(
       (item) => item.path.join(" ") === "sql-ro",
     );
     const dry = leaf?.params.find((param) => param.name === "dry");
     assertEquals(
-      stdout,
       completionReply("zsh", [{ name: "--dry", summary: dry?.help ?? "" }]),
+      await golden("completion-out-zsh-flags"),
     );
-    assertStringIncludes(stdout, "Только meta");
+  });
+
+  await t.step("описание флага переехавшей команды — из её схемы", async () => {
+    const { stdout } = await complete({
+      _MPU_COMPLETE: "complete_zsh",
+      _TYPER_COMPLETE_ARGS: "mpu sql-ro --d",
+    });
+    const described = findCommand(["sql-ro"])
+      ?.argsJsonSchema.properties["dry"].description ?? "";
+    assertEquals(
+      stdout,
+      completionReply("zsh", [{ name: "--dry", summary: described }]),
+    );
+    assertStringIncludes(stdout, "без подключения");
   });
 
   await t.step("описание флага команды контракта — из её схемы", async () => {
