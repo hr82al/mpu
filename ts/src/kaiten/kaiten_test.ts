@@ -28,7 +28,7 @@ import {
   requireKaitenAccess,
   retryDelayMs,
   writeKaitenWarmup,
-} from "./kaiten.ts";
+} from "./mod.ts";
 
 const API_KEY = "proba-kaiten-key-Q3z8Nw";
 
@@ -73,8 +73,8 @@ async function withBootstrappedDb(
 }
 
 // Сверку копий `testdata/*-ok.json` с каналом спецификаций держит
-// `fixtures_test.ts` — там же, где сверка остальных копий модуля: два
-// места одной проверки разошлись бы при добавлении новой фикстуры.
+// `fixtures_test.ts` этого же модуля: два места одной проверки
+// разошлись бы при добавлении новой фикстуры.
 
 // --- happy path -------------------------------------------------------------
 

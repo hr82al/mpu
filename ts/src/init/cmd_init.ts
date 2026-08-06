@@ -51,7 +51,7 @@ import {
   requireKaitenAccess,
   WARMUP_BUDGET_MS,
   writeKaitenWarmup,
-} from "./kaiten.ts";
+} from "../kaiten/mod.ts";
 import { runTelegramLogin } from "./telegram.ts";
 
 /**

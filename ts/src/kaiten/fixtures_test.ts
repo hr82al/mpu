@@ -7,19 +7,18 @@
  *
  * Тест на файл, а не на каталог: имя разошедшегося эталона должно быть
  * видно из отчёта, без запуска diff'а вручную. Калька с
- * `src/env/fixtures_test.ts` и `src/store/fixtures_test.ts`.
- *
- * Здесь — только свои golden команды. Формы ответов атомов, которые
- * она зовёт, сверяются там же, где живут атомы: `src/loki/` и
- * `src/kaiten/`.
+ * `src/loki/fixtures_test.ts` — сверка форм ответов внешней системы
+ * живёт там же, где атом, который их разбирает.
  */
 
 import { assertEquals } from "@std/assert";
 
 /** Golden-файл: имя копии и каталог канала, откуда она снята. */
 const FIXTURES: readonly (readonly [string, string])[] = [
-  ["err-no-api-key.txt", "init"],
-  ["err-no-url.txt", "init"],
+  ["spaces-ok.json", "platform/kaiten-http"],
+  ["lanes-ok.json", "platform/kaiten-http"],
+  ["columns-ok.json", "platform/kaiten-http"],
+  ["roles-ok.json", "platform/kaiten-http"],
 ];
 
 const channelRoot = new URL("../../docs/specs/fixtures/", import.meta.url);
