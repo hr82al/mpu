@@ -1,7 +1,7 @@
 /**
  * Общая часть HTTP-вызовов внешних систем: один GET под двумя
  * пределами времени и причина отказа одной строкой. Шов один на трёх
- * клиентов — Portainer (`../init/portainer.ts`), Loki (`../loki/mod.ts`)
+ * клиентов — Portainer (`../portainer/mod.ts`), Loki (`../loki/mod.ts`)
  * и Kaiten (`../init/kaiten.ts`), — поэтому пределы и отмена живут
  * здесь, а не переписываются в каждом.
  *
@@ -55,6 +55,18 @@ export interface HttpResponse {
   readonly retryAfter: string | null;
 }
 
+/**
+ * Тот же ответ телом-байтами: тело мультиплексированного потока Docker
+ * (`docs/specs/logs.md`, portainer-путь) декодированию в текст не
+ * подлежит — восьмибайтовые заголовки кадров несут произвольные байты
+ * длины, и любой из них вне ASCII заменился бы символом-заменителем.
+ */
+export interface HttpBytesResponse {
+  readonly status: number;
+  readonly bytes: Uint8Array;
+  readonly retryAfter: string | null;
+}
+
 /** Что клиент добавляет к вызову сверх адреса. */
 export interface GetOptions {
   readonly headers?: Readonly<Record<string, string>>;
@@ -87,6 +99,23 @@ export async function httpGet(
   url: URL,
   options: GetOptions = {},
 ): Promise<HttpResponse> {
+  const response = await httpGetBytes(url, options);
+  return {
+    status: response.status,
+    text: new TextDecoder().decode(response.bytes),
+    retryAfter: response.retryAfter,
+  };
+}
+
+/**
+ * То же обращение с телом-байтами: пределы времени, отмена и форма
+ * причины отказа общие с `httpGet`, разница только в том, что тело не
+ * декодируется (см. `HttpBytesResponse`).
+ */
+export async function httpGetBytes(
+  url: URL,
+  options: GetOptions = {},
+): Promise<HttpBytesResponse> {
   const timeouts = options.timeouts ?? DEFAULT_TIMEOUTS;
   const headers = options.headers ?? {};
   const controller = new AbortController();
@@ -155,7 +184,7 @@ async function send(
   insecure: boolean,
   signal: AbortSignal,
   onHeaders: () => void,
-): Promise<HttpResponse> {
+): Promise<HttpBytesResponse> {
   if (url.protocol === "https:" && insecure) {
     return await sendInsecure(url, headers, signal, onHeaders);
   }
@@ -163,7 +192,7 @@ async function send(
   onHeaders();
   return {
     status: response.status,
-    text: await response.text(),
+    bytes: new Uint8Array(await response.arrayBuffer()),
     retryAfter: response.headers.get("retry-after"),
   };
 }
@@ -173,7 +202,7 @@ function sendInsecure(
   headers: Readonly<Record<string, string>>,
   signal: AbortSignal,
   onHeaders: () => void,
-): Promise<HttpResponse> {
+): Promise<HttpBytesResponse> {
   return new Promise((resolve, reject) => {
     const req = httpsRequest(
       {
@@ -196,7 +225,7 @@ function sendInsecure(
             // запроса его нет); здесь ответ всегда клиентский, и к
             // моменту события `end` статус уже разобран.
             status: res.statusCode!,
-            text: Buffer.concat(chunks).toString("utf-8"),
+            bytes: new Uint8Array(Buffer.concat(chunks)),
             // Значение заголовка приходит строкой; списком — только у
             // тех заголовков, которые повторяются (`set-cookie`).
             retryAfter: typeof res.headers["retry-after"] === "string"

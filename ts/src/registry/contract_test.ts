@@ -146,6 +146,19 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "logs",
+    // `ls` читает только локальный кэш: сети у обхода нет, а пустая
+    // кэш-БД временного каталога даёт отказ — молча, как требует
+    // инвариант 1.
+    argv: ["ls"],
+    sampleResult: {
+      kind: "entries",
+      names: [],
+      entries: [{ tsNs: "1754380800000000000", line: "строка сервиса" }],
+      snapshot: null,
+    },
+  },
+  {
     path: "update",
     argv: [],
     sampleResult: {
@@ -228,7 +241,11 @@ Deno.test("инвариант 4: имена входа совпадают со �
     // значение доезжает до разобранных аргументов под тем же именем.
     // Обязательные входы добавляются, иначе разбор упадёт раньше.
     for (const input of command.inputs) {
-      const argv = argvFor(command, [...required(command), input.name]);
+      const argv = argvFor(command, [
+        ...required(command),
+        ...positionalsBefore(command, input.name),
+        input.name,
+      ]);
       const parsed = command.parseArgs(argv);
       assertEquals(
         parsed[input.name],
@@ -313,6 +330,22 @@ function argvFor(command: Command, names: readonly string[]): string[] {
     flags.push(`--${input.name}`, Array.isArray(value) ? value[0] : `${value}`);
   }
   return [...flags, ...positional];
+}
+
+/**
+ * Позиционные входы, объявленные раньше названного. Позиционное
+ * значение занимает своё место по порядку объявления: у команды с двумя
+ * необязательными позиционными (`mpu logs`) второй нельзя записать в
+ * argv, не записав первый, — иначе значение достанется первому и
+ * проверка сравнивала бы не тот вход.
+ */
+function positionalsBefore(command: Command, name: string): string[] {
+  const earlier: string[] = [];
+  for (const input of command.inputs) {
+    if (input.name === name) break;
+    if (input.form.positional !== undefined) earlier.push(input.name);
+  }
+  return earlier;
 }
 
 function requiredArgv(command: Command): string[] {

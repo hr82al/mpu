@@ -1,15 +1,22 @@
 /**
- * HTTP-клиент Portainer API (`docs/specs/init.md`, шаг 2): список
- * environment'ов и список контейнеров внутри одного из них. Модуль не
+ * HTTP-клиент Portainer API (`docs/specs/init.md`, шаг 2;
+ * `docs/specs/logs.md`, portainer-путь): список environment'ов, список
+ * контейнеров внутри одного из них и снимок логов контейнера. Модуль не
  * знает о командах, кэш-БД или конфигурации — только о протоколе
  * Portainer/Docker и о том, как назвать его отказ. Пределы времени и
  * транспорт — общие для клиентов Portainer, Loki и Kaiten (`../http/mod.ts`).
+ *
+ * Модуль вынесен из `src/init/`: со вторым потребителем (`logs`) это
+ * платформенная граница, а не часть команды init, и импорт мимо
+ * `mod.ts` нарушил бы границу модулей — тем же путём раньше уехал
+ * клиент Loki.
  */
 
 import {
   DEFAULT_TIMEOUTS,
   firstLine,
   httpGet,
+  httpGetBytes,
   type RequestTimeouts,
 } from "../http/mod.ts";
 
@@ -97,6 +104,114 @@ export async function listContainers(
     state: c.State,
     image: c.Image,
   }));
+}
+
+/** Что спрашивают у Docker при снимке логов контейнера. */
+export interface ContainerLogsQuery {
+  readonly stdout: boolean;
+  readonly stderr: boolean;
+  /** Сколько последних строк отдать. */
+  readonly tail: number;
+  readonly timestamps: boolean;
+  /** Нижняя граница, unix-секунды; не задана — весь доступный лог. */
+  readonly sinceUnix?: number;
+}
+
+/**
+ * Снимок логов контейнера (`logs.md`, portainer-путь): тело —
+ * мультиплексированный поток Docker, поэтому возвращаются байты, а не
+ * текст (разбор — `demuxDockerStream`). `follow=false` зашит: команде
+ * нужен снимок, слежение живёт только на Loki-пути.
+ */
+export async function fetchContainerLogs(
+  access: PortainerAccess,
+  endpointId: number,
+  container: string,
+  query: ContainerLogsQuery,
+  timeouts: RequestTimeouts = DEFAULT_TIMEOUTS,
+): Promise<Uint8Array> {
+  const url = new URL(
+    `${access.baseUrl}/api/endpoints/${endpointId}/docker/containers/` +
+      `${encodeURIComponent(container)}/logs`,
+  );
+  // Порядок параметров — порядок спеки: адрес запроса читают глазами в
+  // логах прокси, и стабильный порядок там дороже, чем экономия строк.
+  url.searchParams.set("stdout", String(query.stdout));
+  url.searchParams.set("stderr", String(query.stderr));
+  url.searchParams.set("tail", String(query.tail));
+  url.searchParams.set("follow", "false");
+  url.searchParams.set("timestamps", String(query.timestamps));
+  if (query.sinceUnix !== undefined) {
+    url.searchParams.set("since", String(query.sinceUnix));
+  }
+  try {
+    const response = await httpGetBytes(url, {
+      headers: { "X-API-Key": access.apiKey },
+      timeouts,
+      insecure: !access.verifyTls,
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw new PortainerError(`HTTP ${response.status}`);
+    }
+    return response.bytes;
+  } catch (err) {
+    if (err instanceof PortainerError) throw err;
+    throw new PortainerError(
+      firstLine(err instanceof Error ? err.message : String(err)),
+      { cause: err },
+    );
+  }
+}
+
+/** Разделённые потоки снимка логов: что Docker отдал как stdout и stderr. */
+export interface DockerStreams {
+  readonly stdout: Uint8Array;
+  readonly stderr: Uint8Array;
+}
+
+/** Длина заголовка кадра мультиплексированного потока Docker. */
+const FRAME_HEADER = 8;
+
+/**
+ * Демультиплексирование потока Docker (`logs.md`, portainer-путь):
+ * кадры с восьмибайтовым заголовком, байт 0 — поток (0=stdin, 1=stdout,
+ * 2=stderr), байты 4–7 — длина payload big-endian. Кадры потока 0 и
+ * неполный хвостовой кадр отбрасываются.
+ *
+ * Если первый байт ответа не попадает в {0,1,2}, фрейминга нет вовсе
+ * (контейнер с tty) — весь ответ целиком считается stdout-частью.
+ */
+export function demuxDockerStream(bytes: Uint8Array): DockerStreams {
+  if (bytes.length === 0) return { stdout: bytes, stderr: bytes };
+  if (bytes[0] > 2) return { stdout: bytes, stderr: new Uint8Array() };
+
+  const stdout: Uint8Array[] = [];
+  const stderr: Uint8Array[] = [];
+  const header = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 0;
+  while (offset + FRAME_HEADER <= bytes.length) {
+    const size = header.getUint32(offset + 4, false);
+    const end = offset + FRAME_HEADER + size;
+    // Хвост короче объявленной длины — кадр неполный и целиком
+    // отбрасывается: половина строки хуже её отсутствия.
+    if (end > bytes.length) break;
+    const payload = bytes.subarray(offset + FRAME_HEADER, end);
+    if (bytes[offset] === 1) stdout.push(payload);
+    if (bytes[offset] === 2) stderr.push(payload);
+    offset = end;
+  }
+  return { stdout: concat(stdout), stderr: concat(stderr) };
+}
+
+function concat(parts: readonly Uint8Array[]): Uint8Array {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const out = new Uint8Array(total);
+  let at = 0;
+  for (const part of parts) {
+    out.set(part, at);
+    at += part.length;
+  }
+  return out;
 }
 
 /**

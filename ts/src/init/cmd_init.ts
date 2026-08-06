@@ -37,7 +37,7 @@ import {
   listEndpoints,
   type PortainerAccess,
   type PortainerEndpoint,
-} from "./portainer.ts";
+} from "../portainer/mod.ts";
 import { classifyContainer } from "./discovery.ts";
 import {
   collectLokiSeries,

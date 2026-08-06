@@ -13,7 +13,7 @@ import {
   listEndpoints,
   type PortainerAccess,
   PortainerError,
-} from "./portainer.ts";
+} from "./mod.ts";
 
 // Тестовый материал, НЕ секрет: самоподписанный сертификат и приватный
 // ключ только для "localhost", ни для чего другого не используются.

@@ -23,6 +23,7 @@ import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "../update/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
 import { sqlRoCommand } from "../sqlro/mod.ts";
+import { logsCommand } from "../logs/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 
@@ -69,6 +70,7 @@ export const commands: readonly Command[] = [
   initCommand,
   updateCommand,
   sqlRoCommand,
+  logsCommand,
   mcpTokenCommand,
 ];
 

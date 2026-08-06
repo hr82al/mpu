@@ -500,6 +500,170 @@
     }
   },
   {
+    "name": "logs",
+    "title": "mpu logs",
+    "description": "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).\n\nБез SELECTOR — все хосты. SELECTOR: sl-N / wb-N / dt-N /\nwb-clusters / wb-positions — как есть; клиентский селектор (client_id,\nspreadsheet_id, заголовок) — в сервер sl-N. Первый аргумент, не похожий\nна хост, но известный кэшу как сервис, — это SERVICE со всех хостов.\n\nСписки из кэша, без сети: `mpu logs ls` — хосты, `mpu logs sl-1 ls` —\nсервисы хоста; кэш наполняют `mpu init` и `mpu update`.\n\nФильтры Loki, И между собой: --grep S (подстрока), --grep-regex S,\n--level error|warn|info|debug, --client N (подстрока числа в строке —\nсовпадёт и порт). Потоки: --no-stdout, --no-stderr.\n\nОкно: --since 30s|10m|1h|2d или unix-ts (умолчание 5m, слежение 10s);\n--tail/-n N > 0 (200); --timestamps/-t — префикс\nYYYY-MM-DDThh:mm:ss.mmmZ; --follow/-f — опрос раз в 2 с до Ctrl+C.\nПечать всегда по возрастанию времени.\n\n--via portainer — снимок логов одного контейнера: нужны оба аргумента\n(SERVICE — имя контейнера или подстрока), фильтры и --follow нельзя,\nбайты потоков идут как есть.\n\nEnv: LOKI_URL; PORTAINER_API_KEY, PORTAINER_VERIFY_TLS, sl_<N>_portainer.\n\nExit: 0 — успех, в том числе пустой вывод; 1 — отказ источника; 2 —\nошибка ввода, конфигурации или резолва.\n\nПример: mpu logs sl-1 wb-loader --level error --since 1h -n 500",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "description": "'ls' | sl-N/wb-N/dt-N/wb-clusters/wb-positions | client_id/ss/title | имя сервиса; не задан — все хосты",
+          "type": "string"
+        },
+        "service": {
+          "description": "'ls' | loki: значение compose_service; portainer: подстрока имени контейнера",
+          "type": "string"
+        },
+        "via": {
+          "default": "loki",
+          "description": "источник: loki | portainer",
+          "type": "string"
+        },
+        "tail": {
+          "default": "200",
+          "description": "сколько последних строк, > 0",
+          "type": "string"
+        },
+        "since": {
+          "description": "10m/1h/30s/2d или unix-ts; loki по умолчанию 5m",
+          "type": "string"
+        },
+        "timestamps": {
+          "default": false,
+          "description": "префикс времени у строк",
+          "type": "boolean"
+        },
+        "no-stdout": {
+          "default": false,
+          "description": "не показывать stdout",
+          "type": "boolean"
+        },
+        "no-stderr": {
+          "default": false,
+          "description": "не показывать stderr",
+          "type": "boolean"
+        },
+        "grep": {
+          "default": [],
+          "description": "loki: подстрока (LogQL |=); повторяемый, AND",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "grep-regex": {
+          "default": [],
+          "description": "loki: regex по строке (LogQL |~); повторяемый, AND",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "grep_regex": {
+          "default": [],
+          "description": "то же, что --grep-regex (второе написание оригинала)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "level": {
+          "description": "loki: detected_level — error/warn/info/debug",
+          "type": "string"
+        },
+        "client": {
+          "description": "loki: подстрока client_id в строке (cross-service)",
+          "type": "string"
+        },
+        "follow": {
+          "default": false,
+          "description": "следить за новыми записями; только loki",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "hosts",
+            "services",
+            "entries",
+            "follow",
+            "snapshot"
+          ]
+        },
+        "names": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "entries": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tsNs": {
+                "type": "string"
+              },
+              "line": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "tsNs",
+              "line"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "container": {
+                  "type": "string"
+                },
+                "stdout": {
+                  "type": "string"
+                },
+                "stderr": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "container",
+                "stdout",
+                "stderr"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "names",
+        "entries",
+        "snapshot"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "sheet_get",
     "title": "mpu sheet get",
     "description": "Read cell values from one or more A1-notation ranges.\n\nRead cell values from one or more A1-notation ranges.",
@@ -635,84 +799,6 @@
         "dry_run": {
           "type": "boolean",
           "description": "Напечатать план чтения, НЕ запрашивать.",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "logs",
-    "title": "mpu logs",
-    "description": "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).\n\nЛоги со стенда (Loki по умолчанию, --via portainer для legacy snapshot).\n\nБез <selector> — запрос идёт без фильтра по host (все хосты в одном LogQL).\nЕсли первый аргумент — не host, а имя известного сервиса (`mpu logs wb-loader`),\nон трактуется как <service>: логи этого сервиса со всех хостов.",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "selector": {
-          "type": "string",
-          "description": "'ls' | sl-N / wb-N / dt-N / wb-(clusters|positions) | client_id / ss / title; если не указан — запрос без фильтра по host (все хосты)"
-        },
-        "service": {
-          "type": "string",
-          "description": "'ls' | для loki: compose_service (api / wb-loader / ...); для --via portainer: container substring"
-        },
-        "via": {
-          "type": "string",
-          "description": "Источник: 'loki' (default; нужен LOKI_URL в .env) или 'portainer'",
-          "default": "loki"
-        },
-        "tail": {
-          "type": "integer",
-          "description": "Сколько последних строк показать",
-          "default": 200
-        },
-        "since": {
-          "type": "string",
-          "description": "Relative (10m/1h/30s/2d) или Unix-ts; default loki=5m, portainer=без ограничения"
-        },
-        "timestamps": {
-          "type": "boolean",
-          "description": "Включить timestamp в начало строк",
-          "default": false
-        },
-        "no_stdout": {
-          "type": "boolean",
-          "description": "Не показывать stdout",
-          "default": false
-        },
-        "no_stderr": {
-          "type": "boolean",
-          "description": "Не показывать stderr",
-          "default": false
-        },
-        "grep": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Loki: подстрока (LogQL `|=`); повторяемый, AND: --grep A --grep B"
-        },
-        "grep_regex": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Loki: regex по строке (LogQL `|~`); повторяемый, AND с --grep"
-        },
-        "level": {
-          "type": "string",
-          "description": "Loki: фильтр по detected_level (error / warn / info / debug)"
-        },
-        "client_id": {
-          "type": "integer",
-          "description": "Loki: substring `<client_id>` в строке (cross-service)"
-        },
-        "follow": {
-          "type": "boolean",
-          "description": "Следить за новыми записями (аналог tail -f); только с --via loki",
           "default": false
         }
       },

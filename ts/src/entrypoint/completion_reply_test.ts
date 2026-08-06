@@ -145,12 +145,12 @@ Deno.test("флаги берутся из того же источника, чт
   await t.step("команда маршрута legacy — из слепка", async () => {
     const { stdout } = await complete({
       _MPU_COMPLETE: "complete_bash",
-      COMP_WORDS: "mpu logs -",
+      COMP_WORDS: "mpu ps -",
       COMP_CWORD: "2",
     });
     const flags = stdout.split("\n").filter(Boolean);
     const leaf = readManifest(treeManifest).commands.find(
-      (item) => item.path.join(" ") === "logs",
+      (item) => item.path.join(" ") === "ps",
     );
     const expected = (leaf?.params ?? [])
       .filter((param) => param.kind === "option")

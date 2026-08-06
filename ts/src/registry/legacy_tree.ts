@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 51 команд верхнего уровня, ещё не переехавших на TS. */
+/** 50 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["search"],
@@ -100,11 +100,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     path: ["log"],
     summary:
       "`mpu log` — журнал вызовов самого `mpu` (не логи стенда, для них есть `mpu logs`).",
-  },
-  {
-    path: ["logs"],
-    summary:
-      "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).",
   },
   {
     path: ["kiten"],

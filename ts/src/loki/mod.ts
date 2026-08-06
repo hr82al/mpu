@@ -1,10 +1,11 @@
 /**
  * HTTP-клиент Loki (`docs/specs/platform/loki-http.md`): один GET
  * series-запрос за discovery-окно, разбор ответа в уникальные хосты и
- * пары (host, service), полная перезапись итога в кэш-БД. Модуль не
- * знает о команде `init` — только о протоколе Loki и о таблицах кэша
- * `loki_hosts`/`loki_services_by_host` (`platform/store.md`), в которые
- * пишет.
+ * пары (host, service), полная перезапись итога в кэш-БД, а также
+ * чтение записей эндпоинтом `query_range` (`docs/specs/logs.md`).
+ * Модуль не знает ни о команде `init`, ни о команде `logs` — только о
+ * протоколе Loki и о таблицах кэша `loki_hosts`/`loki_services_by_host`
+ * (`platform/store.md`), в которые пишет.
  *
  * Транспорт — общий `httpGet` (`../http/mod.ts`): пределы времени одного
  * вызова и причина отказа одной строкой там уже решены, здесь — только
@@ -174,6 +175,106 @@ function parseSeries(text: string): LokiSeries {
     }
   }
   return { hosts, pairs };
+}
+
+/** Путь чтения записей относительно `baseUrl`. */
+const QUERY_RANGE_PATH = "/loki/api/v1/query_range";
+
+/** Одна запись потока: время в наносекундах и текст строки как есть. */
+export interface LogEntry {
+  /** Целое число наносекунд unix-времени, строкой (в `number` не влезает). */
+  readonly tsNs: string;
+  readonly line: string;
+}
+
+/** Что спрашивают у `query_range`: окно, предел и конец окна-источник. */
+export interface RangeQuery {
+  readonly logql: string;
+  readonly startNs: bigint;
+  readonly endNs: bigint;
+  readonly limit: number;
+  /** Какой конец окна отдаёт источник, когда записей больше предела. */
+  readonly direction: "backward" | "forward";
+}
+
+/**
+ * Ответ Loki вне 2xx. Код и тело — отдельными полями: потребитель
+ * собирает из них свой текст (`logs.md`: `loki HTTP <код>: <тело>`), а
+ * различает отказы по типу, а не по сообщению.
+ */
+export class LokiHttpError extends LokiError {
+  override name = "LokiHttpError";
+  readonly status: number;
+  readonly body: string;
+
+  constructor(status: number, body: string) {
+    super(`HTTP ${status}`);
+    this.status = status;
+    this.body = body;
+  }
+}
+
+/**
+ * Записи окна одним запросом. Не-2xx → `LokiHttpError`; сетевой сбой и
+ * срабатывание предела времени → `LokiError` с причиной от `httpGet`.
+ * Мусор в теле ответа записями не считается, но и ошибкой не является
+ * (`logs.md`, «Побочные эффекты»): негодная пара пропускается поштучно.
+ */
+export async function queryRange(
+  access: LokiAccess,
+  query: RangeQuery,
+  timeouts: RequestTimeouts = DEFAULT_TIMEOUTS,
+): Promise<readonly LogEntry[]> {
+  const url = new URL(`${access.baseUrl}${QUERY_RANGE_PATH}`);
+  url.searchParams.set("query", query.logql);
+  url.searchParams.set("start", query.startNs.toString());
+  url.searchParams.set("end", query.endNs.toString());
+  url.searchParams.set("limit", String(query.limit));
+  url.searchParams.set("direction", query.direction);
+
+  let response: HttpResponse;
+  try {
+    response = await httpGet(url, { timeouts });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new LokiError(message, { cause: err });
+  }
+  if (response.status < 200 || response.status >= 300) {
+    throw new LokiHttpError(response.status, response.text);
+  }
+  return parseEntries(response.text);
+}
+
+/**
+ * Разбор ответа `query_range`. Терпимость к мусору задана спекой
+ * команды: верхний уровень не по схеме → 0 записей; элемент `result` не
+ * по схеме → пропуск только его; негодная пара `values` (не массив,
+ * короче двух, нестроковая, нецелый ts) → пропуск пары. Элементы пары
+ * после второго игнорируются.
+ */
+function parseEntries(text: string): readonly LogEntry[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  if (!isRecord(parsed) || !isRecord(parsed.data)) return [];
+  const result = parsed.data.result;
+  if (!Array.isArray(result)) return [];
+
+  const entries: LogEntry[] = [];
+  for (const stream of result) {
+    if (!isRecord(stream) || !Array.isArray(stream.values)) continue;
+    for (const pair of stream.values) {
+      if (!Array.isArray(pair) || pair.length < 2) continue;
+      const [tsNs, line] = pair;
+      if (typeof tsNs !== "string" || typeof line !== "string") continue;
+      if (!/^\d+$/.test(tsNs)) continue;
+      entries.push({ tsNs, line });
+    }
+  }
+  return entries;
 }
 
 /** Значение — объект лейблов (не массив, не `null`, не примитив). */

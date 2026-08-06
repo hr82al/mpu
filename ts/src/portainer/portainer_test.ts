@@ -15,14 +15,24 @@
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { firstLine } from "../http/mod.ts";
 import {
+  type ContainerLogsQuery,
+  fetchContainerLogs,
   fetchPortainerJson,
   listContainers,
   listEndpoints,
   type PortainerAccess,
   PortainerError,
-} from "./portainer.ts";
+} from "./mod.ts";
 
 const API_KEY = "proba-portainer-key-K7x9Qz";
+
+/** Запрос-образец снимка логов: значения проверяются в `sources_test.ts`. */
+const LOGS_QUERY: ContainerLogsQuery = {
+  stdout: true,
+  stderr: true,
+  tail: 200,
+  timestamps: false,
+};
 
 /** Поднимает фейковый Portainer на петле; гасить `await stop()` в `finally`. */
 function fakeServer(
@@ -271,4 +281,51 @@ Deno.test("firstLine: причина — только первая строка 
       assertEquals(firstLine(input), expected);
     });
   }
+});
+
+Deno.test("логи контейнера: байты как есть и отказы своим классом", async (t) => {
+  const body = new Uint8Array([1, 0, 0, 0, 0, 0, 0, 3, 200, 201, 202]);
+
+  await t.step("тело возвращается байтами, не текстом", async () => {
+    const { baseUrl, stop } = fakeServer(() =>
+      new Response(body, { status: 200 })
+    );
+    try {
+      // Байты 200–202 — не UTF-8: декодирование подменило бы их
+      // символом-заменителем, и заголовки кадров перестали бы читаться.
+      assertEquals(
+        await fetchContainerLogs(accessTo(baseUrl), 4, "mp-api", LOGS_QUERY),
+        body,
+      );
+    } finally {
+      await stop();
+    }
+  });
+
+  await t.step("ответ вне 2xx — PortainerError с кодом", async () => {
+    const { baseUrl, stop } = fakeServer(() =>
+      new Response("no such container", { status: 404 })
+    );
+    try {
+      const err = await assertRejects(
+        () => fetchContainerLogs(accessTo(baseUrl), 4, "mp-api", LOGS_QUERY),
+        PortainerError,
+      );
+      assertEquals(err.message, "HTTP 404");
+    } finally {
+      await stop();
+    }
+  });
+
+  await t.step("сетевой сбой — та же ошибка одной строкой", async () => {
+    const { baseUrl, stop } = fakeServer(() =>
+      new Response("", { status: 200 })
+    );
+    await stop();
+    const err = await assertRejects(
+      () => fetchContainerLogs(accessTo(baseUrl), 4, "mp-api", LOGS_QUERY),
+      PortainerError,
+    );
+    assertEquals(err.message.includes("\n"), false);
+  });
 });
