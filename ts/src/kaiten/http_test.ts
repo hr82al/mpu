@@ -9,8 +9,8 @@
  * `kaiten_test.ts` — здесь только сам запрос, без единого вызова
  * каталогов по имени.
  *
- * Фейковый сервер — калька `kaiten_test.ts`/`portainer_test.ts`
- * (`Deno.serve({ port: 0 })` на петле). Паузы retry — `Retry-After: 0`:
+ * Фейковый сервер — общий стенд модуля (`./testing.ts`). Паузы retry —
+ * `Retry-After: 0`:
  * задержка вырождается в `setTimeout(0)`, а не «сон стеной»
  * (`ts/CLAUDE.md`).
  */
@@ -18,61 +18,16 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { type KaitenAccess, KaitenError } from "./mod.ts";
 import { kaitenCall, kaitenCallArray } from "./http.ts";
+import { startFakeKaiten } from "./testing.ts";
 
 const API_KEY = "proba-kaiten-key-Q3z8Nw";
-
-/** Запрос, как его увидел сервер: форма отправленного проверяется по ней. */
-interface Captured {
-  readonly method: string;
-  readonly pathname: string;
-  readonly search: string;
-  readonly contentType: string | null;
-  readonly accept: string | null;
-  readonly authorization: string | null;
-  readonly body: string;
-}
-
-/**
- * Поднимает фейковый Kaiten на петле и складывает разобранные запросы в
- * `seen`; гасить `await stop()` в `finally`.
- */
-function fakeServer(
-  reply: (seen: readonly Captured[]) => Response | Promise<Response>,
-): {
-  readonly baseUrl: string;
-  readonly seen: readonly Captured[];
-  readonly stop: () => Promise<void>;
-} {
-  const seen: Captured[] = [];
-  const server = Deno.serve(
-    { port: 0, hostname: "127.0.0.1", onListen: () => {} },
-    async (req) => {
-      const url = new URL(req.url);
-      seen.push({
-        method: req.method,
-        pathname: url.pathname,
-        search: url.search,
-        contentType: req.headers.get("content-type"),
-        accept: req.headers.get("accept"),
-        authorization: req.headers.get("authorization"),
-        body: await req.text(),
-      });
-      return reply(seen);
-    },
-  );
-  return {
-    baseUrl: `http://127.0.0.1:${server.addr.port}`,
-    seen,
-    stop: () => server.shutdown(),
-  };
-}
 
 function accessTo(baseUrl: string): KaitenAccess {
   return { baseUrl, apiKey: API_KEY };
 }
 
 Deno.test("POST: метод, JSON-тело, Content-Type и разбор ответа", async () => {
-  const { baseUrl, seen, stop } = fakeServer(() =>
+  const { baseUrl, seen, stop } = startFakeKaiten(() =>
     Response.json({ id: 7, comment: "ok" }, { status: 201 })
   );
   try {
@@ -99,7 +54,7 @@ Deno.test("POST: метод, JSON-тело, Content-Type и разбор отв�
 });
 
 Deno.test("вызов без тела не объявляет тип содержимого", async () => {
-  const { baseUrl, seen, stop } = fakeServer(() => Response.json([]));
+  const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json([]));
   try {
     await kaitenCallArray(accessTo(baseUrl), {
       method: "GET",
@@ -115,7 +70,7 @@ Deno.test("вызов без тела не объявляет тип содер�
 });
 
 Deno.test("query-параметры уходят в адрес запроса", async () => {
-  const { baseUrl, seen, stop } = fakeServer(() => Response.json([]));
+  const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json([]));
   try {
     await kaitenCallArray(accessTo(baseUrl), {
       method: "GET",
@@ -132,7 +87,7 @@ Deno.test("query-параметры уходят в адрес запроса", 
 
 Deno.test("пустое тело успешного ответа — не ошибка разбора", async (t) => {
   await t.step("одиночный вызов: данных нет", async () => {
-    const { baseUrl, stop } = fakeServer(() =>
+    const { baseUrl, stop } = startFakeKaiten(() =>
       new Response(null, {
         status: 204,
       })
@@ -151,7 +106,7 @@ Deno.test("пустое тело успешного ответа — не оши
   });
 
   await t.step("вызов-список: пустой список", async () => {
-    const { baseUrl, stop } = fakeServer(() =>
+    const { baseUrl, stop } = startFakeKaiten(() =>
       new Response("", {
         status: 200,
       })
@@ -171,7 +126,7 @@ Deno.test("пустое тело успешного ответа — не оши
 });
 
 Deno.test("не-2xx: текст ошибки называет метод и путь", async () => {
-  const { baseUrl, stop } = fakeServer(() =>
+  const { baseUrl, stop } = startFakeKaiten(() =>
     new Response("boom", { status: 400 })
   );
   try {
@@ -191,7 +146,7 @@ Deno.test("не-2xx: текст ошибки называет метод и пу
 });
 
 Deno.test("429 повторяется и у мутирующего вызова", async () => {
-  const { baseUrl, seen, stop } = fakeServer((requests) =>
+  const { baseUrl, seen, stop } = startFakeKaiten((requests) =>
     requests.length === 1
       ? new Response("slow down", {
         status: 429,
@@ -223,7 +178,7 @@ Deno.test("429 повторяется и у мутирующего вызова"
 
 Deno.test("пределы времени — на каждом вызове каталога", async () => {
   const pending = Promise.withResolvers<Response>();
-  const { baseUrl, stop } = fakeServer(() => pending.promise);
+  const { baseUrl, stop } = startFakeKaiten(() => pending.promise);
   try {
     const start = performance.now();
     await assertRejects(
@@ -251,7 +206,7 @@ Deno.test("пределы времени — на каждом вызове ка
 });
 
 Deno.test("ответ не той формы: вызов-список отказывает, а не пустеет", async () => {
-  const { baseUrl, stop } = fakeServer(() => Response.json({ id: 1 }));
+  const { baseUrl, stop } = startFakeKaiten(() => Response.json({ id: 1 }));
   try {
     await assertRejects(
       () =>

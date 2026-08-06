@@ -18,9 +18,10 @@ import {
   type KaitenAccess,
   kaitenCallArray,
   KaitenError,
-  numericId,
+  numberOrNull,
   stringOr,
 } from "./http.ts";
+import { type KaitenRole, listUserRoles } from "./time.ts";
 
 export interface KaitenSpace {
   readonly id: number;
@@ -39,11 +40,6 @@ export interface BoardRow {
   readonly id: number;
   readonly boardId: number;
   readonly title: string;
-}
-
-export interface KaitenRole {
-  readonly id: number;
-  readonly name: string;
 }
 
 /** Пропуск одной доски в частях 2–3: причина видна потребителю. */
@@ -115,10 +111,10 @@ export async function collectKaitenWarmup(
       timeouts: limits.timeouts,
       notes: spacesNotes,
     }),
-    kaitenCallArray(access, { method: "GET", path: "/user-roles" }, {
-      timeouts: limits.timeouts,
-      notes: rolesNotes,
-    }),
+    // Часть 4 — тот же вызов, что зовут команды
+    // (`platform/kaiten-api-time.md`, вызов 9): второй разбор того же
+    // ответа разошёлся бы с первым.
+    listUserRoles(access, { timeouts: limits.timeouts, notes: rolesNotes }),
   ]);
 
   if (spacesOutcome.status === "rejected") {
@@ -131,9 +127,7 @@ export async function collectKaitenWarmup(
   const { spaces, boards } = parseSpaces(spacesOutcome.value);
 
   const notes: string[] = [...spacesNotes, ...rolesNotes];
-  const roles = rolesOutcome.status === "fulfilled"
-    ? parseRoles(rolesOutcome.value)
-    : null;
+  const roles = rolesOutcome.status === "fulfilled" ? rolesOutcome.value : null;
 
   const [lanesPart, columnsPart] = await Promise.all([
     collectBoardPart(
@@ -338,7 +332,7 @@ function parseSpaces(raw: readonly unknown[]): {
   const boards: KaitenBoard[] = [];
   for (const item of raw) {
     if (!isRecord(item)) continue;
-    const id = numericId(item.id);
+    const id = numberOrNull(item.id);
     if (id === null) continue;
     spaces.push({
       id,
@@ -349,13 +343,13 @@ function parseSpaces(raw: readonly unknown[]): {
     const rawBoards = Array.isArray(item.boards) ? item.boards : [];
     for (const board of rawBoards) {
       if (!isRecord(board)) continue;
-      const boardId = numericId(board.id);
+      const boardId = numberOrNull(board.id);
       if (boardId === null) continue;
       boards.push({
         id: boardId,
         // `space_id` приходит в каждой вложенной доске (`kaiten-http.md`);
         // родительский id — запасной случай на неполный элемент.
-        spaceId: numericId(board.space_id) ?? id,
+        spaceId: numberOrNull(board.space_id) ?? id,
         title: stringOr(board.title, ""),
       });
     }
@@ -368,22 +362,10 @@ function parseBoardRows(raw: readonly unknown[]): readonly BoardRow[] {
   const rows: BoardRow[] = [];
   for (const item of raw) {
     if (!isRecord(item)) continue;
-    const id = numericId(item.id);
-    const boardId = numericId(item.board_id);
+    const id = numberOrNull(item.id);
+    const boardId = numberOrNull(item.board_id);
     if (id === null || boardId === null) continue;
     rows.push({ id, boardId, title: stringOr(item.title, "") });
   }
   return rows;
-}
-
-/** Разбор ответа части 4: роли `{id, name}`. */
-function parseRoles(raw: readonly unknown[]): readonly KaitenRole[] {
-  const roles: KaitenRole[] = [];
-  for (const item of raw) {
-    if (!isRecord(item)) continue;
-    const id = numericId(item.id);
-    if (id === null) continue;
-    roles.push({ id, name: stringOr(item.name, "") });
-  }
-  return roles;
 }

@@ -5,7 +5,7 @@
  * знает — перечни вызовов лежат в каталогах внешней границы
  * (`platform/kaiten-api-*.md`).
  *
- * Ниже транспорта — общий `httpGet` (`../http/mod.ts`): пределы времени
+ * Ниже транспорта — общий `httpSend` (`../http/mod.ts`): пределы времени
  * одного вызова и причина сетевого отказа одной строкой там уже решены;
  * здесь — только трактовка протокола Kaiten.
  *
@@ -260,11 +260,22 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Число как есть либо `null` — элементы без числового id пропускаются. */
-export function numericId(value: unknown): number | null {
+/** Число как есть либо `null`: значение чужого типа полем не считается. */
+export function numberOrNull(value: unknown): number | null {
   return typeof value === "number" ? value : null;
 }
 
+/** Строка как есть либо `null` — для полей, где «нет значения» значимо. */
+export function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+/** Булево как есть либо `null` — по той же причине, что `stringOrNull`. */
+export function booleanOrNull(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+/** Строка либо запасное значение — для полей, где пустота неотличима от «нет». */
 export function stringOr(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
 }
