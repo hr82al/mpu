@@ -85,7 +85,7 @@ const argsSchema = z.object({
     "loki: подстрока client_id в строке (cross-service)",
   ),
   follow: z.boolean().default(false).describe(
-    "следить за новыми записями; только loki",
+    "следить за новыми записями; только CLI, только loki",
   ),
 });
 
@@ -148,8 +148,8 @@ spreadsheet_id, заголовок) — в сервер sl-N. Первый ар�
 
 Окно: --since 30s|10m|1h|2d или unix-ts (умолчание 5m, слежение 10s);
 --tail/-n N > 0 (200); --timestamps/-t — префикс
-YYYY-MM-DDThh:mm:ss.mmmZ; --follow/-f — опрос раз в 2 с до Ctrl+C.
-Печать всегда по возрастанию времени.
+YYYY-MM-DDThh:mm:ss.mmmZ; --follow/-f — только CLI: опрос раз в 2 с
+до Ctrl+C. Печать всегда по возрастанию времени.
 
 --via portainer — снимок логов одного контейнера: нужны оба аргумента
 (SERVICE — имя контейнера или подстрока), фильтры и --follow нельзя,

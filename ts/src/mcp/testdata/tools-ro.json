@@ -502,7 +502,7 @@
   {
     "name": "logs",
     "title": "mpu logs",
-    "description": "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).\n\nБез SELECTOR — все хосты. SELECTOR: sl-N / wb-N / dt-N /\nwb-clusters / wb-positions — как есть; клиентский селектор (client_id,\nspreadsheet_id, заголовок) — в сервер sl-N. Первый аргумент, не похожий\nна хост, но известный кэшу как сервис, — это SERVICE со всех хостов.\n\nСписки из кэша, без сети: `mpu logs ls` — хосты, `mpu logs sl-1 ls` —\nсервисы хоста; кэш наполняют `mpu init` и `mpu update`.\n\nФильтры Loki, И между собой: --grep S (подстрока), --grep-regex S,\n--level error|warn|info|debug, --client N (подстрока числа в строке —\nсовпадёт и порт). Потоки: --no-stdout, --no-stderr.\n\nОкно: --since 30s|10m|1h|2d или unix-ts (умолчание 5m, слежение 10s);\n--tail/-n N > 0 (200); --timestamps/-t — префикс\nYYYY-MM-DDThh:mm:ss.mmmZ; --follow/-f — опрос раз в 2 с до Ctrl+C.\nПечать всегда по возрастанию времени.\n\n--via portainer — снимок логов одного контейнера: нужны оба аргумента\n(SERVICE — имя контейнера или подстрока), фильтры и --follow нельзя,\nбайты потоков идут как есть.\n\nEnv: LOKI_URL; PORTAINER_API_KEY, PORTAINER_VERIFY_TLS, sl_<N>_portainer.\n\nExit: 0 — успех, в том числе пустой вывод; 1 — отказ источника; 2 —\nошибка ввода, конфигурации или резолва.\n\nПример: mpu logs sl-1 wb-loader --level error --since 1h -n 500",
+    "description": "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).\n\nБез SELECTOR — все хосты. SELECTOR: sl-N / wb-N / dt-N /\nwb-clusters / wb-positions — как есть; клиентский селектор (client_id,\nspreadsheet_id, заголовок) — в сервер sl-N. Первый аргумент, не похожий\nна хост, но известный кэшу как сервис, — это SERVICE со всех хостов.\n\nСписки из кэша, без сети: `mpu logs ls` — хосты, `mpu logs sl-1 ls` —\nсервисы хоста; кэш наполняют `mpu init` и `mpu update`.\n\nФильтры Loki, И между собой: --grep S (подстрока), --grep-regex S,\n--level error|warn|info|debug, --client N (подстрока числа в строке —\nсовпадёт и порт). Потоки: --no-stdout, --no-stderr.\n\nОкно: --since 30s|10m|1h|2d или unix-ts (умолчание 5m, слежение 10s);\n--tail/-n N > 0 (200); --timestamps/-t — префикс\nYYYY-MM-DDThh:mm:ss.mmmZ; --follow/-f — только CLI: опрос раз в 2 с\nдо Ctrl+C. Печать всегда по возрастанию времени.\n\n--via portainer — снимок логов одного контейнера: нужны оба аргумента\n(SERVICE — имя контейнера или подстрока), фильтры и --follow нельзя,\nбайты потоков идут как есть.\n\nEnv: LOKI_URL; PORTAINER_API_KEY, PORTAINER_VERIFY_TLS, sl_<N>_portainer.\n\nExit: 0 — успех, в том числе пустой вывод; 1 — отказ источника; 2 —\nошибка ввода, конфигурации или резолва.\n\nПример: mpu logs sl-1 wb-loader --level error --since 1h -n 500",
     "annotations": {
       "readOnlyHint": true
     },
@@ -580,7 +580,7 @@
         },
         "follow": {
           "default": false,
-          "description": "следить за новыми записями; только loki",
+          "description": "следить за новыми записями; только CLI, только loki",
           "type": "boolean"
         }
       },
