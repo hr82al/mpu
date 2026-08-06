@@ -218,8 +218,9 @@ Deno.test("авторизация обязательна", async (t) => {
 });
 
 Deno.test("обязательные заголовки: отсутствие — 400 и код -32020", async (t) => {
+  // Отсутствие MCP-Protocol-Version здесь не случай: запрос без него —
+  // классическое рукопожатие старой ревизии, а не нарушение текущей.
   const cases: readonly (readonly [string, Record<string, unknown>])[] = [
-    ["MCP-Protocol-Version", listBody()],
     ["Mcp-Method", listBody()],
     ["Mcp-Name", {
       jsonrpc: "2.0",
@@ -317,10 +318,10 @@ Deno.test("обязательные заголовки: расхождение �
 Deno.test("версия протокола не поддержана — 400 и код -32022", async () => {
   await withServer(async (call) => {
     const response = await call("/ro", {
-      headers: headers({ "MCP-Protocol-Version": "2024-11-05" }),
+      headers: headers({ "MCP-Protocol-Version": "2030-01-01" }),
       body: JSON.stringify(listBody({
         params: {
-          _meta: { "io.modelcontextprotocol/protocolVersion": "2024-11-05" },
+          _meta: { "io.modelcontextprotocol/protocolVersion": "2030-01-01" },
         },
       })),
     });
@@ -329,8 +330,25 @@ Deno.test("версия протокола не поддержана — 400 и 
     assertEquals(error.code, -32022);
     assertEquals(error.data, {
       supported: [PROTOCOL],
-      requested: "2024-11-05",
+      requested: "2030-01-01",
     });
+  });
+});
+
+Deno.test("классическое рукопожатие проходит транспорт", async () => {
+  await withServer(async (call) => {
+    const response = await call("/ro", {
+      headers: headers({ "MCP-Protocol-Version": null, "Mcp-Method": null }),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 0,
+        method: "initialize",
+        params: { protocolVersion: "2025-06-18" },
+      }),
+    });
+    assertEquals(response.status, 200);
+    const body = await response.json();
+    assertEquals(body["result"]["protocolVersion"], "2025-06-18");
   });
 });
 

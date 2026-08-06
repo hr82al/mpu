@@ -295,15 +295,15 @@ Deno.test("границы, не покрытые фикстурами", async (t
         id: 1,
         method: "tools/list",
         params: {
-          _meta: { "io.modelcontextprotocol/protocolVersion": "2024-11-05" },
+          _meta: { "io.modelcontextprotocol/protocolVersion": "2030-01-01" },
         },
-      }, { "MCP-Protocol-Version": "2024-11-05", "Mcp-Method": "tools/list" });
+      }, { "MCP-Protocol-Version": "2030-01-01", "Mcp-Method": "tools/list" });
       assertEquals(actual.status, 400);
       const error = errorOf(actual.body);
       assertEquals(error.code, -32022);
       assertEquals(error.data, {
         supported: ["2026-07-28"],
-        requested: "2024-11-05",
+        requested: "2030-01-01",
       });
     },
   );
@@ -431,6 +431,90 @@ Deno.test("границы, не покрытые фикстурами", async (t
     }, { "MCP-Protocol-Version": "2026-07-28", "Mcp-Method": "tools/list" });
     assertEquals(actual.status, 200);
     assertEquals(toolNames(actual.body).includes("xlsx_open"), true);
+  });
+});
+
+Deno.test("классическое рукопожатие: клиент старой ревизии", async (t) => {
+  const post = (body: unknown, headers: Record<string, string> = {}) =>
+    handle({ method: "POST", path: "/ro", headers, body });
+
+  await t.step(
+    "initialize без заголовков — версия, identity, инструкции",
+    async () => {
+      const actual = await post({
+        jsonrpc: "2.0",
+        id: 0,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "claude-code", version: "2.1.223" },
+        },
+      });
+      assertEquals(actual.status, 200);
+      const result = bodyRecord(bodyRecord(actual.body)["result"]);
+      assertEquals(result["protocolVersion"], "2025-06-18");
+      assertEquals(result["capabilities"], { tools: {} });
+      assertEquals(result["serverInfo"], { name: "mpu", version: "0.1.0" });
+      assertEquals(typeof result["instructions"], "string");
+    },
+  );
+
+  await t.step(
+    "initialize с незнакомой версией — ответ версией по умолчанию",
+    async () => {
+      const actual = await post({
+        jsonrpc: "2.0",
+        id: 0,
+        method: "initialize",
+        params: { protocolVersion: "2023-01-01" },
+      });
+      const result = bodyRecord(bodyRecord(actual.body)["result"]);
+      assertEquals(result["protocolVersion"], "2025-06-18");
+    },
+  );
+
+  await t.step(
+    "tools/list со старой версией в заголовке, без Mcp-Method",
+    async () => {
+      const actual = await post(
+        { jsonrpc: "2.0", id: 1, method: "tools/list" },
+        { "MCP-Protocol-Version": "2025-06-18" },
+      );
+      assertEquals(actual.status, 200);
+      assertEquals(toolNames(actual.body).includes("xlsx_ls"), true);
+    },
+  );
+
+  await t.step(
+    "tools/call без Mcp-заголовков доходит до исполнения",
+    async () => {
+      const actual = await post({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "xlsx_ls", arguments: { nope: 1 } },
+      });
+      assertEquals(actual.status, 200);
+      // Ошибка ввода, а не отказ по заголовкам: вызов дошёл до тула.
+      assertEquals(errorOf(actual.body).code, -32602);
+    },
+  );
+
+  await t.step("ping — пустой результат", async () => {
+    const actual = await post({ jsonrpc: "2.0", id: 3, method: "ping" });
+    assertEquals(actual.status, 200);
+    assertEquals(bodyRecord(actual.body)["result"], {});
+  });
+
+  await t.step("неизвестный метод — 404 и код -32601", async () => {
+    const actual = await post({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "resources/list",
+    });
+    assertEquals(actual.status, 404);
+    assertEquals(errorOf(actual.body).code, -32601);
   });
 });
 

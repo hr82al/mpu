@@ -85,6 +85,22 @@ const HEADER_METHOD = "Mcp-Method";
 const HEADER_NAME = "Mcp-Name";
 const HEADER_VERSION = "MCP-Protocol-Version";
 
+/**
+ * Ревизии классического рукопожатия (`initialize`), которые сервер
+ * принимает ради живых клиентов: Claude Code и другие агенты ревизию
+ * `2026-07-28` ещё не говорят. У классического запроса обязательных
+ * `Mcp-*`-заголовков нет: до согласования версии их не существовало.
+ */
+const CLASSIC_VERSIONS: readonly string[] = [
+  "2024-11-05",
+  "2025-03-26",
+  "2025-06-18",
+  "2025-11-25",
+];
+
+/** Ответ `initialize`, когда запрошенная клиентом версия не знакома. */
+const CLASSIC_DEFAULT = "2025-06-18";
+
 /** Исполняет запрос к профилю и возвращает данные ответа. */
 export async function handleMcp(
   request: McpRequest,
@@ -111,6 +127,14 @@ export async function handleMcp(
   // нечему, а отказ клиент воспринял бы как сбой.
   if (message.id === undefined) return { status: 202, headers: {}, body: null };
   const id = message.id;
+
+  // Запрос без заголовка версии или со старой ревизией — классическое
+  // рукопожатие: заголовков `Mcp-*` такой клиент не шлёт, требовать их
+  // не с кого. Незнакомая версия в заголовке остаётся отказом ниже.
+  const version = header(request.headers, HEADER_VERSION);
+  if (version === undefined || CLASSIC_VERSIONS.includes(version)) {
+    return handleClassicHandshake(id, message, profile, deps);
+  }
 
   const checked = checkHeaders(request.headers, message);
   if ("problem" in checked) {
@@ -169,6 +193,61 @@ function discover(profile: Profile, version: string): DiscoverResult {
     supportedVersions: SUPPORTED_VERSIONS,
     capabilities: { tools: {} },
     _meta: { [META_SERVER_INFO]: { name: "mpu", version } },
+    instructions: PROFILE_INSTRUCTIONS[profile],
+  };
+}
+
+/**
+ * Классическое рукопожатие старых ревизий: `initialize` вместо
+ * `server/discover`, `ping` для проверки живости, те же тулы. Формы
+ * запросов и ответов `tools/list`/`tools/call` в старых ревизиях
+ * совпадают с текущей — исполнение общее.
+ */
+async function handleClassicHandshake(
+  id: RpcId,
+  message: RpcMessage,
+  profile: Profile,
+  deps: McpDeps,
+): Promise<McpResponse> {
+  switch (message.method) {
+    case "initialize":
+      return json(
+        200,
+        resultBody(id, initializeResult(message, profile, deps.version)),
+      );
+    case "ping":
+      return json(200, resultBody(id, {}));
+    case "tools/list":
+      return json(200, resultBody(id, listTools(deps.commands, profile)));
+    case "tools/call":
+      return json(200, await callTool(id, message, profile, deps));
+    default:
+      return json(
+        404,
+        errorBody(
+          id,
+          RPC_METHOD_NOT_FOUND,
+          `Method not found: ${message.method}`,
+        ),
+      );
+  }
+}
+
+/** Результат `initialize`: аналог `server/discover` старых ревизий. */
+function initializeResult(
+  message: RpcMessage,
+  profile: Profile,
+  version: string,
+): Readonly<Record<string, unknown>> {
+  const requested = message.params["protocolVersion"];
+  const negotiated =
+    typeof requested === "string" && CLASSIC_VERSIONS.includes(requested)
+      ? requested
+      : CLASSIC_DEFAULT;
+  return {
+    protocolVersion: negotiated,
+    capabilities: { tools: {} },
+    serverInfo: { name: "mpu", version },
     instructions: PROFILE_INSTRUCTIONS[profile],
   };
 }
