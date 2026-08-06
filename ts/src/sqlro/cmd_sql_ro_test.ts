@@ -595,8 +595,8 @@ Deno.test("отказы БД: свой текст на запись, досло�
     );
     assertEquals(
       formatCommandError(["sql-ro"], err),
-      "mpu sql-ro: текст завершил транзакцию вызова — гарантия " +
-        "только-чтения снята, результат не печатается",
+      "mpu sql-ro: метка транзакции вызова не снята — гарантия " +
+        "только-чтения не подтверждена, результат не печатается",
     );
     assertEquals(sessions.closed(), 1);
   });
@@ -605,10 +605,15 @@ Deno.test("отказы БД: свой текст на запись, досло�
     // Метка — имя реализации: на пути подменённой транзакции сервер
     // называет её в сообщении, и оно приходит команде в `cause`. Наружу
     // печатается один и тот же фиксированный текст, метки в нём нет.
+    // Третий случай — текст пользователя сам ссылается на не
+    // открывавшуюся точку сохранения при целой транзакции вызова и
+    // целой метке обёртки: тем же кодом `3B001`, тот же отказ
+    // (`platform/readonly-default.md`).
     for (
       const server of [
         "ROLLBACK TO SAVEPOINT can only be used in transaction blocks",
         'savepoint "mpu_sql_ro" does not exist',
+        'savepoint "bar" does not exist',
       ]
     ) {
       const sessions = fakeSessions((text) =>
@@ -622,7 +627,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
           runSqlRo(
             args({
               selector: "sl-1",
-              sql: "COMMIT; BEGIN READ WRITE; SELECT 1",
+              sql: "ROLLBACK TO SAVEPOINT bar; SELECT 1",
             }),
             io,
             { openSession: sessions.open },
@@ -632,10 +637,11 @@ Deno.test("отказы БД: свой текст на запись, досло�
       const shown = formatCommandError(["sql-ro"], err);
       assertEquals(
         shown,
-        "mpu sql-ro: текст завершил транзакцию вызова — гарантия " +
-          "только-чтения снята, результат не печатается",
+        "mpu sql-ro: метка транзакции вызова не снята — гарантия " +
+          "только-чтения не подтверждена, результат не печатается",
       );
       assertEquals(shown.includes("mpu_sql_ro"), false, shown);
+      assertEquals(shown.includes("bar"), false, shown);
       assertEquals(sessions.closed(), 1);
     }
   });
