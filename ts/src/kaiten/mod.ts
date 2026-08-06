@@ -10,10 +10,15 @@
 
 export {
   type KaitenAccess,
+  type KaitenCallOptions,
   KaitenError,
+  type KaitenMethod,
+  type KaitenRequest,
   requireKaitenAccess,
   retryDelayMs,
 } from "./http.ts";
+
+export { parseCardRef } from "./card_ref.ts";
 
 export {
   collectKaitenWarmup,

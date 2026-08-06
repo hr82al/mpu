@@ -14,7 +14,12 @@
  * внешнего API.
  */
 
-import { HttpCallError, httpGet, type RequestTimeouts } from "../http/mod.ts";
+import {
+  DEFAULT_TIMEOUTS,
+  HttpCallError,
+  httpSend,
+  type RequestTimeouts,
+} from "../http/mod.ts";
 
 /** Дефолт `KITEN_BASE_URL`, когда переменная не задана (`kaiten-http.md`). */
 const DEFAULT_BASE_URL = "https://btlz.kaiten.ru";
@@ -75,42 +80,87 @@ export function retryDelayMs(
   );
 }
 
+/** Метод запроса Kaiten API (`kaiten-http.md`, «Запрос»). */
+export type KaitenMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+
 /**
- * Один Kaiten GET с retry на 429 (до `MAX_ATTEMPTS` попыток) и учётом
- * бюджета шага. `deadlineMs === null` — вызов без бюджета (части 1 и 4
- * прогрева); иначе — предел, после которого ни сам запрос, ни пауза retry
- * не выполняются (`init.md`, шаг 4: «перед выдачей запроса и перед каждой
- * паузой retry проверяется `nowMs() > deadline`»).
- *
- * `notes` — накопитель строк повтора, переданный вызывающим (а не
- * возвращённый вместе с результатом): при исчерпании попыток или
- * срабатывании бюджета функция бросает исключение, и строки о уже
- * прошедших паузах retry обязаны остаться видны потребителю несмотря на
- * это — через возврат только на успехе они терялись бы вместе с
- * отклонённым промисом (см. `./warmup.ts`).
+ * Один запрос к Kaiten API: путь — под `{base}/api/latest`, `body` —
+ * значение, которое уходит JSON-телом (`undefined` — тела нет).
  */
-export async function kaitenGet(
+export interface KaitenRequest {
+  readonly method: KaitenMethod;
+  readonly path: string;
+  readonly query?: Readonly<Record<string, string>>;
+  readonly body?: unknown;
+}
+
+/** Что вызывающий добавляет к запросу сверх его формы. */
+export interface KaitenCallOptions {
+  /** Пределы времени вызова; умолчание — числа спеки для всех вызовов. */
+  readonly timeouts?: RequestTimeouts;
+  /**
+   * Накопитель строк повтора 429. Печатает их потребитель, поэтому
+   * строки собираются в переданный массив, а не возвращаются вместе с
+   * результатом: при исчерпании попыток или срабатывании бюджета вызов
+   * бросает исключение, а строки об уже прошедших паузах обязаны
+   * остаться видны (см. `./warmup.ts`).
+   */
+  readonly notes?: string[];
+  /**
+   * Предел времени шага-потребителя: после него не выполняются ни
+   * запрос, ни пауза retry (`init.md`, шаг 4). Не задан — вызов
+   * ограничен только собственными пределами времени.
+   */
+  readonly deadlineMs?: number | null;
+  readonly nowMs?: () => number;
+}
+
+/**
+ * Один вызов Kaiten API с retry на 429 (до `MAX_ATTEMPTS` попыток) и
+ * учётом бюджета шага. Результат — разобранное тело ответа; пустое тело
+ * (успех без данных) — `undefined`, а не ошибка разбора
+ * (`kaiten-http.md`, «Запрос»).
+ *
+ * Повтор безопасен и для мутирующих методов: 429 означает «запрос не
+ * обработан» (инвариант спеки), поэтому попытка повторяется целиком —
+ * с тем же телом.
+ */
+export async function kaitenCall(
   access: KaitenAccess,
-  path: string,
-  timeouts: RequestTimeouts,
-  deadlineMs: number | null,
-  nowMs: () => number,
-  notes: string[],
-): Promise<readonly unknown[]> {
-  const url = new URL(`${access.baseUrl}/api/latest${path}`);
-  const headers = {
+  request: KaitenRequest,
+  options: KaitenCallOptions = {},
+): Promise<unknown> {
+  const url = new URL(`${access.baseUrl}/api/latest${request.path}`);
+  for (const [name, value] of Object.entries(request.query ?? {})) {
+    url.searchParams.set(name, value);
+  }
+
+  const body = request.body === undefined
+    ? undefined
+    : JSON.stringify(request.body);
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${access.apiKey}`,
     Accept: "application/json",
   };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+
+  const timeouts = options.timeouts ?? DEFAULT_TIMEOUTS;
+  const deadlineMs = options.deadlineMs ?? null;
+  const nowMs = options.nowMs ?? Date.now;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     assertBudget(deadlineMs, nowMs);
 
     let response;
     try {
-      response = await httpGet(url, { headers, timeouts });
+      response = await httpSend(url, {
+        method: request.method,
+        headers,
+        body,
+        timeouts,
+      });
     } catch (err) {
-      // `httpGet` бросает только `HttpCallError` — сообщение уже одной
+      // `httpSend` бросает только `HttpCallError` — сообщение уже одной
       // строкой (её собственный инвариант, `../http/mod.ts`), поэтому
       // переносится как есть, без повторного прогона через `firstLine`.
       if (!(err instanceof HttpCallError)) throw err;
@@ -118,22 +168,20 @@ export async function kaitenGet(
     }
 
     if (response.status >= 200 && response.status < 300) {
-      return parseItems(path, response.text);
+      return parseBody(request, response.text);
     }
 
     if (response.status === 429) {
-      if (attempt === MAX_ATTEMPTS) {
-        throw new KaitenError(`kaiten GET ${path} -> 429: exhausted retries`);
-      }
+      if (attempt === MAX_ATTEMPTS) throw exhaustedRetries(request);
       assertBudget(deadlineMs, nowMs);
       const delayMs = retryDelayMs(attempt, response.retryAfter);
-      notes.push(`[kaiten] 429 rate-limit, sleep ${delayMs / 1000}s`);
+      options.notes?.push(`[kaiten] 429 rate-limit, sleep ${delayMs / 1000}s`);
       await sleep(delayMs);
       continue;
     }
 
     throw new KaitenError(
-      `kaiten GET ${path} -> ${response.status}: ${
+      `kaiten ${request.method} ${request.path} -> ${response.status}: ${
         truncateBody(response.text)
       }`,
     );
@@ -141,7 +189,36 @@ export async function kaitenGet(
   // Недостижимо: цикл на каждой итерации либо возвращает, либо бросает —
   // но `for` не даёт компилятору это увидеть, а без завершающего throw
   // функция не проходит проверку «не все пути возвращают значение».
-  throw new KaitenError(`kaiten GET ${path} -> 429: exhausted retries`);
+  throw exhaustedRetries(request);
+}
+
+/**
+ * Тот же вызов там, где контракт операции обещает массив. Валидный JSON
+ * не той формы — ошибка запроса, а не пустой список (`kaiten-http.md`,
+ * «Запрос»): иначе испорченный ответ молча заменил бы справочник
+ * пустым, и пустой справочник от испорченного ответа было бы не
+ * отличить. Отличие от Loki, где пустой результат на неожиданную форму
+ * — явное требование его спеки.
+ */
+export async function kaitenCallArray(
+  access: KaitenAccess,
+  request: KaitenRequest,
+  options: KaitenCallOptions = {},
+): Promise<readonly unknown[]> {
+  const parsed = await kaitenCall(access, request, options);
+  if (parsed === undefined) return [];
+  if (!Array.isArray(parsed)) {
+    throw new KaitenError(
+      `kaiten ${request.method} ${request.path}: ответ не JSON-массив`,
+    );
+  }
+  return parsed;
+}
+
+function exhaustedRetries(request: KaitenRequest): KaitenError {
+  return new KaitenError(
+    `kaiten ${request.method} ${request.path} -> 429: exhausted retries`,
+  );
 }
 
 /** Бросает `KaitenError` с причиной бюджета, если дедлайн уже прошёл. */
@@ -162,28 +239,20 @@ function truncateBody(text: string): string {
 }
 
 /**
- * Тело успешного ответа как список сырых элементов. И тело, не
- * разобравшееся как JSON, и валидный JSON не той формы (не-массив там,
- * где контракт ждёт массив) — одинаково ошибка запроса, а не пустой
- * список (`kaiten-http.md`, «Запрос»): иначе испорченный ответ молча
- * заменил бы справочник пустым, и пустой справочник от испорченного
- * ответа было бы не отличить. Отличие от Loki, где пустой результат на
- * неожиданную форму — явное требование его спеки.
- *
- * Пустое тело — отсутствие данных, а не ошибка разбора (там же).
+ * Тело успешного ответа: пустое — отсутствие данных (`undefined`), а не
+ * ошибка разбора; неразобравшееся — ошибка запроса, а не пустой
+ * результат (`kaiten-http.md`, «Запрос»).
  */
-function parseItems(path: string, text: string): readonly unknown[] {
-  if (text.trim() === "") return [];
-  let parsed: unknown;
+function parseBody(request: KaitenRequest, text: string): unknown {
+  if (text.trim() === "") return undefined;
   try {
-    parsed = JSON.parse(text);
+    return JSON.parse(text);
   } catch (err) {
-    throw new KaitenError(`kaiten GET ${path}: ответ не JSON`, { cause: err });
+    throw new KaitenError(
+      `kaiten ${request.method} ${request.path}: ответ не JSON`,
+      { cause: err },
+    );
   }
-  if (!Array.isArray(parsed)) {
-    throw new KaitenError(`kaiten GET ${path}: ответ не JSON-массив`);
-  }
-  return parsed;
 }
 
 /** Значение — объект-запись (не массив, не `null`, не примитив). */

@@ -16,8 +16,8 @@ import type { CacheDb } from "../command/mod.ts";
 import {
   isRecord,
   type KaitenAccess,
+  kaitenCallArray,
   KaitenError,
-  kaitenGet,
   numericId,
   stringOr,
 } from "./http.ts";
@@ -104,19 +104,25 @@ export async function collectKaitenWarmup(
   const deadlineMs = nowMs() + limits.budgetMs;
 
   // `notes` — мутируемые накопители retry-строк, переданные внутрь
-  // `kaitenGet`: попытки 429 обязаны остаться видимыми, даже если запрос
+  // вызова: попытки 429 обязаны остаться видимыми, даже если запрос
   // в итоге упал (после исчерпания попыток или из-за бюджета) — при
   // возврате значения только на успехе эти строки терялись бы вместе с
   // отклонённым промисом.
   const spacesNotes: string[] = [];
   const rolesNotes: string[] = [];
   const [spacesOutcome, rolesOutcome] = await Promise.allSettled([
-    kaitenGet(access, "/spaces", limits.timeouts, null, nowMs, spacesNotes),
-    kaitenGet(access, "/user-roles", limits.timeouts, null, nowMs, rolesNotes),
+    kaitenCallArray(access, { method: "GET", path: "/spaces" }, {
+      timeouts: limits.timeouts,
+      notes: spacesNotes,
+    }),
+    kaitenCallArray(access, { method: "GET", path: "/user-roles" }, {
+      timeouts: limits.timeouts,
+      notes: rolesNotes,
+    }),
   ]);
 
   if (spacesOutcome.status === "rejected") {
-    // kaitenGet бросает только KaitenError — сужение вместо `as`, чтобы
+    // Вызов бросает только KaitenError — сужение вместо `as`, чтобы
     // не терять cause-цепочку исходной ошибки.
     throw spacesOutcome.reason instanceof KaitenError
       ? spacesOutcome.reason
@@ -262,8 +268,8 @@ interface BoardPartOutcome {
  * (`kaiten-http.md`); пустой список досок даёт пустой, но не `null` итог.
  *
  * `notes` собирается в общий мутируемый массив, переданный каждому
- * `kaitenGet`: retry-строки упавшей доски не должны теряться вместе с
- * отклонённым промисом (см. комментарий у `kaitenGet`).
+ * вызову: retry-строки упавшей доски не должны теряться вместе с
+ * отклонённым промисом (см. `KaitenCallOptions` в `./http.ts`).
  */
 async function collectBoardPart(
   access: KaitenAccess,
@@ -285,13 +291,15 @@ async function collectBoardPart(
   const notesPerBoard = boards.map((): string[] => []);
   const outcomes = await Promise.allSettled(
     boards.map((board, index) =>
-      kaitenGet(
+      kaitenCallArray(
         access,
-        pathFor(board.id),
-        timeouts,
-        deadlineMs,
-        nowMs,
-        notesPerBoard[index],
+        { method: "GET", path: pathFor(board.id) },
+        {
+          timeouts,
+          deadlineMs,
+          nowMs,
+          notes: notesPerBoard[index],
+        },
       )
     ),
   );

@@ -79,6 +79,16 @@ export interface GetOptions {
   readonly insecure?: boolean;
 }
 
+/** То же для вызова произвольным методом: тело формирует клиент. */
+export interface SendOptions {
+  /** Метод запроса; умолчание — `GET`. */
+  readonly method?: string;
+  /** Готовое тело запроса; его тип объявляет клиент своим заголовком. */
+  readonly body?: string;
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly timeouts?: RequestTimeouts;
+}
+
 /**
  * GET по адресу под двумя пределами времени. Пределы — параметр со
  * значением по умолчанию, а не константа внутри: тест молчащего сервера
@@ -112,12 +122,63 @@ export async function httpGet(
  * причины отказа общие с `httpGet`, разница только в том, что тело не
  * декодируется (см. `HttpBytesResponse`).
  */
-export async function httpGetBytes(
+export function httpGetBytes(
   url: URL,
   options: GetOptions = {},
 ): Promise<HttpBytesResponse> {
-  const timeouts = options.timeouts ?? DEFAULT_TIMEOUTS;
   const headers = options.headers ?? {};
+  const insecure = options.insecure === true;
+  return withTimeouts(
+    options.timeouts ?? DEFAULT_TIMEOUTS,
+    (signal, onHeaders) =>
+      url.protocol === "https:" && insecure
+        ? sendInsecure(url, headers, signal, onHeaders)
+        : sendFetch(url, { method: "GET", headers, signal }, onHeaders),
+  );
+}
+
+/**
+ * Вызов произвольным методом с готовым телом — под теми же двумя
+ * пределами и с той же формой причины отказа. Отдельно от `httpGet`, а
+ * не флагом в нём: тело-байты и отключённая проверка TLS — свойства
+ * GET-пути (снимок логов Portainer), и метод с телом к ним отношения не
+ * имеет. Тип содержимого объявляет клиент своим заголовком: как
+ * сериализовано тело, транспорт не знает.
+ */
+export async function httpSend(
+  url: URL,
+  options: SendOptions = {},
+): Promise<HttpResponse> {
+  const response = await withTimeouts(
+    options.timeouts ?? DEFAULT_TIMEOUTS,
+    (signal, onHeaders) =>
+      sendFetch(url, {
+        method: options.method ?? "GET",
+        headers: options.headers ?? {},
+        body: options.body,
+        signal,
+      }, onHeaders),
+  );
+  return {
+    status: response.status,
+    text: new TextDecoder().decode(response.bytes),
+    retryAfter: response.retryAfter,
+  };
+}
+
+/**
+ * Оба предела на одну попытку: `run` получает сигнал отмены и колбэк
+ * «заголовки пришли». Общий шов `httpGetBytes` и `httpSend` — пределы
+ * времени одинаковы для всех вызовов, и второй способ их отмерять
+ * разошёлся бы с первым.
+ */
+async function withTimeouts(
+  timeouts: RequestTimeouts,
+  run: (
+    signal: AbortSignal,
+    onHeaders: () => void,
+  ) => Promise<HttpBytesResponse>,
+): Promise<HttpBytesResponse> {
   const controller = new AbortController();
   // Какой из двух таймеров сработал — читается в catch, чтобы причина
   // называла свой предел, а не общий текст AbortError у fetch и
@@ -140,13 +201,7 @@ export async function httpGetBytes(
     controller.abort();
   }, timeouts.totalTimeoutMs);
   try {
-    return await send(
-      url,
-      headers,
-      options.insecure === true,
-      controller.signal,
-      () => clearTimeout(headersTimer),
-    );
+    return await run(controller.signal, () => clearTimeout(headersTimer));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new HttpCallError(timeoutMessage ?? firstLine(message), {
@@ -170,25 +225,13 @@ export function firstLine(message: string): string {
   return end === -1 ? message : message.slice(0, end);
 }
 
-/**
- * Транспорт запроса: `fetch` во всех случаях, кроме отключённой
- * проверки TLS на `https:` — там у Deno нет клиентской опции, гасящей
- * проверку сертификата (`Deno.createHttpClient` её не имеет,
- * `NODE_TLS_REJECT_UNAUTHORIZED` на `fetch` не влияет — проверено в
- * этом дереве). Единственный работающий путь — `node:https` с
- * `rejectUnauthorized: false`.
- */
-async function send(
+/** Обычный путь запроса — `fetch`; тело передаётся как есть. */
+async function sendFetch(
   url: URL,
-  headers: Readonly<Record<string, string>>,
-  insecure: boolean,
-  signal: AbortSignal,
+  init: RequestInit,
   onHeaders: () => void,
 ): Promise<HttpBytesResponse> {
-  if (url.protocol === "https:" && insecure) {
-    return await sendInsecure(url, headers, signal, onHeaders);
-  }
-  const response = await fetch(url, { headers, signal });
+  const response = await fetch(url, init);
   onHeaders();
   return {
     status: response.status,
@@ -197,6 +240,14 @@ async function send(
   };
 }
 
+/**
+ * Путь с отключённой проверкой TLS-сертификата на `https:`: у Deno нет
+ * клиентской опции, гасящей её у `fetch` (`Deno.createHttpClient` её не
+ * имеет, `NODE_TLS_REJECT_UNAUTHORIZED` на `fetch` не влияет —
+ * проверено в этом дереве). Единственный работающий путь — `node:https`
+ * с `rejectUnauthorized: false`; метод здесь всегда GET, потому что
+ * второго вида запроса у единственного потребителя (Portainer) нет.
+ */
 function sendInsecure(
   url: URL,
   headers: Readonly<Record<string, string>>,
