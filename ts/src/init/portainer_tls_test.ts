@@ -81,7 +81,11 @@ const API_KEY = "proba-tls-key-Vn3wq8";
  */
 function fakeTlsServer(
   handler: (req: Request) => Response | Promise<Response> = (req) =>
-    Response.json([{ Id: 1, Name: req.headers.get("X-API-Key") ?? "" }]),
+    Response.json([{
+      Id: 1,
+      Name: req.headers.get("X-API-Key") ?? "",
+      Status: 1,
+    }]),
 ): {
   readonly baseUrl: string;
   readonly stop: () => Promise<void>;
@@ -117,7 +121,7 @@ Deno.test("verifyTls: false — запрос проходит мимо fetch ч�
   try {
     const endpoints = await listEndpoints(accessTo(baseUrl, false));
     // Заголовок X-API-Key дошёл и на этом пути тоже.
-    assertEquals(endpoints, [{ id: 1, name: API_KEY }]);
+    assertEquals(endpoints, [{ id: 1, name: API_KEY, status: 1 }]);
   } finally {
     await stop();
   }

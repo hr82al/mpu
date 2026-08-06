@@ -48,7 +48,10 @@ Deno.test("happy path: список endpoints и контейнеров, заг�
     seenKeys.push(req.headers.get("X-API-Key") ?? "");
     const url = new URL(req.url);
     if (url.pathname === "/api/endpoints") {
-      return Response.json([{ Id: 1, Name: "prod" }, { Id: 2, Name: "stage" }]);
+      return Response.json([
+        { Id: 1, Name: "prod", Status: 1 },
+        { Id: 2, Name: "stage", Status: 1 },
+      ]);
     }
     if (url.pathname === "/api/endpoints/1/docker/containers/json") {
       assertEquals(url.searchParams.get("all"), "true");
@@ -66,9 +69,10 @@ Deno.test("happy path: список endpoints и контейнеров, заг�
   try {
     const access = accessTo(baseUrl);
     const endpoints = await listEndpoints(access);
-    assertEquals(endpoints, [{ id: 1, name: "prod" }, {
+    assertEquals(endpoints, [{ id: 1, name: "prod", status: 1 }, {
       id: 2,
       name: "stage",
+      status: 1,
     }]);
 
     const containers = await listContainers(access, 1);

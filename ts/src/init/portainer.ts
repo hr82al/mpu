@@ -17,6 +17,12 @@ import {
 export interface PortainerEndpoint {
   readonly id: number;
   readonly name: string;
+  /**
+   * Контракт Portainer CE: 1 — доступен, 2 — недоступен. Любое значение,
+   * кроме 1, трактуется вызывающей стороной как недоступен (`init.md`,
+   * шаг 2) — это решение принимает команда, не этот клиент протокола.
+   */
+  readonly status: number;
 }
 
 /** Контейнер Docker внутри одного endpoint'а, как его отдаёт `/containers/json`. */
@@ -52,6 +58,7 @@ export class PortainerError extends Error {
 interface RawEndpoint {
   readonly Id: number;
   readonly Name: string;
+  readonly Status: number;
 }
 
 /** Форма элемента `/containers/json` — берутся только используемые поля. */
@@ -71,7 +78,7 @@ export async function listEndpoints(
     "/api/endpoints",
     timeouts,
   );
-  return raw.map((e) => ({ id: e.Id, name: e.Name }));
+  return raw.map((e) => ({ id: e.Id, name: e.Name, status: e.Status }));
 }
 
 export async function listContainers(

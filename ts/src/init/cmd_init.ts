@@ -159,12 +159,10 @@ function hasServerNumber(row: ContainerRow): row is SlContainerRow {
 }
 
 /**
- * Upsert, не полная перезапись кэша (preserve, `init.md`, «Известные
- * отклонения»): запись об исчезнувшем из Portainer контейнере остаётся
- * до явного `--reset`. Причина из спеки: сбой одного endpoint'а при
- * очередном init не должен вычищать живые контейнеры из кэша — резолв
- * по кэшу продолжает работать; очистка устаревших записей — только
- * явным решением пользователя.
+ * Upsert текущей находки — вторая половина записи шага 2, первая
+ * (`reconcileContainerCache` ниже) чистит то, что Portainer больше не
+ * подтверждает (`init.md`, шаг 2, «fix»). Обе идут в одной транзакции с
+ * записью.
  */
 const UPSERT_CONTAINER_SQL = `
   INSERT INTO portainer_containers (portainer_url, endpoint_id, endpoint_name,
@@ -178,6 +176,99 @@ const UPSERT_CONTAINER_SQL = `
     image = excluded.image,
     discovered_at = excluded.discovered_at
 `;
+
+/** `IN (?, ?, …)` на `n` параметров; вызывающий сам решает про `n === 0`. */
+function placeholders(n: number): string {
+  return Array(n).fill("?").join(", ");
+}
+
+/**
+ * Реконсиляция кэша авторитетными данными оркестратора (`init.md`,
+ * шаг 2, «fix»): в рамках `portainerUrl` удаляет down-endpoint'ы, записи
+ * endpoint'ов вне только что полученного списка и контейнеры, пропавшие
+ * с endpoint'а из `containerIdsByEndpoint`. Ключ этой карты и есть узкая
+ * форма прежней осторожности — endpoint, чей обход сорвался, в неё не
+ * попадает, и эта функция его записи не трогает вовсе.
+ */
+function reconcileContainerCache(
+  db: CacheDb,
+  portainerUrl: string,
+  downEndpointIds: readonly number[],
+  listedEndpointIds: readonly number[],
+  containerIdsByEndpoint: ReadonlyMap<number, ReadonlySet<string>>,
+): number {
+  let deleted = deleteEndpoints(db, portainerUrl, downEndpointIds);
+  deleted += deleteEndpointsNotListed(db, portainerUrl, listedEndpointIds);
+  for (const [endpointId, containerIds] of containerIdsByEndpoint) {
+    deleted += deleteMissingContainers(
+      db,
+      portainerUrl,
+      endpointId,
+      containerIds,
+    );
+  }
+  return deleted;
+}
+
+/** Удаляет все записи перечисленных endpoint'ов (down-набор). */
+function deleteEndpoints(
+  db: CacheDb,
+  portainerUrl: string,
+  endpointIds: readonly number[],
+): number {
+  if (endpointIds.length === 0) return 0;
+  return db.execute(
+    `DELETE FROM portainer_containers WHERE portainer_url = ? AND ` +
+      `endpoint_id IN (${placeholders(endpointIds.length)})`,
+    portainerUrl,
+    ...endpointIds,
+  );
+}
+
+/**
+ * Удаляет записи endpoint'ов, отсутствующих в `listedEndpointIds`. Пустой
+ * список сюда не доходит: если ни один endpoint не дал ни одной строки,
+ * команда обрывается раньше на «ни одного контейнера не найдено»
+ * (`rows.length === 0` выше) — а значит, и `endpoints`, откуда собран
+ * этот список, на момент вызова всегда непуст.
+ */
+function deleteEndpointsNotListed(
+  db: CacheDb,
+  portainerUrl: string,
+  listedEndpointIds: readonly number[],
+): number {
+  return db.execute(
+    `DELETE FROM portainer_containers WHERE portainer_url = ? AND ` +
+      `endpoint_id NOT IN (${placeholders(listedEndpointIds.length)})`,
+    portainerUrl,
+    ...listedEndpointIds,
+  );
+}
+
+/** Удаляет на одном endpoint'е контейнеры, отсутствующие в `currentContainerIds`. */
+function deleteMissingContainers(
+  db: CacheDb,
+  portainerUrl: string,
+  endpointId: number,
+  currentContainerIds: ReadonlySet<string>,
+): number {
+  if (currentContainerIds.size === 0) {
+    return db.execute(
+      "DELETE FROM portainer_containers WHERE portainer_url = ? AND endpoint_id = ?",
+      portainerUrl,
+      endpointId,
+    );
+  }
+  return db.execute(
+    `DELETE FROM portainer_containers WHERE portainer_url = ? AND ` +
+      `endpoint_id = ? AND container_id NOT IN (${
+        placeholders(currentContainerIds.size)
+      })`,
+    portainerUrl,
+    endpointId,
+    ...currentContainerIds,
+  );
+}
 
 /** Endpoint, обход которого завершился отказом (таймаут в т.ч.). */
 interface EndpointFailure {
@@ -207,9 +298,11 @@ KITEN_BASE_URL.
 
 Шаги 3-5 best-effort: пропуск виден строкой «# <шаг>: пропущено
 (<причина>)» и кода выхода не меняет. Контейнеры пишутся upsert'ом по
-(portainer_url, endpoint_id, container_id); исчезнувшие остаются до
---reset, а он чистит весь прежний кэш. --dry-run: только сводка шага
-2, кэш не тронут (схема шага 1 создаётся всегда), шаги 3-5 не идут.
+(portainer_url, endpoint_id, container_id); запись реконсилирует кэш
+(down-endpoint'ы, пропавшие endpoint'ы/контейнеры удаляются, кроме
+сорвавшегося обхода); --reset чистит весь кэш заранее. --dry-run:
+только сводка шага 2, кэш не тронут (схема шага 1 создаётся всегда),
+шаги 3-5 не идут.
 
 Exit: 0 — успех; 2 — нет PORTAINER_API_KEY/URL либо URL без схемы;
 1 — сбой списка endpoints либо ни одного контейнера.
@@ -260,6 +353,11 @@ export async function runInit(
     throw new DomainError(`portainer: ${reasonOf(err)}`, { cause: err });
   }
 
+  // Down-endpoint (`Status` ≠ 1) не опрашивается вовсе (`init.md`, шаг 2):
+  // его таймаут не тратится, а строка пропуска не ждёт сети.
+  const upEndpoints = endpoints.filter((e) => e.status === 1);
+  const downEndpoints = endpoints.filter((e) => e.status !== 1);
+
   // Прогревы не запускаются при `--dry-run` и не запускаются раньше,
   // чем список endpoints получен: сбой этого списка обрывает команду, а
   // спека требует, чтобы шаги 3–5 при таком обрыве не выполнялись.
@@ -267,7 +365,7 @@ export async function runInit(
   const discoveredAt = Math.floor(Date.now() / 1000);
   const [outcomes, loki, kaiten] = await Promise.all([
     Promise.allSettled(
-      endpoints.map((endpoint) =>
+      upEndpoints.map((endpoint) =>
         listContainers(access, endpoint.id, limits.timeouts)
       ),
     ),
@@ -277,8 +375,12 @@ export async function runInit(
 
   const failures: EndpointFailure[] = [];
   const rows: ContainerRow[] = [];
+  // Endpoint'ы, обход которых успешно завершился, — ключ и есть узкая
+  // форма прежней осторожности: реконсиляция ниже трогает только эти
+  // endpoint'ы, сорвавшийся обход в карту не попадает (`init.md`, шаг 2).
+  const containerIdsByEndpoint = new Map<number, Set<string>>();
   outcomes.forEach((outcome, index) => {
-    const endpoint = endpoints[index];
+    const endpoint = upEndpoints[index];
     if (outcome.status === "rejected") {
       failures.push({
         id: endpoint.id,
@@ -287,6 +389,7 @@ export async function runInit(
       });
       return;
     }
+    const containerIds = new Set<string>();
     for (const container of outcome.value) {
       const classified = classifyContainer(container.names);
       rows.push({
@@ -300,16 +403,26 @@ export async function runInit(
         image: container.image,
         discoveredAt,
       });
+      containerIds.add(container.id);
     }
+    containerIdsByEndpoint.set(endpoint.id, containerIds);
   });
 
   // Порядок вывода детерминирован независимо от того, какой endpoint
-  // ответил первым (конкурентность ненаблюдаема — инвариант спеки).
-  for (const failure of failures.sort((a, b) => a.id - b.id)) {
-    io.progress(
-      `mpu init: endpoint ${failure.id} (${failure.name}): ${failure.reason}`,
-    );
-  }
+  // ответил первым (конкурентность ненаблюдаема — инвариант спеки):
+  // строки пропуска down-endpoint'ов и строки ошибок обхода объединяются
+  // в один блок, отсортированный по возрастанию id.
+  const endpointNotes = [
+    ...downEndpoints.map((e) => ({
+      id: e.id,
+      line: `mpu init: endpoint ${e.id} (${e.name}): down — пропущен`,
+    })),
+    ...failures.map((f) => ({
+      id: f.id,
+      line: `mpu init: endpoint ${f.id} (${f.name}): ${f.reason}`,
+    })),
+  ].sort((a, b) => a.id - b.id);
+  for (const note of endpointNotes) io.progress(note.line);
 
   if (rows.length === 0) {
     throw new DomainError("ни одного контейнера не найдено");
@@ -328,19 +441,26 @@ export async function runInit(
   // чтение `outcome.reset.deleted` ниже не проходило бы проверку типов.
   const outcome: {
     reset: { deleted: number } | null;
+    reconciled: number;
     write: { written: number; cacheDbPath: string } | null;
-  } = { reset: null, write: null };
+  } = { reset: null, reconciled: 0, write: null };
   if (!args["dry-run"]) {
-    // DELETE и upsert — одна транзакция: сбой строки посреди записи не
-    // должен зафиксировать пустой DELETE отдельно от откаченного upsert'а
-    // (иначе обрыв стирает живые контейнеры из кэша — против причины
-    // preserve, см. комментарий у `UPSERT_CONTAINER_SQL`).
+    // DELETE (--reset), реконсиляция и upsert — одна транзакция: сбой
+    // строки посреди записи откатывает всё разом, а не фиксирует часть
+    // удалений отдельно от упавшего upsert'а.
     db.transaction(() => {
       if (args.reset) {
         outcome.reset = {
           deleted: db.execute("DELETE FROM portainer_containers"),
         };
       }
+      outcome.reconciled = reconcileContainerCache(
+        db,
+        access.baseUrl,
+        downEndpoints.map((e) => e.id),
+        endpoints.map((e) => e.id),
+        containerIdsByEndpoint,
+      );
       for (const row of rows) {
         db.execute(
           UPSERT_CONTAINER_SQL,
@@ -364,6 +484,9 @@ export async function runInit(
       io.progress(
         `# --reset: удалено ${outcome.reset.deleted} старых записей`,
       );
+    }
+    if (outcome.reconciled > 0) {
+      io.progress(`# удалено устаревших записей: ${outcome.reconciled}`);
     }
     io.progress(
       `# записано ${outcome.write.written} контейнеров в ${outcome.write.cacheDbPath}`,

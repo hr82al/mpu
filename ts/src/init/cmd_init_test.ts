@@ -46,10 +46,15 @@ function fakeServer(
   };
 }
 
+/** `status` по умолчанию 1 (доступен) — большинству тестов down не нужен. */
 function endpointsResponse(
-  endpoints: ReadonlyArray<{ id: number; name: string }>,
+  endpoints: ReadonlyArray<
+    { id: number; name: string; status?: number }
+  >,
 ): Response {
-  return Response.json(endpoints.map((e) => ({ Id: e.id, Name: e.name })));
+  return Response.json(
+    endpoints.map((e) => ({ Id: e.id, Name: e.name, Status: e.status ?? 1 })),
+  );
 }
 
 interface FakeContainer {
@@ -953,7 +958,7 @@ Deno.test(
   },
 );
 
-Deno.test("повторный прогон без --reset: дублей нет, stale-запись остаётся", async () => {
+Deno.test("повторный прогон без --reset: дублей нет, пропавший с endpoint'а контейнер реконсилируется", async () => {
   await withTempDb(async (dbPath) => {
     let containers: readonly FakeContainer[] = [
       { id: "c1", names: ["/sl-1-cli"], state: "running", image: "img" },
@@ -975,23 +980,350 @@ Deno.test("повторный прогон без --reset: дублей нет, 
       });
       assertEquals((await invokeInit([], io)).code, 0);
 
-      // Второй прогон видит только c2 (c1 «исчез» из Portainer) и без
-      // --reset — c1 обязан остаться в кэше (вердикт preserve спеки).
+      // Второй прогон видит только c2 (c1 пропал с живого endpoint'а) —
+      // реконсиляция обязана убрать c1 из кэша (init.md, шаг 2, «fix»).
       containers = [
         { id: "c2", names: ["/sl-2-cli"], state: "exited", image: "img" },
       ];
       const second = await invokeInit([], io);
       assertEquals(second.code, 0);
+      assertEquals(
+        second.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          "# удалено устаревших записей: 1\n" +
+          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+      );
 
       using db = openCacheDb(dbPath);
       const rows = db.query(
         "SELECT container_id, state FROM portainer_containers ORDER BY container_id",
       );
-      // Ровно две строки — c2 обновилась (upsert), не задублировалась.
-      assertEquals(rows, [
-        { container_id: "c1", state: "running" },
-        { container_id: "c2", state: "exited" },
-      ]);
+      // Ровно одна строка — c1 реконсилирован, c2 обновилась (upsert).
+      assertEquals(rows, [{ container_id: "c2", state: "exited" }]);
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("down-endpoint: строка пропуска без опроса, реконсиляция удаляет его записи, чужой portainer_url цел", async () => {
+  await withTempDb(async (dbPath) => {
+    let statusOfOne = 1;
+    let endpoint1Requests = 0;
+    const { baseUrl, stop } = fakeServer((req) => {
+      const url = new URL(req.url);
+      if (url.pathname === "/api/endpoints") {
+        return endpointsResponse([
+          { id: 1, name: "prod", status: statusOfOne },
+          { id: 2, name: "stage" },
+        ]);
+      }
+      if (url.pathname === "/api/endpoints/1/docker/containers/json") {
+        endpoint1Requests++;
+        return containersResponse([
+          { id: "c1", names: ["/sl-1-cli"], state: "running", image: "img" },
+        ]);
+      }
+      if (url.pathname === "/api/endpoints/2/docker/containers/json") {
+        return containersResponse([
+          { id: "c2", names: ["/sl-2-cli"], state: "running", image: "img" },
+        ]);
+      }
+      return new Response(null, { status: 404 });
+    });
+    try {
+      // Чужой portainer_url — реконсиляция текущего прогона его не касается.
+      using seedDb = openCacheDb(dbPath);
+      seedDb.bootstrap();
+      seedDb.execute(
+        `INSERT INTO portainer_containers (portainer_url, endpoint_id,
+          endpoint_name, container_id, container_name, server_number, state,
+          image, discovered_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        "https://other.example.com",
+        1,
+        "other",
+        "co",
+        "sl-1-cli",
+        1,
+        "running",
+        "img",
+        1,
+      );
+
+      const io = makeIo(dbPath, {
+        envFile: envFileFake({
+          PORTAINER_API_KEY: API_KEY,
+          PORTAINER_URL: baseUrl,
+        }),
+      });
+      assertEquals((await invokeInit([], io)).code, 0);
+      assertEquals(endpoint1Requests, 1);
+
+      statusOfOne = 2;
+      const second = await invokeInit([], io);
+      assertEquals(second.code, 0);
+      assertEquals(
+        second.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          "mpu init: endpoint 1 (prod): down — пропущен\n" +
+          "# удалено устаревших записей: 1\n" +
+          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+      );
+      assertEquals(
+        endpoint1Requests,
+        1,
+        "down-endpoint не должен быть опрошен повторно",
+      );
+
+      using db = openCacheDb(dbPath);
+      assertEquals(
+        db.query(
+          "SELECT portainer_url, endpoint_id, container_id FROM " +
+            "portainer_containers ORDER BY portainer_url, container_id",
+        ),
+        [
+          { portainer_url: baseUrl, endpoint_id: 2, container_id: "c2" },
+          {
+            portainer_url: "https://other.example.com",
+            endpoint_id: 1,
+            container_id: "co",
+          },
+        ],
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("endpoint исчез из списка endpoints: реконсиляция удаляет его записи", async () => {
+  await withTempDb(async (dbPath) => {
+    let includeSecond = true;
+    const { baseUrl, stop } = fakeServer((req) => {
+      const url = new URL(req.url);
+      if (url.pathname === "/api/endpoints") {
+        const list = [{ id: 1, name: "prod" }];
+        if (includeSecond) list.push({ id: 2, name: "stage" });
+        return endpointsResponse(list);
+      }
+      if (url.pathname === "/api/endpoints/1/docker/containers/json") {
+        return containersResponse([
+          { id: "c1", names: ["/sl-1-cli"], state: "running", image: "img" },
+        ]);
+      }
+      if (url.pathname === "/api/endpoints/2/docker/containers/json") {
+        return containersResponse([
+          { id: "c2", names: ["/sl-2-cli"], state: "running", image: "img" },
+        ]);
+      }
+      return new Response(null, { status: 404 });
+    });
+    try {
+      const io = makeIo(dbPath, {
+        envFile: envFileFake({
+          PORTAINER_API_KEY: API_KEY,
+          PORTAINER_URL: baseUrl,
+        }),
+      });
+      assertEquals((await invokeInit([], io)).code, 0);
+
+      includeSecond = false;
+      const second = await invokeInit([], io);
+      assertEquals(second.code, 0);
+      assertEquals(
+        second.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          "# удалено устаревших записей: 1\n" +
+          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+      );
+
+      using db = openCacheDb(dbPath);
+      assertEquals(
+        db.query(
+          "SELECT endpoint_id, container_id FROM portainer_containers",
+        ),
+        [{ endpoint_id: 1, container_id: "c1" }],
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("все контейнеры пропали с успешно обойдённого endpoint'а: реконсиляция чистит их все", async () => {
+  await withTempDb(async (dbPath) => {
+    let containers2: readonly FakeContainer[] = [
+      { id: "c2", names: ["/sl-2-cli"], state: "running", image: "img" },
+    ];
+    const { baseUrl, stop } = fakeServer((req) => {
+      const url = new URL(req.url);
+      if (url.pathname === "/api/endpoints") {
+        return endpointsResponse([
+          { id: 1, name: "prod" },
+          { id: 2, name: "stage" },
+        ]);
+      }
+      if (url.pathname === "/api/endpoints/1/docker/containers/json") {
+        return containersResponse([
+          { id: "c1", names: ["/sl-1-cli"], state: "running", image: "img" },
+        ]);
+      }
+      if (url.pathname === "/api/endpoints/2/docker/containers/json") {
+        return containersResponse(containers2);
+      }
+      return new Response(null, { status: 404 });
+    });
+    try {
+      const io = makeIo(dbPath, {
+        envFile: envFileFake({
+          PORTAINER_API_KEY: API_KEY,
+          PORTAINER_URL: baseUrl,
+        }),
+      });
+      assertEquals((await invokeInit([], io)).code, 0);
+
+      // Endpoint 2 сам обойдён успешно (пустой список — не ошибка), но
+      // контейнеров на нём больше нет — реконсиляция обязана убрать все.
+      containers2 = [];
+      const second = await invokeInit([], io);
+      assertEquals(second.code, 0);
+      assertEquals(
+        second.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          "# удалено устаревших записей: 1\n" +
+          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+      );
+
+      using db = openCacheDb(dbPath);
+      assertEquals(
+        db.query(
+          "SELECT endpoint_id, container_id FROM portainer_containers",
+        ),
+        [{ endpoint_id: 1, container_id: "c1" }],
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("сорвавшийся endpoint: записи целы, реконсиляция его не касается", async () => {
+  await withTempDb(async (dbPath) => {
+    let endpoint1Fails = false;
+    const { baseUrl, stop } = fakeServer((req) => {
+      const url = new URL(req.url);
+      if (url.pathname === "/api/endpoints") {
+        return endpointsResponse([
+          { id: 1, name: "prod" },
+          { id: 2, name: "stage" },
+        ]);
+      }
+      if (url.pathname === "/api/endpoints/1/docker/containers/json") {
+        if (endpoint1Fails) {
+          return new Response("upstream error", { status: 502 });
+        }
+        return containersResponse([
+          { id: "c1", names: ["/sl-1-cli"], state: "running", image: "img" },
+        ]);
+      }
+      if (url.pathname === "/api/endpoints/2/docker/containers/json") {
+        return containersResponse([
+          { id: "c2", names: ["/sl-2-cli"], state: "running", image: "img" },
+        ]);
+      }
+      return new Response(null, { status: 404 });
+    });
+    try {
+      const io = makeIo(dbPath, {
+        envFile: envFileFake({
+          PORTAINER_API_KEY: API_KEY,
+          PORTAINER_URL: baseUrl,
+        }),
+      });
+      assertEquals((await invokeInit([], io)).code, 0);
+
+      endpoint1Fails = true;
+      const second = await invokeInit([], io);
+      assertEquals(second.code, 0);
+      // Без строки «# удалено» — сорвавшийся обход ничего не реконсилирует.
+      assertEquals(
+        second.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          "mpu init: endpoint 1 (prod): HTTP 502\n" +
+          `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
+      );
+
+      using db = openCacheDb(dbPath);
+      assertEquals(
+        db.query(
+          "SELECT endpoint_id, container_id FROM portainer_containers " +
+            "ORDER BY endpoint_id",
+        ),
+        [
+          { endpoint_id: 1, container_id: "c1" },
+          { endpoint_id: 2, container_id: "c2" },
+        ],
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("--dry-run: не удаляет ничего, даже когда endpoint стал down", async () => {
+  await withTempDb(async (dbPath) => {
+    let statusOfOne = 1;
+    const { baseUrl, stop } = fakeServer((req) => {
+      const url = new URL(req.url);
+      if (url.pathname === "/api/endpoints") {
+        return endpointsResponse([
+          { id: 1, name: "prod", status: statusOfOne },
+          { id: 2, name: "stage" },
+        ]);
+      }
+      if (url.pathname === "/api/endpoints/1/docker/containers/json") {
+        return containersResponse([
+          { id: "c1", names: ["/sl-1-cli"], state: "running", image: "img" },
+        ]);
+      }
+      if (url.pathname === "/api/endpoints/2/docker/containers/json") {
+        return containersResponse([
+          { id: "c2", names: ["/sl-2-cli"], state: "running", image: "img" },
+        ]);
+      }
+      return new Response(null, { status: 404 });
+    });
+    try {
+      const io = makeIo(dbPath, {
+        envFile: envFileFake({
+          PORTAINER_API_KEY: API_KEY,
+          PORTAINER_URL: baseUrl,
+        }),
+      });
+      assertEquals((await invokeInit([], io)).code, 0);
+
+      statusOfOne = 2;
+      const dryRun = await invokeInit(["--dry-run"], io);
+      assertEquals(dryRun.code, 0);
+      assertEquals(
+        dryRun.stderr,
+        `# bootstrap: схема в ${dbPath} готова\n` +
+          "mpu init: endpoint 1 (prod): down — пропущен\n",
+      );
+
+      using db = openCacheDb(dbPath);
+      assertEquals(
+        db.query(
+          "SELECT endpoint_id, container_id FROM portainer_containers " +
+            "ORDER BY endpoint_id",
+        ),
+        [
+          { endpoint_id: 1, container_id: "c1" },
+          { endpoint_id: 2, container_id: "c2" },
+        ],
+        "--dry-run обязан оставить кэш нетронутым, включая записи down-endpoint'а",
+      );
     } finally {
       await stop();
     }

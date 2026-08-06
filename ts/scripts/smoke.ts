@@ -360,7 +360,7 @@ function checks(subject: Subject): readonly Check[] {
         (req) => {
           const url = new URL(req.url);
           if (url.pathname === "/api/endpoints") {
-            return Response.json([{ Id: 1, Name: "prod" }]);
+            return Response.json([{ Id: 1, Name: "prod", Status: 1 }]);
           }
           return Response.json([{
             Id: "c1",
