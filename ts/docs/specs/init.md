@@ -1,11 +1,10 @@
 # mpu init
 
-Статус: к реализации (2026-08-06: доработка «down-endpoint'ы» —
-пропуск без опроса и реконсиляция кэша; до неё статус был «реализовано»
-— порции А и Б приняты 2026-08-05, маршрут переключён на `native`;
-goldens — `fixtures/init/`; границы прогревов — атомы
-`platform/loki-http.md` и `platform/kaiten-http.md`, кэш-БД —
-`platform/store.md`)
+Статус: реализовано (2026-08-06: принята доработка «down-endpoint'ы»
+— пропуск без опроса и реконсиляция кэша; порции А и Б приняты
+2026-08-05, маршрут переключён на `native`; goldens —
+`fixtures/init/`; границы прогревов — атомы `platform/loki-http.md` и
+`platform/kaiten-http.md`, кэш-БД — `platform/store.md`)
 
 ## Назначение
 
