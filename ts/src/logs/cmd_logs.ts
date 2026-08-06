@@ -9,7 +9,12 @@
  */
 
 import { z } from "@zod/zod";
-import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import {
+  type Command,
+  type CommandIo,
+  defineCommand,
+  UsageError,
+} from "../command/mod.ts";
 import { type LokiAccess, LokiError, requireLokiAccess } from "../loki/mod.ts";
 import { resolveSelector } from "../selector/mod.ts";
 import { type LogsCache, openLogsCache } from "./cache.ts";
@@ -122,7 +127,7 @@ export interface LogsOptions {
   readonly signal?: AbortSignal;
 }
 
-export const logsCommand = defineCommand({
+const command = defineCommand({
   path: ["logs"],
   // Однострока — из слепка дерева: имя и описание переехавшей команды
   // видит режим дополнения, и расходиться с эталоном им незачем.
@@ -169,6 +174,27 @@ Exit: 0 — успех, в том числе пустой вывод; 1 — от
   run: (args, io) => runLogs(args, io),
   render: (result, args) => renderLogs(result, args),
 });
+
+/**
+ * Слежение — только CLI (`docs/specs/logs.md`, «Слежение»): follow
+ * живёт до Ctrl+C, которого у MCP-вызова нет. Форма входа объектом
+ * аргументов — это и есть MCP-вызов, поэтому `follow: true` отвергается
+ * здесь; разбор argv (`invoke`) не меняется.
+ */
+export const logsCommand: Command = {
+  ...command,
+  invokeInput: async (input, io) => {
+    if (isRecord(input) && input.follow === true) {
+      throw new UsageError("--follow доступен только в CLI");
+    }
+    return await command.invokeInput(input, io);
+  },
+};
+
+/** Сужение объекта аргументов: до схемы вход — произвольный JSON. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 /**
  * Прогон команды. Вынесено из объявления ради подмены источников и
@@ -434,16 +460,10 @@ function serverNumberOf(
   cache: LogsCache,
   io: CommandIo,
 ): number {
-  const resolved = resolveSelector(
+  return resolveSelector(
     { cache: { query: cache.query }, env: io.envFile },
     selector,
-  );
-  if (resolved.serverNumber < 0) {
-    throw new UsageError(
-      `ожидается sl-N (N>=0), получено: '${selector}'`,
-    );
-  }
-  return resolved.serverNumber;
+  ).serverNumber;
 }
 
 /** Значение `--via`; прочие значения — ошибка ввода. */

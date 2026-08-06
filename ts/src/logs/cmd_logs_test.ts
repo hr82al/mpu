@@ -397,6 +397,33 @@ Deno.test("разбор аргументов: отказы до сети", async
   });
 });
 
+Deno.test("MCP-форма входа: слежение — только CLI", async (t) => {
+  await t.step("follow: true — ошибка ввода с текстом спеки", async () => {
+    await withStand({ hosts: ["sl-1"] }, { LOKI_URL }, async (io) => {
+      const err = await assertRejects(
+        () => logsCommand.invokeInput({ follow: true }, io),
+        UsageError,
+      );
+      assertEquals(err.message, "--follow доступен только в CLI");
+    });
+  });
+
+  await t.step("follow: false исполняется как обычно", async () => {
+    await withStand({ hosts: ["sl-1"] }, {}, async (io) => {
+      const result = await logsCommand.invokeInput(
+        { selector: "ls", follow: false },
+        io,
+      );
+      assertEquals(result, {
+        kind: "hosts",
+        names: ["sl-1"],
+        entries: [],
+        snapshot: null,
+      });
+    });
+  });
+});
+
 Deno.test("разовый запрос в Loki", async (t) => {
   await t.step("окно, лимит и направление", async () => {
     await withStand({}, { LOKI_URL }, async (io) => {
