@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": [
+    "mpu_ro",
+    "mpu_rw"
+  ]
+}
