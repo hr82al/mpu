@@ -194,7 +194,7 @@ function options(overrides: LogsOptions = {}): LogsOptions {
 
 /** Текст ошибки так, как его напечатает точка входа. */
 function shown(err: UsageError | DomainError): string {
-  return `${formatCommandError(["logs"], err)}\n`;
+  return `${formatCommandError("logs", err)}\n`;
 }
 
 Deno.test("ls-режимы: списки из кэша, без сети", async (t) => {

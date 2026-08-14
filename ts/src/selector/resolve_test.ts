@@ -156,7 +156,7 @@ Deno.test("override --server: невалидное значение — досл
   );
   assertEquals(err.message, "bad --server: 'foo' (expected sl-N)");
   assertEquals(
-    formatCommandError(["sql-ro"], err),
+    formatCommandError("sql-ro", err),
     golden("err-bad-server.txt"),
   );
 });
@@ -300,7 +300,7 @@ Deno.test("email вне кэша: подсказка запустить поис
     );
     assertEquals(err.candidates, []);
     assertEquals(
-      formatCommandError(["sql-ro"], err),
+      formatCommandError("sql-ro", err),
       golden("err-email-not-cached.txt"),
     );
   });
@@ -422,7 +422,7 @@ Deno.test("вердикт: ничего не найдено — дословны
     );
     assertEquals(err.message, "nothing matched: 'zzz-no-such-thing'");
     assertEquals(
-      formatCommandError(["sql-ro"], err),
+      formatCommandError("sql-ro", err),
       golden("err-nothing-matched.txt"),
     );
   });
@@ -636,7 +636,7 @@ Deno.test("кэш-БД не инициализирована: одна ошиб�
         assertEquals(err.message, "кэш-БД не инициализирована");
         assertEquals(err.hint, "mpu init");
         assertEquals(
-          formatCommandError(["sql-ro"], err),
+          formatCommandError("sql-ro", err),
           "mpu sql-ro: кэш-БД не инициализирована; попробуй: mpu init",
         );
       });

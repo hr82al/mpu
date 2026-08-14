@@ -13,7 +13,8 @@ import { z } from "@zod/zod";
 import {
   type CommandIo,
   defineCommand,
-  VerbatimError,
+  DomainError,
+  UsageError,
 } from "../command/mod.ts";
 import {
   getCard,
@@ -79,8 +80,8 @@ export async function runKitenCard(
 ): Promise<KitenCardResult> {
   const cardId = parseCardRef(args.selector);
   const view = viewOf(args, io);
+  const access = kaitenAccess(io);
   try {
-    const access = requireKaitenAccess(io.envFile);
     const card = await getCard(access, cardId);
     const [comments, propertyNames] = await Promise.all([
       args.comments ? listCardComments(access, cardId) : [],
@@ -122,27 +123,36 @@ async function propertyNamesOf(access: KaitenAccess): Promise<PropertyNames> {
   }
 }
 
-/** Путь команды; он же — имя в строке отказа Kaiten. */
-const PATH: readonly string[] = ["kiten", "card"];
-
 /**
- * Отказ Kaiten — доменная ошибка команды (exit 1). Строка собирается
- * целиком здесь: спека транспорта требует префикса с подкомандой —
- * `mpu kiten <sub>: kaiten error: …` (`platform/kaiten-http.md`, «Retry и
- * ошибки»), тогда как общий формат ошибок называет командой первый сегмент
- * пути. Поэтому `VerbatimError`: он печатается без общего префикса.
+ * Доступ к Kaiten. Ненастроенный ключ — ошибка ВВОДА (exit 2) с подсказкой,
+ * а не отказ API: сети команда ещё не касалась (`platform/kaiten-http.md`,
+ * «Конфигурация»). Каталог различить эти два случая не может — оба приходят
+ * одним классом, — поэтому различает вызывающий, по месту вызова.
  */
+function kaitenAccess(io: CommandIo): KaitenAccess {
+  try {
+    return requireKaitenAccess(io.envFile);
+  } catch (err) {
+    if (!(err instanceof KaitenError)) throw err;
+    throw new UsageError(err.message, {
+      hint: "добавить KITEN_API_KEY в env-файл",
+      cause: err,
+    });
+  }
+}
+
+/** Отказ Kaiten — доменная ошибка команды: exit 1 и текст в stderr. */
 function asCommandError(err: unknown): unknown {
   return err instanceof KaitenError
-    ? new VerbatimError(
-      `mpu ${PATH.join(" ")}: kaiten error: ${err.message}`,
-      { cause: err },
-    )
+    ? new DomainError(`kaiten error: ${err.message}`, { cause: err })
     : err;
 }
 
 export const kitenCardCommand = defineCommand({
-  path: PATH,
+  path: ["kiten", "card"],
+  // Отказ API называет команду полным путём: `mpu kiten card: kaiten
+  // error: …` (`platform/kaiten-http.md`, «Retry и ошибки»).
+  errorName: "kiten card",
   summary:
     "Одна карточка Kaiten целиком: шапка, свойства, описание, файлы, комментарии.",
   usage:

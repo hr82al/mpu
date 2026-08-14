@@ -57,21 +57,22 @@ export class VerbatimError extends DomainError {
  * Сообщение об ошибке для человека и агента:
  * `mpu <команда>: <причина>[; попробуй: <подсказка>][\n<подробности>]`.
  * Подробности — готовые строки от того, кто их собрал (список кандидатов
- * резолва); формат строки ошибки от их наличия не зависит. Префикс — первый
- * сегмент пути, а не весь путь: он называет команду, с которой
- * разговаривает пользователь (контракт спек команд). Формат общий для
+ * резолва); формат строки ошибки от их наличия не зависит. Имя в префиксе
+ * объявляет сама команда (`Command.errorName`): у семейства `xlsx` спека
+ * требует общего `mpu xlsx` на все подкоманды, у `kiten` — полного пути с
+ * подкомандой. Формат общий для
  * обеих точек входа: в CLI строка уходит в stderr, в MCP — текстом
  * содержимого результата с признаком ошибки.
  */
 export function formatCommandError(
-  path: readonly string[],
+  name: string,
   err: UsageError | DomainError,
 ): string {
   const hint = err.hint === undefined ? "" : `; попробуй: ${err.hint}`;
   const details = err.details === undefined ? "" : `\n${err.details}`;
   // Дословный текст внешней системы печатается без префикса: свою форму
   // он несёт сам (см. `VerbatimError`).
-  const prefix = err instanceof VerbatimError ? "" : `mpu ${path[0]}: `;
+  const prefix = err instanceof VerbatimError ? "" : `mpu ${name}: `;
   return `${prefix}${err.message}${hint}${details}`;
 }
 

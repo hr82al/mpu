@@ -227,15 +227,24 @@ export async function runCli(
       return 1;
     }
     if (err instanceof UsageError) {
-      output.stderr(`${formatCommandError(path, err)}\n`);
+      output.stderr(`${formatCommandError(errorNameOf(path), err)}\n`);
       return 2;
     }
     if (err instanceof DomainError) {
-      output.stderr(`${formatCommandError(path, err)}\n`);
+      output.stderr(`${formatCommandError(errorNameOf(path), err)}\n`);
       return 1;
     }
     throw err;
   }
+}
+
+/**
+ * Имя команды в префиксе её ошибок: объявленное самой командой либо
+ * первый сегмент пути — им называются и отказы, случившиеся до того, как
+ * команда нашлась (неизвестная опция уровня).
+ */
+function errorNameOf(path: readonly string[]): string {
+  return findCommand(path)?.errorName ?? path[0];
 }
 
 /** Есть ли у команды собственный вход с именем общего параметра. */

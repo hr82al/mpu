@@ -180,12 +180,14 @@ Deno.test("группа с одним переехавшим листом: со�
   await t.step("переехавший лист исполняет CLI, а не подпроцесс", async () => {
     const cli = makeCli(ok);
     // Ключа доступа во временном окружении нет — вызов отказывает своей
-    // же ошибкой, и это доказывает, что до подпроцесса он не дошёл.
-    assertEquals(await cli.run("kiten", "card", "65634936"), 1);
+    // же ошибкой ввода, и это доказывает, что до подпроцесса он не дошёл.
+    // Текст и код — `platform/kaiten-http.md`, «Конфигурация».
+    assertEquals(await cli.run("kiten", "card", "65634936"), 2);
     assertEquals(cli.calls(), []);
     assertEquals(
       cli.stderr(),
-      "mpu kiten card: kaiten error: KITEN_API_KEY не задан\n",
+      "mpu kiten card: KITEN_API_KEY не задан; " +
+        "попробуй: добавить KITEN_API_KEY в env-файл\n",
     );
   });
 

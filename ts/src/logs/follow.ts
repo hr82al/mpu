@@ -69,7 +69,7 @@ export async function followEntries(
     } catch (err) {
       const failure = lokiFailure(err, plan.logql);
       if (!(failure instanceof DomainError)) throw failure;
-      deps.stream.err(`\n${formatCommandError(["logs"], failure)}\n`);
+      deps.stream.err(`\n${formatCommandError("logs", failure)}\n`);
     }
   }
 }

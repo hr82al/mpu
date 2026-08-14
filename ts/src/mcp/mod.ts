@@ -340,7 +340,7 @@ async function invokeTool(
       };
     }
     if (err instanceof DomainError) {
-      return { kind: "domain", text: formatCommandError(entry.path, err) };
+      return { kind: "domain", text: formatCommandError(entry.errorName, err) };
     }
     // Сбой самой реализации: клиенту он ошибка транспорта, а не итог
     // команды. Сервер при этом остаётся живым.

@@ -13,6 +13,7 @@ export function nativeEntry(command: Command): ToolEntry {
     tool: toolOf(command),
     policy: command.policy,
     path: command.path,
+    errorName: command.errorName,
     journal: { logsOutput: command.logsOutput },
     invoke: async (args, io) => {
       const result = await command.invokeInput(args, io);

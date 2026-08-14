@@ -210,7 +210,7 @@ Deno.test("конфликт --json и --md проверяется первым",
     UsageError,
   );
   assertEquals(
-    formatCommandError(["sql-ro"], err),
+    formatCommandError("sql-ro", err),
     "mpu sql-ro: --json и --md взаимоисключающие",
   );
 });
@@ -569,7 +569,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
       DomainError,
     );
     assertEquals(
-      `${formatCommandError(["sql-ro"], err)}\n`,
+      `${formatCommandError("sql-ro", err)}\n`,
       await golden("write-refused-stderr.txt"),
     );
     assertEquals(sessions.closed(), 1);
@@ -594,7 +594,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
       DomainError,
     );
     assertEquals(
-      formatCommandError(["sql-ro"], err),
+      formatCommandError("sql-ro", err),
       "mpu sql-ro: метка транзакции вызова не снята — гарантия " +
         "только-чтения не подтверждена, результат не печатается",
     );
@@ -634,7 +634,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
           ),
         DomainError,
       );
-      const shown = formatCommandError(["sql-ro"], err);
+      const shown = formatCommandError("sql-ro", err);
       assertEquals(
         shown,
         "mpu sql-ro: метка транзакции вызова не снята — гарантия " +
@@ -684,7 +684,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
       VerbatimError,
     );
     assertEquals(
-      `${formatCommandError(["sql-ro"], err)}\n`,
+      `${formatCommandError("sql-ro", err)}\n`,
       await golden("db-error-stderr.txt"),
     );
   });

@@ -175,6 +175,14 @@ export interface CommandSpec<A, R> {
   /** Подробная справка листовой команды. */
   readonly help: string;
   readonly policy: Policy;
+  /**
+   * Имя команды в префиксе её ошибок (`mpu <имя>: …`). Не объявлено —
+   * первый сегмент пути: спека семейства `xlsx` требует общего префикса
+   * `mpu xlsx` на все подкоманды (`specs/xlsx.md`), тогда как семейство
+   * `kiten` называет себя полным путём с подкомандой
+   * (`platform/kaiten-http.md`, «Конфигурация»).
+   */
+  readonly errorName?: string;
   /** Схема аргументов: имена, типы, обязательность, дефолты, описания. */
   readonly argsSchema: z.ZodType<A>;
   /** Как входы записываются в argv; без записи вход читается как флаг. */
@@ -219,6 +227,8 @@ export interface Command {
   readonly usage: string;
   readonly help: string;
   readonly policy: Policy;
+  /** Имя в префиксе ошибок команды (см. объявление). */
+  readonly errorName: string;
   /** Пишутся ли секции out/err в журнал вызовов (см. объявление). */
   readonly logsOutput: boolean;
   /** Уходит ли этот вызов прежней реализации (см. объявление). */
@@ -298,6 +308,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     usage: spec.usage,
     help: spec.help,
     policy: spec.policy,
+    errorName: spec.errorName ?? spec.path[0],
     logsOutput: spec.logsOutput ?? true,
     bridge: spec.bridge ?? (() => false),
     argsJsonSchema,

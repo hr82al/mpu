@@ -78,8 +78,10 @@ export interface ToolCallResult {
 export interface ToolEntry {
   readonly tool: Tool;
   readonly policy: Policy;
-  /** Путь команды: по нему тул восстанавливает имя в ошибках. */
+  /** Путь команды: по нему тул восстанавливает своё имя. */
   readonly path: readonly string[];
+  /** Имя команды в префиксе её ошибок (`Command.errorName`). */
+  readonly errorName: string;
   /**
    * Пометка журнала вызовов (`platform/invoke-log.md`): у тула команды
    * контракта запись делает обвязка, у тула маршрута `legacy` поля нет

@@ -298,6 +298,9 @@ export function legacyEntry(leaf: LegacyLeaf, profile: Profile): ToolEntry {
     },
     policy: profile,
     path: leaf.path,
+    // Формат ошибок команды до тула этого маршрута не доходит: отказ
+    // подпроцесса приходит его же текстом. Имя тут — для полноты записи.
+    errorName: leaf.path[0],
     invoke: async (args, io) => {
       // Проверка до запуска: неизвестное имя и пропущенный обязательный
       // параметр — ошибка ввода, её агент исправляет сам, а не узнаёт

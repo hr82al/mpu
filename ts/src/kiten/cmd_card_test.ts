@@ -192,6 +192,18 @@ Deno.test("живая карточка: три вида вывода сходя�
     }
   });
 
+  await t.step("--json не зависит от --images", async () => {
+    const { io, baseUrl, stop } = stand(live);
+    try {
+      assertEquals(
+        await output([SELECTOR, "--json", "--no-images"], io),
+        await expected("live-json-stdout.json", baseUrl),
+      );
+    } finally {
+      await stop();
+    }
+  });
+
   await t.step("--md: комментарии отсортированы по created", async () => {
     const { io, baseUrl, seen, stop } = stand(live);
     try {
@@ -330,6 +342,28 @@ Deno.test("файловое поле: массив в JSON, элементы ч�
     }
   });
 
+  await t.step("markdown: два элемента — через `, `", async () => {
+    // У живого входа в поле один uid, и разделитель на нём недоказуем:
+    // склейка пустой строкой дала бы тот же текст.
+    const { io, stop } = stand({
+      [CARD_PATH]: () =>
+        Response.json({
+          ...EMPTY_CARD,
+          properties: { id_610303: ["uid-1", "uid-2"] },
+        }),
+      [COMMENTS_PATH]: () => Response.json([]),
+      [PROPERTIES_PATH]: () =>
+        Response.json([{ id: 610303, name: "9. AI-артефакт", type: "file" }]),
+    });
+    try {
+      const text = await output([SELECTOR, "--md"], io);
+
+      assertEquals(text.includes("- 9. AI-артефакт: uid-1, uid-2"), true);
+    } finally {
+      await stop();
+    }
+  });
+
   await t.step(
     "markdown: элементы через `, `, без скобок и кавычек",
     async () => {
@@ -398,6 +432,15 @@ Deno.test("выбор вида: терминал — наглядный, пай�
     }
   });
 
+  await t.step("--md побеждает терминальность stdout", async () => {
+    const { io, stop } = stand(routes, true);
+    try {
+      assertEquals((await run([SELECTOR, "--md"], io)).view, "md");
+    } finally {
+      await stop();
+    }
+  });
+
   await t.step("--json побеждает --md", async () => {
     const { io, stop } = stand(routes, true);
     try {
@@ -445,7 +488,7 @@ Deno.test("недоступная карточка: 403 с пустым тело
     );
 
     assertEquals(
-      `${formatCommandError(["kiten", "card"], err)}\n`,
+      `${formatCommandError(kitenCardCommand.errorName, err)}\n`,
       await golden("err-not-found-stderr.txt"),
     );
     // Комментарии и справочник не запрашиваются: карточки нет.
@@ -561,6 +604,31 @@ Deno.test("границы markdown: нет автора, нет момента, 
       ),
       true,
     );
+  } finally {
+    await stop();
+  }
+});
+
+Deno.test("порядок комментариев: по created, при равных — по id", async () => {
+  const { io, stop } = stand({
+    [CARD_PATH]: () => Response.json(EMPTY_CARD),
+    [COMMENTS_PATH]: () =>
+      Response.json([
+        { id: 30, text: "третий", created: "2026-08-14T16:35:00.000Z" },
+        { id: 20, text: "второй", created: "2026-08-14T16:33:00.000Z" },
+        { id: 10, text: "первый", created: "2026-08-14T16:33:00.000Z" },
+      ]),
+    [PROPERTIES_PATH]: () => Response.json([]),
+  });
+  try {
+    const result = await run([SELECTOR, "--json"], io);
+
+    // Момент старше — раньше; при равных моментах разбирает id.
+    assertEquals(result.card.comments.map((comment) => comment.id), [
+      10,
+      20,
+      30,
+    ]);
   } finally {
     await stop();
   }
