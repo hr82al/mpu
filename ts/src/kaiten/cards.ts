@@ -92,10 +92,15 @@ export interface ChecklistItem {
   readonly sortOrder: number | null;
 }
 
-/** Чек-лист карточки: имя и упорядоченные пункты (ответ вызова 10). */
+/** Чек-лист карточки: имя и пункты (ответ вызова 10). */
 export interface Checklist {
   readonly id: number;
   readonly name: string;
+  /**
+   * Пункты в порядке ответа сервера; порядка каталог не обещает — он не
+   * совпадает ни с `id`, ни с `sortOrder`. Порядок пунктов даёт только
+   * `sortOrder`, и сортировка принадлежит вызывающему.
+   */
   readonly items: readonly ChecklistItem[];
 }
 
@@ -163,8 +168,12 @@ export interface Card {
   readonly tags: readonly string[];
   readonly members: readonly Member[];
   readonly files: readonly CardFile[];
-  /** Значения кастомных полей; ключи вида `id_NNN`. */
-  readonly properties: Readonly<Record<string, string>>;
+  /**
+   * Значения кастомных полей; ключи вида `id_NNN`. Значение — строка
+   * либо массив: файловое (attachment) поле несёт массив uid привязанных
+   * файлов.
+   */
+  readonly properties: Readonly<Record<string, string | readonly string[]>>;
   readonly checklists: readonly Checklist[];
 }
 
@@ -244,7 +253,12 @@ export async function getCard(
   );
 }
 
-/** 3. Комментарии карточки; без комментариев — пустой список, не ошибка. */
+/**
+ * 3. Комментарии карточки; без комментариев — пустой список, не ошибка.
+ * Порядок — тот, в котором ответил сервер, и порядка каталог не обещает:
+ * ответ не упорядочен ни по `created`, ни по `id`. Нужна хронология —
+ * сортирует вызывающий.
+ */
 export async function listCardComments(
   access: KaitenAccess,
   cardId: number,
@@ -699,15 +713,28 @@ function parseLocationChange(raw: unknown): LocationChange | null {
   };
 }
 
-/** Значения кастомных полей: объект строка→строка, прочее не значение. */
-function parseProperties(raw: unknown): Readonly<Record<string, string>> {
+/** Значения кастомных полей; поле без значения в объект не попадает. */
+function parseProperties(
+  raw: unknown,
+): Readonly<Record<string, string | readonly string[]>> {
   if (!isRecord(raw)) return {};
-  const properties: Record<string, string> = {};
+  const properties: Record<string, string | readonly string[]> = {};
   for (const [key, value] of Object.entries(raw)) {
-    const text = stringOrNull(value);
-    if (text !== null) properties[key] = text;
+    const parsed = parsePropertyValue(value);
+    if (parsed !== null) properties[key] = parsed;
   }
   return properties;
+}
+
+/**
+ * Значение кастомного поля: строка либо массив uid файлового поля
+ * (`kaiten-api-cards.md`, «Инварианты»). Прочее — `null`, «значения нет»:
+ * так сервер шлёт пустое поле. Элемент массива не-строка отбрасывается по
+ * тому же правилу, что элемент любого другого списка каталога.
+ */
+function parsePropertyValue(raw: unknown): string | readonly string[] | null {
+  if (!Array.isArray(raw)) return stringOrNull(raw);
+  return raw.filter((item): item is string => typeof item === "string");
 }
 
 /**

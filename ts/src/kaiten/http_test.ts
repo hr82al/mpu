@@ -150,6 +150,30 @@ Deno.test("не-2xx: текст ошибки называет метод и пу
   }
 });
 
+Deno.test("не-2xx с пустым телом: сообщение кончается кодом и двоеточием", async () => {
+  // Недоступная карточка приходит как 403 без тела: существование чужой
+  // карточки сервер не раскрывает (`kaiten-api-cards.md`, «Граничные
+  // случаи»). Подставлять после двоеточия нечего, и заполнителя тут быть
+  // не должно — иначе текст соврёт о том, что ответил сервер.
+  const { baseUrl, stop } = startFakeKaiten(() =>
+    new Response(null, { status: 403 })
+  );
+  try {
+    const err = await assertRejects(
+      () =>
+        kaitenCall(accessTo(baseUrl), {
+          method: "GET",
+          path: "/cards/99999999",
+        }),
+      KaitenError,
+    );
+
+    assertEquals(err.message, "kaiten GET /cards/99999999 -> 403: ");
+  } finally {
+    await stop();
+  }
+});
+
 Deno.test("429 повторяется и у мутирующего вызова", async () => {
   const { baseUrl, seen, stop } = startFakeKaiten((requests) =>
     requests.length === 1
