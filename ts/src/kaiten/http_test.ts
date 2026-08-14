@@ -17,7 +17,12 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { type KaitenAccess, KaitenError } from "./mod.ts";
-import { kaitenCall, kaitenCallArray, kaitenCallPaged } from "./http.ts";
+import {
+  kaitenCall,
+  kaitenCallArray,
+  kaitenCallCursorPaged,
+  kaitenCallPaged,
+} from "./http.ts";
 import { startFakeKaiten } from "./testing.ts";
 
 const API_KEY = "proba-kaiten-key-Q3z8Nw";
@@ -264,6 +269,185 @@ Deno.test("offset-пагинация: страницы до первой кор�
         [7],
       );
       assertEquals(seen.length, 1);
+    } finally {
+      await stop();
+    }
+  });
+});
+
+/** Путь ленты действий — единственный курсорный вызов (`kaiten-http.md`). */
+const FEED_PATH = "/users/current/activities";
+
+/** Страница ленты: курсор следующего запроса берётся с последнего элемента. */
+function feedPage(count: number, created: string, prefix: string): unknown[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `${prefix}-${index}`,
+    created,
+  }));
+}
+
+Deno.test("курсорная пагинация: курсор последнего элемента уходит следующим запросом", async () => {
+  const first = feedPage(100, "2026-07-20T10:00:00.000Z", "p1");
+  const second = [{ id: "p2-0", created: "2026-07-19T10:00:00.000Z" }];
+  const { baseUrl, seen, stop } = startFakeKaiten((requests) =>
+    Response.json(requests.length === 1 ? first : second)
+  );
+  try {
+    const items = await kaitenCallCursorPaged(
+      accessTo(baseUrl),
+      {
+        method: "GET",
+        path: FEED_PATH,
+        query: { actions: "card_move,card_add" },
+      },
+      { maxPages: 5 },
+    );
+
+    // Сверяется весь список целиком, а не его длина: спека обещает
+    // конкатенацию страниц ИМЕННО в порядке чтения.
+    assertEquals(items, [...first, ...second]);
+    // На первой странице курсор уходит пустыми строками — не опускается:
+    // пустой курсор сервер трактует как «начать сначала».
+    assertEquals(seen.map((r) => r.search), [
+      "?actions=card_move%2Ccard_add&offset=0&limit=100" +
+      "&cursor_created=&cursor_id=",
+      "?actions=card_move%2Ccard_add&offset=0&limit=100" +
+      "&cursor_created=2026-07-20T10%3A00%3A00.000Z&cursor_id=p1-99",
+    ]);
+  } finally {
+    await stop();
+  }
+});
+
+Deno.test("курсорная пагинация: останов", async (t) => {
+  const full = feedPage(100, "2026-07-20T10:00:00.000Z", "p");
+
+  await t.step("страница короче лимита", async () => {
+    const { baseUrl, seen, stop } = startFakeKaiten((requests) =>
+      Response.json(requests.length === 1 ? full : [])
+    );
+    try {
+      const items = await kaitenCallCursorPaged(
+        accessTo(baseUrl),
+        { method: "GET", path: FEED_PATH },
+        { maxPages: 5 },
+      );
+
+      assertEquals(items, full);
+      assertEquals(seen.length, 2);
+    } finally {
+      await stop();
+    }
+  });
+
+  await t.step("потолок страниц исчерпан", async () => {
+    const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json(full));
+    try {
+      const items = await kaitenCallCursorPaged(
+        accessTo(baseUrl),
+        { method: "GET", path: FEED_PATH },
+        { maxPages: 2 },
+      );
+
+      assertEquals(items.length, 200);
+      assertEquals(seen.length, 2);
+    } finally {
+      await stop();
+    }
+  });
+
+  await t.step("у последнего элемента нет `created`", async () => {
+    const tail = [...feedPage(99, "2026-07-20T10:00:00.000Z", "p"), {
+      id: "p-99",
+      created: null,
+    }];
+    const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json(tail));
+    try {
+      const items = await kaitenCallCursorPaged(
+        accessTo(baseUrl),
+        { method: "GET", path: FEED_PATH },
+        { maxPages: 5 },
+      );
+
+      assertEquals(items, tail);
+      assertEquals(seen.length, 1);
+    } finally {
+      await stop();
+    }
+  });
+
+  for (
+    const [name, last] of [
+      ["у последнего элемента нет `id`", {
+        created: "2026-07-20T10:00:00.000Z",
+      }],
+      ["последний элемент вообще не объект", "мусор"],
+    ] as const
+  ) {
+    await t.step(name, async () => {
+      const tail = [...feedPage(99, "2026-07-20T10:00:00.000Z", "p"), last];
+      const { baseUrl, seen, stop } = startFakeKaiten(() =>
+        Response.json(tail)
+      );
+      try {
+        const items = await kaitenCallCursorPaged(
+          accessTo(baseUrl),
+          { method: "GET", path: FEED_PATH },
+          { maxPages: 5 },
+        );
+
+        assertEquals(items, tail);
+        assertEquals(seen.length, 1);
+      } finally {
+        await stop();
+      }
+    });
+  }
+});
+
+Deno.test("курсорная пагинация: нижняя граница даты", async (t) => {
+  const first = feedPage(100, "2026-07-20T10:00:00.000Z", "p1");
+  const second = feedPage(100, "2026-07-10T10:00:00.000Z", "p2");
+  const serveFeed = () =>
+    startFakeKaiten((requests) =>
+      Response.json(
+        requests.length === 1 ? first : requests.length === 2 ? second : [],
+      )
+    );
+
+  await t.step(
+    "`created` последнего стал меньше границы — останов",
+    async () => {
+      const { baseUrl, seen, stop } = serveFeed();
+      try {
+        const items = await kaitenCallCursorPaged(
+          accessTo(baseUrl),
+          { method: "GET", path: FEED_PATH },
+          { maxPages: 5, minCreated: "2026-07-15T00:00:00.000Z" },
+        );
+
+        // Прочитанная страница отдаётся целиком: серверного фильтра по дате
+        // нет, а порт по границе только останавливается — элементы старше
+        // неё из уже прочитанной страницы не отсеиваются.
+        assertEquals(items, [...first, ...second]);
+        assertEquals(seen.length, 2);
+      } finally {
+        await stop();
+      }
+    },
+  );
+
+  await t.step("`created` равен границе — обход продолжается", async () => {
+    const { baseUrl, seen, stop } = serveFeed();
+    try {
+      const items = await kaitenCallCursorPaged(
+        accessTo(baseUrl),
+        { method: "GET", path: FEED_PATH },
+        { maxPages: 5, minCreated: "2026-07-10T10:00:00.000Z" },
+      );
+
+      assertEquals(items.length, 200);
+      assertEquals(seen.length, 3);
     } finally {
       await stop();
     }

@@ -31,7 +31,11 @@ const RETRY_BACKOFF_BASE_MS = 1_000;
 const RETRY_BACKOFF_CAP_MS = 30_000;
 /** Тело ошибки не-2xx обрезается до 300 символов (`kaiten-http.md`). */
 const ERROR_BODY_LIMIT = 300;
-/** Размер страницы offset-пагинации: больший сервер молча уменьшает до него. */
+/**
+ * Размер страницы обеих пагинаций. В offset-режиме больший сервер молча
+ * уменьшает до него, в курсорном — отвергает статусом 400; сотня годится
+ * обоим, поэтому предел зашит, а не отдан вызывающему.
+ */
 const PAGE_LIMIT = 100;
 /** Причина пропуска доски при исчерпании бюджета шага (`init.md`, шаг 4). */
 const BUDGET_EXHAUSTED_REASON = "бюджет шага исчерпан";
@@ -253,6 +257,79 @@ export async function kaitenCallPaged(
     items.push(...page);
     if (page.length < PAGE_LIMIT) return items;
   }
+}
+
+/** Глубина курсорного обхода: умолчаний спека не задаёт ни одному пределу. */
+export interface CursorPageLimits {
+  /** Потолок числа прочитанных страниц. */
+  readonly maxPages: number;
+  /**
+   * Нижняя граница `created` (ISO-8601). Останов — на стороне клиента:
+   * серверного фильтра по дате у эндпоинта нет (`from`/`to`/`since` он
+   * принимает и игнорирует), поэтому в запрос граница не уходит.
+   */
+  readonly minCreated?: string;
+}
+
+/** Курсор страницы: `created` и `id` её последнего элемента. */
+interface PageCursor {
+  readonly created: string;
+  readonly id: string;
+}
+
+/** Первая страница читается с пустым курсором — сервер начинает сначала. */
+const FIRST_PAGE_CURSOR: PageCursor = { created: "", id: "" };
+
+/**
+ * Полный список курсорной пагинации (`kaiten-http.md`, «Пагинация»):
+ * каждый запрос несёт `offset=0`, `limit=100` и курсор последнего элемента
+ * предыдущей страницы. Результат — конкатенация прочитанных страниц в
+ * порядке чтения; страницы отдаются целиком, `minCreated` только
+ * останавливает обход.
+ *
+ * Останов — короткая страница (пустая — её частный случай), исчерпанный
+ * потолок страниц, отсутствие курсорных полей у последнего элемента либо
+ * его `created` меньше `minCreated` (строки ISO-8601 сравниваются
+ * лексикографически).
+ */
+export async function kaitenCallCursorPaged(
+  access: KaitenAccess,
+  request: KaitenRequest,
+  limits: CursorPageLimits,
+  options: KaitenCallOptions = {},
+): Promise<readonly unknown[]> {
+  const items: unknown[] = [];
+  let cursor = FIRST_PAGE_CURSOR;
+  for (let page = 0; page < limits.maxPages; page++) {
+    const chunk = await kaitenCallArray(access, {
+      ...request,
+      query: {
+        ...request.query,
+        offset: "0",
+        limit: String(PAGE_LIMIT),
+        cursor_created: cursor.created,
+        cursor_id: cursor.id,
+      },
+    }, options);
+    items.push(...chunk);
+    if (chunk.length < PAGE_LIMIT) return items;
+
+    const next = pageCursor(chunk[chunk.length - 1]);
+    if (next === null) return items;
+    if (limits.minCreated !== undefined && next.created < limits.minCreated) {
+      return items;
+    }
+    cursor = next;
+  }
+  return items;
+}
+
+/** Курсор элемента; `null` — курсорных полей у него нет, обход окончен. */
+function pageCursor(item: unknown): PageCursor | null {
+  if (!isRecord(item)) return null;
+  const created = stringOrNull(item.created);
+  const id = stringOrNull(item.id);
+  return created === null || id === null ? null : { created, id };
 }
 
 /**

@@ -562,8 +562,13 @@ function requireForm<T>(
   return parsed;
 }
 
-/** Разбор карточки списка; `null` — тело не карточка (нет числового `id`). */
-function parseCardSummary(raw: unknown): CardSummary | null {
+/**
+ * Разбор карточки списка; `null` — тело не карточка (нет числового `id`).
+ * Экспортируется мимо `mod.ts` соседнему каталогу справочников: карточка на
+ * момент действия в ленте — та же форма, что элемент `GET /cards`
+ * (`kaiten-api-refs.md`, вызов 2), и второй её разбор разошёлся бы с этим.
+ */
+export function parseCardSummary(raw: unknown): CardSummary | null {
   if (!isRecord(raw)) return null;
   const id = numberOrNull(raw.id);
   if (id === null) return null;

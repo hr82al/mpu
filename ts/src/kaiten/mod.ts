@@ -4,8 +4,9 @@
  * запроса, retry на 429, пагинация, формат ошибки) и селектор карточки —
  * `./http.ts` и `./card_ref.ts`; каталог учёта времени и таймеров
  * (`platform/kaiten-api-time.md`) — `./time.ts`; каталог карточки и её
- * содержимого (`platform/kaiten-api-cards.md`) — `./cards.ts`; прогрев
- * справочников с записью в кэш-БД — `./warmup.ts`.
+ * содержимого (`platform/kaiten-api-cards.md`) — `./cards.ts`; каталог
+ * справочников и пользователя (`platform/kaiten-api-refs.md`) —
+ * `./refs.ts`; прогрев справочников с записью в кэш-БД — `./warmup.ts`.
  *
  * Потребители — команда `init` (шаг 4) и, по мере переноса, подкоманды
  * `mpu kiten`.
@@ -56,6 +57,23 @@ export {
   uploadCustomPropertyFile,
   type UploadFile,
 } from "./cards.ts";
+
+export {
+  type Activity,
+  type ActivityFeedRequest,
+  type Board,
+  type Column,
+  type CurrentUser,
+  type CustomProperty,
+  getCurrentUser,
+  type Lane,
+  listBoardColumns,
+  listBoardLanes,
+  listCustomProperties,
+  listSpaces,
+  listUserActivities,
+  type Space,
+} from "./refs.ts";
 
 export {
   createCardTimeLog,
