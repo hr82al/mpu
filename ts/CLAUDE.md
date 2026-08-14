@@ -188,7 +188,7 @@ Deno → `@std/*` → пакет с JSR → `npm:` — последний тре
 **Шаг 1 — гейты.**
 
 ```bash
-deno fmt --check && deno lint && deno check . && deno test --coverage=cov
+deno fmt --check && deno lint && deno check . && deno task test --coverage=cov
 deno coverage cov                 # по затронутым модулям
 deno task smoke                   # собранный бинарь: права из задачи build
 ```
@@ -288,7 +288,7 @@ zsh, установку скрипта в rc-файлы, env-слой `MPU_XLSX`
 Покрытие измеряется и не должно падать от изменения:
 
 ```bash
-deno test --coverage=cov
+deno task test --coverage=cov
 deno coverage cov                 # сводка по файлам/строкам
 deno coverage cov --html          # построчно, что не покрыто
 ```
@@ -370,7 +370,7 @@ deno lint             # статический анализ
 deno check .          # проверка типов всего дерева
 deno test             # все тесты (санитайзеры включены по умолчанию)
 deno test path/to/x_test.ts --filter "имя"   # один тест
-deno test --coverage=cov && deno coverage cov # покрытие
+deno task test --coverage=cov && deno coverage cov # покрытие
 deno bench            # бенчмарки
 deno task smoke       # собранный бинарь во временном HOME: права из build
 deno task <name>      # задачи из deno.jsonc (появятся с первым кодом)
