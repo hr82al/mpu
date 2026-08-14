@@ -4,35 +4,38 @@
  * независимые best-effort части и запись каждой в свою таблицу кэша
  * (`platform/store.md`).
  *
- * О команде `init` файл не знает — только о протоколе Kaiten и о
+ * О команде `init` файл не знает — только о справочниках Kaiten и о
  * таблицах `kaiten_spaces`/`kaiten_boards`/`kaiten_lanes`/
- * `kaiten_columns`/`kaiten_roles`, в которые пишет. Транспорт (доступ,
- * retry, формат ошибки) — `./http.ts`; здесь — состав прогрева и
- * бюджет шага целиком (обход досок в частях 2–3).
+ * `kaiten_columns`/`kaiten_roles`, в которые пишет. Сами запросы и разбор
+ * ответов — каталоги внешнего API (`./refs.ts`, `./time.ts`); здесь —
+ * состав прогрева и бюджет шага целиком (обход досок в частях 2–3).
  */
 
 import { DEFAULT_TIMEOUTS, type RequestTimeouts } from "../http/mod.ts";
 import type { CacheDb } from "../command/mod.ts";
 import {
-  isRecord,
   type KaitenAccess,
-  kaitenCallArray,
+  type KaitenCallOptions,
   KaitenError,
-  numberOrNull,
-  stringOr,
 } from "./http.ts";
+import {
+  type Board,
+  type Column,
+  listBoardColumns,
+  listBoardLanes,
+  listSpaces,
+  type Space,
+} from "./refs.ts";
 import { type KaitenRole, listUserRoles } from "./time.ts";
 
+/**
+ * Строка пространства в кэше: вложенных досок в ней нет — они уходят своей
+ * таблицей, а кэш хранит плоские строки, а не дерево каталога.
+ */
 export interface KaitenSpace {
   readonly id: number;
   readonly title: string;
   readonly archived: boolean;
-}
-
-export interface KaitenBoard {
-  readonly id: number;
-  readonly spaceId: number;
-  readonly title: string;
 }
 
 /** Строка дорожки или колонки: у обеих один набор полей. */
@@ -57,7 +60,7 @@ export interface BoardRows {
 /** Итог прогрева. `null` у части — она упала целиком (в сводке init её счётчик `?`). */
 export interface KaitenWarmup {
   readonly spaces: readonly KaitenSpace[];
-  readonly boards: readonly KaitenBoard[];
+  readonly boards: readonly Board[];
   readonly lanes: BoardRows | null;
   readonly columns: BoardRows | null;
   readonly roles: readonly KaitenRole[] | null;
@@ -106,14 +109,11 @@ export async function collectKaitenWarmup(
   // отклонённым промисом.
   const spacesNotes: string[] = [];
   const rolesNotes: string[] = [];
+  // Все четыре части ходят вызовами каталогов, а не своими запросами:
+  // разбор одной внешней границы живёт в одном месте, иначе второй
+  // разошёлся бы с первым.
   const [spacesOutcome, rolesOutcome] = await Promise.allSettled([
-    kaitenCallArray(access, { method: "GET", path: "/spaces" }, {
-      timeouts: limits.timeouts,
-      notes: spacesNotes,
-    }),
-    // Часть 4 — тот же вызов, что зовут команды
-    // (`platform/kaiten-api-time.md`, вызов 9): второй разбор того же
-    // ответа разошёлся бы с первым.
+    listSpaces(access, { timeouts: limits.timeouts, notes: spacesNotes }),
     listUserRoles(access, { timeouts: limits.timeouts, notes: rolesNotes }),
   ]);
 
@@ -124,24 +124,25 @@ export async function collectKaitenWarmup(
       ? spacesOutcome.reason
       : new KaitenError(reasonOf(spacesOutcome.reason));
   }
-  const { spaces, boards } = parseSpaces(spacesOutcome.value);
+  const { spaces, boards } = splitSpaces(spacesOutcome.value);
 
   const notes: string[] = [...spacesNotes, ...rolesNotes];
   const roles = rolesOutcome.status === "fulfilled" ? rolesOutcome.value : null;
 
+  // Дорожка каталога — ровно строка кэша, у колонки лишний вес сортировки:
+  // столбца под него в таблице `kaiten_columns` нет.
   const [lanesPart, columnsPart] = await Promise.all([
     collectBoardPart(
-      access,
       boards,
-      (id) => `/boards/${id}/lanes`,
+      (boardId, options) => listBoardLanes(access, boardId, options),
       limits.timeouts,
       deadlineMs,
       nowMs,
     ),
     collectBoardPart(
-      access,
       boards,
-      (id) => `/boards/${id}/columns`,
+      async (boardId, options) =>
+        (await listBoardColumns(access, boardId, options)).map(boardRow),
       limits.timeouts,
       deadlineMs,
       nowMs,
@@ -266,9 +267,11 @@ interface BoardPartOutcome {
  * отклонённым промисом (см. `KaitenCallOptions` в `./http.ts`).
  */
 async function collectBoardPart(
-  access: KaitenAccess,
-  boards: readonly KaitenBoard[],
-  pathFor: (boardId: number) => string,
+  boards: readonly Board[],
+  fetchRows: (
+    boardId: number,
+    options: KaitenCallOptions,
+  ) => Promise<readonly BoardRow[]>,
   timeouts: RequestTimeouts,
   deadlineMs: number,
   nowMs: () => number,
@@ -285,16 +288,12 @@ async function collectBoardPart(
   const notesPerBoard = boards.map((): string[] => []);
   const outcomes = await Promise.allSettled(
     boards.map((board, index) =>
-      kaitenCallArray(
-        access,
-        { method: "GET", path: pathFor(board.id) },
-        {
-          timeouts,
-          deadlineMs,
-          nowMs,
-          notes: notesPerBoard[index],
-        },
-      )
+      fetchRows(board.id, {
+        timeouts,
+        deadlineMs,
+        nowMs,
+        notes: notesPerBoard[index],
+      })
     ),
   );
 
@@ -308,7 +307,7 @@ async function collectBoardPart(
       return;
     }
     boardIds.push(board.id);
-    rows.push(...parseBoardRows(outcome.value));
+    rows.push(...outcome.value);
   });
 
   return {
@@ -323,49 +322,21 @@ function reasonOf(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
 
-/** Разбор ответа части 1: пространства и вложенные в них доски. */
-function parseSpaces(raw: readonly unknown[]): {
+/**
+ * Ответ части 1 — по строке на таблицу: доски приходят вложенными в
+ * пространства, а в кэше лежат отдельной таблицей.
+ */
+function splitSpaces(spaces: readonly Space[]): {
   readonly spaces: readonly KaitenSpace[];
-  readonly boards: readonly KaitenBoard[];
+  readonly boards: readonly Board[];
 } {
-  const spaces: KaitenSpace[] = [];
-  const boards: KaitenBoard[] = [];
-  for (const item of raw) {
-    if (!isRecord(item)) continue;
-    const id = numberOrNull(item.id);
-    if (id === null) continue;
-    spaces.push({
-      id,
-      title: stringOr(item.title, ""),
-      archived: item.archived === true,
-    });
-
-    const rawBoards = Array.isArray(item.boards) ? item.boards : [];
-    for (const board of rawBoards) {
-      if (!isRecord(board)) continue;
-      const boardId = numberOrNull(board.id);
-      if (boardId === null) continue;
-      boards.push({
-        id: boardId,
-        // `space_id` приходит в каждой вложенной доске (`kaiten-http.md`);
-        // родительский id — запасной случай на неполный элемент.
-        spaceId: numberOrNull(board.space_id) ?? id,
-        title: stringOr(board.title, ""),
-      });
-    }
-  }
-  return { spaces, boards };
+  return {
+    spaces: spaces.map(({ id, title, archived }) => ({ id, title, archived })),
+    boards: spaces.flatMap((space) => space.boards),
+  };
 }
 
-/** Разбор ответа частей 2–3: общая форма `{id, board_id, title}` дорожки/колонки. */
-function parseBoardRows(raw: readonly unknown[]): readonly BoardRow[] {
-  const rows: BoardRow[] = [];
-  for (const item of raw) {
-    if (!isRecord(item)) continue;
-    const id = numberOrNull(item.id);
-    const boardId = numberOrNull(item.board_id);
-    if (id === null || boardId === null) continue;
-    rows.push({ id, boardId, title: stringOr(item.title, "") });
-  }
-  return rows;
+/** Строка кэша из колонки: столбца веса сортировки в таблице нет. */
+function boardRow({ id, boardId, title }: Column): BoardRow {
+  return { id, boardId, title };
 }
