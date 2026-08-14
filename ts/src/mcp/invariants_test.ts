@@ -108,6 +108,31 @@ Deno.test("список тулов профиля побитово одинак�
   }
 });
 
+Deno.test("переехавший лист группы публикуется тулом по объявлению", () => {
+  // Смена маршрута листа меняет форму ответа тула: у `legacy` это текст
+  // подпроцесса и схемы результата нет вовсе, у `native` — структурный
+  // результат по объявлению команды (`platform/mcp-server.md`). Состав
+  // тулов при этом тот же: имя лежит в закрытом списке публикации.
+  const tools = profileTools(commands, "ro");
+  const card = tools.find((entry) => entry.tool.name === "kiten_card");
+  const neighbour = tools.find((entry) => entry.tool.name === "kiten_ls");
+
+  assertEquals(card?.path, ["kiten", "card"]);
+  assertEquals(
+    card?.tool.outputSchema?.["type"],
+    "object",
+    "у native-тула объявлена схема результата",
+  );
+  // Сосед по группе остался маршрутом `legacy`: схемы результата у него
+  // нет и быть не может — подпроцесс отдаёт текст.
+  assertEquals(neighbour?.tool.outputSchema, undefined);
+  // Тул не задвоился: имя, опубликованное нативно, из слепка не берётся.
+  assertEquals(
+    tools.filter((entry) => entry.tool.name === "kiten_card").length,
+    1,
+  );
+});
+
 Deno.test("snapshot списка тулов по каждому профилю", async (t) => {
   for (const profile of PROFILES) {
     await t.step(profile, async () => {

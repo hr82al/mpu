@@ -190,6 +190,23 @@ Deno.test("режим дополнения печатает варианты, а
     assertEquals(stdout.split("\n").filter(Boolean), ["alias"]);
   });
 
+  await t.step("частично переехавшая группа — её native-листья", async () => {
+    const { stdout } = await run([], {
+      env: (name) =>
+        name === "_MPU_COMPLETE"
+          ? "complete_bash"
+          : name === "COMP_WORDS"
+          ? "mpu kiten"
+          : name === "COMP_CWORD"
+          ? "2"
+          : undefined,
+    });
+    // Список неполон по построению: соседи `card` в реестре не заведены —
+    // слепок отдаёт группу одной записью, и до конца переезда дополнение
+    // внутри неё видит только переехавшие листья (`platform/registry.md`).
+    assertEquals(stdout.split("\n").filter(Boolean), ["card"]);
+  });
+
   await t.step("курсор после пробела — весь уровень целиком", async () => {
     const { stdout } = await run([], {
       env: (name) =>

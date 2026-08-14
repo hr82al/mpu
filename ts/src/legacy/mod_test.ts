@@ -168,3 +168,43 @@ Deno.test("нет исполняемого файла — exit 1 и текст �
   );
   assertEquals(cli.stdout(), "");
 });
+
+Deno.test("группа с одним переехавшим листом: сосед по-прежнему подпроцессом", async (t) => {
+  // `kiten card` переведён на маршрут `native`, остальные листья `kiten`
+  // остаются `legacy` одной записью слепка (`platform/registry.md`).
+  // Проверяется, что от этого не поехали соседи: реестр берёт самый
+  // длинный известный путь, а всё прочее под `kiten` уходит подпроцессу
+  // вместе с именем группы.
+  const ok: LegacyOutcome = { code: 0, stdout: "вывод соседа", stderr: "" };
+
+  await t.step("переехавший лист исполняет CLI, а не подпроцесс", async () => {
+    const cli = makeCli(ok);
+    // Ключа доступа во временном окружении нет — вызов отказывает своей
+    // же ошибкой, и это доказывает, что до подпроцесса он не дошёл.
+    assertEquals(await cli.run("kiten", "card", "65634936"), 1);
+    assertEquals(cli.calls(), []);
+    assertEquals(
+      cli.stderr(),
+      "mpu kiten card: kaiten error: KITEN_API_KEY не задан\n",
+    );
+  });
+
+  await t.step("соседний лист уходит подпроцессу с именем группы", async () => {
+    const cli = makeCli(ok);
+    assertEquals(await cli.run("kiten", "ls", "--limit", "5"), 0);
+    assertEquals(cli.calls()[0].args, ["kiten", "ls", "--limit", "5"]);
+    assertEquals(cli.stdout(), "вывод соседа");
+  });
+
+  await t.step("справку группы печатает подпроцесс", async () => {
+    const cli = makeCli(ok);
+    assertEquals(await cli.run("kiten", "--help"), 0);
+    assertEquals(cli.calls()[0].args, ["kiten", "--help"]);
+  });
+
+  await t.step("голый вызов группы — тоже подпроцесс", async () => {
+    const cli = makeCli(ok);
+    assertEquals(await cli.run("kiten"), 0);
+    assertEquals(cli.calls()[0].args, ["kiten"]);
+  });
+});

@@ -664,6 +664,430 @@
     }
   },
   {
+    "name": "kiten_card",
+    "title": "mpu kiten card",
+    "description": "Одна карточка Kaiten целиком: шапка, свойства, описание, файлы, комментарии.\n\nSELECTOR — id карточки (65634936) либо её URL, короткий\n(https://btlz.kaiten.ru/65634936) или глубокий: id — последний полностью\nчисловой сегмент пути.\n\nВид вывода, по убыванию приоритета: --json (сырой JSON карточки и\nкомментариев, отступ 2) → --md (чистый GFM markdown) ЛИБО stdout не\nтерминал → наглядный терминальный рендер. Пайп без флагов отдаёт\nmarkdown: mpu kiten card 123 | <потребитель>.\n\n--no-comments не только убирает комментарии из вывода, но и отменяет их\nзапрос. --no-images убирает вложения-картинки из наглядного вида; на\n--md и --json не влияет.\n\nИмена кастомных полей для markdown и наглядного вида — отдельный запрос\nсправочника компании; не ответил — печатаются сырые ключи id_NNN, вывод\nне срывается. На --json справочник не запрашивается: JSON несёт сырые\nключи всегда.\n\nЧек-листы карточки эта команда не показывает ни в одном виде — их читает\nmpu kiten checklist ls.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL (по\nумолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten (недоступная карточка приходит\nкак 403 с пустым телом); 2 — из селектора не извлекается id.\n\nПример: mpu kiten card 65634936 --md",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "md": {
+          "default": false,
+          "description": "чистый GFM markdown",
+          "type": "boolean"
+        },
+        "json": {
+          "default": false,
+          "description": "сырой JSON: карточка и комментарии",
+          "type": "boolean"
+        },
+        "images": {
+          "default": true,
+          "description": "вложения-картинки в наглядном виде; выключить — флагом --no-images",
+          "type": "boolean"
+        },
+        "comments": {
+          "default": true,
+          "description": "комментарии карточки; не читать их — флагом --no-comments",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "view": {
+          "type": "string",
+          "enum": [
+            "json",
+            "md",
+            "pretty"
+          ],
+          "description": "вид вывода, выбранный флагами и терминальностью stdout"
+        },
+        "card": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "description": "метка этапа: queued, in progress, done"
+            },
+            "condition": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "1 активная, 2 архив"
+            },
+            "due_date": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "board": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "column": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lane": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "size_text": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "created": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "updated": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tags": {
+              "readOnly": true,
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "url": {
+              "type": "string"
+            },
+            "owner": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "full_name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "username": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "full_name",
+                    "email",
+                    "username"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "members": {
+              "readOnly": true,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "full_name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "username": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "full_name",
+                  "email",
+                  "username"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "properties": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "readOnly": true,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "description": "кастомные поля: ключи сырые (id_NNN), имена полей — отдельным полем результата"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "files": {
+              "readOnly": true,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "mime_type": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "comment_id": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "card_cover": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "url",
+                  "mime_type",
+                  "comment_id",
+                  "card_cover"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "comments": {
+              "readOnly": true,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "author": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "created": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "author",
+                  "created",
+                  "text"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "id",
+            "key",
+            "title",
+            "state",
+            "condition",
+            "due_date",
+            "board",
+            "column",
+            "lane",
+            "size_text",
+            "created",
+            "updated",
+            "type",
+            "tags",
+            "url",
+            "owner",
+            "members",
+            "properties",
+            "description",
+            "files",
+            "comments"
+          ],
+          "additionalProperties": false
+        },
+        "propertyNames": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "имена кастомных полей: id_NNN → имя; справочник не ответил — пусто"
+        }
+      },
+      "required": [
+        "view",
+        "card",
+        "propertyNames"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "sheet_get",
     "title": "mpu sheet get",
     "description": "Read cell values from one or more A1-notation ranges.\n\nRead cell values from one or more A1-notation ranges.",
@@ -874,47 +1298,6 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "name": "kiten_card",
-    "title": "mpu kiten card",
-    "description": "Одна карточка Kaiten: наглядный рендер (markdown + таблицы + скриншоты), либо `--md` (чистый GFM для LLM), либо `--json`.\n\nОдна карточка Kaiten: наглядный рендер (markdown + таблицы + скриншоты), либо\n`--md` (чистый GFM для LLM), либо `--json`. При пайпе по умолчанию — markdown.",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "selector": {
-          "type": "string",
-          "description": "ID карточки или URL btlz.kaiten.ru (короткий/глубокий)"
-        },
-        "md": {
-          "type": "boolean",
-          "description": "Чистый GFM markdown для LLM (без ANSI/картинок)",
-          "default": false
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "Сырой JSON (card + comments)",
-          "default": false
-        },
-        "images": {
-          "type": "boolean",
-          "description": "Инлайн-скриншоты в наглядном режиме",
-          "default": true
-        },
-        "comments": {
-          "type": "boolean",
-          "description": "Включать комментарии",
-          "default": true
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "selector"
-      ]
     }
   },
   {

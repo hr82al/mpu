@@ -171,6 +171,39 @@ const CASES: readonly CommandCase[] = [
       loki: { skipped: null, hosts: 3, pairs: 9 },
     },
   },
+  {
+    path: "kiten card",
+    // Ключа `KITEN_API_KEY` во временном окружении нет: вызов отказывает
+    // до сети и молча, как требует инвариант 1.
+    argv: ["65634936"],
+    sampleResult: {
+      view: "md",
+      card: {
+        id: 65634936,
+        key: null,
+        title: "проба",
+        state: "in progress",
+        condition: 1,
+        due_date: null,
+        board: "Разработка",
+        column: "Бэклог",
+        lane: "Основная",
+        size_text: null,
+        created: "2026-08-14T16:32:53.473Z",
+        updated: "2026-08-14T16:44:18.152Z",
+        type: "Development",
+        tags: ["срочно"],
+        url: "https://kaiten.example.test/65634936",
+        owner: null,
+        members: [],
+        properties: { id_291984: "гипотеза", id_610303: ["uid-файла"] },
+        description: null,
+        files: [],
+        comments: [],
+      },
+      propertyNames: { id_291984: "6. Причина/гипотеза" },
+    },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {
