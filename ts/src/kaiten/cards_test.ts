@@ -130,7 +130,8 @@ const CARD = {
     finished_at: null,
     card_time_log_id: null,
   },
-  tags: ["отчётность", "июль"],
+  // Тег на проводе — объект; значимо в нём только имя.
+  tags: [{ name: "отчётность" }, { name: "июль" }],
   members: [MEMBER],
   files: [CARD_FILE],
   properties: { id_610303: "https://kaiten.proba.test/files/4001" },
@@ -368,7 +369,8 @@ Deno.test("вызов 2: мусор во вложенных списках от�
     Response.json({
       ...CARD,
       // Ни один из этих элементов формой каталога не является.
-      tags: ["отчётность", 7, null],
+      // Строкой тег на проводе не приходит: такой элемент — не тег.
+      tags: [{ name: "отчётность" }, "июль", { name: 7 }, 7, null],
       members: ["мусор", { full_name: "без id" }, MEMBER],
       files: ["мусор", { url: "без id" }, CARD_FILE],
       checklists: ["мусор", { name: "без id" }, {

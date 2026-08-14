@@ -173,6 +173,7 @@ export interface Card {
   readonly owner: Member | null;
   /** `null` — таймер текущего пользователя на карточке не запущен. */
   readonly timer: CardTimer | null;
+  /** Имена тегов: на проводе тег — объект, значимо в нём только имя. */
   readonly tags: readonly string[];
   readonly members: readonly Member[];
   readonly files: readonly CardFile[];
@@ -617,7 +618,7 @@ function parseCard(raw: unknown): Card | null {
     typeName: nestedName(raw.type),
     owner: parseMember(raw.owner),
     timer: parseCardTimer(raw.timer),
-    tags: strings(raw.tags),
+    tags: collect(array(raw.tags), nestedName),
     members: collect(array(raw.members), parseMember),
     files: collect(array(raw.files), parseCardFile),
     properties: parseProperties(raw.properties),
@@ -748,7 +749,7 @@ function nestedTitle(raw: unknown): string | null {
   return stringOrNull(nested(raw).title);
 }
 
-/** Имя вложенного объекта типа карточки (`type`). */
+/** Имя вложенного объекта: тип карточки (`type`), тег (`tags`). */
 function nestedName(raw: unknown): string | null {
   return stringOrNull(nested(raw).name);
 }
@@ -761,9 +762,4 @@ function spaceTitles(raw: unknown): readonly string[] {
 /** Значение как список: не массив — пустой список. */
 function array(raw: unknown): readonly unknown[] {
   return Array.isArray(raw) ? raw : [];
-}
-
-/** Список строк: элементы другого типа строками не считаются. */
-function strings(raw: unknown): readonly string[] {
-  return collect(array(raw), stringOrNull);
 }
