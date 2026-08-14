@@ -453,6 +453,32 @@ Deno.test("вызов 6: запуск таймера", async (t) => {
     }
   });
 
+  await t.step("успех: форму решает только id, прочие поля пусты", async () => {
+    const { baseUrl, stop } = startFakeKaiten(() =>
+      Response.json({ id: 555, card_id: null, started_at: null })
+    );
+    try {
+      const outcome = await startUserTimer(accessTo(baseUrl), {
+        cardId: 65634936,
+      });
+
+      assertEquals(outcome, {
+        kind: "started",
+        timer: {
+          id: 555,
+          cardId: null,
+          cardTitle: "",
+          comment: "",
+          startedAt: null,
+          finishedAt: null,
+          cardTimeLogId: null,
+        },
+      });
+    } finally {
+      await stop();
+    }
+  });
+
   await t.step("без комментария ключа comment в теле нет", async () => {
     const { baseUrl, seen, stop } = startFakeKaiten(() =>
       Response.json(RUNNING_TIMER)

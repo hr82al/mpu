@@ -87,10 +87,10 @@ export type UserTimeLog = TimeLog & {
 /** Личный таймер пользователя (ответ вызовов 6 и 7). */
 export interface Timer {
   readonly id: number;
-  readonly cardId: number;
+  readonly cardId: number | null;
   readonly cardTitle: string;
   readonly comment: string;
-  readonly startedAt: string;
+  readonly startedAt: string | null;
   readonly finishedAt: string | null;
   /** Запись времени, созданная остановкой (вызов 7); у идущего таймера — `null`. */
   readonly cardTimeLogId: number | null;
@@ -370,18 +370,21 @@ function parseTimeLog(raw: unknown): TimeLog | null {
   };
 }
 
-/** Разбор таймера; `null` — тело не таймер (нет числовых `id`/`card_id`). */
+/**
+ * Разбор таймера; `null` — тело не таймер. Таймером тело делает ТОЛЬКО
+ * числовой `id`: прочие поля в различении форм ответа запуска (вызов 6) не
+ * участвуют, и ответ с пустым `card_id` — таймер, а не конфликт.
+ */
 function parseTimer(raw: unknown): Timer | null {
   if (!isRecord(raw)) return null;
   const id = numberOrNull(raw.id);
-  const cardId = numberOrNull(raw.card_id);
-  if (id === null || cardId === null) return null;
+  if (id === null) return null;
   return {
     id,
-    cardId,
+    cardId: numberOrNull(raw.card_id),
     cardTitle: stringOr(raw.card_title, ""),
     comment: stringOr(raw.comment, ""),
-    startedAt: stringOr(raw.started_at, ""),
+    startedAt: stringOrNull(raw.started_at),
     finishedAt: stringOrNull(raw.finished_at),
     cardTimeLogId: numberOrNull(raw.card_time_log_id),
   };
