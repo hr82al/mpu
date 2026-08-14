@@ -222,7 +222,9 @@ Deno.test("offset-пагинация: страницы до первой кор�
         query: { space_id: "42" },
       });
 
-      assertEquals(items.length, 102);
+      // Сверяется весь список целиком, а не его длина: спека обещает
+      // конкатенацию страниц ИМЕННО в порядке запросов.
+      assertEquals(items, [...fullPage(), 100, 101]);
       // Фильтр вызывающего уходит на каждой странице, лимит и смещение
       // добавляет транспорт: 0, 100, … до неполной страницы.
       assertEquals(seen.map((r) => r.search), [
@@ -244,7 +246,7 @@ Deno.test("offset-пагинация: страницы до первой кор�
         path: "/cards",
       });
 
-      assertEquals(items.length, 100);
+      assertEquals(items, fullPage());
       assertEquals(seen.length, 2);
     } finally {
       await stop();
