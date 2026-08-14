@@ -271,14 +271,14 @@ export interface CursorPageLimits {
   readonly minCreated?: string;
 }
 
-/** Курсор страницы: `created` и `id` её последнего элемента. */
-interface PageCursor {
+/** Курсор ленты: пара (момент, id) последнего элемента страницы. */
+interface ActivityCursor {
   readonly created: string;
   readonly id: string;
 }
 
-/** Первая страница читается с пустым курсором — сервер начинает сначала. */
-const FIRST_PAGE_CURSOR: PageCursor = { created: "", id: "" };
+/** Пустая пара — «с начала»: так сервер и трактует пустой курсор. */
+const EMPTY_CURSOR: ActivityCursor = { created: "", id: "" };
 
 /**
  * Полный список курсорной пагинации (`kaiten-http.md`, «Пагинация»):
@@ -299,7 +299,7 @@ export async function kaitenCallCursorPaged(
   options: KaitenCallOptions = {},
 ): Promise<readonly unknown[]> {
   const items: unknown[] = [];
-  let cursor = FIRST_PAGE_CURSOR;
+  let cursor = EMPTY_CURSOR;
   for (let page = 0; page < limits.maxPages; page++) {
     const chunk = await kaitenCallArray(access, {
       ...request,
@@ -314,7 +314,7 @@ export async function kaitenCallCursorPaged(
     items.push(...chunk);
     if (chunk.length < PAGE_LIMIT) return items;
 
-    const next = pageCursor(chunk[chunk.length - 1]);
+    const next = activityCursor(chunk[chunk.length - 1]);
     if (next === null) return items;
     if (limits.minCreated !== undefined && next.created < limits.minCreated) {
       return items;
@@ -325,7 +325,7 @@ export async function kaitenCallCursorPaged(
 }
 
 /** Курсор элемента; `null` — курсорных полей у него нет, обход окончен. */
-function pageCursor(item: unknown): PageCursor | null {
+function activityCursor(item: unknown): ActivityCursor | null {
   if (!isRecord(item)) return null;
   const created = stringOrNull(item.created);
   const id = stringOrNull(item.id);
