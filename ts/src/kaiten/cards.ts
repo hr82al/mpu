@@ -11,8 +11,9 @@
  * в этой волне команд ещё нет вызывающего кода.
  *
  * Транспорт (доступ, retry, пагинация, multipart, формат ошибки) —
- * `./http.ts`; форма таймера в ответах запуска и остановки — соседний
- * каталог `./time.ts`.
+ * `./http.ts`; форма таймера — соседний каталог `./time.ts`: вложенный в
+ * карточку таймер и ответы его запуска и остановки — один и тот же
+ * `Timer`.
  */
 
 import {
@@ -30,6 +31,7 @@ import {
   stringOrNull,
 } from "./http.ts";
 import type { MultipartPart } from "./multipart.ts";
+import { parseTimer, type Timer } from "./time.ts";
 
 /** Состояние карточки: закрытый список поля `state` (вызов 1). */
 export type CardState = 1 | 2 | 3;
@@ -105,25 +107,6 @@ export interface Comment {
   readonly author: Member | null;
 }
 
-/**
- * Личный таймер, вложенный в полную карточку: ТОЛЬКО таймер текущего
- * пользователя по токену, не любой запущенный на карточке.
- *
- * Своя форма, а не `Timer` каталога времени (`./time.ts`): у вложенного
- * таймера спека допускает `null` в `card_id` и `started_at`, а форма
- * ответов запуска и остановки этих значений не знает.
- */
-export interface CardTimer {
-  readonly id: number;
-  readonly cardId: number | null;
-  readonly cardTitle: string;
-  readonly comment: string;
-  readonly startedAt: string | null;
-  readonly finishedAt: string | null;
-  /** Заполняется только после остановки таймера. */
-  readonly cardTimeLogId: number | null;
-}
-
 /** Карточка в выдаче списка (элемент ответа вызова 1). */
 export interface CardSummary {
   readonly id: number;
@@ -171,8 +154,11 @@ export interface Card {
   readonly laneTitle: string | null;
   readonly typeName: string | null;
   readonly owner: Member | null;
-  /** `null` — таймер текущего пользователя на карточке не запущен. */
-  readonly timer: CardTimer | null;
+  /**
+   * ТОЛЬКО таймер текущего пользователя по токену, не любой запущенный на
+   * карточке; `null` — не запущен и он.
+   */
+  readonly timer: Timer | null;
   /** Имена тегов: на проводе тег — объект, значимо в нём только имя. */
   readonly tags: readonly string[];
   readonly members: readonly Member[];
@@ -622,7 +608,7 @@ function parseCard(raw: unknown): Card | null {
     laneTitle: nestedTitle(raw.lane),
     typeName: nestedName(raw.type),
     owner: parseMember(raw.owner),
-    timer: parseCardTimer(raw.timer),
+    timer: parseTimer(raw.timer),
     tags: collect(array(raw.tags), nestedName),
     members: collect(array(raw.members), parseMember),
     files: collect(array(raw.files), parseCardFile),
@@ -710,22 +696,6 @@ function parseLocationChange(raw: unknown): LocationChange | null {
     authorId: numberOrNull(raw.author_id),
     authorName: stringOrNull(raw.author_name),
     changed: stringOrNull(raw.changed),
-  };
-}
-
-/** Разбор вложенного таймера; `null` — таймер не запущен. */
-function parseCardTimer(raw: unknown): CardTimer | null {
-  if (!isRecord(raw)) return null;
-  const id = numberOrNull(raw.id);
-  if (id === null) return null;
-  return {
-    id,
-    cardId: numberOrNull(raw.card_id),
-    cardTitle: stringOr(raw.card_title, ""),
-    comment: stringOr(raw.comment, ""),
-    startedAt: stringOrNull(raw.started_at),
-    finishedAt: stringOrNull(raw.finished_at),
-    cardTimeLogId: numberOrNull(raw.card_time_log_id),
   };
 }
 

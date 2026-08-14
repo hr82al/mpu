@@ -84,7 +84,11 @@ export type UserTimeLog = TimeLog & {
   readonly card: TimeLogCard | null;
 };
 
-/** Личный таймер пользователя (ответ вызовов 6 и 7). */
+/**
+ * Личный таймер пользователя: ответ вызовов 6 и 7 и он же — таймер,
+ * вложенный в полную карточку (`./cards.ts`). Форма одна: спека свела её в
+ * одно место (`kaiten-api-time.md`, вызов 6).
+ */
 export interface Timer {
   readonly id: number;
   readonly cardId: number | null;
@@ -374,8 +378,12 @@ function parseTimeLog(raw: unknown): TimeLog | null {
  * Разбор таймера; `null` — тело не таймер. Таймером тело делает ТОЛЬКО
  * числовой `id`: прочие поля в различении форм ответа запуска (вызов 6) не
  * участвуют, и ответ с пустым `card_id` — таймер, а не конфликт.
+ *
+ * Экспортируется мимо `mod.ts` соседнему каталогу карточек: таймер,
+ * вложенный в полную карточку, — та же форма, и второй её разбор
+ * разошёлся бы с этим.
  */
-function parseTimer(raw: unknown): Timer | null {
+export function parseTimer(raw: unknown): Timer | null {
   if (!isRecord(raw)) return null;
   const id = numberOrNull(raw.id);
   if (id === null) return null;

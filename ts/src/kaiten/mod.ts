@@ -33,7 +33,6 @@ export {
   type CardProperties,
   type CardState,
   type CardSummary,
-  type CardTimer,
   type Checklist,
   type ChecklistItem,
   type ChecklistItemPatch,
