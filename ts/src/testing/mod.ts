@@ -27,6 +27,10 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     // Не терминал: тест, читающий stdin, по умолчанию в положении
     // пайпа — приглашения ко вводу в нём быть не должно.
     stdinIsTerminal: () => false,
+    // Не терминал и stdout: команда с несколькими видами вывода по
+    // умолчанию отдаёт машиночитаемый — тест, которому нужен наглядный,
+    // объявляет это сам.
+    stdoutIsTerminal: () => false,
     readConfigStore: () => Promise.resolve(undefined),
     writeConfigStore: mustNotTouch("writeConfigStore"),
     readAccessToken: () => Promise.resolve(undefined),

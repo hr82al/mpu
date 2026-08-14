@@ -472,6 +472,7 @@ function makeIo(dir: string): CommandIo {
     readTextFile: (path) => Deno.readTextFile(inDir(path)),
     readTextStdin: () => Promise.resolve(""),
     stdinIsTerminal: () => false,
+    stdoutIsTerminal: () => false,
     currentShell: () => undefined,
     appendFile: (path, text) =>
       Deno.writeTextFile(inDir(path), text, {

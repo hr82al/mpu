@@ -252,6 +252,7 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
     },
     readTextStdin: () => new Response(Deno.stdin.readable).text(),
     stdinIsTerminal: () => Deno.stdin.isTerminal(),
+    stdoutIsTerminal: () => Deno.stdout.isTerminal(),
     readConfigStore: async () => {
       if (storePath === undefined) return undefined;
       try {

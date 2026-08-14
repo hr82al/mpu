@@ -84,6 +84,12 @@ export interface CommandIo {
    * только второму (`docs/specs/sql-ro.md`, источники SQL).
    */
   readonly stdinIsTerminal: () => boolean;
+  /**
+   * Терминал ли stdout процесса. По нему команда с несколькими видами
+   * вывода отличает человека от пайпа: в пайп уходит машиночитаемая форма
+   * (`docs/specs/kiten-card.md`, выбор вида).
+   */
+  readonly stdoutIsTerminal: () => boolean;
   /** Содержимое файла хранилища; файла нет — `undefined`. */
   readonly readConfigStore: () => Promise<string | undefined>;
   /** Запись хранилища: каталог создаётся, права файла 0600. */

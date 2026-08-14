@@ -28,6 +28,31 @@ Deno.test("parseArgv: длинные, короткие и запись чере�
   assertEquals("long" in parse(), false);
 });
 
+Deno.test("parseArgv: «--no-<имя>» выключает булев вход", async (t) => {
+  await t.step("выключает и не путается с включением", () => {
+    assertEquals(parse("--no-long").long, false);
+    assertEquals(parse("--long", "--no-long").long, false);
+    assertEquals(parse("--no-long", "--long").long, true);
+  });
+
+  await t.step("отрицается только булев вход", () => {
+    // У строкового входа отрицательной формы нет: выключать нечего.
+    assertThrows(
+      () => parse("--no-file"),
+      UsageError,
+      'unknown option "--no-file"',
+    );
+  });
+
+  await t.step("значения отрицательная форма не берёт", () => {
+    assertThrows(
+      () => parse("--no-long=1"),
+      UsageError,
+      "option --no-long does not take a value",
+    );
+  });
+});
+
 Deno.test("parseArgv: повторы накапливаются или побеждает последний", () => {
   assertEquals(parse("--from", "a", "--from", "b").from, ["a", "b"]);
   // Строковый вход не накапливается: «последний побеждает».

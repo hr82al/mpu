@@ -68,7 +68,17 @@ export function parseArgv(
       const name = eq < 0 ? arg.slice(2) : arg.slice(2, eq);
       const inline = eq < 0 ? undefined : arg.slice(eq + 1);
       const spec = flags.find((s) => s.name === name);
-      if (spec === undefined) throw unknownOption(arg, helpHint);
+      if (spec === undefined) {
+        // Отрицательная форма булева входа: `--no-images` выключает вход
+        // `images`, у которого умолчание «включено» (`specs/kiten-card.md`,
+        // CLI-контракт). Отдельным входом схемы она не объявляется — иначе
+        // у одного значения было бы два имени.
+        const negated = negatedBoolean(flags, name);
+        if (negated === undefined) throw unknownOption(arg, helpHint);
+        if (inline !== undefined) throw takesNoValue(`--${name}`, helpHint);
+        out[negated.name] = false;
+        continue;
+      }
       record(out, spec, inline, nextValue, helpHint);
       continue;
     }
@@ -91,11 +101,7 @@ function record(
   helpHint: string,
 ): void {
   if (spec.kind === "boolean") {
-    if (inline !== undefined) {
-      throw new UsageError(`option --${spec.name} does not take a value`, {
-        hint: helpHint,
-      });
-    }
+    if (inline !== undefined) throw takesNoValue(`--${spec.name}`, helpHint);
     out[spec.name] = true;
     return;
   }
@@ -137,6 +143,22 @@ function bindPositional(
   }
 }
 
+/** Булев вход, выключаемый формой `--no-<имя>`; иное имя — `undefined`. */
+function negatedBoolean(
+  flags: readonly InputSpec[],
+  name: string,
+): InputSpec | undefined {
+  if (!name.startsWith("no-")) return undefined;
+  const spec = flags.find((s) => s.name === name.slice(3));
+  return spec?.kind === "boolean" ? spec : undefined;
+}
+
 function unknownOption(arg: string, helpHint: string): UsageError {
   return new UsageError(`unknown option "${arg}"`, { hint: helpHint });
+}
+
+function takesNoValue(option: string, helpHint: string): UsageError {
+  return new UsageError(`option ${option} does not take a value`, {
+    hint: helpHint,
+  });
 }

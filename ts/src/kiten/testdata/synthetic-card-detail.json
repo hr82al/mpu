@@ -1,0 +1,77 @@
+{
+  "id": 10000001,
+  "key": "DEMO-42",
+  "title": "Синтетическая карточка для голдена",
+  "state": 2,
+  "condition": 1,
+  "due_date": "2026-09-01T12:00:00.000Z",
+  "size_text": "3",
+  "created": "2026-08-01T09:15:00.000Z",
+  "updated": "2026-08-12T18:30:00.000Z",
+  "description": "Первый абзац описания.\n\n- пункт списка\n- второй пункт\n",
+  "time_spent_sum": 245,
+  "board": { "id": 501, "title": "Разработка" },
+  "column": { "id": 6001, "title": "В работе" },
+  "lane": { "title": "Основная" },
+  "type": { "name": "Задача" },
+  "owner": {
+    "id": 7001,
+    "full_name": "Иванов Иван",
+    "email": "owner@example.test",
+    "username": "ivanov"
+  },
+  "timer": null,
+  "tags": [{ "name": "срочно" }, { "name": "бэкенд" }],
+  "members": [
+    {
+      "id": 7002,
+      "full_name": "Петрова Мария",
+      "email": "member@example.test",
+      "username": "petrova"
+    }
+  ],
+  "files": [
+    {
+      "id": 90001,
+      "url": "https://kaiten.example.test/files/90001/schema.png",
+      "name": "schema.png",
+      "mime_type": "image/png",
+      "comment_id": null,
+      "card_cover": false,
+      "custom_property_id": null
+    },
+    {
+      "id": 90002,
+      "url": "https://kaiten.example.test/files/90002/log.txt",
+      "name": "log.txt",
+      "mime_type": "text/plain",
+      "comment_id": 80002,
+      "card_cover": false,
+      "custom_property_id": null
+    },
+    {
+      "id": 90003,
+      "url": "https://kaiten.example.test/files/90003/razbor.md",
+      "name": "razbor.md",
+      "mime_type": "text/markdown",
+      "comment_id": null,
+      "card_cover": false,
+      "custom_property_id": 610303
+    }
+  ],
+  "properties": {
+    "id_398965": "https://gitlab.example.test/team/repo/-/merge_requests/999",
+    "id_291984": "Гипотеза: расход растёт из-за повтора запроса",
+    "id_999999": "значение поля, которого нет в справочнике"
+  },
+  "checklists": [
+    {
+      "id": 70001,
+      "name": "Проверки",
+      "items": [
+        { "id": 71001, "text": "Тест написан", "checked": true, "sort_order": 1.0 },
+        { "id": 71002, "text": "Гейты зелёные", "checked": false, "sort_order": 2.5 }
+      ]
+    }
+  ]
+}

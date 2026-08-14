@@ -17,7 +17,8 @@
       "src/env/testdata",
       "src/sqlro/testdata",
       "src/mcp/testdata",
-      "src/xlsx/testdata"
+      "src/xlsx/testdata",
+      "src/kiten/testdata"
     ]
   },
   "imports": {

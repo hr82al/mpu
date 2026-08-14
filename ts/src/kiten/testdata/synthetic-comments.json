@@ -1,0 +1,14 @@
+[
+  {
+    "id": 80001,
+    "text": "Первый комментарий: **жирный** и [ссылка](https://example.test).",
+    "created": "2026-08-02T10:00:00.000Z",
+    "author": { "id": 7001, "full_name": "Иванов Иван", "username": "ivanov" }
+  },
+  {
+    "id": 80002,
+    "text": "@ivanov лог во вложении",
+    "created": "2026-08-03T11:20:00.000Z",
+    "author": { "id": 7002, "full_name": "Петрова Мария", "username": "petrova" }
+  }
+]
