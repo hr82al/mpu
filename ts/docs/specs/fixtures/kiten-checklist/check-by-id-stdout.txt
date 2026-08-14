@@ -1,0 +1,1 @@
+ok: [x] Третий пункт · https://kaiten.example.test/10000001

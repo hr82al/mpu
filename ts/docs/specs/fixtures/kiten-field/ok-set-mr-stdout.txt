@@ -1,0 +1,1 @@
+ok: mr → https://gitlab.example.test/team/repo/-/merge_requests/999 · https://kaiten.example.test/10000001

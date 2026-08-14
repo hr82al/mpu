@@ -1,0 +1,1 @@
+Invalid value for 'kind': 'badkind' is not one of 'mr', 'hypothesis', 'done', 'result'.

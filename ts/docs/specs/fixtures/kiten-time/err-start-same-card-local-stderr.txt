@@ -1,0 +1,1 @@
+mpu kiten time start: таймер на карточке 10000001 уже запущен (с 19:50 МСК); останови `mpu kiten time stop 10000001` или сбрось `mpu kiten time discard 10000001`

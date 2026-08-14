@@ -1,0 +1,1 @@
+mpu kiten comment: kaiten error: kaiten POST /cards/10000001/comments -> 400: {"message":"Comment-public-api.text should be string"}
