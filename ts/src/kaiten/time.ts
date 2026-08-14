@@ -363,7 +363,7 @@ function parseTimeLog(raw: unknown): TimeLog | null {
     authorId: numberOrNull(raw.author_id),
     roleId: numberOrNull(raw.role_id),
     roleName: nestedName(raw.role),
-    userName: displayName(raw.user) ?? displayName(raw.author),
+    userName: userDisplayName(raw.user),
     timeSpent: numberOrNull(raw.time_spent) ?? 0,
     forDate: calendarDay(stringOr(raw.for_date, "")),
     comment: stringOr(raw.comment, ""),
@@ -444,14 +444,25 @@ function nestedName(raw: unknown): string | null {
 }
 
 /**
- * Отображаемое имя вложенного пользователя (`user`/`author`): сам объект
- * с base64-аватаркой в форму ответа не входит. Ключ имени спека не
- * называет — берётся `full_name`, затем `username` (вопрос вынесен в
- * `.tmp/spec-request-kaiten.md`).
+ * Отображаемое имя вложенного объекта `user`: `full_name`, при его
+ * отсутствии или пустоте — `username`, нет ни того ни другого — `null`
+ * (`kaiten-api-time.md`, вызов 1). Сам объект в форму ответа не входит —
+ * он несёт base64-аватарку в несколько килобайт на запись.
+ *
+ * Объект `author` источником этого имени НЕ служит, даже когда `user` в
+ * записи нет: подставить имя автора там, где нет пользователя, значит
+ * приписать время не тому человеку (у записи, заведённой за другого, эти
+ * двое различаются).
  */
-function displayName(raw: unknown): string | null {
+function userDisplayName(raw: unknown): string | null {
   if (!isRecord(raw)) return null;
-  return stringOrNull(raw.full_name) ?? stringOrNull(raw.username);
+  return nonEmptyString(raw.full_name) ?? nonEmptyString(raw.username);
+}
+
+/** Непустая строка либо `null`: пустоту спека приравнивает к отсутствию ключа. */
+function nonEmptyString(value: unknown): string | null {
+  const text = stringOrNull(value);
+  return text === "" ? null : text;
 }
 
 /**

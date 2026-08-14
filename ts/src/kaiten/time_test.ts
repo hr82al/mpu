@@ -83,15 +83,15 @@ const RUNNING_TIMER = {
 
 Deno.test("вызов 1: записи времени карточки", async () => {
   // Вторая запись — минимальная: ни роли, ни объекта `user` (только
-  // `author` без полного имени), пустой комментарий. Третий и четвёртый
-  // элементы записями не являются и в выдачу не попадают.
+  // `author`), пустой комментарий. Третий и четвёртый элементы записями
+  // не являются и в выдачу не попадают.
   const minimal = {
     id: 9002,
     card_id: 65634936,
     user_id: null,
     author_id: 78,
     role_id: null,
-    author: { id: 78, username: "petrov" },
+    author: { id: 78, full_name: "Петров Пётр", username: "petrov" },
     time_spent: 30,
     for_date: "2026-07-21",
     comment: "",
@@ -115,12 +115,92 @@ Deno.test("вызов 1: записи времени карточки", async ()
         authorId: 78,
         roleId: null,
         roleName: null,
-        userName: "petrov",
+        // Имя автора не подставляется вместо отсутствующего пользователя.
+        userName: null,
         timeSpent: 30,
         forDate: "2026-07-21",
         comment: "",
       },
     ]);
+  } finally {
+    await stop();
+  }
+});
+
+/**
+ * Источник `user_name` (`kaiten-api-time.md`, вызов 1): вложенный объект
+ * `user`, ключ `full_name`, при его отсутствии или пустоте — `username`.
+ * Объект `author` источником имени не служит ни в каком случае: подставить
+ * имя автора там, где нет пользователя, значит приписать время не тому
+ * человеку.
+ */
+const USER_NAME_CASES: readonly {
+  readonly title: string;
+  readonly nested: Record<string, unknown>;
+  readonly userName: string | null;
+}[] = [
+  {
+    title: "full_name пользователя",
+    nested: { user: { id: 77, full_name: "Иванов Иван", username: "ivanov" } },
+    userName: "Иванов Иван",
+  },
+  {
+    title: "пустой full_name — username",
+    nested: { user: { id: 77, full_name: "", username: "ivanov" } },
+    userName: "ivanov",
+  },
+  {
+    title: "нет full_name — username",
+    nested: { user: { id: 77, username: "ivanov" } },
+    userName: "ivanov",
+  },
+  {
+    title: "ни того, ни другого — null",
+    nested: { user: { id: 77 } },
+    userName: null,
+  },
+  {
+    title: "пустые оба ключа — null",
+    nested: { user: { id: 77, full_name: "", username: "" } },
+    userName: null,
+  },
+  {
+    title: "пользователя нет, автор есть — null, а не имя автора",
+    nested: {
+      author: { id: 78, full_name: "Петров Пётр", username: "petrov" },
+    },
+    userName: null,
+  },
+  {
+    title: "оба объекта есть — имя пользователя, не автора",
+    nested: {
+      user: { id: 77, full_name: "Иванов Иван" },
+      author: { id: 78, full_name: "Петров Пётр" },
+    },
+    userName: "Иванов Иван",
+  },
+];
+
+Deno.test("вызов 1: имя пользователя — только из объекта user", async (t) => {
+  // Один стенд на все случаи: шаги идут последовательно, поэтому ответ
+  // выбирается по номеру уже принятого запроса.
+  const { baseUrl, stop } = startFakeKaiten((seen) =>
+    Response.json([{
+      id: 9001,
+      card_id: 65634936,
+      time_spent: 90,
+      for_date: "2026-07-20",
+      comment: "",
+      ...USER_NAME_CASES[seen.length - 1].nested,
+    }])
+  );
+  try {
+    for (const testCase of USER_NAME_CASES) {
+      await t.step(testCase.title, async () => {
+        const logs = await listCardTimeLogs(accessTo(baseUrl), 65634936);
+        assertEquals(logs[0].userName, testCase.userName);
+      });
+    }
   } finally {
     await stop();
   }
