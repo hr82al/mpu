@@ -28,4 +28,3 @@
 - [schema.png](https://kaiten.example.test/files/90001/schema.png)
 - [log.txt](https://kaiten.example.test/files/90002/log.txt)
 - [razbor.md](https://kaiten.example.test/files/90003/razbor.md)
-
