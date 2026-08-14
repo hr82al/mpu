@@ -83,8 +83,15 @@ export interface GetOptions {
 export interface SendOptions {
   /** Метод запроса; умолчание — `GET`. */
   readonly method?: string;
-  /** Готовое тело запроса; его тип объявляет клиент своим заголовком. */
-  readonly body?: string;
+  /**
+   * Готовое тело запроса; его тип объявляет клиент своим заголовком.
+   * Байтами — тело, собранное клиентом самостоятельно
+   * (`multipart/form-data` Kaiten несёт содержимое файлов, а оно текстом
+   * не выражается). Параметр `ArrayBuffer` у `Uint8Array` выписан
+   * явно: `fetch` принимает телом только неразделяемый буфер, и без
+   * сужения `Uint8Array<ArrayBufferLike>` ему не подходит.
+   */
+  readonly body?: string | Uint8Array<ArrayBuffer>;
   readonly headers?: Readonly<Record<string, string>>;
   readonly timeouts?: RequestTimeouts;
 }

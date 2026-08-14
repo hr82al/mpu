@@ -20,6 +20,7 @@ import {
   httpSend,
   type RequestTimeouts,
 } from "../http/mod.ts";
+import { buildMultipartBody, type MultipartPart } from "./multipart.ts";
 
 /** Дефолт `KITEN_BASE_URL`, когда переменная не задана (`kaiten-http.md`). */
 const DEFAULT_BASE_URL = "https://btlz.kaiten.ru";
@@ -30,6 +31,8 @@ const RETRY_BACKOFF_BASE_MS = 1_000;
 const RETRY_BACKOFF_CAP_MS = 30_000;
 /** Тело ошибки не-2xx обрезается до 300 символов (`kaiten-http.md`). */
 const ERROR_BODY_LIMIT = 300;
+/** Размер страницы offset-пагинации: больший сервер молча уменьшает до него. */
+const PAGE_LIMIT = 100;
 /** Причина пропуска доски при исчерпании бюджета шага (`init.md`, шаг 4). */
 const BUDGET_EXHAUSTED_REASON = "бюджет шага исчерпан";
 
@@ -94,6 +97,18 @@ export interface KaitenRequest {
   readonly body?: unknown;
 }
 
+/**
+ * Тот же запрос с телом `multipart/form-data` вместо JSON-тела: его
+ * требуют вызовы каталогов, принимающие файлы. Отдельный тип, а не второе
+ * необязательное поле рядом с `body`: два способа задать тело в одном
+ * объекте пришлось бы разбирать в пользу одного из них молча, а так
+ * «ровно один» проверяет компилятор.
+ */
+export interface KaitenFormRequest extends KaitenRequest {
+  readonly body?: undefined;
+  readonly form: readonly MultipartPart[];
+}
+
 /** Что вызывающий добавляет к запросу сверх его формы. */
 export interface KaitenCallOptions {
   /** Пределы времени вызова; умолчание — числа спеки для всех вызовов. */
@@ -127,7 +142,7 @@ export interface KaitenCallOptions {
  */
 export async function kaitenCall(
   access: KaitenAccess,
-  request: KaitenRequest,
+  request: KaitenRequest | KaitenFormRequest,
   options: KaitenCallOptions = {},
 ): Promise<unknown> {
   const url = new URL(`${access.baseUrl}/api/latest${request.path}`);
@@ -135,14 +150,12 @@ export async function kaitenCall(
     url.searchParams.set(name, value);
   }
 
-  const body = request.body === undefined
-    ? undefined
-    : JSON.stringify(request.body);
+  const { body, contentType } = requestBody(request);
   const headers: Record<string, string> = {
     Authorization: `Bearer ${access.apiKey}`,
     Accept: "application/json",
   };
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (contentType !== undefined) headers["Content-Type"] = contentType;
 
   const timeouts = options.timeouts ?? DEFAULT_TIMEOUTS;
   const deadlineMs = options.deadlineMs ?? null;
@@ -213,6 +226,56 @@ export async function kaitenCallArray(
     );
   }
   return parsed;
+}
+
+/**
+ * Полный список offset-пагинации (`kaiten-http.md`, «Пагинация»):
+ * `limit=100`, `offset` 0, 100, 200…; останов — первая страница короче
+ * лимита (пустая — её частный случай). Результат — конкатенация страниц в
+ * порядке запросов. Поднимать лимит нельзя: больший сервер молча
+ * уменьшает до сотни.
+ */
+export async function kaitenCallPaged(
+  access: KaitenAccess,
+  request: KaitenRequest,
+  options: KaitenCallOptions = {},
+): Promise<readonly unknown[]> {
+  const items: unknown[] = [];
+  for (let offset = 0;; offset += PAGE_LIMIT) {
+    const page = await kaitenCallArray(access, {
+      ...request,
+      query: {
+        ...request.query,
+        limit: String(PAGE_LIMIT),
+        offset: String(offset),
+      },
+    }, options);
+    items.push(...page);
+    if (page.length < PAGE_LIMIT) return items;
+  }
+}
+
+/**
+ * Тело запроса и заголовок его типа: JSON-значение, части
+ * `multipart/form-data` либо ничего. Граница multipart генерируется на
+ * запрос (`kaiten-http.md`, «Запрос»).
+ */
+function requestBody(request: KaitenRequest | KaitenFormRequest): {
+  readonly body?: string | Uint8Array<ArrayBuffer>;
+  readonly contentType?: string;
+} {
+  if ("form" in request) {
+    const built = buildMultipartBody(
+      request.form,
+      `mpu-${crypto.randomUUID()}`,
+    );
+    return { body: built.bytes, contentType: built.contentType };
+  }
+  if (request.body === undefined) return {};
+  return {
+    body: JSON.stringify(request.body),
+    contentType: "application/json",
+  };
 }
 
 function exhaustedRetries(request: KaitenRequest): KaitenError {

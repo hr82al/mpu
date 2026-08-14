@@ -17,7 +17,7 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { type KaitenAccess, KaitenError } from "./mod.ts";
-import { kaitenCall, kaitenCallArray } from "./http.ts";
+import { kaitenCall, kaitenCallArray, kaitenCallPaged } from "./http.ts";
 import { startFakeKaiten } from "./testing.ts";
 
 const API_KEY = "proba-kaiten-key-Q3z8Nw";
@@ -201,6 +201,110 @@ Deno.test("пределы времени — на каждом вызове ка
     );
   } finally {
     pending.resolve(new Response("{}"));
+    await stop();
+  }
+});
+
+/** Страница ровно в размер лимита: следом сервер обязан получить ещё запрос. */
+function fullPage(): readonly number[] {
+  return Array.from({ length: 100 }, (_, index) => index);
+}
+
+Deno.test("offset-пагинация: страницы до первой короче лимита", async (t) => {
+  await t.step("полная страница, затем неполная", async () => {
+    const { baseUrl, seen, stop } = startFakeKaiten((requests) =>
+      Response.json(requests.length === 1 ? fullPage() : [100, 101])
+    );
+    try {
+      const items = await kaitenCallPaged(accessTo(baseUrl), {
+        method: "GET",
+        path: "/cards",
+        query: { space_id: "42" },
+      });
+
+      assertEquals(items.length, 102);
+      // Фильтр вызывающего уходит на каждой странице, лимит и смещение
+      // добавляет транспорт: 0, 100, … до неполной страницы.
+      assertEquals(seen.map((r) => r.search), [
+        "?space_id=42&limit=100&offset=0",
+        "?space_id=42&limit=100&offset=100",
+      ]);
+    } finally {
+      await stop();
+    }
+  });
+
+  await t.step("полная страница, затем пустая", async () => {
+    const { baseUrl, seen, stop } = startFakeKaiten((requests) =>
+      Response.json(requests.length === 1 ? fullPage() : [])
+    );
+    try {
+      const items = await kaitenCallPaged(accessTo(baseUrl), {
+        method: "GET",
+        path: "/cards",
+      });
+
+      assertEquals(items.length, 100);
+      assertEquals(seen.length, 2);
+    } finally {
+      await stop();
+    }
+  });
+
+  await t.step("первая же страница неполная — один запрос", async () => {
+    const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json([7]));
+    try {
+      assertEquals(
+        await kaitenCallPaged(accessTo(baseUrl), {
+          method: "GET",
+          path: "/cards",
+        }),
+        [7],
+      );
+      assertEquals(seen.length, 1);
+    } finally {
+      await stop();
+    }
+  });
+});
+
+Deno.test("тело multipart/form-data: граница своя на каждый запрос", async () => {
+  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    Response.json({ id: 3 })
+  );
+  try {
+    for (const text of ["первый", "второй"]) {
+      await kaitenCall(accessTo(baseUrl), {
+        method: "POST",
+        path: "/cards/42/comments",
+        form: [{ kind: "field", name: "text", value: text }],
+      });
+    }
+
+    const boundaries = seen.map((request) => {
+      const contentType = request.contentType ?? "";
+      assertEquals(
+        contentType.startsWith("multipart/form-data; boundary="),
+        true,
+        `тип содержимого не объявляет границу: ${contentType}`,
+      );
+      return contentType.slice("multipart/form-data; boundary=".length);
+    });
+
+    // Тело собрано вокруг объявленной границы, а сама она на каждый
+    // запрос своя (`kaiten-http.md`, «Запрос»).
+    assertEquals(
+      seen[0].body,
+      [
+        `--${boundaries[0]}`,
+        'Content-Disposition: form-data; name="text"',
+        "",
+        "первый",
+        `--${boundaries[0]}--`,
+      ].join("\r\n"),
+    );
+    assertEquals(boundaries[0] === boundaries[1], false, "граница повторилась");
+  } finally {
     await stop();
   }
 });
