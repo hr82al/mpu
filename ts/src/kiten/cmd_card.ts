@@ -10,21 +10,15 @@
  */
 
 import { z } from "@zod/zod";
-import {
-  type CommandIo,
-  defineCommand,
-  DomainError,
-  UsageError,
-} from "../command/mod.ts";
+import { type CommandIo, defineCommand } from "../command/mod.ts";
 import {
   getCard,
   type KaitenAccess,
-  KaitenError,
   listCardComments,
   listCustomProperties,
   parseCardRef,
-  requireKaitenAccess,
 } from "../kaiten/mod.ts";
+import { asCommandError, kaitenAccess } from "./access.ts";
 import { cardView, cardViewSchema } from "./card_view.ts";
 import {
   type PropertyNames,
@@ -121,31 +115,6 @@ async function propertyNamesOf(access: KaitenAccess): Promise<PropertyNames> {
   } catch {
     return {};
   }
-}
-
-/**
- * Доступ к Kaiten. Ненастроенный ключ — ошибка ВВОДА (exit 2) с подсказкой,
- * а не отказ API: сети команда ещё не касалась (`platform/kaiten-http.md`,
- * «Конфигурация»). Каталог различить эти два случая не может — оба приходят
- * одним классом, — поэтому различает вызывающий, по месту вызова.
- */
-function kaitenAccess(io: CommandIo): KaitenAccess {
-  try {
-    return requireKaitenAccess(io.envFile);
-  } catch (err) {
-    if (!(err instanceof KaitenError)) throw err;
-    throw new UsageError(err.message, {
-      hint: "добавить KITEN_API_KEY в env-файл",
-      cause: err,
-    });
-  }
-}
-
-/** Отказ Kaiten — доменная ошибка команды: exit 1 и текст в stderr. */
-function asCommandError(err: unknown): unknown {
-  return err instanceof KaitenError
-    ? new DomainError(`kaiten error: ${err.message}`, { cause: err })
-    : err;
 }
 
 export const kitenCardCommand = defineCommand({
