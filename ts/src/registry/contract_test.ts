@@ -204,6 +204,36 @@ const CASES: readonly CommandCase[] = [
       propertyNames: { id_291984: "6. Причина/гипотеза" },
     },
   },
+  {
+    path: "kiten field set",
+    argv: [
+      "65634936",
+      "mr",
+      "https://gitlab.example.test/m/r/-/merge_requests/9",
+    ],
+    sampleResult: {
+      kind: "mr",
+      value: "https://gitlab.example.test/m/r/-/merge_requests/9",
+      cardUrl: "https://kaiten.example.test/65634936",
+    },
+  },
+  {
+    path: "kiten field artefact set",
+    argv: ["65634936", "razbor.md"],
+    sampleResult: {
+      name: "razbor.md",
+      fileUrl: "https://files/ec5402f3-a31f-4d18-9032-a4825cb004ba.md",
+      cardUrl: "https://kaiten.example.test/65634936",
+    },
+  },
+  {
+    path: "kiten field artefact rm",
+    argv: ["65634936"],
+    sampleResult: {
+      removed: ["razbor.md"],
+      cardUrl: "https://kaiten.example.test/65634936",
+    },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {
@@ -502,6 +532,7 @@ function makeIo(dir: string): CommandIo {
     env: () => undefined,
     cwd: () => dir,
     readFile: (path) => Deno.readFile(inDir(path)),
+    readRegularFile: (path) => Deno.readFile(inDir(path)),
     readTextFile: (path) => Deno.readTextFile(inDir(path)),
     readTextStdin: () => Promise.resolve(""),
     stdinIsTerminal: () => false,

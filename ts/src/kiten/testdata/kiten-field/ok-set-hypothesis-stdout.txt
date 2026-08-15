@@ -1,0 +1,1 @@
+ok: hypothesis → Гипотеза: расход растёт из-за повтора запроса · https://kaiten.example.test/10000001

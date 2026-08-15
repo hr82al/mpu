@@ -22,6 +22,7 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     env: () => undefined,
     cwd: () => "/nowhere",
     readFile: mustNotTouch("readFile"),
+    readRegularFile: mustNotTouch("readRegularFile"),
     readTextFile: mustNotTouch("readTextFile"),
     readTextStdin: mustNotTouch("stdin"),
     // Не терминал: тест, читающий stdin, по умолчанию в положении

@@ -472,3 +472,25 @@ Deno.test("поиск shell в цепочке предков", async (t) => {
     assertEquals(shellInAncestors(read, 42), undefined);
   });
 });
+
+Deno.test("readRegularFile: каталог и отсутствие — один ответ", async () => {
+  const io = makeDenoIo(undefined);
+  const dir = await Deno.makeTempDir();
+  try {
+    const path = `${dir}/artefact.md`;
+    await Deno.writeTextFile(path, "# разбор\n");
+    assertEquals(
+      new TextDecoder().decode(await io.readRegularFile(path)),
+      "# разбор\n",
+    );
+    // Обычному файлу противопоставлены оба случая «читать нечего»:
+    // вызывающему они неразличимы, и класс ошибки у них один.
+    await assertRejects(() => io.readRegularFile(dir), NotFoundIoError);
+    await assertRejects(
+      () => io.readRegularFile(`${dir}/нет`),
+      NotFoundIoError,
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});

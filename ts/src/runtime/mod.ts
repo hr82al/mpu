@@ -243,6 +243,19 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
         translateNotFound(err);
       }
     },
+    readRegularFile: async (path) => {
+      try {
+        // Проверка перед чтением, а не разбор ошибки после: у каталога
+        // `Deno.readFile` отвечает своим классом, а вызывающему нужен
+        // один ответ «читать нечего» на оба случая.
+        if (!(await Deno.stat(path)).isFile) {
+          throw new NotFoundIoError(`not a regular file: ${path}`);
+        }
+        return await Deno.readFile(path);
+      } catch (err) {
+        translateNotFound(err);
+      }
+    },
     readTextFile: async (path) => {
       try {
         return await Deno.readTextFile(path);

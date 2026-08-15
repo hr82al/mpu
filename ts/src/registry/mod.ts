@@ -24,7 +24,12 @@ import { updateCommand } from "../update/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
 import { sqlRoCommand } from "../sqlro/mod.ts";
 import { logsCommand } from "../logs/mod.ts";
-import { kitenCardCommand } from "../kiten/mod.ts";
+import {
+  kitenArtefactRmCommand,
+  kitenArtefactSetCommand,
+  kitenCardCommand,
+  kitenFieldSetCommand,
+} from "../kiten/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 
@@ -77,6 +82,9 @@ export const commands: readonly Command[] = [
   // `kiten` уходят подпроцессом одной записью слепка, а этот путь
   // распознаётся реестром целиком и потому побеждает её длиной.
   kitenCardCommand,
+  kitenFieldSetCommand,
+  kitenArtefactSetCommand,
+  kitenArtefactRmCommand,
 ];
 
 /**
@@ -134,6 +142,16 @@ export const groups: readonly CommandGroup[] = [
     path: ["xlsx", "alias"],
     summary: "алиасы путей: add | ls | rm",
     usage: "mpu xlsx alias <подкоманда> [аргументы]",
+  },
+  {
+    path: ["kiten", "field"],
+    summary: "кастомные поля карточки: set | artefact",
+    usage: "mpu kiten field <подкоманда> [аргументы]",
+  },
+  {
+    path: ["kiten", "field", "artefact"],
+    summary: "файловое поле «9. AI-артефакт»: set | rm",
+    usage: "mpu kiten field artefact <подкоманда> [аргументы]",
   },
   {
     path: ["mcp"],

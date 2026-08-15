@@ -204,7 +204,7 @@ Deno.test("режим дополнения печатает варианты, а
     // Список неполон по построению: соседи `card` в реестре не заведены —
     // слепок отдаёт группу одной записью, и до конца переезда дополнение
     // внутри неё видит только переехавшие листья (`platform/registry.md`).
-    assertEquals(stdout.split("\n").filter(Boolean), ["card"]);
+    assertEquals(stdout.split("\n").filter(Boolean), ["card", "field"]);
   });
 
   await t.step("курсор после пробела — весь уровень целиком", async () => {

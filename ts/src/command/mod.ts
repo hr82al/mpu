@@ -75,6 +75,14 @@ export interface CommandIo {
   readonly cwd: () => string;
   /** Байты файла; отсутствие файла — `NotFoundIoError`. */
   readonly readFile: (path: string) => Promise<Uint8Array>;
+  /**
+   * Байты файла, который обязан быть ОБЫЧНЫМ файлом: каталог и прочее
+   * не-файловое отвергается тем же `NotFoundIoError`, что и отсутствие
+   * пути. Нужно командам, для которых «путь есть, но читать нечего» —
+   * ошибка ввода с одним текстом (`docs/specs/kiten-comment.md`,
+   * `-f <каталог>`; `docs/specs/kiten-field.md`, `artefact set`).
+   */
+  readonly readRegularFile: (path: string) => Promise<Uint8Array>;
   /** Текст файла; отсутствие файла — `NotFoundIoError`. */
   readonly readTextFile: (path: string) => Promise<string>;
   readonly readTextStdin: () => Promise<string>;

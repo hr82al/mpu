@@ -1,0 +1,1 @@
+ok: артефакт RAZBOR.MD → https://kaiten.example.test/10000001 (файл https://files/d9744f5d-7fda-458c-b529-7b6841038063.MD)
