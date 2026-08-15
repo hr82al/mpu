@@ -103,26 +103,69 @@ export async function runCli(
   output: Output,
   journal?: InvokeJournal,
 ): Promise<number> {
-  // Служебные строки хода исполнения печатает точка входа, а не команда
-  // (`platform/command-contract.md`, инвариант 1): команда отдаёт их
-  // портом `progress`, а куда они попадут — решается здесь, рядом с
-  // печатью результата и ошибок. Этот же приёмник достаётся и
-  // MCP-серверу — он поднимается голым вызовом `mpu mcp` и печатает
-  // строки хода туда же; копию в запись своего вызова тула дописывает
-  // уже он сам (`platform/invoke-log.md`).
-  const io: CommandIo = {
+  const io = withProgressIo(baseIo, output);
+
+  const completionExit = runCompletionMode(io, output);
+  if (completionExit !== undefined) return completionExit;
+
+  const { args: rest, json } = takeJsonFlag(argv);
+
+  const surfaceExit = await runEntrypointSurface(rest, io, output);
+  if (surfaceExit !== undefined) return surfaceExit;
+
+  const { path, rest: args } = matchPath(rest);
+  if (path.length === 0) {
+    output.stderr(noSuchCommand(rest[0]));
+    return 2;
+  }
+
+  try {
+    return await dispatchPath(path, args, argv, json, io, output, journal);
+  } catch (err) {
+    return errorToExitCode(err, path, output);
+  }
+}
+
+/**
+ * Оборачивает переданный io печатью строк хода в stderr. Служебные строки
+ * хода исполнения печатает точка входа, а не команда
+ * (`platform/command-contract.md`, инвариант 1): команда отдаёт их
+ * портом `progress`, а куда они попадут — решается здесь, рядом с
+ * печатью результата и ошибок. Этот же приёмник достаётся и
+ * MCP-серверу — он поднимается голым вызовом `mpu mcp` и печатает
+ * строки хода туда же; копию в запись своего вызова тула дописывает
+ * уже он сам (`platform/invoke-log.md`).
+ */
+function withProgressIo(baseIo: CommandIo, output: Output): CommandIo {
+  return {
     ...baseIo,
     progress: (line) => output.stderr(`${line}\n`),
   };
-  const mode = completionMode(io.env(COMPLETE_ENV));
-  if (mode !== undefined) {
-    // Режим дополнения: печатаем варианты и молчим обо всём прочем —
-    // сюда попадают из shell, а не из рук пользователя.
-    output.stdout(completionReply(mode, candidates(io)));
-    return 0;
-  }
+}
 
-  const { args: rest, json } = takeJsonFlag(argv);
+/**
+ * Режим дополнения shell: печатаем варианты и молчим обо всём прочем —
+ * сюда попадают из shell, а не из рук пользователя. `undefined` — вызов
+ * пришёл не из shell-дополнения, маршрутизация идёт дальше как обычно.
+ */
+function runCompletionMode(io: CommandIo, output: Output): number | undefined {
+  const mode = completionMode(io.env(COMPLETE_ENV));
+  if (mode === undefined) return undefined;
+  output.stdout(completionReply(mode, candidates(io)));
+  return 0;
+}
+
+/**
+ * Поверхности точки входа, для которых поиск пути в реестре не нужен:
+ * пустой вызов, справка верхнего уровня, опции дополнения shell,
+ * неизвестная опция, `version`, `help`. `undefined` — это не такая
+ * поверхность, маршрутизация идёт дальше к поиску пути команды.
+ */
+async function runEntrypointSurface(
+  rest: readonly string[],
+  io: CommandIo,
+  output: Output,
+): Promise<number | undefined> {
   if (rest.length === 0) {
     // Вызов без команды: справка печатается, но это ошибка (спека).
     output.stdout(rootIndex());
@@ -140,19 +183,8 @@ export async function runCli(
     return 2;
   }
 
-  if (rest[0] === VERSION_COMMAND) {
-    if (rest.length > 1 && isHelpRequest(rest[1])) {
-      const surface = findSurface([VERSION_COMMAND]);
-      output.stdout(
-        renderSurfaceHelp(surface?.usage ?? "", surface?.summary ?? ""),
-      );
-      return 0;
-    }
-    // Версия — константа сборки, а не вопрос к Python-реализации
-    // (`platform/registry.md`): одна строка, без префиксов.
-    output.stdout(`${VERSION}\n`);
-    return 0;
-  }
+  const versionExit = runVersionSurface(rest, output);
+  if (versionExit !== undefined) return versionExit;
 
   if (rest[0] === HELP_COMMAND) {
     // Поверхность точки входа, а не запись маршрута: список берётся из
@@ -166,76 +198,146 @@ export async function runCli(
     );
   }
 
-  const { path, rest: args } = matchPath(rest);
-  if (path.length === 0) {
-    output.stderr(noSuchCommand(rest[0]));
+  return undefined;
+}
+
+/**
+ * Поверхность `version`: `--help` на этом уровне и печать версии как
+ * константы сборки, а не вопроса к Python-реализации
+ * (`platform/registry.md`) — одна строка, без префиксов. `undefined` —
+ * первый аргумент не `version`.
+ */
+function runVersionSurface(
+  rest: readonly string[],
+  output: Output,
+): number | undefined {
+  if (rest[0] !== VERSION_COMMAND) return undefined;
+  if (rest.length > 1 && isHelpRequest(rest[1])) {
+    const surface = findSurface([VERSION_COMMAND]);
+    output.stdout(
+      renderSurfaceHelp(surface?.usage ?? "", surface?.summary ?? ""),
+    );
+    return 0;
+  }
+  output.stdout(`${VERSION}\n`);
+  return 0;
+}
+
+/**
+ * Диспетчеризация уже найденного пути команды: подпроцесс маршрута
+ * `legacy`, группа и — через `runLeafCommand` — листовая команда.
+ * Ошибки не перехватываются — их в коды выхода переводит вызывающая
+ * сторона (`errorToExitCode`).
+ */
+async function dispatchPath(
+  path: readonly string[],
+  args: readonly string[],
+  argv: readonly string[],
+  json: boolean,
+  io: CommandIo,
+  output: Output,
+  journal: InvokeJournal | undefined,
+): Promise<number> {
+  const legacy = findLegacy(path);
+  if (legacy !== undefined) {
+    // Аргументы берутся из исходного argv: общий параметр точки
+    // входа для этого маршрута не распознаётся и уходит подпроцессу
+    // как обычный аргумент (`platform/registry.md`).
+    return await runLegacyCommand(legacy, dropPath(argv, path), io, output);
+  }
+  const command = findCommand(path);
+  if (command === undefined) {
+    return await runGroup(
+      path,
+      args,
+      io,
+      output,
+      journal?.log ?? NO_INVOKE_LOG,
+    );
+  }
+  // Аргументы из исходного argv: их получает и подпроцесс моста, и
+  // команда со своим `--json` — обоим он нужен на своём месте.
+  return await runLeafCommand(
+    command,
+    path,
+    args,
+    dropPath(argv, path),
+    json,
+    io,
+    output,
+    journal,
+  );
+}
+
+/**
+ * Диспетчеризация листовой команды, уже найденной по пути: `--help`
+ * команды, мост в `legacy` для ещё не перенесённой поверхности и
+ * нативное исполнение.
+ */
+async function runLeafCommand(
+  command: Command,
+  path: readonly string[],
+  args: readonly string[],
+  own: readonly string[],
+  json: boolean,
+  io: CommandIo,
+  output: Output,
+  journal: InvokeJournal | undefined,
+): Promise<number> {
+  if (args.length > 0 && isHelpRequest(args[0])) {
+    output.stdout(renderCommandHelp(command));
+    return 0;
+  }
+  if (command.bridge(own)) {
+    // Часть поверхности команды может быть ещё не перенесена — такой
+    // вызов уходит прежней реализации целиком, до разбора аргументов
+    // и до отметки журналу: запись о нём делает сам подпроцесс
+    // (`platform/invoke-log.md`, «Разделение моста»).
+    return await runLegacyCommand(
+      { path, summary: command.summary },
+      own,
+      io,
+      output,
+    );
+  }
+  // Вызов пошёл маршрутом `native`: его журналирует обвязка, и отметка
+  // стоит до исполнения — запись остаётся и у падения
+  // (`platform/invoke-log.md`).
+  journal?.nativeCall(command);
+  // Команда, объявившая собственный `--json` (`specs/sql-ro.md`: форма
+  // результата с собственным текстом и проверкой конфликта с `--md`),
+  // разбирает флаг сама — общий параметр точки входа её не
+  // перехватывает, иначе объявленное поведение было бы недостижимо.
+  return declaresJson(command)
+    ? await runCommand(command, own, false, io, output)
+    : await runCommand(command, args, json, io, output);
+}
+
+/**
+ * Переводит ошибку исполнения найденного пути в код завершения процесса:
+ * `LegacyBinMissingError` — до команды не дошло, ошибка реестра;
+ * `UsageError` — неправильный вызов; `DomainError` — отказ домена.
+ * Прочие ошибки перебрасываются дальше — это не их граница обработки.
+ */
+function errorToExitCode(
+  err: unknown,
+  path: readonly string[],
+  output: Output,
+): number {
+  if (err instanceof LegacyBinMissingError) {
+    // Сообщение реестра, а не команды: до неё дело не дошло.
+    output.stderr(`mpu: ${err.message}\n`);
+    return 1;
+  }
+  if (err instanceof UsageError) {
+    output.stderr(`${formatCommandError(errorNameOf(path), err)}\n`);
     return 2;
   }
-
-  try {
-    const legacy = findLegacy(path);
-    if (legacy !== undefined) {
-      // Аргументы берутся из исходного argv: общий параметр точки
-      // входа для этого маршрута не распознаётся и уходит подпроцессу
-      // как обычный аргумент (`platform/registry.md`).
-      return await runLegacyCommand(legacy, dropPath(argv, path), io, output);
-    }
-    const command = findCommand(path);
-    if (command === undefined) {
-      return await runGroup(
-        path,
-        args,
-        io,
-        output,
-        journal?.log ?? NO_INVOKE_LOG,
-      );
-    }
-    if (args.length > 0 && isHelpRequest(args[0])) {
-      output.stdout(renderCommandHelp(command));
-      return 0;
-    }
-    // Аргументы из исходного argv: их получает и подпроцесс моста, и
-    // команда со своим `--json` — обоим он нужен на своём месте.
-    const own = dropPath(argv, path);
-    if (command.bridge(own)) {
-      // Часть поверхности команды может быть ещё не перенесена — такой
-      // вызов уходит прежней реализации целиком, до разбора аргументов
-      // и до отметки журналу: запись о нём делает сам подпроцесс
-      // (`platform/invoke-log.md`, «Разделение моста»).
-      return await runLegacyCommand(
-        { path, summary: command.summary },
-        own,
-        io,
-        output,
-      );
-    }
-    // Вызов пошёл маршрутом `native`: его журналирует обвязка, и
-    // отметка стоит до исполнения — запись остаётся и у падения
-    // (`platform/invoke-log.md`).
-    journal?.nativeCall(command);
-    // Команда, объявившая собственный `--json` (`specs/sql-ro.md`:
-    // форма результата с собственным текстом и проверкой конфликта с
-    // `--md`), разбирает флаг сама — общий параметр точки входа её не
-    // перехватывает, иначе объявленное поведение было бы недостижимо.
-    return declaresJson(command)
-      ? await runCommand(command, own, false, io, output)
-      : await runCommand(command, args, json, io, output);
-  } catch (err) {
-    if (err instanceof LegacyBinMissingError) {
-      // Сообщение реестра, а не команды: до неё дело не дошло.
-      output.stderr(`mpu: ${err.message}\n`);
-      return 1;
-    }
-    if (err instanceof UsageError) {
-      output.stderr(`${formatCommandError(errorNameOf(path), err)}\n`);
-      return 2;
-    }
-    if (err instanceof DomainError) {
-      output.stderr(`${formatCommandError(errorNameOf(path), err)}\n`);
-      return 1;
-    }
-    throw err;
+  if (err instanceof DomainError) {
+    output.stderr(`${formatCommandError(errorNameOf(path), err)}\n`);
+    return 1;
   }
+  throw err;
 }
 
 /**
