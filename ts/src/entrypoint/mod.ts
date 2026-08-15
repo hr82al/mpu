@@ -30,7 +30,11 @@ import { readManifest } from "../mcp/legacy_tools.ts";
 import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };
-import { LegacyBinMissingError, runLegacyCommand } from "../legacy/mod.ts";
+import {
+  LegacyBinMissingError,
+  type LegacyIo,
+  runLegacyCommand,
+} from "../legacy/mod.ts";
 import { renderCommandHelp, renderIndex, renderSurfaceHelp } from "./help.ts";
 import {
   type InvokeLog,
@@ -143,17 +147,30 @@ function withProgressIo(baseIo: CommandIo, output: Output): CommandIo {
   };
 }
 
+/** Срез порта для дополнения shell: слово и режим лежат в окружении. */
+type CompletionEnvIo = Pick<CommandIo, "env">;
+
 /**
  * Режим дополнения shell: печатаем варианты и молчим обо всём прочем —
  * сюда попадают из shell, а не из рук пользователя. `undefined` — вызов
  * пришёл не из shell-дополнения, маршрутизация идёт дальше как обычно.
  */
-function runCompletionMode(io: CommandIo, output: Output): number | undefined {
+function runCompletionMode(
+  io: CompletionEnvIo,
+  output: Output,
+): number | undefined {
   const mode = completionMode(io.env(COMPLETE_ENV));
   if (mode === undefined) return undefined;
   output.stdout(completionReply(mode, candidates(io)));
   return 0;
 }
+
+/**
+ * Срез порта поверхностей точки входа: собственных полей у них нет —
+ * это объединение того, что нужно опциям дополнения и справке, которая
+ * отдаёт порт дальше маршруту `legacy`.
+ */
+type EntrypointSurfaceIo = CompletionOptionIo & LegacyIo;
 
 /**
  * Поверхности точки входа, для которых поиск пути в реестре не нужен:
@@ -163,7 +180,7 @@ function runCompletionMode(io: CommandIo, output: Output): number | undefined {
  */
 async function runEntrypointSurface(
   rest: readonly string[],
-  io: CommandIo,
+  io: EntrypointSurfaceIo,
   output: Output,
 ): Promise<number | undefined> {
   if (rest.length === 0) {
@@ -378,7 +395,7 @@ async function runCommand(
  * набранному слову. Слово берётся из служебных переменных shell — сам
  * режим дополнения командную строку не разбирает.
  */
-function candidates(io: CommandIo): readonly CompletionItem[] {
+function candidates(io: CompletionEnvIo): readonly CompletionItem[] {
   const bash = io.env("COMP_WORDS");
   const line = bash ?? io.env("_TYPER_COMPLETE_ARGS") ?? "";
   const input = completionInput(
@@ -452,6 +469,11 @@ function legacyLeaf(path: readonly string[]) {
   );
 }
 
+/** Срез порта для опций дополнения: shell, HOME, чтение и запись rc-файла. */
+type CompletionOptionIo =
+  & Pick<CommandIo, "currentShell" | "env" | "appendFile">
+  & RcFileIo;
+
 /**
  * `--show-completion` печатает скрипт, `--install-completion` дописывает
  * его в rc-файл. Shell берётся из аргумента, если он задан, иначе от
@@ -461,7 +483,7 @@ function legacyLeaf(path: readonly string[]) {
 async function runCompletionOption(
   option: string,
   argument: string | undefined,
-  io: CommandIo,
+  io: CompletionOptionIo,
   output: Output,
 ): Promise<number> {
   const shell = argument ?? io.currentShell();
@@ -492,8 +514,11 @@ async function runCompletionOption(
   return 0;
 }
 
+/** Срез порта для чтения rc-файла. */
+type RcFileIo = Pick<CommandIo, "readTextFile">;
+
 /** Содержимое rc-файла; файла ещё нет — пустая строка. */
-async function readRcFile(io: CommandIo, path: string): Promise<string> {
+async function readRcFile(io: RcFileIo, path: string): Promise<string> {
   try {
     return await io.readTextFile(path);
   } catch (err) {

@@ -19,7 +19,7 @@ import { parseStore } from "../config/mod.ts";
 type LegacyBinIo = Pick<CommandIo, "env" | "readConfigStore">;
 
 /** Срез порта, который потребляет маршрут: путь плюс запуск подпроцесса. */
-type LegacyIo = LegacyBinIo & Pick<CommandIo, "runLegacy">;
+export type LegacyIo = LegacyBinIo & Pick<CommandIo, "runLegacy">;
 
 /** Запись реестра маршрута `legacy`. */
 export interface LegacyCommand {

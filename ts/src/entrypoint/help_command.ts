@@ -8,8 +8,12 @@
  * `--help`, как было в оригинале (отклонение-fix спеки).
  */
 
-import type { Command, CommandIo } from "../command/mod.ts";
-import { type LegacyCommand, runLegacyCommand } from "../legacy/mod.ts";
+import type { Command } from "../command/mod.ts";
+import {
+  type LegacyCommand,
+  type LegacyIo,
+  runLegacyCommand,
+} from "../legacy/mod.ts";
 import type { SurfaceCommand } from "../registry/mod.ts";
 import { renderCommandHelp, renderSurfaceHelp } from "./help.ts";
 
@@ -82,7 +86,7 @@ export function helpEntries(
 export async function runHelpCommand(
   args: readonly string[],
   entries: readonly HelpEntry[],
-  io: CommandIo,
+  io: LegacyIo,
   output: HelpSink,
 ): Promise<number> {
   const wanted = args[0];
