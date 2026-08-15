@@ -8,6 +8,7 @@
  */
 
 import { assertEquals, assertRejects } from "@std/assert";
+import { FakeTime } from "@std/testing/time";
 import { openCacheDb } from "../store/mod.ts";
 import type { CacheDb } from "../command/mod.ts";
 import type { PgRow } from "./cache.ts";
@@ -372,24 +373,24 @@ Deno.test("молчащий инстанс: предупреждение и ог
           1: { spreadsheets: [spreadsheet("ss1", 101)] },
           2: silent,
         });
-        const started = performance.now();
-        const outcome = await syncSnapshot({
-          db,
-          openPg: stand.open,
-          limits: { connectMs: 120, queryMs: 120 },
-          syncedAt: SYNCED_AT,
-        });
-        const elapsed = performance.now() - started;
+        // Фейковые часы вместо стенных: таймер предела времени внутри
+        // `withDeadline` — обычный `setTimeout`, `FakeTime` его
+        // подменяет. Продвигаем ровно на предел — без сна и без гонки
+        // с реальным временем выполнения теста.
+        using time = new FakeTime();
+        const outcome = await Promise.all([
+          syncSnapshot({
+            db,
+            openPg: stand.open,
+            limits: { connectMs: 120, queryMs: 120 },
+            syncedAt: SYNCED_AT,
+          }),
+          time.tickAsync(120),
+        ]).then(([result]) => result);
 
         assertEquals(outcome.failed, [{ serverNumber: 2, reason }]);
-        // Живой инстанс не пострадал, а прогон уложился в предел
-        // молчащего с десятикратным запасом на неспешную машину.
+        // Живой инстанс не пострадал молчанием соседа.
         assertEquals(outcome.spreadsheets, 1);
-        assertEquals(
-          elapsed < 1_200,
-          true,
-          `elapsed ${elapsed}ms должно быть < 1200ms`,
-        );
       });
     });
   }

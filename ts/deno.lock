@@ -3,7 +3,10 @@
   "specifiers": {
     "jsr:@hono/hono@4.12.33": "4.12.33",
     "jsr:@std/assert@^1.0.6": "1.0.19",
+    "jsr:@std/async@^1.5.0": "1.5.0",
+    "jsr:@std/data-structures@^1.1.2": "1.1.2",
     "jsr:@std/internal@^1.0.12": "1.0.14",
+    "jsr:@std/testing@^1.0.20": "1.0.20",
     "jsr:@zod/zod@4.4.3": "4.4.3",
     "npm:pg@8.22.0": "8.22.0"
   },
@@ -17,8 +20,21 @@
         "jsr:@std/internal"
       ]
     },
+    "@std/async@1.5.0": {
+      "integrity": "4c1f22d287a17ad7d8643b1952bc5a4d21e5d8b68dc8c20d8268eecc69096e82"
+    },
+    "@std/data-structures@1.1.2": {
+      "integrity": "2471377c9e0051f9ec34e57d0ebd0ad133a5a889677446ec6ba9938e4e102918"
+    },
     "@std/internal@1.0.14": {
       "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    },
+    "@std/testing@1.0.20": {
+      "integrity": "21380ed438672762e4ec549cbf4fe41c5b68f5598773a30b64abe7375513e721",
+      "dependencies": [
+        "jsr:@std/async",
+        "jsr:@std/data-structures"
+      ]
     },
     "@zod/zod@4.4.3": {
       "integrity": "4712ac0967efaa718b37c36eaffb4e1d4457e1a266aef6efb3ab36f54a6fefe4"
@@ -98,6 +114,7 @@
     "dependencies": [
       "jsr:@hono/hono@4.12.33",
       "jsr:@std/assert@^1.0.6",
+      "jsr:@std/testing@^1.0.20",
       "jsr:@zod/zod@4.4.3",
       "npm:pg@8.22.0"
     ]
