@@ -651,6 +651,175 @@
     }
   },
   {
+    "name": "kiten_field_set",
+    "title": "mpu kiten field set",
+    "description": "Записать скалярное кастомное поле карточки Kaiten.\n\nSELECTOR — id карточки (65634936) либо её URL: id — последний\nполностью числовой сегмент пути.\n\nKIND — одно из: mr (ссылка на merge request), hypothesis\n(«6. Причина/гипотеза»), done («7. Что сделано»), result\n(«8. Результат»). Иное значение — ошибка ввода, запроса не будет.\n\nVALUE записывается ровно как передан: прежнее значение заменяется целиком,\nбез чтения и без слияния. Пробелы внутри — обычный текст, значение с\nпробелами берётся в кавычки shell'а.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (KIND, селектор,\nненастроенный KITEN_API_KEY).\n\nПример: mpu kiten field set 65634936 mr https://gitlab/team/repo/-/merge_requests/999",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "mr",
+            "hypothesis",
+            "done",
+            "result"
+          ],
+          "description": "какое поле карточки писать"
+        },
+        "value": {
+          "type": "string",
+          "description": "значение поля: пишется ровно как передано"
+        }
+      },
+      "required": [
+        "selector",
+        "kind",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "mr",
+            "hypothesis",
+            "done",
+            "result"
+          ],
+          "description": "вид поля, как передан в аргументе"
+        },
+        "value": {
+          "type": "string",
+          "description": "записанное значение"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "kiten_field_artefact_set",
+    "title": "mpu kiten field artefact set",
+    "description": "Загрузить md-файл в поле карточки «9. AI-артефакт».\n\nSELECTOR — id карточки либо её URL.\n\nPATH — существующий обычный файл, имя которого оканчивается на .md\n(регистр не значим: .MD проходит). Проверяется имя, не содержимое, и\nпроверяется до запроса. Прикрепляется сам файл; имя в Kaiten — базовое имя\nпути, без каталога.\n\nВ выводе печатается url файла из ответа загрузки. Он приходит без\nдоменного имени файлового хоста и не открывается — абсолютную ссылку несёт\nтолько карточка (mpu kiten card).\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (не .md, пути\nнет либо он не обычный файл, селектор, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten field artefact set 65634936 razbor.md",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "path": {
+          "type": "string",
+          "description": "md-файл артефакта; имя обязано оканчиваться на .md"
+        }
+      },
+      "required": [
+        "selector",
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "имя файла из ответа загрузки"
+        },
+        "fileUrl": {
+          "type": "string",
+          "description": "url файла из ответа загрузки: приходит без доменного имени и не открывается"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "name",
+        "fileUrl",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "kiten_field_artefact_rm",
+    "title": "mpu kiten field artefact rm",
+    "description": "Удалить файлы карточки, привязанные к полю «9. AI-артефакт».\n\nSELECTOR — id карточки либо её URL.\n\nУдаляет ВСЕ файлы карточки, привязанные к полю «9. AI-артефакт»; значение\nполя сервер чистит сам. Файлы комментариев и файлы карточки вне поля не\nтрогаются. Поле уже пусто — успех и сообщение об этом: повторный вызов\nбезопасен.\n\nСбой удаления в середине списка не откатывает уже удалённое.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор,\nненастроенный KITEN_API_KEY).\n\nПример: mpu kiten field artefact rm 65634936",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "removed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "имена удалённых файлов в порядке files[] карточки; пусто — поле было пусто"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "removed",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "search",
     "title": "mpu search",
     "description": "Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nНайти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nРежим выбирают флаги, не селектор.\n\n\b\nБЕЗ ФЛАГОВ — локальный кэш (сети нет): client_id · IPv4 sl_/pg_ · WB sid ·\nкусок spreadsheet_id · кусок title → JSON-массив строк {client_id,\nspreadsheet_id, title, server, server_number, sl_ip, pg_ip, sids}. Пусто →\nавто-`mpu update` и повтор (`--no-update` гасит). Проекция (`--server`,\n`--sids`, …) печатает голые значения — форма для подстановки в другие команды.\n\n\b\nС `--reason` / `--refresh-cache` / `--scope` — 10X: селектор → email цели →\nimpersonation-сессия (зайти в веб ОТ ЛИЦА клиента). Email идёт сюда и без\nфлагов. Пять входов, как у staff-поиска sw-back:\n\n\b\n  email (точный)                user     mpu search user@mail.ru\n  кусок email / имя             user     mpu search Иванов --scope user\n  user.id                       user     mpu search 1029 --scope user\n  client_id (== workspace id)   access   mpu search 2759 --reason <url>\n  sid кабинета (полный uuid)    access   mpu search <sid> --reason <url>\n\n`auto` (умолчание): целое и uuid → access, остальное → user. Число в разных\nскоупах — разные сущности (1029: user.id есть, workspace нет), для user.id\nнужен явный `--scope user`. Названием клиента/кабинета 10X НЕ ищет: название\n[справка усечена: отброшено 1059 байт]",
