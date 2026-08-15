@@ -167,6 +167,20 @@ function listedPolicy(name: string): Policy | undefined {
   return undefined;
 }
 
+/**
+ * Снапшот тулов профиля: тот же текст сверяет инвариант
+ * `invariants_test.ts` и пересобирает `deno task tools:snapshot`. Одна
+ * функция на оба пути намеренно: разойдись они отступом или хвостовым
+ * переводом строки — пересобранный снапшот ронял бы собственный тест.
+ */
+export function toolsSnapshot(
+  commands: readonly Command[],
+  profile: Profile,
+): string {
+  const tools = profileTools(commands, profile).map((entry) => entry.tool);
+  return `${JSON.stringify(tools, null, 2)}\n`;
+}
+
 /** Тул профиля по имени; чужого имени в профиле нет. */
 export function findTool(
   commands: readonly Command[],

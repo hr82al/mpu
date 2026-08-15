@@ -12,6 +12,7 @@ import {
   profileTools,
   toolName,
   ToolPolicyError,
+  toolsSnapshot,
 } from "./mod.ts";
 import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
   type: "json",
@@ -136,13 +137,11 @@ Deno.test("переехавший лист группы публикуется �
 Deno.test("snapshot списка тулов по каждому профилю", async (t) => {
   for (const profile of PROFILES) {
     await t.step(profile, async () => {
-      const actual = JSON.stringify(
-        profileTools(commands, profile).map((entry) => entry.tool),
-        null,
-        2,
-      );
       const url = new URL(`testdata/tools-${profile}.json`, import.meta.url);
-      assertEquals(actual, (await Deno.readTextFile(url)).trimEnd());
+      assertEquals(
+        toolsSnapshot(commands, profile),
+        await Deno.readTextFile(url),
+      );
     });
   }
 });

@@ -169,6 +169,12 @@
     // Пересборка записей маршрута `legacy` из слепка дерева: запускать
     // после его пересъёма. Правки записей руками тест не пропустит.
     "registry:sync": "deno run --allow-read --allow-write=src/registry/legacy_tree.ts scripts/gen-legacy-tree.ts && deno fmt src/registry/legacy_tree.ts",
+    // Пересъём снапшотов публикуемых тулов: запускать, когда меняется
+    // состав команд реестра или закрытый список публикации. Текст
+    // собирает та же функция, что сверяет инвариант MCP, поэтому
+    // `deno fmt` по результату не гоняется — `src/mcp/testdata`
+    // исключён из форматирования и сверяется байт-в-байт.
+    "tools:snapshot": "deno run --allow-read --allow-write=src/mcp/testdata/tools-ro.json,src/mcp/testdata/tools-rw.json scripts/gen-tool-snapshots.ts",
     "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG* --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск

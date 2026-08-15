@@ -47,6 +47,7 @@ export {
   profileTools,
   toolName,
   ToolPolicyError,
+  toolsSnapshot,
 } from "./tools.ts";
 
 /** Запрос к ядру: то, что адаптер извлёк из HTTP. */
