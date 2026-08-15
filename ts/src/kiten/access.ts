@@ -13,13 +13,16 @@ import {
   requireKaitenAccess,
 } from "../kaiten/mod.ts";
 
+/** Срез порта исполнения: ключ доступа берётся из env-файла. */
+export type AccessIo = Pick<CommandIo, "envFile">;
+
 /**
  * Доступ к Kaiten. Ненастроенный ключ — ошибка ВВОДА (exit 2) с подсказкой,
  * а не отказ API: сети команда ещё не касалась (`platform/kaiten-http.md`,
  * «Конфигурация»). Каталог различить эти два случая не может — оба приходят
  * одним классом, — поэтому различает вызывающий, по месту вызова.
  */
-export function kaitenAccess(io: CommandIo): KaitenAccess {
+export function kaitenAccess(io: AccessIo): KaitenAccess {
   try {
     return requireKaitenAccess(io.envFile);
   } catch (err) {

@@ -23,7 +23,12 @@ import {
   parseCardRef,
   type UploadFile,
 } from "../kaiten/mod.ts";
-import { asCommandError, baseName, kaitenAccess } from "./access.ts";
+import {
+  type AccessIo,
+  asCommandError,
+  baseName,
+  kaitenAccess,
+} from "./access.ts";
 import {
   commentText,
   expandAllInText,
@@ -65,6 +70,17 @@ type KitenCommentArgs = z.infer<typeof argsSchema>;
 type KitenCommentResult = z.infer<typeof resultSchema>;
 
 /**
+ * Срез порта исполнения: доступ к Kaiten, три источника ввода (stdin,
+ * текстовый файл, вложение обычным файлом) и служебная строка хода.
+ */
+type CommentIo =
+  & AccessIo
+  & Pick<
+    CommandIo,
+    "progress" | "readRegularFile" | "readTextFile" | "readTextStdin"
+  >;
+
+/**
  * Порядок шагов: сперва весь ввод (источники текста, вложения) — и
  * только потом сеть; отбитый ввод не должен стоить ни одного запроса
  * (`kiten-comment.md`, «Инварианты»). Карточка читается лишь тогда,
@@ -72,7 +88,7 @@ type KitenCommentResult = z.infer<typeof resultSchema>;
  */
 async function runKitenComment(
   args: KitenCommentArgs,
-  io: CommandIo,
+  io: CommentIo,
 ): Promise<KitenCommentResult> {
   const cardId = parseCardRef(args.selector);
   // Адресаты считаются токенами, а не флагами: `--to ''` — флаг есть, а
@@ -144,7 +160,7 @@ function textSource(
 }
 
 /** Текст источника; заданный явно, он не бывает пустым. */
-async function readBody(io: CommandIo, source: TextSource): Promise<string> {
+async function readBody(io: CommentIo, source: TextSource): Promise<string> {
   const text = source.kind === "message"
     ? source.text
     : await readBodyFile(io, source.path);
@@ -152,7 +168,7 @@ async function readBody(io: CommandIo, source: TextSource): Promise<string> {
   return text;
 }
 
-async function readBodyFile(io: CommandIo, path: string): Promise<string> {
+async function readBodyFile(io: CommentIo, path: string): Promise<string> {
   try {
     return path === "-"
       ? await io.readTextStdin()
@@ -166,7 +182,7 @@ async function readBodyFile(io: CommandIo, path: string): Promise<string> {
 
 /** Вложения в порядке флагов `-f`; имя в Kaiten — базовое имя пути. */
 async function readAttachments(
-  io: CommandIo,
+  io: CommentIo,
   paths: readonly string[],
 ): Promise<readonly UploadFile[]> {
   const files: UploadFile[] = [];
@@ -177,7 +193,7 @@ async function readAttachments(
 }
 
 async function readAttachment(
-  io: CommandIo,
+  io: CommentIo,
   path: string,
 ): Promise<Uint8Array> {
   try {
@@ -201,7 +217,7 @@ async function readAttachment(
 async function ownerHandleOf(
   access: KaitenAccess,
   cardId: number,
-  io: CommandIo,
+  io: CommentIo,
 ): Promise<string | null> {
   const card = await getCard(access, cardId);
   const username = card.owner?.username ?? "";

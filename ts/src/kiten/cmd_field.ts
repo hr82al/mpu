@@ -24,7 +24,12 @@ import {
   updateCardProperties,
   uploadCustomPropertyFile,
 } from "../kaiten/mod.ts";
-import { asCommandError, baseName, kaitenAccess } from "./access.ts";
+import {
+  type AccessIo,
+  asCommandError,
+  baseName,
+  kaitenAccess,
+} from "./access.ts";
 
 /** Скалярные поля карточки; закрытый список — контракт CLI. */
 const FIELD_KINDS = ["mr", "hypothesis", "done", "result"] as const;
@@ -106,12 +111,17 @@ type KitenArtefactRmArgs = z.infer<typeof artefactRmArgsSchema>;
 type KitenArtefactRmResult = z.infer<typeof artefactRmResultSchema>;
 
 /**
+ * Срез порта исполнения: доступ к Kaiten и чтение файла-артефакта.
+ */
+type FieldIo = AccessIo & Pick<CommandIo, "readRegularFile">;
+
+/**
  * Записывает поле переданным значением: прежнее заменяется без чтения и
  * без слияния (`kiten-field.md`, «Инварианты»).
  */
 async function runKitenFieldSet(
   args: KitenFieldSetArgs,
-  io: CommandIo,
+  io: FieldIo,
 ): Promise<KitenFieldSetResult> {
   const cardId = parseCardRef(args.selector);
   const access = kaitenAccess(io);
@@ -136,7 +146,7 @@ async function runKitenFieldSet(
  */
 async function runKitenArtefactSet(
   args: KitenArtefactSetArgs,
-  io: CommandIo,
+  io: FieldIo,
 ): Promise<KitenArtefactSetResult> {
   const cardId = parseCardRef(args.selector);
   const name = baseName(args.path);
@@ -176,7 +186,7 @@ async function runKitenArtefactSet(
  */
 async function runKitenArtefactRm(
   args: KitenArtefactRmArgs,
-  io: CommandIo,
+  io: FieldIo,
 ): Promise<KitenArtefactRmResult> {
   const cardId = parseCardRef(args.selector);
   const access = kaitenAccess(io);
@@ -207,7 +217,7 @@ function cardUrl(access: KaitenAccess, cardId: number): string {
  * (exit 2, до сети), как и всякий отказ чтения: сеть тут ни при чём.
  */
 async function readArtefact(
-  io: CommandIo,
+  io: FieldIo,
   path: string,
 ): Promise<Uint8Array> {
   try {

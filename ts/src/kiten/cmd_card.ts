@@ -18,7 +18,7 @@ import {
   listCustomProperties,
   parseCardRef,
 } from "../kaiten/mod.ts";
-import { asCommandError, kaitenAccess } from "./access.ts";
+import { type AccessIo, asCommandError, kaitenAccess } from "./access.ts";
 import { cardView, cardViewSchema } from "./card_view.ts";
 import {
   type PropertyNames,
@@ -62,6 +62,12 @@ export type KitenCardResult = z.infer<typeof resultSchema>;
 type CardOutputView = KitenCardResult["view"];
 
 /**
+ * Срез порта исполнения: доступ к Kaiten плюс различение человека и
+ * пайпа — по нему выбирается вид вывода.
+ */
+type CardIo = AccessIo & Pick<CommandIo, "stdoutIsTerminal">;
+
+/**
  * Порядок шагов: карточка — первым вызовом, и только потом комментарии со
  * справочником имён. Последовательно, а не одним `Promise.all` на три
  * запроса: недоступная карточка обязана отвечать ошибкой именно по
@@ -70,7 +76,7 @@ type CardOutputView = KitenCardResult["view"];
  */
 export async function runKitenCard(
   args: KitenCardArgs,
-  io: CommandIo,
+  io: CardIo,
 ): Promise<KitenCardResult> {
   const cardId = parseCardRef(args.selector);
   const view = viewOf(args, io);
@@ -93,7 +99,7 @@ export async function runKitenCard(
   }
 }
 
-function viewOf(args: KitenCardArgs, io: CommandIo): CardOutputView {
+function viewOf(args: KitenCardArgs, io: CardIo): CardOutputView {
   if (args.json) return "json";
   if (args.md) return "md";
   // Пайп без флагов отдаёт markdown: потребитель у него — не человек.
