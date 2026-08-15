@@ -80,7 +80,7 @@ export type OpenPgSession = (
 ) => Promise<PgSession>;
 
 /** Предел времени PG-обращения исчерпан. */
-export class PgTimeoutError extends Error {
+class PgTimeoutError extends Error {
   override name = "PgTimeoutError";
 }
 
@@ -252,7 +252,7 @@ export async function syncClient(
  * перечислять упавшие серверы в предупреждении. Второй сортировки ниже
  * нет намеренно — порядок обязан иметь ровно одно место рождения.
  */
-export function fanOutNumbers(
+function fanOutNumbers(
   clients: readonly ClientRow[],
 ): readonly number[] {
   const numbers = new Set<number>();

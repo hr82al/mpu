@@ -38,7 +38,7 @@ import type { InvokeLog } from "../invokelog/mod.ts";
  * Что делает голый вызов уровня (`mpu mcp`), если он делает не индекс.
  * Возвращает код завершения процесса.
  */
-export type BareHandler = (
+type BareHandler = (
   argv: readonly string[],
   io: CommandIo,
   output: ErrorSink,

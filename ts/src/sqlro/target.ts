@@ -23,7 +23,7 @@ const DEFAULT_DEV_DATABASE = "mp_sl_1_dev";
  * Алиасы БД воркспейсов (`platform/selector.md`): сравниваются без учёта
  * регистра и краевых пробелов.
  */
-export const SW_ALIASES: readonly string[] = [
+const SW_ALIASES: readonly string[] = [
   "sw",
   "sw-pg",
   "swpg",

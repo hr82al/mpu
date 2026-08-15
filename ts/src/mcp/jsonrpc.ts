@@ -57,7 +57,7 @@ export function messageVersion(message: RpcMessage): string | undefined {
 }
 
 /** Ошибка в теле ответа. */
-export interface RpcError {
+interface RpcError {
   readonly code: number;
   readonly message: string;
   readonly data?: unknown;

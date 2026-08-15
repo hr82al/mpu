@@ -59,7 +59,7 @@ export type KitenCardArgs = z.infer<typeof argsSchema>;
 export type KitenCardResult = z.infer<typeof resultSchema>;
 
 /** Вид вывода; выбор — `--json`, затем `--md` либо непечатающий stdout. */
-export type CardOutputView = KitenCardResult["view"];
+type CardOutputView = KitenCardResult["view"];
 
 /**
  * Порядок шагов: карточка — первым вызовом, и только потом комментарии со

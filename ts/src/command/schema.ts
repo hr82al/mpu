@@ -33,7 +33,7 @@ export interface ObjectSchema {
 }
 
 /** Схема нечитаема как объект с полями — дефект объявления команды. */
-export class SchemaShapeError extends Error {
+class SchemaShapeError extends Error {
   override name = "SchemaShapeError";
 }
 

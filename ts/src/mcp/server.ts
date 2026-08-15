@@ -47,11 +47,12 @@ export interface RunningServer {
 }
 
 /**
- * Приложение транспорта без сокета: то же, что слушает порт, но
- * вызываемое напрямую. Ядро остаётся чистой функцией, а Hono отвечает
- * только за маршрут и перекладывание `Request`/`Response`.
+ * Собирает Hono-приложение транспорта для `serveMcp`: маршрутизирует
+ * запросы по профилям и оборачивает сбои реализации в JSON-RPC-ошибку.
+ * Ядро остаётся чистой функцией, а Hono отвечает только за маршрут и
+ * перекладывание `Request`/`Response`.
  */
-export function createMcpApp(options: ServerOptions): Hono {
+function createMcpApp(options: ServerOptions): Hono {
   const app = new Hono();
   // Путь вне профилей — 404 без тела: тела протокол здесь не
   // предполагает, а Hono по умолчанию пишет «404 Not Found» текстом.

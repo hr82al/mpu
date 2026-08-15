@@ -36,7 +36,7 @@ export interface Tool {
 }
 
 /** Аннотации тула: что клиент знает о нём до вызова. */
-export interface ToolAnnotations {
+interface ToolAnnotations {
   readonly readOnlyHint: boolean;
   /**
    * Эффект необратим вне этой машины. Выставляется только тулам из

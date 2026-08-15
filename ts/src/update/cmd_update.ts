@@ -43,7 +43,7 @@ export interface UpdateLimits {
 }
 
 /** Пределы по умолчанию; их числа названы в справке. */
-export const DEFAULT_UPDATE_LIMITS: UpdateLimits = {
+const DEFAULT_UPDATE_LIMITS: UpdateLimits = {
   pg: DEFAULT_PG_LIMITS,
   loki: DEFAULT_TIMEOUTS,
 };

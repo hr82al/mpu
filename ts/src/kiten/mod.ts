@@ -10,7 +10,6 @@
  */
 
 export {
-  type CardOutputView,
   type KitenCardArgs,
   kitenCardCommand,
   type KitenCardResult,

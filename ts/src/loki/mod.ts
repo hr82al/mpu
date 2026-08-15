@@ -38,7 +38,7 @@ export interface LokiAccess {
 }
 
 /** Пара «хост — сервис» из лейблов series. */
-export interface HostService {
+interface HostService {
   readonly host: string;
   readonly service: string;
 }

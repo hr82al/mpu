@@ -7,7 +7,6 @@
  */
 
 export {
-  DEFAULT_UPDATE_LIMITS,
   runUpdate,
   type UpdateArgs,
   updateCommand,
@@ -25,7 +24,6 @@ export {
   type OpenPgSession,
   type PgLimits,
   type PgSession,
-  PgTimeoutError,
   QUERY_TIMEOUT_MS,
   type SelectOptions,
   type SnapshotOutcome,

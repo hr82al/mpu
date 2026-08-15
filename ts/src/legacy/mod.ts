@@ -24,7 +24,7 @@ export interface LegacyCommand {
 }
 
 /** Ключ конфига с путём к Python-реализации (`platform/config.md`). */
-export const LEGACY_BIN_KEY = "mcp.legacy_bin";
+const LEGACY_BIN_KEY = "mcp.legacy_bin";
 
 /** Путь по умолчанию — установка через uv tool (`platform/config.md`). */
 export const DEFAULT_LEGACY_BIN = "~/.local/share/uv/tools/mpu/bin/mpu";
