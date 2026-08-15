@@ -205,6 +205,16 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "kiten comment",
+    argv: ["65634936", "-m", "готово"],
+    sampleResult: {
+      id: 88017902,
+      cardUrl: "https://kaiten.example.test/65634936",
+      attachments: ["probe.txt"],
+      recipients: ["@ivanov"],
+    },
+  },
+  {
     path: "kiten field set",
     argv: [
       "65634936",

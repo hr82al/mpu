@@ -568,6 +568,89 @@
     }
   },
   {
+    "name": "kiten_comment",
+    "title": "mpu kiten comment",
+    "description": "Комментарий к карточке Kaiten: текст, вложения, адресаты.\n\nSELECTOR — id карточки либо её URL.\n\nТекст — ровно один источник: -m/--message TEXT либо -F/--body-file PATH\n('-' — stdin); текст GFM markdown, интерактивных чекбоксов Kaiten в\nкомментарии не рендерит.\n\n-f/--file PATH — вложение (флаг повторяется): уходит сам файл, имя в\nKaiten — базовое имя пути. Текста вложения не дают: комментарий из одних\nфайлов Kaiten не принимает, поэтому -f без -m/-F и без --to отбивается до\nзапроса.\n\n--to HANDLES — адресаты (флаг повторяется, значение делится по пробелам);\nтокен без '@' его получает, дубли уходят без учёта регистра. Адресаты\nстановятся первой строкой, поэтому --to без текста проходит. '@all' — и в\n--to, и самостоятельным токеном в тексте — разворачивается в логин\nвладельца карточки; владельца нет — предупреждение в stderr и '@all' как\nесть. Ради владельца и читается карточка: без --to и без '@all' уходит\nровно один запрос.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL.\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (источники\nтекста, вложение, селектор, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten comment 65634936 --to '@all' -m 'Готово, проверьте'",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "message": {
+          "description": "текст комментария (GFM markdown)",
+          "type": "string"
+        },
+        "body-file": {
+          "description": "файл с текстом комментария; '-' — stdin",
+          "type": "string"
+        },
+        "file": {
+          "default": [],
+          "description": "вложение: путь к файлу; флаг повторяется",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "to": {
+          "default": [],
+          "description": "адресаты первой строкой: '@ivan @petr' либо '@all'; флаг повторяется",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "id созданного комментария из ответа сервера"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "имена приложенных файлов в порядке флагов -f"
+        },
+        "recipients": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "реально упомянутые адресаты; литеральный @all сюда не входит"
+        }
+      },
+      "required": [
+        "id",
+        "cardUrl",
+        "attachments",
+        "recipients"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "search",
     "title": "mpu search",
     "description": "Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nНайти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nРежим выбирают флаги, не селектор.\n\n\b\nБЕЗ ФЛАГОВ — локальный кэш (сети нет): client_id · IPv4 sl_/pg_ · WB sid ·\nкусок spreadsheet_id · кусок title → JSON-массив строк {client_id,\nspreadsheet_id, title, server, server_number, sl_ip, pg_ip, sids}. Пусто →\nавто-`mpu update` и повтор (`--no-update` гасит). Проекция (`--server`,\n`--sids`, …) печатает голые значения — форма для подстановки в другие команды.\n\n\b\nС `--reason` / `--refresh-cache` / `--scope` — 10X: селектор → email цели →\nimpersonation-сессия (зайти в веб ОТ ЛИЦА клиента). Email идёт сюда и без\nфлагов. Пять входов, как у staff-поиска sw-back:\n\n\b\n  email (точный)                user     mpu search user@mail.ru\n  кусок email / имя             user     mpu search Иванов --scope user\n  user.id                       user     mpu search 1029 --scope user\n  client_id (== workspace id)   access   mpu search 2759 --reason <url>\n  sid кабинета (полный uuid)    access   mpu search <sid> --reason <url>\n\n`auto` (умолчание): целое и uuid → access, остальное → user. Число в разных\nскоупах — разные сущности (1029: user.id есть, workspace нет), для user.id\nнужен явный `--scope user`. Названием клиента/кабинета 10X НЕ ищет: название\n[справка усечена: отброшено 1059 байт]",
@@ -875,53 +958,6 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "name": "kiten_comment",
-    "title": "mpu kiten comment",
-    "description": "Добавить комментарий к карточке от своего имени (автор — владелец KITEN_API_KEY).\n\nДобавить комментарий к карточке от своего имени (автор — владелец KITEN_API_KEY).\n\nТекст — `-m TEXT` или `-F PATH` (`-` — stdin). Вложения — `-f PATH` (повторяемо): сами\nфайлы прикрепляются к комментарию (не их содержимое в текст). С вложениями/адресатами\nтекст необязателен — можно прислать один комментарий из текста, файлов и упоминаний сразу.\n\nАдресаты — `--to @all @username …` (повторяемо или через пробел в кавычках): пишутся\nсамой первой ОТДЕЛЬНОЙ строкой, затем пустая строка и текст. `@all` в `--to` и в самом\nтексте разворачивается в `@username` ВЛАДЕЛЬЦА карточки (заказчик — кому отвечаем):\nв Kaiten нет литерального `@all`, это алиас → `@<username владельца>` (берётся из `owner`\nкарточки); упоминание = plain-текст `@логин`, сервер уведомляет.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "selector": {
-          "type": "string",
-          "description": "ID карточки или URL btlz.kaiten.ru (короткий/глубокий)"
-        },
-        "message": {
-          "type": "string",
-          "description": "Текст комментария (markdown)"
-        },
-        "body_file": {
-          "type": "string",
-          "description": "Файл с телом; `-` — stdin"
-        },
-        "files": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Файл-вложение (САМ файл, не его текст); повторяй -f для нескольких файлов"
-        },
-        "to": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Адресат(ы): @all (→ заказчик) и/или @username; в начало отдельной строкой. Повторяй --to или передай несколько через пробел в кавычках (\"@all @ivan\")"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "selector"
-      ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
     }
   },
   {

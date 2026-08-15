@@ -1,8 +1,9 @@
 /**
  * Общее для всех команд семейства `mpu kiten`: как достаётся доступ к
- * Kaiten и во что превращается его отказ. Обе вещи одинаковы у каждой
- * команды семейства (`platform/kaiten-http.md`), и три копии значили бы
- * три места правки при изменении класса ошибки или текста подсказки.
+ * Kaiten, во что превращается его отказ и как из пути получается имя
+ * файла для загрузки. Всё это одинаково у каждой команды семейства
+ * (`platform/kaiten-http.md`), и копия на команду значила бы столько же
+ * мест правки при изменении класса ошибки или текста подсказки.
  */
 
 import { type CommandIo, DomainError, UsageError } from "../command/mod.ts";
@@ -35,4 +36,14 @@ export function asCommandError(err: unknown): unknown {
   return err instanceof KaitenError
     ? new DomainError(`kaiten error: ${err.message}`, { cause: err })
     : err;
+}
+
+/**
+ * Имя файла без каталога — оно и уходит в Kaiten именем вложения
+ * (`kiten-comment.md`) либо артефакта (`kiten-field.md`). Свой разбор, а
+ * не зависимость: путь приходит из argv POSIX-машины, и правило «после
+ * последнего `/`» — всё, что нужно.
+ */
+export function baseName(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
 }

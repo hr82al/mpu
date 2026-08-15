@@ -24,13 +24,13 @@ import {
   updateCardProperties,
   uploadCustomPropertyFile,
 } from "../kaiten/mod.ts";
-import { asCommandError, kaitenAccess } from "./access.ts";
+import { asCommandError, baseName, kaitenAccess } from "./access.ts";
 
 /** Скалярные поля карточки; закрытый список — контракт CLI. */
 const FIELD_KINDS = ["mr", "hypothesis", "done", "result"] as const;
 
 /** Вид поля — `FieldKind` глоссария. */
-export type FieldKind = typeof FIELD_KINDS[number];
+type FieldKind = typeof FIELD_KINDS[number];
 
 /** Вид поля → id кастомного поля инстанса Kaiten (таблица спеки). */
 const PROPERTY_IDS: Readonly<Record<FieldKind, number>> = {
@@ -88,28 +88,28 @@ const artefactRmResultSchema = z.object({
 });
 
 /** Разобранные аргументы `field set`. */
-export type KitenFieldSetArgs = z.infer<typeof setArgsSchema>;
+type KitenFieldSetArgs = z.infer<typeof setArgsSchema>;
 
 /** Результат `field set`: что записано и куда. */
-export type KitenFieldSetResult = z.infer<typeof setResultSchema>;
+type KitenFieldSetResult = z.infer<typeof setResultSchema>;
 
 /** Разобранные аргументы `field artefact set`. */
-export type KitenArtefactSetArgs = z.infer<typeof artefactSetArgsSchema>;
+type KitenArtefactSetArgs = z.infer<typeof artefactSetArgsSchema>;
 
 /** Результат `field artefact set`: загруженный файл и адрес карточки. */
-export type KitenArtefactSetResult = z.infer<typeof artefactSetResultSchema>;
+type KitenArtefactSetResult = z.infer<typeof artefactSetResultSchema>;
 
 /** Разобранные аргументы `field artefact rm`. */
-export type KitenArtefactRmArgs = z.infer<typeof artefactRmArgsSchema>;
+type KitenArtefactRmArgs = z.infer<typeof artefactRmArgsSchema>;
 
 /** Результат `field artefact rm`: имена удалённых файлов. */
-export type KitenArtefactRmResult = z.infer<typeof artefactRmResultSchema>;
+type KitenArtefactRmResult = z.infer<typeof artefactRmResultSchema>;
 
 /**
  * Записывает поле переданным значением: прежнее заменяется без чтения и
  * без слияния (`kiten-field.md`, «Инварианты»).
  */
-export async function runKitenFieldSet(
+async function runKitenFieldSet(
   args: KitenFieldSetArgs,
   io: CommandIo,
 ): Promise<KitenFieldSetResult> {
@@ -134,7 +134,7 @@ export async function runKitenFieldSet(
  * до сети: расширение решается по имени, не по содержимому
  * (`kiten-field.md`, «Инварианты»).
  */
-export async function runKitenArtefactSet(
+async function runKitenArtefactSet(
   args: KitenArtefactSetArgs,
   io: CommandIo,
 ): Promise<KitenArtefactSetResult> {
@@ -174,7 +174,7 @@ export async function runKitenArtefactSet(
  * удалённые удалёнными (`kiten-field.md`, «Граничные случаи»), и в гонке
  * запросов этого было бы не сказать.
  */
-export async function runKitenArtefactRm(
+async function runKitenArtefactRm(
   args: KitenArtefactRmArgs,
   io: CommandIo,
 ): Promise<KitenArtefactRmResult> {
@@ -200,14 +200,6 @@ export async function runKitenArtefactRm(
 /** Адрес карточки для человека: базовый URL API и id, не ответ сервера. */
 function cardUrl(access: KaitenAccess, cardId: number): string {
   return `${access.baseUrl}/${cardId}`;
-}
-
-/**
- * Имя файла без каталога. Свой разбор, а не зависимость: путь приходит из
- * argv POSIX-машины, и правило «после последнего /» — всё, что нужно.
- */
-function baseName(path: string): string {
-  return path.slice(path.lastIndexOf("/") + 1);
 }
 
 /**

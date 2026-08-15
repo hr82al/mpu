@@ -28,6 +28,7 @@ import {
   kitenArtefactRmCommand,
   kitenArtefactSetCommand,
   kitenCardCommand,
+  kitenCommentCommand,
   kitenFieldSetCommand,
 } from "../kiten/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
@@ -82,6 +83,7 @@ export const commands: readonly Command[] = [
   // `kiten` уходят подпроцессом одной записью слепка, а этот путь
   // распознаётся реестром целиком и потому побеждает её длиной.
   kitenCardCommand,
+  kitenCommentCommand,
   kitenFieldSetCommand,
   kitenArtefactSetCommand,
   kitenArtefactRmCommand,

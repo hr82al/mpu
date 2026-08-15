@@ -59,6 +59,27 @@ const SETS: readonly FixtureSet[] = [
       "err-not-md-message.txt",
     ],
   },
+  {
+    channel: "kiten-comment",
+    copy: "kiten-comment/",
+    // `err-attachment-without-text-stderr.txt` канала не копируется: он
+    // снят как свидетельство отклонения с вердиктом fix и в новой
+    // реализации недостижим — комментарий из одних вложений отбивается
+    // до сети.
+    names: [
+      "ok-message-stdout.txt",
+      "ok-stdin-stdout.txt",
+      "ok-recipients-stdout.txt",
+      "ok-recipients-only-stdout.txt",
+      "ok-recipients-dedup-stdout.txt",
+      "ok-attachment-stdout.txt",
+      "ok-attachment-two-stdout.txt",
+      "ok-attachment-recipients-stdout.txt",
+      "err-no-text-message.txt",
+      "err-both-sources-message.txt",
+      "err-file-not-found-message.txt",
+    ],
+  },
 ];
 
 const channelRoot = new URL("../../docs/specs/fixtures/", import.meta.url);
