@@ -52,7 +52,7 @@ import {
   WARMUP_BUDGET_MS,
   writeKaitenWarmup,
 } from "../kaiten/mod.ts";
-import { runTelegramLogin } from "./telegram.ts";
+import { runTelegramLogin, type TelegramIo } from "./telegram.ts";
 
 /**
  * Пределы одного прогона. Числа названы в `--help` (инвариант спеки:
@@ -540,6 +540,15 @@ Exit: 0 — успех; 2 — нет PORTAINER_API_KEY/URL либо URL без �
 });
 
 /**
+ * Срез порта исполнения, который потребляет команда: env-файл (доступ к
+ * Portainer, Loki и Kaiten), кэш-БД стенда, строка хода и — шагом
+ * входа в Telegram — запуск прежней реализации.
+ */
+type InitIo =
+  & Pick<CommandIo, "envFile" | "openCacheDb" | "progress">
+  & TelegramIo;
+
+/**
  * Все пять шагов. Вынесено из объявления команды по двум причинам:
  * тело длиннее экрана, и пределы вызовов здесь — параметр со значением
  * по умолчанию. Параметр нужен тестам молчащего источника: без него
@@ -549,7 +558,7 @@ Exit: 0 — успех; 2 — нет PORTAINER_API_KEY/URL либо URL без �
  */
 export async function runInit(
   args: InitArgs,
-  io: CommandIo,
+  io: InitIo,
   limits: InitLimits = DEFAULT_INIT_LIMITS,
 ): Promise<InitResult> {
   using db = io.openCacheDb();
@@ -605,7 +614,7 @@ interface WarmupResults {
  */
 async function applyWarmupSteps(
   db: CacheDb,
-  io: CommandIo,
+  io: InitIo,
   scan: DiscoveryOutcome,
   discoveredAt: number,
   warm: boolean,
@@ -697,7 +706,7 @@ async function discoverContainers(
   limits: InitLimits,
   warm: boolean,
   discoveredAt: number,
-  io: CommandIo,
+  io: InitIo,
 ): Promise<DiscoveryOutcome> {
   const upEndpoints = endpoints.filter((e) => e.status === 1);
   const downEndpoints = endpoints.filter((e) => e.status !== 1);
@@ -739,7 +748,7 @@ type KaitenStep =
  * того, кто ответил первым.
  */
 async function collectLoki(
-  io: CommandIo,
+  io: InitIo,
   limits: InitLimits,
 ): Promise<LokiStep> {
   try {
@@ -755,7 +764,7 @@ async function collectLoki(
 
 /** Шаг 4 без записи: только сеть (см. `collectLoki`). */
 async function collectKaiten(
-  io: CommandIo,
+  io: InitIo,
   limits: InitLimits,
 ): Promise<KaitenStep> {
   try {
@@ -775,7 +784,7 @@ async function collectKaiten(
 /** Запись шага 3 и его строка сводки; шаг не выполнялся — `null`. */
 function applyLoki(
   db: CacheDb,
-  io: CommandIo,
+  io: InitIo,
   step: LokiStep | null,
   discoveredAt: number,
 ): InitResult["loki"] {
@@ -800,7 +809,7 @@ function applyLoki(
 /** Запись шага 4, строки пропусков досок и сводка; не выполнялся — `null`. */
 function applyKaiten(
   db: CacheDb,
-  io: CommandIo,
+  io: InitIo,
   step: KaitenStep | null,
   discoveredAt: number,
 ): InitResult["kaiten"] {
@@ -853,7 +862,7 @@ function applyKaiten(
 
 /** Шаг 5: подпроцесс входа; его исход код выхода init не меняет. */
 async function applyTelegram(
-  io: CommandIo,
+  io: InitIo,
 ): Promise<{ skipped: string | null }> {
   const skipped = await runTelegramLogin(io);
   if (skipped !== null) io.progress(`# telegram: пропущено (${skipped})`);

@@ -17,6 +17,15 @@ import { firstLine } from "../http/mod.ts";
 const LOGIN_PATH: readonly string[] = ["telegram", "login"];
 
 /**
+ * Срез порта исполнения: путь к прежней реализации (ключ конфига и
+ * HOME) плюс её запуск с проброшенным терминалом.
+ */
+export type TelegramIo = Pick<
+  CommandIo,
+  "env" | "readConfigStore" | "runLegacy" | "runLegacyInteractive"
+>;
+
+/**
  * Запускает `mpu telegram login`. Возвращает `null`, если подпроцесс
  * отработал с нулевым кодом, иначе — причину для строки
  * `# telegram: пропущено (<причина>)`.
@@ -25,7 +34,7 @@ const LOGIN_PATH: readonly string[] = ["telegram", "login"];
  * целиком, и пользователь видит интерактив входа как есть (спека).
  */
 export async function runTelegramLogin(
-  io: CommandIo,
+  io: TelegramIo,
 ): Promise<string | null> {
   const bin = await resolveLegacyBin(io);
   let code: number;
