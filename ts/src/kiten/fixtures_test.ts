@@ -104,6 +104,12 @@ const SETS: readonly FixtureSet[] = [
       "err-edit-duration-zero-message.txt",
       "err-edit-no-axis-message.txt",
       "err-date-format-message.txt",
+      "start-stdout.txt",
+      "status-idle-stdout.txt",
+      "status-running-stdout.txt",
+      "status-running-comment-stdout.txt",
+      "status-json-stdout.txt",
+      "discard-stdout.txt",
     ],
   },
 ];

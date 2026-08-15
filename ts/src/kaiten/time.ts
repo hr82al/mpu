@@ -152,9 +152,12 @@ export interface TimerStopRequest {
 }
 
 /**
- * Итог запуска таймера: успех либо конфликт — у пользователя уже есть
- * таймер на этой карточке. Формы различаются составом тела, а не
- * HTTP-статусом (`kaiten-api-time.md`, вызов 6).
+ * Итог запуска таймера: успех либо конфликт — у пользователя уже идёт
+ * таймер (один на всю компанию, не по одному на карточку). Конфликт
+ * узнаётся по СОСТАВУ ТЕЛА, а не по коду: нормальный путь — статус 400,
+ * но разбор по отсутствию `id` остаётся и для 2xx с телом-конфликтом
+ * (`kaiten-api-time.md`, вызов 6). Карточки в ответе нет — назвать её
+ * может только отдельное чтение, и это дело вызывающего.
  */
 export type TimerStartOutcome =
   | { readonly kind: "started"; readonly timer: Timer }
@@ -260,9 +263,10 @@ export async function listUserTimeLogs(
 }
 
 /**
- * 6. Запустить личный таймер на карточке. Форму ответа различает
- * НАЛИЧИЕ `id` в теле, а не HTTP-статус: конфликтная форма приходит без
- * `id` и не обязательно со статусом не-2xx.
+ * 6. Запустить личный таймер на карточке. Запрос ровно один: конфликт
+ * узнаётся из ответа, а не предугадывается чтением до него. Форму
+ * различает НАЛИЧИЕ `id` в теле, а не HTTP-статус — и в успешном ответе,
+ * и в теле отказа не-2xx.
  */
 export async function startUserTimer(
   access: KaitenAccess,
@@ -272,11 +276,19 @@ export async function startUserTimer(
   const body: Record<string, unknown> = { card_id: start.cardId };
   if (start.comment !== undefined) body.comment = start.comment;
 
-  const raw = await kaitenCall(access, {
-    method: "POST",
-    path: "/user-timers",
-    body,
-  }, options);
+  let raw: unknown;
+  try {
+    raw = await kaitenCall(access, {
+      method: "POST",
+      path: "/user-timers",
+      body,
+    }, options);
+  } catch (err) {
+    const conflict = conflictInFailure(err);
+    // Отказ не той формы — не наше дело: он уходит вызывающему как есть.
+    if (conflict === null) throw err;
+    return conflict;
+  }
 
   const timer = parseTimer(raw);
   return timer === null
@@ -447,6 +459,28 @@ function requireTimer(request: KaitenRequest, raw: unknown): Timer {
 /** Текст конфликтной формы запуска — как прислал сервер, без своего. */
 function conflictMessage(raw: unknown): string {
   return isRecord(raw) ? stringOr(raw.message, "") : "";
+}
+
+/**
+ * Конфликт таймера в отказе не-2xx; `null` — отказ не конфликтный и
+ * принадлежит вызывающему. Признак — тот же, что у формы успеха:
+ * объект-тело БЕЗ `id`, но со своим `message`. Требование `message`
+ * отделяет конфликт от прочих отказов эндпоинта, у которых тела либо
+ * нет, либо оно не JSON.
+ */
+function conflictInFailure(err: unknown): TimerStartOutcome | null {
+  if (!(err instanceof KaitenError) || err.body === undefined) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(err.body);
+  } catch {
+    // Тело не JSON — значит и не форма конфликта; своего разбора у
+    // отказа нет, он уходит вызывающему нетронутым.
+    return null;
+  }
+  if (!isRecord(parsed) || parsed.id !== undefined) return null;
+  const message = stringOrNull(parsed.message);
+  return message === null ? null : { kind: "conflict", message };
 }
 
 /** Название вложенного объекта-справочника (`role`): значимо только `name`. */

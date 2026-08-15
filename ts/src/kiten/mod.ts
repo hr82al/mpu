@@ -3,8 +3,8 @@
  * каталогами внешнего API Kaiten (`../kaiten/`). Перенесены: `mpu kiten
  * card` (`docs/specs/kiten-card.md`), `mpu kiten field`
  * (`docs/specs/kiten-field.md`), `mpu kiten comment`
- * (`docs/specs/kiten-comment.md`) и записи учёта времени `mpu kiten time`
- * (`docs/specs/kiten-time.md`).
+ * (`docs/specs/kiten-comment.md`) и учёт времени `mpu kiten time`
+ * (`docs/specs/kiten-time.md`) — записи и личный таймер.
  *
  * Наружу отдаются объявления команд — их берёт реестр; аргументы,
  * результаты и шаги вызова остаются внутри своих файлов.
@@ -31,3 +31,10 @@ export {
   kitenTimeLsCommand,
   kitenTimeRmCommand,
 } from "./cmd_time.ts";
+
+export {
+  kitenTimeDiscardCommand,
+  kitenTimeStartCommand,
+  kitenTimeStatusCommand,
+  kitenTimeStopCommand,
+} from "./cmd_timer.ts";

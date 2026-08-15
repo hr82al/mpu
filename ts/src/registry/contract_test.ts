@@ -291,6 +291,47 @@ const CASES: readonly CommandCase[] = [
       cardUrl: "https://kaiten.example.test/10000001",
     },
   },
+  {
+    path: "kiten time start",
+    argv: ["10000001"],
+    sampleResult: {
+      startedAt: "2026-08-14T19:50:33.000+03:00",
+      cardUrl: "https://kaiten.example.test/10000001",
+    },
+  },
+  {
+    path: "kiten time status",
+    argv: ["10000001"],
+    sampleResult: {
+      cardId: 10000001,
+      timer: {
+        id: 5000001,
+        started_at: "2026-08-14T19:50:33.000+03:00",
+        elapsed_minutes: 1,
+        comment: "проба таймера",
+      },
+      totalMinutes: 240,
+    },
+  },
+  {
+    path: "kiten time stop",
+    argv: ["10000001"],
+    sampleResult: {
+      log: SAMPLE_TIME_LOG,
+      logId: 7000001,
+      factMinutes: 75,
+      timeMinutes: null,
+      cardUrl: "https://kaiten.example.test/10000001",
+    },
+  },
+  {
+    path: "kiten time discard",
+    argv: ["10000001"],
+    sampleResult: {
+      elapsedMinutes: 1,
+      cardUrl: "https://kaiten.example.test/10000001",
+    },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {

@@ -46,9 +46,30 @@ export interface KaitenAccess {
   readonly apiKey: string;
 }
 
+/** Что несёт отказ Kaiten сверх текста: ответ не-2xx, если он был. */
+export interface KaitenErrorDetails extends ErrorOptions {
+  /** HTTP-статус ответа; у сетевого отказа и отказа разбора его нет. */
+  readonly status?: number;
+  /**
+   * Тело ответа как есть, без обрезки. Нужно вызывающему, который
+   * различает формы отказа ПО ТЕЛУ, а не по коду: конфликт таймера
+   * приходит статусом 400 и узнаётся по составу тела
+   * (`platform/kaiten-api-time.md`, вызов 6).
+   */
+  readonly body?: string;
+}
+
 /** Сбой обращения к Kaiten; сообщение — «<причина>» одной строкой. */
 export class KaitenError extends Error {
   override name = "KaitenError";
+  readonly status?: number;
+  readonly body?: string;
+
+  constructor(message: string, opts?: KaitenErrorDetails) {
+    super(message, { cause: opts?.cause });
+    this.status = opts?.status;
+    this.body = opts?.body;
+  }
 }
 
 /** Подключение из env-файла; нет KITEN_API_KEY — KaitenError («KITEN_API_KEY не задан»). */
@@ -201,6 +222,7 @@ export async function kaitenCall(
       `kaiten ${request.method} ${request.path} -> ${response.status}: ${
         truncateBody(response.text)
       }`,
+      { status: response.status, body: response.text },
     );
   }
   // Недостижимо: цикл на каждой итерации либо возвращает, либо бросает —

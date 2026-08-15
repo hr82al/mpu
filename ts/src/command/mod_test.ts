@@ -1,6 +1,11 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { z } from "@zod/zod";
-import { defineCommand, UsageError } from "./mod.ts";
+import {
+  defineCommand,
+  DomainError,
+  formatCommandError,
+  UsageError,
+} from "./mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 
 /** Минимальное корректное объявление; поля подменяются в тестах. */
@@ -79,4 +84,41 @@ Deno.test("разбор argv, давший не объект, — дефект �
     render: () => "",
   });
   assertThrows(() => command.parseArgs([]), TypeError, "разбор дал не объект");
+});
+
+Deno.test("formatCommandError: две формы подсказки", async (t) => {
+  await t.step("готовая команда — после «попробуй:»", () => {
+    const err = new DomainError("записи 7000001 нет на карточке 10000001", {
+      hint: "mpu kiten time ls 10000001",
+    });
+    assertEquals(
+      formatCommandError("kiten time edit", err),
+      "mpu kiten time edit: записи 7000001 нет на карточке 10000001; " +
+        "попробуй: mpu kiten time ls 10000001",
+    );
+  });
+
+  await t.step("выбор из нескольких действий — дословно", () => {
+    const err = new DomainError("таймер уже идёт на карточке 10000001", {
+      advice: "останови `mpu kiten time stop 10000001` или сбрось " +
+        "`mpu kiten time discard 10000001`",
+    });
+    assertEquals(
+      formatCommandError("kiten time start", err),
+      "mpu kiten time start: таймер уже идёт на карточке 10000001; " +
+        "останови `mpu kiten time stop 10000001` или сбрось " +
+        "`mpu kiten time discard 10000001`",
+    );
+  });
+
+  await t.step("заданы обе — выбор действия старше", () => {
+    const err = new UsageError("причина", {
+      hint: "команда",
+      advice: "выбери",
+    });
+    assertEquals(
+      formatCommandError("проба", err),
+      "mpu проба: причина; выбери",
+    );
+  });
 });

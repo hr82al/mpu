@@ -31,9 +31,13 @@ import {
   kitenCommentCommand,
   kitenFieldSetCommand,
   kitenTimeAddCommand,
+  kitenTimeDiscardCommand,
   kitenTimeEditCommand,
   kitenTimeLsCommand,
   kitenTimeRmCommand,
+  kitenTimeStartCommand,
+  kitenTimeStatusCommand,
+  kitenTimeStopCommand,
 } from "../kiten/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
@@ -95,6 +99,10 @@ export const commands: readonly Command[] = [
   kitenTimeAddCommand,
   kitenTimeEditCommand,
   kitenTimeRmCommand,
+  kitenTimeStartCommand,
+  kitenTimeStatusCommand,
+  kitenTimeStopCommand,
+  kitenTimeDiscardCommand,
 ];
 
 /**
