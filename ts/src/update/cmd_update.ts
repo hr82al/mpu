@@ -36,6 +36,12 @@ import {
   syncSnapshot,
 } from "./sync.ts";
 
+/**
+ * Срез порта исполнения, который потребляет команда: env-файл (адреса и
+ * секреты серверов), кэш-БД снимка и служебная строка хода.
+ */
+type UpdateIo = Pick<CommandIo, "envFile" | "openCacheDb" | "progress">;
+
 /** Пределы прогона: PG-обращения и запрос к Loki. */
 export interface UpdateLimits {
   readonly pg: PgLimits;
@@ -142,7 +148,7 @@ export interface UpdateOptions {
  */
 export async function runUpdate(
   args: UpdateArgs,
-  io: CommandIo,
+  io: UpdateIo,
   options: UpdateOptions = {},
 ): Promise<UpdateResult> {
   const limits = options.limits ?? DEFAULT_UPDATE_LIMITS;
@@ -194,7 +200,7 @@ function warningLine(failed: readonly FailedServer[]): string {
  */
 async function warmLoki(
   db: CacheDb,
-  io: CommandIo,
+  io: UpdateIo,
   quiet: boolean,
   timeouts: RequestTimeouts,
 ): Promise<UpdateResult["loki"]> {
@@ -221,7 +227,7 @@ async function warmLoki(
  * npm-пакет тяжёл, а нужен он одной команде — статический импорт
  * поднимал бы его на каждом запуске бинаря.
  */
-function denoPgOpener(io: CommandIo, limits: PgLimits): OpenPgSession {
+function denoPgOpener(io: UpdateIo, limits: PgLimits): OpenPgSession {
   return async (serverNumber, options) => {
     const { makePgOpener } = await import("./pg.ts");
     return await makePgOpener(io.envFile, limits)(serverNumber, options);
