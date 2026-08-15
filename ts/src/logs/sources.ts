@@ -52,9 +52,22 @@ export interface LogStream {
   readonly err: (text: string) => void;
 }
 
+/**
+ * Реализация `ReadLoki` поверх `queryRange`: те же входы и результат, без
+ * добавленного поведения. Отличие от типа порта — `queryRange` умеет
+ * принимать свои пределы времени третьим параметром, здесь он всегда
+ * зовётся с умолчанием (`DEFAULT_TIMEOUTS`), потому что порт места под
+ * переопределение не оставляет.
+ */
 export const readLokiOverHttp: ReadLoki = (access, query) =>
   queryRange(access, query);
 
+/**
+ * Реализация `ListContainerNames` поверх `listContainers`: в отличие от
+ * типа порта, отдающего одно имя на контейнер, у Docker контейнер может
+ * иметь несколько имён (алиасы docker-compose) — они разворачиваются в
+ * плоский список, и у каждого снимается ведущий `/`.
+ */
 export const listContainerNamesOverHttp: ListContainerNames = async (
   access,
   endpointId,
@@ -65,6 +78,12 @@ export const listContainerNamesOverHttp: ListContainerNames = async (
   );
 };
 
+/**
+ * Реализация `ReadContainerLogs` поверх `fetchContainerLogs` +
+ * `demuxDockerStream`: тип порта отдаёт готовые потоки, а сеть возвращает
+ * один мультиплексированный байтовый снимок — разбор на stdout/stderr
+ * сделан здесь же, вторым шагом.
+ */
 export const readContainerLogsOverHttp: ReadContainerLogs = async (
   access,
   endpointId,

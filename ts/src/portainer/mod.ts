@@ -76,6 +76,10 @@ interface RawContainer {
   readonly Image: string;
 }
 
+/**
+ * Все окружения Portainer (`Portainer-endpoint` глоссария) с их статусом
+ * доступности, как его отдаёт `GET /api/endpoints`.
+ */
 export async function listEndpoints(
   access: PortainerAccess,
   timeouts: RequestTimeouts = DEFAULT_TIMEOUTS,
@@ -88,6 +92,12 @@ export async function listEndpoints(
   return raw.map((e) => ({ id: e.Id, name: e.Name, status: e.Status }));
 }
 
+/**
+ * Все контейнеры одного окружения, включая остановленные: запрос идёт
+ * в Docker API окружения через Portainer (`…/docker/containers/json`).
+ * Имена — как их отдаёт Docker, с ведущим `/`; снятие слэша — дело
+ * потребителя.
+ */
 export async function listContainers(
   access: PortainerAccess,
   endpointId: number,
