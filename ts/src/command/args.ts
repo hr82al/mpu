@@ -64,22 +64,7 @@ export function parseArgv(
       continue;
     }
     if (arg.startsWith("--")) {
-      const eq = arg.indexOf("=");
-      const name = eq < 0 ? arg.slice(2) : arg.slice(2, eq);
-      const inline = eq < 0 ? undefined : arg.slice(eq + 1);
-      const spec = flags.find((s) => s.name === name);
-      if (spec === undefined) {
-        // Отрицательная форма булева входа: `--no-images` выключает вход
-        // `images`, у которого умолчание «включено» (`specs/kiten-card.md`,
-        // CLI-контракт). Отдельным входом схемы она не объявляется — иначе
-        // у одного значения было бы два имени.
-        const negated = negatedBoolean(flags, name);
-        if (negated === undefined) throw unknownOption(arg, helpHint);
-        if (inline !== undefined) throw takesNoValue(`--${name}`, helpHint);
-        out[negated.name] = false;
-        continue;
-      }
-      record(out, spec, inline, nextValue, helpHint);
+      recordLongFlag(out, arg, flags, nextValue, helpHint);
       continue;
     }
     const spec = arg.length === 2
@@ -91,6 +76,36 @@ export function parseArgv(
 
   bindPositional(out, specs, positional, helpHint);
   return out;
+}
+
+/**
+ * Длинная форма записи — `--name`, `--name=value` и отрицательная
+ * `--no-name`. Значение попадает в `out` под именем входа схемы; имя, не
+ * объявленное ни прямой, ни отрицательной формой, — ошибка вызова.
+ */
+function recordLongFlag(
+  out: Record<string, string | boolean | string[]>,
+  arg: string,
+  flags: readonly InputSpec[],
+  nextValue: () => string | undefined,
+  helpHint: string,
+): void {
+  const eq = arg.indexOf("=");
+  const name = eq < 0 ? arg.slice(2) : arg.slice(2, eq);
+  const inline = eq < 0 ? undefined : arg.slice(eq + 1);
+  const spec = flags.find((s) => s.name === name);
+  if (spec !== undefined) {
+    record(out, spec, inline, nextValue, helpHint);
+    return;
+  }
+  // Отрицательная форма булева входа: `--no-images` выключает вход
+  // `images`, у которого умолчание «включено» (`specs/kiten-card.md`,
+  // CLI-контракт). Отдельным входом схемы она не объявляется — иначе
+  // у одного значения было бы два имени.
+  const negated = negatedBoolean(flags, name);
+  if (negated === undefined) throw unknownOption(arg, helpHint);
+  if (inline !== undefined) throw takesNoValue(`--${name}`, helpHint);
+  out[negated.name] = false;
 }
 
 function record(
