@@ -15,11 +15,11 @@ import {
 } from "../command/mod.ts";
 import { parseStore } from "../config/mod.ts";
 
-/**
- * Срез порта исполнения, который потребляет маршрут: путь к реализации
- * (ключ конфига и HOME) плюс сам запуск подпроцесса.
- */
-type LegacyIo = Pick<CommandIo, "env" | "readConfigStore" | "runLegacy">;
+/** Срез порта для поиска пути к реализации: ключ конфига и HOME. */
+type LegacyBinIo = Pick<CommandIo, "env" | "readConfigStore">;
+
+/** Срез порта, который потребляет маршрут: путь плюс запуск подпроцесса. */
+type LegacyIo = LegacyBinIo & Pick<CommandIo, "runLegacy">;
 
 /** Запись реестра маршрута `legacy`. */
 export interface LegacyCommand {
@@ -85,7 +85,7 @@ export class LegacyBinMissingError extends DomainError {
 }
 
 /** Путь к реализации: ключ конфига, иначе умолчание спеки. */
-export async function resolveLegacyBin(io: LegacyIo): Promise<string> {
+export async function resolveLegacyBin(io: LegacyBinIo): Promise<string> {
   const store = parseStore(await io.readConfigStore());
   return legacyBinPath(store.values[LEGACY_BIN_KEY], io.env("HOME"));
 }

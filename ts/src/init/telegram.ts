@@ -22,7 +22,7 @@ const LOGIN_PATH: readonly string[] = ["telegram", "login"];
  */
 export type TelegramIo = Pick<
   CommandIo,
-  "env" | "readConfigStore" | "runLegacy" | "runLegacyInteractive"
+  "env" | "readConfigStore" | "runLegacyInteractive"
 >;
 
 /**
