@@ -7,7 +7,7 @@
 
 import { assertEquals, assertThrows } from "@std/assert";
 import { UsageError } from "../command/mod.ts";
-import { mskToday, parseCalendarDate, parseDuration } from "./time_input.ts";
+import { parseCalendarDate, parseDuration } from "./time_input.ts";
 
 function golden(name: string): Promise<string> {
   return Deno.readTextFile(
@@ -155,21 +155,6 @@ Deno.test("parseCalendarDate: строго YYYY-MM-DD", async (t) => {
         messageOf(() => parseCalendarDate(input, "--date-from")),
         `--date-from='${input}': ожидается YYYY-MM-DD\n`,
       );
-    });
-  }
-});
-
-Deno.test("mskToday: день по МСК, не по зоне машины", async (t) => {
-  const cases: readonly [string, string][] = [
-    // 23:30 UTC 14-го — в Москве уже 15-е.
-    ["2026-08-14T23:30:00Z", "2026-08-15"],
-    // 20:59 UTC 14-го — в Москве ещё 14-е.
-    ["2026-08-14T20:59:59Z", "2026-08-14"],
-    ["2026-08-15T00:00:00Z", "2026-08-15"],
-  ];
-  for (const [iso, day] of cases) {
-    await t.step(`${iso} → ${day}`, () => {
-      assertEquals(mskToday(Date.parse(iso)), day);
     });
   }
 });

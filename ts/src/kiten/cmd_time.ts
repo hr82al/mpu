@@ -33,7 +33,8 @@ import {
   updateCardTimeLog,
 } from "../kaiten/mod.ts";
 import { type AccessIo, asCommandError, kaitenAccess } from "./access.ts";
-import { mskToday, parseCalendarDate, parseDuration } from "./time_input.ts";
+import { mskDay } from "./msk.ts";
+import { parseCalendarDate, parseDuration } from "./time_input.ts";
 import { chooseRoleId, resolveRoleId, ROLE_ENV_KEY } from "./time_role.ts";
 import {
   formatDuration,
@@ -211,7 +212,7 @@ async function runKitenTimeAdd(
 ): Promise<KitenTimeAddResult> {
   const cardId = parseCardRef(args.selector);
   const timeSpent = parseDuration(args.duration, "DURATION");
-  const today = mskToday();
+  const today = mskDay();
   const forDate = args.date === undefined
     ? today
     : parseCalendarDate(args.date, "--date");
