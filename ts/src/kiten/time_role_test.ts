@@ -1,20 +1,22 @@
 /**
  * Выбор роли записи времени (`docs/specs/kiten-time.md`, «CLI-контракт» и
- * «Инварианты»). Под проверкой не только результат, но и СОСТАВ вызовов:
- * инвариант спеки — справочник запрашивается только на нечисловом
- * значении, а числовое и дефолт сети не касаются.
+ * «Инварианты»). Выбор внутри справочника чист и проверяется без сети;
+ * сети касается только `resolveRoleId`, и под проверкой у него состав
+ * вызовов: инвариант спеки — на числовом значении запроса нет. Что
+ * справочник читается мутирующими подкомандами всегда (ради названия
+ * роли для вывода), стережёт `cmd_time_test.ts` — там видно место
+ * запроса.
  */
 
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { UsageError } from "../command/mod.ts";
-import type { EnvFile } from "../command/mod.ts";
 import type { KaitenAccess } from "../kaiten/mod.ts";
 import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
 import {
   chooseRoleId,
   DEFAULT_ROLE_ID,
   resolveRoleId,
-  ROLE_ENV_KEY,
+  roleNameOf,
 } from "./time_role.ts";
 
 const ROLES = [
@@ -35,21 +37,6 @@ function stand(): Stand {
     access: { baseUrl: fake.baseUrl, apiKey: "proba-key" },
     seen: fake.seen,
     stop: fake.stop,
-  };
-}
-
-/** Порт доступа со значением ключа роли: `undefined` — ключа нет. */
-function io(role?: string): { readonly envFile: EnvFile } {
-  const values: Readonly<Record<string, string>> = role === undefined
-    ? {}
-    : { [ROLE_ENV_KEY]: role };
-  return {
-    envFile: {
-      get: (name) => values[name],
-      values: () => values,
-      require: () => "",
-      set: () => Promise.resolve(),
-    },
   };
 }
 
@@ -131,79 +118,52 @@ Deno.test("resolveRoleId: нечисловое — живой справочни
 });
 
 Deno.test("chooseRoleId: цепочка флаг → env → дефолт", async (t) => {
-  await t.step("явный флаг старше настройки", async () => {
-    const { access, stop } = stand();
-    try {
-      assertEquals(
-        await chooseRoleId(access, "12132", io("Техподдержка")),
-        12132,
-      );
-    } finally {
-      await stop();
-    }
+  await t.step("явный флаг старше настройки", () => {
+    assertEquals(chooseRoleId(ROLES, "12132", "Техподдержка"), 12132);
   });
 
-  await t.step("без флага берётся настройка", async () => {
-    const { access, seen, stop } = stand();
-    try {
-      assertEquals(
-        await chooseRoleId(access, undefined, io("Тестирование")),
-        12132,
-      );
-      assertEquals(paths(seen), ["/api/latest/user-roles"]);
-    } finally {
-      await stop();
-    }
+  await t.step("без флага берётся настройка", () => {
+    assertEquals(chooseRoleId(ROLES, undefined, "Тестирование"), 12132);
   });
 
-  await t.step("числовая настройка запроса не требует", async () => {
-    const { access, seen, stop } = stand();
-    try {
-      assertEquals(await chooseRoleId(access, undefined, io("777")), 777);
-      assertEquals(paths(seen), []);
-    } finally {
-      await stop();
-    }
+  await t.step("числовая настройка берётся как id", () => {
+    assertEquals(chooseRoleId(ROLES, undefined, "777"), 777);
   });
 
-  await t.step("нет ни флага, ни настройки — дефолт без запроса", async () => {
-    const { access, seen, stop } = stand();
-    try {
-      assertEquals(
-        await chooseRoleId(access, undefined, io()),
-        DEFAULT_ROLE_ID,
-      );
-      assertEquals(paths(seen), []);
-    } finally {
-      await stop();
-    }
+  await t.step("нет ни флага, ни настройки — дефолт", () => {
+    assertEquals(chooseRoleId(ROLES, undefined, undefined), DEFAULT_ROLE_ID);
   });
 
-  await t.step("пустая настройка равнозначна её отсутствию", async () => {
-    const { access, stop } = stand();
-    try {
-      assertEquals(
-        await chooseRoleId(access, undefined, io("  ")),
-        DEFAULT_ROLE_ID,
-      );
-    } finally {
-      await stop();
-    }
+  await t.step("пустая настройка равнозначна её отсутствию", () => {
+    assertEquals(chooseRoleId(ROLES, undefined, "  "), DEFAULT_ROLE_ID);
   });
 
-  await t.step("нерезолвимая настройка падает, а не откатывается", async () => {
-    const { access, stop } = stand();
-    try {
-      const err = await assertRejects(
-        () => chooseRoleId(access, undefined, io("инженер")),
-        UsageError,
-      );
-      assertEquals(
-        err.message,
-        "KITEN_TIME_ROLE: role 'инженер' не найден — см. `mpu kiten roles`",
-      );
-    } finally {
-      await stop();
-    }
+  await t.step("нерезолвимая настройка падает, а не откатывается", () => {
+    const err = assertThrows(
+      () => chooseRoleId(ROLES, undefined, "инженер"),
+      UsageError,
+    );
+    assertEquals(
+      err.message,
+      "KITEN_TIME_ROLE: role 'инженер' не найден — см. `mpu kiten roles`",
+    );
+  });
+});
+
+Deno.test("roleNameOf: название для вывода мутирующей подкоманды", async (t) => {
+  await t.step("роль из справочника — её название", () => {
+    assertEquals(roleNameOf(ROLES, 12058), "Техподдержка");
+  });
+
+  await t.step("роли нет в справочнике — null", () => {
+    assertEquals(roleNameOf(ROLES, 777), null);
+  });
+
+  await t.step("роли у записи нет вовсе — null", () => {
+    assertEquals(roleNameOf(ROLES, null), null);
+  });
+
+  await t.step("пустое название равнозначно его отсутствию", () => {
+    assertEquals(roleNameOf([{ id: 12058, name: "" }], 12058), null);
   });
 });

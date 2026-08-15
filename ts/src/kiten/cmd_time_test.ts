@@ -5,7 +5,8 @@
  * каталог ходит в фейковый Kaiten на петле (`../kaiten/testing.ts`) — так
  * под проверку попадает и состав запросов, который у этой команды сам по
  * себе контракт: клиентский фильтр «только мои» стоит одного лишнего
- * вызова, а числовая роль — ни одного.
+ * вызова, а справочник ролей мутирующие подкоманды читают всегда — ради
+ * названия роли в строке успеха, которого ответ мутации не несёт.
  *
  * Таблица `ls` сверяется по составу колонок, порядку строк и итогу:
  * ширина колонок и переносы длинных значений контрактом не являются
@@ -67,6 +68,21 @@ function rawLog(patch: Record<string, unknown> = {}): Record<string, unknown> {
     comment: "разбор жалобы",
     ...patch,
   };
+}
+
+/**
+ * Ответ создания и правки записи — форма живой системы, а не формы
+ * списка. Вложенного объекта роли в нём нет вовсе, а `for_date` приходит
+ * полной ISO-меткой (`platform/kaiten-api-time.md`, вызовы 2 и 3).
+ * Фикстура богаче реального ответа делает голден проверкой самого себя:
+ * название роли в строке успеха бралось бы из фейка, которого живая
+ * система не отдаёт.
+ */
+function rawMutationLog(
+  patch: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const { role: _role, for_date, ...rest } = rawLog(patch);
+  return { ...rest, for_date: `${String(for_date)}T00:00:00.000Z` };
 }
 
 /** Три записи карточки из голденов `ls`. */
@@ -368,7 +384,8 @@ Deno.test("time ls: таблица, фильтры и состав вызово�
 Deno.test("time add: создание записи", async (t) => {
   await t.step("голден строки успеха и тело запроса", async () => {
     const { io, baseUrl, seen, stop } = stand({
-      [`POST ${LOGS_PATH}`]: () => Response.json(rawLog()),
+      [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
+      [`POST ${LOGS_PATH}`]: () => Response.json(rawMutationLog()),
     });
     try {
       assertEquals(
@@ -379,8 +396,10 @@ Deno.test("time add: создание записи", async (t) => {
         ),
         await expected("add-stdout.txt", baseUrl),
       );
-      assertEquals(calls(seen), [`POST ${LOGS_PATH}`]);
-      assertEquals(JSON.parse(seen[0].body), {
+      // Справочник ролей — не резолв, а источник названия для строки
+      // успеха: ответ создания записи названия роли не несёт.
+      assertEquals(calls(seen), [`GET ${ROLES_PATH}`, `POST ${LOGS_PATH}`]);
+      assertEquals(JSON.parse(seen[1].body), {
         for_date: "2026-08-14",
         time_spent: 75,
         role_id: 12058,
@@ -393,7 +412,9 @@ Deno.test("time add: создание записи", async (t) => {
 
   await t.step("без --comment уходит пустая строка", async () => {
     const { io, seen, stop } = stand({
-      [`POST ${LOGS_PATH}`]: () => Response.json(rawLog({ comment: "" })),
+      [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
+      [`POST ${LOGS_PATH}`]: () =>
+        Response.json(rawMutationLog({ comment: "" })),
     });
     try {
       await output(kitenTimeAddCommand, [
@@ -402,7 +423,7 @@ Deno.test("time add: создание записи", async (t) => {
         "--date",
         "2026-08-14",
       ], io);
-      assertEquals(JSON.parse(seen[0].body).comment, "");
+      assertEquals(JSON.parse(seen[1].body).comment, "");
     } finally {
       await stop();
     }
@@ -411,7 +432,7 @@ Deno.test("time add: создание записи", async (t) => {
   await t.step("нечисловая роль резолвится одним запросом", async () => {
     const { io, seen, stop } = stand({
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
-      [`POST ${LOGS_PATH}`]: () => Response.json(rawLog()),
+      [`POST ${LOGS_PATH}`]: () => Response.json(rawMutationLog()),
     });
     try {
       await output(
@@ -419,6 +440,8 @@ Deno.test("time add: создание записи", async (t) => {
         [SELECTOR, "45", "--date", "2026-08-14", "--role", "Тестирование"],
         io,
       );
+      // Справочник читается один раз: он же резолвит `--role`, он же
+      // даёт название для строки успеха.
       assertEquals(calls(seen), [`GET ${ROLES_PATH}`, `POST ${LOGS_PATH}`]);
       assertEquals(JSON.parse(seen[1].body).role_id, 12132);
     } finally {
@@ -430,13 +453,16 @@ Deno.test("time add: создание записи", async (t) => {
     const notes: string[] = [];
     const future = futureDate();
     const { io, seen, stop } = stand(
-      { [`POST ${LOGS_PATH}`]: () => Response.json(rawLog()) },
+      {
+        [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
+        [`POST ${LOGS_PATH}`]: () => Response.json(rawMutationLog()),
+      },
       { progress: (line) => void notes.push(line) },
     );
     try {
       await output(kitenTimeAddCommand, [SELECTOR, "45", "--date", future], io);
       assertEquals(notes, [`внимание: дата ${future} в будущем`]);
-      assertEquals(calls(seen), [`POST ${LOGS_PATH}`]);
+      assertEquals(calls(seen), [`GET ${ROLES_PATH}`, `POST ${LOGS_PATH}`]);
     } finally {
       await stop();
     }
@@ -461,7 +487,7 @@ Deno.test("time edit: частичное обновление", async (t) => {
     const { io, baseUrl, seen, stop } = readStand({
       [`PATCH ${logPath(7000001)}`]: () =>
         Response.json(
-          rawLog({ time_spent: 120, comment: "разбор жалобы и фикс" }),
+          rawMutationLog({ time_spent: 120, comment: "разбор жалобы и фикс" }),
         ),
     });
     try {
@@ -492,10 +518,9 @@ Deno.test("time edit: частичное обновление", async (t) => {
     const { io, baseUrl, seen, stop } = readStand({
       [`PATCH ${logPath(7000002)}`]: () =>
         Response.json(
-          rawLog({
+          rawMutationLog({
             id: 7000002,
             role_id: 12132,
-            role: { id: 12132, name: "Тестирование" },
             time_spent: 45,
             for_date: "2026-08-15",
             comment: "",
@@ -513,11 +538,32 @@ Deno.test("time edit: частичное обновление", async (t) => {
     }
   });
 
+  await t.step("ось роли печатает название, а не id", async () => {
+    // Возврат приёмки: ответ правки записи названия роли не несёт —
+    // только `role_id`. Без справочника ось печаталась бы числом.
+    const { io, seen, stop } = readStand({
+      [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
+      [`PATCH ${logPath(7000001)}`]: () =>
+        Response.json(rawMutationLog({ role_id: 12132 })),
+    });
+    try {
+      const text = await output(
+        kitenTimeEditCommand,
+        [SELECTOR, "7000001", "--role", "Тестирование"],
+        io,
+      );
+      assertEquals(text.includes("· роль Тестирование ·"), true);
+      assertEquals(calls(seen).includes(`GET ${ROLES_PATH}`), true);
+    } finally {
+      await stop();
+    }
+  });
+
   await t.step("настроенная роль не становится осью сама", async () => {
     const { io, seen, stop } = readStand(
       {
         [`PATCH ${logPath(7000001)}`]: () =>
-          Response.json(rawLog({ time_spent: 120 })),
+          Response.json(rawMutationLog({ time_spent: 120 })),
       },
       {},
       envWithRole,
@@ -603,7 +649,7 @@ Deno.test("time edit: частичное обновление", async (t) => {
     const { io, seen, stop } = stand({
       [`GET ${LOGS_PATH}`]: () => Response.json([rawLog({ user_id: 900002 })]),
       [`PATCH ${logPath(7000001)}`]: () =>
-        Response.json(rawLog({ user_id: 900002, time_spent: 120 })),
+        Response.json(rawMutationLog({ user_id: 900002, time_spent: 120 })),
     });
     try {
       await output(
@@ -624,7 +670,7 @@ Deno.test("time edit: частичное обновление", async (t) => {
     const { io, seen, stop } = stand({
       [`GET ${LOGS_PATH}`]: () => Response.json([rawLog({ user_id: null })]),
       [`PATCH ${logPath(7000001)}`]: () =>
-        Response.json(rawLog({ user_id: null, time_spent: 120 })),
+        Response.json(rawMutationLog({ user_id: null, time_spent: 120 })),
     });
     try {
       await output(

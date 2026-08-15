@@ -1,15 +1,26 @@
 /**
- * Выбор роли записи времени (`docs/specs/kiten-time.md`, «CLI-контракт»).
+ * Выбор роли записи времени и её название для вывода
+ * (`docs/specs/kiten-time.md`, «CLI-контракт»).
  *
- * Две операции, и различие между ними существенно. `chooseRoleId` — там,
+ * Сеть здесь одна и снаружи: `listUserRoles` вызывает команда, а модуль
+ * выбирает роль внутри уже прочитанного справочника. Так вышло потому,
+ * что справочник нужен мутирующим подкомандам ВСЕГДА — ответ создания и
+ * правки записи названия роли не несёт (`platform/kaiten-api-time.md`,
+ * «Инварианты»), а печатается всегда название. Прятать сеть внутрь
+ * выбора значило бы ходить за одним и тем же справочником дважды:
+ * сперва за резолвом `--role`, потом за названием.
+ *
+ * Единственное исключение — `resolveRoleId`: фильтр `ls` справочника не
+ * требует, если значение числовое, и лишнего запроса делать не должен
+ * (инвариант спеки о двух случаях запроса справочника).
+ *
+ * Три операции, и различие между ними существенно. `chooseRoleId` — там,
  * где роль ВЫБИРАЕТСЯ и обязана быть: `add` и, следующей порцией, `stop`;
- * только у неё есть цепочка «флаг → env → дефолт». `resolveRoleId` — там,
- * где роль лишь названа пользователем: фильтр `ls` и ось `edit`; без
- * значения она не подставляет ничего, иначе фильтр молча срезал бы чужие
- * роли, а `edit` переписывал бы роль в каждом вызове.
- *
- * Справочник ролей запрашивается только на нечисловом значении — числовое
- * берётся как id (инвариант спеки).
+ * только у неё есть цепочка «флаг → env → дефолт». `pickRoleId` — там,
+ * где роль лишь названа пользователем: ось `edit` (фильтр `ls` приходит
+ * сюда через `resolveRoleId`); без значения она не
+ * подставляет ничего, иначе фильтр молча срезал бы чужие роли, а `edit`
+ * переписывал бы роль в каждом вызове. `roleNameOf` — для вывода.
  */
 
 import { UsageError } from "../command/mod.ts";
@@ -18,43 +29,71 @@ import {
   type KaitenRole,
   listUserRoles,
 } from "../kaiten/mod.ts";
-import type { AccessIo } from "./access.ts";
 
 /** Ключ env-файла с ролью по умолчанию. */
 export const ROLE_ENV_KEY = "KITEN_TIME_ROLE";
 
-/** Роль по умолчанию — «Техподдержка»; числовая, запроса не требует. */
+/** Роль по умолчанию — «Техподдержка»; числовая, резолва не требует. */
 export const DEFAULT_ROLE_ID = 12058;
 
 /** Сколько кандидатов показывать при неоднозначном названии. */
 const MAX_CANDIDATES = 10;
 
-/** Только цифры — значит id, и справочник не нужен. */
+/** Только цифры — значит id, и поиск по названию не нужен. */
 const NUMERIC_REF = /^\d+$/;
 
 /**
- * Роль записи: явный `--role` → ключ env-файла → дефолт. Нерезолвимое
- * значение env — отказ с его именем в префиксе, БЕЗ отката на дефолт:
- * настроенная и не сработавшая роль означает, что запись уйдёт не туда.
+ * Роль записи внутри прочитанного справочника: явный `--role` → ключ
+ * env-файла → дефолт. Нерезолвимое значение env — отказ с его именем в
+ * префиксе, БЕЗ отката на дефолт: настроенная и не сработавшая роль
+ * означает, что запись уйдёт не туда. Пустое значение ключа равносильно
+ * его отсутствию — уходит на дефолт, а не резолвится.
  */
-export async function chooseRoleId(
-  access: KaitenAccess,
+export function chooseRoleId(
+  roles: readonly KaitenRole[],
   ref: string | undefined,
-  io: AccessIo,
-): Promise<number> {
-  if (ref !== undefined) return await resolveRoleId(access, ref);
-  const configured = io.envFile.get(ROLE_ENV_KEY);
+  configured: string | undefined,
+): number {
+  if (ref !== undefined) return pickRoleId(roles, ref);
   if (configured === undefined || configured.trim() === "") {
     return DEFAULT_ROLE_ID;
   }
-  return await resolveRoleId(access, configured, `${ROLE_ENV_KEY}: `);
+  return pickRoleId(roles, configured, `${ROLE_ENV_KEY}: `);
 }
 
 /**
  * Названное пользователем значение роли в id. Числовое — id как есть;
- * нечисловое ищется в живом справочнике: точное совпадение названия без
- * учёта регистра, иначе подстрока. `prefix` ставится перед причиной, когда
+ * нечисловое ищется в справочнике: точное совпадение названия без учёта
+ * регистра, иначе подстрока. `prefix` ставится перед причиной, когда
  * значение пришло не из флага, а из настройки.
+ */
+export function pickRoleId(
+  roles: readonly KaitenRole[],
+  ref: string,
+  prefix = "",
+): number {
+  if (NUMERIC_REF.test(ref)) return Number(ref);
+  return pickRole(roles, ref, prefix).id;
+}
+
+/**
+ * Название роли для человекочитаемого вывода; роли нет в справочнике или
+ * название пусто — `null`, и печатается числовой id (`kiten-time.md`,
+ * «Роль в выводе — всегда название, а не id»).
+ */
+export function roleNameOf(
+  roles: readonly KaitenRole[],
+  id: number | null,
+): string | null {
+  if (id === null) return null;
+  const name = roles.find((role) => role.id === id)?.name;
+  return name === undefined || name === "" ? null : name;
+}
+
+/**
+ * То же, что `pickRoleId`, но справочник читается только когда он нужен:
+ * числовое значение берётся как id без сетевого запроса. Здесь и только
+ * здесь — фильтр `ls`, которому название роли не нужно вовсе.
  */
 export async function resolveRoleId(
   access: KaitenAccess,
@@ -62,10 +101,10 @@ export async function resolveRoleId(
   prefix = "",
 ): Promise<number> {
   if (NUMERIC_REF.test(ref)) return Number(ref);
-  return pickRole(await listUserRoles(access), ref, prefix).id;
+  return pickRoleId(await listUserRoles(access), ref, prefix);
 }
 
-/** Выбор роли из справочника; чист — сеть остаётся у вызывающего. */
+/** Выбор роли из справочника по названию. */
 function pickRole(
   roles: readonly KaitenRole[],
   ref: string,

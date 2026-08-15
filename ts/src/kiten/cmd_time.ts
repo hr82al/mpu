@@ -26,7 +26,9 @@ import {
   deleteCardTimeLog,
   getCurrentUser,
   type KaitenAccess,
+  type KaitenRole,
   listCardTimeLogs,
+  listUserRoles,
   parseCardRef,
   type TimeLog,
   type TimeLogPatch,
@@ -35,12 +37,19 @@ import {
 import { type AccessIo, asCommandError, kaitenAccess } from "./access.ts";
 import { mskDay } from "./msk.ts";
 import { parseCalendarDate, parseDuration } from "./time_input.ts";
-import { chooseRoleId, resolveRoleId, ROLE_ENV_KEY } from "./time_role.ts";
+import {
+  chooseRoleId,
+  pickRoleId,
+  resolveRoleId,
+  ROLE_ENV_KEY,
+  roleNameOf,
+} from "./time_role.ts";
 import {
   formatDuration,
   renderTimeLogJson,
   renderTimeLogTable,
   roleLabel,
+  type TimeLogView,
   timeLogView,
   timeLogViewSchema,
 } from "./time_view.ts";
@@ -219,14 +228,22 @@ async function runKitenTimeAdd(
   const access = kaitenAccess(io);
   if (forDate > today) io.progress(`внимание: дата ${forDate} в будущем`);
   try {
-    const roleId = await chooseRoleId(access, args.role, io);
+    // Справочник читается всегда, а не только ради резолва нечислового
+    // значения: ответ создания записи названия роли не несёт вовсе
+    // (`platform/kaiten-api-time.md`, «Инварианты»), а строка успеха
+    // печатает название.
+    const roles = await listUserRoles(access);
+    const roleId = chooseRoleId(roles, args.role, io.envFile.get(ROLE_ENV_KEY));
     const log = await createCardTimeLog(access, cardId, {
       forDate,
       timeSpent,
       roleId,
       comment: args.comment,
     });
-    return { log: timeLogView(log), cardUrl: cardUrl(access, cardId) };
+    return {
+      log: withRoleName(log, roles),
+      cardUrl: cardUrl(access, cardId),
+    };
   } catch (err) {
     throw asCommandError(err);
   }
@@ -258,16 +275,20 @@ async function runKitenTimeEdit(
   };
   const access = kaitenAccess(io);
   try {
+    // Справочник нужен только оси роли — и ради резолва названия, и ради
+    // печати: ответ правки записи название роли не несёт. Остальные оси
+    // берут значения из ответа сервера и запроса не стоят.
+    const roles = args.role === undefined ? [] : await listUserRoles(access);
     const roleId = args.role === undefined
       ? undefined
-      : await resolveRoleId(access, args.role);
+      : pickRoleId(roles, args.role);
     await requireOwnLog(access, cardId, id, args.force);
     const log = await updateCardTimeLog(access, cardId, id, {
       ...patch,
       roleId,
     });
     return {
-      log: timeLogView(log),
+      log: withRoleName(log, roles),
       changed,
       cardUrl: cardUrl(access, cardId),
     };
@@ -324,6 +345,21 @@ async function requireOwnLog(
     );
   }
   return log;
+}
+
+/**
+ * Запись в форме вывода с названием роли из справочника. Ответы создания
+ * и правки записи названия не несут вовсе — только `role_id`
+ * (`platform/kaiten-api-time.md`, «Инварианты»), поэтому его подставляют
+ * здесь; пустой справочник (ось роли не названа) оставляет `null`, и
+ * тогда роль в выводе не печатается вовсе.
+ */
+function withRoleName(
+  log: TimeLog,
+  roles: readonly KaitenRole[],
+): TimeLogView {
+  const view = timeLogView(log);
+  return { ...view, role: roleNameOf(roles, view.role_id) };
 }
 
 /** Дата флага, если он задан; иначе `undefined` — «ось не названа». */
