@@ -76,8 +76,9 @@ export async function parseWorkbook(bytes: Uint8Array): Promise<Workbook> {
 }
 
 /**
- * Разбирает книгу из распакованного словаря частей архива. Отдельная
- * точка входа для тестов граничных случаев — без сборки zip.
+ * Разбирает книгу из уже распакованных частей архива: ключ словаря —
+ * путь внутри zip, значение — байты этой части. Недостающая или
+ * непонятная часть — `WorkbookError`.
  */
 export function parseWorkbookParts(
   parts: ReadonlyMap<string, Uint8Array>,
