@@ -820,6 +820,758 @@
     }
   },
   {
+    "name": "kiten_time_add",
+    "title": "mpu kiten time add",
+    "description": "Создать запись учёта времени на карточке Kaiten.\n\nSELECTOR — id карточки либо её URL. DURATION — позиционный\nаргумент, флага --time у add нет.\n\nДлительность: 3h | 1h15m | 1:15 | 90 (голое число —\nминуты) | 2.5h; единицы h/m/ч/м, регистр и пробелы внутри не значимы,\nдробь округляется вверх до минуты, итог 1..1440 минут.\n\n--date — день записи YYYY-MM-DD; без флага сегодня по МСК, а не по зоне\nмашины. Дата в будущем не блокируется: в stderr уходит «внимание: дата\n<D> в будущем», запись создаётся.\n\n--comment/-m — комментарий; без флага запись без комментария.\n\nРоль: --role (id либо название) → ключ KITEN_TIME_ROLE\nenv-файла → 12058 («Техподдержка»). Числовое значение берётся как id,\nнечисловое резолвится справочником ролей.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (длительность,\nдата, роль, селектор, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten time add 10000001 1h30m -m 'фикс'",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "duration": {
+          "type": "string",
+          "description": "длительность: 3h | 1h15m | 1:15 | 90 (минуты) | 2.5h"
+        },
+        "date": {
+          "description": "день записи YYYY-MM-DD; без флага — сегодня по МСК",
+          "type": "string"
+        },
+        "role": {
+          "description": "роль: id либо название; нечисловое значение резолвится справочником",
+          "type": "string"
+        },
+        "comment": {
+          "default": "",
+          "description": "комментарий записи; пустой — записи без комментария",
+          "type": "string"
+        }
+      },
+      "required": [
+        "selector",
+        "duration"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "log": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "id записи"
+            },
+            "card_id": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "id карточки записи"
+            },
+            "for_date": {
+              "type": "string",
+              "description": "день записи YYYY-MM-DD"
+            },
+            "minutes": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "длительность в целых минутах"
+            },
+            "role_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "id роли записи"
+            },
+            "role": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "название роли из ответа внешней системы; названия нет — null"
+            },
+            "user_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "id владельца записи"
+            },
+            "user": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "отображаемое имя владельца записи"
+            },
+            "comment": {
+              "type": "string",
+              "description": "комментарий записи; пустая строка — его нет"
+            }
+          },
+          "required": [
+            "id",
+            "card_id",
+            "for_date",
+            "minutes",
+            "role_id",
+            "role",
+            "user_id",
+            "user",
+            "comment"
+          ],
+          "additionalProperties": false,
+          "description": "созданная запись, как её вернул сервер"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "log",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "kiten_time_edit",
+    "title": "mpu kiten time edit",
+    "description": "Изменить запись учёта времени на карточке Kaiten.\n\nSELECTOR — id карточки либо её URL. LOG_ID — id записи с этой же\nкарточки; записи с другой карточки команда не трогает.\n\nОбновление частичное: уходят только названные оси, остальные поля сервер\nне меняет. Нужна хотя бы одна ось, иначе ошибка ввода и запроса не будет.\n--comment '' очищает комментарий — это ось, а не её отсутствие.\n\nДлительность: 3h | 1h15m | 1:15 | 90 (голое число —\nминуты) | 2.5h; единицы h/m/ч/м, регистр и пробелы внутри не значимы,\nдробь округляется вверх до минуты, итог 1..1440 минут.\n\n--role — id либо название роли; нечисловое значение резолвится\nсправочником. Цепочки «env → умолчание» здесь нет: без флага ось роли не\nзадана, и роль записи остаётся прежней.\n\nЗапись другого пользователя не меняется без --force. Запись без владельца\nменяется без ограничений.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — записи нет на карточке, чужая запись без --force,\nошибка API Kaiten; 2 — ошибка ввода (пустое обновление, длительность,\nдата, роль, селектор, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten time edit 10000001 7000001 --time 2h -m 'разбор'",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "logId": {
+          "type": "string",
+          "description": "id записи учёта времени с этой карточки"
+        },
+        "time": {
+          "description": "новая длительность записи",
+          "type": "string"
+        },
+        "date": {
+          "description": "новый день записи YYYY-MM-DD",
+          "type": "string"
+        },
+        "role": {
+          "description": "роль: id либо название; нечисловое значение резолвится справочником",
+          "type": "string"
+        },
+        "comment": {
+          "description": "новый комментарий; пустая строка очищает прежний",
+          "type": "string"
+        },
+        "force": {
+          "default": false,
+          "description": "разрешить действие над записью другого пользователя",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector",
+        "logId"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "log": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "id записи"
+            },
+            "card_id": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "id карточки записи"
+            },
+            "for_date": {
+              "type": "string",
+              "description": "день записи YYYY-MM-DD"
+            },
+            "minutes": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "длительность в целых минутах"
+            },
+            "role_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "id роли записи"
+            },
+            "role": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "название роли из ответа внешней системы; названия нет — null"
+            },
+            "user_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "id владельца записи"
+            },
+            "user": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "отображаемое имя владельца записи"
+            },
+            "comment": {
+              "type": "string",
+              "description": "комментарий записи; пустая строка — его нет"
+            }
+          },
+          "required": [
+            "id",
+            "card_id",
+            "for_date",
+            "minutes",
+            "role_id",
+            "role",
+            "user_id",
+            "user",
+            "comment"
+          ],
+          "additionalProperties": false,
+          "description": "запись после обновления"
+        },
+        "changed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "time",
+              "date",
+              "role",
+              "comment"
+            ]
+          },
+          "description": "оси, заданные вызовом: только они уходили в тело обновления"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "log",
+        "changed",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "kiten_time_rm",
+    "title": "mpu kiten time rm",
+    "description": "Удалить запись учёта времени с карточки Kaiten.\n\nSELECTOR — id карточки либо её URL. LOG_ID — id записи с этой же\nкарточки.\n\nПечатает удалённую запись целиком — дату, длительность, роль и\nкомментарий: это страховка от опечатки в id, увидеть исчезнувшее после\nудаления уже негде.\n\nЗапись другого пользователя не удаляется без --force. Запись без\nвладельца удаляется без ограничений.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — записи нет на карточке, чужая запись без --force,\nошибка API Kaiten; 2 — ошибка ввода (селектор, LOG_ID, ненастроенный\nKITEN_API_KEY).\n\nПример: mpu kiten time rm 10000001 7000003",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "logId": {
+          "type": "string",
+          "description": "id записи учёта времени с этой карточки"
+        },
+        "force": {
+          "default": false,
+          "description": "разрешить действие над записью другого пользователя",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector",
+        "logId"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "log": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "id записи"
+            },
+            "card_id": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "id карточки записи"
+            },
+            "for_date": {
+              "type": "string",
+              "description": "день записи YYYY-MM-DD"
+            },
+            "minutes": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "длительность в целых минутах"
+            },
+            "role_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "id роли записи"
+            },
+            "role": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "название роли из ответа внешней системы; названия нет — null"
+            },
+            "user_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "id владельца записи"
+            },
+            "user": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "отображаемое имя владельца записи"
+            },
+            "comment": {
+              "type": "string",
+              "description": "комментарий записи; пустая строка — его нет"
+            }
+          },
+          "required": [
+            "id",
+            "card_id",
+            "for_date",
+            "minutes",
+            "role_id",
+            "role",
+            "user_id",
+            "user",
+            "comment"
+          ],
+          "additionalProperties": false,
+          "description": "удалённая запись, прочитанная до удаления"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "log",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "kiten_time_start",
+    "title": "mpu kiten time start",
+    "description": "Запустить личный таймер на карточке Kaiten.\n\nSELECTOR — id карточки либо её URL.\n\nРоль таймер не хранит — внешний API её у него не держит, и флага --role\nу start нет: роль выбирается при остановке, цепочкой --role → env →\nумолчание.\n\n--comment/-m — комментарий; он хранится на таймере и уходит в запись при\nstop, если у stop своего комментария нет.\n\nТаймер у пользователя один на всю компанию. Если он уже идёт — неважно,\nна этой карточке или на другой, — start отвечает ошибкой и называет\nкарточку и время начала. Флага --force нет: обходить нечего.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — таймер уже идёт, ошибка API Kaiten; 2 — ошибка\nввода (селектор, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten time start 10000001 -m 'разбор жалобы'",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "comment": {
+          "description": "комментарий; без флага у stop берётся комментарий самого таймера",
+          "type": "string"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "startedAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "метка старта из ответа сервера; сервер её не назвал — null"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "startedAt",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "kiten_time_stop",
+    "title": "mpu kiten time stop",
+    "description": "Остановить таймер карточки Kaiten, создав запись времени.\n\nSELECTOR — id карточки либо её URL.\n\nБез --time записывается натёкшее время. С --time N начало берётся от\nстарта таймера, усечённого до минуты, а финиш — начало + N; если такой\nфиниш попал бы в будущее, финиш становится «сейчас», а назад сдвигается\nначало, и об этом предупреждает stderr.\n\nДлительность: 3h | 1h15m | 1:15 | 90 (голое число — минуты) | 2.5h;\nединицы h/m/ч/м, дробь округляется вверх до минуты, итог 1..1440 минут.\n\nРоль: --role (id либо название) → ключ KITEN_TIME_ROLE env-файла → 12058\n(«Техподдержка»). Комментарий: свой -m, иначе комментарий таймера.\n\nПечатается запись, ПЕРЕЧИТАННАЯ с сервера, а не вычисленная командой.\nДень записи сервер берёт от финиша в UTC, поэтому в 00:00–03:00 МСК он\nможет разойтись с московским — тогда stderr печатает готовую команду\nправки.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — таймер не запущен, ошибка API Kaiten; 2 — ошибка\nввода (длительность, роль, селектор, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten time stop 10000001 --role Диагностика -m 'разбор'",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "time": {
+          "description": "длительность записи вместо натёкшей: 3h | 1h15m | 1:15 | 90 | 2.5h",
+          "type": "string"
+        },
+        "role": {
+          "description": "роль: id либо название; нечисловое значение резолвится справочником",
+          "type": "string"
+        },
+        "comment": {
+          "description": "комментарий; без флага у stop берётся комментарий самого таймера",
+          "type": "string"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "log": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "id записи"
+                },
+                "card_id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "id карточки записи"
+                },
+                "for_date": {
+                  "type": "string",
+                  "description": "день записи YYYY-MM-DD"
+                },
+                "minutes": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "длительность в целых минутах"
+                },
+                "role_id": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "id роли записи"
+                },
+                "role": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "название роли из ответа внешней системы; названия нет — null"
+                },
+                "user_id": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "id владельца записи"
+                },
+                "user": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "отображаемое имя владельца записи"
+                },
+                "comment": {
+                  "type": "string",
+                  "description": "комментарий записи; пустая строка — его нет"
+                }
+              },
+              "required": [
+                "id",
+                "card_id",
+                "for_date",
+                "minutes",
+                "role_id",
+                "role",
+                "user_id",
+                "user",
+                "comment"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "созданная запись, перечитанная из списка записей карточки; перечитать не удалось — null"
+        },
+        "logId": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "id созданной записи из ответа остановки; сервер его не назвал — null"
+        },
+        "factMinutes": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "сколько таймер шёл на самом деле"
+        },
+        "timeMinutes": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "длительность, названная --time; без флага — null"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "log",
+        "logId",
+        "factMinutes",
+        "timeMinutes",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "kiten_time_discard",
+    "title": "mpu kiten time discard",
+    "description": "Сбросить таймер карточки Kaiten без создания записи.\n\nSELECTOR — id карточки либо её URL.\n\nСбрасывает идущий таймер, не создавая записи учёта времени: натёкшее\nвремя пропадает. Нужна запись — останавливай через stop.\n\nИдемпотентно: таймера нет — «ok: таймера нет — нечего сбрасывать» и exit\n0. У stop наоборот, там тихий успех означал бы потерянную работу.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех и «нечего сбрасывать»; 1 — ошибка API Kaiten; 2 — ошибка\nввода (селектор, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten time discard 10000001",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "elapsedMinutes": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "сколько шёл сброшенный таймер; таймера не было — null"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "elapsedMinutes",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "search",
     "title": "mpu search",
     "description": "Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nНайти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nРежим выбирают флаги, не селектор.\n\n\b\nБЕЗ ФЛАГОВ — локальный кэш (сети нет): client_id · IPv4 sl_/pg_ · WB sid ·\nкусок spreadsheet_id · кусок title → JSON-массив строк {client_id,\nspreadsheet_id, title, server, server_number, sl_ip, pg_ip, sids}. Пусто →\nавто-`mpu update` и повтор (`--no-update` гасит). Проекция (`--server`,\n`--sids`, …) печатает голые значения — форма для подстановки в другие команды.\n\n\b\nС `--reason` / `--refresh-cache` / `--scope` — 10X: селектор → email цели →\nimpersonation-сессия (зайти в веб ОТ ЛИЦА клиента). Email идёт сюда и без\nфлагов. Пять входов, как у staff-поиска sw-back:\n\n\b\n  email (точный)                user     mpu search user@mail.ru\n  кусок email / имя             user     mpu search Иванов --scope user\n  user.id                       user     mpu search 1029 --scope user\n  client_id (== workspace id)   access   mpu search 2759 --reason <url>\n  sid кабинета (полный uuid)    access   mpu search <sid> --reason <url>\n\n`auto` (умолчание): целое и uuid → access, остальное → user. Число в разных\nскоупах — разные сущности (1029: user.id есть, workspace нет), для user.id\nнужен явный `--scope user`. Названием клиента/кабинета 10X НЕ ищет: название\n[справка усечена: отброшено 1059 байт]",

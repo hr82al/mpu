@@ -1088,6 +1088,263 @@
     }
   },
   {
+    "name": "kiten_time_ls",
+    "title": "mpu kiten time ls",
+    "description": "Показать записи учёта времени карточки Kaiten.\n\nSELECTOR — id карточки либо её URL.\n\nПо умолчанию показаны только записи владельца токена: внешняя система\nотдаёт записи всей компании, и фильтр делается на стороне команды —\nпоэтому без --all идёт второй запрос, за текущим пользователем. С --all\nзаписи всех пользователей и появляется колонка ПОЛЬЗОВАТЕЛЬ.\n\n--date-from/--date-to — границы даты записи YYYY-MM-DD, обе включительно.\n--role фильтрует по роли; без флага фильтра по роли нет (ни env, ни\nумолчание здесь не подставляются).\n\nТаблица: ID ДАТА ВРЕМЯ РОЛЬ [ПОЛЬЗОВАТЕЛЬ] КОММЕНТАРИЙ и строка «итого».\nШирина колонок подгоняется под содержимое и контрактом не является. Нет\nзаписей — «(пусто)». --json печатает {\"total_minutes\", \"logs\":[…]}, где у\nзаписи поле role — название роли либо null (в таблице на его месте\nчисловой id).\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор, даты,\nроль, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten time ls 10000001 --date-from 2026-08-01",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "all": {
+          "default": false,
+          "description": "записи всех пользователей, а не только владельца токена",
+          "type": "boolean"
+        },
+        "date-from": {
+          "description": "нижняя граница даты записи YYYY-MM-DD, включительно",
+          "type": "string"
+        },
+        "date-to": {
+          "description": "верхняя граница даты записи YYYY-MM-DD, включительно",
+          "type": "string"
+        },
+        "role": {
+          "description": "роль: id либо название; нечисловое значение резолвится справочником",
+          "type": "string"
+        },
+        "json": {
+          "default": false,
+          "description": "вывод объектом, а не таблицей",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "cardId": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "id карточки, чьи записи прочитаны"
+        },
+        "totalMinutes": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "сумма минут показанных записей"
+        },
+        "logs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "id записи"
+              },
+              "card_id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "id карточки записи"
+              },
+              "for_date": {
+                "type": "string",
+                "description": "день записи YYYY-MM-DD"
+              },
+              "minutes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "длительность в целых минутах"
+              },
+              "role_id": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "id роли записи"
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "название роли из ответа внешней системы; названия нет — null"
+              },
+              "user_id": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "id владельца записи"
+              },
+              "user": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "отображаемое имя владельца записи"
+              },
+              "comment": {
+                "type": "string",
+                "description": "комментарий записи; пустая строка — его нет"
+              }
+            },
+            "required": [
+              "id",
+              "card_id",
+              "for_date",
+              "minutes",
+              "role_id",
+              "role",
+              "user_id",
+              "user",
+              "comment"
+            ],
+            "additionalProperties": false
+          },
+          "description": "записи после фильтров, в порядке ответа внешней системы"
+        }
+      },
+      "required": [
+        "cardId",
+        "totalMinutes",
+        "logs"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_time_status",
+    "title": "mpu kiten time status",
+    "description": "Показать состояние личного таймера карточки Kaiten.\n\nSELECTOR — id карточки либо её URL.\n\nЧтение без мутаций: одно обращение к карточке. Печатает две строки —\nсостояние таймера («идёт <длительность> (с <ЧЧ:ММ МСК>)» и комментарий,\nесли он есть, либо «не запущен») и «всего по карточке». Итог считает\nзаписи учёта времени, идущий таймер в него не входит.\n\n--json печатает {\"card_id\", \"timer\", \"total_minutes\"}, где timer — либо\nnull, либо {id, started_at, elapsed_minutes, comment}.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор,\nненастроенный KITEN_API_KEY).\n\nПример: mpu kiten time status 10000001",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "json": {
+          "default": false,
+          "description": "вывод объектом, а не строками",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "cardId": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "id карточки, чей таймер прочитан"
+        },
+        "timer": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "id таймера"
+                },
+                "started_at": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "метка старта, как её отдал сервер"
+                },
+                "elapsed_minutes": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "сколько таймер идёт, в целых минутах вверх"
+                },
+                "comment": {
+                  "type": "string",
+                  "description": "комментарий таймера; пустая строка — его нет"
+                }
+              },
+              "required": [
+                "id",
+                "started_at",
+                "elapsed_minutes",
+                "comment"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "идущий таймер; не запущен — null"
+        },
+        "totalMinutes": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "сумма минут записей карточки; идущий таймер в неё не входит"
+        }
+      },
+      "required": [
+        "cardId",
+        "timer",
+        "totalMinutes"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "sheet_get",
     "title": "mpu sheet get",
     "description": "Read cell values from one or more A1-notation ranges.\n\nRead cell values from one or more A1-notation ranges.",
