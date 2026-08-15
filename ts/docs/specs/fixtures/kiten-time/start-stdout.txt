@@ -1,1 +1,1 @@
-ok: таймер запущен 19:50 МСК · Техподдержка · https://kaiten.example.test/10000001
+ok: таймер запущен 19:50 МСК · https://kaiten.example.test/10000001
