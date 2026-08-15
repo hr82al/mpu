@@ -6,6 +6,9 @@
 
 import type { CommandIo } from "../command/mod.ts";
 
+/** Срез порта исполнения: токену нужны только чтение и запись файла. */
+type TokenIo = Pick<CommandIo, "readAccessToken" | "writeAccessToken">;
+
 /** Байт случайности в токене: 256 бит, как у ключа сессии. */
 const TOKEN_BYTES = 32;
 
@@ -14,7 +17,7 @@ const TOKEN_BYTES = 32;
  * первой надобности, а не при установке: пока сервер не поднимали,
  * секрета на диске нет вовсе.
  */
-export async function ensureAccessToken(io: CommandIo): Promise<string> {
+export async function ensureAccessToken(io: TokenIo): Promise<string> {
   const existing = await io.readAccessToken();
   if (existing !== undefined && existing !== "") return existing;
   const created = generateToken();

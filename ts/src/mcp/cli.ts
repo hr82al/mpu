@@ -55,6 +55,14 @@ type Options =
   | { readonly usage: string };
 
 /**
+ * Срез порта для шагов запуска, которые его потребляют: порт из
+ * конфига и сверка версии подпроцессом (той же парой «ключ конфига и
+ * HOME», по которой путь к реализации ищет маршрут `legacy`). Сам сервер получает порт
+ * целиком — он раздаёт его произвольным командам.
+ */
+type StartupIo = Pick<CommandIo, "env" | "readConfigStore" | "runLegacy">;
+
+/**
  * Поднимает сервер и ждёт его остановки. Возвращает код завершения
  * процесса: 2 — ошибка ввода, 1 — порт занят.
  */
@@ -125,7 +133,7 @@ function withoutStdin(io: CommandIo): CommandIo {
  * подпроцесс на каждый вызов тула был бы дороже пользы.
  */
 async function warnOnVersionMismatch(
-  io: CommandIo,
+  io: StartupIo,
   output: ErrorSink,
 ): Promise<void> {
   const bin = await resolveLegacyBin(io);
@@ -204,7 +212,7 @@ function parsePort(value: string | undefined): number | undefined {
 }
 
 /** Порт из конфига; ключа нет или он не порт — умолчание спеки. */
-async function configuredPort(io: CommandIo): Promise<number> {
+async function configuredPort(io: StartupIo): Promise<number> {
   const store = parseStore(await io.readConfigStore());
   return parsePort(store.values[PORT_KEY]) ?? DEFAULT_PORT;
 }
