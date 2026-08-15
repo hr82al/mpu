@@ -2,8 +2,9 @@
  * Публичная поверхность команд семейства `mpu kiten` — тонких команд над
  * каталогами внешнего API Kaiten (`../kaiten/`). Перенесены: `mpu kiten
  * card` (`docs/specs/kiten-card.md`), `mpu kiten field`
- * (`docs/specs/kiten-field.md`) и `mpu kiten comment`
- * (`docs/specs/kiten-comment.md`).
+ * (`docs/specs/kiten-field.md`), `mpu kiten comment`
+ * (`docs/specs/kiten-comment.md`) и записи учёта времени `mpu kiten time`
+ * (`docs/specs/kiten-time.md`).
  *
  * Наружу отдаются объявления команд — их берёт реестр; аргументы,
  * результаты и шаги вызова остаются внутри своих файлов.
@@ -23,3 +24,10 @@ export {
 } from "./cmd_field.ts";
 
 export { kitenCommentCommand } from "./cmd_comment.ts";
+
+export {
+  kitenTimeAddCommand,
+  kitenTimeEditCommand,
+  kitenTimeLsCommand,
+  kitenTimeRmCommand,
+} from "./cmd_time.ts";

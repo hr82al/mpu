@@ -30,6 +30,10 @@ import {
   kitenCardCommand,
   kitenCommentCommand,
   kitenFieldSetCommand,
+  kitenTimeAddCommand,
+  kitenTimeEditCommand,
+  kitenTimeLsCommand,
+  kitenTimeRmCommand,
 } from "../kiten/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
@@ -87,6 +91,10 @@ export const commands: readonly Command[] = [
   kitenFieldSetCommand,
   kitenArtefactSetCommand,
   kitenArtefactRmCommand,
+  kitenTimeLsCommand,
+  kitenTimeAddCommand,
+  kitenTimeEditCommand,
+  kitenTimeRmCommand,
 ];
 
 /**
@@ -147,6 +155,11 @@ export const groups: readonly CommandGroup[] = [
     path: ["kiten", "field", "artefact"],
     summary: "файловое поле «9. AI-артефакт»: set | rm",
     usage: "mpu kiten field artefact <подкоманда> [аргументы]",
+  },
+  {
+    path: ["kiten", "time"],
+    summary: "записи учёта времени карточки: ls | add | edit | rm",
+    usage: "mpu kiten time <подкоманда> [аргументы]",
   },
   {
     path: ["mcp"],

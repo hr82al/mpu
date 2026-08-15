@@ -25,6 +25,19 @@ interface CommandCase {
   readonly sampleResult: unknown;
 }
 
+/** Запись учёта времени в форме вывода: общий образец трёх листьев `time`. */
+const SAMPLE_TIME_LOG = {
+  id: 7000001,
+  card_id: 10000001,
+  for_date: "2026-08-14",
+  minutes: 75,
+  role_id: 12058,
+  role: "Техподдержка",
+  user_id: 900001,
+  user: "Иван Тестов",
+  comment: "разбор жалобы",
+};
+
 const CASES: readonly CommandCase[] = [
   {
     path: "xlsx ls",
@@ -242,6 +255,40 @@ const CASES: readonly CommandCase[] = [
     sampleResult: {
       removed: ["razbor.md"],
       cardUrl: "https://kaiten.example.test/65634936",
+    },
+  },
+  {
+    path: "kiten time ls",
+    argv: ["10000001"],
+    sampleResult: {
+      cardId: 10000001,
+      totalMinutes: 75,
+      logs: [SAMPLE_TIME_LOG],
+    },
+  },
+  {
+    path: "kiten time add",
+    argv: ["10000001", "1h15m"],
+    sampleResult: {
+      log: SAMPLE_TIME_LOG,
+      cardUrl: "https://kaiten.example.test/10000001",
+    },
+  },
+  {
+    path: "kiten time edit",
+    argv: ["10000001", "7000001", "--time", "2h"],
+    sampleResult: {
+      log: SAMPLE_TIME_LOG,
+      changed: ["time"],
+      cardUrl: "https://kaiten.example.test/10000001",
+    },
+  },
+  {
+    path: "kiten time rm",
+    argv: ["10000001", "7000001"],
+    sampleResult: {
+      log: SAMPLE_TIME_LOG,
+      cardUrl: "https://kaiten.example.test/10000001",
     },
   },
 ];

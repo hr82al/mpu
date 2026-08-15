@@ -80,6 +80,32 @@ const SETS: readonly FixtureSet[] = [
       "err-file-not-found-message.txt",
     ],
   },
+  {
+    channel: "kiten-time",
+    copy: "kiten-time/",
+    // Голдены таймера (`status-*`, `start-*`, `discard-*`, `err-start-*`)
+    // не копируются: подкоманды таймера едут следующей порцией, а копия
+    // без теста — второй источник истины без стерегущей его проверки.
+    names: [
+      "ls-stdout.txt",
+      "ls-all-stdout.txt",
+      "ls-json-stdout.txt",
+      "ls-empty-stdout.txt",
+      "add-stdout.txt",
+      "edit-stdout.txt",
+      "edit-comment-cleared-stdout.txt",
+      "rm-stdout.txt",
+      "rm-with-comment-stdout.txt",
+      "err-log-not-on-card-stderr.txt",
+      "err-duration-zero-message.txt",
+      "err-duration-empty-message.txt",
+      "err-duration-tail-message.txt",
+      "err-duration-minutes-message.txt",
+      "err-edit-duration-zero-message.txt",
+      "err-edit-no-axis-message.txt",
+      "err-date-format-message.txt",
+    ],
+  },
 ];
 
 const channelRoot = new URL("../../docs/specs/fixtures/", import.meta.url);
