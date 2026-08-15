@@ -32,13 +32,16 @@ export interface LogsCache {
   readonly query: (sql: string, ...params: SqlParam[]) => readonly SqlRow[];
 }
 
+/** Срез порта исполнения: кэшу нужна только локальная БД. */
+type CacheIo = Pick<CommandIo, "openCacheDb">;
+
 /**
  * Кэш поверх локальной БД. Файл открывается лениво, первым же
  * запросом: путям, которым кэш не нужен (прямой хост, разбор
  * аргументов), незачем платить открытием, а `ls`-режимам — наоборот.
  * Закрывается через `using`/`Symbol.dispose` вызывающим.
  */
-export function openLogsCache(io: CommandIo): LogsCache & Disposable {
+export function openLogsCache(io: CacheIo): LogsCache & Disposable {
   let db: CacheDb | undefined;
   const open = () => (db ??= io.openCacheDb());
   const rows = (

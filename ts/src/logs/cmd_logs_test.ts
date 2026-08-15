@@ -795,7 +795,7 @@ function fakePortainer(names: readonly string[], streams = {
   const utf8 = new TextEncoder();
   return {
     asked,
-    listContainerNames: () => Promise.resolve(names),
+    listAllContainerNames: () => Promise.resolve(names),
     readContainerLogs: (
       access: PortainerAccess,
       endpointId: number,
@@ -833,7 +833,7 @@ Deno.test("legacy-снимок через Portainer", async (t) => {
         }),
         io,
         options({
-          listContainerNames: portainer.listContainerNames,
+          listAllContainerNames: portainer.listAllContainerNames,
           readContainerLogs: portainer.readContainerLogs,
           stream: printed.stream,
         }),
@@ -870,7 +870,7 @@ Deno.test("legacy-снимок через Portainer", async (t) => {
         args({ via: "portainer", selector: "sl-1", service: "api" }),
         io,
         options({
-          listContainerNames: portainer.listContainerNames,
+          listAllContainerNames: portainer.listAllContainerNames,
           readContainerLogs: portainer.readContainerLogs,
           stream: fakeStream().stream,
         }),
@@ -888,7 +888,7 @@ Deno.test("legacy-снимок через Portainer", async (t) => {
             args({ via: "portainer", selector: "sl-1", service: "нет" }),
             io,
             options({
-              listContainerNames: portainer.listContainerNames,
+              listAllContainerNames: portainer.listAllContainerNames,
               readContainerLogs: portainer.readContainerLogs,
             }),
           ),
@@ -911,7 +911,7 @@ Deno.test("legacy-снимок через Portainer", async (t) => {
             args({ via: "portainer", selector: "sl-1", service: "api" }),
             io,
             options({
-              listContainerNames: portainer.listContainerNames,
+              listAllContainerNames: portainer.listAllContainerNames,
               readContainerLogs: portainer.readContainerLogs,
             }),
           ),
@@ -934,7 +934,7 @@ Deno.test("legacy-снимок через Portainer", async (t) => {
             args({ via: "portainer", selector: "sl-1", service: "api" }),
             io,
             options({
-              listContainerNames: portainer.listContainerNames,
+              listAllContainerNames: portainer.listAllContainerNames,
               readContainerLogs: portainer.readContainerLogs,
             }),
           ),
@@ -956,7 +956,7 @@ Deno.test("legacy-снимок через Portainer", async (t) => {
             args({ via: "portainer", selector: "sl-1", service: "api" }),
             io,
             options({
-              listContainerNames: fakePortainer([]).listContainerNames,
+              listAllContainerNames: fakePortainer([]).listAllContainerNames,
             }),
           ),
         UsageError,
@@ -979,7 +979,7 @@ Deno.test("legacy-снимок через Portainer", async (t) => {
         args({ via: "portainer", selector: "sl-1", service: "api" }),
         io,
         options({
-          listContainerNames: portainer.listContainerNames,
+          listAllContainerNames: portainer.listAllContainerNames,
           readContainerLogs: portainer.readContainerLogs,
           stream: fakeStream().stream,
         }),
@@ -997,7 +997,7 @@ Deno.test("legacy-снимок через Portainer", async (t) => {
           runLogs(
             args({ via: "portainer", selector: "sl-1", service: "api" }),
             io,
-            options({ listContainerNames: portainer.listContainerNames }),
+            options({ listAllContainerNames: portainer.listAllContainerNames }),
           ),
         UsageError,
       );
@@ -1012,7 +1012,7 @@ Deno.test("legacy-снимок через Portainer", async (t) => {
             args({ via: "portainer", selector: "sl-1", service: "api" }),
             io,
             options({
-              listContainerNames: () =>
+              listAllContainerNames: () =>
                 Promise.reject(new PortainerError("HTTP 502")),
             }),
           ),

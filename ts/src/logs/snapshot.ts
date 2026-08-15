@@ -12,13 +12,13 @@ import { type EnvFile, UsageError } from "../command/mod.ts";
 import type { ContainerLogsQuery, PortainerAccess } from "../portainer/mod.ts";
 import type { LogsCache, PortainerTarget } from "./cache.ts";
 import { portainerFailure } from "./failure.ts";
-import type { ListContainerNames, ReadContainerLogs } from "./sources.ts";
+import type { ListAllContainerNames, ReadContainerLogs } from "./sources.ts";
 
 /** Чем снимок пользуется: кэш, env-слой и две границы Portainer. */
 export interface SnapshotDeps {
   readonly cache: LogsCache;
   readonly env: EnvFile;
-  readonly names: ListContainerNames;
+  readonly names: ListAllContainerNames;
   readonly logs: ReadContainerLogs;
 }
 

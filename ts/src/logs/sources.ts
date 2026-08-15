@@ -27,8 +27,13 @@ export type ReadLoki = (
   query: RangeQuery,
 ) => Promise<readonly LogEntry[]>;
 
-/** Имена контейнеров environment'а Portainer, без ведущего `/`. */
-export type ListContainerNames = (
+/**
+ * Все имена контейнеров окружения Portainer, без ведущего `/`. Имён у
+ * контейнера может быть несколько (алиасы docker-compose), поэтому
+ * список плоский и длиннее числа контейнеров — «имя на контейнер» порт
+ * не обещает.
+ */
+export type ListAllContainerNames = (
   access: PortainerAccess,
   endpointId: number,
 ) => Promise<readonly string[]>;
@@ -63,12 +68,11 @@ export const readLokiOverHttp: ReadLoki = (access, query) =>
   queryRange(access, query);
 
 /**
- * Реализация `ListContainerNames` поверх `listContainers`: в отличие от
- * типа порта, отдающего одно имя на контейнер, у Docker контейнер может
- * иметь несколько имён (алиасы docker-compose) — они разворачиваются в
- * плоский список, и у каждого снимается ведущий `/`.
+ * Реализация `ListAllContainerNames` поверх `listContainers`: имена
+ * контейнера (у Docker их может быть несколько — алиасы docker-compose)
+ * разворачиваются в плоский список, и у каждого снимается ведущий `/`.
  */
-export const listContainerNamesOverHttp: ListContainerNames = async (
+export const listAllContainerNamesOverHttp: ListAllContainerNames = async (
   access,
   endpointId,
 ) => {

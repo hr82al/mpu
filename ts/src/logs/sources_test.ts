@@ -9,7 +9,7 @@
 import { assertEquals } from "@std/assert";
 import type { PortainerAccess } from "../portainer/mod.ts";
 import {
-  listContainerNamesOverHttp,
+  listAllContainerNamesOverHttp,
   processStream,
   readContainerLogsOverHttp,
   readLokiOverHttp,
@@ -49,7 +49,7 @@ Deno.test("имена контейнеров: все Names, ведущий сл�
     new Response(body, { status: 200 })
   );
   try {
-    assertEquals(await listContainerNamesOverHttp(accessTo(baseUrl), 4), [
+    assertEquals(await listAllContainerNamesOverHttp(accessTo(baseUrl), 4), [
       "mp-api",
       "mp-api-alias",
       "mp-wb-loader",

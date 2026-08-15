@@ -29,8 +29,8 @@ import {
 import { byTimeAscending, formatEntries } from "./render.ts";
 import { readSnapshot } from "./snapshot.ts";
 import {
-  type ListContainerNames,
-  listContainerNamesOverHttp,
+  type ListAllContainerNames,
+  listAllContainerNamesOverHttp,
   type LogStream,
   processStream,
   type ReadContainerLogs,
@@ -118,7 +118,7 @@ export type LogsResult = z.infer<typeof resultSchema>;
  */
 export interface LogsOptions {
   readonly readLoki?: ReadLoki;
-  readonly listContainerNames?: ListContainerNames;
+  readonly listAllContainerNames?: ListAllContainerNames;
   readonly readContainerLogs?: ReadContainerLogs;
   readonly stream?: LogStream;
   readonly now?: () => number;
@@ -197,12 +197,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Срез порта исполнения, который потребляет команда: env-файл (адреса
+ * Loki и Portainer) и кэш-БД селектора.
+ */
+type LogsIo = Pick<CommandIo, "envFile" | "openCacheDb">;
+
+/**
  * Прогон команды. Вынесено из объявления ради подмены источников и
  * часов; команда зовёт эту функцию без подмен.
  */
 export async function runLogs(
   args: LogsArgs,
-  io: CommandIo,
+  io: LogsIo,
   options: LogsOptions = {},
 ): Promise<LogsResult> {
   using cache = openLogsCache(io);
@@ -282,7 +288,7 @@ function splitPositionals(
 /** Разовый запрос или слежение — оба через Loki. */
 async function runLoki(
   args: LogsArgs,
-  io: CommandIo,
+  io: LogsIo,
   cache: LogsCache,
   place: Place,
   options: LogsOptions,
@@ -365,7 +371,7 @@ function stopOf(given: AbortSignal | undefined): Stop {
 /** Legacy-путь: снимок логов одного контейнера через Portainer. */
 async function runSnapshot(
   args: LogsArgs,
-  io: CommandIo,
+  io: LogsIo,
   cache: LogsCache,
   place: Place,
   options: LogsOptions,
@@ -399,7 +405,7 @@ async function runSnapshot(
     {
       cache,
       env: io.envFile,
-      names: options.listContainerNames ?? listContainerNamesOverHttp,
+      names: options.listAllContainerNames ?? listAllContainerNamesOverHttp,
       logs: options.readContainerLogs ?? readContainerLogsOverHttp,
     },
     serverNumberOf(place.hostArg, cache, io),
@@ -447,7 +453,7 @@ function renderLogs(result: LogsResult, args: LogsArgs): string {
 function hostOf(
   hostArg: string | undefined,
   cache: LogsCache,
-  io: CommandIo,
+  io: LogsIo,
 ): string | undefined {
   if (hostArg === undefined) return undefined;
   if (DIRECT_HOST.test(hostArg)) return hostArg;
@@ -458,7 +464,7 @@ function hostOf(
 function serverNumberOf(
   selector: string,
   cache: LogsCache,
-  io: CommandIo,
+  io: LogsIo,
 ): number {
   return resolveSelector(
     { cache: { query: cache.query }, env: io.envFile },
@@ -491,7 +497,7 @@ function requireInteger(raw: string, flag: string): number {
  * Базовый URL Loki. Отсутствие ключа — ошибка конфигурации со своим
  * текстом: атом называет ключ, команда — ещё и место, где его задать.
  */
-function requireLoki(io: CommandIo): LokiAccess {
+function requireLoki(io: LogsIo): LokiAccess {
   try {
     return requireLokiAccess(io.envFile);
   } catch (err) {
