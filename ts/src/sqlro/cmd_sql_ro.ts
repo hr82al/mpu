@@ -35,6 +35,16 @@ import {
 } from "./target.ts";
 
 /**
+ * Срез порта исполнения, который потребляет команда: env-файл (адреса и
+ * секреты серверов), кэш-БД селектора, чтение SQL со stdin и служебная
+ * строка хода.
+ */
+type SqlRoIo = Pick<
+  CommandIo,
+  "envFile" | "openCacheDb" | "progress" | "readTextStdin" | "stdinIsTerminal"
+>;
+
+/**
  * Проверка того, что запрет записи действует на самом соединении, а не
  * предполагается по факту отправки опции (`platform/readonly-default.md`,
  * «Инварианты»). Цена — одно обращение на сессию, принята осознанно.
@@ -175,7 +185,7 @@ export interface SqlRoOptions {
  */
 export async function runSqlRo(
   args: SqlRoArgs,
-  io: CommandIo,
+  io: SqlRoIo,
   options: SqlRoOptions = {},
 ): Promise<SqlRoResult> {
   // Первым делом, до чтения SQL и до резолва (спека): иначе конфликт
@@ -229,7 +239,7 @@ interface Place {
 }
 
 /** Резолв селектора и адрес; кэш-БД открывается только если нужна. */
-function placeOf(route: SelectorRoute, args: SqlRoArgs, io: CommandIo): Place {
+function placeOf(route: SelectorRoute, args: SqlRoArgs, io: SqlRoIo): Place {
   if (route.kind === "dev") {
     return {
       server: "dev",
@@ -281,7 +291,7 @@ function schemaOf(clientId: number | null): string | null {
  * Текст SQL: аргумент, иначе stdin целиком. Приглашение печатается
  * только на терминале — в пайпе оно было бы мусором в stderr.
  */
-async function readSql(args: SqlRoArgs, io: CommandIo): Promise<string> {
+async function readSql(args: SqlRoArgs, io: SqlRoIo): Promise<string> {
   if (args.sql !== undefined && args.sql.trim() !== "") return args.sql;
   if (io.stdinIsTerminal()) io.progress(PROMPT);
   return await io.readTextStdin();
@@ -291,7 +301,7 @@ async function readSql(args: SqlRoArgs, io: CommandIo): Promise<string> {
  * Мета-блок в stderr. Команда не печатает сама (инвариант 1 контракта):
  * строки уходят портом хода исполнения, печатает их точка входа.
  */
-function printMeta(io: CommandIo, meta: MetaBlock): void {
+function printMeta(io: SqlRoIo, meta: MetaBlock): void {
   // Порт добавляет перевод строки к каждой строке — блок разбирается
   // обратно на строки, чтобы не удвоить последний.
   for (const line of metaText(meta).slice(0, -1).split("\n")) io.progress(line);
