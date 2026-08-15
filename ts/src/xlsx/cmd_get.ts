@@ -148,10 +148,13 @@ function unreachable(mode: never): never {
 
 type RenderChoice = z.infer<typeof argsSchema>["render"];
 
+/** Срез порта: чтение файлов со списком диапазонов, `-` — stdin. */
+type FromFileIo = Pick<CommandIo, "readTextFile" | "readTextStdin">;
+
 /** Диапазоны из файлов `--from`: построчно, `#` — комментарий. */
 async function fromFileTokens(
   files: readonly string[],
-  io: CommandIo,
+  io: FromFileIo,
 ): Promise<string[]> {
   const tokens: string[] = [];
   for (const file of files) {

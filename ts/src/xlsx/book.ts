@@ -10,9 +10,12 @@ import {
 } from "../command/mod.ts";
 import { parseWorkbook, type Workbook, WorkbookError } from "./workbook.ts";
 
+/** Срез порта исполнения: открытию книги нужно только чтение файла. */
+type BookIo = Pick<CommandIo, "readFile">;
+
 /** Читает и разбирает книгу; ошибки — `DomainError` с текстами спеки. */
 export async function loadWorkbook(
-  io: CommandIo,
+  io: BookIo,
   path: string,
 ): Promise<Workbook> {
   let bytes: Uint8Array;
