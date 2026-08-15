@@ -90,7 +90,9 @@ const EMPTY_CARD = {
 };
 
 function golden(name: string): Promise<string> {
-  return Deno.readTextFile(new URL(`testdata/${name}`, import.meta.url));
+  return Deno.readTextFile(
+    new URL(`testdata/kiten-card/${name}`, import.meta.url),
+  );
 }
 
 /** Адрес карточки в голденах: снят с обезличенного живого прогона. */

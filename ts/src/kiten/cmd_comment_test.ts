@@ -67,7 +67,10 @@ async function card(
 ): Promise<Response> {
   const raw = JSON.parse(
     await Deno.readTextFile(
-      new URL("testdata/raw-card-file-property.json", import.meta.url),
+      new URL(
+        "testdata/kiten-card/raw-card-file-property.json",
+        import.meta.url,
+      ),
     ),
   );
   patch(raw);
