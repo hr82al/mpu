@@ -7,7 +7,7 @@
  * только шумит.
  *
  * Таймауты в сценариях таймаута — маленькие числа через параметр
- * `fetchPortainerJson`, не реальные секунды: фейковый сервер держит
+ * `timeouts` у `listEndpoints`, не реальные секунды: фейковый сервер держит
  * ответ на промисе, который тест резолвит сам в `finally` (сон стеной
  * запрещён, CLAUDE.md).
  */
@@ -17,7 +17,6 @@ import { firstLine } from "../http/mod.ts";
 import {
   type ContainerLogsQuery,
   fetchContainerLogs,
-  fetchPortainerJson,
   listContainers,
   listEndpoints,
   type PortainerAccess,
@@ -149,7 +148,7 @@ Deno.test("молчащий сервер: таймаут заголовков н
     const start = performance.now();
     const err = await assertRejects(
       () =>
-        fetchPortainerJson(access, "/api/endpoints", {
+        listEndpoints(access, {
           headersTimeoutMs: 20,
           totalTimeoutMs: 500,
         }),
@@ -188,7 +187,7 @@ Deno.test("молчащий сервер: таймаут тела не доль�
     const start = performance.now();
     const err = await assertRejects(
       () =>
-        fetchPortainerJson(access, "/api/endpoints", {
+        listEndpoints(access, {
           headersTimeoutMs: 500,
           totalTimeoutMs: 30,
         }),
@@ -233,7 +232,7 @@ Deno.test("гонка таймеров: причина стабильна при
     for (let i = 0; i < 50; i++) {
       const err = await assertRejects(
         () =>
-          fetchPortainerJson(access, "/api/endpoints", {
+          listEndpoints(access, {
             headersTimeoutMs: 50,
             totalTimeoutMs: 51,
           }),

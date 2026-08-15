@@ -222,7 +222,7 @@ function concat(parts: readonly Uint8Array[]): Uint8Array {
  * в тестах запрещён). Тем же швом пользуется тест молчащего endpoint'а
  * на уровне команды — через `runInit`.
  */
-export async function fetchPortainerJson<T>(
+async function fetchPortainerJson<T>(
   access: PortainerAccess,
   path: string,
   timeouts: RequestTimeouts = DEFAULT_TIMEOUTS,

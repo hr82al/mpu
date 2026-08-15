@@ -91,7 +91,7 @@ export function resolveArea(
 }
 
 /** Номер колонки в буквы: 1 → A, 27 → AA. */
-export function colLetters(col: number): string {
+function colLetters(col: number): string {
   let out = "";
   let rest = col;
   while (rest > 0) {

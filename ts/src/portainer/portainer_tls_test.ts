@@ -8,12 +8,7 @@
  */
 
 import { assertEquals, assertRejects } from "@std/assert";
-import {
-  fetchPortainerJson,
-  listEndpoints,
-  type PortainerAccess,
-  PortainerError,
-} from "./mod.ts";
+import { listEndpoints, type PortainerAccess, PortainerError } from "./mod.ts";
 
 // Тестовый материал, НЕ секрет: самоподписанный сертификат и приватный
 // ключ только для "localhost", ни для чего другого не используются.
@@ -153,7 +148,7 @@ Deno.test("verifyTls: false — таймаут заголовков (серве�
   try {
     const err = await assertRejects(
       () =>
-        fetchPortainerJson(accessTo(baseUrl, false), "/api/endpoints", {
+        listEndpoints(accessTo(baseUrl, false), {
           headersTimeoutMs: 50,
           totalTimeoutMs: 500,
         }),
@@ -182,7 +177,7 @@ Deno.test("verifyTls: false — таймаут тела (заголовки пр
   try {
     const err = await assertRejects(
       () =>
-        fetchPortainerJson(accessTo(baseUrl, false), "/api/endpoints", {
+        listEndpoints(accessTo(baseUrl, false), {
           headersTimeoutMs: 500,
           totalTimeoutMs: 50,
         }),

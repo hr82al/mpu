@@ -2,7 +2,6 @@ import { assertEquals, assertThrows } from "@std/assert";
 import {
   type AreaRef,
   cellName,
-  colLetters,
   parseColLetters,
   parseRangeToken,
   prefixRangeToken,
@@ -175,7 +174,7 @@ Deno.test("resolveArea: нормализация и клэмп открытых 
   }
 });
 
-Deno.test("colLetters/parseColLetters: границы и обратимость", () => {
+Deno.test("cellName/parseColLetters: границы и обратимость", () => {
   const pairs: readonly (readonly [number, string])[] = [
     [1, "A"],
     [26, "Z"],
@@ -185,7 +184,7 @@ Deno.test("colLetters/parseColLetters: границы и обратимость"
     [16384, "XFD"],
   ];
   for (const [num, letters] of pairs) {
-    assertEquals(colLetters(num), letters);
+    assertEquals(cellName(num, 1), `${letters}1`);
     assertEquals(parseColLetters(letters), num);
   }
   assertEquals(parseColLetters("xfd"), 16384);

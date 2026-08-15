@@ -1,6 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
-  EMPTY_STORE,
   parseStore,
   serializeStore,
   StoreFormatError,
@@ -9,8 +8,9 @@ import {
 } from "./mod.ts";
 
 Deno.test("parseStore: отсутствующее хранилище равно пустому", () => {
-  assertEquals(parseStore(undefined), EMPTY_STORE);
-  assertEquals(parseStore("{}"), EMPTY_STORE);
+  const empty = { values: {}, aliases: {} };
+  assertEquals(parseStore(undefined), empty);
+  assertEquals(parseStore("{}"), empty);
 });
 
 Deno.test("parseStore/serializeStore: значения хранятся буквально", () => {

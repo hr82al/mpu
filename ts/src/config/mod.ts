@@ -14,7 +14,7 @@ export interface StoreData {
   readonly aliases: Readonly<Record<string, string>>;
 }
 
-export const EMPTY_STORE: StoreData = { values: {}, aliases: {} };
+const EMPTY_STORE: StoreData = { values: {}, aliases: {} };
 
 /** Хранилище нечитаемо; для CLI это инфраструктурная ошибка (exit 1). */
 export class StoreFormatError extends Error {

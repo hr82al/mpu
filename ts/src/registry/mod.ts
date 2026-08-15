@@ -119,13 +119,6 @@ export const surfaces: readonly SurfaceCommand[] = [
   },
 ];
 
-/**
- * Имена верхнего уровня, которых в Python-реализации не было: их нет и
- * не может быть в слепке. Список явный, чтобы новая собственная
- * команда не проскочила мимо проверки состава.
- */
-export const OWN_COMMANDS: readonly string[] = ["mcp"];
-
 /** Поверхность точки входа с ровно таким путём. */
 export function findSurface(
   path: readonly string[],

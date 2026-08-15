@@ -10,7 +10,7 @@
  */
 
 import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
-import { commands, legacyCommands, OWN_COMMANDS, surfaces } from "./mod.ts";
+import { commands, legacyCommands, surfaces } from "./mod.ts";
 import tree from "../../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };
@@ -20,6 +20,13 @@ import {
   NOT_LEGACY,
   TreeSourceError,
 } from "./tree_source.ts";
+
+/**
+ * Имена верхнего уровня, которых в Python-реализации не было: их нет и
+ * не может быть в слепке. Список явный, чтобы новая собственная
+ * команда не проскочила мимо проверки состава.
+ */
+const OWN_COMMANDS: readonly string[] = ["mcp"];
 
 /** Верхнее имя дерева: имя и его собственная однострока. */
 interface TopLevel {
@@ -59,9 +66,6 @@ Deno.test("верхний уровень реестра равен верхне�
 });
 
 Deno.test("сверх слепка в реестре только собственные поверхности", () => {
-  // Команды, которых в Python-версии не было и в слепке быть не может.
-  // Список явный: новая команда без правки этой строки уронит тест.
-  assertEquals([...OWN_COMMANDS], ["mcp"]);
   const known = new Set([
     ...topLevels().map((entry) => entry.name),
     ...OWN_COMMANDS,
