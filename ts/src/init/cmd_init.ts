@@ -277,6 +277,218 @@ interface EndpointFailure {
   readonly reason: string;
 }
 
+/** Итог разбора параллельного обхода endpoint'ов шага 2. */
+interface ContainerScan {
+  /** Найденные контейнеры всех endpoint'ов, обход которых не сорвался. */
+  readonly rows: readonly ContainerRow[];
+  /** Endpoint'ы, обход которых завершился отказом (таймаут в т.ч.). */
+  readonly failures: readonly EndpointFailure[];
+  /**
+   * Id найденных контейнеров по endpoint'у — только для endpoint'ов,
+   * чей обход успешно завершился (см. `scanContainers`).
+   */
+  readonly containerIdsByEndpoint: ReadonlyMap<number, ReadonlySet<string>>;
+}
+
+/**
+ * Запрашивает список endpoints Portainer и переводит сетевой отказ в
+ * `DomainError` с префиксом `portainer:` (`init.md`, шаг 2).
+ */
+async function fetchEndpoints(
+  access: PortainerAccess,
+  timeouts: RequestTimeouts,
+): Promise<readonly PortainerEndpoint[]> {
+  try {
+    return await listEndpoints(access, timeouts);
+  } catch (err) {
+    throw new DomainError(`portainer: ${reasonOf(err)}`, { cause: err });
+  }
+}
+
+/**
+ * Разбирает исходы `Promise.allSettled` обхода endpoint'ов в единый
+ * снимок: строки кэша, отказавшие endpoint'ы и карту id контейнеров по
+ * endpoint'у. Endpoint'ы, обход которых успешно завершился, — ключ карты
+ * и есть узкая форма прежней осторожности: реконсиляция кэша ниже
+ * трогает только эти endpoint'ы, сорвавшийся обход в карту не попадает
+ * (`init.md`, шаг 2).
+ */
+function scanContainers(
+  outcomes: readonly PromiseSettledResult<
+    Awaited<ReturnType<typeof listContainers>>
+  >[],
+  upEndpoints: readonly PortainerEndpoint[],
+  portainerUrl: string,
+  discoveredAt: number,
+): ContainerScan {
+  const failures: EndpointFailure[] = [];
+  const rows: ContainerRow[] = [];
+  const containerIdsByEndpoint = new Map<number, ReadonlySet<string>>();
+  outcomes.forEach((outcome, index) => {
+    const endpoint = upEndpoints[index];
+    const found = scanEndpoint(outcome, endpoint, portainerUrl, discoveredAt);
+    if (!found.ok) {
+      failures.push(found.failure);
+      return;
+    }
+    rows.push(...found.rows);
+    containerIdsByEndpoint.set(endpoint.id, found.containerIds);
+  });
+  return { rows, failures, containerIdsByEndpoint };
+}
+
+/** Итог обхода одного endpoint'а: отказ либо найденные строки и id контейнеров. */
+type EndpointScan =
+  | { readonly ok: false; readonly failure: EndpointFailure }
+  | {
+    readonly ok: true;
+    readonly rows: readonly ContainerRow[];
+    readonly containerIds: ReadonlySet<string>;
+  };
+
+/**
+ * Классифицирует находки одного endpoint'а в строки кэша. Вынесено из
+ * `scanContainers` не ради имени: со вложенным разбором та выходит за
+ * предел длины, а сам разбор — единственное место, где отказ обхода и
+ * его находки различаются, поэтому у него свой union.
+ */
+function scanEndpoint(
+  outcome: PromiseSettledResult<Awaited<ReturnType<typeof listContainers>>>,
+  endpoint: PortainerEndpoint,
+  portainerUrl: string,
+  discoveredAt: number,
+): EndpointScan {
+  if (outcome.status === "rejected") {
+    return {
+      ok: false,
+      failure: {
+        id: endpoint.id,
+        name: endpoint.name,
+        reason: reasonOf(outcome.reason),
+      },
+    };
+  }
+  const containerIds = new Set<string>();
+  const rows: ContainerRow[] = [];
+  for (const container of outcome.value) {
+    const classified = classifyContainer(container.names);
+    rows.push({
+      portainerUrl,
+      endpointId: endpoint.id,
+      endpointName: endpoint.name,
+      containerId: container.id,
+      containerName: classified.containerName,
+      serverNumber: classified.serverNumber,
+      state: container.state,
+      image: container.image,
+      discoveredAt,
+    });
+    containerIds.add(container.id);
+  }
+  return { ok: true, rows, containerIds };
+}
+
+/**
+ * Печатает заметки о недошедших до кэша endpoint'ах — пропущенных
+ * down-endpoint'ах и сорвавшихся обходах, объединённые в один блок и
+ * отсортированные по возрастанию id. Порядок вывода детерминирован
+ * независимо от того, какой endpoint ответил первым (конкурентность
+ * ненаблюдаема — инвариант спеки).
+ */
+function printEndpointNotes(
+  downEndpoints: readonly PortainerEndpoint[],
+  failures: readonly EndpointFailure[],
+  progress: (line: string) => void,
+): void {
+  const endpointNotes = [
+    ...downEndpoints.map((e) => ({
+      id: e.id,
+      line: `mpu init: endpoint ${e.id} (${e.name}): down — пропущен`,
+    })),
+    ...failures.map((f) => ({
+      id: f.id,
+      line: `mpu init: endpoint ${f.id} (${f.name}): ${f.reason}`,
+    })),
+  ].sort((a, b) => a.id - b.id);
+  for (const note of endpointNotes) progress(note.line);
+}
+
+/** Параметры записи находок шага 2 в кэш-БД одной транзакцией. */
+interface WriteContainerCacheParams {
+  readonly db: CacheDb;
+  readonly portainerUrl: string;
+  /** `--reset`: перед записью удалить весь прежний кэш контейнеров. */
+  readonly reset: boolean;
+  readonly rows: readonly ContainerRow[];
+  readonly downEndpointIds: readonly number[];
+  readonly listedEndpointIds: readonly number[];
+  readonly containerIdsByEndpoint: ReadonlyMap<number, ReadonlySet<string>>;
+}
+
+/**
+ * Пишет находки шага 2 в кэш-БД одной транзакцией (DELETE при `--reset`,
+ * реконсиляция, upsert — сбой строки посреди записи откатывает всё
+ * разом) и печатает итоговые строки строго после успешного коммита:
+ * анонсировать удаление, которое ещё могло откатиться вместе с упавшим
+ * upsert'ом, нельзя (`init.md`, шаг 2).
+ */
+function writeContainerCache(
+  params: WriteContainerCacheParams,
+  progress: (line: string) => void,
+): { reset: { deleted: number } | null; write: InitResult["write"] } {
+  const outcome = runContainerTransaction(params);
+  const write = { written: params.rows.length, cacheDbPath: params.db.path };
+  if (outcome.reset !== null) {
+    progress(`# --reset: удалено ${outcome.reset.deleted} старых записей`);
+  }
+  if (outcome.reconciled > 0) {
+    progress(`# удалено устаревших записей: ${outcome.reconciled}`);
+  }
+  progress(`# записано ${write.written} контейнеров в ${write.cacheDbPath}`);
+  return { reset: outcome.reset, write };
+}
+
+/**
+ * DELETE (`--reset`), реконсиляция и upsert находок шага 2 — одна
+ * транзакция: сбой строки посреди записи откатывает всё разом, а не
+ * фиксирует часть удалений отдельно от упавшего upsert'а.
+ */
+function runContainerTransaction(
+  params: WriteContainerCacheParams,
+): { reset: { deleted: number } | null; reconciled: number } {
+  let reset: { deleted: number } | null = null;
+  let reconciled = 0;
+  params.db.transaction(() => {
+    if (params.reset) {
+      reset = {
+        deleted: params.db.execute("DELETE FROM portainer_containers"),
+      };
+    }
+    reconciled = reconcileContainerCache(
+      params.db,
+      params.portainerUrl,
+      params.downEndpointIds,
+      params.listedEndpointIds,
+      params.containerIdsByEndpoint,
+    );
+    for (const row of params.rows) {
+      params.db.execute(
+        UPSERT_CONTAINER_SQL,
+        row.portainerUrl,
+        row.endpointId,
+        row.endpointName,
+        row.containerId,
+        row.containerName,
+        row.serverNumber,
+        row.state,
+        row.image,
+        row.discoveredAt,
+      );
+    }
+  });
+  return { reset, reconciled };
+}
+
 export const initCommand = defineCommand({
   path: ["init"],
   summary: "первичная инициализация локальной кэш-БД: пять шагов",
@@ -345,165 +557,102 @@ export async function runInit(
   io.progress(`# bootstrap: схема в ${db.path} готова`);
 
   const access = requirePortainerAccess(args, io.envFile);
-
-  let endpoints: readonly PortainerEndpoint[];
-  try {
-    endpoints = await listEndpoints(access, limits.timeouts);
-  } catch (err) {
-    throw new DomainError(`portainer: ${reasonOf(err)}`, { cause: err });
-  }
-
-  // Down-endpoint (`Status` ≠ 1) не опрашивается вовсе (`init.md`, шаг 2):
-  // его таймаут не тратится, а строка пропуска не ждёт сети.
-  const upEndpoints = endpoints.filter((e) => e.status === 1);
-  const downEndpoints = endpoints.filter((e) => e.status !== 1);
+  const endpoints = await fetchEndpoints(access, limits.timeouts);
 
   // Прогревы не запускаются при `--dry-run` и не запускаются раньше,
   // чем список endpoints получен: сбой этого списка обрывает команду, а
   // спека требует, чтобы шаги 3–5 при таком обрыве не выполнялись.
   const warm = !args["dry-run"];
   const discoveredAt = Math.floor(Date.now() / 1000);
-  const [outcomes, loki, kaiten] = await Promise.all([
-    Promise.allSettled(
-      upEndpoints.map((endpoint) =>
-        listContainers(access, endpoint.id, limits.timeouts)
-      ),
-    ),
-    warm ? collectLoki(io, limits) : Promise.resolve(null),
-    warm ? collectKaiten(io, limits) : Promise.resolve(null),
-  ]);
-
-  const failures: EndpointFailure[] = [];
-  const rows: ContainerRow[] = [];
-  // Endpoint'ы, обход которых успешно завершился, — ключ и есть узкая
-  // форма прежней осторожности: реконсиляция ниже трогает только эти
-  // endpoint'ы, сорвавшийся обход в карту не попадает (`init.md`, шаг 2).
-  const containerIdsByEndpoint = new Map<number, Set<string>>();
-  outcomes.forEach((outcome, index) => {
-    const endpoint = upEndpoints[index];
-    if (outcome.status === "rejected") {
-      failures.push({
-        id: endpoint.id,
-        name: endpoint.name,
-        reason: reasonOf(outcome.reason),
-      });
-      return;
-    }
-    const containerIds = new Set<string>();
-    for (const container of outcome.value) {
-      const classified = classifyContainer(container.names);
-      rows.push({
-        portainerUrl: access.baseUrl,
-        endpointId: endpoint.id,
-        endpointName: endpoint.name,
-        containerId: container.id,
-        containerName: classified.containerName,
-        serverNumber: classified.serverNumber,
-        state: container.state,
-        image: container.image,
-        discoveredAt,
-      });
-      containerIds.add(container.id);
-    }
-    containerIdsByEndpoint.set(endpoint.id, containerIds);
-  });
-
-  // Порядок вывода детерминирован независимо от того, какой endpoint
-  // ответил первым (конкурентность ненаблюдаема — инвариант спеки):
-  // строки пропуска down-endpoint'ов и строки ошибок обхода объединяются
-  // в один блок, отсортированный по возрастанию id.
-  const endpointNotes = [
-    ...downEndpoints.map((e) => ({
-      id: e.id,
-      line: `mpu init: endpoint ${e.id} (${e.name}): down — пропущен`,
-    })),
-    ...failures.map((f) => ({
-      id: f.id,
-      line: `mpu init: endpoint ${f.id} (${f.name}): ${f.reason}`,
-    })),
-  ].sort((a, b) => a.id - b.id);
-  for (const note of endpointNotes) io.progress(note.line);
-
-  if (rows.length === 0) {
+  const scan = await discoverContainers(
+    access,
+    endpoints,
+    limits,
+    warm,
+    discoveredAt,
+    io,
+  );
+  if (scan.rows.length === 0) {
     throw new DomainError("ни одного контейнера не найдено");
   }
 
+  const outcome = persistContainers(
+    db,
+    args,
+    access.baseUrl,
+    endpoints,
+    scan,
+    io.progress,
+  );
+  const warmups = await applyWarmupSteps(db, io, scan, discoveredAt, warm);
+  return buildInitResult(access.baseUrl, scan.rows, outcome, warmups);
+}
+
+/** Итоги прогревов — шаги 3, 4 и 5 (`init.md`), каждый в своём поле. */
+interface WarmupResults {
+  readonly loki: InitResult["loki"];
+  readonly kaiten: InitResult["kaiten"];
+  readonly telegram: InitResult["telegram"];
+}
+
+/**
+ * Записывает собранное шагами 3–4 и выполняет шаг 5. Блоки 3, 4 и 5 —
+ * строго в этом порядке и строго после блока 2: запись и печать идут
+ * здесь, последовательно, а не там, где шаги собирали данные. Вызовы
+ * вынесены из литерала результата намеренно — у каждого есть побочный
+ * эффект, и порядок эффектов должен читаться из кода, а не из порядка
+ * полей объекта.
+ */
+async function applyWarmupSteps(
+  db: CacheDb,
+  io: CommandIo,
+  scan: DiscoveryOutcome,
+  discoveredAt: number,
+  warm: boolean,
+): Promise<WarmupResults> {
+  const loki = applyLoki(db, io, scan.loki, discoveredAt);
+  const kaiten = applyKaiten(db, io, scan.kaiten, discoveredAt);
+  const telegram = warm ? await applyTelegram(io) : null;
+  return { loki, kaiten, telegram };
+}
+
+/**
+ * Пишет находки шага 2 в кэш-БД, если это не `--dry-run` (`init.md`,
+ * шаг 2); при `--dry-run` кэш не тронут вовсе, и функция возвращает
+ * пустой итог без обращения к `db`.
+ */
+function persistContainers(
+  db: CacheDb,
+  args: InitArgs,
+  portainerUrl: string,
+  endpoints: readonly PortainerEndpoint[],
+  scan: DiscoveryOutcome,
+  progress: (line: string) => void,
+): { reset: { deleted: number } | null; write: InitResult["write"] } {
+  if (args["dry-run"]) return { reset: null, write: null };
+  return writeContainerCache({
+    db,
+    portainerUrl,
+    reset: args.reset,
+    rows: scan.rows,
+    downEndpointIds: scan.downEndpoints.map((e) => e.id),
+    listedEndpointIds: endpoints.map((e) => e.id),
+    containerIdsByEndpoint: scan.containerIdsByEndpoint,
+  }, progress);
+}
+
+/** Собирает итоговый `InitResult` из результатов всех пяти шагов. */
+function buildInitResult(
+  portainerUrl: string,
+  rows: readonly ContainerRow[],
+  outcome: { reset: InitResult["reset"]; write: InitResult["write"] },
+  warmups: WarmupResults,
+): InitResult {
   const slRows = rows.filter(hasServerNumber).sort((a, b) =>
     a.serverNumber - b.serverNumber
   );
-
-  // Итог DELETE/upsert собирается в мутируемое свойство объекта, а не в
-  // отдельные захваченные `let`-переменные: `transaction` не типизирована
-  // для результата тела (`command/mod.ts`), значение возвращается через
-  // замыкание. Именно свойство объекта, а не `let`: после присваивания
-  // внутри замыкания TS всё ещё сужает `let`-переменную к её типу на
-  // момент объявления (`null`) и не видит написанного в неё изнутри —
-  // чтение `outcome.reset.deleted` ниже не проходило бы проверку типов.
-  const outcome: {
-    reset: { deleted: number } | null;
-    reconciled: number;
-    write: { written: number; cacheDbPath: string } | null;
-  } = { reset: null, reconciled: 0, write: null };
-  if (!args["dry-run"]) {
-    // DELETE (--reset), реконсиляция и upsert — одна транзакция: сбой
-    // строки посреди записи откатывает всё разом, а не фиксирует часть
-    // удалений отдельно от упавшего upsert'а.
-    db.transaction(() => {
-      if (args.reset) {
-        outcome.reset = {
-          deleted: db.execute("DELETE FROM portainer_containers"),
-        };
-      }
-      outcome.reconciled = reconcileContainerCache(
-        db,
-        access.baseUrl,
-        downEndpoints.map((e) => e.id),
-        endpoints.map((e) => e.id),
-        containerIdsByEndpoint,
-      );
-      for (const row of rows) {
-        db.execute(
-          UPSERT_CONTAINER_SQL,
-          row.portainerUrl,
-          row.endpointId,
-          row.endpointName,
-          row.containerId,
-          row.containerName,
-          row.serverNumber,
-          row.state,
-          row.image,
-          row.discoveredAt,
-        );
-      }
-    });
-    outcome.write = { written: rows.length, cacheDbPath: db.path };
-    // Строки печатаются строго после успешного коммита (init.md, шаг 2):
-    // анонсировать удаление, которое ещё могло откатиться вместе с
-    // упавшим upsert'ом, нельзя.
-    if (outcome.reset !== null) {
-      io.progress(
-        `# --reset: удалено ${outcome.reset.deleted} старых записей`,
-      );
-    }
-    if (outcome.reconciled > 0) {
-      io.progress(`# удалено устаревших записей: ${outcome.reconciled}`);
-    }
-    io.progress(
-      `# записано ${outcome.write.written} контейнеров в ${outcome.write.cacheDbPath}`,
-    );
-  }
-
-  // Блоки 3, 4 и 5 — строго в этом порядке и строго после блока 2:
-  // запись и печать идут здесь, последовательно, а не там, где шаги
-  // собирали данные. Вызовы вынесены из литерала результата намеренно —
-  // у каждого есть побочный эффект, и порядок эффектов должен читаться
-  // из кода, а не из порядка полей объекта.
-  const lokiResult = applyLoki(db, io, loki, discoveredAt);
-  const kaitenResult = applyKaiten(db, io, kaiten, discoveredAt);
-  const telegramResult = warm ? await applyTelegram(io) : null;
-
   return {
-    portainerUrl: access.baseUrl,
+    portainerUrl,
     containers: slRows.map((row) => ({
       serverNumber: row.serverNumber,
       containerName: row.containerName,
@@ -514,10 +663,64 @@ export async function runInit(
     otherCount: rows.length - slRows.length,
     reset: outcome.reset,
     write: outcome.write,
-    loki: lokiResult,
-    kaiten: kaitenResult,
-    telegram: telegramResult,
+    loki: warmups.loki,
+    kaiten: warmups.kaiten,
+    telegram: warmups.telegram,
   };
+}
+
+/** Итог конкурентного обхода endpoint'ов и best-effort прогревов шагов 3–4. */
+interface DiscoveryOutcome {
+  /** Найденные контейнеры всех endpoint'ов, обход которых не сорвался. */
+  readonly rows: readonly ContainerRow[];
+  /** Endpoint'ы со `status` ≠ 1 — не опрошены вовсе (см. `discoverContainers`). */
+  readonly downEndpoints: readonly PortainerEndpoint[];
+  readonly containerIdsByEndpoint: ReadonlyMap<number, ReadonlySet<string>>;
+  /** Итог шага 3; `null` — прогрев не запускался (`--dry-run`). */
+  readonly loki: LokiStep | null;
+  /** Итог шага 4; `null` — прогрев не запускался (`--dry-run`). */
+  readonly kaiten: KaitenStep | null;
+}
+
+/**
+ * Шаг 2 целиком (обход + разбор) конкурентно с best-effort прогревами
+ * шагов 3–4 (`init.md`): один `Promise.all` на все три источника сети.
+ * Down-endpoint (`Status` ≠ 1) не опрашивается вовсе — его таймаут не
+ * тратится, а строка пропуска не ждёт сети. Заметки о недошедших до
+ * кэша endpoint'ах печатаются здесь же, до записи: конкурентная фаза
+ * ничего больше не печатает, поэтому порядок вывода не зависит от того,
+ * кто из трёх источников ответил первым.
+ */
+async function discoverContainers(
+  access: PortainerAccess,
+  endpoints: readonly PortainerEndpoint[],
+  limits: InitLimits,
+  warm: boolean,
+  discoveredAt: number,
+  io: CommandIo,
+): Promise<DiscoveryOutcome> {
+  const upEndpoints = endpoints.filter((e) => e.status === 1);
+  const downEndpoints = endpoints.filter((e) => e.status !== 1);
+
+  const [outcomes, loki, kaiten] = await Promise.all([
+    Promise.allSettled(
+      upEndpoints.map((endpoint) =>
+        listContainers(access, endpoint.id, limits.timeouts)
+      ),
+    ),
+    warm ? collectLoki(io, limits) : Promise.resolve(null),
+    warm ? collectKaiten(io, limits) : Promise.resolve(null),
+  ]);
+
+  const { rows, failures, containerIdsByEndpoint } = scanContainers(
+    outcomes,
+    upEndpoints,
+    access.baseUrl,
+    discoveredAt,
+  );
+  printEndpointNotes(downEndpoints, failures, io.progress);
+
+  return { rows, downEndpoints, containerIdsByEndpoint, loki, kaiten };
 }
 
 /** Собранное шагом 3 либо причина, по которой собрать не вышло. */
