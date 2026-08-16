@@ -1,0 +1,20 @@
+[
+  {
+    "id": 100000001,
+    "title": "Иван Петров",
+    "kind": "user",
+    "username": "ipetrov"
+  },
+  {
+    "id": 100000002,
+    "title": "Бот сборок",
+    "kind": "bot",
+    "username": "build_bot"
+  },
+  {
+    "id": -1000000000003,
+    "title": "Канал релизов",
+    "kind": "channel",
+    "username": null
+  }
+]
