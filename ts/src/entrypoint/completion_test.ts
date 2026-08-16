@@ -209,6 +209,7 @@ Deno.test("режим дополнения печатает варианты, а
       "comment",
       "field",
       "time",
+      "checklist",
     ]);
   });
 

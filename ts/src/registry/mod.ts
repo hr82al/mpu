@@ -28,6 +28,10 @@ import {
   kitenArtefactRmCommand,
   kitenArtefactSetCommand,
   kitenCardCommand,
+  kitenChecklistAddCommand,
+  kitenChecklistCheckCommand,
+  kitenChecklistLsCommand,
+  kitenChecklistUncheckCommand,
   kitenCommentCommand,
   kitenFieldSetCommand,
   kitenTimeAddCommand,
@@ -103,6 +107,10 @@ export const commands: readonly Command[] = [
   kitenTimeStatusCommand,
   kitenTimeStopCommand,
   kitenTimeDiscardCommand,
+  kitenChecklistLsCommand,
+  kitenChecklistAddCommand,
+  kitenChecklistCheckCommand,
+  kitenChecklistUncheckCommand,
 ];
 
 /**
@@ -168,6 +176,11 @@ export const groups: readonly CommandGroup[] = [
     path: ["kiten", "time"],
     summary: "записи учёта времени карточки: ls | add | edit | rm",
     usage: "mpu kiten time <подкоманда> [аргументы]",
+  },
+  {
+    path: ["kiten", "checklist"],
+    summary: "чек-листы карточки: ls | add | check | uncheck",
+    usage: "mpu kiten checklist <подкоманда> [аргументы]",
   },
   {
     path: ["mcp"],

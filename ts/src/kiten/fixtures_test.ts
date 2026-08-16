@@ -112,6 +112,23 @@ const SETS: readonly FixtureSet[] = [
       "discard-stdout.txt",
     ],
   },
+  {
+    channel: "kiten-checklist",
+    copy: "kiten-checklist/",
+    names: [
+      "ls-stdout.txt",
+      "ls-json-stdout.txt",
+      "ls-empty-stdout.txt",
+      "add-created-stdout.txt",
+      "add-existing-stdout.txt",
+      "add-name-only-stdout.txt",
+      "check-stdout.txt",
+      "check-by-id-stdout.txt",
+      "uncheck-stdout.txt",
+      "err-ambiguous-stderr.txt",
+      "err-item-not-found-stderr.txt",
+    ],
+  },
 ];
 
 const channelRoot = new URL("../../docs/specs/fixtures/", import.meta.url);

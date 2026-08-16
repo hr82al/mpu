@@ -332,6 +332,46 @@ const CASES: readonly CommandCase[] = [
       cardUrl: "https://kaiten.example.test/10000001",
     },
   },
+  {
+    path: "kiten checklist ls",
+    argv: ["10000001"],
+    sampleResult: {
+      checklists: [{
+        id: 11960707,
+        name: "Проверки",
+        items: [{ id: 66835645, checked: false, text: "Тест написан" }],
+      }],
+    },
+  },
+  {
+    path: "kiten checklist add",
+    argv: ["10000001", "-n", "Проверки", "-i", "Тест написан"],
+    sampleResult: {
+      name: "Проверки",
+      checklistId: 11960707,
+      created: true,
+      added: 1,
+      cardUrl: "https://kaiten.example.test/10000001",
+    },
+  },
+  {
+    path: "kiten checklist check",
+    argv: ["10000001", "Тест"],
+    sampleResult: {
+      checked: true,
+      text: "Тест написан",
+      cardUrl: "https://kaiten.example.test/10000001",
+    },
+  },
+  {
+    path: "kiten checklist uncheck",
+    argv: ["10000001", "66835645"],
+    sampleResult: {
+      checked: false,
+      text: "Тест написан",
+      cardUrl: "https://kaiten.example.test/10000001",
+    },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {
