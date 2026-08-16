@@ -8,8 +8,11 @@
 
 import { assertEquals, assertThrows } from "@std/assert";
 import { UsageError } from "../command/mod.ts";
-import type { Column } from "../kaiten/mod.ts";
+import type { Column, KaitenAccess } from "../kaiten/mod.ts";
+import { startFakeKaiten } from "../kaiten/testing.ts";
 import {
+  applyMove,
+  type MovePlan,
   orderedColumns,
   positionLabel,
   relogNeighbour,
@@ -17,6 +20,7 @@ import {
 } from "./card_move.ts";
 
 const BOARD_ID = 4000001;
+const CARD_ID = 68757875;
 
 function column(id: number, title: string, sortOrder: number | null): Column {
   return { id, boardId: BOARD_ID, title, sortOrder };
@@ -139,5 +143,107 @@ Deno.test("positionLabel: непустые части через раздели�
       positionLabel({ boardTitle: null, columnTitle: null, laneTitle: null }),
       "—",
     );
+  });
+});
+
+/**
+ * Ответ PATCH беднее ответа GET: перемещённую карточку Kaiten отдаёт без
+ * названий доски, колонки и дорожки — только оси id (`kiten-move.md`,
+ * «Ввод/вывод»). Фикстура повторяет эту бедность: фейк богаче сервера
+ * проверял бы сам себя и пропустил бы положение «после», взятое из
+ * ответа мутации.
+ */
+function rawPatched(): Record<string, unknown> {
+  return {
+    id: CARD_ID,
+    title: "Карточка стенда",
+    board_id: BOARD_ID,
+    column_id: 5000001,
+    lane_id: 6000001,
+  };
+}
+
+/** Та же карточка свежим чтением: у GET названия есть. */
+function rawCardAfter(): Record<string, unknown> {
+  return {
+    id: CARD_ID,
+    title: "Карточка стенда",
+    board: { id: BOARD_ID, title: "Проекты" },
+    column: { id: 5000001, title: "Готово" },
+    lane: { title: "Разработка" },
+  };
+}
+
+function access(baseUrl: string): KaitenAccess {
+  return { baseUrl, apiKey: "test-token" };
+}
+
+/** План переноса в «Готово» с уже снятым положением «до». */
+function planTo(relog: boolean): MovePlan {
+  return {
+    columnId: 5000001,
+    columnTitle: "Готово",
+    relog,
+    from: "Проекты · Бэклог · Разработка",
+  };
+}
+
+Deno.test("applyMove: положение «после» — по свежему GET", async (t) => {
+  await t.step("перемещение: PATCH, затем чтение карточки", async () => {
+    const fake = startFakeKaiten((seen) =>
+      Response.json(
+        seen[seen.length - 1].method === "PATCH"
+          ? rawPatched()
+          : rawCardAfter(),
+      )
+    );
+    try {
+      const outcome = await applyMove(
+        access(fake.baseUrl),
+        CARD_ID,
+        planTo(false),
+        COLUMNS,
+      );
+      assertEquals(outcome.to, "Проекты · Готово · Разработка");
+      // Поля строки журнала берутся отсюда же — прочерк в `to_column`
+      // и пустые доска с дорожкой ловятся этой же проверкой.
+      assertEquals(outcome.card.columnTitle, "Готово");
+      assertEquals(outcome.card.boardTitle, "Проекты");
+      assertEquals(outcome.card.laneTitle, "Разработка");
+      assertEquals(
+        fake.seen.map((req) => `${req.method} ${req.pathname}`),
+        [
+          `PATCH /api/latest/cards/${CARD_ID}`,
+          `GET /api/latest/cards/${CARD_ID}`,
+        ],
+      );
+    } finally {
+      await fake.stop();
+    }
+  });
+
+  await t.step("релог: два PATCH и одно чтение — в конце", async () => {
+    const fake = startFakeKaiten((seen) =>
+      Response.json(
+        seen[seen.length - 1].method === "PATCH"
+          ? rawPatched()
+          : rawCardAfter(),
+      )
+    );
+    try {
+      const outcome = await applyMove(
+        access(fake.baseUrl),
+        CARD_ID,
+        planTo(true),
+        COLUMNS,
+      );
+      assertEquals(outcome.to, "Проекты · Готово · Разработка");
+      assertEquals(
+        fake.seen.map((req) => req.method),
+        ["PATCH", "PATCH", "GET"],
+      );
+    } finally {
+      await fake.stop();
+    }
   });
 });

@@ -15,6 +15,7 @@ import { UsageError } from "../command/mod.ts";
 import {
   type Card,
   type Column,
+  getCard,
   type KaitenAccess,
   moveCard,
 } from "../kaiten/mod.ts";
@@ -123,7 +124,8 @@ export async function applyMove(
       columnId: relogNeighbour(columns, plan.columnId).id,
     });
   }
-  const after = await moveCard(access, cardId, { columnId: plan.columnId });
+  await moveCard(access, cardId, { columnId: plan.columnId });
+  const after = await getCard(access, cardId);
   return {
     from: plan.from,
     to: positionLabel(after),

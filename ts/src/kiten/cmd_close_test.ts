@@ -174,6 +174,43 @@ function cardStand(
   }, env);
 }
 
+/**
+ * Ответ Kaiten на PATCH перемещения: оси — только id, названий доски,
+ * колонки и дорожки нет (`kiten-move.md`, «Ввод/вывод»). Фикстура
+ * повторяет эту бедность: ответь стенд полной карточкой — и положение
+ * «после», взятое из ответа мутации, прошло бы проверку.
+ */
+function rawPatchedCard(columnId: number): Record<string, unknown> {
+  return {
+    id: CARD_ID,
+    title: "Карточка стенда",
+    board_id: BOARD_ID,
+    column_id: columnId,
+    lane_id: 6000001,
+  };
+}
+
+/**
+ * Стенд переноса: до первого PATCH карточка читается как `before`,
+ * после — как `after`, а сам PATCH отвечает по-серверному бедно.
+ */
+function movingStand(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  columnId: number,
+  env: Record<string, string> = {},
+): Stand {
+  let moved = false;
+  return stand({
+    [`GET ${CARD_PATH}`]: () => Response.json(moved ? after : before),
+    [`GET ${COLUMNS_PATH}`]: () => Response.json(COLUMNS),
+    [`PATCH ${CARD_PATH}`]: () => {
+      moved = true;
+      return Response.json(rawPatchedCard(columnId));
+    },
+  }, env);
+}
+
 /** Текст вывода так, как его напечатает точка входа. */
 async function output(
   argv: readonly string[],
@@ -629,9 +666,7 @@ Deno.test("close: ответ клиенту — комментарий без в
 Deno.test("close: перенос — PATCH, свежее чтение и строка журнала", async (t) => {
   await t.step("обычное перемещение: один PATCH и ok-строка", async () => {
     const after = rawCard({ column: { id: READY_COLUMN_ID, title: "Готово" } });
-    const st = cardStand(rawCard(), {
-      [`PATCH ${CARD_PATH}`]: () => Response.json(after),
-    });
+    const st = movingStand(rawCard(), after, READY_COLUMN_ID);
     try {
       assertEquals(
         await output([SELECTOR], st.io),
@@ -642,6 +677,7 @@ Deno.test("close: перенос — PATCH, свежее чтение и стр�
         `GET ${CARD_PATH}`,
         `GET ${COLUMNS_PATH}`,
         `PATCH ${CARD_PATH}`,
+        `GET ${CARD_PATH}`,
       ]);
       assertEquals(bodies(st.seen), [{ column_id: READY_COLUMN_ID }]);
       const rows = moveRows(st);
@@ -664,9 +700,7 @@ Deno.test("close: перенос — PATCH, свежее чтение и стр�
       const card = rawCard({
         column: { id: READY_COLUMN_ID, title: "Готово" },
       });
-      const st = cardStand(card, {
-        [`PATCH ${CARD_PATH}`]: () => Response.json(card),
-      });
+      const st = movingStand(card, card, READY_COLUMN_ID);
       try {
         assertStringIncludes(
           await output([SELECTOR], st.io),
@@ -687,9 +721,7 @@ Deno.test("close: перенос — PATCH, свежее чтение и стр�
     const card = rawCard({
       column: { id: CURRENT_COLUMN_ID, title: "Бэклог" },
     });
-    const st = cardStand(card, {
-      [`PATCH ${CARD_PATH}`]: () => Response.json(card),
-    });
+    const st = movingStand(card, card, CURRENT_COLUMN_ID);
     try {
       await output([SELECTOR, "--column", "Бэклог"], st.io);
       assertEquals(bodies(st.seen), [
@@ -724,9 +756,9 @@ Deno.test("close: перенос — PATCH, свежее чтение и стр�
 
   await t.step("колонка из env-файла", async () => {
     const after = rawCard({ column: { id: 5000003, title: "В работе" } });
-    const st = cardStand(rawCard(), {
-      [`PATCH ${CARD_PATH}`]: () => Response.json(after),
-    }, { KITEN_READY_COLUMN: "В работе" });
+    const st = movingStand(rawCard(), after, 5000003, {
+      KITEN_READY_COLUMN: "В работе",
+    });
     try {
       await output([SELECTOR], st.io);
       assertEquals(bodies(st.seen), [{ column_id: 5000003 }]);
@@ -878,9 +910,7 @@ Deno.test("close: ошибки ввода — до первой мутации",
 
   await t.step("числовая колонка своей доски — резолв без поиска", async () => {
     const after = rawCard({ column: { id: 5000003, title: "В работе" } });
-    const st = cardStand(rawCard(), {
-      [`PATCH ${CARD_PATH}`]: () => Response.json(after),
-    });
+    const st = movingStand(rawCard(), after, 5000003);
     try {
       await output([SELECTOR, "--column", "5000003"], st.io);
       assertEquals(bodies(st.seen), [{ column_id: 5000003 }]);
