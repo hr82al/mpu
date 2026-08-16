@@ -511,6 +511,34 @@ Deno.test("вызов 6: запуск таймера", async (t) => {
     }
   });
 
+  // Признак конфликта один на оба пути: тело без `id` считается
+  // конфликтом, только когда несёт СТРОКОВЫЙ `message`. На 400 обе
+  // половины признака закрыты ниже, здесь — те же две на 2xx.
+  const NOT_CONFLICT_2XX: readonly {
+    readonly title: string;
+    readonly body: Record<string, unknown>;
+  }[] = [
+    { title: "без message", body: { detail: "ни таймер, ни конфликт" } },
+    { title: "с нестроковым message", body: { message: 42 } },
+  ];
+
+  for (const { title, body } of NOT_CONFLICT_2XX) {
+    await t.step(`2xx ${title} — разбор формы, а не конфликт`, async () => {
+      const { baseUrl, stop } = startFakeKaiten(() =>
+        Response.json(body, { status: 200 })
+      );
+      try {
+        await assertRejects(
+          () => startUserTimer(accessTo(baseUrl), { cardId: 65634936 }),
+          KaitenError,
+          "kaiten POST /user-timers: ответ не таймер",
+        );
+      } finally {
+        await stop();
+      }
+    });
+  }
+
   await t.step("конфликт: статус 400 и тело без id", async () => {
     const { baseUrl, stop } = startFakeKaiten(() =>
       Response.json({ message: "User timer already created" }, { status: 400 })

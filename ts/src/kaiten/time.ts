@@ -265,9 +265,12 @@ export async function listUserTimeLogs(
 /**
  * 6. Запустить личный таймер на карточке. Запрос ровно один: конфликт
  * узнаётся из ответа, а не предугадывается чтением до него. Форму
- * успеха различает НАЛИЧИЕ `id` в теле, а не статус; в отказе конфликтом
- * считается только **400** с объектом-телом без `id`, но со строковым
- * `message` — прочие отказы уходят вызывающему нетронутыми.
+ * успеха различает НАЛИЧИЕ `id` в теле, а не статус. Конфликт узнаётся
+ * одним признаком на обоих путях: объект-тело без `id`, но со строковым
+ * `message`; в отказе к нему добавляется статус **400**, и прочие отказы
+ * уходят вызывающему нетронутыми. На пути 2xx тело без `id` и без такого
+ * `message` — ошибка разбора формы ответа, а не молчаливый конфликт с
+ * пустым текстом.
  */
 export async function startUserTimer(
   access: KaitenAccess,
@@ -277,13 +280,14 @@ export async function startUserTimer(
   const body: Record<string, unknown> = { card_id: start.cardId };
   if (start.comment !== undefined) body.comment = start.comment;
 
+  const request: KaitenRequest = {
+    method: "POST",
+    path: "/user-timers",
+    body,
+  };
   let raw: unknown;
   try {
-    raw = await kaitenCall(access, {
-      method: "POST",
-      path: "/user-timers",
-      body,
-    }, options);
+    raw = await kaitenCall(access, request, options);
   } catch (err) {
     const conflict = conflictInFailure(err);
     // Отказ не той формы — не наше дело: он уходит вызывающему как есть.
@@ -291,10 +295,11 @@ export async function startUserTimer(
     return conflict;
   }
 
-  const timer = parseTimer(raw);
-  return timer === null
-    ? { kind: "conflict", message: conflictMessage(raw) }
-    : { kind: "started", timer };
+  const conflict = conflictInBody(raw);
+  if (conflict !== null) return conflict;
+  // Осталась одна форма — таймер; тело не она, и об этом говорится тем
+  // же текстом, что у остановки.
+  return { kind: "started", timer: requireTimer(request, raw) };
 }
 
 /**
@@ -446,7 +451,10 @@ function requireTimeLog(request: KaitenRequest, raw: unknown): TimeLog {
   return log;
 }
 
-/** Ответ на остановку обязан быть таймером (у запуска есть вторая форма). */
+/**
+ * Ответ обязан быть таймером; вторая форма запуска отсеяна
+ * `conflictInBody` до этого вызова.
+ */
 function requireTimer(request: KaitenRequest, raw: unknown): Timer {
   const timer = parseTimer(raw);
   if (timer === null) {
@@ -457,15 +465,21 @@ function requireTimer(request: KaitenRequest, raw: unknown): Timer {
   return timer;
 }
 
-/** Текст конфликтной формы запуска — как прислал сервер, без своего. */
-function conflictMessage(raw: unknown): string {
-  return isRecord(raw) ? stringOr(raw.message, "") : "";
+/**
+ * Конфликтная форма запуска в разобранном теле; `null` — тело не она.
+ * Признак один на оба пути ответа: объект БЕЗ `id`, но со строковым
+ * `message` (`kaiten-api-time.md`, вызов 6). Текст — как прислал
+ * сервер, своего у каталога нет.
+ */
+function conflictInBody(raw: unknown): TimerStartOutcome | null {
+  if (!isRecord(raw) || raw.id !== undefined) return null;
+  const message = stringOrNull(raw.message);
+  return message === null ? null : { kind: "conflict", message };
 }
 
 /**
  * Конфликт таймера в отказе; `null` — отказ не конфликтный и
- * принадлежит вызывающему. Признак — статус **400** плюс объект-тело
- * БЕЗ `id`, но со своим `message` (`kaiten-api-time.md`, вызов 6).
+ * принадлежит вызывающему. К форме тела добавляется статус **400**.
  * Любой не-2xx как признак был бы неверен сам по себе: тем же телом
  * может ответить упавший сервер, и конфликт таймера — не то, что надо
  * сказать про 503.
@@ -485,9 +499,7 @@ function conflictInFailure(err: unknown): TimerStartOutcome | null {
     // отказа нет, он уходит вызывающему нетронутым.
     return null;
   }
-  if (!isRecord(parsed) || parsed.id !== undefined) return null;
-  const message = stringOrNull(parsed.message);
-  return message === null ? null : { kind: "conflict", message };
+  return conflictInBody(parsed);
 }
 
 /** Название вложенного объекта-справочника (`role`): значимо только `name`. */
