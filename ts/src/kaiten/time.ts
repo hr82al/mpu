@@ -265,8 +265,9 @@ export async function listUserTimeLogs(
 /**
  * 6. Запустить личный таймер на карточке. Запрос ровно один: конфликт
  * узнаётся из ответа, а не предугадывается чтением до него. Форму
- * различает НАЛИЧИЕ `id` в теле, а не HTTP-статус — и в успешном ответе,
- * и в теле отказа не-2xx.
+ * успеха различает НАЛИЧИЕ `id` в теле, а не статус; в отказе конфликтом
+ * считается только **400** с объектом-телом без `id`, но со строковым
+ * `message` — прочие отказы уходят вызывающему нетронутыми.
  */
 export async function startUserTimer(
   access: KaitenAccess,
@@ -462,14 +463,20 @@ function conflictMessage(raw: unknown): string {
 }
 
 /**
- * Конфликт таймера в отказе не-2xx; `null` — отказ не конфликтный и
- * принадлежит вызывающему. Признак — тот же, что у формы успеха:
- * объект-тело БЕЗ `id`, но со своим `message`. Требование `message`
- * отделяет конфликт от прочих отказов эндпоинта, у которых тела либо
- * нет, либо оно не JSON.
+ * Конфликт таймера в отказе; `null` — отказ не конфликтный и
+ * принадлежит вызывающему. Признак — статус **400** плюс объект-тело
+ * БЕЗ `id`, но со своим `message` (`kaiten-api-time.md`, вызов 6).
+ * Любой не-2xx как признак был бы неверен сам по себе: тем же телом
+ * может ответить упавший сервер, и конфликт таймера — не то, что надо
+ * сказать про 503.
  */
 function conflictInFailure(err: unknown): TimerStartOutcome | null {
-  if (!(err instanceof KaitenError) || err.body === undefined) return null;
+  if (
+    !(err instanceof KaitenError) || err.status !== 400 ||
+    err.body === undefined
+  ) {
+    return null;
+  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(err.body);

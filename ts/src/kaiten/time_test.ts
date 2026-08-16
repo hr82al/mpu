@@ -510,6 +510,71 @@ Deno.test("вызов 6: запуск таймера", async (t) => {
       await stop();
     }
   });
+
+  await t.step("конфликт: статус 400 и тело без id", async () => {
+    const { baseUrl, stop } = startFakeKaiten(() =>
+      Response.json({ message: "User timer already created" }, { status: 400 })
+    );
+    try {
+      const outcome = await startUserTimer(accessTo(baseUrl), {
+        cardId: 65634936,
+      });
+
+      assertEquals(outcome, {
+        kind: "conflict",
+        message: "User timer already created",
+      });
+    } finally {
+      await stop();
+    }
+  });
+
+  // Признак конфликта в отказе — конъюнкция трёх условий; каждый случай
+  // ниже ломает ровно одно, и отказ обязан уйти вызывающему как есть.
+  const NOT_CONFLICT: readonly {
+    readonly title: string;
+    readonly response: () => Response;
+  }[] = [
+    {
+      title: "та же форма тела, но не 400",
+      response: () =>
+        Response.json({ message: "User timer already created" }, {
+          status: 503,
+        }),
+    },
+    {
+      title: "400 с id в теле",
+      response: () =>
+        Response.json({ id: 555, message: "что-то не так" }, { status: 400 }),
+    },
+    {
+      title: "400 с телом не JSON",
+      response: () =>
+        new Response("User timer already created", { status: 400 }),
+    },
+    {
+      title: "400 без message",
+      response: () => Response.json({ error: "bad request" }, { status: 400 }),
+    },
+    {
+      title: "400 с нестроковым message",
+      response: () => Response.json({ message: 42 }, { status: 400 }),
+    },
+  ];
+
+  for (const testCase of NOT_CONFLICT) {
+    await t.step(`${testCase.title} — отказ, а не конфликт`, async () => {
+      const { baseUrl, stop } = startFakeKaiten(testCase.response);
+      try {
+        await assertRejects(
+          () => startUserTimer(accessTo(baseUrl), { cardId: 65634936 }),
+          KaitenError,
+        );
+      } finally {
+        await stop();
+      }
+    });
+  }
 });
 
 Deno.test("вызов 7: остановка таймера", async (t) => {
