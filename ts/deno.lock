@@ -1,18 +1,127 @@
 {
   "version": "5",
   "specifiers": {
+    "jsr:@fuman/deno@0.0.21": "0.0.21",
+    "jsr:@fuman/io@^0.0.21": "0.0.21",
+    "jsr:@fuman/net@0.0.21": "0.0.21",
+    "jsr:@fuman/net@^0.0.21": "0.0.21",
+    "jsr:@fuman/utils@^0.0.21": "0.0.21",
     "jsr:@hono/hono@4.12.33": "4.12.33",
+    "jsr:@mtcute/convert@0.31.0": "0.31.0",
+    "jsr:@mtcute/core@0.31": "0.31.0",
+    "jsr:@mtcute/deno@0.31.0": "0.31.0",
+    "jsr:@mtcute/file-id@0.31": "0.31.0",
+    "jsr:@mtcute/html-parser@0.31": "0.31.0",
+    "jsr:@mtcute/markdown-parser@0.31": "0.31.0",
+    "jsr:@mtcute/markdown-parser@0.31.0": "0.31.0",
+    "jsr:@mtcute/tl-runtime@0.31": "0.31.0",
+    "jsr:@mtcute/wasm@0.31": "0.31.0",
     "jsr:@std/assert@^1.0.6": "1.0.19",
     "jsr:@std/async@^1.5.0": "1.5.0",
     "jsr:@std/data-structures@^1.1.2": "1.1.2",
     "jsr:@std/internal@^1.0.12": "1.0.14",
+    "jsr:@std/io@0.223.0": "0.223.0",
     "jsr:@std/testing@^1.0.20": "1.0.20",
     "jsr:@zod/zod@4.4.3": "4.4.3",
+    "npm:@fuman/io@0.0.21": "0.0.21",
+    "npm:@fuman/net@0.0.21": "0.0.21",
+    "npm:@fuman/utils@0.0.21": "0.0.21",
+    "npm:htmlparser2@10": "10.1.0",
+    "npm:long@^5.3.2": "5.3.2",
     "npm:pg@8.22.0": "8.22.0"
   },
   "jsr": {
+    "@fuman/deno@0.0.21": {
+      "integrity": "bd2d303010d94c0c3d40f1934c78b55c2488e19dcbf6094e7b749c2e9d7d586f",
+      "dependencies": [
+        "jsr:@fuman/io@^0.0.21",
+        "jsr:@fuman/net@^0.0.21",
+        "jsr:@fuman/utils@^0.0.21"
+      ]
+    },
+    "@fuman/io@0.0.21": {
+      "integrity": "9c61a19576ce295d70945781362c005db507ba6981d21c2a08d4f0be0fece1eb",
+      "dependencies": [
+        "jsr:@fuman/utils@^0.0.21"
+      ]
+    },
+    "@fuman/net@0.0.21": {
+      "integrity": "f7d0b51f95b7968b820fc10608093b6b91a5b79c12b30c5a6f77bd62c2ab7022",
+      "dependencies": [
+        "jsr:@fuman/io@^0.0.21",
+        "jsr:@fuman/utils@^0.0.21"
+      ]
+    },
+    "@fuman/utils@0.0.21": {
+      "integrity": "03c9a21c28d984f57a79b16007b952dd3f82c33bc169ddb141445aca7a43aa70"
+    },
     "@hono/hono@4.12.33": {
       "integrity": "0df9fd54840e64fd3c10455aed240ed1dbc8b2773b6d9b825e3a681378d1ba77"
+    },
+    "@mtcute/convert@0.31.0": {
+      "integrity": "f27826fb386f90a91c79329a69685c0a5dc7b1404d6ea538b66357c66c6be13a",
+      "dependencies": [
+        "jsr:@mtcute/core",
+        "npm:@fuman/io@0.0.21",
+        "npm:@fuman/net@0.0.21",
+        "npm:@fuman/utils@0.0.21"
+      ]
+    },
+    "@mtcute/core@0.31.0": {
+      "integrity": "cbe38b856720bb282fee7513fd273e824db7fe19a91b99f1036069c5cf68668f",
+      "dependencies": [
+        "jsr:@mtcute/file-id",
+        "jsr:@mtcute/tl-runtime",
+        "npm:@fuman/io@0.0.21",
+        "npm:@fuman/net@0.0.21",
+        "npm:@fuman/utils@0.0.21",
+        "npm:long"
+      ]
+    },
+    "@mtcute/deno@0.31.0": {
+      "integrity": "4760cacd28b5631788a920218436cf55c41ee3500e8b5df3b0a5320454e8c013",
+      "dependencies": [
+        "jsr:@fuman/deno",
+        "jsr:@fuman/net@0.0.21",
+        "jsr:@mtcute/core",
+        "jsr:@mtcute/html-parser",
+        "jsr:@mtcute/markdown-parser@0.31",
+        "jsr:@mtcute/wasm",
+        "jsr:@std/io"
+      ]
+    },
+    "@mtcute/file-id@0.31.0": {
+      "integrity": "bbbacf02074f30adc725d7c908219388f8ae2c86c6f0c2d6b711496032d92cac",
+      "dependencies": [
+        "jsr:@mtcute/tl-runtime",
+        "npm:@fuman/utils@0.0.21",
+        "npm:long"
+      ]
+    },
+    "@mtcute/html-parser@0.31.0": {
+      "integrity": "c13a10d52e0675d391a6d9dfb1da95c48fd54cc482f07fe8c6d008a3a1078461",
+      "dependencies": [
+        "jsr:@mtcute/core",
+        "npm:htmlparser2",
+        "npm:long"
+      ]
+    },
+    "@mtcute/markdown-parser@0.31.0": {
+      "integrity": "04d07925aa4bded4612490663aadc1cd3ec0b6467113615f36abc78ec7824c99",
+      "dependencies": [
+        "jsr:@mtcute/core",
+        "npm:long"
+      ]
+    },
+    "@mtcute/tl-runtime@0.31.0": {
+      "integrity": "3c50f36a71f1605e2acf6b95fd20f38ef45e614101f59101d40f2f6e6c737f70",
+      "dependencies": [
+        "npm:@fuman/utils@0.0.21",
+        "npm:long"
+      ]
+    },
+    "@mtcute/wasm@0.31.0": {
+      "integrity": "be09fe5eba771c8b695343771042e2cd4bd12ca254a3ffa66b00739212134158"
     },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
@@ -29,6 +138,9 @@
     "@std/internal@1.0.14": {
       "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
     },
+    "@std/io@0.223.0": {
+      "integrity": "2d8c3c2ab3a515619b90da2c6ff5ea7b75a94383259ef4d02116b228393f84f1"
+    },
     "@std/testing@1.0.20": {
       "integrity": "21380ed438672762e4ec549cbf4fe41c5b68f5598773a30b64abe7375513e721",
       "dependencies": [
@@ -41,6 +153,65 @@
     }
   },
   "npm": {
+    "@fuman/io@0.0.21": {
+      "integrity": "sha512-8tSqmAUBWFdYrQUednl3I3VxLudaVXfyCqmPyiaDAXgmABTnjD2LvbXoJ7StrV9bvlrwVmwE+smwiKXSJtji0g==",
+      "dependencies": [
+        "@fuman/utils"
+      ]
+    },
+    "@fuman/net@0.0.21": {
+      "integrity": "sha512-4PbDA2f6SfR5CtOs7omZNrrRh1X23KQBI0XmpL/r1fVd726H6+IfhDRxm/fgNKlLgMwe6pGbI/hzt8JU0y0sgw==",
+      "dependencies": [
+        "@fuman/io",
+        "@fuman/utils"
+      ]
+    },
+    "@fuman/utils@0.0.21": {
+      "integrity": "sha512-2N5bPK18uGgZRans+ZQ33SE+xSGj4BZNnJbSUnGdH/i4ADTdz/ziC/16Qy3/Jqzbrwr21IpuKObnELp8DDfkDQ=="
+    },
+    "dom-serializer@2.0.0": {
+      "integrity": "sha512-wIkAryiqt/nV5EQKqQpo3SToSOV9J0DnbJqwK7Wv/Trc92zIAYZ4FlMu+JPFW1DfGFt81ZTCGgDEabffXeLyJg==",
+      "dependencies": [
+        "domelementtype",
+        "domhandler",
+        "entities@4.5.0"
+      ]
+    },
+    "domelementtype@2.3.0": {
+      "integrity": "sha512-OLETBj6w0OsagBwdXnPdN0cnMfF9opN69co+7ZrbfPGrdpPVNBUj02spi6B1N7wChLQiPn4CSH/zJvXw56gmHw=="
+    },
+    "domhandler@5.0.3": {
+      "integrity": "sha512-cgwlv/1iFQiFnU96XXgROh8xTeetsnJiDsTc7TYCLFd9+/WNkIqPTxiM/8pSd8VIrhXGTf1Ny1q1hquVqDJB5w==",
+      "dependencies": [
+        "domelementtype"
+      ]
+    },
+    "domutils@3.2.2": {
+      "integrity": "sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==",
+      "dependencies": [
+        "dom-serializer",
+        "domelementtype",
+        "domhandler"
+      ]
+    },
+    "entities@4.5.0": {
+      "integrity": "sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw=="
+    },
+    "entities@7.0.1": {
+      "integrity": "sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA=="
+    },
+    "htmlparser2@10.1.0": {
+      "integrity": "sha512-VTZkM9GWRAtEpveh7MSF6SjjrpNVNNVJfFup7xTY3UpFtm67foy9HDVXneLtFVt4pMz5kZtgNcvCniNFb1hlEQ==",
+      "dependencies": [
+        "domelementtype",
+        "domhandler",
+        "domutils",
+        "entities@7.0.1"
+      ]
+    },
+    "long@5.3.2": {
+      "integrity": "sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA=="
+    },
     "pg-cloudflare@1.4.0": {
       "integrity": "sha512-Vo7z/6rrQYxpNRylp4Tlob2elzbh+N/MOQbxFVWCxS7oEx6jF53GTJFxK2WWpKuBRkmiin4Mt+xofFDjx09R0A=="
     },
@@ -113,6 +284,9 @@
   "workspace": {
     "dependencies": [
       "jsr:@hono/hono@4.12.33",
+      "jsr:@mtcute/convert@0.31.0",
+      "jsr:@mtcute/deno@0.31.0",
+      "jsr:@mtcute/markdown-parser@0.31.0",
       "jsr:@std/assert@^1.0.6",
       "jsr:@std/testing@^1.0.20",
       "jsr:@zod/zod@4.4.3",

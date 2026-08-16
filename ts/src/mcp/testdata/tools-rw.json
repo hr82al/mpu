@@ -2061,6 +2061,78 @@
     }
   },
   {
+    "name": "telegram_send",
+    "title": "mpu telegram send",
+    "description": "Отправить сообщение от имени личного аккаунта.\n\nMESSAGE — текст сообщения; '-' означает весь stdin. Пустая строка\nдопустима только вместе с -f.\n\n--chat X — адресат: me («Избранное»), числовой id, @username, ссылка\nt.me или телефон. Не задан — берётся TELEGRAM_DEFAULT_CHAT.\n\n--md — текст и подпись размечены Markdown: [текст](url) становится\nссылкой, **жирный** — жирным. Без флага разметка остаётся видимыми\nсимволами.\n\n-f/--file PATH — вложение (флаг повторяется, порядок сохраняется). Файлы\nуходят документами без превью, под своими именами; несколько — одним\nальбомом. Непустой текст становится подписью к последнему вложению,\nотдельного сообщения рядом с файлами не отправляется.\n\nОтправка необратима и видна получателю: сообщение уходит от твоего имени.\nБезопасный адресат для проверок — me.\n\nstdout — одна строка JSON: {\"id\": …, \"chat_id\": …, \"date\": …}.\n\nКлючи env-файла: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION\n(обязательны; строку сессии пишет mpu init), TELEGRAM_DEFAULT_CHAT,\nTELEGRAM_PROXY.\n\nExit: 0 — успех; 1 — конфигурация или отказ Telegram; 2 — ошибка ввода\n(адресат, пустой текст, вложение).\n\nПример: mpu telegram send 'готово' --chat me -f /tmp/report.xlsx",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "текст сообщения; '-' — весь stdin"
+        },
+        "chat": {
+          "description": "адресат: me, id, @username, ссылка t.me или телефон",
+          "type": "string"
+        },
+        "md": {
+          "default": false,
+          "description": "текст и подпись размечены Markdown",
+          "type": "boolean"
+        },
+        "file": {
+          "default": [],
+          "description": "вложение: путь к файлу; флаг повторяется",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "номер отправленного сообщения; при альбоме — последнего из них"
+        },
+        "chat_id": {
+          "type": "number",
+          "description": "маркированный id чата, в который легло сообщение"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "время отправки по данным Telegram, ISO-8601; не сообщено — null"
+        }
+      },
+      "required": [
+        "id",
+        "chat_id",
+        "date"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "search",
     "title": "mpu search",
     "description": "Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nНайти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nРежим выбирают флаги, не селектор.\n\n\b\nБЕЗ ФЛАГОВ — локальный кэш (сети нет): client_id · IPv4 sl_/pg_ · WB sid ·\nкусок spreadsheet_id · кусок title → JSON-массив строк {client_id,\nspreadsheet_id, title, server, server_number, sl_ip, pg_ip, sids}. Пусто →\nавто-`mpu update` и повтор (`--no-update` гасит). Проекция (`--server`,\n`--sids`, …) печатает голые значения — форма для подстановки в другие команды.\n\n\b\nС `--reason` / `--refresh-cache` / `--scope` — 10X: селектор → email цели →\nimpersonation-сессия (зайти в веб ОТ ЛИЦА клиента). Email идёт сюда и без\nфлагов. Пять входов, как у staff-поиска sw-back:\n\n\b\n  email (точный)                user     mpu search user@mail.ru\n  кусок email / имя             user     mpu search Иванов --scope user\n  user.id                       user     mpu search 1029 --scope user\n  client_id (== workspace id)   access   mpu search 2759 --reason <url>\n  sid кабинета (полный uuid)    access   mpu search <sid> --reason <url>\n\n`auto` (умолчание): целое и uuid → access, остальное → user. Число в разных\nскоупах — разные сущности (1029: user.id есть, workspace нет), для user.id\nнужен явный `--scope user`. Названием клиента/кабинета 10X НЕ ищет: название\n[справка усечена: отброшено 1059 байт]",

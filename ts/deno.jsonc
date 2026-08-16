@@ -18,7 +18,8 @@
       "src/sqlro/testdata",
       "src/mcp/testdata",
       "src/xlsx/testdata",
-      "src/kiten/testdata"
+      "src/kiten/testdata",
+      "src/telegram/testdata"
     ]
   },
   "imports": {
@@ -66,7 +67,34 @@
     // `src/update/pg.ts`); шесть транзитивных
     // зависимостей (`pg-types`, `pg-protocol`, `pg-pool`, `pgpass`,
     // `pg-connection-string`, `pg-cloudflare`) — состав апстрима.
-    "pg": "npm:pg@8.22.0"
+    "pg": "npm:pg@8.22.0",
+    // Клиент MTProto для `mpu telegram send` (`docs/specs/telegram-send.md`,
+    // `platform/telegram-mtproto.md`): отправка от имени личного аккаунта,
+    // не бота. Своими руками это шифрование MTProto, схема TL и транспорт
+    // с прокси; в стандартной библиотеке Deno ничего этого нет.
+    //   `@mtcute/deno`             — клиент и транспорт под Deno, включая
+    //     разбор URL прокси (socks4/socks5/http/https);
+    //   `@mtcute/convert`          — строка сессии в формате прежней
+    //     реализации клиентом не принимается как есть; конвертер переводит
+    //     её в вид, который берёт `importSession`. Без него переезд
+    //     потребовал бы повторного входа оператора, а спека требует
+    //     принимать записанную строку и не переписывать её;
+    //   `@mtcute/markdown-parser`  — флаг `--md`: `[текст](url)` обязан
+    //     стать сущностью-ссылкой, а не остаться текстом.
+    // Транзитивное дерево, которое тянут эти три: jsr — `@mtcute/core`,
+    // `@mtcute/file-id`, `@mtcute/html-parser`, `@mtcute/tl-runtime`,
+    // `@mtcute/wasm`, `@fuman/deno`, `@fuman/io`, `@fuman/net`,
+    // `@fuman/utils`, `@std/io`; npm — `htmlparser2` с семейством
+    // `domhandler`/`domutils`/`dom-serializer`/`domelementtype`/`entities`
+    // и `long`. Семейство htmlparser тянет ядро, а не парсер HTML:
+    // отцепить его, отказавшись от html-разметки, нельзя — проверено.
+    // Версия зафиксирована точно, без «^», и бампится ОТДЕЛЬНОЙ порцией:
+    // библиотека держит в руках строку сессии и api-hash, у неё есть
+    // бинарный wasm-модуль, поэтому её обновление — смена того, кому
+    // доверен секрет, а не рутинная правка версии.
+    "@mtcute/deno": "jsr:@mtcute/deno@0.31.0",
+    "@mtcute/convert": "jsr:@mtcute/convert@0.31.0",
+    "@mtcute/markdown-parser": "jsr:@mtcute/markdown-parser@0.31.0"
   },
   "tasks": {
     // Тестам нужны чтение исходников с фикстурами, временные каталоги
@@ -179,7 +207,13 @@
     // `deno fmt` по результату не гоняется — `src/mcp/testdata`
     // исключён из форматирования и сверяется байт-в-байт.
     "tools:snapshot": "deno run --allow-read --allow-write=src/mcp/testdata/tools-ro.json,src/mcp/testdata/tools-rw.json scripts/gen-tool-snapshots.ts",
-    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG* --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
+    //   MTCUTE_LOG_LEVEL                 клиент MTProto читает уровень
+    //     своего лога при создании (`@mtcute/deno` — см. `imports`), до
+    //     первого обращения к сети; без права `mpu telegram send`
+    //     падает на каждом вызове с «Requires env access». Имя одно и
+    //     задаётся библиотекой; smoke-проверка «ленивый клиент MTProto
+    //     есть в бинаре» краснеет, если право убрать.
+    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь

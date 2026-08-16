@@ -22,6 +22,7 @@ export {
   NotFoundIoError,
   UsageError,
   VerbatimError,
+  VerbatimUsageError,
 } from "./errors.ts";
 export type { InputForm, InputSpec } from "./args.ts";
 export type { ObjectSchema, SchemaField } from "./schema.ts";

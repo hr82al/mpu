@@ -57,12 +57,23 @@ export class DomainError extends Error {
 
 /**
  * Доменная ошибка, чей текст печатается дословно, без префикса команды:
- * ответ внешней системы со своей формой. Единственный случай — текст
- * ошибки PostgreSQL (`specs/sql-ro.md`: `db error: <текст сервера>`,
- * многострочный, с позицией и указателем на место ошибки).
+ * своя форма строки. Случаев два: текст ошибки PostgreSQL
+ * (`specs/sql-ro.md`: `db error: <текст сервера>`, многострочный, с
+ * позицией и указателем на место ошибки) и отказы слоя Telegram
+ * (`platform/telegram-mtproto.md`: `telegram: <причина>`).
  */
 export class VerbatimError extends DomainError {
   override name = "VerbatimError";
+}
+
+/**
+ * Ошибка ввода, чей текст печатается дословно. Нужна там, где форму
+ * строки задаёт слой, а не точка входа, и при этом отказ обнаружен до
+ * всякой работы: ошибки ввода `telegram` (`platform/telegram-mtproto.md`)
+ * — тот же префикс `telegram: `, что у доменных, но код выхода 2.
+ */
+export class VerbatimUsageError extends UsageError {
+  override name = "VerbatimUsageError";
 }
 
 /**
@@ -87,7 +98,10 @@ export function formatCommandError(
   const details = err.details === undefined ? "" : `\n${err.details}`;
   // Дословный текст внешней системы печатается без префикса: свою форму
   // он несёт сам (см. `VerbatimError`).
-  const prefix = err instanceof VerbatimError ? "" : `mpu ${name}: `;
+  const prefix = err instanceof VerbatimError || err instanceof
+      VerbatimUsageError
+    ? ""
+    : `mpu ${name}: `;
   return `${prefix}${err.message}${hint}${details}`;
 }
 

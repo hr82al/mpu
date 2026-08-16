@@ -65,6 +65,7 @@
     "sheet set",
     "sql",
     "ssh",
+    "telegram send",
     "update",
     "xlsx alias add",
     "xlsx alias rm",
@@ -101,7 +102,8 @@
     "sheet batch-update",
     "sheet set",
     "sql",
-    "ssh"
+    "ssh",
+    "telegram send"
   ],
   "excluded": {
     "help": "справочная поверхность CLI, а не операция",

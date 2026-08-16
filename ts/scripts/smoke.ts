@@ -338,6 +338,42 @@ function checks(subject: Subject): readonly Check[] {
         );
       },
     ],
+    [
+      // Клиент MTProto подгружается лениво (`src/telegram/cmd_send.ts`):
+      // `deno test` этого не проверяет вовсе — там модуль резолвит
+      // рантайм, а не бинарь. Здесь вызов доходит до сеанса и падает на
+      // фиктивной строке сессии: значит модуль в бинаре есть и прав ему
+      // хватает. Сети проверка не касается — до неё дело не доходит.
+      "telegram send: ленивый клиент MTProto есть в бинаре",
+      async () => {
+        const envPath = `${subject.home}/.config/mpu/.env`;
+        await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+          recursive: true,
+        });
+        await Deno.writeTextFile(
+          envPath,
+          "TELEGRAM_API_ID=1\nTELEGRAM_API_HASH=проба\n" +
+            "TELEGRAM_SESSION=не-строка-сессии\n",
+        );
+        const outcome = await run(subject, [
+          "telegram",
+          "send",
+          "привет",
+          "--chat",
+          "me",
+        ]);
+        await Deno.remove(envPath);
+        assertEquals(
+          outcome.code,
+          1,
+          `telegram send завершился с ${outcome.code}: ${outcome.stderr}`,
+        );
+        assert(
+          outcome.stderr.startsWith("telegram: не авторизован"),
+          `не тот отказ: ${outcome.stderr}`,
+        );
+      },
+    ],
     ["init: справка собранного бинаря несёт числа пределов", async () => {
       const outcome = await runOk(subject, ["init", "--help"]);
       for (
