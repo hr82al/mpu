@@ -22,7 +22,12 @@ import {
   parseCardRef,
   updateChecklistItem,
 } from "../kaiten/mod.ts";
-import { type AccessIo, asCommandError, kaitenAccess } from "./access.ts";
+import {
+  type AccessIo,
+  asCommandError,
+  cardUrl,
+  kaitenAccess,
+} from "./access.ts";
 import {
   candidateList,
   type CardChecklistItem,
@@ -289,11 +294,6 @@ function addFailure(err: unknown, added: number): unknown {
     details: failure.details,
     cause: failure.cause,
   });
-}
-
-/** Адрес карточки для человека: базовый URL API и id, не ответ сервера. */
-function cardUrl(access: KaitenAccess, cardId: number): string {
-  return `${access.baseUrl}/${cardId}`;
 }
 
 const ENV_KEYS = `Ключи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL

@@ -27,6 +27,7 @@ import {
   type AccessIo,
   asCommandError,
   baseName,
+  cardUrl,
   kaitenAccess,
 } from "./access.ts";
 import {
@@ -114,7 +115,7 @@ async function runKitenComment(
       : await createCardCommentWithFiles(access, cardId, text, attachments);
     return {
       id: comment.id,
-      cardUrl: `${access.baseUrl}/${cardId}`,
+      cardUrl: cardUrl(access, cardId),
       attachments: attachments.map((file) => file.name),
       // Литеральный `@all` адресатом не стал: владельца у карточки нет.
       recipients: recipients.filter((handle) =>

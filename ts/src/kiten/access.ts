@@ -1,7 +1,8 @@
 /**
  * Общее для всех команд семейства `mpu kiten`: как достаётся доступ к
- * Kaiten, во что превращается его отказ и как из пути получается имя
- * файла для загрузки. Всё это одинаково у каждой команды семейства
+ * Kaiten, во что превращается его отказ, как собирается адрес карточки
+ * для человека и как из пути получается имя файла для загрузки. Всё это
+ * одинаково у каждой команды семейства
  * (`platform/kaiten-http.md`), и копия на команду значила бы столько же
  * мест правки при изменении класса ошибки или текста подсказки.
  */
@@ -39,6 +40,11 @@ export function asCommandError(err: unknown): unknown {
   return err instanceof KaitenError
     ? new DomainError(`kaiten error: ${err.message}`, { cause: err })
     : err;
+}
+
+/** Адрес карточки для человека: базовый URL API и id, не ответ сервера. */
+export function cardUrl(access: KaitenAccess, cardId: number): string {
+  return `${access.baseUrl}/${cardId}`;
 }
 
 /**

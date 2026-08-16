@@ -28,7 +28,12 @@ import {
   stopUserTimer,
   type Timer,
 } from "../kaiten/mod.ts";
-import { type AccessIo, asCommandError, kaitenAccess } from "./access.ts";
+import {
+  type AccessIo,
+  asCommandError,
+  cardUrl,
+  kaitenAccess,
+} from "./access.ts";
 import { MSK_OFFSET_MINUTES, mskClock, mskDay } from "./msk.ts";
 import { parseDuration } from "./time_input.ts";
 import { chooseRoleId, ROLE_ENV_KEY, roleNameOf } from "./time_role.ts";
@@ -454,11 +459,6 @@ function momentOf(iso: string | null): number | null {
 function zoneOf(startedAt: string | null): number {
   const zone = startedAt === null ? null : zoneOffsetMinutes(startedAt);
   return zone ?? MSK_OFFSET_MINUTES;
-}
-
-/** Адрес карточки для человека: базовый URL API и id, не ответ сервера. */
-function cardUrl(access: KaitenAccess, cardId: number): string {
-  return `${access.baseUrl}/${cardId}`;
 }
 
 /** Строки `status` для человека: состояние таймера и итог по карточке. */

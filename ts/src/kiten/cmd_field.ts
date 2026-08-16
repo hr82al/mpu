@@ -19,7 +19,6 @@ import {
 import {
   deleteCardFile,
   getCard,
-  type KaitenAccess,
   parseCardRef,
   updateCardProperties,
   uploadCustomPropertyFile,
@@ -28,6 +27,7 @@ import {
   type AccessIo,
   asCommandError,
   baseName,
+  cardUrl,
   kaitenAccess,
 } from "./access.ts";
 
@@ -205,11 +205,6 @@ async function runKitenArtefactRm(
   } catch (err) {
     throw asCommandError(err);
   }
-}
-
-/** Адрес карточки для человека: базовый URL API и id, не ответ сервера. */
-function cardUrl(access: KaitenAccess, cardId: number): string {
-  return `${access.baseUrl}/${cardId}`;
 }
 
 /**

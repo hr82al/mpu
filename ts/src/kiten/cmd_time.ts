@@ -34,7 +34,12 @@ import {
   type TimeLogPatch,
   updateCardTimeLog,
 } from "../kaiten/mod.ts";
-import { type AccessIo, asCommandError, kaitenAccess } from "./access.ts";
+import {
+  type AccessIo,
+  asCommandError,
+  cardUrl,
+  kaitenAccess,
+} from "./access.ts";
 import { mskDay } from "./msk.ts";
 import { parseCalendarDate, parseDuration } from "./time_input.ts";
 import {
@@ -376,11 +381,6 @@ function parseLogId(raw: string): number {
     throw new UsageError(`LOG_ID '${raw}': ожидается id записи — целое число`);
   }
   return Number(raw);
-}
-
-/** Адрес карточки для человека: базовый URL API и id, не ответ сервера. */
-function cardUrl(access: KaitenAccess, cardId: number): string {
-  return `${access.baseUrl}/${cardId}`;
 }
 
 /** Оси строкой в порядке `EDIT_AXES`: печатаются только заданные. */
