@@ -653,7 +653,7 @@
   {
     "name": "kiten_field_set",
     "title": "mpu kiten field set",
-    "description": "Записать скалярное кастомное поле карточки Kaiten.\n\nSELECTOR — id карточки (65634936) либо её URL: id — последний\nполностью числовой сегмент пути.\n\nKIND — одно из: mr (ссылка на merge request), hypothesis\n(«6. Причина/гипотеза»), done («7. Что сделано»), result\n(«8. Результат»). Иное значение — ошибка ввода, запроса не будет.\n\nVALUE записывается ровно как передан: прежнее значение заменяется целиком,\nбез чтения и без слияния. Пробелы внутри — обычный текст, значение с\nпробелами берётся в кавычки shell'а.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (KIND, селектор,\nненастроенный KITEN_API_KEY).\n\nПример: mpu kiten field set 65634936 mr https://gitlab/team/repo/-/merge_requests/999",
+    "description": "Записать скалярное кастомное поле карточки Kaiten.\n\nSELECTOR — id карточки (65634936) либо её URL: id — последний\nполностью числовой сегмент пути.\n\nKIND — одно из: mr (ссылка на merge request), hypothesis\n(«6. Причина/гипотеза»), done («7. Что сделано»), result\n(«8. Результат»). Иное значение — ошибка ввода, запроса не будет.\n\nVALUE записывается ровно как передан: прежнее значение заменяется целиком,\nбез чтения и без слияния. Пробелы внутри — обычный текст, значение с\nпробелами берётся в кавычки shell'а.\n\nПустой VALUE очищает поле: серверу уходит null, а не пустая строка, и\nуспех печатается как «ok: KIND → —». Значение из одних пробелов —\nобычное значение, а не очистка.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (KIND, селектор,\nненастроенный KITEN_API_KEY).\n\nПример: mpu kiten field set 65634936 mr https://gitlab/team/repo/-/merge_requests/999",
     "annotations": {
       "readOnlyHint": false,
       "destructiveHint": true
@@ -677,7 +677,7 @@
         },
         "value": {
           "type": "string",
-          "description": "значение поля: пишется ровно как передано"
+          "description": "значение поля: пишется ровно как передано; пустое — очистка"
         }
       },
       "required": [
@@ -701,8 +701,15 @@
           "description": "вид поля, как передан в аргументе"
         },
         "value": {
-          "type": "string",
-          "description": "записанное значение"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "записанное значение; null — поле очищено"
         },
         "cardUrl": {
           "type": "string",

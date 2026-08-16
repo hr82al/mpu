@@ -163,6 +163,42 @@ Deno.test("field set: значение уходит в поле по табли�
     }
   });
 
+  await t.step("пустое значение — очистка полем null", async () => {
+    const { io, baseUrl, seen, stop } = stand({
+      [`PATCH ${CARD_PATH}`]: () => cardWithFiles(),
+    });
+    try {
+      assertEquals(
+        await output(kitenFieldSetCommand, [SELECTOR, "result", ""], io),
+        `ok: result → — · ${baseUrl}/${CARD_ID}\n`,
+      );
+      assertEquals(
+        JSON.parse(seen[0].body),
+        { properties: { id_291990: null } },
+      );
+    } finally {
+      await stop();
+    }
+  });
+
+  await t.step("значение из одних пробелов — не очистка", async () => {
+    const { io, baseUrl, seen, stop } = stand({
+      [`PATCH ${CARD_PATH}`]: () => cardWithFiles(),
+    });
+    try {
+      assertEquals(
+        await output(kitenFieldSetCommand, [SELECTOR, "done", " \t"], io),
+        `ok: done →  \t · ${baseUrl}/${CARD_ID}\n`,
+      );
+      assertEquals(
+        JSON.parse(seen[0].body),
+        { properties: { id_291985: " \t" } },
+      );
+    } finally {
+      await stop();
+    }
+  });
+
   await t.step("done и result — свои id полей", async () => {
     for (const [kind, id] of [["done", 291985], ["result", 291990]] as const) {
       const { io, seen, stop } = stand({

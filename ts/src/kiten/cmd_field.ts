@@ -60,12 +60,14 @@ const setArgsSchema = z.object({
     error: `KIND — одно из: ${FIELD_KINDS.join(", ")}`,
   }).describe("какое поле карточки писать"),
   value: z.string({ error: "нужен VALUE: значение поля" })
-    .describe("значение поля: пишется ровно как передано"),
+    .describe("значение поля: пишется ровно как передано; пустое — очистка"),
 });
 
 const setResultSchema = z.object({
   kind: z.enum(FIELD_KINDS).describe("вид поля, как передан в аргументе"),
-  value: z.string().describe("записанное значение"),
+  value: z.string().nullable().describe(
+    "записанное значение; null — поле очищено",
+  ),
   cardUrl: z.string().describe("адрес карточки: базовый URL и её id"),
 });
 
@@ -117,7 +119,10 @@ type FieldIo = AccessIo & Pick<CommandIo, "readRegularFile">;
 
 /**
  * Записывает поле переданным значением: прежнее заменяется без чтения и
- * без слияния (`kiten-field.md`, «Инварианты»).
+ * без слияния (`kiten-field.md`, «Инварианты»). Пустое значение — не
+ * пустая строка на проводе, а очистка полем `null`: строку нулевой длины
+ * сервер отвергает сырым 400 (`kiten-field.md`, «Известные отклонения»;
+ * `platform/kaiten-api-cards.md`, вызов 8).
  */
 async function runKitenFieldSet(
   args: KitenFieldSetArgs,
@@ -125,16 +130,21 @@ async function runKitenFieldSet(
 ): Promise<KitenFieldSetResult> {
   const cardId = parseCardRef(args.selector);
   const access = kaitenAccess(io);
+  // Пусто — ровно строка нулевой длины: её и отвергает сервер. Значение
+  // из пробелов он принимает, а спека обещает записать переданное как
+  // есть (`kiten-field.md`, «Инварианты»), поэтому очисткой оно не
+  // считается.
+  const value = args.value === "" ? null : args.value;
   try {
     await updateCardProperties(access, cardId, {
-      [`id_${PROPERTY_IDS[args.kind]}`]: args.value,
+      [`id_${PROPERTY_IDS[args.kind]}`]: value,
     });
   } catch (err) {
     throw asCommandError(err);
   }
   return {
     kind: args.kind,
-    value: args.value,
+    value,
     cardUrl: cardUrl(access, cardId),
   };
 }
@@ -252,6 +262,10 @@ VALUE записывается ровно как передан: прежнее 
 без чтения и без слияния. Пробелы внутри — обычный текст, значение с
 пробелами берётся в кавычки shell'а.
 
+Пустой VALUE очищает поле: серверу уходит null, а не пустая строка, и
+успех печатается как «ok: KIND → —». Значение из одних пробелов —
+обычное значение, а не очистка.
+
 ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (KIND, селектор,
@@ -268,7 +282,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
   resultSchema: setResultSchema,
   run: runKitenFieldSet,
   render: (result) =>
-    `ok: ${result.kind} → ${result.value} · ${result.cardUrl}\n`,
+    `ok: ${result.kind} → ${result.value ?? "—"} · ${result.cardUrl}\n`,
 });
 
 export const kitenArtefactSetCommand = defineCommand({
