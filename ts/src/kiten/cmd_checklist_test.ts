@@ -821,6 +821,30 @@ Deno.test("checklist check/uncheck: резолв пункта и один PATCH"
     }
   });
 
+  await t.step("пустая ссылка — ошибка ввода до сети", async () => {
+    // Пустая подстрока совпала бы со всем: на карточке с единственным
+    // пунктом это ровно одно совпадение, то есть мутация по мусорному
+    // входу (`kiten-checklist.md`, «Граничные случаи»).
+    for (const ref of ["", "   "]) {
+      const { io, seen, stop } = markStand();
+      try {
+        assertEquals(
+          await errorText(
+            kitenChecklistUncheckCommand,
+            [SELECTOR, ref],
+            io,
+            UsageError,
+          ),
+          "mpu kiten checklist uncheck: пустая ссылка на пункт; ожидается " +
+            "id пункта или подстрока его текста\n",
+        );
+        assertEquals(calls(seen), []);
+      } finally {
+        await stop();
+      }
+    }
+  });
+
   await t.step("невалидный селектор — ошибка ввода до сети", async () => {
     const { io, seen, stop } = cardStand([]);
     try {

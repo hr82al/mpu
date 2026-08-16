@@ -158,6 +158,7 @@ async function runKitenChecklistMark(
   checked: boolean,
 ): Promise<KitenChecklistMarkResult> {
   const cardId = parseCardRef(args.selector);
+  requireItemRef(args.item);
   const access = kaitenAccess(io);
   const found = locateItem(await readItems(access, cardId), args.item);
   try {
@@ -188,6 +189,19 @@ async function readItems(
   } catch (err) {
     throw asCommandError(err);
   }
+}
+
+/**
+ * Ссылка на пункт, которую есть смысл искать. Пустая подстрока совпала
+ * бы со всем: на карточке с единственным пунктом это ровно одно
+ * совпадение, то есть мутация по мусорному входу, — поэтому отказ до
+ * первого запроса (`kiten-checklist.md`, «Граничные случаи»).
+ */
+function requireItemRef(ref: string): void {
+  if (ref.trim() !== "") return;
+  throw new UsageError(
+    "пустая ссылка на пункт; ожидается id пункта или подстрока его текста",
+  );
 }
 
 /**
@@ -311,7 +325,8 @@ const ITEM_HELP = `ITEM — ссылка на пункт: id из вывода l
 сравнивается без учёта регистра и ищется по ВСЕМ чек-листам карточки;
 годится ровно одно совпадение. Ни одного совпадения либо несколько —
 ошибка ввода с перечнем пунктов, и ни одного запроса на изменение при
-этом не уходит.`;
+этом не уходит. Пустая ссылка и ссылка из одних пробелов отвергаются до
+сети: пустая подстрока совпадает со всем.`;
 
 const MARK_EXIT = `Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода
 (селектор, ненайденная или неоднозначная ссылка на пункт, ненастроенный
