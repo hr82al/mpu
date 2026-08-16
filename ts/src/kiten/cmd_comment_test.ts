@@ -55,7 +55,6 @@ function comment(id: number): Response {
     author: {
       id: 700001,
       full_name: "Иванов Иван",
-      email: null,
       username: "ivanov",
     },
   });
