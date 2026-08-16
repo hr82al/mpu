@@ -1760,6 +1760,307 @@
     }
   },
   {
+    "name": "kiten_close",
+    "title": "mpu kiten close",
+    "description": "Закрыть карточку Kaiten: поля, ответ клиенту, перенос в «Готово».\n\nSELECTOR — id карточки либо её URL.\n\nШаги: таймер → поля → ответ → перенос. Отката нет: сбой позднего шага\nоставляет ранние применёнными, повтор безопасен.\n\n--hypothesis/--done/--result/--mr — значения полей. Пишутся только\nпереданные и только в пустое поле; заполненное пропускается,\n--force-fields перезаписывает. Порядок: hypothesis, done, result, mr.\n\nОтвет — один источник: --reply TEXT либо --reply-file PATH ('-' —\nstdin), пустой текст отвергается. Самостоятельный '@all' раскрывается в\nлогин владельца; владельца нет — предупреждение и '@all' как есть.\n\n--column REF — колонка переноса (id либо название), иначе ключ\nKITEN_READY_COLUMN, иначе «Готово»; резолвится на доске карточки\nдо первой мутации. --no-move — не переносить.\n\n--stop-timer — остановить идущий таймер и записать время (роль: ключ\nKITEN_TIME_ROLE → 12058). Без флага таймер не трогается никогда, о\nзапущенном команда предупреждает.\n\n--dry-run — печать плана: только чтения.\n\nКлючи env-файла: KITEN_API_KEY, KITEN_BASE_URL,\nKITEN_READY_COLUMN, KITEN_TIME_ROLE.\n\nExit: 0 — успех; 1 — ошибка API (назван упавший шаг); 2 — ошибка ввода\n(селектор, источники ответа, колонка, ключ доступа).\n\nПример: mpu kiten close 10000001 --done 'Починили' --reply-file - --stop-timer",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "hypothesis": {
+          "description": "значение поля «6. Причина/гипотеза»",
+          "type": "string"
+        },
+        "done": {
+          "description": "значение поля «7. Что сделано»",
+          "type": "string"
+        },
+        "result": {
+          "description": "значение поля «8. Результат»",
+          "type": "string"
+        },
+        "mr": {
+          "description": "значение поля «Ссылка на Merge Request»",
+          "type": "string"
+        },
+        "reply": {
+          "description": "текст ответа клиенту",
+          "type": "string"
+        },
+        "reply-file": {
+          "description": "файл с текстом ответа; '-' — stdin",
+          "type": "string"
+        },
+        "column": {
+          "description": "колонка переноса: id либо название; без флага — env и «Готово»",
+          "type": "string"
+        },
+        "force-fields": {
+          "default": false,
+          "description": "писать поля поверх заполненных",
+          "type": "boolean"
+        },
+        "no-move": {
+          "default": false,
+          "description": "не переносить карточку",
+          "type": "boolean"
+        },
+        "stop-timer": {
+          "default": false,
+          "description": "остановить идущий таймер и записать время",
+          "type": "boolean"
+        },
+        "dry-run": {
+          "default": false,
+          "description": "печать плана; выполняются только чтения",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "cardId": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "id карточки, которую закрывали"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "description": "план без единой мутации"
+        },
+        "timer": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "startedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "метка старта; сервер её не назвал — null"
+                },
+                "elapsedMinutes": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "сколько таймер шёл на момент чтения карточки"
+                }
+              },
+              "required": [
+                "startedAt",
+                "elapsedMinutes"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "таймер, идущий на карточке; не запущен — null"
+        },
+        "stopped": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "minutes": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "длительность созданной записи; перечитать не удалось — null"
+                },
+                "role": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "название роли записи; названия нет — null"
+                },
+                "logId": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "id созданной записи; сервер его не назвал — null"
+                }
+              },
+              "required": [
+                "minutes",
+                "role",
+                "logId"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "остановка таймера этим вызовом; не было — null"
+        },
+        "written": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "поля, записанные этим вызовом, в порядке обработки"
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "переданные поля, пропущенные как заполненные"
+        },
+        "reply": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "commentId": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "id созданного комментария; при --dry-run — null"
+                },
+                "expandedTo": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "во что раскрыт '@all'; раскрытия не было — null"
+                }
+              },
+              "required": [
+                "commentId",
+                "expandedTo"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "ответ клиенту; текста ответа не было — null"
+        },
+        "move": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "columnId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "id целевой колонки"
+                },
+                "columnTitle": {
+                  "type": "string",
+                  "description": "название целевой колонки"
+                },
+                "relog": {
+                  "type": "boolean",
+                  "description": "перенос сводится к релог-bump"
+                },
+                "from": {
+                  "type": "string",
+                  "description": "положение «до»"
+                },
+                "to": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "положение «после» по свежему чтению; при --dry-run — null"
+                }
+              },
+              "required": [
+                "columnId",
+                "columnTitle",
+                "relog",
+                "from",
+                "to"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "перенос карточки; при --no-move — null"
+        }
+      },
+      "required": [
+        "cardId",
+        "cardUrl",
+        "dryRun",
+        "timer",
+        "stopped",
+        "written",
+        "skipped",
+        "reply",
+        "move"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "search",
     "title": "mpu search",
     "description": "Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nНайти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nРежим выбирают флаги, не селектор.\n\n\b\nБЕЗ ФЛАГОВ — локальный кэш (сети нет): client_id · IPv4 sl_/pg_ · WB sid ·\nкусок spreadsheet_id · кусок title → JSON-массив строк {client_id,\nspreadsheet_id, title, server, server_number, sl_ip, pg_ip, sids}. Пусто →\nавто-`mpu update` и повтор (`--no-update` гасит). Проекция (`--server`,\n`--sids`, …) печатает голые значения — форма для подстановки в другие команды.\n\n\b\nС `--reason` / `--refresh-cache` / `--scope` — 10X: селектор → email цели →\nimpersonation-сессия (зайти в веб ОТ ЛИЦА клиента). Email идёт сюда и без\nфлагов. Пять входов, как у staff-поиска sw-back:\n\n\b\n  email (точный)                user     mpu search user@mail.ru\n  кусок email / имя             user     mpu search Иванов --scope user\n  user.id                       user     mpu search 1029 --scope user\n  client_id (== workspace id)   access   mpu search 2759 --reason <url>\n  sid кабинета (полный uuid)    access   mpu search <sid> --reason <url>\n\n`auto` (умолчание): целое и uuid → access, остальное → user. Число в разных\nскоупах — разные сущности (1029: user.id есть, workspace нет), для user.id\nнужен явный `--scope user`. Названием клиента/кабинета 10X НЕ ищет: название\n[справка усечена: отброшено 1059 байт]",
