@@ -5,7 +5,8 @@
  * (`docs/specs/kiten-field.md`), `mpu kiten comment`
  * (`docs/specs/kiten-comment.md`), учёт времени `mpu kiten time`
  * (`docs/specs/kiten-time.md`) — записи и личный таймер — и чек-листы
- * `mpu kiten checklist` (`docs/specs/kiten-checklist.md`).
+ * `mpu kiten checklist` (`docs/specs/kiten-checklist.md`) и
+ * оркестратор закрытия `mpu kiten close` (`docs/specs/kiten-close.md`).
  *
  * Наружу отдаются объявления команд — их берёт реестр; аргументы,
  * результаты и шаги вызова остаются внутри своих файлов.
@@ -17,6 +18,8 @@ export {
   type KitenCardResult,
   runKitenCard,
 } from "./cmd_card.ts";
+
+export { kitenCloseCommand } from "./cmd_close.ts";
 
 export {
   kitenChecklistAddCommand,

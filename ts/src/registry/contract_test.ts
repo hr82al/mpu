@@ -372,6 +372,27 @@ const CASES: readonly CommandCase[] = [
       cardUrl: "https://kaiten.example.test/10000001",
     },
   },
+  {
+    path: "kiten close",
+    argv: ["10000001", "--done", "Починили", "--dry-run"],
+    sampleResult: {
+      cardId: 10000001,
+      cardUrl: "https://kaiten.example.test/10000001",
+      dryRun: true,
+      timer: null,
+      stopped: null,
+      written: ["done"],
+      skipped: [],
+      reply: null,
+      move: {
+        columnId: 5000001,
+        columnTitle: "Готово",
+        relog: false,
+        from: "Проекты · Бэклог · Разработка",
+        to: null,
+      },
+    },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {

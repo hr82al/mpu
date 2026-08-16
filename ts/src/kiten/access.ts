@@ -42,6 +42,17 @@ export function asCommandError(err: unknown): unknown {
     : err;
 }
 
+/**
+ * Тот же отказ, но на названном шаге команды-оркестратора: маркер шага
+ * входит в текст, чтобы по сообщению было видно, докуда команда дошла и
+ * что уже применено (`kiten-close.md`, «Ввод/вывод»).
+ */
+export function asStepError(step: string, err: unknown): unknown {
+  return err instanceof KaitenError
+    ? new DomainError(`kaiten error (${step}): ${err.message}`, { cause: err })
+    : err;
+}
+
 /** Адрес карточки для человека: базовый URL API и id, не ответ сервера. */
 export function cardUrl(access: KaitenAccess, cardId: number): string {
   return `${access.baseUrl}/${cardId}`;

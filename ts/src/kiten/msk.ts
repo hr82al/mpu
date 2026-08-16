@@ -26,3 +26,13 @@ export function mskDay(nowMs: number = Date.now()): string {
 export function mskClock(atMs: number): string {
   return new Date(atMs + MSK_OFFSET_MS).toISOString().slice(11, 16);
 }
+
+/**
+ * День с часами по МСК — `14.08 19:50`. Год опущен: метка называет
+ * момент старта идущего таймера (`kiten-close.md`), а он не бывает
+ * прошлогодним.
+ */
+export function mskStamp(atMs: number): string {
+  const at = new Date(atMs + MSK_OFFSET_MS).toISOString();
+  return `${at.slice(8, 10)}.${at.slice(5, 7)} ${at.slice(11, 16)}`;
+}

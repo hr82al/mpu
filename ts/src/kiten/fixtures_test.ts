@@ -113,6 +113,21 @@ const SETS: readonly FixtureSet[] = [
     ],
   },
   {
+    channel: "kiten-close",
+    copy: "kiten-close/",
+    names: [
+      "dry-run-stdout.txt",
+      "dry-run-no-move-stdout.txt",
+      "apply-fields-stdout.txt",
+      "apply-fields-skipped-stdout.txt",
+      "apply-timer-stopped-stdout.txt",
+      "warn-timer-running-stderr.txt",
+      "err-reply-both-message.txt",
+      "err-reply-empty-message.txt",
+      "err-column-unresolved-message.txt",
+    ],
+  },
+  {
     channel: "kiten-checklist",
     copy: "kiten-checklist/",
     names: [

@@ -32,6 +32,7 @@ import {
   kitenChecklistCheckCommand,
   kitenChecklistLsCommand,
   kitenChecklistUncheckCommand,
+  kitenCloseCommand,
   kitenCommentCommand,
   kitenFieldSetCommand,
   kitenTimeAddCommand,
@@ -111,6 +112,7 @@ export const commands: readonly Command[] = [
   kitenChecklistAddCommand,
   kitenChecklistCheckCommand,
   kitenChecklistUncheckCommand,
+  kitenCloseCommand,
 ];
 
 /**
