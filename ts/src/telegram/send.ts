@@ -3,34 +3,20 @@
  * (`docs/specs/telegram-send.md`): порядок шагов сеанса, выбор между
  * текстом и альбомом, приведение результата.
  *
- * Клиент MTProto объявлен здесь узким интерфейсом потребителя: логика
- * порядка и выбора проверяется без сети, а всё, что знает про протокол,
- * лежит в `session.ts` и в тестах не участвует.
+ * Клиент MTProto объявлен узким интерфейсом потребителя (`client.ts`):
+ * логика порядка и выбора проверяется без сети, а всё, что знает про
+ * протокол, лежит в `session.ts` и в тестах не участвует.
  */
 
+import type {
+  Attachment,
+  ClientMessage,
+  OutgoingDocument,
+  PeerRef,
+  TelegramClient,
+} from "./client.ts";
 import { configError, telegramFailure } from "./errors.ts";
 import type { Peer } from "./peer.ts";
-
-/** Файл, уходящий документом без превью; несколько — альбом. */
-export interface Attachment {
-  /** Имя файла в Telegram: файлы уходят под своими именами. */
-  readonly name: string;
-  readonly bytes: Uint8Array;
-}
-
-/** Адресат, уже опознанный клиентом: содержимое ссылки — дело клиента. */
-export interface PeerRef {
-  readonly ref: unknown;
-}
-
-/** Сообщение, как о нём отчитался клиент. */
-export interface ClientMessage {
-  readonly id: number;
-  /** Чат, куда легло сообщение; Telegram не сообщил — `null`. */
-  readonly chatId: number | null;
-  /** Время по данным Telegram; не сообщено — `null`. */
-  readonly date: Date | null;
-}
 
 /** Результат отправки (`SentMessage` глоссария). */
 export interface SentMessage {
@@ -50,33 +36,6 @@ export interface SendPlan {
   /** Размечен ли текст Markdown. */
   readonly markdown: boolean;
   readonly attachments: readonly Attachment[];
-}
-
-/** Вложение, уходящее в Telegram: подпись несёт не каждое. */
-export interface OutgoingDocument extends Attachment {
-  /** Подпись; её несёт последнее вложение, и только при непустом тексте. */
-  readonly caption?: string;
-}
-
-/**
- * Клиент MTProto глазами отправки. Сеанс приходит сюда уже открытым и
- * знающим собственную учётную запись — без этого адресат `me` не
- * резолвится, а авторизация обязана проверяться до операции
- * (`platform/telegram-mtproto.md`, «Инварианты»).
- */
-export interface TelegramClient {
-  readonly resolve: (peer: Peer) => Promise<PeerRef>;
-  readonly sendText: (
-    to: PeerRef,
-    text: string,
-    markdown: boolean,
-  ) => Promise<ClientMessage>;
-  /** Альбом одним вызовом: сообщений столько же, сколько вложений. */
-  readonly sendDocuments: (
-    to: PeerRef,
-    documents: readonly OutgoingDocument[],
-    markdown: boolean,
-  ) => Promise<readonly ClientMessage[]>;
 }
 
 /** Отправляет ровно одно сообщение либо ровно один альбом. */

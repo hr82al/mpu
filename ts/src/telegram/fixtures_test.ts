@@ -32,6 +32,16 @@ const SETS: readonly FixtureSet[] = [
       "send-text-stdout.txt",
     ],
   },
+  {
+    channel: "telegram-ls",
+    copy: "telegram-ls/",
+    names: [
+      "err-limit-stderr.txt",
+      "ls-empty-stdout.txt",
+      "ls-empty-table-stdout.txt",
+      "ls-json-stdout.txt",
+    ],
+  },
 ];
 
 const channelRoot = new URL("../../docs/specs/fixtures/", import.meta.url);

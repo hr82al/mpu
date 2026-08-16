@@ -9,7 +9,8 @@
 import { type CommandIo, NotFoundIoError, UsageError } from "../command/mod.ts";
 import { inputError } from "./errors.ts";
 import { parsePeer } from "./peer.ts";
-import type { Attachment, SendPlan } from "./send.ts";
+import type { Attachment } from "./client.ts";
+import type { SendPlan } from "./send.ts";
 
 /** Аргументы вызова после разбора схемой. */
 export interface SendArgs {

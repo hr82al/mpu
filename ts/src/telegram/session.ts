@@ -24,11 +24,11 @@ import { proxyUrl } from "./proxy.ts";
 import type {
   ClientMessage,
   PeerRef,
-  TelegramClient as SendClient,
-} from "./send.ts";
+  TelegramClient as CommandClient,
+} from "./client.ts";
 
 /** Открытый сеанс: клиент отправки и его закрытие. */
-export interface TelegramSession extends SendClient {
+export interface TelegramSession extends CommandClient {
   /** Закрывает соединение; зовётся в любом исходе вызова. */
   readonly close: () => Promise<void>;
 }

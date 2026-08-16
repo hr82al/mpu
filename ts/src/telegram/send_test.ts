@@ -1,13 +1,8 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { VerbatimError } from "../command/mod.ts";
 import type { Peer } from "./peer.ts";
-import {
-  type ClientMessage,
-  type PeerRef,
-  sendMessage,
-  type SendPlan,
-  type TelegramClient,
-} from "./send.ts";
+import type { ClientMessage, PeerRef, TelegramClient } from "./client.ts";
+import { sendMessage, type SendPlan } from "./send.ts";
 
 /** Что фейковый клиент увидел и в каком порядке. */
 interface Seen {
