@@ -1,0 +1,5 @@
+Usage: mpu telegram send [OPTIONS] {message}
+Try 'mpu telegram send -h' for help.
+╭─ Error ──────────────────────────────────────────────────────────────────────╮
+│ Invalid value for --file: файл-вложение не найден: /no/such/file             │
+╰──────────────────────────────────────────────────────────────────────────────╯
