@@ -30,20 +30,7 @@ import {
   cardUrl,
   kaitenAccess,
 } from "./access.ts";
-
-/** Скалярные поля карточки; закрытый список — контракт CLI. */
-const FIELD_KINDS = ["mr", "hypothesis", "done", "result"] as const;
-
-/** Вид поля — `FieldKind` глоссария. */
-type FieldKind = typeof FIELD_KINDS[number];
-
-/** Вид поля → id кастомного поля инстанса Kaiten (таблица спеки). */
-const PROPERTY_IDS: Readonly<Record<FieldKind, number>> = {
-  mr: 398965,
-  hypothesis: 291984,
-  done: 291985,
-  result: 291990,
-};
+import { FIELD_KINDS, propertyKey } from "./field_kinds.ts";
 
 /** Файловое поле «9. AI-артефакт»: единственное, куда грузится md. */
 const ARTEFACT_PROPERTY_ID = 610303;
@@ -137,7 +124,7 @@ async function runKitenFieldSet(
   const value = args.value === "" ? null : args.value;
   try {
     await updateCardProperties(access, cardId, {
-      [`id_${PROPERTY_IDS[args.kind]}`]: value,
+      [propertyKey(args.kind)]: value,
     });
   } catch (err) {
     throw asCommandError(err);
