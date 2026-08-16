@@ -137,9 +137,11 @@ Deno.test("вложения нет — отказ до сети, ключево�
     UsageError,
   );
   assertEquals(err.message, "файл-вложение не найден: /no/such/file");
+  // Рамка здесь общая для всего CLI (`mpu <команда>: …`), а не своя,
+  // как у отказов слоя: вложение отбивает разбор аргументов.
   assertEquals(
-    (await golden("err-file-missing-stderr.txt")).includes(err.message),
-    true,
+    `${formatCommandError(command.errorName, err)}\n`,
+    await golden("err-file-missing-stderr.txt"),
   );
 });
 
