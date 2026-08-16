@@ -67,14 +67,22 @@ export function checklistViews(
  * Все пункты карточки одним списком в том же порядке, что и в таблице:
  * поиск пункта сквозной по карточке, поэтому чек-лист остаётся при
  * пункте — в него уйдёт отметка.
+ *
+ * Порядок здесь строится теми же двумя шагами, что и блоки `ls`, —
+ * группировкой по упорядоченным чек-листам, а не сквозной сортировкой по
+ * карточке: перечень кандидатов читают, сверяя с выводом `ls`, и
+ * перемежающий чек-листы список этой службы не служит
+ * (`kiten-checklist.md`, «Ввод/вывод»).
  */
 export function cardItems(
   checklists: readonly Checklist[],
 ): readonly CardChecklistItem[] {
-  const items = checklists.flatMap((checklist) =>
-    checklist.items.map((item) => ({ checklistId: checklist.id, item }))
+  return orderedChecklists(checklists).flatMap((checklist) =>
+    sortedItems(checklist.items).map((item) => ({
+      checklistId: checklist.id,
+      item,
+    }))
   );
-  return items.sort((left, right) => compareItems(left.item, right.item));
 }
 
 /**

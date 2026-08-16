@@ -713,6 +713,38 @@ Deno.test("checklist check/uncheck: резолв пункта и один PATCH"
     }
   });
 
+  await t.step("кандидаты сгруппированы по чек-листам", async () => {
+    // Веса пунктов пересекаются, а фейк отдаёт чек-листы по убыванию id:
+    // сквозная сортировка по карточке поставила бы «Альфа» первой, и
+    // перечень разошёлся бы с блоками ls, по которым его и сверяют.
+    const { io, stop } = markStand([
+      {
+        id: SECOND_LIST_ID,
+        name: "Второй список",
+        items: [rawItem(66847832, "Альфа", { sort_order: 1 })],
+      },
+      {
+        id: LIST_ID,
+        name: "Проверки",
+        items: [rawItem(66835646, "Гейты зелёные", { sort_order: 2 })],
+      },
+    ]);
+    try {
+      assertEquals(
+        await errorText(
+          kitenChecklistCheckCommand,
+          [SELECTOR, "нет такого пункта"],
+          io,
+          UsageError,
+        ),
+        "mpu kiten checklist check: пункт 'нет такого пункта' не найден; " +
+          "есть: 66835646: Гейты зелёные; 66847832: Альфа\n",
+      );
+    } finally {
+      await stop();
+    }
+  });
+
   await t.step("пунктов на карточке нет — «(пунктов нет)»", async () => {
     const { io, stop } = cardStand([]);
     try {
