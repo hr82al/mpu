@@ -6,9 +6,11 @@
  * стоит ИСТОЧНИК каждого поля: длительность, дата, роль и id берутся из
  * перечитанной записи и справочника, а не из того, что команда отправила.
  *
- * Три ветви конфликта `start` голденов не имеют намеренно: снятые с
+ * Обе ветви конфликта `start` голденов не имеют намеренно: снятые с
  * рабочей версии файлы — свидетельства отклонений, воспроизводить их
  * запрещено, и целевые тексты взяты из «Граничных случаев» дословно.
+ * Третий исход конфликта — отказ перечитывания карточки — своего текста
+ * не имеет вовсе: он уходит общим форматом ошибок транспорта.
  *
  * Часы в голденах `status` подставляются под момент прогона: метка
  * старта у фейка живая, иначе натёкшая длительность зависела бы от даты
@@ -35,7 +37,6 @@ import { mskClock, mskDay } from "./msk.ts";
 
 const API_KEY = "proba-kaiten-key-Q3z8Nw";
 const CARD_ID = 10000001;
-const OTHER_CARD_ID = 10000002;
 const SELECTOR = String(CARD_ID);
 const TIMER_ID = 5000001;
 const LOG_ID = 7000001;
@@ -76,6 +77,17 @@ function rawTimer(
     card_time_log_id: null,
     ...patch,
   };
+}
+
+/**
+ * Ответ остановки: финиш сервер заполняет всегда (`kaiten-api-time.md`,
+ * вызов 7). `card_time_log_id` фикстура намеренно не заполняет там, где
+ * проверяется защитная ветвь короткой строки успеха.
+ */
+function stoppedTimer(
+  patch: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return rawTimer({ finished_at: new Date().toISOString(), ...patch });
 }
 
 /** Полная карточка в форме ответа внешней системы. */
@@ -287,29 +299,54 @@ Deno.test("time start: запуск таймера", async (t) => {
     }
   });
 
-  await t.step("конфликт на чужой карточке: одно действие", async () => {
-    const startedAtMs = startedHalfMinuteAgo();
-    const started = new Date(startedAtMs).toISOString();
-    const { io, stop } = stand({
-      [`GET ${CARD_PATH}`]: () =>
-        Response.json(rawCard({
-          timer: rawTimer({ card_id: OTHER_CARD_ID, started_at: started }),
-        })),
-      [`POST ${TIMERS_PATH}`]: conflictResponse,
-    });
-    try {
-      assertEquals(
-        await errorText(kitenTimeStartCommand, [SELECTOR], io, DomainError),
-        `mpu kiten time start: таймер уже идёт на карточке ${OTHER_CARD_ID} (с ${
-          mskClock(startedAtMs)
-        } МСК); останови \`mpu kiten time stop ${OTHER_CARD_ID}\`\n`,
-      );
-    } finally {
-      await stop();
-    }
-  });
+  await t.step(
+    "конфликт, а таймера на карточке нет: без подсказки",
+    async () => {
+      const { io, seen, stop } = stand({
+        // Таймер идёт на другой карточке, и своя отдаёт `timer: null` —
+        // назвать чужую нечем, поэтому готовой команды в отказе нет.
+        [`GET ${CARD_PATH}`]: () => Response.json(rawCard()),
+        [`POST ${TIMERS_PATH}`]: conflictResponse,
+      });
+      try {
+        assertEquals(
+          await errorText(kitenTimeStartCommand, [SELECTOR], io, DomainError),
+          "mpu kiten time start: таймер уже идёт на другой карточке; " +
+            "Kaiten не сообщает, на какой — найди её в интерфейсе\n",
+        );
+        assertEquals(calls(seen), [
+          `GET ${CARD_PATH}`,
+          `POST ${TIMERS_PATH}`,
+          `GET ${CARD_PATH}`,
+        ]);
+      } finally {
+        await stop();
+      }
+    },
+  );
 
-  await t.step("конфликт, а таймер не прочитан: без карточки", async () => {
+  await t.step(
+    "таймер без метки старта: карточка есть, часов нет",
+    async () => {
+      const { io, stop } = stand({
+        [`GET ${CARD_PATH}`]: () =>
+          Response.json(rawCard({ timer: rawTimer({ started_at: null }) })),
+        [`POST ${TIMERS_PATH}`]: conflictResponse,
+      });
+      try {
+        assertEquals(
+          await errorText(kitenTimeStartCommand, [SELECTOR], io, DomainError),
+          `mpu kiten time start: таймер уже идёт на карточке ${CARD_ID}; ` +
+            `останови \`mpu kiten time stop ${CARD_ID}\` или сбрось ` +
+            `\`mpu kiten time discard ${CARD_ID}\`\n`,
+        );
+      } finally {
+        await stop();
+      }
+    },
+  );
+
+  await t.step("перечитать карточку не удалось: отказ транспорта", async () => {
     let asked = 0;
     const { io, stop } = stand({
       [`GET ${CARD_PATH}`]: () =>
@@ -319,10 +356,12 @@ Deno.test("time start: запуск таймера", async (t) => {
       [`POST ${TIMERS_PATH}`]: conflictResponse,
     });
     try {
+      // Своего текста у этой ветви нет: конфликт подменять выдуманной
+      // карточкой нечем, а не-2xx уходит общим форматом ошибок транспорта.
       assertEquals(
         await errorText(kitenTimeStartCommand, [SELECTOR], io, DomainError),
-        "mpu kiten time start: Kaiten сообщает, что таймер уже создан; " +
-          `попробуй: mpu kiten time stop ${CARD_ID}\n`,
+        `mpu kiten time start: kaiten error: kaiten GET /cards/${CARD_ID}` +
+          " -> 503: сервер прилёг\n",
       );
     } finally {
       await stop();
@@ -455,7 +494,7 @@ Deno.test("time stop: остановка с созданием записи", as
         })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
-        Response.json(rawTimer({ card_time_log_id: LOG_ID })),
+        Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
       [`GET ${LOGS_PATH}`]: () =>
         Response.json([rawMutationLog({ comment: "разбор жалобы" })]),
     });
@@ -492,7 +531,7 @@ Deno.test("time stop: остановка с созданием записи", as
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
-        Response.json(rawTimer({ card_time_log_id: LOG_ID })),
+        Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
       [`GET ${LOGS_PATH}`]: () =>
         Response.json([rawMutationLog({ role_id: 12132 })]),
     }, { KITEN_TIME_ROLE: "Тестирование" });
@@ -516,7 +555,7 @@ Deno.test("time stop: остановка с созданием записи", as
         Response.json(rawCard({ timer: rawTimer({ started_at: started }) })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
-        Response.json(rawTimer({ card_time_log_id: LOG_ID })),
+        Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
       [`GET ${LOGS_PATH}`]: () =>
         Response.json([rawMutationLog({ time_spent: 5 })]),
     });
@@ -554,7 +593,7 @@ Deno.test("time stop: остановка с созданием записи", as
         })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
-        Response.json(rawTimer({ card_time_log_id: LOG_ID })),
+        Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
       [`GET ${LOGS_PATH}`]: () =>
         Response.json([rawMutationLog({ time_spent: 1 })]),
     });
@@ -586,7 +625,7 @@ Deno.test("time stop: остановка с созданием записи", as
         Response.json(rawCard({ timer: rawTimer({ started_at: started }) })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
-        Response.json(rawTimer({ card_time_log_id: LOG_ID })),
+        Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
       [`GET ${LOGS_PATH}`]: () =>
         Response.json([rawMutationLog({ time_spent: 120 })]),
     });
@@ -613,7 +652,7 @@ Deno.test("time stop: остановка с созданием записи", as
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
-        Response.json(rawTimer({ card_time_log_id: LOG_ID })),
+        Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
       // Сервер берёт день записи от финиша в UTC — в 00:00–03:00 МСК это вчера.
       [`GET ${LOGS_PATH}`]: () =>
         Response.json([rawMutationLog({ for_date: "2020-01-01" })]),
@@ -640,7 +679,7 @@ Deno.test("time stop: остановка с созданием записи", as
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
-        Response.json(rawTimer({ card_time_log_id: LOG_ID })),
+        Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
       // Запись создана, но в списке её нет: подменять её вычислениями
       // команды нельзя — печатается только то, что сервер точно назвал.
       [`GET ${LOGS_PATH}`]: () => Response.json([]),
@@ -660,7 +699,7 @@ Deno.test("time stop: остановка с созданием записи", as
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
-        Response.json(rawTimer({ card_time_log_id: LOG_ID })),
+        Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
       [`GET ${LOGS_PATH}`]: () =>
         Response.json([rawMutationLog({ role_id: 99999 })]),
     }, { KITEN_TIME_ROLE: "99999" });
@@ -676,7 +715,7 @@ Deno.test("time stop: остановка с созданием записи", as
     const { io, baseUrl, seen, stop } = stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
-      [`PATCH ${TIMER_PATH}`]: () => Response.json(rawTimer()),
+      [`PATCH ${TIMER_PATH}`]: () => Response.json(stoppedTimer()),
     });
     try {
       assertEquals(

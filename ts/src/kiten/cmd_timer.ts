@@ -19,7 +19,6 @@ import { type CommandIo, defineCommand, DomainError } from "../command/mod.ts";
 import {
   getCard,
   type KaitenAccess,
-  KaitenError,
   type KaitenRole,
   listCardTimeLogs,
   listUserRoles,
@@ -306,52 +305,33 @@ async function requireTimer(
 }
 
 /**
- * Отказ конфликта запуска. Ветвь одна — «таймер уже идёт», — а карточка
- * в ней переменная: ответ 400 её не называет, поэтому таймер читается
- * отдельным вызовом уже после конфликта. Прочитать не удалось — то же
- * «уже идёт», но без карточки и времени.
+ * Отказ конфликта запуска. Ответ 400 карточку не называет, поэтому
+ * карточка селектора перечитывается уже после конфликта, и ветвей от
+ * этого чтения две: таймер на ней есть — он и есть виновник, названный
+ * по имени; таймера нет — значит он идёт на другой карточке, и назвать
+ * её нечем (поле `timer` отдаёт только своя карточка, глобального
+ * списка таймеров у внешней системы нет). Во второй ветви подсказки нет
+ * вовсе: подставить в неё карточку селектора — соврать. Само чтение
+ * может и отказать — тогда наружу уходит его ошибка: своего текста у
+ * этого исхода нет, а выдумывать карточку нечем.
  */
 async function conflictError(
   access: KaitenAccess,
   cardId: number,
 ): Promise<DomainError> {
-  const timer = await readTimerAfterConflict(access, cardId);
-  const clock = startedClock(timer?.startedAt ?? null);
-  if (timer === null || clock === null) {
-    return new DomainError("Kaiten сообщает, что таймер уже создан", {
-      hint: `mpu kiten time stop ${cardId}`,
-    });
+  const timer = (await getCard(access, cardId)).timer;
+  if (timer === null) {
+    return new DomainError(
+      "таймер уже идёт на другой карточке; " +
+        "Kaiten не сообщает, на какой — найди её в интерфейсе",
+    );
   }
-  const running = timer.cardId ?? cardId;
-  const stop = `останови \`mpu kiten time stop ${running}\``;
-  return new DomainError(
-    `таймер уже идёт на карточке ${running} (с ${clock})`,
-    {
-      // На своей карточке выбор шире: сброс без записи осмыслен только
-      // там, где пользователь и хотел стартовать.
-      advice: running === cardId
-        ? `${stop} или сбрось \`mpu kiten time discard ${running}\``
-        : stop,
-    },
-  );
-}
-
-/**
- * Таймер после пойманного конфликта; `null` — прочитать не удалось.
- * Отказ чтения гасится намеренно: конфликт уже установлен, и потерять
- * из-за неудачной справки сам отказ было бы хуже, чем сообщить его без
- * карточки.
- */
-async function readTimerAfterConflict(
-  access: KaitenAccess,
-  cardId: number,
-): Promise<Timer | null> {
-  try {
-    return (await getCard(access, cardId)).timer;
-  } catch (err) {
-    if (!(err instanceof KaitenError)) throw err;
-    return null;
-  }
+  const clock = startedClock(timer.startedAt);
+  const since = clock === null ? "" : ` (с ${clock})`;
+  return new DomainError(`таймер уже идёт на карточке ${cardId}${since}`, {
+    advice: `останови \`mpu kiten time stop ${cardId}\` или сбрось ` +
+      `\`mpu kiten time discard ${cardId}\``,
+  });
 }
 
 /**
@@ -547,8 +527,10 @@ export const kitenTimeStartCommand = defineCommand({
 stop, если у stop своего комментария нет.
 
 Таймер у пользователя один на всю компанию. Если он уже идёт — неважно,
-на этой карточке или на другой, — start отвечает ошибкой и называет
-карточку и время начала. Флага --force нет: обходить нечего.
+на этой карточке или на другой, — start отвечает ошибкой. Идущий на этой
+же карточке называется по имени, с временем начала; идущий на другой
+Kaiten не называет никак — его придётся найти в интерфейсе. Флага
+--force нет: обходить нечего.
 
 ${ENV_KEYS}
 
