@@ -34,6 +34,7 @@ import {
   cardItems,
   checklistViews,
   checklistViewSchema,
+  orderedChecklists,
   renderChecklists,
   renderChecklistsJson,
 } from "./checklist_view.ts";
@@ -52,7 +53,7 @@ const lsArgsSchema = z.object({
 
 const lsResultSchema = z.object({
   checklists: z.array(checklistViewSchema).describe(
-    "чек-листы в порядке ответа сервера; пункты внутри — отсортированы",
+    "чек-листы по возрастанию id; пункты внутри — отсортированы",
   ),
 });
 
@@ -216,7 +217,12 @@ function locateItem(
   throw new UsageError(`пункт '${ref}' не найден; есть: ${known}`);
 }
 
-/** Чек-лист с этим именем: найденный на карточке либо созданный. */
+/**
+ * Чек-лист с этим именем: найденный на карточке либо созданный. Имён
+ * сервер не различает, поэтому одноимённые разводятся тем же порядком,
+ * каким их показывает `ls`, — побеждает меньший `id`
+ * (`kiten-checklist.md`, «Граничные случаи»).
+ */
 async function resolveChecklist(
   access: KaitenAccess,
   cardId: number,
@@ -224,7 +230,7 @@ async function resolveChecklist(
 ): Promise<ChecklistTarget> {
   try {
     const card = await getCard(access, cardId);
-    const existing = card.checklists.find((checklist) =>
+    const existing = orderedChecklists(card.checklists).find((checklist) =>
       checklist.name === name
     );
     if (existing !== undefined) return { checklist: existing, created: false };
@@ -320,9 +326,10 @@ export const kitenChecklistLsCommand = defineCommand({
 
 Печатает по блоку на чек-лист: заголовок «название · отмечено/всего
 (checklist id N)» и таблицу пунктов — id, отметка ([x] или [ ]) и текст.
-Пункты идут по возрастанию sort_order, при равенстве по id: сервер
-отдаёт их в произвольном порядке, и без сортировки список расходился бы
-с веб-карточкой. Текст пункта печатается одной строкой целиком — его же
+Пункты идут по возрастанию sort_order, при равенстве по id, а сами
+чек-листы — по возрастанию id: сервер отдаёт и то и другое в
+произвольном порядке, и без сортировки список расходился бы с
+веб-карточкой. Текст пункта печатается одной строкой целиком — его же
 копируют в check/uncheck. Чек-листов нет — строка «(чек-листов нет)».
 
 --json печатает массив чек-листов: id, name, items[] с полями id,

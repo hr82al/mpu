@@ -3,10 +3,10 @@
  * (`docs/specs/kiten-checklist.md`): порядок пунктов, таблица и JSON
  * `ls`, перечень кандидатов в сообщениях о ссылке на пункт.
  *
- * Порядок здесь — не украшение: `items[]` сервер отдаёт в произвольном
- * порядке, и один и тот же порядок обязан быть и в таблице, и в перечне
- * кандидатов — человек сверяет второе с первым. Поэтому сортировка живёт
- * рядом с обоими её потребителями, а не у каждого своя.
+ * Порядок здесь — не украшение: ни `items[]`, ни `checklists[]` сервер не
+ * отдаёт упорядоченными, и один и тот же порядок обязан быть и в таблице,
+ * и в перечне кандидатов — человек сверяет второе с первым. Поэтому
+ * сортировка живёт рядом с обоими её потребителями, а не у каждого своя.
  *
  * Рендер чист: ни сети, ни диска, ни часов.
  */
@@ -52,7 +52,7 @@ const COLUMNS = ["id", "✓", "text"] as const;
 export function checklistViews(
   checklists: readonly Checklist[],
 ): ChecklistView[] {
-  return checklists.map((checklist) => ({
+  return orderedChecklists(checklists).map((checklist) => ({
     id: checklist.id,
     name: checklist.name,
     items: sortedItems(checklist.items).map((item) => ({
@@ -101,6 +101,18 @@ export function candidateList(items: readonly CardChecklistItem[]): string {
   return items
     .map(({ item }) => `${item.id}: ${trimText(item.text)}`)
     .join("; ");
+}
+
+/**
+ * Чек-листы карточки в порядке показа — по возрастанию `id`; вход не
+ * меняется. Порядок `checklists[]` сервер не задаёт ровно так же, как
+ * порядок `items[]`, поэтому его строит команда: иначе и блоки `ls`, и
+ * выбор одноимённого чек-листа были бы недетерминированы.
+ */
+export function orderedChecklists(
+  checklists: readonly Checklist[],
+): readonly Checklist[] {
+  return [...checklists].sort((left, right) => left.id - right.id);
 }
 
 /** Пункты чек-листа в порядке показа; вход не меняется. */

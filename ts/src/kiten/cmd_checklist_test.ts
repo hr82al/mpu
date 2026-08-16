@@ -236,6 +236,27 @@ Deno.test("checklist ls: сортировка, обе формы вывода и
     }
   });
 
+  await t.step("чек-листы в убывающем id — блоки по возрастанию", async () => {
+    // Фейк отдаёт их в обратном порядке нарочно: на живой карточке они
+    // шли по возрастанию сами собой, и такой прогон ничего не проверял бы.
+    const { io, stop } = cardStand([
+      { id: SECOND_LIST_ID, name: "Второй", items: [rawItem(2, "два")] },
+      { id: LIST_ID, name: "Первый", items: [rawItem(1, "раз")] },
+    ]);
+    try {
+      const text = await output(kitenChecklistLsCommand, [SELECTOR], io);
+      assertEquals(
+        text.split("\n").filter((line) => line.includes("checklist id")),
+        [
+          `Первый · 0/1 (checklist id ${LIST_ID})`,
+          `Второй · 0/1 (checklist id ${SECOND_LIST_ID})`,
+        ],
+      );
+    } finally {
+      await stop();
+    }
+  });
+
   await t.step("отметка пункта видна как [x]", async () => {
     const { io, stop } = cardStand([
       {
@@ -452,6 +473,34 @@ Deno.test("checklist add: создание, идемпотентность и so
       );
       assertStringIncludes(text, "mpu kiten checklist add: kaiten error:");
       assertStringIncludes(text, "добавлено пунктов: 1");
+    } finally {
+      await stop();
+    }
+  });
+
+  await t.step("одноимённые чек-листы — берётся меньший id", async () => {
+    // Фейк отдаёт их по убыванию id: выбор «первый в ответе сервера»
+    // взял бы больший и упёрся бы в незаданный маршрут его пунктов.
+    const { io, seen, stop } = cardStand([
+      { id: SECOND_LIST_ID, name: "Проверки", items: [] },
+      { id: LIST_ID, name: "Проверки", items: [] },
+    ], {
+      [`POST ${itemsPath(LIST_ID)}`]: (body) =>
+        Response.json({ id: 66835645, ...JSON.parse(body) }),
+    });
+    try {
+      const text = await output(kitenChecklistAddCommand, [
+        SELECTOR,
+        "-n",
+        "Проверки",
+        "-i",
+        "Тест написан",
+      ], io);
+      assertStringIncludes(text, `(существующий, id ${LIST_ID})`);
+      assertEquals(calls(seen), [
+        `GET ${CARD_PATH}`,
+        `POST ${itemsPath(LIST_ID)}`,
+      ]);
     } finally {
       await stop();
     }
