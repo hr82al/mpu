@@ -34,12 +34,18 @@ export async function findChatByTitle(
   client: ChatSearch,
   title: string,
   subject: string,
+  /**
+   * Отказ предыдущей попытки резолва, если она была: наружу он не
+   * показывается — пользователю нужен итог, — но в цепочке `cause`
+   * остаётся, иначе первопричина теряется совсем.
+   */
+  cause?: unknown,
 ): Promise<Dialog> {
   const found = dedupeById((await search(client, title)).map(dialogOf));
   const matches = pick(found, title);
   if (matches.length === 1) return matches[0];
-  if (matches.length === 0) throw notFound(title, subject);
-  throw ambiguous(title, matches);
+  if (matches.length === 0) throw notFound(title, subject, cause);
+  throw ambiguous(title, matches, cause);
 }
 
 /**
@@ -64,19 +70,25 @@ function pick(found: readonly Dialog[], title: string): readonly Dialog[] {
   return found.filter((chat) => chat.title.toLowerCase().includes(needle));
 }
 
-function ambiguous(title: string, matches: readonly Dialog[]): Error {
+function ambiguous(
+  title: string,
+  matches: readonly Dialog[],
+  cause?: unknown,
+): Error {
   const listed = matches
     .map((chat) => `'${chat.title}' → id ${chat.id}`)
     .join("; ");
   return configError(
     `под название '${title}' подходит несколько чатов: ${listed}; ` +
       "попробуй: указать адресата по id или @username",
+    { cause },
   );
 }
 
-function notFound(title: string, subject: string): Error {
+function notFound(title: string, subject: string, cause?: unknown): Error {
   return configError(
     `не удалось найти ${subject} '${title}': совпадений нет; ` +
       `попробуй: mpu telegram ls '${title}' и укажи id или @username`,
+    { cause },
   );
 }

@@ -18,8 +18,17 @@ export type Peer =
   | { readonly kind: "me" }
   /** Числовой id в клиентской конвенции (маркированный). */
   | { readonly kind: "id"; readonly id: number }
-  /** Имя пользователя или телефон — Telegram резолвит их сам. */
+  /**
+   * Вид объявлен пользователем («@», ссылка `t.me`): Telegram резолвит
+   * такую строку сам, и второй попытки у неё нет.
+   */
   | { readonly kind: "name"; readonly name: string }
+  /**
+   * Голая строка, похожая на имя пользователя или телефон: сперва
+   * штатный резолв, при его неудаче — поиск по названию
+   * (`platform/telegram-mtproto.md`, «Резолв адресата»: две попытки).
+   */
+  | { readonly kind: "guess"; readonly name: string }
   /**
    * Название чата: Telegram по нему не резолвит, нужен поиск
    * (`docs/specs/telegram-ls.md`, «Резолв по названию»).
@@ -30,7 +39,10 @@ export type Peer =
  * Адресат, который Telegram резолвит сам. Название чата сюда не входит:
  * по нему сперва идёт поиск (`docs/specs/telegram-ls.md`).
  */
-export type ResolvablePeer = Exclude<Peer, { readonly kind: "title" }>;
+export type ResolvablePeer = Extract<
+  Peer,
+  { readonly kind: "me" | "id" | "name" }
+>;
 
 const LINK = /^(?:https?:\/\/)?t\.me\/(.*)$/i;
 
@@ -62,10 +74,12 @@ export function parsePeer(target: string): Peer {
   }
   // Ведущий «@» и ссылка `t.me` — объявление пользователя, а не
   // названия: такую строку резолвит сам Telegram, даже если она не
-  // похожа на обычное имя (приглашение `t.me/+AbCdEf`).
-  if (declared || USERNAME.test(name) || PHONE.test(name)) {
-    return { kind: "name", name };
-  }
+  // похожа на обычное имя (приглашение `t.me/+AbCdEf`), и поиском её
+  // добирать не за чем — вид назвал сам пользователь.
+  if (declared) return { kind: "name", name };
+  // Голая строка, похожая на имя: имя такое может и не существовать, а
+  // чат с таким названием — вполне («news», «team»). Отсюда две попытки.
+  if (USERNAME.test(name) || PHONE.test(name)) return { kind: "guess", name };
   // Прочее — название чата, уже нормализованное: поиск и текст отказа
   // берут его отсюда, а не сырую строку.
   return { kind: "title", title: name };

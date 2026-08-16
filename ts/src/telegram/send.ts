@@ -62,24 +62,46 @@ async function resolveTarget(
   client: TelegramClient,
   plan: SendPlan,
 ): Promise<PeerRef> {
-  // Название чата Telegram сам не резолвит: сперва поиск, и только
-  // потом резолв найденного идентификатора (`telegram-ls.md`, «Резолв
-  // по названию»). Отказ поиска — свой, с перечислением кандидатов.
-  const peer: ResolvablePeer = plan.peer.kind === "title"
-    ? {
-      kind: "id",
-      id: (await findChatByTitle(client, plan.peer.title, "чат")).id,
-    }
-    : plan.peer;
+  const peer = plan.peer;
+  // Название чата Telegram не резолвит: ему сразу поиск, и только потом
+  // резолв найденного идентификатора.
+  if (peer.kind === "title") return await byTitle(client, peer.title);
   try {
-    return await client.resolve(peer);
+    return await client.resolve(peer.kind === "guess" ? asName(peer) : peer);
   } catch (err) {
+    // Голая строка, похожая на имя: имени такого нет, но чат с таким
+    // названием может быть — вторая попытка (`telegram-mtproto.md`,
+    // «Резолв адресата»). Вид, объявленный пользователем, второй попытки
+    // не получает: он сказал, что это имя.
+    if (peer.kind === "guess") return await byTitle(client, peer.name, err);
     throw configError(
       `не удалось найти чат '${plan.target}': ${reason(err)}; ` +
         `попробуй: mpu telegram ls '${plan.target}' и укажи id или @username`,
       { cause: err },
     );
   }
+}
+
+/** Адресат по названию: поиск, затем резолв найденного идентификатора. */
+async function byTitle(
+  client: TelegramClient,
+  title: string,
+  /** Отказ первой попытки: он не показывается, но и не теряется. */
+  cause?: unknown,
+): Promise<PeerRef> {
+  const found = await findChatByTitle(client, title, "чат", cause);
+  // Отказ на найденном идентификаторе — отказ Telegram, а не «чат не
+  // найден»: чат мы только что нашли, его id пришёл от сервера.
+  return await telegramOperation(() =>
+    client.resolve({ kind: "id", id: found.id })
+  );
+}
+
+/** Догадка об имени — имя для штатного резолва. */
+function asName(
+  peer: Extract<Peer, { readonly kind: "guess" }>,
+): ResolvablePeer {
+  return { kind: "name", name: peer.name };
 }
 
 /**

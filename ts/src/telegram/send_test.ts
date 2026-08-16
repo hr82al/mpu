@@ -16,7 +16,11 @@ interface Seen {
 
 function stand(
   outcome: readonly ClientMessage[],
-  fail?: { readonly on: "resolve" | "send"; readonly err: Error },
+  fail?: {
+    /** Что именно отказывает: имя, найденный поиском id или отправка. */
+    readonly on: "resolve:name" | "resolve:id" | "send";
+    readonly err: Error;
+  },
   found: readonly RawChat[] = [],
 ): { readonly client: TelegramClient; readonly seen: Seen } {
   const seen: Seen = {
@@ -30,7 +34,8 @@ function stand(
   const client: TelegramClient = {
     resolve: (peer: Peer) => {
       seen.calls.push(`resolve:${peer.kind}`);
-      if (fail?.on === "resolve") return Promise.reject(fail.err);
+      const stage = peer.kind === "id" ? "resolve:id" : "resolve:name";
+      if (fail?.on === stage) return Promise.reject(fail.err);
       return Promise.resolve(ref);
     },
     sendText: (_to, text, markdown) => {
@@ -183,6 +188,77 @@ Deno.test("адресат-название ищется поиском, а не 
   ]);
 });
 
+Deno.test("имени такого нет — вторая попытка ищет чат по названию", async () => {
+  // Латинская строка без пробелов («news», «DEV») — обычное название
+  // чата, и до поиска она обязана дойти.
+  const { client, seen } = stand([message(5000001)], {
+    on: "resolve:name",
+    err: new Error("Peer with username news not found"),
+  }, [
+    { peerType: "supergroup", rawId: 3, title: "news", username: null },
+  ]);
+  const sent = await sendMessage(
+    client,
+    plan({ target: "news", peer: { kind: "guess", name: "news" } }),
+  );
+  assertEquals(sent.id, 5000001);
+  assertEquals(seen.calls, [
+    "resolve:name",
+    "searchChats:news",
+    "resolve:id",
+    "sendText",
+  ]);
+});
+
+Deno.test("несколько чатов с таким названием — отказ со списком", async () => {
+  const { client, seen } = stand([message(5000001)], {
+    on: "resolve:name",
+    err: new Error("Peer with username news not found"),
+  }, [
+    { peerType: "supergroup", rawId: 3, title: "news рынка", username: null },
+    { peerType: "channel", rawId: 4, title: "news дня", username: null },
+  ]);
+  const err = await assertRejects(
+    () =>
+      sendMessage(
+        client,
+        plan({ target: "news", peer: { kind: "guess", name: "news" } }),
+      ),
+    VerbatimError,
+  );
+  assertEquals(
+    err.message,
+    "telegram: под название 'news' подходит несколько чатов: " +
+      "'news рынка' → id -1000000000003; 'news дня' → id -1000000000004; " +
+      "попробуй: указать адресата по id или @username",
+  );
+  assertEquals(seen.calls, ["resolve:name", "searchChats:news"]);
+});
+
+Deno.test("объявленное имя второй попытки не получает", async () => {
+  const { client, seen } = stand([message(5000001)], {
+    on: "resolve:name",
+    err: new Error("Peer with username durov not found"),
+  }, [
+    { peerType: "supergroup", rawId: 3, title: "durov", username: null },
+  ]);
+  const err = await assertRejects(
+    () =>
+      sendMessage(
+        client,
+        plan({ target: "@durov", peer: { kind: "name", name: "durov" } }),
+      ),
+    VerbatimError,
+  );
+  // Пользователь сам сказал, что это имя, — искать чат с таким названием
+  // не за чем.
+  assertEquals(seen.calls, ["resolve:name"]);
+  assertEquals(
+    err.message.startsWith("telegram: не удалось найти чат '@durov'"),
+    true,
+  );
+});
+
 Deno.test("название без совпадений — отказ поиска, а не отправка", async () => {
   const { client, seen } = stand([message(5000001)], undefined, []);
   const err = await assertRejects(
@@ -201,24 +277,63 @@ Deno.test("название без совпадений — отказ поис�
   assertEquals(seen.calls, ["searchChats:Команда"]);
 });
 
-Deno.test("отказ резолва называет адресата и подсказывает ls", async () => {
-  const { client } = stand([], {
-    on: "resolve",
-    err: new Error("chat not found"),
-  });
+Deno.test("ни имени, ни чата с таким названием — отказ поиска", async () => {
+  // То, что увидит пользователь живьём: первая попытка отказала,
+  // вторая ничего не нашла.
+  const { client, seen } = stand([], {
+    on: "resolve:name",
+    err: new Error("Peer with username news not found"),
+  }, []);
   const err = await assertRejects(
     () =>
       sendMessage(
         client,
-        plan({ target: "durov", peer: { kind: "name", name: "durov" } }),
+        plan({ target: "news", peer: { kind: "guess", name: "news" } }),
       ),
     VerbatimError,
   );
   assertEquals(
     err.message,
-    "telegram: не удалось найти чат 'durov': chat not found; " +
-      "попробуй: mpu telegram ls 'durov' и укажи id или @username",
+    "telegram: не удалось найти чат 'news': совпадений нет; " +
+      "попробуй: mpu telegram ls 'news' и укажи id или @username",
   );
+  assertEquals(seen.calls, ["resolve:name", "searchChats:news"]);
+  // Отказ первой попытки не показывается, но и не теряется.
+  assertEquals(
+    (err.cause as Error).message,
+    "Peer with username news not found",
+  );
+});
+
+Deno.test("имя нашлось — второй попытки не делается", async () => {
+  const { client, seen } = stand([message(5000001)], undefined, [
+    { peerType: "supergroup", rawId: 3, title: "durov", username: null },
+  ]);
+  await sendMessage(
+    client,
+    plan({ target: "durov", peer: { kind: "guess", name: "durov" } }),
+  );
+  assertEquals(seen.calls, ["resolve:name", "sendText"]);
+});
+
+Deno.test("отказ на найденном чате — отказ Telegram, не «не найден»", async () => {
+  const flood = Object.assign(new Error("FLOOD_WAIT"), { seconds: 42 });
+  const { client, seen } = stand([message(5000001)], {
+    on: "resolve:id",
+    err: flood,
+  }, [{ peerType: "supergroup", rawId: 3, title: "news", username: null }]);
+  const err = await assertRejects(
+    () =>
+      sendMessage(
+        client,
+        plan({ target: "news", peer: { kind: "title", title: "news" } }),
+      ),
+    VerbatimError,
+  );
+  // Чат только что нашёлся, его id пришёл от сервера — значит это отказ
+  // операции, а не ненайденный адресат.
+  assertEquals(err.message, "telegram: rate-limit, подожди 42s");
+  assertEquals(seen.calls, ["searchChats:news", "resolve:id"]);
 });
 
 Deno.test("отказ отправки не выдаётся за отказ адресата", async () => {
