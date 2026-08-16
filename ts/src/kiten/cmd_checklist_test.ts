@@ -253,6 +253,20 @@ Deno.test("checklist ls: сортировка, обе формы вывода и
     }
   });
 
+  await t.step("отказ чтения карточки — доменная ошибка", async () => {
+    const { io, stop } = stand({
+      [`GET ${CARD_PATH}`]: () => new Response("boom", { status: 500 }),
+    });
+    try {
+      assertStringIncludes(
+        await errorText(kitenChecklistLsCommand, [SELECTOR], io, DomainError),
+        "mpu kiten checklist ls: kaiten error:",
+      );
+    } finally {
+      await stop();
+    }
+  });
+
   await t.step("пункт без sort_order идёт как с нулевым", async () => {
     const { io, stop } = cardStand([{
       id: LIST_ID,
@@ -683,6 +697,25 @@ Deno.test("checklist check/uncheck: резолв пункта и один PATCH"
         ),
         `mpu kiten checklist check: пункт 'нет такого' не найден; ` +
           `есть: 66835645: ${"я".repeat(60)}\n`,
+      );
+    } finally {
+      await stop();
+    }
+  });
+
+  await t.step("отказ чтения карточки — доменная ошибка", async () => {
+    const { io, stop } = stand({
+      [`GET ${CARD_PATH}`]: () => new Response("boom", { status: 500 }),
+    });
+    try {
+      assertStringIncludes(
+        await errorText(
+          kitenChecklistCheckCommand,
+          [SELECTOR, "Тест"],
+          io,
+          DomainError,
+        ),
+        "mpu kiten checklist check: kaiten error:",
       );
     } finally {
       await stop();
