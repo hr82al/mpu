@@ -1345,6 +1345,95 @@
     }
   },
   {
+    "name": "kiten_checklist_ls",
+    "title": "mpu kiten checklist ls",
+    "description": "Показать чек-листы карточки Kaiten с пунктами.\n\nSELECTOR — id карточки либо её URL.\n\nПечатает по блоку на чек-лист: заголовок «название · отмечено/всего\n(checklist id N)» и таблицу пунктов — id, отметка ([x] или [ ]) и текст.\nПункты идут по возрастанию sort_order, при равенстве по id: сервер\nотдаёт их в произвольном порядке, и без сортировки список расходился бы\nс веб-карточкой. Текст пункта печатается одной строкой целиком — его же\nкопируют в check/uncheck. Чек-листов нет — строка «(чек-листов нет)».\n\n--json печатает массив чек-листов: id, name, items[] с полями id,\nchecked, text — в том же порядке пунктов. Чек-листов нет — [].\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор,\nненастроенный KITEN_API_KEY).\n\nПример: mpu kiten checklist ls 10000001 --json",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "json": {
+          "default": false,
+          "description": "вывод массивом, а не таблицей",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "checklists": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "id чек-листа"
+              },
+              "name": {
+                "type": "string",
+                "description": "название чек-листа"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "id пункта: им же адресуется check/uncheck"
+                    },
+                    "checked": {
+                      "type": "boolean",
+                      "description": "отмечен ли пункт"
+                    },
+                    "text": {
+                      "type": "string",
+                      "description": "текст пункта"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "checked",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "пункты по возрастанию sort_order, при равенстве по id"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "items"
+            ],
+            "additionalProperties": false
+          },
+          "description": "чек-листы в порядке ответа сервера; пункты внутри — отсортированы"
+        }
+      },
+      "required": [
+        "checklists"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "sheet_get",
     "title": "mpu sheet get",
     "description": "Read cell values from one or more A1-notation ranges.\n\nRead cell values from one or more A1-notation ranges.",

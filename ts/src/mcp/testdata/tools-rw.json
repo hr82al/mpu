@@ -1572,6 +1572,187 @@
     }
   },
   {
+    "name": "kiten_checklist_add",
+    "title": "mpu kiten checklist add",
+    "description": "Создать чек-лист карточки Kaiten и дописать в него пункты.\n\nSELECTOR — id карточки либо её URL.\n\n-n/--name NAME (обязателен) — название чек-листа. Совпадение с уже\nсуществующим точное: регистр и пробелы значимы. Совпал — пункты идут в\nнего, чек-лист не создаётся.\n\n-i/--item TEXT (повторяется, необязателен) — текст пункта. Пункты\nдобавляются в порядке флагов; текст, который на этом чек-листе уже есть,\nпропускается — дубль не создаётся ни повтором команды, ни повтором флага.\nБез -i чек-лист просто создаётся, «добавлено пунктов: 0».\n\nНичего не удаляется и не переписывается: команда только создаёт.\nОтказ на середине списка не откатывает уже созданные пункты — их число\nназвано в сообщении об ошибке, повтор команды безопасен.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор,\nотсутствие --name, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten checklist add 10000001 -n 'Подзадачи' -i 'Спека — 1 ч'",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "name": {
+          "type": "string",
+          "description": "название чек-листа; совпадение с существующим точное"
+        },
+        "item": {
+          "default": [],
+          "description": "текст пункта; флаг повторяется, пункты добавляются в порядке флагов",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "selector",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "название чек-листа, как его вернул сервер"
+        },
+        "checklistId": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "id чек-листа: созданного либо его же"
+        },
+        "created": {
+          "type": "boolean",
+          "description": "создан ли чек-лист этим вызовом"
+        },
+        "added": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "сколько пунктов создано: уже имевшиеся тексты не в счёт"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "name",
+        "checklistId",
+        "created",
+        "added",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "kiten_checklist_check",
+    "title": "mpu kiten checklist check",
+    "description": "Отметить пункт чек-листа карточки Kaiten.\n\nSELECTOR — id карточки либо её URL.\n\nITEM — ссылка на пункт: id из вывода ls либо подстрока\nего текста. Строка из одних цифр сначала пробуется как id: совпал — он и\nпобеждает, не совпал — та же строка ищется подстрокой. Подстрока\nсравнивается без учёта регистра и ищется по ВСЕМ чек-листам карточки;\nгодится ровно одно совпадение. Ни одного совпадения либо несколько —\nошибка ввода с перечнем пунктов, и ни одного запроса на изменение при\nэтом не уходит.\n\nОтметка — общее состояние с интерфейсом Kaiten, а не отдельная сущность\nкоманды: отмеченное здесь видно в веб-карточке и наоборот. Повторный\nвызов на уже отмеченном пункте безопасен и печатает ту же строку.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода\n(селектор, ненайденная или неоднозначная ссылка на пункт, ненастроенный\nKITEN_API_KEY).\n\nПример: mpu kiten checklist check 10000001 'Ревью'",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "item": {
+          "type": "string",
+          "description": "ссылка на пункт: id из вывода ls либо подстрока текста"
+        }
+      },
+      "required": [
+        "selector",
+        "item"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "checked": {
+          "type": "boolean",
+          "description": "отметка пункта из ответа сервера"
+        },
+        "text": {
+          "type": "string",
+          "description": "текст пункта из ответа сервера"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "checked",
+        "text",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "kiten_checklist_uncheck",
+    "title": "mpu kiten checklist uncheck",
+    "description": "Снять отметку пункта чек-листа карточки Kaiten.\n\nSELECTOR — id карточки либо её URL.\n\nITEM — ссылка на пункт: id из вывода ls либо подстрока\nего текста. Строка из одних цифр сначала пробуется как id: совпал — он и\nпобеждает, не совпал — та же строка ищется подстрокой. Подстрока\nсравнивается без учёта регистра и ищется по ВСЕМ чек-листам карточки;\nгодится ровно одно совпадение. Ни одного совпадения либо несколько —\nошибка ввода с перечнем пунктов, и ни одного запроса на изменение при\nэтом не уходит.\n\nСнятая здесь отметка снята и в веб-карточке. Повторный вызов на\nнеотмеченном пункте безопасен и печатает ту же строку.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода\n(селектор, ненайденная или неоднозначная ссылка на пункт, ненастроенный\nKITEN_API_KEY).\n\nПример: mpu kiten checklist uncheck 10000001 66470402",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL, короткий или глубокий"
+        },
+        "item": {
+          "type": "string",
+          "description": "ссылка на пункт: id из вывода ls либо подстрока текста"
+        }
+      },
+      "required": [
+        "selector",
+        "item"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "checked": {
+          "type": "boolean",
+          "description": "отметка пункта из ответа сервера"
+        },
+        "text": {
+          "type": "string",
+          "description": "текст пункта из ответа сервера"
+        },
+        "cardUrl": {
+          "type": "string",
+          "description": "адрес карточки: базовый URL и её id"
+        }
+      },
+      "required": [
+        "checked",
+        "text",
+        "cardUrl"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "search",
     "title": "mpu search",
     "description": "Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nНайти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nРежим выбирают флаги, не селектор.\n\n\b\nБЕЗ ФЛАГОВ — локальный кэш (сети нет): client_id · IPv4 sl_/pg_ · WB sid ·\nкусок spreadsheet_id · кусок title → JSON-массив строк {client_id,\nspreadsheet_id, title, server, server_number, sl_ip, pg_ip, sids}. Пусто →\nавто-`mpu update` и повтор (`--no-update` гасит). Проекция (`--server`,\n`--sids`, …) печатает голые значения — форма для подстановки в другие команды.\n\n\b\nС `--reason` / `--refresh-cache` / `--scope` — 10X: селектор → email цели →\nimpersonation-сессия (зайти в веб ОТ ЛИЦА клиента). Email идёт сюда и без\nфлагов. Пять входов, как у staff-поиска sw-back:\n\n\b\n  email (точный)                user     mpu search user@mail.ru\n  кусок email / имя             user     mpu search Иванов --scope user\n  user.id                       user     mpu search 1029 --scope user\n  client_id (== workspace id)   access   mpu search 2759 --reason <url>\n  sid кабинета (полный uuid)    access   mpu search <sid> --reason <url>\n\n`auto` (умолчание): целое и uuid → access, остальное → user. Число в разных\nскоупах — разные сущности (1029: user.id есть, workspace нет), для user.id\nнужен явный `--scope user`. Названием клиента/кабинета 10X НЕ ищет: название\n[справка усечена: отброшено 1059 байт]",
