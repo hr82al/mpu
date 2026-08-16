@@ -394,6 +394,21 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "telegram ls",
+    // Сеанса Telegram у обхода нет: вызов обязан отбиться до сети —
+    // здесь на разборе --limit.
+    argv: ["--limit", "0"],
+    sampleResult: {
+      dialogs: [{
+        id: 100000001,
+        title: "Иван Петров",
+        kind: "user",
+        username: "ipetrov",
+      }],
+      table: false,
+    },
+  },
+  {
     path: "telegram send",
     // Адресата нет ни во флаге, ни в env-файле обхода: вызов обязан
     // отбиться до сети — сеанса Telegram у обхода нет.

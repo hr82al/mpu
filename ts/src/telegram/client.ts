@@ -5,7 +5,8 @@
  * поведение команд проверяется фейком, без сети.
  */
 
-import type { Peer } from "./peer.ts";
+import type { RawChat } from "./chat.ts";
+import type { ResolvablePeer } from "./peer.ts";
 
 /** Файл, уходящий документом без превью; несколько — альбом. */
 export interface Attachment {
@@ -40,7 +41,7 @@ export interface ClientMessage {
  * проверяться до операции (там же, «Инварианты»).
  */
 export interface TelegramClient {
-  readonly resolve: (peer: Peer) => Promise<PeerRef>;
+  readonly resolve: (peer: ResolvablePeer) => Promise<PeerRef>;
   readonly sendText: (
     to: PeerRef,
     text: string,
@@ -52,4 +53,15 @@ export interface TelegramClient {
     documents: readonly OutgoingDocument[],
     markdown: boolean,
   ) => Promise<readonly ClientMessage[]>;
+  /** Последние диалоги в порядке сервера, не больше `limit`. */
+  readonly listDialogs: (limit: number) => Promise<readonly RawChat[]>;
+  /**
+   * Поиск по контактам и глобальному каталогу одним вызовом: ответ
+   * несёт и то и другое, поэтому в нём бывают повторы — дедуп лежит на
+   * вызывающем.
+   */
+  readonly searchChats: (
+    query: string,
+    limit: number,
+  ) => Promise<readonly RawChat[]>;
 }

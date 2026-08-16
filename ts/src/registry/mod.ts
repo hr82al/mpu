@@ -44,7 +44,7 @@ import {
   kitenTimeStatusCommand,
   kitenTimeStopCommand,
 } from "../kiten/mod.ts";
-import { telegramSendCommand } from "../telegram/mod.ts";
+import { telegramLsCommand, telegramSendCommand } from "../telegram/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 
@@ -115,9 +115,10 @@ export const commands: readonly Command[] = [
   kitenChecklistUncheckCommand,
   kitenCloseCommand,
   // Тот же смешанный маршрут группы, что у `kiten`: из `telegram`
-  // нативна только отправка, а `ls`, `search`, `status` и вход остаются
-  // подпроцессом прежней реализации.
+  // нативны отправка и поиск адресата, а `search`, `status` и вход
+  // остаются подпроцессом прежней реализации.
   telegramSendCommand,
+  telegramLsCommand,
 ];
 
 /**

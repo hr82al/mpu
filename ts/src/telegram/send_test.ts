@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { VerbatimError } from "../command/mod.ts";
 import type { Peer } from "./peer.ts";
 import type { ClientMessage, PeerRef, TelegramClient } from "./client.ts";
+import type { RawChat } from "./chat.ts";
 import { sendMessage, type SendPlan } from "./send.ts";
 
 /** Что фейковый клиент увидел и в каком порядке. */
@@ -16,6 +17,7 @@ interface Seen {
 function stand(
   outcome: readonly ClientMessage[],
   fail?: { readonly on: "resolve" | "send"; readonly err: Error },
+  found: readonly RawChat[] = [],
 ): { readonly client: TelegramClient; readonly seen: Seen } {
   const seen: Seen = {
     calls: [],
@@ -45,6 +47,14 @@ function stand(
       seen.documents.push(docs.map((doc) => doc.name));
       if (fail?.on === "send") return Promise.reject(fail.err);
       return Promise.resolve(outcome);
+    },
+    listDialogs: () => {
+      seen.calls.push("listDialogs");
+      return Promise.resolve(found);
+    },
+    searchChats: (query) => {
+      seen.calls.push(`searchChats:${query}`);
+      return Promise.resolve(found);
     },
   };
   return { client, seen };
@@ -158,6 +168,39 @@ Deno.test("идентификатора чата нет — отказ опер�
   );
 });
 
+Deno.test("адресат-название ищется поиском, а не резолвится напрямую", async () => {
+  const { client, seen } = stand([message(5000001)], undefined, [
+    { peerType: "supergroup", rawId: 3, title: "Команда", username: null },
+  ]);
+  await sendMessage(
+    client,
+    plan({ target: "Команда", peer: { kind: "title", title: "Команда" } }),
+  );
+  assertEquals(seen.calls, [
+    "searchChats:Команда",
+    "resolve:id",
+    "sendText",
+  ]);
+});
+
+Deno.test("название без совпадений — отказ поиска, а не отправка", async () => {
+  const { client, seen } = stand([message(5000001)], undefined, []);
+  const err = await assertRejects(
+    () =>
+      sendMessage(
+        client,
+        plan({ target: "Команда", peer: { kind: "title", title: "Команда" } }),
+      ),
+    VerbatimError,
+  );
+  assertEquals(
+    err.message,
+    "telegram: не удалось найти чат 'Команда': совпадений нет; " +
+      "попробуй: mpu telegram ls 'Команда' и укажи id или @username",
+  );
+  assertEquals(seen.calls, ["searchChats:Команда"]);
+});
+
 Deno.test("отказ резолва называет адресата и подсказывает ls", async () => {
   const { client } = stand([], {
     on: "resolve",
@@ -167,14 +210,14 @@ Deno.test("отказ резолва называет адресата и под
     () =>
       sendMessage(
         client,
-        plan({ target: "команда", peer: { kind: "name", name: "команда" } }),
+        plan({ target: "durov", peer: { kind: "name", name: "durov" } }),
       ),
     VerbatimError,
   );
   assertEquals(
     err.message,
-    "telegram: не удалось найти чат 'команда': chat not found; " +
-      "попробуй: mpu telegram ls 'команда' и укажи id или @username",
+    "telegram: не удалось найти чат 'durov': chat not found; " +
+      "попробуй: mpu telegram ls 'durov' и укажи id или @username",
   );
 });
 

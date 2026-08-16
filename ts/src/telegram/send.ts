@@ -15,8 +15,9 @@ import type {
   PeerRef,
   TelegramClient,
 } from "./client.ts";
-import { configError, telegramFailure } from "./errors.ts";
-import type { Peer } from "./peer.ts";
+import { configError, telegramOperation } from "./errors.ts";
+import { findChatByTitle } from "./lookup.ts";
+import type { Peer, ResolvablePeer } from "./peer.ts";
 
 /** Результат отправки (`SentMessage` глоссария). */
 export interface SentMessage {
@@ -61,8 +62,17 @@ async function resolveTarget(
   client: TelegramClient,
   plan: SendPlan,
 ): Promise<PeerRef> {
+  // Название чата Telegram сам не резолвит: сперва поиск, и только
+  // потом резолв найденного идентификатора (`telegram-ls.md`, «Резолв
+  // по названию»). Отказ поиска — свой, с перечислением кандидатов.
+  const peer: ResolvablePeer = plan.peer.kind === "title"
+    ? {
+      kind: "id",
+      id: (await findChatByTitle(client, plan.peer.title, "чат")).id,
+    }
+    : plan.peer;
   try {
-    return await client.resolve(plan.peer);
+    return await client.resolve(peer);
   } catch (err) {
     throw configError(
       `не удалось найти чат '${plan.target}': ${reason(err)}; ` +
@@ -82,7 +92,7 @@ async function deliver(
   to: PeerRef,
   plan: SendPlan,
 ): Promise<ClientMessage> {
-  const album = await operation(async () => {
+  const album = await telegramOperation(async () => {
     if (plan.attachments.length === 0) {
       return [await client.sendText(to, plan.text, plan.markdown)];
     }
@@ -93,17 +103,6 @@ async function deliver(
     throw configError("Telegram не вернул ни одного сообщения");
   }
   return last;
-}
-
-/** Обёртка отказа Telegram: одна строка вместо исключения протокола. */
-async function operation(
-  body: () => Promise<readonly ClientMessage[]>,
-): Promise<readonly ClientMessage[]> {
-  try {
-    return await body();
-  } catch (err) {
-    throw telegramFailure(err);
-  }
 }
 
 /**

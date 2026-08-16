@@ -15,12 +15,15 @@ import {
   proxyTransportFromUrl,
   TelegramClient,
 } from "@mtcute/deno";
+import type { Chat, User } from "@mtcute/deno";
 import { md } from "@mtcute/markdown-parser";
 import { VerbatimError } from "../command/mod.ts";
+import type { RawChat } from "./chat.ts";
 import type { TelegramConfig } from "./config.ts";
 import { configError, telegramFailure } from "./errors.ts";
-import type { Peer } from "./peer.ts";
+import type { ResolvablePeer } from "./peer.ts";
 import { proxyUrl } from "./proxy.ts";
+import { chatPeerType, chatsFromSearch } from "./search_reply.ts";
 import type {
   ClientMessage,
   PeerRef,
@@ -56,7 +59,7 @@ export async function openSession(
   });
   await enter(client, config.session);
   return {
-    resolve: async (peer: Peer) => ({
+    resolve: async (peer: ResolvablePeer) => ({
       ref: await client.resolvePeer(peerId(peer)),
     }),
     sendText: async (to, text, markdown) =>
@@ -76,6 +79,17 @@ export async function openSession(
         : await client.sendMediaGroup(peer, medias);
       return sent.map(message);
     },
+    listDialogs: async (limit) => {
+      const found: RawChat[] = [];
+      for await (const dialog of client.iterDialogs({ limit })) {
+        found.push(peerChat(dialog.peer));
+      }
+      return found;
+    },
+    searchChats: async (query, limit) =>
+      chatsFromSearch(
+        await client.call({ _: "contacts.search", q: query, limit }),
+      ),
     close: () => client.destroy(),
   };
 }
@@ -133,11 +147,45 @@ function notAuthorized(cause: unknown): Error {
   return configError("не авторизован; запусти `mpu init`", { cause });
 }
 
-/** Адресат в форме, понятной клиенту. */
-function peerId(peer: Peer): string | number {
-  if (peer.kind === "me") return "me";
-  if (peer.kind === "id") return peer.id;
-  return peer.name;
+/**
+ * Адресат в форме, понятной клиенту. Названия чата здесь не бывает:
+ * его резолвит поиском `send.ts` — Telegram по названию не резолвит.
+ */
+function peerId(peer: ResolvablePeer): string | number {
+  switch (peer.kind) {
+    case "me":
+      return "me";
+    case "id":
+      return peer.id;
+    case "name":
+      return peer.name;
+    default: {
+      const never: never = peer;
+      throw new TypeError(`адресат не резолвится напрямую: ${String(never)}`);
+    }
+  }
+}
+
+/**
+ * Чат из собеседника диалога. Сырой идентификатор берётся до
+ * маркировки: накладывает её команда (`chat.ts`), и наложить дважды
+ * значило бы напечатать чужой чат.
+ */
+function peerChat(peer: User | Chat): RawChat {
+  if (peer.type === "user") {
+    return {
+      peerType: peer.isBot ? "bot" : "user",
+      rawId: peer.id,
+      title: peer.displayName,
+      username: peer.username,
+    };
+  }
+  return {
+    peerType: chatPeerType(peer.raw),
+    rawId: peer.raw.id,
+    title: peer.title,
+    username: peer.username,
+  };
 }
 
 /**

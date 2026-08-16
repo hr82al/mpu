@@ -1434,6 +1434,95 @@
     }
   },
   {
+    "name": "telegram_ls",
+    "title": "mpu telegram ls",
+    "description": "Найти адресата: последние диалоги или поиск по названию.\n\nQUERY — что искать. Без запроса печатаются последние диалоги, с\nзапросом идёт серверный поиск по контактам и глобальному каталогу.\nЗапрос из одних пробелов — обычный запрос, а не пустота.\n\n--limit N — сколько записей, 1..500, по умолчанию 50.\n--table — таблица колонками ID, KIND, USERNAME, TITLE вместо JSON.\n\nВывод по умолчанию — массив JSON: id, title, kind (user|bot|group|\nchannel|unknown), username. Напечатанный id — маркированный: его можно\nбез правки передать в --chat других подкоманд.\n\nАдресата команда не принимает: TELEGRAM_DEFAULT_CHAT здесь не читается.\n\nКлючи env-файла: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION\n(обязательны), TELEGRAM_PROXY.\n\nExit: 0 — успех, в том числе пустая выдача; 1 — конфигурация или отказ\nTelegram; 2 — ошибка ввода (--limit вне диапазона).\n\nПример: mpu telegram ls 'Команда релиза' --table",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "default": "",
+          "description": "что искать; без запроса — последние диалоги",
+          "type": "string"
+        },
+        "limit": {
+          "default": "50",
+          "description": "сколько записей, 1..500",
+          "type": "string"
+        },
+        "table": {
+          "default": false,
+          "description": "таблица вместо JSON",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "dialogs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number",
+                "description": "маркированный id чата; пригоден как адресат других подкоманд"
+              },
+              "title": {
+                "type": "string",
+                "description": "название чата: отображаемое имя у пользователя и бота, название у группы и канала"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "user",
+                  "bot",
+                  "group",
+                  "channel",
+                  "unknown"
+                ],
+                "description": "вид чата"
+              },
+              "username": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "имя пользователя без «@»; у чата без имени — null"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "kind",
+              "username"
+            ],
+            "additionalProperties": false
+          },
+          "description": "найденные чаты в порядке выдачи сервера, с дедупом по id"
+        },
+        "table": {
+          "type": "boolean",
+          "description": "печатать ли таблицу вместо JSON"
+        }
+      },
+      "required": [
+        "dialogs",
+        "table"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "sheet_get",
     "title": "mpu sheet get",
     "description": "Read cell values from one or more A1-notation ranges.\n\nRead cell values from one or more A1-notation ranges.",

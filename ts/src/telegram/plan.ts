@@ -8,7 +8,7 @@
 
 import { type CommandIo, NotFoundIoError, UsageError } from "../command/mod.ts";
 import { inputError } from "./errors.ts";
-import { parsePeer } from "./peer.ts";
+import { EMPTY_TARGET, parsePeer } from "./peer.ts";
 import type { Attachment } from "./client.ts";
 import type { SendPlan } from "./send.ts";
 
@@ -35,11 +35,7 @@ export async function sendPlan(
 ): Promise<SendPlan> {
   const attachments = await readAttachments(io, args.file);
   const target = args.chat ?? defaultChat ?? "";
-  if (target === "") {
-    throw inputError(
-      "адресат не задан; укажи --chat или TELEGRAM_DEFAULT_CHAT в .env",
-    );
-  }
+  if (target === "") throw inputError(EMPTY_TARGET);
   const raw = args.message === "-" ? await io.readTextStdin() : args.message;
   // Пустой текст без вложений — ошибка, а не отправка пустого сообщения;
   // с вложением он означает документ без подписи. Пустой — и текст из

@@ -44,6 +44,26 @@ export function telegramFailure(err: unknown): VerbatimError {
   return configError(`RPC error: ${protocolText(err)}`, { cause: err });
 }
 
+/**
+ * Обёртка обращения к Telegram: отказ протокола приходит наружу одной
+ * строкой слоя, а не исключением библиотеки. Своё же оформление слоя
+ * (`VerbatimError`) переоформлять не за что — иначе получилось бы
+ * «RPC error: telegram: …».
+ */
+export async function telegramOperation<T>(
+  body: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await body();
+  } catch (err) {
+    // Своё оформление слоя — и доменное, и ошибка ввода: второй слой
+    // обёртки не только исказил бы текст, но и понизил бы код 2 до 1.
+    throw err instanceof VerbatimError || err instanceof VerbatimUsageError
+      ? err
+      : telegramFailure(err);
+  }
+}
+
 /** Текст отказа протокола: поле `text`, иначе сообщение ошибки. */
 function protocolText(err: unknown): string {
   const text = stringField(err, "text");
