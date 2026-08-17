@@ -22,7 +22,7 @@ import { xlsxCommands } from "../xlsx/mod.ts";
 import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "../update/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
-import { sqlRoCommand } from "../sql/mod.ts";
+import { sqlCommand, sqlRoCommand } from "../sql/mod.ts";
 import { logsCommand } from "../logs/mod.ts";
 import {
   kitenArtefactRmCommand,
@@ -98,6 +98,7 @@ export const commands: readonly Command[] = [
   ...xlsxCommands,
   initCommand,
   updateCommand,
+  sqlCommand,
   sqlRoCommand,
   logsCommand,
   mcpTokenCommand,

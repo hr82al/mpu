@@ -206,7 +206,10 @@ Deno.test("конфликт --json и --md проверяется первым",
     },
   });
   const err = await assertRejects(
-    () => runSql(args({ selector: "42", json: true, md: true }), io),
+    () =>
+      runSql(args({ selector: "42", json: true, md: true }), io, {
+        mode: "read-only",
+      }),
     UsageError,
   );
   assertEquals(
@@ -218,7 +221,10 @@ Deno.test("конфликт --json и --md проверяется первым",
 Deno.test("--server не сочетается с dev-селектором", async () => {
   const { io } = harness();
   const err = await assertRejects(
-    () => runSql(args({ selector: "dev:42", server: "sl-1" }), io),
+    () =>
+      runSql(args({ selector: "dev:42", server: "sl-1" }), io, {
+        mode: "read-only",
+      }),
     UsageError,
   );
   assertEquals(err.message, "--server не сочетается с dev-селектором");
@@ -243,7 +249,10 @@ Deno.test("sw-селектор исполняет прежняя реализа�
   await t.step("исполнение отказывает: это не путь CLI", async () => {
     const { io } = harness();
     await assertRejects(
-      () => runSql(args({ selector: "sw", sql: "select 1" }), io),
+      () =>
+        runSql(args({ selector: "sw", sql: "select 1" }), io, {
+          mode: "read-only",
+        }),
       DomainError,
       "sw-селектор",
     );
@@ -257,7 +266,7 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
     const result = await runSql(
       args({ selector: "sl-1", sql: "SELECT 1" }),
       io,
-      { openSession: sessions.open },
+      { mode: "read-only", openSession: sessions.open },
     );
     assertEquals(result.sql, "SELECT 1");
   });
@@ -270,7 +279,7 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
     const result = await runSql(
       args({ selector: "sl-1", sql: "   " }),
       io,
-      { openSession: sessions.open },
+      { mode: "read-only", openSession: sessions.open },
     );
     assertEquals(result.sql, "SELECT 2\n");
     // Приглашения в пайпе нет.
@@ -284,6 +293,7 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
       readTextStdin: () => Promise.resolve("SELECT 3"),
     });
     await runSql(args({ selector: "sl-1" }), io, {
+      mode: "read-only",
       openSession: sessions.open,
     });
     assertEquals(progress, ["-- enter SQL, end with EOF (Ctrl+D):"]);
@@ -295,6 +305,7 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
     const err = await assertRejects(
       () =>
         runSql(args({ selector: "sl-1" }), io, {
+          mode: "read-only",
           openSession: sessions.open,
         }),
       UsageError,
@@ -334,7 +345,7 @@ Deno.test("мета-блок: эталоны канала байт в байт",
       const result = await runSql(
         { ...base, dry: true, verbose: true },
         io,
-        { openSession: sessions.open },
+        { mode: "read-only", openSession: sessions.open },
       );
       const expected = (await golden(name))
         .replaceAll("<pg_host>", PG_HOST)
@@ -358,7 +369,7 @@ Deno.test("мета-блок: эталоны канала байт в байт",
         await runSql(
           args({ selector: "42", sql: "SELECT 1", dry: true, verbose: true }),
           io,
-          { openSession: sessions.open },
+          { mode: "read-only", openSession: sessions.open },
         );
         assertEquals(
           stderr(),
@@ -377,6 +388,7 @@ Deno.test("мета-блок печатается ⇔ --verbose или --dry", a
     const sessions = fakeSessions(answers());
     const { io, progress } = harness();
     await runSql(args({ selector: "sl-1", sql: "SELECT 1" }), io, {
+      mode: "read-only",
       openSession: sessions.open,
     });
     assertEquals(progress, []);
@@ -386,6 +398,7 @@ Deno.test("мета-блок печатается ⇔ --verbose или --dry", a
     const sessions = fakeSessions(answers());
     const { io, progress } = harness();
     await runSql(args({ selector: "sl-1", sql: "SELECT 1", dry: true }), io, {
+      mode: "read-only",
       openSession: sessions.open,
     });
     assertEquals(progress[0], "server: sl-1");
@@ -398,6 +411,7 @@ Deno.test("мета-блок печатается ⇔ --verbose или --dry", a
       readTextStdin: () => Promise.resolve("SELECT 1\n"),
     });
     await runSql(args({ selector: "sl-1", dry: true }), io, {
+      mode: "read-only",
       openSession: sessions.open,
     });
     assertEquals(stderr().endsWith("sql:\nSELECT 1\n"), true, stderr());
@@ -409,7 +423,7 @@ Deno.test("мета-блок печатается ⇔ --verbose или --dry", a
     const result = await runSql(
       args({ selector: "sl-1", sql: "SELECT 1", verbose: true }),
       io,
-      { openSession: sessions.open },
+      { mode: "read-only", openSession: sessions.open },
     );
     assertStringIncludes(progress.join("\n"), "mode: read-only");
     assertEquals(result.outcome, DONE);
@@ -424,7 +438,7 @@ Deno.test("search_path ставится ⇔ ровно один различны
       const result = await runSql(
         args({ selector: "Отчёт", sql: "SELECT 1" }),
         io,
-        { openSession: sessions.open },
+        { mode: "read-only", openSession: sessions.open },
       );
       assertEquals(result.searchPath, "schema_42");
       assertEquals(sessions.asked, [
@@ -443,7 +457,7 @@ Deno.test("search_path ставится ⇔ ровно один различны
       const result = await runSql(
         args({ selector: "общ", sql: "SELECT 1" }),
         io,
-        { openSession: sessions.open },
+        { mode: "read-only", openSession: sessions.open },
       );
       assertEquals([result.server, result.searchPath], ["sl-3", null]);
       assertEquals(sessions.asked.length, 2);
@@ -456,7 +470,7 @@ Deno.test("search_path ставится ⇔ ровно один различны
     const result = await runSql(
       args({ selector: "sl-1", sql: "SELECT 1" }),
       io,
-      { openSession: sessions.open },
+      { mode: "read-only", openSession: sessions.open },
     );
     assertEquals(result.searchPath, null);
     assertEquals(sessions.asked.length, 2);
@@ -468,7 +482,7 @@ Deno.test("search_path ставится ⇔ ровно один различны
     const result = await runSql(
       args({ selector: "dev:прод", sql: "SELECT 1" }),
       io,
-      { openSession: sessions.open },
+      { mode: "read-only", openSession: sessions.open },
     );
     assertEquals([result.server, result.searchPath], ["dev", null]);
     assertEquals(result.host, DEV_HOST);
@@ -484,7 +498,7 @@ Deno.test("search_path ставится ⇔ ровно один различны
     const result = await runSql(
       args({ selector: "42", server: "sl-3", sql: "SELECT 1" }),
       io,
-      { openSession: sessions.open },
+      { mode: "read-only", openSession: sessions.open },
     );
     assertEquals([result.server, result.searchPath], ["sl-3", null]);
   });
@@ -501,6 +515,7 @@ Deno.test("read-only проверяется на соединении до по�
     const err = await assertRejects(
       () =>
         runSql(args({ selector: "sl-1", sql: "DROP TABLE x" }), io, {
+          mode: "read-only",
           openSession: sessions.open,
         }),
       DomainError,
@@ -527,6 +542,7 @@ Deno.test("read-only проверяется на соединении до по�
       await assertRejects(
         () =>
           runSql(args({ selector: "42", sql: "SELECT 1" }), io, {
+            mode: "read-only",
             openSession: sessions.open,
           }),
         DomainError,
@@ -540,6 +556,7 @@ Deno.test("пользовательский текст исполняется о
   const sessions = fakeSessions(answers());
   const { io } = harness();
   await runSql(args({ selector: "sl-1", sql: "SELECT 1" }), io, {
+    mode: "read-only",
     openSession: sessions.open,
   });
   // Служебные запросы обёртки не получают: она откатила бы их действие
@@ -564,6 +581,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
     const err = await assertRejects(
       () =>
         runSql(args({ selector: "sl-1", sql: "UPDATE t SET a = 1" }), io, {
+          mode: "read-only",
           openSession: sessions.open,
         }),
       DomainError,
@@ -589,7 +607,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
         runSql(
           args({ selector: "sl-1", sql: "COMMIT; BEGIN READ WRITE; COMMIT" }),
           io,
-          { openSession: sessions.open },
+          { mode: "read-only", openSession: sessions.open },
         ),
       DomainError,
     );
@@ -630,7 +648,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
               sql: "ROLLBACK TO SAVEPOINT bar; SELECT 1",
             }),
             io,
-            { openSession: sessions.open },
+            { mode: "read-only", openSession: sessions.open },
           ),
         DomainError,
       );
@@ -653,6 +671,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
     const err = await assertRejects(
       () =>
         runSql(args({ selector: "sl-1", sql: "SELECT 1" }), io, {
+          mode: "read-only",
           openSession: () =>
             Promise.reject(new DbError("connect ECONNREFUSED 127.0.0.1:1")),
         }),
@@ -679,7 +698,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
             sql: "SELECT * FROM nonexistent_table_xyz",
           }),
           io,
-          { openSession: sessions.open },
+          { mode: "read-only", openSession: sessions.open },
         ),
       VerbatimError,
     );
@@ -703,7 +722,7 @@ Deno.test("результат и его рендер", async (t) => {
     return await runSql(
       args({ selector: "sl-1", sql: "SELECT 1 AS a", ...overrides }),
       io,
-      { openSession: sessions.open },
+      { mode: "read-only", openSession: sessions.open },
     );
   }
 

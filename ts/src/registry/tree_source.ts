@@ -14,14 +14,16 @@ import type { Manifest } from "../mcp/legacy_tools.ts";
 
 /**
  * Имена, которых в списке маршрута `legacy` быть не должно: `xlsx`,
- * `init`, `update`, `sql-ro` и `logs` реализованы командами контракта;
- * `help` и `version` — поверхности точки входа (`platform/registry.md`).
+ * `init`, `update`, `sql-ro`, `sql` и `logs` реализованы командами
+ * контракта; `help` и `version` — поверхности точки входа
+ * (`platform/registry.md`).
  */
 export const NOT_LEGACY: readonly string[] = [
   "xlsx",
   "init",
   "update",
   "sql-ro",
+  "sql",
   "logs",
   "help",
   "version",

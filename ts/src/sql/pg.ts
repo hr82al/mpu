@@ -1,9 +1,11 @@
 /**
- * Драйвер PostgreSQL для `mpu sql-ro`: единственная реализация порта
- * `OpenSession` (`session.ts`) поверх node-postgres. Read-only
- * задаётся опцией стартового пакета, а пользовательский текст исполняется
- * внутри обёртки транзакцией с меткой — гарантию держит сервер
- * (`platform/readonly-default.md`), а не разбор текста запроса.
+ * Драйвер PostgreSQL для `mpu sql-ro` и `mpu sql`: единственная
+ * реализация порта `OpenSession` (`session.ts`) поверх node-postgres.
+ * Read-only задаётся опцией стартового пакета, а пользовательский текст
+ * исполняется внутри обёртки транзакцией с меткой — гарантию держит
+ * сервер (`platform/readonly-default.md`), а не разбор текста запроса.
+ * Пишущая сессия открывается без этой опции и исполняет текст в обычной
+ * транзакции (`specs/sql.md`, «Инварианты»).
  *
  * Модуль грузится динамически из команды: npm-пакет не должен попадать в
  * путь запуска остальных команд (`ts/CLAUDE.md`, «Производительность»).
@@ -13,6 +15,7 @@ import driver from "pg";
 import type { SqlOutcome, SqlValue } from "./render.ts";
 import {
   DbError,
+  type SqlMode,
   type SqlSession,
   TransactionEndedError,
   WriteRefusedError,
@@ -78,6 +81,9 @@ export interface ClientOptions {
   };
 }
 
+/** Опция стартового пакета, которой держится read-only сессия. */
+const READ_ONLY_OPTION = "-c default_transaction_read_only=on";
+
 /** SQLSTATE отказа записи на read-only сессии. */
 const READ_ONLY_SQL_TRANSACTION = "25006";
 
@@ -114,6 +120,17 @@ const WRAP_HEAD = "BEGIN READ ONLY;\n" +
 const WRAP_TAIL = `\n;\nROLLBACK TO SAVEPOINT ${MARK};\nROLLBACK`;
 
 /**
+ * Транзакция пишущего вызова: операторы уходят драйверу порознь, чтобы
+ * фиксация и откат были разными обращениями к серверу — «при ошибке
+ * вместо фиксации — откат» (`specs/sql.md`, «Инварианты»). Склейка в
+ * один текст этого различить не позволяет: `COMMIT` уехал бы серверу и
+ * на ошибочном пути.
+ */
+const BEGIN = "BEGIN";
+const COMMIT = "COMMIT";
+const ROLLBACK = "ROLLBACK";
+
+/**
  * Номер ответа, в котором лежит результат первого оператора текста
  * пользователя: до него в обёртке ровно три оператора. Константа формы,
  * а не поиск по содержимому ответов.
@@ -139,12 +156,13 @@ const TEXT_OIDS: ReadonlySet<number> = new Set([
 /** Как заводится клиент драйвера; шов для тестов без живого PostgreSQL. */
 export type OpenClient = (options: ClientOptions) => PgClient;
 
-/** Открывает сессию: соединение read-only и разбор результатов. */
+/** Открывает сессию в заданном режиме и разбирает результаты. */
 export async function openPgSession(
   target: PgTarget,
+  mode: SqlMode,
   openClient: OpenClient = (options) => new pg.Client(options),
 ): Promise<SqlSession> {
-  const client = openClient(clientOptions(target));
+  const client = openClient(clientOptions(target, mode));
   try {
     await client.connect();
   } catch (err) {
@@ -152,31 +170,78 @@ export async function openPgSession(
     // причина отказа уже в `err`, а сбой закрытия несостоявшегося
     // соединения ей ничего не добавит.
     await client.end().catch(() => {});
-    throw dbError(err, "");
+    throw dbError(err, "", { mode });
   }
   return {
     query: async (text) => {
       try {
         return outcomeOf(await send(client, text));
       } catch (err) {
-        throw dbError(err, text);
+        throw dbError(err, text, { mode });
       }
     },
-    run: async (sql) => {
-      try {
-        return outcomeAt(
-          await send(client, WRAP_HEAD + sql + WRAP_TAIL),
-          USER_RESULT,
-        );
-      } catch (err) {
-        // Позицию ошибки сервер считает по всему отправленному тексту:
-        // обёртка вычитается, иначе указатель встал бы мимо, а её
-        // операторы попали бы пользователю в вывод.
-        throw dbError(err, sql, WRAP_HEAD.length);
-      }
-    },
+    run: (sql) =>
+      mode === "read-only" ? readOnlyRun(client, sql) : writeRun(client, sql),
     close: () => client.end(),
   };
+}
+
+/**
+ * Пользовательский текст внутри обёртки с меткой: она уходит одним
+ * вызовом вместе с ним, поэтому снять режим только-чтения из самого
+ * текста нельзя (`platform/readonly-default.md`).
+ */
+async function readOnlyRun(
+  client: PgClient,
+  sql: string,
+): Promise<SqlOutcome> {
+  try {
+    return outcomeAt(
+      await send(client, WRAP_HEAD + sql + WRAP_TAIL),
+      USER_RESULT,
+    );
+  } catch (err) {
+    // Позицию ошибки сервер считает по всему отправленному тексту:
+    // обёртка вычитается, иначе указатель встал бы мимо, а её
+    // операторы попали бы пользователю в вывод.
+    throw dbError(err, sql, {
+      mode: "read-only",
+      offset: WRAP_HEAD.length,
+    });
+  }
+}
+
+/**
+ * Пользовательский текст в транзакции вызова: открытие, текст,
+ * фиксация — тремя обращениями, и при ошибке вместо фиксации откат
+ * (`specs/sql.md`, «Инварианты»). Частичной записи не бывает: сервер
+ * держит открытую транзакцию до одного из двух завершающих операторов.
+ */
+async function writeRun(client: PgClient, sql: string): Promise<SqlOutcome> {
+  await sendWrite(client, BEGIN);
+  let outcome: SqlOutcome;
+  try {
+    outcome = firstOutcome(await send(client, sql));
+  } catch (err) {
+    // Откат собственного отказа не скрывает: наверх идёт исходная
+    // ошибка, иначе пользователь увидел бы «current transaction is
+    // aborted» вместо своей синтаксической.
+    await send(client, ROLLBACK).catch(() => {});
+    throw dbError(err, sql, { mode: "write" });
+  }
+  // Отказ самой фиксации (отложенный констрейнт) сервер откатывает
+  // сам — своего `ROLLBACK` за ним не нужно.
+  await sendWrite(client, COMMIT);
+  return outcome;
+}
+
+/** Служебный оператор транзакции; его отказ — та же ошибка БД. */
+async function sendWrite(client: PgClient, text: string): Promise<void> {
+  try {
+    await send(client, text);
+  } catch (err) {
+    throw dbError(err, text, { mode: "write" });
+  }
 }
 
 /**
@@ -198,7 +263,10 @@ function send(client: PgClient, text: string): Promise<unknown> {
  * драйвер за заданное не считает и всё равно смотрит в `PGBINARY` /
  * `PGREPLICATION` (см. `deno.jsonc`, право `--allow-env=PG*`).
  */
-export function clientOptions(target: PgTarget): ClientOptions {
+export function clientOptions(
+  target: PgTarget,
+  mode: SqlMode,
+): ClientOptions {
   return {
     host: target.host,
     port: target.port,
@@ -206,9 +274,15 @@ export function clientOptions(target: PgTarget): ClientOptions {
     user: target.username,
     password: target.password,
     application_name: "mpu",
-    // Опция стартового пакета: сессия открывается read-only с первого
-    // байта, до всякого пользовательского SQL.
-    options: "-c default_transaction_read_only=on",
+    // Опция стартового пакета: read-only сессия открывается такой с
+    // первого байта, до всякого пользовательского SQL. У пишущей опций
+    // нет по спеке (`specs/sql.md`, «CLI-контракт») — и пустая строка
+    // фолбэк драйвера не закрывает: `PGOPTIONS` окружения он на ней
+    // всё-таки читает. Непустое нейтральное значение закрыло бы это,
+    // но вернуло бы в стартовый пакет параметр, которого спека у
+    // пишущей сессии не предусматривает (цена — отказ пулера,
+    // `platform/readonly-default.md`).
+    options: mode === "read-only" ? READ_ONLY_OPTION : "",
     ssl: false,
     sslnegotiation: "postgres",
     client_encoding: "UTF8",
@@ -253,22 +327,46 @@ export function outcomeAt(results: unknown, index: number): SqlOutcome {
 }
 
 /**
- * Ошибка драйвера в классы порта. Отказ записи различается по SQLSTATE,
- * а не по тексту сообщения (`platform/readonly-default.md`).
+ * Результат первого оператора текста, ушедшего отдельным вызовом: на
+ * многооператорный текст драйвер отвечает массивом, на одиночный —
+ * одним объектом.
  */
-export function dbError(err: unknown, text: string, offset = 0): Error {
+function firstOutcome(result: unknown): SqlOutcome {
+  return Array.isArray(result) ? outcomeOf(result[0]) : outcomeOf(result);
+}
+
+/** Как читать отказ сервера: режим сессии и сдвиг позиции ошибки. */
+export interface DbErrorContext {
+  readonly mode: SqlMode;
+  readonly offset?: number;
+}
+
+/**
+ * Ошибка драйвера в классы порта. Отказ записи различается по SQLSTATE,
+ * а не по тексту сообщения (`platform/readonly-default.md`), и только на
+ * read-only сессии: на пишущей те же коды приходят от сервера, который
+ * сам работает в режиме только-чтения (реплика), и своего текста про
+ * `mpu sql` они не заслуживают — печатается текст сервера.
+ */
+export function dbError(
+  err: unknown,
+  text: string,
+  context: DbErrorContext,
+): Error {
   if (err instanceof pg.DatabaseError) {
-    if (err.code === READ_ONLY_SQL_TRANSACTION) {
-      return new WriteRefusedError(err.message, { cause: err });
-    }
-    if (
-      err.code === NO_ACTIVE_SQL_TRANSACTION ||
-      err.code === INVALID_SAVEPOINT_SPECIFICATION
-    ) {
-      return new TransactionEndedError(err.message, { cause: err });
+    if (context.mode === "read-only") {
+      if (err.code === READ_ONLY_SQL_TRANSACTION) {
+        return new WriteRefusedError(err.message, { cause: err });
+      }
+      if (
+        err.code === NO_ACTIVE_SQL_TRANSACTION ||
+        err.code === INVALID_SAVEPOINT_SPECIFICATION
+      ) {
+        return new TransactionEndedError(err.message, { cause: err });
+      }
     }
     return new DbError(
-      serverText(err.message, text, shift(err.position, offset)),
+      serverText(err.message, text, shift(err.position, context.offset ?? 0)),
       {
         cause: err,
       },

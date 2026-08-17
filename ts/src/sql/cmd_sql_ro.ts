@@ -65,7 +65,7 @@ Exit: 0 — успех, включая --dry и запрос без набора
   // (`specs/sql-ro.md`, маршрут 2): argv разбирается ею же, поэтому
   // селектор ищется в сыром argv, до схемы.
   bridge: (args) => routeOf(selectorOf(args) ?? "").kind === "sw",
-  run: (args, io: SqlIo) => runSql(args, io),
+  run: (args, io: SqlIo) => runSql(args, io, { mode: "read-only" }),
   render: (result, args) =>
     result.outcome === null
       ? ""

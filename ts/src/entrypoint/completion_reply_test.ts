@@ -63,13 +63,9 @@ Deno.test("completion-out-bash.txt: по варианту на строку", as
     COMP_CWORD: "1",
   });
   assertEquals(code, 0);
-  // Состав и форма — эталона (по варианту на строку); порядок теперь
-  // реестра, а не алфавита: `sql-ro` переехала на маршрут `native` и
-  // потому идёт раньше legacy-записи `sql` (то же отклонение, что у
-  // `help-list.txt`).
-  const fixture = await golden("completion-out-bash");
-  assertEquals(stdout.split("\n").sort(), fixture.split("\n").sort());
-  assertEquals(stdout, "sql-ro\nsql\n");
+  // Обе команды переехали на маршрут `native`, и порядок реестра совпал
+  // с эталонным: сверка байтовая, без исключений.
+  assertEquals(stdout, await golden("completion-out-bash"));
 });
 
 Deno.test("completion-out-zsh.txt: _arguments с описаниями", async () => {
@@ -79,16 +75,14 @@ Deno.test("completion-out-zsh.txt: _arguments с описаниями", async ()
   });
   const fixture = await golden("completion-out-zsh");
   const entries = /"[^"]+":"[^"]*"/g;
-  // Варианты и их описания — эталона: однострока переехавшей `sql-ro`
-  // взята из того же слепка, поэтому текст не разошёлся. Расходится
-  // только порядок — он теперь реестра (native впереди legacy).
+  // Варианты и их описания — эталона: однострокѝ обеих команд взяты из
+  // того же слепка, поэтому текст не разошёлся.
   assertEquals(
-    [...stdout.matchAll(entries)].map(([entry]) => entry).sort(),
-    [...fixture.matchAll(entries)].map(([entry]) => entry).sort(),
+    [...stdout.matchAll(entries)].map(([entry]) => entry),
+    [...fixture.matchAll(entries)].map(([entry]) => entry),
   );
   // Обрамление ответа — байт в байт эталона: его исполняет zsh.
   assertEquals(stdout.replace(entries, "…"), fixture.replace(entries, "…"));
-  assertEquals(stdout.indexOf('"sql-ro"') < stdout.indexOf('"sql"'), true);
 });
 
 Deno.test("completion-out-zsh-nested.txt: вложенный уровень", async () => {

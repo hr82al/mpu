@@ -123,6 +123,7 @@ Deno.test("ошибки драйвера в классы порта", async (t) 
     const err = dbError(
       serverError("cannot execute UPDATE in a read-only transaction", "25006"),
       "UPDATE t SET a = 1",
+      { mode: "read-only" },
     );
     assertInstanceOf(err, WriteRefusedError);
   });
@@ -135,6 +136,7 @@ Deno.test("ошибки драйвера в классы порта", async (t) 
         "15",
       ),
       "SELECT * FROM nonexistent_table_xyz",
+      { mode: "read-only" },
     );
     assertInstanceOf(err, DbError);
     assertEquals(
@@ -146,7 +148,9 @@ Deno.test("ошибки драйвера в классы порта", async (t) 
   });
 
   await t.step("сбой соединения — та же ошибка БД", () => {
-    const err = dbError(new Error("connect ECONNREFUSED 127.0.0.1:5432"), "");
+    const err = dbError(new Error("connect ECONNREFUSED 127.0.0.1:5432"), "", {
+      mode: "read-only",
+    });
     assertInstanceOf(err, DbError);
     assertEquals(err.message, "connect ECONNREFUSED 127.0.0.1:5432");
   });
@@ -190,7 +194,7 @@ Deno.test("опции подключения: read-only и независимо�
     username: "u",
     password: "p",
   };
-  const options = clientOptions(target);
+  const options = clientOptions(target, "read-only");
 
   await t.step("сессия открывается read-only опцией стартового пакета", () => {
     // Единственный механизм запрета записи (`platform/readonly-default.md`):
@@ -279,7 +283,7 @@ Deno.test("пользовательский текст исполняется в
     "обёртка собрана дословно, текст пользователя как есть",
     async () => {
       const client = fakeClient(() => wrapped(ROWS));
-      const session = await openPgSession(TARGET, client.open);
+      const session = await openPgSession(TARGET, "read-only", client.open);
       await session.run("SELECT 1 AS a; SELECT 2 AS b");
       await session.close();
       // Форма — `platform/readonly-default.md`: три оператора до текста
@@ -301,7 +305,7 @@ Deno.test("пользовательский текст исполняется в
     // стоит на своей строке, иначе комментарий проглотил бы и его, и
     // снятие метки — обход через `COMMIT` перестал бы обнаруживаться.
     const client = fakeClient(() => wrapped(ROWS));
-    const session = await openPgSession(TARGET, client.open);
+    const session = await openPgSession(TARGET, "read-only", client.open);
     await session.run("SELECT 1 -- зачем-то");
     await session.close();
     assertEquals(client.sent[0].split("\n").slice(3), [
@@ -317,7 +321,7 @@ Deno.test("пользовательский текст исполняется в
     // последний (ROLLBACK) результатом вызова не являются.
     const other = { ...ROWS, fields: [{ name: "z" }], rows: [[9]] };
     const client = fakeClient(() => [BEGIN, READ_ONLY, MARK, ROWS, other]);
-    const session = await openPgSession(TARGET, client.open);
+    const session = await openPgSession(TARGET, "read-only", client.open);
     assertEquals(await session.run("SELECT 1 AS a, 'x' AS b; SELECT 9 AS z"), {
       kind: "rows",
       columns: ["a", "b"],
@@ -330,7 +334,7 @@ Deno.test("пользовательский текст исполняется в
     // Обёртка откатывает свою транзакцию, поэтому `SET search_path` под
     // ней не пережил бы вызова: служебный текст уходит как есть.
     const client = fakeClient(() => SET);
-    const session = await openPgSession(TARGET, client.open);
+    const session = await openPgSession(TARGET, "read-only", client.open);
     assertEquals(
       await session.query('SET search_path TO "schema_42", public'),
       {
@@ -344,7 +348,7 @@ Deno.test("пользовательский текст исполняется в
 
   await t.step("отказ служебного запроса — ошибка БД", async () => {
     const client = fakeClient(() => serverError("boom", "42601"));
-    const session = await openPgSession(TARGET, client.open);
+    const session = await openPgSession(TARGET, "read-only", client.open);
     const err = await assertRejects(() => session.query("SET x"));
     await session.close();
     assertInstanceOf(err, DbError);
@@ -358,7 +362,9 @@ Deno.test("пользовательский текст исполняется в
         () => SET,
         () => Promise.reject(new Error("connect ECONNREFUSED 10.0.0.1:5432")),
       );
-      const err = await assertRejects(() => openPgSession(TARGET, client.open));
+      const err = await assertRejects(() =>
+        openPgSession(TARGET, "read-only", client.open)
+      );
       assertInstanceOf(err, DbError);
       assertEquals(err.message, "connect ECONNREFUSED 10.0.0.1:5432");
       assertEquals(client.ended(), 1);
@@ -369,7 +375,7 @@ Deno.test("пользовательский текст исполняется в
 Deno.test("отказы обёртки различаются по SQLSTATE", async (t) => {
   const run = async (reply: (text: string) => unknown) => {
     const client = fakeClient(reply);
-    const session = await openPgSession(TARGET, client.open);
+    const session = await openPgSession(TARGET, "read-only", client.open);
     try {
       return await assertRejects(() =>
         session.run("SELECT * FROM nonexistent_table_xyz")
@@ -454,6 +460,134 @@ Deno.test("отказы обёртки различаются по SQLSTATE", as
       'relation "nonexistent_table_xyz" does not exist\n' +
         "LINE 1: SELECT * FROM nonexistent_table_xyz\n" +
         "                      ^",
+    );
+  });
+});
+
+Deno.test("пишущая сессия: транзакция вызова тремя обращениями", async (t) => {
+  const UPDATE = { fields: [], rows: [], rowCount: 0, command: "UPDATE" };
+  const TX = { fields: [], rows: [], rowCount: null, command: "BEGIN" };
+
+  await t.step("успех: открытие, текст пользователя, фиксация", async () => {
+    const client = fakeClient((text) =>
+      text.startsWith("UPDATE") ? UPDATE : TX
+    );
+    const session = await openPgSession(TARGET, "write", client.open);
+    const outcome = await session.run("UPDATE t SET a = 1 WHERE 1=0");
+    await session.close();
+    // Форма спеки (`sql.md`, «Инварианты»): текст пользователя уходит
+    // между открытием и фиксацией и байт в байт как введён.
+    assertEquals(client.sent, [
+      "BEGIN",
+      "UPDATE t SET a = 1 WHERE 1=0",
+      "COMMIT",
+    ]);
+    assertEquals(outcome, { kind: "done", rowcount: 0 });
+  });
+
+  await t.step("ошибка: вместо фиксации откат", async () => {
+    const client = fakeClient((text) =>
+      text.startsWith("SELEC") ? serverError("syntax error", "42601", "1") : TX
+    );
+    const session = await openPgSession(TARGET, "write", client.open);
+    const err = await assertRejects(() => session.run("SELEC 1"));
+    await session.close();
+    assertEquals(client.sent, ["BEGIN", "SELEC 1", "ROLLBACK"]);
+    assertInstanceOf(err, DbError);
+  });
+
+  await t.step("многооператорный текст — результат первого", async () => {
+    const client = fakeClient((text) =>
+      text.startsWith("UPDATE") ? [UPDATE, ROWS] : TX
+    );
+    const session = await openPgSession(TARGET, "write", client.open);
+    assertEquals(
+      await session.run("UPDATE t SET a = 1; SELECT 1 AS a, 2 AS b"),
+      {
+        kind: "done",
+        rowcount: 0,
+      },
+    );
+    await session.close();
+  });
+
+  await t.step("отказ отката не подменяет исходную ошибку", async () => {
+    const client = fakeClient((text) => {
+      if (text === "ROLLBACK") return new Error("connection terminated");
+      return text.startsWith("SELEC")
+        ? serverError("syntax error", "42601", "1")
+        : TX;
+    });
+    const session = await openPgSession(TARGET, "write", client.open);
+    const err = await assertRejects(() => session.run("SELEC 1"));
+    await session.close();
+    assertInstanceOf(err, DbError);
+    assertEquals(err.message, "syntax error\nLINE 1: SELEC 1\n        ^");
+  });
+
+  await t.step("отказ фиксации: своего отката за ним нет", async () => {
+    // Провалившийся `COMMIT` сервер откатывает сам; лишний `ROLLBACK`
+    // ушёл бы уже в закрытую транзакцию.
+    const client = fakeClient((text) =>
+      text === "COMMIT"
+        ? serverError("deferred constraint violated", "23505")
+        : text.startsWith("INSERT")
+        ? UPDATE
+        : TX
+    );
+    const session = await openPgSession(TARGET, "write", client.open);
+    const err = await assertRejects(() =>
+      session.run("INSERT INTO t VALUES 1")
+    );
+    await session.close();
+    assertEquals(client.sent, ["BEGIN", "INSERT INTO t VALUES 1", "COMMIT"]);
+    assertInstanceOf(err, DbError);
+    assertEquals(err.message, "deferred constraint violated");
+  });
+
+  await t.step("отказ открытия транзакции — ошибка БД", async () => {
+    const client = fakeClient((text) =>
+      text === "BEGIN" ? serverError("terminating connection", "57P01") : TX
+    );
+    const session = await openPgSession(TARGET, "write", client.open);
+    const err = await assertRejects(() => session.run("UPDATE t SET a = 1"));
+    await session.close();
+    assertEquals(client.sent, ["BEGIN"]);
+    assertInstanceOf(err, DbError);
+  });
+});
+
+Deno.test("пишущая сессия: опции и классы отказов", async (t) => {
+  const target = {
+    host: "10.0.0.1",
+    port: 6432,
+    database: "wb",
+    username: "u",
+    password: "p",
+  };
+
+  await t.step("опций стартового пакета у пишущей сессии нет", () => {
+    // Спека даёт пишущей сессии ровно одно отличие в подключении:
+    // опции `default_transaction_read_only=on` в стартовом пакете нет.
+    assertEquals(clientOptions(target, "write").options, "");
+    assertEquals(
+      clientOptions(target, "read-only").options,
+      "-c default_transaction_read_only=on",
+    );
+  });
+
+  await t.step("SQLSTATE только-чтения — текст сервера, не подсказка", () => {
+    // На пишущей сессии этот код приходит от сервера-реплики; текст
+    // «используйте `mpu sql`» там был бы советом самому себе.
+    const err = dbError(
+      serverError("cannot execute UPDATE in a read-only transaction", "25006"),
+      "UPDATE t SET a = 1",
+      { mode: "write" },
+    );
+    assertInstanceOf(err, DbError);
+    assertEquals(
+      err.message,
+      "cannot execute UPDATE in a read-only transaction",
     );
   });
 });

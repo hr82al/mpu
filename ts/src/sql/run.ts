@@ -22,6 +22,7 @@ import { type OutputFormat, type SqlOutcome } from "./render.ts";
 import {
   DbError,
   type OpenSession,
+  type SqlMode,
   type SqlSession,
   TransactionEndedError,
   WriteRefusedError,
@@ -121,8 +122,15 @@ export type SqlArgs = z.infer<typeof argsSchema>;
 /** Результат вызова: из него рендерится stdout. */
 export type SqlResult = z.infer<typeof resultSchema>;
 
-/** Подмена для тестов: живого PostgreSQL у них нет. */
+/** Чем вызов `mpu sql` отличается от `mpu sql-ro` и шов для тестов. */
 export interface SqlOptions {
+  /**
+   * Режим сессии: из него выводятся и опция подключения, и форма
+   * транзакции, и строка `mode` мета-блока — второго источника этого
+   * решения нет.
+   */
+  readonly mode: SqlMode;
+  /** Подмена для тестов: живого PostgreSQL у них нет. */
   readonly openSession?: OpenSession;
 }
 
@@ -133,7 +141,7 @@ export interface SqlOptions {
 export async function runSql(
   args: SqlArgs,
   io: SqlIo,
-  options: SqlOptions = {},
+  options: SqlOptions,
 ): Promise<SqlResult> {
   // Первым делом, до чтения SQL и до резолва (спека): иначе конфликт
   // флагов вскрылся бы после приглашения ко вводу.
@@ -165,15 +173,16 @@ export async function runSql(
     searchPath: place.searchPath,
     sql,
   };
-  if (args.verbose || args.dry) printMeta(io, shown);
+  if (args.verbose || args.dry) printMeta(io, shown, options.mode);
   if (args.dry) return { ...shown, dry: true, outcome: null };
   return {
     ...shown,
     dry: false,
     outcome: await execute(
-      options.openSession ?? denoSession(),
+      options.openSession ?? denoSession(options.mode),
       place,
       sql,
+      options.mode,
     ),
   };
 }
@@ -248,15 +257,18 @@ async function readSql(args: SqlArgs, io: SqlIo): Promise<string> {
  * Мета-блок в stderr. Команда не печатает сама (инвариант 1 контракта):
  * строки уходят портом хода исполнения, печатает их точка входа.
  */
-function printMeta(io: SqlIo, meta: MetaBlock): void {
+function printMeta(io: SqlIo, meta: MetaBlock, mode: SqlMode): void {
   // Порт добавляет перевод строки к каждой строке — блок разбирается
   // обратно на строки, чтобы не удвоить последний.
-  for (const line of metaText(meta).slice(0, -1).split("\n")) io.progress(line);
+  for (const line of metaText(meta, mode).slice(0, -1).split("\n")) {
+    io.progress(line);
+  }
 }
 
 /**
- * Единственное подключение вызова: открыть, убедиться в запрете записи,
- * поставить search_path, исполнить пользовательский текст. Соединение
+ * Единственное подключение вызова: открыть, на read-only убедиться в
+ * запрете записи, поставить search_path, исполнить пользовательский
+ * текст. Соединение
  * закрывается при любом исходе, отказы БД переводятся в классы команды —
  * включая отказ самого подключения (недоступный хост — тоже ошибка БД,
  * а не «unexpected»).
@@ -265,11 +277,12 @@ async function execute(
   open: OpenSession,
   place: Place,
   sql: string,
+  mode: SqlMode,
 ): Promise<SqlOutcome> {
   let session: SqlSession | undefined;
   try {
     session = await open(place.target);
-    await assertReadOnly(session);
+    if (mode === "read-only") await assertReadOnly(session);
     if (place.searchPath !== null) {
       await session.query(`SET search_path TO "${place.searchPath}", public`);
     }
@@ -278,8 +291,8 @@ async function execute(
     throw translate(err);
   } finally {
     // Закрытие не должно подменять исход вызова: результат уже получен
-    // либо ошибка уже брошена, и сбой закрытия читающей сессии ничего
-    // не теряет.
+    // либо ошибка уже брошена, а фиксация подтверждена сервером до
+    // закрытия — сбой закрытия ничего не теряет.
     await session?.close().catch(() => {});
   }
 }
@@ -340,9 +353,9 @@ export function selectorOf(args: readonly string[]): string | undefined {
  * npm-пакет тяжёл, а нужен он одной команде — статический импорт
  * поднимал бы его на каждом запуске бинаря.
  */
-function denoSession(): OpenSession {
+function denoSession(mode: SqlMode): OpenSession {
   return async (target) => {
     const { openPgSession } = await import("./pg.ts");
-    return await openPgSession(target);
+    return await openPgSession(target, mode);
   };
 }

@@ -143,6 +143,23 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "sql",
+    // `--dry` не открывает соединений — единственный режим, безопасный
+    // по построению (`specs/sql.md`, «Инварианты»): живой БД у обхода
+    // нет, а мутировать чужую он тем более не должен.
+    argv: ["sl-1", "UPDATE t SET a = 1 WHERE 1=0", "--dry"],
+    sampleResult: {
+      server: "sl-1",
+      host: "10.0.0.1",
+      port: 5432,
+      database: "wb",
+      searchPath: null,
+      sql: "UPDATE t SET a = 1 WHERE 1=0",
+      dry: true,
+      outcome: null,
+    },
+  },
+  {
     path: "sql-ro",
     // `--dry` не открывает соединений: живого PostgreSQL у обхода нет,
     // а вызов обязан молчать и в отказе (см. инвариант 1).

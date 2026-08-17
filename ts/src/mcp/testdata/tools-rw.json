@@ -568,6 +568,201 @@
     }
   },
   {
+    "name": "sql",
+    "title": "mpu sql",
+    "description": "Выполнить SQL (write-capable) на PG, выбранном по селектору.\n\nСессия пишущая: INSERT/UPDATE/DELETE/DDL исполняются и\nфиксируются в БД клиента. Для чтения — `mpu sql-ro`.\n\nSELECTOR: sl-N (сервер целиком, main — sl-0), dev:<client_id>\n(dev-стенд, схема schema_<client_id>), sw-алиас (БД воркспейсов) либо\nпоиск по кэшу. Ровно один client_id среди кандидатов — search_path на\nего схему, иначе search_path сервера. --server sl-N резолв отменяет.\n\nSQL — второй аргумент, иначе stdin целиком (с терминала — до Ctrl+D);\nпустой — ошибка ввода без подключения. Уходит серверу как есть, в одной\nтранзакции: печатается результат ПЕРВОГО оператора, ошибка любого —\nоткат всего вызова, частичной записи не бывает.\n\nВывод: таблица, --json (массив объектов), --md; вместе --json и --md —\nошибка ввода. Запись без набора строк — OK (rowcount=<N>). --dry:\nмета-блок и SQL без подключения; -v — тот же блок при прогоне.\n\nКлючи env-файла (окружение процесса не читается): pg_<N>, PG_PORT\n(5432), PG_DB_NAME (wb), PG_MY_USER_NAME/PG_MAIN_USER_NAME и пароли\nPG_MY_USER_PASSWORD/PG_MAIN_USER_PASSWORD; для dev — DEV_PG_HOST,\nDEV_PG_PORT (5434), DEV_PG_DB (mp_sl_1_dev), DEV_PG_USER,\nDEV_PG_PASSWORD.\n\nExit: 0 — успех, включая --dry и запрос без набора строк; 1 — ошибка\nБД; 2 — ошибка ввода, резолва и конфигурации.\n\nПример: mpu sql 42 \"UPDATE orders SET status = 'done' WHERE id = 7\"",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "client_id / spreadsheet_id / заголовок (подстрока), sl-N, dev:<client_id> или sw-алиас"
+        },
+        "sql": {
+          "description": "SQL; не задан — читается из stdin",
+          "type": "string"
+        },
+        "server": {
+          "description": "override резолва: sl-N",
+          "type": "string"
+        },
+        "dry": {
+          "default": false,
+          "description": "только мета-блок и SQL, без подключения",
+          "type": "boolean"
+        },
+        "json": {
+          "default": false,
+          "description": "результат как JSON",
+          "type": "boolean"
+        },
+        "md": {
+          "default": false,
+          "description": "результат как markdown-таблица",
+          "type": "boolean"
+        },
+        "verbose": {
+          "default": false,
+          "description": "печатать мета-блок",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "database": {
+          "type": "string"
+        },
+        "searchPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sql": {
+          "type": "string"
+        },
+        "dry": {
+          "type": "boolean"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "rows"
+                    },
+                    "columns": {
+                      "readOnly": true,
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rows": {
+                      "readOnly": true,
+                      "type": "array",
+                      "items": {
+                        "readOnly": true,
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/$defs/__schema0"
+                        }
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "columns",
+                    "rows"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "done"
+                    },
+                    "rowcount": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "rowcount"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "server",
+        "host",
+        "port",
+        "database",
+        "searchPath",
+        "sql",
+        "dry",
+        "outcome"
+      ],
+      "additionalProperties": false,
+      "$defs": {
+        "__schema0": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/__schema0"
+              }
+            },
+            {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/__schema0"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "kiten_comment",
     "title": "mpu kiten comment",
     "description": "Комментарий к карточке Kaiten: текст, вложения, адресаты.\n\nSELECTOR — id карточки либо её URL.\n\nТекст — ровно один источник: -m/--message TEXT либо -F/--body-file PATH\n('-' — stdin); текст GFM markdown, интерактивных чекбоксов Kaiten в\nкомментарии не рендерит.\n\n-f/--file PATH — вложение (флаг повторяется): уходит сам файл, имя в\nKaiten — базовое имя пути. Текста вложения не дают: комментарий из одних\nфайлов Kaiten не принимает, поэтому -f без -m/-F и без --to отбивается до\nзапроса.\n\n--to HANDLES — адресаты (флаг повторяется, значение делится по пробелам);\nтокен без '@' его получает, дубли уходят без учёта регистра. Адресаты\nстановятся первой строкой, поэтому --to без текста проходит. '@all' — и в\n--to, и самостоятельным токеном в тексте — разворачивается в логин\nвладельца карточки; владельца нет — предупреждение в stderr и '@all' как\nесть. Ради владельца и читается карточка: без --to и без '@all' уходит\nровно один запрос.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL.\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (источники\nтекста, вложение, селектор, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten comment 65634936 --to '@all' -m 'Готово, проверьте'",
@@ -2428,59 +2623,6 @@
       "required": [
         "value"
       ]
-    }
-  },
-  {
-    "name": "sql",
-    "title": "mpu sql",
-    "description": "Выполнить SQL (write-capable) на PG, выбранном по селектору.\n\nВыполнить SQL (write-capable) на PG, выбранном по селектору.\n\nSQL берётся из аргумента, иначе из stdin. Однозначный клиент-селектор ставит\n`search_path` на схему клиента; `sl-N` — сервер целиком, без search_path.\n`--json` и `--md` взаимоисключающие; `--server` не сочетается с dev-/sw-селектором.\nДля любого чтения использовать `mpu sql-ro` (enforced read-only, без подтверждения).",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "selector": {
-          "type": "string",
-          "description": "client_id, spreadsheet_id substring, title substring, sl-N (сервер целиком, без search_path; main = sl-0), sw-PG алиас (sw / sw-pg / ws / workspaces), или dev-стенд `dev:<client_id>` (БД mp_sl_1_dev, search_path schema_<client_id>)"
-        },
-        "sql": {
-          "type": "string",
-          "description": "SQL для выполнения; если не задан — берётся из stdin"
-        },
-        "server": {
-          "type": "string",
-          "description": "Override резолва: sl-N"
-        },
-        "dry": {
-          "type": "boolean",
-          "description": "Только meta + SQL, без коннекта",
-          "default": false
-        },
-        "json_out": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
-        },
-        "md_out": {
-          "type": "boolean",
-          "description": "Результат как markdown-таблица",
-          "default": false
-        },
-        "verbose": {
-          "type": "boolean",
-          "description": "Печатать meta-блок (server, host, db, search_path, SQL)",
-          "default": false
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "selector"
-      ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
     }
   },
   {
