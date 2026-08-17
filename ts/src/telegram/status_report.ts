@@ -110,6 +110,7 @@ export function reportText(
  * Усечение под предел Telegram по границе целых строк: маркер обязан
  * уложиться в предел вместе с текстом и не встать посреди разорванной
  * markdown-ссылки (там же, «Известные отклонения», вердикт fix).
+ * `limit` — в кодовых единицах UTF-16, как его меряет Telegram.
  */
 export function cutToLimit(text: string, limit: number): string {
   if (length(text) <= limit) return text;
@@ -186,7 +187,13 @@ function lookup(
   return undefined;
 }
 
-/** Длина в символах, а не в кодовых единицах: предел Telegram — символы. */
+/**
+ * Длина в кодовых единицах UTF-16: так меряет длину сама внешняя
+ * система, и символ вне основной плоскости (большинство эмодзи)
+ * считается двумя. Счёт кодовыми точками выпустил бы сообщение длиннее
+ * предела, и отказ пришёл бы уже от Telegram
+ * (`telegram-status.md`, «Отправка»).
+ */
 function length(text: string): number {
-  return [...text].length;
+  return text.length;
 }

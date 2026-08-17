@@ -194,3 +194,19 @@ Deno.test("стиль отчёта из env-файла", async (t) => {
     );
   });
 });
+
+Deno.test("предел меряется кодовыми единицами UTF-16", async (t) => {
+  // Эмодзи вне основной плоскости: кодовых точек 10, кодовых единиц 20 —
+  // счёт точками выпустил бы сообщение длиннее предела, и отказ пришёл
+  // бы уже от Telegram (`telegram-status.md`, «Отправка»).
+  const line = "🚀".repeat(10);
+  const text = `${line}\n${line}`;
+  await t.step("текст длиннее предела в единицах — усекается", () => {
+    const cut = cutToLimit(text, 33);
+    assertEquals(cut, `${line}\n…(обрезано)`);
+    assertEquals(cut.length <= 33, true, `${cut.length} единиц`);
+  });
+  await t.step("текст короче предела — не трогается", () => {
+    assertEquals(cutToLimit(text, text.length), text);
+  });
+});
