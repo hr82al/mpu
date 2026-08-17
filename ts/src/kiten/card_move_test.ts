@@ -20,8 +20,8 @@ import {
   positionLabel,
   recordMove,
   relogNeighbour,
-  resolveColumn,
 } from "./card_move.ts";
+import { resolveRef } from "./ref.ts";
 
 const BOARD_ID = 4000001;
 const CARD_ID = 68757875;
@@ -39,21 +39,21 @@ const COLUMNS: readonly Column[] = [
 
 Deno.test("resolveColumn: id, точное имя, подстрока", async (t) => {
   await t.step("числовая ссылка — колонка с этим id", () => {
-    assertEquals(resolveColumn(COLUMNS, "5000003").title, "В работе");
+    assertEquals(resolveRef("column", COLUMNS, "5000003").title, "В работе");
   });
 
   await t.step("точное имя старше подстроки", () => {
     const columns = [...COLUMNS, column(5000004, "Готово к релизу", 4)];
-    assertEquals(resolveColumn(columns, "готово").id, 5000001);
+    assertEquals(resolveRef("column", columns, "готово").id, 5000001);
   });
 
   await t.step("подстрока без учёта регистра", () => {
-    assertEquals(resolveColumn(COLUMNS, "РАБОТ").id, 5000003);
+    assertEquals(resolveRef("column", COLUMNS, "РАБОТ").id, 5000003);
   });
 
   await t.step("ни одного совпадения — ошибка ввода", () => {
     assertThrows(
-      () => resolveColumn(COLUMNS, "Архив"),
+      () => resolveRef("column", COLUMNS, "Архив"),
       UsageError,
       "column 'Архив' не найден — см. `mpu kiten columns`",
     );
@@ -61,7 +61,7 @@ Deno.test("resolveColumn: id, точное имя, подстрока", async (t
 
   await t.step("числовая ссылка мимо доски — тот же отказ", () => {
     assertThrows(
-      () => resolveColumn(COLUMNS, "999"),
+      () => resolveRef("column", COLUMNS, "999"),
       UsageError,
       "column '999' не найден",
     );
@@ -69,7 +69,7 @@ Deno.test("resolveColumn: id, точное имя, подстрока", async (t
 
   await t.step("несколько совпадений — кандидаты в подробностях", () => {
     const err = assertThrows(
-      () => resolveColumn(COLUMNS, "о"),
+      () => resolveRef("column", COLUMNS, "о"),
       UsageError,
     ) as UsageError;
     assertEquals(err.message, "column 'о' неоднозначен (3 совпадений):");

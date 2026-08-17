@@ -48,8 +48,8 @@ import {
   moveRecordOf,
   planMove,
   recordMove,
-  resolveColumn,
 } from "./card_move.ts";
+import { resolveRef } from "./ref.ts";
 import { expandAllInText, mentionsAll } from "./comment_text.ts";
 import { type FieldKind, propertyKey } from "./field_kinds.ts";
 import { MSK_OFFSET_MINUTES, mskStamp } from "./msk.ts";
@@ -250,7 +250,7 @@ async function buildPlan(
     ),
     move: args["no-move"]
       ? null
-      : planMove(card, resolveColumn(columns, columnRef(args, io))),
+      : planMove(card, resolveRef("column", columns, columnRef(args, io))),
     columns,
   };
 }

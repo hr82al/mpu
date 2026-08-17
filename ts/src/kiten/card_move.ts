@@ -27,12 +27,6 @@ export type CardPlace = Pick<
   "boardTitle" | "columnTitle" | "laneTitle"
 >;
 
-/** Сколько кандидатов показывать при неоднозначном названии. */
-const MAX_CANDIDATES = 10;
-
-/** Только цифры — значит id колонки, а не подстрока названия. */
-const NUMERIC_REF = /^\d+$/;
-
 /** Что и куда переносится: цель, положение «до» и способ переноса. */
 export interface MovePlan {
   readonly columnId: number;
@@ -53,41 +47,6 @@ export interface MoveOutcome {
   readonly relog: boolean;
   /** Карточка «после»: из неё же берутся поля строки журнала. */
   readonly card: Card;
-}
-
-/**
- * Целевая колонка по ссылке (`platform/kaiten-http.md`, «Резолв
- * справочной ссылки»): числовая ссылка — id, прочая — точное совпадение
- * названия без учёта регистра, иначе подстрока.
- *
- * Числовая ссылка тоже ищется в списке колонок доски, а не берётся как
- * есть: колонка чужой доски карточку не примет, а `close` требует
- * отказать раньше первой мутации (`kiten-close.md`, «Граничные случаи»).
- */
-export function resolveColumn(
-  columns: readonly Column[],
-  ref: string,
-): Column {
-  if (NUMERIC_REF.test(ref)) {
-    const byId = columns.find((column) => column.id === Number(ref));
-    if (byId === undefined) throw notFound(ref);
-    return byId;
-  }
-  const needle = ref.toLowerCase();
-  const exact = columns.filter((c) => c.title.toLowerCase() === needle);
-  // Точное совпадение старше подстроки: «Готово» не должно стать
-  // неоднозначным из-за соседнего «Готово к релизу».
-  const found = exact.length > 0
-    ? exact
-    : columns.filter((c) => c.title.toLowerCase().includes(needle));
-  if (found.length === 0) throw notFound(ref);
-  if (found.length > 1) {
-    throw new UsageError(
-      `column '${ref}' неоднозначен (${found.length} совпадений):`,
-      { details: candidateLines(found) },
-    );
-  }
-  return found[0];
 }
 
 /** План переноса: цель уже резолвлена, решение о релоге — по значениям. */
@@ -341,18 +300,4 @@ export function moveRecordOf(
 /** Вес колонки для сортировки; веса нет — колонка идёт последней. */
 function weight(column: Column): number {
   return column.sortOrder ?? Number.MAX_SAFE_INTEGER;
-}
-
-function notFound(ref: string): UsageError {
-  return new UsageError(
-    `column '${ref}' не найден — см. \`mpu kiten columns\``,
-  );
-}
-
-/** Кандидаты списком `id (название)`; длинный список обрезается. */
-function candidateLines(columns: readonly Column[]): string {
-  return columns
-    .slice(0, MAX_CANDIDATES)
-    .map((column) => `${column.id} (${column.title})`)
-    .join("\n");
 }
