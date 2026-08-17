@@ -14,6 +14,7 @@ import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { telegramConfig } from "./config.ts";
 import { type PlanIo, type SendArgs, sendPlan } from "./plan.ts";
 import { sendMessage } from "./send.ts";
+import { renderSent } from "./send_view.ts";
 
 const argsSchema = z.object({
   message: z.string({ error: "нужен MESSAGE: текст сообщения либо '-'" })
@@ -115,11 +116,5 @@ Exit: 0 — успех; 1 — конфигурация или отказ Telegra
   },
   resultSchema,
   run: runTelegramSend,
-  // Строка собирается вручную, а не `JSON.stringify`: контракт вывода —
-  // пробел после «:» и «,», юникод без экранирования, порядок ключей
-  // (`telegram-send.md`, «Ввод/вывод»).
-  render: (result) =>
-    `{"id": ${result.id}, "chat_id": ${result.chat_id}, "date": ${
-      result.date === null ? "null" : `"${result.date}"`
-    }}\n`,
+  render: renderSent,
 });

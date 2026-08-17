@@ -10,11 +10,14 @@ import { assertEquals, assertThrows } from "@std/assert";
 import { UsageError } from "../command/mod.ts";
 import type { Column, KaitenAccess } from "../kaiten/mod.ts";
 import { startFakeKaiten } from "../kaiten/testing.ts";
+import { openCacheDb } from "../store/mod.ts";
 import {
   applyMove,
   type MovePlan,
+  movesInWindow,
   orderedColumns,
   positionLabel,
+  recordMove,
   relogNeighbour,
   resolveColumn,
 } from "./card_move.ts";
@@ -246,4 +249,61 @@ Deno.test("applyMove: положение «после» — по свежему 
       await fake.stop();
     }
   });
+});
+
+Deno.test("журнал за окно: включительно по обеим границам", async (t) => {
+  const dir = await Deno.makeTempDir();
+  try {
+    using db = openCacheDb(`${dir}/cache.db`);
+    for (
+      const [cardId, movedAt] of [[1, 99], [2, 100], [3, 150], [4, 200], [
+        5,
+        201,
+      ]] as const
+    ) {
+      recordMove(db, {
+        cardId,
+        title: `карточка ${cardId}`,
+        url: `https://kaiten.example/${cardId}`,
+        toColumn: "Готово",
+        fromColumn: "В работе",
+        lane: null,
+        board: null,
+        note: "",
+        movedAt,
+      });
+    }
+    await t.step("границы окна попадают в выдачу", () => {
+      assertEquals(
+        movesInWindow(db, 100, 200).map((move) => move.cardId),
+        [2, 3, 4],
+      );
+    });
+    await t.step("нужные поля строки и ничего сверх", () => {
+      assertEquals(movesInWindow(db, 150, 150), [
+        {
+          cardId: 3,
+          title: "карточка 3",
+          url: "https://kaiten.example/3",
+          toColumn: "Готово",
+          movedAt: 150,
+        },
+      ]);
+    });
+    await t.step("пустое окно — пустой список, не ошибка", () => {
+      assertEquals(movesInWindow(db, 1000, 2000), []);
+    });
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("журнал читается и на несозданной схеме", async () => {
+  const dir = await Deno.makeTempDir();
+  try {
+    using db = openCacheDb(`${dir}/cache.db`);
+    assertEquals(movesInWindow(db, 0, 10), []);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
 });

@@ -231,6 +231,56 @@ export function recordMove(db: CacheDb, row: MoveRecord): void {
   );
 }
 
+/**
+ * Строка журнала, как её читает дневная сводка перемещений
+ * (`docs/specs/telegram-status.md`, «Ввод/вывод»): из девяти полей ей
+ * нужны пять.
+ */
+export interface LoggedMove {
+  readonly cardId: number;
+  /** Заголовок карточки; в журнале его может не быть. */
+  readonly title: string | null;
+  /** Web-URL карточки; пустой — вызывающий строит его сам. */
+  readonly url: string | null;
+  readonly toColumn: string;
+  /** Момент записи, epoch-секунды. */
+  readonly movedAt: number;
+}
+
+/**
+ * Строки журнала, чей момент попал в окно; обе границы включительно.
+ * Схема создаётся на месте: сводку зовут и на кэш-БД, в которую ещё
+ * никто не писал.
+ */
+export function movesInWindow(
+  db: CacheDb,
+  fromSec: number,
+  toSec: number,
+): readonly LoggedMove[] {
+  db.bootstrap();
+  const rows = db.query(
+    `SELECT card_id, title, url, to_column, moved_at
+       FROM kaiten_card_moves
+      WHERE moved_at BETWEEN ? AND ?
+      ORDER BY moved_at, card_id`,
+    fromSec,
+    toSec,
+  );
+  return rows.map((row) => ({
+    cardId: Number(row.card_id),
+    title: stringOrNull(row.title),
+    url: stringOrNull(row.url),
+    toColumn: String(row.to_column),
+    movedAt: Number(row.moved_at),
+  }));
+}
+
+/** Пустая ячейка журнала — отсутствие значения, а не пустая строка. */
+function stringOrNull(value: unknown): string | null {
+  if (typeof value !== "string" || value === "") return null;
+  return value;
+}
+
 /** Что о перемещении знает не карточка «после», а сам вызывающий. */
 export interface MoveEntry {
   readonly cardUrl: string;

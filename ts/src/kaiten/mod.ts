@@ -14,6 +14,7 @@
 
 export {
   type KaitenAccess,
+  kaitenBaseUrl,
   type KaitenCallOptions,
   KaitenError,
   type KaitenMethod,

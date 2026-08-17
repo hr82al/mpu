@@ -72,6 +72,25 @@ export class KaitenError extends Error {
   }
 }
 
+/**
+ * Базовый URL Kaiten из env-файла. Ключа доступа не требует: web-URL
+ * карточки строится и там, где живой опрос не идёт вовсе
+ * (`docs/specs/telegram-status.md`, journal без `--live`).
+ *
+ * Хвостовые `/` срезаются той же нормализацией, что у
+ * `requirePortainerAccess` (`../init/cmd_init.ts`) и `requireLokiAccess`
+ * (`../loki/mod.ts`): путь строится конкатенацией
+ * `baseUrl + "/api/latest" + path`, лишний `/` сложил бы двойной слэш.
+ */
+export function kaitenBaseUrl(
+  envFile: { readonly get: (name: string) => string | undefined },
+): string {
+  return (envFile.get("KITEN_BASE_URL") ?? DEFAULT_BASE_URL).replace(
+    /\/+$/,
+    "",
+  );
+}
+
 /** Подключение из env-файла; нет KITEN_API_KEY — KaitenError («KITEN_API_KEY не задан»). */
 export function requireKaitenAccess(
   envFile: { readonly get: (name: string) => string | undefined },
@@ -80,12 +99,7 @@ export function requireKaitenAccess(
   if (apiKey === undefined || apiKey === "") {
     throw new KaitenError("KITEN_API_KEY не задан");
   }
-  const rawUrl = envFile.get("KITEN_BASE_URL") ?? DEFAULT_BASE_URL;
-  // Хвостовые `/` срезаются той же нормализацией, что у `requirePortainerAccess`
-  // (`../init/cmd_init.ts`) и `requireLokiAccess` (`../loki/mod.ts`): путь
-  // строится конкатенацией `baseUrl + "/api/latest" + path`, лишний `/` сложил
-  // бы двойной слэш в адресе.
-  return { baseUrl: rawUrl.replace(/\/+$/, ""), apiKey };
+  return { baseUrl: kaitenBaseUrl(envFile), apiKey };
 }
 
 /**

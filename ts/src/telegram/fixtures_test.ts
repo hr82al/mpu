@@ -55,6 +55,17 @@ const SETS: readonly FixtureSet[] = [
       "warn-scan-cap-stderr.txt",
     ],
   },
+  {
+    channel: "telegram-status",
+    copy: "telegram-status/",
+    names: [
+      "err-no-chat-stderr.txt",
+      "status-empty-stdout.txt",
+      "status-report-stdout.txt",
+      "warn-card-history-stderr.txt",
+      "warn-live-skipped-stderr.txt",
+    ],
+  },
 ];
 
 const channelRoot = new URL("../../docs/specs/fixtures/", import.meta.url);
