@@ -146,6 +146,25 @@ function query(db: CacheDb, filter: string | undefined): readonly Container[] {
   }
 }
 
+/**
+ * Совпадение имени с фильтром: подстрока без учёта регистра. Регистр не
+ * учитывается и в кэш-режиме (свойство `LIKE`), а один флаг одной
+ * команды не может значить разное (спека, отклонение `fix`).
+ *
+ * Приводится к нижнему регистру только сравнение: имя контейнера уходит
+ * дальше как есть — нормализованное имя, попавшее в таргеты fan-out,
+ * адресовало бы несуществующий контейнер.
+ *
+ * Совпадение с кэш-режимом гарантировано для ASCII: `LIKE` в SQLite без
+ * ICU складывает регистр только у `A-Z`, а `toLowerCase` — по всему
+ * Unicode. Имена контейнеров фермы ASCII-латиница (спека, «Известные
+ * отклонения»), и на них два режима отвечают одинаково.
+ */
+function matches(name: string, filter: string | undefined): boolean {
+  return filter === undefined ||
+    name.toLowerCase().includes(filter.toLowerCase());
+}
+
 /** Живой список: резолв сервера, Portainer-таргет, один GET. */
 async function fromLive(
   selector: string,
@@ -168,9 +187,7 @@ async function fromLive(
         status: container.status,
         image: container.image,
       }))
-      .filter((container) =>
-        filter === undefined || container.name.includes(filter)
-      )
+      .filter((container) => matches(container.name, filter))
       // Сравнение кодовых точек, а не `localeCompare`: тот зависит от
       // локали ICU и ослабляет пунктуацию, а кэш-режим сортирует
       // бинарным `ORDER BY` — порядок двух режимов обязан совпадать.

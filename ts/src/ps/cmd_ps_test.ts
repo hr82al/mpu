@@ -171,6 +171,12 @@ Deno.test("кэш-режим: фильтр — буквальная подстр
       );
     });
 
+    await t.step("регистр не учитывается и в кэш-режиме", async () => {
+      const { io } = harness(db);
+      const result = await runPs(args({ filter: "WB-LOADER" }), io);
+      assertEquals(result.containers.map((c) => c.name), ["mp-wb-loader-app"]);
+    });
+
     await t.step("`_` не значит «любой символ»", async () => {
       const { io } = harness(db);
       // Оригинал подставлял значение в шаблон: `sl_1` ловил
@@ -274,6 +280,39 @@ Deno.test("живой режим: STATUS, сортировка и фильтр",
           "mp-wb-loader-app    exited   Exited (137) 2 hours ago  " +
           "registry.example/loader:4.5\n",
       );
+    });
+
+    await t.step("регистр фильтра не учитывается в живом режиме", async () => {
+      // Один флаг одной команды не может значить разное: кэш сравнивает
+      // без учёта регистра свойством `LIKE`, живой режим приведён к нему
+      // (спека, отклонение `fix`).
+      const found = await runPs(
+        args({ selector: "sl-1", filter: "WB-LOADER" }),
+        harness(db).io,
+        { listLive: () => Promise.resolve(live) },
+      );
+      assertEquals(found.containers.map((c) => c.name), ["mp-wb-loader-app"]);
+    });
+
+    await t.step("имя выходит в исходном написании, не приведённым", () => {
+      // Приводится к нижнему регистру только сравнение: нормализованное
+      // имя, попавшее в таргеты, адресовало бы несуществующий контейнер.
+      const mixed: readonly PortainerContainer[] = [{
+        id: "m",
+        names: ["/Mp-WB-Loader-App"],
+        state: "running",
+        status: "Up 1 hour",
+        image: "образ",
+      }];
+      return runPs(
+        args({ selector: "sl-1", filter: "wb-loader" }),
+        harness(db).io,
+        { listLive: () => Promise.resolve(mixed) },
+      ).then((result) => {
+        assertEquals(result.containers.map((c) => c.name), [
+          "Mp-WB-Loader-App",
+        ]);
+      });
     });
 
     await t.step(
