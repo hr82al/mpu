@@ -1,0 +1,1 @@
+mpu ssh: для sl-99 не задано ни sl_99 (+PG_MY_USER_NAME) ни sl_99_portainer (+PORTAINER_API_KEY)

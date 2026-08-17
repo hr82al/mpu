@@ -1,0 +1,1 @@
+[{"Id":"9c8b7a6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b","Names":["/mp-sl-1-cli"],"Image":"registry.example/mp-sl:latest","State":"running","Status":"Up 6 days"},{"Id":"1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b","Names":["/mp-sl-1-api"],"Image":"registry.example/mp-sl:latest","State":"exited","Status":"Exited (0) 2 hours ago"}]
