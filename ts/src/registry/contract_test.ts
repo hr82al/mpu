@@ -855,5 +855,11 @@ function makeIo(dir: string): CommandIo {
     // (`platform/command-contract.md`, инвариант 1). Поэтому здесь он
     // молча глотает строки, а не падает.
     progress: () => {},
+    // Приёмник вывода удалённой команды: до транспорта образцы обхода не
+    // доходят (`ssh` отказывает на пустой команде), поэтому обращение к
+    // нему — сигнал, что образец ушёл в живой контейнер.
+    openRemoteOutput: () => {
+      throw new Error("openRemoteOutput must not be touched");
+    },
   };
 }

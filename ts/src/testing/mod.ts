@@ -56,6 +56,7 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     },
     openCacheDb: mustNotTouch("openCacheDb"),
     progress: mustNotTouch("progress"),
+    openRemoteOutput: mustNotTouch("openRemoteOutput"),
     ...overrides,
   };
 }

@@ -11,6 +11,7 @@ import {
   type Command,
   type CommandIo,
   NotFoundIoError,
+  type RemoteOutput,
   UsageError,
 } from "../command/mod.ts";
 import { parseStore } from "../config/mod.ts";
@@ -106,6 +107,30 @@ export async function runMcpServer(
 }
 
 /**
+ * Копящий приёмник вывода удалённой команды: у вызова тула потока к
+ * агенту нет, поэтому вывод складывается в текст и уезжает полем
+ * результата. Оба потока идут в один текст и в том порядке, в каком их
+ * прислал транспорт, — как их увидел бы человек в терминале.
+ */
+function capturingRemoteOutput(): RemoteOutput {
+  const parts: string[] = [];
+  // Декодер на поток свой: он копит хвост оборванной UTF-8
+  // последовательности, и один на двоих склеил бы хвост stdout с
+  // началом stderr. Финальный `decode()` без данных дописывает
+  // недобранный хвост последнего куска — без него он пропал бы.
+  const out = new TextDecoder();
+  const err = new TextDecoder();
+  const append = (decoder: TextDecoder) => (chunk: Uint8Array) => {
+    parts.push(decoder.decode(chunk, { stream: true }));
+  };
+  return {
+    out: append(out),
+    err: append(err),
+    captured: () => `${parts.join("")}${out.decode()}${err.decode()}`,
+  };
+}
+
+/**
  * Окружение вызова тула: stdin у него нет. Долгоживущий процесс делит
  * один stdin на все вызовы, и команда, читающая его (`mpu sql-ro` без
  * аргумента SQL), забрала бы поток сервера и повисла бы на нём. Отказ
@@ -119,6 +144,10 @@ function withoutStdin(io: CommandIo): CommandIo {
         new UsageError("stdin у вызова тула нет — передай значение аргументом"),
       ),
     stdinIsTerminal: () => false,
+    // Потока к агенту у тула нет: вывод удалённой команды копится и
+    // уезжает полем результата, а не в stdout сервера. Приёмник свой на
+    // каждый прогон — вызовы тулов идут вперемешку.
+    openRemoteOutput: () => capturingRemoteOutput(),
   };
 }
 

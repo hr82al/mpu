@@ -10,6 +10,7 @@ import {
   type CommandIo,
   DomainError,
   NotFoundIoError,
+  type RemoteOutput,
 } from "../command/mod.ts";
 import type { Output } from "../entrypoint/mod.ts";
 import { envFilePath, type EnvFileStore, makeEnvFile } from "../env/mod.ts";
@@ -25,7 +26,10 @@ const decoder = new TextDecoder();
 
 /** Полная запись: writeSync может записать буфер частично. */
 function writeAllSync(stream: SyncSink, text: string): void {
-  const bytes = encoder.encode(text);
+  writeAllBytesSync(stream, encoder.encode(text));
+}
+
+function writeAllBytesSync(stream: SyncSink, bytes: Uint8Array): void {
   let written = 0;
   while (written < bytes.length) {
     written += stream.writeSync(bytes.subarray(written));
@@ -362,5 +366,19 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
       return openStoreDb(`${home}/.config/mpu/mpu.db`);
     },
     progress: (line) => writeAllSync(Deno.stderr, `${line}\n`),
+    openRemoteOutput: () => streamingRemoteOutput(),
+  };
+}
+
+/**
+ * Проточный приёмник вывода удалённой команды: байты уходят в потоки
+ * процесса сразу, как их прислал транспорт («стримить stdout/stderr» —
+ * `platform/exec-transport.md`). Копить нечего: всё уже напечатано.
+ */
+function streamingRemoteOutput(): RemoteOutput {
+  return {
+    out: (chunk) => writeAllBytesSync(Deno.stdout, chunk),
+    err: (chunk) => writeAllBytesSync(Deno.stderr, chunk),
+    captured: () => "",
   };
 }
