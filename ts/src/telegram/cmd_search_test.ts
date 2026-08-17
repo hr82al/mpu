@@ -100,6 +100,15 @@ Deno.test("строка отказа по --limit совпадает с голд
   );
 });
 
+Deno.test("описание укладывается в предел клиента", () => {
+  // Описание тула клиент обрезает на 2048 байтах молча, а кириллица —
+  // два байта на символ (`platform/mcp-server.md`, «Объём»).
+  const bytes = new TextEncoder().encode(
+    `${telegramSearchCommand.summary}\n\n${telegramSearchCommand.help}`,
+  ).length;
+  assertEquals(bytes < 2048, true, `описание не влезло: ${bytes} байт`);
+});
+
 Deno.test("объявление команды", async (t) => {
   await t.step("путь и класс", () => {
     assertEquals(command.path, ["telegram", "search"]);
