@@ -142,7 +142,28 @@ function serverTarget(
   if (via !== "portainer" && host !== undefined && user !== undefined) {
     return { kind: "ssh", host, user, container };
   }
-  throw new UsageError(
+  throw unavailable(serverNumber, via);
+}
+
+/**
+ * Отказ выбора. Запрошенный явно транспорт называется в отказе сам:
+ * общий текст «не задано ни … ни …» врал бы ровно тогда, когда второй
+ * транспорт как раз настроен (спека `ssh.md`, отклонение `fix`).
+ */
+function unavailable(serverNumber: number, via: Via | undefined): UsageError {
+  if (via === "ssh") {
+    return new UsageError(
+      `--via ssh: для sl-${serverNumber} не задан ssh-доступ` +
+        ` (sl_${serverNumber} + PG_MY_USER_NAME)`,
+    );
+  }
+  if (via === "portainer") {
+    return new UsageError(
+      `--via portainer: для sl-${serverNumber} не задан Portainer` +
+        ` (sl_${serverNumber}_portainer + PORTAINER_API_KEY)`,
+    );
+  }
+  return new UsageError(
     `для sl-${serverNumber} не задано ни sl_${serverNumber}` +
       ` (+PG_MY_USER_NAME) ни sl_${serverNumber}_portainer` +
       " (+PORTAINER_API_KEY)",

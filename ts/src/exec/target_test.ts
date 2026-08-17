@@ -8,7 +8,7 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { formatCommandError, UsageError } from "../command/mod.ts";
 import type { CacheReader } from "../selector/mod.ts";
-import { chooseTransport, type ExecPlace, viaOf } from "./target.ts";
+import { chooseTransport, type ExecPlace, type Via, viaOf } from "./target.ts";
 
 const API_KEY = "portainer-key";
 const BASE = "https://portainer.example";
@@ -203,6 +203,41 @@ Deno.test("env-fallback sl_<N>_portainer", async (t) => {
     });
     assertEquals(target.kind === "portainer" ? target.endpointId : 0, 4);
   });
+});
+
+Deno.test("--via без соответствующего доступа — текст про него", async (t) => {
+  const cases: readonly [string, Via, Record<string, string>, string][] = [
+    [
+      "ssh не настроен",
+      "ssh",
+      { PORTAINER_API_KEY: API_KEY },
+      "--via ssh: для sl-1 не задан ssh-доступ (sl_1 + PG_MY_USER_NAME)",
+    ],
+    [
+      "Portainer не настроен",
+      "portainer",
+      { sl_1: "10.0.0.1", PG_MY_USER_NAME: "u" },
+      "--via portainer: для sl-1 не задан Portainer" +
+      " (sl_1_portainer + PORTAINER_API_KEY)",
+    ],
+  ];
+  for (const [title, via, env, message] of cases) {
+    await t.step(title, () => {
+      const err = assertThrows(
+        () =>
+          chooseTransport({
+            place: SERVER,
+            env: envOf(env),
+            cache: cacheOfServer(1),
+            via,
+          }),
+        UsageError,
+      );
+      // Общий текст «не задано ни … ни …» тут врал бы: второй транспорт
+      // как раз задан (спека, «CLI-контракт»).
+      assertEquals(err.message, message);
+    });
+  }
 });
 
 Deno.test("override транспорта", async (t) => {
