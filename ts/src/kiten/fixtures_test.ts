@@ -48,6 +48,7 @@ const SETS: readonly FixtureSet[] = [
     names: [
       "dry-run-move-stdout.txt",
       "dry-run-relog-stdout.txt",
+      "dry-run-substring-stdout.txt",
       "err-no-axis-stderr.txt",
       "err-selector-stderr.txt",
       "ok-move-stdout.txt",

@@ -24,11 +24,18 @@ const LANES_PATH = `/api/latest/boards/${BOARD_ID}/lanes`;
 
 const READY_ID = 5620663;
 const BACKLOG_ID = 5620661;
+const TESTING_ID = 5620664;
 
 const COLUMNS = [
   { id: BACKLOG_ID, board_id: BOARD_ID, title: "Бэклог", sort_order: 1 },
   { id: 5620662, board_id: BOARD_ID, title: "В работе", sort_order: 2 },
   { id: READY_ID, board_id: BOARD_ID, title: "Готово", sort_order: 3 },
+  {
+    id: TESTING_ID,
+    board_id: BOARD_ID,
+    title: "Готово к тестированию",
+    sort_order: 4,
+  },
 ];
 
 const LANES = [
@@ -206,6 +213,22 @@ Deno.test("ready --dry-run: намерение без единой мутаци�
       assertEquals(
         await output(kitenReadyCommand, [String(CARD_ID), "--dry-run"], st.io),
         await golden("dry-run-relog-stdout.txt"),
+      );
+      assertEquals(patches(st), []);
+    } finally {
+      await st.stop();
+    }
+  });
+  await t.step("подстрока в --column: печатается полное название", async () => {
+    const st = stand([card(BACKLOG_ID, "Бэклог")]);
+    try {
+      assertEquals(
+        await output(
+          kitenReadyCommand,
+          [String(CARD_ID), "--column", "тестиров", "--dry-run"],
+          st.io,
+        ),
+        await golden("dry-run-substring-stdout.txt"),
       );
       assertEquals(patches(st), []);
     } finally {
