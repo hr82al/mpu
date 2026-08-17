@@ -42,6 +42,19 @@ const SETS: readonly FixtureSet[] = [
       "ls-json-stdout.txt",
     ],
   },
+  {
+    channel: "telegram-search",
+    copy: "telegram-search/",
+    names: [
+      "err-empty-query-stderr.txt",
+      "err-from-without-chat-stderr.txt",
+      "err-limit-stderr.txt",
+      "search-empty-stdout.txt",
+      "search-empty-table-stdout.txt",
+      "search-json-stdout.txt",
+      "warn-scan-cap-stderr.txt",
+    ],
+  },
 ];
 
 const channelRoot = new URL("../../docs/specs/fixtures/", import.meta.url);

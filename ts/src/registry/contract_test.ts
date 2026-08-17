@@ -409,6 +409,24 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "telegram search",
+    // Сеанса Telegram у обхода нет: вызов обязан отбиться до сети —
+    // здесь на пустом глобальном поиске.
+    argv: [],
+    sampleResult: {
+      messages: [{
+        id: 4821,
+        chat_id: -1000000000101,
+        chat_title: "Команда выгрузок",
+        sender: "Иван Петров",
+        date: "2026-08-16T07:54:28+00:00",
+        text: "выгрузка за июль готова",
+        link: "https://t.me/team_uploads/4821",
+      }],
+      table: false,
+    },
+  },
+  {
     path: "telegram send",
     // Адресата нет ни во флаге, ни в env-файле обхода: вызов обязан
     // отбиться до сети — сеанса Telegram у обхода нет.

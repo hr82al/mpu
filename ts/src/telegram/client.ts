@@ -24,6 +24,12 @@ export interface OutgoingDocument extends Attachment {
 /** Адресат, уже опознанный клиентом: содержимое ссылки — дело клиента. */
 export interface PeerRef {
   readonly ref: unknown;
+  /**
+   * Маркированный id опознанного адресата. Нужен там, где сличать
+   * адресатов приходится самой команде: у глобального поиска нет
+   * серверного фильтра по отправителю (`docs/specs/telegram-search.md`).
+   */
+  readonly id: number;
 }
 
 /** Сообщение, как о нём отчитался клиент. */

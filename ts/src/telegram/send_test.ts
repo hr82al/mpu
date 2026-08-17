@@ -30,7 +30,7 @@ function stand(
     markdown: [],
     documents: [],
   };
-  const ref: PeerRef = { ref: "peer" };
+  const ref: PeerRef = { ref: "peer", id: 100000001 };
   const client: TelegramClient = {
     resolve: (peer: Peer) => {
       seen.calls.push(`resolve:${peer.kind}`);

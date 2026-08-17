@@ -15,23 +15,25 @@ import {
   proxyTransportFromUrl,
   TelegramClient,
 } from "@mtcute/deno";
-import type { Chat, User } from "@mtcute/deno";
+import type { Chat, Message, User } from "@mtcute/deno";
 import { md } from "@mtcute/markdown-parser";
 import { VerbatimError } from "../command/mod.ts";
-import type { RawChat } from "./chat.ts";
+import { markedId, type RawChat } from "./chat.ts";
 import type { TelegramConfig } from "./config.ts";
 import { configError, telegramFailure } from "./errors.ts";
 import type { ResolvablePeer } from "./peer.ts";
 import { proxyUrl } from "./proxy.ts";
+import type { RawMessage } from "./message.ts";
 import { chatPeerType, chatsFromSearch } from "./search_reply.ts";
+import type { SearchClient } from "./search.ts";
 import type {
   ClientMessage,
   PeerRef,
   TelegramClient as CommandClient,
 } from "./client.ts";
 
-/** Открытый сеанс: клиент отправки и его закрытие. */
-export interface TelegramSession extends CommandClient {
+/** Открытый сеанс: клиент отправки и поиска и его закрытие. */
+export interface TelegramSession extends CommandClient, SearchClient {
   /** Закрывает соединение; зовётся в любом исходе вызова. */
   readonly close: () => Promise<void>;
 }
@@ -57,11 +59,12 @@ export async function openSession(
       : { transport: proxyTransportFromUrl(proxyUrl(config.proxy)) }),
     disableUpdates: true,
   });
-  await enter(client, config.session);
+  const self = await enter(client, config.session);
   return {
-    resolve: async (peer: ResolvablePeer) => ({
-      ref: await client.resolvePeer(peerId(peer)),
-    }),
+    resolve: async (peer: ResolvablePeer) => {
+      const ref = await client.resolvePeer(peerId(peer));
+      return { ref, id: refId(ref, self) };
+    },
     sendText: async (to, text, markdown) =>
       message(await client.sendText(inputPeer(to), body(text, markdown))),
     sendDocuments: async (to, documents, markdown) => {
@@ -90,6 +93,27 @@ export async function openSession(
       chatsFromSearch(
         await client.call({ _: "contacts.search", q: query, limit }),
       ),
+    // Страницы гоняет итератор клиента: разовый вызов поиска отдаёт одну
+    // страницу, и `--limit` больше неё молча недобирал бы выдачу.
+    searchInChat: async ({ chat, query, from, limit }) => {
+      const found: RawMessage[] = [];
+      for await (
+        const message of client.iterSearchMessages({
+          chatId: inputPeer(chat),
+          query,
+          limit,
+          ...(from === null ? {} : { fromUser: inputPeer(from) }),
+        })
+      ) {
+        found.push(rawMessage(message));
+      }
+      return found;
+    },
+    searchGlobal: async function* (query: string) {
+      for await (const found of client.iterSearchGlobal({ query })) {
+        yield rawMessage(found);
+      }
+    },
     close: () => client.destroy(),
   };
 }
@@ -99,15 +123,18 @@ export async function openSession(
  * на любом шаге гасит клиента — иначе после него остаются хранилище и
  * открытые ресурсы, а закрывать сеанс, которого вызывающий не получил,
  * ему нечем.
+ *
+ * Возвращает собственный идентификатор: адресата `me` клиент опознаёт
+ * ссылкой без идентификатора, а команде он нужен числом.
  */
-async function enter(client: TelegramClient, session: string): Promise<void> {
+async function enter(client: TelegramClient, session: string): Promise<number> {
   try {
     await importSession(client, session);
     await client.connect();
     // Отказ здесь — либо отозванная сессия (её импорт не отличает от
     // годной), либо отказ Telegram; в обоих случаях он обязан прийти до
     // операции и своим текстом, а не выдать себя за ненайденный чат.
-    await client.getMe();
+    return (await client.getMe()).id;
   } catch (err) {
     await client.destroy();
     // Отказ импорта уже оформлен слоем — переоформлять его не за что.
@@ -186,6 +213,46 @@ function peerChat(peer: User | Chat): RawChat {
     title: peer.title,
     username: peer.username,
   };
+}
+
+/**
+ * Маркированный id опознанного адресата. Собственный чат клиент
+ * возвращает ссылкой без идентификатора, поэтому его подставляет сеанс:
+ * он узнал себя при входе.
+ */
+function refId(ref: { readonly _: string }, self: number): number {
+  if (ref._ === "inputPeerSelf") return self;
+  if ("userId" in ref) return Number(ref.userId);
+  if ("chatId" in ref) return markedId("chat", Number(ref.chatId));
+  if ("channelId" in ref) return markedId("channel", Number(ref.channelId));
+  throw configError(`Telegram вернул адресата без идентификатора: ${ref._}`);
+}
+
+/**
+ * Сообщение в форме, которую знает поиск. Ссылку строит команда
+ * (`message.ts`): у клиента она бросает исключение на чатах без
+ * публичных ссылок — на первой же личной переписке в выдаче.
+ */
+function rawMessage(found: Message): RawMessage {
+  return {
+    id: found.id,
+    chat: peerChat(found.chat),
+    sender: sender(found),
+    date: found.date,
+    text: found.text,
+  };
+}
+
+/**
+ * Отправитель сообщения. Автора нет только у анонимного админа и у
+ * поста от имени канала: клиент подставляет вместо него чат. В личной
+ * переписке автор отдельным полем не приходит, но известен — им и
+ * остаётся собеседник.
+ */
+function sender(found: Message): RawChat | null {
+  const raw = found.raw;
+  if (!raw.fromId && raw.peerId._ !== "peerUser") return null;
+  return peerChat(found.sender);
 }
 
 /**
