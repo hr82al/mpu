@@ -80,7 +80,7 @@ export function containerNamesLike(
   const rows = read(
     cache,
     "SELECT DISTINCT container_name FROM portainer_containers" +
-      ` WHERE container_name LIKE ? ESCAPE '${ESCAPE}'` +
+      ` WHERE container_name LIKE ? ESCAPE '${LIKE_ESCAPE}'` +
       " ORDER BY container_name",
     `%${escapeLike(filter)}%`,
   );
@@ -88,15 +88,17 @@ export function containerNamesLike(
 }
 
 /** Символ экранирования образца `LIKE`; в именах контейнеров не встречается. */
-const ESCAPE = "\\";
+export const LIKE_ESCAPE = "\\";
 
 /**
  * Экранирует спецсимволы образца: команда обещает подстроку, а
  * неэкранированный `_` значит «любой символ» — на fan-out это чужой
  * контейнер в обходе живых прод-команд (спека, отклонение `fix`).
+ * Экспортируется для тех же чтений таблицы, что живут в командах
+ * (`specs/ps.md`: фильтр — буквальная подстрока в обоих режимах).
  */
-function escapeLike(filter: string): string {
-  return filter.replaceAll(/[\\%_]/g, (char) => `${ESCAPE}${char}`);
+export function escapeLike(filter: string): string {
+  return filter.replaceAll(/[\\%_]/g, (char) => `${LIKE_ESCAPE}${char}`);
 }
 
 /**

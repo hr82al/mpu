@@ -139,12 +139,12 @@ Deno.test("флаги берутся из того же источника, чт
   await t.step("команда маршрута legacy — из слепка", async () => {
     const { stdout } = await complete({
       _MPU_COMPLETE: "complete_bash",
-      COMP_WORDS: "mpu ps -",
+      COMP_WORDS: "mpu sun -",
       COMP_CWORD: "2",
     });
     const flags = stdout.split("\n").filter(Boolean);
     const leaf = readManifest(treeManifest).commands.find(
-      (item) => item.path.join(" ") === "ps",
+      (item) => item.path.join(" ") === "sun",
     );
     const expected = (leaf?.params ?? [])
       .filter((param) => param.kind === "option")
@@ -212,20 +212,20 @@ Deno.test("флаги берутся из того же источника, чт
   await t.step("общий --json командам legacy не добавляется", async () => {
     // Точка входа его для этого маршрута не распознаёт: он уходит
     // подпроцессу как обычный аргумент (`platform/registry.md`).
-    // У `mpu health` своего `--json` в слепке нет — значит и в
-    // подсказке ему взяться неоткуда.
+    // У `mpu sun` своего `--json` в слепке нет — значит и в подсказке
+    // ему взяться неоткуда.
     const legacy = await complete({
       _MPU_COMPLETE: "complete_bash",
-      COMP_WORDS: "mpu health -",
+      COMP_WORDS: "mpu sun -",
       COMP_CWORD: "2",
     });
     assertEquals(legacy.stdout.split("\n").includes(JSON_FLAG), false);
-    // А там, где команда объявляет его сама (`mpu ps`), он есть — и
+    // А там, где команда объявляет его сама (`mpu sheet ls`), он есть — и
     // приходит из слепка, а не от точки входа.
     const own = await complete({
       _MPU_COMPLETE: "complete_bash",
-      COMP_WORDS: "mpu ps -",
-      COMP_CWORD: "2",
+      COMP_WORDS: "mpu sheet ls -",
+      COMP_CWORD: "3",
     });
     assertEquals(own.stdout.split("\n").includes(JSON_FLAG), true);
     // Команде контракта общий параметр предлагается всегда.

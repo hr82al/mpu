@@ -21,6 +21,7 @@ export {
   runOverPortainer,
 } from "./portainer.ts";
 export { ambiguous, placeOf, type PlaceSources } from "./place.ts";
+export { escapeLike, LIKE_ESCAPE } from "./containers.ts";
 export { quoteArg, shellCommand } from "./shell.ts";
 export {
   detachOverSsh,
@@ -33,6 +34,9 @@ export {
   chooseTransport,
   type ExecPlace,
   type ExecTarget,
+  type PortainerLookup,
+  portainerOf,
+  requirePortainer,
   type TransportSources,
   type Via,
   viaOf,

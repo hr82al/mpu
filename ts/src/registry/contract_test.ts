@@ -202,6 +202,40 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "health",
+    // Невалидный `--since` отказывает до сети и до кэша (спека,
+    // отклонение `fix`): живой фермы у обхода нет, а вытягивать боевые
+    // логи он не должен тем более.
+    argv: ["sl-1", "--since", "вчера"],
+    sampleResult: {
+      server: "sl-1",
+      rows: [{ name: "mp-sl-1-cli", state: "running", status: "Up 3 days" }],
+      mpCount: 1,
+      oneShot: [],
+      notRunning: [],
+      tails: [{ name: "mp-wb-loader-app", text: "ошибка\n", error: null }],
+      tail: 30,
+      exitCode: 0,
+    },
+  },
+  {
+    path: "ps",
+    // Без селектора — снапшот локального кэша: сети у обхода нет, а
+    // пустая кэш-БД временного каталога даёт отказ — молча, как
+    // требует инвариант 1.
+    argv: [],
+    sampleResult: {
+      source: "cache",
+      containers: [{
+        endpoint: "sl-1",
+        name: "mp-sl-1-cli",
+        state: "running",
+        status: null,
+        image: "registry.example/app:1.2.3",
+      }],
+    },
+  },
+  {
     path: "logs",
     // `ls` читает только локальный кэш: сети у обхода нет, а пустая
     // кэш-БД временного каталога даёт отказ — молча, как требует

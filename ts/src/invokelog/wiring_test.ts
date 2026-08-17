@@ -130,7 +130,7 @@ Deno.test("маршрут legacy: обвязка записи не создаё�
   await withStand(async (stand) => {
     const outcome = await cli(
       stand,
-      ["ps", "sl-1"],
+      ["sun", "sl-1"],
       makeFakeIo({
         readConfigStore: () =>
           Promise.resolve('{"mcp.legacy_bin":"/bin/echo"}'),
@@ -273,7 +273,7 @@ Deno.test("вызов тула журналируется как вторая т
     await withStand(async (stand) => {
       const response = await toolCall(
         stand.log,
-        "health",
+        "search",
         {},
         makeFakeIo({
           readConfigStore: () =>

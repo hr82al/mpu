@@ -16,6 +16,8 @@
       "docs",
       "src/env/testdata",
       "src/exec/testdata",
+      "src/health/testdata",
+      "src/ps/testdata",
       "src/runjs/testdata",
       "src/sql/testdata",
       "src/ssh/testdata",

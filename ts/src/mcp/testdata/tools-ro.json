@@ -500,6 +500,275 @@
     }
   },
   {
+    "name": "health",
+    "title": "mpu health",
+    "description": "Health-check сервера: контейнеры + tail логов виновников.\n\nЖивой список `mp-*` контейнеров сервера с состояниями и tail\nstderr-логов демонов, похожих на лоадеры. `mp`-строка — имя,\nначинающееся с sl- или wb-, префикс mp- перед ними необязателен: обе\nформы живут на ферме одновременно.\n\nШтатно завершённый one-shot (migrations/init-, exited, Exited (0))\nпроблемой не считается и печатается отдельным блоком. Любой другой\nне-running mp-контейнер даёт exit 1.\n\nSELECTOR обязателен: sl-N либо client_id/spreadsheet/title.\n-n/--tail — строк лога на контейнер (30). --since — окно логов:\n<число>{s|m|h|d} назад либо строка из одних цифр как unix-ts; иной\nформат — ошибка ввода, и она проверяется до похода в сеть. --all —\ntail у всех демонов, не только лоадер-подобных.\n\nВ tail печатается только stderr: сервисы стека пишут ошибки в него, а\nstdout утопил бы диагностику в рабочем шуме. Сбой получения логов по\nодному контейнеру кода выхода не меняет.\n\nExit: 0 — все mp-контейнеры running (или штатно завершены); 1 — есть\nнеожиданно не-running либо не получен сам список; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu health sl-1; mpu health sl-1 -n 100 --since 2h; mpu health\n42 --all",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "sl-N или клиент-селектор"
+        },
+        "tail": {
+          "default": 30,
+          "description": "строк лога на контейнер",
+          "type": "number"
+        },
+        "since": {
+          "description": "окно логов: <число>{s|m|h|d} назад либо unix-ts",
+          "type": "string"
+        },
+        "all": {
+          "default": false,
+          "description": "tail у всех демонов, не только лоадер-подобных",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, к которому относится проверка"
+        },
+        "rows": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "state",
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "mpCount": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "oneShot": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "state",
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "notRunning": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "state",
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "tails": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "error": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "name",
+              "text",
+              "error"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "tail": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "значение `--tail` этого вызова"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "server",
+        "rows",
+        "mpCount",
+        "oneShot",
+        "notRunning",
+        "tails",
+        "tail",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "ps",
+    "title": "mpu ps",
+    "description": "Список Docker-контейнеров (кэш или живой Portainer).\n\nБез селектора — снапшот локального кэша, без сети: данные на\nмомент последнего `mpu init`, колонки ENDPOINT NAME STATE IMAGE. С\nселектором (sl-N либо client_id/spreadsheet/title) — живой список с\nPortainer этого сервера, колонки NAME STATE STATUS IMAGE.\n\nКолонка STATUS есть только у живого списка: транзиентную строку Docker\nкэш не хранит. Расширения селектора `dev:` и имя контейнера не\nподдерживаются — это не exec-команда.\n\n-f/--filter — буквальная подстрока имени в обоих режимах; ноль\nсовпадений успех, а не отказ. --json (массив объектов, отступ 2) и\n--tsv (колонки через табуляцию, без шапки) взаимоисключающи.\n\nExit: 0 — успех, включая пустые списки; 1 — ошибка кэш-БД и сетевая\nошибка Portainer; 2 — ошибки ввода, резолва и конфигурации.\n\nПримеры: mpu ps; mpu ps -f wb-loader --tsv; mpu ps sl-1; mpu ps 42 --json",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "description": "sl-N или клиент-селектор; без него — снапшот кэша без сети",
+          "type": "string"
+        },
+        "filter": {
+          "description": "буквальная подстрока имени контейнера",
+          "type": "string"
+        },
+        "json": {
+          "default": false,
+          "description": "массив объектов JSON",
+          "type": "boolean"
+        },
+        "tsv": {
+          "default": false,
+          "description": "колонки через табуляцию, без шапки",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "cache",
+            "live"
+          ]
+        },
+        "containers": {
+          "readOnly": true,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "endpoint": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "status": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "image": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "endpoint",
+              "name",
+              "state",
+              "status",
+              "image"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "source",
+        "containers"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "logs",
     "title": "mpu logs",
     "description": "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).\n\nБез SELECTOR — все хосты. SELECTOR: sl-N / wb-N / dt-N /\nwb-clusters / wb-positions — как есть; клиентский селектор (client_id,\nspreadsheet_id, заголовок) — в сервер sl-N. Первый аргумент, не похожий\nна хост, но известный кэшу как сервис, — это SERVICE со всех хостов.\n\nСписки из кэша, без сети: `mpu logs ls` — хосты, `mpu logs sl-1 ls` —\nсервисы хоста; кэш наполняют `mpu init` и `mpu update`.\n\nФильтры Loki, И между собой: --grep S (подстрока), --grep-regex S,\n--level error|warn|info|debug, --client N (подстрока числа в строке —\nсовпадёт и порт). Потоки: --no-stdout, --no-stderr.\n\nОкно: --since 30s|10m|1h|2d или unix-ts (умолчание 5m, слежение 10s);\n--tail/-n N > 0 (200); --timestamps/-t — префикс\nYYYY-MM-DDThh:mm:ss.mmmZ; --follow/-f — только CLI: опрос раз в 2 с\nдо Ctrl+C. Печать всегда по возрастанию времени.\n\n--via portainer — снимок логов одного контейнера: нужны оба аргумента\n(SERVICE — имя контейнера или подстрока), фильтры и --follow нельзя,\nбайты потоков идут как есть.\n\nEnv: LOKI_URL; PORTAINER_API_KEY, PORTAINER_VERIFY_TLS, sl_<N>_portainer.\n\nExit: 0 — успех, в том числе пустой вывод; 1 — отказ источника; 2 —\nошибка ввода, конфигурации или резолва.\n\nПример: mpu logs sl-1 wb-loader --level error --since 1h -n 500",
@@ -2117,73 +2386,6 @@
       "additionalProperties": false,
       "required": [
         "discussion_ref"
-      ]
-    }
-  },
-  {
-    "name": "ps",
-    "title": "mpu ps",
-    "description": "Список контейнеров.\n\nСписок контейнеров.\n\nБез селектора — все контейнеры из локального кэша (mpu init).\nС селектором sl-N — live запрос к Portainer (включает STATUS-поле);\nнужен PORTAINER_API_KEY в ~/.config/mpu/.env (endpoint — из кэша `mpu init`).\n\nSTATE: running / exited / created / restarting. STATUS для exited — код возврата:\nExited(0) graceful (SIGTERM или process.exit(0)); Exited(1) uncaught exception;\nExited(137) SIGKILL, часто OOM; Exited(143) SIGTERM не пойман/не успел отработать.",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "selector": {
-          "type": "string",
-          "description": "sl-N либо client_id / spreadsheet_id / title (через mpu search). Без аргумента — все контейнеры из кэша."
-        },
-        "name_filter": {
-          "type": "string",
-          "description": "Подстрока имени контейнера для фильтрации"
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
-        },
-        "out_tsv": {
-          "type": "boolean",
-          "description": "TSV-вывод",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "health",
-    "title": "mpu health",
-    "description": "Health-check: статусы контейнеров + tail логов потенциальных виновников.\n\nHealth-check: статусы контейнеров + tail логов потенциальных виновников.\n\nOne-shot контейнеры (migrations/init-, Exited(0)) — норма, идут в отдельный блок, не\nв exit-code. Остальные не-running — в блок ⚠️. Tail stderr — для loader/processor/\nupdater-контейнеров (--all — для всех mp-*). Exit-code 1, если остался хотя бы один\nнеожиданно не-running контейнер (не из one-shot набора).",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "selector": {
-          "type": "string",
-          "description": "sl-N либо client_id / spreadsheet_id / title (через mpu search)"
-        },
-        "tail": {
-          "type": "integer",
-          "description": "Сколько строк лога печатать на каждый контейнер",
-          "default": 30
-        },
-        "since": {
-          "type": "string",
-          "description": "Период для логов: 30m / 1h / 2d / unix-ts; без флага — весь доступный лог"
-        },
-        "all_logs": {
-          "type": "boolean",
-          "description": "Печатать tail для всех `mp-*` контейнеров, не только loader'ов",
-          "default": false
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "selector"
       ]
     }
   }

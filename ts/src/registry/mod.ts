@@ -23,6 +23,8 @@ import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "../update/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
 import { sqlCommand, sqlRoCommand } from "../sql/mod.ts";
+import { healthCommand } from "../health/mod.ts";
+import { psCommand } from "../ps/mod.ts";
 import { runJsCommand } from "../runjs/mod.ts";
 import { sshCommand } from "../ssh/mod.ts";
 import { logsCommand } from "../logs/mod.ts";
@@ -102,6 +104,8 @@ export const commands: readonly Command[] = [
   updateCommand,
   sqlCommand,
   sqlRoCommand,
+  healthCommand,
+  psCommand,
   runJsCommand,
   sshCommand,
   logsCommand,

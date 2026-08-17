@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 47 команд верхнего уровня, ещё не переехавших на TS. */
+/** 45 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["search"],
@@ -220,12 +220,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     path: ["data-loader-jobs"],
     summary:
       "Выполнить service:dataLoaderJobs showJobs через Portainer (дефолт — сразу в проде); `--print`/`-p` — только печать команды.",
-  },
-  { path: ["ps"], summary: "Список контейнеров." },
-  {
-    path: ["health"],
-    summary:
-      "Health-check: статусы контейнеров + tail логов потенциальных виновников.",
   },
   {
     path: ["api"],

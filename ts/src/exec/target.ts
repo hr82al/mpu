@@ -57,6 +57,67 @@ export interface TransportSources {
   readonly via?: Via;
 }
 
+/**
+ * Portainer-доступ сервера: что нашлось и чего не хватило. Тексты
+ * отказов принадлежат командам (`specs/ps.md`), поэтому слой отвечает
+ * различимыми исходами, а не сообщением.
+ */
+export type PortainerLookup =
+  | {
+    readonly kind: "ok";
+    readonly access: PortainerAccess;
+    readonly endpointId: number;
+  }
+  /** Ключ есть, но сервер не найден ни в кэше, ни в env-fallback'е. */
+  | { readonly kind: "no-target" }
+  | { readonly kind: "no-key" };
+
+/**
+ * Portainer-доступ сервера N: строка кэша старше env-fallback'а. Тот же
+ * порядок, что и у выбора транспорта, — иначе `mpu ps` и `mpu ssh`
+ * ходили бы на разные endpoint'ы одного сервера.
+ */
+export function portainerOf(
+  env: EnvKeys,
+  cache: CacheReader,
+  serverNumber: number,
+): PortainerLookup {
+  const apiKey = value(env, "PORTAINER_API_KEY");
+  if (apiKey === undefined) return { kind: "no-key" };
+  const location = serverLocation(cache, serverNumber) ??
+    fallbackLocation(env, serverNumber);
+  if (location === null) return { kind: "no-target" };
+  return {
+    kind: "ok",
+    access: accessOf(location.portainerUrl, apiKey, env),
+    endpointId: location.endpointId,
+  };
+}
+
+/**
+ * Portainer-доступ либо отказ конфигурации с текстом обеих команд:
+ * `specs/health.md` требует «тексты — как у `mpu ps`», а два места
+ * правки разъехались бы молча.
+ */
+export function requirePortainer(
+  env: EnvKeys,
+  cache: CacheReader,
+  serverNumber: number,
+): Extract<PortainerLookup, { kind: "ok" }> {
+  const found = portainerOf(env, cache, serverNumber);
+  if (found.kind === "no-key") {
+    throw new UsageError("PORTAINER_API_KEY не задан в ~/.config/mpu/.env");
+  }
+  if (found.kind === "no-target") {
+    throw new UsageError(
+      `для sl-${serverNumber} не найден portainer-target` +
+        ` (SQLite после \`mpu init\` или sl_${serverNumber}_portainer в` +
+        " ~/.config/mpu/.env)",
+    );
+  }
+  return found;
+}
+
 /** Значение `--via`; флага нет — override'а нет. */
 export function viaOf(raw: string | undefined): Via | undefined {
   if (raw === undefined) return undefined;

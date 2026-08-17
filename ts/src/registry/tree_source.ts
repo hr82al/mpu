@@ -26,6 +26,8 @@ export const NOT_LEGACY: readonly string[] = [
   "sql",
   "ssh",
   "run-js",
+  "ps",
+  "health",
   "logs",
   "help",
   "version",

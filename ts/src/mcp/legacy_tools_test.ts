@@ -286,7 +286,7 @@ Deno.test("аргументы проверяются до запуска под�
 Deno.test("описание тула: справка из слепка, при переполнении усечена", async (t) => {
   await t.step("короткая справка отдаётся целиком", () => {
     const text = legacyToolDescription(
-      leaf(["ps"], [], { summary: "процессы", help: "Строка справки." }),
+      leaf(["sun"], [], { summary: "процессы", help: "Строка справки." }),
     );
     assertEquals(text, "процессы\n\nСтрока справки.");
   });
@@ -294,7 +294,7 @@ Deno.test("описание тула: справка из слепка, при �
   await t.step("длинная усечена по границе строки с пометкой", () => {
     const line = "строка справки, довольно длинная, чтобы быстро набрать вес";
     const help = Array.from({ length: 100 }, () => line).join("\n");
-    const text = legacyToolDescription(leaf(["ps"], [], { help }));
+    const text = legacyToolDescription(leaf(["sun"], [], { help }));
     const bytes = new TextEncoder().encode(text).length;
     assertEquals(bytes <= 2048, true, `описание не влезло: ${bytes} байт`);
     const lines = text.split("\n");
@@ -330,13 +330,13 @@ Deno.test("слепок незнакомой версии — отказ, а н�
     const manifest = readManifest({
       manifestVersion: MANIFEST_VERSION,
       mpuVersion: "0.1.0",
-      commands: [{ path: ["ps"], params: [], summary: "s", help: "h" }],
+      commands: [{ path: ["sun"], params: [], summary: "s", help: "h" }],
     });
     assertEquals(manifest.commands.length, 1);
   });
 
   await t.step("испорченная форма — отказ с указанием места", async (inner) => {
-    const good = { path: ["ps"], params: [], summary: "s", help: "h" };
+    const good = { path: ["sun"], params: [], summary: "s", help: "h" };
     const cases: readonly (readonly [string, unknown, string])[] = [
       ["слепок не объект", ["массив"], "ожидался объект"],
       [
