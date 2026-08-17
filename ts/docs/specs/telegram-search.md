@@ -132,8 +132,9 @@ mpu telegram search [QUERY] [--chat X] [--from Y] [--limit N] [--table]
 имена и тексты вымышлены, состав и число полей сохранены.
 
 - `search-json-stdout.txt` — три сообщения: супергруппа с именем пользователя
-  (ссылка вида `t.me/<username>/<id>`), канал без имени (ссылка `t.me/c/…`),
-  личная переписка (`link: null`, `sender: null`, пустой `text`).
+  (ссылка вида `t.me/<username>/<id>`), канал без имени (ссылка `t.me/c/…`,
+  `sender: null` — пост от имени канала), личная переписка (`link: null`,
+  пустой `text`).
 - `search-empty-stdout.txt` — ничего не найдено, `[]`.
 - `search-empty-table-stdout.txt` — то же с `--table`.
 - `err-empty-query-stderr.txt` — вызов без `QUERY` и `--chat`, exit 2.
