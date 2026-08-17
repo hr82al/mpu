@@ -152,6 +152,37 @@ Deno.test("неинициализированная кэш-БД — пустой
   });
 });
 
+Deno.test("подстрока — это подстрока: спецсимволы образца не шаблон", async (t) => {
+  await withCache([
+    { name: "wb-loader", containerId: "a" },
+    { name: "wb_loader", containerId: "b" },
+    { name: "sl-1-cli", containerId: "c" },
+    { name: "sl%cli", containerId: "d" },
+    { name: "backslash\\name", containerId: "e" },
+  ], async (db) => {
+    // `_` и `%` в фильтре — символы имени, а не шаблон: иначе fan-out
+    // живых прод-команд заходил бы в чужой контейнер (спека, `fix`).
+    await t.step("подчёркивание не значит «любой символ»", () => {
+      assertEquals(containerNamesLike(db, "wb_loader"), ["wb_loader"]);
+    });
+
+    await t.step("процент не значит «что угодно»", () => {
+      assertEquals(containerNamesLike(db, "sl%cli"), ["sl%cli"]);
+    });
+
+    await t.step("обратная косая — тоже символ имени", () => {
+      assertEquals(containerNamesLike(db, "backslash\\"), ["backslash\\name"]);
+    });
+
+    await t.step("обычная подстрока по-прежнему ловит всё своё", () => {
+      assertEquals(containerNamesLike(db, "loader"), [
+        "wb-loader",
+        "wb_loader",
+      ]);
+    });
+  });
+});
+
 Deno.test("номера инстанс-серверов: без нуля и NULL, по возрастанию", async () => {
   await withCache([
     { name: "mp-sl-2-cli", serverNumber: 2 },

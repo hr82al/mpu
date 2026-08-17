@@ -80,10 +80,23 @@ export function containerNamesLike(
   const rows = read(
     cache,
     "SELECT DISTINCT container_name FROM portainer_containers" +
-      " WHERE container_name LIKE ? ORDER BY container_name",
-    `%${filter}%`,
+      ` WHERE container_name LIKE ? ESCAPE '${ESCAPE}'` +
+      " ORDER BY container_name",
+    `%${escapeLike(filter)}%`,
   );
   return rows.map((row) => text(row.container_name, "container_name"));
+}
+
+/** Символ экранирования образца `LIKE`; в именах контейнеров не встречается. */
+const ESCAPE = "\\";
+
+/**
+ * Экранирует спецсимволы образца: команда обещает подстроку, а
+ * неэкранированный `_` значит «любой символ» — на fan-out это чужой
+ * контейнер в обходе живых прод-команд (спека, отклонение `fix`).
+ */
+function escapeLike(filter: string): string {
+  return filter.replaceAll(/[\\%_]/g, (char) => `${ESCAPE}${char}`);
 }
 
 /**
