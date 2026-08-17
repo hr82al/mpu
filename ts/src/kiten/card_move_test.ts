@@ -12,6 +12,7 @@ import type { Column, KaitenAccess } from "../kaiten/mod.ts";
 import { startFakeKaiten } from "../kaiten/testing.ts";
 import { openCacheDb } from "../store/mod.ts";
 import {
+  appliedOf,
   applyMove,
   type MovePlan,
   movesInWindow,
@@ -204,7 +205,7 @@ Deno.test("applyMove: положение «после» — по свежему 
       const outcome = await applyMove(
         access(fake.baseUrl),
         CARD_ID,
-        planTo(false),
+        appliedOf(planTo(false)),
         COLUMNS,
       );
       assertEquals(outcome.to, "Проекты · Готово · Разработка");
@@ -237,7 +238,7 @@ Deno.test("applyMove: положение «после» — по свежему 
       const outcome = await applyMove(
         access(fake.baseUrl),
         CARD_ID,
-        planTo(true),
+        appliedOf(planTo(true)),
         COLUMNS,
       );
       assertEquals(outcome.to, "Проекты · Готово · Разработка");

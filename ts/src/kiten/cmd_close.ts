@@ -40,6 +40,7 @@ import {
   kaitenAccess,
 } from "./access.ts";
 import {
+  appliedOf,
   applyMove,
   moveDryRunLine,
   moveOkLine,
@@ -379,7 +380,12 @@ async function moveStep(
   io: CloseIo,
 ): Promise<KitenCloseResult["move"]> {
   if (plan.move === null) return null;
-  const outcome = await applyMove(access, cardId, plan.move, plan.columns)
+  const outcome = await applyMove(
+    access,
+    cardId,
+    appliedOf(plan.move),
+    plan.columns,
+  )
     .catch((err) => {
       throw asCommandError(err);
     });

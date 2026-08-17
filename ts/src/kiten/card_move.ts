@@ -14,6 +14,7 @@ import type { CacheDb } from "../command/mod.ts";
 import { UsageError } from "../command/mod.ts";
 import {
   type Card,
+  type CardLocation,
   type Column,
   getCard,
   type KaitenAccess,
@@ -105,6 +106,32 @@ export function planMove(
 }
 
 /**
+ * Что именно применяется: тело PATCH и надобность релога. Отдельно от
+ * плана, потому что планов два — перенос по колонке (`kiten close`) и
+ * перенос по трём осям (`mpu kiten move`), — а применение одно.
+ */
+export interface AppliedMove {
+  /** Только заданные оси: незаданная в тело PATCH не попадает. */
+  readonly patch: CardLocation;
+  /**
+   * Целевая колонка релога; `null` — релога нет. Из неё же ищется
+   * соседняя колонка для bump.
+   */
+  readonly relogTarget: number | null;
+  /** Положение «до» строкой для вывода. */
+  readonly from: string;
+}
+
+/** Применение по плану переноса в колонку (`kiten close`). */
+export function appliedOf(plan: MovePlan): AppliedMove {
+  return {
+    patch: { columnId: plan.columnId },
+    relogTarget: plan.relog ? plan.columnId : null,
+    from: plan.from,
+  };
+}
+
+/**
  * Применяет перенос и перечитывает карточку: положение «после» несёт
  * только свежий GET — ответ PATCH названий доски, колонки и дорожки не
  * даёт (`kiten-move.md`, «Инварианты»).
@@ -116,20 +143,20 @@ export function planMove(
 export async function applyMove(
   access: KaitenAccess,
   cardId: number,
-  plan: MovePlan,
+  made: AppliedMove,
   columns: readonly Column[],
 ): Promise<MoveOutcome> {
-  if (plan.relog) {
+  if (made.relogTarget !== null) {
     await moveCard(access, cardId, {
-      columnId: relogNeighbour(columns, plan.columnId).id,
+      columnId: relogNeighbour(columns, made.relogTarget).id,
     });
   }
-  await moveCard(access, cardId, { columnId: plan.columnId });
+  await moveCard(access, cardId, made.patch);
   const after = await getCard(access, cardId);
   return {
-    from: plan.from,
+    from: made.from,
     to: positionLabel(after),
-    relog: plan.relog,
+    relog: made.relogTarget !== null,
     card: after,
   };
 }
