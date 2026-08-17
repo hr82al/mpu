@@ -61,10 +61,10 @@ code in this repository.
 
 ### Образец стиля
 
-Новый код пишется как `src/sqlro/target.ts`: JSDoc на каждом экспорте,
-`readonly` на полях данных, ранние выходы, узкий интерфейс потребителя
-(`EnvKeys` — `Pick<EnvFile, …>` вместо всего типа), discriminated union вместо
-флагов, ошибка с `cause`. Теми же свойствами обладают `src/sqlro/render.ts` и
+Новый код пишется как `src/sql/target.ts`: JSDoc на каждом экспорте, `readonly`
+на полях данных, ранние выходы, узкий интерфейс потребителя (`EnvKeys` —
+`Pick<EnvFile, …>` вместо всего типа), discriminated union вместо флагов, ошибка
+с `cause`. Теми же свойствами обладают `src/sql/render.ts` и
 `src/logs/query.ts`. Образец устарел — заменить ссылку, а не оставлять её.
 
 ### Библиотеки и приёмы
