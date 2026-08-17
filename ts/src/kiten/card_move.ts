@@ -20,6 +20,7 @@ import {
   type KaitenAccess,
   moveCard,
 } from "../kaiten/mod.ts";
+import type { RefItem } from "./ref.ts";
 
 /** Место карточки: ровно то, из чего складывается строка положения. */
 export type CardPlace = Pick<
@@ -60,6 +61,45 @@ export function planMove(
     // Решение принимается сравнением значений, а не набором флагов
     // (`kiten-move.md`, «Известные отклонения»).
     relog: card.columnId === target.id,
+    from: positionLabel(card),
+  };
+}
+
+/**
+ * Цели трёх осей после резолва: незаданная ось — `null`, и в тело PATCH
+ * она не попадает (`kiten-move.md`, «Инварианты»).
+ */
+export interface AxisTargets {
+  readonly board: RefItem | null;
+  readonly lane: RefItem | null;
+  readonly column: Column | null;
+}
+
+/**
+ * План переноса по трём осям. Релог-bump назначается, когда запрошенное
+ * сводится к переводу в текущую колонку: задана колонка, равная
+ * текущей, и остальные заданные оси положения не меняют. Решение
+ * принимается сравнением значений, а не набором флагов (`kiten-move.md`,
+ * «Известные отклонения», вердикт fix).
+ *
+ * Дорожка сличается по названию: полная карточка отдаёт у дорожки только
+ * его (`platform/kaiten-api-cards.md`, «Карточка (полная)»).
+ */
+export function planAxisMove(
+  card: CardPlace & Pick<Card, "columnId" | "boardId">,
+  targets: AxisTargets,
+): AppliedMove {
+  const column = targets.column;
+  const stays = column !== null && column.id === card.columnId &&
+    (targets.board === null || targets.board.id === card.boardId) &&
+    (targets.lane === null || targets.lane.title === card.laneTitle);
+  return {
+    patch: {
+      ...(targets.board === null ? {} : { boardId: targets.board.id }),
+      ...(targets.lane === null ? {} : { laneId: targets.lane.id }),
+      ...(column === null ? {} : { columnId: column.id }),
+    },
+    relogTarget: stays && column !== null ? column.id : null,
     from: positionLabel(card),
   };
 }
@@ -109,8 +149,12 @@ export async function applyMove(
     await moveCard(access, cardId, {
       columnId: relogNeighbour(columns, made.relogTarget).id,
     });
+    // Вторым PATCH уходит только колонка: остальные заданные оси у
+    // релога и так равны текущим (`kiten-move.md`, «Ввод/вывод»).
+    await moveCard(access, cardId, { columnId: made.relogTarget });
+  } else {
+    await moveCard(access, cardId, made.patch);
   }
-  await moveCard(access, cardId, made.patch);
   const after = await getCard(access, cardId);
   return {
     from: made.from,
@@ -129,6 +173,9 @@ export function relogNeighbour(
   targetId: number,
 ): Column {
   const ordered = orderedColumns(columns);
+  if (ordered.length === 0) {
+    throw new UsageError("не удалось получить колонки доски для релога");
+  }
   if (ordered.length < 2) {
     throw new UsageError("на доске одна колонка — релог невозможен");
   }

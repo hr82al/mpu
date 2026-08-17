@@ -211,6 +211,9 @@ Deno.test("режим дополнения печатает варианты, а
       "time",
       "checklist",
       "close",
+      "move",
+      "ready",
+      "review",
     ]);
   });
 

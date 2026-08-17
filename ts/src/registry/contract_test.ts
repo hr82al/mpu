@@ -373,6 +373,44 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "kiten move",
+    // Ни одной оси: вызов обязан отбиться до сети, как требует
+    // инвариант 1 (сеанса Kaiten у обхода нет).
+    argv: ["10000001"],
+    sampleResult: {
+      cardUrl: "https://kaiten.example.test/10000001",
+      from: "Разработка · Бэклог · Веб",
+      to: "Разработка · Готово · Веб",
+      relog: false,
+      column: { id: 5620663, title: "Готово" },
+      dryRun: false,
+    },
+  },
+  {
+    path: "kiten ready",
+    argv: ["abc"],
+    sampleResult: {
+      cardUrl: "https://kaiten.example.test/10000001",
+      from: "Разработка · Готово · Веб",
+      to: "Разработка · Готово · Веб",
+      relog: true,
+      column: { id: 5620663, title: "Готово" },
+      dryRun: false,
+    },
+  },
+  {
+    path: "kiten review",
+    argv: ["abc"],
+    sampleResult: {
+      cardUrl: "https://kaiten.example.test/10000001",
+      from: "Разработка · Бэклог · Веб",
+      to: null,
+      relog: false,
+      column: { id: 5620664, title: "Код-ревью" },
+      dryRun: true,
+    },
+  },
+  {
     path: "kiten close",
     argv: ["10000001", "--done", "Починили", "--dry-run"],
     sampleResult: {

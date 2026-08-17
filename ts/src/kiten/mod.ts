@@ -22,6 +22,12 @@ export {
 export { kitenCloseCommand } from "./cmd_close.ts";
 
 export {
+  kitenMoveCommand,
+  kitenReadyCommand,
+  kitenReviewCommand,
+} from "./cmd_move.ts";
+
+export {
   kitenChecklistAddCommand,
   kitenChecklistCheckCommand,
   kitenChecklistLsCommand,

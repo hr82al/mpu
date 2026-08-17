@@ -43,6 +43,18 @@ const SETS: readonly FixtureSet[] = [
     ],
   },
   {
+    channel: "kiten-move",
+    copy: "kiten-move/",
+    names: [
+      "dry-run-move-stdout.txt",
+      "dry-run-relog-stdout.txt",
+      "err-no-axis-stderr.txt",
+      "err-selector-stderr.txt",
+      "ok-move-stdout.txt",
+      "ok-relog-stdout.txt",
+    ],
+  },
+  {
     channel: "kiten-field",
     copy: "kiten-field/",
     // `err-badkind-message.txt` канала не копируется: его текст целиком —

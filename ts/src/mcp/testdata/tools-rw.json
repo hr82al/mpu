@@ -2061,6 +2061,219 @@
     }
   },
   {
+    "name": "kiten_move",
+    "title": "mpu kiten move",
+    "description": "Перенести карточку Kaiten по осям доска / дорожка / колонка.\n\nSELECTOR — id карточки либо её URL.\n\nНужна хотя бы одна ось; незаданные оси не меняются. REF — id или\nподстрока названия: точное совпадение старше подстроки, несколько\nсовпадений — отказ со списком кандидатов. Дорожка и колонка резолвятся\nна целевой доске (явный --board, иначе доска карточки), поэтому\nодноимённые колонки чужих досок не конфликтуют.\n\n--column с текущей колонкой карточки (и без других изменений) делает\nрелог-bump: перевод в соседнюю колонку и обратно. Иначе Kaiten такой\nPATCH молча игнорирует и перемещение не фиксируется.\n\nКаждое успешное перемещение пишется в локальный журнал — по нему\nmpu telegram status строит дневную сводку.\n\nstdout: ok: {до} → {после}[ (релог)] · {url карточки}.\n\nКлючи env-файла: KITEN_API_KEY, KITEN_BASE_URL.\n\nExit: 0 — успех; 1 — ошибка API; 2 — ошибка ввода (ни одной оси,\nселектор, нерезолвящийся REF).\n\nПример: mpu kiten move 10000001 --column Очередь --board 'Доска поддержки'",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL"
+        },
+        "lane": {
+          "description": "дорожка: id или подстрока названия",
+          "type": "string"
+        },
+        "column": {
+          "description": "колонка: id или подстрока названия",
+          "type": "string"
+        },
+        "board": {
+          "description": "доска: id или подстрока названия",
+          "type": "string"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "cardUrl": {
+          "type": "string",
+          "description": "web-URL карточки"
+        },
+        "from": {
+          "type": "string",
+          "description": "положение «до»: доска · колонка · дорожка"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "положение «после» по свежему чтению; при --dry-run — null"
+        },
+        "relog": {
+          "type": "boolean",
+          "description": "перенос сводится к релог-bump"
+        },
+        "column": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "id целевой колонки"
+                },
+                "title": {
+                  "type": "string",
+                  "description": "название целевой колонки"
+                }
+              },
+              "required": [
+                "id",
+                "title"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "целевая колонка; у move без --column — null"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "description": "намерение напечатано, PATCH не отправлен"
+        }
+      },
+      "required": [
+        "cardUrl",
+        "from",
+        "to",
+        "relog",
+        "column",
+        "dryRun"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "kiten_ready",
+    "title": "mpu kiten ready",
+    "description": "Перевести карточку Kaiten в колонку «Готово».\n\nSELECTOR — id карточки либо её URL.\n\nПеревод в колонку «Готово» на текущей доске карточки: дорожка и\nдоска не меняются. Целевая колонка — --column, иначе ключ\nKITEN_READY_COLUMN, иначе «Готово»; REF это id или подстрока\nназвания.\n\nКарточка уже в целевой колонке — делается релог-bump: перевод в соседнюю\nколонку и обратно. Иначе Kaiten такой PATCH молча игнорирует и\nперемещение не фиксируется.\n\nПосле переноса карточка может оказаться на общей архивной доске готовых\nкарточек вместо исходной: в этой рабочей области Kaiten так и задумано —\nне ошибка и не повод переносить обратно.\n\n--note TEXT — заметка; она уходит в строку локального журнала\nперемещений, по которому mpu telegram status строит дневную сводку.\n--dry-run — печать намерения: только чтения, PATCH не отправляется и\nжурнал не пополняется.\n\nstdout: ok: {до} → {после}[ (релог)] · {url карточки}.\n\nКлючи env-файла: KITEN_API_KEY, KITEN_BASE_URL, KITEN_READY_COLUMN.\n\nExit: 0 — успех; 1 — ошибка API; 2 — ошибка ввода (селектор,\nнерезолвящийся REF).\n\nПример: mpu kiten ready 10000001 --note 'MR !999'",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "id карточки либо её URL"
+        },
+        "column": {
+          "description": "целевая колонка: id или подстрока названия",
+          "type": "string"
+        },
+        "note": {
+          "description": "заметка в журнал перемещений",
+          "type": "string"
+        },
+        "dry-run": {
+          "default": false,
+          "description": "печать намерения; выполняются только чтения",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "cardUrl": {
+          "type": "string",
+          "description": "web-URL карточки"
+        },
+        "from": {
+          "type": "string",
+          "description": "положение «до»: доска · колонка · дорожка"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "положение «после» по свежему чтению; при --dry-run — null"
+        },
+        "relog": {
+          "type": "boolean",
+          "description": "перенос сводится к релог-bump"
+        },
+        "column": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "id целевой колонки"
+                },
+                "title": {
+                  "type": "string",
+                  "description": "название целевой колонки"
+                }
+              },
+              "required": [
+                "id",
+                "title"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "целевая колонка; у move без --column — null"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "description": "намерение напечатано, PATCH не отправлен"
+        }
+      },
+      "required": [
+        "cardUrl",
+        "from",
+        "to",
+        "relog",
+        "column",
+        "dryRun"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "telegram_send",
     "title": "mpu telegram send",
     "description": "Отправить сообщение от имени личного аккаунта.\n\nMESSAGE — текст сообщения; '-' означает весь stdin. Пустая строка\nдопустима только вместе с -f.\n\n--chat X — адресат: me («Избранное»), id, @username, ссылка t.me,\nтелефон или название чата. Название ищется поиском, как mpu telegram ls:\nточное совпадение старше подстрочного, один подходящий чат — он и\nадресат, несколько — отказ со списком. Не задан — берётся\nTELEGRAM_DEFAULT_CHAT.\n\n--md — текст и подпись размечены Markdown: [текст](url) становится\nссылкой, **жирный** — жирным. Без флага разметка остаётся видимой.\n\n-f/--file PATH — вложение (флаг повторяется, порядок сохраняется). Файлы\nуходят документами без превью, под своими именами; несколько — одним\nальбомом. Непустой текст становится подписью к последнему вложению,\nотдельного сообщения рядом с файлами не отправляется.\n\nОтправка необратима и уходит от твоего имени; для проверок бери me.\n\nstdout — одна строка JSON: {\"id\": …, \"chat_id\": …, \"date\": …}.\n\nКлючи env-файла: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION\n(обязательны, пишет mpu init), TELEGRAM_DEFAULT_CHAT, TELEGRAM_PROXY.\n\nExit: 0 — успех; 1 — конфигурация или отказ Telegram; 2 — ошибка ввода.\n\nПример: mpu telegram send 'готово' --chat me -f /tmp/report.xlsx",
@@ -2440,81 +2653,6 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "name": "kiten_move",
-    "title": "mpu kiten move",
-    "description": "Переместить карточку: по дорожке (`--lane`), колонке (`--column`) и/или доске (`--board`).\n\nПереместить карточку: по дорожке (`--lane`), колонке (`--column`) и/или доске (`--board`).\n\nНужна хотя бы одна ось. Подстроки `--lane`/`--column` резолвятся в скоупе целевой доски\n(`--board`, иначе текущая доска карточки), чтобы одноимённые дорожки/колонки разных досок\nне путались.\n\nФакт про эту рабочую область Kaiten: карточка, переносимая в «Готово» на своей исходной\nдоске (напр. «10X Support»), может фактически оказаться на общей архивной доске\n«Не использовать для новых карточек! Тут только выполненные карточки!» — это ожидаемое\nповедение (общий отстойник для готовых карточек всех досок), не ошибка `move` и не повод\nпереносить карточку обратно или дополнительно проверять её местоположение.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "selector": {
-          "type": "string",
-          "description": "ID карточки или URL btlz.kaiten.ru (короткий/глубокий)"
-        },
-        "lane": {
-          "type": "string",
-          "description": "Дорожка назначения: ID или подстрока названия (см. `mpu kiten lanes`)"
-        },
-        "column": {
-          "type": "string",
-          "description": "Колонка назначения: ID или подстрока названия (см. `mpu kiten columns`)"
-        },
-        "board": {
-          "type": "string",
-          "description": "Доска назначения: ID/подстрока (перенос на другую доску; `mpu kiten boards`)"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "selector"
-      ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "kiten_ready",
-    "title": "mpu kiten ready",
-    "description": "Перевести карточку в колонку «Готово» (дорожка/доска сохраняются) + лог в журнал.\n\nПеревести карточку в колонку «Готово» (дорожка/доска сохраняются) + лог в журнал.\n\nЦель — точное имя колонки на текущей доске карточки (env `KITEN_READY_COLUMN`, по\nумолчанию «Готово»; переопределяется `--column`). Если карточка уже в этой колонке —\nделается релог-bump (перевод в соседнюю колонку и обратно), т.к. перевод в ту же колонку\nKaiten не логирует.\n\nПосле переноса карточка может оказаться на общей архивной доске\n«Не использовать для новых карточек! Тут только выполненные карточки!» вместо исходной —\nв этой рабочей области Kaiten так и задумано (общий отстойник готовых карточек), не ошибка\nи не повод переносить обратно.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "selector": {
-          "type": "string",
-          "description": "ID карточки или URL btlz.kaiten.ru (короткий/глубокий)"
-        },
-        "column": {
-          "type": "string",
-          "description": "Целевая колонка (ID/имя); по умолчанию env KITEN_READY_COLUMN или «Готово»"
-        },
-        "note": {
-          "type": "string",
-          "description": "Заметка, сохраняется в журнал перемещений"
-        },
-        "dry_run": {
-          "type": "boolean",
-          "description": "Показать намеченное, ничего не записывая",
-          "default": false
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "selector"
-      ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
     }
   },
   {

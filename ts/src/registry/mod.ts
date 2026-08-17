@@ -35,6 +35,9 @@ import {
   kitenCloseCommand,
   kitenCommentCommand,
   kitenFieldSetCommand,
+  kitenMoveCommand,
+  kitenReadyCommand,
+  kitenReviewCommand,
   kitenTimeAddCommand,
   kitenTimeDiscardCommand,
   kitenTimeEditCommand,
@@ -119,6 +122,9 @@ export const commands: readonly Command[] = [
   kitenChecklistCheckCommand,
   kitenChecklistUncheckCommand,
   kitenCloseCommand,
+  kitenMoveCommand,
+  kitenReadyCommand,
+  kitenReviewCommand,
   // Семейство `telegram` переехало целиком; подпроцессом прежней
   // реализации остаётся только вход (`mpu init`).
   telegramSendCommand,

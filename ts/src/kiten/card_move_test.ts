@@ -14,9 +14,11 @@ import { openCacheDb } from "../store/mod.ts";
 import {
   appliedOf,
   applyMove,
+  moveOkLine,
   type MovePlan,
   movesInWindow,
   orderedColumns,
+  planAxisMove,
   positionLabel,
   recordMove,
   relogNeighbour,
@@ -307,4 +309,151 @@ Deno.test("журнал читается и на несозданной схем
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
+});
+
+Deno.test("planAxisMove: в PATCH идут только заданные оси", async (t) => {
+  const card = {
+    boardId: BOARD_ID,
+    columnId: 5000002,
+    boardTitle: "Разработка",
+    columnTitle: "Бэклог",
+    laneTitle: "Веб",
+  };
+  const target = column(5000001, "Готово", 3);
+  const lane = { id: 6000001, title: "Веб" };
+  await t.step("одна колонка", () => {
+    const made = planAxisMove(card, {
+      board: null,
+      lane: null,
+      column: target,
+    });
+    assertEquals(made.patch, { columnId: 5000001 });
+    assertEquals(made.relogTarget, null);
+    assertEquals(made.from, "Разработка · Бэклог · Веб");
+  });
+  await t.step("три оси разом", () => {
+    const made = planAxisMove(card, {
+      board: { id: 4000002, title: "Поддержка" },
+      lane: { id: 6000009, title: "Мобилки" },
+      column: target,
+    });
+    assertEquals(made.patch, {
+      boardId: 4000002,
+      laneId: 6000009,
+      columnId: 5000001,
+    });
+  });
+  await t.step("колонка не задана — релога нет", () => {
+    const made = planAxisMove(card, { board: null, lane, column: null });
+    assertEquals(made.patch, { laneId: 6000001 });
+    assertEquals(made.relogTarget, null);
+  });
+});
+
+Deno.test("planAxisMove: релог решается сравнением значений", async (t) => {
+  const card = {
+    boardId: BOARD_ID,
+    columnId: 5000001,
+    boardTitle: "Разработка",
+    columnTitle: "Готово",
+    laneTitle: "Веб",
+  };
+  const current = column(5000001, "Готово", 3);
+  const board = { id: BOARD_ID, title: "Разработка" };
+  const lane = { id: 6000001, title: "Веб" };
+  await t.step("текущая колонка — релог", () => {
+    assertEquals(
+      planAxisMove(card, { board: null, lane: null, column: current })
+        .relogTarget,
+      5000001,
+    );
+  });
+  await t.step("текущая колонка и те же доска с дорожкой — тоже релог", () => {
+    assertEquals(
+      planAxisMove(card, { board, lane, column: current }).relogTarget,
+      5000001,
+    );
+  });
+  await t.step("другая доска при той же колонке — обычный PATCH", () => {
+    assertEquals(
+      planAxisMove(card, {
+        board: { id: 4000002, title: "Поддержка" },
+        lane: null,
+        column: current,
+      }).relogTarget,
+      null,
+    );
+  });
+  await t.step("другая дорожка при той же колонке — обычный PATCH", () => {
+    assertEquals(
+      planAxisMove(card, {
+        board: null,
+        lane: { id: 6000009, title: "Мобилки" },
+        column: current,
+      }).relogTarget,
+      null,
+    );
+  });
+  await t.step("другая колонка — обычный PATCH", () => {
+    assertEquals(
+      planAxisMove(card, {
+        board: null,
+        lane: null,
+        column: column(5000002, "Бэклог", 1),
+      }).relogTarget,
+      null,
+    );
+  });
+});
+
+Deno.test("строки успеха совпадают с голденами канала", async (t) => {
+  const url = "https://kaiten.example/70000001";
+  await t.step("перемещение", async () => {
+    assertEquals(
+      moveOkLine({
+        from: "Разработка · Бэклог · Веб",
+        to: "Разработка · Готово · Веб",
+        relog: false,
+      }, url),
+      await Deno.readTextFile(
+        new URL("./testdata/kiten-move/ok-move-stdout.txt", import.meta.url),
+      ),
+    );
+  });
+  await t.step("релог", async () => {
+    assertEquals(
+      moveOkLine({
+        from: "Разработка · Готово · Веб",
+        to: "Разработка · Готово · Веб",
+        relog: true,
+      }, url),
+      await Deno.readTextFile(
+        new URL("./testdata/kiten-move/ok-relog-stdout.txt", import.meta.url),
+      ),
+    );
+  });
+});
+
+Deno.test("релог невозможен: два отказа с разными текстами", async (t) => {
+  await t.step("список колонок пуст", () => {
+    assertThrows(
+      () => relogNeighbour([], 5000001),
+      UsageError,
+      "не удалось получить колонки доски для релога",
+    );
+  });
+  await t.step("на доске одна колонка", () => {
+    assertThrows(
+      () => relogNeighbour([column(5000001, "Готово", 1)], 5000001),
+      UsageError,
+      "на доске одна колонка — релог невозможен",
+    );
+  });
+  await t.step("целевой колонки нет в списке", () => {
+    assertThrows(
+      () => relogNeighbour(COLUMNS, 999),
+      UsageError,
+      "целевая колонка не найдена на доске карточки",
+    );
+  });
 });
