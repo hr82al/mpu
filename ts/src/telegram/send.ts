@@ -16,8 +16,8 @@ import type {
   TelegramClient,
 } from "./client.ts";
 import { configError, telegramOperation } from "./errors.ts";
-import { findChatByTitle } from "./lookup.ts";
-import type { Peer, ResolvablePeer } from "./peer.ts";
+import type { Peer } from "./peer.ts";
+import { resolveTarget } from "./resolve.ts";
 
 /** Результат отправки (`SentMessage` глоссария). */
 export interface SentMessage {
@@ -44,64 +44,13 @@ export async function sendMessage(
   client: TelegramClient,
   plan: SendPlan,
 ): Promise<SentMessage> {
-  const to = await resolveTarget(client, plan);
+  const to = await resolveTarget(client, plan.target, plan.peer, "чат");
   const sent = await deliver(client, to, plan);
   return {
     id: sent.id,
     chatId: chatIdOf(sent),
     date: sent.date === null ? null : isoUtc(sent.date),
   };
-}
-
-/**
- * Резолв адресата — отдельный шаг, и отказ у него свой: отказ операции,
- * случившийся после, не выдаётся за ненайденный чат
- * (`telegram-mtproto.md`, «Известные отклонения»).
- */
-async function resolveTarget(
-  client: TelegramClient,
-  plan: SendPlan,
-): Promise<PeerRef> {
-  const peer = plan.peer;
-  // Название чата Telegram не резолвит: ему сразу поиск, и только потом
-  // резолв найденного идентификатора.
-  if (peer.kind === "title") return await byTitle(client, peer.title);
-  try {
-    return await client.resolve(peer.kind === "guess" ? asName(peer) : peer);
-  } catch (err) {
-    // Голая строка, похожая на имя: имени такого нет, но чат с таким
-    // названием может быть — вторая попытка (`telegram-mtproto.md`,
-    // «Резолв адресата»). Вид, объявленный пользователем, второй попытки
-    // не получает: он сказал, что это имя.
-    if (peer.kind === "guess") return await byTitle(client, peer.name, err);
-    throw configError(
-      `не удалось найти чат '${plan.target}': ${reason(err)}; ` +
-        `попробуй: mpu telegram ls '${plan.target}' и укажи id или @username`,
-      { cause: err },
-    );
-  }
-}
-
-/** Адресат по названию: поиск, затем резолв найденного идентификатора. */
-async function byTitle(
-  client: TelegramClient,
-  title: string,
-  /** Отказ первой попытки: он не показывается, но и не теряется. */
-  cause?: unknown,
-): Promise<PeerRef> {
-  const found = await findChatByTitle(client, title, "чат", cause);
-  // Отказ на найденном идентификаторе — отказ Telegram, а не «чат не
-  // найден»: чат мы только что нашли, его id пришёл от сервера.
-  return await telegramOperation(() =>
-    client.resolve({ kind: "id", id: found.id })
-  );
-}
-
-/** Догадка об имени — имя для штатного резолва. */
-function asName(
-  peer: Extract<Peer, { readonly kind: "guess" }>,
-): ResolvablePeer {
-  return { kind: "name", name: peer.name };
 }
 
 /**
@@ -156,8 +105,4 @@ function chatIdOf(sent: ClientMessage): number {
 /** Время до секунд в UTC: `2026-08-16T08:04:09+00:00`. */
 function isoUtc(date: Date): string {
   return `${date.toISOString().slice(0, 19)}+00:00`;
-}
-
-function reason(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
