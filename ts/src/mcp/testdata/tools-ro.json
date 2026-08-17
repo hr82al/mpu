@@ -523,9 +523,9 @@
           "type": "string"
         },
         "tail": {
-          "default": "200",
+          "default": 200,
           "description": "сколько последних строк, > 0",
-          "type": "string"
+          "type": "number"
         },
         "since": {
           "description": "10m/1h/30s/2d или unix-ts; loki по умолчанию 5m",
@@ -575,8 +575,8 @@
           "type": "string"
         },
         "client": {
-          "description": "loki: подстрока client_id в строке (cross-service)",
-          "type": "string"
+          "description": "loki: client_id подстрокой десятичной записи — совпадёт и порт (cross-service)",
+          "type": "number"
         },
         "follow": {
           "default": false,

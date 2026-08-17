@@ -33,8 +33,14 @@ export interface InputForm {
 export interface InputSpec {
   /** Имя поля схемы; оно же длинное имя флага. */
   readonly name: string;
-  /** `boolean` — флаг без значения, `strings` — накапливается. */
-  readonly kind: "boolean" | "string" | "strings";
+  /**
+   * `boolean` — флаг без значения, `strings` — накапливается,
+   * `number` — вход объявлен числом; из argv он всё равно приходит
+   * текстом, и сам разбор его не трогает — приведение делает слой
+   * схемы (`mod.ts`, `numbersOf`), которому известен объявленный тип
+   * (`platform/command-contract.md`, «Ввод/вывод»).
+   */
+  readonly kind: "boolean" | "string" | "strings" | "number";
   readonly form: InputForm;
 }
 
@@ -149,8 +155,11 @@ function record(
       hint: helpHint,
     });
   }
-  if (spec.kind === "string") {
-    // «Последний побеждает»: повтор строкового флага не накапливается.
+  if (spec.kind === "string" || spec.kind === "number") {
+    // «Последний побеждает»: повтор одиночного флага не накапливается.
+    // Приведение числа делает не разбор argv, а слой схемы: здесь ещё
+    // неизвестно, чем окажется негодный текст — ошибкой типа или
+    // ошибкой смысла.
     out[spec.name] = value;
     return;
   }

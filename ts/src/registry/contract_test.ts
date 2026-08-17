@@ -742,7 +742,10 @@ function sampleValue(
 ): unknown {
   if (input.kind === "boolean") return true;
   // Значение обязано проходить ограничения схемы: у перечисления берём
-  // допустимое, остальным годится короткая строка без спецсимволов.
+  // допустимое, у числового входа — число (в argv оно пишется текстом,
+  // а в разобранных аргументах уже число), остальным годится короткая
+  // строка без спецсимволов.
+  if (input.kind === "number") return 1;
   const allowed = command.argsJsonSchema.properties[input.name]?.enum;
   const value = allowed === undefined ? "x" : String(allowed[0]);
   return input.kind === "strings" ? [value] : value;

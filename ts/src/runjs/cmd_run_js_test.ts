@@ -5,7 +5,12 @@
  * коды выхода и состав обращений к границе.
  */
 
-import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import {
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import {
   type CacheDb,
   formatCommandError,
@@ -46,7 +51,7 @@ function args(overrides: Partial<RunJsArgs> = {}): RunJsArgs {
     "dry-run": false,
     via: undefined,
     parallel: false,
-    jobs: "0",
+    jobs: 0,
     detach: false,
     ...overrides,
   };
@@ -425,7 +430,7 @@ Deno.test("--jobs ограничивает число одновременных
         all: true,
         selector: "console.log(1)",
         parallel: true,
-        jobs: "2",
+        jobs: 2,
       }),
       io,
       options(run),
@@ -627,12 +632,19 @@ Deno.test("--jobs принимает только целое ≥ 0", async () =>
     await assertRejects(
       () =>
         runRunJs(
-          args({ all: true, selector: "1", parallel: true, jobs: "-1" }),
+          args({ all: true, selector: "1", parallel: true, jobs: -1 }),
           io,
           options(fakeSsh().run),
         ),
       UsageError,
       "--jobs: ожидалось целое ≥ 0, задано '-1'",
+    );
+    // Нечисловое значение до команды не доходит: его отвергает схема
+    // (`platform/command-contract.md`, «Ввод/вывод»).
+    assertThrows(
+      () => runJsCommand.parseArgs(["sl-1", "код", "-j", "два"]),
+      UsageError,
+      "expected number",
     );
   });
 });

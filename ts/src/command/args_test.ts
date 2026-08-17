@@ -135,3 +135,32 @@ Deno.test("parseArgv: неопознанные токены — в хвосто�
     assertThrows(() => parse("имя", "-la"), UsageError, 'unknown option "-la"');
   });
 });
+
+Deno.test("числовой вход: из argv текст, в аргументах число", async (t) => {
+  const specs: readonly InputSpec[] = [
+    { name: "jobs", kind: "number", form: { short: "j" } },
+    { name: "name", kind: "string", form: { positional: "one" } },
+  ];
+  const parse = (...argv: string[]) => parseArgv(argv, specs, HINT);
+
+  await t.step("значение забирается как у строкового входа", () => {
+    // Разбор argv числа не строит: приведение — работа слоя схемы,
+    // которому известен объявленный тип
+    // (`platform/command-contract.md`, «Ввод/вывод»).
+    assertEquals(parse("--jobs", "2").jobs, "2");
+    assertEquals(parse("--jobs=2").jobs, "2");
+    assertEquals(parse("-j", "2").jobs, "2");
+  });
+
+  await t.step("повтор не накапливается: последний побеждает", () => {
+    assertEquals(parse("--jobs", "2", "--jobs", "5").jobs, "5");
+  });
+
+  await t.step("значение обязательно", () => {
+    assertThrows(
+      () => parse("--jobs"),
+      UsageError,
+      "option --jobs requires a value",
+    );
+  });
+});

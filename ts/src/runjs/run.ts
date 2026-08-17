@@ -76,7 +76,7 @@ export const argsSchema = z.object({
   parallel: z.boolean().default(false).describe(
     "все таргеты одновременно; вывод по каждому — по его завершении",
   ),
-  jobs: z.string().default("0").describe(
+  jobs: z.number().default(0).describe(
     "предел одновременных таргетов при --parallel; 0 — все",
   ),
   detach: z.boolean().default(false).describe(
@@ -474,12 +474,16 @@ function buffer(): {
   };
 }
 
-/** Значение `--jobs`: целое ≥ 0, где 0 — «сколько таргетов, столько и сразу». */
-function jobsOf(raw: string): number {
-  if (!/^\d+$/.test(raw)) {
+/**
+ * Значение `--jobs`: целое ≥ 0, где 0 — «сколько таргетов, столько и
+ * сразу». Тип проверила схема, смысл — здесь
+ * (`platform/command-contract.md`, «Ввод/вывод»).
+ */
+function jobsOf(raw: number): number {
+  if (!Number.isSafeInteger(raw) || raw < 0) {
     throw new UsageError(`--jobs: ожидалось целое ≥ 0, задано '${raw}'`);
   }
-  return Number(raw);
+  return raw;
 }
 
 /**

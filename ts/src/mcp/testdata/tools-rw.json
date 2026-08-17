@@ -809,9 +809,9 @@
           "type": "boolean"
         },
         "jobs": {
-          "default": "0",
+          "default": 0,
           "description": "предел одновременных таргетов при --parallel; 0 — все",
-          "type": "string"
+          "type": "number"
         },
         "detach": {
           "default": false,

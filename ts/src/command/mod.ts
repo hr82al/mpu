@@ -353,7 +353,11 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
   const specs = inputSpecs(argsJsonSchema, spec.forms ?? {});
   const helpHint = `mpu ${name} --help`;
   const parse = (argv: readonly string[]): A =>
-    parseArgs(spec.argsSchema, parseArgv(argv, specs, helpHint), helpHint);
+    parseArgs(
+      spec.argsSchema,
+      numbersOf(parseArgv(argv, specs, helpHint), specs),
+      helpHint,
+    );
   const parseInput = (input: unknown): A =>
     parseInputObject(spec.argsSchema, onlyKnownInputs(input, specs));
 
@@ -469,7 +473,30 @@ function requireText(text: string, what: string): void {
 function kindOf(type: string | undefined): InputSpec["kind"] {
   if (type === "boolean") return "boolean";
   if (type === "array") return "strings";
+  if (type === "number" || type === "integer") return "number";
   return "string";
+}
+
+/**
+ * Приводит значения числовых входов к числу: из argv всё приходит
+ * текстом, а схема публикует объявленный тип
+ * (`platform/command-contract.md`, «Ввод/вывод»). Текст, числом не
+ * являющийся, остаётся как есть — тогда несоответствие типа назовёт
+ * схема, а не команда.
+ */
+function numbersOf(
+  raw: Readonly<Record<string, unknown>>,
+  specs: readonly InputSpec[],
+): Readonly<Record<string, unknown>> {
+  const out: Record<string, unknown> = { ...raw };
+  for (const spec of specs) {
+    if (spec.kind !== "number") continue;
+    const value = out[spec.name];
+    if (typeof value !== "string" || value.trim() === "") continue;
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) out[spec.name] = parsed;
+  }
+  return out;
 }
 
 /** Разобранные аргументы как словарь; корень схемы — объект (инвариант 7). */

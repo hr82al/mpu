@@ -62,7 +62,7 @@ const argsSchema = z.object({
       " контейнера",
   ),
   via: z.string().default("loki").describe("источник: loki | portainer"),
-  tail: z.string().default("200").describe("сколько последних строк, > 0"),
+  tail: z.number().default(200).describe("сколько последних строк, > 0"),
   since: z.string().optional().describe(
     "10m/1h/30s/2d или unix-ts; loki по умолчанию 5m",
   ),
@@ -81,8 +81,9 @@ const argsSchema = z.object({
   level: z.string().optional().describe(
     "loki: detected_level — error/warn/info/debug",
   ),
-  client: z.string().optional().describe(
-    "loki: подстрока client_id в строке (cross-service)",
+  client: z.number().optional().describe(
+    "loki: client_id подстрокой десятичной записи — совпадёт и порт" +
+      " (cross-service)",
   ),
   follow: z.boolean().default(false).describe(
     "следить за новыми записями; только CLI, только loki",
@@ -479,18 +480,22 @@ function requireVia(value: string): "loki" | "portainer" {
 }
 
 /** Значение `--tail`: целое больше нуля, до сети и до сборки запроса. */
-function requireTail(raw: string): number {
+function requireTail(raw: number): number {
   const value = requireInteger(raw, "--tail");
   if (value > 0) return value;
   throw new UsageError(`--tail: ожидается целое > 0, получено '${raw}'`);
 }
 
-/** Целое значение флага; текст ошибки принадлежит слою разбора аргументов. */
-function requireInteger(raw: string, flag: string): number {
-  if (!/^-?\d+$/.test(raw) || !Number.isSafeInteger(Number(raw))) {
+/**
+ * Целое значение флага. Тип входа проверила схема (число), смысл —
+ * здесь: целочисленность и диапазон объявляет команда
+ * (`platform/command-contract.md`, «Ввод/вывод»).
+ */
+function requireInteger(raw: number, flag: string): number {
+  if (!Number.isSafeInteger(raw)) {
     throw new UsageError(`${flag}: ожидается целое, получено '${raw}'`);
   }
-  return Number(raw);
+  return raw;
 }
 
 /**

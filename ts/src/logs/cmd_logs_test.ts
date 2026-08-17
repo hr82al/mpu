@@ -10,7 +10,12 @@
  * проверяется на синтетических записях.
  */
 
-import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import {
+  assertEquals,
+  assertRejects,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
 import { openCacheDb } from "../store/mod.ts";
 import {
   type CacheDb,
@@ -140,7 +145,7 @@ function args(overrides: Partial<LogsArgs> = {}): LogsArgs {
     selector: undefined,
     service: undefined,
     via: "loki",
-    tail: "200",
+    tail: 200,
     since: undefined,
     timestamps: false,
     "no-stdout": false,
@@ -340,7 +345,7 @@ Deno.test("разбор аргументов: отказы до сети", async
 
   await t.step("--tail 0 и отрицательный отвергаются", async () => {
     await withStand({}, { LOKI_URL }, async (io) => {
-      for (const tail of ["0", "-5"]) {
+      for (const tail of [0, -5]) {
         const err = await assertRejects(
           () => runLogs(args({ tail }), io, options()),
           UsageError,
@@ -350,15 +355,27 @@ Deno.test("разбор аргументов: отказы до сети", async
     });
   });
 
-  await t.step("нечисловые --tail и --client — ошибка ввода", async () => {
+  await t.step("нечисловые --tail и --client отвергает схема", () => {
+    // Тип входа — дело схемы, смысл — команды
+    // (`platform/command-contract.md`, «Ввод/вывод»): текст «ожидается
+    // целое» остаётся за диапазоном, а нечисловое значение до команды
+    // не доходит вовсе.
+    for (const argv of [["--tail", "много"], ["--client", "abc"]]) {
+      assertThrows(
+        () => logsCommand.parseArgs(["sl-1", ...argv]),
+        UsageError,
+        "expected number",
+      );
+    }
+  });
+
+  await t.step("дробный --tail — уже смысл, и текст команды", async () => {
     await withStand({}, { LOKI_URL }, async (io) => {
-      for (const overrides of [{ tail: "много" }, { client: "abc" }]) {
-        const err = await assertRejects(
-          () => runLogs(args(overrides), io, options()),
-          UsageError,
-        );
-        assertStringIncludes(err.message, "ожидается целое");
-      }
+      const err = await assertRejects(
+        () => runLogs(args({ tail: 2.5 }), io, options()),
+        UsageError,
+      );
+      assertStringIncludes(err.message, "--tail: ожидается целое");
     });
   });
 
@@ -429,7 +446,7 @@ Deno.test("разовый запрос в Loki", async (t) => {
     await withStand({}, { LOKI_URL }, async (io) => {
       const loki = fakeLoki(() => []);
       await runLogs(
-        args({ selector: "sl-1", tail: "50" }),
+        args({ selector: "sl-1", tail: 50 }),
         io,
         options({ readLoki: loki.read }),
       );
@@ -629,7 +646,7 @@ Deno.test("слежение: курсор, пустой опрос и отказ
       const loki = fakeLoki(() => []);
       const printed = fakeStream();
       await runLogs(
-        args({ selector: "sl-1", follow: true, tail: "7" }),
+        args({ selector: "sl-1", follow: true, tail: 7 }),
         io,
         options({
           readLoki: loki.read,
@@ -827,7 +844,7 @@ Deno.test("legacy-снимок через Portainer", async (t) => {
           via: "portainer",
           selector: "sl-1",
           service: "wb-loader",
-          tail: "42",
+          tail: 42,
           since: "1h",
           "no-stderr": true,
         }),
