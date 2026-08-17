@@ -186,6 +186,22 @@ const SSH_IO: Partial<CommandIo> = {
   }),
 };
 
+/** Окружение, которого хватает `mpu sql-ro --dry`: адрес и креды. */
+const SQL_IO: Partial<CommandIo> = {
+  envFile: {
+    get: (name) => SQL_ENV[name],
+    values: () => ({ ...SQL_ENV }),
+    require: (name) => SQL_ENV[name] ?? "",
+    set: () => Promise.reject(new Error("запись env-файла не ожидается")),
+  },
+};
+
+const SQL_ENV: Readonly<Record<string, string>> = {
+  pg_1: "10.0.0.1",
+  PG_MY_USER_NAME: "u",
+  PG_MY_USER_PASSWORD: "p",
+};
+
 Deno.test("--json не перехватывается у команды с хвостовым входом", async (t) => {
   // `mpu ssh sl-1 mycli --json` — флаг чужой командной строки
   // (`platform/registry.md`). Различить перехват и его отсутствие можно
@@ -202,6 +218,34 @@ Deno.test("--json не перехватывается у команды с хв�
     const cli = makeCli(SSH_IO);
     assertEquals(await cli.run("ssh", "sl-1", "--", "--json"), 2);
     assertStringIncludes(cli.stderr(), "для sl-1 не задано ни sl_1");
+  });
+
+  await t.step("до имени команды — ошибка ввода, а не молчание", async () => {
+    // До имени команды чужой командной строки ещё нет, поэтому параметр
+    // снят обычным порядком; применить его не к чему
+    // (`platform/registry.md`).
+    const cli = makeCli(SSH_IO);
+    assertEquals(await cli.run("--json", "ssh", "sl-1", "ls"), 2);
+    assertEquals(
+      cli.stderr(),
+      "mpu: --json не применяется к команде 'ssh'\n",
+    );
+    assertEquals(cli.stdout(), "");
+  });
+
+  await t.step("у команды со своим --json до имени — он общий", async () => {
+    // Исключения второго рода у неё нет: структурная форма вывода есть,
+    // и снятый до имени параметр применяется генерически, а не
+    // отказывает (`platform/registry.md`).
+    const cli = makeCli(SQL_IO);
+    assertEquals(
+      await cli.run("--json", "sql-ro", "sl-1", "SELECT 1", "--dry"),
+      0,
+    );
+    assertStringIncludes(cli.stdout(), '"dry": true');
+    // Мета-блок `--dry` идёт в stderr своим порядком — форма вывода на
+    // него не влияет.
+    assertStringIncludes(cli.stderr(), "server: sl-1");
   });
 
   await t.step("у обычной команды флаг по-прежнему общий", async () => {

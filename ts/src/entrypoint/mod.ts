@@ -124,7 +124,15 @@ export async function runCli(
   }
 
   try {
-    return await dispatchPath(path, args, argv, json, io, output, journal);
+    return await dispatchPath(
+      path,
+      args,
+      argv,
+      { json, beforePath: jsonBeforePath(argv, path) },
+      io,
+      output,
+      journal,
+    );
   } catch (err) {
     return errorToExitCode(err, path, output);
   }
@@ -250,7 +258,7 @@ async function dispatchPath(
   path: readonly string[],
   args: readonly string[],
   argv: readonly string[],
-  json: boolean,
+  json: JsonFlag,
   io: CommandIo,
   output: Output,
   journal: InvokeJournal | undefined,
@@ -296,7 +304,7 @@ async function runLeafCommand(
   path: readonly string[],
   args: readonly string[],
   own: readonly string[],
-  json: boolean,
+  json: JsonFlag,
   io: CommandIo,
   output: Output,
   journal: InvokeJournal | undefined,
@@ -321,13 +329,52 @@ async function runLeafCommand(
   // стоит до исполнения — запись остаётся и у падения
   // (`platform/invoke-log.md`).
   journal?.nativeCall(command);
-  // Общий параметр формы вывода перехватывается не всегда: команда,
-  // объявившая собственный `--json` (`specs/sql-ro.md`), разбирает его
-  // сама, а команда с хвостовым входом уносит его удалённой стороне
-  // (`platform/registry.md`). И той и другой argv нужен как есть.
-  return keepsJson(command)
-    ? await runCommand(command, own, false, io, output)
-    : await runCommand(command, args, json, io, output);
+  if (!keepsJson(command)) {
+    return await runCommand(command, args, json.json, io, output);
+  }
+  // Оба исключения действуют только ПОСЛЕ имени команды: до него чужой
+  // командной строки ещё нет, и параметр снят обычным порядком
+  // (`platform/registry.md`). У команды без структурной формы вывода
+  // применить его не к чему: промолчать нельзя — пользователь ждёт
+  // JSON, напечатать тоже — stdout занят байтами удалённой команды.
+  // Команда со своим `--json` (`sql-ro`) в этом положении обычная:
+  // параметр снят до её имени и применяется генерически.
+  if (json.beforePath) {
+    if (!takesUnknown(command)) {
+      // Параметр снят обычным порядком и применяется генерически:
+      // собственная форма вывода команды начинается с её имени.
+      return await runCommand(command, args, json.json, io, output);
+    }
+    output.stderr(
+      `mpu: --json не применяется к команде '${path.join(" ")}'\n`,
+    );
+    return 2;
+  }
+  // Команда, объявившая собственный `--json` (`specs/sql-ro.md`),
+  // разбирает его сама; команда с хвостовым входом уносит его удалённой
+  // стороне. И той и другой argv нужен как есть.
+  return await runCommand(command, own, false, io, output);
+}
+
+/** Общий параметр формы вывода: снят ли он и где стоял. */
+interface JsonFlag {
+  readonly json: boolean;
+  /** До имени команды — там исключений нет ни у кого. */
+  readonly beforePath: boolean;
+}
+
+/**
+ * Стоял ли `--json` до имени команды. Сравниваются позиции в исходном
+ * argv: имя команды ищется по первому её сегменту, он же первый
+ * непустой токен пути.
+ */
+function jsonBeforePath(
+  argv: readonly string[],
+  path: readonly string[],
+): boolean {
+  const flagAt = argv.indexOf(JSON_FLAG);
+  const nameAt = argv.indexOf(path[0]);
+  return flagAt >= 0 && nameAt >= 0 && flagAt < nameAt;
 }
 
 /**
