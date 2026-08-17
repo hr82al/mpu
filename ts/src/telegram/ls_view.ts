@@ -4,6 +4,7 @@
  */
 
 import type { Dialog } from "./chat.ts";
+import { alignedRows } from "./table.ts";
 
 /** JSON-массив: отступ 2, юникод как есть, один перевод строки в конце. */
 export function renderDialogsJson(dialogs: readonly Dialog[]): string {
@@ -28,24 +29,9 @@ export function renderDialogsTable(dialogs: readonly Dialog[]): string {
       dialog.title,
     ]),
   ];
-  const widths = columnWidths(rows);
-  const table = rows
-    .map((row) =>
-      row.map((cell, index) => cell.padEnd(widths[index])).join("  ").trimEnd()
-    )
-    .join("\n");
+  const table = alignedRows(rows);
   // Итог по-английски при русском «(нет диалогов)» рядом: строка уже
   // разошлась по чужим скриптам как признак конца вывода (там же,
   // «Известные отклонения», вердикт preserve).
   return `${table}\n(${dialogs.length} dialogs)\n`;
-}
-
-function columnWidths(rows: readonly (readonly string[])[]): readonly number[] {
-  const widths = new Array<number>(rows[0].length).fill(0);
-  for (const row of rows) {
-    row.forEach((cell, index) => {
-      widths[index] = Math.max(widths[index], [...cell].length);
-    });
-  }
-  return widths;
 }
