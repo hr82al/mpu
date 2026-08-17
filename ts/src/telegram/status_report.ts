@@ -126,8 +126,10 @@ export function cutToLimit(text: string, limit: number): string {
     used += cost;
   }
   // Не влезло ни одной строки — остаётся один маркер, уже без переноса:
-  // переносить нечего.
-  if (kept.length === 0) return CUT_MARK.slice(1);
+  // переносить нечего. Не влезает и он — предел не оставляет места ни
+  // под что: пустой текст лучше, чем выход за предел.
+  const mark = CUT_MARK.slice(1);
+  if (kept.length === 0) return length(mark) <= limit ? mark : "";
   return `${kept.join("\n")}${CUT_MARK}`;
 }
 
