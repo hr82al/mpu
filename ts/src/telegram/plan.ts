@@ -6,7 +6,12 @@
  * одного сетевого обращения, поэтому модуль ничего не знает о сеансе.
  */
 
-import { type CommandIo, NotFoundIoError, UsageError } from "../command/mod.ts";
+import {
+  type CommandIo,
+  NotFoundIoError,
+  readTextStdin,
+  UsageError,
+} from "../command/mod.ts";
 import { inputError } from "./errors.ts";
 import { EMPTY_TARGET, parsePeer } from "./peer.ts";
 import type { Attachment } from "./client.ts";
@@ -21,7 +26,7 @@ export interface SendArgs {
 }
 
 /** Что плану нужно от порта: вложения обычными файлами и stdin. */
-export type PlanIo = Pick<CommandIo, "readRegularFile" | "readTextStdin">;
+export type PlanIo = Pick<CommandIo, "readRegularFile" | "readStdin">;
 
 /**
  * Строит план вызова. Порядок отказов — от самого раннего: вложения
@@ -36,7 +41,7 @@ export async function sendPlan(
   const attachments = await readAttachments(io, args.file);
   const target = args.chat ?? defaultChat ?? "";
   if (target === "") throw inputError(EMPTY_TARGET);
-  const raw = args.message === "-" ? await io.readTextStdin() : args.message;
+  const raw = args.message === "-" ? await readTextStdin(io) : args.message;
   // Пустой текст без вложений — ошибка, а не отправка пустого сообщения;
   // с вложением он означает документ без подписи. Пустой — и текст из
   // одних пробелов: подписью он быть не может, а раз так, то и уходить

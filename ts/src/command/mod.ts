@@ -108,7 +108,13 @@ export interface CommandIo {
   readonly readRegularFile: (path: string) => Promise<Uint8Array>;
   /** Текст файла; отсутствие файла — `NotFoundIoError`. */
   readonly readTextFile: (path: string) => Promise<string>;
-  readonly readTextStdin: () => Promise<string>;
+  /**
+   * Весь stdin процесса байтами. Байты, а не текст: команда,
+   * доставляющая stdin наружу (`specs/ssh.md`), обязана донести
+   * двоичный вход без порчи, а декодирование в UTF-8 портит его молча и
+   * необратимо. Текст поверх байтов даёт `readTextStdin`.
+   */
+  readonly readStdin: () => Promise<Uint8Array>;
   /**
    * Терминал ли stdin процесса. Команда, читающая stdin, различает по
    * нему пайп и человека за клавиатурой: приглашение ко вводу уместно
@@ -477,4 +483,16 @@ function asRecord(
   const out: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value)) out[key] = item;
   return out;
+}
+
+/**
+ * Текстовое чтение stdin поверх байтового порта: форма для команд,
+ * которым нужен текст (`specs/xlsx.md`, `specs/kiten-comment.md`).
+ * Отдельным портом не объявлено — два источника одного потока разошлись
+ * бы (`platform/command-contract.md`, «Ввод/вывод»).
+ */
+export async function readTextStdin(
+  io: Pick<CommandIo, "readStdin">,
+): Promise<string> {
+  return new TextDecoder().decode(await io.readStdin());
 }

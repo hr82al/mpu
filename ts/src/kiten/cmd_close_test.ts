@@ -653,7 +653,10 @@ Deno.test("close: ответ клиенту — комментарий без в
 
   await t.step("текст из stdin", async () => {
     const st = cardStand(rawCard(), commentRoute);
-    const io = { ...st.io, readTextStdin: () => Promise.resolve("из пайпа") };
+    const io = {
+      ...st.io,
+      readStdin: () => Promise.resolve(new TextEncoder().encode("из пайпа")),
+    };
     try {
       await output([SELECTOR, "--reply-file", "-", "--no-move"], io);
       assertEquals(bodies(st.seen), [{ text: "из пайпа" }]);

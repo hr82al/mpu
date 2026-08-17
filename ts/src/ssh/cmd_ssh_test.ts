@@ -93,9 +93,14 @@ function harness(db?: CacheDb) {
 function fakeSsh(
   answer: { readonly stdout?: string; readonly code?: number } = {},
 ) {
-  const seen: { args?: readonly string[]; stdin?: string } = {};
+  const seen: {
+    args?: readonly string[];
+    stdin?: string;
+    bytes?: Uint8Array;
+  } = {};
   const run: RunProcess = (_bin, argv, stdin, output) => {
     seen.args = argv;
+    seen.bytes = stdin;
     seen.stdin = new TextDecoder().decode(stdin);
     if (answer.stdout !== undefined) {
       output.out(new TextEncoder().encode(answer.stdout));
@@ -412,7 +417,8 @@ Deno.test("источники stdin доезжают до удалённой к�
     const { io, progress } = harness();
     const withStdin: SshIo = {
       ...io,
-      readTextStdin: () => Promise.resolve("с клавиатуры"),
+      readStdin: () =>
+        Promise.resolve(new TextEncoder().encode("с клавиатуры")),
     };
     await runSsh(
       args({ selector: "sl-1", command: ["cat"], "stdin-tty": true }),
@@ -442,7 +448,7 @@ Deno.test("источники stdin доезжают до удалённой к�
     const piped: SshIo = {
       ...io,
       stdinIsTerminal: () => false,
-      readTextStdin: () => Promise.resolve("из пайпа"),
+      readStdin: () => Promise.resolve(new TextEncoder().encode("из пайпа")),
     };
     await runSsh(
       args({ selector: "sl-1", command: ["cat"] }),
@@ -573,4 +579,61 @@ Deno.test("клиентский селектор резолвится общим
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
+});
+
+Deno.test("ambiguous внутри fan-out прерывает обход", async () => {
+  await withCache(
+    [
+      { name: "wb-loader-1" },
+      { name: "wb-loader-2" },
+      { name: "wb-loader-2", endpointId: 4 },
+    ],
+    async (db) => {
+      const { io, progress } = harness(db);
+      const portainer = fakePortainer();
+      const err = await assertRejects(
+        () =>
+          runSsh(
+            args({ selector: "node", command: ["-v"], "all-containers": "wb" }),
+            io,
+            portainer.options,
+          ),
+        UsageError,
+      );
+      assertEquals(
+        `${formatCommandError("ssh", err)}\n`,
+        "mpu ssh: container 'wb-loader-2' ambiguous — 2 Portainer endpoints:\n" +
+          "  endpoint=farm-a  id=1  url=https://portainer.example\n" +
+          "  endpoint=farm-a  id=4  url=https://portainer.example\n",
+      );
+      // Первый контейнер уже отработал, строка второго напечатана до
+      // отказа — обход прерывается именно на нём (спека).
+      assertEquals(progress, [
+        "# mpu ssh: containers = [wb-loader-1, wb-loader-2]",
+        "# container=wb-loader-1",
+        "# container=wb-loader-2",
+      ]);
+      assertEquals(portainer.commands, ["node -v"]);
+    },
+  );
+});
+
+Deno.test("двоичный stdin доезжает байт в байт", async () => {
+  // Последовательность недопустима в UTF-8: перекодировка заменила бы
+  // её символом-заменителем молча и необратимо
+  // (`platform/command-contract.md`, «Ввод/вывод»).
+  const raw = Uint8Array.of(0x1f, 0x8b, 0x08, 0x00, 0xff, 0xfe, 0x00, 0x80);
+  const ssh = fakeSsh();
+  const { io } = harness();
+  const piped: SshIo = {
+    ...io,
+    stdinIsTerminal: () => false,
+    readStdin: () => Promise.resolve(raw),
+  };
+  await runSsh(
+    args({ selector: "sl-1", command: ["gunzip"] }),
+    piped,
+    options(ssh.run),
+  );
+  assertEquals(ssh.seen.bytes, raw);
 });

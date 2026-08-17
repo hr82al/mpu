@@ -11,9 +11,9 @@ const FILES: Readonly<Record<string, string>> = {
 
 function io(stdin?: string): PlanIo {
   return makeFakeIo({
-    readTextStdin: stdin === undefined
+    readStdin: stdin === undefined
       ? undefined
-      : () => Promise.resolve(stdin),
+      : () => Promise.resolve(new TextEncoder().encode(stdin)),
     readRegularFile: (path: string) => {
       const text = FILES[path];
       if (text === undefined) {

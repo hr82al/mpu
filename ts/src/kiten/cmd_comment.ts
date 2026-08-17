@@ -13,6 +13,7 @@ import {
   type CommandIo,
   defineCommand,
   NotFoundIoError,
+  readTextStdin,
   UsageError,
 } from "../command/mod.ts";
 import {
@@ -78,7 +79,7 @@ type CommentIo =
   & AccessIo
   & Pick<
     CommandIo,
-    "progress" | "readRegularFile" | "readTextFile" | "readTextStdin"
+    "progress" | "readRegularFile" | "readTextFile" | "readStdin"
   >;
 
 /**
@@ -171,9 +172,7 @@ async function readBody(io: CommentIo, source: TextSource): Promise<string> {
 
 async function readBodyFile(io: CommentIo, path: string): Promise<string> {
   try {
-    return path === "-"
-      ? await io.readTextStdin()
-      : await io.readTextFile(path);
+    return path === "-" ? await readTextStdin(io) : await io.readTextFile(path);
   } catch (err) {
     throw new UsageError(`не удалось прочитать ${path}: ${reason(err)}`, {
       cause: err,

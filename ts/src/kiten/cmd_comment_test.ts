@@ -146,7 +146,9 @@ Deno.test("текст: один источник — один запрос", asy
   await t.step("-F -: текст из stdin", async () => {
     const { io, baseUrl, seen, stop } = stand({
       [POST_COMMENT]: () => comment(88017904),
-    }, { readTextStdin: () => Promise.resolve("из потока\n") });
+    }, {
+      readStdin: () => Promise.resolve(new TextEncoder().encode("из потока\n")),
+    });
     try {
       assertEquals(
         await output([SELECTOR, "-F", "-"], io),

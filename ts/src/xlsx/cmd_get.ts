@@ -6,6 +6,7 @@ import {
   defineCommand,
   DomainError,
   NotFoundIoError,
+  readTextStdin,
   UsageError,
 } from "../command/mod.ts";
 import { loadWorkbook } from "./book.ts";
@@ -149,7 +150,7 @@ function unreachable(mode: never): never {
 type RenderChoice = z.infer<typeof argsSchema>["render"];
 
 /** Срез порта: чтение файлов со списком диапазонов, `-` — stdin. */
-type FromFileIo = Pick<CommandIo, "readTextFile" | "readTextStdin">;
+type FromFileIo = Pick<CommandIo, "readTextFile" | "readStdin">;
 
 /** Диапазоны из файлов `--from`: построчно, `#` — комментарий. */
 async function fromFileTokens(
@@ -161,7 +162,7 @@ async function fromFileTokens(
     let text: string;
     try {
       text = file === "-"
-        ? await io.readTextStdin()
+        ? await readTextStdin(io)
         : await io.readTextFile(file);
     } catch (err) {
       if (err instanceof NotFoundIoError) {

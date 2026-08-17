@@ -364,7 +364,8 @@ Deno.test("get: --sheet, --from, stdin, дедупликация", async (t) => 
     });
     await t.step("--from - читает stdin", async () => {
       const cli = makeDirCli(dir, {
-        readTextStdin: () => Promise.resolve("Данные!C2\n"),
+        readStdin: () =>
+          Promise.resolve(new TextEncoder().encode("Данные!C2\n")),
       });
       const code = await cli.run(
         "get",

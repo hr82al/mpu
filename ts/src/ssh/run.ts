@@ -26,7 +26,7 @@ import {
   viaOf,
 } from "../exec/mod.ts";
 import type { CacheReader } from "../selector/mod.ts";
-import { placeOf } from "./place.ts";
+import { ambiguous, placeOf } from "./place.ts";
 
 /** Ключ ssh — без настройки (`platform/exec-transport.md`). */
 const KEY_FILE = ".ssh/id_rsa";
@@ -40,7 +40,7 @@ export type SshIo = Pick<
   | "openRemoteOutput"
   | "progress"
   | "readFile"
-  | "readTextStdin"
+  | "readStdin"
   | "stdinIsTerminal"
 >;
 
@@ -186,11 +186,13 @@ async function fanOut(
   io.progress(`# mpu ssh: containers = [${names.join(", ")}]`);
   for (const name of names) {
     io.progress(`# container=${name}`);
-    // Имя пришло из той же выборки, поэтому строка кэша есть; выбор
-    // первой из нескольких — та же неоднозначность, что и у точного
-    // имени, но прерывать ею весь fan-out незачем.
-    const location = containerLocations(cache, name)[0];
-    const code = await run({ kind: "container", location });
+    // Имя пришло из той же выборки, поэтому строка кэша есть; несколько
+    // — та же неоднозначность, что и у точного имени, и обход на ней
+    // прерывается: «не тот сервер» у мутирующей команды дороже
+    // (спека, «Граничные случаи»).
+    const locations = containerLocations(cache, name);
+    if (locations.length > 1) throw ambiguous(name, locations);
+    const code = await run({ kind: "container", location: locations[0] });
     if (code !== 0) return code;
   }
   return 0;
@@ -231,13 +233,11 @@ async function stdinOf(args: SshArgs, io: SshIo): Promise<Uint8Array> {
   if (file !== undefined) return await readFile(file, io);
   if (tty) {
     io.progress("mpu ssh: введите stdin для команды, завершите Ctrl+D");
-    return encoder.encode(await io.readTextStdin());
+    return await io.readStdin();
   }
   // Без явного источника: пайп читается целиком, терминал не читается
   // вовсе — иначе вызов молча ждал бы ввода.
-  return io.stdinIsTerminal()
-    ? new Uint8Array()
-    : encoder.encode(await io.readTextStdin());
+  return io.stdinIsTerminal() ? new Uint8Array() : await io.readStdin();
 }
 
 async function readFile(path: string, io: SshIo): Promise<Uint8Array> {

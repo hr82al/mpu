@@ -13,6 +13,7 @@ import {
   type CacheDb,
   type CommandIo,
   DomainError,
+  readTextStdin,
   UsageError,
   VerbatimError,
 } from "../command/mod.ts";
@@ -42,7 +43,7 @@ import {
  */
 export type SqlIo = Pick<
   CommandIo,
-  "envFile" | "openCacheDb" | "progress" | "readTextStdin" | "stdinIsTerminal"
+  "envFile" | "openCacheDb" | "progress" | "readStdin" | "stdinIsTerminal"
 >;
 
 /**
@@ -250,7 +251,7 @@ function schemaOf(clientId: number | null): string | null {
 async function readSql(args: SqlArgs, io: SqlIo): Promise<string> {
   if (args.sql !== undefined && args.sql.trim() !== "") return args.sql;
   if (io.stdinIsTerminal()) io.progress(PROMPT);
-  return await io.readTextStdin();
+  return await readTextStdin(io);
 }
 
 /**

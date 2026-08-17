@@ -274,7 +274,7 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
   await t.step("аргумент из одних пробелов — как незаданный", async () => {
     const sessions = fakeSessions(answers());
     const { io, progress } = harness({
-      readTextStdin: () => Promise.resolve("SELECT 2\n"),
+      readStdin: () => Promise.resolve(new TextEncoder().encode("SELECT 2\n")),
     });
     const result = await runSql(
       args({ selector: "sl-1", sql: "   " }),
@@ -290,7 +290,7 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
     const sessions = fakeSessions(answers());
     const { io, progress } = harness({
       stdinIsTerminal: () => true,
-      readTextStdin: () => Promise.resolve("SELECT 3"),
+      readStdin: () => Promise.resolve(new TextEncoder().encode("SELECT 3")),
     });
     await runSql(args({ selector: "sl-1" }), io, {
       mode: "read-only",
@@ -301,7 +301,9 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
 
   await t.step("пустой итог — ошибка ввода без подключения", async () => {
     const sessions = fakeSessions(answers());
-    const { io } = harness({ readTextStdin: () => Promise.resolve("  \n") });
+    const { io } = harness({
+      readStdin: () => Promise.resolve(new TextEncoder().encode("  \n")),
+    });
     const err = await assertRejects(
       () =>
         runSql(args({ selector: "sl-1" }), io, {
@@ -408,7 +410,7 @@ Deno.test("мета-блок печатается ⇔ --verbose или --dry", a
   await t.step("SQL из stdin не удваивает перевод строки", async () => {
     const sessions = fakeSessions(answers());
     const { io, stderr } = harness({
-      readTextStdin: () => Promise.resolve("SELECT 1\n"),
+      readStdin: () => Promise.resolve(new TextEncoder().encode("SELECT 1\n")),
     });
     await runSql(args({ selector: "sl-1", dry: true }), io, {
       mode: "read-only",

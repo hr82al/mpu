@@ -833,7 +833,7 @@ function makeIo(dir: string): CommandIo {
     readFile: (path) => Deno.readFile(inDir(path)),
     readRegularFile: (path) => Deno.readFile(inDir(path)),
     readTextFile: (path) => Deno.readTextFile(inDir(path)),
-    readTextStdin: () => Promise.resolve(""),
+    readStdin: () => Promise.resolve(new TextEncoder().encode("")),
     stdinIsTerminal: () => false,
     stdoutIsTerminal: () => false,
     currentShell: () => undefined,

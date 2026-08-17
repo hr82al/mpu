@@ -139,7 +139,7 @@ function capturingRemoteOutput(): RemoteOutput {
 function withoutStdin(io: CommandIo): CommandIo {
   return {
     ...io,
-    readTextStdin: () =>
+    readStdin: () =>
       Promise.reject(
         new UsageError("stdin у вызова тула нет — передай значение аргументом"),
       ),

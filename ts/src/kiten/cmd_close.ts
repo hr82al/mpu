@@ -16,6 +16,7 @@ import {
   type CommandIo,
   defineCommand,
   DomainError,
+  readTextStdin,
   UsageError,
 } from "../command/mod.ts";
 import {
@@ -165,7 +166,7 @@ type CloseIo =
   & AccessIo
   & Pick<
     CommandIo,
-    "openCacheDb" | "progress" | "readTextFile" | "readTextStdin"
+    "openCacheDb" | "progress" | "readTextFile" | "readStdin"
   >;
 
 /** Идущий таймер глазами вывода: метка старта и натёкшее время. */
@@ -448,9 +449,7 @@ async function readReply(
 
 async function readReplyFile(io: CloseIo, path: string): Promise<string> {
   try {
-    return path === "-"
-      ? await io.readTextStdin()
-      : await io.readTextFile(path);
+    return path === "-" ? await readTextStdin(io) : await io.readTextFile(path);
   } catch (err) {
     throw new UsageError(`не удалось прочитать ${path}: ${reason(err)}`, {
       cause: err,

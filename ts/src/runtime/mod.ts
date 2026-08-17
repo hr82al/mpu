@@ -267,7 +267,8 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
         translateNotFound(err);
       }
     },
-    readTextStdin: () => new Response(Deno.stdin.readable).text(),
+    readStdin: async () =>
+      new Uint8Array(await new Response(Deno.stdin.readable).arrayBuffer()),
     stdinIsTerminal: () => Deno.stdin.isTerminal(),
     stdoutIsTerminal: () => Deno.stdout.isTerminal(),
     readConfigStore: async () => {

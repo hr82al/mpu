@@ -63,9 +63,11 @@ function devPlace(selector: string): ExecPlace {
 /**
  * Одно имя на разных endpoint'ах — честная неоднозначность (спека
  * транспорта). В клиентский поиск после неё не проваливаемся: иначе
- * опечатка в имени контейнера маскировалась бы чужим ответом.
+ * опечатка в имени контейнера маскировалась бы чужим ответом. Тот же
+ * отказ действует внутри fan-out'а (`specs/ssh.md`): молча брать
+ * первого кандидата у мутирующей команды нельзя.
  */
-function ambiguous(
+export function ambiguous(
   name: string,
   candidates: readonly {
     readonly endpointName: string;
