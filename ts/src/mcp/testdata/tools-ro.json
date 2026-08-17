@@ -1523,6 +1523,127 @@
     }
   },
   {
+    "name": "telegram_search",
+    "title": "mpu telegram search",
+    "description": "Найти сообщения по содержимому: везде или в одном чате.\n\nQUERY — что искать в тексте сообщений. Пустой запрос допустим\nтолько с --chat: это история чата. Пробелы — значимый запрос.\n\n--chat X — искать в одном чате: id, @username, ссылка t.me, название\nили me (Избранное). Без него — по всем диалогам.\n--from Y — только сообщения этого отправителя, тем же видом адресата.\nБез --chat фильтр идёт на стороне команды (своего у глобального поиска\nнет): просмотр обрывается на 1000 сообщениях, и тогда в stderr\nуходит предупреждение.\n--limit N — сколько сообщений в выдаче, 1..500, по\nумолчанию 50. Ограничивает выдачу, а не число просмотренных.\n--table — таблица колонками DATE, CHAT, SENDER, TEXT вместо JSON.\n\nВывод по умолчанию — массив JSON: id, chat_id, chat_title, sender, date,\ntext, link; порядок — от новых к старым. chat_id маркированный: его\nможно без правки передать в --chat. Пустая выдача — [] и код 0.\nTELEGRAM_DEFAULT_CHAT не читается.\n\nКлючи env-файла: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION\n(обязательны), TELEGRAM_PROXY.\n\nExit: 1 — конфигурация, отказ Telegram, ненайденный адресат; 2 — ошибка\nввода (--limit вне диапазона, пустой глобальный поиск, --from без --chat\nи без запроса).\n\nПример: mpu telegram search 'выгрузка' --chat me --limit 20 --table",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "default": "",
+          "description": "что искать в тексте сообщений; пустой запрос допустим только с --chat",
+          "type": "string"
+        },
+        "chat": {
+          "default": "",
+          "description": "искать только в этом чате: id, @username, ссылка t.me, название, me",
+          "type": "string"
+        },
+        "from": {
+          "default": "",
+          "description": "оставить только сообщения этого отправителя",
+          "type": "string"
+        },
+        "limit": {
+          "default": "50",
+          "description": "сколько сообщений в выдаче, 1..500",
+          "type": "string"
+        },
+        "table": {
+          "default": false,
+          "description": "таблица вместо JSON",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number",
+                "description": "id сообщения внутри его чата"
+              },
+              "chat_id": {
+                "type": "number",
+                "description": "маркированный id чата сообщения; пригоден как --chat без правки"
+              },
+              "chat_title": {
+                "type": "string",
+                "description": "название чата: отображаемое имя у пользователя и бота, название у группы и канала; не пришло — пустая строка"
+              },
+              "sender": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "отображаемое имя отправителя; Telegram его не отдал — null"
+              },
+              "date": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "время отправки в UTC, ISO-8601 без долей секунды; времени нет — null"
+              },
+              "text": {
+                "type": "string",
+                "description": "текст сообщения либо подпись вложения; ни того ни другого — пустая строка"
+              },
+              "link": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "ссылка на сообщение у супергруппы и канала; у прочих чатов — null"
+              }
+            },
+            "required": [
+              "id",
+              "chat_id",
+              "chat_title",
+              "sender",
+              "date",
+              "text",
+              "link"
+            ],
+            "additionalProperties": false
+          },
+          "description": "найденные сообщения в порядке выдачи сервера: от новых к старым"
+        },
+        "table": {
+          "type": "boolean",
+          "description": "печатать ли таблицу вместо JSON"
+        }
+      },
+      "required": [
+        "messages",
+        "table"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "sheet_get",
     "title": "mpu sheet get",
     "description": "Read cell values from one or more A1-notation ranges.\n\nRead cell values from one or more A1-notation ranges.",
