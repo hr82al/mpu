@@ -429,3 +429,64 @@ Deno.test("голый вызов поднимает ro и rw на порту п�
     }
   });
 });
+
+Deno.test("у вызова тула нет stdin — понятная ошибка ввода, не зависание", async () => {
+  // Долгоживущий процесс делит один stdin на все вызовы: команда,
+  // читающая его (`mpu sql-ro` без аргумента SQL), забрала бы поток
+  // сервера и повисла бы на нём.
+  const env: Readonly<Record<string, string>> = {
+    pg_1: "10.0.0.1",
+    PG_MY_USER_NAME: "u",
+    PG_MY_USER_PASSWORD: "p",
+  };
+  await withStore(async (base) => {
+    const io: CommandIo = {
+      ...base,
+      envFile: {
+        get: (name) => env[name],
+        values: () => ({ ...env }),
+        require: (name) => env[name] ?? "",
+        set: () => Promise.reject(new Error("запись не ожидается")),
+      },
+    };
+    const stop = new AbortController();
+    const listening = Promise.withResolvers<RunningServer>();
+    const running = runMcpServer(["--port", "0"], {
+      io,
+      output: makeOutput().sink,
+      commands,
+      log: NO_INVOKE_LOG,
+      signal: stop.signal,
+      onListen: listening.resolve,
+    });
+    try {
+      const server = await listening.promise;
+      const response = await fetch(`http://${LOOPBACK}:${server.port}/ro`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${await ensureAccessToken(io)}`,
+          "MCP-Protocol-Version": "2026-07-28",
+          "Mcp-Method": "tools/call",
+          "Mcp-Name": "sql_ro",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          // Аргумента SQL нет — команда пошла бы читать stdin.
+          params: {
+            name: "sql_ro",
+            arguments: { selector: "sl-1", dry: true },
+          },
+        }),
+      });
+      assertStringIncludes(
+        await response.text(),
+        "stdin у вызова тула нет — передай значение аргументом",
+      );
+    } finally {
+      stop.abort();
+      await running;
+    }
+  });
+});

@@ -12,6 +12,7 @@
  * запрещён, CLAUDE.md).
  */
 
+import { FakeTime } from "@std/testing/time";
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { firstLine } from "../http/mod.ts";
 import {
@@ -207,43 +208,34 @@ Deno.test("молчащий сервер: таймаут тела не доль�
   }
 });
 
-Deno.test("гонка таймеров: причина стабильна при пределах вплотную (много прогонов)", async () => {
-  // Общий "затвор" вместо общего Response: тело ответа читается один раз,
-  // а тест шлёт много запросов — каждый вызов обработчика ждёт тот же
-  // затвор, но отдаёт свежий Response.
+Deno.test("гонка таймеров: причину называет тот предел, что сработал первым", async () => {
+  // Порядок событий, а не длительности: под нагрузкой реальные таймеры
+  // в 1 мс друг от друга сходятся, и красноту давал планировщик, а не
+  // починяемая ошибка. С поддельным временем срабатывания разведены
+  // явно — сначала предел заголовков, следом общий.
+  using time = new FakeTime();
   const gate = Promise.withResolvers<void>();
   const { baseUrl, stop } = fakeServer(async () => {
     await gate.promise;
     return new Response("[]");
   });
   try {
-    const access = accessTo(baseUrl);
-    // Пределы вплотную — 1ms между ними (50ms/51ms: делать саму базу
-    // меньше в этом окружении опасно — при базе в единицы миллисекунд
-    // порядок срабатывания реальных `setTimeout` под реальным сетевым
-    // вводом-выводом сам по себе неустойчив вне зависимости от починяемой
-    // ошибки и даёт ложную красноту; проверено отдельно сотнями
-    // прогонов). Без гварда "уже сработал другой таймер" таймер общего
-    // предела успевает переписать причину после того, как таймер
-    // заголовков уже вызвал abort(), — сообщение флапает между
-    // "no response headers…" и "no response…". Цикл в несколько
-    // десятков прогонов внутри одного теста — иначе гонка не доказана
-    // однократным совпадением.
-    for (let i = 0; i < 50; i++) {
-      const err = await assertRejects(
-        () =>
-          listEndpoints(access, {
-            headersTimeoutMs: 50,
-            totalTimeoutMs: 51,
-          }),
-        PortainerError,
-      );
-      assertEquals(
-        err.message,
-        "no response headers within 50ms",
-        `прогон ${i}: причина обязана называть предел заголовков, а не общий`,
-      );
-    }
+    const call = assertRejects(
+      () =>
+        listEndpoints(accessTo(baseUrl), {
+          headersTimeoutMs: 50,
+          totalTimeoutMs: 51,
+        }),
+      PortainerError,
+    );
+    // Один тик на оба предела, синхронный: колбэки идут подряд, и
+    // обработка отказа между ними не вклинивается — ровно та
+    // одновременность, из-за которой второй таймер переписывал причину
+    // первого. Раздельные `tickAsync` эту гонку не воспроизводят:
+    // первый отказ успевает отработать целиком и снять второй таймер.
+    time.tick(51);
+    const err = await call;
+    assertEquals(err.message, "no response headers within 50ms");
   } finally {
     gate.resolve();
     await stop();
