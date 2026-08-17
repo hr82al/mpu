@@ -155,7 +155,7 @@ Deno.test("усечение режет по границе целых строк
   await t.step("длинный обрезается целыми строками с маркером", () => {
     const cut = cutToLimit(text, text.length - 1);
     assertEquals(cut.endsWith("\n…(обрезано)"), true);
-    assertEquals([...cut].length <= text.length - 1, true);
+    assertEquals(cut.length <= text.length - 1, true);
     // Половин строк не остаётся: маркер идёт после целой строки.
     assertEquals(
       cut.slice(0, -"\n…(обрезано)".length).split("\n"),
