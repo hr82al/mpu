@@ -11,6 +11,9 @@ const CHANNEL = "exec-transport";
 const NAMES: readonly string[] = [
   "err-no-transport-stderr.txt",
   "err-via-stderr.txt",
+  "portainer-create-exec.json",
+  "portainer-inspect-exec-done.json",
+  "portainer-inspect-exec-running.json",
 ];
 
 const copyDir = new URL(`testdata/${CHANNEL}/`, import.meta.url);

@@ -94,6 +94,12 @@ export interface SendOptions {
   readonly body?: string | Uint8Array<ArrayBuffer>;
   readonly headers?: Readonly<Record<string, string>>;
   readonly timeouts?: RequestTimeouts;
+  /**
+   * Отключает проверку TLS-сертификата — то же, что у `GetOptions`, и
+   * по той же причине: `PUT` архива и `POST` exec'а ходят в тот же
+   * Portainer, что и читающие вызовы (`platform/exec-transport.md`).
+   */
+  readonly insecure?: boolean;
 }
 
 /**
@@ -156,15 +162,21 @@ export async function httpSend(
   url: URL,
   options: SendOptions = {},
 ): Promise<HttpResponse> {
+  const method = options.method ?? "GET";
+  const headers = options.headers ?? {};
   const response = await withTimeouts(
     options.timeouts ?? DEFAULT_TIMEOUTS,
     (signal, onHeaders) =>
-      sendFetch(url, {
-        method: options.method ?? "GET",
-        headers: options.headers ?? {},
-        body: options.body,
-        signal,
-      }, onHeaders),
+      url.protocol === "https:" && options.insecure === true
+        ? sendInsecure(url, headers, signal, onHeaders, {
+          method,
+          body: options.body,
+        })
+        : sendFetch(
+          url,
+          { method, headers, body: options.body, signal },
+          onHeaders,
+        ),
   );
   return {
     status: response.status,
@@ -233,6 +245,13 @@ export function firstLine(message: string): string {
 }
 
 /** Обычный путь запроса — `fetch`; тело передаётся как есть. */
+/** Длина тела в байтах: строка считается в UTF-8, буфер — как есть. */
+function byteLength(body: string | Uint8Array<ArrayBuffer>): number {
+  return typeof body === "string"
+    ? new TextEncoder().encode(body).length
+    : body.length;
+}
+
 async function sendFetch(
   url: URL,
   init: RequestInit,
@@ -252,14 +271,19 @@ async function sendFetch(
  * клиентской опции, гасящей её у `fetch` (`Deno.createHttpClient` её не
  * имеет, `NODE_TLS_REJECT_UNAUTHORIZED` на `fetch` не влияет —
  * проверено в этом дереве). Единственный работающий путь — `node:https`
- * с `rejectUnauthorized: false`; метод здесь всегда GET, потому что
- * второго вида запроса у единственного потребителя (Portainer) нет.
+ * с `rejectUnauthorized: false`. Метод и тело — параметр: у Portainer
+ * ими ходят доставка stdin (`PUT`) и создание exec'а (`POST`), и
+ * отключать проверку им нужно ровно так же, как чтениям.
  */
 function sendInsecure(
   url: URL,
   headers: Readonly<Record<string, string>>,
   signal: AbortSignal,
   onHeaders: () => void,
+  payload: {
+    readonly method: string;
+    readonly body?: string | Uint8Array<ArrayBuffer>;
+  } = { method: "GET" },
 ): Promise<HttpBytesResponse> {
   return new Promise((resolve, reject) => {
     const req = httpsRequest(
@@ -267,8 +291,12 @@ function sendInsecure(
         hostname: url.hostname,
         port: url.port === "" ? 443 : Number(url.port),
         path: `${url.pathname}${url.search}`,
-        method: "GET",
-        headers,
+        method: payload.method,
+        // Длина тела известна всегда, и без неё `node:https` уходит в
+        // chunked — на проводе это уже не тот запрос, что у `fetch`.
+        headers: payload.body === undefined
+          ? headers
+          : { ...headers, "Content-Length": String(byteLength(payload.body)) },
         rejectUnauthorized: false,
         signal,
       },
@@ -294,6 +322,7 @@ function sendInsecure(
       },
     );
     req.on("error", reject);
+    if (payload.body !== undefined) req.write(payload.body);
     req.end();
   });
 }

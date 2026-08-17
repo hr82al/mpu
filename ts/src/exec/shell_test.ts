@@ -33,6 +33,9 @@ Deno.test("несколько элементов: каждый атомарен"
     [["echo", "it's"], `echo 'it'"'"'s'`],
     [["echo", ""], "echo ''"],
     [["node", "--input-type=module", "-"], "node --input-type=module -"],
+    // Безопасный набор — ASCII: кириллица квотируется, и это не
+    // придирка, а условие атомарности аргумента в чужой локали.
+    [["echo", "привет"], "echo 'привет'"],
   ];
   for (const [command, expected] of cases) {
     await t.step(expected, () => assertEquals(shellCommand(command), expected));
