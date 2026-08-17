@@ -1,0 +1,3 @@
+mpu ssh sl-0 -- node --input-type=module - <<'__MPU_RUN_JS_EOF__'
+console.log(1)
+__MPU_RUN_JS_EOF__

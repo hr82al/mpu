@@ -143,6 +143,23 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "run-js",
+    // Вызов без адресации отказывает на разборе ввода: живого
+    // контейнера у обхода нет, исполнять в нём произвольный JS он не
+    // должен тем более, а `--dry-run` писал бы в буфер обмена машины,
+    // на которой идут тесты.
+    argv: [],
+    sampleResult: {
+      mode: "dry-run",
+      targets: [{ label: "sl-1", exitCode: null, failure: null }],
+      detach: null,
+      preview: "mpu ssh sl-1 -- node --input-type=module -" +
+        " <<'__MPU_RUN_JS_EOF__'\nconsole.log(1)\n__MPU_RUN_JS_EOF__\n",
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
     path: "ssh",
     // Пустая команда — единственный вход, который отказывает раньше
     // всякого транспорта (`specs/ssh.md`, «Граничные случаи»): живого

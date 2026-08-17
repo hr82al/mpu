@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 48 команд верхнего уровня, ещё не переехавших на TS. */
+/** 47 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["search"],
@@ -51,11 +51,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["d2-miro"],
     summary: "Рендер d2-диаграммы в Miro как редактируемый фрейм.",
-  },
-  {
-    path: ["run-js"],
-    summary:
-      "Выполнить ESM-код внутри контейнера sl-back через `node --input-type=module -`.",
   },
   {
     path: ["copy-client"],

@@ -25,6 +25,7 @@ export const NOT_LEGACY: readonly string[] = [
   "sql-ro",
   "sql",
   "ssh",
+  "run-js",
   "logs",
   "help",
   "version",

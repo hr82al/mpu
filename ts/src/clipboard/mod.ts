@@ -82,8 +82,12 @@ export function osc52(text: string, tmux: string | undefined): Uint8Array {
   ]);
 }
 
-/** Настоящие /dev/tty и подпроцессы. */
-function denoPorts(): ClipboardPorts {
+/**
+ * Настоящие `/dev/tty` и подпроцессы. Экспортируется потому же, почему
+ * и подстановка: у возможности две реализации одного порта, и обе —
+ * часть её поверхности.
+ */
+export function denoPorts(): ClipboardPorts {
   return {
     writeTty: async (bytes) => {
       let file: Deno.FsFile;
@@ -143,11 +147,12 @@ async function feedAndWait(
   }, timeoutMs);
   try {
     const writer = child.stdin.getWriter();
-    try {
-      await writer.write(stdin);
-    } finally {
-      await writer.close().catch(() => {});
-    }
+    // Отказ записи исходом попытки не считается: утилита, закрывшая
+    // stdin раньше времени, всё равно отвечает своим кодом выхода, а
+    // спека перечисляет причинами неуспеха только его, отказ запуска и
+    // истёкшее ожидание.
+    await writer.write(stdin).catch(() => {});
+    await writer.close().catch(() => {});
     return (await child.status).success;
   } catch {
     return false;

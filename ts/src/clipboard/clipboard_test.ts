@@ -5,7 +5,12 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { type ClipboardPorts, copyToClipboard, osc52 } from "./mod.ts";
+import {
+  type ClipboardPorts,
+  copyToClipboard,
+  denoPorts,
+  osc52,
+} from "./mod.ts";
 
 const decoder = new TextDecoder();
 
@@ -123,3 +128,33 @@ Deno.test("предел ожидания передаётся утилите", a
 function base64ToBytes(text: string): Uint8Array {
   return Uint8Array.from(atob(text), (ch) => ch.charCodeAt(0));
 }
+
+Deno.test("настоящие порты: утилита, её код выхода и отсутствие в PATH", async (t) => {
+  const io = denoPorts();
+  const bytes = new TextEncoder().encode(TEXT);
+
+  await t.step("нулевой код — попытка удалась", async () => {
+    // Права тестов допускают только эти два бинаря (`deno.jsonc`); от
+    // утилиты буфера здесь нужен ровно её код выхода.
+    assertEquals(await io.runUtility("/bin/echo", [], bytes, 2_000), true);
+  });
+
+  await t.step("ненулевой код — попытка неуспешна", async () => {
+    assertEquals(await io.runUtility("/bin/false", [], bytes, 2_000), false);
+  });
+
+  await t.step("бинаря нет — тоже неуспешна, без ошибки наружу", async () => {
+    assertEquals(
+      await io.runUtility("/bin/net-takogo-binarya", [], bytes, 2_000),
+      false,
+    );
+  });
+
+  await t.step("попытка 1 отвечает да/нет и не бросает наружу", async () => {
+    // Утверждать здесь `false` нельзя: `/dev/tty` открывается по
+    // управляющему терминалу процесса, а он у прогона то есть, то нет.
+    // Наблюдаемое, зависящее от кода, — что ошибка наружу не всплывает,
+    // а исход выражен булевым (спека: «ошибка наружу не идёт»).
+    assertEquals(typeof await io.writeTty(new Uint8Array()), "boolean");
+  });
+});
