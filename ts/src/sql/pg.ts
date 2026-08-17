@@ -1,6 +1,6 @@
 /**
  * Драйвер PostgreSQL для `mpu sql-ro`: единственная реализация порта
- * `OpenReadOnlySession` (`session.ts`) поверх node-postgres. Read-only
+ * `OpenSession` (`session.ts`) поверх node-postgres. Read-only
  * задаётся опцией стартового пакета, а пользовательский текст исполняется
  * внутри обёртки транзакцией с меткой — гарантию держит сервер
  * (`platform/readonly-default.md`), а не разбор текста запроса.
@@ -13,7 +13,7 @@ import driver from "pg";
 import type { SqlOutcome, SqlValue } from "./render.ts";
 import {
   DbError,
-  type ReadOnlySession,
+  type SqlSession,
   TransactionEndedError,
   WriteRefusedError,
 } from "./session.ts";
@@ -143,7 +143,7 @@ export type OpenClient = (options: ClientOptions) => PgClient;
 export async function openPgSession(
   target: PgTarget,
   openClient: OpenClient = (options) => new pg.Client(options),
-): Promise<ReadOnlySession> {
+): Promise<SqlSession> {
   const client = openClient(clientOptions(target));
   try {
     await client.connect();

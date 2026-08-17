@@ -8,7 +8,7 @@ import type { SqlOutcome } from "./render.ts";
 import type { PgTarget } from "./target.ts";
 
 /** Открытое соединение: один вызов команды — одна сессия. */
-export interface ReadOnlySession {
+export interface SqlSession {
   /**
    * Служебный запрос самой команды: доверенный текст из одного оператора
    * (проверка режима, `SET search_path`). Идёт серверу как есть —
@@ -27,9 +27,9 @@ export interface ReadOnlySession {
 }
 
 /** Открыватель сессии: read-only задаётся при подключении. */
-export type OpenReadOnlySession = (
+export type OpenSession = (
   target: PgTarget,
-) => Promise<ReadOnlySession>;
+) => Promise<SqlSession>;
 
 /**
  * Сервер отклонил запись (SQLSTATE 25006). Отдельный класс, потому что

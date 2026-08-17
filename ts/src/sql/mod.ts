@@ -1,12 +1,13 @@
 /**
- * Публичная поверхность команды `mpu sql-ro` (`docs/specs/sql-ro.md`):
- * ad-hoc SQL по селектору в enforced read-only сессии PostgreSQL.
+ * Публичная поверхность модуля: ad-hoc SQL по селектору — команда
+ * `mpu sql-ro` (`docs/specs/sql-ro.md`) и общий для неё ход вызова.
  */
 
+export { sqlRoCommand } from "./cmd_sql_ro.ts";
 export {
-  runSqlRo,
-  type SqlRoArgs,
-  sqlRoCommand,
-  type SqlRoOptions,
-  type SqlRoResult,
-} from "./cmd_sql_ro.ts";
+  runSql,
+  type SqlArgs,
+  type SqlIo,
+  type SqlOptions,
+  type SqlResult,
+} from "./run.ts";

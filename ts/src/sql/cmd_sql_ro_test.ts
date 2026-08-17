@@ -21,12 +21,12 @@ import {
   VerbatimError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { runSqlRo, type SqlRoArgs, type SqlRoResult } from "./mod.ts";
+import { runSql, type SqlArgs, type SqlResult } from "./mod.ts";
 import { sqlRoCommand } from "./cmd_sql_ro.ts";
 import type { SqlOutcome } from "./render.ts";
 import {
   DbError,
-  type OpenReadOnlySession,
+  type OpenSession,
   TransactionEndedError,
   WriteRefusedError,
 } from "./session.ts";
@@ -47,7 +47,7 @@ const ENV: Readonly<Record<string, string>> = {
 };
 
 /** Аргументы вызова: всё, кроме названного, — умолчания схемы. */
-function args(overrides: Partial<SqlRoArgs> & { selector: string }): SqlRoArgs {
+function args(overrides: Partial<SqlArgs> & { selector: string }): SqlArgs {
   return {
     sql: undefined,
     server: undefined,
@@ -103,7 +103,7 @@ function fakeSessions(answer: (text: string) => Answer) {
       ? Promise.reject(reply)
       : Promise.resolve(reply);
   };
-  const open: OpenReadOnlySession = (target) => {
+  const open: OpenSession = (target) => {
     targets.push(target);
     return Promise.resolve({
       query: ask,
@@ -206,7 +206,7 @@ Deno.test("конфликт --json и --md проверяется первым",
     },
   });
   const err = await assertRejects(
-    () => runSqlRo(args({ selector: "42", json: true, md: true }), io),
+    () => runSql(args({ selector: "42", json: true, md: true }), io),
     UsageError,
   );
   assertEquals(
@@ -218,7 +218,7 @@ Deno.test("конфликт --json и --md проверяется первым",
 Deno.test("--server не сочетается с dev-селектором", async () => {
   const { io } = harness();
   const err = await assertRejects(
-    () => runSqlRo(args({ selector: "dev:42", server: "sl-1" }), io),
+    () => runSql(args({ selector: "dev:42", server: "sl-1" }), io),
     UsageError,
   );
   assertEquals(err.message, "--server не сочетается с dev-селектором");
@@ -243,7 +243,7 @@ Deno.test("sw-селектор исполняет прежняя реализа�
   await t.step("исполнение отказывает: это не путь CLI", async () => {
     const { io } = harness();
     await assertRejects(
-      () => runSqlRo(args({ selector: "sw", sql: "select 1" }), io),
+      () => runSql(args({ selector: "sw", sql: "select 1" }), io),
       DomainError,
       "sw-селектор",
     );
@@ -254,7 +254,7 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
   await t.step("аргумент побеждает, stdin не читается", async () => {
     const sessions = fakeSessions(answers());
     const { io } = harness();
-    const result = await runSqlRo(
+    const result = await runSql(
       args({ selector: "sl-1", sql: "SELECT 1" }),
       io,
       { openSession: sessions.open },
@@ -267,7 +267,7 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
     const { io, progress } = harness({
       readTextStdin: () => Promise.resolve("SELECT 2\n"),
     });
-    const result = await runSqlRo(
+    const result = await runSql(
       args({ selector: "sl-1", sql: "   " }),
       io,
       { openSession: sessions.open },
@@ -283,7 +283,7 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
       stdinIsTerminal: () => true,
       readTextStdin: () => Promise.resolve("SELECT 3"),
     });
-    await runSqlRo(args({ selector: "sl-1" }), io, {
+    await runSql(args({ selector: "sl-1" }), io, {
       openSession: sessions.open,
     });
     assertEquals(progress, ["-- enter SQL, end with EOF (Ctrl+D):"]);
@@ -294,7 +294,7 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
     const { io } = harness({ readTextStdin: () => Promise.resolve("  \n") });
     const err = await assertRejects(
       () =>
-        runSqlRo(args({ selector: "sl-1" }), io, {
+        runSql(args({ selector: "sl-1" }), io, {
           openSession: sessions.open,
         }),
       UsageError,
@@ -305,7 +305,7 @@ Deno.test("источник SQL: аргумент, затем stdin, затем 
 });
 
 Deno.test("мета-блок: эталоны канала байт в байт", async (t) => {
-  const cases: readonly [string, string, SqlRoArgs][] = [
+  const cases: readonly [string, string, SqlArgs][] = [
     [
       "dry-v-server-stderr.txt",
       "--server: резолва нет, search_path не ставится",
@@ -331,7 +331,7 @@ Deno.test("мета-блок: эталоны канала байт в байт",
     await t.step(`${name}: ${title}`, async () => {
       const sessions = fakeSessions(answers());
       const { io, stderr } = harness();
-      const result = await runSqlRo(
+      const result = await runSql(
         { ...base, dry: true, verbose: true },
         io,
         { openSession: sessions.open },
@@ -355,7 +355,7 @@ Deno.test("мета-блок: эталоны канала байт в байт",
       await withCache(async (open) => {
         const sessions = fakeSessions(answers());
         const { io, stderr } = harness({ openCacheDb: open });
-        await runSqlRo(
+        await runSql(
           args({ selector: "42", sql: "SELECT 1", dry: true, verbose: true }),
           io,
           { openSession: sessions.open },
@@ -376,7 +376,7 @@ Deno.test("мета-блок печатается ⇔ --verbose или --dry", a
   await t.step("обычный прогон молчит", async () => {
     const sessions = fakeSessions(answers());
     const { io, progress } = harness();
-    await runSqlRo(args({ selector: "sl-1", sql: "SELECT 1" }), io, {
+    await runSql(args({ selector: "sl-1", sql: "SELECT 1" }), io, {
       openSession: sessions.open,
     });
     assertEquals(progress, []);
@@ -385,7 +385,7 @@ Deno.test("мета-блок печатается ⇔ --verbose или --dry", a
   await t.step("--dry без -v печатает тот же блок", async () => {
     const sessions = fakeSessions(answers());
     const { io, progress } = harness();
-    await runSqlRo(args({ selector: "sl-1", sql: "SELECT 1", dry: true }), io, {
+    await runSql(args({ selector: "sl-1", sql: "SELECT 1", dry: true }), io, {
       openSession: sessions.open,
     });
     assertEquals(progress[0], "server: sl-1");
@@ -397,7 +397,7 @@ Deno.test("мета-блок печатается ⇔ --verbose или --dry", a
     const { io, stderr } = harness({
       readTextStdin: () => Promise.resolve("SELECT 1\n"),
     });
-    await runSqlRo(args({ selector: "sl-1", dry: true }), io, {
+    await runSql(args({ selector: "sl-1", dry: true }), io, {
       openSession: sessions.open,
     });
     assertEquals(stderr().endsWith("sql:\nSELECT 1\n"), true, stderr());
@@ -406,7 +406,7 @@ Deno.test("мета-блок печатается ⇔ --verbose или --dry", a
   await t.step("-v при обычном прогоне: блок и результат", async () => {
     const sessions = fakeSessions(answers());
     const { io, progress } = harness();
-    const result = await runSqlRo(
+    const result = await runSql(
       args({ selector: "sl-1", sql: "SELECT 1", verbose: true }),
       io,
       { openSession: sessions.open },
@@ -421,7 +421,7 @@ Deno.test("search_path ставится ⇔ ровно один различны
     await withCache(async (open) => {
       const sessions = fakeSessions(answers());
       const { io } = harness({ openCacheDb: open });
-      const result = await runSqlRo(
+      const result = await runSql(
         args({ selector: "Отчёт", sql: "SELECT 1" }),
         io,
         { openSession: sessions.open },
@@ -440,7 +440,7 @@ Deno.test("search_path ставится ⇔ ровно один различны
       const sessions = fakeSessions(answers());
       const { io } = harness({ openCacheDb: open });
       // Оба клиента на одном сервере: резолв успешен, но клиент не один.
-      const result = await runSqlRo(
+      const result = await runSql(
         args({ selector: "общ", sql: "SELECT 1" }),
         io,
         { openSession: sessions.open },
@@ -453,7 +453,7 @@ Deno.test("search_path ставится ⇔ ровно один различны
   await t.step("сервер целиком — кандидатов нет, SET нет", async () => {
     const sessions = fakeSessions(answers());
     const { io } = harness();
-    const result = await runSqlRo(
+    const result = await runSql(
       args({ selector: "sl-1", sql: "SELECT 1" }),
       io,
       { openSession: sessions.open },
@@ -465,7 +465,7 @@ Deno.test("search_path ставится ⇔ ровно один различны
   await t.step("dev с нечисловым хвостом — без search_path", async () => {
     const sessions = fakeSessions(answers());
     const { io } = harness();
-    const result = await runSqlRo(
+    const result = await runSql(
       args({ selector: "dev:прод", sql: "SELECT 1" }),
       io,
       { openSession: sessions.open },
@@ -481,7 +481,7 @@ Deno.test("search_path ставится ⇔ ровно один различны
         throw new Error("кэш-БД открываться не должна");
       },
     });
-    const result = await runSqlRo(
+    const result = await runSql(
       args({ selector: "42", server: "sl-3", sql: "SELECT 1" }),
       io,
       { openSession: sessions.open },
@@ -500,7 +500,7 @@ Deno.test("read-only проверяется на соединении до по�
     const { io } = harness();
     const err = await assertRejects(
       () =>
-        runSqlRo(args({ selector: "sl-1", sql: "DROP TABLE x" }), io, {
+        runSql(args({ selector: "sl-1", sql: "DROP TABLE x" }), io, {
           openSession: sessions.open,
         }),
       DomainError,
@@ -526,7 +526,7 @@ Deno.test("read-only проверяется на соединении до по�
       const { io } = harness({ openCacheDb: open });
       await assertRejects(
         () =>
-          runSqlRo(args({ selector: "42", sql: "SELECT 1" }), io, {
+          runSql(args({ selector: "42", sql: "SELECT 1" }), io, {
             openSession: sessions.open,
           }),
         DomainError,
@@ -539,7 +539,7 @@ Deno.test("read-only проверяется на соединении до по�
 Deno.test("пользовательский текст исполняется обёрткой", async () => {
   const sessions = fakeSessions(answers());
   const { io } = harness();
-  await runSqlRo(args({ selector: "sl-1", sql: "SELECT 1" }), io, {
+  await runSql(args({ selector: "sl-1", sql: "SELECT 1" }), io, {
     openSession: sessions.open,
   });
   // Служебные запросы обёртки не получают: она откатила бы их действие
@@ -563,7 +563,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
     const { io } = harness();
     const err = await assertRejects(
       () =>
-        runSqlRo(args({ selector: "sl-1", sql: "UPDATE t SET a = 1" }), io, {
+        runSql(args({ selector: "sl-1", sql: "UPDATE t SET a = 1" }), io, {
           openSession: sessions.open,
         }),
       DomainError,
@@ -586,7 +586,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
     const { io } = harness();
     const err = await assertRejects(
       () =>
-        runSqlRo(
+        runSql(
           args({ selector: "sl-1", sql: "COMMIT; BEGIN READ WRITE; COMMIT" }),
           io,
           { openSession: sessions.open },
@@ -624,7 +624,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
       const { io } = harness();
       const err = await assertRejects(
         () =>
-          runSqlRo(
+          runSql(
             args({
               selector: "sl-1",
               sql: "ROLLBACK TO SAVEPOINT bar; SELECT 1",
@@ -652,7 +652,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
     const { io } = harness();
     const err = await assertRejects(
       () =>
-        runSqlRo(args({ selector: "sl-1", sql: "SELECT 1" }), io, {
+        runSql(args({ selector: "sl-1", sql: "SELECT 1" }), io, {
           openSession: () =>
             Promise.reject(new DbError("connect ECONNREFUSED 127.0.0.1:1")),
         }),
@@ -673,7 +673,7 @@ Deno.test("отказы БД: свой текст на запись, досло�
     const { io } = harness();
     const err = await assertRejects(
       () =>
-        runSqlRo(
+        runSql(
           args({
             selector: "sl-1",
             sql: "SELECT * FROM nonexistent_table_xyz",
@@ -697,10 +697,10 @@ Deno.test("результат и его рендер", async (t) => {
     rows: [[1]],
   };
 
-  async function run(overrides: Partial<SqlRoArgs>): Promise<SqlRoResult> {
+  async function run(overrides: Partial<SqlArgs>): Promise<SqlResult> {
     const sessions = fakeSessions(answers(outcome));
     const { io } = harness();
-    return await runSqlRo(
+    return await runSql(
       args({ selector: "sl-1", sql: "SELECT 1 AS a", ...overrides }),
       io,
       { openSession: sessions.open },
