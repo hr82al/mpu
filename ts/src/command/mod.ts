@@ -483,6 +483,11 @@ function kindOf(type: string | undefined): InputSpec["kind"] {
  * (`platform/command-contract.md`, «Ввод/вывод»). Текст, числом не
  * являющийся, остаётся как есть — тогда несоответствие типа назовёт
  * схема, а не команда.
+ *
+ * Приведению подлежит только десятичная запись: `0x10`, `1e3` и
+ * значение в обрамляющих пробелах язык реализации числом считает, а
+ * командная строка — не выражение языка, и `--tail 0x10` обязан
+ * остаться ошибкой ввода, а не шестнадцатью строками (спека, там же).
  */
 function numbersOf(
   raw: Readonly<Record<string, unknown>>,
@@ -492,12 +497,15 @@ function numbersOf(
   for (const spec of specs) {
     if (spec.kind !== "number") continue;
     const value = out[spec.name];
-    if (typeof value !== "string" || value.trim() === "") continue;
+    if (typeof value !== "string" || !DECIMAL.test(value)) continue;
     const parsed = Number(value);
     if (Number.isFinite(parsed)) out[spec.name] = parsed;
   }
   return out;
 }
+
+/** Десятичная запись числа: цифры со знаком и необязательной дробной частью. */
+const DECIMAL = /^[+-]?\d+(?:\.\d+)?$/;
 
 /** Разобранные аргументы как словарь; корень схемы — объект (инвариант 7). */
 function asRecord(

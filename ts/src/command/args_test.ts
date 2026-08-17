@@ -164,3 +164,27 @@ Deno.test("числовой вход: из argv текст, в аргумент�
     );
   });
 });
+
+Deno.test("числом становится только десятичная запись", async (t) => {
+  const specs: readonly InputSpec[] = [
+    { name: "tail", kind: "number", form: {} },
+  ];
+  const parsed = (value: string) =>
+    parseArgv(["--tail", value], specs, HINT).tail;
+
+  await t.step("десятичная запись приводится", () => {
+    // Само приведение делает слой схемы; здесь видно лишь то, что
+    // разбор argv отдаёт значение как есть.
+    assertEquals(parsed("50"), "50");
+    assertEquals(parsed("-5"), "-5");
+    assertEquals(parsed("2.5"), "2.5");
+  });
+
+  await t.step("прочие записи числа остаются текстом", () => {
+    // Командная строка — не выражение языка: `0x10` это ошибка ввода, а
+    // не шестнадцать (`platform/command-contract.md`, «Ввод/вывод»).
+    for (const value of ["0x10", "1e3", " 50", "50 ", "Infinity"]) {
+      assertEquals(parsed(value), value);
+    }
+  });
+});

@@ -369,6 +369,19 @@ Deno.test("разбор аргументов: отказы до сети", async
     }
   });
 
+  await t.step("числом считается только десятичная запись", () => {
+    // Командная строка — не выражение языка: `--tail 0x10` это ошибка
+    // ввода, а не шестнадцать строк (`platform/command-contract.md`).
+    for (const value of ["0x10", "1e3", " 50"]) {
+      assertThrows(
+        () => logsCommand.parseArgs(["sl-1", "--tail", value]),
+        UsageError,
+        "expected number",
+      );
+    }
+    assertEquals(logsCommand.parseArgs(["sl-1", "--tail", "50"]).tail, 50);
+  });
+
   await t.step("дробный --tail — уже смысл, и текст команды", async () => {
     await withStand({}, { LOKI_URL }, async (io) => {
       const err = await assertRejects(
