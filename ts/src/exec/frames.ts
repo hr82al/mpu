@@ -20,7 +20,7 @@ export const OPCODE = {
 } as const;
 
 /** Разобранный кадр; фрагментацию склеивает вызывающий. */
-export interface Frame {
+export interface WsFrame {
   readonly opcode: number;
   readonly fin: boolean;
   readonly payload: Uint8Array;
@@ -28,7 +28,7 @@ export interface Frame {
 
 /** Разбор кадра и остаток буфера; кадр не дочитан — `null`. */
 export interface FrameCut {
-  readonly frame: Frame;
+  readonly frame: WsFrame;
   readonly rest: Uint8Array;
 }
 
