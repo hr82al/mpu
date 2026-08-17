@@ -1,0 +1,1 @@
+sl-9-cli sh -c "node cli service:wbLoader wbCards --client-id 777 --sid SID42"

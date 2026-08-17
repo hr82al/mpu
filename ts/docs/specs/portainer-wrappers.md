@@ -1,6 +1,6 @@
 # mpu node-CLI обёртки — семейство команд
 
-Статус: черновик
+Статус: к реализации (заморожена 2026-08-17)
 
 ## Назначение
 
@@ -36,7 +36,7 @@ auto-pick) — `platform/portainer.md`; здесь — CLI-поверхност�
 | --- | --- | --- | --- |
 | `ss-update` | `service:ssUpdater update --client-id <C> --spreadsheet-id <S> --update-type <T> --logs <L>` | `--spreadsheet-id` (auto-pick), `--update-type` (default `schedule`), `--logs` (default `info`) | запуск пайплайна обновления Google-таблицы клиента |
 | `wb-loader <sub>` | `service:wbLoader <метод> --client-id <C> --sid <SID>` | `--sid` — обязательный | загрузка данных WB-кабинета в БД клиента |
-| `data-loader find-candidate` | `service:dataLoader findCandidate --client-id <C> --sids <S1> [<S2> …]` | `--sids` (алиас `--sid`) — повторяемый, обязательный; эмитится списком токенов | поиск кандидата загрузки по кабинетам |
+| `data-loader` | `service:dataLoader findCandidate --client-id <C> --sids <S1> [<S2> …]` | `--sids` (алиас `--sid`) — повторяемый, обязательный; в inner-команде флаг стоит один раз, значения идут подряд отдельными токенами | поиск кандидата загрузки по кабинетам |
 | `wb-recalculate-expenses` | `service:wbUnitCalculatedData recalculateExpenses --client-id <C> --date-from <F> --date-to <T> [--nm-ids <[..]>]` | `--date-from` (default `2025-01-01`), `--date-to` (default — сегодняшняя локальная дата), `--nm-ids` — одна строка вида `[1,2,3]` без пробелов | пересчёт расходов WB UNIT за период |
 | `wb-save-expenses` | `service:wbUnitCalculatedData saveExpenses …` (флаги как строкой выше) | те же | сохранение расходов WB UNIT за период |
 | `ozon-recalculate-expenses` | `service:ozonUnitCalculatedData recalculateExpenses --client-id <C> --date-from <F> --date-to <T> [--ref-date <D>] [--ref-fields <F1> …] [--skus <[..]>] [--logs-level <L>]` | `--ref-date`; `--ref-fields` — повторяемый; `--skus` — повторяемый int, эмитится одним токеном `[v1,v2,…]`; `--logs-level`; `-v/--verbose` | пересчёт расходов Ozon UNIT за период (с опц. копированием полей из ref-даты) |
@@ -55,8 +55,11 @@ auto-pick) — `platform/portainer.md`; здесь — CLI-поверхност�
 - `--ref-fields` с единственным значением эмитится дважды
   (см. «Известные отклонения», preserve).
 - Порядок флагов в inner-команде — как в таблице (стабилен).
-- Имя `<команда>` в ошибках: `mpu <обёртка>`; у групп с подкомандами —
-  имя группы (`mpu wb-loader`, `mpu data-loader`) для всех подкоманд.
+- Имя `<команда>` в ошибках: `mpu <обёртка>`; у группы с подкомандами —
+  имя группы (`mpu wb-loader`) для всех подкоманд.
+- Подкоманды есть только у `wb-loader`. Остальные шесть — листовые:
+  метод у каждой один и зашит, селектор идёт первым аргументом
+  (`mpu data-loader <селектор> --sids …`).
 
 ## Ввод/вывод
 
@@ -101,8 +104,10 @@ print-режимы — без выполнения и сети (кроме чт�
   `--spreadsheet-id` у `ss-update`.
 - `--sid` (wb-loader) / `--sids` (data-loader) не заданы → ошибка
   обязательной опции CLI-парсера, exit 2.
-- Значение флага с shell-небезопасными символами → exit 2
-  (`platform/portainer.md`), без сетевых вызовов.
+- Значение строкового флага с shell-небезопасными символами → stderr
+  `<команда>: value contains shell-unsafe chars for <флаг>: '<значение>'`,
+  exit 2, без сетевых вызовов. Числовые флаги (`--client-id`) до этой
+  проверки не доходят: нечисловое значение отвергается разбором ввода.
 - Inner-команда завершилась ненулевым кодом → тот же код выхода, без
   дополнительных сообщений (stderr дочернего процесса уже отстримлен).
 - `--skus` не задан → флаг опущен; задан N раз → один токен
@@ -110,21 +115,41 @@ print-режимы — без выполнения и сети (кроме чт�
 
 ## Golden-примеры
 
-Кандидаты — снять при переводе в «к реализации» (все в print-режимах,
-на синтетическом конфиге, без выполнения):
+`fixtures/portainer-wrappers/`. Девять файлов, сняты 2026-08-17 прогоном
+рабочей версии **в print-режимах** на синтетическом конфиге (временный
+конфиг-каталог: вымышленный сервер `sl-9` → `10.9.9.9`, пользователь
+`probeuser`, `--client-id 777`). Ничего не выполнялось и в сеть не
+ходило; живых адресов, кабинетов и клиентов в фикстурах нет.
 
-- `mpu ss-update <селектор> --print` — happy path ssh-формы;
-- `mpu wb-loader cards <селектор> --sid <sid> --print` и
-  `… --print --local` — обе формы печати;
-- `mpu wb-recalculate-expenses <селектор> --print` — дефолты дат;
-- `mpu ozon-recalculate-expenses <селектор> --print -v
-  --ref-fields sebes_rub --skus 123` — verbose + дубль ref-fields +
-  скобочный литерал;
-- `mpu data-loader find-candidate <селектор> --sids abc --print` —
-  списочный флаг;
-- `mpu wb-loader cards <селектор> --print` без `--sid` — ошибка
-  обязательной опции (exit 2);
-- вызов с `--client-id 'a b'` — ошибка SafeToken (exit 2).
+- `ss-update-print.stdout.txt` — ssh-форма, дефолты `--update-type`
+  и `--logs`;
+- `wb-loader-cards-print.stdout.txt` и
+  `wb-loader-cards-print-local.stdout.txt` — обе формы печати одной
+  подкоманды;
+- `wb-recalculate-expenses-print.stdout.txt` — `--nm-ids` одним
+  скобочным литералом;
+- `wb-save-expenses-print.stdout.txt`, `ozon-save-expenses-print.stdout.txt`
+  — пара save-обёрток;
+- `ozon-recalculate-expenses-verbose-print.stdout.txt` и одноимённый
+  `.stderr.txt` — `-v` печатает `# inner: …` в stderr, а команду — в
+  stdout; в той же строке видны дубль `--ref-fields` и `--skus [123]`;
+- `data-loader-print.stdout.txt` — повторённый `--sids`: флаг один,
+  значения подряд;
+- `err-no-pg-user.stderr.txt` — ssh-печать без `PG_MY_USER_NAME`:
+  `mpu ss-update: PG_MY_USER_NAME not set in ~/.config/mpu/.env`, exit 2,
+  stdout пуст;
+- `err-unsafe-token.stderr.txt` — значение с пробелом в строковом флаге:
+  `mpu ss-update: value contains shell-unsafe chars for --spreadsheet-id:
+  'a b'`, exit 2, stdout пуст.
+
+Каждый файл оканчивается одним переводом строки. **Нормализовано одно**:
+абсолютный путь ssh-ключа зависит от домашнего каталога запускающего, и
+в голденах он записан как `<HOME>/.ssh/id_rsa`; при сравнении домашний
+каталог подставляется обратно.
+
+Даты в голденах заданы явными флагами намеренно: дефолт `--date-to` —
+сегодняшняя дата, и голден с ним протух бы назавтра. Само правило
+дефолта проверяется отдельно, не побайтовым сравнением.
 
 ## Известные отклонения
 
