@@ -19,6 +19,14 @@ export interface InputForm {
    * `rest` — все оставшиеся. Без этого поля вход читается как флаг.
    */
   readonly positional?: "one" | "rest";
+  /**
+   * Неопознанный токен (`-la`, необъявленный `--flag`) уходит в этот
+   * вход вместо ошибки «unknown option». Только вместе с
+   * `positional: "rest"` и только там, где хвост argv — чужая командная
+   * строка: у `mpu ssh` она исполняется в контейнере, и её флаги
+   * разбирать не наше дело (`specs/ssh.md`, «CLI-контракт»).
+   */
+  readonly keepsUnknown?: true;
 }
 
 /** Вход команды глазами разбора argv. */
@@ -47,6 +55,7 @@ export function parseArgv(
   const out: Record<string, string | boolean | string[]> = {};
   const positional: string[] = [];
   const flags = specs.filter((spec) => spec.form.positional === undefined);
+  const keepsUnknown = specs.some((spec) => spec.form.keepsUnknown === true);
 
   let index = 0;
   const nextValue = (): string | undefined =>
@@ -64,13 +73,20 @@ export function parseArgv(
       continue;
     }
     if (arg.startsWith("--")) {
-      recordLongFlag(out, arg, flags, nextValue, helpHint);
+      const known = recordLongFlag(out, arg, flags, nextValue, helpHint, {
+        keepsUnknown,
+      });
+      if (!known) positional.push(arg);
       continue;
     }
     const spec = arg.length === 2
       ? flags.find((s) => s.form.short === arg[1])
       : undefined;
-    if (spec === undefined) throw unknownOption(arg, helpHint);
+    if (spec === undefined) {
+      if (!keepsUnknown) throw unknownOption(arg, helpHint);
+      positional.push(arg);
+      continue;
+    }
     record(out, spec, undefined, nextValue, helpHint);
   }
 
@@ -81,7 +97,9 @@ export function parseArgv(
 /**
  * Длинная форма записи — `--name`, `--name=value` и отрицательная
  * `--no-name`. Значение попадает в `out` под именем входа схемы; имя, не
- * объявленное ни прямой, ни отрицательной формой, — ошибка вызова.
+ * объявленное ни прямой, ни отрицательной формой, — ошибка вызова, а при
+ * `keepsUnknown` — ответ `false`: токен не наш, вызывающий кладёт его в
+ * позиционные.
  */
 function recordLongFlag(
   out: Record<string, string | boolean | string[]>,
@@ -89,23 +107,28 @@ function recordLongFlag(
   flags: readonly InputSpec[],
   nextValue: () => string | undefined,
   helpHint: string,
-): void {
+  options: { readonly keepsUnknown: boolean },
+): boolean {
   const eq = arg.indexOf("=");
   const name = eq < 0 ? arg.slice(2) : arg.slice(2, eq);
   const inline = eq < 0 ? undefined : arg.slice(eq + 1);
   const spec = flags.find((s) => s.name === name);
   if (spec !== undefined) {
     record(out, spec, inline, nextValue, helpHint);
-    return;
+    return true;
   }
   // Отрицательная форма булева входа: `--no-images` выключает вход
   // `images`, у которого умолчание «включено» (`specs/kiten-card.md`,
   // CLI-контракт). Отдельным входом схемы она не объявляется — иначе
   // у одного значения было бы два имени.
   const negated = negatedBoolean(flags, name);
-  if (negated === undefined) throw unknownOption(arg, helpHint);
+  if (negated === undefined) {
+    if (options.keepsUnknown) return false;
+    throw unknownOption(arg, helpHint);
+  }
   if (inline !== undefined) throw takesNoValue(`--${name}`, helpHint);
   out[negated.name] = false;
+  return true;
 }
 
 function record(

@@ -104,3 +104,34 @@ Deno.test("parseArgv: лишний позиционный без «rest» — о
   );
   assertEquals(err.hint, HINT);
 });
+
+Deno.test("parseArgv: неопознанные токены — в хвостовой вход", async (t) => {
+  // Хвост argv у `mpu ssh` — командная строка для контейнера: её флаги
+  // разбирает удалённый шелл, а не мы.
+  const specs: readonly InputSpec[] = [
+    { name: "via", kind: "string", form: {} },
+    { name: "selector", kind: "string", form: { positional: "one" } },
+    {
+      name: "command",
+      kind: "string",
+      form: { positional: "rest", keepsUnknown: true },
+    },
+  ];
+  const keep = (...argv: string[]) => parseArgv(argv, specs, HINT);
+
+  await t.step("склейка коротких и необъявленный длинный", () => {
+    const parsed = keep("sl-1", "ls", "-la", "--color=always");
+    assertEquals(parsed.selector, "sl-1");
+    assertEquals(parsed.command, ["ls", "-la", "--color=always"]);
+  });
+
+  await t.step("объявленный флаг остаётся флагом и после селектора", () => {
+    const parsed = keep("sl-1", "--via", "ssh", "env");
+    assertEquals(parsed.via, "ssh");
+    assertEquals(parsed.command, ["env"]);
+  });
+
+  await t.step("без keepsUnknown правило прежнее", () => {
+    assertThrows(() => parse("имя", "-la"), UsageError, 'unknown option "-la"');
+  });
+});
