@@ -1,0 +1,1 @@
+telegram: адресат не задан; укажи --chat или TELEGRAM_DEFAULT_CHAT в .env

@@ -48,6 +48,7 @@ import {
   telegramLsCommand,
   telegramSearchCommand,
   telegramSendCommand,
+  telegramStatusCommand,
 } from "../telegram/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
@@ -118,12 +119,12 @@ export const commands: readonly Command[] = [
   kitenChecklistCheckCommand,
   kitenChecklistUncheckCommand,
   kitenCloseCommand,
-  // Тот же смешанный маршрут группы, что у `kiten`: из `telegram`
-  // нативны отправка, поиск адресата и поиск сообщений, а `status` и
-  // вход остаются подпроцессом прежней реализации.
+  // Семейство `telegram` переехало целиком; подпроцессом прежней
+  // реализации остаётся только вход (`mpu init`).
   telegramSendCommand,
   telegramLsCommand,
   telegramSearchCommand,
+  telegramStatusCommand,
 ];
 
 /**
