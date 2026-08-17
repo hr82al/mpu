@@ -321,11 +321,11 @@ async function runLeafCommand(
   // стоит до исполнения — запись остаётся и у падения
   // (`platform/invoke-log.md`).
   journal?.nativeCall(command);
-  // Команда, объявившая собственный `--json` (`specs/sql-ro.md`: форма
-  // результата с собственным текстом и проверкой конфликта с `--md`),
-  // разбирает флаг сама — общий параметр точки входа её не
-  // перехватывает, иначе объявленное поведение было бы недостижимо.
-  return declaresJson(command)
+  // Общий параметр формы вывода перехватывается не всегда: команда,
+  // объявившая собственный `--json` (`specs/sql-ro.md`), разбирает его
+  // сама, а команда с хвостовым входом уносит его удалённой стороне
+  // (`platform/registry.md`). И той и другой argv нужен как есть.
+  return keepsJson(command)
     ? await runCommand(command, own, false, io, output)
     : await runCommand(command, args, json, io, output);
 }
@@ -370,6 +370,28 @@ function errorNameOf(path: readonly string[]): string {
 function declaresJson(command: Command): boolean {
   const name = JSON_FLAG.slice(2);
   return command.inputs.some((input) => input.name === name);
+}
+
+/**
+ * Общий параметр формы вывода к команде не применяется, если её
+ * хвостовой вход забирает неопознанные токены (`platform/registry.md`):
+ * `mpu ssh sl-1 mycli --json` — флаг чужой командной строки, и съесть
+ * его значило бы менять чужой вызов. Структурной формы вывода у такой
+ * команды нет и быть не может: её stdout — байты удалённой команды.
+ */
+function takesUnknown(command: Command): boolean {
+  return command.inputs.some((input) => input.form.keepsUnknown === true);
+}
+
+/**
+ * Оставлять ли `--json` команде. Два случая: она объявила такой вход
+ * сама (`sql-ro` — форма результата с собственной проверкой) либо
+ * забирает неопознанные токены хвостовым входом (`ssh` — флаг чужой
+ * командной строки). Разбирает его при этом только первая; вторая
+ * уносит токен дальше как есть.
+ */
+function keepsJson(command: Command): boolean {
+  return declaresJson(command) || takesUnknown(command);
 }
 
 async function runCommand(
@@ -438,7 +460,7 @@ function levelFlags(path: readonly string[]): readonly CompletionItem[] {
       ...declared,
       // Свой флаг с тем же именем уже в списке — второй раз его не
       // предлагаем (описание берётся из схемы команды).
-      ...(declaresJson(command) ? [] : [flag(JSON_FLAG, JSON_FLAG_SUMMARY)]),
+      ...(keepsJson(command) ? [] : [flag(JSON_FLAG, JSON_FLAG_SUMMARY)]),
       flag(HELP_FLAG, HELP_FLAG_SUMMARY),
     ];
   }

@@ -1,12 +1,17 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { runCli } from "./mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
+import type { CommandIo } from "../command/mod.ts";
 
-/** Точка входа маршрутизирует и печатает; io при этом не нужен. */
-function makeCli() {
+/**
+ * Точка входа маршрутизирует и печатает; io при этом почти не нужен —
+ * подстановки принимаются для команд, которые до отказа успевают
+ * тронуть окружение.
+ */
+function makeCli(overrides: Partial<CommandIo> = {}) {
   const out: string[] = [];
   const err: string[] = [];
-  const io = makeFakeIo();
+  const io = makeFakeIo(overrides);
   const output = {
     stdout: (text: string) => void out.push(text),
     stderr: (text: string) => void err.push(text),
@@ -164,5 +169,44 @@ Deno.test("перечень входов справки собирается и�
     assertEquals(await cli.run("xlsx", "alias", "ls", "--help"), 0);
     assertEquals(cli.stdout().includes("Флаги:"), false);
     assertEquals(cli.stdout().includes("Аргументы:"), false);
+  });
+});
+
+/**
+ * Окружение, которого хватает `mpu ssh` до отказа выбора транспорта:
+ * stdin с терминала (пустой) и приёмник вывода, к которому дело не
+ * дойдёт.
+ */
+const SSH_IO: Partial<CommandIo> = {
+  stdinIsTerminal: () => true,
+  openRemoteOutput: () => ({
+    out: () => {},
+    err: () => {},
+    captured: () => "",
+  }),
+};
+
+Deno.test("--json не перехватывается у команды с хвостовым входом", async (t) => {
+  // `mpu ssh sl-1 mycli --json` — флаг чужой командной строки
+  // (`platform/registry.md`). Различить перехват и его отсутствие можно
+  // по тому, осталась ли команда непустой: съеденный флаг оставил бы её
+  // пустой, и отказ был бы другой.
+  await t.step("флаг доезжает удалённой командой", async () => {
+    const cli = makeCli(SSH_IO);
+    assertEquals(await cli.run("ssh", "sl-1", "--json"), 2);
+    assertStringIncludes(cli.stderr(), "для sl-1 не задано ни sl_1");
+    assertEquals(cli.stdout(), "");
+  });
+
+  await t.step("после `--` — так же", async () => {
+    const cli = makeCli(SSH_IO);
+    assertEquals(await cli.run("ssh", "sl-1", "--", "--json"), 2);
+    assertStringIncludes(cli.stderr(), "для sl-1 не задано ни sl_1");
+  });
+
+  await t.step("у обычной команды флаг по-прежнему общий", async () => {
+    const cli = makeCli();
+    assertEquals(await cli.run("xlsx", "alias", "ls", "--json"), 0);
+    assertStringIncludes(cli.stdout(), "{");
   });
 });

@@ -235,5 +235,15 @@ Deno.test("флаги берутся из того же источника, чт
       COMP_CWORD: "3",
     });
     assertEquals(native.stdout.split("\n").includes(JSON_FLAG), true);
+    // Кроме команды, чей хвостовой вход забирает неопознанные токены:
+    // там `--json` — флаг чужой командной строки, и предлагать его
+    // значило бы советовать испортить чужой вызов
+    // (`platform/registry.md`).
+    const passthrough = await complete({
+      _MPU_COMPLETE: "complete_bash",
+      COMP_WORDS: "mpu ssh -",
+      COMP_CWORD: "2",
+    });
+    assertEquals(passthrough.stdout.split("\n").includes(JSON_FLAG), false);
   });
 });
