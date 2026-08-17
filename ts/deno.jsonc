@@ -17,6 +17,7 @@
       "src/env/testdata",
       "src/exec/testdata",
       "src/health/testdata",
+      "src/nodecli/testdata",
       "src/ps/testdata",
       "src/runjs/testdata",
       "src/sql/testdata",

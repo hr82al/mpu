@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 45 команд верхнего уровня, ещё не переехавших на TS. */
+/** 43 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["search"],
@@ -131,11 +131,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
       "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
   },
   {
-    path: ["ss-update"],
-    summary:
-      "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
-  },
-  {
     path: ["ss-load"],
     summary:
       "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
@@ -144,10 +139,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     path: ["ss-datasets"],
     summary:
       "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
-  },
-  {
-    path: ["wb-loader"],
-    summary: "Обёртки над `node cli service:wbLoader` (sl-back).",
   },
   {
     path: ["wb-jobs"],

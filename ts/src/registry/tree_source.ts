@@ -13,10 +13,11 @@ import type { LegacyCommand } from "../legacy/mod.ts";
 import type { Manifest } from "../mcp/legacy_tools.ts";
 
 /**
- * Имена, которых в списке маршрута `legacy` быть не должно: `xlsx`,
- * `init`, `update`, `sql-ro`, `sql` и `logs` реализованы командами
- * контракта; `help` и `version` — поверхности точки входа
- * (`platform/registry.md`).
+ * Имена, которых в списке маршрута `legacy` быть не должно: команды,
+ * уже реализованные контрактом, плюс `help` и `version` — поверхности
+ * самой точки входа (`platform/registry.md`). Список растёт с каждым
+ * переездом, поэтому перечислять его здесь второй раз незачем — он
+ * ниже.
  */
 export const NOT_LEGACY: readonly string[] = [
   "xlsx",
@@ -28,6 +29,8 @@ export const NOT_LEGACY: readonly string[] = [
   "run-js",
   "ps",
   "health",
+  "ss-update",
+  "wb-loader",
   "logs",
   "help",
   "version",

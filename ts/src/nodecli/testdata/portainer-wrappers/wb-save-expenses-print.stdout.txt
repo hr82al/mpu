@@ -1,0 +1,1 @@
+ssh -i <HOME>/.ssh/id_rsa -t probeuser@10.9.9.9 'docker exec -it sl-9-cli sh -c "node cli service:wbUnitCalculatedData saveExpenses --client-id 777 --date-from 2026-01-01 --date-to 2026-01-31"'

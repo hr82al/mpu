@@ -7,7 +7,7 @@
  */
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
-import { commands, findCommand } from "./mod.ts";
+import { commands, findCommand, findGroup, findLegacy } from "./mod.ts";
 import { openCacheDb as openStoreDb } from "../store/mod.ts";
 import { type Command, type CommandIo, UsageError } from "../command/mod.ts";
 
@@ -215,6 +215,109 @@ const CASES: readonly CommandCase[] = [
       notRunning: [],
       tails: [{ name: "mp-wb-loader-app", text: "ошибка\n", error: null }],
       tail: 30,
+      exitCode: 0,
+    },
+  },
+  {
+    path: "ss-update",
+    // `--print` ничего не выполняет и в сеть не ходит: у обхода нет ни
+    // живого контейнера, ни права его трогать — дефолтный режим этой
+    // команды мутирует прод клиента.
+    argv: ["777", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:ssUpdater update --client-id 777" +
+        " --spreadsheet-id SHEET123 --update-type schedule --logs info",
+      printed: 'sl-9-cli sh -c "node cli service:ssUpdater update"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "wb-loader reports",
+    argv: ["777", "--sid", "SID42", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:wbLoader wb --client-id 777 --sid SID42",
+      printed: 'sl-9-cli sh -c "node cli service:wbLoader wb"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "wb-loader cards",
+    argv: ["777", "--sid", "SID42", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:wbLoader wb --client-id 777 --sid SID42",
+      printed: 'sl-9-cli sh -c "node cli service:wbLoader wb"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "wb-loader adv-auto-keywords-stats",
+    argv: ["777", "--sid", "SID42", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:wbLoader wb --client-id 777 --sid SID42",
+      printed: 'sl-9-cli sh -c "node cli service:wbLoader wb"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "wb-loader adv-fullstats",
+    argv: ["777", "--sid", "SID42", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:wbLoader wb --client-id 777 --sid SID42",
+      printed: 'sl-9-cli sh -c "node cli service:wbLoader wb"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "wb-loader search-texts",
+    argv: ["777", "--sid", "SID42", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:wbLoader wb --client-id 777 --sid SID42",
+      printed: 'sl-9-cli sh -c "node cli service:wbLoader wb"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "wb-loader analytics-by-period",
+    argv: ["777", "--sid", "SID42", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:wbLoader wb --client-id 777 --sid SID42",
+      printed: 'sl-9-cli sh -c "node cli service:wbLoader wb"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "wb-loader adverts",
+    argv: ["777", "--sid", "SID42", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:wbLoader wb --client-id 777 --sid SID42",
+      printed: 'sl-9-cli sh -c "node cli service:wbLoader wb"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "wb-loader search-clusters-bids",
+    argv: ["777", "--sid", "SID42", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:wbLoader wb --client-id 777 --sid SID42",
+      printed: 'sl-9-cli sh -c "node cli service:wbLoader wb"',
+      output: "",
       exitCode: 0,
     },
   },
@@ -947,3 +1050,21 @@ function makeIo(dir: string): CommandIo {
     },
   };
 }
+
+Deno.test("каждый промежуточный уровень пути опознаётся реестром", () => {
+  // Точка входа опознаёт сегмент пути только по реестру: группой либо
+  // записью слепка. Не описан ни там ни там — подкоманды
+  // зарегистрированы, но человеком не вызываются вовсе
+  // (`platform/registry.md`, справка на каждом уровне).
+  for (const command of commands) {
+    for (let depth = 1; depth < command.path.length; depth++) {
+      const prefix = command.path.slice(0, depth);
+      const known = findGroup(prefix) !== undefined ||
+        findLegacy(prefix) !== undefined;
+      assert(
+        known,
+        `${command.path.join(" ")}: уровень "${prefix.join(" ")}" не описан`,
+      );
+    }
+  }
+});

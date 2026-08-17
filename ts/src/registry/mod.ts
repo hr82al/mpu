@@ -24,6 +24,7 @@ import { updateCommand } from "../update/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
 import { sqlCommand, sqlRoCommand } from "../sql/mod.ts";
 import { healthCommand } from "../health/mod.ts";
+import { ssUpdateCommand, wbLoaderCommands } from "../nodecli/mod.ts";
 import { psCommand } from "../ps/mod.ts";
 import { runJsCommand } from "../runjs/mod.ts";
 import { sshCommand } from "../ssh/mod.ts";
@@ -105,6 +106,8 @@ export const commands: readonly Command[] = [
   sqlCommand,
   sqlRoCommand,
   healthCommand,
+  ssUpdateCommand,
+  ...wbLoaderCommands,
   psCommand,
   runJsCommand,
   sshCommand,
@@ -190,6 +193,11 @@ export const groups: readonly CommandGroup[] = [
     path: ["xlsx", "alias"],
     summary: "алиасы путей: add | ls | rm",
     usage: "mpu xlsx alias <подкоманда> [аргументы]",
+  },
+  {
+    path: ["wb-loader"],
+    summary: "загрузка данных WB-кабинета в БД клиента: reports | cards | …",
+    usage: "mpu wb-loader <подкоманда> [аргументы]",
   },
   {
     path: ["kiten", "field"],

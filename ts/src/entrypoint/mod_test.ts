@@ -254,3 +254,13 @@ Deno.test("--json не перехватывается у команды с хв�
     assertStringIncludes(cli.stdout(), "{");
   });
 });
+
+Deno.test("голый вызов обёртки печатает справку, а не сообщение схемы", async () => {
+  // Признак объявляет команда: у соседей с обязательным входом текст
+  // отказа свой и закреплён их спеками (`specs/sql-ro.md`).
+  const cli = makeCli();
+  assertEquals(await cli.run("ss-update"), 2);
+  assertStringIncludes(cli.stdout(), "mpu ss-update");
+  assertStringIncludes(cli.stdout(), "--print");
+  assertEquals(cli.stderr(), "");
+});

@@ -313,6 +313,15 @@ async function runLeafCommand(
     output.stdout(renderCommandHelp(command));
     return 0;
   }
+  // Голый вызов команды, объявившей это своим контрактом, — просьба
+  // показать, как её звать: печатается справка, а не сообщение схемы
+  // (`specs/portainer-wrappers.md`, «CLI-контракт»; та же форма, что у
+  // голого вызова группы). Признак объявляет команда: у соседей текст
+  // отказа свой и закреплён их спеками (`specs/sql-ro.md`).
+  if (args.length === 0 && command.helpWhenBare) {
+    output.stdout(renderCommandHelp(command));
+    return 2;
+  }
   if (command.bridge(own)) {
     // Часть поверхности команды может быть ещё не перенесена — такой
     // вызов уходит прежней реализации целиком, до разбора аргументов

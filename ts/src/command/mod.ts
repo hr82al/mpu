@@ -273,6 +273,14 @@ export interface CommandSpec<A, R> {
    * отдаётся всегда и с кодом 0 — форма вывода класс команды не меняет.
    */
   readonly textExitCode?: (result: R) => number;
+  /**
+   * Голый вызов (argv пуст) печатает справку и завершается кодом 2,
+   * вместо сообщения схемы о недостающем аргументе. Объявляется
+   * командой, а не выводится из схемы: у соседей с обязательным входом
+   * текст отказа свой и закреплён их спеками
+   * (`specs/portainer-wrappers.md` против `specs/sql-ro.md`).
+   */
+  readonly helpWhenBare?: boolean;
 }
 
 /** Команда в реестре: типы аргументов и результата скрыты внутри. */
@@ -326,6 +334,8 @@ export interface Command {
   ) => string;
   /** Код завершения текстовой формы для этого результата. */
   readonly textExitCode: (result: unknown) => number;
+  /** Голый вызов печатает справку и завершается кодом 2. */
+  readonly helpWhenBare: boolean;
   /** Проверяет образец результата объявленной схемой. */
   readonly assertResult: (value: unknown) => void;
 }
@@ -383,6 +393,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     invokeInput: async (input, io) => await spec.run(parseInput(input), io),
     renderResult: (result, argv) =>
       spec.render(spec.resultSchema.parse(result), parse(argv)),
+    helpWhenBare: spec.helpWhenBare ?? false,
     textExitCode: (result) =>
       spec.textExitCode === undefined
         ? 0
