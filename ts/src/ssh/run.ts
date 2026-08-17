@@ -14,19 +14,20 @@ import {
   UsageError,
 } from "../command/mod.ts";
 import {
+  ambiguous,
   chooseTransport,
   containerLocations,
   containerNamesLike,
   type ExecPlace,
   type HttpCall,
   type OpenChannel,
+  placeOf,
   runOverPortainer,
   runOverSsh,
   type RunProcess,
   viaOf,
 } from "../exec/mod.ts";
 import type { CacheReader } from "../selector/mod.ts";
-import { ambiguous, placeOf } from "./place.ts";
 
 /** Ключ ssh — без настройки (`platform/exec-transport.md`). */
 const KEY_FILE = ".ssh/id_rsa";

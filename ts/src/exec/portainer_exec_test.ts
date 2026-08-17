@@ -9,6 +9,7 @@ import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { DomainError, type RemoteOutput } from "../command/mod.ts";
 import { encodeFrame, OPCODE, randomMask } from "./frames.ts";
 import {
+  detachOverPortainer,
   type HttpCall,
   type PortainerTarget,
   runOverPortainer,
@@ -396,4 +397,50 @@ Deno.test("отказ создания exec после доставки stdin: �
     JSON.parse(sent[sent.length - 1].body).Cmd[2],
     "rm -f /tmp/__MPU_PSSH_PID /tmp/__MPU_PSSH_STDIN",
   );
+});
+
+Deno.test("фоновый запуск: скрипт архивом, exec без Tty, статус не ждём", async (t) => {
+  const { http, sent } = border({
+    create: await fixture("portainer-create-exec.json"),
+    inspect: [await fixture("portainer-inspect-exec-done.json")],
+  });
+  const { output } = sink();
+  const code = await detachOverPortainer({
+    target: TARGET,
+    script: "console.log(1)\n",
+    scriptPath: "/tmp/mpu-run-0a1b2c3d.mjs",
+    logPath: "/tmp/mpu-run-0a1b2c3d.log",
+    output,
+    warn: () => {},
+    http,
+    open: channelOf([]),
+    delay: () => Promise.resolve(),
+  });
+
+  await t.step("скрипт уезжает тем же архивом, что и stdin", () => {
+    assertEquals(sent[0].method, "PUT");
+    assertStringIncludes(sent[0].body, "mpu-run-0a1b2c3d.mjs");
+    assertEquals(sent[0].headers["Content-Type"], "application/x-tar");
+  });
+
+  await t.step("запуск — nohup и редирект в лог, без Tty", () => {
+    const body = JSON.parse(sent[1].body);
+    assertEquals(body.Tty, false);
+    assertEquals(body.Cmd, [
+      "sh",
+      "-c",
+      "nohup node /tmp/mpu-run-0a1b2c3d.mjs" +
+      " > /tmp/mpu-run-0a1b2c3d.log 2>&1 < /dev/null &",
+    ]);
+  });
+
+  await t.step("код запуска — код exec'а, не удалённой команды", () => {
+    assertEquals(code, 7);
+  });
+
+  await t.step("строку `mpu: detached` launch-команда не печатает", () => {
+    // Статус печатает CLI; дубля в удалённой команде нет и на ssh-пути
+    // (отклонение `fix` спеки).
+    assertEquals(JSON.parse(sent[1].body).Cmd[2].includes("echo"), false);
+  });
 });

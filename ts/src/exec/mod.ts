@@ -9,17 +9,25 @@ export {
   type ContainerLocation,
   containerLocations,
   containerNamesLike,
+  instanceServerNumbers,
   type PortainerLocation,
   serverLocation,
 } from "./containers.ts";
 export {
+  detachOverPortainer,
   type HttpCall,
   type OnInterrupt,
   type PortainerTarget,
   runOverPortainer,
 } from "./portainer.ts";
+export { ambiguous, placeOf, type PlaceSources } from "./place.ts";
 export { quoteArg, shellCommand } from "./shell.ts";
-export { runOverSsh, type RunProcess, type SshTarget } from "./ssh.ts";
+export {
+  detachOverSsh,
+  runOverSsh,
+  type RunProcess,
+  type SshTarget,
+} from "./ssh.ts";
 export type { OpenChannel } from "./ws.ts";
 export {
   chooseTransport,

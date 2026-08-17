@@ -7,6 +7,7 @@
 import { assertEquals } from "@std/assert";
 import type { RemoteOutput } from "../command/mod.ts";
 import {
+  detachOverSsh,
   runOverSsh,
   type RunProcess,
   spawnProcess,
@@ -120,5 +121,62 @@ Deno.test("настоящий подпроцесс: потоки и код вы�
       await spawnProcess("/bin/false", [], new Uint8Array(), output),
       1,
     );
+  });
+});
+
+Deno.test("фоновый запуск: заливка скрипта, затем docker exec -d", async (t) => {
+  const calls: { remote: string; stdin: string }[] = [];
+  const runWith = (codes: readonly number[]): RunProcess => {
+    let index = 0;
+    return (_bin, argv, stdin) => {
+      calls.push({
+        remote: argv[3] ?? "",
+        stdin: new TextDecoder().decode(stdin),
+      });
+      return Promise.resolve(codes[index++] ?? 0);
+    };
+  };
+
+  await t.step("две команды по порядку, скрипт на stdin первой", async () => {
+    calls.length = 0;
+    const { output } = sink();
+    const code = await detachOverSsh({
+      target: TARGET,
+      script: "console.log(1)\n",
+      scriptPath: "/tmp/mpu-run-0a1b2c3d.mjs",
+      logPath: "/tmp/mpu-run-0a1b2c3d.log",
+      keyPath: KEY,
+      output,
+      run: runWith([0, 0]),
+    });
+    assertEquals(code, 0);
+    assertEquals(calls.length, 2);
+    assertEquals(
+      calls[0].remote,
+      "docker exec -i mp-sl-1-cli sh -c 'cat > /tmp/mpu-run-0a1b2c3d.mjs'",
+    );
+    assertEquals(calls[0].stdin, "console.log(1)\n");
+    assertEquals(
+      calls[1].remote,
+      "docker exec -d mp-sl-1-cli sh -c 'node /tmp/mpu-run-0a1b2c3d.mjs" +
+        " > /tmp/mpu-run-0a1b2c3d.log 2>&1 < /dev/null'",
+    );
+    assertEquals(calls[1].stdin, "");
+  });
+
+  await t.step("залить не удалось — стартовать нечего", async () => {
+    calls.length = 0;
+    const { output } = sink();
+    const code = await detachOverSsh({
+      target: TARGET,
+      script: "x",
+      scriptPath: "/tmp/s.mjs",
+      logPath: "/tmp/s.log",
+      keyPath: KEY,
+      output,
+      run: runWith([3]),
+    });
+    assertEquals(code, 3);
+    assertEquals(calls.length, 1);
   });
 });

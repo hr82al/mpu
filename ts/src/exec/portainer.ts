@@ -71,6 +71,51 @@ export async function runOverPortainer(run: PortainerRun): Promise<number> {
 }
 
 /**
+ * Фоновый запуск через Portainer (`platform/exec-transport.md`,
+ * «Фоновый запуск»): скрипт заливается tar'ом в `/tmp`, затем exec
+ * стартует node через `nohup` и возвращается сразу. Завершения никто не
+ * ждёт — процесс переживает разрыв соединения.
+ *
+ * Строки `mpu: detached, log=…` launch-команда не печатает: статус
+ * печатает CLI, а её дубль отсутствовал бы на ssh-пути (отклонение
+ * `fix` спеки).
+ */
+export async function detachOverPortainer(options: {
+  readonly target: PortainerTarget;
+  readonly script: string;
+  readonly scriptPath: string;
+  readonly logPath: string;
+  readonly output: RemoteOutput;
+  readonly warn: (line: string) => void;
+  readonly http?: HttpCall;
+  readonly open?: OpenChannel;
+  readonly delay?: (ms: number) => Promise<void>;
+}): Promise<number> {
+  const run: PortainerRun = {
+    target: options.target,
+    command: ["true"],
+    stdin: new Uint8Array(),
+    output: options.output,
+    warn: options.warn,
+    http: options.http,
+    open: options.open,
+    delay: options.delay,
+  };
+  const call = callOf(run);
+  const name = options.scriptPath.slice(
+    options.scriptPath.lastIndexOf("/") + 1,
+  );
+  await upload(call, name, new TextEncoder().encode(options.script));
+  const id = await createExec(call, [
+    "sh",
+    "-c",
+    `nohup node ${options.scriptPath} > ${options.logPath} 2>&1 < /dev/null &`,
+  ], { tty: false });
+  await call.stream(id, options.output.out);
+  return await exitCode(call, run, id);
+}
+
+/**
  * Стрим вывода и код выхода. Ctrl+C во время стрима убивает удалённый
  * процесс явно: разрыв WebSocket'а Docker не замечает и оставляет
  * команду работать (спека, п. 7).
@@ -182,21 +227,31 @@ function callOf(run: PortainerRun): ExecCall {
 }
 
 /** Доставка stdin файлом в `/tmp` контейнера (спека, п. 2). */
-async function uploadStdin(call: ExecCall, run: PortainerRun): Promise<void> {
+function uploadStdin(call: ExecCall, run: PortainerRun): Promise<void> {
+  return upload(call, STDIN_FILE, run.stdin);
+}
+
+/** Файл в `/tmp` контейнера архивом: один и тот же путь у stdin и скрипта. */
+async function upload(
+  call: ExecCall,
+  name: string,
+  content: Uint8Array,
+): Promise<void> {
   const response = await call.send(
     `/containers/${call.container}/archive?path=/tmp`,
     {
       method: "PUT",
-      body: tarFile(STDIN_FILE, run.stdin),
+      body: tarFile(name, content),
       headers: { "Content-Type": "application/x-tar" },
     },
   );
-  requireOk(response, "доставка stdin");
+  requireOk(response, "доставка файла");
 }
 
 async function createExec(
   call: ExecCall,
   cmd: readonly string[],
+  options: { readonly tty: boolean } = { tty: true },
 ): Promise<string> {
   const response = await call.send(`/containers/${call.container}/exec`, {
     method: "POST",
@@ -205,8 +260,9 @@ async function createExec(
       AttachStderr: true,
       // Tty сливает stdout и stderr в один поток; без него Node в
       // контейнере буферизует вывод пакетами и стрима не выходит
-      // (отклонение `preserve` спеки).
-      Tty: true,
+      // (отклонение `preserve` спеки). Фоновому запуску он не нужен:
+      // ждать от него нечего (спека, «Фоновый запуск»).
+      Tty: options.tty,
       Cmd: [...cmd],
     }),
     headers: { "Content-Type": "application/json" },

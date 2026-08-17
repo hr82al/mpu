@@ -87,6 +87,21 @@ export function containerNamesLike(
 }
 
 /**
+ * Номера инстанс-серверов кэша по возрастанию. Ноль и NULL не в счёт:
+ * fan-out целится в однотипные инстанс-приложения, а main-сервер
+ * (`sl-0`) в него не входит (`specs/run-js.md`, отклонение `preserve`).
+ */
+export function instanceServerNumbers(cache: CacheReader): readonly number[] {
+  const rows = read(
+    cache,
+    "SELECT DISTINCT server_number FROM portainer_containers" +
+      " WHERE server_number IS NOT NULL AND server_number > 0" +
+      " ORDER BY server_number",
+  );
+  return rows.map((row) => int(row.server_number, "server_number"));
+}
+
+/**
  * Запрос к таблице контейнеров. Её отсутствие (кэш-БД не
  * инициализирована) — пустой ответ, как велит спека; прочие ошибки
  * запроса — не «пусто», а поломка, и уходят наверх: иначе опечатка в SQL

@@ -1,14 +1,18 @@
 /**
- * Куда адресован вызов `mpu ssh` (`specs/ssh.md`, «CLI-контракт»):
- * собственные формы селектора команда перехватывает до базового резолва
- * (`platform/selector.md`), и тексты их отказов принадлежат ей.
+ * Куда адресован вызов exec-команды (`specs/ssh.md`, «CLI-контракт»;
+ * `specs/run-js.md` трактует селектор идентично): собственные формы
+ * селектора перехватываются до базового резолва
+ * (`platform/selector.md`).
  *
  * Порядок перехвата — контракт: `dev:`, затем `sl-N`, затем точное имя
- * контейнера из кэша, и только потом клиентский резолв.
+ * контейнера из кэша, и только потом клиентский резолв. Тексты отказов
+ * общие для обеих команд, а имя в префиксе подставляет форматирование
+ * ошибки вызвавшей.
  */
 
 import { UsageError } from "../command/mod.ts";
-import { containerLocations, type ExecPlace } from "../exec/mod.ts";
+import { containerLocations } from "./containers.ts";
+import type { ExecPlace } from "./target.ts";
 import {
   type CacheReader,
   resolveSelector,

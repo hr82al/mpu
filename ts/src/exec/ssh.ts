@@ -59,9 +59,65 @@ export function sshArgs(
   command: readonly [string, ...string[]],
   keyPath: string,
 ): readonly string[] {
-  const remote = `docker exec -i ${quoteArg(target.container)} sh -c ` +
-    quoteArg(shellCommand(command));
+  return sshArgsOf(
+    target,
+    keyPath,
+    `docker exec -i ${quoteArg(target.container)} sh -c ` +
+      quoteArg(shellCommand(command)),
+  );
+}
+
+/** Те же аргументы для готовой удалённой строки (фоновый запуск). */
+export function sshArgsOf(
+  target: SshTarget,
+  keyPath: string,
+  remote: string,
+): readonly string[] {
   return ["-i", keyPath, `${target.user}@${target.host}`, remote];
+}
+
+/**
+ * Фоновый запуск по ssh (`platform/exec-transport.md`, «Фоновый
+ * запуск»): сперва скрипт заливается в контейнер через stdin, затем
+ * `docker exec -d` стартует node и возвращается сразу. Ненулевой код
+ * заливки прерывает запуск — стартовать нечего.
+ */
+export async function detachOverSsh(options: {
+  readonly target: SshTarget;
+  readonly script: string;
+  readonly scriptPath: string;
+  readonly logPath: string;
+  readonly keyPath: string;
+  readonly output: RemoteOutput;
+  readonly run?: RunProcess;
+}): Promise<number> {
+  const run = options.run ?? spawnProcess;
+  const container = quoteArg(options.target.container);
+  const upload = await run(
+    "ssh",
+    sshArgsOf(
+      options.target,
+      options.keyPath,
+      `docker exec -i ${container} sh -c ` +
+        quoteArg(`cat > ${options.scriptPath}`),
+    ),
+    new TextEncoder().encode(options.script),
+    options.output,
+  );
+  if (upload !== 0) return upload;
+  return await run(
+    "ssh",
+    sshArgsOf(
+      options.target,
+      options.keyPath,
+      `docker exec -d ${container} sh -c ` +
+        quoteArg(
+          `node ${options.scriptPath} > ${options.logPath} 2>&1 < /dev/null`,
+        ),
+    ),
+    new Uint8Array(),
+    options.output,
+  );
 }
 
 /**

@@ -11,6 +11,7 @@ import { openCacheDb } from "../store/mod.ts";
 import {
   containerLocations,
   containerNamesLike,
+  instanceServerNumbers,
   serverLocation,
 } from "./containers.ts";
 
@@ -148,5 +149,19 @@ Deno.test("неинициализированная кэш-БД — пустой
     assertEquals(serverLocation(db, 1), null);
     assertEquals(containerLocations(db, "mp-dt-cli"), []);
     assertEquals(containerNamesLike(db, "wb"), []);
+  });
+});
+
+Deno.test("номера инстанс-серверов: без нуля и NULL, по возрастанию", async () => {
+  await withCache([
+    { name: "mp-sl-2-cli", serverNumber: 2 },
+    { name: "mp-sl-0-cli", serverNumber: 0 },
+    { name: "mp-sl-1-cli", serverNumber: 1 },
+    { name: "mp-sl-1-api", serverNumber: 1 },
+    { name: "mp-dt-cli" },
+  ], (db) => {
+    // Main-сервер в fan-out не входит намеренно (спека `run-js`,
+    // отклонение `preserve`), контейнеры без номера — тем более.
+    assertEquals(instanceServerNumbers(db), [1, 2]);
   });
 });
