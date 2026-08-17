@@ -1,0 +1,26 @@
+[
+  {
+    "endpoint": "?",
+    "name": "mp_probe-underscore",
+    "state": "",
+    "image": ""
+  },
+  {
+    "endpoint": "stand-a",
+    "name": "mp-sl-1-cli",
+    "state": "running",
+    "image": "registry.example/app:1.2.3"
+  },
+  {
+    "endpoint": "stand-a",
+    "name": "mp-sl-1-migrations",
+    "state": "exited",
+    "image": "registry.example/app:1.2.3"
+  },
+  {
+    "endpoint": "stand-a",
+    "name": "mp-wb-loader-app",
+    "state": "running",
+    "image": "registry.example/loader:4.5"
+  }
+]

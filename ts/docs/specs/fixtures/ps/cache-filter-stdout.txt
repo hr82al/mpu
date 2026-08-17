@@ -1,0 +1,2 @@
+ENDPOINT  NAME              STATE    IMAGE
+stand-a   mp-wb-loader-app  running  registry.example/loader:4.5
