@@ -25,8 +25,23 @@ export const TOTAL_TIMEOUT_MS = 10_000;
 /** Оба предела одного вызова — параметр, не всегда константа: см. `httpGet`. */
 export interface RequestTimeouts {
   readonly headersTimeoutMs: number;
-  readonly totalTimeoutMs: number;
+  /**
+   * Предел всего вызова; `null` — предела нет. Отсутствие выражено
+   * типом, а не огромным числом: `setTimeout` не принимает значений
+   * шире int32 и молча схлопывает их в одну миллисекунду, то есть
+   * «бесконечный» предел срабатывал бы мгновенно (`specs/health.md`:
+   * у запроса логов предела чтения нет).
+   */
+  readonly totalTimeoutMs: number | null;
 }
+
+/**
+ * Предел, шире которого таймер не работает: `setTimeout` принимает
+ * int32 и молча схлопывает всё большее в одну миллисекунду. Значит,
+ * «очень большое число» как способ сказать «предела нет» даёт ровно
+ * обратное — мгновенный обрыв; сказать это можно только `null`.
+ */
+const MAX_TIMER_MS = 2_147_483_647;
 
 /** Пределы по умолчанию: их числа названы в `--help` команды init. */
 export const DEFAULT_TIMEOUTS: RequestTimeouts = {
@@ -214,11 +229,12 @@ async function withTimeouts(
       `no response headers within ${timeouts.headersTimeoutMs}ms`;
     controller.abort();
   }, timeouts.headersTimeoutMs);
-  const totalTimer = setTimeout(() => {
+  const total = limited(timeouts.totalTimeoutMs);
+  const totalTimer = total === null ? undefined : setTimeout(() => {
     if (controller.signal.aborted) return;
-    timeoutMessage = `no response within ${timeouts.totalTimeoutMs}ms`;
+    timeoutMessage = `no response within ${total}ms`;
     controller.abort();
-  }, timeouts.totalTimeoutMs);
+  }, total);
   try {
     return await run(controller.signal, () => clearTimeout(headersTimer));
   } catch (err) {
@@ -228,8 +244,23 @@ async function withTimeouts(
     });
   } finally {
     clearTimeout(headersTimer);
-    clearTimeout(totalTimer);
+    if (totalTimer !== undefined) clearTimeout(totalTimer);
   }
+}
+
+/**
+ * Предел вызова, пригодный для таймера. Значение шире int32 — ошибка
+ * вызывающего, а не повод молча превратить его в одну миллисекунду:
+ * отсутствие предела выражается `null`.
+ */
+function limited(totalTimeoutMs: number | null): number | null {
+  if (totalTimeoutMs !== null && totalTimeoutMs > MAX_TIMER_MS) {
+    throw new HttpCallError(
+      `предел вызова ${totalTimeoutMs}ms не выражается таймером;` +
+        " отсутствие предела задаётся null",
+    );
+  }
+  return totalTimeoutMs;
 }
 
 /**

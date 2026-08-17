@@ -37,6 +37,12 @@ export interface PortainerContainer {
   readonly id: string;
   readonly names: readonly string[];
   readonly state: string;
+  /**
+   * Транзиентная строка вида `Up 3 days` / `Exited (137) 2 hours ago`.
+   * Хранить её в кэше нельзя (устареет к следующему чтению), поэтому
+   * колонка STATUS есть только у живого списка (`specs/ps.md`).
+   */
+  readonly status: string;
   readonly image: string;
 }
 
@@ -73,6 +79,7 @@ interface RawContainer {
   readonly Id: string;
   readonly Names: readonly string[];
   readonly State: string;
+  readonly Status: string;
   readonly Image: string;
 }
 
@@ -110,9 +117,14 @@ export async function listContainers(
   );
   return raw.map((c) => ({
     id: c.Id,
-    names: c.Names,
-    state: c.State,
-    image: c.Image,
+    // Не-массив на месте имён — тот же случай, что не-строка в поле:
+    // живой ответ фермы приходит как есть, и падать на нём незачем.
+    names: Array.isArray(c.Names) ? c.Names.filter(isString) : [],
+    // Не-строки на месте полей — пусто: живой ответ фермы приходит
+    // как есть, и падать на нём команде незачем (`specs/ps.md`).
+    state: text(c.State),
+    status: text(c.Status),
+    image: text(c.Image),
   }));
 }
 
@@ -177,6 +189,25 @@ export async function fetchContainerLogs(
 export interface DockerStreams {
   readonly stdout: Uint8Array;
   readonly stderr: Uint8Array;
+}
+
+/**
+ * Имя контейнера: первый элемент `Names` без ведущего `/`. Живёт здесь,
+ * а не у потребителей: снятие слэша — свойство ответа Docker, и у него
+ * уже двое читателей (`specs/ps.md`, `specs/health.md`).
+ */
+export function containerName(names: readonly string[]): string {
+  const first = names[0] ?? "";
+  return first.startsWith("/") ? first.slice(1) : first;
+}
+
+/** Строковое поле ответа; не-строка равнозначна пустому значению. */
+function text(value: unknown): string {
+  return isString(value) ? value : "";
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
 }
 
 /** Длина заголовка кадра мультиплексированного потока Docker. */

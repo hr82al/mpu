@@ -68,6 +68,7 @@ Deno.test("happy path: список endpoints и контейнеров, заг�
       return Response.json([
         {
           Id: "abc123",
+          Status: "Up 3 days",
           Names: ["/sl-3-cli"],
           State: "running",
           Image: "img:tag",
@@ -91,6 +92,7 @@ Deno.test("happy path: список endpoints и контейнеров, заг�
         id: "abc123",
         names: ["/sl-3-cli"],
         state: "running",
+        status: "Up 3 days",
         image: "img:tag",
       },
     ]);
@@ -238,6 +240,81 @@ Deno.test("гонка таймеров: причину называет тот �
     assertEquals(err.message, "no response headers within 50ms");
   } finally {
     gate.resolve();
+    await stop();
+  }
+});
+
+Deno.test("мусор в полях ответа не роняет разбор", async () => {
+  const { baseUrl, stop } = fakeServer(() =>
+    Response.json([
+      { Id: "a", Names: ["/mp-sl-1-cli"], State: 5, Status: null, Image: {} },
+      { Id: "b", Names: null, State: "running", Status: "Up", Image: "img" },
+    ])
+  );
+  try {
+    // Живой ответ фермы приходит как есть, и падать на нём команде
+    // незачем: не-строка равнозначна пустому значению, не-массив имён —
+    // пустому списку.
+    assertEquals(await listContainers(accessTo(baseUrl), 1), [
+      {
+        id: "a",
+        names: ["/mp-sl-1-cli"],
+        state: "",
+        status: "",
+        image: "",
+      },
+      { id: "b", names: [], state: "running", status: "Up", image: "img" },
+    ]);
+  } finally {
+    await stop();
+  }
+});
+
+Deno.test("предела нет: запрос не рвётся сам собой", async () => {
+  // `null` — именно отсутствие предела, а не огромное число:
+  // `setTimeout` не принимает значений шире int32 и схлопывает их в
+  // одну миллисекунду, то есть «бесконечный» предел срабатывал бы
+  // мгновенно (`specs/health.md`: у запроса логов предела чтения нет).
+  using time = new FakeTime();
+  const gate = Promise.withResolvers<void>();
+  const { baseUrl, stop } = fakeServer(async () => {
+    await gate.promise;
+    return new Response("[]");
+  });
+  try {
+    const call = listEndpoints(accessTo(baseUrl), {
+      headersTimeoutMs: 50,
+      totalTimeoutMs: null,
+    });
+    // Одной миллисекунды хватает: огромное число вместо `null`
+    // схлопывается таймером ровно в неё, и вызов оборвался бы здесь.
+    // С отсутствием предела рвать нечего — ответ приходит, когда его
+    // отдаст сервер.
+    await time.tickAsync(1);
+    gate.resolve();
+    assertEquals(await call, []);
+  } finally {
+    gate.resolve();
+    await stop();
+  }
+});
+
+Deno.test("огромный предел вместо `null` — отказ, а не мгновенный обрыв", async () => {
+  const { baseUrl, stop } = fakeServer(() => new Response("[]"));
+  try {
+    // Таймер схлопнул бы такое значение в одну миллисекунду, и вызов
+    // рвался бы сразу, выглядя сетевым сбоем. Сказать «предела нет»
+    // можно только `null`.
+    await assertRejects(
+      () =>
+        listEndpoints(accessTo(baseUrl), {
+          headersTimeoutMs: 50,
+          totalTimeoutMs: Number.MAX_SAFE_INTEGER,
+        }),
+      PortainerError,
+      "не выражается таймером",
+    );
+  } finally {
     await stop();
   }
 });
