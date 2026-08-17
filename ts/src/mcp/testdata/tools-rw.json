@@ -763,6 +763,77 @@
     }
   },
   {
+    "name": "ssh",
+    "title": "mpu ssh",
+    "description": "Выполнить команду в `sl-N-cli` ИЛИ в произвольном контейнере по точному имени.\n\nПервый позиционный токен — селектор, остальные позиционные и\nнеопознанные флаги образуют удалённую команду; `--` завершает разбор\nфлагов. Вывод стримится, код выхода наследуется 1:1.\n\nSELECTOR: sl-N; dev:N (тот же контейнер на dev-ноде); точное имя\nконтейнера из кэша; client_id / spreadsheet_id / title → единственный\nсервер. Транспорт выбирается сам: Portainer, если он настроен, иначе\nssh. --via меняет его для sl-N; для контейнера по имени --via ssh —\nошибка.\n\n--all-containers SUBSTR — последовательно во всех контейнерах кэша, чьё\nимя содержит подстроку; селектора при этом нет, все позиционные токены\n— команда. Первый ненулевой код прерывает остальные.\n\nstdin: --stdin-text (строка), --stdin-file (байты файла), --stdin-tty\n(с терминала до Ctrl+D) — взаимоисключимы. Без них читается пайп; с\nтерминала stdin пустой.\n\nExit: код удалённой команды как есть (2 от неё неотличим от ошибки\nввода); 2 — ошибки ввода, резолва и конфигурации; 1 — ошибки\nтранспорта.\n\nПримеры: mpu ssh sl-1 -- ls -la /app; mpu ssh dev:1 -- ls /app;\nmpu ssh mp-dt-cli -- env; cat s.mjs | mpu ssh sl-11 -- node\n--input-type=module -; mpu ssh --all-containers wb-loader -- node -v",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "description": "sl-N, dev:N, точное имя контейнера, client_id/spreadsheet/title; при --all-containers — первый токен команды",
+          "type": "string"
+        },
+        "command": {
+          "default": [],
+          "description": "команда для контейнера; неопознанные флаги уходят в неё как есть",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "via": {
+          "description": "транспорт серверного таргета: ssh|portainer",
+          "type": "string"
+        },
+        "all-containers": {
+          "description": "выполнить во всех контейнерах кэша, чьё имя содержит подстроку",
+          "type": "string"
+        },
+        "stdin-text": {
+          "description": "stdin команды строкой",
+          "type": "string"
+        },
+        "stdin-file": {
+          "description": "stdin команды из файла",
+          "type": "string"
+        },
+        "stdin-tty": {
+          "default": false,
+          "description": "читать stdin с терминала до Ctrl+D",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код выхода удалённой команды, 1:1"
+        },
+        "output": {
+          "type": "string",
+          "description": "вывод удалённой команды; в CLI он уже ушёл в потоки и здесь пуст"
+        }
+      },
+      "required": [
+        "exitCode",
+        "output"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "kiten_comment",
     "title": "mpu kiten comment",
     "description": "Комментарий к карточке Kaiten: текст, вложения, адресаты.\n\nSELECTOR — id карточки либо её URL.\n\nТекст — ровно один источник: -m/--message TEXT либо -F/--body-file PATH\n('-' — stdin); текст GFM markdown, интерактивных чекбоксов Kaiten в\nкомментарии не рендерит.\n\n-f/--file PATH — вложение (флаг повторяется): уходит сам файл, имя в\nKaiten — базовое имя пути. Текста вложения не дают: комментарий из одних\nфайлов Kaiten не принимает, поэтому -f без -m/-F и без --to отбивается до\nзапроса.\n\n--to HANDLES — адресаты (флаг повторяется, значение делится по пробелам);\nтокен без '@' его получает, дубли уходят без учёта регистра. Адресаты\nстановятся первой строкой, поэтому --to без текста проходит. '@all' — и в\n--to, и самостоятельным токеном в тексте — разворачивается в логин\nвладельца карточки; владельца нет — предупреждение в stderr и '@all' как\nесть. Ради владельца и читается карточка: без --to и без '@all' уходит\nровно один запрос.\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL.\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (источники\nтекста, вложение, селектор, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten comment 65634936 --to '@all' -m 'Готово, проверьте'",
@@ -3106,49 +3177,6 @@
       "required": [
         "discussion_ref"
       ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "ssh",
-    "title": "mpu ssh",
-    "description": "Выполнить команду в `sl-N-cli` ИЛИ в произвольном контейнере по точному имени.\n\nВыполнить команду в `sl-N-cli` ИЛИ в произвольном контейнере по точному имени.\n\nСелектор `sl-N` / client_id / ss_id / title → лендится в `sl-N-cli` (это уже\ndocker exec — НЕ оборачивать в `docker exec` повторно, бинаря docker внутри нет).\n\nСелектор = точное compose-имя контейнера (`sl-3-wb-loader`, `*-instance-app`) →\nPortainer-exec прямо в этот НЕ-cli контейнер (`--via ssh` тут не поддержан). Так\nчитают реальный runtime-конфиг прод-сервиса (`env`, `/proc/1/cmdline`, `/app/*`).\n\n`--all-containers <filter>` — fan-out: команда исполняется во всех контейнерах\nPortainer-кэша, чьё имя содержит подстроку `<filter>`. Взаимоисключающе с <selector>.\n\nReplica-сервисы (`deploy.replicas` / `WB_LOADER_THREADS=N`) → N контейнеров с одним\nименем → `ambiguous — matches N Portainer endpoints` (НЕ баг). Воркэраунд: схлопнуть\nдубли в `~/.config/mpu/mpu.db` (`portainer_containers`, keep MIN(rowid)); `mpu update`\nпересоберёт. stdin: `--stdin-text` / `--stdin-file` / `--stdin-tty`.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "selector": {
-          "type": "string",
-          "description": "sl-N | dev:N (sl-N на dev-ноде) | точное имя контейнера | client_id / spreadsheet_id / title. Взаимоисключающе с --all-containers."
-        },
-        "via": {
-          "type": "string",
-          "description": "Override транспорта: ssh | portainer (ssh — только для sl-N; контейнер по имени — всегда portainer)"
-        },
-        "all_containers_filter": {
-          "type": "string",
-          "description": "Fan-out: запустить команду во всех контейнерах Portainer-кэша с этой подстрокой в имени"
-        },
-        "stdin_text": {
-          "type": "string",
-          "description": "Inline-строка как stdin команды"
-        },
-        "stdin_file": {
-          "type": "string",
-          "description": "Файл, содержимое которого пойдёт на stdin"
-        },
-        "stdin_tty": {
-          "type": "boolean",
-          "description": "Читать stdin интерактивно (до Ctrl+D); по умолчанию TTY-вводом не интересуемся",
-          "default": false
-        }
-      },
-      "additionalProperties": false
     },
     "_meta": {
       "anthropic/requiresUserInteraction": true

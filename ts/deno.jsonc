@@ -17,6 +17,7 @@
       "src/env/testdata",
       "src/exec/testdata",
       "src/sql/testdata",
+      "src/ssh/testdata",
       "src/mcp/testdata",
       "src/xlsx/testdata",
       "src/kiten/testdata",

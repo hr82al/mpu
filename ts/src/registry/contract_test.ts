@@ -143,6 +143,15 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "ssh",
+    // Пустая команда — единственный вход, который отказывает раньше
+    // всякого транспорта (`specs/ssh.md`, «Граничные случаи»): живого
+    // контейнера у обхода нет, а исполнять в нём что-либо он не должен
+    // тем более.
+    argv: [],
+    sampleResult: { exitCode: 0, output: "" },
+  },
+  {
     path: "sql",
     // `--dry` не открывает соединений — единственный режим, безопасный
     // по построению (`specs/sql.md`, «Инварианты»): живой БД у обхода
@@ -605,6 +614,27 @@ Deno.test("инвариант 4: имена входа совпадают со �
       );
     }
     // И ничего сверх схемы: постороннее имя отвергается как опция.
+    // Исключение — вход, объявивший `keepsUnknown`: у него хвост argv
+    // это чужая командная строка (`mpu ssh`), и неопознанный токен по
+    // объявлению уходит в него, а не становится отказом.
+    const catchAll = command.inputs.find((input) =>
+      input.form.keepsUnknown === true
+    );
+    if (catchAll !== undefined) {
+      const parsed = command.parseArgs([
+        ...requiredArgv(command),
+        "--нет-такого-входа",
+      ]);
+      const positional = command.inputs
+        .filter((input) => input.form.positional !== undefined)
+        .flatMap((input) => [parsed[input.name]].flat());
+      assertEquals(
+        positional.includes("--нет-такого-входа"),
+        true,
+        `${name}: неопознанный токен не дошёл до позиционных входов`,
+      );
+      continue;
+    }
     const err = assertThrows(
       () => command.parseArgs([...requiredArgv(command), "--нет-такого-входа"]),
       UsageError,

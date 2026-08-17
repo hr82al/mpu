@@ -23,6 +23,7 @@ import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "../update/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
 import { sqlCommand, sqlRoCommand } from "../sql/mod.ts";
+import { sshCommand } from "../ssh/mod.ts";
 import { logsCommand } from "../logs/mod.ts";
 import {
   kitenArtefactRmCommand,
@@ -100,6 +101,7 @@ export const commands: readonly Command[] = [
   updateCommand,
   sqlCommand,
   sqlRoCommand,
+  sshCommand,
   logsCommand,
   mcpTokenCommand,
   // Первый нативный лист внутри группы, оставшейся `legacy`: соседи

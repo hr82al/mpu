@@ -13,12 +13,14 @@ export {
   serverLocation,
 } from "./containers.ts";
 export {
+  type HttpCall,
   type OnInterrupt,
   type PortainerTarget,
   runOverPortainer,
 } from "./portainer.ts";
 export { quoteArg, shellCommand } from "./shell.ts";
 export { runOverSsh, type RunProcess, type SshTarget } from "./ssh.ts";
+export type { OpenChannel } from "./ws.ts";
 export {
   chooseTransport,
   type ExecPlace,
