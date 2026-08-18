@@ -614,9 +614,8 @@ Deno.test("exec-режим видит Portainer-таргет из кэша", asy
       },
       io,
       options({
-        httpCall: (url, request) => {
+        httpCall: (url) => {
           if (asked === "") asked = url.toString();
-          const body = typeof request.body === "string" ? request.body : "";
           return Promise.resolve({
             status: 200,
             text: url.pathname.endsWith("/json")
