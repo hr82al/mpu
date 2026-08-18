@@ -27,6 +27,7 @@ import { healthCommand } from "../health/mod.ts";
 import { ssUpdateCommand, wbLoaderCommands } from "../nodecli/mod.ts";
 import { psCommand } from "../ps/mod.ts";
 import { runJsCommand } from "../runjs/mod.ts";
+import { jsdateCommand } from "../jsdate/mod.ts";
 import { sshCommand } from "../ssh/mod.ts";
 import { logsCommand } from "../logs/mod.ts";
 import {
@@ -110,6 +111,7 @@ export const commands: readonly Command[] = [
   ...wbLoaderCommands,
   psCommand,
   runJsCommand,
+  jsdateCommand,
   sshCommand,
   logsCommand,
   mcpTokenCommand,
