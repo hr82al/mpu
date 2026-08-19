@@ -14,6 +14,13 @@ export interface SchemaField {
   readonly default?: unknown;
   /** Допустимые значения перечисления, если поле им ограничено. */
   readonly enum?: readonly unknown[];
+  /**
+   * Тип элемента у поля-массива: `"integer"`, `"string"`, … Разбору argv
+   * его мало не бывает — из командной строки любой элемент приходит
+   * текстом, и приводить его к объявленному типу можно только зная этот
+   * тип (`platform/command-contract.md`, «Ввод/вывод»).
+   */
+  readonly items?: string;
   /** Человекочитаемое описание входа. */
   readonly description?: string;
 }
@@ -65,10 +72,14 @@ export function readObjectSchema(value: unknown, what: string): ObjectSchema {
 
 function readField(value: unknown, what: string): SchemaField {
   const record = asRecord(value, what);
+  const items = record["items"];
   return {
     type: optionalString(record["type"]),
     default: record["default"],
     enum: Array.isArray(record["enum"]) ? record["enum"] : undefined,
+    items: typeof items === "object" && items !== null && !Array.isArray(items)
+      ? optionalString((items as Record<string, unknown>)["type"])
+      : undefined,
     description: optionalString(record["description"]),
   };
 }

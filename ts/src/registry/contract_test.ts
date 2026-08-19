@@ -905,14 +905,17 @@ function argvFor(command: Command, names: readonly string[]): string[] {
     if (!names.includes(input.name)) continue;
     const value = sampleValue(command, input);
     if (input.form.positional !== undefined) {
-      positional.push(Array.isArray(value) ? value[0] : String(value));
+      positional.push(Array.isArray(value) ? String(value[0]) : String(value));
       continue;
     }
     if (input.kind === "boolean") {
       flags.push(`--${input.name}`);
       continue;
     }
-    flags.push(`--${input.name}`, Array.isArray(value) ? value[0] : `${value}`);
+    flags.push(
+      `--${input.name}`,
+      Array.isArray(value) ? `${value[0]}` : `${value}`,
+    );
   }
   return [...flags, ...positional];
 }
@@ -947,11 +950,14 @@ function sampleValue(
   input: Command["inputs"][number],
 ): unknown {
   if (input.kind === "boolean") return true;
-  // Значение обязано проходить ограничения схемы: у перечисления берём
-  // допустимое, у числового входа — число (в argv оно пишется текстом,
-  // а в разобранных аргументах уже число), остальным годится короткая
-  // строка без спецсимволов.
+  // Образец подбирается по объявленному типу входа, а не один на всех:
+  // у перечисления это допустимое значение, у числового входа — число (в
+  // argv оно пишется текстом, а в разобранных аргументах уже число), у
+  // числового списка — список чисел, остальным годится короткая строка
+  // без спецсимволов. Иначе вход с типизированными значениями нельзя
+  // объявить схемой вовсе — обход подставлял бы ему `x`.
   if (input.kind === "number") return 1;
+  if (input.kind === "numbers") return [1];
   const allowed = command.argsJsonSchema.properties[input.name]?.enum;
   const value = allowed === undefined ? "x" : String(allowed[0]);
   return input.kind === "strings" ? [value] : value;

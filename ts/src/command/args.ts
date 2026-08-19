@@ -34,13 +34,14 @@ export interface InputSpec {
   /** Имя поля схемы; оно же длинное имя флага. */
   readonly name: string;
   /**
-   * `boolean` — флаг без значения, `strings` — накапливается,
-   * `number` — вход объявлен числом; из argv он всё равно приходит
-   * текстом, и сам разбор его не трогает — приведение делает слой
-   * схемы (`mod.ts`, `numbersOf`), которому известен объявленный тип
+   * `boolean` — флаг без значения, `strings` и `numbers` —
+   * накапливаются повтором флага, `number` — вход объявлен числом; из
+   * argv и число, и числовой список приходят текстом, и сам разбор его
+   * не трогает — приведение делает слой схемы (`mod.ts`, `numbersOf`),
+   * которому известен объявленный тип
    * (`platform/command-contract.md`, «Ввод/вывод»).
    */
-  readonly kind: "boolean" | "string" | "strings" | "number";
+  readonly kind: "boolean" | "string" | "strings" | "number" | "numbers";
   readonly form: InputForm;
 }
 

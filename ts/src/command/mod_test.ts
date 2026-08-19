@@ -122,3 +122,48 @@ Deno.test("formatCommandError: две формы подсказки", async (t) 
     );
   });
 });
+
+Deno.test("числовой список: элементы приводятся к числу из argv", async (t) => {
+  const command = defineCommand({
+    path: ["proba"],
+    summary: "проба пера",
+    usage: "mpu proba",
+    help: "Подробности пробы.",
+    policy: "ro",
+    argsSchema: z.object({
+      ids: z.array(z.number().int()).optional(),
+      names: z.array(z.string()).optional(),
+    }),
+    resultSchema: z.object({ ok: z.boolean() }),
+    run: () => Promise.resolve({ ok: true }),
+    render: () => "",
+  });
+
+  await t.step("вид входа выведен из типа элемента", () => {
+    assertEquals(
+      command.inputs.map((input) => [input.name, input.kind]),
+      [["ids", "numbers"], ["names", "strings"]],
+    );
+  });
+
+  await t.step("повтор флага накапливает числа, а не строки", () => {
+    assertEquals(
+      command.parseArgs(["--ids", "1", "--ids", "20"]).ids,
+      [1, 20],
+    );
+  });
+
+  await t.step("нецифровое значение отвергается схемой, а не молчит", () => {
+    // Приведение оставляет негодный текст текстом, и о типе говорит
+    // схема — своего сообщения слой разбора не заводит.
+    const err = assertThrows(
+      () => command.parseArgs(["--ids", "abc"]),
+      UsageError,
+    );
+    assertEquals(err.hint, "mpu proba --help");
+  });
+
+  await t.step("строковый список числами не становится", () => {
+    assertEquals(command.parseArgs(["--names", "1"]).names, ["1"]);
+  });
+});

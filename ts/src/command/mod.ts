@@ -429,7 +429,7 @@ function inputSpecs(
 ): readonly InputSpec[] {
   return Object.entries(schema.properties).map(([name, field]) => ({
     name,
-    kind: kindOf(field.type),
+    kind: kindOf(field.type, field.items),
     form: forms[name] ?? {},
   }));
 }
@@ -481,11 +481,22 @@ function requireText(text: string, what: string): void {
   }
 }
 
-function kindOf(type: string | undefined): InputSpec["kind"] {
+function kindOf(
+  type: string | undefined,
+  items: string | undefined,
+): InputSpec["kind"] {
   if (type === "boolean") return "boolean";
-  if (type === "array") return "strings";
-  if (type === "number" || type === "integer") return "number";
+  // Список различается по объявленному типу элемента: у числового
+  // элементы приводятся к числу так же, как у одиночного входа. Иначе
+  // список чисел объявить схемой нельзя вовсе — из argv он приходит
+  // текстом и не проходит собственную же схему.
+  if (type === "array") return numeric(items) ? "numbers" : "strings";
+  if (numeric(type)) return "number";
   return "string";
+}
+
+function numeric(type: string | undefined): boolean {
+  return type === "number" || type === "integer";
 }
 
 /**
@@ -506,13 +517,25 @@ function numbersOf(
 ): Readonly<Record<string, unknown>> {
   const out: Record<string, unknown> = { ...raw };
   for (const spec of specs) {
-    if (spec.kind !== "number") continue;
     const value = out[spec.name];
-    if (typeof value !== "string" || !DECIMAL.test(value)) continue;
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) out[spec.name] = parsed;
+    if (spec.kind === "number") {
+      out[spec.name] = decimal(value) ?? value;
+      continue;
+    }
+    // Элементы числового списка приводятся по одному и тому же правилу:
+    // негодный текст остаётся текстом, и тип назовёт схема, а не команда.
+    if (spec.kind === "numbers" && Array.isArray(value)) {
+      out[spec.name] = value.map((item) => decimal(item) ?? item);
+    }
   }
   return out;
+}
+
+/** Число из десятичной записи; иное значение — `undefined`. */
+function decimal(value: unknown): number | undefined {
+  if (typeof value !== "string" || !DECIMAL.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 /** Десятичная запись числа: цифры со знаком и необязательной дробной частью. */
