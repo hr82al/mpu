@@ -19,7 +19,10 @@ const EMPTY_CACHE: CacheReader = { query: () => [] };
 /**
  * Кэш с одной строкой контейнера сервера N на endpoint'е 4. Первым идёт
  * запрос о наличии таблицы (`containers.ts`), и на него кэш отвечает
- * непустым — иначе выборка до самой строки не дойдёт.
+ * непустым — иначе выборка до самой строки не дойдёт. Имени контейнера в
+ * этих строках нет: выборка по имени отвечает пустым, и таргет
+ * называет первую форму — `sl-<N>-cli` (`containers.ts`,
+ * `serverCliContainer`).
  */
 function cacheOfServer(serverNumber: number): CacheReader {
   return {
@@ -31,6 +34,26 @@ function cacheOfServer(serverNumber: number): CacheReader {
     },
   };
 }
+
+/**
+ * Кэш, знающий имя cli-контейнера сервера 1 второй формой: имя таргета
+ * обязано прийти оттуда, а не из зашитой строки (`platform/portainer.md`
+ * — exec ходит в то, что печатает `--print`).
+ */
+const CACHE_MP_NAME: CacheReader = {
+  query: (sql, ...params) => {
+    if (sql.includes("sqlite_master")) return [{ name: params[0] ?? null }];
+    if (params[0] === "mp-sl-1-cli") {
+      return [{
+        portainer_url: BASE,
+        endpoint_id: 4,
+        endpoint_name: "farm",
+        container_name: "mp-sl-1-cli",
+      }];
+    }
+    return params[0] === 1 ? [{ portainer_url: BASE, endpoint_id: 4 }] : [];
+  },
+};
 
 function envOf(values: Readonly<Record<string, string>>) {
   return { get: (name: string) => values[name] };
@@ -81,7 +104,7 @@ Deno.test("сервер: доступность транспортов реша�
         kind: "portainer",
         access: { baseUrl: BASE, apiKey: API_KEY, verifyTls: false },
         endpointId: 4,
-        container: "mp-sl-1-cli",
+        container: "sl-1-cli",
       },
     );
   });
@@ -93,7 +116,7 @@ Deno.test("сервер: доступность транспортов реша�
         env: envOf(ssh),
         cache: cacheOfServer(1),
       }),
-      { kind: "ssh", host: "10.0.0.1", user: "u", container: "mp-sl-1-cli" },
+      { kind: "ssh", host: "10.0.0.1", user: "u", container: "sl-1-cli" },
     );
   });
 
@@ -147,6 +170,32 @@ Deno.test("сервер: доступность транспортов реша�
   });
 });
 
+Deno.test("имя контейнера серверного таргета — из кэша", async (t) => {
+  await t.step("вторая форма в кэше — оба транспорта зовут её", () => {
+    const portainer = chooseTransport({
+      place: SERVER,
+      env: envOf({ PORTAINER_API_KEY: API_KEY }),
+      cache: CACHE_MP_NAME,
+    });
+    assertEquals(portainer.container, "mp-sl-1-cli");
+    const ssh = chooseTransport({
+      place: SERVER,
+      env: envOf({ sl_1: "10.0.0.1", PG_MY_USER_NAME: "u" }),
+      cache: CACHE_MP_NAME,
+    });
+    assertEquals(ssh.container, "mp-sl-1-cli");
+  });
+
+  await t.step("dev-нода кэша не спрашивает: у неё вторая форма", () => {
+    const target = chooseTransport({
+      place: { kind: "dev", serverNumber: 1 },
+      env: envOf({}),
+      cache: cacheOfServer(1),
+    });
+    assertEquals(target.container, "mp-sl-1-cli");
+  });
+});
+
 Deno.test("env-fallback sl_<N>_portainer", async (t) => {
   const withKey = (value: string) =>
     envOf({ PORTAINER_API_KEY: API_KEY, sl_1_portainer: value });
@@ -162,7 +211,7 @@ Deno.test("env-fallback sl_<N>_portainer", async (t) => {
         kind: "portainer",
         access: { baseUrl: BASE, apiKey: API_KEY, verifyTls: false },
         endpointId: 7,
-        container: "mp-sl-1-cli",
+        container: "sl-1-cli",
       },
     );
   });

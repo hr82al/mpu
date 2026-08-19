@@ -13,7 +13,11 @@
 import { type EnvFile, UsageError } from "../command/mod.ts";
 import type { PortainerAccess } from "../portainer/mod.ts";
 import type { CacheReader } from "../selector/mod.ts";
-import { type ContainerLocation, serverLocation } from "./containers.ts";
+import {
+  type ContainerLocation,
+  serverCliContainer,
+  serverLocation,
+} from "./containers.ts";
 
 /** Dev-нода в Portainer-ферму не входит и достаётся только по ssh (спека). */
 const DEV_HOST = "192.168.150.8";
@@ -27,9 +31,9 @@ export type Via = "ssh" | "portainer";
 
 /** Куда адресован вызов — до выбора транспорта. */
 export type ExecPlace =
-  /** Контейнер `mp-sl-<N>-cli` на сервере фермы. */
+  /** cli-контейнер сервера фермы; имя — из кэша (`containers.ts`). */
   | { readonly kind: "server"; readonly serverNumber: number }
-  /** Тот же контейнер, но на dev-ноде. */
+  /** cli-контейнер на dev-ноде: там имя всегда `mp-sl-<N>-cli` (спека). */
   | { readonly kind: "dev"; readonly serverNumber: number }
   /** Контейнер по точному имени: где он лежит, уже известно из кэша. */
   | { readonly kind: "container"; readonly location: ContainerLocation };
@@ -138,7 +142,7 @@ export function chooseTransport(sources: TransportSources): ExecTarget {
         kind: "ssh",
         host: value(env, "DEV_NODE_HOST") ?? DEV_HOST,
         user: value(env, "DEV_NODE_USER") ?? DEV_USER,
-        container: cliContainer(place.serverNumber),
+        container: devCliContainer(place.serverNumber),
       };
     case "container":
       return containerTarget(place.location, env, via);
@@ -149,7 +153,7 @@ export function chooseTransport(sources: TransportSources): ExecTarget {
 
 /**
  * Контейнер по точному имени живёт где угодно на ферме, а ssh знает
- * только про `mp-sl-<N>-cli` своего сервера — отсюда инвариант «контейнер
+ * только про cli-контейнер своего сервера — отсюда инвариант «контейнер
  * по имени никогда не исполняется по ssh» (спека).
  */
 function containerTarget(
@@ -184,7 +188,10 @@ function serverTarget(
   cache: CacheReader,
   via: Via | undefined,
 ): ExecTarget {
-  const container = cliContainer(serverNumber);
+  // Имя берётся из кэша, а не собирается зашитой формой: exec обязан
+  // ходить в тот контейнер, который печатает `--print`
+  // (`platform/portainer.md`).
+  const container = serverCliContainer(cache, serverNumber);
   const apiKey = value(env, "PORTAINER_API_KEY");
   const location = apiKey === undefined
     ? null
@@ -267,7 +274,8 @@ function accessOf(
   };
 }
 
-function cliContainer(serverNumber: number): string {
+/** Имя на dev-ноде: она вне фермы, кэша про неё нет (спека). */
+function devCliContainer(serverNumber: number): string {
   return `mp-sl-${serverNumber}-cli`;
 }
 

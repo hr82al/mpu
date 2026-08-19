@@ -72,6 +72,29 @@ export function containerLocations(
   }));
 }
 
+/**
+ * Имя cli-контейнера сервера N: сначала `sl-<N>-cli`, затем
+ * `mp-sl-<N>-cli` — первое, которое есть в кэше контейнеров; кэш пуст
+ * или ни одной формы в нём нет → `sl-<N>-cli`
+ * (`platform/exec-transport.md`, «Имя cli-контейнера сервера N»).
+ *
+ * Правило одно на обоих потребителей: транспорт и печать обёрток
+ * (`platform/portainer.md`) обязаны назвать один и тот же контейнер —
+ * что напечатано, то и выполняется. Dev-нода сюда не ходит: она вне
+ * фермы, кэш её не знает, и имя там всегда `mp-sl-<N>-cli` (спека,
+ * исключение).
+ */
+export function serverCliContainer(
+  cache: CacheReader,
+  serverNumber: number,
+): string {
+  const names = [`sl-${serverNumber}-cli`, `mp-sl-${serverNumber}-cli`];
+  for (const name of names) {
+    if (containerLocations(cache, name).length > 0) return name;
+  }
+  return names[0];
+}
+
 /** Имена контейнеров, содержащие подстроку, по возрастанию (fan-out). */
 export function containerNamesLike(
   cache: CacheReader,

@@ -12,12 +12,12 @@ import { type CommandIo, UsageError } from "../command/mod.ts";
 import { copyToClipboard } from "../clipboard/mod.ts";
 import {
   chooseTransport,
-  containerLocations,
   type HttpCall,
   type OpenChannel,
   runOverPortainer,
   runOverSsh,
   type RunProcess,
+  serverCliContainer,
 } from "../exec/mod.ts";
 import {
   type CacheReader,
@@ -156,17 +156,10 @@ export async function runWrap(
       text,
     });
   }
+  const container = serverCliContainer(cache, resolved.serverNumber);
   const printed = args.local
-    ? localForm(cliContainer(cache, resolved.serverNumber), text)
-    : sshForm(
-      io,
-      resolved.serverNumber,
-      cliContainer(
-        cache,
-        resolved.serverNumber,
-      ),
-      text,
-    );
+    ? localForm(container, text)
+    : sshForm(io, resolved.serverNumber, container, text);
   // Недоступность буфера молчалива: строка уже напечатана, копирование
   // — довесок (`platform/clipboard.md`).
   await (options.copy ?? copyToClipboard)(printed);
@@ -251,20 +244,6 @@ function sshForm(
 /** Форма локального стенда: env-файл здесь не читается вовсе. */
 function localForm(container: string, inner: string): string {
   return `${container} sh -c "${inner}"`;
-}
-
-/**
- * Имя cli-контейнера сервера: сначала `sl-<N>-cli`, затем
- * `mp-sl-<N>-cli` — первое, которое есть в кэше. Ничего не нашлось —
- * первая форма: переименование контейнеров на серверах не должно
- * ломать вызов по селектору (спека).
- */
-function cliContainer(cache: CacheReader, serverNumber: number): string {
-  const names = [`sl-${serverNumber}-cli`, `mp-sl-${serverNumber}-cli`];
-  for (const name of names) {
-    if (containerLocations(cache, name).length > 0) return name;
-  }
-  return names[0];
 }
 
 /**

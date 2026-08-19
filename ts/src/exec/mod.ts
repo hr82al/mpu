@@ -11,6 +11,7 @@ export {
   containerNamesLike,
   instanceServerNumbers,
   type PortainerLocation,
+  serverCliContainer,
   serverLocation,
 } from "./containers.ts";
 export {

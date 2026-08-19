@@ -12,6 +12,7 @@ import {
   containerLocations,
   containerNamesLike,
   instanceServerNumbers,
+  serverCliContainer,
   serverLocation,
 } from "./containers.ts";
 
@@ -194,5 +195,40 @@ Deno.test("номера инстанс-серверов: без нуля и NULL
     // Main-сервер в fan-out не входит намеренно (спека `run-js`,
     // отклонение `preserve`), контейнеры без номера — тем более.
     assertEquals(instanceServerNumbers(db), [1, 2]);
+  });
+});
+
+Deno.test("имя cli-контейнера сервера — из кэша, не зашито", async (t) => {
+  await t.step("в кэше форма `sl-<N>-cli` — она и берётся", async () => {
+    await withCache([{ name: "sl-9-cli", serverNumber: 9 }], (db) => {
+      assertEquals(serverCliContainer(db, 9), "sl-9-cli");
+    });
+  });
+
+  await t.step("в кэше только `mp-sl-<N>-cli` — берётся она", async () => {
+    await withCache([{ name: "mp-sl-9-cli", serverNumber: 9 }], (db) => {
+      assertEquals(serverCliContainer(db, 9), "mp-sl-9-cli");
+    });
+  });
+
+  await t.step("есть обе формы — побеждает первая", async () => {
+    await withCache([
+      { name: "mp-sl-9-cli", serverNumber: 9 },
+      { name: "sl-9-cli", serverNumber: 9, containerId: "id-b" },
+    ], (db) => {
+      assertEquals(serverCliContainer(db, 9), "sl-9-cli");
+    });
+  });
+
+  await t.step("кэш пуст — первая форма", async () => {
+    await withCache([], (db) => {
+      assertEquals(serverCliContainer(db, 9), "sl-9-cli");
+    });
+  });
+
+  await t.step("контейнер чужого сервера именем не подходит", async () => {
+    await withCache([{ name: "sl-8-cli", serverNumber: 8 }], (db) => {
+      assertEquals(serverCliContainer(db, 9), "sl-9-cli");
+    });
   });
 });

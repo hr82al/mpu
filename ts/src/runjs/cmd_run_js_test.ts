@@ -222,7 +222,9 @@ Deno.test("успех: вывод и служебные строки — эта�
     assertEquals(result.exitCode, 0);
     assertEquals(
       ssh.calls[0].remote,
-      "docker exec -i mp-sl-0-cli sh -c 'node --input-type=module -'",
+      // Кэш этого прогона контейнеров не знает, поэтому имя — первая
+      // форма (`platform/exec-transport.md`).
+      "docker exec -i sl-0-cli sh -c 'node --input-type=module -'",
     );
     assertEquals(ssh.calls[0].stdin, 'console.log("mpu-golden")');
   });

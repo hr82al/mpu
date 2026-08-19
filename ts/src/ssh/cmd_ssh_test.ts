@@ -230,7 +230,9 @@ Deno.test("успех: вывод и нулевой код — эталон ка
       "-i",
       `${HOME}/.ssh/id_rsa`,
       "u@10.0.0.0",
-      "docker exec -i mp-sl-0-cli sh -c 'echo mpu-golden-probe'",
+      // Имя контейнера — из кэша; контейнеров в нём нет, значит первая
+      // форма (`platform/exec-transport.md`).
+      "docker exec -i sl-0-cli sh -c 'echo mpu-golden-probe'",
     ]);
   });
 });
@@ -575,7 +577,7 @@ Deno.test("клиентский селектор резолвится общим
     );
     // Резолв дал сервер 1 — значит, вызов пошёл в его контейнер.
     assertEquals(ssh.seen.args?.[2], "u@10.0.0.1");
-    assertEquals(ssh.seen.args?.[3], "docker exec -i mp-sl-1-cli sh -c ls");
+    assertEquals(ssh.seen.args?.[3], "docker exec -i sl-1-cli sh -c ls");
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
