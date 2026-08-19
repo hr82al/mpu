@@ -12,13 +12,8 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 38 команд верхнего уровня, ещё не переехавших на TS. */
+/** 37 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
-  {
-    path: ["search"],
-    summary:
-      "Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).",
-  },
   {
     path: ["sun"],
     summary:

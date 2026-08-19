@@ -2124,6 +2124,528 @@
     }
   },
   {
+    "name": "search",
+    "title": "mpu search",
+    "description": "Найти клиента или таблицу по селектору; вход в 10X по email.\n\nИщет по локальному кэшу (`mpu init`/`mpu update`) и печатает\nJSON-массив строк с восемью полями: client_id, spreadsheet_id, title,\nserver, server_number, sl_ip, pg_ip, sids. Ничего не нашлось — [] и\nexit 0.\n\nVALUE — client_id, spreadsheet_id, кусок заголовка, WB-кабинет, адрес\nсервера или email. Порядок предикатов общий для всех команд: client_id,\nадрес, кабинет, spreadsheet_id, заголовок.\n\nПроекция печатает голое значение одного поля по строке результата:\n--client-id, --spreadsheet-id, --title, --server, --server-number,\n--sl-ip, --pg-ip, --sids (кабинеты через запятую). Больше одной\nпроекции — ошибка ввода до всякого чтения БД.\n\nПустой результат сам обновляет кэш (полный синк, тихо) и повторяет поиск\nровно один раз; --no-update это снимает. Для селектора-адреса синк не\nзапускается: адреса живут в env-файле, а не в кэше.\n\nExit: 0 — успех, включая пустой результат; 1 — сбой обновления кэша;\n2 — ошибки ввода.\n\nПримеры: mpu search 777; mpu search 'Отчёт' --client-id;\nmpu search 10.9.9.9 --no-update",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "description": "селектор: client_id, таблица, заголовок, sid, IP, email"
+        },
+        "client-id": {
+          "default": false,
+          "description": "печатать только client_id",
+          "type": "boolean"
+        },
+        "spreadsheet-id": {
+          "default": false,
+          "description": "печатать только spreadsheet_id",
+          "type": "boolean"
+        },
+        "title": {
+          "default": false,
+          "description": "печатать только заголовок",
+          "type": "boolean"
+        },
+        "server": {
+          "default": false,
+          "description": "печатать только сервер",
+          "type": "boolean"
+        },
+        "server-number": {
+          "default": false,
+          "description": "печатать только номер сервера",
+          "type": "boolean"
+        },
+        "sl-ip": {
+          "default": false,
+          "description": "печатать только адрес sl",
+          "type": "boolean"
+        },
+        "pg-ip": {
+          "default": false,
+          "description": "печатать только адрес pg",
+          "type": "boolean"
+        },
+        "sids": {
+          "default": false,
+          "description": "печатать только WB-кабинеты через запятую",
+          "type": "boolean"
+        },
+        "update": {
+          "default": true,
+          "description": "на пустом результате обновить кэш и повторить поиск",
+          "type": "boolean"
+        },
+        "reason": {
+          "description": "причина impersonation для аудита 10X; дефолт «ТП <дата>»",
+          "type": "string"
+        },
+        "refresh-cache": {
+          "default": false,
+          "description": "не верить кэшу 10X: перерезолвить через API",
+          "type": "boolean"
+        },
+        "scope": {
+          "default": "auto",
+          "description": "область staff-поиска 10X",
+          "type": "string",
+          "enum": [
+            "auto",
+            "user",
+            "access"
+          ]
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "client_id": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "spreadsheet_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "title": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "server": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "server_number": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sl_ip": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "pg_ip": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "client_id",
+              "spreadsheet_id",
+              "title",
+              "server",
+              "server_number",
+              "sl_ip",
+              "pg_ip",
+              "sids"
+            ],
+            "additionalProperties": false
+          },
+          "description": "строки результата в порядке спеки"
+        },
+        "projection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "synced": {
+          "type": "boolean"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "email": {
+                  "type": "string"
+                },
+                "target_user_id": {
+                  "type": "string"
+                },
+                "target_name": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "is_email_verified": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "fetched_at": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "owned": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "client_id": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "spreadsheet_id": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "title": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "server": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "server_number": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sl_ip": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "pg_ip": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "sids": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "client_id",
+                      "spreadsheet_id",
+                      "title",
+                      "server",
+                      "server_number",
+                      "sl_ip",
+                      "pg_ip",
+                      "sids"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "member_only": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "workspace_id": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "name": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "marketplace": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "workspace_id",
+                      "name",
+                      "marketplace"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "sessions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string"
+                      },
+                      "subject": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "created_at": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "expires_at": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "valid": {
+                        "type": "boolean"
+                      },
+                      "token": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "subject",
+                      "reason",
+                      "created_at",
+                      "expires_at",
+                      "valid",
+                      "token"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "workspaces": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  }
+                }
+              },
+              "required": [
+                "email",
+                "target_user_id",
+                "target_name",
+                "is_email_verified",
+                "reason",
+                "fetched_at",
+                "owned",
+                "member_only",
+                "sessions",
+                "workspaces"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ambiguous": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "match": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "user_id",
+                  "email",
+                  "name",
+                  "match"
+                ],
+                "additionalProperties": false
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "rows",
+        "projection",
+        "synced",
+        "target",
+        "ambiguous"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "run_js",
     "title": "mpu run-js",
     "description": "Выполнить JS-код в контейнере sl-back.\n\nКод уходит на stdin команде `node --input-type=module -`,\nпоэтому ему доступны node_modules, import-алиасы и env приложения;\nрабочий каталог — корень приложения.\n\nАдресация — ровно одна из трёх: SELECTOR (как у mpu ssh), --all\n(инстанс-серверы кэша, N>0; sl-0 не входит) либо --all-containers\nSUBSTR. При fan-out первый позиционный токен — это код.\n\nКод: позиционный CODE, иначе -f/--file, иначе stdin (с терминала — до\nCtrl+D). CODE вместе с --file и пустой код — ошибки ввода.\n\nРежимы: по умолчанию последовательно, первый ненулевой код прерывает\nобход и становится кодом выхода; --parallel — все сразу (-j N\nограничивает одновременные, 0 — все), вывод каждого печатается по его\nзавершении, обходятся все; -d — фоновый запуск, скрипт и лог остаются в\n/tmp контейнера, завершения не ждём.\n\n--dry-run печатает команду на каждый таргет и копирует её в буфер\nобмена; ни выполнения, ни сети. --via меняет транспорт серверного\nтаргета; контейнер по имени идёт Portainer'ом всегда.\n\nExit: 0 — успех всех; код первого сбоя в последовательном режиме; 1 —\nлюбой сбой при --parallel и -d; 2 — ошибки ввода и конфигурации.\n\nПримеры: mpu run-js sl-1 'console.log(1)'; cat s.mjs | mpu run-js sl-11;\nmpu run-js --all --parallel -f s.mjs; mpu run-js --all -d -f s.mjs",
@@ -4130,91 +4652,6 @@
     },
     "_meta": {
       "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "search",
-    "title": "mpu search",
-    "description": "Найти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nНайти клиента (локальный кэш) ИЛИ получить доступ к web-клиенту 10X (impersonation).\n\nРежим выбирают флаги, не селектор.\n\n\b\nБЕЗ ФЛАГОВ — локальный кэш (сети нет): client_id · IPv4 sl_/pg_ · WB sid ·\nкусок spreadsheet_id · кусок title → JSON-массив строк {client_id,\nspreadsheet_id, title, server, server_number, sl_ip, pg_ip, sids}. Пусто →\nавто-`mpu update` и повтор (`--no-update` гасит). Проекция (`--server`,\n`--sids`, …) печатает голые значения — форма для подстановки в другие команды.\n\n\b\nС `--reason` / `--refresh-cache` / `--scope` — 10X: селектор → email цели →\nimpersonation-сессия (зайти в веб ОТ ЛИЦА клиента). Email идёт сюда и без\nфлагов. Пять входов, как у staff-поиска sw-back:\n\n\b\n  email (точный)                user     mpu search user@mail.ru\n  кусок email / имя             user     mpu search Иванов --scope user\n  user.id                       user     mpu search 1029 --scope user\n  client_id (== workspace id)   access   mpu search 2759 --reason <url>\n  sid кабинета (полный uuid)    access   mpu search <sid> --reason <url>\n\n`auto` (умолчание): целое и uuid → access, остальное → user. Число в разных\nскоупах — разные сущности (1029: user.id есть, workspace нет), для user.id\nнужен явный `--scope user`. Названием клиента/кабинета 10X НЕ ищет: название\n[справка усечена: отброшено 1059 байт]",
-    "annotations": {
-      "readOnlyHint": false
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "value": {
-          "type": "string",
-          "description": "Что ищем: client_id, IPv4 (sl_/pg_ из .env), WB sid, кусок spreadsheet_id или title — в локальном кэше; email / имя / user.id — в 10X (см. описание команды)"
-        },
-        "client_id": {
-          "type": "boolean",
-          "description": "Plain: только client_id",
-          "default": false
-        },
-        "spreadsheet_id": {
-          "type": "boolean",
-          "description": "Plain: только spreadsheet_id",
-          "default": false
-        },
-        "title": {
-          "type": "boolean",
-          "description": "Plain: только title",
-          "default": false
-        },
-        "server": {
-          "type": "boolean",
-          "description": "Plain: только server name (sl-N)",
-          "default": false
-        },
-        "server_number": {
-          "type": "boolean",
-          "description": "Plain: только число N",
-          "default": false
-        },
-        "sl_ip": {
-          "type": "boolean",
-          "description": "Plain: только IP sl-сервера",
-          "default": false
-        },
-        "pg_ip": {
-          "type": "boolean",
-          "description": "Plain: только IP pg-сервера",
-          "default": false
-        },
-        "sids": {
-          "type": "boolean",
-          "description": "Plain: WB sid'ы клиента через запятую",
-          "default": false
-        },
-        "update": {
-          "type": "boolean",
-          "description": "Auto-update кэша на пустом результате (default: on)",
-          "default": true
-        },
-        "reason": {
-          "type": "string",
-          "description": "10X-резолв (email / client_id / sid): причина impersonation (логируется на проде 10X). Рекомендуется ссылка на Kaiten-карточку (для аудита). Default: 'ТП <YYYY-MM-DD>'."
-        },
-        "refresh_cache": {
-          "type": "boolean",
-          "description": "10X-резолв (email / client_id / sid / имя): перезапросить из 10X API и обновить кэш (иначе из кэша)",
-          "default": false
-        },
-        "scope": {
-          "type": "string",
-          "description": "10X-резолв: чем считать селектор. auto — целое/uuid как client_id/sid кабинета, остальное как пользователя; user — email, кусок email, имя или user.id; access — client_id или sid кабинета",
-          "enum": [
-            "auto",
-            "user",
-            "access"
-          ],
-          "default": "auto"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "value"
-      ]
     }
   },
   {

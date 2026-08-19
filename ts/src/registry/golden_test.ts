@@ -193,9 +193,9 @@ Deno.test("help-named-search.txt и subcmd-help.txt: справку печата
   // байтовую сверку с этими двумя эталонами делает оператор.
   const cases: readonly (readonly [string, readonly string[], string[]])[] = [
     [
-      'mpu help "mpu search"',
-      ["help", "mpu search"],
-      ["search", "--help"],
+      'mpu help "mpu sheet"',
+      ["help", "mpu sheet"],
+      ["sheet", "--help"],
     ],
     ["mpu sheet get --help", ["sheet", "get", "--help"], [
       "sheet",
@@ -208,7 +208,7 @@ Deno.test("help-named-search.txt и subcmd-help.txt: справку печата
     await t.step(title, async () => {
       const calls: string[][] = [];
       const printed =
-        "Usage: mpu search [OPTIONS] VALUE\n\nСправка от реализации.\n";
+        "Usage: mpu sheet [OPTIONS] COMMAND\n\nСправка от реализации.\n";
       const { code, stdout } = await run(argv, {
         runLegacy: (_bin, args) => {
           calls.push([...args]);
@@ -227,13 +227,20 @@ Deno.test("help-named-search.txt и subcmd-help.txt: справку печата
 Deno.test("эталоны справки legacy остаются эталонами оператора", async () => {
   // Здесь фиксируется только то, что сессия проверить может: эталоны на
   // месте и описывают ту же команду, что видит реестр.
+  assertStringIncludes(await golden("subcmd-help.txt"), "Usage: mpu sheet get");
+  assertEquals(
+    legacyCommands.some((command) => command.path.join(" ") === "sheet"),
+    true,
+  );
+  // `help-named-search.txt` остаётся в канале, но эталоном поведения
+  // быть перестал: `search` переехал на маршрут `native` и печатает
+  // теперь свою справку, а не подпроцессную (вопрос спецификатору).
   assertStringIncludes(
     await golden("help-named-search.txt"),
     "Usage: mpu search",
   );
-  assertStringIncludes(await golden("subcmd-help.txt"), "Usage: mpu sheet get");
   assertEquals(
     legacyCommands.some((command) => command.path.join(" ") === "search"),
-    true,
+    false,
   );
 });

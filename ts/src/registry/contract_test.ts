@@ -391,6 +391,28 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "search",
+    // Локальный режим и `--no-update`: обход не ходит в сеть и не
+    // трогает 10X — impersonate пишет прод-аудит, а автосинку нужен PG.
+    argv: ["777", "--no-update"],
+    sampleResult: {
+      rows: [{
+        client_id: 777,
+        spreadsheet_id: "SHEET123",
+        title: "Таблица клиента",
+        server: "sl-9",
+        server_number: 9,
+        sl_ip: "10.9.9.9",
+        pg_ip: "10.9.9.10",
+        sids: [],
+      }],
+      projection: null,
+      synced: false,
+      target: null,
+      ambiguous: null,
+    },
+  },
+  {
     path: "ps",
     // Без селектора — снапшот локального кэша: сети у обхода нет, а
     // пустая кэш-БД временного каталога даёт отказ — молча, как

@@ -22,12 +22,15 @@ async function help(...argv: string[]): Promise<string> {
 }
 
 Deno.test("пилотная команда маршрута legacy есть в реестре", () => {
-  const entry = findLegacy(["search"]);
-  assertEquals(entry?.path, ["search"]);
+  // Пилотом был `search`, но он переехал на маршрут `native`; роль
+  // образца перешла к `sheet` — он остаётся подпроцессным и своим
+  // эталоном справки закрыт (`fixtures/platform/registry/subcmd-help.txt`).
+  const entry = findLegacy(["sheet"]);
+  assertEquals(entry?.path, ["sheet"]);
   // Однострока обязательна: из неё собирается индекс родителя.
   assertEquals((entry?.summary ?? "").length > 0, true);
   // Командой контракта она не является — схем и рендера у неё нет.
-  assertEquals(commands.some((c) => c.path.join(" ") === "search"), false);
+  assertEquals(commands.some((c) => c.path.join(" ") === "sheet"), false);
 });
 
 Deno.test("одно имя — один маршрут", () => {
@@ -85,8 +88,9 @@ Deno.test("инварианты записей реестра", async (t) => {
     const once = legacyCommands.map((command) => command.path.join(" "));
     const twice = legacyCommands.map((command) => command.path.join(" "));
     assertEquals(once, twice);
-    // Порядок — порядок слепка, не алфавит: первым идёт `search`.
-    assertEquals(once[0], "search");
+    // Порядок — порядок слепка, не алфавит: первым идёт `sun`
+    // (прежний первый, `search`, уехал на маршрут `native`).
+    assertEquals(once[0], "sun");
   });
 });
 
@@ -117,9 +121,10 @@ Deno.test("тулом становится команда любого марш�
   });
 
   await t.step("команда маршрута legacy — из слепка", () => {
-    assertEquals(names.includes("search"), true);
-    // Верхнее имя реестра, лист слепка — один и тот же `mpu search`.
-    assertEquals(findLegacy(["search"])?.path, ["search"]);
+    // Единственная подпроцессная команда закрытого списка публикации —
+    // `mp-init`; прежний образец `search` переехал на `native`.
+    assertEquals(names.includes("mp_init"), true);
+    assertEquals(findLegacy(["mp-init"])?.path, ["mp-init"]);
   });
 
   await t.step("запись реестра вне списка публикации тула не даёт", () => {

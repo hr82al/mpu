@@ -34,6 +34,7 @@ import {
   wbSaveExpensesCommand,
 } from "../nodecli/mod.ts";
 import { psCommand } from "../ps/mod.ts";
+import { searchCommand } from "../search/mod.ts";
 import { runJsCommand } from "../runjs/mod.ts";
 import { jsdateCommand } from "../jsdate/mod.ts";
 import { sshCommand } from "../ssh/mod.ts";
@@ -122,6 +123,7 @@ export const commands: readonly Command[] = [
   wbSaveExpensesCommand,
   ozonRecalculateExpensesCommand,
   ozonSaveExpensesCommand,
+  searchCommand,
   psCommand,
   runJsCommand,
   jsdateCommand,

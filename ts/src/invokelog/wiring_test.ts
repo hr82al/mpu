@@ -203,11 +203,14 @@ Deno.test("пометка «без записи вывода» — часть о
       logsOutput: true,
     });
   });
-  await t.step("в реестре пометка стоит у mcp token", () => {
+  await t.step("в реестре пометка стоит у двух команд", () => {
+    // Обе печатают то, чему в журнале не место: `mcp token` — токен
+    // доступа, `search` — живые токены сессий 10X (`specs/search.md`,
+    // «Побочные эффекты»). Порядок — порядок реестра.
     const marked = commands
       .filter((command) => !command.logsOutput)
       .map((command) => command.path.join(" "));
-    assertEquals(marked, ["mcp token"]);
+    assertEquals(marked, ["search", "mcp token"]);
   });
 });
 
