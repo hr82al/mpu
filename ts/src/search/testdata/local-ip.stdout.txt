@@ -1,0 +1,12 @@
+[
+  {
+    "client_id": null,
+    "spreadsheet_id": null,
+    "title": null,
+    "server": "sl-9",
+    "server_number": 9,
+    "sl_ip": "10.9.9.9",
+    "pg_ip": "10.9.9.10",
+    "sids": []
+  }
+]
