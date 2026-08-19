@@ -1956,7 +1956,9 @@
           "description": "SKU Ozon; флаг повторяется, уходит одним токеном [1,2,3]",
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "logs-level": {

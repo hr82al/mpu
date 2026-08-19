@@ -842,7 +842,9 @@ Deno.test("ozon-recalculate-expenses: verbose-печать — эталоны к
         "date-from": "2026-01-01",
         "date-to": "2026-01-31",
         "ref-fields": ["sebes_rub"],
-        skus: ["123"],
+        // Вход объявлен числовым списком: через MCP-вход значения
+        // приходят числами, а из argv их приводит разбор.
+        skus: [123],
       }),
       io,
     ) as WrapResult;
@@ -1009,6 +1011,20 @@ Deno.test("ozon-recalculate-expenses: --skus", async (t) => {
       ) as WrapResult;
       assertStringIncludes(result.inner, "--skus [1,2,3]");
       assertEquals(result.inner.match(/--skus/g)?.length, 1);
+    });
+
+    await t.step("нецифровое значение — отказ разбора ввода", async () => {
+      const { io } = harness(db);
+      // Отказ до печати и до сети: буфер обмена и транспорт не
+      // подставлены вовсе, дойди вызов до них — тест упал бы иначе.
+      await assertRejects(
+        () =>
+          ozonRecalculateExpensesCommand.invoke(
+            ["777", "--skus", "abc", "-p"],
+            io,
+          ),
+        UsageError,
+      );
     });
   });
 });
