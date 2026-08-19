@@ -9,7 +9,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { DomainError } from "../command/mod.ts";
 import { decodeFrame, OPCODE } from "./frames.ts";
-import { streamWebSocket } from "./ws.ts";
+import { socketOptions, streamWebSocket } from "./ws.ts";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -237,4 +237,45 @@ Deno.test("отмена закрывает канал и завершает ст
   } finally {
     await server.stop();
   }
+});
+
+Deno.test("опции сокета: SNI шлётся только доменному имени", async (t) => {
+  await t.step("литеральный v4-адрес — servername'а нет вовсе", () => {
+    const options = socketOptions(new URL("https://192.168.150.12:9443"), true);
+    assertEquals(options.kind, "tls");
+    if (options.kind !== "tls") return;
+    // Ключа нет, а не пустая строка: `node:tls` отвергает адрес в SNI
+    // раньше всякого обмена с сервером, и exec не доходит до контейнера.
+    assertEquals("servername" in options.tls, false);
+    assertEquals(options.tls.host, "192.168.150.12");
+    assertEquals(options.tls.port, 9443);
+    assertEquals(options.tls.rejectUnauthorized, false);
+  });
+
+  await t.step("литеральный v6-адрес — тоже без SNI", () => {
+    const options = socketOptions(new URL("wss://[2001:db8::1]/ws"), false);
+    assertEquals(options.kind, "tls");
+    if (options.kind !== "tls") return;
+    assertEquals("servername" in options.tls, false);
+    assertEquals(options.tls.rejectUnauthorized, true);
+  });
+
+  await t.step("доменное имя — SNI равен хосту", () => {
+    const options = socketOptions(
+      new URL("https://portainer.example/ws"),
+      true,
+    );
+    assertEquals(options.kind, "tls");
+    if (options.kind !== "tls") return;
+    assertEquals(options.tls.servername, "portainer.example");
+    assertEquals(options.tls.port, 443);
+  });
+
+  await t.step("без TLS опции сокета вовсе не про SNI", () => {
+    const options = socketOptions(new URL("http://10.0.0.1:8080/ws"), false);
+    assertEquals(options, {
+      kind: "tcp",
+      tcp: { host: "10.0.0.1", port: 8080 },
+    });
+  });
 });

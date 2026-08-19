@@ -11,7 +11,7 @@
  * путём ходит и HTTP-клиент (`../http/mod.ts`).
  */
 
-import { connect as netConnect } from "node:net";
+import { connect as netConnect, isIP } from "node:net";
 import { connect as tlsConnect } from "node:tls";
 import { DomainError } from "../command/mod.ts";
 import { decodeFrame, encodeFrame, OPCODE, randomMask } from "./frames.ts";
@@ -201,27 +201,66 @@ function concat(
   return out;
 }
 
+/** Опции соединения: TLS или чистый TCP, в форме `node:tls`/`node:net`. */
+export type SocketOptions =
+  | {
+    readonly kind: "tls";
+    readonly tls: {
+      readonly host: string;
+      readonly port: number;
+      readonly rejectUnauthorized: boolean;
+      /** SNI; у литерального адреса его нет вовсе (спека). */
+      readonly servername?: string;
+    };
+  }
+  | {
+    readonly kind: "tcp";
+    readonly tcp: { readonly host: string; readonly port: number };
+  };
+
+/**
+ * Опции сокета для URL стрима (`platform/exec-transport.md`, п. 5).
+ * Отдельная функция от самого соединения: правило SNI проверяется без
+ * сети, а сеть в тестах не поднимается.
+ *
+ * SNI шлётся только для доменного имени. Литеральный адрес расширение
+ * не допускает, и `node:tls` отвергает его на клиенте, до всякого
+ * обмена с сервером («must not be an IP address») — а Portainer фермы
+ * адресуется как раз по IP, то есть это обычный случай, а не крайний.
+ */
+export function socketOptions(url: URL, insecure: boolean): SocketOptions {
+  const secure = url.protocol === "https:" || url.protocol === "wss:";
+  const port = url.port === "" ? (secure ? 443 : 80) : Number(url.port);
+  if (!secure) return { kind: "tcp", tcp: { host: url.hostname, port } };
+  return {
+    kind: "tls",
+    tls: {
+      host: url.hostname,
+      port,
+      rejectUnauthorized: !insecure,
+      // Хост v6-адреса `URL` отдаёт в скобках, и `isIP` их не знает.
+      ...(isIP(url.hostname.replace(/^\[|\]$/g, "")) === 0
+        ? { servername: url.hostname }
+        : {}),
+    },
+  };
+}
+
 /**
  * Настоящий сокет. TCP-keepalive включён (спека): без него молчащий
  * exec рвётся на промежуточном оборудовании незаметно для обеих сторон.
  */
 function openSocket(url: URL, insecure: boolean): Promise<ByteChannel> {
-  const secure = url.protocol === "https:" || url.protocol === "wss:";
-  const port = url.port === "" ? (secure ? 443 : 80) : Number(url.port);
-  const socket = secure
-    ? tlsConnect({
-      host: url.hostname,
-      port,
-      rejectUnauthorized: !insecure,
-      servername: url.hostname,
-    })
-    : netConnect({ host: url.hostname, port });
+  const options = socketOptions(url, insecure);
+  const socket = options.kind === "tls"
+    ? tlsConnect(options.tls)
+    : netConnect(options.tcp);
   socket.setKeepAlive(true);
   return new Promise((resolve, reject) => {
     const fail = (err: Error) =>
       reject(new DomainError(err.message, { cause: err }));
     socket.once("error", fail);
-    socket.once(secure ? "secureConnect" : "connect", () => {
+    socket.once(options.kind === "tls" ? "secureConnect" : "connect", () => {
       socket.off("error", fail);
       resolve({
         chunks: socket as AsyncIterable<Uint8Array>,
