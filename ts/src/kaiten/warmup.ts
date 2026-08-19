@@ -220,12 +220,14 @@ export function writeKaitenWarmup(
 /**
  * Scoped-замена одной таблицы дорожек/колонок: удаляются и переписываются
  * только строки обойдённых досок (`data.boardIds`) — кэш остальных досок
- * не трогается (`kaiten-http.md`: «частичный рефреш не стирает кэш
+ * не трогается. Экспортируется ради подкоманд `kiten lanes`/`columns`
+ * (`specs/kiten-refs.md`): пространства и доски они уже записали до
+ * резолва `REF`, и второй полной перезаписи тех же таблиц им не нужно (`kaiten-http.md`: «частичный рефреш не стирает кэш
  * остальных досок»). `data === null` — часть упала целиком, таблица не
  * трогается вовсе (в отличие от `{ boardIds: [], rows: [] }` — пустого,
  * но успешного обхода нулевых досок).
  */
-function writeBoardRows(
+export function writeBoardRows(
   db: CacheDb,
   table: "kaiten_lanes" | "kaiten_columns",
   data: BoardRows | null,

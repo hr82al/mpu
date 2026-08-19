@@ -104,5 +104,6 @@ export {
   type KaitenLimits,
   type KaitenWarmup,
   WARMUP_BUDGET_MS,
+  writeBoardRows,
   writeKaitenWarmup,
 } from "./warmup.ts";
