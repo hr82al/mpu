@@ -10,15 +10,24 @@
 
 import { z } from "@zod/zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
-import { runUpdate } from "../update/mod.ts";
-import { modeOf, type Scope } from "./mode.ts";
+import {
+  ClientNotFoundError,
+  runClientSync,
+  runUpdate,
+} from "../update/mod.ts";
+import { searchCandidates } from "../selector/mod.ts";
+import { effectiveScope, modeOf, type Scope } from "./mode.ts";
+import { localDate } from "../dates/mod.ts";
 import { type LocalIo, searchLocal, type SyncCache } from "./local.ts";
 import {
   type Projection,
   projectionOf,
   PROJECTIONS,
+  rowsOf,
   type SearchRow,
 } from "./row.ts";
+import { bareRow, resolveX10, targetSessions } from "./x10_branch.ts";
+import { x10BaseUrl, type X10Send } from "./x10_http.ts";
 
 /** Порт исполнения команды. */
 export type SearchIo = LocalIo & Pick<CommandIo, "env">;
@@ -66,21 +75,69 @@ const argsSchema = z.object({
   ),
 });
 
+const sessionSchema = z.object({
+  kind: z.string(),
+  subject: z.string(),
+  reason: z.string().nullable(),
+  created_at: z.number().int(),
+  expires_at: z.number().int(),
+  valid: z.boolean(),
+  token: z.string(),
+});
+
+const targetSchema = z.object({
+  email: z.string(),
+  target_user_id: z.string(),
+  target_name: z.string().nullable(),
+  is_email_verified: z.boolean(),
+  reason: z.string(),
+  fetched_at: z.number().int(),
+  owned: z.array(rowSchema),
+  member_only: z.array(z.object({
+    workspace_id: z.number().int().nullable(),
+    name: z.string().nullable(),
+    marketplace: z.string().nullable(),
+  })),
+  sessions: z.array(sessionSchema),
+  workspaces: z.array(z.record(z.string(), z.unknown())),
+});
+
+const candidateSchema = z.object({
+  user_id: z.number().int(),
+  email: z.string(),
+  name: z.string().nullable(),
+  match: z.record(z.string(), z.unknown()).nullable(),
+});
+
 const resultSchema = z.object({
   rows: z.array(rowSchema).describe("строки результата в порядке спеки"),
   /** Имя проекции без `--`; без флага — null, и печатается JSON. */
   projection: z.string().nullable(),
   /** Был ли догоняющий синк кэша (`--update` на пустом результате). */
   synced: z.boolean(),
+  /** Цель 10X; в локальном режиме — null. */
+  target: targetSchema.nullable(),
+  /**
+   * Кандидаты неоднозначного staff-поиска. Они не ошибка разбора: список
+   * печатается в stdout, а команда отвечает кодом 2 — impersonation при
+   * этом не создаётся (спека, «10X-резолв не-email селектора»).
+   */
+  ambiguous: z.array(candidateSchema).nullable(),
 });
 
 /** Разобранные аргументы команды. */
 export type SearchArgs = z.infer<typeof argsSchema>;
 export type SearchResult = z.infer<typeof resultSchema>;
 
-/** Подмены для тестов: живого PG у догоняющего синка нет. */
+/** Подмены для тестов: живого PG и живого 10X у них нет. */
 export interface SearchOptions {
   readonly sync?: SyncCache;
+  /** Точечный синк одного клиента (дотягивание owned вне снапшота). */
+  readonly syncClient?: (io: LocalIo, clientId: number) => Promise<void>;
+  /** Отправитель запросов 10X. */
+  readonly send?: X10Send;
+  /** Текущий момент в unix-секундах; по умолчанию — часы машины. */
+  readonly nowSeconds?: () => number;
 }
 
 export const searchCommand = defineCommand({
@@ -125,6 +182,9 @@ mpu search 10.9.9.9 --no-update`,
   resultSchema,
   run: (args, io: SearchIo) => runSearch(args, io),
   render: renderSearch,
+  // Неоднозначный staff-поиск — не ошибка разбора: список кандидатов
+  // печатается в stdout, а код возврата всё равно 2 (спека).
+  textExitCode: (result) => result.ambiguous === null ? 0 : 2,
 });
 
 /**
@@ -144,37 +204,173 @@ export async function runSearch(
     reasonGiven: args.reason !== undefined,
     refreshCache: args["refresh-cache"],
   });
-  if (mode !== "local") {
-    // Ветки 10X приезжают следующим шагом порции; команда до тех пор не
-    // зарегистрирована, и этот отказ виден только тестам.
-    throw new UsageError("ветка 10X ещё не перенесена");
+  if (mode === "local") {
+    const outcome = await searchLocal(
+      { value: args.value, update: args.update },
+      io,
+      options.sync ?? quietSync,
+    );
+    return {
+      // Результат — данные схемы, а не внутренние структуры: списки
+      // копируются, чтобы форма была ровно та, что объявлена (и
+      // переживала JSON без сюрпризов).
+      rows: outcome.rows.map(plainRow),
+      projection,
+      synced: outcome.synced,
+      target: null,
+      ambiguous: null,
+    };
   }
-  const outcome = await searchLocal(
-    { value: args.value, update: args.update },
-    io,
-    options.sync ?? quietSync,
-  );
-  // Результат — данные схемы, а не внутренние структуры: списки
-  // копируются, чтобы форма была ровно та, что объявлена (и переживала
-  // JSON без сюрпризов).
+  return await runX10(args, io, options, projection);
+}
+
+/**
+ * Ветка 10X: резолв цели, строки её владений и сессии. Живого 10X в
+ * тестах нет — отправитель запросов подменяется, как и оба синка.
+ */
+async function runX10(
+  args: SearchArgs,
+  io: SearchIo,
+  options: SearchOptions,
+  projection: string | null,
+): Promise<SearchResult> {
+  const nowSeconds = (options.nowSeconds ?? defaultNow)();
+  using db = io.openCacheDb();
+  const deps = {
+    db,
+    env: io.envFile,
+    baseUrl: x10BaseUrl(io.envFile),
+    send: options.send,
+    nowSeconds,
+    envFilePath: envFilePathOf(io),
+  };
+  const outcome = await resolveX10(deps, {
+    value: args.value,
+    scope: args.scope as Scope,
+    reason: args.reason ?? defaultReason(nowSeconds),
+    refreshCache: args["refresh-cache"],
+  });
+  if (outcome.kind === "ambiguous") {
+    // Текст отказа идёт служебным каналом (stderr), а список кандидатов —
+    // в stdout: команда обязана отдать оба, а результат у неё один
+    // (спека, «10X-резолв не-email селектора»).
+    io.progress(
+      `mpu search: 10X staff search (scope=${
+        effective(args)
+      }): по '${args.value}' найдено кандидатов: ${outcome.candidates.length};` +
+        " повтори с точным email или с user.id (--scope user)",
+    );
+    return {
+      rows: [],
+      projection,
+      synced: false,
+      target: null,
+      ambiguous: outcome.candidates.map((user) => ({
+        user_id: user.id,
+        email: user.email,
+        name: user.name,
+        match: user.match === null ? null : { ...user.match },
+      })),
+    };
+  }
+  const target = outcome.target;
+  const owned = await ownedRows(target.owned_client_ids, io, options);
   return {
-    rows: outcome.rows.map((row) => ({ ...row, sids: [...row.sids] })),
+    rows: owned.map(plainRow),
     projection,
-    synced: outcome.synced,
+    synced: false,
+    target: {
+      email: target.email,
+      target_user_id: target.target_user_id,
+      target_name: target.target_name,
+      is_email_verified: target.is_email_verified,
+      reason: target.reason,
+      fetched_at: target.fetched_at,
+      owned: owned.map(plainRow),
+      member_only: target.member_only.map((workspace) => ({ ...workspace })),
+      sessions: targetSessions(
+        db,
+        io.envFile.get("X10_LOGIN") ?? null,
+        Number(target.target_user_id),
+        nowSeconds,
+      ).map((session) => ({
+        kind: session.kind,
+        subject: session.subject,
+        reason: session.reason,
+        created_at: session.createdAt,
+        expires_at: session.expiresAt,
+        valid: session.valid,
+        token: session.token,
+      })),
+      workspaces: target.workspaces.map((workspace) => ({ ...workspace })),
+    },
+    ambiguous: null,
   };
 }
 
-/** Вывод: JSON-массив строк либо голые значения проекции по строке. */
-export function renderSearch(result: SearchResult): string {
-  if (result.projection === null) {
-    // Отступ 2 и unicode как есть: русские заголовки идут буквами, а не
-    // escape-последовательностями (спека, «Ввод/вывод»).
-    return `${JSON.stringify(result.rows, null, 2)}\n`;
+/**
+ * Строки владений цели. Клиента нет в снапшоте — он дотягивается
+ * точечным синком; не нашёлся и там — предупреждение и «голая» строка,
+ * а не отказ: владение реально, просто реестр о нём не знает (спека).
+ */
+async function ownedRows(
+  clientIds: readonly number[],
+  io: SearchIo,
+  options: SearchOptions,
+): Promise<readonly SearchRow[]> {
+  const rows: SearchRow[] = [];
+  for (const clientId of clientIds) {
+    const found = localRows(io, clientId);
+    if (found.length > 0) {
+      rows.push(...found);
+      continue;
+    }
+    await (options.syncClient ?? pointSync)(io, clientId).catch((err) => {
+      // Клиента нет и в main — это не сбой команды: ниже он покажется
+      // голой строкой с предупреждением.
+      if (!(err instanceof ClientNotFoundError)) throw err;
+    });
+    const afterSync = localRows(io, clientId);
+    if (afterSync.length > 0) {
+      rows.push(...afterSync);
+      continue;
+    }
+    io.progress(
+      `warning: client ${clientId} не найден в реестре (показан без таблицы)`,
+    );
+    rows.push(bareRow(clientId));
   }
-  const projection = result.projection as Projection;
-  return result.rows
-    .map((row) => `${projectionOf(row as SearchRow, projection)}\n`)
-    .join("");
+  return rows;
+}
+
+/** Строки клиента из локального кэша; своё соединение на проход. */
+function localRows(io: SearchIo, clientId: number): readonly SearchRow[] {
+  using db = io.openCacheDb();
+  return rowsOf(
+    searchCandidates({ cache: db, env: io.envFile }, String(clientId)),
+    io.envFile,
+  );
+}
+
+/**
+ * Вывод: JSON локального результата, JSON-объект цели 10X либо список
+ * кандидатов неоднозначного поиска. С проекцией печатаются только строки
+ * (у цели — её владения), по голому значению на строку.
+ */
+export function renderSearch(result: SearchResult): string {
+  if (result.ambiguous !== null) {
+    return `${JSON.stringify(result.ambiguous, null, 2)}\n`;
+  }
+  if (result.projection !== null) {
+    const projection = result.projection as Projection;
+    return result.rows
+      .map((row) => `${projectionOf(row as SearchRow, projection)}\n`)
+      .join("");
+  }
+  // Отступ 2 и unicode как есть: русские заголовки идут буквами, а не
+  // escape-последовательностями (спека, «Ввод/вывод»).
+  const shown = result.target ?? result.rows;
+  return `${JSON.stringify(shown, null, 2)}\n`;
 }
 
 /**
@@ -192,4 +388,34 @@ function projectionFlag(args: SearchArgs): string | null {
 /** Догоняющий синк: полный тихий прогон `mpu update`. */
 async function quietSync(io: LocalIo): Promise<void> {
   await runUpdate({ quiet: true }, io);
+}
+
+/** Строка результата как данные схемы: список копируется. */
+function plainRow(row: SearchRow) {
+  return { ...row, sids: [...row.sids] };
+}
+
+/** Эффективный scope для текста отказа о неоднозначности. */
+function effective(args: SearchArgs): string {
+  return effectiveScope(args.value, args.scope as Scope);
+}
+
+/** Причина impersonation по умолчанию: `ТП <YYYY-MM-DD>` (спека). */
+function defaultReason(nowSeconds: number): string {
+  return `ТП ${localDate(nowSeconds * 1000, new Date().getTimezoneOffset())}`;
+}
+
+function defaultNow(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+/** Путь env-файла для текста отказа о недостающих кредах. */
+function envFilePathOf(io: SearchIo): string {
+  const home = io.env("HOME") ?? "~";
+  return `${home}/.config/mpu/.env`;
+}
+
+/** Точечный синк по умолчанию — продуктовый прогон `mpu update`. */
+async function pointSync(io: LocalIo, clientId: number): Promise<void> {
+  await runClientSync(io, clientId);
 }

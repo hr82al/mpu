@@ -27,7 +27,7 @@ import { ssUpdateCommand } from "./cmd_ss_update.ts";
 import { wbLoaderCommands } from "./cmd_wb_loader.ts";
 import { wbRecalculateExpensesCommand } from "./cmd_wb_recalculate_expenses.ts";
 import { wbSaveExpensesCommand } from "./cmd_wb_save_expenses.ts";
-import { localDate } from "./dates.ts";
+import { localDate } from "../dates/mod.ts";
 import {
   runWrap,
   type WrapArgs,

@@ -1,36 +1,16 @@
 /**
- * Даты доменных флагов семейства обёрток
- * (`docs/specs/portainer-wrappers.md`): дефолт `--date-to` —
- * сегодняшняя локальная дата, вычисленная в момент вызова.
- *
- * Разряды местные, а не UTC: пересчёт расходов «за период по сегодня»
- * человек задаёт по своему календарю, и в поясе восточнее Гринвича
- * UTC-дата отстаёт на сутки до конца рабочего дня.
+ * Доменные флаги периода семейства обёрток
+ * (`docs/specs/portainer-wrappers.md`): их объявляют четыре команды
+ * дословно одинаково, поэтому объявление одно. Сама календарная дата —
+ * в `../dates/mod.ts`: её просит и поиск.
  */
 
 import { z } from "@zod/zod";
+import { today } from "../dates/mod.ts";
 import type { Flag } from "./inner.ts";
-
-const MINUTE_MS = 60_000;
 
 /** Начало периода по умолчанию — одно на все обёртки семейства. */
 const DEFAULT_DATE_FROM = "2025-01-01";
-
-/**
- * Дата момента `nowMs` в поясе со смещением `offsetMinutes` — в форме
- * `Date.getTimezoneOffset()`: минуты, которые надо вычесть из локального
- * времени, чтобы получить UTC. Отдельная функция от чтения часов, чтобы
- * правило было проверяемо без подстановки времени машины.
- */
-export function localDate(nowMs: number, offsetMinutes: number): string {
-  return new Date(nowMs - offsetMinutes * MINUTE_MS).toISOString().slice(0, 10);
-}
-
-/** Сегодняшняя локальная дата машины, `YYYY-MM-DD`. */
-export function today(): string {
-  const now = new Date();
-  return localDate(now.getTime(), now.getTimezoneOffset());
-}
 
 /**
  * Входы периода: их объявляют четыре обёртки семейства дословно

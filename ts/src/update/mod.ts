@@ -7,6 +7,7 @@
  */
 
 export {
+  runClientSync,
   runUpdate,
   type UpdateArgs,
   updateCommand,

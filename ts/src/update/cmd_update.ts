@@ -25,6 +25,7 @@ import {
   writeLokiCache,
 } from "../loki/mod.ts";
 import {
+  type ClientSyncOutcome,
   CONNECT_TIMEOUT_MS,
   DEFAULT_PG_LIMITS,
   type FailedServer,
@@ -33,6 +34,7 @@ import {
   type PgLimits,
   QUERY_TIMEOUT_MS,
   type SnapshotOutcome,
+  syncClient,
   syncSnapshot,
 } from "./sync.ts";
 
@@ -183,6 +185,27 @@ export async function runUpdate(
     })),
     loki,
   };
+}
+
+/**
+ * Точечный синк одного клиента продуктовыми пределами: возможность без
+ * CLI, её зовёт поиск, дотягивая клиента, которого нет в снапшоте
+ * (`specs/search.md`, «email-ветка»). Живёт здесь, а не в `sync.ts`,
+ * ради того же открывателя PG, что у полного прогона: второй способ
+ * подключаться разошёлся бы с первым.
+ */
+export async function runClientSync(
+  io: UpdateIo,
+  clientId: number,
+): Promise<ClientSyncOutcome> {
+  const limits = DEFAULT_UPDATE_LIMITS.pg;
+  using db = io.openCacheDb();
+  return await syncClient({
+    db,
+    openPg: denoPgOpener(io, limits),
+    limits,
+    clientId,
+  });
 }
 
 /** Одна строка обо всех упавших инстансах, по возрастанию номера. */

@@ -5,7 +5,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { localDate } from "./dates.ts";
+import { localDate } from "./mod.ts";
 
 Deno.test("localDate: граница полуночи по смещению", async (t) => {
   await t.step("положительное смещение (запад) — дата на сутки раньше", () => {
