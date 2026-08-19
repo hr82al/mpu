@@ -77,6 +77,35 @@ export function renderWrap(result: WrapResult): string {
   return result.printed === null ? result.output : `${result.printed}\n`;
 }
 
+/**
+ * Общая часть разобранных аргументов, как она приходит из схемы
+ * `commonArgs`: имена — argv'шные, включая kebab. Сборщик ниже переводит
+ * её в `WrapArgs`, чтобы перевод жил в одном месте на всё семейство.
+ */
+export type CommonArgs = {
+  readonly selector: string;
+  readonly server?: string;
+  readonly print: boolean;
+  readonly local: boolean;
+  readonly "client-id"?: number;
+};
+
+/**
+ * Общая часть входов любой обёртки. Каждая обёртка объявляет её
+ * `commonArgs` и передаёт сюда весь свой объект аргументов: разбирать
+ * пять одних и тех же полей в каждой из семи команд значит семь правок
+ * на одно изменение требования.
+ */
+export function commonArgsOf(args: CommonArgs): WrapArgs {
+  return {
+    selector: args.selector,
+    server: args.server,
+    print: args.print,
+    local: args.local,
+    clientId: args["client-id"],
+  };
+}
+
 /** Разобранные общие аргументы: что нужно машинерии от любой обёртки. */
 export interface WrapArgs {
   readonly selector: string;

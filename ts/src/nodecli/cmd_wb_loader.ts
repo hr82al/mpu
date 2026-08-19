@@ -9,6 +9,7 @@ import { z } from "@zod/zod";
 import { type Command, defineCommand } from "../command/mod.ts";
 import {
   commonArgs,
+  commonArgsOf,
   renderWrap,
   resultSchema,
   runWrap,
@@ -88,13 +89,7 @@ Exit: код inner-команды при выполнении; 0 при печа
           method,
           flags: () => [{ name: "sid", value: args.sid }],
         },
-        {
-          selector: args.selector,
-          server: args.server,
-          print: args.print,
-          local: args.local,
-          clientId: args["client-id"],
-        },
+        commonArgsOf(args),
         io,
       ),
     render: renderWrap,
