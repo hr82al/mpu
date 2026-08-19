@@ -8,9 +8,12 @@
  *
  * Фикстуры синтетические и объявлены здесь же: канал спецификаций
  * golden-файлов для этого каталога не несёт, а в `testdata/` лежат только
- * копии канала (`fixtures_test.ts` стережёт, что лишних копий там нет).
- * Id, имена и адреса вымышлены — живым данным и секретам в тестах места
- * нет.
+ * копии канала (`fixtures_test.ts` стережёт, что лишних копий там нет). Id,
+ * имена и адреса вымышлены — живым данным и секретам в тестах места нет.
+ * Формы, замеренные живьём (значение файлового поля массивом uid,
+ * `mime_type: null` у известного расширения, зависимость `url` от вызова),
+ * воспроизводятся синтетическими телами: проверяется правило разбора, а не
+ * содержимое чужой карточки.
  *
  * Сервер — общий стенд модуля (`./testing.ts`).
  */
@@ -378,7 +381,15 @@ Deno.test("вызов 2: мусор во вложенных списках от�
         name: "Проверки",
         items: ["мусор", CHECKLIST_ITEM],
       }],
-      properties: { id_610303: "готово", id_610304: null, id_610305: 7 },
+      properties: {
+        id_610303: "готово",
+        id_610304: null,
+        id_610305: 7,
+        // Массив-значение файлового поля: элемент не-строка формой не
+        // является и отбрасывается — как и всюду, где элемент списка не
+        // разобрался.
+        id_610306: ["uid-1", 7, "uid-2"],
+      },
       timer: { started_at: "2026-07-20T10:00:00.000+03:00" },
     })
   );
@@ -394,7 +405,10 @@ Deno.test("вызов 2: мусор во вложенных списках от�
       items: [PARSED_CHECKLIST_ITEM],
     }]);
     // Значение поля — строка; `null` и число значением поля не считаются.
-    assertEquals(card.properties, { id_610303: "готово" });
+    assertEquals(card.properties, {
+      id_610303: "готово",
+      id_610306: ["uid-1", "uid-2"],
+    });
     // Таймер без своего id таймером не является.
     assertEquals(card.timer, null);
   } finally {
@@ -403,30 +417,59 @@ Deno.test("вызов 2: мусор во вложенных списках от�
 });
 
 Deno.test("вызов 2: значение файлового поля — массив uid", async () => {
+  // Замер 2026-08-14: поле, привязанное к одному файлу, несёт массив из
+  // одного uid (`kaiten-api-cards.md`, «Инварианты»). Разбор значения
+  // строкой терял бы этот ключ молча — потеря без ошибки, а не отказ.
   const { baseUrl, stop } = startFakeKaiten(() =>
     Response.json({
       ...CARD,
       properties: {
-        id_291984: "готово",
-        // Файловое (attachment) поле: сервер шлёт массив uid привязанных
-        // файлов, и раньше такое поле молча пропадало.
         id_610303: ["99536012-bcad-4801-bfe7-30c958fcbf22"],
-        id_610304: null,
-        id_610305: 7,
-        id_610306: ["uid-1", 7, "uid-2"],
+        id_291984: "Гипотеза: расход растёт из-за повтора запроса",
       },
     })
   );
   try {
     const card = await getCard(accessTo(baseUrl), CARD_ID);
 
-    assertEquals(card.properties, {
-      id_291984: "готово",
-      id_610303: ["99536012-bcad-4801-bfe7-30c958fcbf22"],
-      // Элемент не-строка формой значения не является и отбрасывается —
-      // как и всюду в каталоге, где элемент списка не разобрался.
-      id_610306: ["uid-1", "uid-2"],
-    });
+    assertEquals(
+      card.properties.id_610303,
+      ["99536012-bcad-4801-bfe7-30c958fcbf22"],
+    );
+    // Строковое поле рядом разбирается по-прежнему: ветка массива вторую
+    // форму значения не вытесняет.
+    assertEquals(
+      card.properties.id_291984,
+      "Гипотеза: расход растёт из-за повтора запроса",
+    );
+  } finally {
+    await stop();
+  }
+});
+
+Deno.test("вызов 2: форма «Файл» — url и mimeType как пришли", async () => {
+  // Замер 2026-08-14 (`kaiten-api-cards.md`, форма «Файл»): `mime_type`
+  // приходит `null` и у известного расширения, а `url` в `files[]`
+  // карточки — абсолютный. Порт тип по расширению не выводит и ссылку не
+  // нормализует: у вызова 13 та же форма приходит другой (см. ниже).
+  const attached = {
+    id: 4020,
+    url: "https://files.proba.test/c45d4e1f-1799-4d4f-8e82-1f274eb78d0f.md",
+    name: "razbor.md",
+    mime_type: null,
+    comment_id: null,
+    card_cover: false,
+    custom_property_id: 610303,
+  };
+  const { baseUrl, stop } = startFakeKaiten(() =>
+    Response.json({ ...CARD, files: [attached] })
+  );
+  try {
+    const card = await getCard(accessTo(baseUrl), CARD_ID);
+    const file = card.files.find((item) => item.name === "razbor.md");
+
+    assertEquals(file?.mimeType, null);
+    assertEquals(file?.url, attached.url);
   } finally {
     await stop();
   }
@@ -891,6 +934,39 @@ Deno.test("вызов 13: файл в кастомное поле — multipart-
       cardCover: false,
       customPropertyId: 610303,
     });
+  } finally {
+    await stop();
+  }
+});
+
+Deno.test("вызов 13: url и mimeType ответа порт не чинит", async () => {
+  // Живой замер (`kaiten-api-cards.md`, форма «Файл»): ответ загрузки несёт
+  // url без файлового хоста — вида `https://files/<uuid>.<расширение>`, и
+  // такая ссылка не открывается; абсолютную несёт только карточка (вызов 2).
+  // mime_type приходит `null` даже у известного `.txt`. Порт значение не
+  // достраивает и не подменяет — отдаёт как есть.
+  const uploaded = {
+    id: 4010,
+    url: "https://files/9f2c1b3a-7e4d-4f2c-9a1e-9b6e0c7d5a10.txt",
+    name: "probe.txt",
+    mime_type: null,
+    comment_id: null,
+    card_cover: false,
+    custom_property_id: 610303,
+  };
+  const { baseUrl, stop } = startFakeKaiten(() =>
+    Response.json(uploaded, { status: 201 })
+  );
+  try {
+    const file = await uploadCustomPropertyFile(
+      accessTo(baseUrl),
+      CARD_ID,
+      610303,
+      { name: "probe.txt", bytes: new TextEncoder().encode("проба") },
+    );
+
+    assertEquals(file.url, uploaded.url);
+    assertEquals(file.mimeType, null);
   } finally {
     await stop();
   }
