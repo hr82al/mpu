@@ -47,7 +47,7 @@ export function parseRecords(text: string): readonly LogRecord[] {
       index++;
       const closing = closingOf(line, runId);
       if (closing !== null) {
-        exitCode = closing;
+        exitCode = closing.exitCode;
         break;
       }
       // Следующая шапка вместо закрывающего маркера: предыдущая запись
@@ -72,16 +72,22 @@ export function parseRecords(text: string): readonly LogRecord[] {
 }
 
 /**
- * Код выхода закрывающего маркера этой записи; строка — не он, либо
- * `run=` чужой → `null`. Именно совпадение идентификатора и держит
- * границу.
+ * Закрывающий маркер этой записи: строка — не он либо `run=` чужой →
+ * `null`. Именно совпадение идентификатора и держит границу.
+ *
+ * Маркер без `exit=` запись закрывает, но кода не даёт: подставить ноль
+ * значило бы выдать испорченную запись за успешную и спрятать её от
+ * `--failed`.
  */
-function closingOf(line: string, runId: string): number | null {
+function closingOf(
+  line: string,
+  runId: string,
+): { readonly exitCode: number | null } | null {
   const closing = new RegExp(
     `^--- end run=${escapeRegExp(runId)} exit=(-?\\d+)`,
   ).exec(line);
-  if (closing !== null) return Number(closing[1]);
-  return line.startsWith(`--- end run=${runId} `) ? 0 : null;
+  if (closing !== null) return { exitCode: Number(closing[1]) };
+  return line.startsWith(`--- end run=${runId} `) ? { exitCode: null } : null;
 }
 
 /** Строка вызова записи: первая строка, начинающаяся с `$ `. */

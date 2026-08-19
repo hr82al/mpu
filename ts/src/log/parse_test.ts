@@ -135,3 +135,17 @@ Deno.test("нечитаемое время шапки: видна без --since
   });
   assertEquals(withSince.length, 0);
 });
+
+Deno.test("закрывающий маркер без exit= кодом не считается успехом", () => {
+  // Испорченный маркер запись закрывает, но кода не даёт: подставленный
+  // ноль спрятал бы её от `--failed` (`specs/log.md`, «Инварианты»).
+  const text = [
+    "### 2026-08-01 10:00:00.100 +03:00 run=r-1 pid=1 cwd=/tmp",
+    "$ mpu ps sl-9",
+    "--- end run=r-1 dur=0.100s ---",
+    "",
+  ].join("\n");
+  const records = parseRecords(text);
+  assertEquals(records.length, 1);
+  assertEquals(records[0].exitCode, null);
+});
