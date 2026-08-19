@@ -329,6 +329,68 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "data-loader",
+    // `--print` ничего не выполняет и в сеть не ходит: дефолтный режим
+    // этой команды — серверная операция в проде клиента.
+    argv: ["777", "--sids", "abc", "--sids", "def", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:dataLoader findCandidate --client-id 777" +
+        " --sids abc def",
+      printed: 'sl-9-cli sh -c "node cli service:dataLoader findCandidate"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "wb-recalculate-expenses",
+    argv: ["777", "--date-from", "2026-01-01", "--date-to", "2026-01-31", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:wbUnitCalculatedData recalculateExpenses" +
+        " --client-id 777 --date-from 2026-01-01 --date-to 2026-01-31",
+      printed: 'sl-9-cli sh -c "node cli service:wbUnitCalculatedData"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "wb-save-expenses",
+    argv: ["777", "--date-from", "2026-01-01", "--date-to", "2026-01-31", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:wbUnitCalculatedData saveExpenses" +
+        " --client-id 777 --date-from 2026-01-01 --date-to 2026-01-31",
+      printed: 'sl-9-cli sh -c "node cli service:wbUnitCalculatedData"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "ozon-recalculate-expenses",
+    argv: ["777", "--date-from", "2026-01-01", "--date-to", "2026-01-31", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:ozonUnitCalculatedData recalculateExpenses" +
+        " --client-id 777 --date-from 2026-01-01 --date-to 2026-01-31",
+      printed: 'sl-9-cli sh -c "node cli service:ozonUnitCalculatedData"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "ozon-save-expenses",
+    argv: ["777", "--date-from", "2026-01-01", "--date-to", "2026-01-31", "-p"],
+    sampleResult: {
+      server: "sl-9",
+      inner: "node cli service:ozonUnitCalculatedData saveExpenses" +
+        " --client-id 777 --date-from 2026-01-01 --date-to 2026-01-31",
+      printed: 'sl-9-cli sh -c "node cli service:ozonUnitCalculatedData"',
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
     path: "ps",
     // Без селектора — снапшот локального кэша: сети у обхода нет, а
     // пустая кэш-БД временного каталога даёт отказ — молча, как

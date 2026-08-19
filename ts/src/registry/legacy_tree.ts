@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 43 команд верхнего уровня, ещё не переехавших на TS. */
+/** 38 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["search"],
@@ -116,16 +116,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     summary: "Пропустить stdin → stdout по подтверждению; иначе прервать pipe.",
   },
   {
-    path: ["wb-recalculate-expenses"],
-    summary:
-      "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
-  },
-  {
-    path: ["wb-save-expenses"],
-    summary:
-      "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
-  },
-  {
     path: ["process"],
     summary:
       "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
@@ -168,16 +158,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     summary: "Обёртки над `node cli service:ozonJobs` (sl-back).",
   },
   {
-    path: ["ozon-recalculate-expenses"],
-    summary:
-      "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
-  },
-  {
-    path: ["ozon-save-expenses"],
-    summary:
-      "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
-  },
-  {
     path: ["ozon-fix-fo-tax"],
     summary:
       "Починить источник 1₽ и прогнать штатную цепочку пересчёта ОПиУ / Фин отчет SKU.",
@@ -202,10 +182,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["users"],
     summary: "Обёртки над `node cli service:users` (sl-back).",
-  },
-  {
-    path: ["data-loader"],
-    summary: "Обёртки над `node cli service:dataLoader` (sl-back).",
   },
   {
     path: ["data-loader-jobs"],

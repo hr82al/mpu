@@ -88,6 +88,12 @@ export type CommonArgs = {
   readonly print: boolean;
   readonly local: boolean;
   readonly "client-id"?: number;
+  /**
+   * `-v/--verbose`; объявлен он только у
+   * `ozon-recalculate-expenses` (спека семейства), поэтому поле
+   * необязательное: у остальных шести его в аргументах нет вовсе.
+   */
+  readonly verbose?: boolean;
 };
 
 /**
@@ -103,6 +109,7 @@ export function commonArgsOf(args: CommonArgs): WrapArgs {
     print: args.print,
     local: args.local,
     clientId: args["client-id"],
+    verbose: args.verbose,
   };
 }
 
@@ -113,6 +120,8 @@ export interface WrapArgs {
   readonly print: boolean;
   readonly local: boolean;
   readonly clientId?: number;
+  /** Печатать inner-команду служебной строкой перед доставкой. */
+  readonly verbose?: boolean;
 }
 
 /** Что обёртка знает про свою inner-команду. */
@@ -177,6 +186,10 @@ export async function runWrap(
   // печати и раньше сети (инвариант спеки).
   const text = innerText(inner);
   const server = `sl-${resolved.serverNumber}`;
+  // `# inner: …` идёт служебным каналом (в CLI это stderr) во всех трёх
+  // режимах и обычный вывод не подменяет: в print-режимах строка команды
+  // всё равно уходит в stdout (спека семейства, «Особенности»).
+  if (args.verbose === true) io.progress(`# inner: ${text}`);
 
   if (!args.print) {
     return await execute(inner, { io, options, cache }, {

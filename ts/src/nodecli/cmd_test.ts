@@ -20,10 +20,17 @@ import {
 import type { RunProcess } from "../exec/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
+import { dataLoaderCommand } from "./cmd_data_loader.ts";
+import { ozonRecalculateExpensesCommand } from "./cmd_ozon_recalculate_expenses.ts";
+import { ozonSaveExpensesCommand } from "./cmd_ozon_save_expenses.ts";
 import { ssUpdateCommand } from "./cmd_ss_update.ts";
 import { wbLoaderCommands } from "./cmd_wb_loader.ts";
+import { wbRecalculateExpensesCommand } from "./cmd_wb_recalculate_expenses.ts";
+import { wbSaveExpensesCommand } from "./cmd_wb_save_expenses.ts";
+import { localDate } from "./dates.ts";
 import {
   runWrap,
+  type WrapArgs,
   type WrapContext,
   type WrapIo,
   type WrapOptions,
@@ -645,5 +652,427 @@ Deno.test("exec-режим видит Portainer-таргет из кэша", asy
     // транспорта — иначе обёртка уходит по ssh там, где `mpu ssh` того
     // же сервера идёт Portainer'ом.
     assertStringIncludes(asked, "https://portainer.example/api/endpoints/1/");
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Пять новых обёрток: `data-loader`, `wb-recalculate-expenses`,
+ * `wb-save-expenses`, `ozon-save-expenses`, `ozon-recalculate-expenses`
+ * (`docs/specs/portainer-wrappers.md`).
+ * ------------------------------------------------------------------ */
+
+/** Аргументы `data-loader`: всё, кроме названного, — умолчания схемы. */
+function dataLoaderArgs(overrides: Record<string, unknown> = {}) {
+  return {
+    selector: String(CLIENT.id),
+    server: undefined,
+    print: false,
+    local: false,
+    "client-id": undefined,
+    sids: undefined,
+    sid: undefined,
+    ...overrides,
+  };
+}
+
+/** Аргументы `wb-recalculate-expenses`/`wb-save-expenses`: обе несут nm-ids. */
+function wbDatedArgs(overrides: Record<string, unknown> = {}) {
+  return {
+    selector: String(CLIENT.id),
+    server: undefined,
+    print: false,
+    local: false,
+    "client-id": undefined,
+    "date-from": undefined,
+    date_from: undefined,
+    "date-to": undefined,
+    date_to: undefined,
+    "nm-ids": undefined,
+    nm_ids: undefined,
+    ...overrides,
+  };
+}
+
+/** Аргументы `ozon-save-expenses`: та же схема периода, без nm-ids. */
+function ozonSaveArgs(overrides: Record<string, unknown> = {}) {
+  return {
+    selector: String(CLIENT.id),
+    server: undefined,
+    print: false,
+    local: false,
+    "client-id": undefined,
+    "date-from": undefined,
+    date_from: undefined,
+    "date-to": undefined,
+    date_to: undefined,
+    ...overrides,
+  };
+}
+
+/** Аргументы `ozon-recalculate-expenses`: единственная обёртка с verbose. */
+function ozonRecalcArgs(overrides: Record<string, unknown> = {}) {
+  return {
+    selector: String(CLIENT.id),
+    server: undefined,
+    print: false,
+    local: false,
+    "client-id": undefined,
+    "date-from": undefined,
+    date_from: undefined,
+    "date-to": undefined,
+    date_to: undefined,
+    "ref-date": undefined,
+    ref_date: undefined,
+    "ref-fields": undefined,
+    ref_fields: undefined,
+    skus: undefined,
+    "logs-level": undefined,
+    logs_level: undefined,
+    verbose: false,
+    ...overrides,
+  };
+}
+
+Deno.test("data-loader: печать — эталон канала", async () => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+    const result = await dataLoaderCommand.invokeInput(
+      dataLoaderArgs({ print: true, sids: ["abc", "def"] }),
+      io,
+    ) as WrapResult;
+    assertEquals(
+      dataLoaderCommand.renderResult(result, [
+        "777",
+        "--sids",
+        "abc",
+        "--sids",
+        "def",
+        "-p",
+      ]),
+      await golden("data-loader-print.stdout.txt"),
+    );
+  });
+});
+
+Deno.test("wb-recalculate-expenses: печать — эталон канала", async () => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+    const result = await wbRecalculateExpensesCommand.invokeInput(
+      wbDatedArgs({
+        print: true,
+        "date-from": "2026-01-01",
+        "date-to": "2026-01-31",
+        "nm-ids": "[1,2,3]",
+      }),
+      io,
+    ) as WrapResult;
+    assertEquals(
+      wbRecalculateExpensesCommand.renderResult(result, [
+        "777",
+        "--date-from",
+        "2026-01-01",
+        "--date-to",
+        "2026-01-31",
+        "--nm-ids",
+        "[1,2,3]",
+        "-p",
+      ]),
+      await golden("wb-recalculate-expenses-print.stdout.txt"),
+    );
+  });
+});
+
+Deno.test("wb-save-expenses: печать — эталон канала", async () => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+    const result = await wbSaveExpensesCommand.invokeInput(
+      wbDatedArgs({
+        print: true,
+        "date-from": "2026-01-01",
+        "date-to": "2026-01-31",
+      }),
+      io,
+    ) as WrapResult;
+    assertEquals(
+      wbSaveExpensesCommand.renderResult(result, [
+        "777",
+        "--date-from",
+        "2026-01-01",
+        "--date-to",
+        "2026-01-31",
+        "-p",
+      ]),
+      await golden("wb-save-expenses-print.stdout.txt"),
+    );
+  });
+});
+
+Deno.test("ozon-save-expenses: печать — эталон канала", async () => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+    const result = await ozonSaveExpensesCommand.invokeInput(
+      ozonSaveArgs({
+        print: true,
+        "date-from": "2026-01-01",
+        "date-to": "2026-01-31",
+      }),
+      io,
+    ) as WrapResult;
+    assertEquals(
+      ozonSaveExpensesCommand.renderResult(result, [
+        "777",
+        "--date-from",
+        "2026-01-01",
+        "--date-to",
+        "2026-01-31",
+        "-p",
+      ]),
+      await golden("ozon-save-expenses-print.stdout.txt"),
+    );
+  });
+});
+
+Deno.test("ozon-recalculate-expenses: verbose-печать — эталоны канала", async () => {
+  await withCache([], async (db) => {
+    const { io, progress } = harness(db);
+    const result = await ozonRecalculateExpensesCommand.invokeInput(
+      ozonRecalcArgs({
+        print: true,
+        verbose: true,
+        "date-from": "2026-01-01",
+        "date-to": "2026-01-31",
+        "ref-fields": ["sebes_rub"],
+        skus: ["123"],
+      }),
+      io,
+    ) as WrapResult;
+    assertEquals(
+      ozonRecalculateExpensesCommand.renderResult(result, [
+        "777",
+        "--date-from",
+        "2026-01-01",
+        "--date-to",
+        "2026-01-31",
+        "--ref-fields",
+        "sebes_rub",
+        "--skus",
+        "123",
+        "-v",
+        "-p",
+      ]),
+      await golden("ozon-recalculate-expenses-verbose-print.stdout.txt"),
+    );
+    // `# inner: …` — служебная строка канала: каждая запись `progress`
+    // с добавленным переводом строки (в CLI это уходит в stderr).
+    assertEquals(
+      progress.map((line) => `${line}\n`).join(""),
+      await golden("ozon-recalculate-expenses-verbose-print.stderr.txt"),
+    );
+  });
+});
+
+Deno.test("дефолты периода: --date-to сегодняшняя, --date-from 2025-01-01", async () => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+    const result = await wbRecalculateExpensesCommand.invokeInput(
+      wbDatedArgs({ print: true }),
+      io,
+    ) as WrapResult;
+    // Дефолт вычисляется в момент вызова — эталон тоже берём временем
+    // вызова, а не зашитой строкой (иначе тест краснеет на границе
+    // суток).
+    const expectedDateTo = localDate(
+      Date.now(),
+      new Date().getTimezoneOffset(),
+    );
+    assertStringIncludes(result.inner, "--date-from 2025-01-01");
+    assertStringIncludes(result.inner, `--date-to ${expectedDateTo}`);
+  });
+});
+
+Deno.test("--verbose: одна и та же inner-строка в progress во всех трёх режимах", async () => {
+  await withCache([], async (db) => {
+    // Флаги машинерии, а не реальная команда: режим выполнения не
+    // проходит через `invokeInput` (у него нет входа для подмены
+    // транспорта), поэтому все три режима гоняются напрямую через
+    // `runWrap`, как в тесте «режим выполнения: inner уходит
+    // транспортом».
+    const spec = {
+      service: "ozonUnitCalculatedData",
+      method: "recalculateExpenses",
+      flags: () => [
+        { name: "date-from", value: "2026-01-01" },
+        { name: "date-to", value: "2026-01-31" },
+      ],
+    };
+    const argsFor = (overrides: Partial<WrapArgs> = {}): WrapArgs => ({
+      selector: String(CLIENT.id),
+      print: false,
+      local: false,
+      clientId: CLIENT.id,
+      verbose: true,
+      ...overrides,
+    });
+
+    const sshOut = harness(db);
+    const ssh = await runWrap(
+      spec,
+      argsFor({ print: true }),
+      sshOut.io,
+      options(),
+    );
+    assertEquals(sshOut.progress, [`# inner: ${ssh.inner}`]);
+    assert(ssh.printed !== null);
+
+    const localOut = harness(db);
+    const local = await runWrap(
+      spec,
+      argsFor({ print: true, local: true }),
+      localOut.io,
+      options(),
+    );
+    assertEquals(localOut.progress, [`# inner: ${local.inner}`]);
+    assert(local.printed !== null);
+
+    const execOut = harness(db);
+    const fake = fakeSsh(0);
+    const executed = await runWrap(
+      spec,
+      argsFor(),
+      execOut.io,
+      options({ runProcess: fake.run }),
+    );
+    // Обычный вывод не подменяется служебной строкой: он остаётся
+    // выводом inner-команды, а `# inner: …` идёт отдельно в progress.
+    assertEquals(execOut.progress, [`# inner: ${executed.inner}`]);
+    assertEquals(execOut.output.text(), "вывод inner-команды\n");
+
+    assertEquals(local.inner, ssh.inner);
+    assertEquals(executed.inner, ssh.inner);
+  });
+});
+
+Deno.test("data-loader: --sids обязателен, повтор — один флаг с двумя значениями", async (t) => {
+  await withCache([], async (db) => {
+    await t.step("без --sids — отказ ввода", async () => {
+      const { io } = harness(db);
+      await assertRejects(
+        () => dataLoaderCommand.invoke(["777", "-p"], io),
+        UsageError,
+      );
+    });
+
+    await t.step(
+      "--sids дважды — один флаг подряд с двумя значениями",
+      async () => {
+        const { io } = harness(db);
+        const result = await dataLoaderCommand.invoke(
+          ["777", "--sids", "abc", "--sids", "def", "-p"],
+          io,
+        ) as WrapResult;
+        assertStringIncludes(result.inner, "--sids abc def");
+        assertEquals(result.inner.match(/--sids/g)?.length, 1);
+      },
+    );
+  });
+});
+
+Deno.test("ozon-recalculate-expenses: --skus", async (t) => {
+  await withCache([], async (db) => {
+    await t.step("не задан — следа в inner нет", async () => {
+      const { io } = harness(db);
+      const result = await ozonRecalculateExpensesCommand.invoke(
+        ["777", "--date-from", "2026-01-01", "--date-to", "2026-01-31", "-p"],
+        io,
+      ) as WrapResult;
+      assertEquals(result.inner.includes("--skus"), false);
+    });
+
+    await t.step("задан трижды — ровно один токен [1,2,3]", async () => {
+      const { io } = harness(db);
+      const result = await ozonRecalculateExpensesCommand.invoke(
+        [
+          "777",
+          "--date-from",
+          "2026-01-01",
+          "--date-to",
+          "2026-01-31",
+          "--skus",
+          "1",
+          "--skus",
+          "2",
+          "--skus",
+          "3",
+          "-p",
+        ],
+        io,
+      ) as WrapResult;
+      assertStringIncludes(result.inner, "--skus [1,2,3]");
+      assertEquals(result.inner.match(/--skus/g)?.length, 1);
+    });
+  });
+});
+
+Deno.test("snake-написания: тот же inner, что kebab; при обоих — kebab побеждает", async (t) => {
+  await withCache([], async (db) => {
+    await t.step(
+      "wb-recalculate-expenses: date_from/date_to/nm_ids совпадают с kebab",
+      async () => {
+        const kebab = await wbRecalculateExpensesCommand.invokeInput(
+          wbDatedArgs({
+            print: true,
+            "date-from": "2026-02-01",
+            "date-to": "2026-02-28",
+            "nm-ids": "[1,2]",
+          }),
+          harness(db).io,
+        ) as WrapResult;
+        const snake = await wbRecalculateExpensesCommand.invokeInput(
+          wbDatedArgs({
+            print: true,
+            date_from: "2026-02-01",
+            date_to: "2026-02-28",
+            nm_ids: "[1,2]",
+          }),
+          harness(db).io,
+        ) as WrapResult;
+        assertEquals(snake.inner, kebab.inner);
+      },
+    );
+
+    await t.step("оба заданы сразу — побеждает kebab", async () => {
+      const result = await wbRecalculateExpensesCommand.invokeInput(
+        wbDatedArgs({
+          print: true,
+          "date-from": "2026-03-01",
+          date_from: "2099-01-01",
+          "date-to": "2026-03-31",
+          date_to: "2099-12-31",
+          "nm-ids": "[1]",
+          nm_ids: "[2]",
+        }),
+        harness(db).io,
+      ) as WrapResult;
+      assertStringIncludes(result.inner, "--date-from 2026-03-01");
+      assertStringIncludes(result.inner, "--date-to 2026-03-31");
+      assertStringIncludes(result.inner, "--nm-ids [1]");
+      assertEquals(result.inner.includes("2099"), false);
+      assertEquals(result.inner.includes("[2]"), false);
+    });
+
+    await t.step(
+      "ozon-recalculate-expenses: ref_fields совпадает с ref-fields",
+      async () => {
+        const kebab = await ozonRecalculateExpensesCommand.invokeInput(
+          ozonRecalcArgs({ print: true, "ref-fields": ["a", "b"] }),
+          harness(db).io,
+        ) as WrapResult;
+        const snake = await ozonRecalculateExpensesCommand.invokeInput(
+          ozonRecalcArgs({ print: true, ref_fields: ["a", "b"] }),
+          harness(db).io,
+        ) as WrapResult;
+        assertEquals(snake.inner, kebab.inner);
+      },
+    );
   });
 });

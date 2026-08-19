@@ -24,7 +24,15 @@ import { updateCommand } from "../update/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
 import { sqlCommand, sqlRoCommand } from "../sql/mod.ts";
 import { healthCommand } from "../health/mod.ts";
-import { ssUpdateCommand, wbLoaderCommands } from "../nodecli/mod.ts";
+import {
+  dataLoaderCommand,
+  ozonRecalculateExpensesCommand,
+  ozonSaveExpensesCommand,
+  ssUpdateCommand,
+  wbLoaderCommands,
+  wbRecalculateExpensesCommand,
+  wbSaveExpensesCommand,
+} from "../nodecli/mod.ts";
 import { psCommand } from "../ps/mod.ts";
 import { runJsCommand } from "../runjs/mod.ts";
 import { jsdateCommand } from "../jsdate/mod.ts";
@@ -109,6 +117,11 @@ export const commands: readonly Command[] = [
   healthCommand,
   ssUpdateCommand,
   ...wbLoaderCommands,
+  dataLoaderCommand,
+  wbRecalculateExpensesCommand,
+  wbSaveExpensesCommand,
+  ozonRecalculateExpensesCommand,
+  ozonSaveExpensesCommand,
   psCommand,
   runJsCommand,
   jsdateCommand,
