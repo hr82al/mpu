@@ -242,7 +242,7 @@ env-переменная) не порождает подпроцессов и н
 | `mpu`                                   | `help-root.txt` без финальной пустой строки | 2    |
 | `mpu help`                              | `help-list.txt`                             | 0    |
 | `mpu help --help`                       | `help-help.txt`                             | 0    |
-| `mpu help "mpu search"`                 | `help-named-search.txt`                     | 0    |
+| `mpu help "mpu sheet"`                  | `help-named-sheet.txt`                      | 0    |
 | `mpu help "mpu help"`                   | `help-named-self.txt`                       | 0    |
 | `mpu help does-not-exist`               | `err-help-unknown.txt`                      | 2    |
 | `mpu help ""`                           | `err-help-empty.txt`                        | 2    |
@@ -276,7 +276,7 @@ differential-сверкой, а не golden. Снимок новой повер�
 регрессии, снимается заново и эталоном оригинала уже не является. Правило
 избавляет от разбора «почему этот golden красный» в каждой следующей задаче.
 
-`help-named-search.txt` и `subcmd-help.txt` — эталоны сквозного поведения:
+`help-named-sheet.txt` и `subcmd-help.txt` — эталоны сквозного поведения:
 flag-level текст справки legacy-команд (`search`, `sheet`) поставляет
 подпроцесс, не реестр.
 
