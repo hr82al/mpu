@@ -143,14 +143,16 @@ Deno.test("legacy_tree.ts синхронен слепку", async (t) => {
       manifestVersion: tree.manifestVersion,
       mpuVersion: tree.mpuVersion,
       // Есть лист второго уровня, а записи его верхнего имени нет.
+      // Имя — подпроцессной команды: `kiten` переехал целиком и в
+      // слепке его больше нет вовсе.
       commands: [
-        { path: ["kiten", "ls"], params: [], summary: "s", help: "h" },
+        { path: ["sheet", "get"], params: [], summary: "s", help: "h" },
       ],
     };
     const err = assertThrows(
       () => legacyEntriesFrom(readManifest(withoutTop)),
       TreeSourceError,
     );
-    assertStringIncludes(String(err), "kiten");
+    assertStringIncludes(String(err), "sheet");
   });
 });

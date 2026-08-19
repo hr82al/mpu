@@ -6,7 +6,10 @@
  * (`docs/specs/kiten-comment.md`), учёт времени `mpu kiten time`
  * (`docs/specs/kiten-time.md`) — записи и личный таймер — и чек-листы
  * `mpu kiten checklist` (`docs/specs/kiten-checklist.md`) и
- * оркестратор закрытия `mpu kiten close` (`docs/specs/kiten-close.md`).
+ * оркестратор закрытия `mpu kiten close` (`docs/specs/kiten-close.md`),
+ * список карточек `mpu kiten ls` (`docs/specs/kiten-ls.md`) и
+ * справочники `mpu kiten whoami`/`spaces`/`boards`/`lanes`/
+ * `columns`/`roles` (`docs/specs/kiten-refs.md`).
  *
  * Наружу отдаются объявления команд — их берёт реестр; аргументы,
  * результаты и шаги вызова остаются внутри своих файлов.
@@ -43,6 +46,22 @@ export {
 export { kitenCommentCommand } from "./cmd_comment.ts";
 
 export {
+  type KitenLsArgs,
+  kitenLsCommand,
+  type KitenLsResult,
+  runKitenLs,
+} from "./cmd_ls.ts";
+
+export {
+  kitenBoardsCommand,
+  kitenColumnsCommand,
+  kitenLanesCommand,
+  kitenRolesCommand,
+  kitenSpacesCommand,
+  kitenWhoamiCommand,
+} from "./cmd_refs.ts";
+
+export {
   kitenTimeAddCommand,
   kitenTimeEditCommand,
   kitenTimeLsCommand,
@@ -55,3 +74,11 @@ export {
   kitenTimeStatusCommand,
   kitenTimeStopCommand,
 } from "./cmd_timer.ts";
+export {
+  type KitenStatusArgs,
+  kitenStatusCommand,
+  type KitenStatusResult,
+  renderStatus,
+  runKitenStatus,
+  type StatusOptions,
+} from "./cmd_status.ts";

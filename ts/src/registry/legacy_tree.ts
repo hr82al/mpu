@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 36 команд верхнего уровня, ещё не переехавших на TS. */
+/** 35 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sun"],
@@ -81,11 +81,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     path: ["move-client-back"],
     summary:
       "Реверс переноса по записи `move-client`; `ls` — список, `rm <selector>` — удалить запись.",
-  },
-  {
-    path: ["kiten"],
-    summary:
-      "Kaiten (btlz.kaiten.ru) из терминала: `ls`/`card`/`comment`/`desc`/`move`/`ready`/`review`/`close` — работа с карточкой; `checklist` — чек-листы (интерактивные чекбоксы); `time` — учёт времени и...",
   },
   {
     path: ["mr"],

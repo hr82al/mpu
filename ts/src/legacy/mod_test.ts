@@ -170,43 +170,46 @@ Deno.test("нет исполняемого файла — exit 1 и текст �
 });
 
 Deno.test("группа с одним переехавшим листом: сосед по-прежнему подпроцессом", async (t) => {
-  // `kiten card` переведён на маршрут `native`, остальные листья `kiten`
-  // остаются `legacy` одной записью слепка (`platform/registry.md`).
-  // Проверяется, что от этого не поехали соседи: реестр берёт самый
-  // длинный известный путь, а всё прочее под `kiten` уходит подпроцессу
-  // вместе с именем группы.
+  // Пример подобран заново: `kiten` переехала на `native` целиком (ни
+  // одной подкоманды на `legacy` не осталось), и как пример смешанного
+  // маршрута больше не годится. `telegram` — сейчас единственная живая
+  // пара в реестре с тем же профилем: её листья `send`/`ls`/`search`/
+  // `status` переехали (`registry/mod.ts`, `commands`), а сама группа
+  // всё ещё значится в слепке одной записью верхнего уровня
+  // (`registry/legacy_tree.ts`, `path: ["telegram"]`) — своего
+  // промежуточного узла в `groups` у неё нет. Проверяемое свойство то
+  // же: реестр берёт самый длинный известный путь, и всё, что не
+  // совпало ни с одним native-листом, уходит подпроцессу вместе с
+  // именем группы (`platform/registry.md`).
   const ok: LegacyOutcome = { code: 0, stdout: "вывод соседа", stderr: "" };
 
   await t.step("переехавший лист исполняет CLI, а не подпроцесс", async () => {
     const cli = makeCli(ok);
-    // Ключа доступа во временном окружении нет — вызов отказывает своей
-    // же ошибкой ввода, и это доказывает, что до подпроцесса он не дошёл.
-    // Текст и код — `platform/kaiten-http.md`, «Конфигурация».
-    assertEquals(await cli.run("kiten", "card", "65634936"), 2);
+    // Позиционный MESSAGE не передан — команда отказывает собственной
+    // схемой аргументов до какого-либо ввода-вывода, и это доказывает,
+    // что до подпроцесса она не дошла.
+    assertEquals(await cli.run("telegram", "send"), 2);
     assertEquals(cli.calls(), []);
-    assertEquals(
-      cli.stderr(),
-      "mpu kiten card: KITEN_API_KEY не задан; " +
-        "попробуй: добавить KITEN_API_KEY в env-файл\n",
-    );
   });
 
   await t.step("соседний лист уходит подпроцессу с именем группы", async () => {
+    // `contacts` — подкоманда, для которой native-листа в реестре нет:
+    // длина совпадения решает в пользу записи слепка `["telegram"]`.
     const cli = makeCli(ok);
-    assertEquals(await cli.run("kiten", "ls", "--limit", "5"), 0);
-    assertEquals(cli.calls()[0].args, ["kiten", "ls", "--limit", "5"]);
+    assertEquals(await cli.run("telegram", "contacts", "--limit", "5"), 0);
+    assertEquals(cli.calls()[0].args, ["telegram", "contacts", "--limit", "5"]);
     assertEquals(cli.stdout(), "вывод соседа");
   });
 
   await t.step("справку группы печатает подпроцесс", async () => {
     const cli = makeCli(ok);
-    assertEquals(await cli.run("kiten", "--help"), 0);
-    assertEquals(cli.calls()[0].args, ["kiten", "--help"]);
+    assertEquals(await cli.run("telegram", "--help"), 0);
+    assertEquals(cli.calls()[0].args, ["telegram", "--help"]);
   });
 
   await t.step("голый вызов группы — тоже подпроцесс", async () => {
     const cli = makeCli(ok);
-    assertEquals(await cli.run("kiten"), 0);
-    assertEquals(cli.calls()[0].args, ["kiten"]);
+    assertEquals(await cli.run("telegram"), 0);
+    assertEquals(cli.calls()[0].args, ["telegram"]);
   });
 });

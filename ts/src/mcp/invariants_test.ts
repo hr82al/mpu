@@ -109,24 +109,31 @@ Deno.test("список тулов профиля побитово одинак�
   }
 });
 
-Deno.test("переехавший лист группы публикуется тулом по объявлению", () => {
-  // Смена маршрута листа меняет форму ответа тула: у `legacy` это текст
+Deno.test("маршрут листа виден по форме опубликованного тула", () => {
+  // Смена маршрута меняет форму ответа тула: у `legacy` это текст
   // подпроцесса и схемы результата нет вовсе, у `native` — структурный
   // результат по объявлению команды (`platform/mcp-server.md`). Состав
-  // тулов при этом тот же: имя лежит в закрытом списке публикации.
+  // тулов при этом тот же: имена лежат в закрытом списке публикации.
+  // Пара взята из разных маршрутов: группа `kiten` переехала целиком, и
+  // подпроцессным соседом по ней уже не проиллюстрируешь.
   const tools = profileTools(commands, "ro");
-  const card = tools.find((entry) => entry.tool.name === "kiten_card");
-  const neighbour = tools.find((entry) => entry.tool.name === "kiten_ls");
+  const native = tools.find((entry) => entry.tool.name === "kiten_card");
+  // Подпроцессный тул живёт в профиле `rw`: читающих среди них не
+  // осталось вовсе — это и есть след переезда.
+  const legacy = profileTools(commands, "rw").find((entry) =>
+    entry.tool.name === "mp_init"
+  );
 
-  assertEquals(card?.path, ["kiten", "card"]);
+  assertEquals(native?.path, ["kiten", "card"]);
   assertEquals(
-    card?.tool.outputSchema?.["type"],
+    native?.tool.outputSchema?.["type"],
     "object",
     "у native-тула объявлена схема результата",
   );
-  // Сосед по группе остался маршрутом `legacy`: схемы результата у него
-  // нет и быть не может — подпроцесс отдаёт текст.
-  assertEquals(neighbour?.tool.outputSchema, undefined);
+  assertEquals(legacy?.path, ["mp-init"]);
+  // У подпроцессного тула схемы результата нет и быть не может: он
+  // отдаёт текст.
+  assertEquals(legacy?.tool.outputSchema, undefined);
   // Тул не задвоился: имя, опубликованное нативно, из слепка не берётся.
   assertEquals(
     tools.filter((entry) => entry.tool.name === "kiten_card").length,

@@ -463,6 +463,63 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "kiten whoami",
+    // Ключа `KITEN_API_KEY` во временном окружении нет: вызов отказывает
+    // до сети и молча, как требует инвариант 1.
+    argv: [],
+    sampleResult: {
+      user: {
+        id: 900001,
+        full_name: "Иван Тестов",
+        username: "ivanov",
+        email: "ivanov@example.test",
+      },
+    },
+  },
+  {
+    path: "kiten spaces",
+    // Ключа `KITEN_API_KEY` во временном окружении нет: вызов отказывает
+    // до сети, до резолва REF и до записи кэша справочников.
+    argv: [],
+    sampleResult: {
+      spaces: [{ id: 100, title: "Разработка", archived: false }],
+    },
+  },
+  {
+    path: "kiten boards",
+    // Ключа `KITEN_API_KEY` во временном окружении нет: вызов отказывает
+    // до сети, --space здесь не резолвится.
+    argv: [],
+    sampleResult: {
+      boards: [{ id: 4001, space_id: 100, title: "Основная" }],
+    },
+  },
+  {
+    path: "kiten lanes",
+    // Ключа `KITEN_API_KEY` во временном окружении нет: вызов отказывает
+    // до сети — скоуп «все доски компании» её и не достигает.
+    argv: [],
+    sampleResult: {
+      lanes: [{ id: 6001, board_id: 4001, title: "Основная" }],
+    },
+  },
+  {
+    path: "kiten columns",
+    // Ключа `KITEN_API_KEY` во временном окружении нет: вызов отказывает
+    // до сети — тем же путём, что и `kiten lanes`.
+    argv: [],
+    sampleResult: {
+      columns: [{ id: 5000001, board_id: 4001, title: "Готово" }],
+    },
+  },
+  {
+    path: "kiten roles",
+    // Ключа `KITEN_API_KEY` во временном окружении нет: вызов отказывает
+    // до сети и до записи таблицы ролей в кэш.
+    argv: [],
+    sampleResult: { roles: [{ id: 12058, name: "Техподдержка" }] },
+  },
+  {
     path: "kiten card",
     // Ключа `KITEN_API_KEY` во временном окружении нет: вызов отказывает
     // до сети и молча, как требует инвариант 1.
@@ -707,6 +764,55 @@ const CASES: readonly CommandCase[] = [
         from: "Проекты · Бэклог · Разработка",
         to: null,
       },
+    },
+  },
+  {
+    path: "kiten ls",
+    // Ключа `KITEN_API_KEY` во временном окружении нет: вызов отказывает
+    // на резолве доступа, до запроса `getCurrentUser` и до чтения кэша.
+    argv: [],
+    sampleResult: {
+      view: "table",
+      rows: [{
+        id: 65634936,
+        state: "in progress",
+        due_date: null,
+        updated: "2026-08-14T16:44:18.152Z",
+        title: "проба",
+        url: "https://kaiten.example.test/65634936",
+        column: "Бэклог",
+        columnMapped: "Бэклог",
+      }],
+    },
+  },
+  {
+    path: "kiten status",
+    // Ключа `KITEN_API_KEY` во временном окружении нет: вызов отказывает
+    // на резолве доступа, до запроса `getCurrentUser` и до сбора
+    // источников (карточки, время, лента действий).
+    argv: [],
+    sampleResult: {
+      rows: [{
+        id: 65634936,
+        title: "проба",
+        url: "https://kaiten.example.test/65634936",
+        stage: "work",
+        column: "Бэклог",
+        board: "Разработка",
+        space: "Основная",
+        lane: "Основная",
+        state: "in progress",
+        closed: false,
+        escalated: false,
+        due_date: null,
+        updated: "2026-08-14T16:44:18.152Z",
+        my_minutes: 75,
+        sources: ["assigned", "time"],
+      }],
+      out: "matrix",
+      format: null,
+      minutesByRole: { "Техподдержка": 75 },
+      now: 1786700096,
     },
   },
   {

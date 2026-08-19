@@ -38,6 +38,7 @@ export const NOT_LEGACY: readonly string[] = [
   "ozon-save-expenses",
   "logs",
   "log",
+  "kiten",
   "search",
   "help",
   "version",

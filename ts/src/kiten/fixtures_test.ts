@@ -141,6 +141,35 @@ const SETS: readonly FixtureSet[] = [
     ],
   },
   {
+    channel: "kiten-refs",
+    copy: "kiten-refs/",
+    names: [
+      "whoami.json",
+      "spaces.json",
+      "boards.json",
+      "lanes.json",
+      "columns.json",
+      "roles.json",
+      "roles-all.json",
+    ],
+  },
+  {
+    channel: "kiten-ls",
+    copy: "kiten-ls/",
+    names: [
+      "ls-global.json",
+      "ls-global.md",
+    ],
+  },
+  {
+    channel: "kiten-status",
+    copy: "kiten-status/",
+    names: [
+      "status.json",
+      "status.md",
+    ],
+  },
+  {
     channel: "kiten-checklist",
     copy: "kiten-checklist/",
     names: [

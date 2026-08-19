@@ -191,29 +191,32 @@ Deno.test("режим дополнения печатает варианты, а
   });
 
   await t.step("частично переехавшая группа — её native-листья", async () => {
+    // `kiten` переехала на `native` целиком и больше не годится примером
+    // смешанного маршрута (`legacy/mod_test.ts` — там та же замена и
+    // подробное обоснование). `telegram` — сейчас единственная в реестре
+    // группа с тем же профилем: её листья `send`/`ls`/`search`/`status`
+    // переехали (`registry/mod.ts`, `commands`), а сама группа своего
+    // промежуточного узла в `groups` не имеет — в слепке она по-прежнему
+    // одна запись верхнего уровня (`registry/legacy_tree.ts`).
     const { stdout } = await run([], {
       env: (name) =>
         name === "_MPU_COMPLETE"
           ? "complete_bash"
           : name === "COMP_WORDS"
-          ? "mpu kiten"
+          ? "mpu telegram"
           : name === "COMP_CWORD"
           ? "2"
           : undefined,
     });
-    // Список неполон по построению: соседи `card` в реестре не заведены —
-    // слепок отдаёт группу одной записью, и до конца переезда дополнение
-    // внутри неё видит только переехавшие листья (`platform/registry.md`).
+    // Список неполон по построению: прочие подкоманды `telegram` в
+    // реестре не заведены — слепок отдаёт группу одной записью, и до
+    // конца переезда дополнение внутри неё видит только переехавшие
+    // листья (`platform/registry.md`).
     assertEquals(stdout.split("\n").filter(Boolean), [
-      "card",
-      "comment",
-      "field",
-      "time",
-      "checklist",
-      "close",
-      "move",
-      "ready",
-      "review",
+      "send",
+      "ls",
+      "search",
+      "status",
     ]);
   });
 

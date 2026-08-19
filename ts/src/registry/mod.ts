@@ -43,17 +43,24 @@ import { logsCommand } from "../logs/mod.ts";
 import {
   kitenArtefactRmCommand,
   kitenArtefactSetCommand,
+  kitenBoardsCommand,
   kitenCardCommand,
   kitenChecklistAddCommand,
   kitenChecklistCheckCommand,
   kitenChecklistLsCommand,
   kitenChecklistUncheckCommand,
   kitenCloseCommand,
+  kitenColumnsCommand,
   kitenCommentCommand,
   kitenFieldSetCommand,
+  kitenLanesCommand,
+  kitenLsCommand,
   kitenMoveCommand,
   kitenReadyCommand,
   kitenReviewCommand,
+  kitenRolesCommand,
+  kitenSpacesCommand,
+  kitenStatusCommand,
   kitenTimeAddCommand,
   kitenTimeDiscardCommand,
   kitenTimeEditCommand,
@@ -62,6 +69,7 @@ import {
   kitenTimeStartCommand,
   kitenTimeStatusCommand,
   kitenTimeStopCommand,
+  kitenWhoamiCommand,
 } from "../kiten/mod.ts";
 import {
   telegramLsCommand,
@@ -136,6 +144,17 @@ export const commands: readonly Command[] = [
   // `kiten` уходят подпроцессом одной записью слепка, а этот путь
   // распознаётся реестром целиком и потому побеждает её длиной.
   kitenCardCommand,
+  // Справочники и обзорные подкоманды: с ними на маршруте `legacy` не
+  // остаётся ни одной подкоманды группы (`specs/kiten-refs.md`,
+  // `kiten-ls.md`, `kiten-status.md`).
+  kitenWhoamiCommand,
+  kitenSpacesCommand,
+  kitenBoardsCommand,
+  kitenLanesCommand,
+  kitenColumnsCommand,
+  kitenRolesCommand,
+  kitenLsCommand,
+  kitenStatusCommand,
   kitenCommentCommand,
   kitenFieldSetCommand,
   kitenArtefactSetCommand,
@@ -212,6 +231,14 @@ export const groups: readonly CommandGroup[] = [
     path: ["xlsx", "alias"],
     summary: "алиасы путей: add | ls | rm",
     usage: "mpu xlsx alias <подкоманда> [аргументы]",
+  },
+  {
+    // Группа переехала целиком, и её промежуточный уровень больше не
+    // приходит из слепка: без этой записи `mpu kiten --help` собирал бы
+    // пустой индекс (`platform/registry.md`).
+    path: ["kiten"],
+    summary: "карточки Kaiten: чтение, комментарии, время, справочники",
+    usage: "mpu kiten <подкоманда> [аргументы]",
   },
   {
     path: ["wb-loader"],

@@ -1357,6 +1357,492 @@
     }
   },
   {
+    "name": "kiten_whoami",
+    "title": "mpu kiten whoami",
+    "description": "Владелец токена Kaiten: id, имя, логин, почта.\n\nКто я по ключу KITEN_API_KEY: один запрос к Kaiten, без записи\nкуда бы то ни было.\n\nБез --json — четыре строки id/name/login/email; с --json — объект с теми\nже четырьмя ключами.\n\nКлючи env-файла: KITEN_API_KEY (обязателен),\nKITEN_BASE_URL (по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех, в том числе пустая выдача; 1 — ошибка API Kaiten либо\nзаписи кэша; 2 — ошибки ввода: не задан KITEN_API_KEY, не резолвится\nREF.\n\nПример: mpu kiten whoami --json",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "json": {
+          "default": false,
+          "description": "машиночитаемый JSON: отступ 2, порядок строк — как в ответе API",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "id пользователя"
+            },
+            "full_name": {
+              "type": "string",
+              "description": "отображаемое имя; его нет — пустая строка"
+            },
+            "username": {
+              "type": "string",
+              "description": "логин; его нет — пустая строка"
+            },
+            "email": {
+              "type": "string",
+              "description": "почта; её нет — пустая строка"
+            }
+          },
+          "required": [
+            "id",
+            "full_name",
+            "username",
+            "email"
+          ],
+          "additionalProperties": false,
+          "description": "владелец токена"
+        }
+      },
+      "required": [
+        "user"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_spaces",
+    "title": "mpu kiten spaces",
+    "description": "Пространства компании; архивные — по --all.\n\nЖивой список пространств; он же обновляет кэш справочников, на\nкотором резолвятся --space и --board у соседних команд.\n\n--all показывает архивные пространства. Фильтр действует только на\nвывод: в кэш всегда попадает полный ответ.\n\nКолонки таблицы: ID, TITLE, ARCHIVED (yes у архивного). Итог —\n(N spaces); пустой список — (нет пространств).\n\nКлючи env-файла: KITEN_API_KEY (обязателен),\nKITEN_BASE_URL (по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех, в том числе пустая выдача; 1 — ошибка API Kaiten либо\nзаписи кэша; 2 — ошибки ввода: не задан KITEN_API_KEY, не резолвится\nREF.\n\nПример: mpu kiten spaces --all",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "all": {
+          "default": false,
+          "description": "показать и архивные пространства",
+          "type": "boolean"
+        },
+        "json": {
+          "default": false,
+          "description": "машиночитаемый JSON: отступ 2, порядок строк — как в ответе API",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "spaces": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "id пространства"
+              },
+              "title": {
+                "type": "string",
+                "description": "название пространства"
+              },
+              "archived": {
+                "type": "boolean",
+                "description": "пространство в архиве"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "archived"
+            ],
+            "additionalProperties": false
+          },
+          "description": "пространства в порядке ответа API; без --all архивные отфильтрованы"
+        }
+      },
+      "required": [
+        "spaces"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_boards",
+    "title": "mpu kiten boards",
+    "description": "Доски всех пространств плоским списком; --space фильтрует.\n\nДоски приходят вложенными в пространства (отдельного списка досок\nу API нет) и печатаются плоско, в порядке ответа.\n\n--space REF оставляет доски одного пространства; REF — id либо подстрока\nназвания без учёта регистра. Фильтр действует только на вывод: в кэш\nвсегда попадает полный ответ.\n\nКолонки таблицы: ID, SPACE, TITLE. Итог — (N boards); пустой список —\n(нет досок).\n\nКлючи env-файла: KITEN_API_KEY (обязателен),\nKITEN_BASE_URL (по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех, в том числе пустая выдача; 1 — ошибка API Kaiten либо\nзаписи кэша; 2 — ошибки ввода: не задан KITEN_API_KEY, не резолвится\nREF.\n\nПример: mpu kiten boards --space Разработка",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "space": {
+          "description": "пространство: id или подстрока названия",
+          "type": "string"
+        },
+        "json": {
+          "default": false,
+          "description": "машиночитаемый JSON: отступ 2, порядок строк — как в ответе API",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "boards": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "id доски"
+              },
+              "space_id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "id пространства доски"
+              },
+              "title": {
+                "type": "string",
+                "description": "название доски"
+              }
+            },
+            "required": [
+              "id",
+              "space_id",
+              "title"
+            ],
+            "additionalProperties": false
+          },
+          "description": "доски всех пространств плоско, в порядке ответа API"
+        }
+      },
+      "required": [
+        "boards"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_lanes",
+    "title": "mpu kiten lanes",
+    "description": "Дорожки досок: одной доски, пространства либо всех сразу.\n\nСкоуп: --board — одна доска, --space — доски пространства, без\nфильтров — все доски компании (запрос на каждую доску скоупа).\n\nREF — id либо подстрока названия без учёта регистра;\nточное совпадение старше подстроки, неоднозначная подстрока — ошибка\nввода со списком кандидатов.\n\nДоска, ответившая ошибкой (нет доступа и т.п.), молча пропускается:\nостальные доски остаются в выдаче, отказ всех досок даёт пустую выдачу и\nexit 0.\n\nКолонки таблицы: ID, BOARD, TITLE. Итог — (N lanes); пустой список —\n(нет дорожек).\n\nКлючи env-файла: KITEN_API_KEY (обязателен),\nKITEN_BASE_URL (по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех, в том числе пустая выдача; 1 — ошибка API Kaiten либо\nзаписи кэша; 2 — ошибки ввода: не задан KITEN_API_KEY, не резолвится\nREF.\n\nПример: mpu kiten lanes --board 4001",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "space": {
+          "description": "пространство: id или подстрока названия",
+          "type": "string"
+        },
+        "board": {
+          "description": "доска: id или подстрока названия",
+          "type": "string"
+        },
+        "json": {
+          "default": false,
+          "description": "машиночитаемый JSON: отступ 2, порядок строк — как в ответе API",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "lanes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "id дорожки либо колонки"
+              },
+              "board_id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "id доски"
+              },
+              "title": {
+                "type": "string",
+                "description": "название дорожки либо колонки"
+              }
+            },
+            "required": [
+              "id",
+              "board_id",
+              "title"
+            ],
+            "additionalProperties": false
+          },
+          "description": "дорожки досок скоупа в порядке обхода досок"
+        }
+      },
+      "required": [
+        "lanes"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_columns",
+    "title": "mpu kiten columns",
+    "description": "Колонки досок: одной доски, пространства либо всех сразу.\n\nСкоуп: --board — одна доска, --space — доски пространства, без\nфильтров — все доски компании (запрос на каждую доску скоупа).\n\nREF — id либо подстрока названия без учёта регистра;\nточное совпадение старше подстроки, неоднозначная подстрока — ошибка\nввода со списком кандидатов.\n\nДоска, ответившая ошибкой (нет доступа и т.п.), молча пропускается:\nостальные доски остаются в выдаче, отказ всех досок даёт пустую выдачу и\nexit 0.\n\nКолонки таблицы: ID, BOARD, TITLE. Итог — (N columns); пустой список —\n(нет колонок).\n\nКлючи env-файла: KITEN_API_KEY (обязателен),\nKITEN_BASE_URL (по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех, в том числе пустая выдача; 1 — ошибка API Kaiten либо\nзаписи кэша; 2 — ошибки ввода: не задан KITEN_API_KEY, не резолвится\nREF.\n\nПример: mpu kiten columns --space Разработка",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "space": {
+          "description": "пространство: id или подстрока названия",
+          "type": "string"
+        },
+        "board": {
+          "description": "доска: id или подстрока названия",
+          "type": "string"
+        },
+        "json": {
+          "default": false,
+          "description": "машиночитаемый JSON: отступ 2, порядок строк — как в ответе API",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "id дорожки либо колонки"
+              },
+              "board_id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "id доски"
+              },
+              "title": {
+                "type": "string",
+                "description": "название дорожки либо колонки"
+              }
+            },
+            "required": [
+              "id",
+              "board_id",
+              "title"
+            ],
+            "additionalProperties": false
+          },
+          "description": "колонки досок скоупа в порядке обхода досок"
+        }
+      },
+      "required": [
+        "columns"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "kiten_ls",
+    "title": "mpu kiten ls",
+    "description": "Список карточек Kaiten, где я участник.\n\nКарточки, где владелец токена — участник (member).\n\nФильтры сводятся пооснó: CLI-флаг → env KITEN_LS_* → дефолт (он есть\nтолько у condition — 1, активные). --archived даёт condition=2 и\nпобеждает env всегда.\n\nЛюбая из --date-from/--date-to (принимаются и --date_from/--date_to)\nвключает глобальный режим: env-оси, включая KITEN_LS_BOARD_ID, не\nприменяются вовсе, condition не уходит без --archived. Границы окна по\nupdated инклюзивные: X → XT00:00:00Z, Y → YT23:59:59Z.\n\n--space/--board/--lane/--column — id или подстрока названия; последние\nдве резолвятся в скоупе эффективной доски. Кэш только читается.\n\nВиды вывода по убыванию приоритета: --json (id, state, due_date,\nupdated, title, url — колонки и доски там нет) → --format TPL →\n--only-url → --md → таблица. Плейсхолдеры: {n} {id} {title} {url}\n{state} {due} {column} {column_mapped}; неизвестный остаётся как есть.\n{column} — из кэша (промах — id числом), {column_mapped} — метка из\nKITEN_COLUMN_MAP; битая карта не роняет команду.\n\nExit: 0 — успех, в т.ч. пустая выдача; 1 — ошибка API; 2 — ошибки\nввода: дата, env-ось, --state, REF.\n\nПример: mpu kiten ls --date-from 2026-07-01 --json",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "archived": {
+          "default": false,
+          "description": "архивные карточки (condition=2) вместо активных",
+          "type": "boolean"
+        },
+        "state": {
+          "description": "этап карточки: queued, in-progress, done",
+          "type": "string",
+          "enum": [
+            "queued",
+            "in-progress",
+            "done"
+          ]
+        },
+        "space": {
+          "description": "пространство: id или подстрока названия",
+          "type": "string"
+        },
+        "board": {
+          "description": "доска: id или подстрока названия",
+          "type": "string"
+        },
+        "lane": {
+          "description": "дорожка: id или подстрока названия",
+          "type": "string"
+        },
+        "column": {
+          "description": "колонка: id или подстрока названия",
+          "type": "string"
+        },
+        "date-from": {
+          "description": "нижняя граница активности YYYY-MM-DD, включительно",
+          "type": "string"
+        },
+        "date_from": {
+          "description": "синоним --date-from",
+          "type": "string"
+        },
+        "date-to": {
+          "description": "верхняя граница активности YYYY-MM-DD, включительно",
+          "type": "string"
+        },
+        "date_to": {
+          "description": "синоним --date-to",
+          "type": "string"
+        },
+        "json": {
+          "default": false,
+          "description": "массив объектов id/state/due_date/updated/title/url, отступ 2",
+          "type": "boolean"
+        },
+        "format": {
+          "description": "шаблон строки на карточку: {n} {id} {title} {url} {state} {due} {column} {column_mapped}",
+          "type": "string"
+        },
+        "only-url": {
+          "default": false,
+          "description": "[title](url) по строке на карточку",
+          "type": "boolean"
+        },
+        "md": {
+          "default": false,
+          "description": "GFM-таблица",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "view": {
+          "type": "string",
+          "enum": [
+            "json",
+            "format",
+            "only-url",
+            "md",
+            "table"
+          ],
+          "description": "вид вывода, выбранный флагами по приоритету спеки"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "id карточки"
+              },
+              "state": {
+                "type": "string",
+                "description": "метка этапа: queued, in progress, done"
+              },
+              "due_date": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "срок как пришёл от сервера"
+              },
+              "updated": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "момент последней активности"
+              },
+              "title": {
+                "type": "string",
+                "description": "название карточки"
+              },
+              "url": {
+                "type": "string",
+                "description": "web-адрес карточки"
+              },
+              "column": {
+                "type": "string",
+                "description": "название колонки по локальному кэшу; промах кэша — id числом; колонки нет — пусто"
+              },
+              "columnMapped": {
+                "type": "string",
+                "description": "метка из KITEN_COLUMN_MAP по id либо названию колонки; нет в карте — column"
+              }
+            },
+            "required": [
+              "id",
+              "state",
+              "due_date",
+              "updated",
+              "title",
+              "url",
+              "column",
+              "columnMapped"
+            ],
+            "additionalProperties": false
+          },
+          "description": "карточки в порядке ответа сервера"
+        }
+      },
+      "required": [
+        "view",
+        "rows"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "kiten_time_ls",
     "title": "mpu kiten time ls",
     "description": "Показать записи учёта времени карточки Kaiten.\n\nSELECTOR — id карточки либо её URL.\n\nПо умолчанию показаны только записи владельца токена: внешняя система\nотдаёт записи всей компании, и фильтр делается на стороне команды —\nпоэтому без --all идёт второй запрос, за текущим пользователем. С --all\nзаписи всех пользователей и появляется колонка ПОЛЬЗОВАТЕЛЬ.\n\n--date-from/--date-to — границы даты записи YYYY-MM-DD, обе включительно.\n--role фильтрует по роли; без флага фильтра по роли нет (ни env, ни\nумолчание здесь не подставляются).\n\nТаблица: ID ДАТА ВРЕМЯ РОЛЬ [ПОЛЬЗОВАТЕЛЬ] КОММЕНТАРИЙ и строка «итого».\nШирина колонок подгоняется под содержимое и контрактом не является. Нет\nзаписей — «(пусто)». --json печатает {\"total_minutes\", \"logs\":[…]}, где у\nзаписи поле role — название роли либо null (в таблице на его месте\nчисловой id).\n\nКлючи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL\n(по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор, даты,\nроль, ненастроенный KITEN_API_KEY).\n\nПример: mpu kiten time ls 10000001 --date-from 2026-08-01",
@@ -2048,197 +2534,6 @@
         "dry_run": {
           "type": "boolean",
           "description": "Напечатать план чтения, НЕ запрашивать.",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "kiten_ls",
-    "title": "mpu kiten ls",
-    "description": "Карточки Kaiten, где я участник (member).\n\nКарточки Kaiten, где я участник (member). Дефолты фильтров — из .env (KITEN_LS_*).\n\n`--date-from`/`--date-to` (YYYY-MM-DD) задают окно активности (поле `updated`); обе\nопции CLI-only и необязательны. `--date-from X` без `--date-to` = «с даты X до сейчас».\n\nНаличие даты переводит `ls` в **глобальный** режим: env-скоуп (`KITEN_LS_*`, в т.ч.\nдоска по умолчанию) отключается, поиск идёт по всем доскам, а в выдачу попадают и\nархивные, и завершённые карточки (`condition` не ограничен). Любой явный флаг\n(`--board`/`--space`/`--lane`/`--column`/`--state`/`--archived`) всё ещё сужает. Без\nдаты поведение прежнее (env-скоуп, только активные).",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "archived": {
-          "type": "boolean",
-          "description": "Архивные карточки (condition=2) вместо активных",
-          "default": false
-        },
-        "state": {
-          "type": "string",
-          "description": "Фильтр по этапу: queued|in-progress|done",
-          "enum": [
-            "queued",
-            "in-progress",
-            "done"
-          ]
-        },
-        "space": {
-          "type": "string",
-          "description": "Пространство: ID или подстрока названия (см. `mpu kiten spaces`)"
-        },
-        "board": {
-          "type": "string",
-          "description": "Доска: ID или подстрока названия (см. `mpu kiten boards`)"
-        },
-        "lane": {
-          "type": "string",
-          "description": "Дорожка: ID или подстрока названия (в скоупе --board; см. `mpu kiten lanes`)"
-        },
-        "column": {
-          "type": "string",
-          "description": "Колонка: ID или подстрока названия (в скоупе --board; см. `mpu kiten columns`)"
-        },
-        "date_from": {
-          "type": "string",
-          "description": "Активность ОТ даты (YYYY-MM-DD), updated_after; опущено — без нижней границы"
-        },
-        "date_to": {
-          "type": "string",
-          "description": "Активность ДО даты (YYYY-MM-DD), updated_before; опущено — до сейчас"
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
-        },
-        "md": {
-          "type": "boolean",
-          "description": "Markdown-вывод: GFM-таблица (с --only-url — строки ссылок)",
-          "default": false
-        },
-        "only_url": {
-          "type": "boolean",
-          "description": "Только ссылки [title](url), по одной на строку (пайп в `mpu telegram send --md`)",
-          "default": false
-        },
-        "out_format": {
-          "type": "string",
-          "description": "Шаблон строки: {n} {id} {title} {url} {state} {due} {column} {column_mapped}"
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "kiten_whoami",
-    "title": "mpu kiten whoami",
-    "description": "Текущий пользователь Kaiten по токену (GET /users/current).\n\nТекущий пользователь Kaiten по токену (GET /users/current).",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "kiten_spaces",
-    "title": "mpu kiten spaces",
-    "description": "Пространства Kaiten (живой GET /spaces + обновление кэша автодополнения).\n\nПространства Kaiten (живой GET /spaces + обновление кэша автодополнения).",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "show_all": {
-          "type": "boolean",
-          "description": "Показать и архивные пространства",
-          "default": false
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "kiten_boards",
-    "title": "mpu kiten boards",
-    "description": "Доски Kaiten (живой GET /spaces + обновление кэша).\n\nДоски Kaiten (живой GET /spaces + обновление кэша). --space фильтрует.",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "space": {
-          "type": "string",
-          "description": "Фильтр по пространству: ID или подстрока названия"
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "kiten_lanes",
-    "title": "mpu kiten lanes",
-    "description": "Дорожки досок Kaiten (живой GET /boards/{id}/lanes + обновление кэша).\n\nДорожки досок Kaiten (живой GET /boards/{id}/lanes + обновление кэша).\n\nБез фильтра обходит все доски (по одному запросу на доску). `--board` ограничивает\nодной доской (1 запрос), `--space` — досками пространства.",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "space": {
-          "type": "string",
-          "description": "Фильтр по пространству: ID или подстрока названия"
-        },
-        "board": {
-          "type": "string",
-          "description": "Фильтр по доске: ID или подстрока названия"
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "kiten_columns",
-    "title": "mpu kiten columns",
-    "description": "Колонки досок Kaiten (живой GET /boards/{id}/columns + обновление кэша).\n\nКолонки досок Kaiten (живой GET /boards/{id}/columns + обновление кэша).\n\nБез фильтра обходит все доски (по одному запросу на доску). `--board` ограничивает\nодной доской (1 запрос), `--space` — досками пространства.",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "space": {
-          "type": "string",
-          "description": "Фильтр по пространству: ID или подстрока названия"
-        },
-        "board": {
-          "type": "string",
-          "description": "Фильтр по доске: ID или подстрока названия"
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
           "default": false
         }
       },
