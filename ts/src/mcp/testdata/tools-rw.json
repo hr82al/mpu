@@ -763,6 +763,1365 @@
     }
   },
   {
+    "name": "ss_update",
+    "title": "mpu ss-update",
+    "description": "Запустить обновление Google-таблицы клиента в контейнере sl-back.\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:ssUpdater update` и стримит его вывод, код\nвыхода наследуется 1:1.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id и --spreadsheet-id\nберутся из кандидатов селектора, если у всех кандидатов значение одно;\nиначе задайте их флагом.\n\nЗначения флагов проверяются до сети и до печати: допустимы только\nA-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка в значении это\nошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu ss-update 777; mpu ss-update 777 -p; mpu ss-update 777 -p\n--local --update-type manual",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "spreadsheet-id": {
+          "description": "id таблицы; без него берётся из кандидатов селектора",
+          "type": "string"
+        },
+        "spreadsheet_id": {
+          "description": "то же, что --spreadsheet-id",
+          "type": "string"
+        },
+        "update-type": {
+          "description": "тип обновления",
+          "type": "string"
+        },
+        "update_type": {
+          "description": "то же, что --update-type",
+          "type": "string"
+        },
+        "logs": {
+          "default": "info",
+          "description": "уровень логов пайплайна",
+          "type": "string"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "wb_loader_reports",
+    "title": "mpu wb-loader reports",
+    "description": "Загрузить в БД клиента: отчёты WB (WB-кабинет).\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:wbLoader wbReports` и стримит его вывод,\nкод выхода наследуется 1:1.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один. --sid обязателен и никогда\nне выводится автоматически: кабинет выбирает человек.\n\nЗначения флагов проверяются до сети и до печати: допустимы только\nA-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка в значении это\nошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu wb-loader reports 777 --sid SID42; mpu wb-loader reports 777\n--sid SID42 -p",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "sid": {
+          "type": "string",
+          "description": "WB-кабинет: sid; из кандидатов не выводится"
+        }
+      },
+      "required": [
+        "selector",
+        "sid"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "wb_loader_cards",
+    "title": "mpu wb-loader cards",
+    "description": "Загрузить в БД клиента: карточки товаров (WB-кабинет).\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:wbLoader wbCards` и стримит его вывод,\nкод выхода наследуется 1:1.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один. --sid обязателен и никогда\nне выводится автоматически: кабинет выбирает человек.\n\nЗначения флагов проверяются до сети и до печати: допустимы только\nA-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка в значении это\nошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu wb-loader cards 777 --sid SID42; mpu wb-loader cards 777\n--sid SID42 -p",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "sid": {
+          "type": "string",
+          "description": "WB-кабинет: sid; из кандидатов не выводится"
+        }
+      },
+      "required": [
+        "selector",
+        "sid"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "wb_loader_adv_auto_keywords_stats",
+    "title": "mpu wb-loader adv-auto-keywords-stats",
+    "description": "Загрузить в БД клиента: статистика автокампаний (WB-кабинет).\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:wbLoader wbAdvAutoKeywordsStats` и стримит его вывод,\nкод выхода наследуется 1:1.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один. --sid обязателен и никогда\nне выводится автоматически: кабинет выбирает человек.\n\nЗначения флагов проверяются до сети и до печати: допустимы только\nA-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка в значении это\nошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu wb-loader adv-auto-keywords-stats 777 --sid SID42; mpu wb-loader adv-auto-keywords-stats 777\n--sid SID42 -p",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "sid": {
+          "type": "string",
+          "description": "WB-кабинет: sid; из кандидатов не выводится"
+        }
+      },
+      "required": [
+        "selector",
+        "sid"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "wb_loader_adv_fullstats",
+    "title": "mpu wb-loader adv-fullstats",
+    "description": "Загрузить в БД клиента: полная статистика рекламы (WB-кабинет).\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:wbLoader wbAdvFullstats` и стримит его вывод,\nкод выхода наследуется 1:1.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один. --sid обязателен и никогда\nне выводится автоматически: кабинет выбирает человек.\n\nЗначения флагов проверяются до сети и до печати: допустимы только\nA-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка в значении это\nошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu wb-loader adv-fullstats 777 --sid SID42; mpu wb-loader adv-fullstats 777\n--sid SID42 -p",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "sid": {
+          "type": "string",
+          "description": "WB-кабинет: sid; из кандидатов не выводится"
+        }
+      },
+      "required": [
+        "selector",
+        "sid"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "wb_loader_search_texts",
+    "title": "mpu wb-loader search-texts",
+    "description": "Загрузить в БД клиента: поисковые запросы (WB-кабинет).\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:wbLoader wbSearchTexts` и стримит его вывод,\nкод выхода наследуется 1:1.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один. --sid обязателен и никогда\nне выводится автоматически: кабинет выбирает человек.\n\nЗначения флагов проверяются до сети и до печати: допустимы только\nA-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка в значении это\nошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu wb-loader search-texts 777 --sid SID42; mpu wb-loader search-texts 777\n--sid SID42 -p",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "sid": {
+          "type": "string",
+          "description": "WB-кабинет: sid; из кандидатов не выводится"
+        }
+      },
+      "required": [
+        "selector",
+        "sid"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "wb_loader_analytics_by_period",
+    "title": "mpu wb-loader analytics-by-period",
+    "description": "Загрузить в БД клиента: аналитика за период (WB-кабинет).\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:wbLoader wbAnalyticsByPeriod` и стримит его вывод,\nкод выхода наследуется 1:1.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один. --sid обязателен и никогда\nне выводится автоматически: кабинет выбирает человек.\n\nЗначения флагов проверяются до сети и до печати: допустимы только\nA-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка в значении это\nошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu wb-loader analytics-by-period 777 --sid SID42; mpu wb-loader analytics-by-period 777\n--sid SID42 -p",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "sid": {
+          "type": "string",
+          "description": "WB-кабинет: sid; из кандидатов не выводится"
+        }
+      },
+      "required": [
+        "selector",
+        "sid"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "wb_loader_adverts",
+    "title": "mpu wb-loader adverts",
+    "description": "Загрузить в БД клиента: рекламные кампании (WB-кабинет).\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:wbLoader wbAdverts` и стримит его вывод,\nкод выхода наследуется 1:1.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один. --sid обязателен и никогда\nне выводится автоматически: кабинет выбирает человек.\n\nЗначения флагов проверяются до сети и до печати: допустимы только\nA-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка в значении это\nошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu wb-loader adverts 777 --sid SID42; mpu wb-loader adverts 777\n--sid SID42 -p",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "sid": {
+          "type": "string",
+          "description": "WB-кабинет: sid; из кандидатов не выводится"
+        }
+      },
+      "required": [
+        "selector",
+        "sid"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "wb_loader_search_clusters_bids",
+    "title": "mpu wb-loader search-clusters-bids",
+    "description": "Загрузить в БД клиента: ставки кластеров поиска (WB-кабинет).\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:wbLoader wbSearchClustersBids` и стримит его вывод,\nкод выхода наследуется 1:1.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один. --sid обязателен и никогда\nне выводится автоматически: кабинет выбирает человек.\n\nЗначения флагов проверяются до сети и до печати: допустимы только\nA-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка в значении это\nошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu wb-loader search-clusters-bids 777 --sid SID42; mpu wb-loader search-clusters-bids 777\n--sid SID42 -p",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "sid": {
+          "type": "string",
+          "description": "WB-кабинет: sid; из кандидатов не выводится"
+        }
+      },
+      "required": [
+        "selector",
+        "sid"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "data_loader",
+    "title": "mpu data-loader",
+    "description": "Найти кандидата загрузки данных клиента по кабинетам.\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:dataLoader findCandidate` и стримит его\nвывод, код выхода наследуется 1:1.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один. --sids обязателен, флаг\nповторяется (--sids abc --sids def) и никогда не выводится из\nкандидатов автоматически; алиас --sid.\n\nЗначения флагов проверяются до сети и до печати: допустимы только\nA-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка в значении это\nошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu data-loader 777 --sids abc --sids def;\nmpu data-loader 777 -p --sid abc",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "sids": {
+          "description": "кабинеты-кандидаты; флаг повторяется, обязателен",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sid": {
+          "description": "то же, что --sids",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "wb_recalculate_expenses",
+    "title": "mpu wb-recalculate-expenses",
+    "description": "Пересчитать расходы WB UNIT клиента за период.\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:wbUnitCalculatedData recalculateExpenses`\nи стримит его вывод, код выхода наследуется 1:1. Пересчёт перезаписывает\nрасчётные данные UNIT клиента за указанный период.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nПериод: --date-from по умолчанию 2025-01-01, --date-to — сегодняшняя\nдата машины (вычисляется в момент вызова и всегда уходит в команду явно).\n--nm-ids — одна строка вида [1,2,3] без пробелов.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один.\n\nУ каждого доменного флага есть snake-написание (--date_from и т. п.).\nЗначения проверяются до сети и до печати: допустимы только A-Za-z0-9 и\n_ . / : - , @ [ ] — пробел или кавычка в значении это ошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu wb-recalculate-expenses 777 --date-from 2026-01-01;\nmpu wb-recalculate-expenses 777 -p --nm-ids [1,2,3]",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "date-from": {
+          "description": "начало периода, YYYY-MM-DD (по умолчанию 2025-01-01)",
+          "type": "string"
+        },
+        "date_from": {
+          "description": "то же, что --date-from",
+          "type": "string"
+        },
+        "date-to": {
+          "description": "конец периода, YYYY-MM-DD (по умолчанию сегодня)",
+          "type": "string"
+        },
+        "date_to": {
+          "description": "то же, что --date-to",
+          "type": "string"
+        },
+        "nm-ids": {
+          "description": "артикулы WB одним литералом без пробелов, [1,2,3]",
+          "type": "string"
+        },
+        "nm_ids": {
+          "description": "то же, что --nm-ids",
+          "type": "string"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "wb_save_expenses",
+    "title": "mpu wb-save-expenses",
+    "description": "Сохранить расходы WB UNIT клиента за период.\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:wbUnitCalculatedData saveExpenses` и\nстримит его вывод, код выхода наследуется 1:1. Сохранение перезаписывает\nрасчётные данные UNIT клиента за указанный период.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nПериод: --date-from по умолчанию 2025-01-01, --date-to — сегодняшняя\nдата машины (вычисляется в момент вызова и всегда уходит в команду явно).\n--nm-ids — одна строка вида [1,2,3] без пробелов.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один.\n\nУ каждого доменного флага есть snake-написание (--date_from и т. п.).\nЗначения проверяются до сети и до печати: допустимы только A-Za-z0-9 и\n_ . / : - , @ [ ] — пробел или кавычка в значении это ошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu wb-save-expenses 777 --date-from 2026-01-01;\nmpu wb-save-expenses 777 -p --nm-ids [1,2,3]",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "date-from": {
+          "description": "начало периода, YYYY-MM-DD (по умолчанию 2025-01-01)",
+          "type": "string"
+        },
+        "date_from": {
+          "description": "то же, что --date-from",
+          "type": "string"
+        },
+        "date-to": {
+          "description": "конец периода, YYYY-MM-DD (по умолчанию сегодня)",
+          "type": "string"
+        },
+        "date_to": {
+          "description": "то же, что --date-to",
+          "type": "string"
+        },
+        "nm-ids": {
+          "description": "артикулы WB одним литералом без пробелов, [1,2,3]",
+          "type": "string"
+        },
+        "nm_ids": {
+          "description": "то же, что --nm-ids",
+          "type": "string"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "ozon_recalculate_expenses",
+    "title": "mpu ozon-recalculate-expenses",
+    "description": "Пересчитать расходы Ozon UNIT клиента за период.\n\nПо умолчанию ВЫПОЛНЯЕТСЯ в прод-контейнере клиента: запускает\n`node cli service:ozonUnitCalculatedData recalculateExpenses`, стримит\nвывод, код выхода наследует 1:1 и перезаписывает расчётные данные UNIT\nклиента за период.\n\n-p/--print не выполняет: печатает ssh-команду и копирует в буфер обмена;\n--local вместе с -p даёт форму локального стенда, сам по себе — ошибка\nввода. -v печатает команду строкой `# inner: …` в stderr во всех трёх\nрежимах, обычный вывод не подменяя.\n\nПериод: --date-from по умолчанию 2025-01-01, --date-to — сегодняшняя\nдата (вычисляется в момент вызова). --ref-date с повторяемым\n--ref-fields копирует значения этих полей из той даты. --skus\nповторяется, уходит токеном [1,2,3]. --logs-level — уровень логов.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы; --server\nsl-N задаёт сервер, --client-id берётся из кандидатов селектора, когда у\nвсех он один. У доменных флагов есть snake-написания (--date_from).\nЗначения проверяются до сети и печати: только A-Za-z0-9 и _ . / : - , @\n[ ] — пробел или кавычка это ошибка ввода.\n\nExit: код inner-команды; 0 при печати; 2 — ввод, резолв, конфигурация.\n\nПример: mpu ozon-recalculate-expenses 777 -p -v --skus 123 --ref-date\n2026-01-05 --ref-fields sebes_rub",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "date-from": {
+          "description": "начало периода, YYYY-MM-DD (по умолчанию 2025-01-01)",
+          "type": "string"
+        },
+        "date_from": {
+          "description": "то же, что --date-from",
+          "type": "string"
+        },
+        "date-to": {
+          "description": "конец периода, YYYY-MM-DD (по умолчанию сегодня)",
+          "type": "string"
+        },
+        "date_to": {
+          "description": "то же, что --date-to",
+          "type": "string"
+        },
+        "ref-date": {
+          "description": "дата-источник значений для --ref-fields, YYYY-MM-DD",
+          "type": "string"
+        },
+        "ref_date": {
+          "description": "то же, что --ref-date",
+          "type": "string"
+        },
+        "ref-fields": {
+          "description": "поля, копируемые из --ref-date; флаг повторяется",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ref_fields": {
+          "description": "то же, что --ref-fields",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skus": {
+          "description": "SKU Ozon; флаг повторяется, уходит одним токеном [1,2,3]",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "logs-level": {
+          "description": "уровень логов пересчёта",
+          "type": "string"
+        },
+        "logs_level": {
+          "description": "то же, что --logs-level",
+          "type": "string"
+        },
+        "verbose": {
+          "default": false,
+          "description": "напечатать inner-команду в stderr перед доставкой",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "ozon_save_expenses",
+    "title": "mpu ozon-save-expenses",
+    "description": "Сохранить расходы Ozon UNIT клиента за период.\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:\nзапускает `node cli service:ozonUnitCalculatedData saveExpenses` и\nстримит его вывод, код выхода наследуется 1:1. Сохранение перезаписывает\nрасчётные данные UNIT клиента за указанный период.\n\n-p/--print ничего не выполняет: печатает готовую ssh-команду и копирует\nеё в буфер обмена. --local вместе с -p печатает форму локального стенда\n(без ssh); сам по себе --local — ошибка ввода.\n\nПериод: --date-from по умолчанию 2025-01-01, --date-to — сегодняшняя\nдата машины (вычисляется в момент вызова и всегда уходит в команду явно).\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы;\n--server sl-N задаёт сервер напрямую. --client-id берётся из кандидатов\nселектора, если у всех кандидатов он один.\n\nУ каждого доменного флага есть snake-написание (--date_from и т. п.).\nЗначения проверяются до сети и до печати: допустимы только A-Za-z0-9 и\n_ . / : - , @ [ ] — пробел или кавычка в значении это ошибка ввода.\n\nExit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,\nрезолва и конфигурации.\n\nПримеры: mpu ozon-save-expenses 777 --date-from 2026-01-01;\nmpu ozon-save-expenses 777 -p --date-to 2026-01-31",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "date-from": {
+          "description": "начало периода, YYYY-MM-DD (по умолчанию 2025-01-01)",
+          "type": "string"
+        },
+        "date_from": {
+          "description": "то же, что --date-from",
+          "type": "string"
+        },
+        "date-to": {
+          "description": "конец периода, YYYY-MM-DD (по умолчанию сегодня)",
+          "type": "string"
+        },
+        "date_to": {
+          "description": "то же, что --date-to",
+          "type": "string"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, на котором исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "run_js",
     "title": "mpu run-js",
     "description": "Выполнить JS-код в контейнере sl-back.\n\nКод уходит на stdin команде `node --input-type=module -`,\nпоэтому ему доступны node_modules, import-алиасы и env приложения;\nрабочий каталог — корень приложения.\n\nАдресация — ровно одна из трёх: SELECTOR (как у mpu ssh), --all\n(инстанс-серверы кэша, N>0; sl-0 не входит) либо --all-containers\nSUBSTR. При fan-out первый позиционный токен — это код.\n\nКод: позиционный CODE, иначе -f/--file, иначе stdin (с терминала — до\nCtrl+D). CODE вместе с --file и пустой код — ошибки ввода.\n\nРежимы: по умолчанию последовательно, первый ненулевой код прерывает\nобход и становится кодом выхода; --parallel — все сразу (-j N\nограничивает одновременные, 0 — все), вывод каждого печатается по его\nзавершении, обходятся все; -d — фоновый запуск, скрипт и лог остаются в\n/tmp контейнера, завершения не ждём.\n\n--dry-run печатает команду на каждый таргет и копирует её в буфер\nобмена; ни выполнения, ни сети. --via меняет транспорт серверного\nтаргета; контейнер по имени идёт Portainer'ом всегда.\n\nExit: 0 — успех всех; код первого сбоя в последовательном режиме; 1 —\nлюбой сбой при --parallel и -d; 2 — ошибки ввода и конфигурации.\n\nПримеры: mpu run-js sl-1 'console.log(1)'; cat s.mjs | mpu run-js sl-11;\nmpu run-js --all --parallel -f s.mjs; mpu run-js --all -d -f s.mjs",
