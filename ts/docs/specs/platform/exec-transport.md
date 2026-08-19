@@ -129,8 +129,10 @@ TEXT NOT NULL, `server_number` INTEGER, `state` TEXT, `image` TEXT,
 `discovered_at` INTEGER NOT NULL; PK `(portainer_url, endpoint_id,
 container_id)`. Наполнение — `mpu init` (отдельная спека): обход всех
 endpoint'ов и всех контейнеров каждого (`?all=true`), upsert по PK;
-`server_number` — только для имён `mp-sl-<N>-cli` (ведущий `/`
-допустим), включая N=0. Чтения:
+`server_number` — для имён обеих форм cli-контейнера сервера,
+`sl-<N>-cli` и `mp-sl-<N>-cli` (ведущий `/` допустим), включая N=0;
+одна форма здесь оставила бы ферму, где живёт другая, без номеров
+вовсе. Чтения:
 
 - Portainer-таргет сервера N: строка кэша с `server_number = N` →
   `(portainer_url, endpoint_id)`; нет строки → env-fallback
