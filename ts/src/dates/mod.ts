@@ -26,3 +26,19 @@ export function today(): string {
   const now = new Date();
   return localDate(now.getTime(), now.getTimezoneOffset());
 }
+
+/**
+ * Граница окна «не старше» в unix-секундах: `<число>{s|m|h|d}` назад от
+ * текущего момента либо голое целое как unix-время. Правило одно на
+ * `mpu log` (`--since`) и `mpu kiten status` (`--since`,
+ * `--time-since`); тексты отказов принадлежат командам, поэтому здесь
+ * форма не разобралась — `null`, а не своя ошибка.
+ */
+export function windowStart(raw: string, nowSeconds: number): number | null {
+  const relative = /^(\d+)([smhd])$/.exec(raw.trim());
+  if (relative !== null) {
+    const scale = { s: 1, m: 60, h: 3600, d: 86_400 }[relative[2]] ?? 1;
+    return nowSeconds - Number(relative[1]) * scale;
+  }
+  return /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : null;
+}

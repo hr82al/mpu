@@ -1,0 +1,61 @@
+[
+  {
+    "id": 68000001,
+    "title": "Тестовая карточка один",
+    "url": "https://btlz.kaiten.ru/68000001",
+    "stage": "Ревью",
+    "column": "Колонка 1",
+    "board": "Доска 1",
+    "space": "Пространство 1",
+    "lane": "Дорожка 1",
+    "state": "in progress",
+    "closed": false,
+    "escalated": false,
+    "due_date": "2026-08-19T00:00:00.000Z",
+    "updated": "2026-08-19T08:51:41.025Z",
+    "my_minutes": 0,
+    "sources": [
+      "activity",
+      "assigned"
+    ]
+  },
+  {
+    "id": 68000002,
+    "title": "Тестовая карточка два",
+    "url": "https://btlz.kaiten.ru/68000002",
+    "stage": "Ревью",
+    "column": "Колонка 1",
+    "board": "Доска 1",
+    "space": "Пространство 1",
+    "lane": "Дорожка 1",
+    "state": "in progress",
+    "closed": false,
+    "escalated": false,
+    "due_date": "2026-08-19T00:00:00.000Z",
+    "updated": "2026-08-19T08:51:41.025Z",
+    "my_minutes": 0,
+    "sources": [
+      "activity",
+      "assigned"
+    ]
+  },
+  {
+    "id": 68000003,
+    "title": "Тестовая карточка три",
+    "url": "https://btlz.kaiten.ru/68000003",
+    "stage": "Очередь",
+    "column": "Колонка 1",
+    "board": "Доска 1",
+    "space": "Пространство 1",
+    "lane": "Дорожка 1",
+    "state": "in progress",
+    "closed": false,
+    "escalated": false,
+    "due_date": "2026-09-01T12:00:00.000Z",
+    "updated": "2026-08-17T06:11:35.621Z",
+    "my_minutes": 0,
+    "sources": [
+      "activity"
+    ]
+  }
+]

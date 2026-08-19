@@ -16,6 +16,7 @@ import {
   NotFoundIoError,
   UsageError,
 } from "../command/mod.ts";
+import { windowStart } from "../dates/mod.ts";
 import { DEFAULT_KEEP } from "../invokelog/mod.ts";
 import { type LogRecord, parseRecords } from "./parse.ts";
 import { recordOfRun, selectRecords } from "./select.ts";
@@ -205,19 +206,17 @@ function keepOf(io: LogIo): number {
 }
 
 /**
- * Граница `--since` в unix-секундах: `<число>{s|m|h|d}` назад от
- * текущего момента либо голое целое как unix-время.
+ * Граница `--since`: разбор общий (`../dates/mod.ts`), а текст отказа —
+ * этой команды: он назван её спекой дословно.
  */
 export function sinceOf(raw: string, nowSeconds: number): number {
-  const relative = /^(\d+)([smhd])$/.exec(raw);
-  if (relative !== null) {
-    const scale = { s: 1, m: 60, h: 3600, d: 86400 }[relative[2]] ?? 1;
-    return nowSeconds - Number(relative[1]) * scale;
+  const parsed = windowStart(raw, nowSeconds);
+  if (parsed === null) {
+    throw new UsageError(
+      `--since: ожидается <число>{s|m|h|d} или unix-ts, получено '${raw}'`,
+    );
   }
-  if (/^\d+$/.test(raw)) return Number(raw);
-  throw new UsageError(
-    `--since: ожидается <число>{s|m|h|d} или unix-ts, получено '${raw}'`,
-  );
+  return parsed;
 }
 
 function defaultNow(): number {
