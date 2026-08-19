@@ -124,9 +124,11 @@ export function cardView(
 
 /**
  * Метка этапа: закрытый список 1/2/3, число вне списка — оно само строкой
- * (`kiten-card.md`, «Ввод/вывод»).
+ * (`kiten-card.md`, «Ввод/вывод»). Экспортируется: ту же метку печатают
+ * `kiten ls` и `kiten status`, и второй список значений разъехался бы с
+ * этим на первой же правке.
  */
-function stateLabel(state: number): string {
+export function stateLabel(state: number): string {
   switch (state) {
     case 1:
       return "queued";
