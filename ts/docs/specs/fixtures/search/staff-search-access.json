@@ -1,0 +1,32 @@
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "id": 1001,
+      "email": "user@example.com",
+      "name": "Иван Иванов",
+      "isEmailVerified": true,
+      "match": {
+        "via": "workspace",
+        "role": "admin",
+        "workspaceId": 2002,
+        "workspaceName": "ООО Ромашка",
+        "sid": "00000000-0000-4000-8000-000000000001",
+        "cabinetName": "Кабинет WB"
+      }
+    },
+    {
+      "id": 1002,
+      "email": "second@example.com",
+      "name": "Пётр Петров",
+      "isEmailVerified": false,
+      "match": {
+        "via": "workspace",
+        "role": "member",
+        "workspaceId": 2002,
+        "workspaceName": "ООО Ромашка"
+      }
+    }
+  ]
+}
