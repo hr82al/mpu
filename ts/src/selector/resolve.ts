@@ -102,8 +102,38 @@ export function resolveSelector(
   const short = serverNumberOf(selector);
   if (short !== null) return { selector, serverNumber: short, candidates: [] };
 
+  return verdict(selector, searchCandidates(sources, selector));
+}
+
+/**
+ * Кандидаты одного прохода по предикатам — без вердикта по серверам.
+ * Нужны команде поиска (`specs/search.md`): она печатает всё совпавшее,
+ * в том числе на разных серверах, и потому вердикт ей не подходит, а
+ * порядок и семантика предикатов обязаны остаться одни на обе поверхности.
+ *
+ * Обе защиты резолва входят сюда же: отказ на пустом селекторе (иначе
+ * подстрочный предикат сматчил бы весь кэш) и ленивая проверка схемы
+ * кэш-БД. Ступени `--server` и короткого `sl-N` — дело резолва, а не
+ * предикатов, и здесь их нет.
+ */
+export function searchCandidates(
+  sources: SelectorSources,
+  value: string,
+): readonly Candidate[] {
+  if (value.trim() === "") throw new SelectorError("empty selector");
   const checked = { cache: checkedCache(sources.cache), env: sources.env };
-  return verdict(selector, search(checked, selector));
+  return search(checked, value);
+}
+
+/**
+ * Похож ли селектор на адрес сервера (`platform/selector.md`, отклонение
+ * `preserve`: четыре группы из 1–3 цифр, диапазон октетов не
+ * проверяется). Маска объявлена один раз, здесь: по ней ветвятся и
+ * предикат адреса, и автосинк команды поиска, которому адрес не
+ * помогает — адрес живёт в env-файле, а не в кэше.
+ */
+export function isServerAddressLike(value: string): boolean {
+  return IPV4.test(value);
 }
 
 /**

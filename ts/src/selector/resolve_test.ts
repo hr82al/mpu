@@ -19,9 +19,11 @@ import {
   type CacheReader,
   type Candidate,
   formatCandidates,
+  isServerAddressLike,
   requireSingleClient,
   type Resolved,
   resolveSelector,
+  searchCandidates,
   SelectorError,
   type SelectorSources,
   type ServerAddresses,
@@ -797,4 +799,63 @@ Deno.test("узкие интерфейсы: резолву довольно quer
     );
     assertEquals(resolved.serverNumber, 1);
   });
+});
+
+Deno.test("кандидаты без вердикта: то же, что видит резолв", async (t) => {
+  await t.step("совпавшие на разных серверах отдаются все", async () => {
+    await withCache({
+      clients: [{ id: 7, server: "sl-1" }, { id: 8, server: "sl-2" }],
+      spreadsheets: [
+        { ssId: "SS_A", clientId: 7, title: "Отчёт", server: "sl-1" },
+        { ssId: "SS_B", clientId: 8, title: "Отчёт", server: "sl-2" },
+      ],
+    }, (sources) => {
+      // Резолву это неоднозначность (`ambiguous selector`), а поиску —
+      // обычный ответ из двух строк: вердикт по серверам ему не подходит.
+      assertThrows(() => resolveSelector(sources, "Отчёт"), SelectorError);
+      const found = searchCandidates(sources, "Отчёт");
+      assertEquals(found.map((candidate) => candidate.spreadsheetId), [
+        "SS_A",
+        "SS_B",
+      ]);
+    });
+  });
+
+  await t.step("пустой селектор — отказ до чтения кэша", () => {
+    // Иначе подстрочный предикат сматчил бы весь кэш (спека, отклонение
+    // `fix`): источники здесь падают на любом обращении.
+    assertThrows(
+      () => searchCandidates(untouchable, "   "),
+      SelectorError,
+      "empty selector",
+    );
+  });
+
+  await t.step("схема кэш-БД проверяется так же, как у резолва", async () => {
+    await withCache(undefined, (sources) => {
+      assertThrows(
+        () => searchCandidates(sources, "42"),
+        SelectorError,
+        "кэш-БД не инициализирована",
+      );
+    });
+  });
+
+  await t.step("ничего не совпало — пустой список, не отказ", async () => {
+    await withCache(ONE_CLIENT, (sources) => {
+      assertEquals(searchCandidates(sources, "SS_НЕТ"), []);
+    });
+  });
+});
+
+Deno.test("маска адреса сервера — одна на предикат и на автосинк", () => {
+  for (const value of ["10.9.9.9", "1.2.3.4", "192.168.150.8"]) {
+    assertEquals(isServerAddressLike(value), true, value);
+  }
+  // Диапазон октетов маска не проверяет намеренно (отклонение
+  // `preserve`), а вот на не-адрес не срабатывает.
+  assertEquals(isServerAddressLike("999.999.999.999"), true);
+  for (const value of ["10.9.9", "sl-9", "42", "10.9.9.9.9", ""]) {
+    assertEquals(isServerAddressLike(value), false, value);
+  }
 });

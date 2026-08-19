@@ -8,10 +8,12 @@ export { type Candidate, formatCandidates } from "./candidate.ts";
 export type { CacheReader } from "./cache.ts";
 export { SelectorError } from "./error.ts";
 export {
+  isServerAddressLike,
   requireSingleClient,
   type Resolved,
   type ResolveOptions,
   resolveSelector,
+  searchCandidates,
   type SelectorSources,
   type ServerAddresses,
 } from "./resolve.ts";
