@@ -186,7 +186,7 @@ Deno.test("version-help.txt: справка version, а не версия", asyn
   assertStringIncludes(await golden("version-help.txt"), "Show mpu version.");
 });
 
-Deno.test("help-named-search.txt и subcmd-help.txt: справку печатает подпроцесс", async (t) => {
+Deno.test("help-named-sheet.txt и subcmd-help.txt: справку печатает подпроцесс", async (t) => {
   // Эталоны сквозного поведения: flag-level текст справки команд
   // маршрута `legacy` приходит от Python-реализации, которой в
   // песочнице нет. Проверяем стык — argv и проход вывода насквозь;
@@ -228,17 +228,15 @@ Deno.test("эталоны справки legacy остаются эталона�
   // Здесь фиксируется только то, что сессия проверить может: эталоны на
   // месте и описывают ту же команду, что видит реестр.
   assertStringIncludes(await golden("subcmd-help.txt"), "Usage: mpu sheet get");
+  assertStringIncludes(
+    await golden("help-named-sheet.txt"),
+    "Usage: mpu sheet",
+  );
   assertEquals(
     legacyCommands.some((command) => command.path.join(" ") === "sheet"),
     true,
   );
-  // `help-named-search.txt` остаётся в канале, но эталоном поведения
-  // быть перестал: `search` переехал на маршрут `native` и печатает
-  // теперь свою справку, а не подпроцессную (вопрос спецификатору).
-  assertStringIncludes(
-    await golden("help-named-search.txt"),
-    "Usage: mpu search",
-  );
+  // Переехавшей команды в слепке нет: маршрут переключается целиком.
   assertEquals(
     legacyCommands.some((command) => command.path.join(" ") === "search"),
     false,
