@@ -33,6 +33,7 @@ import {
   wbRecalculateExpensesCommand,
   wbSaveExpensesCommand,
 } from "../nodecli/mod.ts";
+import { logCommand } from "../log/mod.ts";
 import { psCommand } from "../ps/mod.ts";
 import { searchCommand } from "../search/mod.ts";
 import { runJsCommand } from "../runjs/mod.ts";
@@ -129,6 +130,7 @@ export const commands: readonly Command[] = [
   jsdateCommand,
   sshCommand,
   logsCommand,
+  logCommand,
   mcpTokenCommand,
   // Первый нативный лист внутри группы, оставшейся `legacy`: соседи
   // `kiten` уходят подпроцессом одной записью слепка, а этот путь

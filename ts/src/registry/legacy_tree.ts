@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 37 команд верхнего уровня, ещё не переехавших на TS. */
+/** 36 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sun"],
@@ -81,11 +81,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     path: ["move-client-back"],
     summary:
       "Реверс переноса по записи `move-client`; `ls` — список, `rm <selector>` — удалить запись.",
-  },
-  {
-    path: ["log"],
-    summary:
-      "`mpu log` — журнал вызовов самого `mpu` (не логи стенда, для них есть `mpu logs`).",
   },
   {
     path: ["kiten"],

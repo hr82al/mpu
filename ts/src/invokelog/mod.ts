@@ -20,6 +20,9 @@ import { formatRecord } from "./record.ts";
 import { type LogEnv, readSettings } from "./settings.ts";
 
 export type { LogEnv } from "./settings.ts";
+// Число архивов ротации читает и команда чтения журнала (`specs/log.md`):
+// искать их обеим сторонам надо по одному правилу.
+export { DEFAULT_KEEP } from "./settings.ts";
 
 /** Приёмник вывода процесса — то, что журнал оборачивает копией. */
 export interface OutputSink {
