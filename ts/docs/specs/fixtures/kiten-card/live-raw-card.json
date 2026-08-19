@@ -152,12 +152,12 @@
             "addon_uid": "1463f158-63a7-4dca-925a-53a3cfa0f1f0",
             "settings": {
               "gitlab": {
-                "baseUrl": "https://gitlab.btlz-api.ru",
+                "baseUrl": "https://gitlab.example.test",
                 "spaceId": 301,
                 "version": "self-managed",
-                "clientId": "cb5ba9f94a6eaeda7e5c350e69c1c1c79ffd938d903becacd9988d22e5b52100",
+                "clientId": "0000000000000000000000000000000000000000000000000000000000000000",
                 "updatedAt": "2026-08-10T14:39:44.404Z",
-                "clientSecret": "gloas-e1cf10659eb7593ca4c4c09c53cdd8c5edad70a21cbfffe91a4b730296b7d6f4"
+                "clientSecret": "gloas-0000000000000000000000000000000000000000000000000000000000000000"
               }
             }
           }
