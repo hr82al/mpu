@@ -6,7 +6,9 @@ import {
   NO_INVOKE_LOG,
 } from "./mod.ts";
 
-const LOGGED = { logsOutput: true } as const;
+// Путь — заглушка: тесты этого файла маскирование не проверяют, поэтому
+// им годится любое значение, лишь бы совпадало по смыслу с `argv`.
+const LOGGED = { logsOutput: true, logsArguments: true, path: [] } as const;
 
 /** Журнал поверх временного каталога; тело получает журнал и путь файла. */
 async function withLog(
@@ -114,7 +116,14 @@ Deno.test("перехват вывода: копия в запись, печат
 Deno.test("команда без записи вывода: запись есть, секций нет", async () => {
   await withLog(async (log, path) => {
     const record = log.begin({ kind: "argv", argv: ["mcp", "token"] });
-    record.nativeCall({ logsOutput: false });
+    record.nativeCall({
+      logsOutput: false,
+      logsArguments: true,
+      path: [
+        "mcp",
+        "token",
+      ],
+    });
     const output = record.capture({ stdout: () => {}, stderr: () => {} });
     output.stdout('{"Authorization":"Bearer s3cret"}\n');
     output.stderr("шум\n");

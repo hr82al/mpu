@@ -30,20 +30,41 @@ const BODY_OPTIONS: readonly string[] = ["-b", "--body"];
  */
 const SAFE_WORD = /^[\p{L}\p{N}_@%+=:,./-]+$/u;
 
+/** Пометка команды: аргументы в запись не попадают ни в каком виде. */
+export interface MaskOptions {
+  /**
+   * Индекс, с которого argv — аргументы, а не путь команды. Задан —
+   * всё, начиная с него, заменяется маской независимо от имён: у
+   * помеченной команды персонален сам аргумент, а не значение опции с
+   * говорящим именем (`platform/invoke-log.md`, «Инварианты»).
+   */
+  readonly maskFrom?: number;
+}
+
 /** Строка команды CLI: литеральное `mpu`, затем argv после маскирования. */
-export function commandLine(argv: readonly string[]): string {
-  return ["mpu", ...maskArgv(argv).map(shellQuote)].join(" ");
+export function commandLine(
+  argv: readonly string[],
+  options: MaskOptions = {},
+): string {
+  const masked = options.maskFrom === undefined ? maskArgv(argv) : [
+    ...argv.slice(0, options.maskFrom),
+    ...argv.slice(options.maskFrom).map(() => REDACTED),
+  ];
+  return ["mpu", ...masked.map(shellQuote)].join(" ");
 }
 
 /**
  * Строка команды вызова тула MCP-сервером: путь команды через пробел и
  * JSON аргументов одной строкой (спека, «Запись вызова через
- * MCP-сервер»).
+ * MCP-сервер»). У помеченной команды JSON заменяется маской целиком:
+ * персональна вся полезная нагрузка, а не отдельные её ключи.
  */
 export function toolCommandLine(
   path: readonly string[],
   input: unknown,
+  options: { readonly masked?: boolean } = {},
 ): string {
+  if (options.masked === true) return ["mpu", ...path, REDACTED].join(" ");
   const json = JSON.stringify(maskJsonValue(input).value) ?? "null";
   return ["mpu", ...path, shellQuote(json)].join(" ");
 }

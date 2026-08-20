@@ -39,9 +39,13 @@ export type InvokeCommand =
     readonly input: unknown;
   };
 
-/** Пометка команды: пишутся ли в её запись секции out/err. */
+/** Пометка команды: пишутся ли в её запись секции out/err и аргументы. */
 export interface OutputPolicy {
   readonly logsOutput: boolean;
+  /** Пишутся ли аргументы; `false` — они заменяются маской. */
+  readonly logsArguments: boolean;
+  /** Путь команды: по его длине маска отделяет аргументы от имени. */
+  readonly path: readonly string[];
 }
 
 /**
@@ -157,7 +161,7 @@ function recording(
             offsetMinutes: -stamp.getTimezoneOffset(),
             pid: deps.pid,
             cwd: deps.cwd(),
-            commandLine: lineOf(command),
+            commandLine: lineOf(command, policy),
             note: settings.notes.map((note) => `${note}\n`).join(""),
             out: logsOutput ? out.join("") : "",
             err: logsOutput ? err.join("") : "",
@@ -176,12 +180,18 @@ function recording(
   };
 }
 
-function lineOf(command: InvokeCommand): string {
+function lineOf(command: InvokeCommand, policy: OutputPolicy): string {
+  const masked = !policy.logsArguments;
   switch (command.kind) {
     case "argv":
-      return commandLine(command.argv);
+      // Путь команды стоит в argv первым, и его длину знает реестр:
+      // разбирать argv заново журналу нечем и незачем.
+      return commandLine(
+        command.argv,
+        masked ? { maskFrom: policy.path.length } : {},
+      );
     case "tool":
-      return toolCommandLine(command.path, command.input);
+      return toolCommandLine(command.path, command.input, { masked });
     default: {
       const unknown: never = command;
       throw new TypeError(`неизвестный вид вызова: ${JSON.stringify(unknown)}`);

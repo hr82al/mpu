@@ -164,3 +164,42 @@ Deno.test("маскирование текста JSON — отдельная п�
     assertEquals(maskJsonText('{"token":null}'), '{"token":"REDACTED"}');
   });
 });
+
+Deno.test("помеченная команда: аргументы после пути заменены маской", () => {
+  assertEquals(
+    commandLine(["telegram", "log", "личная заметка"], { maskFrom: 2 }),
+    "mpu telegram log REDACTED",
+  );
+});
+
+Deno.test("помеченная команда: маскируется каждый аргумент, не только первый", () => {
+  assertEquals(
+    commandLine(["telegram", "log", "текст", "--чужое", "значение"], {
+      maskFrom: 2,
+    }),
+    "mpu telegram log REDACTED REDACTED REDACTED",
+  );
+});
+
+Deno.test("путь команды маской не трогается", () => {
+  assertEquals(
+    commandLine(["telegram", "log"], { maskFrom: 2 }),
+    "mpu telegram log",
+  );
+});
+
+Deno.test("без пометки правило прежнее: маскируются только опции-секреты", () => {
+  assertEquals(
+    commandLine(["telegram", "send", "привет"]),
+    "mpu telegram send привет",
+  );
+});
+
+Deno.test("помеченный тул: JSON аргументов заменён маской целиком", () => {
+  assertEquals(
+    toolCommandLine(["telegram", "log"], { message: "личное" }, {
+      masked: true,
+    }),
+    "mpu telegram log REDACTED",
+  );
+});

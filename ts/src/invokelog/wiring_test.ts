@@ -198,9 +198,15 @@ Deno.test("пометка «без записи вывода» — часть о
   });
   await t.step("пометка доезжает до записи тула", () => {
     const marked = defineCommand({ ...declaration, logsOutput: false });
-    assertEquals(nativeEntry(marked).journal, { logsOutput: false });
+    assertEquals(nativeEntry(marked).journal, {
+      logsOutput: false,
+      logsArguments: true,
+      path: ["фейк"],
+    });
     assertEquals(nativeEntry(defineCommand(declaration)).journal, {
       logsOutput: true,
+      logsArguments: true,
+      path: ["фейк"],
     });
   });
   await t.step("в реестре пометка стоит у трёх команд", () => {

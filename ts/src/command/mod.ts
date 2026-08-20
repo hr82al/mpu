@@ -242,6 +242,15 @@ export interface CommandSpec<A, R> {
    */
   readonly logsOutput?: boolean;
   /**
+   * Пишутся ли аргументы этой команды в запись журнала вызовов
+   * (`platform/invoke-log.md`, «Инварианты»). Умолчание — да; `false`
+   * у команды, чей аргумент персонален сам по себе, а не как значение
+   * опции с говорящим именем: `telegram log`
+   * (`docs/specs/telegram-log.md`). Запись о вызове остаётся, секции
+   * out/err не затрагиваются — исчезают только аргументы.
+   */
+  readonly logsArguments?: boolean;
+  /**
    * Вызов, который команда не исполняет сама: он уходит маршрутом
    * `legacy` прежней реализации (`platform/registry.md`). Решается по
    * сырому argv — до разбора схемой, чтобы подпроцессу argv достался как
@@ -294,6 +303,8 @@ export interface Command {
   readonly errorName: string;
   /** Пишутся ли секции out/err в журнал вызовов (см. объявление). */
   readonly logsOutput: boolean;
+  /** Пишутся ли аргументы в журнал вызовов (см. объявление). */
+  readonly logsArguments: boolean;
   /** Уходит ли этот вызов прежней реализации (см. объявление). */
   readonly bridge: (args: readonly string[]) => boolean;
   /** Схема входа как JSON Schema: разбор argv и схема входа тула. */
@@ -379,6 +390,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     policy: spec.policy,
     errorName: spec.errorName ?? spec.path[0],
     logsOutput: spec.logsOutput ?? true,
+    logsArguments: spec.logsArguments ?? true,
     bridge: spec.bridge ?? (() => false),
     argsJsonSchema,
     resultJsonSchema,
