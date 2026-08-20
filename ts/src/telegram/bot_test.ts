@@ -59,6 +59,19 @@ Deno.test("запрос несёт токен в пути и адресата в
   assertEquals(seenBody, { chat_id: 987654321, text: "текст" });
 });
 
+Deno.test("ok:true без номера сообщения — явный отказ, а не молчаливый успех", async () => {
+  await withServer(
+    () => new Response(JSON.stringify({ ok: true, result: {} })),
+    async (base) => {
+      const err = await assertRejects(
+        () => sendBotMessage(CONFIG, "x", base),
+        DomainError,
+      );
+      assertEquals(err.message, "telegram: bot API не сообщил номер сообщения");
+    },
+  );
+});
+
 Deno.test("ok:false — код и описание в сообщении отказа", async () => {
   await withServer(
     () =>
