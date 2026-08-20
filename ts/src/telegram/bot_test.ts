@@ -183,3 +183,29 @@ Deno.test("сервер недоступен — причина одной ст�
   // здесь, чтобы апгрейд рантайма не сломал его молча.
   assertEquals(err.message.includes(CONFIG.token), false);
 });
+
+// Проброс `proxy` до клиента проверяется именно через непринятую схему:
+// на петле его не проверить — клиент Deno для loopback прокси обходит,
+// и вызов уходит напрямую, каким бы ни было значение.
+Deno.test("прокси не принят клиентом — отказ называет само значение", async () => {
+  await withServer(
+    () => new Response(JSON.stringify({ ok: true, result: { message_id: 1 } })),
+    async (base) => {
+      const err = await assertRejects(
+        () =>
+          sendBotMessage(
+            { ...CONFIG, proxy: "socks4://127.0.0.1:1080" },
+            "x",
+            base,
+          ),
+        DomainError,
+      );
+      assertEquals(
+        err.message.startsWith(
+          "telegram: bot API недоступен: прокси не принят клиентом",
+        ),
+        true,
+      );
+    },
+  );
+});

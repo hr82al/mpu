@@ -12,12 +12,29 @@
  * написавшему боту (спека, «CLI-контракт»).
  */
 
-import { firstLine, HttpCallError, httpSend } from "../http/mod.ts";
+import {
+  firstLine,
+  HttpCallError,
+  httpSend,
+  type RequestTimeouts,
+} from "../http/mod.ts";
 import type { BotConfig } from "./bot_config.ts";
 import { configError } from "./errors.ts";
 
 /** Адрес Bot API; параметром — чтобы тест ходил на петлю, а не наружу. */
 export const TELEGRAM_API_BASE = "https://api.telegram.org";
+
+/**
+ * Пределы времени этого вызова — шире умолчания транспорта (3s/10s).
+ * Умолчание отмерено на стенд в локальной сети; здесь путь другой:
+ * внешний узел, а у большинства операторов ещё и прокси, добавляющий
+ * рукопожатие. На умолчании первый же живой вызов упирался в
+ * «no response headers within 3000ms», не дойдя до Telegram.
+ */
+const BOT_TIMEOUTS: RequestTimeouts = {
+  headersTimeoutMs: 15_000,
+  totalTimeoutMs: 30_000,
+};
 
 /** Ответ об отправке: наружу уходит только номер сообщения. */
 export interface BotSent {
@@ -40,6 +57,10 @@ export async function sendBotMessage(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ chat_id: config.chatId, text }),
+      timeouts: BOT_TIMEOUTS,
+      // Прокси адресный: он нужен пути наружу, а обращения к стенду
+      // ходят напрямую (`docs/specs/telegram-log.md`, «Конфигурация»).
+      ...(config.proxy === undefined ? {} : { proxy: config.proxy }),
     });
   } catch (err) {
     if (err instanceof HttpCallError) {

@@ -86,3 +86,83 @@ Deno.test("отрицательный id принимается — так вы�
   }));
   assertEquals(config.chatId, -1001234567890);
 });
+
+Deno.test("прокси берётся из TELEGRAM_PROXY", () => {
+  const config = botConfig(fakeEnv({
+    TELEGRAM_BOT_TOKEN: "t",
+    TELEGRAM_BOT_ID: "1",
+    TELEGRAM_PROXY: "socks5://user:pass@host:1080",
+  }));
+  assertEquals(config.proxy, "socks5://user:pass@host:1080");
+});
+
+Deno.test("прокси не задан — поля нет", () => {
+  const config = botConfig(
+    fakeEnv({ TELEGRAM_BOT_TOKEN: "t", TELEGRAM_BOT_ID: "1" }),
+  );
+  assertEquals(config.proxy, undefined);
+});
+
+Deno.test("TELEGRAM_PROXY старше HTTPS_PROXY", () => {
+  const config = botConfig(fakeEnv({
+    TELEGRAM_BOT_TOKEN: "t",
+    TELEGRAM_BOT_ID: "1",
+    TELEGRAM_PROXY: "socks5://свой:1080",
+    HTTPS_PROXY: "http://общий:8080",
+  }));
+  assertEquals(config.proxy, "socks5://свой:1080");
+});
+
+Deno.test("без TELEGRAM_PROXY берётся HTTPS_PROXY, затем https_proxy", () => {
+  assertEquals(
+    botConfig(fakeEnv({
+      TELEGRAM_BOT_TOKEN: "t",
+      TELEGRAM_BOT_ID: "1",
+      HTTPS_PROXY: "http://верхний:8080",
+      https_proxy: "http://нижний:8080",
+    })).proxy,
+    "http://верхний:8080",
+  );
+  assertEquals(
+    botConfig(fakeEnv({
+      TELEGRAM_BOT_TOKEN: "t",
+      TELEGRAM_BOT_ID: "1",
+      https_proxy: "http://нижний:8080",
+    })).proxy,
+    "http://нижний:8080",
+  );
+});
+
+Deno.test("socks4 — отказ, названный своей причиной", () => {
+  const err = assertThrows(
+    () =>
+      botConfig(fakeEnv({
+        TELEGRAM_BOT_TOKEN: "t",
+        TELEGRAM_BOT_ID: "1",
+        TELEGRAM_PROXY: "socks4://host:1080",
+      })),
+    DomainError,
+  );
+  assertEquals(
+    err.message,
+    "telegram: Bot API не умеет прокси socks4; поддерживаются" +
+      " http/https/socks5/socks5h (у mpu telegram send прокси свой," +
+      " через MTProto, и socks4 там работает)",
+  );
+});
+
+Deno.test("прокси без host:port — отказ до сети", () => {
+  const err = assertThrows(
+    () =>
+      botConfig(fakeEnv({
+        TELEGRAM_BOT_TOKEN: "t",
+        TELEGRAM_BOT_ID: "1",
+        TELEGRAM_PROXY: "socks5://",
+      })),
+    DomainError,
+  );
+  assertEquals(
+    err.message,
+    "telegram: в прокси-URL нужен host:port — 'socks5://'",
+  );
+});

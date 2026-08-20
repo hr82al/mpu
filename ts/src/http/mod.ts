@@ -115,6 +115,18 @@ export interface SendOptions {
    * Portainer, что и читающие вызовы (`platform/exec-transport.md`).
    */
   readonly insecure?: boolean;
+  /**
+   * Прокси-URL для этого вызова; не задан — прямое соединение.
+   * Параметром, а не переменной окружения: окружение слой не читает
+   * (у собранного бинаря нет права), и адресность важна — прокси нужен
+   * вызовам наружу (`api.telegram.org`, `docs/specs/telegram-log.md`),
+   * а не обращениям к стенду, которые ходят напрямую.
+   *
+   * Схемы — те, что понимает клиент Deno: `http`, `https`, `socks5`,
+   * `socks5h`. Пригодность значения проверяет вызывающий: у него есть
+   * имя ключа, которым его настроили, и отказ он назовёт точнее.
+   */
+  readonly proxy?: string;
 }
 
 /**
@@ -179,25 +191,34 @@ export async function httpSend(
 ): Promise<HttpResponse> {
   const method = options.method ?? "GET";
   const headers = options.headers ?? {};
-  const response = await withTimeouts(
-    options.timeouts ?? DEFAULT_TIMEOUTS,
-    (signal, onHeaders) =>
-      url.protocol === "https:" && options.insecure === true
-        ? sendInsecure(url, headers, signal, onHeaders, {
-          method,
-          body: options.body,
-        })
-        : sendFetch(
-          url,
-          { method, headers, body: options.body, signal },
-          onHeaders,
-        ),
-  );
-  return {
-    status: response.status,
-    text: new TextDecoder().decode(response.bytes),
-    retryAfter: response.retryAfter,
-  };
+  // Клиент живёт ровно один вызов и закрывается в любом исходе: он
+  // держит пул соединений, а незакрытый — незакрытый ресурс, на
+  // котором санитайзеры тестов краснеют по делу.
+  const client = proxyClient(options.proxy);
+  try {
+    const response = await withTimeouts(
+      options.timeouts ?? DEFAULT_TIMEOUTS,
+      (signal, onHeaders) =>
+        url.protocol === "https:" && options.insecure === true
+          ? sendInsecure(url, headers, signal, onHeaders, {
+            method,
+            body: options.body,
+          })
+          : sendFetch(
+            url,
+            { method, headers, body: options.body, signal },
+            onHeaders,
+            client,
+          ),
+    );
+    return {
+      status: response.status,
+      text: new TextDecoder().decode(response.bytes),
+      retryAfter: response.retryAfter,
+    };
+  } finally {
+    client?.close();
+  }
 }
 
 /**
@@ -287,8 +308,15 @@ async function sendFetch(
   url: URL,
   init: RequestInit,
   onHeaders: () => void,
+  client?: Deno.HttpClient,
 ): Promise<HttpBytesResponse> {
-  const response = await fetch(url, init);
+  // `client` — расширение Deno поверх стандартного `RequestInit`: в
+  // типе веб-API его нет, а в реализации оно и есть единственный способ
+  // увести запрос в прокси.
+  const response = await fetch(
+    url,
+    client === undefined ? init : { ...init, client } as RequestInit,
+  );
   onHeaders();
   return {
     status: response.status,
@@ -356,4 +384,24 @@ function sendInsecure(
     if (payload.body !== undefined) req.write(payload.body);
     req.end();
   });
+}
+
+/**
+ * Клиент, уводящий запрос в прокси; прокси не задан — `undefined` и
+ * прямое соединение. Непригодное значение доходит сюда только мимо
+ * проверки вызывающего, поэтому отказ оформляется своей ошибкой вызова,
+ * а не пробрасывается сырым текстом клиента («invalid proxy url»).
+ */
+function proxyClient(proxy: string | undefined): Deno.HttpClient | undefined {
+  if (proxy === undefined || proxy === "") return undefined;
+  try {
+    return Deno.createHttpClient({ proxy: { url: proxy } });
+  } catch (err) {
+    throw new HttpCallError(
+      `прокси не принят клиентом — '${proxy}': ${
+        firstLine(err instanceof Error ? err.message : String(err))
+      }`,
+      { cause: err },
+    );
+  }
 }

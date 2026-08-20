@@ -75,6 +75,10 @@ stdout — одна строка JSON: {"id": …}.
 TELEGRAM_BOT_NAME (необязателен, попадает в подсказку при отказе).
 Ключи сеанса MTProto команде не нужны.
 
+Прокси — TELEGRAM_PROXY, иначе HTTPS_PROXY, иначе https_proxy. Схемы:
+http, https, socks5, socks5h; socks4 клиент не принимает, хотя у
+mpu telegram send через MTProto он работает.
+
 Exit: 0 — успех; 1 — конфигурация или отказ Bot API; 2 — ошибка ввода.
 
 Пример: mpu telegram log 'деплой упал, посмотреть утром'`,
