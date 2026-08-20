@@ -167,3 +167,56 @@ Deno.test("числовой список: элементы приводятся 
     assertEquals(command.parseArgs(["--names", "1"]).names, ["1"]);
   });
 });
+
+Deno.test("пометка «без записи аргументов» доезжает до разбора argv", async (t) => {
+  // Маскировка строки вызова бесполезна, пока сообщения разбора эхо-
+  // печатают ввод: секции err записи журнала пишутся и у помеченной
+  // команды (`platform/invoke-log.md`, «Инварианты»).
+  const declaration = {
+    path: ["proba"],
+    summary: "проба пера",
+    usage: "mpu proba MESSAGE",
+    help: "Подробности пробы.",
+    policy: "ro" as const,
+    argsSchema: z.object({ message: z.string() }),
+    forms: { message: { positional: "one" as const } },
+    resultSchema: z.object({ ok: z.boolean() }),
+    run: () => Promise.resolve({ ok: true }),
+    render: () => "",
+  };
+  const marked = defineCommand({ ...declaration, logsArguments: false });
+  const plain = defineCommand(declaration);
+
+  await t.step("помеченная: лишний позиционный — REDACTED", () => {
+    const err = assertThrows(
+      () => marked.parseArgs(["деплой", "упал"]),
+      UsageError,
+      "unexpected argument REDACTED",
+    );
+    assertEquals(err.message.includes("упал"), false);
+  });
+
+  await t.step("помеченная: неизвестная опция — REDACTED", () => {
+    const err = assertThrows(
+      () => marked.parseArgs(["--мой-секрет"]),
+      UsageError,
+      "unknown option REDACTED",
+    );
+    assertEquals(err.message.includes("мой-секрет"), false);
+  });
+
+  await t.step("непомеченная: ввод по-прежнему назван дословно", () => {
+    // Иначе маскирование испортило бы диагностику всем остальным
+    // командам: там ввод в журнале и так уместен.
+    assertThrows(
+      () => plain.parseArgs(["деплой", "упал"]),
+      UsageError,
+      `unexpected argument "упал"`,
+    );
+    assertThrows(
+      () => plain.parseArgs(["--мой-секрет"]),
+      UsageError,
+      `unknown option "--мой-секрет"`,
+    );
+  });
+});

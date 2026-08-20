@@ -188,3 +188,31 @@ Deno.test("числом становится только десятичная �
     }
   });
 });
+
+Deno.test("parseArgv: маскирование прячет ввод из текстов ошибок", async (t) => {
+  const specs: readonly InputSpec[] = [
+    { name: "message", kind: "string", form: { positional: "one" } },
+  ];
+  const parseMasked = (...argv: string[]) =>
+    parseArgv(argv, specs, HINT, { masked: true });
+
+  await t.step("лишний позиционный назван REDACTED", () => {
+    const err = assertThrows(
+      () => parseMasked("деплой", "упал"),
+      UsageError,
+      "unexpected argument REDACTED",
+    );
+    assertEquals(err.message.includes("упал"), false);
+  });
+
+  await t.step("неизвестная опция названа REDACTED целиком", () => {
+    // Маскируется весь токен, включая часть после «=»: значение опции
+    // это тот же пользовательский ввод.
+    const err = assertThrows(
+      () => parseMasked("--мой-секрет=пароль"),
+      UsageError,
+      "unknown option REDACTED",
+    );
+    assertEquals(err.message.includes("пароль"), false);
+  });
+});

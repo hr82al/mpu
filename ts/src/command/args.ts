@@ -48,6 +48,20 @@ export interface InputSpec {
 /** Сырые значения до проверки схемой: строки argv как они пришли. */
 export type RawArgs = Readonly<Record<string, string | boolean | string[]>>;
 
+/** Настройки разбора, не выводимые из описания входов. */
+export interface ParseOptions {
+  /**
+   * Прятать ли пользовательский ввод из текстов ошибок разбора,
+   * подставляя вместо него `REDACTED`. Включается у команды с пометкой
+   * `logsArguments: false` (`mod.ts`): её аргумент персонален сам по
+   * себе, а секции out/err записи журнала пишутся как обычно — эхо
+   * ввода в сообщении об ошибке обошло бы маскирование строки вызова
+   * (`platform/invoke-log.md`, «Инварианты»). На экране теряется мало:
+   * пользователь видит, что набрал.
+   */
+  readonly masked?: boolean;
+}
+
 /**
  * Разбирает argv в сырой объект аргументов. Проверку типов, значений по
  * умолчанию и ограничений делает схема команды — здесь только формы
@@ -58,11 +72,13 @@ export function parseArgv(
   argv: readonly string[],
   specs: readonly InputSpec[],
   helpHint: string,
+  options: ParseOptions = {},
 ): RawArgs {
   const out: Record<string, string | boolean | string[]> = {};
   const positional: string[] = [];
   const flags = specs.filter((spec) => spec.form.positional === undefined);
   const keepsUnknown = specs.some((spec) => spec.form.keepsUnknown === true);
+  const masked = options.masked === true;
 
   let index = 0;
   const nextValue = (): string | undefined =>
@@ -82,6 +98,7 @@ export function parseArgv(
     if (arg.startsWith("--")) {
       const known = recordLongFlag(out, arg, flags, nextValue, helpHint, {
         keepsUnknown,
+        masked,
       });
       if (!known) positional.push(arg);
       continue;
@@ -90,14 +107,14 @@ export function parseArgv(
       ? flags.find((s) => s.form.short === arg[1])
       : undefined;
     if (spec === undefined) {
-      if (!keepsUnknown) throw unknownOption(arg, helpHint);
+      if (!keepsUnknown) throw unknownOption(arg, helpHint, masked);
       positional.push(arg);
       continue;
     }
     record(out, spec, undefined, nextValue, helpHint);
   }
 
-  bindPositional(out, specs, positional, helpHint);
+  bindPositional(out, specs, positional, helpHint, masked);
   return out;
 }
 
@@ -114,7 +131,7 @@ function recordLongFlag(
   flags: readonly InputSpec[],
   nextValue: () => string | undefined,
   helpHint: string,
-  options: { readonly keepsUnknown: boolean },
+  options: { readonly keepsUnknown: boolean; readonly masked: boolean },
 ): boolean {
   const eq = arg.indexOf("=");
   const name = eq < 0 ? arg.slice(2) : arg.slice(2, eq);
@@ -131,7 +148,7 @@ function recordLongFlag(
   const negated = negatedBoolean(flags, name);
   if (negated === undefined) {
     if (options.keepsUnknown) return false;
-    throw unknownOption(arg, helpHint);
+    throw unknownOption(arg, helpHint, options.masked);
   }
   if (inline !== undefined) throw takesNoValue(`--${name}`, helpHint);
   out[negated.name] = false;
@@ -173,6 +190,7 @@ function bindPositional(
   specs: readonly InputSpec[],
   positional: readonly string[],
   helpHint: string,
+  masked: boolean,
 ): void {
   let taken = 0;
   for (const spec of specs) {
@@ -185,9 +203,10 @@ function bindPositional(
     if (taken < positional.length) out[spec.name] = positional[taken++];
   }
   if (taken < positional.length) {
-    throw new UsageError(`unexpected argument "${positional[taken]}"`, {
-      hint: helpHint,
-    });
+    throw new UsageError(
+      `unexpected argument ${shown(positional[taken], masked)}`,
+      { hint: helpHint },
+    );
   }
 }
 
@@ -201,8 +220,23 @@ function negatedBoolean(
   return spec?.kind === "boolean" ? spec : undefined;
 }
 
-function unknownOption(arg: string, helpHint: string): UsageError {
-  return new UsageError(`unknown option "${arg}"`, { hint: helpHint });
+function unknownOption(
+  arg: string,
+  helpHint: string,
+  masked: boolean,
+): UsageError {
+  return new UsageError(`unknown option ${shown(arg, masked)}`, {
+    hint: helpHint,
+  });
+}
+
+/**
+ * Как пользовательский ввод выглядит в тексте ошибки: дословно в
+ * кавычках либо `REDACTED` у команды с маскированием. Токен прячется
+ * целиком, вместе с частью после «=»: значение опции — тот же ввод.
+ */
+function shown(value: string, masked: boolean): string {
+  return masked ? "REDACTED" : `"${value}"`;
 }
 
 function takesNoValue(option: string, helpHint: string): UsageError {

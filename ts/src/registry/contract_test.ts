@@ -1000,10 +1000,15 @@ Deno.test("инвариант 4: имена входа совпадают со �
       );
       continue;
     }
+    // У команды без записи аргументов в журнал имя опции в сообщении
+    // заменено на REDACTED: её ввод персонален, а секции err записи
+    // журнала пишутся как обычно (`command/args.ts`, `ParseOptions`).
     const err = assertThrows(
       () => command.parseArgs([...requiredArgv(command), "--нет-такого-входа"]),
       UsageError,
-      `unknown option "--нет-такого-входа"`,
+      command.logsArguments
+        ? `unknown option "--нет-такого-входа"`
+        : "unknown option REDACTED",
     );
     assertEquals(err.hint, `mpu ${name} --help`);
   }

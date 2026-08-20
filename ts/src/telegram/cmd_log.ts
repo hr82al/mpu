@@ -16,7 +16,7 @@ import { inputError } from "./errors.ts";
 
 const argsSchema = z.object({
   message: z.string({ error: "нужен MESSAGE: текст заметки либо '-'" })
-    .describe("текст заметки; '-' — весь stdin"),
+    .describe("текст заметки; '-' — весь stdin, только в CLI"),
 });
 
 const resultSchema = z.object({
@@ -57,8 +57,8 @@ export const telegramLogCommand = defineCommand({
   errorName: "telegram log",
   summary: "Отправить заметку себе в личного бота.",
   usage: "mpu telegram log MESSAGE",
-  help: `MESSAGE — текст заметки; '-' означает весь stdin. Пустой текст —
-ошибка ввода.
+  help: `MESSAGE — текст заметки; '-' означает весь stdin и работает
+только в CLI: у вызова тула stdin нет. Пустой текст — ошибка ввода.
 
 Отправка идёт от имени бота (Bot API), а не от твоего аккаунта. Отсюда
 два следствия, ради которых команда и заведена: чат с ботом не виден

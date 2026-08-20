@@ -373,10 +373,14 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
   );
   const specs = inputSpecs(argsJsonSchema, spec.forms ?? {});
   const helpHint = `mpu ${name} --help`;
+  // Пометка «аргументы в журнал не пишутся» доезжает до разбора argv:
+  // иначе сообщения разбора эхо-печатают ввод, и он всё равно попадает
+  // в журнал секцией err (`platform/invoke-log.md`, «Инварианты»).
+  const masked = spec.logsArguments === false;
   const parse = (argv: readonly string[]): A =>
     parseArgs(
       spec.argsSchema,
-      numbersOf(parseArgv(argv, specs, helpHint), specs),
+      numbersOf(parseArgv(argv, specs, helpHint, { masked }), specs),
       helpHint,
     );
   const parseInput = (input: unknown): A =>

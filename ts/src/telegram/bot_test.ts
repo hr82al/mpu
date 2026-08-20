@@ -156,6 +156,10 @@ Deno.test("тело не разбирается как JSON — отказ, а �
         err.message.startsWith("telegram: bot API вернул не JSON"),
         true,
       );
+      // Токен лежит в пути запроса, и текст чужого тела мог бы принести
+      // его обратно: инвариант спеки — токена нет ни в выводе, ни в
+      // ошибке, ни в журнале (`docs/specs/telegram-log.md`).
+      assertEquals(err.message.includes(CONFIG.token), false);
     },
   );
 });
@@ -174,4 +178,8 @@ Deno.test("сервер недоступен — причина одной ст�
   );
   assertEquals(err.message.startsWith("telegram: bot API недоступен: "), true);
   assertEquals(err.message.includes("\n"), false);
+  // Причина отказа приходит от рантайма, и исторически в ней бывал
+  // полный URL — а он содержит токен. Инвариант спеки закрепляется
+  // здесь, чтобы апгрейд рантайма не сломал его молча.
+  assertEquals(err.message.includes(CONFIG.token), false);
 });

@@ -10,7 +10,7 @@ import { z } from "@zod/zod";
 import { runCli } from "../entrypoint/mod.ts";
 import { handleMcp } from "../mcp/mod.ts";
 import { nativeEntry } from "../mcp/native_tool.ts";
-import { type Command, defineCommand } from "../command/mod.ts";
+import { type Command, defineCommand, DomainError } from "../command/mod.ts";
 import { commands } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { type InvokeLog, makeInvokeLog } from "./mod.ts";
@@ -342,4 +342,53 @@ Deno.test("вызов тула журналируется как вторая т
       assertEquals(new Set(ids).size, 2, `run_id повторились: ${ids}`);
     }, () => new Date("2026-08-05T04:42:28.205Z"));
   });
+});
+
+Deno.test("пометка «без записи аргументов»: текста заметки в журнале нет", async (t) => {
+  await t.step("в реестре пометка стоит у одной команды", () => {
+    // Единственный аргумент `telegram log` персонален сам по себе —
+    // это заметка пользователя (`docs/specs/telegram-log.md`).
+    const marked = commands
+      .filter((command) => !command.logsArguments)
+      .map((command) => command.path.join(" "));
+    assertEquals(marked, ["telegram log"]);
+  });
+
+  // Ключей бота в стенде нет: вызов падает конфигурацией, но запись
+  // журнала создаётся и у падения — она и проверяется.
+  const botless = () =>
+    makeFakeIo({
+      envFile: {
+        get: () => undefined,
+        values: () => ({}),
+        require: (name: string) => {
+          throw new DomainError(`env: в файле нет ключа ${name}`);
+        },
+        set: () => Promise.resolve(),
+      },
+    });
+
+  await t.step("строка вызова маскирована, текста заметки нет", async () => {
+    await withStand(async (stand) => {
+      await cli(stand, ["telegram", "log", "деплой упал в 3 ночи"], botless());
+      const text = await stand.text();
+      assertEquals((await stand.records()).length, 1);
+      assertMatch(text, /^\$ mpu telegram log REDACTED$/mu);
+      assertEquals(text.includes("деплой упал"), false);
+    });
+  });
+
+  await t.step(
+    "ошибка разбора аргументов заметку не эхо-печатает",
+    async () => {
+      await withStand(async (stand) => {
+        // Заметка без кавычек — самый естественный способ вызова: хвост
+        // уходит в «unexpected argument», и его текст попал бы в err.
+        await cli(stand, ["telegram", "log", "деплой", "упал"], botless());
+        const text = await stand.text();
+        assertStringIncludes(text, "unexpected argument REDACTED");
+        assertEquals(text.includes("упал"), false);
+      });
+    },
+  );
 });
