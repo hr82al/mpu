@@ -229,7 +229,26 @@
     //     закрываются: их отсутствие даёт ровно тот же наблюдаемый
     //     исход, что и запуск без терминала, — неуспешную попытку,
     //     после которой команда работает как обычно.
-    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc,/dev/tty --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
+    //   --deny-env=USER,NODE_PG_FORCE_NATIVE
+    //     Единственные два имени вне списка выше, к которым тянется
+    //     дерево `npm:pg`: `USER` — умолчание имени пользователя
+    //     (`pg/lib/defaults.js`), `NODE_PG_FORCE_NATIVE` — переключение
+    //     клиента на `pg-native` при загрузке модуля (`pg/lib/index.js`).
+    //     Свип чтений окружения по всему дереву зависимостей 2026-08-20:
+    //     остальные читаемые имена начинаются с `PG` и покрыты
+    //     префиксом выше. Оба значения бинарю не нужны: имя пользователя
+    //     перекрыто явными опциями обоих модулей-потребителей
+    //     (`src/sql/pg.ts`, `src/update/pg.ts`), а `NODE_PG_FORCE_NATIVE`
+    //     из окружения молча сменил бы клиент — тот же класс, что
+    //     `PGBINARY`/`PGREPLICATION` выше, только предотвратимый.
+    //     Поэтому запрет, а не право: оба чтения у драйвера обёрнуты в
+    //     `try/catch` и отказ ему безразличен, но без запрета Deno на
+    //     терминале спрашивает разрешение на каждое из них — а под
+    //     MCP-клиентом такой вопрос повесил бы `mpu mcp` без вывода.
+    //     Наблюдаемого поведения флаг не меняет (неинтерактивно доступ и
+    //     так отказан), поэтому smoke его не покрывает — исключение
+    //     названо в `CLAUDE.md`, «Проверка каждого изменения»;
+    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc,/dev/tty --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь
