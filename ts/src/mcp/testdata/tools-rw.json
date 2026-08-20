@@ -4133,6 +4133,44 @@
     }
   },
   {
+    "name": "telegram_log",
+    "title": "mpu telegram log",
+    "description": "Отправить заметку себе в личного бота.\n\nMESSAGE — текст заметки; '-' означает весь stdin. Пустой текст —\nошибка ввода.\n\nОтправка идёт от имени бота (Bot API), а не от твоего аккаунта. Отсюда\nдва следствия, ради которых команда и заведена: чат с ботом не виден\nкомандам mpu telegram ls и mpu telegram search, а текст заметки не\nпопадает в журнал вызовов — в записи он заменён на REDACTED.\n\nАдресат единственный и берётся из TELEGRAM_BOT_ID; опции выбора чата\nнет намеренно: динамический адресат означал бы, что сообщение может\nуйти постороннему, написавшему боту.\n\nstdout — одна строка JSON: {\"id\": …}.\n\nКлючи env-файла: TELEGRAM_BOT_TOKEN и TELEGRAM_BOT_ID (обязательны),\nTELEGRAM_BOT_NAME (необязателен, попадает в подсказку при отказе).\nКлючи сеанса MTProto команде не нужны.\n\nExit: 0 — успех; 1 — конфигурация или отказ Bot API; 2 — ошибка ввода.\n\nПример: mpu telegram log 'деплой упал, посмотреть утром'",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "description": "текст заметки; '-' — весь stdin"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "description": "номер отправленного сообщения"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "sheet_set",
     "title": "mpu sheet set",
     "description": "Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nWrite values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nТри режима записи: `RANGE VALUE` — одна ячейка/формула; `--from FILE` — батч\n`range<TAB>value` построчно (`-` — stdin); JSON `[{\"range\":..,\"value\"|\"formula\":..}]`\nиз stdin — тогда единственный позиционный аргумент (если есть) трактуется как\nселектор таблицы. В JSON-режиме открытый одностолбцовый range (`Col<N>:Col`)\nавтозаполняется значением до последней занятой строки столбца.",

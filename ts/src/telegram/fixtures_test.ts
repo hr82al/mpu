@@ -33,6 +33,14 @@ const SETS: readonly FixtureSet[] = [
     ],
   },
   {
+    channel: "telegram-log",
+    copy: "telegram-log/",
+    names: [
+      "err-empty-text-stderr.txt",
+      "log-stdout.txt",
+    ],
+  },
+  {
     channel: "telegram-ls",
     copy: "telegram-ls/",
     names: [
