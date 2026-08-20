@@ -167,7 +167,9 @@ Deno.test("маскирование текста JSON — отдельная п�
 
 Deno.test("помеченная команда: аргументы после пути заменены маской", () => {
   assertEquals(
-    commandLine(["telegram", "log", "личная заметка"], { maskFrom: 2 }),
+    commandLine(["telegram", "log", "личная заметка"], {
+      path: ["telegram", "log"],
+    }),
     "mpu telegram log REDACTED",
   );
 });
@@ -175,7 +177,7 @@ Deno.test("помеченная команда: аргументы после п
 Deno.test("помеченная команда: маскируется каждый аргумент, не только первый", () => {
   assertEquals(
     commandLine(["telegram", "log", "текст", "--чужое", "значение"], {
-      maskFrom: 2,
+      path: ["telegram", "log"],
     }),
     "mpu telegram log REDACTED REDACTED REDACTED",
   );
@@ -183,8 +185,32 @@ Deno.test("помеченная команда: маскируется кажд�
 
 Deno.test("путь команды маской не трогается", () => {
   assertEquals(
-    commandLine(["telegram", "log"], { maskFrom: 2 }),
+    commandLine(["telegram", "log"], { path: ["telegram", "log"] }),
     "mpu telegram log",
+  );
+});
+
+Deno.test("помеченная команда: путь в argv не сплошной префикс — общий --json между сегментами", () => {
+  // `--json` — общий флаг любого уровня (`entrypoint/mod_test.ts`,
+  // `xlsx --json alias ls`): у помеченной команды он тоже аргумент, а
+  // не часть пути, поэтому граница ищется сопоставлением с путём, а
+  // не длиной префикса — иначе замаскировался бы сегмент пути `log`.
+  assertEquals(
+    commandLine(["telegram", "--json", "log", "текст"], {
+      path: ["telegram", "log"],
+    }),
+    "mpu telegram REDACTED log REDACTED",
+  );
+});
+
+Deno.test("помеченная команда: слово аргумента совпадает со словом пути — не принимается за путь", () => {
+  // Путь уже пройден целиком двумя первыми элементами — второе
+  // совпадение с "log" это уже текст заметки, а не сегмент пути.
+  assertEquals(
+    commandLine(["telegram", "log", "log"], {
+      path: ["telegram", "log"],
+    }),
+    "mpu telegram log REDACTED",
   );
 });
 

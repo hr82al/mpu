@@ -194,6 +194,47 @@ Deno.test("секреты argv в запись не попадают", async () 
   });
 });
 
+Deno.test("помеченная команда: аргументы под маской, путь цел", async () => {
+  await withLog(async (log, path) => {
+    const record = log.begin({
+      kind: "argv",
+      argv: ["telegram", "log", "личная заметка"],
+    });
+    record.nativeCall({
+      logsOutput: true,
+      logsArguments: false,
+      path: ["telegram", "log"],
+    });
+    await record.finish(0);
+    const text = await logText(path);
+    assertMatch(text, /^\$ mpu telegram log REDACTED$/mu);
+    assertEquals(text.includes("личная заметка"), false);
+  });
+});
+
+Deno.test("помеченная команда: общий --json между сегментами пути не режет путь", async () => {
+  await withLog(async (log, path) => {
+    // Путь в argv не обязан быть непрерывным префиксом — общий
+    // `--json` вставляется между его сегментами
+    // (`entrypoint/mod_test.ts`, `xlsx --json alias ls`). Помеченная
+    // команда обязана и в этом случае оставить путь целым, замаскировав
+    // сам `--json` наравне с текстом заметки.
+    const record = log.begin({
+      kind: "argv",
+      argv: ["telegram", "--json", "log", "личная заметка"],
+    });
+    record.nativeCall({
+      logsOutput: true,
+      logsArguments: false,
+      path: ["telegram", "log"],
+    });
+    await record.finish(0);
+    const text = await logText(path);
+    assertMatch(text, /^\$ mpu telegram REDACTED log REDACTED$/mu);
+    assertEquals(text.includes("личная заметка"), false);
+  });
+});
+
 Deno.test("вызов тула: путь через пробел и JSON одной строкой", async () => {
   await withLog(async (log, path) => {
     const record = log.begin({

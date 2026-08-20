@@ -44,7 +44,11 @@ export interface OutputPolicy {
   readonly logsOutput: boolean;
   /** Пишутся ли аргументы; `false` — они заменяются маской. */
   readonly logsArguments: boolean;
-  /** Путь команды: по его длине маска отделяет аргументы от имени. */
+  /**
+   * Путь команды: маска сопоставляет с ним argv и оставляет нетронутыми
+   * только сегменты пути — не длину префикса, потому что путь в argv не
+   * обязан идти сплошным блоком (`mask.ts`, `maskAfterPath`).
+   */
   readonly path: readonly string[];
 }
 
@@ -184,11 +188,13 @@ function lineOf(command: InvokeCommand, policy: OutputPolicy): string {
   const masked = !policy.logsArguments;
   switch (command.kind) {
     case "argv":
-      // Путь команды стоит в argv первым, и его длину знает реестр:
-      // разбирать argv заново журналу нечем и незачем.
+      // Сегменты пути в argv не обязаны идти сплошным префиксом —
+      // общий `--json` встаёт между ними (`entrypoint/mod_test.ts`,
+      // `xlsx --json alias ls`), поэтому граница ищется сопоставлением
+      // с путём, а не длиной (`mask.ts`, `maskAfterPath`).
       return commandLine(
         command.argv,
-        masked ? { maskFrom: policy.path.length } : {},
+        masked ? { path: policy.path } : {},
       );
     case "tool":
       return toolCommandLine(command.path, command.input, { masked });

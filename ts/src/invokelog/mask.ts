@@ -33,12 +33,18 @@ const SAFE_WORD = /^[\p{L}\p{N}_@%+=:,./-]+$/u;
 /** Пометка команды: аргументы в запись не попадают ни в каком виде. */
 export interface MaskOptions {
   /**
-   * Индекс, с которого argv — аргументы, а не путь команды. Задан —
-   * всё, начиная с него, заменяется маской независимо от имён: у
-   * помеченной команды персонален сам аргумент, а не значение опции с
-   * говорящим именем (`platform/invoke-log.md`, «Инварианты»).
+   * Путь помеченной команды. Задан — всё в argv, что не встало на своё
+   * место сегментов пути по порядку, заменяется маской независимо от
+   * имён: у помеченной команды персонален сам аргумент, а не значение
+   * опции с говорящим именем (`platform/invoke-log.md`, «Инварианты»).
+   *
+   * Индекс здесь не подошёл бы: путь в argv не обязан быть непрерывным
+   * префиксом — общий `--json` встаёт между его сегментами
+   * (`mpu telegram --json log …`, `src/entrypoint/mod_test.ts`,
+   * `xlsx --json alias ls`), и маска по длине пути срезала бы часть
+   * самого пути вместо аргумента.
    */
-  readonly maskFrom?: number;
+  readonly path?: readonly string[];
 }
 
 /** Строка команды CLI: литеральное `mpu`, затем argv после маскирования. */
@@ -46,11 +52,33 @@ export function commandLine(
   argv: readonly string[],
   options: MaskOptions = {},
 ): string {
-  const masked = options.maskFrom === undefined ? maskArgv(argv) : [
-    ...argv.slice(0, options.maskFrom),
-    ...argv.slice(options.maskFrom).map(() => REDACTED),
-  ];
+  const masked = options.path === undefined
+    ? maskArgv(argv)
+    : maskAfterPath(argv, options.path);
   return ["mpu", ...masked.map(shellQuote)].join(" ");
+}
+
+/**
+ * argv, где сегменты пути (по порядку, не обязательно подряд) остаются
+ * как есть, а всё остальное — маска. Совпадение ищется жадно слева
+ * направо: как только очередной элемент argv равен следующему
+ * непройденному сегменту пути, он оставляется и путь считается на
+ * шаг ближе к концу; после того как путь пройден целиком, дальнейшие
+ * элементы маскируются все без исключения, даже случайно совпавшие с
+ * его словами (это уже аргументы, а не путь).
+ */
+function maskAfterPath(
+  argv: readonly string[],
+  path: readonly string[],
+): readonly string[] {
+  let matched = 0;
+  return argv.map((arg) => {
+    if (matched < path.length && arg === path[matched]) {
+      matched += 1;
+      return arg;
+    }
+    return REDACTED;
+  });
 }
 
 /**
