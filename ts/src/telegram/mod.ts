@@ -6,6 +6,7 @@
  * адресата остаются внутренностями.
  */
 
+export { telegramLogCommand } from "./cmd_log.ts";
 export { telegramLsCommand } from "./cmd_ls.ts";
 export { telegramSearchCommand } from "./cmd_search.ts";
 export { telegramSendCommand } from "./cmd_send.ts";

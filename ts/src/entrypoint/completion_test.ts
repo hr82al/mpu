@@ -194,10 +194,10 @@ Deno.test("режим дополнения печатает варианты, а
     // `kiten` переехала на `native` целиком и больше не годится примером
     // смешанного маршрута (`legacy/mod_test.ts` — там та же замена и
     // подробное обоснование). `telegram` — сейчас единственная в реестре
-    // группа с тем же профилем: её листья `send`/`ls`/`search`/`status`
-    // переехали (`registry/mod.ts`, `commands`), а сама группа своего
-    // промежуточного узла в `groups` не имеет — в слепке она по-прежнему
-    // одна запись верхнего уровня (`registry/legacy_tree.ts`).
+    // группа с тем же профилем: её листья `send`/`log`/`ls`/`search`/
+    // `status` переехали (`registry/mod.ts`, `commands`), а сама группа
+    // своего промежуточного узла в `groups` не имеет — в слепке она
+    // по-прежнему одна запись верхнего уровня (`registry/legacy_tree.ts`).
     const { stdout } = await run([], {
       env: (name) =>
         name === "_MPU_COMPLETE"
@@ -214,6 +214,7 @@ Deno.test("режим дополнения печатает варианты, а
     // листья (`platform/registry.md`).
     assertEquals(stdout.split("\n").filter(Boolean), [
       "send",
+      "log",
       "ls",
       "search",
       "status",

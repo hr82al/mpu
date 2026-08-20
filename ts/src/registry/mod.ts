@@ -72,6 +72,7 @@ import {
   kitenWhoamiCommand,
 } from "../kiten/mod.ts";
 import {
+  telegramLogCommand,
   telegramLsCommand,
   telegramSearchCommand,
   telegramSendCommand,
@@ -178,6 +179,7 @@ export const commands: readonly Command[] = [
   // Семейство `telegram` переехало целиком; подпроцессом прежней
   // реализации остаётся только вход (`mpu init`).
   telegramSendCommand,
+  telegramLogCommand,
   telegramLsCommand,
   telegramSearchCommand,
   telegramStatusCommand,
