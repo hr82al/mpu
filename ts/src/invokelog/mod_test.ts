@@ -113,6 +113,50 @@ Deno.test("перехват вывода: копия в запись, печат
   });
 });
 
+/** Пометка `telegram log`: аргументы в запись не попадают (`specs/telegram-log.md`). */
+const MASKED_ARGS = {
+  logsOutput: true,
+  logsArguments: false,
+  path: ["telegram", "log"],
+} as const;
+
+Deno.test("помеченная команда: ошибка ввода уходит в запись маской", async () => {
+  await withLog(async (log, path) => {
+    const record = log.begin({
+      kind: "argv",
+      argv: ["telegram", "log", "заметка", "-f", "/home/me/тайна.md"],
+    });
+    record.nativeCall(MASKED_ARGS);
+    const output = record.capture({ stdout: () => {}, stderr: () => {} });
+    output.stderr(
+      "mpu telegram log: файл-вложение не найден: /home/me/тайна.md\n",
+    );
+    await record.finish(2);
+    const text = await logText(path);
+    // Строка вызова замаскирована по пути команды, и текст отказа не
+    // вправе вернуть тот же ввод обратно через секцию err.
+    assertEquals(text.includes("/home/me/тайна.md"), false);
+    assertMatch(text, /^--- err run=\S+ ---\nREDACTED\n/mu);
+  });
+});
+
+Deno.test("помеченная команда: отказ внешней системы остаётся в записи", async () => {
+  await withLog(async (log, path) => {
+    const record = log.begin({
+      kind: "argv",
+      argv: ["telegram", "log", "заметка"],
+    });
+    record.nativeCall(MASKED_ARGS);
+    const output = record.capture({ stdout: () => {}, stderr: () => {} });
+    output.stderr("telegram: bot API 400 Bad Request: chat not found\n");
+    await record.finish(1);
+    assertMatch(
+      await logText(path),
+      /^--- err run=\S+ ---\ntelegram: bot API 400 Bad Request: chat not found\n/mu,
+    );
+  });
+});
+
 Deno.test("команда без записи вывода: запись есть, секций нет", async () => {
   await withLog(async (log, path) => {
     const record = log.begin({ kind: "argv", argv: ["mcp", "token"] });

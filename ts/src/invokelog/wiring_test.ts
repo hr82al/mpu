@@ -384,10 +384,17 @@ Deno.test("пометка «без записи аргументов»: текс
       await withStand(async (stand) => {
         // Заметка без кавычек — самый естественный способ вызова: хвост
         // уходит в «unexpected argument», и его текст попал бы в err.
-        await cli(stand, ["telegram", "log", "деплой", "упал"], botless());
+        const outcome = await cli(
+          stand,
+          ["telegram", "log", "деплой", "упал"],
+          botless(),
+        );
+        assertStringIncludes(outcome.stderr, "unexpected argument REDACTED");
         const text = await stand.text();
-        assertStringIncludes(text, "unexpected argument REDACTED");
         assertEquals(text.includes("упал"), false);
+        // В записи от ошибки ввода помеченной команды остаётся одна
+        // маска: её текст по построению может нести сам ввод.
+        assertMatch(text, /^--- err run=\S+ ---\nREDACTED\n/mu);
       });
     },
   );

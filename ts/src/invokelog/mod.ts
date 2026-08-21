@@ -15,7 +15,7 @@
  */
 
 import { appendRecord } from "./file.ts";
-import { commandLine, toolCommandLine } from "./mask.ts";
+import { commandLine, REDACTED, toolCommandLine } from "./mask.ts";
 import { formatRecord } from "./record.ts";
 import { type LogEnv, readSettings } from "./settings.ts";
 
@@ -168,7 +168,7 @@ function recording(
             commandLine: lineOf(command, policy),
             note: settings.notes.map((note) => `${note}\n`).join(""),
             out: logsOutput ? out.join("") : "",
-            err: logsOutput ? err.join("") : "",
+            err: logsOutput ? errSection(err.join(""), policy, exitCode) : "",
             exitCode,
             durationMs: Math.max(0, deps.now().getTime() - startedMs),
             maxOutputBytes: settings.maxOutputBytes,
@@ -182,6 +182,31 @@ function recording(
       }
     },
   };
+}
+
+/**
+ * Код выхода ошибки ввода: `UsageError` любого слоя завершается им, и у
+ * помеченной команды другого источника кода 2 нет
+ * (`specs/telegram-log.md`, «Граничные случаи»).
+ */
+const USAGE_EXIT_CODE = 2;
+
+/**
+ * Секция `err` записи. У помеченной команды ошибка ввода маскируется
+ * целиком: её текст по построению может нести сам ввод — путь файла в
+ * «файл-вложение не найден» у `telegram log` (`specs/telegram-log.md`), —
+ * и через `err` он вернулся бы в запись, обойдя маску строки `$ mpu …`
+ * (спека, «Инварианты»). Отказы внешней системы приходят с кодом 1 и
+ * остаются в записи как были: там нет ввода, а без них запись
+ * бесполезна.
+ */
+function errSection(
+  text: string,
+  policy: OutputPolicy,
+  exitCode: number,
+): string {
+  if (policy.logsArguments || exitCode !== USAGE_EXIT_CODE) return text;
+  return text === "" ? "" : `${REDACTED}\n`;
 }
 
 function lineOf(command: InvokeCommand, policy: OutputPolicy): string {
