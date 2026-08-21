@@ -20,6 +20,14 @@ export interface InputForm {
    */
   readonly positional?: "one" | "rest";
   /**
+   * Повтор флага — ошибка ввода, а не «последний побеждает». Пометка
+   * нужна там, где молчаливое схлопывание теряет то, что оператор
+   * просил сделать: `sendDocument` Bot API несёт ровно один документ, и
+   * второй `-f` у `mpu telegram log` обязан отбиваться, а не выпадать
+   * из вызова незамеченным (`specs/telegram-log.md`).
+   */
+  readonly once?: true;
+  /**
    * Неопознанный токен (`-la`, необъявленный `--flag`) уходит в этот
    * вход вместо ошибки «unknown option». Только вместе с
    * `positional: "rest"` и только там, где хвост argv — чужая командная
@@ -162,6 +170,11 @@ function record(
   nextValue: () => string | undefined,
   helpHint: string,
 ): void {
+  if (spec.form.once === true && out[spec.name] !== undefined) {
+    throw new UsageError(`option --${spec.name} may be given only once`, {
+      hint: helpHint,
+    });
+  }
   if (spec.kind === "boolean") {
     if (inline !== undefined) throw takesNoValue(`--${spec.name}`, helpHint);
     out[spec.name] = true;

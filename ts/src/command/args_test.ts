@@ -216,3 +216,40 @@ Deno.test("parseArgv: маскирование прячет ввод из тек
     assertEquals(err.message.includes("пароль"), false);
   });
 });
+
+Deno.test("parseArgv: помеченный once флаг повтора не принимает", async (t) => {
+  const specs: readonly InputSpec[] = [
+    { name: "file", kind: "string", form: { short: "f", once: true } },
+    { name: "message", kind: "string", form: { positional: "one" } },
+  ];
+  const parseOnce = (...argv: string[]) => parseArgv(argv, specs, HINT);
+
+  await t.step("один флаг — обычное значение", () => {
+    assertEquals(parseOnce("-f", "a.md", "текст"), {
+      file: "a.md",
+      message: "текст",
+    });
+  });
+
+  await t.step("повтор в любой форме записи — ошибка ввода", () => {
+    for (
+      const argv of [
+        ["-f", "a.md", "-f", "b.md"],
+        ["--file=a.md", "--file", "b.md"],
+        ["-f", "a.md", "--file=b.md"],
+      ]
+    ) {
+      const err = assertThrows(
+        () => parseOnce(...argv),
+        UsageError,
+        "option --file may be given only once",
+      );
+      // Не «unknown option»: флаг известен, лишний он второй раз.
+      assertEquals(err.message.includes("unknown"), false);
+    }
+  });
+
+  await t.step("без пометки правило прежнее — последний побеждает", () => {
+    assertEquals(parse("-f", "a.md", "-f", "b.md", "имя").file, "b.md");
+  });
+});
