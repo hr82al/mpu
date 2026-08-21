@@ -15,12 +15,13 @@
  */
 
 import {
+  buildMultipartBody,
   DEFAULT_TIMEOUTS,
   HttpCallError,
   httpSend,
+  type MultipartPart,
   type RequestTimeouts,
 } from "../http/mod.ts";
-import { buildMultipartBody, type MultipartPart } from "./multipart.ts";
 
 /** Дефолт `KITEN_BASE_URL`, когда переменная не задана (`kaiten-http.md`). */
 const DEFAULT_BASE_URL = "https://btlz.kaiten.ru";

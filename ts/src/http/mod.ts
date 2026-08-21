@@ -11,11 +11,22 @@
  * Модуль вынесен из `src/init/`: это платформенный атом транспорта
  * (`docs/specs/platform/loki-http.md`), а не часть команды init, и с
  * появлением второго потребителя (`update`) импорт мимо `mod.ts`
- * нарушил бы границу модулей.
+ * нарушил бы границу модулей. Здесь же — сборка тела
+ * `multipart/form-data` (`./multipart.ts`): формат общий, а клиентов,
+ * посылающих файлы, уже два.
  */
 
 import { Buffer } from "node:buffer";
 import { request as httpsRequest } from "node:https";
+
+// Сборщик тела `multipart/form-data` — часть поверхности транспорта:
+// потребителей у него двое (вызовы Kaiten с файлами и `sendDocument`
+// Bot API), а внутренности модуля мимо `mod.ts` не импортируются.
+export {
+  buildMultipartBody,
+  type MultipartBody,
+  type MultipartPart,
+} from "./multipart.ts";
 
 /** Предел ожидания заголовков ответа; число видно в `--help` init. */
 export const HEADERS_TIMEOUT_MS = 3_000;

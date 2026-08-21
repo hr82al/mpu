@@ -30,7 +30,7 @@ import {
   stringOr,
   stringOrNull,
 } from "./http.ts";
-import type { MultipartPart } from "./multipart.ts";
+import type { MultipartPart } from "../http/mod.ts";
 import { parseTimer, type Timer } from "./time.ts";
 
 /** Состояние карточки: закрытый список поля `state` (вызов 1). */
