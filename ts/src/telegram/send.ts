@@ -8,8 +8,8 @@
  * протокол, лежит в `session.ts` и в тестах не участвует.
  */
 
+import type { Attachment } from "./attachment.ts";
 import type {
-  Attachment,
   ClientMessage,
   OutgoingDocument,
   PeerRef,

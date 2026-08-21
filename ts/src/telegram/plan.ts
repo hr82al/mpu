@@ -6,15 +6,10 @@
  * одного сетевого обращения, поэтому модуль ничего не знает о сеансе.
  */
 
-import {
-  type CommandIo,
-  NotFoundIoError,
-  readTextStdin,
-  UsageError,
-} from "../command/mod.ts";
+import { type CommandIo, readTextStdin } from "../command/mod.ts";
+import { type Attachment, readAttachment } from "./attachment.ts";
 import { inputError } from "./errors.ts";
 import { EMPTY_TARGET, parsePeer } from "./peer.ts";
-import type { Attachment } from "./client.ts";
 import type { SendPlan } from "./send.ts";
 
 /** Аргументы вызова после разбора схемой. */
@@ -65,37 +60,6 @@ async function readAttachments(
   paths: readonly string[],
 ): Promise<readonly Attachment[]> {
   const files: Attachment[] = [];
-  for (const path of paths) {
-    files.push({ name: baseName(path), bytes: await readAttachment(io, path) });
-  }
+  for (const path of paths) files.push(await readAttachment(io, path));
   return files;
-}
-
-async function readAttachment(
-  io: PlanIo,
-  path: string,
-): Promise<Uint8Array> {
-  try {
-    return await io.readRegularFile(path);
-  } catch (err) {
-    // Отказ разбора аргументов: своя рамка ошибок парсинга флагов, без
-    // префикса слоя (`telegram-send.md`, «Известные отклонения»).
-    if (err instanceof NotFoundIoError) {
-      throw new UsageError(`файл-вложение не найден: ${path}`, { cause: err });
-    }
-    throw new UsageError(
-      `не удалось прочитать вложение ${path}: ${reason(err)}`,
-      { cause: err },
-    );
-  }
-}
-
-/** Базовое имя пути: файлы уходят под своими именами. */
-function baseName(path: string): string {
-  const tail = path.split("/").at(-1) ?? path;
-  return tail === "" ? path : tail;
-}
-
-function reason(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

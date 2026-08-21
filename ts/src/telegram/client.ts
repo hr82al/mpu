@@ -5,15 +5,9 @@
  * поведение команд проверяется фейком, без сети.
  */
 
+import type { Attachment } from "./attachment.ts";
 import type { RawChat } from "./chat.ts";
 import type { ResolvablePeer } from "./peer.ts";
-
-/** Файл, уходящий документом без превью; несколько — альбом. */
-export interface Attachment {
-  /** Имя файла в Telegram: файлы уходят под своими именами. */
-  readonly name: string;
-  readonly bytes: Uint8Array;
-}
 
 /** Вложение, уходящее в Telegram: подпись несёт не каждое. */
 export interface OutgoingDocument extends Attachment {
