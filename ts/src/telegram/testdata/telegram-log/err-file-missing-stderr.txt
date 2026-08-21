@@ -1,0 +1,1 @@
+mpu telegram log: файл-вложение не найден: /no/such/file

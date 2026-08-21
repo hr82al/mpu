@@ -36,7 +36,9 @@ const SETS: readonly FixtureSet[] = [
     channel: "telegram-log",
     copy: "telegram-log/",
     names: [
+      "err-caption-long-stderr.txt",
       "err-empty-text-stderr.txt",
+      "err-file-missing-stderr.txt",
       "log-stdout.txt",
     ],
   },

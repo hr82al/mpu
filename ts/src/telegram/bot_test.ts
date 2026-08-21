@@ -7,9 +7,23 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { DomainError } from "../command/mod.ts";
 import type { BotConfig } from "./bot_config.ts";
-import { sendBotMessage } from "./bot.ts";
+import { type BotMessage, sendBotMessage } from "./bot.ts";
 
 const CONFIG: BotConfig = { token: "8123:AAH", chatId: 987654321 };
+
+/** Текстовое сообщение: самая частая ветка в тестах отказов. */
+function text(value: string): BotMessage {
+  return { kind: "text", text: value };
+}
+
+/** Документ с подписью; содержимое файла — текст, тело читается строкой. */
+function document(caption: string, name: string, body: string): BotMessage {
+  return {
+    kind: "document",
+    caption,
+    file: { name, bytes: new TextEncoder().encode(body) },
+  };
+}
 
 /** Сервер на петле: отдаёт заготовленный ответ и записывает запрос. */
 async function withServer(
@@ -34,7 +48,7 @@ Deno.test("успешная отправка — номер сообщения �
         JSON.stringify({ ok: true, result: { message_id: 5000001 } }),
       ),
     async (base) => {
-      const sent = await sendBotMessage(CONFIG, "привет", base);
+      const sent = await sendBotMessage(CONFIG, text("привет"), base);
       assertEquals(sent.id, 5000001);
     },
   );
@@ -52,11 +66,94 @@ Deno.test("запрос несёт токен в пути и адресата в
       );
     },
     async (base) => {
-      await sendBotMessage(CONFIG, "текст", base);
+      await sendBotMessage(CONFIG, text("текст"), base);
     },
   );
   assertEquals(seenPath, "/bot8123:AAH/sendMessage");
   assertEquals(seenBody, { chat_id: 987654321, text: "текст" });
+});
+
+Deno.test("файл уходит документом: sendDocument и multipart-тело", async () => {
+  let seenPath = "";
+  let seenType = "";
+  let seenBody = "";
+  await withServer(
+    async (request) => {
+      seenPath = new URL(request.url).pathname;
+      seenType = request.headers.get("content-type") ?? "";
+      seenBody = await request.text();
+      return new Response(
+        JSON.stringify({ ok: true, result: { message_id: 5000002 } }),
+      );
+    },
+    async (base) => {
+      const sent = await sendBotMessage(
+        CONFIG,
+        document("разбор за среду", "разбор.md", "# разбор\n"),
+        base,
+      );
+      assertEquals(sent.id, 5000002);
+    },
+  );
+  // Метод другой: у sendMessage файла нет вовсе.
+  assertEquals(seenPath, "/bot8123:AAH/sendDocument");
+  const prefix = "multipart/form-data; boundary=";
+  assertEquals(seenType.startsWith(prefix), true, `тип части: ${seenType}`);
+  const boundary = seenType.slice(prefix.length);
+  assertEquals(
+    seenBody,
+    [
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="chat_id"',
+      "",
+      "987654321",
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="caption"',
+      "",
+      "разбор за среду",
+      `--${boundary}`,
+      'Content-Disposition: form-data; name="document"; filename="разбор.md"',
+      "Content-Type: text/markdown",
+      "",
+      "# разбор\n",
+      `--${boundary}--`,
+    ].join("\r\n"),
+  );
+});
+
+Deno.test("документ уходит под базовым именем, а не под путём", async () => {
+  let seenBody = "";
+  await withServer(
+    async (request) => {
+      seenBody = await request.text();
+      return new Response(
+        JSON.stringify({ ok: true, result: { message_id: 1 } }),
+      );
+    },
+    async (base) => {
+      // Имя выбирает разбор ввода; транспорт обязан слать его как есть,
+      // а не подставлять что-то своё.
+      await sendBotMessage(CONFIG, document("", "разбор.md", "x"), base);
+    },
+  );
+  assertEquals(seenBody.includes('filename="разбор.md"'), true);
+  assertEquals(seenBody.includes("/home/"), false);
+});
+
+Deno.test("пустая подпись — части caption в теле нет вовсе", async () => {
+  let seenBody = "";
+  await withServer(
+    async (request) => {
+      seenBody = await request.text();
+      return new Response(
+        JSON.stringify({ ok: true, result: { message_id: 1 } }),
+      );
+    },
+    async (base) => {
+      await sendBotMessage(CONFIG, document("", "a.md", "x"), base);
+    },
+  );
+  assertEquals(seenBody.includes("caption"), false);
 });
 
 Deno.test("ok:true без номера сообщения — явный отказ, а не молчаливый успех", async () => {
@@ -64,7 +161,7 @@ Deno.test("ok:true без номера сообщения — явный отк�
     () => new Response(JSON.stringify({ ok: true, result: {} })),
     async (base) => {
       const err = await assertRejects(
-        () => sendBotMessage(CONFIG, "x", base),
+        () => sendBotMessage(CONFIG, text("x"), base),
         DomainError,
       );
       assertEquals(err.message, "telegram: bot API не сообщил номер сообщения");
@@ -85,7 +182,7 @@ Deno.test("ok:false — код и описание в сообщении отк�
       ),
     async (base) => {
       const err = await assertRejects(
-        () => sendBotMessage(CONFIG, "x", base),
+        () => sendBotMessage(CONFIG, text("x"), base),
         DomainError,
       );
       assertEquals(
@@ -109,7 +206,12 @@ Deno.test("403 — подсказка написать боту, с именем
       ),
     async (base) => {
       const err = await assertRejects(
-        () => sendBotMessage({ ...CONFIG, botName: "my_notes_bot" }, "x", base),
+        () =>
+          sendBotMessage(
+            { ...CONFIG, botName: "my_notes_bot" },
+            text("x"),
+            base,
+          ),
         DomainError,
       );
       assertEquals(
@@ -133,7 +235,7 @@ Deno.test("chat not found — та же подсказка без имени, е
       ),
     async (base) => {
       const err = await assertRejects(
-        () => sendBotMessage(CONFIG, "x", base),
+        () => sendBotMessage(CONFIG, text("x"), base),
         DomainError,
       );
       assertEquals(
@@ -149,7 +251,7 @@ Deno.test("тело не разбирается как JSON — отказ, а �
     () => new Response("<html>502</html>", { status: 502 }),
     async (base) => {
       const err = await assertRejects(
-        () => sendBotMessage(CONFIG, "x", base),
+        () => sendBotMessage(CONFIG, text("x"), base),
         DomainError,
       );
       assertEquals(
@@ -173,7 +275,7 @@ Deno.test("сервер недоступен — причина одной ст�
   const base = `http://127.0.0.1:${(server.addr as Deno.NetAddr).port}`;
   await server.shutdown();
   const err = await assertRejects(
-    () => sendBotMessage(CONFIG, "x", base),
+    () => sendBotMessage(CONFIG, text("x"), base),
     DomainError,
   );
   assertEquals(err.message.startsWith("telegram: bot API недоступен: "), true);
@@ -195,7 +297,7 @@ Deno.test("прокси не принят клиентом — отказ наз
         () =>
           sendBotMessage(
             { ...CONFIG, proxy: "socks4://127.0.0.1:1080" },
-            "x",
+            text("x"),
             base,
           ),
         DomainError,
