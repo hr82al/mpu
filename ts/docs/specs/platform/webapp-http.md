@@ -121,7 +121,8 @@ A1-диапазоны, whole-tab кэш листов и метаданных, ho
 ### Резолв цели-spreadsheet
 
 - Источники по приоритету, первый непустой побеждает целиком:
-  флаг `-s/--spreadsheet` → env `MPU_SS` → конфиг `sheet.default`.
+  флаг `-s/--spreadsheet` → конфиг `sheet.default`. Переменных
+  окружения резолв не читает (решение пользователя 2026-08-27).
 - Разбор значения — по порядку до первого совпадения:
   1. подстрока `https://docs.google.com/spreadsheets/d/<ID>` → `<ID>`
      (символы `[A-Za-z0-9_-]`), вид `url`;
@@ -160,7 +161,7 @@ A1-диапазоны, whole-tab кэш листов и метаданных, ho
 - `WB_PLUS_WEB_APP_URL` — обязателен для сетевых операций; не задан →
   ошибка до первого запроса: `WB_PLUS_WEB_APP_URL не задан. Добавь в
   <путь env-файла> или export в shell.` (путь — `platform/env-file.md`).
-- Цель: env `MPU_SS`, конфиг-ключ `sheet.default` (str). Int-ключи
+- Цель: конфиг-ключ `sheet.default` (str). Int-ключи
   (приоритет env → config → default — `platform/config.md`):
   `sheet.cache.tab_ttl` (7200), `sheet.cache.max_tab_bytes` (10485760),
   `sheet.cache.max_total_mb` (500); env-имена `MPU_SHEET_CACHE_TAB_TTL`

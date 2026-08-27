@@ -19,7 +19,7 @@
 `-e` + содержимое `--from` (`-` — stdin), склейка через `\n`; нет ни `-e`, ни `--from`, stdin
 не терминал → скрипт из stdin. Итог пуст (после trim) → exit 2: `mpu sheet batch-update:
 пустой скрипт (-e / --from / stdin)`; у batch-get — свой префикс. `-n/--sheet` — лист по
-умолчанию для диапазонов без `'Лист'!`. Резолв таблицы (`-s` → env `MPU_SS` → конфиг
+умолчанию для диапазонов без `'Лист'!`. Резолв таблицы (`-s` → конфиг
 `sheet.default`; ID/URL/алиас/client_id/подстрока названия) — общий для семейства, тексты —
 `sheet.md`; его ошибка → exit 2. Примеры (обезличены): `batch-update -s <ss-id> -n
 'Лист1' -e "cols insert H +10; label H1 'Итого' bg=#EA4335 bold; set H2 = =SUM(A2:G2)"` и
@@ -145,7 +145,7 @@ valueRenderOption, dateTimeRenderOption}` и/или `spreadsheets/get {ssId}`; �
 
 ## Конфигурация
 
-Env `WB_PLUS_WEB_APP_URL` — `platform/webapp-http.md`; резолв `-s`: env `MPU_SS`, конфиг-ключ
+Env `WB_PLUS_WEB_APP_URL` — `platform/webapp-http.md`; резолв `-s`, конфиг-ключ
 `sheet.default` — `sheet.md`. Собственных ключей у мини-языка нет.
 
 ## Инварианты
