@@ -47,6 +47,20 @@ const SAMPLE_WRAP = {
   exitCode: 0,
 };
 
+/** Показ копии таблицы: общий образец трёх команд `backup-*`. */
+const SAMPLE_BACKUP = {
+  marketplace: "wb",
+  source_table: "wb_unit_proto",
+  date_suffix: "20260827",
+  server: "sl-9",
+  pg_host: "10.9.9.9",
+  pg_port: 5432,
+  database: "mp",
+  sql: "CREATE TABLE backups.wb_unit_proto_777_20260827 AS\n" +
+    "SELECT * FROM schema_777.wb_unit_proto;",
+  dry: true,
+};
+
 const CASES: readonly CommandCase[] = [
   {
     path: "xlsx ls",
@@ -1033,6 +1047,23 @@ const CASES: readonly CommandCase[] = [
     path: "users add-role",
     argv: ["sl-9", "--id", "42", "--role", "client"],
     sampleResult: SAMPLE_WRAP,
+  },
+  {
+    // Копии таблиц: у обхода нет ни env-файла с адресом сервера, ни
+    // кэша — вызов отбивается на резолве, до соединения.
+    path: "backup-wb-unit-proto",
+    argv: ["777", "--dry"],
+    sampleResult: SAMPLE_BACKUP,
+  },
+  {
+    path: "backup-ozon-unit-proto",
+    argv: ["777", "--dry"],
+    sampleResult: { ...SAMPLE_BACKUP, marketplace: "ozon" },
+  },
+  {
+    path: "backup-wb-unit-manual-data",
+    argv: ["777", "--dry"],
+    sampleResult: SAMPLE_BACKUP,
   },
   {
     // Ворота пайпа: stdin у обхода пуст, терминала нет — вызов

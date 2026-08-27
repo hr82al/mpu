@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 22 команд верхнего уровня, ещё не переехавших на TS. */
+/** 19 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sun"],
@@ -27,21 +27,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sheet"],
     summary: "Google Spreadsheets через Apps Script webapp (native Python).",
-  },
-  {
-    path: ["backup-wb-unit-proto"],
-    summary:
-      "CTAS-бэкап: CREATE TABLE backups.<table>_<schema_id>_<YYYYMMDD> AS SELECT * FROM schema_<schema_id>.<table>.",
-  },
-  {
-    path: ["backup-ozon-unit-proto"],
-    summary:
-      "CTAS-бэкап: CREATE TABLE backups.<table>_<schema_id>_<YYYYMMDD> AS SELECT * FROM schema_<schema_id>.<table>.",
-  },
-  {
-    path: ["backup-wb-unit-manual-data"],
-    summary:
-      "CTAS-бэкап: CREATE TABLE backups.<table>_<schema_id>_<YYYYMMDD> AS SELECT * FROM schema_<schema_id>.<table>.",
   },
   {
     path: ["d2-miro"],

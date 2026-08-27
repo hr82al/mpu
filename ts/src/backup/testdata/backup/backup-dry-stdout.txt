@@ -1,0 +1,10 @@
+marketplace: wb
+source_table: wb_unit_proto
+date_suffix: 20260827
+server: sl-9
+pg_host: 10.9.9.9
+pg_port: 5432
+database: mp
+sql:
+CREATE TABLE backups.wb_unit_proto_777_20260827 AS
+SELECT * FROM schema_777.wb_unit_proto;

@@ -4175,6 +4175,285 @@
     }
   },
   {
+    "name": "backup_wb_unit_proto",
+    "title": "mpu backup-wb-unit-proto",
+    "description": "Снять копию wb_unit_proto клиента в схему backups.\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ: создаёт в схеме backups\nкопию таблицы wb_unit_proto клиента запросом\n\n  CREATE TABLE backups.wb_unit_proto_<schema_id>_<YYYYMMDD> AS\n  SELECT * FROM schema_<schema_id>.wb_unit_proto;\n\nСоединение прямое, с PostgreSQL сервера клиента: ни docker exec, ни\nPortainer здесь нет — это не обёртка над sl-back CLI.\n\n--dry ничего не выполняет и никуда не подключается: печатает мета-блок\nи запрос, который ушёл бы серверу. Тот же блок печатается и после\nвыполнения — записью о том, что было сделано.\n\nSELECTOR — client_id, spreadsheet_id, заголовок таблицы либо сам сервер\n(sl-N); --server sl-N задаёт сервер напрямую. --schema-id по умолчанию\nравен client_id: он берётся из кандидатов селектора, если у всех\nкандидатов он один, а при пустых кандидатах — из самого селектора,\nесли тот число. Неоднозначность — ошибка ввода со списком кандидатов.\n\n--date — ровно восемь цифр (YYYYMMDD); по умолчанию сегодняшняя дата по\nМоскве. Неверная дата отбивается до соединения.\n\nExit: 0 — копия создана либо показана; 1 — отказ PostgreSQL; 2 — ошибки\nввода, резолва и конфигурации.\n\nПримеры: mpu backup-wb-unit-proto 777 --dry; mpu backup-wb-unit-proto 777 --date 20260827",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet_id, заголовок; либо sl-N"
+        },
+        "date": {
+          "description": "суффикс копии, YYYYMMDD; по умолчанию сегодняшняя дата по Москве",
+          "type": "string"
+        },
+        "schema-id": {
+          "description": "номер схемы клиента; без него выводится из селектора",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "dry": {
+          "default": false,
+          "description": "только показать мета-блок и запрос, не подключаясь",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "marketplace": {
+          "type": "string",
+          "description": "площадка таблицы-источника"
+        },
+        "source_table": {
+          "type": "string",
+          "description": "таблица, с которой снята копия"
+        },
+        "date_suffix": {
+          "type": "string",
+          "description": "суффикс даты в имени копии"
+        },
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, где выполняется запрос"
+        },
+        "pg_host": {
+          "type": "string",
+          "description": "адрес PostgreSQL"
+        },
+        "pg_port": {
+          "type": "number",
+          "description": "порт PostgreSQL"
+        },
+        "database": {
+          "type": "string",
+          "description": "база данных"
+        },
+        "sql": {
+          "type": "string",
+          "description": "запрос, который ушёл (или ушёл бы) серверу"
+        },
+        "dry": {
+          "type": "boolean",
+          "description": "режим показа: соединения не было"
+        }
+      },
+      "required": [
+        "marketplace",
+        "source_table",
+        "date_suffix",
+        "server",
+        "pg_host",
+        "pg_port",
+        "database",
+        "sql",
+        "dry"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "backup_ozon_unit_proto",
+    "title": "mpu backup-ozon-unit-proto",
+    "description": "Снять копию ozon_unit_proto клиента в схему backups.\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ: создаёт в схеме backups\nкопию таблицы ozon_unit_proto клиента запросом\n\n  CREATE TABLE backups.ozon_unit_proto_<schema_id>_<YYYYMMDD> AS\n  SELECT * FROM schema_<schema_id>.ozon_unit_proto;\n\nСоединение прямое, с PostgreSQL сервера клиента: ни docker exec, ни\nPortainer здесь нет — это не обёртка над sl-back CLI.\n\n--dry ничего не выполняет и никуда не подключается: печатает мета-блок\nи запрос, который ушёл бы серверу. Тот же блок печатается и после\nвыполнения — записью о том, что было сделано.\n\nSELECTOR — client_id, spreadsheet_id, заголовок таблицы либо сам сервер\n(sl-N); --server sl-N задаёт сервер напрямую. --schema-id по умолчанию\nравен client_id: он берётся из кандидатов селектора, если у всех\nкандидатов он один, а при пустых кандидатах — из самого селектора,\nесли тот число. Неоднозначность — ошибка ввода со списком кандидатов.\n\n--date — ровно восемь цифр (YYYYMMDD); по умолчанию сегодняшняя дата по\nМоскве. Неверная дата отбивается до соединения.\n\nExit: 0 — копия создана либо показана; 1 — отказ PostgreSQL; 2 — ошибки\nввода, резолва и конфигурации.\n\nПримеры: mpu backup-ozon-unit-proto 777 --dry; mpu backup-ozon-unit-proto 777 --date 20260827",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet_id, заголовок; либо sl-N"
+        },
+        "date": {
+          "description": "суффикс копии, YYYYMMDD; по умолчанию сегодняшняя дата по Москве",
+          "type": "string"
+        },
+        "schema-id": {
+          "description": "номер схемы клиента; без него выводится из селектора",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "dry": {
+          "default": false,
+          "description": "только показать мета-блок и запрос, не подключаясь",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "marketplace": {
+          "type": "string",
+          "description": "площадка таблицы-источника"
+        },
+        "source_table": {
+          "type": "string",
+          "description": "таблица, с которой снята копия"
+        },
+        "date_suffix": {
+          "type": "string",
+          "description": "суффикс даты в имени копии"
+        },
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, где выполняется запрос"
+        },
+        "pg_host": {
+          "type": "string",
+          "description": "адрес PostgreSQL"
+        },
+        "pg_port": {
+          "type": "number",
+          "description": "порт PostgreSQL"
+        },
+        "database": {
+          "type": "string",
+          "description": "база данных"
+        },
+        "sql": {
+          "type": "string",
+          "description": "запрос, который ушёл (или ушёл бы) серверу"
+        },
+        "dry": {
+          "type": "boolean",
+          "description": "режим показа: соединения не было"
+        }
+      },
+      "required": [
+        "marketplace",
+        "source_table",
+        "date_suffix",
+        "server",
+        "pg_host",
+        "pg_port",
+        "database",
+        "sql",
+        "dry"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "backup_wb_unit_manual_data",
+    "title": "mpu backup-wb-unit-manual-data",
+    "description": "Снять копию wb_unit_manual_data клиента в схему backups.\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ: создаёт в схеме backups\nкопию таблицы wb_unit_manual_data клиента запросом\n\n  CREATE TABLE backups.wb_unit_manual_data_<schema_id>_<YYYYMMDD> AS\n  SELECT * FROM schema_<schema_id>.wb_unit_manual_data;\n\nСоединение прямое, с PostgreSQL сервера клиента: ни docker exec, ни\nPortainer здесь нет — это не обёртка над sl-back CLI.\n\n--dry ничего не выполняет и никуда не подключается: печатает мета-блок\nи запрос, который ушёл бы серверу. Тот же блок печатается и после\nвыполнения — записью о том, что было сделано.\n\nSELECTOR — client_id, spreadsheet_id, заголовок таблицы либо сам сервер\n(sl-N); --server sl-N задаёт сервер напрямую. --schema-id по умолчанию\nравен client_id: он берётся из кандидатов селектора, если у всех\nкандидатов он один, а при пустых кандидатах — из самого селектора,\nесли тот число. Неоднозначность — ошибка ввода со списком кандидатов.\n\n--date — ровно восемь цифр (YYYYMMDD); по умолчанию сегодняшняя дата по\nМоскве. Неверная дата отбивается до соединения.\n\nExit: 0 — копия создана либо показана; 1 — отказ PostgreSQL; 2 — ошибки\nввода, резолва и конфигурации.\n\nПримеры: mpu backup-wb-unit-manual-data 777 --dry; mpu backup-wb-unit-manual-data 777 --date 20260827",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet_id, заголовок; либо sl-N"
+        },
+        "date": {
+          "description": "суффикс копии, YYYYMMDD; по умолчанию сегодняшняя дата по Москве",
+          "type": "string"
+        },
+        "schema-id": {
+          "description": "номер схемы клиента; без него выводится из селектора",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "dry": {
+          "default": false,
+          "description": "только показать мета-блок и запрос, не подключаясь",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "marketplace": {
+          "type": "string",
+          "description": "площадка таблицы-источника"
+        },
+        "source_table": {
+          "type": "string",
+          "description": "таблица, с которой снята копия"
+        },
+        "date_suffix": {
+          "type": "string",
+          "description": "суффикс даты в имени копии"
+        },
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>`, где выполняется запрос"
+        },
+        "pg_host": {
+          "type": "string",
+          "description": "адрес PostgreSQL"
+        },
+        "pg_port": {
+          "type": "number",
+          "description": "порт PostgreSQL"
+        },
+        "database": {
+          "type": "string",
+          "description": "база данных"
+        },
+        "sql": {
+          "type": "string",
+          "description": "запрос, который ушёл (или ушёл бы) серверу"
+        },
+        "dry": {
+          "type": "boolean",
+          "description": "режим показа: соединения не было"
+        }
+      },
+      "required": [
+        "marketplace",
+        "source_table",
+        "date_suffix",
+        "server",
+        "pg_host",
+        "pg_port",
+        "database",
+        "sql",
+        "dry"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "sheet_set",
     "title": "mpu sheet set",
     "description": "Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nWrite values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nТри режима записи: `RANGE VALUE` — одна ячейка/формула; `--from FILE` — батч\n`range<TAB>value` построчно (`-` — stdin); JSON `[{\"range\":..,\"value\"|\"formula\":..}]`\nиз stdin — тогда единственный позиционный аргумент (если есть) трактуется как\nселектор таблицы. В JSON-режиме открытый одностолбцовый range (`Col<N>:Col`)\nавтозаполняется значением до последней занятой строки столбца.",

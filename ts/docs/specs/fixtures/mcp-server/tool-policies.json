@@ -34,6 +34,9 @@
   "rw": [
     "api wb-loader-reset",
     "api wb-loader-status",
+    "backup-ozon-unit-proto",
+    "backup-wb-unit-manual-data",
+    "backup-wb-unit-proto",
     "data-loader",
     "init",
     "kiten checklist add",

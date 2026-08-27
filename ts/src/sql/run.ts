@@ -354,7 +354,7 @@ export function selectorOf(args: readonly string[]): string | undefined {
  * npm-пакет тяжёл, а нужен он одной команде — статический импорт
  * поднимал бы его на каждом запуске бинаря.
  */
-function denoSession(mode: SqlMode): OpenSession {
+export function denoSession(mode: SqlMode): OpenSession {
   return async (target) => {
     const { openPgSession } = await import("./pg.ts");
     return await openPgSession(target, mode);

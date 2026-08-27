@@ -87,6 +87,7 @@ import {
   telegramStatusCommand,
 } from "../telegram/mod.ts";
 import { claudeHookNotificationCommand } from "../claudehook/mod.ts";
+import { backupCommands } from "../backup/mod.ts";
 import { confirmCommand } from "../confirm/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
@@ -220,6 +221,7 @@ export const commands: readonly Command[] = [
   wbUnitProtoNewCommand,
   ...usersCommands,
   confirmCommand,
+  ...backupCommands,
 ];
 
 /**
