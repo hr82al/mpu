@@ -6,10 +6,10 @@
  * argv. Это единственный способ проверить порядок шагов — а порядок и
  * есть контракт команды.
  *
- * Голден снят на машине оператора, и при обезличивании домашний
- * каталог стал кириллическим — такой путь shell-квотирование берёт в
- * кавычки, а в фикстуре кавычек нет. Поэтому сверка идёт после замены
- * домашнего каталога на ASCII: расхождение в фикстуре, а не в форме.
+ * Голден сверяется побайтно: домашний каталог в фикстуре ASCII, и
+ * shell-квотированию нечего добавлять (кириллический путь брался бы в
+ * кавычки, и сверка ловила бы квотирование вместо контракта —
+ * фикстура исправлена 2026-08-28).
  */
 
 import { assertEquals, assertRejects } from "@std/assert";
@@ -27,9 +27,6 @@ import { CONFLICTING, fullPlan, stepLine } from "./plan.ts";
 const HOME = "/home/operator";
 const CONFIG = `${HOME}/mr/mp/mp-config-local`;
 const LOCAL_STACK = `${HOME}/mr/mp/local-stack`;
-/** Домашний каталог фикстуры; при обезличивании он стал кириллическим. */
-const GOLDEN_HOME = "/home/оператор";
-
 const ok: ProcessOutcome = { code: 0, stdout: "" };
 
 /** io с домашним каталогом и накоплением служебных строк. */
@@ -50,10 +47,9 @@ const allPresent: RunDocker = (argv) =>
 const existsExceptDtEnv = (path: string) => !path.endsWith(".sl-dt.env");
 
 async function golden(): Promise<string> {
-  const text = await Deno.readTextFile(
+  return await Deno.readTextFile(
     new URL("./testdata/mp-init/dry-run.stdout", import.meta.url),
   );
-  return text.replaceAll(GOLDEN_HOME, HOME);
 }
 
 Deno.test("сухой прогон печатает последовательность — эталон канала", async () => {
