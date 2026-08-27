@@ -156,6 +156,34 @@ Deno.test("resolve: JSON цели — эталон канала, сети нет
   });
 });
 
+Deno.test("resolve: цель из конфига, когда флага нет", async () => {
+  await withDb(async (db) => {
+    const io = makeFakeIo({
+      envFile: {
+        get: () => undefined,
+        require: () => "",
+        set: () => Promise.resolve(),
+        values: () => ({}),
+      },
+      openCacheDb: () => ({ ...db, [Symbol.dispose]: () => {} }),
+      // Ровно то, что пишет `mpu config sheet.default <id>`.
+      readConfigStore: () =>
+        Promise.resolve(
+          JSON.stringify({ values: { "sheet.default": SS_ID }, aliases: {} }),
+        ),
+      note: () => {},
+    });
+    const result = await sheetResolveCommand.invokeInput(
+      { spreadsheet: undefined },
+      io,
+    ) as { ss_id: string; source: string };
+    // Источник конфига — единственный, кроме флага: сломай его чтение,
+    // и у команды не останется ни одного (`sheet.md`, «CLI-контракт»).
+    assertEquals(result.source, "config");
+    assertEquals(result.ss_id, SS_ID);
+  });
+});
+
 Deno.test("ls: три формы вывода — эталоны канала", async (t) => {
   await withDb(async (db) => {
     const { io, options } = harness(db);
