@@ -64,7 +64,7 @@ Deno.test("mpu help <имя>: справка целевой команды", asy
         calls.push([...args]);
         return Promise.resolve({
           code: 0,
-          stdout: "Usage: mpu sun …\n",
+          stdout: "Usage: mpu sheet …\n",
           stderr: "",
         });
       },
@@ -73,10 +73,10 @@ Deno.test("mpu help <имя>: справка целевой команды", asy
           JSON.stringify({ values: { "mcp.legacy_bin": "/bin/echo" } }),
         ),
     });
-    assertEquals(await cli.run("help", "mpu sun"), 0);
-    // Тот же вызов, что у `mpu sun --help`: реестр текст не сочиняет.
-    assertEquals(calls, [["sun", "--help"]]);
-    assertEquals(cli.stdout(), "Usage: mpu sun …\n");
+    assertEquals(await cli.run("help", "mpu sheet"), 0);
+    // Тот же вызов, что у `mpu sheet --help`: реестр текст не сочиняет.
+    assertEquals(calls, [["sheet", "--help"]]);
+    assertEquals(cli.stdout(), "Usage: mpu sheet …\n");
   });
 });
 
@@ -84,7 +84,7 @@ Deno.test("mpu help: неизвестное имя — exit 2 и список и
   const cases: readonly (readonly [string, string])[] = [
     ["не-команда", "does-not-exist"],
     ["пустая строка", ""],
-    ["голый kebab вместо полного имени", "sun"],
+    ["голый kebab вместо полного имени", "sheet"],
   ];
   for (const [title, wanted] of cases) {
     await t.step(title, async () => {

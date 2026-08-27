@@ -52,6 +52,7 @@ export const NOT_LEGACY: readonly string[] = [
   "backup-wb-unit-proto",
   "backup-ozon-unit-proto",
   "backup-wb-unit-manual-data",
+  "sun",
   "logs",
   "log",
   "kiten",

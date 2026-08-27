@@ -130,7 +130,7 @@ Deno.test("маршрут legacy: обвязка записи не создаё�
   await withStand(async (stand) => {
     const outcome = await cli(
       stand,
-      ["sun", "sl-1"],
+      ["sheet", "sl-1"],
       makeFakeIo({
         readConfigStore: () =>
           Promise.resolve('{"mcp.legacy_bin":"/bin/echo"}'),

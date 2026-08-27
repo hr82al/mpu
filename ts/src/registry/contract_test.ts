@@ -1049,6 +1049,21 @@ const CASES: readonly CommandCase[] = [
     sampleResult: SAMPLE_WRAP,
   },
   {
+    // Считает локально: ни сети, ни io — обход проходит её целиком.
+    path: "sun",
+    argv: ["--date", "2026-08-27"],
+    sampleResult: {
+      date: "2026-08-27",
+      latitude: 55.693516,
+      longitude: 37.967941,
+      timezone: "UTC+03:00",
+      sunrise: "2026-08-27 05:22:37",
+      solar_noon: "2026-08-27 12:29:51",
+      sunset: "2026-08-27 19:37:05",
+      day_length: "14:14:28",
+    },
+  },
+  {
     // Копии таблиц: у обхода нет ни env-файла с адресом сервера, ни
     // кэша — вызов отбивается на резолве, до соединения.
     path: "backup-wb-unit-proto",

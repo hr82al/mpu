@@ -12,13 +12,8 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 19 команд верхнего уровня, ещё не переехавших на TS. */
+/** 18 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
-  {
-    path: ["sun"],
-    summary:
-      "Считает локально (astral, без сети) восход/закат/зенит и длину дня.",
-  },
   {
     path: ["config"],
     summary:

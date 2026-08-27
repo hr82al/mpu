@@ -88,9 +88,9 @@ Deno.test("инварианты записей реестра", async (t) => {
     const once = legacyCommands.map((command) => command.path.join(" "));
     const twice = legacyCommands.map((command) => command.path.join(" "));
     assertEquals(once, twice);
-    // Порядок — порядок слепка, не алфавит: первым идёт `sun`
-    // (прежний первый, `search`, уехал на маршрут `native`).
-    assertEquals(once[0], "sun");
+    // Порядок — порядок слепка, не алфавит: первым идёт `config`
+    // (прежние первые, `search` и `sun`, уехали маршрутом `native`).
+    assertEquals(once[0], "config");
   });
 });
 
