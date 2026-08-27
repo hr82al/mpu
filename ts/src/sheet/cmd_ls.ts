@@ -54,8 +54,8 @@ export async function runLs(
   options: SheetOptions = {},
 ): Promise<LsResult> {
   using db = io.openCacheDb();
-  const target = await targetOf(io, db, args.spreadsheet);
-  const settings = await cacheSettings(io);
+  const target = targetOf(db, args.spreadsheet);
+  const settings = cacheSettings(io, db);
   const nowSeconds = options.nowSeconds ?? Math.floor(Date.now() / 1000);
   housekeeping(db, settings, nowSeconds);
   const tabs = await tabsOf(

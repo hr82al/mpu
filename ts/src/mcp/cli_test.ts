@@ -6,6 +6,7 @@
 
 import { assertEquals, assertMatch, assertStringIncludes } from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
+import { setConfigValue } from "../config/mod.ts";
 import { makeDenoIo } from "../runtime/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { type CommandIo, NotFoundIoError } from "../command/mod.ts";
@@ -40,7 +41,9 @@ async function withStore(
 ): Promise<void> {
   const dir = await Deno.makeTempDir();
   try {
-    const real = makeDenoIo(`${dir}/config.json`);
+    // Конфиг-каталог временный целиком: и токен, и кэш-БД с
+    // предпочтениями, — в базу пользователя тест не пишет.
+    const real = makeDenoIo(dir);
     await fn({ ...real, runLegacy: sameVersion }, dir);
   } finally {
     await Deno.remove(dir, { recursive: true });
@@ -220,9 +223,10 @@ Deno.test("порт берётся из конфига, когда флага н
     });
     const wanted = probe.port;
     await probe.shutdown();
-    await io.writeConfigStore(
-      JSON.stringify({ values: { "mcp.port": String(wanted) }, aliases: {} }),
-    );
+    {
+      using db = io.openCacheDb();
+      setConfigValue(db, "mcp.port", String(wanted));
+    }
 
     const stop = new AbortController();
     const listening = Promise.withResolvers<RunningServer>();

@@ -2,8 +2,7 @@
 
 import { z } from "@zod/zod";
 import { defineCommand } from "../command/mod.ts";
-import { loadStore, saveStore } from "./settings.ts";
-import { withAlias, withoutAlias } from "../config/mod.ts";
+import { aliases, aliasPath, removeAlias, setAlias } from "../config/mod.ts";
 
 /** Разрешённые имена алиасов (контракт спеки). */
 const NAME_RE = /^[A-Za-z0-9_.-]+$/;
@@ -39,11 +38,11 @@ Exit: 0 — успех; 2 — ошибка ввода; 1 — хранилище 
     /** Алиас с таким именем появился впервые (иначе путь заменён). */
     created: z.boolean(),
   }),
-  run: async (args, io) => {
-    const store = await loadStore(io);
-    const created = !(args.name in store.aliases);
-    await saveStore(io, withAlias(store, args.name, args.path));
-    return { name: args.name, path: args.path, created };
+  run: (args, io) => {
+    using db = io.openCacheDb();
+    const created = aliasPath(db, args.name) === undefined;
+    setAlias(db, args.name, args.path, Math.floor(Date.now() / 1000));
+    return Promise.resolve({ name: args.name, path: args.path, created });
   },
   // Успех молчалив: контракт спеки, а не упущение рендера.
   render: () => "",
@@ -64,14 +63,9 @@ Exit: 0 — всегда при читаемом хранилище; 1 — хр�
   resultSchema: z.object({
     aliases: z.array(z.object({ name: z.string(), path: z.string() })),
   }),
-  run: async (_args, io) => {
-    const store = await loadStore(io);
-    return {
-      aliases: Object.keys(store.aliases).sort().map((name) => ({
-        name,
-        path: store.aliases[name],
-      })),
-    };
+  run: (_args, io) => {
+    using db = io.openCacheDb();
+    return Promise.resolve({ aliases: [...aliases(db)] });
   },
   render: (result) =>
     result.aliases.map((alias) => `${alias.name}\t${alias.path}\n`).join(""),
@@ -98,11 +92,12 @@ Exit: 0 — всегда; 2 — NAME не передан; 1 — хранилищ
     /** Алиас существовал и удалён; отсутствие имени — не ошибка. */
     removed: z.boolean(),
   }),
-  run: async (args, io) => {
-    const store = await loadStore(io);
-    const removed = args.name in store.aliases;
-    if (removed) await saveStore(io, withoutAlias(store, args.name));
-    return { name: args.name, removed };
+  run: (args, io) => {
+    using db = io.openCacheDb();
+    return Promise.resolve({
+      name: args.name,
+      removed: removeAlias(db, args.name),
+    });
   },
   // Успех молчалив: контракт спеки, а не упущение рендера.
   render: () => "",

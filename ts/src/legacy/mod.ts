@@ -13,10 +13,10 @@ import {
   DomainError,
   NotFoundIoError,
 } from "../command/mod.ts";
-import { parseStore } from "../config/mod.ts";
+import { configValue, readPreferences } from "../config/mod.ts";
 
 /** Срез порта для поиска пути к реализации: ключ конфига и HOME. */
-type LegacyBinIo = Pick<CommandIo, "env" | "readConfigStore">;
+type LegacyBinIo = Pick<CommandIo, "env" | "openCacheDb">;
 
 /** Срез порта, который потребляет маршрут: путь плюс запуск подпроцесса. */
 export type LegacyIo = LegacyBinIo & Pick<CommandIo, "runLegacy">;
@@ -52,7 +52,7 @@ export async function runLegacyCommand(
   io: LegacyIo,
   output: LegacySink,
 ): Promise<number> {
-  const bin = await resolveLegacyBin(io);
+  const bin = resolveLegacyBin(io);
   const argv = [...command.path, ...args];
   let outcome;
   try {
@@ -85,9 +85,13 @@ export class LegacyBinMissingError extends DomainError {
 }
 
 /** Путь к реализации: ключ конфига, иначе умолчание спеки. */
-export async function resolveLegacyBin(io: LegacyBinIo): Promise<string> {
-  const store = parseStore(await io.readConfigStore());
-  return legacyBinPath(store.values[LEGACY_BIN_KEY], io.env("HOME"));
+export function resolveLegacyBin(io: LegacyBinIo): string {
+  const configured = readPreferences(
+    io,
+    (db) => configValue(db, LEGACY_BIN_KEY),
+    undefined,
+  );
+  return legacyBinPath(configured, io.env("HOME"));
 }
 
 /** Раскрывает «~» в начале пути; HOME неизвестен — путь как есть. */

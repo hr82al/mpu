@@ -212,7 +212,7 @@ Deno.test("отсутствующий файл — отказ до сети, с 
 Deno.test("каталог вместо файла — тот же отказ, не падение чтения", async () => {
   // Порт настоящий: «каталог вместо файла» отбивает именно он
   // (`readRegularFile`), и проверять это на фейке нечего.
-  const real = makeDenoIo("/nowhere/config.json");
+  const real = makeDenoIo("/nowhere");
   const dir = await Deno.makeTempDir();
   try {
     const err = await assertRejects(

@@ -17,6 +17,7 @@ import {
   type EnvFile,
   NotFoundIoError,
 } from "../command/mod.ts";
+import { setConfigValue } from "../config/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
@@ -1633,12 +1634,14 @@ Deno.test("шаг 5: ненулевой код и несостоявшийся �
         try {
           const io = makeIo(dbPath, {
             envFile: standEnv(baseUrl),
-            readConfigStore: () =>
-              Promise.resolve(JSON.stringify({
-                values: { "mcp.legacy_bin": "/nowhere/mpu" },
-              })),
             ...override,
           });
+          {
+            // Ключ лежит в той же кэш-БД, что и остальное состояние:
+            // отдельного файла предпочтений нет (`platform/config.md`).
+            using db = io.openCacheDb();
+            setConfigValue(db, "mcp.legacy_bin", "/nowhere/mpu");
+          }
           const outcome = await invokeInit([], io);
           // Исход шага 5 код выхода init не меняет (спека).
           assertEquals(outcome.code, 0);

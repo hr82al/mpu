@@ -15,6 +15,7 @@ import {
   UsageError,
 } from "../command/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
+import { setConfigValue } from "../config/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { runGet, sheetGetCommand } from "./cmd_get.ts";
 import { runLs, sheetLsCommand } from "./cmd_ls.ts";
@@ -101,7 +102,6 @@ function harness(
       values: () => ({ ...env }),
     },
     openCacheDb: () => ({ ...db, [Symbol.dispose]: () => {} }),
-    readConfigStore: () => Promise.resolve(undefined),
     readTextFile: (path: string) => {
       throw new NotFoundIoError(`нет файла ${path}`);
     },
@@ -166,13 +166,11 @@ Deno.test("resolve: цель из конфига, когда флага нет",
         values: () => ({}),
       },
       openCacheDb: () => ({ ...db, [Symbol.dispose]: () => {} }),
-      // Ровно то, что пишет `mpu config sheet.default <id>`.
-      readConfigStore: () =>
-        Promise.resolve(
-          JSON.stringify({ values: { "sheet.default": SS_ID }, aliases: {} }),
-        ),
       note: () => {},
     });
+    // Ровно то, что пишет `mpu config sheet.default <id>`: строка в
+    // таблице `config` той же кэш-БД (`platform/config.md`).
+    setConfigValue(db, "sheet.default", SS_ID);
     const result = await sheetResolveCommand.invokeInput(
       { spreadsheet: undefined },
       io,
@@ -485,7 +483,6 @@ Deno.test("WB_PLUS_WEB_APP_URL не задан — доменный отказ",
         values: () => ({}),
       },
       openCacheDb: () => ({ ...db, [Symbol.dispose]: () => {} }),
-      readConfigStore: () => Promise.resolve(undefined),
       note: () => {},
     });
     const err = await assertRejects(
@@ -493,5 +490,27 @@ Deno.test("WB_PLUS_WEB_APP_URL не задан — доменный отказ",
       DomainError,
     );
     assertStringIncludes(err.message, "WB_PLUS_WEB_APP_URL");
+  });
+});
+
+Deno.test("кэш листа живёт по sheet.cache.tab_ttl из предпочтений", async () => {
+  await withDb(async (db) => {
+    const { io, options } = harness(db);
+    const at = (nowSeconds: number) => ({ ...options, nowSeconds });
+    await runGet(getArgs(), io, at(1000));
+    // Умолчание TTL — 7200 с: через час запись ещё жива.
+    const warm = await runGet(getArgs(), io, at(1000 + 3600)) as {
+      valueRanges: { fromCache: boolean }[];
+    };
+    assertEquals(warm.valueRanges[0].fromCache, true);
+    // Ровно то, что пишет `mpu config sheet.cache.tab_ttl 60`. Ключ,
+    // записанный в таблицу `config`, обязан менять поведение кэша:
+    // иначе «молча на умолчаниях» вернётся другой дорогой
+    // (`platform/config.md`, инвариант о немедленной видимости).
+    setConfigValue(db, "sheet.cache.tab_ttl", "60");
+    const cold = await runGet(getArgs(), io, at(1000 + 3600)) as {
+      valueRanges: { fromCache: boolean }[];
+    };
+    assertEquals(cold.valueRanges[0].fromCache, false);
   });
 });

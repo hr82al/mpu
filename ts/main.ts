@@ -7,14 +7,14 @@
 import { runCli } from "./src/entrypoint/mod.ts";
 import { makeInvokeLog } from "./src/invokelog/mod.ts";
 import {
-  defaultConfigStorePath,
+  defaultConfigDir,
   defaultInvokeLogPath,
   makeDenoIo,
   makeDenoOutput,
 } from "./src/runtime/mod.ts";
 
 async function main(args: readonly string[]): Promise<number> {
-  const io = makeDenoIo(defaultConfigStorePath());
+  const io = makeDenoIo(defaultConfigDir());
   const log = makeInvokeLog({
     // Настройки журнала — ключи `MPU_LOG_*` env-файла; окружение
     // процесса слой не читает (`platform/env-file.md`).

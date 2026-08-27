@@ -82,7 +82,7 @@ Deno.test("tools/list: форма тула — эталон фикстуры", a
 Deno.test("tools/call: успех — структурное содержимое по схеме", async () => {
   const { request, response } = await fixture("tools-call-ok.json");
   await withSampleDir(async (dir) => {
-    const real = makeDenoIo(`${dir}/config.json`);
+    const real = makeDenoIo(dir);
     const actual = await handle(
       request,
       makeFakeIo({ readFile: real.readFile, cwd: () => dir }),
@@ -102,7 +102,7 @@ Deno.test("tools/call: аргумент не по схеме — JSON-RPC-оши
 Deno.test("tools/call: доменная ошибка — результат с признаком ошибки", async () => {
   const { request, response } = await fixture("tools-call-domain-error.json");
   await withSampleDir(async (dir) => {
-    const real = makeDenoIo(`${dir}/config.json`);
+    const real = makeDenoIo(dir);
     const actual = await handle(
       request,
       makeFakeIo({ readFile: real.readFile, cwd: () => dir }),
@@ -379,7 +379,9 @@ Deno.test("границы, не покрытые фикстурами", async (t
 
   await t.step("сбой реализации — внутренняя ошибка, не итог", async () => {
     const broken = makeFakeIo({
-      readConfigStore: () => Promise.reject(new Error("хранилище недоступно")),
+      openCacheDb: () => {
+        throw new Error("хранилище недоступно");
+      },
     });
     const actual = await handle({
       method: "POST",

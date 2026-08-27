@@ -7,7 +7,9 @@
  * из `main.ts` недостижим.
  */
 
-import type { CommandIo } from "../command/mod.ts";
+import { DatabaseSync } from "node:sqlite";
+import type { CacheDb, CommandIo, SqlRow } from "../command/mod.ts";
+import { SCHEMA_STATEMENTS } from "../store/schema.ts";
 
 /**
  * Окружение, где разрешено ровно то, что тест перечислил. Всё
@@ -39,8 +41,6 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     // Терминала у теста по умолчанию нет: вопрос человеку в прогоне
     // тестов задать некому, и команда обязана это заметить.
     openTerminal: () => Promise.resolve(undefined),
-    readConfigStore: () => Promise.resolve(undefined),
-    writeConfigStore: mustNotTouch("writeConfigStore"),
     readAccessToken: () => Promise.resolve(undefined),
     writeAccessToken: mustNotTouch("writeAccessToken"),
     currentShell: () => undefined,
@@ -61,9 +61,75 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
       require: mustNotTouch("envFile.require"),
       set: mustNotTouch("envFile.set"),
     },
-    openCacheDb: mustNotTouch("openCacheDb"),
+    // Пустая кэш-БД в памяти, а не запрет: с переездом предпочтений в
+    // таблицу `config` (2026-08-27, `platform/config.md`) чтение ключа
+    // стало обычным шагом — маршрут `legacy` зовёт его до всякого
+    // запуска, — и «хранилища нет» это штатный ответ, а не касание
+    // запретного (то же рассуждение, что у `envFile.get`). Файловой
+    // системы такая база не касается; тест, которому нужно доказать,
+    // что команда в базу не ходит, объявляет свой бросающий порт.
+    openCacheDb: fakeConfigDb(),
     progress: mustNotTouch("progress"),
     openRemoteOutput: mustNotTouch("openRemoteOutput"),
     ...overrides,
   };
+}
+
+/**
+ * Порт `openCacheDb` поверх кэш-БД в памяти: чем тест подменяет
+ * хранилище, когда команде нужен ключ конфига или алиас
+ * (`platform/config.md`).
+ *
+ * Схема настоящая, из канала `store/schema.ts`, и запросы идут через
+ * настоящий SQLite: подделка таблицы прошла бы мимо ровно того дефекта,
+ * ради которого предпочтения переехали в БД, — «читаем не оттуда, и
+ * молча получаются умолчания».
+ *
+ * Возвращается **фабрика**, отдающая одну и ту же базу при каждом
+ * вызове, а `[Symbol.dispose]` у ручки пуст: `using db =
+ * io.openCacheDb()` внутри команды не должен закрывать базу, которую
+ * тест держит между вызовами, — иначе `alias add` и следующий за ним
+ * `alias ls` разговаривали бы с разными базами, а незакрытые
+ * соединения копились бы на весь прогон.
+ *
+ * Схема создаётся только `bootstrap()` — как на чистой машине; с
+ * непустыми `values` он зовётся сразу, потому что записать ключ иначе
+ * некуда.
+ */
+export function fakeConfigDb(
+  values: Readonly<Record<string, string>> = {},
+): () => CacheDb {
+  const db = new DatabaseSync(":memory:");
+  const handle: CacheDb = {
+    path: ":memory:",
+    bootstrap: () => {
+      for (const statement of SCHEMA_STATEMENTS) db.exec(statement);
+    },
+    execute: (sql, ...params) => Number(db.prepare(sql).run(...params).changes),
+    query: (sql, ...params) =>
+      db.prepare(sql).all(...params) as readonly SqlRow[],
+    // Транзакция настоящая: тест, проверяющий откат прерванной записи,
+    // должен видеть откат, а не молчаливое «всё прошло».
+    transaction: <T>(body: () => T): T => {
+      db.exec("BEGIN");
+      try {
+        const result = body();
+        db.exec("COMMIT");
+        return result;
+      } catch (err) {
+        db.exec("ROLLBACK");
+        throw err;
+      }
+    },
+    [Symbol.dispose]: () => {},
+  };
+  const entries = Object.entries(values);
+  if (entries.length > 0) {
+    handle.bootstrap();
+    for (const [key, value] of entries) {
+      db.prepare("INSERT INTO config (key, value) VALUES (?, ?)")
+        .run(key, value);
+    }
+  }
+  return () => handle;
 }

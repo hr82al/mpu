@@ -1,98 +1,145 @@
 /**
- * Локальное хранилище предпочтений CLI (контракт —
- * docs/specs/platform/config.md): значения ключей реестра и алиасы
- * файлов команды xlsx. Модуль чистый — разбор и сериализация; чтение
- * и запись файла (`~/.config/mpu/`, 0600) делает io-слой вызывающего.
- * Значения хранятся строками буквально («007» не нормализуется).
+ * Локальные предпочтения CLI (`platform/config.md`): значения ключей
+ * реестра и именованные алиасы файлов команды `xlsx`.
+ *
+ * Источник один — таблицы `config` и `xlsx_aliases` кэш-БД
+ * `~/.config/mpu/mpu.db` (`platform/store.md`). Отдельного файла
+ * предпочтений не существует: базу делят обе реализации, и разойтись
+ * им нельзя. Чтение по файловому пути — дефект, а не альтернативная
+ * форма; так уже случилось однажды, и молча отдавались умолчания.
  */
 
-/** Содержимое хранилища. Отсутствующий файл равнозначен пустому. */
-export interface StoreData {
-  /** Значения ключей реестра конфига (`xlsx.default`, …). */
-  readonly values: Readonly<Record<string, string>>;
-  /** Алиасы файлов команды xlsx: имя → путь как введён. */
-  readonly aliases: Readonly<Record<string, string>>;
+import {
+  type CacheDb,
+  type CommandIo,
+  DomainError,
+  type SqlRow,
+} from "../command/mod.ts";
+
+/** Алиас файла: имя и путь, как его ввели. */
+export interface Alias {
+  readonly name: string;
+  readonly path: string;
 }
 
-const EMPTY_STORE: StoreData = { values: {}, aliases: {} };
-
-/** Хранилище нечитаемо; для CLI это инфраструктурная ошибка (exit 1). */
-export class StoreFormatError extends Error {
-  override name = "StoreFormatError";
-}
-
-/** Разбирает содержимое файла хранилища; `undefined` — файла нет. */
-export function parseStore(raw: string | undefined): StoreData {
-  if (raw === undefined) return EMPTY_STORE;
-  let parsed: unknown;
+/**
+ * Читает предпочтения там, где кэш-БД ещё не открыта: открывает,
+ * отдаёт `read` и закрывает.
+ *
+ * Недостижимое хранилище (пути к файлу нет вовсе — не задан HOME)
+ * равнозначно пустому: `platform/config.md` велит в его отсутствие
+ * работать по умолчаниям, и вызов, целиком определённый флагом, не
+ * должен падать из-за отсутствия HOME (cron, systemd-юнит,
+ * контейнер). Прочие отказы открытия — повреждённый файл, права — не
+ * глотаются: доменной ошибкой атом отвечает ровно на «пути нет»
+ * (`platform/store.md`).
+ */
+export function readPreferences<T>(
+  io: Pick<CommandIo, "openCacheDb">,
+  read: (db: CacheDb) => T,
+  whenUnavailable: T,
+): T {
+  let opened: CacheDb;
   try {
-    parsed = JSON.parse(raw);
+    opened = io.openCacheDb();
   } catch (err) {
-    throw new StoreFormatError("config store is not valid JSON", {
-      cause: err,
-    });
+    if (err instanceof DomainError) return whenUnavailable;
+    throw err;
   }
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new StoreFormatError("config store root is not an object");
-  }
-  const record = parsed as Record<string, unknown>; // сужение после проверки
-  return {
-    values: stringMap(record["values"], "values"),
-    aliases: stringMap(record["aliases"], "aliases"),
-  };
+  using db = opened;
+  return read(db);
 }
 
-/** Сериализует хранилище: JSON с отсортированными ключами + `\n`. */
-export function serializeStore(data: StoreData): string {
-  const body = JSON.stringify(
-    { values: sorted(data.values), aliases: sorted(data.aliases) },
-    null,
-    2,
+/**
+ * Значение ключа предпочтений; записи нет либо она пуста —
+ * `undefined`, и действует умолчание потребителя.
+ */
+export function configValue(db: CacheDb, key: string): string | undefined {
+  const rows = read(db, "SELECT value FROM config WHERE key = ?", key);
+  const value = rows[0]?.value;
+  return typeof value === "string" && value !== "" ? value : undefined;
+}
+
+/** Записывает значение ключа; таблицы нет — она создаётся. */
+export function setConfigValue(
+  db: CacheDb,
+  key: string,
+  value: string,
+): void {
+  db.bootstrap();
+  db.execute(
+    "INSERT INTO config (key, value) VALUES (?, ?)" +
+      " ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    key,
+    value,
   );
-  return `${body}\n`;
 }
 
-/** Копия хранилища с добавленным/заменённым алиасом. */
-export function withAlias(
-  data: StoreData,
+/** Удаляет значение ключа; записи не было — тоже успех. */
+export function unsetConfigValue(db: CacheDb, key: string): void {
+  db.bootstrap();
+  db.execute("DELETE FROM config WHERE key = ?", key);
+}
+
+/** Путь алиаса; алиаса нет — `undefined`. */
+export function aliasPath(db: CacheDb, name: string): string | undefined {
+  const rows = read(db, "SELECT path FROM xlsx_aliases WHERE name = ?", name);
+  const path = rows[0]?.path;
+  return typeof path === "string" ? path : undefined;
+}
+
+/** Все алиасы по имени: порядок — алфавитный, как в выводе `alias ls`. */
+export function aliases(db: CacheDb): readonly Alias[] {
+  return read(db, "SELECT name, path FROM xlsx_aliases ORDER BY name")
+    .map((row) => ({ name: String(row.name), path: String(row.path) }));
+}
+
+/** Добавляет или заменяет алиас; таблицы нет — она создаётся. */
+export function setAlias(
+  db: CacheDb,
   name: string,
   path: string,
-): StoreData {
-  return { values: data.values, aliases: { ...data.aliases, [name]: path } };
+  nowSeconds: number,
+): void {
+  db.bootstrap();
+  db.execute(
+    "INSERT INTO xlsx_aliases (name, path, created_at) VALUES (?, ?, ?)" +
+      " ON CONFLICT(name) DO UPDATE SET path = excluded.path",
+    name,
+    path,
+    nowSeconds,
+  );
 }
 
-/** Копия хранилища без алиаса; отсутствие имени — не ошибка. */
-export function withoutAlias(data: StoreData, name: string): StoreData {
-  const { [name]: _removed, ...rest } = data.aliases;
-  return { values: data.values, aliases: rest };
+/** Удаляет алиас; возвращает `true`, если запись была. */
+export function removeAlias(db: CacheDb, name: string): boolean {
+  db.bootstrap();
+  return db.execute("DELETE FROM xlsx_aliases WHERE name = ?", name) > 0;
 }
 
-function stringMap(
-  value: unknown,
-  field: string,
-): Readonly<Record<string, string>> {
-  if (value === undefined) return {};
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new StoreFormatError(
-      `config store field "${field}" is not an object`,
-    );
+/**
+ * Чтение таблицы предпочтений. Пустотой отвечает **только**
+ * отсутствующая таблица: `mpu init` для чтения не требуется
+ * (`platform/config.md`, «Граничные случаи»). Любая другая ошибка
+ * SQLite уходит наружу — так велит `platform/store.md` («файл
+ * повреждён → ошибка пробрасывается потребителю»), и так не
+ * повторяется дефект, ради которого предпочтения сюда и переехали:
+ * молчаливые умолчания вместо признания, что прочитать не удалось.
+ */
+function read(
+  db: CacheDb,
+  sql: string,
+  ...params: readonly string[]
+): readonly SqlRow[] {
+  try {
+    return db.query(sql, ...params);
+  } catch (err) {
+    if (isMissingTable(err)) return [];
+    throw err;
   }
-  const out: Record<string, string> = {};
-  for (const [key, item] of Object.entries(value)) {
-    if (typeof item !== "string") {
-      throw new StoreFormatError(
-        `config store field "${field}.${key}" is not a string`,
-      );
-    }
-    out[key] = item;
-  }
-  return out;
 }
 
-function sorted(
-  record: Readonly<Record<string, string>>,
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const key of Object.keys(record).sort()) out[key] = record[key];
-  return out;
+/** Признак «таблицы нет» у ошибки SQLite; прочие ошибки — не наши. */
+function isMissingTable(err: unknown): boolean {
+  return err instanceof Error && err.message.includes("no such table");
 }

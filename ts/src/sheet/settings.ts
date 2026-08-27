@@ -7,8 +7,8 @@
  * чинит конфигурацию.
  */
 
-import { type CommandIo, DomainError } from "../command/mod.ts";
-import { parseStore } from "../config/mod.ts";
+import { type CacheDb, type CommandIo, DomainError } from "../command/mod.ts";
+import { configValue } from "../config/mod.ts";
 import type { CacheSettings } from "./cache.ts";
 
 /** Умолчания int-ключей кэша. */
@@ -28,12 +28,6 @@ const INT_KEYS = [
   ["sheet.cache.max_tab_bytes", "maxTabBytes"],
   ["sheet.cache.max_total_mb", "maxTotalMb"],
 ] as const;
-
-/** Срез порта: env-файл и локальные настройки. */
-export type SettingsIo = Pick<
-  CommandIo,
-  "envFile" | "readConfigStore" | "note"
->;
 
 /** Адрес webapp; без него сетевые подкоманды работать не могут. */
 export function webappUrl(io: Pick<CommandIo, "envFile">): string {
@@ -58,25 +52,23 @@ function missingUrl(io: Pick<CommandIo, "envFile">): string {
   return "WB_PLUS_WEB_APP_URL не задан";
 }
 
-/** Значение ключа локальных настроек; файла нет — `undefined`. */
-export async function configValue(
-  io: Pick<CommandIo, "readConfigStore">,
-  key: string,
-): Promise<string | undefined> {
-  const raw = await io.readConfigStore();
-  const value = parseStore(raw).values[key];
-  return value === undefined || value === "" ? undefined : value;
-}
-
-/** Настройки кэша: конфиг, затем умолчание. */
-export async function cacheSettings(io: SettingsIo): Promise<CacheSettings> {
+/**
+ * Настройки кэша: предпочтения, затем умолчание. Таблица читается из
+ * уже открытой кэш-БД — второго соединения ради трёх ключей не
+ * заводится, и настройки не могут разойтись с данными, которые ими
+ * чистятся.
+ */
+export function cacheSettings(
+  io: Pick<CommandIo, "note">,
+  db: CacheDb,
+): CacheSettings {
   const settings: {
     tabTtlSeconds: number;
     maxTabBytes: number;
     maxTotalMb: number;
   } = { ...DEFAULTS };
   for (const [key, field] of INT_KEYS) {
-    const value = numberOf(io, await configValue(io, key), key);
+    const value = numberOf(io, configValue(db, key), key);
     if (value !== undefined) settings[field] = value;
   }
   return settings;

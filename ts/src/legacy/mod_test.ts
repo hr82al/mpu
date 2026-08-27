@@ -9,7 +9,7 @@
 
 import { assertEquals } from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { fakeConfigDb, makeFakeIo } from "../testing/mod.ts";
 import { DEFAULT_LEGACY_BIN, legacyBinPath } from "./mod.ts";
 import type { CommandIo, LegacyOutcome } from "../command/mod.ts";
 import { NotFoundIoError } from "../command/mod.ts";
@@ -116,10 +116,7 @@ Deno.test("аргументы уходят как есть, включая не�
 Deno.test("путь исполняемого файла берётся из конфига", async (t) => {
   await t.step("ключ mcp.legacy_bin", async () => {
     const cli = makeCli(ok, {
-      readConfigStore: () =>
-        Promise.resolve(
-          JSON.stringify({ values: { "mcp.legacy_bin": "/opt/mpu" } }),
-        ),
+      openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/opt/mpu" }),
     });
     await cli.run("sheet");
     assertEquals(cli.calls()[0].bin, "/opt/mpu");
@@ -156,10 +153,7 @@ Deno.test("нет исполняемого файла — exit 1 и текст �
   const cli = makeCli(() => {
     throw new NotFoundIoError("no such binary");
   }, {
-    readConfigStore: () =>
-      Promise.resolve(
-        JSON.stringify({ values: { "mcp.legacy_bin": "/нет/такого/mpu" } }),
-      ),
+    openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/нет/такого/mpu" }),
   });
   assertEquals(await cli.run("sheet", "sl-1"), 1);
   assertEquals(

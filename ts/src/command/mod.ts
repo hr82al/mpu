@@ -153,10 +153,6 @@ export interface CommandIo {
    * спрашивать по нему нечего (`docs/specs/confirm.md`).
    */
   readonly openTerminal: () => Promise<TerminalIo | undefined>;
-  /** Содержимое файла хранилища; файла нет — `undefined`. */
-  readonly readConfigStore: () => Promise<string | undefined>;
-  /** Запись хранилища: каталог создаётся, права файла 0600. */
-  readonly writeConfigStore: (text: string) => Promise<void>;
   /** Токен доступа MCP-сервера; файла нет — `undefined`. */
   readonly readAccessToken: () => Promise<string | undefined>;
   /** Запись токена: отдельный файл конфиг-каталога, права 0600. */

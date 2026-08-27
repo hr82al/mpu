@@ -53,13 +53,13 @@ Exit: 0 — цель разрешена; 2 — цель не задана, не 
   argsSchema,
   forms: { spreadsheet: { short: "s" } },
   resultSchema,
-  run: async (args, io: SheetIo): Promise<ResolveResult> => {
+  run: (args, io: SheetIo): Promise<ResolveResult> => {
     using db = io.openCacheDb();
     // Housekeeping идёт перед каждой подкомандой семейства, включая
     // эту: кэш чистится по времени, а не по тому, кто его читает
     // (`platform/webapp-http.md`).
-    housekeeping(db, await cacheSettings(io), Math.floor(Date.now() / 1000));
-    return await targetOf(io, db, args.spreadsheet);
+    housekeeping(db, cacheSettings(io, db), Math.floor(Date.now() / 1000));
+    return Promise.resolve(targetOf(db, args.spreadsheet));
   },
   render: (result: ResolveResult) => `${JSON.stringify(result, null, 2)}\n`,
 });

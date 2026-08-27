@@ -216,7 +216,6 @@ Deno.test("help-named-sheet.txt и subcmd-help.txt: справку печата�
           calls.push([...args]);
           return Promise.resolve({ code: 0, stdout: printed, stderr: "" });
         },
-        readConfigStore: () => Promise.resolve(undefined),
       });
       assertEquals(code, 0);
       assertEquals(calls, [expectedArgv]);

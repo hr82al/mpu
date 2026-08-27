@@ -12,7 +12,7 @@ import { handleMcp } from "../mcp/mod.ts";
 import { nativeEntry } from "../mcp/native_tool.ts";
 import { type Command, defineCommand, DomainError } from "../command/mod.ts";
 import { commands } from "../registry/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { fakeConfigDb, makeFakeIo } from "../testing/mod.ts";
 import { type InvokeLog, makeInvokeLog } from "./mod.ts";
 
 /** Стенд: журнал поверх временного файла и вывод, который он копирует. */
@@ -133,8 +133,7 @@ Deno.test("маршрут legacy: обвязка записи не создаё�
       stand,
       ["sheet", "sl-1"],
       makeFakeIo({
-        readConfigStore: () =>
-          Promise.resolve('{"mcp.legacy_bin":"/bin/echo"}'),
+        openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/bin/echo" }),
         runLegacy: () =>
           Promise.resolve({ code: 0, stdout: "строки\n", stderr: "" }),
       }),
@@ -295,8 +294,7 @@ Deno.test("вызов тула журналируется как вторая т
         "search",
         {},
         makeFakeIo({
-          readConfigStore: () =>
-            Promise.resolve('{"mcp.legacy_bin":"/bin/echo"}'),
+          openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/bin/echo" }),
           runLegacy: () =>
             Promise.resolve({ code: 0, stdout: "ok\n", stderr: "" }),
         }),

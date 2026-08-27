@@ -306,7 +306,7 @@ export function legacyEntry(leaf: LegacyLeaf, profile: Profile): ToolEntry {
       // параметр — ошибка ввода, её агент исправляет сам, а не узнаёт
       // из молчания подпроцесса.
       const checked = checkLegacyArgs(leaf, args);
-      const bin = await resolveLegacyBin(io);
+      const bin = resolveLegacyBin(io);
       const outcome = await io.runLegacy(bin, legacyToolArgv(leaf, checked));
       if (outcome.code === 0) {
         return { isError: false, text: truncateOutput(outcome.stdout) };

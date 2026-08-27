@@ -1,7 +1,9 @@
 import { assertEquals, assertMatch, assertStringIncludes } from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
-import type { CommandIo, EnvFile } from "../command/mod.ts";
+import { type CommandIo, DomainError, type EnvFile } from "../command/mod.ts";
+import { setConfigValue } from "../config/mod.ts";
 import { makeDenoIo } from "../runtime/mod.ts";
+import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { xlsxCommands } from "./mod.ts";
 
@@ -61,22 +63,21 @@ function makeTestCli(overrides: Partial<CommandIo> = {}): TestCli {
 
 /**
  * CLI с реальной файловой системой (только чтение/запись файлов из
- * настоящего io), cwd в dir и захватом вывода в буферы. Хранилище
- * конфига по умолчанию в dir/config; шаги, которым нужно заведомо
- * пустое, передают собственный storePath — иначе состояние хранилища
- * утекает между шагами одного каталога.
+ * настоящего io), cwd в dir и захватом вывода в буферы. Предпочтения и
+ * алиасы — настоящая кэш-БД в dir/config; шаги, которым нужна заведомо
+ * пустая, передают собственный dbPath — иначе состояние базы утекает
+ * между шагами одного каталога.
  */
 function makeDirCli(
   dir: string,
   overrides: Partial<CommandIo> = {},
-  storePath = "config/config.json",
+  dbPath = "config/mpu.db",
 ): TestCli {
-  const real = makeDenoIo(`${dir}/${storePath}`);
+  const real = makeDenoIo(`${dir}/config`);
   return makeTestCli({
     readFile: real.readFile,
     readTextFile: real.readTextFile,
-    readConfigStore: real.readConfigStore,
-    writeConfigStore: real.writeConfigStore,
+    openCacheDb: () => openCacheDb(`${dir}/${dbPath}`),
     env: () => undefined,
     envFile: envFileFake({}),
     cwd: () => dir,
@@ -354,14 +355,6 @@ Deno.test("get: --sheet, --from, stdin, дедупликация", async (t) => 
       assertEquals(code, 0);
       assertEquals(cli.stdout(), "range\tvalue\tformula\nДанные!B2\t42\t\n");
     });
-    await t.step("битое хранилище конфига — exit 1", async () => {
-      await Deno.mkdir(`${dir}/corrupt`, { recursive: true });
-      await Deno.writeTextFile(`${dir}/corrupt/config.json`, "{oops");
-      const cli = makeDirCli(dir, {}, "corrupt/config.json");
-      const code = await cli.run("alias", "ls");
-      assertEquals(code, 1);
-      assertStringIncludes(cli.stderr(), "mpu xlsx: corrupt config store");
-    });
     await t.step("--from - читает stdin", async () => {
       const cli = makeDirCli(dir, {
         readStdin: () =>
@@ -414,21 +407,17 @@ Deno.test("резолв пути: env и config, файл не найден", as
       assertEquals(cli.stdout(), "Данные\nПустой\n");
     });
     await t.step("config xlsx.default", async () => {
-      await Deno.mkdir(`${dir}/config`, { recursive: true });
-      await Deno.writeTextFile(
-        `${dir}/config/config.json`,
-        JSON.stringify({
-          values: { "xlsx.default": `${dir}/sample.xlsx` },
-          aliases: {},
-        }),
-      );
+      {
+        using db = openCacheDb(`${dir}/config/mpu.db`);
+        setConfigValue(db, "xlsx.default", `${dir}/sample.xlsx`);
+      }
       const cli = makeDirCli(dir);
       assertEquals(await cli.run("ls"), 0);
       assertEquals(cli.stdout(), "Данные\nПустой\n");
     });
     await t.step("путь не задан — текст спеки", async () => {
-      // Собственное (пустое) хранилище: шаг выше записал xlsx.default.
-      const cli = makeDirCli(dir, {}, "empty/config.json");
+      // Собственная (пустая) БД: шаг выше записал xlsx.default.
+      const cli = makeDirCli(dir, {}, "empty/mpu.db");
       const code = await cli.run("ls");
       assertEquals(code, 2);
       assertEquals(
@@ -451,6 +440,25 @@ Deno.test("резолв пути: env и config, файл не найден", as
   });
 });
 
+Deno.test("без HOME путь по флагу всё равно резолвится", async () => {
+  await withSampleDir(async (dir) => {
+    // Хранилища предпочтений нет вовсе (пути к БД не из чего собрать):
+    // вызов, целиком определённый флагом, обязан работать и в cron, и
+    // в контейнере — иначе переезд предпочтений в БД сломал бы то,
+    // что к предпочтениям отношения не имеет.
+    const cli = makeDirCli(dir, {
+      openCacheDb: () => {
+        throw new DomainError("путь к кэш-БД не определён: HOME не задан");
+      },
+    });
+    assertEquals(
+      await cli.run("get", "-f", `${dir}/sample.xlsx`, "Данные!B2", "--raw"),
+      0,
+    );
+    assertEquals(cli.stdout(), "42");
+  });
+});
+
 Deno.test("alias: add/ls/rm, права хранилища, использование", async (t) => {
   await withSampleDir(async (dir) => {
     const run = async (...args: string[]) => {
@@ -465,7 +473,9 @@ Deno.test("alias: add/ls/rm, права хранилища, использова
       assertEquals([used.code, used.out], [0, "42"]);
     });
     await t.step("права файла хранилища 0600 и при перезаписи", async () => {
-      const path = `${dir}/config/config.json`;
+      // Хранилище алиасов — файл кэш-БД (`platform/store.md`): права
+      // выставляет открытие, а приводит к 0600 bootstrap записи.
+      const path = `${dir}/config/mpu.db`;
       // mode на POSIX всегда есть; тесты не для Windows.
       const created = await Deno.stat(path);
       assertEquals(created.mode! & 0o777, 0o600, "при создании");
@@ -511,7 +521,7 @@ Deno.test("alias: add/ls/rm, права хранилища, использова
       for (const [args, snippet] of cases) {
         // Хранилище бросает: разбор аргументов обязан упасть до него.
         const cli = makeTestCli({
-          readConfigStore: () => {
+          openCacheDb: () => {
             throw new Error("store must not be read");
           },
         });

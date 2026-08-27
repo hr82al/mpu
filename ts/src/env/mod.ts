@@ -30,7 +30,7 @@ export function envFilePath(
   }
   const home = readEnv("HOME");
   // Пустая `HOME` равнозначна незаданной — как для `XDG_CONFIG_HOME` выше
-  // и как в соседнем `defaultConfigStorePath` (`src/runtime/mod.ts`):
+  // и как в соседнем `defaultConfigDir` (`src/runtime/mod.ts`):
   // одно и то же правило для обеих переменных, откуда бы путь ни строился.
   return home === undefined || home === ""
     ? undefined

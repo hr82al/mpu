@@ -14,7 +14,7 @@ import {
   type RemoteOutput,
   UsageError,
 } from "../command/mod.ts";
-import { parseStore } from "../config/mod.ts";
+import { configValue, readPreferences } from "../config/mod.ts";
 import { resolveLegacyBin } from "../legacy/mod.ts";
 import type { Profile } from "./mod.ts";
 import {
@@ -61,7 +61,7 @@ type Options =
  * HOME», по которой путь к реализации ищет маршрут `legacy`). Сам сервер получает порт
  * целиком — он раздаёт его произвольным командам.
  */
-type StartupIo = Pick<CommandIo, "env" | "readConfigStore" | "runLegacy">;
+type StartupIo = Pick<CommandIo, "env" | "openCacheDb" | "runLegacy">;
 
 /**
  * Поднимает сервер и ждёт его остановки. Возвращает код завершения
@@ -165,7 +165,7 @@ async function warnOnVersionMismatch(
   io: StartupIo,
   output: ErrorSink,
 ): Promise<void> {
-  const bin = await resolveLegacyBin(io);
+  const bin = resolveLegacyBin(io);
   let installed: string;
   try {
     const outcome = await io.runLegacy(bin, ["version"]);
@@ -240,8 +240,12 @@ function parsePort(value: string | undefined): number | undefined {
   return port >= 0 && port <= 65535 ? port : undefined;
 }
 
-/** Порт из конфига; ключа нет или он не порт — умолчание спеки. */
-async function configuredPort(io: StartupIo): Promise<number> {
-  const store = parseStore(await io.readConfigStore());
-  return parsePort(store.values[PORT_KEY]) ?? DEFAULT_PORT;
+/** Порт из предпочтений; ключа нет или он не порт — умолчание спеки. */
+function configuredPort(io: StartupIo): number {
+  const configured = readPreferences(
+    io,
+    (db) => configValue(db, PORT_KEY),
+    undefined,
+  );
+  return parsePort(configured) ?? DEFAULT_PORT;
 }

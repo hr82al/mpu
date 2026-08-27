@@ -1527,16 +1527,6 @@ function makeIo(dir: string): CommandIo {
     readAccessToken: () => Promise.resolve("проба-токена"),
     writeAccessToken: (token) =>
       Deno.writeTextFile(`${dir}/token`, token, { mode: 0o600 }),
-    readConfigStore: async () => {
-      try {
-        return await Deno.readTextFile(`${dir}/config.json`);
-      } catch {
-        // Хранилища ещё нет — по контракту это пустое хранилище.
-        return undefined;
-      }
-    },
-    writeConfigStore: (text) =>
-      Deno.writeTextFile(`${dir}/config.json`, text, { mode: 0o600 }),
     // Запуск открывателя в обходе не нужен: образец зовёт open с --print.
     launchOpener: () => false,
     // Настоящая кэш-БД во временном каталоге: `mpu init` открывает её

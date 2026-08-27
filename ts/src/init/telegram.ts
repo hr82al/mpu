@@ -22,7 +22,7 @@ const LOGIN_PATH: readonly string[] = ["telegram", "login"];
  */
 export type TelegramIo = Pick<
   CommandIo,
-  "env" | "readConfigStore" | "runLegacyInteractive"
+  "env" | "openCacheDb" | "runLegacyInteractive"
 >;
 
 /**
@@ -36,7 +36,7 @@ export type TelegramIo = Pick<
 export async function runTelegramLogin(
   io: TelegramIo,
 ): Promise<string | null> {
-  const bin = await resolveLegacyBin(io);
+  const bin = resolveLegacyBin(io);
   let code: number;
   try {
     code = await io.runLegacyInteractive(bin, LOGIN_PATH);

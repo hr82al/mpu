@@ -14,6 +14,7 @@ import {
   writeInfo,
   writeTab,
 } from "./cache.ts";
+import { setConfigValue, unsetConfigValue } from "../config/mod.ts";
 import { cacheSettings } from "./settings.ts";
 import { cacheSources, rangeStrings } from "./sources.ts";
 
@@ -144,54 +145,62 @@ Deno.test("housekeeping на БД без таблиц не падает", () => 
   housekeeping(empty, SETTINGS, 1000);
 });
 
-Deno.test("настройки кэша: только конфиг, мусор — заметкой", async (t) => {
-  const io = (
-    config: Readonly<Record<string, string>>,
-    notes: string[],
-    env: Readonly<Record<string, string>> = {},
-  ) =>
-    makeFakeIo({
-      envFile: {
-        get: (name: string) => env[name],
-        require: (name: string) => env[name] ?? "",
-        set: () => Promise.resolve(),
-        values: () => ({ ...env }),
-      },
-      readConfigStore: () =>
-        Promise.resolve(JSON.stringify({ values: config, aliases: {} })),
-      note: (line: string) => void notes.push(line),
+Deno.test("настройки кэша: только предпочтения, мусор — заметкой", async (t) => {
+  await withDb(async (db) => {
+    const io = (
+      config: Readonly<Record<string, string>>,
+      notes: string[],
+      env: Readonly<Record<string, string>> = {},
+    ) => {
+      for (const [key, value] of Object.entries(config)) {
+        setConfigValue(db, key, value);
+      }
+      return makeFakeIo({
+        envFile: {
+          get: (name: string) => env[name],
+          require: (name: string) => env[name] ?? "",
+          set: () => Promise.resolve(),
+          values: () => ({ ...env }),
+        },
+        note: (line: string) => void notes.push(line),
+      });
+    };
+
+    await t.step("умолчания без источников", () => {
+      assertEquals(cacheSettings(io({}, []), db), SETTINGS);
     });
 
-  await t.step("умолчания без источников", async () => {
-    assertEquals(await cacheSettings(io({}, [])), SETTINGS);
-  });
+    await t.step("предпочтения перекрывают умолчание", () => {
+      const settings = cacheSettings(
+        io({ "sheet.cache.tab_ttl": "60" }, []),
+        db,
+      );
+      assertEquals(settings.tabTtlSeconds, 60);
+    });
 
-  await t.step("конфиг перекрывает умолчание", async () => {
-    const settings = await cacheSettings(
-      io({ "sheet.cache.tab_ttl": "60" }, []),
-    );
-    assertEquals(settings.tabTtlSeconds, 60);
-  });
+    await t.step("переменные окружения не читаются вовсе", () => {
+      // Решение пользователя: «только явно через параметры». Ключ
+      // MPU_SHEET_CACHE_* не должен влиять ни на что.
+      unsetConfigValue(db, "sheet.cache.tab_ttl");
+      const settings = cacheSettings(
+        io({}, [], { MPU_SHEET_CACHE_TAB_TTL: "30" }),
+        db,
+      );
+      assertEquals(settings.tabTtlSeconds, SETTINGS.tabTtlSeconds);
+    });
 
-  await t.step("переменные окружения не читаются вовсе", async () => {
-    // Решение пользователя: «только явно через параметры». Ключ
-    // MPU_SHEET_CACHE_* не должен влиять ни на что.
-    const settings = await cacheSettings(
-      io({}, [], { MPU_SHEET_CACHE_TAB_TTL: "30" }),
-    );
-    assertEquals(settings.tabTtlSeconds, SETTINGS.tabTtlSeconds);
-  });
-
-  await t.step("нечисловой конфиг: заметка и умолчание", async () => {
-    const notes: string[] = [];
-    const settings = await cacheSettings(
-      io({ "sheet.cache.tab_ttl": "abc" }, notes),
-    );
-    // Команда продолжает работу, а заметка уходит в журнал вызовов, не
-    // на экран (атом, «Конфигурация»).
-    assertEquals(settings.tabTtlSeconds, SETTINGS.tabTtlSeconds);
-    assertEquals(notes.length, 1);
-    assertEquals(notes[0].includes("sheet.cache.tab_ttl"), true);
+    await t.step("нечисловое значение: заметка и умолчание", () => {
+      const notes: string[] = [];
+      const settings = cacheSettings(
+        io({ "sheet.cache.tab_ttl": "abc" }, notes),
+        db,
+      );
+      // Команда продолжает работу, а заметка уходит в журнал вызовов, не
+      // на экран (атом, «Конфигурация»).
+      assertEquals(settings.tabTtlSeconds, SETTINGS.tabTtlSeconds);
+      assertEquals(notes.length, 1);
+      assertEquals(notes[0].includes("sheet.cache.tab_ttl"), true);
+    });
   });
 });
 

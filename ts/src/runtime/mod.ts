@@ -1,6 +1,6 @@
 /**
- * Реальные зависимости поверх API Deno: файлы, stdin, конфиг-хранилище
- * (0600), запуск открывателя и запись в потоки процесса. Отделены от
+ * Реальные зависимости поверх API Deno: файлы, stdin, токен доступа
+ * (0600), кэш-БД, запуск открывателя и запись в потоки процесса. Отделены от
  * main.ts, чтобы всё остальное тестировалось без запуска бинаря, и от
  * команд — чтобы `CommandIo` оставался интерфейсом на стороне
  * потребителя.
@@ -45,19 +45,20 @@ function translateNotFound(err: unknown): never {
 }
 
 /**
- * Файл локального хранилища конфига CLI (`~/.config/mpu`, контракт —
- * docs/specs/platform/config.md); без HOME хранилища нет.
+ * Каталог локального состояния CLI (`~/.config/mpu`): кэш-БД с
+ * предпочтениями (`platform/config.md`), журнал вызовов, токен
+ * доступа. Без HOME каталога нет.
  */
-export function defaultConfigStorePath(): string | undefined {
+export function defaultConfigDir(): string | undefined {
   const home = Deno.env.get("HOME");
   if (home === undefined || home === "") return undefined;
-  return `${home}/.config/mpu/config.json`;
+  return `${home}/.config/mpu`;
 }
 
 /**
  * Файл журнала вызовов по умолчанию (`platform/invoke-log.md`): сосед
- * хранилища конфига и кэш-БД, общий с Python-реализацией. Без HOME
- * пути нет — журнал молчит, как и хранилище.
+ * кэш-БД в том же каталоге, общий с Python-реализацией. Без HOME пути
+ * нет — журнал молчит.
  */
 export function defaultInvokeLogPath(): string | undefined {
   const home = Deno.env.get("HOME");
@@ -74,14 +75,13 @@ export function makeDenoOutput(): Output {
 }
 
 /**
- * Файл токена доступа MCP-сервера: сосед хранилища конфига, но не его
- * ключ (`platform/mcp-server.md`).
+ * Файл токена доступа MCP-сервера: сосед кэш-БД в том же каталоге, но
+ * не ключ предпочтений (`platform/mcp-server.md`).
  */
 export function accessTokenPath(
-  storePath: string | undefined,
+  configDir: string | undefined,
 ): string | undefined {
-  if (storePath === undefined) return undefined;
-  return `${storePath.slice(0, storePath.lastIndexOf("/"))}/token`;
+  return configDir === undefined ? undefined : `${configDir}/token`;
 }
 
 /**
@@ -235,8 +235,8 @@ export function makeEnvFileStore(path: string): EnvFileStore {
 }
 
 /** Реальные зависимости исполнения команд поверх API Deno. */
-export function makeDenoIo(storePath: string | undefined): CommandIo {
-  const tokenPath = accessTokenPath(storePath);
+export function makeDenoIo(configDir: string | undefined): CommandIo {
+  const tokenPath = accessTokenPath(configDir);
   const envPath = envFilePath((name) => Deno.env.get(name));
   return {
     env: (name) => Deno.env.get(name),
@@ -277,22 +277,6 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
     // (как и с `progress`, `platform/invoke-log.md`).
     note: () => {},
     openTerminal: openControllingTerminal,
-    readConfigStore: async () => {
-      if (storePath === undefined) return undefined;
-      try {
-        return await Deno.readTextFile(storePath);
-      } catch (err) {
-        if (err instanceof Deno.errors.NotFound) return undefined;
-        throw err;
-      }
-    },
-    writeConfigStore: async (text) => {
-      if (storePath === undefined) {
-        // Штатная доменная ошибка (exit 1), не «unexpected».
-        throw new DomainError("config store is unavailable (HOME is not set)");
-      }
-      await writeSecret(storePath, text);
-    },
     readAccessToken: async () => {
       if (tokenPath === undefined) return undefined;
       try {
@@ -304,6 +288,7 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
     },
     writeAccessToken: async (token) => {
       if (tokenPath === undefined) {
+        // Штатная доменная ошибка (exit 1), не «unexpected».
         throw new DomainError("config store is unavailable (HOME is not set)");
       }
       await writeSecret(tokenPath, `${token}\n`);
@@ -364,13 +349,14 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
       }
     },
     openCacheDb: () => {
-      const home = Deno.env.get("HOME");
-      if (home === undefined || home === "") {
+      if (configDir === undefined) {
         // Штатная доменная ошибка (exit 1): без HOME негде искать файл,
         // общий с Python-реализацией (`platform/store.md`).
         throw new DomainError("путь к кэш-БД не определён: HOME не задан");
       }
-      return openStoreDb(`${home}/.config/mpu/mpu.db`);
+      // Каталог тот же, что у токена и журнала: подставив свой,
+      // тест получает изолированное состояние целиком, а не наполовину.
+      return openStoreDb(`${configDir}/mpu.db`);
     },
     progress: (line) => writeAllSync(Deno.stderr, `${line}\n`),
     openRemoteOutput: () => streamingRemoteOutput(),

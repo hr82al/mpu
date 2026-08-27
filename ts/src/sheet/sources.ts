@@ -10,7 +10,7 @@ import {
   readTextStdin,
   UsageError,
 } from "../command/mod.ts";
-import { configValue } from "./settings.ts";
+import { configValue } from "../config/mod.ts";
 import { resolveTarget, type Target, type TargetSources } from "./target.ts";
 
 /** Срез порта: кэш-БД, env-файл, локальные настройки и stdin. */
@@ -18,7 +18,6 @@ export type SheetIo = Pick<
   CommandIo,
   | "envFile"
   | "openCacheDb"
-  | "readConfigStore"
   | "readTextFile"
   | "readStdin"
   | "note"
@@ -83,13 +82,12 @@ function rowOf(row: Record<string, unknown>) {
  * Переменных окружения среди источников нет вовсе — ни из процесса, ни
  * из env-файла (`sheet.md`, «Открытые вопросы»).
  */
-export async function targetOf(
-  io: SheetIo,
+export function targetOf(
   db: CacheDb,
   flag: string | undefined,
-): Promise<Target> {
+): Target {
   return resolveTarget(
-    { flag, config: await configValue(io, "sheet.default") },
+    { flag, config: configValue(db, "sheet.default") },
     cacheSources(db),
   );
 }

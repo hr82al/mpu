@@ -6,7 +6,7 @@
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { runCli } from "./mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { fakeConfigDb, makeFakeIo } from "../testing/mod.ts";
 import { commands, legacyCommands } from "../registry/mod.ts";
 import type { CommandIo } from "../command/mod.ts";
 
@@ -68,10 +68,7 @@ Deno.test("mpu help <имя>: справка целевой команды", asy
           stderr: "",
         });
       },
-      readConfigStore: () =>
-        Promise.resolve(
-          JSON.stringify({ values: { "mcp.legacy_bin": "/bin/echo" } }),
-        ),
+      openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/bin/echo" }),
     });
     assertEquals(await cli.run("help", "mpu sheet"), 0);
     // Тот же вызов, что у `mpu sheet --help`: реестр текст не сочиняет.

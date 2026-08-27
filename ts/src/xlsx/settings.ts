@@ -1,65 +1,38 @@
 /**
- * Локальные настройки команды `xlsx`: чтение и запись хранилища
+ * Локальные настройки команды `xlsx`: чтение предпочтений и алиасов
  * (`platform/config.md`) и резолв пути к книге по трём источникам.
  * Здесь живут шаги, которым нужен io; сам резолв — чистая функция
  * соседнего модуля.
  */
 
-import { type CommandIo, DomainError } from "../command/mod.ts";
-import {
-  parseStore,
-  serializeStore,
-  type StoreData,
-  StoreFormatError,
-} from "../config/mod.ts";
+import type { CommandIo } from "../command/mod.ts";
+import { aliases, configValue, readPreferences } from "../config/mod.ts";
 import { type ResolveReport, resolveXlsxPath } from "./resolve.ts";
-
-/** Срез порта: чтение хранилища. */
-type StoreReadIo = Pick<CommandIo, "readConfigStore">;
-
-/** Срез порта: запись хранилища. */
-type StoreWriteIo = Pick<CommandIo, "writeConfigStore">;
 
 /**
  * Срез порта для резолва пути: три источника спеки — env-файл, текущий
- * каталог с HOME и хранилище конфига.
+ * каталог с HOME и предпочтения кэш-БД (`platform/config.md`).
  */
-type PathIo = Pick<CommandIo, "cwd" | "env" | "envFile" | "readConfigStore">;
-
-/** Хранилище конфига; битый файл — доменная ошибка (exit 1). */
-export async function loadStore(io: StoreReadIo): Promise<StoreData> {
-  const raw = await io.readConfigStore();
-  try {
-    return parseStore(raw);
-  } catch (err) {
-    if (err instanceof StoreFormatError) {
-      throw new DomainError(`corrupt config store (${err.message})`, {
-        cause: err,
-      });
-    }
-    throw err;
-  }
-}
-
-/** Сериализует и пишет хранилище (каталог и права 0600 — io-слой). */
-export async function saveStore(
-  io: StoreWriteIo,
-  data: StoreData,
-): Promise<void> {
-  await io.writeConfigStore(serializeStore(data));
-}
+type PathIo = Pick<CommandIo, "cwd" | "env" | "envFile" | "openCacheDb">;
 
 /** Резолв пути по трём источникам спеки (для команд с файлом). */
-export async function resolvePath(
+export function resolvePath(
   io: PathIo,
   flagValue: string | undefined,
-): Promise<ResolveReport> {
-  const store = await loadStore(io);
+): ResolveReport {
+  // Предпочтения и алиасы живут в кэш-БД: отдельного файла нет, и
+  // читать его значило бы молча отдавать умолчания. Оба источника
+  // снимаются за одно открытие: `resolve --json` печатает все три
+  // источника, включая config, даже когда победил флаг.
+  const store = readPreferences(io, (db) => ({
+    configValue: configValue(db, "xlsx.default"),
+    aliases: new Map(aliases(db).map((a) => [a.name, a.path])),
+  }), { configValue: undefined, aliases: new Map<string, string>() });
   return resolveXlsxPath({
     flagValue,
     envValue: io.envFile.get("MPU_XLSX"),
-    configValue: store.values["xlsx.default"],
-    aliasPath: (name) => store.aliases[name],
+    configValue: store.configValue,
+    aliasPath: (name) => store.aliases.get(name),
     cwd: io.cwd(),
     home: io.env("HOME"),
   });
