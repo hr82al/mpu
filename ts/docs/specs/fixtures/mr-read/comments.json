@@ -3,13 +3,13 @@
     "id": "953d395bb1c317b7317d46193627708c31882800",
     "resolvable": true,
     "resolved": false,
-    "location": "apps/ingest/src/ozonFetch/cabinetCooldown.store.spec.ts:25",
+    "location": "src/module/file1.ts:25",
     "notes": [
       {
         "id": 42175,
         "body": "текст комментария",
         "author_name": "Имя Фамилия",
-        "author_username": "pasternake",
+        "author_username": "reviewer",
         "created_at": "2026-08-27T17:00:10.721Z",
         "updated_at": "2026-08-27T17:00:10.721Z",
         "system": false,
@@ -17,8 +17,8 @@
         "resolved": false,
         "type": "DiffNote",
         "position": {
-          "old_path": "apps/ingest/src/ozonFetch/cabinetCooldown.store.spec.ts",
-          "new_path": "apps/ingest/src/ozonFetch/cabinetCooldown.store.spec.ts",
+          "old_path": "src/module/file1.ts",
+          "new_path": "src/module/file1.ts",
           "old_line": null,
           "new_line": 25
         }
@@ -29,13 +29,13 @@
     "id": "d7f534bcb52ae6545ba7b0eab6f5378863acbe88",
     "resolvable": true,
     "resolved": false,
-    "location": "apps/ingest/src/ozonFetch/ozonRateGate.ts:196",
+    "location": "src/module/file1.ts:196",
     "notes": [
       {
         "id": 42176,
         "body": "текст комментария",
         "author_name": "Имя Фамилия",
-        "author_username": "pasternake",
+        "author_username": "reviewer",
         "created_at": "2026-08-27T17:00:17.416Z",
         "updated_at": "2026-08-27T17:00:17.416Z",
         "system": false,
@@ -43,8 +43,8 @@
         "resolved": false,
         "type": "DiffNote",
         "position": {
-          "old_path": "apps/ingest/src/ozonFetch/ozonRateGate.ts",
-          "new_path": "apps/ingest/src/ozonFetch/ozonRateGate.ts",
+          "old_path": "src/module/file1.ts",
+          "new_path": "src/module/file1.ts",
           "old_line": null,
           "new_line": 196
         }
