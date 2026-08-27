@@ -1,0 +1,5 @@
+sheet.default              (unset)  (default)
+xlsx.default               (unset)  (default)
+sheet.cache.tab_ttl        7200  (default)
+sheet.cache.max_tab_bytes  10485760  (default)
+sheet.cache.max_total_mb   500  (default)
