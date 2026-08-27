@@ -130,7 +130,7 @@ Deno.test("живой образец события хука разбирает�
   // бинарь Claude Code расходятся, и сверять разбор надо с бинарём.
   const payload = await Deno.readTextFile(
     new URL(
-      "./testdata/claude-hook-notification/payload-idle-prompt.json",
+      "./testdata/claude-hook-notification/live-payload-idle-prompt.json",
       import.meta.url,
     ),
   );
