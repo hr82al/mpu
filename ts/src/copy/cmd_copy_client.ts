@@ -146,7 +146,10 @@ async function warmClientCache(
       await session.close();
     }
     if (json === undefined) {
-      io.progress(`WARN строки клиента ${clientId} нет в sl-0; кэш не грет`);
+      io.progress(
+        `mpu copy-client: WARN строки клиента ${clientId} нет в sl-0; ` +
+          "кэш не грет",
+      );
       return;
     }
     await runRedis(
@@ -164,7 +167,7 @@ async function warmClientCache(
     );
   } catch (err) {
     const reason = err instanceof Error ? err.message.split("\n")[0] : "";
-    io.progress(`WARN кэш main не обновлён (${reason})`);
+    io.progress(`mpu copy-client: WARN кэш main не обновлён (${reason})`);
   }
 }
 
@@ -192,8 +195,10 @@ async function seedSwFront(
     }
   } catch (err) {
     const reason = err instanceof Error ? err.message.split("\n")[0] : "";
+    // Текст дословно из спеки, включая префикс команды.
     io.progress(
-      `WARN проводка sw-front не удалась (${reason}); копия в sl-1 готова`,
+      `mpu copy-client: WARN проводка sw-front не удалась (${reason}); ` +
+        "копия в sl-1 готова",
     );
     return false;
   }

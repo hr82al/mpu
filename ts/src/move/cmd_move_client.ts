@@ -125,8 +125,8 @@ function writeMove(
   } catch (err) {
     const reason = err instanceof Error ? err.message.split("\n")[0] : "";
     io.progress(
-      `WARN ход не записан (${reason}); mpu move-client-back для ` +
-        `client ${clientId} работать не будет`,
+      `mpu move-client: WARN ход не записан (${reason}); ` +
+        `mpu move-client-back для client ${clientId} работать не будет`,
     );
     return false;
   }

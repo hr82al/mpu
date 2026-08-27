@@ -475,9 +475,10 @@ Deno.test("сбой проводки не роняет копию", async () => 
     // Шаг best-effort: копия схемы и строк уже готова, и ронять её
     // из-за проводки нечего — она догоняется повторным запуском.
     assertEquals(result.login, false);
+    // Текст дословно из спеки, включая префикс команды.
     assertStringIncludes(
       lines.join("\n"),
-      "WARN проводка sw-front не удалась",
+      "mpu copy-client: WARN проводка sw-front не удалась",
     );
     // И обещания входа в итоге нет.
     assertEquals(renderCopyClient(result).includes("вход:"), false);

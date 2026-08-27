@@ -366,9 +366,11 @@ Deno.test("rm: идемпотентен и переноса не запуска�
       // Удалять нечего — это успех: повторный `rm` обязан быть
       // безобидным, как `mpu config --unset`.
       assertEquals([result.exitCode, result.removed], [0, false]);
-      assertStringIncludes(
-        lines.join("\\n"),
-        "нет записи хода для client 1234",
+      // Префикс команды — часть формата семейства: голая строка в
+      // stderr выглядит чужой среди сообщений `mpu <команда>: …`.
+      assertEquals(
+        lines,
+        ["mpu move-client-back: нет записи хода для client 1234"],
       );
       assertEquals(ran.length, 0);
     });
