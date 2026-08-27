@@ -122,10 +122,11 @@ Deno.test("тулом становится команда любого марш�
   });
 
   await t.step("команда маршрута legacy — из слепка", () => {
-    // Единственная подпроцессная команда закрытого списка публикации —
-    // `mp-init`; прежний образец `search` переехал на `native`.
-    assertEquals(names.includes("mp_init"), true);
-    assertEquals(findLegacy(["mp-init"])?.path, ["mp-init"]);
+    // Подпроцессная команда закрытого списка публикации: `sheet
+    // batch-get` (прежние образцы `search` и `mp-init` уехали на
+    // `native`).
+    assertEquals(names.includes("sheet_batch_get"), true);
+    assertEquals(findLegacy(["sheet"])?.path, ["sheet"]);
   });
 
   await t.step("запись реестра вне списка публикации тула не даёт", () => {

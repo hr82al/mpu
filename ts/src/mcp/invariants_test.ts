@@ -118,11 +118,10 @@ Deno.test("маршрут листа виден по форме опублико
   // подпроцессным соседом по ней уже не проиллюстрируешь.
   const tools = profileTools(commands, "ro");
   const native = tools.find((entry) => entry.tool.name === "kiten_card");
-  // Подпроцессный тул живёт в профиле `rw`: читающих среди них не
-  // осталось вовсе — это и есть след переезда.
-  const legacy = profileTools(commands, "rw").find((entry) =>
-    entry.tool.name === "mp_init"
-  );
+  // Подпроцессный сосед по тому же профилю: `sheet batch-get` ещё не
+  // переехал, а `sheet get` рядом с ним — уже native (прежний образец
+  // `mp-init` тоже уехал на `native`).
+  const legacy = tools.find((entry) => entry.tool.name === "sheet_batch_get");
 
   assertEquals(native?.path, ["kiten", "card"]);
   assertEquals(
@@ -130,7 +129,7 @@ Deno.test("маршрут листа виден по форме опублико
     "object",
     "у native-тула объявлена схема результата",
   );
-  assertEquals(legacy?.path, ["mp-init"]);
+  assertEquals(legacy?.path, ["sheet", "batch-get"]);
   // У подпроцессного тула схемы результата нет и быть не может: он
   // отдаёт текст.
   assertEquals(legacy?.tool.outputSchema, undefined);

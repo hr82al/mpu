@@ -95,7 +95,9 @@ import {
   sheetLsCommand,
   sheetResolveCommand,
 } from "../sheet/mod.ts";
+import { cleanLocalClientsCommand } from "../cleanlocal/mod.ts";
 import { configCommand } from "../config/cmd_config.ts";
+import { mpInitCommand } from "../mpinit/mod.ts";
 import {
   mrCommentCommand,
   mrCommentsCommand,
@@ -278,6 +280,10 @@ export const commands: readonly Command[] = [
   // пользуются пять команд, а задать ключ до сих пор можно было только
   // подпроцессом прежней реализации.
   configCommand,
+  // Локальный стенд: поднять его целиком и убрать данные клиентов.
+  // Обе не ходят ни в прод, ни в сеть — только docker и локальные PG.
+  mpInitCommand,
+  cleanLocalClientsCommand,
 ];
 
 /**

@@ -557,7 +557,16 @@ Deno.test("time stop: остановка с созданием записи", as
       [`PATCH ${TIMER_PATH}`]: () =>
         Response.json(stoppedTimer({ card_time_log_id: LOG_ID })),
       [`GET ${LOGS_PATH}`]: () =>
-        Response.json([rawMutationLog({ time_spent: 5 })]),
+        // День записи считается от момента финиша, а не от «сейчас»:
+        // финиш здесь на четверть часа раньше запуска теста, и в
+        // последний час московских суток эти дни расходятся — тест
+        // краснел бы от времени прогона, а не от поведения команды.
+        Response.json([
+          rawMutationLog({
+            time_spent: 5,
+            for_date: mskDay(startedAtMs + 5 * 60_000),
+          }),
+        ]),
     });
     try {
       const text = await output(

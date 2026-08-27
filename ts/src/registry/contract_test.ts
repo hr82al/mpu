@@ -1323,6 +1323,30 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    // Локальный стенд: у обхода нет ни каталога mp-config-local, ни
+    // ключей подключений, поэтому обе отбиваются до docker и до PG.
+    path: "mp-init",
+    argv: ["--dry-run"],
+    sampleResult: {
+      steps: ["$ docker compose -f /nowhere/compose.yaml up -d"],
+      web: false,
+      dryRun: true,
+      exitCode: 0,
+    },
+  },
+  {
+    path: "clean-local-clients",
+    argv: [],
+    sampleResult: {
+      clients: [54, 1498],
+      keep: [54, 776],
+      targets: [1498],
+      deleted: 0,
+      workspaces: 0,
+      dryRun: true,
+    },
+  },
+  {
     path: "telegram log",
     // Ключей бота в env-файле обхода нет: вызов обязан отбиться на
     // конфигурации, до сети.

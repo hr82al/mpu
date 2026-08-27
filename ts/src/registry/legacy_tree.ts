@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 14 команд верхнего уровня, ещё не переехавших на TS. */
+/** 12 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sheet"],
@@ -36,16 +36,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     path: ["copy-shared"],
     summary:
       "Скопировать shared-таблицы с source-сервера, выбранного через селектор.",
-  },
-  {
-    path: ["clean-local-clients"],
-    summary:
-      "Снести локальные данные клиентов кроме keep-листа (`--yes` — выполнить, иначе dry-run).",
-  },
-  {
-    path: ["mp-init"],
-    summary:
-      "Создать сеть (если нет), поднять core SL backend + web-стек (up -d --force-recreate).",
   },
   {
     path: ["move-client"],

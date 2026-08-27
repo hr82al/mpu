@@ -5341,6 +5341,57 @@
     }
   },
   {
+    "name": "mp_init",
+    "title": "mpu mp-init",
+    "description": "Поднять локальный стенд целиком: core-стеки и web поверх.\n\nПоднимает локальный стенд: docker-сеть и общий том, затем\ncore-стеки в фиксированном порядке (nats, sl-0, sl-1, nginx, dt-host),\nзатем web поверх них. Порядок — часть контракта: compose-зависимостей\nмежду стеками нет, и стенд собирается правильно только так.\n\nОбразы команда не собирает. Нет core-образа (mp-back:local, mp-pg:local,\nmp-dt:local) — останов с подсказкой, каким build-алиасом его собрать;\nнет web-образа — предупреждение, core поднимается.\n\n-n/--dry-run печатает все команды, не выполняя ни одной мутации;\ninspect-проверки при этом выполняются — без них план не построить.\n\nКаталог mp-config-local берётся из переменной окружения\nMPU_MP_CONFIG_LOCAL, иначе ~/mr/mp/mp-config-local. Каталог web-стека —\nсоседний local-stack; нет его — web пропускается, и это не ошибка.\n\nСеть и том создаются только при отсутствии; стеки пересоздаются всегда.\nУпавший стек останавливает всё: следующие не поднимаются.\n\nВесь вывод идёт в stderr, stdout пуст.\n\nExit: 0 — успех, в том числе без web-стека; 2 — каталог mp-config-local\nне найден; 1 — нет обязательных образов; иначе код упавшего docker.\n\nПримеры: mpu mp-init --dry-run; mpu mp-init",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dry-run": {
+          "default": false,
+          "description": "напечатать команды, не выполняя мутаций",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "выполненные (или напечатанные) шаги"
+        },
+        "web": {
+          "type": "boolean",
+          "description": "поднимался ли web-стек"
+        },
+        "dryRun": {
+          "type": "boolean"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код выхода: 0 либо rc упавшего docker-вызова, 1:1"
+        }
+      },
+      "required": [
+        "steps",
+        "web",
+        "dryRun",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "sheet_set",
     "title": "mpu sheet set",
     "description": "Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nWrite values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nТри режима записи: `RANGE VALUE` — одна ячейка/формула; `--from FILE` — батч\n`range<TAB>value` построчно (`-` — stdin); JSON `[{\"range\":..,\"value\"|\"formula\":..}]`\nиз stdin — тогда единственный позиционный аргумент (если есть) трактуется как\nселектор таблицы. В JSON-режиме открытый одностолбцовый range (`Col<N>:Col`)\nавтозаполняется значением до последней занятой строки столбца.",
@@ -5428,25 +5479,6 @@
     },
     "_meta": {
       "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "mp_init",
-    "title": "mpu mp-init",
-    "description": "Создать сеть (если нет), поднять core SL backend + web-стек (up -d --force-recreate).\n\nСоздать сеть (если нет), поднять core SL backend + web-стек (up -d --force-recreate).\n\nCore: mp-nats, sl-0, sl-1, mp-nginx, dt-host со всеми сервисами (включая\ncli-контейнеры для make-schema/copy-client); поверх — web-стек mp/local-stack.\nОбразы НЕ собираются: нет mp-back:local / mp-pg:local / mp-dt:local → стоп\nс подсказкой. Каталог mp-config-local: ~/mr/mp/mp-config-local, override —\nenv MPU_MP_CONFIG_LOCAL.",
-    "annotations": {
-      "readOnlyHint": false
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "dry_run": {
-          "type": "boolean",
-          "description": "Напечатать docker-команды без выполнения",
-          "default": false
-        }
-      },
-      "additionalProperties": false
     }
   },
   {

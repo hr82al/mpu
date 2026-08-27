@@ -61,6 +61,8 @@ export const NOT_LEGACY: readonly string[] = [
   "search",
   "mr",
   "config",
+  "mp-init",
+  "clean-local-clients",
   "help",
   "version",
 ];

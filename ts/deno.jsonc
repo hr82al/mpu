@@ -29,7 +29,9 @@
       "src/claudehook/testdata",
       "src/sheet/testdata",
       "src/mr/testdata",
-      "src/config/testdata"
+      "src/config/testdata",
+      "src/mpinit/testdata",
+      "src/cleanlocal/testdata"
     ]
   },
   "imports": {
@@ -142,7 +144,7 @@
     //     копирование в буфер обмена управляющей последовательностью
     //     (`platform/clipboard.md`, попытка 1): без этого пути попытка
     //     всегда неуспешна и молча уступает внешней утилите;
-    //   --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*
+    //   --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*
     //     HOME даёт путь конфига, rc-файла и реализации маршрута
     //     `legacy`; XDG_CONFIG_HOME — путь env-файла секретов
     //     (`platform/env-file.md`, «Известные отклонения»: учёт этой
@@ -252,7 +254,7 @@
     //     Наблюдаемого поведения флаг не меняет (неинтерактивно доступ и
     //     так отказан), поэтому smoke его не покрывает — исключение
     //     названо в `CLAUDE.md`, «Проверка каждого изменения»;
-    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc,/dev/tty --allow-env=HOME,XDG_CONFIG_HOME,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
+    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc,/dev/tty --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь
