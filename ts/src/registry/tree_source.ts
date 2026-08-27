@@ -48,6 +48,7 @@ export const NOT_LEGACY: readonly string[] = [
   "wb-unit-calc",
   "wb-unit-proto-new",
   "users",
+  "confirm",
   "logs",
   "log",
   "kiten",

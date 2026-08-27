@@ -11,6 +11,7 @@ import {
   DomainError,
   NotFoundIoError,
   type RemoteOutput,
+  type TerminalIo,
 } from "../command/mod.ts";
 import type { Output } from "../entrypoint/mod.ts";
 import { envFilePath, type EnvFileStore, makeEnvFile } from "../env/mod.ts";
@@ -271,6 +272,8 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
       new Uint8Array(await new Response(Deno.stdin.readable).arrayBuffer()),
     stdinIsTerminal: () => Deno.stdin.isTerminal(),
     stdoutIsTerminal: () => Deno.stdout.isTerminal(),
+    stderrIsTerminal: () => Deno.stderr.isTerminal(),
+    openTerminal: openControllingTerminal,
     readConfigStore: async () => {
       if (storePath === undefined) return undefined;
       try {
@@ -382,4 +385,59 @@ function streamingRemoteOutput(): RemoteOutput {
     err: (chunk) => writeAllBytesSync(Deno.stderr, chunk),
     captured: () => "",
   };
+}
+
+/**
+ * Управляющий терминал процесса: `/dev/tty`, открытый на чтение и
+ * запись. Терминала нет (пайп без tty, cron, вызов тула) — открыть не
+ * удаётся, и это не ошибка, а ответ `undefined`: решает по нему
+ * команда (`docs/specs/confirm.md`).
+ *
+ * Имя устройства не сообщается: `ttyname` в Deno нет, и выдумывать его
+ * по номеру fd — значит печатать в диагностике догадку.
+ */
+async function openControllingTerminal(): Promise<TerminalIo | undefined> {
+  let file: Deno.FsFile;
+  try {
+    file = await Deno.open("/dev/tty", { read: true, write: true });
+  } catch {
+    return undefined;
+  }
+  return {
+    name: undefined,
+    write: async (text) => {
+      await writeAllBytes(file, encoder.encode(text));
+    },
+    readLine: () => readLineFrom(file),
+    [Symbol.dispose]: () => file.close(),
+  };
+}
+
+/** Полная запись в файл: `write` может записать буфер частично. */
+async function writeAllBytes(
+  file: Deno.FsFile,
+  bytes: Uint8Array,
+): Promise<void> {
+  let written = 0;
+  while (written < bytes.length) {
+    written += await file.write(bytes.subarray(written));
+  }
+}
+
+/**
+ * Одна строка ответа. Читается побайтно: терминал отдаёт ввод по
+ * нажатию Enter, а забрать из него лишнее нельзя — следующий читатель
+ * этого же устройства недосчитался бы своего.
+ */
+async function readLineFrom(file: Deno.FsFile): Promise<string | undefined> {
+  const bytes: number[] = [];
+  const chunk = new Uint8Array(1);
+  while (true) {
+    const read = await file.read(chunk);
+    if (read === null) break;
+    if (read === 0) continue;
+    if (chunk[0] === 0x0a) return decoder.decode(new Uint8Array(bytes));
+    bytes.push(chunk[0]);
+  }
+  return bytes.length === 0 ? undefined : decoder.decode(new Uint8Array(bytes));
 }

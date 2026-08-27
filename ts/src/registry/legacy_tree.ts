@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 23 команд верхнего уровня, ещё не переехавших на TS. */
+/** 22 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sun"],
@@ -95,10 +95,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     path: ["telegram"],
     summary:
       "Telegram от имени пользователя (telethon): send — отправить, ls — диалоги, search — поиск.",
-  },
-  {
-    path: ["confirm"],
-    summary: "Пропустить stdin → stdout по подтверждению; иначе прервать pipe.",
   },
   {
     path: ["process"],

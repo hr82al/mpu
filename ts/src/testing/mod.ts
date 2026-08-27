@@ -32,6 +32,10 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     // умолчанию отдаёт машиночитаемый — тест, которому нужен наглядный,
     // объявляет это сам.
     stdoutIsTerminal: () => false,
+    stderrIsTerminal: () => false,
+    // Терминала у теста по умолчанию нет: вопрос человеку в прогоне
+    // тестов задать некому, и команда обязана это заметить.
+    openTerminal: () => Promise.resolve(undefined),
     readConfigStore: () => Promise.resolve(undefined),
     writeConfigStore: mustNotTouch("writeConfigStore"),
     readAccessToken: () => Promise.resolve(undefined),

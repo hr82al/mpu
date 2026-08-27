@@ -127,6 +127,21 @@ export interface CommandIo {
    * (`docs/specs/kiten-card.md`, выбор вида).
    */
   readonly stdoutIsTerminal: () => boolean;
+  /**
+   * Терминал ли stderr процесса. Нужен диагностике `mpu confirm`: она
+   * перечисляет все три std-fd, и умолчать про один значило бы
+   * оставить читателя без той строки, ради которой он её и читает
+   * (`docs/specs/confirm.md`).
+   */
+  readonly stderrIsTerminal: () => boolean;
+  /**
+   * Управляющий терминал процесса для вопроса человеку. `undefined` —
+   * терминала нет: пайп без tty, cron, вызов тула.
+   *
+   * Отдельный порт, а не stdin: у команды-ворот stdin занят данными, и
+   * спрашивать по нему нечего (`docs/specs/confirm.md`).
+   */
+  readonly openTerminal: () => Promise<TerminalIo | undefined>;
   /** Содержимое файла хранилища; файла нет — `undefined`. */
   readonly readConfigStore: () => Promise<string | undefined>;
   /** Запись хранилища: каталог создаётся, права файла 0600. */
@@ -238,6 +253,21 @@ export type JournalMarks =
     readonly logsOutput: boolean;
     readonly logsArguments: false;
   };
+
+/**
+ * Открытый управляющий терминал: вопрос человеку и его ответ.
+ *
+ * Имя устройства необязательно: в Deno нет `ttyname`, и рантайм,
+ * который его не знает, честно отдаёт `undefined` — диагностика назовёт
+ * это вслух, а не укоротит вывод молча (`docs/specs/confirm.md`).
+ */
+export interface TerminalIo extends Disposable {
+  readonly name: string | undefined;
+  /** Пишет текст в терминал как есть, без добавленного перевода. */
+  readonly write: (text: string) => Promise<void>;
+  /** Одна строка ответа без перевода; конец ввода — `undefined`. */
+  readonly readLine: () => Promise<string | undefined>;
+}
 
 /**
  * Объявление команды: семь вещей контракта, формы записи в argv и

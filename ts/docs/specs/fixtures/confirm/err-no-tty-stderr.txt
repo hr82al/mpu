@@ -1,0 +1,7 @@
+mpu confirm: терминал недоступен для подтверждения. Используй `--yes` или two-step (`<команда> > /tmp/x.json` → проверить → `mpu sheet set <ssid> < /tmp/x.json`).
+--- tty диагностика (как запущен mpu) ---
+/dev/tty: открыть не удалось
+fd 0 (stdin): isatty=false
+fd 1 (stdout): isatty=false
+fd 2 (stderr): isatty=false
+имя устройства: недоступно — ttyname в Deno нет

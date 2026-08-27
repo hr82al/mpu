@@ -1035,6 +1035,13 @@ const CASES: readonly CommandCase[] = [
     sampleResult: SAMPLE_WRAP,
   },
   {
+    // Ворота пайпа: stdin у обхода пуст, терминала нет — вызов
+    // отбивается до всякого вопроса.
+    path: "confirm",
+    argv: [],
+    sampleResult: { text: '{"ok": true}\n' },
+  },
+  {
     path: "claude-hook notification",
     // Весь вход команды — stdin; у обхода он пуст, поэтому вызов
     // обязан отбиться разбором payload'а, до конфигурации и сети.
@@ -1386,6 +1393,10 @@ function makeIo(dir: string): CommandIo {
     readStdin: () => Promise.resolve(new TextEncoder().encode("")),
     stdinIsTerminal: () => false,
     stdoutIsTerminal: () => false,
+    stderrIsTerminal: () => false,
+    // Терминала у обхода нет: вопрос человеку в прогоне задать некому,
+    // и команда-ворота обязана это заметить, а не ждать ответа.
+    openTerminal: () => Promise.resolve(undefined),
     currentShell: () => undefined,
     appendFile: (path, text) =>
       Deno.writeTextFile(inDir(path), text, {
