@@ -1,6 +1,7 @@
 # mpu sheet batch-update / batch-get
 
-Статус: черновик
+Статус: к реализации (заморожена 2026-08-27; язык записи покрыт голденом
+всех глаголов, формы ответов и границы сняты живьём)
 
 Пара подкоманд — один файл осознанно: общая грамматика мини-языка и общая порция реализации.
 
@@ -160,6 +161,13 @@ Env `WB_PLUS_WEB_APP_URL` — `platform/webapp-http.md`; резолв `-s`: env 
 
 ## Граничные случаи и ошибки
 
+- Лист, создаваемый тем же скриптом, на компиляции **не существует**: имена
+  листов резолвятся по текущему состоянию таблицы до отправки, поэтому
+  `sheet add Врем; sheet rename Врем Врем2` отбивается на второй инструкции —
+  `mpu sheet batch-update: строка 2: лист 'Врем' не найден в таблице`, exit 2,
+  до сети. Ссылаться на новый лист можно только следующим вызовом (снято живьём
+  2026-08-27).
+
 - `set 'Лист1'!A1:C3 5` → пишется только A1; `set 'Лист1'!H:H 5` → открытые границы → 0 → H1.
 - `''!A1` (пустое имя в кавычках) → «нет имени листа»; `'Лист ''X'''!A1` → лист `Лист 'X'`.
 - `cols insert 8` ≡ `cols insert H`; значение `one-of` с запятой внутри невыразимо
@@ -171,12 +179,30 @@ Env `WB_PLUS_WEB_APP_URL` — `platform/webapp-http.md`; резолв `-s`: env 
 
 ## Golden-примеры
 
-Кандидаты (снять при переводе в «к реализации»; таблица тестовая): `batch-update --dry-run` со
-сводным скриптом по всем инструкциям → `update-all-verbs.json` (эталон форм всех запросов);
-живой мини-скрипт (`set`+`label`) → ответ batchUpdate; `-e '# комментарий'` → `нет операций`;
-`-e 'foo'` (неизвестный глагол, `строка 1:`, exit 2); `-e 'py{pass}'` без `--allow-py` (exit
-2); `batch-get --dry-run` с `get`+`read`; живые `get 'Лист1'!A1:C3 formula` и `read 'Лист1'
-props dims`; `read formats` (per-cell ошибка, exit 2).
+Сняты 2026-08-27 с рабочей версии на служебной тестовой таблице; идентификатор
+заменён синтетическим, клиентских данных нет.
+
+- `fixtures/sheet-batch/update-all-verbs.script` — скрипт из 34 инструкций,
+  покрывающий весь язык записи, и `…/update-all-verbs.stdout` — вывод
+  `batch-update --dry-run -n Sheet1` на нём: 34 запроса, 28 различных видов
+  (`updateCells`, `repeatCell`, `mergeCells`, `updateBorders`, `sortRange`,
+  `deleteDuplicates`, `trimWhitespace`, `setDataValidation`,
+  `addConditionalFormatRule`, `deleteConditionalFormatRule`,
+  `addProtectedRange`, `autoFill`, `copyPaste`, `cutPaste`, `insertDimension`,
+  `deleteDimension`, `moveDimension`, `autoResizeDimensions`,
+  `updateDimensionProperties`, `appendDimension`, `addDimensionGroup`,
+  `deleteDimensionGroup`, `updateSheetProperties`, `addSheet`,
+  `duplicateSheet`, `findReplace`, `addNamedRange`). Это эталон таблицы
+  «Инструкция → запрос»: расходится реализация с ним — расходится с контрактом.
+- `fixtures/sheet-batch/get-values-and-meta.stdout` — `batch-get -n Sheet1 -e
+  "get A1:B2 formula; read Sheet1 merges props"`: единый ответ с `valueRanges`
+  (плюс `majorDimension`) и `meta.sheets`.
+- `fixtures/sheet-batch/err-sheet-created-in-same-script.stderr` — отказ
+  компиляции на листе, который создаётся тем же скриптом (см. «Граничные
+  случаи»).
+
+Ответ живого `batch-update` — `{"replies": [{}], "spreadsheetId": "<ss_id>"}`,
+по элементу на запрос; у `updateCells` элемент пустой.
 
 ## Известные отклонения
 
