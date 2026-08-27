@@ -1,0 +1,21 @@
+{
+  "project": "group/repo",
+  "iid": 456,
+  "title": "feat(scope): краткое описание",
+  "state": "opened",
+  "source_branch": "feat/scope/change",
+  "target_branch": "main",
+  "web_url": "https://gitlab.example.test/group/repo/-/merge_requests/456",
+  "author_name": "Имя Фамилия",
+  "author_username": "user",
+  "description": "Карточка: https://tracker.example.test/1\n\nТело описания.",
+  "diff_refs": {
+    "base_sha": "9108d6bf05a5ad5fe2dd6b0882a0384ac5e9beed",
+    "start_sha": "1d16b1edbd38071a020fc85f87b3fc18403b4185",
+    "head_sha": "9ed053dea34858fe964ab55d8607eb4b1d0b62ac"
+  },
+  "project_id": 1001,
+  "sha": "9ed053dea34858fe964ab55d8607eb4b1d0b62ac",
+  "merge_commit_sha": null,
+  "squash_commit_sha": null
+}

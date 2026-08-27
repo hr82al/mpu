@@ -1,0 +1,1 @@
+mpu mr view: gitlab error: gitlab GET /projects/group%2Frepo/merge_requests/999999 -> 404: {"message":"404 Not found"}; проверь --mr (URL | 'group/repo!iid' | iid)
