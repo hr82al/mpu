@@ -50,7 +50,7 @@ const SAMPLE_WRAP = {
 /** Показ копии таблицы: общий образец трёх команд `backup-*`. */
 const SAMPLE_BACKUP = {
   marketplace: "wb",
-  source_table: "wb_unit_proto",
+  source_table: "schema_777.wb_unit_proto",
   date_suffix: "20260827",
   server: "sl-9",
   pg_host: "10.9.9.9",

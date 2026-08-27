@@ -35,6 +35,7 @@ export interface BackupTable {
 /** Всё, что нужно знать о копии до соединения. */
 export interface BackupPlan {
   readonly marketplace: string;
+  /** Таблица-источник вместе со схемой: `schema_<id>.<таблица>`. */
   readonly sourceTable: string;
   readonly dateSuffix: string;
   readonly schemaId: number;
@@ -111,7 +112,10 @@ export function backupPlan(
 ): BackupPlan {
   return {
     marketplace: table.marketplace,
-    sourceTable: table.table,
+    // Со схемой: мету читают глазами перед CREATE TABLE, и «из какой
+    // схемы» там важнее самого имени таблицы (спека, «Ввод/вывод» и
+    // отклонение `preserve`).
+    sourceTable: `schema_${schemaId}.${table.table}`,
     dateSuffix: date,
     schemaId,
     sql: backupSql(table, schemaId, date),

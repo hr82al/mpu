@@ -50,7 +50,9 @@ const argsSchema = z.object({
 
 const resultSchema = z.object({
   marketplace: z.string().describe("площадка таблицы-источника"),
-  source_table: z.string().describe("таблица, с которой снята копия"),
+  source_table: z.string().describe(
+    "таблица-источник со схемой: `schema_<id>.<таблица>`",
+  ),
   date_suffix: z.string().describe("суффикс даты в имени копии"),
   server: z.string().describe("`sl-<N>`, где выполняется запрос"),
   pg_host: z.string().describe("адрес PostgreSQL"),

@@ -183,7 +183,7 @@ Deno.test("три команды различаются таблицей и пл
           sql: string;
         };
         assertEquals(result.marketplace, marketplace);
-        assertEquals(result.source_table, table);
+        assertEquals(result.source_table, `schema_777.${table}`);
         assertStringIncludes(
           result.sql,
           `CREATE TABLE backups.${table}_777_20260827 AS`,
