@@ -1372,6 +1372,24 @@ const CASES: readonly CommandCase[] = [
     argv: [],
     sampleResult: { mode: "workspaces", clientId: null },
   },
+  // Переносы: у обхода нет ни кэша с клиентом, ни Portainer-доступа —
+  // обе отбиваются до постановки задачи.
+  {
+    path: "move-client",
+    argv: ["1234", "--target", "sl-4"],
+    sampleResult: {
+      clientId: 1234,
+      source: "sl-3",
+      target: "sl-4",
+      exitCode: 0,
+      recorded: true,
+    },
+  },
+  {
+    path: "move-client-back",
+    argv: ["ls"],
+    sampleResult: { action: "ls", moves: [], removed: false, exitCode: 0 },
+  },
   {
     path: "telegram log",
     // Ключей бота в env-файле обхода нет: вызов обязан отбиться на

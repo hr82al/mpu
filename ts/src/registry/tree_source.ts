@@ -66,6 +66,8 @@ export const NOT_LEGACY: readonly string[] = [
   "copy-client",
   "copy-shared",
   "copy-dev",
+  "move-client",
+  "move-client-back",
   "help",
   "version",
 ];

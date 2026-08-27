@@ -102,6 +102,7 @@ import {
   copySharedCommand,
 } from "../copy/mod.ts";
 import { configCommand } from "../config/cmd_config.ts";
+import { moveClientBackCommand, moveClientCommand } from "../move/mod.ts";
 import { mpInitCommand } from "../mpinit/mod.ts";
 import {
   mrCommentCommand,
@@ -294,6 +295,10 @@ export const commands: readonly Command[] = [
   copyClientCommand,
   copySharedCommand,
   copyDevCommand,
+  // Переносы: команда ставит задачу в очередь и пишет ход в журнал;
+  // сам перенос исполняют воркеры (`move-client.md`).
+  moveClientCommand,
+  moveClientBackCommand,
 ];
 
 /**

@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 9 команд верхнего уровня, ещё не переехавших на TS. */
+/** 7 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sheet"],
@@ -21,16 +21,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["d2-miro"],
     summary: "Рендер d2-диаграммы в Miro как редактируемый фрейм.",
-  },
-  {
-    path: ["move-client"],
-    summary:
-      "Перенести клиента с source-sl на target-sl через mp-dt-cli (BullMQ createJob).",
-  },
-  {
-    path: ["move-client-back"],
-    summary:
-      "Реверс переноса по записи `move-client`; `ls` — список, `rm <selector>` — удалить запись.",
   },
   {
     path: ["glab-status"],
