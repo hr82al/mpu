@@ -33,12 +33,16 @@ function terminal(answer: string | undefined) {
 function harness(stdin: string, answer: string | undefined) {
   const tty = terminal(answer);
   const echoed: string[] = [];
+  let opened = 0;
   const io: CommandIo = makeFakeIo({
     readStdin: () => Promise.resolve(new TextEncoder().encode(stdin)),
     progress: (line: string) => void echoed.push(line),
-    openTerminal: () => Promise.resolve(tty.port),
+    openTerminal: () => {
+      opened += 1;
+      return Promise.resolve(tty.port);
+    },
   });
-  return { io, tty, echoed };
+  return { io, tty, echoed, opened: () => opened };
 }
 
 async function golden(name: string): Promise<string> {
@@ -108,8 +112,8 @@ Deno.test("терминала нет: отказ с диагностикой, ex
   );
 });
 
-Deno.test("--yes: ни эха, ни вопроса", async () => {
-  const { io, tty, echoed } = harness("данные\n", undefined);
+Deno.test("--yes: ни эха, ни вопроса, терминал не открывается", async () => {
+  const { io, tty, echoed, opened } = harness("данные\n", undefined);
   const result = await confirmCommand.invokeInput(
     { message: "Применить?", yes: true },
     io,
@@ -117,6 +121,19 @@ Deno.test("--yes: ни эха, ни вопроса", async () => {
   assertEquals(confirmCommand.renderResult(result, []), "данные\n");
   assertEquals(echoed, []);
   assertEquals(tty.asked, []);
+  // Именно не открывается: закрытый молча терминал выглядел бы так же.
+  assertEquals(opened(), 0);
+});
+
+Deno.test("пустой буфер — не ошибка: вопрос задаётся и на нём", async () => {
+  const { io, tty, echoed } = harness("", "y");
+  const result = await confirmCommand.invokeInput(
+    { message: "Применить?", yes: false },
+    io,
+  );
+  assertEquals(confirmCommand.renderResult(result, []), "");
+  assertEquals(echoed, [""]);
+  assertEquals(tty.asked, ["Применить? [y/N] "]);
 });
 
 Deno.test("буфер без перевода строки: эхо с переводом, stdout без", async () => {

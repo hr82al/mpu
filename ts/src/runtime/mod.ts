@@ -405,23 +405,15 @@ async function openControllingTerminal(): Promise<TerminalIo | undefined> {
   }
   return {
     name: undefined,
-    write: async (text) => {
-      await writeAllBytes(file, encoder.encode(text));
+    // Запись синхронная поверх того же полного writeAll, что и у
+    // потоков процесса: второй цикл дозаписи заводить не за чем.
+    write: (text) => {
+      writeAllSync(file, text);
+      return Promise.resolve();
     },
     readLine: () => readLineFrom(file),
     [Symbol.dispose]: () => file.close(),
   };
-}
-
-/** Полная запись в файл: `write` может записать буфер частично. */
-async function writeAllBytes(
-  file: Deno.FsFile,
-  bytes: Uint8Array,
-): Promise<void> {
-  let written = 0;
-  while (written < bytes.length) {
-    written += await file.write(bytes.subarray(written));
-  }
 }
 
 /**
