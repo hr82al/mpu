@@ -1,0 +1,34 @@
+# Песочница GitLab для парных прогонов `mpu mr` (запись).
+# Живёт вне монорепо: это стенд оператора, а не часть поставки.
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: mpu-gitlab-sandbox
+    hostname: gitlab.sandbox.test
+    restart: "no"
+    shm_size: "256m"
+    environment:
+      # Внешний адрес — тот, по которому в него ходит mpu с хоста.
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://127.0.0.1:8929'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2224
+        gitlab_rails['initial_root_password'] = 'Qx7vLm2Zt9Rw4KeP'
+        # Песочнице не нужны ни почта, ни метрики, ни фоновая аналитика:
+        # они только едят память и время старта.
+        gitlab_rails['smtp_enable'] = false
+        prometheus_monitoring['enable'] = false
+        alertmanager['enable'] = false
+        gitlab_exporter['enable'] = false
+        registry['enable'] = false
+        puma['worker_processes'] = 2
+    ports:
+      - "127.0.0.1:8929:8929"
+      - "127.0.0.1:2224:22"
+    volumes:
+      - gitlab-config:/etc/gitlab
+      - gitlab-logs:/var/log/gitlab
+      - gitlab-data:/var/opt/gitlab
+volumes:
+  gitlab-config:
+  gitlab-logs:
+  gitlab-data:
