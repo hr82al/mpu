@@ -1,6 +1,7 @@
 # mpu mr — запись (create, describe, comment, note, reply, edit, delete, resolve, unresolve)
 
-Статус: черновик
+Статус: к реализации (заморожена 2026-08-27; пишущие формы сняты на локальной
+песочнице GitLab CE 19.3.1, голдены в `fixtures/mr-write/`)
 
 ## Назначение
 

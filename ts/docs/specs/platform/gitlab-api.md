@@ -196,7 +196,9 @@ HTTP к `GITLAB_BASE_URL`; локальные git-подпроцессы
 
 ## Golden-примеры
 
-Фикстуры в `fixtures/mr/` — обезличенные ответы живого инстанса, снять
+Фикстуры лежат в `fixtures/mr-read/` (чтение, снято на боевом MR) и
+`fixtures/mr-write/` (запись, снято на локальной песочнице); отдельного
+каталога `fixtures/mr/` нет. Снять
 при переводе в «к реализации»: шапка MR с diff_refs и без; `/changes` с
 added/removed/context-строками, rename и binary; `/discussions` с
 инлайн-, general- и системными тредами; position-наборы трёх типов строк.
