@@ -86,6 +86,10 @@ export function seedStatements(
         `workspace_id) VALUES (${sid}, ${literalOf(cabinet.name)}, 'ACTIVE', ` +
         `'wildberries', ${clientId}) ON CONFLICT (sid) DO UPDATE SET ` +
         `name = EXCLUDED.name, status = 'ACTIVE';`,
+      // Цель конфликта не названа намеренно: первичный ключ здесь
+      // составной — `(workspace_id, sid)`, — и `ON CONFLICT (sid)`
+      // отбился бы «нет уникального индекса под указанные колонки»
+      // (сверено на схеме стенда 2026-08-28).
       `INSERT INTO public.workspaces_wb_cabinets (workspace_id, sid) ` +
         `VALUES (${clientId}, ${sid}) ON CONFLICT DO NOTHING;`,
       `INSERT INTO public.subscriptions (sid, is_paid, status, paid_from, ` +
