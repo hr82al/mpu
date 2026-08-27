@@ -60,3 +60,7 @@ Thumbs.db
 
 # локальные worktree агентов: чужой чекаут внутри репозитория (`.claude/` трекается)
 .claude/worktrees/
+
+# Песочница GitLab: токен и посев — состояние стенда, не поставка
+docs/gitlab-sandbox/config/
+docs/gitlab-sandbox/seed.json
