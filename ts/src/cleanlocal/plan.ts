@@ -14,6 +14,11 @@
  */
 
 import { UsageError } from "../command/mod.ts";
+import {
+  SL0_CLIENT_TABLES,
+  SL1_CLIENT_TABLES,
+  SPREADSHEET_CHILDREN,
+} from "../copy/rows.ts";
 
 /** Keep-лист по умолчанию (`clean-local-clients.md`). */
 export const DEFAULT_KEEP: readonly number[] = [54, 776];
@@ -22,38 +27,15 @@ export const DEFAULT_KEEP: readonly number[] = [54, 776];
 export const CLIENT_SCHEMA = /^schema_(\d+)$/;
 
 /**
- * Таблицы sl-1, где строки клиента лежат по `client_id`. Набор — из
- * `specs/copy-client.md`, шаг 3: то, что копия завела, очистка и
- * убирает.
+ * Наборы таблиц — те же, что у копии клиента (`copy/rows.ts`): очистка
+ * убирает ровно то, что завела копия. Второй список разъехался бы с
+ * первым, и на стенде оставались бы строки, которых никто не ждёт.
  */
-export const SL1_CLIENT_TABLES: readonly string[] = [
-  "wb_tokens",
-  "clients_wb_cabinets",
-  "clients_modules",
-  "data_loader_info",
-  "data_processor_info",
-  "ozon_loader_info",
-  "ozon_loader_info_v2",
-  "wb_loader_info",
-  "wb_loader_info_v2",
-  "wb_loader_nm_ids_data",
-  "spreadsheets",
-];
-
-/** Дети `spreadsheets`: удаляются по множеству spreadsheet_id. */
-export const SPREADSHEET_CHILDREN: readonly string[] = [
-  "spreadsheets_sheets",
-  "spreadsheets_sheets_values",
-  "spreadsheets_datasets",
-  "spreadsheets_datasets_values",
-  "spreadsheets_loader_data",
-];
-
-/** Таблицы sl-0, где строки клиента лежат по `client_id`. */
-export const SL0_CLIENT_TABLES: readonly string[] = [
-  "wb_tokens",
-  "clients_wb_cabinets",
-];
+export {
+  SL0_CLIENT_TABLES,
+  SL1_CLIENT_TABLES,
+  SPREADSHEET_CHILDREN,
+} from "../copy/rows.ts";
 
 /**
  * Разбор `--keep`: список client_id через запятую. Пробелы вокруг

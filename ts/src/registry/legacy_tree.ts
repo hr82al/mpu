@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 12 команд верхнего уровня, ещё не переехавших на TS. */
+/** 9 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sheet"],
@@ -21,21 +21,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["d2-miro"],
     summary: "Рендер d2-диаграммы в Miro как редактируемый фрейм.",
-  },
-  {
-    path: ["copy-client"],
-    summary:
-      "Скопировать клиента с прод-PG в локальный dev-PG (`sl-1`), нативно (`pg_dump`/COPY).",
-  },
-  {
-    path: ["copy-dev"],
-    summary:
-      "Скопировать данные с dev в локальный docker-стек (`pg_dump`/`pg_restore`).",
-  },
-  {
-    path: ["copy-shared"],
-    summary:
-      "Скопировать shared-таблицы с source-сервера, выбранного через селектор.",
   },
   {
     path: ["move-client"],

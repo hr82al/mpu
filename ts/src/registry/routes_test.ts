@@ -130,12 +130,11 @@ Deno.test("тулом становится команда любого марш�
   });
 
   await t.step("запись реестра вне списка публикации тула не даёт", () => {
-    // `mpu copy-client` в реестре есть, в закрытом списке — нет:
-    // копирование клиента агенту не отдают (fail-closed).
+    // `mpu copy-client` в реестре есть — и с переездом на `native` она
+    // объявлена контрактом, — а в закрытом списке публикации её нет:
+    // мост прод → локаль агенту не отдают (fail-closed).
     assertEquals(
-      legacyCommands.some((command) =>
-        command.path.join(" ") === "copy-client"
-      ),
+      commands.some((command) => command.path.join(" ") === "copy-client"),
       true,
     );
     assertEquals(names.includes("copy_client"), false);

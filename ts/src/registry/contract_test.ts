@@ -1346,6 +1346,32 @@ const CASES: readonly CommandCase[] = [
       dryRun: true,
     },
   },
+  // Копирования: у обхода нет ни кэша с клиентом, ни ключей
+  // подключений — каждая отбивается до pg_dump и до docker.
+  {
+    path: "copy-client",
+    argv: ["5175"],
+    sampleResult: {
+      clientId: 5175,
+      schema: "schema_5175",
+      sl1: [{ table: "clients", rows: 1 }],
+      sl0: [{ table: "clients", rows: 1 }],
+      login: true,
+    },
+  },
+  {
+    path: "copy-shared",
+    argv: ["sl-1"],
+    sampleResult: {
+      command: "docker compose -f /nowhere/compose.sl-dt-host.yaml exec -i cli",
+      exitCode: 0,
+    },
+  },
+  {
+    path: "copy-dev",
+    argv: [],
+    sampleResult: { mode: "workspaces", clientId: null },
+  },
   {
     path: "telegram log",
     // Ключей бота в env-файле обхода нет: вызов обязан отбиться на

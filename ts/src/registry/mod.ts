@@ -96,6 +96,11 @@ import {
   sheetResolveCommand,
 } from "../sheet/mod.ts";
 import { cleanLocalClientsCommand } from "../cleanlocal/mod.ts";
+import {
+  copyClientCommand,
+  copyDevCommand,
+  copySharedCommand,
+} from "../copy/mod.ts";
 import { configCommand } from "../config/cmd_config.ts";
 import { mpInitCommand } from "../mpinit/mod.ts";
 import {
@@ -284,6 +289,11 @@ export const commands: readonly Command[] = [
   // Обе не ходят ни в прод, ни в сеть — только docker и локальные PG.
   mpInitCommand,
   cleanLocalClientsCommand,
+  // Копирования: единственный санкционированный мост прод → локаль и
+  // два его соседа (`copy-client.md`, `copy-shared.md`, `copy-dev.md`).
+  copyClientCommand,
+  copySharedCommand,
+  copyDevCommand,
 ];
 
 /**
