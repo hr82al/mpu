@@ -55,10 +55,13 @@ async function runConfirm(
   io: ConfirmIo,
 ): Promise<ConfirmResult> {
   const text = await readTextStdin(io);
-  // `--yes` пропускает всё: ни эха, ни вопроса. Эхо в скрипте — шум в
-  // stderr, а вопрос задавать некому и незачем.
-  if (args.yes) return { text };
+  // Эхо идёт до развилки, то есть и при `--yes`: оператор смотрит на
+  // то, что проходит по конвейеру, в том числе в скриптовом режиме —
+  // в этом и смысл ворот (`docs/specs/confirm.md`).
   io.progress(echoLine(text));
+  // `--yes` пропускает всё дальше без вопроса: спрашивать в скрипте
+  // некого.
+  if (args.yes) return { text };
   using terminal = await io.openTerminal();
   if (terminal === undefined) {
     throw new UsageError(NO_TERMINAL, { details: ttyDiagnostics(io) });
@@ -81,8 +84,9 @@ export const confirmCommand = defineCommand({
 Ставится между командами: mpu sheet get … | mpu confirm | mpu sheet set …
 
 -m/--message ТЕКСТ — текст вопроса; по умолчанию «Применить?».
--y/--yes — не спрашивать вовсе: ворота пропускают буфер молча, без эха
-и без вопроса. Это форма для скриптов.
+-y/--yes — не спрашивать вовсе: ворота пропускают буфер дальше без
+вопроса. Эхо в stderr при этом остаётся: оно и есть смысл ворот. Это
+форма для скриптов.
 
 Ответ «да» — y либо yes, регистр не важен. Пустой ответ, Enter и любое
 другое слово означают «нет»: умолчание у ворот отрицательное, оттого и

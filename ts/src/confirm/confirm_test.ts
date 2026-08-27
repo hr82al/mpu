@@ -97,9 +97,10 @@ Deno.test("«нет» и конец ввода: отказ, exit 1, stdout пу�
 });
 
 Deno.test("терминала нет: отказ с диагностикой, exit 2", async () => {
+  const echoed: string[] = [];
   const io = makeFakeIo({
     readStdin: () => Promise.resolve(new TextEncoder().encode("данные\n")),
-    progress: () => {},
+    progress: (line: string) => void echoed.push(line),
     openTerminal: () => Promise.resolve(undefined),
   });
   const err = await assertRejects(
@@ -110,16 +111,21 @@ Deno.test("терминала нет: отказ с диагностикой, ex
     `${formatCommandError("confirm", err)}\n`,
     await golden("err-no-tty-stderr.txt"),
   );
+  // Эхо предшествует отказу и на этой ветке: человек видит, что именно
+  // осталось непропущенным (спека, «Golden-примеры»).
+  assertEquals(echoed, ["данные"]);
 });
 
-Deno.test("--yes: ни эха, ни вопроса, терминал не открывается", async () => {
+Deno.test("--yes: эхо есть, вопроса нет, терминал не открывается", async () => {
   const { io, tty, echoed, opened } = harness("данные\n", undefined);
   const result = await confirmCommand.invokeInput(
     { message: "Применить?", yes: true },
     io,
   );
   assertEquals(confirmCommand.renderResult(result, []), "данные\n");
-  assertEquals(echoed, []);
+  // Эхо печатается и в скриптовом режиме: оператор видит, что прошло
+  // по конвейеру. Молчание здесь было бы регрессом.
+  assertEquals(echoed, ["данные"]);
   assertEquals(tty.asked, []);
   // Именно не открывается: закрытый молча терминал выглядел бы так же.
   assertEquals(opened(), 0);
