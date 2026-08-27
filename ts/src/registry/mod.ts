@@ -78,6 +78,7 @@ import {
   telegramSendCommand,
   telegramStatusCommand,
 } from "../telegram/mod.ts";
+import { claudeHookNotificationCommand } from "../claudehook/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 
@@ -183,6 +184,7 @@ export const commands: readonly Command[] = [
   telegramLsCommand,
   telegramSearchCommand,
   telegramStatusCommand,
+  claudeHookNotificationCommand,
 ];
 
 /**
@@ -266,6 +268,14 @@ export const groups: readonly CommandGroup[] = [
     path: ["kiten", "checklist"],
     summary: "чек-листы карточки: ls | add | check | uncheck",
     usage: "mpu kiten checklist <подкоманда> [аргументы]",
+  },
+  {
+    // Группа с единственным листом: следующий хук Claude Code
+    // (`Stop`, `SessionEnd`) станет её соседом, а без записи здесь
+    // `mpu claude-hook` не опознавался бы вовсе.
+    path: ["claude-hook"],
+    summary: "адаптеры хуков Claude Code: уведомление себе в бота",
+    usage: "mpu claude-hook <подкоманда>",
   },
   {
     path: ["mcp"],

@@ -26,7 +26,7 @@ import {
  * не может быть в слепке. Список явный, чтобы новая собственная
  * команда не проскочила мимо проверки состава.
  */
-const OWN_COMMANDS: readonly string[] = ["mcp", "jsdate"];
+const OWN_COMMANDS: readonly string[] = ["mcp", "jsdate", "claude-hook"];
 
 /** Верхнее имя дерева: имя и его собственная однострока. */
 interface TopLevel {

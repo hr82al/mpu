@@ -2,9 +2,15 @@
  * Telegram от имени личного аккаунта: сеанс MTProto и команды поверх
  * него (`docs/specs/platform/telegram-mtproto.md`).
  *
- * Наружу модуль отдаёт только команды реестра — сеанс, план и разбор
- * адресата остаются внутренностями.
+ * Наружу модуль отдаёт команды реестра — сеанс, план и разбор адресата
+ * остаются внутренностями. Сверх них наружу выведена отправка в личного
+ * бота: ею пользуется `mpu claude-hook notification`
+ * (`docs/specs/claude-hook-notification.md`), и второй копии правил
+ * конфигурации и вызова Bot API быть не должно.
  */
+
+export { sendBotMessage } from "./bot.ts";
+export { botConfig } from "./bot_config.ts";
 
 export { telegramLogCommand } from "./cmd_log.ts";
 export { telegramLsCommand } from "./cmd_ls.ts";

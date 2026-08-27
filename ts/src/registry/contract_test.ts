@@ -871,6 +871,13 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    path: "claude-hook notification",
+    // Весь вход команды — stdin; у обхода он пуст, поэтому вызов
+    // обязан отбиться разбором payload'а, до конфигурации и сети.
+    argv: [],
+    sampleResult: { id: 5000001 },
+  },
+  {
     path: "telegram log",
     // Ключей бота в env-файле обхода нет: вызов обязан отбиться на
     // конфигурации, до сети.
