@@ -10,10 +10,28 @@
  * минутах от полуночи локального пояса.
  */
 
-/** Угол центра Солнца под горизонтом в момент восхода и заката. */
-const HORIZON_ANGLE = 90.833;
+/**
+ * Высота центра Солнца в момент восхода и заката: минус 50 угловых
+ * минут. Из них 34′ — рефракция у горизонта, 16′ — видимый радиус
+ * диска: событием считается касание горизонта верхним краем.
+ */
+const HORIZON_ALTITUDE = -0.833;
 
 const RAD = Math.PI / 180;
+
+/**
+ * Половина суток в минутах. Служит и границей поиска восхода и заката
+ * (солнечная полночь по обе стороны от полудня), и базой формулы
+ * полудня NOAA — там это те же 720 минут от местной полуночи.
+ */
+const HALF_DAY_MINUTES = 720;
+
+/**
+ * Делений отрезка при поиске горизонта: отрезок в 720 минут после 40
+ * половинений сжимается до 4·10⁻⁸ секунды — на семь порядков точнее
+ * округления ответа.
+ */
+const BISECTION_STEPS = 40;
 
 /** Момент дня в минутах от местной полуночи. */
 export interface SolarDay {
@@ -47,27 +65,106 @@ export class NoSunriseError extends Error {
 }
 
 /**
- * Восход, полдень и закат местного дня. Часовой угол не определён —
- * `NoSunriseError`: в этот день солнце либо не заходит, либо не
- * восходит, и печатать вместо времени `NaN` нельзя — это выглядело бы
- * ответом.
+ * Восход, полдень и закат местного дня.
+ *
+ * Положение Солнца берётся **в момент самого события**, а не в местную
+ * полночь: за сутки склонение уходит на треть градуса, и однопроходный
+ * счёт ошибается тем сильнее, чем дальше событие от полуночи — у
+ * московского заката это две минуты. Поэтому полдень ищется как
+ * пересечение меридиана (неподвижная точка по уравнению времени), а
+ * восход и закат — как корни уравнения «высота центра Солнца равна
+ * −0.833°» делением отрезка пополам.
+ *
+ * Половины дня при этом получаются неравными, и это не ошибка: за день
+ * склонение успевает измениться, и утренняя половина отличается от
+ * вечерней на десятки секунд.
  */
 export function solarDay(query: SolarQuery): SolarDay {
-  const julianDay = julianDayOf(query) - query.timezoneHours / 24;
-  const century = (julianDay - 2451545) / 36525;
-  const declination = sunDeclination(century);
-  const equationOfTime = equationOfTimeMinutes(century);
-  const hourAngle = sunriseHourAngle(query.latitude, declination);
-  // Истинный полдень: поправка на долготу внутри пояса и на уравнение
-  // времени. Всё в минутах — так же, как в таблице NOAA.
-  const noon = 720 - 4 * query.longitude - equationOfTime +
-    query.timezoneHours * 60;
+  const midnightJulian = julianDayOf(query) - query.timezoneHours / 24;
+  const at = (minutes: number) => altitudeAt(midnightJulian, minutes, query);
+  const noon = solarNoonMinutes(midnightJulian, query);
+  const sunrise = horizonCrossing(at, noon - HALF_DAY_MINUTES, noon);
+  const sunset = horizonCrossing(at, noon + HALF_DAY_MINUTES, noon);
   return {
-    sunriseMinutes: noon - hourAngle * 4,
+    sunriseMinutes: sunrise,
     noonMinutes: noon,
-    sunsetMinutes: noon + hourAngle * 4,
-    dayLengthMinutes: hourAngle * 8,
+    sunsetMinutes: sunset,
+    dayLengthMinutes: sunset - sunrise,
   };
+}
+
+/**
+ * Полдень: момент, когда часовой угол обращается в ноль. Уравнение
+ * времени берётся в самом полудне, а не в полночь, — отсюда неподвижная
+ * точка. Трёх проходов хватает: поправка на каждом шаге падает на три
+ * порядка.
+ */
+function solarNoonMinutes(midnightJulian: number, query: SolarQuery): number {
+  let minutes = HALF_DAY_MINUTES;
+  for (let step = 0; step < 3; step++) {
+    const century = centuryAt(midnightJulian, minutes);
+    minutes = HALF_DAY_MINUTES - 4 * query.longitude -
+      equationOfTimeMinutes(century) + query.timezoneHours * 60;
+  }
+  return minutes;
+}
+
+/**
+ * Момент пересечения горизонта между полуднем и краем суток. Знак
+ * высоты на концах отрезка и решает: солнце не поднялось за целые
+ * полсуток — полярная ночь, не опустилось — полярный день.
+ */
+function horizonCrossing(
+  at: (minutes: number) => number,
+  edge: number,
+  noon: number,
+): number {
+  const edgeAbove = at(edge) > HORIZON_ALTITUDE;
+  const noonAbove = at(noon) > HORIZON_ALTITUDE;
+  if (edgeAbove === noonAbove) {
+    throw new NoSunriseError(
+      noonAbove
+        ? "солнце не заходит в этот день на этих координатах"
+        : "солнце не восходит в этот день на этих координатах",
+    );
+  }
+  let low = edge;
+  let high = noon;
+  for (let step = 0; step < BISECTION_STEPS; step++) {
+    const middle = (low + high) / 2;
+    if ((at(middle) > HORIZON_ALTITUDE) === noonAbove) {
+      high = middle;
+    } else {
+      low = middle;
+    }
+  }
+  return (low + high) / 2;
+}
+
+/** Высота центра Солнца в градусах для минуты местного дня. */
+function altitudeAt(
+  midnightJulian: number,
+  minutes: number,
+  query: SolarQuery,
+): number {
+  const century = centuryAt(midnightJulian, minutes);
+  const declination = sunDeclination(century);
+  const trueSolarMinutes = minutes + equationOfTimeMinutes(century) +
+    4 * query.longitude - query.timezoneHours * 60;
+  const hourAngle = trueSolarMinutes / 4 - 180;
+  const sine = Math.sin(query.latitude * RAD) * Math.sin(declination * RAD) +
+    Math.cos(query.latitude * RAD) * Math.cos(declination * RAD) *
+      Math.cos(hourAngle * RAD);
+  // Зажим — не защитный код: арифметически синус не превосходит
+  // единицу, но в double сумма произведений даёт `1 + 2⁻⁵²`, и
+  // `Math.asin` на нём возвращает `NaN`. Инвариант «`NaN` в ответе не
+  // бывает» не должен зависеть от округления.
+  return Math.asin(Math.min(1, Math.max(-1, sine))) / RAD;
+}
+
+/** Юлианское столетие для минуты местного дня. */
+function centuryAt(midnightJulian: number, minutes: number): number {
+  return (midnightJulian + minutes / 1440 - 2451545) / 36525;
 }
 
 /** Юлианский день для местной полуночи даты. */
@@ -150,24 +247,6 @@ function equationOfTimeMinutes(century: number): number {
     0.5 * y * y * Math.sin(4 * longitude) -
     1.25 * e * e * Math.sin(2 * anomaly);
   return 4 * value / RAD;
-}
-
-/**
- * Часовой угол восхода в градусах. Косинус вне [-1, 1] означает, что
- * горизонта солнце в этот день не пересекает.
- */
-function sunriseHourAngle(latitude: number, declination: number): number {
-  const cosine = Math.cos(HORIZON_ANGLE * RAD) /
-      (Math.cos(latitude * RAD) * Math.cos(declination * RAD)) -
-    Math.tan(latitude * RAD) * Math.tan(declination * RAD);
-  if (cosine > 1 || cosine < -1) {
-    throw new NoSunriseError(
-      cosine > 1
-        ? "солнце не восходит в этот день на этих координатах"
-        : "солнце не заходит в этот день на этих координатах",
-    );
-  }
-  return Math.acos(cosine) / RAD;
 }
 
 /** Длительность из минут: `HH:MM:SS`, без сворачивания в сутки. */
