@@ -37,6 +37,42 @@ Deno.test("текст уведомления: проект, тип и сообщ
       "Claude · idle_prompt",
     ],
     [
+      "текст события — поле message живой пробы",
+      JSON.stringify({
+        cwd: "/home/user/mr/mp/ozon",
+        notification_type: "idle_prompt",
+        message: "Claude is waiting for your input",
+      }),
+      "Claude · ozon · idle_prompt\nClaude is waiting for your input",
+    ],
+    [
+      "message старше notification_message: он подтверждён живым хуком",
+      JSON.stringify({
+        notification_type: "idle_prompt",
+        message: "живое поле",
+        notification_message: "поле из доки",
+      }),
+      "Claude · idle_prompt\nживое поле",
+    ],
+    [
+      "пустой message не заслоняет notification_message",
+      JSON.stringify({
+        notification_type: "idle_prompt",
+        message: "",
+        notification_message: "поле из доки",
+      }),
+      "Claude · idle_prompt\nполе из доки",
+    ],
+    [
+      "нестроковый message не заслоняет notification_message",
+      JSON.stringify({
+        notification_type: "idle_prompt",
+        message: 42,
+        notification_message: "поле из доки",
+      }),
+      "Claude · idle_prompt\nполе из доки",
+    ],
+    [
       "без notification_message — одна строка",
       JSON.stringify({ cwd: "/tmp/проба", notification_type: "auth_success" }),
       "Claude · проба · auth_success",
@@ -87,6 +123,21 @@ Deno.test("текст уведомления: проект, тип и сообщ
       assertEquals(notificationText(parseHookPayload(json)), expected);
     });
   }
+});
+
+Deno.test("живой образец события хука разбирается обеими строками", async () => {
+  // Образец снят живым хуком 2026-08-27 и лежит голденом канала: дока и
+  // бинарь Claude Code расходятся, и сверять разбор надо с бинарём.
+  const payload = await Deno.readTextFile(
+    new URL(
+      "./testdata/claude-hook-notification/payload-idle-prompt.json",
+      import.meta.url,
+    ),
+  );
+  assertEquals(
+    notificationText(parseHookPayload(payload)),
+    "Claude · ozon · idle_prompt\nClaude is waiting for your input",
+  );
 });
 
 Deno.test("текст длиннее предела усекается, а не отбивается", () => {

@@ -25,7 +25,8 @@
       "src/mcp/testdata",
       "src/xlsx/testdata",
       "src/kiten/testdata",
-      "src/telegram/testdata"
+      "src/telegram/testdata",
+      "src/claudehook/testdata"
     ]
   },
   "imports": {

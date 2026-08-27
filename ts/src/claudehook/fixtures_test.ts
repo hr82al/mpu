@@ -14,6 +14,7 @@ const CHANNEL = "claude-hook-notification";
 const NAMES: readonly string[] = [
   "err-bad-json-stderr.txt",
   "notify-stdout.txt",
+  "payload-idle-prompt.json",
 ];
 
 const channelRoot = new URL("../../docs/specs/fixtures/", import.meta.url);

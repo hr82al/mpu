@@ -62,10 +62,10 @@ function badPayload(): UsageError {
 }
 
 /**
- * Текст уведомления: заголовок и — при непустом `notification_message`
- * — само сообщение второй строкой.
+ * Текст уведомления: заголовок и — при непустом тексте события — само
+ * сообщение второй строкой.
  *
- * `session_id`, `permission_mode`, `transcript_path` и
+ * `session_id`, `prompt_id`, `permission_mode`, `transcript_path` и
  * `notification_data` в текст не идут: на телефоне они бесполезны или
  * непредсказуемы по форме.
  */
@@ -73,8 +73,19 @@ export function notificationText(payload: HookPayload): string {
   const head = ["Claude", projectName(payload), eventType(payload)]
     .filter((part) => part !== "")
     .join(" · ");
-  const message = stringField(payload, "notification_message");
+  const message = notificationMessage(payload);
   return fitLimit(message === "" ? head : `${head}\n${message}`);
+}
+
+/**
+ * Текст события: у поля два известных написания, и порядок здесь не
+ * произвольный: `message` подтверждён живой пробой хука (2026-08-27),
+ * `notification_message` известен только по доке Claude Code той же
+ * даты. Ветвей от этого не заводится — поле по смыслу одно.
+ */
+function notificationMessage(payload: HookPayload): string {
+  const live = stringField(payload, "message");
+  return live === "" ? stringField(payload, "notification_message") : live;
 }
 
 /** Тип события; поля нет — общее слово: сам факт события уже сигнал. */

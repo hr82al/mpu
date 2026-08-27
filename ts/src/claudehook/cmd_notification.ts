@@ -59,13 +59,15 @@ export const claudeHookNotificationCommand = defineCommand({
 события, наружу уходит одно сообщение личному боту (тот же канал, что
 у mpu telegram log). Аргументов и опций нет.
 
-Сообщение — две строки, вторая только при непустом notification_message:
+Сообщение — две строки, вторая только при непустом тексте события:
 
   Claude · <проект> · <notification_type>
-  <notification_message>
+  <message, иначе notification_message>
 
 <проект> — базовое имя каталога cwd; нет cwd — часть опускается. Нет
-типа — слово notification. Текст длиннее 4096 символов усекается, а не
+типа — слово notification. Текст события живой хук кладёт в message,
+дока Claude Code называет то же поле notification_message — читаются
+оба, первым message. Текст длиннее 4096 символов усекается, а не
 отбивается: отказ здесь не видит никто.
 
 Типы событий команда не фильтрует — отбор делает matcher в настройке
