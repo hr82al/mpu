@@ -264,3 +264,92 @@ Deno.test("голый вызов обёртки печатает справку,
   assertStringIncludes(cli.stdout(), "--print");
   assertEquals(cli.stderr(), "");
 });
+
+Deno.test("раскладка selector-first: селектор до имени подкоманды", async (t) => {
+  await t.step("подкоманда опознаётся за селектором", async () => {
+    const cli = makeCli();
+    // Разбор argv листа доказывает, что путь опознан целиком: отказ
+    // приходит от схемы подкоманды и подсказкой называет её полный
+    // путь. До io и до сети вызов при этом не доходит.
+    assertEquals(await cli.run("ozon-jobs", "sl-2", "show", "--нет-флага"), 2);
+    assertStringIncludes(cli.stderr(), "mpu ozon-jobs: unknown option");
+    assertStringIncludes(cli.stderr(), "mpu ozon-jobs show --help");
+  });
+
+  await t.step("режимы печати перед селектором не мешают", async () => {
+    const cli = makeCli();
+    assertEquals(
+      await cli.run("ozon-jobs", "-p", "sl-2", "show", "--нет-флага"),
+      2,
+    );
+    assertStringIncludes(cli.stderr(), "mpu ozon-jobs show --help");
+  });
+
+  await t.step("селектор после подкоманды — ошибка ввода", async () => {
+    const cli = makeCli();
+    assertEquals(await cli.run("ozon-jobs", "show", "sl-2"), 2);
+    assertEquals(
+      cli.stderr(),
+      "mpu ozon-jobs: селектор ставится перед именем подкоманды\n",
+    );
+    assertEquals(cli.stdout(), "");
+  });
+
+  await t.step("голая подкоманда — справка листа, exit 2", async () => {
+    const cli = makeCli();
+    assertEquals(await cli.run("ozon-jobs", "show"), 2);
+    assertStringIncludes(cli.stdout(), "mpu ozon-jobs [-p [--local]] SELECTOR");
+  });
+
+  await t.step("справка подкоманды доступна за её именем", async () => {
+    const cli = makeCli();
+    assertEquals(await cli.run("ozon-jobs", "show", "--help"), 0);
+    assertStringIncludes(cli.stdout(), "service:ozonJobs showJobs");
+  });
+
+  await t.step("подкоманда не названа — индекс группы, exit 2", async () => {
+    const cli = makeCli();
+    assertEquals(await cli.run("ozon-jobs", "sl-2"), 2);
+    assertStringIncludes(cli.stdout(), "prune");
+    assertEquals(cli.stderr(), "");
+  });
+
+  await t.step("--help уровня группы печатает индекс", async () => {
+    const cli = makeCli();
+    assertEquals(await cli.run("ozon-jobs", "--help"), 0);
+    assertStringIncludes(cli.stdout(), "show");
+  });
+
+  await t.step("значение флага подкомандой не считается", async () => {
+    // `--pattern prune` — образец у подкоманды `show`, а не вызов
+    // `prune`: спутай их, и вместо показа очереди она была бы
+    // вычищена, молча и в проде.
+    const cli = makeCli();
+    assertEquals(
+      await cli.run("ozon-jobs", "sl-2", "--pattern", "prune", "show", "--нет"),
+      2,
+    );
+    assertStringIncludes(cli.stderr(), "mpu ozon-jobs show --help");
+    assertEquals(cli.stderr().includes("prune --help"), false);
+  });
+
+  await t.step("образец после подкоманды не ломает опознание", async () => {
+    const cli = makeCli();
+    assertEquals(
+      await cli.run("ozon-jobs", "sl-2", "prune", "--pattern", "show", "--нет"),
+      2,
+    );
+    assertStringIncludes(cli.stderr(), "mpu ozon-jobs prune --help");
+  });
+
+  await t.step("у обычной группы порядок прежний", async () => {
+    // `wb-loader` раскладки не объявляет: селектор идёт после имени
+    // подкоманды, и токен перед ним подкомандой не считается.
+    const cli = makeCli();
+    assertEquals(await cli.run("wb-loader", "777", "cards"), 2);
+    assertEquals(
+      cli.stderr(),
+      "No such command 'wb-loader 777'.\nTry 'mpu -h' for help.\n",
+    );
+  });
+});

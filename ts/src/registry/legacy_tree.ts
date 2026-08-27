@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 35 команд верхнего уровня, ещё не переехавших на TS. */
+/** 28 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sun"],
@@ -116,11 +116,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
       "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
   },
   {
-    path: ["wb-jobs"],
-    summary:
-      "Выполнить service:wbJobs showJobs через Portainer (дефолт — сразу в проде); `--print`/`-p` — только печать команды.",
-  },
-  {
     path: ["wb-unit-calc"],
     summary:
       "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
@@ -135,21 +130,9 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     summary: "Обёртки над `node cli service:iuWb` (sl-back).",
   },
   {
-    path: ["ozon-loader"],
-    summary: "Обёртки над `node cli service:ozonLoader` (sl-back).",
-  },
-  {
-    path: ["ozon-jobs"],
-    summary: "Обёртки над `node cli service:ozonJobs` (sl-back).",
-  },
-  {
     path: ["ozon-fix-fo-tax"],
     summary:
       "Починить источник 1₽ и прогнать штатную цепочку пересчёта ОПиУ / Фин отчет SKU.",
-  },
-  {
-    path: ["clients-migrations"],
-    summary: "Обёртки над `node cli service:clientsMigrations` (sl-back).",
   },
   {
     path: ["make-schema"],
@@ -157,21 +140,8 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
       "clientsMigrations init: создать схему клиента в локальном mp-sl-N-cli.",
   },
   {
-    path: ["datasets-migrations"],
-    summary: "Обёртки над `node cli service:datasetsMigrations` (sl-back).",
-  },
-  {
-    path: ["app-migrations"],
-    summary: "Обёртки над `node cli service:appMigrations` (sl-back).",
-  },
-  {
     path: ["users"],
     summary: "Обёртки над `node cli service:users` (sl-back).",
-  },
-  {
-    path: ["data-loader-jobs"],
-    summary:
-      "Выполнить service:dataLoaderJobs showJobs через Portainer (дефолт — сразу в проде); `--print`/`-p` — только печать команды.",
   },
   {
     path: ["api"],

@@ -11,13 +11,21 @@ import { assertEquals } from "@std/assert";
 const CHANNEL = "portainer-wrappers";
 
 const NAMES: readonly string[] = [
+  "app-migrations-latest-print.stdout.txt",
+  "clients-migrations-latest-print.stdout.txt",
+  "data-loader-jobs-show-print.stdout.txt",
   "data-loader-print.stdout.txt",
+  "datasets-migrations-list-print.stdout.txt",
   "err-no-pg-user.stderr.txt",
   "err-unsafe-token.stderr.txt",
+  "ozon-jobs-show-print.stdout.txt",
+  "ozon-loader-campaigns-print.stdout.txt",
+  "ozon-loader-load-data-print.stdout.txt",
   "ozon-recalculate-expenses-verbose-print.stderr.txt",
   "ozon-recalculate-expenses-verbose-print.stdout.txt",
   "ozon-save-expenses-print.stdout.txt",
   "ss-update-print.stdout.txt",
+  "wb-jobs-show-print.stdout.txt",
   "wb-loader-cards-print-local.stdout.txt",
   "wb-loader-cards-print.stdout.txt",
   "wb-recalculate-expenses-print.stdout.txt",

@@ -38,6 +38,15 @@ const SAMPLE_TIME_LOG = {
   comment: "разбор жалобы",
 };
 
+/** Результат обёртки семейства в форме вывода: общий образец листьев. */
+const SAMPLE_WRAP = {
+  server: "sl-9",
+  inner: "node cli service:ozonJobs showJobs",
+  printed: null,
+  output: "",
+  exitCode: 0,
+};
+
 const CASES: readonly CommandCase[] = [
   {
     path: "xlsx ls",
@@ -869,6 +878,129 @@ const CASES: readonly CommandCase[] = [
       chat_id: 100000001,
       date: "2026-08-16T08:04:09+00:00",
     },
+  },
+  {
+    // Обёртки очередей и миграций: селектор — сам сервер, `--client-id`
+    // у них нет вовсе. Кэш-БД обхода пуст, поэтому вызов отбивается на
+    // резолве, до сети.
+    path: "wb-jobs show",
+    argv: ["sl-9"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "data-loader-jobs show",
+    argv: ["sl-9"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "ozon-jobs show",
+    argv: ["sl-9"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "ozon-jobs prune",
+    argv: ["sl-9"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "app-migrations latest",
+    argv: ["sl-9"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "app-migrations up",
+    argv: ["sl-9"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "clients-migrations latest",
+    argv: ["777", "--type", "wb"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "clients-migrations up",
+    argv: ["777", "--type", "wb"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "clients-migrations rollback",
+    argv: ["777", "--type", "wb"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "clients-migrations down",
+    argv: ["777", "--type", "wb"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "clients-migrations init",
+    argv: ["777", "--type", "wb"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "clients-migrations latest-all",
+    argv: ["sl-9", "--type", "wb"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "datasets-migrations latest",
+    argv: ["777", "--dataset", "wb_unit"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "datasets-migrations up",
+    argv: ["777", "--dataset", "wb_unit"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "datasets-migrations rollback",
+    argv: ["777", "--dataset", "wb_unit"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "datasets-migrations down",
+    argv: ["777", "--dataset", "wb_unit"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "datasets-migrations list",
+    argv: ["777", "--dataset", "wb_unit"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "ozon-loader postings-reports",
+    argv: ["777", "--seller-client-id", "999001"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "ozon-loader performance-reports",
+    argv: ["777", "--seller-client-id", "999001"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "ozon-loader search-promo",
+    argv: ["777", "--seller-client-id", "999001"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "ozon-loader campaign-daily-statistics",
+    argv: ["777", "--seller-client-id", "999001"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "ozon-loader campaigns",
+    argv: ["777", "--seller-client-id", "999001"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "ozon-loader transactions",
+    argv: ["777", "--seller-client-id", "999001"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "ozon-loader load-data",
+    argv: ["777", "--seller-client-id", "999001"],
+    sampleResult: SAMPLE_WRAP,
   },
   {
     path: "claude-hook notification",

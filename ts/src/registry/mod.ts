@@ -26,6 +26,9 @@ import { sqlCommand, sqlRoCommand } from "../sql/mod.ts";
 import { healthCommand } from "../health/mod.ts";
 import {
   dataLoaderCommand,
+  jobsCommands,
+  migrationsCommands,
+  ozonLoaderCommands,
   ozonRecalculateExpensesCommand,
   ozonSaveExpensesCommand,
   ssUpdateCommand,
@@ -117,6 +120,19 @@ export interface CommandGroup {
    * (см. `mcp/cli.ts`).
    */
   readonly bare?: BareHandler;
+  /**
+   * Раскладка argv уровня. Умолчание — имя подкоманды идёт сразу за
+   * именем группы. `selector-first` означает форму
+   * `<группа> [флаги] <селектор> <подкоманда> [флаги]`: селектор и
+   * режимы печати набираются до имени подкоманды
+   * (`specs/portainer-wrappers.md`, семейство обёрток).
+   *
+   * Признак объявляется здесь, а не у команды: он про чтение argv
+   * уровня, и второго места для него быть не должно. Схемы аргументов
+   * у группы при этом не заводится — точка входа лишь опознаёт имя
+   * подкоманды с пропуском, а разбирает всё та же схема листа.
+   */
+  readonly layout?: "selector-first";
 }
 
 /** Все команды CLI в порядке показа в справке. */
@@ -185,6 +201,11 @@ export const commands: readonly Command[] = [
   telegramSearchCommand,
   telegramStatusCommand,
   claudeHookNotificationCommand,
+  // Семейство обёрток доезжает: очереди задач, миграции и загрузчик
+  // Ozon (`specs/portainer-wrappers.md`).
+  ...jobsCommands,
+  ...migrationsCommands,
+  ...ozonLoaderCommands,
 ];
 
 /**
@@ -268,6 +289,49 @@ export const groups: readonly CommandGroup[] = [
     path: ["kiten", "checklist"],
     summary: "чек-листы карточки: ls | add | check | uncheck",
     usage: "mpu kiten checklist <подкоманда> [аргументы]",
+  },
+  {
+    // Раскладка `selector-first` у трёх групп очередей и у миграций
+    // приложения: селектор и режимы печати набираются до имени
+    // подкоманды (`specs/portainer-wrappers.md`).
+    path: ["wb-jobs"],
+    summary: "очередь задач WB-загрузчика на сервере: show",
+    usage: "mpu wb-jobs [-p [--local]] SELECTOR <подкоманда>",
+    layout: "selector-first",
+  },
+  {
+    path: ["data-loader-jobs"],
+    summary: "очередь задач загрузчика данных на сервере: show",
+    usage: "mpu data-loader-jobs [-p [--local]] SELECTOR <подкоманда>",
+    layout: "selector-first",
+  },
+  {
+    path: ["ozon-jobs"],
+    summary: "очередь задач Ozon-загрузчика на сервере: show | prune",
+    usage: "mpu ozon-jobs [-p [--local]] SELECTOR <подкоманда>",
+    layout: "selector-first",
+  },
+  {
+    path: ["app-migrations"],
+    summary: "миграции схемы приложения: latest | up",
+    usage: "mpu app-migrations [-p [--local]] SELECTOR <подкоманда>",
+    layout: "selector-first",
+  },
+  {
+    path: ["clients-migrations"],
+    summary:
+      "миграции клиентских схем: latest | up | rollback | latest-all | …",
+    usage: "mpu clients-migrations <подкоманда> SELECTOR --type T",
+  },
+  {
+    path: ["datasets-migrations"],
+    summary: "миграции датасетов клиента: latest | up | rollback | down | list",
+    usage: "mpu datasets-migrations <подкоманда> SELECTOR --dataset D",
+  },
+  {
+    path: ["ozon-loader"],
+    summary: "загрузка данных Ozon-кабинета в БД клиента: campaigns | …",
+    usage: "mpu ozon-loader <подкоманда> SELECTOR --seller-client-id S",
   },
   {
     // Группа с единственным листом: следующий хук Claude Code

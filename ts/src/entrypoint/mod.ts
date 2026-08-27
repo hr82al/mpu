@@ -634,6 +634,20 @@ async function runGroup(
     output.stdout(groupIndex(group));
     return 2;
   }
+  // Селектор после имени подкоманды — не «нет такой команды», а
+  // перепутанный порядок: имя подкоманды реестру известно, стоит оно
+  // не там (`specs/portainer-wrappers.md`, раскладка селектора).
+  if (subPlace(group, args).kind === "misplaced") {
+    throw new UsageError("селектор ставится перед именем подкоманды");
+  }
+  // У раскладки «селектор впереди» отличить забытую подкоманду от
+  // опечатки в ней нельзя: оба выглядят как лишний позиционный токен.
+  // Поэтому печатается индекс уровня — он называет доступные
+  // подкоманды, а «No such command» назвало бы селектор командой.
+  if (group.layout === "selector-first") {
+    output.stdout(groupIndex(group));
+    return 2;
+  }
   // Имя вне реестра называется одинаково на любом уровне: ключевые
   // фразы ошибок — фиксируемая часть контракта (`platform/registry.md`).
   output.stderr(noSuchCommand([...path, args[0]].join(" ")));
@@ -694,6 +708,12 @@ function matchPath(
   const path: string[] = [];
   let index = 0;
   while (index < argv.length && !argv[index].startsWith("-")) {
+    // У группы с раскладкой «селектор впереди» жадный проход
+    // останавливается на её имени: следующий токен там — селектор, а
+    // имя подкоманды ищется ниже, с пропуском. Без остановки
+    // перепутанный порядок (`ozon-jobs show sl-2`) опознался бы как
+    // правильный путь с лишним позиционным аргументом.
+    if (findGroup(path)?.layout === "selector-first") break;
     const candidate = [...path, argv[index]];
     if (
       findCommand(candidate) === undefined &&
@@ -705,7 +725,99 @@ function matchPath(
     path.push(argv[index]);
     index++;
   }
-  return { path, rest: argv.slice(index) };
+  const rest = argv.slice(index);
+  const group = findGroup(path);
+  if (group === undefined) return { path, rest };
+  const place = subPlace(group, rest);
+  // Имя подкоманды у группы с раскладкой «селектор впереди» стоит не
+  // сразу за именем группы, а после селектора и режимов печати. Оно
+  // вырезается из аргументов и достраивает путь — дальше по цепочке
+  // раскладка никого не касается: листу достаётся ровно тот argv, что
+  // и у соседей семейства (`specs/portainer-wrappers.md`).
+  if (place.kind !== "named") return { path, rest };
+  return {
+    path: [...path, rest[place.at]],
+    rest: [...rest.slice(0, place.at), ...rest.slice(place.at + 1)],
+  };
+}
+
+/** Где в аргументах уровня стоит имя подкоманды. */
+type SubPlace =
+  | { readonly kind: "named"; readonly at: number }
+  | { readonly kind: "misplaced" }
+  | { readonly kind: "absent" };
+
+/**
+ * Разбор раскладки `selector-first`: у групп с умолчательной
+ * раскладкой имя подкоманды разбирать нечего — оно и так первое.
+ *
+ * Имя подкоманды ищется только среди позиционных токенов. Значение
+ * флага позиционным не считается: `--pattern prune show` — это образец
+ * `prune` у подкоманды `show`, а не вызов `prune`. Ошибись здесь — и
+ * человек получил бы чистку очереди вместо её показа, молча и в проде.
+ *
+ * Исключение одно: имя стоит первым позиционным, а за ним есть ещё
+ * позиционный токен — это перепутанный порядок
+ * (`mpu ozon-jobs show sl-2`). Голый `mpu ozon-jobs show` и
+ * `mpu ozon-jobs show --help` перепутанными не считаются: второго
+ * позиционного там нет, и лист сам ответит справкой.
+ */
+function subPlace(
+  group: CommandGroup,
+  args: readonly string[],
+): SubPlace {
+  if (group.layout !== "selector-first") return { kind: "absent" };
+  const names = new Set(childrenOf(group.path).map((child) => child.name));
+  const positions = positionalIndexes(group, args);
+  const at = positions.find((index) => names.has(args[index]));
+  if (at === undefined) return { kind: "absent" };
+  if (at === positions[0] && positions.length > 1) {
+    return { kind: "misplaced" };
+  }
+  return { kind: "named", at };
+}
+
+/**
+ * Индексы позиционных токенов уровня: всё, что не флаг и не съедено
+ * флагом со значением.
+ *
+ * Какие флаги берут значение, известно из схем подкоманд группы —
+ * своей схемы у группы при этом не заводится и второго разборщика argv
+ * не появляется: чужие объявления читаются, разбирает по-прежнему лист
+ * (`specs/portainer-wrappers.md`, раскладка селектора).
+ */
+function positionalIndexes(
+  group: CommandGroup,
+  args: readonly string[],
+): readonly number[] {
+  const valued = valueFlags(group);
+  const found: number[] = [];
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (!isFlag(arg)) {
+      found.push(index);
+      continue;
+    }
+    // `--флаг=значение` следующий токен не съедает: значение при нём.
+    if (valued.has(arg)) index++;
+  }
+  return found;
+}
+
+/** Флаги подкоманд группы, забирающие следующий токен значением. */
+function valueFlags(group: CommandGroup): ReadonlySet<string> {
+  const flags = new Set<string>();
+  for (const child of childrenOf(group.path)) {
+    const command = findCommand([...group.path, child.name]);
+    if (command === undefined) continue;
+    for (const input of command.inputs) {
+      if (input.form.positional !== undefined) continue;
+      if (input.kind === "boolean") continue;
+      flags.add(`--${input.name}`);
+      if (input.form.short !== undefined) flags.add(`-${input.form.short}`);
+    }
+  }
+  return flags;
 }
 
 function rootIndex(): string {

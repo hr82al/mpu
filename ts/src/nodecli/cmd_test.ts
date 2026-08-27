@@ -13,6 +13,7 @@ import {
 } from "@std/assert";
 import {
   type CacheDb,
+  type Command,
   formatCommandError,
   type RemoteOutput,
   UsageError,
@@ -21,6 +22,9 @@ import type { RunProcess } from "../exec/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { dataLoaderCommand } from "./cmd_data_loader.ts";
+import { jobsCommands } from "./cmd_jobs.ts";
+import { migrationsCommands } from "./cmd_migrations.ts";
+import { ozonLoaderCommands } from "./cmd_ozon_loader.ts";
 import { ozonRecalculateExpensesCommand } from "./cmd_ozon_recalculate_expenses.ts";
 import { ozonSaveExpensesCommand } from "./cmd_ozon_save_expenses.ts";
 import { ssUpdateCommand } from "./cmd_ss_update.ts";
@@ -1090,5 +1094,273 @@ Deno.test("snake-написания: тот же inner, что kebab; при о�
         assertEquals(snake.inner, kebab.inner);
       },
     );
+  });
+});
+
+/**
+ * Порция очередей, миграций и загрузчика Ozon. Обёртки те же, поэтому
+ * харнесс общий: разница только во входах и в том, что у части команд
+ * `--client-id` нет вовсе.
+ */
+
+/** Обёртка по пути; опечатка обязана падать здесь, а не на голдене. */
+function wrapper(commands: readonly Command[], sub: string): Command {
+  const found = commands.find((command) => command.path[1] === sub);
+  if (found === undefined) throw new Error(`подкоманда ${sub} не объявлена`);
+  return found;
+}
+
+/** Аргументы обёртки уровня сервера: селектор — сам сервер. */
+function serverArgs(overrides: Record<string, unknown> = {}) {
+  return {
+    selector: CLIENT.server,
+    server: undefined,
+    print: true,
+    local: false,
+    ...overrides,
+  };
+}
+
+/** Аргументы обёртки уровня клиента. */
+function clientArgs(overrides: Record<string, unknown> = {}) {
+  return {
+    selector: String(CLIENT.id),
+    server: undefined,
+    print: true,
+    local: false,
+    "client-id": undefined,
+    ...overrides,
+  };
+}
+
+Deno.test("очереди задач: печать — эталоны канала", async (t) => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+    const cases: readonly (readonly [string, Command, string])[] = [
+      [
+        "wb-jobs show",
+        wrapper(jobsCommands, "show"),
+        "wb-jobs-show-print.stdout.txt",
+      ],
+      [
+        "ozon-jobs show --pattern",
+        wrapper(jobsCommands.filter((c) => c.path[0] === "ozon-jobs"), "show"),
+        "ozon-jobs-show-print.stdout.txt",
+      ],
+    ];
+    for (const [title, command, file] of cases) {
+      await t.step(title, async () => {
+        const result = await command.invokeInput(
+          serverArgs(file.startsWith("ozon") ? { pattern: "ozonLoader" } : {}),
+          io,
+        ) as WrapResult;
+        assertEquals(
+          command.renderResult(result, ["sl-9", "-p"]),
+          await golden(file),
+        );
+      });
+    }
+
+    await t.step("data-loader-jobs show", async () => {
+      const command = wrapper(
+        jobsCommands.filter((c) => c.path[0] === "data-loader-jobs"),
+        "show",
+      );
+      const result = await command.invokeInput(serverArgs(), io) as WrapResult;
+      assertEquals(
+        command.renderResult(result, ["sl-9", "-p"]),
+        await golden("data-loader-jobs-show-print.stdout.txt"),
+      );
+    });
+
+    await t.step("незаданный --pattern не оставляет следа", async () => {
+      const command = wrapper(
+        jobsCommands.filter((c) => c.path[0] === "ozon-jobs"),
+        "prune",
+      );
+      const result = await command.invokeInput(serverArgs(), io) as WrapResult;
+      assertEquals(result.inner, "node cli service:ozonJobs pruneJobs");
+    });
+
+    await t.step("--client-id у очередей нет ни в схеме, ни в команде", () => {
+      for (const command of jobsCommands) {
+        assertEquals(
+          command.inputs.some((input) => input.name === "client-id"),
+          false,
+          `${command.path.join(" ")}: client-id объявлен`,
+        );
+      }
+    });
+  });
+});
+
+Deno.test("миграции: печать, обязательные и необязательные флаги", async (t) => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+
+    await t.step("app-migrations latest — эталон канала", async () => {
+      const command = wrapper(
+        migrationsCommands.filter((c) => c.path[0] === "app-migrations"),
+        "latest",
+      );
+      const result = await command.invokeInput(serverArgs(), io) as WrapResult;
+      assertEquals(
+        command.renderResult(result, ["sl-9", "-p"]),
+        await golden("app-migrations-latest-print.stdout.txt"),
+      );
+    });
+
+    await t.step("clients-migrations latest — эталон канала", async () => {
+      const command = clientsMigration("latest");
+      const result = await command.invokeInput(
+        clientArgs({ type: "wb", forced: false }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        command.renderResult(result, ["777", "--type", "wb", "-p"]),
+        await golden("clients-migrations-latest-print.stdout.txt"),
+      );
+    });
+
+    await t.step("--forced уходит голым флагом, без значения", async () => {
+      const result = await clientsMigration("up").invokeInput(
+        clientArgs({ type: "wb", forced: true, name: "0007_add" }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        result.inner,
+        "node cli service:clientsMigrations up --client-id 777 --type wb" +
+          " --name 0007_add --forced",
+      );
+    });
+
+    await t.step("latest-all не эмитит --client-id", async () => {
+      const command = clientsMigration("latest-all");
+      const result = await command.invokeInput(
+        serverArgs({ type: "wb" }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        result.inner,
+        "node cli service:clientsMigrations latestAll --type wb",
+      );
+      assertEquals(
+        command.inputs.some((input) => input.name === "client-id"),
+        false,
+      );
+    });
+
+    await t.step("datasets-migrations list — эталон канала", async () => {
+      const command = wrapper(
+        migrationsCommands.filter((c) => c.path[0] === "datasets-migrations"),
+        "list",
+      );
+      const result = await command.invokeInput(
+        clientArgs({ dataset: "wb_unit" }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        command.renderResult(result, ["777", "--dataset", "wb_unit", "-p"]),
+        await golden("datasets-migrations-list-print.stdout.txt"),
+      );
+    });
+
+    await t.step("имя метода совпадает с именем подкоманды", async () => {
+      for (const sub of ["up", "rollback", "down", "init"]) {
+        const result = await clientsMigration(sub).invokeInput(
+          clientArgs({ type: "wb", forced: false }),
+          io,
+        ) as WrapResult;
+        assertStringIncludes(result.inner, `service:clientsMigrations ${sub} `);
+      }
+    });
+  });
+});
+
+/** Подкоманда `clients-migrations`: их две пачки в общем списке. */
+function clientsMigration(sub: string): Command {
+  return wrapper(
+    migrationsCommands.filter((c) => c.path[0] === "clients-migrations"),
+    sub,
+  );
+}
+
+Deno.test("ozon-loader: кабинет, множественное число и sequence", async (t) => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+
+    await t.step("campaigns — эталон канала", async () => {
+      const command = wrapper(ozonLoaderCommands, "campaigns");
+      const result = await command.invokeInput(
+        clientArgs({ "seller-client-id": ["999001"] }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        command.renderResult(result, ["777", "-p"]),
+        await golden("ozon-loader-campaigns-print.stdout.txt"),
+      );
+    });
+
+    await t.step(
+      "load-data — эталон канала с восемнадцатью шагами",
+      async () => {
+        const command = wrapper(ozonLoaderCommands, "load-data");
+        const result = await command.invokeInput(
+          clientArgs({ "seller-client-id": ["999001"] }),
+          io,
+        ) as WrapResult;
+        const printed = command.renderResult(result, ["777", "-p"]);
+        assertEquals(
+          printed,
+          await golden("ozon-loader-load-data-print.stdout.txt"),
+        );
+        // Шаги идут отдельными токенами, а не одной склейкой: считаем их.
+        const sequence = result.inner.split("--sequence ")[1];
+        assertEquals(sequence.split(" ").length, 18);
+        assertEquals(
+          sequence.startsWith("ozonProductInfo ozonCampaigns"),
+          true,
+        );
+        assertEquals(sequence.endsWith("ozonPostingsReports"), true);
+      },
+    );
+
+    await t.step(
+      "у load-data флаг метода — во множественном числе",
+      async () => {
+        const result = await wrapper(ozonLoaderCommands, "load-data")
+          .invokeInput(
+            clientArgs({ "seller-client-id": ["999001", "999002"] }),
+            io,
+          ) as WrapResult;
+        assertStringIncludes(
+          result.inner,
+          "--seller-client-ids 999001 999002 --sequence",
+        );
+        assertEquals(result.inner.includes("--seller-client-id 999001"), false);
+      },
+    );
+
+    await t.step("кабинет обязателен у всех семи подкоманд", async () => {
+      for (const command of ozonLoaderCommands) {
+        await assertRejects(
+          () => command.invokeInput(clientArgs(), io),
+          UsageError,
+          "нужен --seller-client-id",
+        );
+      }
+    });
+
+    await t.step("повтор кабинета вне load-data — ошибка ввода", async () => {
+      await assertRejects(
+        () =>
+          wrapper(ozonLoaderCommands, "campaigns").invokeInput(
+            clientArgs({ "seller-client-id": ["999001", "999002"] }),
+            io,
+          ),
+        UsageError,
+        "повторяется только у load-data",
+      );
+    });
   });
 });

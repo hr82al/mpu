@@ -41,8 +41,11 @@ export type WrapIo = Pick<
   "env" | "envFile" | "openCacheDb" | "openRemoteOutput" | "progress"
 >;
 
-/** Общие входы всех обёрток семейства (`specs/portainer-wrappers.md`). */
-export const commonArgs = {
+/**
+ * Входы, общие всем обёрткам без исключения: куда идём и как
+ * доставляем (`specs/portainer-wrappers.md`).
+ */
+export const targetArgs = {
   selector: z.string().describe("клиент: client_id, spreadsheet, title"),
   server: z.string().optional().describe("override сервера: sl-N"),
   print: z.boolean().default(false).describe(
@@ -51,6 +54,16 @@ export const commonArgs = {
   local: z.boolean().default(false).describe(
     "печатать форму локального стенда; только вместе с --print",
   ),
+};
+
+/**
+ * Общие входы обёртки, чья inner-команда несёт `--client-id`. У
+ * обёрток без него (`*-jobs`, `app-migrations`, `latest-all`) флага нет
+ * и в CLI: принимать значение, которое некуда девать, значит молча его
+ * терять.
+ */
+export const commonArgs = {
+  ...targetArgs,
   "client-id": z.number().optional().describe(
     "client_id; без него берётся из кандидатов селектора",
   ),
@@ -129,6 +142,14 @@ export interface WrapSpec {
   readonly service: string;
   readonly method: string;
   /**
+   * Идёт ли в inner-команду `--client-id`. `auto` (умолчание) — флаг
+   * первый, значение явное либо из кандидатов селектора; `none` — его
+   * нет вовсе, и кандидаты ради него не спрашиваются: метод сам
+   * разъезжается по клиентам (`clientsMigrations latestAll`) либо
+   * работает на уровне сервера (`*-jobs`, `appMigrations`).
+   */
+  readonly clientId?: "auto" | "none";
+  /**
    * Доменные флаги после `--client-id`; порядок — контракт спеки
    * семейства, поэтому список, а не словарь.
    */
@@ -137,7 +158,6 @@ export interface WrapSpec {
 
 /** Что доступно обёртке при сборке её флагов. */
 export interface WrapContext {
-  readonly clientId: number;
   readonly candidates: readonly Candidate[];
   /** Значение из кандидатов, если оно там одно; иначе отказ ввода. */
   readonly pick: (flag: string, of: (c: Candidate) => string | null) => string;
@@ -168,15 +188,19 @@ export async function runWrap(
   const resolved = resolveSelector({ cache, env: io.envFile }, args.selector, {
     server: args.server,
   });
-  const clientId = args.clientId ??
+  // Кандидаты ради `--client-id` спрашиваются только там, где флаг
+  // есть: у обёрток уровня сервера отказ auto-pick означал бы отказ
+  // вызова, которому client_id не нужен вовсе.
+  const clientId = spec.clientId === "none" ? undefined : args.clientId ??
     Number(pickOf(resolved.candidates, "--client-id", clientIdOf));
   const inner: InnerCommand = {
     service: spec.service,
     method: spec.method,
     flags: [
-      { name: "client-id", value: clientId },
+      ...(clientId === undefined
+        ? []
+        : [{ name: "client-id", value: clientId }]),
       ...spec.flags({
-        clientId,
         candidates: resolved.candidates,
         pick: (flag, of) => pickOf(resolved.candidates, flag, of),
       }),
