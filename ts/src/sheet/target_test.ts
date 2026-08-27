@@ -20,30 +20,31 @@ function sources(overrides: Partial<TargetSources> = {}): TargetSources {
 }
 
 Deno.test("источники не смешиваются: побеждает первый непустой", async (t) => {
-  await t.step("флаг старше env и конфига", () => {
-    const target = resolveTarget(
-      { flag: ID, env: "4326", config: "алиас" },
-      sources(),
-    );
+  await t.step("флаг старше конфига", () => {
+    const target = resolveTarget({ flag: ID, config: "алиас" }, sources());
     assertEquals(target.source, "flag");
     assertEquals(target.kind, "id");
     assertEquals(target.ss_id, ID);
   });
 
-  await t.step("env старше конфига", () => {
-    const target = resolveTarget({ env: ID, config: "алиас" }, sources());
-    assertEquals(target.source, "env");
-  });
-
-  await t.step("конфиг — последний", () => {
+  await t.step("конфиг — второй и последний", () => {
     assertEquals(resolveTarget({ config: ID }, sources()).source, "config");
   });
 
   await t.step("пустая строка источником не считается", () => {
     assertEquals(
-      resolveTarget({ flag: "  ", env: ID }, sources()).source,
-      "env",
+      resolveTarget({ flag: "  ", config: ID }, sources()).source,
+      "config",
     );
+  });
+
+  await t.step("переменных окружения среди источников нет", () => {
+    // Решение пользователя: «только явно через параметры». Источника
+    // `env` у резолва нет, и значение `"env"` в выводе не появляется
+    // никогда (`sheet.md`, отклонение `fix`).
+    const err = assertThrows(() => resolveTarget({}, sources()), UsageError);
+    assertEquals(err.message.includes("MPU_SS"), false);
+    assertEquals(err.message.includes("export"), false);
   });
 });
 
@@ -91,8 +92,8 @@ Deno.test("отказы резолва — тексты атома дослов�
     );
     assertEquals(
       err.message,
-      "Spreadsheet не указан. Используй --spreadsheet/-s, export " +
-        "MPU_SS=<id-or-name>, или установи `sheet.default` в config.",
+      "Spreadsheet не указан. Используй --spreadsheet/-s или установи " +
+        "`sheet.default`: mpu config sheet.default <id-or-name>.",
     );
   });
 

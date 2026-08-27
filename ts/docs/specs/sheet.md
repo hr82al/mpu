@@ -18,7 +18,7 @@
 ## CLI-контракт
 
 `mpu sheet` без подкоманды печатает справку, exit 2. Резолв
-цели-spreadsheet (общий для трёх подкоманд): `-s/--spreadsheet` → env
+цели-spreadsheet (общий для трёх подкоманд): `-s/--spreadsheet` →
 конфиг `sheet.default`; значение — URL, ID, алиас,
 client_id или подстрока заголовка (правила и тексты ошибок — атом).
 
@@ -76,7 +76,7 @@ client_id или подстрока заголовка (правила и тек
 
 `mpu sheet resolve [-s SS]`
 - Только резолв цели, без сети. stdout — JSON `{"ss_id", "source":
-  "flag"|"env"|"config", "kind":
+  "flag"|"config", "kind":
   "url"|"id"|"alias"|"client_id"|"title_fuzzy", "original_input"}`,
   indent=2, ensure_ascii=false, финальный `\n`; exit 0.
 
@@ -175,6 +175,13 @@ env-файл `WB_PLUS_WEB_APP_URL` (нужен `get`/`ls`); конфиг-клю�
   правильное — весь лист, как для любого другого имени.
 - **fix** — `--from` с несуществующим файлом падает трейсбеком;
   правильное — ошибка ввода, exit 2.
+- **fix** — переменные окружения не читаются вовсе. Рабочая версия
+  читает `MPU_SS` из окружения процесса и отвечает `"source": "env"`
+  (снято парой 2026-08-27); здесь такого источника нет по решению
+  пользователя, а совет в тексте отказа переписан на работающие пути:
+  `Spreadsheet не указан. Используй --spreadsheet/-s или установи
+  `sheet.default`: mpu config sheet.default <id-or-name>.` Значение
+  `"env"` в поле `source` не появляется никогда — его нет и в типе.
 - **preserve** — текст отказа при незаданном `WB_PLUS_WEB_APP_URL` приходит
   от слоя env-файла (`environment variable WB_PLUS_WEB_APP_URL is not set.
   Add it to <путь> or export in shell.`), а не в русской формулировке,

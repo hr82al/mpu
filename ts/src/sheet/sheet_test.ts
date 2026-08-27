@@ -144,7 +144,7 @@ const lsArgs = (overrides: Record<string, unknown> = {}) => ({
 
 Deno.test("resolve: JSON цели — эталон канала, сети нет", async () => {
   await withDb(async (db) => {
-    const { io, options } = harness(db);
+    const { io } = harness(db);
     const result = await sheetResolveCommand.invokeInput(
       { spreadsheet: SS_ID },
       io,

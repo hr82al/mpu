@@ -86,8 +86,8 @@ export const sheetLsCommand = defineCommand({
 -R/--refresh не читает кэш метаданных и перезаписывает его свежим
 ответом; без флага список живёт в кэше два часа.
 
-Цель — -s/--spreadsheet, иначе env MPU_SS, иначе ключ конфигурации
-sheet.default (mpu sheet resolve покажет, что выбрано).
+Цель — -s/--spreadsheet, иначе ключ конфигурации sheet.default
+(mpu sheet resolve покажет, что выбрано).
 
 Exit: 0 — успех; 2 — ошибки резолва цели; 1 — отказ webapp и
 отсутствующий WB_PLUS_WEB_APP_URL.

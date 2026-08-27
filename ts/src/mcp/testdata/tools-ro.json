@@ -2510,7 +2510,7 @@
   {
     "name": "sheet_ls",
     "title": "mpu sheet ls",
-    "description": "Показать листы таблицы.\n\nПо умолчанию печатает по строке на лист — только заголовки, в\nпорядке самой таблицы.\n\n-l/--long даёт строку вида «Лист\\t1000×26\\tsheetId=0\\tindex=0».\n--json печатает массив объектов {title, sheet_id, rows, cols, index}.\nВместе -l и --json не конфликтуют: побеждает --json.\n\n-R/--refresh не читает кэш метаданных и перезаписывает его свежим\nответом; без флага список живёт в кэше два часа.\n\nЦель — -s/--spreadsheet, иначе env MPU_SS, иначе ключ конфигурации\nsheet.default (mpu sheet resolve покажет, что выбрано).\n\nExit: 0 — успех; 2 — ошибки резолва цели; 1 — отказ webapp и\nотсутствующий WB_PLUS_WEB_APP_URL.\n\nПримеры: mpu sheet ls -s 4326; mpu sheet ls -s 4326 --json",
+    "description": "Показать листы таблицы.\n\nПо умолчанию печатает по строке на лист — только заголовки, в\nпорядке самой таблицы.\n\n-l/--long даёт строку вида «Лист\\t1000×26\\tsheetId=0\\tindex=0».\n--json печатает массив объектов {title, sheet_id, rows, cols, index}.\nВместе -l и --json не конфликтуют: побеждает --json.\n\n-R/--refresh не читает кэш метаданных и перезаписывает его свежим\nответом; без флага список живёт в кэше два часа.\n\nЦель — -s/--spreadsheet, иначе ключ конфигурации sheet.default\n(mpu sheet resolve покажет, что выбрано).\n\nExit: 0 — успех; 2 — ошибки резолва цели; 1 — отказ webapp и\nотсутствующий WB_PLUS_WEB_APP_URL.\n\nПримеры: mpu sheet ls -s 4326; mpu sheet ls -s 4326 --json",
     "annotations": {
       "readOnlyHint": true
     },
@@ -2584,7 +2584,7 @@
   {
     "name": "sheet_resolve",
     "title": "mpu sheet resolve",
-    "description": "Показать, в какую таблицу разрешается цель.\n\nПечатает JSON: ss_id, источник значения (flag | env | config),\nвид значения (url | id | alias | client_id | title_fuzzy) и исходную\nстроку. В сеть не ходит вовсе — только кэш-БД и настройки.\n\nЦель берётся из первого непустого источника: -s/--spreadsheet, затем\nenv MPU_SS, затем ключ конфигурации sheet.default. Источники не\nсмешиваются: победивший разбирается целиком.\n\nЗначение разбирается по порядку: ссылка docs.google.com → ID → алиас\n(mpu sheet alias) → client_id (только цифры) → подстрока заголовка.\nНесколько совпадений — отказ со списком кандидатов, exit 2.\n\nExit: 0 — цель разрешена; 2 — цель не задана, не найдена или\nнеоднозначна.\n\nПримеры: mpu sheet resolve -s 4326; mpu sheet resolve -s 'Отчёт WB'",
+    "description": "Показать, в какую таблицу разрешается цель.\n\nПечатает JSON: ss_id, источник значения (flag | env | config),\nвид значения (url | id | alias | client_id | title_fuzzy) и исходную\nстроку. В сеть не ходит вовсе — только кэш-БД и настройки.\n\nЦель берётся из первого непустого источника: -s/--spreadsheet, затем\nключ конфигурации sheet.default (mpu config sheet.default <id>).\nПеременные окружения командой не читаются вовсе.\n\nЗначение разбирается по порядку: ссылка docs.google.com → ID → алиас\n(mpu sheet alias) → client_id (только цифры) → подстрока заголовка.\nНесколько совпадений — отказ со списком кандидатов, exit 2.\n\nExit: 0 — цель разрешена; 2 — цель не задана, не найдена или\nнеоднозначна.\n\nПримеры: mpu sheet resolve -s 4326; mpu sheet resolve -s 'Отчёт WB'",
     "annotations": {
       "readOnlyHint": true
     },

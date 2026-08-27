@@ -9,8 +9,12 @@
 
 import { UsageError } from "../command/mod.ts";
 
-/** Откуда пришло значение цели. */
-export type TargetSource = "flag" | "env" | "config";
+/**
+ * Откуда пришло значение цели. Переменных окружения среди источников
+ * нет вовсе — решение пользователя 2026-08-27: «только явно через
+ * параметры» (`sheet.md`, «Открытые вопросы»).
+ */
+export type TargetSource = "flag" | "config";
 
 /** Чем оказалось значение. */
 export type TargetKind = "url" | "id" | "alias" | "client_id" | "title_fuzzy";
@@ -42,7 +46,6 @@ export interface TargetSources {
 /** Значения источников цели по приоритету. */
 export interface TargetInput {
   readonly flag?: string;
-  readonly env?: string;
   readonly config?: string;
 }
 
@@ -53,8 +56,14 @@ const DIGITS = /^\d+$/;
 /** Сколько кандидатов показывается в отказе, прежде чем свернуться. */
 const SHOWN_CANDIDATES = 10;
 
-const NOT_SET = "Spreadsheet не указан. Используй --spreadsheet/-s, " +
-  "export MPU_SS=<id-or-name>, или установи `sheet.default` в config.";
+/**
+ * Совет называет только работающие пути: флаг и ключ конфигурации.
+ * Прежняя формулировка советовала `export MPU_SS=<id>`, то есть
+ * обещала источник, которого у команды нет (`sheet.md`, отклонение
+ * `fix`).
+ */
+const NOT_SET = "Spreadsheet не указан. Используй --spreadsheet/-s или " +
+  "установи `sheet.default`: mpu config sheet.default <id-or-name>.";
 
 /** Цель по источникам; ни один не задан — ошибка ввода. */
 export function resolveTarget(
@@ -68,13 +77,12 @@ export function resolveTarget(
   return { ss_id: kind.ssId, source, kind: kind.kind, original_input: value };
 }
 
-/** Первый непустой источник по приоритету флаг → env → конфиг. */
+/** Первый непустой источник по приоритету флаг → конфиг. */
 function firstFilled(
   input: TargetInput,
 ): readonly [TargetSource, string] | undefined {
   const pairs: readonly (readonly [TargetSource, string | undefined])[] = [
     ["flag", input.flag],
-    ["env", input.env],
     ["config", input.config],
   ];
   for (const [source, value] of pairs) {

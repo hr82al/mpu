@@ -18,19 +18,15 @@ const DEFAULTS: CacheSettings = {
   maxTotalMb: 500,
 };
 
-/** Ключ конфигурации → имя env-ключа того же значения. */
+/**
+ * Ключ конфигурации → поле настроек. Переменных окружения здесь нет:
+ * параметры кэша задаются только конфигом (`sheet.md`, «Открытые
+ * вопросы»).
+ */
 const INT_KEYS = [
-  ["sheet.cache.tab_ttl", "MPU_SHEET_CACHE_TAB_TTL", "tabTtlSeconds"],
-  [
-    "sheet.cache.max_tab_bytes",
-    "MPU_SHEET_CACHE_MAX_TAB_BYTES",
-    "maxTabBytes",
-  ],
-  [
-    "sheet.cache.max_total_mb",
-    "MPU_SHEET_CACHE_MAX_TOTAL_MB",
-    "maxTotalMb",
-  ],
+  ["sheet.cache.tab_ttl", "tabTtlSeconds"],
+  ["sheet.cache.max_tab_bytes", "maxTabBytes"],
+  ["sheet.cache.max_total_mb", "maxTotalMb"],
 ] as const;
 
 /** Срез порта: env-файл и локальные настройки. */
@@ -72,22 +68,16 @@ export async function configValue(
   return value === undefined || value === "" ? undefined : value;
 }
 
-/** Настройки кэша: env-файл, затем конфиг, затем умолчание. */
+/** Настройки кэша: конфиг, затем умолчание. */
 export async function cacheSettings(io: SettingsIo): Promise<CacheSettings> {
   const settings: {
     tabTtlSeconds: number;
     maxTabBytes: number;
     maxTotalMb: number;
   } = { ...DEFAULTS };
-  for (const [key, envName, field] of INT_KEYS) {
-    const fromEnv = numberOf(io, io.envFile.get(envName), envName);
-    if (fromEnv !== undefined) {
-      settings[field] = fromEnv;
-      continue;
-    }
-    const raw = await configValue(io, key);
-    const fromConfig = numberOf(io, raw, key);
-    if (fromConfig !== undefined) settings[field] = fromConfig;
+  for (const [key, field] of INT_KEYS) {
+    const value = numberOf(io, await configValue(io, key), key);
+    if (value !== undefined) settings[field] = value;
   }
   return settings;
 }

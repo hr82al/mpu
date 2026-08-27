@@ -144,11 +144,11 @@ Deno.test("housekeeping на БД без таблиц не падает", () => 
   housekeeping(empty, SETTINGS, 1000);
 });
 
-Deno.test("настройки кэша: env старше конфига, мусор — заметкой", async (t) => {
+Deno.test("настройки кэша: только конфиг, мусор — заметкой", async (t) => {
   const io = (
-    env: Readonly<Record<string, string>>,
     config: Readonly<Record<string, string>>,
     notes: string[],
+    env: Readonly<Record<string, string>> = {},
   ) =>
     makeFakeIo({
       envFile: {
@@ -163,41 +163,35 @@ Deno.test("настройки кэша: env старше конфига, мус�
     });
 
   await t.step("умолчания без источников", async () => {
-    assertEquals(await cacheSettings(io({}, {}, [])), SETTINGS);
+    assertEquals(await cacheSettings(io({}, [])), SETTINGS);
   });
 
   await t.step("конфиг перекрывает умолчание", async () => {
     const settings = await cacheSettings(
-      io({}, { "sheet.cache.tab_ttl": "60" }, []),
+      io({ "sheet.cache.tab_ttl": "60" }, []),
     );
     assertEquals(settings.tabTtlSeconds, 60);
   });
 
-  await t.step("env старше конфига", async () => {
+  await t.step("переменные окружения не читаются вовсе", async () => {
+    // Решение пользователя: «только явно через параметры». Ключ
+    // MPU_SHEET_CACHE_* не должен влиять ни на что.
     const settings = await cacheSettings(
-      io(
-        { MPU_SHEET_CACHE_TAB_TTL: "30" },
-        { "sheet.cache.tab_ttl": "60" },
-        [],
-      ),
+      io({}, [], { MPU_SHEET_CACHE_TAB_TTL: "30" }),
     );
-    assertEquals(settings.tabTtlSeconds, 30);
+    assertEquals(settings.tabTtlSeconds, SETTINGS.tabTtlSeconds);
   });
 
-  await t.step("нечисловой env: заметка и следующий слой", async () => {
+  await t.step("нечисловой конфиг: заметка и умолчание", async () => {
     const notes: string[] = [];
     const settings = await cacheSettings(
-      io(
-        { MPU_SHEET_CACHE_TAB_TTL: "abc" },
-        { "sheet.cache.tab_ttl": "60" },
-        notes,
-      ),
+      io({ "sheet.cache.tab_ttl": "abc" }, notes),
     );
     // Команда продолжает работу, а заметка уходит в журнал вызовов, не
     // на экран (атом, «Конфигурация»).
-    assertEquals(settings.tabTtlSeconds, 60);
+    assertEquals(settings.tabTtlSeconds, SETTINGS.tabTtlSeconds);
     assertEquals(notes.length, 1);
-    assertEquals(notes[0].includes("MPU_SHEET_CACHE_TAB_TTL"), true);
+    assertEquals(notes[0].includes("sheet.cache.tab_ttl"), true);
   });
 });
 

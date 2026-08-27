@@ -7,7 +7,7 @@
  */
 
 import { DomainError } from "../command/mod.ts";
-import { firstLine, HttpCallError, httpSend } from "../http/mod.ts";
+import { firstLine, httpSend } from "../http/mod.ts";
 
 /** Предел времени одного запроса; webapp отвечает медленно. */
 const TIMEOUT_MS = 120_000;

@@ -78,17 +78,20 @@ function rowOf(row: Record<string, unknown>) {
   return { ssId: String(row.ss_id), title: String(row.title ?? "") };
 }
 
-/** Цель вызова: флаг → env `MPU_SS` → конфиг `sheet.default`. */
+/**
+ * Цель вызова: флаг `-s`, иначе конфиг-ключ `sheet.default`.
+ * Переменных окружения среди источников нет вовсе — ни из процесса, ни
+ * из env-файла (`sheet.md`, «Открытые вопросы»).
+ */
 export async function targetOf(
   io: SheetIo,
   db: CacheDb,
   flag: string | undefined,
 ): Promise<Target> {
-  return resolveTarget({
-    flag,
-    env: io.envFile.get("MPU_SS"),
-    config: await configValue(io, "sheet.default"),
-  }, cacheSources(db));
+  return resolveTarget(
+    { flag, config: await configValue(io, "sheet.default") },
+    cacheSources(db),
+  );
 }
 
 /**
