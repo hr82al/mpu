@@ -22,6 +22,18 @@ export interface ConfigKey {
   readonly type: ConfigKeyType;
   /** Умолчание потребителя; у str-ключей без него — `undefined`. */
   readonly fallback: string | undefined;
+  /**
+   * Допустимые границы int-ключа, включительно; без них принимается
+   * любое целое.
+   *
+   * Границы стоят только там, где значение вне них молча не работает:
+   * порт вне 1–65535 сервер не откроет и возьмёт умолчание, то есть
+   * `mpu config` показывал бы одно, а слушалось бы другое. У
+   * `sheet.cache.*` границ нет намеренно — оригинал принимает и ноль, и
+   * миллиард, а потребитель кэша отбрасывает несуразное сам, с заметкой
+   * в журнал (`platform/config.md`, отклонение preserve).
+   */
+  readonly range?: { readonly min: number; readonly max: number };
   readonly description: string;
 }
 
@@ -31,6 +43,7 @@ export const CONFIG_KEYS: readonly ConfigKey[] = [
     key: "mcp.port",
     type: "int",
     fallback: "7337",
+    range: { min: 1, max: 65535 },
     description: "Порт HTTP-сервера `mpu mcp`",
   },
   {

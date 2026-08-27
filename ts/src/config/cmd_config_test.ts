@@ -185,6 +185,42 @@ Deno.test("запись: буквально, с проверкой int до хр
   });
 });
 
+Deno.test("mcp.port проверяется диапазоном, sheet.cache.* — нет", async (t) => {
+  await withIo(async (io, db) => {
+    await t.step("порт вне 1–65535 — отказ до записи", async () => {
+      for (const value of ["0", "65536", "99999"]) {
+        await assertRejects(
+          () => runConfig(args({ key: "mcp.port", value }), io),
+          UsageError,
+          `mcp.port ожидает порт 1–65535, получено "${value}"`,
+        );
+      }
+      // Иначе `mpu config` показывал бы 99999, пока сервер слушает
+      // умолчание: parsePort молча заменяет несуразное значение.
+      assertEquals(configValue(db, "mcp.port"), undefined);
+    });
+
+    await t.step("границы диапазона допустимы", async () => {
+      await runConfig(args({ key: "mcp.port", value: "1" }), io);
+      assertEquals(configValue(db, "mcp.port"), "1");
+      await runConfig(args({ key: "mcp.port", value: "65535" }), io);
+      assertEquals(configValue(db, "mcp.port"), "65535");
+    });
+
+    await t.step("у ключей кэша границ нет намеренно", async () => {
+      // Оригинал принимает и ноль, и миллиард; потребитель отбрасывает
+      // несуразное сам, с заметкой в журнал (отклонение preserve).
+      await runConfig(args({ key: "sheet.cache.tab_ttl", value: "0" }), io);
+      assertEquals(configValue(db, "sheet.cache.tab_ttl"), "0");
+      await runConfig(
+        args({ key: "sheet.cache.max_total_mb", value: "999999999" }),
+        io,
+      );
+      assertEquals(configValue(db, "sheet.cache.max_total_mb"), "999999999");
+    });
+  });
+});
+
 Deno.test("--unset идемпотентен и печатает умолчание", async (t) => {
   await withIo(async (io, db) => {
     setConfigValue(db, "sheet.cache.tab_ttl", "3600");

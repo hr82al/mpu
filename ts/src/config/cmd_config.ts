@@ -111,6 +111,18 @@ function assertValue(entry: ConfigKey, value: string): void {
       `${entry.key} ожидает целое число, получено "${value}"`,
     );
   }
+  const range = entry.range;
+  if (range === undefined) return;
+  const number = Number(value);
+  if (number < range.min || number > range.max) {
+    // Отказ, а не запись: значение вне границ потребитель молча
+    // заменит умолчанием, и `mpu config` станет показывать то, чего
+    // нет (`platform/config.md`, отклонение про mcp.port).
+    throw new UsageError(
+      `${entry.key} ожидает порт ${range.min}–${range.max}, ` +
+        `получено "${value}"`,
+    );
+  }
 }
 
 /**
