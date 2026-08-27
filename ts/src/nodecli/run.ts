@@ -8,7 +8,7 @@
  */
 
 import { z } from "@zod/zod";
-import { type CommandIo, UsageError } from "../command/mod.ts";
+import { type CacheDb, type CommandIo, UsageError } from "../command/mod.ts";
 import { copyToClipboard } from "../clipboard/mod.ts";
 import {
   chooseTransport,
@@ -193,8 +193,31 @@ export async function runWrap(
   if (args.local && !args.print) {
     throw new UsageError("--local имеет смысл только вместе с --print");
   }
-  using db = io.openCacheDb();
-  const cache: CacheReader = db;
+  let db: CacheDb | undefined;
+  // Кэш открывается первым же запросом резолва, а не заранее:
+  // неинициализированная БД не должна мешать путям, которым она не
+  // нужна (тот же приём, что в `sql/run.ts`).
+  const cache: CacheReader = {
+    query: (sql, ...params) => (db ??= io.openCacheDb()).query(sql, ...params),
+  };
+  try {
+    return await deliver(spec, args, io, options, cache);
+  } finally {
+    // Закрытие детерминированное: у MCP-сервера процесс живёт долго, и
+    // незакрытый хэндл SQLite копился бы на каждый вызов тула
+    // (`ts/CLAUDE.md`, «Ошибки»).
+    db?.[Symbol.dispose]();
+  }
+}
+
+/** Резолв, сборка inner-команды и доставка одним из трёх режимов. */
+async function deliver(
+  spec: WrapSpec,
+  args: WrapArgs,
+  io: WrapIo,
+  options: WrapOptions,
+  cache: CacheReader,
+): Promise<WrapResult> {
   const resolved = resolveSelector({ cache, env: io.envFile }, args.selector, {
     server: args.server,
   });

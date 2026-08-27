@@ -1647,3 +1647,43 @@ Deno.test("auto-pick --spreadsheet-id: две таблицы — отказ с �
     );
   });
 });
+
+Deno.test("кэш-БД закрывается после вызова обёртки", async () => {
+  // Настоящий хэндл, а не фейк: у MCP-сервера процесс живёт долго, и
+  // незакрытая БД копилась бы на каждый вызов тула. Считается именно
+  // закрытие: санитайзер ресурсов SQLite-хэндла не видит.
+  const dir = await Deno.makeTempDir();
+  let disposed = 0;
+  try {
+    const io = makeFakeIo({
+      envFile: {
+        get: () => undefined,
+        require: () => "",
+        set: () => Promise.resolve(),
+        values: () => ({}),
+      },
+      openCacheDb: () => {
+        const db = openCacheDb(`${dir}/mpu.db`);
+        return {
+          ...db,
+          [Symbol.dispose]: () => {
+            disposed += 1;
+            db[Symbol.dispose]();
+          },
+        };
+      },
+      progress: () => {},
+    });
+    // Селектор ни во что не резолвится: вызов отбивается, но кэш к
+    // этому моменту уже открыт — и обязан закрыться.
+    await assertRejects(() =>
+      cards.invokeInput(
+        loaderArgs({ selector: "нет-такого-клиента", print: true }),
+        io,
+      )
+    );
+    assertEquals(disposed, 1, "кэш открыт и не закрыт");
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
