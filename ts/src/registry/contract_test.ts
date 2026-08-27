@@ -1003,6 +1003,38 @@ const CASES: readonly CommandCase[] = [
     sampleResult: SAMPLE_WRAP,
   },
   {
+    // Штучные обёртки: три из пяти листовые (в рабочей версии группы с
+    // единственной подкомандой схлопнуты typer'ом).
+    path: "ss-load",
+    argv: ["777", "--dataset", "wb_unit"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "ss-datasets",
+    argv: ["777", "--dataset", "wb_unit"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "wb-unit-calc",
+    argv: ["777", "--nm-id", "123"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "wb-unit-proto-new",
+    argv: ["777"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "users add",
+    argv: ["sl-9", "--email", "probe@example.com"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
+    path: "users add-role",
+    argv: ["sl-9", "--id", "42", "--role", "client"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
     path: "claude-hook notification",
     // Весь вход команды — stdin; у обхода он пуст, поэтому вызов
     // обязан отбиться разбором payload'а, до конфигурации и сети.

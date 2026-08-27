@@ -31,10 +31,15 @@ import {
   ozonLoaderCommands,
   ozonRecalculateExpensesCommand,
   ozonSaveExpensesCommand,
+  ssDatasetsCommand,
+  ssLoadCommand,
   ssUpdateCommand,
+  usersCommands,
   wbLoaderCommands,
   wbRecalculateExpensesCommand,
   wbSaveExpensesCommand,
+  wbUnitCalcCommand,
+  wbUnitProtoNewCommand,
 } from "../nodecli/mod.ts";
 import { logCommand } from "../log/mod.ts";
 import { psCommand } from "../ps/mod.ts";
@@ -206,6 +211,13 @@ export const commands: readonly Command[] = [
   ...jobsCommands,
   ...migrationsCommands,
   ...ozonLoaderCommands,
+  // Штучные обёртки: три из них листовые — в рабочей версии это группы
+  // с единственной подкомандой, схлопнутые typer'ом.
+  ssLoadCommand,
+  ssDatasetsCommand,
+  wbUnitCalcCommand,
+  wbUnitProtoNewCommand,
+  ...usersCommands,
 ];
 
 /**
@@ -315,6 +327,12 @@ export const groups: readonly CommandGroup[] = [
     path: ["app-migrations"],
     summary: "миграции схемы приложения: latest | up",
     usage: "mpu app-migrations [-p [--local]] SELECTOR <подкоманда>",
+    layout: "selector-first",
+  },
+  {
+    path: ["users"],
+    summary: "пользователи sl-back на сервере: add | add-role",
+    usage: "mpu users [-p [--local]] SELECTOR <подкоманда>",
     layout: "selector-first",
   },
   {

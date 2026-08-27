@@ -1,0 +1,1 @@
+ssh -i <HOME>/.ssh/id_rsa -t probeuser@10.9.9.9 'docker exec -it sl-9-cli sh -c "node cli service:wbUnitCalc getUnitDataByDateNmId --client-id 777 --nm-id 123 --date 2026-08-01"'

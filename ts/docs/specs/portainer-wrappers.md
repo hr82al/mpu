@@ -8,7 +8,7 @@
 
 ## Назначение
 
-Четырнадцать команд-обёрток, каждая запускает один метод sl-back CLI
+Девятнадцать команд-обёрток, каждая запускает один метод sl-back CLI
 (`node cli service:<сервис> <метод>`) в cli-контейнере сервера
 клиента. Общая машинерия (режимы, сборка inner-команды, валидация,
 auto-pick) — `platform/portainer.md`; здесь — CLI-поверхность и таблица
@@ -44,8 +44,8 @@ auto-pick) — `platform/portainer.md`; здесь — CLI-поверхност�
    `ozon-loader` и все листовые обёртки.
 2. **Селектор у группы**: `mpu <группа> [-p [--local]] SELECTOR
    <подкоманда> [флаги]` — селектор и режимы печати набираются до имени
-   подкоманды. Так работают `wb-jobs`, `data-loader-jobs`, `ozon-jobs`
-   и `app-migrations`.
+   подкоманды. Так работают `wb-jobs`, `data-loader-jobs`, `ozon-jobs`,
+   `app-migrations` и `users`.
 
 Вторую раскладку объявляет сама группа (`layout: "selector-first"` в
 реестре, `platform/registry.md`): точка входа опознаёт имя подкоманды с
@@ -78,6 +78,30 @@ argv в системе не заводится.
 | `datasets-migrations <sub>` | `latest`, `up`, `rollback`, `down`, `list` | `service:datasetsMigrations <метод> --client-id <C> --dataset <D>` | `--dataset` обязателен; `--name` | миграции датасетов клиента |
 | `ozon-loader <sub>` | `postings-reports`, `performance-reports`, `search-promo`, `campaign-daily-statistics`, `campaigns`, `transactions` | `service:ozonLoader <метод> --client-id <C> --seller-client-id <S>` | `--seller-client-id` обязателен, не повторяется | загрузка данных Ozon-кабинета в БД клиента |
 | `ozon-loader load-data` | — | `service:ozonLoader loadData --client-id <C> --seller-client-ids <S…> --sequence <18 токенов>` | `--seller-client-id` обязателен, повторяемый | загрузка всех данных кабинетов по зашитой последовательности |
+
+Третья порция (2026-08-27), штучные обёртки:
+
+| Обёртка | Inner-команда | Доменные флаги | Эффект |
+| --- | --- | --- | --- |
+| `ss-load` | `service:ssLoader load --dataset <D> --client-id <C> --spreadsheet-id <S> [--sheet-name <N>] [--forced] --logs <L>` | `--dataset` обязателен; `--sheet-name`, `--forced`, `--logs` (default `info`, эмитится всегда), `--spreadsheet-id` (auto-pick) | загрузка листа Google-таблицы клиента в БД |
+| `ss-datasets` | `service:ssDatasets add --spreadsheet-id <S> --dataset <D> [--sheet-name <N>] [--is-active]` | `--dataset` обязателен; `--sheet-name`, `--is-active`, `--spreadsheet-id` (auto-pick) | регистрация датасета таблицы клиента |
+| `wb-unit-calc` | `service:wbUnitCalc getUnitDataByDateNmId --client-id <C> --nm-id <N> --date <D>` | `--nm-id` обязателен; `--date` (default — сегодняшняя локальная дата, эмитится всегда) | расчётные данные WB UNIT по товару за дату |
+| `wb-unit-proto-new` | `service:wbUnitProtoNew copyDataFromOldTable --client-id <C>` | нет | перелив данных WB UNIT из старой таблицы в новую |
+| `users add` | `service:users add --email <E> [--id <I>] [--user <U>] [--name <N>] [--password <P>] [--is-active]` | `--email` обязателен; остальные необязательны | заведение пользователя sl-back на сервере |
+| `users add-role` | `service:users addRole --id <I> --role <R>` | `--id` и `--role` обязательны | выдача роли пользователю sl-back |
+
+`ss-load`, `ss-datasets`, `wb-unit-calc`, `wb-unit-proto-new` — листовые,
+селектор идёт первым аргументом. `users` — группа с раскладкой «селектор у
+группы»: `mpu users -p sl-1 add --email …`. `--client-id` нет у `ss-datasets`
+(датасет адресуется таблицей) и у обеих подкоманд `users` (пользователь
+принадлежит серверу). У `ss-load` он есть, но стоит вторым: порядок флагов
+метода начинается с `--dataset`.
+
+Ни аргументы, ни вывод `users add` в журнал вызовов не пишутся: среди
+аргументов пароль, а в режиме `-p` тот же пароль виден в напечатанной
+строке — поэтому у команды обе пометки, «аргументы не журналируются» и
+«без записи вывода» (`platform/invoke-log.md`). У `users add-role`
+пометок нет — скрывать там нечего.
 
 Подкоманда → метод: `show` → `showJobs`; `prune` → `pruneJobs`;
 `latest-all` → `latestAll`; `postings-reports` → `ozonPostingsReports`;
@@ -152,6 +176,9 @@ print-режимы — без выполнения и сети (кроме чт�
   всегда попадает в inner-команду явным токеном.
 - Раскладка селектора — свойство группы, а не подкоманды: у всех
   подкоманд одной группы она одна и та же.
+- Дефолт `--logs` у `ss-load` и `--date` у `wb-unit-calc` попадают в
+  inner-команду всегда явным токеном: напечатанную команду вставляют в
+  чужой терминал, и умолчание должно быть видно в строке.
 - Обёртка без `--client-id` не спрашивает кандидатов ради него: отказ
   auto-pick не может отменить вызов, которому client_id не нужен.
 - Последовательность шагов `load-data` зашита: восемнадцать токенов в
@@ -173,6 +200,13 @@ print-режимы — без выполнения и сети (кроме чт�
   stdout, exit 2. Отличить забытую подкоманду от опечатки в ней при
   этой раскладке нельзя — оба выглядят как лишний позиционный токен, а
   индекс называет доступные подкоманды.
+- `--dataset` (`ss-load`, `ss-datasets`), `--nm-id` (`wb-unit-calc`),
+  `--email` (`users add`), `--id`/`--role` (`users add-role`) не заданы →
+  ошибка обязательного входа разбора, exit 2, до сети.
+- `--spreadsheet-id` не резолвится (у клиента две таблицы) →
+  `mpu <команда>: cannot resolve --spreadsheet-id from selector; pass
+  --spreadsheet-id` + строки-кандидаты, exit 2 — правило семейства,
+  общее с `ss-update`.
 - `--seller-client-id` не задан → `mpu ozon-loader: нужен
   --seller-client-id`, exit 2. Проверка идёт после резолва селектора, а
   не в схеме: у флага два смысла (один кабинет у шести подкоманд,
@@ -252,6 +286,20 @@ print-режимы — без выполнения и сети (кроме чт�
   и все восемнадцать шагов `--sequence` отдельными токенами; порядок
   шагов этот голден и стережёт.
 
+Семь голденов третьей порции (2026-08-27), тот же синтетический конфиг:
+
+- `ss-load-print.stdout.txt` — `--client-id` вторым флагом и `--logs info`
+  дефолтом;
+- `ss-datasets-print.stdout.txt` — inner-команда без `--client-id`;
+- `wb-unit-calc-print.stdout.txt` — `--date` явным токеном (дата задана
+  флагом: дефолт — сегодняшний день, и голден с ним протух бы назавтра);
+- `wb-unit-proto-new-print.stdout.txt` — метод без доменных флагов;
+- `users-add-print.stdout.txt`, `users-add-role-print.stdout.txt` — обе
+  подкоманды группы с раскладкой «селектор у группы»;
+- `err-ambiguous-spreadsheet.stderr.txt` — отказ auto-pick
+  `--spreadsheet-id` у клиента с двумя таблицами, вместе со
+  строками-кандидатами.
+
 Эталоны печати сняты с рабочей версии; адреса, пользователь, клиент и
 кабинет в них заменены на синтетические — форма и порядок токенов
 важнее. У `wb-jobs` и `data-loader-jobs` эталона, **снятого с рабочей
@@ -301,6 +349,24 @@ print-режимы — без выполнения и сети (кроме чт�
   subscriptable` в `resolve_from_ctx`, exit 1 — передать селектор
   нечем. Правильно: обе работают группой, как `ozon-jobs`
   (`mpu wb-jobs sl-1 show [--pattern …]`).
+- **preserve** — `ss-datasets`, `wb-unit-calc` и `wb-unit-proto-new` в
+  рабочей версии объявлены группами с единственной подкомандой (`add`,
+  `get-unit-data-by-date-nm-id`, `copy-data-from-old-table`), но typer
+  группу схлопывает, и наблюдаемая форма имени подкоманды не содержит:
+  `mpu wb-unit-proto-new 4326 -p` печатает, а
+  `mpu wb-unit-proto-new copy-data-from-old-table 4326 -p` падает
+  `Got unexpected extra argument(s) (4326)`. Здесь это листовые команды
+  ровно в наблюдаемой форме: имя подкоманды не вводится ни как
+  обязательное, ни как допустимое. Появится вторая подкоманда — группа
+  вернётся сама. Это НЕ случай `wb-jobs`/`data-loader-jobs` выше: там
+  тем же схлопыванием команда сломана насмерть (селектор передать
+  нечем), и потому там `fix`.
+- **preserve** — `--no-is-active` у `ss-datasets` не эмитит ничего:
+  эмиссия семейства выбрасывает `false` наравне с `None`, поэтому
+  выключить признак командой нельзя, и оператор об этом не узнаёт.
+  Поведение рабочей версии сохранено намеренно: как метод sl-back
+  принимает выключение (`--is-active false`? `--no-is-active`? никак?)
+  — не проверено, а гадать в обёртке нельзя (см. «Открытые вопросы»).
 - **improve** — имя подкоманды перед селектором рабочая версия отбивает
   сообщением click'а `No such command 'sl-2'.` (exit 2), называя не ту
   причину: имя подкоманды ей известно, не туда поставлен селектор.
@@ -329,4 +395,8 @@ print-режимы — без выполнения и сети (кроме чт�
 
 ## Открытые вопросы
 
-нет
+Как метод `ssDatasets add` принимает **выключение** признака активности:
+`--is-active false`, `--no-is-active` или никак. От ответа зависит одна
+строка обёртки — сейчас `--no-is-active` не эмитит ничего (см. «Известные
+отклонения»). До ответа поведение закреплено тестом, чтобы правка была
+осознанной, а не случайной.

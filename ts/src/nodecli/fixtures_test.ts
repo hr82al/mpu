@@ -16,6 +16,7 @@ const NAMES: readonly string[] = [
   "data-loader-jobs-show-print.stdout.txt",
   "data-loader-print.stdout.txt",
   "datasets-migrations-list-print.stdout.txt",
+  "err-ambiguous-spreadsheet.stderr.txt",
   "err-no-pg-user.stderr.txt",
   "err-unsafe-token.stderr.txt",
   "ozon-jobs-show-print.stdout.txt",
@@ -24,12 +25,18 @@ const NAMES: readonly string[] = [
   "ozon-recalculate-expenses-verbose-print.stderr.txt",
   "ozon-recalculate-expenses-verbose-print.stdout.txt",
   "ozon-save-expenses-print.stdout.txt",
+  "ss-datasets-print.stdout.txt",
+  "ss-load-print.stdout.txt",
   "ss-update-print.stdout.txt",
+  "users-add-print.stdout.txt",
+  "users-add-role-print.stdout.txt",
   "wb-jobs-show-print.stdout.txt",
   "wb-loader-cards-print-local.stdout.txt",
   "wb-loader-cards-print.stdout.txt",
   "wb-recalculate-expenses-print.stdout.txt",
   "wb-save-expenses-print.stdout.txt",
+  "wb-unit-calc-print.stdout.txt",
+  "wb-unit-proto-new-print.stdout.txt",
 ];
 
 const copyDir = new URL(`testdata/${CHANNEL}/`, import.meta.url);

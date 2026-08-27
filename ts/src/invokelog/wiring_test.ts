@@ -209,14 +209,16 @@ Deno.test("пометка «без записи вывода» — часть о
       path: ["фейк"],
     });
   });
-  await t.step("в реестре пометка стоит у трёх команд", () => {
-    // Все три печатают то, чему в журнале не место: `search` — живые
-    // токены сессий 10X, `log` — сам журнал (иначе он печатал бы себя),
-    // `mcp token` — токен доступа. Порядок — порядок реестра.
+  await t.step("в реестре пометка стоит у четырёх команд", () => {
+    // Все четыре печатают то, чему в журнале не место: `search` —
+    // живые токены сессий 10X, `log` — сам журнал (иначе он печатал бы
+    // себя), `mcp token` — токен доступа, `users add` — собранную
+    // команду с паролем заводимого пользователя. Порядок — порядок
+    // реестра.
     const marked = commands
       .filter((command) => !command.logsOutput)
       .map((command) => command.path.join(" "));
-    assertEquals(marked, ["search", "log", "mcp token"]);
+    assertEquals(marked, ["search", "log", "mcp token", "users add"]);
   });
 });
 
@@ -347,11 +349,14 @@ Deno.test("вызов тула журналируется как вторая т
 Deno.test("пометка «без записи аргументов»: текста заметки в журнале нет", async (t) => {
   await t.step("в реестре пометка стоит у одной команды", () => {
     // Единственный аргумент `telegram log` персонален сам по себе —
-    // это заметка пользователя (`docs/specs/telegram-log.md`).
+    // это заметка пользователя (`docs/specs/telegram-log.md`); у
+    // `users add` среди аргументов пароль заводимого пользователя
+    // (`docs/specs/portainer-wrappers.md`). Список закрытый: пометка
+    // — свойство команды в реестре, и молча вырасти он не должен.
     const marked = commands
       .filter((command) => !command.logsArguments)
       .map((command) => command.path.join(" "));
-    assertEquals(marked, ["telegram log"]);
+    assertEquals(marked, ["telegram log", "users add"]);
   });
 
   // Ключей бота в стенде нет: вызов падает конфигурацией, но запись

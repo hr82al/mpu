@@ -147,8 +147,13 @@ export interface WrapSpec {
    * нет вовсе, и кандидаты ради него не спрашиваются: метод сам
    * разъезжается по клиентам (`clientsMigrations latestAll`) либо
    * работает на уровне сервера (`*-jobs`, `appMigrations`).
+   *
+   * `placed` — значение резолвится тем же правилом, но место флага
+   * выбирает сама обёртка (`context.clientId`): у `ssLoader load`
+   * порядок флагов метода начинается не с него, а порядок — контракт
+   * нижестоящего парсера, не наш выбор.
    */
-  readonly clientId?: "auto" | "none";
+  readonly clientId?: "auto" | "none" | "placed";
   /**
    * Доменные флаги после `--client-id`; порядок — контракт спеки
    * семейства, поэтому список, а не словарь.
@@ -158,6 +163,11 @@ export interface WrapSpec {
 
 /** Что доступно обёртке при сборке её флагов. */
 export interface WrapContext {
+  /**
+   * Разрешённый client_id — только у режима `placed`: остальным он не
+   * нужен, потому что флаг ставит машинерия.
+   */
+  readonly clientId?: number;
   readonly candidates: readonly Candidate[];
   /** Значение из кандидатов, если оно там одно; иначе отказ ввода. */
   readonly pick: (flag: string, of: (c: Candidate) => string | null) => string;
@@ -197,10 +207,13 @@ export async function runWrap(
     service: spec.service,
     method: spec.method,
     flags: [
-      ...(clientId === undefined
+      ...(clientId === undefined || spec.clientId === "placed"
         ? []
         : [{ name: "client-id", value: clientId }]),
       ...spec.flags({
+        // Только режиму `placed`: иначе обёртка в режиме `auto` могла
+        // бы выписать второй `--client-id` рядом с машинным.
+        clientId: spec.clientId === "placed" ? clientId : undefined,
         candidates: resolved.candidates,
         pick: (flag, of) => pickOf(resolved.candidates, flag, of),
       }),

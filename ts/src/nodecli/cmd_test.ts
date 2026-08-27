@@ -27,11 +27,16 @@ import { migrationsCommands } from "./cmd_migrations.ts";
 import { ozonLoaderCommands } from "./cmd_ozon_loader.ts";
 import { ozonRecalculateExpensesCommand } from "./cmd_ozon_recalculate_expenses.ts";
 import { ozonSaveExpensesCommand } from "./cmd_ozon_save_expenses.ts";
+import { ssDatasetsCommand } from "./cmd_ss_datasets.ts";
+import { ssLoadCommand } from "./cmd_ss_load.ts";
 import { ssUpdateCommand } from "./cmd_ss_update.ts";
+import { usersCommands } from "./cmd_users.ts";
 import { wbLoaderCommands } from "./cmd_wb_loader.ts";
 import { wbRecalculateExpensesCommand } from "./cmd_wb_recalculate_expenses.ts";
 import { wbSaveExpensesCommand } from "./cmd_wb_save_expenses.ts";
-import { localDate } from "../dates/mod.ts";
+import { wbUnitCalcCommand } from "./cmd_wb_unit_calc.ts";
+import { wbUnitProtoNewCommand } from "./cmd_wb_unit_proto_new.ts";
+import { localDate, today } from "../dates/mod.ts";
 import {
   runWrap,
   type WrapArgs,
@@ -1362,5 +1367,283 @@ Deno.test("ozon-loader: кабинет, множественное число и
         "повторяется только у load-data",
       );
     });
+  });
+});
+
+/**
+ * Порция штучных обёрток: `ss-load`, `ss-datasets`, `wb-unit-calc`,
+ * `wb-unit-proto-new`, `users`. Три из пяти листовые — в рабочей
+ * версии это группы с единственной подкомандой, схлопнутые typer'ом.
+ */
+
+Deno.test("ss-load: печать, порядок флагов и дефолт --logs", async (t) => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+
+    await t.step("эталон канала", async () => {
+      const result = await ssLoadCommand.invokeInput(
+        clientArgs({
+          dataset: "wb_unit",
+          "sheet-name": "UNIT",
+          "spreadsheet-id": CLIENT.sheet,
+          forced: false,
+          logs: "info",
+        }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        ssLoadCommand.renderResult(result, [
+          "777",
+          "--dataset",
+          "wb_unit",
+          "-p",
+        ]),
+        await golden("ss-load-print.stdout.txt"),
+      );
+    });
+
+    await t.step("--client-id стоит вторым, а не первым", async () => {
+      const result = await ssLoadCommand.invokeInput(
+        clientArgs({ dataset: "wb_unit", forced: false, logs: "info" }),
+        io,
+      ) as WrapResult;
+      assertStringIncludes(
+        result.inner,
+        "service:ssLoader load --dataset wb_unit --client-id 777",
+      );
+    });
+
+    await t.step("--logs эмитится и при умолчании", async () => {
+      const result = await ssLoadCommand.invokeInput(
+        clientArgs({ dataset: "wb_unit", forced: false, logs: "info" }),
+        io,
+      ) as WrapResult;
+      assertStringIncludes(result.inner, "--logs info");
+    });
+
+    await t.step("--forced уходит голым флагом", async () => {
+      const result = await ssLoadCommand.invokeInput(
+        clientArgs({ dataset: "wb_unit", forced: true, logs: "debug" }),
+        io,
+      ) as WrapResult;
+      assertStringIncludes(result.inner, "--forced --logs debug");
+    });
+
+    await t.step("--spreadsheet-id взят из кандидатов селектора", async () => {
+      const result = await ssLoadCommand.invokeInput(
+        clientArgs({ dataset: "wb_unit", forced: false, logs: "info" }),
+        io,
+      ) as WrapResult;
+      assertStringIncludes(result.inner, `--spreadsheet-id ${CLIENT.sheet}`);
+    });
+  });
+});
+
+Deno.test("ss-datasets: таблица вместо клиента и трёхзначный признак", async (t) => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+    const args = (overrides: Record<string, unknown> = {}) =>
+      serverArgs({
+        selector: String(CLIENT.id),
+        dataset: "wb_unit",
+        "sheet-name": "UNIT",
+        "spreadsheet-id": CLIENT.sheet,
+        ...overrides,
+      });
+
+    await t.step("эталон канала", async () => {
+      const result = await ssDatasetsCommand.invokeInput(
+        args(),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        ssDatasetsCommand.renderResult(result, [
+          "777",
+          "--dataset",
+          "wb_unit",
+          "-p",
+        ]),
+        await golden("ss-datasets-print.stdout.txt"),
+      );
+    });
+
+    await t.step("--client-id нет ни в схеме, ни в команде", async () => {
+      const result = await ssDatasetsCommand.invokeInput(
+        args(),
+        io,
+      ) as WrapResult;
+      assertEquals(result.inner.includes("--client-id"), false);
+      assertEquals(
+        ssDatasetsCommand.inputs.some((input) => input.name === "client-id"),
+        false,
+      );
+    });
+
+    await t.step("--spreadsheet-id берётся из кандидатов", async () => {
+      const result = await ssDatasetsCommand.invokeInput(
+        args({ "spreadsheet-id": undefined }),
+        io,
+      ) as WrapResult;
+      assertStringIncludes(result.inner, `--spreadsheet-id ${CLIENT.sheet}`);
+    });
+
+    await t.step("--is-active уходит голым флагом", async () => {
+      const result = await ssDatasetsCommand.invokeInput(
+        args({ "is-active": true }),
+        io,
+      ) as WrapResult;
+      assertStringIncludes(result.inner, "--sheet-name UNIT --is-active");
+    });
+
+    await t.step("--no-is-active не эмитит ничего (сохранено)", async () => {
+      // Выключить признак этой командой нельзя: эмиссия семейства
+      // выбрасывает `false` наравне с `None`. Поведение рабочей версии,
+      // закреплено до проверки контракта метода sl-back (спека,
+      // «Открытые вопросы»).
+      const off = await ssDatasetsCommand.invokeInput(
+        args({ "is-active": false }),
+        io,
+      ) as WrapResult;
+      const unset = await ssDatasetsCommand.invokeInput(
+        args(),
+        io,
+      ) as WrapResult;
+      assertEquals(off.inner.includes("is-active"), false);
+      assertEquals(off.inner, unset.inner);
+    });
+  });
+});
+
+Deno.test("wb-unit-*: дата всегда явная, подкоманды нет", async (t) => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+
+    await t.step("wb-unit-calc — эталон канала", async () => {
+      const result = await wbUnitCalcCommand.invokeInput(
+        clientArgs({ "nm-id": "123", date: "2026-08-01" }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        wbUnitCalcCommand.renderResult(result, ["777", "--nm-id", "123", "-p"]),
+        await golden("wb-unit-calc-print.stdout.txt"),
+      );
+    });
+
+    await t.step(
+      "дефолт --date — сегодняшний день, явным токеном",
+      async () => {
+        const result = await wbUnitCalcCommand.invokeInput(
+          clientArgs({ "nm-id": "123", date: undefined }),
+          io,
+        ) as WrapResult;
+        assertStringIncludes(result.inner, `--date ${today()}`);
+      },
+    );
+
+    await t.step("wb-unit-proto-new — эталон канала", async () => {
+      const result = await wbUnitProtoNewCommand.invokeInput(
+        clientArgs(),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        wbUnitProtoNewCommand.renderResult(result, ["777", "-p"]),
+        await golden("wb-unit-proto-new-print.stdout.txt"),
+      );
+    });
+
+    await t.step("имени подкоманды у обеих нет", () => {
+      // Схлопнутая группа осталась схлопнутой: путь однозвенный, и
+      // имя подкоманды не является ни обязательным, ни допустимым.
+      assertEquals(wbUnitCalcCommand.path, ["wb-unit-calc"]);
+      assertEquals(wbUnitProtoNewCommand.path, ["wb-unit-proto-new"]);
+      assertEquals(ssDatasetsCommand.path, ["ss-datasets"]);
+    });
+  });
+});
+
+Deno.test("users: сервер вместо клиента, пароль вне журнала", async (t) => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+    const add = wrapper(usersCommands, "add");
+    const addRole = wrapper(usersCommands, "add-role");
+
+    await t.step("add — эталон канала", async () => {
+      const result = await add.invokeInput(
+        serverArgs({ email: "test@example.com" }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        add.renderResult(result, ["sl-9", "--email", "test@example.com", "-p"]),
+        await golden("users-add-print.stdout.txt"),
+      );
+    });
+
+    await t.step("add-role — эталон канала", async () => {
+      const result = await addRole.invokeInput(
+        serverArgs({ id: "42", role: "client" }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        addRole.renderResult(result, [
+          "sl-9",
+          "--id",
+          "42",
+          "--role",
+          "client",
+          "-p",
+        ]),
+        await golden("users-add-role-print.stdout.txt"),
+      );
+    });
+
+    await t.step("--client-id нет ни у одной из двух", async () => {
+      for (const command of usersCommands) {
+        assertEquals(
+          command.inputs.some((input) => input.name === "client-id"),
+          false,
+          `${command.path.join(" ")}: client-id объявлен`,
+        );
+      }
+      const result = await addRole.invokeInput(
+        serverArgs({ id: "42", role: "client" }),
+        io,
+      ) as WrapResult;
+      assertEquals(result.inner.includes("--client-id"), false);
+    });
+
+    await t.step("аргументы add в журнал не пишутся: там пароль", () => {
+      assertEquals(add.logsArguments, false);
+      // Вывод тоже: в режиме печати stdout несёт тот же пароль.
+      assertEquals(add.logsOutput, false);
+      // У второй подкоманды пароля нет, и скрывать ей нечего.
+      assertEquals(addRole.logsArguments, true);
+    });
+  });
+});
+
+Deno.test("auto-pick --spreadsheet-id: две таблицы — отказ с кандидатами", async () => {
+  await withCache([], async (db) => {
+    db.execute(
+      "INSERT INTO sl_spreadsheets (ss_id, client_id, title, is_active," +
+        " server, synced_at) VALUES (?, ?, ?, 1, ?, ?)",
+      "SHEET456",
+      CLIENT.id,
+      "Вторая таблица клиента",
+      CLIENT.server,
+      1_700_000_000,
+    );
+    const { io } = harness(db);
+    const err = await assertRejects(
+      () =>
+        ssLoadCommand.invokeInput(
+          clientArgs({ dataset: "wb_unit", forced: false, logs: "info" }),
+          io,
+        ),
+      UsageError,
+    );
+    assertEquals(
+      `${formatCommandError("ss-load", err)}\n`,
+      await golden("err-ambiguous-spreadsheet.stderr.txt"),
+    );
   });
 });

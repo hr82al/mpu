@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 28 команд верхнего уровня, ещё не переехавших на TS. */
+/** 23 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sun"],
@@ -106,26 +106,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
       "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
   },
   {
-    path: ["ss-load"],
-    summary:
-      "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
-  },
-  {
-    path: ["ss-datasets"],
-    summary:
-      "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
-  },
-  {
-    path: ["wb-unit-calc"],
-    summary:
-      "Выполнить через Portainer; `--print` — печать обёртки без выполнения.",
-  },
-  {
-    path: ["wb-unit-proto-new"],
-    summary:
-      "Миграция старой wb_unit_proto-таблицы в новую: `copy-data-from-old-table` — обёртка node cli через Portainer; `--print`/`-p` — только печать команды.",
-  },
-  {
     path: ["iu-wb"],
     summary: "Обёртки над `node cli service:iuWb` (sl-back).",
   },
@@ -138,10 +118,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     path: ["make-schema"],
     summary:
       "clientsMigrations init: создать схему клиента в локальном mp-sl-N-cli.",
-  },
-  {
-    path: ["users"],
-    summary: "Обёртки над `node cli service:users` (sl-back).",
   },
   {
     path: ["api"],
