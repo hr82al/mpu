@@ -12,16 +12,10 @@
  */
 
 import { z } from "@zod/zod";
-import {
-  type CacheDb,
-  type CommandIo,
-  defineCommand,
-  UsageError,
-} from "../command/mod.ts";
+import { type CacheDb, type CommandIo, defineCommand } from "../command/mod.ts";
 import {
   type CacheReader,
-  type Candidate,
-  formatCandidates,
+  requireSingleClient,
   resolveSelector,
 } from "../selector/mod.ts";
 import { openPgSession } from "../sql/pg.ts";
@@ -80,20 +74,6 @@ export interface CopyOptions {
   readonly nowMs?: () => number;
 }
 
-/** client_id из кандидатов селектора; иначе отказ со списком. */
-function pickClientId(candidates: readonly Candidate[]): number {
-  const values = new Set(
-    candidates
-      .map((candidate) => candidate.clientId)
-      .filter((id): id is number => id !== null),
-  );
-  if (values.size === 1) return [...values][0];
-  const list = formatCandidates(candidates);
-  throw new UsageError("селектор не сузился до одного client_id", {
-    details: list === "" ? undefined : list.slice(0, -1),
-  });
-}
-
 /** Ход вызова: резолв, копия схемы, строки sl-1 и sl-0. */
 export async function runCopyClient(
   args: CopyArgs,
@@ -108,7 +88,9 @@ export async function runCopyClient(
   let serverNumber: number;
   try {
     const resolved = resolveSelector({ cache, env: io.envFile }, args.selector);
-    clientId = pickClientId(resolved.candidates);
+    // Тексты отказов — платформенные: своя формулировка в каждой
+    // команде разошлась бы с остальными на ровном месте.
+    clientId = requireSingleClient(resolved);
     serverNumber = resolved.serverNumber;
   } finally {
     db?.[Symbol.dispose]();
