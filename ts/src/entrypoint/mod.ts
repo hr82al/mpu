@@ -69,6 +69,8 @@ export interface Output {
  */
 export interface InvokeJournal {
   readonly nativeCall: (command: OutputPolicy) => void;
+  /** Заметка о ходе вызова в запись журнала, не на экран. */
+  readonly note: (text: string) => void;
   readonly log: InvokeLog;
 }
 
@@ -107,7 +109,7 @@ export async function runCli(
   output: Output,
   journal?: InvokeJournal,
 ): Promise<number> {
-  const io = withProgressIo(baseIo, output);
+  const io = withProgressIo(baseIo, output, journal);
 
   const completionExit = runCompletionMode(io, output);
   if (completionExit !== undefined) return completionExit;
@@ -148,10 +150,18 @@ export async function runCli(
  * строки хода туда же; копию в запись своего вызова тула дописывает
  * уже он сам (`platform/invoke-log.md`).
  */
-function withProgressIo(baseIo: CommandIo, output: Output): CommandIo {
+function withProgressIo(
+  baseIo: CommandIo,
+  output: Output,
+  journal: InvokeJournal | undefined,
+): CommandIo {
   return {
     ...baseIo,
     progress: (line) => output.stderr(`${line}\n`),
+    // Заметка уходит в запись журнала и никуда больше: у неё другой
+    // читатель — тот, кто разбирает вызов постфактум
+    // (`platform/invoke-log.md`).
+    note: (line) => journal?.note(line),
   };
 }
 

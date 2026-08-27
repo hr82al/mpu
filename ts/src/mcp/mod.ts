@@ -387,6 +387,9 @@ function bodyOf(id: RpcId, outcome: ToolOutcome): RpcBody {
 function recordedIo(io: CommandIo, record: InvokeRecording): CommandIo {
   return {
     ...io,
+    // Заметка идёт только в запись: печатать её у сервера некому, а
+    // разбирающему вызов постфактум она нужна (`invoke-log.md`).
+    note: (line) => record.note(line),
     progress: (line) => {
       io.progress(line);
       record.err(`${line}\n`);

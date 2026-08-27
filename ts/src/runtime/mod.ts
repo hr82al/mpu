@@ -273,6 +273,9 @@ export function makeDenoIo(storePath: string | undefined): CommandIo {
     stdinIsTerminal: () => Deno.stdin.isTerminal(),
     stdoutIsTerminal: () => Deno.stdout.isTerminal(),
     stderrIsTerminal: () => Deno.stderr.isTerminal(),
+    // Заметку журнала подставляет точка входа: у рантайма записи нет
+    // (как и с `progress`, `platform/invoke-log.md`).
+    note: () => {},
     openTerminal: openControllingTerminal,
     readConfigStore: async () => {
       if (storePath === undefined) return undefined;

@@ -71,6 +71,7 @@ async function cli(
   });
   const code = await runCli(argv, io, output, {
     nativeCall: (command) => record.nativeCall(command),
+    note: (line: string) => record.note(line),
     log: stand.log,
   });
   await record.finish(code);

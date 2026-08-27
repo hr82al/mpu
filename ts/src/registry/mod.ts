@@ -90,6 +90,11 @@ import {
 import { claudeHookNotificationCommand } from "../claudehook/mod.ts";
 import { backupCommands } from "../backup/mod.ts";
 import { makeSchemaCommand } from "../makeschema/mod.ts";
+import {
+  sheetGetCommand,
+  sheetLsCommand,
+  sheetResolveCommand,
+} from "../sheet/mod.ts";
 import { confirmCommand } from "../confirm/mod.ts";
 import { sunCommand } from "../sun/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
@@ -230,6 +235,11 @@ export const commands: readonly Command[] = [
   // вторая единственная ходит в локальный стенд, а не в прод.
   processCommand,
   makeSchemaCommand,
+  // Чтение Google-таблиц: три подкоманды из семейства `sheet`
+  // (`docs/specs/sheet.md`); остальные пока идут маршрутом `legacy`.
+  sheetGetCommand,
+  sheetLsCommand,
+  sheetResolveCommand,
 ];
 
 /**

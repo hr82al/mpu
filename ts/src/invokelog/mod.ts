@@ -67,6 +67,12 @@ export interface InvokeRecording {
   /** Прямая запись в секции — для точки входа без печати (MCP-сервер). */
   readonly out: (text: string) => void;
   readonly err: (text: string) => void;
+  /**
+   * Заметка о ходе вызова: повтор запроса, нечисловое значение ключа
+   * конфигурации и прочее, чему место в записи, а не на экране
+   * (`platform/invoke-log.md`, секция `note`).
+   */
+  readonly note: (text: string) => void;
   /** Дописывает запись в файл журнала. */
   readonly finish: (exitCode: number) => Promise<void>;
 }
@@ -95,6 +101,7 @@ const SILENT: InvokeRecording = {
   capture: (output) => output,
   out: () => {},
   err: () => {},
+  note: () => {},
   finish: () => Promise.resolve(),
 };
 
@@ -126,6 +133,7 @@ function recording(
 ): InvokeRecording {
   const out: string[] = [];
   const err: string[] = [];
+  const notes: string[] = [];
   let policy: OutputPolicy | undefined;
   return {
     nativeCall: (marked) => {
@@ -152,6 +160,9 @@ function recording(
     err: (text) => {
       if (policy !== undefined) err.push(text);
     },
+    // Заметки копятся независимо от пометки: команда пишет их по ходу,
+    // а решение о записи принимается в `finish`.
+    note: (text) => void notes.push(text),
     finish: async (exitCode) => {
       if (policy === undefined) return;
       const logsOutput = policy.logsOutput;
@@ -166,7 +177,9 @@ function recording(
             pid: deps.pid,
             cwd: deps.cwd(),
             commandLine: lineOf(command, policy),
-            note: settings.notes.map((note) => `${note}\n`).join(""),
+            note: [...settings.notes, ...notes]
+              .map((note) => `${note}\n`)
+              .join(""),
             out: logsOutput ? out.join("") : "",
             err: logsOutput ? errSection(err.join(""), policy, exitCode) : "",
             exitCode,

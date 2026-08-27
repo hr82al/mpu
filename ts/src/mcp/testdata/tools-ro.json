@@ -2401,7 +2401,7 @@
   {
     "name": "sheet_get",
     "title": "mpu sheet get",
-    "description": "Read cell values from one or more A1-notation ranges.\n\nRead cell values from one or more A1-notation ranges.",
+    "description": "Прочитать диапазоны Google-таблицы.\n\nЧитает диапазоны A1 через Apps Script webapp с кэшом целых\nлистов: повторный вызов того же диапазона отвечает из кэша и помечает\nэто полем \"fromCache\": true.\n\nДиапазоны берутся из аргументов и из --from (файл построчно, '-' —\nstdin; пустые строки и строки с # пропускаются) — источники\nскладываются. -n/--sheet TAB префиксует диапазоны без '!' и, если\nдиапазонов нет вовсе, означает «весь лист TAB».\n\n--render both (по умолчанию) даёт значения и формулы, values и formulas\n— по одному слою, formatted — отформатированные строки локали таблицы\n(всегда мимо кэша). Ключ слоя есть в JSON ровно тогда, когда слой\nзапрошен.\n\n--raw печатает один слой (values → formulas → formatted) ячейками через\nтабуляцию; единственная строка единственного диапазона идёт без\nфинального перевода строки. --tsv — то же, но диапазоны разделены\nпустой строкой и перевод строки в конце есть всегда. Вместе они не\nконфликтуют: побеждает --tsv.\n\n-R/--refresh не читает кэш листов и метаданных, но перезаписывает его.\n\nExit: 0 — успех; 2 — ошибки ввода и резолва цели; 1 — отказ webapp,\nотсутствующий WB_PLUS_WEB_APP_URL и ненайденный лист.\n\nПримеры: mpu sheet get 'Sheet1!A1:B2' -s 4326;\nmpu sheet get -n Отчёт --tsv -s 4326",
     "annotations": {
       "readOnlyHint": true
     },
@@ -2409,52 +2409,108 @@
       "type": "object",
       "properties": {
         "ranges": {
+          "default": [],
+          "description": "диапазоны A1; складываются с --from",
           "type": "array",
           "items": {
             "type": "string"
-          },
-          "description": "A1-notation ranges (с префиксом 'Tab!' или без — см. --sheet)."
+          }
         },
         "spreadsheet": {
-          "type": "string",
-          "description": "Spreadsheet ID/URL/alias/client_id/title."
+          "description": "цель: URL, ID, алиас, …",
+          "type": "string"
         },
         "sheet": {
-          "type": "string",
-          "description": "Default tab name для ranges без префикса."
+          "description": "лист по умолчанию для диапазонов без '!'",
+          "type": "string"
         },
-        "from_file": {
-          "type": "string",
-          "description": "Ranges из файла (`-` для stdin), один на строку."
+        "from": {
+          "description": "файл со списком диапазонов; '-' — весь stdin",
+          "type": "string"
         },
         "render": {
-          "type": "string",
-          "description": "both | values | formulas | formatted",
-          "default": "both"
+          "default": "both",
+          "description": "слои: both | values | formulas | formatted",
+          "type": "string"
         },
         "raw": {
-          "type": "boolean",
-          "description": "Bare values; single cell без trailing newline.",
-          "default": false
+          "default": false,
+          "description": "один слой без JSON-обвязки",
+          "type": "boolean"
         },
         "tsv": {
-          "type": "boolean",
-          "description": "TSV (TAB-separated, ranges по blank line).",
-          "default": false
+          "default": false,
+          "description": "то же, но диапазоны разделены пустой строкой",
+          "type": "boolean"
         },
         "refresh": {
-          "type": "boolean",
-          "description": "Skip cache, fetch fresh, overwrite cache.",
-          "default": false
+          "default": false,
+          "description": "не читать кэш, перечитать из webapp и перезаписать",
+          "type": "boolean"
         }
       },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheetId": {
+          "type": "string",
+          "description": "идентификатор таблицы"
+        },
+        "valueRanges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "range": {
+                "type": "string"
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {}
+                }
+              },
+              "formulas": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {}
+                }
+              },
+              "formatted": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {}
+                }
+              },
+              "fromCache": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "range",
+              "fromCache"
+            ],
+            "additionalProperties": false
+          },
+          "description": "прочитанные диапазоны в порядке ввода"
+        }
+      },
+      "required": [
+        "spreadsheetId",
+        "valueRanges"
+      ],
       "additionalProperties": false
     }
   },
   {
     "name": "sheet_ls",
     "title": "mpu sheet ls",
-    "description": "List sheet (tab) names in a Google Spreadsheet.\n\nList sheet (tab) names in a Google Spreadsheet.",
+    "description": "Показать листы таблицы.\n\nПо умолчанию печатает по строке на лист — только заголовки, в\nпорядке самой таблицы.\n\n-l/--long даёт строку вида «Лист\\t1000×26\\tsheetId=0\\tindex=0».\n--json печатает массив объектов {title, sheet_id, rows, cols, index}.\nВместе -l и --json не конфликтуют: побеждает --json.\n\n-R/--refresh не читает кэш метаданных и перезаписывает его свежим\nответом; без флага список живёт в кэше два часа.\n\nЦель — -s/--spreadsheet, иначе env MPU_SS, иначе ключ конфигурации\nsheet.default (mpu sheet resolve покажет, что выбрано).\n\nExit: 0 — успех; 2 — ошибки резолва цели; 1 — отказ webapp и\nотсутствующий WB_PLUS_WEB_APP_URL.\n\nПримеры: mpu sheet ls -s 4326; mpu sheet ls -s 4326 --json",
     "annotations": {
       "readOnlyHint": true
     },
@@ -2462,32 +2518,73 @@
       "type": "object",
       "properties": {
         "spreadsheet": {
-          "type": "string",
-          "description": "Spreadsheet ID/URL/alias/client_id/title (иначе env MPU_SS → config sheet.default)."
+          "description": "цель: URL, ID, алиас, …",
+          "type": "string"
         },
-        "long_": {
-          "type": "boolean",
-          "description": "Title, rows×cols, sheetId, index.",
-          "default": false
+        "long": {
+          "default": false,
+          "description": "подробная строка: размеры, sheetId и индекс",
+          "type": "boolean"
         },
-        "json_out": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
+        "json": {
+          "default": false,
+          "description": "массив объектов JSON",
+          "type": "boolean"
         },
         "refresh": {
-          "type": "boolean",
-          "description": "Skip metadata cache.",
-          "default": false
+          "default": false,
+          "description": "не читать кэш метаданных, перечитать и перезаписать",
+          "type": "boolean"
         }
       },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "tabs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "sheet_id": {
+                "type": "number"
+              },
+              "rows": {
+                "type": "number"
+              },
+              "cols": {
+                "type": "number"
+              },
+              "index": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "title",
+              "sheet_id",
+              "rows",
+              "cols",
+              "index"
+            ],
+            "additionalProperties": false
+          },
+          "description": "листы таблицы в порядке самой таблицы"
+        }
+      },
+      "required": [
+        "tabs"
+      ],
       "additionalProperties": false
     }
   },
   {
     "name": "sheet_resolve",
     "title": "mpu sheet resolve",
-    "description": "Show which spreadsheet ID will be used and source (flag/env/config).\n\nShow which spreadsheet ID will be used and source (flag/env/config).",
+    "description": "Показать, в какую таблицу разрешается цель.\n\nПечатает JSON: ss_id, источник значения (flag | env | config),\nвид значения (url | id | alias | client_id | title_fuzzy) и исходную\nстроку. В сеть не ходит вовсе — только кэш-БД и настройки.\n\nЦель берётся из первого непустого источника: -s/--spreadsheet, затем\nenv MPU_SS, затем ключ конфигурации sheet.default. Источники не\nсмешиваются: победивший разбирается целиком.\n\nЗначение разбирается по порядку: ссылка docs.google.com → ID → алиас\n(mpu sheet alias) → client_id (только цифры) → подстрока заголовка.\nНесколько совпадений — отказ со списком кандидатов, exit 2.\n\nExit: 0 — цель разрешена; 2 — цель не задана, не найдена или\nнеоднозначна.\n\nПримеры: mpu sheet resolve -s 4326; mpu sheet resolve -s 'Отчёт WB'",
     "annotations": {
       "readOnlyHint": true
     },
@@ -2495,10 +2592,38 @@
       "type": "object",
       "properties": {
         "spreadsheet": {
-          "type": "string",
-          "description": "Spreadsheet ID/URL/alias/client_id/title (иначе env MPU_SS → config sheet.default)."
+          "description": "цель: URL, ID, алиас, client_id или подстрока заголовка",
+          "type": "string"
         }
       },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "ss_id": {
+          "type": "string",
+          "description": "идентификатор таблицы"
+        },
+        "source": {
+          "type": "string",
+          "description": "источник значения: flag | env | config"
+        },
+        "kind": {
+          "type": "string",
+          "description": "чем оказалось значение"
+        },
+        "original_input": {
+          "type": "string",
+          "description": "исходная строка источника"
+        }
+      },
+      "required": [
+        "ss_id",
+        "source",
+        "kind",
+        "original_input"
+      ],
       "additionalProperties": false
     }
   },

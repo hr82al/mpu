@@ -197,9 +197,11 @@ Deno.test("help-named-sheet.txt и subcmd-help.txt: справку печата�
       ["help", "mpu sheet"],
       ["sheet", "--help"],
     ],
-    ["mpu sheet get --help", ["sheet", "get", "--help"], [
+    // Подкоманда, ещё не переехавшая: `get`/`ls`/`resolve` теперь
+    // исполняются кодом CLI, и делегацию ими не проверить.
+    ["mpu sheet set --help", ["sheet", "set", "--help"], [
       "sheet",
-      "get",
+      "set",
       "--help",
     ]],
   ];

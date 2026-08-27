@@ -143,13 +143,13 @@ Deno.test("tools/call: команда маршрута legacy", async (t) => {
       headers: {
         "MCP-Protocol-Version": "2026-07-28",
         "Mcp-Method": "tools/call",
-        "Mcp-Name": "sheet_get",
+        "Mcp-Name": "sheet_batch_get",
       },
       body: {
         jsonrpc: "2.0",
         id: 7,
         method: "tools/call",
-        params: { name: "sheet_get", arguments: args, _meta: meta },
+        params: { name: "sheet_batch_get", arguments: args, _meta: meta },
       },
     }, io);
 
@@ -175,7 +175,7 @@ Deno.test("tools/call: команда маршрута legacy", async (t) => {
         return Promise.resolve({ code: 0, stdout: "", stderr: "" });
       },
     });
-    await call({ ranges: ["Лист!A1", "Лист!B2"], sheet: "Лист" }, io);
+    await call({ expr: ["Лист!A1", "Лист!B2"], sheet: "Лист" }, io);
     // Ровно то, ради чего затевался сервер: список не склеен.
     assertEquals(calls[0].includes("Лист!A1"), true);
     assertEquals(calls[0].includes("Лист!B2"), true);

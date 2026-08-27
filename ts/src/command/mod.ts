@@ -30,8 +30,12 @@ export type { ObjectSchema, SchemaField } from "./schema.ts";
 /** Объявленный класс команды: читающая или мутирующая. */
 export type Policy = "ro" | "rw";
 
-/** Значение, которое можно связать в SQL-запросе к кэш-БД. */
-export type SqlParam = string | number | null;
+/**
+ * Значение, которое можно связать в SQL-запросе к кэш-БД. Байты —
+ * ради BLOB-столбцов схемы: сжатый лист таблицы (`sheet_tabs.payload`,
+ * `platform/webapp-http.md`) хранится как есть, а не текстом.
+ */
+export type SqlParam = string | number | null | Uint8Array;
 
 /** Строка результата запроса к кэш-БД: имя столбца → значение. */
 export type SqlRow = Readonly<
@@ -134,6 +138,13 @@ export interface CommandIo {
    * (`docs/specs/confirm.md`).
    */
   readonly stderrIsTerminal: () => boolean;
+  /**
+   * Заметка о ходе вызова в запись журнала: повтор запроса к webapp,
+   * нечисловое значение ключа конфигурации. На экран не идёт — у
+   * заметки другой читатель, разбирающий вызов постфактум
+   * (`platform/invoke-log.md`).
+   */
+  readonly note: (line: string) => void;
   /**
    * Управляющий терминал процесса для вопроса человеку. `undefined` —
    * терминала нет: пайп без tty, cron, вызов тула.

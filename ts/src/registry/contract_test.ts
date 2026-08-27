@@ -1071,6 +1071,38 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    // Резолв цели без сети: у обхода нет ни кэша, ни настроек, поэтому
+    // вызов отбивается на отсутствии цели.
+    path: "sheet resolve",
+    argv: [],
+    sampleResult: {
+      ss_id: "1SyntheticSpreadsheetIdForGoldens0000000000",
+      source: "flag",
+      kind: "id",
+      original_input: "1SyntheticSpreadsheetIdForGoldens0000000000",
+    },
+  },
+  {
+    path: "sheet ls",
+    argv: [],
+    sampleResult: {
+      tabs: [{ title: "Sheet1", sheet_id: 0, rows: 1000, cols: 26, index: 0 }],
+    },
+  },
+  {
+    path: "sheet get",
+    argv: ["Sheet1!A1:B2"],
+    sampleResult: {
+      spreadsheetId: "1SyntheticSpreadsheetIdForGoldens0000000000",
+      valueRanges: [{
+        range: "Sheet1!A1:B2",
+        values: [["привет", 42], ["", 84]],
+        formulas: [["привет", 42], ["", "=B1*2"]],
+        fromCache: true,
+      }],
+    },
+  },
+  {
     // Считает локально: ни сети, ни io — обход проходит её целиком.
     path: "sun",
     argv: ["--date", "2026-08-27"],
@@ -1462,6 +1494,7 @@ function makeIo(dir: string): CommandIo {
     stdinIsTerminal: () => false,
     stdoutIsTerminal: () => false,
     stderrIsTerminal: () => false,
+    note: () => {},
     // Терминала у обхода нет: вопрос человеку в прогоне задать некому,
     // и команда-ворота обязана это заметить, а не ждать ответа.
     openTerminal: () => Promise.resolve(undefined),

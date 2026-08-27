@@ -33,6 +33,7 @@ async function main(args: readonly string[]): Promise<number> {
   try {
     code = await runCli(args, io, output, {
       nativeCall: (command) => record.nativeCall(command),
+      note: (line) => record.note(line),
       log,
     });
   } catch (err) {

@@ -33,6 +33,9 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     // объявляет это сам.
     stdoutIsTerminal: () => false,
     stderrIsTerminal: () => false,
+    // Заметки журнала тест по умолчанию глотает: они не наблюдаемая
+    // поверхность команды, а запись о вызове.
+    note: () => {},
     // Терминала у теста по умолчанию нет: вопрос человеку в прогоне
     // тестов задать некому, и команда обязана это заметить.
     openTerminal: () => Promise.resolve(undefined),
