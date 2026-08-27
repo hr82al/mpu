@@ -4641,6 +4641,84 @@
     }
   },
   {
+    "name": "make_schema",
+    "title": "mpu make-schema",
+    "description": "Создать схему клиента в локальном стенде.\n\nПо умолчанию команда ВЫПОЛНЯЕТСЯ: запускает на ЭТОЙ машине\n`docker exec mp-sl-<N>-cli node cli service:clientsMigrations init` и\nнаследует его код выхода 1:1. Метод идемпотентен: схема\nschema_<client_id> создаётся, только если её ещё нет.\n\nТранспорт локальный — ни Portainer, ни ssh здесь нет, и --local у\nкоманды поэтому не бывает: она и так локальная.\n\n-p/--print ничего не выполняет: печатает docker-команду одной строкой и\nкопирует её в буфер обмена.\n\nSELECTOR — client_id, spreadsheet_id или заголовок таблицы; --client-id\nберётся из кандидатов, если он там один, иначе задайте флагом.\n--server sl-N выбирает контейнер стенда; без него это mp-sl-1-cli\nнезависимо от того, в какой сервер резолвится селектор.\n\n--server уходит и внутрь вызова, хотя init его игнорирует: так делает\nисходная команда, и паритет здесь важнее чистоты.\n\nExit: код docker exec при выполнении; 0 при печати; 2 — ошибки ввода и\nрезолва.\n\nПримеры: mpu make-schema 777 -p; mpu make-schema 777 --server sl-2",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet_id, заголовок таблицы"
+        },
+        "server": {
+          "description": "номер контейнера стенда: sl-N; по умолчанию sl-1",
+          "type": "string"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать docker-команду и скопировать её, не выполняя",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "container": {
+          "type": "string",
+          "description": "контейнер стенда, где идёт вызов"
+        },
+        "command": {
+          "type": "string",
+          "description": "собранная docker-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "напечатанная строка; иначе null"
+        },
+        "output": {
+          "type": "string",
+          "description": "вывод команды, если приёмник копил"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код docker exec, 1:1"
+        }
+      },
+      "required": [
+        "container",
+        "command",
+        "printed",
+        "output",
+        "exitCode"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "sheet_set",
     "title": "mpu sheet set",
     "description": "Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nWrite values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nТри режима записи: `RANGE VALUE` — одна ячейка/формула; `--from FILE` — батч\n`range<TAB>value` построчно (`-` — stdin); JSON `[{\"range\":..,\"value\"|\"formula\":..}]`\nиз stdin — тогда единственный позиционный аргумент (если есть) трактуется как\nселектор таблицы. В JSON-режиме открытый одностолбцовый range (`Col<N>:Col`)\nавтозаполняется значением до последней занятой строки столбца.",

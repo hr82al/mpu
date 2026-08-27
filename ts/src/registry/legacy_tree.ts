@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 17 команд верхнего уровня, ещё не переехавших на TS. */
+/** 16 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["config"],
@@ -84,11 +84,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     path: ["ozon-fix-fo-tax"],
     summary:
       "Починить источник 1₽ и прогнать штатную цепочку пересчёта ОПиУ / Фин отчет SKU.",
-  },
-  {
-    path: ["make-schema"],
-    summary:
-      "clientsMigrations init: создать схему клиента в локальном mp-sl-N-cli.",
   },
   {
     path: ["api"],

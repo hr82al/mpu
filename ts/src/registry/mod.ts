@@ -89,6 +89,7 @@ import {
 } from "../telegram/mod.ts";
 import { claudeHookNotificationCommand } from "../claudehook/mod.ts";
 import { backupCommands } from "../backup/mod.ts";
+import { makeSchemaCommand } from "../makeschema/mod.ts";
 import { confirmCommand } from "../confirm/mod.ts";
 import { sunCommand } from "../sun/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
@@ -225,8 +226,10 @@ export const commands: readonly Command[] = [
   confirmCommand,
   ...backupCommands,
   sunCommand,
-  // Пересчёт витрин: самая широкая обёртка семейства.
+  // Пересчёт витрин и создание схемы: первая — обёртка семейства,
+  // вторая единственная ходит в локальный стенд, а не в прод.
   processCommand,
+  makeSchemaCommand,
 ];
 
 /**

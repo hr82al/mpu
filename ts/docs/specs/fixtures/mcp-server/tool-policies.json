@@ -55,6 +55,7 @@
     "kiten time rm",
     "kiten time start",
     "kiten time stop",
+    "make-schema",
     "mp-init",
     "mr comment",
     "mr create",

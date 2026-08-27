@@ -1056,6 +1056,21 @@ const CASES: readonly CommandCase[] = [
     sampleResult: SAMPLE_WRAP,
   },
   {
+    // Локальный стенд: docker в обходе не запускается, вызов
+    // отбивается на резолве селектора.
+    path: "make-schema",
+    argv: ["777", "-p"],
+    sampleResult: {
+      container: "mp-sl-1-cli",
+      command: "docker exec mp-sl-1-cli node cli service:clientsMigrations" +
+        " init --client-id 777 --server sl-1",
+      printed: "docker exec mp-sl-1-cli node cli service:clientsMigrations" +
+        " init --client-id 777 --server sl-1",
+      output: "",
+      exitCode: 0,
+    },
+  },
+  {
     // Считает локально: ни сети, ни io — обход проходит её целиком.
     path: "sun",
     argv: ["--date", "2026-08-27"],
