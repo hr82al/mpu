@@ -599,6 +599,17 @@ WebSocket-стрим, tty, kill, stdin tar'ом), и вперёд `sql-ro` он 
 
 ## Не едут — решено 2026-07-27
 
+> **Пересмотрено 2026-08-27.** Порции 50–53 перенесли почти весь этот список:
+> `backup-*`, `sun`, `wb-unit-proto-new`, `process`, `ss-load`, `ss-datasets`,
+> `wb-unit-calc`, `wb-jobs`, `ozon-loader`, `ozon-jobs`, `data-loader-jobs`,
+> `users`, `clients-migrations`, `datasets-migrations`, `app-migrations`,
+> `confirm`, `make-schema`. Решение принято по составу легаси-маршрута, а не по
+> частоте вызовов: пока команда числится в слепке, она тянет за собой
+> подпроцесс Python-реализации, и вывести Python из эксплуатации нельзя.
+> Осталось не перенесённым из списка: `ozon-fix-fo-tax` и `iu-wb`.
+> Порядок очереди ниже это не отменяет: `sheet`, `api`, `mr` (пп. 5–7) —
+> по-прежнему самое ценное из оставшегося.
+
 - **ozon-fix-fo-tax** (2) — data-fix конкретного инцидента.
 - **backup-wb-unit-proto / backup-ozon-unit-proto /
   backup-wb-unit-manual-data** (4/1/1) — CTAS-бэкапы под ремедиации.
