@@ -57,3 +57,6 @@ Thumbs.db
 .mcp.json
 .gitmodules
 .idea
+
+# локальные worktree агентов: чужой чекаут внутри репозитория (`.claude/` трекается)
+.claude/worktrees/
