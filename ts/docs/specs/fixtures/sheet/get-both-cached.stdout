@@ -1,0 +1,29 @@
+{
+  "spreadsheetId": "1SyntheticSpreadsheetIdForGoldens0000000000",
+  "valueRanges": [
+    {
+      "range": "Sheet1!A1:B2",
+      "values": [
+        [
+          "привет",
+          42
+        ],
+        [
+          "",
+          84
+        ]
+      ],
+      "formulas": [
+        [
+          "привет",
+          42
+        ],
+        [
+          "",
+          "=B1*2"
+        ]
+      ],
+      "fromCache": true
+    }
+  ]
+}
