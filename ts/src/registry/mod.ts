@@ -96,10 +96,19 @@ import {
   sheetResolveCommand,
 } from "../sheet/mod.ts";
 import {
+  mrCommentCommand,
   mrCommentsCommand,
+  mrCreateCommand,
+  mrDeleteCommand,
+  mrDescribeCommand,
   mrDiffCommand,
+  mrEditCommand,
   mrFilesCommand,
+  mrNoteCommand,
+  mrReplyCommand,
+  mrResolveCommand,
   mrShowCommand,
+  mrUnresolveCommand,
   mrViewCommand,
 } from "../mr/mod.ts";
 import { confirmCommand } from "../confirm/mod.ts";
@@ -247,15 +256,23 @@ export const commands: readonly Command[] = [
   sheetGetCommand,
   sheetLsCommand,
   sheetResolveCommand,
-  // Чтение merge request'ов: пять подкоманд семейства `mr`
-  // (`docs/specs/mr-read.md`). Пишущие подкоманды остаются маршрутом
-  // `legacy`, поэтому имени `mr` нет в `NOT_LEGACY`: группа смешанная,
-  // и голый `mpu mr` по-прежнему отдаёт подпроцесс.
+  // Семейство `mr` целиком: чтение (`docs/specs/mr-read.md`) и запись
+  // (`docs/specs/mr-write.md`). В легаси его подкоманд не осталось,
+  // поэтому имя `mr` внесено в `NOT_LEGACY`.
   mrViewCommand,
   mrFilesCommand,
   mrDiffCommand,
   mrCommentsCommand,
   mrShowCommand,
+  mrCreateCommand,
+  mrDescribeCommand,
+  mrCommentCommand,
+  mrNoteCommand,
+  mrReplyCommand,
+  mrEditCommand,
+  mrDeleteCommand,
+  mrResolveCommand,
+  mrUnresolveCommand,
 ];
 
 /**
@@ -314,6 +331,14 @@ export const groups: readonly CommandGroup[] = [
     path: ["kiten"],
     summary: "карточки Kaiten: чтение, комментарии, время, справочники",
     usage: "mpu kiten <подкоманда> [аргументы]",
+  },
+  {
+    // Как и `kiten`: семейство переехало целиком, и промежуточный
+    // уровень больше не приходит из слепка — без этой записи
+    // `mpu mr --help` собирал бы пустой индекс.
+    path: ["mr"],
+    summary: "merge request'ы GitLab: чтение, комментарии ревью, резолв",
+    usage: "mpu mr <подкоманда> [аргументы]",
   },
   {
     path: ["wb-loader"],

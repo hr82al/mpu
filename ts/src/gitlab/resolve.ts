@@ -167,10 +167,11 @@ function trimSlashes(value: string): string {
 async function git(
   context: ResolveContext,
   args: readonly string[],
+  hint = "укажи MR через --mr",
 ): Promise<string> {
   const outcome = await context.runGit(args, context.cwd);
   if (outcome === null) {
-    throw new MrRefError("git не найден в PATH — укажи MR через --mr", false);
+    throw new MrRefError(`git не найден в PATH — ${hint}`, false);
   }
   if (outcome.code !== 0) {
     const reason = outcome.stderr.trim();
@@ -178,16 +179,22 @@ async function git(
     // «укажи MR через --mr» — единственное действие, которое читателю
     // поможет, и терять её вместе с текстом причины незачем.
     const cause = reason === "" ? `git ${args.join(" ")}: ошибка` : reason;
-    throw new MrRefError(`${cause} — укажи MR через --mr`, false);
+    throw new MrRefError(`${cause} — ${hint}`, false);
   }
   return outcome.stdout.trim();
 }
 
-/** Путь проекта из `git remote get-url origin`. */
+/**
+ * Путь проекта из `git remote get-url origin`. `hint` — чем чинить
+ * отказ: у читающих команд это `--mr`, а у `mr create` его нет вовсе,
+ * и советовать его значило бы посылать за флагом, которого у команды
+ * не существует.
+ */
 export async function projectFromRemote(
   context: ResolveContext,
+  hint = "укажи MR через --mr",
 ): Promise<string> {
-  const url = await git(context, ["remote", "get-url", "origin"]);
+  const url = await git(context, ["remote", "get-url", "origin"], hint);
   const remote = parseRemoteUrl(url);
   if (remote === null) {
     throw new MrRefError(`не удалось разобрать git remote '${url}'`, false);
@@ -197,7 +204,7 @@ export async function projectFromRemote(
     // Порт в сверке не участвует: ssh-remote ходит по своему.
     throw new MrRefError(
       `git remote смотрит на '${remote.host}', а не на '${expected}' — ` +
-        "укажи MR через --mr",
+        hint,
       false,
     );
   }

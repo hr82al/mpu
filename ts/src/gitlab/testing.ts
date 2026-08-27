@@ -15,6 +15,7 @@ export interface CapturedRequest {
   readonly pathname: string;
   readonly search: string;
   readonly accept: string | null;
+  readonly contentType: string | null;
   readonly privateToken: string | null;
   readonly body: string;
 }
@@ -44,6 +45,7 @@ export function startFakeGitlab(
         pathname: url.pathname,
         search: url.search,
         accept: req.headers.get("accept"),
+        contentType: req.headers.get("content-type"),
         privateToken: req.headers.get("private-token"),
         body: await req.text(),
       });

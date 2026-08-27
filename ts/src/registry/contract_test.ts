@@ -1217,6 +1217,94 @@ const CASES: readonly CommandCase[] = [
       notes: [],
     },
   },
+  // Пишущие подкоманды `mr`: у обхода нет GLAB_TOKEN, поэтому каждая
+  // обязана отбиться на конфигурации либо на разборе входа — до сети.
+  {
+    path: "mr create",
+    argv: [
+      "--title",
+      "заголовок",
+      "--target",
+      "main",
+      "--project",
+      "group/repo",
+    ],
+    sampleResult: {
+      project: "group/repo",
+      iid: 7,
+      title: "заголовок",
+      state: "opened",
+      source_branch: "feat/branch",
+      target_branch: "main",
+      url: "https://gitlab.example.test/group/repo/-/merge_requests/7",
+    },
+  },
+  {
+    path: "mr describe",
+    argv: ["--mr", "group/repo!456", "-m", "новое описание"],
+    sampleResult: {
+      project: "group/repo",
+      iid: 456,
+      url: "https://gitlab.example.test/group/repo/-/merge_requests/456",
+    },
+  },
+  {
+    path: "mr comment",
+    argv: ["src/module.txt:8", "--mr", "group/repo!456", "-m", "замечание"],
+    sampleResult: {
+      discussion: "a1b2c3d400000000000000000000000000000000",
+      note_id: 6,
+      path: "src/module.txt",
+      line: 8,
+      url: "https://gitlab.example.test/group/repo/-/merge_requests/456#note_6",
+    },
+  },
+  {
+    path: "mr note",
+    argv: ["--mr", "group/repo!456", "-m", "общий комментарий"],
+    sampleResult: {
+      discussion: "a1b2c3d400000000000000000000000000000000",
+      note_id: 7,
+      url: "https://gitlab.example.test/group/repo/-/merge_requests/456#note_7",
+    },
+  },
+  {
+    path: "mr reply",
+    argv: ["a1b2c3d4", "--mr", "group/repo!456", "-m", "ответ"],
+    sampleResult: {
+      discussion: "a1b2c3d400000000000000000000000000000000",
+      note_id: 8,
+      url: "https://gitlab.example.test/group/repo/-/merge_requests/456#note_8",
+    },
+  },
+  {
+    path: "mr edit",
+    argv: ["6", "--mr", "group/repo!456", "-m", "уточнил"],
+    sampleResult: { note_id: 6 },
+  },
+  {
+    path: "mr delete",
+    // С `--yes`: терминала у обхода нет, а проверить надо отказ
+    // конфигурации, а не отсутствие TTY.
+    argv: ["6", "--mr", "group/repo!456", "--yes"],
+    sampleResult: { note_id: 6 },
+  },
+  {
+    path: "mr resolve",
+    argv: ["a1b2c3d4", "--mr", "group/repo!456"],
+    sampleResult: {
+      discussion: "a1b2c3d400000000000000000000000000000000",
+      resolved: true,
+    },
+  },
+  {
+    path: "mr unresolve",
+    argv: ["a1b2c3d4", "--mr", "group/repo!456"],
+    sampleResult: {
+      discussion: "a1b2c3d400000000000000000000000000000000",
+      resolved: false,
+    },
+  },
   {
     path: "telegram log",
     // Ключей бота в env-файле обхода нет: вызов обязан отбиться на

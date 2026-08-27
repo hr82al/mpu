@@ -102,6 +102,53 @@ export async function gitlabGet(
 }
 
 /**
+ * Пишущий вызов: тело — **всегда** `application/x-www-form-urlencoded`,
+ * даже когда оно похоже на структуру.
+ *
+ * Это не вкусовщина и не наследие: position, переданный вложенным
+ * JSON-объектом, инсталляция GitLab молча игнорирует — комментарий
+ * создаётся, но БЕЗ привязки к строке, и вызов при этом успешен
+ * (`platform/gitlab-api.md`, «Известные отклонения», вердикт
+ * preserve).
+ */
+export async function gitlabSend(
+  access: GitlabAccess,
+  method: "POST" | "PUT" | "DELETE",
+  path: string,
+  form: Readonly<Record<string, string>> = {},
+  query: Readonly<Record<string, string>> = {},
+): Promise<unknown> {
+  const url = new URL(`${trimSlash(access.baseUrl)}/api/v4${path}`);
+  for (const [name, value] of Object.entries(query)) {
+    url.searchParams.set(name, value);
+  }
+  let response;
+  try {
+    response = await httpSend(url, {
+      method,
+      headers: {
+        "PRIVATE-TOKEN": access.token,
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams(form).toString(),
+      timeouts: TIMEOUTS,
+    });
+  } catch (err) {
+    if (err instanceof HttpCallError) {
+      throw failure(method, path, query, 0, err.message, { cause: err });
+    }
+    throw err;
+  }
+  if (response.status < 200 || response.status >= 300) {
+    throw failure(method, path, query, response.status, response.text);
+  }
+  // У DELETE тело пустое: «нечего разбирать» — штатный успех, а не
+  // отказ разбора.
+  return response.text.trim() === "" ? null : parseJson(response.text, path);
+}
+
+/**
  * Пагинированный GET: страницы по 100 до первой короче ста. Ровно сто
  * элементов означают «может быть ещё» — на активном MR тредов больше
  * двадцати, и остановка на первой странице теряла бы их молча.

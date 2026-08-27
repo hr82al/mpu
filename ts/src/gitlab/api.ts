@@ -11,17 +11,22 @@ import {
   asObject,
   asObjects,
   type GitlabAccess,
+  GitlabError,
   gitlabGet,
   gitlabGetAll,
+  gitlabSend,
   projectPath,
 } from "./http.ts";
 import {
   type ChangedFile,
   changedFileOf,
   type Discussion,
+  discussionOf,
   discussionsOf,
   type MergeRequest,
   mergeRequestOf,
+  type Note,
+  noteOf,
 } from "./model.ts";
 import type { MrAddress } from "./resolve.ts";
 
@@ -67,4 +72,108 @@ export async function discussions(
 ): Promise<readonly Discussion[]> {
   const raw = await gitlabGetAll(access, `${mrPath(address)}/discussions`);
   return discussionsOf(raw);
+}
+
+/**
+ * Новый тред MR. `form` несёт тело и — у инлайнового комментария —
+ * скобочные ключи позиции; собирает их `position.ts`, а не этот вызов:
+ * позиция строится по строке, найденной в диффе.
+ */
+export async function createDiscussion(
+  access: GitlabAccess,
+  address: MrAddress,
+  form: Readonly<Record<string, string>>,
+): Promise<Discussion> {
+  const path = `${mrPath(address)}/discussions`;
+  const body = await gitlabSend(access, "POST", path, form);
+  const created = discussionOf(asObject(body, path));
+  if (created === undefined) {
+    // Ответ без нот означал бы, что тред не создан: успех с пустотой
+    // здесь неотличим от промаха, ради которого и заведена спека.
+    throw new GitlabError(`gitlab POST ${path}: ответ без нот дискуссии`, 0);
+  }
+  return created;
+}
+
+/** Ответ в существующий тред: нота, а не тред. */
+export async function replyToDiscussion(
+  access: GitlabAccess,
+  address: MrAddress,
+  discussionId: string,
+  body: string,
+): Promise<Note> {
+  const path = `${mrPath(address)}/discussions/${discussionId}/notes`;
+  const answer = await gitlabSend(access, "POST", path, { body });
+  return noteOf(asObject(answer, path));
+}
+
+/** Замена тела ноты; чужую ноту отобьёт сам GitLab (403). */
+export async function updateNote(
+  access: GitlabAccess,
+  address: MrAddress,
+  noteId: number,
+  body: string,
+): Promise<Note> {
+  const path = `${mrPath(address)}/notes/${noteId}`;
+  const answer = await gitlabSend(access, "PUT", path, { body });
+  return noteOf(asObject(answer, path));
+}
+
+/** Удаление ноты; тело ответа пустое. */
+export async function deleteNote(
+  access: GitlabAccess,
+  address: MrAddress,
+  noteId: number,
+): Promise<void> {
+  await gitlabSend(access, "DELETE", `${mrPath(address)}/notes/${noteId}`);
+}
+
+/** Резолв треда: признак идёт query-параметром, а не телом (атом). */
+export async function setDiscussionResolved(
+  access: GitlabAccess,
+  address: MrAddress,
+  discussionId: string,
+  resolved: boolean,
+): Promise<void> {
+  await gitlabSend(
+    access,
+    "PUT",
+    `${mrPath(address)}/discussions/${discussionId}`,
+    {},
+    { resolved: String(resolved) },
+  );
+}
+
+/** Замена описания MR целиком; ответ — сам MR. */
+export async function updateDescription(
+  access: GitlabAccess,
+  address: MrAddress,
+  description: string,
+): Promise<MergeRequest> {
+  const path = `/projects/${projectPath(address.project)}/merge_requests/` +
+    `${address.iid}`;
+  const body = await gitlabSend(access, "PUT", path, { description });
+  return mergeRequestOf(asObject(body, path), address.project);
+}
+
+/** Создание MR; пустое описание не отправляется вовсе (спека). */
+export async function createMergeRequest(
+  access: GitlabAccess,
+  project: string,
+  fields: {
+    readonly source_branch: string;
+    readonly target_branch: string;
+    readonly title: string;
+    readonly description: string;
+  },
+): Promise<MergeRequest> {
+  const path = `/projects/${projectPath(project)}/merge_requests`;
+  const form: Record<string, string> = {
+    source_branch: fields.source_branch,
+    target_branch: fields.target_branch,
+    title: fields.title,
+  };
+  if (fields.description !== "") form.description = fields.description;
+  const body = await gitlabSend(access, "POST", path, form);
+  return mergeRequestOf(asObject(body, path), project);
 }

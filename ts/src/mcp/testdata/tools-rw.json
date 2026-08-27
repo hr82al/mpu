@@ -4719,6 +4719,523 @@
     }
   },
   {
+    "name": "mr_create",
+    "title": "mpu mr create",
+    "description": "Создать merge request из текущей ветки.\n\nСоздаёт merge request.\n\n--title и --target обязательны: заголовок и ветка, куда вливать.\n--source — исходная ветка; без флага берётся текущая ветка каталога, а\nв detached HEAD команда отказывается и просит указать её явно.\n--project group/repo; без флага берётся из git remote origin.\n\nОписание необязательно: -m/--message TEXT либо -F/--body-file PATH\n('-' — весь stdin, только в CLI). Без обоих MR создаётся с пустым\nописанием; оба сразу — ошибка ввода.\n\nПовторный вызов на ту же исходную ветку GitLab отклоняет: открытый MR\nу ветки может быть только один.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — нет --title или --target, оба флага описания; 1 —\ndetached HEAD без --source, git недоступен, отказ GitLab (в том числе\nуже существующий MR ветки).\n\nПримеры: mpu mr create --title 'feat: загрузчик' --target main;\nmpu mr create --title 'fix' --target main --source hotfix -F тело.md",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "заголовок MR"
+        },
+        "target": {
+          "type": "string",
+          "description": "ветка назначения, куда вливать"
+        },
+        "source": {
+          "description": "исходная ветка; без флага — текущая ветка каталога",
+          "type": "string"
+        },
+        "project": {
+          "description": "проект group/repo; без флага — из git remote origin",
+          "type": "string"
+        },
+        "message": {
+          "description": "описание MR; необязательно",
+          "type": "string"
+        },
+        "body-file": {
+          "description": "файл с описанием; '-' — весь stdin, только в CLI",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "iid": {
+          "type": "number"
+        },
+        "title": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "source_branch": {
+          "type": "string"
+        },
+        "target_branch": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "description": "web_url созданного MR"
+        }
+      },
+      "required": [
+        "project",
+        "iid",
+        "title",
+        "state",
+        "source_branch",
+        "target_branch",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "mr_describe",
+    "title": "mpu mr describe",
+    "description": "Заменить описание merge request'а целиком.\n\nЗаменяет описание MR целиком: новый текст встаёт вместо\nпрежнего, дописать к нему нельзя.\n\nТекст — ровно один из -m/--message TEXT и -F/--body-file PATH; '-'\nвместо пути означает весь stdin и работает только в CLI. Тело уходит\nдословно, поэтому markdown, ссылки и переводы строк сохраняются.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — сочетание флагов тела, пустое тело,\nнераспознанный --mr; 1 — отказ GitLab, ненайденный MR.\n\nПримеры: mpu mr describe -F описание.md;\nmpu mr describe --mr 456 -m 'Правит загрузчик WB.'",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        },
+        "message": {
+          "description": "новое описание",
+          "type": "string"
+        },
+        "body-file": {
+          "description": "файл с описанием; '-' — весь stdin, только в CLI",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "iid": {
+          "type": "number"
+        },
+        "url": {
+          "type": "string",
+          "description": "web_url MR из ответа GitLab"
+        }
+      },
+      "required": [
+        "project",
+        "iid",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "mr_comment",
+    "title": "mpu mr comment",
+    "description": "Инлайн-комментарий к строке диффа merge request'а.\n\nСоздаёт тред ревью, привязанный к строке диффа.\n\nFILE:LINE — путь и номер строки; разделитель — последнее двоеточие, так\nчто двоеточия в пути допустимы. LINE — номер в НОВОЙ версии файла, то\nесть в правой колонке диффа GitLab. Удалённой строки в новой версии\nнет: её старый номер задаётся вместе с --old.\n\nСтрока проверяется по диффу MR ДО отправки. Если её там нет, команда\nотказывается и называет диапазоны, которые можно комментировать: GitLab\nпринял бы такой комментарий молча, оставив его висеть без привязки к\nстроке.\n\nТекст — ровно один из -m/--message TEXT и -F/--body-file PATH; '-'\nвместо пути означает весь stdin и работает только в CLI. Оба флага\nсразу либо ни одного — ошибка ввода. Тело уходит дословно.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — форма FILE:LINE, сочетание флагов тела, пустое\nтело, нераспознанный --mr; 1 — отказ GitLab, файл не изменён в MR,\nстрока вне диффа, у MR нет коммитов.\n\nПримеры: mpu mr comment src/loader.ts:42 -m 'тут гонка';\nmpu mr comment src/loader.ts:17 --old -F замечание.md",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "string",
+          "description": "файл и строка: FILE:LINE, разделитель — последний ':'"
+        },
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        },
+        "message": {
+          "description": "текст комментария",
+          "type": "string"
+        },
+        "body-file": {
+          "description": "файл с текстом; '-' — весь stdin, только в CLI",
+          "type": "string"
+        },
+        "old": {
+          "default": false,
+          "description": "номер строки в старой версии файла (левая колонка диффа)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion": {
+          "type": "string",
+          "description": "id созданного треда"
+        },
+        "note_id": {
+          "type": "number",
+          "description": "номер созданной заметки"
+        },
+        "path": {
+          "type": "string",
+          "description": "файл, к которому привязан комментарий"
+        },
+        "line": {
+          "type": "number",
+          "description": "строка на выбранной стороне диффа"
+        },
+        "url": {
+          "type": "string",
+          "description": "ссылка на заметку: web_url MR + #note_<id>"
+        }
+      },
+      "required": [
+        "discussion",
+        "note_id",
+        "path",
+        "line",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "mr_note",
+    "title": "mpu mr note",
+    "description": "Общий комментарий к merge request'у, без привязки к строке.\n\nСоздаёт общий тред MR — тот, что виден в обсуждении, а не у\nстроки диффа. Для замечания к конкретной строке есть mpu mr comment.\n\nТекст — ровно один из -m/--message TEXT и -F/--body-file PATH; '-'\nвместо пути означает весь stdin и работает только в CLI. Оба флага\nсразу либо ни одного — ошибка ввода. Тело уходит дословно.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\nПовторный вызов с тем же текстом создаёт второй тред: дедупликации\nнет.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — сочетание флагов тела, пустое тело,\nнераспознанный --mr; 1 — отказ GitLab, ненайденный MR.\n\nПримеры: mpu mr note -m 'посмотрел, вопросов нет';\nmpu mr note --mr 456 -F разбор.md",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        },
+        "message": {
+          "description": "текст комментария",
+          "type": "string"
+        },
+        "body-file": {
+          "description": "файл с текстом; '-' — весь stdin, только в CLI",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion": {
+          "type": "string",
+          "description": "id созданного треда"
+        },
+        "note_id": {
+          "type": "number",
+          "description": "номер созданной заметки"
+        },
+        "url": {
+          "type": "string",
+          "description": "ссылка на заметку: web_url MR + #note_<id>"
+        }
+      },
+      "required": [
+        "discussion",
+        "note_id",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "mr_reply",
+    "title": "mpu mr reply",
+    "description": "Ответ в существующий тред ревью.\n\nДобавляет заметку в существующий тред — тот же разговор, а не\nновый тред рядом.\n\nDISCUSSION — полный id треда либо его префикс от 6 символов; восемь\nсимволов, которые печатает mpu mr comments, годятся. Префикс, подошедший\nнескольким тредам, — отказ с перечнем кандидатов. Системные треды\nGitLab списком не показываются и по префиксу недостижимы.\n\nТекст — ровно один из -m/--message TEXT и -F/--body-file PATH; '-'\nвместо пути означает весь stdin и работает только в CLI. Тело уходит\nдословно.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — DISCUSSION не передан, сочетание флагов тела,\nпустое тело, нераспознанный --mr; 1 — отказ GitLab, ненайденный или\nнеоднозначный тред.\n\nПримеры: mpu mr reply 953d395b -m 'поправил'; mpu mr reply 953d395b -F -",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion": {
+          "type": "string",
+          "description": "id треда или его префикс (≥6 символов)"
+        },
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        },
+        "message": {
+          "description": "текст ответа",
+          "type": "string"
+        },
+        "body-file": {
+          "description": "файл с текстом; '-' — весь stdin, только в CLI",
+          "type": "string"
+        }
+      },
+      "required": [
+        "discussion"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion": {
+          "type": "string",
+          "description": "id треда, в который ушёл ответ"
+        },
+        "note_id": {
+          "type": "number",
+          "description": "номер созданной заметки"
+        },
+        "url": {
+          "type": "string",
+          "description": "ссылка на заметку: web_url MR + #note_<id>"
+        }
+      },
+      "required": [
+        "discussion",
+        "note_id",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "mr_edit",
+    "title": "mpu mr edit",
+    "description": "Заменить текст своей заметки в merge request'е.\n\nЗаменяет тело заметки целиком — дописать к прежнему тексту\nнельзя, новый текст встаёт вместо старого.\n\nNOTE_ID — номер заметки, тот самый id из mpu mr comments --json и из\nссылки #note_<id>.\n\nТекст — ровно один из -m/--message TEXT и -F/--body-file PATH; '-'\nвместо пути означает весь stdin и работает только в CLI. Тело уходит\nдословно.\n\nПравится только своя заметка: чужую отобьёт сам GitLab.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — NOTE_ID не передан или не число, сочетание флагов\nтела, пустое тело, нераспознанный --mr; 1 — отказ GitLab, чужая или\nнесуществующая заметка.\n\nПримеры: mpu mr edit 42 -m 'уточнил'; mpu mr edit 42 -F правка.md",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "note": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "description": "номер заметки (id из mpu mr comments --json)"
+        },
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        },
+        "message": {
+          "description": "новый текст заметки",
+          "type": "string"
+        },
+        "body-file": {
+          "description": "файл с текстом; '-' — весь stdin, только в CLI",
+          "type": "string"
+        }
+      },
+      "required": [
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "note_id": {
+          "type": "number",
+          "description": "номер изменённой заметки"
+        }
+      },
+      "required": [
+        "note_id"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "mr_delete",
+    "title": "mpu mr delete",
+    "description": "Удалить свою заметку в merge request'е.\n\nУдаляет заметку. Действие необратимо: GitLab удалённую заметку\nне возвращает.\n\nNOTE_ID — номер заметки, тот самый id из mpu mr comments --json и из\nссылки #note_<id>.\n\nБез --yes команда спрашивает подтверждение в терминале. Если терминала\nнет (запуск из скрипта, cron, вызов тула), она отказывается и ничего не\nудаляет: молча считать «да» здесь нельзя. Для скриптов есть --yes — он\nпропускает вопрос.\n\nЧужую заметку удалить не получится: откажет сам GitLab.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — NOTE_ID не передан или не число, нераспознанный\n--mr; 1 — нет терминала без --yes, отказ человека, отказ GitLab,\nнесуществующая заметка.\n\nПримеры: mpu mr delete 42; mpu mr delete 42 --yes --mr 456",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "note": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
+          "description": "номер заметки (id из mpu mr comments --json)"
+        },
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        },
+        "yes": {
+          "default": false,
+          "description": "не спрашивать подтверждения (для скриптов)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "note_id": {
+          "type": "number",
+          "description": "номер удалённой заметки"
+        }
+      },
+      "required": [
+        "note_id"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "mr_resolve",
+    "title": "mpu mr resolve",
+    "description": "Закрыть тред ревью merge request'а.\n\nЗакрыть тред ревью.\n\nDISCUSSION — полный id треда либо его префикс от 6 символов; восемь\nсимволов из mpu mr comments годятся. Префикс, подошедший нескольким\nтредам, — отказ с перечнем.\n\nОбщий тред без резолвабельных заметок закрыть нельзя: команда\nотказывается до запроса и говорит об этом прямо. Повторный resolve\nуже закрытого треда запрос выполняет:\nсостояние заранее не проверяется.\n\nСистемные треды GitLab (смена описания, отметки о резолве) списком не\nпоказываются, и по их идентификатору команда отвечает «дискуссия не\nнайдена в этом MR».\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — DISCUSSION не передан, нераспознанный --mr; 1 —\nотказ GitLab, ненайденный или неоднозначный тред, нерезолвабельный тред.\n\nПримеры: mpu mr resolve 953d395b; mpu mr resolve 953d395b --mr 456",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion": {
+          "type": "string",
+          "description": "id треда или его префикс (≥6 символов)"
+        },
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        }
+      },
+      "required": [
+        "discussion"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion": {
+          "type": "string",
+          "description": "id треда"
+        },
+        "resolved": {
+          "type": "boolean",
+          "description": "новое состояние треда"
+        }
+      },
+      "required": [
+        "discussion",
+        "resolved"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
+    "name": "mr_unresolve",
+    "title": "mpu mr unresolve",
+    "description": "Переоткрыть тред ревью merge request'а.\n\nПереоткрыть тред ревью.\n\nDISCUSSION — полный id треда либо его префикс от 6 символов; восемь\nсимволов из mpu mr comments годятся. Префикс, подошедший нескольким\nтредам, — отказ с перечнем.\n\nОбщий тред без резолвабельных заметок закрыть нельзя: команда\nотказывается до запроса и говорит об этом прямо. Повторный unresolve\nуже открытого треда запрос выполняет:\nсостояние заранее не проверяется.\n\nСистемные треды GitLab (смена описания, отметки о резолве) списком не\nпоказываются, и по их идентификатору команда отвечает «дискуссия не\nнайдена в этом MR».\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — DISCUSSION не передан, нераспознанный --mr; 1 —\nотказ GitLab, ненайденный или неоднозначный тред, нерезолвабельный тред.\n\nПримеры: mpu mr unresolve 953d395b; mpu mr unresolve 953d395b --mr 456",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion": {
+          "type": "string",
+          "description": "id треда или его префикс (≥6 символов)"
+        },
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        }
+      },
+      "required": [
+        "discussion"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion": {
+          "type": "string",
+          "description": "id треда"
+        },
+        "resolved": {
+          "type": "boolean",
+          "description": "новое состояние треда"
+        }
+      },
+      "required": [
+        "discussion",
+        "resolved"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "sheet_set",
     "title": "mpu sheet set",
     "description": "Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nWrite values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nТри режима записи: `RANGE VALUE` — одна ячейка/формула; `--from FILE` — батч\n`range<TAB>value` построчно (`-` — stdin); JSON `[{\"range\":..,\"value\"|\"formula\":..}]`\nиз stdin — тогда единственный позиционный аргумент (если есть) трактуется как\nселектор таблицы. В JSON-режиме открытый одностолбцовый range (`Col<N>:Col`)\nавтозаполняется значением до последней занятой строки столбца.",
@@ -4825,320 +5342,6 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "name": "mr_create",
-    "title": "mpu mr create",
-    "description": "Создать MR (source → target).\n\nСоздать MR (source → target). Описание из -m/-F опционально (`-F -` — stdin).",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "title": {
-          "type": "string",
-          "description": "Заголовок MR"
-        },
-        "target": {
-          "type": "string",
-          "description": "Целевая ветка (target_branch)"
-        },
-        "source": {
-          "type": "string",
-          "description": "Исходная ветка; по умолчанию — текущая"
-        },
-        "project_opt": {
-          "type": "string",
-          "description": "group/repo; по умолчанию — из git remote origin cwd"
-        },
-        "message": {
-          "type": "string",
-          "description": "Текст комментария (markdown)"
-        },
-        "body_file": {
-          "type": "string",
-          "description": "Файл с телом; `-` — stdin"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "title",
-        "target"
-      ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "mr_describe",
-    "title": "mpu mr describe",
-    "description": "Заменить описание MR (тело из -m/-F; `-F -` — stdin).\n\nЗаменить описание MR (тело из -m/-F; `-F -` — stdin).",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        },
-        "message": {
-          "type": "string",
-          "description": "Текст комментария (markdown)"
-        },
-        "body_file": {
-          "type": "string",
-          "description": "Файл с телом; `-` — stdin"
-        }
-      },
-      "additionalProperties": false
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "mr_comment",
-    "title": "mpu mr comment",
-    "description": "Инлайн-комментарий под строкой диффа (новая дискуссия).\n\nИнлайн-комментарий под строкой диффа (новая дискуссия). Тело — ровно один из -m/-F.\n\nLINE — номер строки в файле новой версии (правая колонка диффа GitLab), не «строка\nдиффа» и не offset. Удалённая строка существует только в старой версии — указывать\nеё старый номер + `--old`. Строка не входит в дифф → ошибка со списком комментируемых\nдиапазонов, промахнуться молча нельзя.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "location": {
-          "type": "string",
-          "description": "Строка диффа, например src/a.js:64"
-        },
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        },
-        "message": {
-          "type": "string",
-          "description": "Текст комментария (markdown)"
-        },
-        "body_file": {
-          "type": "string",
-          "description": "Файл с телом; `-` — stdin"
-        },
-        "old": {
-          "type": "boolean",
-          "description": "LINE — номер старой стороны (удалённая строка)",
-          "default": false
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "location"
-      ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "mr_note",
-    "title": "mpu mr note",
-    "description": "Общий комментарий MR (тред без привязки к строке).\n\nОбщий комментарий MR (тред без привязки к строке). Тело — ровно один из -m/-F.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        },
-        "message": {
-          "type": "string",
-          "description": "Текст комментария (markdown)"
-        },
-        "body_file": {
-          "type": "string",
-          "description": "Файл с телом; `-` — stdin"
-        }
-      },
-      "additionalProperties": false
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "mr_reply",
-    "title": "mpu mr reply",
-    "description": "Ответ в существующий тред.\n\nОтвет в существующий тред. Тело — ровно один из -m/-F.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "discussion_ref": {
-          "type": "string",
-          "description": "id дискуссии или уникальный префикс (≥6)"
-        },
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        },
-        "message": {
-          "type": "string",
-          "description": "Текст комментария (markdown)"
-        },
-        "body_file": {
-          "type": "string",
-          "description": "Файл с телом; `-` — stdin"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "discussion_ref"
-      ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "mr_edit",
-    "title": "mpu mr edit",
-    "description": "Заменить тело своей ноты.\n\nЗаменить тело своей ноты. Новое тело — ровно один из -m/-F.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "note_id": {
-          "type": "integer",
-          "description": "id ноты (см. `comments --json`)"
-        },
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        },
-        "message": {
-          "type": "string",
-          "description": "Текст комментария (markdown)"
-        },
-        "body_file": {
-          "type": "string",
-          "description": "Файл с телом; `-` — stdin"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "note_id"
-      ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "mr_delete",
-    "title": "mpu mr delete",
-    "description": "Удалить свою ноту.\n\nУдалить свою ноту.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "note_id": {
-          "type": "integer",
-          "description": "id ноты (см. `comments --json`)"
-        },
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        },
-        "yes": {
-          "type": "boolean",
-          "description": "Удалить без подтверждения",
-          "default": false
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "note_id"
-      ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "mr_resolve",
-    "title": "mpu mr resolve",
-    "description": "Пометить тред решённым.\n\nПометить тред решённым.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "discussion_ref": {
-          "type": "string",
-          "description": "id дискуссии или уникальный префикс (≥6)"
-        },
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "discussion_ref"
-      ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "mr_unresolve",
-    "title": "mpu mr unresolve",
-    "description": "Снять отметку решённого.\n\nСнять отметку решённого.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "discussion_ref": {
-          "type": "string",
-          "description": "id дискуссии или уникальный префикс (≥6)"
-        },
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "discussion_ref"
-      ]
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
     }
   },
   {

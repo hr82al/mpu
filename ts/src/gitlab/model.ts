@@ -208,26 +208,36 @@ export function noteOf(raw: RawObject): Note {
 export function discussionsOf(raws: readonly RawObject[]): Discussion[] {
   const discussions: Discussion[] = [];
   for (const raw of raws) {
-    const id = text(raw, "id");
-    if (id === null) continue;
-    const notes = (Array.isArray(raw.notes) ? raw.notes : [])
-      .filter((note): note is RawObject =>
-        typeof note === "object" && note !== null && !Array.isArray(note)
-      )
-      .map(noteOf)
-      .filter((note) => !note.system);
-    if (notes.length === 0) continue;
-    const resolvable = notes.filter((note) => note.resolvable);
-    discussions.push({
-      id,
-      // Тред resolvable, если resolvable хотя бы одна нота; resolved —
-      // если такие ноты есть И все они resolved. У general-треда
-      // resolvable-нот нет вовсе, поэтому оба признака ложны.
-      resolvable: resolvable.length > 0,
-      resolved: resolvable.length > 0 && resolvable.every((n) => n.resolved),
-      position: notes.find((note) => note.position !== null)?.position ?? null,
-      notes,
-    });
+    const discussion = discussionOf(raw);
+    if (discussion !== undefined) discussions.push(discussion);
   }
   return discussions;
+}
+
+/**
+ * Один тред. Системные ноты отбрасываются, тред из одних системных
+ * даёт `undefined`: у списка он выпадает целиком, а у только что
+ * созданного треда такого исхода не бывает.
+ */
+export function discussionOf(raw: RawObject): Discussion | undefined {
+  const id = text(raw, "id");
+  if (id === null) return undefined;
+  const notes = (Array.isArray(raw.notes) ? raw.notes : [])
+    .filter((note): note is RawObject =>
+      typeof note === "object" && note !== null && !Array.isArray(note)
+    )
+    .map(noteOf)
+    .filter((note) => !note.system);
+  if (notes.length === 0) return undefined;
+  const resolvable = notes.filter((note) => note.resolvable);
+  return {
+    id,
+    // Тред resolvable, если resolvable хотя бы одна нота; resolved —
+    // если такие ноты есть И все они resolved. У general-треда
+    // resolvable-нот нет вовсе, поэтому оба признака ложны.
+    resolvable: resolvable.length > 0,
+    resolved: resolvable.length > 0 && resolvable.every((n) => n.resolved),
+    position: notes.find((note) => note.position !== null)?.position ?? null,
+    notes,
+  };
 }
