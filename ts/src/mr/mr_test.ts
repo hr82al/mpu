@@ -121,8 +121,10 @@ const CHANGES = [
   },
 ];
 
-const INLINE_PATH = "apps/ingest/src/ozonFetch/cabinetCooldown.store.spec.ts";
-const SECOND_PATH = "apps/ingest/src/ozonFetch/ozonRateGate.ts";
+// Оба треда голдена указывают на один файл: канал обезличен
+// (`docs/specs/fixtures/mr-read/comments.json`).
+const INLINE_PATH = "src/module/file1.ts";
+const SECOND_PATH = "src/module/file1.ts";
 
 /** Треды ровно в форме голдена `comments.json`. */
 const DISCUSSIONS = [
@@ -131,7 +133,7 @@ const DISCUSSIONS = [
     notes: [{
       id: 42175,
       body: "текст комментария",
-      author: { name: "Имя Фамилия", username: "pasternake" },
+      author: { name: "Имя Фамилия", username: "reviewer" },
       created_at: "2026-08-27T17:00:10.721Z",
       updated_at: "2026-08-27T17:00:10.721Z",
       system: false,
@@ -151,7 +153,7 @@ const DISCUSSIONS = [
     notes: [{
       id: 42176,
       body: "текст комментария",
-      author: { name: "Имя Фамилия", username: "pasternake" },
+      author: { name: "Имя Фамилия", username: "reviewer" },
       created_at: "2026-08-27T17:00:17.416Z",
       updated_at: "2026-08-27T17:00:17.416Z",
       system: false,
@@ -379,7 +381,7 @@ Deno.test("comments: JSON — эталон канала, таблица и markd
       assertStringIncludes(text, `## 953d395b · ${INLINE_PATH}:25 · open\n`);
       assertStringIncludes(
         text,
-        "**Имя Фамилия** (@pasternake) · note 42175 · 2026-08-27 17:00\n",
+        "**Имя Фамилия** (@reviewer) · note 42175 · 2026-08-27 17:00\n",
       );
       assertStringIncludes(text, "\n---\n");
     });
@@ -448,10 +450,15 @@ Deno.test("comments: общий тред отличается от инлайн�
     });
 
     await t.step("--file отбрасывает тред без позиции", async () => {
-      const byFile = await runComments({ ...args, file: "ozonRateGate" }, io, {
+      // Оба инлайновых треда голдена лежат на одном файле, общий — без
+      // позиции: под файловый фильтр он не подходит вовсе (спека).
+      const byFile = await runComments({ ...args, file: "file1.ts" }, io, {
         runGit: noGit,
       });
-      assertEquals(byFile.threads.map((t) => t.id.slice(0, 8)), ["d7f534bc"]);
+      assertEquals(byFile.threads.map((t) => t.id.slice(0, 8)), [
+        "953d395b",
+        "d7f534bc",
+      ]);
     });
 
     await t.step("--file находит тред по старому пути позиции", async () => {
@@ -492,7 +499,7 @@ Deno.test("comments: общий тред отличается от инлайн�
 
     await t.step("--author без учёта регистра, по первой ноте", async () => {
       const byAuthor = await runComments(
-        { ...args, author: "PASTERNAKE" },
+        { ...args, author: "REVIEWER" },
         io,
         {
           runGit: noGit,
@@ -573,7 +580,7 @@ Deno.test("show: тред по префиксу, полный id в заголо
         renderShow(thread, false),
         `discussion 953d395bb1c317b7317d46193627708c31882800 · ` +
           `${INLINE_PATH}:25 · open\n\n` +
-          "**Имя Фамилия** (@pasternake) · note 42175 · 2026-08-27 17:00\n" +
+          "**Имя Фамилия** (@reviewer) · note 42175 · 2026-08-27 17:00\n" +
           "текст комментария\n",
       );
     });

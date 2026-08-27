@@ -11,6 +11,7 @@ import {
   GitlabError,
   gitlabGet,
   gitlabGetAll,
+  TIMEOUTS,
 } from "./http.ts";
 import { startFakeGitlab } from "./testing.ts";
 
@@ -139,5 +140,26 @@ Deno.test("ответ не JSON и не той формы — отказ раз�
     );
   } finally {
     await stand.stop();
+  }
+});
+
+Deno.test("предел не отбивает ответ, над которым сервер думает", async () => {
+  // Десять секунд спеки отмеряют СОЕДИНЕНИЕ; наш транспорт умеет только
+  // «ждать заголовков», то есть время раздумья сервера. Приложив
+  // десятку к нему, мы падали бы там, где рабочая версия дотерпит:
+  // /discussions активного MR отвечает за шесть секунд.
+  assertEquals(TIMEOUTS.headersTimeoutMs, TIMEOUTS.totalTimeoutMs);
+  assertEquals(TIMEOUTS.totalTimeoutMs, 30_000);
+
+  const slow = startFakeGitlab(async () => {
+    // Задержка заголовков, а не тела: столько сервер «думает».
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    return Response.json({ iid: 1 });
+  });
+  try {
+    const body = await gitlabGet(accessTo(slow.baseUrl), "/projects/p");
+    assertEquals(asObject(body, "/x").iid, 1);
+  } finally {
+    await slow.stop();
   }
 });
