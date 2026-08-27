@@ -359,6 +359,31 @@ Deno.test("пометка «без записи аргументов»: текс
     assertEquals(marked, ["telegram log", "users add"]);
   });
 
+  await t.step("скрыв ввод, команда решила и про вывод", () => {
+    // Тип требует написать `logsOutput` явно, но `as` мимо типа
+    // проходит, а решение обязано быть записанным вместе с причиной.
+    // Поэтому обход реестра: состав закрыт, и у каждой команды здесь
+    // назван довод, по которому вывод скрыт либо оставлен.
+    const decided: readonly (readonly [string, boolean, string])[] = [
+      [
+        "telegram log",
+        true,
+        "в выводе только номер сообщения, ввода в нём нет",
+      ],
+      ["users add", false, "в режиме печати вывод и есть ввод"],
+    ];
+    assertEquals(
+      commands
+        .filter((command) => !command.logsArguments)
+        .map((command) => [command.path.join(" "), command.logsOutput]),
+      decided.map(([path, logsOutput]) => [path, logsOutput]),
+      "команда со скрытым вводом не названа здесь вместе с доводом",
+    );
+    for (const [, , why] of decided) {
+      assertEquals(why.length > 0, true, "довод обязателен");
+    }
+  });
+
   // Ключей бота в стенде нет: вызов падает конфигурацией, но запись
   // журнала создаётся и у падения — она и проверяется.
   const botless = () =>

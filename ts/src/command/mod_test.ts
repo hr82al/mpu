@@ -184,7 +184,14 @@ Deno.test("пометка «без записи аргументов» доез�
     run: () => Promise.resolve({ ok: true }),
     render: () => "",
   };
-  const marked = defineCommand({ ...declaration, logsArguments: false });
+  // Пометки журнала — пара: скрыв ввод, объявление обязано назвать и
+  // судьбу вывода (`JournalMarks`). У пробы вывод пуст, скрывать
+  // нечего.
+  const marked = defineCommand({
+    ...declaration,
+    logsArguments: false,
+    logsOutput: true,
+  });
   const plain = defineCommand(declaration);
 
   await t.step("помеченная: лишний позиционный — REDACTED", () => {

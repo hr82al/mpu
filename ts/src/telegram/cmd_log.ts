@@ -130,6 +130,11 @@ Exit: 0 — успех; 1 — конфигурация или отказ Bot API
 Пример: mpu telegram log 'разбор за среду' -f /tmp/разбор.md`,
   policy: "rw",
   logsArguments: false,
+  // Вывод пишется: в нём только номер отправленного сообщения, ввода в
+  // нём нет. Решение обязательное, а не умолчание (`JournalMarks`);
+  // `chat_id` из вывода убран как раз потому, что секция `out` уходит
+  // в журнал (`docs/specs/telegram-log.md`).
+  logsOutput: true,
   argsSchema,
   forms: {
     message: { positional: "one" },

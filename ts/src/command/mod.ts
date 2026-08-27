@@ -208,8 +208,45 @@ export interface EnvFile {
   readonly values: () => Readonly<Record<string, string>>;
 }
 
-/** Объявление команды: семь вещей контракта плюс формы записи в argv. */
-export interface CommandSpec<A, R> {
+/**
+ * Пометки журнала вызовов (`platform/invoke-log.md`, «Инварианты»).
+ *
+ * `logsOutput` — пишутся ли секции out/err записи. Умолчание — да;
+ * `false` у команд, чей вывод в журнале неуместен: сам журнал (`log`),
+ * поиск (`search`), `mcp token` с токеном доступа.
+ *
+ * `logsArguments` — пишутся ли аргументы. Умолчание — да; `false` там,
+ * где ввод персонален сам по себе: заметка `telegram log`, пароль
+ * `users add`.
+ *
+ * Скрыв ввод, команда обязана **решить** про вывод: тип требует
+ * написать `logsOutput` явно, любым из двух значений. Настоящее
+ * правило — «вывод, содержащий собственный ввод, скрывается вместе с
+ * ним», а его тип выразить не может: у `telegram log` в выводе номер
+ * сообщения и ввода в нём нет, у `users add` печать и есть ввод.
+ * Пара в типе — механизм, заставляющий этот вопрос задать: у
+ * `users add` пометка вывода была умолчанием, и пароль уезжал в
+ * журнал секцией `out` мимо маски аргументов.
+ */
+export type JournalMarks =
+  | {
+    readonly logsOutput?: boolean;
+    readonly logsArguments?: true;
+  }
+  | {
+    /** Обязателен и осознан: см. `JournalMarks`. */
+    readonly logsOutput: boolean;
+    readonly logsArguments: false;
+  };
+
+/**
+ * Объявление команды: семь вещей контракта, формы записи в argv и
+ * пометки журнала (`JournalMarks` — пара, а не два независимых флага).
+ */
+export type CommandSpec<A, R> = CommandDeclaration<A, R> & JournalMarks;
+
+/** Всё объявление, кроме пометок журнала: они — пара, а не поля. */
+interface CommandDeclaration<A, R> {
   /** Сегменты имени после `mpu`. */
   readonly path: readonly string[];
   /** Назначение: одна строка для индекса родителя. */
@@ -232,24 +269,6 @@ export interface CommandSpec<A, R> {
   /** Как входы записываются в argv; без записи вход читается как флаг. */
   readonly forms?: Readonly<Record<string, InputForm>>;
   readonly resultSchema: z.ZodType<R>;
-  /**
-   * Пишутся ли в запись журнала вызовов секции out/err этой команды
-   * (`platform/invoke-log.md`, «Инварианты»). Умолчание — да; `false`
-   * у команд, чей вывод в журнале неуместен: сам журнал (`log`), поиск
-   * (`search`) и `mcp token`, единственная поверхность, печатающая
-   * токен доступа (`platform/mcp-server.md`). Запись о вызове остаётся
-   * в любом случае — исчезают только секции вывода.
-   */
-  readonly logsOutput?: boolean;
-  /**
-   * Пишутся ли аргументы этой команды в запись журнала вызовов
-   * (`platform/invoke-log.md`, «Инварианты»). Умолчание — да; `false`
-   * у команды, чей аргумент персонален сам по себе, а не как значение
-   * опции с говорящим именем: `telegram log`
-   * (`docs/specs/telegram-log.md`). Запись о вызове остаётся, секции
-   * out/err не затрагиваются — исчезают только аргументы.
-   */
-  readonly logsArguments?: boolean;
   /**
    * Вызов, который команда не исполняет сама: он уходит маршрутом
    * `legacy` прежней реализации (`platform/registry.md`). Решается по
