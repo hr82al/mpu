@@ -175,7 +175,15 @@ git-подпроцессы при неполных `--mr`/`--project`/`--source`
 - `fixtures/mr-write/resolve.stdout` — `discussion <id>: resolved`;
 - `fixtures/mr-write/err-line-outside-diff.stderr` — комментарий на строку вне
   диффа: отказ называет допустимый диапазон new-строк и подсказывает `--old`;
-- `fixtures/mr-write/describe.stdout` — обновление описания MR.
+- `fixtures/mr-write/describe.stdout` — обновление описания MR;
+- `fixtures/mr-write/edit.stdout` — замена тела своей заметки: `note <n>
+  обновлена`;
+- `fixtures/mr-write/delete-no-tty.stderr` — удаление без терминала:
+  `нет TTY для подтверждения — добавь --yes`, exit 1;
+- `fixtures/mr-write/create.stdout` — попытка завести второй MR на ту же ветку:
+  GitLab отвечает 409 и текстом `Another open merge request already exists for
+  this source branch`. Happy path `create` на песочнице не снят: он требует
+  второй ветки, а форма ответа у него та же, что у `view`.
 
 Что песочница **опровергла** в прежней редакции этой спеки: `resolve` общего
 треда ошибкой не является. На 19.3.1 тред, созданный `mr note`, приходит с
