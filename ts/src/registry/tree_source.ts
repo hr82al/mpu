@@ -60,6 +60,7 @@ export const NOT_LEGACY: readonly string[] = [
   "kiten",
   "search",
   "mr",
+  "config",
   "help",
   "version",
 ];

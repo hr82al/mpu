@@ -37,6 +37,7 @@
     "backup-ozon-unit-proto",
     "backup-wb-unit-manual-data",
     "backup-wb-unit-proto",
+    "config",
     "data-loader",
     "init",
     "kiten checklist add",

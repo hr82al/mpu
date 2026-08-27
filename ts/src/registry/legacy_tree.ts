@@ -12,13 +12,8 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 15 команд верхнего уровня, ещё не переехавших на TS. */
+/** 14 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
-  {
-    path: ["config"],
-    summary:
-      "Показать или изменить конфиг mpu (хранится в SQLite; env-переменные приоритетнее).",
-  },
   {
     path: ["sheet"],
     summary: "Google Spreadsheets через Apps Script webapp (native Python).",

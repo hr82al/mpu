@@ -95,6 +95,7 @@ import {
   sheetLsCommand,
   sheetResolveCommand,
 } from "../sheet/mod.ts";
+import { configCommand } from "../config/cmd_config.ts";
 import {
   mrCommentCommand,
   mrCommentsCommand,
@@ -273,6 +274,10 @@ export const commands: readonly Command[] = [
   mrDeleteCommand,
   mrResolveCommand,
   mrUnresolveCommand,
+  // Локальные предпочтения (`platform/config.md`): хранилищем уже
+  // пользуются пять команд, а задать ключ до сих пор можно было только
+  // подпроцессом прежней реализации.
+  configCommand,
 ];
 
 /**

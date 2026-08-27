@@ -1306,6 +1306,23 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    // Локальная команда: обход зовёт её на чтение — хранилище в
+    // временном каталоге образца, записи в нём нет.
+    path: "config",
+    argv: ["sheet.default"],
+    sampleResult: {
+      entries: [{
+        key: "sheet.default",
+        value: null,
+        source: "default",
+        default: null,
+        description:
+          "Spreadsheet по умолчанию (ID/URL/alias/client_id/title) для `mpu sheet`",
+      }],
+      action: "get",
+    },
+  },
+  {
     path: "telegram log",
     // Ключей бота в env-файле обхода нет: вызов обязан отбиться на
     // конфигурации, до сети.

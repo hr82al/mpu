@@ -11,8 +11,8 @@ import { type CacheDb, type CommandIo, DomainError } from "../command/mod.ts";
 import { configValue } from "../config/mod.ts";
 import type { CacheSettings } from "./cache.ts";
 
-/** Умолчания int-ключей кэша. */
-const DEFAULTS: CacheSettings = {
+/** Умолчания int-ключей кэша; их же показывает `mpu config`. */
+export const DEFAULTS: CacheSettings = {
   tabTtlSeconds: 7200,
   maxTabBytes: 10_485_760,
   maxTotalMb: 500,

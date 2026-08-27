@@ -28,7 +28,8 @@
       "src/telegram/testdata",
       "src/claudehook/testdata",
       "src/sheet/testdata",
-      "src/mr/testdata"
+      "src/mr/testdata",
+      "src/config/testdata"
     ]
   },
   "imports": {
