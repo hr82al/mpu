@@ -798,7 +798,7 @@ Deno.test("comment: ответ без привязки — отказ, а не �
           { runGit: noGit },
         ),
       DomainError,
-      "GitLab не привязал его к строке",
+      "комментарий создан и остался в MR, но GitLab не привязал его к строке",
     );
   } finally {
     await stand.stop();

@@ -159,10 +159,13 @@ export async function runComment(
       // комментарий создан — и висит без привязки к строке. Проверка
       // по ОТВЕТУ, а не по тому, что мы отправили: между GET шапки и
       // POST'ом MR мог обновиться, и diff_refs устареть.
+      // «Остался» сказано намеренно: без этого слова оператор решит,
+      // что вызов не состоялся, повторит его — и в MR будет два
+      // непривязанных комментария вместо одного.
+      const short = discussion.id.slice(0, 8);
       throw new DomainError(
-        `комментарий создан, но GitLab не привязал его к строке ` +
-          `(discussion ${discussion.id.slice(0, 8)}); проверь mpu mr show ` +
-          discussion.id.slice(0, 8),
+        `комментарий создан и остался в MR, но GitLab не привязал его ` +
+          `к строке (discussion ${short}); проверь mpu mr show ${short}`,
       );
     }
     const noteId = discussion.notes[0].id;
