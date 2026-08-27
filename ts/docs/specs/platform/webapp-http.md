@@ -136,8 +136,10 @@ A1-диапазоны, whole-tab кэш листов и метаданных, ho
      учёта регистра, в порядке заголовка: та же логика, вид
      `title_fuzzy`.
 - Тексты ошибок резолва (дословно): ни один источник не задан →
-  `Spreadsheet не указан. Используй --spreadsheet/-s, export
-  MPU_SS=<id-or-name>, или установи `sheet.default` в config.`; цифры
+  `Spreadsheet не указан. Используй --spreadsheet/-s или установи
+  `sheet.default`: mpu config sheet.default <id-or-name>.` — совет
+  называет только работающие пути, переменной окружения среди них нет
+  (решение пользователя 2026-08-27); цифры
   без совпадений → `client_id=<число> не найден в sl_spreadsheets.
   Запусти `mpu sheet sync` чтобы обновить кэш.`; заголовок без
   совпадений → `Spreadsheet '<строка>' не найден ни как
@@ -161,13 +163,13 @@ A1-диапазоны, whole-tab кэш листов и метаданных, ho
 - `WB_PLUS_WEB_APP_URL` — обязателен для сетевых операций; не задан →
   ошибка до первого запроса: `WB_PLUS_WEB_APP_URL не задан. Добавь в
   <путь env-файла> или export в shell.` (путь — `platform/env-file.md`).
-- Цель: конфиг-ключ `sheet.default` (str). Int-ключи
-  (приоритет env → config → default — `platform/config.md`):
-  `sheet.cache.tab_ttl` (7200), `sheet.cache.max_tab_bytes` (10485760),
-  `sheet.cache.max_total_mb` (500); env-имена `MPU_SHEET_CACHE_TAB_TTL`
-  / `MPU_SHEET_CACHE_MAX_TAB_BYTES` / `MPU_SHEET_CACHE_MAX_TOTAL_MB`.
-  Нечисловое значение слоя → заметка в журнал вызовов, действует
-  следующий слой; команда продолжает работу.
+- Цель: конфиг-ключ `sheet.default` (str). Int-ключи (приоритет
+  config → default — `platform/config.md`): `sheet.cache.tab_ttl`
+  (7200), `sheet.cache.max_tab_bytes` (10485760),
+  `sheet.cache.max_total_mb` (500). Переменных окружения у этих ключей
+  нет (решение пользователя 2026-08-27). Нечисловое значение ключа →
+  заметка в журнал вызовов, действует умолчание; команда продолжает
+  работу.
 
 ## Инварианты
 
@@ -185,8 +187,8 @@ A1-диапазоны, whole-tab кэш листов и метаданных, ho
   лимит попыток (6). Last error: ` с пустым хвостом.
 - Таблицы кэша отсутствуют (свежая БД) → housekeeping и чтение кэша
   молча пропускаются; резолв по client_id/заголовку даёт «не найден».
-- `MPU_SHEET_CACHE_TAB_TTL=abc` (нечисловой env) → заметка в журнал,
-  действует config/default, команда работает.
+- `sheet.cache.tab_ttl=abc` (нечисловой конфиг-ключ) → заметка в
+  журнал, действует умолчание, команда работает.
 
 ## Golden-примеры
 
