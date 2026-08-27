@@ -1049,6 +1049,13 @@ const CASES: readonly CommandCase[] = [
     sampleResult: SAMPLE_WRAP,
   },
   {
+    // Пересчёт витрин: у обхода нет ни env-файла, ни кэша — вызов
+    // отбивается на резолве, до сети.
+    path: "process",
+    argv: ["777", "-p"],
+    sampleResult: SAMPLE_WRAP,
+  },
+  {
     // Считает локально: ни сети, ни io — обход проходит её целиком.
     path: "sun",
     argv: ["--date", "2026-08-27"],

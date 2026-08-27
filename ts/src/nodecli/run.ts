@@ -12,6 +12,8 @@ import { type CacheDb, type CommandIo, UsageError } from "../command/mod.ts";
 import { copyToClipboard } from "../clipboard/mod.ts";
 import {
   chooseTransport,
+  devCliContainer,
+  type ExecPlace,
   type HttpCall,
   type OpenChannel,
   runOverPortainer,
@@ -70,7 +72,9 @@ export const commonArgs = {
 };
 
 export const resultSchema = z.object({
-  server: z.string().describe("`sl-<N>`, на котором исполняется команда"),
+  server: z.string().describe(
+    "`sl-<N>` либо `dev:<N>` — где исполняется команда",
+  ),
   inner: z.string().describe("собранная inner-команда одной строкой"),
   /** Напечатанная строка команды; у режима выполнения — null. */
   printed: z.string().nullable(),
@@ -135,6 +139,12 @@ export interface WrapArgs {
   readonly clientId?: number;
   /** Печатать inner-команду служебной строкой перед доставкой. */
   readonly verbose?: boolean;
+  /**
+   * Номер сервера dev-ноды из селектора `dev:N`. Задан — вызов идёт
+   * мимо резолва и мимо фермы: у dev-ноды нет ни кэша клиентов, ни
+   * ssh-обёртки прода (`specs/portainer-wrappers.md`, ветка `dev:N`).
+   */
+  readonly devServerNumber?: number;
 }
 
 /** Что обёртка знает про свою inner-команду. */
@@ -171,6 +181,15 @@ export interface WrapContext {
   readonly candidates: readonly Candidate[];
   /** Значение из кандидатов, если оно там одно; иначе отказ ввода. */
   readonly pick: (flag: string, of: (c: Candidate) => string | null) => string;
+  /**
+   * То же значение, но неоднозначность — не отказ, а `undefined`:
+   * флаг просто не эмитится. Так ведёт себя `--spreadsheet-id` у
+   * `mpu process` (`specs/portainer-wrappers.md`): у него таблица —
+   * уточнение, а не адрес вызова.
+   */
+  readonly pickOrNone: (
+    of: (c: Candidate) => string | null,
+  ) => string | undefined;
 }
 
 /** Подстановки транспорта и буфера: живого контейнера в тестах нет. */
@@ -194,78 +213,96 @@ export async function runWrap(
     throw new UsageError("--local имеет смысл только вместе с --print");
   }
   let db: CacheDb | undefined;
-  // Кэш открывается первым же запросом резолва, а не заранее:
-  // неинициализированная БД не должна мешать путям, которым она не
-  // нужна (тот же приём, что в `sql/run.ts`).
+  // Кэш открывается первым же запросом резолва: ветке `dev:N` он не
+  // нужен вовсе, и неинициализированная БД не должна ей мешать.
   const cache: CacheReader = {
     query: (sql, ...params) => (db ??= io.openCacheDb()).query(sql, ...params),
   };
   try {
-    return await deliver(spec, args, io, options, cache);
+    const dev = args.devServerNumber;
+    const resolved = dev === undefined
+      ? resolveSelector({ cache, env: io.envFile }, args.selector, {
+        server: args.server,
+      })
+      // На dev-ноде прод-кэша клиентов нет, поэтому кандидатов нет тоже:
+      // client_id там называет человек.
+      : { selector: args.selector, serverNumber: dev, candidates: [] };
+    // Кандидаты ради `--client-id` спрашиваются только там, где флаг
+    // есть: у обёрток уровня сервера отказ auto-pick означал бы отказ
+    // вызова, которому client_id не нужен вовсе.
+    if (dev !== undefined && args.server !== undefined) {
+      // Молча проглотить нельзя: оператор назвал сервер, а вызов ушёл бы
+      // на другой — тот же довод, что у `--local` без `--print`.
+      throw new UsageError("--server не имеет смысла с селектором dev:N");
+    }
+    if (
+      dev !== undefined && spec.clientId !== "none" &&
+      args.clientId === undefined
+    ) {
+      throw new UsageError(
+        "dev-селектор требует --client-id: кандидатов на dev-ноде нет",
+      );
+    }
+    const clientId = spec.clientId === "none" ? undefined : args.clientId ??
+      Number(pickOf(resolved.candidates, "--client-id", clientIdOf));
+    const inner: InnerCommand = {
+      service: spec.service,
+      method: spec.method,
+      flags: [
+        ...(clientId === undefined || spec.clientId === "placed"
+          ? []
+          : [{ name: "client-id", value: clientId }]),
+        ...spec.flags({
+          // Только режиму `placed`: иначе обёртка в режиме `auto` могла
+          // бы выписать второй `--client-id` рядом с машинным.
+          clientId: spec.clientId === "placed" ? clientId : undefined,
+          candidates: resolved.candidates,
+          pick: (flag, of) => pickOf(resolved.candidates, flag, of),
+          pickOrNone: (of) => singleOf(resolved.candidates, of),
+        }),
+      ],
+    };
+    // Сборка идёт до всякой доставки: SafeToken обязан отказать раньше
+    // печати и раньше сети (инвариант спеки).
+    const text = innerText(inner);
+    const server = dev === undefined
+      ? `sl-${resolved.serverNumber}`
+      : `dev:${dev}`;
+    // `# inner: …` идёт служебным каналом (в CLI это stderr) во всех трёх
+    // режимах и обычный вывод не подменяет: в print-режимах строка команды
+    // всё равно уходит в stdout (спека семейства, «Особенности»).
+    if (args.verbose === true) io.progress(`# inner: ${text}`);
+
+    if (!args.print) {
+      return await execute(inner, { io, options, cache }, {
+        place: dev === undefined
+          ? { kind: "server", serverNumber: resolved.serverNumber }
+          : { kind: "dev", serverNumber: dev },
+        server,
+        text,
+      });
+    }
+    const container = dev === undefined
+      ? serverCliContainer(cache, resolved.serverNumber)
+      : devCliContainer(dev);
+    const printed = args.local
+      ? localForm(container, text)
+      // Форма dev-ветки — не ssh-обёртка, а вызов соседней команды: до
+      // dev-ноды ходит `mpu ssh`, и вставлять её ключ и хост здесь
+      // значило бы держать вторую копию его настройки.
+      : dev === undefined
+      ? sshForm(io, resolved.serverNumber, container, text)
+      : `mpu ssh dev:${dev} -- ${text}`;
+    // Недоступность буфера молчалива: строка уже напечатана, копирование
+    // — довесок (`platform/clipboard.md`).
+    await (options.copy ?? copyToClipboard)(printed);
+    return { server, inner: text, printed, output: "", exitCode: 0 };
   } finally {
-    // Закрытие детерминированное: у MCP-сервера процесс живёт долго, и
-    // незакрытый хэндл SQLite копился бы на каждый вызов тула
-    // (`ts/CLAUDE.md`, «Ошибки»).
+    // Кэш закрывается детерминированно: у MCP-сервера процесс живёт
+    // долго, и незакрытый хэндл SQLite копился бы на каждый вызов
+    // тула (`ts/CLAUDE.md`, «Ошибки»).
     db?.[Symbol.dispose]();
   }
-}
-
-/** Резолв, сборка inner-команды и доставка одним из трёх режимов. */
-async function deliver(
-  spec: WrapSpec,
-  args: WrapArgs,
-  io: WrapIo,
-  options: WrapOptions,
-  cache: CacheReader,
-): Promise<WrapResult> {
-  const resolved = resolveSelector({ cache, env: io.envFile }, args.selector, {
-    server: args.server,
-  });
-  // Кандидаты ради `--client-id` спрашиваются только там, где флаг
-  // есть: у обёрток уровня сервера отказ auto-pick означал бы отказ
-  // вызова, которому client_id не нужен вовсе.
-  const clientId = spec.clientId === "none" ? undefined : args.clientId ??
-    Number(pickOf(resolved.candidates, "--client-id", clientIdOf));
-  const inner: InnerCommand = {
-    service: spec.service,
-    method: spec.method,
-    flags: [
-      ...(clientId === undefined || spec.clientId === "placed"
-        ? []
-        : [{ name: "client-id", value: clientId }]),
-      ...spec.flags({
-        // Только режиму `placed`: иначе обёртка в режиме `auto` могла
-        // бы выписать второй `--client-id` рядом с машинным.
-        clientId: spec.clientId === "placed" ? clientId : undefined,
-        candidates: resolved.candidates,
-        pick: (flag, of) => pickOf(resolved.candidates, flag, of),
-      }),
-    ],
-  };
-  // Сборка идёт до всякой доставки: SafeToken обязан отказать раньше
-  // печати и раньше сети (инвариант спеки).
-  const text = innerText(inner);
-  const server = `sl-${resolved.serverNumber}`;
-  // `# inner: …` идёт служебным каналом (в CLI это stderr) во всех трёх
-  // режимах и обычный вывод не подменяет: в print-режимах строка команды
-  // всё равно уходит в stdout (спека семейства, «Особенности»).
-  if (args.verbose === true) io.progress(`# inner: ${text}`);
-
-  if (!args.print) {
-    return await execute(inner, { io, options, cache }, {
-      serverNumber: resolved.serverNumber,
-      server,
-      text,
-    });
-  }
-  const container = serverCliContainer(cache, resolved.serverNumber);
-  const printed = args.local
-    ? localForm(container, text)
-    : sshForm(io, resolved.serverNumber, container, text);
-  // Недоступность буфера молчалива: строка уже напечатана, копирование
-  // — довесок (`platform/clipboard.md`).
-  await (options.copy ?? copyToClipboard)(printed);
-  return { server, inner: text, printed, output: "", exitCode: 0 };
 }
 
 /** Выполнение inner-команды в контейнере сервера через транспорт. */
@@ -277,7 +314,7 @@ async function execute(
     readonly cache: CacheReader;
   },
   shown: {
-    readonly serverNumber: number;
+    readonly place: ExecPlace;
     readonly server: string;
     readonly text: string;
   },
@@ -293,7 +330,7 @@ async function execute(
   // после `mpu init`, и с пустым кэшем обёртка уходила бы по ssh там,
   // где `mpu ssh` того же сервера идёт Portainer'ом.
   const target = chooseTransport({
-    place: { kind: "server", serverNumber: shown.serverNumber },
+    place: shown.place,
     env: io.envFile,
     cache: deps.cache,
   });
@@ -358,10 +395,7 @@ function pickOf(
   flag: string,
   of: (candidate: Candidate) => string | null,
 ): string {
-  const values = new Set(
-    candidates.map(of).filter((item): item is string => item !== null),
-  );
-  const only = values.size === 1 ? [...values][0] : undefined;
+  const only = singleOf(candidates, of);
   if (only !== undefined) return only;
   const list = formatCandidates(candidates);
   throw new UsageError(
@@ -371,6 +405,17 @@ function pickOf(
     // `../selector/error.ts`).
     { details: list === "" ? undefined : list.slice(0, -1) },
   );
+}
+
+/** Единственное значение среди кандидатов; иначе `undefined`. */
+function singleOf(
+  candidates: readonly Candidate[],
+  of: (candidate: Candidate) => string | null,
+): string | undefined {
+  const values = new Set(
+    candidates.map(of).filter((item): item is string => item !== null),
+  );
+  return values.size === 1 ? [...values][0] : undefined;
 }
 
 function clientIdOf(candidate: Candidate): string | null {

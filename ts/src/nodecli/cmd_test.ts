@@ -27,6 +27,7 @@ import { migrationsCommands } from "./cmd_migrations.ts";
 import { ozonLoaderCommands } from "./cmd_ozon_loader.ts";
 import { ozonRecalculateExpensesCommand } from "./cmd_ozon_recalculate_expenses.ts";
 import { ozonSaveExpensesCommand } from "./cmd_ozon_save_expenses.ts";
+import { processCommand } from "./cmd_process.ts";
 import { ssDatasetsCommand } from "./cmd_ss_datasets.ts";
 import { ssLoadCommand } from "./cmd_ss_load.ts";
 import { ssUpdateCommand } from "./cmd_ss_update.ts";
@@ -1648,6 +1649,145 @@ Deno.test("auto-pick --spreadsheet-id: две таблицы — отказ с �
   });
 });
 
+/**
+ * `mpu process`: три правила списков, ветка `dev:N` и порядок флагов.
+ * Живого контейнера нет — печать и подставной ssh, как у соседей.
+ */
+
+/** Аргументы `process`: всё, кроме названного, — умолчания схемы. */
+function processArgs(overrides: Record<string, unknown> = {}) {
+  return {
+    selector: String(CLIENT.id),
+    server: undefined,
+    print: true,
+    local: false,
+    "client-id": undefined,
+    "spreadsheet-id": undefined,
+    "date-from": undefined,
+    "date-to": undefined,
+    domain: undefined,
+    dataset: undefined,
+    datasets: undefined,
+    modules: undefined,
+    "exclude-datasets": undefined,
+    "exclude-modules": undefined,
+    "with-tags": undefined,
+    "without-tags": undefined,
+    "no-deps": false,
+    forced: false,
+    "forced-update": false,
+    "dry-run": false,
+    sid: undefined,
+    "nm-ids": undefined,
+    skus: undefined,
+    logs: undefined,
+    verbose: false,
+    ...overrides,
+  };
+}
+
+Deno.test("process: печать, порядок флагов и три правила списков", async (t) => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+
+    await t.step("простой вызов — эталон канала", async () => {
+      const result = await processCommand.invokeInput(
+        processArgs({ dataset: "wb_unit" }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        processCommand.renderResult(result, ["777", "-p"]),
+        await golden("process-print.stdout.txt"),
+      );
+    });
+
+    await t.step("списки и флаги — эталон канала", async () => {
+      const result = await processCommand.invokeInput(
+        processArgs({
+          datasets: ["wb_unit"],
+          "with-tags": ["source"],
+          skus: [1, 2],
+          "nm-ids": "[7,8]",
+          forced: true,
+          "dry-run": true,
+          logs: "debug",
+        }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        processCommand.renderResult(result, ["777", "-p"]),
+        await golden("process-lists-print.stdout.txt"),
+      );
+    });
+
+    await t.step("единственное значение списка дублируется", async () => {
+      const one = await processCommand.invokeInput(
+        processArgs({ modules: ["wb"] }),
+        io,
+      ) as WrapResult;
+      const two = await processCommand.invokeInput(
+        processArgs({ modules: ["wb", "ozon"] }),
+        io,
+      ) as WrapResult;
+      // Дубль — обход схлопывания одиночного значения парсером sl-back
+      // (спека, `preserve`); у двух значений его нет.
+      assertStringIncludes(one.inner, "--modules wb wb");
+      assertStringIncludes(two.inner, "--modules wb ozon");
+    });
+
+    await t.step("--dataset дублированию не подвержен", async () => {
+      const result = await processCommand.invokeInput(
+        processArgs({ dataset: "wb_unit" }),
+        io,
+      ) as WrapResult;
+      assertStringIncludes(result.inner, "--dataset wb_unit");
+      assertEquals(result.inner.includes("wb_unit wb_unit"), false);
+      assertEquals(result.inner.endsWith("--dataset wb_unit"), true);
+    });
+
+    await t.step("--skus уходит одним скобочным токеном", async () => {
+      const result = await processCommand.invokeInput(
+        processArgs({ skus: [10, 20, 30] }),
+        io,
+      ) as WrapResult;
+      assertStringIncludes(result.inner, "--skus [10,20,30]");
+    });
+
+    await t.step("незаданные флаги следа не оставляют", async () => {
+      const result = await processCommand.invokeInput(
+        processArgs({ dataset: "wb_unit" }),
+        io,
+      ) as WrapResult;
+      for (const flag of ["--modules", "--forced", "--skus", "--logs"]) {
+        assertEquals(result.inner.includes(flag), false, `${flag} эмитился`);
+      }
+    });
+
+    await t.step(
+      "--spreadsheet-id из кандидатов, но не обязателен",
+      async () => {
+        // У клиента одна таблица — значение подставилось.
+        const result = await processCommand.invokeInput(
+          processArgs({ dataset: "wb_unit" }),
+          io,
+        ) as WrapResult;
+        assertStringIncludes(result.inner, `--spreadsheet-id ${CLIENT.sheet}`);
+      },
+    );
+
+    await t.step("-v печатает inner в служебный поток", async () => {
+      const { io: verboseIo, progress } = harness(db);
+      const result = await processCommand.invokeInput(
+        processArgs({ dataset: "wb_unit", verbose: true }),
+        verboseIo,
+      ) as WrapResult;
+      assertEquals(progress, [`# inner: ${result.inner}`]);
+      // И обычный вывод не подменяет: строка печати на месте.
+      assertEquals(result.printed !== null, true);
+    });
+  });
+});
+
 Deno.test("кэш-БД закрывается после вызова обёртки", async () => {
   // Настоящий хэндл, а не фейк: у MCP-сервера процесс живёт долго, и
   // незакрытая БД копилась бы на каждый вызов тула. Считается именно
@@ -1677,8 +1817,8 @@ Deno.test("кэш-БД закрывается после вызова обёрт
     // Селектор ни во что не резолвится: вызов отбивается, но кэш к
     // этому моменту уже открыт — и обязан закрыться.
     await assertRejects(() =>
-      cards.invokeInput(
-        loaderArgs({ selector: "нет-такого-клиента", print: true }),
+      processCommand.invokeInput(
+        processArgs({ selector: "нет-такого-клиента", dataset: "wb_unit" }),
         io,
       )
     );
@@ -1686,4 +1826,114 @@ Deno.test("кэш-БД закрывается после вызова обёрт
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
+});
+
+Deno.test("process: неоднозначная таблица — флаг не эмитится", async () => {
+  await withCache([], async (db) => {
+    db.execute(
+      "INSERT INTO sl_spreadsheets (ss_id, client_id, title, is_active," +
+        " server, synced_at) VALUES (?, ?, ?, 1, ?, ?)",
+      "SHEET456",
+      CLIENT.id,
+      "Вторая таблица",
+      CLIENT.server,
+      1_700_000_000,
+    );
+    const { io } = harness(db);
+    const result = await processCommand.invokeInput(
+      processArgs({ dataset: "wb_unit" }),
+      io,
+    ) as WrapResult;
+    // В отличие от `ss-load`, неоднозначность здесь не отказ: таблица
+    // у метода — уточнение, а не адрес вызова.
+    assertEquals(result.inner.includes("--spreadsheet-id"), false);
+    assertStringIncludes(result.inner, "--client-id 777 --dataset wb_unit");
+  });
+});
+
+Deno.test("process: ветка dev:N — своя печать и обязательный клиент", async (t) => {
+  await withCache([], async (db) => {
+    const { io } = harness(db);
+
+    await t.step("печать — вызов mpu ssh, а не ssh-обёртка", async () => {
+      const result = await processCommand.invokeInput(
+        processArgs({
+          selector: "dev:1",
+          "client-id": 777,
+          dataset: "wb_unit",
+        }),
+        io,
+      ) as WrapResult;
+      assertEquals(
+        processCommand.renderResult(result, ["dev:1", "-p"]),
+        await golden("process-dev-print.stdout.txt"),
+      );
+      assertEquals(result.server, "dev:1");
+    });
+
+    await t.step("без --client-id — ошибка ввода", async () => {
+      await assertRejects(
+        () =>
+          processCommand.invokeInput(
+            processArgs({ selector: "dev:1", dataset: "wb_unit" }),
+            io,
+          ),
+        UsageError,
+        "dev-селектор требует --client-id",
+      );
+    });
+
+    await t.step("кэш не открывается вовсе", async () => {
+      // Ленивый кэш и существует ради этой ветки: на dev-ноде прод-кэша
+      // клиентов нет, и открывать его незачем. Голый фейк падает на
+      // первом же обращении.
+      const bare = makeFakeIo({
+        envFile: {
+          get: () => undefined,
+          require: () => "",
+          set: () => Promise.resolve(),
+          values: () => ({}),
+        },
+      });
+      const result = await processCommand.invokeInput(
+        processArgs({
+          selector: "dev:1",
+          "client-id": 777,
+          dataset: "wb_unit",
+          print: true,
+        }),
+        { ...bare, progress: () => {} },
+      ) as WrapResult;
+      assertStringIncludes(result.printed ?? "", "mpu ssh dev:1 --");
+    });
+
+    await t.step("--server вместе с dev:N — ошибка ввода", async () => {
+      await assertRejects(
+        () =>
+          processCommand.invokeInput(
+            processArgs({
+              selector: "dev:1",
+              "client-id": 777,
+              server: "sl-3",
+              dataset: "wb_unit",
+            }),
+            io,
+          ),
+        UsageError,
+        "--server не имеет смысла с селектором dev:N",
+      );
+    });
+
+    await t.step("нечисловой хвост — ошибка ввода", async () => {
+      await assertRejects(
+        () =>
+          processCommand.invokeInput(
+            processArgs({ selector: "dev:main", "client-id": 777 }),
+            io,
+          ),
+        UsageError,
+        "dev-селектор ожидает номер sl-сервера",
+      );
+    });
+  });
 });

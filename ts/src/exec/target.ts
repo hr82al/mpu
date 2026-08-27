@@ -275,7 +275,7 @@ function accessOf(
 }
 
 /** Имя на dev-ноде: она вне фермы, кэша про неё нет (спека). */
-function devCliContainer(serverNumber: number): string {
+export function devCliContainer(serverNumber: number): string {
   return `mp-sl-${serverNumber}-cli`;
 }
 

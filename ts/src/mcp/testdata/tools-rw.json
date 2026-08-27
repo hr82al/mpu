@@ -827,7 +827,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -915,7 +915,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -1003,7 +1003,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -1091,7 +1091,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -1179,7 +1179,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -1267,7 +1267,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -1355,7 +1355,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -1443,7 +1443,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -1531,7 +1531,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -1628,7 +1628,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -1735,7 +1735,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -1842,7 +1842,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -1985,7 +1985,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -2084,7 +2084,7 @@
       "properties": {
         "server": {
           "type": "string",
-          "description": "`sl-<N>`, на котором исполняется команда"
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
         },
         "inner": {
           "type": "string",
@@ -4449,6 +4449,193 @@
         "database",
         "sql",
         "dry"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "process",
+    "title": "mpu process",
+    "description": "Пересчитать витрины клиента (dataProcessor.process).\n\nПо умолчанию ВЫПОЛНЯЕТСЯ в прод-контейнере клиента: запускает\n`node cli service:dataProcessor process`, стримит вывод, наследует код\nвыхода 1:1 и пересчитывает витрины клиента.\n\n-p/--print печатает команду и копирует её в буфер, не выполняя;\n--local вместе с -p — форма локального стенда. --dry-run к печати\nотношения не имеет: это флаг метода.\n\nSELECTOR — client_id, spreadsheet_id, заголовок либо dev:N.\n--client-id и --spreadsheet-id берутся из кандидатов, если значение там\nодно; неоднозначный --spreadsheet-id не ошибка — флаг не эмитится.\ndev:N идёт мимо резолва (кэша клиентов на dev-ноде нет): там\n--client-id обязателен, а печать даёт mpu ssh dev:N -- <inner>.\n\nТри правила списков: --datasets, --modules, --exclude-datasets,\n--exclude-modules, --with-tags, --without-tags уходят одним флагом со\nзначениями подряд, а единственное значение ДУБЛИРУЕТСЯ (--datasets\nwb_unit → --datasets wb_unit wb_unit); --skus повторяется у оператора и\nуходит одним токеном [1,2]; --nm-ids приходит строкой [7,8] как есть.\n--dataset — обычная строка.\n\n-v печатает # inner: <команда> в stderr во всех режимах. Значения\nпроверяются до сети: допустимы A-Za-z0-9 и _ . / : - , @ [ ].\n\nExit: код inner-команды; 0 при печати; 2 — ошибки ввода и резолва.\n\nПример: mpu process 777 --dataset wb_unit -p",
+    "annotations": {
+      "readOnlyHint": false
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "клиент: client_id, spreadsheet, title"
+        },
+        "server": {
+          "description": "override сервера: sl-N",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать команду и скопировать её в буфер обмена, не выполняя",
+          "type": "boolean"
+        },
+        "local": {
+          "default": false,
+          "description": "печатать форму локального стенда; только вместе с --print",
+          "type": "boolean"
+        },
+        "client-id": {
+          "description": "client_id; без него берётся из кандидатов селектора",
+          "type": "number"
+        },
+        "spreadsheet-id": {
+          "description": "id таблицы; без него берётся из кандидатов, если он там один",
+          "type": "string"
+        },
+        "date-from": {
+          "description": "начало периода, YYYY-MM-DD",
+          "type": "string"
+        },
+        "date-to": {
+          "description": "конец периода, YYYY-MM-DD",
+          "type": "string"
+        },
+        "domain": {
+          "description": "площадка: wb либо ozon",
+          "type": "string"
+        },
+        "dataset": {
+          "description": "один датасет; строка, не список",
+          "type": "string"
+        },
+        "datasets": {
+          "description": "датасеты; флаг повторяется",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "modules": {
+          "description": "модули; флаг повторяется",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exclude-datasets": {
+          "description": "датасеты-исключения; флаг повторяется",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exclude-modules": {
+          "description": "модули-исключения; флаг повторяется",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "with-tags": {
+          "description": "теги-фильтры; флаг повторяется",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "without-tags": {
+          "description": "теги-исключения; флаг повторяется",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "no-deps": {
+          "default": false,
+          "description": "не тянуть зависимости",
+          "type": "boolean"
+        },
+        "forced": {
+          "default": false,
+          "description": "пересчитать принудительно",
+          "type": "boolean"
+        },
+        "forced-update": {
+          "default": false,
+          "description": "принудительно обновить витрины",
+          "type": "boolean"
+        },
+        "dry-run": {
+          "default": false,
+          "description": "прогон метода вхолостую; это флаг метода, а не режим печати",
+          "type": "boolean"
+        },
+        "sid": {
+          "description": "WB-кабинет: sid",
+          "type": "string"
+        },
+        "nm-ids": {
+          "description": "товары WB одной строкой вида [1,2] без пробелов",
+          "type": "string"
+        },
+        "skus": {
+          "description": "SKU Ozon; флаг повторяется, уходит одним токеном [1,2]",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "logs": {
+          "description": "уровень логов пересчёта",
+          "type": "string"
+        },
+        "verbose": {
+          "default": false,
+          "description": "напечатать inner-команду в stderr перед доставкой",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "server": {
+          "type": "string",
+          "description": "`sl-<N>` либо `dev:<N>` — где исполняется команда"
+        },
+        "inner": {
+          "type": "string",
+          "description": "собранная inner-команда одной строкой"
+        },
+        "printed": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "type": "string"
+        },
+        "exitCode": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991,
+          "description": "код inner-команды, 1:1"
+        }
+      },
+      "required": [
+        "server",
+        "inner",
+        "printed",
+        "output",
+        "exitCode"
       ],
       "additionalProperties": false
     }

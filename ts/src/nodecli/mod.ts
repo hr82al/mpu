@@ -10,6 +10,7 @@ export { migrationsCommands } from "./cmd_migrations.ts";
 export { ozonLoaderCommands } from "./cmd_ozon_loader.ts";
 export { ozonRecalculateExpensesCommand } from "./cmd_ozon_recalculate_expenses.ts";
 export { ozonSaveExpensesCommand } from "./cmd_ozon_save_expenses.ts";
+export { processCommand } from "./cmd_process.ts";
 export { ssDatasetsCommand } from "./cmd_ss_datasets.ts";
 export { ssLoadCommand } from "./cmd_ss_load.ts";
 export { ssUpdateCommand } from "./cmd_ss_update.ts";

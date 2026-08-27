@@ -28,11 +28,15 @@ export {
   detachOverSsh,
   runOverSsh,
   type RunProcess,
+  // Настоящий подпроцесс: им же исполняется локальный `docker exec`
+  // у `mpu make-schema` (`docs/specs/make-schema.md`).
+  spawnProcess,
   type SshTarget,
 } from "./ssh.ts";
 export type { OpenChannel } from "./ws.ts";
 export {
   chooseTransport,
+  devCliContainer,
   type ExecPlace,
   type ExecTarget,
   type PortainerLookup,

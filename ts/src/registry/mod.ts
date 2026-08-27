@@ -31,6 +31,7 @@ import {
   ozonLoaderCommands,
   ozonRecalculateExpensesCommand,
   ozonSaveExpensesCommand,
+  processCommand,
   ssDatasetsCommand,
   ssLoadCommand,
   ssUpdateCommand,
@@ -224,6 +225,8 @@ export const commands: readonly Command[] = [
   confirmCommand,
   ...backupCommands,
   sunCommand,
+  // Пересчёт витрин: самая широкая обёртка семейства.
+  processCommand,
 ];
 
 /**

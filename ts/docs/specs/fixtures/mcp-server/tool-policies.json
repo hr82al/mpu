@@ -67,6 +67,7 @@
     "mr unresolve",
     "ozon-recalculate-expenses",
     "ozon-save-expenses",
+    "process",
     "run-js",
     "sheet batch-update",
     "sheet set",

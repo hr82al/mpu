@@ -1,0 +1,1 @@
+mpu ssh dev:1 -- node cli service:dataProcessor process --client-id 777 --dataset wb_unit
