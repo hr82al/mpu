@@ -27,7 +27,8 @@
       "src/kiten/testdata",
       "src/telegram/testdata",
       "src/claudehook/testdata",
-      "src/sheet/testdata"
+      "src/sheet/testdata",
+      "src/mr/testdata"
     ]
   },
   "imports": {

@@ -1148,6 +1148,75 @@ const CASES: readonly CommandCase[] = [
     argv: [],
     sampleResult: { id: 5000001 },
   },
+  // Семейство `mr`: ключа GLAB_TOKEN в env-файле обхода нет, поэтому
+  // каждый вызов обязан отбиться на конфигурации — до git и до сети.
+  {
+    path: "mr view",
+    argv: ["--mr", "group/repo!456"],
+    sampleResult: {
+      project: "group/repo",
+      iid: 456,
+      title: "заголовок",
+      state: "opened",
+      source_branch: "feat/branch",
+      target_branch: "main",
+      web_url: "https://gitlab.example.test/group/repo/-/merge_requests/456",
+      author_name: "Имя Фамилия",
+      author_username: "user",
+      description: "",
+      diff_refs: null,
+      project_id: 1001,
+      sha: null,
+      merge_commit_sha: null,
+      squash_commit_sha: null,
+    },
+  },
+  {
+    path: "mr files",
+    argv: ["--mr", "group/repo!456"],
+    sampleResult: {
+      files: [{
+        status: "M",
+        old_path: "src/file.ts",
+        new_path: "src/file.ts",
+        additions: 2,
+        deletions: 1,
+      }],
+    },
+  },
+  {
+    path: "mr diff",
+    argv: ["--mr", "group/repo!456"],
+    sampleResult: {
+      files: [{
+        old_path: "src/file.ts",
+        new_path: "src/file.ts",
+        diff: "@@ -1,1 +1,2 @@\n-раз\n+один\n+два\n",
+        new_file: false,
+        renamed_file: false,
+        deleted_file: false,
+      }],
+    },
+  },
+  {
+    path: "mr comments",
+    argv: ["--mr", "group/repo!456"],
+    sampleResult: {
+      headline: "MR group/repo!456 — заголовок [opened]",
+      threads: [],
+    },
+  },
+  {
+    path: "mr show",
+    argv: ["953d395b", "--mr", "group/repo!456"],
+    sampleResult: {
+      id: "953d395bb1c317b7317d46193627708c31882800",
+      resolvable: false,
+      resolved: false,
+      location: null,
+      notes: [],
+    },
+  },
   {
     path: "telegram log",
     // Ключей бота в env-файле обхода нет: вызов обязан отбиться на

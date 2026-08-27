@@ -95,6 +95,13 @@ import {
   sheetLsCommand,
   sheetResolveCommand,
 } from "../sheet/mod.ts";
+import {
+  mrCommentsCommand,
+  mrDiffCommand,
+  mrFilesCommand,
+  mrShowCommand,
+  mrViewCommand,
+} from "../mr/mod.ts";
 import { confirmCommand } from "../confirm/mod.ts";
 import { sunCommand } from "../sun/mod.ts";
 import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
@@ -240,6 +247,15 @@ export const commands: readonly Command[] = [
   sheetGetCommand,
   sheetLsCommand,
   sheetResolveCommand,
+  // Чтение merge request'ов: пять подкоманд семейства `mr`
+  // (`docs/specs/mr-read.md`). Пишущие подкоманды остаются маршрутом
+  // `legacy`, поэтому имени `mr` нет в `NOT_LEGACY`: группа смешанная,
+  // и голый `mpu mr` по-прежнему отдаёт подпроцесс.
+  mrViewCommand,
+  mrFilesCommand,
+  mrDiffCommand,
+  mrCommentsCommand,
+  mrShowCommand,
 ];
 
 /**

@@ -2628,6 +2628,680 @@
     }
   },
   {
+    "name": "mr_view",
+    "title": "mpu mr view",
+    "description": "Шапка merge request'а: заголовок, автор, ветки, описание.\n\nПечатает четыре строки — заголовок, автор, ветки, адрес — и\nописание MR под ними.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid. Без флага\nproject берётся из git remote origin текущего каталога, а iid — у\nединственного открытого MR текущей ветки; ноль или несколько открытых\nMR — отказ с перечнем.\n\n--json печатает объект MR целиком: project, iid, title, state,\nsource_branch, target_branch, web_url, author_name, author_username,\ndescription, diff_refs, project_id, sha, merge_commit_sha,\nsquash_commit_sha. diff_refs — три SHA диффа либо null.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — нераспознанный --mr; 1 — отказ GitLab, ненайденный\nMR, неопределимая ветка.\n\nПримеры: mpu mr view; mpu mr view --mr 'group/repo!456' --json",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        },
+        "json": {
+          "default": false,
+          "description": "объект MR целиком",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "iid": {
+          "type": "number"
+        },
+        "title": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "source_branch": {
+          "type": "string"
+        },
+        "target_branch": {
+          "type": "string"
+        },
+        "web_url": {
+          "type": "string"
+        },
+        "author_name": {
+          "type": "string"
+        },
+        "author_username": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "diff_refs": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "base_sha": {
+                  "type": "string"
+                },
+                "start_sha": {
+                  "type": "string"
+                },
+                "head_sha": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "base_sha",
+                "start_sha",
+                "head_sha"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "project_id": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "merge_commit_sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "squash_commit_sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "project",
+        "iid",
+        "title",
+        "state",
+        "source_branch",
+        "target_branch",
+        "web_url",
+        "author_name",
+        "author_username",
+        "description",
+        "diff_refs",
+        "project_id",
+        "sha",
+        "merge_commit_sha",
+        "squash_commit_sha"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mr_files",
+    "title": "mpu mr files",
+    "description": "Изменённые файлы merge request'а со счётчиками строк.\n\nТаблица изменённых файлов: ST — статус (A новый, D удалённый,\nR переименованный, M изменённый), затем добавленные и удалённые строки\nи путь файла. Переименование показано как 'старый → новый'. Последняя\nстрока — сумма по всем файлам.\n\nСчётчики строк считаются из самого диффа: в ответе GitLab их нет.\nУ binary-файла дифф пуст, поэтому у него +0 / -0.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\n--json печатает массив объектов {status, old_path, new_path, additions,\ndeletions} в том же порядке, что и таблица.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех, в том числе у MR без изменённых файлов; 2 —\nнераспознанный --mr; 1 — отказ GitLab, ненайденный MR.\n\nПримеры: mpu mr files; mpu mr files --mr 456 --json",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        },
+        "json": {
+          "default": false,
+          "description": "массив объектов JSON",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "A",
+                  "D",
+                  "R",
+                  "M"
+                ]
+              },
+              "old_path": {
+                "type": "string"
+              },
+              "new_path": {
+                "type": "string"
+              },
+              "additions": {
+                "type": "number"
+              },
+              "deletions": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "status",
+              "old_path",
+              "new_path",
+              "additions",
+              "deletions"
+            ],
+            "additionalProperties": false
+          },
+          "description": "файлы в порядке ответа API"
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mr_diff",
+    "title": "mpu mr diff",
+    "description": "Unified diff merge request'а блоками по файлам.\n\nПечатает дифф MR блоками: заголовок 'diff --git a/… b/…' и тело\nдиффа под ним, блоки разделены пустой строкой. У нового, удалённого и\nпереименованного файла заголовок несёт пометку [new file], [deleted\nfile] или [renamed]. Binary-файл печатается как '(binary / без\nтекстового диффа)'.\n\n--file SUBSTR оставляет только файлы, чей новый ИЛИ старый путь\nсодержит подстроку; переименованный файл находится по любому из имён.\nНи одного совпадения — отказ, а не пустой вывод.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\n--json печатает массив объектов {old_path, new_path, diff, new_file,\nrenamed_file, deleted_file} — уже после фильтра.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех, в том числе у MR без изменённых файлов; 2 —\nнераспознанный --mr; 1 — отказ GitLab, ненайденный MR, пустой результат\nфильтра --file.\n\nПримеры: mpu mr diff; mpu mr diff --file loader.ts --mr 456",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        },
+        "file": {
+          "description": "подстрока пути: только файлы, чей старый или новый путь её содержит",
+          "type": "string"
+        },
+        "json": {
+          "default": false,
+          "description": "массив объектов JSON",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "old_path": {
+                "type": "string"
+              },
+              "new_path": {
+                "type": "string"
+              },
+              "diff": {
+                "type": "string"
+              },
+              "new_file": {
+                "type": "boolean"
+              },
+              "renamed_file": {
+                "type": "boolean"
+              },
+              "deleted_file": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "old_path",
+              "new_path",
+              "diff",
+              "new_file",
+              "renamed_file",
+              "deleted_file"
+            ],
+            "additionalProperties": false
+          },
+          "description": "файлы после фильтра, в порядке ответа"
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mr_comments",
+    "title": "mpu mr comments",
+    "description": "Треды ревью merge request'а: таблица, JSON или markdown.\n\nПечатает треды ревью MR таблицей: первые 8 символов id, признак\nрезолва (✓ закрыт, · открыт, пусто — общий тред), позиция в диффе,\nавтор первой ноты, число нот и начало первой ноты. Последняя строка —\nсколько всего тредов и сколько из них открыто.\n\nСистемные записи GitLab («изменил заголовок», «назначил ревьюера») не\nпоказываются ни в одной форме.\n\nФильтры складываются:\n--unresolved — только незакрытые треды;\n--file SUBSTR — только треды, чья позиция указывает на файл с такой\nподстрокой в пути; тред без позиции при этом фильтре отпадает;\n--author SUBSTR — подстрока в имени или username автора первой ноты,\nбез учёта регистра.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\n--json печатает массив тредов {id, resolvable, resolved, location,\nnotes}; --md печатает markdown с телами нот целиком. Вместе они не\nзадаются: это ошибка ввода.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех, в том числе когда после фильтров не осталось тредов;\n2 — нераспознанный --mr, --json вместе с --md; 1 — отказ GitLab,\nненайденный MR.\n\nПримеры: mpu mr comments --unresolved; mpu mr comments --mr 456 --md",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        },
+        "unresolved": {
+          "default": false,
+          "description": "только незакрытые треды (resolvable и не resolved)",
+          "type": "boolean"
+        },
+        "file": {
+          "description": "подстрока пути позиции треда",
+          "type": "string"
+        },
+        "author": {
+          "description": "подстрока автора первой ноты, без учёта регистра",
+          "type": "string"
+        },
+        "json": {
+          "default": false,
+          "description": "массив тредов JSON",
+          "type": "boolean"
+        },
+        "md": {
+          "default": false,
+          "description": "markdown: тред за тредом",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "headline": {
+          "type": "string",
+          "description": "строка заголовка MR над таблицей"
+        },
+        "threads": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "resolvable": {
+                "type": "boolean"
+              },
+              "resolved": {
+                "type": "boolean"
+              },
+              "location": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "notes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number"
+                    },
+                    "body": {
+                      "type": "string"
+                    },
+                    "author_name": {
+                      "type": "string"
+                    },
+                    "author_username": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    },
+                    "system": {
+                      "type": "boolean"
+                    },
+                    "resolvable": {
+                      "type": "boolean"
+                    },
+                    "resolved": {
+                      "type": "boolean"
+                    },
+                    "type": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "position": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "old_path": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "new_path": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "old_line": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "new_line": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "old_path",
+                            "new_path",
+                            "old_line",
+                            "new_line"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "body",
+                    "author_name",
+                    "author_username",
+                    "created_at",
+                    "updated_at",
+                    "system",
+                    "resolvable",
+                    "resolved",
+                    "type",
+                    "position"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "id",
+              "resolvable",
+              "resolved",
+              "location",
+              "notes"
+            ],
+            "additionalProperties": false
+          },
+          "description": "треды после фильтров"
+        }
+      },
+      "required": [
+        "headline",
+        "threads"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mr_show",
+    "title": "mpu mr show",
+    "description": "Один тред ревью целиком: все ноты по порядку.\n\nПечатает тред целиком: заголовок с полным id, позицией и\nсостоянием, затем каждую ноту — кто, когда и текст.\n\nDISCUSSION — полный id треда либо его префикс от 6 символов (короче —\nотказ). Префикс, подошедший нескольким тредам, тоже отказ, с перечнем\nкандидатов: показать «какой-нибудь» из них хуже, чем не показать\nничего. Восемь символов, которые печатает mpu mr comments, годятся.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —\nоткрытый MR текущей ветки.\n\n--json печатает объект треда {id, resolvable, resolved, location,\nnotes} — той же формы, что элемент массива mpu mr comments --json.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — DISCUSSION не передан, нераспознанный --mr; 1 —\nотказ GitLab, ненайденный MR, короткий/ненайденный/неоднозначный\nселектор треда.\n\nПримеры: mpu mr show 953d395b; mpu mr show 953d395b --mr 456 --json",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "discussion": {
+          "type": "string",
+          "description": "id треда или его префикс (≥6 символов)"
+        },
+        "mr": {
+          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+          "type": "string"
+        },
+        "json": {
+          "default": false,
+          "description": "объект треда JSON",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "discussion"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "resolvable": {
+          "type": "boolean"
+        },
+        "resolved": {
+          "type": "boolean"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "number"
+              },
+              "body": {
+                "type": "string"
+              },
+              "author_name": {
+                "type": "string"
+              },
+              "author_username": {
+                "type": "string"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              },
+              "system": {
+                "type": "boolean"
+              },
+              "resolvable": {
+                "type": "boolean"
+              },
+              "resolved": {
+                "type": "boolean"
+              },
+              "type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "position": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "old_path": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "new_path": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "old_line": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "new_line": {
+                        "anyOf": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "old_path",
+                      "new_path",
+                      "old_line",
+                      "new_line"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "body",
+              "author_name",
+              "author_username",
+              "created_at",
+              "updated_at",
+              "system",
+              "resolvable",
+              "resolved",
+              "type",
+              "position"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "id",
+        "resolvable",
+        "resolved",
+        "location",
+        "notes"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "sheet_batch_get",
     "title": "mpu sheet batch-get",
     "description": "Пакетное ЧТЕНИЕ таблицы: значения + структура листа.\n\nПакетное ЧТЕНИЕ таблицы: значения + структура листа. Тот же язык диапазонов.\n\nДва глагола: get — значения ячеек; read — структура листа (объединения, правила, защиты…).\nНесколько инструкций — через ; или новой строкой. Ответ — JSON.\n\nGET — ЗНАЧЕНИЯ ЯЧЕЕК\n  get 'Чек-лист'!A1:F             значения как на экране\n  get A1:F formula                формулы (а не результат)\n  get A1:F unformatted            «сырые» числа без форматирования\n  get H2:H cols                   развернуть по столбцам (по умолчанию по строкам)\n  get D2:D datestr                даты строкой (по умолч. число-serial)\n  слова-модификаторы: values | formula | unformatted | formatted ·\n                      rows | cols · serial | datestr\n  (лист по умолчанию — из -n/--sheet; иначе пиши 'Лист'!A1)\n\nREAD — СТРУКТУРА ЛИСТА\n  read 'Чек-лист' merges cond protected     по одному листу\n  read named                                имена диапазонов всей таблицы\n  аспекты: merges · cond (условный формат) · protected (защиты) · charts · banding ·\n           filters · named · props (свойства листа) · meta · dims\n\nВАЖНО: оформление КОНКРЕТНЫХ ячеек (цвет/шрифт/заметка/проверка ввода) сейчас прочитать\nнельзя — webApp не отдаёт по-ячеечные данные. Эти слова дадут понятную ошибку.\n\n[справка усечена: отброшено 351 байт]",
@@ -2663,150 +3337,6 @@
         }
       },
       "additionalProperties": false
-    }
-  },
-  {
-    "name": "mr_view",
-    "title": "mpu mr view",
-    "description": "Шапка MR: заголовок, автор, ветки, состояние, описание.\n\nШапка MR: заголовок, автор, ветки, состояние, описание.",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "mr_files",
-    "title": "mpu mr files",
-    "description": "Изменённые файлы MR: статус (A/D/R/M) и счётчик строк (+N/-M).\n\nИзменённые файлы MR: статус (A/D/R/M) и счётчик строк (+N/-M).",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "mr_diff",
-    "title": "mpu mr diff",
-    "description": "Unified-diff MR: все файлы или только подходящие под `--file SUBSTR`.\n\nUnified-diff MR: все файлы или только подходящие под `--file SUBSTR`.",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        },
-        "file_filter": {
-          "type": "string",
-          "description": "Substring-фильтр по пути файла"
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON (машинный, список FileDiff)",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "mr_comments",
-    "title": "mpu mr comments",
-    "description": "Треды ревью MR: таблица; `--md` — тела целиком; `--json` — машинно.\n\nТреды ревью MR: таблица; `--md` — тела целиком; `--json` — машинно.",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        },
-        "unresolved": {
-          "type": "boolean",
-          "description": "Только нерезолвленные треды",
-          "default": false
-        },
-        "file_filter": {
-          "type": "string",
-          "description": "Substring-фильтр по пути файла"
-        },
-        "author_filter": {
-          "type": "string",
-          "description": "Substring-фильтр по автору первой ноты"
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
-        },
-        "out_md": {
-          "type": "boolean",
-          "description": "Полные тела тредов одним markdown-выводом",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "mr_show",
-    "title": "mpu mr show",
-    "description": "Один тред целиком — все ноты verbatim.\n\nОдин тред целиком — все ноты verbatim.",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "discussion_ref": {
-          "type": "string",
-          "description": "id дискуссии или уникальный префикс (≥6)"
-        },
-        "mr_ref": {
-          "type": "string",
-          "description": "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR текущей ветки"
-        },
-        "out_json": {
-          "type": "boolean",
-          "description": "JSON-вывод вместо таблицы",
-          "default": false
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "discussion_ref"
-      ]
     }
   }
 ]
