@@ -99,14 +99,20 @@ heartbeat-строка с прошедшим временем, по таблиц
    - `users`: email `client_<id>@local.host`, пароль `123123` в виде
      bcrypt-хэша (cost 10; годится фиксированный
      `$2b$10$cxMCZzMdmIdDRmb18yA2w.JzCc.JPHz8oRp/660kaEDh/xrkSsCnS`),
-     `is_email_verified = true`;
-   - `workspaces`: `id = <client_id>`, владелец — этот user,
-     `marketplace = 'Wildberries'`, `is_active = true`;
+     `name = client_<id>`, `is_email_verified = true`;
+   - `workspaces`: `id = <client_id>`, `name` и `slug` — `client-<id>`,
+     владелец — этот user, `marketplace = 'Wildberries'`. Колонки
+     `is_active` в таблице нет; `slug` уникален и при повторном прогоне
+     не переписывается;
    - на каждый sid: `wb_cabinets` (`status = 'ACTIVE'`,
      `marketplace = 'wildberries'`), `workspaces_wb_cabinets`
      (`DO NOTHING`), `subscriptions` (`is_paid = true`,
      `status = 'ACTIVE'`, `paid_from = CURRENT_DATE`, `paid_to = +365
      дней`, `sku_active_limit = 100000`, `is_active = true`);
+   - `updated_at` проставляется явно везде, где колонка есть (`users`,
+     `workspaces`, `subscriptions`): она NOT NULL и умолчания не имеет.
+     Значения перечислений приводятся к своему типу явно — параметр
+     приходит текстом;
    - затем сброс кэша sw-back: `docker exec redis-dev redis-cli -a
      some-redis-password FLUSHALL` (best-effort внутри best-effort).
 
@@ -193,8 +199,40 @@ Env-файл (`platform/env-file.md`):
 правки `name` ожидается тот же упор в `workspaces`.
 
 Копия клиента в обоих случаях цела: шаг не влияет ни на схему, ни на строки в
-общих таблицах. Приведение формы вставки к схеме воркспейсов — отдельная
-работа.
+общих таблицах.
+
+**Форма всех пяти таблиц шага, снятая со стенда 2026-08-28** — эталон «как
+должно быть» задаёт она, а не рабочая версия, которая шаг тоже не проходит.
+Обязательные колонки без умолчания перечислены полностью; порядок вставки
+задан внешними ключами: `users` → `workspaces` → `wb_cabinets` →
+`workspaces_wb_cabinets` → `subscriptions`.
+
+- `users` — ключ `id` (последовательность); NOT NULL без умолчания: `email`,
+  `password`, `name`, `updated_at`. Умолчания есть у `created_at`,
+  `is_email_verified`, `password_changed_at`. Уникальный индекс по `email`
+  (ограничения нет, но `ON CONFLICT (email)` он обслуживает).
+- `workspaces` — ключ `id`; NOT NULL без умолчания: `name`, `slug`,
+  `updated_at`, `owner_id`. **`slug` уникален**, а колонки `is_active` в
+  таблице нет вовсе; `marketplace` есть и допускает NULL.
+- `wb_cabinets` — ключ `sid` (uuid); NOT NULL без умолчания: `name`,
+  `trade_mark`, `workspace_id`. `status` — перечисление `WbTokenStatus`
+  (`ACTIVE`, `EXPIRED`, `INVALID`, `REVOKED`, `UNKNOWN`) с умолчанием
+  `UNKNOWN`; `marketplace` допускает NULL. Колонки `updated_at` нет.
+- `workspaces_wb_cabinets` — только `workspace_id` и `sid`, оба в составном
+  ключе.
+- `subscriptions` — ключ `sid`, он же внешний ключ на `wb_cabinets`;
+  **колонки `workspace_id` нет** — подписка привязана к кабинету, не к
+  рабочему пространству. NOT NULL без умолчания: `updated_at`. Умолчания есть
+  у `is_paid`, `sku_active_limit`, `is_active`, `status` (перечисление
+  `SubscriptionStatus`: `INACTIVE`, `ACTIVE`, `MANUAL_DISABLED`, `EXPIRED`,
+  `TRIAL`, `TRIAL_EXPIRED`, умолчание `INACTIVE`); `paid_from`, `paid_to`,
+  `updated_by` допускают NULL.
+
+Отсюда два обязательства, которых замер на одной `users` дать не мог. Первое:
+`updated_at` объявлена NOT NULL **без умолчания** во всех трёх таблицах, где
+она есть, — значение проставляется явно. Второе: `workspaces.slug` обязателен
+и уникален, а прежний текст шага его не упоминал; при повторном прогоне
+`ON CONFLICT (id)` не должен переписывать его чужим значением.
 
 Вторая ловушка — прав сборки, а не сервера: дамп пишется во **временный файл**,
 и без права записи в каталог временных файлов собранный бинарь падает до
