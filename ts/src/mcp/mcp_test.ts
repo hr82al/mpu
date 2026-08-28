@@ -134,22 +134,35 @@ Deno.test("неизвестный метод JSON-RPC — 404 и код -32601",
   assertEquals(actual.body, response.body);
 });
 
+// Образец подпроцессного тула: в профиле `ro` их не осталось вовсе —
+// `sheet batch-get` был последним и переехал на `native`. Группа `api`
+// останется на маршруте `legacy` до переезда своей пишущей половины,
+// поэтому образец взят оттуда и лежит в профиле `rw`.
 Deno.test("tools/call: команда маршрута legacy", async (t) => {
   const meta = { "io.modelcontextprotocol/protocolVersion": "2026-07-28" };
   const call = (args: unknown, io: CommandIo) =>
     handle({
       method: "POST",
-      path: "/ro",
+      path: "/rw",
       headers: {
         "MCP-Protocol-Version": "2026-07-28",
         "Mcp-Method": "tools/call",
-        "Mcp-Name": "sheet_batch_get",
+        "Mcp-Name": "api_wb_loader_status",
       },
       body: {
         jsonrpc: "2.0",
         id: 7,
         method: "tools/call",
-        params: { name: "sheet_batch_get", arguments: args, _meta: meta },
+        params: {
+          name: "api_wb_loader_status",
+          // Два обязательных аргумента подставляются всегда: без них
+          // вызов не доходит до подпроцесса, а проверяется здесь как
+          // раз то, что после него.
+          arguments: typeof args === "object" && args !== null
+            ? { selector: "4326", loader: "cards", ...args }
+            : args,
+          _meta: meta,
+        },
       },
     }, io);
 
@@ -175,11 +188,15 @@ Deno.test("tools/call: команда маршрута legacy", async (t) => {
         return Promise.resolve({ code: 0, stdout: "", stderr: "" });
       },
     });
-    await call({ expr: ["Лист!A1", "Лист!B2"], sheet: "Лист" }, io);
-    // Ровно то, ради чего затевался сервер: список не склеен.
-    assertEquals(calls[0].includes("Лист!A1"), true);
-    assertEquals(calls[0].includes("Лист!B2"), true);
-    assertEquals(calls[0].includes("Лист!A1 Лист!B2"), false);
+    // Значение с пробелом внутри — один аргумент подпроцесса, а не два;
+    // соседние значения — два, а не одно склеенное. Повторяемого входа
+    // среди оставшихся подпроцессных тулов нет ни одного (`sheet
+    // batch-get` с его списком `-e` переехал на `native`), поэтому
+    // склейку проверяем на паре обычных значений.
+    await call({ selector: "клиент 4326", sid: "11111111-2222" }, io);
+    assertEquals(calls[0].includes("клиент 4326"), true);
+    assertEquals(calls[0].includes("cards"), true);
+    assertEquals(calls[0].includes("клиент 4326 cards"), false);
   });
 
   await t.step("ненулевой код — признак ошибки, а не сбой RPC", async () => {

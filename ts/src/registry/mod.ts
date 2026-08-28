@@ -91,6 +91,8 @@ import { claudeHookNotificationCommand } from "../claudehook/mod.ts";
 import { backupCommands } from "../backup/mod.ts";
 import { makeSchemaCommand } from "../makeschema/mod.ts";
 import {
+  sheetBatchGetCommand,
+  sheetBatchUpdateCommand,
   sheetGetCommand,
   sheetLsCommand,
   sheetResolveCommand,
@@ -267,6 +269,10 @@ export const commands: readonly Command[] = [
   sheetGetCommand,
   sheetLsCommand,
   sheetResolveCommand,
+  // Пакетные операции мини-языком (`docs/specs/sheet-batch.md`): пара
+  // неразделима — грамматика и разбор диапазонов у них общие.
+  sheetBatchUpdateCommand,
+  sheetBatchGetCommand,
   // Семейство `mr` целиком: чтение (`docs/specs/mr-read.md`) и запись
   // (`docs/specs/mr-write.md`). В легаси его подкоманд не осталось,
   // поэтому имя `mr` внесено в `NOT_LEGACY`.

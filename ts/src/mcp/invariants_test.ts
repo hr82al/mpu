@@ -114,14 +114,16 @@ Deno.test("маршрут листа виден по форме опублико
   // подпроцесса и схемы результата нет вовсе, у `native` — структурный
   // результат по объявлению команды (`platform/mcp-server.md`). Состав
   // тулов при этом тот же: имена лежат в закрытом списке публикации.
-  // Пара взята из разных маршрутов: группа `kiten` переехала целиком, и
-  // подпроцессным соседом по ней уже не проиллюстрируешь.
+  // Пара взята из разных профилей, и это вынужденно: в профиле `ro`
+  // подпроцессных тулов не осталось вовсе — `sheet batch-get` был
+  // последним и переехал вместе с `batch-update`. Образец маршрута
+  // `legacy` поэтому берётся из `rw`: группа `api` останется там до
+  // переезда своей пишущей половины.
   const tools = profileTools(commands, "ro");
   const native = tools.find((entry) => entry.tool.name === "kiten_card");
-  // Подпроцессный сосед по тому же профилю: `sheet batch-get` ещё не
-  // переехал, а `sheet get` рядом с ним — уже native (прежний образец
-  // `mp-init` тоже уехал на `native`).
-  const legacy = tools.find((entry) => entry.tool.name === "sheet_batch_get");
+  const legacy = profileTools(commands, "rw").find(
+    (entry) => entry.tool.name === "api_wb_loader_status",
+  );
 
   assertEquals(native?.path, ["kiten", "card"]);
   assertEquals(
@@ -129,7 +131,7 @@ Deno.test("маршрут листа виден по форме опублико
     "object",
     "у native-тула объявлена схема результата",
   );
-  assertEquals(legacy?.path, ["sheet", "batch-get"]);
+  assertEquals(legacy?.path, ["api", "wb-loader-status"]);
   // У подпроцессного тула схемы результата нет и быть не может: он
   // отдаёт текст.
   assertEquals(legacy?.tool.outputSchema, undefined);

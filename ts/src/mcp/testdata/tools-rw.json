@@ -4719,6 +4719,82 @@
     }
   },
   {
+    "name": "sheet_batch_update",
+    "title": "mpu sheet batch-update",
+    "description": "Пакетная правка Google-таблицы мини-языком.\n\nСкрипт компилируется целиком и уходит одним вызовом\nspreadsheets/batchUpdate: применяются либо все инструкции, либо ни одна.\n\nСкрипт — все -e плюс содержимое --from (файл, '-' — весь stdin);\nисточники складываются. Нет ни -e, ни --from и stdin не терминал —\nскрипт читается из stdin. Инструкции разделяются переводом строки или\n';' вне скобок и кавычек; '#' на границе токена — комментарий до конца\nстроки. -n/--sheet задаёт лист для диапазонов без 'Лист!'.\n\nГлаголы: set label note style clear merge unmerge border sort dedupe\ntrim validate protect unprotect autofill copy cut find-replace freeze,\nсемейства cols/rows (insert delete move autosize resize hide show),\ngroup/ungroup, append, sheet (add delete rename dup tab), cond\n(add clear), name (add del), плюс @kind {json} и raw {json}.\n\nЛист, создаваемый этим же скриптом, на компиляции не существует.\n\n--dry-run печатает {\"requests\": […]} и молчит в сеть (метаданные всё\nравно читаются: без них не собрать sheetId). -l/--literal делает все\nзначения строками. Скрипт из одних комментариев печатает «нет\nопераций».\n\nExit: 0 — успех; 2 — ошибки скрипта, ввода и резолва цели; 1 — отказ\nwebapp и отсутствующий WB_PLUS_WEB_APP_URL.\n\nПример: mpu sheet batch-update -s 4326 -n Отчёт   -e \"cols insert H +1; label H1 'Итого' bold\"",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "expression": {
+          "default": [],
+          "description": "инструкция скрипта; флаг повторяем, части склеиваются",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "from": {
+          "description": "файл со скриптом; '-' — весь stdin",
+          "type": "string"
+        },
+        "spreadsheet": {
+          "description": "цель: URL, ID, алиас, …",
+          "type": "string"
+        },
+        "sheet": {
+          "description": "лист по умолчанию для диапазонов без '!'",
+          "type": "string"
+        },
+        "literal": {
+          "default": false,
+          "description": "значения всегда строки: ни чисел, ни формул, ни булевых",
+          "type": "boolean"
+        },
+        "dry-run": {
+          "default": false,
+          "description": "напечатать запросы и не отправлять их",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheetId": {
+          "type": "string",
+          "description": "идентификатор таблицы"
+        },
+        "requests": {
+          "type": "array",
+          "items": {},
+          "description": "скомпилированные запросы по порядку"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "description": "вызов был печатью, отправки не было"
+        },
+        "reply": {
+          "description": "ответ webapp; у печати и пустого скрипта null"
+        }
+      },
+      "required": [
+        "spreadsheetId",
+        "requests",
+        "dryRun",
+        "reply"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "mr_create",
     "title": "mpu mr create",
     "description": "Создать merge request из текущей ветки.\n\nСоздаёт merge request.\n\n--title и --target обязательны: заголовок и ветка, куда вливать.\n--source — исходная ветка; без флага берётся текущая ветка каталога, а\nв detached HEAD команда отказывается и просит указать её явно.\n--project group/repo; без флага берётся из git remote origin.\n\nОписание необязательно: -m/--message TEXT либо -F/--body-file PATH\n('-' — весь stdin, только в CLI). Без обоих MR создаётся с пустым\nописанием; оба сразу — ошибка ввода.\n\nПовторный вызов на ту же исходную ветку GitLab отклоняет: открытый MR\nу ветки может быть только один.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — нет --title или --target, оба флага описания; 1 —\ndetached HEAD без --source, git недоступен, отказ GitLab (в том числе\nуже существующий MR ветки).\n\nПримеры: mpu mr create --title 'feat: загрузчик' --target main;\nmpu mr create --title 'fix' --target main --source hotfix -F тело.md",
@@ -5420,58 +5496,6 @@
         "literal": {
           "type": "boolean",
           "description": "RAW value (не парсить формулы/числа).",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "sheet_batch_update",
-    "title": "mpu sheet batch-update",
-    "description": "Пакетная ЗАПИСЬ в таблицу: простые инструкции → ОДИН запрос Google (batchUpdate).\n\nПакетная ЗАПИСЬ в таблицу: простые инструкции → ОДИН запрос Google (batchUpdate).\n\nПишешь по одной инструкции на строку (или через ;). Все они уходят вместе, одним запросом.\nСначала проверь с --dry-run — покажет готовый requests[] и НЕ отправит.\n\nОТКУДА БРАТЬ СКРИПТ\n  -e \"...\"      инструкции прямо в команде (флаг можно повторять)\n  --from FILE   из файла; FILE = -  → читать со stdin (pipe)\n  -s ТАБЛИЦА    какая таблица: ID, ссылка, alias, client_id или часть названия\n  -n ЛИСТ       лист по умолчанию для диапазонов без префикса 'Лист'!\n\nДИАПАЗОН — пиши как удобно, приведётся к нужному виду\n  H  или  8         столбец (буквой или номером — без разницы)\n  H:J  или  8:10    несколько столбцов\n  H5  или  r5c8     одна ячейка (A1 или R1C1)\n  H2:J10            прямоугольник\n  H:H               весь столбец;   H2:H — со 2-й строки вниз\n  4:4  или  4       вся строка\n  'Чек-лист'!H2:H   с явным листом (кавычки нужны для имён с дефисом/пробелом)\n\nЗНАЧЕНИЯ (set)\n  set A1 = =СУММ(B:B)   формула (после первого '=' идёт формула, тоже с '=')\n  set A1 \"привет\"        текст\n  set A1 42              число;   set A1 true — булево\n[справка усечена: отброшено 3697 байт]",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "expr": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Инструкции мини-языка (повторяемо; разделять ; или новой строкой)."
-        },
-        "spreadsheet": {
-          "type": "string",
-          "description": "Spreadsheet ID/URL/alias/client_id/title."
-        },
-        "sheet": {
-          "type": "string",
-          "description": "Лист по умолчанию (range без 'Tab!')."
-        },
-        "from_file": {
-          "type": "string",
-          "description": "Скрипт из файла (`-` — stdin)."
-        },
-        "dry_run": {
-          "type": "boolean",
-          "description": "Скомпилировать и напечатать requests[], НЕ отправлять.",
-          "default": false
-        },
-        "allow_py": {
-          "type": "boolean",
-          "description": "Разрешить py{…} (exec Python для логики/генерации).",
-          "default": false
-        },
-        "literal": {
-          "type": "boolean",
-          "description": "Значения как строки (RAW, не парсить формулы/числа).",
           "default": false
         }
       },

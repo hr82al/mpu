@@ -205,3 +205,30 @@ async function gunzip(bytes: Uint8Array): Promise<string> {
   );
   return await new Response(stream).text();
 }
+
+/**
+ * Инвалидация после успешной записи (`platform/webapp-http.md`,
+ * «Housekeeping и инвалидация»): выбрасывает кэш названных листов и
+ * метаданные таблицы. Остальные листы остаются — запись их не меняла.
+ *
+ * Сбой удаления не роняет вызов: запись в таблицу уже прошла, и
+ * единственная цена протухшего кэша — лишнее чтение следующей командой.
+ */
+export function invalidateTabs(
+  db: CacheDb,
+  ssId: string,
+  tabs: readonly string[],
+): void {
+  try {
+    for (const tab of tabs) {
+      db.execute(
+        "DELETE FROM sheet_tabs WHERE ss_id = ? AND tab_name = ?",
+        ssId,
+        tab,
+      );
+    }
+    db.execute("DELETE FROM cache WHERE key = ?", infoKey(ssId));
+  } catch {
+    // Таблиц кэша может не быть вовсе — это не ошибка (см. `writeTab`).
+  }
+}

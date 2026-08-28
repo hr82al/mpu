@@ -1,0 +1,34 @@
+set Sheet1!A1 = =SUM(B:B)
+label Sheet1!A2 'Итого' bg=#EA4335 bold
+note Sheet1!A3 'заметка'
+style Sheet1!A4:B4 italic fg=#123456 size=11
+clear Sheet1!C1:C3 formats
+merge Sheet1!D1:E2 rows
+unmerge Sheet1!D1:E2
+border Sheet1!F1:G3 around style=DASHED color=#00FF00
+sort Sheet1!A5:B9 by=A:desc
+dedupe Sheet1!A5:B9 cols=A
+trim Sheet1!A5:B9
+validate Sheet1!H1:H5 num>=10 strict msg=нужно_больше
+cond add Sheet1!I1:I9 num>5 bg=#ffeb3b
+cond clear Sheet1 index=0
+protect Sheet1!J1:J5 warn desc=не_трогать
+autofill Sheet1!K1:K2 -> Sheet1!K3:K9
+copy Sheet1!A1:B2 -> Sheet1!M1:N2 type=FORMAT
+cut Sheet1!A1:B2 -> Sheet1!P1:Q2
+cols insert Sheet1!R +2 inherit=after
+rows delete Sheet1!5:6
+cols move Sheet1!S after 3
+rows autosize Sheet1!7:8
+cols resize Sheet1!T px=140
+rows hide Sheet1!9:9
+cols show Sheet1!T
+append cols 2 on Sheet1
+group cols Sheet1!U:V
+ungroup cols Sheet1!U:V
+freeze Sheet1 rows=1 cols=2
+sheet add Лист2 rows=100 cols=10 index=1
+sheet dup Sheet1 as Копия
+sheet tab Sheet1 color=#00AAFF
+find-replace старое новое regex case
+name add мойдиапазон Sheet1!A1:B2

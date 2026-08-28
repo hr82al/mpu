@@ -5,39 +5,53 @@
 
 import { assertEquals } from "@std/assert";
 
-const CHANNEL = "sheet";
+/** Каналы двух семейств: чтение таблиц и пакетные операции. */
+const CHANNELS: Readonly<Record<string, readonly string[]>> = {
+  sheet: [
+    "err-no-ranges.stderr",
+    "get-both-cached.stdout",
+    "get-raw.stdout",
+    "get-tsv.stdout",
+    "ls-json.stdout",
+    "ls-long-json.stdout",
+    "ls-long.stdout",
+    "resolve.stdout",
+  ],
+  "sheet-batch": [
+    "err-sheet-created-in-same-script.stderr",
+    "get-values-and-meta.stdout",
+    "update-all-verbs.script",
+    "update-all-verbs.stdout",
+  ],
+};
 
-const NAMES: readonly string[] = [
-  "err-no-ranges.stderr",
-  "get-both-cached.stdout",
-  "get-raw.stdout",
-  "get-tsv.stdout",
-  "ls-json.stdout",
-  "ls-long-json.stdout",
-  "ls-long.stdout",
-  "resolve.stdout",
-];
-
-const copyDir = new URL(`testdata/${CHANNEL}/`, import.meta.url);
+const copyDir = (channel: string) =>
+  new URL(`testdata/${channel}/`, import.meta.url);
 
 Deno.test("копии фикстур совпадают с каналом спецификаций", async (t) => {
-  for (const name of NAMES) {
-    await t.step(name, async () => {
-      assertEquals(
-        await Deno.readTextFile(new URL(name, copyDir)),
-        await Deno.readTextFile(
-          new URL(
-            `../../docs/specs/fixtures/${CHANNEL}/${name}`,
-            import.meta.url,
+  for (const [channel, names] of Object.entries(CHANNELS)) {
+    for (const name of names) {
+      await t.step(`${channel}/${name}`, async () => {
+        assertEquals(
+          await Deno.readTextFile(new URL(name, copyDir(channel))),
+          await Deno.readTextFile(
+            new URL(
+              `../../docs/specs/fixtures/${channel}/${name}`,
+              import.meta.url,
+            ),
           ),
-        ),
-      );
-    });
+        );
+      });
+    }
   }
 });
 
 Deno.test("в testdata нет копий, которых нет в канале", async () => {
-  const found: string[] = [];
-  for await (const entry of Deno.readDir(copyDir)) found.push(entry.name);
-  assertEquals(found.sort(), [...NAMES].sort());
+  for (const [channel, names] of Object.entries(CHANNELS)) {
+    const found: string[] = [];
+    for await (const entry of Deno.readDir(copyDir(channel))) {
+      found.push(entry.name);
+    }
+    assertEquals(found.sort(), [...names].sort(), channel);
+  }
 });

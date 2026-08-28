@@ -1423,6 +1423,32 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    // У обхода нет WB_PLUS_WEB_APP_URL: вызов отбивается на
+    // конфигурации до сети.
+    path: "sheet batch-update",
+    argv: ["-e", "trim 'Лист'!A1:B2", "-s", "1SyntheticSpreadsheetId0000"],
+    sampleResult: {
+      spreadsheetId: "1SyntheticSpreadsheetId0000",
+      requests: [{ trimWhitespace: { range: { sheetId: 0 } } }],
+      // Без `--dry-run` в argv: образец обязан быть тем результатом,
+      // который этот вызов и мог бы вернуть.
+      dryRun: false,
+      reply: { spreadsheetId: "1SyntheticSpreadsheetId0000", replies: [{}] },
+    },
+  },
+  {
+    path: "sheet batch-get",
+    argv: ["-e", "get 'Лист'!A1:B2", "-s", "1SyntheticSpreadsheetId0000"],
+    sampleResult: {
+      spreadsheetId: "1SyntheticSpreadsheetId0000",
+      dryRun: false,
+      values: {
+        valueRanges: [{ range: "Лист!A1:B2", values: [["значение"]] }],
+      },
+      meta: null,
+    },
+  },
+  {
     path: "telegram log",
     // Ключей бота в env-файле обхода нет: вызов обязан отбиться на
     // конфигурации, до сети.

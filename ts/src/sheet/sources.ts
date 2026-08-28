@@ -115,7 +115,7 @@ export async function rangeStrings(
 }
 
 /** Текст файла; отсутствие — ошибка ввода, а не трейсбек (отклонение). */
-async function fileText(io: SheetIo, path: string): Promise<string> {
+export async function fileText(io: SheetIo, path: string): Promise<string> {
   try {
     return await io.readTextFile(path);
   } catch (err) {

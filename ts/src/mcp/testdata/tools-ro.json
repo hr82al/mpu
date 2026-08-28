@@ -2628,6 +2628,71 @@
     }
   },
   {
+    "name": "sheet_batch_get",
+    "title": "mpu sheet batch-get",
+    "description": "Прочитать значения и структуру Google-таблицы одним планом.\n\nСкрипт из инструкций get и read сливается в один план: все\nдиапазоны уходят одним values/batchGet, все аспекты структуры — одним\nspreadsheets/get. Опции — «последнее слово побеждает».\n\nget [RANGE|СЛОВО]… — значения. Слова: values/formatted (по умолчанию),\nformula, unformatted — вид значений; rows/cols — направение; serial (по\nумолчанию) / datestr — формат дат.\n\nread [АСПЕКТ|ЛИСТ]… — структура. Аспекты: banding charts cond dims\nfilters merges meta named props protected; прочий токен — имя листа,\nпо которому фильтруется выборка (без имён — все листы). Аспекты уровня\nячейки (formats, note, validation, …) недоступны: webApp не отдаёт\ngridData.\n\nЛисты и диапазоны на компиляции не проверяются — ошибку назовёт\nwebapp. Кэш листов не читается и не пишется: повторный вызов всегда\nидёт в сеть.\n\n--dry-run печатает {\"values\": …|null, \"meta\": …|null} и не делает ни\nодного вызова.\n\nExit: 0 — успех; 2 — ошибки скрипта, ввода и резолва цели; 1 — отказ\nwebapp и отсутствующий WB_PLUS_WEB_APP_URL.\n\nПример: mpu sheet batch-get -s 4326 -n Sheet1 \\\n  -e \"get A1:B2 formula; read Sheet1 merges props\"",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "expression": {
+          "default": [],
+          "description": "инструкция скрипта; флаг повторяем, части склеиваются",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "from": {
+          "description": "файл со скриптом; '-' — весь stdin",
+          "type": "string"
+        },
+        "spreadsheet": {
+          "description": "цель: URL, ID, алиас, …",
+          "type": "string"
+        },
+        "sheet": {
+          "description": "лист по умолчанию для диапазонов без '!'",
+          "type": "string"
+        },
+        "dry-run": {
+          "default": false,
+          "description": "напечатать поля вызовов и не делать их",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheetId": {
+          "type": "string",
+          "description": "идентификатор таблицы"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "description": "вызов был печатью, сети не было"
+        },
+        "values": {
+          "description": "поля вызова values/batchGet либо его ответ"
+        },
+        "meta": {
+          "description": "аспекты структуры либо собранная выборка"
+        }
+      },
+      "required": [
+        "spreadsheetId",
+        "dryRun",
+        "values",
+        "meta"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "mr_view",
     "title": "mpu mr view",
     "description": "Шапка merge request'а: заголовок, автор, ветки, описание.\n\nПечатает четыре строки — заголовок, автор, ветки, адрес — и\nописание MR под ними.\n\n--mr REF — адрес MR: URL, 'group/repo!iid' или голый iid. Без флага\nproject берётся из git remote origin текущего каталога, а iid — у\nединственного открытого MR текущей ветки; ноль или несколько открытых\nMR — отказ с перечнем.\n\n--json печатает объект MR целиком: project, iid, title, state,\nsource_branch, target_branch, web_url, author_name, author_username,\ndescription, diff_refs, project_id, sha, merge_commit_sha,\nsquash_commit_sha. diff_refs — три SHA диффа либо null.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — нераспознанный --mr; 1 — отказ GitLab, ненайденный\nMR, неопределимая ветка.\n\nПримеры: mpu mr view; mpu mr view --mr 'group/repo!456' --json",
@@ -3298,44 +3363,6 @@
         "location",
         "notes"
       ],
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "sheet_batch_get",
-    "title": "mpu sheet batch-get",
-    "description": "Пакетное ЧТЕНИЕ таблицы: значения + структура листа.\n\nПакетное ЧТЕНИЕ таблицы: значения + структура листа. Тот же язык диапазонов.\n\nДва глагола: get — значения ячеек; read — структура листа (объединения, правила, защиты…).\nНесколько инструкций — через ; или новой строкой. Ответ — JSON.\n\nGET — ЗНАЧЕНИЯ ЯЧЕЕК\n  get 'Чек-лист'!A1:F             значения как на экране\n  get A1:F formula                формулы (а не результат)\n  get A1:F unformatted            «сырые» числа без форматирования\n  get H2:H cols                   развернуть по столбцам (по умолчанию по строкам)\n  get D2:D datestr                даты строкой (по умолч. число-serial)\n  слова-модификаторы: values | formula | unformatted | formatted ·\n                      rows | cols · serial | datestr\n  (лист по умолчанию — из -n/--sheet; иначе пиши 'Лист'!A1)\n\nREAD — СТРУКТУРА ЛИСТА\n  read 'Чек-лист' merges cond protected     по одному листу\n  read named                                имена диапазонов всей таблицы\n  аспекты: merges · cond (условный формат) · protected (защиты) · charts · banding ·\n           filters · named · props (свойства листа) · meta · dims\n\nВАЖНО: оформление КОНКРЕТНЫХ ячеек (цвет/шрифт/заметка/проверка ввода) сейчас прочитать\nнельзя — webApp не отдаёт по-ячеечные данные. Эти слова дадут понятную ошибку.\n\n[справка усечена: отброшено 351 байт]",
-    "annotations": {
-      "readOnlyHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "expr": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Инструкции чтения (get/read; повторяемо)."
-        },
-        "spreadsheet": {
-          "type": "string",
-          "description": "Spreadsheet ID/URL/alias/client_id/title (иначе env MPU_SS → config sheet.default)."
-        },
-        "sheet": {
-          "type": "string",
-          "description": "Лист по умолчанию (range без 'Tab!')."
-        },
-        "from_file": {
-          "type": "string",
-          "description": "Скрипт из файла (`-` — stdin)."
-        },
-        "dry_run": {
-          "type": "boolean",
-          "description": "Напечатать план чтения, НЕ запрашивать.",
-          "default": false
-        }
-      },
       "additionalProperties": false
     }
   }
