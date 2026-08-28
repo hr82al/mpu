@@ -33,6 +33,17 @@ export const LOCAL_PASSWORD = "123123";
 const PASSWORD_HASH =
   "$2b$10$cxMCZzMdmIdDRmb18yA2w.JzCc.JPHz8oRp/660kaEDh/xrkSsCnS";
 
+/**
+ * Начало оператора, снимающего чужую привязку кабинета. По нему вызов
+ * узнаёт, сколько связок снято: молча удалять чужую строку нельзя, а
+ * число известно только серверу.
+ *
+ * Узнаётся по тексту, а не по метке: метка идёт оператору в текст
+ * отказа (`Statement.label`), и внутреннему признаку там не место —
+ * человек ждёт имя таблицы, а не наш селектор.
+ */
+export const DETACH_SQL = "DELETE FROM public.workspaces_wb_cabinets";
+
 /** Кабинет клиента: идентификатор и оба обязательных имени витрины. */
 export interface Cabinet {
   readonly sid: string;
@@ -176,6 +187,22 @@ export function seedStatements(
         ],
         label: "wb_cabinets",
       },
+      // Связка переезжает вместе с кабинетом. Строку `wb_cabinets` мы
+      // только что перевесили на этот воркспейс; связка, оставшаяся у
+      // прежнего, утверждала бы о том же sid обратное — кабинет
+      // оказался бы в двух пространствах сразу (замер 2026-08-28: пять
+      // связок при четырёх кабинетах).
+      //
+      // Удаление **до** вставки и с условием «чужой воркспейс»: свою
+      // связку сносить нечем, а прогон, повторённый подряд, не должен
+      // ни задваивать, ни сообщать о снятии того, чего уже нет.
+
+      {
+        sql: "DELETE FROM public.workspaces_wb_cabinets " +
+          "WHERE sid = $1 AND workspace_id <> $2",
+        params: [cabinet.sid, clientId],
+        label: "workspaces_wb_cabinets",
+      },
       // Цель конфликта не названа: первичный ключ здесь составной —
       // `(workspace_id, sid)`, — и `ON CONFLICT (sid)` отбился бы «нет
       // уникального индекса под указанные колонки». Точная форма
@@ -208,15 +235,30 @@ export function seedStatements(
   return statements;
 }
 
-/** Проводка целиком; возвращает число заведённых кабинетов. */
+/** Итог проводки: сколько кабинетов заведено и сколько чужих связок снято. */
+export interface SeedOutcome {
+  readonly cabinets: number;
+  /** Связки, снятые с чужих воркспейсов; 0 — снимать было нечего. */
+  readonly detached: number;
+}
+
+/** Проводка целиком. */
 export async function seedLogin(
   sl1: SqlSession,
   workspaces: SqlSession,
   clientId: number,
-): Promise<number> {
+): Promise<SeedOutcome> {
   const cabinets = await cabinetsOf(sl1, clientId);
-  await workspaces.runMany(seedStatements(clientId, cabinets));
-  return cabinets.length;
+  const statements = seedStatements(clientId, cabinets);
+  const outcomes = await workspaces.runMany(statements);
+  // Число снятых привязок известно только серверу: он один знает,
+  // нашлась ли чужая строка. Считаем по тем операторам, что её снимали.
+  const detached = statements.reduce((sum, statement, at) => {
+    if (!statement.sql.startsWith(DETACH_SQL)) return sum;
+    const outcome = outcomes[at];
+    return sum + (outcome?.kind === "done" ? Math.max(0, outcome.rowcount) : 0);
+  }, 0);
+  return { cabinets: cabinets.length, detached };
 }
 
 /** Строка клиента для кэша main; её кладёт шаг 5. */

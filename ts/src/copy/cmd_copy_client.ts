@@ -253,8 +253,18 @@ async function seedSwFront(
     try {
       const workspaces = await open(localWorkspaces(env), "write");
       try {
-        const cabinets = await seedLogin(from, workspaces, clientId);
-        io.progress(`  sw-front: кабинетов заведено ${cabinets}`);
+        const seeded = await seedLogin(from, workspaces, clientId);
+        io.progress(`  sw-front: кабинетов заведено ${seeded.cabinets}`);
+        // Снятие чужой привязки — штатный исход переноса, а не сбой,
+        // поэтому обычная строка, а не WARN. Но и молчать нельзя:
+        // строка в чужом воркспейсе исчезла, и знать об этом должен
+        // оператор, а не только мы. Считаются связки, а не кабинеты:
+        // ключ составной, и у одного sid чужих связок бывает несколько.
+        if (seeded.detached > 0) {
+          io.progress(
+            `  sw-front: снято чужих связок кабинетов: ${seeded.detached}`,
+          );
+        }
         await flushSwBack(io, runRedis);
         return true;
       } finally {
@@ -266,8 +276,8 @@ async function seedSwFront(
   } catch (err) {
     const line = err instanceof Error ? err.message.split("\n")[0] : "";
     // Метка оператора — то, чего в тексте сервера может не быть вовсе:
-    // «column does not exist» не называет таблицу, а операторов здесь
-    // пять, и все они про разные.
+    // «column does not exist» не называет таблицу, а операторов в
+    // проводке шесть на кабинет, и все они про разные таблицы.
     const reason = err instanceof StatementError && err.label !== undefined
       ? `${err.label}: ${line}`
       : line;

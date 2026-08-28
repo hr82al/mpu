@@ -12,7 +12,13 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import type { SqlOutcome } from "../sql/render.ts";
 import type { SqlSession } from "../sql/session.ts";
-import { cabinetsOf, localEmail, seedStatements } from "./sw_front.ts";
+import {
+  cabinetsOf,
+  DETACH_SQL,
+  localEmail,
+  seedLogin,
+  seedStatements,
+} from "./sw_front.ts";
 
 /** Сессия, отвечающая одним заданным набором строк. */
 function reader(outcome: SqlOutcome): SqlSession {
@@ -33,9 +39,26 @@ const of = (label: string) =>
   STATEMENTS.filter((statement) => statement.label === label);
 const sqlOf = (label: string) => of(label)[0].sql;
 
+/**
+ * Вставка связки: метка `workspaces_wb_cabinets` теперь у двух
+ * операторов — снятия чужой привязки и вставки своей, — и по метке их
+ * не различить. Она общая намеренно: метка идёт оператору в текст
+ * отказа, и обе строки про одну таблицу.
+ */
+const linkInsert = () =>
+  STATEMENTS.find((item) =>
+    item.sql.startsWith("INSERT INTO public.workspaces_wb_cabinets")
+  )!;
+
 Deno.test("проводка идемпотентна: у каждой вставки есть ON CONFLICT", () => {
   assertEquals(STATEMENTS.length > 0, true);
-  for (const statement of STATEMENTS) {
+  // Снятие чужой привязки — не вставка: у него своя идемпотентность —
+  // повторный прогон просто не находит, что снимать.
+  for (
+    const statement of STATEMENTS.filter((item) =>
+      item.sql.startsWith("INSERT")
+    )
+  ) {
     // Повторный прогон — обычный случай: второй пользователь с тем же
     // адресом сделал бы вход неоднозначным.
     assertStringIncludes(statement.sql, "ON CONFLICT");
@@ -146,7 +169,7 @@ Deno.test("цели конфликтов — те, что есть в схеме
   });
 
   await t.step("связка кабинета — без цели: ключ составной", () => {
-    const link = sqlOf("workspaces_wb_cabinets");
+    const link = linkInsert().sql;
     // `ON CONFLICT (sid)` отбился бы «нет уникального индекса под
     // указанные колонки»: первичный ключ здесь `(workspace_id, sid)`.
     assertStringIncludes(link, "ON CONFLICT DO NOTHING");
@@ -225,13 +248,25 @@ Deno.test("форма по снятой схеме воркспейсов", asyn
   await t.step("порядок задан внешними ключами", () => {
     // Кабинет ссылается на воркспейс, подписка — на кабинет: переставь
     // их, и вставка упрётся в внешний ключ.
-    assertEquals(STATEMENTS.map((statement) => statement.label), [
-      "users",
-      "workspaces",
-      "wb_cabinets",
-      "workspaces_wb_cabinets",
-      "subscriptions",
-    ]);
+    // Снятие чужой привязки идёт **до** вставки своей: сделай мы
+    // наоборот — тот же оператор снёс бы только что вставленную строку,
+    // если бы условие «чужой воркспейс» когда-нибудь ослабло.
+    // Метки двух операторов связки совпадают, поэтому порядок
+    // сверяется по первому слову оператора — оно и различает снятие от
+    // вставки.
+    assertEquals(
+      STATEMENTS.map((statement) =>
+        `${statement.sql.split(" ")[0]} ${statement.label}`
+      ),
+      [
+        "INSERT users",
+        "INSERT workspaces",
+        "INSERT wb_cabinets",
+        "DELETE workspaces_wb_cabinets",
+        "INSERT workspaces_wb_cabinets",
+        "INSERT subscriptions",
+      ],
+    );
   });
 });
 
@@ -252,4 +287,67 @@ Deno.test("пустые имена кабинета заменяются на з
     // номера клиента.
     { sid: "cab-2", name: "ТМ", trade_mark: "ТМ" },
   ]);
+});
+
+Deno.test("связка переезжает вместе с кабинетом", async (t) => {
+  const detach = STATEMENTS.filter((item) => item.sql.startsWith(DETACH_SQL));
+
+  await t.step("чужая привязка снимается по sid этого кабинета", () => {
+    assertEquals(detach.length, 1);
+    assertEquals(
+      detach[0].sql,
+      "DELETE FROM public.workspaces_wb_cabinets " +
+        "WHERE sid = $1 AND workspace_id <> $2",
+    );
+    // Скоуп — один sid: связки чужих кабинетов трогать нечем, даже если
+    // они висят на том же воркспейсе.
+    assertEquals(detach[0].params, ["cab-1", 5175]);
+  });
+
+  await t.step("кабинетов нет — снимать нечего", () => {
+    const bare = seedStatements(5175, []);
+    assertEquals(bare.some((item) => item.sql.startsWith(DETACH_SQL)), false);
+  });
+
+  await t.step("на каждый кабинет своё снятие", () => {
+    const two = seedStatements(5175, [
+      { sid: "cab-1", name: "A", trade_mark: "A" },
+      { sid: "cab-2", name: "B", trade_mark: "B" },
+    ]).filter((item) => item.sql.startsWith(DETACH_SQL));
+    assertEquals(two.map((item) => item.params?.[0]), ["cab-1", "cab-2"]);
+  });
+});
+
+Deno.test("число снятых привязок берётся у сервера, а не угадывается", async (t) => {
+  const cabinets: SqlOutcome = {
+    kind: "rows",
+    columns: ["sid", "name", "trade_mark"],
+    rows: [["cab-1", "Магазин", "ТМ"]],
+  };
+
+  /** Приёмник, отвечающий на посев заданными счётчиками строк. */
+  const target = (detached: number): SqlSession => ({
+    query: () => Promise.reject(new Error("query не ожидается")),
+    run: () => Promise.reject(new Error("run не ожидается")),
+    runMany: (statements) =>
+      Promise.resolve(
+        statements.map((statement) => ({
+          kind: "done",
+          rowcount: statement.sql.startsWith(DETACH_SQL) ? detached : 1,
+        } as SqlOutcome)),
+      ),
+    close: () => Promise.resolve(),
+  });
+
+  await t.step("снятую строку видно по счётчику оператора", async () => {
+    const outcome = await seedLogin(reader(cabinets), target(1), 5175);
+    assertEquals(outcome, { cabinets: 1, detached: 1 });
+  });
+
+  await t.step("снимать было нечего — ноль, а не выдумка", async () => {
+    // Повторный прогон подряд: чужой привязки уже нет, и сообщать не о
+    // чем.
+    const outcome = await seedLogin(reader(cabinets), target(0), 5175);
+    assertEquals(outcome, { cabinets: 1, detached: 0 });
+  });
 });

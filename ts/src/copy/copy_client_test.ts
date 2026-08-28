@@ -25,6 +25,7 @@ import {
   redisRunner,
   renderCopyClient,
 } from "./cmd_copy_client.ts";
+import { DETACH_SQL } from "./sw_front.ts";
 import { copyClientInTest as copyClient, noRedis } from "./testing.ts";
 import { LOCAL_CONTAINERS } from "./targets.ts";
 
@@ -846,5 +847,65 @@ Deno.test("нет строки клиента в sl-0 — кэш не греет
       false,
     );
     assertEquals(calls.some((argv) => argv.includes("FLUSHALL")), true);
+  });
+});
+
+Deno.test("снятая чужая привязка названа оператору строкой, а не молчанием", async () => {
+  await withIo(async (io) => {
+    const lines: string[] = [];
+    const loud = { ...io, progress: (line: string) => void lines.push(line) };
+    await copyClient({ selector: String(CLIENT) }, loud, {
+      runTool: tools([0, 0], []),
+      openSession: (target, mode) => {
+        const base = sessions([])(target, mode);
+        if (target.port !== 5451) return base;
+        return base.then((session) => ({
+          ...session,
+          // Приёмник сообщает, что одна чужая связка снята: узнать это
+          // можно только у сервера.
+          runMany: (statements: readonly Statement[]) =>
+            Promise.resolve(
+              statements.map((statement) => ({
+                kind: "done",
+                // Сервер сообщает: одна чужая связка снята.
+                rowcount: statement.sql.startsWith(DETACH_SQL) ? 1 : 0,
+              } as SqlOutcome)),
+            ),
+        }));
+      },
+      runRedis: noRedis,
+      tempFile: () => "/tmp/проба.dump",
+      removeFile: () => {},
+      nowMs: () => 0,
+    });
+    // Это штатный исход переноса, а не сбой: обычная строка, не WARN.
+    // Проверяется сама строка, а не весь вывод: WARN в прогоне бывают и
+    // по другим поводам (здесь — пустой sl-0), и «нет WARN нигде»
+    // утверждало бы больше, чем нужно.
+    const notice = lines.find((line) => line.includes("снято чужих связок"));
+    assertEquals(notice, "  sw-front: снято чужих связок кабинетов: 1");
+  });
+});
+
+Deno.test("снимать было нечего — строки в выводе нет", async () => {
+  await withIo(async (io) => {
+    const lines: string[] = [];
+    const loud = { ...io, progress: (line: string) => void lines.push(line) };
+    // Подставной приёмник по умолчанию отвечает `rowcount: 0`, то есть
+    // чужой привязки не было: повторный прогон подряд не должен
+    // сообщать о снятии того, чего уже нет.
+    await copyClient({ selector: String(CLIENT) }, loud, {
+      runTool: tools([0, 0], []),
+      openSession: sessions([]),
+      runRedis: noRedis,
+      tempFile: () => "/tmp/проба.dump",
+      removeFile: () => {},
+      nowMs: () => 0,
+    });
+    assertStringIncludes(lines.join("\n"), "sw-front: кабинетов заведено");
+    assertEquals(
+      lines.some((line) => line.includes("снято чужих связок")),
+      false,
+    );
   });
 });
