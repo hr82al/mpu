@@ -10,9 +10,25 @@
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { localEmail, seedStatements } from "./sw_front.ts";
+import type { SqlOutcome } from "../sql/render.ts";
+import type { SqlSession } from "../sql/session.ts";
+import { cabinetsOf, localEmail, seedStatements } from "./sw_front.ts";
 
-const STATEMENTS = seedStatements(5175, [{ sid: "cab-1", name: "Магазин" }]);
+/** Сессия, отвечающая одним заданным набором строк. */
+function reader(outcome: SqlOutcome): SqlSession {
+  return {
+    query: () => Promise.resolve(outcome),
+    run: () => Promise.reject(new Error("run не ожидается")),
+    runMany: () => Promise.reject(new Error("runMany не ожидается")),
+    close: () => Promise.resolve(),
+  };
+}
+
+const STATEMENTS = seedStatements(5175, [{
+  sid: "cab-1",
+  name: "Магазин",
+  trade_mark: "ТМ",
+}]);
 const of = (label: string) =>
   STATEMENTS.filter((statement) => statement.label === label);
 const sqlOf = (label: string) => of(label)[0].sql;
@@ -36,6 +52,7 @@ Deno.test("состав колонок users и workspaces отвечает за
       sqlOf("users"),
       "INSERT INTO public.users (email, password, name, is_email_verified",
     );
+    assertEquals(of("users")[0].params?.[2], "client_5175");
   });
 
   await t.step(
@@ -58,12 +75,13 @@ Deno.test("состав колонок users и workspaces отвечает за
     assertStringIncludes(sqlOf("workspaces"), "SELECT $1::int");
   });
 
-  await t.step("workspaces не упоминает того, чего в схеме нет", () => {
+  await t.step("workspaces перечисляет ровно то, что в схеме есть", () => {
     const sql = sqlOf("workspaces");
-    // Обе колонки прежде перечислялись, и обеих в схеме нет: на
-    // `is_active` падает рабочая версия.
+    // `is_active` в таблице нет — на ней и падает рабочая версия.
+    // `marketplace` есть и допускает NULL: полный замер схемы поправил
+    // первое, неполное перечисление колонок.
     assertEquals(sql.includes("is_active"), false, sql);
-    assertEquals(sql.includes("marketplace"), false, sql);
+    assertStringIncludes(sql, "'Wildberries'");
     assertStringIncludes(
       sql,
       "INSERT INTO public.workspaces (id, owner_id, name, slug, ",
@@ -100,7 +118,7 @@ Deno.test("значения уходят параметрами, а не тек�
     // Название приходит из чужой базы; прежде защитой было удвоение
     // кавычки, то есть настройка сервера.
     const [statement] = seedStatements(5175, [
-      { sid: "cab-1", name: "О'Брайен" },
+      { sid: "cab-1", name: "О'Брайен", trade_mark: "ТМ" },
     ]).filter((item) => item.label === "wb_cabinets");
     assertEquals(statement.sql.includes("О'Брайен"), false);
     assertEquals(statement.params?.[1], "О'Брайен");
@@ -145,4 +163,93 @@ Deno.test("кабинета нет — вход всё равно заводит
   // Кабинетов нет — и связок с подписками тоже: вход существует сам по
   // себе, а витрина покажет пустой список.
   assertEquals(bare.some((item) => item.sql.includes("wb_cabinets")), false);
+});
+
+Deno.test("форма по снятой схеме воркспейсов", async (t) => {
+  await t.step("slug задан и при повторном прогоне не переписывается", () => {
+    const sql = sqlOf("workspaces");
+    // Колонка NOT NULL без умолчания и уникальна: без неё круг упёрся
+    // бы в неё сразу после `name`. А в обновление она не входит —
+    // чужой slug переписывать нельзя.
+    assertStringIncludes(sql, "name, slug, marketplace");
+    assertEquals(of("workspaces")[0].params?.[2], "client-5175");
+    const update = sql.slice(sql.indexOf("DO UPDATE"));
+    assertEquals(update.includes("slug"), false, update);
+  });
+
+  await t.step("updated_at проставляется во всех трёх таблицах", () => {
+    // NOT NULL без умолчания у `users`, `workspaces` и `subscriptions`:
+    // сервер её сам не подставит.
+    for (const label of ["users", "workspaces", "subscriptions"]) {
+      const sql = sqlOf(label);
+      assertStringIncludes(sql, "updated_at");
+      assertStringIncludes(
+        sql.slice(sql.indexOf("DO UPDATE")),
+        "updated_at = NOW()",
+      );
+    }
+    // А у кабинета такой колонки нет вовсе.
+    assertEquals(sqlOf("wb_cabinets").includes("updated_at"), false);
+  });
+
+  await t.step("подписка адресуется кабинетом, а не пространством", () => {
+    // Ключ `sid`, он же внешний ключ на `wb_cabinets`; колонки
+    // `workspace_id` в таблице нет.
+    const sql = sqlOf("subscriptions");
+    assertEquals(sql.includes("workspace_id"), false, sql);
+    assertEquals(of("subscriptions")[0].params?.[0], "cab-1");
+  });
+
+  await t.step("торговая марка обязательна и уходит значением", () => {
+    assertStringIncludes(sqlOf("wb_cabinets"), "(sid, name, trade_mark,");
+    assertEquals(of("wb_cabinets")[0].params?.[2], "ТМ");
+    // Обязательная колонка и внешний ключ: при перестановке параметров
+    // (их здесь пять) промолчали бы все прочие проверки.
+    assertEquals(of("wb_cabinets")[0].params?.[4], 5175);
+  });
+
+  await t.step("значения перечислений приводятся к своему типу", () => {
+    // Параметр приходит текстом, и без приведения сервер не выведет
+    // тип сам.
+    // Имя типа квалифицировано схемой: иначе правильность запроса
+    // зависела бы от `search_path` роли.
+    assertStringIncludes(sqlOf("wb_cabinets"), '$4::public."WbTokenStatus"');
+    assertStringIncludes(
+      sqlOf("subscriptions"),
+      '$2::public."SubscriptionStatus"',
+    );
+    assertEquals(of("wb_cabinets")[0].params?.[3], "ACTIVE");
+    assertEquals(of("subscriptions")[0].params?.[1], "ACTIVE");
+  });
+
+  await t.step("порядок задан внешними ключами", () => {
+    // Кабинет ссылается на воркспейс, подписка — на кабинет: переставь
+    // их, и вставка упрётся в внешний ключ.
+    assertEquals(STATEMENTS.map((statement) => statement.label), [
+      "users",
+      "workspaces",
+      "wb_cabinets",
+      "workspaces_wb_cabinets",
+      "subscriptions",
+    ]);
+  });
+});
+
+Deno.test("пустые имена кабинета заменяются на заголовок клиента", async () => {
+  // Подстановка живёт в чтении, а не в сборке операторов: обе колонки
+  // на приёмнике обязательны, а пустое имя у свежего кабинета — обычное
+  // дело. Пустая строка прошла бы NOT NULL, но витрина показала бы
+  // кабинет без заголовка.
+  const outcome: SqlOutcome = {
+    kind: "rows",
+    columns: ["sid", "name", "trade_mark"],
+    rows: [["cab-1", "", null], ["cab-2", "  ", "ТМ"]],
+  };
+  const cabinets = await cabinetsOf(reader(outcome), 5175);
+  assertEquals(cabinets, [
+    { sid: "cab-1", name: "client 5175", trade_mark: "client 5175" },
+    // Имя подхватывает торговую марку: заголовок из неё осмысленнее
+    // номера клиента.
+    { sid: "cab-2", name: "ТМ", trade_mark: "ТМ" },
+  ]);
 });

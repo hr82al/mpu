@@ -123,6 +123,9 @@ function sessions(sent: Sent[], replies: Map<string, SqlOutcome> = new Map()) {
       // вовсе, и их порядок с параметрами остался бы непроверенным на
       // уровне команды.
       if (sql.includes("FROM public.clients_wb_cabinets")) {
+        // Торговая марка NULL — форма, которую отдаёт свежий кабинет:
+        // на уровне команды она обязана пройти сквозь подстановку и
+        // дойти до вставки непустой.
         return rows(["sid", "name", "trade_mark"], [
           ["cab-1", "Магазин", null],
         ]);
@@ -612,6 +615,9 @@ Deno.test("вход в sw-front заводится и печатается", asy
     assertStringIncludes(seed!.sql, "INSERT INTO public.subscriptions");
     assertEquals(seed!.params?.includes("cab-1"), true);
     assertEquals(seed!.sql.includes("cab-1"), false);
+    // NULL торговой марки заменён заголовком клиента, а не уехал NULL
+    // в колонку, которая его не принимает.
+    assertEquals(seed!.params?.includes("client 5175"), true);
     // Строки про вход печатаются только при удавшейся проводке.
     const text = renderCopyClient(result);
     assertStringIncludes(text, "✓ вход: http://sw.localhost/login");
@@ -709,12 +715,42 @@ Deno.test("кэш main греется строкой клиента из sl-0", 
       nowMs: () => 0,
     });
 
-    assertEquals(redis.length, 1);
-    assertEquals(redis[0].argv.includes("mp-sl-0-redis"), true);
-    assertEquals(redis[0].argv.includes("sl-main:clients:5175"), true);
+    // Обращений к redis два и они разные: шаг 5 греет кэш main, шаг 6
+    // сбрасывает кэш sw-back — без сброса он показывал бы прежнее
+    // состояние поверх свежезаведённого входа.
+    assertEquals(redis.length, 2);
+    const main = redis.find((call) => call.argv.includes("mp-sl-0-redis"))!;
+    assertEquals(main.argv.includes("sl-main:clients:5175"), true);
     // Значение уходит через stdin (`-x`), а не аргументом: строка
     // клиента бывает длинной и содержит что угодно.
-    assertEquals(redis[0].argv.includes("-x"), true);
-    assertEquals(redis[0].stdin, '{"id":5175}');
+    assertEquals(main.argv.includes("-x"), true);
+    assertEquals(main.stdin, '{"id":5175}');
+    const swBack = redis.find((call) => call.argv.includes("redis-dev"))!;
+    assertEquals(swBack.argv.includes("FLUSHALL"), true);
+  });
+});
+
+Deno.test("сброс кэша sw-back не роняет уже заведённый вход", async () => {
+  await withIo(async (io) => {
+    const lines: string[] = [];
+    const loud = { ...io, progress: (line: string) => void lines.push(line) };
+    const result = await runCopyClient({ selector: String(CLIENT) }, loud, {
+      runTool: tools([0, 0], []),
+      openSession: sessions([]),
+      // Кэш main греется, сброс sw-back падает: вход к этому моменту
+      // уже заведён, и ронять из-за кэша нечего.
+      runRedis: (argv) =>
+        argv.includes("FLUSHALL")
+          ? Promise.reject(new Error("redis-dev не запущен"))
+          : Promise.resolve(),
+      tempFile: () => "/tmp/проба.dump",
+      removeFile: () => {},
+      nowMs: () => 0,
+    });
+    assertEquals(result.login, true);
+    assertStringIncludes(
+      lines.join("\n"),
+      "mpu copy-client: WARN кэш sw-back не сброшен",
+    );
   });
 });

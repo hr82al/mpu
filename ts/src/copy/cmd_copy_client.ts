@@ -71,6 +71,9 @@ export type CopyIo = Pick<
   "envFile" | "openCacheDb" | "progress"
 >;
 
+/** Пароль локального redis sw-back; он же в подсказке `copy-dev`. */
+const REDIS_PASSWORD = "some-redis-password";
+
 /** Подстановки для тестов: живых PG и утилит у них нет. */
 export interface CopyOptions {
   readonly runTool?: RunTool;
@@ -128,7 +131,14 @@ export async function runCopyClient(
   // из-за кэша или проводки нечего — они догоняются повторным
   // запуском (`copy-client.md`, «Инварианты»).
   await warmClientCache(io, clientId, sl0, open, options);
-  const login = await seedSwFront(io, clientId, sl1, io.envFile, open);
+  const login = await seedSwFront(
+    io,
+    clientId,
+    sl1,
+    io.envFile,
+    open,
+    options.runRedis,
+  );
   return {
     clientId,
     schema: `schema_${clientId}`,
@@ -182,6 +192,39 @@ async function warmClientCache(
   }
 }
 
+/**
+ * Сброс кэша sw-back после проводки (`copy-client.md`, шаг 6):
+ * best-effort внутри best-effort. Вход, заведённый в базе, sw-back
+ * покажет только после сброса — иначе он продолжит отдавать
+ * прежний кэш, и оператор решит, что проводка не сработала.
+ *
+ * Свой `try`, а не общий с проводкой: вход уже заведён, и ронять из-за
+ * кэша нечего — его сбрасывают руками той же командой из подсказки.
+ */
+async function flushSwBack(
+  io: CopyIo,
+  runRedis: CopyOptions["runRedis"],
+): Promise<void> {
+  if (runRedis === undefined) return;
+  try {
+    await runRedis(
+      [
+        "docker",
+        "exec",
+        "redis-dev",
+        "redis-cli",
+        "-a",
+        REDIS_PASSWORD,
+        "FLUSHALL",
+      ],
+      "",
+    );
+  } catch (err) {
+    const reason = err instanceof Error ? err.message.split("\n")[0] : "";
+    io.progress(`mpu copy-client: WARN кэш sw-back не сброшен (${reason})`);
+  }
+}
+
 /** Шаг 6: вход в локальный sw-front; сбой — предупреждение. */
 async function seedSwFront(
   io: CopyIo,
@@ -189,6 +232,7 @@ async function seedSwFront(
   sl1: PgTarget,
   env: CopyIo["envFile"],
   open: OpenSession,
+  runRedis: CopyOptions["runRedis"],
 ): Promise<boolean> {
   try {
     const from = await open(sl1, "read-only");
@@ -197,6 +241,7 @@ async function seedSwFront(
       try {
         const cabinets = await seedLogin(from, workspaces, clientId);
         io.progress(`  sw-front: кабинетов заведено ${cabinets}`);
+        await flushSwBack(io, runRedis);
         return true;
       } finally {
         await workspaces.close();

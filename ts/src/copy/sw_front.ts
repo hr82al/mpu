@@ -33,19 +33,23 @@ export const LOCAL_PASSWORD = "123123";
 const PASSWORD_HASH =
   "$2b$10$cxMCZzMdmIdDRmb18yA2w.JzCc.JPHz8oRp/660kaEDh/xrkSsCnS";
 
-/** Кабинет клиента: идентификатор и имена для витрины. */
+/** Кабинет клиента: идентификатор и оба обязательных имени витрины. */
 export interface Cabinet {
   readonly sid: string;
   readonly name: string;
+  /** Торговая марка; в схеме воркспейсов она NOT NULL без умолчания. */
+  readonly trade_mark: string;
 }
 
 /**
- * Заголовок клиента: им зовётся и пользователь, и его workspace, и
- * кабинет без своего имени. Одно место, потому что три расходящихся
- * заголовка у одного клиента — путаница на витрине, а разъезжаются они
- * молча.
+ * Запасное имя кабинета: им зовётся кабинет без собственного имени и
+ * без торговой марки. Форм у заголовка клиента три и они разные —
+ * `client_<id>` у пользователя, `client-<id>` у воркспейса,
+ * `client <id>` здесь (`copy-client.md`, шаг 6); сводить их в одну
+ * нельзя, а держать три литерала врассыпную — значит развести их при
+ * первой же правке.
  */
-export function localTitle(clientId: number): string {
+export function cabinetFallback(clientId: number): string {
   return `client ${clientId}`;
 }
 
@@ -71,12 +75,23 @@ export async function cabinetsOf(
   if (outcome.kind !== "rows") return [];
   return outcome.rows.map((row) => {
     const sid = String(row[0]);
-    const name = [row[1], row[2]]
-      .map((value) => (value === null ? "" : String(value).trim()))
-      .find((value) => value !== "");
-    // Пустое имя — обычное дело у свежего кабинета: витрине нужен
-    // хоть какой-то заголовок, и номер клиента здесь честнее пустоты.
-    return { sid, name: name ?? localTitle(clientId) };
+    const text = (value: unknown) =>
+      value === null || value === undefined ? "" : String(value).trim();
+    const name = text(row[1]);
+    const trade = text(row[2]);
+    // Пустое имя — обычное дело у свежего кабинета, а обе колонки на
+    // приёмнике обязательны: витрине нужен хоть какой-то заголовок, и
+    // номер клиента здесь честнее пустоты. Имя вдобавок подхватывает
+    // торговую марку — заголовок из неё осмысленнее номера.
+    return {
+      sid,
+      name: name !== ""
+        ? name
+        : trade !== ""
+        ? trade
+        : cabinetFallback(clientId),
+      trade_mark: trade !== "" ? trade : cabinetFallback(clientId),
+    };
   });
 }
 
@@ -90,70 +105,84 @@ export async function cabinetsOf(
  * чужой базы. Настройка сервера — не то, на чём должна держаться
  * правильность запроса.
  *
- * Состав колонок сверен со схемой воркспейсов стенда (замеры
- * 2026-08-28, записаны в `copy-client.md`): у `users` семь
- * NOT NULL-колонок, у `workspaces` нет ни `is_active`, ни
- * `marketplace` — обе прежде перечислялись, и на первой из них падает
- * рабочая версия.
+ * Состав колонок отвечает форме всех пяти таблиц, снятой со стенда и
+ * записанной в `copy-client.md` («Известные ловушки окружения»).
+ * Оттуда же три вещи, которых не дал бы замер одной таблицы:
+ * `updated_at` объявлена NOT NULL **без умолчания** везде, где есть
+ * (`users`, `workspaces`, `subscriptions`), а у `wb_cabinets` её нет
+ * вовсе; `workspaces.slug` обязателен и уникален; у `subscriptions`
+ * нет `workspace_id` — подписка привязана к кабинету, не к
+ * пространству. Колонки `is_active` у `workspaces` нет — на ней падает
+ * рабочая версия; `marketplace` есть и допускает NULL.
  *
- * Отметки времени проставляются явно, хотя умолчания у них могли и
- * быть: замер снял имена и обязательность, но **не умолчания**, а
- * PostgreSQL называет нарушение NOT NULL по порядку колонок — отказ на
- * `name` (4-я) ничего не говорит про `created_at` (5-я) и `updated_at`
- * (6-ю). `NOW()` там, где сервер и сам подставил бы его, безвреден;
- * его отсутствие там, где умолчания нет, стоило бы ещё одного круга
- * живой пары.
- *
- * Колонки трёх операторов кабинета (`wb_cabinets`,
- * `workspaces_wb_cabinets`, `subscriptions`) замером **не покрыты**: до
- * них исполнение ни разу не доходило — транзакция откатывалась на
- * `users`. Сверены у них только цели конфликтов (докстринг модуля).
+ * Значения перечислений приводятся к типу явно: параметр приходит
+ * текстом, и вывести тип серверу неоткуда. Имя типа квалифицировано
+ * схемой по той же причине, по которой значения ушли параметрами —
+ * правильность запроса не должна зависеть от настройки (там от
+ * `standard_conforming_strings`, здесь от `search_path` роли).
  */
 export function seedStatements(
   clientId: number,
   cabinets: readonly Cabinet[],
 ): readonly Statement[] {
   const email = localEmail(clientId);
-  const title = localTitle(clientId);
   const statements: Statement[] = [
     {
       sql: "INSERT INTO public.users (email, password, name, " +
         "is_email_verified, created_at, updated_at) " +
         "VALUES ($1, $2, $3, true, NOW(), NOW()) " +
         "ON CONFLICT (email) DO UPDATE SET password = EXCLUDED.password, " +
-        "is_email_verified = true, updated_at = NOW()",
-      params: [email, PASSWORD_HASH, title],
+        "name = EXCLUDED.name, is_email_verified = true, updated_at = NOW()",
+      params: [email, PASSWORD_HASH, `client_${clientId}`],
       label: "users",
     },
     {
       sql: "INSERT INTO public.workspaces " +
-        "(id, owner_id, name, slug, created_at, updated_at) " +
-        "SELECT $1::int, u.id, $2, $3, NOW(), NOW() FROM public.users u " +
-        "WHERE u.email = $4 " +
+        "(id, owner_id, name, slug, marketplace, created_at, updated_at) " +
+        "SELECT $1::int, u.id, $2, $3, 'Wildberries', NOW(), NOW() " +
+        "FROM public.users u WHERE u.email = $4 " +
+        // `slug` уникален и в обновление не входит: повторный прогон не
+        // должен переписывать чужой slug своим (`copy-client.md`).
         "ON CONFLICT (id) DO UPDATE SET owner_id = EXCLUDED.owner_id, " +
-        "name = EXCLUDED.name, updated_at = NOW()",
-      params: [clientId, title, `client-${clientId}`, email],
+        "name = EXCLUDED.name, marketplace = EXCLUDED.marketplace, " +
+        "updated_at = NOW()",
+      params: [clientId, `client-${clientId}`, `client-${clientId}`, email],
       label: "workspaces",
     },
   ];
   for (const cabinet of cabinets) {
     statements.push(
       {
-        sql: "INSERT INTO public.wb_cabinets (sid, name, status, " +
-          "marketplace, workspace_id) VALUES ($1, $2, 'ACTIVE', " +
-          "'wildberries', $3) ON CONFLICT (sid) DO UPDATE SET " +
-          "name = EXCLUDED.name, status = 'ACTIVE'",
-        params: [cabinet.sid, cabinet.name, clientId],
+        // `trade_mark` обязательна и умолчания не имеет — под то же
+        // правило подстановки, что и пустое имя. Колонки `updated_at`
+        // у этой таблицы нет вовсе.
+        sql: "INSERT INTO public.wb_cabinets " +
+          "(sid, name, trade_mark, status, marketplace, workspace_id) " +
+          "VALUES ($1, $2, $3, $4::\"WbTokenStatus\", 'wildberries', $5) " +
+          "ON CONFLICT (sid) DO UPDATE SET name = EXCLUDED.name, " +
+          "trade_mark = EXCLUDED.trade_mark, " +
+          // Кабинет мог быть перевешен на другого клиента: без этого
+          // он остался бы привязан к прежнему воркспейсу, а связка в
+          // `workspaces_wb_cabinets` (DO NOTHING) добавилась бы второй.
+          "workspace_id = EXCLUDED.workspace_id, " +
+          "marketplace = EXCLUDED.marketplace, " +
+          'status = $4::public."WbTokenStatus"',
+        params: [
+          cabinet.sid,
+          cabinet.name,
+          cabinet.trade_mark,
+          "ACTIVE",
+          clientId,
+        ],
         label: "wb_cabinets",
       },
       // Цель конфликта не названа: первичный ключ здесь составной —
       // `(workspace_id, sid)`, — и `ON CONFLICT (sid)` отбился бы «нет
-      // уникального индекса под указанные колонки» (сверено на схеме
-      // стенда 2026-08-28). Точная форма `ON CONFLICT (workspace_id,
-      // sid)` тоже подошла бы; выбрана безцелевая, потому что связка
-      // здесь ровно одна и различать причины конфликта незачем — но
-      // молчит она к любому уникальному индексу таблицы, не только к
-      // первичному ключу.
+      // уникального индекса под указанные колонки». Точная форма
+      // `ON CONFLICT (workspace_id, sid)` тоже подошла бы; выбрана
+      // безцелевая, потому что связка здесь ровно одна и различать
+      // причины конфликта незачем — но молчит она к любому уникальному
+      // индексу таблицы, не только к первичному ключу.
       {
         sql: "INSERT INTO public.workspaces_wb_cabinets (workspace_id, sid) " +
           "VALUES ($1, $2) ON CONFLICT DO NOTHING",
@@ -161,12 +190,17 @@ export function seedStatements(
         label: "workspaces_wb_cabinets",
       },
       {
+        // Подписка привязана к кабинету, а не к пространству: ключ
+        // `sid`, он же внешний ключ на `wb_cabinets`, а колонки
+        // `workspace_id` в таблице нет вовсе.
         sql: "INSERT INTO public.subscriptions (sid, is_paid, status, " +
-          "paid_from, paid_to, sku_active_limit, is_active) VALUES " +
-          "($1, true, 'ACTIVE', CURRENT_DATE, CURRENT_DATE + 365, " +
-          "100000, true) ON CONFLICT (sid) DO UPDATE SET is_paid = true, " +
-          "status = 'ACTIVE', paid_to = CURRENT_DATE + 365, is_active = true",
-        params: [cabinet.sid],
+          "paid_from, paid_to, sku_active_limit, is_active, updated_at) " +
+          'VALUES ($1, true, $2::public."SubscriptionStatus", CURRENT_DATE, ' +
+          "CURRENT_DATE + 365, 100000, true, NOW()) " +
+          "ON CONFLICT (sid) DO UPDATE SET is_paid = true, " +
+          'status = $2::public."SubscriptionStatus", ' +
+          "paid_to = CURRENT_DATE + 365, is_active = true, updated_at = NOW()",
+        params: [cabinet.sid, "ACTIVE"],
         label: "subscriptions",
       },
     );
