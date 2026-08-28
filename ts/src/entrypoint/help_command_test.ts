@@ -64,16 +64,16 @@ Deno.test("mpu help <имя>: справка целевой команды", asy
         calls.push([...args]);
         return Promise.resolve({
           code: 0,
-          stdout: "Usage: mpu sheet …\n",
+          stdout: "Usage: mpu api …\n",
           stderr: "",
         });
       },
       openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/bin/echo" }),
     });
-    assertEquals(await cli.run("help", "mpu sheet"), 0);
-    // Тот же вызов, что у `mpu sheet --help`: реестр текст не сочиняет.
-    assertEquals(calls, [["sheet", "--help"]]);
-    assertEquals(cli.stdout(), "Usage: mpu sheet …\n");
+    assertEquals(await cli.run("help", "mpu api"), 0);
+    // Тот же вызов, что у `mpu api --help`: реестр текст не сочиняет.
+    assertEquals(calls, [["api", "--help"]]);
+    assertEquals(cli.stdout(), "Usage: mpu api …\n");
   });
 });
 

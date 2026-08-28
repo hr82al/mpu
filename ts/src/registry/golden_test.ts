@@ -186,22 +186,17 @@ Deno.test("version-help.txt: справка version, а не версия", asyn
   assertStringIncludes(await golden("version-help.txt"), "Show mpu version.");
 });
 
-Deno.test("help-named-sheet.txt и subcmd-help.txt: справку печатает подпроцесс", async (t) => {
+Deno.test("справку команды маршрута legacy печатает подпроцесс", async (t) => {
   // Эталоны сквозного поведения: flag-level текст справки команд
   // маршрута `legacy` приходит от Python-реализации, которой в
-  // песочнице нет. Проверяем стык — argv и проход вывода насквозь;
-  // байтовую сверку с этими двумя эталонами делает оператор.
+  // песочнице нет. Проверяем стык — argv и проход вывода насквозь.
+  // Образец — `api`: её пишущая половина ещё подпроцессная (у `sheet`,
+  // стоявшей здесь раньше, подпроцессным не осталось ничего).
   const cases: readonly (readonly [string, readonly string[], string[]])[] = [
-    [
-      'mpu help "mpu sheet"',
-      ["help", "mpu sheet"],
-      ["sheet", "--help"],
-    ],
-    // Подкоманда, ещё не переехавшая: `get`/`ls`/`resolve` теперь
-    // исполняются кодом CLI, и делегацию ими не проверить.
-    ["mpu sheet set --help", ["sheet", "set", "--help"], [
-      "sheet",
-      "set",
+    ['mpu help "mpu api"', ["help", "mpu api"], ["api", "--help"]],
+    ["mpu api create-client --help", ["api", "create-client", "--help"], [
+      "api",
+      "create-client",
       "--help",
     ]],
   ];
@@ -210,7 +205,7 @@ Deno.test("help-named-sheet.txt и subcmd-help.txt: справку печата�
     await t.step(title, async () => {
       const calls: string[][] = [];
       const printed =
-        "Usage: mpu sheet [OPTIONS] COMMAND\n\nСправка от реализации.\n";
+        "Usage: mpu api [OPTIONS] COMMAND\n\nСправка от реализации.\n";
       const { code, stdout } = await run(argv, {
         runLegacy: (_bin, args) => {
           calls.push([...args]);
@@ -225,21 +220,25 @@ Deno.test("help-named-sheet.txt и subcmd-help.txt: справку печата�
   }
 });
 
-Deno.test("эталоны справки legacy остаются эталонами оператора", async () => {
-  // Здесь фиксируется только то, что сессия проверить может: эталоны на
-  // месте и описывают ту же команду, что видит реестр.
-  assertStringIncludes(await golden("subcmd-help.txt"), "Usage: mpu sheet get");
-  assertStringIncludes(
-    await golden("help-named-sheet.txt"),
-    "Usage: mpu sheet",
-  );
+Deno.test("переехавшее семейство справку у подпроцесса не берёт", async () => {
+  // Обратная сторона того же стыка. `sheet` ушла с маршрута `legacy`
+  // целиком, и её индекс собирает реестр — эталоны справки Python по
+  // ней (`help-named-sheet.txt`, `subcmd-help.txt`) удалены вместе с
+  // маршрутом: эталон, описывающий несуществующий путь, хуже, чем его
+  // отсутствие.
+  const calls: string[][] = [];
+  const { stdout } = await run(["sheet", "--help"], {
+    runLegacy: (_bin, args) => {
+      calls.push([...args]);
+      return Promise.resolve({ code: 0, stdout: "", stderr: "" });
+    },
+  });
+  assertEquals(calls, []);
+  for (const name of ["get", "set", "open", "alias", "cache"]) {
+    assertStringIncludes(stdout, name);
+  }
   assertEquals(
     legacyCommands.some((command) => command.path.join(" ") === "sheet"),
-    true,
-  );
-  // Переехавшей команды в слепке нет: маршрут переключается целиком.
-  assertEquals(
-    legacyCommands.some((command) => command.path.join(" ") === "search"),
     false,
   );
 });

@@ -102,6 +102,7 @@ import {
   sheetLsCommand,
   sheetOpenCommand,
   sheetResolveCommand,
+  sheetSetCommand,
 } from "../sheet/mod.ts";
 import { cleanLocalClientsCommand } from "../cleanlocal/mod.ts";
 import {
@@ -289,6 +290,9 @@ export const commands: readonly Command[] = [
   sheetAliasLsCommand,
   sheetAliasRmCommand,
   sheetOpenCommand,
+  // Последний лист семейства: с ним `sheet` уходит с маршрута
+  // `legacy` целиком (`docs/specs/sheet-set.md`).
+  sheetSetCommand,
   // Семейство `mr` целиком: чтение (`docs/specs/mr-read.md`) и запись
   // (`docs/specs/mr-write.md`). В легаси его подкоманд не осталось,
   // поэтому имя `mr` внесено в `NOT_LEGACY`.
@@ -400,16 +404,23 @@ export const groups: readonly CommandGroup[] = [
     usage: "mpu mr <подкоманда> [аргументы]",
   },
   {
-    // Соседний промежуточный уровень: подкоманды `alias` есть только
-    // здесь, в слепке их нет (`sheet` переехала не целиком).
+    // Семейство переехало целиком — последним ушёл `set`, — и его
+    // промежуточный уровень больше не приходит из слепка. Без этой
+    // записи `mpu sheet --help` собирал бы пустой индекс, как было бы
+    // у `kiten` и `mr` (`platform/registry.md`).
+    path: ["sheet"],
+    summary: "Google-таблицы: чтение, запись, алиасы, кэш",
+    usage: "mpu sheet <подкоманда> [аргументы]",
+  },
+  {
+    // Подкоманды `alias` есть только здесь: в слепке их нет.
     path: ["sheet", "alias"],
     summary: "короткие имена таблиц: add | ls | rm",
     usage: "mpu sheet alias <подкоманда> [аргументы]",
   },
   {
-    // Промежуточный уровень `sheet cache`: сама группа `sheet` ещё в
-    // слепке (переехала не целиком), а её подгруппы там нет —
-    // подкоманды `cache` есть только здесь.
+    // Промежуточный уровень `sheet cache`: подкоманды есть только
+    // здесь, в слепке их нет.
     path: ["sheet", "cache"],
     summary: "локальный кэш вкладок: info | clear",
     usage: "mpu sheet cache <подкоманда> [аргументы]",

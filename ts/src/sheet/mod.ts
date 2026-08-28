@@ -18,3 +18,4 @@ export { sheetGetCommand } from "./cmd_get.ts";
 export { sheetLsCommand } from "./cmd_ls.ts";
 export { sheetOpenCommand } from "./cmd_open.ts";
 export { sheetResolveCommand } from "./cmd_resolve.ts";
+export { sheetSetCommand } from "./cmd_set.ts";

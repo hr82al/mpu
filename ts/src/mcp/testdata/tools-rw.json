@@ -4795,6 +4795,94 @@
     }
   },
   {
+    "name": "sheet_set",
+    "title": "mpu sheet set",
+    "description": "Записать значения в Google-таблицу.\n\nРежим выбирает форма вызова, а не флаг:\n\n  mpu sheet set 'Лист!A1' '=SUM(B:B)' -s ЦЕЛЬ   одна ячейка\n  mpu sheet set --from пакет.tsv -s ЦЕЛЬ         пакет из файла\n  … | mpu sheet set [ЦЕЛЬ]                       JSON из потока\n\nВНИМАНИЕ: первый позиционный означает разное. В первых двух режимах\nэто ДИАПАЗОН, в JSON-режиме — ЦЕЛЬ: диапазоны там в самом JSON. Цель,\nназванная и позиционным, и через -s, — ошибка ввода.\n\nПакет: 'диапазон<TAB>значение' на строку; пустые и с '#' пропускаются.\nСтрока без табуляции — ошибка с номером; пустой пакет — тоже.\n\nJSON: [{\"range\": …, \"formula\"|\"value\": …}, …]. Тип задаёт имя\nсвойства: 'formula' сервер разбирает как ввод пользователя, 'value'\nпишет как есть. Поэтому -l/--literal JSON-режима не касается: он\nзадаёт умолчание двух других.\n\nРазные типы уходят двумя запросами, и операция НЕ атомарна: второй\nможет упасть после первого. Тогда код 1, и сообщение называет\nзаписанное.\n\nВ JSON-режиме открытый столбец ('B2:B') заливается до последней\nзанятой строки, и ради неё делается ЛИШНИЙ запрос чтения: режим\nдороже прочих. Записанные вкладки инвалидируются в кэше.\n\nExit: 0 — успех; 1 — отказ webapp; 2 — ошибки ввода и резолва цели.\n\nПример: mpu sheet set 'Свод!B2' 42 -s otchet",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "range": {
+          "description": "A1-диапазон записи; в JSON-режиме — ЦЕЛЬ, а не диапазон",
+          "type": "string"
+        },
+        "value": {
+          "description": "значение одной ячейки",
+          "type": "string"
+        },
+        "from": {
+          "description": "пакет: файл 'диапазон<TAB>значение'; '-' — весь stdin",
+          "type": "string"
+        },
+        "spreadsheet": {
+          "description": "цель: URL, ID, алиас, …",
+          "type": "string"
+        },
+        "literal": {
+          "default": false,
+          "description": "значение записать как есть (RAW); JSON-режима не касается",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "spreadsheetId": {
+          "type": "string"
+        },
+        "updatedCells": {
+          "type": "number",
+          "description": "всего ячеек по ответам сервера"
+        },
+        "updatedRanges": {
+          "type": "number",
+          "description": "всего диапазонов по ответам сервера"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "valueInputOption": {
+                "type": "string"
+              },
+              "updatedCells": {
+                "type": "number",
+                "description": "ячеек по ответу сервера"
+              },
+              "updatedRanges": {
+                "type": "number",
+                "description": "диапазонов по ответу сервера"
+              }
+            },
+            "required": [
+              "valueInputOption",
+              "updatedCells",
+              "updatedRanges"
+            ],
+            "additionalProperties": false
+          },
+          "description": "по группе на отправленный запрос"
+        }
+      },
+      "required": [
+        "spreadsheetId",
+        "updatedCells",
+        "updatedRanges",
+        "groups"
+      ],
+      "additionalProperties": false
+    },
+    "_meta": {
+      "anthropic/requiresUserInteraction": true
+    }
+  },
+  {
     "name": "mr_create",
     "title": "mpu mr create",
     "description": "Создать merge request из текущей ветки.\n\nСоздаёт merge request.\n\n--title и --target обязательны: заголовок и ветка, куда вливать.\n--source — исходная ветка; без флага берётся текущая ветка каталога, а\nв detached HEAD команда отказывается и просит указать её явно.\n--project group/repo; без флага берётся из git remote origin.\n\nОписание необязательно: -m/--message TEXT либо -F/--body-file PATH\n('-' — весь stdin, только в CLI). Без обоих MR создаётся с пустым\nописанием; оба сразу — ошибка ввода.\n\nПовторный вызов на ту же исходную ветку GitLab отклоняет: открытый MR\nу ветки может быть только один.\n\nКлючи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL\n(необязателен).\n\nExit: 0 — успех; 2 — нет --title или --target, оба флага описания; 1 —\ndetached HEAD без --source, git недоступен, отказ GitLab (в том числе\nуже существующий MR ветки).\n\nПримеры: mpu mr create --title 'feat: загрузчик' --target main;\nmpu mr create --title 'fix' --target main --source hotfix -F тело.md",
@@ -5465,44 +5553,6 @@
         "exitCode"
       ],
       "additionalProperties": false
-    }
-  },
-  {
-    "name": "sheet_set",
-    "title": "mpu sheet set",
-    "description": "Write values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nWrite values via spreadsheets/values/batchUpdate (default USER_ENTERED, --literal → RAW).\n\nТри режима записи: `RANGE VALUE` — одна ячейка/формула; `--from FILE` — батч\n`range<TAB>value` построчно (`-` — stdin); JSON `[{\"range\":..,\"value\"|\"formula\":..}]`\nиз stdin — тогда единственный позиционный аргумент (если есть) трактуется как\nселектор таблицы. В JSON-режиме открытый одностолбцовый range (`Col<N>:Col`)\nавтозаполняется значением до последней занятой строки столбца.",
-    "annotations": {
-      "readOnlyHint": false,
-      "destructiveHint": true
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "range_arg": {
-          "type": "string",
-          "description": "A1-диапазон для записи; в режиме JSON-из-stdin единственный позиционный аргумент — селектор таблицы (вместо -s), не range."
-        },
-        "value": {
-          "type": "string"
-        },
-        "spreadsheet": {
-          "type": "string",
-          "description": "Spreadsheet ID/URL/alias/client_id/title (иначе env MPU_SS → config sheet.default)."
-        },
-        "from_file": {
-          "type": "string",
-          "description": "Batch из файла (`range<TAB>value` на строку, `#` — комментарий, `-` stdin)."
-        },
-        "literal": {
-          "type": "boolean",
-          "description": "RAW value (не парсить формулы/числа).",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    },
-    "_meta": {
-      "anthropic/requiresUserInteraction": true
     }
   },
   {

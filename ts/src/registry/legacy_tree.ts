@@ -12,12 +12,8 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 6 команд верхнего уровня, ещё не переехавших на TS. */
+/** 5 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
-  {
-    path: ["sheet"],
-    summary: "Google Spreadsheets через Apps Script webapp (native Python).",
-  },
   {
     path: ["d2-miro"],
     summary: "Рендер d2-диаграммы в Miro как редактируемый фрейм.",

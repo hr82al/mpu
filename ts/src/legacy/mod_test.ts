@@ -47,19 +47,26 @@ function makeCli(
   };
 }
 
+/**
+ * Любая команда, ещё не переехавшая на TS: проверяется маршрут, а не
+ * она сама. Имя здесь меняется по ходу переезда — раньше стояла
+ * `sheet`, пока её семейство не ушло с этого маршрута целиком.
+ */
+const LEGACY = "d2-miro";
+
 const ok: LegacyOutcome = { code: 0, stdout: "", stderr: "" };
 
 Deno.test("вывод и код возврата проходят насквозь", async (t) => {
   await t.step("stdout и код 0", async () => {
     const cli = makeCli({ code: 0, stdout: "строка\tзначение\n", stderr: "" });
-    assertEquals(await cli.run("sheet", "sl-1"), 0);
+    assertEquals(await cli.run(LEGACY, "sl-1"), 0);
     assertEquals(cli.stdout(), "строка\tзначение\n");
     assertEquals(cli.stderr(), "");
   });
 
   await t.step("stderr и ненулевой код не переупаковываются", async () => {
     const cli = makeCli({ code: 3, stdout: "", stderr: "boom: нет таблицы\n" });
-    assertEquals(await cli.run("sheet", "sl-1"), 3);
+    assertEquals(await cli.run(LEGACY, "sl-1"), 3);
     assertEquals(cli.stderr(), "boom: нет таблицы\n");
     // Ни префикса «mpu sheet:», ни подсказки — реестр не вмешивается.
     assertEquals(cli.stdout(), "");
@@ -67,7 +74,7 @@ Deno.test("вывод и код возврата проходят насквоз
 
   await t.step("оба потока сразу", async () => {
     const cli = makeCli({ code: 1, stdout: "данные\n", stderr: "шум\n" });
-    assertEquals(await cli.run("sheet"), 1);
+    assertEquals(await cli.run(LEGACY), 1);
     assertEquals(cli.stdout(), "данные\n");
     assertEquals(cli.stderr(), "шум\n");
   });
@@ -76,10 +83,10 @@ Deno.test("вывод и код возврата проходят насквоз
 Deno.test("аргументы уходят как есть, включая незнакомые реестру", async (t) => {
   await t.step("флаги и позиционные", async () => {
     const cli = makeCli(ok);
-    await cli.run("sheet", "--filter", "wb", "sl-1", "--нет-такого-флага");
+    await cli.run(LEGACY, "--filter", "wb", "sl-1", "--нет-такого-флага");
     assertEquals(cli.calls().length, 1);
     assertEquals(cli.calls()[0].args, [
-      "sheet",
+      LEGACY,
       "--filter",
       "wb",
       "sl-1",
@@ -95,21 +102,21 @@ Deno.test("аргументы уходят как есть, включая не�
       stdout: "Usage: mpu sheet …\n",
       stderr: "",
     });
-    assertEquals(await cli.run("sheet", "--help"), 0);
-    assertEquals(cli.calls()[0].args, ["sheet", "--help"]);
+    assertEquals(await cli.run(LEGACY, "--help"), 0);
+    assertEquals(cli.calls()[0].args, [LEGACY, "--help"]);
     assertEquals(cli.stdout(), "Usage: mpu sheet …\n");
   });
 
   await t.step("--json не распознаётся и уходит подпроцессу", async () => {
     const cli = makeCli(ok);
-    await cli.run("sheet", "--json", "sl-1");
-    assertEquals(cli.calls()[0].args, ["sheet", "--json", "sl-1"]);
+    await cli.run(LEGACY, "--json", "sl-1");
+    assertEquals(cli.calls()[0].args, [LEGACY, "--json", "sl-1"]);
   });
 
   await t.step("«--» и всё после него — тоже аргументы", async () => {
     const cli = makeCli(ok);
-    await cli.run("sheet", "--", "--filter");
-    assertEquals(cli.calls()[0].args, ["sheet", "--", "--filter"]);
+    await cli.run(LEGACY, "--", "--filter");
+    assertEquals(cli.calls()[0].args, [LEGACY, "--", "--filter"]);
   });
 });
 
@@ -118,7 +125,7 @@ Deno.test("путь исполняемого файла берётся из ко
     const cli = makeCli(ok, {
       openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/opt/mpu" }),
     });
-    await cli.run("sheet");
+    await cli.run(LEGACY);
     assertEquals(cli.calls()[0].bin, "/opt/mpu");
   });
 
@@ -141,7 +148,7 @@ Deno.test("прочий сбой запуска не выдаётся за от�
   });
   // Не NotFoundIoError — значит и не сообщение «не найдена по пути»:
   // такую ошибку обрабатывает верхний обработчик точки входа.
-  const err = await cli.run("sheet").then(
+  const err = await cli.run(LEGACY).then(
     () => undefined,
     (reason: unknown) => reason,
   );
@@ -155,7 +162,7 @@ Deno.test("нет исполняемого файла — exit 1 и текст �
   }, {
     openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/нет/такого/mpu" }),
   });
-  assertEquals(await cli.run("sheet", "sl-1"), 1);
+  assertEquals(await cli.run(LEGACY, "sl-1"), 1);
   assertEquals(
     cli.stderr(),
     'mpu: legacy-реализация не найдена по пути "/нет/такого/mpu"\n',

@@ -1513,6 +1513,22 @@ const CASES: readonly CommandCase[] = [
     sampleResult: { name: "otchet", ss_id: "1SyntheticSpreadsheetId0000" },
   },
   {
+    // Ни диапазона со значением, ни `--from`, а stdin обхода —
+    // терминал: вызов отбивается на выборе режима, до сети и до
+    // записи. Ничего писать в чужую таблицу обход не должен.
+    path: "sheet set",
+    argv: [],
+    sampleResult: {
+      spreadsheetId: "1SyntheticSpreadsheetId0000",
+      updatedCells: 3,
+      updatedRanges: 2,
+      groups: [
+        { valueInputOption: "USER_ENTERED", updatedCells: 1, updatedRanges: 1 },
+        { valueInputOption: "RAW", updatedCells: 2, updatedRanges: 1 },
+      ],
+    },
+  },
+  {
     // Цель не задана ничем: ни флага, ни `sheet.default` — отказ на
     // резолве, до сети и до запуска открывателя.
     path: "sheet open",

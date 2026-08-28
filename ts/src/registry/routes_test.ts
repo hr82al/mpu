@@ -22,15 +22,15 @@ async function help(...argv: string[]): Promise<string> {
 }
 
 Deno.test("пилотная команда маршрута legacy есть в реестре", () => {
-  // Пилотом был `search`, но он переехал на маршрут `native`; роль
-  // образца перешла к `sheet` — он остаётся подпроцессным и своим
-  // эталоном справки закрыт (`fixtures/platform/registry/subcmd-help.txt`).
-  const entry = findLegacy(["sheet"]);
-  assertEquals(entry?.path, ["sheet"]);
+  // Пилотом был `search`, за ним `sheet` — оба переехали на маршрут
+  // `native`. Роль образца перешла к `d2-miro`: он остаётся
+  // подпроцессным и стоит в слепке первым.
+  const entry = findLegacy(["d2-miro"]);
+  assertEquals(entry?.path, ["d2-miro"]);
   // Однострока обязательна: из неё собирается индекс родителя.
   assertEquals((entry?.summary ?? "").length > 0, true);
   // Командой контракта она не является — схем и рендера у неё нет.
-  assertEquals(commands.some((c) => c.path.join(" ") === "sheet"), false);
+  assertEquals(commands.some((c) => c.path.join(" ") === "d2-miro"), false);
 });
 
 Deno.test("одно имя — один маршрут", () => {
@@ -88,10 +88,10 @@ Deno.test("инварианты записей реестра", async (t) => {
     const once = legacyCommands.map((command) => command.path.join(" "));
     const twice = legacyCommands.map((command) => command.path.join(" "));
     assertEquals(once, twice);
-    // Порядок — порядок слепка, не алфавит: первым идёт `sheet`
-    // (прежние первые — `search`, `sun`, `config` — уехали маршрутом
-    // `native`).
-    assertEquals(once[0], "sheet");
+    // Порядок — порядок слепка, не алфавит: первым идёт `d2-miro`
+    // (прежние первые — `search`, `sun`, `config`, `sheet` — уехали
+    // маршрутом `native`).
+    assertEquals(once[0], "d2-miro");
   });
 });
 
@@ -122,11 +122,11 @@ Deno.test("тулом становится команда любого марш�
   });
 
   await t.step("команда маршрута legacy — из слепка", () => {
-    // Подпроцессная команда закрытого списка публикации: `sheet
-    // batch-get` (прежние образцы `search` и `mp-init` уехали на
-    // `native`).
-    assertEquals(names.includes("sheet_batch_get"), true);
-    assertEquals(findLegacy(["sheet"])?.path, ["sheet"]);
+    // Подпроцессная команда закрытого списка публикации: пишущая
+    // половина `api` (прежние образцы `search`, `mp-init` и
+    // `sheet batch-get` уехали на `native`).
+    assertEquals(names.includes("api_wb_loader_reset"), true);
+    assertEquals(findLegacy(["api"])?.path, ["api"]);
   });
 
   await t.step("запись реестра вне списка публикации тула не даёт", () => {

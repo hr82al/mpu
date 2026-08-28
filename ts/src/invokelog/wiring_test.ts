@@ -131,7 +131,9 @@ Deno.test("маршрут legacy: обвязка записи не создаё�
   await withStand(async (stand) => {
     const outcome = await cli(
       stand,
-      ["sheet", "sl-1"],
+      // Команда, ещё идущей подпроцессом: у `sheet`, стоявшей здесь
+      // раньше, подпроцессным не осталось ничего.
+      ["d2-miro", "схема.d2"],
       makeFakeIo({
         openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/bin/echo" }),
         runLegacy: () =>
