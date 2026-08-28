@@ -137,9 +137,17 @@ export function requireReason(value: string): string {
   });
 }
 
-/** Цель вызова: sid и то, что удалось узнать про клиента. */
+/**
+ * Цель вызова: кабинеты и то, что удалось узнать про клиента.
+ *
+ * Кабинетов может быть несколько, и это не ошибка сама по себе:
+ * показывающему режиму `resume` спека велит обойти все, а мутирующему —
+ * потребовать один. Решение принимает команда (`requireSingleSid`), а
+ * не резолв: он сообщает, что нашёл, и не выбирает за неё.
+ */
 export interface LoaderTarget {
-  readonly sid: string;
+  /** Кабинеты цели; в прямом режиме ровно один. */
+  readonly sids: readonly string[];
   /** Клиенты кабинета по кэшу; прямой режим без `--client-id` — пусто. */
   readonly clientIds: readonly number[];
   /** Прямой режим: кэш не открывался. */
@@ -164,13 +172,14 @@ export function directTarget(input: TargetInput): LoaderTarget | undefined {
   const clientId = input.clientId === undefined
     ? []
     : [requireClientId(input.clientId)];
-  return { sid, clientIds: clientId, direct: true };
+  return { sids: [sid], clientIds: clientId, direct: true };
 }
 
 /**
- * Резолв по локальному кэшу: клиент и его sid'ы. Названный селектором
- * sid побеждает; иначе годится единственный. Несколько — отказ со
- * списком: молчаливый выбор отправил бы команду чужому кабинету.
+ * Резолв по локальному кэшу: клиент и его кабинеты. Названный
+ * селектором sid побеждает и сужает цель до себя; иначе целью
+ * становятся **все** кабинеты клиента, а сузить их до одного —
+ * забота вызывающей команды.
  */
 export function cacheTarget(
   cache: CacheReader,
@@ -189,21 +198,28 @@ export function cacheTarget(
   }
   const named = sids.find((sid) => sid === input.selector) ??
     onlyMatching(sids, input.selector);
-  if (named === undefined && sids.length > 1) {
-    throw new UsageError(
-      `у клиента несколько WB sid (${sids.length})`,
-      {
-        hint: "укажи --sid <sid>",
-        details: sids.map((sid) => `  --sid ${sid}`).join("\n"),
-      },
-    );
-  }
-  const sid = named ?? sids[0];
+  const chosen = named === undefined ? sids : [named];
   return {
-    sid,
-    clientIds: clientIdsOf(candidates, sid),
+    sids: chosen,
+    clientIds: clientIdsOf(candidates, chosen[0]),
     direct: false,
   };
+}
+
+/**
+ * Единственный кабинет цели. Нужен всем командам, кроме показа
+ * блокировок: мутация по нескольким кабинетам сразу — не то, чего
+ * просили, и выбор первого отправил бы её чужому кабинету.
+ */
+export function requireSingleSid(target: LoaderTarget): string {
+  if (target.sids.length === 1) return target.sids[0];
+  throw new UsageError(
+    `у клиента несколько WB sid (${target.sids.length})`,
+    {
+      hint: "укажи --sid <sid>",
+      details: target.sids.map((sid) => `  --sid ${sid}`).join("\n"),
+    },
+  );
 }
 
 /** Единственный sid, содержащий селектор подстрокой; иначе `undefined`. */

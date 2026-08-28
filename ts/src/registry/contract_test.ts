@@ -1726,9 +1726,19 @@ const CASES: readonly CommandCase[] = [
     sampleResult: { ...BLOCKED_SAMPLE, loaded: null, loadCall: null },
   },
   {
+    // У показа своя форма результата: вызов и ответ на каждый кабинет
+    // (`api-wb-loader.md`, SHOW-режим).
     path: "api wb-loader-resume",
     argv: [SYNTHETIC_SID, "--print"],
-    sampleResult: BLOCKED_SAMPLE,
+    sampleResult: {
+      printed: true,
+      calls: [{
+        method: "POST",
+        path: "/admin/wb-loader/blocked-loaders/v1/find",
+        body: { filter: { sid: SYNTHETIC_SID } },
+      }],
+      entries: [{ sid: SYNTHETIC_SID, response: null }],
+    },
   },
   {
     // Селектор, которого в кэше обхода нет: вызов отбивается на

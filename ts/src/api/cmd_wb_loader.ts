@@ -32,6 +32,7 @@ import {
   type LoaderTarget,
   requireLoader,
   requireReason,
+  requireSingleSid,
   requireSlug,
   stateFromDate,
 } from "./wb_loader.ts";
@@ -226,14 +227,14 @@ async function runOnLoader(
   body?: unknown,
 ): Promise<CallResult> {
   const slug = requireSlug(args.loader);
-  const target = targetOf(io, {
+  const sid = requireSingleSid(targetOf(io, {
     selector: args.selector,
     sid: args.sid,
     clientId: args["client-id"],
-  });
-  return await perform(io, options, target.sid, {
+  }));
+  return await perform(io, options, sid, {
     method,
-    path: loaderPath(target.sid, slug, tail),
+    path: loaderPath(sid, slug, tail),
     body,
   }, args.print);
 }
@@ -504,13 +505,27 @@ const resumeArgs = z.object({
   print: z.boolean().default(false).describe("напечатать вызов и выйти"),
 });
 
+const resumeResult = z.object({
+  printed: z.boolean().describe("вызовы только напечатаны"),
+  calls: z.array(z.object({
+    method: z.string(),
+    path: z.string(),
+    body: z.unknown(),
+  })).describe("вызовы в порядке исполнения; показ — по одному на кабинет"),
+  entries: z.array(z.object({
+    sid: z.string(),
+    response: z.unknown(),
+  })).describe("ответ по каждому кабинету; у печати — null"),
+});
+
 type ResumeArgs = z.infer<typeof resumeArgs>;
+type ResumeResult = z.infer<typeof resumeResult>;
 
 export async function runResume(
   args: ResumeArgs,
   io: LoaderIo,
   options: LoaderOptions = {},
-): Promise<CallResult> {
+): Promise<ResumeResult> {
   if (args.all && args.loader !== undefined) {
     throw new UsageError("--all и позиционный loader взаимоисключающи", {
       advice: "оставь что-то одно",
@@ -524,22 +539,61 @@ export async function runResume(
     sid: args.sid,
     clientId: args["client-id"],
   });
-  // Показ — чтение: снятие блокировок не вызывается ни при каких
-  // входах (спека, инвариант).
-  if (loader === undefined && !args.all) {
-    return await perform(io, options, target.sid, {
-      method: "POST",
-      path: FIND_PATH,
-      body: { filter: { sid: target.sid } },
-    }, args.print);
+  // Показ — чтение, и он обходит ВСЕ кабинеты клиента, когда селектор
+  // не называет один: спека зовёт это штатным исходом, а не ошибкой
+  // (`api-wb-loader.md`, SHOW-режим). Снятие блокировок так не может —
+  // мутация по нескольким кабинетам сразу не то, чего просили.
+  const show = loader === undefined && !args.all;
+  if (!show) {
+    const sid = requireSingleSid(target);
+    const filter: Record<string, unknown> = { sid };
+    if (loader !== undefined) filter.loader = loader;
+    return await resumeCalls(io, options, args.print, [{
+      sid,
+      call: { method: "POST", path: RESUME_PATH, body: { filter } },
+    }]);
   }
-  const filter: Record<string, unknown> = { sid: target.sid };
-  if (loader !== undefined) filter.loader = loader;
-  return await perform(io, options, target.sid, {
-    method: "POST",
-    path: RESUME_PATH,
-    body: { filter },
-  }, args.print);
+  return await resumeCalls(
+    io,
+    options,
+    args.print,
+    target.sids.map((sid) => ({
+      sid,
+      call: {
+        method: "POST",
+        path: FIND_PATH,
+        body: { filter: { sid } },
+      },
+    })),
+  );
+}
+
+/**
+ * Исполнение или печать нескольких вызовов подряд. Форма результата
+ * одна на оба режима и на любое число кабинетов: потребитель вывода не
+ * должен разбирать, сколько их было (то же правило, что у `sheet set`).
+ */
+async function resumeCalls(
+  io: LoaderIo,
+  options: LoaderOptions,
+  print: boolean,
+  planned: readonly { sid: string; call: Call }[],
+): Promise<ResumeResult> {
+  const entries: { sid: string; response: unknown }[] = [];
+  for (const one of planned) {
+    const done = await perform(io, options, one.sid, one.call, print);
+    // Пара «кабинет и его ответ» собирается вместе и здесь же: два
+    // списка порознь разъехались бы на первой же ошибке порядка.
+    entries.push({ sid: one.sid, response: done.response });
+  }
+  return {
+    printed: print,
+    calls: planned.map((one) => ({
+      ...one.call,
+      body: one.call.body ?? null,
+    })),
+    entries,
+  };
 }
 
 export const wbLoaderResumeCommand = defineCommand({
@@ -562,9 +616,18 @@ Exit: 0 — успех; 1 — отказ sl-back (403 — не хватает р
   policy: "rw",
   argsSchema: resumeArgs,
   forms: targetForms,
-  resultSchema: callResult,
+  resultSchema: resumeResult,
   run: (args: ResumeArgs, io: LoaderIo) => runResume(args, io),
-  render: (result: CallResult) => renderCall(result),
+  // Печать показывает вызов на каждый кабинет: показанное меньше
+  // сделанного — тот же дефект, что чинили в печати `--and-load`.
+  render: (result: ResumeResult) =>
+    result.printed
+      ? curlSnippet(result.calls.map((call) => ({
+        method: call.method,
+        path: call.path,
+        body: call.body ?? undefined,
+      })))
+      : `${JSON.stringify(result.entries, null, 2)}\n`,
 });
 
 function reasonOf(err: unknown): string {

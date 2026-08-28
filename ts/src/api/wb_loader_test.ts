@@ -20,6 +20,7 @@ import {
   runReset,
   runResume,
   wbLoaderResetCommand,
+  wbLoaderResumeCommand,
   wbLoaderStatusCommand,
 } from "./cmd_wb_loader.ts";
 import {
@@ -49,7 +50,13 @@ function sessionOf(fail?: (at: number) => boolean) {
       if (fail?.(sent.length - 1)) {
         return Promise.reject(new Error("сервер отказал"));
       }
-      return Promise.resolve({ ok: true });
+      // Ответ несёт кабинет, о котором спрашивали: иначе перепутанную
+      // пару «кабинет — ответ» не отличить от правильной.
+      const filter = (body as { filter?: { sid?: string } } | undefined)
+        ?.filter;
+      return Promise.resolve(
+        filter?.sid === undefined ? { ok: true } : { ok: true, of: filter.sid },
+      );
     },
   };
   return { session, sent };
@@ -427,26 +434,91 @@ Deno.test("resume: показ не мутирует, --all с именем — �
   });
 });
 
-Deno.test("резолв по кэшу: один sid берётся, несколько — отказ", async (t) => {
+Deno.test("резолв по кэшу: показ обходит все кабинеты", async (t) => {
   await t.step("единственный", async () => {
     await withCache([SID], async (io) => {
       const { session, sent } = sessionOf();
-      await runResume(args({ selector: "777" }), io, { session });
+      const result = await runResume(args({ selector: "777" }), io, {
+        session,
+      });
+      assertEquals(sent.length, 1);
       assertEquals(sent[0].body, { filter: { sid: SID } });
+      assertEquals(result.entries.map((one) => one.sid), [SID]);
     });
   });
 
-  await t.step("несколько — отказ со списком", async () => {
+  await t.step("несколько — показ по каждому, а не отказ", async () => {
     await withCache([SID, OTHER_SID], async (io) => {
       const { session, sent } = sessionOf();
-      const err = await assertRejects(
-        () => runResume(args({ selector: "777" }), io, { session }),
-        UsageError,
+      const result = await runResume(args({ selector: "777" }), io, {
+        session,
+      });
+      // Спека зовёт это штатным исходом: селектор не назвал кабинет,
+      // значит смотрим все.
+      assertEquals(sent.length, 2);
+      assertEquals(
+        sent.map((call) =>
+          (call.body as { filter: { sid: string } }).filter.sid
+        )
+          .sort(),
+        [SID, OTHER_SID].sort(),
       );
-      assertStringIncludes(err.message, "несколько WB sid");
-      assertStringIncludes(String(err.details), SID);
-      assertStringIncludes(String(err.details), OTHER_SID);
+      // Проверяется ПАРА, а не два списка порознь: ответ каждого
+      // кабинета помечен его же идентификатором, и перепутанные
+      // местами пары этой проверки не пройдут.
+      assertEquals(result.entries.length, 2);
+      for (const entry of result.entries) {
+        assertEquals(entry.response, { ok: true, of: entry.sid });
+      }
+      assertEquals(
+        result.entries.map((one) => one.sid).sort(),
+        [
+          SID,
+          OTHER_SID,
+        ].sort(),
+      );
+    });
+  });
+
+  await t.step(
+    "мутация при нескольких — отказ с требованием --sid",
+    async () => {
+      await withCache([SID, OTHER_SID], async (io) => {
+        const { session, sent } = sessionOf();
+        const err = await assertRejects(
+          () =>
+            runResume(args({ selector: "777", loader: "wbCards" }), io, {
+              session,
+            }),
+          UsageError,
+        );
+        assertStringIncludes(err.message, "несколько WB sid");
+        assertStringIncludes(String(err.details), SID);
+        assertStringIncludes(String(err.details), OTHER_SID);
+        // Снятие блокировки по нескольким кабинетам сразу — не то, чего
+        // просили; отказ до сети.
+        assertEquals(sent, []);
+      });
+    },
+  );
+
+  await t.step("печать показа — вызов на каждый кабинет", async () => {
+    await withCache([SID, OTHER_SID], async (io) => {
+      const { session, sent } = sessionOf();
+      const result = await runResume(
+        args({ selector: "777", print: true }),
+        io,
+        { session },
+      );
       assertEquals(sent, []);
+      const text = wbLoaderResumeCommand.renderResult(result, [
+        "777",
+        "--print",
+      ]);
+      // Показанное меньше сделанного — тот же дефект, что чинили в 82.
+      assertEquals(curlCount(text), 2);
+      assertStringIncludes(text, SID);
+      assertStringIncludes(text, OTHER_SID);
     });
   });
 });
