@@ -44,6 +44,15 @@ const LEGACY_RUN_ID = "20260805-000000.000-1";
 
 const decoder = new TextDecoder();
 
+/**
+ * Проверка неисполнима в этом окружении. Не «зелёная»: пропуск
+ * печатается отдельным словом и считается в итоговой строке — иначе
+ * список прав выглядел бы покрытым, не будучи им.
+ */
+class Skipped extends Error {
+  override name = "Skipped";
+}
+
 /** Собранный бинарь и каталог, который служит ему домашним. */
 interface Subject {
   readonly bin: string;
@@ -107,6 +116,47 @@ function buildArgs(denoJsonc: string, subject: Subject): string[] {
   if (out < 0) throw new Error("в задаче build нет -o");
   args[out + 1] = subject.bin;
   return args;
+}
+
+/**
+ * Env-файл для прогона `copy-dev`: обязательные ключи источника,
+ * указанные на петлю с заведомо закрытым портом. Дальше создания
+ * временного файла вызов и не должен уходить — `pg_dump` не находится
+ * вовсе, потому что окружение подпроцесса не несёт PATH.
+ */
+async function writeCopyDevEnv(subject: Subject): Promise<void> {
+  const path = `${subject.home}/.config/mpu/.env`;
+  await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+  await Deno.writeTextFile(
+    path,
+    "DEV_WORKSPACES_HOST=127.0.0.1\nDEV_WORKSPACES_PORT=1\n" +
+      "DEV_WORKSPACES_USER=smoke\nDEV_WORKSPACES_PASSWORD=smoke\n",
+  );
+}
+
+/** Убирает env-файл прогона: следующая проверка пишет свой. */
+async function removeEnvFile(subject: Subject): Promise<void> {
+  await Deno.remove(`${subject.home}/.config/mpu/.env`).catch(() => {});
+}
+
+/**
+ * Пригоден ли `/tmp` для записи в этом окружении. Зонд делает сам
+ * smoke, а не бинарь: у бинаря отказ файловой системы и отказ прав
+ * выглядят по-разному, но проверять надо второе, и путать их нельзя.
+ */
+function probeTempDir(): void {
+  let path: string;
+  try {
+    path = Deno.makeTempFileSync({ dir: "/tmp", prefix: "mpu-smoke-probe-" });
+  } catch (err) {
+    const reason = err instanceof Error ? err.message.split("\n")[0] : "";
+    throw new Skipped(`/tmp недоступен на запись в этом окружении: ${reason}`);
+  }
+  try {
+    Deno.removeSync(path);
+  } catch {
+    // Зонд убирает за собой best-effort: оставшийся файл ничему не мешает.
+  }
 }
 
 async function compile(subject: Subject): Promise<void> {
@@ -293,6 +343,77 @@ function checks(subject: Subject): readonly Check[] {
         assert(text.includes("_mpu_completion"), `скрипт не дописан в ${rc}`);
       }
     }],
+    // Право на каталог временных файлов: дамп `copy-client`/`copy-dev`
+    // пишется во временный файл, и без права бинарь падает `Requires
+    // write access to <TMP>` ещё до первого обращения к PG. Тесты этого
+    // не видят — они идут с широкими правами.
+    //
+    // Сети здесь нет: адрес источника указан на петлю с заведомо
+    // закрытым портом, а `pg_dump` не находится вовсе — окружение
+    // подпроцесса не несёт PATH. Дальше создания временного файла
+    // вызов и не должен уходить: проверяется ровно право.
+    [
+      "временный файл дампа: право на каталог зашито в бинарь",
+      async () => {
+        // Зонд — до всякой подготовки: бинарь идёт с очищенным
+        // окружением, поэтому каталогом временных файлов у него будет
+        // `/tmp`, и если он недоступен на запись (так бывает в
+        // песочницах), проверять право нечем — отказ пришёл бы от
+        // файловой системы, а не от прав.
+        probeTempDir();
+        await writeCopyDevEnv(subject);
+        try {
+          const outcome = await run(subject, ["copy-dev"]);
+          const text = `${outcome.stdout}${outcome.stderr}`;
+          // Путь дампа виден в строке запуска `pg_dump`, которую команда
+          // печатает уже после создания файла: его наличие и означает,
+          // что право сработало. Сырого текста Deno здесь не бывает —
+          // отказ прав переведён в доменный, — поэтому страхует именно
+          // эта проверка, а не поиск «Requires write access».
+          assert(
+            /\/tmp\/mpu-copy-dev-\w+\.dump/.test(text),
+            `в выводе нет пути временного дампа под /tmp: ${
+              JSON.stringify(text)
+            }`,
+          );
+        } finally {
+          await removeEnvFile(subject);
+        }
+      },
+    ],
+    // Оборотная сторона той же проверки: каталог вне списка прав
+    // отбивается, а отказ приходит нашим текстом, а не сырым «Requires
+    // write access to <TMP>», из которого оператору не видно ни
+    // каталога, ни что делать.
+    //
+    // Каталог берётся под `.tmp/` репозитория, а не под домашним
+    // каталогом прогона: домашний создаётся в системном каталоге
+    // временных файлов, то есть при незаданном `TMPDIR` — внутри
+    // `/tmp`, который правом как раз покрыт, и проверка проверяла бы
+    // ровно противоположное.
+    [
+      "каталог временных файлов вне прав отбивается понятным текстом",
+      async () => {
+        await writeCopyDevEnv(subject);
+        const outside = `${Deno.cwd()}/.tmp/smoke-вне-прав`;
+        await Deno.mkdir(outside, { recursive: true });
+        try {
+          const outcome = await run(subject, ["copy-dev"], { TMPDIR: outside });
+          const text = `${outcome.stdout}${outcome.stderr}`;
+          assert(
+            text.includes("нет права записи в каталог временных файлов"),
+            `отказ пришёл не нашим текстом: ${JSON.stringify(text)}`,
+          );
+          assert(
+            !text.includes("Requires write access"),
+            `сырой текст Deno дошёл до оператора: ${JSON.stringify(text)}`,
+          );
+        } finally {
+          await removeEnvFile(subject);
+          await Deno.remove(outside, { recursive: true }).catch(() => {});
+        }
+      },
+    ],
     [
       "MPU_XLSX: ключ env-файла читается, окружение процесса — нет",
       async () => {
@@ -575,11 +696,17 @@ async function main(): Promise<number> {
     await installFakeLegacy(subject);
     console.log("== проверки ==");
     let failed = 0;
+    let skipped = 0;
     for (const [name, check] of checks(subject)) {
       try {
         await check();
         console.log(`  ok   ${name}`);
       } catch (err) {
+        if (err instanceof Skipped) {
+          skipped++;
+          console.log(`  skip ${name}: ${err.message}`);
+          continue;
+        }
         failed++;
         console.error(
           `  FAIL ${name}: ${err instanceof Error ? err.message : err}`,
@@ -590,7 +717,11 @@ async function main(): Promise<number> {
       console.error(`smoke: провалено проверок: ${failed}`);
       return 1;
     }
-    console.log("smoke: бинарь рабочий");
+    console.log(
+      skipped === 0
+        ? "smoke: бинарь рабочий"
+        : `smoke: бинарь рабочий; пропущено проверок: ${skipped}`,
+    );
     return 0;
   } finally {
     await Deno.remove(home, { recursive: true });

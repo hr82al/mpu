@@ -25,12 +25,19 @@ import {
 } from "./targets.ts";
 import {
   dumpDatabaseArgs,
+  makeDumpFile,
+  removeDumpFile,
   restoreDatabaseArgs,
   type RunTool,
   runTool,
   spawnTool,
   toolFailure,
 } from "./tools.ts";
+
+/** Временный файл дампа dev-БД; каталог и его права — `tools.ts`. */
+function devTempFile(): string {
+  return makeDumpFile("mpu-copy-dev-");
+}
 
 const argsSchema = z.object({
   client: z.number().int().positive().optional().describe(
@@ -78,8 +85,8 @@ async function copyWorkspaces(io: DevIo, options: DevOptions): Promise<void> {
   const target = localWorkspaces(io.envFile);
   const run = options.runTool ?? spawnTool;
   const nowMs = options.nowMs ?? (() => Date.now());
-  const file = (options.tempFile ?? defaultTempFile)();
-  const remove = options.removeFile ?? defaultRemoveFile;
+  const file = (options.tempFile ?? devTempFile)();
+  const remove = options.removeFile ?? removeDumpFile;
   try {
     const dumpArgv = dumpDatabaseArgs(source, file);
     io.progress(`$ ${dumpArgv.join(" ")}`);
@@ -118,24 +125,10 @@ async function copyDevClient(
     sl0: localSl0(io.envFile),
     run: options.runTool ?? spawnTool,
     open,
-    tempFile: options.tempFile ?? defaultTempFile,
-    removeFile: options.removeFile ?? defaultRemoveFile,
+    tempFile: options.tempFile ?? devTempFile,
+    removeFile: options.removeFile ?? removeDumpFile,
     nowMs: options.nowMs ?? (() => Date.now()),
   });
-}
-
-/** Временный файл дампа. */
-function defaultTempFile(): string {
-  return Deno.makeTempFileSync({ prefix: "mpu-copy-dev-", suffix: ".dump" });
-}
-
-/** Удаление временного файла; его отсутствие — не отказ. */
-function defaultRemoveFile(path: string): void {
-  try {
-    Deno.removeSync(path);
-  } catch {
-    // Упавший дамп мог не создать файла вовсе.
-  }
 }
 
 /** Итог: что скопировано и что делать дальше. */

@@ -146,6 +146,20 @@
     //     копирование в буфер обмена управляющей последовательностью
     //     (`platform/clipboard.md`, попытка 1): без этого пути попытка
     //     всегда неуспешна и молча уступает внешней утилите;
+    //     `/tmp` и `/var/tmp` — каталог временных файлов: дамп
+    //     `copy-client` и `copy-dev` пишется во временный файл
+    //     (`docs/specs/copy-client.md`, «Известные ловушки»), и без
+    //     этого права собранный бинарь падает `Requires write access to
+    //     <TMP>` ещё до первого обращения к PG. Явными путями, а не
+    //     `$TMPDIR`: при незаданной переменной элемент списка пуст, и
+    //     Deno отвечает `Empty values are not allowed` — бинарь
+    //     перестаёт запускаться вообще у всех. Два пути, а не один:
+    //     сам код `/var/tmp` никогда не выбирает — туда пишут, только
+    //     если оператор направит `TMPDIR`, а направить бывает нужно:
+    //     `/tmp` часто в памяти, а дамп клиента бывает десятками
+    //     гигабайт. `TMPDIR`, указывающий куда-то ещё, правом не
+    //     покрыт — отказ переводится в понятный текст
+    //     (`src/copy/tools.ts`, `makeDumpFile`);
     //   --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*
     //     HOME даёт путь конфига, rc-файла и реализации маршрута
     //     `legacy`; XDG_CONFIG_HOME — путь env-файла секретов
@@ -256,7 +270,7 @@
     //     Наблюдаемого поведения флаг не меняет (неинтерактивно доступ и
     //     так отказан), поэтому smoke его не покрывает — исключение
     //     названо в `CLAUDE.md`, «Проверка каждого изменения»;
-    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc,/dev/tty --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
+    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc,/dev/tty,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь

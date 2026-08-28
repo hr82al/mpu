@@ -15,6 +15,7 @@
  * что данные на месте (`copy-client.md`, «Известные ловушки»).
  */
 
+import { DomainError } from "../command/mod.ts";
 import type { PgTarget } from "../sql/mod.ts";
 
 /** Итог запуска инструмента. */
@@ -211,3 +212,49 @@ export const spawnTool: RunTool = async (argv, env, onLine) => {
   await Promise.all([pump(child.stdout), pump(child.stderr)]);
   return { code: (await child.status).code };
 };
+
+/**
+ * Каталоги временных файлов, в которые собранному бинарю разрешено
+ * писать (`deno.jsonc`, задача `build`). Списком, а не готовой
+ * строкой: текст отказа обязан перечислять ровно то, что в правах, и
+ * совпадение с задачей `build` проверяется тестом — иначе два места
+ * разошлись бы молча.
+ */
+export const DUMP_DIRS: readonly string[] = ["/tmp", "/var/tmp"];
+
+/**
+ * Временный файл дампа; имя уникально на вызов. Один на обе команды
+ * копирования: у файла есть право сборки, и второе место его создания
+ * рано или поздно разошлось бы с первым — как раз то, чем эта ловушка
+ * и обошлась (`docs/specs/copy-client.md`, «Известные ловушки»).
+ *
+ * Отказ прав переводится в доменный: Deno прячет путь за `<TMP>`
+ * («Requires write access to <TMP>»), и оператор из такого сообщения не
+ * узнаёт ни какой каталог не подошёл, ни что с этим делать.
+ */
+export function makeDumpFile(prefix: string): string {
+  try {
+    return Deno.makeTempFileSync({ prefix, suffix: ".dump" });
+  } catch (err) {
+    if (!(err instanceof Deno.errors.NotCapable)) throw err;
+    throw new DomainError(
+      "нет права записи в каталог временных файлов: собранный mpu пишет " +
+        `дамп в ${DUMP_DIRS.join(" или ")}`,
+      {
+        // Не `hint`: там ждут готовую команду, а здесь выбор из двух
+        // действий (`src/command/errors.ts`, `ErrorDetails`).
+        advice: "сбрось TMPDIR либо укажи его на один из этих каталогов",
+        cause: err,
+      },
+    );
+  }
+}
+
+/** Удаление временного файла; его отсутствие — не отказ. */
+export function removeDumpFile(path: string): void {
+  try {
+    Deno.removeSync(path);
+  } catch {
+    // Файл мог не создаться вовсе — упавший дамп это штатный исход.
+  }
+}

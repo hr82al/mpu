@@ -33,7 +33,17 @@ import {
   localWorkspaces,
   sourceTarget,
 } from "./targets.ts";
-import { type RunTool, spawnTool } from "./tools.ts";
+import {
+  makeDumpFile,
+  removeDumpFile,
+  type RunTool,
+  spawnTool,
+} from "./tools.ts";
+
+/** Временный файл дампа клиента; каталог и его права — `tools.ts`. */
+function clientTempFile(): string {
+  return makeDumpFile("mpu-copy-");
+}
 
 const argsSchema = z.object({
   selector: z.string({
@@ -109,8 +119,8 @@ export async function runCopyClient(
     sl0,
     run: options.runTool ?? spawnTool,
     open,
-    tempFile: options.tempFile ?? defaultTempFile,
-    removeFile: options.removeFile ?? defaultRemoveFile,
+    tempFile: options.tempFile ?? clientTempFile,
+    removeFile: options.removeFile ?? removeDumpFile,
     nowMs: options.nowMs ?? (() => Date.now()),
   });
   // Шаги 5–6 best-effort: копия схемы и строк уже готова, и ронять её
@@ -201,20 +211,6 @@ async function seedSwFront(
         "копия в sl-1 готова",
     );
     return false;
-  }
-}
-
-/** Временный файл дампа; имя уникально на вызов. */
-function defaultTempFile(): string {
-  return Deno.makeTempFileSync({ prefix: "mpu-copy-", suffix: ".dump" });
-}
-
-/** Удаление временного файла; его отсутствие — не отказ. */
-function defaultRemoveFile(path: string): void {
-  try {
-    Deno.removeSync(path);
-  } catch {
-    // Файл мог не создаться вовсе — упавший дамп это штатный исход.
   }
 }
 
