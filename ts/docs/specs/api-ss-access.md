@@ -29,11 +29,25 @@ mpu api ss-access reset   ТАБЛИЦА [--reason T] [--role R] [--template U]
    целиком и отменяет их. `@файл` читает тело из файла.
 
 2. **Резолв идентификатора выдачи из main-БД.** `revoke` без `--grant-id`
-   ищет выдачи в `public.spreadsheets_access_grants` по паре
-   (таблица, почта владельца токена) со статусами `created`,
+   ищет выдачи в `public.spreadsheets_access_grants` со статусами `created`,
    `permission_added`, `applied` — теми, что входят в частичный уникальный
    индекс активной выдачи. То есть команда знает про схему базы, а не только
-   про HTTP.
+   про HTTP. Запрос дословно:
+
+   ```sql
+   SELECT grant_id FROM public.spreadsheets_access_grants
+   WHERE spreadsheet_id = $1 AND grantee_email = $2
+     AND status IN ('created', 'permission_added', 'applied')
+   ```
+
+   **Схема — такой же стык, как форма ответа службы, и снимается так же.**
+   Голден состава колонок — `fixtures/api/schema/spreadsheets_access_grants.columns`,
+   снят со стенда `information_schema.columns` 2026-08-28. Ключ выдачи зовётся
+   `grant_id`, не `id`; колонки `id` в таблице нет вовсе.
+
+   Голден проверяем **без доступа к базе только на состав**; при поднятом
+   стенде его надо сверять с живым `information_schema.columns` — расхождение
+   красит проверку. Это дешевле, чем сверять реализацию с реализацией.
 
 3. **Ожидание с пределом.** `reset` = отозвать все найденные выдачи →
    **дождаться их исчезновения из индекса** → выдать заново. Опрос с
