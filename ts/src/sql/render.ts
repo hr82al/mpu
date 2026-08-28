@@ -25,6 +25,13 @@ export type SqlOutcome =
     readonly kind: "rows";
     readonly columns: readonly string[];
     readonly rows: readonly (readonly SqlValue[])[];
+    /**
+     * Типы колонок (OID) в порядке `columns`; их сообщает сервер вместе
+     * с именами. Печати они не нужны и она их не смотрит — нужны тому,
+     * кто переносит значения в другую таблицу: по одному лишь значению
+     * JS массив `text[]` не отличить от массива в `json` (`src/copy/`).
+     */
+    readonly oids?: readonly number[];
   }
   | {
     readonly kind: "done";

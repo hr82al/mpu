@@ -72,6 +72,10 @@ function sessions(ports: number[]) {
             : done,
         ),
       run: () => Promise.resolve(done),
+      // Режим клиента гоняет тот же посев, что `copy-client`: список
+      // операторов одной транзакцией.
+      runMany: (statements: readonly unknown[]) =>
+        Promise.resolve(statements.map(() => done)),
       close: () => Promise.resolve(),
     });
   };

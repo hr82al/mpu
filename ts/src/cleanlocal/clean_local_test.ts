@@ -79,6 +79,9 @@ function fakeSessions(replies: Replies, sent: Sent[]) {
     return Promise.resolve({
       query: (sql: string) => Promise.resolve(answer("query", sql)),
       run: (sql: string) => Promise.resolve(answer("run", sql)),
+      // Пакетное исполнение этот тест не ожидает: объявлено, чтобы
+      // случайное обращение к нему краснело, а не работало молча.
+      runMany: () => Promise.reject(new Error("runMany не ожидается")),
       close: () => Promise.resolve(),
     });
   };
@@ -346,6 +349,9 @@ Deno.test("без --yes соединение открывается только
         query: () =>
           Promise.resolve(rows(["schema_54", "schema_1498"]) as SqlOutcome),
         run: () => Promise.reject(new Error("запись без --yes не ожидается")),
+        // Пакетное исполнение этот тест не ожидает: объявлено, чтобы
+        // случайное обращение к нему краснело, а не работало молча.
+        runMany: () => Promise.reject(new Error("runMany не ожидается")),
         close: () => Promise.resolve(),
       });
     },

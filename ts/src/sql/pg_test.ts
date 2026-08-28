@@ -19,6 +19,7 @@ import {
 } from "./pg.ts";
 import {
   DbError,
+  StatementError,
   TransactionEndedError,
   WriteRefusedError,
 } from "./session.ts";
@@ -34,8 +35,14 @@ function serverError(
   return err;
 }
 
+// Поле ответа драйвера несёт и тип колонки (`dataTypeID`): 23 —
+// int4, 25 — text. Он нужен переносу строк (`src/copy/rows.ts`), и
+// фикстура обязана быть такой же, как настоящий ответ.
 const ROWS = {
-  fields: [{ name: "a" }, { name: "b" }],
+  fields: [
+    { name: "a", dataTypeID: 23 },
+    { name: "b", dataTypeID: 25 },
+  ],
   rows: [[1, "x"], [2, null]],
   rowCount: 2,
   command: "SELECT",
@@ -48,6 +55,7 @@ Deno.test("форма ответа зависит от числа операто
     assertEquals(outcomeOf(ROWS), {
       kind: "rows",
       columns: ["a", "b"],
+      oids: [23, 25],
       rows: [[1, "x"], [2, null]],
     });
   });
@@ -58,6 +66,7 @@ Deno.test("форма ответа зависит от числа операто
     assertEquals(outcomeAt([SET, ROWS], 1), {
       kind: "rows",
       columns: ["a", "b"],
+      oids: [23, 25],
       rows: [[1, "x"], [2, null]],
     });
     assertEquals(outcomeAt([ROWS, SET], 1), { kind: "done", rowcount: -1 });
@@ -81,6 +90,7 @@ Deno.test("форма ответа зависит от числа операто
     assertEquals(outcomeOf({ ...ROWS, rows: [], rowCount: 0 }), {
       kind: "rows",
       columns: ["a", "b"],
+      oids: [23, 25],
       rows: [],
     });
   });
@@ -255,11 +265,13 @@ function fakeClient(
   connect: () => Promise<void> = () => Promise.resolve(),
 ) {
   const sent: string[] = [];
+  const values: (readonly unknown[] | undefined)[] = [];
   let ended = 0;
   const open: OpenClient = () => ({
     connect,
-    query: ({ text }) => {
+    query: ({ text, values: params }) => {
       sent.push(text);
+      values.push(params);
       const answer = reply(text);
       return answer instanceof Error
         ? Promise.reject(answer)
@@ -270,7 +282,7 @@ function fakeClient(
       return Promise.resolve();
     },
   });
-  return { open, sent, ended: () => ended };
+  return { open, sent, values, ended: () => ended };
 }
 
 /** Ответ сервера на успешно исполненную обёртку с одним оператором. */
@@ -325,6 +337,7 @@ Deno.test("пользовательский текст исполняется в
     assertEquals(await session.run("SELECT 1 AS a, 'x' AS b; SELECT 9 AS z"), {
       kind: "rows",
       columns: ["a", "b"],
+      oids: [23, 25],
       rows: [[1, "x"], [2, null]],
     });
     await session.close();
@@ -589,5 +602,51 @@ Deno.test("пишущая сессия: опции и классы отказо�
       err.message,
       "cannot execute UPDATE in a read-only transaction",
     );
+  });
+});
+
+Deno.test("runMany: одна транзакция на список, значения — параметрами", async (t) => {
+  const done = { fields: [], rows: [], rowCount: 1, command: "INSERT" };
+
+  await t.step("BEGIN, операторы по одному, COMMIT", async () => {
+    const client = fakeClient(() => done);
+    const session = await openPgSession(TARGET, "write", client.open);
+    const outcomes = await session.runMany([
+      { sql: "DELETE FROM t WHERE id = $1", params: [7], label: "t" },
+      { sql: "SET session_replication_role = replica" },
+    ]);
+    assertEquals(client.sent, [
+      "BEGIN",
+      "DELETE FROM t WHERE id = $1",
+      "SET session_replication_role = replica",
+      "COMMIT",
+    ]);
+    // Значения уходят отдельно от текста: у оператора без параметров их
+    // нет вовсе, и он идёт простым протоколом.
+    assertEquals(client.values, [undefined, [7], undefined, undefined]);
+    assertEquals(outcomes.length, 2);
+    await session.close();
+  });
+
+  await t.step("отказ оператора — ROLLBACK и номер с меткой", async () => {
+    const boom = serverError("нельзя", "22P02");
+    const client = fakeClient((text) =>
+      text.startsWith("INSERT") ? boom : done
+    );
+    const session = await openPgSession(TARGET, "write", client.open);
+    const err = await assertRejects(
+      () =>
+        session.runMany([
+          { sql: "DELETE FROM t", label: "t" },
+          { sql: "INSERT INTO t VALUES ($1)", params: [1], label: "t" },
+        ]),
+      StatementError,
+    );
+    assertEquals(err.index, 1);
+    assertEquals(err.label, "t");
+    // Откат обязателен: без него соединение осталось бы в прерванной
+    // транзакции, а посев — наполовину применённым в глазах вызывающего.
+    assertEquals(client.sent.at(-1), "ROLLBACK");
+    await session.close();
   });
 });

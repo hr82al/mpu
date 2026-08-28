@@ -111,6 +111,9 @@ function fakeSessions(answer: (text: string) => Answer) {
         ran.push(sql);
         return ask(sql);
       },
+      // Пакетное исполнение этот тест не ожидает: объявлено, чтобы
+      // случайное обращение к нему краснело, а не работало молча.
+      runMany: () => Promise.reject(new Error("runMany не ожидается")),
       close: () => {
         closed += 1;
         return Promise.resolve();

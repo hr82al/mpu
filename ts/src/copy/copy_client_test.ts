@@ -12,7 +12,11 @@
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { DomainError, UsageError } from "../command/mod.ts";
 import type { SqlOutcome } from "../sql/render.ts";
-import type { SqlSession } from "../sql/session.ts";
+import {
+  type SqlSession,
+  type Statement,
+  StatementError,
+} from "../sql/session.ts";
 import type { PgTarget } from "../sql/target.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
@@ -28,9 +32,12 @@ const CLIENT = 5175;
 /** Что «увидел» подставной PostgreSQL. */
 interface Sent {
   readonly port: number;
-  readonly kind: "query" | "run";
+  /** `many` — весь посев одним вызовом: список операторов транзакции. */
+  readonly kind: "query" | "run" | "many";
   readonly sql: string;
   readonly mode: "read-only" | "write";
+  /** Значения-параметры: у посева они отдельно от текста. */
+  readonly params?: readonly unknown[];
 }
 
 /** Что запустили как внешний инструмент. */
@@ -118,6 +125,24 @@ function sessions(sent: Sent[], replies: Map<string, SqlOutcome> = new Map()) {
     return Promise.resolve({
       query: (sql: string) => Promise.resolve(answer("query", sql)),
       run: (sql: string) => Promise.resolve(answer("run", sql)),
+      // Посев идёт списком операторов со значениями-параметрами; для
+      // проверок он ничем не отличается от прежнего текста, кроме того,
+      // что каждый оператор виден отдельно.
+      runMany: (statements: readonly Statement[]) => {
+        // Весь посев — один вызов и одна транзакция; текст операторов
+        // склеивается только для проверок, серверу каждый уходит своим
+        // вызовом со своими значениями.
+        sent.push({
+          port: target.port,
+          kind: "many",
+          mode,
+          sql: statements.map((statement) => statement.sql).join(";\n"),
+          params: statements.flatMap((statement) => statement.params ?? []),
+        });
+        return Promise.resolve(
+          statements.map(() => done),
+        );
+      },
       close: () => Promise.resolve(),
     });
   };
@@ -235,7 +260,9 @@ Deno.test("запись идёт только в локальные приёмн
       removeFile: () => {},
       nowMs: () => 0,
     });
-    const writes = sent.filter((item) => item.kind === "run");
+    // Пишущие вызовы теперь двух видов: посев уходит списком
+    // (`many`), проводка входа — одним текстом (`run`).
+    const writes = sent.filter((item) => item.kind !== "query");
     // Прод (5432) не получает ни одного пишущего запроса: все DELETE,
     // INSERT и проводка входа уходят на локальные приёмники.
     assertEquals(
@@ -382,12 +409,10 @@ Deno.test("посев уходит одной транзакцией на при
     // Каждый `run` — своя транзакция: разбив посев на вызовы, мы
     // получили бы commit после каждого DELETE, и упавшая на середине
     // вставка оставила бы стенд без строк клиента вовсе.
-    const seeds = sent.filter((item) =>
-      item.kind === "run" && item.sql.includes("DELETE FROM")
-    );
+    const seeds = sent.filter((item) => item.kind === "many");
     assertEquals(seeds.length, 2, "по одному посеву на sl-1 и sl-0");
     const sl1 = seeds.find((item) => item.port === 5441)!;
-    assertStringIncludes(sl1.sql, "SET session_replication_role = replica;");
+    assertStringIncludes(sl1.sql, "SET session_replication_role = replica");
     assertStringIncludes(sl1.sql, "DELETE FROM public.clients");
     assertStringIncludes(sl1.sql, "DELETE FROM public.spreadsheets_sheets");
     assertStringIncludes(sl1.sql, "UPDATE public.clients SET server = 'sl-1'");
@@ -418,13 +443,127 @@ Deno.test("дети таблиц удаляются по объединению 
       nowMs: () => 0,
     });
     const seed = sent.find((item) =>
-      item.port === 5441 &&
-      item.sql.includes("DELETE FROM public.spreadsheets_sheets")
+      item.port === 5441 && item.kind === "many"
     )!;
     // Удаление шире выборки: иначе строки таблицы, снесённой на
-    // источнике, остались бы на стенде висеть сиротами.
-    assertStringIncludes(seed.sql, "'ss-осиротевший'");
-    assertStringIncludes(seed.sql, "'1BxiMVs0XRA5'");
+    // источнике, остались бы на стенде висеть сиротами. Значения ищем
+    // среди параметров, а не в тексте: в текст они больше не попадают —
+    // в этом и смысл правки.
+    assertEquals(seed.params?.includes("ss-осиротевший"), true);
+    assertEquals(seed.params?.includes("1BxiMVs0XRA5"), true);
+    assertEquals(seed.sql.includes("ss-осиротевший"), false);
+  });
+});
+
+Deno.test("отказ посева называет таблицу и говорит про откат", async () => {
+  await withIo(async (io) => {
+    const sent: Sent[] = [];
+    const err = await assertRejects(
+      () =>
+        runCopyClient({ selector: String(CLIENT) }, io, {
+          runTool: tools([0, 0], []),
+          openSession: (target, mode) => {
+            const base = sessions(sent)(target, mode);
+            if (target.port !== 5441) return base;
+            return base.then((session) => ({
+              ...session,
+              // Сервер отверг одну вставку: так и падал перенос на
+              // jsonb-колонке, пока значения шли текстом.
+              runMany: (statements: readonly Statement[]) => {
+                const at = statements.findIndex((statement) =>
+                  statement.label === "spreadsheets_sheets_values"
+                );
+                return Promise.reject(
+                  new StatementError(
+                    at,
+                    statements[at]?.label,
+                    new Error("invalid input syntax for type json"),
+                  ),
+                );
+              },
+            }));
+          },
+          tempFile: () => "/tmp/проба.dump",
+          removeFile: () => {},
+          nowMs: () => 0,
+        }),
+      DomainError,
+    );
+    // Не `unexpected error`: оператору нужны таблица и состояние
+    // приёмника — по ним он решает, чинить данные или повторять.
+    assertStringIncludes(err.message, "таблица spreadsheets_sheets_values");
+    assertStringIncludes(err.message, "посев откачен целиком");
+    assertStringIncludes(err.message, "invalid input syntax for type json");
+    // Числа «перенесено» в тексте нет и быть не должно: транзакция одна
+    // и откат полный, любое число читалось бы как «столько доехало».
+    assertEquals(err.message.includes("перенесено"), false);
+  });
+});
+
+Deno.test("отказ на служебном операторе не выдумывает таблицу", async () => {
+  await withIo(async (io) => {
+    const sent: Sent[] = [];
+    const err = await assertRejects(
+      () =>
+        runCopyClient({ selector: String(CLIENT) }, io, {
+          runTool: tools([0, 0], []),
+          openSession: (target, mode) => {
+            const base = sessions(sent)(target, mode);
+            if (target.port !== 5441) return base;
+            return base.then((session) => ({
+              ...session,
+              // Падает самый первый оператор — `SET
+              // session_replication_role`, он требует суперпользователя.
+              // Таблицей он не является, и называть её нечем.
+              runMany: (statements: readonly Statement[]) =>
+                Promise.reject(
+                  new StatementError(
+                    0,
+                    statements[0]?.label,
+                    new Error("permission denied to set parameter"),
+                  ),
+                ),
+            }));
+          },
+          tempFile: () => "/tmp/проба.dump",
+          removeFile: () => {},
+          nowMs: () => 0,
+        }),
+      DomainError,
+    );
+    assertStringIncludes(err.message, "оператор 1 (session_replication_role)");
+    // Прежняя форма подставляла сюда сумму строк всех таблиц: метки в
+    // счётчиках нет, и поиск по ней давал -1, то есть «весь список».
+    assertEquals(err.message.includes("прочитано"), false);
+  });
+});
+
+Deno.test("отказ фиксации — тоже доменная ошибка, а не трейсбек", async () => {
+  await withIo(async (io) => {
+    const sent: Sent[] = [];
+    const err = await assertRejects(
+      () =>
+        runCopyClient({ selector: String(CLIENT) }, io, {
+          runTool: tools([0, 0], []),
+          openSession: (target, mode) => {
+            const base = sessions(sent)(target, mode);
+            if (target.port !== 5441) return base;
+            return base.then((session) => ({
+              ...session,
+              // Отказ `COMMIT` (отложенный констрейнт) не относится ни к
+              // одному оператору списка: `StatementError` его не несёт.
+              runMany: () =>
+                Promise.reject(new Error("deferred constraint violated")),
+            }));
+          },
+          tempFile: () => "/tmp/проба.dump",
+          removeFile: () => {},
+          nowMs: () => 0,
+        }),
+      DomainError,
+    );
+    assertStringIncludes(err.message, "перенос строк: ");
+    assertStringIncludes(err.message, "deferred constraint violated");
   });
 });
 

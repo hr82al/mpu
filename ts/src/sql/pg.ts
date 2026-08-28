@@ -17,6 +17,8 @@ import {
   DbError,
   type SqlMode,
   type SqlSession,
+  type Statement,
+  StatementError,
   TransactionEndedError,
   WriteRefusedError,
 } from "./session.ts";
@@ -26,7 +28,15 @@ import type { PgTarget } from "./target.ts";
 export interface PgClient {
   readonly connect: () => Promise<void>;
   readonly query: (
-    config: { readonly text: string; readonly rowMode: "array" },
+    config: {
+      readonly text: string;
+      readonly rowMode: "array";
+      /**
+       * Значения по местам `$n`. Заданы — драйвер идёт расширенным
+       * протоколом, и текст обязан нести ровно один оператор.
+       */
+      readonly values?: readonly unknown[];
+    },
   ) => Promise<unknown>;
   readonly end: () => Promise<void>;
 }
@@ -173,15 +183,16 @@ export async function openPgSession(
     throw dbError(err, "", { mode });
   }
   return {
-    query: async (text) => {
+    query: async (text, params) => {
       try {
-        return outcomeOf(await send(client, text));
+        return outcomeOf(await send(client, text, params));
       } catch (err) {
         throw dbError(err, text, { mode });
       }
     },
     run: (sql) =>
       mode === "read-only" ? readOnlyRun(client, sql) : writeRun(client, sql),
+    runMany: (statements) => runMany(client, statements),
     close: () => client.end(),
   };
 }
@@ -235,6 +246,37 @@ async function writeRun(client: PgClient, sql: string): Promise<SqlOutcome> {
   return outcome;
 }
 
+/**
+ * Список операторов одной транзакцией. Каждый уходит своим вызовом —
+ * иначе значения нельзя передать параметрами, — но `BEGIN` и `COMMIT`
+ * общие: посев обязан примениться целиком либо никак.
+ */
+async function runMany(
+  client: PgClient,
+  statements: readonly Statement[],
+): Promise<readonly SqlOutcome[]> {
+  await sendWrite(client, BEGIN);
+  const outcomes: SqlOutcome[] = [];
+  for (const [index, statement] of statements.entries()) {
+    try {
+      outcomes.push(
+        outcomeOf(await send(client, statement.sql, statement.params)),
+      );
+    } catch (err) {
+      // Откат чужого отказа не скрывает: наверх идёт исходная причина,
+      // завёрнутая в номер и метку упавшего оператора.
+      await send(client, ROLLBACK).catch(() => {});
+      throw new StatementError(
+        index,
+        statement.label,
+        dbError(err, statement.sql, { mode: "write" }),
+      );
+    }
+  }
+  await sendWrite(client, COMMIT);
+  return outcomes;
+}
+
 /** Служебный оператор транзакции; его отказ — та же ошибка БД. */
 async function sendWrite(client: PgClient, text: string): Promise<void> {
   try {
@@ -250,8 +292,14 @@ async function sendWrite(client: PgClient, text: string): Promise<void> {
  * схлопнулись бы в одну. Простой протокол при этом сохраняется (значений
  * нет), поэтому многооператорный текст уходит одним вызовом.
  */
-function send(client: PgClient, text: string): Promise<unknown> {
-  return client.query({ text, rowMode: "array" });
+function send(
+  client: PgClient,
+  text: string,
+  values?: readonly unknown[],
+): Promise<unknown> {
+  return values === undefined
+    ? client.query({ text, rowMode: "array" })
+    : client.query({ text, rowMode: "array", values });
 }
 
 /**
@@ -309,7 +357,8 @@ export function outcomeOf(result: unknown): SqlOutcome {
   }
   return {
     kind: "rows",
-    columns: fields,
+    columns: fields.map((field) => field.name),
+    oids: fields.map((field) => field.oid),
     rows: readRows(result).map((row) => row.map(toValue)),
   };
 }
@@ -416,10 +465,21 @@ function shift(
 }
 
 /** Имена колонок результата; их нет — оператор без набора строк. */
-function readFields(result: unknown): readonly string[] {
+function readFields(
+  result: unknown,
+): readonly { readonly name: string; readonly oid: number }[] {
   const fields = (result as { fields?: unknown } | null)?.fields;
   if (!Array.isArray(fields)) return [];
-  return fields.map((field) => String((field as { name?: unknown }).name));
+  return fields.map((field) => {
+    const record = field as { name?: unknown; dataTypeID?: unknown };
+    return {
+      name: String(record.name),
+      // Тип колонки драйвер отдаёт вместе с именем; отсутствие его —
+      // не отказ: печати он не нужен, а переносу строк такой набор
+      // просто не встретится (он читает настоящую выборку).
+      oid: Number(record.dataTypeID ?? 0),
+    };
+  });
 }
 
 /** Затронутые строки; сервер их не сообщил — `-1` (форма спеки). */

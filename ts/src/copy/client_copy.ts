@@ -10,7 +10,11 @@
  */
 
 import { DomainError } from "../command/mod.ts";
-import type { SqlSession } from "../sql/session.ts";
+import {
+  type SqlSession,
+  type Statement,
+  StatementError,
+} from "../sql/session.ts";
 import type { PgTarget } from "../sql/target.ts";
 import {
   clientWhere,
@@ -172,6 +176,49 @@ export async function copyRows(copy: ClientCopy): Promise<CopyCounts> {
   }
 }
 
+/**
+ * Посев одной транзакцией. Отказ называет таблицу, на которой встало, и
+ * говорит прямо, что посев откачен целиком: «invalid input syntax» без
+ * этого не сообщает оператору ни где остановились, ни в каком состоянии
+ * остался приёмник, — а от второго зависит, повторять прогон или сперва
+ * чинить данные.
+ *
+ * Числа перенесённого в тексте нет намеренно: транзакция одна, откат
+ * полный, и любое число здесь читалось бы как «столько-то доехало».
+ * Названо другое, честное: сколько строк этой таблицы прочитано с
+ * источника — по нему видно, на большой таблице встало или на пустой.
+ */
+async function seed(
+  to: SqlSession,
+  statements: readonly Statement[],
+  counts: readonly TableCount[],
+): Promise<void> {
+  try {
+    await to.runMany(statements);
+  } catch (err) {
+    // Отказ `BEGIN` или `COMMIT` приходит обычной ошибкой БД: он не
+    // относится ни к одному оператору списка, и называть таблицу
+    // нечем — но доменной ошибкой он всё равно обязан быть.
+    if (!(err instanceof StatementError)) {
+      throw new DomainError(`перенос строк: ${message(err)}`, { cause: err });
+    }
+    const label = statements[err.index]?.label ?? err.label;
+    const read = counts.find((count) => count.table === label);
+    const where = read === undefined
+      ? `оператор ${err.index + 1} (${label ?? "?"})`
+      : `таблица ${label}, прочитано с источника ${read.rows} строк`;
+    throw new DomainError(
+      `перенос строк: ${where}; посев откачен целиком; ${err.message}`,
+      { cause: err },
+    );
+  }
+}
+
+/** Причина отказа одной строкой. */
+function message(err: unknown): string {
+  return err instanceof Error ? err.message.split("\n")[0] : String(err);
+}
+
 /** Перенос набора таблиц в один приёмник; печатает счётчики. */
 async function copyInto(
   copy: ClientCopy,
@@ -184,20 +231,24 @@ async function copyInto(
     const counts: TableCount[] = [];
     // Replica-режим снимает FK и триггеры: порядок таблиц перестаёт
     // иметь значение, и список можно держать плоским.
-    const statements: string[] = ["SET session_replication_role = replica;"];
+    const statements: Statement[] = [{
+      sql: "SET session_replication_role = replica",
+      label: "session_replication_role",
+    }];
 
-    const clients = await tableStatements(
-      from,
-      "clients",
-      `id = ${copy.clientId}`,
-    );
+    const clients = await tableStatements(from, "clients", {
+      text: "id = $1",
+      params: [copy.clientId],
+    });
     counts.push(clients.count);
     statements.push(...clients.statements);
     // Клиент на стенде живёт на sl-1, чем бы он ни был в источнике:
     // иначе локальные сервисы искали бы его на чужом сервере.
-    statements.push(
-      `UPDATE public.clients SET server = 'sl-1' WHERE id = ${copy.clientId};`,
-    );
+    statements.push({
+      sql: "UPDATE public.clients SET server = 'sl-1' WHERE id = $1",
+      params: [copy.clientId],
+      label: "clients",
+    });
 
     const tables = label === "sl-1" ? SL1_CLIENT_TABLES : SL0_CLIENT_TABLES;
     for (const table of tables) {
@@ -227,9 +278,11 @@ async function copyInto(
       }
     }
 
-    // Один вызов — одна транзакция: посев либо применяется целиком,
-    // либо не применяется вовсе.
-    await to.run(statements.join("\n"));
+    // Одна транзакция на весь посев: он либо применяется целиком, либо
+    // не применяется вовсе. Значения уходят параметрами, поэтому
+    // операторы идут по одному — расширенный протокол несёт ровно один
+    // оператор на вызов.
+    await seed(to, statements, counts);
     for (const count of counts) {
       // Построчные счётчики — то, по чему оператор видит, что именно
       // скопировалось: «готово» без чисел не отличить от пустой копии.

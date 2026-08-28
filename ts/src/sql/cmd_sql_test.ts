@@ -70,6 +70,9 @@ function fakeSessions(answer: (text: string) => SqlOutcome | Error) {
     Promise.resolve({
       query: ask,
       run: ask,
+      // Пакетное исполнение этот тест не ожидает: объявлено, чтобы
+      // случайное обращение к нему краснело, а не работало молча.
+      runMany: () => Promise.reject(new Error("runMany не ожидается")),
       close: () => Promise.resolve(),
     });
   return { open, asked };
