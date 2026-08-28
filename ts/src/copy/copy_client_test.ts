@@ -22,9 +22,10 @@ import { makeFakeIo } from "../testing/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import {
   type CopyIo,
+  redisRunner,
   renderCopyClient,
-  runCopyClient,
 } from "./cmd_copy_client.ts";
+import { copyClientInTest as copyClient, noRedis } from "./testing.ts";
 import { LOCAL_CONTAINERS } from "./targets.ts";
 
 const CLIENT = 5175;
@@ -39,6 +40,7 @@ interface Sent {
   /** Значения-параметры: у посева они отдельно от текста. */
   readonly params?: readonly unknown[];
 }
+import { spawnRedis } from "./tools.ts";
 
 /** Что запустили как внешний инструмент. */
 interface Tool {
@@ -178,12 +180,13 @@ Deno.test("порядок шага схемы: дамп раньше сноса 
     const seen: Tool[] = [];
     const sent: Sent[] = [];
     const removed: string[] = [];
-    await runCopyClient({ selector: String(CLIENT) }, io, {
+    await copyClient({ selector: String(CLIENT) }, io, {
       runTool: tools([0, 0], seen),
       openSession: sessions(sent),
       tempFile: () => "/tmp/проба.dump",
       removeFile: (path) => void removed.push(path),
       nowMs: () => 0,
+      runRedis: noRedis,
     });
 
     assertEquals(seen.map((tool) => tool.argv[0]), ["pg_dump", "pg_restore"]);
@@ -216,12 +219,13 @@ Deno.test("упавший дамп не сносит цель и не восст
     const sent: Sent[] = [];
     const err = await assertRejects(
       () =>
-        runCopyClient({ selector: String(CLIENT) }, io, {
+        copyClient({ selector: String(CLIENT) }, io, {
           runTool: tools([1], seen, ["pg_dump: error: connection failed"]),
           openSession: sessions(sent),
           tempFile: () => "/tmp/проба.dump",
           removeFile: () => {},
           nowMs: () => 0,
+          runRedis: noRedis,
         }),
       DomainError,
     );
@@ -238,7 +242,7 @@ Deno.test("ненулевой pg_restore — отказ с последней о
     const seen: Tool[] = [];
     const err = await assertRejects(
       () =>
-        runCopyClient({ selector: String(CLIENT) }, io, {
+        copyClient({ selector: String(CLIENT) }, io, {
           // Ровно тот случай, ради которого спека завела раздел про
           // ловушки: схема восстановлена целиком, а код ненулевой.
           runTool: tools([0, 1], seen, [
@@ -251,6 +255,7 @@ Deno.test("ненулевой pg_restore — отказ с последней о
           tempFile: () => "/tmp/проба.dump",
           removeFile: () => {},
           nowMs: () => 0,
+          runRedis: noRedis,
         }),
       DomainError,
     );
@@ -264,12 +269,13 @@ Deno.test("ненулевой pg_restore — отказ с последней о
 Deno.test("запись идёт только в локальные приёмники", async () => {
   await withIo(async (io) => {
     const sent: Sent[] = [];
-    await runCopyClient({ selector: String(CLIENT) }, io, {
+    await copyClient({ selector: String(CLIENT) }, io, {
       runTool: tools([0, 0], []),
       openSession: sessions(sent),
       tempFile: () => "/tmp/проба.dump",
       removeFile: () => {},
       nowMs: () => 0,
+      runRedis: noRedis,
     });
     // Пишущие вызовы теперь двух видов: посев уходит списком
     // (`many`), проводка входа — одним текстом (`run`).
@@ -290,12 +296,13 @@ Deno.test("счётчики строк печатаются по каждой т
   await withIo(async (io) => {
     const lines: string[] = [];
     const loud = { ...io, progress: (line: string) => void lines.push(line) };
-    const result = await runCopyClient({ selector: String(CLIENT) }, loud, {
+    const result = await copyClient({ selector: String(CLIENT) }, loud, {
       runTool: tools([0, 0], []),
       openSession: sessions([]),
       tempFile: () => "/tmp/проба.dump",
       removeFile: () => {},
       nowMs: () => 0,
+      runRedis: noRedis,
     });
 
     assertEquals(result.clientId, CLIENT);
@@ -321,7 +328,7 @@ Deno.test("неподнятый локальный контейнер назва
   await withIo(async (io) => {
     const err = await assertRejects(
       () =>
-        runCopyClient({ selector: String(CLIENT) }, io, {
+        copyClient({ selector: String(CLIENT) }, io, {
           runTool: tools([0, 0], []),
           openSession: (target, mode) =>
             target.host === "127.0.0.1"
@@ -330,6 +337,7 @@ Deno.test("неподнятый локальный контейнер назва
           tempFile: () => "/tmp/проба.dump",
           removeFile: () => {},
           nowMs: () => 0,
+          runRedis: noRedis,
         }),
       UsageError,
     );
@@ -344,12 +352,13 @@ Deno.test("неподнятый локальный контейнер назва
 Deno.test("пароли уходят окружением, а не в argv", async () => {
   await withIo(async (io) => {
     const seen: Tool[] = [];
-    await runCopyClient({ selector: String(CLIENT) }, io, {
+    await copyClient({ selector: String(CLIENT) }, io, {
       runTool: tools([0, 0], seen),
       openSession: sessions([]),
       tempFile: () => "/tmp/проба.dump",
       removeFile: () => {},
       nowMs: () => 0,
+      runRedis: noRedis,
     });
     for (const tool of seen) {
       // argv виден в `ps` любому пользователю машины, и печатается он
@@ -366,12 +375,13 @@ Deno.test("селектор без единственного client_id — ош
   await withIo(async (io) => {
     await assertRejects(
       () =>
-        runCopyClient({ selector: "sl-1" }, io, {
+        copyClient({ selector: "sl-1" }, io, {
           runTool: tools([0, 0], []),
           openSession: sessions([]),
           tempFile: () => "/tmp/проба.dump",
           removeFile: () => {},
           nowMs: () => 0,
+          runRedis: noRedis,
         }),
       UsageError,
     );
@@ -381,12 +391,13 @@ Deno.test("селектор без единственного client_id — ош
 Deno.test("источник открывается только на чтение", async () => {
   await withIo(async (io) => {
     const sent: Sent[] = [];
-    await runCopyClient({ selector: String(CLIENT) }, io, {
+    await copyClient({ selector: String(CLIENT) }, io, {
       runTool: tools([0, 0], []),
       openSession: sessions(sent),
       tempFile: () => "/tmp/проба.dump",
       removeFile: () => {},
       nowMs: () => 0,
+      runRedis: noRedis,
     });
     // Инвариант «источник не мутируется» держит сервер
     // (`default_transaction_read_only`), а не аккуратность вызовов:
@@ -410,12 +421,13 @@ Deno.test("источник открывается только на чтени�
 Deno.test("посев уходит одной транзакцией на приёмник", async () => {
   await withIo(async (io) => {
     const sent: Sent[] = [];
-    await runCopyClient({ selector: String(CLIENT) }, io, {
+    await copyClient({ selector: String(CLIENT) }, io, {
       runTool: tools([0, 0], []),
       openSession: sessions(sent),
       tempFile: () => "/tmp/проба.dump",
       removeFile: () => {},
       nowMs: () => 0,
+      runRedis: noRedis,
     });
     // Каждый `run` — своя транзакция: разбив посев на вызовы, мы
     // получили бы commit после каждого DELETE, и упавшая на середине
@@ -440,7 +452,7 @@ Deno.test("дети таблиц удаляются по объединению 
   await withIo(async (io) => {
     const sent: Sent[] = [];
     const replies = new Map<string, SqlOutcome>();
-    await runCopyClient({ selector: String(CLIENT) }, io, {
+    await copyClient({ selector: String(CLIENT) }, io, {
       runTool: tools([0, 0], []),
       openSession: (target, mode) => {
         const base = sessions(sent, replies)(target, mode);
@@ -458,6 +470,7 @@ Deno.test("дети таблиц удаляются по объединению 
       tempFile: () => "/tmp/проба.dump",
       removeFile: () => {},
       nowMs: () => 0,
+      runRedis: noRedis,
     });
     const seed = sent.find((item) =>
       item.port === 5441 && item.kind === "many"
@@ -477,7 +490,7 @@ Deno.test("отказ посева называет таблицу и говор
     const sent: Sent[] = [];
     const err = await assertRejects(
       () =>
-        runCopyClient({ selector: String(CLIENT) }, io, {
+        copyClient({ selector: String(CLIENT) }, io, {
           runTool: tools([0, 0], []),
           openSession: (target, mode) => {
             const base = sessions(sent)(target, mode);
@@ -503,6 +516,7 @@ Deno.test("отказ посева называет таблицу и говор
           tempFile: () => "/tmp/проба.dump",
           removeFile: () => {},
           nowMs: () => 0,
+          runRedis: noRedis,
         }),
       DomainError,
     );
@@ -522,7 +536,7 @@ Deno.test("отказ на служебном операторе не выдум
     const sent: Sent[] = [];
     const err = await assertRejects(
       () =>
-        runCopyClient({ selector: String(CLIENT) }, io, {
+        copyClient({ selector: String(CLIENT) }, io, {
           runTool: tools([0, 0], []),
           openSession: (target, mode) => {
             const base = sessions(sent)(target, mode);
@@ -545,6 +559,7 @@ Deno.test("отказ на служебном операторе не выдум
           tempFile: () => "/tmp/проба.dump",
           removeFile: () => {},
           nowMs: () => 0,
+          runRedis: noRedis,
         }),
       DomainError,
     );
@@ -560,7 +575,7 @@ Deno.test("отказ фиксации — тоже доменная ошибк�
     const sent: Sent[] = [];
     const err = await assertRejects(
       () =>
-        runCopyClient({ selector: String(CLIENT) }, io, {
+        copyClient({ selector: String(CLIENT) }, io, {
           runTool: tools([0, 0], []),
           openSession: (target, mode) => {
             const base = sessions(sent)(target, mode);
@@ -576,6 +591,7 @@ Deno.test("отказ фиксации — тоже доменная ошибк�
           tempFile: () => "/tmp/проба.dump",
           removeFile: () => {},
           nowMs: () => 0,
+          runRedis: noRedis,
         }),
       DomainError,
     );
@@ -589,12 +605,13 @@ Deno.test("вход в sw-front заводится и печатается", asy
     const lines: string[] = [];
     const sent: Sent[] = [];
     const loud = { ...io, progress: (line: string) => void lines.push(line) };
-    const result = await runCopyClient({ selector: String(CLIENT) }, loud, {
+    const result = await copyClient({ selector: String(CLIENT) }, loud, {
       runTool: tools([0, 0], []),
       openSession: sessions(sent),
       tempFile: () => "/tmp/проба.dump",
       removeFile: () => {},
       nowMs: () => 0,
+      runRedis: noRedis,
     });
 
     assertEquals(result.login, true);
@@ -629,7 +646,7 @@ Deno.test("отказ проводки называет оператор, на �
   await withIo(async (io) => {
     const lines: string[] = [];
     const loud = { ...io, progress: (line: string) => void lines.push(line) };
-    const result = await runCopyClient({ selector: String(CLIENT) }, loud, {
+    const result = await copyClient({ selector: String(CLIENT) }, loud, {
       runTool: tools([0, 0], []),
       openSession: (target, mode) => {
         const base = sessions([])(target, mode);
@@ -652,6 +669,7 @@ Deno.test("отказ проводки называет оператор, на �
       tempFile: () => "/tmp/проба.dump",
       removeFile: () => {},
       nowMs: () => 0,
+      runRedis: noRedis,
     });
 
     assertEquals(result.login, false);
@@ -666,7 +684,7 @@ Deno.test("сбой проводки не роняет копию", async () => 
   await withIo(async (io) => {
     const lines: string[] = [];
     const loud = { ...io, progress: (line: string) => void lines.push(line) };
-    const result = await runCopyClient({ selector: String(CLIENT) }, loud, {
+    const result = await copyClient({ selector: String(CLIENT) }, loud, {
       runTool: tools([0, 0], []),
       openSession: (target, mode) =>
         target.port === 5451
@@ -675,6 +693,7 @@ Deno.test("сбой проводки не роняет копию", async () => 
       tempFile: () => "/tmp/проба.dump",
       removeFile: () => {},
       nowMs: () => 0,
+      runRedis: noRedis,
     });
 
     // Шаг best-effort: копия схемы и строк уже готова, и ронять её
@@ -693,7 +712,7 @@ Deno.test("сбой проводки не роняет копию", async () => 
 Deno.test("кэш main греется строкой клиента из sl-0", async () => {
   await withIo(async (io) => {
     const redis: { argv: readonly string[]; stdin: string }[] = [];
-    await runCopyClient({ selector: String(CLIENT) }, io, {
+    await copyClient({ selector: String(CLIENT) }, io, {
       runTool: tools([0, 0], []),
       openSession: (target, mode) => {
         const base = sessions([])(target, mode);
@@ -734,11 +753,13 @@ Deno.test("сброс кэша sw-back не роняет уже заведённ
   await withIo(async (io) => {
     const lines: string[] = [];
     const loud = { ...io, progress: (line: string) => void lines.push(line) };
-    const result = await runCopyClient({ selector: String(CLIENT) }, loud, {
+    const result = await copyClient({ selector: String(CLIENT) }, loud, {
       runTool: tools([0, 0], []),
       openSession: sessions([]),
-      // Кэш main греется, сброс sw-back падает: вход к этому моменту
-      // уже заведён, и ронять из-за кэша нечего.
+      // Сброс sw-back падает: вход к этому моменту уже заведён, и
+      // ронять его из-за кэша нечего. Кэш main здесь не греется вовсе —
+      // строки клиента в sl-0 у этого фейка нет, и шаг 5 выходит
+      // раньше обращения к redis (см. соседний тест).
       runRedis: (argv) =>
         argv.includes("FLUSHALL")
           ? Promise.reject(new Error("redis-dev не запущен"))
@@ -752,5 +773,78 @@ Deno.test("сброс кэша sw-back не роняет уже заведённ
       lines.join("\n"),
       "mpu copy-client: WARN кэш sw-back не сброшен",
     );
+  });
+});
+
+Deno.test("у шва redis есть умолчание: настоящий исполнитель", () => {
+  // Проверяется именно умолчание, а не исполнение: подстановку теперь
+  // передаёт каждый тест, поэтому её пропажа тестами не ловится, —
+  // а пропажа умолчания оставила бы оба шага мёртвыми в бинаре, как и
+  // было полгода (`copy-client.md`, «Известные ловушки окружения»).
+  assertEquals(redisRunner({}), spawnRedis);
+  assertEquals(redisRunner({ runRedis: noRedis }), noRedis);
+});
+
+Deno.test("отказ redis на кэше main — предупреждение, а не отказ", async () => {
+  await withIo(async (io) => {
+    const lines: string[] = [];
+    const loud = { ...io, progress: (line: string) => void lines.push(line) };
+    const result = await copyClient({ selector: String(CLIENT) }, loud, {
+      runTool: tools([0, 0], []),
+      openSession: (target, mode) => {
+        const base = sessions([])(target, mode);
+        if (target.port !== 5440) return base;
+        return base.then((session) => ({
+          ...session,
+          query: (sql: string) =>
+            sql.includes("row_to_json")
+              ? Promise.resolve(rows(["row_to_json"], [['{"id":5175}']]))
+              : session.query(sql),
+        }));
+      },
+      // Кэш main не отвечает; копия к этому моменту уже перенесена, и
+      // ронять её из-за кэша нечего — его греет и повторный запуск.
+      runRedis: (argv) =>
+        argv.includes("sl-main:clients:5175")
+          ? Promise.reject(new Error("mp-sl-0-redis не запущен"))
+          : Promise.resolve(),
+      tempFile: () => "/tmp/проба.dump",
+      removeFile: () => {},
+      nowMs: () => 0,
+    });
+    assertEquals(result.clientId, CLIENT);
+    assertStringIncludes(
+      lines.join("\n"),
+      "mpu copy-client: WARN кэш main не обновлён",
+    );
+  });
+});
+
+Deno.test("нет строки клиента в sl-0 — кэш не греется и redis не зовётся", async () => {
+  await withIo(async (io) => {
+    const lines: string[] = [];
+    const loud = { ...io, progress: (line: string) => void lines.push(line) };
+    const seen: readonly string[][] = [];
+    const calls: string[][] = [...seen];
+    await copyClient({ selector: String(CLIENT) }, loud, {
+      runTool: tools([0, 0], []),
+      // Фейк на `row_to_json` не отвечает: строки клиента в sl-0 нет.
+      openSession: sessions([]),
+      runRedis: (argv) => {
+        calls.push([...argv]);
+        return Promise.resolve();
+      },
+      tempFile: () => "/tmp/проба.dump",
+      removeFile: () => {},
+      nowMs: () => 0,
+    });
+    assertStringIncludes(lines.join("\n"), "кэш не грет");
+    // Греть нечем — и обращения к кэшу main не было вовсе; единственный
+    // вызов redis остаётся за шагом 6.
+    assertEquals(
+      calls.some((argv) => argv.includes("mp-sl-0-redis")),
+      false,
+    );
+    assertEquals(calls.some((argv) => argv.includes("FLUSHALL")), true);
   });
 });

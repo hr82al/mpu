@@ -258,3 +258,74 @@ export function removeDumpFile(path: string): void {
     // Файл мог не создаться вовсе — упавший дамп это штатный исход.
   }
 }
+
+/**
+ * Запуск `redis-cli` в контейнере: аргументы и то, что уходит ему на
+ * вход. Значение через stdin, а не аргументом: строка клиента бывает
+ * длинной и содержит что угодно (`copy-client.md`, шаг 5).
+ */
+export type RunRedis = (
+  argv: readonly string[],
+  stdin: string,
+) => Promise<void>;
+
+/**
+ * Настоящий запуск: умолчание шва, а не подстановка вызывающего.
+ * Умолчание здесь по той же причине, по которой оно есть у `runTool`:
+ * шов без него гаснет молча, и шаг, у которого исполнитель никем не
+ * передан, выглядит выполненным. Так и вышло — оба redis-шага не
+ * исполнялись в собранном бинаре ни разу (`copy-client.md`, «Известные
+ * ловушки окружения»).
+ */
+export const spawnRedis: RunRedis = async (argv, stdin) => {
+  const [bin, ...rest] = argv;
+  const child = new Deno.Command(bin, {
+    args: rest,
+    stdin: "piped",
+    stdout: "piped",
+    stderr: "piped",
+  }).spawn();
+  let outcome: Deno.CommandOutput;
+  try {
+    // Подача и чтение идут одновременно: контейнера может не быть
+    // вовсе, тогда процесс закрывает трубу раньше, чем мы дописали, — и
+    // запись «до первого чтения» отвергается BrokenPipe **вместо**
+    // настоящей причины из stderr («No such container»). Форма та же,
+    // что у подпроцесса ssh (`src/exec/ssh.ts`), и по той же причине.
+    const [, out] = await Promise.all([
+      feed(child.stdin, stdin),
+      child.output(),
+    ]);
+    outcome = out;
+  } catch (err) {
+    // Незавершённый процесс оставляет неразрешённым свой статус: без
+    // явного kill утекли бы и он, и трубы.
+    child.kill();
+    await child.status;
+    throw err;
+  }
+  if (outcome.success) return;
+  const reason = new TextDecoder().decode(outcome.stderr).split("\n")
+    .find((line) => line.trim() !== "") ?? `код ${outcome.code}`;
+  throw new Error(reason);
+};
+
+/**
+ * Подача stdin целиком и закрытие трубы. Отказ записи наверх не идёт:
+ * он значит, что процесс уже закрыл свой stdin — вышел раньше либо
+ * ввод ему не нужен (`FLUSHALL` не читает ничего), — и ответом на
+ * вызов остаётся его код выхода, а не жалоба на трубу.
+ */
+async function feed(
+  stream: WritableStream<Uint8Array>,
+  text: string,
+): Promise<void> {
+  const writer = stream.getWriter();
+  try {
+    await writer.write(new TextEncoder().encode(text));
+  } catch {
+    await writer.close().catch(() => {});
+    return;
+  }
+  await writer.close();
+}

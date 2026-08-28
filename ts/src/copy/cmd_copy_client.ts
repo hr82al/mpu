@@ -37,7 +37,9 @@ import {
 import {
   makeDumpFile,
   removeDumpFile,
+  type RunRedis,
   type RunTool,
+  spawnRedis,
   spawnTool,
 } from "./tools.ts";
 
@@ -71,17 +73,28 @@ export type CopyIo = Pick<
   "envFile" | "openCacheDb" | "progress"
 >;
 
+/**
+ * Исполнитель redis-вызовов: подставленный тестом либо настоящий.
+ * Отдельной функцией, а не `??` по месту, ровно затем, чтобы умолчание
+ * было **наблюдаемо**: подстановка есть у каждого теста, поэтому её
+ * пропажа тестами не ловится, а пропажа умолчания — ловится этой.
+ */
+export function redisRunner(options: CopyOptions): RunRedis {
+  return options.runRedis ?? spawnRedis;
+}
+
 /** Пароль локального redis sw-back; он же в подсказке `copy-dev`. */
 const REDIS_PASSWORD = "some-redis-password";
 
 /** Подстановки для тестов: живых PG и утилит у них нет. */
 export interface CopyOptions {
   readonly runTool?: RunTool;
-  /** Запуск `docker exec` для кэша main; без него шаг пропускается. */
-  readonly runRedis?: (
-    argv: readonly string[],
-    stdin: string,
-  ) => Promise<void>;
+  /**
+   * Запуск `docker exec` для кэшей. Не задан — идёт настоящий
+   * (`spawnRedis`), как и у `runTool`: шов без умолчания гасил шаг
+   * молча, и оба redis-шага не исполнялись в бинаре ни разу.
+   */
+  readonly runRedis?: RunRedis;
   readonly openSession?: OpenSession;
   readonly tempFile?: () => string;
   readonly removeFile?: (path: string) => void;
@@ -130,14 +143,18 @@ export async function runCopyClient(
   // Шаги 5–6 best-effort: копия схемы и строк уже готова, и ронять её
   // из-за кэша или проводки нечего — они догоняются повторным
   // запуском (`copy-client.md`, «Инварианты»).
-  await warmClientCache(io, clientId, sl0, open, options);
+  // Исполнитель redis-вызовов берётся один раз на оба шага: два места
+  // выбора рано или поздно разошлись бы, и один из шагов снова остался
+  // бы мёртвым — ровно так и вышло, когда выбора не было вовсе.
+  const runRedis = redisRunner(options);
+  await warmClientCache(io, clientId, sl0, open, runRedis);
   const login = await seedSwFront(
     io,
     clientId,
     sl1,
     io.envFile,
     open,
-    options.runRedis,
+    runRedis,
   );
   return {
     clientId,
@@ -154,10 +171,8 @@ async function warmClientCache(
   clientId: number,
   sl0: PgTarget,
   open: OpenSession,
-  options: CopyOptions,
+  runRedis: RunRedis,
 ): Promise<void> {
-  const runRedis = options.runRedis;
-  if (runRedis === undefined) return;
   try {
     const session = await open(sl0, "read-only");
     let json: string | undefined;
@@ -203,9 +218,8 @@ async function warmClientCache(
  */
 async function flushSwBack(
   io: CopyIo,
-  runRedis: CopyOptions["runRedis"],
+  runRedis: RunRedis,
 ): Promise<void> {
-  if (runRedis === undefined) return;
   try {
     await runRedis(
       [
@@ -232,7 +246,7 @@ async function seedSwFront(
   sl1: PgTarget,
   env: CopyIo["envFile"],
   open: OpenSession,
-  runRedis: CopyOptions["runRedis"],
+  runRedis: RunRedis,
 ): Promise<boolean> {
   try {
     const from = await open(sl1, "read-only");

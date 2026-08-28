@@ -6,8 +6,13 @@
  * тест здесь.
  */
 
-import { assertEquals } from "@std/assert";
-import { DUMP_DIRS, makeDumpFile, removeDumpFile } from "./tools.ts";
+import { assertEquals, assertRejects } from "@std/assert";
+import {
+  DUMP_DIRS,
+  makeDumpFile,
+  removeDumpFile,
+  spawnRedis,
+} from "./tools.ts";
 
 Deno.test("временный файл дампа ложится в каталог временных файлов", () => {
   // Эталон — тот же системный каталог, что берёт `Deno.makeTempFileSync`
@@ -48,4 +53,44 @@ Deno.test("удаление временного файла: отсутстви�
   // Второе удаление того же пути молчит: упавший дамп мог не создать
   // файла вовсе, и уборка не должна ронять вызов поверх его отказа.
   removeDumpFile(path);
+});
+
+Deno.test("настоящий запуск redis: подача, код возврата, причина отказа", async (t) => {
+  // Исходный дефект был в том, что настоящий исполнитель никем не
+  // исполнялся и никем не проверялся. Проверяется он теми же
+  // разрешёнными бинарями, что и подпроцесс ssh (`deno.jsonc`, задача
+  // `test`), — живого docker в прогоне нет и не должно быть.
+  await t.step("успех: stdin принят, отказа нет", async () => {
+    await spawnRedis(["/bin/echo", "проба"], "значение");
+  });
+
+  await t.step(
+    "ненулевой код без stderr — причиной становится код",
+    async () => {
+      const err = await assertRejects(
+        () => spawnRedis(["/bin/false"], ""),
+        Error,
+      );
+      assertEquals(err.message, "код 1");
+    },
+  );
+
+  await t.step("процесс, не читающий ввод, не подменяет причину", async () => {
+    // Ввод заведомо больше трубы (её буфер — десятки килобайт), а
+    // `/bin/false` не читает ничего и выходит сразу. Пиши мы всё до
+    // первого чтения — запись отвергло бы BrokenPipe, и наверх ушла бы
+    // жалоба на трубу вместо настоящей причины отказа. Подача и чтение
+    // идут одновременно, поэтому причиной остаётся код возврата.
+    const err = await assertRejects(
+      () => spawnRedis(["/bin/false"], "п".repeat(200_000)),
+      Error,
+    );
+    assertEquals(err.message, "код 1");
+  });
+
+  await t.step("нечего запускать — отказ, а не тишина", async () => {
+    // Отсутствие бинаря обязано дойти до вызывающего: шаг best-effort
+    // превратит его в предупреждение, но решает это он, а не мы.
+    await assertRejects(() => spawnRedis(["/bin/net-takogo-binarya"], ""));
+  });
 });
