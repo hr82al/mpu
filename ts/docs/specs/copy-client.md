@@ -105,8 +105,16 @@ heartbeat-строка с прошедшим временем, по таблиц
      `is_active` в таблице нет; `slug` уникален и при повторном прогоне
      не переписывается;
    - на каждый sid: `wb_cabinets` (`status = 'ACTIVE'`,
-     `marketplace = 'wildberries'`), `workspaces_wb_cabinets`
-     (`DO NOTHING`), `subscriptions` (`is_paid = true`,
+     `marketplace = 'wildberries'`), `workspaces_wb_cabinets` — связка
+     **снимается с чужого воркспейса** (`DELETE` по этому sid, кроме своего)
+     и заводится своя (`DO NOTHING`); снятие идёт тем же посевом, что и
+     перевешивание кабинета, до вставки своей связки, и печатается строкой
+     `sw-front: снято чужих связок кабинетов: N` (при нуле строки нет).
+     Удаление ограничено sid копируемого клиента: связки прочих кабинетов
+     команда не трогает. Без снятия две таблицы утверждали бы разное об одном
+     sid — `wb_cabinets.workspace_id` уже перевешен, — и кабинет оказывался бы
+     в двух пространствах (замер 2026-08-28: 5 связок при 4 кабинетах),
+     `subscriptions` (`is_paid = true`,
      `status = 'ACTIVE'`, `paid_from = CURRENT_DATE`, `paid_to = +365
      дней`, `sku_active_limit = 100000`, `is_active = true`);
    - `updated_at` проставляется явно везде, где колонка есть (`users`,
