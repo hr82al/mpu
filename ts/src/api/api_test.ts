@@ -250,12 +250,20 @@ Deno.test("сегмент пути '..' отбивается до сети", asy
   }
 });
 
-Deno.test("ответ с чужими секретами в журнал не пишется", () => {
+Deno.test("ответ с секретами и персональными данными в журнал не пишется", () => {
   // Пометка живёт в строке таблицы, поэтому проверяется по таблице:
-  // список имён рядом с ней разошёлся бы с ней же.
-  const secret = READ_ENDPOINTS.filter((endpoint) => endpoint.secrets === true)
+  // список имён рядом с ней разошёлся бы с ней же. Состав закрыт: у
+  // двух команд в ответе чужие ключи, у двух — почта пользователя и
+  // ссылка активации (замеры спецификатора на живом клиенте).
+  const secret = READ_ENDPOINTS
+    .filter((endpoint) => endpoint.sensitiveOutput === true)
     .map((endpoint) => endpoint.name);
-  assertEquals(secret, ["list-client-ozon-keys", "list-client-wb-tokens"]);
+  assertEquals(secret, [
+    "get-user",
+    "list-client-ozon-keys",
+    "list-client-wb-tokens",
+    "list-users",
+  ]);
   for (const endpoint of READ_ENDPOINTS) {
     assertEquals(
       commandOf(endpoint.name).logsOutput,

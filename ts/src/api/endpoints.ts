@@ -43,7 +43,12 @@ export const READ_ENDPOINTS: readonly EndpointSpec[] = [
     ],
     body: true,
   },
-  { name: "get-user", method: "GET", path: "/admin/user/:userId" },
+  {
+    name: "get-user",
+    method: "GET",
+    path: "/admin/user/:userId",
+    sensitiveOutput: true,
+  },
   {
     name: "get-wb-cabinet-module",
     method: "GET",
@@ -63,7 +68,7 @@ export const READ_ENDPOINTS: readonly EndpointSpec[] = [
     name: "list-client-ozon-keys",
     method: "GET",
     path: "/admin/client/:clientId/ozon/apikey",
-    secrets: true,
+    sensitiveOutput: true,
   },
   {
     name: "list-client-spreadsheets",
@@ -84,12 +89,17 @@ export const READ_ENDPOINTS: readonly EndpointSpec[] = [
     name: "list-client-wb-tokens",
     method: "GET",
     path: "/admin/client/:clientId/wb/token",
-    secrets: true,
+    sensitiveOutput: true,
   },
   { name: "list-clients", method: "GET", path: "/admin/client" },
   { name: "list-roles", method: "GET", path: "/admin/roles" },
   { name: "list-spreadsheets", method: "GET", path: "/admin/ss" },
-  { name: "list-users", method: "GET", path: "/admin/user" },
+  {
+    name: "list-users",
+    method: "GET",
+    path: "/admin/user",
+    sensitiveOutput: true,
+  },
   {
     name: "list-wb-cabinet-modules",
     method: "GET",
