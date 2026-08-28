@@ -1,0 +1,13 @@
+[
+  {
+    "client_id": 777,
+    "module": "wbDefault",
+    "is_active": true,
+    "last_activation_date": null,
+    "datasets": [
+      "wbCardsData_v1",
+      "wb10xAnalyticsData_v1",
+      "wb10xPlanMonthSave"
+    ]
+  }
+]
