@@ -13,12 +13,7 @@
  */
 
 import { z } from "@zod/zod";
-import {
-  type CommandIo,
-  defineCommand,
-  DomainError,
-  UsageError,
-} from "../command/mod.ts";
+import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
 import {
   commitBranches,
   type GitlabAccess,
@@ -141,7 +136,9 @@ async function addressOf(
     return { project, iid: parsed.iid };
   } catch (err) {
     if (err instanceof MrRefError) {
-      throw new DomainError(`MR '${selector}': ${err.message}`, { cause: err });
+      // Разбор адреса — до сети, значит ошибка ввода: правило у команды
+      // общее с `mpu mr` (`glab-status.md`, «Граничные случаи»).
+      throw new UsageError(`MR '${selector}': ${err.message}`, { cause: err });
     }
     throw err;
   }
@@ -181,13 +178,13 @@ export async function runGlabStatus(
     // Оба флага названы разом: убрав только первый, оператор получил
     // бы второй отказ следующим вызовом (спека).
     const named = misplaced.join("/");
-    throw new DomainError(
+    throw new UsageError(
       `${named} — только для режима «мои MR», с адресом MR не сочетается`,
       { hint: `убрать ${named} либо вызвать mpu glab-status без адресов MR` },
     );
   }
   if (!selectors && args.branches) {
-    throw new DomainError(
+    throw new UsageError(
       "--branches применяется только с адресом MR",
       { hint: "указать адрес MR либо убрать флаг" },
     );
@@ -206,20 +203,11 @@ export async function runGlabStatus(
     }
     return { rows: [...rows], selectors, columns: columnsOf(io, options) };
   } catch (err) {
-    // Спека этой команды отдаёт коду 2 только разбор argv, а всё
-    // прочее — коду 1, в том числе неразбираемый селектор и `--since`
-    // (`glab-status.md`, «Ввод/вывод»). У `mpu mr` решение обратное, и
-    // общая рамка следует ему — поэтому перевод здесь, на границе
-    // команды, а не в рамке.
-    throw asOwnError(asCommandError(io, err, NOT_FOUND_HINT));
+    // Правило кодов общее с `mpu mr`: 2 — всё, что разобрано до сети,
+    // 1 — всё после обращения наружу (`glab-status.md`, сведено
+    // 2026-08-28). Своего перевода на границе команды поэтому нет.
+    throw asCommandError(io, err, NOT_FOUND_HINT);
   }
-}
-
-/** Ошибка ввода этой команды — доменная: у неё код 1, а не 2. */
-function asOwnError(err: unknown): unknown {
-  return err instanceof UsageError
-    ? new DomainError(err.message, { hint: err.hint, cause: err })
-    : err;
 }
 
 /** Режим адресов: ровно перечисленные MR, повторы схлопываются. */

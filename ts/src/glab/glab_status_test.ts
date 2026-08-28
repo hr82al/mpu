@@ -8,7 +8,7 @@
  */
 
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
-import { DomainError } from "../command/mod.ts";
+import { DomainError, UsageError } from "../command/mod.ts";
 import { startFakeGitlab } from "../gitlab/testing.ts";
 import type { RunGit } from "../gitlab/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
@@ -219,7 +219,8 @@ Deno.test("голый iid без git: отказ с подсказкой про 
         runGlabStatus(args({ mr: ["456"] }), ioTo(stand.baseUrl), {
           runGit: () => Promise.resolve(null),
         }),
-      DomainError,
+      // Разбор адреса идёт до сети — значит ошибка ввода, код 2.
+      UsageError,
     );
     assertStringIncludes(err.message, "MR '456': git не найден в PATH");
     // Флага `--mr` у команды нет — подсказка называет позиционные формы.
@@ -347,7 +348,8 @@ Deno.test("конфликты режимов отбиваются до сети"
       await t.step(name, async () => {
         const err = await assertRejects(
           () => runGlabStatus(call, io, { runGit: noGit }),
-          DomainError,
+          // Взаимоисключающие флаги разбираются до сети: код 2.
+          UsageError,
           text,
         );
         assertEquals(typeof err.hint, "string");
@@ -383,15 +385,14 @@ Deno.test("--since не разбирается — отказ ввода до с
     throw new Error("сети быть не должно");
   });
   try {
-    // Спека этой команды отдаёт коду 2 только разбор argv: неверный
-    // `--since` — ошибка команды, то есть код 1 (у `mpu mr` решение
-    // обратное, и это разные контракты).
+    // Неверный `--since` разбирается до сети — значит ошибка ввода
+    // (код 2), правило общее с `mpu mr`.
     await assertRejects(
       () =>
         runGlabStatus(args({ since: "позавчера" }), ioTo(quiet.baseUrl), {
           runGit: noGit,
         }),
-      DomainError,
+      UsageError,
       "--since: ожидается <число>{s|m|h|d} или unix-ts, получено 'позавчера'",
     );
   } finally {

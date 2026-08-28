@@ -5,7 +5,10 @@
 
 import { assertEquals } from "@std/assert";
 
-const NAMES: readonly string[] = ["single-mr.json", "single-mr.stdout"];
+// Текстовый голден снят из канала 2026-08-28: он был снят с рамочной
+// таблицы прежней реализации, а рамки в контракт не входят — эталон,
+// который нечем воспроизвести, хуже отсутствующего.
+const NAMES: readonly string[] = ["single-mr.json"];
 const copyDir = new URL("testdata/glab-status/", import.meta.url);
 
 Deno.test("копии фикстур совпадают с каналом спецификаций", async (t) => {
