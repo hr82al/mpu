@@ -1682,6 +1682,39 @@ const CASES: readonly CommandCase[] = [
     argv: [],
     sampleResult: SAMPLE_API,
   },
+  // Кастомная группа `api ss-access` (`api-ss-access.md`): у образцов
+  // здесь свои argv — команда третьего уровня, и таблицей объявлений
+  // они не описываются. Ни один вызов до сети не доходит: адреса
+  // sl-back в env-файле обхода нет.
+  {
+    path: "api ss-access request",
+    argv: ["1SyntheticSpreadsheetId0000"],
+    sampleResult: { response: { id: "grant-1" } },
+  },
+  {
+    path: "api ss-access status",
+    argv: ["1SyntheticSpreadsheetId0000"],
+    sampleResult: { response: [] },
+  },
+  {
+    path: "api ss-access revoke",
+    // С `--grant-id`: иначе вызов пошёл бы резолвом в main-БД, а её у
+    // обхода нет — отказ был бы про базу, а не про конфигурацию.
+    argv: ["1SyntheticSpreadsheetId0000", "--grant-id", "grant-1"],
+    sampleResult: {
+      revoked: [{ id: "grant-1", status: "applied" }],
+      responses: [{ ok: true }],
+    },
+  },
+  {
+    path: "api ss-access reset",
+    argv: ["1SyntheticSpreadsheetId0000"],
+    sampleResult: {
+      revoked: [],
+      waitedMs: 0,
+      response: { id: "grant-2" },
+    },
+  },
   // Остаток `mpu api` — 68 объявлений одной механики (`api-write.md`).
   // Образец у них общий и построен из объявления: argv — значения
   // path-параметров, результат — тот же `SAMPLE_API`. Расписывать

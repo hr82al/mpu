@@ -434,17 +434,23 @@ Deno.test("get-token не пишет в журнал ни ввода, ни вы�
 });
 
 Deno.test("таблица даёт 90 команд с однострокой «метод + путь»", () => {
-  // 22 читающих плюс 68 остатка (`api-write.md`); одиннадцати
-  // кастомных здесь нет — они не описываются таблицей.
-  assertEquals(apiCommands.length, 90);
+  // 22 читающих, 68 остатка (`api-write.md`) и четыре кастомных
+  // `ss-access` (`api-ss-access.md`); прочие семь кастомных ещё не
+  // переехали.
+  assertEquals(apiCommands.length, 94);
   const names = apiCommands.map((command) => command.path[1]);
-  assertEquals(new Set(names).size, names.length);
+  // Имя второго сегмента у `ss-access` общее на четыре команды —
+  // уникальны пути целиком, а не вторые сегменты.
+  const paths = apiCommands.map((command) => command.path.join(" "));
+  assertEquals(new Set(paths).size, paths.length);
   assertEquals([...names].sort(), names);
   assertEquals(commandOf("get-client").summary, "GET /admin/client/:userId");
   assertEquals(commandOf("list-wb-cabinets").summary, "GET /admin/wb-cabinets");
   assertEquals(commandOf("create-client").summary, "POST /admin/client");
   for (const command of apiCommands) {
-    assertEquals(command.errorName, `api ${command.path[1]}`);
+    // Рамка ошибки — полный путь: у трёхуровневых `ss-access` второго
+    // сегмента для этого мало.
+    assertEquals(command.errorName, command.path.join(" "));
   }
   // Политика следует методу, а не таблице: читающая команда остатка
   // (`auth-verify`) объявлена `ro`, как и вся читающая половина.

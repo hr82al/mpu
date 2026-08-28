@@ -413,6 +413,14 @@ export const groups: readonly CommandGroup[] = [
     usage: "mpu sheet <подкоманда> [аргументы]",
   },
   {
+    // Промежуточный уровень кастомной группы `api`: сама `api` ещё в
+    // слепке (переехала не целиком), а её подгруппы там нет —
+    // подкоманды `ss-access` есть только здесь.
+    path: ["api", "ss-access"],
+    summary: "доступ к таблице клиента: request | status | revoke | reset",
+    usage: "mpu api ss-access <подкоманда> [аргументы]",
+  },
+  {
     // Подкоманды `alias` есть только здесь: в слепке их нет.
     path: ["sheet", "alias"],
     summary: "короткие имена таблиц: add | ls | rm",

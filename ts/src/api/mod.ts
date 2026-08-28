@@ -14,6 +14,7 @@ import { endpointCommand } from "./command.ts";
 import { READ_ENDPOINTS } from "./endpoints.ts";
 import { WRITE_ENDPOINTS } from "./endpoints_write.ts";
 import { apiGetTokenCommand } from "./cmd_get_token.ts";
+import { ssAccessCommands } from "./cmd_ss_access.ts";
 
 /**
  * Читающие команды группы в алфавитном порядке имени: `mpu api --help`
@@ -25,4 +26,8 @@ export const apiCommands: readonly Command[] = [
   ...READ_ENDPOINTS.map(endpointCommand),
   ...WRITE_ENDPOINTS.map(endpointCommand),
   apiGetTokenCommand,
+  // Кастомная группа: четыре команды третьего уровня
+  // (`docs/specs/api-ss-access.md`). Сортировка по второму сегменту
+  // ставит их подряд — у всех он `ss-access`.
+  ...ssAccessCommands,
 ].sort((a, b) => a.path[1] < b.path[1] ? -1 : a.path[1] > b.path[1] ? 1 : 0);
