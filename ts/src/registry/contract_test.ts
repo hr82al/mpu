@@ -10,6 +10,8 @@ import { assert, assertEquals, assertThrows } from "@std/assert";
 import { commands, findCommand, findGroup, findLegacy } from "./mod.ts";
 import { openCacheDb as openStoreDb } from "../store/mod.ts";
 import { type Command, type CommandIo, UsageError } from "../command/mod.ts";
+import { WRITE_ENDPOINTS } from "../api/endpoints_write.ts";
+import { pathParams } from "../api/endpoint.ts";
 
 /**
  * Образец вызова команды: аргументы, которые она принимает, и образец
@@ -67,6 +69,19 @@ const SAMPLE_BACKUP = {
  * (`docs/specs/api.md`), поэтому образец у них общий.
  */
 const SAMPLE_API = { response: { id: 777, title: "Клиент" } };
+
+/** Значение path-параметра для обхода: годное по форме, не по смыслу. */
+function sampleArg(name: string): string {
+  const values: Readonly<Record<string, string>> = {
+    clientId: "777",
+    userId: "777",
+    spreadsheetId: "1BxiMVs0",
+    sheetName: "Лист",
+    module: "wbDefault",
+    sid: "sid-1",
+  };
+  return values[name] ?? "777";
+}
 
 const CASES: readonly CommandCase[] = [
   {
@@ -1667,6 +1682,17 @@ const CASES: readonly CommandCase[] = [
     argv: [],
     sampleResult: SAMPLE_API,
   },
+  // Остаток `mpu api` — 68 объявлений одной механики (`api-write.md`).
+  // Образец у них общий и построен из объявления: argv — значения
+  // path-параметров, результат — тот же `SAMPLE_API`. Расписывать
+  // шесть десятков одинаковых строк руками значило бы завести шесть
+  // десятков мест для опечатки; состав при этом всё равно сверяется —
+  // с эталоном, а не с этой таблицей.
+  ...WRITE_ENDPOINTS.map((spec) => ({
+    path: `api ${spec.name}`,
+    argv: pathParams(spec.path).map(sampleArg),
+    sampleResult: SAMPLE_API,
+  })),
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {

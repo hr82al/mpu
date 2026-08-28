@@ -190,13 +190,15 @@ Deno.test("справку команды маршрута legacy печатае�
   // Эталоны сквозного поведения: flag-level текст справки команд
   // маршрута `legacy` приходит от Python-реализации, которой в
   // песочнице нет. Проверяем стык — argv и проход вывода насквозь.
-  // Образец — `api`: её пишущая половина ещё подпроцессная (у `sheet`,
-  // стоявшей здесь раньше, подпроцессным не осталось ничего).
+  // Образец — `api`: её декларативный остаток переехал, но одиннадцать
+  // кастомных команд остались подпроцессными, и `wb-cards-reset` —
+  // одна из них (у `sheet`, стоявшей здесь раньше, подпроцессным не
+  // осталось ничего).
   const cases: readonly (readonly [string, readonly string[], string[]])[] = [
     ['mpu help "mpu api"', ["help", "mpu api"], ["api", "--help"]],
-    ["mpu api create-client --help", ["api", "create-client", "--help"], [
+    ["mpu api wb-cards-reset --help", ["api", "wb-cards-reset", "--help"], [
       "api",
-      "create-client",
+      "wb-cards-reset",
       "--help",
     ]],
   ];

@@ -47,11 +47,19 @@ export interface SlbackSession {
       readonly useCache?: boolean;
     },
   ) => Promise<string>;
-  /** Вызов эндпоинта под Bearer-токеном; результат — разобранный JSON. */
+  /**
+   * Вызов эндпоинта под Bearer-токеном; результат — разобранный JSON.
+   *
+   * `auth: false` — вызов без заголовка и **без единого обращения к
+   * кэшу токена**: у эндпоинта с признаком `no_auth` авторизации нет
+   * по построению, а `/auth/login` иначе брал бы токен, чтобы за
+   * токеном сходить (`docs/specs/api-write.md`).
+   */
   readonly call: (
     method: string,
     path: string,
     body?: unknown,
+    opts?: { readonly auth?: boolean },
   ) => Promise<unknown>;
 }
 
@@ -89,12 +97,15 @@ export function openSlback(
 
   return {
     token,
-    call: async (method, path, body) =>
+    call: async (method, path, body, opts) =>
       await slbackCall(slbackBaseUrl(io.envFile), {
         method,
         path,
         body,
-        token: await token(),
+        // Токен берётся только там, где он нужен: у `auth: false`
+        // обращения к кэшу не происходит вовсе, а не «происходит и
+        // не используется».
+        token: opts?.auth === false ? undefined : await token(),
       }),
   };
 }

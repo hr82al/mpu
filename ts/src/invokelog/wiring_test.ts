@@ -211,15 +211,16 @@ Deno.test("пометка «без записи вывода» — часть о
       path: ["фейк"],
     });
   });
-  await t.step("в реестре пометка стоит у девяти команд", () => {
-    // Все девять печатают то, чему в журнале не место: `search` — живые
+  await t.step("в реестре пометка стоит у восемнадцати команд", () => {
+    // Все печатают то, чему в журнале не место: `search` — живые
     // токены сессий 10X, `log` — сам журнал (иначе он печатал бы
     // себя), `mcp token` — токен доступа, `users add` — собранную
     // команду с паролем заводимого пользователя, `confirm` — чужой
     // буфер конвейера, дословно равный его вводу, `api get-token` —
-    // живой токен sl-back (`docs/specs/api.md`), а четыре читающих
-    // `api` — чужие ключи клиента и персональные данные пользователей
-    // (почта, ссылка активации). Порядок — порядок реестра.
+    // живой токен sl-back (`docs/specs/api.md`). Остальные — команды
+    // `api`, чей ОТВЕТ несёт чужие ключи, токены или персональные
+    // данные: четыре читающих и семь из остатка (`api-write.md`).
+    // Порядок — порядок реестра.
     const marked = commands
       .filter((command) => !command.logsOutput)
       .map((command) => command.path.join(" "));
@@ -229,11 +230,19 @@ Deno.test("пометка «без записи вывода» — часть о
       "mcp token",
       "users add",
       "confirm",
+      "api add-client-ozon-key",
+      "api add-client-wb-token",
+      "api auth-login",
+      "api auth-refresh",
+      "api create-user",
       "api get-token",
       "api get-user",
       "api list-client-ozon-keys",
       "api list-client-wb-tokens",
       "api list-users",
+      "api update-user",
+      "api wb-token-ping-content",
+      "api wb-token-seller-info",
     ]);
   });
 });
@@ -362,17 +371,36 @@ Deno.test("вызов тула журналируется как вторая т
 });
 
 Deno.test("пометка «без записи аргументов»: текста заметки в журнале нет", async (t) => {
-  await t.step("в реестре пометка стоит у трёх команд", () => {
+  await t.step("в реестре пометка стоит у пятнадцати команд", () => {
     // Единственный аргумент `telegram log` персонален сам по себе —
     // это заметка пользователя (`docs/specs/telegram-log.md`); у
     // `users add` среди аргументов пароль заводимого пользователя
     // (`docs/specs/portainer-wrappers.md`), у `api get-token` — пароль
-    // в `--password` (`docs/specs/api.md`). Список закрытый: пометка
-    // — свойство команды в реестре, и молча вырасти он не должен.
+    // в `--password` (`docs/specs/api.md`). Остальные двенадцать — из
+    // остатка `api`: у них среди объявленных полей пароль, токен или
+    // ключ, и строка `$ mpu api … --password …` легла бы на диск
+    // вместе с ним (`api-write.md`). Список закрытый: пометка —
+    // свойство команды в реестре, и молча вырасти он не должен.
     const marked = commands
       .filter((command) => !command.logsArguments)
       .map((command) => command.path.join(" "));
-    assertEquals(marked, ["telegram log", "users add", "api get-token"]);
+    assertEquals(marked, [
+      "telegram log",
+      "users add",
+      "api add-client-ozon-key",
+      "api add-client-wb-token",
+      "api auth-change-password",
+      "api auth-login",
+      "api cli-log-heartbeat",
+      "api cli-log-subscribe",
+      "api cli-log-unsubscribe",
+      "api create-user",
+      "api delete-client-wb-token",
+      "api get-token",
+      "api update-user",
+      "api wb-token-ping-content",
+      "api wb-token-seller-info",
+    ]);
   });
 
   await t.step("скрыв ввод, команда решила и про вывод", () => {
@@ -387,7 +415,31 @@ Deno.test("пометка «без записи аргументов»: текс
         "в выводе только номер сообщения, ввода в нём нет",
       ],
       ["users add", false, "в режиме печати вывод и есть ввод"],
+      ["api add-client-ozon-key", false, "ответ повторяет ключи клиента"],
+      ["api add-client-wb-token", false, "ответ повторяет токен кабинета"],
+      [
+        "api auth-change-password",
+        true,
+        "ответ — признак успеха; пароль остался во вводе",
+      ],
+      ["api auth-login", false, "ответ несёт accessToken"],
+      [
+        "api cli-log-heartbeat",
+        true,
+        "ответ — признак живости, ключ остался во вводе",
+      ],
+      ["api cli-log-subscribe", true, "то же: ключ только во вводе"],
+      ["api cli-log-unsubscribe", true, "то же: ключ только во вводе"],
+      ["api create-user", false, "ответ несёт почту и ссылку активации"],
+      [
+        "api delete-client-wb-token",
+        true,
+        "ответ — признак удаления; токен назван во вводе",
+      ],
       ["api get-token", false, "вывод — живой токен sl-back"],
+      ["api update-user", false, "ответ несёт персональные данные"],
+      ["api wb-token-ping-content", false, "ответ повторяет проверяемый токен"],
+      ["api wb-token-seller-info", false, "ответ повторяет проверяемый токен"],
     ];
     assertEquals(
       commands

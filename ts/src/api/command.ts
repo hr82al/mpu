@@ -76,13 +76,20 @@ export function endpointCommand(spec: EndpointSpec): Command {
     summary: `${spec.method} ${spec.path}`,
     usage: usageOf(spec, params),
     help: helpText(spec, params, fields),
-    // Читающая половина семейства: пишущие эндпоинты в таблице этого
-    // модуля не объявлены (`api.md`, состав порции).
-    policy: "ro",
+    // Политика следует методу, а не таблице: `GET` читает, остальные
+    // меняют состояние. Объявить `rw`-эндпоинт читающим значило бы
+    // выдать его читающему профилю MCP-сервера, где мутациям места
+    // нет (`platform/mcp-server.md`).
+    policy: spec.method === "GET" ? "ro" : "rw",
     // Вывод в журнал — по умолчанию, кроме ответов, которым не место на
     // диске (`EndpointSpec.sensitiveOutput`). Аргументы пишутся всегда:
     // у читающих эндпоинтов это идентификаторы, а не секреты.
     logsOutput: spec.sensitiveOutput !== true,
+    // Аргументы пишутся всегда, кроме команд, чьи поля несут секрет:
+    // у читающей половины это были идентификаторы, а в остатке есть
+    // `--password` и `--token`, и строка `$ mpu api …` легла бы на
+    // диск вместе с ними (`api-write.md`).
+    logsArguments: spec.secretInput !== true,
     // Схема собрана из данных, и её тип известен только в рантайме:
     // ключи приходят из пути и списка полей. Значения при этом все
     // строковые — сужение делает не приведение, а сама схема.
@@ -128,7 +135,11 @@ async function runEndpoint(
 
   const session = openSlback(io);
   try {
-    return { response: await session.call(spec.method, path, body) };
+    return {
+      response: await session.call(spec.method, path, body, {
+        auth: spec.noAuth !== true,
+      }),
+    };
   } catch (err) {
     throw asDomainError(err);
   }
@@ -158,13 +169,30 @@ async function bodyArg(raw: string, io: CommandIo): Promise<unknown> {
       throw new UsageError(`--body @${path}: ${reasonOf(err)}`, { cause: err });
     }
   }
+  let parsed: unknown;
   try {
-    return JSON.parse(text);
+    parsed = JSON.parse(text);
   } catch (err) {
     throw new UsageError(`--body: невалидный JSON: ${reasonOf(err)}`, {
       cause: err,
     });
   }
+  // Тело запроса — объект, и произвольность его этого не отменяет:
+  // массив или строка уйдут на сервер телом, которого он не ждёт, и
+  // отказ придёт оттуда, а не отсюда (`api-write.md`, механика 2).
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new UsageError(
+      `--body: ожидается объект JSON, получено ${shapeOf(parsed)}`,
+    );
+  }
+  return parsed;
+}
+
+/** Что пришло вместо объекта — словом, для текста отказа. */
+function shapeOf(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "массив";
+  return typeof value === "string" ? "строку" : `${typeof value}`;
 }
 
 /** Пояснение к path-параметру; незаполненное — само имя (`PATH_ARG_HELP`). */

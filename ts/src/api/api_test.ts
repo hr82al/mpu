@@ -433,16 +433,23 @@ Deno.test("get-token не пишет в журнал ни ввода, ни вы�
   assertEquals(command.logsOutput, false);
 });
 
-Deno.test("таблица даёт 22 команды с однострокой «метод + путь»", () => {
-  assertEquals(apiCommands.length, 22);
+Deno.test("таблица даёт 90 команд с однострокой «метод + путь»", () => {
+  // 22 читающих плюс 68 остатка (`api-write.md`); одиннадцати
+  // кастомных здесь нет — они не описываются таблицей.
+  assertEquals(apiCommands.length, 90);
   const names = apiCommands.map((command) => command.path[1]);
   assertEquals(new Set(names).size, names.length);
   assertEquals([...names].sort(), names);
   assertEquals(commandOf("get-client").summary, "GET /admin/client/:userId");
   assertEquals(commandOf("list-wb-cabinets").summary, "GET /admin/wb-cabinets");
-  // Ни одной пишущей команды: половина порции читающая.
+  assertEquals(commandOf("create-client").summary, "POST /admin/client");
   for (const command of apiCommands) {
-    assertEquals(command.policy, "ro");
     assertEquals(command.errorName, `api ${command.path[1]}`);
   }
+  // Политика следует методу, а не таблице: читающая команда остатка
+  // (`auth-verify`) объявлена `ro`, как и вся читающая половина.
+  assertEquals(commandOf("get-client").policy, "ro");
+  assertEquals(commandOf("auth-verify").policy, "ro");
+  assertEquals(commandOf("create-client").policy, "rw");
+  assertEquals(commandOf("delete-client").policy, "rw");
 });
