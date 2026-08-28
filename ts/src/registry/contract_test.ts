@@ -1518,13 +1518,19 @@ const CASES: readonly CommandCase[] = [
     // записи. Ничего писать в чужую таблицу обход не должен.
     path: "sheet set",
     argv: [],
+    // Величины `null`: посредник их не сообщает вовсе (снято живьём),
+    // и образец обхода показывает ту форму, которую оператор видит.
     sampleResult: {
       spreadsheetId: "1SyntheticSpreadsheetId0000",
-      updatedCells: 3,
-      updatedRanges: 2,
+      updatedCells: null,
+      updatedRanges: null,
       groups: [
-        { valueInputOption: "USER_ENTERED", updatedCells: 1, updatedRanges: 1 },
-        { valueInputOption: "RAW", updatedCells: 2, updatedRanges: 1 },
+        {
+          valueInputOption: "USER_ENTERED",
+          updatedCells: null,
+          updatedRanges: null,
+        },
+        { valueInputOption: "RAW", updatedCells: null, updatedRanges: null },
       ],
     },
   },

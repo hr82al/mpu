@@ -65,16 +65,34 @@ const argsSchema = z.object({
   ),
 });
 
+/**
+ * Величины ответа — `null`, когда сервер их не сообщил. Ноль на месте
+ * отсутствующей величины превратил бы «сервер не сказал» в «записано
+ * ноль»: два разных исхода в один, причём в тот, который выглядит как
+ * неудача. Наш посредник (Apps Script) на запись отвечает одной
+ * строкой успеха и величин не отдаёт вовсе — снято живьём 2026-08-28.
+ */
 const groupSchema = z.object({
   valueInputOption: z.string(),
-  updatedCells: z.number().describe("ячеек по ответу сервера"),
-  updatedRanges: z.number().describe("диапазонов по ответу сервера"),
+  updatedCells: z.number().nullable().describe(
+    "ячеек по ответу сервера; null — сервер не сообщил",
+  ),
+  updatedRanges: z.number().nullable().describe(
+    "диапазонов по ответу сервера; null — сервер не сообщил",
+  ),
 });
 
 const resultSchema = z.object({
-  spreadsheetId: z.string(),
-  updatedCells: z.number().describe("всего ячеек по ответам сервера"),
-  updatedRanges: z.number().describe("всего диапазонов по ответам сервера"),
+  // Не эхо сервера: в ответе записи идентификатора нет вовсе — он взят
+  // из резолва цели, то есть говорит, куда мы писали, а не куда, по
+  // словам сервера, записалось.
+  spreadsheetId: z.string().describe("цель вызова по резолву, не из ответа"),
+  updatedCells: z.number().nullable().describe(
+    "всего ячеек; null — хоть одна группа величины не получила",
+  ),
+  updatedRanges: z.number().nullable().describe(
+    "всего диапазонов; null — хоть одна группа величины не получила",
+  ),
   // Массив всегда, даже когда запрос один: форма вывода не зависит от
   // того, смешал ли оператор типы ввода (инвариант 2).
   groups: z.array(groupSchema).describe("по группе на отправленный запрос"),
@@ -148,7 +166,7 @@ export async function runSet(
       if (groups.length > 0) {
         invalidateTabs(db, target.ss_id, titles);
         throw new DomainError(
-          `записано частично: ${describe(groups)} уже в таблице, ` +
+          `записано частично: ${describe(groups)}; ` +
             `${INPUT_OPTION[kind]} не записаны — ${reason(err)}`,
           { cause: err },
         );
@@ -159,8 +177,8 @@ export async function runSet(
   invalidateTabs(db, target.ss_id, titles);
   return {
     spreadsheetId: target.ss_id,
-    updatedCells: groups.reduce((sum, group) => sum + group.updatedCells, 0),
-    updatedRanges: groups.reduce((sum, group) => sum + group.updatedRanges, 0),
+    updatedCells: total(groups, (group) => group.updatedCells),
+    updatedRanges: total(groups, (group) => group.updatedRanges),
     groups,
   };
 }
@@ -183,12 +201,14 @@ async function write(
     },
   });
   // Сервер записывает не всегда столько, сколько просили: заливка
-  // раскрывается, пустые строки схлопываются (инвариант 3).
+  // раскрывается, пустые строки схлопываются (инвариант 3). А наш
+  // посредник величин не сообщает совсем — тогда `null`, и число не
+  // печатается ни в каком виде.
   const responses = reply.responses;
   return {
     valueInputOption: INPUT_OPTION[kind],
     updatedCells: numberOf(reply.totalUpdatedCells),
-    updatedRanges: Array.isArray(responses) ? responses.length : 0,
+    updatedRanges: Array.isArray(responses) ? responses.length : null,
   };
 }
 
@@ -261,24 +281,65 @@ async function tabTitles(
   return [...new Set(first === undefined ? named : [...named, first.title])];
 }
 
-function numberOf(value: unknown): number {
-  return typeof value === "number" ? value : 0;
+function numberOf(value: unknown): number | null {
+  return typeof value === "number" ? value : null;
+}
+
+/**
+ * Итог по группам: `null`, если хоть одна величины не получила. Сумма
+ * известного с неизвестным — не итог, а нижняя граница, выданная за
+ * итог.
+ */
+function total(
+  groups: readonly Group[],
+  pick: (group: Group) => number | null,
+): number | null {
+  const values = groups.map(pick);
+  if (values.some((value) => value === null)) return null;
+  return values.reduce((sum: number, value) => sum + (value ?? 0), 0);
 }
 
 function reason(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** Что уже в таблице — по группам и их собственным величинам. */
+/**
+ * Что уже в таблице. Величины может не быть — тогда сказано, что
+ * записано, и что счёт неизвестен: «0 ячеек» в этот момент прочлось бы
+ * как «ничего не записано», то есть наоборот.
+ */
 function describe(groups: readonly Group[]): string {
   return groups
-    .map((group) => `${group.valueInputOption} (${group.updatedCells} ячеек)`)
+    .map((group) =>
+      group.updatedCells === null
+        ? `${group.valueInputOption} уже записаны (сколько — сервер не сообщил)`
+        : `${group.valueInputOption} уже записаны (${group.updatedCells} ячеек)`
+    )
     .join(", ");
 }
 
-/** Форма вывода одна всегда: объект, и в нём массив групп. */
+/**
+ * Форма вывода одна всегда: объект, и в нём массив групп. Величины,
+ * которых сервер не сообщил, из вывода убраны целиком — ни нулём, ни
+ * `null`: печатать «сколько» там, где ответа нет, значит отвечать за
+ * сервер.
+ */
 export function renderSet(result: SetResult): string {
-  return printJson(result);
+  return printJson({
+    spreadsheetId: result.spreadsheetId,
+    ...known("updatedCells", result.updatedCells),
+    ...known("updatedRanges", result.updatedRanges),
+    groups: result.groups.map((group) => ({
+      valueInputOption: group.valueInputOption,
+      ...known("updatedCells", group.updatedCells),
+      ...known("updatedRanges", group.updatedRanges),
+    })),
+  });
+}
+
+/** Пара «имя: значение» — только у сообщённой величины. */
+function known(name: string, value: number | null): Record<string, number> {
+  return value === null ? {} : { [name]: value };
 }
 
 export const sheetSetCommand = defineCommand({

@@ -245,7 +245,7 @@ Deno.test("отказ второго запроса называет запис�
     // Молчаливый код 1 после частичной записи запрещён: сообщение
     // называет и что записано, и что нет (инвариант 1).
     assertStringIncludes(err.message, "записано частично");
-    assertStringIncludes(err.message, "USER_ENTERED (7 ячеек)");
+    assertStringIncludes(err.message, "USER_ENTERED уже записаны (7 ячеек)");
     assertStringIncludes(err.message, "RAW не записаны");
     assertEquals(sent.length > 1, true);
   });
@@ -424,5 +424,118 @@ Deno.test("ни одного режима — отказ с образцом у�
     );
     assertStringIncludes(err.message, "mpu sheet set --from");
     assertEquals(sent, []);
+  });
+});
+
+/** Ответ посредника на запись: одна строка успеха, без величин. */
+function bare() {
+  return {
+    status: 200,
+    text: JSON.stringify({
+      success: true,
+      result: { value: "data batchUpdate succesfull" },
+    }),
+  };
+}
+
+Deno.test("сервер величин не сообщил — их нет ни в выводе, ни нулём", async (t) => {
+  await t.step("структурный результат: null, а не 0", async () => {
+    await withDb(async (db) => {
+      const { io, options } = harness(db, () => bare());
+      const result = await runSet(
+        args({ range: "Лист!A1", value: "x", spreadsheet: SS }),
+        io,
+        options,
+      );
+      // `null` переживает сериализацию и читается как «нет данных»;
+      // ноль читался бы как «записано ноль» — другой исход.
+      assertEquals(result.updatedCells, null);
+      assertEquals(result.updatedRanges, null);
+      assertEquals(result.groups[0].updatedCells, null);
+      assertEquals(result.groups[0].updatedRanges, null);
+    });
+  });
+
+  await t.step("в человеческом выводе величины нет вовсе", async () => {
+    await withDb(async (db) => {
+      const { io, options } = harness(db, () => bare());
+      const result = await runSet(
+        args({ range: "Лист!A1", value: "x", spreadsheet: SS }),
+        io,
+        options,
+      );
+      const printed = JSON.parse(
+        sheetSetCommand.renderResult(result, []),
+      ) as Record<string, unknown>;
+      assertEquals(Object.keys(printed).sort(), ["groups", "spreadsheetId"]);
+      assertEquals(
+        Object.keys(
+          (printed.groups as Record<string, unknown>[])[0],
+        ),
+        ["valueInputOption"],
+      );
+    });
+  });
+
+  await t.step("частичный успех не говорит «0 ячеек»", async () => {
+    await withDb(async (db) => {
+      const json = JSON.stringify([
+        { range: "Лист!A1", formula: "=1+1" },
+        { range: "Лист!A2", value: "текст" },
+      ]);
+      const { io, options } = harness(
+        db,
+        (_sent, at) =>
+          at === 0 ? bare() : { status: 400, text: "сервер отказал" },
+        json,
+        false,
+      );
+      const err = await assertRejects(
+        () => runSet(args({ range: SS }), io, options),
+        DomainError,
+      );
+      // В самый неудачный момент оператор обязан прочесть «записаны»,
+      // а не «ноль»: первое — правда, второе — противоположность.
+      assertStringIncludes(
+        err.message,
+        "USER_ENTERED уже записаны (сколько — сервер не сообщил)",
+      );
+      assertEquals(err.message.includes("0 ячеек"), false);
+    });
+  });
+});
+
+Deno.test("итог не складывает известное с неизвестным", async () => {
+  await withDb(async (db) => {
+    const json = JSON.stringify([
+      { range: "Лист!A1", formula: "=1+1" },
+      { range: "Лист!A2", value: "текст" },
+    ]);
+    // Первая группа величину получила, вторая — нет. Итог тогда не
+    // итог, а нижняя граница, выданная за итог.
+    const { io, options } = harness(
+      db,
+      (_sent, at) => (at === 0 ? updated(3) : bare()),
+      json,
+      false,
+    );
+    const result = await runSet(args({ range: SS }), io, options);
+    assertEquals(result.groups[0].updatedCells, 3);
+    assertEquals(result.groups[1].updatedCells, null);
+    assertEquals(result.updatedCells, null);
+  });
+});
+
+Deno.test("spreadsheetId — из резолва, а не эхо сервера", async () => {
+  await withDb(async (db) => {
+    // В ответе записи идентификатора нет вовсе: поле говорит, куда мы
+    // писали, а не куда, по словам сервера, записалось.
+    const { io, options } = harness(db, () => bare());
+    const result = await runSet(
+      args({ range: "Лист!A1", value: "x", spreadsheet: SS }),
+      io,
+      options,
+    );
+    assertEquals(result.spreadsheetId, SS);
   });
 });

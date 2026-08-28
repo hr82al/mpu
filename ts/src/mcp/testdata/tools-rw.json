@@ -4833,15 +4833,30 @@
       "type": "object",
       "properties": {
         "spreadsheetId": {
-          "type": "string"
+          "type": "string",
+          "description": "цель вызова по резолву, не из ответа"
         },
         "updatedCells": {
-          "type": "number",
-          "description": "всего ячеек по ответам сервера"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "всего ячеек; null — хоть одна группа величины не получила"
         },
         "updatedRanges": {
-          "type": "number",
-          "description": "всего диапазонов по ответам сервера"
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "всего диапазонов; null — хоть одна группа величины не получила"
         },
         "groups": {
           "type": "array",
@@ -4852,12 +4867,26 @@
                 "type": "string"
               },
               "updatedCells": {
-                "type": "number",
-                "description": "ячеек по ответу сервера"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "ячеек по ответу сервера; null — сервер не сообщил"
               },
               "updatedRanges": {
-                "type": "number",
-                "description": "диапазонов по ответу сервера"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "диапазонов по ответу сервера; null — сервер не сообщил"
               }
             },
             "required": [
