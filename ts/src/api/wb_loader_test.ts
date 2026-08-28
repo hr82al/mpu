@@ -212,15 +212,43 @@ Deno.test("config: три флага правки взаимоисключающ
     assertStringIncludes(sent[0].path, `/loaders/${SID}/cards/v1/config`);
   });
 
-  await t.step("один флаг — правка своим телом", async () => {
+  await t.step("включение и выключение: POST с частичной дельтой", async () => {
+    for (
+      const [flag, enabled] of [["enable", true], ["disable", false]] as const
+    ) {
+      const { session, sent } = sessionOf();
+      await runConfig(
+        args({ selector: SID, loader: "cards", [flag]: true }),
+        ioDirect(),
+        { session },
+      );
+      assertEquals(sent[0].method, "POST");
+      assertStringIncludes(sent[0].path, `/loaders/${SID}/cards/v1/config`);
+      // Ровно один ключ: тело — частичная дельта, а не полная замена;
+      // полная стёрла бы прочие настройки кабинета молча.
+      assertEquals(sent[0].body, { enabled });
+      assertEquals(Object.keys(sent[0].body as object), ["enabled"]);
+    }
+  });
+
+  await t.step("--reset — другой ПУТЬ и без тела", async () => {
     const { session, sent } = sessionOf();
     await runConfig(
-      args({ selector: SID, loader: "cards", disable: true }),
+      args({ selector: SID, loader: "cards", reset: true }),
       ioDirect(),
       { session },
     );
-    assertEquals(sent[0].method, "PATCH");
-    assertEquals(sent[0].body, { enabled: false });
+    // Сброс дельты отличается путём, а не телом: `{"reset": true}` ушёл
+    // бы на общий путь неизвестным полем, и сервер молча ничего не
+    // сбросил бы (снято с объекта, спека — таблица форм).
+    assertEquals(sent[0].method, "POST");
+    // Хвост пути — наш литерал, а не пользовательский ввод, и слэш в
+    // нём остаётся разделителем: экранируются только sid и слаг.
+    assertEquals(
+      sent[0].path,
+      `/admin/wb-loader/loaders/${SID}/cards/v1/config/reset`,
+    );
+    assertEquals(sent[0].body, undefined);
   });
 });
 

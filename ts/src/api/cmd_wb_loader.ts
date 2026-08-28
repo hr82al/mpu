@@ -317,21 +317,20 @@ export async function runConfig(
   options: LoaderOptions = {},
 ): Promise<CallResult> {
   const mode = configMode(args);
-  const body = mode === "read" ? undefined : bodyOfMode(mode);
-  return await runOnLoader(
-    args,
-    io,
-    options,
-    mode === "read" ? "GET" : "PATCH",
-    "config",
-    body,
-  );
-}
-
-function bodyOfMode(mode: "enable" | "disable" | "reset"): unknown {
-  // `reset` снимает дельту кабинета целиком, прочие два правят один
-  // признак: тело собирается из режима, а не из свободных опций.
-  return mode === "reset" ? { reset: true } : { enabled: mode === "enable" };
+  // Формы сняты с объекта (спека, таблица): метод у всех трёх мутаций
+  // `POST`, а `--reset` отличается **путём**, а не телом — он снимает
+  // дельту кабинета целиком, и тела у него нет вовсе. Тело включения —
+  // частичная дельта: шлётся ровно `enabled`, остальные поля кабинета
+  // не затираются (полная замена стёрла бы чужие настройки молча).
+  if (mode === "read") {
+    return await runOnLoader(args, io, options, "GET", "config");
+  }
+  if (mode === "reset") {
+    return await runOnLoader(args, io, options, "POST", "config/reset");
+  }
+  return await runOnLoader(args, io, options, "POST", "config", {
+    enabled: mode === "enable",
+  });
 }
 
 export const wbLoaderConfigCommand = defineCommand({
