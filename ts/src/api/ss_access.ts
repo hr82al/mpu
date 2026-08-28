@@ -28,6 +28,25 @@ export const ACTIVE_STATUSES = [
 /** Таблица выдач в main-БД. */
 export const GRANTS_TABLE = "public.spreadsheets_access_grants";
 
+/**
+ * Колонки, которыми пользуется резолв. Список объявлен отдельно и
+ * сверяется с голденом состава
+ * (`docs/specs/fixtures/api/schema/spreadsheets_access_grants.columns`),
+ * снятым со стенда через `information_schema.columns`: имя колонки —
+ * такой же стык, как форма ответа службы, и сочинённое имя не поймает
+ * ни один тест с подставной базой. Ключ выдачи зовётся `grant_id`;
+ * колонки `id` в таблице нет вовсе (замер 2026-08-28).
+ */
+export const RESOLVE_COLUMNS = [
+  "grant_id",
+  "spreadsheet_id",
+  "grantee_email",
+  "status",
+  // Порядок выдачи задаётся временем создания: старшая первой, чтобы
+  // отзыв шёл предсказуемо, а не как ляжет.
+  "created_at",
+] as const;
+
 /** Роль кнопки: сервер другой не принимает. */
 export const DEFAULT_ROLE = "editor";
 
@@ -85,7 +104,9 @@ export async function activeGrants(
 ): Promise<readonly Grant[]> {
   const outcome = await query(
     session,
-    `SELECT id, status FROM ${GRANTS_TABLE}` +
+    // `status` сверх запроса спеки: он идёт в вывод, и брать его
+    // вторым запросом незачем. Колонка настоящая — она в голдене.
+    `SELECT grant_id, status FROM ${GRANTS_TABLE}` +
       " WHERE spreadsheet_id = $1 AND grantee_email = $2" +
       " AND status = ANY($3) ORDER BY created_at",
     [ssId, email, [...ACTIVE_STATUSES]],
@@ -93,11 +114,11 @@ export async function activeGrants(
   if (outcome.kind !== "rows") {
     throw new GrantResolveError("выборка не вернула строк-результата");
   }
-  const id = outcome.columns.indexOf("id");
+  const id = outcome.columns.indexOf("grant_id");
   const status = outcome.columns.indexOf("status");
   if (id < 0 || status < 0) {
     throw new GrantResolveError(
-      `в выборке нет колонок id/status: ${outcome.columns.join(", ")}`,
+      `в выборке нет колонок grant_id/status: ${outcome.columns.join(", ")}`,
     );
   }
   return outcome.rows.map((row) => ({

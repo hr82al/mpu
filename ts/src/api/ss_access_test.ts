@@ -98,7 +98,7 @@ function dbOf(rounds: Rounds, fail?: Error) {
       at += 1;
       return Promise.resolve({
         kind: "rows" as const,
-        columns: ["id", "status"],
+        columns: ["grant_id", "status"],
         rows: round.map(([id, status]) => [id, status]),
       });
     },
@@ -228,6 +228,8 @@ Deno.test("revoke резолвит выдачи по трём статусам �
   // выдача индекс не занимает.
   assertEquals(db.params[0], [SS, EMAIL, [...ACTIVE_STATUSES]]);
   assertStringIncludes(db.queries[0], "status = ANY($3)");
+  // Ключ выдачи зовётся `grant_id`: колонки `id` в таблице нет.
+  assertStringIncludes(db.queries[0], "SELECT grant_id, status");
   // По job'у на выдачу, каждый с причиной по умолчанию.
   assertEquals(sent.length, 2);
   assertEquals(sent[0].path, "/admin/jobs/ss");
