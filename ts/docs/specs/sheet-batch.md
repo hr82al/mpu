@@ -65,7 +65,7 @@ COLUMNS|ROWS, startIndex, endIndex}`; буква для строк → `плох
 | `protect RANGE [editors=a@x.test,…] [warn] [desc=Т]` · `unprotect id=N` | addProtectedRange · deleteProtectedRange |
 | `autofill СПАН -> DEST` | autoFill `{range: DEST, useAlternateSeries: false}`; первый спан в запрос не входит |
 | `copy SRC -> DEST [type=X]` · `cut SRC -> DEST` | copyPaste `PASTE_<X>` (дефолт NORMAL) · cutPaste |
-| `cols\|rows insert DIM [+N] [inherit[=before\|after]]` | insertDimension; `+N` — количество; inheritFromBefore true, кроме after |
+| `cols\|rows insert DIM [+N] [inherit[=before\|after]]` | insertDimension; `+N` — количество; inheritFromBefore true, кроме `inherit=after` и кроме вставки в нулевой индекс — там **всегда** false, иначе Google отвергает всю пачку (см. отклонения) |
 | `cols\|rows delete DIM` · `… move DIM after ИНДЕКС` · `… autosize DIM` | deleteDimension · moveDimension (вставка после) · autoResizeDimensions |
 | `cols\|rows resize DIM px=N` · `… hide DIM` · `… show DIM` | updateDimensionProperties: pixelSize (без `px=` — ошибка) / hiddenByUser true/false |
 | `append cols\|rows N [on ЛИСТ]` | appendDimension; лист — `on` либо `-n`, иначе ошибка |
