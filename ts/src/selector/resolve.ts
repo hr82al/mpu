@@ -137,6 +137,20 @@ export function isServerAddressLike(value: string): boolean {
 }
 
 /**
+ * Похож ли селектор на WB sid — UUID-форма, hex-группы 8-4-4-4-12
+ * (`docs/specs/search.md`, `api-wb-loader.md`). Маска объявлена здесь,
+ * рядом с прочими формами селектора: по ней ветвятся команды, для
+ * которых sid — прямой адрес, а не повод идти в кэш
+ * (`api-wb-cards-reset.md`, `api-wb-loader.md`), и второй её копии
+ * быть не должно.
+ */
+export function isSidLike(value: string): boolean {
+  return SID.test(value);
+}
+
+const SID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
  * Вторая ступень: единственный client_id кандидатов — командам, которые
  * адресуют клиента, а не сервер. Все три отказа — те же `SelectorError`.
  */

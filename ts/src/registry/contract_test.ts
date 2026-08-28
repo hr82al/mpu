@@ -1682,6 +1682,21 @@ const CASES: readonly CommandCase[] = [
     argv: [],
     sampleResult: SAMPLE_API,
   },
+  {
+    // Селектор, которого в кэше обхода нет: вызов отбивается на
+    // резолве, до сети. Прямой режим тут не годится — он пошёл бы в
+    // sl-back, а адреса у обхода нет, и отказ был бы про конфигурацию.
+    path: "api wb-cards-reset",
+    argv: ["нет-такого-клиента"],
+    sampleResult: {
+      sid: "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+      path: "/admin/wb-loader/loaders/3f2504e0-4f89-11d3-9a0c-0305e82c3301" +
+        "/cards/v1/reset",
+      direct: true,
+      printed: true,
+      response: null,
+    },
+  },
   // Кастомная группа `api ss-access` (`api-ss-access.md`): у образцов
   // здесь свои argv — команда третьего уровня, и таблицей объявлений
   // они не описываются. Ни один вызов до сети не доходит: адреса

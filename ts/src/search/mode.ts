@@ -42,6 +42,8 @@ export function modeOf(inputs: ModeInputs): SearchMode {
   return "local";
 }
 
+import { isSidLike } from "../selector/mod.ts";
+
 /** Email ли селектор: та же маска, что выбирает email-предикат резолва. */
 export function isEmail(value: string): boolean {
   return EMAIL.test(value);
@@ -53,8 +55,7 @@ export function isEmail(value: string): boolean {
  */
 export function effectiveScope(value: string, scope: Scope): Scope {
   if (scope !== "auto") return scope;
-  return INTEGER.test(value) || UUID.test(value) ? "access" : "user";
+  return INTEGER.test(value) || isSidLike(value) ? "access" : "user";
 }
 
 const INTEGER = /^\d+$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

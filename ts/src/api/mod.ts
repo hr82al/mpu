@@ -15,6 +15,7 @@ import { READ_ENDPOINTS } from "./endpoints.ts";
 import { WRITE_ENDPOINTS } from "./endpoints_write.ts";
 import { apiGetTokenCommand } from "./cmd_get_token.ts";
 import { ssAccessCommands } from "./cmd_ss_access.ts";
+import { wbCardsResetCommand } from "./cmd_wb_cards_reset.ts";
 
 /**
  * Читающие команды группы в алфавитном порядке имени: `mpu api --help`
@@ -30,4 +31,7 @@ export const apiCommands: readonly Command[] = [
   // (`docs/specs/api-ss-access.md`). Сортировка по второму сегменту
   // ставит их подряд — у всех он `ss-access`.
   ...ssAccessCommands,
+  // Вторая кастомная группа: одна команда с резолвом селектора до sid
+  // (`docs/specs/api-wb-cards-reset.md`).
+  wbCardsResetCommand,
 ].sort((a, b) => a.path[1] < b.path[1] ? -1 : a.path[1] > b.path[1] ? 1 : 0);

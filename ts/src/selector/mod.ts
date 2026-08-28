@@ -9,6 +9,7 @@ export type { CacheReader } from "./cache.ts";
 export { SelectorError } from "./error.ts";
 export {
   isServerAddressLike,
+  isSidLike,
   requireSingleClient,
   type Resolved,
   type ResolveOptions,
