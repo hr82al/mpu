@@ -1456,6 +1456,38 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    // Кэш-БД обхода пуста: таблицы есть (bootstrap), вкладок в них нет,
+    // поэтому живой вызов даёт нули. Непустой `sampleResult` ниже — для
+    // рендера: обходу нужна и строка разбивки, которой у пустого кэша
+    // не бывает.
+    path: "sheet cache info",
+    argv: [],
+    sampleResult: {
+      ready: true,
+      tabs: 3,
+      bytes: 4096,
+      spreadsheets: [{
+        ss_id: "1SyntheticSpreadsheetId0000",
+        tabs: 3,
+        bytes: 4096,
+        latest: 1787000000,
+      }],
+    },
+  },
+  {
+    // С `-s`, а не глобально: кэш-БД у обхода одна на все образцы, и
+    // сплошная очистка сносила бы состояние соседям. Цели такой в кэше
+    // нет — вызов останавливается на резолве, до всякого удаления.
+    path: "sheet cache clear",
+    argv: ["-s", "1SyntheticSpreadsheetId0000"],
+    sampleResult: {
+      ready: true,
+      spreadsheetId: null,
+      tabs: 0,
+      info: 0,
+    },
+  },
+  {
     path: "telegram log",
     // Ключей бота в env-файле обхода нет: вызов обязан отбиться на
     // конфигурации, до сети.

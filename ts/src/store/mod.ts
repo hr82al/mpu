@@ -21,6 +21,18 @@ import { SCHEMA_STATEMENTS } from "./schema.ts";
  * пишет (`platform/store.md`: «открытие БД на чтение схему не создаёт»);
  * для схемы вызывающий явно зовёт `bootstrap()`.
  */
+/**
+ * Признак «таблицы нет» у ошибки SQLite. Общее место, потому что этим
+ * различием живут все потребители кэш-БД: свежая база без bootstrap —
+ * штатный случай, а повреждённая или заблокированная — нет, и глушить
+ * их одним `catch` значит выдавать несделанную работу за сделанную
+ * (`platform/store.md`; `ts/CLAUDE.md`, «Величина берётся там, где
+ * совершается работа»).
+ */
+export function isMissingTable(err: unknown): boolean {
+  return err instanceof Error && err.message.includes("no such table");
+}
+
 export function openCacheDb(path: string): CacheDb {
   const dir = path.slice(0, path.lastIndexOf("/"));
   if (dir !== "") Deno.mkdirSync(dir, { recursive: true });

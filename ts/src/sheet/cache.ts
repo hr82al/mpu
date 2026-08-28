@@ -8,6 +8,7 @@
  */
 
 import type { CacheDb, SqlRow } from "../command/mod.ts";
+import { isMissingTable } from "../store/mod.ts";
 
 /** Лист в кэше: два слоя и фактические границы. */
 export interface TabPayload {
@@ -207,6 +208,96 @@ async function gunzip(bytes: Uint8Array): Promise<string> {
 }
 
 /**
+ * Есть ли таблицы кэша вообще. Свежая БД без bootstrap — обычное дело:
+ * кэш заводит первое же чтение, а до него чистить и показывать нечего
+ * (`sheet-cache.md`, инвариант 4).
+ */
+export function cacheReady(db: CacheDb): boolean {
+  try {
+    db.query("SELECT 1 FROM sheet_tabs LIMIT 1");
+    return true;
+  } catch (err) {
+    // Только «таблицы нет». Повреждённая или занятая база — не «кэша
+    // нет»: сказать так значило бы посоветовать `mpu init` там, где
+    // чинить надо другое.
+    if (isMissingTable(err)) return false;
+    throw err;
+  }
+}
+
+/**
+ * Удаление ключа метаданных — **единственное место** на весь
+ * репозиторий. Его делают двое: точечная инвалидация после записи и
+ * `cache clear`; охват по вкладкам у них разный, а эта половина общая,
+ * и две её копии разошлись бы (`sheet-cache.md`, инвариант 3).
+ *
+ * Возвращает число удалённых ключей: по нему `clear` отличает «ключа не
+ * было» от «ключ сброшен», а инвалидация его просто не смотрит.
+ */
+export function dropInfo(db: CacheDb, ssId?: string): number {
+  try {
+    return ssId === undefined
+      ? db.execute("DELETE FROM cache WHERE key LIKE ?", `${infoKey("")}%`)
+      : db.execute("DELETE FROM cache WHERE key = ?", infoKey(ssId));
+  } catch (err) {
+    // Таблиц кэша может не быть вовсе — это не ошибка (см. `writeTab`).
+    // Прочие отказы — ошибка: ноль, выданный в `catch`, неотличим от
+    // «удалять было нечего», и команда сообщила бы о несделанной
+    // работе как о сделанной.
+    if (isMissingTable(err)) return 0;
+    throw err;
+  }
+}
+
+/**
+ * Удаление тел вкладок: одной таблицы либо всех. По имени вкладки
+ * бьёт не эта функция, а `invalidateTabs` — охват у них разный
+ * намеренно.
+ */
+export function dropTabs(db: CacheDb, ssId?: string): number {
+  try {
+    return ssId === undefined
+      ? db.execute("DELETE FROM sheet_tabs")
+      : db.execute("DELETE FROM sheet_tabs WHERE ss_id = ?", ssId);
+  } catch (err) {
+    if (isMissingTable(err)) return 0;
+    throw err;
+  }
+}
+
+/** Состояние кэша по одной таблице; строка разбивки `cache info`. */
+export interface CacheEntry {
+  readonly ss_id: string;
+  readonly tabs: number;
+  readonly bytes: number;
+  /** Момент самой свежей записи этой таблицы, unix-секунды. */
+  readonly latest: number;
+}
+
+/**
+ * Состояние кэша по таблицам, от крупных к мелким. Только чтение:
+ * команда «покажи состояние», молча его меняющая, делает недостоверной
+ * любую следующую сверку (`sheet-cache.md`, «Побочные эффекты»).
+ */
+export function cacheState(db: CacheDb): readonly CacheEntry[] {
+  try {
+    return db.query(
+      "SELECT ss_id, COUNT(*) AS tabs, SUM(size_bytes) AS bytes," +
+        " MAX(fetched_at) AS latest FROM sheet_tabs" +
+        " GROUP BY ss_id ORDER BY bytes DESC, ss_id",
+    ).map((row) => ({
+      ss_id: String(row.ss_id),
+      tabs: Number(row.tabs),
+      bytes: Number(row.bytes),
+      latest: Number(row.latest),
+    }));
+  } catch (err) {
+    if (isMissingTable(err)) return [];
+    throw err;
+  }
+}
+
+/**
  * Инвалидация после успешной записи (`platform/webapp-http.md`,
  * «Housekeeping и инвалидация»): выбрасывает кэш названных листов и
  * метаданные таблицы. Остальные листы остаются — запись их не меняла.
@@ -227,7 +318,12 @@ export function invalidateTabs(
         tab,
       );
     }
-    db.execute("DELETE FROM cache WHERE key = ?", infoKey(ssId));
+    // Ключ метаданных снимается общим местом: у `cache clear` охват по
+    // вкладкам другой, а эта половина у них одна. Вызов — **внутри**
+    // глушения: `dropInfo` теперь бросает на всём, кроме отсутствующей
+    // таблицы, а этой функции ронять вызов нечем — её зовут уже после
+    // успешной записи в таблицу.
+    dropInfo(db, ssId);
   } catch {
     // Таблиц кэша может не быть вовсе — это не ошибка (см. `writeTab`).
   }

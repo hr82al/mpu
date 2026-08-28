@@ -9,6 +9,8 @@ import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import {
   housekeeping,
+  infoKey,
+  invalidateTabs,
   readInfo,
   readTab,
   writeInfo,
@@ -305,6 +307,73 @@ Deno.test("диапазоны из --from складываются с аргум
       () => rangeStrings(io(""), [], "/нет"),
       UsageError,
       "файл '/нет' не найден",
+    );
+  });
+});
+
+Deno.test("удаление ключа метаданных — одно место на репозиторий", async (t) => {
+  await t.step("точечная инвалидация ходит через него же", async () => {
+    // Единственность проверяется не глазами: обе команды обязаны
+    // снимать ключ одним и тем же путём, иначе у одного действия
+    // окажется две правды (`sheet-cache.md`, инвариант 3).
+    const dir = await Deno.makeTempDir();
+    try {
+      using db = openCacheDb(`${dir}/mpu.db`);
+      db.bootstrap();
+      db.execute(
+        "INSERT INTO cache (key, value, created_at, expires_at)" +
+          " VALUES (?, '[]', 0, 9999999999)",
+        infoKey("ss-1"),
+      );
+      invalidateTabs(db, "ss-1", ["Лист1"]);
+      assertEquals(
+        db.query("SELECT key FROM cache WHERE key = ?", infoKey("ss-1")).length,
+        0,
+      );
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
+  });
+
+  await t.step("в исходниках нет второго удаления ключа", async () => {
+    // Проверка по тексту, а не по поведению: второе место просто
+    // невозможно заметить поведением — оно удаляло бы то же самое.
+    // Обход всего `src`, а не одного каталога: второе место тем и
+    // опасно, что заводится не рядом.
+    const root = new URL("../", import.meta.url);
+    const hits: string[] = [];
+    const walk = async (dir: URL): Promise<void> => {
+      for await (const entry of Deno.readDir(dir)) {
+        const child = new URL(
+          `${entry.name}${entry.isDirectory ? "/" : ""}`,
+          dir,
+        );
+        if (entry.isDirectory) {
+          await walk(child);
+          continue;
+        }
+        if (!entry.name.endsWith(".ts") || entry.name.endsWith("_test.ts")) {
+          continue;
+        }
+        const text = await Deno.readTextFile(child);
+        for (const line of text.split("\n")) {
+          if (/DELETE\s+FROM\s+cache\b/i.test(line)) {
+            hits.push(
+              `${child.pathname.slice(root.pathname.length)}: ${line.trim()}`,
+            );
+          }
+        }
+      }
+    };
+    await walk(root);
+    // Обе строки — в `dropInfo`: по ключу и по образцу `sheet:info:%`.
+    assertEquals(hits.length, 2, `удаление из cache вне dropInfo: ${hits}`);
+    assertEquals(
+      // Путь, а не имя: второй файл, названный `cache.ts`, прошёл бы
+      // проверку по имени незамеченным.
+      hits.every((hit) => hit.startsWith("sheet/cache.ts:")),
+      true,
+      `${hits}`,
     );
   });
 });

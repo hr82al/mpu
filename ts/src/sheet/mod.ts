@@ -7,6 +7,7 @@
  */
 
 export { sheetBatchGetCommand } from "./cmd_batch_get.ts";
+export { sheetCacheClearCommand, sheetCacheInfoCommand } from "./cmd_cache.ts";
 export { sheetBatchUpdateCommand } from "./cmd_batch_update.ts";
 export { sheetGetCommand } from "./cmd_get.ts";
 export { sheetLsCommand } from "./cmd_ls.ts";

@@ -93,6 +93,8 @@ import { makeSchemaCommand } from "../makeschema/mod.ts";
 import {
   sheetBatchGetCommand,
   sheetBatchUpdateCommand,
+  sheetCacheClearCommand,
+  sheetCacheInfoCommand,
   sheetGetCommand,
   sheetLsCommand,
   sheetResolveCommand,
@@ -273,6 +275,10 @@ export const commands: readonly Command[] = [
   // неразделима — грамматика и разбор диапазонов у них общие.
   sheetBatchUpdateCommand,
   sheetBatchGetCommand,
+  // Хозяева кэша вкладок (`docs/specs/sheet-cache.md`); прочие команды
+  // семейства его только потребляют.
+  sheetCacheInfoCommand,
+  sheetCacheClearCommand,
   // Семейство `mr` целиком: чтение (`docs/specs/mr-read.md`) и запись
   // (`docs/specs/mr-write.md`). В легаси его подкоманд не осталось,
   // поэтому имя `mr` внесено в `NOT_LEGACY`.
@@ -382,6 +388,14 @@ export const groups: readonly CommandGroup[] = [
     path: ["mr"],
     summary: "merge request'ы GitLab: чтение, комментарии ревью, резолв",
     usage: "mpu mr <подкоманда> [аргументы]",
+  },
+  {
+    // Промежуточный уровень `sheet cache`: сама группа `sheet` ещё в
+    // слепке (переехала не целиком), а её подгруппы там нет —
+    // подкоманды `cache` есть только здесь.
+    path: ["sheet", "cache"],
+    summary: "локальный кэш вкладок: info | clear",
+    usage: "mpu sheet cache <подкоманда> [аргументы]",
   },
   {
     path: ["wb-loader"],

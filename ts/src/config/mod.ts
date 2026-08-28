@@ -15,6 +15,7 @@ import {
   DomainError,
   type SqlRow,
 } from "../command/mod.ts";
+import { isMissingTable } from "../store/mod.ts";
 
 /** Алиас файла: имя и путь, как его ввели. */
 export interface Alias {
@@ -137,9 +138,4 @@ function read(
     if (isMissingTable(err)) return [];
     throw err;
   }
-}
-
-/** Признак «таблицы нет» у ошибки SQLite; прочие ошибки — не наши. */
-function isMissingTable(err: unknown): boolean {
-  return err instanceof Error && err.message.includes("no such table");
 }
