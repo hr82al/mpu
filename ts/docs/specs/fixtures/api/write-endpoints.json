@@ -1,0 +1,851 @@
+[
+  {
+    "name": "add-client-ozon-key",
+    "method": "POST",
+    "path": "/admin/client/:clientId/ozon/apikey",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "seller_client_id",
+        "type": "string"
+      },
+      {
+        "name": "seller_api_key",
+        "type": "string"
+      },
+      {
+        "name": "performance_client_id",
+        "type": "string"
+      },
+      {
+        "name": "performance_client_secret",
+        "type": "string"
+      },
+      {
+        "name": "name",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "add-client-wb-token",
+    "method": "POST",
+    "path": "/admin/client/:clientId/wb/token",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "token",
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "auth-change-password",
+    "method": "POST",
+    "path": "/auth/change-password",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "email",
+        "type": "string"
+      },
+      {
+        "name": "password",
+        "type": "string"
+      },
+      {
+        "name": "newPassword",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "auth-login",
+    "method": "POST",
+    "path": "/auth/login",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "email",
+        "type": "string"
+      },
+      {
+        "name": "password",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "auth-logout",
+    "method": "POST",
+    "path": "/auth/logout",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "auth-refresh",
+    "method": "GET",
+    "path": "/auth/refresh",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "auth-resend-email",
+    "method": "GET",
+    "path": "/auth/resendEmail",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "auth-verify",
+    "method": "GET",
+    "path": "/auth/verify",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "cli-log-heartbeat",
+    "method": "POST",
+    "path": "/admin/cli/log-heartbeat",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "key",
+        "type": "string"
+      },
+      {
+        "name": "level",
+        "type": "string"
+      },
+      {
+        "name": "cliRequestId",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "cli-log-subscribe",
+    "method": "POST",
+    "path": "/admin/cli/log-subscribe",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "key",
+        "type": "string"
+      },
+      {
+        "name": "level",
+        "type": "string"
+      },
+      {
+        "name": "cliRequestId",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "cli-log-unsubscribe",
+    "method": "POST",
+    "path": "/admin/cli/log-unsubscribe",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "key",
+        "type": "string"
+      },
+      {
+        "name": "cliRequestId",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "cli-manifest",
+    "method": "POST",
+    "path": "/admin/cli/manifest",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "server",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "cli-run",
+    "method": "POST",
+    "path": "/admin/cli/run",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "server",
+        "type": "string"
+      },
+      {
+        "name": "method",
+        "type": "string"
+      },
+      {
+        "name": "args",
+        "type": "json"
+      },
+      {
+        "name": "requestId",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "cli-servers",
+    "method": "POST",
+    "path": "/admin/cli/servers",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "create-client",
+    "method": "POST",
+    "path": "/admin/client",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "id",
+        "type": "number"
+      },
+      {
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "name": "is_active",
+        "type": "boolean"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "create-client-spreadsheet",
+    "method": "POST",
+    "path": "/admin/client/:clientId/ss",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "spreadsheet_id",
+        "type": "string"
+      },
+      {
+        "name": "is_active",
+        "type": "boolean"
+      },
+      {
+        "name": "script_id",
+        "type": "string"
+      },
+      {
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "name": "template_name",
+        "type": "string"
+      },
+      {
+        "name": "subscriptionExpiresAt",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "create-client-ss-dataset",
+    "method": "POST",
+    "path": "/admin/client/:clientId/ss/:spreadsheetId/dataset",
+    "path_params": [
+      "CLIENT_ID",
+      "SS_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "dataset_name",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "create-spreadsheet",
+    "method": "POST",
+    "path": "/admin/ss",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "client_id",
+        "type": "number"
+      },
+      {
+        "name": "spreadsheet_id",
+        "type": "string"
+      },
+      {
+        "name": "is_active",
+        "type": "boolean"
+      },
+      {
+        "name": "script_id",
+        "type": "string"
+      },
+      {
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "name": "template_name",
+        "type": "string"
+      },
+      {
+        "name": "subscriptionExpiresAt",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "create-user",
+    "method": "POST",
+    "path": "/admin/user",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "email",
+        "type": "string"
+      },
+      {
+        "name": "password",
+        "type": "string"
+      },
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "roles",
+        "type": "json"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "dataset-get",
+    "method": "POST",
+    "path": "/admin/client/:clientId/datasets/data/get",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "params",
+        "type": "json"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "dataset-save",
+    "method": "POST",
+    "path": "/admin/client/:clientId/datasets/data/save",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "params",
+        "type": "json"
+      },
+      {
+        "name": "data",
+        "type": "json"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "dataset-wb-unit-source",
+    "method": "POST",
+    "path": "/admin/client/:clientId/datasets/data/wb_unit_source",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "delete-client",
+    "method": "DELETE",
+    "path": "/admin/client/:userId",
+    "path_params": [
+      "USER_ID"
+    ],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "delete-client-ozon-key",
+    "method": "DELETE",
+    "path": "/admin/client/:clientId/ozon/apikey",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "seller_client_id",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "delete-client-spreadsheet",
+    "method": "DELETE",
+    "path": "/admin/client/:clientId/ss/:spreadsheetId",
+    "path_params": [
+      "CLIENT_ID",
+      "SS_ID"
+    ],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "delete-client-ss-dataset",
+    "method": "DELETE",
+    "path": "/admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
+    "path_params": [
+      "CLIENT_ID",
+      "SS_ID"
+    ],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "delete-client-wb-token",
+    "method": "DELETE",
+    "path": "/admin/client/:clientId/wb/token",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "token",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "delete-spreadsheet",
+    "method": "DELETE",
+    "path": "/admin/ss/:spreadsheetId",
+    "path_params": [
+      "SS_ID"
+    ],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "delete-user",
+    "method": "DELETE",
+    "path": "/admin/user/:userId",
+    "path_params": [
+      "USER_ID"
+    ],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "destroy-client",
+    "method": "DELETE",
+    "path": "/admin/client/:userId/destroy",
+    "path_params": [
+      "USER_ID"
+    ],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "integrity-findings",
+    "method": "POST",
+    "path": "/admin/integrity/findings",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "cursor",
+        "type": "json"
+      },
+      {
+        "name": "limit",
+        "type": "number"
+      },
+      {
+        "name": "sort",
+        "type": "string"
+      },
+      {
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "name": "filter",
+        "type": "json"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "integrity-runs",
+    "method": "POST",
+    "path": "/admin/integrity/runs",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "cursor",
+        "type": "json"
+      },
+      {
+        "name": "limit",
+        "type": "number"
+      },
+      {
+        "name": "sort",
+        "type": "string"
+      },
+      {
+        "name": "filter",
+        "type": "json"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "integrity-skips",
+    "method": "POST",
+    "path": "/admin/integrity/skips",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "cursor",
+        "type": "json"
+      },
+      {
+        "name": "limit",
+        "type": "number"
+      },
+      {
+        "name": "sort",
+        "type": "string"
+      },
+      {
+        "name": "filter",
+        "type": "json"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "integrity-trigger",
+    "method": "POST",
+    "path": "/admin/integrity/trigger",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "ss-datasets-update",
+    "method": "POST",
+    "path": "/ss/datasets/update",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "spreadsheet_id",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "ss-jobs-abort",
+    "method": "POST",
+    "path": "/admin/jobs/ss/abort",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "ss-jobs-active-jobs",
+    "method": "POST",
+    "path": "/admin/jobs/ss/active-jobs",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "ss-jobs-by-state",
+    "method": "POST",
+    "path": "/admin/jobs/ss/jobs-by-state",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "ss-jobs-job",
+    "method": "POST",
+    "path": "/admin/jobs/ss/job",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "ss-jobs-queue-status",
+    "method": "POST",
+    "path": "/admin/jobs/ss/queue-status",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "ss-jobs-submit",
+    "method": "POST",
+    "path": "/admin/jobs/ss",
+    "path_params": [],
+    "body_fields": [
+      {
+        "name": "data",
+        "type": "json"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "update-client",
+    "method": "PATCH",
+    "path": "/admin/client/:userId",
+    "path_params": [
+      "USER_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "is_active",
+        "type": "boolean"
+      },
+      {
+        "name": "is_web",
+        "type": "boolean"
+      },
+      {
+        "name": "title",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "update-client-module",
+    "method": "PATCH",
+    "path": "/admin/client/:clientId/modules/:module",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "is_active",
+        "type": "boolean"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "update-client-spreadsheet",
+    "method": "PATCH",
+    "path": "/admin/client/:clientId/ss/:spreadsheetId",
+    "path_params": [
+      "CLIENT_ID",
+      "SS_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "is_active",
+        "type": "boolean"
+      },
+      {
+        "name": "script_id",
+        "type": "string"
+      },
+      {
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "name": "subscriptionExpiresAt",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "update-client-ss-dataset",
+    "method": "PATCH",
+    "path": "/admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
+    "path_params": [
+      "CLIENT_ID",
+      "SS_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "is_active",
+        "type": "boolean"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "update-spreadsheet",
+    "method": "PATCH",
+    "path": "/admin/ss/:spreadsheetId",
+    "path_params": [
+      "SS_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "is_active",
+        "type": "boolean"
+      },
+      {
+        "name": "script_id",
+        "type": "string"
+      },
+      {
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "name": "subscriptionExpiresAt",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "update-user",
+    "method": "PATCH",
+    "path": "/admin/user/:userId",
+    "path_params": [
+      "USER_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "email",
+        "type": "string"
+      },
+      {
+        "name": "password",
+        "type": "string"
+      },
+      {
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "name": "is_active",
+        "type": "boolean"
+      },
+      {
+        "name": "roles",
+        "type": "json"
+      }
+    ],
+    "accepts_raw_body": true
+  },
+  {
+    "name": "update-wb-cabinet-module",
+    "method": "PATCH",
+    "path": "/admin/client/:clientId/wb-cabinets-modules/:sid/:module",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "is_active",
+        "type": "boolean"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "wb-token-ping-content",
+    "method": "POST",
+    "path": "/admin/client/:clientId/wb/token/ping-content",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "token",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "wb-token-seller-info",
+    "method": "POST",
+    "path": "/admin/client/:clientId/wb/token/seller-info",
+    "path_params": [
+      "CLIENT_ID"
+    ],
+    "body_fields": [
+      {
+        "name": "token",
+        "type": "string"
+      }
+    ],
+    "accepts_raw_body": false
+  },
+  {
+    "name": "{prefix}-{suffix}",
+    "method": "POST",
+    "path": "/admin/jobs/jobsControl/{segment}/{sub}",
+    "path_params": [],
+    "body_fields": [],
+    "accepts_raw_body": true
+  }
+]
