@@ -94,3 +94,29 @@ Deno.test("настоящий запуск redis: подача, код возв�
     await assertRejects(() => spawnRedis(["/bin/net-takogo-binarya"], ""));
   });
 });
+
+Deno.test("отказ самого redis приходит в stdout при нулевом коде", async (t) => {
+  // Замер 2026-08-28: неверная арность и неизвестная команда дают код 0
+  // и строку `ERR …` в stdout (stderr пуст). Не разбери мы её — шаг
+  // молча не сделал бы ничего.
+  await t.step("строка ERR — отказ, хотя код нулевой", async () => {
+    const err = await assertRejects(
+      () => spawnRedis(["/bin/echo", "ERR wrong number of arguments"], ""),
+      Error,
+    );
+    assertEquals(err.message, "ERR wrong number of arguments");
+  });
+
+  await t.step("форма с (error) тоже отказ", async () => {
+    await assertRejects(
+      () => spawnRedis(["/bin/echo", "(error) ERR unknown command"], ""),
+      Error,
+    );
+  });
+
+  await t.step("обычный ответ отказом не считается", async () => {
+    // `SET` и `FLUSHALL` отвечают `OK`; значение, начинающееся с `ERR`,
+    // в stdout этих команд не появляется — они его не печатают.
+    await spawnRedis(["/bin/echo", "OK"], "");
+  });
+});

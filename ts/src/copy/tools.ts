@@ -304,10 +304,22 @@ export const spawnRedis: RunRedis = async (argv, stdin) => {
     await child.status;
     throw err;
   }
-  if (outcome.success) return;
-  const reason = new TextDecoder().decode(outcome.stderr).split("\n")
-    .find((line) => line.trim() !== "") ?? `код ${outcome.code}`;
-  throw new Error(reason);
+  const decoder = new TextDecoder();
+  if (!outcome.success) {
+    const reason = decoder.decode(outcome.stderr).split("\n")
+      .find((line) => line.trim() !== "") ?? `код ${outcome.code}`;
+    throw new Error(reason);
+  }
+  // Нулевой код — не успех: отказ инфраструктуры ловит `docker` и
+  // сообщает кодом, а отказ самого redis приходит **строкой в stdout**
+  // при коде 0 (замер 2026-08-28: неверная арность, неизвестная
+  // команда). Не разбери мы её — шаг молча не сделал бы ничего, а
+  // предупреждению взяться неоткуда. Предупреждение `AUTH failed`
+  // сюда не попадает: оно печатается в stderr и отказом не является.
+  const failed = decoder.decode(outcome.stdout).split("\n")
+    .map((line) => line.trim())
+    .find((line) => /^(\(error\)\s*)?ERR\b/.test(line));
+  if (failed !== undefined) throw new Error(failed);
 };
 
 /**
