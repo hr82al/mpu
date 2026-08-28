@@ -11,8 +11,11 @@
 import type { CacheDb } from "../command/mod.ts";
 import { isMissingTable } from "../store/mod.ts";
 
-/** Строка реестра алиасов в порядке вывода. */
-export interface AliasRow {
+/**
+ * Строка реестра алиасов в порядке вывода. Наружу не выводится:
+ * читателей по имени у неё нет, а форма видна из типа `aliasRows`.
+ */
+interface AliasRow {
   readonly name: string;
   readonly ss_id: string;
 }
