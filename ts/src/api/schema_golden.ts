@@ -96,9 +96,40 @@ export function schemaCheckPlan(envFile: EnvFile): SchemaCheckPlan {
   } catch (err) {
     return {
       kind: "skip",
-      reason: `реквизиты main-БД не заданы: ${
-        (err instanceof Error ? err.message : String(err)).split("\n")[0]
-      }`,
+      reason: skipReason(
+        "credentials",
+        (err instanceof Error ? err.message : String(err)).split("\n")[0],
+      ),
     };
+  }
+}
+
+/**
+ * Почему сверка не состоялась. Причины названы по отдельности
+ * намеренно: «нет права» чинится строкой в `deno.jsonc`, «стенд не
+ * поднят» — запуском стенда, «нет реквизитов» — env-файлом. Одна
+ * формулировка на три случая отправила бы читателя чинить не то, а
+ * нехватку права вдобавок сделала бы неотличимой от погашенного стенда
+ * — то есть мёртвый шаг выглядел бы живым (замер 2026-08-28).
+ */
+export type SkipCause = "permission" | "unreachable" | "credentials";
+
+/** Причина пропуска по отказу подключения. */
+export function skipCause(err: unknown): SkipCause {
+  // Нехватка права у процесса — не свойство стенда: база может быть
+  // поднята и доступна, а проверка всё равно не дойдёт до неё.
+  return err instanceof Deno.errors.NotCapable ? "permission" : "unreachable";
+}
+
+/** Текст пропуска: причина названа своим словом и с своим лечением. */
+export function skipReason(cause: SkipCause, detail: string): string {
+  switch (cause) {
+    case "permission":
+      return `проверке не хватает права: ${detail}` +
+        "; добавь его задаче smoke в deno.jsonc";
+    case "unreachable":
+      return `main-БД недоступна (стенд не поднят?): ${detail}`;
+    case "credentials":
+      return `реквизиты main-БД не заданы: ${detail}`;
   }
 }

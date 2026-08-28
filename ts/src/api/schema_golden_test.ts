@@ -8,12 +8,14 @@
  * поднятом стенде — здесь её нет и быть не может.
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import {
   columnsOf,
   compareColumns,
   schemaCheckPlan,
   schemaGoldens,
+  skipCause,
+  skipReason,
 } from "./schema_golden.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 
@@ -117,5 +119,32 @@ Deno.test("план сверки: пропуск и проверка — раз�
     }));
     assertEquals(plan.kind, "check");
     assertEquals(plan.kind === "check" && plan.target.host, "127.0.0.1");
+  });
+});
+
+Deno.test("причины пропуска различимы и лечатся в разных местах", async (t) => {
+  await t.step("нехватка права не выдаётся за погашенный стенд", () => {
+    // Мёртвый шаг иначе выглядит живым: проверка печатает пропуск и не
+    // исполняется ни разу (замер напарника 2026-08-28).
+    assertEquals(
+      skipCause(
+        new Deno.errors.NotCapable('Requires env access to "PGBINARY"'),
+      ),
+      "permission",
+    );
+    assertEquals(skipCause(new Error("connect ECONNREFUSED")), "unreachable");
+  });
+
+  await t.step("текст называет и причину, и место починки", () => {
+    const permission = skipReason("permission", 'env access to "PGBINARY"');
+    assertStringIncludes(permission, "не хватает права");
+    assertStringIncludes(permission, "deno.jsonc");
+    const unreachable = skipReason("unreachable", "ECONNREFUSED");
+    assertStringIncludes(unreachable, "стенд не поднят");
+    const credentials = skipReason("credentials", "pg_0 is not set");
+    assertStringIncludes(credentials, "реквизиты");
+    // Три причины — три разных текста: сведённые к одному, они отправят
+    // читателя чинить не то.
+    assertEquals(new Set([permission, unreachable, credentials]).size, 3);
   });
 });

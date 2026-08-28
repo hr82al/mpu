@@ -29,6 +29,8 @@ import {
   compareColumns,
   schemaCheckPlan,
   schemaGoldens,
+  skipCause,
+  skipReason,
 } from "../src/api/schema_golden.ts";
 
 /**
@@ -330,9 +332,9 @@ async function openMainDb() {
   try {
     return await denoSession("read-only")(plan.target);
   } catch (err) {
-    throw new Skipped(
-      `main-БД недоступна (стенд не поднят?): ${reasonLine(err)}`,
-    );
+    // Причина называется своя: нехватка права и погашенный стенд
+    // лечатся в разных местах, и первая не должна маскироваться второй.
+    throw new Skipped(skipReason(skipCause(err), reasonLine(err)));
   }
 }
 
