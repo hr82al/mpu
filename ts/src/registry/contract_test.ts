@@ -1488,6 +1488,44 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    // `ТАБЛИЦА` заведомо не проходит проверку формы: вызов отбивается
+    // кодом 2 до записи. Кэш-БД у обхода одна на все образцы, и
+    // заведённый здесь алиас достался бы соседям.
+    path: "sheet alias add",
+    argv: ["obhod", "korotko"],
+    sampleResult: {
+      name: "otchet",
+      ss_id: "1SyntheticSpreadsheetId0000",
+      previous: null,
+    },
+  },
+  {
+    path: "sheet alias ls",
+    argv: [],
+    sampleResult: {
+      aliases: [{ name: "otchet", ss_id: "1SyntheticSpreadsheetId0000" }],
+    },
+  },
+  {
+    // Имени в реестре обхода нет: код 1 и ни одного удаления.
+    path: "sheet alias rm",
+    argv: ["obhod-net-takogo"],
+    sampleResult: { name: "otchet", ss_id: "1SyntheticSpreadsheetId0000" },
+  },
+  {
+    // Цель не задана ничем: ни флага, ни `sheet.default` — отказ на
+    // резолве, до сети и до запуска открывателя.
+    path: "sheet open",
+    argv: [],
+    sampleResult: {
+      url: "https://docs.google.com/spreadsheets/d/" +
+        "1SyntheticSpreadsheetId0000/edit#gid=0",
+      ss_id: "1SyntheticSpreadsheetId0000",
+      sheet_id: 0,
+      launched: false,
+    },
+  },
+  {
     path: "telegram log",
     // Ключей бота в env-файле обхода нет: вызов обязан отбиться на
     // конфигурации, до сети.

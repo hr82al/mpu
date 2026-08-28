@@ -93,11 +93,21 @@ function firstFilled(
   return undefined;
 }
 
-/** Разбор значения по порядку до первого совпадения. */
-function parseValue(
+/**
+ * Идентификатор таблицы из ссылки или из самого значения; ни то ни
+ * другое — `undefined`. Вынесено, чтобы `sheet alias add` разбирал
+ * `ТАБЛИЦА` тем же кодом, что и резолв: две формы одного разбора
+ * разошлись бы (`sheet-registry.md`, «CLI-контракт»).
+ *
+ * Строгость двух ветвей разная, и это не упущение: из ссылки берётся
+ * всё, что похоже на идентификатор, а голое значение обязано пройти
+ * `ID_CHARS`, иначе оно ещё может оказаться алиасом или подстрокой
+ * заголовка. Проверку формы поверх ссылки накладывает тот, кому она
+ * нужна.
+ */
+export function spreadsheetIdOf(
   value: string,
-  sources: TargetSources,
-): { readonly ssId: string; readonly kind: TargetKind } {
+): { readonly ssId: string; readonly kind: "url" | "id" } | undefined {
   const url = value.indexOf(URL_PREFIX);
   if (url !== -1) {
     const tail = value.slice(url + URL_PREFIX.length);
@@ -105,6 +115,21 @@ function parseValue(
     if (id !== "") return { ssId: id, kind: "url" };
   }
   if (ID_CHARS.test(value)) return { ssId: value, kind: "id" };
+  return undefined;
+}
+
+/** Проверка формы голого идентификатора — та же, что у резолва. */
+export function looksLikeSpreadsheetId(value: string): boolean {
+  return ID_CHARS.test(value);
+}
+
+/** Разбор значения по порядку до первого совпадения. */
+function parseValue(
+  value: string,
+  sources: TargetSources,
+): { readonly ssId: string; readonly kind: TargetKind } {
+  const direct = spreadsheetIdOf(value);
+  if (direct !== undefined) return direct;
   const alias = sources.aliasOf(value);
   if (alias !== undefined) return { ssId: alias, kind: "alias" };
   if (DIGITS.test(value)) {

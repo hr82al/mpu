@@ -91,12 +91,16 @@ import { claudeHookNotificationCommand } from "../claudehook/mod.ts";
 import { backupCommands } from "../backup/mod.ts";
 import { makeSchemaCommand } from "../makeschema/mod.ts";
 import {
+  sheetAliasAddCommand,
+  sheetAliasLsCommand,
+  sheetAliasRmCommand,
   sheetBatchGetCommand,
   sheetBatchUpdateCommand,
   sheetCacheClearCommand,
   sheetCacheInfoCommand,
   sheetGetCommand,
   sheetLsCommand,
+  sheetOpenCommand,
   sheetResolveCommand,
 } from "../sheet/mod.ts";
 import { cleanLocalClientsCommand } from "../cleanlocal/mod.ts";
@@ -279,6 +283,12 @@ export const commands: readonly Command[] = [
   // семейства его только потребляют.
   sheetCacheInfoCommand,
   sheetCacheClearCommand,
+  // Реестр таблиц (`docs/specs/sheet-registry.md`): короткие имена и
+  // открытие в браузере. `sync` из той же спеки пока идёт `legacy`.
+  sheetAliasAddCommand,
+  sheetAliasLsCommand,
+  sheetAliasRmCommand,
+  sheetOpenCommand,
   // Семейство `mr` целиком: чтение (`docs/specs/mr-read.md`) и запись
   // (`docs/specs/mr-write.md`). В легаси его подкоманд не осталось,
   // поэтому имя `mr` внесено в `NOT_LEGACY`.
@@ -388,6 +398,13 @@ export const groups: readonly CommandGroup[] = [
     path: ["mr"],
     summary: "merge request'ы GitLab: чтение, комментарии ревью, резолв",
     usage: "mpu mr <подкоманда> [аргументы]",
+  },
+  {
+    // Соседний промежуточный уровень: подкоманды `alias` есть только
+    // здесь, в слепке их нет (`sheet` переехала не целиком).
+    path: ["sheet", "alias"],
+    summary: "короткие имена таблиц: add | ls | rm",
+    usage: "mpu sheet alias <подкоманда> [аргументы]",
   },
   {
     // Промежуточный уровень `sheet cache`: сама группа `sheet` ещё в
