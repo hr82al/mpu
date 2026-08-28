@@ -1723,7 +1723,7 @@ const CASES: readonly CommandCase[] = [
   {
     path: "api wb-loader-reset",
     argv: [SYNTHETIC_SID, "cards", "--print"],
-    sampleResult: { ...BLOCKED_SAMPLE, loaded: null },
+    sampleResult: { ...BLOCKED_SAMPLE, loaded: null, loadCall: null },
   },
   {
     path: "api wb-loader-resume",

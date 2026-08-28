@@ -453,32 +453,54 @@ Deno.test("резолв по кэшу: один sid берётся, нескол
 
 Deno.test("--print печатает вызов и не отправляет ничего", async () => {
   const { session, sent } = sessionOf();
+  const argv = [SID, "orders", "--from", "2026-08-01", "--print"];
   const result = await runReset(
-    args({
-      selector: SID,
-      loader: "orders",
-      from: "2026-08-01",
-      print: true,
-      "and-load": true,
-    }),
+    args({ selector: SID, loader: "orders", from: "2026-08-01", print: true }),
     ioDirect(),
     { session },
   );
   assertEquals(sent, []);
-  const text = wbLoaderResetCommand.renderResult(result, [
-    SID,
-    "orders",
-    "--from",
-    "2026-08-01",
-    "--print",
-    "--and-load",
-  ]);
+  const text = wbLoaderResetCommand.renderResult(result, argv);
   assertStringIncludes(text, "TOKEN=$(mpu api get-token)");
   assertStringIncludes(text, `/loaders/${SID}/orders/v1/reset`);
   assertStringIncludes(text, '"lastLoadedDate":"2026-07-31"');
   // Живого токена в сниппете нет: строку копируют и пересылают.
   assertEquals(text.includes("токен"), false);
+  // Без `--and-load` второго вызова нет: печать показывает ту работу,
+  // которую команда сделала бы, и ни строкой больше.
+  assertEquals(text.includes("/v1/load"), false);
+  assertEquals(curlCount(text), 1);
 });
+
+Deno.test("--print с --and-load печатает оба вызова по порядку", async () => {
+  const { session, sent } = sessionOf();
+  const argv = [SID, "orders", "--and-load", "--print"];
+  const result = await runReset(
+    args({ selector: SID, loader: "orders", "and-load": true, print: true }),
+    ioDirect(),
+    { session },
+  );
+  // Печать по-прежнему ничего не отправляет — обоих вызовов это тоже
+  // касается.
+  assertEquals(sent, []);
+  const text = wbLoaderResetCommand.renderResult(result, argv);
+  // Два вызова: скопировав вывод, оператор сделает всю операцию, а не
+  // половину.
+  assertEquals(curlCount(text), 2);
+  const reset = text.indexOf("/v1/reset");
+  const load = text.indexOf("/v1/load");
+  assertEquals(reset > 0 && load > 0, true);
+  // Порядок — исполнения: сброс, затем прогон. Обратный порядок дал бы
+  // прогон по несброшенному состоянию.
+  assertEquals(reset < load, true);
+  // Строка получения токена одна: она подготовка, а не часть вызова.
+  assertEquals(text.split("TOKEN=$(mpu api get-token)").length - 1, 1);
+});
+
+/** Сколько curl-вызовов в сниппете. */
+function curlCount(text: string): number {
+  return text.split("\n").filter((line) => line.startsWith("curl ")).length;
+}
 
 Deno.test("status: слаг в пути, прямой режим без кэша", async () => {
   // Через `--print`: настоящий сеанс здесь пошёл бы в сеть, а проверяем

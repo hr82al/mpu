@@ -5670,6 +5670,32 @@
         },
         "loaded": {
           "description": "ответ форс-прогона; без --and-load — null"
+        },
+        "loadCall": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "method": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "body": {}
+              },
+              "required": [
+                "method",
+                "path",
+                "body"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "вызов форс-прогона; без --and-load — null"
         }
       },
       "required": [
@@ -5677,7 +5703,8 @@
         "call",
         "printed",
         "response",
-        "loaded"
+        "loaded",
+        "loadCall"
       ],
       "additionalProperties": false
     },

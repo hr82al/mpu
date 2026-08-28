@@ -256,14 +256,23 @@ export interface Call {
  * экран и в чужую переписку, а живой Bearer там не нужен никому — его
  * берёт `mpu api get-token` в первой строке, уже у читателя.
  */
-export function curlSnippet(call: Call, extra: readonly string[] = []): string {
-  const lines = [
-    "TOKEN=$(mpu api get-token)",
-    `curl -sS -X ${call.method} "$BASE_API_URL${call.path}" \\`,
-    '  -H "authorization: Bearer $TOKEN"',
-  ];
-  if (call.body !== undefined) {
-    lines[2] += " \\";
+export function curlSnippet(
+  calls: Call | readonly Call[],
+  extra: readonly string[] = [],
+): string {
+  // Вызовов может быть несколько: команда, делающая два запроса, обязана
+  // напечатать оба — иначе оператор, скопировав вывод, сделает половину
+  // операции и будет уверен, что сделал всё. Строка получения токена
+  // при этом одна на весь сниппет: она не часть вызова, а подготовка.
+  const list = Array.isArray(calls) ? calls : [calls as Call];
+  const lines = ["TOKEN=$(mpu api get-token)"];
+  for (const call of list) {
+    lines.push(`curl -sS -X ${call.method} "$BASE_API_URL${call.path}" \\`);
+    if (call.body === undefined) {
+      lines.push('  -H "authorization: Bearer $TOKEN"');
+      continue;
+    }
+    lines.push('  -H "authorization: Bearer $TOKEN" \\');
     lines.push("  -H 'content-type: application/json' \\");
     lines.push(`  -d '${JSON.stringify(call.body)}'`);
   }

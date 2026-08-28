@@ -109,6 +109,15 @@ async function perform(
   }
 }
 
+/** Запись результата обратно в форму запроса. */
+function callOf(call: CallResult["call"]): Call {
+  return {
+    method: call.method,
+    path: call.path,
+    body: call.body ?? undefined,
+  };
+}
+
 /** Печать: curl-сниппет либо ответ сервера как есть. */
 function renderCall(result: CallResult, extra: readonly string[] = []): string {
   if (result.printed) {
@@ -379,6 +388,15 @@ const resetArgs = z.object({
 
 const resetResult = callResult.extend({
   loaded: z.unknown().describe("ответ форс-прогона; без --and-load — null"),
+  // Второй вызов объявлен в результате, а не собирается печатью: печать
+  // обязана показать всю работу, которую команда бы сделала, и брать
+  // это ей больше неоткуда (`ts/CLAUDE.md`, «Величина берётся там, где
+  // совершается работа» — тот же довод про вывод).
+  loadCall: z.object({
+    method: z.string(),
+    path: z.string(),
+    body: z.unknown(),
+  }).nullable().describe("вызов форс-прогона; без --and-load — null"),
 });
 
 type ResetArgs = z.infer<typeof resetArgs>;
@@ -413,12 +431,17 @@ export async function runReset(
 ): Promise<ResetResult> {
   const body = resetBody(args);
   const reset = await runOnLoader(args, io, options, "POST", "reset", body);
-  if (!args["and-load"] || reset.printed) {
-    return { ...reset, loaded: null };
+  if (!args["and-load"]) return { ...reset, loaded: null, loadCall: null };
+  if (reset.printed) {
+    // Печать показывает оба вызова в порядке исполнения: сброс и
+    // следом прогон. Один вызов вместо двух означал бы половину
+    // операции у оператора, выполняющего руками.
+    const load = await runOnLoader(args, io, options, "POST", "load");
+    return { ...reset, loaded: null, loadCall: load.call };
   }
   try {
     const loaded = await runOnLoader(args, io, options, "POST", "load");
-    return { ...reset, loaded: loaded.response };
+    return { ...reset, loaded: loaded.response, loadCall: loaded.call };
   } catch (err) {
     // Сброс уже произошёл, и отказ второго шага его не отменяет: молча
     // упавший вызов оставил бы оператора думать, что состояние прежнее
@@ -461,7 +484,13 @@ Exit: 0 — успех; 1 — отказ sl-back; 2 — --state вместе с 
   forms: targetForms,
   resultSchema: resetResult,
   run: (args: ResetArgs, io: LoaderIo) => runReset(args, io),
-  render: (result: ResetResult) => renderCall(result),
+  render: (result: ResetResult) => {
+    if (!result.printed || result.loadCall === null) return renderCall(result);
+    return curlSnippet([
+      callOf(result.call),
+      callOf(result.loadCall),
+    ]);
+  },
 });
 
 const resumeArgs = z.object({
