@@ -103,6 +103,7 @@ import {
 } from "../copy/mod.ts";
 import { configCommand } from "../config/cmd_config.ts";
 import { glabStatusCommand } from "../glab/mod.ts";
+import { apiCommands } from "../api/mod.ts";
 import { moveClientBackCommand, moveClientCommand } from "../move/mod.ts";
 import { mpInitCommand } from "../mpinit/mod.ts";
 import {
@@ -303,6 +304,12 @@ export const commands: readonly Command[] = [
   // Прохождение MR по веткам пайплайна: читающая команда поверх того
   // же атома GitLab, что и семейство `mr` (`glab-status.md`).
   glabStatusCommand,
+  // Читающая половина неймспейса `mpu api` (`docs/specs/api.md`):
+  // двадцать две обёртки админских эндпоинтов sl-back. Имя группы
+  // остаётся в слепке маршрута `legacy` до переезда пишущей половины —
+  // неизвестная подкоманда уходит прежней реализации, как это было у
+  // `kiten` и `telegram`.
+  ...apiCommands,
 ];
 
 /**

@@ -209,12 +209,13 @@ Deno.test("пометка «без записи вывода» — часть о
       path: ["фейк"],
     });
   });
-  await t.step("в реестре пометка стоит у пяти команд", () => {
-    // Все пять печатают то, чему в журнале не место: `search` — живые
+  await t.step("в реестре пометка стоит у шести команд", () => {
+    // Все шесть печатают то, чему в журнале не место: `search` — живые
     // токены сессий 10X, `log` — сам журнал (иначе он печатал бы
     // себя), `mcp token` — токен доступа, `users add` — собранную
     // команду с паролем заводимого пользователя, `confirm` — чужой
-    // буфер конвейера, дословно равный его вводу. Порядок — порядок
+    // буфер конвейера, дословно равный его вводу, `api get-token` —
+    // живой токен sl-back (`docs/specs/api.md`). Порядок — порядок
     // реестра.
     const marked = commands
       .filter((command) => !command.logsOutput)
@@ -225,6 +226,7 @@ Deno.test("пометка «без записи вывода» — часть о
       "mcp token",
       "users add",
       "confirm",
+      "api get-token",
     ]);
   });
 });
@@ -353,16 +355,17 @@ Deno.test("вызов тула журналируется как вторая т
 });
 
 Deno.test("пометка «без записи аргументов»: текста заметки в журнале нет", async (t) => {
-  await t.step("в реестре пометка стоит у одной команды", () => {
+  await t.step("в реестре пометка стоит у трёх команд", () => {
     // Единственный аргумент `telegram log` персонален сам по себе —
     // это заметка пользователя (`docs/specs/telegram-log.md`); у
     // `users add` среди аргументов пароль заводимого пользователя
-    // (`docs/specs/portainer-wrappers.md`). Список закрытый: пометка
+    // (`docs/specs/portainer-wrappers.md`), у `api get-token` — пароль
+    // в `--password` (`docs/specs/api.md`). Список закрытый: пометка
     // — свойство команды в реестре, и молча вырасти он не должен.
     const marked = commands
       .filter((command) => !command.logsArguments)
       .map((command) => command.path.join(" "));
-    assertEquals(marked, ["telegram log", "users add"]);
+    assertEquals(marked, ["telegram log", "users add", "api get-token"]);
   });
 
   await t.step("скрыв ввод, команда решила и про вывод", () => {
@@ -377,6 +380,7 @@ Deno.test("пометка «без записи аргументов»: текс
         "в выводе только номер сообщения, ввода в нём нет",
       ],
       ["users add", false, "в режиме печати вывод и есть ввод"],
+      ["api get-token", false, "вывод — живой токен sl-back"],
     ];
     assertEquals(
       commands

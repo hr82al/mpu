@@ -61,6 +61,13 @@ const SAMPLE_BACKUP = {
   dry: true,
 };
 
+/**
+ * Ответ эндпоинта sl-back в форме вывода: у всех декларативных команд
+ * `mpu api` результат один по устройству — ответ сервера как есть
+ * (`docs/specs/api.md`), поэтому образец у них общий.
+ */
+const SAMPLE_API = { response: { id: 777, title: "Клиент" } };
+
 const CASES: readonly CommandCase[] = [
   {
     path: "xlsx ls",
@@ -1422,6 +1429,119 @@ const CASES: readonly CommandCase[] = [
     argv: ["заметка"],
     sampleResult: { id: 5000001 },
   },
+  // Читающая половина `mpu api`: базового URL в env-файле обхода нет,
+  // поэтому каждый вызов отбивается на конфигурации до сети — обходу
+  // нужны инварианты рендера и сериализации, а не живой sl-back.
+  {
+    path: "api get-client",
+    argv: ["777"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api get-client-module",
+    argv: ["777", "wbDefault"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api get-client-spreadsheet",
+    argv: ["777", "1BxiMVs0"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api get-client-ss-dataset",
+    argv: ["777", "1BxiMVs0", "Свод"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api get-spreadsheet",
+    argv: ["1BxiMVs0"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api get-ss-values",
+    argv: ["1BxiMVs0", "--range", "A1:B2"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api get-token",
+    argv: [],
+    sampleResult: { token: "jwt-proba-9f2" },
+  },
+  {
+    path: "api get-user",
+    argv: ["777"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api get-wb-cabinet-module",
+    argv: ["777", "11111111-2222-3333-4444-555555555555", "wbDefault"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api get-wb-cabinets-by-sid",
+    argv: ["11111111-2222-3333-4444-555555555555"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-client-modules",
+    argv: ["777"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-client-ozon-keys",
+    argv: ["777"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-client-spreadsheets",
+    argv: ["777"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-client-ss-datasets",
+    argv: ["777", "1BxiMVs0"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-client-wb-cabinets",
+    argv: ["777"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-client-wb-tokens",
+    argv: ["777"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-clients",
+    argv: [],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-roles",
+    argv: [],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-spreadsheets",
+    argv: [],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-users",
+    argv: [],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-wb-cabinet-modules",
+    argv: ["777"],
+    sampleResult: SAMPLE_API,
+  },
+  {
+    path: "api list-wb-cabinets",
+    argv: [],
+    sampleResult: SAMPLE_API,
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {
@@ -1792,6 +1912,17 @@ function makeIo(dir: string): CommandIo {
       values: () => ({}),
     },
     readAccessToken: () => Promise.resolve("проба-токена"),
+    // Токен-кэш sl-back — настоящий файл во временном каталоге: обход
+    // ходит в него так же, как в токен доступа рядом.
+    readTokenCache: async () => {
+      try {
+        return await Deno.readTextFile(`${dir}/.api-token.json`);
+      } catch {
+        return undefined;
+      }
+    },
+    writeTokenCache: (text) =>
+      Deno.writeTextFile(`${dir}/.api-token.json`, text, { mode: 0o600 }),
     writeAccessToken: (token) =>
       Deno.writeTextFile(`${dir}/token`, token, { mode: 0o600 }),
     // Запуск открывателя в обходе не нужен: образец зовёт open с --print.

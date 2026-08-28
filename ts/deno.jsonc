@@ -32,7 +32,8 @@
       "src/config/testdata",
       "src/mpinit/testdata",
       "src/cleanlocal/testdata",
-      "src/glab/testdata"
+      "src/glab/testdata",
+      "src/api/testdata"
     ]
   },
   "imports": {

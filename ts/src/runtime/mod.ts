@@ -75,6 +75,17 @@ export function makeDenoOutput(): Output {
 }
 
 /**
+ * Файл токен-кэша sl-back (`platform/slback-http.md`): сосед кэш-БД и
+ * журнала в том же каталоге, общий с Python-реализацией — имя файла
+ * поэтому дословно её.
+ */
+export function tokenCachePath(
+  configDir: string | undefined,
+): string | undefined {
+  return configDir === undefined ? undefined : `${configDir}/.api-token.json`;
+}
+
+/**
  * Файл токена доступа MCP-сервера: сосед кэш-БД в том же каталоге, но
  * не ключ предпочтений (`platform/mcp-server.md`).
  */
@@ -190,6 +201,32 @@ async function writeSecret(path: string, text: string): Promise<void> {
 }
 
 /**
+ * То же, но заменой целиком: временный файл-сосед и переименование
+ * поверх цели. Кэш токена sl-back общий для всех процессов, и
+ * `platform/slback-http.md` держит на этом инвариант — читатель
+ * никогда не видит полузаписанный файл. Приём тот же, что у записи
+ * env-файла ниже.
+ */
+async function writeSecretAtomically(
+  path: string,
+  text: string,
+): Promise<void> {
+  const dir = path.slice(0, path.lastIndexOf("/"));
+  await Deno.mkdir(dir, { recursive: true });
+  const temp = `${path}.${Deno.pid}.tmp`;
+  try {
+    await Deno.writeTextFile(temp, text, { mode: 0o600 });
+    await Deno.chmod(temp, 0o600);
+    await Deno.rename(temp, path);
+  } catch (err) {
+    // Уборка временного файла не важнее исходной причины отказа и её
+    // не затирает.
+    await Deno.remove(temp).catch(() => {});
+    throw err;
+  }
+}
+
+/**
  * Доступ к env-файлу на диске (`platform/env-file.md`, раздел
  * «Ввод/вывод»): чтение снапшотом, атомарная запись. Запись идёт через
  * временный файл-сосед в том же каталоге — так читатели никогда не видят
@@ -237,6 +274,7 @@ export function makeEnvFileStore(path: string): EnvFileStore {
 /** Реальные зависимости исполнения команд поверх API Deno. */
 export function makeDenoIo(configDir: string | undefined): CommandIo {
   const tokenPath = accessTokenPath(configDir);
+  const cachePath = tokenCachePath(configDir);
   const envPath = envFilePath((name) => Deno.env.get(name));
   return {
     env: (name) => Deno.env.get(name),
@@ -292,6 +330,24 @@ export function makeDenoIo(configDir: string | undefined): CommandIo {
         throw new DomainError("config store is unavailable (HOME is not set)");
       }
       await writeSecret(tokenPath, `${token}\n`);
+    },
+    readTokenCache: async () => {
+      if (cachePath === undefined) return undefined;
+      try {
+        return await Deno.readTextFile(cachePath);
+      } catch {
+        // Любая причина — «кэша нет», а не отказ: спека равняет
+        // отсутствие файла, нечитаемость и порчу содержимого
+        // (`platform/slback-http.md`, «Чтение кэша»). Дальше идёт
+        // обычный логин, и команда об этом не узнаёт.
+        return undefined;
+      }
+    },
+    writeTokenCache: async (text) => {
+      if (cachePath === undefined) {
+        throw new DomainError("token cache is unavailable (HOME is not set)");
+      }
+      await writeSecretAtomically(cachePath, text);
     },
     runLegacy: async (bin, args) => {
       await requireExecutable(bin);

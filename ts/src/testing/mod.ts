@@ -43,6 +43,12 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     openTerminal: () => Promise.resolve(undefined),
     readAccessToken: () => Promise.resolve(undefined),
     writeAccessToken: mustNotTouch("writeAccessToken"),
+    // Холодный токен-кэш sl-back — штатный путь каждой команды `api`,
+    // поэтому чтение отвечает «записи нет», а не падает. Запись падает:
+    // тест, гоняющий логин, обязан объявить приёмник сам — заодно видно,
+    // что в кэш ушло.
+    readTokenCache: () => Promise.resolve(undefined),
+    writeTokenCache: mustNotTouch("writeTokenCache"),
     currentShell: () => undefined,
     appendFile: mustNotTouch("appendFile"),
     launchOpener: mustNotTouch("opener"),
