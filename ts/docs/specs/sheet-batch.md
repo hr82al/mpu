@@ -231,6 +231,14 @@ Env `WB_PLUS_WEB_APP_URL` — `platform/webapp-http.md`; резолв `-s`, ко
 - **fix** — при опечатке во втором слове двухсловного глагола ошибка называет только первый
   токен (`неизвестный глагол 'cols'`); правильно — называть пару целиком для первых слов
   `cols/rows/sheet/cond/name`.
+- **fix** — `cols|rows insert` без слова `inherit` шлёт
+  `inheritFromBefore: true` при любом индексе, и на вставке в самое начало
+  (`startIndex: 0`) Google отвергает **всю пачку**: `range.startIndex must not
+  be 0 if inheritFromBefore is true` (наблюдено живьём 2026-08-28 на служебной
+  таблице). Правильно — `inheritFromBefore` истинно по умолчанию и при
+  `inherit`/`inherit=before`, ложно при `inherit=after`, и **всегда ложно при
+  `startIndex: 0`**: слева от первой полосы наследовать нечего, а падение всей
+  пачки из-за одной инструкции хуже, чем ненаследованный формат.
 
 ## Открытые вопросы
 

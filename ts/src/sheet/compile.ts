@@ -497,12 +497,16 @@ const SIMPLE_VERBS: Readonly<Record<string, Verb>> = {
   },
 
   "find-replace": (args) => {
-    const find = unquote(need(args.tokens, 0, "НАЙТИ"));
+    const raw = unquote(need(args.tokens, 0, "НАЙТИ"));
+    // Шаблон в слэшах — регэксп сам по себе, слова `regex` для этого не
+    // нужно; слэши при этом снимаются, они разделители, а не часть
+    // шаблона.
+    const slashed = raw.length > 1 && raw.startsWith("/") && raw.endsWith("/");
     const out: Record<string, unknown> = {
-      find,
+      find: slashed ? raw.slice(1, -1) : raw,
       replacement: unquote(need(args.tokens, 1, "ЗАМЕНА")),
     };
-    let regex = false;
+    let regex = slashed;
     let scope: string | undefined;
     let allSheets = false;
     let includeFormulas = false;
@@ -585,19 +589,24 @@ function dimensionVerbs(
       const base = range(args);
       const start = base.startIndex;
       let end = base.endIndex;
-      let inherit = false;
+      let inherit = true;
       for (const token of args.tokens.slice(1)) {
         const count = /^\+(\d+)$/.exec(token);
         if (count !== null) end = start + Number(count[1]);
-        else if (token === "inherit") inherit = true;
-        else if (token === "inherit=before") inherit = true;
-        else if (token === "inherit=after") inherit = false;
+        else if (token === "inherit" || token === "inherit=before") {
+          inherit = true;
+        } else if (token === "inherit=after") inherit = false;
         else rejectUnknown(token);
       }
       return [{
         insertDimension: {
           range: { ...base, startIndex: start, endIndex: end },
-          inheritFromBefore: inherit,
+          // На левом (верхнем) краю наследовать нечего, и Google
+          // отвечает отказом «range.startIndex must not be 0 if
+          // inheritFromBefore is true» — падает вся пачка, а не одна
+          // инструкция. Поэтому на нулевом индексе признак ложен при
+          // любом вводе (`sheet-batch.md`, отклонение fix).
+          inheritFromBefore: start === 0 ? false : inherit,
         },
       }];
     },

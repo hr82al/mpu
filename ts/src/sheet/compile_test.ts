@@ -426,3 +426,54 @@ Deno.test("опечатка во втором слове называет пар
     assertEquals(err.message, message);
   }
 });
+
+Deno.test("insert наследует формат слева, но не на нулевом индексе", () => {
+  const inherit = (script: string) => {
+    const request = compileScript(script, {
+      sheets: SHEETS,
+      defaultSheet: "Sheet1",
+    }).requests[0] as { insertDimension: { inheritFromBefore: boolean } };
+    return request.insertDimension.inheritFromBefore;
+  };
+  // Умолчание — наследовать: столбец вставляют рядом с похожим.
+  assertEquals(inherit("cols insert B"), true);
+  assertEquals(inherit("cols insert B inherit"), true);
+  assertEquals(inherit("cols insert B inherit=before"), true);
+  assertEquals(inherit("cols insert B inherit=after"), false);
+  // На левом краю наследовать нечего, и Google отвечает отказом
+  // «range.startIndex must not be 0 if inheritFromBefore is true» —
+  // падает вся пачка, поэтому признак ложен при любом вводе.
+  assertEquals(inherit("cols insert A"), false);
+  assertEquals(inherit("cols insert A inherit"), false);
+  assertEquals(inherit("rows insert 1"), false);
+});
+
+Deno.test("шаблон в слэшах — регэксп, и слэши снимаются", () => {
+  const of = (script: string) => {
+    const request = compileScript(script, {
+      sheets: SHEETS,
+      defaultSheet: "Sheet1",
+    }).requests[0] as { findReplace: Record<string, unknown> };
+    return request.findReplace;
+  };
+  assertEquals(of("find-replace /ab.*/ x"), {
+    find: "ab.*",
+    replacement: "x",
+    searchByRegex: true,
+    sheetId: 0,
+  });
+  // Слово `regex` включает то же самое без слэшей.
+  assertEquals(of("find-replace ab.* x regex"), {
+    find: "ab.*",
+    replacement: "x",
+    searchByRegex: true,
+    sheetId: 0,
+  });
+  // Одиночный слэш шаблоном в слэшах не является.
+  assertEquals(of("find-replace / x"), {
+    find: "/",
+    replacement: "x",
+    searchByRegex: false,
+    sheetId: 0,
+  });
+});
