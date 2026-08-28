@@ -195,6 +195,7 @@ Deno.test("parseArgv: маскирование прячет ввод из тек
   ];
   const parseMasked = (...argv: string[]) =>
     parseArgv(argv, specs, HINT, { masked: true });
+  const parseOpen = (...argv: string[]) => parseArgv(argv, specs, HINT);
 
   await t.step("лишний позиционный назван REDACTED", () => {
     const err = assertThrows(
@@ -205,15 +206,27 @@ Deno.test("parseArgv: маскирование прячет ввод из тек
     assertEquals(err.message.includes("упал"), false);
   });
 
-  await t.step("неизвестная опция названа REDACTED целиком", () => {
-    // Маскируется весь токен, включая часть после «=»: значение опции
-    // это тот же пользовательский ввод.
+  await t.step("у неизвестной опции скрыто значение, не имя", () => {
+    // Граница по виду токена, а не по команде: имя оператор набрал
+    // руками и обязан увидеть свою опечатку, а значение после «=»
+    // может оказаться секретом — потому и прячется.
     const err = assertThrows(
       () => parseMasked("--мой-секрет=пароль"),
       UsageError,
-      "unknown option REDACTED",
+      'unknown option "--мой-секрет=REDACTED"',
     );
     assertEquals(err.message.includes("пароль"), false);
+  });
+
+  await t.step("значение прячется и у непомеченной команды", () => {
+    // Опечатка в имени секретной опции проходит мимо любых списков
+    // имён, и это самый обычный способ набрать секрет: `--pasword`.
+    const err = assertThrows(
+      () => parseOpen("--pasword=hunter2"),
+      UsageError,
+      'unknown option "--pasword=REDACTED"',
+    );
+    assertEquals(err.message.includes("hunter2"), false);
   });
 });
 

@@ -112,8 +112,19 @@ Deno.test("маскирование JSON в теле -b/--body", async (t) => {
       `mpu api '--body={"token":"REDACTED"}'`,
     );
   });
-  await t.step("несекретная опция формы --opt=value не трогается", () => {
-    assertEquals(commandLine(["api", "--limit=10"]), "mpu api --limit=10");
+  await t.step("у формы --opt=value значение не пишется", () => {
+    // Имя остаётся, значение — нет, и это не зависит от имени: список
+    // секретных имён слеп к опечатке, а `--pasword=hunter2` мимо него
+    // проходит. Форма с пробелом при этом читается как прежде: там
+    // значение отдельным словом, и по имени опции видно, что это.
+    assertEquals(
+      commandLine(["api", "--limit=10"]),
+      "mpu api --limit=REDACTED",
+    );
+    assertEquals(
+      commandLine(["api", "--pasword=hunter2"]),
+      "mpu api --pasword=REDACTED",
+    );
   });
   await t.step("невалидный JSON не трогается", () => {
     assertEquals(commandLine(["api", "-b", "{oops"]), "mpu api -b '{oops'");

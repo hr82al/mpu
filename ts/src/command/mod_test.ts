@@ -203,13 +203,21 @@ Deno.test("пометка «без записи аргументов» доез�
     assertEquals(err.message.includes("упал"), false);
   });
 
-  await t.step("помеченная: неизвестная опция — REDACTED", () => {
-    const err = assertThrows(
+  await t.step("помеченная: имя опции названо, значение — нет", () => {
+    // Пометка про журнал, а не про экран: имя опции оператор набрал
+    // руками и без него не увидит опечатки. Прячется значение — и
+    // прячется оно у всех команд, не только у помеченной.
+    assertThrows(
       () => marked.parseArgs(["--мой-секрет"]),
       UsageError,
-      "unknown option REDACTED",
+      'unknown option "--мой-секрет"',
     );
-    assertEquals(err.message.includes("мой-секрет"), false);
+    const err = assertThrows(
+      () => marked.parseArgs(["--мой-секрет=пароль"]),
+      UsageError,
+      'unknown option "--мой-секрет=REDACTED"',
+    );
+    assertEquals(err.message.includes("пароль"), false);
   });
 
   await t.step("непомеченная: ввод по-прежнему назван дословно", () => {

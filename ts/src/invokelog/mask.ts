@@ -186,9 +186,14 @@ function maskArgv(argv: readonly string[]): readonly string[] {
     }
     const name = arg.slice(0, eq);
     const value = arg.slice(eq + 1);
-    if (isSecretName(name)) out.push(`${name}=${REDACTED}`);
-    else if (isBodyOption(name)) out.push(`${name}=${maskJsonText(value)}`);
-    else out.push(arg);
+    // Тело разбирается по ключам, всё остальное прячется целиком: имя
+    // опции в записи остаётся, значение — нет. Список секретных имён
+    // слеп к опечатке (`--pasword=hunter2` мимо него проходит), а
+    // опечатка в имени секретной опции — обычный способ набрать
+    // секрет; поэтому значение при форме с «=» не печатается ни у
+    // какой команды.
+    if (isBodyOption(name)) out.push(`${name}=${maskJsonText(value)}`);
+    else out.push(`${name}=${REDACTED}`);
   }
   return out;
 }

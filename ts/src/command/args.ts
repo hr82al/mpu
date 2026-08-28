@@ -115,7 +115,7 @@ export function parseArgv(
       ? flags.find((s) => s.form.short === arg[1])
       : undefined;
     if (spec === undefined) {
-      if (!keepsUnknown) throw unknownOption(arg, helpHint, masked);
+      if (!keepsUnknown) throw unknownOption(arg, helpHint);
       positional.push(arg);
       continue;
     }
@@ -156,7 +156,7 @@ function recordLongFlag(
   const negated = negatedBoolean(flags, name);
   if (negated === undefined) {
     if (options.keepsUnknown) return false;
-    throw unknownOption(arg, helpHint, options.masked);
+    throw unknownOption(arg, helpHint);
   }
   if (inline !== undefined) throw takesNoValue(`--${name}`, helpHint);
   out[negated.name] = false;
@@ -217,7 +217,7 @@ function bindPositional(
   }
   if (taken < positional.length) {
     throw new UsageError(
-      `unexpected argument ${shown(positional[taken], masked)}`,
+      `unexpected argument ${shownPositional(positional[taken], masked)}`,
       { hint: helpHint },
     );
   }
@@ -233,22 +233,36 @@ function negatedBoolean(
   return spec?.kind === "boolean" ? spec : undefined;
 }
 
-function unknownOption(
-  arg: string,
-  helpHint: string,
-  masked: boolean,
-): UsageError {
-  return new UsageError(`unknown option ${shown(arg, masked)}`, {
+function unknownOption(arg: string, helpHint: string): UsageError {
+  return new UsageError(`unknown option ${shownOption(arg)}`, {
     hint: helpHint,
   });
 }
 
 /**
- * Как пользовательский ввод выглядит в тексте ошибки: дословно в
- * кавычках либо `REDACTED` у команды с маскированием. Токен прячется
- * целиком, вместе с частью после «=»: значение опции — тот же ввод.
+ * Как пользовательский ввод выглядит в тексте ошибки. Граница проходит
+ * по виду токена, а не по команде: имя опции оператор набрал руками и
+ * обязан увидеть свою опечатку, а значение после «=» может оказаться
+ * секретом — у любой команды, не только у помеченной.
+ *
+ * Отсюда `--pasword=hunter2` печатается как `--pasword=REDACTED`:
+ * опечатка в имени секретной опции — самый обычный способ набрать
+ * секрет мимо всех наших списков. Прежняя форма прятала токен целиком
+ * и у помеченной команды оставляла оператора без единственного, что
+ * ему нужно, — имени опции, в котором он ошибся.
  */
-function shown(value: string, masked: boolean): string {
+function shownOption(arg: string): string {
+  const eq = arg.indexOf("=");
+  if (eq < 0) return `"${arg}"`;
+  return `"${arg.slice(0, eq)}=REDACTED"`;
+}
+
+/**
+ * Позиционный аргумент прячется целиком у команды с маскированием: у
+ * `telegram log` он и есть секрет — текст заметки
+ * (`specs/telegram-log.md`), и делить его не на что.
+ */
+function shownPositional(value: string, masked: boolean): string {
   return masked ? "REDACTED" : `"${value}"`;
 }
 
