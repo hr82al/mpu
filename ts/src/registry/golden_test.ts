@@ -190,14 +190,17 @@ Deno.test("справку команды маршрута legacy печатае�
   // Эталоны сквозного поведения: flag-level текст справки команд
   // маршрута `legacy` приходит от Python-реализации, которой в
   // песочнице нет. Проверяем стык — argv и проход вывода насквозь.
-  // Образец — `api`: её декларативный остаток и две кастомные группы
-  // переехали, подпроцессными остались шесть `wb-loader-*` (у `sheet`,
-  // стоявшей здесь раньше, подпроцессным не осталось ничего).
+  // Образец — `telegram`: у неё подпроцессным остался вход
+  // (`login`). Прежние образцы, `sheet` и `api`, переехали целиком —
+  // список подпроцессных имён тает с каждой поставкой.
   const cases: readonly (readonly [string, readonly string[], string[]])[] = [
-    ['mpu help "mpu api"', ["help", "mpu api"], ["api", "--help"]],
-    ["mpu api wb-loader-load --help", ["api", "wb-loader-load", "--help"], [
-      "api",
-      "wb-loader-load",
+    ['mpu help "mpu telegram"', ["help", "mpu telegram"], [
+      "telegram",
+      "--help",
+    ]],
+    ["mpu telegram login --help", ["telegram", "login", "--help"], [
+      "telegram",
+      "login",
       "--help",
     ]],
   ];
@@ -206,7 +209,7 @@ Deno.test("справку команды маршрута legacy печатае�
     await t.step(title, async () => {
       const calls: string[][] = [];
       const printed =
-        "Usage: mpu api [OPTIONS] COMMAND\n\nСправка от реализации.\n";
+        "Usage: mpu telegram [OPTIONS] COMMAND\n\nСправка от реализации.\n";
       const { code, stdout } = await run(argv, {
         runLegacy: (_bin, args) => {
           calls.push([...args]);

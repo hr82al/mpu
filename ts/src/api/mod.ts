@@ -16,6 +16,7 @@ import { WRITE_ENDPOINTS } from "./endpoints_write.ts";
 import { apiGetTokenCommand } from "./cmd_get_token.ts";
 import { ssAccessCommands } from "./cmd_ss_access.ts";
 import { wbCardsResetCommand } from "./cmd_wb_cards_reset.ts";
+import { wbLoaderCommands } from "./cmd_wb_loader.ts";
 
 /**
  * Читающие команды группы в алфавитном порядке имени: `mpu api --help`
@@ -34,4 +35,7 @@ export const apiCommands: readonly Command[] = [
   // Вторая кастомная группа: одна команда с резолвом селектора до sid
   // (`docs/specs/api-wb-cards-reset.md`).
   wbCardsResetCommand,
+  // Третья кастомная группа: шесть команд управления загрузчиками
+  // (`docs/specs/api-wb-loader.md`). С ней `api` уходит с легаси.
+  ...wbLoaderCommands,
 ].sort((a, b) => a.path[1] < b.path[1] ? -1 : a.path[1] > b.path[1] ? 1 : 0);

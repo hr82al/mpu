@@ -6,7 +6,7 @@
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { handleMcp, type McpRequest, type McpResponse } from "./mod.ts";
-import type { CommandIo } from "../command/mod.ts";
+import type { Command, CommandIo } from "../command/mod.ts";
 import { makeDenoIo } from "../runtime/mod.ts";
 import { commands } from "../registry/mod.ts";
 import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
@@ -27,13 +27,23 @@ async function fixture(name: string): Promise<Fixture> {
 function handle(
   request: McpRequest,
   io: CommandIo = makeFakeIo(),
+  known: readonly Command[] = commands,
 ): Promise<McpResponse> {
   return handleMcp(request, {
     io,
-    commands,
+    commands: known,
     version: "0.1.0",
     log: NO_INVOKE_LOG,
   });
+}
+
+/**
+ * Реестр без одной команды: тул её имени тогда собирается из слепка,
+ * то есть маршрутом `legacy`. Нужен там, где проверяется сам маршрут,
+ * а публикуемых подпроцессных тулов в реестре не осталось.
+ */
+function without(name: string): readonly Command[] {
+  return commands.filter((command) => command.path.join(" ") !== name);
 }
 
 /** Временный каталог с sample.xlsx: та же книга, что в golden xlsx. */
@@ -134,37 +144,45 @@ Deno.test("неизвестный метод JSON-RPC — 404 и код -32601",
   assertEquals(actual.body, response.body);
 });
 
-// Образец подпроцессного тула: в профиле `ro` их не осталось вовсе —
-// `sheet batch-get` был последним и переехал на `native`. Группа `api`
-// останется на маршруте `legacy` до переезда своей пишущей половины,
-// поэтому образец взят оттуда и лежит в профиле `rw`.
+// Маршрут `legacy` у тулов: публикуемых подпроцессных тулов в реестре
+// не осталось ни одного — `api wb-loader-status` и `-reset` были
+// последними и переехали вместе со всей группой. Механизм при этом
+// живой: закрытый список публикации редактируется отдельно от кода, и
+// имя, которого нет среди команд, снова возьмётся из слепка. Поэтому
+// ситуация здесь строится нарочно — реестром без этой команды.
 Deno.test("tools/call: команда маршрута legacy", async (t) => {
   const meta = { "io.modelcontextprotocol/protocolVersion": "2026-07-28" };
   const call = (args: unknown, io: CommandIo) =>
-    handle({
-      method: "POST",
-      path: "/rw",
-      headers: {
-        "MCP-Protocol-Version": "2026-07-28",
-        "Mcp-Method": "tools/call",
-        "Mcp-Name": "api_wb_loader_status",
-      },
-      body: {
-        jsonrpc: "2.0",
-        id: 7,
-        method: "tools/call",
-        params: {
-          name: "api_wb_loader_status",
-          // Два обязательных аргумента подставляются всегда: без них
-          // вызов не доходит до подпроцесса, а проверяется здесь как
-          // раз то, что после него.
-          arguments: typeof args === "object" && args !== null
-            ? { selector: "4326", loader: "cards", ...args }
-            : args,
-          _meta: meta,
+    handle(
+      {
+        method: "POST",
+        // Профиль `ro`: команда читающая, и в закрытом списке она
+        // теперь там же (`tool-policies.json`, правка напарника).
+        path: "/ro",
+        headers: {
+          "MCP-Protocol-Version": "2026-07-28",
+          "Mcp-Method": "tools/call",
+          "Mcp-Name": "api_wb_loader_status",
+        },
+        body: {
+          jsonrpc: "2.0",
+          id: 7,
+          method: "tools/call",
+          params: {
+            name: "api_wb_loader_status",
+            // Два обязательных аргумента подставляются всегда: без них
+            // вызов не доходит до подпроцесса, а проверяется здесь как
+            // раз то, что после него.
+            arguments: typeof args === "object" && args !== null
+              ? { selector: "4326", loader: "cards", ...args }
+              : args,
+            _meta: meta,
+          },
         },
       },
-    }, io);
+      io,
+      without("api wb-loader-status"),
+    );
 
   await t.step("stdout приходит текстом, без структурного", async () => {
     const io = makeFakeIo({

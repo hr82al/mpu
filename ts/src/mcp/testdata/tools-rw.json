@@ -5587,7 +5587,7 @@
   {
     "name": "api_wb_loader_reset",
     "title": "mpu api wb-loader-reset",
-    "description": "`mpu api wb-loader-reset <selector> <loader>` — сброс state + перезапуск загрузчика.\n\n`mpu api wb-loader-reset <selector> <loader>` — сброс state + перезапуск загрузчика.\n\n`POST /admin/wb-loader/loaders/<sid>/<loader>/v1/reset` (sl-back main →\nwb-loader-app): `facade.resetState` + `resetJob` — чистит progress; ближайший\nпрогон пересчитывает окно. Без опций — reset с пустым телом (forward-only пойдёт\nс `today - history_days`).\n\nОкно дозагрузки (взаимоисключающие):\n- `--state '<json>'` — partial-state как есть (любой загрузчик), напр.\n  `{\"cursor\":null}` (cursor-based) или `{\"lastLoadedDate\":\"2026-06-08\"}`.\n- `--from <YYYY-MM-DD>` — для **forward-only** загрузчиков (state с `lastLoadedDate`):\n  собирает `{\"lastLoadedDate\": <from-1день>}`, чтобы ближайший прогон пошёл с <from>.\n  ⚠️ forward-only: верхняя граница окна всегда «вчера» — участок точно не задаётся,\n  свежие дни перезальются (идемпотентно).\n\n`--and-load` — следом дёрнуть `load` (форс-прогон): типовой recovery в один вызов.\n\nМутирует прод (`wbLoaderWriteGate`, роль `support_write`+). Read-only аналог —\n`wb-loader-status`. Селектор / `--sid` / `--client-id` / `--print` — как у него.\n\n\n\b\n── ЗАГРУЗЧИКИ · справка для всех wb-loader-* команд ──\nИмя загрузчика существует в ДВУХ формах; команды принимают РАЗНЫЕ:\n  wb-loader-status / -load / -reset  → kebab-слаг   (cards, fbs-stocks …)\n  wb-loader-blocked / -resume        → camelCase имя (wbCards, wbFbsStocks …)\n[справка усечена: отброшено 2239 байт]",
+    "description": "POST …/v1/reset — сброс состояния загрузчика и перезапуск.\n\nСбрасывает состояние загрузчика: ближайший прогон пересчитает\nокно. Без опций тело пустое.\n\nОкно дозагрузки задаётся одним из двух ВЗАИМОИСКЛЮЧАЮЩИХ способов:\n--state кладёт частичное состояние как есть, --from собирает состояние\nс датой НА ДЕНЬ РАНЬШЕ указанной — загрузчик идёт вперёд по дате и\nначинает со следующего дня после сохранённого. Два флага вместе —\nошибка ввода до сети.\n\nВАЖНО: верхняя граница окна у таких загрузчиков всегда «вчера». Точный\nучасток задать нельзя — свежие дни будут перезалиты. Это свойство\nзагрузчика, а не команды.\n\n--and-load следом дёргает форс-прогон. Отказ этого шага не отменяет\nсброса: он уже произошёл, и сообщение это скажет.\n\nExit: 0 — успех; 1 — отказ sl-back; 2 — --state вместе с --from,\nнегодная дата, ошибки резолва.\n\nПример: mpu api wb-loader-reset 777 orders --from 2026-08-01 --and-load",
     "annotations": {
       "readOnlyHint": false,
       "destructiveHint": true
@@ -5596,83 +5596,93 @@
       "type": "object",
       "properties": {
         "selector": {
-          "type": "string"
+          "type": "string",
+          "description": "селектор: sid, client_id, таблица, заголовок"
         },
         "loader": {
-          "type": "string"
+          "type": "string",
+          "description": "загрузчик kebab-слагом"
         },
         "sid": {
-          "type": "string",
-          "description": "Явный WB sid: прямой режим, без резолва клиента"
+          "description": "явный WB sid: прямой режим",
+          "type": "string"
         },
-        "client_id": {
-          "type": "integer",
-          "description": "Явный client_id при неоднозначном селекторе"
+        "client-id": {
+          "description": "сузить селектор до клиента",
+          "type": "string"
         },
-        "state_json": {
-          "type": "string",
-          "description": "Partial-state JSON для reset, напр. '{\"lastLoadedDate\":\"2026-06-08\"}'"
+        "state": {
+          "description": "частичное состояние как есть (JSON)",
+          "type": "string"
         },
-        "from_date": {
-          "type": "string",
-          "description": "YYYY-MM-DD (forward-only loader): перезагрузить начиная с этой даты (ставит lastLoadedDate = дата минус 1 день)"
+        "from": {
+          "description": "дата начала окна YYYY-MM-DD; только для загрузчиков по датам",
+          "type": "string"
         },
-        "and_load": {
-          "type": "boolean",
-          "description": "Следом дёрнуть load (форс-прогон)",
-          "default": false
+        "and-load": {
+          "default": false,
+          "description": "следом дёрнуть форс-прогон",
+          "type": "boolean"
         },
-        "print_mode": {
-          "type": "boolean",
-          "description": "Напечатать эквивалентный curl (+ буфер), без выполнения",
-          "default": false
+        "print": {
+          "default": false,
+          "description": "напечатать вызов и выйти",
+          "type": "boolean"
         }
       },
-      "additionalProperties": false,
       "required": [
         "selector",
         "loader"
-      ]
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "sid": {
+          "type": "string"
+        },
+        "call": {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "body": {}
+          },
+          "required": [
+            "method",
+            "path",
+            "body"
+          ],
+          "additionalProperties": false,
+          "description": "запрос, который команда делает или напечатала"
+        },
+        "printed": {
+          "type": "boolean",
+          "description": "вызов только напечатан"
+        },
+        "response": {
+          "description": "ответ сервера; у печати — null"
+        },
+        "loaded": {
+          "description": "ответ форс-прогона; без --and-load — null"
+        }
+      },
+      "required": [
+        "sid",
+        "call",
+        "printed",
+        "response",
+        "loaded"
+      ],
+      "additionalProperties": false
     },
     "_meta": {
       "anthropic/requiresUserInteraction": true
-    }
-  },
-  {
-    "name": "api_wb_loader_status",
-    "title": "mpu api wb-loader-status",
-    "description": "`mpu api wb-loader-status <selector> <loader>` — состояние wb-loader-app загрузчика.\n\n`mpu api wb-loader-status <selector> <loader>` — состояние wb-loader-app загрузчика.\n\nRead-only: `GET /admin/wb-loader/loaders/<sid>/<loader>/v1/status` (sl-back main\nпроксирует на wb-loader-app). Показывает status/state (incl. `lastLoadedDate` у\nforward-only загрузчиков) + job-progress — без мутаций. Это read-only counterpart\nмутирующих `wb-loader-reset` / `wb-loader-load`.\n\n- `<loader>` — kebab-слаг загрузчика (`adv-normquery-stats`, `cards`, `analytics`, …;\n  shell-автодополнение по списку).\n- Селектор — любой из `mpu search` (client_id / spreadsheet / title / **sid**).\n  Прямой режим по sid: явный `--sid` или селектор сам — полный sid (UUID-форма).\n- `--client-id <id>` — явный client_id при неоднозначном селекторе.\n- `--print` / `-p` — напечатать эквивалентный curl (+ буфер), без выполнения.\n\n\n\b\n── ЗАГРУЗЧИКИ · справка для всех wb-loader-* команд ──\nИмя загрузчика существует в ДВУХ формах; команды принимают РАЗНЫЕ:\n  wb-loader-status / -load / -reset  → kebab-слаг   (cards, fbs-stocks …)\n  wb-loader-blocked / -resume        → camelCase имя (wbCards, wbFbsStocks …)\nВсе 25 — per-sid state machine, любой уходит в blocked. Карта camelCase → kebab:\n    wbCards                     cards\n    wbOrders                    orders\n    wbSales                     sales\n    wbReports                   reports\n    wbAnalytics                 analytics\n    wbFeedbacks                 feedbacks\n    wbAdvertsDetailed           adverts-detailed\n[справка усечена: отброшено 1846 байт]",
-    "annotations": {
-      "readOnlyHint": false
-    },
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "selector": {
-          "type": "string"
-        },
-        "loader": {
-          "type": "string"
-        },
-        "sid": {
-          "type": "string",
-          "description": "Явный WB sid: прямой режим, без резолва клиента"
-        },
-        "client_id": {
-          "type": "integer",
-          "description": "Явный client_id при неоднозначном селекторе"
-        },
-        "print_mode": {
-          "type": "boolean",
-          "description": "Напечатать эквивалентный curl (+ буфер), без выполнения",
-          "default": false
-        }
-      },
-      "additionalProperties": false,
-      "required": [
-        "selector",
-        "loader"
-      ]
     }
   }
 ]

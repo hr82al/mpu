@@ -9,6 +9,9 @@ import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { commands, findLegacy, legacyCommands, surfaces } from "./mod.ts";
 import { type Profile, profileTools } from "../mcp/mod.ts";
+import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
+  type: "json",
+};
 
 const PROFILES: readonly Profile[] = ["ro", "rw"];
 
@@ -121,12 +124,18 @@ Deno.test("тулом становится команда любого марш�
     assertEquals(names.includes("xlsx_ls"), true);
   });
 
-  await t.step("команда маршрута legacy — из слепка", () => {
-    // Подпроцессная команда закрытого списка публикации: пишущая
-    // половина `api` (прежние образцы `search`, `mp-init` и
-    // `sheet batch-get` уехали на `native`).
-    assertEquals(names.includes("api_wb_loader_reset"), true);
-    assertEquals(findLegacy(["api"])?.path, ["api"]);
+  await t.step("публикуемых команд маршрута legacy не осталось", () => {
+    // Прежние образцы — `search`, `mp-init`, `sheet batch-get`,
+    // `api wb-loader-*` — переехали все. Закрытый список публикации
+    // теперь целиком состоит из команд контракта, и это проверяемо:
+    // каждое опубликованное имя есть среди команд реестра.
+    const known = new Set(commands.map((command) => command.path.join(" ")));
+    const published = [...toolPolicies.ro, ...toolPolicies.rw];
+    assertEquals(published.length > 0, true);
+    assertEquals(published.filter((name) => !known.has(name)), []);
+    // Подпроцессные имена в реестре при этом остались: не всё
+    // семейство публикуется тулами.
+    assertEquals(findLegacy(["telegram"])?.path, ["telegram"]);
   });
 
   await t.step("запись реестра вне списка публикации тула не даёт", () => {

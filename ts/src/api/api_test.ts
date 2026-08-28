@@ -433,11 +433,11 @@ Deno.test("get-token не пишет в журнал ни ввода, ни вы�
   assertEquals(command.logsOutput, false);
 });
 
-Deno.test("таблица даёт 95 команд с однострокой «метод + путь»", () => {
-  // 22 читающих, 68 остатка (`api-write.md`), четыре `ss-access`
-  // (`api-ss-access.md`) и `wb-cards-reset`
-  // (`api-wb-cards-reset.md`); шесть `wb-loader-*` ещё не переехали.
-  assertEquals(apiCommands.length, 95);
+Deno.test("таблица даёт 101 команду с однострокой «метод + путь»", () => {
+  // 22 читающих, 68 остатка (`api-write.md`) и одиннадцать кастомных:
+  // четыре `ss-access`, `wb-cards-reset` и шесть `wb-loader-*`.
+  // Неймспейс переехал целиком.
+  assertEquals(apiCommands.length, 101);
   const names = apiCommands.map((command) => command.path[1]);
   // Имя второго сегмента у `ss-access` общее на четыре команды —
   // уникальны пути целиком, а не вторые сегменты.

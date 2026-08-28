@@ -3365,5 +3365,85 @@
       ],
       "additionalProperties": false
     }
+  },
+  {
+    "name": "api_wb_loader_status",
+    "title": "mpu api wb-loader-status",
+    "description": "GET …/loaders/<sid>/<loader>/v1/status — состояние загрузчика.\n\nЧитает состояние одного загрузчика кабинета. LOADER — слаг\n(cards, adv-fullstats), не camelCase: слаг идёт сегментом пути.\n\nЦель — селектор либо --sid; при --sid или селекторе формы sid кэш не\nоткрывается вовсе.\n\nExit: 0 — успех; 1 — отказ sl-back; 2 — негодный слаг, нерезолвимый\nселектор, несколько кабинетов.\n\nПример: mpu api wb-loader-status 777 cards",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "type": "string",
+          "description": "селектор: sid, client_id, таблица, заголовок"
+        },
+        "loader": {
+          "type": "string",
+          "description": "загрузчик kebab-слагом (cards, adv-fullstats, …)"
+        },
+        "sid": {
+          "description": "явный WB sid: прямой режим",
+          "type": "string"
+        },
+        "client-id": {
+          "description": "сузить селектор до клиента",
+          "type": "string"
+        },
+        "print": {
+          "default": false,
+          "description": "напечатать вызов и выйти",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "selector",
+        "loader"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "sid": {
+          "type": "string"
+        },
+        "call": {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "body": {}
+          },
+          "required": [
+            "method",
+            "path",
+            "body"
+          ],
+          "additionalProperties": false,
+          "description": "запрос, который команда делает или напечатала"
+        },
+        "printed": {
+          "type": "boolean",
+          "description": "вызов только напечатан"
+        },
+        "response": {
+          "description": "ответ сервера; у печати — null"
+        }
+      },
+      "required": [
+        "sid",
+        "call",
+        "printed",
+        "response"
+      ],
+      "additionalProperties": false
+    }
   }
 ]

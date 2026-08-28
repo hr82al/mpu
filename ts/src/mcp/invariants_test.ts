@@ -109,37 +109,38 @@ Deno.test("список тулов профиля побитово одинак�
   }
 });
 
-Deno.test("маршрут листа виден по форме опубликованного тула", () => {
-  // Смена маршрута меняет форму ответа тула: у `legacy` это текст
-  // подпроцесса и схемы результата нет вовсе, у `native` — структурный
-  // результат по объявлению команды (`platform/mcp-server.md`). Состав
-  // тулов при этом тот же: имена лежат в закрытом списке публикации.
-  // Пара взята из разных профилей, и это вынужденно: в профиле `ro`
-  // подпроцессных тулов не осталось вовсе — `sheet batch-get` был
-  // последним и переехал вместе с `batch-update`. Образец маршрута
-  // `legacy` поэтому берётся из `rw`: группа `api` останется там до
-  // переезда своей пишущей половины.
-  const tools = profileTools(commands, "ro");
-  const native = tools.find((entry) => entry.tool.name === "kiten_card");
-  const legacy = profileTools(commands, "rw").find(
-    (entry) => entry.tool.name === "api_wb_loader_status",
+Deno.test("публикуемых тулов маршрута legacy не осталось", () => {
+  // Прежде этот тест сверял две формы ответа: у `legacy` текст
+  // подпроцесса и без схемы результата, у `native` — структурный
+  // результат по объявлению. Сверять больше не с чем: последними
+  // подпроцессными тулами были `api wb-loader-status` и `-reset`, и
+  // они переехали вместе со всей группой `api`
+  // (`docs/specs/api-wb-loader.md`).
+  //
+  // Проверяется теперь противоположное — что подпроцессных тулов нет
+  // ни в одном профиле, и что у каждого опубликованного есть схема
+  // результата: она и есть признак маршрута `native`.
+  const native = new Set(commands.map((command) => command.path.join(" ")));
+  for (const profile of PROFILES) {
+    for (const entry of profileTools(commands, profile)) {
+      assertEquals(
+        native.has(entry.path.join(" ")),
+        true,
+        `${entry.tool.name}: тул не из объявления команды`,
+      );
+      assertEquals(
+        entry.tool.outputSchema?.["type"],
+        "object",
+        `${entry.tool.name}: у native-тула объявлена схема результата`,
+      );
+    }
+  }
+  // И один поимённо, чтобы проверка не выродилась в обход пустого
+  // списка: `kiten card` публикуется читающим профилем.
+  const card = profileTools(commands, "ro").find(
+    (entry) => entry.tool.name === "kiten_card",
   );
-
-  assertEquals(native?.path, ["kiten", "card"]);
-  assertEquals(
-    native?.tool.outputSchema?.["type"],
-    "object",
-    "у native-тула объявлена схема результата",
-  );
-  assertEquals(legacy?.path, ["api", "wb-loader-status"]);
-  // У подпроцессного тула схемы результата нет и быть не может: он
-  // отдаёт текст.
-  assertEquals(legacy?.tool.outputSchema, undefined);
-  // Тул не задвоился: имя, опубликованное нативно, из слепка не берётся.
-  assertEquals(
-    tools.filter((entry) => entry.tool.name === "kiten_card").length,
-    1,
-  );
+  assertEquals(card?.path, ["kiten", "card"]);
 });
 
 Deno.test("snapshot списка тулов по каждому профилю", async (t) => {

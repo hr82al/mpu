@@ -22,6 +22,7 @@ import type { Manifest } from "../mcp/legacy_tools.ts";
 export const NOT_LEGACY: readonly string[] = [
   "xlsx",
   "sheet",
+  "api",
   "init",
   "update",
   "sql-ro",

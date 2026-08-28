@@ -70,6 +70,21 @@ const SAMPLE_BACKUP = {
  */
 const SAMPLE_API = { response: { id: 777, title: "Клиент" } };
 
+/** Синтетический sid: прямой режим, кэш обхода не нужен. */
+const SYNTHETIC_SID = "3f2504e0-4f89-11d3-9a0c-0305e82c3301";
+
+/** Общий образец результата команд `wb-loader-*`: печать без сети. */
+const BLOCKED_SAMPLE = {
+  sid: SYNTHETIC_SID,
+  call: {
+    method: "POST",
+    path: "/admin/wb-loader/blocked-loaders/v1/find",
+    body: { filter: {} },
+  },
+  printed: true,
+  response: null,
+};
+
 /** Значение path-параметра для обхода: годное по форме, не по смыслу. */
 function sampleArg(name: string): string {
   const values: Readonly<Record<string, string>> = {
@@ -1681,6 +1696,39 @@ const CASES: readonly CommandCase[] = [
     path: "api list-wb-cabinets",
     argv: [],
     sampleResult: SAMPLE_API,
+  },
+  // Шесть команд группы `wb-loader-*` (`api-wb-loader.md`). У всех
+  // образец с `--print`: он резолвит и печатает, но не ходит в сеть —
+  // ровно то, что обходу нужно от команды, ходящей наружу.
+  {
+    path: "api wb-loader-blocked",
+    argv: ["--print"],
+    sampleResult: BLOCKED_SAMPLE,
+  },
+  {
+    path: "api wb-loader-status",
+    argv: [SYNTHETIC_SID, "cards", "--print"],
+    sampleResult: BLOCKED_SAMPLE,
+  },
+  {
+    path: "api wb-loader-config",
+    argv: [SYNTHETIC_SID, "cards", "--print"],
+    sampleResult: BLOCKED_SAMPLE,
+  },
+  {
+    path: "api wb-loader-load",
+    argv: [SYNTHETIC_SID, "cards", "--print"],
+    sampleResult: BLOCKED_SAMPLE,
+  },
+  {
+    path: "api wb-loader-reset",
+    argv: [SYNTHETIC_SID, "cards", "--print"],
+    sampleResult: { ...BLOCKED_SAMPLE, loaded: null },
+  },
+  {
+    path: "api wb-loader-resume",
+    argv: [SYNTHETIC_SID, "--print"],
+    sampleResult: BLOCKED_SAMPLE,
   },
   {
     // Селектор, которого в кэше обхода нет: вызов отбивается на

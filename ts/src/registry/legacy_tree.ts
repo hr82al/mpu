@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 5 команд верхнего уровня, ещё не переехавших на TS. */
+/** 4 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["d2-miro"],
@@ -31,9 +31,5 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
     path: ["ozon-fix-fo-tax"],
     summary:
       "Починить источник 1₽ и прогнать штатную цепочку пересчёта ОПиУ / Фин отчет SKU.",
-  },
-  {
-    path: ["api"],
-    summary: "HTTP API клиенты для sl-back (бывшие `mpuapi-*`).",
   },
 ];

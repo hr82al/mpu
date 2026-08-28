@@ -64,16 +64,18 @@ Deno.test("mpu help <имя>: справка целевой команды", asy
         calls.push([...args]);
         return Promise.resolve({
           code: 0,
-          stdout: "Usage: mpu api …\n",
+          stdout: "Usage: mpu telegram …\n",
           stderr: "",
         });
       },
       openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/bin/echo" }),
     });
-    assertEquals(await cli.run("help", "mpu api"), 0);
-    // Тот же вызов, что у `mpu api --help`: реестр текст не сочиняет.
-    assertEquals(calls, [["api", "--help"]]);
-    assertEquals(cli.stdout(), "Usage: mpu api …\n");
+    assertEquals(await cli.run("help", "mpu telegram"), 0);
+    // Тот же вызов, что у `mpu telegram --help`: реестр текст не
+    // сочиняет. Образец сменился на `telegram`: `api` переехала
+    // целиком, подпроцессным у неё не осталось ничего.
+    assertEquals(calls, [["telegram", "--help"]]);
+    assertEquals(cli.stdout(), "Usage: mpu telegram …\n");
   });
 });
 
