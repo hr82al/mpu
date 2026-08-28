@@ -93,9 +93,31 @@ export interface Grant {
 }
 
 /**
+ * Частичный уникальный индекс активной выдачи — тот же, по чьим
+ * статусам идёт резолв (снят со стенда 2026-08-28):
+ *
+ * ```sql
+ * CREATE UNIQUE INDEX idx_spreadsheets_access_grants_unique_active_grant
+ *   ON public.spreadsheets_access_grants (spreadsheet_id, grantee_email)
+ *   WHERE status = ANY (ARRAY['created','permission_added','applied'])
+ * ```
+ *
+ * Отсюда следствие, которым пользуется вся группа: активная выдача по
+ * паре (таблица, почта) **не больше одной**. Не «обычно одна», а одна
+ * по построению базы.
+ */
+export const UNIQUE_ACTIVE_INDEX =
+  "idx_spreadsheets_access_grants_unique_active_grant";
+
+/**
  * Активные выдачи по паре (таблица, почта владельца токена). Запрос
  * параметризован: идентификатор таблицы и почта приходят от оператора,
  * и склейка их в текст была бы инъекцией в main-БД.
+ *
+ * Выдач по построению не больше одной, и выборка это проверяет, а не
+ * предполагает: две означают, что индекса больше нет — то есть база
+ * разошлась со снимком, по которому написан резолв. Молча отозвать обе
+ * было бы работой по неверной картине мира.
  */
 export async function activeGrants(
   session: SqlSession,
@@ -121,10 +143,17 @@ export async function activeGrants(
       `в выборке нет колонок grant_id/status: ${outcome.columns.join(", ")}`,
     );
   }
-  return outcome.rows.map((row) => ({
+  const grants = outcome.rows.map((row) => ({
     id: String(row[id]),
     status: String(row[status]),
   }));
+  if (grants.length > 1) {
+    throw new GrantResolveError(
+      `активных выдач ${grants.length}, а индекс ${UNIQUE_ACTIVE_INDEX} ` +
+        "обещает не больше одной — схема базы разошлась со снимком",
+    );
+  }
+  return grants;
 }
 
 /** Запрос к main-БД; любой отказ переводится в отказ резолва. */

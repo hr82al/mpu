@@ -264,29 +264,20 @@ async function revokeGrants(
   grants: readonly Grant[],
   reason: string,
 ): Promise<RevokeResult> {
+  // Цикл — по списку, в котором не больше одной строки: уникальность
+  // держит частичный индекс базы (`ss_access.ts`,
+  // `UNIQUE_ACTIVE_INDEX`), и вторую выдачу резолв не вернёт, а
+  // отобьёт. Отсюда здесь нет ни счётчика отозванных, ни сообщения о
+  // частичном отзыве: код, стерегущий невозможное состояние, читается
+  // как утверждение, что оно бывает, и следующий читатель будет
+  // искать, когда же.
   const responses: unknown[] = [];
-  const revoked: Grant[] = [];
   for (const grant of grants) {
-    try {
-      responses.push(
-        await call(session, "POST", JOBS_PATH, revokeBody(grant.id, reason)),
-      );
-    } catch (err) {
-      // Отзыв идёт по job'у на выдачу, и очередь может отказать на
-      // середине. Сказать, сколько уже отозвано, обязательно: молча
-      // упавший вызов оставил бы оператора думать, что не отозвано
-      // ничего, — а часть выдач уже снята (тот же класс, что у
-      // частичной записи `sheet set`).
-      if (revoked.length === 0) throw err;
-      throw new DomainError(
-        `отозвано выдач: ${revoked.length} из ${grants.length}; ` +
-          `на ${grant.id} очередь отказала — ${reasonOf(err)}`,
-        { cause: err },
-      );
-    }
-    revoked.push(grant);
+    responses.push(
+      await call(session, "POST", JOBS_PATH, revokeBody(grant.id, reason)),
+    );
   }
-  return { revoked, responses };
+  return { revoked: [...grants], responses };
 }
 
 /** Выдачи к отзыву: явная либо найденные резолвом. */

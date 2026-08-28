@@ -218,7 +218,7 @@ Deno.test("status только читает и в main-БД не ходит", as
 
 Deno.test("revoke резолвит выдачи по трём статусам индекса", async () => {
   const { session, sent } = sessionOf();
-  const db = dbOf([[["grant-1", "applied"], ["grant-2", "created"]]]);
+  const db = dbOf([[["grant-1", "applied"]]]);
   const result = await runRevoke({ spreadsheet: SS }, ioOf(), {
     session,
     openSession: db.open,
@@ -230,17 +230,14 @@ Deno.test("revoke резолвит выдачи по трём статусам �
   assertStringIncludes(db.queries[0], "status = ANY($3)");
   // Ключ выдачи зовётся `grant_id`: колонки `id` в таблице нет.
   assertStringIncludes(db.queries[0], "SELECT grant_id, status");
-  // По job'у на выдачу, каждый с причиной по умолчанию.
-  assertEquals(sent.length, 2);
+  // Один job на найденную выдачу, с причиной по умолчанию.
+  assertEquals(sent.length, 1);
   assertEquals(sent[0].path, "/admin/jobs/ss");
   assertEquals(sent[0].body, {
     type: "accessGrantRevoke",
     data: { grantId: "grant-1", revokedByUserId: null, reason: REVOKE_REASON },
   });
-  assertEquals(result.revoked.map((grant) => grant.id), [
-    "grant-1",
-    "grant-2",
-  ]);
+  assertEquals(result.revoked.map((grant) => grant.id), ["grant-1"]);
 });
 
 Deno.test("число отозванных — из работы, а не из длины входа", async () => {
@@ -404,24 +401,18 @@ Deno.test("reset без выдач: ожидания нет вовсе", async (
   assertEquals(sent[0].path, `/admin/ss/${SS}/my-access/request`);
 });
 
-Deno.test("очередь отказала на середине — сказано, сколько уже отозвано", async () => {
-  const { session, sent } = sessionOf((_sent, at) => {
-    if (at === 1) throw new Error("очередь недоступна");
-    return {};
-  });
-  const db = dbOf([[
-    ["grant-1", "applied"],
-    ["grant-2", "created"],
-    ["grant-3", "created"],
-  ]]);
+Deno.test("две активные выдачи — отказ: индекс обещает одну", async () => {
+  const { session, sent } = sessionOf();
+  // Резолв обязан не «отозвать обе», а сказать, что база разошлась со
+  // снимком: уникальность держит частичный индекс, и две активные по
+  // одной паре означают, что индекса больше нет.
+  const db = dbOf([[["grant-1", "applied"], ["grant-2", "created"]]]);
   const err = await assertRejects(
     () =>
       runRevoke({ spreadsheet: SS }, ioOf(), { session, openSession: db.open }),
-    DomainError,
+    GrantResolveError,
   );
-  // Число — из работы: одна выдача отозвана, на второй отказ, третья
-  // не бралась вовсе.
-  assertStringIncludes(err.message, "отозвано выдач: 1 из 3");
-  assertStringIncludes(err.message, "grant-2");
-  assertEquals(sent.length, 2);
+  assertStringIncludes(err.message, "индекс");
+  assertStringIncludes(err.message, "не больше одной");
+  assertEquals(sent.length, 0);
 });
