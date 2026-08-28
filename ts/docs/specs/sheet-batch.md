@@ -15,7 +15,7 @@
 ## CLI-контракт
 
 `mpu sheet batch-update [-e ВЫРАЖЕНИЕ]… [--from FILE|-] [-s ТАБЛИЦА] [-n ЛИСТ] [--dry-run]
-[--allow-py] [-l/--literal]`; `batch-get` — те же флаги без `--allow-py`/`-l`. Скрипт = все
+[-l/--literal]`; `batch-get` — те же флаги без `-l`. Скрипт = все
 `-e` + содержимое `--from` (`-` — stdin), склейка через `\n`; нет ни `-e`, ни `--from`, stdin
 не терминал → скрипт из stdin. Итог пуст (после trim) → exit 2: `mpu sheet batch-update:
 пустой скрипт (-e / --from / stdin)`; у batch-get — свой префикс. `-n/--sheet` — лист по
@@ -72,7 +72,8 @@ COLUMNS|ROWS, startIndex, endIndex}`; буква для строк → `плох
 | `freeze [ЛИСТ] rows=N cols=M` | updateSheetProperties frozenRow/ColumnCount; лист — первый токен, не начатый `rows=`/`cols=`, иначе `-n`; без листа или без ключей — ошибка |
 | `sheet add ИМЯ [rows=N] [cols=N] [index=I]` | addSheet; дефолт 1000×26 |
 | `sheet delete ЛИСТ` · `sheet rename СТАРОЕ НОВОЕ` · `sheet dup ЛИСТ [as ИМЯ]` · `sheet tab ЛИСТ color=#hex` | deleteSheet · updateSheetProperties title · duplicateSheet · updateSheetProperties tabColor |
-| `find-replace НАЙТИ ЗАМЕНА [regex] [case] [formulas] [allsheets \| RANGE-с-!]` | findReplace; `/…/` — регэксп; область: RANGE / allsheets / `-n` (см. отклонения); searchByRegex — всегда |
+| `find-replace НАЙТИ ЗАМЕНА [regex] [case] [formulas] [allsheets \| RANGE-с-!]` | findReplace; `/…/` — регэксп; область: RANGE / allsheets / `-n` (см. отклонения); searchByRegex — истина только при слове `regex`, иначе `false` (замер
+2026-08-28) |
 | `name add ИМЯ RANGE` · `name del id=ID` | addNamedRange · deleteNamedRange |
 
 **Значения.** Токен в кавычках → строка (кавычки сняты); `true`/`false` (регистр любой) →
@@ -91,8 +92,9 @@ BOOLEAN; форма `{type, values: [{userEnteredValue}…]}`; иначе `не�
 **Generic.** `@kind { json }` → запрос `{kind: json}` с сахаром по всему объекту: строка
 `@RANGE` → GridRange, `"sheetId": "@'Лист'"` → id листа, ключ `*Color` со строкой `#…` → цвет;
 `raw { json }` — дословно, без сахара. Не-объект → `ожидался JSON-объект`; невалидный JSON →
-`плохой JSON: <детали>`. **py**: `py{ … }` — выполнение Python-тела при компиляции (только с
-`--allow-py`, иначе `py{…} требует флаг --allow-py` — до выполнения); функции
+`плохой JSON: <детали>`. **py**: `py{ … }` — выполнение Python-тела при компиляции **не поддерживается**: отказ `py{…} не поддерживается; собери инструкции сами
+и передай готовым скриптом`, exit 2, до сети. Флага `--allow-py` не существует —
+неизвестная опция; функции
 `emit("инструкция")` (компилируется рекурсивно), `request({…})` (запрос как есть), `col(i)`,
 `rgb("#…")`, `sheetid("Лист")`, `gridrange("RANGE")`, `read("RANGE")` — значения диапазона
 отдельным `values/batchGet` при компиляции; запросы `request` — раньше `emit`-инструкций
@@ -172,7 +174,8 @@ Env `WB_PLUS_WEB_APP_URL` — `platform/webapp-http.md`; резолв `-s`, ко
 - `''!A1` (пустое имя в кавычках) → «нет имени листа»; `'Лист ''X'''!A1` → лист `Лист 'X'`.
 - `cols insert 8` ≡ `cols insert H`; значение `one-of` с запятой внутри невыразимо
   (ограничение языка).
-- `py{pass}` без `--allow-py` → ошибка (тело не выполняется); batch-get не проверяет
+- `py{pass}` → отказ `py{…} не поддерживается; собери инструкции сами и передай
+  готовым скриптом`, exit 2, тело не выполняется; batch-get не проверяет
   листы/диапазоны на компиляции — ошибка придёт из webapp, exit 1.
 - Скрипт из одних комментариев/пустых строк: batch-update → `нет операций`, exit 0;
   batch-get → `пустой скрипт чтения`, exit 2.
