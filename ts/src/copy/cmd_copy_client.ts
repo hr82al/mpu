@@ -19,6 +19,7 @@ import {
   resolveSelector,
 } from "../selector/mod.ts";
 import { openPgSession } from "../sql/pg.ts";
+import { StatementError } from "../sql/session.ts";
 import type { PgTarget } from "../sql/target.ts";
 import { copyClientData, type OpenSession } from "./client_copy.ts";
 import {
@@ -204,7 +205,13 @@ async function seedSwFront(
       await from.close();
     }
   } catch (err) {
-    const reason = err instanceof Error ? err.message.split("\n")[0] : "";
+    const line = err instanceof Error ? err.message.split("\n")[0] : "";
+    // Метка оператора — то, чего в тексте сервера может не быть вовсе:
+    // «column does not exist» не называет таблицу, а операторов здесь
+    // пять, и все они про разные.
+    const reason = err instanceof StatementError && err.label !== undefined
+      ? `${err.label}: ${line}`
+      : line;
     // Текст дословно из спеки, включая префикс команды.
     io.progress(
       `mpu copy-client: WARN проводка sw-front не удалась (${reason}); ` +

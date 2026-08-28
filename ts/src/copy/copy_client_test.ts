@@ -119,6 +119,14 @@ function sessions(sent: Sent[], replies: Map<string, SqlOutcome> = new Map()) {
         // `1BxiMVs0XRA5…`, и подставной ответ обязан быть таким же.
         return rows(["spreadsheet_id"], [["1BxiMVs0XRA5"], ["ss-второй"]]);
       }
+      // Кабинет клиента: без него три оператора проводки не собираются
+      // вовсе, и их порядок с параметрами остался бы непроверенным на
+      // уровне команды.
+      if (sql.includes("FROM public.clients_wb_cabinets")) {
+        return rows(["sid", "name", "trade_mark"], [
+          ["cab-1", "Магазин", null],
+        ]);
+      }
       if (sql.startsWith("SELECT *")) return rows(["client_id"], [[CLIENT]]);
       return done;
     };
@@ -409,7 +417,13 @@ Deno.test("посев уходит одной транзакцией на при
     // Каждый `run` — своя транзакция: разбив посев на вызовы, мы
     // получили бы commit после каждого DELETE, и упавшая на середине
     // вставка оставила бы стенд без строк клиента вовсе.
-    const seeds = sent.filter((item) => item.kind === "many");
+    // Списком уходит и проводка входа (шаг 6), но она — на своём порту
+    // (5451, БД воркспейсов). Отбор по порту устойчивее отбора по
+    // DELETE: перестань посев начинаться с удаления, и проверка молча
+    // сменила бы предмет.
+    const seeds = sent.filter((item) =>
+      item.kind === "many" && item.port !== 5451
+    );
     assertEquals(seeds.length, 2, "по одному посеву на sl-1 и sl-0");
     const sl1 = seeds.find((item) => item.port === 5441)!;
     assertStringIncludes(sl1.sql, "SET session_replication_role = replica");
@@ -588,11 +602,57 @@ Deno.test("вход в sw-front заводится и печатается", asy
     // Идемпотентно: второй пользователь с тем же адресом сделал бы
     // вход неоднозначным.
     assertStringIncludes(seed!.sql, "ON CONFLICT (email) DO UPDATE");
-    assertStringIncludes(seed!.sql, "client_5175@local.host");
+    // Адрес — в параметрах, а не в тексте: значения проводки уходят
+    // параметрами так же, как значения посева.
+    assertEquals(seed!.params?.includes("client_5175@local.host"), true);
+    assertEquals(seed!.sql.includes("client_5175@local.host"), false);
+    // Кабинет доехал до всех трёх своих операторов, и его sid — тоже
+    // параметром.
+    assertStringIncludes(seed!.sql, "INSERT INTO public.wb_cabinets");
+    assertStringIncludes(seed!.sql, "INSERT INTO public.subscriptions");
+    assertEquals(seed!.params?.includes("cab-1"), true);
+    assertEquals(seed!.sql.includes("cab-1"), false);
     // Строки про вход печатаются только при удавшейся проводке.
     const text = renderCopyClient(result);
     assertStringIncludes(text, "✓ вход: http://sw.localhost/login");
     assertStringIncludes(text, "client_5175@local.host / 123123");
+  });
+});
+
+Deno.test("отказ проводки называет оператор, на котором встала", async () => {
+  await withIo(async (io) => {
+    const lines: string[] = [];
+    const loud = { ...io, progress: (line: string) => void lines.push(line) };
+    const result = await runCopyClient({ selector: String(CLIENT) }, loud, {
+      runTool: tools([0, 0], []),
+      openSession: (target, mode) => {
+        const base = sessions([])(target, mode);
+        if (target.port !== 5451) return base;
+        return base.then((session) => ({
+          ...session,
+          runMany: (statements: readonly Statement[]) =>
+            Promise.reject(
+              new StatementError(
+                1,
+                statements[1]?.label,
+                new Error(
+                  'column "is_active" of relation "workspaces" ' +
+                    "does not exist",
+                ),
+              ),
+            ),
+        }));
+      },
+      tempFile: () => "/tmp/проба.dump",
+      removeFile: () => {},
+      nowMs: () => 0,
+    });
+
+    assertEquals(result.login, false);
+    // Текст сервера таблицы называет не всегда («column does not
+    // exist» её не назвал бы), а операторов в проводке пять — и все про
+    // разные таблицы.
+    assertStringIncludes(lines.join("\n"), "не удалась (workspaces: ");
   });
 });
 
