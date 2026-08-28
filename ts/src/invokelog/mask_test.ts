@@ -240,3 +240,69 @@ Deno.test("помеченный тул: JSON аргументов заменён
     "mpu telegram log REDACTED",
   );
 });
+
+Deno.test("значение объявленной опции пишется, необъявленной — нет", async (t) => {
+  // Объявления команды: `--limit` берёт значение, `--json` булев.
+  const options = [
+    { names: ["--limit", "-l"], takesValue: true },
+    { names: ["--json"], takesValue: false },
+  ];
+
+  await t.step("объявленная читается в обеих формах", () => {
+    assertEquals(
+      commandLine(["log", "--limit", "10"], { options }),
+      "mpu log --limit 10",
+    );
+    assertEquals(
+      commandLine(["log", "--limit=10"], { options }),
+      "mpu log --limit=10",
+    );
+    // Цена прежней границы отменена: `--limit=REDACTED` больше нет.
+    assertEquals(
+      commandLine(["log", "-l", "10"], { options }),
+      "mpu log -l 10",
+    );
+  });
+
+  await t.step("необъявленная прячет значение в обеих формах", () => {
+    // Опечатка в имени секретной опции проходит мимо любого списка
+    // имён — отличить её от обычной можно только по объявлению.
+    assertEquals(
+      commandLine(["log", "--pasword", "hunter2"], { options }),
+      "mpu log --pasword REDACTED",
+    );
+    assertEquals(
+      commandLine(["log", "--pasword=hunter2"], { options }),
+      "mpu log --pasword=REDACTED",
+    );
+  });
+
+  await t.step("булев флаг не съедает соседний токен", () => {
+    // `--json` значения не берёт: следующее слово — не его, и прятать
+    // его значило бы прятать чужое.
+    assertEquals(
+      commandLine(["log", "--json", "sl-1"], { options }),
+      "mpu log --json sl-1",
+    );
+  });
+
+  await t.step("без объявлений — прежнее правило по виду токена", () => {
+    // Запись делается и для вызова, которого реестр не знает: тогда
+    // прячется значение формы с «=», как было до правила.
+    assertEquals(
+      commandLine(["log", "--limit=10"]),
+      "mpu log --limit=REDACTED",
+    );
+  });
+
+  await t.step("чужая командная строка не трогается", () => {
+    // Хвост `ssh` — не наши опции: ради него запись и читают.
+    assertEquals(
+      commandLine(["ssh", "sl-9", "psql", "--tuples-only", "x"], {
+        options,
+        foreignTail: true,
+      }),
+      "mpu ssh sl-9 psql --tuples-only x",
+    );
+  });
+});

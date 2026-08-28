@@ -30,6 +30,14 @@ const BODY_OPTIONS: readonly string[] = ["-b", "--body"];
  */
 const SAFE_WORD = /^[\p{L}\p{N}_@%+=:,./-]+$/u;
 
+/** Опция команды глазами журнала: имена записи и берёт ли значение. */
+export interface KnownOption {
+  /** Формы записи: `--name`, короткая `-n`, отрицание `--no-name`. */
+  readonly names: readonly string[];
+  /** Булев флаг значения не берёт: следующий токен — не его. */
+  readonly takesValue: boolean;
+}
+
 /** Пометка команды: аргументы в запись не попадают ни в каком виде. */
 export interface MaskOptions {
   /**
@@ -45,6 +53,29 @@ export interface MaskOptions {
    * самого пути вместо аргумента.
    */
   readonly path?: readonly string[];
+  /**
+   * Опции, объявленные командой. Значение объявленной опции пишется, а
+   * значение любой другой — нет: опечатка в имени секретной опции
+   * (`--pasword hunter2`) проходит мимо любого списка имён, и отличить
+   * её от обычной опции можно только по объявлению.
+   *
+   * Список приходит из реестра, и это **новая связь**: журнал был от
+   * реестра независим, и независимость была свойством, а не случайностью
+   * — запись делалась и для команды, которой реестр не знает. Платим
+   * ею за то, что список секретных имён перестал быть единственной
+   * защитой (`platform/invoke-log.md`, «Открытые вопросы»).
+   *
+   * Не задан — прежнее поведение: прячется значение формы с «=» у любой
+   * опции. Так пишутся вызовы, для которых объявления нет.
+   */
+  readonly options?: readonly KnownOption[];
+  /**
+   * У команды есть вход, объявленный чужой командной строкой
+   * (`keepsUnknown`): её хвост — не наши опции, и прятать в нём
+   * значения нельзя. Именно ради этого хвоста запись и читают: что
+   * исполнили на сервере (`mpu ssh`, единственный такой вход).
+   */
+  readonly foreignTail?: boolean;
 }
 
 /** Строка команды CLI: литеральное `mpu`, затем argv после маскирования. */
@@ -52,9 +83,13 @@ export function commandLine(
   argv: readonly string[],
   options: MaskOptions = {},
 ): string {
-  const masked = options.path === undefined
+  const masked = options.path !== undefined
+    ? maskAfterPath(argv, options.path)
+    // Чужая командная строка в хвосте — не наши опции: значения в ней
+    // не прячутся, иначе запись потеряет то, ради чего её читают.
+    : options.foreignTail === true
     ? maskArgv(argv)
-    : maskAfterPath(argv, options.path);
+    : maskArgv(argv, options);
   return ["mpu", ...masked.map(shellQuote)].join(" ");
 }
 
@@ -154,7 +189,11 @@ function maskJsonValue(value: unknown): Masked {
  * записи журнала нет схемы команды, а секрет обязан быть замаскирован и
  * у команды, которой реестр не знает.
  */
-function maskArgv(argv: readonly string[]): readonly string[] {
+function maskArgv(
+  argv: readonly string[],
+  options: MaskOptions = {},
+): readonly string[] {
+  const known = options.options;
   const out: string[] = [];
   // Что делать со следующим аргументом: он значение опции, названной
   // предыдущим словом.
@@ -170,32 +209,41 @@ function maskArgv(argv: readonly string[]): readonly string[] {
       pending = "none";
       continue;
     }
-    if (!arg.startsWith("-")) {
+    if (!arg.startsWith("-") || arg === "-" || arg === "--") {
       out.push(arg);
       continue;
     }
     const eq = arg.indexOf("=");
+    const name = eq < 0 ? arg : arg.slice(0, eq);
+    const declared = optionOf(known, name);
+    // Значение объявленной опции пишется: она не может оказаться
+    // опечаткой в имени секретной, а читаемость записи — то, ради чего
+    // журнал ведут (`--limit 10`, `--since 1m`).
+    const hides = isSecretName(name) ||
+      (known !== undefined && declared === undefined);
     if (eq < 0) {
-      pending = isSecretName(arg)
-        ? "secret"
-        : isBodyOption(arg)
-        ? "body"
-        : "none";
+      pending = hides ? "secret" : isBodyOption(name) ? "body" : "none";
+      // Булев флаг значения не берёт: следующий токен — не его, и
+      // прятать его значило бы прятать чужое.
+      if (declared?.takesValue === false) pending = "none";
       out.push(arg);
       continue;
     }
-    const name = arg.slice(0, eq);
     const value = arg.slice(eq + 1);
-    // Тело разбирается по ключам, всё остальное прячется целиком: имя
-    // опции в записи остаётся, значение — нет. Список секретных имён
-    // слеп к опечатке (`--pasword=hunter2` мимо него проходит), а
-    // опечатка в имени секретной опции — обычный способ набрать
-    // секрет; поэтому значение при форме с «=» не печатается ни у
-    // какой команды.
+    // Тело разбирается по ключам; прочее — целиком, имя остаётся.
     if (isBodyOption(name)) out.push(`${name}=${maskJsonText(value)}`);
-    else out.push(`${name}=${REDACTED}`);
+    else if (hides || known === undefined) out.push(`${name}=${REDACTED}`);
+    else out.push(arg);
   }
   return out;
+}
+
+/** Объявление опции по любой её форме записи. */
+function optionOf(
+  known: readonly KnownOption[] | undefined,
+  name: string,
+): KnownOption | undefined {
+  return known?.find((option) => option.names.includes(name));
 }
 
 /** Имя опции называет секрет: сравнение по подстроке, без учёта регистра. */

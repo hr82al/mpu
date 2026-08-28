@@ -14,8 +14,14 @@
  * прямом вызове.
  */
 
+import type { InputSpec } from "../command/mod.ts";
 import { appendRecord } from "./file.ts";
-import { commandLine, REDACTED, toolCommandLine } from "./mask.ts";
+import {
+  commandLine,
+  type KnownOption,
+  REDACTED,
+  toolCommandLine,
+} from "./mask.ts";
 import { formatRecord } from "./record.ts";
 import { type LogEnv, readSettings } from "./settings.ts";
 
@@ -50,6 +56,14 @@ export interface OutputPolicy {
    * обязан идти сплошным блоком (`mask.ts`, `maskAfterPath`).
    */
   readonly path: readonly string[];
+  /**
+   * Входы команды из argv. По ним журнал отличает объявленную опцию от
+   * неизвестной и пишет значение только у первой
+   * (`platform/invoke-log.md`). Поле необязательное: запись делается и
+   * для вызова, которого реестр не знает, — тогда действует прежнее
+   * правило по виду токена.
+   */
+  readonly inputs?: readonly InputSpec[];
 }
 
 /**
@@ -222,6 +236,33 @@ function errSection(
   return text === "" ? "" : `${REDACTED}\n`;
 }
 
+/**
+ * Объявленные опции команды глазами маски. Позиционные входы сюда не
+ * попадают: у них нет имени в argv, и значение у них своё. Вход с
+ * чужой командной строкой снимает правило целиком — её хвост не наш.
+ */
+function optionsOf(policy: OutputPolicy): {
+  options?: readonly KnownOption[];
+  foreignTail?: boolean;
+} {
+  const inputs = policy.inputs;
+  if (inputs === undefined) return {};
+  if (inputs.some((input) => input.form.keepsUnknown === true)) {
+    return { foreignTail: true };
+  }
+
+  const options: KnownOption[] = [];
+  for (const input of inputs) {
+    if (input.form.positional !== undefined) continue;
+    const names = [`--${input.name}`];
+    if (input.form.short !== undefined) names.push(`-${input.form.short}`);
+    // Отрицательная форма булева входа — его же имя (`--no-images`).
+    if (input.kind === "boolean") names.push(`--no-${input.name}`);
+    options.push({ names, takesValue: input.kind !== "boolean" });
+  }
+  return { options };
+}
+
 function lineOf(command: InvokeCommand, policy: OutputPolicy): string {
   const masked = !policy.logsArguments;
   switch (command.kind) {
@@ -232,7 +273,7 @@ function lineOf(command: InvokeCommand, policy: OutputPolicy): string {
       // с путём, а не длиной (`mask.ts`, `maskAfterPath`).
       return commandLine(
         command.argv,
-        masked ? { path: policy.path } : {},
+        masked ? { path: policy.path } : optionsOf(policy),
       );
     case "tool":
       return toolCommandLine(command.path, command.input, { masked });

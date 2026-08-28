@@ -495,3 +495,52 @@ Deno.test("пометка «без записи аргументов»: текс
     },
   );
 });
+
+Deno.test("журнал: значение опции по объявлению команды", async (t) => {
+  await t.step("объявленная опция читается целиком", async () => {
+    await withStand(async (stand) => {
+      // `--since` объявлена `mpu log` и берёт значение: запись обязана
+      // остаться читаемой, иначе журнал перестаёт годиться для разбора.
+      await cli(stand, ["log", "--since", "1m", "--file", "/нет/такого.log"]);
+      assertMatch(await stand.text(), /^\$ mpu log --since 1m /mu);
+    });
+  });
+
+  await t.step("необъявленная прячет значение в обеих формах", async () => {
+    for (
+      const argv of [
+        ["log", "--pasword", "hunter2"],
+        ["log", "--pasword=hunter2"],
+      ]
+    ) {
+      await withStand(async (stand) => {
+        const outcome = await cli(stand, argv);
+        const text = await stand.text();
+        // Ни в строке вызова, ни в секции ошибки — а обе поверхности
+        // обязаны вести себя одинаково: одна дырка сводит на нет вторую
+        // защиту.
+        assertEquals(text.includes("hunter2"), false);
+        assertEquals(outcome.stderr.includes("hunter2"), false);
+        assertStringIncludes(text, "--pasword");
+      });
+    }
+  });
+
+  await t.step("хвост ssh пишется целиком", async () => {
+    await withStand(async (stand) => {
+      // Запись делается тем же путём, что у точки входа, но команда не
+      // исполняется: проверяется журнал, а не поход в контейнер.
+      const argv = ["ssh", "sl-9", "psql", "--tuples-only", "-c", "SELECT 1"];
+      const ssh = commands.find((command) => command.path.join(" ") === "ssh");
+      assertEquals(ssh?.inputs.some((input) => input.form.keepsUnknown), true);
+      const record = stand.log.begin({ kind: "argv", argv });
+      record.nativeCall(ssh!);
+      await record.finish(0);
+      const text = await stand.text();
+      // Чужая командная строка цела: ради неё запись и читают.
+      assertStringIncludes(text, "--tuples-only");
+      assertStringIncludes(text, "SELECT 1");
+      assertEquals(text.includes("REDACTED"), false);
+    });
+  });
+});
