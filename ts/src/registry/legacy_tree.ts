@@ -12,7 +12,7 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 7 команд верхнего уровня, ещё не переехавших на TS. */
+/** 6 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["sheet"],
@@ -21,10 +21,6 @@ export const LEGACY_TREE: readonly LegacyCommand[] = [
   {
     path: ["d2-miro"],
     summary: "Рендер d2-диаграммы в Miro как редактируемый фрейм.",
-  },
-  {
-    path: ["glab-status"],
-    summary: "Таблица прохождения MR по веткам деплой-пайплайна.",
   },
   {
     path: ["telegram"],

@@ -73,7 +73,11 @@ export async function mrAddress(
  * найден» и «дискуссия не найдена»: сущности нет на стороне GitLab, а
  * не в наборанной строке (`mr-read.md`, «Открытые вопросы»).
  */
-export function asCommandError(io: MrIo, err: unknown): unknown {
+export function asCommandError(
+  io: MrIo,
+  err: unknown,
+  notFoundHint = "проверь --mr (URL | 'group/repo!iid' | iid)",
+): unknown {
   if (err instanceof MrRefError) {
     return err.input
       ? new UsageError(err.message, { cause: err })
@@ -83,22 +87,30 @@ export function asCommandError(io: MrIo, err: unknown): unknown {
     return new DomainError(err.message, { cause: err });
   }
   if (err instanceof GitlabError) {
-    return new DomainError(`gitlab error: ${err.message}${hintFor(io, err)}`, {
-      cause: err,
-    });
+    return new DomainError(
+      `gitlab error: ${err.message}${hintFor(io, err, notFoundHint)}`,
+      { cause: err },
+    );
   }
   return err;
 }
 
 /** Подсказка по коду ответа: чинить токен либо форму селектора. */
-function hintFor(io: MrIo, err: GitlabError): string {
+function hintFor(
+  io: MrIo,
+  err: GitlabError,
+  notFoundHint: string,
+): string {
   if (err.status === 401) {
     // Называется ключ и путь файла, но не значение: токен не попадает
     // ни в один текст (инвариант спеки).
     return `; проверь GLAB_TOKEN в ${envFilePathOf(io)}`;
   }
   if (err.status === 404) {
-    return "; проверь --mr (URL | 'group/repo!iid' | iid)";
+    // Текст подсказки задаёт вызывающий: у `mpu glab-status` селектор
+    // позиционный, и советовать там `--mr` значило бы послать за
+    // флагом, которого команда не примет.
+    return `; ${notFoundHint}`;
   }
   return "";
 }

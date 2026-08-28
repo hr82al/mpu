@@ -1,0 +1,14 @@
+[
+  {
+    "repo": "repo",
+    "iid": 456,
+    "title": "feat(scope): краткое описание",
+    "state": "opened",
+    "web_url": "https://gitlab.example.test/group/repo/-/merge_requests/456",
+    "landed": [],
+    "project": "group/repo",
+    "source_branch": "feat/scope/change",
+    "target_branch": "main",
+    "other_branches": null
+  }
+]

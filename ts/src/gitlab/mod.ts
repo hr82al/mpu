@@ -13,12 +13,16 @@ export { DEFAULT_BASE_URL, type GitlabAccess, GitlabError } from "./http.ts";
 export {
   type ChangedFile,
   type Discussion,
+  type MergeRequest,
+  mergeRequestOf,
   type NotePosition,
+  type RawObject,
 } from "./model.ts";
 export {
   type GitOutcome,
   type MrAddress,
   MrRefError,
+  parseMrRef,
   projectFromRemote,
   type ResolveContext,
   resolveMr,
@@ -26,11 +30,13 @@ export {
 } from "./resolve.ts";
 export {
   changedFiles,
+  commitBranches,
   createDiscussion,
   createMergeRequest,
   deleteNote,
   discussions,
   mergeRequest,
+  myMergeRequests,
   replyToDiscussion,
   setDiscussionResolved,
   updateDescription,

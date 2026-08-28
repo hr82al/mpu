@@ -68,6 +68,7 @@ export const NOT_LEGACY: readonly string[] = [
   "copy-dev",
   "move-client",
   "move-client-back",
+  "glab-status",
   "help",
   "version",
 ];

@@ -29,6 +29,7 @@ import {
   noteOf,
 } from "./model.ts";
 import type { MrAddress } from "./resolve.ts";
+import type { RawObject } from "./model.ts";
 
 /** Префикс всех вызовов одного MR. */
 function mrPath(address: MrAddress): string {
@@ -176,4 +177,48 @@ export async function createMergeRequest(
   if (fields.description !== "") form.description = fields.description;
   const body = await gitlabSend(access, "POST", path, form);
   return mergeRequestOf(asObject(body, path), project);
+}
+
+/**
+ * Ветки, содержащие коммит: GET
+ * `…/repository/commits/{sha}/refs?type=branch` (`glab-status.md`).
+ *
+ * 404 означает «коммита на хосте нет» — например, после переписывания
+ * истории. Это НЕ пустой список веток: пустой список говорит «коммит
+ * есть, но ни в одной ветке», а тут данных нет вовсе, и путать их
+ * нельзя (отклонение `fix` спеки). Отсюда `undefined` вместо `[]`.
+ */
+export async function commitBranches(
+  access: GitlabAccess,
+  projectId: number,
+  sha: string,
+): Promise<readonly string[] | undefined> {
+  const path = `/projects/${projectId}/repository/commits/` +
+    `${encodeURIComponent(sha)}/refs`;
+  try {
+    const raw = await gitlabGetAll(access, path, { type: "branch" });
+    return raw
+      .map((row) => (typeof row.name === "string" ? row.name : ""))
+      .filter((name) => name !== "");
+  } catch (err) {
+    if (err instanceof GitlabError && err.status === 404) return undefined;
+    throw err;
+  }
+}
+
+/**
+ * Мои MR за окно: глобальный эндпоинт `/merge_requests`. Проекта он не
+ * отдаёт — его восстанавливает вызывающий из `web_url`
+ * (`glab-status.md`, «Режим мои MR»).
+ */
+export async function myMergeRequests(
+  access: GitlabAccess,
+  updatedAfter: string,
+): Promise<readonly RawObject[]> {
+  return await gitlabGetAll(access, "/merge_requests", {
+    scope: "created_by_me",
+    updated_after: updatedAfter,
+    order_by: "created_at",
+    sort: "asc",
+  });
 }

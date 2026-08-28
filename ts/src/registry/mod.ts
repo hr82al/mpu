@@ -102,6 +102,7 @@ import {
   copySharedCommand,
 } from "../copy/mod.ts";
 import { configCommand } from "../config/cmd_config.ts";
+import { glabStatusCommand } from "../glab/mod.ts";
 import { moveClientBackCommand, moveClientCommand } from "../move/mod.ts";
 import { mpInitCommand } from "../mpinit/mod.ts";
 import {
@@ -299,6 +300,9 @@ export const commands: readonly Command[] = [
   // сам перенос исполняют воркеры (`move-client.md`).
   moveClientCommand,
   moveClientBackCommand,
+  // Прохождение MR по веткам пайплайна: читающая команда поверх того
+  // же атома GitLab, что и семейство `mr` (`glab-status.md`).
+  glabStatusCommand,
 ];
 
 /**

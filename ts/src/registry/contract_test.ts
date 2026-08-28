@@ -1394,6 +1394,28 @@ const CASES: readonly CommandCase[] = [
     sampleResult: { action: "ls", moves: [], removed: false, exitCode: 0 },
   },
   {
+    // У обхода нет GLAB_TOKEN: вызов отбивается на конфигурации до
+    // сети. Образец — для инвариантов рендера и сериализации.
+    path: "glab-status",
+    argv: ["group/repo!456"],
+    sampleResult: {
+      rows: [{
+        repo: "repo",
+        iid: 456,
+        title: "feat(scope): краткое описание",
+        state: "opened",
+        web_url: "https://gitlab.example.test/group/repo/-/merge_requests/456",
+        landed: [],
+        project: "group/repo",
+        source_branch: "feat/scope/change",
+        target_branch: "main",
+        other_branches: null,
+      }],
+      selectors: true,
+      columns: null,
+    },
+  },
+  {
     path: "telegram log",
     // Ключей бота в env-файле обхода нет: вызов обязан отбиться на
     // конфигурации, до сети.
