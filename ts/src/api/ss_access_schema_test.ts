@@ -21,19 +21,16 @@ import {
   RESOLVE_COLUMNS,
 } from "./ss_access.ts";
 import type { SqlSession } from "../sql/session.ts";
+import { schemaGoldens } from "./schema_golden.ts";
 
-/** Состав колонок из голдена: по имени на строку, пустые пропускаются. */
+/** Состав колонок из голдена — общим загрузчиком, без второй копии. */
 async function goldenColumns(): Promise<readonly string[]> {
-  const text = await Deno.readTextFile(
-    new URL(
-      "../../docs/specs/fixtures/api/schema/" +
-        "spreadsheets_access_grants.columns",
-      import.meta.url,
-    ),
+  const goldens = await schemaGoldens();
+  const grants = goldens.find((one) =>
+    one.table === "spreadsheets_access_grants"
   );
-  return text.split("\n").map((line) => line.trim()).filter((line) =>
-    line !== ""
-  );
+  if (grants === undefined) throw new Error("голдена таблицы выдач нет");
+  return grants.columns;
 }
 
 /** Текст запроса, каким его отправит резолв. */

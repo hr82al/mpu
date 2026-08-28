@@ -22,6 +22,14 @@ import { PROTOCOL_VERSION } from "../src/mcp/jsonrpc.ts";
 import { DEFAULT_LEGACY_BIN } from "../src/legacy/mod.ts";
 import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/http/mod.ts";
 import { WARMUP_BUDGET_MS } from "../src/kaiten/mod.ts";
+import { envFilePath, makeEnvFile } from "../src/env/mod.ts";
+import { makeEnvFileStore } from "../src/runtime/mod.ts";
+import { denoSession } from "../src/sql/mod.ts";
+import {
+  compareColumns,
+  schemaCheckPlan,
+  schemaGoldens,
+} from "../src/api/schema_golden.ts";
 
 /**
  * Значения `_MPU_COMPLETE` и переменные, которые подставляет shell.
@@ -306,6 +314,45 @@ function stopServer(child: Deno.ChildProcess): void {
 
 /** Проверка: имя для отчёта и запуск, падающий с объяснением. */
 type Check = readonly [name: string, run: () => Promise<void>];
+
+/**
+ * Сессия main-БД по реквизитам оператора. Недостижимая база — пропуск,
+ * а не провал: стенд поднимают не всегда, и «не с чем сверять» — другой
+ * исход, чем «сверили и разошлось».
+ */
+async function openMainDb() {
+  const path = envFilePath((name) => Deno.env.get(name));
+  const envFile = makeEnvFile(
+    path === undefined ? undefined : makeEnvFileStore(path),
+  );
+  const plan = schemaCheckPlan(envFile);
+  if (plan.kind === "skip") throw new Skipped(plan.reason);
+  try {
+    return await denoSession("read-only")(plan.target);
+  } catch (err) {
+    throw new Skipped(
+      `main-БД недоступна (стенд не поднят?): ${reasonLine(err)}`,
+    );
+  }
+}
+
+/** Колонки таблицы по живой `information_schema`; только чтение. */
+async function liveColumns(
+  session: Awaited<ReturnType<typeof openMainDb>>,
+  table: string,
+): Promise<readonly string[]> {
+  const outcome = await session.query(
+    "SELECT column_name FROM information_schema.columns" +
+      " WHERE table_schema = $1 AND table_name = $2 ORDER BY column_name",
+    ["public", table],
+  );
+  if (outcome.kind !== "rows") return [];
+  return outcome.rows.map((row) => String(row[0]));
+}
+
+function reasonLine(err: unknown): string {
+  return (err instanceof Error ? err.message : String(err)).split("\n")[0];
+}
 
 function checks(subject: Subject): readonly Check[] {
   return [
@@ -681,6 +728,47 @@ function checks(subject: Subject): readonly Check[] {
         );
       } finally {
         await Deno.remove(`${configDir}/.env`);
+      }
+    }],
+    ["схема main-БД: голдены сходятся с information_schema", async () => {
+      // Единственная проверка smoke, которой нужен живой стенд.
+      // Остальное здесь работает всегда, поэтому пропуск тут — не
+      // формальность: без него голдены схемы сверялись бы только сами с
+      // собой, а расхождение с базой ловила бы живая пара (замер порции
+      // 79: колонки `id` в таблице нет вовсе).
+      const goldens = await schemaGoldens();
+      assert(goldens.length > 0, "голденов схемы нет вовсе");
+      const session = await openMainDb();
+      try {
+        for (const golden of goldens) {
+          const live = await liveColumns(session, golden.table);
+          if (live.length === 0) {
+            throw new Error(
+              `таблицы ${golden.table} в main-БД нет, а голден её описывает`,
+            );
+          }
+          // Сверка — общей функцией, проверяемой своим тестом: вторая
+          // её копия здесь разошлась бы с первой незаметно.
+          const diff = compareColumns(golden.columns, live);
+          // Обе стороны названы своими словами: пропавшая колонка и
+          // новая — разные новости, и чинятся они по-разному.
+          assertEquals(
+            diff.missing,
+            [],
+            `${golden.table}: в базе нет колонок голдена: ${
+              diff.missing.join(", ")
+            }`,
+          );
+          assertEquals(
+            diff.extra,
+            [],
+            `${golden.table}: в базе есть колонки сверх голдена: ${
+              diff.extra.join(", ")
+            }`,
+          );
+        }
+      } finally {
+        await session.close();
       }
     }],
     ["mcp: сокет, токен, аннотации тулов", () => checkMcpServer(subject)],
