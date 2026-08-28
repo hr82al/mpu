@@ -63,6 +63,7 @@ export const READ_ENDPOINTS: readonly EndpointSpec[] = [
     name: "list-client-ozon-keys",
     method: "GET",
     path: "/admin/client/:clientId/ozon/apikey",
+    secrets: true,
   },
   {
     name: "list-client-spreadsheets",
@@ -83,6 +84,7 @@ export const READ_ENDPOINTS: readonly EndpointSpec[] = [
     name: "list-client-wb-tokens",
     method: "GET",
     path: "/admin/client/:clientId/wb/token",
+    secrets: true,
   },
   { name: "list-clients", method: "GET", path: "/admin/client" },
   { name: "list-roles", method: "GET", path: "/admin/roles" },

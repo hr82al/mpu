@@ -189,10 +189,19 @@ Deno.test("2xx с пустым телом — нет данных, а не ош�
   }
 });
 
-Deno.test("тело ответа обрезается с маркером и числом байт хвоста", () => {
-  assertEquals(truncate("ровно", 5), "ровно");
-  // Хвост считается в байтах: кириллица — по два на символ.
-  assertEquals(truncate("аб", 1), "а…(+2 bytes)");
+Deno.test("обрезка считает байты, а не символы, с обеих сторон", () => {
+  // Пять кириллических символов — десять байт: под предел 10 текст
+  // проходит целиком, под 9 уже нет.
+  assertEquals(truncate("ровно", 10), "ровно");
+  assertEquals(truncate("ровно", 9), "ровн…(+2 bytes)");
+  assertEquals(truncate("abc", 3), "abc");
+  assertEquals(truncate("abcde", 3), "abc…(+2 bytes)");
+});
+
+Deno.test("разрез не приходится на середину символа", () => {
+  // Предел 3 байта: два кириллических символа не влезают, один влезает
+  // с запасом в байт — лучше отдать байт, чем половину буквы.
+  assertEquals(truncate("абв", 3), "а…(+4 bytes)");
 });
 
 Deno.test("числа ответа печатаются как пришли, без потери точности", async () => {
@@ -256,7 +265,8 @@ Deno.test("тело отказа режется на 500 символов, не-
       SlbackError,
     );
     assertEquals(failed.body, truncate(long, 500));
-    assertEquals(failed.body.startsWith("я".repeat(500) + "…(+"), true);
+    // 500 байт — это 250 кириллических символов, а не 500.
+    assertEquals(failed.body.startsWith("я".repeat(250) + "…(+"), true);
 
     const nonJson = await assertRejects(
       () => session.call("GET", "/admin/roles"),

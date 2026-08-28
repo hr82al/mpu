@@ -250,6 +250,24 @@ Deno.test("сегмент пути '..' отбивается до сети", asy
   }
 });
 
+Deno.test("ответ с чужими секретами в журнал не пишется", () => {
+  // Пометка живёт в строке таблицы, поэтому проверяется по таблице:
+  // список имён рядом с ней разошёлся бы с ней же.
+  const secret = READ_ENDPOINTS.filter((endpoint) => endpoint.secrets === true)
+    .map((endpoint) => endpoint.name);
+  assertEquals(secret, ["list-client-ozon-keys", "list-client-wb-tokens"]);
+  for (const endpoint of READ_ENDPOINTS) {
+    assertEquals(
+      commandOf(endpoint.name).logsOutput,
+      !secret.includes(endpoint.name),
+      `api ${endpoint.name}: пометка журнала разошлась с таблицей`,
+    );
+  }
+  // `get-token` в таблице не объявлен: он кастомный, и вывод у него
+  // скрыт своей причиной — живым токеном sl-back.
+  assertEquals(commandOf("get-token").logsOutput, false);
+});
+
 Deno.test("у каждого path-параметра таблицы есть пояснение", () => {
   // Пояснение необязательно по построению (иначе новый эндпоинт стоил
   // бы двух правок), поэтому полноту стережёт тест: без него справка

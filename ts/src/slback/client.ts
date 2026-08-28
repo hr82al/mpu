@@ -17,7 +17,7 @@ import { httpSend } from "../http/mod.ts";
  */
 export const SLBACK_TIMEOUT_MS = 30_000;
 
-/** Сколько символов тела ответа попадает в текст отказа HTTP ≥ 400. */
+/** Сколько байт тела ответа попадает в текст отказа HTTP ≥ 400. */
 export const ERROR_BODY_LIMIT = 500;
 /** Сколько — в текст отказа «ответ не JSON» и «нет accessToken». */
 export const RESPONSE_LIMIT = 200;
@@ -45,15 +45,31 @@ export class SlbackError extends Error {
 }
 
 /**
- * Обрезка длинного текста с маркером спеки. Предел считается в
- * символах, а число в маркере — в байтах отброшенного хвоста: так
- * читатель понимает, сколько он не увидел, в единицах, в которых
- * измеряется ответ.
+ * Обрезка длинного текста с маркером спеки. Обе величины — байты:
+ * прежняя реализация перехватывает ответ байтовыми кусками, бюджет у
+ * неё в байтах, и `dropped` копится там же в байтах. Считать предел в
+ * символах значило бы разойтись с ней вдвое на любом кириллическом
+ * теле.
+ *
+ * Граница ставится по символам, а не по байтам: обрезать посреди
+ * многобайтового символа значит напечатать символ-заменитель вместо
+ * буквы. Из-за этого граница бывает на два-три байта левее предела —
+ * расхождение видно только на теле, чей разрез пришёлся ровно на
+ * середину символа.
  */
 export function truncate(text: string, limit: number): string {
-  if (text.length <= limit) return text;
-  const dropped = new TextEncoder().encode(text.slice(limit)).length;
-  return `${text.slice(0, limit)}…(+${dropped} bytes)`;
+  const encoder = new TextEncoder();
+  const total = encoder.encode(text).length;
+  if (total <= limit) return text;
+  let kept = 0;
+  let head = "";
+  for (const char of text) {
+    const size = encoder.encode(char).length;
+    if (kept + size > limit) break;
+    kept += size;
+    head += char;
+  }
+  return `${head}…(+${total - kept} bytes)`;
 }
 
 /** Что нужно знать вызову сверх адреса. */
