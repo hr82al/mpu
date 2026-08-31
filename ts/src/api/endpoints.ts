@@ -5,7 +5,10 @@
  *
  * Методы и пути сняты дословно с машинного слепка дерева рабочей
  * версии (`docs/specs/fixtures/platform/registry/tree.json`, записи
- * группы `api`), а форма вывода — с голденов `fixtures/api/`.
+ * группы `api`), а форма вывода — с голденов `fixtures/api/`. Состав и
+ * снятое сверяет `endpoints_snapshot_test.ts` с эталоном объекта
+ * (`docs/specs/fixtures/api/read-endpoints.json`) — общей сверкой с
+ * пишущей половиной.
  *
  * Пишущей половины здесь нет намеренно: `create-*`, `delete-*`,
  * `update-*`, `auth-*`, семейства задач (`*-jobs-*`) и `integrity-*`

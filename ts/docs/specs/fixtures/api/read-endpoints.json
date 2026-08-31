@@ -1,0 +1,400 @@
+[
+ {
+  "name": "get-token",
+  "method": "POST",
+  "path": "/auth/login",
+  "summary": "POST /auth/login → print accessToken (cached 10 min)",
+  "description": "POST /auth/login. По умолчанию использует TOKEN_EMAIL / TOKEN_PASSWORD из ~/.config/mpu/.env. Кэширует токен в ~/.config/mpu/.api-token.json (TTL 10 мин); последующие mpuapi-* команды переиспользуют его.",
+  "path_params": [],
+  "body_fields": [
+   {
+    "name": "email",
+    "type": "string",
+    "required": false,
+    "description": "login email (default: env TOKEN_EMAIL)"
+   },
+   {
+    "name": "password",
+    "type": "string",
+    "required": false,
+    "description": "password (default: env TOKEN_PASSWORD)"
+   }
+  ],
+  "accepts_raw_body": false,
+  "no_auth": true,
+  "token_only": true
+ },
+ {
+  "name": "list-users",
+  "method": "GET",
+  "path": "/admin/user",
+  "summary": "GET /admin/user",
+  "description": null,
+  "path_params": [],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "get-user",
+  "method": "GET",
+  "path": "/admin/user/:userId",
+  "summary": "GET /admin/user/:userId",
+  "description": null,
+  "path_params": [
+   {
+    "name": "userId",
+    "description": "numeric user/client id"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "list-roles",
+  "method": "GET",
+  "path": "/admin/roles",
+  "summary": "GET /admin/roles",
+  "description": null,
+  "path_params": [],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "list-clients",
+  "method": "GET",
+  "path": "/admin/client",
+  "summary": "GET /admin/client",
+  "description": null,
+  "path_params": [],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "get-client",
+  "method": "GET",
+  "path": "/admin/client/:userId",
+  "summary": "GET /admin/client/:userId",
+  "description": null,
+  "path_params": [
+   {
+    "name": "userId",
+    "description": "numeric user/client id"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "list-client-modules",
+  "method": "GET",
+  "path": "/admin/client/:clientId/modules",
+  "summary": "GET /admin/client/:clientId/modules",
+  "description": null,
+  "path_params": [
+   {
+    "name": "clientId",
+    "description": "numeric client_id"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "get-client-module",
+  "method": "GET",
+  "path": "/admin/client/:clientId/modules/:module",
+  "summary": "GET /admin/client/:clientId/modules/:module",
+  "description": null,
+  "path_params": [
+   {
+    "name": "clientId",
+    "description": "numeric client_id"
+   },
+   {
+    "name": "module",
+    "description": "имя модуля (список — list-client-modules / list-wb-cabinet-modules; модули предзаведены, только вкл/выкл)"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "list-wb-cabinets",
+  "method": "GET",
+  "path": "/admin/wb-cabinets",
+  "summary": "GET /admin/wb-cabinets",
+  "description": null,
+  "path_params": [],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "get-wb-cabinets-by-sid",
+  "method": "GET",
+  "path": "/admin/wb-cabinets/by-sid/:sid",
+  "summary": "GET /admin/wb-cabinets/by-sid/:sid",
+  "description": null,
+  "path_params": [
+   {
+    "name": "sid",
+    "description": "WB seller sid"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "list-client-wb-cabinets",
+  "method": "GET",
+  "path": "/admin/client/:clientId/wb-cabinets",
+  "summary": "GET /admin/client/:clientId/wb-cabinets",
+  "description": null,
+  "path_params": [
+   {
+    "name": "clientId",
+    "description": "numeric client_id"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "list-wb-cabinet-modules",
+  "method": "GET",
+  "path": "/admin/client/:clientId/wb-cabinets-modules",
+  "summary": "GET /admin/client/:clientId/wb-cabinets-modules",
+  "description": null,
+  "path_params": [
+   {
+    "name": "clientId",
+    "description": "numeric client_id"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "get-wb-cabinet-module",
+  "method": "GET",
+  "path": "/admin/client/:clientId/wb-cabinets-modules/:sid/:module",
+  "summary": "GET /admin/client/:clientId/wb-cabinets-modules/:sid/:module",
+  "description": null,
+  "path_params": [
+   {
+    "name": "clientId",
+    "description": "numeric client_id"
+   },
+   {
+    "name": "sid",
+    "description": "WB seller sid"
+   },
+   {
+    "name": "module",
+    "description": "имя модуля (список — list-client-modules / list-wb-cabinet-modules; модули предзаведены, только вкл/выкл)"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "list-spreadsheets",
+  "method": "GET",
+  "path": "/admin/ss",
+  "summary": "GET /admin/ss",
+  "description": null,
+  "path_params": [],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "get-spreadsheet",
+  "method": "GET",
+  "path": "/admin/ss/:spreadsheetId",
+  "summary": "GET /admin/ss/:spreadsheetId",
+  "description": null,
+  "path_params": [
+   {
+    "name": "spreadsheetId",
+    "description": "spreadsheet_id (Google Sheets)"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "get-ss-values",
+  "method": "POST",
+  "path": "/admin/ss/:spreadsheet_id/values",
+  "summary": "POST /admin/ss/:spreadsheet_id/values",
+  "description": null,
+  "path_params": [
+   {
+    "name": "spreadsheet_id",
+    "description": "spreadsheet_id (Google Sheets)"
+   }
+  ],
+  "body_fields": [
+   {
+    "name": "range",
+    "type": "string",
+    "required": true,
+    "description": "A1 range"
+   },
+   {
+    "name": "majorDimension",
+    "type": "string",
+    "required": false,
+    "description": "ROWS|COLUMNS"
+   }
+  ],
+  "accepts_raw_body": true,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "list-client-spreadsheets",
+  "method": "GET",
+  "path": "/admin/client/:clientId/ss",
+  "summary": "GET /admin/client/:clientId/ss",
+  "description": null,
+  "path_params": [
+   {
+    "name": "clientId",
+    "description": "numeric client_id"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "get-client-spreadsheet",
+  "method": "GET",
+  "path": "/admin/client/:clientId/ss/:spreadsheetId",
+  "summary": "GET /admin/client/:clientId/ss/:spreadsheetId",
+  "description": null,
+  "path_params": [
+   {
+    "name": "clientId",
+    "description": "numeric client_id"
+   },
+   {
+    "name": "spreadsheetId",
+    "description": "spreadsheet_id (Google Sheets)"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "list-client-ss-datasets",
+  "method": "GET",
+  "path": "/admin/client/:clientId/ss/:spreadsheetId/dataset",
+  "summary": "GET /admin/client/:clientId/ss/:spreadsheetId/dataset",
+  "description": null,
+  "path_params": [
+   {
+    "name": "clientId",
+    "description": "numeric client_id"
+   },
+   {
+    "name": "spreadsheetId",
+    "description": "spreadsheet_id (Google Sheets)"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "get-client-ss-dataset",
+  "method": "GET",
+  "path": "/admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
+  "summary": "GET /admin/client/:clientId/ss/:spreadsheetId/dataset/:sheetName",
+  "description": null,
+  "path_params": [
+   {
+    "name": "clientId",
+    "description": "numeric client_id"
+   },
+   {
+    "name": "spreadsheetId",
+    "description": "spreadsheet_id (Google Sheets)"
+   },
+   {
+    "name": "sheetName",
+    "description": "sheet (=dataset) name"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "list-client-wb-tokens",
+  "method": "GET",
+  "path": "/admin/client/:clientId/wb/token",
+  "summary": "GET /admin/client/:clientId/wb/token",
+  "description": null,
+  "path_params": [
+   {
+    "name": "clientId",
+    "description": "numeric client_id"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ },
+ {
+  "name": "list-client-ozon-keys",
+  "method": "GET",
+  "path": "/admin/client/:clientId/ozon/apikey",
+  "summary": "GET /admin/client/:clientId/ozon/apikey",
+  "description": null,
+  "path_params": [
+   {
+    "name": "clientId",
+    "description": "numeric client_id"
+   }
+  ],
+  "body_fields": [],
+  "accepts_raw_body": false,
+  "no_auth": false,
+  "token_only": false
+ }
+]

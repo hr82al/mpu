@@ -4,11 +4,12 @@
  * читающей половины: сверх метода, пути и полей тела о команде знать
  * нечего.
  *
- * Методы, пути, поля и признаки сняты с объекта Python-реализации
- * (`docs/specs/fixtures/api/write-endpoints.json`); пояснения полей и
- * абзацы описаний — из машинного слепка дерева. Состав и снятые поля
- * стережёт `endpoints_write_test.ts`: расхождение с эталоном по имени,
- * методу, пути, параметрам, полям или признакам — красный тест.
+ * Методы, пути, поля с их обязательностью и признаки сняты с объекта
+ * Python-реализации (`docs/specs/fixtures/api/write-endpoints.json`);
+ * пояснения полей и абзацы описаний — из машинного слепка дерева.
+ * Состав и снятое стережёт `endpoints_snapshot_test.ts` (общая сверка
+ * обеих половин): расхождение с эталоном по имени, методу, пути,
+ * параметрам, полям, их обязательности или признакам — красный тест.
  *
  * Одиннадцати кастомных команд остатка (`ss-access`, `wb-cards-reset`,
  * `api wb-loader-*`) здесь нет: у каждой своя механика, и таблицей они
@@ -26,9 +27,15 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
       {
         name: "seller_client_id",
         type: "string",
+        required: true,
         help: "Ozon seller client_id",
       },
-      { name: "seller_api_key", type: "string", help: "Ozon seller API key" },
+      {
+        name: "seller_api_key",
+        type: "string",
+        required: true,
+        help: "Ozon seller API key",
+      },
       {
         name: "performance_client_id",
         type: "string",
@@ -50,7 +57,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/client/:clientId/wb/token",
     fields: [
-      { name: "token", type: "string", help: "WB JWT token" },
+      { name: "token", type: "string", required: true, help: "WB JWT token" },
       { name: "description", type: "string", help: "free-text description" },
     ],
     secretInput: true,
@@ -61,9 +68,19 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/auth/change-password",
     fields: [
-      { name: "email", type: "string", help: "login email" },
-      { name: "password", type: "string", help: "old password" },
-      { name: "newPassword", type: "string", help: "new password" },
+      { name: "email", type: "string", required: true, help: "login email" },
+      {
+        name: "password",
+        type: "string",
+        required: true,
+        help: "old password",
+      },
+      {
+        name: "newPassword",
+        type: "string",
+        required: true,
+        help: "new password",
+      },
     ],
     secretInput: true,
   },
@@ -72,8 +89,8 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/auth/login",
     fields: [
-      { name: "email", type: "string", help: "login email" },
-      { name: "password", type: "string", help: "password" },
+      { name: "email", type: "string", required: true, help: "login email" },
+      { name: "password", type: "string", required: true, help: "password" },
     ],
     noAuth: true,
     secretInput: true,
@@ -107,9 +124,14 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/cli/log-heartbeat",
     fields: [
-      { name: "key", type: "string", help: "log key" },
-      { name: "level", type: "string", help: "log level" },
-      { name: "cliRequestId", type: "string", help: "CLI request id" },
+      { name: "key", type: "string", required: true, help: "log key" },
+      { name: "level", type: "string", required: true, help: "log level" },
+      {
+        name: "cliRequestId",
+        type: "string",
+        required: true,
+        help: "CLI request id",
+      },
     ],
     secretInput: true,
   },
@@ -118,7 +140,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/cli/log-subscribe",
     fields: [
-      { name: "key", type: "string", help: "log key" },
+      { name: "key", type: "string", required: true, help: "log key" },
       { name: "level", type: "string", help: "log level" },
       { name: "cliRequestId", type: "string", help: "CLI request id" },
     ],
@@ -129,8 +151,13 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/cli/log-unsubscribe",
     fields: [
-      { name: "key", type: "string", help: "log key" },
-      { name: "cliRequestId", type: "string", help: "CLI request id" },
+      { name: "key", type: "string", required: true, help: "log key" },
+      {
+        name: "cliRequestId",
+        type: "string",
+        required: true,
+        help: "CLI request id",
+      },
     ],
     secretInput: true,
   },
@@ -139,7 +166,12 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/cli/manifest",
     fields: [
-      { name: "server", type: "string", help: "target server name" },
+      {
+        name: "server",
+        type: "string",
+        required: true,
+        help: "target server name",
+      },
     ],
   },
   {
@@ -147,13 +179,24 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/cli/run",
     fields: [
-      { name: "server", type: "string", help: "target server name" },
+      {
+        name: "server",
+        type: "string",
+        required: true,
+        help: "target server name",
+      },
       {
         name: "name",
         type: "string",
+        required: true,
         help: "<type>:<name> dispatch (e.g. service:users)",
       },
-      { name: "method", type: "string", help: "method to call" },
+      {
+        name: "method",
+        type: "string",
+        required: true,
+        help: "method to call",
+      },
       { name: "args", type: "json", help: "args object as JSON" },
       { name: "requestId", type: "string", help: "optional request id" },
     ],
@@ -186,7 +229,12 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/client/:clientId/ss",
     fields: [
-      { name: "spreadsheet_id", type: "string", help: "spreadsheet_id" },
+      {
+        name: "spreadsheet_id",
+        type: "string",
+        required: true,
+        help: "spreadsheet_id",
+      },
       { name: "is_active", type: "boolean", help: "is_active flag" },
       { name: "script_id", type: "string", help: "Apps Script id" },
       { name: "title", type: "string", help: "display title" },
@@ -200,7 +248,12 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/client/:clientId/ss/:spreadsheetId/dataset",
     fields: [
-      { name: "dataset_name", type: "string", help: "dataset name" },
+      {
+        name: "dataset_name",
+        type: "string",
+        required: true,
+        help: "dataset name",
+      },
     ],
     body: true,
   },
@@ -209,8 +262,13 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/ss",
     fields: [
-      { name: "client_id", type: "number", help: "client_id" },
-      { name: "spreadsheet_id", type: "string", help: "spreadsheet_id" },
+      { name: "client_id", type: "number", required: true, help: "client_id" },
+      {
+        name: "spreadsheet_id",
+        type: "string",
+        required: true,
+        help: "spreadsheet_id",
+      },
       { name: "is_active", type: "boolean", help: "is_active flag" },
       { name: "script_id", type: "string", help: "Apps Script id" },
       { name: "title", type: "string", help: "display title" },
@@ -224,7 +282,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/user",
     fields: [
-      { name: "email", type: "string", help: "user email" },
+      { name: "email", type: "string", required: true, help: "user email" },
       { name: "password", type: "string", help: "password" },
       { name: "name", type: "string", help: "display name" },
       {
@@ -243,7 +301,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/client/:clientId/datasets/data/get",
     fields: [
-      { name: "name", type: "string", help: "dataset name" },
+      { name: "name", type: "string", required: true, help: "dataset name" },
       { name: "params", type: "json", help: "dataset params as JSON" },
     ],
     body: true,
@@ -253,7 +311,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/client/:clientId/datasets/data/save",
     fields: [
-      { name: "name", type: "string", help: "dataset name" },
+      { name: "name", type: "string", required: true, help: "dataset name" },
       { name: "params", type: "json", help: "dataset params as JSON" },
       { name: "data", type: "json", help: "rows as JSON" },
     ],
@@ -279,6 +337,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
       {
         name: "seller_client_id",
         type: "string",
+        required: true,
         help: "Ozon seller client_id",
       },
     ],
@@ -298,7 +357,12 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "DELETE",
     path: "/admin/client/:clientId/wb/token",
     fields: [
-      { name: "token", type: "string", help: "WB JWT token to delete" },
+      {
+        name: "token",
+        type: "string",
+        required: true,
+        help: "WB JWT token to delete",
+      },
     ],
     secretInput: true,
   },
@@ -649,6 +713,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
       {
         name: "spreadsheet_id",
         type: "string",
+        required: true,
         help: "spreadsheet_id (Google Sheets)",
       },
       {
@@ -784,6 +849,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
       {
         name: "type",
         type: "string",
+        required: true,
         help: "тип job'а: accessGrantRevoke|accessGrantApply|...",
       },
       {
@@ -811,7 +877,12 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "PATCH",
     path: "/admin/client/:clientId/modules/:module",
     fields: [
-      { name: "is_active", type: "boolean", help: "is_active flag" },
+      {
+        name: "is_active",
+        type: "boolean",
+        required: true,
+        help: "is_active flag",
+      },
     ],
     about: "toggle is_active",
   },
@@ -868,7 +939,12 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "PATCH",
     path: "/admin/client/:clientId/wb-cabinets-modules/:sid/:module",
     fields: [
-      { name: "is_active", type: "boolean", help: "is_active flag" },
+      {
+        name: "is_active",
+        type: "boolean",
+        required: true,
+        help: "is_active flag",
+      },
     ],
     about: "toggle is_active",
   },
@@ -1015,7 +1091,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/client/:clientId/wb/token/ping-content",
     fields: [
-      { name: "token", type: "string", help: "WB JWT token" },
+      { name: "token", type: "string", required: true, help: "WB JWT token" },
     ],
     secretInput: true,
     sensitiveOutput: true,
@@ -1025,7 +1101,7 @@ export const WRITE_ENDPOINTS: readonly EndpointSpec[] = [
     method: "POST",
     path: "/admin/client/:clientId/wb/token/seller-info",
     fields: [
-      { name: "token", type: "string", help: "WB JWT token" },
+      { name: "token", type: "string", required: true, help: "WB JWT token" },
     ],
     secretInput: true,
     sensitiveOutput: true,
