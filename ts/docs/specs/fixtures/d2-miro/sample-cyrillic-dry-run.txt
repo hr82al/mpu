@@ -1,0 +1,6 @@
+[dry-run] would create:
+  shape(rectangle)     витрина  kind=rectangle
+  shape(rectangle)     загрузчик  kind=rectangle
+  edge   загрузчик -> витрина  label='пишет'
+[warn] in SVG but not in d2 source: ['витрина', 'загрузчик']
+[info] sample-cyrillic.d2: 2 shapes, 1 edges, 0 markdown blocks; viewBox 534x507 -> frame 534x587 (scale=1.000)
