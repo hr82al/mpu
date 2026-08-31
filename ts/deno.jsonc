@@ -33,7 +33,8 @@
       "src/mpinit/testdata",
       "src/cleanlocal/testdata",
       "src/glab/testdata",
-      "src/api/testdata"
+      "src/api/testdata",
+      "src/d2miro/testdata"
     ]
   },
   "imports": {
