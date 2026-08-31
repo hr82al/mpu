@@ -158,6 +158,14 @@ Deno.test("токен-кэш sl-back ложится в каталог конфи
       '{"token":"из-кэша"}',
     );
     assertEquals(await io.readTokenCache(), '{"token":"из-кэша"}');
+    // Кэш несёт живой токен доступа — права те же, что у прочих
+    // секретов на диске (`platform/slback-http.md`, «Запись кэша»).
+    const mode = (await Deno.stat(`${creds}/.api-token.json`)).mode;
+    assertEquals(
+      mode === null ? null : mode & 0o777,
+      0o600,
+      "не те права у токен-кэша",
+    );
     // Файл состояния при этом остался в своём каталоге: каталоги разные.
     assertEquals(await Deno.readTextFile(`${state}/token`), "токен-доступа\n");
     assertEquals(

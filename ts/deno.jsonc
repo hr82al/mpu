@@ -133,16 +133,26 @@
     //   --allow-read                     без ограничения пути: аргумент
     //     команды — произвольный файл пользователя (`mpu xlsx <файл>`),
     //     заранее известного корня у него нет;
-    //   --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc
-    //     конфиг-каталог — хранилище настроек и файл токена доступа
-    //     (оба 0600); rc-файлы — установка дополнения
+    //   --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.bashrc,$HOME/.zshrc
+    //     каталог состояния — кэш-БД, журнал и файл токена доступа
+    //     (все три 0600); rc-файлы — установка дополнения
     //     (`mpu --install-completion`, `platform/registry.md`): она
     //     дописывает скрипт в конец файла и другого места записи не
     //     знает. Списком именно этих файлов, а не всего $HOME: промах
-    //     мимо них — ошибка, и её видно сразу. Запись env-файла
-    //     (`envFile.set`, `platform/env-file.md`) при нестандартном
-    //     XDG_CONFIG_HOME целится вне $HOME/.config/mpu — этот список
-    //     её не покрывает, и запись упрётся в отказ права. `/dev/tty` —
+    //     мимо них — ошибка, и её видно сразу. Второй элемент —
+    //     каталог конфигурации: туда уводятся env-файл (`envFile.set`,
+    //     `platform/env-file.md`) и токен-кэш sl-back, когда задана
+    //     `XDG_CONFIG_HOME` (правило границы — порция 87, названо в
+    //     `mpu --help`). Право добавлено решением владельца
+    //     2026-08-31: без него у оператора с заданной переменной кэш
+    //     токена молча не писался, и каждый вызов шёл в `/auth/login`
+    //     заново — расхождение с оригиналом, а не удобство. Граница
+    //     права названа честно: путь запекается при СБОРКЕ, поэтому
+    //     покрыт тот `XDG_CONFIG_HOME`, что задан у собирающего;
+    //     заданная только на запуске переменная правом не покрыта. При
+    //     незаданной на сборке элемент вырождается в `/mpu` — мёртвый,
+    //     но не пустой: пустой Deno отвергает целиком (см. `$TMPDIR`
+    //     ниже). `/dev/tty` —
     //     копирование в буфер обмена управляющей последовательностью
     //     (`platform/clipboard.md`, попытка 1): без этого пути попытка
     //     всегда неуспешна и молча уступает внешней утилите;
@@ -270,7 +280,7 @@
     //     Наблюдаемого поведения флаг не меняет (неинтерактивно доступ и
     //     так отказан), поэтому smoke его не покрывает — исключение
     //     названо в `CLAUDE.md`, «Проверка каждого изменения»;
-    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$HOME/.bashrc,$HOME/.zshrc,/dev/tty,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
+    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.bashrc,$HOME/.zshrc,/dev/tty,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь

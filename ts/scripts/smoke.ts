@@ -63,10 +63,16 @@ class Skipped extends Error {
   override name = "Skipped";
 }
 
-/** Собранный бинарь и каталог, который служит ему домашним. */
+/**
+ * Собранный бинарь и два каталога, которыми ему подменяют окружение:
+ * `home` — состояние (`HOME`), `configHome` — конфигурация
+ * (`XDG_CONFIG_HOME`). Второй нужен и на сборке: путь в
+ * `--allow-write` запекается в бинарь, а не читается при запуске.
+ */
 interface Subject {
   readonly bin: string;
   readonly home: string;
+  readonly configHome: string;
 }
 
 /** Результат запуска бинаря. */
@@ -125,13 +131,17 @@ async function runOk(
 /**
  * Аргументы `deno compile` из задачи `build`. Список прав здесь не
  * переписывается: иначе smoke проверял бы не те права, с которыми
- * бинарь ставится. Подменяются только путь вывода и HOME.
+ * бинарь ставится. Подменяются только путь вывода и два каталога
+ * окружения — `HOME` и `XDG_CONFIG_HOME`.
  */
 function buildArgs(denoJsonc: string, subject: Subject): string[] {
   const task = denoJsonc.match(/"build":\s*"([^"]*)"/)?.[1];
   if (task === undefined) throw new Error("в deno.jsonc нет задачи build");
   const args = task.split(/\s+/).slice(1).map((arg) =>
-    arg.replaceAll("$HOME", subject.home)
+    arg.replaceAll("$HOME", subject.home).replaceAll(
+      "$XDG_CONFIG_HOME",
+      subject.configHome,
+    )
   );
   const out = args.indexOf("-o");
   if (out < 0) throw new Error("в задаче build нет -o");
@@ -177,6 +187,24 @@ function probeTempDir(): void {
     Deno.removeSync(path);
   } catch {
     // Зонд убирает за собой best-effort: оставшийся файл ничему не мешает.
+  }
+}
+
+/**
+ * Годится ли подменный HOME для проверки права на каталог
+ * конфигурации: под `/tmp` и `/var/tmp` запись покрыта соседним правом
+ * из того же списка, и снятие проверяемого права осталось бы
+ * незамеченным. Причина пропуска называет путь — пересказ «временный
+ * каталог не тот» скрыл бы, какой именно.
+ */
+function requireOutsideTempPermission(home: string): void {
+  for (const covered of ["/tmp/", "/var/tmp/"]) {
+    if (home.startsWith(covered)) {
+      throw new Skipped(
+        `подменный HOME под ${covered.slice(0, -1)} — запись туда покрыта ` +
+          `соседним правом того же списка: ${home}`,
+      );
+    }
   }
 }
 
@@ -647,37 +675,46 @@ function checks(subject: Subject): readonly Check[] {
     // выведенный из его кред токен-кэш sl-back. Разводит каталоги одна
     // строка `main.ts`, и проверить её можно только запуском: тесты
     // зовут `makeDenoIo` сами и подстановку из точки входа не видят.
-    // Подменный каталог лежит ВНУТРИ `$HOME/.config/mpu` намеренно:
-    // право задачи `build` перечисляет именно этот путь, и произвольная
-    // `XDG_CONFIG_HOME` записью в него не покрыта (то же ограничение
-    // названо у права записи env-файла в `deno.jsonc`).
+    // Она же — единственное покрытие права
+    // `--allow-write=…,$XDG_CONFIG_HOME/mpu`: снять право — и кэш не
+    // появится (отказ записи глотает сам слой, `slback-http.md`,
+    // поэтому наблюдаемое здесь — отсутствие файла, а не текст отказа).
+    //
+    // Покрытие настоящее не везде, и это названо, а не подразумевается:
+    // подменный HOME — временный каталог, и когда он лежит под `/tmp`
+    // (незаданный `TMPDIR`), запись в него покрыта соседним правом
+    // `/tmp` — снятое право осталось бы незамеченным. Там проверка
+    // честно пропускается, а не зеленеет.
     [
       "границы каталогов: XDG_CONFIG_HOME уводит токен-кэш, но не кэш-БД",
       async () => {
+        requireOutsideTempPermission(subject.home);
         const server = Deno.serve(
           { port: 0, hostname: "127.0.0.1", onListen: () => {} },
           () => Response.json({ accessToken: "проба-токена" }),
         );
-        const xdg = `${subject.home}/.config/mpu/podmena`;
+        const cachePath = `${subject.configHome}/mpu/.api-token.json`;
         try {
-          await Deno.mkdir(`${xdg}/mpu`, { recursive: true });
+          await Deno.mkdir(`${subject.configHome}/mpu`, { recursive: true });
           await Deno.writeTextFile(
-            `${xdg}/mpu/.env`,
+            `${subject.configHome}/mpu/.env`,
             `BASE_API_URL=http://127.0.0.1:${server.addr.port}\n` +
               "TOKEN_EMAIL=proba@example.com\nTOKEN_PASSWORD=proba\n",
           );
           const outcome = await runOk(subject, ["api", "get-token"], {
-            XDG_CONFIG_HOME: xdg,
+            XDG_CONFIG_HOME: subject.configHome,
           });
           assertEquals(outcome.stdout.trim(), "проба-токена", "не тот токен");
-          // Кэш лёг рядом с кредами, из которых токен получен.
-          await Deno.stat(`${xdg}/mpu/.api-token.json`);
+          // Кэш лёг рядом с кредами, из которых токен получен. Права
+          // файла проверяет юнит-тест слоя (`src/runtime/mod_test.ts`):
+          // они видны и без запуска бинаря, а здесь ценно право.
+          await Deno.stat(cachePath);
           // И не лёг в каталог состояния: иначе токен подменного
           // сервера переиспользовался бы основной конфигурацией.
           await assertMissing(`${subject.home}/.config/mpu/.api-token.json`);
         } finally {
           await server.shutdown();
-          await Deno.remove(xdg, { recursive: true });
+          await Deno.remove(`${subject.configHome}/mpu`, { recursive: true });
         }
       },
     ],
@@ -830,7 +867,15 @@ function checks(subject: Subject): readonly Check[] {
 async function main(): Promise<number> {
   const home = await Deno.makeTempDir({ prefix: "mpu-smoke-" });
   try {
-    const subject: Subject = { bin: `${home}/mpu`, home };
+    // Каталог конфигурации — внутри подменного HOME, но вне
+    // `.config/mpu`: право задачи `build` перечисляет именно
+    // `.config/mpu`, и запись в `xdg/mpu` им не покрыта — иначе
+    // проверка границы ничего бы не доказывала.
+    const subject: Subject = {
+      bin: `${home}/mpu`,
+      home,
+      configHome: `${home}/xdg`,
+    };
     console.log("== сборка ==");
     await compile(subject);
     await installFakeLegacy(subject);
