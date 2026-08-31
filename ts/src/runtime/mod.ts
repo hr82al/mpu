@@ -122,30 +122,6 @@ export function accessTokenPath(
   return stateDir === undefined ? undefined : `${stateDir}/token`;
 }
 
-/**
- * Проверяет, что по пути есть исполняемый файл. Спека маршрута
- * `legacy` не различает «файла нет» и «не исполняем» — для вызывающего
- * это один исход: подпроцесс не запустился. Проверка до запуска, а не
- * по ошибке спавна: так «не исполняем» видно и там, где право на
- * запуск выдано списком путей.
- */
-async function requireExecutable(bin: string): Promise<void> {
-  let info: Deno.FileInfo;
-  try {
-    info = await Deno.stat(bin);
-  } catch (err) {
-    if (err instanceof Deno.errors.NotFound) {
-      throw new NotFoundIoError(`cannot run "${bin}"`, { cause: err });
-    }
-    throw err;
-  }
-  // mode отсутствует там, где у файловой системы нет прав POSIX;
-  // тогда судить об исполнимости нечем — решает сам запуск.
-  if (info.mode !== null && (info.mode & 0o111) === 0) {
-    throw new NotFoundIoError(`cannot run "${bin}": not executable`);
-  }
-}
-
 /** Shell, которые умеет дополнять CLI (`platform/registry.md`). */
 const KNOWN_SHELLS = ["bash", "zsh"];
 
@@ -385,25 +361,6 @@ export function makeDenoIo(
         throw new DomainError("token cache is unavailable (HOME is not set)");
       }
       await writeSecretAtomically(cachePath, text);
-    },
-    runLegacy: async (bin, args) => {
-      await requireExecutable(bin);
-      const command = new Deno.Command(bin, {
-        args: [...args],
-        stdin: "inherit",
-        stdout: "piped",
-        stderr: "piped",
-      });
-      // Своего перехвата сбоя спавна здесь нет: обе его причины —
-      // «нет файла» и «не исполняем» — отсечены проверкой выше, а
-      // гонка (файл удалили между проверкой и запуском) доходит до
-      // верхнего обработчика `main.ts`: exit 1 и сообщение без трейса.
-      const output = await command.output();
-      return {
-        code: output.code,
-        stdout: decoder.decode(output.stdout),
-        stderr: decoder.decode(output.stderr),
-      };
     },
     envFile: makeEnvFile(
       envPath === undefined ? undefined : makeEnvFileStore(envPath),

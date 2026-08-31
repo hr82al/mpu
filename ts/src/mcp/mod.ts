@@ -267,9 +267,7 @@ function listTools(
  * прочитал её и исправился.
  *
  * Вызов тула журналируется наравне с CLI-вызовом: одна запись, `pid` и
- * `cwd` — серверного процесса (`platform/invoke-log.md`). У тула
- * маршрута `legacy` пометки журнала нет: там запись делает сам
- * Python-подпроцесс, и вторая была бы дублем.
+ * `cwd` — серверного процесса (`platform/invoke-log.md`).
  */
 async function callTool(
   id: RpcId,
@@ -291,7 +289,7 @@ async function callTool(
   }
   const input = message.params["arguments"] ?? {};
   const record = deps.log.begin({ kind: "tool", path: entry.path, input });
-  if (entry.journal !== undefined) record.nativeCall(entry.journal);
+  record.nativeCall(entry.journal);
   const outcome = await invokeTool(entry, input, recordedIo(deps.io, record));
   if (outcome.kind === "ok") record.out(outcome.text);
   else record.err(outcome.text);
@@ -304,8 +302,7 @@ type ToolOutcome =
   | {
     readonly kind: "ok";
     readonly text: string;
-    /** У маршрута `legacy` схемы результата нет — только текст. */
-    readonly structured?: unknown;
+    readonly structured: unknown;
   }
   | { readonly kind: "domain" | "usage" | "internal"; readonly text: string };
 
@@ -329,9 +326,6 @@ async function invokeTool(
   const name = entry.tool.name;
   try {
     const result = await entry.invoke(input, io);
-    // Тул сообщил о неуспехе сам (ненулевой код подпроцесса): это
-    // доменная ошибка, её агент читает и исправляется.
-    if (result.isError) return { kind: "domain", text: result.text };
     return { kind: "ok", text: result.text, structured: result.structured };
   } catch (err) {
     if (err instanceof UsageError) {
@@ -358,12 +352,13 @@ function bodyOf(id: RpcId, outcome: ToolOutcome): RpcBody {
   const content = [{ type: "text", text: outcome.text }];
   switch (outcome.kind) {
     case "ok":
-      return resultBody(
-        id,
-        outcome.structured === undefined
-          ? { content }
-          : { structuredContent: outcome.structured, content },
-      );
+      // Структурное содержимое есть всегда: результат команды описан
+      // схемой (`platform/command-contract.md`). Ветка «только текст»
+      // была нужна маршруту `legacy`, снятому целиком (порция 97).
+      return resultBody(id, {
+        structuredContent: outcome.structured,
+        content,
+      });
     case "domain":
       return resultBody(id, { isError: true, content });
     case "usage":

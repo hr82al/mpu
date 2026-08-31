@@ -10,12 +10,10 @@
 import {
   type Command,
   type CommandIo,
-  NotFoundIoError,
   type RemoteOutput,
   UsageError,
 } from "../command/mod.ts";
 import { configValue, readPreferences } from "../config/mod.ts";
-import { resolveLegacyBin } from "../legacy/mod.ts";
 import type { Profile } from "./mod.ts";
 import {
   DEFAULT_PORT,
@@ -24,7 +22,7 @@ import {
   serveMcp,
 } from "./server.ts";
 import { ensureAccessToken } from "./token.ts";
-import { VERSION, versionMismatch } from "../version.ts";
+import { VERSION } from "../version.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 
 /** Приёмник диагностики: всё, что нужно этой поверхности от вывода. */
@@ -56,12 +54,11 @@ type Options =
   | { readonly usage: string };
 
 /**
- * Срез порта для шагов запуска, которые его потребляют: порт из
- * конфига и сверка версии подпроцессом (той же парой «ключ конфига и
- * HOME», по которой путь к реализации ищет маршрут `legacy`). Сам сервер получает порт
- * целиком — он раздаёт его произвольным командам.
+ * Срез порта для шага запуска, который его потребляет: порт из
+ * конфига. Сам сервер получает порт целиком — он раздаёт его
+ * произвольным командам.
  */
-type StartupIo = Pick<CommandIo, "env" | "openCacheDb" | "runLegacy">;
+type StartupIo = Pick<CommandIo, "env" | "openCacheDb">;
 
 /**
  * Поднимает сервер и ждёт его остановки. Возвращает код завершения
@@ -79,7 +76,6 @@ export async function runMcpServer(
   }
   const port = options.port ?? await configuredPort(io);
   const token = await ensureAccessToken(io);
-  await warnOnVersionMismatch(io, output);
   try {
     const server = await serveMcp({
       port,
@@ -149,36 +145,6 @@ function withoutStdin(io: CommandIo): CommandIo {
     // каждый прогон — вызовы тулов идут вперемешку.
     openRemoteOutput: () => capturingRemoteOutput(),
   };
-}
-
-/**
- * Предупреждает, если установленная Python-реализация другой версии,
- * чем слепок, из которого собран реестр: описания тулов маршрута
- * `legacy` и однострокѝ справки берутся из слепка и в этом случае
- * врут. Сервер при этом поднимается — он полезен и так, а решать
- * пользователю.
- *
- * Спрашивается один раз при старте: сервер долгоживущий, и лишний
- * подпроцесс на каждый вызов тула был бы дороже пользы.
- */
-async function warnOnVersionMismatch(
-  io: StartupIo,
-  output: ErrorSink,
-): Promise<void> {
-  const bin = resolveLegacyBin(io);
-  let installed: string;
-  try {
-    const outcome = await io.runLegacy(bin, ["version"]);
-    if (outcome.code !== 0) return;
-    installed = outcome.stdout;
-  } catch (err) {
-    // Реализации нет — это не повод не поднимать сервер: тулы
-    // маршрута `legacy` откажут при вызове, с текстом спеки.
-    if (err instanceof NotFoundIoError) return;
-    throw err;
-  }
-  const problem = versionMismatch(installed);
-  if (problem !== undefined) output.stderr(`mpu mcp: ${problem}\n`);
 }
 
 /** Разбор `--profile` и `--port`; всё прочее — ошибка ввода. */

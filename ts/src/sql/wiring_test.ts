@@ -1,6 +1,6 @@
 /**
- * Вплетение `mpu sql-ro` в точку входа: мост на прежнюю реализацию,
- * собственный `--json` и печать кандидатов резолва
+ * Вплетение `mpu sql-ro` в точку входа: собственный `--json`, отказ
+ * выброшенного маршрута и печать кандидатов резолва
  * (`docs/specs/sql-ro.md`, `platform/registry.md`, `platform/selector.md`).
  * Прогон идёт через `runCli` — проверяется наблюдаемое поведение CLI, а
  * не внутренности команды.
@@ -10,11 +10,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { NO_INVOKE_LOG, type OutputPolicy } from "../invokelog/mod.ts";
-import {
-  type CommandIo,
-  DomainError,
-  type LegacyOutcome,
-} from "../command/mod.ts";
+import { type CommandIo, DomainError } from "../command/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 
 /** Прогон CLI с подсчётом отметок журналу о native-вызове. */
@@ -33,43 +29,18 @@ async function cli(argv: readonly string[], io: CommandIo) {
   return { code, stdout: out.join(""), stderr: err.join(""), journaled };
 }
 
-Deno.test("sw-селектор уходит прежней реализации", async (t) => {
-  const calls: { bin: string; args: readonly string[] }[] = [];
-  const outcome: LegacyOutcome = {
-    code: 3,
-    stdout: "таблица\n",
-    stderr: "шум\n",
-  };
-  const io = makeFakeIo({
-    runLegacy: (bin, args) => {
-      calls.push({ bin, args });
-      return Promise.resolve(outcome);
-    },
-  });
-
-  const run = await cli(
-    ["sql-ro", "--server", "sl-1", "sw", "select 1", "--нет-такого-флага"],
-    io,
+Deno.test("sw-селектор: отказ, а не резолв", async () => {
+  // Маршрут выброшен целиком (порция 97); алиас распознаётся ради
+  // отказа по делу, иначе резолв искал бы клиента с именем `sw`.
+  const run = await cli(["sql-ro", "sw", "select 1"], makeFakeIo());
+  assertEquals(run.code, 2);
+  assertEquals(
+    run.stderr,
+    "mpu sql-ro: маршрут sw выброшен: доступа к контуру воркспейсов нет\n",
   );
-
-  await t.step("argv уходит как есть, потоки и код — насквозь", () => {
-    assertEquals(calls.length, 1);
-    assertEquals(calls[0].args, [
-      "sql-ro",
-      "--server",
-      "sl-1",
-      "sw",
-      "select 1",
-      "--нет-такого-флага",
-    ]);
-    assertEquals([run.stdout, run.stderr, run.code], ["таблица\n", "шум\n", 3]);
-  });
-
-  await t.step("записи журнала обвязка не создаёт", () => {
-    // Её делает сам подпроцесс (`platform/invoke-log.md`, «Разделение
-    // моста»): отметка отсюда дала бы вторую запись на один вызов.
-    assertEquals(run.journaled, []);
-  });
+  assertEquals(run.stdout, "");
+  // Отметка журналу всё равно стоит: вызов был, и запись о нём — тоже.
+  assertEquals(run.journaled.length, 1);
 });
 
 Deno.test("обычный вызов журналируется обвязкой", async () => {
@@ -96,8 +67,8 @@ Deno.test("вызов без аргументов: код 2 и что делат
   assertEquals(run.code, 2);
   assertEquals(
     run.stderr,
-    "mpu sql-ro: нужен SELECTOR: client_id, sl-N, dev:<client_id> или " +
-      "sw-алиас; попробуй: mpu sql-ro --help\n",
+    "mpu sql-ro: нужен SELECTOR: client_id, sl-N или dev:<client_id>; " +
+      "попробуй: mpu sql-ro --help\n",
   );
   assertEquals(run.stdout, "");
 });

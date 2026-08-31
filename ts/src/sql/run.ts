@@ -75,10 +75,10 @@ export const argsSchema = z.object({
   // и сообщение обязано называть, чего не хватает, а не показывать
   // формулировку схемы («expected string, received undefined»).
   selector: z.string({
-    error: "нужен SELECTOR: client_id, sl-N, dev:<client_id> или sw-алиас",
+    error: "нужен SELECTOR: client_id, sl-N или dev:<client_id>",
   }).describe(
-    "client_id / spreadsheet_id / заголовок (подстрока), sl-N, " +
-      "dev:<client_id> или sw-алиас",
+    "client_id / spreadsheet_id / заголовок (подстрока), sl-N " +
+      "или dev:<client_id>",
   ),
   sql: z.string().optional().describe(
     "SQL; не задан — читается из stdin",
@@ -151,11 +151,17 @@ export async function runSql(
   }
   const route = routeOf(args.selector);
   if (route.kind === "sw") {
-    // CLI сюда не доходит — вызов уводит `bridge` до разбора аргументов.
-    // Остаётся точка входа MCP, где подпроцесса с проброшенными потоками
-    // нет вовсе (`platform/mcp-server.md`).
-    throw new DomainError(
-      "sw-селектор исполняет прежняя реализация: вызов доступен только из CLI",
+    // Маршрут выброшен насовсем: доступа к контуру воркспейсов нет и
+    // не будет (замер 2026-08-31: среди 224 контейнеров Portainer ни
+    // одного `sw-*`, ключи `SW_PG_*` не заданы; прежняя реализация
+    // падала здесь же, на резолве контейнера). Алиасы распознаются
+    // ровно ради этого отказа: без них селектор ушёл бы в обычный
+    // резолв и упал бы «клиент не найден» — причиной не по делу.
+    //
+    // Отказ до чтения SQL: иначе он пришёл бы после приглашения ко
+    // вводу, уже прочитав stdin.
+    throw new UsageError(
+      "маршрут sw выброшен: доступа к контуру воркспейсов нет",
     );
   }
   if (route.kind === "dev" && args.server !== undefined) {

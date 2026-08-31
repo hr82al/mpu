@@ -233,32 +233,52 @@ Deno.test("--server не сочетается с dev-селектором", asyn
   assertEquals(err.message, "--server не сочетается с dev-селектором");
 });
 
-Deno.test("sw-селектор исполняет прежняя реализация", async (t) => {
-  await t.step("в argv он опознаётся до разбора схемой", () => {
-    const cases: readonly [readonly string[], boolean][] = [
-      [["sw", "select 1"], true],
-      [["--server", "sl-1", "sw"], true],
-      [["--dry", "WorkSpaces"], true],
-      [["--", "sw"], true],
-      [["42", "select 1"], false],
-      [["--server", "sw"], false],
-      [[], false],
-    ];
-    for (const [argv, expected] of cases) {
-      assertEquals(sqlRoCommand.bridge(argv), expected, argv.join(" "));
-    }
-  });
+Deno.test("sw-селектор: отказ до чтения SQL", async (t) => {
+  // Маршрут выброшен целиком (порция 97). Алиасы распознаются ровно
+  // ради этого отказа: без них селектор ушёл бы в обычный резолв и
+  // упал бы «клиент не найден» — причиной не по делу.
+  const aliases = [
+    "sw",
+    "SW",
+    " sw-pg ",
+    "swpg",
+    "sw-back",
+    "swback",
+    "ws",
+    "WorkSpaces",
+  ];
+  for (const selector of aliases) {
+    await t.step(`алиас ${JSON.stringify(selector)}`, async () => {
+      const { io } = harness();
+      const err = await assertRejects(
+        () =>
+          runSql(args({ selector, sql: "select 1" }), io, {
+            mode: "read-only",
+          }),
+        UsageError,
+      );
+      assertEquals(
+        formatCommandError("sql-ro", err),
+        "mpu sql-ro: маршрут sw выброшен: доступа к контуру воркспейсов нет",
+      );
+    });
+  }
 
-  await t.step("исполнение отказывает: это не путь CLI", async () => {
-    const { io } = harness();
+  await t.step("отказ приходит раньше чтения SQL", async () => {
+    // Без аргумента SQL читался бы со stdin или с терминала: отказ
+    // обязан опередить приглашение ко вводу.
+    let read = false;
+    const { io } = harness({
+      readStdin: () => {
+        read = true;
+        return Promise.resolve(new TextEncoder().encode("select 1"));
+      },
+    });
     await assertRejects(
-      () =>
-        runSql(args({ selector: "sw", sql: "select 1" }), io, {
-          mode: "read-only",
-        }),
-      DomainError,
-      "sw-селектор",
+      () => runSql(args({ selector: "sw" }), io, { mode: "read-only" }),
+      UsageError,
     );
+    assertEquals(read, false, "SQL прочитан до отказа");
   });
 });
 

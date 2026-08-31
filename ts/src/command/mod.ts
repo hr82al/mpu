@@ -181,15 +181,6 @@ export interface CommandIo {
   readonly appendFile: (path: string, text: string) => Promise<void>;
   /** Запуск открывателя отвязанно; нет бинаря — `false`. */
   readonly launchOpener: (cmd: string, target: string) => boolean;
-  /**
-   * Запуск Python-реализации для маршрута `legacy`: вывод собирается
-   * целиком, чтобы точка входа перенесла его дословно. Файла нет или
-   * он не исполняем — `NotFoundIoError`.
-   */
-  readonly runLegacy: (
-    bin: string,
-    args: readonly string[],
-  ) => Promise<LegacyOutcome>;
   /** Слой env-файла (`platform/env-file.md`): секреты, адреса внешних систем. */
   readonly envFile: EnvFile;
   /** Открывает локальную кэш-БД (`platform/store.md`). */
@@ -203,13 +194,6 @@ export interface CommandIo {
    * исполнения, и что с ним делать — знает точка входа, а не команда.
    */
   readonly openRemoteOutput: () => RemoteOutput;
-}
-
-/** Итог подпроцесса маршрута `legacy`: потоки и код возврата. */
-export interface LegacyOutcome {
-  readonly code: number;
-  readonly stdout: string;
-  readonly stderr: string;
 }
 
 /**
@@ -318,17 +302,6 @@ interface CommandDeclaration<A, R> {
   readonly forms?: Readonly<Record<string, InputForm>>;
   readonly resultSchema: z.ZodType<R>;
   /**
-   * Вызов, который команда не исполняет сама: он уходит маршрутом
-   * `legacy` прежней реализации (`platform/registry.md`). Решается по
-   * сырому argv — до разбора схемой, чтобы подпроцессу argv достался как
-   * есть и разбирала его та же реализация, что исполняет.
-   *
-   * Временная мера на время частичного переезда команды: `mpu sql-ro` с
-   * sw-селектором (`specs/sql-ro.md`, маршрут 2). Уезжает вместе с
-   * последней непереехавшей поверхностью команды.
-   */
-  readonly bridge?: (args: readonly string[]) => boolean;
-  /**
    * Исполнение: разобранные аргументы → результат. Не печатает.
    *
    * Порт здесь полный, и это граница сужения: дальше `io` не режется
@@ -372,8 +345,6 @@ export interface Command {
   readonly logsOutput: boolean;
   /** Пишутся ли аргументы в журнал вызовов (см. объявление). */
   readonly logsArguments: boolean;
-  /** Уходит ли этот вызов прежней реализации (см. объявление). */
-  readonly bridge: (args: readonly string[]) => boolean;
   /** Схема входа как JSON Schema: разбор argv и схема входа тула. */
   readonly argsJsonSchema: ObjectSchema;
   /** Схема выхода как JSON Schema: схема результата тула. */
@@ -462,7 +433,6 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     errorName: spec.errorName ?? spec.path[0],
     logsOutput: spec.logsOutput ?? true,
     logsArguments: spec.logsArguments ?? true,
-    bridge: spec.bridge ?? (() => false),
     argsJsonSchema,
     resultJsonSchema,
     inputs: specs,

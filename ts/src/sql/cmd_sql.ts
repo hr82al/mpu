@@ -16,10 +16,8 @@ import {
   formatOf,
   resultSchema,
   runSql,
-  selectorOf,
   type SqlIo,
 } from "./run.ts";
-import { routeOf } from "./target.ts";
 
 export const sqlCommand = defineCommand({
   path: ["sql"],
@@ -31,8 +29,7 @@ export const sqlCommand = defineCommand({
 фиксируются в БД клиента. Для чтения — \`mpu sql-ro\`.
 
 SELECTOR: sl-N (сервер целиком, main — sl-0), dev:<client_id>
-(dev-стенд, схема schema_<client_id>), sw-алиас (БД воркспейсов) либо
-поиск по кэшу. Ровно один client_id среди кандидатов — search_path на
+(dev-стенд, схема schema_<client_id>) либо поиск по кэшу. Ровно один client_id среди кандидатов — search_path на
 его схему, иначе search_path сервера. --server sl-N резолв отменяет.
 
 SQL — второй аргумент, иначе stdin целиком (с терминала — до Ctrl+D);
@@ -62,10 +59,6 @@ Exit: 0 — успех, включая --dry и запрос без набора
     verbose: { short: "v" },
   },
   resultSchema,
-  // Вызов с sw-селектором целиком исполняет прежняя реализация
-  // (`specs/sql-sw.md` — маршрут общий для обеих команд): argv
-  // разбирается ею же, поэтому селектор ищется в сыром argv, до схемы.
-  bridge: (args) => routeOf(selectorOf(args) ?? "").kind === "sw",
   run: (args, io: SqlIo) => runSql(args, io, { mode: "write" }),
   render: (result, args) =>
     result.outcome === null

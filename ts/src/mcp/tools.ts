@@ -4,14 +4,13 @@
  * зарегистрирован вовсе.
  *
  * Что публиковать, решает закрытый список; как выглядит и как
- * исполняется тул — проекции: `native_tool.ts` для команд контракта,
- * `legacy_tools.ts` для команд, исполняемых подпроцессом.
+ * исполняется тул — проекция `native_tool.ts`, теперь единственная:
+ * маршрута подпроцесса больше нет (порция 97).
  */
 
 import type { Command, Policy } from "../command/mod.ts";
 import { asDestructive, type Profile, type ToolEntry } from "./tool.ts";
 import { nativeEntry } from "./native_tool.ts";
-import { legacyEntry, type LegacyLeaf, readManifest } from "./legacy_tools.ts";
 // Закрытый список публикации читается из канала спецификаций
 // напрямую: копия рядом с кодом дала бы второй источник истины и
 // тест, стерегущий их совпадение (`docs/CLAUDE.md`). Импорт
@@ -21,9 +20,6 @@ import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.jso
 };
 // Слепок дерева — часть канала: в рантайме он ниоткуда не снимается,
 // а незнакомая версия формата отвергается (`platform/registry.md`).
-import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
-  type: "json",
-};
 
 export type {
   JsonSchema,
@@ -55,10 +51,11 @@ export class ToolPolicyError extends Error {
 }
 
 /**
- * Тулы профиля: сперва команды контракта в порядке реестра, затем
- * команды маршрута `legacy` в порядке слепка. Порядок и содержимое
- * зависят только от этих двух источников — отсюда побитовое совпадение
- * между вызовами.
+ * Тулы профиля — команды контракта в порядке реестра. Порядок и
+ * содержимое зависят только от реестра и закрытого списка публикации,
+ * отсюда побитовое совпадение между вызовами. Прежде сюда добавлялись
+ * и команды маршрута `legacy` из слепка; маршрут снят целиком порцией
+ * 97, и второго источника у списка тулов больше нет.
  *
  * Публикуется не всё дерево: команда, которой нет в закрытом списке,
  * тула не получает (fail-closed). Правило не косметическое — оно
@@ -69,13 +66,10 @@ export function profileTools(
   commands: readonly Command[],
   profile: Profile,
 ): readonly ToolEntry[] {
-  const native = commands
+  const entries = commands
     .filter((command) => publishedPolicy(command) === profile)
-    .map(nativeEntry);
-  const published = new Set(native.map((entry) => entry.path.join(" ")));
-  const legacy = publishableLegacy(legacyLeaves(), profile, published)
-    .map((leaf) => legacyEntry(leaf, profile));
-  const entries = [...native, ...legacy].map(markDestructive);
+    .map(nativeEntry)
+    .map(markDestructive);
   assertDestructivePublished(toolPolicies.destructive, entries, profile);
   return entries;
 }
@@ -114,32 +108,6 @@ export function assertDestructivePublished(
       }`,
     );
   }
-}
-
-/**
- * Узлы слепка, публикуемые в профиле. Правило вынесено из сборки, чтобы
- * проверяться отдельно от текущего содержимого списка: сегодня групп в
- * списке нет, но правка списка не должна молча сделать группу тулом.
- *
- * Группа отсеивается раньше списка: исполнять у неё нечего, и её
- * присутствие в списке — ошибка списка, а не повод собрать тул
- * (`platform/mcp-server.md`).
- */
-export function publishableLegacy(
-  nodes: readonly LegacyLeaf[],
-  profile: Profile,
-  alreadyPublished: ReadonlySet<string> = new Set(),
-): readonly LegacyLeaf[] {
-  return nodes.filter((node) => {
-    if (node.group === true) return false;
-    const name = node.path.join(" ");
-    return !alreadyPublished.has(name) && listedPolicy(name) === profile;
-  });
-}
-
-/** Листья слепка в его порядке; версия формата проверяется при чтении. */
-function legacyLeaves(): readonly LegacyLeaf[] {
-  return readManifest(treeManifest).commands;
 }
 
 /**

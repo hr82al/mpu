@@ -7,17 +7,16 @@
  * своей реализации у неё нет, но однострока обязательна: без неё
  * индекс родителя нечем собрать.
  *
- * Маршрут выражен не признаком записи, а тем, в каком списке она
- * лежит: `commands` исполняются кодом CLI и подчиняются контракту
- * команды, `legacyCommands` — подпроцессом Python-реализации, и ни
- * схем, ни рендера у них нет. Обход инвариантов контракта идёт по
- * `commands` и потому фильтрует записи по маршруту по построению
+ * Списков два: `commands` — команды контракта, `surfaces` —
+ * поверхности точки входа (справка, `version`, `mcp`), у которых нет
+ * ни схем, ни рендера. Третьего, `legacy`, больше нет: маршрут
+ * подпроцесса Python-версии снят целиком порцией 97 вместе с двумя
+ * последними именами на нём. Обход инвариантов контракта идёт по
+ * `commands` и потому фильтрует поверхности по построению
  * (`platform/command-contract.md`).
  */
 
 import type { Command, CommandIo } from "../command/mod.ts";
-import type { LegacyCommand } from "../legacy/mod.ts";
-import { LEGACY_TREE } from "./legacy_tree.ts";
 import { xlsxCommands } from "../xlsx/mod.ts";
 import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "../update/mod.ts";
@@ -211,12 +210,9 @@ export const commands: readonly Command[] = [
   logsCommand,
   logCommand,
   mcpTokenCommand,
-  // Первый нативный лист внутри группы, оставшейся `legacy`: соседи
-  // `kiten` уходят подпроцессом одной записью слепка, а этот путь
-  // распознаётся реестром целиком и потому побеждает её длиной.
+  // Первый переехавший лист группы `kiten`.
   kitenCardCommand,
-  // Справочники и обзорные подкоманды: с ними на маршруте `legacy` не
-  // остаётся ни одной подкоманды группы (`specs/kiten-refs.md`,
+  // Справочники и обзорные подкоманды (`specs/kiten-refs.md`,
   // `kiten-ls.md`, `kiten-status.md`).
   kitenWhoamiCommand,
   kitenSpacesCommand,
@@ -247,10 +243,9 @@ export const commands: readonly Command[] = [
   kitenReadyCommand,
   kitenReviewCommand,
   // Семейство `telegram` переехало целиком, включая вход
-  // (`telegram-login.md`). С порции 95 имя снято и с маршрута
-  // `legacy`: промежуточный уровень приходит из `groups`, как у
-  // `kiten`, а неизвестная подкоманда получает индекс группы и код 2,
-  // а не подпроцесс.
+  // (`telegram-login.md`): промежуточный уровень приходит из `groups`,
+  // как у `kiten`, а неизвестная подкоманда получает индекс группы и
+  // код 2.
   telegramSendCommand,
   telegramLogCommand,
   telegramLoginCommand,
@@ -278,7 +273,7 @@ export const commands: readonly Command[] = [
   processCommand,
   makeSchemaCommand,
   // Чтение Google-таблиц: три подкоманды из семейства `sheet`
-  // (`docs/specs/sheet.md`); остальные пока идут маршрутом `legacy`.
+  // (`docs/specs/sheet.md`).
   sheetGetCommand,
   sheetLsCommand,
   sheetResolveCommand,
@@ -291,17 +286,16 @@ export const commands: readonly Command[] = [
   sheetCacheInfoCommand,
   sheetCacheClearCommand,
   // Реестр таблиц (`docs/specs/sheet-registry.md`): короткие имена и
-  // открытие в браузере. `sync` из той же спеки пока идёт `legacy`.
+  // открытие в браузере. `sync` из той же спеки не переносится
+  // (`dropped.ts`): кэш таблиц наполняет `mpu update`.
   sheetAliasAddCommand,
   sheetAliasLsCommand,
   sheetAliasRmCommand,
   sheetOpenCommand,
-  // Последний лист семейства: с ним `sheet` уходит с маршрута
-  // `legacy` целиком (`docs/specs/sheet-set.md`).
+  // Последний лист семейства (`docs/specs/sheet-set.md`).
   sheetSetCommand,
   // Семейство `mr` целиком: чтение (`docs/specs/mr-read.md`) и запись
-  // (`docs/specs/mr-write.md`). В легаси его подкоманд не осталось,
-  // поэтому имя `mr` внесено в `NOT_LEGACY`.
+  // (`docs/specs/mr-write.md`).
   mrViewCommand,
   mrFilesCommand,
   mrDiffCommand,
@@ -316,9 +310,9 @@ export const commands: readonly Command[] = [
   mrDeleteCommand,
   mrResolveCommand,
   mrUnresolveCommand,
-  // Локальные предпочтения (`platform/config.md`): хранилищем уже
-  // пользуются пять команд, а задать ключ до сих пор можно было только
-  // подпроцессом прежней реализации.
+  // Локальные предпочтения (`platform/config.md`): хранилищем
+  // пользуются пять команд, а задать ключ до переезда этой можно было
+  // только прежней реализацией.
   configCommand,
   // Локальный стенд: поднять его целиком и убрать данные клиентов.
   // Обе не ходят ни в прод, ни в сеть — только docker и локальные PG.
@@ -337,23 +331,13 @@ export const commands: readonly Command[] = [
   // же атома GitLab, что и семейство `mr` (`glab-status.md`).
   glabStatusCommand,
   // Читающая половина неймспейса `mpu api` (`docs/specs/api.md`):
-  // двадцать две обёртки админских эндпоинтов sl-back. Имя группы
-  // остаётся в слепке маршрута `legacy` до переезда пишущей половины —
-  // неизвестная подкоманда уходит прежней реализации, как это было у
-  // `kiten` и `telegram`.
+  // двадцать две обёртки админских эндпоинтов sl-back. Пишущая
+  // половина ещё не перенесена; её имён нет нигде — неизвестная
+  // подкоманда получает индекс группы и код 2.
   ...apiCommands,
-  // Рендер D2-диаграммы на доску Miro (`docs/specs/d2-miro.md`):
-  // последняя команда, у которой была роль образца маршрута `legacy`.
+  // Рендер D2-диаграммы на доску Miro (`docs/specs/d2-miro.md`).
   d2MiroCommand,
 ];
-
-/**
- * Команды, ещё не переехавшие: исполняются подпроцессом Python-версии.
- * Состав и однострокѝ порождены из машинного слепка дерева
- * (`legacy_tree.ts`); перевод команды на маршрут `native` — перенос
- * записи отсюда в `commands` (`platform/registry.md`).
- */
-export const legacyCommands: readonly LegacyCommand[] = LEGACY_TREE;
 
 /**
  * Поверхности точки входа: исполняются кодом CLI, но командами
@@ -405,11 +389,10 @@ export const groups: readonly CommandGroup[] = [
     usage: "mpu kiten <подкоманда> [аргументы]",
   },
   {
-    // То же и здесь: подкоманды переехали все, включая вход, и с
-    // порции 95 группа снята с маршрута `legacy`. До неё
-    // `mpu telegram --help` печатал справку Python-версии, где из
-    // шести подкоманд названы три, — оператор читал список команд,
-    // которого уже нет.
+    // То же и здесь: подкоманды переехали все, включая вход. Пока
+    // группа шла подпроцессом, `mpu telegram --help` печатал справку
+    // Python-версии, где из шести подкоманд названы три, — оператор
+    // читал список команд, которого уже нет.
     path: ["telegram"],
     // Однострока не перечисляет подкоманды: их печатает индекс строкой
     // ниже, из реестра. Второй список тем же фактом разошёлся бы с
@@ -558,13 +541,6 @@ export function findCommand(path: readonly string[]): Command | undefined {
   return commands.find((command) => samePath(command.path, path));
 }
 
-/** Запись маршрута `legacy` с ровно таким путём. */
-export function findLegacy(
-  path: readonly string[],
-): LegacyCommand | undefined {
-  return legacyCommands.find((command) => samePath(command.path, path));
-}
-
 /** Группа с ровно таким путём. */
 export function findGroup(path: readonly string[]): CommandGroup | undefined {
   return groups.find((group) => samePath(group.path, path));
@@ -581,7 +557,7 @@ export function childrenOf(
   const out: { name: string; summary: string }[] = [];
   // Ни маршрут, ни способ исполнения на состав справки не влияют:
   // индекс перечисляет всё дерево команд (`platform/registry.md`).
-  for (const command of [...commands, ...legacyCommands, ...surfaces]) {
+  for (const command of [...commands, ...surfaces]) {
     if (!startsWith(command.path, prefix)) continue;
     const name = command.path[prefix.length];
     if (name === undefined || seen.has(name)) continue;
@@ -590,7 +566,6 @@ export function childrenOf(
     const group = findGroup(childPath);
     const summary = group?.summary ??
       findCommand(childPath)?.summary ??
-      findLegacy(childPath)?.summary ??
       findSurface(childPath)?.summary ?? "";
     out.push({ name, summary });
   }

@@ -1,9 +1,12 @@
 /**
- * Тип тула и способ его исполнить — общее для обеих проекций. Отдельный
- * модуль, потому что проекции живут в разных местах: команда контракта
- * описывает себя кодом (`native_tool.ts`), команда маршрута `legacy` —
- * слепком дерева (`legacy_tools.ts`), и обе ссылаются на эти типы. Будь
- * они в модуле сборки профилей, получился бы цикл импортов.
+ * Тип тула и способ его исполнить. Отдельный модуль, а не часть сборки
+ * профилей: иначе проекция (`native_tool.ts`) и сборка (`tools.ts`)
+ * ссылались бы друг на друга, и получился бы цикл импортов.
+ *
+ * Проекция теперь одна: маршрут `legacy`, описывавший тул слепком
+ * дерева, снят целиком (порция 97). Вместе с ним ушли поля «а у того
+ * маршрута этого нет» — схема результата, структурное содержимое и
+ * пометка журналу перестали быть необязательными.
  */
 
 import type { CommandIo, Policy } from "../command/mod.ts";
@@ -15,18 +18,14 @@ export type Profile = "ro" | "rw";
 /** JSON Schema как она уходит клиенту. */
 export type JsonSchema = Readonly<Record<string, unknown>>;
 
-/**
- * Тул в ответе `tools/list`. Схема результата есть только у команд
- * маршрута `native`: у подпроцесса её нет и быть не может — он отдаёт
- * текст (`platform/mcp-server.md`, «Ответ legacy-тула»).
- */
+/** Тул в ответе `tools/list`. */
 export interface Tool {
   readonly name: string;
   readonly title: string;
   readonly description: string;
   readonly annotations: ToolAnnotations;
   readonly inputSchema: JsonSchema;
-  readonly outputSchema?: JsonSchema;
+  readonly outputSchema: JsonSchema;
   /**
    * Служебные поля протокола. Здесь живёт требование подтверждения на
    * каждый вызов: аннотация описывает свойство тула, а включает
@@ -62,13 +61,14 @@ export function asDestructive(tool: Tool): Tool {
   };
 }
 
-/** Итог вызова тула: текст для агента и, у native, структурный результат. */
+/**
+ * Итог вызова тула: текст для агента и структурный результат. Признака
+ * «неуспех» здесь нет: команда контракта сообщает о нём исключением
+ * (`DomainError`), а ненулевого кода подпроцесса больше не бывает.
+ */
 export interface ToolCallResult {
-  /** Команда сообщила о неуспехе; для агента это доменная ошибка. */
-  readonly isError: boolean;
   readonly text: string;
-  /** Структурное содержимое; у маршрута `legacy` его нет. */
-  readonly structured?: unknown;
+  readonly structured: unknown;
 }
 
 /**
@@ -82,12 +82,8 @@ export interface ToolEntry {
   readonly path: readonly string[];
   /** Имя команды в префиксе её ошибок (`Command.errorName`). */
   readonly errorName: string;
-  /**
-   * Пометка журнала вызовов (`platform/invoke-log.md`): у тула команды
-   * контракта запись делает обвязка, у тула маршрута `legacy` поля нет
-   * — запись делает сам Python-подпроцесс, и вторая была бы дублем.
-   */
-  readonly journal?: OutputPolicy;
+  /** Пометка журнала вызовов (`platform/invoke-log.md`). */
+  readonly journal: OutputPolicy;
   readonly invoke: (
     args: unknown,
     io: CommandIo,

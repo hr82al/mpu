@@ -21,7 +21,9 @@ const DEFAULT_DEV_DATABASE = "mp_sl_1_dev";
 
 /**
  * Алиасы БД воркспейсов (`platform/selector.md`): сравниваются без учёта
- * регистра и краевых пробелов.
+ * регистра и краевых пробелов. Маршрут выброшен (порция 97), а список
+ * остался ради отказа по делу: без него такой селектор ушёл бы в
+ * обычный резолв и упал бы «клиент не найден».
  */
 const SW_ALIASES: readonly string[] = [
   "sw",
@@ -46,7 +48,7 @@ const CLIENT_ID = /^\d+$/;
 export type SelectorRoute =
   /** dev-стенд; хвост-число — client_id для search_path, иначе его нет. */
   | { readonly kind: "dev"; readonly clientId: number | null }
-  /** БД воркспейсов: до `specs/sql-sw.md` вызов уходит прежней реализации. */
+  /** БД воркспейсов: маршрут выброшен, вызов получает отказ. */
   | { readonly kind: "sw" }
   | { readonly kind: "normal" };
 

@@ -17,9 +17,8 @@ import {
 import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
   type: "json",
 };
-import type { LegacyLeaf } from "./legacy_tools.ts";
-import { readManifest } from "./legacy_tools.ts";
-import { assertDestructivePublished, publishableLegacy } from "./tools.ts";
+import { readManifest } from "../registry/manifest.ts";
+import { assertDestructivePublished } from "./tools.ts";
 import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };
@@ -126,17 +125,13 @@ Deno.test("список тулов профиля побитово одинак�
   }
 });
 
-Deno.test("публикуемых тулов маршрута legacy не осталось", () => {
-  // Прежде этот тест сверял две формы ответа: у `legacy` текст
-  // подпроцесса и без схемы результата, у `native` — структурный
-  // результат по объявлению. Сверять больше не с чем: последними
-  // подпроцессными тулами были `api wb-loader-status` и `-reset`, и
-  // они переехали вместе со всей группой `api`
-  // (`docs/specs/api-wb-loader.md`).
-  //
-  // Проверяется теперь противоположное — что подпроцессных тулов нет
-  // ни в одном профиле, и что у каждого опубликованного есть схема
-  // результата: она и есть признак маршрута `native`.
+Deno.test("у каждого публикуемого тула есть схема результата", () => {
+  // Прежде этот тест сверял две формы ответа: у тула подпроцесса —
+  // текст без схемы результата, у тула команды контракта —
+  // структурный результат по объявлению. Второй формы больше нет:
+  // маршрут `legacy` снят целиком (порция 97). Осталось утверждение о
+  // единственной оставшейся: тул публикуется только по объявленной
+  // команде, и схема результата у него есть.
   const native = new Set(commands.map((command) => command.path.join(" ")));
   for (const profile of PROFILES) {
     for (const entry of profileTools(commands, profile)) {
@@ -283,16 +278,13 @@ Deno.test("публикация подчинена закрытому списк
     );
   });
 
-  await t.step("каждое имя списка разрешается в лист слепка", () => {
-    const leaves = new Set(
-      readManifest(treeManifest).commands.map((leaf) => leaf.path.join(" ")),
-    );
+  await t.step("каждое имя списка — команда реестра", () => {
     const native = new Set(commands.map((command) => command.path.join(" ")));
-    // Команда native живёт в коде, прочие обязаны найтись в слепке —
-    // иначе тул некому описать и нечем исполнить.
+    // Прежде имя могло разрешаться и в лист слепка: подпроцессные
+    // команды публиковались тулами. Маршрут снят (порция 97), и
+    // источник у тула остался один — объявление команды в коде.
     assertEquals(
-      [...policies.ro, ...policies.rw]
-        .filter((name) => !native.has(name) && !leaves.has(name)),
+      [...policies.ro, ...policies.rw].filter((name) => !native.has(name)),
       [],
     );
   });
@@ -310,10 +302,9 @@ Deno.test("публикация подчинена закрытому списк
 
   await t.step("команда вне списка не публикуется", () => {
     const listed = new Set([...policies.ro, ...policies.rw]);
-    const outside = [
-      ...commands.map((command) => command.path.join(" ")),
-      ...readManifest(treeManifest).commands.map((leaf) => leaf.path.join(" ")),
-    ].filter((name) => !listed.has(name));
+    const outside = commands
+      .map((command) => command.path.join(" "))
+      .filter((name) => !listed.has(name));
     // Реестр действительно несёт такие команды: `mpu mcp token` печатает
     // токен доступа, и правило fail-closed — единственное, что держит её
     // вне тулов.
@@ -325,11 +316,15 @@ Deno.test("публикация подчинена закрытому списк
   });
 
   await t.step("узел дерева тулом не становится", () => {
+    // Правило «группа не публикуется» жило в проекции слепка и ушло
+    // вместе с маршрутом (порция 97): тул теперь собирается только из
+    // команды реестра, а у группы объявления нет вовсе — публиковать
+    // нечего по построению. Здесь остаётся наблюдаемая часть: ни одно
+    // имя списка не совпадает с промежуточным уровнем дерева.
     const groups = readManifest(treeManifest).commands
       .filter((node) => node.group === true)
       .map((node) => node.path.join(" "));
     assertEquals(groups.length > 0, true, "в слепке нет ни одной группы");
-    // Сегодня групп в списке нет — это проверяем...
     assertEquals(
       [...policies.ro, ...policies.rw].filter((name) => groups.includes(name)),
       [],
@@ -338,19 +333,6 @@ Deno.test("публикация подчинена закрытому списк
       published.filter((item) => groups.includes(item.command)),
       [],
     );
-    // ...но правку списка это не стережёт, поэтому правило проверяется
-    // и само по себе: узел с признаком группы не публикуется, даже
-    // если его имя в списке есть.
-    const asGroup: LegacyLeaf = {
-      path: ["xlsx", "ls"],
-      params: [],
-      summary: "проба",
-      help: "проба",
-      group: true,
-    };
-    assertEquals(publishableLegacy([asGroup], "ro"), []);
-    const asLeaf: LegacyLeaf = { ...asGroup, group: undefined };
-    assertEquals(publishableLegacy([asLeaf], "ro").length, 1);
   });
 
   await t.step("расхождение политики со списком — отказ собрать тулы", () => {

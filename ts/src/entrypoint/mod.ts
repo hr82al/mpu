@@ -19,22 +19,11 @@ import {
   commands,
   findCommand,
   findGroup,
-  findLegacy,
   findSurface,
-  legacyCommands,
   surfaces,
 } from "../registry/mod.ts";
 import { helpEntries, runHelpCommand } from "./help_command.ts";
 import { VERSION } from "../version.ts";
-import { readManifest } from "../mcp/legacy_tools.ts";
-import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
-  type: "json",
-};
-import {
-  LegacyBinMissingError,
-  type LegacyIo,
-  runLegacyCommand,
-} from "../legacy/mod.ts";
 import { renderCommandHelp, renderIndex, renderSurfaceHelp } from "./help.ts";
 import {
   type InvokeLog,
@@ -203,10 +192,9 @@ function runCompletionMode(
 
 /**
  * Срез порта поверхностей точки входа: собственных полей у них нет —
- * это объединение того, что нужно опциям дополнения и справке, которая
- * отдаёт порт дальше маршруту `legacy`.
+ * это ровно то, что нужно опциям дополнения.
  */
-type EntrypointSurfaceIo = CompletionOptionIo & LegacyIo;
+type EntrypointSurfaceIo = CompletionOptionIo;
 
 /**
  * Поверхности точки входа, для которых поиск пути в реестре не нужен:
@@ -243,10 +231,9 @@ async function runEntrypointSurface(
     // Поверхность точки входа, а не запись маршрута: список берётся из
     // единого реестра, поэтому не дрейфует от `--help` (отклонение-fix
     // спеки `platform/registry.md`).
-    return await runHelpCommand(
+    return runHelpCommand(
       rest.slice(1),
-      helpEntries(commands, legacyCommands, surfaces),
-      io,
+      helpEntries(commands, surfaces),
       output,
     );
   }
@@ -277,10 +264,9 @@ function runVersionSurface(
 }
 
 /**
- * Диспетчеризация уже найденного пути команды: подпроцесс маршрута
- * `legacy`, группа и — через `runLeafCommand` — листовая команда.
- * Ошибки не перехватываются — их в коды выхода переводит вызывающая
- * сторона (`errorToExitCode`).
+ * Диспетчеризация уже найденного пути команды: группа и — через
+ * `runLeafCommand` — листовая команда. Ошибки не перехватываются — их
+ * в коды выхода переводит вызывающая сторона (`errorToExitCode`).
  */
 async function dispatchPath(
   path: readonly string[],
@@ -291,13 +277,6 @@ async function dispatchPath(
   output: Output,
   journal: InvokeJournal | undefined,
 ): Promise<number> {
-  const legacy = findLegacy(path);
-  if (legacy !== undefined) {
-    // Аргументы берутся из исходного argv: общий параметр точки
-    // входа для этого маршрута не распознаётся и уходит подпроцессу
-    // как обычный аргумент (`platform/registry.md`).
-    return await runLegacyCommand(legacy, dropPath(argv, path), io, output);
-  }
   const command = findCommand(path);
   if (command === undefined) {
     return await runGroup(
@@ -324,8 +303,7 @@ async function dispatchPath(
 
 /**
  * Диспетчеризация листовой команды, уже найденной по пути: `--help`
- * команды, мост в `legacy` для ещё не перенесённой поверхности и
- * нативное исполнение.
+ * команды и нативное исполнение.
  */
 async function runLeafCommand(
   command: Command,
@@ -349,18 +327,6 @@ async function runLeafCommand(
   if (args.length === 0 && command.helpWhenBare) {
     output.stdout(renderCommandHelp(command));
     return 2;
-  }
-  if (command.bridge(own)) {
-    // Часть поверхности команды может быть ещё не перенесена — такой
-    // вызов уходит прежней реализации целиком, до разбора аргументов
-    // и до отметки журналу: запись о нём делает сам подпроцесс
-    // (`platform/invoke-log.md`, «Разделение моста»).
-    return await runLegacyCommand(
-      { path, summary: command.summary },
-      own,
-      io,
-      output,
-    );
   }
   // Вызов пошёл маршрутом `native`: его журналирует обвязка, и отметка
   // стоит до исполнения — запись остаётся и у падения
@@ -415,21 +381,16 @@ function jsonBeforePath(
 }
 
 /**
- * Переводит ошибку исполнения найденного пути в код завершения процесса:
- * `LegacyBinMissingError` — до команды не дошло, ошибка реестра;
- * `UsageError` — неправильный вызов; `DomainError` — отказ домена.
- * Прочие ошибки перебрасываются дальше — это не их граница обработки.
+ * Переводит ошибку исполнения найденного пути в код завершения
+ * процесса: `UsageError` — неправильный вызов; `DomainError` — отказ
+ * домена. Прочие ошибки перебрасываются дальше — это не их граница
+ * обработки.
  */
 function errorToExitCode(
   err: unknown,
   path: readonly string[],
   output: Output,
 ): number {
-  if (err instanceof LegacyBinMissingError) {
-    // Сообщение реестра, а не команды: до неё дело не дошло.
-    output.stderr(`mpu: ${err.message}\n`);
-    return 1;
-  }
   if (err instanceof UsageError) {
     output.stderr(`${formatCommandError(errorNameOf(path), err)}\n`);
     return 2;
@@ -522,9 +483,10 @@ function candidates(io: CompletionEnvIo): readonly CompletionItem[] {
 }
 
 /**
- * Флаги уровня. У команды контракта они выводятся из схемы аргументов,
- * у записи маршрута `legacy` — из описания параметров в слепке; общий
- * параметр точки входа и `--help` доступны обеим.
+ * Флаги уровня: у команды контракта они выводятся из схемы аргументов,
+ * у прочих уровней — только общие. Прежде здесь была вторая ветка, для
+ * записи маршрута `legacy` со флагами из слепка; маршрута больше нет
+ * (порция 97).
  */
 function levelFlags(path: readonly string[]): readonly CompletionItem[] {
   const flag = (name: string, summary = "") => ({ name, summary });
@@ -548,31 +510,8 @@ function levelFlags(path: readonly string[]): readonly CompletionItem[] {
       flag(HELP_FLAG, HELP_FLAG_SUMMARY),
     ];
   }
-  const leaf = legacyLeaf(path);
-  if (leaf !== undefined) {
-    const declared = leaf.params
-      .filter((param) => param.kind === "option")
-      .map((param) =>
-        flag(
-          param.opts?.find((opt) => opt.startsWith("--")) ?? `--${param.name}`,
-          param.help ?? "",
-        )
-      );
-    // Общий параметр формы вывода командам этого маршрута не
-    // предлагается: он ими не распознаётся и уходит подпроцессу как
-    // обычный аргумент (`platform/registry.md`).
-    return [...declared, flag(HELP_FLAG, HELP_FLAG_SUMMARY)];
-  }
   // Уровень без собственных флагов (группа) — только общие.
   return [flag(HELP_FLAG, HELP_FLAG_SUMMARY)];
-}
-
-/** Лист слепка по пути: у записи маршрута `legacy` флаги описаны там. */
-function legacyLeaf(path: readonly string[]) {
-  const name = path.join(" ");
-  return readManifest(treeManifest).commands.find(
-    (leaf) => leaf.path.join(" ") === name,
-  );
 }
 
 /** Срез порта для опций дополнения: shell, HOME, чтение и запись rc-файла. */
@@ -745,8 +684,7 @@ function matchPath(
     const candidate = [...path, argv[index]];
     if (
       findCommand(candidate) === undefined &&
-      findGroup(candidate) === undefined &&
-      findLegacy(candidate) === undefined
+      findGroup(candidate) === undefined
     ) {
       break;
     }

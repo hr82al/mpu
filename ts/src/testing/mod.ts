@@ -52,7 +52,6 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     currentShell: () => undefined,
     appendFile: mustNotTouch("appendFile"),
     launchOpener: mustNotTouch("opener"),
-    runLegacy: mustNotTouch("runLegacy"),
     envFile: {
       // `get` отвечает «ключа нет», а не падает: с переездом конфигурации
       // в env-файл (2026-08-05, `platform/env-file.md`) чтение ключа стало
@@ -68,9 +67,8 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     },
     // Пустая кэш-БД в памяти, а не запрет: с переездом предпочтений в
     // таблицу `config` (2026-08-27, `platform/config.md`) чтение ключа
-    // стало обычным шагом — маршрут `legacy` зовёт его до всякого
-    // запуска, — и «хранилища нет» это штатный ответ, а не касание
-    // запретного (то же рассуждение, что у `envFile.get`). Файловой
+    // стало обычным шагом, и «хранилища нет» это штатный ответ, а не
+    // касание запретного (то же рассуждение, что у `envFile.get`). Файловой
     // системы такая база не касается; тест, которому нужно доказать,
     // что команда в базу не ходит, объявляет свой бросающий порт.
     openCacheDb: fakeConfigDb(),

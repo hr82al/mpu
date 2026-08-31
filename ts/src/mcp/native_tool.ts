@@ -21,11 +21,7 @@ export function nativeEntry(command: Command): ToolEntry {
     },
     invoke: async (args, io) => {
       const result = await command.invokeInput(args, io);
-      return {
-        isError: false,
-        text: JSON.stringify(result),
-        structured: result,
-      };
+      return { text: JSON.stringify(result), structured: result };
     },
   };
 }

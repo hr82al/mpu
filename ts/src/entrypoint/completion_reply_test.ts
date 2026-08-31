@@ -5,8 +5,8 @@
  * Сверка байтовая: это внешняя граница, и ответ для zsh **исполняется**
  * как код — вольность в формате ломает дополнение молча.
  *
- * Часть эталонов снята на дереве, где команда ещё была на маршруте
- * `legacy`: `completion-out-bash-flags` и `completion-out-zsh-nested` —
+ * Часть эталонов снята на дереве, где команда ещё шла подпроцессом:
+ * `completion-out-bash-flags` и `completion-out-zsh-nested` —
  * до переезда `xlsx`, `completion-out-bash`, `completion-out-zsh` и
  * `completion-out-zsh-flags` — до переезда `sql-ro`. Формат на них
  * проверяется на данных слепка, а фактический вывод переехавшей команды
@@ -18,7 +18,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { completionReply } from "./completion.ts";
 import { runCli } from "./mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { readManifest } from "../mcp/legacy_tools.ts";
+import { readManifest } from "../registry/manifest.ts";
 import { findCommand } from "../registry/mod.ts";
 
 /** Общий параметр формы вывода: он есть только у маршрута `native`. */
@@ -136,25 +136,6 @@ Deno.test("значения перечислений не дополняются
 });
 
 Deno.test("флаги берутся из того же источника, что и справка", async (t) => {
-  await t.step("команда маршрута legacy — из слепка", async () => {
-    const { stdout } = await complete({
-      _MPU_COMPLETE: "complete_bash",
-      COMP_WORDS: "mpu sheet -",
-      COMP_CWORD: "2",
-    });
-    const flags = stdout.split("\n").filter(Boolean);
-    const leaf = readManifest(treeManifest).commands.find(
-      (item) => item.path.join(" ") === "sheet",
-    );
-    const expected = (leaf?.params ?? [])
-      .filter((param) => param.kind === "option")
-      .map((param) =>
-        param.opts?.find((opt) => opt.startsWith("--")) ?? `--${param.name}`
-      );
-    // Ровно объявленные в слепке флаги плюс общий `--help`.
-    assertEquals(flags, [...expected, "--help"]);
-  });
-
   await t.step("уровень-группа — только общий --help", async () => {
     const { stdout } = await complete({
       _MPU_COMPLETE: "complete_bash",
@@ -165,15 +146,16 @@ Deno.test("флаги берутся из того же источника, чт
   });
 
   await t.step("completion-out-zsh-flags.txt — байт в байт", async () => {
-    // Эталон снят до переезда `sql-ro`, поэтому формат проверяется на
-    // данных слепка: описание флага у переехавшей команды теперь своё
-    // (следующий шаг), а форма ответа обязана остаться прежней.
-    const leaf = readManifest(treeManifest).commands.find(
-      (item) => item.path.join(" ") === "sql-ro",
-    );
-    const dry = leaf?.params.find((param) => param.name === "dry");
+    // Эталон снят до переезда `sql-ro`: у переехавшей команды описание
+    // флага своё (следующий шаг), а здесь проверяется форма ответа, и
+    // текст берётся тот, что стоит в эталоне. Прежде он приходил из
+    // слепка — источник исчез вместе с маршрутом (порция 97), сама
+    // форма не изменилась.
     assertEquals(
-      completionReply("zsh", [{ name: "--dry", summary: dry?.help ?? "" }]),
+      completionReply("zsh", [{
+        name: "--dry",
+        summary: "Только meta + SQL, без коннекта",
+      }]),
       await golden("completion-out-zsh-flags"),
     );
   });
@@ -209,41 +191,36 @@ Deno.test("флаги берутся из того же источника, чт
     assertStringIncludes(stdout, "таблица с шапкой range/value");
   });
 
-  await t.step("общий --json командам legacy не добавляется", async () => {
-    // Точка входа его для этого маршрута не распознаёт: он уходит
-    // подпроцессу как обычный аргумент (`platform/registry.md`).
-    // У `mpu sheet` своего `--json` в слепке нет — значит и в подсказке
-    // ему взяться неоткуда.
-    const legacy = await complete({
-      _MPU_COMPLETE: "complete_bash",
-      COMP_WORDS: "mpu sheet -",
-      COMP_CWORD: "2",
-    });
-    assertEquals(legacy.stdout.split("\n").includes(JSON_FLAG), false);
-    // А там, где команда объявляет его сама (`mpu sheet ls`), он есть — и
-    // приходит из слепка, а не от точки входа.
-    const own = await complete({
-      _MPU_COMPLETE: "complete_bash",
-      COMP_WORDS: "mpu sheet ls -",
-      COMP_CWORD: "3",
-    });
-    assertEquals(own.stdout.split("\n").includes(JSON_FLAG), true);
-    // Команде контракта общий параметр предлагается всегда.
-    const native = await complete({
-      _MPU_COMPLETE: "complete_bash",
-      COMP_WORDS: "mpu xlsx get -",
-      COMP_CWORD: "3",
-    });
-    assertEquals(native.stdout.split("\n").includes(JSON_FLAG), true);
-    // Кроме команды, чей хвостовой вход забирает неопознанные токены:
-    // там `--json` — флаг чужой командной строки, и предлагать его
-    // значило бы советовать испортить чужой вызов
-    // (`platform/registry.md`).
-    const passthrough = await complete({
-      _MPU_COMPLETE: "complete_bash",
-      COMP_WORDS: "mpu ssh -",
-      COMP_CWORD: "2",
-    });
-    assertEquals(passthrough.stdout.split("\n").includes(JSON_FLAG), false);
-  });
+  await t.step(
+    "общий --json предлагается там, где команда его берёт",
+    async () => {
+      // Прежде этот шаг сравнивал уровень группы с уровнем команды: у
+      // группы `--json` неоткуда взяться. Уровень группы теперь проверен
+      // соседним шагом («уровень-группа — только общий --help»), и здесь
+      // осталась вторая половина — команда, объявившая флаг сама.
+      const own = await complete({
+        _MPU_COMPLETE: "complete_bash",
+        COMP_WORDS: "mpu sheet ls -",
+        COMP_CWORD: "3",
+      });
+      assertEquals(own.stdout.split("\n").includes(JSON_FLAG), true);
+      // Команде контракта общий параметр предлагается всегда.
+      const native = await complete({
+        _MPU_COMPLETE: "complete_bash",
+        COMP_WORDS: "mpu xlsx get -",
+        COMP_CWORD: "3",
+      });
+      assertEquals(native.stdout.split("\n").includes(JSON_FLAG), true);
+      // Кроме команды, чей хвостовой вход забирает неопознанные токены:
+      // там `--json` — флаг чужой командной строки, и предлагать его
+      // значило бы советовать испортить чужой вызов
+      // (`platform/registry.md`).
+      const passthrough = await complete({
+        _MPU_COMPLETE: "complete_bash",
+        COMP_WORDS: "mpu ssh -",
+        COMP_CWORD: "2",
+      });
+      assertEquals(passthrough.stdout.split("\n").includes(JSON_FLAG), false);
+    },
+  );
 });

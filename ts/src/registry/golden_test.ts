@@ -18,7 +18,7 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { commands, legacyCommands, surfaces } from "./mod.ts";
+import { commands, surfaces } from "./mod.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { VERSION } from "../version.ts";
 
@@ -46,7 +46,6 @@ async function golden(name: string): Promise<string> {
 function allNames(): readonly string[] {
   return [
     ...commands.map((command) => command.path[0]),
-    ...legacyCommands.map((command) => command.path[0]),
     ...surfaces.map((surface) => surface.path[0]),
   ].filter((name, index, all) => all.indexOf(name) === index);
 }
@@ -190,57 +189,13 @@ Deno.test("version-help.txt: справка version, а не версия", asyn
   assertStringIncludes(await golden("version-help.txt"), "Show mpu version.");
 });
 
-Deno.test("справку команды маршрута legacy печатает подпроцесс", async (t) => {
-  // Эталоны сквозного поведения: flag-level текст справки команд
-  // маршрута `legacy` приходит от Python-реализации, которой в
-  // песочнице нет. Проверяем стык — argv и проход вывода насквозь.
-  // Образец — `iu-wb`: после порции 95 подпроцессных имён осталось
-  // два, и оба — команды без подкоманд. Групп, переехавших частично,
-  // в реестре больше нет вовсе; `telegram`, стоявший здесь прежде,
-  // уехал целиком.
-  const cases: readonly (readonly [string, readonly string[], string[]])[] = [
-    ['mpu help "mpu iu-wb"', ["help", "mpu iu-wb"], ["iu-wb", "--help"]],
-    ["mpu iu-wb --help", ["iu-wb", "--help"], ["iu-wb", "--help"]],
-  ];
-
-  for (const [title, argv, expectedArgv] of cases) {
-    await t.step(title, async () => {
-      const calls: string[][] = [];
-      const printed =
-        "Usage: mpu telegram [OPTIONS] COMMAND\n\nСправка от реализации.\n";
-      const { code, stdout } = await run(argv, {
-        runLegacy: (_bin, args) => {
-          calls.push([...args]);
-          return Promise.resolve({ code: 0, stdout: printed, stderr: "" });
-        },
-      });
-      assertEquals(code, 0);
-      assertEquals(calls, [expectedArgv]);
-      // Насквозь: реестр текст не переупаковывает и не дополняет.
-      assertEquals(stdout, printed);
-    });
-  }
-});
-
-Deno.test("переехавшее семейство справку у подпроцесса не берёт", async () => {
-  // Обратная сторона того же стыка. `sheet` ушла с маршрута `legacy`
-  // целиком, и её индекс собирает реестр — эталоны справки Python по
-  // ней (`help-named-sheet.txt`, `subcmd-help.txt`) удалены вместе с
-  // маршрутом: эталон, описывающий несуществующий путь, хуже, чем его
-  // отсутствие.
-  const calls: string[][] = [];
-  const { stdout } = await run(["sheet", "--help"], {
-    runLegacy: (_bin, args) => {
-      calls.push([...args]);
-      return Promise.resolve({ code: 0, stdout: "", stderr: "" });
-    },
-  });
-  assertEquals(calls, []);
+Deno.test("переехавшее семейство: индекс собирает реестр", async () => {
+  // `sheet` ушла с маршрута `legacy` целиком, и её индекс собирает
+  // реестр — эталоны справки Python по ней (`help-named-sheet.txt`,
+  // `subcmd-help.txt`) удалены вместе с маршрутом: эталон,
+  // описывающий несуществующий путь, хуже, чем его отсутствие.
+  const { stdout } = await run(["sheet", "--help"]);
   for (const name of ["get", "set", "open", "alias", "cache"]) {
     assertStringIncludes(stdout, name);
   }
-  assertEquals(
-    legacyCommands.some((command) => command.path.join(" ") === "sheet"),
-    false,
-  );
 });

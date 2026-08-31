@@ -12,7 +12,7 @@ import { handleMcp } from "../mcp/mod.ts";
 import { nativeEntry } from "../mcp/native_tool.ts";
 import { type Command, defineCommand, DomainError } from "../command/mod.ts";
 import { commands } from "../registry/mod.ts";
-import { fakeConfigDb, makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo } from "../testing/mod.ts";
 import { type InvokeLog, makeInvokeLog } from "./mod.ts";
 
 /** Стенд: журнал поверх временного файла и вывод, который он копирует. */
@@ -166,24 +166,15 @@ Deno.test("режим дополнения записей не оставляе�
   });
 });
 
-Deno.test("маршрут legacy: обвязка записи не создаёт", async () => {
+Deno.test("выброшенный sw-маршрут: запись всё равно есть", async () => {
   await withStand(async (stand) => {
-    const outcome = await cli(
-      stand,
-      // Команда, ещё идущая подпроцессом: `sheet` ушёл с этого
-      // маршрута целиком, `d2-miro` уезжает следующим коммитом.
-      ["iu-wb", "sl-1"],
-      makeFakeIo({
-        openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/bin/echo" }),
-        runLegacy: () =>
-          Promise.resolve({ code: 0, stdout: "строки\n", stderr: "" }),
-      }),
-    );
-    assertEquals(outcome.code, 0);
-    assertEquals(outcome.stdout, "строки\n");
-    // Запись этого вызова делает сам Python-подпроцесс; вторая отсюда
-    // была бы дублем (спека, «Разделение моста»).
-    assertEquals(await stand.text(), "");
+    // Прежде этот вызов уходил мостом в прежнюю реализацию, и обвязка
+    // записи не делала: её писал подпроцесс. Маршрут снят (порция 97),
+    // отказ печатает сама команда — и запись о вызове теперь наша.
+    const outcome = await cli(stand, ["sql-ro", "sw", "SELECT 1"]);
+    assertEquals(outcome.code, 2);
+    assertEquals((await stand.records()).length, 1);
+    assertStringIncludes(await stand.text(), "$ mpu sql-ro sw 'SELECT 1'");
   });
 });
 
@@ -345,22 +336,6 @@ Deno.test("вызов тула журналируется как вторая т
       const text = await stand.text();
       assertMatch(text, /exit=2 dur=/u);
       assertStringIncludes(text, 'unknown argument "нет"');
-    });
-  });
-  await t.step("тул маршрута legacy записи обвязки не оставляет", async () => {
-    await withStand(async (stand) => {
-      const response = await toolCall(
-        stand.log,
-        "search",
-        {},
-        makeFakeIo({
-          openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/bin/echo" }),
-          runLegacy: () =>
-            Promise.resolve({ code: 0, stdout: "ok\n", stderr: "" }),
-        }),
-      );
-      assertEquals(response.status, 200);
-      assertEquals(await stand.text(), "");
     });
   });
   await t.step("строки хода исполнения попадают в запись", async () => {

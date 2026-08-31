@@ -12,8 +12,7 @@
  *
  * Пишущей половины здесь нет намеренно: `create-*`, `delete-*`,
  * `update-*`, `auth-*`, семейства задач (`*-jobs-*`) и `integrity-*`
- * едут следующей поставкой, и до неё группа остаётся на маршруте
- * `legacy` целиком (`platform/registry.md`).
+ * едут следующей поставкой (`platform/registry.md`).
  */
 
 import type { EndpointSpec } from "./endpoint.ts";

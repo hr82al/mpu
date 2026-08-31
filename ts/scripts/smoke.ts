@@ -21,7 +21,6 @@ import { assert, assertEquals } from "@std/assert";
 import { VERSION } from "../src/version.ts";
 import { REQUIRES_INTERACTION } from "../src/mcp/tool.ts";
 import { PROTOCOL_VERSION } from "../src/mcp/jsonrpc.ts";
-import { DEFAULT_LEGACY_BIN } from "../src/legacy/mod.ts";
 import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/http/mod.ts";
 import { WARMUP_BUDGET_MS } from "../src/kaiten/mod.ts";
 import { envFilePath, makeEnvFile } from "../src/env/mod.ts";
@@ -47,12 +46,6 @@ const COMPLETE_ZSH = "complete_zsh";
 
 /** Строка, которой `mpu mcp` сообщает, что сокет уже слушает. */
 const LISTEN_MARKER = "слушаю http://";
-
-/** Файл журнала вызовов smoke-прогона: ключ `MPU_LOG_FILE` env-файла. */
-const INVOKE_LOG_NAME = "$HOME/.config/mpu/invoke.log";
-
-/** `run_id` записи, которую оставляет заглушка вместо Python-реализации. */
-const LEGACY_RUN_ID = "20260805-000000.000-1";
 
 const decoder = new TextDecoder();
 
@@ -229,28 +222,19 @@ async function compile(subject: Subject): Promise<void> {
   if (!compiled.success) throw new Error("deno compile не собрал бинарь");
 }
 
-/**
- * Заглушка Python-реализации на месте, где её ищет маршрут `legacy`:
- * без неё подпроцесс не запускается и право `--allow-run` остаётся
- * непроверенным.
- *
- * Заглушка дописывает и запись в журнал вызовов: у настоящей
- * реализации журнал свой, и проверка «обвязка второй записи не делает»
- * без этого проверяла бы пустоту (`platform/invoke-log.md`).
- */
-async function installFakeLegacy(subject: Subject): Promise<void> {
-  const path = DEFAULT_LEGACY_BIN.replace("~", subject.home);
-  await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-  await Deno.writeTextFile(
-    path,
-    `#!/bin/sh
-mkdir -p "$HOME/.config/mpu"
-printf '### legacy run=%s pid=1 cwd=/\\n$ mpu %s\\n--- end run=%s exit=0 dur=0.001s ---\\n\\n' \\
-  "${LEGACY_RUN_ID}" "$*" "${LEGACY_RUN_ID}" >> "${INVOKE_LOG_NAME}"
-if [ "$1" = version ]; then echo ${VERSION}; else echo legacy-ok; fi
-`,
-    { mode: 0o755 },
-  );
+/** Первый существующий путь из списка; ни одного — `undefined`. */
+async function firstExisting(
+  paths: readonly string[],
+): Promise<string | undefined> {
+  for (const path of paths) {
+    try {
+      await Deno.stat(path);
+      return path;
+    } catch {
+      // Нет — пробуем следующий; причина неважна.
+    }
+  }
+  return undefined;
 }
 
 /** Строки команд из журнала: по одной на запись. */
@@ -776,20 +760,57 @@ function checks(subject: Subject): readonly Check[] {
         `не та строка [info]: ${JSON.stringify(outcome.stderr)}`,
       );
     }],
-    ["маршрут legacy", async () => {
-      // Образец подпроцессной команды — `iu-wb`: `search`, `sheet` и
-      // `d2-miro` переехали на маршрут `native`.
-      const outcome = await runOk(subject, ["iu-wb", "--help"]);
-      assert(
-        outcome.stdout.includes("legacy-ok"),
-        `подпроцесс не отработал: ${JSON.stringify(outcome.stdout)}`,
+    // Право `--allow-run` собранного бинаря: без запуска подпроцесса
+    // оно осталось бы слепым — тот же класс, что правило «проверка,
+    // которая ничего не утверждает» (CLAUDE.md). Годится не всякий
+    // подпроцесс: `d2` в этом окружении нет вовсе, и Deno отвечает
+    // «файла нет» раньше, чем спрашивает право (замер 2026-08-31 —
+    // бинарь без `--allow-run` печатает ровно то же). `ssh` в PATH
+    // есть, поэтому право проверяется на нём.
+    ["ssh: подпроцесс запускается правом, а не отказом", async () => {
+      // Ищется там же, где его будет искать бинарь: ему передаётся
+      // именно этот PATH, и наличие ssh в PATH самого smoke ничего бы
+      // о вызове не говорило.
+      const sshBin = await firstExisting(["/usr/bin/ssh", "/bin/ssh"]);
+      if (sshBin === undefined) {
+        throw new Skipped("`ssh` не найден в /usr/bin и /bin: нечего звать");
+      }
+      const envDir = `${subject.configHome}/mpu`;
+      await Deno.mkdir(envDir, { recursive: true });
+      await Deno.writeTextFile(
+        `${envDir}/.env`,
+        // Петля с закрытым портом: ssh обязан запуститься и отказать
+        // сам. Наружу вызов не идёт — ни к dev-ноде по умолчанию, ни
+        // куда-либо ещё.
+        "DEV_NODE_HOST=127.0.0.1\nDEV_NODE_USER=nobody\n",
       );
+      try {
+        const outcome = await run(subject, ["ssh", "dev:1", "echo", "hi"], {
+          XDG_CONFIG_HOME: subject.configHome,
+          PATH: "/usr/bin:/bin",
+        });
+        // Утверждение — про то, что говорит сам ssh: строка про
+        // недоступный ключ приходит и когда порт закрыт, и когда на
+        // машине поднят sshd (тогда отказ будет на аутентификации).
+        // Привязка к «connection refused» краснела бы на машине с
+        // sshd, ничего не сообщая о праве.
+        assert(
+          outcome.stderr.includes("Identity file") &&
+            outcome.stderr.includes(".ssh/id_rsa"),
+          `подпроцесс ssh не запускался: ${JSON.stringify(outcome.stderr)}`,
+        );
+        // Код ssh доносится как есть (`exec-transport.md`): 255 — это
+        // он, а не наша трактовка. Без права бинарь падал бы с 1.
+        assertEquals(outcome.code, 255, "код ssh не донесён");
+      } finally {
+        await Deno.remove(`${envDir}/.env`);
+      }
     }],
     // Журнал вызовов: одна запись на вызов и ни одной лишней. Права на
     // файл берутся из `--allow-write=$HOME/.config/mpu` — журнал живёт
     // в каталоге состояния, а путь приходит ключом env-файла, не
     // окружением процесса (`platform/invoke-log.md`).
-    ["журнал вызовов: по записи на вызов, legacy пишет сам", async () => {
+    ["журнал вызовов: по записи на вызов", async () => {
       // Журнал пишет бинарь, и права на него — из того же списка.
       requireOutsideTempPermission(subject.home);
       const configDir = `${subject.home}/.config/mpu`;
@@ -802,30 +823,26 @@ function checks(subject: Subject): readonly Check[] {
       try {
         await Deno.remove(logPath);
       } catch {
-        // Файла ещё нет, если проверка маршрута `legacy` выше не
-        // добралась до него: считаем записи этой проверки, а не прогона.
+        // Файла ещё нет: считаем записи этой проверки, а не прогона.
       }
       try {
         await runOk(subject, ["xlsx", "resolve", "--json"]);
-        const afterNative = await Deno.readTextFile(logPath);
+        const afterFirst = await Deno.readTextFile(logPath);
         assertEquals(
-          logRecords(afterNative),
+          logRecords(afterFirst),
           ["$ mpu xlsx resolve --json"],
-          `не одна запись native-вызова: ${JSON.stringify(afterNative)}`,
+          `не одна запись вызова: ${JSON.stringify(afterFirst)}`,
         );
-        await runOk(subject, ["iu-wb", "--help"]);
-        const afterLegacy = await Deno.readTextFile(logPath);
-        // Вторая запись — от подпроцесса; обвязка для маршрута `legacy`
-        // своей не делает, иначе записей было бы три.
+        // Второй вызов — вторая запись, не больше и не меньше: пока
+        // жил маршрут `legacy`, запись о его вызове делал подпроцесс, и
+        // обвязка своей не добавляла. Маршрута нет, записи делает
+        // только обвязка — считаем, что ровно по одной.
+        await runOk(subject, ["config", "--json"]);
+        const afterSecond = await Deno.readTextFile(logPath);
         assertEquals(
-          logRecords(afterLegacy),
-          ["$ mpu xlsx resolve --json", "$ mpu iu-wb --help"],
-          `записи маршрута legacy задвоились: ${JSON.stringify(afterLegacy)}`,
-        );
-        assertEquals(
-          afterLegacy.split(`run=${LEGACY_RUN_ID}`).length - 1,
-          2,
-          "запись legacy-вызова пришла не от подпроцесса",
+          logRecords(afterSecond),
+          ["$ mpu xlsx resolve --json", "$ mpu config --json"],
+          `записи задвоились: ${JSON.stringify(afterSecond)}`,
         );
         // Права — последним утверждением: их отсутствие у файловой
         // системы даёт пропуск (`modeOf`), и стоящее раньше он отменил
@@ -880,6 +897,18 @@ function checks(subject: Subject): readonly Check[] {
       } finally {
         await Deno.remove(`${configDir}/.env`);
       }
+    }],
+    ["sql-ro: выброшенный sw-маршрут отказывает, а не резолвит", async () => {
+      // Отказ печатает собранный бинарь: маршрута воркспейсов больше
+      // нет, а алиас остаётся распознанным ради причины по делу.
+      const outcome = await run(subject, ["sql-ro", "sw", "SELECT 1"]);
+      assertEquals(outcome.code, 2, `не ошибка ввода: ${outcome.stderr}`);
+      assertEquals(
+        outcome.stderr,
+        "mpu sql-ro: маршрут sw выброшен: доступа к контуру " +
+          "воркспейсов нет\n",
+      );
+      assertEquals(outcome.stdout, "");
     }],
     ["схема main-БД: голдены сходятся с information_schema", async () => {
       // Единственная проверка smoke, которой нужен живой стенд.
@@ -1013,7 +1042,6 @@ async function main(): Promise<number> {
     };
     console.log("== сборка ==");
     await compile(subject);
-    await installFakeLegacy(subject);
     console.log("== проверки ==");
     let passed = 0;
     let failed = 0;

@@ -264,8 +264,7 @@ mpu config KEY печатает значение: у строкового клю
 mpu config KEY VALUE задаёт значение, mpu config --unset KEY удаляет
 запись. Повторный --unset — тоже успех: команда идемпотентна.
 
-Ключи (закрытый список): mcp.port, mcp.legacy_bin, sheet.default,
-xlsx.default, sheet.cache.tab_ttl, sheet.cache.max_tab_bytes,
+Ключи (закрытый список): mcp.port, sheet.default, xlsx.default, sheet.cache.tab_ttl, sheet.cache.max_tab_bytes,
 sheet.cache.max_total_mb. Имя вне списка — ошибка; записей «на лету» не
 появляется. Числовому ключу нечисловое значение задать нельзя — отказ
 до записи. Значения хранятся буквально: «007» останется «007».

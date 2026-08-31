@@ -47,12 +47,6 @@ export const CONFIG_KEYS: readonly ConfigKey[] = [
     description: "Порт HTTP-сервера `mpu mcp`",
   },
   {
-    key: "mcp.legacy_bin",
-    type: "str",
-    fallback: "~/.local/share/uv/tools/mpu/bin/mpu",
-    description: "Путь к прежней реализации для маршрута legacy",
-  },
-  {
     key: "sheet.default",
     type: "str",
     fallback: undefined,

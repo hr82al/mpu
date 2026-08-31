@@ -9,11 +9,7 @@
  */
 
 import type { Command } from "../command/mod.ts";
-import {
-  type LegacyCommand,
-  type LegacyIo,
-  runLegacyCommand,
-} from "../legacy/mod.ts";
+
 import type { SurfaceCommand } from "../registry/mod.ts";
 import { renderCommandHelp, renderSurfaceHelp } from "./help.ts";
 
@@ -38,23 +34,17 @@ export type HelpEntry =
   & (
     /** Команда контракта: справка рендерится из объявления. */
     | { readonly kind: "command"; readonly command: Command }
-    /**
-     * Запись маршрута `legacy`: подробную справку печатает сама
-     * Python-реализация, реестр хранит только однострокў (спека).
-     */
-    | { readonly kind: "legacy"; readonly legacy: LegacyCommand }
     /** Поверхность точки входа: справка складывается из полей реестра. */
     | { readonly kind: "surface"; readonly surface: SurfaceCommand }
   );
 
 /**
- * Всё дерево команд в порядке реестра: команды контракта, записи
- * маршрута `legacy` и поверхности точки входа (включая саму
- * `mpu help`). Список один, поэтому дрейфовать ему не от чего.
+ * Всё дерево команд в порядке реестра: команды контракта и
+ * поверхности точки входа (включая саму `mpu help`). Список один,
+ * поэтому дрейфовать ему не от чего.
  */
 export function helpEntries(
   commands: readonly Command[],
-  legacyCommands: readonly LegacyCommand[],
   surfaces: readonly SurfaceCommand[],
 ): readonly HelpEntry[] {
   return [
@@ -63,12 +53,6 @@ export function helpEntries(
       name: `mpu ${command.path.join(" ")}`,
       summary: command.summary,
       command,
-    })),
-    ...legacyCommands.map((command): HelpEntry => ({
-      kind: "legacy",
-      name: `mpu ${command.path.join(" ")}`,
-      summary: command.summary,
-      legacy: command,
     })),
     ...surfaces.map((surface): HelpEntry => ({
       kind: "surface",
@@ -83,12 +67,11 @@ export function helpEntries(
  * Исполняет `mpu help [<полное имя>]` и возвращает код завершения:
  * 0 — список или справка напечатаны, 2 — имя неизвестно.
  */
-export async function runHelpCommand(
+export function runHelpCommand(
   args: readonly string[],
   entries: readonly HelpEntry[],
-  io: LegacyIo,
   output: HelpSink,
-): Promise<number> {
+): number {
   const wanted = args[0];
   if (wanted === "-h" || wanted === "--help") {
     // Своя справка: и строка использования, и однострока — из той же
@@ -112,10 +95,6 @@ export async function runHelpCommand(
     return 2;
   }
   switch (entry.kind) {
-    case "legacy":
-      // Тот же текст, что у `mpu <cmd> --help`: у маршрута `legacy` его
-      // печатает сама реализация, а не реестр (спека).
-      return await runLegacyCommand(entry.legacy, ["--help"], io, output);
     case "surface":
       // Поверхность точки входа: тот же текст, что у `<имя> --help`, —
       // именованный рендер от прямого вызова не отличается (спека).

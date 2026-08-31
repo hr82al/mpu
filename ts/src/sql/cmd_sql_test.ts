@@ -14,6 +14,7 @@ import {
   DomainError,
   type EnvFile,
   formatCommandError,
+  UsageError,
   VerbatimError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
@@ -195,25 +196,29 @@ Deno.test("ошибка БД: текст сервера как есть, без 
   );
 });
 
-Deno.test("объявление команды: политика, мост и предел описания", async (t) => {
+Deno.test("sw-селектор: отказ и у пишущей половины", async () => {
+  // Отказ выброшенного маршрута живёт в общем `runSql`, но префикс
+  // ошибки у половин разный: без этой проверки свидетелем текста была
+  // бы только `sql-ro`.
+  const { io } = harness();
+  const err = await assertRejects(
+    () =>
+      runSql(args({ selector: "workspaces", sql: "UPDATE t SET a = 1" }), io, {
+        mode: "write",
+      }),
+    UsageError,
+  );
+  assertEquals(
+    formatCommandError("sql", err),
+    "mpu sql: маршрут sw выброшен: доступа к контуру воркспейсов нет",
+  );
+});
+
+Deno.test("объявление команды: политика и предел описания", async (t) => {
   await t.step("мутирующая команда — класс rw", () => {
     assertEquals(sqlCommand.path, ["sql"]);
     assertEquals(sqlCommand.policy, "rw");
     assertEquals(sqlCommand.errorName, "sql");
-  });
-
-  await t.step("sw-селектор уходит прежней реализации", () => {
-    const cases: readonly [readonly string[], boolean][] = [
-      [["sw", "select 1"], true],
-      [["--server", "sl-1", "workspaces"], true],
-      [["42", "UPDATE t SET a = 1"], false],
-      // Селектора в argv нет вовсе: мост молчит, разбор схемой сам
-      // скажет, чего не хватает.
-      [[], false],
-    ];
-    for (const [argv, expected] of cases) {
-      assertEquals(sqlCommand.bridge(argv), expected, argv.join(" "));
-    }
   });
 
   await t.step("описание тула укладывается в предел клиента", () => {

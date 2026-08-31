@@ -6,8 +6,8 @@
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { runCli } from "./mod.ts";
-import { fakeConfigDb, makeFakeIo } from "../testing/mod.ts";
-import { commands, legacyCommands } from "../registry/mod.ts";
+import { makeFakeIo } from "../testing/mod.ts";
+import { commands } from "../registry/mod.ts";
 import type { CommandIo } from "../command/mod.ts";
 
 function makeCli(overrides: Partial<CommandIo> = {}) {
@@ -31,7 +31,7 @@ Deno.test("mpu help: список всех команд обоих маршру�
   assertStringIncludes(text, "Available commands:");
   assertStringIncludes(text, "Run `<command> --help` for detailed usage.");
   // Ни одна запись реестра не потеряна — состав собирается из него.
-  for (const command of [...commands, ...legacyCommands]) {
+  for (const command of commands) {
     assertStringIncludes(text, `mpu ${command.path.join(" ")}`);
   }
   // И сама справочная подкоманда тоже в списке (спека).
@@ -55,27 +55,6 @@ Deno.test("mpu help <имя>: справка целевой команды", asy
     const direct = makeCli();
     await direct.run("xlsx", "get", "--help");
     assertEquals(cli.stdout(), direct.stdout());
-  });
-
-  await t.step("справку legacy-команды печатает подпроцесс", async () => {
-    const calls: string[][] = [];
-    const cli = makeCli({
-      runLegacy: (_bin, args) => {
-        calls.push([...args]);
-        return Promise.resolve({
-          code: 0,
-          stdout: "Usage: mpu telegram …\n",
-          stderr: "",
-        });
-      },
-      openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/bin/echo" }),
-    });
-    assertEquals(await cli.run("help", "mpu iu-wb"), 0);
-    // Тот же вызов, что у `mpu telegram --help`: реестр текст не
-    // сочиняет. Образец сменился на `telegram`: `api` переехала
-    // целиком, подпроцессным у неё не осталось ничего.
-    assertEquals(calls, [["iu-wb", "--help"]]);
-    assertEquals(cli.stdout(), "Usage: mpu telegram …\n");
   });
 });
 

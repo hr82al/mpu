@@ -7,7 +7,7 @@
  */
 
 import { assert, assertEquals, assertThrows } from "@std/assert";
-import { commands, findCommand, findGroup, findLegacy } from "./mod.ts";
+import { commands, findCommand, findGroup } from "./mod.ts";
 import { openCacheDb as openStoreDb } from "../store/mod.ts";
 import { type Command, type CommandIo, UsageError } from "../command/mod.ts";
 import { WRITE_ENDPOINTS } from "../api/endpoints_write.ts";
@@ -2199,9 +2199,6 @@ function makeIo(dir: string): CommandIo {
         append: true,
         create: true,
       }),
-    runLegacy: () => {
-      throw new Error("legacy must not be touched");
-    },
     envFile: {
       // Резолв пути xlsx (`settings.ts`) зовёт `get` безусловно ещё до
       // проверки источников — молчаливое отсутствие ключа здесь то же
@@ -2250,17 +2247,16 @@ function makeIo(dir: string): CommandIo {
 }
 
 Deno.test("каждый промежуточный уровень пути опознаётся реестром", () => {
-  // Точка входа опознаёт сегмент пути только по реестру: группой либо
-  // записью слепка. Не описан ни там ни там — подкоманды
-  // зарегистрированы, но человеком не вызываются вовсе
-  // (`platform/registry.md`, справка на каждом уровне).
+  // Точка входа опознаёт сегмент пути только по реестру — записью
+  // группы. Не описан — подкоманды зарегистрированы, но человеком не
+  // вызываются вовсе (`platform/registry.md`, справка на каждом
+  // уровне). Прежде уровень мог опознаваться и записью слепка;
+  // маршрут снят порцией 97, и источник остался один.
   for (const command of commands) {
     for (let depth = 1; depth < command.path.length; depth++) {
       const prefix = command.path.slice(0, depth);
-      const known = findGroup(prefix) !== undefined ||
-        findLegacy(prefix) !== undefined;
       assert(
-        known,
+        findGroup(prefix) !== undefined,
         `${command.path.join(" ")}: уровень "${prefix.join(" ")}" не описан`,
       );
     }

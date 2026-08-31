@@ -24,7 +24,6 @@ import { configValue, setConfigValue } from "./mod.ts";
 import { renderConfig, runConfig } from "./cmd_config.ts";
 import { CONFIG_KEYS } from "./registry.ts";
 import { DEFAULT_PORT } from "../mcp/server.ts";
-import { DEFAULT_LEGACY_BIN } from "../legacy/mod.ts";
 import { DEFAULTS } from "../sheet/settings.ts";
 
 /** Аргументы вызова; по умолчанию — голый `mpu config`. */
@@ -88,9 +87,9 @@ Deno.test("список --json: форма записи — эталон кан�
     assertEquals(entries.length, CONFIG_KEYS.length);
     // Пять записей оригинала обязаны совпасть с голденом дословно —
     // вместе с описаниями: их читает человек.
-    assertEquals(entries.slice(2), original);
-    // Две наши записи в голдене отсутствуют, поэтому проверяются
-    // здесь: у обеих есть умолчание, и источник у него один.
+    assertEquals(entries.slice(1), original);
+    // Наша запись в голдене отсутствует, поэтому проверяется здесь: у
+    // неё есть умолчание, и источник у него один.
     assertEquals(entries[0], {
       key: "mcp.port",
       value: "7337",
@@ -98,8 +97,6 @@ Deno.test("список --json: форма записи — эталон кан�
       default: "7337",
       description: "Порт HTTP-сервера `mpu mcp`",
     });
-    assertEquals(entries[1].key, "mcp.legacy_bin");
-    assertEquals(entries[1].value, entries[1].default);
   });
 });
 
@@ -293,10 +290,10 @@ Deno.test("реестр закрыт: имя вне списка не созда
       const text = formatCommandError("config", err);
       const tail = (await golden("err-unknown-key.stderr")).trim()
         .split("допустимые ключи: ")[1];
-      // Состав у голдена оригинальный (без наших mcp.*), поэтому
+      // Состав у голдена оригинальный (без нашего mcp.port), поэтому
       // сверяется хвост перечня и форма подсказки.
       assertEquals(text.endsWith(tail), true, text);
-      assertEquals(text.includes("mcp.port, mcp.legacy_bin"), true, text);
+      assertEquals(text.includes("mcp.port, sheet.default"), true, text);
     });
   });
 });
@@ -361,10 +358,9 @@ Deno.test("переменные окружения на выдачу не вли
   }
 });
 
-Deno.test("реестр: семь ключей по порядку спеки", () => {
+Deno.test("реестр: шесть ключей по порядку спеки", () => {
   assertEquals(CONFIG_KEYS.map((entry) => entry.key), [
     "mcp.port",
-    "mcp.legacy_bin",
     "sheet.default",
     "xlsx.default",
     "sheet.cache.tab_ttl",
@@ -380,7 +376,6 @@ Deno.test("умолчания реестра совпадают с теми, ч�
   const fallback = (key: string) =>
     CONFIG_KEYS.find((entry) => entry.key === key)?.fallback;
   assertEquals(fallback("mcp.port"), String(DEFAULT_PORT));
-  assertEquals(fallback("mcp.legacy_bin"), DEFAULT_LEGACY_BIN);
   assertEquals(fallback("sheet.cache.tab_ttl"), String(DEFAULTS.tabTtlSeconds));
   assertEquals(
     fallback("sheet.cache.max_tab_bytes"),

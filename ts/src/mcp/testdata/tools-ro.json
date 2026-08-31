@@ -311,7 +311,7 @@
   {
     "name": "sql_ro",
     "title": "mpu sql-ro",
-    "description": "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).\n\nЗапись отклоняет сам сервер (SQLSTATE 25006), а не разбор\nтекста запроса; для записи — `mpu sql`.\n\nSELECTOR: sl-N (сервер целиком, main — sl-0), dev:<client_id>\n(dev-стенд, схема schema_<client_id>), sw-алиас (БД воркспейсов) либо\nпоиск по кэшу. Ровно один client_id среди кандидатов — search_path на\nего схему, иначе search_path сервера. --server sl-N резолв отменяет.\n\nSQL — второй аргумент, иначе stdin целиком (с терминала — до Ctrl+D);\nпустой — ошибка ввода без подключения. Уходит серверу как есть, одним\nвызовом: печатается результат ПЕРВОГО оператора, ошибка любого — отказ\nвсего вызова.\n\nВывод: таблица, --json (массив объектов), --md; вместе --json и --md —\nошибка ввода. --dry: мета-блок и SQL без подключения; -v — тот же блок\nпри обычном прогоне.\n\nКлючи env-файла (окружение процесса не читается): pg_<N>, PG_PORT\n(5432), PG_DB_NAME (wb), PG_MY_USER_NAME/PG_MAIN_USER_NAME и пароли\nPG_MY_USER_PASSWORD/PG_MAIN_USER_PASSWORD; для dev — DEV_PG_HOST,\nDEV_PG_PORT (5434), DEV_PG_DB (mp_sl_1_dev), DEV_PG_USER,\nDEV_PG_PASSWORD.\n\nExit: 0 — успех, включая --dry и запрос без набора строк; 1 — отказ\nзаписи и ошибка БД; 2 — ошибка ввода, резолва и конфигурации.\n\nПример: mpu sql-ro 42 'SELECT count(*) FROM orders' --json",
+    "description": "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).\n\nЗапись отклоняет сам сервер (SQLSTATE 25006), а не разбор\nтекста запроса; для записи — `mpu sql`.\n\nSELECTOR: sl-N (сервер целиком, main — sl-0), dev:<client_id>\n(dev-стенд, схема schema_<client_id>) либо поиск по кэшу. Ровно один client_id среди кандидатов — search_path на\nего схему, иначе search_path сервера. --server sl-N резолв отменяет.\n\nSQL — второй аргумент, иначе stdin целиком (с терминала — до Ctrl+D);\nпустой — ошибка ввода без подключения. Уходит серверу как есть, одним\nвызовом: печатается результат ПЕРВОГО оператора, ошибка любого — отказ\nвсего вызова.\n\nВывод: таблица, --json (массив объектов), --md; вместе --json и --md —\nошибка ввода. --dry: мета-блок и SQL без подключения; -v — тот же блок\nпри обычном прогоне.\n\nКлючи env-файла (окружение процесса не читается): pg_<N>, PG_PORT\n(5432), PG_DB_NAME (wb), PG_MY_USER_NAME/PG_MAIN_USER_NAME и пароли\nPG_MY_USER_PASSWORD/PG_MAIN_USER_PASSWORD; для dev — DEV_PG_HOST,\nDEV_PG_PORT (5434), DEV_PG_DB (mp_sl_1_dev), DEV_PG_USER,\nDEV_PG_PASSWORD.\n\nExit: 0 — успех, включая --dry и запрос без набора строк; 1 — отказ\nзаписи и ошибка БД; 2 — ошибка ввода, резолва и конфигурации.\n\nПример: mpu sql-ro 42 'SELECT count(*) FROM orders' --json",
     "annotations": {
       "readOnlyHint": true
     },
@@ -320,7 +320,7 @@
       "properties": {
         "selector": {
           "type": "string",
-          "description": "client_id / spreadsheet_id / заголовок (подстрока), sl-N, dev:<client_id> или sw-алиас"
+          "description": "client_id / spreadsheet_id / заголовок (подстрока), sl-N или dev:<client_id>"
         },
         "sql": {
           "description": "SQL; не задан — читается из stdin",
