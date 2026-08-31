@@ -607,7 +607,7 @@ function checks(subject: Subject): readonly Check[] {
           `нет строки шага 1: ${JSON.stringify(outcome.stderr)}`,
         );
         // Файл кэш-БД заведён самим бинарём — это и есть проверка права
-        // на запись в конфиг-каталог для нового файла.
+        // на запись в каталог состояния для нового файла.
         await Deno.stat(`${subject.home}/.config/mpu/mpu.db`);
         await Deno.remove(envPath);
       } finally {
@@ -692,7 +692,7 @@ function checks(subject: Subject): readonly Check[] {
     }],
     // Журнал вызовов: одна запись на вызов и ни одной лишней. Права на
     // файл берутся из `--allow-write=$HOME/.config/mpu` — журнал живёт
-    // в конфиг-каталоге, а путь приходит ключом env-файла, не
+    // в каталоге состояния, а путь приходит ключом env-файла, не
     // окружением процесса (`platform/invoke-log.md`).
     ["журнал вызовов: по записи на вызов, legacy пишет сам", async () => {
       const configDir = `${subject.home}/.config/mpu`;

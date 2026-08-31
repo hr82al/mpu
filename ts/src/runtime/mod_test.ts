@@ -2,9 +2,9 @@ import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { DomainError, NotFoundIoError } from "../command/mod.ts";
 import {
   accessTokenPath,
-  defaultConfigDir,
   defaultCredsDir,
   defaultInvokeLogPath,
+  defaultStateDir,
   makeDenoIo,
   makeDenoOutput,
   makeEnvFileStore,
@@ -23,7 +23,7 @@ Deno.test("файл токена — сосед хранилища конфиг�
   assertEquals(accessTokenPath(undefined), undefined);
 });
 
-Deno.test("без конфиг-каталога токен не читается и не пишется", async () => {
+Deno.test("без каталога состояния токен не читается и не пишется", async () => {
   const io = makeDenoIo(undefined);
   assertEquals(await io.readAccessToken(), undefined);
   // Отказ штатный (exit 1), а не «unexpected»: пользователю сообщают
@@ -47,16 +47,16 @@ Deno.test("токен читается без хвостового перево�
   }
 });
 
-Deno.test("путь конфиг-каталога выводится из HOME", () => {
+Deno.test("путь каталога состояния выводится из HOME", () => {
   const home = Deno.env.get("HOME");
   try {
     Deno.env.set("HOME", "/home/проба");
-    assertEquals(defaultConfigDir(), "/home/проба/.config/mpu");
+    assertEquals(defaultStateDir(), "/home/проба/.config/mpu");
     // Без HOME каталога нет: путь угадывать нечем.
     Deno.env.delete("HOME");
-    assertEquals(defaultConfigDir(), undefined);
+    assertEquals(defaultStateDir(), undefined);
     Deno.env.set("HOME", "");
-    assertEquals(defaultConfigDir(), undefined);
+    assertEquals(defaultStateDir(), undefined);
   } finally {
     if (home === undefined) Deno.env.delete("HOME");
     else Deno.env.set("HOME", home);
@@ -89,10 +89,10 @@ Deno.test("граница каталогов: HOME уводит состояни
     withEnv({ HOME: "/home/проба", XDG_CONFIG_HOME: "/подмена" }, () => {
       // Кэш-БД и журнал общие с Python-реализацией: их адресует HOME и
       // только он (`platform/store.md`).
-      assertEquals(defaultConfigDir(), "/home/проба/.config/mpu");
+      assertEquals(defaultStateDir(), "/home/проба/.config/mpu");
       assertEquals(defaultInvokeLogPath(), "/home/проба/.config/mpu/mpu.log");
       assertEquals(
-        accessTokenPath(defaultConfigDir()),
+        accessTokenPath(defaultStateDir()),
         "/home/проба/.config/mpu/token",
       );
       // А конфигурация — уводится: env-файл и выведенный из его кред
@@ -111,10 +111,10 @@ Deno.test("граница каталогов: HOME уводит состояни
       // Приём изоляции держится на этом: одна переменная уводит все файлы,
       // включая токен-кэш, пока XDG_CONFIG_HOME не задана.
       withEnv({ HOME: "/дом", XDG_CONFIG_HOME: undefined }, () => {
-        assertEquals(defaultConfigDir(), "/дом/.config/mpu");
+        assertEquals(defaultStateDir(), "/дом/.config/mpu");
         assertEquals(defaultInvokeLogPath(), "/дом/.config/mpu/mpu.log");
         assertEquals(
-          accessTokenPath(defaultConfigDir()),
+          accessTokenPath(defaultStateDir()),
           "/дом/.config/mpu/token",
         );
         assertEquals(defaultCredsDir(), "/дом/.config/mpu");
@@ -134,12 +134,12 @@ Deno.test("граница каталогов: HOME уводит состояни
 
   await t.step("без HOME остаётся только уведённая конфигурация", () => {
     withEnv({ HOME: undefined, XDG_CONFIG_HOME: "/подмена" }, () => {
-      assertEquals(defaultConfigDir(), undefined);
+      assertEquals(defaultStateDir(), undefined);
       assertEquals(defaultInvokeLogPath(), undefined);
       assertEquals(defaultCredsDir(), "/подмена/mpu");
     });
     withEnv({ HOME: "", XDG_CONFIG_HOME: undefined }, () => {
-      assertEquals(defaultConfigDir(), undefined);
+      assertEquals(defaultStateDir(), undefined);
       assertEquals(defaultCredsDir(), undefined);
       assertEquals(tokenCachePath(defaultCredsDir()), undefined);
     });
@@ -446,7 +446,7 @@ Deno.test("openCacheDb: путь — литеральный ${HOME}/.config/mpu/
     // Нестандартный XDG_CONFIG_HOME не должен влиять на путь кэш-БД: файл
     // общий с Python-реализацией, путь — её контракт (`platform/store.md`).
     Deno.env.set("XDG_CONFIG_HOME", `${dir}/elsewhere`);
-    using db = makeDenoIo(defaultConfigDir()).openCacheDb();
+    using db = makeDenoIo(defaultStateDir()).openCacheDb();
     assertEquals(db.path, `${dir}/.config/mpu/mpu.db`);
     db.bootstrap();
     assertEquals((await Deno.stat(db.path)).isFile, true);
@@ -464,13 +464,13 @@ Deno.test("openCacheDb: без HOME — DomainError с текстом спеки
   try {
     Deno.env.delete("HOME");
     assertThrows(
-      () => makeDenoIo(defaultConfigDir()).openCacheDb(),
+      () => makeDenoIo(defaultStateDir()).openCacheDb(),
       DomainError,
       "путь к кэш-БД не определён: HOME не задан",
     );
     Deno.env.set("HOME", "");
     assertThrows(
-      () => makeDenoIo(defaultConfigDir()).openCacheDb(),
+      () => makeDenoIo(defaultStateDir()).openCacheDb(),
       DomainError,
       "путь к кэш-БД не определён: HOME не задан",
     );

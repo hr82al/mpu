@@ -24,7 +24,7 @@ export interface EnvFileStore {
  * Каталог конфигурации mpu: XDG_CONFIG_HOME (непустая) → $HOME/.config;
  * иначе undefined. Здесь лежит env-файл и всё, что выведено из его кред
  * (токен-кэш sl-back — `platform/slback-http.md`). Каталог СОСТОЯНИЯ —
- * другой и адресуется только `HOME` (`defaultConfigDir`,
+ * другой и адресуется только `HOME` (`defaultStateDir`,
  * `src/runtime/mod.ts`): кэш-БД и журнал общие с Python-реализацией, и
  * обе обязаны находить их одинаково (`platform/store.md`).
  */
@@ -37,7 +37,7 @@ export function configHomeDir(
   }
   const home = readEnv("HOME");
   // Пустая `HOME` равнозначна незаданной — как для `XDG_CONFIG_HOME` выше
-  // и как в соседнем `defaultConfigDir` (`src/runtime/mod.ts`):
+  // и как в соседнем `defaultStateDir` (`src/runtime/mod.ts`):
   // одно и то же правило для обеих переменных, откуда бы путь ни строился.
   return home === undefined || home === "" ? undefined : `${home}/.config/mpu`;
 }

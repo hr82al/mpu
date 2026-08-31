@@ -63,7 +63,7 @@ function translateNotFound(err: unknown): never {
  * соседнем каталоге (`defaultCredsDir`); изолировать разом состояние и
  * конфигурацию можно только подменой `HOME`.
  */
-export function defaultConfigDir(): string | undefined {
+export function defaultStateDir(): string | undefined {
   const home = Deno.env.get("HOME");
   if (home === undefined || home === "") return undefined;
   return `${home}/.config/mpu`;
@@ -73,7 +73,7 @@ export function defaultConfigDir(): string | undefined {
  * Файл журнала вызовов по умолчанию (`platform/invoke-log.md`): сосед
  * кэш-БД в том же каталоге, общий с Python-реализацией. Без HOME пути
  * нет — журнал молчит; `XDG_CONFIG_HOME` его не уводит по той же
- * причине, что и кэш-БД (`defaultConfigDir`).
+ * причине, что и кэш-БД (`defaultStateDir`).
  */
 export function defaultInvokeLogPath(): string | undefined {
   const home = Deno.env.get("HOME");
@@ -117,9 +117,9 @@ export function tokenCachePath(
  * не ключ предпочтений (`platform/mcp-server.md`).
  */
 export function accessTokenPath(
-  configDir: string | undefined,
+  stateDir: string | undefined,
 ): string | undefined {
-  return configDir === undefined ? undefined : `${configDir}/token`;
+  return stateDir === undefined ? undefined : `${stateDir}/token`;
 }
 
 /**
@@ -300,17 +300,17 @@ export function makeEnvFileStore(path: string): EnvFileStore {
 
 /**
  * Реальные зависимости исполнения команд поверх API Deno. Каталогов
- * два: `configDir` — состояние (кэш-БД, токен MCP-сервера), `credsDir`
+ * два: `stateDir` — состояние (кэш-БД, токен MCP-сервера), `credsDir`
  * — конфигурация (env-файл, токен-кэш sl-back). Умолчание второго —
  * первый: тест, подставивший один каталог, по-прежнему изолирует всё
  * сразу, а разводит их только точка входа (`main.ts`), где переменные
  * окружения и правда разные.
  */
 export function makeDenoIo(
-  configDir: string | undefined,
-  credsDir: string | undefined = configDir,
+  stateDir: string | undefined,
+  credsDir: string | undefined = stateDir,
 ): CommandIo {
-  const tokenPath = accessTokenPath(configDir);
+  const tokenPath = accessTokenPath(stateDir);
   const cachePath = tokenCachePath(credsDir);
   const envPath = envFilePath((name) => Deno.env.get(name));
   return {
@@ -442,14 +442,14 @@ export function makeDenoIo(
       }
     },
     openCacheDb: () => {
-      if (configDir === undefined) {
+      if (stateDir === undefined) {
         // Штатная доменная ошибка (exit 1): без HOME негде искать файл,
         // общий с Python-реализацией (`platform/store.md`).
         throw new DomainError("путь к кэш-БД не определён: HOME не задан");
       }
       // Каталог тот же, что у токена и журнала: подставив свой,
       // тест получает изолированное состояние целиком, а не наполовину.
-      return openStoreDb(`${configDir}/mpu.db`);
+      return openStoreDb(`${stateDir}/mpu.db`);
     },
     progress: (line) => writeAllSync(Deno.stderr, `${line}\n`),
     openRemoteOutput: () => streamingRemoteOutput(),
