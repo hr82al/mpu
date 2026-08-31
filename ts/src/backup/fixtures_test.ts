@@ -8,7 +8,7 @@ import { assertEquals } from "@std/assert";
 const CHANNEL = "backup";
 
 const NAMES: readonly string[] = [
-  "backup-dry-stdout.txt",
+  "backup-dry-stderr.txt",
   "err-ambiguous-client-stderr.txt",
 ];
 

@@ -140,7 +140,7 @@ Deno.test("--dry: мета-блок и запрос — эталон канал�
     // не используется вовсе (`backup.md`, отклонение `fix`).
     assertEquals(
       `${progress.join("\n")}\n`,
-      await golden("backup-dry-stdout.txt"),
+      await golden("backup-dry-stderr.txt"),
     );
     // Сравнение именно с пустой строкой: «не содержит marketplace»
     // пропустило бы частичную утечку в stdout.
@@ -170,7 +170,7 @@ Deno.test("выполнение: stdout пуст, блок в stderr", async () 
     // Тот же блок, что и в показе, — записью о том, что было сделано.
     assertEquals(
       `${progress.join("\n")}\n`,
-      await golden("backup-dry-stdout.txt"),
+      await golden("backup-dry-stderr.txt"),
     );
     assertEquals(
       command("backup-wb-unit-proto").renderResult(result, ["777"]),
@@ -195,7 +195,7 @@ Deno.test("по CLI: stdout пуст, блок печатает точка вх�
     );
     assertEquals(code, 0);
     assertEquals(out.join(""), "", "stdout не пуст");
-    assertEquals(err.join(""), await golden("backup-dry-stdout.txt"));
+    assertEquals(err.join(""), await golden("backup-dry-stderr.txt"));
   });
 });
 
