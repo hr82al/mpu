@@ -4,7 +4,9 @@
  * с широким набором прав, поэтому нехватка `--allow-*` в задаче `build`
  * их не краснит — она видна только запуску самого бинаря.
  *
- * Бинарь собирается во временный каталог, и он же служит ему HOME:
+ * Бинарь собирается во временный каталог внутри `.tmp` репозитория
+ * (`makeSubjectHome`: под `/tmp` утверждения о правах записи слепнут),
+ * и он же служит ему HOME:
  * `$HOME` в правах задачи `build` подставляется этим каталогом, так что
  * всё, что бинарь пишет в домашний каталог, остаётся во временном.
  * Активная установка (`~/.local/bin/mpu`) и настоящий rc-файл не
@@ -191,17 +193,26 @@ function probeTempDir(): void {
 }
 
 /**
- * Годится ли подменный HOME для проверки права на каталог
- * конфигурации: под `/tmp` и `/var/tmp` запись покрыта соседним правом
- * из того же списка, и снятие проверяемого права осталось бы
- * незамеченным. Причина пропуска называет путь — пересказ «временный
- * каталог не тот» скрыл бы, какой именно.
+ * Годится ли подменный HOME для утверждения о праве записи.
+ *
+ * Под `/tmp` и `/var/tmp` любая запись покрыта соседним правом из того
+ * же списка (`--allow-write=…,/tmp,/var/tmp`), поэтому проверка,
+ * которая называет своим предметом право на `$HOME/...`, зеленела бы и
+ * со снятым правом — она проверяла бы чужое. Зовётся из КАЖДОЙ такой
+ * проверки, а не из одной: слепо оказывается любое утверждение о
+ * праве, а не какое-то избранное.
+ *
+ * Обычно до пропуска не доходит: домашний каталог прогона заводится
+ * вне `/tmp` (`makeSubjectHome`). Пропуск остаётся для окружений, где
+ * это не удалось, и называет путь — пересказ «временный каталог не
+ * тот» скрыл бы, какой именно.
  */
-function requireOutsideTempPermission(home: string): void {
+function requireOutsideTempPermission(...paths: readonly string[]): void {
   for (const covered of ["/tmp/", "/var/tmp/"]) {
-    if (home.startsWith(covered)) {
+    for (const home of paths) {
+      if (!home.startsWith(covered)) continue;
       throw new Skipped(
-        `подменный HOME под ${covered.slice(0, -1)} — запись туда покрыта ` +
+        `каталог прогона под ${covered.slice(0, -1)} — запись туда покрыта ` +
           `соседним правом того же списка: ${home}`,
       );
     }
@@ -270,6 +281,9 @@ async function waitForListening(
  * снаружи: аннотации тулов в ответе `tools/list`.
  */
 async function checkMcpServer(subject: Subject): Promise<void> {
+  // Файл токена сервер заводит сам — ещё одно утверждение о праве на
+  // каталог состояния, слепое под `/tmp`.
+  requireOutsideTempPermission(subject.home);
   const child = new Deno.Command(subject.bin, {
     args: ["mcp", "--port", "0", "--profile", "rw"],
     env: { HOME: subject.home },
@@ -425,6 +439,7 @@ function checks(subject: Subject): readonly Check[] {
     // Оба shell разом: rc-файлы разрешены поимённо, и промах по
     // любому из них — отказ в записи уже у пользователя.
     ["установка дополнения в rc-файлы", async () => {
+      requireOutsideTempPermission(subject.home);
       for (const [shell, rc] of [["bash", ".bashrc"], ["zsh", ".zshrc"]]) {
         await runOk(subject, ["--install-completion", shell]);
         const text = await Deno.readTextFile(`${subject.home}/${rc}`);
@@ -474,11 +489,9 @@ function checks(subject: Subject): readonly Check[] {
     // write access to <TMP>», из которого оператору не видно ни
     // каталога, ни что делать.
     //
-    // Каталог берётся под `.tmp/` репозитория, а не под домашним
-    // каталогом прогона: домашний создаётся в системном каталоге
-    // временных файлов, то есть при незаданном `TMPDIR` — внутри
-    // `/tmp`, который правом как раз покрыт, и проверка проверяла бы
-    // ровно противоположное.
+    // Каталог берётся соседом домашнего внутри `.tmp/`, а не его
+    // потомком: право задачи `build` перечисляет пути под `$HOME`, и
+    // сосед им не покрыт — именно это здесь и проверяется.
     [
       "каталог временных файлов вне прав отбивается понятным текстом",
       async () => {
@@ -600,6 +613,9 @@ function checks(subject: Subject): readonly Check[] {
     // Конфигурация приходит только из env-файла: окружение подпроцесса
     // очищено (`clearEnv`), в нём есть один HOME.
     ["init: discovery через фейковый Portainer и кэш-БД в HOME", async () => {
+      // Файл кэш-БД заводит сам бинарь — это и есть утверждение о
+      // праве на каталог состояния, и оно слепо под `/tmp`.
+      requireOutsideTempPermission(subject.home);
       const server = Deno.serve(
         { port: 0, hostname: "127.0.0.1", onListen: () => {} },
         (req) => {
@@ -680,15 +696,16 @@ function checks(subject: Subject): readonly Check[] {
     // появится (отказ записи глотает сам слой, `slback-http.md`,
     // поэтому наблюдаемое здесь — отсутствие файла, а не текст отказа).
     //
-    // Покрытие настоящее не везде, и это названо, а не подразумевается:
-    // подменный HOME — временный каталог, и когда он лежит под `/tmp`
-    // (незаданный `TMPDIR`), запись в него покрыта соседним правом
-    // `/tmp` — снятое право осталось бы незамеченным. Там проверка
-    // честно пропускается, а не зеленеет.
+    // Покрытие настоящее не везде, и это названо, а не
+    // подразумевается: каталоги прогона заводятся вне `/tmp`
+    // намеренно (`makeSubjectHome`), но там, где это не удалось —
+    // репозиторий сам лежит под `/tmp`, — запись покрыта соседним
+    // правом того же списка, и снятое право осталось бы
+    // незамеченным. Там проверка честно пропускается, а не зеленеет.
     [
       "границы каталогов: XDG_CONFIG_HOME уводит токен-кэш, но не кэш-БД",
       async () => {
-        requireOutsideTempPermission(subject.home);
+        requireOutsideTempPermission(subject.home, subject.configHome);
         const server = Deno.serve(
           { port: 0, hostname: "127.0.0.1", onListen: () => {} },
           () => Response.json({ accessToken: "проба-токена" }),
@@ -767,6 +784,8 @@ function checks(subject: Subject): readonly Check[] {
     // в каталоге состояния, а путь приходит ключом env-файла, не
     // окружением процесса (`platform/invoke-log.md`).
     ["журнал вызовов: по записи на вызов, legacy пишет сам", async () => {
+      // Журнал пишет бинарь, и права на него — из того же списка.
+      requireOutsideTempPermission(subject.home);
       const configDir = `${subject.home}/.config/mpu`;
       const logPath = `${configDir}/invoke.log`;
       await Deno.mkdir(configDir, { recursive: true });
@@ -899,8 +918,50 @@ function checks(subject: Subject): readonly Check[] {
   ];
 }
 
+/**
+ * Домашний каталог прогона. Заводится в `.tmp` репозитория, а не в
+ * системном временном каталоге: под `/tmp` все утверждения о правах
+ * записи слепнут — соседнее право того же списка покрывает их разом
+ * (`requireOutsideTempPermission`). `.tmp` исключён из инструментов
+ * (`deno.jsonc`), и прогон убирает за собой.
+ *
+ * Не удалось (каталог только на чтение) — системный временный, и
+ * тогда проверки прав честно пропускаются, а не зеленеют вхолостую.
+ */
+async function makeSubjectHome(): Promise<string> {
+  try {
+    await Deno.mkdir(".tmp", { recursive: true });
+    await sweepOldRuns();
+    // Путь абсолютный, и это не косметика: страж сверяет его с `/tmp`
+    // и `/var/tmp` по началу строки, а относительный `.tmp/…` не
+    // совпал бы никогда — репозиторий, выложенный под `/tmp`, вернул
+    // бы ровно ту слепоту, ради которой всё и делается.
+    return await Deno.realPath(
+      await Deno.makeTempDir({ dir: ".tmp", prefix: "mpu-smoke-" }),
+    );
+  } catch {
+    return await Deno.realPath(
+      await Deno.makeTempDir({ prefix: "mpu-smoke-" }),
+    );
+  }
+}
+
+/**
+ * Каталоги прежних прогонов, брошенные прерыванием: `finally` на
+ * SIGINT не отрабатывает, а внутри каждого лежит собранный бинарь в
+ * десятки мегабайт. Раньше их подметал `/tmp`, теперь — некому.
+ */
+async function sweepOldRuns(): Promise<void> {
+  for await (const entry of Deno.readDir(".tmp")) {
+    if (!entry.isDirectory || !entry.name.startsWith("mpu-smoke-")) continue;
+    await Deno.remove(`.tmp/${entry.name}`, { recursive: true }).catch(() => {
+      // Чужой прогон, идущий прямо сейчас: своё он уберёт сам.
+    });
+  }
+}
+
 async function main(): Promise<number> {
-  const home = await Deno.makeTempDir({ prefix: "mpu-smoke-" });
+  const home = await makeSubjectHome();
   try {
     // Каталог конфигурации — внутри подменного HOME, но вне
     // `.config/mpu`: право задачи `build` перечисляет именно

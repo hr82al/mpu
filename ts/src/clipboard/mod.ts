@@ -4,9 +4,13 @@
  * stdout, копирование — удобство поверх него. Поэтому наружу не
  * всплывает ни одна ошибка: ответ — только «удалось» или «нет».
  *
- * Две попытки строго по порядку: управляющая последовательность
- * терминала (работает и через ssh, буфер берёт локальный эмулятор) и
- * внешняя утилита X11/Wayland.
+ * Попытка одна — внешняя утилита X11/Wayland. Управляющая
+ * последовательность терминала (OSC 52) была первой и убрана порцией
+ * 91: она писала в `/dev/tty`, а он открывается на запись только под
+ * `--allow-all` (замер 2026-08-31, Deno 2.9.5; список путей не
+ * помогает). Боевой бинарь такого права не получает, поэтому попытка
+ * не удавалась ни разу с рождения — вместе с ней ушли право
+ * `--allow-write=…,/dev/tty` и чтение `TMUX`.
  */
 
 /** Предел ожидания внешней утилиты (спека). */
@@ -19,17 +23,8 @@ const UTILITIES: readonly (readonly [string, readonly string[]])[] = [
   ["xsel", ["--clipboard", "--input"]],
 ];
 
-/** Байты управляющей последовательности. */
-const ESC = 0x1b;
-const BEL = 0x07;
-
 /** Что возможность делает с внешним миром; подменяется в тестах. */
 export interface ClipboardPorts {
-  /**
-   * Пишет байты в `/dev/tty`. Открыть не удалось — `false`, и это
-   * штатный ответ: вывод перенаправлен либо сессии без терминала.
-   */
-  readonly writeTty: (bytes: Uint8Array) => Promise<boolean>;
   /**
    * Запускает утилиту, подавая текст на stdin. `false` — её нет в PATH,
    * она отказала или не уложилась в предел.
@@ -40,17 +35,14 @@ export interface ClipboardPorts {
     stdin: Uint8Array,
     timeoutMs: number,
   ) => Promise<boolean>;
-  /** Переменные окружения процесса: `TMUX` — признак терминала. */
-  readonly env: (name: string) => string | undefined;
 }
 
-/** Удалось ли положить текст в буфер хоть одним способом. */
+/** Удалось ли положить текст в буфер обмена. */
 export async function copyToClipboard(
   text: string,
   ports: Partial<ClipboardPorts> = {},
 ): Promise<boolean> {
   const io: ClipboardPorts = { ...denoPorts(), ...ports };
-  if (await io.writeTty(osc52(text, io.env("TMUX")))) return true;
   const bytes = new TextEncoder().encode(text);
   for (const [bin, args] of UTILITIES) {
     if (await io.runUtility(bin, args, bytes, UTILITY_TIMEOUT_MS)) return true;
@@ -59,54 +51,12 @@ export async function copyToClipboard(
 }
 
 /**
- * OSC 52: `ESC ] 5 2 ; c ; <base64> BEL`. Под tmux последовательность
- * заворачивается в passthrough, иначе её съедает мультиплексор.
- */
-export function osc52(text: string, tmux: string | undefined): Uint8Array {
-  const encoder = new TextEncoder();
-  const payload = encoder.encode(text);
-  const base64 = btoa(String.fromCharCode(...payload));
-  const sequence = [
-    ESC,
-    ...encoder.encode(`]52;c;${base64}`),
-    BEL,
-  ];
-  if (tmux === undefined || tmux === "") return Uint8Array.from(sequence);
-  return Uint8Array.from([
-    ESC,
-    ...encoder.encode("Ptmux;"),
-    ESC,
-    ...sequence,
-    ESC,
-    ...encoder.encode("\\"),
-  ]);
-}
-
-/**
- * Настоящие `/dev/tty` и подпроцессы. Экспортируется потому же, почему
- * и подстановка: у возможности две реализации одного порта, и обе —
+ * Настоящие подпроцессы. Экспортируется потому же, почему и
+ * подстановка: у возможности две реализации одного порта, и обе —
  * часть её поверхности.
  */
 export function denoPorts(): ClipboardPorts {
   return {
-    writeTty: async (bytes) => {
-      let file: Deno.FsFile;
-      try {
-        file = await Deno.open("/dev/tty", { write: true });
-      } catch {
-        // Терминала нет либо он недоступен — это не ошибка вызова, а
-        // повод перейти ко второй попытке (спека).
-        return false;
-      }
-      try {
-        await writeAll(file, bytes);
-        return true;
-      } catch {
-        return false;
-      } finally {
-        file.close();
-      }
-    },
     runUtility: async (bin, args, stdin, timeoutMs) => {
       let child: Deno.ChildProcess;
       try {
@@ -126,7 +76,6 @@ export function denoPorts(): ClipboardPorts {
       }
       return await feedAndWait(child, stdin, timeoutMs);
     },
-    env: (name) => Deno.env.get(name),
   };
 }
 
@@ -158,12 +107,5 @@ async function feedAndWait(
     return false;
   } finally {
     clearTimeout(timer);
-  }
-}
-
-async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
-  let written = 0;
-  while (written < bytes.length) {
-    written += await file.write(bytes.subarray(written));
   }
 }
