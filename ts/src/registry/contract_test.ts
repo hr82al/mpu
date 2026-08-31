@@ -11,7 +11,7 @@ import { commands, findCommand, findGroup, findLegacy } from "./mod.ts";
 import { openCacheDb as openStoreDb } from "../store/mod.ts";
 import { type Command, type CommandIo, UsageError } from "../command/mod.ts";
 import { WRITE_ENDPOINTS } from "../api/endpoints_write.ts";
-import { pathParams } from "../api/endpoint.ts";
+import { type FieldSpec, pathParams } from "../api/endpoint.ts";
 
 /**
  * Образец вызова команды: аргументы, которые она принимает, и образец
@@ -84,6 +84,34 @@ const BLOCKED_SAMPLE = {
   printed: true,
   response: null,
 };
+
+/**
+ * Обязательные поля тела в argv образца. Обязательность объявлена
+ * схемой (порция 93), поэтому без них разбор аргументов отказал бы, и
+ * обход проверял бы отказ вместо команды.
+ */
+function requiredArgs(spec: { fields?: readonly FieldSpec[] }): string[] {
+  const argv: string[] = [];
+  for (const field of spec.fields ?? []) {
+    if (field.required !== true) continue;
+    argv.push(`--${field.name}`, sampleField(field));
+  }
+  return argv;
+}
+
+/** Значение поля, годное по объявленному типу — не по смыслу. */
+function sampleField(field: FieldSpec): string {
+  switch (field.type) {
+    case "number":
+      return "1";
+    case "boolean":
+      return "true";
+    case "json":
+      return "{}";
+    case "string":
+      return "проба";
+  }
+}
 
 /** Значение path-параметра для обхода: годное по форме, не по смыслу. */
 function sampleArg(name: string): string {
@@ -1796,7 +1824,7 @@ const CASES: readonly CommandCase[] = [
   // с эталоном, а не с этой таблицей.
   ...WRITE_ENDPOINTS.map((spec) => ({
     path: `api ${spec.name}`,
-    argv: pathParams(spec.path).map(sampleArg),
+    argv: [...pathParams(spec.path).map(sampleArg), ...requiredArgs(spec)],
     sampleResult: SAMPLE_API,
   })),
   {

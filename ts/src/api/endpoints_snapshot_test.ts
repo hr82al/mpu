@@ -18,7 +18,7 @@
  * эталон и таблица.
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import readFixture from "../../docs/specs/fixtures/api/read-endpoints.json" with {
   type: "json",
 };
@@ -27,6 +27,7 @@ import writeFixture from "../../docs/specs/fixtures/api/write-endpoints.json" wi
 };
 import { type EndpointSpec, PATH_ARG_HELP } from "./endpoint.ts";
 import { apiCommands } from "./mod.ts";
+import type { Command } from "../command/mod.ts";
 import { READ_ENDPOINTS } from "./endpoints.ts";
 import { WRITE_ENDPOINTS } from "./endpoints_write.ts";
 
@@ -233,6 +234,60 @@ for (const half of HALVES) {
           [],
           `${entry.name}: нет пояснения к path-параметрам: ${mute.join(", ")}`,
         );
+      });
+    }
+  });
+
+  Deno.test(`${half.title} половина: обязательность доезжает до схемы`, async (t) => {
+    // Правило порции 93: у одного факта один источник. Раньше
+    // обязательность жила только в тексте описания, а схема объявляла
+    // поле необязательным — агент, читающий схему, узнавал правду
+    // отказом. Здесь сверяется схема команды с эталоном объекта.
+    const byName = new Map(
+      apiCommands.map((command: Command) => [command.path[1], command]),
+    );
+    for (const entry of half.snapshots) {
+      const required = entry.body_fields.filter((field) => field.required);
+      if (required.length === 0 || half.custom.includes(entry.name)) continue;
+      await t.step(entry.name, () => {
+        const command = byName.get(entry.name);
+        // Не `continue`: расхождение имён — дефект, а не повод
+        // промолчать вакуумно-зелёным шагом.
+        assertEquals(
+          command === undefined,
+          false,
+          `${entry.name}: команды с таким именем нет`,
+        );
+        if (command === undefined) return;
+        const declared = command.argsJsonSchema.required ?? [];
+        const names = required.map((field) => field.name);
+        if (!entry.accepts_raw_body) {
+          // `--body` нет — обязательность безусловна, и её объявляет
+          // схема. Пометки словами при этом нет: справка печатает
+          // «(обязателен)» из схемы, и второй раз называть тот же факт
+          // незачем.
+          assertEquals(
+            names.filter((name) => !declared.includes(name)),
+            [],
+            `${entry.name}: схема не требует обязательных полей`,
+          );
+          return;
+        }
+        // Тело замещает поля целиком, поэтому обязательность условна.
+        // Схемой условие не выражается — ветвление в схеме тула
+        // запрещено инвариантом, — и оно названо словами.
+        for (const field of required) {
+          assertEquals(
+            declared.includes(field.name),
+            false,
+            `${entry.name}.${field.name}: у команды с --body обязательным быть не может`,
+          );
+          assertStringIncludes(
+            command.argsJsonSchema.properties[field.name].description ?? "",
+            "(required, если не задан --body)",
+            `${entry.name}.${field.name}: условие не названо`,
+          );
+        }
       });
     }
   });

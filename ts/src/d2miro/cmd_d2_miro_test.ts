@@ -264,6 +264,129 @@ Deno.test("ошибки ввода и конфигурации — exit 2, а н
   });
 });
 
+Deno.test("ни одного шейпа при непустом плане — отказ, а не зелёный код", async (t) => {
+  const files = {
+    "s.d2": await fixture("sample.d2"),
+    "s.svg": await fixture("sample.svg"),
+  };
+  const keys = { MIRO_TOKEN: "секрет", MIRO_BOARD_ID: "доска" };
+
+  await t.step("служба отбила каждое создание", async () => {
+    // Замер живой пары 89: `[done] … shapes=0 connectors=0 skipped=10`
+    // и код 0 — числа называли правду, код нет. Правило порции 93: у
+    // одного факта один источник.
+    const stand = makeIo(files, keys);
+    const err = await assertRejects(
+      () =>
+        runD2MiroWith(
+          { file: "s.d2", "skip-render": false, "dry-run": false },
+          stand.io,
+          makeEnv({
+            fetch: (url, init) => {
+              if (init.method === "GET") {
+                return Promise.resolve(
+                  new Response('{"data":[],"cursor":""}', { status: 200 }),
+                );
+              }
+              // Фрейм создаётся, всё остальное отбивается — ровно то,
+              // что дала живая доска на мутанте координат.
+              if (url.endsWith("/frames")) {
+                return Promise.resolve(
+                  new Response('{"id":"frame-1"}', { status: 201 }),
+                );
+              }
+              return Promise.resolve(
+                new Response('{"message":"outside of parent boundaries"}', {
+                  status: 400,
+                }),
+              );
+            },
+          }),
+        ),
+      DomainError,
+    );
+    assertStringIncludes(
+      err.message,
+      "не создано ни одного объекта из 5 шейпов и 1 markdown-блоков",
+    );
+    // Строка итога всё равно напечатана: оператору нужны числа, а не
+    // только отказ.
+    assertStringIncludes(
+      stand.progress[stand.progress.length - 1],
+      "[done] frame='s' shapes=0 connectors=0 skipped=",
+    );
+  });
+
+  await t.step("созданный текст при нуле шейпов — не провал", async () => {
+    // Обратный промах границы: шейпы отбиты «outside of parent
+    // boundaries» (причина живой пары 89), а текст лёг по другим
+    // координатам. Фрейм не пуст, и отказ был бы неправдой.
+    const stand = makeIo(files, keys);
+    const result = await runD2MiroWith(
+      { file: "s.d2", "skip-render": false, "dry-run": false },
+      stand.io,
+      makeEnv({
+        fetch: (url, init) => {
+          if (init.method === "GET") {
+            return Promise.resolve(
+              new Response('{"data":[],"cursor":""}', { status: 200 }),
+            );
+          }
+          if (url.endsWith("/shapes")) {
+            return Promise.resolve(
+              new Response('{"message":"outside of parent boundaries"}', {
+                status: 400,
+              }),
+            );
+          }
+          return Promise.resolve(
+            new Response('{"id":"id-1"}', {
+              status: url.endsWith("/connectors") ? 200 : 201,
+            }),
+          );
+        },
+      }),
+    );
+    assertEquals(result.created?.shapes, 0);
+    assertEquals(result.created?.texts, 1);
+  });
+
+  await t.step("частичный успех остаётся нулевым кодом", async () => {
+    // Его числа честны: сколько создано и сколько пропущено — сказано,
+    // и дочитать есть что. Отказ здесь сделал бы `d2-miro` непригодной
+    // на схеме, где один шейп не лёг.
+    const stand = makeIo(files, keys);
+    let created = 0;
+    const result = await runD2MiroWith(
+      { file: "s.d2", "skip-render": false, "dry-run": false },
+      stand.io,
+      makeEnv({
+        fetch: (url, init) => {
+          if (init.method === "GET") {
+            return Promise.resolve(
+              new Response('{"data":[],"cursor":""}', { status: 200 }),
+            );
+          }
+          created++;
+          // Второй шейп не ложится, остальное создаётся.
+          if (created === 3) {
+            return Promise.resolve(
+              new Response('{"message":"boom"}', { status: 400 }),
+            );
+          }
+          return Promise.resolve(
+            new Response(`{"id":"id-${created}"}`, {
+              status: url.endsWith("/connectors") ? 200 : 201,
+            }),
+          );
+        },
+      }),
+    );
+    assertEquals(result.created?.shapes, 4);
+    assertEquals((result.created?.skipped ?? 0) > 0, true);
+  });
+});
+
 Deno.test("вход, которого нет: ошибка ввода, а не сбой рантайма", async () => {
   const stand = makeIo({});
   await assertRejects(

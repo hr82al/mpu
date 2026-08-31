@@ -53,13 +53,7 @@ export function endpointCommand(spec: EndpointSpec): Command {
     shape[name] = z.string({ error: `нужен ${name}: ${helpOf(name)}` })
       .describe(helpOf(name));
   }
-  for (const field of fields) {
-    shape[field.name] = z.string().optional().describe(
-      `(${field.type})${
-        field.required === true ? " (required)" : ""
-      } ${field.help}`,
-    );
-  }
+  for (const field of fields) shape[field.name] = fieldSchema(spec, field);
   if (spec.body === true) {
     shape[BODY_INPUT] = z.string().optional().describe(
       "полный JSON body: '<json>' или @path/to.json",
@@ -101,6 +95,67 @@ export function endpointCommand(spec: EndpointSpec): Command {
   });
 }
 
+/** Добавляет к ошибке ввода ту же подсказку, что даёт разбор схемы. */
+function withHelpHint<T>(spec: EndpointSpec, body: () => T): T {
+  try {
+    return body();
+  } catch (err) {
+    if (!(err instanceof UsageError) || err.hint !== undefined) throw err;
+    throw new UsageError(err.message, {
+      hint: `mpu api ${spec.name} --help`,
+      cause: err,
+    });
+  }
+}
+
+/**
+ * Схема поля тела. Обязательность объявляется схемой, а не только
+ * текстом описания: раньше поле было `optional()` при любом
+ * `required`, обязательность жила в скобках `(required)` и всплывала
+ * отказом при разборе — то есть машине и человеку говорили разное, и
+ * обманут был именно тот, кто читает схему (агент, MCP-клиент).
+ *
+ * У команды, принимающей `--body`, обязательность **условна**: тело
+ * замещает поля целиком, и тогда ни одно из них не нужно. Условие
+ * схемой не выражается — ветвление в схеме тула запрещено инвариантом
+ * (`src/mcp/invariants_test.ts`), — поэтому такое поле остаётся
+ * необязательным, а условие названо словами в описании. Отказ при
+ * разборе для него по-прежнему даёт `bodyFromFields`.
+ *
+ * Текст отказа сохраняется дословно (`--<имя> обязателен`): он снят
+ * живой парой с оригинала (`api-write.md`, инвариант 4) и меняться от
+ * того, какой слой его бросил, не должен.
+ */
+function fieldSchema(spec: EndpointSpec, field: FieldSpec): z.ZodType {
+  if (schemaRequires(spec, field)) {
+    // Пометки в тексте здесь нет намеренно: обязательность несёт сама
+    // схема, а справка печатает её из схемы («(обязателен)»,
+    // `src/entrypoint/help.ts`). Написать её ещё и словами значило бы
+    // назвать один факт дважды в одной строке.
+    return z.string({ error: `--${field.name} обязателен` }).describe(
+      `(${field.type}) ${field.help}`,
+    );
+  }
+  return z.string().optional().describe(
+    `(${field.type})${requirementMark(spec, field)} ${field.help}`,
+  );
+}
+
+/** Объявляет ли схема поле обязательным: только там, где это безусловно. */
+function schemaRequires(spec: EndpointSpec, field: FieldSpec): boolean {
+  return field.required === true && spec.body !== true;
+}
+
+/**
+ * Пометка обязательности словами — там, где схема сказать не может.
+ * Один источник на все три места, где факт называется: описание поля,
+ * строка использования и раздел «Поля тела» справки.
+ */
+function requirementMark(spec: EndpointSpec, field: FieldSpec): string {
+  if (field.required !== true) return "";
+  return spec.body === true ? " (required, если не задан --body)" : "";
+}
+
 /**
  * Печать ответа: JSON с отступом 2 и unicode как есть, ровно как
  * пришло. Пустой ответ — пустой stdout, а не `null` и не `{}`.
@@ -129,8 +184,12 @@ async function runEndpoint(
   }
   const path = fillPath(spec.path, values);
   const raw = spec.body === true ? args[BODY_INPUT] : undefined;
+  // Отказ «поля не хватает» приходит из двух мест: у команды без
+  // `--body` его бросает схема (там же и подсказка), у команды с
+  // `--body` — разбор полей. Подсказка добавляется здесь, чтобы одна
+  // и та же нехватка печаталась одинаково независимо от слоя.
   const body = raw === undefined
-    ? bodyFromFields(fields, args)
+    ? withHelpHint(spec, () => bodyFromFields(fields, args))
     : await bodyArg(raw, io);
 
   const session = openSlback(io);
@@ -225,7 +284,14 @@ function assertDeclaration(
 function usageOf(spec: EndpointSpec, params: readonly string[]): string {
   const tail = [
     ...params.map((name) => name.toUpperCase()),
-    ...(spec.fields ?? []).map((field) => `[--${field.name} ЗНАЧЕНИЕ]`),
+    ...(spec.fields ?? []).map((field) =>
+      // Скобки значат «необязателен», и у поля, которого схема
+      // требует, их быть не должно: строка использования — та же
+      // правда, что и схема.
+      schemaRequires(spec, field)
+        ? `--${field.name} ЗНАЧЕНИЕ`
+        : `[--${field.name} ЗНАЧЕНИЕ]`
+    ),
     ...(spec.body === true ? ["[--body JSON]"] : []),
   ];
   return `mpu api ${spec.name}${tail.length === 0 ? "" : ` ${tail.join(" ")}`}`;
@@ -254,7 +320,9 @@ function helpText(
         "Поля тела (--<имя> <значение>):",
         ...fields.map((field) =>
           `  --${field.name} (${field.type})${
-            field.required === true ? " (required)" : ""
+            schemaRequires(spec, field)
+              ? " (required)"
+              : requirementMark(spec, field)
           }: ${field.help}`
         ),
       ].join("\n"),

@@ -282,11 +282,14 @@ Deno.test("обязательность поля видна в справке к
   // единственный способ её узнать — получить отказ. Проверяется на
   // смешанной команде, чтобы пометка не оказалась приклеена ко всем
   // полям подряд.
+  //
+  // У `cli-run` есть `--body`, поэтому обязательность условна, и текст
+  // называет условие: тело замещает поля целиком.
   const fields = commandOf("cli-run").argsJsonSchema.properties;
   for (const name of ["server", "name", "method"]) {
     assertStringIncludes(
       fields[name].description ?? "",
-      "(required)",
+      "(required, если не задан --body)",
       `${name}: обязательность не названа в справке`,
     );
   }
@@ -296,6 +299,32 @@ Deno.test("обязательность поля видна в справке к
       false,
       `${name}: необязательное поле названо обязательным`,
     );
+  }
+});
+
+Deno.test("нехватка обязательного поля печатается одинаково с обеих сторон", async (t) => {
+  // Отказ приходит из двух мест: у команды без `--body` его бросает
+  // схема, у команды с `--body` — разбор полей. Текст и подсказка
+  // обязаны совпадать: одна и та же нехватка не может выглядеть
+  // по-разному от того, какой слой её заметил.
+  const cases: readonly [string, readonly string[], string][] = [
+    ["auth-login", ["--email", "a@b.c"], "--password обязателен"],
+    ["cli-run", ["--server", "s"], "--name обязателен"],
+  ];
+  for (const [name, argv, message] of cases) {
+    await t.step(name, async () => {
+      const command = commandOf(name);
+      const err = await assertRejects(
+        () => command.invoke(argv, makeFakeIo()),
+        UsageError,
+        message,
+      );
+      assertEquals(
+        (err as UsageError).hint,
+        `mpu api ${name} --help`,
+        `${name}: подсказка отличается`,
+      );
+    });
   }
 });
 
