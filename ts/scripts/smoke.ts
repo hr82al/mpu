@@ -1015,11 +1015,13 @@ async function main(): Promise<number> {
     await compile(subject);
     await installFakeLegacy(subject);
     console.log("== проверки ==");
+    let passed = 0;
     let failed = 0;
     let skipped = 0;
     for (const [name, check] of checks(subject)) {
       try {
         await check();
+        passed++;
         console.log(`  ok   ${name}`);
       } catch (err) {
         if (err instanceof Skipped) {
@@ -1037,10 +1039,12 @@ async function main(): Promise<number> {
       console.error(`smoke: провалено проверок: ${failed}`);
       return 1;
     }
+    // Число исполнившихся проверок печатается всегда: без него
+    // исчезнувшая проверка неотличима от зелёного прогона — «зелёный
+    // ни о чём» выглядит так же, как настоящий.
     console.log(
-      skipped === 0
-        ? "smoke: бинарь рабочий"
-        : `smoke: бинарь рабочий; пропущено проверок: ${skipped}`,
+      `smoke: бинарь рабочий; проверок: ${passed}` +
+        (skipped === 0 ? "" : `, пропущено: ${skipped}`),
     );
     return 0;
   } finally {

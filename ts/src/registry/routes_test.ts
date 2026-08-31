@@ -89,6 +89,12 @@ Deno.test("инварианты записей реестра", async (t) => {
     })),
   ];
 
+  // Непустота реестра — предпосылка всех шагов ниже, поэтому стоит до
+  // первого из них: внутри шага она ушла бы вместе с ним, молча сняв
+  // защиту с остальных. У пустого реестра каждый шаг прошёл бы, не
+  // проверив ни одной записи.
+  assertEquals(entries.length > 0, true, "реестр пуст: проверять нечего");
+
   await t.step("у каждой записи непустая однострока", () => {
     assertEquals(
       entries.filter((entry) => entry.summary.trim() === "").map((e) => e.name),
@@ -132,6 +138,9 @@ Deno.test("индекс корня перечисляет всё дерево", 
   // исполнения на состав справки не влияет.
   assertStringIncludes(index, "help");
   assertStringIncludes(index, "mcp");
+  // Поверхностей две (`help`, `version`); пустой список прошёл бы
+  // цикл, не проверив ни одной строки.
+  assertEquals(surfaces.length > 0, true, "поверхностей нет вовсе");
   for (const surface of surfaces) {
     assertStringIncludes(index, surface.summary);
   }

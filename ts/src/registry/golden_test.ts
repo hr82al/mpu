@@ -72,7 +72,11 @@ Deno.test("help-root.txt: состав и тексты, а не рамки", asy
     "Monorepo Python utilities — multi-purpose CLI for ad-hoc operations.",
   );
   // Состав полный: 57 имён против 54 в дрейфующем эталоне.
-  for (const name of allNames()) assertStringIncludes(stdout, name);
+  const names = allNames();
+  // Пустой список имён прошёл бы цикл молча: проверка перестала бы
+  // что-либо утверждать.
+  assertEquals(names.length > 0, true, "имён реестра нет вовсе");
+  for (const name of names) assertStringIncludes(stdout, name);
   // Рамок оригинала нет — и это осознанно.
   assertEquals(stdout.includes("╭─"), false);
   assertEquals(fixture.includes("╭─"), true);

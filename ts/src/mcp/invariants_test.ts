@@ -50,11 +50,19 @@ Deno.test("профили не пересекаются и на /ro нет по�
   // Профили в сумме дают ровно закрытый список — ни больше, ни меньше.
   assertEquals(ro.length, toolPolicies.ro.length);
   assertEquals(rw.length, toolPolicies.rw.length);
+  // И самих профилей ровно два: пустой список обошёл бы все проверки
+  // ниже, которые ходят по нему циклом, — включая те, что стерегут
+  // непустоту наборов внутри профиля.
+  assertEquals([...PROFILES], ["ro", "rw"]);
 });
 
 Deno.test("имя тула уникально в профиле и восстанавливает путь", () => {
   for (const profile of PROFILES) {
     const entries = profileTools(commands, profile);
+    // Пустой профиль не проверил бы ничего: тело цикла не выполнилось
+    // бы ни разу, а шаг остался бы зелёным. То же рассуждение у
+    // соседних проверок профилей ниже.
+    assertEquals(entries.length > 0, true, `профиль ${profile} пуст`);
     const names = entries.map((entry) => entry.tool.name);
     assertEquals(new Set(names).size, names.length, `дубли имён в ${profile}`);
     for (const entry of entries) {
@@ -66,7 +74,9 @@ Deno.test("имя тула уникально в профиле и восста�
 
 Deno.test("схема аргументов не ветвится на верхнем уровне", () => {
   for (const profile of PROFILES) {
-    for (const { tool } of profileTools(commands, profile)) {
+    const entries = profileTools(commands, profile);
+    assertEquals(entries.length > 0, true, `профиль ${profile} пуст`);
+    for (const { tool } of entries) {
       const keys = Object.keys(tool.inputSchema);
       for (const branch of ["anyOf", "oneOf", "allOf"]) {
         assertEquals(
@@ -87,7 +97,9 @@ Deno.test("описание тула и инструкции профиля ук
       DESCRIPTION_LIMIT,
       `инструкции профиля ${profile} длиннее предела`,
     );
-    for (const { tool } of profileTools(commands, profile)) {
+    const entries = profileTools(commands, profile);
+    assertEquals(entries.length > 0, true, `профиль ${profile} пуст`);
+    for (const { tool } of entries) {
       assertLess(
         utf8.encode(tool.description).length,
         DESCRIPTION_LIMIT,
@@ -99,6 +111,11 @@ Deno.test("описание тула и инструкции профиля ук
 
 Deno.test("список тулов профиля побитово одинаков между вызовами", () => {
   for (const profile of PROFILES) {
+    assertEquals(
+      profileTools(commands, profile).length > 0,
+      true,
+      `профиль ${profile} пуст: сравнивать нечего`,
+    );
     const first = JSON.stringify(
       profileTools(commands, profile).map((entry) => entry.tool),
     );
@@ -173,8 +190,14 @@ Deno.test("необратимые тулы требуют подтвержден
   await t.step("помеченный тул несёт и аннотацию, и _meta", () => {
     // Аннотация описывает свойство тула для любого клиента; фактическое
     // подтверждение наш клиент включает по `_meta` — поэтому оба.
+    //
+    // Тело считается: цикл по пустому набору не выполнился бы ни разу,
+    // и шаг остался бы зелёным, ничего не утверждая. Минимум известен —
+    // столько имён в секции `destructive`, сколько их опубликовано.
+    let checked = 0;
     for (const { entry } of entries) {
       if (!destructive.has(entry.path.join(" "))) continue;
+      checked++;
       assertEquals(
         entry.tool.annotations.destructiveHint,
         true,
@@ -186,25 +209,42 @@ Deno.test("необратимые тулы требуют подтвержден
         `${entry.tool.name}: нет требования подтверждения`,
       );
     }
+    // Сверка с известным минимумом: имён в секции столько же, сколько
+    // проверено. Расхождение значит одно из двух — тул потерял
+    // пометку либо имя из секции не публикуется вовсе.
+    assertEquals(
+      checked,
+      destructive.size,
+      "помеченных проверено не столько, сколько имён в секции",
+    );
   });
 
   await t.step("прочие тулы rw не помечены", () => {
     // `mpu sql` роняет данные в клиентской БД, `mpu xlsx alias add`
     // правит локальный алиас — и клиент обязан их различать.
+    let checked = 0;
     for (const { profile, entry } of entries) {
       if (profile !== "rw" || destructive.has(entry.path.join(" "))) continue;
+      checked++;
       assertEquals(entry.tool.annotations.destructiveHint, undefined);
       assertEquals(entry.tool._meta, undefined);
     }
+    // Пустой профиль `rw` без единого непомеченного тула — не то
+    // состояние, о котором шаг молчит: он бы прошёл, не проверив
+    // ничего.
+    assertEquals(checked > 0, true, "непомеченных тулов rw не нашлось");
   });
 
   await t.step("ни один тул ro не помечен", () => {
+    let checked = 0;
     for (const { profile, entry } of entries) {
       if (profile !== "ro") continue;
+      checked++;
       assertEquals(entry.tool.annotations.readOnlyHint, true);
       assertEquals(entry.tool.annotations.destructiveHint, undefined);
       assertEquals(entry.tool._meta, undefined);
     }
+    assertEquals(checked > 0, true, "профиль ro оказался пуст");
   });
 
   await t.step("имя в секции вне публикуемых — отказ сборки", () => {
@@ -258,6 +298,9 @@ Deno.test("публикация подчинена закрытому списк
   });
 
   await t.step("политика каждого тула совпадает со списком", () => {
+    // Пустой набор прошёл бы цикл молча — того же класса дыра, что и у
+    // соседних шагов.
+    assertEquals(published.length > 0, true, "опубликованных тулов нет");
     for (const item of published) {
       const inList = policies.ro.includes(item.command) ? "ro" : "rw";
       assertEquals(item.policy, inList, `${item.command}: политика`);
