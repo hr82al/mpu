@@ -719,9 +719,10 @@ function checks(subject: Subject): readonly Check[] {
       },
     ],
     ["маршрут legacy", async () => {
-      // Образец подпроцессной команды — `d2-miro`: прежние, `search`
-      // и `sheet`, переехали на маршрут `native`.
-      const outcome = await runOk(subject, ["d2-miro", "--help"]);
+      // Образец подпроцессной команды — `iu-wb`: `search` и `sheet`
+      // переехали на маршрут `native`, `d2-miro` уезжает следующим
+      // коммитом.
+      const outcome = await runOk(subject, ["iu-wb", "--help"]);
       assert(
         outcome.stdout.includes("legacy-ok"),
         `подпроцесс не отработал: ${JSON.stringify(outcome.stdout)}`,
@@ -759,13 +760,13 @@ function checks(subject: Subject): readonly Check[] {
           "права файла журнала не 0600",
         );
 
-        await runOk(subject, ["d2-miro", "--help"]);
+        await runOk(subject, ["iu-wb", "--help"]);
         const afterLegacy = await Deno.readTextFile(logPath);
         // Вторая запись — от подпроцесса; обвязка для маршрута `legacy`
         // своей не делает, иначе записей было бы три.
         assertEquals(
           logRecords(afterLegacy),
-          ["$ mpu xlsx resolve --json", "$ mpu d2-miro --help"],
+          ["$ mpu xlsx resolve --json", "$ mpu iu-wb --help"],
           `записи маршрута legacy задвоились: ${JSON.stringify(afterLegacy)}`,
         );
         assertEquals(

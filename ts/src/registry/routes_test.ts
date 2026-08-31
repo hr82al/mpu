@@ -26,14 +26,15 @@ async function help(...argv: string[]): Promise<string> {
 
 Deno.test("пилотная команда маршрута legacy есть в реестре", () => {
   // Пилотом был `search`, за ним `sheet` — оба переехали на маршрут
-  // `native`. Роль образца перешла к `d2-miro`: он остаётся
-  // подпроцессным и стоит в слепке первым.
-  const entry = findLegacy(["d2-miro"]);
-  assertEquals(entry?.path, ["d2-miro"]);
+  // `native`. Роль образца перешла к `iu-wb`: `d2-miro`, стоявший
+  // здесь до него, уезжает следующим коммитом, и образец переставлен
+  // заранее — чтобы дифф переезда был про переезд.
+  const entry = findLegacy(["iu-wb"]);
+  assertEquals(entry?.path, ["iu-wb"]);
   // Однострока обязательна: из неё собирается индекс родителя.
   assertEquals((entry?.summary ?? "").length > 0, true);
   // Командой контракта она не является — схем и рендера у неё нет.
-  assertEquals(commands.some((c) => c.path.join(" ") === "d2-miro"), false);
+  assertEquals(commands.some((c) => c.path.join(" ") === "iu-wb"), false);
 });
 
 Deno.test("одно имя — один маршрут", () => {
