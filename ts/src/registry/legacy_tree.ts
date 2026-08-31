@@ -12,13 +12,8 @@
 
 import type { LegacyCommand } from "../legacy/mod.ts";
 
-/** 3 команд верхнего уровня, ещё не переехавших на TS. */
+/** 2 команд верхнего уровня, ещё не переехавших на TS. */
 export const LEGACY_TREE: readonly LegacyCommand[] = [
-  {
-    path: ["telegram"],
-    summary:
-      "Telegram от имени пользователя (telethon): send — отправить, ls — диалоги, search — поиск.",
-  },
   {
     path: ["iu-wb"],
     summary: "Обёртки над `node cli service:iuWb` (sl-back).",

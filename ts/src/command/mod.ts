@@ -190,17 +190,6 @@ export interface CommandIo {
     bin: string,
     args: readonly string[],
   ) => Promise<LegacyOutcome>;
-  /**
-   * Запуск той же реализации с проброшенным терминалом: stdin, stdout и
-   * stderr достаются подпроцессу как есть, вывод не собирается. Нужен
-   * интерактивному шагу 5 `init` (`docs/specs/init.md`), где пользователь
-   * отвечает на вопросы входа. Файла нет или он не исполняем —
-   * `NotFoundIoError`; иначе — код возврата подпроцесса.
-   */
-  readonly runLegacyInteractive: (
-    bin: string,
-    args: readonly string[],
-  ) => Promise<number>;
   /** Слой env-файла (`platform/env-file.md`): секреты, адреса внешних систем. */
   readonly envFile: EnvFile;
   /** Открывает локальную кэш-БД (`platform/store.md`). */

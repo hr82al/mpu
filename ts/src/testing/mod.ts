@@ -53,7 +53,6 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     appendFile: mustNotTouch("appendFile"),
     launchOpener: mustNotTouch("opener"),
     runLegacy: mustNotTouch("runLegacy"),
-    runLegacyInteractive: mustNotTouch("runLegacyInteractive"),
     envFile: {
       // `get` отвечает «ключа нет», а не падает: с переездом конфигурации
       // в env-файл (2026-08-05, `platform/env-file.md`) чтение ключа стало

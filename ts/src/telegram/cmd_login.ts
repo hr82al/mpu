@@ -11,7 +11,12 @@
 import { z } from "@zod/zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { parseProxy, type ProxySettings } from "./proxy.ts";
-import { type LoginClient, type LoginIo, runLogin } from "./login.ts";
+import {
+  type LoginClient,
+  type LoginIo,
+  type LoginResult,
+  runLogin,
+} from "./login.ts";
 
 const argsSchema = z.object({});
 
@@ -42,10 +47,17 @@ function proxyOf(io: LoginCommandIo): ProxySettings | undefined {
   return undefined;
 }
 
-async function runLoginCommand(
-  _args: LoginArgs,
+/**
+ * Тот же вход, что у команды, — для шага 5 `mpu init`
+ * (`docs/specs/init.md`). Общая точка, а не копия склейки: две
+ * реализации одного шага уже стояли рядом и могли разойтись молча.
+ *
+ * Отдаёт исход сценария как есть: шагу нужна причина пропуска, а не
+ * проекция результата команды.
+ */
+export async function runTelegramLoginStep(
   io: LoginCommandIo,
-): Promise<LoginCommandResult> {
+): Promise<LoginResult> {
   using terminal = await io.openTerminal();
   const port: LoginIo = {
     envFile: io.envFile,
@@ -60,6 +72,18 @@ async function runLoginCommand(
     },
   };
   return await runLogin(port);
+}
+
+async function runLoginCommand(
+  _args: LoginArgs,
+  io: LoginCommandIo,
+): Promise<LoginCommandResult> {
+  const result = await runTelegramLoginStep(io);
+  // Проекция исхода в результат команды: у объединения причина есть
+  // только у пропуска, у схемы результата поле необязательное.
+  return result.status === "skipped"
+    ? { status: result.status, reason: result.reason }
+    : { status: result.status };
 }
 
 export const telegramLoginCommand = defineCommand({

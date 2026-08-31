@@ -247,9 +247,10 @@ export const commands: readonly Command[] = [
   kitenReadyCommand,
   kitenReviewCommand,
   // Семейство `telegram` переехало целиком, включая вход
-  // (`telegram-login.md`). Имя группы остаётся в слепке маршрута
-  // `legacy`: неизвестная подкоманда уходит прежней реализации — то же
-  // решение, что у `kiten` и `api`.
+  // (`telegram-login.md`). С порции 95 имя снято и с маршрута
+  // `legacy`: промежуточный уровень приходит из `groups`, как у
+  // `kiten`, а неизвестная подкоманда получает индекс группы и код 2,
+  // а не подпроцесс.
   telegramSendCommand,
   telegramLogCommand,
   telegramLoginCommand,
@@ -402,6 +403,17 @@ export const groups: readonly CommandGroup[] = [
     path: ["kiten"],
     summary: "карточки Kaiten: чтение, комментарии, время, справочники",
     usage: "mpu kiten <подкоманда> [аргументы]",
+  },
+  {
+    // То же и здесь: подкоманды переехали все, включая вход, и с
+    // порции 95 группа снята с маршрута `legacy`. До неё
+    // `mpu telegram --help` печатал справку Python-версии, где из
+    // шести подкоманд названы три, — оператор читал список команд,
+    // которого уже нет.
+    path: ["telegram"],
+    summary:
+      "Telegram от имени пользователя: send | log | login | ls | search | status",
+    usage: "mpu telegram <подкоманда> [аргументы]",
   },
   {
     // Как и `kiten`: семейство переехало целиком, и промежуточный

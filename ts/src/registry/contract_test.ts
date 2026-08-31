@@ -2202,9 +2202,6 @@ function makeIo(dir: string): CommandIo {
     runLegacy: () => {
       throw new Error("legacy must not be touched");
     },
-    runLegacyInteractive: () => {
-      throw new Error("legacy must not be touched");
-    },
     envFile: {
       // Резолв пути xlsx (`settings.ts`) зовёт `get` безусловно ещё до
       // проверки источников — молчаливое отсутствие ключа здесь то же

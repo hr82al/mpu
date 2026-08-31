@@ -11,16 +11,17 @@
  * мест с разной формой ответов, YAGNI), см. отчёт.
  */
 
-import { assertEquals, assertNotEquals } from "@std/assert";
 import {
-  type CommandIo,
-  type EnvFile,
-  NotFoundIoError,
-} from "../command/mod.ts";
-import { setConfigValue } from "../config/mod.ts";
+  assertEquals,
+  assertNotEquals,
+  assertStringIncludes,
+} from "@std/assert";
+import { type CommandIo, type EnvFile } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
+import { runTelegramLogin } from "./telegram.ts";
+import { runTelegramLoginStep } from "../telegram/mod.ts";
 import {
   DEFAULT_INIT_LIMITS,
   initCommand,
@@ -98,7 +99,6 @@ function makeIo(
 ): CommandIo {
   return makeFakeIo({
     openCacheDb: () => openCacheDb(dbPath),
-    runLegacyInteractive: () => Promise.resolve(0),
     ...overrides,
   });
 }
@@ -123,12 +123,22 @@ async function invokeInit(
   return { stdout: out.join(""), stderr: err.join(""), code };
 }
 
+/** Строка шага 5 в неинтерактивном прогоне: терминала у теста нет. */
+const TELEGRAM_SKIPPED =
+  "# telegram: пропущено (нет TTY; заполни TELEGRAM_API_ID/HASH в .env вручную)\n";
+
 /**
- * Строки шагов 3–4 при незаданных ключах: прогревы пропускаются, и это
- * штатный исход для тестов, которые проверяют шаги 1–2.
+ * Строки шагов 3–5 при незаданных ключах и без терминала: прогревы
+ * пропускаются, вход тоже — штатный исход для тестов, которые
+ * проверяют шаги 1–2.
+ *
+ * Строку шага 5 печатает сам вход (с порции 95 шаг зовёт его напрямую,
+ * а не подпроцессом), и в неинтерактивном прогоне она есть всегда:
+ * терминала у теста нет, а молчаливого пропуска у входа не бывает
+ * (`telegram-login.md`, инвариант 3).
  */
 const WARMUP_SKIPPED = "# loki: пропущено (LOKI_URL не задан)\n" +
-  "# kaiten: пропущено (KITEN_API_KEY не задан)\n";
+  "# kaiten: пропущено (KITEN_API_KEY не задан)\n" + TELEGRAM_SKIPPED;
 
 async function withTempDb(
   fn: (dbPath: string, dir: string) => Promise<void>,
@@ -1420,7 +1430,8 @@ const STAND_CONTAINERS: readonly FakeContainer[] = [
 
 /** Сводки прогревов стенда — их же ждут тесты порядка и конкурентности. */
 const STAND_WARMUP_LINES = "# loki: 2 hosts, 2 (host, service) пар\n" +
-  "# kaiten: 1 spaces, 2 boards, 3 lanes, 3 columns, 2 roles\n";
+  "# kaiten: 1 spaces, 2 boards, 3 lanes, 3 columns, 2 roles\n" +
+  "# telegram: пропущено (нет TTY; заполни TELEGRAM_API_ID/HASH в .env вручную)\n";
 
 /** Доска из пути `/api/latest/boards/<id>/<что>`; путь не тот — undefined. */
 function boardOf(pathname: string, what: string): string | undefined {
@@ -1492,8 +1503,11 @@ Deno.test("happy path со всеми шагами: блоки stderr идут �
           `# записано 1 контейнеров в ${dbPath}\n` +
           STAND_WARMUP_LINES,
       );
-      // Шаг 5 отработал с нулевым кодом — строки о нём нет (спека).
-      assertEquals(outcome.stderr.includes("# telegram"), false);
+      // Шаг 5 сказал, чего не сделал: терминала у прогона нет, и вход
+      // пропущен — молчаливого пропуска у него не бывает
+      // (`telegram-login.md`, инвариант 3). Прежде здесь ждали тишины:
+      // подпроцесс возвращал ноль и печатал сам, мимо нашего вывода.
+      assertStringIncludes(outcome.stderr, "# telegram: пропущено (нет TTY;");
 
       using db = openCacheDb(dbPath);
       const count = (table: string) =>
@@ -1588,14 +1602,7 @@ Deno.test("--dry-run: шаги 3–5 не выполняются вовсе", as
       return undefined;
     });
     try {
-      let interactive = 0;
-      const io = makeIo(dbPath, {
-        envFile: standEnv(baseUrl),
-        runLegacyInteractive: () => {
-          interactive++;
-          return Promise.resolve(0);
-        },
-      });
+      const io = makeIo(dbPath, { envFile: standEnv(baseUrl) });
       const outcome = await invokeInit(["--dry-run"], io);
       assertEquals(outcome.code, 0);
       assertEquals(
@@ -1603,28 +1610,88 @@ Deno.test("--dry-run: шаги 3–5 не выполняются вовсе", as
         `# bootstrap: схема в ${dbPath} готова\n`,
       );
       assertEquals(touched, [], "прогревы ходили в сеть при --dry-run");
-      assertEquals(interactive, 0, "шаг 5 запускался при --dry-run");
+      // Шаг 5 при `--dry-run` не идёт вовсе: его строки в выводе нет.
+      assertEquals(
+        outcome.stderr.includes("# telegram"),
+        false,
+        "шаг 5 запускался при --dry-run",
+      );
     } finally {
       await stop();
     }
   });
 });
 
-Deno.test("шаг 5: ненулевой код и несостоявшийся запуск — строка пропуска, exit 0", async (t) => {
+Deno.test("сбой входа не остаётся молчаливым: строка есть, код 0", async () => {
+  // До правки эта ветка печатала ноль строк: сам вход до своих
+  // сообщений не доходил, а шаг перестал печатать за него. Пропуск без
+  // причины — то же, что несделанная работа под видом успеха
+  // (`init.md`, шаги 3–5 best-effort: пропуск виден строкой).
+  const lines: string[] = [];
+  const io = makeFakeIo({
+    envFile: {
+      get: () => undefined,
+      values: () => ({}),
+      require: () => {
+        throw new Error("require не ожидается");
+      },
+      set: () => Promise.reject(new Error("set не ожидается")),
+    },
+    openTerminal: () => Promise.reject(new Error("сломался терминал")),
+    progress: (line: string) => void lines.push(line),
+  });
+  assertEquals(await runTelegramLogin(io), "сломался терминал");
+  assertEquals(lines, ["# telegram: пропущено (сломался терминал)"]);
+});
+
+Deno.test("шаг 5 и команда дают один исход на одном входе", async () => {
+  // Две реализации одного шага уже стояли рядом (подпроцесс у `init`,
+  // своя команда у `telegram login`) и могли разойтись молча: сверки
+  // не было ни одной. С порции 95 реализация одна, и это проверяется —
+  // на ветках, доступных без терминала и без сети.
+  const cases: readonly (readonly [string, Record<string, string>])[] = [
+    ["нет TTY", {}],
+    ["уже авторизован", { TELEGRAM_SESSION: "живая-сессия" }],
+  ];
+  for (const [name, keys] of cases) {
+    const lines: string[] = [];
+    const io = makeFakeIo({
+      envFile: {
+        get: (key: string) => keys[key],
+        values: () => ({ ...keys }),
+        require: () => {
+          throw new Error("require не ожидается");
+        },
+        set: () => Promise.reject(new Error("set не ожидается")),
+      },
+      openTerminal: () => Promise.resolve(undefined),
+      progress: (line: string) => void lines.push(line),
+    });
+    const step = await runTelegramLogin(io);
+    const direct = await runTelegramLoginStep(io);
+    assertEquals(
+      step,
+      direct.status === "skipped" ? direct.reason ?? "без причины" : null,
+      `${name}: шаг и команда разошлись`,
+    );
+    // Обе половины прогона напечатали одно и то же — по строке на вызов.
+    assertEquals(lines.length, 2, `${name}: ${JSON.stringify(lines)}`);
+    assertEquals(lines[0], lines[1], `${name}: тексты разошлись`);
+  }
+});
+
+Deno.test("шаг 5: причина пропуска — от самого входа, exit 0", async (t) => {
+  // Прежде здесь стояли причины подпроцесса — «код возврата 3» и
+  // «legacy-реализация не найдена». С порции 95 подпроцесса нет, и
+  // ломаться на запуске нечему: причины теперь те, что называет сам
+  // вход (`telegram-login.md`). Проверяется главное свойство шага:
+  // какой бы ни был исход, код `init` он не меняет.
   const cases: readonly (readonly [string, Partial<CommandIo>, string])[] = [
     [
-      "ненулевой код возврата",
-      { runLegacyInteractive: () => Promise.resolve(3) },
-      "# telegram: пропущено (код возврата 3)\n",
-    ],
-    [
-      "подпроцесс не запустился",
-      {
-        runLegacyInteractive: () =>
-          Promise.reject(new NotFoundIoError('cannot run "/nowhere/mpu"')),
-      },
-      "# telegram: пропущено (legacy-реализация не найдена по пути " +
-      '"/nowhere/mpu")\n',
+      "нет терминала",
+      {},
+      "# telegram: пропущено (нет TTY; заполни TELEGRAM_API_ID/HASH " +
+      "в .env вручную)\n",
     ],
   ];
   for (const [name, override, expected] of cases) {
@@ -1636,21 +1703,9 @@ Deno.test("шаг 5: ненулевой код и несостоявшийся �
             envFile: standEnv(baseUrl),
             ...override,
           });
-          {
-            // Ключ лежит в той же кэш-БД, что и остальное состояние:
-            // отдельного файла предпочтений нет (`platform/config.md`).
-            using db = io.openCacheDb();
-            setConfigValue(db, "mcp.legacy_bin", "/nowhere/mpu");
-          }
           const outcome = await invokeInit([], io);
-          // Исход шага 5 код выхода init не меняет (спека).
-          assertEquals(outcome.code, 0);
-          assertEquals(
-            outcome.stderr,
-            `# bootstrap: схема в ${dbPath} готова\n` +
-              `# записано 1 контейнеров в ${dbPath}\n` +
-              STAND_WARMUP_LINES + expected,
-          );
+          assertEquals(outcome.code, 0, "шаг 5 изменил код init");
+          assertStringIncludes(outcome.stderr, expected);
         } finally {
           await stop();
         }
@@ -1667,19 +1722,15 @@ Deno.test("шаг 5 начинается строго после шагов 2–
       return undefined;
     });
     try {
-      const io = makeIo(dbPath, {
-        envFile: standEnv(baseUrl),
-        runLegacyInteractive: () => {
-          order.push("telegram");
-          return Promise.resolve(0);
-        },
-      });
-      assertEquals((await invokeInit([], io)).code, 0);
-      assertEquals(
-        order[order.length - 1],
-        "telegram",
-        `шаг 5 не последний: ${JSON.stringify(order)}`,
-      );
+      // Шаг 5 больше не подпроцесс, и его момент виден по строке хода,
+      // а не по запуску: вход печатает её сам, и печатает последней.
+      const io = makeIo(dbPath, { envFile: standEnv(baseUrl) });
+      const outcome = await invokeInit([], io);
+      assertEquals(outcome.code, 0);
+      const lines = outcome.stderr.trimEnd().split("\n");
+      assertStringIncludes(lines[lines.length - 1], "# telegram: пропущено");
+      // А шаги 2–4 к этому моменту уже сходили в сеть.
+      assertEquals(order.length > 0, true, "шаги 2–4 не ходили в сеть");
     } finally {
       await stop();
     }
@@ -1705,7 +1756,8 @@ Deno.test("пропуск одной доски Kaiten: строка и scoped-�
           "# loki: 2 hosts, 2 (host, service) пар\n" +
           "# kaiten: доска 502: пропущена " +
           "(kaiten GET /boards/502/lanes -> 500: boom)\n" +
-          "# kaiten: 1 spaces, 2 boards, 2 lanes, 3 columns, 2 roles\n",
+          "# kaiten: 1 spaces, 2 boards, 2 lanes, 3 columns, 2 roles\n" +
+          TELEGRAM_SKIPPED,
       );
 
       // Собранное по здоровой доске записано, обход не оборван.
@@ -1746,7 +1798,8 @@ Deno.test("часть 2 Kaiten упала целиком: счётчик в св
           "(kaiten GET /boards/501/lanes -> 500: boom)\n" +
           "# kaiten: доска 502: пропущена " +
           "(kaiten GET /boards/502/lanes -> 500: boom)\n" +
-          "# kaiten: 1 spaces, 2 boards, ? lanes, 3 columns, 2 roles\n",
+          "# kaiten: 1 spaces, 2 boards, ? lanes, 3 columns, 2 roles\n" +
+          TELEGRAM_SKIPPED,
       );
 
       // Упавшая целиком часть кэш дорожек не трогает вовсе.
@@ -1777,7 +1830,8 @@ Deno.test("прогрев Loki упал: строка пропуска, оста
         `# bootstrap: схема в ${dbPath} готова\n` +
           `# записано 1 контейнеров в ${dbPath}\n` +
           "# loki: пропущено (HTTP 503)\n" +
-          "# kaiten: 1 spaces, 2 boards, 3 lanes, 3 columns, 2 roles\n",
+          "# kaiten: 1 spaces, 2 boards, 3 lanes, 3 columns, 2 roles\n" +
+          TELEGRAM_SKIPPED,
       );
 
       using db = openCacheDb(dbPath);
@@ -1822,7 +1876,8 @@ Deno.test("молчащий источник прогрева не тянет к
         `# bootstrap: схема в ${dbPath} готова\n` +
           `# записано 1 контейнеров в ${dbPath}\n` +
           "# loki: пропущено (no response headers within 60ms)\n" +
-          "# kaiten: 1 spaces, 2 boards, 3 lanes, 3 columns, 2 roles\n",
+          "# kaiten: 1 spaces, 2 boards, 3 lanes, 3 columns, 2 roles\n" +
+          TELEGRAM_SKIPPED,
       );
       assertEquals(
         elapsed < 2_000,

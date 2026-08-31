@@ -1,7 +1,7 @@
 /**
  * Команда `mpu init` (`docs/specs/init.md`) целиком: bootstrap схемы
  * кэш-БД, discovery контейнеров через Portainer, прогрев кэшей Loki и
- * Kaiten, вход в Telegram подпроцессом.
+ * Kaiten, вход в Telegram той же реализацией, что у команды.
  *
  * Модель исполнения — из спеки: шаг 1 первым; шаги 2–4 идут
  * конкурентно; шаг 5 (единственный интерактивный) — строго после них.
@@ -495,7 +495,7 @@ export const initCommand = defineCommand({
   usage: "mpu init [--portainer TEXT] [--dry-run] [--reset]",
   help: `Пять шагов: 1) схема кэш-БД; 2) discovery контейнеров через
 Portainer; 3) прогрев кэша Loki; 4) прогрев справочников Kaiten;
-5) вход в Telegram (подпроцесс mpu telegram login). Шаг 1 первым,
+5) вход в Telegram (та же реализация, что у mpu telegram login). Шаг 1 первым,
 2-4 конкурентно, 5 после них; блоки вывода — всегда в порядке 1..5.
 
 Ключи env-файла ~/.config/mpu/.env (окружение процесса не читается):
@@ -542,7 +542,7 @@ Exit: 0 — успех; 2 — нет PORTAINER_API_KEY/URL либо URL без �
 /**
  * Срез порта исполнения, который потребляет команда: env-файл (доступ к
  * Portainer, Loki и Kaiten), кэш-БД стенда, строка хода и — шагом
- * входа в Telegram — запуск прежней реализации.
+ * входа в Telegram — терминал для вопросов пользователю.
  */
 type InitIo =
   & Pick<CommandIo, "envFile" | "openCacheDb" | "progress">
@@ -860,13 +860,14 @@ function applyKaiten(
   return { skipped: null, ...counts, skippedBoards };
 }
 
-/** Шаг 5: подпроцесс входа; его исход код выхода init не меняет. */
+/** Шаг 5: тот же вход, что у команды; его исход код выхода init не меняет. */
 async function applyTelegram(
   io: InitIo,
 ): Promise<{ skipped: string | null }> {
-  const skipped = await runTelegramLogin(io);
-  if (skipped !== null) io.progress(`# telegram: пропущено (${skipped})`);
-  return { skipped };
+  // Строку `# telegram: пропущено (<причина>)` печатает сам вход: с
+  // порции 95 шаг зовёт его напрямую, и вторая печать здесь задвоила
+  // бы её. Причина всё равно нужна — она уходит в результат команды.
+  return { skipped: await runTelegramLogin(io) };
 }
 
 /**

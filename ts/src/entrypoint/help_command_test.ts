@@ -70,11 +70,11 @@ Deno.test("mpu help <имя>: справка целевой команды", asy
       },
       openCacheDb: fakeConfigDb({ "mcp.legacy_bin": "/bin/echo" }),
     });
-    assertEquals(await cli.run("help", "mpu telegram"), 0);
+    assertEquals(await cli.run("help", "mpu iu-wb"), 0);
     // Тот же вызов, что у `mpu telegram --help`: реестр текст не
     // сочиняет. Образец сменился на `telegram`: `api` переехала
     // целиком, подпроцессным у неё не осталось ничего.
-    assertEquals(calls, [["telegram", "--help"]]);
+    assertEquals(calls, [["iu-wb", "--help"]]);
     assertEquals(cli.stdout(), "Usage: mpu telegram …\n");
   });
 });

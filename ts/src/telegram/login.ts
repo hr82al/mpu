@@ -60,12 +60,15 @@ export interface LoginIo {
   readonly openClient: (keys: AppKeys) => Promise<LoginClient>;
 }
 
-/** Исход входа: что команда сделала и чего не сделала. */
-export interface LoginResult {
-  readonly status: "already" | "skipped" | "logged-in";
-  /** Причина пропуска — та же строка, что и в `# telegram: пропущено`. */
-  readonly reason?: string;
-}
+/**
+ * Исход входа: что команда сделала и чего не сделала. Размеченное
+ * объединение, а не поле-опция: у пропуска причина есть всегда, и
+ * защитного «без причины» у вызывающего быть не должно.
+ */
+export type LoginResult =
+  | { readonly status: "already" | "logged-in" }
+  /** Причина — та же строка, что и в `# telegram: пропущено`. */
+  | { readonly status: "skipped"; readonly reason: string };
 
 /** Где взять ключи приложения — текст спеки, дословно. */
 const KEYS_HINT = "https://my.telegram.org/apps";

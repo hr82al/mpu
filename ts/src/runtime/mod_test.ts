@@ -289,30 +289,6 @@ Deno.test("подпроцесс legacy: потоки и код возврата 
   });
 });
 
-Deno.test("подпроцесс с проброшенным терминалом: только код возврата", async (t) => {
-  // Шаг 5 `mpu init` отдаёт терминал подпроцессу целиком, поэтому здесь
-  // проверяется ровно то, что видит вызывающий: код возврата и класс
-  // ошибки несостоявшегося запуска. Вывод подпроцесса не собирается —
-  // он идёт пользователю мимо нас.
-  const io = makeDenoIo(undefined);
-
-  await t.step("нулевой код", async () => {
-    assertEquals(await io.runLegacyInteractive("/bin/echo", []), 0);
-  });
-
-  await t.step("ненулевой код проходит как есть", async () => {
-    assertEquals(await io.runLegacyInteractive("/bin/false", []), 1);
-  });
-
-  await t.step("нет бинаря — NotFoundIoError, а не сырая ошибка", async () => {
-    await assertRejects(
-      () => io.runLegacyInteractive("/bin/net-takogo-binarya", []),
-      NotFoundIoError,
-      "cannot run",
-    );
-  });
-});
-
 Deno.test("shell определяется по дереву предков, а не по SHELL", () => {
   const io = makeDenoIo(undefined);
   const shell = io.currentShell();

@@ -7,7 +7,13 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { commands, findLegacy, legacyCommands, surfaces } from "./mod.ts";
+import {
+  childrenOf,
+  commands,
+  findLegacy,
+  legacyCommands,
+  surfaces,
+} from "./mod.ts";
 import { type Profile, profileTools } from "../mcp/mod.ts";
 import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.json" with {
   type: "json",
@@ -48,6 +54,25 @@ Deno.test("одно имя — один маршрут", () => {
       .filter((name) => native.has(name)),
     [],
   );
+});
+
+Deno.test("справка группы telegram собирается из реестра", () => {
+  // До порции 95 группа стояла на маршруте `legacy`, и
+  // `mpu telegram --help` печатал справку Python-версии: из шести
+  // подкоманд она называла три — оператор читал список команд,
+  // которого уже нет. Проверяется состав, а не текст: имена берутся из
+  // реестра, поэтому новая подкоманда не потребует правки проверки.
+  const names = childrenOf(["telegram"]).map((child) => child.name);
+  assertEquals(
+    [...names].sort(),
+    commands
+      .filter((command) => command.path[0] === "telegram")
+      .map((command) => command.path[1])
+      .sort(),
+  );
+  assertEquals(names.length, 6, `в группе не шесть листьев: ${names}`);
+  // И самой группы больше нет среди подпроцессных имён.
+  assertEquals(findLegacy(["telegram"]), undefined);
 });
 
 Deno.test("инварианты записей реестра", async (t) => {
@@ -92,10 +117,10 @@ Deno.test("инварианты записей реестра", async (t) => {
     const once = legacyCommands.map((command) => command.path.join(" "));
     const twice = legacyCommands.map((command) => command.path.join(" "));
     assertEquals(once, twice);
-    // Порядок — порядок слепка, не алфавит: первым идёт `telegram`
-    // (прежние первые — `search`, `sun`, `config`, `sheet`, `d2-miro`
-    // — уехали маршрутом `native`).
-    assertEquals(once[0], "telegram");
+    // Порядок — порядок слепка, не алфавит: первым идёт `iu-wb`
+    // (прежние первые — `search`, `sun`, `config`, `sheet`, `d2-miro`,
+    // `telegram` — уехали маршрутом `native`).
+    assertEquals(once[0], "iu-wb");
   });
 });
 
@@ -134,9 +159,9 @@ Deno.test("тулом становится команда любого марш�
     const published = [...toolPolicies.ro, ...toolPolicies.rw];
     assertEquals(published.length > 0, true);
     assertEquals(published.filter((name) => !known.has(name)), []);
-    // Подпроцессные имена в реестре при этом остались: не всё
-    // семейство публикуется тулами.
-    assertEquals(findLegacy(["telegram"])?.path, ["telegram"]);
+    // Подпроцессные имена в реестре при этом остались: их два, и
+    // публикации у них нет.
+    assertEquals(findLegacy(["iu-wb"])?.path, ["iu-wb"]);
   });
 
   await t.step("запись реестра вне списка публикации тула не даёт", () => {

@@ -144,16 +144,16 @@ Deno.test("legacy_tree.ts синхронен слепку", async (t) => {
       mpuVersion: tree.mpuVersion,
       // Есть лист второго уровня, а записи его верхнего имени нет.
       // Имя — команды, ещё идущей подпроцессом: у переехавшего
-      // целиком (`kiten`, `sheet`) верхнее имя стоит в `NOT_LEGACY` и
-      // отфильтровалось бы раньше проверки.
+      // целиком (`kiten`, `sheet`, `telegram`) верхнее имя стоит в
+      // `NOT_LEGACY` и отфильтровалось бы раньше проверки.
       commands: [
-        { path: ["telegram", "ls"], params: [], summary: "s", help: "h" },
+        { path: ["iu-wb", "ls"], params: [], summary: "s", help: "h" },
       ],
     };
     const err = assertThrows(
       () => legacyEntriesFrom(readManifest(withoutTop)),
       TreeSourceError,
     );
-    assertStringIncludes(String(err), "telegram");
+    assertStringIncludes(String(err), "iu-wb");
   });
 });

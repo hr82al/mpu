@@ -122,11 +122,11 @@ Deno.test("нет ключей приложения: согласие спраш
   await t.step("отказ пользователя", async () => {
     const stand = makeStand({ answers: ["n"] });
     const result = await runLogin(stand.io);
-    assertEquals(result.status, "skipped");
-    assertEquals(
-      result.reason,
-      "позже: заполнить TELEGRAM_API_ID/HASH в .env и `mpu telegram login`",
-    );
+    assertEquals(result, {
+      status: "skipped",
+      reason:
+        "позже: заполнить TELEGRAM_API_ID/HASH в .env и `mpu telegram login`",
+    });
     assertEquals(stand.written, {}, "env-файл не тронут");
     assertEquals(stand.opened, 0);
     // Где взять ключи — сказано до вопроса, а не после отказа.
