@@ -1,0 +1,34 @@
+{
+  "id" : "3458764682192590187",
+  "type" : "frame",
+  "data" : {
+    "format" : "custom",
+    "showContent" : true,
+    "title" : "MPU-FIXTURE-88",
+    "type" : "freeform"
+  },
+  "geometry" : {
+    "width" : 800.0,
+    "height" : 600.0
+  },
+  "position" : {
+    "x" : -4000.0,
+    "y" : -4000.0,
+    "origin" : "center",
+    "relativeTo" : "canvas_center"
+  },
+  "links" : {
+    "self" : "https://api.miro.com/v2/boards/uXjVJqkHSQc%3D/frames/3458764682192590187",
+    "related" : "https://api.miro.com/v2/boards/uXjVJqkHSQc%3D/items?parent_item_id=3458764682192590187&limit=10&cursor="
+  },
+  "createdAt" : "2026-08-31T08:19:05Z",
+  "createdBy" : {
+    "id" : "3458764573044865760",
+    "type" : "user"
+  },
+  "modifiedAt" : "2026-08-31T08:19:05Z",
+  "modifiedBy" : {
+    "id" : "3458764573044865760",
+    "type" : "user"
+  }
+}

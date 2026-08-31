@@ -1,0 +1,6 @@
+{
+  "type" : "error",
+  "code" : "badRequest",
+  "message" : "new position is outside of parent boundaries",
+  "status" : 400
+}
