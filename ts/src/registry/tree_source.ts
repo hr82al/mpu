@@ -71,6 +71,7 @@ export const NOT_LEGACY: readonly string[] = [
   "move-client",
   "move-client-back",
   "glab-status",
+  "d2-miro",
   "help",
   "version",
 ];

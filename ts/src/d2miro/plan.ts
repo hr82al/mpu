@@ -139,9 +139,8 @@ function plannedShape(
 export function infoLine(fileName: string, plan: Plan): string {
   const base = `[info] ${fileName}: ${plan.shapes.length} shapes, ` +
     `${plan.edges.length} edges, ${plan.markdown.length} markdown blocks; ` +
-    `viewBox ${number(plan.diagramWidth)}x${number(plan.diagramHeight)} -> ` +
-    `frame ${number(plan.frameWidth)}x${number(plan.frameHeight)} ` +
-    `(scale=1.000)`;
+    `viewBox ${plan.diagramWidth}x${plan.diagramHeight} -> ` +
+    `frame ${plan.frameWidth}x${plan.frameHeight} (scale=1.000)`;
   // Счёт вместо молчания: у объекта потеря вида и markdown-блока
   // проходила предупреждением при коде 0, и план выглядел выполненным
   // (`d2-miro.md`, «Поддерживаемое подмножество D2»). Осознанное
@@ -153,6 +152,9 @@ export function infoLine(fileName: string, plan: Plan): string {
 
 /** Предупреждения о расхождении имён — в порядке спеки. */
 export function warnLines(plan: Plan): readonly string[] {
+  // Порядок — как у объекта в снятых голденах: сперва «в исходнике, но
+  // не в SVG». Спека перечисляет их наоборот, но там это перечисление
+  // случаев, а не формат вывода, и снятое старше.
   const lines: string[] = [];
   if (plan.sourceOnly.length > 0) {
     lines.push(`[warn] in d2 source but not in SVG: ${list(plan.sourceOnly)}`);
@@ -186,9 +188,4 @@ function label(text: string): string {
 /** Список имён в форме объекта: `['a', 'b']`. */
 function list(names: readonly string[]): string {
   return `[${names.map((name) => `'${name}'`).join(", ")}]`;
-}
-
-/** Целые печатаются без дробной части — как у объекта. */
-function number(value: number): string {
-  return Number.isInteger(value) ? String(value) : String(value);
 }

@@ -111,15 +111,7 @@ export class MiroBoard {
   ): Promise<{ status: number; text: string }> {
     let lastNonRetryable: { status: number; text: string } | undefined;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const response = await this.io.fetch(`${this.#base}${path}`, {
-        method,
-        headers: {
-          "authorization": `Bearer ${this.token}`,
-          "accept": "application/json",
-          ...(body === undefined ? {} : { "content-type": "application/json" }),
-        },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-      });
+      const response = await this.send(method, path, body);
       const text = await response.text();
       if (!retryable(response.status)) {
         lastNonRetryable = { status: response.status, text };
@@ -138,6 +130,38 @@ export class MiroBoard {
       throw new MiroError(0, `miro ${method} ${path} -> нет ответа`);
     }
     return lastNonRetryable;
+  }
+
+  /**
+   * Один запрос к службе. Сбой самого обращения — не ответ, а отказ
+   * своим классом: без этого он уходил бы наружу «unexpected error» с
+   * трейсом, чего спека запрещает (отклонение-fix). Повтора у него
+   * нет: сеть повторит вызывающий, а неверный заголовок повторять
+   * бессмысленно — замер 2026-08-31, токен с кириллицей роняет
+   * `fetch` до всякой сети.
+   */
+  private async send(
+    method: string,
+    path: string,
+    body: unknown,
+  ): Promise<Response> {
+    try {
+      return await this.io.fetch(`${this.#base}${path}`, {
+        method,
+        headers: {
+          "authorization": `Bearer ${this.token}`,
+          "accept": "application/json",
+          ...(body === undefined ? {} : { "content-type": "application/json" }),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new MiroError(
+        0,
+        `miro ${method} ${path}: transport error: ${message}`,
+      );
+    }
   }
 
   /** Пауза перед повтором с диагностической строкой. */

@@ -124,6 +124,28 @@ Deno.test("повторяемый отказ не вечен: попытки к�
   assertEquals(stand.board.retries, 5);
 });
 
+Deno.test("сбой обращения — свой класс отказа, а не сырой TypeError", async () => {
+  // Замер 2026-08-31 на собранном бинаре: токен с кириллицей роняет
+  // `fetch` до всякой сети («headers is not a valid ByteString»), и
+  // без своего класса это уходило наружу «unexpected error» с трейсом
+  // — чего отклонение-fix спеки прямо запрещает.
+  const board = new MiroBoard(
+    {
+      fetch: () => Promise.reject(new TypeError("headers not a ByteString")),
+      sleep: () => Promise.resolve(),
+      note: () => {},
+    },
+    "b",
+    "секрет-токена",
+  );
+  const err = await assertRejects(() => board.frames(), MiroError);
+  assertStringIncludes(err.message, "transport error");
+  assertEquals(err.message.includes("секрет-токена"), false);
+  // Повтора у сбоя обращения нет: неверный заголовок повторять
+  // бессмысленно, а сеть повторит вызывающий.
+  assertEquals(board.retries, 0);
+});
+
 Deno.test("листинг идёт по всем страницам, а не по первой", async () => {
   // Страница `limit=50` обрезает молча: сравнение первых 50 элементов
   // дало бы ложное «состав совпал» (замер спецификатора).

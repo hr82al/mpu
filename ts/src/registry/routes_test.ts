@@ -92,10 +92,10 @@ Deno.test("инварианты записей реестра", async (t) => {
     const once = legacyCommands.map((command) => command.path.join(" "));
     const twice = legacyCommands.map((command) => command.path.join(" "));
     assertEquals(once, twice);
-    // Порядок — порядок слепка, не алфавит: первым идёт `d2-miro`
-    // (прежние первые — `search`, `sun`, `config`, `sheet` — уехали
-    // маршрутом `native`).
-    assertEquals(once[0], "d2-miro");
+    // Порядок — порядок слепка, не алфавит: первым идёт `telegram`
+    // (прежние первые — `search`, `sun`, `config`, `sheet`, `d2-miro`
+    // — уехали маршрутом `native`).
+    assertEquals(once[0], "telegram");
   });
 });
 

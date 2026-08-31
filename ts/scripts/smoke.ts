@@ -718,10 +718,44 @@ function checks(subject: Subject): readonly Check[] {
         }
       },
     ],
+    // Переехавшая команда на собранном бинаре: `--dry-run` печатает
+    // план и не ходит в службу. Доски у smoke нет и быть не должно —
+    // живая пара за спецификатором; здесь проверяется, что маршрут
+    // `native` у команды рабочий и фикстуры читаются.
+    ["d2-miro: план --dry-run печатается собранным бинарём", async () => {
+      const base = `${subject.home}/схема`;
+      const from = new URL(
+        "../src/d2miro/testdata/d2-miro/",
+        import.meta.url,
+      );
+      // Порядок копирования значим: SVG обязан быть не старше `.d2`,
+      // иначе бинарь пойдёт звать `d2`, которого в окружении нет.
+      await Deno.writeTextFile(
+        `${base}.d2`,
+        await Deno.readTextFile(new URL("sample.d2", from)),
+      );
+      await Deno.writeTextFile(
+        `${base}.svg`,
+        await Deno.readTextFile(new URL("sample.svg", from)),
+      );
+      const outcome = await runOk(subject, [
+        "d2-miro",
+        `${base}.d2`,
+        "--dry-run",
+      ]);
+      assert(
+        outcome.stdout.includes("[dry-run] would create:") &&
+          outcome.stdout.includes("shape(can)           mart  kind=cylinder"),
+        `не тот план: ${JSON.stringify(outcome.stdout)}`,
+      );
+      assert(
+        outcome.stderr.includes("5 shapes, 5 edges, 1 markdown blocks"),
+        `не та строка [info]: ${JSON.stringify(outcome.stderr)}`,
+      );
+    }],
     ["маршрут legacy", async () => {
-      // Образец подпроцессной команды — `iu-wb`: `search` и `sheet`
-      // переехали на маршрут `native`, `d2-miro` уезжает следующим
-      // коммитом.
+      // Образец подпроцессной команды — `iu-wb`: `search`, `sheet` и
+      // `d2-miro` переехали на маршрут `native`.
       const outcome = await runOk(subject, ["iu-wb", "--help"]);
       assert(
         outcome.stdout.includes("legacy-ok"),

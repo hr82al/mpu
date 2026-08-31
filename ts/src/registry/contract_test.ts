@@ -1799,6 +1799,21 @@ const CASES: readonly CommandCase[] = [
     argv: pathParams(spec.path).map(sampleArg),
     sampleResult: SAMPLE_API,
   })),
+  {
+    // Вход не существует, и это осознанно: обход проверяет молчание в
+    // отказе, а живой прогон `d2-miro` требует доски Miro, которой у
+    // обхода нет и быть не должно. `--dry-run` — вторая страховка того
+    // же: даже появись такой файл, ни одного вызова службы не будет.
+    path: "d2-miro",
+    argv: ["/nowhere/схема.d2", "--dry-run"],
+    sampleResult: {
+      title: "схема",
+      shapes: 2,
+      edges: 1,
+      markdown: 0,
+      plan: "[dry-run] would create:\n",
+    },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {

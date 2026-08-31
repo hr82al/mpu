@@ -113,6 +113,7 @@ import {
 import { configCommand } from "../config/cmd_config.ts";
 import { glabStatusCommand } from "../glab/mod.ts";
 import { apiCommands } from "../api/mod.ts";
+import { d2MiroCommand } from "../d2miro/mod.ts";
 import { moveClientBackCommand, moveClientCommand } from "../move/mod.ts";
 import { mpInitCommand } from "../mpinit/mod.ts";
 import {
@@ -336,6 +337,9 @@ export const commands: readonly Command[] = [
   // неизвестная подкоманда уходит прежней реализации, как это было у
   // `kiten` и `telegram`.
   ...apiCommands,
+  // Рендер D2-диаграммы на доску Miro (`docs/specs/d2-miro.md`):
+  // последняя команда, у которой была роль образца маршрута `legacy`.
+  d2MiroCommand,
 ];
 
 /**
