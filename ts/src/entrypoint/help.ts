@@ -16,11 +16,17 @@ export interface IndexEntry {
 /** Ширина строки справки: описания переносятся по этой границе. */
 const WIDTH = 78;
 
-/** Индекс уровня: однострока и список того, что доступно ниже. */
+/**
+ * Индекс уровня: однострока и список того, что доступно ниже. `notes` —
+ * хвост уровня: то, что нужно знать до выбора подкоманды, а не внутри
+ * неё (у корня — какая переменная окружения какие файлы уводит). У
+ * промежуточных уровней его нет.
+ */
 export function renderIndex(
   usage: string,
   summary: string,
   entries: readonly IndexEntry[],
+  notes = "",
 ): string {
   const width = Math.max(0, ...entries.map((entry) => entry.name.length));
   const lines = entries.map(
@@ -28,6 +34,7 @@ export function renderIndex(
   );
   return `Использование: ${usage}\n\n${summary}\n\nПодкоманды:\n` +
     lines.join("") +
+    notes +
     "\nПодробнее: --help у каждой подкоманды.\n";
 }
 

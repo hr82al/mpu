@@ -34,6 +34,31 @@ Deno.test("корень: bare печатает индекс и падает, --h
   assertStringIncludes(help.stdout(), "xlsx");
 });
 
+Deno.test("корень: справка называет, какая переменная какие файлы уводит", async () => {
+  const cli = makeCli();
+  assertEquals(await cli.run("--help"), 0);
+  const help = cli.stdout();
+  // Переменных две, и уводят они разное: без этого текста оператор
+  // подменяет XDG_CONFIG_HOME и получает чужой env-файл при своей
+  // кэш-БД (`platform/store.md`).
+  assertStringIncludes(help, "Окружение:");
+  assertStringIncludes(help, "HOME");
+  assertStringIncludes(help, "mpu.db");
+  assertStringIncludes(help, "mpu.log");
+  assertStringIncludes(help, "XDG_CONFIG_HOME");
+  assertStringIncludes(help, ".env");
+  assertStringIncludes(help, ".api-token.json");
+  // Полный приём изоляции назван: подмена HOME, а не XDG_CONFIG_HOME.
+  assertStringIncludes(
+    help,
+    "Изолировать разом и состояние, и конфигурацию можно только подменой HOME.",
+  );
+  // У промежуточного уровня хвоста нет: правило — корневое.
+  const group = makeCli();
+  assertEquals(await group.run("xlsx", "--help"), 0);
+  assertEquals(group.stdout().includes("Окружение:"), false);
+});
+
 Deno.test("корень: неизвестные имя и опция — exit 2", async (t) => {
   await t.step("неизвестная команда", async () => {
     const cli = makeCli();

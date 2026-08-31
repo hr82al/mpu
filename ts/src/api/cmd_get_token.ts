@@ -63,7 +63,8 @@ export const apiGetTokenCommand = defineCommand({
 
 Без явных кред: живой токен из кэша печатается без обращения к сети;
 иначе идёт логин на TOKEN_EMAIL / TOKEN_PASSWORD из env-файла, и токен
-кладётся в кэш ~/.config/mpu/.api-token.json на 10 минут.
+кладётся в кэш .api-token.json на 10 минут — рядом с самим env-файлом,
+то есть в $XDG_CONFIG_HOME/mpu (дефолт ~/.config/mpu).
 
 --email и --password: заданный флаг старше env по своему полю. Заданы
 оба — кэш при чтении игнорируется (всегда свежий логин), и запись кэша

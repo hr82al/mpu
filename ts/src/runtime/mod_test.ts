@@ -3,12 +3,15 @@ import { DomainError, NotFoundIoError } from "../command/mod.ts";
 import {
   accessTokenPath,
   defaultConfigDir,
+  defaultCredsDir,
+  defaultInvokeLogPath,
   makeDenoIo,
   makeDenoOutput,
   makeEnvFileStore,
   parseProcStat,
   type ProcStat,
   shellInAncestors,
+  tokenCachePath,
 } from "./mod.ts";
 
 Deno.test("файл токена — сосед хранилища конфига", () => {
@@ -57,6 +60,113 @@ Deno.test("путь конфиг-каталога выводится из HOME",
   } finally {
     if (home === undefined) Deno.env.delete("HOME");
     else Deno.env.set("HOME", home);
+  }
+});
+
+/** Прогон с подменёнными переменными и возвратом прежних значений. */
+function withEnv(
+  values: Readonly<Record<string, string | undefined>>,
+  body: () => void,
+): void {
+  const before = new Map<string, string | undefined>();
+  for (const name of Object.keys(values)) before.set(name, Deno.env.get(name));
+  try {
+    for (const [name, value] of Object.entries(values)) {
+      if (value === undefined) Deno.env.delete(name);
+      else Deno.env.set(name, value);
+    }
+    body();
+  } finally {
+    for (const [name, value] of before) {
+      if (value === undefined) Deno.env.delete(name);
+      else Deno.env.set(name, value);
+    }
+  }
+}
+
+Deno.test("граница каталогов: HOME уводит состояние, XDG_CONFIG_HOME — конфигурацию", async (t) => {
+  await t.step("подменная XDG_CONFIG_HOME состояние не уводит", () => {
+    withEnv({ HOME: "/home/проба", XDG_CONFIG_HOME: "/подмена" }, () => {
+      // Кэш-БД и журнал общие с Python-реализацией: их адресует HOME и
+      // только он (`platform/store.md`).
+      assertEquals(defaultConfigDir(), "/home/проба/.config/mpu");
+      assertEquals(defaultInvokeLogPath(), "/home/проба/.config/mpu/mpu.log");
+      assertEquals(
+        accessTokenPath(defaultConfigDir()),
+        "/home/проба/.config/mpu/token",
+      );
+      // А конфигурация — уводится: env-файл и выведенный из его кред
+      // токен-кэш sl-back.
+      assertEquals(defaultCredsDir(), "/подмена/mpu");
+      assertEquals(
+        tokenCachePath(defaultCredsDir()),
+        "/подмена/mpu/.api-token.json",
+      );
+    });
+  });
+
+  await t.step(
+    "подменный HOME уводит всё — и состояние, и конфигурацию",
+    () => {
+      // Приём изоляции держится на этом: одна переменная уводит все файлы,
+      // включая токен-кэш, пока XDG_CONFIG_HOME не задана.
+      withEnv({ HOME: "/дом", XDG_CONFIG_HOME: undefined }, () => {
+        assertEquals(defaultConfigDir(), "/дом/.config/mpu");
+        assertEquals(defaultInvokeLogPath(), "/дом/.config/mpu/mpu.log");
+        assertEquals(
+          accessTokenPath(defaultConfigDir()),
+          "/дом/.config/mpu/token",
+        );
+        assertEquals(defaultCredsDir(), "/дом/.config/mpu");
+        assertEquals(
+          tokenCachePath(defaultCredsDir()),
+          "/дом/.config/mpu/.api-token.json",
+        );
+      });
+    },
+  );
+
+  await t.step("пустая XDG_CONFIG_HOME равнозначна незаданной", () => {
+    withEnv({ HOME: "/дом", XDG_CONFIG_HOME: "" }, () => {
+      assertEquals(defaultCredsDir(), "/дом/.config/mpu");
+    });
+  });
+
+  await t.step("без HOME остаётся только уведённая конфигурация", () => {
+    withEnv({ HOME: undefined, XDG_CONFIG_HOME: "/подмена" }, () => {
+      assertEquals(defaultConfigDir(), undefined);
+      assertEquals(defaultInvokeLogPath(), undefined);
+      assertEquals(defaultCredsDir(), "/подмена/mpu");
+    });
+    withEnv({ HOME: "", XDG_CONFIG_HOME: undefined }, () => {
+      assertEquals(defaultConfigDir(), undefined);
+      assertEquals(defaultCredsDir(), undefined);
+      assertEquals(tokenCachePath(defaultCredsDir()), undefined);
+    });
+  });
+});
+
+Deno.test("токен-кэш sl-back ложится в каталог конфигурации, а токен доступа — в состояние", async () => {
+  const state = await Deno.makeTempDir();
+  const creds = await Deno.makeTempDir();
+  try {
+    const io = makeDenoIo(state, creds);
+    await io.writeAccessToken("токен-доступа");
+    await io.writeTokenCache('{"token":"из-кэша"}');
+    assertEquals(
+      await Deno.readTextFile(`${creds}/.api-token.json`),
+      '{"token":"из-кэша"}',
+    );
+    assertEquals(await io.readTokenCache(), '{"token":"из-кэша"}');
+    // Файл состояния при этом остался в своём каталоге: каталоги разные.
+    assertEquals(await Deno.readTextFile(`${state}/token`), "токен-доступа\n");
+    assertEquals(
+      await Deno.readTextFile(`${creds}/token`).catch(() => "нет файла"),
+      "нет файла",
+    );
+  } finally {
+    await Deno.remove(state, { recursive: true });
+    await Deno.remove(creds, { recursive: true });
   }
 });
 

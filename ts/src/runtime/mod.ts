@@ -14,7 +14,12 @@ import {
   type TerminalIo,
 } from "../command/mod.ts";
 import type { Output } from "../entrypoint/mod.ts";
-import { envFilePath, type EnvFileStore, makeEnvFile } from "../env/mod.ts";
+import {
+  configHomeDir,
+  envFilePath,
+  type EnvFileStore,
+  makeEnvFile,
+} from "../env/mod.ts";
 import { openCacheDb as openStoreDb } from "../store/mod.ts";
 
 /** Достаточная часть Deno.stdout/stderr: синхронная запись. */
@@ -47,7 +52,16 @@ function translateNotFound(err: unknown): never {
 /**
  * Каталог локального состояния CLI (`~/.config/mpu`): кэш-БД с
  * предпочтениями (`platform/config.md`), журнал вызовов, токен
- * доступа. Без HOME каталога нет.
+ * доступа MCP-сервера. Без HOME каталога нет.
+ *
+ * `XDG_CONFIG_HOME` здесь не читается намеренно, а не по недосмотру:
+ * кэш-БД и журнал — общие файлы с живой Python-реализацией, и обе
+ * обязаны находить их одинаково (`platform/store.md`, «Ввод/вывод»:
+ * путь литеральный, переменная НЕ учитывается). Учти её здесь — и у
+ * оператора с нестандартной `XDG_CONFIG_HOME` две реализации молча
+ * разошлись бы по разным базам. Конфигурация уводится ею и лежит в
+ * соседнем каталоге (`defaultCredsDir`); изолировать разом состояние и
+ * конфигурацию можно только подменой `HOME`.
  */
 export function defaultConfigDir(): string | undefined {
   const home = Deno.env.get("HOME");
@@ -58,7 +72,8 @@ export function defaultConfigDir(): string | undefined {
 /**
  * Файл журнала вызовов по умолчанию (`platform/invoke-log.md`): сосед
  * кэш-БД в том же каталоге, общий с Python-реализацией. Без HOME пути
- * нет — журнал молчит.
+ * нет — журнал молчит; `XDG_CONFIG_HOME` его не уводит по той же
+ * причине, что и кэш-БД (`defaultConfigDir`).
  */
 export function defaultInvokeLogPath(): string | undefined {
   const home = Deno.env.get("HOME");
@@ -75,14 +90,26 @@ export function makeDenoOutput(): Output {
 }
 
 /**
- * Файл токен-кэша sl-back (`platform/slback-http.md`): сосед кэш-БД и
- * журнала в том же каталоге, общий с Python-реализацией — имя файла
- * поэтому дословно её.
+ * Каталог конфигурации (`XDG_CONFIG_HOME`, дефолт `~/.config/mpu`):
+ * env-файл с кредами и выведенный из них токен-кэш sl-back. Правило
+ * одно на оба файла и живёт в одном месте — `configHomeDir`
+ * (`src/env/mod.ts`).
+ */
+export function defaultCredsDir(): string | undefined {
+  return configHomeDir((name) => Deno.env.get(name));
+}
+
+/**
+ * Файл токен-кэша sl-back (`platform/slback-http.md`): сосед env-файла,
+ * а не кэш-БД. Токен выведен из кред этого самого файла, поэтому уводит
+ * его та же переменная, что и креды (`XDG_CONFIG_HOME`): иначе подменный
+ * env-файл с чужим сервером переиспользовал бы токен основного. Имя
+ * файла дословно от Python-реализации — файл общий и с ней.
  */
 export function tokenCachePath(
-  configDir: string | undefined,
+  credsDir: string | undefined,
 ): string | undefined {
-  return configDir === undefined ? undefined : `${configDir}/.api-token.json`;
+  return credsDir === undefined ? undefined : `${credsDir}/.api-token.json`;
 }
 
 /**
@@ -271,10 +298,20 @@ export function makeEnvFileStore(path: string): EnvFileStore {
   };
 }
 
-/** Реальные зависимости исполнения команд поверх API Deno. */
-export function makeDenoIo(configDir: string | undefined): CommandIo {
+/**
+ * Реальные зависимости исполнения команд поверх API Deno. Каталогов
+ * два: `configDir` — состояние (кэш-БД, токен MCP-сервера), `credsDir`
+ * — конфигурация (env-файл, токен-кэш sl-back). Умолчание второго —
+ * первый: тест, подставивший один каталог, по-прежнему изолирует всё
+ * сразу, а разводит их только точка входа (`main.ts`), где переменные
+ * окружения и правда разные.
+ */
+export function makeDenoIo(
+  configDir: string | undefined,
+  credsDir: string | undefined = configDir,
+): CommandIo {
   const tokenPath = accessTokenPath(configDir);
-  const cachePath = tokenCachePath(configDir);
+  const cachePath = tokenCachePath(credsDir);
   const envPath = envFilePath((name) => Deno.env.get(name));
   return {
     env: (name) => Deno.env.get(name),

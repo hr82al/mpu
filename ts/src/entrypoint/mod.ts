@@ -75,6 +75,24 @@ export interface InvokeJournal {
 }
 
 const ROOT_USAGE = "mpu <команда> [аргументы]";
+/**
+ * Граница состояния и конфигурации в справке верхнего уровня: какая
+ * переменная какие файлы уводит. Названа явно, потому что переменных
+ * две и они уводят разное — оператор, подменивший одну
+ * `XDG_CONFIG_HOME`, получает чужой env-файл при своей кэш-БД
+ * (`platform/store.md`). Единственный полный приём изоляции — подмена
+ * `HOME`, поэтому он назван последней строкой.
+ */
+const ENV_NOTE = `
+Окружение:
+  HOME             каталог состояния ~/.config/mpu: кэш-БД mpu.db, журнал
+                   вызовов mpu.log, токен MCP-сервера token. XDG_CONFIG_HOME
+                   их не уводит: файлы общие с прежней реализацией.
+  XDG_CONFIG_HOME  каталог конфигурации $XDG_CONFIG_HOME/mpu: env-файл .env и
+                   выведенный из его кред токен-кэш sl-back .api-token.json
+                   (не задана — те же ~/.config/mpu).
+Изолировать разом и состояние, и конфигурацию можно только подменой HOME.
+`;
 const ROOT_SUMMARY =
   "Monorepo Python utilities — multi-purpose CLI for ad-hoc operations.";
 
@@ -831,7 +849,7 @@ function valueFlags(group: CommandGroup): ReadonlySet<string> {
 }
 
 function rootIndex(): string {
-  return renderIndex(ROOT_USAGE, ROOT_SUMMARY, [...childrenOf([])]);
+  return renderIndex(ROOT_USAGE, ROOT_SUMMARY, [...childrenOf([])], ENV_NOTE);
 }
 
 function groupIndex(group: CommandGroup): string {

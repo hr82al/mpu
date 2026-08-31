@@ -8,13 +8,17 @@ import { runCli } from "./src/entrypoint/mod.ts";
 import { makeInvokeLog } from "./src/invokelog/mod.ts";
 import {
   defaultConfigDir,
+  defaultCredsDir,
   defaultInvokeLogPath,
   makeDenoIo,
   makeDenoOutput,
 } from "./src/runtime/mod.ts";
 
 async function main(args: readonly string[]): Promise<number> {
-  const io = makeDenoIo(defaultConfigDir());
+  // Каталога два, и разводит их только эта строка: состояние — по
+  // `HOME`, конфигурация — по `XDG_CONFIG_HOME` (правило названо в
+  // справке верхнего уровня и в `defaultConfigDir`).
+  const io = makeDenoIo(defaultConfigDir(), defaultCredsDir());
   const log = makeInvokeLog({
     // Настройки журнала — ключи `MPU_LOG_*` env-файла; окружение
     // процесса слой не читает (`platform/env-file.md`).

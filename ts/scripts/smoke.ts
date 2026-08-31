@@ -96,6 +96,17 @@ async function run(
   };
 }
 
+/** Отсутствие файла как утверждение: есть — проверка красная. */
+async function assertMissing(path: string): Promise<void> {
+  try {
+    await Deno.stat(path);
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) return;
+    throw err;
+  }
+  throw new Error(`файл появился там, где его быть не должно: ${path}`);
+}
+
 /** Успешный запуск; иначе в сообщение попадает stderr бинаря. */
 async function runOk(
   subject: Subject,
@@ -631,6 +642,45 @@ function checks(subject: Subject): readonly Check[] {
       );
       await Deno.remove(envPath);
     }],
+    // Граница состояния и конфигурации на собранном бинаре: `HOME`
+    // адресует кэш-БД и журнал, `XDG_CONFIG_HOME` — env-файл и
+    // выведенный из его кред токен-кэш sl-back. Разводит каталоги одна
+    // строка `main.ts`, и проверить её можно только запуском: тесты
+    // зовут `makeDenoIo` сами и подстановку из точки входа не видят.
+    // Подменный каталог лежит ВНУТРИ `$HOME/.config/mpu` намеренно:
+    // право задачи `build` перечисляет именно этот путь, и произвольная
+    // `XDG_CONFIG_HOME` записью в него не покрыта (то же ограничение
+    // названо у права записи env-файла в `deno.jsonc`).
+    [
+      "границы каталогов: XDG_CONFIG_HOME уводит токен-кэш, но не кэш-БД",
+      async () => {
+        const server = Deno.serve(
+          { port: 0, hostname: "127.0.0.1", onListen: () => {} },
+          () => Response.json({ accessToken: "проба-токена" }),
+        );
+        const xdg = `${subject.home}/.config/mpu/podmena`;
+        try {
+          await Deno.mkdir(`${xdg}/mpu`, { recursive: true });
+          await Deno.writeTextFile(
+            `${xdg}/mpu/.env`,
+            `BASE_API_URL=http://127.0.0.1:${server.addr.port}\n` +
+              "TOKEN_EMAIL=proba@example.com\nTOKEN_PASSWORD=proba\n",
+          );
+          const outcome = await runOk(subject, ["api", "get-token"], {
+            XDG_CONFIG_HOME: xdg,
+          });
+          assertEquals(outcome.stdout.trim(), "проба-токена", "не тот токен");
+          // Кэш лёг рядом с кредами, из которых токен получен.
+          await Deno.stat(`${xdg}/mpu/.api-token.json`);
+          // И не лёг в каталог состояния: иначе токен подменного
+          // сервера переиспользовался бы основной конфигурацией.
+          await assertMissing(`${subject.home}/.config/mpu/.api-token.json`);
+        } finally {
+          await server.shutdown();
+          await Deno.remove(xdg, { recursive: true });
+        }
+      },
+    ],
     ["маршрут legacy", async () => {
       // Образец подпроцессной команды — `d2-miro`: прежние, `search`
       // и `sheet`, переехали на маршрут `native`.
