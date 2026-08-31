@@ -297,11 +297,8 @@ async function checkMcpServer(subject: Subject): Promise<void> {
     const token = (await Deno.readTextFile(`${subject.home}/.config/mpu/token`))
       .trim();
     await checkToolAnnotations(port, token);
-    const info = await Deno.stat(`${subject.home}/.config/mpu/token`);
-    // mode отсутствует там, где у файловой системы нет прав POSIX.
-    if (info.mode === null) return;
     assertEquals(
-      (info.mode & 0o777).toString(8),
+      (await modeOf(`${subject.home}/.config/mpu/token`)).toString(8),
       "600",
       "права файла токена не 0600",
     );
@@ -816,12 +813,6 @@ function checks(subject: Subject): readonly Check[] {
           ["$ mpu xlsx resolve --json"],
           `не одна запись native-вызова: ${JSON.stringify(afterNative)}`,
         );
-        assertEquals(
-          ((await Deno.stat(logPath)).mode ?? 0o600) & 0o777,
-          0o600,
-          "права файла журнала не 0600",
-        );
-
         await runOk(subject, ["iu-wb", "--help"]);
         const afterLegacy = await Deno.readTextFile(logPath);
         // Вторая запись — от подпроцесса; обвязка для маршрута `legacy`
@@ -835,6 +826,14 @@ function checks(subject: Subject): readonly Check[] {
           afterLegacy.split(`run=${LEGACY_RUN_ID}`).length - 1,
           2,
           "запись legacy-вызова пришла не от подпроцесса",
+        );
+        // Права — последним утверждением: их отсутствие у файловой
+        // системы даёт пропуск (`modeOf`), и стоящее раньше он отменил
+        // бы то, что от режима не зависит вовсе.
+        assertEquals(
+          (await modeOf(logPath)).toString(8),
+          "600",
+          "права файла журнала не 0600",
         );
       } finally {
         await Deno.remove(`${configDir}/.env`);
@@ -953,6 +952,31 @@ async function makeSubjectHome(): Promise<string> {
       await Deno.makeTempDir({ prefix: "mpu-smoke-" }),
     );
   }
+}
+
+/**
+ * Права файла восьмеричным числом. Файловая система без POSIX-прав
+ * режима не сообщает — тогда пропуск, а не молчаливый проход: прежние
+ * формы (`if (mode === null) return` и `mode ?? 0o600`) утверждали
+ * права, ничего не проверив, а вторая ещё и сравнивала ожидаемое с
+ * ожидаемым. Предмет здесь секретный — токен MCP-сервера и журнал
+ * вызовов, — и вакуумно-зелёное утверждение о его правах хуже, чем
+ * отсутствие утверждения: оно выглядит проверкой.
+ *
+ * Пропускается вся проверка целиком, а не одно утверждение: причина
+ * названа дословно, и по ней видно, что именно вернула файловая
+ * система.
+ */
+async function modeOf(path: string): Promise<number> {
+  const info = await Deno.stat(path);
+  if (info.mode === null) {
+    throw new Skipped(
+      `файловая система не сообщает права: Deno.stat(${
+        JSON.stringify(path)
+      }).mode === null`,
+    );
+  }
+  return info.mode & 0o777;
 }
 
 /** Создаёт каталог, если его нет, и возвращает его путь. */

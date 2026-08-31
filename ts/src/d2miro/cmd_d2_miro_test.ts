@@ -387,6 +387,84 @@ Deno.test("ни одного шейпа при непустом плане — �
   });
 });
 
+Deno.test("рисовать нечего: отказ до службы, доска не тронута", async (t) => {
+  // Устаревший или чужой SVG даёт план без единого объекта. Прежде
+  // такой прогон создавал на доске пустой фрейм и возвращал ноль
+  // (замер спецификатора). SVG здесь синтетический — это ВХОД, а не
+  // снимок чужого ответа: у d2 пустого рендера не бывает, а нужен
+  // именно вырожденный случай.
+  const files = {
+    "п.d2": 'loader: "Загрузчик"\n',
+    "п.svg": '<svg viewBox="0 0 100 50"></svg>',
+  };
+  const keys = { MIRO_TOKEN: "секрет", MIRO_BOARD_ID: "доска" };
+
+  await t.step("рендер: ни одного обращения к службе", async () => {
+    const stand = makeIo(files, keys);
+    let calls = 0;
+    const err = await assertRejects(
+      () =>
+        runD2MiroWith(
+          { file: "п.d2", "skip-render": true, "dry-run": false },
+          stand.io,
+          makeEnv({
+            fetch: () => {
+              calls++;
+              return Promise.resolve(new Response("{}", { status: 200 }));
+            },
+          }),
+        ),
+      UsageError,
+      "в плане нет ни одного объекта",
+    );
+    // Не «фрейм не создан», а именно ноль обращений: иначе проверка не
+    // отличит «не создали» от «создали и удалили».
+    assertEquals(calls, 0, "служба вызывалась при пустом плане");
+    assertStringIncludes(err.message, "п.svg");
+  });
+
+  await t.step("один markdown-блок — уже есть что рисовать", async () => {
+    // Граница считает шейпы И блоки: у входа из одних `|md` шейпов нет
+    // по построению, и счёт по одним шейпам отказал бы там, где рисовать
+    // есть что. Мутация «убрать markdown из условия» краснеет здесь.
+    const stand = makeIo({
+      "м.d2": "card: |md\n  ## Карточка\n|\n",
+      "м.svg": '<svg viewBox="0 0 100 50"></svg>',
+    }, keys);
+    const result = await runD2MiroWith(
+      { file: "м.d2", "skip-render": true, "dry-run": true },
+      stand.io,
+      makeEnv(),
+    );
+    assertEquals([result.shapes, result.markdown], [0, 1]);
+    assertStringIncludes(
+      stand.progress.join("\n"),
+      "0 shapes, 0 edges, 1 markdown blocks",
+    );
+  });
+
+  await t.step("--dry-run отказывает тем же", async () => {
+    // План обязан совпадать с рендером (отклонение-fix спеки): показ
+    // пустого списка вместо отказа делал бы предпросмотр враньём.
+    const stand = makeIo(files, keys);
+    await assertRejects(
+      () =>
+        runD2MiroWith(
+          { file: "п.d2", "skip-render": true, "dry-run": true },
+          stand.io,
+          makeEnv(),
+        ),
+      UsageError,
+      "в плане нет ни одного объекта",
+    );
+    // Строки разбора всё равно напечатаны: по ним видно, почему пусто.
+    assertStringIncludes(
+      stand.progress.join("\n"),
+      "0 shapes, 0 edges, 0 markdown blocks",
+    );
+  });
+});
+
 Deno.test("вход, которого нет: ошибка ввода, а не сбой рантайма", async () => {
   const stand = makeIo({});
   await assertRejects(
