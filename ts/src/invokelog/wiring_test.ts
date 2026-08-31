@@ -90,6 +90,45 @@ Deno.test("native-вызов оставляет ровно одну запись
   });
 });
 
+Deno.test("вход в Telegram: журнал не получает ни строки вывода", async () => {
+  // Строка сессии — полноценный доступ к аккаунту
+  // (`docs/specs/telegram-login.md`, инвариант 1). Команда её не
+  // печатает, но одной дисциплины мало: журнал копирует ВЕСЬ вывод
+  // помеченных команд, и достаточно одной случайной строки, чтобы
+  // секрет лёг на диск вторым экземпляром. Поэтому у входа перехват
+  // вывода снят, и проверяется это по содержимому записи, а не по
+  // объявлению: мутация «вернуть logsOutput» краснеет здесь.
+  const session = "СЕКРЕТ-СЕССИИ-9f2";
+  await withStand(async (stand) => {
+    const outcome = await cli(
+      stand,
+      ["telegram", "login"],
+      makeFakeIo({
+        envFile: {
+          get: (name) => name === "TELEGRAM_SESSION" ? session : undefined,
+          values: () => ({}),
+          require: () => {
+            throw new Error("require не ожидается");
+          },
+          set: () => Promise.reject(new Error("set не ожидается")),
+        },
+        // Терминала нет — вход и не начинается; на экран идёт строка
+        // «уже авторизован», и она‑то в журнал попасть не должна.
+        openTerminal: () => Promise.resolve(undefined),
+        progress: () => {},
+      }),
+    );
+    assertEquals(outcome.code, 0);
+    const text = await stand.text();
+    // Запись о вызове есть — иначе проверять было бы нечего.
+    assertEquals((await stand.records()).length, 1);
+    assertMatch(text, /^\$ mpu telegram login$/mu);
+    // А вывода в ней нет вовсе.
+    assertEquals(text.includes(session), false, text);
+    assertEquals(text.includes("уже авторизован"), false, text);
+  });
+});
+
 Deno.test("реестровые поверхности записей не оставляют", async (t) => {
   const surfaces: readonly [name: string, argv: string[]][] = [
     ["version", ["version"]],
@@ -211,12 +250,14 @@ Deno.test("пометка «без записи вывода» — часть о
       path: ["фейк"],
     });
   });
-  await t.step("в реестре пометка стоит у восемнадцати команд", () => {
+  await t.step("в реестре пометка стоит у девятнадцати команд", () => {
     // Все печатают то, чему в журнале не место: `search` — живые
     // токены сессий 10X, `log` — сам журнал (иначе он печатал бы
     // себя), `mcp token` — токен доступа, `users add` — собранную
     // команду с паролем заводимого пользователя, `confirm` — чужой
-    // буфер конвейера, дословно равный его вводу, `api get-token` —
+    // буфер конвейера, дословно равный его вводу, `telegram login` —
+    // строку сессии Telegram, то есть полноценный доступ к аккаунту
+    // (`docs/specs/telegram-login.md`, инвариант 1), `api get-token` —
     // живой токен sl-back (`docs/specs/api.md`). Остальные — команды
     // `api`, чей ОТВЕТ несёт чужие ключи, токены или персональные
     // данные: четыре читающих и семь из остатка (`api-write.md`).
@@ -228,6 +269,7 @@ Deno.test("пометка «без записи вывода» — часть о
       "search",
       "log",
       "mcp token",
+      "telegram login",
       "users add",
       "confirm",
       "api add-client-ozon-key",

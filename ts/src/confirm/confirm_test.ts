@@ -22,6 +22,8 @@ function terminal(answer: string | undefined) {
       return Promise.resolve();
     },
     readLine: () => Promise.resolve(answer),
+    // Скрытого чтения у ворот нет: ответ «да/нет» секретом не бывает.
+    readSecret: () => Promise.reject(new Error("readSecret не ожидается")),
     [Symbol.dispose]: () => {
       closed = true;
     },

@@ -82,6 +82,7 @@ import {
 } from "../kiten/mod.ts";
 import {
   telegramLogCommand,
+  telegramLoginCommand,
   telegramLsCommand,
   telegramSearchCommand,
   telegramSendCommand,
@@ -245,10 +246,13 @@ export const commands: readonly Command[] = [
   kitenMoveCommand,
   kitenReadyCommand,
   kitenReviewCommand,
-  // Семейство `telegram` переехало целиком; подпроцессом прежней
-  // реализации остаётся только вход (`mpu init`).
+  // Семейство `telegram` переехало целиком, включая вход
+  // (`telegram-login.md`). Имя группы остаётся в слепке маршрута
+  // `legacy`: неизвестная подкоманда уходит прежней реализации — то же
+  // решение, что у `kiten` и `api`.
   telegramSendCommand,
   telegramLogCommand,
+  telegramLoginCommand,
   telegramLsCommand,
   telegramSearchCommand,
   telegramStatusCommand,

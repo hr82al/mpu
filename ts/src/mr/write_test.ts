@@ -662,6 +662,8 @@ Deno.test("delete: без TTY отказ и ни одного DELETE", async (t)
             name: "/dev/tty",
             write: () => Promise.resolve(),
             readLine: () => Promise.resolve("n"),
+            readSecret: () =>
+              Promise.reject(new Error("readSecret не ожидается")),
             [Symbol.dispose]: () => {},
           }),
       });

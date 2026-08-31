@@ -288,6 +288,14 @@ export interface TerminalIo extends Disposable {
   readonly write: (text: string) => Promise<void>;
   /** Одна строка ответа без перевода; конец ввода — `undefined`. */
   readonly readLine: () => Promise<string | undefined>;
+  /**
+   * То же, но набранное не показывается на экране: пароль второго
+   * фактора Telegram (`docs/specs/telegram-login.md`, инвариант 1).
+   * Отдельный метод, а не флаг у `readLine`: у скрытого чтения другой
+   * режим терминала, и «видимо ли набранное» должно быть видно на
+   * месте вызова, а не спрятано в аргументе.
+   */
+  readonly readSecret: () => Promise<string | undefined>;
 }
 
 /**
