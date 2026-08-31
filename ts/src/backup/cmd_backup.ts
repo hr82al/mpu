@@ -65,8 +65,11 @@ const resultSchema = z.object({
 type BackupArgs = z.infer<typeof argsSchema>;
 type BackupResult = z.infer<typeof resultSchema>;
 
-/** Срез порта: env-файл с адресами, кэш селектора. */
-export type BackupIo = Pick<CommandIo, "envFile" | "openCacheDb">;
+/** Срез порта: env-файл с адресами, кэш селектора, ход исполнения. */
+export type BackupIo = Pick<
+  CommandIo,
+  "envFile" | "openCacheDb" | "progress"
+>;
 
 /** Подстановки для тестов: живого PostgreSQL у них нет. */
 export interface BackupOptions {
@@ -112,7 +115,10 @@ export async function runBackup(
   const plan = backupPlan(table, schemaId, date);
   const target = serverTarget(io.envFile, resolved.serverNumber);
   const result = shown(plan, `sl-${resolved.serverNumber}`, target, args.dry);
-  if (args.dry) return result;
+  if (args.dry) {
+    printMeta(io, result);
+    return result;
+  }
   const session = await (options.openSession ?? denoSession("write"))(target);
   try {
     await session.run(plan.sql);
@@ -130,6 +136,7 @@ export async function runBackup(
     // закрытия — сбой закрытия ничего не теряет.
     await session.close().catch(() => {});
   }
+  printMeta(io, result);
   return result;
 }
 
@@ -154,11 +161,26 @@ function shown(
 }
 
 /**
+ * Мета-блок в stderr: у команды нет данных результата, а служебному
+ * тексту место в stdout не полагается (`sql-ro.md`, `d2-miro.md`, та
+ * же конвенция). Команда печатает не сама — строки уходят портом хода
+ * исполнения, печатает их точка входа (инвариант 1 контракта).
+ *
+ * Порт добавляет перевод строки к каждой строке, поэтому блок
+ * разбирается обратно на строки: иначе последний удвоился бы.
+ */
+function printMeta(io: BackupIo, result: BackupResult): void {
+  for (const line of metaText(result).slice(0, -1).split("\n")) {
+    io.progress(line);
+  }
+}
+
+/**
  * Мета-блок: порядок и имена полей сохранены от рабочей версии
  * (`docs/specs/backup.md`, отклонение `preserve`). Печатается и в
  * показе, и после выполнения — записью о том, что ушло серверу.
  */
-function renderBackup(result: BackupResult): string {
+function metaText(result: BackupResult): string {
   return [
     `marketplace: ${result.marketplace}`,
     `source_table: ${result.source_table}`,
@@ -231,6 +253,8 @@ Exit: 0 — копия создана либо показана; 1 — отка�
     forms: { selector: { positional: "one" } },
     resultSchema,
     run: (args, io: BackupIo) => runBackup(table, args, io),
-    render: renderBackup,
+    // stdout не используется вовсе (`backup.md`, отклонение `fix`):
+    // данных результата у команды нет, а мета-блок ушёл в stderr.
+    render: () => "",
   });
 }

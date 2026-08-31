@@ -15,6 +15,7 @@ import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { DbError, type OpenSession } from "../sql/mod.ts";
 import { backupCommands, runBackup } from "./cmd_backup.ts";
+import { runCli } from "../entrypoint/mod.ts";
 import { backupSql, dateSuffix, mskDateSuffix, schemaIdOf } from "./plan.ts";
 
 /** Синтетический конфиг: девятый сервер, свой хост и порт. */
@@ -76,8 +77,10 @@ async function withCache(
   }
 }
 
-function io(db: CacheDb) {
+/** Порт вызова и накопленный stderr: мета-блок идёт ходом исполнения. */
+function io(db: CacheDb, progress: string[] = []) {
   return makeFakeIo({
+    progress: (line: string) => void progress.push(line),
     envFile: {
       get: (name: string) => ENV[name],
       require: (name: string) => {
@@ -129,9 +132,18 @@ const args = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-Deno.test("--dry: мета-блок и запрос — эталон канала", async () => {
+Deno.test("--dry: мета-блок и запрос — эталон канала, в stderr", async () => {
   await withCache(1, async (db) => {
-    const result = await runBackup(TABLE, args(), io(db));
+    const progress: string[] = [];
+    const result = await runBackup(TABLE, args(), io(db, progress));
+    // Блок целиком в stderr: у команды нет данных результата, и stdout
+    // не используется вовсе (`backup.md`, отклонение `fix`).
+    assertEquals(
+      `${progress.join("\n")}\n`,
+      await golden("backup-dry-stdout.txt"),
+    );
+    // Сравнение именно с пустой строкой: «не содержит marketplace»
+    // пропустило бы частичную утечку в stdout.
     assertEquals(
       command("backup-wb-unit-proto").renderResult(result, [
         "777",
@@ -139,8 +151,51 @@ Deno.test("--dry: мета-блок и запрос — эталон канал�
         "20260827",
         "--dry",
       ]),
+      "",
+    );
+  });
+});
+
+Deno.test("выполнение: stdout пуст, блок в stderr", async () => {
+  await withCache(1, async (db) => {
+    const progress: string[] = [];
+    const session = fakeSession();
+    const result = await runBackup(
+      TABLE,
+      args({ dry: false }),
+      io(db, progress),
+      { openSession: session.open },
+    );
+    assertEquals(session.sent.length, 1, "запрос серверу не ушёл");
+    // Тот же блок, что и в показе, — записью о том, что было сделано.
+    assertEquals(
+      `${progress.join("\n")}\n`,
       await golden("backup-dry-stdout.txt"),
     );
+    assertEquals(
+      command("backup-wb-unit-proto").renderResult(result, ["777"]),
+      "",
+    );
+  });
+});
+
+Deno.test("по CLI: stdout пуст, блок печатает точка входа", async () => {
+  // Проверка наблюдаемого: сам поток выбирает не команда, а точка
+  // входа, и утверждение о `renderResult` выше о ней ничего не знает.
+  await withCache(1, async (db) => {
+    const out: string[] = [];
+    const err: string[] = [];
+    const code = await runCli(
+      ["backup-wb-unit-proto", "777", "--date", "20260827", "--dry"],
+      io(db),
+      {
+        stdout: (text) => void out.push(text),
+        stderr: (text) => void err.push(text),
+      },
+    );
+    assertEquals(code, 0);
+    assertEquals(out.join(""), "", "stdout не пуст");
+    assertEquals(err.join(""), await golden("backup-dry-stdout.txt"));
   });
 });
 
