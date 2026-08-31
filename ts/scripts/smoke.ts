@@ -492,12 +492,21 @@ function checks(subject: Subject): readonly Check[] {
     // Каталог берётся соседом домашнего внутри `.tmp/`, а не его
     // потомком: право задачи `build` перечисляет пути под `$HOME`, и
     // сосед им не покрыт — именно это здесь и проверяется.
+    //
+    // Предпосылка проверки — «этот каталог правом НЕ покрыт», и она
+    // ложна, когда дерево лежит под `/tmp`: сосед оказывается внутри
+    // покрытого пути, отказа нет, прогон доходит до запуска `pg_dump`
+    // и краснеет чужой причиной (замер спецификатора 2026-08-31). Тот
+    // же страж, что у утверждений о праве, только здесь он бережёт от
+    // ЛОЖНОЙ красноты, а не от ложной зелени.
     [
       "каталог временных файлов вне прав отбивается понятным текстом",
       async () => {
+        const outside = await Deno.realPath(
+          await ensureDir(`${Deno.cwd()}/.tmp/smoke-вне-прав`),
+        );
+        requireOutsideTempPermission(outside);
         await writeCopyDevEnv(subject);
-        const outside = `${Deno.cwd()}/.tmp/smoke-вне-прав`;
-        await Deno.mkdir(outside, { recursive: true });
         try {
           const outcome = await run(subject, ["copy-dev"], { TMPDIR: outside });
           const text = `${outcome.stdout}${outcome.stderr}`;
@@ -944,6 +953,12 @@ async function makeSubjectHome(): Promise<string> {
       await Deno.makeTempDir({ prefix: "mpu-smoke-" }),
     );
   }
+}
+
+/** Создаёт каталог, если его нет, и возвращает его путь. */
+async function ensureDir(path: string): Promise<string> {
+  await Deno.mkdir(path, { recursive: true });
+  return path;
 }
 
 /**

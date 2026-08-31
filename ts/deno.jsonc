@@ -256,13 +256,17 @@
     //     первого обращения к сети; без права `mpu telegram send`
     //     падает на каждом вызове с «Requires env access». Имя одно и
     //     задаётся библиотекой; smoke-проверка «ленивый клиент MTProto
-    //     есть в бинаре» краснеет, если право убрать. `TMUX` из
-    //     списка убран порцией 91 вместе с самой попыткой копирования
-    //     управляющей последовательностью: она писала в `/dev/tty`, а
-    //     туда нельзя ни при каком списке путей (`clipboard.md`).
-    //     Права, которое не открывает возможности, в списке быть не
-    //     должно — иначе следующий читатель примет его за
-    //     работающее.
+    //     есть в бинаре» краснеет, если право убрать. `TMUX` —
+    //     признак терминала-мультиплексора: под ним управляющая
+    //     последовательность буфера обмена заворачивается в
+    //     passthrough, иначе tmux её съедает (`platform/clipboard.md`).
+    //     Право вернулось порцией 92 вместе с самой возможностью:
+    //     последовательность теперь уходит в stderr, а не в
+    //     `/dev/tty`, куда писать нельзя ни при каком списке путей.
+    //     Это тот случай, когда право открывает возможность, а не
+    //     описывает мёртвую; smoke его не закрывает — отсутствие
+    //     `TMUX` даёт ровно тот же наблюдаемый исход, что и запуск не
+    //     под мультиплексором.
     //   --deny-env=USER,NODE_PG_FORCE_NATIVE
     //     Единственные два имени вне списка выше, к которым тянется
     //     дерево `npm:pg`: `USER` — умолчание имени пользователя
@@ -282,7 +286,7 @@
     //     Наблюдаемого поведения флаг не меняет (неинтерактивно доступ и
     //     так отказан), поэтому smoke его не покрывает — исключение
     //     названо в `CLAUDE.md`, «Проверка каждого изменения»;
-    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
+    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь
