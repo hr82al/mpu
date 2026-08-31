@@ -268,16 +268,21 @@ function doneLine(
   plan: Plan,
   created: {
     shapes: number;
+    texts: number;
     connectors: number;
     skipped: number;
     retries: number;
   },
 ): string {
+  // `texts` печатается наравне с прочими: это число участвует в
+  // решении об отказе (код 1 даётся, когда ноль и шейпов, и текстов),
+  // и без него по выводу нельзя понять, почему код именно такой.
+  const texts = created.texts === 0 ? "" : ` texts=${created.texts}`;
   const tail = [
     created.skipped === 0 ? "" : ` skipped=${created.skipped}`,
     created.retries === 0 ? "" : ` retries=${created.retries}`,
   ].join("");
-  return `[done] frame='${plan.title}' shapes=${created.shapes} ` +
+  return `[done] frame='${plan.title}' shapes=${created.shapes}${texts} ` +
     `connectors=${created.connectors}${tail}`;
 }
 

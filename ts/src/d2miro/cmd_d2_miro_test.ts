@@ -518,5 +518,11 @@ Deno.test("рендер: итог называет числа, снятые с �
   });
   assertEquals(result.frameId, "id-1");
   const done = stand.progress[stand.progress.length - 1];
-  assertEquals(done, "[done] frame='s' shapes=5 connectors=4 skipped=1");
+  // `texts` печатается наравне с прочими: это число участвует в решении
+  // об отказе, и без него по выводу не понять, почему код именно такой
+  // (`d2-miro.md`, формат итоговой строки).
+  assertEquals(
+    done,
+    "[done] frame='s' shapes=5 texts=1 connectors=4 skipped=1",
+  );
 });
