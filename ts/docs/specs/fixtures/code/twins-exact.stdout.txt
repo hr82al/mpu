@@ -3,9 +3,9 @@ fixture · вне git · разбор по типам — ответ полон
 windowDays (from: string, to: string): string[]
 
 побайтово: 3
+  src/window.ts:4  windowDays
   src/grid.ts:4  dayGrid
   src/seed_test.ts:5  daySeries
-  src/window.ts:4  windowDays
 
 похоже: 0
 
