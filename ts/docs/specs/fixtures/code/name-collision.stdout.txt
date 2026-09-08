@@ -6,6 +6,14 @@ fixture · вне git · разбор по типам — ответ полон
   src/span.ts:3  spanDays (from: string, to: string): number
     приватное в модуле
 
+та же сигнатура, другое имя: 6
+  src/grid.ts:4  dayGrid (from: string, to: string): string[]
+  src/loaderA.ts:2  utcDayList (from: string, to: string): string[]
+  src/loaderB.ts:2  utcDayList (from: string, to: string): string[]
+  src/seed_test.ts:5  daySeries (from: string, to: string): string[]
+  src/span.ts:6  isLongSpan (from: string, to: string): boolean
+  src/window.ts:4  windowDays (from: string, to: string): string[]
+
 типы возврата: number
 
 не разрешено: 1
