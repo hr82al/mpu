@@ -1,0 +1,7 @@
+// Потребитель через динамический импорт: форма получения символа другая,
+// а переименование его ломает так же. Перечень, собранный по статическим
+// импортам, теряет этот файл молча.
+export async function laterDay(day: string): Promise<string> {
+  const days = await import('./days');
+  return days.addDays(day, 1);
+}

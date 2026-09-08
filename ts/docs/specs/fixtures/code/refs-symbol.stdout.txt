@@ -3,8 +3,9 @@ fixture · вне git · разбор по типам — ответ полон
 addDays (day: string, count: number): string
   экспортируется из модуля и из входа проекта
 
-потребители: 6 файлов
+потребители: 7 файлов
   src/aliased.ts:3
+  src/dynamic.ts:5
   src/grid.ts:2
   src/index.ts:3
   src/report.spec.ts:3
