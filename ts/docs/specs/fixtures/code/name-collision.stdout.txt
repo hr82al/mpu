@@ -1,0 +1,12 @@
+fixture · вне git · разбор по типам — ответ полон
+
+объявления: 2
+  src/days.ts:9  spanDays (from: string, to: string): number
+    экспортируется из модуля; из входа проекта не реэкспортируется
+  src/span.ts:3  spanDays (from: string, to: string): number
+    приватное в модуле
+
+типы возврата: number
+
+не разрешено: 1
+  src/broken.ts:3 → ./nowhere — модуль не найден

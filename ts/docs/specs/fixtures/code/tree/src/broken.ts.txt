@@ -1,0 +1,5 @@
+// Импорт несуществующего модуля: ссылка, которую разобрать нельзя.
+// Инструмент, тихо выбрасывающий такое, выдаёт уверенный неверный ответ.
+import { missingHelper } from './nowhere';
+
+export const useMissing = (day: string): string => missingHelper(day);

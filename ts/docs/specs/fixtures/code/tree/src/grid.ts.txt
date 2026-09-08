@@ -1,0 +1,8 @@
+// Побайтовый близнец №2: то же тело под другим именем.
+import { addDays } from './days';
+
+export function dayGrid(from: string, to: string): string[] {
+  const days: string[] = [];
+  for (let day = from; day <= to; day = addDays(day, 1)) days.push(day);
+  return days;
+}

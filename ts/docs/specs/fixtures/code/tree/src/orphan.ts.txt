@@ -1,0 +1,4 @@
+// Экспортируемый символ, на который никто не ссылается.
+export function unusedThing(day: string): string {
+  return day;
+}
