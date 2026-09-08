@@ -24,8 +24,24 @@ export interface Address {
  * сразу под отметкой одного.
  */
 function insideRepo(path: string, raw: string): string {
+  const inside = normalizeInside(path, raw, "путь адреса");
+  if (inside === "") throw new UsageError(`в адресе нет пути: '${raw}'`);
+  return inside;
+}
+
+/**
+ * Путь внутри репозитория в нормальной форме; пустая строка — сам
+ * корень. Абсолютный путь и выход за корень — ошибка ввода: иначе
+ * `src/..` молча означал бы «весь репозиторий» там, где спрашивали про
+ * каталог, а `../q` — чужое дерево.
+ */
+export function normalizeInside(
+  path: string,
+  raw: string,
+  what: string,
+): string {
   if (path.startsWith("/")) {
-    throw new UsageError(`путь адреса относителен корню репозитория: '${raw}'`);
+    throw new UsageError(`${what} относителен корню репозитория: '${raw}'`);
   }
   const parts: string[] = [];
   for (const segment of path.split("/")) {
@@ -35,14 +51,9 @@ function insideRepo(path: string, raw: string): string {
       continue;
     }
     if (parts.length === 0) {
-      throw new UsageError(
-        `путь адреса выходит за корень репозитория: '${raw}'`,
-      );
+      throw new UsageError(`${what} выходит за корень репозитория: '${raw}'`);
     }
     parts.pop();
-  }
-  if (parts.length === 0) {
-    throw new UsageError(`в адресе нет пути: '${raw}'`);
   }
   return parts.join("/");
 }

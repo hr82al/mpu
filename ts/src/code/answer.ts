@@ -9,8 +9,26 @@
  */
 
 import { z } from "@zod/zod";
-import type { Analyzer } from "./analyzer.ts";
+import type { Analyzer, Scope } from "./analyzer.ts";
 import type { TreeMark } from "./mark.ts";
+
+/**
+ * Три значения области видимости и четвёртое — у проекта без входа
+ * (`platform/code-analyzer.md`). Одна строка, а не два признака, и одна
+ * на все поверхности: расходиться двум текстам об одном факте незачем.
+ */
+const SCOPE_TEXT: Readonly<Record<Scope, string>> = {
+  entry: "экспортируется из модуля и из входа проекта",
+  "module-only":
+    "экспортируется из модуля; из входа проекта не реэкспортируется",
+  "no-entry": "экспортируется из модуля; входа у проекта нет",
+  private: "приватное в модуле",
+};
+
+/** Строка области видимости объявления. */
+export function scopeText(scope: Scope): string {
+  return SCOPE_TEXT[scope];
+}
 
 /** Отметка дерева в структурной форме: `git` пусто — дерево вне git. */
 export const markSchema = z.object({

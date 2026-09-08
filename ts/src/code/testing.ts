@@ -12,6 +12,19 @@ import type { Repo } from "./workspace.ts";
 const OUT_OF_GIT: TreeMark = { repo: "fixture", state: { kind: "out-of-git" } };
 
 /**
+ * Дерево-фикстура вида Deno под именем `deno-fixture`. Свой `deno.json`
+ * у неё обязателен и кладётся в корень материализованного дерева:
+ * иначе ближайшей конфигурацией окажется чужая, и ответ станет зависеть
+ * от места прогона.
+ */
+export async function openDenoFixture(temp: string): Promise<Repo> {
+  return await materialize(temp, "deno-fixture", "testdata/code/deno-tree/", {
+    repo: "deno-fixture",
+    state: { kind: "out-of-git" },
+  });
+}
+
+/**
  * Материализует дерево-фикстуру в подкаталог `fixture` временного
  * каталога и отдаёт его как репозиторий рабочей области.
  */
@@ -19,8 +32,18 @@ export async function openFixture(
   temp: string,
   mark: TreeMark = OUT_OF_GIT,
 ): Promise<Repo> {
-  const root = `${temp}/fixture`;
-  const source = new URL("testdata/code/tree/", import.meta.url);
+  return await materialize(temp, "fixture", "testdata/code/tree/", mark);
+}
+
+/** Раскладывает дерево канала во временный каталог под именем `name`. */
+async function materialize(
+  temp: string,
+  name: string,
+  from: string,
+  mark: TreeMark,
+): Promise<Repo> {
+  const root = `${temp}/${name}`;
+  const source = new URL(from, import.meta.url);
   for (const path of await treeFiles(source, "")) {
     const target = `${root}/${path.replace(/\.txt$/, "")}`;
     await Deno.mkdir(target.slice(0, target.lastIndexOf("/")), {
@@ -31,7 +54,7 @@ export async function openFixture(
       await Deno.readTextFile(new URL(path, source)),
     );
   }
-  return { name: "fixture", root, mark: () => Promise.resolve(mark) };
+  return { name, root, mark: () => Promise.resolve(mark) };
 }
 
 /** Пути файлов поддерева относительно его корня. */

@@ -27,6 +27,13 @@ export interface Declaration {
   readonly name: string;
   /** Сигнатура для человека: `(day: string, count: number): string`. */
   readonly signature: string;
+  /**
+   * Тип возврата вызываемого объявления; `null` — объявление не
+   * вызывается. Отдельным полем, а не разбором строки сигнатуры:
+   * вытаскивать его обратно из текста значило бы читать собственный
+   * вывод как данные.
+   */
+  readonly returnType: string | null;
   /** Строка объявления, считая с единицы. */
   readonly line: number;
   readonly scope: Scope;
@@ -71,8 +78,17 @@ export interface Analyzer {
   readonly mark: MarkSource;
   /** Есть ли такой файл в дереве репозитория. */
   readonly hasFile: (path: string) => boolean;
+  /** Файлы репозитория, которые анализатор разбирает; пути от корня. */
+  readonly files: () => readonly string[];
   /** Объявления файла по возрастанию строки. */
   readonly declarationsOf: (path: string) => Declarations;
+  /**
+   * Почему объявления здесь не разбираются; `null` — разбираются.
+   * Отдельным членом, а не зондом `declarationsOf` по заведомо неверному
+   * пути: контракт той операции — объявления ФАЙЛА, и спрашивать её о
+   * репозитории значит полагаться на побочный ответ.
+   */
+  readonly declarationsRefusal: () => string | null;
   /** Тела объявлений-функций репозитория. */
   readonly bodiesOf: () => Bodies;
   /** Файлы-потребители цели; единица — файл, а не обращение. */

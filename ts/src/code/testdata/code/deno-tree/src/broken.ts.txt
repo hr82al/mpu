@@ -1,0 +1,4 @@
+// Импорт несуществующего модуля: ссылка, которую разобрать нельзя.
+import { missingHelper } from './nowhere.ts';
+
+export const useMissing = (day: string): string => missingHelper(day);

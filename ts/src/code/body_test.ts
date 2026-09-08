@@ -266,3 +266,65 @@ Deno.test("строка с объявлением-не-функцией даёт
     await Deno.remove(temp, { recursive: true });
   }
 });
+
+Deno.test("расхождение одними пробелами — установленная разница", async () => {
+  const temp = await Deno.makeTempDir();
+  try {
+    // Ни комментарии, ни литералы, ни имена не разошлись, а тексты не
+    // равны: это вёрстка, и она известна. Назвать её «не установлена»
+    // значило бы выдать незнание за ответ.
+    const repo = await repoWith(
+      `${temp}/r`,
+      [
+        "export function tight(n: number): number {",
+        "  const doubled = n * 2;",
+        "  return doubled;",
+        "}",
+        "",
+        "export function loose(n: number): number {",
+        "  const doubled = n *",
+        "    2;",
+        "  return doubled;",
+        "}",
+        "",
+      ].join("\n"),
+    );
+    const text = await twins(repo, "r:src/a.ts:1");
+    assertEquals(text.includes("похоже: 1"), true, text);
+    assertEquals(text.includes("    разница: форматирование"), true, text);
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});
+
+Deno.test("пробелы внутри литерала — расхождение литералов, а не вёрстки", async () => {
+  const temp = await Deno.makeTempDir();
+  try {
+    // Снятие всех пробелов делает тексты равными, но различие тел
+    // названо литералом и названо один раз: приписать сюда ещё и
+    // «форматирование» значило бы назвать одно различие дважды.
+    const repo = await repoWith(
+      `${temp}/r`,
+      [
+        "export function tight(): string {",
+        '  return "a  b";',
+        "}",
+        "",
+        "export function loose(): string {",
+        '  return "a b";',
+        "}",
+        "",
+      ].join("\n"),
+    );
+    const text = await twins(repo, "r:src/a.ts:1");
+    assertEquals(text.includes("похоже: 1"), true, text);
+    assertEquals(
+      text.includes('разница: литерал "a  b" против "a b"'),
+      true,
+      text,
+    );
+    assertEquals(text.includes("форматирование"), false, text);
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});

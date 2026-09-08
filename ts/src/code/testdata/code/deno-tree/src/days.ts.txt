@@ -1,0 +1,11 @@
+// Тот же символ, что и в tsconfig-дереве: ответы двух видов проекта
+// сравнимы между собой.
+export function addDays(day: string, count: number): string {
+  const date = new Date(`${day}T12:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + count);
+  return date.toISOString().slice(0, 10);
+}
+
+// Тёзка стрелкой — текстовый поиск по «function spanDays» его не находит.
+export const spanDays = (from: string, to: string): number =>
+  Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);

@@ -12,6 +12,8 @@ import { assertEquals } from "@std/assert";
 import { parseAddress } from "./address.ts";
 import { codeRefsCommand } from "./cmd_refs.ts";
 import { codeTwinsCommand } from "./cmd_twins.ts";
+import { codeNameCommand } from "./cmd_name.ts";
+import { parseWindow } from "./cmd_name.ts";
 
 /** Что справка обязана назвать; по фразе на пункт состава. */
 const REQUIRED: Readonly<Record<string, readonly string[]>> = {
@@ -27,6 +29,7 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
     "не разрешено",
     // значение и умолчание предела
     "--limit N",
+    "предел записей в разделе, не строк",
     "по умолчанию 200",
     // коды выхода — перечнем, а не наличием раздела
     "0 —",
@@ -45,6 +48,24 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
     "литералы заменены позиционными метками",
     "не разрешено",
     "--limit N",
+    "предел записей в разделе, не строк",
+    "по умолчанию 200",
+    "0 —",
+    "1 —",
+    "2 —",
+  ],
+  "code name": [
+    // форма окна и что без него отвечает каждый репозиторий
+    "РЕПОЗИТОРИЙ либо РЕПОЗИТОРИЙ:КАТАЛОГ",
+    "Без --in отвечает КАЖДЫЙ репозиторий",
+    // состав строк объявления и строка типов возврата
+    "сигнатура как",
+    "область видимости",
+    "объявления любой формы",
+    "двух и более вызываемых",
+    "не разрешено",
+    "--limit N",
+    "предел записей в разделе, не строк",
     "по умолчанию 200",
     "0 —",
     "1 —",
@@ -52,7 +73,7 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
   ],
 };
 
-const COMMANDS = [codeRefsCommand, codeTwinsCommand];
+const COMMANDS = [codeRefsCommand, codeTwinsCommand, codeNameCommand];
 
 Deno.test("справка называет весь состав, заданный спекой", async (t) => {
   for (const command of COMMANDS) {
@@ -85,12 +106,25 @@ Deno.test("пример вызова из справки — полный и р�
       const examples = examplesIn(command.help, name);
       assertEquals(examples.length > 0, true, `${name}: примеров нет вовсе`);
       for (const example of examples) {
-        // Существования адреса на диске не требуется: пример,
+        // Существования адреса и окна на диске не требуется: пример,
         // ссылающийся на живой исходник, устаревает от первой же правки
         // (`specs/code-twins.md`, «CLI-контракт»). Требуется, чтобы он
-        // был полным вызовом и чтобы адрес разбирался.
-        const address = example.slice(`mpu ${name} `.length).split(" ")[0];
-        parseAddress(address);
+        // был полным вызовом и чтобы его адрес либо окно разбирались.
+        const tail = example.slice(`mpu ${name} `.length).split(" ");
+        if (name === "code name") {
+          // Пример без окна проверять нечем: `--in` обязан быть в нём и
+          // обязан нести значение, иначе разбор молча уходит в имя.
+          const at = tail.indexOf("--in");
+          assertEquals(at >= 0, true, `${name}: в примере нет --in`);
+          assertEquals(
+            at + 1 < tail.length,
+            true,
+            `${name}: у --in нет значения`,
+          );
+          parseWindow(tail[at + 1]);
+          continue;
+        }
+        parseAddress(tail[0]);
       }
     });
   }

@@ -6,11 +6,10 @@
 import { z } from "@zod/zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
 import { type Address, parseAddress } from "./address.ts";
-import type { Scope } from "./analyzer.ts";
 import { renderMark } from "./mark.ts";
 import { openAnalyzer } from "./open.ts";
 import { collectRefs, type RefsResult, refsResultSchema } from "./refs.ts";
-import { treeMarkOf } from "./answer.ts";
+import { scopeText, treeMarkOf } from "./answer.ts";
 import { spawnGit } from "./git.ts";
 import {
   findWorkspaceRoot,
@@ -19,7 +18,7 @@ import {
   repoOf,
 } from "./workspace.ts";
 
-/** Предел строк в разделе по умолчанию. */
+/** Предел записей в разделе по умолчанию; запись — не строка. */
 const DEFAULT_LIMIT = 200;
 
 const argsSchema = z.object({
@@ -27,15 +26,6 @@ const argsSchema = z.object({
   limit: z.number().int().positive("--limit ожидает положительное целое")
     .default(DEFAULT_LIMIT),
 });
-
-/** Три значения области видимости и четвёртое — у проекта без входа. */
-const SCOPE_TEXT: Readonly<Record<Scope, string>> = {
-  entry: "экспортируется из модуля и из входа проекта",
-  "module-only":
-    "экспортируется из модуля; из входа проекта не реэкспортируется",
-  "no-entry": "экспортируется из модуля; входа у проекта нет",
-  private: "приватное в модуле",
-};
 
 export const codeRefsCommand = defineCommand({
   path: ["code", "refs"],
@@ -56,7 +46,7 @@ export const codeRefsCommand = defineCommand({
 области — подкаталоги с .git у ближайшего предка с файлом
 .mp-workspace-root.
 
-  --limit N   предел строк в разделе (по умолчанию 200)
+  --limit N   предел записей в разделе, не строк (по умолчанию 200)
 
 Exit: 0 — ответ, включая пустой перечень и усечение; 2 — ошибка ввода
 (нет такого репозитория, файла или объявления в строке); 1 — объявления
@@ -141,7 +131,7 @@ export function renderRefs(result: RefsResult): string {
     result.symbol === null
       ? `модуль ${result.target.path}`
       : `${declarationLine(result.symbol)}\n  ${
-        SCOPE_TEXT[result.symbol.scope]
+        scopeText(result.symbol.scope)
       }`,
     renderSection(result),
     renderUnresolved(result.unresolved),

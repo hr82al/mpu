@@ -101,9 +101,12 @@ export async function collectTwins(
       path: query.path,
       line: query.line,
     },
-    // Запрошенное тело входит в раздел «побайтово»: оно равно самому
-    // себе, и потому раздел не бывает пуст.
-    exact: section([query, ...exact], limit, () => null),
+    // Запрошенное тело стоит ПЕРВОЙ строкой, вне общего порядка, и
+    // усечением не режется: инвариант «раздел содержит запрошенное»,
+    // который держится на счётчике, а не на самом разделе, — не
+    // инвариант, и при малом пределе запрошенное выпадало из
+    // собственного ответа.
+    exact: withQuery(query, section(exact, limit - 1, () => null)),
     similar: section(similar, limit, (body) => difference(query, body)),
     unresolved: unresolvedOf(analyzer, limit),
   };
@@ -154,6 +157,25 @@ function isCallable(signature: string): boolean {
   return signature.startsWith("(");
 }
 
+/** Запрошенное тело первой строкой раздела, поверх усечения остальных. */
+function withQuery(
+  query: Body,
+  rest: TwinsResult["exact"],
+): TwinsResult["exact"] {
+  return {
+    total: rest.total + 1,
+    twins: [
+      {
+        path: query.path,
+        line: query.line,
+        name: query.name,
+        difference: null,
+      },
+      ...rest.twins,
+    ],
+  };
+}
+
 /** Раздел с усечением по пределу; описание разницы даёт вызывающий. */
 function section(
   bodies: readonly Body[],
@@ -163,7 +185,7 @@ function section(
   const sorted = [...bodies].sort(byPathAndLine);
   return {
     total: sorted.length,
-    twins: sorted.slice(0, limit).map((body) => ({
+    twins: sorted.slice(0, Math.max(limit, 0)).map((body) => ({
       path: body.path,
       line: body.line,
       name: body.name,

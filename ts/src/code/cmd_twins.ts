@@ -16,7 +16,7 @@ import { renderUnresolved, resolveRepo } from "./cmd_refs.ts";
 import { collectTwins, type TwinsResult, twinsResultSchema } from "./twins.ts";
 import type { Repo } from "./workspace.ts";
 
-/** Предел строк в разделе по умолчанию. */
+/** Предел записей в разделе по умолчанию; запись — не строка. */
 const DEFAULT_LIMIT = 200;
 
 const argsSchema = z.object({
@@ -48,7 +48,7 @@ export const codeTwinsCommand = defineCommand({
 Имя объявления в сравнении не участвует — сравниваются тела. Раздел
 «не разрешено» печатается всегда, в том числе нулевой.
 
-  --limit N   предел строк в разделе (по умолчанию 200)
+  --limit N   предел записей в разделе, не строк (по умолчанию 200)
 
 Exit: 0 — ответ, включая усечение; 2 — ошибка ввода (нет строки, в
 строке нет объявления-функции, нет файла или репозитория); 1 — тела

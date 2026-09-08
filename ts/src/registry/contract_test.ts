@@ -1927,6 +1927,49 @@ const CASES: readonly CommandCase[] = [
       },
     },
   },
+  {
+    // Третья поверхность семейства. Состав раздела — как в голдене
+    // `name-collision.stdout.txt`: два тёзки одного имени, объявленные
+    // разными формами.
+    path: "code name",
+    argv: ["spanDays", "--in", "fixture"],
+    sampleResult: {
+      name: "spanDays",
+      sections: [{
+        mark: { repo: "fixture", git: null },
+        guarantee: "types",
+        declarations: {
+          total: 2,
+          items: [
+            {
+              path: "src/days.ts",
+              line: 9,
+              name: "spanDays",
+              signature: "(from: string, to: string): number",
+              scope: "module-only",
+            },
+            {
+              path: "src/span.ts",
+              line: 3,
+              name: "spanDays",
+              signature: "(from: string, to: string): number",
+              scope: "private",
+            },
+          ],
+        },
+        returnTypes: ["number"],
+        unresolved: {
+          total: 1,
+          items: [{
+            path: "src/broken.ts",
+            line: 3,
+            specifier: "./nowhere",
+            reason: "модуль не найден",
+          }],
+        },
+      }],
+    },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {

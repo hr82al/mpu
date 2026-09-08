@@ -297,9 +297,16 @@ export function difference(query: Body, other: Body): string {
     ...literalDifference(query, other),
     ...nameDifference(query, other),
   ];
-  // Ничего из перечисленного не разошлось — значит разошлись пробелы:
-  // сказать «разницы нет» было бы неправдой, тела ведь не равны.
-  return parts.length === 0 ? "форматирование" : parts.join("; ");
+  if (parts.length > 0) return parts.join("; ");
+  // Отдельная категория — и только когда остальные три пусты: пробелы
+  // внутри строкового литерала уже названы расхождением литералов, и
+  // приписывать к нему «форматирование» значило бы назвать одно
+  // различие дважды.
+  if (spacingOnly(query, other)) return "форматирование";
+  // Ни одна из четырёх категорий не подошла: расхождение есть, а
+  // отнести его не к чему. Назвать его «форматированием» значило бы
+  // выдать незнание за ответ.
+  return "не установлена";
 }
 
 function commentDifference(query: Body, other: Body): readonly string[] {
@@ -327,4 +334,14 @@ function nameDifference(query: Body, other: Body): readonly string[] {
   const same = query.names.length === other.names.length &&
     query.names.every((name, index) => name === other.names[index]);
   return same ? [] : ["имена различаются"];
+}
+
+/**
+ * Расходятся ли тела одними пробелами. Установленная разница, а не
+ * незнание: тексты, равные с точностью до пробельных знаков,
+ * различаются именно и только вёрсткой.
+ */
+function spacingOnly(query: Body, other: Body): boolean {
+  const bare = (text: string): string => text.replace(/\s+/g, "");
+  return bare(query.text) === bare(other.text);
 }

@@ -31,6 +31,8 @@ const NOT_LITERAL = "спецификатор не литерал";
 export interface TypeAnalyzerDeps {
   readonly ts: typeof TS;
   readonly program: TS.Program;
+  /** Путь конфигурации проекта: рядом с ней лежит манифест пакета. */
+  readonly projectPath: string;
   readonly repoRoot: string;
   readonly mark: MarkSource;
 }
@@ -39,7 +41,7 @@ export interface TypeAnalyzerDeps {
 export function createTypeAnalyzer(deps: TypeAnalyzerDeps): Analyzer {
   const { ts, program, repoRoot } = deps;
   const checker = program.getTypeChecker();
-  const entry = entryFile(ts, program);
+  const entry = entryFile(ts, program, deps.projectPath);
   const files = program.getSourceFiles()
     .filter((file) => !file.isDeclarationFile && inRepo(file.fileName));
 
@@ -60,6 +62,7 @@ export function createTypeAnalyzer(deps: TypeAnalyzerDeps): Analyzer {
     guarantee: "types",
     mark: deps.mark,
     hasFile: (path) => fileOf(path) !== undefined,
+    files: () => files.map((file) => rel(file.fileName)).sort(),
     declarationsOf: (path) => {
       const file = fileOf(path);
       return {
@@ -69,6 +72,7 @@ export function createTypeAnalyzer(deps: TypeAnalyzerDeps): Analyzer {
           : declarationsIn(ts, checker, file, entry),
       };
     },
+    declarationsRefusal: () => null,
     bodiesOf: () => ({
       kind: "known",
       bodies: files.flatMap((file) =>
@@ -88,10 +92,11 @@ export function createTypeAnalyzer(deps: TypeAnalyzerDeps): Analyzer {
 function entryFile(
   ts: typeof TS,
   program: TS.Program,
+  projectPath: string,
 ): TS.SourceFile | undefined {
   const roots = program.getRootFileNames();
   if (roots.length === 0) return undefined;
-  const declared = declaredEntry(ts, program);
+  const declared = declaredEntry(ts, program, dirOf(projectPath));
   if (declared !== undefined) return declared;
   return program.getSourceFile(`${commonDir(roots)}/index.ts`);
 }
@@ -117,32 +122,35 @@ function commonDir(paths: readonly string[]): string {
   return first.slice(0, depth).join("/");
 }
 
-/** Файл поля входа пакета рядом с конфигурацией проекта. */
+/**
+ * Файл поля входа пакета рядом с конфигурацией проекта. Поле
+ * засчитывается, ТОЛЬКО если ведёт в файл программы: на живом пакете
+ * `main` указывает на `dist/index.js`, артефакта в программе нет, и
+ * вход по нему находиться не должен (замер 2026-09-08 на `ozon`).
+ */
 function declaredEntry(
   ts: typeof TS,
   program: TS.Program,
+  dir: string,
 ): TS.SourceFile | undefined {
-  const configPath = program.getCompilerOptions().configFilePath;
-  if (typeof configPath !== "string") return undefined;
-  const dir = dirOf(configPath);
   for (const name of ["package.json", "deno.json", "deno.jsonc"]) {
-    const path = entryFromManifest(ts, `${dir}/${name}`);
-    if (path === undefined) continue;
-    const file = program.getSourceFile(`${dir}/${path.replace(/^\.\//, "")}`);
-    if (file !== undefined) return file;
+    for (const path of entryFields(ts, `${dir}/${name}`)) {
+      const file = program.getSourceFile(`${dir}/${path.replace(/^\.\//, "")}`);
+      if (file !== undefined) return file;
+    }
   }
   return undefined;
 }
 
-/** Значение поля входа манифеста; файла или поля нет — `undefined`. */
-function entryFromManifest(ts: typeof TS, path: string): string | undefined {
+/** Кандидаты входа из манифеста по порядку `types`, `exports`, `main`. */
+function entryFields(ts: typeof TS, path: string): readonly string[] {
   const text = ts.sys.readFile(path);
-  if (text === undefined) return undefined;
-  const parsed = ts.parseConfigFileTextToJson(path, text);
-  const manifest = parsed.config;
-  if (typeof manifest !== "object" || manifest === null) return undefined;
+  if (text === undefined) return [];
+  const manifest = ts.parseConfigFileTextToJson(path, text).config;
+  if (typeof manifest !== "object" || manifest === null) return [];
   const fields = manifest as Record<string, unknown>;
-  return firstString([pickExport(fields.exports), fields.main]);
+  return [fields.types, pickExport(fields.exports), fields.main]
+    .filter((value): value is string => typeof value === "string");
 }
 
 /** Строковый вход из поля `exports` в любой из его форм. */
@@ -153,11 +161,8 @@ function pickExport(value: unknown): unknown {
   if (typeof root === "string") return root;
   if (typeof root !== "object" || root === null) return undefined;
   const conditions = root as Record<string, unknown>;
-  return firstString([conditions.import, conditions.default]);
-}
-
-function firstString(values: readonly unknown[]): string | undefined {
-  return values.find((value): value is string => typeof value === "string");
+  return [conditions.import, conditions.default]
+    .find((value): value is string => typeof value === "string");
 }
 
 /** Объявления верхнего уровня файла по возрастанию строки. */
@@ -172,9 +177,16 @@ function declarationsIn(
     for (const node of namedNodes(ts, statement)) {
       const symbol = checker.getSymbolAtLocation(node.name);
       if (symbol === undefined) continue;
+      const type = checker.getTypeOfSymbolAtLocation(symbol, node.name);
+      const call = type.getCallSignatures();
       found.push({
         name: symbol.getName(),
-        signature: signatureOf(checker, symbol, node.name),
+        signature: call.length > 0
+          ? checker.signatureToString(call[0])
+          : checker.typeToString(type),
+        returnType: call.length > 0
+          ? checker.typeToString(call[0].getReturnType())
+          : null,
         line: lineOf(file, node.getStart(file)),
         scope: scopeOf(ts, checker, symbol, file, entry),
       });
@@ -209,24 +221,6 @@ function namedNodes(
     name: named.name,
     getStart: (f: TS.SourceFile) => statement.getStart(f),
   }];
-}
-
-/**
- * Сигнатура для человека. У вызываемого — форма вызова целиком, иначе
- * сам тип: `mpu code` не объясняет, что символ делает, но назвать его
- * форму обязана. Двоеточие ставит рендер — здесь оно дало бы
- * `имя : число` с пробелом перед ним.
- */
-function signatureOf(
-  checker: TS.TypeChecker,
-  symbol: TS.Symbol,
-  at: TS.Node,
-): string {
-  const type = checker.getTypeOfSymbolAtLocation(symbol, at);
-  const call = type.getCallSignatures();
-  return call.length > 0
-    ? checker.signatureToString(call[0])
-    : checker.typeToString(type);
 }
 
 /** Область видимости символа: одно значение из четырёх. */

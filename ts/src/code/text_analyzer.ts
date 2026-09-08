@@ -58,10 +58,12 @@ export function createTextAnalyzer(deps: TextAnalyzerDeps): Analyzer {
     guarantee: "text",
     mark: deps.mark,
     hasFile: (path) => isFile(`${deps.repoRoot}/${path}`),
+    files: () => files,
     declarationsOf: () => ({
       kind: "unknown",
       reason: noProject("объявления"),
     }),
+    declarationsRefusal: () => noProject("объявления"),
     bodiesOf: () => ({ kind: "unknown", reason: noProject("тела") }),
     consumersOf: (target) => readers(files, textOf, target),
     // Текстовый разбор ничего не резолвит, поэтому и не разрешить ему

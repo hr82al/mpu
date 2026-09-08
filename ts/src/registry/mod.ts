@@ -114,7 +114,11 @@ import { configCommand } from "../config/cmd_config.ts";
 import { glabStatusCommand } from "../glab/mod.ts";
 import { apiCommands } from "../api/mod.ts";
 import { d2MiroCommand } from "../d2miro/mod.ts";
-import { codeRefsCommand, codeTwinsCommand } from "../code/mod.ts";
+import {
+  codeNameCommand,
+  codeRefsCommand,
+  codeTwinsCommand,
+} from "../code/mod.ts";
 import { moveClientBackCommand, moveClientCommand } from "../move/mod.ts";
 import { mpInitCommand } from "../mpinit/mod.ts";
 import {
@@ -342,6 +346,7 @@ export const commands: readonly Command[] = [
   // связи кода поверх общего слоя `platform/code-analyzer.md`.
   codeRefsCommand,
   codeTwinsCommand,
+  codeNameCommand,
 ];
 
 /**
@@ -459,7 +464,7 @@ export const groups: readonly CommandGroup[] = [
     // Семейство `code` целиком наше: в слепке прежней реализации таких
     // имён нет. Индекс собирает реестр, как у `kiten` и `sheet`.
     path: ["code"],
-    summary: "связи кода рабочей области: ссылки, близнецы",
+    summary: "связи кода рабочей области: ссылки, близнецы, имена",
     usage: "mpu code <подкоманда> [аргументы]",
   },
   {

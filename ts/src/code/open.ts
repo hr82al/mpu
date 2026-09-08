@@ -31,6 +31,22 @@ import type { Repo } from "./workspace.ts";
  * в один проект, обслуживается текстовым анализатором — как и
  * репозиторий без единого проекта.
  */
+/**
+ * Анализатор репозитория целиком — окно вопроса о занятости имени. От
+ * `openAnalyzer` отличается тем, что файла у вопроса нет: проекты
+ * берутся все, а их отсутствие само по себе становится причиной отказа.
+ */
+export async function openRepoAnalyzer(repo: Repo): Promise<Analyzer> {
+  const analyzers = await typeAnalyzers(repo);
+  if (analyzers.length === 0) {
+    return textAnalyzer(
+      repo,
+      `в репозитории ${repo.name} нет ни одного проекта`,
+    );
+  }
+  return analyzers.length === 1 ? analyzers[0] : merged(analyzers);
+}
+
 export async function openAnalyzer(
   repo: Repo,
   path: string,
@@ -42,17 +58,7 @@ export async function openAnalyzer(
       `в репозитории ${repo.name} нет ни одного проекта`,
     );
   }
-  const ts = (await import("typescript")).default;
-  const analyzers: Analyzer[] = [];
-  for (const project of projects) {
-    const program = buildProgram(ts, project);
-    // Конфигурация без входных файлов проектом не считается: список
-    // проектов её отсеивает здесь, где он уже разрешён.
-    if (program === undefined) continue;
-    analyzers.push(
-      createTypeAnalyzer({ ts, program, repoRoot: repo.root, mark: repo.mark }),
-    );
-  }
+  const analyzers = await typeAnalyzers(repo);
   if (!analyzers.some((analyzer) => analyzer.hasFile(path))) {
     // Причина у двух случаев разная, и назвать надо ту, что есть:
     // проекты в репозитории могут быть, а адресованный файл — вне их.
@@ -62,6 +68,28 @@ export async function openAnalyzer(
     );
   }
   return analyzers.length === 1 ? analyzers[0] : merged(analyzers);
+}
+
+/** Анализаторы по типам для всех проектов репозитория. */
+async function typeAnalyzers(repo: Repo): Promise<readonly Analyzer[]> {
+  const projects = findProjects(repo.root);
+  if (projects.length === 0) return [];
+  const ts = (await import("typescript")).default;
+  const analyzers: Analyzer[] = [];
+  for (const project of projects) {
+    const program = buildProgram(ts, project);
+    // Конфигурация без входных файлов проектом не считается: список
+    // проектов её отсеивает здесь, где он уже разрешён.
+    if (program === undefined) continue;
+    analyzers.push(createTypeAnalyzer({
+      ts,
+      program,
+      projectPath: project,
+      repoRoot: repo.root,
+      mark: repo.mark,
+    }));
+  }
+  return analyzers;
 }
 
 function textAnalyzer(repo: Repo, reason: string): Analyzer {
@@ -79,7 +107,12 @@ function merged(analyzers: readonly Analyzer[]): Analyzer {
     guarantee: "types",
     mark: analyzers[0].mark,
     hasFile: (path) => analyzers.some((analyzer) => analyzer.hasFile(path)),
+    files: () =>
+      [
+        ...new Set(analyzers.flatMap((analyzer) => analyzer.files())),
+      ].sort(),
     declarationsOf: (path) => declarationsOf(analyzers, path),
+    declarationsRefusal: () => null,
     bodiesOf: () => bodiesOf(analyzers),
     consumersOf: (target) => consumersOf(analyzers, target),
     unresolvedOf: () => unresolvedOf(analyzers),

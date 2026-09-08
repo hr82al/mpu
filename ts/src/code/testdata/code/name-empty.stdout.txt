@@ -1,13 +1,6 @@
 fixture · вне git · разбор по типам — ответ полон
 
-windowDays (from: string, to: string): string[]
-
-побайтово: 3
-  src/window.ts:4  windowDays
-  src/grid.ts:4  dayGrid
-  src/seed_test.ts:5  daySeries
-
-похоже: 0
+объявления: 0
 
 не разрешено: 1
   src/broken.ts:3 → ./nowhere — модуль не найден

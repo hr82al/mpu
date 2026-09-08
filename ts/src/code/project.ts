@@ -11,8 +11,20 @@
 import type TS from "typescript";
 import { DomainError } from "../command/mod.ts";
 
-/** Имя файла проекта; ровно это, без вариантов вроде `*.base.json`. */
-const PROJECT_FILE = "tsconfig.json";
+/**
+ * Имена файлов проекта. `tsconfig.json` — ровно это, без вариантов вроде
+ * `*.base.json`; `deno.json`/`deno.jsonc` — корень конфигурации Deno.
+ * Второй вид обязателен: без него репозиторий на Deno не имеет проектов
+ * вовсе, и команда отказывает по нему на любой вопрос о символе.
+ */
+const PROJECT_FILES: readonly string[] = [
+  "tsconfig.json",
+  "deno.json",
+  "deno.jsonc",
+];
+
+/** Расширения, которые состав deno-проекта включает. */
+const DENO_SUFFIXES: readonly string[] = [".ts", ".tsx"];
 
 /**
  * Каталоги, внутрь которых обход дерева не идёт: зависимости, артефакты
@@ -40,7 +52,7 @@ function collectProjects(dir: string, into: string[]): void {
       collectProjects(path, into);
       continue;
     }
-    if (entry.name === PROJECT_FILE) into.push(path);
+    if (PROJECT_FILES.includes(entry.name)) into.push(path);
   }
 }
 
@@ -77,6 +89,9 @@ export function buildProgram(
   projectPath: string,
 ): TS.Program | undefined {
   const dir = dirOf(projectPath);
+  if (!projectPath.endsWith("/tsconfig.json")) {
+    return denoProgram(ts, projectPath, dir);
+  }
   const read = ts.readConfigFile(projectPath, ts.sys.readFile);
   if (read.error !== undefined) {
     throw new DomainError(
@@ -100,6 +115,89 @@ export function buildProgram(
     );
   }
   return ts.createProgram(parsed.fileNames, parsed.options);
+}
+
+/**
+ * Программа deno-проекта. Опции задаёт слой, а не конфигурация: у Deno
+ * их часть подразумевается рантаймом, и в файле конфигурации их обычно
+ * нет вовсе — прочитанный «как есть» проект не собрался бы на первом же
+ * импорте с расширением `.ts`.
+ */
+function denoProgram(
+  ts: typeof TS,
+  projectPath: string,
+  dir: string,
+): TS.Program | undefined {
+  const read = ts.readConfigFile(projectPath, ts.sys.readFile);
+  if (read.error !== undefined) {
+    throw new DomainError(
+      `конфигурация проекта ${projectPath} не читается: ${
+        ts.flattenDiagnosticMessageText(read.error.messageText, " ")
+      }`,
+    );
+  }
+  const files = denoFiles(dir, "", excludesOf(asRecord(read.config)));
+  // Ни одного исходника — проектом такая конфигурация не считается, как
+  // и `tsconfig.json` с пустым списком файлов.
+  if (files.length === 0) return undefined;
+  return ts.createProgram(files, {
+    target: ts.ScriptTarget.ES2022,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    // Импорт с расширением `.ts` — обычная форма записи в Deno, и без
+    // этой опции компилятор бракует её как ошибку, а не разрешает.
+    allowImportingTsExtensions: true,
+    strict: true,
+    noEmit: true,
+  });
+}
+
+/**
+ * Пути `exclude` конфигурации Deno в нормальной форме: без ведущего
+ * `./` и хвостовых `/`. Глобы здесь не раскрываются — сравнение идёт по
+ * имени и по префиксу каталога; шаблон вроде `**\/*.js` не совпадёт ни
+ * с чем, и файл останется в составе. Это названо отклонением, а не
+ * молчаливым упрощением: спека говорит «вне `exclude`», а во что
+ * раскрывать шаблоны — не говорит.
+ */
+function excludesOf(config: Record<string, unknown>): readonly string[] {
+  const excluded = config.exclude;
+  if (!Array.isArray(excluded)) return [];
+  return excluded
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.replace(/^\.\//, "").replace(/\/+$/, ""));
+}
+
+/**
+ * Исключён ли путь. Сравнение точное, без проверки «лежит под
+ * названным»: обход спрашивает на каждом уровне, и каталог, названный в
+ * `exclude`, отсекается раньше, чем дело дойдёт до его содержимого —
+ * мутация показала, что префиксная ветка недостижима.
+ */
+function isExcluded(path: string, excluded: readonly string[]): boolean {
+  return excluded.includes(path);
+}
+
+/** Исходники deno-проекта: `.ts`/`.tsx` каталога вне исключений. */
+function denoFiles(
+  dir: string,
+  prefix: string,
+  excluded: readonly string[],
+): readonly string[] {
+  const found: string[] = [];
+  for (const entry of readDirSorted(dir)) {
+    const name = `${prefix}${entry.name}`;
+    if (isExcluded(name, excluded)) continue;
+    if (entry.isDirectory) {
+      if (SKIPPED_DIRS.includes(entry.name)) continue;
+      found.push(...denoFiles(`${dir}/${entry.name}`, `${name}/`, excluded));
+      continue;
+    }
+    if (DENO_SUFFIXES.some((suffix) => entry.name.endsWith(suffix))) {
+      found.push(`${dir}/${entry.name}`);
+    }
+  }
+  return found;
 }
 
 /** Исключения артефактов сборки; исключения кода сюда не попадают. */
