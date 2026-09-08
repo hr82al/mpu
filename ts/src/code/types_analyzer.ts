@@ -19,11 +19,13 @@ import type {
   Unresolved,
 } from "./analyzer.ts";
 import { byPathAndLine } from "./analyzer.ts";
+import { bodiesIn } from "./body.ts";
 import type { MarkSource } from "./mark.ts";
 import { dirOf } from "./project.ts";
 
-/** Причина, по которой ссылка не разрешилась; других пока не бывает. */
+/** Причины, по которым ссылку разрешить не удалось. */
 const NOT_FOUND = "модуль не найден";
+const NOT_LITERAL = "спецификатор не литерал";
 
 /** Что нужно анализатору сверх самой программы. */
 export interface TypeAnalyzerDeps {
@@ -60,12 +62,21 @@ export function createTypeAnalyzer(deps: TypeAnalyzerDeps): Analyzer {
     hasFile: (path) => fileOf(path) !== undefined,
     declarationsOf: (path) => {
       const file = fileOf(path);
-      return file === undefined ? [] : declarationsIn(ts, checker, file, entry);
+      return {
+        kind: "known",
+        declarations: file === undefined
+          ? []
+          : declarationsIn(ts, checker, file, entry),
+      };
     },
-    consumersOf: (target) => ({
-      places: placesFor(ts, checker, files, fileOf, rel, target),
-      unresolved: unresolvedIn(ts, checker, files, rel),
+    bodiesOf: () => ({
+      kind: "known",
+      bodies: files.flatMap((file) =>
+        bodiesIn(ts, checker, file, rel(file.fileName))
+      ),
     }),
+    consumersOf: (target) => placesFor(ts, checker, files, fileOf, rel, target),
+    unresolvedOf: () => unresolvedIn(ts, checker, files, rel),
   };
 }
 
@@ -300,20 +311,31 @@ function at(
   return line === undefined ? [] : [{ path: rel(file.fileName), line }];
 }
 
-/** Строка, которой файл читает модуль; не читает — `undefined`. */
+/**
+ * Строка, которой файл читает модуль; не читает — `undefined`. Формы
+ * получения перебираются те же, что и у символа: читателем модуля файл
+ * делает и динамический `import()`.
+ */
 function readerLine(
   ts: typeof TS,
   checker: TS.TypeChecker,
   file: TS.SourceFile,
   module: TS.SourceFile,
 ): number | undefined {
-  for (const statement of file.statements) {
-    const specifier = moduleSpecifierOf(ts, statement);
-    if (specifier === undefined) continue;
-    if (resolvedFile(ts, checker, specifier) !== module) continue;
-    return lineOf(file, statement.getStart(file));
-  }
-  return undefined;
+  let line: number | undefined;
+  const visit = (node: TS.Node): void => {
+    const specifier = moduleSpecifierOf(ts, node);
+    if (
+      specifier !== undefined &&
+      resolvedFile(ts, checker, specifier) === module
+    ) {
+      const start = lineOf(file, statementOf(ts, node).getStart(file));
+      line = line === undefined ? start : Math.min(line, start);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return line;
 }
 
 /** Символ объявления, начинающегося в строке `line`. */
@@ -334,10 +356,18 @@ function symbolAt(
 }
 
 /**
- * Строка импорта или реэкспорта, приводящего символ в файл, — если
- * приводит вовсе. Сверка идёт символ-в-символ, поэтому в перечень
- * попадают и переименованный при импорте символ, и полученный через
- * алиас `paths`, и реэкспорт входа.
+ * Берёт ли файл символ, и если берёт — строкой чего именно
+ * (`platform/code-analyzer.md`, «Форма получения символа значения не
+ * имеет»).
+ *
+ * Признак потребления — не перечень форм импорта, а само обращение к
+ * символу: потребителем считается файл, который ломает переименование.
+ * Перечисление форм теряло бы динамический `import()` и
+ * `import x = require()` молча — под шапкой «ответ полон».
+ *
+ * Обратное следует отсюда же: голый `import "./a.ts"` и
+ * `export * from "./a.ts"` символа не берут — обращений к нему в таком
+ * файле нет, — и в перечень не попадают.
  */
 function receivingLine(
   ts: typeof TS,
@@ -345,97 +375,33 @@ function receivingLine(
   file: TS.SourceFile,
   symbol: TS.Symbol,
 ): number | undefined {
-  for (const statement of file.statements) {
-    const specifier = moduleSpecifierOf(ts, statement);
-    if (specifier === undefined) continue;
-    const module = checker.getSymbolAtLocation(specifier);
-    if (module === undefined) continue;
-    const brings = checker.getExportsOfModule(module)
-      .some((exported) => resolveAlias(ts, checker, exported) === symbol);
-    if (!brings) continue;
-    if (!namesSymbol(ts, checker, statement, symbol)) continue;
-    return lineOf(file, statement.getStart(file));
-  }
-  return undefined;
+  const uses = usePositions(ts, checker, file, symbol);
+  if (uses.length === 0) return undefined;
+  // Печатается строка, которой символ приходит в файл, а не первое
+  // обращение: один файл берёт символ один раз, а зовёт сколько угодно.
+  const entry = entryLine(ts, checker, file, symbol);
+  return entry ?? lineOf(file, uses[0]);
 }
 
 /**
- * Берёт ли утверждение именно этот символ. Сверка идёт символ-в-символ
- * у каждой формы, которая имя приносит; формы, которые имён не
- * приносят, отвечают «нет» — иначе в перечень попадает файл, который
- * переименование не сломает, и перечень перестаёт равняться оракулу.
- *
- * `import "./a.ts"` не приносит имён физически, а `export * from
- * "./a.ts"` хоть и реэкспортирует имя, переименованием не ломается:
- * реэкспорт подстроится сам, и оракул такой файл не считает.
+ * Позиции обращений к символу. Кандидаты отбираются по имени: оракул —
+ * переименование, а переименование меняет ровно те места, где старое
+ * имя написано, включая `addDays` в `import { addDays as plus }`.
  */
-function namesSymbol(
-  ts: typeof TS,
-  checker: TS.TypeChecker,
-  statement: TS.Statement,
-  symbol: TS.Symbol,
-): boolean {
-  if (ts.isExportDeclaration(statement)) {
-    const clause = statement.exportClause;
-    if (clause === undefined || !ts.isNamedExports(clause)) return false;
-    return someResolvesTo(ts, checker, clause.elements, symbol);
-  }
-  if (!ts.isImportDeclaration(statement)) return false;
-  const clause = statement.importClause;
-  if (clause === undefined) return false;
-  // Импорт по умолчанию: имя одно и сверяется как всякое другое.
-  if (
-    clause.name !== undefined && resolvesTo(ts, checker, clause.name, symbol)
-  ) {
-    return true;
-  }
-  const bindings = clause.namedBindings;
-  if (bindings === undefined) return false;
-  if (ts.isNamedImports(bindings)) {
-    return someResolvesTo(ts, checker, bindings.elements, symbol);
-  }
-  // Пространство имён приносит модуль целиком, поэтому вопрос решает не
-  // импорт, а обращения: `A.addDays` переименование ломает, `A.other` —
-  // нет.
-  return usesThroughNamespace(ts, checker, statement.getSourceFile(), symbol);
-}
-
-/** Есть ли среди узлов тот, чьё имя разрешается в искомый символ. */
-function someResolvesTo(
-  ts: typeof TS,
-  checker: TS.TypeChecker,
-  elements: readonly { readonly name: TS.Node }[],
-  symbol: TS.Symbol,
-): boolean {
-  return elements.some((element) =>
-    resolvesTo(ts, checker, element.name, symbol)
-  );
-}
-
-/** Разрешается ли имя узла в искомый символ — сам либо через алиас. */
-function resolvesTo(
-  ts: typeof TS,
-  checker: TS.TypeChecker,
-  node: TS.Node,
-  symbol: TS.Symbol,
-): boolean {
-  const local = checker.getSymbolAtLocation(node);
-  return local !== undefined && resolveAlias(ts, checker, local) === symbol;
-}
-
-/** Есть ли в файле обращение вида `A.имя`, ведущее к искомому символу. */
-function usesThroughNamespace(
+function usePositions(
   ts: typeof TS,
   checker: TS.TypeChecker,
   file: TS.SourceFile,
   symbol: TS.Symbol,
-): boolean {
-  let found = false;
+): readonly number[] {
+  const name = symbol.getName();
+  const found: number[] = [];
   const visit = (node: TS.Node): void => {
-    if (found) return;
-    if (ts.isPropertyAccessExpression(node)) {
-      found = resolvesTo(ts, checker, node.name, symbol);
-      if (found) return;
+    if (ts.isIdentifier(node) && node.text === name) {
+      const local = checker.getSymbolAtLocation(node);
+      if (local !== undefined && resolveAlias(ts, checker, local) === symbol) {
+        found.push(node.getStart(file));
+      }
     }
     ts.forEachChild(node, visit);
   };
@@ -443,14 +409,100 @@ function usesThroughNamespace(
   return found;
 }
 
-/** Литерал модуля у импорта или реэкспорта; иначе `undefined`. */
+/**
+ * Строка утверждения, которым модуль символа приходит в файл: импорт,
+ * реэкспорт, динамический `import()` либо `import … = require()`.
+ * Модуля нет — `undefined`, и строкой станет само обращение.
+ */
+function entryLine(
+  ts: typeof TS,
+  checker: TS.TypeChecker,
+  file: TS.SourceFile,
+  symbol: TS.Symbol,
+): number | undefined {
+  let line: number | undefined;
+  const visit = (node: TS.Node): void => {
+    const specifier = moduleSpecifierOf(ts, node);
+    if (
+      specifier !== undefined && bringsNames(ts, node) &&
+      exportsSymbol(ts, checker, specifier, symbol)
+    ) {
+      const start = lineOf(file, statementOf(ts, node).getStart(file));
+      line = line === undefined ? start : Math.min(line, start);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return line;
+}
+
+/**
+ * Приносит ли утверждение имена. Голый `import "./a.ts"` и
+ * `export * from "./a.ts"` не приносят, и печатать их строкой как ту,
+ * «которой файл символ получает», значило бы указать не туда.
+ */
+function bringsNames(ts: typeof TS, node: TS.Node): boolean {
+  if (ts.isImportDeclaration(node)) return node.importClause !== undefined;
+  if (ts.isExportDeclaration(node)) return node.exportClause !== undefined;
+  return true;
+}
+
+/** Экспортирует ли модуль литерала искомый символ. */
+function exportsSymbol(
+  ts: typeof TS,
+  checker: TS.TypeChecker,
+  specifier: TS.Expression,
+  symbol: TS.Symbol,
+): boolean {
+  const module = checker.getSymbolAtLocation(specifier);
+  if (module === undefined) return false;
+  return checker.getExportsOfModule(module)
+    .some((exported) => resolveAlias(ts, checker, exported) === symbol);
+}
+
+/**
+ * Утверждение, которому принадлежит узел: строка печатается по нему.
+ * У статического импорта это он сам, у динамического — объемлющее
+ * утверждение (`const days = await import(…)`).
+ */
+function statementOf(ts: typeof TS, node: TS.Node): TS.Node {
+  let current: TS.Node = node;
+  while (current.parent !== undefined && !ts.isSourceFile(current.parent)) {
+    if (ts.isStatement(current)) return current;
+    current = current.parent;
+  }
+  return current;
+}
+
+/**
+ * Литерал модуля у любой формы получения: статического импорта,
+ * реэкспорта, динамического `import()` и `import … = require()`.
+ * Узел другой формы — `undefined`.
+ */
 function moduleSpecifierOf(
   ts: typeof TS,
-  statement: TS.Statement,
+  node: TS.Node,
 ): TS.Expression | undefined {
-  if (ts.isImportDeclaration(statement)) return statement.moduleSpecifier;
-  if (ts.isExportDeclaration(statement)) return statement.moduleSpecifier;
-  return undefined;
+  if (ts.isImportDeclaration(node)) return node.moduleSpecifier;
+  if (ts.isExportDeclaration(node)) return node.moduleSpecifier;
+  if (ts.isImportEqualsDeclaration(node)) {
+    return ts.isExternalModuleReference(node.moduleReference)
+      ? node.moduleReference.expression
+      : undefined;
+  }
+  if (!ts.isCallExpression(node)) return undefined;
+  // `import('./days')`: узел вызова, чьё «имя» — ключевое слово import.
+  if (node.expression.kind !== ts.SyntaxKind.ImportKeyword) return undefined;
+  return node.arguments.at(0);
+}
+
+/**
+ * Динамический импорт с невычислимым спецификатором: `import(name)`.
+ * Разрешить его нельзя, и молчать о нём тоже — иначе ссылка выпадает
+ * под шапкой «ответ полон».
+ */
+function isComputedImport(ts: typeof TS, specifier: TS.Expression): boolean {
+  return !ts.isStringLiteralLike(specifier);
 }
 
 /** Файл, на который указывает литерал модуля; не разрешился — `undefined`. */
@@ -480,19 +532,28 @@ function unresolvedIn(
 ): readonly Unresolved[] {
   const found: Unresolved[] = [];
   for (const file of files) {
-    for (const statement of file.statements) {
-      const specifier = moduleSpecifierOf(ts, statement);
-      if (specifier === undefined) continue;
-      if (checker.getSymbolAtLocation(specifier) !== undefined) continue;
-      found.push({
-        path: rel(file.fileName),
-        line: lineOf(file, statement.getStart(file)),
-        specifier: ts.isStringLiteral(specifier)
-          ? specifier.text
-          : specifier.getText(file),
-        reason: NOT_FOUND,
-      });
-    }
+    const visit = (node: TS.Node): void => {
+      const specifier = moduleSpecifierOf(ts, node);
+      // Форма проверяется раньше символа: у спецификатора-переменной
+      // символ есть — свой собственный, — и проверка «символа нет»
+      // такую ссылку пропускала бы молча (замер 2026-09-08).
+      if (
+        specifier !== undefined &&
+        (isComputedImport(ts, specifier) ||
+          checker.getSymbolAtLocation(specifier) === undefined)
+      ) {
+        found.push({
+          path: rel(file.fileName),
+          line: lineOf(file, statementOf(ts, node).getStart(file)),
+          specifier: ts.isStringLiteralLike(specifier)
+            ? specifier.text
+            : specifier.getText(file),
+          reason: isComputedImport(ts, specifier) ? NOT_LITERAL : NOT_FOUND,
+        });
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(file);
   }
   return found.sort(byPathAndLine);
 }

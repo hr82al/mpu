@@ -9,22 +9,17 @@
  */
 
 import { z } from "@zod/zod";
-import { UsageError } from "../command/mod.ts";
+import { DomainError, UsageError } from "../command/mod.ts";
 import type { Analyzer, Declaration, Target } from "./analyzer.ts";
-import type { TreeMark } from "./mark.ts";
 import { markLabel } from "./mark.ts";
+import {
+  asMark,
+  markSchema,
+  unresolvedOf,
+  unresolvedSchema,
+} from "./answer.ts";
 import { type Address } from "./address.ts";
 import type { Repo } from "./workspace.ts";
-
-/** Отметка дерева в структурной форме: `git` пусто — дерево вне git. */
-const markSchema = z.object({
-  repo: z.string(),
-  git: z.object({
-    branch: z.string(),
-    commit: z.string(),
-    dirty: z.boolean(),
-  }).nullable(),
-});
 
 /** Место потребителя: файл и строка, которой он цель получает. */
 const placeSchema = z.object({
@@ -50,19 +45,11 @@ const resultSchema = z.object({
   /** Объявление цели-символа; у цели-модуля пусто. */
   symbol: z.object({
     name: z.string(),
-    signature: z.string().nullable(),
-    scope: z.enum(["entry", "module-only", "no-entry", "private", "unknown"]),
+    signature: z.string(),
+    scope: z.enum(["entry", "module-only", "no-entry", "private"]),
   }).nullable(),
   consumers: sectionSchema,
-  unresolved: z.object({
-    total: z.number().int().nonnegative(),
-    items: z.array(z.object({
-      path: z.string(),
-      line: z.number().int().positive(),
-      specifier: z.string(),
-      reason: z.string(),
-    })),
-  }),
+  unresolved: unresolvedSchema,
 });
 
 /** Ответ `mpu code refs`. */
@@ -92,7 +79,7 @@ export async function collectRefs(
   const target: Target = address.line === undefined
     ? { kind: "module", path: address.path }
     : { kind: "symbol", path: address.path, line: address.line };
-  const { places, unresolved } = analyzer.consumersOf(target);
+  const places = analyzer.consumersOf(target);
   return {
     mark: asMark(mark),
     guarantee: analyzer.guarantee,
@@ -107,10 +94,7 @@ export async function collectRefs(
       scope: declaration.scope,
     },
     consumers: { total: places.length, places: places.slice(0, limit) },
-    unresolved: {
-      total: unresolved.length,
-      items: unresolved.slice(0, limit).map((item) => ({ ...item })),
-    },
+    unresolved: unresolvedOf(analyzer, limit),
   };
 }
 
@@ -124,7 +108,12 @@ function declarationAt(
   path: string,
   line: number,
 ): Declaration {
-  const declarations = analyzer.declarationsOf(path);
+  const answer = analyzer.declarationsOf(path);
+  // Незнание — не пустой перечень: «в файле нет объявлений» и «объявления
+  // здесь не разбираются» суть разные ответы с разными кодами выхода
+  // (`platform/code-analyzer.md`).
+  if (answer.kind === "unknown") throw new DomainError(answer.reason);
+  const declarations = answer.declarations;
   const found = declarations.find((entry) => entry.line === line);
   if (found !== undefined) return found;
   throw new UsageError(`в строке ${line} нет объявления`, {
@@ -132,30 +121,4 @@ function declarationAt(
       .map((entry) => `  ${path}:${entry.line}  ${entry.name}`)
       .join("\n"),
   });
-}
-
-/** Отметка в структурной форме результата. */
-function asMark(mark: TreeMark): RefsResult["mark"] {
-  return {
-    repo: mark.repo,
-    git: mark.state.kind === "out-of-git" ? null : {
-      branch: mark.state.branch,
-      commit: mark.state.commit,
-      dirty: mark.state.dirty,
-    },
-  };
-}
-
-/** Отметка обратно из структурной формы — её читает рендер. */
-export function markOf(result: RefsResult): TreeMark {
-  const git = result.mark.git;
-  return {
-    repo: result.mark.repo,
-    state: git === null ? { kind: "out-of-git" } : {
-      kind: "git",
-      branch: git.branch,
-      commit: git.commit,
-      dirty: git.dirty,
-    },
-  };
 }

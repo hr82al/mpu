@@ -1880,6 +1880,53 @@ const CASES: readonly CommandCase[] = [
       },
     },
   },
+  {
+    // Вторая поверхность семейства; отказывает по той же причине, что и
+    // первая, и по той же причине это инвариантам безразлично.
+    path: "code twins",
+    argv: ["fixture:src/window.ts:4"],
+    sampleResult: {
+      mark: { repo: "fixture", git: null },
+      guarantee: "types",
+      query: {
+        name: "windowDays",
+        signature: "(from: string, to: string): string[]",
+        path: "src/window.ts",
+        line: 4,
+      },
+      // Состав — как в голдене спеки (`twins-exact.stdout.txt`): три
+      // побайтово равных тела под тремя именами. Образец читается как
+      // правда, и расходиться с голденом ему нельзя.
+      exact: {
+        total: 3,
+        twins: [
+          { path: "src/grid.ts", line: 4, name: "dayGrid", difference: null },
+          {
+            path: "src/seed_test.ts",
+            line: 5,
+            name: "daySeries",
+            difference: null,
+          },
+          {
+            path: "src/window.ts",
+            line: 4,
+            name: "windowDays",
+            difference: null,
+          },
+        ],
+      },
+      similar: { total: 0, twins: [] },
+      unresolved: {
+        total: 1,
+        items: [{
+          path: "src/broken.ts",
+          line: 3,
+          specifier: "./nowhere",
+          reason: "модуль не найден",
+        }],
+      },
+    },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {

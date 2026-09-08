@@ -20,13 +20,17 @@ import { runRefs } from "./cmd_refs.ts";
 import { openFixture } from "./testing.ts";
 
 /**
- * Потребители `addDays` на дереве-фикстуре. Записаны буквально:
+ * Потребители `addDays` на дереве-фикстуре. Каждый попал сюда своей
+ * формой получения символа — статическим импортом, алиасом конфигурации,
+ * реэкспортом и динамическим `import()`; форма на попадание не влияет.
+ * Записаны буквально:
  * величина, которую проверка читает, не должна приходить из того же
  * кода, что её порождает. `src/broken.ts` в перечень не входит — он
  * ошибочен и в базовом прогоне, поэтому в разность оракула не попадает.
  */
 const CONSUMERS: readonly string[] = [
   "src/aliased.ts",
+  "src/dynamic.ts",
   "src/grid.ts",
   "src/index.ts",
   "src/report.spec.ts",
@@ -39,7 +43,7 @@ Deno.test("ответ команды совпадает с оракулом по
   try {
     const repo = await openFixture(temp);
 
-    await t.step("оракул на дереве-фикстуре даёт шесть файлов", () => {
+    await t.step("оракул на дереве-фикстуре даёт семь файлов", () => {
       assertEquals(
         renameOracle(repo.root, "src/days.ts", "addDays"),
         CONSUMERS,

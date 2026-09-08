@@ -8,6 +8,7 @@
  * полная.
  */
 
+import type { Bodies } from "./body.ts";
 import type { Guarantee, MarkSource } from "./mark.ts";
 
 /**
@@ -16,26 +17,16 @@ import type { Guarantee, MarkSource } from "./mark.ts";
  *
  * `no-entry` отличается от `module-only` тем, что вход проекта не
  * «не реэкспортирует», а отсутствует: сказать про реэкспорт там нечего.
- * `unknown` — область видимости не выяснена вовсе: так отвечает
- * текстовый разбор, у которого типов нет. Пропуск строки читался бы как
- * «символ приватный», а это другой ответ.
+ * Значения «неизвестно» здесь нет: объявления печатает только разбор по
+ * типам, а текстовый отвечает на эту операцию отказом.
  */
-export type Scope =
-  | "entry"
-  | "module-only"
-  | "no-entry"
-  | "private"
-  | "unknown";
+export type Scope = "entry" | "module-only" | "no-entry" | "private";
 
 /** Объявление в файле репозитория. */
 export interface Declaration {
   readonly name: string;
-  /**
-   * Сигнатура для человека: `(day: string, count: number): string`.
-   * `null` — форма объявления не выяснена: так отвечает текстовый
-   * разбор, и незнание называется вслух, а не печатается пустотой.
-   */
-  readonly signature: string | null;
+  /** Сигнатура для человека: `(day: string, count: number): string`. */
+  readonly signature: string;
   /** Строка объявления, считая с единицы. */
   readonly line: number;
   readonly scope: Scope;
@@ -61,12 +52,14 @@ export interface Unresolved {
   readonly reason: string;
 }
 
-/** Ответ на вопрос о потребителях цели. */
-export interface Consumers {
-  /** Единица — файл: один файл встречается один раз. */
-  readonly places: readonly Place[];
-  readonly unresolved: readonly Unresolved[];
-}
+/**
+ * Ответ операции «объявления файла». Незнание — ответ операции, а не её
+ * отсутствие: текстовый анализатор объявлений не разбирает и говорит об
+ * этом, а команда превращает это в отказ (`platform/code-analyzer.md`).
+ */
+export type Declarations =
+  | { readonly kind: "known"; readonly declarations: readonly Declaration[] }
+  | { readonly kind: "unknown"; readonly reason: string };
 
 /**
  * Анализатор одного репозитория. Реализаций две — по типам и текстовая
@@ -79,8 +72,18 @@ export interface Analyzer {
   /** Есть ли такой файл в дереве репозитория. */
   readonly hasFile: (path: string) => boolean;
   /** Объявления файла по возрастанию строки. */
-  readonly declarationsOf: (path: string) => readonly Declaration[];
-  readonly consumersOf: (target: Target) => Consumers;
+  readonly declarationsOf: (path: string) => Declarations;
+  /** Тела объявлений-функций репозитория. */
+  readonly bodiesOf: () => Bodies;
+  /** Файлы-потребители цели; единица — файл, а не обращение. */
+  readonly consumersOf: (target: Target) => readonly Place[];
+  /**
+   * Ссылки репозитория, которые разрешить не удалось. Отдельно от
+   * потребителей: раздел «не разрешено» печатается в ответе любой
+   * поверхности, в том числе той, что о потребителях не спрашивает
+   * (`platform/code-analyzer.md`, «Форма ответа»).
+   */
+  readonly unresolvedOf: () => readonly Unresolved[];
 }
 
 /** Порядок строк слоя: `(репозиторий, путь, строка)`. */

@@ -14,12 +14,12 @@
 
 import type {
   Analyzer,
-  Consumers,
-  Declaration,
+  Declarations,
   Place,
   Target,
   Unresolved,
 } from "./analyzer.ts";
+import type { Bodies, Body } from "./body.ts";
 import { byPathAndLine } from "./analyzer.ts";
 import { buildProgram, findProjects } from "./project.ts";
 import { createTextAnalyzer } from "./text_analyzer.ts";
@@ -36,7 +36,12 @@ export async function openAnalyzer(
   path: string,
 ): Promise<Analyzer> {
   const projects = findProjects(repo.root);
-  if (projects.length === 0) return textAnalyzer(repo);
+  if (projects.length === 0) {
+    return textAnalyzer(
+      repo,
+      `в репозитории ${repo.name} нет ни одного проекта`,
+    );
+  }
   const ts = (await import("typescript")).default;
   const analyzers: Analyzer[] = [];
   for (const project of projects) {
@@ -49,13 +54,18 @@ export async function openAnalyzer(
     );
   }
   if (!analyzers.some((analyzer) => analyzer.hasFile(path))) {
-    return textAnalyzer(repo);
+    // Причина у двух случаев разная, и назвать надо ту, что есть:
+    // проекты в репозитории могут быть, а адресованный файл — вне их.
+    return textAnalyzer(
+      repo,
+      `файл ${path} не входит ни в один проект репозитория ${repo.name}`,
+    );
   }
   return analyzers.length === 1 ? analyzers[0] : merged(analyzers);
 }
 
-function textAnalyzer(repo: Repo): Analyzer {
-  return createTextAnalyzer({ repoRoot: repo.root, mark: repo.mark });
+function textAnalyzer(repo: Repo, reason: string): Analyzer {
+  return createTextAnalyzer({ repoRoot: repo.root, reason, mark: repo.mark });
 }
 
 /**
@@ -70,7 +80,9 @@ function merged(analyzers: readonly Analyzer[]): Analyzer {
     mark: analyzers[0].mark,
     hasFile: (path) => analyzers.some((analyzer) => analyzer.hasFile(path)),
     declarationsOf: (path) => declarationsOf(analyzers, path),
+    bodiesOf: () => bodiesOf(analyzers),
     consumersOf: (target) => consumersOf(analyzers, target),
+    unresolvedOf: () => unresolvedOf(analyzers),
   };
 }
 
@@ -78,35 +90,60 @@ function merged(analyzers: readonly Analyzer[]): Analyzer {
 function declarationsOf(
   analyzers: readonly Analyzer[],
   path: string,
-): readonly Declaration[] {
+): Declarations {
+  // Файла нет ни у кого — пустой перечень: сюда доходят только после
+  // `hasFile`, и «файла нет» уже отвечено ошибкой ввода.
   const owner = analyzers.find((analyzer) => analyzer.hasFile(path));
-  return owner === undefined ? [] : owner.declarationsOf(path);
+  return owner === undefined
+    ? { kind: "known", declarations: [] }
+    : owner.declarationsOf(path);
 }
 
-/** Объединение ответов всех проектов без повторов. */
+/** Тела всех проектов без повторов: файл может входить в два проекта. */
+function bodiesOf(analyzers: readonly Analyzer[]): Bodies {
+  const bodies = new Map<string, Body>();
+  for (const analyzer of analyzers) {
+    const answer = analyzer.bodiesOf();
+    // Незнание одного проекта и есть ответ операции: молча заменить его
+    // пустым перечнем значило бы напечатать «близнецов нет» вместо «не
+    // знаю» (`platform/code-analyzer.md`).
+    if (answer.kind !== "known") return answer;
+    for (const body of answer.bodies) {
+      // Текст в ключе: два безымянных тела на одной строке (два
+      // колбэка в одном вызове) — разные тела, а не одно.
+      bodies.set(`${body.path}:${body.line}:${body.name}:${body.text}`, body);
+    }
+  }
+  return { kind: "known", bodies: [...bodies.values()] };
+}
+
+/** Объединение перечней всех проектов без повторов. */
 function consumersOf(
   analyzers: readonly Analyzer[],
   target: Target,
-): Consumers {
+): readonly Place[] {
   const places = new Map<string, Place>();
-  const unresolved = new Map<string, Unresolved>();
   for (const analyzer of analyzers) {
-    const answer = analyzer.consumersOf(target);
     // Единица перечня — файл: тот же файл, увиденный двумя проектами,
     // остаётся одной строкой, и строкой меньшей — той, которой символ
     // приходит раньше.
-    for (const place of answer.places) {
+    for (const place of analyzer.consumersOf(target)) {
       const seen = places.get(place.path);
       if (seen === undefined || place.line < seen.line) {
         places.set(place.path, place);
       }
     }
-    for (const item of answer.unresolved) {
-      unresolved.set(`${item.path}:${item.line}:${item.specifier}`, item);
+  }
+  return [...places.values()].sort(byPathAndLine);
+}
+
+/** Неразрешённые ссылки всех проектов без повторов. */
+function unresolvedOf(analyzers: readonly Analyzer[]): readonly Unresolved[] {
+  const found = new Map<string, Unresolved>();
+  for (const analyzer of analyzers) {
+    for (const item of analyzer.unresolvedOf()) {
+      found.set(`${item.path}:${item.line}:${item.specifier}`, item);
     }
   }
-  return {
-    places: [...places.values()].sort(byPathAndLine),
-    unresolved: [...unresolved.values()].sort(byPathAndLine),
-  };
+  return [...found.values()].sort(byPathAndLine);
 }

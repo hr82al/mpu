@@ -1,14 +1,16 @@
 /**
  * `refs` в репозитории без единого проекта (`specs/code-refs.md`,
- * граница «Адрес в репозитории без единого проекта»).
+ * две строки таблицы границ).
  *
- * Ответ, а не отказ: «не знаю» подменённое на «нет» — ровно тот дефект,
- * ради которого семейство заводится. Гарантия при этом названа
- * пониженной в шапке, и именно это проверяется.
+ * Две формы адреса расходятся: читатели модуля текстовому разбору
+ * доступны и отвечаются с пониженной гарантией, а потребители символа —
+ * нет, и там отказ. Разница не в осторожности, а в том, что объявление
+ * без разбора можно только угадать: `export const spanDays = (from, to)
+ * => …` даёт трёх кандидатов.
  */
 
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
-import { UsageError } from "../command/mod.ts";
+import { DomainError, UsageError } from "../command/mod.ts";
 import { renderRefs, runRefs } from "./cmd_refs.ts";
 import { parseAddress } from "./address.ts";
 import type { Repo } from "./workspace.ts";
@@ -43,55 +45,41 @@ async function refs(repo: Repo, address: string): Promise<string> {
   );
 }
 
-Deno.test("репозиторий без проектов отвечает текстовым разбором", async (t) => {
+Deno.test("репозиторий без проектов: цель-модуль отвечает, цель-символ отказывает", async (t) => {
   const temp = await Deno.makeTempDir();
   try {
     const repo = await plainRepo(temp);
 
-    await t.step(
-      "гарантия названа пониженной, потребитель найден",
-      async () => {
-        assertEquals(
-          await refs(repo, "plain:src/days.ts:1"),
-          [
-            "plain · вне git · текстовый разбор — ответ неполон",
-            "",
-            "addDays — сигнатуры нет: текстовый разбор",
-            "  область видимости неизвестна: текстовый разбор",
-            "",
-            "потребители: 1 файл",
-            "  src/window.ts:1",
-            "",
-            "не разрешено: 0",
-            "",
-          ].join("\n"),
-        );
-      },
-    );
-
-    await t.step("незнание называется у каждого объявления", async () => {
-      // Приватное по тексту объявление приватным НЕ объявляется:
-      // выяснить это текстовому разбору нечем, и правдоподобный ответ
-      // здесь хуже названного незнания.
-      const text = await refs(repo, "plain:src/hidden.ts:1");
+    await t.step("читатели модуля — ответ с пониженной гарантией", async () => {
       assertEquals(
-        text.includes("secret — сигнатуры нет: текстовый разбор"),
-        true,
-        text,
+        await refs(repo, "plain:src/days.ts"),
+        [
+          "plain · вне git · текстовый разбор — ответ неполон",
+          "",
+          "модуль src/days.ts",
+          "",
+          "читатели: 1 файл",
+          "  src/window.ts:1",
+          "",
+          "не разрешено: 0",
+          "",
+        ].join("\n"),
       );
-      assertEquals(
-        text.includes("  область видимости неизвестна: текстовый разбор"),
-        true,
-        text,
-      );
-      assertEquals(text.includes("приватное в модуле"), false, text);
-      assertEquals(text.includes("потребители: 0"), true, text);
     });
 
-    await t.step("читатели модуля — тоже ответ", async () => {
-      const text = await refs(repo, "plain:src/days.ts");
-      assertEquals(text.includes("читатели: 1 файл"), true);
-      assertEquals(text.includes("  src/window.ts:1"), true);
+    await t.step("цель-символ — отказ с названной причиной", async () => {
+      // Пустые разделы читались бы как «потребителей нет», а это другой
+      // ответ: какой из идентификаторов строки объявлен, текстовый
+      // разбор не знает и знать не может.
+      const err = await assertRejects(
+        () => refs(repo, "plain:src/days.ts:1"),
+        DomainError,
+      );
+      assertEquals(
+        err.message,
+        "объявления не разбираются текстовым анализатором: " +
+          "в репозитории plain нет ни одного проекта",
+      );
     });
   } finally {
     await Deno.remove(temp, { recursive: true });

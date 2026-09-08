@@ -2,7 +2,7 @@
  * Копии golden-фикстур обязаны совпадать с каналом спецификаций
  * байт-в-байт (`docs/CLAUDE.md`). В копию взято только то, чем
  * пользуется реализованная поверхность: дерево-фикстура и три голдена
- * `refs`. Голдены `twins`/`name`/`mentions` лежат в канале и приедут
+ * `refs` и `twins`. Голдены `name`/`mentions` лежат в канале и приедут
  * вместе со своими командами.
  */
 
@@ -19,6 +19,7 @@ const NAMES: readonly string[] = [
   "tree/src/aliased.ts.txt",
   "tree/src/broken.ts.txt",
   "tree/src/days.ts.txt",
+  "tree/src/dynamic.ts.txt",
   "tree/src/grid.ts.txt",
   "tree/src/index.ts.txt",
   "tree/src/loaderA.ts.txt",
@@ -29,6 +30,8 @@ const NAMES: readonly string[] = [
   "tree/src/span.ts.txt",
   "tree/src/window.ts.txt",
   "tree/tsconfig.json.txt",
+  "twins-exact.stdout.txt",
+  "twins-similar.stdout.txt",
 ];
 
 const copyDir = new URL(`testdata/${CHANNEL}/`, import.meta.url);

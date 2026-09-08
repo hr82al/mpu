@@ -4,3 +4,4 @@
  */
 
 export { codeRefsCommand } from "./cmd_refs.ts";
+export { codeTwinsCommand } from "./cmd_twins.ts";

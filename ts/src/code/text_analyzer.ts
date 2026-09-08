@@ -2,14 +2,19 @@
  * Текстовый анализатор (`platform/code-analyzer.md`): репозиторий без
  * единого проекта и файл, не попавший ни в один из них.
  *
- * Гарантия у него пониженная и названа в шапке каждого раздела: он
- * сверяет имя с именем, а не символ с символом, поэтому тёзка из
- * другого модуля попадает в перечень, а полученный под другим именем —
- * не попадает. Это ответ, а не отказ: «не знаю» подменённое на «нет» —
- * ровно тот дефект, ради которого семейство заводится.
+ * Умеет он меньше, чем разбор по типам, и говорит об этом сам. Двух
+ * операций у него нет вовсе: объявления и тела он выдать не может —
+ * выделить тело без разбора значит угадывать по скобкам, а объявление,
+ * записанное стрелкой, текстовый поиск не находит (в дереве-фикстуре
+ * это `src/span.ts`). Обе отвечают названным незнанием, и команда
+ * превращает его в отказ, а не в пустой раздел: пустой раздел читался
+ * бы как «совпадений нет», а это другой ответ.
+ *
+ * Что ему доступно — читатели модуля: путь модуля из текста выводится
+ * честно, с пониженной гарантией.
  */
 
-import type { Analyzer, Declaration, Place, Target } from "./analyzer.ts";
+import type { Analyzer, Place, Target } from "./analyzer.ts";
 import { byPathAndLine } from "./analyzer.ts";
 import type { MarkSource } from "./mark.ts";
 import { SKIPPED_DIRS } from "./project.ts";
@@ -24,17 +29,14 @@ const CODE_SUFFIXES: readonly string[] = [
   ".jsx",
 ];
 
-/**
- * Объявление в тексте: ключевое слово и имя следом. Стрелочная форма
- * (`const spanDays = (…) => …`) попадает сюда же — она объявляет имя,
- * а вот `function spanDays` её не описывает, и на этом текстовый
- * разбор и проигрывает разбору по типам.
- */
-const DECLARATION =
-  /^\s*(?:export\s+(?:default\s+)?)?(?:declare\s+)?(?:async\s+)?(?:function\*?|class|const|let|var|interface|type|enum)\s+([A-Za-z_$][\w$]*)/;
-
 export interface TextAnalyzerDeps {
   readonly repoRoot: string;
+  /**
+   * Почему разбора по типам здесь нет. Задаётся снаружи: причин две —
+   * в репозитории нет проектов и файл не покрыт ни одним из них, — а
+   * различить их может только тот, кто выбирал анализатор.
+   */
+  readonly reason: string;
   readonly mark: MarkSource;
 }
 
@@ -49,18 +51,22 @@ export function createTextAnalyzer(deps: TextAnalyzerDeps): Analyzer {
       throw err;
     }
   };
+  const noProject = (what: string): string =>
+    `${what} не разбираются текстовым анализатором: ${deps.reason}`;
 
   return {
     guarantee: "text",
     mark: deps.mark,
     hasFile: (path) => isFile(`${deps.repoRoot}/${path}`),
-    declarationsOf: (path) => declarationsIn(textOf(path) ?? ""),
-    consumersOf: (target) => ({
-      places: places(files, textOf, target),
-      // Текстовый разбор ничего не резолвит, поэтому и не разрешить
-      // ему нечего: пониженная гарантия названа в шапке целиком.
-      unresolved: [],
+    declarationsOf: () => ({
+      kind: "unknown",
+      reason: noProject("объявления"),
     }),
+    bodiesOf: () => ({ kind: "unknown", reason: noProject("тела") }),
+    consumersOf: (target) => readers(files, textOf, target),
+    // Текстовый разбор ничего не резолвит, поэтому и не разрешить ему
+    // нечего: пониженная гарантия названа в шапке целиком.
+    unresolvedOf: () => [],
   };
 }
 
@@ -78,63 +84,34 @@ function isFile(path: string): boolean {
   }
 }
 
-/** Объявления текста по возрастанию строки. */
-function declarationsIn(text: string): readonly Declaration[] {
-  const found: Declaration[] = [];
-  text.split("\n").forEach((line, index) => {
-    const match = DECLARATION.exec(line);
-    if (match === null) return;
-    found.push({
-      name: match[1],
-      // Ни формы объявления, ни области видимости текстовый разбор не
-      // знает: типов у него нет, а модуль он не строит. Незнание
-      // называется рендером, а не подменяется правдоподобным ответом.
-      signature: null,
-      line: index + 1,
-      scope: "unknown",
-    });
-  });
-  return found;
-}
-
-/** Файлы, где цель встречается текстом; единица перечня — файл. */
-function places(
+/**
+ * Файлы, где встречается путь модуля. Цель-символ сюда не доходит:
+ * объявления текстовый анализатор не выдаёт, и команда отказывает
+ * раньше — иначе пришлось бы гадать, какой из идентификаторов строки
+ * объявлен.
+ */
+function readers(
   files: readonly string[],
   textOf: (path: string) => string | undefined,
   target: Target,
 ): readonly Place[] {
-  const needle = needleFor(textOf, target);
-  if (needle === undefined) return [];
+  if (target.kind !== "module") return [];
+  const stem = baseStem(target.path);
+  const takes = (line: string): boolean =>
+    quoted(line).some((text) => baseStem(text) === stem);
   const found: Place[] = [];
   for (const path of files) {
     if (path === target.path) continue;
-    const line = firstMatch(textOf(path) ?? "", needle);
+    const line = firstMatch(textOf(path) ?? "", takes);
     if (line !== undefined) found.push({ path, line });
   }
   return found.sort(byPathAndLine);
 }
 
 /**
- * Признак того, что строка берёт цель. У модуля сверяется последний
- * сегмент пути в кавычках без расширения: точного пути текстовый
- * разбор не знает — резолвить его нечем, и в этом его неполнота.
+ * Последний сегмент пути без расширения: точного пути текстовый разбор
+ * не знает — резолвить его нечем, и в этом его неполнота.
  */
-function needleFor(
-  textOf: (path: string) => string | undefined,
-  target: Target,
-): ((line: string) => boolean) | undefined {
-  if (target.kind === "module") {
-    const stem = baseStem(target.path);
-    return (line) => quoted(line).some((text) => baseStem(text) === stem);
-  }
-  const declaration = declarationsIn(textOf(target.path) ?? "")
-    .find((entry) => entry.line === target.line);
-  if (declaration === undefined) return undefined;
-  const word = new RegExp(`\\b${escape(declaration.name)}\\b`);
-  return (line) => word.test(line);
-}
-
-/** Последний сегмент пути без расширения. */
 function baseStem(path: string): string {
   const base = path.slice(path.lastIndexOf("/") + 1);
   const dot = base.lastIndexOf(".");
@@ -156,11 +133,6 @@ function firstMatch(
     if (takes(lines[index])) return index + 1;
   }
   return undefined;
-}
-
-/** Экранирует спецсимволы регулярного выражения в литеральной части. */
-function escape(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /** Файлы кода репозитория относительно его корня. */

@@ -128,3 +128,45 @@ Deno.test("пустая конфигурация рядом не отменяе�
     await Deno.remove(temp, { recursive: true });
   }
 });
+
+Deno.test("динамический импорт с невычислимым путём назван, а не выброшен", async (t) => {
+  const temp = await Deno.makeTempDir();
+  try {
+    const repo = await repoOf(`${temp}/r`, {
+      "tsconfig.json": PROJECT,
+      "src/a.ts":
+        "export function addOne(n: number): number {\n  return n + 1;\n}\n",
+      // Три формы невычислимого спецификатора: у первой символ ЕСТЬ —
+      // свой собственный, — и проверка «символа нет» её пропускала.
+      "src/byName.ts": "const nm = './a.ts';\nexport const p = import(nm);\n",
+      "src/byTemplate.ts":
+        "const k = 'a';\nexport const p = import(`./${k}.ts`);\n",
+      "src/byCall.ts":
+        "const f = () => './a.ts';\nexport const p = import(f());\n",
+    });
+    const result = await runRefs(
+      { address: "r:src/a.ts:1", limit: 200 },
+      { cwd: () => repo.root },
+      [repo],
+    );
+    const named = result.unresolved.items.map((item) => item.path);
+    for (
+      const path of ["src/byCall.ts", "src/byName.ts", "src/byTemplate.ts"]
+    ) {
+      await t.step(path, () => {
+        assertEquals(named.includes(path), true, `${path} выпал: ${named}`);
+      });
+    }
+    await t.step("причина названа", () => {
+      assertEquals(
+        result.unresolved.items.every((item) =>
+          item.reason === "спецификатор не литерал"
+        ),
+        true,
+        JSON.stringify(result.unresolved.items),
+      );
+    });
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});

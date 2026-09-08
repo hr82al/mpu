@@ -132,8 +132,8 @@ Deno.test("усечение — не ошибка: раздел говорит �
   try {
     const repo = await openFixture(temp);
     const text = await refs(repo, "fixture:src/days.ts:2", 2);
-    assertEquals(text.includes("потребители: 6 файлов"), true);
-    assertEquals(text.includes("  усечено: показано 2 из 6"), true);
+    assertEquals(text.includes("потребители: 7 файлов"), true, text);
+    assertEquals(text.includes("  усечено: показано 2 из 7"), true, text);
   } finally {
     await Deno.remove(temp, { recursive: true });
   }

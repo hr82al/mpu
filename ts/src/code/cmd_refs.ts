@@ -5,16 +5,12 @@
 
 import { z } from "@zod/zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
-import { parseAddress } from "./address.ts";
+import { type Address, parseAddress } from "./address.ts";
 import type { Scope } from "./analyzer.ts";
 import { renderMark } from "./mark.ts";
 import { openAnalyzer } from "./open.ts";
-import {
-  collectRefs,
-  markOf,
-  type RefsResult,
-  refsResultSchema,
-} from "./refs.ts";
+import { collectRefs, type RefsResult, refsResultSchema } from "./refs.ts";
+import { treeMarkOf } from "./answer.ts";
 import { spawnGit } from "./git.ts";
 import {
   findWorkspaceRoot,
@@ -39,7 +35,6 @@ const SCOPE_TEXT: Readonly<Record<Scope, string>> = {
     "экспортируется из модуля; из входа проекта не реэкспортируется",
   "no-entry": "экспортируется из модуля; входа у проекта нет",
   private: "приватное в модуле",
-  unknown: "область видимости неизвестна: текстовый разбор",
 };
 
 export const codeRefsCommand = defineCommand({
@@ -64,7 +59,9 @@ export const codeRefsCommand = defineCommand({
   --limit N   предел строк в разделе (по умолчанию 200)
 
 Exit: 0 — ответ, включая пустой перечень и усечение; 2 — ошибка ввода
-(нет такого репозитория, файла или объявления в строке).
+(нет такого репозитория, файла или объявления в строке); 1 — объявления
+здесь не разбираются: в репозитории нет проектов либо файл не входит ни
+в один из них, и потребителей символа спросить не у чего.
 
 Примеры:
   mpu code refs sl-back:src/orders/mod.ts:42   потребители символа
@@ -87,20 +84,32 @@ export async function runRefs(
   io: Pick<CommandIo, "cwd">,
   repos?: readonly Repo[],
 ): Promise<RefsResult> {
-  const cwd = io.cwd();
   // Адрес разбирается первым: он не зависит от окружения, и ошибка в
   // нём не должна маскироваться отказом «рабочая область не найдена».
   const address = parseAddress(args.address);
-  const known = repos ?? readRepos(findWorkspaceRoot(cwd), spawnGit);
-  const repo = address.repo === undefined
-    ? currentRepo(known, cwd)
-    : named(known, address.repo);
+  const repo = resolveRepo(address, io.cwd(), repos);
   return await collectRefs(
     address,
     args.limit,
     repo,
     await openAnalyzer(repo, address.path),
   );
+}
+
+/**
+ * Репозиторий адреса: названный в нём либо тот, внутри которого лежит
+ * рабочий каталог. Общий для всех поверхностей семейства — правило
+ * разрешения одно на всех.
+ */
+export function resolveRepo(
+  address: Address,
+  cwd: string,
+  repos?: readonly Repo[],
+): Repo {
+  const known = repos ?? readRepos(findWorkspaceRoot(cwd), spawnGit);
+  return address.repo === undefined
+    ? currentRepo(known, cwd)
+    : named(known, address.repo);
 }
 
 /** Репозиторий, названный в адресе. */
@@ -128,28 +137,23 @@ function currentRepo(repos: readonly Repo[], cwd: string): Repo {
  */
 export function renderRefs(result: RefsResult): string {
   const blocks = [
-    renderMark(markOf(result), result.guarantee),
+    renderMark(treeMarkOf(result.mark), result.guarantee),
     result.symbol === null
       ? `модуль ${result.target.path}`
       : `${declarationLine(result.symbol)}\n  ${
         SCOPE_TEXT[result.symbol.scope]
       }`,
     renderSection(result),
-    renderUnresolved(result),
+    renderUnresolved(result.unresolved),
   ];
   return `${blocks.join("\n\n")}\n`;
 }
 
 /**
- * Строка объявления: имя и сигнатура. Формы объявления текстовый разбор
- * не знает, и незнание называется вслух: одно имя читалось бы как
- * «у символа нет параметров», а это другой ответ
- * (`platform/code-analyzer.md`, «Чего текстовый анализатор не знает»).
+ * Строка объявления: имя и сигнатура. Печатает её только разбор по
+ * типам — текстовый объявлений не выдаёт вовсе.
  */
 function declarationLine(symbol: NonNullable<RefsResult["symbol"]>): string {
-  if (symbol.signature === null) {
-    return `${symbol.name} — сигнатуры нет: текстовый разбор`;
-  }
   // Форма вызова примыкает к имени через пробел (`addDays (day: string)`),
   // тип — через двоеточие (`limit: number`): иначе выходит `limit :
   // number` с пробелом перед двоеточием.
@@ -171,8 +175,10 @@ function renderSection(result: RefsResult): string {
 }
 
 /** Раздел «не разрешено»: печатается всегда, в том числе нулевой. */
-function renderUnresolved(result: RefsResult): string {
-  const { total, items } = result.unresolved;
+export function renderUnresolved(
+  unresolved: RefsResult["unresolved"],
+): string {
+  const { total, items } = unresolved;
   const lines = items.map((item) =>
     `  ${item.path}:${item.line} → ${item.specifier} — ${item.reason}`
   );
