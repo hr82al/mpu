@@ -1,0 +1,15 @@
+fixture · вне git · разбор по типам — ответ полон
+
+addDays (day: string, count: number): string
+  экспортируется из модуля и из входа проекта
+
+потребители: 6 файлов
+  src/aliased.ts:3
+  src/grid.ts:2
+  src/index.ts:3
+  src/report.spec.ts:3
+  src/seed_test.ts:3
+  src/window.ts:2
+
+не разрешено: 1
+  src/broken.ts:3 → ./nowhere — модуль не найден

@@ -1,0 +1,5 @@
+// Потребитель addDays, исключённый из tsconfig шаблоном «**/*.spec.ts».
+// Ответ, снятый по штатному конфигу, этот файл потеряет.
+import { addDays } from './days';
+
+export const tomorrow = (day: string): string => addDays(day, 1);

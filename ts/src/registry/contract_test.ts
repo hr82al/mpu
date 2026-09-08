@@ -1851,6 +1851,35 @@ const CASES: readonly CommandCase[] = [
       plan: "[dry-run] would create:\n",
     },
   },
+  {
+    // Вызов у обхода отказывает: рабочий каталог прогона — не то
+    // место, где лежит настоящее дерево оператора, и чем именно
+    // кончится поиск (нет сентинела, нет репозиториев, нет файла),
+    // зависит от машины. Инвариантам это безразлично — они про печать
+    // в отказе и про форму объявленного результата, а не про успех.
+    path: "code refs",
+    argv: ["fixture:src/days.ts:2"],
+    sampleResult: {
+      mark: { repo: "fixture", git: null },
+      guarantee: "types",
+      target: { kind: "symbol", path: "src/days.ts", line: 2 },
+      symbol: {
+        name: "addDays",
+        signature: "(day: string, count: number): string",
+        scope: "entry",
+      },
+      consumers: { total: 1, places: [{ path: "src/window.ts", line: 2 }] },
+      unresolved: {
+        total: 1,
+        items: [{
+          path: "src/broken.ts",
+          line: 3,
+          specifier: "./nowhere",
+          reason: "модуль не найден",
+        }],
+      },
+    },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {

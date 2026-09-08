@@ -81,11 +81,18 @@ async function run(
   subject: Subject,
   args: readonly string[],
   env: Readonly<Record<string, string>> = {},
+  /**
+   * Рабочий каталог запуска. Нужен команде, которая ищет рабочую
+   * область по предкам текущего каталога (`mpu code`): у неё вход —
+   * не только argv.
+   */
+  cwd?: string,
 ): Promise<Outcome> {
   const output = await new Deno.Command(subject.bin, {
     args: [...args],
     env: { HOME: subject.home, ...env },
     clearEnv: true,
+    cwd,
     stdin: "null",
     stdout: "piped",
     stderr: "piped",
@@ -897,6 +904,62 @@ function checks(subject: Subject): readonly Check[] {
       } finally {
         await Deno.remove(`${configDir}/.env`);
       }
+    }],
+    // Разбор кода собранным бинарём: `mpu code refs` строит программу
+    // проекта компилятором TypeScript, запечённым в бинарь, и зовёт
+    // `git` за отметкой дерева. Тесты этого не видят — они идут с
+    // широкими правами; здесь права те, что зашиты задачей `build`.
+    // Снять `--allow-read` или `--allow-run` — проверка краснеет:
+    // первое рвёт чтение дерева, второе отметку.
+    ["code refs: разбор дерева и отметка собранным бинарём", async () => {
+      const ws = `${subject.home}/ws`;
+      const repo = `${ws}/probe`;
+      await Deno.mkdir(`${repo}/src`, { recursive: true });
+      // Каталог `.git` без содержимого: репозиторием подкаталог делает
+      // именно он. Отметка при этом заведомо `вне git`, и по причине,
+      // которую надо назвать честно: запуск здесь идёт с `clearEnv`,
+      // `PATH` в окружении бинаря нет, и `git` не запускается вовсе.
+      // То есть ветка отметки под настоящим git этой проверкой НЕ
+      // покрыта — её держат тесты `mark_test.ts` с подставленным
+      // источником. Покрыть её здесь мешает право: пробросить `PATH`
+      // можно, только прочитав его, а `--allow-env` задачи `smoke`
+      // такого имени не несёт.
+      await Deno.mkdir(`${repo}/.git`, { recursive: true });
+      await Deno.writeTextFile(`${ws}/.mp-workspace-root`, "");
+      await Deno.writeTextFile(
+        `${repo}/tsconfig.json`,
+        '{"compilerOptions":{"strict":true,"noEmit":true},' +
+          '"include":["src/**/*"]}\n',
+      );
+      await Deno.writeTextFile(
+        `${repo}/src/a.ts`,
+        "export function addOne(n: number): number {\n  return n + 1;\n}\n",
+      );
+      await Deno.writeTextFile(
+        `${repo}/src/b.ts`,
+        "import { addOne } from './a.ts';\n\nexport const two = addOne(1);\n",
+      );
+      const outcome = await run(
+        subject,
+        ["code", "refs", "probe:src/a.ts:1"],
+        {},
+        repo,
+      );
+      assertEquals(outcome.code, 0, `stderr: ${outcome.stderr}`);
+      assert(
+        outcome.stdout.startsWith(
+          "probe · вне git · разбор по типам — ответ полон\n",
+        ),
+        `не та шапка: ${JSON.stringify(outcome.stdout)}`,
+      );
+      assert(
+        outcome.stdout.includes("потребители: 1 файл\n  src/b.ts:1\n"),
+        `не тот перечень: ${JSON.stringify(outcome.stdout)}`,
+      );
+      assert(
+        outcome.stdout.includes("не разрешено: 0\n"),
+        `нулевой раздел не напечатан: ${JSON.stringify(outcome.stdout)}`,
+      );
     }],
     ["sql-ro: выброшенный sw-маршрут отказывает, а не резолвит", async () => {
       // Отказ печатает собранный бинарь: маршрута воркспейсов больше

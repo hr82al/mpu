@@ -34,7 +34,8 @@
       "src/cleanlocal/testdata",
       "src/glab/testdata",
       "src/api/testdata",
-      "src/d2miro/testdata"
+      "src/d2miro/testdata",
+      "src/code/testdata"
     ]
   },
   "imports": {
@@ -83,6 +84,24 @@
     // зависимостей (`pg-types`, `pg-protocol`, `pg-pool`, `pgpass`,
     // `pg-connection-string`, `pg-cloudflare`) — состав апстрима.
     "pg": "npm:pg@8.22.0",
+    // Разбор кода для семейства `mpu code`
+    // (`platform/code-analyzer.md`): построение программы проекта,
+    // резолв модулей по `paths` и проверка типов. Аргумент, которого
+    // требует правило про `npm:`: полнота ответа здесь измеряется
+    // оракулом «переименовать символ → посчитать сломавшееся», и
+    // совпасть с ним может только тот же разбор, что делает сборку;
+    // аналога на JSR нет. Отдельный языковой сервер не ставится — это
+    // обёртка над этим же API.
+    // Ветка 5.x, а не свежая 7.x: TypeScript 7 — нативный порт, и его
+    // npm-пакет отдаёт JavaScript'у только `version` и
+    // `versionMajorMinor` (замер 2026-09-08: у `npm:typescript@7.0.2`
+    // ни `createProgram`, ни `sys`, ни `parseJsonConfigFileContent`).
+    // Компилятор как библиотека живёт в 5.x.
+    // Версия зафиксирована точно, без «^»: по тем же причинам, что у
+    // `@zod/zod` выше. Загружается лениво, динамическим импортом на
+    // ветке самого разбора: пакет весит десяток мегабайт, а старт
+    // процесса — доказанная ценность `mpu`.
+    "typescript": "npm:typescript@5.9.3",
     // Клиент MTProto для `mpu telegram send` (`docs/specs/telegram-send.md`,
     // `platform/telegram-mtproto.md`): отправка от имени личного аккаунта,
     // не бота. Своими руками это шифрование MTProto, схема TL и транспорт
@@ -267,6 +286,25 @@
     //     описывает мёртвую; smoke его не закрывает — отсутствие
     //     `TMUX` даёт ровно тот же наблюдаемый исход, что и запуск не
     //     под мультиплексором.
+    //   TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,
+    //   NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS
+    //     Окружение читает компилятор TypeScript, запечённый в бинарь
+    //     ради `mpu code` (`platform/code-analyzer.md`): часть — при
+    //     создании своего `sys` (наблюдатели файлов `TSC_*`, каналы
+    //     отладчика), часть — при форматировании диагностик (цвет
+    //     терминала, `NODE_ENV`). Читает сам, в обход нашего кода, и
+    //     повлиять на состав имён мы не можем — тот же случай, что
+    //     `PG*` у драйвера `pg` выше. Префикс `TSC_*`, а не список:
+    //     часть имён собирается в рантайме
+    //     (`TSC_WATCH_POLLINGINTERVAL_<уровень>`), перечислить их
+    //     нельзя. Замер 2026-09-08: без права бинарь падает на первом
+    //     же `mpu code refs` — `Requires env access to
+    //     "TSC_WATCHFILE"`, затем `"NODE_INSPECTOR_IPC"`, затем
+    //     `"NODE_ENV"`; smoke краснеет на проверке «code refs: разбор
+    //     дерева и отметка собранным бинарём». Расширение списка
+    //     согласовано владельцем 2026-09-08 (через сессию-спецификатора)
+    //     как следствие уже одобренной зависимости, а не отдельное
+    //     отступление;
     //   --deny-env=USER,NODE_PG_FORCE_NATIVE
     //     Единственные два имени вне списка выше, к которым тянется
     //     дерево `npm:pg`: `USER` — умолчание имени пользователя
@@ -286,7 +324,7 @@
     //     Наблюдаемого поведения флаг не меняет (неинтерактивно доступ и
     //     так отказан), поэтому smoke его не покрывает — исключение
     //     названо в `CLAUDE.md`, «Проверка каждого изменения»;
-    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
+    "build": "deno compile --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь

@@ -114,6 +114,7 @@ import { configCommand } from "../config/cmd_config.ts";
 import { glabStatusCommand } from "../glab/mod.ts";
 import { apiCommands } from "../api/mod.ts";
 import { d2MiroCommand } from "../d2miro/mod.ts";
+import { codeRefsCommand } from "../code/mod.ts";
 import { moveClientBackCommand, moveClientCommand } from "../move/mod.ts";
 import { mpInitCommand } from "../mpinit/mod.ts";
 import {
@@ -337,6 +338,9 @@ export const commands: readonly Command[] = [
   ...apiCommands,
   // Рендер D2-диаграммы на доску Miro (`docs/specs/d2-miro.md`).
   d2MiroCommand,
+  // Первая поверхность семейства `code` (`docs/specs/code-refs.md`):
+  // связи кода поверх общего слоя `platform/code-analyzer.md`.
+  codeRefsCommand,
 ];
 
 /**
@@ -449,6 +453,13 @@ export const groups: readonly CommandGroup[] = [
     path: ["wb-loader"],
     summary: "загрузка данных WB-кабинета в БД клиента: reports | cards | …",
     usage: "mpu wb-loader <подкоманда> [аргументы]",
+  },
+  {
+    // Семейство `code` целиком наше: в слепке прежней реализации таких
+    // имён нет. Индекс собирает реестр, как у `kiten` и `sheet`.
+    path: ["code"],
+    summary: "связи кода рабочей области: кто на что ссылается",
+    usage: "mpu code <подкоманда> [аргументы]",
   },
   {
     path: ["kiten", "field"],

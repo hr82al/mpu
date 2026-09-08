@@ -1,0 +1,5 @@
+// Потребитель через paths-алиас «#/». Граф модулей, не читающий paths,
+// такое ребро не разрешает и молча теряет.
+import { addDays } from '#/days';
+
+export const yesterday = (day: string): string => addDays(day, -1);
