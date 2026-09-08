@@ -35,6 +35,23 @@ export async function openFixture(
   return await materialize(temp, "fixture", "testdata/code/tree/", mark);
 }
 
+/**
+ * Дерево, у которого конфигурация проекта наследует пакет, которого
+ * нет: программа не строится, и раздел обязан назвать отказ, а не
+ * подменить его пустым перечнем.
+ */
+export async function openBrokenFixture(temp: string): Promise<Repo> {
+  return await materialize(
+    temp,
+    "broken-fixture",
+    "testdata/code/broken-tree/",
+    {
+      repo: "broken-fixture",
+      state: { kind: "out-of-git" },
+    },
+  );
+}
+
 /** Раскладывает дерево канала во временный каталог под именем `name`. */
 async function materialize(
   temp: string,

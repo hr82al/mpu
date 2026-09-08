@@ -15,6 +15,7 @@
  */
 
 import ts from "typescript";
+import type { RefsResult } from "./refs.ts";
 import { assertEquals } from "@std/assert";
 import { runRefs } from "./cmd_refs.ts";
 import { openFixture } from "./testing.ts";
@@ -57,10 +58,10 @@ Deno.test("ответ команды совпадает с оракулом по
         [repo],
       );
       assertEquals(
-        result.consumers.places.map((place) => place.path),
+        answered(result).consumers.places.map((place) => place.path),
         CONSUMERS,
       );
-      assertEquals(result.consumers.total, CONSUMERS.length);
+      assertEquals(answered(result).consumers.total, CONSUMERS.length);
     });
   } finally {
     await Deno.remove(temp, { recursive: true });
@@ -134,4 +135,15 @@ function sourceFiles(dir: string): readonly string[] {
     .filter((entry) => entry.isFile && entry.name.endsWith(".ts"))
     .map((entry) => `${dir}/${entry.name}`)
     .sort();
+}
+
+/** Ответивший раздел результата; отказ в этих проверках не ожидается. */
+function answered(result: { section: { kind: string } }) {
+  if (result.section.kind !== "answer") {
+    throw new Error(`раздел отказал: ${JSON.stringify(result.section)}`);
+  }
+  return result.section as Extract<
+    RefsResult["section"],
+    { kind: "answer" }
+  >;
 }

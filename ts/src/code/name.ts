@@ -19,6 +19,7 @@ import {
 } from "./answer.ts";
 import { markLabel } from "./mark.ts";
 import { openRepoAnalyzer } from "./open.ts";
+import { ProjectBuildError } from "./project.ts";
 import type { Repo } from "./workspace.ts";
 
 /** Окно вопроса: репозиторий целиком либо каталог в нём. */
@@ -32,24 +33,54 @@ const declarationSchema = z.object({
   line: z.number().int().positive(),
   name: z.string(),
   signature: z.string(),
-  scope: z.enum(["entry", "module-only", "no-entry", "private"]),
+  scope: z.enum([
+    "entry",
+    "module-only",
+    "no-entry",
+    "entry-unknown",
+    "private",
+  ]),
 });
 
-/** Раздел одного репозитория: своя отметка, свой перечень, свой хвост. */
-const sectionSchema = z.object({
-  mark: markSchema,
-  guarantee: z.enum(["types", "text"]),
-  declarations: z.object({
-    total: z.number().int().nonnegative(),
-    items: z.array(declarationSchema),
+/**
+ * Раздел одного репозитория: либо ответ, либо отказ. Размеченное
+ * объединение, а не набор полей, каждое из которых может быть пустым:
+ * у отказавшего раздела нет ни гарантии, ни перечней, и произведение
+ * независимых `null` допускало бы состояния, которых не бывает, — а
+ * рендеру пришлось бы замазывать их подстановками, печатающими неправду
+ * (`ts/CLAUDE.md`, «Расширение — discriminated union»).
+ */
+const sectionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("answer"),
+    mark: markSchema,
+    guarantee: z.enum(["types", "text"]),
+    declarations: z.object({
+      total: z.number().int().nonnegative(),
+      items: z.array(declarationSchema),
+    }),
+    /**
+     * Уникальные типы возврата по порядку появления. Пусто —
+     * вызываемых объявлений меньше двух, и сравнивать нечего.
+     */
+    returnTypes: z.array(z.string()),
+    /**
+     * Объявления окна с тем же списком типов параметров и другим
+     * именем. `null` — образца сигнатуры взять неоткуда, и печатать
+     * раздел пустым значило бы утверждать, что соседей нет.
+     */
+    neighbours: z.object({
+      total: z.number().int().nonnegative(),
+      items: z.array(declarationSchema),
+    }).nullable(),
+    unresolved: unresolvedSchema,
   }),
-  /**
-   * Уникальные типы возврата по порядку появления. Пусто — вызываемых
-   * объявлений меньше двух, и сравнивать нечего.
-   */
-  returnTypes: z.array(z.string()),
-  unresolved: unresolvedSchema,
-});
+  z.object({
+    kind: z.literal("refused"),
+    mark: markSchema,
+    refusal: z.string(),
+  }),
+]);
 
 const resultSchema = z.object({
   name: z.string(),
@@ -75,17 +106,33 @@ export async function collectName(
 ): Promise<NameResult> {
   const sections: z.infer<typeof sectionSchema>[] = [];
   for (const repo of repos) {
-    sections.push(
-      await sectionOf(
-        name,
-        window.dir,
-        limit,
-        repo,
-        await openRepoAnalyzer(repo),
-      ),
-    );
+    try {
+      sections.push(
+        await sectionOf(
+          name,
+          window.dir,
+          limit,
+          repo,
+          await openRepoAnalyzer(repo),
+        ),
+      );
+    } catch (err) {
+      // Отказ ПОСТРОЕНИЯ печатается вместо перечня в своём разделе:
+      // один репозиторий без установленных зависимостей не должен
+      // обнулять ответ по остальным (`platform/code-analyzer.md`).
+      if (!(err instanceof ProjectBuildError)) throw err;
+      sections.push(refused(await repo.mark(), err.message));
+    }
   }
   return { name, sections };
+}
+
+/** Раздел, который не ответил: отметка есть, ответа нет. */
+function refused(
+  mark: Awaited<ReturnType<Repo["mark"]>>,
+  reason: string,
+): z.infer<typeof sectionSchema> {
+  return { kind: "refused", mark: asMark(mark), refusal: reason };
 }
 
 /** Раздел одного репозитория. */
@@ -104,7 +151,11 @@ async function sectionOf(
   if (refusal !== null) throw new DomainError(refusal);
   const files = filesIn(analyzer, dir, repo, mark);
   const found = files.flatMap((path) => declarationsOf(analyzer, path, name));
+  const wanted = found
+    .filter((entry) => entry.paramTypes !== null)
+    .map((entry) => (entry.paramTypes ?? []).join(", "));
   return {
+    kind: "answer",
     mark: asMark(mark),
     guarantee: analyzer.guarantee,
     declarations: {
@@ -112,6 +163,13 @@ async function sectionOf(
       items: found.slice(0, limit).map(withoutReturnType),
     },
     returnTypes: uniqueReturnTypes(found),
+    // Образец сигнатуры берётся у вызываемых тёзок: их нет — сравнивать
+    // не с чем, и раздел не печатается вовсе. Считать по числу
+    // объявлений было бы не по тому признаку: два тёзки-константы
+    // образца не дают.
+    neighbours: wanted.length === 0
+      ? null
+      : neighboursOf(analyzer, files, name, wanted, limit),
     unresolved: unresolvedOf(analyzer, limit),
   };
 }
@@ -143,7 +201,14 @@ function isDirectory(path: string): boolean {
   try {
     return Deno.statSync(path).isDirectory;
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) return false;
+    // Отсутствие бывает не только `NotFound`: `src/a.ts/x` даёт
+    // `NotADirectory`, и это тот же ответ «такого каталога нет».
+    if (
+      err instanceof Deno.errors.NotFound ||
+      err instanceof Deno.errors.NotADirectory
+    ) {
+      return false;
+    }
     throw err;
   }
 }
@@ -151,6 +216,7 @@ function isDirectory(path: string): boolean {
 /** Найденное объявление вместе с типом возврата — он нужен хвосту. */
 interface Found extends z.infer<typeof declarationSchema> {
   readonly returnType: string | null;
+  readonly paramTypes: readonly string[] | null;
 }
 
 /** Объявления файла с этим именем; незнание — отказ, а не пустота. */
@@ -170,12 +236,49 @@ function declarationsOf(
       signature: entry.signature,
       scope: entry.scope,
       returnType: entry.returnType,
+      paramTypes: entry.paramTypes,
     }));
 }
 
-/** Тип возврата в ответ не идёт: его место — строка хвоста. */
+/**
+ * Соседи по сигнатуре: объявления окна с тем же списком типов
+ * параметров и другим именем. Совпадение считается по параметрам, а не
+ * по возврату: живой случай, ради которого раздел заведён, — вносимая
+ * функция возвращала `string[]` там, где существующая возвращает
+ * `number`, и требуй совпадения возврата, из ответа выпал бы ровно он
+ * (`specs/code-name.md`).
+ */
+function neighboursOf(
+  analyzer: Analyzer,
+  files: readonly string[],
+  name: string,
+  wanted: readonly string[],
+  limit: number,
+): { total: number; items: z.infer<typeof declarationSchema>[] } {
+  const items: z.infer<typeof declarationSchema>[] = [];
+  for (const path of files) {
+    const answer = analyzer.declarationsOf(path);
+    // Незнание сюда не доходит: `sectionOf` отказал бы раньше. Молчать
+    // о нём здесь нельзя — иначе файлы потерялись бы без следа.
+    if (answer.kind === "unknown") throw new DomainError(answer.reason);
+    for (const entry of answer.declarations) {
+      if (entry.name === name || entry.paramTypes === null) continue;
+      if (!wanted.includes(entry.paramTypes.join(", "))) continue;
+      items.push({
+        path,
+        line: entry.line,
+        name: entry.name,
+        signature: entry.signature,
+        scope: entry.scope,
+      });
+    }
+  }
+  return { total: items.length, items: items.slice(0, limit) };
+}
+
+/** Типы в ответ не идут: их место — строка хвоста и раздел соседей. */
 function withoutReturnType(found: Found): z.infer<typeof declarationSchema> {
-  const { returnType: _returnType, ...rest } = found;
+  const { returnType: _returnType, paramTypes: _paramTypes, ...rest } = found;
   return rest;
 }
 

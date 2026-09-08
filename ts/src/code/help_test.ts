@@ -12,6 +12,7 @@ import { assertEquals } from "@std/assert";
 import { parseAddress } from "./address.ts";
 import { codeRefsCommand } from "./cmd_refs.ts";
 import { codeTwinsCommand } from "./cmd_twins.ts";
+import { codeMentionsCommand } from "./cmd_mentions.ts";
 import { codeNameCommand } from "./cmd_name.ts";
 import { parseWindow } from "./cmd_name.ts";
 
@@ -54,6 +55,19 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
     "1 —",
     "2 —",
   ],
+  "code mentions": [
+    // область просмотра, строка существования, гарантия
+    "файлы .md",
+    "существует ли путь в коде",
+    "Гарантия в шапке всегда пониженная",
+    "--limit N",
+    "предел записей в разделе, не строк",
+    "по умолчанию 200",
+    // Кодов у этой поверхности два: отказа не бывает, анализатора она
+    // не открывает.
+    "0 —",
+    "2 —",
+  ],
   "code name": [
     // форма окна и что без него отвечает каждый репозиторий
     "РЕПОЗИТОРИЙ либо РЕПОЗИТОРИЙ:КАТАЛОГ",
@@ -63,6 +77,7 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
     "область видимости",
     "объявления любой формы",
     "двух и более вызываемых",
+    "та же сигнатура, другое имя",
     "не разрешено",
     "--limit N",
     "предел записей в разделе, не строк",
@@ -73,7 +88,12 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
   ],
 };
 
-const COMMANDS = [codeRefsCommand, codeTwinsCommand, codeNameCommand];
+const COMMANDS = [
+  codeRefsCommand,
+  codeTwinsCommand,
+  codeNameCommand,
+  codeMentionsCommand,
+];
 
 Deno.test("справка называет весь состав, заданный спекой", async (t) => {
   for (const command of COMMANDS) {
@@ -111,7 +131,7 @@ Deno.test("пример вызова из справки — полный и р�
         // (`specs/code-twins.md`, «CLI-контракт»). Требуется, чтобы он
         // был полным вызовом и чтобы его адрес либо окно разбирались.
         const tail = example.slice(`mpu ${name} `.length).split(" ");
-        if (name === "code name") {
+        if (name === "code name" || name === "code mentions") {
           // Пример без окна проверять нечем: `--in` обязан быть в нём и
           // обязан нести значение, иначе разбор молча уходит в имя.
           const at = tail.indexOf("--in");

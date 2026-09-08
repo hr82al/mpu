@@ -11,6 +11,7 @@
  */
 
 import ts from "typescript";
+import type { RefsResult } from "./refs.ts";
 import { assertEquals } from "@std/assert";
 import { renderRefs, runRefs } from "./cmd_refs.ts";
 import { buildProgram } from "./project.ts";
@@ -58,7 +59,7 @@ Deno.test("свойства deno-проекта, которых нет у tsconf
 
     await t.step("потребители найдены во всех трёх файлах", () => {
       assertEquals(
-        result.consumers.places.map((place) => place.path),
+        answered(result).consumers.places.map((place) => place.path),
         ["mod.ts", "src/seed_test.ts", "src/window.ts"],
       );
     });
@@ -67,12 +68,12 @@ Deno.test("свойства deno-проекта, которых нет у tsconf
       // `index.ts` в дереве нет вовсе: вход находится только через поле
       // конфигурации, и без этого область видимости была бы «входа у
       // проекта нет».
-      assertEquals(result.symbol?.scope, "entry");
+      assertEquals(answered(result).symbol?.scope, "entry");
     });
 
     await t.step("внешний пакет назван поимённо, а не выброшен", () => {
       assertEquals(
-        result.unresolved.items.map((item) => item.specifier),
+        answered(result).unresolved.items.map((item) => item.specifier),
         ["./nowhere.ts", "@std/assert"],
       );
     });
@@ -92,9 +93,9 @@ Deno.test("объявление-стрелка видно разбору по т
       { cwd: () => repo.root },
       [repo],
     );
-    assertEquals(result.symbol?.name, "spanDays");
+    assertEquals(answered(result).symbol?.name, "spanDays");
     assertEquals(
-      result.symbol?.signature,
+      answered(result).symbol?.signature,
       "(from: string, to: string): number",
     );
   } finally {
@@ -185,3 +186,43 @@ Deno.test("exclude конфигурации Deno убирает файлы из 
     await Deno.remove(temp, { recursive: true });
   }
 });
+
+Deno.test("обход не заходит в каталоги с точки", async () => {
+  const temp = await Deno.makeTempDir();
+  try {
+    const root = `${temp}/r`;
+    await Deno.mkdir(`${root}/.deno/npm`, { recursive: true });
+    await Deno.mkdir(`${root}/src`, { recursive: true });
+    // Кэш Deno отсечь через `exclude` конфигурации нельзя: полагаться на
+    // то, что репозиторий сам его туда вписал, — совпадение, а не
+    // устройство. Попади тысячи `.ts` кэша в программу, ответ стал бы
+    // неверным молча (`platform/code-analyzer.md`).
+    await Deno.writeTextFile(`${root}/deno.json`, "{}\n");
+    await Deno.writeTextFile(`${root}/src/kept.ts`, "export const a = 1;\n");
+    await Deno.writeTextFile(
+      `${root}/.deno/npm/cached.ts`,
+      "export const b = 2;\n",
+    );
+    const program = buildProgram(ts, {
+      kind: "deno",
+      path: `${root}/deno.json`,
+    });
+    assertEquals(
+      (program?.getRootFileNames() ?? []).map((f) => f.slice(root.length + 1)),
+      ["src/kept.ts"],
+    );
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});
+
+/** Ответивший раздел результата; отказ в этих проверках не ожидается. */
+function answered(result: { section: { kind: string } }) {
+  if (result.section.kind !== "answer") {
+    throw new Error(`раздел отказал: ${JSON.stringify(result.section)}`);
+  }
+  return result.section as Extract<
+    RefsResult["section"],
+    { kind: "answer" }
+  >;
+}

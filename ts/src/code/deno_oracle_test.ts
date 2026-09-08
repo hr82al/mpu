@@ -13,6 +13,7 @@
  * его — и этот тест падает на `NotCapable`, а не молча зеленеет.
  */
 
+import type { RefsResult } from "./refs.ts";
 import { assertEquals } from "@std/assert";
 import { runRefs } from "./cmd_refs.ts";
 import { openDenoFixture } from "./testing.ts";
@@ -47,10 +48,10 @@ Deno.test("ответ на deno-дереве совпадает с оракул�
         [repo],
       );
       assertEquals(
-        result.consumers.places.map((place) => place.path),
+        answered(result).consumers.places.map((place) => place.path),
         CONSUMERS,
       );
-      assertEquals(result.consumers.total, CONSUMERS.length);
+      assertEquals(answered(result).consumers.total, CONSUMERS.length);
     });
   } finally {
     await Deno.remove(temp, { recursive: true });
@@ -114,4 +115,15 @@ async function brokenFiles(root: string): Promise<readonly string[]> {
     throw new Error(`вывод deno check не разобран: ${text}`);
   }
   return [...found].sort();
+}
+
+/** Ответивший раздел результата; отказ в этих проверках не ожидается. */
+function answered(result: { section: { kind: string } }) {
+  if (result.section.kind !== "answer") {
+    throw new Error(`раздел отказал: ${JSON.stringify(result.section)}`);
+  }
+  return result.section as Extract<
+    RefsResult["section"],
+    { kind: "answer" }
+  >;
 }

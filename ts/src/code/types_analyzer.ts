@@ -93,13 +93,24 @@ function entryFile(
   ts: typeof TS,
   program: TS.Program,
   projectPath: string,
-): TS.SourceFile | undefined {
+): Entry {
   const roots = program.getRootFileNames();
-  if (roots.length === 0) return undefined;
+  if (roots.length === 0) return { kind: "none" };
   const declared = declaredEntry(ts, program, dirOf(projectPath));
-  if (declared !== undefined) return declared;
-  return program.getSourceFile(`${commonDir(roots)}/index.ts`);
+  if (declared.kind !== "none") return declared;
+  const index = program.getSourceFile(`${commonDir(roots)}/index.ts`);
+  return index === undefined ? { kind: "none" } : { kind: "file", file: index };
 }
+
+/**
+ * Вход проекта: найден, отсутствует либо не определён. Третий исход —
+ * когда манифест пакета не разобрался: молчаливое «входа нет» тут
+ * запрещено, это разные ответы (`specs/code-name.md`).
+ */
+type Entry =
+  | { readonly kind: "file"; readonly file: TS.SourceFile }
+  | { readonly kind: "none" }
+  | { readonly kind: "unknown" };
 
 /**
  * Общий корень исходников: самый длинный общий каталог их путей. Своим
@@ -132,22 +143,33 @@ function declaredEntry(
   ts: typeof TS,
   program: TS.Program,
   dir: string,
-): TS.SourceFile | undefined {
+): Entry {
   for (const name of ["package.json", "deno.json", "deno.jsonc"]) {
-    for (const path of entryFields(ts, `${dir}/${name}`)) {
+    const fields = entryFields(ts, `${dir}/${name}`);
+    if (fields === "unreadable") return { kind: "unknown" };
+    for (const path of fields) {
       const file = program.getSourceFile(`${dir}/${path.replace(/^\.\//, "")}`);
-      if (file !== undefined) return file;
+      if (file !== undefined) return { kind: "file", file };
     }
   }
-  return undefined;
+  return { kind: "none" };
 }
 
-/** Кандидаты входа из манифеста по порядку `types`, `exports`, `main`. */
-function entryFields(ts: typeof TS, path: string): readonly string[] {
+/**
+ * Кандидаты входа из манифеста по порядку `types`, `exports`, `main`.
+ * `unreadable` — манифест есть, но не разобрался: сказать по нему «входа
+ * нет» значило бы выдать незнание за ответ.
+ */
+function entryFields(
+  ts: typeof TS,
+  path: string,
+): readonly string[] | "unreadable" {
   const text = ts.sys.readFile(path);
   if (text === undefined) return [];
-  const manifest = ts.parseConfigFileTextToJson(path, text).config;
-  if (typeof manifest !== "object" || manifest === null) return [];
+  const parsed = ts.parseConfigFileTextToJson(path, text);
+  if (parsed.error !== undefined) return "unreadable";
+  const manifest = parsed.config;
+  if (typeof manifest !== "object" || manifest === null) return "unreadable";
   const fields = manifest as Record<string, unknown>;
   return [fields.types, pickExport(fields.exports), fields.main]
     .filter((value): value is string => typeof value === "string");
@@ -170,23 +192,49 @@ function declarationsIn(
   ts: typeof TS,
   checker: TS.TypeChecker,
   file: TS.SourceFile,
-  entry: TS.SourceFile | undefined,
+  entry: Entry,
 ): readonly Declaration[] {
   const found: Declaration[] = [];
-  for (const statement of file.statements) {
+  for (const statement of declaringNodes(ts, file)) {
     for (const node of namedNodes(ts, statement)) {
       const symbol = checker.getSymbolAtLocation(node.name);
       if (symbol === undefined) continue;
+      // Сигнатура берётся у САМОГО объявления, а не первая из типа
+      // символа: у перегруженной функции их несколько, и каждая
+      // перегрузка — отдельная запись со своей (`specs/code-name.md`).
+      //
+      // Ищется она среди ВЫЗЫВАЕМЫХ сигнатур типа, а не спрашивается у
+      // объявления напрямую: реализация перегрузки объявлением-записью
+      // не является — вызвать её объединённой формой нельзя, и
+      // `getSignatureFromDeclaration` рекламировал бы несуществующий
+      // вызов (замер 2026-09-08: три объявления дают три сигнатуры, а
+      // вызываемых из них две).
       const type = checker.getTypeOfSymbolAtLocation(symbol, node.name);
-      const call = type.getCallSignatures();
+      const signatures = type.getCallSignatures();
+      const own = signatures.find((entry) =>
+        entry.declaration === node.declaration
+      );
+      const overloaded = signatures.length > 1;
+      // Реализация перегрузки: своей вызываемой формы у неё нет, и
+      // записью она не становится — иначе перечень назвал бы форму,
+      // которой позвать нельзя.
+      if (overloaded && own === undefined) continue;
+      const call = own ?? signatures[0];
       found.push({
         name: symbol.getName(),
-        signature: call.length > 0
-          ? checker.signatureToString(call[0])
-          : checker.typeToString(type),
-        returnType: call.length > 0
-          ? checker.typeToString(call[0].getReturnType())
-          : null,
+        signature: call === undefined
+          ? checker.typeToString(type)
+          : checker.signatureToString(call),
+        returnType: call === undefined
+          ? null
+          : checker.typeToString(call.getReturnType()),
+        paramTypes: call === undefined
+          ? null
+          : call.getParameters().map((parameter) =>
+            checker.typeToString(
+              checker.getTypeOfSymbolAtLocation(parameter, node.name),
+            )
+          ),
         line: lineOf(file, node.getStart(file)),
         scope: scopeOf(ts, checker, symbol, file, entry),
       });
@@ -195,12 +243,37 @@ function declarationsIn(
   return found.sort((a, b) => a.line - b.line);
 }
 
+/**
+ * Утверждения файла, вводящие имена: верхний уровень и методы классов.
+ * Спека требует объявлений ЛЮБОЙ формы — `function`, стрелки, метода, —
+ * а метод лежит не в `file.statements`, и обход по одному только
+ * верхнему уровню терял его молча (`specs/code-name.md`).
+ */
+function declaringNodes(
+  ts: typeof TS,
+  file: TS.SourceFile,
+): readonly TS.Node[] {
+  const found: TS.Node[] = [];
+  for (const statement of file.statements) {
+    found.push(statement);
+    if (!ts.isClassDeclaration(statement)) continue;
+    for (const member of statement.members) {
+      // Метод — такое же объявление со своей сигнатурой; поле без
+      // функции объявлением-функцией не является и сюда не идёт.
+      if (ts.isMethodDeclaration(member)) found.push(member);
+    }
+  }
+  return found;
+}
+
 /** Узлы утверждения, вводящие имя: объявление или его переменные. */
 function namedNodes(
   ts: typeof TS,
-  statement: TS.Statement,
+  statement: TS.Node,
 ): readonly {
   readonly name: TS.Node;
+  /** Узел, объявляющий имя: у него и спрашивается своя сигнатура. */
+  readonly declaration: TS.Node;
   readonly getStart: (f: TS.SourceFile) => number;
 }[] {
   if (ts.isVariableStatement(statement)) {
@@ -208,6 +281,7 @@ function namedNodes(
       .filter((declaration) => ts.isIdentifier(declaration.name))
       .map((declaration) => ({
         name: declaration.name,
+        declaration: declaration.initializer ?? declaration,
         getStart: (f: TS.SourceFile) => declaration.getStart(f),
       }));
   }
@@ -215,10 +289,11 @@ function namedNodes(
   // всех объявлений верхнего уровня, вводящих имя, и объявлено оно в
   // каждом их типе — но общего надтипа с ним компилятор не даёт.
   // Значение проверяется следующей строкой, а не берётся на веру.
-  const named = statement as TS.Statement & { readonly name?: TS.Node };
+  const named = statement as TS.Node & { readonly name?: TS.Node };
   if (named.name === undefined || !ts.isIdentifier(named.name)) return [];
   return [{
     name: named.name,
+    declaration: statement,
     getStart: (f: TS.SourceFile) => statement.getStart(f),
   }];
 }
@@ -229,11 +304,14 @@ function scopeOf(
   checker: TS.TypeChecker,
   symbol: TS.Symbol,
   file: TS.SourceFile,
-  entry: TS.SourceFile | undefined,
+  entry: Entry,
 ): Scope {
   if (!isExportedFrom(ts, checker, symbol, file)) return "private";
-  if (entry === undefined) return "no-entry";
-  return isExportedFrom(ts, checker, symbol, entry) ? "entry" : "module-only";
+  if (entry.kind === "unknown") return "entry-unknown";
+  if (entry.kind === "none") return "no-entry";
+  return isExportedFrom(ts, checker, symbol, entry.file)
+    ? "entry"
+    : "module-only";
 }
 
 /** Виден ли символ среди экспортов модуля — сам либо через алиас. */

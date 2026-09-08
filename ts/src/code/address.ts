@@ -24,8 +24,28 @@ export interface Address {
  * сразу под отметкой одного.
  */
 function insideRepo(path: string, raw: string): string {
-  const inside = normalizeInside(path, raw, "путь адреса");
-  if (inside === "") throw new UsageError(`в адресе нет пути: '${raw}'`);
+  return fileInsideRepo(
+    path,
+    raw,
+    "путь адреса",
+    `в адресе нет пути: '${raw}'`,
+  );
+}
+
+/**
+ * Путь ФАЙЛА внутри репозитория. От `normalizeInside` отличается тем,
+ * что свёрнутый в корень путь для файла — не ответ, а ошибка ввода:
+ * пустая строка совпадает с любой подстрокой, и поиск по ней объявил бы
+ * упоминанием весь текст репозитория.
+ */
+export function fileInsideRepo(
+  path: string,
+  raw: string,
+  what: string,
+  empty: string,
+): string {
+  const inside = normalizeInside(path, raw, what);
+  if (inside === "") throw new UsageError(empty);
   return inside;
 }
 

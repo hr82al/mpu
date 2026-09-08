@@ -1860,23 +1860,26 @@ const CASES: readonly CommandCase[] = [
     path: "code refs",
     argv: ["fixture:src/days.ts:2"],
     sampleResult: {
-      mark: { repo: "fixture", git: null },
-      guarantee: "types",
-      target: { kind: "symbol", path: "src/days.ts", line: 2 },
-      symbol: {
-        name: "addDays",
-        signature: "(day: string, count: number): string",
-        scope: "entry",
-      },
-      consumers: { total: 1, places: [{ path: "src/window.ts", line: 2 }] },
-      unresolved: {
-        total: 1,
-        items: [{
-          path: "src/broken.ts",
-          line: 3,
-          specifier: "./nowhere",
-          reason: "модуль не найден",
-        }],
+      section: {
+        kind: "answer",
+        mark: { repo: "fixture", git: null },
+        guarantee: "types",
+        target: { kind: "symbol", path: "src/days.ts", line: 2 },
+        symbol: {
+          name: "addDays",
+          signature: "(day: string, count: number): string",
+          scope: "entry",
+        },
+        consumers: { total: 1, places: [{ path: "src/window.ts", line: 2 }] },
+        unresolved: {
+          total: 1,
+          items: [{
+            path: "src/broken.ts",
+            line: 3,
+            specifier: "./nowhere",
+            reason: "модуль не найден",
+          }],
+        },
       },
     },
   },
@@ -1886,44 +1889,47 @@ const CASES: readonly CommandCase[] = [
     path: "code twins",
     argv: ["fixture:src/window.ts:4"],
     sampleResult: {
-      mark: { repo: "fixture", git: null },
-      guarantee: "types",
-      query: {
-        name: "windowDays",
-        signature: "(from: string, to: string): string[]",
-        path: "src/window.ts",
-        line: 4,
-      },
-      // Состав — как в голдене спеки (`twins-exact.stdout.txt`): три
-      // побайтово равных тела под тремя именами. Образец читается как
-      // правда, и расходиться с голденом ему нельзя.
-      exact: {
-        total: 3,
-        twins: [
-          { path: "src/grid.ts", line: 4, name: "dayGrid", difference: null },
-          {
-            path: "src/seed_test.ts",
-            line: 5,
-            name: "daySeries",
-            difference: null,
-          },
-          {
-            path: "src/window.ts",
-            line: 4,
-            name: "windowDays",
-            difference: null,
-          },
-        ],
-      },
-      similar: { total: 0, twins: [] },
-      unresolved: {
-        total: 1,
-        items: [{
-          path: "src/broken.ts",
-          line: 3,
-          specifier: "./nowhere",
-          reason: "модуль не найден",
-        }],
+      section: {
+        kind: "answer",
+        mark: { repo: "fixture", git: null },
+        guarantee: "types",
+        query: {
+          name: "windowDays",
+          signature: "(from: string, to: string): string[]",
+          path: "src/window.ts",
+          line: 4,
+        },
+        // Состав — как в голдене спеки (`twins-exact.stdout.txt`): три
+        // побайтово равных тела под тремя именами. Образец читается как
+        // правда, и расходиться с голденом ему нельзя.
+        exact: {
+          total: 3,
+          twins: [
+            { path: "src/grid.ts", line: 4, name: "dayGrid", difference: null },
+            {
+              path: "src/seed_test.ts",
+              line: 5,
+              name: "daySeries",
+              difference: null,
+            },
+            {
+              path: "src/window.ts",
+              line: 4,
+              name: "windowDays",
+              difference: null,
+            },
+          ],
+        },
+        similar: { total: 0, twins: [] },
+        unresolved: {
+          total: 1,
+          items: [{
+            path: "src/broken.ts",
+            line: 3,
+            specifier: "./nowhere",
+            reason: "модуль не найден",
+          }],
+        },
       },
     },
   },
@@ -1936,6 +1942,7 @@ const CASES: readonly CommandCase[] = [
     sampleResult: {
       name: "spanDays",
       sections: [{
+        kind: "answer",
         mark: { repo: "fixture", git: null },
         guarantee: "types",
         declarations: {
@@ -1958,6 +1965,16 @@ const CASES: readonly CommandCase[] = [
           ],
         },
         returnTypes: ["number"],
+        neighbours: {
+          total: 1,
+          items: [{
+            path: "src/window.ts",
+            line: 4,
+            name: "windowDays",
+            signature: "(from: string, to: string): string[]",
+            scope: "entry",
+          }],
+        },
         unresolved: {
           total: 1,
           items: [{
@@ -1967,6 +1984,28 @@ const CASES: readonly CommandCase[] = [
             reason: "модуль не найден",
           }],
         },
+      }],
+    },
+  },
+  {
+    // Последняя поверхность семейства. Гарантия у неё всегда пониженная,
+    // и раздел «не разрешено» всегда нулевой: разрешать по тексту
+    // документов нечего.
+    path: "code mentions",
+    argv: ["src/gone.ts", "--in", "fixture"],
+    sampleResult: {
+      path: "src/gone.ts",
+      sections: [{
+        mark: { repo: "fixture", git: null },
+        exists: false,
+        mentions: {
+          total: 2,
+          places: [
+            { path: "docs/guide.md", line: 3 },
+            { path: "docs/guide.md", line: 5 },
+          ],
+        },
+        unresolved: { total: 0, items: [] },
       }],
     },
   },

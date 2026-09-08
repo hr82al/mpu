@@ -77,7 +77,7 @@ async function typeAnalyzers(repo: Repo): Promise<readonly Analyzer[]> {
   const ts = (await import("typescript")).default;
   const analyzers: Analyzer[] = [];
   for (const project of projects) {
-    const program = buildProgram(ts, project);
+    const program = buildProgram(ts, project, repo.root);
     // Конфигурация без входных файлов проектом не считается: список
     // проектов её отсеивает здесь, где он уже разрешён.
     if (program === undefined) continue;

@@ -5,10 +5,16 @@
 
 import { z } from "@zod/zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { ProjectBuildError } from "./project.ts";
 import { type Address, parseAddress } from "./address.ts";
-import { renderMark } from "./mark.ts";
+import { renderMark, renderMarkOnly } from "./mark.ts";
 import { openAnalyzer } from "./open.ts";
-import { collectRefs, type RefsResult, refsResultSchema } from "./refs.ts";
+import {
+  collectRefs,
+  type RefsResult,
+  refsResultSchema,
+  refusedRefs,
+} from "./refs.ts";
 import { scopeText, treeMarkOf } from "./answer.ts";
 import { spawnGit } from "./git.ts";
 import {
@@ -62,6 +68,9 @@ Exit: 0 — ответ, включая пустой перечень и усеч
   resultSchema: refsResultSchema,
   run: (args, io) => runRefs(args, io),
   render: renderRefs,
+  // Отказ раздела — не ответ: у команды с одним разделом он и есть
+  // отказ команды (`platform/code-analyzer.md`).
+  textExitCode: (result) => result.section.kind === "refused" ? 1 : 0,
 });
 
 /**
@@ -78,12 +87,20 @@ export async function runRefs(
   // нём не должна маскироваться отказом «рабочая область не найдена».
   const address = parseAddress(args.address);
   const repo = resolveRepo(address, io.cwd(), repos);
-  return await collectRefs(
-    address,
-    args.limit,
-    repo,
-    await openAnalyzer(repo, address.path),
-  );
+  try {
+    return await collectRefs(
+      address,
+      args.limit,
+      repo,
+      await openAnalyzer(repo, address.path),
+    );
+  } catch (err) {
+    // Отказ ПОСТРОЕНИЯ печатается разделом, а не уходит в stderr: он
+    // относится к репозиторию, а не к вызову, и в ответе по нескольким
+    // репозиториям соседи обязаны ответить (`platform/code-analyzer.md`).
+    if (!(err instanceof ProjectBuildError)) throw err;
+    return refusedRefs(await repo.mark(), err.message);
+  }
 }
 
 /**
@@ -126,24 +143,33 @@ function currentRepo(repos: readonly Repo[], cwd: string): Repo {
  * гарантией, найденное, «не разрешено» — в том числе нулевое.
  */
 export function renderRefs(result: RefsResult): string {
+  const section = result.section;
+  if (section.kind === "refused") {
+    return `${
+      renderMarkOnly(treeMarkOf(section.mark))
+    }\n  отказ: ${section.refusal}\n`;
+  }
   const blocks = [
-    renderMark(treeMarkOf(result.mark), result.guarantee),
-    result.symbol === null
-      ? `модуль ${result.target.path}`
-      : `${declarationLine(result.symbol)}\n  ${
-        scopeText(result.symbol.scope)
+    renderMark(treeMarkOf(section.mark), section.guarantee),
+    section.symbol === null
+      ? `модуль ${section.target.path}`
+      : `${declarationLine(section.symbol)}\n  ${
+        scopeText(section.symbol.scope)
       }`,
-    renderSection(result),
-    renderUnresolved(result.unresolved),
+    renderSection(section),
+    renderUnresolved(section.unresolved),
   ];
   return `${blocks.join("\n\n")}\n`;
 }
+
+/** Раздел, который ответил. */
+type AnsweredRefs = Extract<RefsResult["section"], { kind: "answer" }>;
 
 /**
  * Строка объявления: имя и сигнатура. Печатает её только разбор по
  * типам — текстовый объявлений не выдаёт вовсе.
  */
-function declarationLine(symbol: NonNullable<RefsResult["symbol"]>): string {
+function declarationLine(symbol: NonNullable<AnsweredRefs["symbol"]>): string {
   // Форма вызова примыкает к имени через пробел (`addDays (day: string)`),
   // тип — через двоеточие (`limit: number`): иначе выходит `limit :
   // number` с пробелом перед двоеточием.
@@ -153,9 +179,9 @@ function declarationLine(symbol: NonNullable<RefsResult["symbol"]>): string {
 }
 
 /** Раздел найденного: заголовок со счётчиком и строки под ним. */
-function renderSection(result: RefsResult): string {
-  const noun = result.target.kind === "module" ? "читатели" : "потребители";
-  const { total, places } = result.consumers;
+function renderSection(section: AnsweredRefs): string {
+  const noun = section.target.kind === "module" ? "читатели" : "потребители";
+  const { total, places } = section.consumers;
   if (total === 0) return `${noun}: 0`;
   const lines = places.map((place) => `  ${place.path}:${place.line}`);
   if (places.length < total) {
@@ -166,7 +192,7 @@ function renderSection(result: RefsResult): string {
 
 /** Раздел «не разрешено»: печатается всегда, в том числе нулевой. */
 export function renderUnresolved(
-  unresolved: RefsResult["unresolved"],
+  unresolved: AnsweredRefs["unresolved"],
 ): string {
   const { total, items } = unresolved;
   const lines = items.map((item) =>

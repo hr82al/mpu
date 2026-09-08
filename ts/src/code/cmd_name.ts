@@ -11,7 +11,7 @@ import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
 import { normalizeInside } from "./address.ts";
 import { scopeText, treeMarkOf } from "./answer.ts";
 import { renderUnresolved } from "./cmd_refs.ts";
-import { renderMark } from "./mark.ts";
+import { renderMark, renderMarkOnly } from "./mark.ts";
 import {
   collectName,
   type NameResult,
@@ -45,7 +45,13 @@ export const codeNameCommand = defineCommand({
 
 На объявление печатаются две строки: путь, строка и сигнатура как
 объявлена — и отступом ниже область видимости. В перечень попадают
-объявления любой формы: function, стрелка в const, метод.
+объявления любой формы: function, стрелка в const, метод; перегрузка —
+отдельная запись.
+
+Раздел «та же сигнатура, другое имя» отвечает на вторую половину
+вопроса: имя может быть свободно, а вещь под другим именем уже
+существовать. Совпадение считается по типам параметров, а возврат
+печатается у каждого. Имя не встретилось — раздела нет вовсе.
 
 При двух и более вызываемых объявлениях печатается строка
 «типы возврата: …»; если они разные, строка оканчивается
@@ -69,6 +75,10 @@ Exit: 0 — ответ, включая пустой перечень и усеч
   resultSchema: nameResultSchema,
   run: (args, io) => runName(args, io),
   render: renderName,
+  // Отказ команды — только если не ответил ни один раздел
+  // (`platform/code-analyzer.md`).
+  textExitCode: (result) =>
+    result.sections.every((section) => section.kind === "refused") ? 1 : 0,
 });
 
 /**
@@ -134,19 +144,29 @@ export function renderName(result: NameResult): string {
 }
 
 function renderSection(section: NameResult["sections"][number]): string {
+  if (section.kind === "refused") {
+    return `${
+      renderMarkOnly(treeMarkOf(section.mark))
+    }\n  отказ: ${section.refusal}`;
+  }
   const blocks = [
     renderMark(treeMarkOf(section.mark), section.guarantee),
     renderDeclarations(section),
+    ...renderNeighbours(section),
     ...renderReturnTypes(section),
     renderUnresolved(section.unresolved),
   ];
   return blocks.join("\n\n");
 }
 
+/** Раздел, который ответил: у него есть и гарантия, и перечни. */
+type AnsweredSection = Extract<
+  NameResult["sections"][number],
+  { kind: "answer" }
+>;
+
 /** Раздел объявлений: по две строки на каждое. */
-function renderDeclarations(
-  section: NameResult["sections"][number],
-): string {
+function renderDeclarations(section: AnsweredSection): string {
   const { total, items } = section.declarations;
   const lines = items.flatMap((entry) => [
     `  ${entry.path}:${entry.line}  ${entry.name} ${entry.signature}`,
@@ -159,13 +179,32 @@ function renderDeclarations(
 }
 
 /**
+ * Раздел соседей по сигнатуре. Имя не встретилось — раздела нет вовсе:
+ * образца сигнатуры взять неоткуда, и пустой раздел утверждал бы, что
+ * соседей нет.
+ */
+function renderNeighbours(section: AnsweredSection): readonly string[] {
+  const neighbours = section.neighbours;
+  if (neighbours === null) return [];
+  const lines = neighbours.items.map((entry) =>
+    `  ${entry.path}:${entry.line}  ${entry.name} ${entry.signature}`
+  );
+  if (neighbours.items.length < neighbours.total) {
+    lines.push(
+      `  усечено: показано ${neighbours.items.length} из ${neighbours.total}`,
+    );
+  }
+  return [
+    [`та же сигнатура, другое имя: ${neighbours.total}`, ...lines].join("\n"),
+  ];
+}
+
+/**
  * Строка типов возврата — при двух и более вызываемых объявлениях.
  * Расхождение помечается явно: два тёзки с разными типами возврата не
  * спросит ни компилятор, ни читатель.
  */
-function renderReturnTypes(
-  section: NameResult["sections"][number],
-): readonly string[] {
+function renderReturnTypes(section: AnsweredSection): readonly string[] {
   // Пусто — значит вызываемых тёзок меньше двух: решение принято при
   // сборке ответа, и переспрашивать его здесь незачем.
   if (section.returnTypes.length === 0) return [];

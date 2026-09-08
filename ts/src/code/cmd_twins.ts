@@ -10,10 +10,16 @@ import { z } from "@zod/zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { parseAddress } from "./address.ts";
 import { treeMarkOf } from "./answer.ts";
-import { renderMark } from "./mark.ts";
+import { renderMark, renderMarkOnly } from "./mark.ts";
 import { openAnalyzer } from "./open.ts";
 import { renderUnresolved, resolveRepo } from "./cmd_refs.ts";
-import { collectTwins, type TwinsResult, twinsResultSchema } from "./twins.ts";
+import {
+  collectTwins,
+  refusedTwins,
+  type TwinsResult,
+  twinsResultSchema,
+} from "./twins.ts";
+import { ProjectBuildError } from "./project.ts";
 import type { Repo } from "./workspace.ts";
 
 /** Предел записей в разделе по умолчанию; запись — не строка. */
@@ -64,6 +70,7 @@ Exit: 0 — ответ, включая усечение; 2 — ошибка вв
   resultSchema: twinsResultSchema,
   run: (args, io) => runTwins(args, io),
   render: renderTwins,
+  textExitCode: (result) => result.section.kind === "refused" ? 1 : 0,
 });
 
 /**
@@ -78,12 +85,19 @@ export async function runTwins(
 ): Promise<TwinsResult> {
   const address = parseAddress(args.address);
   const repo = resolveRepo(address, io.cwd(), repos);
-  return await collectTwins(
-    address,
-    args.limit,
-    repo,
-    await openAnalyzer(repo, address.path),
-  );
+  try {
+    return await collectTwins(
+      address,
+      args.limit,
+      repo,
+      await openAnalyzer(repo, address.path),
+    );
+  } catch (err) {
+    // Отказ построения печатается разделом: он относится к
+    // репозиторию, а не к вызову (`platform/code-analyzer.md`).
+    if (!(err instanceof ProjectBuildError)) throw err;
+    return refusedTwins(await repo.mark(), err.message);
+  }
 }
 
 /**
@@ -91,30 +105,36 @@ export async function runTwins(
  * найденное двумя разделами, «не разрешено» — в том числе нулевое.
  */
 export function renderTwins(result: TwinsResult): string {
+  const section = result.section;
+  if (section.kind === "refused") {
+    return `${
+      renderMarkOnly(treeMarkOf(section.mark))
+    }\n  отказ: ${section.refusal}\n`;
+  }
   const blocks = [
-    renderMark(treeMarkOf(result.mark), result.guarantee),
-    declarationLine(result.query),
-    renderSection("побайтово", result.exact),
-    renderSection("похоже", result.similar),
-    renderUnresolved(result.unresolved),
+    renderMark(treeMarkOf(section.mark), section.guarantee),
+    declarationLine(section.query),
+    renderSection("побайтово", section.exact),
+    renderSection("похоже", section.similar),
+    renderUnresolved(section.unresolved),
   ];
   return `${blocks.join("\n\n")}\n`;
 }
+
+/** Раздел, который ответил. */
+type AnsweredTwins = Extract<TwinsResult["section"], { kind: "answer" }>;
 
 /**
  * Строка запроса: имя и сигнатура. Сигнатуру вывести удаётся не всегда,
  * и тогда печатается одно имя — висящий пробел читался бы как
  * потерянная часть строки.
  */
-function declarationLine(query: TwinsResult["query"]): string {
+function declarationLine(query: AnsweredTwins["query"]): string {
   return [query.name, query.signature].filter((part) => part !== "").join(" ");
 }
 
 /** Раздел совпадений: заголовок со счётчиком и строки под ним. */
-function renderSection(
-  title: string,
-  section: TwinsResult["exact"],
-): string {
+function renderSection(title: string, section: AnsweredTwins["exact"]): string {
   const lines = section.twins.flatMap((twin) => [
     `  ${twin.path}:${twin.line}  ${twin.name}`,
     // Разница печатается всегда, когда она есть: нормализация стирает

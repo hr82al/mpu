@@ -23,6 +23,16 @@ export interface Project {
   readonly path: string;
 }
 
+/**
+ * Программа проекта не строится. Отдельный класс, а не общая доменная
+ * ошибка: этот отказ печатается разделом в stdout и не отменяет ответы
+ * соседних репозиториев, тогда как «объявления не разбираются текстовым
+ * анализатором» — отказ всей команды (`platform/code-analyzer.md`).
+ */
+export class ProjectBuildError extends DomainError {
+  override name = "ProjectBuildError";
+}
+
 /** Имя файла конфигурации → вид проекта. */
 const PROJECT_KINDS: Readonly<Record<string, Project["kind"]>> = {
   "tsconfig.json": "tsconfig",
@@ -65,14 +75,18 @@ const NO_INPUTS = 18003;
 export function buildProgram(
   ts: typeof TS,
   project: Project,
+  repoRoot: string = dirOf(project.path),
 ): TS.Program | undefined {
   const projectPath = project.path;
+  const shown = projectPath.startsWith(`${repoRoot}/`)
+    ? projectPath.slice(repoRoot.length + 1)
+    : projectPath;
   const dir = dirOf(projectPath);
-  if (project.kind === "deno") return denoProgram(ts, projectPath, dir);
+  if (project.kind === "deno") return denoProgram(ts, projectPath, dir, shown);
   const read = ts.readConfigFile(projectPath, ts.sys.readFile);
   if (read.error !== undefined) {
-    throw new DomainError(
-      `конфигурация проекта ${projectPath} не читается: ${
+    throw new ProjectBuildError(
+      `конфигурация проекта ${shown} не читается: ${
         ts.flattenDiagnosticMessageText(read.error.messageText, " ")
       }`,
     );
@@ -85,8 +99,8 @@ export function buildProgram(
   if (parsed.errors.some((error) => error.code === NO_INPUTS)) return undefined;
   const broken = parsed.errors.find((error) => error.code !== NO_INPUTS);
   if (broken !== undefined) {
-    throw new DomainError(
-      `конфигурация проекта ${projectPath} не разбирается: ${
+    throw new ProjectBuildError(
+      `конфигурация проекта ${shown} не разбирается: ${
         ts.flattenDiagnosticMessageText(broken.messageText, " ")
       }`,
     );
@@ -104,11 +118,12 @@ function denoProgram(
   ts: typeof TS,
   projectPath: string,
   dir: string,
+  shown: string,
 ): TS.Program | undefined {
   const read = ts.readConfigFile(projectPath, ts.sys.readFile);
   if (read.error !== undefined) {
-    throw new DomainError(
-      `конфигурация проекта ${projectPath} не читается: ${
+    throw new ProjectBuildError(
+      `конфигурация проекта ${shown} не читается: ${
         ts.flattenDiagnosticMessageText(read.error.messageText, " ")
       }`,
     );

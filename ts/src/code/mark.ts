@@ -104,6 +104,20 @@ export function renderMark(mark: TreeMark, guarantee: Guarantee): string {
     .join(" · ");
 }
 
+/**
+ * Шапка раздела, который не ответил: та же отметка без поля гарантии.
+ * Гарантия — свойство ответа, она говорит, насколько полон перечень; там,
+ * где перечня нет, заявлять о полноте нечего
+ * (`platform/code-analyzer.md`).
+ */
+export function renderMarkOnly(mark: TreeMark): string {
+  if (mark.state.kind === "out-of-git") return `${mark.repo} · вне git`;
+  const state = mark.state.dirty
+    ? "дерево содержит незакоммиченные изменения"
+    : "дерево чистое";
+  return [mark.repo, mark.state.branch, mark.state.commit, state].join(" · ");
+}
+
 /** Короткая форма отметки для сообщений об ошибках: без гарантии. */
 export function markLabel(mark: TreeMark): string {
   if (mark.state.kind === "out-of-git") return "вне git";

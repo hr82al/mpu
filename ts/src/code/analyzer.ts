@@ -17,10 +17,17 @@ import type { Guarantee, MarkSource } from "./mark.ts";
  *
  * `no-entry` отличается от `module-only` тем, что вход проекта не
  * «не реэкспортирует», а отсутствует: сказать про реэкспорт там нечего.
+ * `entry-unknown` — манифест пакета не разобрался, и вход не определён;
+ * молчаливое «входа нет» тут запрещено: это разные ответы.
  * Значения «неизвестно» здесь нет: объявления печатает только разбор по
  * типам, а текстовый отвечает на эту операцию отказом.
  */
-export type Scope = "entry" | "module-only" | "no-entry" | "private";
+export type Scope =
+  | "entry"
+  | "module-only"
+  | "no-entry"
+  | "entry-unknown"
+  | "private";
 
 /** Объявление в файле репозитория. */
 export interface Declaration {
@@ -34,6 +41,12 @@ export interface Declaration {
    * вывод как данные.
    */
   readonly returnType: string | null;
+  /**
+   * Типы параметров вызываемого объявления по порядку; `null` —
+   * объявление не вызывается. По ним ищутся соседи по сигнатуре: имя
+   * может быть свободно, а вещь под другим именем уже существовать.
+   */
+  readonly paramTypes: readonly string[] | null;
   /** Строка объявления, считая с единицы. */
   readonly line: number;
   readonly scope: Scope;

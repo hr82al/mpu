@@ -9,8 +9,8 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { DomainError, UsageError } from "../command/mod.ts";
-import { renderName, runName } from "./cmd_name.ts";
-import { openFixture } from "./testing.ts";
+import { codeNameCommand, renderName, runName } from "./cmd_name.ts";
+import { openBrokenFixture, openFixture } from "./testing.ts";
 import type { Repo } from "./workspace.ts";
 
 async function name(
@@ -209,6 +209,9 @@ Deno.test("тёзки, ни один из которых не вызываетс
     const text = await name(repo, "LIMIT", "r");
     assertEquals(text.includes("объявления: 2"), true, text);
     assertEquals(text.includes("типы возврата"), false, text);
+    // Раздела соседей тоже нет: образца сигнатуры взять неоткуда, а
+    // «та же сигнатура, другое имя: 0» утверждало бы, что соседей нет.
+    assertEquals(text.includes("та же сигнатура"), false, text);
   } finally {
     await Deno.remove(temp, { recursive: true });
   }
@@ -310,3 +313,63 @@ async function plainProject(
     mark: () => Promise.resolve({ repo: name, state: { kind: "out-of-git" } }),
   };
 }
+
+Deno.test("отказ одного репозитория не отменяет ответы остальных", async (t) => {
+  const temp = await Deno.makeTempDir();
+  try {
+    const broken = await openBrokenFixture(temp);
+    const working = await plainProject(`${temp}/works`, {
+      "src/a.ts":
+        "export function alpha(day: string): string {\n  return day;\n}\n",
+    });
+    const result = await runName(
+      { name: "alpha", in: undefined, limit: 200 },
+      { cwd: () => working.root },
+      [broken, working],
+    );
+    const text = renderName(result);
+
+    await t.step("отказавший раздел назвал причину", () => {
+      // У отказавшего раздела ни гарантии, ни перечней нет по типу:
+      // состояния «отказ и при этом перечень» не существует.
+      assertEquals(result.sections[0].kind, "refused", text);
+      assertEquals(
+        text.includes("  отказ: конфигурация проекта tsconfig.json"),
+        true,
+        text,
+      );
+    });
+
+    await t.step("соседний раздел ответил", () => {
+      // Замер спецификатора: один репозиторий без установленных
+      // зависимостей обнулял ответ по всем восьми.
+      const answered = result.sections[1];
+      assertEquals(answered.kind, "answer", text);
+      if (answered.kind !== "answer") return;
+      assertEquals(answered.declarations.total, 1, text);
+    });
+
+    await t.step("ответил хотя бы один — код выхода нулевой", () => {
+      assertEquals(codeNameCommand.textExitCode(result), 0, text);
+    });
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});
+
+Deno.test("не ответил ни один раздел — код выхода единица", async () => {
+  const temp = await Deno.makeTempDir();
+  try {
+    const broken = await openBrokenFixture(temp);
+    const result = await runName(
+      { name: "alpha", in: undefined, limit: 200 },
+      { cwd: () => broken.root },
+      [broken],
+    );
+    // Отказ раздела и отказ команды — разное; совпадают они только
+    // когда раздел один (`platform/code-analyzer.md`).
+    assertEquals(codeNameCommand.textExitCode(result), 1);
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});

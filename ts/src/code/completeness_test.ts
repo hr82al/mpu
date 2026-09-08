@@ -9,6 +9,7 @@
  * же уверенно неверный ответ, как пропущенный.
  */
 
+import type { RefsResult } from "./refs.ts";
 import { assertEquals } from "@std/assert";
 import { runRefs } from "./cmd_refs.ts";
 import type { Repo } from "./workspace.ts";
@@ -39,7 +40,7 @@ async function consumers(repo: Repo, address: string): Promise<string[]> {
     { cwd: () => repo.root },
     [repo],
   );
-  return result.consumers.places.map((place) => place.path);
+  return answered(result).consumers.places.map((place) => place.path);
 }
 
 const PROJECT = '{"compilerOptions":{"strict":true,"noEmit":true},' +
@@ -149,7 +150,7 @@ Deno.test("динамический импорт с невычислимым п�
       { cwd: () => repo.root },
       [repo],
     );
-    const named = result.unresolved.items.map((item) => item.path);
+    const named = answered(result).unresolved.items.map((item) => item.path);
     for (
       const path of ["src/byCall.ts", "src/byName.ts", "src/byTemplate.ts"]
     ) {
@@ -159,14 +160,25 @@ Deno.test("динамический импорт с невычислимым п�
     }
     await t.step("причина названа", () => {
       assertEquals(
-        result.unresolved.items.every((item) =>
+        answered(result).unresolved.items.every((item) =>
           item.reason === "спецификатор не литерал"
         ),
         true,
-        JSON.stringify(result.unresolved.items),
+        JSON.stringify(answered(result).unresolved.items),
       );
     });
   } finally {
     await Deno.remove(temp, { recursive: true });
   }
 });
+
+/** Ответивший раздел результата; отказ в этих проверках не ожидается. */
+function answered(result: { section: { kind: string } }) {
+  if (result.section.kind !== "answer") {
+    throw new Error(`раздел отказал: ${JSON.stringify(result.section)}`);
+  }
+  return result.section as Extract<
+    RefsResult["section"],
+    { kind: "answer" }
+  >;
+}

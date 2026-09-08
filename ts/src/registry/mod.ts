@@ -115,6 +115,7 @@ import { glabStatusCommand } from "../glab/mod.ts";
 import { apiCommands } from "../api/mod.ts";
 import { d2MiroCommand } from "../d2miro/mod.ts";
 import {
+  codeMentionsCommand,
   codeNameCommand,
   codeRefsCommand,
   codeTwinsCommand,
@@ -347,6 +348,7 @@ export const commands: readonly Command[] = [
   codeRefsCommand,
   codeTwinsCommand,
   codeNameCommand,
+  codeMentionsCommand,
 ];
 
 /**
@@ -464,7 +466,7 @@ export const groups: readonly CommandGroup[] = [
     // Семейство `code` целиком наше: в слепке прежней реализации таких
     // имён нет. Индекс собирает реестр, как у `kiten` и `sheet`.
     path: ["code"],
-    summary: "связи кода рабочей области: ссылки, близнецы, имена",
+    summary: "связи кода рабочей области: ссылки, близнецы, имена, упоминания",
     usage: "mpu code <подкоманда> [аргументы]",
   },
   {

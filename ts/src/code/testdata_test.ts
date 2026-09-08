@@ -12,6 +12,8 @@ const CHANNEL = "code";
 
 /** Пути относительно каталога канала; каталоги — через «/». */
 const NAMES: readonly string[] = [
+  "broken-tree/src/a.ts.txt",
+  "broken-tree/tsconfig.json.txt",
   "deno-tree/deno.json.txt",
   "deno-tree/mod.ts.txt",
   "deno-tree/src/broken.ts.txt",
@@ -23,6 +25,8 @@ const NAMES: readonly string[] = [
   "name-empty.stdout.txt",
   "refs-module.stdout.txt",
   "refs-orphan.stdout.txt",
+  "mentions-stale.stdout.txt",
+  "refs-refused.stdout.txt",
   "refs-symbol-deno.stdout.txt",
   "refs-symbol.stdout.txt",
   "tree/docs/guide.md.txt",

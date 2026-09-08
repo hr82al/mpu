@@ -11,7 +11,7 @@
 import { z } from "@zod/zod";
 import { DomainError, UsageError } from "../command/mod.ts";
 import type { Analyzer, Declaration, Target } from "./analyzer.ts";
-import { markLabel } from "./mark.ts";
+import { markLabel, type TreeMark } from "./mark.ts";
 import {
   asMark,
   markSchema,
@@ -28,29 +28,59 @@ const placeSchema = z.object({
 });
 
 /** Раздел перечня: сколько нашлось всего и что уместилось в предел. */
-const sectionSchema = z.object({
+const countedSchema = z.object({
   total: z.number().int().nonnegative(),
   places: z.array(placeSchema),
 });
 
-const resultSchema = z.object({
-  mark: markSchema,
-  guarantee: z.enum(["types", "text"]),
-  /** Цель вопроса: символ строки либо модуль целиком. */
-  target: z.object({
-    kind: z.enum(["symbol", "module"]),
-    path: z.string(),
-    line: z.number().int().positive().nullable(),
+/**
+ * Ответ поверхности: либо ответ, либо отказ. Размеченное объединение, а
+ * не набор независимо пустых полей: у отказавшего раздела нет ни
+ * гарантии, ни перечней, и рендеру не приходится замазывать
+ * несуществующие состояния подстановками, печатающими неправду
+ * (`ts/CLAUDE.md`, «Расширение — discriminated union»).
+ */
+const sectionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("answer"),
+    mark: markSchema,
+    guarantee: z.enum(["types", "text"]),
+    /** Цель вопроса: символ строки либо модуль целиком. */
+    target: z.object({
+      kind: z.enum(["symbol", "module"]),
+      path: z.string(),
+      line: z.number().int().positive().nullable(),
+    }),
+    /** Объявление цели-символа; у цели-модуля пусто. */
+    symbol: z.object({
+      name: z.string(),
+      signature: z.string(),
+      scope: z.enum([
+        "entry",
+        "module-only",
+        "no-entry",
+        "entry-unknown",
+        "private",
+      ]),
+    }).nullable(),
+    consumers: countedSchema,
+    unresolved: unresolvedSchema,
   }),
-  /** Объявление цели-символа; у цели-модуля пусто. */
-  symbol: z.object({
-    name: z.string(),
-    signature: z.string(),
-    scope: z.enum(["entry", "module-only", "no-entry", "private"]),
-  }).nullable(),
-  consumers: sectionSchema,
-  unresolved: unresolvedSchema,
-});
+  z.object({
+    kind: z.literal("refused"),
+    mark: markSchema,
+    refusal: z.string(),
+  }),
+]);
+
+const resultSchema = z.object({ section: sectionSchema });
+
+/** Ответ-отказ: отметка есть, ответа нет. */
+export function refusedRefs(mark: TreeMark, reason: string): RefsResult {
+  return {
+    section: { kind: "refused", mark: asMark(mark), refusal: reason },
+  };
+}
 
 /** Ответ `mpu code refs`. */
 export type RefsResult = z.infer<typeof resultSchema>;
@@ -81,20 +111,23 @@ export async function collectRefs(
     : { kind: "symbol", path: address.path, line: address.line };
   const places = analyzer.consumersOf(target);
   return {
-    mark: asMark(mark),
-    guarantee: analyzer.guarantee,
-    target: {
-      kind: target.kind,
-      path: address.path,
-      line: address.line ?? null,
+    section: {
+      kind: "answer",
+      mark: asMark(mark),
+      guarantee: analyzer.guarantee,
+      target: {
+        kind: target.kind,
+        path: address.path,
+        line: address.line ?? null,
+      },
+      symbol: declaration === undefined ? null : {
+        name: declaration.name,
+        signature: declaration.signature,
+        scope: declaration.scope,
+      },
+      consumers: { total: places.length, places: places.slice(0, limit) },
+      unresolved: unresolvedOf(analyzer, limit),
     },
-    symbol: declaration === undefined ? null : {
-      name: declaration.name,
-      signature: declaration.signature,
-      scope: declaration.scope,
-    },
-    consumers: { total: places.length, places: places.slice(0, limit) },
-    unresolved: unresolvedOf(analyzer, limit),
   };
 }
 

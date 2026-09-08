@@ -8,12 +8,25 @@
  * правки.
  */
 
-/** Каталоги, внутрь которых обход не идёт. */
-export const SKIPPED_DIRS: readonly string[] = [
-  "node_modules",
-  "dist",
-  ".git",
-];
+/**
+ * Каталоги, внутрь которых обход не идёт: зависимости и артефакты
+ * сборки. `dist` здесь ради поиска проектов — спека определяет проект
+ * как конфигурацию «вне `node_modules` и `dist`».
+ */
+const SKIPPED_DIRS: readonly string[] = ["node_modules", "dist"];
+
+/**
+ * Пропускается ли каталог при обходе состава проекта. Всё, что
+ * начинается с точки, — тоже:
+ * у проекта вида Deno отсечь кэш иначе нечем, а в `.deno` лежат тысячи
+ * `.ts`, и попади они в программу — ответ стал бы неверным молча.
+ * Полагаться на то, что репозиторий сам перечислил их в `exclude`,
+ * нельзя: это совпадение, а не устройство
+ * (`platform/code-analyzer.md`).
+ */
+function isSkippedDir(name: string): boolean {
+  return name.startsWith(".") || SKIPPED_DIRS.includes(name);
+}
 
 /**
  * Файлы поддерева с одним из расширений; пути — от корня обхода, в
@@ -24,9 +37,10 @@ export function walkFiles(
   root: string,
   suffixes: readonly string[],
   skip: (relative: string) => boolean = () => false,
+  skipDir: (name: string) => boolean = isSkippedDir,
 ): readonly string[] {
   const found: string[] = [];
-  collect(root, "", suffixes, skip, found);
+  collect(root, "", suffixes, skip, skipDir, found);
   return found.sort();
 }
 
@@ -35,14 +49,22 @@ function collect(
   prefix: string,
   suffixes: readonly string[],
   skip: (relative: string) => boolean,
+  skipDir: (name: string) => boolean,
   into: string[],
 ): void {
   for (const entry of readDirSorted(dir)) {
     const relative = `${prefix}${entry.name}`;
     if (skip(relative)) continue;
     if (entry.isDirectory) {
-      if (SKIPPED_DIRS.includes(entry.name)) continue;
-      collect(`${dir}/${entry.name}`, `${relative}/`, suffixes, skip, into);
+      if (skipDir(entry.name)) continue;
+      collect(
+        `${dir}/${entry.name}`,
+        `${relative}/`,
+        suffixes,
+        skip,
+        skipDir,
+        into,
+      );
       continue;
     }
     if (suffixes.some((suffix) => entry.name.endsWith(suffix))) {

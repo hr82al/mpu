@@ -14,7 +14,7 @@ import type { Analyzer } from "./analyzer.ts";
 import type { Address } from "./address.ts";
 import type { Body } from "./body.ts";
 import { difference } from "./body.ts";
-import { markLabel } from "./mark.ts";
+import { markLabel, type TreeMark } from "./mark.ts";
 import {
   asMark,
   markSchema,
@@ -39,20 +39,43 @@ const sectionSchema = z.object({
   twins: z.array(twinSchema),
 });
 
-const resultSchema = z.object({
-  mark: markSchema,
-  guarantee: z.enum(["types", "text"]),
-  /** Объявление, чьё тело взято. */
-  query: z.object({
-    name: z.string(),
-    signature: z.string(),
-    path: z.string(),
-    line: z.number().int().positive(),
+/**
+ * Ответ поверхности: либо ответ, либо отказ. Размеченное объединение по
+ * той же причине, что у остальных поверхностей семейства: у отказавшего
+ * раздела нет ни гарантии, ни перечней, и состояния «отказ и при этом
+ * перечень» существовать не должно.
+ */
+const answerSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("answer"),
+    mark: markSchema,
+    guarantee: z.enum(["types", "text"]),
+    /** Объявление, чьё тело взято. */
+    query: z.object({
+      name: z.string(),
+      signature: z.string(),
+      path: z.string(),
+      line: z.number().int().positive(),
+    }),
+    exact: sectionSchema,
+    similar: sectionSchema,
+    unresolved: unresolvedSchema,
   }),
-  exact: sectionSchema,
-  similar: sectionSchema,
-  unresolved: unresolvedSchema,
-});
+  z.object({
+    kind: z.literal("refused"),
+    mark: markSchema,
+    refusal: z.string(),
+  }),
+]);
+
+const resultSchema = z.object({ section: answerSchema });
+
+/** Ответ-отказ: отметка есть, ответа нет. */
+export function refusedTwins(mark: TreeMark, reason: string): TwinsResult {
+  return {
+    section: { kind: "refused", mark: asMark(mark), refusal: reason },
+  };
+}
 
 /** Ответ `mpu code twins`. */
 export type TwinsResult = z.infer<typeof resultSchema>;
@@ -93,22 +116,25 @@ export async function collectTwins(
     body.text !== query.text && body.normalized === query.normalized
   );
   return {
-    mark: asMark(mark),
-    guarantee: analyzer.guarantee,
-    query: {
-      name: query.name,
-      signature: query.signature,
-      path: query.path,
-      line: query.line,
+    section: {
+      kind: "answer",
+      mark: asMark(mark),
+      guarantee: analyzer.guarantee,
+      query: {
+        name: query.name,
+        signature: query.signature,
+        path: query.path,
+        line: query.line,
+      },
+      // Запрошенное тело стоит ПЕРВОЙ строкой, вне общего порядка, и
+      // усечением не режется: инвариант «раздел содержит запрошенное»,
+      // который держится на счётчике, а не на самом разделе, — не
+      // инвариант, и при малом пределе запрошенное выпадало из
+      // собственного ответа.
+      exact: withQuery(query, section(exact, limit - 1, () => null)),
+      similar: section(similar, limit, (body) => difference(query, body)),
+      unresolved: unresolvedOf(analyzer, limit),
     },
-    // Запрошенное тело стоит ПЕРВОЙ строкой, вне общего порядка, и
-    // усечением не режется: инвариант «раздел содержит запрошенное»,
-    // который держится на счётчике, а не на самом разделе, — не
-    // инвариант, и при малом пределе запрошенное выпадало из
-    // собственного ответа.
-    exact: withQuery(query, section(exact, limit - 1, () => null)),
-    similar: section(similar, limit, (body) => difference(query, body)),
-    unresolved: unresolvedOf(analyzer, limit),
   };
 }
 
@@ -160,8 +186,8 @@ function isCallable(signature: string): boolean {
 /** Запрошенное тело первой строкой раздела, поверх усечения остальных. */
 function withQuery(
   query: Body,
-  rest: TwinsResult["exact"],
-): TwinsResult["exact"] {
+  rest: z.infer<typeof sectionSchema>,
+): z.infer<typeof sectionSchema> {
   return {
     total: rest.total + 1,
     twins: [
@@ -181,7 +207,7 @@ function section(
   bodies: readonly Body[],
   limit: number,
   describe: (body: Body) => string | null,
-): TwinsResult["exact"] {
+): z.infer<typeof sectionSchema> {
   const sorted = [...bodies].sort(byPathAndLine);
   return {
     total: sorted.length,
