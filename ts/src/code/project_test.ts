@@ -29,8 +29,8 @@ Deno.test("проекты — только tsconfig.json и только вне 
       await Deno.writeTextFile(path, "{}\n");
     }
     assertEquals(findProjects(temp), [
-      `${temp}/pkg/tsconfig.json`,
-      `${temp}/tsconfig.json`,
+      { kind: "tsconfig", path: `${temp}/pkg/tsconfig.json` },
+      { kind: "tsconfig", path: `${temp}/tsconfig.json` },
     ]);
     // Каталога нет — пусто, а не исключение: репозиторий мог исчезнуть
     // между снятием списка и обходом.
@@ -61,7 +61,10 @@ Deno.test("исключения кода снимаются, исключени�
       `${temp}/node_modules/dep/index.ts`,
       "export const d = 4;\n",
     );
-    const program = buildProgram(ts, `${temp}/tsconfig.json`);
+    const program = buildProgram(ts, {
+      kind: "tsconfig",
+      path: `${temp}/tsconfig.json`,
+    });
     assertExists(program, "программа не построена");
     assertEquals(
       program.getRootFileNames().map((name) => name.slice(temp.length + 1))
@@ -82,7 +85,10 @@ Deno.test("конфигурация без входных файлов прое�
     );
     // Отказом это быть не может: solution-style конфиг рядом с рабочим
     // проектом положил бы весь ответ по репозиторию.
-    assertEquals(buildProgram(ts, `${temp}/tsconfig.json`), undefined);
+    assertEquals(
+      buildProgram(ts, { kind: "tsconfig", path: `${temp}/tsconfig.json` }),
+      undefined,
+    );
   } finally {
     await Deno.remove(temp, { recursive: true });
   }
@@ -93,7 +99,8 @@ Deno.test("непостроенная программа — отказ с пр�
   try {
     await t.step("конфигурации нет", () => {
       assertThrows(
-        () => buildProgram(ts, `${temp}/tsconfig.json`),
+        () =>
+          buildProgram(ts, { kind: "tsconfig", path: `${temp}/tsconfig.json` }),
         DomainError,
         "не читается",
       );
@@ -108,7 +115,8 @@ Deno.test("непостроенная программа — отказ с пр�
         '{"compilerOptions":{"target":"НЕТ ТАКОЙ"},"include":["src/**/*"]}\n',
       );
       assertThrows(
-        () => buildProgram(ts, `${temp}/tsconfig.json`),
+        () =>
+          buildProgram(ts, { kind: "tsconfig", path: `${temp}/tsconfig.json` }),
         DomainError,
         "не разбирается",
       );

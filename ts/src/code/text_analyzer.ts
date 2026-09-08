@@ -17,7 +17,7 @@
 import type { Analyzer, Place, Target } from "./analyzer.ts";
 import { byPathAndLine } from "./analyzer.ts";
 import type { MarkSource } from "./mark.ts";
-import { SKIPPED_DIRS } from "./project.ts";
+import { walkFiles } from "./tree.ts";
 
 /** Расширения, которые текстовый разбор считает кодом. */
 const CODE_SUFFIXES: readonly string[] = [
@@ -139,21 +139,5 @@ function firstMatch(
 
 /** Файлы кода репозитория относительно его корня. */
 function codeFiles(repoRoot: string): readonly string[] {
-  const found: string[] = [];
-  collect(repoRoot, "", found);
-  return found.sort();
-}
-
-function collect(dir: string, prefix: string, into: string[]): void {
-  for (const entry of Deno.readDirSync(dir)) {
-    const name = `${prefix}${entry.name}`;
-    if (entry.isDirectory) {
-      if (SKIPPED_DIRS.includes(entry.name)) continue;
-      collect(`${dir}/${entry.name}`, `${name}/`, into);
-      continue;
-    }
-    if (CODE_SUFFIXES.some((suffix) => entry.name.endsWith(suffix))) {
-      into.push(name);
-    }
-  }
+  return walkFiles(repoRoot, CODE_SUFFIXES);
 }

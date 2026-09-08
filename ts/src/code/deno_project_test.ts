@@ -106,7 +106,10 @@ Deno.test("проект собирается без диагностик, кро
   const temp = await Deno.makeTempDir();
   try {
     const repo = await openDenoFixture(temp);
-    const program = buildProgram(ts, `${repo.root}/deno.json`);
+    const program = buildProgram(ts, {
+      kind: "deno",
+      path: `${repo.root}/deno.json`,
+    });
     assertEquals(program !== undefined, true, "программа не построена");
     // Импорт с расширением `.ts` модуль разрешает и без разрешающей
     // опции (замер 2026-09-08) — но помечает ошибкой. На перечень
@@ -164,7 +167,10 @@ Deno.test("exclude конфигурации Deno убирает файлы из 
       `${root}/vendor/skipped.ts`,
       "export const c = 3;\n",
     );
-    const program = buildProgram(ts, `${root}/deno.json`);
+    const program = buildProgram(ts, {
+      kind: "deno",
+      path: `${root}/deno.json`,
+    });
     const files = (program?.getRootFileNames() ?? [])
       .map((file) => file.slice(root.length + 1)).sort();
 

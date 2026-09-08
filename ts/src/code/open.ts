@@ -84,7 +84,7 @@ async function typeAnalyzers(repo: Repo): Promise<readonly Analyzer[]> {
     analyzers.push(createTypeAnalyzer({
       ts,
       program,
-      projectPath: project,
+      projectPath: project.path,
       repoRoot: repo.root,
       mark: repo.mark,
     }));

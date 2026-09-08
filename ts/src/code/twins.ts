@@ -185,7 +185,7 @@ function section(
   const sorted = [...bodies].sort(byPathAndLine);
   return {
     total: sorted.length,
-    twins: sorted.slice(0, Math.max(limit, 0)).map((body) => ({
+    twins: sorted.slice(0, limit).map((body) => ({
       path: body.path,
       line: body.line,
       name: body.name,

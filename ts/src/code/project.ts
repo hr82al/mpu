@@ -10,62 +10,40 @@
 
 import type TS from "typescript";
 import { DomainError } from "../command/mod.ts";
+import { walkFiles } from "./tree.ts";
 
 /**
- * Имена файлов проекта. `tsconfig.json` — ровно это, без вариантов вроде
- * `*.base.json`; `deno.json`/`deno.jsonc` — корень конфигурации Deno.
- * Второй вид обязателен: без него репозиторий на Deno не имеет проектов
- * вовсе, и команда отказывает по нему на любой вопрос о символе.
+ * Вид проекта. `tsconfig.json` — ровно это имя, без вариантов вроде
+ * `*.base.json`; `deno` — `deno.json` либо `deno.jsonc`. Второй вид
+ * обязателен: без него репозиторий на Deno не имеет проектов вовсе, и
+ * команда отказывает по нему на любой вопрос о символе.
  */
-const PROJECT_FILES: readonly string[] = [
-  "tsconfig.json",
-  "deno.json",
-  "deno.jsonc",
-];
+export interface Project {
+  readonly kind: "tsconfig" | "deno";
+  readonly path: string;
+}
+
+/** Имя файла конфигурации → вид проекта. */
+const PROJECT_KINDS: Readonly<Record<string, Project["kind"]>> = {
+  "tsconfig.json": "tsconfig",
+  "deno.json": "deno",
+  "deno.jsonc": "deno",
+};
 
 /** Расширения, которые состав deno-проекта включает. */
 const DENO_SUFFIXES: readonly string[] = [".ts", ".tsx"];
-
-/**
- * Каталоги, внутрь которых обход дерева не идёт: зависимости, артефакты
- * сборки и служебный каталог git. Общие на оба анализатора — иначе одно
- * изменение требования пришлось бы вносить в двух местах.
- */
-export const SKIPPED_DIRS: readonly string[] = ["node_modules", "dist", ".git"];
 
 /**
  * Пути `tsconfig.json` репозитория. Список нигде не зашит: он
  * снимается с диска на каждый вызов, потому что кэш, собранный на одной
  * ветке и прочитанный на другой, уверенно врёт.
  */
-export function findProjects(repoRoot: string): readonly string[] {
-  const found: string[] = [];
-  collectProjects(repoRoot, found);
-  return found.sort();
-}
-
-function collectProjects(dir: string, into: string[]): void {
-  for (const entry of readDirSorted(dir)) {
-    const path = `${dir}/${entry.name}`;
-    if (entry.isDirectory) {
-      if (SKIPPED_DIRS.includes(entry.name)) continue;
-      collectProjects(path, into);
-      continue;
-    }
-    if (PROJECT_FILES.includes(entry.name)) into.push(path);
-  }
-}
-
-/** Записи каталога в стабильном порядке; каталога нет — пусто. */
-function readDirSorted(dir: string): readonly Deno.DirEntry[] {
-  try {
-    return [...Deno.readDirSync(dir)].sort((a, b) =>
-      a.name < b.name ? -1 : a.name > b.name ? 1 : 0
-    );
-  } catch (err) {
-    if (err instanceof Deno.errors.NotFound) return [];
-    throw err;
-  }
+export function findProjects(repoRoot: string): readonly Project[] {
+  return walkFiles(repoRoot, Object.keys(PROJECT_KINDS))
+    .map((relative) => ({
+      kind: PROJECT_KINDS[relative.slice(relative.lastIndexOf("/") + 1)],
+      path: `${repoRoot}/${relative}`,
+    }));
 }
 
 /** Код диагностики TypeScript «в конфигурации не нашлось файлов». */
@@ -86,12 +64,11 @@ const NO_INPUTS = 18003;
  */
 export function buildProgram(
   ts: typeof TS,
-  projectPath: string,
+  project: Project,
 ): TS.Program | undefined {
+  const projectPath = project.path;
   const dir = dirOf(projectPath);
-  if (!projectPath.endsWith("/tsconfig.json")) {
-    return denoProgram(ts, projectPath, dir);
-  }
+  if (project.kind === "deno") return denoProgram(ts, projectPath, dir);
   const read = ts.readConfigFile(projectPath, ts.sys.readFile);
   if (read.error !== undefined) {
     throw new DomainError(
@@ -136,7 +113,12 @@ function denoProgram(
       }`,
     );
   }
-  const files = denoFiles(dir, "", excludesOf(asRecord(read.config)));
+  const excluded = excludesOf(asRecord(read.config));
+  const files = walkFiles(
+    dir,
+    DENO_SUFFIXES,
+    (relative) => isExcluded(relative, excluded),
+  ).map((relative) => `${dir}/${relative}`);
   // Ни одного исходника — проектом такая конфигурация не считается, как
   // и `tsconfig.json` с пустым списком файлов.
   if (files.length === 0) return undefined;
@@ -176,28 +158,6 @@ function excludesOf(config: Record<string, unknown>): readonly string[] {
  */
 function isExcluded(path: string, excluded: readonly string[]): boolean {
   return excluded.includes(path);
-}
-
-/** Исходники deno-проекта: `.ts`/`.tsx` каталога вне исключений. */
-function denoFiles(
-  dir: string,
-  prefix: string,
-  excluded: readonly string[],
-): readonly string[] {
-  const found: string[] = [];
-  for (const entry of readDirSorted(dir)) {
-    const name = `${prefix}${entry.name}`;
-    if (isExcluded(name, excluded)) continue;
-    if (entry.isDirectory) {
-      if (SKIPPED_DIRS.includes(entry.name)) continue;
-      found.push(...denoFiles(`${dir}/${entry.name}`, `${name}/`, excluded));
-      continue;
-    }
-    if (DENO_SUFFIXES.some((suffix) => entry.name.endsWith(suffix))) {
-      found.push(`${dir}/${entry.name}`);
-    }
-  }
-  return found;
 }
 
 /** Исключения артефактов сборки; исключения кода сюда не попадают. */
