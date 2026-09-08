@@ -1,0 +1,9 @@
+// Импорт с расширением .ts — форма, которую компилятор разрешает только
+// с разрешённым импортом расширения; на tsconfig-дереве её нет.
+import { addDays } from './days.ts';
+
+export function windowDays(from: string, to: string): string[] {
+  const days: string[] = [];
+  for (let day = from; day <= to; day = addDays(day, 1)) days.push(day);
+  return days;
+}
