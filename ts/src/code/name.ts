@@ -138,7 +138,14 @@ export async function nameSection(
   // нужен: каталог решает диск, а отметка уже снята.
   assertWindow(job.dir, repo, job.repo.mark);
   try {
-    return await sectionOf(job, await openRepoAnalyzer(repo));
+    // Окно доходит до построения: соседние проекты ответу не нужны, и
+    // платить за них незачем (`platform/code-analyzer.md`, «Стоимость
+    // ответа»). У `refs` и `twins` так нельзя — потребитель и близнец
+    // живут в любом проекте репозитория.
+    const window = job.dir === undefined
+      ? undefined
+      : `${job.repo.root}/${job.dir}`;
+    return await sectionOf(job, await openRepoAnalyzer(repo, window));
   } catch (err) {
     // Отказ ПОСТРОЕНИЯ печатается вместо перечня в своём разделе:
     // один репозиторий без установленных зависимостей не должен
@@ -192,6 +199,10 @@ async function sectionOf(
     neighbours: wanted.length === 0
       ? null
       : neighboursOf(analyzer, files, name, wanted, limit),
+    // Перечень неразрешённого — по проектам ОКНА, а не по всему
+    // репозиторию: соседние программы не строятся, и того, чего они не
+    // разрешили, здесь нет. Хвост говорит о надёжности этого ответа, а
+    // на ответ по окну соседние проекты не влияют.
     unresolved: unresolvedOf(analyzer, limit),
   };
 }

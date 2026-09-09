@@ -11,10 +11,11 @@
  */
 
 import ts from "typescript";
+import type TS from "typescript";
 import type { RefsResult } from "./refs.ts";
 import { assertEquals } from "@std/assert";
 import { renderRefs, runRefs } from "./cmd_refs.ts";
-import { buildProgram } from "./project.ts";
+import { buildProgram, type Built } from "./project.ts";
 import { openDenoFixture } from "./testing.ts";
 
 /**
@@ -107,17 +108,16 @@ Deno.test("проект собирается без диагностик, кро
   const temp = await Deno.makeTempDir();
   try {
     const repo = await openDenoFixture(temp);
-    const program = buildProgram(ts, {
+    const program = program_(buildProgram(ts, {
       kind: "deno",
       path: `${repo.root}/deno.json`,
-    }, repo.root);
-    assertEquals(program !== undefined, true, "программа не построена");
+    }, repo.root));
     // Импорт с расширением `.ts` модуль разрешает и без разрешающей
     // опции (замер 2026-09-08) — но помечает ошибкой. На перечень
     // потребителей это не влияет, а на оракул влияет: файл, ошибочный в
     // базовом прогоне, вычитается из разности. Поэтому опция проверяется
     // здесь, у диагностик, а не у ответа.
-    const complaints = program?.getSemanticDiagnostics() ?? [];
+    const complaints = program.getSemanticDiagnostics();
     const shown = complaints.map((diagnostic) =>
       `${diagnostic.code}: ${
         ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")
@@ -168,11 +168,11 @@ Deno.test("exclude конфигурации Deno убирает файлы из 
       `${root}/vendor/skipped.ts`,
       "export const c = 3;\n",
     );
-    const program = buildProgram(ts, {
+    const program = program_(buildProgram(ts, {
       kind: "deno",
       path: `${root}/deno.json`,
-    }, root);
-    const files = (program?.getRootFileNames() ?? [])
+    }, root));
+    const files = program.getRootFileNames()
       .map((file) => file.slice(root.length + 1)).sort();
 
     await t.step("исключённые не попали в состав", () => {
@@ -203,18 +203,26 @@ Deno.test("обход не заходит в каталоги с точки", as
       `${root}/.deno/npm/cached.ts`,
       "export const b = 2;\n",
     );
-    const program = buildProgram(ts, {
+    const program = program_(buildProgram(ts, {
       kind: "deno",
       path: `${root}/deno.json`,
-    }, root);
+    }, root));
     assertEquals(
-      (program?.getRootFileNames() ?? []).map((f) => f.slice(root.length + 1)),
+      program.getRootFileNames().map((f) => f.slice(root.length + 1)),
       ["src/kept.ts"],
     );
   } finally {
     await Deno.remove(temp, { recursive: true });
   }
 });
+
+/** Построенная программа; иного исхода эти проверки не ожидают. */
+function program_(built: Built): TS.Program {
+  if (built.kind !== "program") {
+    throw new Error(`программа не построена: ${built.kind}`);
+  }
+  return built.program;
+}
 
 /** Ответивший раздел результата; отказ в этих проверках не ожидается. */
 function answered(result: { section: { kind: string } }) {

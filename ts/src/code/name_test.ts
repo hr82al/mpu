@@ -489,3 +489,106 @@ Deno.test("окно проверяется и там, где программа 
     await Deno.remove(temp, { recursive: true });
   }
 });
+
+Deno.test("окно не платит за соседние проекты", async (t) => {
+  const temp = await Deno.makeTempDir();
+  try {
+    // Наблюдаемый след сужения — раздел «не разрешено»: неразрешённая
+    // ссылка живёт в СОСЕДНЕМ проекте, и в ответе по окну её быть не
+    // должно, потому что программа соседа не строится вовсе. Без этого
+    // случая сужение видно только по времени, то есть никак.
+    const root = `${temp}/two`;
+    const config =
+      '{"compilerOptions":{"strict":true,"noEmit":true},"include":["src/**/*"]}\n';
+    for (const pkg of ["p1", "p2"]) {
+      await Deno.mkdir(`${root}/${pkg}/src`, { recursive: true });
+      await Deno.writeTextFile(`${root}/${pkg}/tsconfig.json`, config);
+    }
+    await Deno.writeTextFile(
+      `${root}/p1/src/a.ts`,
+      "export function alpha(): number {\n  return 1;\n}\n",
+    );
+    await Deno.writeTextFile(
+      `${root}/p2/src/b.ts`,
+      "import { gone } from './нет-такого.ts';\n\nexport const b = gone;\n",
+    );
+    const repo: Repo = {
+      name: "two",
+      root,
+      mark: () =>
+        Promise.resolve({ repo: "two", state: { kind: "out-of-git" } }),
+    };
+    const ask = async (where: string | undefined) => {
+      const result = await runName(
+        { name: "alpha", in: where, limit: 200 },
+        { cwd: () => root },
+        [repo],
+      );
+      const section = result.sections[0];
+      if (section.kind !== "answer") throw new Error("раздел отказал");
+      return section;
+    };
+
+    await t.step("без окна отвечают оба проекта", async () => {
+      const section = await ask(undefined);
+      assertEquals(section.declarations.total, 1);
+      assertEquals(section.unresolved.total, 1);
+    });
+
+    await t.step("окно без проектов — пустой ответ, а не отказ", async () => {
+      // Проекты в репозитории есть, но окна не покрывает ни один и
+      // разбираемых файлов в нём нет: спрашивали про каталог, и ответ —
+      // «имя свободно», а не «не могу ответить».
+      await Deno.mkdir(`${root}/docs`, { recursive: true });
+      await Deno.writeTextFile(`${root}/docs/x.md`, "текст\n");
+      const result = await runName(
+        { name: "alpha", in: "two:docs", limit: 200 },
+        { cwd: () => root },
+        [repo],
+      );
+      const section = result.sections[0];
+      assertEquals(section.kind, "answer", JSON.stringify(section));
+      if (section.kind !== "answer") throw new Error("раздел отказал");
+      assertEquals(section.guarantee, "types");
+      assertEquals(section.declarations.total, 0);
+    });
+
+    await t.step("файл окна виден и через импорт соседа", async () => {
+      // Отбор идёт по составу проекта, а домен ответа — замыкание
+      // импортов: `shared/util.ts` не назван ни в одном `include`, но
+      // попадает в программу `p1` через `import`. Сузить обход по
+      // составу и на этом остановиться значило бы ответить «имя
+      // свободно» о занятом имени — молча и под полной гарантией.
+      await Deno.mkdir(`${root}/shared`, { recursive: true });
+      await Deno.writeTextFile(
+        `${root}/shared/util.ts`,
+        "export function beta(): number {\n  return 2;\n}\n",
+      );
+      await Deno.writeTextFile(
+        `${root}/p1/src/uses.ts`,
+        "import { beta } from '../../shared/util.ts';\n\n" +
+          "export const b = beta();\n",
+      );
+      const result = await runName(
+        { name: "beta", in: "two:shared", limit: 200 },
+        { cwd: () => root },
+        [repo],
+      );
+      const section = result.sections[0];
+      if (section.kind !== "answer") throw new Error("раздел отказал");
+      assertEquals(section.guarantee, "types");
+      assertEquals(section.declarations.total, 1);
+      assertEquals(section.declarations.items[0].path, "shared/util.ts");
+    });
+
+    await t.step("с окном соседний проект не строится", async () => {
+      const section = await ask("two:p1");
+      // Ответ тот же и гарантия та же: окно покрыто целиком.
+      assertEquals(section.guarantee, "types");
+      assertEquals(section.declarations.total, 1);
+      assertEquals(section.unresolved.total, 0);
+    });
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});

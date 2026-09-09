@@ -4,7 +4,7 @@
  */
 
 import ts from "typescript";
-import { assertEquals, assertExists, assertThrows } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import { DomainError } from "../command/mod.ts";
 import { buildProgram, dirOf, findProjects } from "./project.ts";
 
@@ -61,13 +61,17 @@ Deno.test("исключения кода снимаются, исключени�
       `${temp}/node_modules/dep/index.ts`,
       "export const d = 4;\n",
     );
-    const program = buildProgram(ts, {
+    const built = buildProgram(ts, {
       kind: "tsconfig",
       path: `${temp}/tsconfig.json`,
     }, temp);
-    assertExists(program, "программа не построена");
+    if (built.kind !== "program") {
+      throw new Error(`программа не построена: ${built.kind}`);
+    }
     assertEquals(
-      program.getRootFileNames().map((name) => name.slice(temp.length + 1))
+      built.program.getRootFileNames().map((name) =>
+        name.slice(temp.length + 1)
+      )
         .sort(),
       ["src/a.spec.ts", "src/a.ts"],
     );
@@ -90,8 +94,8 @@ Deno.test("конфигурация без входных файлов прое�
         ts,
         { kind: "tsconfig", path: `${temp}/tsconfig.json` },
         temp,
-      ),
-      undefined,
+      ).kind,
+      "empty",
     );
   } finally {
     await Deno.remove(temp, { recursive: true });
@@ -140,4 +144,33 @@ Deno.test("непостроенная программа — отказ с пр�
 
 Deno.test("каталог пути", () => {
   assertEquals(dirOf("/w/repo/tsconfig.json"), "/w/repo");
+});
+
+Deno.test("окно отбирает по составу, а не по каталогу конфигурации", async () => {
+  const temp = await Deno.makeTempDir();
+  try {
+    // `include` тянет в проект файлы вне его каталога, и отбор по месту
+    // конфигурации потерял бы их: программа не построилась бы там, где
+    // весь ответ и лежит.
+    await Deno.mkdir(`${temp}/pkg`, { recursive: true });
+    await Deno.mkdir(`${temp}/shared`, { recursive: true });
+    await Deno.writeTextFile(
+      `${temp}/pkg/tsconfig.json`,
+      '{"compilerOptions":{"strict":true,"noEmit":true},' +
+        '"include":["../shared/**/*"]}\n',
+    );
+    await Deno.writeTextFile(
+      `${temp}/shared/a.ts`,
+      "export const a = 1;\n",
+    );
+    const built = buildProgram(
+      ts,
+      { kind: "tsconfig", path: `${temp}/pkg/tsconfig.json` },
+      temp,
+      `${temp}/shared`,
+    );
+    assertEquals(built.kind, "program", "состав окна не увиден");
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
 });

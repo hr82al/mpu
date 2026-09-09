@@ -60,6 +60,21 @@ export function findProjects(repoRoot: string): readonly Project[] {
 const NO_INPUTS = 18003;
 
 /**
+ * Чем конфигурация проекта ответила на просьбу построить программу.
+ *
+ * `empty` — не разрешается ни одного файла, и проектом такая
+ * конфигурация по спеке не считается: так выглядят solution-style и
+ * шаблонные конфиги. Отказом это быть не может — соседний рабочий
+ * проект того же репозитория лёг бы вместе с ней. `outside` — файлы
+ * есть, но ни один не лежит в окне вопроса; программа не строится, и
+ * это не отказ, а сэкономленная работа.
+ */
+export type Built =
+  | { readonly kind: "program"; readonly program: TS.Program }
+  | { readonly kind: "empty" }
+  | { readonly kind: "outside" };
+
+/**
  * Строит программу проекта со снятыми исключениями кода
  * (`platform/code-analyzer.md`, «Исключения тестов снимаются»).
  *
@@ -67,22 +82,28 @@ const NO_INPUTS = 18003;
  * затянул бы в программу зависимости у проекта с `include: ["**\/*"]`.
  * Снимаются исключения кода — и никакие исключения артефактов.
  *
- * `undefined` — у конфигурации не разрешается ни одного файла, и
- * проектом она по спеке не считается: так выглядят solution-style и
- * шаблонные конфиги. Отказом это быть не может — соседний рабочий
- * проект того же репозитория лёг бы вместе с ней.
+ * `window` — каталог окна вопроса; проект, ни один файл которого в нём
+ * не лежит, программой не становится (`platform/code-analyzer.md`,
+ * «Стоимость ответа»). Отбор идёт по РАЗРЕШЁННОМУ составу, а не по
+ * месту конфигурации: `include: ["../shared"]` тянет в проект файлы
+ * вне его каталога, и отбор по каталогу терял бы их молча. Состав
+ * разрешается без построения программы и стоит доли секунды — платится
+ * именно построение.
  */
 export function buildProgram(
   ts: typeof TS,
   project: Project,
   repoRoot: string,
-): TS.Program | undefined {
+  window?: string,
+): Built {
   const projectPath = project.path;
   const shown = projectPath.startsWith(`${repoRoot}/`)
     ? projectPath.slice(repoRoot.length + 1)
     : projectPath;
   const dir = dirOf(projectPath);
-  if (project.kind === "deno") return denoProgram(ts, projectPath, dir, shown);
+  if (project.kind === "deno") {
+    return denoProgram(ts, projectPath, dir, shown, window);
+  }
   const read = ts.readConfigFile(projectPath, ts.sys.readFile);
   if (read.error !== undefined) {
     throw new ProjectBuildError(
@@ -96,7 +117,9 @@ export function buildProgram(
   const parsed = ts.parseJsonConfigFileContent(config, ts.sys, dir);
   // Пустой список файлов отличается от ошибки разбора кодом, а не
   // текстом: текст локализуется, код — нет.
-  if (parsed.errors.some((error) => error.code === NO_INPUTS)) return undefined;
+  if (parsed.errors.some((error) => error.code === NO_INPUTS)) {
+    return { kind: "empty" };
+  }
   const broken = parsed.errors.find((error) => error.code !== NO_INPUTS);
   if (broken !== undefined) {
     throw new ProjectBuildError(
@@ -105,7 +128,21 @@ export function buildProgram(
       }`,
     );
   }
-  return ts.createProgram(parsed.fileNames, parsed.options);
+  if (!covers(parsed.fileNames, window)) return { kind: "outside" };
+  return {
+    kind: "program",
+    program: ts.createProgram(parsed.fileNames, parsed.options),
+  };
+}
+
+/**
+ * Лежит ли в окне хоть один файл состава. Окна нет — покрыто всё:
+ * у `refs` и `twins` сужать обход нельзя, потребитель и близнец живут в
+ * любом проекте репозитория.
+ */
+function covers(fileNames: readonly string[], window?: string): boolean {
+  if (window === undefined) return true;
+  return fileNames.some((path) => path.startsWith(`${window}/`));
 }
 
 /**
@@ -119,7 +156,8 @@ function denoProgram(
   projectPath: string,
   dir: string,
   shown: string,
-): TS.Program | undefined {
+  window?: string,
+): Built {
   const read = ts.readConfigFile(projectPath, ts.sys.readFile);
   if (read.error !== undefined) {
     throw new ProjectBuildError(
@@ -136,8 +174,9 @@ function denoProgram(
   ).map((relative) => `${dir}/${relative}`);
   // Ни одного исходника — проектом такая конфигурация не считается, как
   // и `tsconfig.json` с пустым списком файлов.
-  if (files.length === 0) return undefined;
-  return ts.createProgram(files, {
+  if (files.length === 0) return { kind: "empty" };
+  if (!covers(files, window)) return { kind: "outside" };
+  const program = ts.createProgram(files, {
     target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
@@ -147,6 +186,7 @@ function denoProgram(
     strict: true,
     noEmit: true,
   });
+  return { kind: "program", program };
 }
 
 /**

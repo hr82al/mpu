@@ -19,8 +19,8 @@ import { byPathAndLine } from "./analyzer.ts";
 import type { MarkSource } from "./mark.ts";
 import { walkFiles } from "./tree.ts";
 
-/** Расширения, которые текстовый разбор считает кодом. */
-const CODE_SUFFIXES: readonly string[] = [
+/** Расширения, которые слой считает кодом. */
+export const CODE_SUFFIXES: readonly string[] = [
   ".ts",
   ".tsx",
   ".mts",

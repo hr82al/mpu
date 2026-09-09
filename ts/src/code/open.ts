@@ -21,7 +21,11 @@ import type {
 } from "./analyzer.ts";
 import type { Bodies, Body } from "./body.ts";
 import { byPathAndLine } from "./analyzer.ts";
-import { buildProgram, findProjects } from "./project.ts";
+import type TS from "typescript";
+import type { MarkSource } from "./mark.ts";
+import { buildProgram, findProjects, type Project } from "./project.ts";
+import { CODE_SUFFIXES } from "./text_analyzer.ts";
+import { walkFiles } from "./tree.ts";
 import { createTextAnalyzer } from "./text_analyzer.ts";
 import { createTypeAnalyzer } from "./types_analyzer.ts";
 import type { Repo } from "./workspace.ts";
@@ -31,13 +35,20 @@ import type { Repo } from "./workspace.ts";
  * `openAnalyzer` отличается тем, что файла у вопроса нет: проекты
  * берутся все, а их отсутствие само по себе становится причиной отказа.
  */
-export async function openRepoAnalyzer(repo: Repo): Promise<Analyzer> {
-  const built = await typeAnalyzers(repo);
+export async function openRepoAnalyzer(
+  repo: Repo,
+  window?: string,
+): Promise<Analyzer> {
+  const built = await typeAnalyzers(repo, window);
   if (built.kind === "none") {
     return textAnalyzer(repo, refusalOf(repo.name, built.cause));
   }
   const analyzers = built.analyzers;
-  return analyzers.length === 1 ? analyzers[0] : merged(analyzers);
+  // Пусто — проекты есть и состав у них непуст, но программу не строил
+  // никто: окна не покрыл ни один, и разбираемых файлов в нём нет.
+  // Ответ по такому окну — пустой перечень с полной гарантией, а не
+  // отказ: спрашивали про каталог, и в нём пусто.
+  return analyzers.length === 1 ? analyzers[0] : merged(analyzers, repo.mark);
 }
 
 /**
@@ -50,6 +61,10 @@ export async function openAnalyzer(
   repo: Repo,
   path: string,
 ): Promise<Analyzer> {
+  // Окно сюда не передаётся и передаваться не может: потребитель и
+  // близнец живут в любом проекте репозитория, и сужение обхода теряло
+  // бы их молча (`platform/code-analyzer.md`, «Стоимость ответа»; тот
+  // же случай — находка порции 99, подтверждённая оракулом).
   const built = await typeAnalyzers(repo);
   if (built.kind === "none") {
     return textAnalyzer(repo, refusalOf(repo.name, built.cause));
@@ -63,7 +78,7 @@ export async function openAnalyzer(
       `файл ${path} не входит ни в один проект репозитория ${repo.name}`,
     );
   }
-  return analyzers.length === 1 ? analyzers[0] : merged(analyzers);
+  return analyzers.length === 1 ? analyzers[0] : merged(analyzers, repo.mark);
 }
 
 /**
@@ -103,27 +118,81 @@ function refusalOf(repoName: string, cause: NoAnalyzers["cause"]): string {
 }
 
 /** Анализаторы по типам для всех проектов репозитория. */
-async function typeAnalyzers(repo: Repo): Promise<TypeAnalyzers> {
+async function typeAnalyzers(
+  repo: Repo,
+  window?: string,
+): Promise<TypeAnalyzers> {
   const projects = findProjects(repo.root);
   if (projects.length === 0) return { kind: "none", cause: "no-configs" };
   const ts = (await import("typescript")).default;
   const analyzers: Analyzer[] = [];
+  const skipped: Project[] = [];
+  let built = 0;
   for (const project of projects) {
-    const program = buildProgram(ts, project, repo.root);
+    const outcome = buildProgram(ts, project, repo.root, window);
     // Конфигурация без входных файлов проектом не считается: список
     // проектов её отсеивает здесь, где он уже разрешён.
-    if (program === undefined) continue;
-    analyzers.push(createTypeAnalyzer({
-      ts,
-      program,
-      projectPath: project.path,
-      repoRoot: repo.root,
-      mark: repo.mark,
-    }));
+    if (outcome.kind === "empty") continue;
+    built++;
+    // Состав есть, но в окно не попал ни один его файл: программа не
+    // строится, и это сэкономленная работа, а не отказ.
+    if (outcome.kind === "outside") {
+      skipped.push(project);
+      continue;
+    }
+    analyzers.push(analyzerOf(ts, outcome.program, project, repo));
   }
-  return analyzers.length === 0
+  // Отбор идёт по СОСТАВУ проекта, а домен ответа — замыкание импортов:
+  // файл окна может лежать вне всякого `include` и попасть в программу
+  // соседа по `import`. Поэтому окно, покрытое построенным не целиком,
+  // достраивается пропущенными проектами: сэкономить здесь значило бы
+  // потерять объявление молча, под шапкой «ответ полон». Проверка
+  // стоит обход каталога окна, построение — секунды.
+  if (
+    window !== undefined && skipped.length > 0 &&
+    !covered(analyzers, window, repo.root)
+  ) {
+    for (const project of skipped) {
+      const outcome = buildProgram(ts, project, repo.root);
+      if (outcome.kind !== "program") continue;
+      analyzers.push(analyzerOf(ts, outcome.program, project, repo));
+    }
+  }
+  return built === 0
     ? { kind: "none", cause: "no-programs" }
     : { kind: "analyzers", analyzers };
+}
+
+/** Анализатор поверх построенной программы проекта. */
+function analyzerOf(
+  ts: typeof TS,
+  program: TS.Program,
+  project: Project,
+  repo: Repo,
+): Analyzer {
+  return createTypeAnalyzer({
+    ts,
+    program,
+    projectPath: project.path,
+    repoRoot: repo.root,
+    mark: repo.mark,
+  });
+}
+
+/**
+ * Разобран ли каждый файл окна построенными программами. Спрашивается о
+ * файлах окна, а не репозитория: ответ по окну решают только они, и
+ * покрытого окна достаточно, чем бы ни были заняты соседние проекты.
+ */
+function covered(
+  analyzers: readonly Analyzer[],
+  window: string,
+  repoRoot: string,
+): boolean {
+  const known = new Set(analyzers.flatMap((analyzer) => analyzer.files()));
+  const inside = window.slice(repoRoot.length + 1);
+  return walkFiles(window, CODE_SUFFIXES)
+    .every((path) => known.has(`${inside}/${path}`));
 }
 
 function textAnalyzer(repo: Repo, reason: string): Analyzer {
@@ -136,10 +205,10 @@ function textAnalyzer(repo: Repo, reason: string): Analyzer {
  * который файл содержит: область видимости — свойство проекта, и
  * усреднять её между проектами нечего.
  */
-function merged(analyzers: readonly Analyzer[]): Analyzer {
+function merged(analyzers: readonly Analyzer[], mark: MarkSource): Analyzer {
   return {
     guarantee: "types",
-    mark: analyzers[0].mark,
+    mark,
     hasFile: (path) => analyzers.some((analyzer) => analyzer.hasFile(path)),
     files: () =>
       [
