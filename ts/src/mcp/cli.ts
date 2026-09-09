@@ -10,6 +10,7 @@
 import {
   type Command,
   type CommandIo,
+  DomainError,
   type RemoteOutput,
   UsageError,
 } from "../command/mod.ts";
@@ -22,6 +23,16 @@ import {
   serveMcp,
 } from "./server.ts";
 import { ensureAccessToken } from "./token.ts";
+import {
+  isRunning,
+  readServiceState,
+  SERVICE_NAME,
+  type ServiceDeps,
+  serviceDepsIfAny,
+  type ServiceOptions,
+  startService,
+  stopService,
+} from "./service.ts";
 import { VERSION } from "../version.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 
@@ -43,6 +54,32 @@ export interface McpServerRun {
   readonly onListen?: (server: RunningServer) => void;
   /** Журнал вызовов: запись на каждый вызов тула. */
   readonly log: InvokeLog;
+  /**
+   * Менеджер службы: у кого просить порт и кому его возвращать.
+   * Умолчание — настоящий; тесты подставляют своего, потому что в
+   * прогоне тестов менеджера служб пользователя нет.
+   */
+  readonly service?: ServiceOptions;
+  /**
+   * Подписка на сигналы завершения; возвращает способ отписаться.
+   * Шов, а не прямой `Deno.addSignalListener`: проверять возврат службы
+   * настоящим сигналом значило бы слать его собственному прогону
+   * тестов.
+   */
+  readonly onInterrupt?: (handle: () => void) => () => void;
+}
+
+/**
+ * Настоящая подписка на прерывание с клавиатуры и сигнал завершения.
+ * Своя обработка отменяет умолчание Deno «убить процесс», и это ровно
+ * то, что нужно: возврат службы обязан пережить оба.
+ */
+function listenForInterrupt(handle: () => void): () => void {
+  const signals: readonly Deno.Signal[] = ["SIGINT", "SIGTERM"];
+  for (const signal of signals) Deno.addSignalListener(signal, handle);
+  return () => {
+    for (const signal of signals) Deno.removeSignalListener(signal, handle);
+  };
 }
 
 /** Ключ конфига с портом по умолчанию (`platform/config.md`). */
@@ -68,7 +105,12 @@ export type StartupIo = Pick<CommandIo, "env" | "openCacheDb">;
 
 /**
  * Поднимает сервер и ждёт его остановки. Возвращает код завершения
- * процесса: 2 — ошибка ввода, 1 — порт занят.
+ * процесса: 2 — ошибка ввода, 1 — порт занят либо уступившую службу не
+ * удалось вернуть.
+ *
+ * Отказ менеджера службы при уступке порта бросается `DomainError`:
+ * передний план в этом случае не поднимался, и делать вид, что вызов
+ * состоялся, не за что.
  */
 export async function runMcpServer(
   argv: readonly string[],
@@ -82,13 +124,33 @@ export async function runMcpServer(
   }
   const port = options.port ?? configuredPort(io);
   const token = await ensureAccessToken(io);
+  // Гашение сервера — одна точка на все способы закончить: штатный
+  // конец, сигнал извне и прерывание с клавиатуры.
+  const stopping = new AbortController();
+  const stop = () => stopping.abort();
+  run.signal?.addEventListener("abort", stop);
+  if (run.signal?.aborted) stop();
+  // Подписка ставится ДО уступки, а не после: окно, в котором служба
+  // остановлена, начинается внутри `borrowPort` — прерывание во время
+  // `systemctl stop` иначе убило бы процесс умолчанием Deno и оставило
+  // бы службу лежать.
+  let unlisten = (run.onInterrupt ?? listenForInterrupt)(stop);
+  let borrowed: ServiceDeps | undefined;
+  let code = 0;
   try {
+    borrowed = await borrowPort(run, port);
+    if (borrowed === undefined) {
+      // Службу не трогали — и умолчание «сигнал убивает процесс»
+      // остаётся тем же, каким было до этой спеки.
+      unlisten();
+      unlisten = () => {};
+    }
     const server = await serveMcp({
       port,
       profiles: options.profiles,
       token,
       deps: { io: withoutStdin(io), commands, version: VERSION, log: run.log },
-      signal: run.signal,
+      signal: stopping.signal,
     });
     // Адрес печатается в stderr: stdout этой поверхности принадлежит
     // протоколу, и туда не должно попадать ничего постороннего.
@@ -98,14 +160,90 @@ export async function runMcpServer(
     );
     run.onListen?.(server);
     await server.finished;
-    return 0;
   } catch (err) {
-    if (err instanceof Deno.errors.AddrInUse) {
-      output.stderr(`mpu mcp: порт ${port} занят\n`);
-      return 1;
+    if (!(err instanceof Deno.errors.AddrInUse)) throw err;
+    output.stderr(`mpu mcp: порт ${port} занят\n`);
+    code = 1;
+  } finally {
+    // Возврат службы — до снятия подписок: пока он идёт, окно ещё
+    // открыто. Снятие при этом безусловно, даже если возврат отказал
+    // не по-доменному, — иначе обработчики сигналов пережили бы вызов.
+    try {
+      if (borrowed !== undefined && !await returnPort(run, borrowed)) code = 1;
+    } finally {
+      unlisten();
+      run.signal?.removeEventListener("abort", stop);
     }
-    throw err;
   }
+  return code;
+}
+
+/**
+ * Порт под передний план: работающая служба его уступает, а по выходе
+ * получает обратно. Отвечает тем, у кого порт взят; `undefined` —
+ * «трогать нечего», и после выхода не запускается ничего: заводить
+ * службу, которой не было, команда не должна.
+ *
+ * Порт, заданный флагом не тем, на котором стоит служба, уступки не
+ * требует: занят он не ею.
+ */
+async function borrowPort(
+  run: McpServerRun,
+  port: number,
+): Promise<ServiceDeps | undefined> {
+  if (port !== configuredPort(run.io)) return undefined;
+  const deps = serviceDepsIfAny(run.io, run.service);
+  if (deps === undefined) return undefined;
+  // Проверка описания — до всякого обращения к менеджеру: на
+  // неописанной службе `stopService` отказал бы, а отказывать здесь
+  // не за что.
+  const state = await readServiceState(deps);
+  if (state.program === null || !isRunning(state.activity)) return undefined;
+  // Останавливала ли служба именно эта команда, знает сама остановка:
+  // между вопросом о состоянии и ответом менеджера службу мог погасить
+  // кто-то ещё, и тогда уступать было нечего — а запустить её после
+  // себя значило бы поднять то, что стояло.
+  if (!(await stopService(deps)).changed) return undefined;
+  // С машиной владельца делается заметное, и он должен это видеть.
+  run.output.stderr(
+    `mpu mcp: служба ${SERVICE_NAME} остановлена, порт ${port} уступлен ей\n`,
+  );
+  return deps;
+}
+
+/**
+ * Возврат службы на место. Отказ не бросается наружу: передний план к
+ * этому моменту уже отработал, и прятать его итог за отказом менеджера
+ * нечестно, — вместо этого называется, чем вернуть службу руками.
+ *
+ * @returns удалось ли вернуть
+ */
+async function returnPort(
+  run: McpServerRun,
+  deps: ServiceDeps,
+): Promise<boolean> {
+  let started: boolean;
+  try {
+    started = (await startService(deps)).changed;
+  } catch (err) {
+    // Отказ менеджера — ожидаемый исход; дефект собственного кода
+    // отказом службы притворяться не должен.
+    if (!(err instanceof DomainError)) throw err;
+    // Что делать дальше, называет `status`, а не готовая команда: сам
+    // отказ уже мог назвать свою (снятое описание советует `enable`), и
+    // два разных совета в двух соседних строках обманывают читателя.
+    run.output.stderr(
+      `mpu mcp: службу ${SERVICE_NAME} вернуть не удалось: ${err.message}\n` +
+        "mpu mcp: что с ней теперь — `mpu mcp status`\n",
+    );
+    return false;
+  }
+  run.output.stderr(
+    started
+      ? `mpu mcp: служба ${SERVICE_NAME} запущена снова\n`
+      : `mpu mcp: служба ${SERVICE_NAME} уже работала — возвращать нечего\n`,
+  );
+  return true;
 }
 
 /**

@@ -4,7 +4,13 @@
  * токен не печатается нигде, кроме `mpu mcp token`.
  */
 
-import { assertEquals, assertMatch, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { runCli } from "../entrypoint/mod.ts";
 import { setConfigValue } from "../config/mod.ts";
 import { makeDenoIo } from "../runtime/mod.ts";
@@ -16,6 +22,12 @@ import { runMcpServer } from "./cli.ts";
 import { LOOPBACK, type RunningServer, serveMcp } from "./server.ts";
 import { ensureAccessToken } from "./token.ts";
 import { VERSION } from "../version.ts";
+import {
+  type RunProgram,
+  SERVICE_NAME,
+  type ServiceDeps,
+  unitText,
+} from "./service.ts";
 
 /** Буфер вывода: коды завершения проверяются вместе с текстом. */
 function makeOutput() {
@@ -409,6 +421,463 @@ Deno.test("у вызова тула нет stdin — понятная ошибк
     } finally {
       stop.abort();
       await running;
+    }
+  });
+});
+
+/** Порт, который заведомо существует и почти наверняка свободен. */
+async function freePort(): Promise<number> {
+  const probe = await serveMcp({
+    port: 0,
+    profiles: ["ro"],
+    token: "proba",
+    deps: { io: makeFakeIo(), commands, log: NO_INVOKE_LOG, version: VERSION },
+  });
+  const port = probe.port;
+  await probe.shutdown();
+  return port;
+}
+
+/**
+ * Менеджер служб, помнящий, работает ли служба. Модель настоящая:
+ * `stop` гасит, `start` поднимает, `is-active` отвечает состоянием.
+ */
+function fakeManager(
+  active: { now: boolean },
+  quirks: Quirks = {},
+  /** Наблюдатель окна уступки: зовётся на каждом глаголе менеджера. */
+  watch: (verb: string) => void = () => {},
+) {
+  const calls: string[] = [];
+  const run: RunProgram = (_bin, args) => {
+    const verb = args[1] ?? "";
+    const asked = verb === "is-active" && calls.includes("is-active");
+    calls.push(verb);
+    watch(verb);
+    if (quirks.vanishing && asked) active.now = false;
+    if (verb === "start" && quirks.crashStart) {
+      return Promise.reject(new TypeError("дефект своего кода"));
+    }
+    if (verb === "start" && quirks.brokenStart) {
+      return Promise.resolve({ code: 1, stdout: "", stderr: "порт занят\n" });
+    }
+    if (verb === "stop") active.now = false;
+    if (verb === "start" || verb === "restart") active.now = true;
+    const answer = verb === "is-active"
+      ? (active.now ? "active" : "inactive")
+      : verb === "is-enabled"
+      ? "enabled"
+      : "";
+    return Promise.resolve({ code: 0, stdout: `${answer}\n`, stderr: "" });
+  };
+  return { run, calls };
+}
+
+/**
+ * Каталог служб в заданном состоянии. Описание и работа разведены: у
+ * спеки это два разных случая — «службы нет» и «она остановлена», — и
+ * оба обязаны оставлять машину нетронутой.
+ */
+/** Чем менеджер отличается от послушного: по одной причине на поле. */
+interface Quirks {
+  /** `start` отказывает: служба не поднимается обратно. */
+  readonly brokenStart?: boolean;
+  /** Служба гаснет сама сразу после первого вопроса о состоянии. */
+  readonly vanishing?: boolean;
+  /** `start` ломается дефектом кода, а не отказом менеджера. */
+  readonly crashStart?: boolean;
+}
+
+async function withService(
+  state: Quirks & {
+    readonly described: boolean;
+    readonly running?: boolean;
+    /** Наблюдатель окна: видит порядок изнутри вызова. */
+    readonly watch?: (verb: string) => void;
+  },
+  body: (
+    deps: ServiceDeps,
+    active: { now: boolean },
+    calls: string[],
+  ) => Promise<void>,
+): Promise<void> {
+  const root = await Deno.makeTempDir();
+  try {
+    const dir = `${root}/systemd/user`;
+    await Deno.mkdir(dir, { recursive: true });
+    if (state.described) {
+      await Deno.writeTextFile(`${dir}/${SERVICE_NAME}`, unitText("/h/mpu"));
+    }
+    const active = { now: state.running ?? state.described };
+    const manager = fakeManager(active, state, state.watch);
+    await body(
+      { dir, program: "/h/mpu", run: manager.run },
+      active,
+      manager.calls,
+    );
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+}
+
+Deno.test("голое mpu mcp уступает порт работающей службе и возвращает её", async () => {
+  await withStore(async (io) => {
+    const wanted = await freePort();
+    {
+      using db = io.openCacheDb();
+      setConfigValue(db, "mcp.port", String(wanted));
+    }
+    await withService({ described: true }, async (deps, active, calls) => {
+      const output = makeOutput();
+      const stop = new AbortController();
+      const listening = Promise.withResolvers<RunningServer>();
+      const running = runMcpServer([], {
+        io,
+        output: output.sink,
+        commands,
+        log: NO_INVOKE_LOG,
+        signal: stop.signal,
+        onListen: listening.resolve,
+        service: { deps },
+      });
+      const server = await listening.promise;
+      // Порт достался переднему плану — тот самый, что был у службы.
+      assertEquals(server.port, wanted);
+      assertEquals(active.now, false, "служба осталась работать");
+      stop.abort();
+      assertEquals(await running, 0);
+      assertEquals(active.now, true, "служба не вернулась");
+      assertEquals(calls.includes("stop"), true, calls.join(", "));
+      assertEquals(calls.includes("start"), true, calls.join(", "));
+      // Обе строки печатаются: с машиной владельца делается заметное.
+      assertStringIncludes(output.stderr(), "остановлена, порт");
+      assertStringIncludes(output.stderr(), "запущена снова");
+    });
+  });
+});
+
+Deno.test("службы не было — после голого mpu mcp её нет", async () => {
+  await withStore(async (io) => {
+    const wanted = await freePort();
+    {
+      using db = io.openCacheDb();
+      setConfigValue(db, "mcp.port", String(wanted));
+    }
+    await withService({ described: false }, async (deps, active, calls) => {
+      const stop = new AbortController();
+      const listening = Promise.withResolvers<RunningServer>();
+      const running = runMcpServer([], {
+        io,
+        output: makeOutput().sink,
+        commands,
+        log: NO_INVOKE_LOG,
+        signal: stop.signal,
+        onListen: listening.resolve,
+        service: { deps },
+      });
+      await listening.promise;
+      stop.abort();
+      assertEquals(await running, 0);
+      assertEquals(active.now, false, "служба появилась там, где её не было");
+      assertEquals(calls, [], `менеджеру что-то сказали: ${calls.join(", ")}`);
+    });
+  });
+});
+
+Deno.test("голый запуск на другом порту службу не трогает", async () => {
+  await withStore(async (io) => {
+    const theirs = await freePort();
+    {
+      using db = io.openCacheDb();
+      // Служба стоит на своём порту, передний план просят на другом:
+      // уступать нечего, занят он не ею.
+      setConfigValue(db, "mcp.port", String(theirs));
+    }
+    await withService({ described: true }, async (deps, active, calls) => {
+      const stop = new AbortController();
+      const listening = Promise.withResolvers<RunningServer>();
+      const running = runMcpServer(["--port", "0"], {
+        io,
+        output: makeOutput().sink,
+        commands,
+        log: NO_INVOKE_LOG,
+        signal: stop.signal,
+        onListen: listening.resolve,
+        service: { deps },
+      });
+      await listening.promise;
+      stop.abort();
+      assertEquals(await running, 0);
+      assertEquals(active.now, true, "работающую службу тронули");
+      assertEquals(calls, [], `менеджеру что-то сказали: ${calls.join(", ")}`);
+    });
+  });
+});
+
+Deno.test("прерывание возвращает службу", async () => {
+  await withStore(async (io) => {
+    const wanted = await freePort();
+    {
+      using db = io.openCacheDb();
+      setConfigValue(db, "mcp.port", String(wanted));
+    }
+    await withService({ described: true }, async (deps, active) => {
+      const listening = Promise.withResolvers<RunningServer>();
+      // Подписка на сигнал — швом: настоящий сигнал пришлось бы слать
+      // собственному прогону тестов.
+      let interrupt: (() => void) | undefined;
+      let unsubscribed = false;
+      const running = runMcpServer([], {
+        io,
+        output: makeOutput().sink,
+        commands,
+        log: NO_INVOKE_LOG,
+        onListen: listening.resolve,
+        service: { deps },
+        onInterrupt: (handle) => {
+          interrupt = handle;
+          return () => void (unsubscribed = true);
+        },
+      });
+      await listening.promise;
+      assertEquals(active.now, false);
+      assert(interrupt !== undefined, "на прерывание никто не подписался");
+      interrupt();
+      assertEquals(await running, 0);
+      assertEquals(active.now, true, "прерывание не вернуло службу");
+      // Подписка снимается: иначе обработчик пережил бы сам вызов.
+      assertEquals(unsubscribed, true, "подписка на сигнал не снята");
+    });
+  });
+});
+
+/** Голый прогон до гашения сигналом; вернуть код и вывод. */
+async function bareRun(
+  io: CommandIo,
+  argv: readonly string[],
+  deps: ServiceDeps,
+): Promise<{ code: number; stderr: string }> {
+  const output = makeOutput();
+  const stop = new AbortController();
+  const listening = Promise.withResolvers<RunningServer>();
+  const running = runMcpServer(argv, {
+    io,
+    output: output.sink,
+    commands,
+    log: NO_INVOKE_LOG,
+    signal: stop.signal,
+    onListen: listening.resolve,
+    service: { deps },
+  });
+  await listening.promise;
+  stop.abort();
+  return { code: await running, stderr: output.stderr() };
+}
+
+/** Порт службы в конфиге прогона: с него начинается каждая уступка. */
+function usePort(io: CommandIo, port: number): void {
+  using db = io.openCacheDb();
+  setConfigValue(db, "mcp.port", String(port));
+}
+
+Deno.test("остановленную службу голое mpu mcp не поднимает после себя", async () => {
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    // Описание есть, но служба стоит: спека требует не трогать и её.
+    await withService(
+      { described: true, running: false },
+      async (deps, active, calls) => {
+        assertEquals((await bareRun(io, [], deps)).code, 0);
+        assertEquals(active.now, false, "остановленную службу подняли");
+        assertEquals(calls.includes("stop"), false, calls.join(", "));
+        assertEquals(calls.includes("start"), false, calls.join(", "));
+      },
+    );
+  });
+});
+
+Deno.test("порт, названный флагом тем же, уступки требует", async () => {
+  await withStore(async (io) => {
+    const wanted = await freePort();
+    usePort(io, wanted);
+    await withService(
+      { described: true },
+      async (deps, active, calls) => {
+        // Тот же порт, но названный явно: уступка решается сравнением
+        // портов, а не отсутствием флага.
+        const { code } = await bareRun(io, ["--port", String(wanted)], deps);
+        assertEquals(code, 0);
+        assertEquals(active.now, true);
+        assertEquals(calls.includes("stop"), true, calls.join(", "));
+        assertEquals(calls.includes("start"), true, calls.join(", "));
+      },
+    );
+  });
+});
+
+Deno.test("службу вернуть не удалось — сказано, где смотреть, и код 1", async () => {
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    await withService(
+      { described: true, brokenStart: true },
+      async (deps, active) => {
+        const { code, stderr } = await bareRun(io, [], deps);
+        // Передний план отработал, но машина осталась изменённой —
+        // молчаливый ноль скрыл бы это.
+        assertEquals(code, 1);
+        assertEquals(active.now, false, "служба всё-таки поднялась");
+        assertStringIncludes(stderr, "вернуть не удалось");
+        assertStringIncludes(stderr, "mpu mcp status");
+      },
+    );
+  });
+});
+
+Deno.test("службу погасили в окне уступки — поднимать её нечем", async () => {
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    // Между вопросом о состоянии и ответом менеджера служба гаснет
+    // сама: уступать оказалось нечего, и поднимать после себя — тоже.
+    await withService(
+      { described: true, vanishing: true },
+      async (deps, active, calls) => {
+        const { code, stderr } = await bareRun(io, [], deps);
+        assertEquals(code, 0);
+        assertEquals(active.now, false, "подняли службу, которая стояла");
+        assertEquals(calls.includes("start"), false, calls.join(", "));
+        assertEquals(
+          stderr.includes("уступлен"),
+          false,
+          `сказано об уступке, которой не было:\n${stderr}`,
+        );
+      },
+    );
+  });
+});
+
+Deno.test("дефект своего кода отказом службы не притворяется", async () => {
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    await withService(
+      { described: true, crashStart: true },
+      async (deps) => {
+        const output = makeOutput();
+        const stop = new AbortController();
+        const listening = Promise.withResolvers<RunningServer>();
+        // Подписка — швом, как у соседей: настоящие обработчики
+        // пережили бы этот тест и съели бы Ctrl-C всего прогона.
+        let unsubscribed = false;
+        const running = runMcpServer([], {
+          io,
+          output: output.sink,
+          commands,
+          log: NO_INVOKE_LOG,
+          signal: stop.signal,
+          onListen: listening.resolve,
+          service: { deps },
+          onInterrupt: () => () => void (unsubscribed = true),
+        });
+        await listening.promise;
+        stop.abort();
+        // Не «службу вернуть не удалось» с кодом 1, а сам дефект наружу:
+        // иначе баг был бы неотличим от отказа менеджера.
+        await assertRejects(() => running, TypeError, "дефект своего кода");
+        assertEquals(
+          output.stderr().includes("вернуть не удалось"),
+          false,
+          output.stderr(),
+        );
+        // Отказ возврата не отменяет снятия подписки: обработчики
+        // сигналов не должны пережить вызов.
+        assertEquals(unsubscribed, true, "подписка на сигнал не снята");
+      },
+    );
+  });
+});
+
+Deno.test("подписка на прерывание накрывает всё окно уступки", async () => {
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    // Менеджер — наблюдатель изнутри окна: его зовут ровно тогда, когда
+    // окно открыто, и он видит, стояла ли уже подписка.
+    const seen: Record<string, boolean | undefined> = {};
+    let interrupt: (() => void) | undefined;
+    let unsubscribed = false;
+    await withService(
+      {
+        described: true,
+        watch: (verb) => {
+          if (verb === "stop") seen.atStop = interrupt !== undefined;
+          if (verb === "start") seen.atStart = unsubscribed;
+        },
+      },
+      async (deps, active) => {
+        const listening = Promise.withResolvers<RunningServer>();
+        const running = runMcpServer([], {
+          io,
+          output: makeOutput().sink,
+          commands,
+          log: NO_INVOKE_LOG,
+          onListen: listening.resolve,
+          service: { deps },
+          onInterrupt: (handle) => {
+            interrupt = handle;
+            return () => void (unsubscribed = true);
+          },
+        });
+        await listening.promise;
+        assert(interrupt !== undefined, "на прерывание никто не подписался");
+        interrupt();
+        assertEquals(await running, 0);
+        assertEquals(active.now, true);
+        // Начало окна: служба ещё останавливается, а обработчик уже стоит.
+        assertEquals(seen.atStop, true, "подписка поставлена после остановки");
+        // Конец окна: служба ещё поднимается, обработчик ещё не снят.
+        assertEquals(seen.atStart, false, "отписались до возврата службы");
+        assertEquals(unsubscribed, true, "подписка не снята после возврата");
+      },
+    );
+  });
+});
+
+Deno.test("порт занят третьим — служба всё равно возвращается", async () => {
+  await withStore(async (io) => {
+    const wanted = await freePort();
+    usePort(io, wanted);
+    // Порт держит кто-то посторонний: службу уступили зря, но вернуть
+    // её обязаны — иначе она осталась бы лежать из-за чужого процесса.
+    const squatter = await serveMcp({
+      port: wanted,
+      profiles: ["ro"],
+      token: "proba",
+      deps: {
+        io: makeFakeIo(),
+        commands,
+        log: NO_INVOKE_LOG,
+        version: VERSION,
+      },
+    });
+    try {
+      await withService(
+        { described: true },
+        async (deps, active, calls) => {
+          const output = makeOutput();
+          const code = await runMcpServer([], {
+            io,
+            output: output.sink,
+            commands,
+            log: NO_INVOKE_LOG,
+            service: { deps },
+            onInterrupt: () => () => {},
+          });
+          assertEquals(code, 1);
+          assertStringIncludes(output.stderr(), "занят");
+          assertEquals(active.now, true, "служба осталась лежать");
+          assertEquals(calls.includes("start"), true, calls.join(", "));
+        },
+      );
+    } finally {
+      await squatter.shutdown();
     }
   });
 });
