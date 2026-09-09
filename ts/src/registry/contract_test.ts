@@ -200,6 +200,50 @@ const CASES: readonly CommandCase[] = [
     sampleResult: { headers: { Authorization: "Bearer проба-токена" } },
   },
   {
+    path: "mcp status",
+    argv: [],
+    sampleResult: {
+      installed: true,
+      active: true,
+      enabled: true,
+      program: "/h/.local/bin/mpu",
+      version: "0.1.0",
+      address: "http://127.0.0.1:7337",
+      profiles: ["/ro", "/rw"],
+      linger: "off",
+    },
+  },
+  {
+    path: "mcp enable",
+    argv: [],
+    sampleResult: {
+      path: "/h/.config/systemd/user/mpu-mcp.service",
+      restarted: false,
+      active: true,
+      address: "http://127.0.0.1:7337",
+      profiles: ["/ro", "/rw"],
+      linger: "off",
+    },
+  },
+  {
+    path: "mcp disable",
+    argv: [],
+    sampleResult: {
+      removed: true,
+      path: "/h/.config/systemd/user/mpu-mcp.service",
+    },
+  },
+  {
+    path: "mcp start",
+    argv: [],
+    sampleResult: { changed: true, active: true },
+  },
+  {
+    path: "mcp stop",
+    argv: [],
+    sampleResult: { changed: true, active: false },
+  },
+  {
     path: "init",
     argv: ["--dry-run"],
     sampleResult: {

@@ -21,6 +21,7 @@ import { xlsxCommands } from "../xlsx/mod.ts";
 import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "../update/mod.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
+import { mcpServiceCommands } from "../mcp/cmd_service.ts";
 import { sqlCommand, sqlRoCommand } from "../sql/mod.ts";
 import { healthCommand } from "../health/mod.ts";
 import {
@@ -216,6 +217,7 @@ export const commands: readonly Command[] = [
   logsCommand,
   logCommand,
   mcpTokenCommand,
+  ...mcpServiceCommands,
   // Первый переехавший лист группы `kiten`.
   kitenCardCommand,
   // Справочники и обзорные подкоманды (`specs/kiten-refs.md`,
@@ -548,8 +550,8 @@ export const groups: readonly CommandGroup[] = [
   },
   {
     path: ["mcp"],
-    summary: "MCP-сервер над реестром команд: запуск и токен доступа",
-    usage: "mpu mcp [--profile ro|rw|ro,rw] [--port N]",
+    summary: "MCP-сервер над реестром команд: запуск, служба и токен доступа",
+    usage: "mpu mcp [--profile ro|rw|ro,rw] [--port N] | <подкоманда>",
     bare: (argv, io, output, log) =>
       runMcpServer(argv, { io, output, commands, log }),
   },

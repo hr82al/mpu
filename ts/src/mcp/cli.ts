@@ -48,6 +48,12 @@ export interface McpServerRun {
 /** Ключ конфига с портом по умолчанию (`platform/config.md`). */
 const PORT_KEY = "mcp.port";
 
+/**
+ * Профили без флага `--profile`. Служба запускает сервер без флагов
+ * (`docs/specs/mcp-service.md`), и её `status` называет ровно эти.
+ */
+export const DEFAULT_PROFILES: readonly Profile[] = ["ro", "rw"];
+
 /** Разобранные флаги запуска; ошибка ввода — текст для stderr. */
 type Options =
   | { readonly profiles: readonly Profile[]; readonly port: number | undefined }
@@ -58,7 +64,7 @@ type Options =
  * конфига. Сам сервер получает порт целиком — он раздаёт его
  * произвольным командам.
  */
-type StartupIo = Pick<CommandIo, "env" | "openCacheDb">;
+export type StartupIo = Pick<CommandIo, "env" | "openCacheDb">;
 
 /**
  * Поднимает сервер и ждёт его остановки. Возвращает код завершения
@@ -149,7 +155,7 @@ function withoutStdin(io: CommandIo): CommandIo {
 
 /** Разбор `--profile` и `--port`; всё прочее — ошибка ввода. */
 function parseOptions(argv: readonly string[]): Options {
-  let profiles: readonly Profile[] = ["ro", "rw"];
+  let profiles: readonly Profile[] = DEFAULT_PROFILES;
   let port: number | undefined;
   for (let index = 0; index < argv.length; index++) {
     const [name, inlineValue] = splitFlag(argv[index]);
@@ -206,8 +212,13 @@ function parsePort(value: string | undefined): number | undefined {
   return port >= 0 && port <= 65535 ? port : undefined;
 }
 
-/** Порт из предпочтений; ключа нет или он не порт — умолчание спеки. */
-function configuredPort(io: StartupIo): number {
+/**
+ * Порт из предпочтений; ключа нет или он не порт — умолчание спеки.
+ * Экспортирован ради семейства службы (`service.ts`): адрес, который
+ * печатают `enable` и `status`, обязан совпадать с тем, на котором
+ * сервер поднимется, а второй способ его вычислить разошёлся бы с этим.
+ */
+export function configuredPort(io: StartupIo): number {
   const configured = readPreferences(
     io,
     (db) => configValue(db, PORT_KEY),

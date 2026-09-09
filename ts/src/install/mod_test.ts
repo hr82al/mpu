@@ -1,5 +1,5 @@
-import { assertEquals, assertThrows } from "@std/assert";
-import { BuildTaskError, compileArgs } from "./mod.ts";
+import { assert, assertEquals, assertThrows } from "@std/assert";
+import { BuildTaskError, compileArgs, installedBinPath } from "./mod.ts";
 
 const TARGET = {
   home: "/h",
@@ -48,5 +48,21 @@ Deno.test("настоящая задача build: путь вывода — то
     args.some((arg) => arg.includes("$")),
     false,
     `осталась нераскрытая переменная: ${args.join(" ")}`,
+  );
+});
+
+Deno.test("путь установки записан одинаково в задаче build и в коде", async () => {
+  // Два места знают один путь: значение `-o` задачи читает `deno task`,
+  // а `installedBinPath` — команда `mpu build` и описание службы.
+  // Разъехавшись, они поставили бы программу не туда, куда смотрит
+  // служба, и заметить это было бы некому.
+  const source = await Deno.readTextFile("deno.jsonc");
+  const task = source.match(/"build":\s*"([^"]*)"/)?.[1];
+  assert(task !== undefined, "в deno.jsonc нет задачи build");
+  const words = task.split(/\s+/);
+  assertEquals(
+    words[words.indexOf("-o") + 1],
+    installedBinPath("$HOME"),
+    "значение -o задачи build разошлось с installedBinPath",
   );
 });
