@@ -92,7 +92,7 @@ export async function runMentions(
     args.path,
     args.path,
     "путь",
-    `в пути нет файла: '${args.path}'`,
+    "нужен путь внутри репозитория",
   );
   const known = repos ?? readRepos(findWorkspaceRoot(io.cwd()), spawnGit);
   const chosen = window.repo === undefined

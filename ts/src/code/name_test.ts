@@ -8,7 +8,7 @@
  */
 
 import { assertEquals, assertRejects } from "@std/assert";
-import { DomainError, UsageError } from "../command/mod.ts";
+import { UsageError } from "../command/mod.ts";
 import { codeNameCommand, renderName, runName } from "./cmd_name.ts";
 import { openBrokenFixture, openFixture } from "./testing.ts";
 import type { Repo } from "./workspace.ts";
@@ -182,16 +182,24 @@ Deno.test("репозиторий без проектов: объявлений 
       mark: () =>
         Promise.resolve({ repo: "plain", state: { kind: "out-of-git" } }),
     };
-    // `объявления: 0` читалось бы как «имя свободно», а это другой ответ.
-    const err = await assertRejects(
-      () => name(repo, "one", "plain"),
-      DomainError,
+    // `объявления: 0` читалось бы как «имя свободно», а это другой
+    // ответ. Печатается он разделом: отказ относится к репозиторию, а
+    // не к вызову.
+    const result = await runName(
+      { name: "one", in: "plain", limit: 200 },
+      { cwd: () => repo.root },
+      [repo],
     );
+    const section = result.sections[0];
+    assertEquals(section.kind, "refused");
+    if (section.kind !== "refused") return;
     assertEquals(
-      err.message,
+      section.refusal,
       "объявления не разбираются текстовым анализатором: " +
         "в репозитории plain нет ни одного проекта",
     );
+    // Раздел один, и он не ответил — значит не ответил ни один.
+    assertEquals(codeNameCommand.textExitCode(result), 1);
   } finally {
     await Deno.remove(temp, { recursive: true });
   }
@@ -250,15 +258,12 @@ Deno.test("пустой репозиторий без проектов — от�
     // Ни одного файла кода: перечень пуст по обеим причинам сразу, и
     // отказ обязан решаться до сбора файлов, иначе ответом станет
     // «объявления: 0».
-    const err = await assertRejects(
-      () => name(repo, "anything", "plain"),
-      DomainError,
+    const result = await runName(
+      { name: "anything", in: "plain", limit: 200 },
+      { cwd: () => repo.root },
+      [repo],
     );
-    assertEquals(
-      err.message,
-      "объявления не разбираются текстовым анализатором: " +
-        "в репозитории plain нет ни одного проекта",
-    );
+    assertEquals(result.sections[0].kind, "refused");
   } finally {
     await Deno.remove(temp, { recursive: true });
   }
@@ -369,6 +374,60 @@ Deno.test("не ответил ни один раздел — код выход�
     // Отказ раздела и отказ команды — разное; совпадают они только
     // когда раздел один (`platform/code-analyzer.md`).
     assertEquals(codeNameCommand.textExitCode(result), 1);
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});
+
+Deno.test("репозиторий на чистом JS не обнуляет ответы соседей", async (t) => {
+  const temp = await Deno.makeTempDir();
+  try {
+    // Проектов нет вовсе — объявлений текстовый разбор не даёт. Прежде
+    // это было отказом ВСЕЙ команды, и один такой репозиторий обнулял
+    // ответ по остальным семи: та же беда, что у непостроенной
+    // программы, только с другой причиной.
+    const plain = `${temp}/plain`;
+    await Deno.mkdir(`${plain}/src`, { recursive: true });
+    await Deno.writeTextFile(`${plain}/src/a.js`, "export const a = 1;\n");
+    const bare: Repo = {
+      name: "plain",
+      root: plain,
+      mark: () =>
+        Promise.resolve({ repo: "plain", state: { kind: "out-of-git" } }),
+    };
+    const working = await plainProject(`${temp}/works`, {
+      "src/a.ts":
+        "export function alpha(day: string): string {\n  return day;\n}\n",
+    });
+    const result = await runName(
+      { name: "alpha", in: undefined, limit: 200 },
+      { cwd: () => working.root },
+      [bare, { ...working, name: "works" }],
+    );
+    const text = renderName(result);
+
+    await t.step("отказ напечатан разделом, с причиной", () => {
+      assertEquals(result.sections[0].kind, "refused", text);
+      assertEquals(
+        text.includes(
+          "  отказ: объявления не разбираются текстовым анализатором: " +
+            "в репозитории plain нет ни одного проекта",
+        ),
+        true,
+        text,
+      );
+    });
+
+    await t.step("соседний раздел ответил", () => {
+      const answered = result.sections[1];
+      assertEquals(answered.kind, "answer", text);
+      if (answered.kind !== "answer") return;
+      assertEquals(answered.declarations.total, 1, text);
+    });
+
+    await t.step("ответил хотя бы один — код выхода нулевой", () => {
+      assertEquals(codeNameCommand.textExitCode(result), 0, text);
+    });
   } finally {
     await Deno.remove(temp, { recursive: true });
   }

@@ -37,7 +37,8 @@ const declarationSchema = z.object({
     "entry",
     "module-only",
     "no-entry",
-    "entry-unknown",
+    "entry-unparsed",
+    "entry-not-object",
     "private",
   ]),
 });
@@ -146,9 +147,12 @@ async function sectionOf(
   const mark = await analyzer.mark();
   // Отказ решается ДО сбора файлов: иначе пустой репозиторий без
   // проектов ответил бы «объявления: 0», то есть «имя свободно», а это
-  // другой ответ (`platform/code-analyzer.md`).
+  // другой ответ. И печатается он РАЗДЕЛОМ, а не броском: репозиторий на
+  // чистом JS иначе обнулял бы ответ по всем остальным — та же беда, что
+  // у непостроенной программы, только с другой причиной
+  // (`platform/code-analyzer.md`, инварианты).
   const refusal = analyzer.declarationsRefusal();
-  if (refusal !== null) throw new DomainError(refusal);
+  if (refusal !== null) return refused(mark, refusal);
   const files = filesIn(analyzer, dir, repo, mark);
   const found = files.flatMap((path) => declarationsOf(analyzer, path, name));
   const wanted = found
@@ -226,6 +230,8 @@ function declarationsOf(
   name: string,
 ): readonly Found[] {
   const answer = analyzer.declarationsOf(path);
+  // Незнание сюда не доходит: раздел отказал бы до сбора файлов. Молчать
+  // о нём нельзя — иначе файлы потерялись бы без следа.
   if (answer.kind === "unknown") throw new DomainError(answer.reason);
   return answer.declarations
     .filter((entry) => entry.name === name)

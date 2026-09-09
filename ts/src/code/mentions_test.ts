@@ -183,7 +183,7 @@ Deno.test("путь, свёрнутый в корень, — ошибка вво
         }, [repo]),
       UsageError,
     );
-    assertEquals(err.message, "в пути нет файла: 'src/..'");
+    assertEquals(err.message, "нужен путь внутри репозитория");
   } finally {
     await Deno.remove(temp, { recursive: true });
   }

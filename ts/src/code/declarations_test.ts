@@ -77,27 +77,37 @@ Deno.test("перегрузка — отдельная запись, реали�
   }
 });
 
-Deno.test("битый манифест — названное незнание, а не «входа нет»", async () => {
-  const temp = await Deno.makeTempDir();
-  try {
-    const repo = await repoWith(`${temp}/r`, {
-      "src/a.ts":
-        "export function alpha(day: string): string {\n  return day;\n}\n",
+Deno.test("причина манифеста называет, что именно не так", async (t) => {
+  const cases: readonly (readonly [string, string, string])[] = [
+    ["не разобран", "{ это не json\n", "манифест не разобран"],
+    // Валидный JSON-массив разбирается, но манифестом не является:
+    // назвать его нечитаемым значило бы подменить один ответ соседним.
+    ["не объект", "[]\n", "манифест не объект"],
+  ];
+  for (const [title, manifest, reason] of cases) {
+    await t.step(title, async () => {
+      const temp = await Deno.makeTempDir();
+      try {
+        const repo = await repoWith(`${temp}/r`, {
+          "src/a.ts":
+            "export function alpha(day: string): string {\n  return day;\n}\n",
+        });
+        // Сказать по такому манифесту «входа нет» значило бы выдать
+        // незнание за ответ — область видимости всего репозитория
+        // съехала бы молча.
+        await Deno.writeTextFile(`${repo.root}/package.json`, manifest);
+        const text = await name(repo, "alpha");
+        assertEquals(
+          text.includes(
+            `экспортируется из модуля; вход проекта не определён: ${reason}`,
+          ),
+          true,
+          text,
+        );
+      } finally {
+        await Deno.remove(temp, { recursive: true });
+      }
     });
-    // Манифест есть, но не разбирается: сказать по нему «входа нет»
-    // значило бы выдать незнание за ответ — область видимости всего
-    // репозитория съехала бы молча.
-    await Deno.writeTextFile(`${repo.root}/package.json`, "{ это не json\n");
-    const text = await name(repo, "alpha");
-    assertEquals(
-      text.includes(
-        "экспортируется из модуля; вход проекта не определён: манифест не разобран",
-      ),
-      true,
-      text,
-    );
-  } finally {
-    await Deno.remove(temp, { recursive: true });
   }
 });
 

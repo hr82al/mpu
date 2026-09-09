@@ -23,6 +23,14 @@ import { bodiesIn } from "./body.ts";
 import type { MarkSource } from "./mark.ts";
 import { dirOf } from "./project.ts";
 
+/**
+ * Код диагностики «корень конфигурации обязан быть объектом». Массив и
+ * строка разбираются успешно как JSON, но манифестом не являются, и
+ * компилятор отличает этот случай кодом, а не текстом (замер
+ * 2026-09-09: `[]` и `"x"` дают 5092, синтаксический мусор — 1005).
+ */
+const NOT_AN_OBJECT = 5092;
+
 /** Причины, по которым ссылку разрешить не удалось. */
 const NOT_FOUND = "модуль не найден";
 const NOT_LITERAL = "спецификатор не литерал";
@@ -104,13 +112,21 @@ function entryFile(
 
 /**
  * Вход проекта: найден, отсутствует либо не определён. Третий исход —
- * когда манифест пакета не разобрался: молчаливое «входа нет» тут
- * запрещено, это разные ответы (`specs/code-name.md`).
+ * когда манифест пакета либо не разобрался, либо разобрался, но объектом
+ * не является: молчаливое «входа нет» тут запрещено, это разные ответы
+ * (`specs/code-name.md`).
+ *
+ * Причина сужена до двух своих значений, а не до всей области видимости:
+ * иначе тип разрешал бы `entry` или `private` там, где их не бывает, и
+ * подстановка чужого значения компилятору была бы не видна.
  */
 type Entry =
   | { readonly kind: "file"; readonly file: TS.SourceFile }
   | { readonly kind: "none" }
-  | { readonly kind: "unknown" };
+  | { readonly kind: "unknown"; readonly scope: EntryUnknown };
+
+/** Чем именно плох манифест: два ответа, а не один. */
+type EntryUnknown = "entry-unparsed" | "entry-not-object";
 
 /**
  * Общий корень исходников: самый длинный общий каталог их путей. Своим
@@ -146,8 +162,10 @@ function declaredEntry(
 ): Entry {
   for (const name of ["package.json", "deno.json", "deno.jsonc"]) {
     const fields = entryFields(ts, `${dir}/${name}`);
-    if (fields === "unreadable") return { kind: "unknown" };
-    for (const path of fields) {
+    if (fields.kind === "unknown") {
+      return { kind: "unknown", scope: fields.scope };
+    }
+    for (const path of fields.fields) {
       const file = program.getSourceFile(`${dir}/${path.replace(/^\.\//, "")}`);
       if (file !== undefined) return { kind: "file", file };
     }
@@ -157,22 +175,38 @@ function declaredEntry(
 
 /**
  * Кандидаты входа из манифеста по порядку `types`, `exports`, `main`.
- * `unreadable` — манифест есть, но не разобрался: сказать по нему «входа
- * нет» значило бы выдать незнание за ответ.
+ * Незнание называет, ЧТО именно не так: манифест не разобрался — одно,
+ * разобрался, но объектом не является — другое. Сказать по любому из них
+ * «входа нет» значило бы выдать незнание за ответ, а свалить их в одну
+ * причину — подменить один ответ соседним.
  */
 function entryFields(
   ts: typeof TS,
   path: string,
-): readonly string[] | "unreadable" {
+):
+  | { readonly kind: "fields"; readonly fields: readonly string[] }
+  | { readonly kind: "unknown"; readonly scope: EntryUnknown } {
   const text = ts.sys.readFile(path);
-  if (text === undefined) return [];
+  if (text === undefined) return { kind: "fields", fields: [] };
   const parsed = ts.parseConfigFileTextToJson(path, text);
-  if (parsed.error !== undefined) return "unreadable";
-  const manifest = parsed.config;
-  if (typeof manifest !== "object" || manifest === null) return "unreadable";
-  const fields = manifest as Record<string, unknown>;
-  return [fields.types, pickExport(fields.exports), fields.main]
-    .filter((value): value is string => typeof value === "string");
+  if (parsed.error !== undefined) {
+    return {
+      kind: "unknown",
+      scope: parsed.error.code === NOT_AN_OBJECT
+        ? "entry-not-object"
+        : "entry-unparsed",
+    };
+  }
+  // Разобравшийся конфиг всегда объект: не-объект компилятор бракует
+  // кодом выше, а пустой текст даёт `{}` (замер 2026-09-09 на `[]`,
+  // `"x"`, `123`, `true`, `null`, `""`, `"// c"`). Второй проверки на
+  // форму тут не нужно — она была бы защитой от невозможного входа.
+  const fields = parsed.config as Record<string, unknown>;
+  return {
+    kind: "fields",
+    fields: [fields.types, pickExport(fields.exports), fields.main]
+      .filter((value): value is string => typeof value === "string"),
+  };
 }
 
 /** Строковый вход из поля `exports` в любой из его форм. */
@@ -307,7 +341,7 @@ function scopeOf(
   entry: Entry,
 ): Scope {
   if (!isExportedFrom(ts, checker, symbol, file)) return "private";
-  if (entry.kind === "unknown") return "entry-unknown";
+  if (entry.kind === "unknown") return entry.scope;
   if (entry.kind === "none") return "no-entry";
   return isExportedFrom(ts, checker, symbol, entry.file)
     ? "entry"
