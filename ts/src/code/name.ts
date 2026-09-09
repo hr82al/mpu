@@ -20,7 +20,13 @@ import {
 import { markLabel } from "./mark.ts";
 import { openRepoAnalyzer } from "./open.ts";
 import { ProjectBuildError } from "./project.ts";
-import { sectionsOf } from "./sweep.ts";
+import {
+  asRepo,
+  jobsOf,
+  type NameJob,
+  type RepoData,
+  sectionsOf,
+} from "./sweep.ts";
 import type { Repo } from "./workspace.ts";
 
 /** Окно вопроса: репозиторий целиком либо каталог в нём. */
@@ -106,29 +112,38 @@ export async function collectName(
   limit: number,
   repos: readonly Repo[],
 ): Promise<NameResult> {
-  const sections = await sectionsOf(repos, async (repo) => {
-    try {
-      return await sectionOf(
-        name,
-        window.dir,
-        limit,
-        repo,
-        await openRepoAnalyzer(repo),
-      );
-    } catch (err) {
-      // Отказ ПОСТРОЕНИЯ печатается вместо перечня в своём разделе:
-      // один репозиторий без установленных зависимостей не должен
-      // обнулять ответ по остальным (`platform/code-analyzer.md`).
-      if (!(err instanceof ProjectBuildError)) throw err;
-      return refused(await repo.mark(), err.message);
-    }
-  });
-  return { name, sections };
+  const jobs = await jobsOf(repos, (repo): NameJob => ({
+    kind: "name",
+    repo,
+    name,
+    dir: window.dir,
+    limit,
+  }));
+  return { name, sections: await sectionsOf(jobs, nameSection, sectionSchema) };
+}
+
+/**
+ * Раздел одного репозитория по заданию. Точка входа воркера: заданием,
+ * а не замыканием, потому что считается он в другом потоке.
+ */
+export async function nameSection(
+  job: NameJob,
+): Promise<z.infer<typeof sectionSchema>> {
+  const repo = asRepo(job.repo);
+  try {
+    return await sectionOf(job, repo, await openRepoAnalyzer(repo));
+  } catch (err) {
+    // Отказ ПОСТРОЕНИЯ печатается вместо перечня в своём разделе:
+    // один репозиторий без установленных зависимостей не должен
+    // обнулять ответ по остальным (`platform/code-analyzer.md`).
+    if (!(err instanceof ProjectBuildError)) throw err;
+    return refused(job.repo.mark, err.message);
+  }
 }
 
 /** Раздел, который не ответил: отметка есть, ответа нет. */
 function refused(
-  mark: Awaited<ReturnType<Repo["mark"]>>,
+  mark: RepoData["mark"],
   reason: string,
 ): z.infer<typeof sectionSchema> {
   return { kind: "refused", mark: asMark(mark), refusal: reason };
@@ -136,12 +151,11 @@ function refused(
 
 /** Раздел одного репозитория. */
 async function sectionOf(
-  name: string,
-  dir: string | undefined,
-  limit: number,
+  job: NameJob,
   repo: Repo,
   analyzer: Analyzer,
 ): Promise<z.infer<typeof sectionSchema>> {
+  const { name, dir, limit } = job;
   const mark = await analyzer.mark();
   // Отказ решается ДО сбора файлов: иначе пустой репозиторий без
   // проектов ответил бы «объявления: 0», то есть «имя свободно», а это

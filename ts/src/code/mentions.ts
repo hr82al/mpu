@@ -16,7 +16,7 @@ import { asMark, markSchema, unresolvedSchema } from "./answer.ts";
 import { UsageError } from "../command/mod.ts";
 import { markLabel } from "./mark.ts";
 import type { Repo } from "./workspace.ts";
-import { sectionsOf } from "./sweep.ts";
+import { jobsOf, type MentionsJob, sectionsOf } from "./sweep.ts";
 import { walkFiles } from "./tree.ts";
 
 /** Расширение документов, которые команда просматривает. */
@@ -64,36 +64,53 @@ export async function collectMentions(
   limit: number,
   repos: readonly Repo[],
 ): Promise<MentionsResult> {
-  const sections = await sectionsOf(
-    repos,
-    // Тип раздела назван у колбэка, а не выведен: без аннотации лишнее
-    // поле в объекте раздела компилятору не видно вовсе — вывод типа
-    // проверки на избыточность не делает (замер разбора диффа).
-    async (repo): Promise<z.infer<typeof sectionSchema>> => {
-      const mark = await repo.mark();
-      // Несуществующий каталог окна — ошибка ввода, а не ноль упоминаний:
-      // иначе опечатка в имени неотличима от «упоминаний нет», и это тот
-      // самый класс молчания, ради которого семейство и заводится. Та же
-      // проверка стоит у `code name`.
-      if (dir !== undefined && !isDirectory(`${repo.root}/${dir}`)) {
-        throw new UsageError(
-          `каталога '${dir}' нет в ${repo.name} на ${markLabel(mark)}`,
-        );
-      }
-      const found = mentionsIn(repo.root, dir, path);
-      return {
-        kind: "answer",
-        mark: asMark(mark),
-        exists: exists(`${repo.root}/${path}`),
-        mentions: { total: found.length, places: found.slice(0, limit) },
-        // Анализатора у этой поверхности нет вовсе: она читает текст
-        // документов. Разрешать здесь нечего, поэтому и не разрешённого
-        // нет — раздел печатается нулевым, как и всякий нулевой.
-        unresolved: { total: 0, items: [] },
-      };
-    },
-  );
-  return { path, sections };
+  const jobs = await jobsOf(repos, (repo): MentionsJob => ({
+    kind: "mentions",
+    repo,
+    path,
+    dir,
+    limit,
+  }));
+  return {
+    path,
+    sections: await sectionsOf(jobs, mentionsSection, sectionSchema),
+  };
+}
+
+/**
+ * Раздел одного репозитория по заданию. Точка входа воркера: заданием,
+ * а не замыканием, потому что считается он в другом потоке. Ждать этой
+ * поверхности нечего — программ она не строит, — и обещать промис ей не
+ * из чего.
+ */
+export function mentionsSection(
+  job: MentionsJob,
+): z.infer<typeof sectionSchema> {
+  const { repo, path, dir, limit } = job;
+  // Несуществующий каталог окна — ошибка ввода, а не ноль упоминаний:
+  // иначе опечатка в имени неотличима от «упоминаний нет», и это тот
+  // самый класс молчания, ради которого семейство и заводится. Та же
+  // проверка стоит у `code name`.
+  if (dir !== undefined && !isDirectory(`${repo.root}/${dir}`)) {
+    throw new UsageError(
+      `каталога '${dir}' нет в ${repo.name} на ${markLabel(repo.mark)}`,
+    );
+  }
+  const found = mentionsIn(repo.root, dir, path);
+  // Тип раздела назван у функции, а возвращается литерал напрямую:
+  // через `Promise.resolve` лишнее поле литерала компилятору не видно
+  // вовсе — вывод типа проверки на избыточность не делает (замер
+  // разбора диффа). `async` здесь и есть носитель контракта.
+  return {
+    kind: "answer",
+    mark: asMark(repo.mark),
+    exists: exists(`${repo.root}/${path}`),
+    mentions: { total: found.length, places: found.slice(0, limit) },
+    // Анализатора у этой поверхности нет вовсе: она читает текст
+    // документов. Разрешать здесь нечего, поэтому и не разрешённого
+    // нет — раздел печатается нулевым, как и всякий нулевой.
+    unresolved: { total: 0, items: [] },
+  };
 }
 
 /**

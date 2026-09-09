@@ -980,6 +980,38 @@ function checks(subject: Subject): readonly Check[] {
           twins.stdout.includes("похоже: 0\n"),
           `нулевой раздел не напечатан: ${JSON.stringify(twins.stdout)}`,
         );
+        // Второй репозиторий заводится ради воркеров: вопрос по всей
+        // рабочей области считается по репозиторию в отдельном потоке,
+        // и модуль воркера обязан попасть в собранный бинарь. Тесты
+        // этого не видят — они идут по исходникам; здесь бинарь либо
+        // находит `repo_worker.ts` внутри себя, либо проверка красная.
+        // Одного репозитория мало: обход из одного задания считается на
+        // месте, и воркер не запускается вовсе.
+        const other = `${ws}/probe-two`;
+        await Deno.mkdir(`${other}/src`, { recursive: true });
+        await Deno.mkdir(`${other}/.git`, { recursive: true });
+        await Deno.writeTextFile(
+          `${other}/tsconfig.json`,
+          '{"compilerOptions":{"strict":true,"noEmit":true},' +
+            '"include":["src/**/*"]}\n',
+        );
+        await Deno.writeTextFile(
+          `${other}/src/c.ts`,
+          "export function addOne(n: number): number {\n  return n + 2;\n}\n",
+        );
+        const name = await run(subject, ["code", "name", "addOne"], {}, repo);
+        assertEquals(name.code, 0, `stderr: ${name.stderr}`);
+        // Разделы идут в порядке перечня репозиториев, а не готовности.
+        assert(
+          name.stdout.startsWith("probe · вне git · разбор по типам") &&
+            name.stdout.includes("\nprobe-two · вне git · разбор по типам"),
+          `не тот порядок разделов: ${JSON.stringify(name.stdout)}`,
+        );
+        assert(
+          name.stdout.includes("src/a.ts:1  addOne (n: number): number") &&
+            name.stdout.includes("src/c.ts:1  addOne (n: number): number"),
+          `оба раздела не ответили: ${JSON.stringify(name.stdout)}`,
+        );
       },
     ],
     ["sql-ro: выброшенный sw-маршрут отказывает, а не резолвит", async () => {
