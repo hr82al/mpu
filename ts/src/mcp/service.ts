@@ -10,7 +10,9 @@
  * прогоне тестов нет.
  */
 
-import { DomainError } from "../command/mod.ts";
+import { type CommandIo, DomainError } from "../command/mod.ts";
+import { xdgConfigHome } from "../env/mod.ts";
+import { installedBinPath } from "../install/mod.ts";
 
 /** Исход запуска внешней программы. */
 export interface ProgramOutcome {
@@ -86,6 +88,40 @@ export interface ServiceDeps {
   /** Путь программы, который пойдёт в `ExecStart` при описании. */
   readonly program: string;
   readonly run: RunProgram;
+}
+
+/**
+ * Подстановка менеджера службы и каталога описания. Умолчание — оба
+ * настоящие; тесты подставляют своего менеджера, потому что в прогоне
+ * тестов менеджера служб пользователя нет вовсе.
+ */
+export interface ServiceOptions {
+  readonly deps?: ServiceDeps;
+}
+
+/**
+ * Где искать описание и чем запускать службу — из окружения вызова.
+ * Живёт здесь, а не у команд: потребителей два — семейство подкоманд и
+ * голое `mpu mcp`, уступающее порт службе, — и второй лежит в модуле,
+ * который семейство само же импортирует.
+ */
+export function serviceDeps(
+  io: Pick<CommandIo, "env">,
+  options: ServiceOptions = {},
+): ServiceDeps {
+  if (options.deps !== undefined) return options.deps;
+  const home = io.env("HOME");
+  const configHome = xdgConfigHome(io.env);
+  if (home === undefined || home === "" || configHome === undefined) {
+    throw new DomainError(
+      "HOME не задана: ни каталог служб, ни путь установки не вычислить",
+    );
+  }
+  return {
+    dir: serviceDir(configHome),
+    program: installedBinPath(home),
+    run: spawnProgram,
+  };
 }
 
 /**

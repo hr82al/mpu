@@ -10,9 +10,7 @@
  */
 
 import { z } from "@zod/zod";
-import { type CommandIo, defineCommand, DomainError } from "../command/mod.ts";
-import { xdgConfigHome } from "../env/mod.ts";
-import { installedBinPath } from "../install/mod.ts";
+import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { configuredPort, DEFAULT_PROFILES } from "./cli.ts";
 import { LOOPBACK } from "./server.ts";
 import {
@@ -25,39 +23,12 @@ import {
   readServiceState,
   restartIfRunning,
   SERVICE_NAME,
-  type ServiceDeps,
-  serviceDir,
+  serviceDeps,
+  type ServiceOptions,
   sessionLinger,
-  spawnProgram,
   startService,
   stopService,
 } from "./service.ts";
-
-/**
- * Подстановка менеджера службы и каталога описания. Умолчание — оба
- * настоящие; тесты подставляют своего менеджера, потому что в прогоне
- * тестов менеджера служб пользователя нет вовсе.
- */
-export interface ServiceOptions {
-  readonly deps?: ServiceDeps;
-}
-
-/** Где искать описание и чем запускать службу — из окружения вызова. */
-function serviceDeps(io: CommandIo, options: ServiceOptions): ServiceDeps {
-  if (options.deps !== undefined) return options.deps;
-  const home = io.env("HOME");
-  const configHome = xdgConfigHome(io.env);
-  if (home === undefined || home === "" || configHome === undefined) {
-    throw new DomainError(
-      "HOME не задана: ни каталог служб, ни путь установки не вычислить",
-    );
-  }
-  return {
-    dir: serviceDir(configHome),
-    program: installedBinPath(home),
-    run: spawnProgram,
-  };
-}
 
 /** Адрес и профили сервера — из конфигурации, не из описания службы. */
 function endpoint(io: CommandIo): {
