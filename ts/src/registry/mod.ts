@@ -20,6 +20,7 @@ import type { Command, CommandIo } from "../command/mod.ts";
 import { xlsxCommands } from "../xlsx/mod.ts";
 import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "../update/mod.ts";
+import { buildCommand } from "../install/cmd_build.ts";
 import { mcpTokenCommand } from "../mcp/cmd_token.ts";
 import { mcpServiceCommands } from "../mcp/cmd_service.ts";
 import { sqlCommand, sqlRoCommand } from "../sql/mod.ts";
@@ -199,6 +200,7 @@ export const commands: readonly Command[] = [
   ...xlsxCommands,
   initCommand,
   updateCommand,
+  buildCommand,
   sqlCommand,
   sqlRoCommand,
   healthCommand,

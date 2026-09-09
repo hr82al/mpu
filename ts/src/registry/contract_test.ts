@@ -200,6 +200,20 @@ const CASES: readonly CommandCase[] = [
     sampleResult: { headers: { Authorization: "Bearer проба-токена" } },
   },
   {
+    path: "build",
+    // `--check` — read-only вариант: настоящая установка в образцах не
+    // участвует, а исполнение всё равно упирается в отсутствие HOME.
+    argv: ["--check"],
+    sampleResult: {
+      tree: "/w/mpu/ts",
+      target: "/h/.local/bin/mpu",
+      version: null,
+      previous: "0.1.0",
+      installed: false,
+      service: null,
+    },
+  },
+  {
     path: "mcp status",
     argv: [],
     sampleResult: {

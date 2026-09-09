@@ -168,7 +168,7 @@
     //   --allow-read                     без ограничения пути: аргумент
     //     команды — произвольный файл пользователя (`mpu xlsx <файл>`),
     //     заранее известного корня у него нет;
-    //   --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp
+    //   --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp
     //     каталог состояния — кэш-БД, журнал и файл токена доступа
     //     (все три 0600); rc-файлы — установка дополнения
     //     (`mpu --install-completion`, `platform/registry.md`): она
@@ -193,6 +193,15 @@
     //     не открывало, а попытка копирования, ради которой оно
     //     стояло, убрана порцией 91. Чтение `/dev/tty` (вопрос
     //     терминала, `confirm.md`) покрыто `--allow-read`;
+    //     `$HOME/.local/bin` — каталог установки: `mpu build` пишет
+    //     туда кандидата, переименовывает его поверх цели и возвращает
+    //     на место прежний экземпляр (`docs/specs/build.md`). Одним
+    //     путём, а не всем `$HOME`: промах мимо него — ошибка, и её
+    //     видно сразу. Право smoke НЕ покрывает: покрыл бы его только
+    //     полный `mpu build`, а он заменяет установленную программу
+    //     запускающего — проверка, меняющая машину оператора, хуже
+    //     непроверенного права (см. CLAUDE.md, «Проверка каждого
+    //     изменения», список исключений);
     //     Каталог служб пользователя (`systemd/user`, оба написания —
     //     по той же причине, что у каталога конфигурации выше) —
     //     описание службы MCP-сервера: `mpu mcp enable` пишет туда файл
@@ -358,7 +367,7 @@
     // `Module not found: …/src/code/repo_worker.ts` на любой вопрос по
     // нескольким репозиториям (замер 2026-09-09; проверка smoke «code:
     // разбор дерева…» краснеет без неё).
-    "build": "deno compile --include src/code/repo_worker.ts --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
+    "build": "deno compile --include src/code/repo_worker.ts --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь
