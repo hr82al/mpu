@@ -4,9 +4,9 @@
  */
 
 import { z } from "@zod/zod";
-import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { ProjectBuildError } from "./project.ts";
-import { type Address, parseAddress } from "./address.ts";
+import { parseAddress } from "./address.ts";
 import { renderMark, renderMarkOnly } from "./mark.ts";
 import { openAnalyzer } from "./open.ts";
 import {
@@ -16,13 +16,8 @@ import {
   refusedRefs,
 } from "./refs.ts";
 import { scopeText, treeMarkOf } from "./answer.ts";
-import { spawnGit } from "./git.ts";
-import {
-  findWorkspaceRoot,
-  readRepos,
-  type Repo,
-  repoOf,
-} from "./workspace.ts";
+import { resolveRepo } from "./sweep.ts";
+import type { Repo } from "./workspace.ts";
 
 /** Предел записей в разделе по умолчанию; запись — не строка. */
 const DEFAULT_LIMIT = 200;
@@ -101,41 +96,6 @@ export async function runRefs(
     if (!(err instanceof ProjectBuildError)) throw err;
     return refusedRefs(await repo.mark(), err.message);
   }
-}
-
-/**
- * Репозиторий адреса: названный в нём либо тот, внутри которого лежит
- * рабочий каталог. Общий для всех поверхностей семейства — правило
- * разрешения одно на всех.
- */
-export function resolveRepo(
-  address: Address,
-  cwd: string,
-  repos?: readonly Repo[],
-): Repo {
-  const known = repos ?? readRepos(findWorkspaceRoot(cwd), spawnGit);
-  return address.repo === undefined
-    ? currentRepo(known, cwd)
-    : named(known, address.repo);
-}
-
-/** Репозиторий, названный в адресе. */
-function named(repos: readonly Repo[], name: string): Repo {
-  const found = repos.find((repo) => repo.name === name);
-  if (found !== undefined) return found;
-  throw new UsageError(`неизвестный репозиторий '${name}'`, {
-    details: repos.map((repo) => `  ${repo.name}`).join("\n"),
-  });
-}
-
-/** Репозиторий текущего каталога; вне репозиториев — отказ. */
-function currentRepo(repos: readonly Repo[], cwd: string): Repo {
-  const found = repoOf(repos, cwd);
-  if (found !== undefined) return found;
-  throw new UsageError(
-    `каталог ${cwd} вне репозиториев рабочей области`,
-    { hint: "mpu code refs РЕПОЗИТОРИЙ:ПУТЬ" },
-  );
 }
 
 /**

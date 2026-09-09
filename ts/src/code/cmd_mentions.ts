@@ -4,7 +4,7 @@
  */
 
 import { z } from "@zod/zod";
-import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { fileInsideRepo } from "./address.ts";
 import { treeMarkOf } from "./answer.ts";
 import { renderUnresolved } from "./cmd_refs.ts";
@@ -15,8 +15,8 @@ import {
   type MentionsResult,
   mentionsResultSchema,
 } from "./mentions.ts";
-import { spawnGit } from "./git.ts";
-import { findWorkspaceRoot, readRepos, type Repo } from "./workspace.ts";
+import { windowRepos } from "./sweep.ts";
+import type { Repo } from "./workspace.ts";
 
 /** Предел записей в разделе по умолчанию; запись — не строка. */
 const DEFAULT_LIMIT = 200;
@@ -94,20 +94,12 @@ export async function runMentions(
     "путь",
     "нужен путь внутри репозитория",
   );
-  const known = repos ?? readRepos(findWorkspaceRoot(io.cwd()), spawnGit);
-  const chosen = window.repo === undefined
-    ? known
-    : [named(known, window.repo)];
-  return await collectMentions(path, window.dir, args.limit, chosen);
-}
-
-/** Репозиторий, названный в окне. */
-function named(repos: readonly Repo[], name: string): Repo {
-  const found = repos.find((repo) => repo.name === name);
-  if (found !== undefined) return found;
-  throw new UsageError(`неизвестный репозиторий '${name}'`, {
-    details: repos.map((repo) => `  ${repo.name}`).join("\n"),
-  });
+  return await collectMentions(
+    path,
+    window.dir,
+    args.limit,
+    windowRepos(io.cwd(), window.repo, repos),
+  );
 }
 
 /** Текст ответа: по разделу на репозиторий, каждый со своей отметкой. */

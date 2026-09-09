@@ -12,7 +12,8 @@ import { parseAddress } from "./address.ts";
 import { treeMarkOf } from "./answer.ts";
 import { renderMark, renderMarkOnly } from "./mark.ts";
 import { openAnalyzer } from "./open.ts";
-import { renderUnresolved, resolveRepo } from "./cmd_refs.ts";
+import { renderUnresolved } from "./cmd_refs.ts";
+import { resolveRepo } from "./sweep.ts";
 import {
   collectTwins,
   refusedTwins,

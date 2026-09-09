@@ -20,6 +20,7 @@ import {
 import { markLabel } from "./mark.ts";
 import { openRepoAnalyzer } from "./open.ts";
 import { ProjectBuildError } from "./project.ts";
+import { sectionsOf } from "./sweep.ts";
 import type { Repo } from "./workspace.ts";
 
 /** Окно вопроса: репозиторий целиком либо каталог в нём. */
@@ -105,26 +106,23 @@ export async function collectName(
   limit: number,
   repos: readonly Repo[],
 ): Promise<NameResult> {
-  const sections: z.infer<typeof sectionSchema>[] = [];
-  for (const repo of repos) {
+  const sections = await sectionsOf(repos, async (repo) => {
     try {
-      sections.push(
-        await sectionOf(
-          name,
-          window.dir,
-          limit,
-          repo,
-          await openRepoAnalyzer(repo),
-        ),
+      return await sectionOf(
+        name,
+        window.dir,
+        limit,
+        repo,
+        await openRepoAnalyzer(repo),
       );
     } catch (err) {
       // Отказ ПОСТРОЕНИЯ печатается вместо перечня в своём разделе:
       // один репозиторий без установленных зависимостей не должен
       // обнулять ответ по остальным (`platform/code-analyzer.md`).
       if (!(err instanceof ProjectBuildError)) throw err;
-      sections.push(refused(await repo.mark(), err.message));
+      return refused(await repo.mark(), err.message);
     }
-  }
+  });
   return { name, sections };
 }
 

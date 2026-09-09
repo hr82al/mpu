@@ -16,6 +16,7 @@ import { asMark, markSchema, unresolvedSchema } from "./answer.ts";
 import { UsageError } from "../command/mod.ts";
 import { markLabel } from "./mark.ts";
 import type { Repo } from "./workspace.ts";
+import { sectionsOf } from "./sweep.ts";
 import { walkFiles } from "./tree.ts";
 
 /** Расширение документов, которые команда просматривает. */
@@ -63,30 +64,35 @@ export async function collectMentions(
   limit: number,
   repos: readonly Repo[],
 ): Promise<MentionsResult> {
-  const sections: z.infer<typeof sectionSchema>[] = [];
-  for (const repo of repos) {
-    const mark = await repo.mark();
-    // Несуществующий каталог окна — ошибка ввода, а не ноль упоминаний:
-    // иначе опечатка в имени неотличима от «упоминаний нет», и это тот
-    // самый класс молчания, ради которого семейство и заводится. Та же
-    // проверка стоит у `code name`.
-    if (dir !== undefined && !isDirectory(`${repo.root}/${dir}`)) {
-      throw new UsageError(
-        `каталога '${dir}' нет в ${repo.name} на ${markLabel(mark)}`,
-      );
-    }
-    const found = mentionsIn(repo.root, dir, path);
-    sections.push({
-      kind: "answer",
-      mark: asMark(mark),
-      exists: exists(`${repo.root}/${path}`),
-      mentions: { total: found.length, places: found.slice(0, limit) },
-      // Анализатора у этой поверхности нет вовсе: она читает текст
-      // документов. Разрешать здесь нечего, поэтому и не разрешённого
-      // нет — раздел печатается нулевым, как и всякий нулевой.
-      unresolved: { total: 0, items: [] },
-    });
-  }
+  const sections = await sectionsOf(
+    repos,
+    // Тип раздела назван у колбэка, а не выведен: без аннотации лишнее
+    // поле в объекте раздела компилятору не видно вовсе — вывод типа
+    // проверки на избыточность не делает (замер разбора диффа).
+    async (repo): Promise<z.infer<typeof sectionSchema>> => {
+      const mark = await repo.mark();
+      // Несуществующий каталог окна — ошибка ввода, а не ноль упоминаний:
+      // иначе опечатка в имени неотличима от «упоминаний нет», и это тот
+      // самый класс молчания, ради которого семейство и заводится. Та же
+      // проверка стоит у `code name`.
+      if (dir !== undefined && !isDirectory(`${repo.root}/${dir}`)) {
+        throw new UsageError(
+          `каталога '${dir}' нет в ${repo.name} на ${markLabel(mark)}`,
+        );
+      }
+      const found = mentionsIn(repo.root, dir, path);
+      return {
+        kind: "answer",
+        mark: asMark(mark),
+        exists: exists(`${repo.root}/${path}`),
+        mentions: { total: found.length, places: found.slice(0, limit) },
+        // Анализатора у этой поверхности нет вовсе: она читает текст
+        // документов. Разрешать здесь нечего, поэтому и не разрешённого
+        // нет — раздел печатается нулевым, как и всякий нулевой.
+        unresolved: { total: 0, items: [] },
+      };
+    },
+  );
   return { path, sections };
 }
 

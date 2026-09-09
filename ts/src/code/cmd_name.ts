@@ -18,8 +18,8 @@ import {
   nameResultSchema,
   type Window,
 } from "./name.ts";
-import { spawnGit } from "./git.ts";
-import { findWorkspaceRoot, readRepos, type Repo } from "./workspace.ts";
+import { windowRepos } from "./sweep.ts";
+import type { Repo } from "./workspace.ts";
 
 /** Предел записей в разделе по умолчанию; запись — не строка. */
 const DEFAULT_LIMIT = 200;
@@ -98,12 +98,11 @@ export async function runName(
   repos?: readonly Repo[],
 ): Promise<NameResult> {
   const window = parseWindow(args.in);
-  const known = repos ?? readRepos(findWorkspaceRoot(io.cwd()), spawnGit);
   return await collectName(
     args.name,
     window,
     args.limit,
-    reposOf(known, window),
+    windowRepos(io.cwd(), window.repo, repos),
   );
 }
 
@@ -122,16 +121,6 @@ export function parseWindow(raw: string | undefined): Window {
   // становилось честное на вид «имя свободно» (замер разбора диффа).
   const dir = normalizeInside(parts[1], raw, "каталог окна");
   return { repo: parts[0], dir: dir === "" ? undefined : dir };
-}
-
-/** Репозитории окна: названный либо все. */
-function reposOf(repos: readonly Repo[], window: Window): readonly Repo[] {
-  if (window.repo === undefined) return repos;
-  const found = repos.find((repo) => repo.name === window.repo);
-  if (found !== undefined) return [found];
-  throw new UsageError(`неизвестный репозиторий '${window.repo}'`, {
-    details: repos.map((repo) => `  ${repo.name}`).join("\n"),
-  });
 }
 
 /**
