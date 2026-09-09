@@ -91,6 +91,78 @@ export interface ToolEntry {
 }
 
 /**
+ * Предел описания у клиента: длиннее он режет сам и молча
+ * (`platform/mcp-server.md`, «Объём»). Поэтому режем мы — и называем это.
+ */
+export const DESCRIPTION_LIMIT = 2048;
+
+const utf8 = new TextEncoder();
+
+/**
+ * Описание в пределах, которые держит клиент. Не влезающее усекается по
+ * границе СТРОКИ и называет себя усечённым: молчаливая обрезка на
+ * стороне клиента недопустима — агент не отличил бы её от конца текста
+ * и решил бы, что прочитал справку целиком.
+ *
+ * Маркер говорит и чем это чинится: полный текст у команды есть всегда,
+ * и взять его — одна строка в терминале.
+ *
+ * Что именно уцелеет, решает порядок изложения справки, а не эта
+ * функция: повод звать и контракт аргументов ставятся в начале, примеры
+ * и коды выхода — в конце, и жертвуются первыми
+ * (`platform/mcp-server.md`, «Объём»). Требование к справке, не
+ * утверждение о ней: справка, написанная иначе, потеряет нужное.
+ *
+ * @param description описание целиком
+ * @param path путь команды для строки «полностью — …»
+ */
+export function fitDescription(
+  description: string,
+  path: readonly string[],
+): string {
+  const whole = utf8.encode(description).length;
+  if (whole <= DESCRIPTION_LIMIT) return description;
+  const lines = description.split("\n");
+  for (let kept = lines.length - 1; kept > 0; kept--) {
+    const head = lines.slice(0, kept).join("\n");
+    const cut = withMarker(head, description, path);
+    if (cut === undefined) continue;
+    // Граница строки — минимум, которого требует спека; берётся
+    // ближайшая граница АБЗАЦА, если она влезает. Обрыв посреди абзаца
+    // читается как законченная мысль: перечень кодов выхода, оборванный
+    // на втором из трёх, выглядит перечнем из двух.
+    const blank = head.lastIndexOf("\n\n");
+    const whole2 = blank > 0
+      ? withMarker(head.slice(0, blank), description, path)
+      : undefined;
+    return whole2 ?? cut;
+  }
+  // Ни одной строки не уцелело: остаётся сказать хотя бы, что текст
+  // отброшен целиком и где он лежит.
+  return marker(whole, path);
+}
+
+/**
+ * Уцелевшее плюс маркер, если это укладывается в предел; иначе
+ * `undefined`. Отброшено — ровно то, что не уехало: разделитель между
+ * уцелевшим и маркером в выводе остался и отброшенным не является.
+ */
+function withMarker(
+  head: string,
+  description: string,
+  path: readonly string[],
+): string | undefined {
+  const dropped = utf8.encode(description.slice(head.length + 1)).length;
+  const text = `${head}\n${marker(dropped, path)}`;
+  return utf8.encode(text).length <= DESCRIPTION_LIMIT ? text : undefined;
+}
+
+function marker(dropped: number, path: readonly string[]): string {
+  return `[справка усечена: отброшено ${dropped} байт; ` +
+    `полностью — \`mpu ${path.join(" ")} --help\`]`;
+}
+
+/**
  * Имя тула из пути команды: сегменты соединяются `_`, дефисы внутри
  * сегмента тоже становятся `_`.
  */

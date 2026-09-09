@@ -3,7 +3,12 @@
  * закрытого списка публикации, без транспорта.
  */
 
-import { assertEquals, assertLess, assertThrows } from "@std/assert";
+import {
+  assertEquals,
+  assertExists,
+  assertLessOrEqual,
+  assertThrows,
+} from "@std/assert";
 import type { Command } from "../command/mod.ts";
 import { commands } from "../registry/mod.ts";
 import {
@@ -19,16 +24,21 @@ import toolPolicies from "../../docs/specs/fixtures/mcp-server/tool-policies.jso
 };
 import { readManifest } from "../registry/manifest.ts";
 import { assertDestructivePublished } from "./tools.ts";
+// Предел клиента — один на сервер и на его проверку: второе число
+// разошлось бы с первым молча.
+import { DESCRIPTION_LIMIT } from "./tool.ts";
 import treeManifest from "../../docs/specs/fixtures/platform/registry/tree.json" with {
   type: "json",
 };
 
 const PROFILES: readonly Profile[] = ["ro", "rw"];
 
-/** Предел клиента: описание и инструкции обрезаются ровно на нём. */
-const DESCRIPTION_LIMIT = 2048;
-
 const utf8 = new TextEncoder();
+
+/** Команды по пути: тул знает путь, а справку и строку использования — реестр. */
+function byPath() {
+  return new Map(commands.map((command) => [command.path.join(" "), command]));
+}
 
 Deno.test("профили не пересекаются и на /ro нет политики rw", () => {
   const ro = profileTools(commands, "ro");
@@ -91,7 +101,7 @@ Deno.test("схема аргументов не ветвится на верхн
 
 Deno.test("описание тула и инструкции профиля укладываются в предел", () => {
   for (const profile of PROFILES) {
-    assertLess(
+    assertLessOrEqual(
       utf8.encode(PROFILE_INSTRUCTIONS[profile]).length,
       DESCRIPTION_LIMIT,
       `инструкции профиля ${profile} длиннее предела`,
@@ -99,13 +109,75 @@ Deno.test("описание тула и инструкции профиля ук
     const entries = profileTools(commands, profile);
     assertEquals(entries.length > 0, true, `профиль ${profile} пуст`);
     for (const { tool } of entries) {
-      assertLess(
+      assertLessOrEqual(
         utf8.encode(tool.description).length,
         DESCRIPTION_LIMIT,
         `${tool.name}: описание длиннее предела`,
       );
     }
   }
+});
+
+Deno.test("усечение видно, а не молчаливо", () => {
+  // Проверка поведенческая: `<=` предела теперь верно по построению —
+  // усекает сам сервер. Проверять надо вторую половину требования:
+  // уложившееся не тронуто, а усечённое названо усечённым.
+  for (const profile of PROFILES) {
+    for (const { tool, path } of profileTools(commands, profile)) {
+      const command = byPath().get(path.join(" "));
+      assertExists(command, `${tool.name}: нет в реестре`);
+      const full = `${command.summary}\n\n${command.help}`;
+      if (utf8.encode(full).length <= DESCRIPTION_LIMIT) {
+        assertEquals(tool.description, full, `${tool.name}: тронуто зря`);
+        continue;
+      }
+      assertEquals(
+        tool.description.endsWith("--help`]"),
+        true,
+        `${tool.name}: обрезано молча:\n${tool.description.slice(-120)}`,
+      );
+    }
+  }
+});
+
+Deno.test("усечение оставляет повод звать и контракт аргументов", () => {
+  // Что уцелеет, решает порядок изложения справки
+  // (`platform/mcp-server.md`, «Объём»): повод звать и контракт
+  // аргументов — в начале, примеры и коды выхода жертвуются первыми.
+  // Без этой проверки строка спеки держится на внимательности.
+  let truncated = 0;
+  for (const profile of PROFILES) {
+    for (const { tool, path } of profileTools(commands, profile)) {
+      const command = byPath().get(path.join(" "));
+      assertExists(command, `${tool.name}: нет в реестре`);
+      const full = `${command.summary}\n\n${command.help}`;
+      // Первый абзац — повод звать; он обязан уцелеть у всех, а не
+      // только у усечённых.
+      assertEquals(
+        tool.description.includes(full.split("\n\n")[1] ?? ""),
+        true,
+        `${tool.name}: усечение съело повод звать`,
+      );
+      if (utf8.encode(full).length <= DESCRIPTION_LIMIT) continue;
+      truncated++;
+      // Имена опций берутся из строки использования — источника, не
+      // совпадающего с проверяемым текстом: перевёрстка блока флагов в
+      // справке не должна обнулять проверку молча.
+      for (const option of command.usage.match(/--[\w-]+/g) ?? []) {
+        assertEquals(
+          tool.description.includes(option),
+          true,
+          `${tool.name}: усечение съело контракт аргументов: ${option}`,
+        );
+      }
+    }
+  }
+  // Пустой набор усечённых сделал бы этот цикл зелёным ни о чём — но
+  // требовать здесь его непустоты нельзя: это значило бы требовать,
+  // чтобы у кого-то справка была длиннее предела. Само усечение
+  // проверено на своих входах (`tool_test.ts`), а здесь — что оно
+  // держит порядок на настоящем дереве команд.
+  void truncated;
 });
 
 Deno.test("список тулов профиля побитово одинаков между вызовами", () => {

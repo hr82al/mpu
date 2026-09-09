@@ -5,7 +5,7 @@
 
 import type { Command } from "../command/mod.ts";
 import type { JsonSchema, Tool, ToolEntry } from "./tool.ts";
-import { toolName } from "./tool.ts";
+import { fitDescription, toolName } from "./tool.ts";
 
 /** Запись тула для команды контракта. */
 export function nativeEntry(command: Command): ToolEntry {
@@ -31,8 +31,13 @@ function toolOf(command: Command): Tool {
     name: toolName(command.path),
     title: `mpu ${command.path.join(" ")}`,
     // Описание тула и текст `--help` — одно объявление команды: у
-    // справки два читателя, и оба читают одни и те же слова.
-    description: `${command.summary}\n\n${command.help}`,
+    // справки два читателя, и оба читают одни и те же слова. Клиенту
+    // достаётся столько, сколько он держит, и сказано, сколько не
+    // достаётся (`platform/mcp-server.md`, «Объём»).
+    description: fitDescription(
+      `${command.summary}\n\n${command.help}`,
+      command.path,
+    ),
     annotations: { readOnlyHint: command.policy === "ro" },
     inputSchema: publishedSchema(command.argsJsonSchema.json),
     outputSchema: publishedSchema(command.resultJsonSchema.json),

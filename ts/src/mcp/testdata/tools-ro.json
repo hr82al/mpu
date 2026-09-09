@@ -3445,5 +3445,1182 @@
       ],
       "additionalProperties": false
     }
+  },
+  {
+    "name": "code_refs",
+    "title": "mpu code refs",
+    "description": "перед переименованием или переносом: кто держится за символ или модуль\n\nСпрашивают перед тем, как переименовать или удалить символ: кто за\nнего держится и что сломается от правки. Ответ либо полон, либо сам\nназывает, где неполон, — и этим отличается от текстового поиска,\nкоторый не обещает ни того, ни другого.\n\nАДРЕС = [РЕПОЗИТОРИЙ:]ПУТЬ[:СТРОКА]. Со строкой — потребители\nсимвола, объявленного в ней; без строки — файлы, читающие модуль.\n\n  --limit N   предел записей в разделе, не строк (по умолчанию 200)\n\nМесто потребителя — файл и строка, которой он символ получает.\nОбращения внутри файла местами не считаются: один файл берёт символ\nодин раз, а зовёт сколько угодно.\n\nПечатается также область видимости символа — одной строкой — и раздел\n«не разрешено», всегда, в том числе нулевой.\n\nПуть относителен корню репозитория. Репозиторий опущен — берётся тот,\nвнутри которого лежит текущий рабочий каталог. Репозитории рабочей\nобласти — подкаталоги с .git у ближайшего предка с файлом\n.mp-workspace-root.\n[справка усечена: отброшено 905 байт; полностью — `mpu code refs --help`]",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limit": {
+          "default": 200,
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "address"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "section": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "answer"
+                },
+                "mark": {
+                  "type": "object",
+                  "properties": {
+                    "repo": {
+                      "type": "string"
+                    },
+                    "git": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "branch": {
+                              "type": "string"
+                            },
+                            "commit": {
+                              "type": "string"
+                            },
+                            "dirty": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "branch",
+                            "commit",
+                            "dirty"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "repo",
+                    "git"
+                  ],
+                  "additionalProperties": false
+                },
+                "guarantee": {
+                  "type": "string",
+                  "enum": [
+                    "types",
+                    "text"
+                  ]
+                },
+                "target": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "symbol",
+                        "module"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "path",
+                    "line"
+                  ],
+                  "additionalProperties": false
+                },
+                "symbol": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "signature": {
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string",
+                          "enum": [
+                            "entry",
+                            "module-only",
+                            "no-entry",
+                            "entry-unparsed",
+                            "entry-not-object",
+                            "private"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "signature",
+                        "scope"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "consumers": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "places": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "line": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "line"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "places"
+                  ],
+                  "additionalProperties": false
+                },
+                "unresolved": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "line": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "specifier": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "line",
+                          "specifier",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "kind",
+                "mark",
+                "guarantee",
+                "target",
+                "symbol",
+                "consumers",
+                "unresolved"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "refused"
+                },
+                "mark": {
+                  "type": "object",
+                  "properties": {
+                    "repo": {
+                      "type": "string"
+                    },
+                    "git": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "branch": {
+                              "type": "string"
+                            },
+                            "commit": {
+                              "type": "string"
+                            },
+                            "dirty": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "branch",
+                            "commit",
+                            "dirty"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "repo",
+                    "git"
+                  ],
+                  "additionalProperties": false
+                },
+                "refusal": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "mark",
+                "refusal"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "section"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "code_twins",
+    "title": "mpu code twins",
+    "description": "перед правкой тела: нет ли у него близнеца в другом файле\n\nСпрашивают перед тем, как править тело функции: нет ли у него\nблизнеца в другом файле — иначе починка ляжет в одно место из двух, и\nвторое разойдётся с первым молча. Совпадение считает разбор, а не\nподстрока, и ответ либо полон, либо сам называет, где неполон.\n\nАДРЕС = [РЕПОЗИТОРИЙ:]ПУТЬ:СТРОКА, строка обязательна. Тело\nберётся у объявления-функции, охватывающего эту строку: объявления,\nстрелки, метода. Окно поиска — репозиторий адреса.\n\n  --limit N   предел записей в разделе, не строк (по умолчанию 200)\n\nРазделов два, и они не смешиваются. «побайтово» — тела, совпадающие\nпосимвольно от открывающей скобки до закрывающей; запрошенное тело в\nнём есть всегда, поэтому раздел не бывает пуст. «похоже» — тела,\nсовпадающие после нормализации: комментарии сняты, пробелы сжаты,\nпараметры и локальные имена переименованы по порядку появления,\nлитералы заменены позиционными метками. Тело из «побайтово» в «похоже»\nне повторяется.\n[справка усечена: отброшено 1242 байт; полностью — `mpu code twins --help`]",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string",
+          "minLength": 1
+        },
+        "limit": {
+          "default": 200,
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "address"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "section": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "answer"
+                },
+                "mark": {
+                  "type": "object",
+                  "properties": {
+                    "repo": {
+                      "type": "string"
+                    },
+                    "git": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "branch": {
+                              "type": "string"
+                            },
+                            "commit": {
+                              "type": "string"
+                            },
+                            "dirty": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "branch",
+                            "commit",
+                            "dirty"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "repo",
+                    "git"
+                  ],
+                  "additionalProperties": false
+                },
+                "guarantee": {
+                  "type": "string",
+                  "enum": [
+                    "types",
+                    "text"
+                  ]
+                },
+                "query": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "signature": {
+                      "type": "string"
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "signature",
+                    "path",
+                    "line"
+                  ],
+                  "additionalProperties": false
+                },
+                "exact": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "twins": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "line": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "difference": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "line",
+                          "name",
+                          "difference"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "twins"
+                  ],
+                  "additionalProperties": false
+                },
+                "similar": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "twins": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "line": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "difference": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "line",
+                          "name",
+                          "difference"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "twins"
+                  ],
+                  "additionalProperties": false
+                },
+                "unresolved": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "line": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "specifier": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "line",
+                          "specifier",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "kind",
+                "mark",
+                "guarantee",
+                "query",
+                "exact",
+                "similar",
+                "unresolved"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "refused"
+                },
+                "mark": {
+                  "type": "object",
+                  "properties": {
+                    "repo": {
+                      "type": "string"
+                    },
+                    "git": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "branch": {
+                              "type": "string"
+                            },
+                            "commit": {
+                              "type": "string"
+                            },
+                            "dirty": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "branch",
+                            "commit",
+                            "dirty"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "repo",
+                    "git"
+                  ],
+                  "additionalProperties": false
+                },
+                "refusal": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "mark",
+                "refusal"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "section"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "code_name",
+    "title": "mpu code name",
+    "description": "перед внесением имени: не занято ли оно другим смыслом\n\nСпрашивают перед тем, как внести новое имя: не занято ли оно\nдругим смыслом там, куда вносят. Отвечает каждый репозиторий рабочей\nобласти своим разделом; где разбора по типам нет, раздел отказывает с\nназванной причиной, а не выдаёт текстовый ответ за полный.\n\nИМЯ — точное имя объявления, без подстановочных знаков.\n\n  --in ОКНО   где искать (по умолчанию — вся рабочая область)\n  --limit N   предел записей в разделе, не строк (по умолчанию 200)\n\nОКНО = РЕПОЗИТОРИЙ либо РЕПОЗИТОРИЙ:КАТАЛОГ. Окно уровня каталога\nнужно потому, что занятость имени решают объявления там, куда вносят\nновое, а не во всём репозитории. Без --in отвечает КАЖДЫЙ репозиторий\nрабочей области — своим разделом со своей отметкой дерева; разделы не\nсмешиваются даже при совпадении имён.\n[справка усечена: отброшено 2046 байт; полностью — `mpu code name --help`]",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "in": {
+          "type": "string"
+        },
+        "limit": {
+          "default": 200,
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "answer"
+                  },
+                  "mark": {
+                    "type": "object",
+                    "properties": {
+                      "repo": {
+                        "type": "string"
+                      },
+                      "git": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "branch": {
+                                "type": "string"
+                              },
+                              "commit": {
+                                "type": "string"
+                              },
+                              "dirty": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "branch",
+                              "commit",
+                              "dirty"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "repo",
+                      "git"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "guarantee": {
+                    "type": "string",
+                    "enum": [
+                      "types",
+                      "text"
+                    ]
+                  },
+                  "declarations": {
+                    "type": "object",
+                    "properties": {
+                      "total": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "path": {
+                              "type": "string"
+                            },
+                            "line": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "signature": {
+                              "type": "string"
+                            },
+                            "scope": {
+                              "type": "string",
+                              "enum": [
+                                "entry",
+                                "module-only",
+                                "no-entry",
+                                "entry-unparsed",
+                                "entry-not-object",
+                                "private"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "path",
+                            "line",
+                            "name",
+                            "signature",
+                            "scope"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "total",
+                      "items"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "returnTypes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "neighbours": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "total": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "items": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "path": {
+                                  "type": "string"
+                                },
+                                "line": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "signature": {
+                                  "type": "string"
+                                },
+                                "scope": {
+                                  "type": "string",
+                                  "enum": [
+                                    "entry",
+                                    "module-only",
+                                    "no-entry",
+                                    "entry-unparsed",
+                                    "entry-not-object",
+                                    "private"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "path",
+                                "line",
+                                "name",
+                                "signature",
+                                "scope"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "total",
+                          "items"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "unresolved": {
+                    "type": "object",
+                    "properties": {
+                      "total": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "path": {
+                              "type": "string"
+                            },
+                            "line": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "specifier": {
+                              "type": "string"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "path",
+                            "line",
+                            "specifier",
+                            "reason"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "total",
+                      "items"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "kind",
+                  "mark",
+                  "guarantee",
+                  "declarations",
+                  "returnTypes",
+                  "neighbours",
+                  "unresolved"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "refused"
+                  },
+                  "mark": {
+                    "type": "object",
+                    "properties": {
+                      "repo": {
+                        "type": "string"
+                      },
+                      "git": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "branch": {
+                                "type": "string"
+                              },
+                              "commit": {
+                                "type": "string"
+                              },
+                              "dirty": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "branch",
+                              "commit",
+                              "dirty"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "repo",
+                      "git"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "refusal": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "mark",
+                  "refusal"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "name",
+        "sections"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "code_mentions",
+    "title": "mpu code mentions",
+    "description": "после переезда файла: где путь упомянут в документах и цел ли он\n\nСпрашивают после переезда или переименования файла: где путь\nупомянут в документации и не протух ли он.\nГарантия в шапке всегда пониженная: команда работает по тексту\nдокументов, а не по разбору, и разбором не притворяется.\n\nПУТЬ — путь к файлу от корня репозитория, как его пишут в\nдокументах. Совпадение считается по подстроке: в тексте адрес обычно\nобрамлён обратными кавычками, скобками ссылки или знаками препинания.\n\n  --in ОКНО   где искать (по умолчанию — вся рабочая область)\n  --limit N   предел записей в разделе, не строк (по умолчанию 200)\n\nОбласть просмотра — файлы .md репозитория вне node_modules.\n\nПервой строкой печатается, существует ли путь в коде: «— есть в коде»\nлибо «— в коде нет». Без неё перечень упоминаний не отвечает на\nзаданный вопрос — протух адрес или нет.\n\nВхождение — пара «документ, строка»: несколько вхождений в одной строке\nсчитаются одним, разные строки одного документа — разными.\n[справка усечена: отброшено 666 байт; полностью — `mpu code mentions --help`]",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "in": {
+          "type": "string"
+        },
+        "limit": {
+          "default": 200,
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "answer"
+              },
+              "mark": {
+                "type": "object",
+                "properties": {
+                  "repo": {
+                    "type": "string"
+                  },
+                  "git": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "branch": {
+                            "type": "string"
+                          },
+                          "commit": {
+                            "type": "string"
+                          },
+                          "dirty": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "branch",
+                          "commit",
+                          "dirty"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "repo",
+                  "git"
+                ],
+                "additionalProperties": false
+              },
+              "exists": {
+                "type": "boolean"
+              },
+              "mentions": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "places": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "path": {
+                          "type": "string"
+                        },
+                        "line": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "line"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "total",
+                  "places"
+                ],
+                "additionalProperties": false
+              },
+              "unresolved": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "path": {
+                          "type": "string"
+                        },
+                        "line": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "specifier": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "path",
+                        "line",
+                        "specifier",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "total",
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "kind",
+              "mark",
+              "exists",
+              "mentions",
+              "unresolved"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "path",
+        "sections"
+      ],
+      "additionalProperties": false
+    }
   }
 ]
