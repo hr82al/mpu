@@ -30,6 +30,7 @@ import {
   type ServiceDeps,
   serviceDepsIfAny,
   type ServiceOptions,
+  servicePid,
   startService,
   stopService,
 } from "./service.ts";
@@ -127,24 +128,33 @@ export async function runMcpServer(
   // Гашение сервера — одна точка на все способы закончить: штатный
   // конец, сигнал извне и прерывание с клавиатуры.
   const stopping = new AbortController();
-  const stop = () => stopping.abort();
+  let subscribed: (() => void) | undefined;
+  const unlisten = () => {
+    subscribed?.();
+    subscribed = undefined;
+  };
+  // Первый сигнал гасит штатно — со всем, что положено сделать по
+  // дороге; второй убивает, как убивал до этой спеки: подписка
+  // снимается здесь же. Иначе зависший вызов тула нечем снять, кроме
+  // `SIGKILL`, — `Deno.serve` при отмене ждёт запросы в полёте.
+  const stop = () => {
+    unlisten();
+    stopping.abort();
+  };
   run.signal?.addEventListener("abort", stop);
   if (run.signal?.aborted) stop();
-  // Подписка ставится ДО уступки, а не после: окно, в котором служба
-  // остановлена, начинается внутри `borrowPort` — прерывание во время
-  // `systemctl stop` иначе убило бы процесс умолчанием Deno и оставило
-  // бы службу лежать.
-  let unlisten = (run.onInterrupt ?? listenForInterrupt)(stop);
+  // Подписка ставится ДО уступки: окно, в котором служба остановлена,
+  // начинается внутри `borrowPort` — прерывание во время `systemctl
+  // stop` иначе убило бы процесс умолчанием Deno и оставило бы службу
+  // лежать. Безусловно, а не только при уступке: сервер, убитый
+  // сигналом, выходит ненулевым кодом (замер 2026-09-09: 143 на
+  // SIGTERM, 130 на SIGINT), и менеджер служб видел бы `failed` там,
+  // где мы напечатали «остановлена».
+  subscribed = (run.onInterrupt ?? listenForInterrupt)(stop);
   let borrowed: ServiceDeps | undefined;
   let code = 0;
   try {
     borrowed = await borrowPort(run, port);
-    if (borrowed === undefined) {
-      // Службу не трогали — и умолчание «сигнал убивает процесс»
-      // остаётся тем же, каким было до этой спеки.
-      unlisten();
-      unlisten = () => {};
-    }
     const server = await serveMcp({
       port,
       profiles: options.profiles,
@@ -199,6 +209,13 @@ async function borrowPort(
   // не за что.
   const state = await readServiceState(deps);
   if (state.program === null || !isRunning(state.activity)) return undefined;
+  // Юнит запускает тот же голый `mpu mcp`: уступив порт себе, служба
+  // останавливает саму себя и не поднимается вовсе. Не уступаем и
+  // тогда, когда выяснить не удалось, — цена ошибки несимметрична: в
+  // одну сторону поверхность мертва, в другую передний план печатает
+  // «порт занят», как до этой спеки.
+  const main = await servicePid(deps);
+  if (main === undefined || main === Deno.pid) return undefined;
   // Останавливала ли служба именно эта команда, знает сама остановка:
   // между вопросом о состоянии и ответом менеджера службу мог погасить
   // кто-то ещё, и тогда уступать было нечего — а запустить её после

@@ -283,9 +283,54 @@ async function checkMcpServer(subject: Subject): Promise<void> {
       "600",
       "права файла токена не 0600",
     );
+    // Сервер обязан гаснуть по сигналу завершения САМ и выходить
+    // нулём: убитый сигналом процесс выходит ненулевым кодом (замер
+    // 2026-09-09: 143 на SIGTERM, 130 на SIGINT), и менеджер служб
+    // видел бы `failed` там, где мы напечатали «остановлена»
+    // (`docs/specs/mcp-service.md`). Проверяется только запуском
+    // бинаря: `deno test` сигналов своему процессу не шлёт.
+    stopServer(child);
+    const status = await stoppedWithin(child, STOP_DEADLINE_MS);
+    assertEquals(
+      status.code,
+      0,
+      `сервер не погасился по SIGTERM: код ${status.code}` +
+        `${status.signal === null ? "" : `, сигнал ${status.signal}`}`,
+    );
   } finally {
+    // Повторное гашение безопасно: `stopServer` глотает `TypeError`
+    // уже завершённого процесса, а статус ждётся сколько угодно раз.
     stopServer(child);
     await child.status;
+  }
+}
+
+/** Сколько ждать, пока сервер погаснет по сигналу. */
+const STOP_DEADLINE_MS = 10_000;
+
+/**
+ * Статус завершения в срок. Без срока регрессия «сервер не гасится по
+ * сигналу» — та самая, которую ловит эта проверка, — давала бы не
+ * красное, а вечное ожидание: обработчик стоит всегда, и не доведённое
+ * до конца гашение некому прервать.
+ */
+async function stoppedWithin(
+  child: Deno.ChildProcess,
+  ms: number,
+): Promise<Deno.CommandStatus> {
+  const late = Promise.withResolvers<never>();
+  const timer = setTimeout(() => {
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      // Уже мёртв — тогда статус придёт сам, и срок ни при чём.
+    }
+    late.reject(new Error(`сервер не погас за ${ms / 1000} с после SIGTERM`));
+  }, ms);
+  try {
+    return await Promise.race([child.status, late.promise]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

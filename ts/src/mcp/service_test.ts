@@ -10,6 +10,7 @@ import {
   type RunProgram,
   SERVICE_NAME,
   serviceDir,
+  servicePid,
   sessionLinger,
   startService,
   stopService,
@@ -433,4 +434,50 @@ Deno.test("restart — одно обращение к менеджеру, а н�
       assertEquals(m.calls, []);
     });
   });
+});
+
+Deno.test("главный процесс службы: ответ менеджера разбирается строго", async (t) => {
+  // По этому числу решается, не мы ли и есть служба, а ошибка здесь
+  // означает, что служба останавливает сама себя.
+  const cases = [
+    { name: "номер", reply: { code: 0, stdout: "4242\n" }, want: 4242 },
+    {
+      name: "ноль — процесса нет",
+      reply: { code: 0, stdout: "0\n" },
+      want: undefined,
+    },
+    { name: "пусто", reply: { code: 0, stdout: "\n" }, want: undefined },
+    { name: "мусор", reply: { code: 0, stdout: "мусор\n" }, want: undefined },
+    {
+      name: "число с хвостом не число",
+      reply: { code: 0, stdout: "12abc\n" },
+      want: undefined,
+    },
+    {
+      name: "менеджер отказал",
+      reply: { code: 1, stdout: "" },
+      want: undefined,
+    },
+  ] as const;
+  for (const { name, reply, want } of cases) {
+    await t.step(name, async () => {
+      await withDir(async (dir) => {
+        const calls: string[][] = [];
+        const run: RunProgram = (bin, args) => {
+          calls.push([bin, ...args]);
+          return Promise.resolve({ ...reply, stderr: "" });
+        };
+        assertEquals(
+          await servicePid({ dir, program: PROGRAM, run }),
+          want,
+        );
+        // Спрашивается у менеджера, а не берётся из окружения: новых
+        // прав это распознавание не требует.
+        assert(
+          calls[0].includes("--property=MainPID"),
+          calls[0].join(" "),
+        );
+      });
+    });
+  }
 });

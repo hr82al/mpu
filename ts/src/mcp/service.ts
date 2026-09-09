@@ -154,6 +154,38 @@ export interface ServiceState {
 /** Значения задержки сеанса: один источник для типа и схемы результата. */
 export const LINGER = ["on", "off", "unknown"] as const;
 
+/**
+ * Номер главного процесса службы у менеджера. Менеджер ответил отказом
+ * или службы нет — `undefined`; менеджера нет вовсе — `DomainError`,
+ * как у соседей по модулю.
+ *
+ * Нужен ровно одному вопросу: не мы ли и есть служба. Юнит запускает
+ * тот же голый `mpu mcp`, и без этого вопроса запуск, которым служба
+ * исполняется, останавливал бы её саму — то есть поверхность,
+ * поднятая ради постоянной работы, не поднималась бы вовсе
+ * (`docs/specs/mcp-service.md`, `[D.12]`; живой прогон 2026-09-09).
+ *
+ * Спрашивается у менеджера, а не берётся из окружения: новых прав не
+ * требует. Цена — зависимость от того, когда менеджер номер
+ * проставляет; для `Type=simple` он известен с момента порождения.
+ */
+export async function servicePid(
+  deps: ServiceDeps,
+): Promise<number | undefined> {
+  const outcome = await systemctl(deps, [
+    "show",
+    SERVICE_NAME,
+    "--property=MainPID",
+    "--value",
+  ]);
+  if (outcome.code !== 0) return undefined;
+  // `Number`, а не `parseInt`: последний принял бы «12abc» за 12, то
+  // есть ответ не того формата сошёл бы за номер процесса.
+  const pid = Number(outcome.stdout.trim());
+  // Ноль — «главного процесса нет»: служба не работает.
+  return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
+}
+
 /** Задержка сеанса пользователя; `unknown` — `loginctl` не ответил. */
 export type Linger = typeof LINGER[number];
 

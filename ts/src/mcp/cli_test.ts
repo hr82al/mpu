@@ -425,6 +425,9 @@ Deno.test("у вызова тула нет stdin — понятная ошибк
   });
 });
 
+/** Номер главного процесса подставной службы: им проверяется распознавание. */
+const SERVICE_PID = 4242;
+
 /** Порт, который заведомо существует и почти наверняка свободен. */
 async function freePort(): Promise<number> {
   const probe = await serveMcp({
@@ -467,6 +470,13 @@ function fakeManager(
       ? (active.now ? "active" : "inactive")
       : verb === "is-enabled"
       ? "enabled"
+      // Главный процесс службы: ноль, когда её нет, — как у настоящего
+      // менеджера.
+      : verb === "show"
+      // Главный процесс службы. `self` — «служба это мы»: юнит
+      // запускает тот же голый `mpu mcp`, и распознавание сравнивает
+      // ответ менеджера с собственным номером процесса.
+      ? String(quirks.self === true ? Deno.pid : SERVICE_PID)
       : "";
     return Promise.resolve({ code: 0, stdout: `${answer}\n`, stderr: "" });
   };
@@ -486,6 +496,8 @@ interface Quirks {
   readonly vanishing?: boolean;
   /** `start` ломается дефектом кода, а не отказом менеджера. */
   readonly crashStart?: boolean;
+  /** Главный процесс службы — этот процесс: запуск и есть служба. */
+  readonly self?: boolean;
 }
 
 async function withService(
@@ -668,6 +680,7 @@ async function bareRun(
     signal: stop.signal,
     onListen: listening.resolve,
     service: { deps },
+    // Не служба: номер свой, а не её главного процесса.
   });
   await listening.promise;
   stop.abort();
@@ -795,7 +808,7 @@ Deno.test("дефект своего кода отказом службы не �
   });
 });
 
-Deno.test("подписка на прерывание накрывает всё окно уступки", async () => {
+Deno.test("подписка стоит с начала окна, а второй сигнал убивает", async () => {
   await withStore(async (io) => {
     usePort(io, await freePort());
     // Менеджер — наблюдатель изнутри окна: его зовут ровно тогда, когда
@@ -830,10 +843,15 @@ Deno.test("подписка на прерывание накрывает всё 
         interrupt();
         assertEquals(await running, 0);
         assertEquals(active.now, true);
-        // Начало окна: служба ещё останавливается, а обработчик уже стоит.
+        // Начало окна: служба ещё останавливается, а обработчик уже
+        // стоит — прерывание во время `systemctl stop` перехвачено.
         assertEquals(seen.atStop, true, "подписка поставлена после остановки");
-        // Конец окна: служба ещё поднимается, обработчик ещё не снят.
-        assertEquals(seen.atStart, false, "отписались до возврата службы");
+        // Конец окна: первый сигнал уже сработал и снял подписку с
+        // себя, поэтому второй убьёт процесс, как убивал до этой
+        // спеки. Возврат службы от этого не страдает: он идёт как
+        // штатное гашение, а спека требует пережить ОДИН обычный
+        // способ закончить работу, не всякое их число.
+        assertEquals(seen.atStart, true, "второй сигнал не убьёт процесс");
         assertEquals(unsubscribed, true, "подписка не снята после возврата");
       },
     );
@@ -879,5 +897,93 @@ Deno.test("порт занят третьим — служба всё равно
     } finally {
       await squatter.shutdown();
     }
+  });
+});
+
+Deno.test("запуск, которым исполняется сама служба, уступки не делает", async () => {
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    // Менеджер называет главным процессом службы этот самый процесс —
+    // так и выглядит запуск из юнита, который зовёт тот же голый
+    // `mpu mcp`.
+    await withService(
+      { described: true, self: true },
+      async (deps, active, calls) => {
+        const output = makeOutput();
+        const stop = new AbortController();
+        const listening = Promise.withResolvers<RunningServer>();
+        const running = runMcpServer([], {
+          io,
+          output: output.sink,
+          commands,
+          log: NO_INVOKE_LOG,
+          signal: stop.signal,
+          onListen: listening.resolve,
+          service: { deps },
+        });
+        await listening.promise;
+        stop.abort();
+        assertEquals(await running, 0);
+        // Служба не остановлена собой и не «возвращена» после себя.
+        assertEquals(active.now, true, "служба остановила саму себя");
+        assertEquals(calls.includes("stop"), false, calls.join(", "));
+        assertEquals(calls.includes("start"), false, calls.join(", "));
+        assertEquals(
+          output.stderr().includes("уступлен"),
+          false,
+          output.stderr(),
+        );
+      },
+    );
+  });
+});
+
+Deno.test("менеджер не назвал главный процесс — порт не уступается", async () => {
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    await withService({ described: true }, async (deps, active, calls) => {
+      // `show` отказал: выяснить, мы ли служба, нечем. Цена ошибки
+      // несимметрична, поэтому не уступаем.
+      const silent: RunProgram = (bin, args) =>
+        args[1] === "show"
+          ? Promise.resolve({ code: 1, stdout: "", stderr: "нет такого\n" })
+          : deps.run(bin, args);
+      const { code } = await bareRun(io, [], { ...deps, run: silent });
+      assertEquals(code, 0);
+      assertEquals(active.now, true);
+      assertEquals(calls.includes("stop"), false, calls.join(", "));
+    });
+  });
+});
+
+Deno.test("подписка на сигнал живёт весь запуск, даже без уступки", async () => {
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    // Службы нет — уступать нечего, но гаснуть по сигналу сервер
+    // обязан всё равно: убитый сигналом процесс выходит ненулевым
+    // кодом, и менеджер увидел бы `failed` вместо «остановлена».
+    await withService({ described: false }, async (deps) => {
+      const listening = Promise.withResolvers<RunningServer>();
+      let interrupt: (() => void) | undefined;
+      let unsubscribed = false;
+      const running = runMcpServer([], {
+        io,
+        output: makeOutput().sink,
+        commands,
+        log: NO_INVOKE_LOG,
+        onListen: listening.resolve,
+        service: { deps },
+        onInterrupt: (handle) => {
+          interrupt = handle;
+          return () => void (unsubscribed = true);
+        },
+      });
+      await listening.promise;
+      assertEquals(unsubscribed, false, "отписались, не дождавшись конца");
+      assert(interrupt !== undefined, "на прерывание никто не подписался");
+      interrupt();
+      assertEquals(await running, 0);
+      assertEquals(unsubscribed, true, "подписка не снята после выхода");
+    });
   });
 });
