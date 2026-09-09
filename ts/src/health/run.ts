@@ -68,7 +68,10 @@ const rowSchema = z.object({
 const tailSchema = z.object({
   name: z.string(),
   /** stderr контейнера; пусто — окно без записей. */
-  text: z.string(),
+  text: z.string().describe(
+    "последние строки stderr, не больше, чем `tail` этого вызова: текст " +
+      "усечён им, а сколько строк в логе всего, источник не сообщает",
+  ),
   /** Сбой получения логов; на код выхода не влияет. */
   error: z.string().nullable(),
 });

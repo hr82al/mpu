@@ -98,12 +98,21 @@ const resultSchema = z.object({
   /** Записи разового запроса по возрастанию времени; вне его — пусто. */
   entries: z.array(
     z.object({ tsNs: z.string(), line: z.string() }),
-  ).readonly(),
+  ).readonly().describe(
+    "перечень усечён `--tail`: источник отдаёт последние N записей окна, " +
+      "а сколько их в окне всего — не сообщает",
+  ),
   /** Снимок Portainer; вне legacy-пути — null. */
   snapshot: z.object({
     container: z.string(),
-    stdout: z.string(),
-    stderr: z.string(),
+    stdout: z.string().describe(
+      "последние строки stdout, не больше `--tail`; сколько их в логе " +
+        "всего, Docker не сообщает",
+    ),
+    stderr: z.string().describe(
+      "последние строки stderr, не больше `--tail`; сколько их в логе " +
+        "всего, Docker не сообщает",
+    ),
   }).nullable(),
 });
 

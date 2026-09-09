@@ -627,7 +627,8 @@
                 "type": "string"
               },
               "text": {
-                "type": "string"
+                "type": "string",
+                "description": "последние строки stderr, не больше, чем `tail` этого вызова: текст усечён им, а сколько строк в логе всего, источник не сообщает"
               },
               "error": {
                 "anyOf": [
@@ -877,6 +878,7 @@
         },
         "entries": {
           "readOnly": true,
+          "description": "перечень усечён `--tail`: источник отдаёт последние N записей окна, а сколько их в окне всего — не сообщает",
           "type": "array",
           "items": {
             "type": "object",
@@ -904,10 +906,12 @@
                   "type": "string"
                 },
                 "stdout": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "последние строки stdout, не больше `--tail`; сколько их в логе всего, Docker не сообщает"
                 },
                 "stderr": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "последние строки stderr, не больше `--tail`; сколько их в логе всего, Docker не сообщает"
                 }
               },
               "required": [
