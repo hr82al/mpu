@@ -5,7 +5,12 @@
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { handleMcp, type McpRequest, type McpResponse } from "./mod.ts";
+import {
+  handleMcp,
+  type McpRequest,
+  type McpResponse,
+  PROFILE_INSTRUCTIONS,
+} from "./mod.ts";
 import type { Command, CommandIo } from "../command/mod.ts";
 import { makeDenoIo } from "../runtime/mod.ts";
 import { commands } from "../registry/mod.ts";
@@ -69,6 +74,9 @@ Deno.test("tools/list: форма тула — эталон фикстуры", a
   const { request, response } = await fixture("tools-list-ok.json");
   const actual = await handle(request);
   assertEquals(actual.status, 200);
+  // Верхний уровень результата сверяется с эталоном целиком: иначе
+  // конверт перечня в голдене не держит ни одна проверка.
+  assertEquals(envelopeOf(actual.body), envelopeOf(response.body));
   // Состав растёт с переносом команд, поэтому сверяется форма записи
   // тула, а не байты списка (спека, «Golden-примеры»).
   const expected = toolByName(response.body, "xlsx_ls");
@@ -356,11 +364,16 @@ Deno.test("классическое рукопожатие: клиент ста�
         },
       });
       assertEquals(actual.status, 200);
-      const result = bodyRecord(bodyRecord(actual.body)["result"]);
-      assertEquals(result["protocolVersion"], "2025-06-18");
-      assertEquals(result["capabilities"], { tools: {} });
-      assertEquals(result["serverInfo"], { name: "mpu", version: "0.1.0" });
-      assertEquals(typeof result["instructions"], "string");
+      // Результат сверяется целиком, а не по полям: конверт текущей
+      // ревизии в ответе `initialize` не появляется, и лишнее поле
+      // видно только полным сравнением.
+      const result = resultOf(actual.body);
+      assertEquals(result, {
+        protocolVersion: "2025-06-18",
+        capabilities: { tools: {} },
+        serverInfo: { name: "mpu", version: "0.1.0" },
+        instructions: PROFILE_INSTRUCTIONS["ro"],
+      });
     },
   );
 
@@ -421,6 +434,110 @@ Deno.test("классическое рукопожатие: клиент ста�
     assertEquals(errorOf(actual.body).code, -32601);
   });
 });
+
+/**
+ * Конверт результата (`platform/mcp-server.md`, «Конверт результата»).
+ * Каждый метод проверяется поимённо: признак полноты, найденный у
+ * одного результата, ничего не говорит об остальных, а клиент бракует
+ * без него весь ответ.
+ */
+Deno.test("конверт результата", async (t) => {
+  const meta = {
+    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+  };
+  const listing = (path: string) =>
+    handle({
+      method: "POST",
+      path,
+      headers: {
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "tools/list",
+      },
+      body: {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: { _meta: meta },
+      },
+    });
+
+  await t.step(
+    "tools/list на /ro — полнота, срок годности, область",
+    async () => {
+      assertListingEnvelope(resultOf((await listing("/ro")).body));
+    },
+  );
+
+  await t.step("tools/list на /rw — тот же конверт", async () => {
+    assertListingEnvelope(resultOf((await listing("/rw")).body));
+  });
+
+  await t.step(
+    "tools/list классического рукопожатия — тот же конверт",
+    async () => {
+      const actual = await handle({
+        method: "POST",
+        path: "/ro",
+        headers: {},
+        body: { jsonrpc: "2.0", id: 1, method: "tools/list" },
+      });
+      assertListingEnvelope(resultOf(actual.body));
+    },
+  );
+
+  await t.step(
+    "tools/call классического рукопожатия — полнота без срока",
+    async () => {
+      await withSampleDir(async (dir) => {
+        const real = makeDenoIo(dir);
+        const actual = await handle({
+          method: "POST",
+          path: "/ro",
+          headers: {},
+          body: {
+            jsonrpc: "2.0",
+            id: 2,
+            method: "tools/call",
+            params: { name: "xlsx_ls", arguments: { file: "sample.xlsx" } },
+          },
+        }, makeFakeIo({ readFile: real.readFile, cwd: () => dir }));
+        const result = resultOf(actual.body);
+        assertEquals(result["resultType"], "complete");
+        // Срок годности и область кэша принадлежат перечню: у вызова тула
+        // их нет вовсе, а не «нулевые».
+        assertEquals(Object.keys(result).sort(), [
+          "content",
+          "resultType",
+          "structuredContent",
+        ]);
+      });
+    },
+  );
+
+  await t.step("два tools/list подряд — тела совпадают побитово", async () => {
+    const first = await listing("/ro");
+    const second = await listing("/ro");
+    assertEquals(JSON.stringify(first.body), JSON.stringify(second.body));
+  });
+});
+
+/** Конверт результата-перечня: постоянные значения, а не «какие-нибудь». */
+function assertListingEnvelope(result: Readonly<Record<string, unknown>>) {
+  assertEquals(result["resultType"], "complete");
+  assertEquals(result["ttlMs"], 0);
+  assertEquals(result["cacheScope"], "private");
+}
+
+/** Результат `tools/list` без самого списка: конверт перечня как есть. */
+function envelopeOf(body: unknown): Readonly<Record<string, unknown>> {
+  const { tools: _tools, ...envelope } = resultOf(body);
+  return envelope;
+}
+
+/** Результат ответа как словарь; ответа с ошибкой здесь быть не должно. */
+function resultOf(body: unknown): Readonly<Record<string, unknown>> {
+  return bodyRecord(bodyRecord(body)["result"]);
+}
 
 /** Тело ответа как словарь; иначе — падение с читаемым сообщением. */
 function bodyRecord(body: unknown): Readonly<Record<string, unknown>> {

@@ -172,9 +172,28 @@ export async function handleMcp(
   }
 }
 
+/**
+ * Признак полноты выдачи, обязательный у результата любого метода
+ * текущей ревизии: ответ отдаётся целиком, частичных выдач у сервера
+ * нет. Клиент, разобравший результат без него, бракует ответ целиком —
+ * список тулов не доходит до агента при состоявшемся подключении
+ * (`platform/mcp-server.md`, «Конверт результата»).
+ */
+const RESULT_COMPLETE = { resultType: "complete" } as const;
+
+/**
+ * Срок годности и область кэша результата-перечня. Нулевой срок — не
+ * заглушка: состав тулов меняется пересборкой бинаря и перезапуском
+ * службы, о котором клиенту никто не сообщает, и переживший перезапуск
+ * список звал бы тулы, которых уже нет.
+ */
+const LISTING_CACHE = { ttlMs: 0, cacheScope: "private" } as const;
+
 /** Результат `server/discover`. */
 interface DiscoverResult {
   readonly resultType: "complete";
+  readonly ttlMs: 0;
+  readonly cacheScope: "private";
   readonly supportedVersions: readonly string[];
   readonly capabilities: { readonly tools: Record<string, never> };
   readonly _meta: Readonly<
@@ -190,7 +209,8 @@ interface DiscoverResult {
  */
 function discover(profile: Profile, version: string): DiscoverResult {
   return {
-    resultType: "complete",
+    ...RESULT_COMPLETE,
+    ...LISTING_CACHE,
     supportedVersions: SUPPORTED_VERSIONS,
     capabilities: { tools: {} },
     _meta: { [META_SERVER_INFO]: { name: "mpu", version } },
@@ -253,11 +273,23 @@ function initializeResult(
   };
 }
 
+/** Результат `tools/list`: перечень тулов профиля в конверте перечня. */
+interface ToolsListResult {
+  readonly resultType: "complete";
+  readonly ttlMs: 0;
+  readonly cacheScope: "private";
+  readonly tools: readonly Tool[];
+}
+
 function listTools(
   commands: readonly Command[],
   profile: Profile,
-): { readonly tools: readonly Tool[] } {
-  return { tools: profileTools(commands, profile).map((entry) => entry.tool) };
+): ToolsListResult {
+  return {
+    ...RESULT_COMPLETE,
+    ...LISTING_CACHE,
+    tools: profileTools(commands, profile).map((entry) => entry.tool),
+  };
 }
 
 /**
@@ -355,12 +387,15 @@ function bodyOf(id: RpcId, outcome: ToolOutcome): RpcBody {
       // Структурное содержимое есть всегда: результат команды описан
       // схемой (`platform/command-contract.md`). Ветка «только текст»
       // была нужна маршруту `legacy`, снятому целиком (порция 97).
+      // Срок годности и область кэша конверта принадлежат перечню:
+      // исход вызова не кэшируется и полей о кэше не несёт.
       return resultBody(id, {
+        ...RESULT_COMPLETE,
         structuredContent: outcome.structured,
         content,
       });
     case "domain":
-      return resultBody(id, { isError: true, content });
+      return resultBody(id, { ...RESULT_COMPLETE, isError: true, content });
     case "usage":
       return errorBody(id, RPC_INVALID_PARAMS, outcome.text);
     case "internal":

@@ -31,6 +31,8 @@
       "id": "discover-1",
       "result": {
         "resultType": "complete",
+        "ttlMs": 0,
+        "cacheScope": "private",
         "supportedVersions": ["2026-07-28"],
         "capabilities": { "tools": {} },
         "_meta": {
