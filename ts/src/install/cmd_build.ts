@@ -9,7 +9,7 @@ import { z } from "@zod/zod";
 import { defineCommand, DomainError } from "../command/mod.ts";
 import { xdgConfigHome } from "../env/mod.ts";
 import { restartServiceIfRunning } from "../mcp/cmd_service.ts";
-import { build, findSourceTree, spawnAt } from "./build.ts";
+import { build, findSourceTree, type ServiceFate, spawnAt } from "./build.ts";
 import { installedBinPath } from "./mod.ts";
 
 const argsSchema = z.object({
@@ -17,6 +17,19 @@ const argsSchema = z.object({
     "собрать и проверить, установку не трогать",
   ),
 });
+
+/**
+ * Судьба службы. Союз, а не пара полей: причина принадлежит одному
+ * исходу, и «перезапущена с причиной отказа» выразить нечем.
+ */
+const serviceSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("restarted") }),
+  z.object({ kind: z.literal("untouched") }),
+  z.object({
+    kind: z.literal("restart-failed"),
+    reason: z.string().describe("отказ перезапуска дословно"),
+  }),
+]);
 
 const resultSchema = z.object({
   tree: z.string().describe("дерево исходников, из которого собрано"),
@@ -28,7 +41,7 @@ const resultSchema = z.object({
     "версия, стоявшая по пути установки; null — её не было",
   ),
   installed: z.boolean().describe("путь установки заменён"),
-  service: z.enum(["restarted", "untouched"]).nullable().describe(
+  service: serviceSchema.nullable().describe(
     "судьба службы MCP; null — установка не трогалась",
   ),
 });
@@ -56,6 +69,8 @@ export const buildCommand = defineCommand({
 
 Работающая служба MCP перезапускается после установки: иначе в памяти
 остаётся прежняя версия. Не установлена или остановлена — не трогается.
+Перезапуск не удался — печатаются обе строки, и «установлено», и отказ:
+программа к тому моменту уже заменена, и молчать об этом нельзя.
 
 --check обрывает порядок после \`deno task smoke\`: по пути установки
 кандидат не появляется вовсе.
@@ -64,7 +79,8 @@ export const buildCommand = defineCommand({
 не проверка установки.
 
 Exit: 0 — установлено (или проверено при --check); 1 — дерева нет,
-сборка или проверка упали, установленное не ответило; 2 — ошибка ввода.
+сборка или проверка упали, установленное не ответило, нет прав на
+запись по пути установки, служба не перезапустилась; 2 — ошибка ввода.
 
 Примеры: mpu build; mpu build --check`,
   policy: "rw",
@@ -91,10 +107,7 @@ Exit: 0 — установлено (или проверено при --check); 1
         home,
         configHome,
       },
-      {
-        run: spawnAt,
-        restartService: () => restartServiceIfRunning(io),
-      },
+      { run: spawnAt, restartService: () => restartServiceIfRunning(io) },
       args.check,
     );
   },
@@ -110,11 +123,36 @@ Exit: 0 — установлено (или проверено при --check); 1
       "проверка: `deno task smoke` зелёный, кандидат ответил " +
       "version и --help\n" +
       `установлено: ${result.target}\n` +
-      `служба MCP: ${
-        result.service === "restarted" ? "перезапущена" : "не тронута"
-      }\n`;
+      serviceLine(result.service);
   },
+  // Отказ перезапуска — код 1 при состоявшейся установке: обе строки
+  // напечатаны, но итог вызова неуспешен (`docs/specs/build.md`).
+  textExitCode: (result) => result.service?.kind === "restart-failed" ? 1 : 0,
 });
+
+/**
+ * Строка о судьбе службы. Отказ печатается вместе с причиной и следом
+ * за строкой «установлено»: программа заменена, и об этом сказано, что
+ * бы ни случилось со службой.
+ *
+ * Про службу ничего не известно (`null`) — строки нет вовсе: она
+ * появляется только там, где установка была.
+ */
+function serviceLine(service: ServiceFate | null): string {
+  if (service === null) return "";
+  switch (service.kind) {
+    case "restarted":
+      return "служба MCP: перезапущена\n";
+    case "untouched":
+      return "служба MCP: не тронута\n";
+    case "restart-failed":
+      return `служба MCP: перезапуск не удался — ${service.reason}\n`;
+    default: {
+      const unknown: never = service;
+      throw new TypeError(`неизвестная судьба службы: ${String(unknown)}`);
+    }
+  }
+}
 
 /**
  * Каталог работающей программы. Символические ссылки разрешаются: на

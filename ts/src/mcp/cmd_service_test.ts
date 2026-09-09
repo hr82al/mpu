@@ -18,6 +18,7 @@ import {
   mcpEnableCommand,
   mcpServiceCommands,
   mcpStatusCommand,
+  restartServiceIfRunning,
   runDisable,
   runEnable,
   runStart,
@@ -265,4 +266,75 @@ Deno.test("start/stop без описания: отказ по-русски, с 
       });
     });
   }
+});
+
+Deno.test("перезапуск для сборки: отказ службы — ответ, а не исключение", async (t) => {
+  await t.step("работает — перезапущена", async () => {
+    await withDir(async (dir) => {
+      await describe(dir);
+      const deps = fakeDeps(dir, { "is-active": "active" });
+      assertEquals(await restartServiceIfRunning(makeFakeIo(), { deps }), {
+        kind: "restarted",
+      });
+    });
+  });
+  await t.step("описания нет — не тронута", async () => {
+    await withDir(async (dir) => {
+      assertEquals(
+        await restartServiceIfRunning(makeFakeIo(), { deps: fakeDeps(dir) }),
+        { kind: "untouched" },
+      );
+    });
+  });
+  await t.step("менеджер отказал — отказ уезжает ответом", async () => {
+    await withDir(async (dir) => {
+      await describe(dir);
+      const run: RunProgram = (bin, args) => {
+        if (bin !== "systemctl") {
+          return Promise.resolve({ code: 0, stdout: "", stderr: "" });
+        }
+        const active = args[1] === "is-active";
+        return Promise.resolve({
+          code: active ? 0 : 1,
+          stdout: active ? "active\n" : "",
+          stderr: active ? "" : "Job for mpu-mcp.service failed\n",
+        });
+      };
+      const outcome = await restartServiceIfRunning(makeFakeIo(), {
+        deps: { dir, program: PROGRAM, run },
+      });
+      assertEquals(outcome.kind, "restart-failed");
+      assert("reason" in outcome, "причина отказа не названа");
+      assertStringIncludes(outcome.reason, "systemctl --user restart");
+      // Подсказка про журнал доезжает: именно ради неё отказ и несут.
+      assertStringIncludes(outcome.reason, "journalctl --user -u");
+    });
+  });
+  await t.step(
+    "отказ не-Error читается: и строкой, и объектом",
+    async () => {
+      await withDir(async (dir) => {
+        await describe(dir);
+        const refuseWith = (failure: unknown): RunProgram => (bin, args) => {
+          if (bin === "systemctl" && args[1] === "restart") {
+            return Promise.reject(failure);
+          }
+          return Promise.resolve({ code: 0, stdout: "active\n", stderr: "" });
+        };
+        const reasonOf = async (failure: unknown) => {
+          const outcome = await restartServiceIfRunning(makeFakeIo(), {
+            deps: { dir, program: PROGRAM, run: refuseWith(failure) },
+          });
+          assertEquals(outcome.kind, "restart-failed");
+          assert("reason" in outcome, "причина отказа не названа");
+          return outcome.reason;
+        };
+        assertEquals(await reasonOf("отвалился строкой"), "отвалился строкой");
+        // Объект без `Error` не должен схлопнуться в «[object Object]».
+        const said = await reasonOf({ code: 137 });
+        assertStringIncludes(said, "137");
+        assertEquals(said.includes("[object"), false, said);
+      });
+    },
+  );
 });

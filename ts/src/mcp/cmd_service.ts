@@ -395,11 +395,32 @@ export const mcpServiceCommands = [
  * `mpu build` после замены программы. Состояние службы наружу не
  * отдаётся: решает она, а не сборка.
  *
- * @returns был ли перезапуск
+ * Отказ приходит исходом, а не исключением: спрашивают об этом после
+ * того, как программа уже заменена, и брошенная наружу ошибка спрятала
+ * бы состоявшуюся установку (`docs/specs/build.md`, «Служба не
+ * перезапустилась»). Текст отказа собирается здесь, пока ошибка жива;
+ * назвать команду в нём нечем — строку печатает `mpu build`, и она уже
+ * подписана им.
  */
-export function restartServiceIfRunning(
+export async function restartServiceIfRunning(
   io: CommandIo,
   options: ServiceOptions = {},
-): Promise<boolean> {
-  return restartIfRunning(serviceDeps(io, options));
+): Promise<
+  | { readonly kind: "restarted" }
+  | { readonly kind: "untouched" }
+  | { readonly kind: "restart-failed"; readonly reason: string }
+> {
+  try {
+    return await restartIfRunning(serviceDeps(io, options))
+      ? { kind: "restarted" }
+      : { kind: "untouched" };
+  } catch (err) {
+    return { kind: "restart-failed", reason: refusalText(err) };
+  }
+}
+
+/** Причина отказа текстом. Не-`Error` бывает у чужой реализации шва. */
+function refusalText(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return typeof err === "string" ? err : Deno.inspect(err);
 }

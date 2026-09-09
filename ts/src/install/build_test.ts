@@ -51,7 +51,7 @@ function fake(world: World = {}): Fake {
       },
       restartService: () => {
         result.restarted = true;
-        return Promise.resolve(true);
+        return Promise.resolve({ kind: "restarted" as const });
       },
     },
   };
@@ -144,7 +144,7 @@ Deno.test("после успешной установки в каталоге у
     assertEquals(outcome.previous, "0.1.0");
     assertEquals(outcome.version, "0.2.0");
     assertEquals(outcome.installed, true);
-    assertEquals(outcome.service, "restarted");
+    assertEquals(outcome.service, { kind: "restarted" });
     assertEquals(await Deno.readTextFile(plan.target), "0.2.0");
     // Ни кандидата, ни сохранённого: каталог установки лежит в PATH.
     assertEquals(await names(dirOf(plan.target)), ["mpu"]);
@@ -230,12 +230,34 @@ Deno.test("deno не найден — названа причина, а не т�
   await withPlan(async (plan) => {
     const deps = {
       run: () => Promise.reject(new Deno.errors.NotFound("deno")),
-      restartService: () => Promise.resolve(false),
+      restartService: () => Promise.resolve({ kind: "untouched" as const }),
     };
     await assertRejects(
       () => build(plan, deps, true),
       DomainError,
       "deno не найден",
     );
+  });
+});
+
+Deno.test("перезапуск не удался — об установке всё равно сказано", async () => {
+  await withPlan(async (plan) => {
+    await Deno.writeTextFile(plan.target, "0.1.0");
+    const f = fake();
+    // Текст — настоящей формы, какую собирает слой службы: с выводом
+    // менеджера и подсказкой про журнал, в несколько строк.
+    const reason = "systemctl --user restart mpu-mcp.service завершился с 1: " +
+      "Job for mpu-mcp.service failed\n" +
+      "журнал: journalctl --user -u mpu-mcp.service -n 50";
+    const outcome = await build(plan, {
+      run: f.deps.run,
+      restartService: () =>
+        Promise.resolve({ kind: "restart-failed" as const, reason }),
+    }, false);
+    // Программа заменена — и это главное, что должен узнать владелец.
+    assertEquals(outcome.installed, true);
+    assertEquals(outcome.version, "0.2.0");
+    assertEquals(await Deno.readTextFile(plan.target), "0.2.0");
+    assertEquals(outcome.service, { kind: "restart-failed", reason });
   });
 });

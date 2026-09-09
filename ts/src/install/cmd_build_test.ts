@@ -46,7 +46,7 @@ Deno.test("итог печатается по-разному для устано
       ...common,
       version: "0.2.0",
       installed: true,
-      service: "restarted",
+      service: { kind: "restarted" },
     }, []);
     assertStringIncludes(text, "собрано: 0.2.0");
     assertStringIncludes(text, "было: 0.1.0");
@@ -64,13 +64,37 @@ Deno.test("итог печатается по-разному для устано
     assertStringIncludes(text, "установка не тронута (--check)");
     assertEquals(text.includes("установлено:"), false);
   });
+  await t.step("перезапуск не удался: обе строки и код 1", () => {
+    const result = {
+      ...common,
+      version: "0.2.0",
+      installed: true,
+      service: {
+        kind: "restart-failed" as const,
+        // Текст закреплён снимающим тестом на шве службы
+        // (`src/mcp/cmd_service_test.ts`, «менеджер отказал»).
+        reason:
+          "systemctl --user restart mpu-mcp.service завершился с 1: Job for " +
+          "mpu-mcp.service failed\nжурнал: journalctl --user -u " +
+          "mpu-mcp.service -n 50",
+      },
+    };
+    const text = buildCommand.renderResult(result, []);
+    // Установка состоялась — и это видно, несмотря на отказ.
+    assertStringIncludes(text, "установлено: /h/.local/bin/mpu");
+    assertStringIncludes(text, "перезапуск не удался — systemctl --user");
+    // Подсказка про журнал доезжает целиком: усечение до первой строки
+    // выбросило бы ровно то, ради чего эта ветка и появилась.
+    assertStringIncludes(text, "journalctl --user -u");
+    assertEquals(buildCommand.textExitCode(result), 1);
+  });
   await t.step("первая установка: прежней версии не было", () => {
     const text = buildCommand.renderResult({
       ...common,
       previous: null,
       version: "0.2.0",
       installed: true,
-      service: "untouched",
+      service: { kind: "untouched" },
     }, []);
     assertStringIncludes(text, "было: ничего не установлено");
     assertStringIncludes(text, "не тронута");

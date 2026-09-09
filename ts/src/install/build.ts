@@ -149,10 +149,11 @@ export interface BuildPlan {
 export interface BuildDeps {
   readonly run: RunAt;
   /**
-   * Перезапуск службы MCP, если она работает; отвечает, был ли
-   * перезапуск. Решает служба, а не сборка.
+   * «Перезапустись, если работаешь» — вопрос службе, а не чтение её
+   * состояния. Отказать этот шов не может: свой отказ он приносит
+   * исходом, и спрятать за ним состоявшуюся установку нечем.
    */
-  readonly restartService: () => Promise<boolean>;
+  readonly restartService: () => Promise<ServiceFate>;
 }
 
 /** Что сборка сделала: то же, что печатает команда. */
@@ -165,8 +166,21 @@ export interface BuildOutcome {
   readonly previous: string | null;
   readonly installed: boolean;
   /** Судьба службы; установка не трогалась — `null`. */
-  readonly service: "restarted" | "untouched" | null;
+  readonly service: ServiceFate | null;
 }
+
+/**
+ * Что стало со службой MCP после замены программы. Отказ — такой же
+ * исход, как перезапуск, а не исключение: программа к этому моменту УЖЕ
+ * заменена, и брошенная наружу ошибка оставила бы владельца в
+ * уверенности, что установка не состоялась. Причина живёт внутри того
+ * исхода, которому она принадлежит, — «перезапущена с причиной отказа»
+ * выразить нечем.
+ */
+export type ServiceFate =
+  | { readonly kind: "restarted" }
+  | { readonly kind: "untouched" }
+  | { readonly kind: "restart-failed"; readonly reason: string };
 
 /**
  * Собирает и устанавливает. Порядок жёсткий: проверка сборки — до
@@ -194,14 +208,13 @@ export async function build(
     };
   }
   const version = await installCandidate(plan, deps.run);
-  const restarted = await deps.restartService();
   return {
     tree: plan.tree,
     target: plan.target,
     version,
     previous,
     installed: true,
-    service: restarted ? "restarted" : "untouched",
+    service: await deps.restartService(),
   };
 }
 
