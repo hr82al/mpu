@@ -3626,7 +3626,8 @@
                           "line"
                         ],
                         "additionalProperties": false
-                      }
+                      },
+                      "description": "перечень усечён, если короче total"
                     }
                   },
                   "required": [
@@ -3670,7 +3671,8 @@
                           "reason"
                         ],
                         "additionalProperties": false
-                      }
+                      },
+                      "description": "перечень усечён, если короче total"
                     }
                   },
                   "required": [
@@ -3911,7 +3913,8 @@
                           "difference"
                         ],
                         "additionalProperties": false
-                      }
+                      },
+                      "description": "перечень усечён, если короче total"
                     }
                   },
                   "required": [
@@ -3962,7 +3965,8 @@
                           "difference"
                         ],
                         "additionalProperties": false
-                      }
+                      },
+                      "description": "перечень усечён, если короче total"
                     }
                   },
                   "required": [
@@ -4006,7 +4010,8 @@
                           "reason"
                         ],
                         "additionalProperties": false
-                      }
+                      },
+                      "description": "перечень усечён, если короче total"
                     }
                   },
                   "required": [
@@ -4234,7 +4239,8 @@
                             "scope"
                           ],
                           "additionalProperties": false
-                        }
+                        },
+                        "description": "перечень усечён, если короче total"
                       }
                     },
                     "required": [
@@ -4298,7 +4304,8 @@
                                 "scope"
                               ],
                               "additionalProperties": false
-                            }
+                            },
+                            "description": "перечень усечён, если короче total"
                           }
                         },
                         "required": [
@@ -4347,7 +4354,8 @@
                             "reason"
                           ],
                           "additionalProperties": false
-                        }
+                        },
+                        "description": "перечень усечён, если короче total"
                       }
                     },
                     "required": [
@@ -4551,7 +4559,8 @@
                         "line"
                       ],
                       "additionalProperties": false
-                    }
+                    },
+                    "description": "перечень усечён, если короче total"
                   }
                 },
                 "required": [
@@ -4595,7 +4604,8 @@
                         "reason"
                       ],
                       "additionalProperties": false
-                    }
+                    },
+                    "description": "перечень усечён, если короче total"
                   }
                 },
                 "required": [

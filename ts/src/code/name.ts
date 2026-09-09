@@ -14,6 +14,7 @@ import type { Analyzer } from "./analyzer.ts";
 import {
   asMark,
   markSchema,
+  TRUNCATION_NOTE,
   unresolvedOf,
   unresolvedSchema,
 } from "./answer.ts";
@@ -65,7 +66,7 @@ const sectionSchema = z.discriminatedUnion("kind", [
     guarantee: z.enum(["types", "text"]),
     declarations: z.object({
       total: z.number().int().nonnegative(),
-      items: z.array(declarationSchema),
+      items: z.array(declarationSchema).describe(TRUNCATION_NOTE),
     }),
     /**
      * Уникальные типы возврата по порядку появления. Пусто —
@@ -79,7 +80,7 @@ const sectionSchema = z.discriminatedUnion("kind", [
      */
     neighbours: z.object({
       total: z.number().int().nonnegative(),
-      items: z.array(declarationSchema),
+      items: z.array(declarationSchema).describe(TRUNCATION_NOTE),
     }).nullable(),
     unresolved: unresolvedSchema,
   }),

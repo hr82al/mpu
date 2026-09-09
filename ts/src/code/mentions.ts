@@ -12,7 +12,12 @@
 import { z } from "@zod/zod";
 import type { Place } from "./analyzer.ts";
 import { byPathAndLine } from "./analyzer.ts";
-import { asMark, markSchema, unresolvedSchema } from "./answer.ts";
+import {
+  asMark,
+  markSchema,
+  TRUNCATION_NOTE,
+  unresolvedSchema,
+} from "./answer.ts";
 import { UsageError } from "../command/mod.ts";
 import { markLabel } from "./mark.ts";
 import type { Repo } from "./workspace.ts";
@@ -38,7 +43,7 @@ const sectionSchema = z.object({
     places: z.array(z.object({
       path: z.string(),
       line: z.number().int().positive(),
-    })),
+    })).describe(TRUNCATION_NOTE),
   }),
   unresolved: unresolvedSchema,
 });

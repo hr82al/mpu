@@ -18,6 +18,7 @@ import { markLabel, type TreeMark } from "./mark.ts";
 import {
   asMark,
   markSchema,
+  TRUNCATION_NOTE,
   unresolvedOf,
   unresolvedSchema,
 } from "./answer.ts";
@@ -36,7 +37,7 @@ const twinSchema = z.object({
 /** Раздел совпадений: сколько нашлось и что уместилось в предел. */
 const sectionSchema = z.object({
   total: z.number().int().nonnegative(),
-  twins: z.array(twinSchema),
+  twins: z.array(twinSchema).describe(TRUNCATION_NOTE),
 });
 
 /**

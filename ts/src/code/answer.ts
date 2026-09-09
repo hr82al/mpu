@@ -44,6 +44,15 @@ export const markSchema = z.object({
   }).nullable(),
 });
 
+/**
+ * Признак усечения перечня, режущегося `--limit`. Называется словами, а
+ * не оставляется читателю на вывод из «короче, чем `total`»: правило
+ * слоя — незнание называется, а не выводится
+ * (`platform/mcp-server.md`, «Объём»). Один текст на все перечни: их
+ * десяток, и разойтись им нечем.
+ */
+export const TRUNCATION_NOTE = "перечень усечён, если короче total";
+
 /** Раздел «не разрешено»: печатается всегда, в том числе нулевой. */
 export const unresolvedSchema = z.object({
   total: z.number().int().nonnegative(),
@@ -52,7 +61,7 @@ export const unresolvedSchema = z.object({
     line: z.number().int().positive(),
     specifier: z.string(),
     reason: z.string(),
-  })),
+  })).describe(TRUNCATION_NOTE),
 });
 
 /** Отметка дерева в структурной форме. */

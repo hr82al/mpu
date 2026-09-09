@@ -4,9 +4,11 @@
  */
 
 import {
+  assert,
   assertEquals,
   assertExists,
   assertLessOrEqual,
+  assertStringIncludes,
   assertThrows,
 } from "@std/assert";
 import type { Command } from "../command/mod.ts";
@@ -178,6 +180,60 @@ Deno.test("усечение оставляет повод звать и конт
   // проверено на своих входах (`tool_test.ts`), а здесь — что оно
   // держит порядок на настоящем дереве команд.
   void truncated;
+});
+
+/**
+ * Перечни, объявившие `total`: рядом с массивом лежит поле общего
+ * числа. Обход по всей схеме, включая ветви союзов, — разделы команд
+ * `code` объявлены дискриминированным союзом, и перечни живут внутри
+ * ветвей.
+ */
+function countedLists(schema: unknown, at: string): [string, string][] {
+  if (Array.isArray(schema)) {
+    return schema.flatMap((node, i) => countedLists(node, `${at}[${i}]`));
+  }
+  if (typeof schema !== "object" || schema === null) return [];
+  const node: Record<string, unknown> = { ...schema };
+  const props = node["properties"];
+  const here: [string, string][] = [];
+  if (typeof props === "object" && props !== null && "total" in props) {
+    for (const [name, field] of Object.entries(props)) {
+      if (typeof field !== "object" || field === null) continue;
+      const value: Record<string, unknown> = { ...field };
+      if (value["type"] !== "array") continue;
+      here.push([`${at}.${name}`, String(value["description"] ?? "")]);
+    }
+  }
+  return [
+    ...here,
+    ...Object.entries(node).flatMap(([key, value]) =>
+      countedLists(value, `${at}.${key}`)
+    ),
+  ];
+}
+
+Deno.test("у перечня, объявившего total, признак усечения назван", () => {
+  // Пара «перечень плюс `total`» признаком усечения считается только
+  // тогда, когда описание поля прямо об усечении говорит: вывод,
+  // который читатель обязан сделать сам, признаком не является
+  // (`platform/mcp-server.md`, «Объём»).
+  //
+  // Проверка именно про пару, а не про всякий режущийся перечень:
+  // перечни с ограничителем и без `total` в дереве есть
+  // (`telegram ls`, `telegram search`, `health`, `logs`) — у них не то
+  // же умолчание, а отсутствие пары целиком, и это вопрос их схем
+  // результата, а не описаний полей.
+  let found = 0;
+  for (const profile of PROFILES) {
+    for (const { tool } of profileTools(commands, profile)) {
+      for (const [at, said] of countedLists(tool.outputSchema, tool.name)) {
+        found++;
+        assertStringIncludes(said, "усечён", `${at}: признак не назван`);
+      }
+    }
+  }
+  // Пустой обход сделал бы проверку зелёной ни о чём.
+  assert(found > 0, "перечней с `total` не нашлось вовсе");
 });
 
 Deno.test("список тулов профиля побитово одинаков между вызовами", () => {
