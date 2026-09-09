@@ -23,6 +23,7 @@ import { REQUIRES_INTERACTION } from "../src/mcp/tool.ts";
 import { PROTOCOL_VERSION } from "../src/mcp/jsonrpc.ts";
 import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/http/mod.ts";
 import { WARMUP_BUDGET_MS } from "../src/kaiten/mod.ts";
+import { compileArgs } from "../src/install/mod.ts";
 import { envFilePath, makeEnvFile } from "../src/env/mod.ts";
 import { makeEnvFileStore } from "../src/runtime/mod.ts";
 import { denoSession } from "../src/sql/mod.ts";
@@ -131,27 +132,6 @@ async function runOk(
 }
 
 /**
- * Аргументы `deno compile` из задачи `build`. Список прав здесь не
- * переписывается: иначе smoke проверял бы не те права, с которыми
- * бинарь ставится. Подменяются только путь вывода и два каталога
- * окружения — `HOME` и `XDG_CONFIG_HOME`.
- */
-function buildArgs(denoJsonc: string, subject: Subject): string[] {
-  const task = denoJsonc.match(/"build":\s*"([^"]*)"/)?.[1];
-  if (task === undefined) throw new Error("в deno.jsonc нет задачи build");
-  const args = task.split(/\s+/).slice(1).map((arg) =>
-    arg.replaceAll("$HOME", subject.home).replaceAll(
-      "$XDG_CONFIG_HOME",
-      subject.configHome,
-    )
-  );
-  const out = args.indexOf("-o");
-  if (out < 0) throw new Error("в задаче build нет -o");
-  args[out + 1] = subject.bin;
-  return args;
-}
-
-/**
  * Env-файл для прогона `copy-dev`: обязательные ключи источника,
  * указанные на петлю с заведомо закрытым портом. Дальше создания
  * временного файла вызов и не должен уходить — `pg_dump` не находится
@@ -219,8 +199,18 @@ function requireOutsideTempPermission(...paths: readonly string[]): void {
   }
 }
 
+/**
+ * Собирает бинарь прогона. Аргументы — из задачи `build`
+ * (`src/install/mod.ts`): список прав здесь не переписывается, иначе
+ * smoke проверял бы не те права, с которыми бинарь ставится.
+ * Подменяются только путь вывода и два каталога окружения.
+ */
 async function compile(subject: Subject): Promise<void> {
-  const args = buildArgs(await Deno.readTextFile("deno.jsonc"), subject);
+  const args = compileArgs(await Deno.readTextFile("deno.jsonc"), {
+    home: subject.home,
+    configHome: subject.configHome,
+    out: subject.bin,
+  });
   const compiled = await new Deno.Command("deno", {
     args,
     stdout: "inherit",
