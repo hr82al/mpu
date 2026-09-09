@@ -64,7 +64,7 @@ Deno.test("исключения кода снимаются, исключени�
     const program = buildProgram(ts, {
       kind: "tsconfig",
       path: `${temp}/tsconfig.json`,
-    });
+    }, temp);
     assertExists(program, "программа не построена");
     assertEquals(
       program.getRootFileNames().map((name) => name.slice(temp.length + 1))
@@ -86,7 +86,11 @@ Deno.test("конфигурация без входных файлов прое�
     // Отказом это быть не может: solution-style конфиг рядом с рабочим
     // проектом положил бы весь ответ по репозиторию.
     assertEquals(
-      buildProgram(ts, { kind: "tsconfig", path: `${temp}/tsconfig.json` }),
+      buildProgram(
+        ts,
+        { kind: "tsconfig", path: `${temp}/tsconfig.json` },
+        temp,
+      ),
       undefined,
     );
   } finally {
@@ -100,7 +104,11 @@ Deno.test("непостроенная программа — отказ с пр�
     await t.step("конфигурации нет", () => {
       assertThrows(
         () =>
-          buildProgram(ts, { kind: "tsconfig", path: `${temp}/tsconfig.json` }),
+          buildProgram(
+            ts,
+            { kind: "tsconfig", path: `${temp}/tsconfig.json` },
+            temp,
+          ),
         DomainError,
         "не читается",
       );
@@ -116,7 +124,11 @@ Deno.test("непостроенная программа — отказ с пр�
       );
       assertThrows(
         () =>
-          buildProgram(ts, { kind: "tsconfig", path: `${temp}/tsconfig.json` }),
+          buildProgram(
+            ts,
+            { kind: "tsconfig", path: `${temp}/tsconfig.json` },
+            temp,
+          ),
         DomainError,
         "не разбирается",
       );

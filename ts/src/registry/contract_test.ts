@@ -1996,6 +1996,7 @@ const CASES: readonly CommandCase[] = [
     sampleResult: {
       path: "src/gone.ts",
       sections: [{
+        kind: "answer",
         mark: { repo: "fixture", git: null },
         exists: false,
         mentions: {

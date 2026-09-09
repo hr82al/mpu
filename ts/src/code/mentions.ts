@@ -21,8 +21,14 @@ import { walkFiles } from "./tree.ts";
 /** Расширение документов, которые команда просматривает. */
 const DOC_SUFFIXES: readonly string[] = [".md"];
 
-/** Раздел одного репозитория: своя отметка, свой перечень, свой хвост. */
+/**
+ * Раздел одного репозитория: своя отметка, свой перечень, свой хвост.
+ * Размечен `kind`, как и у трёх соседних поверхностей: образцы читает
+ * агент как описание тулов, и разметка у трёх из четырёх читалась бы
+ * как другой контракт у четвёртой.
+ */
 const sectionSchema = z.object({
+  kind: z.literal("answer"),
   mark: markSchema,
   /** Существует ли путь в коде этого репозитория. */
   exists: z.boolean(),
@@ -71,6 +77,7 @@ export async function collectMentions(
     }
     const found = mentionsIn(repo.root, dir, path);
     sections.push({
+      kind: "answer",
       mark: asMark(mark),
       exists: exists(`${repo.root}/${path}`),
       mentions: { total: found.length, places: found.slice(0, limit) },

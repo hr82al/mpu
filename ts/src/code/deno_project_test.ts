@@ -110,7 +110,7 @@ Deno.test("проект собирается без диагностик, кро
     const program = buildProgram(ts, {
       kind: "deno",
       path: `${repo.root}/deno.json`,
-    });
+    }, repo.root);
     assertEquals(program !== undefined, true, "программа не построена");
     // Импорт с расширением `.ts` модуль разрешает и без разрешающей
     // опции (замер 2026-09-08) — но помечает ошибкой. На перечень
@@ -171,7 +171,7 @@ Deno.test("exclude конфигурации Deno убирает файлы из 
     const program = buildProgram(ts, {
       kind: "deno",
       path: `${root}/deno.json`,
-    });
+    }, root);
     const files = (program?.getRootFileNames() ?? [])
       .map((file) => file.slice(root.length + 1)).sort();
 
@@ -206,7 +206,7 @@ Deno.test("обход не заходит в каталоги с точки", as
     const program = buildProgram(ts, {
       kind: "deno",
       path: `${root}/deno.json`,
-    });
+    }, root);
     assertEquals(
       (program?.getRootFileNames() ?? []).map((f) => f.slice(root.length + 1)),
       ["src/kept.ts"],

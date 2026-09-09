@@ -75,7 +75,7 @@ const NO_INPUTS = 18003;
 export function buildProgram(
   ts: typeof TS,
   project: Project,
-  repoRoot: string = dirOf(project.path),
+  repoRoot: string,
 ): TS.Program | undefined {
   const projectPath = project.path;
   const shown = projectPath.startsWith(`${repoRoot}/`)

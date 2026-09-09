@@ -94,14 +94,20 @@ export function renderMark(mark: TreeMark, guarantee: Guarantee): string {
   const promise = guarantee === "types"
     ? "разбор по типам — ответ полон"
     : "текстовый разбор — ответ неполон";
-  if (mark.state.kind === "out-of-git") {
-    return `${mark.repo} · вне git · ${promise}`;
-  }
+  return [...markFields(mark), promise].join(" · ");
+}
+
+/**
+ * Поля отметки без гарантии. Одно место на всех потребителей: шапку
+ * печатают и ответивший раздел, и отказавший, и формат её описан бы
+ * иначе трижды.
+ */
+function markFields(mark: TreeMark): readonly string[] {
+  if (mark.state.kind === "out-of-git") return [mark.repo, "вне git"];
   const state = mark.state.dirty
     ? "дерево содержит незакоммиченные изменения"
     : "дерево чистое";
-  return [mark.repo, mark.state.branch, mark.state.commit, state, promise]
-    .join(" · ");
+  return [mark.repo, mark.state.branch, mark.state.commit, state];
 }
 
 /**
@@ -111,11 +117,7 @@ export function renderMark(mark: TreeMark, guarantee: Guarantee): string {
  * (`platform/code-analyzer.md`).
  */
 export function renderMarkOnly(mark: TreeMark): string {
-  if (mark.state.kind === "out-of-git") return `${mark.repo} · вне git`;
-  const state = mark.state.dirty
-    ? "дерево содержит незакоммиченные изменения"
-    : "дерево чистое";
-  return [mark.repo, mark.state.branch, mark.state.commit, state].join(" · ");
+  return markFields(mark).join(" · ");
 }
 
 /** Короткая форма отметки для сообщений об ошибках: без гарантии. */
