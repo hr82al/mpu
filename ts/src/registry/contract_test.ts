@@ -258,6 +258,11 @@ const CASES: readonly CommandCase[] = [
     sampleResult: { changed: true, active: false },
   },
   {
+    path: "mcp restart",
+    argv: [],
+    sampleResult: { wasRunning: true, active: true },
+  },
+  {
     path: "init",
     argv: ["--dry-run"],
     sampleResult: {

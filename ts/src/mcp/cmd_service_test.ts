@@ -21,6 +21,7 @@ import {
   restartServiceIfRunning,
   runDisable,
   runEnable,
+  runRestart,
   runStart,
   runStatus,
   runStop,
@@ -79,7 +80,7 @@ async function describe(dir: string): Promise<void> {
 }
 
 /**
- * Результаты всех пяти подкоманд, снятые с настоящих вызовов. Литералы
+ * Результаты всех шести подкоманд, снятые с настоящих вызовов. Литералы
  * тут были бы вторым источником истины: разойдясь со схемой, они
  * оставили бы проверку про токен зелёной на устаревшем образце.
  */
@@ -97,6 +98,7 @@ async function everyResult(): Promise<[Command, unknown][]> {
       ["mcp enable", await runEnable(io, { deps })],
       ["mcp start", await runStart(io, { deps })],
       ["mcp stop", await runStop(io, { deps })],
+      ["mcp restart", await runRestart(io, { deps })],
       ["mcp disable", await runDisable(io, { deps })],
     ]);
     for (const command of mcpServiceCommands) {

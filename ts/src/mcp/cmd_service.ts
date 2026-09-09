@@ -5,7 +5,7 @@
  * голое `mpu mcp` (сервер на переднем плане) остаётся прежним:
  * подкоманду называет только первый аргумент, а флаг уходит в него.
  *
- * Токен не печатает ни одна из пяти: место у него одно — `mpu mcp
+ * Токен не печатает ни одна из шести: место у него одно — `mpu mcp
  * token` (инвариант `platform/mcp-server.md`).
  */
 
@@ -22,6 +22,7 @@ import {
   programVersion,
   readServiceState,
   restartIfRunning,
+  restartService,
   SERVICE_NAME,
   serviceDeps,
   type ServiceOptions,
@@ -258,19 +259,13 @@ Exit: 0 — описания больше нет; 1 — менеджер отк�
 });
 
 /**
- * Итог `start`: сказанное менеджеру и то, что вышло. Расходятся они на
- * занятом порту — тогда и печатается, где смотреть журнал.
+ * Служба не поднялась: сказанное менеджеру и то, что вышло, разошлись —
+ * на занятом порту `systemctl` отвечает нулём раньше, чем процесс
+ * успевает упасть. Печатается, где смотреть журнал.
  */
-function startStopLine(
-  result: { readonly changed: boolean; readonly active: boolean },
-  changed: string,
-  same: string,
-): string {
-  if (!result.active) {
-    return `служба ${SERVICE_NAME}: не работает — ` +
-      `journalctl --user -u ${SERVICE_NAME} -n 50\n`;
-  }
-  return `служба ${SERVICE_NAME}: ${result.changed ? changed : same}\n`;
+function downLine(): string {
+  return `служба ${SERVICE_NAME}: не работает — ` +
+    `journalctl --user -u ${SERVICE_NAME} -n 50\n`;
 }
 
 const switchSchema = z.object({
@@ -309,7 +304,12 @@ Exit: 0 — служба работает; 1 — описания нет либ�
   argsSchema: z.object({}),
   resultSchema: switchSchema,
   run: (_args, io) => runStart(io),
-  render: (result) => startStopLine(result, "запущена", "уже работает"),
+  render: (result) =>
+    result.active
+      ? `служба ${SERVICE_NAME}: ${
+        result.changed ? "запущена" : "уже работает"
+      }\n`
+      : downLine(),
   // Та же причина, что у `enable`: `systemctl start` при `Type=simple`
   // отвечает нулём раньше, чем процесс успевает упасть на занятом порту.
   textExitCode: (result) => result.active ? 0 : 1,
@@ -352,13 +352,64 @@ Exit: 0 — служба остановлена; 1 — описания нет �
       : `служба ${SERVICE_NAME}: уже остановлена\n`,
 });
 
-/** Все пять подкоманд службы в порядке показа в справке. */
+const restartSchema = z.object({
+  wasRunning: z.boolean().describe("служба работала до вызова"),
+  active: z.boolean().describe("служба работает после вызова"),
+});
+
+/** Перезапустить описанную службу. */
+export async function runRestart(
+  io: CommandIo,
+  options: ServiceOptions = {},
+): Promise<z.infer<typeof restartSchema>> {
+  const restarted = await restartService(serviceDeps(io, options));
+  return {
+    wasRunning: restarted.wasRunning,
+    active: isRunning(restarted.state.activity),
+  };
+}
+
+export const mcpRestartCommand = defineCommand({
+  path: ["mcp", "restart"],
+  summary: "перезапустить описанную службу MCP-сервера",
+  usage: "mpu mcp restart",
+  help: `Перезапускает службу \`${SERVICE_NAME}\` одним обращением к
+менеджеру, а не парой «остановить, затем запустить»: пара оставила бы
+службу лежащей, не удайся второе обращение, а команда, называющаяся
+перезапуском, обязана кончиться либо работающей службой, либо названным
+отказом.
+
+Остановленную поднимает. Описания не заводит: описания нет — отказ с
+именем команды, которая его создаёт (\`mpu mcp enable\`).
+
+Exit: 0 — служба работает; 1 — описания нет, менеджер отказал либо
+служба не поднялась.
+
+Пример: mpu mcp restart`,
+  errorName: "mcp restart",
+  policy: "rw",
+  argsSchema: z.object({}),
+  resultSchema: restartSchema,
+  run: (_args, io) => runRestart(io),
+  render: (result) =>
+    result.active
+      ? `служба ${SERVICE_NAME}: ${
+        result.wasRunning ? "перезапущена" : "запущена (была остановлена)"
+      }\n`
+      : downLine(),
+  // Та же причина, что у `start`: ответ менеджера и судьба процесса
+  // расходятся на занятом порту.
+  textExitCode: (result) => result.active ? 0 : 1,
+});
+
+/** Все шесть подкоманд службы в порядке показа в справке. */
 export const mcpServiceCommands = [
   mcpStatusCommand,
   mcpEnableCommand,
   mcpDisableCommand,
   mcpStartCommand,
   mcpStopCommand,
+  mcpRestartCommand,
 ];
 
 /**

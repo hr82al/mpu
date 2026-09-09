@@ -6,6 +6,7 @@ import {
   programVersion,
   readServiceState,
   restartIfRunning,
+  restartService,
   type RunProgram,
   SERVICE_NAME,
   serviceDir,
@@ -337,4 +338,99 @@ Deno.test("ExecStart чужого описания не исполняется �
       });
     });
   }
+});
+
+Deno.test("restart — одно обращение к менеджеру, а не stop и start", async (t) => {
+  /**
+   * Менеджер, у которого `start` отказывает, а `restart` работает.
+   * Такое расхождение и разделяет две реализации: собранная из пары
+   * оставит службу лежать на втором шаге, одно обращение — нет.
+   */
+  function pickyManager(active: { now: boolean }) {
+    const calls: string[] = [];
+    const run: RunProgram = (_bin, args) => {
+      const verb = args[1] ?? "";
+      calls.push(verb);
+      if (verb === "is-active") {
+        return Promise.resolve({
+          code: 0,
+          stdout: active.now ? "active\n" : "inactive\n",
+          stderr: "",
+        });
+      }
+      if (verb === "stop") {
+        active.now = false;
+        return Promise.resolve({ code: 0, stdout: "", stderr: "" });
+      }
+      if (verb === "start") {
+        return Promise.resolve({ code: 1, stdout: "", stderr: "порт занят\n" });
+      }
+      if (verb === "restart") {
+        active.now = true;
+        return Promise.resolve({ code: 0, stdout: "", stderr: "" });
+      }
+      return Promise.resolve({ code: 0, stdout: "", stderr: "" });
+    };
+    return { run, calls };
+  }
+
+  await t.step(
+    "отказ на втором шаге не оставляет службу остановленной",
+    async () => {
+      await withDir(async (dir) => {
+        await Deno.mkdir(dir, { recursive: true });
+        await Deno.writeTextFile(`${dir}/${SERVICE_NAME}`, unitText(PROGRAM));
+        const active = { now: true };
+        const m = pickyManager(active);
+        const deps = { dir, program: PROGRAM, run: m.run };
+        const restarted = await restartService(deps);
+        assertEquals(restarted.wasRunning, true);
+        assertEquals(restarted.state.activity, "active");
+        assertEquals(active.now, true, "служба осталась лежать");
+        assertEquals(
+          m.calls.includes("stop"),
+          false,
+          `перезапуск собран из пары: ${m.calls.join(", ")}`,
+        );
+        // И само обращение было, и ровно одно: «нет stop» в одиночку
+        // зеленело бы и у реализации, не делающей вообще ничего.
+        assertEquals(
+          m.calls.filter((verb) => verb === "restart").length,
+          1,
+          m.calls.join(", "),
+        );
+      });
+    },
+  );
+
+  await t.step(
+    "остановленную поднимает и говорит, что она стояла",
+    async () => {
+      await withDir(async (dir) => {
+        await Deno.mkdir(dir, { recursive: true });
+        await Deno.writeTextFile(`${dir}/${SERVICE_NAME}`, unitText(PROGRAM));
+        const active = { now: false };
+        const m = pickyManager(active);
+        const restarted = await restartService({
+          dir,
+          program: PROGRAM,
+          run: m.run,
+        });
+        assertEquals(restarted.wasRunning, false);
+        assertEquals(active.now, true);
+      });
+    },
+  );
+
+  await t.step("описания нет — тот же отказ, что у start и stop", async () => {
+    await withDir(async (dir) => {
+      const m = manager();
+      await assertRejects(
+        () => restartService({ dir, program: PROGRAM, run: m.run }),
+        DomainError,
+        "mpu mcp enable",
+      );
+      assertEquals(m.calls, []);
+    });
+  });
 });

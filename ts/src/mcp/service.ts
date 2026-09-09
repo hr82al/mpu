@@ -397,6 +397,29 @@ export async function stopService(deps: ServiceDeps): Promise<Switched> {
   return { changed: true, state: await readServiceState(deps) };
 }
 
+/** Итог `restart`: работала ли служба до вызова и что с ней теперь. */
+export interface Restarted {
+  readonly wasRunning: boolean;
+  readonly state: ServiceState;
+}
+
+/**
+ * Перезапускает описанную службу — ОДНИМ обращением к менеджеру, а не
+ * парой «остановить, затем запустить»: пара оставила бы службу лежащей,
+ * не удайся второе обращение, а команда, называющаяся перезапуском,
+ * обязана кончиться либо работающей службой, либо названным отказом.
+ *
+ * Остановленную поднимает: `restart` у менеджера значит именно это.
+ */
+export async function restartService(deps: ServiceDeps): Promise<Restarted> {
+  const before = await requireDescribed(deps, "перезапускать");
+  await mustSystemctl(deps, ["restart", SERVICE_NAME]);
+  return {
+    wasRunning: isRunning(before.activity),
+    state: await readServiceState(deps),
+  };
+}
+
 /**
  * Перезапускает службу, если она работает: после замены программы в
  * памяти оставался бы прежний экземпляр, и ответ службы расходился бы с
@@ -414,7 +437,7 @@ export async function restartIfRunning(deps: ServiceDeps): Promise<boolean> {
 
 async function requireDescribed(
   deps: ServiceDeps,
-  what: "запускать" | "останавливать",
+  what: "запускать" | "останавливать" | "перезапускать",
 ): Promise<ServiceState> {
   const state = await readServiceState(deps);
   if (state.program !== null) return state;
