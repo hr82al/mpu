@@ -27,41 +27,37 @@ import { createTypeAnalyzer } from "./types_analyzer.ts";
 import type { Repo } from "./workspace.ts";
 
 /**
- * Анализатор репозитория `repo` под файл `path`. Файл, не попавший ни
- * в один проект, обслуживается текстовым анализатором — как и
- * репозиторий без единого проекта.
- */
-/**
  * Анализатор репозитория целиком — окно вопроса о занятости имени. От
  * `openAnalyzer` отличается тем, что файла у вопроса нет: проекты
  * берутся все, а их отсутствие само по себе становится причиной отказа.
  */
 export async function openRepoAnalyzer(repo: Repo): Promise<Analyzer> {
-  const analyzers = await typeAnalyzers(repo);
-  if (analyzers.length === 0) {
-    return textAnalyzer(
-      repo,
-      `в репозитории ${repo.name} нет ни одного проекта`,
-    );
+  const built = await typeAnalyzers(repo);
+  if (built.kind === "none") {
+    return textAnalyzer(repo, refusalOf(repo.name, built.cause));
   }
+  const analyzers = built.analyzers;
   return analyzers.length === 1 ? analyzers[0] : merged(analyzers);
 }
 
+/**
+ * Анализатор репозитория `repo` под файл `path`. Текстовым
+ * анализатором обслуживаются три случая, и причина у каждого своя:
+ * конфигураций проектов нет вовсе, конфигурации есть — а непустого
+ * состава ни у одной, и файл не попал ни в одну построенную программу.
+ */
 export async function openAnalyzer(
   repo: Repo,
   path: string,
 ): Promise<Analyzer> {
-  const projects = findProjects(repo.root);
-  if (projects.length === 0) {
-    return textAnalyzer(
-      repo,
-      `в репозитории ${repo.name} нет ни одного проекта`,
-    );
+  const built = await typeAnalyzers(repo);
+  if (built.kind === "none") {
+    return textAnalyzer(repo, refusalOf(repo.name, built.cause));
   }
-  const analyzers = await typeAnalyzers(repo);
+  const analyzers = built.analyzers;
   if (!analyzers.some((analyzer) => analyzer.hasFile(path))) {
-    // Причина у двух случаев разная, и назвать надо ту, что есть:
-    // проекты в репозитории могут быть, а адресованный файл — вне их.
+    // Третья причина, и назвать надо ту, что есть: программы здесь уже
+    // построились, а адресованный файл не вошёл ни в одну.
     return textAnalyzer(
       repo,
       `файл ${path} не входит ни в один проект репозитория ${repo.name}`,
@@ -70,10 +66,46 @@ export async function openAnalyzer(
   return analyzers.length === 1 ? analyzers[0] : merged(analyzers);
 }
 
+/**
+ * Разбора по типам в репозитории нет, и вот при каком условии.
+ * `no-configs` — конфигураций проектов не нашлось вовсе; `no-programs`
+ * — конфигурации есть, а состав у всех пуст, и проектом ни одна по
+ * спеке не считается.
+ */
+interface NoAnalyzers {
+  readonly kind: "none";
+  readonly cause: "no-configs" | "no-programs";
+}
+
+/** Чем ответили проекты репозитория. */
+type TypeAnalyzers =
+  | { readonly kind: "analyzers"; readonly analyzers: readonly Analyzer[] }
+  | NoAnalyzers;
+
+/**
+ * Почему разбора по типам в репозитории нет. Условие называется своё:
+ * «проектов нет» там, где конфигурации есть, а состав их пуст, было бы
+ * неправдой — искать пришлось бы не то (`platform/code-analyzer.md`,
+ * «Граничные случаи»).
+ */
+function refusalOf(repoName: string, cause: NoAnalyzers["cause"]): string {
+  switch (cause) {
+    case "no-configs":
+      return `в репозитории ${repoName} нет ни одного проекта`;
+    case "no-programs":
+      return `в репозитории ${repoName} есть конфигурации проектов, ` +
+        "но ни одна программа не собралась непустой";
+    default: {
+      const unknown: never = cause;
+      throw new Error(`неизвестная причина отказа: ${unknown}`);
+    }
+  }
+}
+
 /** Анализаторы по типам для всех проектов репозитория. */
-async function typeAnalyzers(repo: Repo): Promise<readonly Analyzer[]> {
+async function typeAnalyzers(repo: Repo): Promise<TypeAnalyzers> {
   const projects = findProjects(repo.root);
-  if (projects.length === 0) return [];
+  if (projects.length === 0) return { kind: "none", cause: "no-configs" };
   const ts = (await import("typescript")).default;
   const analyzers: Analyzer[] = [];
   for (const project of projects) {
@@ -89,7 +121,9 @@ async function typeAnalyzers(repo: Repo): Promise<readonly Analyzer[]> {
       mark: repo.mark,
     }));
   }
-  return analyzers;
+  return analyzers.length === 0
+    ? { kind: "none", cause: "no-programs" }
+    : { kind: "analyzers", analyzers };
 }
 
 function textAnalyzer(repo: Repo, reason: string): Analyzer {

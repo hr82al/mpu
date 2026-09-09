@@ -432,3 +432,60 @@ Deno.test("репозиторий на чистом JS не обнуляет о�
     await Deno.remove(temp, { recursive: true });
   }
 });
+
+Deno.test("ошибка ввода в окне решается раньше отказа раздела", async () => {
+  const temp = await Deno.makeTempDir();
+  try {
+    // Репозиторий без проектов: раздел отказал бы. Но каталога окна в
+    // нём нет вовсе, а это ошибка ВВОДА — опечатку надо отличать от
+    // «репозиторий не может ответить», иначе оператор ищет проекты там,
+    // где надо исправить букву.
+    const root = `${temp}/plain`;
+    await Deno.mkdir(`${root}/src`, { recursive: true });
+    await Deno.writeTextFile(`${root}/src/a.js`, "export const a = 1;\n");
+    const repo: Repo = {
+      name: "plain",
+      root,
+      mark: () =>
+        Promise.resolve({ repo: "plain", state: { kind: "out-of-git" } }),
+    };
+    const err = await assertRejects(
+      () =>
+        runName(
+          { name: "alpha", in: "plain:нет-такого", limit: 200 },
+          { cwd: () => root },
+          [repo],
+        ),
+      UsageError,
+    );
+    assertEquals(err.message, "каталога 'нет-такого' нет в plain на вне git");
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});
+
+Deno.test("окно проверяется и там, где программа не строится", async () => {
+  const temp = await Deno.makeTempDir();
+  try {
+    // Разграничивающий случай: отказ здесь не текстовый, а отказ
+    // ПОСТРОЕНИЯ, и он приходит из того же вызова, что раздел. Стой
+    // проверка каталога внутри сборки раздела, этот вход давал бы exit
+    // 1 — «спроси в другом месте» вместо «такого каталога нет».
+    const repo = await openBrokenFixture(temp);
+    const err = await assertRejects(
+      () =>
+        runName(
+          { name: "alpha", in: "broken-fixture:нет-такого", limit: 200 },
+          { cwd: () => repo.root },
+          [repo],
+        ),
+      UsageError,
+    );
+    assertEquals(
+      err.message,
+      "каталога 'нет-такого' нет в broken-fixture на вне git",
+    );
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});

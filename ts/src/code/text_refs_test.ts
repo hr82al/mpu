@@ -10,8 +10,8 @@
  */
 
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
-import { DomainError, UsageError } from "../command/mod.ts";
-import { renderRefs, runRefs } from "./cmd_refs.ts";
+import { UsageError } from "../command/mod.ts";
+import { codeRefsCommand, renderRefs, runRefs } from "./cmd_refs.ts";
 import { parseAddress } from "./address.ts";
 import type { Repo } from "./workspace.ts";
 
@@ -67,19 +67,28 @@ Deno.test("репозиторий без проектов: цель-модуль
       );
     });
 
-    await t.step("цель-символ — отказ с названной причиной", async () => {
+    await t.step("цель-символ — отказ РАЗДЕЛОМ, с отметкой", async () => {
       // Пустые разделы читались бы как «потребителей нет», а это другой
       // ответ: какой из идентификаторов строки объявлен, текстовый
-      // разбор не знает и знать не может.
-      const err = await assertRejects(
-        () => refs(repo, "plain:src/days.ts:1"),
-        DomainError,
+      // разбор не знает и знать не может. Отказ при этом печатается
+      // разделом: отметку дерева несёт каждый раздел, включая
+      // отказавший, а брошенная ошибка её не несёт.
+      const result = await runRefs(
+        { address: "plain:src/days.ts:1", limit: 200 },
+        { cwd: () => repo.root },
+        [repo],
       );
+      const section = result.section;
+      assertEquals(section.kind, "refused", JSON.stringify(section));
+      if (section.kind !== "refused") throw new Error("раздел не отказал");
       assertEquals(
-        err.message,
+        section.refusal,
         "объявления не разбираются текстовым анализатором: " +
           "в репозитории plain нет ни одного проекта",
       );
+      assertEquals(section.mark.repo, "plain");
+      // Код выхода прежний: раздел один, и его отказ — отказ команды.
+      assertEquals(codeRefsCommand.textExitCode(result), 1);
     });
   } finally {
     await Deno.remove(temp, { recursive: true });

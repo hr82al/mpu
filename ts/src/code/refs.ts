@@ -89,8 +89,10 @@ export type RefsResult = z.infer<typeof resultSchema>;
 export { resultSchema as refsResultSchema };
 
 /**
- * Собирает ответ по адресу. Отказы здесь — ошибки ввода: адрес назвал
+ * Собирает ответ по адресу. Броски здесь — ошибки ввода: адрес назвал
  * репозиторий, файл или строку, которых нет, и продолжать не на чем.
+ * Отказ слоя ошибкой ввода не является и возвращается разделом — с
+ * отметкой дерева и причиной.
  */
 export async function collectRefs(
   address: Address,
@@ -103,6 +105,19 @@ export async function collectRefs(
     throw new UsageError(
       `файла ${address.path} нет в ${repo.name} на ${markLabel(mark)}`,
     );
+  }
+  // Отказ ТЕКСТОВОГО слоя печатается разделом, а не броском. Прежде у
+  // него не было ни отметки дерева, ни структурного результата — тогда
+  // как у отказа ПОСТРОЕНИЯ той же команды есть и то и другое, хотя
+  // наблюдаемая беда одна: спросить объявления не у чего. Инвариант
+  // слоя требует отметку у каждого раздела, включая отказавший
+  // (`platform/code-analyzer.md`).
+  const refusal = analyzer.declarationsRefusal();
+  // Цель-модуль текстовому разбору доступна: читатели выводятся из
+  // текста честно, с пониженной гарантией. Отказ здесь только у цели,
+  // которой нужны объявления, — символа в строке.
+  if (address.line !== undefined && refusal !== null) {
+    return refusedRefs(mark, refusal);
   }
   const declaration = address.line === undefined
     ? undefined
@@ -143,9 +158,8 @@ function declarationAt(
   line: number,
 ): Declaration {
   const answer = analyzer.declarationsOf(path);
-  // Незнание — не пустой перечень: «в файле нет объявлений» и «объявления
-  // здесь не разбираются» суть разные ответы с разными кодами выхода
-  // (`platform/code-analyzer.md`).
+  // Незнание сюда не доходит: `collectRefs` отказал бы разделом раньше.
+  // Молчать о нём нельзя — иначе объявления потерялись бы без следа.
   if (answer.kind === "unknown") throw new DomainError(answer.reason);
   const declarations = answer.declarations;
   const found = declarations.find((entry) => entry.line === line);

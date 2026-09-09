@@ -105,8 +105,11 @@ export async function collectTwins(
   }
   const answer = analyzer.bodiesOf();
   // Незнание — не пустой раздел: «близнецов нет» и «тела здесь не
-  // разбираются» суть разные ответы (`platform/code-analyzer.md`).
-  if (answer.kind === "unknown") throw new DomainError(answer.reason);
+  // разбираются» суть разные ответы (`platform/code-analyzer.md`). И
+  // печатается оно РАЗДЕЛОМ, а не броском: у брошенного отказа нет ни
+  // отметки дерева, ни структурного результата, тогда как у отказа
+  // построения той же команды есть и то и другое.
+  if (answer.kind === "unknown") return refusedTwins(mark, answer.reason);
   const query = queryBody(answer.bodies, address.path, address.line, analyzer);
   const rest = answer.bodies.filter((body) => body !== query);
   const exact = rest.filter((body) => body.text === query.text);

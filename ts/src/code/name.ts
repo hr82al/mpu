@@ -17,7 +17,7 @@ import {
   unresolvedOf,
   unresolvedSchema,
 } from "./answer.ts";
-import { markLabel } from "./mark.ts";
+import { markLabel, type TreeMark } from "./mark.ts";
 import { openRepoAnalyzer } from "./open.ts";
 import { ProjectBuildError } from "./project.ts";
 import {
@@ -130,8 +130,15 @@ export async function nameSection(
   job: NameJob,
 ): Promise<z.infer<typeof sectionSchema>> {
   const repo = asRepo(job.repo);
+  // Ошибка ввода решается РАНЬШЕ всякого отказа раздела, а значит и до
+  // построения программ: опечатку в окне надо отличать от «репозиторий
+  // не может ответить». Стой проверка ниже, отказ построения обгонял бы
+  // её и `--in репо:нет-такого` давал бы exit 1 вместо 2
+  // (`platform/code-analyzer.md`, «Граничные случаи»). Анализатор ей не
+  // нужен: каталог решает диск, а отметка уже снята.
+  assertWindow(job.dir, repo, job.repo.mark);
   try {
-    return await sectionOf(job, repo, await openRepoAnalyzer(repo));
+    return await sectionOf(job, await openRepoAnalyzer(repo));
   } catch (err) {
     // Отказ ПОСТРОЕНИЯ печатается вместо перечня в своём разделе:
     // один репозиторий без установленных зависимостей не должен
@@ -152,7 +159,6 @@ function refused(
 /** Раздел одного репозитория. */
 async function sectionOf(
   job: NameJob,
-  repo: Repo,
   analyzer: Analyzer,
 ): Promise<z.infer<typeof sectionSchema>> {
   const { name, dir, limit } = job;
@@ -165,7 +171,7 @@ async function sectionOf(
   // (`platform/code-analyzer.md`, инварианты).
   const refusal = analyzer.declarationsRefusal();
   if (refusal !== null) return refused(mark, refusal);
-  const files = filesIn(analyzer, dir, repo, mark);
+  const files = filesIn(analyzer, dir);
   const found = files.flatMap((path) => declarationsOf(analyzer, path, name));
   const wanted = found
     .filter((entry) => entry.paramTypes !== null)
@@ -191,25 +197,31 @@ async function sectionOf(
 }
 
 /**
- * Файлы окна: весь репозиторий либо каталог в нём. Существование
- * каталога решает диск, а не состав программы: каталог без единого
- * разбираемого файла существует, и ответ по нему — «имя свободно», а не
- * «такого каталога нет».
+ * Каталог окна существует — иначе ошибка ввода. Существование решает
+ * диск, а не состав программы: каталог без единого разбираемого файла
+ * существует, и ответ по нему — «имя свободно», а не «такого каталога
+ * нет».
  */
+function assertWindow(
+  dir: string | undefined,
+  repo: Repo,
+  mark: TreeMark,
+): void {
+  if (dir === undefined || isDirectory(`${repo.root}/${dir}`)) return;
+  throw new UsageError(
+    `каталога '${dir}' нет в ${repo.name} на ${markLabel(mark)}`,
+  );
+}
+
+/** Файлы окна: весь репозиторий либо каталог в нём. */
 function filesIn(
   analyzer: Analyzer,
   dir: string | undefined,
-  repo: Repo,
-  mark: Awaited<ReturnType<Analyzer["mark"]>>,
 ): readonly string[] {
   const all = analyzer.files();
-  if (dir === undefined) return all;
-  if (!isDirectory(`${repo.root}/${dir}`)) {
-    throw new UsageError(
-      `каталога '${dir}' нет в ${repo.name} на ${markLabel(mark)}`,
-    );
-  }
-  return all.filter((path) => path.startsWith(`${dir}/`));
+  return dir === undefined
+    ? all
+    : all.filter((path) => path.startsWith(`${dir}/`));
 }
 
 /** Есть ли такой каталог на диске. */

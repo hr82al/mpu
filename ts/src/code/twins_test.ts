@@ -7,8 +7,8 @@
  */
 
 import { assertEquals, assertRejects } from "@std/assert";
-import { DomainError, UsageError } from "../command/mod.ts";
-import { renderTwins, runTwins } from "./cmd_twins.ts";
+import { UsageError } from "../command/mod.ts";
+import { codeTwinsCommand, renderTwins, runTwins } from "./cmd_twins.ts";
 import { openFixture } from "./testing.ts";
 import type { Repo } from "./workspace.ts";
 
@@ -133,15 +133,22 @@ Deno.test("репозиторий без проектов: тела не раз�
     };
     // Пустые разделы читались бы как «близнецов нет», а это другой
     // ответ: выделить тело без разбора нечем.
-    const err = await assertRejects(
-      () => twins(repo, "plain:src/a.ts:1"),
-      DomainError,
+    const result = await runTwins(
+      { address: "plain:src/a.ts:1", limit: 200 },
+      { cwd: () => repo.root },
+      [repo],
     );
+    const section = result.section;
+    assertEquals(section.kind, "refused", JSON.stringify(section));
+    if (section.kind !== "refused") throw new Error("раздел не отказал");
     assertEquals(
-      err.message,
+      section.refusal,
       "тела не разбираются текстовым анализатором: " +
         "в репозитории plain нет ни одного проекта",
     );
+    // Отметку дерева несёт каждый раздел, включая отказавший.
+    assertEquals(section.mark.repo, "plain");
+    assertEquals(codeTwinsCommand.textExitCode(result), 1);
   } finally {
     await Deno.remove(temp, { recursive: true });
   }
