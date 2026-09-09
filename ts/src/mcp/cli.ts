@@ -80,7 +80,7 @@ export async function runMcpServer(
     output.stderr(`mpu mcp: ${options.usage}\n`);
     return 2;
   }
-  const port = options.port ?? await configuredPort(io);
+  const port = options.port ?? configuredPort(io);
   const token = await ensureAccessToken(io);
   try {
     const server = await serveMcp({

@@ -109,13 +109,27 @@ export function serviceDeps(
   io: Pick<CommandIo, "env">,
   options: ServiceOptions = {},
 ): ServiceDeps {
+  const deps = serviceDepsIfAny(io, options);
+  if (deps !== undefined) return deps;
+  throw new DomainError(
+    "HOME не задана: ни каталог служб, ни путь установки не вычислить",
+  );
+}
+
+/**
+ * То же, но для того, кому нечего требовать: окружения без `HOME` не
+ * бывает у службы, значит и службы в нём нет. Нужно голому `mpu mcp`:
+ * оно уступает порт работающей службе, а её отсутствие — не отказ.
+ */
+export function serviceDepsIfAny(
+  io: Pick<CommandIo, "env">,
+  options: ServiceOptions = {},
+): ServiceDeps | undefined {
   if (options.deps !== undefined) return options.deps;
   const home = io.env("HOME");
   const configHome = xdgConfigHome(io.env);
   if (home === undefined || home === "" || configHome === undefined) {
-    throw new DomainError(
-      "HOME не задана: ни каталог служб, ни путь установки не вычислить",
-    );
+    return undefined;
   }
   return {
     dir: serviceDir(configHome),
