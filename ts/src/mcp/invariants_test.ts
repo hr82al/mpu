@@ -212,6 +212,79 @@ function countedLists(schema: unknown, at: string): [string, string][] {
   ];
 }
 
+/**
+ * Имена входов, которыми тул объявляет ограничитель выдачи. Список
+ * закрытый и по делу: имён «на всякий случай» здесь быть не должно —
+ * они выглядели бы покрытием, ничего не покрывая. Появится новое —
+ * добавить вместе с тулом.
+ */
+const LIMITERS = ["limit", "tail"];
+
+/** Тулы с ограничителем поимённо: выпадение из обхода — тоже дефект. */
+const LIMITED = [
+  "code_mentions",
+  "code_name",
+  "code_refs",
+  "code_twins",
+  "health",
+  "logs",
+  "telegram_ls",
+  "telegram_search",
+];
+
+/** Все описания полей схемы, на любой глубине и во всех ветвях союзов. */
+function descriptions(schema: unknown): string[] {
+  if (Array.isArray(schema)) return schema.flatMap(descriptions);
+  if (typeof schema !== "object" || schema === null) return [];
+  const node: Record<string, unknown> = { ...schema };
+  const text = node["description"];
+  return [
+    ...(typeof text === "string" ? [text] : []),
+    ...Object.values(node).flatMap(descriptions),
+  ];
+}
+
+Deno.test("у тула с ограничителем признак усечения назван", () => {
+  // Ограничитель во входе без признака в результате — это и есть
+  // случай, когда клиент не отличит «всё» от «первых N»
+  // (`platform/mcp-server.md`, «Объём»). Формы три: пара с полным
+  // числом, названное «источник полного числа не сообщает» и признак
+  // «есть ещё»; выбор делается по источнику, поэтому проверка требует
+  // не формы, а того, что об усечении СКАЗАНО.
+  const found: string[] = [];
+  for (const profile of PROFILES) {
+    for (const { tool } of profileTools(commands, profile)) {
+      const inputs = tool.inputSchema["properties"];
+      if (typeof inputs !== "object" || inputs === null) continue;
+      const limiter = Object.keys(inputs).filter((name) =>
+        LIMITERS.includes(name)
+      );
+      if (limiter.length === 0) continue;
+      found.push(tool.name);
+      // Слово «усечён» само по себе — не признак: оно должно стоять
+      // рядом с тем, чем режут, либо с полем полного числа. Иначе
+      // зачлось бы любое мимо-описание с тем же корнем.
+      const said = descriptions(tool.outputSchema).filter((text) =>
+        text.includes("усеч")
+      );
+      assertEquals(
+        said.some((text) =>
+          text.includes("total") || text.includes("more") ||
+          limiter.some((name) => text.includes(name))
+        ),
+        true,
+        `${tool.name}: ограничитель ${limiter.join(",")} есть, ` +
+          `а про усечение результата сказано ${
+            said.length === 0 ? "ничего" : `невнятно: ${said.join(" | ")}`
+          }`,
+      );
+    }
+  }
+  // Тул, у которого ограничитель переименовали, выпал бы из обхода
+  // молча — ровно в тот момент, когда проверка нужнее всего.
+  assertEquals([...found].sort(), LIMITED);
+});
+
 Deno.test("у перечня, объявившего total, признак усечения назван", () => {
   // Пара «перечень плюс `total`» признаком усечения считается только
   // тогда, когда описание поля прямо об усечении говорит: вывод,

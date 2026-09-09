@@ -2267,7 +2267,11 @@
             ],
             "additionalProperties": false
           },
-          "description": "найденные чаты в порядке выдачи сервера, с дедупом по id"
+          "description": "найденные чаты в порядке выдачи сервера, с дедупом по id; перечень усечён `--limit`, а есть ли за ним ещё — поле `more`"
+        },
+        "more": {
+          "type": "boolean",
+          "description": "чаты могли остаться: выдача упёрлась в `--limit`"
         },
         "table": {
           "type": "boolean",
@@ -2276,6 +2280,7 @@
       },
       "required": [
         "dialogs",
+        "more",
         "table"
       ],
       "additionalProperties": false
@@ -2388,7 +2393,15 @@
             ],
             "additionalProperties": false
           },
-          "description": "найденные сообщения в порядке выдачи сервера: от новых к старым"
+          "description": "найденные сообщения в порядке выдачи сервера: от новых к старым; перечень усечён `--limit`, а есть ли за ним ещё — поле `more`"
+        },
+        "more": {
+          "type": "boolean",
+          "description": "совпадения могли остаться: выдача упёрлась в `--limit` либо скан оборван потолком просмотра"
+        },
+        "scanCapped": {
+          "type": "boolean",
+          "description": "скан остановлен потолком просмотра, а не концом выдачи: совпадения могли остаться за ним"
         },
         "table": {
           "type": "boolean",
@@ -2397,6 +2410,8 @@
       },
       "required": [
         "messages",
+        "more",
+        "scanCapped",
         "table"
       ],
       "additionalProperties": false

@@ -35,26 +35,32 @@ function io(): CommandIo {
 
 Deno.test("вывод JSON собирается из выдачи клиента", async () => {
   assertEquals(
-    command.renderResult({ dialogs: dialogsOf(DIALOGS), table: false }, []),
+    command.renderResult({
+      dialogs: dialogsOf(DIALOGS),
+      more: false,
+      table: false,
+    }, []),
     await golden("ls-json-stdout.txt"),
   );
 });
 
 Deno.test("пустая выдача — пустой массив, не ошибка", async () => {
   assertEquals(
-    command.renderResult({ dialogs: [], table: false }, []),
+    command.renderResult({ dialogs: [], more: false, table: false }, []),
     await golden("ls-empty-stdout.txt"),
   );
 });
 
 Deno.test("--table печатает таблицу тех же данных", async () => {
   const text = command.renderResult(
-    { dialogs: dialogsOf(DIALOGS), table: true },
+    { dialogs: dialogsOf(DIALOGS), more: false, table: true },
     ["--table"],
   );
   assertEquals(text.endsWith("(3 dialogs)\n"), true);
   assertEquals(
-    command.renderResult({ dialogs: [], table: true }, ["--table"]),
+    command.renderResult({ dialogs: [], more: false, table: true }, [
+      "--table",
+    ]),
     await golden("ls-empty-table-stdout.txt"),
   );
 });

@@ -6,7 +6,13 @@ import {
   VerbatimUsageError,
 } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { telegramSearchCommand } from "./cmd_search.ts";
+import {
+  runTelegramSearch,
+  type SearchSession,
+  type TelegramSearchArgs,
+  telegramSearchCommand,
+} from "./cmd_search.ts";
+import { SCAN_CAP } from "./search.ts";
 import { foundMessage, type RawMessage } from "./message.ts";
 
 const command: Command = telegramSearchCommand;
@@ -43,19 +49,32 @@ const FOUND: readonly RawMessage[] = [
 
 Deno.test("пустая выдача — пустой массив, не ошибка", async () => {
   assertEquals(
-    command.renderResult({ messages: [], table: false }, []),
+    command.renderResult({
+      messages: [],
+      more: false,
+      scanCapped: false,
+      table: false,
+    }, []),
     await golden("search-empty-stdout.txt"),
   );
 });
 
 Deno.test("--table печатает таблицу тех же данных", async () => {
   const text = command.renderResult(
-    { messages: FOUND.map(foundMessage), table: true },
+    {
+      messages: FOUND.map(foundMessage),
+      more: false,
+      scanCapped: false,
+      table: true,
+    },
     ["--table"],
   );
   assertEquals(text.endsWith("(1 messages)\n"), true);
   assertEquals(
-    command.renderResult({ messages: [], table: true }, ["--table"]),
+    command.renderResult(
+      { messages: [], more: false, scanCapped: false, table: true },
+      ["--table"],
+    ),
     await golden("search-empty-table-stdout.txt"),
   );
 });
@@ -127,5 +146,71 @@ Deno.test("объявление команды", async (t) => {
         table: true,
       },
     );
+  });
+});
+
+Deno.test("оборванный потолком скан уезжает в результат, а не только в ход", async (t) => {
+  // Агент, вызвавший тул, строк хода не видит: до этой правки признак
+  // «есть ещё» доставался только человеку в терминале, и выдача короче
+  // `--limit` была неотличима от «совпадений больше нет».
+  const scanned = (matchEvery: number) =>
+    async function* (): AsyncIterable<RawMessage> {
+      for (let id = 1; id <= SCAN_CAP + 10; id += 1) {
+        const chat = {
+          peerType: "chat" as const,
+          rawId: 101,
+          title: "Чат",
+          username: null,
+        };
+        yield await Promise.resolve({
+          id,
+          chat,
+          sender: id % matchEvery === 0
+            ? {
+              peerType: "user" as const,
+              rawId: 500001,
+              title: "Иван",
+              username: null,
+            }
+            : chat,
+          date: new Date("2026-08-16T07:54:28.000Z"),
+          text: "текст",
+        });
+      }
+    };
+  const session = (matchEvery: number): SearchSession => ({
+    resolve: (peer: { kind: string; id?: number }) =>
+      Promise.resolve({ ref: peer, id: 500001 }),
+    searchChats: () => Promise.resolve([]),
+    searchInChat: () => Promise.reject(new Error("не ожидался")),
+    searchGlobal: scanned(matchEvery),
+    close: () => Promise.resolve(),
+  });
+  const io = makeFakeIo({ progress: () => {} });
+  // Глобальный поиск по отправителю требует текста запроса.
+  const argv = ["выгрузка", "--from", "500001", "--limit", "50"];
+  await t.step("скан оборван потолком — сказано", async () => {
+    const result = await runTelegramSearch(
+      // `parseArgs` реестра отдаёт стёртый `Record`: конкретный тип
+      // аргументов знает только объявление команды.
+      command.parseArgs(argv) as TelegramSearchArgs,
+      io,
+      { openSession: () => Promise.resolve(session(500)) },
+    );
+    assertEquals(result.scanCapped, true);
+    assertEquals(result.more, true, "оборванный скан — это «есть ещё»");
+  });
+  await t.step("совпадений набралось — потолка не было", async () => {
+    const result = await runTelegramSearch(
+      command.parseArgs(argv) as TelegramSearchArgs,
+      io,
+      { openSession: () => Promise.resolve(session(2)) },
+    );
+    assertEquals(result.scanCapped, false);
+    // Выдача упёрлась в `--limit`: потолка не было, а совпадения за
+    // ним остаться могли — это тоже «есть ещё», и молчать о нём
+    // нельзя.
+    assertEquals(result.messages.length, 50);
+    assertEquals(result.more, true, "набранный `--limit` — это «есть ещё»");
   });
 });

@@ -9,7 +9,12 @@
 import { z } from "@zod/zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
 import { telegramConfig } from "./config.ts";
-import { findMessages, SCAN_CAP, SCAN_CAP_WARNING } from "./search.ts";
+import {
+  findMessages,
+  SCAN_CAP,
+  SCAN_CAP_WARNING,
+  type SearchClient,
+} from "./search.ts";
 import { LIMIT_MAX, LIMIT_MIN, searchPlan } from "./search_plan.ts";
 import { renderMessagesJson, renderMessagesTable } from "./search_view.ts";
 
@@ -57,29 +62,69 @@ const messageSchema = z.object({
 
 const resultSchema = z.object({
   messages: z.array(messageSchema).describe(
-    "найденные сообщения в порядке выдачи сервера: от новых к старым",
+    "найденные сообщения в порядке выдачи сервера: от новых к старым; " +
+      "перечень усечён `--limit`, а есть ли за ним ещё — поле `more`",
+  ),
+  /**
+   * Признак «есть ещё». Полного числа совпадений здесь не бывает по
+   * построению одного из режимов: при поиске по отправителю сервер
+   * фильтрует не он, а мы, и его счётчик считал бы просмотренные, а не
+   * совпавшие. Соврать «всего 50», когда пятьдесят — предел выборки,
+   * хуже молчания (`platform/mcp-server.md`, «Объём»).
+   */
+  more: z.boolean().describe(
+    "совпадения могли остаться: выдача упёрлась в `--limit` либо скан " +
+      "оборван потолком просмотра",
+  ),
+  /**
+   * Признак «есть ещё»: скан оборван потолком просмотра, а не концом
+   * выдачи. До этого он уходил только в строку хода — то есть человеку
+   * в терминале, — и вызвавший тул агент выдачу короче `--limit` не
+   * отличал от «совпадений больше нет».
+   */
+  scanCapped: z.boolean().describe(
+    "скан остановлен потолком просмотра, а не концом выдачи: совпадения " +
+      "могли остаться за ним",
   ),
   table: z.boolean().describe("печатать ли таблицу вместо JSON"),
 });
 
-type TelegramSearchArgs = z.infer<typeof argsSchema>;
+export type TelegramSearchArgs = z.infer<typeof argsSchema>;
 type TelegramSearchResult = z.infer<typeof resultSchema>;
 
 /** Срез порта: ключи env-файла и строка предупреждения. */
 type SearchIo = Pick<CommandIo, "envFile" | "progress">;
 
+/** Сеанс, каким его видит поиск: клиент плюс закрытие. */
+export type SearchSession =
+  & SearchClient
+  & { readonly close: () => Promise<void> };
+
+/**
+ * Подстановка сеанса. Умолчание — настоящий MTProto, и грузится он
+ * лениво: старт процесса — доказанная ценность инструмента, а дерево
+ * `mtcute` тяжёлое. Прогону сеанс подставляют: сети у него нет.
+ */
+export interface SearchOptions {
+  readonly openSession?: () => Promise<SearchSession>;
+}
+
 /**
  * Один вызов — один сеанс, он закрывается в любом исходе. Режим выбирает
  * `--chat`: с ним — поиск внутри чата, без него — глобальный.
  */
-async function runTelegramSearch(
+export async function runTelegramSearch(
   args: TelegramSearchArgs,
   io: SearchIo,
+  options: SearchOptions = {},
 ): Promise<TelegramSearchResult> {
   const plan = searchPlan(args);
-  const config = telegramConfig(io.envFile);
-  const { openSession } = await import("./session.ts");
-  const session = await openSession(config);
+  const open = options.openSession ?? (async () => {
+    const config = telegramConfig(io.envFile);
+    const { openSession } = await import("./session.ts");
+    return await openSession(config);
+  });
+  const session = await open();
   try {
     const found = await findMessages(session, plan);
     // Оборванный потолком скан молчал бы: выдача короче `--limit`
@@ -88,7 +133,14 @@ async function runTelegramSearch(
     if (found.scanCapped) io.progress(SCAN_CAP_WARNING);
     // Схема результата объявляет массив изменяемым (её выводит zod), а
     // поиск отдаёт readonly — копия здесь дешевле, чем ослабление типа.
-    return { messages: [...found.messages], table: args.table };
+    return {
+      messages: [...found.messages],
+      // «Есть ещё» — здесь, где известны и выдача, и предел: у клиента
+      // предела нет, а выводить признак из длины он не обязан.
+      more: found.scanCapped || found.messages.length >= plan.limit,
+      scanCapped: found.scanCapped,
+      table: args.table,
+    };
   } finally {
     // Отказ закрытия глушится: соединение уходит вместе с процессом, а
     // бросок отсюда подменил бы собой отказ самого чтения.
