@@ -6,7 +6,7 @@
 
 | # | Работа | Файл | Статус |
 | --- | --- | --- | --- |
-| 1 | `mpu mr matrix` | `ts/docs/specs/mr-matrix.md` | не начата |
+| 1 | `mpu mr matrix` | `ts/docs/specs/mr-matrix.md` | готова (черновик спеки), коммит ниже |
 | 2 | `mpu wt doctor` | `ts/docs/specs/wt-doctor.md` | не начата |
 | 3 | `mpu registry verify` / `publish --verify-lock` | `ts/docs/specs/registry-publish.md` | не начата |
 | 4 | `mpu gate style` | `ts/docs/specs/gate-style.md` | не начата |
