@@ -10,8 +10,8 @@
 | 2 | `mpu wt doctor` | `ts/docs/specs/wt-doctor.md` | закоммичена `c21d2c9` |
 | 3 | `mpu registry verify` / `publish --verify-lock` | `ts/docs/specs/registry-publish.md` | закоммичена `14ef1f2` |
 | 4 | `mpu gate style` | `ts/docs/specs/gate-style.md` | закоммичена `479e6ff` |
-| 5 | `mpu gate private` | `ts/docs/specs/gate-private.md` | готова (черновик спеки), коммит ниже |
-| 6 | `mpu stand check --shell` | `ts/docs/specs/stand-check.md` | не начата |
+| 5 | `mpu gate private` | `ts/docs/specs/gate-private.md` | закоммичена `740a3a0` |
+| 6 | `mpu stand check --shell` | `ts/docs/specs/stand-check.md` | готова (черновик спеки), коммит ниже |
 | 7 | Статусы всех спек `ts/docs/specs/*.md` приведены к `--help` | строки «Статус:» | не начата |
 | 8 | Реестр нереализованных спек | `docs/specs-backlog.md` | не начата |
 
