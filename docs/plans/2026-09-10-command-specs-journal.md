@@ -7,8 +7,8 @@
 | # | Работа | Файл | Статус |
 | --- | --- | --- | --- |
 | 1 | `mpu mr matrix` | `ts/docs/specs/mr-matrix.md` | закоммичена `c0f7ef0` |
-| 2 | `mpu wt doctor` | `ts/docs/specs/wt-doctor.md` | готова (черновик спеки), коммит ниже |
-| 3 | `mpu registry verify` / `publish --verify-lock` | `ts/docs/specs/registry-publish.md` | не начата |
+| 2 | `mpu wt doctor` | `ts/docs/specs/wt-doctor.md` | закоммичена `c21d2c9` |
+| 3 | `mpu registry verify` / `publish --verify-lock` | `ts/docs/specs/registry-publish.md` | готова (черновик спеки), коммит ниже |
 | 4 | `mpu gate style` | `ts/docs/specs/gate-style.md` | не начата |
 | 5 | `mpu gate private` | `ts/docs/specs/gate-private.md` | не начата |
 | 6 | `mpu stand check --shell` | `ts/docs/specs/stand-check.md` | не начата |
