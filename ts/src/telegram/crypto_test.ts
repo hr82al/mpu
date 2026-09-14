@@ -4,8 +4,8 @@
  * сеть — только узлы Telegram).
  */
 
-import { assertEquals, assertNotEquals } from "@std/assert";
-import { telegramCrypto } from "./crypto.ts";
+import { assertEquals, assertNotEquals, assertRejects } from "@std/assert";
+import { CryptoInitError, telegramCrypto } from "./crypto.ts";
 
 Deno.test("криптография Telegram поднимается без сети: wasm не скачивается по адресу зависимости", async () => {
   // У собранной программы адрес модуля зависимости — `jsr.io`, поэтому
@@ -39,9 +39,11 @@ Deno.test("криптография Telegram поднимается без се�
 
 Deno.test("встроенный wasm — ровно тот, что у @mtcute/wasm 0.31.0", async (t) => {
   // Суммы — из манифеста пакета на jsr.io (`@mtcute/wasm/0.31.0_meta.json`).
-  // Модуль лежит в репозитории, а привязки к нему — в библиотеке: смена её
-  // версии без смены модуля развела бы их молча. Поэтому сначала — что
-  // версия, которой шифрует программа, та самая.
+  // Сверка адреса ниже держит только запись import map: `@mtcute/wasm`,
+  // который импортируем мы, той же версии, что модуль в репозитории.
+  // Версию, которую берёт сам `@mtcute/deno` (`^0.31.0`), она не видит; от
+  // расхождения с ней защищает первый тест — шифр IGE работает, лишь если
+  // клиент и мы делим один экземпляр модуля.
   assertEquals(
     import.meta.resolve("@mtcute/wasm"),
     "https://jsr.io/@mtcute/wasm/0.31.0/index.ts",
@@ -61,6 +63,37 @@ Deno.test("встроенный wasm — ровно тот, что у @mtcute/wa
       const hex = Array.from(digest, (b) => b.toString(16).padStart(2, "0"))
         .join("");
       assertEquals(hex, sum);
+    });
+  }
+});
+
+Deno.test("встроенный модуль не прочитан — свой отказ криптографии, а не отказ библиотеки", async (t) => {
+  // Отказ приходит в сеанс изнутри импорта строки сессии: отличить его от
+  // непринятой строки можно только по типу (`session.ts`).
+  const refusals = [
+    [
+      "модуль не найден в сборке",
+      () => new Deno.errors.NotFound("нет встроенного модуля"),
+    ],
+    [
+      "нет права его прочитать",
+      () => new Deno.errors.NotCapable('Requires read access to "mtcute.wasm"'),
+    ],
+  ] as const;
+  for (const [name, refusal] of refusals) {
+    await t.step(name, async () => {
+      const cause = refusal();
+      const realReadFile = Deno.readFile;
+      Deno.readFile = () => Promise.reject(cause);
+      try {
+        const err = await assertRejects(
+          () => telegramCrypto().initialize(),
+          CryptoInitError,
+        );
+        assertEquals(err.cause, cause);
+      } finally {
+        Deno.readFile = realReadFile;
+      }
     });
   }
 });

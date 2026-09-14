@@ -3,9 +3,10 @@
  * единственное место, знающее про клиент Telegram.
  *
  * Модуль подгружается лениво из команды: крипта MTProto и её wasm не
- * должны попадать в старт каждого вызова `mpu`. Тестами он не покрыт
- * намеренно — сеть в тестах запрещена, а всё, что можно решить без неё,
- * решено в `send.ts` и `plan.ts`; здесь остаётся склейка с протоколом.
+ * должны попадать в старт каждого вызова `mpu`. Покрыт только вход до
+ * сети — отказ импорта строки сессии (`session_test.ts`); соединение и
+ * операции тестами не покрыты: сеть в тестах запрещена, а всё, что можно
+ * решить без неё, решено в `send.ts` и `plan.ts`.
  */
 
 import { convertFromTelethonSession } from "@mtcute/convert";
@@ -20,7 +21,7 @@ import { md } from "@mtcute/markdown-parser";
 import { VerbatimError } from "../command/mod.ts";
 import { markedId, type RawChat } from "./chat.ts";
 import type { TelegramConfig } from "./config.ts";
-import { telegramCrypto } from "./crypto.ts";
+import { CryptoInitError, telegramCrypto } from "./crypto.ts";
 import { configError, telegramFailure } from "./errors.ts";
 import type { ResolvablePeer } from "./peer.ts";
 import { proxyUrl } from "./proxy.ts";
@@ -149,6 +150,10 @@ async function enter(client: TelegramClient, session: string): Promise<number> {
  * Строка сессии приходит в формате прежней реализации, и клиент её как
  * есть не принимает — она переводится конвертером. Не принятая строка —
  * то же, что её отсутствие: вход не выполнен.
+ *
+ * Импорт заодно поднимает криптографию клиента, и её сбой — не отказ
+ * строки: совет пройти вход здесь вреден, вход отзывает действующую
+ * сессию («Конфигурация» спеки). Различение — по типу отказа.
  */
 async function importSession(
   client: TelegramClient,
@@ -157,7 +162,9 @@ async function importSession(
   try {
     await client.importSession(convertFromTelethonSession(session));
   } catch (err) {
-    throw notAuthorized(err);
+    throw err instanceof CryptoInitError
+      ? cryptoFailure(err)
+      : notAuthorized(err);
   }
 }
 
@@ -171,6 +178,14 @@ function entryFailure(err: unknown): Error {
   return /^(AUTH_KEY|SESSION_|USER_DEACTIVATED)/.test(text)
     ? notAuthorized(err)
     : telegramFailure(err);
+}
+
+/** Криптография не поднялась: первая строка причины, без советов. */
+function cryptoFailure(err: CryptoInitError): Error {
+  const reason = err.message.split("\n")[0];
+  return configError(`криптография клиента не поднялась: ${reason}`, {
+    cause: err,
+  });
 }
 
 function notAuthorized(cause: unknown): Error {
