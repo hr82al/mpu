@@ -32,7 +32,7 @@ import {
   type ServiceOptions,
   servicePid,
   startService,
-  stopIfRunning,
+  stopUnit,
 } from "./service.ts";
 import { VERSION } from "../version.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
@@ -106,15 +106,16 @@ export type StartupIo = Pick<CommandIo, "env" | "openCacheDb">;
 
 /**
  * Поднимает сервер и ждёт его остановки. Возвращает код завершения
- * процесса: 2 — ошибка ввода, 1 — порт занят либо уступившую службу не
- * удалось вернуть.
+ * процесса: 2 — ошибка ввода, 1 — порт занят, уступаемую службу не
+ * удалось остановить либо вернуть.
  *
- * Отказ самой остановки уступаемой службы всплывает как есть
- * (`DomainError` на ответ менеджера кодом, отказ в праве — своим классом):
- * передний план не поднимался, и делать вид, что вызов состоялся, не за
- * что. Неудавшийся опрос менеджера при решении об уступке — не отказ, а
- * «выяснить не удалось»: уступки нет. Отказ возврата службы любого рода
- * называется в stderr и даёт код 1.
+ * Неудавшийся опрос менеджера при решении об уступке, в том числе
+ * повторный непосредственно перед `stop`, — не отказ, а «выяснить не
+ * удалось»: уступки нет. Отказ самой остановки называется в stderr:
+ * сервер не поднимается, службу пробуют вернуть. Прерывание во время
+ * остановки тоже отменяет прослушивание, служба возвращается. Отказ
+ * возврата любого рода называется в stderr и даёт код 1; дефект своего
+ * кода всплывает.
  */
 export async function runMcpServer(
   argv: readonly string[],
@@ -157,26 +158,15 @@ export async function runMcpServer(
   let borrowed: ServiceDeps | undefined;
   let code = 0;
   try {
-    borrowed = await borrowPort(run, port);
-    const server = await serveMcp({
-      port,
-      profiles: options.profiles,
-      token,
-      deps: { io: withoutStdin(io), commands, version: VERSION, log: run.log },
-      signal: stopping.signal,
-    });
-    // Адрес печатается в stderr: stdout этой поверхности принадлежит
-    // протоколу, и туда не должно попадать ничего постороннего.
-    output.stderr(
-      `mpu mcp: слушаю http://${LOOPBACK}:${server.port}` +
-        ` (${options.profiles.map((profile) => `/${profile}`).join(", ")})\n`,
-    );
-    run.onListen?.(server);
-    await server.finished;
-  } catch (err) {
-    if (!(err instanceof Deno.errors.AddrInUse)) throw err;
-    output.stderr(`mpu mcp: порт ${port} занят\n`);
-    code = 1;
+    const taken = await borrowPort(run, port);
+    if (taken.kind !== "untouched") borrowed = taken.deps;
+    if (taken.kind === "stopRefused") code = 1;
+    // Прерывание, пришедшее во время остановки службы, отменяет
+    // прослушивание: сервер, поднятый с уже отменённым сигналом, не гас
+    // бы до второго сигнала, а тот убил бы процесс без возврата службы.
+    else if (!stopping.signal.aborted) {
+      code = await listen(run, options.profiles, port, token, stopping.signal);
+    }
   } finally {
     // Возврат службы — до снятия подписок: пока он идёт, окно ещё
     // открыто. Снятие при этом безусловно, даже если возврат отказал
@@ -191,11 +181,55 @@ export async function runMcpServer(
   return code;
 }
 
+/** Слушает до гашения; 1 — порт занят. */
+async function listen(
+  run: McpServerRun,
+  profiles: readonly Profile[],
+  port: number,
+  token: string,
+  signal: AbortSignal,
+): Promise<number> {
+  const { io, output, commands } = run;
+  try {
+    const server = await serveMcp({
+      port,
+      profiles,
+      token,
+      deps: { io: withoutStdin(io), commands, version: VERSION, log: run.log },
+      signal,
+    });
+    // Адрес печатается в stderr: stdout этой поверхности принадлежит
+    // протоколу, и туда не должно попадать ничего постороннего.
+    output.stderr(
+      `mpu mcp: слушаю http://${LOOPBACK}:${server.port}` +
+        ` (${profiles.map((profile) => `/${profile}`).join(", ")})\n`,
+    );
+    run.onListen?.(server);
+    await server.finished;
+    return 0;
+  } catch (err) {
+    if (!(err instanceof Deno.errors.AddrInUse)) throw err;
+    output.stderr(`mpu mcp: порт ${port} занят\n`);
+    return 1;
+  }
+}
+
+/**
+ * Чем кончилась попытка взять порт у службы: не трогали, уступила или
+ * остановить не удалось. В двух последних службу по выходе возвращают:
+ * после отказавшего `stop` она могла погаснуть.
+ */
+type Taken =
+  | { readonly kind: "untouched" }
+  | { readonly kind: "yielded"; readonly deps: ServiceDeps }
+  | { readonly kind: "stopRefused"; readonly deps: ServiceDeps };
+
+const UNTOUCHED: Taken = { kind: "untouched" };
+
 /**
  * Порт под передний план: работающая служба его уступает, а по выходе
- * получает обратно. Отвечает тем, у кого порт взят; `undefined` —
- * «трогать нечего», и после выхода не запускается ничего: заводить
- * службу, которой не было, команда не должна.
+ * получает обратно. «Не трогали» — после выхода не запускается ничего:
+ * заводить службу, которой не было, команда не должна.
  *
  * Порт, заданный флагом не тем, на котором стоит служба, уступки не
  * требует: занят он не ею.
@@ -203,34 +237,49 @@ export async function runMcpServer(
 async function borrowPort(
   run: McpServerRun,
   port: number,
-): Promise<ServiceDeps | undefined> {
-  if (port !== configuredPort(run.io)) return undefined;
+): Promise<Taken> {
+  if (port !== configuredPort(run.io)) return UNTOUCHED;
   const deps = serviceDepsIfAny(run.io, run.service);
-  if (deps === undefined) return undefined;
-  // Проверка описания — до всякого обращения к менеджеру: на
-  // неописанной службе `stopIfRunning` отказал бы, а отказывать здесь
-  // не за что.
-  const state = await askManager(() => readServiceState(deps));
-  if (state === undefined) return undefined;
-  if (state.program === null || !isRunning(state.activity)) return undefined;
+  if (deps === undefined) return UNTOUCHED;
+  if (!await askRunning(deps)) return UNTOUCHED;
   // Юнит запускает тот же голый `mpu mcp`: уступив порт себе, служба
   // останавливает саму себя и не поднимается вовсе. Не уступаем и
   // тогда, когда выяснить не удалось, — цена ошибки несимметрична: в
   // одну сторону поверхность мертва, в другую передний план печатает
   // «порт занят», как до этой спеки.
   const main = await askManager(() => servicePid(deps));
-  if (main === undefined || main === Deno.pid) return undefined;
-  // Останавливала ли служба именно эта команда, знает сама остановка:
-  // между вопросом о состоянии и ответом менеджера службу мог погасить
-  // кто-то ещё, и тогда уступать было нечего — а запустить её после
+  if (main === undefined || main === Deno.pid) return UNTOUCHED;
+  // Между первым вопросом о состоянии и ответом о главном процессе службу
+  // мог погасить кто-то ещё: тогда уступать нечего, а запустить её после
   // себя значило бы поднять то, что стояло.
-  // Без перечитывания после `stop` — почему, сказано у `stopIfRunning`.
-  if (!(await stopIfRunning(deps))) return undefined;
-  // С машиной владельца делается заметное, и он должен это видеть.
+  if (!await askRunning(deps)) return UNTOUCHED;
+  try {
+    await stopUnit(deps);
+  } catch (err) {
+    if (!isRefusal(err)) throw err;
+    run.output.stderr(
+      `mpu mcp: остановить службу не удалось: ${err.message}\n`,
+    );
+    return { kind: "stopRefused", deps };
+  }
+  // С машиной владельца делается заметное, и он должен это видеть. После
+  // `stop` менеджер не перечитывается: отказ перечитывания унёс бы факт
+  // остановки, и служба осталась бы лежать без попытки возврата.
   run.output.stderr(
     `mpu mcp: служба ${SERVICE_NAME} остановлена, порт ${port} уступлен ей\n`,
   );
-  return deps;
+  return { kind: "yielded", deps };
+}
+
+/**
+ * Описана ли служба и работает ли, по ответу менеджера; спросить не
+ * удалось — «нет». Описание проверяется до всякого обращения к менеджеру:
+ * неописанную службу уступать не за что.
+ */
+async function askRunning(deps: ServiceDeps): Promise<boolean> {
+  const state = await askManager(() => readServiceState(deps));
+  return state !== undefined && state.program !== null &&
+    isRunning(state.activity);
 }
 
 /**
