@@ -26,6 +26,7 @@ import {
   type RunProgram,
   SERVICE_NAME,
   type ServiceDeps,
+  serviceDepsIfAny,
   unitText,
 } from "./service.ts";
 
@@ -52,7 +53,28 @@ async function withStore(
     // Конфиг-каталог временный целиком: и токен, и кэш-БД с
     // предпочтениями, — в базу пользователя тест не пишет.
     const real = makeDenoIo(dir);
-    await fn(real, dir);
+    // Службу пользователя тесты не видят: HOME — внутри временного
+    // каталога, XDG_CONFIG_HOME не задана, и описания службы там нет.
+    // Иначе голое `mpu mcp` на порту из конфига читало бы настоящий каталог
+    // служб и у запускающего с установленной службой шло бы к настоящему
+    // `systemctl` — перезапуская её при широких правах.
+    const io: CommandIo = {
+      ...real,
+      env: (name) =>
+        name === "HOME"
+          ? `${dir}/home`
+          : name === "XDG_CONFIG_HOME"
+          ? undefined
+          : real.env(name),
+    };
+    // Предохранитель: тест, получивший io с настоящим окружением, краснеет
+    // здесь, до всякого обращения к службе.
+    const units = serviceDepsIfAny(io)?.dir;
+    assert(
+      units !== undefined && units.startsWith(`${dir}/`),
+      `каталог служб теста вне временного каталога: ${units}`,
+    );
+    await fn(io, dir);
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
@@ -215,24 +237,19 @@ Deno.test("значение --port не порт — exit 2", async (t) => {
 });
 
 Deno.test("голое mpu mcp без HOME: служба считается отсутствующей, порт не уступается", async (t) => {
-  // Стоит раньше тестов, поднимающих сервер на порту из конфига с
-  // настоящим окружением: те читают настоящий каталог служб, и у
-  // запускающего с установленной службой доходят до `systemctl` — в правах
-  // задачи test отказ вылетает необработанным и отменяет остаток файла.
-  // Случай с абсолютной XDG_CONFIG_HOME кладёт по её пути настоящее
-  // описание службы: реализация, взявшая каталог служб без HOME, увидела бы
-  // его и пошла бы к менеджеру — и запуск отказал бы, а не слушал.
+  // Отказ без HOME держат тесты службы и подкоманд; здесь — что голое
+  // `mpu mcp` при этом не уступает порт и поднимает сервер. Неудавшийся
+  // опрос менеджера тоже означает «уступки нет», поэтому реализацию,
+  // взявшую каталог служб без HOME, этот тест не отличит.
   const envs: ReadonlyArray<
     readonly [
       string,
       (dir: string) => Readonly<Record<string, string | undefined>>,
     ]
   > = [
-    // XDG_CONFIG_HOME задана явно и в этих случаях: иначе она бралась бы из
-    // окружения запускающего, и исход мутаций зависел бы от его машины.
     ["HOME не задана", () => ({ HOME: undefined, XDG_CONFIG_HOME: undefined })],
     ["HOME пуста", () => ({ HOME: "", XDG_CONFIG_HOME: undefined })],
-    ["HOME не задана, по абсолютной XDG_CONFIG_HOME лежит описание", (dir) => ({
+    ["HOME не задана, XDG_CONFIG_HOME абсолютна", (dir) => ({
       HOME: undefined,
       XDG_CONFIG_HOME: `${dir}/xdg`,
     })],
@@ -242,19 +259,8 @@ Deno.test("голое mpu mcp без HOME: служба считается от�
       await withStore(async (real, dir) => {
         usePort(real, await freePort());
         const overrides = envFor(dir);
-        const xdg = overrides.XDG_CONFIG_HOME;
-        if (xdg !== undefined) {
-          const units = `${xdg}/systemd/user`;
-          await Deno.mkdir(units, { recursive: true });
-          await Deno.writeTextFile(
-            `${units}/${SERVICE_NAME}`,
-            unitText("/h/mpu"),
-          );
-        }
         // Зависимостей службы не внедряем: внедрённые, они обошли бы
-        // проверку HOME. Обращение к менеджеру здесь было бы настоящим
-        // `systemctl`, права тестов его не пускают — и запуск не дошёл бы
-        // до прослушивания (`mcp-service.md`, «Граничные случаи и ошибки»).
+        // проверку HOME (`mcp-service.md`, «Граничные случаи и ошибки»).
         const io: CommandIo = {
           ...real,
           env: (key) => key in overrides ? overrides[key] : real.env(key),
@@ -1027,6 +1033,136 @@ Deno.test("менеджер не назвал главный процесс — 
       assertEquals(code, 0);
       assertEquals(active.now, true);
       assertEquals(calls.includes("stop"), false, calls.join(", "));
+    });
+  });
+});
+
+Deno.test("менеджер не отвечает на опрос — уступки нет, сервер поднимается", async (t) => {
+  // Спросить менеджер не удалось — значит, выяснить не удалось, и уступки
+  // нет (`mcp-service.md`, «Граничные случаи и ошибки»). Отказ не обязан
+  // всплыть необработанным и уронить запуск.
+  const refusals: ReadonlyArray<readonly [string, () => Error]> = [
+    [
+      "нет права на запуск",
+      () => new Deno.errors.NotCapable('Requires run access to "systemctl"'),
+    ],
+    ["systemctl не найден", () => new Deno.errors.NotFound("systemctl")],
+  ];
+  for (const [name, refusal] of refusals) {
+    await t.step(name, async () => {
+      await withStore(async (io) => {
+        usePort(io, await freePort());
+        await withService({ described: true }, async (deps, active) => {
+          const refusing: RunProgram = () => Promise.reject(refusal());
+          const output = makeOutput();
+          const stop = new AbortController();
+          const listening = Promise.withResolvers<RunningServer>();
+          const running = runMcpServer([], {
+            io,
+            output: output.sink,
+            commands,
+            log: NO_INVOKE_LOG,
+            signal: stop.signal,
+            onListen: listening.resolve,
+            service: { deps: { ...deps, run: refusing } },
+          });
+          // Наперегонки с завершением: отказавший запуск даёт красный тест
+          // с причиной, а не вечное ожидание прослушивания.
+          const first = await Promise.race([
+            listening.promise.then(() => "слушает"),
+            running.then(
+              (code) => `завершился с ${code}`,
+              (err: unknown) => `отказал: ${String(err)}`,
+            ),
+          ]);
+          stop.abort();
+          assertEquals(first, "слушает", output.stderr());
+          assertEquals(await running, 0);
+          assertEquals(
+            output.stderr().includes("уступлен"),
+            false,
+            output.stderr(),
+          );
+          assertEquals(active.now, true, "служба тронута");
+        });
+      });
+    });
+  }
+});
+
+Deno.test("менеджер ответил о состоянии, но не назвал главный процесс отказом — уступки нет", async () => {
+  // Второй вопрос опроса — о главном процессе — отказывает сам по себе:
+  // служба работает, но выяснить, не мы ли она, нечем, и уступки нет.
+  // Отказ на первом же вопросе этот шаг опроса не проверял бы.
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    await withService({ described: true }, async (deps, active, calls) => {
+      const refusingShow: RunProgram = (bin, args) =>
+        args[1] === "show"
+          ? Promise.reject(
+            new Deno.errors.NotCapable('Requires run access to "systemctl"'),
+          )
+          : deps.run(bin, args);
+      const output = makeOutput();
+      const stop = new AbortController();
+      const listening = Promise.withResolvers<RunningServer>();
+      const running = runMcpServer([], {
+        io,
+        output: output.sink,
+        commands,
+        log: NO_INVOKE_LOG,
+        signal: stop.signal,
+        onListen: listening.resolve,
+        service: { deps: { ...deps, run: refusingShow } },
+      });
+      const first = await Promise.race([
+        listening.promise.then(() => "слушает"),
+        running.then(
+          (code) => `завершился с ${code}`,
+          (err: unknown) => `отказал: ${String(err)}`,
+        ),
+      ]);
+      stop.abort();
+      assertEquals(first, "слушает", output.stderr());
+      assertEquals(await running, 0);
+      assertEquals(active.now, true, "служба тронута");
+      assertEquals(calls.includes("stop"), false, calls.join(", "));
+    });
+  });
+});
+
+Deno.test("дефект своего кода при опросе менеджера не выдаётся за «уступки нет»", async () => {
+  // Глотается только «спросить не удалось»; ошибка программы при опросе
+  // обязана всплыть, а не молча поднять сервер.
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    await withService({ described: true }, async (deps) => {
+      const broken: RunProgram = () =>
+        Promise.reject(new TypeError("дефект своего кода"));
+      const stop = new AbortController();
+      const listening = Promise.withResolvers<RunningServer>();
+      const running = runMcpServer([], {
+        io,
+        output: makeOutput().sink,
+        commands,
+        log: NO_INVOKE_LOG,
+        signal: stop.signal,
+        onListen: listening.resolve,
+        service: { deps: { ...deps, run: broken } },
+      });
+      const first = await Promise.race([
+        listening.promise.then(() => "слушает"),
+        running.then(
+          (code) => `завершился с ${code}`,
+          (err: unknown) =>
+            err instanceof TypeError ? "дефект всплыл" : String(err),
+        ),
+      ]);
+      stop.abort();
+      // Исход уже снят гонкой выше и проверяется ниже; здесь только
+      // дожидаемся гашения запуска, чтобы он не пережил тест.
+      await running.catch(() => {});
+      assertEquals(first, "дефект всплыл");
     });
   });
 });

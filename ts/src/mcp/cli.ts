@@ -109,9 +109,10 @@ export type StartupIo = Pick<CommandIo, "env" | "openCacheDb">;
  * процесса: 2 — ошибка ввода, 1 — порт занят либо уступившую службу не
  * удалось вернуть.
  *
- * Отказ менеджера службы при уступке порта бросается `DomainError`:
- * передний план в этом случае не поднимался, и делать вид, что вызов
- * состоялся, не за что.
+ * Отказ менеджера службы при остановке уступаемой службы бросается
+ * `DomainError`: передний план в этом случае не поднимался, и делать вид,
+ * что вызов состоялся, не за что. Неудавшийся опрос менеджера при решении
+ * об уступке — не отказ, а «выяснить не удалось»: уступки нет.
  */
 export async function runMcpServer(
   argv: readonly string[],
@@ -207,14 +208,15 @@ async function borrowPort(
   // Проверка описания — до всякого обращения к менеджеру: на
   // неописанной службе `stopService` отказал бы, а отказывать здесь
   // не за что.
-  const state = await readServiceState(deps);
+  const state = await askManager(() => readServiceState(deps));
+  if (state === undefined) return undefined;
   if (state.program === null || !isRunning(state.activity)) return undefined;
   // Юнит запускает тот же голый `mpu mcp`: уступив порт себе, служба
   // останавливает саму себя и не поднимается вовсе. Не уступаем и
   // тогда, когда выяснить не удалось, — цена ошибки несимметрична: в
   // одну сторону поверхность мертва, в другую передний план печатает
   // «порт занят», как до этой спеки.
-  const main = await servicePid(deps);
+  const main = await askManager(() => servicePid(deps));
   if (main === undefined || main === Deno.pid) return undefined;
   // Останавливала ли служба именно эта команда, знает сама остановка:
   // между вопросом о состоянии и ответом менеджера службу мог погасить
@@ -226,6 +228,29 @@ async function borrowPort(
     `mpu mcp: служба ${SERVICE_NAME} остановлена, порт ${port} уступлен ей\n`,
   );
   return deps;
+}
+
+/**
+ * Ответ менеджера на вопрос об уступке; спросить не удалось — `undefined`.
+ * Опрос — вопрос, а не действие: нет права на запуск, `systemctl` не
+ * найден (`DomainError` слоя службы) или нет прав на чтение описания — значит,
+ * выяснить не удалось, и уступки нет, сервер поднимается как раньше
+ * (`mcp-service.md`, «Граничные случаи и ошибки»). Дефект своего кода к
+ * этим отказам не относится и всплывает.
+ */
+async function askManager<T>(
+  question: () => Promise<T>,
+): Promise<T | undefined> {
+  try {
+    return await question();
+  } catch (err) {
+    if (
+      err instanceof DomainError ||
+      err instanceof Deno.errors.NotCapable ||
+      err instanceof Deno.errors.PermissionDenied
+    ) return undefined;
+    throw err;
+  }
 }
 
 /**
