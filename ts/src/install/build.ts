@@ -50,26 +50,30 @@ export interface TreeSearch {
   /**
    * Проверенные места в том порядке, в каком проверялись, — каждое
    * описанием попытки, а не только удавшимся путём: отказ обязан
-   * назвать оба места, включая то, где и складывать-то было нечего.
+   * назвать все места, включая то, где и складывать-то было нечего.
    */
   readonly checked: readonly string[];
 }
 
 /**
- * Дерево исходников: два кандидата в названном порядке — каталог рядом
- * с работающей программой и рабочая область по сентинелу. Догадываться
- * нельзя: собрать не тот исходник хуже, чем не собрать.
+ * Дерево исходников: три кандидата в названном порядке — каталог рядом
+ * с работающей программой, рабочая область по сентинелу и дерево,
+ * запомненное прошлой установкой. Догадываться нельзя: собрать не тот
+ * исходник хуже, чем не собрать.
  *
  * @param binDir каталог, в котором лежит работающая программа
  * @param cwd текущий каталог вызова
+ * @param configHome значение `$XDG_CONFIG_HOME` с умолчанием `$HOME/.config`
  */
 export async function findSourceTree(
   binDir: string,
   cwd: string,
+  configHome: string,
 ): Promise<TreeSearch> {
   const candidates = [
     besideProgram(binDir),
     await workspaceTree(cwd),
+    await rememberedTree(configHome),
   ] as const;
   const checked = candidates.map((candidate) => candidate.checked);
   for (const candidate of candidates) {
@@ -117,6 +121,49 @@ async function workspaceTree(cwd: string): Promise<Candidate> {
     }
     dir = parent;
   }
+}
+
+/** Файл запомненного дерева в каталоге конфигурации. */
+function rememberedFile(configHome: string): string {
+  return `${configHome}/mpu/build-source`;
+}
+
+/** Файла нет или первая строка пуста: запоминать было нечего. */
+const NOT_REMEMBERED: Candidate = {
+  tree: undefined,
+  checked: "запомненное дерево: не записано",
+};
+
+/**
+ * Третий кандидат: дерево, запомненное прошлой успешной установкой. Путь
+ * хранит файл, а не сам бинарь: у скомпилированной программы исходный
+ * путь виртуальный (`docs/specs/build.md`, [D.8]).
+ */
+async function rememberedTree(configHome: string): Promise<Candidate> {
+  const file = rememberedFile(configHome);
+  let text: string;
+  try {
+    text = await Deno.readTextFile(file);
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) return NOT_REMEMBERED;
+    // Нечитаемый файл — не «не записано»: причина другая, и прятать её
+    // нельзя. Но и поиск он не роняет: первые два кандидата от этого
+    // файла не зависят и выигрывают, как при любом другом отказе.
+    const reason = err instanceof Error ? err.message : String(err);
+    return {
+      tree: undefined,
+      checked: `запомненное дерево: ${file} не прочитан (${reason})`,
+    };
+  }
+  const path = text.split("\n")[0].trimEnd();
+  if (path === "") return NOT_REMEMBERED;
+  if (!path.startsWith("/")) {
+    return {
+      tree: undefined,
+      checked: `запомненное дерево: ${path} — не абсолютный путь`,
+    };
+  }
+  return { tree: path, checked: `запомненное дерево: ${path}` };
 }
 
 async function isSourceTree(dir: string): Promise<boolean> {
@@ -167,7 +214,17 @@ export interface BuildOutcome {
   readonly installed: boolean;
   /** Судьба службы; установка не трогалась — `null`. */
   readonly service: ServiceFate | null;
+  /** Запись запомненного дерева; установки не было — `null`. */
+  readonly remembered: RememberFate | null;
 }
+
+/**
+ * Что стало с запомненным деревом после установки. Отказ — исход, а не
+ * исключение, по той же причине, что у службы: программа уже заменена.
+ */
+export type RememberFate =
+  | { readonly kind: "written" }
+  | { readonly kind: "failed"; readonly reason: string };
 
 /**
  * Что стало со службой MCP после замены программы. Отказ — такой же
@@ -205,9 +262,13 @@ export async function build(
       previous,
       installed: false,
       service: null,
+      remembered: null,
     };
   }
   const version = await installCandidate(plan, deps.run);
+  // Запоминается только ответившая установка: до этой строки любой отказ
+  // уже вышел исключением, и файл остался прежним.
+  const remembered = await rememberTree(plan.configHome, plan.tree);
   return {
     tree: plan.tree,
     target: plan.target,
@@ -215,7 +276,36 @@ export async function build(
     previous,
     installed: true,
     service: await deps.restartService(),
+    remembered,
   };
+}
+
+/**
+ * Запоминает дерево, из которого собрана установленная программа: одна
+ * строка с переводом строки, права 0644, атомарно — временный файл рядом
+ * и переименование, так что читатель не увидит половины пути.
+ */
+async function rememberTree(
+  configHome: string,
+  tree: string,
+): Promise<RememberFate> {
+  const file = rememberedFile(configHome);
+  const temp = `${file}.new`;
+  try {
+    await Deno.mkdir(file.slice(0, file.lastIndexOf("/")), { recursive: true });
+    await Deno.writeTextFile(temp, `${tree}\n`);
+    // Режим при создании урезается umask'ом — права задаются явно.
+    await Deno.chmod(temp, 0o644);
+    await Deno.rename(temp, file);
+    return { kind: "written" };
+  } catch (err) {
+    // Любой отказ этих четырёх вызовов — отказ записи, и установку он не
+    // отменяет. Неудача уборки временного файла заменила бы причину
+    // следствием.
+    await Deno.remove(temp).catch(() => {});
+    const reason = err instanceof Error ? err.message : String(err);
+    return { kind: "failed", reason };
+  }
 }
 
 /**

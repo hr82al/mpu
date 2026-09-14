@@ -9,7 +9,13 @@ import { z } from "@zod/zod";
 import { defineCommand, DomainError } from "../command/mod.ts";
 import { xdgConfigHome } from "../env/mod.ts";
 import { restartServiceIfRunning } from "../mcp/cmd_service.ts";
-import { build, findSourceTree, type ServiceFate, spawnAt } from "./build.ts";
+import {
+  build,
+  findSourceTree,
+  type RememberFate,
+  type ServiceFate,
+  spawnAt,
+} from "./build.ts";
 import { installedBinPath } from "./mod.ts";
 
 const argsSchema = z.object({
@@ -44,6 +50,15 @@ const resultSchema = z.object({
   service: serviceSchema.nullable().describe(
     "судьба службы MCP; null — установка не трогалась",
   ),
+  remembered: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("written") }),
+    z.object({
+      kind: z.literal("failed"),
+      reason: z.string().describe("отказ записи дословно"),
+    }),
+  ]).nullable().describe(
+    "запись запомненного дерева; null — установка не трогалась",
+  ),
 });
 
 export const buildCommand = defineCommand({
@@ -62,10 +77,18 @@ export const buildCommand = defineCommand({
 символическая ссылка, на её месте окажется файл. Идти по ссылке нельзя
 — её цель лежит в дереве исходников.
 
-Дерево исходников ищется двумя кандидатами: каталог рядом с работающей
-программой (\`<дерево>/bin\`) и рабочая область по сентинелу
-\`.mp-workspace-root\` (\`<корень>/mpu/ts\`). Ни один не подошёл —
-отказ называет оба проверенных места.
+Дерево исходников ищется тремя кандидатами по порядку: каталог рядом с
+работающей программой (\`<дерево>/bin\`), рабочая область по сентинелу
+\`.mp-workspace-root\` (\`<корень>/mpu/ts\`) и запомненное дерево — первая
+строка \`$XDG_CONFIG_HOME/mpu/build-source\` (умолчание ~/.config),
+абсолютный путь. Кандидат подходит, если в нём есть deno.jsonc и
+main.ts; ни один не подошёл — отказ называет все три места.
+
+Успешная установка перезаписывает build-source путём собранного дерева,
+поэтому следующий mpu build находит его из любого каталога. --check и
+неудачная установка файл не трогают; не удалась только запись — строка
+«запомненное дерево: не записано (<причина>)», установка остаётся,
+exit 0.
 
 Работающая служба MCP перезапускается после установки: иначе в памяти
 остаётся прежняя версия. Не установлена или остановлена — не трогается.
@@ -92,7 +115,7 @@ Exit: 0 — установлено (или проверено при --check); 1
     if (home === undefined || home === "" || configHome === undefined) {
       throw new DomainError("HOME не задана: путь установки не вычислить");
     }
-    const found = await findSourceTree(programDir(), io.cwd());
+    const found = await findSourceTree(programDir(), io.cwd(), configHome);
     if (found.tree === undefined) {
       throw new DomainError(
         `дерево исходников не найдено; проверены: ${
@@ -123,12 +146,32 @@ Exit: 0 — установлено (или проверено при --check); 1
       "проверка: `deno task smoke` зелёный, кандидат ответил " +
       "version и --help\n" +
       `установлено: ${result.target}\n` +
+      rememberedLine(result.tree, result.remembered) +
       serviceLine(result.service);
   },
   // Отказ перезапуска — код 1 при состоявшейся установке: обе строки
   // напечатаны, но итог вызова неуспешен (`docs/specs/build.md`).
   textExitCode: (result) => result.service?.kind === "restart-failed" ? 1 : 0,
 });
+
+/**
+ * Строка о запомненном дереве — сразу за «установлено». Отказ записи
+ * кода выхода не меняет (установка состоялась), но и молча не проходит.
+ * Установки не было (`null`) — строки нет.
+ */
+function rememberedLine(tree: string, remembered: RememberFate | null): string {
+  if (remembered === null) return "";
+  switch (remembered.kind) {
+    case "written":
+      return `запомненное дерево: ${tree}\n`;
+    case "failed":
+      return `запомненное дерево: не записано (${remembered.reason})\n`;
+    default: {
+      const unknown: never = remembered;
+      throw new TypeError(`неизвестный исход записи: ${String(unknown)}`);
+    }
+  }
+}
 
 /**
  * Строка о судьбе службы. Отказ печатается вместе с причиной и следом

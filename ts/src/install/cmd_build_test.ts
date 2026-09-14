@@ -35,6 +35,53 @@ Deno.test("дерево исходников не найдено — отказ 
   }
 });
 
+Deno.test("запомненное дерево читается из $XDG_CONFIG_HOME/mpu, пустая — $HOME/.config", async (t) => {
+  const cases: ReadonlyArray<
+    readonly [string, (home: string) => string | undefined, string]
+  > = [
+    ["XDG_CONFIG_HOME задана", (home) => `${home}/xdg`, "xdg"],
+    ["XDG_CONFIG_HOME пуста", () => "", ".config"],
+    ["XDG_CONFIG_HOME не задана", () => undefined, ".config"],
+  ];
+  for (const [name, xdg, configDir] of cases) {
+    await t.step(name, async () => {
+      const home = await Deno.makeTempDir();
+      try {
+        // Дерева по запомненному пути нет: отказ называет путь, который
+        // команда прочла, — по нему и видно, из какого каталога.
+        const missing = `${home}/нет-дерева`;
+        await Deno.mkdir(`${home}/${configDir}/mpu`, { recursive: true });
+        await Deno.writeTextFile(
+          `${home}/${configDir}/mpu/build-source`,
+          `${missing}\n`,
+        );
+        const io = makeFakeIo({
+          env: (key) =>
+            key === "HOME"
+              ? home
+              : key === "XDG_CONFIG_HOME"
+              ? xdg(home)
+              : undefined,
+          // Корень: над ним нет сентинела рабочей области, где бы ни лежал
+          // временный каталог.
+          cwd: () => "/",
+        });
+        const err = await assertRejects(
+          () => buildCommand.invoke(["--check"], io),
+          DomainError,
+        );
+        assertEquals(
+          err.message.endsWith(`, запомненное дерево: ${missing}`),
+          true,
+          err.message,
+        );
+      } finally {
+        await Deno.remove(home, { recursive: true });
+      }
+    });
+  }
+});
+
 Deno.test("итог печатается по-разному для установки и для --check", async (t) => {
   const common = {
     tree: "/w/mpu/ts",
@@ -42,17 +89,42 @@ Deno.test("итог печатается по-разному для устано
     previous: "0.1.0",
   };
   await t.step("установка", () => {
-    const text = buildCommand.renderResult({
+    const result = {
       ...common,
       version: "0.2.0",
       installed: true,
-      service: { kind: "restarted" },
-    }, []);
+      service: { kind: "restarted" as const },
+      remembered: { kind: "written" as const },
+    };
+    const text = buildCommand.renderResult(result, []);
     assertStringIncludes(text, "собрано: 0.2.0");
     assertStringIncludes(text, "было: 0.1.0");
-    assertStringIncludes(text, "установлено: /h/.local/bin/mpu");
+    assertStringIncludes(
+      text,
+      "установлено: /h/.local/bin/mpu\nзапомненное дерево: /w/mpu/ts\n",
+    );
     assertStringIncludes(text, "перезапущена");
     assertEquals(text.includes("--check"), false);
+    assertEquals(buildCommand.textExitCode(result), 0);
+  });
+  await t.step("запись запомненного дерева не удалась: строка и код 0", () => {
+    const result = {
+      ...common,
+      version: "0.2.0",
+      installed: true,
+      service: { kind: "untouched" as const },
+      remembered: {
+        kind: "failed" as const,
+        reason: "Is a directory (os error 21)",
+      },
+    };
+    const text = buildCommand.renderResult(result, []);
+    assertStringIncludes(text, "установлено: /h/.local/bin/mpu\n");
+    assertStringIncludes(
+      text,
+      "\nзапомненное дерево: не записано (Is a directory (os error 21))\n",
+    );
+    assertEquals(buildCommand.textExitCode(result), 0);
   });
   await t.step("--check", () => {
     const text = buildCommand.renderResult({
@@ -60,9 +132,11 @@ Deno.test("итог печатается по-разному для устано
       version: null,
       installed: false,
       service: null,
+      remembered: null,
     }, []);
     assertStringIncludes(text, "установка не тронута (--check)");
     assertEquals(text.includes("установлено:"), false);
+    assertEquals(text.includes("запомненное дерево"), false);
   });
   await t.step("перезапуск не удался: обе строки и код 1", () => {
     const result = {
@@ -78,6 +152,7 @@ Deno.test("итог печатается по-разному для устано
           "mpu-mcp.service failed\nжурнал: journalctl --user -u " +
           "mpu-mcp.service -n 50",
       },
+      remembered: { kind: "written" as const },
     };
     const text = buildCommand.renderResult(result, []);
     // Установка состоялась — и это видно, несмотря на отказ.
@@ -95,6 +170,7 @@ Deno.test("итог печатается по-разному для устано
       version: "0.2.0",
       installed: true,
       service: { kind: "untouched" },
+      remembered: { kind: "written" },
     }, []);
     assertStringIncludes(text, "было: ничего не установлено");
     assertStringIncludes(text, "не тронута");

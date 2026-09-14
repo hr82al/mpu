@@ -186,11 +186,41 @@ Deno.test("установленное не ответило — прежний �
   });
 });
 
-Deno.test("дерево исходников: два кандидата в порядке, отказ называет оба", async (t) => {
+/** Файл запомненного дерева в каталоге конфигурации плана. */
+function rememberedPath(plan: BuildPlan): string {
+  return `${plan.configHome}/mpu/build-source`;
+}
+
+async function remember(plan: BuildPlan, text: string): Promise<void> {
+  await Deno.mkdir(dirOf(rememberedPath(plan)), { recursive: true });
+  await Deno.writeTextFile(rememberedPath(plan), text);
+}
+
+async function forget(plan: BuildPlan): Promise<void> {
+  try {
+    await Deno.remove(rememberedPath(plan));
+  } catch (err) {
+    // Файла нет — ровно то состояние, которое и нужно.
+    if (!(err instanceof Deno.errors.NotFound)) throw err;
+  }
+}
+
+/** Каталог, похожий на дерево исходников: `deno.jsonc` и `main.ts`. */
+async function makeTree(dir: string): Promise<void> {
+  await Deno.mkdir(dir, { recursive: true });
+  await Deno.writeTextFile(`${dir}/deno.jsonc`, "{}");
+  await Deno.writeTextFile(`${dir}/main.ts`, "");
+}
+
+Deno.test("дерево исходников: три кандидата в порядке, отказ называет все три", async (t) => {
   await withPlan(async (plan) => {
     await t.step("рядом с работающей программой", async () => {
       await Deno.mkdir(`${plan.tree}/bin`, { recursive: true });
-      const found = await findSourceTree(`${plan.tree}/bin`, "/nowhere");
+      const found = await findSourceTree(
+        `${plan.tree}/bin`,
+        "/nowhere",
+        plan.configHome,
+      );
       assertEquals(found.tree, plan.tree);
       assertStringIncludes(found.checked[0], plan.tree);
     });
@@ -199,18 +229,138 @@ Deno.test("дерево исходников: два кандидата в по�
       await Deno.writeTextFile(`${root}/.mp-workspace-root`, "");
       await Deno.mkdir(`${root}/mpu`, { recursive: true });
       await Deno.symlink(plan.tree, `${root}/mpu/ts`);
-      const found = await findSourceTree("/nowhere", `${root}/sub/dir`);
+      const found = await findSourceTree(
+        "/nowhere",
+        `${root}/sub/dir`,
+        plan.configHome,
+      );
       assertEquals(found.tree, `${root}/mpu/ts`);
     });
-    await t.step("ни один не подошёл — названы оба места", async () => {
-      // Первый кандидат складывается, но дерева там нет; второго нет
-      // вовсе — и он всё равно обязан быть назван.
-      const found = await findSourceTree(`${plan.home}/пусто`, "/");
-      assertEquals(found.tree, undefined);
-      assertEquals(found.checked.length, 2, found.checked.join(" | "));
-      assertStringIncludes(found.checked[0], "рядом с программой");
-      assertStringIncludes(found.checked[1], ".mp-workspace-root");
+    await t.step(
+      "запомненное дерево — из каталога вне рабочей области",
+      async (t) => {
+        // Первая строка без концевых пробелов и перевода строки; всё после
+        // неё не читается.
+        const texts = [
+          `${plan.tree}\n`,
+          plan.tree,
+          `${plan.tree} \t\nвторая строка\n`,
+        ];
+        for (const text of texts) {
+          await t.step(JSON.stringify(text), async () => {
+            await remember(plan, text);
+            const found = await findSourceTree(
+              "/nowhere",
+              "/",
+              plan.configHome,
+            );
+            assertEquals(found.tree, plan.tree);
+            assertEquals(found.checked[2], `запомненное дерево: ${plan.tree}`);
+          });
+        }
+      },
+    );
+    await t.step("первые два кандидата выигрывают у запомненного", async () => {
+      // Своё дерево на шаг: запуск по фильтру не видит следов соседних
+      // шагов, и порядок проверяется на том, что создано здесь.
+      await withPlan(async (own) => {
+        const root = dirOf(own.tree);
+        await Deno.mkdir(`${own.tree}/bin`, { recursive: true });
+        await Deno.writeTextFile(`${root}/.mp-workspace-root`, "");
+        await makeTree(`${root}/mpu/ts`);
+        const other = `${root}/другое-дерево`;
+        await makeTree(other);
+        await remember(own, `${other}\n`);
+        const beside = await findSourceTree(
+          `${own.tree}/bin`,
+          "/",
+          own.configHome,
+        );
+        assertEquals(beside.tree, own.tree);
+        const workspace = await findSourceTree(
+          "/nowhere",
+          `${root}/sub`,
+          own.configHome,
+        );
+        assertEquals(workspace.tree, `${root}/mpu/ts`);
+        const remembered = await findSourceTree(
+          "/nowhere",
+          "/",
+          own.configHome,
+        );
+        assertEquals(remembered.tree, other);
+      });
     });
+    await t.step(
+      "ни один не подошёл — все три места названы дословно",
+      async (t) => {
+        const empty = `${plan.home}/пусто`;
+        const cases: ReadonlyArray<readonly [string, string | null, string]> = [
+          ["файла нет", null, "запомненное дерево: не записано"],
+          [
+            "первая строка пуста",
+            `\n${plan.tree}\n`,
+            "запомненное дерево: не записано",
+          ],
+          [
+            "первая строка из пробелов",
+            " \t\n",
+            "запомненное дерево: не записано",
+          ],
+          [
+            "относительный путь",
+            "mpu/ts\n",
+            "запомненное дерево: mpu/ts — не абсолютный путь",
+          ],
+          ["путь без дерева", `${empty}\n`, `запомненное дерево: ${empty}`],
+        ];
+        for (const [name, text, third] of cases) {
+          await t.step(name, async () => {
+            if (text === null) await forget(plan);
+            else await remember(plan, text);
+            // Первый кандидат складывается, но дерева там нет; второго нет
+            // вовсе — и оба всё равно обязаны быть названы.
+            const found = await findSourceTree(empty, "/", plan.configHome);
+            assertEquals(found.tree, undefined);
+            assertEquals(found.checked, [
+              `рядом с программой: ${empty} — не <дерево>/bin`,
+              "рабочая область: сентинел .mp-workspace-root не найден от /",
+              third,
+            ]);
+          });
+        }
+      },
+    );
+  });
+});
+
+Deno.test("нечитаемый build-source не роняет поиск: описан в отказе, первые два выигрывают", async () => {
+  await withPlan(async (plan) => {
+    const file = rememberedPath(plan);
+    // Каталог на месте файла: прочитать нельзя, и это не «не записано».
+    await Deno.mkdir(file, { recursive: true });
+    const empty = `${plan.home}/пусто`;
+    const refused = await findSourceTree(empty, "/", plan.configHome);
+    assertEquals(refused.tree, undefined);
+    assertEquals(refused.checked.slice(0, 2), [
+      `рядом с программой: ${empty} — не <дерево>/bin`,
+      "рабочая область: сентинел .mp-workspace-root не найден от /",
+    ]);
+    // Текст причины — системный, его форма не наша; наш — всё до скобки.
+    assertEquals(
+      refused.checked[2].startsWith(
+        `запомненное дерево: ${file} не прочитан (`,
+      ),
+      true,
+      refused.checked[2],
+    );
+    await Deno.mkdir(`${plan.tree}/bin`, { recursive: true });
+    const found = await findSourceTree(
+      `${plan.tree}/bin`,
+      "/",
+      plan.configHome,
+    );
+    assertEquals(found.tree, plan.tree);
   });
 });
 
@@ -259,5 +409,130 @@ Deno.test("перезапуск не удался — об установке в
     assertEquals(outcome.version, "0.2.0");
     assertEquals(await Deno.readTextFile(plan.target), "0.2.0");
     assertEquals(outcome.service, { kind: "restart-failed", reason });
+  });
+});
+
+Deno.test("успешная установка запоминает дерево: одна строка, 0644, без временных файлов", async () => {
+  await withPlan(async (plan) => {
+    await remember(plan, "/прежнее/дерево\n");
+    await Deno.chmod(rememberedPath(plan), 0o600);
+    // Брошенный прерванным прогоном временный файл с режимом 0600: запись
+    // в существующий файл режим сохраняет, и без явного chmod он доехал бы
+    // до build-source — при любом umask, а не только при 0002.
+    const stale = `${rememberedPath(plan)}.new`;
+    await Deno.writeTextFile(stale, "/брошенное\n");
+    await Deno.chmod(stale, 0o600);
+    const outcome = await build(plan, fake().deps, false);
+    assertEquals(outcome.remembered, { kind: "written" });
+    assertEquals(
+      await Deno.readTextFile(rememberedPath(plan)),
+      `${plan.tree}\n`,
+    );
+    const mode = (await Deno.stat(rememberedPath(plan))).mode ?? 0;
+    assertEquals((mode & 0o777).toString(8), "644");
+    assertEquals(await names(dirOf(rememberedPath(plan))), ["build-source"]);
+  });
+});
+
+Deno.test("первая установка создаёт каталог запомненного дерева", async () => {
+  await withPlan(async (plan) => {
+    const outcome = await build(plan, fake().deps, false);
+    assertEquals(outcome.remembered, { kind: "written" });
+    assertEquals(
+      await Deno.readTextFile(rememberedPath(plan)),
+      `${plan.tree}\n`,
+    );
+  });
+});
+
+Deno.test("запомненное дерево не трогают --check, отказ проверки и возврат прежнего", async (t) => {
+  const before = "/прежнее/дерево\n";
+
+  await t.step("--check", async () => {
+    await withPlan(async (plan) => {
+      await remember(plan, before);
+      const outcome = await build(plan, fake().deps, true);
+      assertEquals(outcome.remembered, null);
+      assertEquals(await Deno.readTextFile(rememberedPath(plan)), before);
+      assertEquals(await names(dirOf(rememberedPath(plan))), ["build-source"]);
+    });
+  });
+
+  await t.step("--check без файла его не создаёт", async () => {
+    await withPlan(async (plan) => {
+      await build(plan, fake().deps, true);
+      assertEquals(
+        await Deno.lstat(dirOf(rememberedPath(plan))).then(
+          () => true,
+          () => false,
+        ),
+        false,
+      );
+    });
+  });
+
+  await t.step("красная проверка сборки", async () => {
+    await withPlan(async (plan) => {
+      await remember(plan, before);
+      const f = fake({ smoke: { code: 1, stdout: "", stderr: "FAIL x\n" } });
+      await assertRejects(() => build(plan, f.deps, false), DomainError);
+      assertEquals(await Deno.readTextFile(rememberedPath(plan)), before);
+    });
+  });
+
+  await t.step("кандидат не ответил", async () => {
+    await withPlan(async (plan) => {
+      await remember(plan, before);
+      const f = fake({ built: "" });
+      await assertRejects(() => build(plan, f.deps, false), DomainError);
+      assertEquals(await Deno.readTextFile(rememberedPath(plan)), before);
+    });
+  });
+
+  await t.step(
+    "установленное не ответило — прежний экземпляр возвращён",
+    async () => {
+      await withPlan(async (plan) => {
+        await remember(plan, before);
+        await Deno.writeTextFile(plan.target, "0.1.0");
+        const f = fake();
+        // Кандидат отвечает, а установленное после переименования — нет:
+        // это и есть возврат прежнего экземпляра, а не отказ кандидата.
+        let compiled = false;
+        const deps: BuildDeps = {
+          ...f.deps,
+          run: (bin, args, cwd) => {
+            if (args[0] === "compile") compiled = true;
+            if (compiled && bin === plan.target) {
+              return Promise.resolve({ code: 1, stdout: "", stderr: "нет" });
+            }
+            return f.deps.run(bin, args, cwd);
+          },
+        };
+        await assertRejects(() => build(plan, deps, false), DomainError);
+        assertEquals(await Deno.readTextFile(plan.target), "0.1.0");
+        assertEquals(await Deno.readTextFile(rememberedPath(plan)), before);
+      });
+    },
+  );
+});
+
+Deno.test("запись запомненного дерева не удалась — установка состоялась, отказ назван", async () => {
+  await withPlan(async (plan) => {
+    // На месте файла — непустой каталог: переименовать поверх него нельзя.
+    await Deno.mkdir(`${rememberedPath(plan)}/занято`, { recursive: true });
+    await Deno.writeTextFile(plan.target, "0.1.0");
+    const outcome = await build(plan, fake().deps, false);
+    assertEquals(outcome.installed, true);
+    assertEquals(await Deno.readTextFile(plan.target), "0.2.0");
+    assertEquals(outcome.service, { kind: "restarted" });
+    assertEquals(outcome.remembered?.kind, "failed");
+    assertEquals(
+      outcome.remembered?.kind === "failed" && outcome.remembered.reason !== "",
+      true,
+      "причина отказа пуста",
+    );
+    // Временный файл убран: рядом остаётся только то, что было.
+    assertEquals(await names(dirOf(rememberedPath(plan))), ["build-source"]);
   });
 });

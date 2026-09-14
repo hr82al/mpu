@@ -211,6 +211,7 @@ const CASES: readonly CommandCase[] = [
       previous: "0.1.0",
       installed: false,
       service: null,
+      remembered: null,
     },
   },
   {
