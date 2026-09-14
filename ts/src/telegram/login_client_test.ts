@@ -37,6 +37,27 @@ const TELETHON = serializeTelethonSession({
   authKey: new Uint8Array(256),
 });
 
+/**
+ * Запоминает методы прототипа клиента перед подменой и отдаёт их
+ * восстановление: метод, лежавший выше по цепочке, возвращается снятием
+ * подмены, а не записью копии — иначе после теста на прототипе остаются
+ * собственные свойства.
+ */
+function saveMethods(names: readonly string[]): () => void {
+  const proto = TelegramClient.prototype;
+  const saved = names.map((name) => ({
+    name,
+    own: Object.hasOwn(proto, name),
+    real: Reflect.get(proto, name) as unknown,
+  }));
+  return () => {
+    for (const { name, own, real } of saved) {
+      if (own) Reflect.set(proto, name, real);
+      else Reflect.deleteProperty(proto, name);
+    }
+  };
+}
+
 Deno.test("вход пишет строку в формате прежней реализации, а не своём", () => {
   // Читатель ждёт формат telethon: то, что он разбирает, вход и обязан
   // записывать. Мутация «вернуть экспорт клиента как есть» краснеет
@@ -128,8 +149,7 @@ Deno.test("вход: дефект внутри входа уходит из sign
   // отказа — и дефект своего кода станет «пропущено» (инвариант 3).
   // Соединение и сам вход подменены, сети нет.
   const proto = TelegramClient.prototype;
-  const realConnect = proto.connect;
-  const realStart = proto.start;
+  const restore = saveMethods(["connect", "start"]);
   const defect = new TypeError("дефект внутри входа");
   const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
   try {
@@ -146,8 +166,62 @@ Deno.test("вход: дефект внутри входа уходит из sign
     );
     assertStrictEquals(err, defect);
   } finally {
-    Reflect.set(proto, "connect", realConnect);
-    Reflect.set(proto, "start", realStart);
+    restore();
+    await client.close();
+  }
+});
+
+Deno.test("вход: ожидание кода человеком под предел первого ответа не попадает", async () => {
+  // Спека: предел — на первый ответ входа до вопроса кода; сам ввод кода
+  // человек набирает сколько угодно. Двойник отвечает на вопрос кода через
+  // 25 с поддельного времени — отказа по пределу нет, вход завершается.
+  using time = new FakeTime();
+  const proto = TelegramClient.prototype;
+  const restore = saveMethods(["connect", "start", "exportSession"]);
+  const asked = Promise.withResolvers<void>();
+  const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
+  try {
+    Reflect.set(proto, "connect", function (this: TelegramClient) {
+      this.onConnectionState.emit("connected");
+      return Promise.resolve();
+    });
+    Reflect.set(
+      proto,
+      "start",
+      async (params: { code: () => Promise<string> }) => {
+        await params.code();
+        return {};
+      },
+    );
+    Reflect.set(
+      proto,
+      "exportSession",
+      () => Promise.resolve(convertFromTelethonSession(TELETHON)),
+    );
+    let settled = false;
+    const signing = client.signIn("+70000000000", {
+      ask: () => {
+        asked.resolve();
+        return new Promise<string>((resolve) =>
+          setTimeout(() => resolve("12345"), 25_000)
+        );
+      },
+      askSecret: () => Promise.resolve(undefined),
+    }).then(
+      (session) => session,
+      (err: unknown) => err,
+    ).finally(() => {
+      settled = true;
+    });
+    await Promise.race([asked.promise, signing]);
+    await time.tickAsync(25_000);
+    for (let turn = 0; turn < 20 && !settled; turn++) {
+      await time.runMicrotasks();
+    }
+    assertEquals(settled, true, "вход не завершился после ввода кода");
+    assertEquals(await signing, TELETHON);
+  } finally {
+    restore();
     await client.close();
   }
 });

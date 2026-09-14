@@ -27,7 +27,7 @@ import {
   tl,
 } from "@mtcute/deno";
 import { VerbatimError, VerbatimUsageError } from "../command/mod.ts";
-import { connectWithin } from "./connection.ts";
+import { answeredWithin, connectWithin } from "./connection.ts";
 import { telegramCrypto } from "./crypto.ts";
 import { CryptoInitError, layerFailure } from "./errors.ts";
 import type { AppKeys, LoginClient, LoginPrompts } from "./login.ts";
@@ -59,17 +59,25 @@ export function openLoginClient(
   return {
     signIn: async (phone, prompts) => {
       try {
-        // Предел — на соединение, а не на весь вход: `start` ждёт кода,
-        // который человек набирает дольше 20 с.
+        // Пределы — на соединение и на первый ответ входа, а не на весь
+        // вход: `start` ждёт кода, который человек набирает дольше 20 с.
+        // Вопрос человеку и есть знак, что первый ответ пришёл.
         await connectWithin(client);
-        await client.start({
-          phone: () => Promise.resolve(phone),
-          // Код — обычный ввод, пароль второго фактора — скрытый
-          // (спека, шаги 5 и инвариант 1). Пустой ответ библиотека
-          // трактует как отсутствие: спрашивать второй раз — её дело.
-          code: () => askOr(prompts, "code from Telegram: "),
-          password: () => askSecretOr(prompts, "2FA password: "),
-        });
+        await answeredWithin(client, (answered) =>
+          client.start({
+            phone: () => Promise.resolve(phone),
+            // Код — обычный ввод, пароль второго фактора — скрытый
+            // (спека, шаги 5 и инвариант 1). Пустой ответ библиотека
+            // трактует как отсутствие: спрашивать второй раз — её дело.
+            code: () => {
+              answered();
+              return askOr(prompts, "code from Telegram: ");
+            },
+            password: () => {
+              answered();
+              return askSecretOr(prompts, "2FA password: ");
+            },
+          }));
         // Строка сессии не логируется и не печатается: она уходит
         // ровно одному вызывающему — сценарию, который кладёт её в
         // env-файл.

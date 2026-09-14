@@ -21,7 +21,7 @@ import { md } from "@mtcute/markdown-parser";
 import { VerbatimError } from "../command/mod.ts";
 import { markedId, type RawChat } from "./chat.ts";
 import type { TelegramConfig } from "./config.ts";
-import { connectWithin } from "./connection.ts";
+import { answeredWithin, connectWithin } from "./connection.ts";
 import { telegramCrypto } from "./crypto.ts";
 import {
   configError,
@@ -147,7 +147,8 @@ async function enter(client: TelegramClient, session: string): Promise<number> {
     // Отказ здесь — либо отозванная сессия (её импорт не отличает от
     // годной), либо отказ Telegram; в обоих случаях он обязан прийти до
     // операции и своим текстом, а не выдать себя за ненайденный чат.
-    return (await client.getMe()).id;
+    // Ответ на этот запрос — первый ответ после соединения, и он ограничен.
+    return (await answeredWithin(client, () => client.getMe())).id;
   } catch (err) {
     await client.destroy();
     // Отказ импорта уже оформлен слоем — переоформлять его не за что.
