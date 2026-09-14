@@ -112,10 +112,10 @@ export type StartupIo = Pick<CommandIo, "env" | "openCacheDb">;
  * Неудавшийся опрос менеджера при решении об уступке, в том числе
  * повторный непосредственно перед `stop`, — не отказ, а «выяснить не
  * удалось»: уступки нет. Отказ самой остановки называется в stderr:
- * сервер не поднимается, службу пробуют вернуть. Прерывание во время
- * остановки тоже отменяет прослушивание, служба возвращается. Отказ
- * возврата любого рода называется в stderr и даёт код 1; дефект своего
- * кода всплывает.
+ * сервер не поднимается, службу пробуют вернуть. Прерывание до остановки
+ * отменяет и уступку, и прослушивание; во время остановки — только
+ * прослушивание, служба возвращается. Отказ возврата любого рода
+ * называется в stderr и даёт код 1; дефект своего кода всплывает.
  */
 export async function runMcpServer(
   argv: readonly string[],
@@ -158,10 +158,10 @@ export async function runMcpServer(
   let borrowed: ServiceDeps | undefined;
   let code = 0;
   try {
-    const taken = await borrowPort(run, port);
+    const taken = await borrowPort(run, port, stopping.signal);
     if (taken.kind !== "untouched") borrowed = taken.deps;
     if (taken.kind === "stopRefused") code = 1;
-    // Прерывание, пришедшее во время остановки службы, отменяет
+    // Прерывание, пришедшее до или во время остановки службы, отменяет
     // прослушивание: сервер, поднятый с уже отменённым сигналом, не гас
     // бы до второго сигнала, а тот убил бы процесс без возврата службы.
     else if (!stopping.signal.aborted) {
@@ -232,11 +232,15 @@ const UNTOUCHED: Taken = { kind: "untouched" };
  * заводить службу, которой не было, команда не должна.
  *
  * Порт, заданный флагом не тем, на котором стоит служба, уступки не
- * требует: занят он не ею.
+ * требует: занят он не ею. Прерывание, пришедшее до остановки, уступку
+ * отменяет.
+ *
+ * @param signal гашение запуска: отменён к моменту `stop` — службу не трогаем
  */
 async function borrowPort(
   run: McpServerRun,
   port: number,
+  signal: AbortSignal,
 ): Promise<Taken> {
   if (port !== configuredPort(run.io)) return UNTOUCHED;
   const deps = serviceDepsIfAny(run.io, run.service);
@@ -253,6 +257,10 @@ async function borrowPort(
   // мог погасить кто-то ещё: тогда уступать нечего, а запустить её после
   // себя значило бы поднять то, что стояло.
   if (!await askRunning(deps)) return UNTOUCHED;
+  // Прерывание до остановки — во время любого из опросов выше или ещё до
+  // них: остановить живую службу, чтобы тут же поднять её снова, —
+  // перезапуск впустую; уступки нет.
+  if (signal.aborted) return UNTOUCHED;
   try {
     await stopUnit(deps);
   } catch (err) {
