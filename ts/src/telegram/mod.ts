@@ -18,3 +18,4 @@ export { telegramSearchCommand } from "./cmd_search.ts";
 export { telegramSendCommand } from "./cmd_send.ts";
 export { telegramStatusCommand } from "./cmd_status.ts";
 export { runTelegramLoginStep, telegramLoginCommand } from "./cmd_login.ts";
+export { loginFailureReason } from "./login.ts";

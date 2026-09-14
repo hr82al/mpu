@@ -1,6 +1,8 @@
 /**
  * Что в живом входе проверяемо без сети: формат строки сессии, которую он
- * записывает, и отказ, случающийся до соединения, — сбой криптографии.
+ * записывает, и отказы без сети — сбой криптографии и отказ, не
+ * относящийся к ней (соединение подменено отказом, клиент закрыт во время
+ * попытки).
  *
  * `TELEGRAM_SESSION` — внешняя граница (`platform/telegram-mtproto.md`):
  * ту же строку читают обе реализации, и наш сеанс переводит её
@@ -69,5 +71,45 @@ Deno.test("вход до сети: сбой криптографии печат�
   } finally {
     Deno.readFile = realReadFile;
     await client.close();
+  }
+});
+
+Deno.test("вход: отказ, не относящийся к криптографии, не выдаётся за неё", async () => {
+  // Криптография поднимается настоящая, а соединение с узлом отказывает:
+  // подменённый `Deno.connect` отмечает попытку и отказывает, наружу не
+  // уходит ничего. Клиент на отказ соединения переподключается без конца,
+  // поэтому отказ входа приходит закрытием клиента во время попытки — это
+  // и есть отказ, не относящийся к криптографии.
+  const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
+  const connecting = Promise.withResolvers<void>();
+  const realConnect = Deno.connect;
+  try {
+    // `Reflect.set`, а не присваивание: у `Deno.connect` три перегрузки, и
+    // подмена, отвечающая на все одним отказом, в их тип не приводится без
+    // двойного приведения.
+    Reflect.set(Deno, "connect", () => {
+      connecting.resolve();
+      return Promise.reject(
+        new Deno.errors.NotCapable("соединение в тесте запрещено"),
+      );
+    });
+    const signing = client.signIn("+70000000000", {
+      ask: () => Promise.resolve(undefined),
+      askSecret: () => Promise.resolve(undefined),
+    }).then(
+      () => "вошёл",
+      (err: unknown) => err,
+    );
+    // Гонка, а не одно ожидание соединения: откажи вход раньше попытки,
+    // тест покраснел бы на проверках ниже, а не завис.
+    await Promise.race([connecting.promise, signing]);
+    await client.close();
+    const outcome = await signing;
+    assertEquals(outcome instanceof VerbatimError, true, String(outcome));
+    const text = outcome instanceof Error ? outcome.message : String(outcome);
+    assertEquals(text.startsWith("telegram: "), true, text);
+    assertEquals(text.includes("криптография"), false, text);
+  } finally {
+    Reflect.set(Deno, "connect", realConnect);
   }
 });

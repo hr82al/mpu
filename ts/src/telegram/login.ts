@@ -14,6 +14,7 @@
  */
 
 import type { EnvFile, TerminalIo } from "../command/mod.ts";
+import { firstLine } from "../http/mod.ts";
 
 /** Ключи env-файла, которыми распоряжается вход. */
 export const SESSION_KEY = "TELEGRAM_SESSION";
@@ -184,9 +185,22 @@ export async function runLogin(io: LoginIo): Promise<LoginResult> {
   if (!keys.ok) return keys.result;
   const number = await phone(io, prompts);
   if (number === undefined) return skip(io, "телефон не введён");
-  const client = await io.openClient(keys.keys);
+  // Сбой самого входа — неверный код, недоступная служба, битый прокси,
+  // сбой криптографии клиента — «пропущено» с причиной, а не отказ
+  // (инвариант 3): и у отдельной команды, и у шага `mpu init`.
+  let client: LoginClient;
   try {
-    const session = await client.signIn(number, prompts);
+    client = await io.openClient(keys.keys);
+  } catch (err) {
+    return skip(io, loginFailureReason(err));
+  }
+  try {
+    let session: string;
+    try {
+      session = await client.signIn(number, prompts);
+    } catch (err) {
+      return skip(io, loginFailureReason(err));
+    }
     // Единственное место, куда уходит строка сессии.
     await io.envFile.set(SESSION_KEY, session);
     io.progress("# telegram: вход выполнен, сессия записана в env-файл");
@@ -194,4 +208,13 @@ export async function runLogin(io: LoginIo): Promise<LoginResult> {
   } finally {
     await client.close();
   }
+}
+
+/**
+ * Причина пропуска из отказа — первая строка его текста. Одна на сбой
+ * самого входа и на сбой шага `mpu init` вне сценария: строка пропуска у
+ * них одна и та же.
+ */
+export function loginFailureReason(err: unknown): string {
+  return firstLine(err instanceof Error ? err.message : String(err));
 }

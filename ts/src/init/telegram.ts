@@ -15,8 +15,7 @@
  */
 
 import type { CommandIo } from "../command/mod.ts";
-import { firstLine } from "../http/mod.ts";
-import { runTelegramLoginStep } from "../telegram/mod.ts";
+import { loginFailureReason, runTelegramLoginStep } from "../telegram/mod.ts";
 
 /** Срез порта: ровно то, что нужно самому входу. */
 export type TelegramIo = Pick<
@@ -40,11 +39,11 @@ export async function runTelegramLogin(
     return result.status === "skipped" ? result.reason : null;
   } catch (err) {
     // Строку пропуска печатает сам вход, но до неё он не дошёл: сюда
-    // попадают сбои раньше любой его ветки — отказ терминала, отказ
-    // записи в env-файл, падение самого Telegram. Молчаливого пропуска
+    // попадают сбои вне его сценария — отказ терминала, отказ записи в
+    // env-файл; сбой самого входа он пропускает сам. Молчаливого пропуска
     // не бывает (`init.md`, шаги 3–5 best-effort), поэтому строку
     // печатаем здесь — единственный случай, когда это делает шаг.
-    const reason = firstLine(err instanceof Error ? err.message : String(err));
+    const reason = loginFailureReason(err);
     io.progress(`# telegram: пропущено (${reason})`);
     return reason;
   }

@@ -198,13 +198,21 @@ Deno.test("телефон: из env-файла берётся молча, вве
 
   await t.step("введён — сохраняется и переживает неудачный вход", async () => {
     // Телефон не секрет доступа, поэтому он записывается до входа
-    // (инвариант 2 спеки).
+    // (инвариант 2 спеки). Сбой самого входа — «пропущено» с причиной,
+    // а не отказ (инвариант 3): причина — первая строка текста отказа.
     const stand = makeStand({
       keys,
       answers: ["+70001112233"],
-      signIn: () => Promise.reject(new Error("код не подошёл")),
+      signIn: () => Promise.reject(new Error("код не подошёл\nподробности")),
     });
-    await assertRejects(() => runLogin(stand.io), Error, "код не подошёл");
+    assertEquals(await runLogin(stand.io), {
+      status: "skipped",
+      reason: "код не подошёл",
+    });
+    assertEquals(
+      stand.progress.at(-1),
+      "# telegram: пропущено (код не подошёл)",
+    );
     assertEquals(stand.written, { [PHONE_KEY]: "+70001112233" });
   });
 });
