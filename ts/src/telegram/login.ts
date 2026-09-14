@@ -33,6 +33,11 @@ export interface LoginPrompts {
   readonly ask: (question: string) => Promise<string | undefined>;
   /** Вопрос со скрытым ответом: пароль второго фактора. */
   readonly askSecret: (question: string) => Promise<string | undefined>;
+  /**
+   * Строка хода входа от клиента (код отправлен, код не подошёл) — туда
+   * же, куда прочие строки хода сценария, а не в stdout («stdout входа»).
+   */
+  readonly progress: (line: string) => void;
 }
 
 /** Живой вход в Telegram — единственное, чего нет в этом модуле. */
@@ -98,8 +103,12 @@ function skip(io: LoginIo, reason: string): LoginResult {
 }
 
 /** Вопросы поверх терминала: видимый и скрытый ответ. */
-function promptsOn(terminal: TerminalIo): LoginPrompts {
+function promptsOn(
+  terminal: TerminalIo,
+  progress: (line: string) => void,
+): LoginPrompts {
   return {
+    progress,
     ask: async (question) => {
       await terminal.write(question);
       return await terminal.readLine();
@@ -185,7 +194,7 @@ export async function runLogin(io: LoginIo): Promise<LoginResult> {
     return { status: "already" };
   }
   if (io.terminal === undefined) return skip(io, SKIP_NO_TTY);
-  const prompts = promptsOn(io.terminal);
+  const prompts = promptsOn(io.terminal, io.progress);
   const keys = await appKeys(io, prompts);
   if (!keys.ok) return keys.result;
   const number = await phone(io, prompts);

@@ -5,10 +5,12 @@
  * текстом; сообщения библиотеки клиента в stdout не пишутся.
  *
  * Наружу не уходит ничего: `Deno.connect` подменён отказом либо соединение и
- * запросы клиента подменены на прототипе, а 20 с отсчитывает `FakeTime`.
- * Тесты видят первый отказ соединения: цикл переподключения клиента под
- * поддельными часами не едет, его держит smoke-проверка бинаря. Поэтому
- * «клиент погашен» проверяется счётчиком `destroy`, а не тишиной.
+ * запросы клиента подменены на прототипе, а пределы (20 с, у входа 60 с)
+ * отсчитывает `FakeTime`.
+ * Переподключения клиента под поддельными часами редки (зонд разбора 132:
+ * две попытки к 25 с), так что тишина за предел ничего не доказывает:
+ * «клиент погашен» проверяется счётчиком `destroy`, а цикл переподключения
+ * по настоящим часам держит smoke-проверка бинаря.
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
@@ -151,13 +153,15 @@ function run(
 async function expireLimit(
   time: FakeTime,
   operation: { readonly settled: () => boolean },
+  limitMs = 20_000,
 ): Promise<void> {
-  await time.tickAsync(19_999);
+  const seconds = limitMs / 1000;
+  await time.tickAsync(limitMs - 1);
   await drain(time, operation);
-  assertEquals(operation.settled(), false, "отказ пришёл раньше 20 с");
+  assertEquals(operation.settled(), false, `отказ пришёл раньше ${seconds} с`);
   await time.tickAsync(1);
   await drain(time, operation);
-  assertEquals(operation.settled(), true, "за 20 с отказа нет");
+  assertEquals(operation.settled(), true, `за ${seconds} с отказа нет`);
 }
 
 /**
@@ -380,12 +384,15 @@ Deno.test("mpu telegram login: соединение есть, ответа не�
   });
   const code = track(login.code);
   await Promise.race([silent.asked, code.done]);
-  await expireLimit(time, code);
+  // У входа предел первого ответа — 60 с (спека: смена DC и flood-wait).
+  await expireLimit(time, code, 60_000);
   const stderr = login.stderr.join("");
   assertEquals(await code.done, 0, stderr);
   assertStringIncludes(
     stderr,
-    "# telegram: пропущено (telegram: нет ответа от Telegram за 20 с: узел не ответил)\n",
+    "# telegram: пропущено (telegram: нет ответа от Telegram за 60 с: узел не ответил)\n",
   );
+  // Рендер входа — пустой текст: запись есть, но stdout пуст.
+  assertEquals(login.stdout.join(""), "");
   assertEquals(destroys.count(), 1, "клиент не погашен ровно раз");
 });

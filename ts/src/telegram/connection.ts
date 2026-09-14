@@ -17,8 +17,14 @@ import { configError } from "./errors.ts";
 /** Предел соединения с узлом Telegram по спеке — 20 с. */
 const CONNECT_LIMIT_MS = 20_000;
 
-/** Предел первого ответа после соединения по спеке — 20 с. */
-const ANSWER_LIMIT_MS = 20_000;
+/** Предел первого ответа сеанса (`getMe`) по спеке — 20 с. */
+export const SESSION_ANSWER_LIMIT_MS = 20_000;
+
+/**
+ * Предел первого ответа входа по спеке — 60 с: цепочка до вопроса кода
+ * включает смену DC и встроенное ожидание flood-wait клиента.
+ */
+export const LOGIN_ANSWER_LIMIT_MS = 60_000;
 
 /** Клиент, у которого нужны только соединение и события. */
 type LimitedClient = Pick<
@@ -64,8 +70,8 @@ export async function connectWithin(client: LimitedClient): Promise<void> {
  * Исполняет операцию, требуя первого ответа Telegram за предел. Ответ —
  * завершение операции либо вызов `answered`: им операция говорит, что ответ
  * пришёл и дальше она ждёт человека (код, пароль), а это ожидание под предел
- * не попадает. Не дождался — отказ `telegram: нет ответа от Telegram за
- * 20 с: <первая строка причины>`.
+ * не попадает. Не дождался за `limitMs` — отказ `telegram: нет ответа от
+ * Telegram за <предел> с: <первая строка причины>`.
  *
  * Операция, проигравшая пределу, остаётся ждать; её отказ, который придёт,
  * когда вызывающий закроет клиента, обработан подпиской `Promise.race` и
@@ -74,10 +80,11 @@ export async function connectWithin(client: LimitedClient): Promise<void> {
  */
 export async function answeredWithin<T>(
   client: Pick<LimitedClient, "onError">,
+  limitMs: number,
   operation: (answered: () => void) => Promise<T>,
 ): Promise<T> {
   const errors = watchErrors(client);
-  const limit = startLimit(ANSWER_LIMIT_MS);
+  const limit = startLimit(limitMs);
   try {
     const first = await Promise.race([
       operation(limit.stop).then((value) => ({ value })),
@@ -88,7 +95,7 @@ export async function answeredWithin<T>(
     limit.stop();
     errors.stop();
   }
-  throw limitFailure("нет ответа от", ANSWER_LIMIT_MS, errors.last());
+  throw limitFailure("нет ответа от", limitMs, errors.last());
 }
 
 /** Таймер предела: `expired` разрешается по сроку, если его не сняли. */

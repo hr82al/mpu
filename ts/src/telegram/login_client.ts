@@ -27,7 +27,11 @@ import {
   tl,
 } from "@mtcute/deno";
 import { VerbatimError, VerbatimUsageError } from "../command/mod.ts";
-import { answeredWithin, connectWithin } from "./connection.ts";
+import {
+  answeredWithin,
+  connectWithin,
+  LOGIN_ANSWER_LIMIT_MS,
+} from "./connection.ts";
 import { telegramCrypto } from "./crypto.ts";
 import { CryptoInitError, layerFailure } from "./errors.ts";
 import type { AppKeys, LoginClient, LoginPrompts } from "./login.ts";
@@ -60,24 +64,50 @@ export function openLoginClient(
     signIn: async (phone, prompts) => {
       try {
         // Пределы — на соединение и на первый ответ входа, а не на весь
-        // вход: `start` ждёт кода, который человек набирает дольше 20 с.
-        // Вопрос человеку и есть знак, что первый ответ пришёл.
+        // вход: `start` ждёт кода, который человек набирает дольше любого
+        // предела. Вопрос человеку и есть знак, что первый ответ пришёл.
         await connectWithin(client);
-        await answeredWithin(client, (answered) =>
-          client.start({
-            phone: () => Promise.resolve(phone),
-            // Код — обычный ввод, пароль второго фактора — скрытый
-            // (спека, шаги 5 и инвариант 1). Пустой ответ библиотека
-            // трактует как отсутствие: спрашивать второй раз — её дело.
-            code: () => {
-              answered();
-              return askOr(prompts, "code from Telegram: ");
-            },
-            password: () => {
-              answered();
-              return askSecretOr(prompts, "2FA password: ");
-            },
-          }));
+        await answeredWithin(
+          client,
+          LOGIN_ANSWER_LIMIT_MS,
+          (answered) =>
+            client.start({
+              phone: () => Promise.resolve(phone),
+              // Код — обычный ввод, пароль второго фактора — скрытый
+              // (спека, шаги 5 и инвариант 1). Пустой ответ библиотека
+              // трактует как отсутствие: спрашивать второй раз — её дело.
+              code: () => {
+                answered();
+                return askOr(prompts, "code from Telegram: ");
+              },
+              password: () => {
+                answered();
+                return askSecretOr(prompts, "2FA password: ");
+              },
+              // Ход входа от клиента — строками хода сценария: без этих
+              // обработчиков библиотека печатает его прямым `console.log`,
+              // мимо платформы клиента, в stdout («stdout входа»).
+              codeSentCallback: (sent) => {
+                // Без обработчика библиотека сама отказывает на этом виде
+                // доставки; обработчик этот отказ снимает — он повторён здесь.
+                if (sent.type === "email_required") {
+                  throw new MtcuteError(
+                    "Email login setup is required to sign in",
+                  );
+                }
+                prompts.progress(
+                  `# telegram: код подтверждения отправлен (${sent.type})`,
+                );
+              },
+              invalidCodeCallback: (type) => {
+                prompts.progress(
+                  type === "code"
+                    ? "# telegram: код не подошёл, попробуй ещё раз"
+                    : "# telegram: пароль не подошёл, попробуй ещё раз",
+                );
+              },
+            }),
+        );
         // Строка сессии не логируется и не печатается: она уходит
         // ровно одному вызывающему — сценарию, который кладёт её в
         // env-файл.
