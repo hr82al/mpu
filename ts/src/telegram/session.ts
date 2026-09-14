@@ -22,7 +22,12 @@ import { VerbatimError } from "../command/mod.ts";
 import { markedId, type RawChat } from "./chat.ts";
 import type { TelegramConfig } from "./config.ts";
 import { telegramCrypto } from "./crypto.ts";
-import { configError, CryptoInitError, telegramFailure } from "./errors.ts";
+import {
+  configError,
+  cryptoFailure,
+  CryptoInitError,
+  telegramFailure,
+} from "./errors.ts";
 import type { ResolvablePeer } from "./peer.ts";
 import { proxyUrl } from "./proxy.ts";
 import type { RawMessage } from "./message.ts";
@@ -178,14 +183,6 @@ function entryFailure(err: unknown): Error {
   return /^(AUTH_KEY|SESSION_|USER_DEACTIVATED)/.test(text)
     ? notAuthorized(err)
     : telegramFailure(err);
-}
-
-/** Криптография не поднялась: первая строка причины, без советов. */
-function cryptoFailure(err: CryptoInitError): Error {
-  const reason = err.message.split("\n")[0];
-  return configError(`криптография клиента не поднялась: ${reason}`, {
-    cause: err,
-  });
 }
 
 function notAuthorized(cause: unknown): Error {

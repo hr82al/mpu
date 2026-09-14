@@ -4,8 +4,10 @@
  * Сети эти случаи не касаются — оба отказа приходят до соединения.
  */
 
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import { __getWasm } from "@mtcute/wasm";
 import { VerbatimError } from "../command/mod.ts";
+import { CryptoInitError } from "./errors.ts";
 import { openSession } from "./session.ts";
 
 /**
@@ -41,6 +43,48 @@ Deno.test("отказ входа до сети: сбой криптографи�
         assertEquals(
           err.message,
           "telegram: криптография клиента не поднялась: нет встроенного модуля",
+        );
+      } finally {
+        Deno.readFile = realReadFile;
+      }
+    },
+  );
+
+  await t.step(
+    "модуль прочитан, но не принят — криптография не поднялась",
+    async () => {
+      // Предусловие: модуль ещё не поднят. `initSync` у поднятого — пустой
+      // вызов, и тогда шаг не проверял бы разбор, а пошёл бы соединяться.
+      assertEquals(
+        __getWasm(),
+        undefined,
+        "модуль уже поднят выше в этом файле — шаг ничего не проверит",
+      );
+      const realReadFile = Deno.readFile;
+      Deno.readFile = () => Promise.resolve(new Uint8Array([0, 1, 2, 3]));
+      try {
+        const err = await assertRejects(
+          () => openSession({ ...keys, session: acceptedSession() }),
+          VerbatimError,
+        );
+        assertStringIncludes(
+          err.message,
+          "telegram: криптография клиента не поднялась: ",
+        );
+        assertEquals(err.message.includes("\n"), false, err.message);
+        // Цепочка причин: свой класс криптографии поверх отказа разбора
+        // модуля. Проверяется здесь, а не в `crypto_test.ts`: `initSync`
+        // ничего не делает, если модуль уже поднят, а там его поднимает
+        // первый же тест файла; здесь до этого шага модуль не поднят.
+        assertEquals(
+          err.cause instanceof CryptoInitError,
+          true,
+          String(err.cause),
+        );
+        assertEquals(
+          err.cause instanceof Error &&
+            err.cause.cause instanceof WebAssembly.CompileError,
+          true,
         );
       } finally {
         Deno.readFile = realReadFile;

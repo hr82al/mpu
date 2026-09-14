@@ -15,8 +15,10 @@ import {
 
 /**
  * Криптография клиента не поднялась: встроенный модуль не прочитан или не
- * принят (`crypto.ts`). Отказ приходит изнутри импорта строки сессии, и
- * отличить его от непринятой строки можно только по типу (`session.ts`).
+ * принят (`crypto.ts`). Отказ приходит изнутри импорта строки сессии
+ * (`session.ts`) или из первого обращения клиента при входе
+ * (`telegramOperation`), и отличить его от непринятой строки и от отказа
+ * протокола можно только по типу.
  * Лежит здесь, а не рядом с провайдером: слой ошибок лёгкий, и знание о
  * классе не тянет за собой клиент MTProto и его wasm.
  */
@@ -56,10 +58,24 @@ export function telegramFailure(err: unknown): VerbatimError {
 }
 
 /**
+ * Криптография клиента не поднялась: первая строка причины, без советов —
+ * совет пройти вход здесь вреден, вход отзывает действующую сессию
+ * (`platform/telegram-mtproto.md`, «Конфигурация»). Текст один на все
+ * подкоманды: и сеанс, и вход.
+ */
+export function cryptoFailure(err: CryptoInitError): VerbatimError {
+  const reason = err.message.split("\n")[0];
+  return configError(`криптография клиента не поднялась: ${reason}`, {
+    cause: err,
+  });
+}
+
+/**
  * Обёртка обращения к Telegram: отказ протокола приходит наружу одной
  * строкой слоя, а не исключением библиотеки. Своё же оформление слоя
  * (`VerbatimError`) переоформлять не за что — иначе получилось бы
- * «RPC error: telegram: …».
+ * «RPC error: telegram: …». Сбой криптографии — не отказ протокола: у него
+ * свой текст (`cryptoFailure`), различение — по типу.
  */
 export async function telegramOperation<T>(
   body: () => Promise<T>,
@@ -67,6 +83,7 @@ export async function telegramOperation<T>(
   try {
     return await body();
   } catch (err) {
+    if (err instanceof CryptoInitError) throw cryptoFailure(err);
     // Своё оформление слоя — и доменное, и ошибка ввода: второй слой
     // обёртки не только исказил бы текст, но и понизил бы код 2 до 1.
     throw err instanceof VerbatimError || err instanceof VerbatimUsageError

@@ -1,6 +1,11 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { VerbatimError, VerbatimUsageError } from "../command/mod.ts";
-import { configError, inputError, telegramOperation } from "./errors.ts";
+import {
+  configError,
+  CryptoInitError,
+  inputError,
+  telegramOperation,
+} from "./errors.ts";
 
 Deno.test("успешное обращение отдаёт результат как есть", async () => {
   assertEquals(await telegramOperation(() => Promise.resolve(42)), 42);
@@ -47,4 +52,19 @@ Deno.test("своё оформление слоя не заворачивает�
     );
     assertEquals(err, own);
   });
+});
+
+Deno.test("сбой криптографии в операции — текст спеки, а не RPC error", async () => {
+  // Первая строка причины, без обёртки отказа протокола
+  // (`platform/telegram-mtproto.md`, «Конфигурация»).
+  const failure = new CryptoInitError("нет встроенного модуля\nподробности");
+  const err = await assertRejects(
+    () => telegramOperation(() => Promise.reject(failure)),
+    VerbatimError,
+  );
+  assertEquals(
+    err.message,
+    "telegram: криптография клиента не поднялась: нет встроенного модуля",
+  );
+  assertEquals(err.cause, failure);
 });

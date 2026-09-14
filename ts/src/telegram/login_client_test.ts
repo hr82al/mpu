@@ -1,6 +1,6 @@
 /**
- * Единственное, что в живом входе проверяемо без сети: формат строки
- * сессии, которую он записывает.
+ * Что в живом входе проверяемо без сети: формат строки сессии, которую он
+ * записывает, и отказ, случающийся до соединения, — сбой криптографии.
  *
  * `TELEGRAM_SESSION` — внешняя граница (`platform/telegram-mtproto.md`):
  * ту же строку читают обе реализации, и наш сеанс переводит её
@@ -11,12 +11,13 @@
  * конвертеров, а не там.
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
+import { VerbatimError } from "../command/mod.ts";
 import {
   convertFromTelethonSession,
   serializeTelethonSession,
 } from "@mtcute/convert";
-import { sharedSessionString } from "./login_client.ts";
+import { openLoginClient, sharedSessionString } from "./login_client.ts";
 
 /** Синтетическая сессия: ключ нулевой, адрес — тестовый DC Telegram. */
 const TELETHON = serializeTelethonSession({
@@ -42,4 +43,31 @@ Deno.test("записанное читается тем же путём, что 
   const parsed = convertFromTelethonSession(written);
   assertEquals(parsed.primaryDcs.main.id, 2);
   assertEquals(parsed.authKey.length, 256);
+});
+
+Deno.test("вход до сети: сбой криптографии печатается текстом спеки, а не обёрткой операции", async () => {
+  // `platform/telegram-mtproto.md`, «Конфигурация»: правило одно для всех
+  // подкоманд, включая вход. Криптография поднимается до соединения, и
+  // живой вход — с отзывом сессии — сюда не доходит.
+  const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
+  const realReadFile = Deno.readFile;
+  try {
+    Deno.readFile = () =>
+      Promise.reject(new Deno.errors.NotFound("нет встроенного модуля"));
+    const err = await assertRejects(
+      () =>
+        client.signIn("+70000000000", {
+          ask: () => Promise.resolve(undefined),
+          askSecret: () => Promise.resolve(undefined),
+        }),
+      VerbatimError,
+    );
+    assertEquals(
+      err.message,
+      "telegram: криптография клиента не поднялась: нет встроенного модуля",
+    );
+  } finally {
+    Deno.readFile = realReadFile;
+    await client.close();
+  }
 });
