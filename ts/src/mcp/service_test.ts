@@ -89,6 +89,7 @@ Deno.test("каталог служб берёт XDG_CONFIG_HOME общим пр�
     ["cfg", "cfg", "/h/.config/systemd/user"],
     ["~/cfg", "~/cfg", "/h/.config/systemd/user"],
     ["« /x»", " /x", "/h/.config/systemd/user"],
+    ["«/x »", "/x ", "/x /systemd/user"],
   ];
   for (const [name, xdg, expected] of cases) {
     await t.step(name, () => {

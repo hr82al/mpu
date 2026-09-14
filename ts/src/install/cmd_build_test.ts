@@ -45,6 +45,7 @@ Deno.test("запомненное дерево читается из $XDG_CONFIG
     // держат и права собираемого бинаря, поэтому команда обязана брать
     // каталог общим правилом, а не читать переменную сама.
     ["XDG_CONFIG_HOME относительная", () => "cfg", ".config"],
+    ["XDG_CONFIG_HOME с пробелом в конце", (home) => `${home}/xdg `, "xdg "],
     ["XDG_CONFIG_HOME не задана", () => undefined, ".config"],
   ];
   for (const [name, xdg, configDir] of cases) {
