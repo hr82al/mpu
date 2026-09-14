@@ -32,7 +32,7 @@ import {
   type ServiceOptions,
   servicePid,
   startService,
-  stopService,
+  stopIfRunning,
 } from "./service.ts";
 import { VERSION } from "../version.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
@@ -109,10 +109,12 @@ export type StartupIo = Pick<CommandIo, "env" | "openCacheDb">;
  * процесса: 2 — ошибка ввода, 1 — порт занят либо уступившую службу не
  * удалось вернуть.
  *
- * Отказ менеджера службы при остановке уступаемой службы бросается
- * `DomainError`: передний план в этом случае не поднимался, и делать вид,
- * что вызов состоялся, не за что. Неудавшийся опрос менеджера при решении
- * об уступке — не отказ, а «выяснить не удалось»: уступки нет.
+ * Отказ самой остановки уступаемой службы всплывает как есть
+ * (`DomainError` на ответ менеджера кодом, отказ в праве — своим классом):
+ * передний план не поднимался, и делать вид, что вызов состоялся, не за
+ * что. Неудавшийся опрос менеджера при решении об уступке — не отказ, а
+ * «выяснить не удалось»: уступки нет. Отказ возврата службы любого рода
+ * называется в stderr и даёт код 1.
  */
 export async function runMcpServer(
   argv: readonly string[],
@@ -206,7 +208,7 @@ async function borrowPort(
   const deps = serviceDepsIfAny(run.io, run.service);
   if (deps === undefined) return undefined;
   // Проверка описания — до всякого обращения к менеджеру: на
-  // неописанной службе `stopService` отказал бы, а отказывать здесь
+  // неописанной службе `stopIfRunning` отказал бы, а отказывать здесь
   // не за что.
   const state = await askManager(() => readServiceState(deps));
   if (state === undefined) return undefined;
@@ -222,7 +224,8 @@ async function borrowPort(
   // между вопросом о состоянии и ответом менеджера службу мог погасить
   // кто-то ещё, и тогда уступать было нечего — а запустить её после
   // себя значило бы поднять то, что стояло.
-  if (!(await stopService(deps)).changed) return undefined;
+  // Без перечитывания после `stop` — почему, сказано у `stopIfRunning`.
+  if (!(await stopIfRunning(deps))) return undefined;
   // С машиной владельца делается заметное, и он должен это видеть.
   run.output.stderr(
     `mpu mcp: служба ${SERVICE_NAME} остановлена, порт ${port} уступлен ей\n`,
@@ -244,13 +247,21 @@ async function askManager<T>(
   try {
     return await question();
   } catch (err) {
-    if (
-      err instanceof DomainError ||
-      err instanceof Deno.errors.NotCapable ||
-      err instanceof Deno.errors.PermissionDenied
-    ) return undefined;
+    if (isRefusal(err)) return undefined;
     throw err;
   }
+}
+
+/**
+ * Отказ менеджера или окружения, а не дефект своего кода: `DomainError`
+ * слоя службы (в том числе «`systemctl` не найден»), нет права на запуск,
+ * нет прав на чтение описания. Один набор на опрос и на возврат службы:
+ * разойдясь, они по-разному называли бы одно и то же.
+ */
+function isRefusal(err: unknown): err is Error {
+  return err instanceof DomainError ||
+    err instanceof Deno.errors.NotCapable ||
+    err instanceof Deno.errors.PermissionDenied;
 }
 
 /**
@@ -268,9 +279,10 @@ async function returnPort(
   try {
     started = (await startService(deps)).changed;
   } catch (err) {
-    // Отказ менеджера — ожидаемый исход; дефект собственного кода
+    // Отказ любого рода — ответ менеджера кодом, нет права на запуск, нет
+    // прав на чтение описания — ожидаемый исход; дефект собственного кода
     // отказом службы притворяться не должен.
-    if (!(err instanceof DomainError)) throw err;
+    if (!isRefusal(err)) throw err;
     // Что делать дальше, называет `status`, а не готовая команда: сам
     // отказ уже мог назвать свою (снятое описание советует `enable`), и
     // два разных совета в двух соседних строках обманывают читателя.

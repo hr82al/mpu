@@ -435,6 +435,20 @@ export async function startService(deps: ServiceDeps): Promise<Switched> {
   return { changed: true, state: await readServiceState(deps) };
 }
 
+/**
+ * Останавливает описанную работающую службу и отвечает, остановила ли;
+ * без описания — отказ, как у `stopService`. Состояние после остановки не
+ * перечитывает: тому, кто уступает порт,
+ * нужен сам факт остановки, а отказ перечитывания унёс бы его с собой — и
+ * служба осталась бы остановленной без попытки возврата.
+ */
+export async function stopIfRunning(deps: ServiceDeps): Promise<boolean> {
+  const state = await requireDescribed(deps, "останавливать");
+  if (!isRunning(state.activity)) return false;
+  await mustSystemctl(deps, ["stop", SERVICE_NAME]);
+  return true;
+}
+
 /** Останавливает описанную службу. Остановленную не трогает. */
 export async function stopService(deps: ServiceDeps): Promise<Switched> {
   const state = await requireDescribed(deps, "останавливать");

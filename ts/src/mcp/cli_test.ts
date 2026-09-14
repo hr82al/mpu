@@ -74,6 +74,21 @@ async function withStore(
       units !== undefined && units.startsWith(`${dir}/`),
       `каталог служб теста вне временного каталога: ${units}`,
     );
+    // Тесты на порту из конфига с настоящим `spawnProgram` герметичны
+    // только отсутствием описания: `describedProgram` отвечает «нет», не
+    // дойдя до менеджера. Появись описание — предохранитель краснеет.
+    const described = await Deno.lstat(`${units}/${SERVICE_NAME}`).then(
+      () => true,
+      (err: unknown) => {
+        if (err instanceof Deno.errors.NotFound) return false;
+        throw err;
+      },
+    );
+    assertEquals(
+      described,
+      false,
+      `во временном каталоге служб лежит описание: ${units}`,
+    );
     await fn(io, dir);
   } finally {
     await Deno.remove(dir, { recursive: true });
@@ -533,12 +548,30 @@ function fakeManager(
   watch: (verb: string) => void = () => {},
 ) {
   const calls: string[] = [];
+  let failedAfterStop = false;
   const run: RunProgram = (_bin, args) => {
     const verb = args[1] ?? "";
     const asked = verb === "is-active" && calls.includes("is-active");
+    const afterStop = calls.includes("stop");
     calls.push(verb);
     watch(verb);
     if (quirks.vanishing && asked) active.now = false;
+    if (
+      verb === "is-active" && quirks.pollFailsAfterStop && afterStop &&
+      !failedAfterStop
+    ) {
+      failedAfterStop = true;
+      return Promise.reject(
+        new Deno.errors.NotCapable('Requires run access to "systemctl"'),
+      );
+    }
+    if (verb === "start" && quirks.startRefusal !== undefined) {
+      return Promise.reject(
+        quirks.startRefusal === "PermissionDenied"
+          ? new Deno.errors.PermissionDenied("Permission denied (os error 13)")
+          : new Deno.errors.NotCapable('Requires run access to "systemctl"'),
+      );
+    }
     if (verb === "start" && quirks.crashStart) {
       return Promise.reject(new TypeError("дефект своего кода"));
     }
@@ -579,6 +612,10 @@ interface Quirks {
   readonly crashStart?: boolean;
   /** Главный процесс службы — этот процесс: запуск и есть служба. */
   readonly self?: boolean;
+  /** Первый вопрос о состоянии после `stop` отказывает в праве. */
+  readonly pollFailsAfterStop?: boolean;
+  /** `start` не запускается вовсе: отказ в праве или прав на запуск нет. */
+  readonly startRefusal?: "PermissionDenied" | "NotCapable";
 }
 
 async function withService(
@@ -743,6 +780,44 @@ Deno.test("прерывание возвращает службу", async () => 
     });
   });
 });
+
+/**
+ * Голый запуск со службой, у которого исход до прослушивания снимается
+ * гонкой: отказавший запуск даёт красный тест с причиной, а не вечное
+ * ожидание. Гасит сам и отдаёт итог; отказ запуска — строкой, а не
+ * отклонением, чтобы тест сверял его наравне с кодом.
+ */
+async function listenOrFail(
+  io: CommandIo,
+  deps: ServiceDeps,
+  whileListening: () => Promise<void> = () => Promise.resolve(),
+): Promise<{ first: string; outcome: string; stderr: string }> {
+  const output = makeOutput();
+  const stop = new AbortController();
+  const listening = Promise.withResolvers<RunningServer>();
+  const running = runMcpServer([], {
+    io,
+    output: output.sink,
+    commands,
+    log: NO_INVOKE_LOG,
+    signal: stop.signal,
+    onListen: listening.resolve,
+    service: { deps },
+    // Подписка — швом: настоящие обработчики пережили бы тест.
+    onInterrupt: () => () => {},
+  });
+  const settled = running.then(
+    (code) => `код ${code}`,
+    (err: unknown) => `отказал: ${String(err)}`,
+  );
+  const first = await Promise.race([
+    listening.promise.then(() => "слушает"),
+    settled,
+  ]);
+  if (first === "слушает") await whileListening();
+  stop.abort();
+  return { first, outcome: await settled, stderr: output.stderr() };
+}
 
 /** Голый прогон до гашения сигналом; вернуть код и вывод. */
 async function bareRun(
@@ -1163,6 +1238,113 @@ Deno.test("дефект своего кода при опросе менедже
       // дожидаемся гашения запуска, чтобы он не пережил тест.
       await running.catch(() => {});
       assertEquals(first, "дефект всплыл");
+    });
+  });
+});
+
+Deno.test("служба остановлена, опрос сразу после остановки отказал — уступка состоялась, возврат пробуется", async () => {
+  // Остановленной без попытки возврата служба не остаётся
+  // (`mcp-service.md`, «Граничные случаи и ошибки»): отказ опроса после
+  // успешного `stop` не отменяет уступку.
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    await withService(
+      { described: true, pollFailsAfterStop: true },
+      async (deps, active, calls) => {
+        const { first, outcome, stderr } = await listenOrFail(io, deps);
+        assertEquals(first, "слушает", stderr);
+        assertStringIncludes(stderr, "уступлен");
+        const stopAt = calls.indexOf("stop");
+        assert(stopAt >= 0, calls.join(", "));
+        // После остановки менеджер спрошен ещё раз — это и есть попытка
+        // вернуть службу: подставной отказ приходится на неё и назван.
+        assert(calls.slice(stopAt + 1).length > 0, calls.join(", "));
+        assertEquals(outcome, "код 1", stderr);
+        assertStringIncludes(stderr, "вернуть не удалось: Requires run access");
+        assertStringIncludes(stderr, "mpu mcp status");
+        assertEquals(active.now, false);
+      },
+    );
+  });
+});
+
+Deno.test("вернуть службу не удалось отказом в праве — сказано, где смотреть, и код 1", async (t) => {
+  // Отказ возврата любого рода — не только ответ менеджера кодом: нет прав
+  // на запуск или на чтение описания тоже называются, а не всплывают.
+  for (const refusal of ["PermissionDenied", "NotCapable"] as const) {
+    await t.step(refusal, async () => {
+      await withStore(async (io) => {
+        usePort(io, await freePort());
+        await withService(
+          { described: true, startRefusal: refusal },
+          async (deps, active) => {
+            const { first, outcome, stderr } = await listenOrFail(io, deps);
+            assertEquals(first, "слушает", stderr);
+            assertEquals(outcome, "код 1", stderr);
+            assertEquals(active.now, false);
+            assertStringIncludes(stderr, "вернуть не удалось");
+            assertStringIncludes(stderr, "mpu mcp status");
+          },
+        );
+      });
+    });
+  }
+});
+
+/**
+ * Предусловие тестов на права: под root `0o000` не мешает чтению, и тест
+ * проверял бы не отказ, а обычный путь.
+ */
+async function assertUnreadable(path: string): Promise<void> {
+  await assertRejects(
+    () => Deno.readTextFile(path),
+    Deno.errors.PermissionDenied,
+  );
+}
+
+Deno.test("описание службы не читается по правам при возврате — сказано, где смотреть, и код 1", async () => {
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    await withService({ described: true }, async (deps, active) => {
+      const unit = `${deps.dir}/${SERVICE_NAME}`;
+      try {
+        const { first, outcome, stderr } = await listenOrFail(
+          io,
+          deps,
+          async () => {
+            await Deno.chmod(unit, 0o000);
+            await assertUnreadable(unit);
+          },
+        );
+        assertEquals(first, "слушает", stderr);
+        assertStringIncludes(stderr, "уступлен");
+        assertEquals(outcome, "код 1", stderr);
+        assertEquals(active.now, false);
+        assertStringIncludes(stderr, "вернуть не удалось");
+        assertStringIncludes(stderr, "mpu mcp status");
+      } finally {
+        await Deno.chmod(unit, 0o644);
+      }
+    });
+  });
+});
+
+Deno.test("описание службы не читается по правам — выяснить не удалось, уступки нет", async () => {
+  await withStore(async (io) => {
+    usePort(io, await freePort());
+    await withService({ described: true }, async (deps, active, calls) => {
+      const unit = `${deps.dir}/${SERVICE_NAME}`;
+      await Deno.chmod(unit, 0o000);
+      try {
+        await assertUnreadable(unit);
+        const { first, outcome, stderr } = await listenOrFail(io, deps);
+        assertEquals(first, "слушает", stderr);
+        assertEquals(outcome, "код 0", stderr);
+        assertEquals(active.now, true, "служба тронута");
+        assertEquals(calls.includes("stop"), false, calls.join(", "));
+      } finally {
+        await Deno.chmod(unit, 0o644);
+      }
     });
   });
 });
