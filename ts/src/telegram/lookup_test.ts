@@ -1,5 +1,7 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
+import { tl } from "@mtcute/deno";
 import { VerbatimError } from "../command/mod.ts";
+import { clientRefusal } from "./client_refusal.ts";
 import type { RawChat } from "./chat.ts";
 import type { ChatSearch } from "./lookup.ts";
 import { findChatByTitle } from "./lookup.ts";
@@ -106,7 +108,10 @@ Deno.test("ни одного чата — отказ с подсказкой ls"
 });
 
 Deno.test("отказ Telegram остаётся отказом Telegram", async () => {
-  const flood = Object.assign(new Error("FLOOD_WAIT"), { seconds: 42 });
+  // Двойник поиска стоит выше порта сеанса и отдаёт отказ в его форме.
+  const flood = clientRefusal(
+    tl.RpcError.fromTl({ errorCode: 420, errorMessage: "FLOOD_WAIT_42" }),
+  );
   const client: ChatSearch = { searchChats: () => Promise.reject(flood) };
   const err = await assertRejects(
     () => findChatByTitle(client, "Команда", "чат"),
@@ -114,6 +119,15 @@ Deno.test("отказ Telegram остаётся отказом Telegram", async 
   );
   // Срок ожидания не теряется и не выдаётся за ненайденный чат.
   assertEquals(err.message, "telegram: rate-limit, подожди 42s");
+});
+
+Deno.test("дефект поиска — тот же объект, не отказ Telegram и не «не найден»", async () => {
+  const defect = new TypeError("дефект поиска");
+  const client: ChatSearch = { searchChats: () => Promise.reject(defect) };
+  const err = await assertRejects(() =>
+    findChatByTitle(client, "Команда", "чат")
+  );
+  assertStrictEquals(err, defect);
 });
 
 Deno.test("предмет поиска называется в отказе", async () => {

@@ -16,10 +16,9 @@ import {
 /**
  * Криптография клиента не поднялась: встроенный модуль не прочитан или не
  * принят (`crypto.ts`). Отказ приходит изнутри импорта строки сессии
- * (`session.ts`), из первого обращения клиента в операции
- * (`telegramOperation`) или при входе (`clientRefusal`, `client_refusal.ts`),
- * и отличить его от непринятой строки и от отказа протокола можно только
- * по типу.
+ * (`session.ts`) или из первого обращения клиента — у сеанса и при входе
+ * (`clientRefusal`, `client_refusal.ts`), и отличить его от непринятой
+ * строки и от отказа протокола можно только по типу.
  * Лежит здесь, а не рядом с провайдером: слой ошибок лёгкий, и знание о
  * классе не тянет за собой клиент MTProto и его wasm.
  */
@@ -50,7 +49,7 @@ export function configError(
  * Различение — по полям отказа, не по тексту сообщения: срок ожидания
  * приходит числом `seconds`, текст протокола — полем `text`.
  */
-export function telegramFailure(err: unknown): VerbatimError {
+function telegramFailure(err: unknown): VerbatimError {
   const seconds = numberField(err, "seconds");
   if (seconds !== undefined) {
     return configError(`rate-limit, подожди ${seconds}s`, { cause: err });
@@ -72,25 +71,11 @@ export function cryptoFailure(err: CryptoInitError): VerbatimError {
 }
 
 /**
- * Обёртка обращения к Telegram: отказ протокола приходит наружу одной
- * строкой слоя, а не исключением библиотеки. Своё же оформление слоя
- * (`VerbatimError`) переоформлять не за что — иначе получилось бы
- * «RPC error: telegram: …». Сбой криптографии — не отказ протокола: у него
- * свой текст (`cryptoFailure`), различение — по типу.
- */
-export async function telegramOperation<T>(
-  body: () => Promise<T>,
-): Promise<T> {
-  try {
-    return await body();
-  } catch (err) {
-    throw layerFailure(err);
-  }
-}
-
-/**
- * Отказ одной строкой слоя: сбой криптографии — своим текстом, своё
- * оформление слоя — как есть, прочее — отказ протокола.
+ * Отказ клиента одной строкой слоя: сбой криптографии — своим текстом,
+ * своё оформление слоя — как есть, прочее — отказ протокола. Что считается
+ * отказом клиента, решает `clientRefusal` (`client_refusal.ts`) — только
+ * он сюда и ходит: без различения по типу сюда попал бы и дефект своего
+ * кода.
  */
 export function layerFailure(
   err: unknown,

@@ -9,7 +9,7 @@
  */
 
 import { dedupeById, type Dialog, dialogOf, type RawChat } from "./chat.ts";
-import { configError, telegramOperation } from "./errors.ts";
+import { configError } from "./errors.ts";
 
 /** Что нужно поиску от клиента: один серверный запрос. */
 export interface ChatSearch {
@@ -56,7 +56,7 @@ function search(
   client: ChatSearch,
   title: string,
 ): Promise<readonly RawChat[]> {
-  return telegramOperation(() => client.searchChats(title, CANDIDATES));
+  return client.searchChats(title, CANDIDATES);
 }
 
 /**

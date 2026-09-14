@@ -7,7 +7,6 @@
  */
 
 import type { PeerRef } from "./client.ts";
-import { telegramOperation } from "./errors.ts";
 import {
   type FoundMessage,
   foundMessage,
@@ -67,9 +66,7 @@ export async function findMessages(
 ): Promise<SearchOutcome> {
   if (plan.chat !== null) return await inChat(client, plan, plan.chat);
   if (plan.from === null) {
-    const found = await telegramOperation(() =>
-      take(client.searchGlobal(plan.query), plan.limit)
-    );
+    const found = await take(client.searchGlobal(plan.query), plan.limit);
     return { messages: found.map(foundMessage), scanCapped: false };
   }
   const sender = await resolveTarget(
@@ -78,7 +75,7 @@ export async function findMessages(
     plan.from.peer,
     "отправителя",
   );
-  return await telegramOperation(() => scan(client, plan, sender.id));
+  return await scan(client, plan, sender.id);
 }
 
 /** Поиск внутри чата: оба фильтра серверные, потолка просмотра нет. */
@@ -94,14 +91,12 @@ async function inChat(
     plan.from.peer,
     "отправителя",
   );
-  const found = await telegramOperation(() =>
-    client.searchInChat({
-      chat: peer,
-      query: plan.query,
-      from,
-      limit: plan.limit,
-    })
-  );
+  const found = await client.searchInChat({
+    chat: peer,
+    query: plan.query,
+    from,
+    limit: plan.limit,
+  });
   return { messages: found.map(foundMessage), scanCapped: false };
 }
 

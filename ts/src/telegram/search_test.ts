@@ -1,5 +1,7 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
+import { tl } from "@mtcute/deno";
 import { VerbatimError } from "../command/mod.ts";
+import { clientRefusal } from "./client_refusal.ts";
 import type { PeerRef } from "./client.ts";
 import type { RawChat } from "./chat.ts";
 import type { RawMessage } from "./message.ts";
@@ -55,6 +57,57 @@ function client(over: Partial<SearchClient> = {}): SearchClient {
     ...over,
   };
 }
+
+/**
+ * Отказ резолва имени в том виде, в каком его отдаёт порт сеанса: двойник
+ * стоит выше классификатора (`session.ts`).
+ */
+function notOccupied(): unknown {
+  return clientRefusal(new tl.RpcError(400, "USERNAME_NOT_OCCUPIED"));
+}
+
+Deno.test("дефект клиента в поиске — тот же объект, не отказ Telegram", async (t) => {
+  await t.step("глобальный поиск", async () => {
+    const defect = new TypeError("дефект глобального поиска");
+    const err = await assertRejects(() =>
+      findMessages(
+        client({
+          // deno-lint-ignore require-yield
+          searchGlobal: async function* () {
+            throw defect;
+          },
+        }),
+        plan(),
+      )
+    );
+    assertStrictEquals(err, defect);
+  });
+  await t.step("скан глобального поиска с --from", async () => {
+    const defect = new TypeError("дефект скана");
+    const err = await assertRejects(() =>
+      findMessages(
+        client({
+          // deno-lint-ignore require-yield
+          searchGlobal: async function* () {
+            throw defect;
+          },
+        }),
+        plan({ from: target("500001") }),
+      )
+    );
+    assertStrictEquals(err, defect);
+  });
+  await t.step("поиск в чате", async () => {
+    const defect = new TypeError("дефект поиска в чате");
+    const err = await assertRejects(() =>
+      findMessages(
+        client({ searchInChat: () => Promise.reject(defect) }),
+        plan({ chat: target("-1000000000101") }),
+      )
+    );
+    assertStrictEquals(err, defect);
+  });
+});
 
 Deno.test("поиск внутри чата: адресаты уходят на сервер", async () => {
   const seen: SearchInChat[] = [];
@@ -179,7 +232,7 @@ Deno.test("строка предупреждения совпадает с го�
 
 Deno.test("отказ резолва называет свой предмет", async (t) => {
   const failing = client({
-    resolve: () => Promise.reject(new Error("USERNAME_NOT_OCCUPIED")),
+    resolve: () => Promise.reject(notOccupied()),
     searchChats: () => Promise.resolve([]),
   });
   await t.step("--chat — чат", async () => {
@@ -202,7 +255,7 @@ Deno.test("отказ резолва называет свой предмет", 
             resolve: (peer) =>
               peer.kind === "id"
                 ? Promise.resolve<PeerRef>({ ref: peer, id: peer.id })
-                : Promise.reject(new Error("USERNAME_NOT_OCCUPIED")),
+                : Promise.reject(notOccupied()),
           }),
           plan({ chat: target("-1000000000101"), from: target("Иван") }),
         ),

@@ -3,10 +3,10 @@
  * единственное место, знающее про клиент Telegram.
  *
  * Модуль подгружается лениво из команды: крипта MTProto и её wasm не
- * должны попадать в старт каждого вызова `mpu`. Покрыт только вход до
- * сети — отказ импорта строки сессии (`session_test.ts`); соединение и
- * операции тестами не покрыты: сеть в тестах запрещена, а всё, что можно
- * решить без неё, решено в `send.ts` и `plan.ts`.
+ * должны попадать в старт каждого вызова `mpu`. Без сети проверены вход
+ * (`session_test.ts`, `connection_test.ts`) и граница порта — отказ клиента
+ * на каждом методе (`session_port_test.ts`); сами операции против живого
+ * Telegram тестами не покрыты: сеть в тестах запрещена.
  */
 
 import { convertFromTelethonSession } from "@mtcute/convert";
@@ -15,11 +15,12 @@ import {
   MemoryStorage,
   proxyTransportFromUrl,
   TelegramClient,
+  tl,
 } from "@mtcute/deno";
 import type { Chat, Message, User } from "@mtcute/deno";
 import { md } from "@mtcute/markdown-parser";
-import { VerbatimError } from "../command/mod.ts";
 import { markedId, type RawChat } from "./chat.ts";
+import { clientRefusal } from "./client_refusal.ts";
 import type { TelegramConfig } from "./config.ts";
 import {
   answeredWithin,
@@ -27,12 +28,7 @@ import {
   SESSION_ANSWER_LIMIT_MS,
 } from "./connection.ts";
 import { telegramCrypto } from "./crypto.ts";
-import {
-  configError,
-  cryptoFailure,
-  CryptoInitError,
-  telegramFailure,
-} from "./errors.ts";
+import { configError, cryptoFailure, CryptoInitError } from "./errors.ts";
 import type { ResolvablePeer } from "./peer.ts";
 import { telegramPlatform } from "./platform.ts";
 import { proxyUrl } from "./proxy.ts";
@@ -77,62 +73,89 @@ export async function openSession(
     disableUpdates: true,
   });
   const self = await enter(client, config.session);
+  // Граница порта: каждый метод, зовущий клиента, отдаёт отказ клиента
+  // строкой слоя, а прочее — тем же объектом. Команды поверх порта ошибок
+  // не переоформляют (спека, «Что считается отказом Telegram / слоя
+  // клиента»).
   return {
-    resolve: async (peer: ResolvablePeer) => {
-      const ref = await client.resolvePeer(peerId(peer));
-      return { ref, id: refId(ref, self) };
-    },
-    sendText: async (to, text, markdown) =>
-      message(await client.sendText(inputPeer(to), body(text, markdown))),
-    sendDocuments: async (to, documents, markdown) => {
-      const medias = documents.map((document) =>
-        InputMedia.document(document.bytes, {
-          fileName: document.name,
-          ...(document.caption === undefined
-            ? {}
-            : { caption: body(document.caption, markdown) }),
-        })
-      );
-      const peer = inputPeer(to);
-      const sent = medias.length === 1
-        ? [await client.sendMedia(peer, medias[0])]
-        : await client.sendMediaGroup(peer, medias);
-      return sent.map(message);
-    },
-    listDialogs: async (limit) => {
-      const found: RawChat[] = [];
-      for await (const dialog of client.iterDialogs({ limit })) {
-        found.push(peerChat(dialog.peer));
-      }
-      return found;
-    },
-    searchChats: async (query, limit) =>
-      chatsFromSearch(
-        await client.call({ _: "contacts.search", q: query, limit }),
+    resolve: (peer: ResolvablePeer) =>
+      refusing(async () => {
+        const ref = await client.resolvePeer(peerId(peer));
+        return { ref, id: refId(ref, self) };
+      }),
+    sendText: (to, text, markdown) =>
+      refusing(async () =>
+        message(await client.sendText(inputPeer(to), body(text, markdown)))
+      ),
+    sendDocuments: (to, documents, markdown) =>
+      refusing(async () => {
+        const medias = documents.map((document) =>
+          InputMedia.document(document.bytes, {
+            fileName: document.name,
+            ...(document.caption === undefined
+              ? {}
+              : { caption: body(document.caption, markdown) }),
+          })
+        );
+        const peer = inputPeer(to);
+        const sent = medias.length === 1
+          ? [await client.sendMedia(peer, medias[0])]
+          : await client.sendMediaGroup(peer, medias);
+        return sent.map(message);
+      }),
+    listDialogs: (limit) =>
+      refusing(async () => {
+        const found: RawChat[] = [];
+        for await (const dialog of client.iterDialogs({ limit })) {
+          found.push(peerChat(dialog.peer));
+        }
+        return found;
+      }),
+    searchChats: (query, limit) =>
+      refusing(async () =>
+        chatsFromSearch(
+          await client.call({ _: "contacts.search", q: query, limit }),
+        )
       ),
     // Страницы гоняет итератор клиента: разовый вызов поиска отдаёт одну
     // страницу, и `--limit` больше неё молча недобирал бы выдачу.
-    searchInChat: async ({ chat, query, from, limit }) => {
-      const found: RawMessage[] = [];
-      for await (
-        const message of client.iterSearchMessages({
-          chatId: inputPeer(chat),
-          query,
-          limit,
-          ...(from === null ? {} : { fromUser: inputPeer(from) }),
-        })
-      ) {
-        found.push(rawMessage(message));
-      }
-      return found;
-    },
+    searchInChat: ({ chat, query, from, limit }) =>
+      refusing(async () => {
+        const found: RawMessage[] = [];
+        for await (
+          const message of client.iterSearchMessages({
+            chatId: inputPeer(chat),
+            query,
+            limit,
+            ...(from === null ? {} : { fromUser: inputPeer(from) }),
+          })
+        ) {
+          found.push(rawMessage(message));
+        }
+        return found;
+      }),
+    // Генератор оформляет отказ сам: страницы приходят по мере итерации, и
+    // обёртка вокруг его создания отказа итерации не увидела бы.
     searchGlobal: async function* (query: string) {
-      for await (const found of client.iterSearchGlobal({ query })) {
-        yield rawMessage(found);
+      try {
+        for await (const found of client.iterSearchGlobal({ query })) {
+          yield rawMessage(found);
+        }
+      } catch (err) {
+        throw clientRefusal(err);
       }
     },
     close: () => client.destroy(),
   };
+}
+
+/** Обращение к клиенту на границе порта: отказ клиента — строкой слоя. */
+async function refusing<T>(body: () => Promise<T>): Promise<T> {
+  try {
+    return await body();
+  } catch (err) {
+    throw clientRefusal(err);
+  }
 }
 
 /**
@@ -159,8 +182,7 @@ async function enter(client: TelegramClient, session: string): Promise<number> {
     )).id;
   } catch (err) {
     await client.destroy();
-    // Отказ импорта уже оформлен слоем — переоформлять его не за что.
-    throw err instanceof VerbatimError ? err : entryFailure(err);
+    throw entryFailure(err);
   }
 }
 
@@ -189,13 +211,14 @@ async function importSession(
 /**
  * Отказ входа. Отказы авторизации Telegram называет своими кодами
  * (`AUTH_KEY_*`, `SESSION_*`, `USER_DEACTIVATED*`) — им положен текст
- * про вход, прочему — общий текст отказа протокола.
+ * про вход; прочий отказ клиента — строкой слоя, уже оформленный отказ
+ * (импорт строки, пределы) — как есть, а дефект своего кода — тем же
+ * объектом (`client_refusal.ts`).
  */
-function entryFailure(err: unknown): Error {
-  const text = err instanceof Error && "text" in err ? String(err.text) : "";
-  return /^(AUTH_KEY|SESSION_|USER_DEACTIVATED)/.test(text)
-    ? notAuthorized(err)
-    : telegramFailure(err);
+function entryFailure(err: unknown): unknown {
+  const unauthorized = err instanceof tl.RpcError &&
+    /^(AUTH_KEY|SESSION_|USER_DEACTIVATED)/.test(err.text);
+  return unauthorized ? notAuthorized(err) : clientRefusal(err);
 }
 
 function notAuthorized(cause: unknown): Error {

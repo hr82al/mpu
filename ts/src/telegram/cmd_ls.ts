@@ -10,7 +10,6 @@
 import { z } from "@zod/zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
 import { dedupeById, dialogOf } from "./chat.ts";
-import { telegramOperation } from "./errors.ts";
 import { telegramConfig } from "./config.ts";
 import { renderDialogsJson, renderDialogsTable } from "./ls_view.ts";
 
@@ -81,13 +80,11 @@ async function runTelegramLs(
   const { openSession } = await import("./session.ts");
   const session = await openSession(config);
   try {
-    // Отказ Telegram оформляется на границе команды: в `session.ts`,
-    // где живёт протокол, тестов нет, а здесь ветка проверяема.
-    const found = await telegramOperation(() =>
-      args.query === ""
-        ? session.listDialogs(limit)
-        : session.searchChats(args.query, limit)
-    );
+    // Отказ клиента оформлен портом сеанса (`session.ts`); команда ошибок
+    // не переоформляет.
+    const found = args.query === ""
+      ? await session.listDialogs(limit)
+      : await session.searchChats(args.query, limit);
     return {
       // Схема результата объявляет массив изменяемым (её выводит zod), а
       // дедуп отдаёт readonly — копия здесь дешевле, чем ослабление типа.

@@ -1,9 +1,23 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
+import { MtPeerNotFoundError, tl } from "@mtcute/deno";
 import { VerbatimError } from "../command/mod.ts";
+import { clientRefusal } from "./client_refusal.ts";
+import { configError } from "./errors.ts";
 import type { Peer } from "./peer.ts";
 import type { ClientMessage, PeerRef, TelegramClient } from "./client.ts";
 import type { RawChat } from "./chat.ts";
 import { sendMessage, type SendPlan } from "./send.ts";
+
+/**
+ * Отказ клиента в том виде, в каком его отдаёт порт сеанса: двойник порта
+ * стоит выше классификатора (`session.ts`), и сочинять за порт форму
+ * отказа тесту не за что.
+ */
+function refused(original: Error): Error {
+  const err = clientRefusal(original);
+  if (!(err instanceof Error)) throw new TypeError("отказ клиента не оформлен");
+  return err;
+}
 
 /** Что фейковый клиент увидел и в каком порядке. */
 interface Seen {
@@ -193,7 +207,7 @@ Deno.test("имени такого нет — вторая попытка ище
   // чата, и до поиска она обязана дойти.
   const { client, seen } = stand([message(5000001)], {
     on: "resolve:name",
-    err: new Error("Peer with username news not found"),
+    err: refused(new MtPeerNotFoundError("Peer with username news not found")),
   }, [
     { peerType: "supergroup", rawId: 3, title: "news", username: null },
   ]);
@@ -213,7 +227,7 @@ Deno.test("имени такого нет — вторая попытка ище
 Deno.test("несколько чатов с таким названием — отказ со списком", async () => {
   const { client, seen } = stand([message(5000001)], {
     on: "resolve:name",
-    err: new Error("Peer with username news not found"),
+    err: refused(new MtPeerNotFoundError("Peer with username news not found")),
   }, [
     { peerType: "supergroup", rawId: 3, title: "news рынка", username: null },
     { peerType: "channel", rawId: 4, title: "news дня", username: null },
@@ -238,7 +252,7 @@ Deno.test("несколько чатов с таким названием — о
 Deno.test("объявленное имя второй попытки не получает", async () => {
   const { client, seen } = stand([message(5000001)], {
     on: "resolve:name",
-    err: new Error("Peer with username durov not found"),
+    err: refused(new MtPeerNotFoundError("Peer with username durov not found")),
   }, [
     { peerType: "supergroup", rawId: 3, title: "durov", username: null },
   ]);
@@ -256,6 +270,33 @@ Deno.test("объявленное имя второй попытки не пол
   assertEquals(
     err.message.startsWith("telegram: не удалось найти чат '@durov'"),
     true,
+  );
+});
+
+Deno.test("своё оформление отказа резолва без причины — само себе причина", async () => {
+  // Порт отдаёт строку слоя без исходного отказа клиента, когда отказ
+  // оформил сам сеанс (адресат без идентификатора): причиной «не удалось
+  // найти» становится она сама, а не пустота.
+  const own = configError(
+    "Telegram вернул адресата без идентификатора: inputPeerEmpty",
+  );
+  const { client } = stand([message(5000001)], {
+    on: "resolve:name",
+    err: own,
+  });
+  const err = await assertRejects(
+    () =>
+      sendMessage(
+        client,
+        plan({ target: "@durov", peer: { kind: "name", name: "durov" } }),
+      ),
+    VerbatimError,
+  );
+  assertStrictEquals(err.cause, own);
+  assertEquals(
+    err.message.includes("Telegram вернул адресата без идентификатора"),
+    true,
+    err.message,
   );
 });
 
@@ -282,7 +323,7 @@ Deno.test("ни имени, ни чата с таким названием — �
   // вторая ничего не нашла.
   const { client, seen } = stand([], {
     on: "resolve:name",
-    err: new Error("Peer with username news not found"),
+    err: refused(new MtPeerNotFoundError("Peer with username news not found")),
   }, []);
   const err = await assertRejects(
     () =>
@@ -317,7 +358,9 @@ Deno.test("имя нашлось — второй попытки не делае
 });
 
 Deno.test("отказ на найденном чате — отказ Telegram, не «не найден»", async () => {
-  const flood = Object.assign(new Error("FLOOD_WAIT"), { seconds: 42 });
+  const flood = refused(
+    tl.RpcError.fromTl({ errorCode: 420, errorMessage: "FLOOD_WAIT_42" }),
+  );
   const { client, seen } = stand([message(5000001)], {
     on: "resolve:id",
     err: flood,
@@ -339,7 +382,7 @@ Deno.test("отказ на найденном чате — отказ Telegram, 
 Deno.test("отказ отправки не выдаётся за отказ адресата", async () => {
   const { client } = stand([], {
     on: "send",
-    err: new Error("MEDIA_EMPTY"),
+    err: refused(new tl.RpcError(400, "MEDIA_EMPTY")),
   });
   const err = await assertRejects(
     () => sendMessage(client, plan()),
@@ -348,34 +391,75 @@ Deno.test("отказ отправки не выдаётся за отказ а�
   assertEquals(err.message, "telegram: RPC error: MEDIA_EMPTY");
 });
 
-Deno.test("текст отказа берётся из поля протокола, а не из message", async () => {
-  const rpc = Object.assign(new Error("RPC_CALL_FAIL"), {
-    code: 400,
-    text: "CHAT_WRITE_FORBIDDEN",
-  });
-  const { client } = stand([], { on: "send", err: rpc });
-  const err = await assertRejects(
-    () => sendMessage(client, plan()),
-    VerbatimError,
-  );
-  assertEquals(err.message, "telegram: RPC error: CHAT_WRITE_FORBIDDEN");
+Deno.test("дефект клиента не выдаётся ни за отказ Telegram, ни за «не найден»", async (t) => {
+  // Спека, «Что считается отказом Telegram / слоя клиента»: отказ клиента
+  // оформляет порт сеанса; не оформленное портом — не отказ Telegram и
+  // уходит тем же объектом (код 1 и исходный текст ставит точка входа).
+  const cases: readonly {
+    readonly name: string;
+    readonly on: "send" | "resolve:id" | "resolve:name";
+    readonly target: string;
+    readonly peer: Peer;
+    readonly found: readonly RawChat[];
+  }[] = [
+    {
+      name: "отправка",
+      on: "send",
+      target: "me",
+      peer: { kind: "me" },
+      found: [],
+    },
+    {
+      name: "резолв найденного по названию чата",
+      on: "resolve:id",
+      target: "news",
+      peer: { kind: "title", title: "news" },
+      found: [
+        { peerType: "supergroup", rawId: 3, title: "news", username: null },
+      ],
+    },
+    {
+      name: "штатный резолв строки-догадки",
+      on: "resolve:name",
+      target: "news",
+      peer: { kind: "guess", name: "news" },
+      found: [],
+    },
+  ];
+  for (const { name, on, target, peer, found } of cases) {
+    await t.step(name, async () => {
+      const defect = new TypeError(`дефект: ${name}`);
+      const { client } = stand(
+        [message(5000001)],
+        { on, err: defect },
+        found,
+      );
+      const err = await assertRejects(() =>
+        sendMessage(client, plan({ target, peer }))
+      );
+      assertStrictEquals(err, defect);
+    });
+  }
 });
 
-Deno.test("отказ без Error оформляется той же строкой", async () => {
+Deno.test("отказ двойника без Error уходит как есть", async () => {
+  // Не-Error бросают редко: молча потерять такой отказ нельзя, а выдавать
+  // его за отказ Telegram — тоже.
   const { client } = stand([], {
     on: "send",
-    // Не-Error бросают редко, но молча потерять такой отказ нельзя.
     err: "странный отказ" as unknown as Error,
   });
-  const err = await assertRejects(
-    () => sendMessage(client, plan()),
-    VerbatimError,
+  const outcome = await sendMessage(client, plan()).then(
+    () => "ушло",
+    (err: unknown) => err,
   );
-  assertEquals(err.message, "telegram: RPC error: странный отказ");
+  assertEquals(outcome, "странный отказ");
 });
 
 Deno.test("rate-limit сообщается со сроком ожидания", async () => {
-  const flood = Object.assign(new Error("FLOOD_WAIT"), { seconds: 42 });
+  const flood = refused(
+    tl.RpcError.fromTl({ errorCode: 420, errorMessage: "FLOOD_WAIT_42" }),
+  );
   const { client } = stand([], { on: "send", err: flood });
   const err = await assertRejects(
     () => sendMessage(client, plan()),

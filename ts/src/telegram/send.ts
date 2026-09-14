@@ -15,7 +15,7 @@ import type {
   PeerRef,
   TelegramClient,
 } from "./client.ts";
-import { configError, telegramOperation } from "./errors.ts";
+import { configError } from "./errors.ts";
 import type { Peer } from "./peer.ts";
 import { resolveTarget } from "./resolve.ts";
 
@@ -63,12 +63,10 @@ async function deliver(
   to: PeerRef,
   plan: SendPlan,
 ): Promise<ClientMessage> {
-  const album = await telegramOperation(async () => {
-    if (plan.attachments.length === 0) {
-      return [await client.sendText(to, plan.text, plan.markdown)];
-    }
-    return await client.sendDocuments(to, documents(plan), plan.markdown);
-  });
+  // Отказ клиента оформлен портом сеанса; здесь его не переоформляют.
+  const album = plan.attachments.length === 0
+    ? [await client.sendText(to, plan.text, plan.markdown)]
+    : await client.sendDocuments(to, documents(plan), plan.markdown);
   const last = album.at(-1);
   if (last === undefined) {
     throw configError("Telegram не вернул ни одного сообщения");

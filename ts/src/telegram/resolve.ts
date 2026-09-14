@@ -8,8 +8,9 @@
  * предмет отказа у них разный — его называет `subject`.
  */
 
+import { VerbatimError } from "../command/mod.ts";
 import type { PeerRef } from "./client.ts";
-import { configError, telegramOperation } from "./errors.ts";
+import { configError } from "./errors.ts";
 import { type ChatSearch, findChatByTitle } from "./lookup.ts";
 import type { Peer, ResolvablePeer } from "./peer.ts";
 
@@ -35,19 +36,33 @@ export async function resolveTarget(
   try {
     return await client.resolve(peer.kind === "guess" ? asName(peer) : peer);
   } catch (err) {
+    // Неудача резолва — только отказ клиента, уже оформленный портом
+    // сеанса; дефект своего кода уходит как есть и за «не найден» себя не
+    // выдаёт (спека, «Что считается отказом Telegram / слоя клиента»).
+    if (!(err instanceof VerbatimError)) throw err;
+    const refusal = clientOrigin(err);
     // Голая строка, похожая на имя: имени такого нет, но чат с таким
     // названием может быть — вторая попытка (`telegram-mtproto.md`,
     // «Резолв адресата»). Вид, объявленный пользователем, второй попытки
     // не получает: он сказал, что это имя или телефон.
     if (peer.kind === "guess") {
-      return await byTitle(client, peer.name, subject, err);
+      return await byTitle(client, peer.name, subject, refusal);
     }
     throw configError(
-      `не удалось найти ${subject} '${target}': ${reason(err)}; ` +
+      `не удалось найти ${subject} '${target}': ${reason(refusal)}; ` +
         `попробуй: mpu telegram ls '${target}' и укажи id или @username`,
-      { cause: err },
+      { cause: refusal },
     );
   }
+}
+
+/**
+ * Исходный отказ клиента под строкой слоя: причина «не удалось найти»
+ * называется его текстом, а не строкой `telegram: …` второй раз. Строка
+ * слоя без причины (своё оформление) — сама себе исходный отказ.
+ */
+function clientOrigin(err: VerbatimError): unknown {
+  return err.cause ?? err;
 }
 
 /** Адресат по названию: поиск, затем резолв найденного идентификатора. */
@@ -59,11 +74,9 @@ async function byTitle(
   cause?: unknown,
 ): Promise<PeerRef> {
   const found = await findChatByTitle(client, title, subject, cause);
-  // Отказ на найденном идентификаторе — отказ Telegram, а не «чат не
-  // найден»: чат мы только что нашли, его id пришёл от сервера.
-  return await telegramOperation(() =>
-    client.resolve({ kind: "id", id: found.id })
-  );
+  // Отказ на найденном идентификаторе уходит как есть — отказом клиента,
+  // а не «чат не найден»: чат мы только что нашли, его id пришёл от сервера.
+  return await client.resolve({ kind: "id", id: found.id });
 }
 
 /** Догадка об имени — имя для штатного резолва. */
