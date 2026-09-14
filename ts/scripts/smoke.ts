@@ -432,6 +432,24 @@ function reasonLine(err: unknown): string {
   return (err instanceof Error ? err.message : String(err)).split("\n")[0];
 }
 
+/**
+ * Строка сессии в формате прежней реализации (Telethon: версия `1` и
+ * base64url от номера DC, IPv4, порта и 256-байтного ключа) с узлом на
+ * петле. Ключ нулевой: дальше установки соединения проверка не идёт.
+ */
+function loopbackSession(port: number): string {
+  const bytes = new Uint8Array(1 + 4 + 2 + 256);
+  const view = new DataView(bytes.buffer);
+  view.setUint8(0, 2);
+  bytes.set([127, 0, 0, 1], 1);
+  view.setUint16(5, port);
+  const base64 = btoa(String.fromCharCode(...bytes));
+  return `1${base64.replaceAll("+", "-").replaceAll("/", "_")}`;
+}
+
+/** Срок, за который бинарь обязан дойти до узла Telegram на петле. */
+const NODE_DEADLINE_MS = 15_000;
+
 function checks(subject: Subject): readonly Check[] {
   return [
     ["version", async () => {
@@ -626,6 +644,72 @@ function checks(subject: Subject): readonly Check[] {
           outcome.stderr.startsWith("telegram: не авторизован"),
           `не тот отказ: ${outcome.stderr}`,
         );
+      },
+    ],
+    [
+      // Во время работы сеть — только узлы Telegram
+      // (`platform/telegram-mtproto.md`, «Прокси»): криптография клиента не
+      // скачивает свой wasm. Узел здесь — слушатель на петле, строка сессии
+      // называет его адресом DC, и дошедшее до него соединение значит, что
+      // инициализация криптографии пройдена. `HTTPS_PROXY` — на закрытый
+      // порт петли: скачивание, останься оно, упало бы сразу, а не ушло бы
+      // в `jsr.io` мимо проверки. Живых ключей не нужно — дальше
+      // соединения проверка не идёт.
+      "telegram: криптография без сети, соединение сразу на узел",
+      async () => {
+        const node = Deno.listen({ hostname: "127.0.0.1", port: 0 });
+        const envPath = `${subject.home}/.config/mpu/.env`;
+        await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+          recursive: true,
+        });
+        await Deno.writeTextFile(
+          envPath,
+          "TELEGRAM_API_ID=1\nTELEGRAM_API_HASH=проба\n" +
+            `TELEGRAM_SESSION=${loopbackSession(node.addr.port)}\n`,
+        );
+        const child = new Deno.Command(subject.bin, {
+          args: ["telegram", "ls", "--limit", "1"],
+          env: { HOME: subject.home, HTTPS_PROXY: "http://127.0.0.1:1" },
+          clearEnv: true,
+          stdin: "null",
+          stdout: "null",
+          stderr: "piped",
+        }).spawn();
+        const stderr = new Response(child.stderr).text();
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const reached = await Promise.race([
+            node.accept().then((conn) => {
+              conn.close();
+              return "узел";
+            }),
+            child.status.then((status) => `завершился с ${status.code}`),
+            new Promise<string>((resolve) => {
+              timer = setTimeout(() => resolve("срок вышел"), NODE_DEADLINE_MS);
+            }),
+          ]);
+          if (reached !== "узел") {
+            // Гасить нужно только зависший: вышедший `kill` отвергает.
+            if (reached === "срок вышел") child.kill("SIGKILL");
+            await child.status;
+            throw new Error(
+              `до узла Telegram не дошёл (${reached}): ${
+                (await stderr).trim()
+              }`,
+            );
+          }
+        } finally {
+          clearTimeout(timer);
+          try {
+            child.kill("SIGKILL");
+          } catch {
+            // Уже завершился — гасить нечего.
+          }
+          await child.status;
+          node.close();
+          await Deno.remove(envPath);
+        }
+        await stderr;
       },
     ],
     ["init: справка собранного бинаря несёт числа пределов", async () => {

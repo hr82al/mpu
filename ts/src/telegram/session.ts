@@ -20,6 +20,7 @@ import { md } from "@mtcute/markdown-parser";
 import { VerbatimError } from "../command/mod.ts";
 import { markedId, type RawChat } from "./chat.ts";
 import type { TelegramConfig } from "./config.ts";
+import { telegramCrypto } from "./crypto.ts";
 import { configError, telegramFailure } from "./errors.ts";
 import type { ResolvablePeer } from "./peer.ts";
 import { proxyUrl } from "./proxy.ts";
@@ -54,6 +55,8 @@ export async function openSession(
     apiId: config.apiId,
     apiHash: config.apiHash,
     storage: new MemoryStorage(),
+    // Wasm криптографии — из собранной программы, не из сети (`crypto.ts`).
+    crypto: telegramCrypto(),
     ...(config.proxy === undefined
       ? {}
       : { transport: proxyTransportFromUrl(proxyUrl(config.proxy)) }),

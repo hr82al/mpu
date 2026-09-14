@@ -21,6 +21,7 @@ import {
   proxyTransportFromUrl,
   TelegramClient,
 } from "@mtcute/deno";
+import { telegramCrypto } from "./crypto.ts";
 import { telegramOperation } from "./errors.ts";
 import type { AppKeys, LoginClient, LoginPrompts } from "./login.ts";
 import { type ProxySettings, proxyUrl } from "./proxy.ts";
@@ -38,6 +39,8 @@ export function openLoginClient(
     apiId: Number(keys.apiId),
     apiHash: keys.apiHash,
     storage: new MemoryStorage(),
+    // Wasm криптографии — из собранной программы, не из сети (`crypto.ts`).
+    crypto: telegramCrypto(),
     ...(proxy === undefined
       ? {}
       : { transport: proxyTransportFromUrl(proxyUrl(proxy)) }),

@@ -16,6 +16,7 @@
     "jsr:@mtcute/markdown-parser@0.31.0": "0.31.0",
     "jsr:@mtcute/tl-runtime@0.31": "0.31.0",
     "jsr:@mtcute/wasm@0.31": "0.31.0",
+    "jsr:@mtcute/wasm@0.31.0": "0.31.0",
     "jsr:@std/assert@^1.0.6": "1.0.19",
     "jsr:@std/async@^1.5.0": "1.5.0",
     "jsr:@std/data-structures@^1.1.2": "1.1.2",
@@ -89,7 +90,7 @@
         "jsr:@mtcute/core",
         "jsr:@mtcute/html-parser",
         "jsr:@mtcute/markdown-parser@0.31",
-        "jsr:@mtcute/wasm",
+        "jsr:@mtcute/wasm@0.31",
         "jsr:@std/io"
       ]
     },
@@ -294,6 +295,7 @@
       "jsr:@mtcute/convert@0.31.0",
       "jsr:@mtcute/deno@0.31.0",
       "jsr:@mtcute/markdown-parser@0.31.0",
+      "jsr:@mtcute/wasm@0.31.0",
       "jsr:@std/assert@^1.0.6",
       "jsr:@std/testing@^1.0.20",
       "jsr:@zod/zod@4.4.3",
