@@ -32,7 +32,8 @@ enforced read-only вариант (`conv-mpu-readonly-split`, категория
    (`platform/code-analyzer.md`, «Рабочая область») → `<корень>/mpu/ts`;
 3. **запомненное дерево** `[D.8]` — путь из файла
    `$XDG_CONFIG_HOME/mpu/build-source` (умолчание каталога —
-   `$HOME/.config`; пустая `XDG_CONFIG_HOME` равнозначна незаданной): первая
+   `$HOME/.config`; пустая или относительная `XDG_CONFIG_HOME` равнозначна
+   незаданной — `platform/env-file.md`): первая
    строка файла без концевых пробелов и перевода строки, абсолютный путь.
 
 Кандидат подходит, если по его пути лежат `deno.jsonc` и `main.ts`. Ни один не
