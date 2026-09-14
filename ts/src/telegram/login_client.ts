@@ -24,16 +24,14 @@ import {
   MtcuteError,
   proxyTransportFromUrl,
   TelegramClient,
-  tl,
 } from "@mtcute/deno";
-import { VerbatimError, VerbatimUsageError } from "../command/mod.ts";
+import { clientRefusal } from "./client_refusal.ts";
 import {
   answeredWithin,
   connectWithin,
   LOGIN_ANSWER_LIMIT_MS,
 } from "./connection.ts";
 import { telegramCrypto } from "./crypto.ts";
-import { CryptoInitError, layerFailure } from "./errors.ts";
 import type { AppKeys, LoginClient, LoginPrompts } from "./login.ts";
 import { telegramPlatform } from "./platform.ts";
 import { type ProxySettings, proxyUrl } from "./proxy.ts";
@@ -113,7 +111,9 @@ export function openLoginClient(
         // env-файл.
         return sharedSessionString(await client.exportSession());
       } catch (err) {
-        throw loginRefusal(err);
+        // Отказ клиента — строкой слоя, дальше он станет пропуском; прочее
+        // уходит как есть (`telegram-login.md`, инвариант 3).
+        throw clientRefusal(err);
       }
     },
     close: async () => {
@@ -135,24 +135,6 @@ export function sharedSessionString(
   exported: Parameters<typeof convertToTelethonSession>[0],
 ): string {
   return convertToTelethonSession(exported);
-}
-
-/**
- * Отказ входа: строкой слоя — только отказ, пришедший от Telegram или от
- * клиента (`tl.RpcError`, `MtcuteError`, сбой криптографии, своё
- * оформление слоя); дальше он становится пропуском. Прочее — дефект своего
- * кода, отказ терминала на вопросе кода — отдаётся как есть: переоформлять
- * его в `RPC error` значило бы выдать ошибку программы за отказ Telegram
- * (`telegram-login.md`, инвариант 3). Различение — здесь, а не в
- * `errors.ts`: классы библиотеки знает только модуль, который её грузит.
- */
-export function loginRefusal(err: unknown): unknown {
-  const fromClient = err instanceof tl.RpcError ||
-    err instanceof MtcuteError ||
-    err instanceof CryptoInitError ||
-    err instanceof VerbatimError ||
-    err instanceof VerbatimUsageError;
-  return fromClient ? layerFailure(err) : err;
 }
 
 /** Видимый вопрос; ответа нет — пустая строка, решает библиотека. */
