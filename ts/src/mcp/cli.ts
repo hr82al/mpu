@@ -121,7 +121,7 @@ export async function runMcpServer(
   argv: readonly string[],
   run: McpServerRun,
 ): Promise<number> {
-  const { io, output, commands } = run;
+  const { io, output } = run;
   const options = parseOptions(argv);
   if ("usage" in options) {
     output.stderr(`mpu mcp: ${options.usage}\n`);
