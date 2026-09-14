@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import { assert, assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { DomainError } from "../command/mod.ts";
 import {
   disableService,
@@ -9,6 +9,7 @@ import {
   restartService,
   type RunProgram,
   SERVICE_NAME,
+  serviceDeps,
   serviceDepsIfAny,
   serviceDir,
   servicePid,
@@ -99,6 +100,35 @@ Deno.test("каталог служб берёт XDG_CONFIG_HOME общим пр�
       };
       const deps = serviceDepsIfAny({ env: (key) => env[key] });
       assertEquals(deps?.dir, expected);
+    });
+  }
+});
+
+Deno.test("без HOME службы нет: даже абсолютная XDG_CONFIG_HOME не даёт путь установки", async (t) => {
+  // Каталог служб можно взять у XDG_CONFIG_HOME, но путь установки —
+  // только `$HOME/.local/bin/mpu`, а описание службы без пути запуска
+  // бессмысленно: обе половины требуют HOME (`mcp-service.md`,
+  // «Граничные случаи и ошибки»).
+  const cases: ReadonlyArray<
+    readonly [string, Readonly<Record<string, string>>]
+  > = [
+    ["HOME не задана", {}],
+    ["HOME пуста", { HOME: "" }],
+    ["HOME не задана, XDG_CONFIG_HOME абсолютна", { XDG_CONFIG_HOME: "/x" }],
+    ["HOME пуста, XDG_CONFIG_HOME абсолютна", {
+      HOME: "",
+      XDG_CONFIG_HOME: "/x",
+    }],
+  ];
+  for (const [name, env] of cases) {
+    await t.step(name, () => {
+      const io = { env: (key: string) => env[key] };
+      assertEquals(serviceDepsIfAny(io), undefined);
+      const err = assertThrows(() => serviceDeps(io), DomainError);
+      assertEquals(
+        err.message,
+        "HOME не задана: ни каталог служб, ни путь установки не вычислить",
+      );
     });
   }
 });

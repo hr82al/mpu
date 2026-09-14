@@ -214,6 +214,81 @@ Deno.test("значение --port не порт — exit 2", async (t) => {
   }
 });
 
+Deno.test("голое mpu mcp без HOME: служба считается отсутствующей, порт не уступается", async (t) => {
+  // Стоит раньше тестов, поднимающих сервер на порту из конфига с
+  // настоящим окружением: те читают настоящий каталог служб, и у
+  // запускающего с установленной службой доходят до `systemctl` — в правах
+  // задачи test отказ вылетает необработанным и отменяет остаток файла.
+  // Случай с абсолютной XDG_CONFIG_HOME кладёт по её пути настоящее
+  // описание службы: реализация, взявшая каталог служб без HOME, увидела бы
+  // его и пошла бы к менеджеру — и запуск отказал бы, а не слушал.
+  const envs: ReadonlyArray<
+    readonly [
+      string,
+      (dir: string) => Readonly<Record<string, string | undefined>>,
+    ]
+  > = [
+    // XDG_CONFIG_HOME задана явно и в этих случаях: иначе она бралась бы из
+    // окружения запускающего, и исход мутаций зависел бы от его машины.
+    ["HOME не задана", () => ({ HOME: undefined, XDG_CONFIG_HOME: undefined })],
+    ["HOME пуста", () => ({ HOME: "", XDG_CONFIG_HOME: undefined })],
+    ["HOME не задана, по абсолютной XDG_CONFIG_HOME лежит описание", (dir) => ({
+      HOME: undefined,
+      XDG_CONFIG_HOME: `${dir}/xdg`,
+    })],
+  ];
+  for (const [name, envFor] of envs) {
+    await t.step(name, async () => {
+      await withStore(async (real, dir) => {
+        usePort(real, await freePort());
+        const overrides = envFor(dir);
+        const xdg = overrides.XDG_CONFIG_HOME;
+        if (xdg !== undefined) {
+          const units = `${xdg}/systemd/user`;
+          await Deno.mkdir(units, { recursive: true });
+          await Deno.writeTextFile(
+            `${units}/${SERVICE_NAME}`,
+            unitText("/h/mpu"),
+          );
+        }
+        // Зависимостей службы не внедряем: внедрённые, они обошли бы
+        // проверку HOME. Обращение к менеджеру здесь было бы настоящим
+        // `systemctl`, права тестов его не пускают — и запуск не дошёл бы
+        // до прослушивания (`mcp-service.md`, «Граничные случаи и ошибки»).
+        const io: CommandIo = {
+          ...real,
+          env: (key) => key in overrides ? overrides[key] : real.env(key),
+        };
+        const output = makeOutput();
+        const stop = new AbortController();
+        const listening = Promise.withResolvers<RunningServer>();
+        const running = runMcpServer([], {
+          io,
+          output: output.sink,
+          commands,
+          log: NO_INVOKE_LOG,
+          signal: stop.signal,
+          onListen: listening.resolve,
+        });
+        // Наперегонки с завершением: запуск, отказавший до прослушивания,
+        // даёт красный тест, а не вечное ожидание.
+        const first = await Promise.race([
+          listening.promise.then(() => "слушает"),
+          running.then((code) => `завершился с ${code}`),
+        ]);
+        stop.abort();
+        assertEquals(first, "слушает", output.stderr());
+        assertEquals(await running, 0);
+        assertEquals(
+          output.stderr().includes("уступлен"),
+          false,
+          `порт уступлен без HOME:\n${output.stderr()}`,
+        );
+      });
+    });
+  }
+});
+
 Deno.test("порт берётся из конфига, когда флага нет", async () => {
   await withStore(async (io) => {
     // Свободный порт занимаем и сразу отпускаем: так он заведомо

@@ -161,6 +161,47 @@ Deno.test("подкоманда опознаётся первым словом �
   assertStringIncludes(stderr, "mpu mcp status: ");
 });
 
+Deno.test("любая подкоманда без HOME: отказ спеки, код 1, к менеджеру не обращается", async (t) => {
+  // Фейковых зависимостей службы здесь нет намеренно: внедрённые, они
+  // обходят проверку HOME. Что до менеджера дело не дошло, видно по
+  // тексту: строку спеки печатает только `serviceDeps`, а он стоит в
+  // каждой подкоманде до всякого обращения к менеджеру (`mcp-service.md`,
+  // «Граничные случаи и ошибки»).
+  const envs: ReadonlyArray<
+    readonly [string, Readonly<Record<string, string>>]
+  > = [
+    ["HOME не задана", {}],
+    ["HOME пуста", { HOME: "" }],
+    ["HOME не задана, XDG_CONFIG_HOME абсолютна", { XDG_CONFIG_HOME: "/x" }],
+  ];
+  const subcommands = [
+    "status",
+    "start",
+    "stop",
+    "restart",
+    "enable",
+    "disable",
+  ];
+  for (const [name, env] of envs) {
+    for (const sub of subcommands) {
+      await t.step(`${name}: ${sub}`, async () => {
+        const err: string[] = [];
+        const code = await runCli(
+          ["mcp", sub],
+          makeFakeIo({ env: (key) => env[key] }),
+          { stdout: () => {}, stderr: (text) => void err.push(text) },
+        );
+        assertEquals(code, 1);
+        assertEquals(
+          err.join(""),
+          `mpu mcp ${sub}: HOME не задана: ни каталог служб, ни путь ` +
+            "установки не вычислить\n",
+        );
+      });
+    }
+  }
+});
+
 Deno.test("status без описания: «не установлена» и нулевой код", async () => {
   await withDir(async (dir) => {
     const result = await runStatus(makeFakeIo(), { deps: fakeDeps(dir) });
