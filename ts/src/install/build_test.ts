@@ -1,4 +1,9 @@
-import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
+import {
+  assertEquals,
+  assertMatch,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
 import { DomainError } from "../command/mod.ts";
 import {
   build,
@@ -245,6 +250,8 @@ Deno.test("дерево исходников: три кандидата в по�
           `${plan.tree}\n`,
           plan.tree,
           `${plan.tree} \t\nвторая строка\n`,
+          // Ведущий BOM редакторы ставят молча, а в терминале он невидим.
+          `\uFEFF${plan.tree}\n`,
         ];
         for (const text of texts) {
           await t.step(JSON.stringify(text), async () => {
@@ -312,6 +319,11 @@ Deno.test("дерево исходников: три кандидата в по�
             "mpu/ts\n",
             "запомненное дерево: mpu/ts — не абсолютный путь",
           ],
+          [
+            "BOM перед относительным путём",
+            "\uFEFFmpu/ts\n",
+            "запомненное дерево: mpu/ts — не абсолютный путь",
+          ],
           ["путь без дерева", `${empty}\n`, `запомненное дерево: ${empty}`],
         ];
         for (const [name, text, third] of cases) {
@@ -342,17 +354,24 @@ Deno.test("нечитаемый build-source не роняет поиск: оп�
     const empty = `${plan.home}/пусто`;
     const refused = await findSourceTree(empty, "/", plan.configHome);
     assertEquals(refused.tree, undefined);
-    assertEquals(refused.checked.slice(0, 2), [
+    // Причина — первая строка той же системной ошибки, какую даёт чтение
+    // этого файла: путь в ней уже назван ОС и отдельно не повторяется.
+    const reason = await Deno.readTextFile(file).then(
+      () => "файл прочитался",
+      (err: unknown) =>
+        (err instanceof Error ? err.message : String(err)).split("\n")[0],
+    );
+    assertEquals(refused.checked, [
       `рядом с программой: ${empty} — не <дерево>/bin`,
       "рабочая область: сентинел .mp-workspace-root не найден от /",
+      `запомненное дерево: не прочитано (${reason})`,
     ]);
-    // Текст причины — системный, его форма не наша; наш — всё до скобки.
-    assertEquals(
-      refused.checked[2].startsWith(
-        `запомненное дерево: ${file} не прочитан (`,
-      ),
-      true,
+    // Причина выше взята тем же чтением, что делает код, — форма
+    // проверяется ещё и независимо: наш префикс ровно такой, дальше одна
+    // строка системной ошибки в скобках.
+    assertMatch(
       refused.checked[2],
+      /^запомненное дерево: не прочитано \([^\n]*os error \d+[^\n]*\)$/,
     );
     await Deno.mkdir(`${plan.tree}/bin`, { recursive: true });
     const found = await findSourceTree(
@@ -416,12 +435,11 @@ Deno.test("успешная установка запоминает дерево
   await withPlan(async (plan) => {
     await remember(plan, "/прежнее/дерево\n");
     await Deno.chmod(rememberedPath(plan), 0o600);
-    // Брошенный прерванным прогоном временный файл с режимом 0600: запись
-    // в существующий файл режим сохраняет, и без явного chmod он доехал бы
-    // до build-source — при любом umask, а не только при 0002.
-    const stale = `${rememberedPath(plan)}.new`;
-    await Deno.writeTextFile(stale, "/брошенное\n");
-    await Deno.chmod(stale, 0o600);
+    // При нынешней записи временный файл создаётся `Deno.makeTempFile` с
+    // 0600, и без явного chmod build-source остался бы 0600 при любой
+    // umask. Если запись сменит способ создания файла, эта проверка снова
+    // будет зависеть от umask машины; выставить umask тест не может — у
+    // задачи test нет права `--allow-sys`.
     const outcome = await build(plan, fake().deps, false);
     assertEquals(outcome.remembered, { kind: "written" });
     assertEquals(
@@ -432,6 +450,84 @@ Deno.test("успешная установка запоминает дерево
     assertEquals((mode & 0o777).toString(8), "644");
     assertEquals(await names(dirOf(rememberedPath(plan))), ["build-source"]);
   });
+});
+
+Deno.test("чужой временный файл рядом не трогается: у записи своё имя", async () => {
+  // Гонка двух `mpu build` проверяется следом второго писателя, а не двумя
+  // вызовами наперегонки: порядок их шагов без шва в коде не задать, а
+  // флаки-повтор ничего не доказывает. Временный файл соседа под прежним
+  // общим именем уже лежит рядом — запись с общим именем перезаписала бы
+  // его и унесла переименованием, и сосед напечатал бы «не записано».
+  await withPlan(async (plan) => {
+    const foreign = `${rememberedPath(plan)}.new`;
+    await remember(plan, "/прежнее/дерево\n");
+    await Deno.writeTextFile(foreign, "/дерево-соседа\n");
+    const outcome = await build(plan, fake().deps, false);
+    assertEquals(outcome.remembered, { kind: "written" });
+    assertEquals(
+      await Deno.readTextFile(rememberedPath(plan)),
+      `${plan.tree}\n`,
+    );
+    assertEquals(await Deno.readTextFile(foreign), "/дерево-соседа\n");
+    assertEquals(await names(dirOf(rememberedPath(plan))), [
+      "build-source",
+      "build-source.new",
+    ]);
+  });
+});
+
+Deno.test("два одновременных build с общим каталогом конфигурации: оба записали", async () => {
+  // Дополнение к тесту следа соседа, а не замена: порядок шагов двух
+  // вызовов не задан, поэтому общее имя временного файла здесь ловится лишь
+  // в части прогонов (замер разбора порции 114 — 23 из 40), зато ловится
+  // любое общее имя, а не только `.new`. При верной записи тест зелёный
+  // всегда. Пути установки разные — общим остаётся только build-source.
+  await withPlan(async (plan) => {
+    const second = { ...plan, target: `${dirOf(plan.target)}-второй/mpu` };
+    const [first, other] = await Promise.all([
+      build(plan, fake().deps, false),
+      build(second, fake().deps, false),
+    ]);
+    assertEquals([first.remembered, other.remembered], [
+      { kind: "written" },
+      { kind: "written" },
+    ]);
+    assertEquals(
+      await Deno.readTextFile(rememberedPath(plan)),
+      `${plan.tree}\n`,
+    );
+    assertEquals(await names(dirOf(rememberedPath(plan))), ["build-source"]);
+  });
+});
+
+Deno.test("путь дерева с переводом строки не запоминается: отказ назван, файл не тронут", async (t) => {
+  // Такой путь читался бы обрезанным по первой строке и указал бы на
+  // другое дерево.
+  const cases = [["\\n", "дерево\nвторое"], ["\\r", "дерево\rвторое"]] as const;
+  for (const [name, dirName] of cases) {
+    await t.step(name, async () => {
+      await withPlan(async (plan) => {
+        const tree = `${dirOf(plan.tree)}/${dirName}`;
+        await Deno.mkdir(tree);
+        await Deno.copyFile(`${plan.tree}/deno.jsonc`, `${tree}/deno.jsonc`);
+        await Deno.writeTextFile(`${tree}/main.ts`, "");
+        await remember(plan, "/прежнее/дерево\n");
+        const outcome = await build({ ...plan, tree }, fake().deps, false);
+        assertEquals(outcome.installed, true);
+        assertEquals(outcome.remembered, {
+          kind: "failed",
+          reason: "путь дерева содержит перевод строки",
+        });
+        assertEquals(
+          await Deno.readTextFile(rememberedPath(plan)),
+          "/прежнее/дерево\n",
+        );
+        assertEquals(await names(dirOf(rememberedPath(plan))), [
+          "build-source",
+        ]);
+      });
+    });
+  }
 });
 
 Deno.test("первая установка создаёт каталог запомненного дерева", async () => {

@@ -148,14 +148,17 @@ async function rememberedTree(configHome: string): Promise<Candidate> {
     if (err instanceof Deno.errors.NotFound) return NOT_REMEMBERED;
     // Нечитаемый файл — не «не записано»: причина другая, и прятать её
     // нельзя. Но и поиск он не роняет: первые два кандидата от этого
-    // файла не зависят и выигрывают, как при любом другом отказе.
-    const reason = err instanceof Error ? err.message : String(err);
+    // файла не зависят и выигрывают, как при любом другом отказе. Путь
+    // файла в причине уже назван ОС и отдельно не повторяется.
+    const message = err instanceof Error ? err.message : String(err);
     return {
       tree: undefined,
-      checked: `запомненное дерево: ${file} не прочитан (${reason})`,
+      checked: `запомненное дерево: не прочитано (${message.split("\n")[0]})`,
     };
   }
-  const path = text.split("\n")[0].trimEnd();
+  // Ведущий BOM ставят редакторы молча, а в терминале он невидим: не
+  // снятый, он превратил бы абсолютный путь в «не абсолютный».
+  const path = text.split("\n")[0].replace(/^\uFEFF/, "").trimEnd();
   if (path === "") return NOT_REMEMBERED;
   if (!path.startsWith("/")) {
     return {
@@ -289,20 +292,31 @@ async function rememberTree(
   configHome: string,
   tree: string,
 ): Promise<RememberFate> {
+  // Путь с переводом строки читался бы обрезанным по первой строке и
+  // указал бы на другое дерево — такой путь не записывается вовсе.
+  if (/[\n\r]/.test(tree)) {
+    return { kind: "failed", reason: "путь дерева содержит перевод строки" };
+  }
   const file = rememberedFile(configHome);
-  const temp = `${file}.new`;
+  const dir = file.slice(0, file.lastIndexOf("/"));
+  let temp: string | undefined;
   try {
-    await Deno.mkdir(file.slice(0, file.lastIndexOf("/")), { recursive: true });
+    await Deno.mkdir(dir, { recursive: true });
+    // Имя временного файла уникально на вызов: два одновременных
+    // `mpu build` с общим каталогом конфигурации иначе писали бы в один
+    // файл, и один из них печатал бы «не записано» при записанном пути.
+    temp = await Deno.makeTempFile({ dir, prefix: "build-source." });
     await Deno.writeTextFile(temp, `${tree}\n`);
-    // Режим при создании урезается umask'ом — права задаются явно.
+    // `makeTempFile` создаёт файл 0600, а build-source читают и руками, и
+    // из-под других учётных записей — отсюда явные 0644.
     await Deno.chmod(temp, 0o644);
     await Deno.rename(temp, file);
     return { kind: "written" };
   } catch (err) {
-    // Любой отказ этих четырёх вызовов — отказ записи, и установку он не
+    // Любой отказ этих вызовов — отказ записи, и установку он не
     // отменяет. Неудача уборки временного файла заменила бы причину
     // следствием.
-    await Deno.remove(temp).catch(() => {});
+    if (temp !== undefined) await Deno.remove(temp).catch(() => {});
     const reason = err instanceof Error ? err.message : String(err);
     return { kind: "failed", reason };
   }
