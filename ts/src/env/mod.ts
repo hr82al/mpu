@@ -21,10 +21,15 @@ export interface EnvFileStore {
 }
 
 /**
- * Каталог конфигурации по XDG: XDG_CONFIG_HOME (непустая) →
+ * Каталог конфигурации по XDG: XDG_CONFIG_HOME (абсолютный путь) →
  * $HOME/.config; иначе undefined. Пустая переменная равнозначна
  * незаданной — обе, и как в соседнем `defaultStateDir`
- * (`src/runtime/mod.ts`).
+ * (`src/runtime/mod.ts`). Относительная XDG_CONFIG_HOME (`cfg`, `./cfg`,
+ * `~/cfg` — тильду оболочка в значении переменной не раскрывает) тоже
+ * равнозначна незаданной: спецификация XDG Base Directory велит считать
+ * такой путь недействительным и игнорировать, а иначе каталог
+ * конфигурации зависел бы от текущего каталога вызова
+ * (`docs/specs/platform/env-file.md`, «Граничные случаи и ошибки»).
  *
  * Правило одно на всех, кто строит путь под этим каталогом: подкаталог
  * `mpu` с env-файлом и токен-кэшем (`configHomeDir` ниже), каталог
@@ -36,7 +41,10 @@ export function xdgConfigHome(
   readEnv: (name: string) => string | undefined,
 ): string | undefined {
   const configured = readEnv("XDG_CONFIG_HOME");
-  if (configured !== undefined && configured !== "") return configured;
+  // Абсолютность отсекает и пустое значение, и относительное.
+  if (configured !== undefined && configured.startsWith("/")) {
+    return configured;
+  }
   const home = readEnv("HOME");
   return home === undefined || home === "" ? undefined : `${home}/.config`;
 }

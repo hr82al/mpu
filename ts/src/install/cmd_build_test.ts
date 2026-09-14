@@ -35,12 +35,16 @@ Deno.test("дерево исходников не найдено — отказ 
   }
 });
 
-Deno.test("запомненное дерево читается из $XDG_CONFIG_HOME/mpu, пустая — $HOME/.config", async (t) => {
+Deno.test("запомненное дерево читается из $XDG_CONFIG_HOME/mpu, пустая или относительная — $HOME/.config", async (t) => {
   const cases: ReadonlyArray<
     readonly [string, (home: string) => string | undefined, string]
   > = [
     ["XDG_CONFIG_HOME задана", (home) => `${home}/xdg`, "xdg"],
     ["XDG_CONFIG_HOME пуста", () => "", ".config"],
+    // Относительная — как незаданная (`platform/env-file.md`): тот же путь
+    // держат и права собираемого бинаря, поэтому команда обязана брать
+    // каталог общим правилом, а не читать переменную сама.
+    ["XDG_CONFIG_HOME относительная", () => "cfg", ".config"],
     ["XDG_CONFIG_HOME не задана", () => undefined, ".config"],
   ];
   for (const [name, xdg, configDir] of cases) {

@@ -1,6 +1,11 @@
 import { assertEquals, assertRejects, assertThrows } from "@std/assert";
 import { DomainError } from "../command/mod.ts";
-import { envFilePath, type EnvFileStore, makeEnvFile } from "./mod.ts";
+import {
+  envFilePath,
+  type EnvFileStore,
+  makeEnvFile,
+  xdgConfigHome,
+} from "./mod.ts";
 
 function fakeStore(text: string | undefined) {
   let reads = 0;
@@ -38,6 +43,35 @@ Deno.test("путь: XDG_CONFIG_HOME, HOME, ни того ни другого", 
       name,
       () => assertEquals(envFilePath((n) => env[n]), expected),
     );
+  }
+});
+
+Deno.test("каталог конфигурации: пустая и относительная XDG_CONFIG_HOME — как незаданная", async (t) => {
+  // Относительное значение спецификация XDG велит игнорировать: иначе
+  // каталог конфигурации зависел бы от текущего каталога вызова
+  // (`platform/env-file.md`, «Граничные случаи и ошибки»). Тильду оболочка
+  // в значении переменной не раскрывает — `~/cfg` тоже относительный.
+  const cases: ReadonlyArray<
+    readonly [string, Readonly<Record<string, string>>, string | undefined]
+  > = [
+    ["абсолютная", { XDG_CONFIG_HOME: "/abs", HOME: "/дом" }, "/abs"],
+    ["пустая", { XDG_CONFIG_HOME: "", HOME: "/дом" }, "/дом/.config"],
+    ["не задана", { HOME: "/дом" }, "/дом/.config"],
+    ["cfg", { XDG_CONFIG_HOME: "cfg", HOME: "/дом" }, "/дом/.config"],
+    ["./cfg", { XDG_CONFIG_HOME: "./cfg", HOME: "/дом" }, "/дом/.config"],
+    ["../cfg", { XDG_CONFIG_HOME: "../cfg", HOME: "/дом" }, "/дом/.config"],
+    ["~/cfg", { XDG_CONFIG_HOME: "~/cfg", HOME: "/дом" }, "/дом/.config"],
+    [
+      "относительная, HOME пуст",
+      { XDG_CONFIG_HOME: "cfg", HOME: "" },
+      undefined,
+    ],
+    ["относительная, HOME не задан", { XDG_CONFIG_HOME: "cfg" }, undefined],
+  ];
+  for (const [name, env, expected] of cases) {
+    await t.step(name, () => {
+      assertEquals(xdgConfigHome((key) => env[key]), expected);
+    });
   }
 });
 
