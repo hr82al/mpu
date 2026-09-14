@@ -255,71 +255,154 @@ Deno.test("вход: ожидание человека под предел пе�
   }
 });
 
-Deno.test("вход: сообщения клиента о ходе входа — строками хода, не в stdout", async () => {
+Deno.test("вход: сообщения клиента о ходе входа — строками хода, не в stdout", async (t) => {
   // «stdout входа» (`telegram-login.md`, инвариант 3): без обработчиков
   // `start` библиотеки печатает «The confirmation code has been sent via …»
   // и «Invalid code…» прямым `console.log`, мимо платформы клиента.
   // Исполняется настоящий `start`; подменены только соединение и запросы к
-  // Telegram на внутреннем клиенте: код отправлен по SMS, первый код не
-  // подошёл, второго человек не ввёл.
-  const restoreClient = saveMethods(TelegramClient.prototype, ["connect"]);
-  const restoreBase = saveMethods(BaseTelegramClient.prototype, ["call"]);
-  const printed: unknown[][] = [];
-  const realLog = console.log;
-  const progress: string[] = [];
-  const answers = ["12345"];
+  // Telegram на внутреннем клиенте.
+  const cases = [
+    {
+      // Первый код не подошёл, второго человек не ввёл.
+      name: "код отправлен по SMS, первый не подошёл",
+      sentCodeType: { _: "auth.sentCodeTypeSms", length: 5 },
+      refusal: "PHONE_CODE_EMPTY",
+      progress: [
+        "# telegram: код подтверждения отправлен (sms)",
+        "# telegram: код не подошёл, попробуй ещё раз",
+      ],
+      questions: 2,
+    },
+    {
+      // Без обработчика библиотека отказывает сама; обработчик этот отказ
+      // снимает и обязан его повторить — иначе вход спросил бы код, который
+      // не придёт.
+      name: "нужна настройка почты — отказ, кода не спрашивают",
+      sentCodeType: { _: "auth.sentCodeTypeSetUpEmailRequired" },
+      refusal: "Email login setup is required to sign in",
+      progress: [],
+      questions: 0,
+    },
+  ];
+  for (const { name, sentCodeType, refusal, progress, questions } of cases) {
+    await t.step(name, async () => {
+      const restoreClient = saveMethods(TelegramClient.prototype, ["connect"]);
+      const restoreBase = saveMethods(BaseTelegramClient.prototype, ["call"]);
+      const printed: unknown[][] = [];
+      const realLog = console.log;
+      const lines: string[] = [];
+      const answers = ["12345"];
+      let asked = 0;
+      const client = openLoginClient(
+        { apiId: "1", apiHash: "проба" },
+        undefined,
+      );
+      try {
+        console.log = (...args: unknown[]) => void printed.push(args);
+        Reflect.set(
+          TelegramClient.prototype,
+          "connect",
+          function (this: TelegramClient) {
+            this.onConnectionState.emit("connected");
+            return Promise.resolve();
+          },
+        );
+        Reflect.set(
+          BaseTelegramClient.prototype,
+          "call",
+          (request: { readonly _: string }) => {
+            switch (request._) {
+              case "users.getUsers":
+                return Promise.reject(
+                  new tl.RpcError(401, "AUTH_KEY_UNREGISTERED"),
+                );
+              case "auth.sendCode":
+                return Promise.resolve({
+                  _: "auth.sentCode",
+                  type: sentCodeType,
+                  phoneCodeHash: "хеш",
+                });
+              case "auth.signIn":
+                return Promise.reject(
+                  new tl.RpcError(400, "PHONE_CODE_INVALID"),
+                );
+              default:
+                return Promise.reject(
+                  new Error(`неожиданный запрос ${request._}`),
+                );
+            }
+          },
+        );
+        const err = await assertRejects(
+          () =>
+            client.signIn("+70000000000", {
+              ask: () => {
+                asked++;
+                return Promise.resolve(answers.shift());
+              },
+              askSecret: () => Promise.resolve(undefined),
+              progress: (line) => void lines.push(line),
+            }),
+          VerbatimError,
+        );
+        assertEquals(err.message.includes(refusal), true, err.message);
+        assertEquals(printed, [], "библиотека писала в stdout");
+        assertEquals(lines, progress, "строки хода");
+        assertEquals(asked, questions, "число вопросов кода");
+      } finally {
+        console.log = realLog;
+        restoreBase();
+        restoreClient();
+        await client.close();
+      }
+    });
+  }
+});
+
+Deno.test("вход: неверный пароль и неверный код — каждый своей строкой хода", async () => {
+  // Настоящий путь неверного пароля идёт через SRP-расчёт перед
+  // `auth.checkPassword`, поэтому здесь `start` подменён: он зовёт
+  // обработчик неверного ввода в том порядке, что и библиотека, — сначала
+  // цикл кода, затем, после `SESSION_PASSWORD_NEEDED`, цикл пароля.
+  const proto = TelegramClient.prototype;
+  const restore = saveMethods(proto, ["connect", "start", "exportSession"]);
+  const lines: string[] = [];
   const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
   try {
-    console.log = (...args: unknown[]) => void printed.push(args);
+    Reflect.set(proto, "connect", function (this: TelegramClient) {
+      this.onConnectionState.emit("connected");
+      return Promise.resolve();
+    });
     Reflect.set(
-      TelegramClient.prototype,
-      "connect",
-      function (this: TelegramClient) {
-        this.onConnectionState.emit("connected");
-        return Promise.resolve();
+      proto,
+      "start",
+      async (params: {
+        readonly invalidCodeCallback: (
+          type: "code" | "password",
+        ) => Promise<void> | void;
+      }) => {
+        await params.invalidCodeCallback("code");
+        await params.invalidCodeCallback("password");
+        return {};
       },
     );
     Reflect.set(
-      BaseTelegramClient.prototype,
-      "call",
-      (request: { readonly _: string }) => {
-        switch (request._) {
-          case "users.getUsers":
-            return Promise.reject(
-              new tl.RpcError(401, "AUTH_KEY_UNREGISTERED"),
-            );
-          case "auth.sendCode":
-            return Promise.resolve({
-              _: "auth.sentCode",
-              type: { _: "auth.sentCodeTypeSms", length: 5 },
-              phoneCodeHash: "хеш",
-            });
-          case "auth.signIn":
-            return Promise.reject(new tl.RpcError(400, "PHONE_CODE_INVALID"));
-          default:
-            return Promise.reject(new Error(`неожиданный запрос ${request._}`));
-        }
-      },
+      proto,
+      "exportSession",
+      () => Promise.resolve(convertFromTelethonSession(TELETHON)),
     );
-    const err = await assertRejects(
-      () =>
-        client.signIn("+70000000000", {
-          ask: () => Promise.resolve(answers.shift()),
-          askSecret: () => Promise.resolve(undefined),
-          progress: (line) => void progress.push(line),
-        }),
-      VerbatimError,
-    );
-    assertEquals(err.message.includes("PHONE_CODE_EMPTY"), true, err.message);
-    assertEquals(printed, [], "библиотека писала в stdout");
-    assertEquals(progress, [
-      "# telegram: код подтверждения отправлен (sms)",
+    const session = await client.signIn("+70000000000", {
+      ask: () => Promise.resolve(undefined),
+      askSecret: () => Promise.resolve(undefined),
+      progress: (line) => void lines.push(line),
+    });
+    assertEquals(session, TELETHON);
+    assertEquals(lines, [
       "# telegram: код не подошёл, попробуй ещё раз",
+      "# telegram: пароль не подошёл, попробуй ещё раз",
     ]);
   } finally {
-    console.log = realLog;
-    restoreBase();
-    restoreClient();
+    restore();
     await client.close();
   }
 });
