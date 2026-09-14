@@ -15,10 +15,11 @@
  * (`ts/CLAUDE.md`).
  */
 
-import { assertEquals, assertRejects } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
 import { type KaitenAccess, KaitenError } from "./mod.ts";
 import {
+  KAITEN_TIMEOUTS,
   kaitenCall,
   kaitenCallArray,
   kaitenCallCursorPaged,
@@ -263,6 +264,12 @@ Deno.test("пределы Kaiten по умолчанию — свои, а не �
   });
 
   await t.step("заголовков нет 15 с — отказ пределом Kaiten", async () => {
+    // Часы сдвигаются за предел всего вызова: он срабатывает при любом
+    // пределе заголовков, и слишком широкий предел даёт отказ с другим
+    // сообщением (`no response within …`), а не вечное ожидание. Без
+    // предела вызова сдвигать не за что — это само нарушение спеки.
+    const total = KAITEN_TIMEOUTS.totalTimeoutMs;
+    assert(total !== null, "у вызова Kaiten нет предела времени");
     const arrived = Promise.withResolvers<void>();
     const pending = Promise.withResolvers<Response>();
     const { baseUrl, stop } = startFakeKaiten(() => {
@@ -281,10 +288,7 @@ Deno.test("пределы Kaiten по умолчанию — свои, а не �
         "no response headers within 15000ms",
       );
       await arrived.promise;
-      // Сдвиг почти на весь предел вызова, а не ровно на 15 с: предел
-      // заголовков шире спеки не сработал бы вовсе, и тест ждал бы вечно
-      // вместо того, чтобы покраснеть другим числом в сообщении.
-      await time.tickAsync(29_999);
+      await time.tickAsync(total + 1);
       await rejected;
     } finally {
       pending.resolve(Response.json({}));
