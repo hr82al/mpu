@@ -236,6 +236,86 @@ Deno.test("пределы времени — на каждом вызове ка
   }
 });
 
+/**
+ * Kaiten, отдающий заголовки и начало тела, а остаток — только по
+ * `finish()`: вызов, получивший заголовки, упирается в чтение тела, и
+ * ограничивает его уже предел всего вызова. `stop` сперва отпускает тело —
+ * иначе сервер ждал бы его вечно.
+ */
+function stalledKaiten(head: string, tail: string): {
+  readonly baseUrl: string;
+  readonly finish: () => void;
+  readonly stop: () => Promise<void>;
+} {
+  const gate = Promise.withResolvers<void>();
+  const encoder = new TextEncoder();
+  const { baseUrl, stop } = startFakeKaiten(() =>
+    new Response(
+      new ReadableStream<Uint8Array>({
+        async start(controller) {
+          controller.enqueue(encoder.encode(head));
+          await gate.promise;
+          controller.enqueue(encoder.encode(tail));
+          controller.close();
+        },
+      }),
+    )
+  );
+  return {
+    baseUrl,
+    finish: () => gate.resolve(),
+    stop: async () => {
+      gate.resolve();
+      await stop();
+    },
+  };
+}
+
+/**
+ * Момент «клиент получил заголовки». Транспорт снимает таймер предела
+ * заголовков ровно тогда, когда они пришли (`../http/mod.ts`), а приходят
+ * они настоящим вводом-выводом: сдвиг поддельных часов раньше этого
+ * момента сработал бы пределом заголовков, и тест покраснел бы не по
+ * делу. Таймер узнаётся по сроку — первый, поставленный на
+ * `headersTimeoutMs`, — поэтому неверная константа не превращает ожидание
+ * в вечное.
+ *
+ * Действует только до первого сдвига часов: `tickAsync` через
+ * `FakeTime.restoreFor` заново ставит свои глобалы и молча стирает
+ * обёртку. Поэтому ставить её и дожидаться снятия таймера — до первого
+ * `tickAsync`; иначе таймер не будет пойман, и тест повиснет.
+ */
+function watchHeadersTimer(headersTimeoutMs: number): {
+  readonly cleared: Promise<void>;
+  [Symbol.dispose](): void;
+} {
+  const set = globalThis.setTimeout;
+  const clear = globalThis.clearTimeout;
+  const cleared = Promise.withResolvers<void>();
+  type TimerId = ReturnType<typeof setTimeout>;
+  let watched: TimerId | undefined;
+  const watchedSet = (...args: Parameters<typeof setTimeout>): TimerId => {
+    const id = set(...args);
+    if (watched === undefined && args[1] === headersTimeoutMs) watched = id;
+    return id;
+  };
+  // Приведение — тем же приёмом, что у самого `FakeTime`: `setTimeout`
+  // здесь типизирован по Node, с перегрузками, и функция с одной
+  // сигнатурой им не равна.
+  globalThis.setTimeout = watchedSet as unknown as typeof setTimeout;
+  globalThis.clearTimeout = (id?: Parameters<typeof clearTimeout>[0]) => {
+    if (id !== undefined && id === watched) cleared.resolve();
+    clear(id);
+  };
+  return {
+    cleared: cleared.promise,
+    [Symbol.dispose]() {
+      globalThis.setTimeout = set;
+      globalThis.clearTimeout = clear;
+    },
+  };
+}
+
 Deno.test("пределы Kaiten по умолчанию — свои, а не общие пределы транспорта", async (t) => {
   // Время поддельное: пределы спеки — 15 с и 30 с, и ждать их стеной
   // тест не может (`ts/CLAUDE.md`). Запрос доходит до сервера настоящим
@@ -292,6 +372,61 @@ Deno.test("пределы Kaiten по умолчанию — свои, а не �
       await rejected;
     } finally {
       pending.resolve(Response.json({}));
+      await stop();
+    }
+  });
+
+  await t.step(
+    "тело позже предела заголовков, но раньше предела вызова — успех",
+    async () => {
+      // Живость доказывается ответом, а не отсутствием отказа: отказ через
+      // `node:http` доставляется не сразу, и промис, «ещё не отклонённый»
+      // сразу после сдвига часов, мог быть уже обречён. Отменённый вызов
+      // дочитанного тела не вернул бы.
+      const { baseUrl, finish, stop } = stalledKaiten('{"id":', "7}");
+      try {
+        using time = new FakeTime();
+        using watch = watchHeadersTimer(KAITEN_TIMEOUTS.headersTimeoutMs);
+        const call = kaitenCall(accessTo(baseUrl), {
+          method: "GET",
+          path: "/users/current",
+        }).then((value) => ({ value }), (error: unknown) => ({ error }));
+        await Promise.race([watch.cleared, call]);
+        await time.tickAsync(KAITEN_TIMEOUTS.headersTimeoutMs + 1);
+        finish();
+        assertEquals(await call, { value: { id: 7 } });
+      } finally {
+        await stop();
+      }
+    },
+  );
+
+  await t.step("тело не приходит — отказ пределом вызова 30 с", async () => {
+    // Часы — за верхнюю из двух границ, спеки и константы: неверный предел
+    // вызова даёт отказ с другим числом за миллисекунды, а не ожидание, до
+    // которого часы не дошли. Без предела вызова сдвигать не за что.
+    const total = KAITEN_TIMEOUTS.totalTimeoutMs;
+    assert(total !== null, "у вызова Kaiten нет предела времени");
+    const { baseUrl, stop } = stalledKaiten('{"id":', "7}");
+    try {
+      using time = new FakeTime();
+      using watch = watchHeadersTimer(KAITEN_TIMEOUTS.headersTimeoutMs);
+      const call = kaitenCall(accessTo(baseUrl), {
+        method: "GET",
+        path: "/users/current",
+      }).then((value) => ({ value }), (error: unknown) => ({ error }));
+      await Promise.race([watch.cleared, call]);
+      await time.tickAsync(Math.max(total, 30_000) + 1);
+      const outcome = await call;
+      assert(
+        "error" in outcome,
+        `вызов не отказал: ${JSON.stringify(outcome)}`,
+      );
+      assert(outcome.error instanceof KaitenError, String(outcome.error));
+      // Сообщение целиком, а не подстрокой: число предела — последнее в
+      // строке, и сверка целиком не пропустит ни хвоста, ни префикса.
+      assertEquals(outcome.error.message, "no response within 30000ms");
+    } finally {
       await stop();
     }
   });
