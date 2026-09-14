@@ -16,9 +16,10 @@ import {
 /**
  * Криптография клиента не поднялась: встроенный модуль не прочитан или не
  * принят (`crypto.ts`). Отказ приходит изнутри импорта строки сессии
- * (`session.ts`) или из первого обращения клиента при входе
- * (`telegramOperation`), и отличить его от непринятой строки и от отказа
- * протокола можно только по типу.
+ * (`session.ts`), из первого обращения клиента в операции
+ * (`telegramOperation`) или при входе (`loginRefusal`, `login_client.ts`),
+ * и отличить его от непринятой строки и от отказа протокола можно только
+ * по типу.
  * Лежит здесь, а не рядом с провайдером: слой ошибок лёгкий, и знание о
  * классе не тянет за собой клиент MTProto и его wasm.
  */
@@ -83,13 +84,23 @@ export async function telegramOperation<T>(
   try {
     return await body();
   } catch (err) {
-    if (err instanceof CryptoInitError) throw cryptoFailure(err);
-    // Своё оформление слоя — и доменное, и ошибка ввода: второй слой
-    // обёртки не только исказил бы текст, но и понизил бы код 2 до 1.
-    throw err instanceof VerbatimError || err instanceof VerbatimUsageError
-      ? err
-      : telegramFailure(err);
+    throw layerFailure(err);
   }
+}
+
+/**
+ * Отказ одной строкой слоя: сбой криптографии — своим текстом, своё
+ * оформление слоя — как есть, прочее — отказ протокола.
+ */
+export function layerFailure(
+  err: unknown,
+): VerbatimError | VerbatimUsageError {
+  if (err instanceof CryptoInitError) return cryptoFailure(err);
+  // Своё оформление слоя — и доменное, и ошибка ввода: второй слой
+  // обёртки не только исказил бы текст, но и понизил бы код 2 до 1.
+  return err instanceof VerbatimError || err instanceof VerbatimUsageError
+    ? err
+    : telegramFailure(err);
 }
 
 /** Текст отказа протокола: поле `text`, иначе сообщение ошибки. */

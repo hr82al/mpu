@@ -21,11 +21,14 @@
 import { convertToTelethonSession } from "@mtcute/convert";
 import {
   MemoryStorage,
+  MtcuteError,
   proxyTransportFromUrl,
   TelegramClient,
+  tl,
 } from "@mtcute/deno";
+import { VerbatimError, VerbatimUsageError } from "../command/mod.ts";
 import { telegramCrypto } from "./crypto.ts";
-import { telegramOperation } from "./errors.ts";
+import { CryptoInitError, layerFailure } from "./errors.ts";
 import type { AppKeys, LoginClient, LoginPrompts } from "./login.ts";
 import { type ProxySettings, proxyUrl } from "./proxy.ts";
 
@@ -50,8 +53,8 @@ export function openLoginClient(
     disableUpdates: true,
   });
   return {
-    signIn: (phone, prompts) =>
-      telegramOperation(async () => {
+    signIn: async (phone, prompts) => {
+      try {
         await client.start({
           phone: () => Promise.resolve(phone),
           // Код — обычный ввод, пароль второго фактора — скрытый
@@ -64,7 +67,10 @@ export function openLoginClient(
         // ровно одному вызывающему — сценарию, который кладёт её в
         // env-файл.
         return sharedSessionString(await client.exportSession());
-      }),
+      } catch (err) {
+        throw loginRefusal(err);
+      }
+    },
     close: async () => {
       await client.destroy();
     },
@@ -84,6 +90,24 @@ export function sharedSessionString(
   exported: Parameters<typeof convertToTelethonSession>[0],
 ): string {
   return convertToTelethonSession(exported);
+}
+
+/**
+ * Отказ входа: строкой слоя — только отказ, пришедший от Telegram или от
+ * клиента (`tl.RpcError`, `MtcuteError`, сбой криптографии, своё
+ * оформление слоя); дальше он становится пропуском. Прочее — дефект своего
+ * кода, отказ терминала на вопросе кода — отдаётся как есть: переоформлять
+ * его в `RPC error` значило бы выдать ошибку программы за отказ Telegram
+ * (`telegram-login.md`, инвариант 3). Различение — здесь, а не в
+ * `errors.ts`: классы библиотеки знает только модуль, который её грузит.
+ */
+export function loginRefusal(err: unknown): unknown {
+  const fromClient = err instanceof tl.RpcError ||
+    err instanceof MtcuteError ||
+    err instanceof CryptoInitError ||
+    err instanceof VerbatimError ||
+    err instanceof VerbatimUsageError;
+  return fromClient ? layerFailure(err) : err;
 }
 
 /** Видимый вопрос; ответа нет — пустая строка, решает библиотека. */

@@ -13,7 +13,12 @@
  * замеру оригинала 2026-08-31).
  */
 
-import type { EnvFile, TerminalIo } from "../command/mod.ts";
+import {
+  type EnvFile,
+  type TerminalIo,
+  VerbatimError,
+  VerbatimUsageError,
+} from "../command/mod.ts";
 import { firstLine } from "../http/mod.ts";
 
 /** Ключи env-файла, которыми распоряжается вход. */
@@ -187,11 +192,13 @@ export async function runLogin(io: LoginIo): Promise<LoginResult> {
   if (number === undefined) return skip(io, "телефон не введён");
   // Сбой самого входа — неверный код, недоступная служба, битый прокси,
   // сбой криптографии клиента — «пропущено» с причиной, а не отказ
-  // (инвариант 3): и у отдельной команды, и у шага `mpu init`.
+  // (инвариант 3): и у отдельной команды, и у шага `mpu init`. Прочее —
+  // дефект кода, отказ терминала — всплывает с исходным текстом.
   let client: LoginClient;
   try {
     client = await io.openClient(keys.keys);
   } catch (err) {
+    if (!isLayerRefusal(err)) throw err;
     return skip(io, loginFailureReason(err));
   }
   try {
@@ -199,6 +206,7 @@ export async function runLogin(io: LoginIo): Promise<LoginResult> {
     try {
       session = await client.signIn(number, prompts);
     } catch (err) {
+      if (!isLayerRefusal(err)) throw err;
       return skip(io, loginFailureReason(err));
     }
     // Единственное место, куда уходит строка сессии.
@@ -208,6 +216,16 @@ export async function runLogin(io: LoginIo): Promise<LoginResult> {
   } finally {
     await client.close();
   }
+}
+
+/**
+ * Сбой самого входа — отказ, уже оформленный слоем Telegram строкой
+ * `telegram: …`: отказ протокола, непригодный прокси, сбой криптографии.
+ * Различение по типу: дефект своего кода и отказ терминала таким не
+ * бывают и пропуском не становятся (инвариант 3).
+ */
+function isLayerRefusal(err: unknown): boolean {
+  return err instanceof VerbatimError || err instanceof VerbatimUsageError;
 }
 
 /**

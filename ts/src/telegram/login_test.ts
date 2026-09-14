@@ -10,6 +10,7 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import type { TerminalIo } from "../command/mod.ts";
+import { configError } from "./errors.ts";
 import {
   API_HASH_KEY,
   API_ID_KEY,
@@ -40,6 +41,8 @@ function makeStand(opts: {
   terminal?: boolean;
   session?: string;
   signIn?: LoginClient["signIn"];
+  /** Отказ открытия клиента; не задан — клиент открывается. */
+  openFailure?: Error;
   onSet?: (name: string, value: string) => void;
 }): Stand {
   const written: Record<string, string> = {};
@@ -75,6 +78,9 @@ function makeStand(opts: {
     progress: (line) => void progress.push(line),
     openClient: () => {
       state.opened++;
+      if (opts.openFailure !== undefined) {
+        return Promise.reject(opts.openFailure);
+      }
       return Promise.resolve({
         signIn: opts.signIn ??
           (() => Promise.resolve(opts.session ?? SESSION)),
@@ -198,20 +204,23 @@ Deno.test("телефон: из env-файла берётся молча, вве
 
   await t.step("введён — сохраняется и переживает неудачный вход", async () => {
     // Телефон не секрет доступа, поэтому он записывается до входа
-    // (инвариант 2 спеки). Сбой самого входа — «пропущено» с причиной,
-    // а не отказ (инвариант 3): причина — первая строка текста отказа.
+    // (инвариант 2 спеки). Сбой самого входа — отказ, оформленный слоем, —
+    // «пропущено» с причиной (инвариант 3): первая строка текста отказа.
     const stand = makeStand({
       keys,
       answers: ["+70001112233"],
-      signIn: () => Promise.reject(new Error("код не подошёл\nподробности")),
+      signIn: () =>
+        Promise.reject(
+          configError("RPC error: PHONE_CODE_INVALID\nподробности"),
+        ),
     });
     assertEquals(await runLogin(stand.io), {
       status: "skipped",
-      reason: "код не подошёл",
+      reason: "telegram: RPC error: PHONE_CODE_INVALID",
     });
     assertEquals(
       stand.progress.at(-1),
-      "# telegram: пропущено (код не подошёл)",
+      "# telegram: пропущено (telegram: RPC error: PHONE_CODE_INVALID)",
     );
     assertEquals(stand.written, { [PHONE_KEY]: "+70001112233" });
   });
@@ -266,4 +275,56 @@ Deno.test("отказ записи сессии не выносит её в те
   });
   const err = await assertRejects(() => runLogin(stand.io), Error);
   assertEquals(err.message.includes(SESSION), false, err.message);
+});
+
+Deno.test("не сбой самого входа — не пропуск: отказ всплывает как есть", async (t) => {
+  // Инвариант 3, «Что считается сбоем самого входа»: пропуск — только за
+  // отказ, оформленный слоем; дефект своего кода и отказ терминала — код 1
+  // с исходным текстом, иначе ошибка программы маскируется под отказ Telegram.
+  const keys = {
+    [API_ID_KEY]: "1",
+    [API_HASH_KEY]: "hash",
+    [PHONE_KEY]: "+70001112233",
+  };
+  const cases: ReadonlyArray<
+    readonly [string, Parameters<typeof makeStand>[0], Error]
+  > = [
+    (() => {
+      const bug = new TypeError("Cannot read properties of undefined");
+      return [
+        "дефект кода при сборке клиента",
+        { keys, openFailure: bug },
+        bug,
+      ] as const;
+    })(),
+    (() => {
+      const bug = new TypeError("дефект своего кода во входе");
+      return [
+        "дефект кода внутри входа",
+        { keys, signIn: () => Promise.reject(bug) },
+        bug,
+      ] as const;
+    })(),
+    (() => {
+      const refused = new Error("терминал: не удалось прочитать ответ");
+      return [
+        "отказ терминала на вопросе кода",
+        { keys, signIn: () => Promise.reject(refused) },
+        refused,
+      ] as const;
+    })(),
+  ];
+  for (const [name, opts, expected] of cases) {
+    await t.step(name, async () => {
+      const stand = makeStand(opts);
+      const err = await assertRejects(() => runLogin(stand.io));
+      assertEquals(err, expected);
+      assertEquals(
+        stand.progress.some((line) => line.includes("пропущено")),
+        false,
+        stand.progress.join("\n"),
+      );
+      assertEquals(stand.written, {});
+    });
+  }
 });

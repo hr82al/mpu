@@ -5,15 +5,29 @@
  * запускается: оба случая отказывают до сети.
  */
 
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import type { EnvFile, TerminalIo } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
+import { telegramLoginCommand } from "./cmd_login.ts";
+
+/** Что меняет прогон команды относительно обычного. */
+interface LoginRun {
+  /** Ключи env-файла сверх ключей приложения. */
+  readonly extra?: Readonly<Record<string, string>>;
+  /** Ключ, чтение которого ломается дефектом кода. */
+  readonly broken?: string;
+  readonly argv?: readonly string[];
+  /** Куда складывать stderr — нужен, когда прогон отклоняется. */
+  readonly stderr?: string[];
+}
 
 /** Прогон команды: env-файл в памяти, телефон вводится с терминала. */
 async function login(
-  extra: Readonly<Record<string, string>>,
+  run: LoginRun = {},
 ): Promise<{ code: number; stderr: string; written: Record<string, string> }> {
+  const { extra = {}, broken, argv = ["telegram", "login"], stderr: err = [] } =
+    run;
   const values: Record<string, string> = {
     TELEGRAM_API_ID: "1",
     TELEGRAM_API_HASH: "проба",
@@ -21,7 +35,10 @@ async function login(
   };
   const written: Record<string, string> = {};
   const envFile: EnvFile = {
-    get: (name) => values[name],
+    get: (name) => {
+      if (name === broken) throw new TypeError(`дефект чтения ${name}`);
+      return values[name];
+    },
     require: (name) => values[name] ?? "",
     set: (name, value) => {
       written[name] = value;
@@ -38,9 +55,8 @@ async function login(
     readSecret: () => Promise.resolve(undefined),
     [Symbol.dispose]: () => {},
   };
-  const err: string[] = [];
   const code = await runCli(
-    ["telegram", "login"],
+    argv,
     makeFakeIo({ envFile, openTerminal: () => Promise.resolve(terminal) }),
     { stdout: () => {}, stderr: (text) => void err.push(text) },
   );
@@ -53,7 +69,7 @@ Deno.test("mpu telegram login: сбой самого входа — пропущ
     try {
       Deno.readFile = () =>
         Promise.reject(new Deno.errors.NotFound("нет встроенного модуля"));
-      const { code, stderr, written } = await login({});
+      const { code, stderr, written } = await login();
       assertEquals(code, 0, stderr);
       assertStringIncludes(
         stderr,
@@ -68,7 +84,7 @@ Deno.test("mpu telegram login: сбой самого входа — пропущ
 
   await t.step("битый прокси — причина текстом слоя", async () => {
     const { code, stderr, written } = await login({
-      TELEGRAM_PROXY: "ftp://127.0.0.1:1",
+      extra: { TELEGRAM_PROXY: "ftp://127.0.0.1:1" },
     });
     assertEquals(code, 0, stderr);
     assertStringIncludes(
@@ -78,4 +94,40 @@ Deno.test("mpu telegram login: сбой самого входа — пропущ
     assertEquals(stderr.includes("криптография"), false, stderr);
     assertEquals(written, { TELEGRAM_PHONE: "+70001112233" });
   });
+});
+
+Deno.test("mpu telegram login: дефект кода — не пропуск, а исходная ошибка наружу", async () => {
+  // Сборка клиента читает прокси из env-файла; дефект там — не отказ
+  // Telegram (инвариант 3, «Что считается сбоем самого входа»). Команда не
+  // оформляет его и не пропускает: ошибка уходит из `runCli` как есть, а
+  // код 1 и строку `mpu: unexpected error` ставит точка входа (`main.ts`).
+  const stderr: string[] = [];
+  await assertRejects(
+    () => login({ broken: "TELEGRAM_PROXY", stderr }),
+    TypeError,
+    "дефект чтения TELEGRAM_PROXY",
+  );
+  const printed = stderr.join("");
+  assertEquals(printed.includes("пропущено"), false, printed);
+  assertEquals(printed.includes("RPC error"), false, printed);
+});
+
+Deno.test("mpu telegram login: неверный вызов — код 2", async () => {
+  const { code, written } = await login({ argv: ["telegram", "login", "--x"] });
+  assertEquals(code, 2);
+  assertEquals(written, {});
+});
+
+Deno.test("справка mpu telegram login называет все три кода выхода", () => {
+  // Коды — часть контракта (`telegram-login.md`, инвариант 3): абзац
+  // держится дословно, иначе справка молча разойдётся с поведением.
+  const exit = telegramLoginCommand.help.slice(
+    telegramLoginCommand.help.indexOf("Exit:"),
+  );
+  assertEquals(
+    exit,
+    "Exit: 0 — успех и любой пропуск, в том числе сбой самого входа; 2 —\n" +
+      "неверный вызов (лишняя опция); 1 — сбой вне сценария: дефект\n" +
+      "программы, отказ терминала, записи env-файла или закрытия клиента.",
+  );
 });
