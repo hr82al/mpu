@@ -12,15 +12,7 @@
 
 import { DenoCryptoProvider } from "@mtcute/deno";
 import { initSync, SIMD_AVAILABLE } from "@mtcute/wasm";
-
-/**
- * Криптография клиента не поднялась: встроенный модуль не прочитан или не
- * принят. Отказ приходит изнутри импорта строки сессии, и отличить его от
- * непринятой строки можно только по типу (`session.ts`).
- */
-export class CryptoInitError extends Error {
-  override name = "CryptoInitError";
-}
+import { CryptoInitError } from "./errors.ts";
 
 /**
  * Провайдер криптографии клиента Telegram: всё от штатного, кроме

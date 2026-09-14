@@ -5,7 +5,8 @@
  */
 
 import { assertEquals, assertNotEquals, assertRejects } from "@std/assert";
-import { CryptoInitError, telegramCrypto } from "./crypto.ts";
+import { telegramCrypto } from "./crypto.ts";
+import { CryptoInitError } from "./errors.ts";
 
 Deno.test("криптография Telegram поднимается без сети: wasm не скачивается по адресу зависимости", async () => {
   // У собранной программы адрес модуля зависимости — `jsr.io`, поэтому

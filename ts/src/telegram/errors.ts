@@ -13,6 +13,17 @@ import {
   VerbatimUsageError,
 } from "../command/mod.ts";
 
+/**
+ * Криптография клиента не поднялась: встроенный модуль не прочитан или не
+ * принят (`crypto.ts`). Отказ приходит изнутри импорта строки сессии, и
+ * отличить его от непринятой строки можно только по типу (`session.ts`).
+ * Лежит здесь, а не рядом с провайдером: слой ошибок лёгкий, и знание о
+ * классе не тянет за собой клиент MTProto и его wasm.
+ */
+export class CryptoInitError extends Error {
+  override name = "CryptoInitError";
+}
+
 /** Ошибка ввода: адресат, текст сообщения. Код выхода 2, до сети. */
 export function inputError(
   reason: string,
