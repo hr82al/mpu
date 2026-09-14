@@ -17,7 +17,9 @@
  */
 
 import { Buffer } from "node:buffer";
+import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
+import { isStandHost } from "./stand.ts";
 
 // Сборщик тела `multipart/form-data` — часть поверхности транспорта:
 // потребителей у него двое (вызовы Kaiten с файлами и `sendDocument`
@@ -127,11 +129,13 @@ export interface SendOptions {
    */
   readonly insecure?: boolean;
   /**
-   * Прокси-URL для этого вызова; не задан — прямое соединение.
-   * Параметром, а не переменной окружения: окружение слой не читает
-   * (у собранного бинаря нет права), и адресность важна — прокси нужен
-   * вызовам наружу (`api.telegram.org`, `docs/specs/telegram-log.md`),
-   * а не обращениям к стенду, которые ходят напрямую.
+   * Прокси-URL для этого вызова. Не задан или пуст — адрес стенда
+   * (`./stand.ts`) соединяется напрямую, остальные адреса ведут себя как
+   * `fetch` без клиента, то есть идут через прокси окружения, если он
+   * задан (`docs/specs/platform/loki-http.md`, «Прокси окружения»). При
+   * `insecure` на `https:` не применяется. Параметром,
+   * а не переменной окружения: адресность важна — этот прокси нужен
+   * вызовам наружу (`api.telegram.org`, `docs/specs/telegram-log.md`).
    *
    * Схемы — те, что понимает клиент Deno: `http`, `https`, `socks5`,
    * `socks5h`. Пригодность значения проверяет вызывающий: у него есть
@@ -152,9 +156,12 @@ export interface SendOptions {
  * пришли, — дальше вызов ограничен только общим пределом. Вызова без
  * предела не существует: оба значения обязательны.
  *
- * Переменные прокси в вызове не участвуют: у собранного бинаря нет
- * права читать их (`deno.jsonc`, список `--allow-env`), поэтому
- * требование `platform/loki-http.md` выполнено по построению.
+ * Прокси окружения обходится только для адресов сети стенда
+ * (`./stand.ts`, `platform/loki-http.md`): они идут через `node:http`/
+ * `node:https`, которые переменных прокси не читают. Отказ в праве
+ * `--allow-env` здесь не помогает — `fetch` применяет прокси окружения и
+ * без него (замер спеки). Прочие адреса идут `fetch` и прокси окружения
+ * применяют, как прежде.
  */
 export async function httpGet(
   url: URL,
@@ -182,10 +189,25 @@ export function httpGetBytes(
   return withTimeouts(
     options.timeouts ?? DEFAULT_TIMEOUTS,
     (signal, onHeaders) =>
-      url.protocol === "https:" && insecure
-        ? sendInsecure(url, headers, signal, onHeaders)
+      isDirect(url, insecure, undefined)
+        ? sendDirect(url, headers, signal, onHeaders, { insecure })
         : sendFetch(url, { method: "GET", headers, signal }, onHeaders),
   );
+}
+
+/**
+ * Идёт ли вызов мимо `fetch`. Причин две: отключённая проверка TLS на
+ * `https:` (у `fetch` её не отключить; явный прокси при этом не
+ * применяется, как и до обхода) и адрес стенда без явного прокси (у
+ * `fetch` не отключить прокси окружения).
+ */
+function isDirect(
+  url: URL,
+  insecure: boolean,
+  client: Deno.HttpClient | undefined,
+): boolean {
+  if (url.protocol === "https:" && insecure) return true;
+  return client === undefined && isStandHost(url.hostname);
 }
 
 /**
@@ -202,6 +224,7 @@ export async function httpSend(
 ): Promise<HttpResponse> {
   const method = options.method ?? "GET";
   const headers = options.headers ?? {};
+  const insecure = options.insecure === true;
   // Клиент живёт ровно один вызов и закрывается в любом исходе: он
   // держит пул соединений, а незакрытый — незакрытый ресурс, на
   // котором санитайзеры тестов краснеют по делу.
@@ -210,8 +233,9 @@ export async function httpSend(
     const response = await withTimeouts(
       options.timeouts ?? DEFAULT_TIMEOUTS,
       (signal, onHeaders) =>
-        url.protocol === "https:" && options.insecure === true
-          ? sendInsecure(url, headers, signal, onHeaders, {
+        isDirect(url, insecure, client)
+          ? sendDirect(url, headers, signal, onHeaders, {
+            insecure,
             method,
             body: options.body,
           })
@@ -337,37 +361,47 @@ async function sendFetch(
 }
 
 /**
- * Путь с отключённой проверкой TLS-сертификата на `https:`: у Deno нет
- * клиентской опции, гасящей её у `fetch` (`Deno.createHttpClient` её не
- * имеет, `NODE_TLS_REJECT_UNAUTHORIZED` на `fetch` не влияет —
- * проверено в этом дереве). Единственный работающий путь — `node:https`
- * с `rejectUnauthorized: false`. Метод и тело — параметр: у Portainer
- * ими ходят доставка stdin (`PUT`) и создание exec'а (`POST`), и
- * отключать проверку им нужно ровно так же, как чтениям.
+ * Путь мимо `fetch` — `node:http`/`node:https` по схеме адреса (см.
+ * `isDirect`). Нужен дважды. Проверку TLS-сертификата у `fetch` не
+ * погасить (`Deno.createHttpClient` такой опции не имеет,
+ * `NODE_TLS_REJECT_UNAUTHORIZED` на `fetch` не влияет — проверено в этом
+ * дереве), а у `node:https` есть `rejectUnauthorized: false`. Прокси
+ * окружения `fetch` применяет всегда, а `node:*` не читает его вовсе.
+ * Метод и тело — параметр: у Portainer ими ходят доставка stdin (`PUT`)
+ * и создание exec'а (`POST`).
  */
-function sendInsecure(
+function sendDirect(
   url: URL,
   headers: Readonly<Record<string, string>>,
   signal: AbortSignal,
   onHeaders: () => void,
   payload: {
-    readonly method: string;
+    readonly insecure: boolean;
+    readonly method?: string;
     readonly body?: string | Uint8Array<ArrayBuffer>;
-  } = { method: "GET" },
+  },
 ): Promise<HttpBytesResponse> {
+  const secure = url.protocol === "https:";
+  const request = secure ? httpsRequest : httpRequest;
   return new Promise((resolve, reject) => {
-    const req = httpsRequest(
+    const req = request(
       {
         hostname: url.hostname,
-        port: url.port === "" ? 443 : Number(url.port),
+        port: url.port === "" ? (secure ? 443 : 80) : Number(url.port),
         path: `${url.pathname}${url.search}`,
-        method: payload.method,
-        // Длина тела известна всегда, и без неё `node:https` уходит в
+        method: payload.method ?? "GET",
+        // Длина тела известна всегда, и без неё `node:http` уходит в
         // chunked — на проводе это уже не тот запрос, что у `fetch`.
         headers: payload.body === undefined
           ? headers
           : { ...headers, "Content-Length": String(byteLength(payload.body)) },
-        rejectUnauthorized: false,
+        // У `http:` проверять нечего; у `https:` проверка отключается
+        // только по явному `insecure`.
+        rejectUnauthorized: !payload.insecure,
+        // Соединение живёт ровно один вызов. В общем пуле оно переживало
+        // отмену вызова, и `shutdown` сервера ждал его вечно (замер —
+        // зависание теста молчащего endpoint'а в `init`).
+        agent: false,
         signal,
       },
       (res) => {
