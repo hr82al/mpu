@@ -1574,6 +1574,18 @@ Deno.test("дефект своего кода на повторном опрос
 Deno.test("прерывание до остановки службы — уступки нет, stop не вызывается, сервер не поднимается", async (t) => {
   // Прерывание приходит во время каждого из опросов перед уступкой; опрос
   // отвечает, когда отпустит тест, — без снов.
+  //
+  // «Служба не трогается» — это и отсутствие попытки возврата: ни строки о
+  // ней, ни опроса сверх тех, что идут до решения об остановке. Гейт только
+  // задерживает свой ответ, поэтому опросы до остановки проходят все и в
+  // каждом шаге одни и те же.
+  const beforeStop = [
+    "is-active",
+    "is-enabled",
+    "show",
+    "is-active",
+    "is-enabled",
+  ];
   const polls = [
     ["первый вопрос о состоянии", "is-active", 1],
     ["вопрос о главном процессе", "show", 1],
@@ -1634,9 +1646,8 @@ Deno.test("прерывание до остановки службы — уст�
             );
             assertEquals(first, "код 0", stderr);
             assertEquals(outcome, "код 0", stderr);
-            assertEquals(stderr.includes("слушаю"), false, stderr);
-            assertEquals(calls.includes("stop"), false, calls.join(", "));
-            assertEquals(calls.includes("start"), false, calls.join(", "));
+            assertEquals(stderr, "", "запуск что-то напечатал");
+            assertEquals(calls, beforeStop, "менеджеру сказано лишнее");
             assertEquals(active.now, true, "служба тронута");
           },
         );
