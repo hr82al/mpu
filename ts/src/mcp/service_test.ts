@@ -9,6 +9,7 @@ import {
   restartService,
   type RunProgram,
   SERVICE_NAME,
+  serviceDepsIfAny,
   serviceDir,
   servicePid,
   sessionLinger,
@@ -74,6 +75,31 @@ Deno.test("описание: ExecStart — путь установки, аргу
 
 Deno.test("каталог служб — systemd/user каталога конфигурации", () => {
   assertEquals(serviceDir("/h/.config"), "/h/.config/systemd/user");
+});
+
+Deno.test("каталог служб берёт XDG_CONFIG_HOME общим правилом: пустая и относительная — как незаданная", async (t) => {
+  // Тест у потребителя, а не только у `xdgConfigHome`: служба со своим
+  // правилом (например, прежним «непустая») прошла бы тест функции и
+  // разошлась бы с остальными путями конфигурации (`platform/env-file.md`,
+  // «Граничные случаи и ошибки»). Точную копию правила тест поведения не
+  // отличит — единственность источника держит устройство кода.
+  const cases: ReadonlyArray<readonly [string, string, string]> = [
+    ["/x", "/x", "/x/systemd/user"],
+    ["пустая", "", "/h/.config/systemd/user"],
+    ["cfg", "cfg", "/h/.config/systemd/user"],
+    ["~/cfg", "~/cfg", "/h/.config/systemd/user"],
+    ["« /x»", " /x", "/h/.config/systemd/user"],
+  ];
+  for (const [name, xdg, expected] of cases) {
+    await t.step(name, () => {
+      const env: Readonly<Record<string, string>> = {
+        HOME: "/h",
+        XDG_CONFIG_HOME: xdg,
+      };
+      const deps = serviceDepsIfAny({ env: (key) => env[key] });
+      assertEquals(deps?.dir, expected);
+    });
+  }
 });
 
 Deno.test("enable: описание записано, автозапуск включён, служба поднята", async () => {

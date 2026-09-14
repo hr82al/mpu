@@ -61,6 +61,8 @@ Deno.test("каталог конфигурации: пустая и относи
     ["./cfg", { XDG_CONFIG_HOME: "./cfg", HOME: "/дом" }, "/дом/.config"],
     ["../cfg", { XDG_CONFIG_HOME: "../cfg", HOME: "/дом" }, "/дом/.config"],
     ["~/cfg", { XDG_CONFIG_HOME: "~/cfg", HOME: "/дом" }, "/дом/.config"],
+    // Пробел в начале не обрезается: такой путь не абсолютный.
+    ["« /x»", { XDG_CONFIG_HOME: " /x", HOME: "/дом" }, "/дом/.config"],
     [
       "относительная, HOME пуст",
       { XDG_CONFIG_HOME: "cfg", HOME: "" },
