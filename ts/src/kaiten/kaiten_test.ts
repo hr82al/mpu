@@ -22,11 +22,13 @@ import { openCacheDb } from "../store/mod.ts";
 import {
   collectKaitenWarmup,
   DEFAULT_KAITEN_LIMITS,
+  KAITEN_TIMEOUTS,
   type KaitenAccess,
   KaitenError,
   type KaitenLimits,
   requireKaitenAccess,
   retryDelayMs,
+  WARMUP_BUDGET_MS,
   writeKaitenWarmup,
 } from "./mod.ts";
 
@@ -49,6 +51,28 @@ function fakeServer(
 function accessTo(baseUrl: string): KaitenAccess {
   return { baseUrl, apiKey: API_KEY };
 }
+
+Deno.test("пределы прогрева по умолчанию — пределы Kaiten и бюджет не меньше 60 с", () => {
+  // Бюджет короче предела одного вызова отдал бы в пропуски всё
+  // недообойдённое из-за единственного медленного ответа
+  // (`kaiten-http.md`, «Запрос»).
+  assertEquals(DEFAULT_KAITEN_LIMITS, {
+    timeouts: KAITEN_TIMEOUTS,
+    budgetMs: WARMUP_BUDGET_MS,
+  });
+  assertEquals(
+    WARMUP_BUDGET_MS >= 60_000,
+    true,
+    `бюджет ${WARMUP_BUDGET_MS}ms`,
+  );
+  // У вызова Kaiten предел обязан быть: `null` — «предела нет».
+  const total = KAITEN_TIMEOUTS.totalTimeoutMs;
+  assertEquals(
+    total !== null && WARMUP_BUDGET_MS > total,
+    true,
+    `бюджет ${WARMUP_BUDGET_MS}ms и предел вызова ${KAITEN_TIMEOUTS.totalTimeoutMs}ms`,
+  );
+});
 
 /** Бюджет-без-ограничения (реальные секунды) для сценариев не про бюджет. */
 const AMPLE_LIMITS: KaitenLimits = DEFAULT_KAITEN_LIMITS;

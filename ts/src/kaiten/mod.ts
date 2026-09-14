@@ -13,6 +13,7 @@
  */
 
 export {
+  KAITEN_TIMEOUTS,
   type KaitenAccess,
   kaitenBaseUrl,
   type KaitenCallOptions,

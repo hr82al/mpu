@@ -16,12 +16,22 @@
 
 import {
   buildMultipartBody,
-  DEFAULT_TIMEOUTS,
   HttpCallError,
   httpSend,
   type MultipartPart,
   type RequestTimeouts,
 } from "../http/mod.ts";
+
+/**
+ * Пределы времени каждого вызова Kaiten (`kaiten-http.md`, «Запрос»):
+ * свои, а не общие пределы транспорта — отдельные ответы Kaiten идут
+ * дольше 3 с (замер спеки: до 5,6 с), а Loki и Portainer держат свои.
+ * Число видно в `--help` init.
+ */
+export const KAITEN_TIMEOUTS: RequestTimeouts = {
+  headersTimeoutMs: 15_000,
+  totalTimeoutMs: 30_000,
+};
 
 /** Дефолт `KITEN_BASE_URL`, когда переменная не задана (`kaiten-http.md`). */
 const DEFAULT_BASE_URL = "https://btlz.kaiten.ru";
@@ -151,7 +161,7 @@ export interface KaitenFormRequest extends KaitenRequest {
 
 /** Что вызывающий добавляет к запросу сверх его формы. */
 export interface KaitenCallOptions {
-  /** Пределы времени вызова; умолчание — числа спеки для всех вызовов. */
+  /** Пределы времени вызова; умолчание — `KAITEN_TIMEOUTS`. */
   readonly timeouts?: RequestTimeouts;
   /**
    * Накопитель строк повтора 429. Печатает их потребитель, поэтому
@@ -197,7 +207,7 @@ export async function kaitenCall(
   };
   if (contentType !== undefined) headers["Content-Type"] = contentType;
 
-  const timeouts = options.timeouts ?? DEFAULT_TIMEOUTS;
+  const timeouts = options.timeouts ?? KAITEN_TIMEOUTS;
   const deadlineMs = options.deadlineMs ?? null;
   const nowMs = options.nowMs ?? Date.now;
 

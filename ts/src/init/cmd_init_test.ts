@@ -30,7 +30,7 @@ import {
 } from "./cmd_init.ts";
 import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../http/mod.ts";
 import type { PortainerAccess } from "../portainer/mod.ts";
-import { WARMUP_BUDGET_MS } from "../kaiten/mod.ts";
+import { KAITEN_TIMEOUTS, WARMUP_BUDGET_MS } from "../kaiten/mod.ts";
 
 const API_KEY = "proba-portainer-key-K7x9Qz";
 
@@ -608,7 +608,7 @@ Deno.test("таймаут молчащего endpoint'а: строка ошиб�
       // такой сон запрещает). Продуктовые числа проверяет тест `--help`.
       const limits = {
         timeouts: { headersTimeoutMs: 60, totalTimeoutMs: 5_000 },
-        budgetMs: DEFAULT_INIT_LIMITS.budgetMs,
+        kaiten: DEFAULT_INIT_LIMITS.kaiten,
       };
       const start = performance.now();
       const result = await runInit(
@@ -1369,11 +1369,18 @@ Deno.test("секреты: API-ключ не появляется ни в stdout
 });
 
 Deno.test("--help содержит числа пределов и укладывается в 2048 байт с summary", () => {
-  assertEquals(initCommand.help.includes(String(HEADERS_TIMEOUT_MS)), true);
-  assertEquals(initCommand.help.includes(String(TOTAL_TIMEOUT_MS)), true);
-  assertEquals(initCommand.help.includes(String(WARMUP_BUDGET_MS)), true);
+  // Числа — одной точной подстрокой, а не каждое отдельным `includes`:
+  // «3000» нашлось бы и внутри «30000». Пределы Kaiten названы отдельно
+  // от общих (`platform/kaiten-http.md`).
+  assertStringIncludes(
+    initCommand.help,
+    `Portainer и Loki ${HEADERS_TIMEOUT_MS}/${TOTAL_TIMEOUT_MS} ms,\n` +
+      `Kaiten ${KAITEN_TIMEOUTS.headersTimeoutMs}/${KAITEN_TIMEOUTS.totalTimeoutMs} ms; ` +
+      `бюджет прогрева Kaiten ${WARMUP_BUDGET_MS} ms`,
+  );
   assertNotEquals(HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS);
-  assertNotEquals(TOTAL_TIMEOUT_MS, WARMUP_BUDGET_MS);
+  assertNotEquals(KAITEN_TIMEOUTS.headersTimeoutMs, HEADERS_TIMEOUT_MS);
+  assertNotEquals(KAITEN_TIMEOUTS.totalTimeoutMs, TOTAL_TIMEOUT_MS);
   const bytes = new TextEncoder().encode(
     `${initCommand.summary}\n\n${initCommand.help}`,
   ).length;
@@ -1862,7 +1869,7 @@ Deno.test("молчащий источник прогрева не тянет к
       // стеной тест не имеет права (`ts/CLAUDE.md`).
       const limits = {
         timeouts: { headersTimeoutMs: 60, totalTimeoutMs: 5_000 },
-        budgetMs: DEFAULT_INIT_LIMITS.budgetMs,
+        kaiten: DEFAULT_INIT_LIMITS.kaiten,
       };
       const start = performance.now();
       await runInit(
@@ -1886,6 +1893,44 @@ Deno.test("молчащий источник прогрева не тянет к
       );
     } finally {
       pending.resolve(new Response("{}"));
+      await stop();
+    }
+  });
+});
+
+Deno.test("шаг 4 ограничен пределами Kaiten, а не пределами Portainer и Loki", async () => {
+  await withTempDb(async (dbPath) => {
+    const pending = Promise.withResolvers<Response>();
+    const { baseUrl, stop } = fakeStand((url) =>
+      url.pathname === "/api/latest/spaces" ? pending.promise : undefined
+    );
+    try {
+      const progress: string[] = [];
+      const io = makeIo(dbPath, {
+        envFile: standEnv(baseUrl),
+        progress: (line) => void progress.push(`${line}\n`),
+      });
+      // Пределы групп разведены: если шаг 4 возьмёт общие, отказ назовёт
+      // 2000ms, а не предел Kaiten. Числа малы — ждать продуктовые
+      // секунды стеной тест не имеет права (`ts/CLAUDE.md`).
+      const limits = {
+        timeouts: { headersTimeoutMs: 2_000, totalTimeoutMs: 5_000 },
+        kaiten: {
+          timeouts: { headersTimeoutMs: 60, totalTimeoutMs: 5_000 },
+          budgetMs: DEFAULT_INIT_LIMITS.kaiten.budgetMs,
+        },
+      };
+      await runInit(
+        { portainer: undefined, "dry-run": false, reset: false },
+        io,
+        limits,
+      );
+      assertStringIncludes(
+        progress.join(""),
+        "# kaiten: пропущено (no response headers within 60ms)\n",
+      );
+    } finally {
+      pending.resolve(new Response("[]"));
       await stop();
     }
   });

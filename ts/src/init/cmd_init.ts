@@ -47,6 +47,9 @@ import {
 } from "../loki/mod.ts";
 import {
   collectKaitenWarmup,
+  DEFAULT_KAITEN_LIMITS,
+  KAITEN_TIMEOUTS,
+  type KaitenLimits,
   type KaitenWarmup,
   requireKaitenAccess,
   WARMUP_BUDGET_MS,
@@ -59,15 +62,19 @@ import { runTelegramLogin, type TelegramIo } from "./telegram.ts";
  * значения выбирает реализация, но пользователь обязан их видеть).
  */
 export interface InitLimits {
+  /** Пределы вызовов Portainer и Loki (шаги 2–3). */
   readonly timeouts: RequestTimeouts;
-  /** Бюджет шага 4: паузы retry 429 его не отменяют (`init.md`). */
-  readonly budgetMs: number;
+  /**
+   * Пределы шага 4 — свои у Kaiten (`platform/kaiten-http.md`): его
+   * ответы медленнее, чем выдерживают пределы Portainer и Loki.
+   */
+  readonly kaiten: KaitenLimits;
 }
 
 /** Пределы по умолчанию; их и подставляет объявление команды. */
 export const DEFAULT_INIT_LIMITS: InitLimits = {
   timeouts: DEFAULT_TIMEOUTS,
-  budgetMs: WARMUP_BUDGET_MS,
+  kaiten: DEFAULT_KAITEN_LIMITS,
 };
 
 const argsSchema = z.object({
@@ -504,9 +511,9 @@ PORTAINER_VERIFY_TLS (=true без учёта регистра включает 
 TLS-сертификата, иначе выключена), LOKI_URL, KITEN_API_KEY,
 KITEN_BASE_URL.
 
-Пределы вызова: ${HEADERS_TIMEOUT_MS} ms до заголовков, ${TOTAL_TIMEOUT_MS} ms целиком;
-бюджет прогрева Kaiten ${WARMUP_BUDGET_MS} ms (паузы retry 429 его не
-отменяют; исчерпан — счётчик части «?»).
+Пределы (до заголовков/целиком): Portainer и Loki ${HEADERS_TIMEOUT_MS}/${TOTAL_TIMEOUT_MS} ms,
+Kaiten ${KAITEN_TIMEOUTS.headersTimeoutMs}/${KAITEN_TIMEOUTS.totalTimeoutMs} ms; бюджет прогрева Kaiten ${WARMUP_BUDGET_MS} ms
+(паузы retry 429 его не отменяют; исчерпан — счётчик «?»).
 
 Шаги 3-5 best-effort: пропуск виден строкой «# <шаг>: пропущено
 (<причина>)» и кода выхода не меняет. Контейнеры пишутся upsert'ом по
@@ -771,10 +778,7 @@ async function collectKaiten(
     const access = requireKaitenAccess(io.envFile);
     return {
       ok: true,
-      warmup: await collectKaitenWarmup(access, {
-        timeouts: limits.timeouts,
-        budgetMs: limits.budgetMs,
-      }),
+      warmup: await collectKaitenWarmup(access, limits.kaiten),
     };
   } catch (err) {
     return { ok: false, reason: reasonOf(err) };

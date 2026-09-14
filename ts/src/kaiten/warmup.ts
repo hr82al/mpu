@@ -11,9 +11,10 @@
  * состав прогрева и бюджет шага целиком (обход досок в частях 2–3).
  */
 
-import { DEFAULT_TIMEOUTS, type RequestTimeouts } from "../http/mod.ts";
+import type { RequestTimeouts } from "../http/mod.ts";
 import type { CacheDb } from "../command/mod.ts";
 import {
+  KAITEN_TIMEOUTS,
   type KaitenAccess,
   type KaitenCallOptions,
   KaitenError,
@@ -77,12 +78,16 @@ export interface KaitenLimits {
   readonly budgetMs: number;
 }
 
-/** Бюджет шага по умолчанию; число видно в `--help` init. */
-export const WARMUP_BUDGET_MS = 20_000;
+/**
+ * Бюджет шага по умолчанию; число видно в `--help` init. Не меньше
+ * 60 с (`kaiten-http.md`): бюджет короче предела одного вызова отдал бы
+ * в пропуски всё недообойдённое из-за единственного медленного ответа.
+ */
+export const WARMUP_BUDGET_MS = 60_000;
 
 /** Пределы прогрева по умолчанию: числа названы в `--help` команды init. */
 export const DEFAULT_KAITEN_LIMITS: KaitenLimits = {
-  timeouts: DEFAULT_TIMEOUTS,
+  timeouts: KAITEN_TIMEOUTS,
   budgetMs: WARMUP_BUDGET_MS,
 };
 

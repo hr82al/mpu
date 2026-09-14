@@ -16,6 +16,7 @@
  */
 
 import { assertEquals, assertRejects } from "@std/assert";
+import { FakeTime } from "@std/testing/time";
 import { type KaitenAccess, KaitenError } from "./mod.ts";
 import {
   kaitenCall,
@@ -232,6 +233,64 @@ Deno.test("пределы времени — на каждом вызове ка
     pending.resolve(new Response("{}"));
     await stop();
   }
+});
+
+Deno.test("пределы Kaiten по умолчанию — свои, а не общие пределы транспорта", async (t) => {
+  // Время поддельное: пределы спеки — 15 с и 30 с, и ждать их стеной
+  // тест не может (`ts/CLAUDE.md`). Запрос доходит до сервера настоящим
+  // вводом-выводом, а таймеры пределов сдвигает `tickAsync`.
+  await t.step("заголовки позже 3 с, но раньше 15 с — успех", async () => {
+    const arrived = Promise.withResolvers<void>();
+    const pending = Promise.withResolvers<Response>();
+    const { baseUrl, stop } = startFakeKaiten(() => {
+      arrived.resolve();
+      return pending.promise;
+    });
+    try {
+      using time = new FakeTime();
+      const call = kaitenCall(accessTo(baseUrl), {
+        method: "GET",
+        path: "/users/current",
+      }).then((value) => ({ value }), (error: unknown) => ({ error }));
+      await arrived.promise;
+      await time.tickAsync(5_600);
+      pending.resolve(Response.json({ id: 7 }));
+      assertEquals(await call, { value: { id: 7 } });
+    } finally {
+      pending.resolve(Response.json({}));
+      await stop();
+    }
+  });
+
+  await t.step("заголовков нет 15 с — отказ пределом Kaiten", async () => {
+    const arrived = Promise.withResolvers<void>();
+    const pending = Promise.withResolvers<Response>();
+    const { baseUrl, stop } = startFakeKaiten(() => {
+      arrived.resolve();
+      return pending.promise;
+    });
+    try {
+      using time = new FakeTime();
+      const call = kaitenCall(accessTo(baseUrl), {
+        method: "GET",
+        path: "/users/current",
+      });
+      const rejected = assertRejects(
+        () => call,
+        KaitenError,
+        "no response headers within 15000ms",
+      );
+      await arrived.promise;
+      // Сдвиг почти на весь предел вызова, а не ровно на 15 с: предел
+      // заголовков шире спеки не сработал бы вовсе, и тест ждал бы вечно
+      // вместо того, чтобы покраснеть другим числом в сообщении.
+      await time.tickAsync(29_999);
+      await rejected;
+    } finally {
+      pending.resolve(Response.json({}));
+      await stop();
+    }
+  });
 });
 
 /** Страница ровно в размер лимита: следом сервер обязан получить ещё запрос. */
