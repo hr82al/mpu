@@ -27,9 +27,11 @@ import {
   tl,
 } from "@mtcute/deno";
 import { VerbatimError, VerbatimUsageError } from "../command/mod.ts";
+import { connectWithin } from "./connection.ts";
 import { telegramCrypto } from "./crypto.ts";
 import { CryptoInitError, layerFailure } from "./errors.ts";
 import type { AppKeys, LoginClient, LoginPrompts } from "./login.ts";
+import { telegramPlatform } from "./platform.ts";
 import { type ProxySettings, proxyUrl } from "./proxy.ts";
 
 /**
@@ -47,6 +49,8 @@ export function openLoginClient(
     storage: new MemoryStorage(),
     // Wasm криптографии — из собранной программы, не из сети (`crypto.ts`).
     crypto: telegramCrypto(),
+    // Логи клиента — в stderr: stdout команды — данные (`platform.ts`).
+    platform: telegramPlatform(),
     ...(proxy === undefined
       ? {}
       : { transport: proxyTransportFromUrl(proxyUrl(proxy)) }),
@@ -55,6 +59,9 @@ export function openLoginClient(
   return {
     signIn: async (phone, prompts) => {
       try {
+        // Предел — на соединение, а не на весь вход: `start` ждёт кода,
+        // который человек набирает дольше 20 с.
+        await connectWithin(client);
         await client.start({
           phone: () => Promise.resolve(phone),
           // Код — обычный ввод, пароль второго фактора — скрытый

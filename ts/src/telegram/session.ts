@@ -21,6 +21,7 @@ import { md } from "@mtcute/markdown-parser";
 import { VerbatimError } from "../command/mod.ts";
 import { markedId, type RawChat } from "./chat.ts";
 import type { TelegramConfig } from "./config.ts";
+import { connectWithin } from "./connection.ts";
 import { telegramCrypto } from "./crypto.ts";
 import {
   configError,
@@ -29,6 +30,7 @@ import {
   telegramFailure,
 } from "./errors.ts";
 import type { ResolvablePeer } from "./peer.ts";
+import { telegramPlatform } from "./platform.ts";
 import { proxyUrl } from "./proxy.ts";
 import type { RawMessage } from "./message.ts";
 import { chatPeerType, chatsFromSearch } from "./search_reply.ts";
@@ -63,6 +65,8 @@ export async function openSession(
     storage: new MemoryStorage(),
     // Wasm криптографии — из собранной программы, не из сети (`crypto.ts`).
     crypto: telegramCrypto(),
+    // Логи клиента — в stderr: stdout подкоманды — данные (`platform.ts`).
+    platform: telegramPlatform(),
     ...(config.proxy === undefined
       ? {}
       : { transport: proxyTransportFromUrl(proxyUrl(config.proxy)) }),
@@ -139,7 +143,7 @@ export async function openSession(
 async function enter(client: TelegramClient, session: string): Promise<number> {
   try {
     await importSession(client, session);
-    await client.connect();
+    await connectWithin(client);
     // Отказ здесь — либо отозванная сессия (её импорт не отличает от
     // годной), либо отказ Telegram; в обоих случаях он обязан прийти до
     // операции и своим текстом, а не выдать себя за ненайденный чат.

@@ -13,13 +13,14 @@
  * конвертеров, а не там.
  */
 
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertRejects, assertStrictEquals } from "@std/assert";
+import { FakeTime } from "@std/testing/time";
 import { VerbatimError } from "../command/mod.ts";
 import {
   convertFromTelethonSession,
   serializeTelethonSession,
 } from "@mtcute/convert";
-import { MtcuteError, tl } from "@mtcute/deno";
+import { MtcuteError, TelegramClient, tl } from "@mtcute/deno";
 import { CryptoInitError } from "./errors.ts";
 import {
   loginRefusal,
@@ -83,9 +84,10 @@ Deno.test("вход до сети: сбой криптографии печат�
 Deno.test("вход: отказ, не относящийся к криптографии, не выдаётся за неё", async () => {
   // Криптография поднимается настоящая, а соединение с узлом отказывает:
   // подменённый `Deno.connect` отмечает попытку и отказывает, наружу не
-  // уходит ничего. Клиент на отказ соединения переподключается без конца,
-  // поэтому отказ входа приходит закрытием клиента во время попытки — это
-  // и есть отказ, не относящийся к криптографии.
+  // уходит ничего. Клиент на отказ соединения переподключается, пока не
+  // выйдет предел соединения (20 с по поддельным часам), — его отказ и есть
+  // отказ, не относящийся к криптографии.
+  using time = new FakeTime();
   const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
   const connecting = Promise.withResolvers<void>();
   const realConnect = Deno.connect;
@@ -109,7 +111,7 @@ Deno.test("вход: отказ, не относящийся к криптогр
     // Гонка, а не одно ожидание соединения: откажи вход раньше попытки,
     // тест покраснел бы на проверках ниже, а не завис.
     await Promise.race([connecting.promise, signing]);
-    await client.close();
+    await time.tickAsync(20_000);
     const outcome = await signing;
     assertEquals(outcome instanceof VerbatimError, true, String(outcome));
     const text = outcome instanceof Error ? outcome.message : String(outcome);
@@ -117,6 +119,36 @@ Deno.test("вход: отказ, не относящийся к криптогр
     assertEquals(text.includes("криптография"), false, text);
   } finally {
     Reflect.set(Deno, "connect", realConnect);
+    await client.close();
+  }
+});
+
+Deno.test("вход: дефект внутри входа уходит из signIn тем же объектом", async () => {
+  // Место вызова `loginRefusal`: подменить его переоформлением любого
+  // отказа — и дефект своего кода станет «пропущено» (инвариант 3).
+  // Соединение и сам вход подменены, сети нет.
+  const proto = TelegramClient.prototype;
+  const realConnect = proto.connect;
+  const realStart = proto.start;
+  const defect = new TypeError("дефект внутри входа");
+  const client = openLoginClient({ apiId: "1", apiHash: "проба" }, undefined);
+  try {
+    Reflect.set(proto, "connect", function (this: TelegramClient) {
+      this.onConnectionState.emit("connected");
+      return Promise.resolve();
+    });
+    Reflect.set(proto, "start", () => Promise.reject(defect));
+    const err = await assertRejects(() =>
+      client.signIn("+70000000000", {
+        ask: () => Promise.resolve(undefined),
+        askSecret: () => Promise.resolve(undefined),
+      })
+    );
+    assertStrictEquals(err, defect);
+  } finally {
+    Reflect.set(proto, "connect", realConnect);
+    Reflect.set(proto, "start", realStart);
+    await client.close();
   }
 });
 

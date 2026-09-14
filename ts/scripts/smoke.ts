@@ -450,6 +450,12 @@ function loopbackSession(port: number): string {
 /** Срок, за который бинарь обязан дойти до узла Telegram на петле. */
 const NODE_DEADLINE_MS = 15_000;
 
+/**
+ * Срок, за который бинарь обязан отказать без соединения с Telegram: предел
+ * спеки 20 с и запас на старт программы.
+ */
+const REFUSAL_DEADLINE_MS = 30_000;
+
 function checks(subject: Subject): readonly Check[] {
   return [
     ["version", async () => {
@@ -710,6 +716,67 @@ function checks(subject: Subject): readonly Check[] {
           await Deno.remove(envPath);
         }
         await stderr;
+      },
+    ],
+    [
+      // Соединение с Telegram ограничено 20 с, а логи клиента не пишутся в
+      // stdout (`platform/telegram-mtproto.md`, «Прокси»). Прокси — закрытый
+      // порт петли: каждое соединение отказывает сразу, и без предела бинарь
+      // переподключался бы без конца. Предел проверка ждёт честно, стенным
+      // временем — около 20 с. Живых ключей не нужно.
+      "telegram: нет соединения за 20 с — отказ текстом спеки, stdout пуст",
+      async () => {
+        const envPath = `${subject.home}/.config/mpu/.env`;
+        await Deno.mkdir(envPath.slice(0, envPath.lastIndexOf("/")), {
+          recursive: true,
+        });
+        await Deno.writeTextFile(
+          envPath,
+          "TELEGRAM_API_ID=1\nTELEGRAM_API_HASH=проба\n" +
+            `TELEGRAM_SESSION=${loopbackSession(1)}\n` +
+            "TELEGRAM_PROXY=http://127.0.0.1:1\n",
+        );
+        const child = new Deno.Command(subject.bin, {
+          args: ["telegram", "ls", "--limit", "1"],
+          env: { HOME: subject.home },
+          clearEnv: true,
+          stdin: "null",
+          stdout: "piped",
+          stderr: "piped",
+        }).spawn();
+        const output = child.output();
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const outcome = await Promise.race([
+            output,
+            new Promise<"срок вышел">((resolve) => {
+              timer = setTimeout(
+                () => resolve("срок вышел"),
+                REFUSAL_DEADLINE_MS,
+              );
+            }),
+          ]);
+          if (outcome === "срок вышел") {
+            child.kill("SIGKILL");
+            const late = await output;
+            throw new Error(
+              `за ${REFUSAL_DEADLINE_MS} мс не отказал: ${
+                new TextDecoder().decode(late.stderr).trim()
+              }`,
+            );
+          }
+          const stdout = new TextDecoder().decode(outcome.stdout);
+          const stderr = new TextDecoder().decode(outcome.stderr);
+          assert(outcome.code === 1, `код ${outcome.code}, ждали 1: ${stderr}`);
+          assert(
+            stderr.includes("telegram: нет соединения с Telegram за 20 с: "),
+            `в stderr нет отказа по пределу: ${stderr}`,
+          );
+          assert(stdout === "", `stdout не пуст: ${stdout}`);
+        } finally {
+          clearTimeout(timer);
+          await Deno.remove(envPath);
+        }
       },
     ],
     ["init: справка собранного бинаря несёт числа пределов", async () => {
