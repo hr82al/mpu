@@ -49,6 +49,32 @@ export async function commentBody(
   return body;
 }
 
+/**
+ * Подпись ассистента ("🤖 Generated with Claude Code" и т. п., с
+ * необязательной ссылкой на сессию следующей строкой) в конце
+ * описания MR — не то, что должен увидеть ревьюер в GitLab. Файл
+ * тела часто готовит ассистент, и добавляет её по своей
+ * инструкции об атрибуции, рассчитанной на PR, а не на описание
+ * MR. commentBody() отдаёт тело дословно (см. её JSDoc) — обрезка
+ * идёт отдельным шагом и только там, где текст ложится в
+ * description (`cmd_describe.ts`, `cmd_create.ts`), а не в теле
+ * комментариев и заметок.
+ */
+export function stripAssistantFooter(body: string): string {
+  const lines = body.split("\n");
+  let end = lines.length;
+  while (end > 0 && lines[end - 1].trim() === "") end--;
+  if (end > 0 && /^https?:\/\/\S+$/.test(lines[end - 1].trim())) end--;
+  const footerLine =
+    /^🤖?\s*generated with (?:\[claude code\]\([^)]*\)|claude code)\s*\.?$/i;
+  if (end === 0 || !footerLine.test(lines[end - 1].trim())) {
+    return body;
+  }
+  end--;
+  while (end > 0 && lines[end - 1].trim() === "") end--;
+  return lines.slice(0, end).join("\n");
+}
+
 /** Чтение файла тела; `-` — весь stdin (только в CLI). */
 async function readBody(io: BodyIo, path: string): Promise<string> {
   if (path === "-") return new TextDecoder().decode(await io.readStdin());

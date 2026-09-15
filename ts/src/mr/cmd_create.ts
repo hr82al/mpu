@@ -16,7 +16,7 @@ import {
   type RunGit,
 } from "../gitlab/mod.ts";
 import { spawnGit } from "../gitlab/git.ts";
-import { type BodyIo, commentBody } from "./body.ts";
+import { type BodyIo, commentBody, stripAssistantFooter } from "./body.ts";
 import {
   asCommandError,
   gitlabAccess,
@@ -86,7 +86,7 @@ export async function runCreate(
   options: MrOptions = {},
 ): Promise<CreateResult> {
   // Описание необязательно: без -m и -F MR создаётся с пустым.
-  const description = await commentBody(args, io, false);
+  const description = stripAssistantFooter(await commentBody(args, io, false));
   const access = gitlabAccess(io);
   const runGit = options.runGit ?? spawnGit;
   const context: ResolveContext = { access, cwd: io.cwd(), runGit };

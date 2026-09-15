@@ -10,7 +10,7 @@
 import { z } from "@zod/zod";
 import { defineCommand } from "../command/mod.ts";
 import { updateDescription } from "../gitlab/mod.ts";
-import { type BodyIo, commentBody } from "./body.ts";
+import { type BodyIo, commentBody, stripAssistantFooter } from "./body.ts";
 import {
   asCommandError,
   gitlabAccess,
@@ -44,7 +44,7 @@ export async function runDescribe(
   io: MrIo & BodyIo,
   options: MrOptions = {},
 ): Promise<DescribeResult> {
-  const description = await commentBody(args, io);
+  const description = stripAssistantFooter(await commentBody(args, io));
   const access = gitlabAccess(io);
   const address = await mrAddress(io, access, args.mr, options);
   try {
