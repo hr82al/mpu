@@ -116,7 +116,7 @@
 | `--json kiten ls` | как `runCli` |
 | `kiten` | справка группы, код 2 |
 | `kitn` | `mpu: не понимает kitn; ближайшие: kiten`, код 2 |
-| `kiten nope` | `mpu kiten: не понимает nope`, код 2 |
+| `kiten nope` | `mpu kiten: не понимает nope; ближайшие: move`, код 2 — подсказка по правилу `platform/objects.md` (расстояние до `move` равно 2) |
 | `version extra` | как `runCli` |
 | `mcp` (группа с `bare`) | как `runCli` для `mpu mcp` |
 | `sql-ro 54 "select 1" --json` | как `runCli` с тем же argv |
