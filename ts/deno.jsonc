@@ -4,39 +4,17 @@
   // `.claude` в их числе: песочница подменяет файлы удалённого профиля
   // заглушками-устройствами, и чтение такой «настройки» роняет `deno fmt`.
   "exclude": [".claude", ".deno", ".tmp", "cov"],
+  // Состав рабочей области: подпроекты со своими `deno.jsonc`. Импорты,
+  // задачи и файл блокировки — общие и живут здесь; участник наследует
+  // импорты корня.
+  "workspace": ["./back"],
   "fmt": {
     // `docs/` — канал спецификаций: его пишет сессия-спецификатор, у
     // которой Deno нет. Прогон `deno fmt` без pathspec переписывал там
     // файлы, а вместе с ними — чужую несохранённую работу; форматировать
     // этот каталог реализующая сессия не должна вовсе.
-    // Отдельно golden-фикстуры (обе стороны сверки: канал и его копия в
-    // тестовом каталоге) сверяются байт-в-байт: отформатировать одну из
-    // них — молча развести их.
-    "exclude": [
-      "docs",
-      "src/env/testdata",
-      "src/exec/testdata",
-      "src/health/testdata",
-      "src/nodecli/testdata",
-      "src/ps/testdata",
-      "src/runjs/testdata",
-      "src/sql/testdata",
-      "src/ssh/testdata",
-      "src/mcp/testdata",
-      "src/xlsx/testdata",
-      "src/kiten/testdata",
-      "src/telegram/testdata",
-      "src/claudehook/testdata",
-      "src/sheet/testdata",
-      "src/mr/testdata",
-      "src/config/testdata",
-      "src/mpinit/testdata",
-      "src/cleanlocal/testdata",
-      "src/glab/testdata",
-      "src/api/testdata",
-      "src/d2miro/testdata",
-      "src/code/testdata"
-    ]
+    // Голдены подпроектов исключаются в их собственных `deno.jsonc`.
+    "exclude": ["docs"]
   },
   "imports": {
     // тесты: assertEquals/assertThrows с читаемыми сообщениями.
@@ -79,8 +57,8 @@
     // держать незачем.
     // Версия зафиксирована точно, без «^»: по тем же причинам, что у
     // `@zod/zod` выше. Своих типов пакет не несёт — нужную часть его
-    // поверхности объявляет каждый потребитель у себя (`src/sql/pg.ts`,
-    // `src/update/pg.ts`); шесть транзитивных
+    // поверхности объявляет каждый потребитель у себя (`back/src/sql/pg.ts`,
+    // `back/src/update/pg.ts`); шесть транзитивных
     // зависимостей (`pg-types`, `pg-protocol`, `pg-pool`, `pgpass`,
     // `pg-connection-string`, `pg-cloudflare`) — состав апстрима.
     "pg": "npm:pg@8.22.0",
@@ -132,7 +110,7 @@
     // `@mtcute/wasm` — не новый пакет, а транзитивный из дерева выше,
     // названный поимённо ради `initSync`: штатная инициализация
     // криптографии скачивает свой wasm по `import.meta.url`, у собранной
-    // программы это `jsr.io` (`src/telegram/crypto.ts`). Модуль один на
+    // программы это `jsr.io` (`back/src/telegram/crypto.ts`). Модуль один на
     // граф — тот же экземпляр, которым шифрует `@mtcute/deno`. Версия —
     // строго вровень с тремя выше.
     "@mtcute/wasm": "jsr:@mtcute/wasm@0.31.0"
@@ -142,13 +120,13 @@
     // (Deno.makeTempDir пишет в $TMPDIR) и env — подстановка HOME/MPU_*
     // в тестах хранилища; `--allow-env` здесь без списка (тесты сами
     // переставляют разные переменные, включая XDG_CONFIG_HOME для
-    // `src/env`, — сузить список так, чтобы не гнаться за ним на
+    // `back/src/env`, — сузить список так, чтобы не гнаться за ним на
     // каждый новый тест, не даёт смысла). Сеть — только петля: тесты
     // транспорта поднимают MCP-сервер на 127.0.0.1 и ходят в него
     // fetch'ем. Наружу тест не ходит: ему нужен фейк, а не право.
     // `--allow-run=…` — для тестов запуска подпроцесса: `mpu ssh`
-    // (`src/exec/ssh_test.ts`) и утилита буфера обмена
-    // (`src/clipboard/clipboard_test.ts`). Ими проверяется обёртка над
+    // (`back/src/exec/ssh_test.ts`) и утилита буфера обмена
+    // (`back/src/clipboard/clipboard_test.ts`). Ими проверяется обёртка над
     // API Deno — захват потоков, код возврата и перевод «файла нет» в
     // отказ. Третий путь заведомо не существует: без права на него
     // Deno отвечает «нет права» раньше, чем «нет файла», и ветка
@@ -233,14 +211,14 @@
     //     `/tmp` часто в памяти, а дамп клиента бывает десятками
     //     гигабайт. `TMPDIR`, указывающий куда-то ещё, правом не
     //     покрыт — отказ переводится в понятный текст
-    //     (`src/copy/tools.ts`, `makeDumpFile`);
+    //     (`back/src/copy/tools.ts`, `makeDumpFile`);
     //   --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*
     //     HOME даёт путь каталога состояния и rc-файла;
     //     XDG_CONFIG_HOME — путь env-файла секретов
     //     (`platform/env-file.md`, «Известные отклонения»: учёт этой
     //     переменной — внешний контракт существующей машины, вердикт
     //     preserve, не наша идея). Оба нужны на каждый запуск бинаря:
-    //     `makeDenoIo` (`src/runtime/mod.ts`) безусловно резолвит путь
+    //     `makeDenoIo` (`back/src/runtime/mod.ts`) безусловно резолвит путь
     //     env-файла через `envFilePath`, чтобы решить, заводить ли
     //     хранилище, — до всякого обращения к самому файлу (мутация
     //     «убрать XDG_CONFIG_HOME» роняет любую проверку ниже с
@@ -260,7 +238,7 @@
     //     задаёт не код, а скрипт дополнения в rc-файле пользователя
     //     (эталон `fixtures/platform/registry/completion-*.txt`) —
     //     сузить список нельзя. `SHELL` в списке нет намеренно: shell
-    //     определяется по дереву процессов-предков (`src/runtime`), а
+    //     определяется по дереву процессов-предков (`back/src/runtime`), а
     //     не по этой переменной. Единственная запись не из этого ряда —
     //     префикс `PG*`: клиент PostgreSQL (`npm:pg` — см. `imports`
     //     выше) читает свои умолчания из окружения прежде, чем слить их
@@ -276,7 +254,7 @@
     //     формально есть. На поведение это не влияет: слой `envFile`
     //     окружение процесса не читает вовсе, а всё, что читает
     //     драйвер, перекрыто явными опциями обоих модулей-потребителей
-    //     (`src/sql/pg.ts`, `src/update/pg.ts`) — кроме
+    //     (`back/src/sql/pg.ts`, `back/src/update/pg.ts`) — кроме
     //     `PGBINARY` и `PGREPLICATION`, чьё умолчание ложно и потому
     //     неперекрываемо; экспорт этих двух в shell меняет режим
     //     протокола;
@@ -309,9 +287,9 @@
     // Пересъём снапшотов публикуемых тулов: запускать, когда меняется
     // состав команд реестра или закрытый список публикации. Текст
     // собирает та же функция, что сверяет инвариант MCP, поэтому
-    // `deno fmt` по результату не гоняется — `src/mcp/testdata`
+    // `deno fmt` по результату не гоняется — `back/src/mcp/testdata`
     // исключён из форматирования и сверяется байт-в-байт.
-    "tools:snapshot": "deno run --allow-read --allow-write=src/mcp/testdata/tools-ro.json,src/mcp/testdata/tools-rw.json scripts/gen-tool-snapshots.ts",
+    "tools:snapshot": "deno run --allow-read --allow-write=back/src/mcp/testdata/tools-ro.json,back/src/mcp/testdata/tools-rw.json back/scripts/gen-tool-snapshots.ts",
     //   MTCUTE_LOG_LEVEL                 клиент MTProto читает уровень
     //     своего лога при создании (`@mtcute/deno` — см. `imports`), до
     //     первого обращения к сети; без права `mpu telegram send`
@@ -356,7 +334,7 @@
     //     остальные читаемые имена начинаются с `PG` и покрыты
     //     префиксом выше. Оба значения бинарю не нужны: имя пользователя
     //     перекрыто явными опциями обоих модулей-потребителей
-    //     (`src/sql/pg.ts`, `src/update/pg.ts`), а `NODE_PG_FORCE_NATIVE`
+    //     (`back/src/sql/pg.ts`, `back/src/update/pg.ts`), а `NODE_PG_FORCE_NATIVE`
     //     из окружения молча сменил бы клиент — тот же класс, что
     //     `PGBINARY`/`PGREPLICATION` выше, только предотвратимый.
     //     Поэтому запрет, а не право: оба чтения у драйвера обёрнуты в
@@ -368,18 +346,18 @@
     //     названо в `CLAUDE.md`, «Проверка каждого изменения»;
     //
     // Отдельно от прав — состав бинаря: `--include
-    // src/code/repo_worker.ts`. Модуль воркера попадает в бинарь только
+    // back/src/code/repo_worker.ts`. Модуль воркера попадает в бинарь только
     // явно: `new Worker(new URL(…, import.meta.url))` статическим
     // импортом не является. Без этой строки собранный бинарь отвечает
     // `Module not found: …/src/code/repo_worker.ts` на любой вопрос по
     // нескольким репозиториям (замер 2026-09-09; проверка smoke «code:
     // разбор дерева…» краснеет без неё).
-    // Так же — `--include src/telegram/mtcute.wasm` и
+    // Так же — `--include back/src/telegram/mtcute.wasm` и
     // `mtcute-simd.wasm`: wasm криптографии Telegram читается по
-    // `import.meta.url` (`src/telegram/crypto.ts`), и без этих строк
+    // `import.meta.url` (`back/src/telegram/crypto.ts`), и без этих строк
     // собранный бинарь не откроет сеанс ни при каком окружении (проверка
     // smoke «telegram: криптография без сети…» краснеет без них).
-    "build": "deno compile --include src/code/repo_worker.ts --include src/telegram/mtcute.wasm --include src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu main.ts",
+    "build": "deno compile --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu back/main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь
@@ -388,7 +366,7 @@
     //     `--allow-env=HOME,XDG_CONFIG_HOME` — ради одной проверки:
     //     сверки голденов схемы с живой `information_schema` main-БД.
     //     Реквизиты подключения лежат в env-файле оператора, а путь к
-    //     нему строится из этих двух переменных (`src/env/mod.ts`).
+    //     нему строится из этих двух переменных (`back/src/env/mod.ts`).
     //     Без них проверка неисполнима: временный HOME скрипта чужих
     //     реквизитов не содержит. Сеть при этом осталась прежней,
     //     `127.0.0.1`: «только локальный стенд» держится правом, а не
@@ -399,7 +377,7 @@
     //     проверка падала на нём, печатая пропуск «стенд не поднят» —
     //     то есть притворялась живой, не исполняясь ни разу
     //     (замер напарника 2026-08-28);
-    "smoke": "deno run --allow-read --allow-write --allow-run --allow-env=HOME,XDG_CONFIG_HOME,PG* --deny-env=NODE_PG_FORCE_NATIVE --allow-net=127.0.0.1 scripts/smoke.ts",
+    "smoke": "deno run --allow-read --allow-write --allow-run --allow-env=HOME,XDG_CONFIG_HOME,PG* --deny-env=NODE_PG_FORCE_NATIVE --allow-net=127.0.0.1 back/scripts/smoke.ts",
     // Ячейка передачи работы между сессиями (`handoff/`): обе роли ходят
     // в неё этой задачей, а не читают и переписывают файл руками. Права
     // узкие по делу: чтение — постановка или отчёт с диска, запись —

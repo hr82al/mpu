@@ -1,0 +1,33 @@
+{
+  // Подпроект `back` рабочей области `ts/`: импорты и задачи — у корня
+  // (`../deno.jsonc`), здесь только своё.
+  "fmt": {
+    // Golden-фикстуры (обе стороны сверки: канал и его копия в
+    // тестовом каталоге) сверяются байт-в-байт: отформатировать одну из
+    // них — молча развести их.
+    "exclude": [
+      "src/env/testdata",
+      "src/exec/testdata",
+      "src/health/testdata",
+      "src/nodecli/testdata",
+      "src/ps/testdata",
+      "src/runjs/testdata",
+      "src/sql/testdata",
+      "src/ssh/testdata",
+      "src/mcp/testdata",
+      "src/xlsx/testdata",
+      "src/kiten/testdata",
+      "src/telegram/testdata",
+      "src/claudehook/testdata",
+      "src/sheet/testdata",
+      "src/mr/testdata",
+      "src/config/testdata",
+      "src/mpinit/testdata",
+      "src/cleanlocal/testdata",
+      "src/glab/testdata",
+      "src/api/testdata",
+      "src/d2miro/testdata",
+      "src/code/testdata"
+    ]
+  }
+}
