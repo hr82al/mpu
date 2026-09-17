@@ -43,7 +43,7 @@ docker compose --env-file <dir>/.sl-base.env [--env-file <dir>/.env]
 **Inner-команда (дословно)**:
 
 ```
-node src/pgDataTransfer.js transferTablesViaPsql --s-host=<pg_N>
+node back/src/pgDataTransfer.js transferTablesViaPsql --s-host=<pg_N>
   --s-port=5432 --t-port 5441 --schema shared --clear-tables
   --tables <t1> <t2> … <t18>
 ```

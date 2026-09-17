@@ -66,7 +66,7 @@ total: <N> tabs, <X> KB
    его не нужно.
 
 3. **Очистка кэша — одно устройство на весь репозиторий.** Точечная
-   инвалидация уже есть: `invalidateTabs` (`src/sheet/cache.ts`) удаляет
+   инвалидация уже есть: `invalidateTabs` (`back/src/sheet/cache.ts`) удаляет
    перечисленные вкладки и тот же ключ `sheet:info:<ss_id>`; её зовёт
    `batch-update` после успешной записи (`platform/webapp-http.md`,
    «Housekeeping и инвалидация»). Охват у команд разный — `invalidateTabs`

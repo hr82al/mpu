@@ -76,7 +76,7 @@ Vite, React 19, TanStack Router / Query / Table / Virtual, zustand, vitest.
 спеки); `node:sqlite` работает в Deno 2.9.6 и в `deno compile` с правами только
 `--allow-read`/`--allow-write` на файл базы, без предупреждений.
 
-## Порция 1 (сквозной номер 136): workspace и переезд `src/` в `ts/back/`
+## Порция 1 (сквозной номер 136, принята 2026-09-17): workspace и переезд `src/` в `ts/back/`
 
 Только переукладка: rename / move, поведение и тесты не меняются.
 

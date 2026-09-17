@@ -45,7 +45,7 @@ rw-доступ ради сценария «сообщи, когда закон�
 | `TELEGRAM_BOT_NAME` | нет | username бота; только в тексте ошибки |
 
 Конфигурация бота читается **отдельно** от `telegramConfig()`
-(`src/telegram/config.ts`). Смешивать нельзя: та требует `TELEGRAM_SESSION` и
+(`back/src/telegram/config.ts`). Смешивать нельзя: та требует `TELEGRAM_SESSION` и
 `TELEGRAM_API_ID`/`TELEGRAM_API_HASH`, а отправка в бота от сессии не зависит —
 иначе неавторизованный `mpu init` блокировал бы работающий канал.
 
@@ -96,20 +96,20 @@ stdout — одна строка JSON без отступов, за ней пе�
 
 | Файл | Ответственность |
 |---|---|
-| `src/telegram/bot_config.ts` | чтение и проверка трёх ключей → `BotConfig` |
-| `src/telegram/bot.ts` | `sendBotMessage(config, text, apiBase?)` — один POST |
-| `src/telegram/cmd_log.ts` | разбор аргументов, stdin, печать результата |
-| `src/telegram/mod.ts` | экспорт `telegramLogCommand` |
+| `back/src/telegram/bot_config.ts` | чтение и проверка трёх ключей → `BotConfig` |
+| `back/src/telegram/bot.ts` | `sendBotMessage(config, text, apiBase?)` — один POST |
+| `back/src/telegram/cmd_log.ts` | разбор аргументов, stdin, печать результата |
+| `back/src/telegram/mod.ts` | экспорт `telegramLogCommand` |
 
 Транспорт — POST на `https://api.telegram.org/bot<TOKEN>/sendMessage`, тело
-`{chat_id, text}`, **поверх платформенного шва `src/http/mod.ts`**
+`{chat_id, text}`, **поверх платформенного шва `back/src/http/mod.ts`**
 (`httpSend`): им же ходят Kaiten, Portainer и Loki, и от него команда
 бесплатно получает два предела времени и причину отказа одной строкой.
 Отдельной библиотеки Bot API не нужно — это JSON поверх HTTP. `@mtcute/deno`
 не задействован: другой протокол, другая модель доступа, и старт команды не
 платит за wasm-крипту MTProto.
 
-Ошибки — существующими фабриками слоя (`src/telegram/errors.ts`): `inputError`
+Ошибки — существующими фабриками слоя (`back/src/telegram/errors.ts`): `inputError`
 (`VerbatimUsageError`, exit 2) и `configError` (`VerbatimError`, exit 1). Обе
 дают префикс `telegram: ` без имени подкоманды — так устроен весь слой.
 `telegramFailure` не годится: он разбирает исключение MTProto и оформляет его
@@ -120,9 +120,9 @@ stdout — одна строка JSON без отступов, за ней пе�
 
 ## Изменения вне группы telegram
 
-**1. `src/invokelog/` — маскирование аргументов по решению реестра.**
+**1. `back/src/invokelog/` — маскирование аргументов по решению реестра.**
 
-Спец команды (`src/command/mod.ts`) получает `logsArguments?: boolean`
+Спец команды (`back/src/command/mod.ts`) получает `logsArguments?: boolean`
 (умолчание `true`) — рядом с существующим `logsOutput`. Помеченная команда
 пишется в журнал как
 
@@ -135,10 +135,10 @@ $ mpu telegram log REDACTED
 только id сообщения и текст ошибки.
 
 Механизм существующий: политика уже доезжает до `finish`
-(`src/invokelog/mod.ts:148`), где собирается строка через `lineOf`. `OutputPolicy`
+(`back/src/invokelog/mod.ts:148`), где собирается строка через `lineOf`. `OutputPolicy`
 получает `logsArguments` и `path` — по длине пути маска отделяет аргументы от
-имени команды. CLI-путь (`src/entrypoint/mod.ts:340`) правки не требует: туда
-передаётся сам `Command`. MCP-путь (`src/mcp/native_tool.ts:17`) собирает
+имени команды. CLI-путь (`back/src/entrypoint/mod.ts:340`) правки не требует: туда
+передаётся сам `Command`. MCP-путь (`back/src/mcp/native_tool.ts:17`) собирает
 политику литералом — там поля добавляются явно.
 
 Спека `platform/invoke-log.md` дополняется абзацем в разделе «Инварианты»:
@@ -147,8 +147,8 @@ $ mpu telegram log REDACTED
 
 **2. Реестр и политики тулов.**
 
-Регистрация в `src/registry/mod.ts`; образец вызова в
-`src/registry/contract_test.ts`; тул добавляется в rw-профиль
+Регистрация в `back/src/registry/mod.ts`; образец вызова в
+`back/src/registry/contract_test.ts`; тул добавляется в rw-профиль
 (`docs/specs/fixtures/mcp-server/tool-policies.json`). В ro-профиль не
 попадает: команда отправляет сообщение.
 

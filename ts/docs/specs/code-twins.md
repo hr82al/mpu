@@ -114,12 +114,12 @@
 `fixtures/code/`. Дерево-фикстура — `platform/code-analyzer.md`. Каждый
 файл оканчивается одним переводом строки.
 
-- `twins-exact.stdout.txt` — `twins fixture:src/window.ts:4`: три
+- `twins-exact.stdout.txt` — `twins fixture:back/src/window.ts:4`: три
   побайтово равных тела под тремя разными именами (`windowDays`,
   `dayGrid`, `daySeries`). Запрошенное стоит первым, остальные — в общем
   порядке; голден снят с этого правила, а не с прежнего. Тест обязан краснеть, если сравнение начнёт
   учитывать имя: тогда останется одно совпадение из трёх.
-- `twins-similar.stdout.txt` — `twins fixture:src/loaderA.ts:2`: раздел
+- `twins-similar.stdout.txt` — `twins fixture:back/src/loaderA.ts:2`: раздел
   «побайтово» пуст сверх самого запроса, а в «похоже» — одно тело,
   расходящееся снятым комментарием и текстом литерала. Тест обязан
   краснеть, если нормализация перестанет снимать комментарии или

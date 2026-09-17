@@ -110,21 +110,21 @@
 `platform/code-analyzer.md`. Каждый файл оканчивается одним переводом
 строки.
 
-- `refs-symbol.stdout.txt` — `refs fixture:src/days.ts:2`: семь
+- `refs-symbol.stdout.txt` — `refs fixture:back/src/days.ts:2`: семь
   файлов-потребителей `addDays`, и каждый попал туда своей формой:
-  `src/report.spec.ts` отсекается штатным `exclude`, `src/aliased.ts`
-  получает символ через алиас `#/`, `src/dynamic.ts` — динамическим
-  `import()`, `src/index.ts` — реэкспортом, `src/seed_test.ts` — тестовая
+  `back/src/report.spec.ts` отсекается штатным `exclude`, `back/src/aliased.ts`
+  получает символ через алиас `#/`, `back/src/dynamic.ts` — динамическим
+  `import()`, `back/src/index.ts` — реэкспортом, `back/src/seed_test.ts` — тестовая
   обвязка, шаблоном `*.spec.ts` не описанная. Снятие любого из условий
   разбора убирает из ответа ровно по файлу, и тест обязан краснеть на
   каждом.
-- `refs-module.stdout.txt` — `refs fixture:src/window.ts`: один читатель.
+- `refs-module.stdout.txt` — `refs fixture:back/src/window.ts`: один читатель.
   Показывает, что перечень читателей модуля и перечень потребителей
   символа — разные ответы, а не одно с другим.
-- `refs-orphan.stdout.txt` — `refs fixture:src/orphan.ts:2`: пустой
+- `refs-orphan.stdout.txt` — `refs fixture:back/src/orphan.ts:2`: пустой
   перечень при экспортируемом символе. Пустой ответ — ответ, не отказ;
   область видимости названа одной строкой.
-- `refs-refused.stdout.txt` — `refs broken-fixture:src/a.ts:4`:
+- `refs-refused.stdout.txt` — `refs broken-fixture:back/src/a.ts:4`:
   конфигурация проекта наследует пакет, которого нет. Шапка без
   гарантии, строка отказа с дословной причиной компилятора, разделов
   найденного нет; exit 1, потому что раздел здесь один. Дерево —
@@ -132,7 +132,7 @@
   `broken-fixture`.
 
 В первых трёх раздел «не разрешено» несёт одну и ту же строку —
-неразрешимый импорт `src/broken.ts:3`. Он не подмешивается в перечень
+неразрешимый импорт `back/src/broken.ts:3`. Он не подмешивается в перечень
 потребителей и ответа не отменяет.
 
 ## Известные отклонения

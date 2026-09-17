@@ -4,9 +4,9 @@
 
 **Goal:** Добавить команду `mpu telegram log MESSAGE`, отправляющую текст в личного Telegram-бота через Bot API, с маскированием аргумента в журнале вызовов.
 
-**Architecture:** Второй транспорт внутри группы `telegram`, не пересекающийся с MTProto-частью: своя конфигурация (`bot_config.ts`), свой клиент поверх платформенного HTTP-шва `src/http/mod.ts` (`bot.ts`), своя команда (`cmd_log.ts`). Сеанс MTProto, резолв адресата и план отправки не используются. Отдельно — платформенная правка: команда может пометить себя как «аргументы в журнал не пишутся».
+**Architecture:** Второй транспорт внутри группы `telegram`, не пересекающийся с MTProto-частью: своя конфигурация (`bot_config.ts`), свой клиент поверх платформенного HTTP-шва `back/src/http/mod.ts` (`bot.ts`), своя команда (`cmd_log.ts`). Сеанс MTProto, резолв адресата и план отправки не используются. Отдельно — платформенная правка: команда может пометить себя как «аргументы в журнал не пишутся».
 
-**Tech Stack:** Deno 2.9.4, TypeScript, `@zod/zod` для схемы аргументов, `defineCommand` (`src/command/mod.ts`), `httpSend` (`src/http/mod.ts`), `@std/assert` для тестов.
+**Tech Stack:** Deno 2.9.4, TypeScript, `@zod/zod` для схемы аргументов, `defineCommand` (`back/src/command/mod.ts`), `httpSend` (`back/src/http/mod.ts`), `@std/assert` для тестов.
 
 **Spec:** `ts/docs/superpowers/specs/2026-08-20-telegram-log-design.md`
 
@@ -170,8 +170,8 @@ docs(telegram): спека telegram log и пометка маскировани
 ### Task 2: Конфигурация бота
 
 **Files:**
-- Create: `ts/src/telegram/bot_config.ts`
-- Create: `ts/src/telegram/bot_config_test.ts`
+- Create: `ts/back/src/telegram/bot_config.ts`
+- Create: `ts/back/src/telegram/bot_config_test.ts`
 
 **Interfaces:**
 - Consumes: `EnvKeys` из `./config.ts` (уже экспортирован: `Pick<EnvFile, "get" | "require">`), `configError` из `./errors.ts`, `DomainError` из `../command/mod.ts`.
@@ -181,7 +181,7 @@ docs(telegram): спека telegram log и пометка маскировани
 
 - [ ] **Step 1: Написать падающий тест**
 
-Создать `ts/src/telegram/bot_config_test.ts`:
+Создать `ts/back/src/telegram/bot_config_test.ts`:
 
 ```ts
 /**
@@ -276,12 +276,12 @@ Deno.test("отрицательный id принимается — так вы�
 
 - [ ] **Step 2: Запустить тест и убедиться, что он падает**
 
-Run: `cd ts && deno test --allow-read --allow-write --allow-env src/telegram/bot_config_test.ts`
+Run: `cd ts && deno test --allow-read --allow-write --allow-env back/src/telegram/bot_config_test.ts`
 Expected: FAIL — модуль `./bot_config.ts` не найден.
 
 - [ ] **Step 3: Минимальная реализация**
 
-Создать `ts/src/telegram/bot_config.ts`:
+Создать `ts/back/src/telegram/bot_config.ts`:
 
 ```ts
 /**
@@ -341,17 +341,17 @@ function required(env: EnvKeys, name: string): string {
 
 - [ ] **Step 4: Запустить тест и убедиться, что он проходит**
 
-Run: `cd ts && deno test --allow-read --allow-write --allow-env src/telegram/bot_config_test.ts`
+Run: `cd ts && deno test --allow-read --allow-write --allow-env back/src/telegram/bot_config_test.ts`
 Expected: PASS, 7 тестов.
 
 - [ ] **Step 5: Формат и типы**
 
-Run: `cd ts && deno fmt src/telegram/bot_config.ts src/telegram/bot_config_test.ts && deno check src/telegram/bot_config.ts`
+Run: `cd ts && deno fmt back/src/telegram/bot_config.ts back/src/telegram/bot_config_test.ts && deno check back/src/telegram/bot_config.ts`
 Expected: без ошибок.
 
 - [ ] **Step 6: Commit**
 
-Добавить `ts/src/telegram/bot_config.ts` и `ts/src/telegram/bot_config_test.ts`, сообщение:
+Добавить `ts/back/src/telegram/bot_config.ts` и `ts/back/src/telegram/bot_config_test.ts`, сообщение:
 
 ```
 feat(telegram): конфигурация личного бота из ключей TELEGRAM_BOT_*
@@ -362,8 +362,8 @@ feat(telegram): конфигурация личного бота из ключе
 ### Task 3: Транспорт Bot API
 
 **Files:**
-- Create: `ts/src/telegram/bot.ts`
-- Create: `ts/src/telegram/bot_test.ts`
+- Create: `ts/back/src/telegram/bot.ts`
+- Create: `ts/back/src/telegram/bot_test.ts`
 
 **Interfaces:**
 - Consumes: `BotConfig` из `./bot_config.ts` (Task 2); `httpSend`, `HttpCallError`, `firstLine` из `../http/mod.ts`; `configError` из `./errors.ts`.
@@ -376,7 +376,7 @@ feat(telegram): конфигурация личного бота из ключе
 
 - [ ] **Step 1: Написать падающий тест**
 
-Создать `ts/src/telegram/bot_test.ts`:
+Создать `ts/back/src/telegram/bot_test.ts`:
 
 ```ts
 /**
@@ -538,17 +538,17 @@ Deno.test("сервер недоступен — причина одной ст�
 
 - [ ] **Step 2: Запустить тест и убедиться, что он падает**
 
-Run: `cd ts && deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 src/telegram/bot_test.ts`
+Run: `cd ts && deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 back/src/telegram/bot_test.ts`
 Expected: FAIL — модуль `./bot.ts` не найден.
 
 - [ ] **Step 3: Проверить, что `firstLine` экспортирован**
 
-Run: `cd ts && grep -n "export function firstLine" src/http/mod.ts`
+Run: `cd ts && grep -n "export function firstLine" back/src/http/mod.ts`
 Expected: строка найдена. Если экспорта нет — добавить `export` существующей функции и упомянуть это в сообщении коммита.
 
 - [ ] **Step 4: Минимальная реализация**
 
-Создать `ts/src/telegram/bot.ts`:
+Создать `ts/back/src/telegram/bot.ts`:
 
 ```ts
 /**
@@ -647,17 +647,17 @@ function failureText(
 
 - [ ] **Step 5: Запустить тест и убедиться, что он проходит**
 
-Run: `cd ts && deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 src/telegram/bot_test.ts`
+Run: `cd ts && deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 back/src/telegram/bot_test.ts`
 Expected: PASS, 7 тестов.
 
 - [ ] **Step 6: Формат и типы**
 
-Run: `cd ts && deno fmt src/telegram/bot.ts src/telegram/bot_test.ts && deno check src/telegram/bot.ts`
+Run: `cd ts && deno fmt back/src/telegram/bot.ts back/src/telegram/bot_test.ts && deno check back/src/telegram/bot.ts`
 Expected: без ошибок.
 
 - [ ] **Step 7: Commit**
 
-Добавить `ts/src/telegram/bot.ts` и `ts/src/telegram/bot_test.ts`, сообщение:
+Добавить `ts/back/src/telegram/bot.ts` и `ts/back/src/telegram/bot_test.ts`, сообщение:
 
 ```
 feat(telegram): транспорт Bot API поверх общего HTTP-шва
@@ -668,11 +668,11 @@ feat(telegram): транспорт Bot API поверх общего HTTP-шва
 ### Task 4: Маскирование аргументов в журнале вызовов
 
 **Files:**
-- Modify: `ts/src/command/mod.ts` (~243 спец, ~296 тип, ~381 умолчание)
-- Modify: `ts/src/invokelog/mod.ts` (~44 `OutputPolicy`, ~160 сборка записи, ~178 `lineOf`)
-- Modify: `ts/src/invokelog/mask.ts`
-- Modify: `ts/src/mcp/native_tool.ts:17`
-- Modify: `ts/src/invokelog/mask_test.ts`
+- Modify: `ts/back/src/command/mod.ts` (~243 спец, ~296 тип, ~381 умолчание)
+- Modify: `ts/back/src/invokelog/mod.ts` (~44 `OutputPolicy`, ~160 сборка записи, ~178 `lineOf`)
+- Modify: `ts/back/src/invokelog/mask.ts`
+- Modify: `ts/back/src/mcp/native_tool.ts:17`
+- Modify: `ts/back/src/invokelog/mask_test.ts`
 
 **Interfaces:**
 - Consumes: ничего. Задача самостоятельна: умолчание `logsArguments` — `true`, поведение существующих команд не меняется, и первый потребитель пометки появляется в Task 5.
@@ -684,7 +684,7 @@ feat(telegram): транспорт Bot API поверх общего HTTP-шва
 
 - [ ] **Step 1: Написать падающие тесты маскирования**
 
-В конец `ts/src/invokelog/mask_test.ts` добавить:
+В конец `ts/back/src/invokelog/mask_test.ts` добавить:
 
 ```ts
 Deno.test("помеченная команда: аргументы после пути заменены маской", () => {
@@ -729,12 +729,12 @@ Deno.test("помеченный тул: JSON аргументов заменён
 
 - [ ] **Step 2: Запустить и убедиться, что тесты падают**
 
-Run: `cd ts && deno test --allow-read --allow-write --allow-env src/invokelog/mask_test.ts`
+Run: `cd ts && deno test --allow-read --allow-write --allow-env back/src/invokelog/mask_test.ts`
 Expected: FAIL — `commandLine` игнорирует второй аргумент, маска не появляется.
 
 - [ ] **Step 3: Реализовать маскирование в `mask.ts`**
 
-В `ts/src/invokelog/mask.ts` заменить `commandLine` и `toolCommandLine`:
+В `ts/back/src/invokelog/mask.ts` заменить `commandLine` и `toolCommandLine`:
 
 ```ts
 /** Пометка команды: аргументы в запись не попадают ни в каком виде. */
@@ -779,12 +779,12 @@ export function toolCommandLine(
 
 - [ ] **Step 4: Запустить тесты маскирования**
 
-Run: `cd ts && deno test --allow-read --allow-write --allow-env src/invokelog/mask_test.ts`
+Run: `cd ts && deno test --allow-read --allow-write --allow-env back/src/invokelog/mask_test.ts`
 Expected: PASS, включая пять новых.
 
 - [ ] **Step 5: Провести пометку от спеца команды до журнала**
 
-В `ts/src/command/mod.ts` рядом с `logsOutput` добавить в спец команды:
+В `ts/back/src/command/mod.ts` рядом с `logsOutput` добавить в спец команды:
 
 ```ts
   /**
@@ -811,7 +811,7 @@ Expected: PASS, включая пять новых.
     logsArguments: spec.logsArguments ?? true,
 ```
 
-В `ts/src/invokelog/mod.ts` расширить `OutputPolicy`:
+В `ts/back/src/invokelog/mod.ts` расширить `OutputPolicy`:
 
 ```ts
 /** Пометка команды: пишутся ли в её запись секции out/err и аргументы. */
@@ -847,7 +847,7 @@ function lineOf(command: InvokeCommand, policy: OutputPolicy): string {
 }
 ```
 
-В `ts/src/mcp/native_tool.ts:17` дополнить проброс:
+В `ts/back/src/mcp/native_tool.ts:17` дополнить проброс:
 
 ```ts
     journal: {
@@ -857,13 +857,13 @@ function lineOf(command: InvokeCommand, policy: OutputPolicy): string {
     },
 ```
 
-CLI-путь (`ts/src/entrypoint/mod.ts:340`) правки не требует: туда передаётся сам `Command`, у которого все три поля уже есть.
+CLI-путь (`ts/back/src/entrypoint/mod.ts:340`) правки не требует: туда передаётся сам `Command`, у которого все три поля уже есть.
 
 - [ ] **Step 6: Прогнать полный набор тестов**
 
 Run: `cd ts && deno task test`
 Expected: PASS. Ожидаемые падения и что с ними делать:
-- `src/invokelog/wiring_test.ts`, `mod_test.ts`, `record_test.ts` — фейковые политики стали неполными: дописать `logsArguments: true` и `path: ["…"]`.
+- `back/src/invokelog/wiring_test.ts`, `mod_test.ts`, `record_test.ts` — фейковые политики стали неполными: дописать `logsArguments: true` и `path: ["…"]`.
 - Golden-фикстуры записи журнала — сверить и обновить обе копии одинаково.
 
 - [ ] **Step 7: Проверить типы и формат**
@@ -873,7 +873,7 @@ Expected: без ошибок. Поведение команд не измени
 
 - [ ] **Step 8: Commit**
 
-Добавить `ts/src/command/mod.ts`, `ts/src/invokelog/`, `ts/src/mcp/native_tool.ts` и обновлённые фикстуры журнала, сообщение:
+Добавить `ts/back/src/command/mod.ts`, `ts/back/src/invokelog/`, `ts/back/src/mcp/native_tool.ts` и обновлённые фикстуры журнала, сообщение:
 
 ```
 feat(invokelog): пометка команды, чьи аргументы не попадают в журнал
@@ -884,11 +884,11 @@ feat(invokelog): пометка команды, чьи аргументы не �
 ### Task 5: Команда `mpu telegram log`
 
 **Files:**
-- Create: `ts/src/telegram/cmd_log.ts`
-- Create: `ts/src/telegram/cmd_log_test.ts`
-- Modify: `ts/src/telegram/mod.ts`
-- Modify: `ts/src/registry/mod.ts:75-79` (импорт) и `:180-183` (регистрация)
-- Modify: `ts/src/registry/contract_test.ts` (после блока `path: "telegram send"`, ~строка 863)
+- Create: `ts/back/src/telegram/cmd_log.ts`
+- Create: `ts/back/src/telegram/cmd_log_test.ts`
+- Modify: `ts/back/src/telegram/mod.ts`
+- Modify: `ts/back/src/registry/mod.ts:75-79` (импорт) и `:180-183` (регистрация)
+- Modify: `ts/back/src/registry/contract_test.ts` (после блока `path: "telegram send"`, ~строка 863)
 
 **Interfaces:**
 - Consumes: `botConfig` (Task 2), `sendBotMessage` (Task 3), `defineCommand` и `CommandIo` из `../command/mod.ts`, `inputError` из `./errors.ts` (даёт `VerbatimUsageError` с префиксом `telegram: ` и кодом 2).
@@ -898,12 +898,12 @@ feat(invokelog): пометка команды, чьи аргументы не �
 
 - [ ] **Step 1: Сверить фабрики ошибок слоя**
 
-Run: `cd ts && sed -n "1,45p" src/telegram/errors.ts`
+Run: `cd ts && sed -n "1,45p" back/src/telegram/errors.ts`
 Expected: `inputError` → `VerbatimUsageError` (код 2), `configError` → `VerbatimError` (код 1), оба с префиксом `telegram: `. Префикс несёт сам слой, имя подкоманды в текст ошибки не входит — эталон `testdata/telegram-send/err-empty-text-stderr.txt` содержит `telegram: пустой текст сообщения`.
 
 - [ ] **Step 2: Написать падающий тест**
 
-Создать `ts/src/telegram/cmd_log_test.ts`:
+Создать `ts/back/src/telegram/cmd_log_test.ts`:
 
 ```ts
 /**
@@ -956,12 +956,12 @@ Deno.test("пустой stdin — та же ошибка ввода", async () =
 
 - [ ] **Step 3: Запустить тест и убедиться, что он падает**
 
-Run: `cd ts && deno test --allow-read --allow-write --allow-env src/telegram/cmd_log_test.ts`
+Run: `cd ts && deno test --allow-read --allow-write --allow-env back/src/telegram/cmd_log_test.ts`
 Expected: FAIL — модуль `./cmd_log.ts` не найден.
 
 - [ ] **Step 4: Реализовать команду**
 
-Создать `ts/src/telegram/cmd_log.ts`:
+Создать `ts/back/src/telegram/cmd_log.ts`:
 
 ```ts
 /**
@@ -1060,22 +1060,22 @@ Exit: 0 — успех; 1 — конфигурация или отказ Bot API
 
 - [ ] **Step 5: Запустить тест разбора ввода**
 
-Run: `cd ts && deno test --allow-read --allow-write --allow-env src/telegram/cmd_log_test.ts`
+Run: `cd ts && deno test --allow-read --allow-write --allow-env back/src/telegram/cmd_log_test.ts`
 Expected: PASS, 4 теста.
 
 - [ ] **Step 6: Зарегистрировать команду**
 
-В `ts/src/telegram/mod.ts` добавить экспорт в алфавитном порядке (перед `telegramLsCommand`):
+В `ts/back/src/telegram/mod.ts` добавить экспорт в алфавитном порядке (перед `telegramLsCommand`):
 
 ```ts
 export { telegramLogCommand } from "./cmd_log.ts";
 ```
 
-В `ts/src/registry/mod.ts` добавить `telegramLogCommand` в импорт из `"../telegram/mod.ts"` (строки 75-79) и в список регистрации (строки 180-183), рядом с `telegramSendCommand`.
+В `ts/back/src/registry/mod.ts` добавить `telegramLogCommand` в импорт из `"../telegram/mod.ts"` (строки 75-79) и в список регистрации (строки 180-183), рядом с `telegramSendCommand`.
 
 - [ ] **Step 7: Добавить образец вызова в контракт-тест**
 
-В `ts/src/registry/contract_test.ts` после блока `path: "telegram send"` добавить:
+В `ts/back/src/registry/contract_test.ts` после блока `path: "telegram send"` добавить:
 
 ```ts
   {
@@ -1089,12 +1089,12 @@ export { telegramLogCommand } from "./cmd_log.ts";
 
 - [ ] **Step 8: Прогнать тесты реестра**
 
-Run: `cd ts && deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 src/registry/`
-Expected: PASS. Разошедшуюся golden-фикстуру справки обновить в обеих копиях одинаково: канал `docs/specs/fixtures/platform/registry/help-list.txt` и копия `src/registry/testdata/help-list.txt`.
+Run: `cd ts && deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 back/src/registry/`
+Expected: PASS. Разошедшуюся golden-фикстуру справки обновить в обеих копиях одинаково: канал `docs/specs/fixtures/platform/registry/help-list.txt` и копия `back/src/registry/testdata/help-list.txt`.
 
 - [ ] **Step 9: Commit**
 
-Добавить `ts/src/telegram/cmd_log.ts`, `ts/src/telegram/cmd_log_test.ts`, `ts/src/telegram/mod.ts`, `ts/src/registry/`, `ts/docs/specs/fixtures/platform/registry/`, сообщение:
+Добавить `ts/back/src/telegram/cmd_log.ts`, `ts/back/src/telegram/cmd_log_test.ts`, `ts/back/src/telegram/mod.ts`, `ts/back/src/registry/`, `ts/docs/specs/fixtures/platform/registry/`, сообщение:
 
 ```
 feat(telegram): команда telegram log — заметка себе через личного бота
@@ -1107,9 +1107,9 @@ feat(telegram): команда telegram log — заметка себе чере
 **Files:**
 - Create: `ts/docs/specs/fixtures/telegram-log/log-stdout.txt`
 - Create: `ts/docs/specs/fixtures/telegram-log/err-empty-text-stderr.txt`
-- Create: `ts/src/telegram/testdata/telegram-log/log-stdout.txt`
-- Create: `ts/src/telegram/testdata/telegram-log/err-empty-text-stderr.txt`
-- Modify: `ts/src/telegram/fixtures_test.ts`
+- Create: `ts/back/src/telegram/testdata/telegram-log/log-stdout.txt`
+- Create: `ts/back/src/telegram/testdata/telegram-log/err-empty-text-stderr.txt`
+- Modify: `ts/back/src/telegram/fixtures_test.ts`
 - Modify: `ts/docs/specs/fixtures/mcp-server/tool-policies.json`
 
 **Interfaces:**
@@ -1118,7 +1118,7 @@ feat(telegram): команда telegram log — заметка себе чере
 
 - [ ] **Step 1: Создать эталон stdout**
 
-Оба файла `log-stdout.txt` (канал и копия) — байт-в-байт одинаковые: одна строка, оканчивающаяся переводом строки (как у соседей — проверить `od -c src/telegram/testdata/telegram-send/send-text-stdout.txt`). Пробел после двоеточия обязателен: вывод собирается шаблоном `render`, а не `JSON.stringify`.
+Оба файла `log-stdout.txt` (канал и копия) — байт-в-байт одинаковые: одна строка, оканчивающаяся переводом строки (как у соседей — проверить `od -c back/src/telegram/testdata/telegram-send/send-text-stdout.txt`). Пробел после двоеточия обязателен: вывод собирается шаблоном `render`, а не `JSON.stringify`.
 
 ```
 {"id": 5000001}
@@ -1134,7 +1134,7 @@ telegram: нужен непустой MESSAGE
 
 - [ ] **Step 3: Зарегистрировать набор в сверке копий**
 
-В `ts/src/telegram/fixtures_test.ts` в массив `SETS` добавить (порядок имён — алфавитный, как у соседей):
+В `ts/back/src/telegram/fixtures_test.ts` в массив `SETS` добавить (порядок имён — алфавитный, как у соседей):
 
 ```ts
   {
@@ -1149,7 +1149,7 @@ telegram: нужен непустой MESSAGE
 
 - [ ] **Step 4: Запустить сверку фикстур**
 
-Run: `cd ts && deno test --allow-read --allow-write --allow-env src/telegram/fixtures_test.ts`
+Run: `cd ts && deno test --allow-read --allow-write --allow-env back/src/telegram/fixtures_test.ts`
 Expected: PASS — копии совпадают с каналом байт-в-байт.
 
 - [ ] **Step 5: Добавить тул в rw-профиль**
@@ -1158,7 +1158,7 @@ Expected: PASS — копии совпадают с каналом байт-в-�
 
 - [ ] **Step 6: Прогнать тесты MCP**
 
-Run: `cd ts && deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 src/mcp/`
+Run: `cd ts && deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 back/src/mcp/`
 Expected: PASS. Если разошлась golden-копия `tools-ro.json` — проверить, что команда там НЕ появилась; её присутствие в ro-профиле означает ошибку в шаге 5.
 
 - [ ] **Step 7: Полный прогон**
@@ -1168,7 +1168,7 @@ Expected: всё зелёное.
 
 - [ ] **Step 8: Commit**
 
-Добавить `ts/docs/specs/fixtures/telegram-log/`, `ts/docs/specs/fixtures/mcp-server/tool-policies.json`, `ts/src/telegram/testdata/telegram-log/`, `ts/src/telegram/fixtures_test.ts`, `ts/src/mcp/`, сообщение:
+Добавить `ts/docs/specs/fixtures/telegram-log/`, `ts/docs/specs/fixtures/mcp-server/tool-policies.json`, `ts/back/src/telegram/testdata/telegram-log/`, `ts/back/src/telegram/fixtures_test.ts`, `ts/back/src/mcp/`, сообщение:
 
 ```
 test(telegram): golden-фикстуры telegram log и тул в rw-профиле
