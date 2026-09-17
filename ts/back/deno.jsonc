@@ -28,7 +28,8 @@
       "src/api/testdata",
       "src/d2miro/testdata",
       "src/code/testdata",
-      "src/messages/testdata"
+      "src/messages/testdata",
+      "src/objects/testdata"
     ]
   }
 }
