@@ -63,7 +63,8 @@ export interface InvokeJournal {
   readonly log: InvokeLog;
 }
 
-const ROOT_USAGE = "mpu <команда> [аргументы]";
+/** Строка использования корня. */
+export const ROOT_USAGE = "mpu <команда> [аргументы]";
 /**
  * Граница состояния и конфигурации в справке верхнего уровня: какая
  * переменная какие файлы уводит. Названа явно, потому что переменных
@@ -82,7 +83,8 @@ const ENV_NOTE = `
                    (не задана — те же ~/.config/mpu).
 Изолировать разом и состояние, и конфигурацию можно только подменой HOME.
 `;
-const ROOT_SUMMARY =
+/** Однострока корня. */
+export const ROOT_SUMMARY =
   "Monorepo Python utilities — multi-purpose CLI for ad-hoc operations.";
 
 /**
@@ -90,7 +92,7 @@ const ROOT_SUMMARY =
  * уровне вложенности и в схему аргументов команды не входит
  * (`platform/registry.md`).
  */
-const JSON_FLAG = "--json";
+export const JSON_FLAG = "--json";
 
 /** Общий флаг справки: он есть на каждом уровне дерева. */
 const HELP_FLAG = "--help";
@@ -116,11 +118,24 @@ export async function runCli(
   output: Output,
   journal?: InvokeJournal,
 ): Promise<number> {
-  const io = withProgressIo(baseIo, output, journal);
-
-  const completionExit = runCompletionMode(io, output);
+  const completionExit = runCompletionMode(baseIo, output);
   if (completionExit !== undefined) return completionExit;
+  return await runLine(argv, baseIo, output, journal);
+}
 
+/**
+ * Исполняет строку вызова без режима дополнения shell: общий параметр
+ * `--json`, поверхности точки входа, поиск пути по реестру,
+ * диспетчеризация и перевод ошибок в коды. Это же исполнение получает
+ * `mpu-next` с исходной строкой целиком (`platform/registry-objects.md`).
+ */
+export async function runLine(
+  argv: readonly string[],
+  baseIo: CommandIo,
+  output: Output,
+  journal?: InvokeJournal,
+): Promise<number> {
+  const io = withProgressIo(baseIo, output, journal);
   const { args: rest, json } = takeJsonFlag(argv);
 
   const surfaceExit = await runEntrypointSurface(rest, io, output);
