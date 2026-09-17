@@ -1,0 +1,730 @@
+{
+  "receivers": {
+    "root": {
+      "unary": [
+        "build",
+        "help",
+        "kiten",
+        "sql-ro",
+        "version"
+      ],
+      "keyword": []
+    },
+    "kiten": {
+      "unary": [
+        "card",
+        "ls"
+      ],
+      "keyword": [
+        {
+          "keys": {
+            "card": "value"
+          },
+          "required": [
+            "card"
+          ]
+        },
+        {
+          "keys": {
+            "card": "value",
+            "note": "value"
+          },
+          "required": [
+            "card",
+            "note"
+          ]
+        }
+      ]
+    },
+    "cards": {
+      "unary": [],
+      "keyword": []
+    },
+    "card": {
+      "unary": [
+        "comment",
+        "show"
+      ],
+      "keyword": [
+        {
+          "keys": {
+            "comment": "value"
+          },
+          "required": [
+            "comment"
+          ]
+        },
+        {
+          "keys": {
+            "note": "value"
+          },
+          "required": [
+            "note"
+          ]
+        }
+      ]
+    },
+    "any": {
+      "unary": [],
+      "keyword": []
+    },
+    "sqlro": {
+      "unary": [],
+      "keyword": [
+        {
+          "keys": {
+            "query": "value",
+            "seller-id": "value"
+          },
+          "required": [
+            "query",
+            "seller-id"
+          ]
+        }
+      ]
+    },
+    "build": {
+      "unary": [],
+      "keyword": [
+        {
+          "keys": {
+            "check": "flag"
+          },
+          "required": []
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "name": "пустая строка",
+      "words": [],
+      "receivers": [
+        "root"
+      ],
+      "messages": [
+        {
+          "unary": "help"
+        }
+      ]
+    },
+    {
+      "name": "два унарных",
+      "words": [
+        "kiten",
+        "ls"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "ls"
+        }
+      ]
+    },
+    {
+      "name": "ключевое после унарного",
+      "words": [
+        "kiten",
+        "card:",
+        "123"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "123"
+          }
+        }
+      ]
+    },
+    {
+      "name": "голое слово — унарное сообщение",
+      "words": [
+        "kiten",
+        "card",
+        "123"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "cards"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "card"
+        },
+        {
+          "unary": "123"
+        }
+      ]
+    },
+    {
+      "name": "чужой ключ начинает сообщение результату",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        "comment:",
+        "x"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "card"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "123"
+          }
+        },
+        {
+          "keyword": {
+            "comment": "x"
+          }
+        }
+      ]
+    },
+    {
+      "name": "то же с точкой",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        ".",
+        "comment:",
+        "x"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "card"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "123"
+          }
+        },
+        {
+          "keyword": {
+            "comment": "x"
+          }
+        }
+      ]
+    },
+    {
+      "name": "ключ принимают оба — текущему",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        "note:",
+        "x"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "123",
+            "note": "x"
+          }
+        }
+      ]
+    },
+    {
+      "name": "ключ принимают оба — точка отдаёт результату",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        ".",
+        "note:",
+        "x"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "card"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "123"
+          }
+        },
+        {
+          "keyword": {
+            "note": "x"
+          }
+        }
+      ]
+    },
+    {
+      "name": "цепочка голых слов",
+      "words": [
+        "kiten",
+        "card",
+        "123",
+        "comment",
+        "x"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "cards",
+        "card",
+        "any"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "card"
+        },
+        {
+          "unary": "123"
+        },
+        {
+          "unary": "comment"
+        },
+        {
+          "unary": "x"
+        }
+      ]
+    },
+    {
+      "name": "две формы ключа вперемешку",
+      "words": [
+        "sql-ro",
+        "--seller-id",
+        "54",
+        "query:",
+        "select 1"
+      ],
+      "receivers": [
+        "root",
+        "sqlro"
+      ],
+      "messages": [
+        {
+          "unary": "sql-ro"
+        },
+        {
+          "keyword": {
+            "query": "select 1",
+            "seller-id": "54"
+          }
+        }
+      ]
+    },
+    {
+      "name": "форма --ключ=значение",
+      "words": [
+        "sql-ro",
+        "--seller-id=54",
+        "--query",
+        "select 1"
+      ],
+      "receivers": [
+        "root",
+        "sqlro"
+      ],
+      "messages": [
+        {
+          "unary": "sql-ro"
+        },
+        {
+          "keyword": {
+            "query": "select 1",
+            "seller-id": "54"
+          }
+        }
+      ]
+    },
+    {
+      "name": "порядок ключей не важен",
+      "words": [
+        "sql-ro",
+        "query:",
+        "select 1",
+        "seller-id:",
+        "54"
+      ],
+      "receivers": [
+        "root",
+        "sqlro"
+      ],
+      "messages": [
+        {
+          "unary": "sql-ro"
+        },
+        {
+          "keyword": {
+            "query": "select 1",
+            "seller-id": "54"
+          }
+        }
+      ]
+    },
+    {
+      "name": "флаг без значения",
+      "words": [
+        "build",
+        "--check"
+      ],
+      "receivers": [
+        "root",
+        "build"
+      ],
+      "messages": [
+        {
+          "unary": "build"
+        },
+        {
+          "keyword": {
+            "check": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "флаг в форме ключа",
+      "words": [
+        "build",
+        "check:",
+        "false"
+      ],
+      "receivers": [
+        "root",
+        "build"
+      ],
+      "messages": [
+        {
+          "unary": "build"
+        },
+        {
+          "keyword": {
+            "check": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "экранирование значения с двоеточием",
+      "words": [
+        "kiten",
+        "card:",
+        "--",
+        "a:"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "a:"
+          }
+        }
+      ]
+    },
+    {
+      "name": "экранирование значения с --",
+      "words": [
+        "kiten",
+        "card:",
+        "--",
+        "--x"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "--x"
+          }
+        }
+      ]
+    },
+    {
+      "name": "экранирование голого слова",
+      "words": [
+        "kiten",
+        "card",
+        "--",
+        "ls:"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "cards"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "card"
+        },
+        {
+          "unary": "ls:"
+        }
+      ]
+    },
+    {
+      "name": "--help — унарное help текущему приёмнику",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        "--help"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "card"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "123"
+          }
+        },
+        {
+          "unary": "help"
+        }
+      ]
+    },
+    {
+      "name": "ключа нет ни у одного метода — сообщение всё равно формируется",
+      "words": [
+        "kiten",
+        "nope:",
+        "1"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "nope": "1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "флаг в форме --ключ=значение",
+      "words": [
+        "build",
+        "--check=false"
+      ],
+      "receivers": [
+        "root",
+        "build"
+      ],
+      "messages": [
+        {
+          "unary": "build"
+        },
+        {
+          "keyword": {
+            "check": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "-- после законченной пары закрывает сообщение",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        "--",
+        "note:"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "card"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "123"
+          }
+        },
+        {
+          "unary": "note:"
+        }
+      ]
+    },
+    {
+      "name": "ключ дважды",
+      "words": [
+        "sql-ro",
+        "seller-id:",
+        "5",
+        "seller-id:",
+        "6"
+      ],
+      "receivers": [
+        "root",
+        "sqlro"
+      ],
+      "error": "ключ seller-id указан дважды"
+    },
+    {
+      "name": "нет значения в конце",
+      "words": [
+        "kiten",
+        "card:"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "error": "у ключа card нет значения"
+    },
+    {
+      "name": "значение не может быть ключом",
+      "words": [
+        "sql-ro",
+        "--seller-id",
+        "--query",
+        "x"
+      ],
+      "receivers": [
+        "root",
+        "sqlro"
+      ],
+      "error": "у ключа seller-id нет значения"
+    },
+    {
+      "name": "не хватает обязательного ключа",
+      "words": [
+        "sql-ro",
+        "--seller-id",
+        "54"
+      ],
+      "receivers": [
+        "root",
+        "sqlro"
+      ],
+      "error": "не хватает ключа query"
+    },
+    {
+      "name": "флаг с мусорным значением",
+      "words": [
+        "build",
+        "check:",
+        "maybe"
+      ],
+      "receivers": [
+        "root",
+        "build"
+      ],
+      "error": "ключ check ждёт true или false"
+    },
+    {
+      "name": "точка в конце",
+      "words": [
+        "kiten",
+        "."
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "error": "после точки нет сообщения"
+    },
+    {
+      "name": "точка в начале",
+      "words": [
+        ".",
+        "kiten"
+      ],
+      "receivers": [
+        "root"
+      ],
+      "error": "перед точкой нет сообщения"
+    },
+    {
+      "name": "-- в конце",
+      "words": [
+        "kiten",
+        "--"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "error": "после -- нет слова"
+    },
+    {
+      "name": "две точки подряд",
+      "words": [
+        "kiten",
+        ".",
+        ".",
+        "ls"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "error": "перед точкой нет сообщения"
+    }
+  ]
+}
