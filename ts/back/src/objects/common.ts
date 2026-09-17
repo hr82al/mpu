@@ -29,8 +29,8 @@ class Value implements Receiver {
     );
   }
 
-  final(report: Report): Outcome {
-    return report.value(this.#data);
+  final(report: Report): Promise<Outcome> {
+    return Promise.resolve(report.value(this.#data));
   }
 }
 

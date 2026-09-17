@@ -11,3 +11,4 @@ export type {
 } from "./receiver.ts";
 export { type Message, MessageParseError } from "./message.ts";
 export { type MessageStep, readMessage } from "./read.ts";
+export { ESCAPE_WORD, HELP_FLAG } from "./words.ts";

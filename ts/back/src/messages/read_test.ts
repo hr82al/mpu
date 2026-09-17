@@ -87,3 +87,10 @@ Deno.test("правила спеки вне эталона: слово-не-зн
     });
   }
 });
+
+Deno.test("у приёмника с хвостом пустая строка — всё равно справка", () => {
+  assertEquals(
+    readMessage([], { unary: [], keyword: [], tail: "args" }),
+    { message: { unary: "help" }, rest: [] },
+  );
+});

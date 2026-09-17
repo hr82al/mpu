@@ -63,8 +63,9 @@ class Walk implements Walker {
     const before = this.#trail.copy();
     const receiver = await this.#advance();
     const path = this.#trail.links();
-    return receiver.final({
+    return await receiver.final({
       value: (value) => ({ path, value }),
+      exit: (exit) => ({ path, exit }),
       object: () => ({
         path,
         object: this.#refused(() => this.#pending.help(before)),

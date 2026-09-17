@@ -5,6 +5,7 @@
         "build",
         "help",
         "kiten",
+        "mcp",
         "sql-ro",
         "version"
       ],
@@ -141,6 +142,19 @@
           ]
         }
       ]
+    },
+    "command": {
+      "unary": [],
+      "keyword": [],
+      "tail": "args"
+    },
+    "group": {
+      "unary": [
+        "start",
+        "stop"
+      ],
+      "keyword": [],
+      "tail": "args"
     }
   },
   "cases": [
@@ -838,6 +852,135 @@
           "keyword": {
             "card": "--=x"
           }
+        }
+      ]
+    },
+    {
+      "name": "хвост забирает все слова как есть",
+      "words": [
+        "kiten",
+        "card",
+        "123",
+        "--x",
+        "a:",
+        ".",
+        "--",
+        "-v"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "command"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "card"
+        },
+        {
+          "tail": [
+            "123",
+            "--x",
+            "a:",
+            ".",
+            "--",
+            "-v"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "хвост — --help тоже просто слово",
+      "words": [
+        "kiten",
+        "card",
+        "123",
+        "--help"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "command"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "card"
+        },
+        {
+          "tail": [
+            "123",
+            "--help"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "у приёмника с хвостом свой селектор — унарное",
+      "words": [
+        "mcp",
+        "start"
+      ],
+      "receivers": [
+        "root",
+        "group"
+      ],
+      "messages": [
+        {
+          "unary": "mcp"
+        },
+        {
+          "unary": "start"
+        }
+      ]
+    },
+    {
+      "name": "у приёмника с хвостом чужое слово — хвост",
+      "words": [
+        "mcp",
+        "--port",
+        "1"
+      ],
+      "receivers": [
+        "root",
+        "group"
+      ],
+      "messages": [
+        {
+          "unary": "mcp"
+        },
+        {
+          "tail": [
+            "--port",
+            "1"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "хвост с ключевой формой в начале",
+      "words": [
+        "mcp",
+        "port:",
+        "1"
+      ],
+      "receivers": [
+        "root",
+        "group"
+      ],
+      "messages": [
+        {
+          "unary": "mcp"
+        },
+        {
+          "tail": [
+            "port:",
+            "1"
+          ]
         }
       ]
     }

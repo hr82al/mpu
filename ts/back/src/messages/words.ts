@@ -32,6 +32,19 @@ export class Words implements ValueSource {
     this.#list = list;
   }
 
+  /** Лежит ли в начале слово, которого нет в `known`; слов нет — нет. */
+  firstOutside(known: ReadonlySet<string>): boolean {
+    if (this.#at >= this.#list.length) return false;
+    return !known.has(this.#list[this.#at]);
+  }
+
+  /** Забирает все оставшиеся слова как есть. */
+  takeAll(): string[] {
+    const taken = this.rest();
+    this.#at = this.#list.length;
+    return taken;
+  }
+
   /** Очередное слово, не забирая его; за концом — `END`. */
   peek(): Word {
     if (this.#at >= this.#list.length) return END;
@@ -164,6 +177,12 @@ class Key implements Word {
   close() {}
 }
 
+/** Слово строки, за которым следующее слово берётся буквально. */
+export const ESCAPE_WORD = "--";
+
+/** Слово строки, которое разбор читает как сообщение `help`. */
+export const HELP_FLAG = "--help";
+
 /** `--help`: справка текущему приёмнику. */
 const HELP: Word = {
   start: () => ({ unary: "help" }),
@@ -171,7 +190,7 @@ const HELP: Word = {
   valueFor(key) {
     throw MessageParseError.noValue(key);
   },
-  literal: () => "--help",
+  literal: () => HELP_FLAG,
   afterDot() {},
   close() {},
 };
@@ -223,8 +242,8 @@ const END: Word = {
 
 const EXACT: ReadonlyMap<string, Word> = new Map([
   [".", DOT],
-  ["--", ESCAPE],
-  ["--help", HELP],
+  [ESCAPE_WORD, ESCAPE],
+  [HELP_FLAG, HELP],
 ]);
 
 /** Слово строки как объект. Ключ — только с непустым именем. */

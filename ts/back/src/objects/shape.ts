@@ -31,6 +31,24 @@ import type {
 } from "./protocol.ts";
 import { Refusal } from "./refusal.ts";
 
+/** Как объект отвечает на конец строки. */
+export interface Ending<S> {
+  finish(report: Report, self: S): Promise<Outcome>;
+}
+
+/** Умолчание: итог-объект — справка метода, вернувшего объект. */
+const DESCRIBE: Ending<unknown> = {
+  finish: (report) => Promise.resolve(report.object()),
+};
+
+/** Необязательное в виде: ответ на непонятое и на конец строки. */
+export interface ShapeOptions<S> {
+  /** По умолчанию — отказ. */
+  readonly fallback?: Fallback<S>;
+  /** По умолчанию — справка вернувшего метода. */
+  readonly ending?: Ending<S>;
+}
+
 /** Объект: вид и состояние. */
 class Instance<S> implements Receiver {
   readonly #shape: Shape<S>;
@@ -45,8 +63,8 @@ class Instance<S> implements Receiver {
     return this.#shape.lookup(sent, this.#self);
   }
 
-  final(report: Report): Outcome {
-    return report.object();
+  final(report: Report): Promise<Outcome> {
+    return this.#shape.end(report, this.#self);
   }
 }
 
@@ -54,14 +72,16 @@ class Instance<S> implements Receiver {
 export class Shape<S> implements Yields<S>, Reflective {
   readonly #methods: ReadonlyMap<string, Method<S>>;
   readonly #fallback: Fallback<S>;
+  readonly #ending: Ending<S>;
 
   /**
    * @param methods собственные методы вида
-   * @param fallback ответ на непонятое; по умолчанию — отказ
+   * @param options ответ на непонятое и на конец строки
    */
-  constructor(methods: readonly Method<S>[], fallback: Fallback<S> = REFUSE) {
+  constructor(methods: readonly Method<S>[], options: ShapeOptions<S> = {}) {
     this.#methods = new Map(methods.map((method) => [method.selector, method]));
-    this.#fallback = fallback;
+    this.#fallback = options.fallback ?? REFUSE;
+    this.#ending = options.ending ?? DESCRIBE;
   }
 
   /** Собственные селекторы по алфавиту. */
@@ -76,6 +96,7 @@ export class Shape<S> implements Yields<S>, Reflective {
   parsing(): ReceiverDescription {
     const into = new Description();
     for (const method of this.#methods.values()) method.describe(into);
+    this.#fallback.describe(into);
     return withCommon(into).build();
   }
 
@@ -105,9 +126,19 @@ export class Shape<S> implements Yields<S>, Reflective {
    */
   lookup(sent: Sent, self: S): Call {
     const selector = sent.selector();
-    return this.#methods.get(selector)?.bind(self, sent) ??
-      COMMON.get(selector)?.bind(this, sent) ??
+    const otherwise = () =>
       this.#fallback.understand(sent, self, () => this.#refuse(selector));
+    return sent.route({
+      named: (named) =>
+        this.#methods.get(selector)?.bind(self, named) ??
+          COMMON.get(selector)?.bind(this, named) ?? otherwise(),
+      tail: otherwise,
+    });
+  }
+
+  /** Ответ объекта этого вида на конец строки. */
+  end(report: Report, self: S): Promise<Outcome> {
+    return this.#ending.finish(report, self);
   }
 
   #refuse(selector: string): never {

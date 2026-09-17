@@ -13,6 +13,7 @@ import type {
   Args,
   Call,
   Doc,
+  Named,
   ResultKind,
   Sent,
   Trace,
@@ -29,6 +30,7 @@ export interface Line {
 export class Description {
   readonly #unary: string[] = [];
   readonly #keyword: KeywordMethod[] = [];
+  #tail: Pick<ReceiverDescription, "tail"> = {};
 
   unary(selector: string) {
     this.#unary.push(selector);
@@ -38,8 +40,17 @@ export class Description {
     this.#keyword.push(method);
   }
 
+  /** Хвост у вида один: его объявляет ответ вида на непонятое. */
+  tail(name: string) {
+    this.#tail = { tail: name };
+  }
+
   build(): ReceiverDescription {
-    return { unary: [...this.#unary], keyword: [...this.#keyword] };
+    return {
+      unary: [...this.#unary],
+      keyword: [...this.#keyword],
+      ...this.#tail,
+    };
   }
 }
 
@@ -48,13 +59,15 @@ export interface Method<S> {
   readonly selector: string;
   describe(into: Description): void;
   line(): Line;
-  bind(self: S, sent: Sent): Call;
+  bind(self: S, sent: Named): Call;
 }
 
 /** Ответ вида на сообщение без своего и общего селектора. */
 export interface Fallback<S> {
   understand(sent: Sent, self: S, refuse: () => Call): Call;
   lines(): Line[];
+  /** Что ответ на непонятое добавляет в описание для разбора. */
+  describe(into: Description): void;
 }
 
 /** Метод, связанный с приёмником и сообщением. */
@@ -130,7 +143,7 @@ class Declared<S, T> implements Method<S> {
     return { selector: this.selector, purpose: this.#doc.purpose };
   }
 
-  bind(self: S, sent: Sent): Call {
+  bind(self: S, sent: Named): Call {
     const args = sent.args();
     return new BoundCall(
       this.selector,
@@ -187,6 +200,7 @@ export function keyword<S, T>(
 export const REFUSE: Fallback<unknown> = {
   understand: (_sent, _self, refuse) => refuse(),
   lines: () => [],
+  describe() {},
 };
 
 class LinkMethod<S, T> implements Fallback<S> {
@@ -217,6 +231,7 @@ class LinkMethod<S, T> implements Fallback<S> {
           this.#kind,
           () => this.#run(self, word),
         ),
+      words: refuse,
       refuse,
     });
   }
@@ -224,6 +239,60 @@ class LinkMethod<S, T> implements Fallback<S> {
   lines(): Line[] {
     return [{ selector: this.#name, purpose: this.#doc.purpose }];
   }
+
+  describe() {}
+}
+
+class TailMethod<S> implements Fallback<S> {
+  readonly #name: string;
+  readonly #doc: Doc;
+  readonly #kind: () => Yields<S>;
+
+  constructor(name: string, doc: Doc, kind: () => Yields<S>) {
+    this.#name = name;
+    this.#doc = doc;
+    this.#kind = kind;
+  }
+
+  understand(sent: Sent, self: S, refuse: () => Call): Call {
+    return sent.viaLink({
+      word: refuse,
+      words: (words) =>
+        new BoundCall(
+          this.#name,
+          words.join(" "),
+          this.#doc,
+          this.#kind(),
+          () => self,
+        ),
+      refuse,
+    });
+  }
+
+  lines(): Line[] {
+    return [{ selector: this.#name, purpose: this.#doc.purpose }];
+  }
+
+  describe(into: Description) {
+    into.tail(this.#name);
+  }
+}
+
+/**
+ * Хвост: вид забирает остаток строки одним сообщением
+ * (`platform/registry-objects.md`). Ответ — то же состояние в виде
+ * `kind`; вид передаётся функцией, чтобы мог сослаться на самого себя.
+ *
+ * @param name вид звена хвоста в угловых скобках
+ * @param doc назначение и справка
+ * @param kind вид, которым станет состояние после хвоста
+ */
+export function tail<S>(
+  name: string,
+  doc: Doc,
+  kind: () => Yields<S>,
+): Fallback<S> {
+  return new TailMethod(name, doc, kind);
 }
 
 /**

@@ -25,6 +25,7 @@ export type Args = Readonly<Record<string, string | boolean>>;
 export type Outcome =
   | { readonly path: readonly string[]; readonly value: unknown }
   | { readonly path: readonly string[]; readonly object: string }
+  | { readonly path: readonly string[]; readonly exit: number }
   | { readonly error: string; readonly code: 2 };
 
 /** Вид результата метода: известен без исполнения метода. */
@@ -54,6 +55,8 @@ export interface Trace {
 export interface Report {
   value(data: unknown): Outcome;
   object(): Outcome;
+  /** Приёмник сделал своё сам и назвал код завершения. */
+  exit(code: number): Outcome;
 }
 
 /** Приёмник сообщения в цепочке. */
@@ -61,7 +64,7 @@ export interface Receiver {
   /** Метод, который ответит на сообщение; отказ — `Refusal`. */
   lookup(sent: Sent): Call;
   /** Итог, если слова кончились на этом приёмнике. */
-  final(report: Report): Outcome;
+  final(report: Report): Promise<Outcome>;
 }
 
 /** Метод, связанный с приёмником и сообщением, ещё не исполненный. */
@@ -74,8 +77,19 @@ export interface Call {
 
 /** Куда сообщение, понятое как произвольное слово, уходит у вида. */
 export interface LinkTarget {
+  /** Одно произвольное слово. */
   word(word: string): Call;
+  /** Хвост: остаток строки. */
+  words(words: readonly string[]): Call;
   refuse(): Call;
+}
+
+/** Где вид ищет метод для сообщения. */
+export interface Finder {
+  /** Сообщение с селектором: свой словарь, общий, ответ на непонятое. */
+  named(sent: Named): Call;
+  /** Хвост: только ответ вида на непонятое — у словарей селектора нет. */
+  tail(): Call;
 }
 
 /** Исполнитель цепочки глазами сообщения. */
@@ -91,10 +105,15 @@ export interface Entry {
 
 /** Сообщение, которое уходит приёмнику. */
 export interface Sent extends Entry {
-  /** Селектор: слово или ключи `a:b:` по алфавиту. */
+  /** Селектор: слово, ключи `a:b:` по алфавиту или первое слово хвоста. */
   selector(): string;
+  viaLink(target: LinkTarget): Call;
+  route(finder: Finder): Call;
+}
+
+/** Сообщение с селектором: у него есть звено и значения ключей. */
+export interface Named extends Sent {
   /** Текст звена, как в строке. */
   text(): string;
   args(): Args;
-  viaLink(target: LinkTarget): Call;
 }

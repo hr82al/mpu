@@ -34,7 +34,14 @@ class Comment {
 
 const COMMENT = new Shape<Comment>(
   [unary("clear", about("убрать текст"), DATA, (c) => c.write(""))],
-  link("<text>", about("текст комментария"), DATA, (c, word) => c.write(word)),
+  {
+    fallback: link(
+      "<text>",
+      about("текст комментария"),
+      DATA,
+      (c, word) => c.write(word),
+    ),
+  },
 );
 
 class Card {
@@ -79,12 +86,14 @@ class Cards {
 
 const CARDS = new Shape<Cards>(
   [],
-  link(
-    "<card>",
-    about("карточка с номером"),
-    CARD,
-    (c, word) => c.numbered(word),
-  ),
+  {
+    fallback: link(
+      "<card>",
+      about("карточка с номером"),
+      CARD,
+      (c, word) => c.numbered(word),
+    ),
+  },
 );
 
 /** Kaiten тестового дерева; считает вызовы `ls`. */

@@ -1,7 +1,11 @@
-/** Сообщение: унарное — одно слово, ключевое — пары «ключ → значение». */
+/**
+ * Сообщение: унарное — одно слово, ключевое — пары «ключ → значение»
+ * в порядке строки, хвост — остаток строки как есть.
+ */
 export type Message =
   | { readonly unary: string }
-  | { readonly keyword: Readonly<Record<string, string | boolean>> };
+  | { readonly keyword: Readonly<Record<string, string | boolean>> }
+  | { readonly tail: readonly string[] };
 
 /**
  * Слова строки не складываются в сообщение. Текст — из спеки дословно;

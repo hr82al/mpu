@@ -15,10 +15,15 @@ export interface KeywordMethod {
   readonly required: readonly string[];
 }
 
-/** Что приёмник объявил: унарные селекторы и ключевые методы. */
+/**
+ * Что приёмник объявил: унарные селекторы, ключевые методы и, если есть,
+ * имя вида звена хвоста — остатка строки, который приёмник забирает
+ * целиком.
+ */
 export interface ReceiverDescription {
   readonly unary: readonly string[];
   readonly keyword: readonly KeywordMethod[];
+  readonly tail?: string;
 }
 
 /** Откуда ключ, ждущий значения, берёт следующее слово. */

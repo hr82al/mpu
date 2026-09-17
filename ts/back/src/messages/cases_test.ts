@@ -22,6 +22,7 @@ interface RawReceiver {
     readonly keys: Readonly<Record<string, string | undefined>>;
     readonly required: readonly string[];
   }[];
+  readonly tail?: string;
 }
 
 function kindOf(text: string | undefined): KeyKind {
@@ -32,6 +33,7 @@ function kindOf(text: string | undefined): KeyKind {
 function described(raw: RawReceiver): ReceiverDescription {
   return {
     unary: raw.unary,
+    tail: raw.tail,
     keyword: raw.keyword.map((method) => ({
       keys: Object.fromEntries(
         Object.entries(method.keys).map(([key, kind]) => [key, kindOf(kind)]),
@@ -80,8 +82,8 @@ function readChain(
   return messages;
 }
 
-Deno.test("в эталоне 34 случая", () => {
-  assertEquals(golden.cases.length, 34);
+Deno.test("в эталоне 39 случаев", () => {
+  assertEquals(golden.cases.length, 39);
 });
 
 Deno.test("случаи эталона разбора сообщений", async (t) => {
