@@ -1,0 +1,514 @@
+{
+  "cases": [
+    {
+      "name": "данные через два унарных",
+      "words": [
+        "kiten",
+        "ls"
+      ],
+      "path": [
+        "kiten",
+        "ls"
+      ],
+      "value": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "name": "номер как произвольное слово",
+      "words": [
+        "kiten",
+        "card",
+        "123",
+        "show"
+      ],
+      "path": [
+        "kiten",
+        "card",
+        "<card>",
+        "show"
+      ],
+      "value": {
+        "id": "123"
+      }
+    },
+    {
+      "name": "номер ключом",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        "show"
+      ],
+      "path": [
+        "kiten",
+        "card:",
+        "show"
+      ],
+      "value": {
+        "id": "123"
+      }
+    },
+    {
+      "name": "цепочка из пяти унарных",
+      "words": [
+        "kiten",
+        "card",
+        "123",
+        "comment",
+        "hi"
+      ],
+      "path": [
+        "kiten",
+        "card",
+        "<card>",
+        "comment",
+        "<text>"
+      ],
+      "value": {
+        "commented": "123",
+        "text": "hi"
+      }
+    },
+    {
+      "name": "два ключевых подряд",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        "comment:",
+        "hi"
+      ],
+      "path": [
+        "kiten",
+        "card:",
+        "comment:"
+      ],
+      "value": {
+        "commented": "123",
+        "text": "hi"
+      }
+    },
+    {
+      "name": "данные корня",
+      "words": [
+        "version"
+      ],
+      "path": [
+        "version"
+      ],
+      "value": "0.1.0"
+    },
+    {
+      "name": "пустая строка — справка корня",
+      "words": [],
+      "path": [
+        "help"
+      ],
+      "value_file": "help-root.txt"
+    },
+    {
+      "name": "--help корню",
+      "words": [
+        "--help"
+      ],
+      "path": [
+        "help"
+      ],
+      "value_file": "help-root.txt"
+    },
+    {
+      "name": "справка объекта",
+      "words": [
+        "kiten",
+        "--help"
+      ],
+      "path": [
+        "help",
+        "kiten"
+      ],
+      "value_file": "help-kiten.txt"
+    },
+    {
+      "name": "справка объекта карточек через --help",
+      "words": [
+        "kiten",
+        "card",
+        "--help"
+      ],
+      "path": [
+        "help",
+        "kiten",
+        "card"
+      ],
+      "value_file": "help-kiten-card.txt"
+    },
+    {
+      "name": "help со словами",
+      "words": [
+        "help",
+        "kiten",
+        "card"
+      ],
+      "path": [
+        "help",
+        "kiten",
+        "card"
+      ],
+      "value_file": "help-kiten-card.txt"
+    },
+    {
+      "name": "справка объекта после ключевого",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        "--help"
+      ],
+      "path": [
+        "help",
+        "kiten",
+        "card:"
+      ],
+      "value_file": "help-card-keyword.txt"
+    },
+    {
+      "name": "справка объекта с видом звена",
+      "words": [
+        "kiten",
+        "card",
+        "123",
+        "comment",
+        "--help"
+      ],
+      "path": [
+        "help",
+        "kiten",
+        "card",
+        "<card>",
+        "comment"
+      ],
+      "value_file": "help-comment.txt"
+    },
+    {
+      "name": "справка значения",
+      "words": [
+        "version",
+        "--help"
+      ],
+      "path": [
+        "help",
+        "version"
+      ],
+      "value_file": "help-version.txt"
+    },
+    {
+      "name": "help в середине строки",
+      "words": [
+        "kiten",
+        "help",
+        "card"
+      ],
+      "path": [
+        "help",
+        "kiten",
+        "card"
+      ],
+      "value_file": "help-kiten-card.txt"
+    },
+    {
+      "name": "справка данных не исполняет метод",
+      "words": [
+        "kiten",
+        "ls",
+        "--help"
+      ],
+      "path": [
+        "help",
+        "kiten",
+        "ls"
+      ],
+      "value_file": "help-kiten-ls.txt"
+    },
+    {
+      "name": "справка карточки через номер",
+      "words": [
+        "kiten",
+        "card",
+        "123",
+        "--help"
+      ],
+      "path": [
+        "help",
+        "kiten",
+        "card",
+        "<card>"
+      ],
+      "value_file": "help-card-word.txt"
+    },
+    {
+      "name": "справка вида звена на непонятном слове",
+      "words": [
+        "help",
+        "kiten",
+        "card",
+        "abc"
+      ],
+      "path": [
+        "help",
+        "kiten",
+        "card",
+        "<card>"
+      ],
+      "value_file": "help-card-word-abc.txt"
+    },
+    {
+      "name": "данные с видом звена",
+      "words": [
+        "kiten",
+        "card",
+        "123",
+        "comment",
+        "clear"
+      ],
+      "path": [
+        "kiten",
+        "card",
+        "<card>",
+        "comment",
+        "clear"
+      ],
+      "value": {
+        "commented": "123",
+        "text": ""
+      }
+    },
+    {
+      "name": "selectors корня",
+      "words": [
+        "selectors"
+      ],
+      "path": [
+        "selectors"
+      ],
+      "value": [
+        "kiten",
+        "version"
+      ]
+    },
+    {
+      "name": "selectors объекта",
+      "words": [
+        "kiten",
+        "selectors"
+      ],
+      "path": [
+        "kiten",
+        "selectors"
+      ],
+      "value": [
+        "card",
+        "card:",
+        "ls"
+      ]
+    },
+    {
+      "name": "selectors объекта без собственных",
+      "words": [
+        "kiten",
+        "card",
+        "selectors"
+      ],
+      "path": [
+        "kiten",
+        "card",
+        "selectors"
+      ],
+      "value": []
+    },
+    {
+      "name": "respondsTo: ключевой",
+      "words": [
+        "kiten",
+        "respondsTo:",
+        "card:"
+      ],
+      "path": [
+        "kiten",
+        "respondsTo:"
+      ],
+      "value": true
+    },
+    {
+      "name": "respondsTo: унарный",
+      "words": [
+        "kiten",
+        "respondsTo:",
+        "ls"
+      ],
+      "path": [
+        "kiten",
+        "respondsTo:"
+      ],
+      "value": true
+    },
+    {
+      "name": "respondsTo: общий",
+      "words": [
+        "kiten",
+        "respondsTo:",
+        "help"
+      ],
+      "path": [
+        "kiten",
+        "respondsTo:"
+      ],
+      "value": true
+    },
+    {
+      "name": "selectors объекта с видом звена",
+      "words": [
+        "kiten",
+        "card",
+        "123",
+        "comment",
+        "selectors"
+      ],
+      "path": [
+        "kiten",
+        "card",
+        "<card>",
+        "comment",
+        "selectors"
+      ],
+      "value": [
+        "clear"
+      ]
+    },
+    {
+      "name": "respondsTo: произвольное слово",
+      "words": [
+        "kiten",
+        "card",
+        "respondsTo:",
+        "123"
+      ],
+      "path": [
+        "kiten",
+        "card",
+        "respondsTo:"
+      ],
+      "value": false
+    },
+    {
+      "name": "respondsTo: нет",
+      "words": [
+        "kiten",
+        "respondsTo:",
+        "nope:"
+      ],
+      "path": [
+        "kiten",
+        "respondsTo:"
+      ],
+      "value": false
+    },
+    {
+      "name": "непонятое с ближайшим",
+      "words": [
+        "kitn"
+      ],
+      "error": "mpu: не понимает kitn; ближайшие: kiten",
+      "code": 2
+    },
+    {
+      "name": "непонятое без ближайших",
+      "words": [
+        "kiten",
+        "zzzzzz"
+      ],
+      "error": "mpu kiten: не понимает zzzzzz",
+      "code": 2
+    },
+    {
+      "name": "ближайшие — несколько по расстоянию",
+      "words": [
+        "kiten",
+        "car"
+      ],
+      "error": "mpu kiten: не понимает car; ближайшие: card, card:",
+      "code": 2
+    },
+    {
+      "name": "свой ответ на непонятое",
+      "words": [
+        "kiten",
+        "card",
+        "abc"
+      ],
+      "error": "mpu kiten card: нет карточки abc",
+      "code": 2
+    },
+    {
+      "name": "цепочка окончена",
+      "words": [
+        "version",
+        "name"
+      ],
+      "error": "mpu version: цепочка окончена, name отправить некому",
+      "code": 2
+    },
+    {
+      "name": "ключевое, которого объект не знает",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        "nope:",
+        "x"
+      ],
+      "error": "mpu kiten card: 123: не понимает nope:",
+      "code": 2
+    },
+    {
+      "name": "ошибка разбора",
+      "words": [
+        "kiten",
+        "card:"
+      ],
+      "error": "у ключа card нет значения",
+      "code": 2
+    },
+    {
+      "name": "help со словами — непонятое",
+      "words": [
+        "help",
+        "kitn"
+      ],
+      "error": "mpu: не понимает kitn; ближайшие: kiten",
+      "code": 2
+    },
+    {
+      "name": "help со словами — после данных",
+      "words": [
+        "help",
+        "version",
+        "name"
+      ],
+      "error": "mpu version: цепочка окончена, name отправить некому",
+      "code": 2
+    },
+    {
+      "name": "help после данных — отказ, метод не последний",
+      "words": [
+        "kiten",
+        "ls",
+        "name",
+        "--help"
+      ],
+      "error": "mpu kiten ls: цепочка окончена, name отправить некому",
+      "code": 2
+    }
+  ]
+}
