@@ -332,6 +332,7 @@
       "words": [
         "kiten",
         "respondsTo:",
+        "--",
         "card:"
       ],
       "path": [
@@ -406,6 +407,7 @@
       "words": [
         "kiten",
         "respondsTo:",
+        "--",
         "nope:"
       ],
       "path": [
@@ -413,6 +415,45 @@
         "respondsTo:"
       ],
       "value": false
+    },
+    {
+      "name": "слова кончились на объекте",
+      "words": [
+        "kiten"
+      ],
+      "path": [
+        "kiten"
+      ],
+      "object_file": "help-kiten.txt"
+    },
+    {
+      "name": "слова кончились на объекте после ключевого",
+      "words": [
+        "kiten",
+        "card:",
+        "123"
+      ],
+      "path": [
+        "kiten",
+        "card:"
+      ],
+      "object_file": "help-card-keyword.txt"
+    },
+    {
+      "name": "слова кончились на объекте с видом звена",
+      "words": [
+        "kiten",
+        "card",
+        "123",
+        "comment"
+      ],
+      "path": [
+        "kiten",
+        "card",
+        "<card>",
+        "comment"
+      ],
+      "object_file": "help-comment.txt"
     },
     {
       "name": "непонятое с ближайшим",
@@ -508,6 +549,15 @@
         "--help"
       ],
       "error": "mpu kiten ls: цепочка окончена, name отправить некому",
+      "code": 2
+    },
+    {
+      "name": "общее сообщение значению",
+      "words": [
+        "version",
+        "selectors"
+      ],
+      "error": "mpu version: цепочка окончена, selectors отправить некому",
       "code": 2
     }
   ]
