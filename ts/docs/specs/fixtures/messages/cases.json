@@ -93,6 +93,54 @@
           "required": []
         }
       ]
+    },
+    "clash": {
+      "unary": [],
+      "keyword": [
+        {
+          "keys": {
+            "check": "flag"
+          },
+          "required": []
+        },
+        {
+          "keys": {
+            "check": "value",
+            "mode": "value"
+          },
+          "required": [
+            "check",
+            "mode"
+          ]
+        }
+      ]
+    },
+    "pair": {
+      "unary": [],
+      "keyword": [
+        {
+          "keys": {
+            "a": "value",
+            "b": "value",
+            "c": "value"
+          },
+          "required": [
+            "a",
+            "b",
+            "c"
+          ]
+        },
+        {
+          "keys": {
+            "a": "value",
+            "z": "value"
+          },
+          "required": [
+            "a",
+            "z"
+          ]
+        }
+      ]
     }
   },
   "cases": [
@@ -725,6 +773,73 @@
         "kiten"
       ],
       "error": "перед точкой нет сообщения"
+    },
+    {
+      "name": "у ключа два вида в описании",
+      "words": [
+        "x",
+        "check:",
+        "1"
+      ],
+      "receivers": [
+        "root",
+        "clash"
+      ],
+      "error": "у ключа check в описании приёмника два вида"
+    },
+    {
+      "name": "недостающий ключ — у метода с меньшим числом недостающих",
+      "words": [
+        "x",
+        "a:",
+        "1"
+      ],
+      "receivers": [
+        "root",
+        "pair"
+      ],
+      "error": "не хватает ключа z"
+    },
+    {
+      "name": "одинокое двоеточие — обычное слово",
+      "words": [
+        "kiten",
+        ":"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": ":"
+        }
+      ]
+    },
+    {
+      "name": "пустое имя в форме --=значение — обычное слово",
+      "words": [
+        "kiten",
+        "card:",
+        "--=x"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "--=x"
+          }
+        }
+      ]
     }
   ]
 }
