@@ -70,11 +70,11 @@ code in this repository.
 
 ### Образец стиля
 
-Новый код пишется как `src/sql/target.ts`: JSDoc на каждом экспорте, `readonly`
-на полях данных, ранние выходы, узкий интерфейс потребителя (`EnvKeys` —
-`Pick<EnvFile, …>` вместо всего типа), discriminated union вместо флагов, ошибка
-с `cause`. Теми же свойствами обладают `src/sql/render.ts` и
-`src/logs/query.ts`. Образец устарел — заменить ссылку, а не оставлять её.
+Новый код пишется как `back/src/sql/target.ts`: JSDoc на каждом экспорте,
+`readonly` на полях данных, ранние выходы, узкий интерфейс потребителя
+(`EnvKeys` — `Pick<EnvFile, …>` вместо всего типа), discriminated union вместо
+флагов, ошибка с `cause`. Теми же свойствами обладают `back/src/sql/render.ts` и
+`back/src/logs/query.ts`. Образец устарел — заменить ссылку, а не оставлять её.
 
 ### Библиотеки и приёмы
 
@@ -166,9 +166,14 @@ Deno → `@std/*` → пакет с JSR → `npm:` — последний тре
 - Модулей `utils`, `common`, `helpers` не существует — имя модуля называет
   предметную область.
 - Циклических импортов нет.
-- `main.ts` (точка входа `deno compile`) содержит только разбор аргументов
+- `back/main.ts` (точка входа `deno compile`) содержит только разбор аргументов
   верхнего уровня и склейку зависимостей. Логика — в модулях, чтобы
   тестироваться без запуска бинаря.
+- `ts/main.ts` — не точка входа, а признак дерева исходников: по паре
+  `deno.jsonc` + `main.ts` в корне `ts/` установленный `mpu` находит дерево
+  (`docs/specs/build.md`). Кода в нём нет и не будет.
+- Код подпроекта `back/` не импортирует ничего вне `back/`, кроме канала
+  `docs/specs/fixtures/` (`docs/specs/platform/workspace.md`).
 
 ### Права Deno
 
@@ -712,7 +717,7 @@ deno task test path/to/x_test.ts --filter "имя"   # один тест
 deno task test --coverage=cov && deno coverage cov # покрытие
 deno bench            # бенчмарки
 deno task smoke       # собранный бинарь во временном HOME: права из build
-deno task <name>      # задачи из deno.jsonc (появятся с первым кодом)
+deno task <name>      # задачи из корневого deno.jsonc
 
 git status --short -- ts/             # состояние; pathspec обязателен
 git diff -- ts/                       # дифф перед завершением задачи
@@ -726,6 +731,16 @@ git commit -m "…" -- ts/              # коммит с pathspec
 
 **Модуль Deno/TS в середине переноса.** Источник знания о поведении — `docs/`
 (канал спецификаций, см. `docs/CLAUDE.md`).
+
+`ts/` — рабочая область Deno (`docs/specs/platform/workspace.md`): корневой
+`deno.jsonc` перечисляет подпроекты (`workspace`) и держит общие импорты, задачи
+и `deno.lock`; все команды из раздела «Команды» зовутся из `ts/`. Пока подпроект
+один — `back/`: `back/main.ts`, `back/src/`, `back/scripts/` (`smoke.ts`,
+`gen-tool-snapshots.ts`) и свой `back/deno.jsonc` с исключениями форматтера для
+`testdata`. Общими для всех подпроектов остаются `docs/`, `handoff/`, `.tmp/`,
+`.deno/`, `cov/`. Следующие подпроекты (`mcp/`, `cli/`, `complete/`,
+`supervisor/`, `web/`) встают рядом с `back/`. Пути ниже — от `ts/back/`, если
+не сказано иное.
 
 Каркас собран целиком: реестр команд (`src/registry/`,
 `docs/specs/platform/registry.md`), MCP-сервер с профилями `ro`/`rw`
