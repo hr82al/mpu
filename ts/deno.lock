@@ -23,6 +23,7 @@
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/io@0.223.0": "0.223.0",
     "jsr:@std/testing@^1.0.20": "1.0.20",
+    "jsr:@std/text@1.0.19": "1.0.19",
     "jsr:@zod/zod@4.4.3": "4.4.3",
     "npm:@fuman/io@0.0.21": "0.0.21",
     "npm:@fuman/net@0.0.21": "0.0.21",
@@ -151,6 +152,9 @@
         "jsr:@std/async",
         "jsr:@std/data-structures"
       ]
+    },
+    "@std/text@1.0.19": {
+      "integrity": "003a0e032d360e8c3a4e0410fb792c77a66bd6553fee9d60c6ec1bce30d29223"
     },
     "@zod/zod@4.4.3": {
       "integrity": "4712ac0967efaa718b37c36eaffb4e1d4457e1a266aef6efb3ab36f54a6fefe4"
@@ -298,6 +302,7 @@
       "jsr:@mtcute/wasm@0.31.0",
       "jsr:@std/assert@^1.0.6",
       "jsr:@std/testing@^1.0.20",
+      "jsr:@std/text@1.0.19",
       "jsr:@zod/zod@4.4.3",
       "npm:pg@8.22.0",
       "npm:typescript@5.9.3"
