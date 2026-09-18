@@ -7,6 +7,7 @@
  */
 
 import { Hono } from "@hono/hono";
+import { hasBearer, LOOPBACK, LOOPBACK_ORIGINS } from "../access/mod.ts";
 import { handleMcp, type McpDeps, type Profile } from "./mod.ts";
 import {
   errorBody,
@@ -14,8 +15,7 @@ import {
   RPC_INVALID_REQUEST,
 } from "./jsonrpc.ts";
 
-/** Интерфейс, на котором сервер слушает: только петля. */
-export const LOOPBACK = "127.0.0.1";
+export { LOOPBACK };
 
 /** Порт по умолчанию, если его не задали ни флагом, ни конфигом. */
 export const DEFAULT_PORT = 7337;
@@ -87,10 +87,10 @@ async function serve(
     return new Response(null, { status: 405, headers: { Allow: "POST" } });
   }
   const origin = request.headers.get("Origin");
-  if (origin !== null && !isAllowedOrigin(origin)) {
+  if (origin !== null && !LOOPBACK_ORIGINS.allows(origin)) {
     return json(403, errorBody(null, RPC_INVALID_REQUEST, forbidden(origin)));
   }
-  if (!hasValidToken(request, options.token)) {
+  if (!hasBearer(request, options.token)) {
     return new Response(null, { status: 401 });
   }
   const body = await readJsonBody(request);
@@ -138,22 +138,6 @@ export async function serveMcp(
   };
 }
 
-/**
- * Разрешённые источники фиксированы реализацией (спека, «Конфигурация»):
- * страница может обратиться к серверу только с той же машины. Запрос без
- * `Origin` принимается — так ходят не-браузерные клиенты.
- */
-function isAllowedOrigin(origin: string): boolean {
-  try {
-    // Для IPv6 `hostname` отдаёт адрес в скобках — сравниваем с ним.
-    const host = new URL(origin).hostname;
-    return host === LOOPBACK || host === "localhost" || host === "[::1]";
-  } catch {
-    // Неразбираемый Origin — заведомо не свой: отказ, а не падение.
-    return false;
-  }
-}
-
 /** Причина сбоя для ответа: текст ошибки, а не её объект. */
 function internalReason(err: unknown): string {
   return `Internal error: ${err instanceof Error ? err.message : String(err)}`;
@@ -161,16 +145,6 @@ function internalReason(err: unknown): string {
 
 function forbidden(origin: string): string {
   return `Origin not allowed: ${origin}`;
-}
-
-/**
- * Токен запроса. Сравнение обычное, не постоянного времени: сервер
- * слушает петлю, недоверенной стороны в этой системе нет (CLAUDE.md,
- * «Права Deno»), а тайминг по петле не отличим от шума.
- */
-function hasValidToken(request: Request, token: string): boolean {
-  const header = request.headers.get("Authorization");
-  return header !== null && header === `Bearer ${token}`;
 }
 
 /** Тело запроса как JSON; не разбирается — `undefined`. */
