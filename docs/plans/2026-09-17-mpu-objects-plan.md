@@ -196,7 +196,15 @@ Vite, React 19, TanStack Router / Query / Table / Virtual, zustand, vitest.
 - `ask` в tty → вопрос; «n» → отказ, код 1; нет tty → отказ без вопроса;
 - время старта `mpu-next help` — замер в отчёте.
 
-## Порция 7: `mcp`
+## Порция 7a (сквозной номер 143): строка простым HTTP в `mpu-back`
+
+**Спека:** `ts/docs/specs/platform/back-http-line.md`. `POST /line` и
+`/agent/line`: кадры NDJSON потоком или один JSON; подтверждение — вторым
+запросом с одноразовым номером. Решение владельца 2026-09-18: свой клиент
+(C, `curl`, `http` в nu) должен уметь строку без WebSocket, с потоком длинного
+вывода.
+
+## Порция 7 (7b, сквозной номер 144): `mcp` — на официальном SDK (решение владельца 2026-09-18), к `back` — через HTTP-вход 7a
 
 **Спека:** `ts/docs/specs/platform/mcp-objects.md` + голдены (из порции 0).
 
