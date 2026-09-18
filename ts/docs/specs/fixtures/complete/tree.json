@@ -1,0 +1,441 @@
+{
+  "version": "0.1.0",
+  "nodes": [
+    {
+      "path": [],
+      "summary": "Monorepo Python utilities — multi-purpose CLI for ad-hoc operations.",
+      "selectors": [
+        "allow:",
+        "ask:",
+        "deny:",
+        "forget:",
+        "kiten",
+        "mcp",
+        "policy",
+        "sql-ro",
+        "version"
+      ],
+      "tail": null,
+      "flags": [],
+      "summaries": {
+        "allow:": "разрешить путь без вопроса",
+        "ask:": "спрашивать перед исполнением пути",
+        "deny:": "запретить путь",
+        "forget:": "снять правило с пути",
+        "policy": "правила подтверждения"
+      }
+    },
+    {
+      "path": [
+        "kiten"
+      ],
+      "summary": "карточки Kaiten: чтение, комментарии, время, справочники",
+      "selectors": [
+        "card",
+        "comment",
+        "field",
+        "ls"
+      ],
+      "tail": null,
+      "flags": [],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "kiten",
+        "card"
+      ],
+      "summary": "Одна карточка Kaiten целиком: шапка, свойства, описание, файлы, комментарии.",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--md",
+          "summary": "чистый GFM markdown"
+        },
+        {
+          "name": "--json",
+          "summary": "сырой JSON: карточка и комментарии"
+        },
+        {
+          "name": "--images",
+          "summary": "вложения-картинки в наглядном виде; выключить — флагом --no-images"
+        },
+        {
+          "name": "--comments",
+          "summary": "комментарии карточки; не читать их — флагом --no-comments"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "kiten",
+        "comment"
+      ],
+      "summary": "Комментарий к карточке Kaiten: текст, вложения, адресаты.",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--message",
+          "summary": "текст комментария (GFM markdown)"
+        },
+        {
+          "name": "-m",
+          "summary": "текст комментария (GFM markdown)"
+        },
+        {
+          "name": "--body-file",
+          "summary": "файл с текстом комментария; '-' — stdin"
+        },
+        {
+          "name": "-F",
+          "summary": "файл с текстом комментария; '-' — stdin"
+        },
+        {
+          "name": "--file",
+          "summary": "вложение: путь к файлу; флаг повторяется"
+        },
+        {
+          "name": "-f",
+          "summary": "вложение: путь к файлу; флаг повторяется"
+        },
+        {
+          "name": "--to",
+          "summary": "адресаты первой строкой: '@ivan @petr' либо '@all'; флаг повторяется"
+        },
+        {
+          "name": "--json",
+          "summary": "результат как JSON вместо текста"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "kiten",
+        "field"
+      ],
+      "summary": "кастомные поля карточки: set | artefact",
+      "selectors": [
+        "artefact",
+        "set"
+      ],
+      "tail": null,
+      "flags": [],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "kiten",
+        "field",
+        "artefact"
+      ],
+      "summary": "файловое поле «9. AI-артефакт»: set | rm",
+      "selectors": [
+        "rm",
+        "set"
+      ],
+      "tail": null,
+      "flags": [],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "kiten",
+        "field",
+        "artefact",
+        "rm"
+      ],
+      "summary": "Удалить файлы карточки, привязанные к полю «9. AI-артефакт».",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--json",
+          "summary": "результат как JSON вместо текста"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "kiten",
+        "field",
+        "artefact",
+        "set"
+      ],
+      "summary": "Загрузить md-файл в поле карточки «9. AI-артефакт».",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--json",
+          "summary": "результат как JSON вместо текста"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "kiten",
+        "field",
+        "set"
+      ],
+      "summary": "Записать скалярное кастомное поле карточки Kaiten.",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--json",
+          "summary": "результат как JSON вместо текста"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "kiten",
+        "ls"
+      ],
+      "summary": "Список карточек Kaiten, где я участник.",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--archived",
+          "summary": "архивные карточки (condition=2) вместо активных"
+        },
+        {
+          "name": "--state",
+          "summary": "этап карточки: queued, in-progress, done"
+        },
+        {
+          "name": "--space",
+          "summary": "пространство: id или подстрока названия"
+        },
+        {
+          "name": "--board",
+          "summary": "доска: id или подстрока названия"
+        },
+        {
+          "name": "--lane",
+          "summary": "дорожка: id или подстрока названия"
+        },
+        {
+          "name": "--column",
+          "summary": "колонка: id или подстрока названия"
+        },
+        {
+          "name": "--date-from",
+          "summary": "нижняя граница активности YYYY-MM-DD, включительно"
+        },
+        {
+          "name": "--date_from",
+          "summary": "синоним --date-from"
+        },
+        {
+          "name": "--date-to",
+          "summary": "верхняя граница активности YYYY-MM-DD, включительно"
+        },
+        {
+          "name": "--date_to",
+          "summary": "синоним --date-to"
+        },
+        {
+          "name": "--json",
+          "summary": "массив объектов id/state/due_date/updated/title/url, отступ 2"
+        },
+        {
+          "name": "--format",
+          "summary": "шаблон строки на карточку: {n} {id} {title} {url} {state} {due} {column} {column_mapped}"
+        },
+        {
+          "name": "--only-url",
+          "summary": "[title](url) по строке на карточку"
+        },
+        {
+          "name": "--md",
+          "summary": "GFM-таблица"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "mcp"
+      ],
+      "summary": "MCP-сервер над реестром команд: запуск, служба и токен доступа",
+      "selectors": [
+        "disable",
+        "enable",
+        "restart",
+        "start",
+        "status",
+        "stop",
+        "token"
+      ],
+      "tail": "args",
+      "flags": [],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "mcp",
+        "disable"
+      ],
+      "summary": "остановить службу, снять с автозапуска и удалить описание",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--json",
+          "summary": "результат как JSON вместо текста"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "mcp",
+        "enable"
+      ],
+      "summary": "описать службу MCP-сервера, запустить и включить в автозапуск",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--json",
+          "summary": "результат как JSON вместо текста"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "mcp",
+        "restart"
+      ],
+      "summary": "перезапустить описанную службу MCP-сервера",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--json",
+          "summary": "результат как JSON вместо текста"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "mcp",
+        "start"
+      ],
+      "summary": "запустить описанную службу MCP-сервера",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--json",
+          "summary": "результат как JSON вместо текста"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "mcp",
+        "status"
+      ],
+      "summary": "состояние службы MCP-сервера: описание, автозапуск, версия",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--json",
+          "summary": "результат как JSON вместо текста"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "mcp",
+        "stop"
+      ],
+      "summary": "остановить службу MCP-сервера, не снимая с автозапуска",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--json",
+          "summary": "результат как JSON вместо текста"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "mcp",
+        "token"
+      ],
+      "summary": "заголовки авторизации для подключения к серверу",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--json",
+          "summary": "результат как JSON вместо текста"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "sql-ro"
+      ],
+      "summary": "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).",
+      "selectors": [],
+      "tail": "args",
+      "flags": [
+        {
+          "name": "--server",
+          "summary": "override резолва: sl-N"
+        },
+        {
+          "name": "--dry",
+          "summary": "только мета-блок и SQL, без подключения"
+        },
+        {
+          "name": "--json",
+          "summary": "результат как JSON"
+        },
+        {
+          "name": "--md",
+          "summary": "результат как markdown-таблица"
+        },
+        {
+          "name": "--verbose",
+          "summary": "печатать мета-блок"
+        },
+        {
+          "name": "-v",
+          "summary": "печатать мета-блок"
+        }
+      ],
+      "summaries": {}
+    },
+    {
+      "path": [
+        "version"
+      ],
+      "summary": "Show mpu version.",
+      "selectors": [],
+      "tail": "args",
+      "flags": [],
+      "summaries": {}
+    }
+  ]
+}
