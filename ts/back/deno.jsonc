@@ -30,7 +30,8 @@
       "src/code/testdata",
       "src/messages/testdata",
       "src/objects/testdata",
-      "src/policy/testdata"
+      "src/policy/testdata",
+      "src/backend/testdata"
     ]
   }
 }

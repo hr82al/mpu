@@ -15,11 +15,14 @@ import {
   NOBODY,
   PolicyError,
   RuleBook,
+  type RuleEntry,
 } from "../policy/mod.ts";
 import type { CliEntry } from "../process/mod.ts";
 import { registrySeeds } from "./seeds.ts";
 import { Session } from "./session.ts";
 import { registryRoot } from "./tree.ts";
+
+export { registryNodes, type TreeNode } from "./tree.ts";
 
 /**
  * Слова для обхода цепочки: без `--json` до первого `--` — иначе корень
@@ -96,6 +99,17 @@ export function terminalChannel(
     if (!io.stdinIsTerminal() || !io.stderrIsTerminal()) return NOBODY;
     return new Human(output.stderr, readLine);
   };
+}
+
+/**
+ * Правила файла — те же данные, что у строки `policy`
+ * (`platform/policy.md`), с посевом на открытии.
+ *
+ * @throws PolicyError — файл нельзя открыть или прочитать
+ */
+export function rulesOf(file: string | undefined): RuleEntry[] {
+  using book = RuleBook.open(file, registrySeeds());
+  return book.list();
 }
 
 /** Исполнение сразу: у процесса `mpu-next` строка одна. */

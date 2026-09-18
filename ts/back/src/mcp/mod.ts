@@ -42,6 +42,17 @@ import {
 } from "./tools.ts";
 
 export type { Profile, Tool, ToolEntry } from "./tools.ts";
+export { ensureAccessToken } from "./token.ts";
+export {
+  errorBody,
+  readMessage,
+  resultBody,
+  RPC_INTERNAL_ERROR,
+  RPC_INVALID_REQUEST,
+  RPC_METHOD_NOT_FOUND,
+  RPC_PARSE_ERROR,
+  type RpcBody,
+} from "./jsonrpc.ts";
 export {
   PROFILE_INSTRUCTIONS,
   profileTools,

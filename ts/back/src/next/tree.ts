@@ -117,6 +117,69 @@ function same(line: Line): Line {
   return line;
 }
 
+/** Узел снимка дерева (`platform/back-rpc.md`, «Снимок дерева»). */
+export interface TreeNode {
+  readonly path: readonly string[];
+  readonly summary: string;
+  /** Собственные селекторы узла по алфавиту. */
+  readonly selectors: readonly string[];
+  /** Имя вида звена хвоста без скобок; хвоста нет — `null`. */
+  readonly tail: string | null;
+}
+
+/** Узел снимка — со слов самого вида: его селекторы и его хвост. */
+function nodeOf(
+  path: readonly string[],
+  summary: string,
+  shape: Shape<Line>,
+): TreeNode {
+  const tail = shape.parsing().tail;
+  return {
+    path: [...path],
+    summary,
+    selectors: shape.selectors(),
+    tail: tail === undefined ? null : tail.slice(1, -1),
+  };
+}
+
+/** Узел и всё под ним, в глубину, дети по алфавиту. */
+function nodesUnder(
+  path: readonly string[],
+  summary: string,
+  shape: Shape<Line>,
+): TreeNode[] {
+  const children = childrenOf(path)
+    .map((child) => child.name)
+    .sort();
+  return [
+    nodeOf(path, summary, shape),
+    ...children.flatMap((name) => {
+      const childPath = [...path, name];
+      const group = findGroup(childPath);
+      if (group !== undefined) {
+        const doc = { purpose: group.summary, help: group.usage };
+        return nodesUnder(
+          childPath,
+          group.summary,
+          groupShape(childPath, doc, groupKind(group)),
+        );
+      }
+      const doc = leafDoc(childPath);
+      return [nodeOf(childPath, doc.purpose, dispatching(doc))];
+    }),
+  ];
+}
+
+/** Узлы дерева `mpu-next` для снимка: корень, группы, команды. */
+export function registryNodes(): TreeNode[] {
+  return nodesUnder([], ROOT_SUMMARY, rootShape());
+}
+
+function rootShape(): Shape<Line> {
+  const doc = { purpose: ROOT_SUMMARY, help: ROOT_USAGE };
+  return groupShape([], doc, PLAIN, ruleMethods());
+}
+
 /**
  * Корень дерева реестра для строки `line`: команды и группы верхнего
  * уровня и сообщения о правилах подтверждения.
@@ -125,5 +188,5 @@ function same(line: Line): Line {
  */
 export function registryRoot(line: Line): Call {
   const doc = { purpose: ROOT_SUMMARY, help: ROOT_USAGE };
-  return origin(doc, groupShape([], doc, PLAIN, ruleMethods()), line);
+  return origin(doc, rootShape(), line);
 }

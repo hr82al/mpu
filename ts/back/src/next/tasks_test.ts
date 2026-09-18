@@ -23,3 +23,20 @@ Deno.test("права next и build совпадают", async () => {
   assertGreater(build.length, 3, "прав задачи build не нашлось");
   assertEquals(permissionsOf(denoJsonc, "next"), build);
 });
+
+Deno.test("права back — права next и запись снимка дерева", async () => {
+  const denoJsonc = await Deno.readTextFile("deno.jsonc");
+  const next = permissionsOf(denoJsonc, "next");
+  const back = permissionsOf(denoJsonc, "back");
+  const write = (flags: readonly string[]) =>
+    (flags.find((flag) => flag.startsWith("--allow-write=")) ?? "")
+      .slice("--allow-write=".length);
+  assertEquals(
+    back.filter((flag) => !flag.startsWith("--allow-write=")),
+    next.filter((flag) => !flag.startsWith("--allow-write=")),
+  );
+  assertEquals(
+    write(back).split(",").sort(),
+    [...write(next).split(","), "$HOME/.cache/mpu"].sort(),
+  );
+});

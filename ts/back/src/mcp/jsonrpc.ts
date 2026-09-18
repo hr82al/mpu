@@ -11,6 +11,7 @@ export const PROTOCOL_VERSION = "2026-07-28";
 export const SUPPORTED_VERSIONS: readonly string[] = [PROTOCOL_VERSION];
 
 /** Коды ошибок: свои у протокола MCP, прочие — из JSON-RPC. */
+export const RPC_PARSE_ERROR = -32700;
 export const RPC_INVALID_REQUEST = -32600;
 export const RPC_METHOD_NOT_FOUND = -32601;
 export const RPC_INVALID_PARAMS = -32602;

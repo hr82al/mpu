@@ -35,11 +35,21 @@ export async function runProcess(
   args: readonly string[],
   entry: CliEntry,
 ): Promise<number> {
+  const io = processIo();
+  return await runJournaled(args, entry, io, processLog(io), makeDenoOutput());
+}
+
+/** Окружение процесса: каталоги состояния и конфигурации из окружения. */
+export function processIo(): CommandIo {
   // Каталога два, и разводит их только эта строка: состояние — по
   // `HOME`, конфигурация — по `XDG_CONFIG_HOME` (правило названо в
   // справке верхнего уровня и в `defaultStateDir`).
-  const io = makeDenoIo(defaultStateDir(), defaultCredsDir());
-  const log = makeInvokeLog({
+  return makeDenoIo(defaultStateDir(), defaultCredsDir());
+}
+
+/** Журнал вызовов процесса. */
+export function processLog(io: CommandIo): InvokeLog {
+  return makeInvokeLog({
     // Настройки журнала — ключи `MPU_LOG_*` env-файла; окружение
     // процесса слой не читает (`platform/env-file.md`).
     env: io.envFile,
@@ -48,7 +58,6 @@ export async function runProcess(
     cwd: () => Deno.cwd(),
     now: () => new Date(),
   });
-  return await runJournaled(args, entry, io, log, makeDenoOutput());
 }
 
 /**

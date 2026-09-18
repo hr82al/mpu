@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "mpu-back: кадры строки и методы /rpc",
+  "description": "platform/back-rpc.md. Строка — GET /line и GET /agent/line (WebSocket), кадры — текстовые, каждый — один JSON-объект. Запросы — POST /rpc, JSON-RPC 2.0.",
+  "$defs": {
+    "line.client.first": {
+      "description": "Первый кадр клиента: строка, каталог клиента и есть ли кого спросить.",
+      "type": "object",
+      "required": ["words", "cwd"],
+      "properties": {
+        "words": { "type": "array", "items": { "type": "string" } },
+        "cwd": { "type": "string", "pattern": "^/" },
+        "human": { "type": "boolean", "default": false }
+      }
+    },
+    "line.client.answer": {
+      "description": "Ответ на кадр ask; y или yes в любом регистре — «да».",
+      "type": "object",
+      "required": ["answer"],
+      "properties": { "answer": { "type": "string" } }
+    },
+    "line.server": {
+      "description": "Кадр сервера; exit — последний, после него сокет закрывается с кодом 1000.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["out"],
+          "properties": { "out": { "type": "string" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["err"],
+          "properties": { "err": { "type": "string" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["ask"],
+          "properties": { "ask": { "type": "string" } },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["exit"],
+          "properties": { "exit": { "type": "integer" } },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "rpc.tree.snapshot": {
+      "description": "Результат tree.snapshot: узлы дерева mpu-next в глубину, дети по алфавиту.",
+      "type": "object",
+      "required": ["version", "nodes"],
+      "properties": {
+        "version": { "type": "string" },
+        "nodes": { "type": "array", "items": { "$ref": "#/$defs/treeNode" } }
+      },
+      "additionalProperties": false
+    },
+    "rpc.policy.list": {
+      "description": "Результат policy.list: то же, что данные строки policy.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/rule" }
+    },
+    "rpc.schema": {
+      "description": "Результат schema: этот документ.",
+      "type": "object"
+    },
+    "treeNode": {
+      "type": "object",
+      "required": ["path", "summary", "selectors", "tail"],
+      "properties": {
+        "path": { "type": "array", "items": { "type": "string" } },
+        "summary": { "type": "string" },
+        "selectors": { "type": "array", "items": { "type": "string" } },
+        "tail": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "rule": {
+      "type": "object",
+      "required": ["path", "verdict"],
+      "properties": {
+        "path": { "type": "string" },
+        "verdict": { "enum": ["allow", "ask", "deny"] }
+      },
+      "additionalProperties": false
+    }
+  }
+}
