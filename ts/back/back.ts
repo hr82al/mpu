@@ -9,6 +9,7 @@ import { processIo, processLog } from "./src/process/mod.ts";
 import {
   defaultStateDir,
   makeDenoOutput,
+  secretText,
   tokenFile,
 } from "./src/runtime/mod.ts";
 
@@ -33,6 +34,10 @@ if (import.meta.main) {
       snapshotFile: home === undefined || home === ""
         ? undefined
         : `${home}/.cache/mpu/tree.json`,
+      // Без HOME основной токен не создастся раньше, чем понадобятся
+      // сессии браузера, — путь к ним не важен.
+      webSessions: secretText(`${stateDir ?? ""}/web-sessions`),
+      webRoot: `${home ?? ""}/.local/share/mpu/web`,
       output: makeDenoOutput(),
       stopped: stopped.promise,
     }),

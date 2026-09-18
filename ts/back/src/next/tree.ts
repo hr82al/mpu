@@ -26,8 +26,8 @@ import {
 import type { Line } from "./line.ts";
 import { ruleMethods } from "./rules.ts";
 
-/** Вид звена хвоста. */
-const ARGS = "<args>";
+/** Вид звена хвоста: оно же звено пути строки у правил. */
+export const ARGS = "<args>";
 
 /** Конец строки — исполнение строки диспетчеризацией. */
 const DISPATCH: Ending<Line> = {
@@ -205,18 +205,22 @@ export function registryNodes(): TreeNode[] {
   return nodesUnder([], ROOT_SUMMARY, rootShape());
 }
 
-function rootShape(): Shape<Line> {
+function rootShape(own: readonly Method<Line>[] = []): Shape<Line> {
   const doc = { purpose: ROOT_SUMMARY, help: ROOT_USAGE };
-  return groupShape([], doc, PLAIN, ruleMethods());
+  return groupShape([], doc, PLAIN, [...ruleMethods(), ...own]);
 }
 
 /**
  * Корень дерева реестра для строки `line`: команды и группы верхнего
- * уровня и сообщения о правилах подтверждения.
+ * уровня, сообщения о правилах подтверждения и методы `own`, которые
+ * даёт дверь строки.
  *
  * @param line строка вызова с её исполнением
  */
-export function registryRoot(line: Line): Call {
+export function registryRoot(
+  line: Line,
+  own: readonly Method<Line>[] = [],
+): Call {
   const doc = { purpose: ROOT_SUMMARY, help: ROOT_USAGE };
-  return origin(doc, rootShape(), line);
+  return origin(doc, rootShape(own), line);
 }

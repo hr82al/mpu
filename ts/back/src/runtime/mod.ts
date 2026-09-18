@@ -214,6 +214,31 @@ export function tokenFile(
   };
 }
 
+/** Файл с секретами целиком: чтение и атомарная перезапись с 0600. */
+export interface SecretText {
+  /** Текст файла; нет файла — пустая строка. */
+  read(): Promise<string>;
+  write(text: string): Promise<void>;
+}
+
+/**
+ * Файл с секретами по пути: читатель никогда не видит полузаписанный
+ * файл (временный сосед и переименование), права — ровно 0600.
+ */
+export function secretText(path: string): SecretText {
+  return {
+    read: async () => {
+      try {
+        return await Deno.readTextFile(path);
+      } catch (err) {
+        if (err instanceof Deno.errors.NotFound) return "";
+        throw err;
+      }
+    },
+    write: (text) => writeSecretAtomically(path, text),
+  };
+}
+
 /** Запись файла с секретом: каталог создаётся, права ровно 0600. */
 async function writeSecret(path: string, text: string): Promise<void> {
   const dir = path.slice(0, path.lastIndexOf("/"));

@@ -18,6 +18,7 @@ if (import.meta.main) {
     file: policyFile(defaultStateDir()),
     channel: terminalChannel(readStdinLine),
     execute: immediately,
+    rootMethods: [],
   };
   Deno.exit(await runProcess(Deno.args, nextEntry(ports)));
 }

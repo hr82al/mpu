@@ -9,7 +9,9 @@ import { assert, assertEquals } from "@std/assert";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
+import { secretText } from "../runtime/mod.ts";
 import { type RunningBack, serveBack, type SnapshotFs } from "./mod.ts";
+import { WebAccess } from "./web.ts";
 
 /** Кадр сервера как его получил клиент. */
 export type Frame = Readonly<Record<string, unknown>>;
@@ -21,6 +23,8 @@ export interface TestBack {
   readonly agentToken: string;
   readonly policyFile: string;
   readonly snapshotFile: string;
+  /** Файл сессий браузера. */
+  readonly webSessions: string;
   /** Пути команд, дошедших до исполнения, по порядку. */
   readonly called: string[];
   /** Строки диагностики сервера. */
@@ -41,6 +45,8 @@ export interface BackSetup {
   readonly finished?: () => Promise<void>;
   /** Генератор номера подтверждения. */
   readonly newTicket?: () => string;
+  /** Каталог фронта; по умолчанию — несуществующий. */
+  readonly webRoot?: (dir: string) => string;
 }
 
 const TOKEN = "t0ken-" + "s3cret-" + "value";
@@ -93,6 +99,11 @@ export async function withBack(
     diagnose: (line) => void diagnosed.push(line),
     fs: setup.fs,
     newTicket: setup.newTicket,
+    web: await WebAccess.open({
+      file: secretText(`${dir}/web-sessions`),
+      now: () => Date.now(),
+    }),
+    webRoot: setup.webRoot?.(dir) ?? `${dir}/web`,
   });
   const back: TestBack = {
     url: `http://127.0.0.1:${running.port}`,
@@ -100,6 +111,7 @@ export async function withBack(
     agentToken: AGENT_TOKEN,
     policyFile: `${dir}/policy.db`,
     snapshotFile,
+    webSessions: `${dir}/web-sessions`,
     called,
     diagnosed,
     seen: [],

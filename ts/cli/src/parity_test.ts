@@ -120,6 +120,7 @@ async function viaNext(line: Line, file: string): Promise<Seen> {
     file,
     channel: () => channel,
     execute: immediately,
+    rootMethods: [],
   })(
     line.words,
     makeFakeIo(line.io ?? {}),

@@ -9,10 +9,10 @@ import { hasBearer, LOOPBACK, LOOPBACK_ORIGINS } from "../access/mod.ts";
 import type { CommandIo, RemoteOutput } from "../command/mod.ts";
 import type { Output } from "../entrypoint/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
-import { nextEntry, registryNodes, rulesOf } from "../next/mod.ts";
+import { nextEntry, policyTree, registryNodes, rulesOf } from "../next/mod.ts";
 import { runJournaled } from "../process/mod.ts";
 import { VERSION } from "../version.ts";
-import { AGENT, type Caller, OWNER } from "./caller.ts";
+import { AGENT, BROWSER, type Caller, OWNER } from "./caller.ts";
 import { AGENT_DOOR, type Door, HUMAN_DOOR } from "./door.ts";
 import {
   BadFrame,
@@ -24,6 +24,8 @@ import { formFor, ticketAsking } from "./http.ts";
 import { DETACHED, Line } from "./line.ts";
 import { socketLine } from "./socket.ts";
 import { Tickets } from "./tickets.ts";
+import { staticFile } from "./static.ts";
+import { SESSION_TTL_MS, type WebAccess } from "./web.ts";
 import { Serial } from "./queue.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
@@ -56,6 +58,10 @@ export interface BackOptions {
   readonly fs?: SnapshotFs;
   /** Генератор номера подтверждения; по умолчанию — случайный. */
   readonly newTicket?: () => string;
+  /** Ключи и сессии входа в браузере. */
+  readonly web: WebAccess;
+  /** Каталог собранного фронта (`$HOME/.local/share/mpu/web`). */
+  readonly webRoot: string;
 }
 
 /** Поднятый сервер. */
@@ -99,28 +105,86 @@ interface Key {
 const MAIN_KEY: Key = { token: (tokens) => tokens.main, caller: OWNER };
 const AGENT_KEY: Key = { token: (tokens) => tokens.agent, caller: AGENT };
 
+/** Что вход пути сверяет, кроме запроса. */
+interface GateContext {
+  readonly tokens: Tokens;
+  readonly web: WebAccess;
+  /** Единственный `Origin`, с которым действует cookie сессии. */
+  readonly origin: string;
+}
+
 /** Вход пути: кто пришёл; не пущен — `undefined`. */
 interface Gate {
-  caller(request: Request, tokens: Tokens): Caller | undefined;
+  caller(request: Request, context: GateContext): Promise<Caller | undefined>;
 }
 
 /** Вход по одному из ключей, предъявленному так, как принимает путь. */
 function keyed(presentation: Presentation, keys: readonly Key[]): Gate {
   return {
-    caller: (request, tokens) =>
-      keys.find((key) => presentation.shows(request, key.token(tokens)))
-        ?.caller,
+    caller: (request, context) =>
+      Promise.resolve(
+        keys.find((key) =>
+          presentation.shows(request, key.token(context.tokens))
+        )
+          ?.caller,
+      ),
   };
 }
 
-/** Двери строки: путь, канал и какие ключи пускают. */
+/** Имя cookie сессии браузера. */
+const SESSION_COOKIE = "mpu_session";
+
+function cookieOf(request: Request, name: string): string | undefined {
+  for (const part of (request.headers.get("Cookie") ?? "").split(";")) {
+    const [key, ...value] = part.trim().split("=");
+    if (key === name) return value.join("=");
+  }
+  return undefined;
+}
+
+/**
+ * Вход по cookie сессии (`specs/web.md`): права основного токена, но
+ * только при `Origin` в точности `http://mpu.localhost:<порт>` — браузер
+ * прикладывает cookie к запросу с любой локальной страницы.
+ */
+const BY_COOKIE: Gate = {
+  async caller(request, context) {
+    if (request.headers.get("Origin") !== context.origin) return undefined;
+    const session = cookieOf(request, SESSION_COOKIE);
+    if (session === undefined) return undefined;
+    return (await context.web.admits(session)) ? BROWSER : undefined;
+  },
+};
+
+/** Вход, пускающий по первому из пустивших. */
+function either(...gates: readonly Gate[]): Gate {
+  return {
+    async caller(request, context) {
+      for (const gate of gates) {
+        const caller = await gate.caller(request, context);
+        if (caller !== undefined) return caller;
+      }
+      return undefined;
+    },
+  };
+}
+
+/** Двери строки: путь, канал и вход — по способу предъявить токен. */
 const DOORS: readonly {
   readonly path: string;
   readonly door: Door;
-  readonly keys: readonly Key[];
+  readonly entry: (presentation: Presentation) => Gate;
 }[] = [
-  { path: "/line", door: HUMAN_DOOR, keys: [MAIN_KEY] },
-  { path: "/agent/line", door: AGENT_DOOR, keys: [MAIN_KEY, AGENT_KEY] },
+  {
+    path: "/line",
+    door: HUMAN_DOOR,
+    entry: (presentation) => either(keyed(presentation, [MAIN_KEY]), BY_COOKIE),
+  },
+  {
+    path: "/agent/line",
+    door: AGENT_DOOR,
+    entry: (presentation) => keyed(presentation, [MAIN_KEY, AGENT_KEY]),
+  },
 ];
 
 /** Метод пути: его вход и обработка. */
@@ -129,8 +193,8 @@ interface Handler {
   handle(request: Request, caller: Caller): Response | Promise<Response>;
 }
 
-/** Путь без токена (`/health`). */
-const OPEN_GATE: Gate = { caller: () => OWNER };
+/** Путь без токена (`/health`, статика, обмен ключа). */
+const OPEN_GATE: Gate = { caller: () => Promise.resolve(OWNER) };
 
 function offeredProtocols(request: Request): string[] {
   const header = request.headers.get("Sec-WebSocket-Protocol") ?? "";
@@ -146,6 +210,19 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+/** Ключ из тела `POST /web/session`; не разобрался — пустой (такого нет). */
+function keyOf(text: string): string {
+  try {
+    const body: unknown = JSON.parse(text);
+    if (typeof body !== "object" || body === null) return "";
+    const key = Reflect.get(body, "key");
+    return typeof key === "string" ? key : "";
+  } catch {
+    // Тело не JSON — ключа нет; ответ тот же, что на неверный ключ.
+    return "";
+  }
 }
 
 /** Окружение строки: окружение сервера без stdin и без терминалов. */
@@ -193,6 +270,8 @@ class Back {
   readonly #tickets: Tickets;
   readonly #open = new Map<Line, Promise<void>>();
   readonly #methods: Methods;
+  /** `http://mpu.localhost:<порт>` — известен, когда сокет слушает. */
+  #origin = "";
 
   constructor(options: BackOptions, snapshot: unknown) {
     this.#options = options;
@@ -200,13 +279,19 @@ class Back {
     this.#methods = new Map<string, () => unknown>([
       ["tree.snapshot", () => snapshot],
       ["policy.list", () => rulesOf(options.policyFile)],
+      ["policy.tree", () => policyTree(options.policyFile)],
       ["schema", () => SCHEMA],
     ]);
   }
 
+  /** Сокет слушает порт `port`: адрес страницы фронта известен. */
+  listening(port: number) {
+    this.#origin = `http://mpu.localhost:${port}`;
+  }
+
   app(): Hono {
     const app = new Hono();
-    app.notFound(() => empty(404));
+    app.notFound((context) => this.#static(context.req.raw));
     this.#route(app, "/health", {
       GET: {
         gate: OPEN_GATE,
@@ -217,24 +302,27 @@ class Back {
     });
     this.#route(app, "/rpc", {
       POST: {
-        gate: keyed(HEADER, [MAIN_KEY, AGENT_KEY]),
+        gate: either(keyed(HEADER, [MAIN_KEY, AGENT_KEY]), BY_COOKIE),
         handle: (request) => this.#rpc(request),
       },
     });
-    for (const { path, door, keys } of DOORS) {
+    this.#route(app, "/web/session", {
+      POST: { gate: OPEN_GATE, handle: (request) => this.#session(request) },
+    });
+    for (const { path, door, entry } of DOORS) {
       this.#route(app, path, {
         GET: {
-          gate: keyed(HEADER_OR_PROTOCOL, keys),
+          gate: entry(HEADER_OR_PROTOCOL),
           handle: (request, caller) => this.#upgrade(request, door, caller),
         },
         POST: {
-          gate: keyed(HEADER, keys),
+          gate: entry(HEADER),
           handle: (request, caller) => this.#post(request, door, caller),
         },
       });
       this.#route(app, `${path}/answer`, {
         POST: {
-          gate: keyed(HEADER, keys),
+          gate: entry(HEADER),
           handle: (request, caller) => this.#answer(request, door, caller),
         },
       });
@@ -258,16 +346,43 @@ class Back {
   ) {
     const byMethod = new Map(Object.entries(methods));
     const allow = [...byMethod.keys()].join(", ");
-    app.all(path, (context) => {
+    app.all(path, async (context) => {
       const request = context.req.raw;
       const handler = byMethod.get(request.method);
       if (handler === undefined) return empty(405, { Allow: allow });
       const origin = request.headers.get("Origin");
       if (origin !== null && !ORIGINS.allows(origin)) return empty(403);
-      const caller = handler.gate.caller(request, this.#options.tokens);
+      const caller = await handler.gate.caller(request, {
+        tokens: this.#options.tokens,
+        web: this.#options.web,
+        origin: this.#origin,
+      });
       if (caller === undefined) return empty(401);
-      return handler.handle(request, caller);
+      return await handler.handle(request, caller);
     });
+  }
+
+  /**
+   * Обмен ключа из ссылки `web` на сессию (`specs/web.md`): только со
+   * страницы фронта; ключ одноразовый.
+   */
+  async #session(request: Request): Promise<Response> {
+    if (request.headers.get("Origin") !== this.#origin) return empty(403);
+    const session = await this.#options.web.exchange(
+      keyOf(await request.text()),
+    );
+    if (session === undefined) return empty(404);
+    return empty(204, {
+      "Set-Cookie":
+        `${SESSION_COOKIE}=${session}; HttpOnly; SameSite=Strict; ` +
+        `Path=/; Max-Age=${SESSION_TTL_MS / 1000}`,
+    });
+  }
+
+  /** Статика фронта: без токена, остальное — 404. */
+  #static(request: Request): Promise<Response> | Response {
+    if (request.method !== "GET") return empty(404);
+    return staticFile(this.#options.webRoot, new URL(request.url).pathname);
   }
 
   async #rpc(request: Request): Promise<Response> {
@@ -362,6 +477,10 @@ class Back {
     }
     const channel = door.channel(line, caller.human(request.human));
     const entry = nextEntry({
+      rootMethods: door.rootMethods({
+        web: this.#options.web,
+        origin: this.#origin,
+      }),
       file: this.#options.policyFile,
       channel: () => channel,
       execute: (run) => line.execute(request.cwd, run, this.#serial),
@@ -388,6 +507,7 @@ export async function serveBack(options: BackOptions): Promise<RunningBack> {
     onListen: address.resolve,
   }, back.app().fetch);
   const bound = await address.promise;
+  back.listening(bound.port);
   const failure = await writeSnapshot(
     options.snapshotFile,
     JSON.stringify(snapshot),

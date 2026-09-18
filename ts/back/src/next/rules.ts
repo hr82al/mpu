@@ -128,3 +128,20 @@ export function ruleMethods(): Method<Line>[] {
     ...CHANGE_DOCS.map(changeMethod),
   ];
 }
+
+/**
+ * Метод корня, который даёт дверь (`specs/web.md`, «Вход в браузере»):
+ * данные в конце строки, справка его не исполняет.
+ */
+export interface RootMethod {
+  readonly selector: string;
+  readonly doc: Doc;
+  produce(): Promise<unknown>;
+}
+
+/** Метод корня двери как метод дерева. */
+export function rootMethod(method: RootMethod): Method<Line> {
+  return unary(method.selector, method.doc, DEFERRED, () => ({
+    finish: async (report: Report) => report.value(await method.produce()),
+  }));
+}

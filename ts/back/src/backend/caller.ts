@@ -14,3 +14,10 @@ export const OWNER: Caller = { human: (claimed) => claimed };
 
 /** Агентский токен: `human` — всегда `false`. */
 export const AGENT: Caller = { human: () => false };
+
+/**
+ * Браузер с cookie сессии (`specs/web.md`): права основного токена —
+ * отдельный вызывающий, чтобы номер подтверждения, выданный браузеру,
+ * принимался только от браузера.
+ */
+export const BROWSER: Caller = { human: (claimed) => claimed };

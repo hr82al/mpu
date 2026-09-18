@@ -48,7 +48,9 @@ Deno.test("rpc без токена — 401, с чужим Origin без токе
 Deno.test("путь неизвестен — 404, метод не тот — 405", () =>
   withBack(async (back) => {
     const auth = { Authorization: `Bearer ${back.token}` };
-    assertEquals(await request(back, "/nope", { headers: auth }), {
+    // Путь без расширения — маршрут фронта (`specs/web.md`, «Статика»);
+    // неизвестен путь с расширением вне `/assets`.
+    assertEquals(await request(back, "/nope.txt", { headers: auth }), {
       status: 404,
       body: "",
     });

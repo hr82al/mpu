@@ -8,7 +8,9 @@ import type { Output } from "../entrypoint/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 import { ensureAccessToken } from "../mcp/mod.ts";
 import { VERSION } from "../version.ts";
+import type { SecretText } from "../runtime/mod.ts";
 import { DEFAULT_BACK_PORT, serveBack } from "./server.ts";
+import { WebAccess } from "./web.ts";
 
 /** Чтение и запись файла токена. */
 type TokenIo = Pick<CommandIo, "readAccessToken" | "writeAccessToken">;
@@ -26,6 +28,10 @@ export interface BackProcess {
   readonly policyFile: string | undefined;
   /** Файл снимка дерева; нет HOME — `undefined`. */
   readonly snapshotFile: string | undefined;
+  /** Файл сессий входа в браузере (`web-sessions`, 0600). */
+  readonly webSessions: SecretText;
+  /** Каталог собранного фронта. */
+  readonly webRoot: string;
   readonly output: Output;
   /** Завершается по SIGTERM или SIGINT. */
   readonly stopped: Promise<void>;
@@ -72,6 +78,11 @@ export async function runBack(
       io: proc.io,
       log: proc.log,
       snapshotFile: proc.snapshotFile,
+      web: await WebAccess.open({
+        file: proc.webSessions,
+        now: () => Date.now(),
+      }),
+      webRoot: proc.webRoot,
       diagnose: (line) => proc.output.stderr(`${line}\n`),
     });
   } catch (err) {

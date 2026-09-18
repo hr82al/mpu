@@ -32,6 +32,7 @@ export function consentOf(
     file,
     channel: terminalChannel(() => Promise.resolve(queue.shift())),
     execute: immediately,
+    rootMethods: [],
   };
 }
 

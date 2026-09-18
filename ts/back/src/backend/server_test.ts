@@ -7,7 +7,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { rulesOf } from "../next/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
 import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
-import { makeDenoIo, tokenFile } from "../runtime/mod.ts";
+import { makeDenoIo, secretText, tokenFile } from "../runtime/mod.ts";
 import { VERSION } from "../version.ts";
 import { runBack } from "./entry.ts";
 import type { SnapshotFs } from "./mod.ts";
@@ -165,6 +165,8 @@ Deno.test("процесс: адрес в stdout, оба токена 0600, ос�
       log: NO_INVOKE_LOG,
       policyFile: `${dir}/policy.db`,
       snapshotFile: `${dir}/tree.json`,
+      webSessions: secretText(`${dir}/web-sessions`),
+      webRoot: `${dir}/web`,
       output: {
         stdout: (text: string) => void out.push(text),
         stderr: (text: string) => void err.push(text),

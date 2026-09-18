@@ -20,9 +20,39 @@ import {
 import type { CliEntry } from "../process/mod.ts";
 import { registrySeeds } from "./seeds.ts";
 import { Session } from "./session.ts";
-import { registryRoot } from "./tree.ts";
+import { type RootMethod, rootMethod } from "./rules.ts";
+import { ARGS, registryNodes, registryRoot } from "./tree.ts";
+
+export type { RootMethod } from "./rules.ts";
 
 export { registryNodes, type TreeNode } from "./tree.ts";
+
+/** Действующее решение узла дерева (`specs/web.md`, «Действующие решения»). */
+export interface NodeRuling {
+  readonly path: readonly string[];
+  readonly verdict: string;
+  /** Путь правила-победителя; ни одно не совпало — `null`. */
+  readonly rule: string | null;
+  /** У самого узла есть своё правило. */
+  readonly own: boolean;
+}
+
+/**
+ * Решения для узлов снимка — тем же набором правил, что решает строки:
+ * путь узла с хвостом — со звеном `<args>`.
+ *
+ * @throws PolicyError — файл правил нельзя открыть или прочитать
+ */
+export function policyTree(file: string | undefined): NodeRuling[] {
+  using book = RuleBook.open(file, registrySeeds());
+  const owned = new Set(book.list().map((rule) => rule.path));
+  return registryNodes().map((node) => {
+    const links = node.tail === null ? node.path : [...node.path, ARGS];
+    const { verdict, won } = book.decide(links).record();
+    const own = owned.has(node.path.length === 0 ? "*" : node.path.join(" "));
+    return { path: node.path, verdict, rule: won, own };
+  });
+}
 
 /**
  * Слова для обхода цепочки: без `--json` до первого `--` — иначе корень
@@ -75,6 +105,8 @@ export interface NextPorts {
    * ждущая ответа, других не держит.
    */
   readonly execute: (run: () => Promise<number>) => Promise<number>;
+  /** Методы корня, которые даёт дверь строки (у `mpu-next` — нет). */
+  readonly rootMethods: readonly RootMethod[];
 }
 
 /**
@@ -141,7 +173,8 @@ export function nextEntry(ports: NextPorts): CliEntry {
       output,
       dispatch: () => ports.execute(() => runLine(argv, io, output, journal)),
     });
-    const outcome = await runChain(walkedWords(argv), registryRoot(line));
+    const root = registryRoot(line, ports.rootMethods.map(rootMethod));
+    const outcome = await runChain(walkedWords(argv), root);
     return printed(outcome, output);
   };
 }

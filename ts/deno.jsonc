@@ -417,6 +417,11 @@
     //     уже стоит `--allow-net` без списка (его команды ходят в сеть),
     //     и `--allow-net=127.0.0.1` рядом с ним ничего бы не сузил.
     // Совпадение с `next` во всём прочем проверяет `next/tasks_test.ts`.
+    // Сторона фронта (`specs/web.md`, 10a) новых флагов не требует:
+    //   — чтение каталога фронта `$HOME/.local/share/mpu/web` покрыто
+    //     `--allow-read` без списка (оно у `next` для команд);
+    //   — запись `$HOME/.config/mpu/web-sessions` (хэши сессий браузера,
+    //     0600) покрыта `--allow-write=$HOME/.config/mpu`.
     "back": "deno run --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/back.ts",
     // Тонкий клиент `mpu-next` (`docs/specs/cli-client.md`): сам ничего
     // не исполняет, поэтому прав — ровно на разговор с сервером строк:

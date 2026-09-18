@@ -82,6 +82,7 @@ async function nextFrames(one: Case, file: string) {
     file,
     channel: () => channel,
     execute: immediately,
+    rootMethods: [],
   })(one.words, makeFakeIo(), {
     stdout: (text) => void frames.push({ out: text }),
     stderr: (text) => void frames.push({ err: text }),
