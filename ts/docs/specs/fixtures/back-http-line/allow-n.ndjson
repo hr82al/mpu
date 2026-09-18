@@ -1,0 +1,3 @@
+{"ask":"изменить правило: kiten ls → allow? [y/N] ","ticket":"<ticket>"}
+{"err":"mpu allow: kiten ls: не подтверждено\n"}
+{"exit":1}

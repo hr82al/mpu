@@ -196,7 +196,7 @@ Vite, React 19, TanStack Router / Query / Table / Virtual, zustand, vitest.
 - `ask` в tty → вопрос; «n» → отказ, код 1; нет tty → отказ без вопроса;
 - время старта `mpu-next help` — замер в отчёте.
 
-## Порция 7a (сквозной номер 143): строка простым HTTP в `mpu-back`
+## Порция 7a (сквозной номер 143, принята 2026-09-18): строка простым HTTP в `mpu-back`
 
 **Спека:** `ts/docs/specs/platform/back-http-line.md`. `POST /line` и
 `/agent/line`: кадры NDJSON потоком или один JSON; подтверждение — вторым
