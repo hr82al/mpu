@@ -7,7 +7,7 @@
 
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal, Output } from "../entrypoint/mod.ts";
-import { makeInvokeLog } from "../invokelog/mod.ts";
+import { type InvokeLog, makeInvokeLog } from "../invokelog/mod.ts";
 import {
   defaultCredsDir,
   defaultInvokeLogPath,
@@ -48,11 +48,32 @@ export async function runProcess(
     cwd: () => Deno.cwd(),
     now: () => new Date(),
   });
+  return await runJournaled(args, entry, io, log, makeDenoOutput());
+}
+
+/**
+ * Одна строка с записью журнала: отметка старта, перехват вывода,
+ * исполнение точкой входа, итог. Процесс CLI исполняет одну строку,
+ * сервер строк — по записи на каждую.
+ *
+ * @param args слова строки
+ * @param entry точка входа
+ * @param io окружение команды
+ * @param log журнал вызовов
+ * @param streams куда идёт вывод строки
+ */
+export async function runJournaled(
+  args: readonly string[],
+  entry: CliEntry,
+  io: CommandIo,
+  log: InvokeLog,
+  streams: Output,
+): Promise<number> {
   // Запись начинается до маршрутизации: она фиксирует время старта, а
   // писаться будет только у вызова маршрута `native` — отметку ставит
   // точка входа (`platform/invoke-log.md`).
   const record = log.begin({ kind: "argv", argv: args });
-  const output = record.capture(makeDenoOutput());
+  const output = record.capture(streams);
   let code: number;
   try {
     code = await entry(args, io, output, {
