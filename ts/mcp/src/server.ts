@@ -19,6 +19,18 @@ import { lineOf, runLine, TOOLS } from "./tools.ts";
 const LOOPBACK = "127.0.0.1";
 const PATH = "/mcp";
 const SESSION_HEADER = "mcp-session-id";
+const HEALTH = "/health";
+
+/**
+ * Жив ли переводчик — без токена. `pid` — чтобы установка отличила новый
+ * процесс от старого (`platform/supervisor-install.md`, шаг 7).
+ */
+function health(request: Request): Response {
+  if (request.method !== "GET") {
+    return new Response(null, { status: 405, headers: { Allow: "GET" } });
+  }
+  return Response.json({ ok: true, pid: Deno.pid });
+}
 
 /** Страница с той же машины — и только она. */
 const ORIGIN_HOSTS: ReadonlySet<string> = new Set([
@@ -100,9 +112,11 @@ class Translator {
   }
 
   async handle(request: Request): Promise<Response> {
-    if (new URL(request.url).pathname !== PATH) return empty(404);
+    const path = new URL(request.url).pathname;
+    if (path !== PATH && path !== HEALTH) return empty(404);
     const origin = request.headers.get("Origin");
     if (origin !== null && !allowsOrigin(origin)) return empty(403);
+    if (path === HEALTH) return health(request);
     const auth = request.headers.get("Authorization");
     if (auth !== `Bearer ${this.#options.token}`) return empty(401);
     const id = request.headers.get(SESSION_HEADER);

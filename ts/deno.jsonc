@@ -7,7 +7,7 @@
   // Состав рабочей области: подпроекты со своими `deno.jsonc`. Импорты,
   // задачи и файл блокировки — общие и живут здесь; участник наследует
   // импорты корня.
-  "workspace": ["./back", "./cli", "./mcp"],
+  "workspace": ["./back", "./cli", "./mcp", "./supervisor"],
   "fmt": {
     // `docs/` — канал спецификаций: его пишет сессия-спецификатор, у
     // которой Deno нет. Прогон `deno fmt` без pathspec переписывал там
@@ -162,7 +162,13 @@
     //     Согласовано владельцем 2026-09-08 (через сессию-спецификатора).
     //     Покрытие: снятие `deno` из списка роняет тест
     //     «оракул deno-дерева даёт три файла» на `NotCapable`.
-    "test": "deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 --allow-run=/bin/echo,/bin/false,/bin/net-takogo-binarya,deno",
+    //   — `/bin/bash`: скрипт установки `install.sh`
+    //     (`platform/supervisor-install.md`) — shell, и его тесты
+    //     запускают его, как запускает человек; поддельные `deno` и
+    //     `systemctl` он зовёт сам, правам теста они не подчинены.
+    //     Разрешено постановкой порции 145. Покрытие: снятие роняет тесты
+    //     `supervisor/src/install_test.ts` на `NotCapable`.
+    "test": "deno test --allow-read --allow-write --allow-env --allow-net=127.0.0.1 --allow-run=/bin/echo,/bin/false,/bin/net-takogo-binarya,deno,/bin/bash",
     // Права зашиваются в бинарь при сборке. Они — гигиена, а не барьер
     // (см. CLAUDE.md, «Права Deno»): фиксируют, куда команда вправе
     // тянуться, и делают расширение заметным. По строке на право:
@@ -430,6 +436,24 @@
     //   — `--allow-env=HOME,MPU_BACK_URL`: каталог токенов и адрес `back`.
     // Шире не стали — `mcp/src/tasks_test.ts`.
     "mcp": "deno run --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL mcp/main.ts",
+    // Супервизор `mpu-supervisor` (`platform/supervisor-install.md`):
+    // единственное, что запускает служба `mpu-next.service`. Права:
+    //   — `--allow-run` двух программ из `$HOME/.local/bin`: запуск и
+    //     сигналы дочерним (`mpu-back`, `mpu-mcp`), и только им;
+    //   — `--allow-env=HOME`: окружение процесса. Ни сети, ни файлов.
+    "supervisor": "deno run --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp --allow-env=HOME supervisor/main.ts",
+    // Сборка частей рядом со старым `mpu` (`platform/supervisor-install.md`,
+    // «Части»): права каждой — ровно права её задачи запуска, у `back` —
+    // те же `--include`, что у `build` (воркер разбора кода и два `.wasm`
+    // Telegram: без них собранный `mpu-back` падает на `code` и
+    // `telegram`). Путь результата — `MPU_OUT`: `deno task` дописывает
+    // аргументы в конец, а у `deno compile` всё после скрипта — аргументы
+    // самой программы. Совпадение прав с задачами запуска —
+    // `supervisor/src/tasks_test.ts`.
+    "compile:back": "deno compile --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
+    "compile:mcp": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT mcp/main.ts",
+    "compile:cli": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT cli/main.ts",
+    "compile:supervisor": "deno compile --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp --allow-env=HOME -o $MPU_OUT supervisor/main.ts",
     // Ячейка передачи работы между сессиями (`handoff/`): обе роли ходят
     // в неё этой задачей, а не читают и переписывают файл руками. Права
     // узкие по делу: чтение — постановка или отчёт с диска, запись —

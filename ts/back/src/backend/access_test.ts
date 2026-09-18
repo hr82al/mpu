@@ -14,7 +14,11 @@ Deno.test("health без токена — 200 и версия", () =>
   withBack(async (back) => {
     const health = await request(back, "/health");
     assertEquals(health.status, 200);
-    assertEquals(JSON.parse(health.body), { ok: true, version: VERSION });
+    assertEquals(JSON.parse(health.body), {
+      ok: true,
+      version: VERSION,
+      pid: Deno.pid,
+    });
   }));
 
 Deno.test("rpc без токена — 401, с чужим Origin без токена — 403", () =>

@@ -253,3 +253,19 @@ Deno.test("доступ: неизвестная сессия — 404, чужой
     }
     assertEquals(refused, true);
   }));
+
+Deno.test("GET /health — жив, pid, без токена", () =>
+  withStack(async (stack) => {
+    const response = await fetch(stack.url.replace("/mcp", "/health"));
+    const text = await response.text();
+    stack.seen.push(text);
+    assertEquals([response.status, JSON.parse(text)], [200, {
+      ok: true,
+      pid: Deno.pid,
+    }]);
+    const post = await fetch(stack.url.replace("/mcp", "/health"), {
+      method: "POST",
+    });
+    await post.body?.cancel();
+    assertEquals(post.status, 405);
+  }));

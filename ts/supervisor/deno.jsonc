@@ -1,0 +1,9 @@
+{
+  // Подпроект `supervisor` рабочей области `ts/`
+  // (`docs/specs/platform/supervisor-install.md`): держит `mpu-back` и
+  // `mpu-mcp` под службой `mpu-next.service`. Импорты и задачи — у корня.
+  "fmt": {
+    // Эталон файла службы сверяется байт-в-байт с каналом спецификаций.
+    "exclude": ["src/testdata"]
+  }
+}

@@ -7,6 +7,7 @@ import type { CommandIo } from "../command/mod.ts";
 import type { Output } from "../entrypoint/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 import { ensureAccessToken } from "../mcp/mod.ts";
+import { VERSION } from "../version.ts";
 import { DEFAULT_BACK_PORT, serveBack } from "./server.ts";
 
 /** Чтение и запись файла токена. */
@@ -49,6 +50,10 @@ export async function runBack(
   args: readonly string[],
   proc: BackProcess,
 ): Promise<number> {
+  if (args.length === 1 && args[0] === "--version") {
+    proc.output.stdout(`${VERSION}\n`);
+    return 0;
+  }
   const port = portOf(args);
   if (port === undefined) {
     proc.output.stderr(USAGE);

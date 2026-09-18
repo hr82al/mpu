@@ -175,6 +175,16 @@ Deno.test("процесс: адрес в stdout, оба токена 0600, ос�
     assertEquals(await runBack(["--port", String(port)], proc), 1);
     assertEquals(err, [`mpu-back: порт ${port} занят\n`]);
     assertEquals(await runBack(["--port", "x"], proc), 2);
+    // --version — до токенов и порта: ничего не поднимается.
+    const version: string[] = [];
+    assertEquals(
+      await runBack(["--version"], {
+        ...proc,
+        output: { stdout: (text) => void version.push(text), stderr() {} },
+      }),
+      0,
+    );
+    assertEquals(version, ["0.1.0\n"]);
     const running = runBack(["--port", "0"], {
       ...proc,
       output: {

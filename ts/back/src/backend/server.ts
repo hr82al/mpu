@@ -210,7 +210,9 @@ class Back {
     this.#route(app, "/health", {
       GET: {
         gate: OPEN_GATE,
-        handle: () => json({ ok: true, version: VERSION }),
+        // `pid` — чтобы установка отличила новый процесс от старого
+        // (`platform/supervisor-install.md`, шаг 7): версия у них одна.
+        handle: () => json({ ok: true, version: VERSION, pid: Deno.pid }),
       },
     });
     this.#route(app, "/rpc", {

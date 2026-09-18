@@ -130,3 +130,23 @@ Deno.test("процесс: порт занят — 1, нет токена back �
     await Deno.remove(dir, { recursive: true });
   }
 });
+
+Deno.test("--version — версия, ни порта, ни токенов", async () => {
+  const out: string[] = [];
+  const untouched = {
+    path: "/нет",
+    read: () => Promise.reject(new Error("токен не читается")),
+    write: () => Promise.reject(new Error("токен не пишется")),
+  };
+  const code = await runMcp(["--version"], {
+    backUrl: "http://127.0.0.1:1",
+    backToken: untouched,
+    mcpToken: untouched,
+    cwd: "/",
+    version: "0.1.0",
+    stdout: (text) => void out.push(text),
+    stderr: () => {},
+    stopped: Promise.resolve(),
+  });
+  assertEquals([code, out], [0, ["0.1.0\n"]]);
+});

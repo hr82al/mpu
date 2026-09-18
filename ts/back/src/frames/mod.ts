@@ -1,7 +1,8 @@
 /**
  * Контракт кадров строки `mpu-back` (`platform/back-rpc.md`, «Строка»;
- * `fixtures/back-rpc/schema.json`). Лист без импортов: его берут и сервер,
- * и тонкий клиент (`ts/cli/`).
+ * `fixtures/back-rpc/schema.json`) и версия сборки. Его берут сервер,
+ * тонкий клиент (`ts/cli/`) и переводчик (`ts/mcp/`); кроме листа
+ * `version.ts`, ничего не импортирует.
  */
 
 export {
@@ -15,3 +16,5 @@ export {
   serverFrameOf,
   ticketAnswerOf,
 } from "./frame.ts";
+
+export { VERSION } from "../version.ts";

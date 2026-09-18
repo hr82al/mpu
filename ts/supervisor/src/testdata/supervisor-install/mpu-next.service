@@ -1,0 +1,14 @@
+[Unit]
+Description=mpu-next: сервер строк и переводчик MCP
+After=default.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/mpu-supervisor --back %h/.local/bin/mpu-back --mcp %h/.local/bin/mpu-mcp
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

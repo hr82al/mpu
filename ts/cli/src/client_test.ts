@@ -214,3 +214,10 @@ Deno.test("Ctrl+C во время строки — прервано, 130", () =>
     // Строка висит: сервер ждёт закрытия от клиента.
     script: () => Promise.resolve(),
   }));
+
+Deno.test("--version — версия сборки, к серверу не ходит", async () => {
+  const run = testEnv({ base: "http://127.0.0.1:1" });
+  assertEquals(await runClient(["--version"], run.env), 0);
+  assertEquals(run.stdout, ["0.1.0\n"]);
+  assertEquals(run.stderr, []);
+});

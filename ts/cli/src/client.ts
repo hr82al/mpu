@@ -8,6 +8,7 @@ import {
   BadFrame,
   type ServerFrame,
   serverFrameOf,
+  VERSION,
 } from "../../back/src/frames/mod.ts";
 import { type Asker, humanAsker, NOBODY } from "./asker.ts";
 import { chooseDoor, type Door } from "./door.ts";
@@ -182,6 +183,10 @@ export async function runClient(
   words: readonly string[],
   env: ClientEnv,
 ): Promise<number> {
+  if (words.length === 1 && words[0] === "--version") {
+    env.stdout(`${VERSION}\n`);
+    return 0;
+  }
   const asker: Asker = env.terminals
     ? humanAsker(env.stderr, env.readLine)
     : NOBODY;

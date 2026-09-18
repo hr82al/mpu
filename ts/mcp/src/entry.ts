@@ -73,6 +73,10 @@ export async function runMcp(
   args: readonly string[],
   proc: McpProcess,
 ): Promise<number> {
+  if (args.length === 1 && args[0] === "--version") {
+    proc.stdout(`${proc.version}\n`);
+    return 0;
+  }
   const port = portOf(args);
   if (port === undefined) {
     proc.stderr(USAGE);

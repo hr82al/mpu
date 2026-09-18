@@ -3,10 +3,10 @@
  * процесса → переводчик до сигнала → код.
  */
 
+import { VERSION } from "../back/src/frames/mod.ts";
 import { type McpProcess, runMcp, type TokenFile } from "./src/mod.ts";
 
 const DEFAULT_BACK_URL = "http://127.0.0.1:7338";
-const VERSION = "0.1.0";
 const encoder = new TextEncoder();
 
 function write(file: { writeSync(p: Uint8Array): number }, text: string) {
