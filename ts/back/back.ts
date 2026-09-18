@@ -37,7 +37,9 @@ if (import.meta.main) {
       // Без HOME основной токен не создастся раньше, чем понадобятся
       // сессии браузера, — путь к ним не важен.
       webSessions: secretText(`${stateDir ?? ""}/web-sessions`),
-      webRoot: `${home ?? ""}/.local/share/mpu/web`,
+      // Сборки фронта — `web/<sha256>/`, действующая — по ссылке `current`
+      // (`specs/web.md`, «Приложение (10b)»).
+      webRoot: `${home ?? ""}/.local/share/mpu/web/current`,
       output: makeDenoOutput(),
       stopped: stopped.promise,
     }),

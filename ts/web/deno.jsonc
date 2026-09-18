@@ -1,0 +1,13 @@
+{
+  // Подпроект `web` рабочей области `ts/` (`docs/specs/web.md`, 10b):
+  // приложение фронта. Импорты и задачи — у корня (`../deno.jsonc`).
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "jsxImportSourceTypes": "@types/react",
+    "lib": ["dom", "dom.iterable", "esnext", "deno.ns"]
+  },
+  "fmt": {
+    "exclude": ["src/testdata"]
+  }
+}

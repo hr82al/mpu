@@ -18,6 +18,12 @@ if [[ \${FAKE_FAIL:-} == "$part" ]]; then
   exit 1
 fi
 tag_var="FAKE_TAG_$part"
+if [[ $part == web ]]; then
+  mkdir -p "$MPU_OUT/assets"
+  echo "<html>\${!tag_var:-1}</html>" >"$MPU_OUT/index.html"
+  echo "console.log(1)" >"$MPU_OUT/assets/app.js"
+  exit 0
+fi
 cat >"$MPU_OUT" <<SCRIPT
 #!/bin/bash
 # $part \${!tag_var:-1}
@@ -133,6 +139,7 @@ async function install(
       MPU_UNIT_DIR: place.unit,
       MPU_SYSTEMCTL: `${place.dir}/systemctl`,
       MPU_DENO: `${place.dir}/deno`,
+      MPU_WEB_DIR: `${place.dir}/web`,
       MPU_BACK_URL: place.back.url,
       MPU_MCP_URL: place.mcp.url,
       FAKE_MARK: place.dir,
@@ -211,7 +218,7 @@ Deno.test("второй запуск без изменений: ничего н�
     assertEquals(run.code, 0, run.lines.join("\n"));
     assertEquals(
       run.lines.filter((line) => line.includes("сравнение")),
-      ["back", "mcp", "cli", "supervisor", "complete"].map((part) =>
+      ["back", "mcp", "cli", "supervisor", "complete", "web"].map((part) =>
         `install: сравнение ${part}: без изменений`
       ),
     );
@@ -345,4 +352,32 @@ Deno.test("--only complete: поставлен только mpu-complete, без
     }
     assertEquals(run.calls, []);
     assertEquals(run.lines.at(-1), "install: готово");
+  }));
+
+Deno.test("фронт: каталог web/<хэш>/ и ссылка current, без службы; прежняя сборка остаётся", () =>
+  withPlace(async (place) => {
+    await install(place);
+    const web = `${place.dir}/web`;
+    const first = await Deno.readLink(`${web}/current`);
+    assertEquals(/^[0-9a-f]{64}$/.test(first), true, first);
+    assertEquals(
+      await Deno.readTextFile(`${web}/current/index.html`),
+      "<html>1</html>\n",
+    );
+    const same = await install(place, ["--only", "web"]);
+    assertEquals(
+      same.lines.includes("install: сравнение web: без изменений"),
+      true,
+    );
+    const run = await install(place, ["--only", "web"], { FAKE_TAG_web: "2" });
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    const second = await Deno.readLink(`${web}/current`);
+    assertEquals(second === first, false);
+    assertEquals(
+      await Deno.readTextFile(`${web}/current/index.html`),
+      "<html>2</html>\n",
+    );
+    assertEquals((await Deno.stat(`${web}/${first}`)).isDirectory, true);
+    // Только фронт изменился — служба не трогается.
+    assertEquals(run.calls, []);
   }));

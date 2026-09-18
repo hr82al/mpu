@@ -3,11 +3,31 @@
   // служебные каталоги сессии и артефакты покрытия — вне инструментов.
   // `.claude` в их числе: песочница подменяет файлы удалённого профиля
   // заглушками-устройствами, и чтение такой «настройки» роняет `deno fmt`.
-  "exclude": [".claude", ".deno", ".tmp", "cov"],
+  "exclude": [
+    ".claude",
+    ".deno",
+    ".tmp",
+    "cov",
+    "node_modules",
+    "web/node_modules",
+    "web/dist"
+  ],
   // Состав рабочей области: подпроекты со своими `deno.jsonc`. Импорты,
   // задачи и файл блокировки — общие и живут здесь; участник наследует
   // импорты корня.
-  "workspace": ["./back", "./cli", "./mcp", "./supervisor", "./complete"],
+  "workspace": [
+    "./back",
+    "./cli",
+    "./mcp",
+    "./supervisor",
+    "./complete",
+    "./web"
+  ],
+  // Каталог node_modules рядом с рабочей областью: Vite и vitest
+  // (`web/`) разрешают пакеты по нему, как в Node. Решение владельца
+  // 2026-09-18 (порция 148); размеры собранных программ до и после — в
+  // отчёте порции.
+  "nodeModulesDir": "auto",
   "fmt": {
     // `docs/` — канал спецификаций: его пишет сессия-спецификатор, у
     // которой Deno нет. Прогон `deno fmt` без pathspec переписывал там
@@ -40,6 +60,31 @@
     // моложе суток (minimumDependencyAge), а у точного пина, в отличие от
     // диапазона, отката на предыдущую версию нет — разрешение упадёт.
     "@zod/zod": "jsr:@zod/zod@4.4.3",
+    // Фронт `web/` (`docs/specs/web.md`, 10b) — решение владельца
+    // 2026-09-17/18: набор назван спекой, JSR-аналогов у него нет. Версии
+    // зафиксированы точно (те, на которых снят замер сборки и тестов под
+    // Deno 2.9.6, порция 148); вторые строки — подпути пакетов.
+    // React 19 — компоненты экрана «Правила».
+    "react": "npm:react@19.2.0",
+    "react/": "npm:/react@19.2.0/",
+    "react-dom": "npm:react-dom@19.2.0",
+    "react-dom/": "npm:/react-dom@19.2.0/",
+    // Типы React: без них `deno check` не понимает JSX (TS7026/TS2875).
+    "@types/react": "npm:@types/react@19.2.2",
+    "@types/react-dom": "npm:@types/react-dom@19.2.2",
+    // Маршруты приложения (спека: TanStack Router).
+    "@tanstack/react-router": "npm:@tanstack/react-router@1.170.38",
+    // Запросы к `back` и их перечитывание после изменения правила.
+    "@tanstack/react-query": "npm:@tanstack/react-query@5.103.1",
+    // Сборка приложения в каталог (`compile:web`) и dev-сервер (`web`).
+    "vite": "npm:vite@7.1.12",
+    // Компонентные тесты фронта (jsdom) и их среда.
+    "vitest": "npm:vitest@3.2.4",
+    "vitest/": "npm:/vitest@3.2.4/",
+    "jsdom": "npm:jsdom@26.1.0",
+    // Рендер компонентов в тестах; `dom` — обязательный peer.
+    "@testing-library/react": "npm:@testing-library/react@16.3.0",
+    "@testing-library/dom": "npm:@testing-library/dom@10.4.1",
     // Переводчик MCP `mpu-mcp` (`docs/specs/platform/mcp-objects.md`):
     // официальный SDK — Streamable HTTP с сессиями и запрос подтверждения
     // у человека (elicitation). Аргумент, которого требует правило про
@@ -379,7 +424,7 @@
     // `import.meta.url` (`back/src/telegram/crypto.ts`), и без этих строк
     // собранный бинарь не откроет сеанс ни при каком окружении (проверка
     // smoke «telegram: криптография без сети…» краснеет без них).
-    "build": "deno compile --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu back/main.ts",
+    "build": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu back/main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `build` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь
@@ -463,12 +508,27 @@
     // `telegram`). Путь результата — `MPU_OUT`: `deno task` дописывает
     // аргументы в конец, а у `deno compile` всё после скрипта — аргументы
     // самой программы. Совпадение прав с задачами запуска —
-    // `supervisor/src/tasks_test.ts`.
-    "compile:back": "deno compile --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
-    "compile:mcp": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT mcp/main.ts",
+    // `supervisor/src/tasks_test.ts`. `--node-modules-dir=none
+    // --exclude-unused-npm` у `back` и `mcp`: с локальным `node_modules`
+    // (он нужен фронту) `deno compile` вшивал его целиком — Vite, jsdom,
+    // React, +61 МБ к каждому бинарю (замер порции 148); так вшиваются
+    // только пакеты графа программы.
+    "compile:back": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
+    "compile:mcp": "deno compile --node-modules-dir=none --exclude-unused-npm --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT mcp/main.ts",
     "compile:cli": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT cli/main.ts",
     "compile:complete": "deno compile --allow-read=$HOME/.cache/mpu/tree.json --allow-env=HOME -o $MPU_OUT complete/main.ts",
     "compile:supervisor": "deno compile --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp --allow-env=HOME -o $MPU_OUT supervisor/main.ts",
+    // Фронт (`docs/specs/web.md`, 10b): dev-сервер Vite с прокси на
+    // `mpu-back` и сборка в каталог `$MPU_OUT`. Права — `-A`, как в спеке:
+    // Vite — инструмент сборки, в браузере у приложения прав Deno нет.
+    // Версии Vite и vitest — те же, что в `imports` (`npm:` в командной
+    // строке карту импорта не читает); совпадение сверяет
+    // `web/src/tasks_test.ts`.
+    "web": "cd web && deno run -A npm:vite@7.1.12",
+    "compile:web": "cd web && deno run -A npm:vite@7.1.12 build --outDir $MPU_OUT",
+    // Компонентные тесты фронта (vitest, jsdom); их зовёт общий прогон
+    // `deno task test` (`web/src/vitest_test.ts`).
+    "web:test": "cd web && deno run -A npm:vitest@3.2.4 run",
     // Ячейка передачи работы между сессиями (`handoff/`): обе роли ходят
     // в неё этой задачей, а не читают и переписывают файл руками. Права
     // узкие по делу: чтение — постановка или отчёт с диска, запись —

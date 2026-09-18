@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 # Установка новых частей рядом со старым mpu
 # (docs/specs/platform/supervisor-install.md, «ts/install.sh»):
-# mpu-back, mpu-mcp, mpu-next, mpu-supervisor, mpu-complete и служба
-# mpu-next.service (mpu-complete — без службы: его зовёт оболочка).
+# mpu-back, mpu-mcp, mpu-next, mpu-supervisor, mpu-complete, каталог
+# фронта и служба mpu-next.service (mpu-complete и фронт — без службы:
+# первого зовёт оболочка, второй читает mpu-back через ссылку current).
 # Старую программу, её службу и её порт скрипт не знает и не трогает.
 #
-#   ./install.sh [--only back,mcp,cli,supervisor,complete] [--check]
+#   ./install.sh [--only back,mcp,cli,supervisor,complete,web] [--check]
 #
 # Права и состав сборки — только в задачах compile:* корневого deno.jsonc;
 # здесь их нет. Переопределения окружением — для тестов: MPU_BIN_DIR,
-# MPU_UNIT_DIR, MPU_SYSTEMCTL, MPU_DENO, MPU_BACK_URL, MPU_MCP_URL.
+# MPU_UNIT_DIR, MPU_SYSTEMCTL, MPU_DENO, MPU_BACK_URL, MPU_MCP_URL,
+# MPU_WEB_DIR.
 set -uo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
 bin_dir=${MPU_BIN_DIR:-$HOME/.local/bin}
 unit_dir=${MPU_UNIT_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user}
+web_dir=${MPU_WEB_DIR:-$HOME/.local/share/mpu/web}
 systemctl=${MPU_SYSTEMCTL:-systemctl}
 deno=${MPU_DENO:-deno}
 back_url=${MPU_BACK_URL:-http://127.0.0.1:7338}
@@ -33,11 +36,12 @@ program_of() {
     cli) echo mpu-next ;;
     supervisor) echo mpu-supervisor ;;
     complete) echo mpu-complete ;;
+    web) echo web ;;
     *) return 1 ;;
   esac
 }
 
-parts=(back mcp cli supervisor complete)
+parts=(back mcp cli supervisor complete web)
 check=0
 while (($# > 0)); do
   case $1 in
@@ -64,11 +68,33 @@ else
 fi
 trap 'rm -rf "$work"' EXIT
 
+# Хэш каталога фронта: содержимое и относительные пути всех файлов.
+dir_digest() {
+  (cd "$1" && find . -type f -print0 | sort -z | xargs -0 sha256sum) |
+    sha256sum | cut -d' ' -f1
+}
+
+# Собранное и установленное: программа — sha256 файла; фронт — хэш
+# каталога и имя каталога, на который смотрит ссылка current.
+new_digest() {
+  if [[ $1 == web ]]; then dir_digest "$work/web"; return; fi
+  sha256sum "$work/$(program_of "$1")" | cut -d' ' -f1
+}
+old_digest() {
+  if [[ $1 == web ]]; then basename "$(readlink "$web_dir/current" 2>/dev/null)"; return; fi
+  sha256sum "$bin_dir/$(program_of "$1")" 2>/dev/null | cut -d' ' -f1
+}
+
 declare -A version
 for part in "${parts[@]}"; do
   program=$(program_of "$part")
   if ! log=$(cd "$here" && MPU_OUT="$work/$program" "$deno" task "compile:$part" 2>&1); then
     fail "сборка $part" "$(tail -n 1 <<<"$log")"
+  fi
+  if [[ $part == web ]]; then
+    [[ -f $work/web/index.html ]] || fail "сборка web" "нет index.html"
+    say "сборка web: собрано"
+    continue
   fi
   if ! version[$part]=$("$work/$program" --version 2>&1); then
     fail "сборка $part" "не отвечает на --version"
@@ -78,10 +104,11 @@ done
 
 # 2. Сравнение по sha256 собранного и установленного.
 changed=()
+declare -A digest
 for part in "${parts[@]}"; do
-  program=$(program_of "$part")
-  new=$(sha256sum "$work/$program" | cut -d' ' -f1)
-  old=$(sha256sum "$bin_dir/$program" 2>/dev/null | cut -d' ' -f1)
+  new=$(new_digest "$part")
+  digest[$part]=$new
+  old=$(old_digest "$part")
   if [[ $new == "$old" ]]; then
     say "сравнение $part: без изменений"
   else
@@ -96,10 +123,23 @@ if ((check)); then
   exit 0
 fi
 
-# 4. Установка изменившихся.
+# 4. Установка изменившихся. Фронт — новый каталог web/<хэш>/ рядом с
+# прежними и атомарная перестановка ссылки current (прежние сборки
+# остаются: откат — ссылкой).
+install_web() {
+  local target=$web_dir/${digest[web]}
+  mkdir -p "$web_dir" || return 1
+  [[ -d $target ]] || mv "$work/web" "$target" || return 1
+  ln -sfn "${digest[web]}" "$web_dir/current.new" &&
+    mv -T "$web_dir/current.new" "$web_dir/current"
+}
 for part in "${changed[@]}"; do
-  program=$(program_of "$part")
-  mv -f "$work/$program" "$bin_dir/$program" || fail "установка $part" "mv не удался"
+  if [[ $part == web ]]; then
+    install_web || fail "установка web" "каталог не поставлен"
+  else
+    program=$(program_of "$part")
+    mv -f "$work/$program" "$bin_dir/$program" || fail "установка $part" "mv не удался"
+  fi
   say "установка $part: поставлено"
 done
 

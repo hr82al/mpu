@@ -8,6 +8,11 @@
 .deno/
 .tmp/
 
+# Пакеты npm рабочей области (nodeModulesDir: "auto", фронт web/) и
+# собранный фронт
+node_modules/
+/web/dist/
+
 # Покрытие
 /cov/
 coverage/
