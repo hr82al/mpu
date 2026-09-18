@@ -497,36 +497,58 @@ function candidates(io: CompletionEnvIo): readonly CompletionItem[] {
   return completionCandidates(items, input.word);
 }
 
+/** Флаг команды: длинная форма, короткая (если есть) и описание. */
+export interface CommandFlag {
+  /** С `--`. */
+  readonly name: string;
+  /** С `-`; нет короткой формы — `undefined`. */
+  readonly short: string | undefined;
+  readonly summary: string;
+}
+
 /**
- * Флаги уровня: у команды контракта они выводятся из схемы аргументов,
- * у прочих уровней — только общие. Прежде здесь была вторая ветка, для
- * записи маршрута `legacy` со флагами из слепка; маршрута больше нет
- * (порция 97).
+ * Флаги команды — из её объявления: входы-флаги с описанием из схемы
+ * аргументов (то же, что в справке) и общий `--json`, если своего
+ * флага с таким именем у команды нет. `--help` сюда не входит: его
+ * добавляет тот, кто показывает (дополнение). Одно место для старого
+ * дополнения и снимка дерева `mpu-back` (`specs/complete.md`).
+ */
+export function commandFlags(command: Command): readonly CommandFlag[] {
+  const declared = command.inputs
+    .filter((input) => input.form.positional === undefined)
+    .map((input) => ({
+      name: `--${input.name}`,
+      short: input.form.short === undefined
+        ? undefined
+        : `-${input.form.short}`,
+      summary: command.argsJsonSchema.properties[input.name].description ?? "",
+    }));
+  // Свой флаг с тем же именем уже в списке — второй раз его не
+  // предлагаем (описание берётся из схемы команды).
+  if (keepsJson(command)) return declared;
+  return [
+    ...declared,
+    { name: JSON_FLAG, short: undefined, summary: JSON_FLAG_SUMMARY },
+  ];
+}
+
+/**
+ * Флаги уровня для старого дополнения: длинные формы флагов команды и
+ * `--help`; у прочих уровней — только `--help`. Прежде здесь была вторая
+ * ветка, для записи маршрута `legacy` со флагами из слепка; маршрута
+ * больше нет (порция 97).
  */
 function levelFlags(path: readonly string[]): readonly CompletionItem[] {
-  const flag = (name: string, summary = "") => ({ name, summary });
+  const help = { name: HELP_FLAG, summary: HELP_FLAG_SUMMARY };
   const command = findCommand(path);
-  if (command !== undefined) {
-    // Описание флага — то же, что в справке: оно объявлено в схеме
-    // аргументов и второго источника не заводится.
-    const declared = command.inputs
-      .filter((input) => input.form.positional === undefined)
-      .map((input) =>
-        flag(
-          `--${input.name}`,
-          command.argsJsonSchema.properties[input.name].description ?? "",
-        )
-      );
-    return [
-      ...declared,
-      // Свой флаг с тем же именем уже в списке — второй раз его не
-      // предлагаем (описание берётся из схемы команды).
-      ...(keepsJson(command) ? [] : [flag(JSON_FLAG, JSON_FLAG_SUMMARY)]),
-      flag(HELP_FLAG, HELP_FLAG_SUMMARY),
-    ];
-  }
-  // Уровень без собственных флагов (группа) — только общие.
-  return [flag(HELP_FLAG, HELP_FLAG_SUMMARY)];
+  if (command === undefined) return [help];
+  return [
+    ...commandFlags(command).map((flag) => ({
+      name: flag.name,
+      summary: flag.summary,
+    })),
+    help,
+  ];
 }
 
 /** Срез порта для опций дополнения: shell, HOME, чтение и запись rc-файла. */
