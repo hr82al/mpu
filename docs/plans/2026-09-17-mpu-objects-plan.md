@@ -181,7 +181,7 @@ Vite, React 19, TanStack Router / Query / Table / Virtual, zustand, vitest.
 - изменение дерева методов → `~/.cache/mpu/tree.json` перезаписан атомарно;
 - `GET /` → статика `web` (пустая заглушка до порции 10).
 
-## Порция 6: `cli`
+## Порция 6 (сквозной номер 142): `cli` — без автоподъёма (он в порции 8), плюс агентский токен
 
 **Спека:** `ts/docs/specs/cli-client.md`.
 
