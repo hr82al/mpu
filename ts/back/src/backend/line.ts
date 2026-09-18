@@ -141,9 +141,14 @@ export class Line implements Output {
     this.#waiting.settle(text);
   }
 
+  /** Кадры дальше — в эту доставку. */
+  attach(delivery: Delivery) {
+    this.#delivery = delivery;
+  }
+
   /** Ответ пришёл с новой доставкой: кадры после вопроса — в неё. */
   resume(delivery: Delivery, text: string) {
-    this.#delivery = delivery;
+    this.attach(delivery);
     this.answered(text);
   }
 

@@ -21,7 +21,7 @@ export class BadFrame extends Error {
 export type ServerFrame =
   | { readonly out: string }
   | { readonly err: string }
-  | { readonly ask: string }
+  | { readonly ask: string; readonly ticket?: string }
   | { readonly exit: number };
 
 function parsed(data: unknown): unknown {
@@ -90,4 +90,21 @@ export function serverFrameOf(data: unknown): ServerFrame {
   if (key === "err") return { err: value };
   if (key === "ask") return { ask: value };
   throw new BadFrame(`неизвестный кадр ${key}`);
+}
+
+/**
+ * Тело ответа на вопрос строки простым HTTP (`platform/back-http-line.md`):
+ * номер и ответ. Не разобралось — пустой номер (такого нет — 404), ответа
+ * нет — пустой ответ («нет»).
+ */
+export function ticketAnswerOf(
+  data: unknown,
+): { readonly ticket: string; readonly answer: string } {
+  const body = parsed(data);
+  if (!isRecord(body)) return { ticket: "", answer: "" };
+  const { ticket, answer } = body;
+  return {
+    ticket: typeof ticket === "string" ? ticket : "",
+    answer: typeof answer === "string" ? answer : "",
+  };
 }

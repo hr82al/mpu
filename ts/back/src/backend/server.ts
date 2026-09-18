@@ -12,10 +12,18 @@ import type { InvokeLog } from "../invokelog/mod.ts";
 import { nextEntry, registryNodes, rulesOf } from "../next/mod.ts";
 import { runJournaled } from "../process/mod.ts";
 import { VERSION } from "../version.ts";
+import { AGENT, type Caller, OWNER } from "./caller.ts";
 import { AGENT_DOOR, type Door, HUMAN_DOOR } from "./door.ts";
-import { BadFrame, type LineRequest, lineRequest } from "../frames/mod.ts";
-import type { Line } from "./line.ts";
+import {
+  BadFrame,
+  type LineRequest,
+  lineRequest,
+  ticketAnswerOf,
+} from "../frames/mod.ts";
+import { formFor, ticketAsking } from "./http.ts";
+import { DETACHED, Line } from "./line.ts";
 import { socketLine } from "./socket.ts";
+import { Tickets } from "./tickets.ts";
 import { Serial } from "./queue.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
@@ -46,6 +54,8 @@ export interface BackOptions {
   /** Диагностика сервера — строка без перевода (stderr процесса). */
   readonly diagnose: (line: string) => void;
   readonly fs?: SnapshotFs;
+  /** Генератор номера подтверждения; по умолчанию — случайный. */
+  readonly newTicket?: () => string;
 }
 
 /** Поднятый сервер. */
@@ -65,14 +75,6 @@ export interface Tokens {
   /** Агентский: только канал агента и `/rpc`, `human` — всегда `false`. */
   readonly agent: string;
 }
-
-/** Кто пришёл — по токену: верить ли его слову «я человек». */
-interface Caller {
-  human(claimed: boolean): boolean;
-}
-
-const OWNER: Caller = { human: (claimed) => claimed };
-const AGENT: Caller = { human: () => false };
 
 /** Как токен предъявлен. */
 interface Presentation {
@@ -111,6 +113,16 @@ function keyed(presentation: Presentation, keys: readonly Key[]): Gate {
   };
 }
 
+/** Двери строки: путь, канал и какие ключи пускают. */
+const DOORS: readonly {
+  readonly path: string;
+  readonly door: Door;
+  readonly keys: readonly Key[];
+}[] = [
+  { path: "/line", door: HUMAN_DOOR, keys: [MAIN_KEY] },
+  { path: "/agent/line", door: AGENT_DOOR, keys: [MAIN_KEY, AGENT_KEY] },
+];
+
 /** Метод пути: его вход и обработка. */
 interface Handler {
   readonly gate: Gate;
@@ -129,8 +141,9 @@ function empty(status: number, headers?: HeadersInit): Response {
   return new Response(null, { status, headers });
 }
 
-function json(body: unknown): Response {
+function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
+    status,
     headers: { "Content-Type": "application/json" },
   });
 }
@@ -177,11 +190,13 @@ async function isDirectory(path: string): Promise<boolean> {
 class Back {
   readonly #options: BackOptions;
   readonly #serial = new Serial();
+  readonly #tickets: Tickets;
   readonly #open = new Map<Line, Promise<void>>();
   readonly #methods: Methods;
 
   constructor(options: BackOptions, snapshot: unknown) {
     this.#options = options;
+    this.#tickets = new Tickets(options.newTicket);
     this.#methods = new Map<string, () => unknown>([
       ["tree.snapshot", () => snapshot],
       ["policy.list", () => rulesOf(options.policyFile)],
@@ -204,18 +219,24 @@ class Back {
         handle: (request) => this.#rpc(request),
       },
     });
-    this.#route(app, "/line", {
-      GET: {
-        gate: keyed(HEADER_OR_PROTOCOL, [MAIN_KEY]),
-        handle: (request, caller) => this.#upgrade(request, HUMAN_DOOR, caller),
-      },
-    });
-    this.#route(app, "/agent/line", {
-      GET: {
-        gate: keyed(HEADER_OR_PROTOCOL, [MAIN_KEY, AGENT_KEY]),
-        handle: (request, caller) => this.#upgrade(request, AGENT_DOOR, caller),
-      },
-    });
+    for (const { path, door, keys } of DOORS) {
+      this.#route(app, path, {
+        GET: {
+          gate: keyed(HEADER_OR_PROTOCOL, keys),
+          handle: (request, caller) => this.#upgrade(request, door, caller),
+        },
+        POST: {
+          gate: keyed(HEADER, keys),
+          handle: (request, caller) => this.#post(request, door, caller),
+        },
+      });
+      this.#route(app, `${path}/answer`, {
+        POST: {
+          gate: keyed(HEADER, keys),
+          handle: (request, caller) => this.#answer(request, door, caller),
+        },
+      });
+    }
     return app;
   }
 
@@ -270,18 +291,51 @@ class Back {
       return empty(400);
     }
     const { line, first } = socketLine(upgraded.socket);
+    this.#track(line, first, door, caller);
+    return upgraded.response;
+  }
+
+  /** Строка простым HTTP: тело — первый кадр, ответ — по `Accept`. */
+  async #post(request: Request, door: Door, caller: Caller) {
+    const form = formFor(request.headers.get("Accept"));
+    if (form === undefined) return empty(406);
+    const first = await request.text();
+    const asking = ticketAsking(this.#tickets, door, caller);
+    // Транспорт закрыт вместе с ответом: ждать закрытия нечего.
+    const line = new Line(DETACHED, asking, Promise.resolve());
+    const opened = form.open(line);
+    line.attach(opened.delivery);
+    this.#track(line, Promise.resolve(first), door, caller);
+    return await opened.response;
+  }
+
+  /** Ответ на вопрос по номеру: продолжение строки в этом ответе. */
+  async #answer(request: Request, door: Door, caller: Caller) {
+    const form = formFor(request.headers.get("Accept"));
+    if (form === undefined) return empty(406);
+    const reply = ticketAnswerOf(await request.text());
+    const line = this.#tickets.take(reply.ticket, door, caller);
+    if (line === undefined) {
+      return json({ error: "номер подтверждения недействителен" }, 404);
+    }
+    const opened = form.open(line);
+    line.resume(opened.delivery, reply.answer);
+    return await opened.response;
+  }
+
+  /** Строка в работе: её сбой — отказ строки, конец — забыть её. */
+  #track(line: Line, first: Promise<unknown>, door: Door, caller: Caller) {
     const task = this.#serveLine(line, first, door, caller)
       .catch((err) => {
         const reason = err instanceof Error ? err.message : String(err);
         this.#options.diagnose(`mpu-back: сбой строки: ${reason}`);
         line.finish(1);
       })
-      // Строка кончается закрытием сокета, а не кадром `exit`: остановка
-      // сервера ждёт закрытия, иначе клиент увидел бы 1001 вместо 1000.
+      // У сокета строка кончается закрытием, а не кадром `exit`:
+      // остановка сервера ждёт его, иначе клиент увидел бы 1001.
       .then(() => line.gone())
       .finally(() => this.#open.delete(line));
     this.#open.set(line, task);
-    return upgraded.response;
   }
 
   async #serveLine(

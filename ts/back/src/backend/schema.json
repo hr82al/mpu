@@ -1,67 +1,197 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "mpu-back: кадры строки и методы /rpc",
-  "description": "platform/back-rpc.md. Строка — GET /line и GET /agent/line (WebSocket), кадры — текстовые, каждый — один JSON-объект. Запросы — POST /rpc, JSON-RPC 2.0.",
+  "description": "platform/back-rpc.md. Строка — GET /line и GET /agent/line (WebSocket), кадры — текстовые, каждый — один JSON-объект. Запросы — POST /rpc, JSON-RPC 2.0. Та же строка простым HTTP — POST /line и POST /agent/line (platform/back-http-line.md): кадры потоком NDJSON или один собранный объект; вопрос — кадром ask с номером ticket, ответ — POST …/answer.",
   "$defs": {
     "line.client.first": {
       "description": "Первый кадр клиента: строка, каталог клиента и есть ли кого спросить.",
       "type": "object",
-      "required": ["words", "cwd"],
+      "required": [
+        "words",
+        "cwd"
+      ],
       "properties": {
-        "words": { "type": "array", "items": { "type": "string" } },
-        "cwd": { "type": "string", "pattern": "^/" },
-        "human": { "type": "boolean", "default": false }
+        "words": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cwd": {
+          "type": "string",
+          "pattern": "^/"
+        },
+        "human": {
+          "type": "boolean",
+          "default": false
+        }
       }
     },
     "line.client.answer": {
       "description": "Ответ на кадр ask; y или yes в любом регистре — «да».",
       "type": "object",
-      "required": ["answer"],
-      "properties": { "answer": { "type": "string" } }
+      "required": [
+        "answer"
+      ],
+      "properties": {
+        "answer": {
+          "type": "string"
+        }
+      }
     },
     "line.server": {
       "description": "Кадр сервера; exit — последний, после него сокет закрывается с кодом 1000.",
       "oneOf": [
         {
           "type": "object",
-          "required": ["out"],
-          "properties": { "out": { "type": "string" } },
+          "required": [
+            "out"
+          ],
+          "properties": {
+            "out": {
+              "type": "string"
+            }
+          },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["err"],
-          "properties": { "err": { "type": "string" } },
+          "required": [
+            "err"
+          ],
+          "properties": {
+            "err": {
+              "type": "string"
+            }
+          },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["ask"],
-          "properties": { "ask": { "type": "string" } },
+          "required": [
+            "ask"
+          ],
+          "properties": {
+            "ask": {
+              "type": "string"
+            },
+            "ticket": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$",
+              "description": "Только у строки простым HTTP: номер ответа, ответ на этом кадре кончается."
+            }
+          },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["exit"],
-          "properties": { "exit": { "type": "integer" } },
+          "required": [
+            "exit"
+          ],
+          "properties": {
+            "exit": {
+              "type": "integer"
+            }
+          },
           "additionalProperties": false
         }
       ]
     },
+    "http.line.collected": {
+      "description": "Собранный ответ строки простым HTTP (Accept: application/json): склейка кадров потока.",
+      "type": "object",
+      "required": [
+        "stdout",
+        "stderr"
+      ],
+      "properties": {
+        "stdout": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        },
+        "exit": {
+          "type": "integer"
+        },
+        "ask": {
+          "type": "string"
+        },
+        "ticket": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "exit"
+          ]
+        },
+        {
+          "required": [
+            "ask",
+            "ticket"
+          ]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "http.line.answer": {
+      "description": "Тело POST /line/answer и POST /agent/line/answer: номер вопроса и ответ.",
+      "type": "object",
+      "required": [
+        "ticket",
+        "answer"
+      ],
+      "properties": {
+        "ticket": {
+          "type": "string"
+        },
+        "answer": {
+          "type": "string"
+        }
+      }
+    },
+    "http.line.invalid": {
+      "description": "Ответ 404 на номер неизвестный, истёкший, использованный или чужой.",
+      "type": "object",
+      "required": [
+        "error"
+      ],
+      "properties": {
+        "error": {
+          "const": "номер подтверждения недействителен"
+        }
+      },
+      "additionalProperties": false
+    },
     "rpc.tree.snapshot": {
       "description": "Результат tree.snapshot: узлы дерева mpu-next в глубину, дети по алфавиту.",
       "type": "object",
-      "required": ["version", "nodes"],
+      "required": [
+        "version",
+        "nodes"
+      ],
       "properties": {
-        "version": { "type": "string" },
-        "nodes": { "type": "array", "items": { "$ref": "#/$defs/treeNode" } }
+        "version": {
+          "type": "string"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/treeNode"
+          }
+        }
       },
       "additionalProperties": false
     },
     "rpc.policy.list": {
       "description": "Результат policy.list: то же, что данные строки policy.",
       "type": "array",
-      "items": { "$ref": "#/$defs/rule" }
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
     },
     "rpc.schema": {
       "description": "Результат schema: этот документ.",
@@ -69,21 +199,54 @@
     },
     "treeNode": {
       "type": "object",
-      "required": ["path", "summary", "selectors", "tail"],
+      "required": [
+        "path",
+        "summary",
+        "selectors",
+        "tail"
+      ],
       "properties": {
-        "path": { "type": "array", "items": { "type": "string" } },
-        "summary": { "type": "string" },
-        "selectors": { "type": "array", "items": { "type": "string" } },
-        "tail": { "type": ["string", "null"] }
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "summary": {
+          "type": "string"
+        },
+        "selectors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tail": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       },
       "additionalProperties": false
     },
     "rule": {
       "type": "object",
-      "required": ["path", "verdict"],
+      "required": [
+        "path",
+        "verdict"
+      ],
       "properties": {
-        "path": { "type": "string" },
-        "verdict": { "enum": ["allow", "ask", "deny"] }
+        "path": {
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "allow",
+            "ask",
+            "deny"
+          ]
+        }
       },
       "additionalProperties": false
     }

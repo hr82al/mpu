@@ -37,6 +37,10 @@ export interface BackSetup {
   readonly snapshotFile?: (dir: string) => string;
   /** Строка начала запись журнала: разбор и правила — дальше. */
   readonly begun?: (words: readonly string[]) => void;
+  /** Завершение записи журнала — после вывода строки, до кадра `exit`. */
+  readonly finished?: () => Promise<void>;
+  /** Генератор номера подтверждения. */
+  readonly newTicket?: () => string;
 }
 
 const TOKEN = "t0ken-" + "s3cret-" + "value";
@@ -45,6 +49,7 @@ const AGENT_TOKEN = "ag3nt-" + "t0ken-" + "value";
 function recordingLog(
   called: string[],
   begun: (words: readonly string[]) => void,
+  finished: () => Promise<void>,
 ): InvokeLog {
   return {
     begin: (command) => {
@@ -55,7 +60,7 @@ function recordingLog(
         out: () => {},
         err: () => {},
         note: () => {},
-        finish: () => Promise.resolve(),
+        finish: finished,
       });
     },
   };
@@ -79,10 +84,15 @@ export async function withBack(
     tokens: { main: TOKEN, agent: AGENT_TOKEN },
     policyFile: `${dir}/policy.db`,
     io: makeFakeIo(setup.io ?? {}),
-    log: recordingLog(called, setup.begun ?? (() => {})),
+    log: recordingLog(
+      called,
+      setup.begun ?? (() => {}),
+      setup.finished ?? (() => Promise.resolve()),
+    ),
     snapshotFile,
     diagnose: (line) => void diagnosed.push(line),
     fs: setup.fs,
+    newTicket: setup.newTicket,
   });
   const back: TestBack = {
     url: `http://127.0.0.1:${running.port}`,
@@ -269,4 +279,76 @@ export async function within<T>(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Запрос строки простым HTTP. */
+export interface Post {
+  readonly accept?: string;
+  /** Предъявить агентский токен вместо основного. */
+  readonly agent?: boolean;
+  readonly signal?: AbortSignal;
+}
+
+/** `POST` к серверу с токеном заголовком; тело — как есть или JSON. */
+export function post(
+  back: TestBack,
+  path: string,
+  body: unknown,
+  options: Post = {},
+): Promise<Response> {
+  const token = options.agent ? back.agentToken : back.token;
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  if (options.accept !== undefined) headers.Accept = options.accept;
+  return fetch(`${back.url}${path}`, {
+    method: "POST",
+    headers,
+    body: typeof body === "string" ? body : JSON.stringify(body),
+    signal: options.signal,
+  });
+}
+
+/** Тело ответа целиком (в `seen`) — кадры NDJSON. */
+export async function ndjson(back: TestBack, response: Response) {
+  const text = await response.text();
+  back.seen.push(text, JSON.stringify([...response.headers]));
+  return text.split("\n").filter((row) => row !== "").map((row) =>
+    JSON.parse(row) as Frame
+  );
+}
+
+/** Тело ответа целиком (в `seen`) — один объект JSON. */
+export async function collected(back: TestBack, response: Response) {
+  const text = await response.text();
+  back.seen.push(text, JSON.stringify([...response.headers]));
+  return JSON.parse(text) as Frame;
+}
+
+/**
+ * Строка простым HTTP целиком: ответы по очереди, пока строка
+ * кончается вопросом и ответы есть.
+ */
+export async function httpLine(
+  back: TestBack,
+  path: string,
+  body: unknown,
+  answers: readonly string[] = [],
+  options: Post = {},
+): Promise<Frame[][]> {
+  const responses = [await ndjson(back, await post(back, path, body, options))];
+  for (const answer of answers) {
+    const last = responses.at(-1)?.at(-1);
+    if (last === undefined || !("ticket" in last)) break;
+    responses.push(
+      await ndjson(
+        back,
+        await post(
+          back,
+          `${path}/answer`,
+          { ticket: last.ticket, answer },
+          options,
+        ),
+      ),
+    );
+  }
+  return responses;
 }

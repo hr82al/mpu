@@ -11,4 +11,5 @@ export {
   lineRequest,
   type ServerFrame,
   serverFrameOf,
+  ticketAnswerOf,
 } from "./frame.ts";
