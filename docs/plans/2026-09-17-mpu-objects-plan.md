@@ -221,7 +221,7 @@ Vite, React 19, TanStack Router / Query / Table / Virtual, zustand, vitest.
 
 **Приёмка спецификатором:** живой прогон в Claude Code на порту 7339.
 
-## Порция 8: `supervisor`, `install.sh`, переключение
+## Порция 8a (сквозной номер 145, принята 2026-09-18): `supervisor`, `install.sh` — рядом со старым; 8b — переключение
 
 **Спека:** `ts/docs/specs/platform/supervisor.md`, `ts/docs/specs/install.md`
 (раздел 11).

@@ -292,3 +292,6 @@
 | переводчик MCP | `mpu-mcp`, `ts/mcp/` | MCP-сервер с тулами `help` и `mpu`; строки — в `POST /agent/line`, вопросы — elicitation |
 | токен клиента MCP | `mcp-token` | токен, которым Claude Code входит в `mpu-mcp`; в конфиг клиента не пишется, отдаётся командой `headersHelper` |
 | собранный ответ | `Collected`, `collectedOf` | ответ строки одним JSON: потоки и код либо вопрос с номером |
+| супервизор | `mpu-supervisor`, `Supervisor` | единственный процесс службы `mpu-next`; держит `mpu-back` и `mpu-mcp`, перезапускает их по одному |
+| дочерний | `Child` (`CRASH`, `RESTART`, `STOP`, `NO_PROCESS`) | процесс под супервизором со своей паузой падений |
+| установка | `install.sh`, `MPU_OUT`, `MPU_DENO` | сборка, сравнение по sha256, подмена изменившегося, служба, проверки |
