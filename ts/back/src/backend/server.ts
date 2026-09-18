@@ -110,6 +110,12 @@ function keyed(presentation: Presentation, keys: readonly Key[]): Gate {
   };
 }
 
+/** Метод пути: его вход и обработка. */
+interface Handler {
+  readonly gate: Gate;
+  handle(request: Request, caller: Caller): Response | Promise<Response>;
+}
+
 /** Путь без токена (`/health`). */
 const OPEN_GATE: Gate = { caller: () => OWNER };
 
@@ -185,34 +191,30 @@ class Back {
   app(): Hono {
     const app = new Hono();
     app.notFound(() => empty(404));
-    this.#route(
-      app,
-      "/health",
-      "GET",
-      OPEN_GATE,
-      () => json({ ok: true, version: VERSION }),
-    );
-    this.#route(
-      app,
-      "/rpc",
-      "POST",
-      keyed(HEADER, [MAIN_KEY, AGENT_KEY]),
-      (request) => this.#rpc(request),
-    );
-    this.#route(
-      app,
-      "/line",
-      "GET",
-      keyed(HEADER_OR_PROTOCOL, [MAIN_KEY]),
-      (request, caller) => this.#upgrade(request, HUMAN_DOOR, caller),
-    );
-    this.#route(
-      app,
-      "/agent/line",
-      "GET",
-      keyed(HEADER_OR_PROTOCOL, [MAIN_KEY, AGENT_KEY]),
-      (request, caller) => this.#upgrade(request, AGENT_DOOR, caller),
-    );
+    this.#route(app, "/health", {
+      GET: {
+        gate: OPEN_GATE,
+        handle: () => json({ ok: true, version: VERSION }),
+      },
+    });
+    this.#route(app, "/rpc", {
+      POST: {
+        gate: keyed(HEADER, [MAIN_KEY, AGENT_KEY]),
+        handle: (request) => this.#rpc(request),
+      },
+    });
+    this.#route(app, "/line", {
+      GET: {
+        gate: keyed(HEADER_OR_PROTOCOL, [MAIN_KEY]),
+        handle: (request, caller) => this.#upgrade(request, HUMAN_DOOR, caller),
+      },
+    });
+    this.#route(app, "/agent/line", {
+      GET: {
+        gate: keyed(HEADER_OR_PROTOCOL, [MAIN_KEY, AGENT_KEY]),
+        handle: (request, caller) => this.#upgrade(request, AGENT_DOOR, caller),
+      },
+    });
     return app;
   }
 
@@ -221,22 +223,26 @@ class Back {
     await Promise.allSettled(this.#open.values());
   }
 
-  /** Путь с проверками доступа по порядку: метод, `Origin`, токен. */
+  /**
+   * Путь и его методы. Проверки по порядку: метод (чужой — 405 с
+   * `Allow`), `Origin`, токен входа метода.
+   */
   #route(
     app: Hono,
     path: string,
-    method: string,
-    gate: Gate,
-    handle: (request: Request, caller: Caller) => Response | Promise<Response>,
+    methods: Readonly<Record<string, Handler>>,
   ) {
+    const byMethod = new Map(Object.entries(methods));
+    const allow = [...byMethod.keys()].join(", ");
     app.all(path, (context) => {
       const request = context.req.raw;
-      if (request.method !== method) return empty(405, { Allow: method });
+      const handler = byMethod.get(request.method);
+      if (handler === undefined) return empty(405, { Allow: allow });
       const origin = request.headers.get("Origin");
       if (origin !== null && !ORIGINS.allows(origin)) return empty(403);
-      const caller = gate.caller(request, this.#options.tokens);
+      const caller = handler.gate.caller(request, this.#options.tokens);
       if (caller === undefined) return empty(401);
-      return handle(request, caller);
+      return handler.handle(request, caller);
     });
   }
 
