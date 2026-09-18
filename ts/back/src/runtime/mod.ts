@@ -501,11 +501,21 @@ async function openControllingTerminal(): Promise<TerminalIo | undefined> {
 }
 
 /**
+ * Одна строка ответа человека из stdin процесса: вопрос правил
+ * подтверждения `mpu-next` (`platform/policy.md`, «Канал вызова»).
+ */
+export function readStdinLine(): Promise<string | undefined> {
+  return readLineFrom(Deno.stdin);
+}
+
+/**
  * Одна строка ответа. Читается побайтно: терминал отдаёт ввод по
  * нажатию Enter, а забрать из него лишнее нельзя — следующий читатель
  * этого же устройства недосчитался бы своего.
  */
-async function readLineFrom(file: Deno.FsFile): Promise<string | undefined> {
+async function readLineFrom(
+  file: { read(p: Uint8Array): Promise<number | null> },
+): Promise<string | undefined> {
   const bytes: number[] = [];
   const chunk = new Uint8Array(1);
   while (true) {

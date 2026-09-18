@@ -23,18 +23,15 @@ import {
   findGroup,
   findSurface,
 } from "../registry/mod.ts";
-
-/** Строка вызова: её исполняет нынешняя диспетчеризация целиком. */
-export interface Line {
-  dispatch(): Promise<number>;
-}
+import type { Line } from "./line.ts";
+import { ruleMethods } from "./rules.ts";
 
 /** Вид звена хвоста. */
 const ARGS = "<args>";
 
 /** Конец строки — исполнение строки диспетчеризацией. */
 const DISPATCH: Ending<Line> = {
-  finish: async (report, line) => report.exit(await line.dispatch()),
+  finish: (report, line) => line.dispatch(report),
 };
 
 /** Вид, который забирает хвост и в конце строки исполняет её. */
@@ -80,11 +77,12 @@ function groupShape(
   path: readonly string[],
   doc: Doc,
   kind: GroupKind,
+  own: readonly Method<Line>[] = [],
 ): Shape<Line> {
   const methods = childrenOf(path).map((child) =>
     childMethod([...path, child.name], child.name)
   );
-  return new Shape<Line>(methods, kind.options(doc));
+  return new Shape<Line>([...methods, ...own], kind.options(doc));
 }
 
 /** Узел под группой: группа или лист (команда, поверхность). */
@@ -120,11 +118,12 @@ function same(line: Line): Line {
 }
 
 /**
- * Корень дерева реестра для строки `line`.
+ * Корень дерева реестра для строки `line`: команды и группы верхнего
+ * уровня и сообщения о правилах подтверждения.
  *
  * @param line строка вызова с её исполнением
  */
 export function registryRoot(line: Line): Call {
   const doc = { purpose: ROOT_SUMMARY, help: ROOT_USAGE };
-  return origin(doc, groupShape([], doc, PLAIN), line);
+  return origin(doc, groupShape([], doc, PLAIN, ruleMethods()), line);
 }

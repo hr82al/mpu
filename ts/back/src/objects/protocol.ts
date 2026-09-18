@@ -57,6 +57,10 @@ export interface Report {
   object(): Outcome;
   /** Приёмник сделал своё сам и назвал код завершения. */
   exit(code: number): Outcome;
+  /** Звенья пути строки: по ним решают правила подтверждения. */
+  links(): readonly string[];
+  /** Путь строки текстом (`mpu kiten card 123`) для человека. */
+  text(): string;
 }
 
 /** Приёмник сообщения в цепочке. */

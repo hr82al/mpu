@@ -66,6 +66,8 @@ class Walk implements Walker {
     return await receiver.final({
       value: (value) => ({ path, value }),
       exit: (exit) => ({ path, exit }),
+      links: () => [...path],
+      text: () => this.#trail.text(),
       object: () => ({
         path,
         object: this.#refused(() => this.#pending.help(before)),

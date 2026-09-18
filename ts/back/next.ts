@@ -4,9 +4,14 @@
  * собирается.
  */
 
-import { runNext } from "./src/next/mod.ts";
+import { nextEntry, policyFile } from "./src/next/mod.ts";
 import { runProcess } from "./src/process/mod.ts";
+import { defaultStateDir, readStdinLine } from "./src/runtime/mod.ts";
 
 if (import.meta.main) {
-  Deno.exit(await runProcess(Deno.args, runNext));
+  const consent = {
+    file: policyFile(defaultStateDir()),
+    readLine: readStdinLine,
+  };
+  Deno.exit(await runProcess(Deno.args, nextEntry(consent)));
 }
