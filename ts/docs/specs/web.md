@@ -55,7 +55,9 @@
 ## Статика (10a)
 
 `GET /` и `GET /assets/*` отдают собранное приложение из каталога
-`$HOME/.local/share/mpu/web` (путь — параметр `back`); неизвестный путь без
+`$HOME/.local/share/mpu/web/current` (путь — параметр `back`; `current` —
+символьная ссылка на каталог сборки `web/<sha256>/`, прежние сборки остаются
+для отката ссылкой); неизвестный путь без
 расширения — `index.html` (маршруты приложения). Статика отдаётся без токена;
 `Content-Security-Policy: default-src 'self'`. Каталога нет — `GET /` отвечает
 200 с текстом `mpu-back: фронт не установлен` и переводом строки.
@@ -82,7 +84,11 @@
 Vite, React 19, TanStack Router, TanStack Query; TanStack Table/Virtual — если
 понадобятся для дерева; zustand — только для общего состояния между далёкими
 компонентами (не заводить без нужды); тесты — vitest. Подпроект `ts/web/`,
-сборка — `deno run -A npm:vite build` (задача `compile:web`), результат —
+типы `@types/react@19`, `@types/react-dom@19` и peer `@testing-library/dom`
+(решение владельца 2026-09-18); компонентные тесты vitest запускаются из
+`deno task test` одним `Deno.test`; `nodeModulesDir: "auto"` в корневом
+`deno.jsonc` (решение владельца 2026-09-18, размеры бинарей — замером до и
+после). Сборка — `deno run -A npm:vite build` (задача `compile:web`), результат —
 каталог; `install.sh` ставит его в `$HOME/.local/share/mpu/web` (новый каталог
 рядом и переключение символьной ссылкой `current`).
 
