@@ -7,7 +7,7 @@
   // Состав рабочей области: подпроекты со своими `deno.jsonc`. Импорты,
   // задачи и файл блокировки — общие и живут здесь; участник наследует
   // импорты корня.
-  "workspace": ["./back", "./cli"],
+  "workspace": ["./back", "./cli", "./mcp"],
   "fmt": {
     // `docs/` — канал спецификаций: его пишет сессия-спецификатор, у
     // которой Deno нет. Прогон `deno fmt` без pathspec переписывал там
@@ -40,6 +40,17 @@
     // моложе суток (minimumDependencyAge), а у точного пина, в отличие от
     // диапазона, отката на предыдущую версию нет — разрешение упадёт.
     "@zod/zod": "jsr:@zod/zod@4.4.3",
+    // Переводчик MCP `mpu-mcp` (`docs/specs/platform/mcp-objects.md`):
+    // официальный SDK — Streamable HTTP с сессиями и запрос подтверждения
+    // у человека (elicitation). Аргумент, которого требует правило про
+    // `npm:`: протокол MCP с сессиями и elicitation — это тот самый
+    // контракт, который клиент проверяет, и на этой версии снят голден
+    // подтверждения в Claude Code (`fixtures/mcp-objects/`); на JSR
+    // официального SDK нет. Решение владельца 2026-09-18. Версия
+    // зафиксирована точно; вторая строка — подпути пакета
+    // (`…/server/index.js`), без неё они не разрешаются.
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@1.30.0",
+    "@modelcontextprotocol/sdk/": "npm:/@modelcontextprotocol/sdk@1.30.0/",
     // HTTP-транспорт MCP-сервера: маршрутизация путей профилей `/ro` и
     // `/rw`, разбор запроса и сборка ответа поверх `Deno.serve`. Своими
     // руками это писать не нужно, а стандартной библиотеке роутера нет;
@@ -410,6 +421,15 @@
     //   — `--allow-env=HOME,MPU_BACK_URL`: каталог токенов и адрес.
     // Шире не стали — `next/tasks_test.ts`.
     "cli": "deno run --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token --allow-env=HOME,MPU_BACK_URL cli/main.ts",
+    // Переводчик MCP `mpu-mcp` (`docs/specs/platform/mcp-objects.md`):
+    // сам ничего не исполняет, прав — ровно на перевод:
+    //   — `--allow-net=127.0.0.1`: слушать на петле и ходить к `mpu-back`;
+    //   — `--allow-read` основного токена `back` (ходит с ним — только так
+    //     вопрос доходит до человека) и своего `mcp-token`;
+    //   — `--allow-write` одного файла `mcp-token`: создаётся при старте;
+    //   — `--allow-env=HOME,MPU_BACK_URL`: каталог токенов и адрес `back`.
+    // Шире не стали — `mcp/src/tasks_test.ts`.
+    "mcp": "deno run --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL mcp/main.ts",
     // Ячейка передачи работы между сессиями (`handoff/`): обе роли ходят
     // в неё этой задачей, а не читают и переписывают файл руками. Права
     // узкие по делу: чтение — постановка или отчёт с диска, запись —
