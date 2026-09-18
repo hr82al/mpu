@@ -13,7 +13,7 @@ import { nextEntry, registryNodes, rulesOf } from "../next/mod.ts";
 import { runJournaled } from "../process/mod.ts";
 import { VERSION } from "../version.ts";
 import { AGENT_DOOR, type Door, HUMAN_DOOR } from "./door.ts";
-import { BadFrame, type LineRequest, lineRequest } from "./frame.ts";
+import { BadFrame, type LineRequest, lineRequest } from "../frames/mod.ts";
 import { SocketLine } from "./line.ts";
 import { Serial } from "./queue.ts";
 import { answerRpc, type Methods } from "./rpc.ts";

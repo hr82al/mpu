@@ -5,7 +5,7 @@
  */
 
 import type { Output } from "../entrypoint/mod.ts";
-import { answerOf, type ServerFrame } from "./frame.ts";
+import { answerOf, type ServerFrame } from "../frames/mod.ts";
 import { NO_SLOT, type Serial, type Slot } from "./queue.ts";
 
 /** Сколько ждать ответа на вопрос: дальше ответ «нет». */
