@@ -7,6 +7,8 @@
 export {
   answerOf,
   BadFrame,
+  type Collected,
+  collectedOf,
   type LineRequest,
   lineRequest,
   type ServerFrame,

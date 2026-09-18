@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { BadFrame, serverFrameOf, ticketAnswerOf } from "./mod.ts";
+import { BadFrame, collectedOf, serverFrameOf, ticketAnswerOf } from "./mod.ts";
 
 Deno.test("кадр сервера: четыре вида и отказ прочему", async (t) => {
   for (
@@ -37,5 +37,19 @@ Deno.test("тело ответа по номеру: номер и ответ, м
     ];
   for (const [text, expected] of cases) {
     await t.step(text, () => assertEquals(ticketAnswerOf(text), expected));
+  }
+});
+
+Deno.test("собранный ответ: итог кодом или вопросом, прочее — отказ", async (t) => {
+  const exited = { stdout: "a", stderr: "b", exit: 0 };
+  const asked = { stdout: "", stderr: "", ask: "q? ", ticket: "ab" };
+  assertEquals(collectedOf(JSON.stringify(exited)), exited);
+  assertEquals(collectedOf(JSON.stringify(asked)), asked);
+  for (
+    const bad of ["{", "[]", '{"stdout":"a"}', '{"stdout":"","stderr":""}']
+  ) {
+    await t.step(bad, () => {
+      assertThrows(() => collectedOf(bad), BadFrame);
+    });
   }
 });

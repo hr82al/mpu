@@ -108,3 +108,37 @@ export function ticketAnswerOf(
     answer: typeof answer === "string" ? answer : "",
   };
 }
+
+/**
+ * Собранный ответ строки простым HTTP (`platform/back-http-line.md`,
+ * `Accept: application/json`): потоки и итог — код или вопрос с номером.
+ */
+export type Collected =
+  | { readonly stdout: string; readonly stderr: string; readonly exit: number }
+  | {
+    readonly stdout: string;
+    readonly stderr: string;
+    readonly ask: string;
+    readonly ticket: string;
+  };
+
+/**
+ * Собранный ответ из тела.
+ *
+ * @throws BadFrame — не объект, нет потоков или нет итога
+ */
+export function collectedOf(data: unknown): Collected {
+  const body = parsed(data);
+  if (!isRecord(body)) throw new BadFrame("собранный ответ не объект JSON");
+  const { stdout, stderr, exit, ask, ticket } = body;
+  if (typeof stdout !== "string" || typeof stderr !== "string") {
+    throw new BadFrame("в собранном ответе нет потоков");
+  }
+  if (typeof exit === "number" && Number.isInteger(exit)) {
+    return { stdout, stderr, exit };
+  }
+  if (typeof ask === "string" && typeof ticket === "string") {
+    return { stdout, stderr, ask, ticket };
+  }
+  throw new BadFrame("в собранном ответе нет итога");
+}
