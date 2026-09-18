@@ -139,7 +139,7 @@ Vite, React 19, TanStack Router / Query / Table / Virtual, zustand, vitest.
   подменяет на B, вызывает → ответ B без перезапуска.
 
 
-## Порция 4: политика
+## Порция 4 (сквозной номер 140, принята 2026-09-18): политика
 
 **Спека:** `ts/docs/specs/platform/policy.md` (раздел 5).
 
