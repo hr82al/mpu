@@ -14,7 +14,8 @@ import { runJournaled } from "../process/mod.ts";
 import { VERSION } from "../version.ts";
 import { AGENT_DOOR, type Door, HUMAN_DOOR } from "./door.ts";
 import { BadFrame, type LineRequest, lineRequest } from "../frames/mod.ts";
-import { SocketLine } from "./line.ts";
+import type { Line } from "./line.ts";
+import { socketLine } from "./socket.ts";
 import { Serial } from "./queue.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
@@ -176,7 +177,7 @@ async function isDirectory(path: string): Promise<boolean> {
 class Back {
   readonly #options: BackOptions;
   readonly #serial = new Serial();
-  readonly #open = new Map<SocketLine, Promise<void>>();
+  readonly #open = new Map<Line, Promise<void>>();
   readonly #methods: Methods;
 
   constructor(options: BackOptions, snapshot: unknown) {
@@ -268,8 +269,8 @@ class Back {
       if (!(err instanceof TypeError)) throw err;
       return empty(400);
     }
-    const line = new SocketLine(upgraded.socket);
-    const task = this.#serveLine(line, door, caller)
+    const { line, first } = socketLine(upgraded.socket);
+    const task = this.#serveLine(line, first, door, caller)
       .catch((err) => {
         const reason = err instanceof Error ? err.message : String(err);
         this.#options.diagnose(`mpu-back: сбой строки: ${reason}`);
@@ -283,10 +284,15 @@ class Back {
     return upgraded.response;
   }
 
-  async #serveLine(line: SocketLine, door: Door, caller: Caller) {
+  async #serveLine(
+    line: Line,
+    first: Promise<unknown>,
+    door: Door,
+    caller: Caller,
+  ) {
     let request: LineRequest;
     try {
-      request = lineRequest(await line.first());
+      request = lineRequest(await first);
     } catch (err) {
       if (!(err instanceof BadFrame)) throw err;
       line.stderr("mpu-back: плохой кадр строки\n");

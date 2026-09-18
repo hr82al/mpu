@@ -5,7 +5,7 @@
  */
 
 import { Agent, type Channel, Human, NOBODY } from "../policy/mod.ts";
-import type { SocketLine } from "./line.ts";
+import type { Line } from "./line.ts";
 
 /** Путь подключения: строит канал строки. */
 export interface Door {
@@ -13,10 +13,10 @@ export interface Door {
    * @param line строка по сокету: вопрос кадром, ответ кадром
    * @param human есть ли у клиента, кого спросить (поле первого кадра)
    */
-  channel(line: SocketLine, human: boolean): Channel;
+  channel(line: Line, human: boolean): Channel;
 }
 
-function clientChannel(line: SocketLine, human: boolean): Channel {
+function clientChannel(line: Line, human: boolean): Channel {
   if (!human) return NOBODY;
   return new Human((question) => line.question(question), () => line.answer());
 }
