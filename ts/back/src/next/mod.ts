@@ -58,12 +58,20 @@ function textOf(value: unknown): string {
   return `${JSON.stringify(value)}\n`;
 }
 
-/** Окружение правил подтверждения у точки входа. */
-export interface Consent {
+/** Кто спрашивает подтверждение у строки. */
+export type ChannelOf = (io: CommandIo, output: Output) => Channel;
+
+/** Чем точка входа отличается от соседей: правила, вопрос, исполнение. */
+export interface NextPorts {
   /** Файл правил; каталога состояния нет — `undefined`. */
   readonly file: string | undefined;
-  /** Одна строка ответа человека из stdin; конец ввода — `undefined`. */
-  readonly readLine: () => Promise<string | undefined>;
+  readonly channel: ChannelOf;
+  /**
+   * Исполнение строки нынешней диспетчеризацией. Разбор, решение правил и
+   * вопрос — до него: у сервера строк оно идёт в очереди, и строка,
+   * ждущая ответа, других не держит.
+   */
+  readonly execute: (run: () => Promise<number>) => Promise<number>;
 }
 
 /**
@@ -76,12 +84,23 @@ export function policyFile(stateDir: string | undefined): string | undefined {
 }
 
 /**
- * Канал вызова: человек — только когда и stdin, и stderr терминалы;
+ * Канал терминала: человек — только когда и stdin, и stderr терминалы;
  * вопрос — в stderr, ответ — строка stdin.
+ *
+ * @param readLine одна строка ответа из stdin; конец ввода — `undefined`
  */
-function channelOf(io: CommandIo, output: Output, consent: Consent): Channel {
-  if (!io.stdinIsTerminal() || !io.stderrIsTerminal()) return NOBODY;
-  return new Human(output.stderr, consent.readLine);
+export function terminalChannel(
+  readLine: () => Promise<string | undefined>,
+): ChannelOf {
+  return (io, output) => {
+    if (!io.stdinIsTerminal() || !io.stderrIsTerminal()) return NOBODY;
+    return new Human(output.stderr, readLine);
+  };
+}
+
+/** Исполнение сразу: у процесса `mpu-next` строка одна. */
+export function immediately(run: () => Promise<number>): Promise<number> {
+  return run();
 }
 
 /**
@@ -89,13 +108,13 @@ function channelOf(io: CommandIo, output: Output, consent: Consent): Channel {
  * завершения. Файл правил открывается до разбора строки — нечитаемый
  * файл отказывает любой строке, включая справку.
  *
- * @param consent файл правил и чтение ответа человека
+ * @param ports файл правил, канал вопроса и исполнение
  */
-export function nextEntry(consent: Consent): CliEntry {
+export function nextEntry(ports: NextPorts): CliEntry {
   return async (argv, io, output, journal) => {
     let book: RuleBook;
     try {
-      book = RuleBook.open(consent.file, registrySeeds());
+      book = RuleBook.open(ports.file, registrySeeds());
     } catch (err) {
       if (!(err instanceof PolicyError)) throw err;
       output.stderr(`${err.message}\n`);
@@ -104,9 +123,9 @@ export function nextEntry(consent: Consent): CliEntry {
     using _book = book;
     const line = new Session({
       book,
-      channel: channelOf(io, output, consent),
+      channel: ports.channel(io, output),
       output,
-      dispatch: () => runLine(argv, io, output, journal),
+      dispatch: () => ports.execute(() => runLine(argv, io, output, journal)),
     });
     const outcome = await runChain(walkedWords(argv), registryRoot(line));
     return printed(outcome, output);

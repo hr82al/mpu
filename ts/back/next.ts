@@ -4,14 +4,20 @@
  * собирается.
  */
 
-import { nextEntry, policyFile } from "./src/next/mod.ts";
+import {
+  immediately,
+  nextEntry,
+  policyFile,
+  terminalChannel,
+} from "./src/next/mod.ts";
 import { runProcess } from "./src/process/mod.ts";
 import { defaultStateDir, readStdinLine } from "./src/runtime/mod.ts";
 
 if (import.meta.main) {
-  const consent = {
+  const ports = {
     file: policyFile(defaultStateDir()),
-    readLine: readStdinLine,
+    channel: terminalChannel(readStdinLine),
+    execute: immediately,
   };
-  Deno.exit(await runProcess(Deno.args, nextEntry(consent)));
+  Deno.exit(await runProcess(Deno.args, nextEntry(ports)));
 }

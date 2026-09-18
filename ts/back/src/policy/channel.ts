@@ -14,7 +14,10 @@ export interface Reply<T> {
 
 /** Протокол «спросить». */
 export interface Channel {
+  /** Вопрос о строке с решением `ask`. */
   ask<T>(question: string, reply: Reply<T>): Promise<T>;
+  /** Вопрос об изменении правила: отвечать на него может только человек. */
+  amend<T>(question: string, reply: Reply<T>): Promise<T>;
 }
 
 /** Ответы «да»: `y` и `yes` в любом регистре; всё прочее — «нет». */
@@ -43,9 +46,35 @@ export class Human implements Channel {
     if (YES.has(answer.trim().toLowerCase())) return await reply.yes();
     return await reply.no();
   }
+
+  amend<T>(question: string, reply: Reply<T>): Promise<T> {
+    return this.ask(question, reply);
+  }
 }
 
 /** Канал без человека: спросить некого. */
 export const NOBODY: Channel = {
   ask: (_question, reply) => reply.absent(),
+  amend: (_question, reply) => reply.absent(),
 };
+
+/**
+ * Канал агента: о строке с решением `ask` спрашивает того, кто за
+ * агентом (`inner`), а изменить правило через агента нельзя — вопрос
+ * не задаётся никому (`platform/back-rpc.md`, «Строка»).
+ */
+export class Agent implements Channel {
+  readonly #inner: Channel;
+
+  constructor(inner: Channel) {
+    this.#inner = inner;
+  }
+
+  ask<T>(question: string, reply: Reply<T>): Promise<T> {
+    return this.#inner.ask(question, reply);
+  }
+
+  amend<T>(_question: string, reply: Reply<T>): Promise<T> {
+    return reply.absent();
+  }
+}

@@ -56,7 +56,7 @@ export class Session implements Line {
 
   /** Правилами не решается: всегда спрашивает канал (жёсткий запрет). */
   change(report: Report, path: RulePath, change: Change): Promise<Outcome> {
-    return this.#channel.ask(change.question(path, selectorFirstWriters), {
+    return this.#channel.amend(change.question(path, selectorFirstWriters), {
       yes: () =>
         this.#guarded(
           report,

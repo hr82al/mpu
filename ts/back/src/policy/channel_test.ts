@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { Human, NOBODY, type Reply } from "./mod.ts";
+import { Agent, Human, NOBODY, type Reply } from "./mod.ts";
 
 const REPLY: Reply<string> = {
   yes: () => Promise.resolve("yes"),
@@ -32,4 +32,25 @@ Deno.test("канал с человеком: да — y/yes в любом рег
 
 Deno.test("канал без человека: спросить некого", async () => {
   assertEquals(await NOBODY.ask("вопрос?", REPLY), "absent");
+});
+
+Deno.test("канал человека: вопрос о правиле задаётся так же", async () => {
+  const written: string[] = [];
+  const human = new Human(
+    (text) => void written.push(text),
+    () => Promise.resolve("y"),
+  );
+  assertEquals(await human.amend("правило? [y/N] ", REPLY), "yes");
+  assertEquals(written, ["правило? [y/N] "]);
+});
+
+Deno.test("канал агента: решение ask — внутреннему, правило — некому", async () => {
+  const written: string[] = [];
+  const agent = new Agent(
+    new Human((text) => void written.push(text), () => Promise.resolve("y")),
+  );
+  assertEquals(await agent.ask("выполнить? [y/N] ", REPLY), "yes");
+  assertEquals(await agent.amend("правило? [y/N] ", REPLY), "absent");
+  assertEquals(written, ["выполнить? [y/N] "]);
+  assertEquals(await NOBODY.amend("правило?", REPLY), "absent");
 });

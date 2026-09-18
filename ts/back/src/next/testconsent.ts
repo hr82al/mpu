@@ -4,7 +4,7 @@
  */
 
 import { ALLOW, RuleBook, RulePath } from "../policy/mod.ts";
-import type { Consent } from "./mod.ts";
+import { immediately, type NextPorts, terminalChannel } from "./mod.ts";
 import { registrySeeds } from "./seeds.ts";
 
 /** Файл правил во временном каталоге на время `body`. */
@@ -19,13 +19,20 @@ export async function withPolicyFile(
   }
 }
 
-/** Окружение правил с файлом `file`; ответы человека — по очереди. */
+/**
+ * Порты `mpu-next` с файлом `file`: канал терминала (человек — если в
+ * подменах окружения stdin и stderr терминалы), ответы — по очереди.
+ */
 export function consentOf(
   file: string,
   answers: readonly string[] = [],
-): Consent {
+): NextPorts {
   const queue = [...answers];
-  return { file, readLine: () => Promise.resolve(queue.shift()) };
+  return {
+    file,
+    channel: terminalChannel(() => Promise.resolve(queue.shift())),
+    execute: immediately,
+  };
 }
 
 /**
