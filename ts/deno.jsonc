@@ -7,7 +7,7 @@
   // Состав рабочей области: подпроекты со своими `deno.jsonc`. Импорты,
   // задачи и файл блокировки — общие и живут здесь; участник наследует
   // импорты корня.
-  "workspace": ["./back", "./cli", "./mcp", "./supervisor"],
+  "workspace": ["./back", "./cli", "./mcp", "./supervisor", "./complete"],
   "fmt": {
     // `docs/` — канал спецификаций: его пишет сессия-спецификатор, у
     // которой Deno нет. Прогон `deno fmt` без pathspec переписывал там
@@ -436,6 +436,15 @@
     //   — `--allow-env=HOME,MPU_BACK_URL`: каталог токенов и адрес `back`.
     // Шире не стали — `mcp/src/tasks_test.ts`.
     "mcp": "deno run --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL mcp/main.ts",
+    // Дополнение `mpu-complete` (`docs/specs/complete.md`): варианты —
+    // только из снимка дерева, поэтому права — ровно на него:
+    //   — `--allow-read` одного файла снимка `$HOME/.cache/mpu/tree.json`
+    //     (`--snapshot` на другой путь без права — «снимка нет», вариантов
+    //     нет, код 0);
+    //   — `--allow-env=HOME`: где лежит снимок.
+    // Ни сети, ни записи, ни токенов. Шире не стали —
+    // `complete/src/tasks_test.ts`.
+    "complete": "deno run --allow-read=$HOME/.cache/mpu/tree.json --allow-env=HOME complete/main.ts",
     // Супервизор `mpu-supervisor` (`platform/supervisor-install.md`):
     // единственное, что запускает служба `mpu-next.service`. Права:
     //   — `--allow-run` двух программ из `$HOME/.local/bin`: запуск и
@@ -453,6 +462,7 @@
     "compile:back": "deno compile --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
     "compile:mcp": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT mcp/main.ts",
     "compile:cli": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT cli/main.ts",
+    "compile:complete": "deno compile --allow-read=$HOME/.cache/mpu/tree.json --allow-env=HOME -o $MPU_OUT complete/main.ts",
     "compile:supervisor": "deno compile --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp --allow-env=HOME -o $MPU_OUT supervisor/main.ts",
     // Ячейка передачи работы между сессиями (`handoff/`): обе роли ходят
     // в неё этой задачей, а не читают и переписывают файл руками. Права

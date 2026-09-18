@@ -4,7 +4,7 @@
  * узел отвечает сам — детьми, хвостом и своим концом строки.
  */
 
-import { ROOT_SUMMARY, ROOT_USAGE } from "../entrypoint/mod.ts";
+import { commandFlags, ROOT_SUMMARY, ROOT_USAGE } from "../entrypoint/mod.ts";
 import {
   type Call,
   type Doc,
@@ -125,6 +125,29 @@ export interface TreeNode {
   readonly selectors: readonly string[];
   /** Имя вида звена хвоста без скобок; хвоста нет — `null`. */
   readonly tail: string | null;
+  /**
+   * Флаги команды (`specs/complete.md`, «Снимок»): длинная форма и
+   * короткая отдельной записью; `--help` не входит. У групп и узлов без
+   * своих объявленных флагов — пусто.
+   */
+  readonly flags: readonly {
+    readonly name: string;
+    readonly summary: string;
+  }[];
+  /** Назначения собственных селекторов, у которых нет своего узла. */
+  readonly summaries: Readonly<Record<string, string>>;
+}
+
+/** Флаги узла снимка: у команды — из её объявления, у прочих — нет. */
+function flagsOf(path: readonly string[]): TreeNode["flags"] {
+  const command = findCommand(path);
+  if (command === undefined) return [];
+  return commandFlags(command).flatMap((flag) => [
+    { name: flag.name, summary: flag.summary },
+    ...(flag.short === undefined
+      ? []
+      : [{ name: flag.short, summary: flag.summary }]),
+  ]);
 }
 
 /** Узел снимка — со слов самого вида: его селекторы и его хвост. */
@@ -134,11 +157,18 @@ function nodeOf(
   shape: Shape<Line>,
 ): TreeNode {
   const tail = shape.parsing().tail;
+  const children = new Set(childrenOf(path).map((child) => child.name));
   return {
     path: [...path],
     summary,
     selectors: shape.selectors(),
     tail: tail === undefined ? null : tail.slice(1, -1),
+    flags: flagsOf(path),
+    summaries: Object.fromEntries(
+      Object.entries(shape.purposes()).filter(([selector]) =>
+        !children.has(selector)
+      ),
+    ),
   };
 }
 

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Установка новых частей рядом со старым mpu
 # (docs/specs/platform/supervisor-install.md, «ts/install.sh»):
-# mpu-back, mpu-mcp, mpu-next, mpu-supervisor и служба mpu-next.service.
+# mpu-back, mpu-mcp, mpu-next, mpu-supervisor, mpu-complete и служба
+# mpu-next.service (mpu-complete — без службы: его зовёт оболочка).
 # Старую программу, её службу и её порт скрипт не знает и не трогает.
 #
-#   ./install.sh [--only back,mcp,cli,supervisor] [--check]
+#   ./install.sh [--only back,mcp,cli,supervisor,complete] [--check]
 #
 # Права и состав сборки — только в задачах compile:* корневого deno.jsonc;
 # здесь их нет. Переопределения окружением — для тестов: MPU_BIN_DIR,
@@ -31,11 +32,12 @@ program_of() {
     mcp) echo mpu-mcp ;;
     cli) echo mpu-next ;;
     supervisor) echo mpu-supervisor ;;
+    complete) echo mpu-complete ;;
     *) return 1 ;;
   esac
 }
 
-parts=(back mcp cli supervisor)
+parts=(back mcp cli supervisor complete)
 check=0
 while (($# > 0)); do
   case $1 in

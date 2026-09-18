@@ -89,6 +89,13 @@ export class Shape<S> implements Yields<S>, Reflective {
     return [...this.#methods.keys()].sort(order);
   }
 
+  /** Назначения собственных селекторов: селектор → назначение. */
+  purposes(): Record<string, string> {
+    return Object.fromEntries(
+      this.#ownLines().map((line) => [line.selector, line.purpose]),
+    );
+  }
+
   respondsTo(selector: string): boolean {
     return this.#methods.has(selector) || COMMON_SELECTORS.has(selector);
   }

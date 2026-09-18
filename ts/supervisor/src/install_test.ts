@@ -172,7 +172,13 @@ async function snapshot(dir: string): Promise<Record<string, string>> {
   return files;
 }
 
-const PROGRAMS = ["mpu-back", "mpu-mcp", "mpu-next", "mpu-supervisor"];
+const PROGRAMS = [
+  "mpu-back",
+  "mpu-complete",
+  "mpu-mcp",
+  "mpu-next",
+  "mpu-supervisor",
+];
 
 Deno.test("первая установка: всё собрано и поставлено, служба — эталон, start", () =>
   withPlace(async (place) => {
@@ -205,7 +211,7 @@ Deno.test("второй запуск без изменений: ничего н�
     assertEquals(run.code, 0, run.lines.join("\n"));
     assertEquals(
       run.lines.filter((line) => line.includes("сравнение")),
-      ["back", "mcp", "cli", "supervisor"].map((part) =>
+      ["back", "mcp", "cli", "supervisor", "complete"].map((part) =>
         `install: сравнение ${part}: без изменений`
       ),
     );
@@ -319,4 +325,24 @@ Deno.test("после перезапуска проверка ждёт отве�
     // Старый процесс ещё отвечал: установка не засчитала его ответ.
     assertEquals(place.back.seen.newPid, true);
     assertEquals(place.mcp.seen.newPid, true);
+  }));
+
+Deno.test("--only complete: поставлен только mpu-complete, без службы и сигналов", () =>
+  withPlace(async (place) => {
+    await install(place);
+    const before = await snapshot(place.bin);
+    const run = await install(place, ["--only", "complete"], {
+      FAKE_TAG_complete: "2",
+    });
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    const after = await snapshot(place.bin);
+    for (const program of PROGRAMS) {
+      assertEquals(
+        after[program] === before[program],
+        program !== "mpu-complete",
+        program,
+      );
+    }
+    assertEquals(run.calls, []);
+    assertEquals(run.lines.at(-1), "install: готово");
   }));

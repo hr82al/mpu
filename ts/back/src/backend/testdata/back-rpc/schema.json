@@ -203,7 +203,9 @@
         "path",
         "summary",
         "selectors",
-        "tail"
+        "tail",
+        "flags",
+        "summaries"
       ],
       "properties": {
         "path": {
@@ -226,6 +228,34 @@
             "string",
             "null"
           ]
+        },
+        "flags": {
+          "description": "Флаги команды: длинная форма и короткая отдельной записью; --help не входит; у групп — пусто.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "summary"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^--?[^-]"
+              },
+              "summary": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "summaries": {
+          "description": "Назначения собственных селекторов без своего узла (allow:, ask:, deny:, forget:, policy у корня).",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": false

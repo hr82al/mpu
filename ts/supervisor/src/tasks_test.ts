@@ -34,6 +34,7 @@ Deno.test("compile:* — права задач запуска, путь — MPU_
     ["compile:mcp", "mcp", "mcp/main.ts"],
     ["compile:cli", "cli", "cli/main.ts"],
     ["compile:supervisor", "supervisor", "supervisor/main.ts"],
+    ["compile:complete", "complete", "complete/main.ts"],
   ] as const;
   for (const [compile, run, script] of pairs) {
     await t.step(compile, async () => {
