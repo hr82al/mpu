@@ -221,6 +221,16 @@ Vite, React 19, TanStack Router / Query / Table / Virtual, zustand, vitest.
 
 **Приёмка спецификатором:** живой прогон в Claude Code на порту 7339.
 
+## Шаг 8b-1 (2026-09-18, хост): новый MCP подключён рядом
+
+Решение владельца: переключать сначала только MCP. В `mp/.mcp.json` добавлен
+сервер `mpu` (`127.0.0.1:7339/mcp`, `headersHelper` читает `mcp-token`);
+`mpu_ro`/`mpu_rw` на 7337 и старый CLI `mpu` остаются. Проверено в Claude Code:
+тул `mcp__mpu__mpu` отвечает строкой `selectors` нового дерева. Замена `mpu` →
+тонкий клиент — после порций, закрывающих stdin/tty/окружение строки и
+дополнение (регрессии: интерактивные команды, агенты через Bash с `ask`,
+ссылки на `mpu_ro`/`mpu_rw` в CLAUDE.md и скиллах).
+
 ## Порция 8a (сквозной номер 145, принята 2026-09-18): `supervisor`, `install.sh` — рядом со старым; 8b — переключение
 
 **Спека:** `ts/docs/specs/platform/supervisor.md`, `ts/docs/specs/install.md`
