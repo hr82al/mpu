@@ -165,7 +165,7 @@ Vite, React 19, TanStack Router / Query / Table / Virtual, zustand, vitest.
 
 **Инвариант:** решение принимается в одной точке для любого канала.
 
-## Порция 5: RPC-сервер `back`
+## Порция 5 (сквозной номер 141, принята 2026-09-18): RPC-сервер `back`
 
 **Спека:** `ts/docs/specs/platform/back-rpc.md` + голдены пар.
 

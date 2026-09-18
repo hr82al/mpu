@@ -1,0 +1,11 @@
+[
+  {
+    "ask": "изменить правило: kiten ls → allow? [y/N] "
+  },
+  {
+    "out": "{\"path\":\"kiten ls\",\"verdict\":\"allow\"}\n"
+  },
+  {
+    "exit": 0
+  }
+]
