@@ -18,6 +18,7 @@ export type Frame = Readonly<Record<string, unknown>>;
 export interface TestBack {
   readonly url: string;
   readonly token: string;
+  readonly agentToken: string;
   readonly policyFile: string;
   readonly snapshotFile: string;
   /** Пути команд, дошедших до исполнения, по порядку. */
@@ -39,6 +40,7 @@ export interface BackSetup {
 }
 
 const TOKEN = "t0ken-" + "s3cret-" + "value";
+const AGENT_TOKEN = "ag3nt-" + "t0ken-" + "value";
 
 function recordingLog(
   called: string[],
@@ -74,7 +76,7 @@ export async function withBack(
   const snapshotFile = setup.snapshotFile?.(dir) ?? `${dir}/cache/tree.json`;
   const running = await serveBack({
     port: 0,
-    token: TOKEN,
+    tokens: { main: TOKEN, agent: AGENT_TOKEN },
     policyFile: `${dir}/policy.db`,
     io: makeFakeIo(setup.io ?? {}),
     log: recordingLog(called, setup.begun ?? (() => {})),
@@ -85,6 +87,7 @@ export async function withBack(
   const back: TestBack = {
     url: `http://127.0.0.1:${running.port}`,
     token: TOKEN,
+    agentToken: AGENT_TOKEN,
     policyFile: `${dir}/policy.db`,
     snapshotFile,
     called,
@@ -105,6 +108,7 @@ export async function withBack(
   }
   for (const text of [...back.seen, ...diagnosed]) {
     assert(!text.includes(TOKEN), `токен в выводе: ${text}`);
+    assert(!text.includes(AGENT_TOKEN), `агентский токен в выводе: ${text}`);
   }
 }
 
@@ -136,6 +140,8 @@ export class Client {
     options: {
       readonly headers?: HeadersInit;
       readonly bearer?: boolean;
+      /** Предъявить агентский токен вместо основного. */
+      readonly agent?: boolean;
       /** Ответы на кадры `ask` по очереди; кончились — вопрос без ответа. */
       readonly answers?: readonly string[];
     } = {},
@@ -143,7 +149,7 @@ export class Client {
     this.#answers = [...options.answers ?? []];
     const protocols = options.bearer === false
       ? ["mpu"]
-      : ["mpu", `bearer.${back.token}`];
+      : ["mpu", `bearer.${options.agent ? back.agentToken : back.token}`];
     this.#socket = new WebSocket(`${back.url.replace("http", "ws")}${path}`, {
       protocols,
       headers: options.headers,

@@ -9,11 +9,17 @@ import type { InvokeLog } from "../invokelog/mod.ts";
 import { ensureAccessToken } from "../mcp/mod.ts";
 import { DEFAULT_BACK_PORT, serveBack } from "./server.ts";
 
+/** Чтение и запись файла токена. */
+type TokenIo = Pick<CommandIo, "readAccessToken" | "writeAccessToken">;
+
 const USAGE = "mpu-back: использование: deno task back [--port <число>]\n";
 
 /** Что процессу нужно снаружи. */
 export interface BackProcess {
+  /** Окружение; его `readAccessToken`/`writeAccessToken` — основной токен. */
   readonly io: CommandIo;
+  /** Файл агентского токена (`cli-client.md`, «Канал и токен»). */
+  readonly agentToken: TokenIo;
   readonly log: InvokeLog;
   /** Файл правил подтверждения; нет HOME — `undefined`. */
   readonly policyFile: string | undefined;
@@ -52,7 +58,11 @@ export async function runBack(
   try {
     running = await serveBack({
       port,
-      token: await ensureAccessToken(proc.io),
+      // Оба токена создаёт сервер при старте; клиент файлов не пишет.
+      tokens: {
+        main: await ensureAccessToken(proc.io),
+        agent: await ensureAccessToken(proc.agentToken),
+      },
       policyFile: proc.policyFile,
       io: proc.io,
       log: proc.log,

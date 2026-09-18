@@ -10,4 +10,5 @@ export {
   type LineRequest,
   lineRequest,
   type ServerFrame,
+  serverFrameOf,
 } from "./frame.ts";

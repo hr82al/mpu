@@ -193,6 +193,27 @@ function readProcStatFile(pid: number): ProcStat | undefined {
   }
 }
 
+/**
+ * Файл токена по пути: чтение и запись с правами 0600. Тот же приём,
+ * что у токена MCP-сервера, для второго файла — агентского токена
+ * `mpu-back` (`cli-client.md`, «Канал и токен»).
+ */
+export function tokenFile(
+  path: string,
+): Pick<CommandIo, "readAccessToken" | "writeAccessToken"> {
+  return {
+    readAccessToken: async () => {
+      try {
+        return (await Deno.readTextFile(path)).trim();
+      } catch (err) {
+        if (err instanceof Deno.errors.NotFound) return undefined;
+        throw err;
+      }
+    },
+    writeAccessToken: (token) => writeSecret(path, `${token}\n`),
+  };
+}
+
 /** Запись файла с секретом: каталог создаётся, права ровно 0600. */
 async function writeSecret(path: string, text: string): Promise<void> {
   const dir = path.slice(0, path.lastIndexOf("/"));

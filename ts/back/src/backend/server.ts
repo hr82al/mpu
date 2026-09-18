@@ -33,8 +33,8 @@ const BEARER_PROTOCOL = "bearer.";
 export interface BackOptions {
   /** Порт; `0` — выдаёт ОС. */
   readonly port: number;
-  /** Токен доступа. */
-  readonly token: string;
+  /** Токены доступа: основной и агентский. */
+  readonly tokens: Tokens;
   /** Файл правил подтверждения; нет HOME — `undefined`. */
   readonly policyFile: string | undefined;
   /** Окружение сервера; строка получает его без stdin и терминалов. */
@@ -57,22 +57,61 @@ export interface RunningBack {
   stop(): Promise<void>;
 }
 
-/** Чем путь проверяет токен. */
-interface Credentials {
-  holds(request: Request, token: string): boolean;
+/** Токены доступа (`cli-client.md`, «Канал и токен»). */
+export interface Tokens {
+  /** Основной: пускает везде, `human` из кадра верится. */
+  readonly main: string;
+  /** Агентский: только канал агента и `/rpc`, `human` — всегда `false`. */
+  readonly agent: string;
 }
 
-const HEADER: Credentials = { holds: hasBearer };
+/** Кто пришёл — по токену: верить ли его слову «я человек». */
+interface Caller {
+  human(claimed: boolean): boolean;
+}
+
+const OWNER: Caller = { human: (claimed) => claimed };
+const AGENT: Caller = { human: () => false };
+
+/** Как токен предъявлен. */
+interface Presentation {
+  shows(request: Request, token: string): boolean;
+}
+
+const HEADER: Presentation = { shows: hasBearer };
 
 /** У WebSocket токен и в подпротоколе: браузер заголовок не задаёт. */
-const HEADER_OR_PROTOCOL: Credentials = {
-  holds: (request, token) =>
+const HEADER_OR_PROTOCOL: Presentation = {
+  shows: (request, token) =>
     hasBearer(request, token) ||
     offeredProtocols(request).includes(`${BEARER_PROTOCOL}${token}`),
 };
 
+/** Кого путь пускает: ключ и кем считается его предъявивший. */
+interface Key {
+  readonly token: (tokens: Tokens) => string;
+  readonly caller: Caller;
+}
+
+const MAIN_KEY: Key = { token: (tokens) => tokens.main, caller: OWNER };
+const AGENT_KEY: Key = { token: (tokens) => tokens.agent, caller: AGENT };
+
+/** Вход пути: кто пришёл; не пущен — `undefined`. */
+interface Gate {
+  caller(request: Request, tokens: Tokens): Caller | undefined;
+}
+
+/** Вход по одному из ключей, предъявленному так, как принимает путь. */
+function keyed(presentation: Presentation, keys: readonly Key[]): Gate {
+  return {
+    caller: (request, tokens) =>
+      keys.find((key) => presentation.shows(request, key.token(tokens)))
+        ?.caller,
+  };
+}
+
 /** Путь без токена (`/health`). */
-const OPEN_DOOR: Credentials = { holds: () => true };
+const OPEN_GATE: Gate = { caller: () => OWNER };
 
 function offeredProtocols(request: Request): string[] {
   const header = request.headers.get("Sec-WebSocket-Protocol") ?? "";
@@ -150,23 +189,29 @@ class Back {
       app,
       "/health",
       "GET",
-      OPEN_DOOR,
+      OPEN_GATE,
       () => json({ ok: true, version: VERSION }),
     );
-    this.#route(app, "/rpc", "POST", HEADER, (request) => this.#rpc(request));
+    this.#route(
+      app,
+      "/rpc",
+      "POST",
+      keyed(HEADER, [MAIN_KEY, AGENT_KEY]),
+      (request) => this.#rpc(request),
+    );
     this.#route(
       app,
       "/line",
       "GET",
-      HEADER_OR_PROTOCOL,
-      (request) => this.#upgrade(request, HUMAN_DOOR),
+      keyed(HEADER_OR_PROTOCOL, [MAIN_KEY]),
+      (request, caller) => this.#upgrade(request, HUMAN_DOOR, caller),
     );
     this.#route(
       app,
       "/agent/line",
       "GET",
-      HEADER_OR_PROTOCOL,
-      (request) => this.#upgrade(request, AGENT_DOOR),
+      keyed(HEADER_OR_PROTOCOL, [MAIN_KEY, AGENT_KEY]),
+      (request, caller) => this.#upgrade(request, AGENT_DOOR, caller),
     );
     return app;
   }
@@ -181,16 +226,17 @@ class Back {
     app: Hono,
     path: string,
     method: string,
-    credentials: Credentials,
-    handle: (request: Request) => Response | Promise<Response>,
+    gate: Gate,
+    handle: (request: Request, caller: Caller) => Response | Promise<Response>,
   ) {
     app.all(path, (context) => {
       const request = context.req.raw;
       if (request.method !== method) return empty(405, { Allow: method });
       const origin = request.headers.get("Origin");
       if (origin !== null && !ORIGINS.allows(origin)) return empty(403);
-      if (!credentials.holds(request, this.#options.token)) return empty(401);
-      return handle(request);
+      const caller = gate.caller(request, this.#options.tokens);
+      if (caller === undefined) return empty(401);
+      return handle(request, caller);
     });
   }
 
@@ -201,7 +247,7 @@ class Back {
   }
 
   /** WebSocket строки. Подпротокол `bearer.*` в ответ не выбирается. */
-  #upgrade(request: Request, door: Door): Response {
+  #upgrade(request: Request, door: Door, caller: Caller): Response {
     const chosen = offeredProtocols(request).find((one) =>
       !one.startsWith(BEARER_PROTOCOL)
     );
@@ -217,7 +263,7 @@ class Back {
       return empty(400);
     }
     const line = new SocketLine(upgraded.socket);
-    const task = this.#serveLine(line, door)
+    const task = this.#serveLine(line, door, caller)
       .catch((err) => {
         const reason = err instanceof Error ? err.message : String(err);
         this.#options.diagnose(`mpu-back: сбой строки: ${reason}`);
@@ -231,7 +277,7 @@ class Back {
     return upgraded.response;
   }
 
-  async #serveLine(line: SocketLine, door: Door) {
+  async #serveLine(line: SocketLine, door: Door, caller: Caller) {
     let request: LineRequest;
     try {
       request = lineRequest(await line.first());
@@ -246,7 +292,7 @@ class Back {
       line.finish(2);
       return;
     }
-    const channel = door.channel(line, request.human);
+    const channel = door.channel(line, caller.human(request.human));
     const entry = nextEntry({
       file: this.#options.policyFile,
       channel: () => channel,

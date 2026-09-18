@@ -6,7 +6,8 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { rulesOf } from "../next/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
+import { makeDenoIo, tokenFile } from "../runtime/mod.ts";
 import { VERSION } from "../version.ts";
 import { runBack } from "./entry.ts";
 import type { SnapshotFs } from "./mod.ts";
@@ -151,7 +152,7 @@ Deno.test("rpc: сбой метода — -32603", () =>
     assertStringIncludes(broken.error.message, "правила подтверждения: ");
   }));
 
-Deno.test("процесс: адрес в stdout, остановка — код 0, порт занят — 1", async () => {
+Deno.test("процесс: адрес в stdout, оба токена 0600, остановка — 0, порт занят — 1", async () => {
   const dir = await Deno.makeTempDir();
   const out: string[] = [];
   const err: string[] = [];
@@ -159,10 +160,9 @@ Deno.test("процесс: адрес в stdout, остановка — код 0
   const busy = Deno.listen({ hostname: "127.0.0.1", port: 0 });
   try {
     const proc = {
-      io: makeFakeIo({
-        readAccessToken: () => Promise.resolve("proc-token"),
-      }),
-      log: { begin: () => ({}) } as never,
+      io: makeDenoIo(dir),
+      agentToken: tokenFile(`${dir}/agent-token`),
+      log: NO_INVOKE_LOG,
       policyFile: `${dir}/policy.db`,
       snapshotFile: `${dir}/tree.json`,
       output: {
@@ -188,7 +188,16 @@ Deno.test("процесс: адрес в stdout, остановка — код 0
     assertEquals(await running, 0);
     assertEquals(out.length, 1);
     assertEquals(/^mpu-back: http:\/\/127\.0\.0\.1:\d+\n$/.test(out[0]), true);
-    assertEquals([...out, ...err].join("").includes("proc-token"), false);
+    const tokens: string[] = [];
+    for (const name of ["token", "agent-token"]) {
+      const mode = (await Deno.stat(`${dir}/${name}`)).mode ?? 0;
+      assertEquals(mode & 0o777, 0o600, name);
+      tokens.push((await Deno.readTextFile(`${dir}/${name}`)).trim());
+    }
+    assertEquals(tokens[0] === tokens[1], false);
+    for (const token of tokens) {
+      assertEquals([...out, ...err].join("").includes(token), false);
+    }
   } finally {
     busy.close();
     await Deno.remove(dir, { recursive: true });

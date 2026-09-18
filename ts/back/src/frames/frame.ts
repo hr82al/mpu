@@ -67,3 +67,27 @@ export function answerOf(data: unknown): string | undefined {
   if (!isRecord(frame) || typeof frame.answer !== "string") return undefined;
   return frame.answer;
 }
+
+/**
+ * Кадр сервера глазами клиента (`fixtures/back-rpc/schema.json`,
+ * `line.server`).
+ *
+ * @param data данные кадра как их отдал сокет
+ * @throws BadFrame — не объект JSON или не один из четырёх видов
+ */
+export function serverFrameOf(data: unknown): ServerFrame {
+  const frame = parsed(data);
+  if (!isRecord(frame)) throw new BadFrame("кадр сервера не объект JSON");
+  const keys = Object.keys(frame);
+  if (keys.length !== 1) throw new BadFrame("у кадра сервера не одно поле");
+  const [key] = keys;
+  const value = frame[key];
+  if (key === "exit" && typeof value === "number" && Number.isInteger(value)) {
+    return { exit: value };
+  }
+  if (typeof value !== "string") throw new BadFrame(`кадр ${key} не строка`);
+  if (key === "out") return { out: value };
+  if (key === "err") return { err: value };
+  if (key === "ask") return { ask: value };
+  throw new BadFrame(`неизвестный кадр ${key}`);
+}
