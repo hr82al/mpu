@@ -3,8 +3,18 @@
  * разбор входящих здесь, дальше — объекты строки и канала.
  */
 
-/** Первый кадр клиента: какую строку, где и есть ли кого спросить. */
-export interface LineRequest {
+import { BadFrame } from "./bad.ts";
+import {
+  type CallContext,
+  callContextOf,
+  CONTEXT_FIELDS,
+  CONTEXT_IN_ANSWER,
+  type ContextFields,
+} from "./context.ts";
+import { isRecord, parsedJson } from "./json.ts";
+
+/** Первый кадр клиента как он уходит по проводу. */
+export interface FirstFrame extends ContextFields {
   readonly words: readonly string[];
   /** Абсолютный каталог клиента. */
   readonly cwd: string;
@@ -12,9 +22,13 @@ export interface LineRequest {
   readonly human: boolean;
 }
 
-/** Первый кадр не разобрался. */
-export class BadFrame extends Error {
-  override name = "BadFrame";
+/** Разобранный первый кадр: строка, место и что принёс вызывающий. */
+export interface LineRequest {
+  readonly words: readonly string[];
+  readonly cwd: string;
+  readonly human: boolean;
+  /** Ввод, терминальность и переменные клиента. */
+  readonly context: CallContext;
 }
 
 /** Кадр сервера. */
@@ -24,29 +38,16 @@ export type ServerFrame =
   | { readonly ask: string; readonly ticket?: string }
   | { readonly exit: number };
 
-function parsed(data: unknown): unknown {
-  if (typeof data !== "string") return undefined;
-  try {
-    return JSON.parse(data);
-  } catch {
-    // Причина разбора клиенту не нужна: ответ один на все её виды.
-    return undefined;
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 /**
  * Первый кадр строки.
  *
  * @param data данные кадра как их отдал сокет
  * @throws BadFrame — не JSON-объект, нет `words` или `cwd`, `cwd` не
- *   абсолютный, `human` не булево
+ *   абсолютный, `human` не булево, либо контекст вызова непринимаем
+ *   (`callContextOf`)
  */
 export function lineRequest(data: unknown): LineRequest {
-  const frame = parsed(data);
+  const frame = parsedJson(data);
   if (!isRecord(frame)) throw new BadFrame("кадр не объект JSON");
   const { words, cwd, human = false } = frame;
   if (
@@ -58,12 +59,12 @@ export function lineRequest(data: unknown): LineRequest {
     throw new BadFrame("cwd — не абсолютный путь");
   }
   if (typeof human !== "boolean") throw new BadFrame("human — не булево");
-  return { words: [...words], cwd, human };
+  return { words: [...words], cwd, human, context: callContextOf(frame) };
 }
 
 /** Ответ на вопрос из кадра клиента; кадр не ответ — `undefined`. */
 export function answerOf(data: unknown): string | undefined {
-  const frame = parsed(data);
+  const frame = parsedJson(data);
   if (!isRecord(frame) || typeof frame.answer !== "string") return undefined;
   return frame.answer;
 }
@@ -76,7 +77,7 @@ export function answerOf(data: unknown): string | undefined {
  * @throws BadFrame — не объект JSON или не один из четырёх видов
  */
 export function serverFrameOf(data: unknown): ServerFrame {
-  const frame = parsed(data);
+  const frame = parsedJson(data);
   if (!isRecord(frame)) throw new BadFrame("кадр сервера не объект JSON");
   const keys = Object.keys(frame);
   if (keys.length !== 1) throw new BadFrame("у кадра сервера не одно поле");
@@ -96,12 +97,19 @@ export function serverFrameOf(data: unknown): ServerFrame {
  * Тело ответа на вопрос строки простым HTTP (`platform/back-http-line.md`):
  * номер и ответ. Не разобралось — пустой номер (такого нет — 404), ответа
  * нет — пустой ответ («нет»).
+ *
+ * @throws BadFrame — в теле поля контекста вызова: он пришёл первым
+ *   запросом и живёт до конца строки (`platform/call-context.md`), а
+ *   номер при этом цел, и отказ обязан это различать
  */
 export function ticketAnswerOf(
   data: unknown,
 ): { readonly ticket: string; readonly answer: string } {
-  const body = parsed(data);
+  const body = parsedJson(data);
   if (!isRecord(body)) return { ticket: "", answer: "" };
+  if (CONTEXT_FIELDS.some((name) => name in body)) {
+    throw new BadFrame("контекст вызова в теле ответа", CONTEXT_IN_ANSWER);
+  }
   const { ticket, answer } = body;
   return {
     ticket: typeof ticket === "string" ? ticket : "",
@@ -128,7 +136,7 @@ export type Collected =
  * @throws BadFrame — не объект, нет потоков или нет итога
  */
 export function collectedOf(data: unknown): Collected {
-  const body = parsed(data);
+  const body = parsedJson(data);
   if (!isRecord(body)) throw new BadFrame("собранный ответ не объект JSON");
   const { stdout, stderr, exit, ask, ticket } = body;
   if (typeof stdout !== "string" || typeof stderr !== "string") {

@@ -16,6 +16,7 @@ import { AGENT, BROWSER, type Caller, OWNER } from "./caller.ts";
 import { AGENT_DOOR, type Door, HUMAN_DOOR } from "./door.ts";
 import {
   BadFrame,
+  type CallContext,
   type LineRequest,
   lineRequest,
   ticketAnswerOf,
@@ -225,14 +226,30 @@ function keyOf(text: string): string {
   }
 }
 
-/** Окружение строки: окружение сервера без stdin и без терминалов. */
-function lineIo(io: CommandIo, output: Output): CommandIo {
+/**
+ * Окружение строки: ввод, терминальность и переменные — из того, что
+ * принёс вызывающий (`platform/call-context.md`); всё остальное —
+ * окружение сервера. Своих дескрипторов сервер не спрашивает: консоль
+ * и потоки у него не те, что у клиента.
+ */
+function lineIo(
+  io: CommandIo,
+  output: Output,
+  context: CallContext,
+): CommandIo {
+  const environment = context.env.over(io.env);
+  const terminals = context.terminals;
   return {
     ...io,
-    readStdin: () => Promise.resolve(new Uint8Array()),
-    stdinIsTerminal: () => false,
-    stdoutIsTerminal: () => false,
-    stderrIsTerminal: () => false,
+    env: (name) => environment.value(name),
+    readStdin: () => Promise.resolve(context.input.bytes()),
+    stdinIsTerminal: () => terminals.stdin(),
+    stdoutIsTerminal: () => terminals.stdout(),
+    stderrIsTerminal: () => terminals.stderr(),
+    consoleColumns: () => terminals.columns(),
+    // Терминала у строки нет при любом `tty`: вопрос человеку уходит
+    // кадром `ask`, а ввод в терминал клиента — следующая порция
+    // переключения.
     openTerminal: () => Promise.resolve(undefined),
     openRemoteOutput: () => remoteFrames(output),
   };
@@ -430,7 +447,16 @@ class Back {
   async #answer(request: Request, door: Door, caller: Caller) {
     const form = formFor(request.headers.get("Accept"));
     if (form === undefined) return empty(406);
-    const reply = ticketAnswerOf(await request.text());
+    let reply: { readonly ticket: string; readonly answer: string };
+    try {
+      reply = ticketAnswerOf(await request.text());
+    } catch (err) {
+      // Контекст пришёл первым запросом и живёт до конца строки; поле
+      // здесь — не недействительный номер, а лишнее в теле, и ответ
+      // обязан это различать (`platform/call-context.md`).
+      if (!(err instanceof BadFrame)) throw err;
+      return json({ error: err.report }, 400);
+    }
     const line = this.#tickets.take(reply.ticket, door, caller);
     if (line === undefined) {
       return json({ error: "номер подтверждения недействителен" }, 404);
@@ -466,7 +492,7 @@ class Back {
       request = lineRequest(await first);
     } catch (err) {
       if (!(err instanceof BadFrame)) throw err;
-      line.stderr("mpu-back: плохой кадр строки\n");
+      line.stderr(`mpu-back: ${err.report}\n`);
       line.finish(2);
       return;
     }
@@ -485,7 +511,7 @@ class Back {
       channel: () => channel,
       execute: (run) => line.execute(request.cwd, run, this.#serial),
     });
-    const io = lineIo(this.#options.io, line);
+    const io = lineIo(this.#options.io, line, request.context);
     line.finish(
       await runJournaled(request.words, entry, io, this.#options.log, line),
     );

@@ -6,6 +6,9 @@
 
 import {
   BadFrame,
+  type CallerFacts,
+  type ContextFields,
+  contextFieldsOf,
   type ServerFrame,
   serverFrameOf,
   VERSION,
@@ -19,6 +22,9 @@ const INTERRUPTED_CODE = 130;
 /** Код клиентских отказов. */
 const FAILED = 1;
 
+/** Код отказа по входу: строка серверу не уходит вовсе. */
+const REFUSED_INPUT = 2;
+
 /** Что клиенту дано снаружи. */
 export interface ClientEnv {
   /** Адрес сервера (`MPU_BACK_URL` или `http://127.0.0.1:7338`). */
@@ -29,8 +35,8 @@ export interface ClientEnv {
   readonly mainToken: () => Promise<string | undefined>;
   /** Агентский токен; не читается — `undefined`. */
   readonly agentToken: () => Promise<string | undefined>;
-  /** И stdin, и stderr — терминалы. */
-  readonly terminals: boolean;
+  /** Что клиент снимает у себя: ввод, терминальность, переменные. */
+  readonly caller: CallerFacts;
   /** Одна строка stdin; конец ввода — `undefined`. */
   readonly readLine: () => Promise<string | undefined>;
   readonly stdout: (text: string) => void;
@@ -78,12 +84,19 @@ class LineSocket {
   readonly #env: ClientEnv;
   readonly #closed = Promise.withResolvers<void>();
   #ending: Ending = BROKEN;
-  constructor(door: Door, env: ClientEnv, words: readonly string[]) {
+  constructor(
+    door: Door,
+    env: ClientEnv,
+    words: readonly string[],
+    context: ContextFields,
+  ) {
     this.#door = door;
     this.#env = env;
     this.#socket = new WebSocket(door.socket(env.base), door.protocols());
     this.#socket.onopen = () =>
-      this.#socket.send(JSON.stringify(door.first(words, env.cwd())));
+      this.#socket.send(
+        JSON.stringify(door.first(words, env.cwd(), context)),
+      );
     this.#socket.onmessage = (event) => this.#received(event.data);
     this.#socket.onerror = () => {
       // Причину скажет закрытие: без кадра `exit` строка оборвана.
@@ -187,7 +200,20 @@ export async function runClient(
     env.stdout(`${VERSION}\n`);
     return 0;
   }
-  const asker: Asker = env.terminals
+  // Контекст снимается до всего остального: ввод больше предела —
+  // клиент не шлёт ничего и не ходит к серверу вовсе.
+  let context: ContextFields;
+  try {
+    context = await contextFieldsOf(env.caller);
+  } catch (err) {
+    if (!(err instanceof BadFrame)) throw err;
+    env.stderr(`mpu-next: ${err.report}\n`);
+    return REFUSED_INPUT;
+  }
+  // Спросить есть кого, когда у клиента терминалы и на вопрос, и на
+  // ответ (`cli-client.md`, «Канал и токен»).
+  const asker: Asker = env.caller.stdinIsTerminal() &&
+      env.caller.stderrIsTerminal()
     ? humanAsker(env.stderr, env.readLine)
     : NOBODY;
   const door = chooseDoor(await env.mainToken(), await env.agentToken(), asker);
@@ -202,5 +228,5 @@ export async function runClient(
     env.stderr(refused);
     return FAILED;
   }
-  return await new LineSocket(door, env, words).run();
+  return await new LineSocket(door, env, words, context).run();
 }

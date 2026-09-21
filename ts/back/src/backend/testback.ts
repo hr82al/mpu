@@ -31,6 +31,8 @@ export interface TestBack {
   readonly diagnosed: string[];
   /** Всё, что сервер отдал наружу, — для поиска токена. */
   readonly seen: string[];
+  /** Всё, что увидел журнал вызовов, — для поиска чужих секретов. */
+  readonly logged: string[];
   readonly running: RunningBack;
 }
 
@@ -54,18 +56,32 @@ const AGENT_TOKEN = "ag3nt-" + "t0ken-" + "value";
 
 function recordingLog(
   called: string[],
+  logged: string[],
   begun: (words: readonly string[]) => void,
   finished: () => Promise<void>,
 ): InvokeLog {
   return {
     begin: (command) => {
-      begun("argv" in command ? command.argv : []);
+      const argv = "argv" in command ? command.argv : [];
+      logged.push(JSON.stringify(argv));
+      begun(argv);
       return ({
         nativeCall: (command) => void called.push(command.path.join(" ")),
-        capture: (output) => output,
-        out: () => {},
-        err: () => {},
-        note: () => {},
+        // Приёмник вывода журнала: печатаемое строкой проходит через
+        // него, и копия его видит.
+        capture: (output) => ({
+          stdout: (text: string) => {
+            logged.push(text);
+            output.stdout(text);
+          },
+          stderr: (text: string) => {
+            logged.push(text);
+            output.stderr(text);
+          },
+        }),
+        out: (text: string) => void logged.push(text),
+        err: (text: string) => void logged.push(text),
+        note: (text: string) => void logged.push(text),
         finish: finished,
       });
     },
@@ -83,6 +99,7 @@ export async function withBack(
   const dir = await Deno.makeTempDir();
   const cwd = Deno.cwd();
   const called: string[] = [];
+  const logged: string[] = [];
   const diagnosed: string[] = [];
   const snapshotFile = setup.snapshotFile?.(dir) ?? `${dir}/cache/tree.json`;
   const running = await serveBack({
@@ -92,6 +109,7 @@ export async function withBack(
     io: makeFakeIo(setup.io ?? {}),
     log: recordingLog(
       called,
+      logged,
       setup.begun ?? (() => {}),
       setup.finished ?? (() => Promise.resolve()),
     ),
@@ -113,6 +131,7 @@ export async function withBack(
     snapshotFile,
     webSessions: `${dir}/web-sessions`,
     called,
+    logged,
     diagnosed,
     seen: [],
     running,

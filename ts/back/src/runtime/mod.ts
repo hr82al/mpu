@@ -369,6 +369,7 @@ export function makeDenoIo(
       new Uint8Array(await new Response(Deno.stdin.readable).arrayBuffer()),
     stdinIsTerminal: () => Deno.stdin.isTerminal(),
     stdoutIsTerminal: () => Deno.stdout.isTerminal(),
+    consoleColumns: () => consoleColumns(),
     stderrIsTerminal: () => Deno.stderr.isTerminal(),
     // Заметку журнала подставляет точка входа: у рантайма записи нет
     // (как и с `progress`, `platform/invoke-log.md`).
@@ -443,6 +444,21 @@ export function makeDenoIo(
     progress: (line) => writeAllSync(Deno.stderr, `${line}\n`),
     openRemoteOutput: () => streamingRemoteOutput(),
   };
+}
+
+/**
+ * Ширина консоли процесса. Консоль спрашивается только когда stdout —
+ * терминал: в пайпе и в cron ширины нет, и ограничения вывода тоже.
+ */
+function consoleColumns(): number | undefined {
+  if (!Deno.stdout.isTerminal()) return undefined;
+  try {
+    return Deno.consoleSize().columns;
+  } catch {
+    // Консоли нет (терминал исчез между проверкой и запросом) —
+    // ограничения тоже нет.
+    return undefined;
+  }
 }
 
 /**

@@ -4,7 +4,7 @@
   "description": "platform/back-rpc.md. Строка — GET /line и GET /agent/line (WebSocket), кадры — текстовые, каждый — один JSON-объект. Запросы — POST /rpc, JSON-RPC 2.0. Та же строка простым HTTP — POST /line и POST /agent/line (platform/back-http-line.md): кадры потоком NDJSON или один собранный объект; вопрос — кадром ask с номером ticket, ответ — POST …/answer.",
   "$defs": {
     "line.client.first": {
-      "description": "Первый кадр клиента: строка, каталог клиента и есть ли кого спросить.",
+      "description": "Первый кадр клиента: строка, каталог клиента, есть ли кого спросить и контекст вызова (platform/call-context.md): ввод, терминальность и переменные клиента. Любое из трёх полей приходит без остальных; поля нет — как до порции 11 (пустой ввод, потоки не терминалы, окружение сервера).",
       "type": "object",
       "required": [
         "words",
@@ -24,6 +24,53 @@
         "human": {
           "type": "boolean",
           "default": false
+        },
+        "stdin": {
+          "description": "Весь ввод строки; поля нет — ввода нет. Больше 8 МиБ (в байтах UTF-8) — отказ mpu-back: ввод больше 8 МиБ, код 2.",
+          "type": "string"
+        },
+        "tty": {
+          "description": "Терминальность трёх потоков клиента и ширина его консоли; поля нет — все три false, ширины нет. columns — только при stdout: true, иначе отказ mpu-back: ширина без терминала.",
+          "type": "object",
+          "properties": {
+            "stdin": {
+              "type": "boolean",
+              "default": false
+            },
+            "stdout": {
+              "type": "boolean",
+              "default": false
+            },
+            "stderr": {
+              "type": "boolean",
+              "default": false
+            },
+            "columns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            }
+          },
+          "additionalProperties": false
+        },
+        "env": {
+          "description": "Переменные окружения клиента; поля нет или объект пуст — окружение сервера как есть. Имена — закрытый список (только про вид вывода); имя вне его — отказ mpu-back: переменная вне списка: ИМЯ, код 2. Переменные действуют только на свою строку.",
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "COLUMNS",
+              "NO_COLOR",
+              "TERM",
+              "TERM_PROGRAM",
+              "COLORTERM",
+              "TMUX",
+              "WT_SESSION",
+              "OS"
+            ]
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -138,7 +185,7 @@
       "additionalProperties": false
     },
     "http.line.answer": {
-      "description": "Тело POST /line/answer и POST /agent/line/answer: номер вопроса и ответ.",
+      "description": "Тело POST /line/answer и POST /agent/line/answer: номер вопроса и ответ. Контекст вызова тут не принимается: поле stdin, tty или env — 400 с телом {\"error\": \"контекст вызова в ответе не принимается\"} (platform/call-context.md).",
       "type": "object",
       "required": [
         "ticket",
@@ -151,7 +198,8 @@
         "answer": {
           "type": "string"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "http.line.invalid": {
       "description": "Ответ 404 на номер неизвестный, истёкший, использованный или чужой.",

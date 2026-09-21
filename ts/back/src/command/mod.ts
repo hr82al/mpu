@@ -132,6 +132,14 @@ export interface CommandIo {
    */
   readonly stdoutIsTerminal: () => boolean;
   /**
+   * Ширина консоли клиента в знакоместах; её нет — `undefined`: вывод
+   * без ограничения (пайп, cron, вызов тула). Порт, а не
+   * `Deno.consoleSize()` по месту: у строки, исполняемой сервером,
+   * консоль не своя, а того, кто её позвал
+   * (`platform/call-context.md`).
+   */
+  readonly consoleColumns: () => number | undefined;
+  /**
    * Терминал ли stderr процесса. Нужен диагностике `mpu confirm`: она
    * перечисляет все три std-fd, и умолчать про один значило бы
    * оставить читателя без той строки, ради которой он её и читает

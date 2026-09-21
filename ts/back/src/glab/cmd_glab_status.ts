@@ -90,7 +90,7 @@ type StatusResult = z.infer<typeof resultSchema>;
  */
 export type StatusIo =
   & MrIo
-  & Pick<CommandIo, "env" | "progress" | "stdoutIsTerminal">;
+  & Pick<CommandIo, "env" | "progress" | "consoleColumns">;
 
 /** Подстановки для тестов: живого GitLab и git у них нет. */
 export interface StatusOptions {
@@ -261,21 +261,17 @@ function withProject(raw: RawObject): MergeRequest {
 }
 
 /**
- * Ширина терминала: подстановка теста, затем `COLUMNS`, затем размер
- * консоли. Решается в `run`, потому что `render` среды не видит — тот
- * же приём, что у `mpu kiten card` с видом вывода.
+ * Ширина терминала: подстановка теста, затем `COLUMNS`, затем консоль
+ * вызывающего. Решается в `run`, потому что `render` среды не видит —
+ * тот же приём, что у `mpu kiten card` с видом вывода. Консоль
+ * спрашивается портом: у строки, исполняемой `mpu-back`, она не своя, а
+ * того, кто позвал (`platform/call-context.md`).
  */
 function columnsOf(io: StatusIo, options: StatusOptions): number | null {
   if (options.columns !== undefined) return options.columns;
   const declared = Number(io.env("COLUMNS"));
   if (Number.isInteger(declared) && declared > 0) return declared;
-  if (!io.stdoutIsTerminal()) return null;
-  try {
-    return Deno.consoleSize().columns;
-  } catch {
-    // Консоли нет (пайп, cron) — ограничения тоже нет.
-    return null;
-  }
+  return io.consoleColumns() ?? null;
 }
 
 /** Вывод: JSON, таблица либо строка о пустом результате. */

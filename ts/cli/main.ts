@@ -3,6 +3,7 @@
  * процесса → строка на сервере → код.
  */
 
+import type { CallerFacts } from "../back/src/frames/mod.ts";
 import { type ClientEnv, runClient } from "./src/mod.ts";
 
 const DEFAULT_URL = "http://127.0.0.1:7338";
@@ -43,16 +44,44 @@ async function readLine(): Promise<string | undefined> {
   return bytes.length === 0 ? undefined : decoder.decode(new Uint8Array(bytes));
 }
 
+/** Весь stdin текстом; stdin — терминал — ввода нет (`cli-client.md`). */
+async function readStdin(): Promise<string | undefined> {
+  if (Deno.stdin.isTerminal()) return undefined;
+  const bytes = await new Response(Deno.stdin.readable).arrayBuffer();
+  return decoder.decode(new Uint8Array(bytes));
+}
+
+/** Ширина консоли клиента; консоли нет — ширины нет. */
+function consoleColumns(): number | undefined {
+  try {
+    return Deno.consoleSize().columns;
+  } catch {
+    // Консоли нет (терминал исчез между проверкой и запросом) —
+    // ограничения вывода тоже нет.
+    return undefined;
+  }
+}
+
 if (import.meta.main) {
   const interrupted = Promise.withResolvers<void>();
   Deno.addSignalListener("SIGINT", () => interrupted.resolve());
   const config = `${Deno.env.get("HOME") ?? "$HOME"}/.config/mpu`;
+  // Контекст вызова снимается только здесь: ниже клиент о своих
+  // потоках и переменных не спрашивает (`platform/call-context.md`).
+  const caller: CallerFacts = {
+    stdin: readStdin,
+    stdinIsTerminal: () => Deno.stdin.isTerminal(),
+    stdoutIsTerminal: () => Deno.stdout.isTerminal(),
+    stderrIsTerminal: () => Deno.stderr.isTerminal(),
+    columns: consoleColumns,
+    value: (name) => Deno.env.get(name),
+  };
   const env: ClientEnv = {
     base: Deno.env.get("MPU_BACK_URL") ?? DEFAULT_URL,
     mainTokenPath: `${config}/token`,
     mainToken: () => tokenAt(`${config}/token`),
     agentToken: () => tokenAt(`${config}/agent-token`),
-    terminals: Deno.stdin.isTerminal() && Deno.stderr.isTerminal(),
+    caller,
     readLine,
     stdout: (text) => writeAll(Deno.stdout, text),
     stderr: (text) => writeAll(Deno.stderr, text),

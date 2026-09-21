@@ -2414,6 +2414,7 @@ function makeIo(dir: string): CommandIo {
     readStdin: () => Promise.resolve(new TextEncoder().encode("")),
     stdinIsTerminal: () => false,
     stdoutIsTerminal: () => false,
+    consoleColumns: () => undefined,
     stderrIsTerminal: () => false,
     note: () => {},
     // Терминала у обхода нет: вопрос человеку в прогоне задать некому,

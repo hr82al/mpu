@@ -55,10 +55,18 @@ Deno.test("канал и токен: три строки таблицы", async 
           assertEquals(visits.map((visit) => [visit.path, visit.token]), [
             [row.path, row.token],
           ]);
+          // Первый кадр несёт и контекст вызова: терминальность —
+          // всегда, ввод — только из пайпа (`platform/call-context.md`).
           assertEquals(visits[0].first, {
             words: ["version"],
             cwd: Deno.cwd(),
             human: row.human,
+            tty: {
+              stdin: row.terminals,
+              stdout: false,
+              stderr: row.terminals,
+            },
+            ...(row.terminals ? {} : { stdin: "" }),
           });
         }),
     );

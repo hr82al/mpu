@@ -4,7 +4,7 @@
  * выбранные один раз: дальше клиент о токенах и терминалах не спрашивает.
  */
 
-import type { LineRequest } from "../../back/src/frames/mod.ts";
+import type { ContextFields, FirstFrame } from "../../back/src/frames/mod.ts";
 import { type Asker, NOBODY } from "./asker.ts";
 
 /** Путь, токен и отвечающий строки. */
@@ -41,8 +41,18 @@ export class Door {
     return ["mpu", `bearer.${this.#token}`];
   }
 
-  first(words: readonly string[], cwd: string): LineRequest {
-    return { words, cwd, human: this.#asker.present };
+  /**
+   * Первый кадр: слова, место и контекст вызова
+   * (`platform/call-context.md`). Есть ли кого спросить — отдельный
+   * факт, из терминальности кадра он не выводится: на `/agent/line`
+   * спросить некого при любом терминале.
+   */
+  first(
+    words: readonly string[],
+    cwd: string,
+    context: ContextFields,
+  ): FirstFrame {
+    return { words, cwd, human: this.#asker.present, ...context };
   }
 
   answer(question: string): Promise<string> {

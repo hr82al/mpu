@@ -17,15 +17,24 @@ export interface EnvSetup {
   readonly base: string;
   readonly main?: string;
   readonly agent?: string;
+  /** И stdin, и stderr — терминалы: есть кого спросить. */
   readonly terminals?: boolean;
   /** Строки stdin по очереди; кончились — конец ввода. */
   readonly answers?: readonly string[];
+  /** Весь stdin клиента; из терминала ввода нет (`cli-client.md`). */
+  readonly stdin?: string;
+  /** Терминал ли stdout и какая у него ширина. */
+  readonly stdout?: boolean;
+  readonly columns?: number;
+  /** Переменные окружения клиента. */
+  readonly values?: Readonly<Record<string, string>>;
 }
 
 export function testEnv(setup: EnvSetup): TestEnv {
   const stdout: string[] = [];
   const stderr: string[] = [];
   const answers = [...setup.answers ?? []];
+  const terminals = setup.terminals ?? false;
   const interrupted = Promise.withResolvers<void>();
   return {
     stdout,
@@ -36,7 +45,16 @@ export function testEnv(setup: EnvSetup): TestEnv {
       mainTokenPath: "/home/test/.config/mpu/token",
       mainToken: () => Promise.resolve(setup.main),
       agentToken: () => Promise.resolve(setup.agent),
-      terminals: setup.terminals ?? false,
+      caller: {
+        // Из терминала клиент ввода не читает: он повис бы, ожидая
+        // того, чего никто не даёт.
+        stdin: () => Promise.resolve(terminals ? undefined : setup.stdin ?? ""),
+        stdinIsTerminal: () => terminals,
+        stdoutIsTerminal: () => setup.stdout ?? false,
+        stderrIsTerminal: () => terminals,
+        columns: () => setup.columns,
+        value: (name) => setup.values?.[name],
+      },
       readLine: () => Promise.resolve(answers.shift()),
       stdout: (text) => void stdout.push(text),
       stderr: (text) => void stderr.push(text),
