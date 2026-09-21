@@ -1,0 +1,22 @@
+{
+  "first": {
+    "words": [
+      "confirm",
+      "-y"
+    ],
+    "cwd": "<cwd клиента>",
+    "human": true,
+    "stdin": "текст\n"
+  },
+  "frames": [
+    {
+      "err": "текст\n"
+    },
+    {
+      "out": "текст\n"
+    },
+    {
+      "exit": 0
+    }
+  ]
+}

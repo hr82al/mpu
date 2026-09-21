@@ -1,0 +1,20 @@
+{
+  "first": {
+    "words": [
+      "version"
+    ],
+    "cwd": "<cwd клиента>",
+    "human": true,
+    "env": {
+      "HOME": "/дом-клиента"
+    }
+  },
+  "frames": [
+    {
+      "err": "mpu-back: переменная вне списка: HOME\n"
+    },
+    {
+      "exit": 2
+    }
+  ]
+}
