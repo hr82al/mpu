@@ -49,6 +49,8 @@ export interface BackSetup {
   readonly lines?: number;
   /** Завершение записи журнала — после вывода строки, до кадра `exit`. */
   readonly finished?: () => Promise<void>;
+  /** Код, которым закрылась запись журнала: по вызову на запись. */
+  readonly finishedWith?: (code: number) => void;
   /** Генератор номера подтверждения. */
   readonly newTicket?: () => string;
   /** Каталог фронта; по умолчанию — несуществующий. */
@@ -63,7 +65,7 @@ function recordingLog(
   logged: string[],
   dirs: string[],
   begun: (words: readonly string[]) => void,
-  finished: () => Promise<void>,
+  finished: (code: number) => Promise<void>,
 ): InvokeLog {
   return {
     begin: (command) => {
@@ -71,8 +73,15 @@ function recordingLog(
       logged.push(JSON.stringify(argv));
       dirs.push(command.cwd);
       begun(argv);
+      // Запись попадает в файл только у помеченного вызова
+      // (`platform/invoke-log.md`), и копия ведёт себя так же: код
+      // закрытия виден тесту лишь у тех строк, чья запись пишется.
+      let marked = false;
       return ({
-        nativeCall: (command) => void called.push(command.path.join(" ")),
+        nativeCall: (command) => {
+          marked = true;
+          called.push(command.path.join(" "));
+        },
         // Приёмник вывода журнала: печатаемое строкой проходит через
         // него, и копия его видит.
         capture: (output) => ({
@@ -88,7 +97,7 @@ function recordingLog(
         out: (text: string) => void logged.push(text),
         err: (text: string) => void logged.push(text),
         note: (text: string) => void logged.push(text),
-        finish: finished,
+        finish: (code: number) => marked ? finished(code) : Promise.resolve(),
       });
     },
   };
@@ -120,7 +129,10 @@ export async function withBack(
       logged,
       dirs,
       setup.begun ?? (() => {}),
-      setup.finished ?? (() => Promise.resolve()),
+      (code: number) => {
+        setup.finishedWith?.(code);
+        return setup.finished?.() ?? Promise.resolve();
+      },
     ),
     snapshotFile,
     diagnose: (line) => void diagnosed.push(line),

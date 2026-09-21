@@ -9,6 +9,7 @@
 import {
   type CommandIo,
   DomainError,
+  NEVER_STOPPED,
   NotFoundIoError,
   type RemoteOutput,
   type TerminalIo,
@@ -369,6 +370,10 @@ export function makeDenoIo(
       new Uint8Array(await new Response(Deno.stdin.readable).arrayBuffer()),
     stdinIsTerminal: () => Deno.stdin.isTerminal(),
     stdoutIsTerminal: () => Deno.stdout.isTerminal(),
+    // У процесса CLI остановки не бывает: Ctrl+C приходит сигналом ОС
+    // и снимает процесс вместе с его подпроцессами, как у старого
+    // `mpu` (`platform/line-cancel.md`).
+    signal: NEVER_STOPPED,
     consoleColumns: () => consoleColumns(),
     stderrIsTerminal: () => Deno.stderr.isTerminal(),
     // Заметку журнала подставляет точка входа: у рантайма записи нет

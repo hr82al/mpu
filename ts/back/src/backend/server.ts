@@ -237,7 +237,7 @@ function keyOf(text: string): string {
  */
 function lineIo(
   io: CommandIo,
-  output: Output,
+  line: Line,
   request: LineRequest,
 ): CommandIo {
   const context = request.context;
@@ -263,11 +263,14 @@ function lineIo(
     stdoutIsTerminal: () => terminals.stdout(),
     stderrIsTerminal: () => terminals.stderr(),
     consoleColumns: () => terminals.columns(),
+    // Просьба остановиться приходит от клиента, переставшего слушать
+    // (`platform/line-cancel.md`).
+    signal: line.stopping(),
     // Терминала у строки нет при любом `tty`: вопрос человеку уходит
     // кадром `ask`, а ввод в терминал клиента — следующая порция
     // переключения.
     openTerminal: () => Promise.resolve(undefined),
-    openRemoteOutput: () => remoteFrames(output),
+    openRemoteOutput: () => remoteFrames(line),
   };
 }
 

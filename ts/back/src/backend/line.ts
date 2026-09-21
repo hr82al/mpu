@@ -9,6 +9,7 @@
 import type { Output } from "../entrypoint/mod.ts";
 import type { ServerFrame } from "../frames/mod.ts";
 import { type Lines, NO_SLOT, type Slot } from "./limit.ts";
+import { Stopping } from "./stopping.ts";
 
 /** Сколько ждать ответа на вопрос: дальше ответ «нет». */
 export const ANSWER_TIMEOUT_MS = 120_000;
@@ -49,7 +50,11 @@ interface Waiting {
 /** Вопроса нет: ответ, пришедший без него, игнорируется. */
 const NOT_ASKED: Waiting = { settle() {} };
 
-/** Строка открыта или закрыта: что делают доставка, вопрос, исполнение. */
+/**
+ * Что со строкой: ещё не исполняется, исполняется или закрыта. От этого
+ * зависят доставка, ожидание ответа, исполнение и то, что значит уход
+ * клиента.
+ */
 interface State {
   deliver(delivery: Delivery, frame: ServerFrame): void;
   wait(line: Line, posed: Revocable): Promise<string | undefined>;
@@ -58,8 +63,11 @@ interface State {
     slot: Slot,
     run: () => Promise<number>,
   ): Promise<number>;
+  /** Клиент перестал слушать. */
+  lost(line: Line): void;
 }
 
+/** Строка живёт: кадры идут клиенту, уход клиента — просьба остановиться. */
 const OPEN: State = {
   deliver: (delivery, frame) => delivery.frame(frame),
   wait: (line, posed) => line.armed(posed),
@@ -69,6 +77,10 @@ const OPEN: State = {
     // команды портами (`platform/line-concurrency.md`), поэтому строки
     // и могут идти одновременно.
     return run();
+  },
+  lost(line) {
+    line.shut();
+    line.asked();
   },
 };
 
@@ -82,12 +94,14 @@ const CLOSED: State = {
     slot.leave();
     return Promise.resolve(NOT_RUN);
   },
+  lost() {},
 };
 
 /** Строка: её кадры, вопрос и итог. */
 export class Line implements Output {
   readonly #asking: Asking;
   readonly #gone: Promise<void>;
+  readonly #stopping = new Stopping();
   #delivery: Delivery;
   #state: State = OPEN;
   #waiting: Waiting = NOT_ASKED;
@@ -108,6 +122,11 @@ export class Line implements Output {
   /** Транспорт строки закрыт с обеих сторон. */
   gone(): Promise<void> {
     return this.#gone;
+  }
+
+  /** Сигнал остановки: его видит команда портом `CommandIo`. */
+  stopping(): AbortSignal {
+    return this.#stopping.signal();
   }
 
   stdout(text: string) {
@@ -167,7 +186,10 @@ export class Line implements Output {
     lines: Lines,
   ): Promise<number> {
     const slot = await lines.enter();
-    return await this.#state.execute(this, slot, run);
+    const code = await this.#state.execute(this, slot, run);
+    // Код спрашивается по факту остановки, а не по факту обрыва канала:
+    // обрыв мог прийти уже после конца команды.
+    return this.#stopping.outcome(code);
   }
 
   /** Место в пределе, которое строка отпустит своим кадром `exit`. */
@@ -179,7 +201,9 @@ export class Line implements Output {
   finish(code: number) {
     this.deliver({ exit: code });
     const delivery = this.#delivery;
-    this.lost();
+    // Строка кончилась сама — это не уход клиента: просить её
+    // остановиться уже незачем.
+    this.shut();
     delivery.end();
     this.#slot.leave();
   }
@@ -190,11 +214,25 @@ export class Line implements Output {
     this.finish(1);
   }
 
-  /** Клиент ушёл: кадров больше не слать, ожидание — «нет». */
+  /** Клиент ушёл: что это значит, решает состояние строки. */
   lost() {
+    this.#state.lost(this);
+  }
+
+  /** Закрыться: кадров больше не слать, ожидание ответа — «нет». */
+  shut() {
     this.#state = CLOSED;
     this.#delivery = DETACHED;
     this.#waiting.settle(undefined);
+  }
+
+  /**
+   * Остановиться просили: команда узнаёт об этом своим сигналом. Строку,
+   * которая ещё не начинала исполняться, просьба не меняет — код ей
+   * ставит не она, а её собственный исход (`execute`).
+   */
+  asked() {
+    this.#stopping.ask();
   }
 
   /** Ожидание ответа открытой строки: до ответа, закрытия или срока. */

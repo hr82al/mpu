@@ -143,6 +143,88 @@ Deno.test("настоящий подпроцесс: потоки и код вы�
     }
   });
 
+  await t.step("просьба остановиться снимает подпроцесс", async () => {
+    const { output } = sink();
+    const stopping = new AbortController();
+    const done = spawnProcess("/bin/bash", ["-c", "exec sleep 60"], {
+      stdin: new Uint8Array(),
+      output,
+      cwd: Deno.cwd(),
+      signal: stopping.signal,
+      killAfterMs: 50,
+    });
+    // `exec` обязателен: без него `bash` форкнул бы `sleep`, `SIGTERM`
+    // снял бы оболочку, а `sleep` осиротел бы — тест был бы зелёным
+    // при настоящей утечке.
+    stopping.abort();
+    // Код 128 + SIGTERM: подпроцесс не доработал, его сняли. Сам факт,
+    // что `status` разрешился, и значит «процесса больше нет»:
+    // неубитый `sleep 60` держал бы вызов целую минуту.
+    assertEquals(await done, 143);
+  });
+
+  await t.step("не ушёл по SIGTERM — снимается по сроку", async () => {
+    // Просьба посылается не раньше, чем подпроцесс сказал, что готов:
+    // иначе `SIGTERM` пришёл бы до того, как он перехватил сигнал, и
+    // проверялся бы не тот путь.
+    const ready = Promise.withResolvers<void>();
+    const decoder = new TextDecoder();
+    const output = {
+      out: (chunk: Uint8Array) => {
+        if (decoder.decode(chunk).includes("готов")) ready.resolve();
+      },
+      err: () => {},
+      captured: () => "",
+    };
+    const stopping = new AbortController();
+    // Подпроцесс, который `SIGTERM` не берёт: свой обработчик сигнала
+    // отменяет умолчание. У `bash` тот же приём не годится — `trap ""`
+    // в этом окружении подпроцесс всё равно снимает (замер).
+    const done = spawnProcess(
+      "deno",
+      [
+        "eval",
+        "--no-lock",
+        'Deno.addSignalListener("SIGTERM", () => {});' +
+        ' console.log("готов"); await new Promise(() => {});',
+      ],
+      {
+        stdin: new Uint8Array(),
+        output,
+        cwd: Deno.cwd(),
+        signal: stopping.signal,
+        // Срок — параметр: тест не ждёт пять секунд, а называет свой.
+        killAfterMs: 50,
+      },
+    );
+    await ready.promise;
+    stopping.abort();
+    // `SIGTERM` перехвачен и ничего не делает, поэтому по сроку
+    // приходит `SIGKILL`: 128 + 9.
+    assertEquals(await done, 137);
+  });
+
+  await t.step(
+    "сигнал взведён до старта: подпроцесс не переживает вызов",
+    async () => {
+      const { output } = sink();
+      const stopping = new AbortController();
+      stopping.abort();
+      // Подписка на уже взведённый сигнал события не увидит — просьба
+      // обязана дойти и до подпроцесса, запущенного после неё.
+      assertEquals(
+        await spawnProcess("/bin/bash", ["-c", "exec sleep 60"], {
+          stdin: new Uint8Array(),
+          output,
+          cwd: Deno.cwd(),
+          signal: stopping.signal,
+          killAfterMs: 50,
+        }),
+        143,
+      );
+    },
+  );
+
   await t.step("ненулевой код доходит как есть", async () => {
     const { output } = sink();
     assertEquals(

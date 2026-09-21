@@ -10,7 +10,6 @@ import { assertEquals } from "@std/assert";
 import type { PortainerAccess } from "../portainer/mod.ts";
 import {
   listAllContainerNamesOverHttp,
-  processStream,
   readContainerLogsOverHttp,
   readLokiOverHttp,
   waitFor,
@@ -119,32 +118,6 @@ Deno.test("чтение Loki уходит в query_range", async () => {
   } finally {
     await stop();
   }
-});
-
-Deno.test("поток процесса: данные в stdout, диагностика в stderr", () => {
-  const chunks: { readonly to: string; readonly text: string }[] = [];
-  const decoder = new TextDecoder();
-  const originals = [Deno.stdout.writeSync, Deno.stderr.writeSync];
-  Deno.stdout.writeSync = (bytes: Uint8Array) => {
-    chunks.push({ to: "stdout", text: decoder.decode(bytes) });
-    return bytes.length;
-  };
-  Deno.stderr.writeSync = (bytes: Uint8Array) => {
-    chunks.push({ to: "stderr", text: decoder.decode(bytes) });
-    return bytes.length;
-  };
-  try {
-    const stream = processStream();
-    stream.out("строка\n");
-    stream.err("сбой\n");
-  } finally {
-    Deno.stdout.writeSync = originals[0];
-    Deno.stderr.writeSync = originals[1];
-  }
-  assertEquals(chunks, [
-    { to: "stdout", text: "строка\n" },
-    { to: "stderr", text: "сбой\n" },
-  ]);
 });
 
 Deno.test("пауза слежения прерывается сигналом", async (t) => {

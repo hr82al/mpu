@@ -99,19 +99,6 @@ export const readContainerLogsOverHttp: ReadContainerLogs = async (
   );
 
 /**
- * Поток процесса: данные в stdout, диагностика в stderr. Запись
- * синхронная — слежение печатает записи по мере поступления, и
- * отложенная запись перепутала бы их порядок с диагностикой.
- */
-export function processStream(): LogStream {
-  const encoder = new TextEncoder();
-  return {
-    out: (text) => void Deno.stdout.writeSync(encoder.encode(text)),
-    err: (text) => void Deno.stderr.writeSync(encoder.encode(text)),
-  };
-}
-
-/**
  * Пауза между опросами слежения, прерываемая сигналом остановки. Уже
  * взведённый сигнал возвращает управление сразу: подписка на событие
  * `abort` его не увидит — оно уже случилось.

@@ -8,7 +8,12 @@
  */
 
 import { DatabaseSync } from "node:sqlite";
-import type { CacheDb, CommandIo, SqlRow } from "../command/mod.ts";
+import {
+  type CacheDb,
+  type CommandIo,
+  NEVER_STOPPED,
+  type SqlRow,
+} from "../command/mod.ts";
 import { SCHEMA_STATEMENTS } from "../store/schema.ts";
 
 /**
@@ -34,6 +39,9 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     // умолчанию отдаёт машиночитаемый — тест, которому нужен наглядный,
     // объявляет это сам.
     stdoutIsTerminal: () => false,
+    // Остановки у теста по умолчанию нет: тест, которому она нужна,
+    // объявляет свой сигнал сам.
+    signal: NEVER_STOPPED,
     // Ширины нет: тест, которому важна вёрстка по ширине, объявляет её
     // сам — как и терминальность.
     consoleColumns: () => undefined,

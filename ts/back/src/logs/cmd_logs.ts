@@ -32,7 +32,6 @@ import {
   type ListAllContainerNames,
   listAllContainerNamesOverHttp,
   type LogStream,
-  processStream,
   type ReadContainerLogs,
   readContainerLogsOverHttp,
   type ReadLoki,
@@ -210,7 +209,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * Срез порта исполнения, который потребляет команда: env-файл (адреса
  * Loki и Portainer) и кэш-БД селектора.
  */
-type LogsIo = Pick<CommandIo, "envFile" | "openCacheDb">;
+type LogsIo = Pick<
+  CommandIo,
+  "envFile" | "openCacheDb" | "openRemoteOutput" | "signal"
+>;
 
 /**
  * Прогон команды. Вынесено из объявления ради подмены источников и
@@ -323,15 +325,17 @@ async function runLoki(
   const read = options.readLoki ?? readLokiOverHttp;
 
   if (args.follow) {
-    // Сигнал остановки живёт не дольше самого слежения: обработчик
-    // Ctrl+C снимается по выходу из блока.
-    using stop = stopOf(options.signal);
+    // Остановка приходит портом, а не своим обработчиком сигналов: у
+    // строки сервера её шлёт ушедший клиент, у процесса CLI её не
+    // бывает вовсе (`platform/line-cancel.md`). Вывод идёт тем же
+    // портом потока, что и у команд транспорта, — поэтому кадры
+    // уходят клиенту по мере появления, а не по концу строки.
     await followEntries({
       read: (query) => read(access, query),
       now,
       wait: options.wait ?? waitFor,
-      stream: options.stream ?? processStream(),
-      signal: stop.signal,
+      stream: options.stream ?? streamOf(io),
+      signal: options.signal ?? io.signal,
     }, {
       logql,
       startMs: windowStartMs(since, now(), FOLLOW_WINDOW_MS),
@@ -357,24 +361,19 @@ async function runLoki(
   }
 }
 
-/** Сигнал остановки слежения и снятие того, что его породило. */
-interface Stop extends Disposable {
-  readonly signal: AbortSignal;
-}
-
 /**
- * Остановка слежения: свой сигнал по Ctrl+C, если вызывающий не дал
- * готовый. Обработчик сигнала снимается вместе с самим слежением —
- * висящий слушатель пережил бы вызов.
+ * Поток вывода команды: тот же порт, которым идут наружу байты команд
+ * транспорта. Слежение печатает по мере появления, и кому эти куски
+ * достанутся — потокам процесса, кадрам строки или накопителю вызова
+ * тула, — решает точка входа, а не команда
+ * (`platform/command-contract.md`, `platform/line-cancel.md`).
  */
-function stopOf(given: AbortSignal | undefined): Stop {
-  if (given !== undefined) return { signal: given, [Symbol.dispose]: () => {} };
-  const controller = new AbortController();
-  const onInterrupt = () => controller.abort();
-  Deno.addSignalListener("SIGINT", onInterrupt);
+function streamOf(io: Pick<CommandIo, "openRemoteOutput">): LogStream {
+  const encoder = new TextEncoder();
+  const stream = io.openRemoteOutput();
   return {
-    signal: controller.signal,
-    [Symbol.dispose]: () => Deno.removeSignalListener("SIGINT", onInterrupt),
+    out: (text) => stream.out(encoder.encode(text)),
+    err: (text) => stream.err(encoder.encode(text)),
   };
 }
 
@@ -433,7 +432,7 @@ async function runSnapshot(
   // stderr-часть снимка печатается здесь: рендер отдаёт только stdout,
   // а спека требует развести потоки (см. `sources.ts`, `LogStream`).
   if (snapshot.stderr !== "") {
-    (options.stream ?? processStream()).err(snapshot.stderr);
+    (options.stream ?? streamOf(io)).err(snapshot.stderr);
   }
   return { ...EMPTY, kind: "snapshot", snapshot };
 }

@@ -50,6 +50,7 @@ export type RunJsIo = Pick<
   | "openCacheDb"
   | "openRemoteOutput"
   | "progress"
+  | "signal"
   | "readTextFile"
   | "readStdin"
   | "stdinIsTerminal"
@@ -386,6 +387,7 @@ function execute(
       keyPath: keyPath(call.io),
       output,
       cwd: call.io.cwd(),
+      signal: call.io.signal,
       run: call.options.runProcess,
     })
     : runOverPortainer({
@@ -415,6 +417,7 @@ function launch(
       keyPath: keyPath(call.io),
       output: call.output,
       cwd: call.io.cwd(),
+      signal: call.io.signal,
       run: call.options.runProcess,
     })
     : detachOverPortainer({

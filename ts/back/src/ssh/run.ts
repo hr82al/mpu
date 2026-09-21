@@ -41,6 +41,7 @@ export type SshIo = Pick<
   | "openCacheDb"
   | "openRemoteOutput"
   | "progress"
+  | "signal"
   | "readFile"
   | "readStdin"
   | "stdinIsTerminal"
@@ -157,6 +158,7 @@ function execute(place: ExecPlace, attempt: Attempt): Promise<number> {
       keyPath: keyPath(attempt.io),
       output: attempt.output,
       cwd: attempt.io.cwd(),
+      signal: attempt.io.signal,
       run: attempt.options.runProcess,
     })
     : runOverPortainer({

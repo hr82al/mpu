@@ -28,7 +28,20 @@ export interface ProcessRun {
   readonly output: RemoteOutput;
   /** Каталог старта подпроцесса — каталог своей строки. */
   readonly cwd: string;
+  /**
+   * Просьба остановиться: по ней подпроцессу уходит `SIGTERM`
+   * (`platform/line-cancel.md`). Не сказано — остановки не бывает.
+   */
+  readonly signal?: AbortSignal;
+  /**
+   * Сколько ждать после `SIGTERM`, прежде чем слать `SIGKILL`; не
+   * сказано — `KILL_AFTER_MS`.
+   */
+  readonly killAfterMs?: number;
 }
+
+/** Сколько подпроцессу дают на то, чтобы уйти самому. */
+export const KILL_AFTER_MS = 5_000;
 
 /**
  * Запуск локального процесса: бинарь, аргументы и подача с приёмником.
@@ -51,6 +64,8 @@ export interface SshRun {
   readonly output: RemoteOutput;
   /** Каталог вызывающего: в нём стартует локальный `ssh`. */
   readonly cwd: string;
+  /** Просьба остановиться: по ней подпроцесс снимается. */
+  readonly signal?: AbortSignal;
   readonly run?: RunProcess;
 }
 
@@ -60,7 +75,12 @@ export function runOverSsh(options: SshRun): Promise<number> {
   return run(
     "ssh",
     sshArgs(options.target, options.command, options.keyPath),
-    { stdin: options.stdin, output: options.output, cwd: options.cwd },
+    {
+      stdin: options.stdin,
+      output: options.output,
+      cwd: options.cwd,
+      signal: options.signal,
+    },
   );
 }
 
@@ -105,6 +125,8 @@ export async function detachOverSsh(options: {
   readonly output: RemoteOutput;
   /** Каталог вызывающего: в нём стартует локальный `ssh`. */
   readonly cwd: string;
+  /** Просьба остановиться: по ней подпроцесс снимается. */
+  readonly signal?: AbortSignal;
   readonly run?: RunProcess;
 }): Promise<number> {
   const run = options.run ?? spawnProcess;
@@ -121,6 +143,7 @@ export async function detachOverSsh(options: {
       stdin: new TextEncoder().encode(options.script),
       output: options.output,
       cwd: options.cwd,
+      signal: options.signal,
     },
   );
   if (upload !== 0) return upload;
@@ -134,7 +157,12 @@ export async function detachOverSsh(options: {
           `node ${options.scriptPath} > ${options.logPath} 2>&1 < /dev/null`,
         ),
     ),
-    { stdin: new Uint8Array(), output: options.output, cwd: options.cwd },
+    {
+      stdin: new Uint8Array(),
+      output: options.output,
+      cwd: options.cwd,
+      signal: options.signal,
+    },
   );
 }
 
@@ -142,6 +170,11 @@ export async function detachOverSsh(options: {
  * Настоящий подпроцесс. Подача stdin и чтение обоих потоков идут
  * одновременно: труба конечна, и запись целиком до первого чтения
  * встала бы намертво на команде, печатающей больше её размера.
+ *
+ * Просьбу остановиться подпроцесс получает `SIGTERM`; не ушёл за
+ * отведённый срок — `SIGKILL` (`platform/line-cancel.md`). Своего
+ * подпроцесса не оставляет ни один из исходов: дождаться `status`
+ * обязаны все.
  */
 export const spawnProcess: RunProcess = async (bin, args, proc) => {
   const child = new Deno.Command(bin, {
@@ -151,6 +184,7 @@ export const spawnProcess: RunProcess = async (bin, args, proc) => {
     stdout: "piped",
     stderr: "piped",
   }).spawn();
+  using leaving = asksToLeave(child, proc);
   try {
     await Promise.all([
       feed(child.stdin, proc.stdin),
@@ -160,12 +194,55 @@ export const spawnProcess: RunProcess = async (bin, args, proc) => {
   } catch (err) {
     // Отказ чтения потока оставляет процесс живым, а его промис статуса
     // — неразрешённым: без явного kill утекли бы и подпроцесс, и трубы.
-    child.kill();
+    leaving.now();
     await child.status;
     throw err;
   }
   return (await child.status).code;
 };
+
+/** Чем подпроцесс снимают и как отписаться, когда он ушёл сам. */
+interface Leaving extends Disposable {
+  /** Снять немедленно, не дожидаясь просьбы. */
+  now(): void;
+}
+
+/**
+ * Подписка на просьбу остановиться: `SIGTERM` сразу, `SIGKILL` через
+ * срок. Таймер и подписка снимаются, когда подпроцесс кончился, —
+ * иначе у долгой строки копились бы и то и другое.
+ */
+function asksToLeave(child: Deno.ChildProcess, proc: ProcessRun): Leaving {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const kill = (signal: Deno.Signal) => {
+    try {
+      child.kill(signal);
+    } catch {
+      // Подпроцесс уже кончился: снимать нечего, и это не отказ.
+    }
+  };
+  const leave = () => {
+    kill("SIGTERM");
+    // Срок — параметр: тест не ждёт пять секунд, а называет свой.
+    timer = setTimeout(
+      () => kill("SIGKILL"),
+      proc.killAfterMs ?? KILL_AFTER_MS,
+    );
+  };
+  // Уже взведённый сигнал подписка не увидит — событие случилось
+  // раньше неё (то же, что у паузы слежения, `logs/sources.ts`).
+  // Подпроцесс, запущенный после просьбы остановиться, иначе дожил бы
+  // до конца: строка уже отменена, а он работает.
+  if (proc.signal?.aborted) leave();
+  else proc.signal?.addEventListener("abort", leave, { once: true });
+  return {
+    now: leave,
+    [Symbol.dispose]: () => {
+      if (timer !== undefined) clearTimeout(timer);
+      proc.signal?.removeEventListener("abort", leave);
+    },
+  };
+}
 
 /**
  * Подача stdin целиком и закрытие трубы: без EOF удалённая команда

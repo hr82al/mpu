@@ -9,7 +9,12 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { commands, findCommand, findGroup } from "./mod.ts";
 import { openCacheDb as openStoreDb } from "../store/mod.ts";
-import { type Command, type CommandIo, UsageError } from "../command/mod.ts";
+import {
+  type Command,
+  type CommandIo,
+  NEVER_STOPPED,
+  UsageError,
+} from "../command/mod.ts";
 import { WRITE_ENDPOINTS } from "../api/endpoints_write.ts";
 import { type FieldSpec, pathParams } from "../api/endpoint.ts";
 
@@ -2414,6 +2419,7 @@ function makeIo(dir: string): CommandIo {
     readStdin: () => Promise.resolve(new TextEncoder().encode("")),
     stdinIsTerminal: () => false,
     stdoutIsTerminal: () => false,
+    signal: NEVER_STOPPED,
     consoleColumns: () => undefined,
     stderrIsTerminal: () => false,
     note: () => {},

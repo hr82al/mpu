@@ -53,7 +53,7 @@ type MakeSchemaResult = z.infer<typeof resultSchema>;
 /** Срез порта: кэш селектора, env-файл и приёмник вывода. */
 export type MakeSchemaIo = Pick<
   CommandIo,
-  "cwd" | "envFile" | "openCacheDb" | "openRemoteOutput"
+  "cwd" | "envFile" | "openCacheDb" | "openRemoteOutput" | "signal"
 >;
 
 /** Подстановки для тестов: живого docker у них нет. */
@@ -127,7 +127,7 @@ export async function runMakeSchema(
     argv,
     // Каталог вызывающего, а не процесса: у строки сервера он свой
     // (`platform/line-concurrency.md`).
-    { stdin: new Uint8Array(), output, cwd: io.cwd() },
+    { stdin: new Uint8Array(), output, cwd: io.cwd(), signal: io.signal },
   );
   return {
     container,

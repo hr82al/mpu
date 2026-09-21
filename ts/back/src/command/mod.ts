@@ -27,6 +27,12 @@ export {
 export type { InputForm, InputSpec } from "./args.ts";
 export type { ObjectSchema, SchemaField } from "./schema.ts";
 
+/**
+ * Сигнал, который не взводится никогда: остановки у этого вызова нет.
+ * Один на процесс — у него нет своей памяти (`platform/line-cancel.md`).
+ */
+export const NEVER_STOPPED: AbortSignal = new AbortController().signal;
+
 /** Объявленный класс команды: читающая или мутирующая. */
 export type Policy = "ro" | "rw";
 
@@ -131,6 +137,14 @@ export interface CommandIo {
    * (`docs/specs/kiten-card.md`, выбор вида).
    */
   readonly stdoutIsTerminal: () => boolean;
+  /**
+   * Просьба остановиться. У строки сервера она приходит, когда клиент
+   * перестал слушать (`platform/line-cancel.md`); у процесса CLI не
+   * приходит никогда — там Ctrl+C остаётся сигналом операционной
+   * системы. Долгая команда обязана её замечать и прибирать за собой:
+   * подпроцессы, соединения, открытые файлы.
+   */
+  readonly signal: AbortSignal;
   /**
    * Ширина консоли клиента в знакоместах; её нет — `undefined`: вывод
    * без ограничения (пайп, cron, вызов тула). Порт, а не
