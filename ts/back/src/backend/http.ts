@@ -5,7 +5,7 @@
  * ждёт продолжения следующим запросом.
  */
 
-import { type AskKind, askFrame, type ServerFrame } from "../frames/mod.ts";
+import { askFrame, type AskKind, type ServerFrame } from "../frames/mod.ts";
 import type { Caller } from "./caller.ts";
 import type { Door } from "./door.ts";
 import type { Asking, Delivery } from "./line.ts";
