@@ -9,6 +9,7 @@
  * функция, а не `Deno.Command`.
  */
 
+import { Workdir } from "../workdir/mod.ts";
 import type { FetchLike } from "./miro.ts";
 
 /** Внешний мир глазами команды. */
@@ -26,21 +27,28 @@ export interface D2MiroEnv {
   readonly sleep: (ms: number) => Promise<void>;
 }
 
-/** Реальные зависимости поверх API Deno. */
-export function denoD2MiroEnv(): D2MiroEnv {
+/**
+ * Реальные зависимости поверх API Deno.
+ *
+ * @param cwd каталог вызова: файлы `.d2`/`.svg` приходят относительными
+ *   путями, а каталог процесса больше не переезжает в каталог строки
+ *   (`platform/line-concurrency.md`)
+ */
+export function denoD2MiroEnv(cwd: string): D2MiroEnv {
+  const dir = new Workdir(cwd);
   return {
     mtime: async (path) => {
       try {
-        return (await Deno.stat(path)).mtime?.getTime();
+        return (await Deno.stat(dir.resolve(path))).mtime?.getTime();
       } catch {
         // Отсутствие файла и любая другая причина «времени нет» для
         // правил выбора SVG — одно и то же: рендерить заново.
         return undefined;
       }
     },
-    hasD2: async () => await run("d2", ["--version"]) !== undefined,
+    hasD2: async () => await run("d2", ["--version"], cwd) !== undefined,
     renderSvg: async (input, output) => {
-      const outcome = await run("d2", [input, output]);
+      const outcome = await run("d2", [input, output], cwd);
       return outcome ?? { code: 127, stderr: "d2 CLI is not in PATH" };
     },
     fetch: (url, init) => fetch(url, init),
@@ -48,14 +56,16 @@ export function denoD2MiroEnv(): D2MiroEnv {
   };
 }
 
-/** Запуск подпроцесса; бинаря нет — `undefined`, а не отказ. */
+/** Запуск подпроцесса в каталоге вызова; бинаря нет — `undefined`. */
 async function run(
   bin: string,
   args: readonly string[],
+  cwd: string,
 ): Promise<{ code: number; stderr: string } | undefined> {
   try {
     const output = await new Deno.Command(bin, {
       args: [...args],
+      cwd,
       stdin: "null",
       stdout: "piped",
       stderr: "piped",

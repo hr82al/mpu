@@ -178,7 +178,7 @@ function requireKey(io: CommandIo, name: string): string {
 async function runD2Miro(
   args: D2MiroArgs,
   io: CommandIo,
-  env: D2MiroEnv = denoD2MiroEnv(),
+  env: D2MiroEnv = denoD2MiroEnv(io.cwd()),
 ): Promise<D2MiroResult> {
   const paths = pathsOf(args.file, args.title);
   const position = positionOf(args.position);

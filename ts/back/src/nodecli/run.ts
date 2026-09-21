@@ -40,7 +40,7 @@ const KEY_FILE = ".ssh/id_rsa";
 /** Порт исполнения глазами обёртки. */
 export type WrapIo = Pick<
   CommandIo,
-  "env" | "envFile" | "openCacheDb" | "openRemoteOutput" | "progress"
+  "cwd" | "env" | "envFile" | "openCacheDb" | "openRemoteOutput" | "progress"
 >;
 
 /**
@@ -341,6 +341,7 @@ async function execute(
       stdin: new Uint8Array(),
       keyPath: keyPath(io),
       output,
+      cwd: io.cwd(),
       run: options.runProcess,
     })
     : await runOverPortainer({

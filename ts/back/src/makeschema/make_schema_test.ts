@@ -87,10 +87,10 @@ function io(db: CacheDb) {
 
 /** Подставной подпроцесс: помнит вызов и отдаёт код. */
 function fakeDocker(code = 0) {
-  const calls: { bin: string; args: readonly string[] }[] = [];
-  const run: RunProcess = (bin, args, _stdin, output) => {
-    calls.push({ bin, args: [...args] });
-    output.out(new TextEncoder().encode("схема создана\n"));
+  const calls: { bin: string; args: readonly string[]; cwd: string }[] = [];
+  const run: RunProcess = (bin, args, proc) => {
+    calls.push({ bin, args: [...args], cwd: proc.cwd });
+    proc.output.out(new TextEncoder().encode("схема создана\n"));
     return Promise.resolve(code);
   };
   return { run, calls };
@@ -137,6 +137,9 @@ Deno.test("выполнение: локальный docker, а не ssh и не 
     assertEquals(docker.calls[0].bin, "docker");
     assertEquals(docker.calls[0].args[0], "exec");
     assertEquals(docker.calls[0].args[1], "mp-sl-1-cli");
+    // Каталог старта — каталог вызывающего, а не процесса
+    // (`platform/line-concurrency.md`).
+    assertEquals(docker.calls[0].cwd, io(db).cwd());
     assertEquals(result.printed, null);
     assertStringIncludes(result.output, "схема создана");
   });

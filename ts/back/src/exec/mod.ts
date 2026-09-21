@@ -26,6 +26,7 @@ export { escapeLike, LIKE_ESCAPE } from "./containers.ts";
 export { quoteArg, shellCommand } from "./shell.ts";
 export {
   detachOverSsh,
+  type ProcessRun,
   runOverSsh,
   type RunProcess,
   // Настоящий подпроцесс: им же исполняется локальный `docker exec`

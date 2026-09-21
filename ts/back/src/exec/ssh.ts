@@ -17,15 +17,28 @@ import type { ExecTarget } from "./target.ts";
 export type SshTarget = Extract<ExecTarget, { kind: "ssh" }>;
 
 /**
- * Запуск локального процесса: аргументы, весь stdin байтами и приёмник
- * потоков. Порт на стороне потребителя — тесту достаточно подставить
- * функцию, а не подменять `Deno.Command`.
+ * Что подать подпроцессу, куда деть его вывод и где его запустить.
+ * Каталог передаётся явно: подпроцесс наследует каталог процесса, а у
+ * сервера строк он больше не переезжает в каталог строки
+ * (`platform/line-concurrency.md`).
+ */
+export interface ProcessRun {
+  /** Весь stdin подпроцесса байтами. */
+  readonly stdin: Uint8Array;
+  readonly output: RemoteOutput;
+  /** Каталог старта подпроцесса — каталог своей строки. */
+  readonly cwd: string;
+}
+
+/**
+ * Запуск локального процесса: бинарь, аргументы и подача с приёмником.
+ * Порт на стороне потребителя — тесту достаточно подставить функцию, а
+ * не подменять `Deno.Command`.
  */
 export type RunProcess = (
   bin: string,
   args: readonly string[],
-  stdin: Uint8Array,
-  output: RemoteOutput,
+  proc: ProcessRun,
 ) => Promise<number>;
 
 /** Что нужно ssh-бэкенду для одного прогона. */
@@ -36,6 +49,8 @@ export interface SshRun {
   /** Путь ssh-ключа: `~` шелла здесь никто не раскроет. */
   readonly keyPath: string;
   readonly output: RemoteOutput;
+  /** Каталог вызывающего: в нём стартует локальный `ssh`. */
+  readonly cwd: string;
   readonly run?: RunProcess;
 }
 
@@ -45,8 +60,7 @@ export function runOverSsh(options: SshRun): Promise<number> {
   return run(
     "ssh",
     sshArgs(options.target, options.command, options.keyPath),
-    options.stdin,
-    options.output,
+    { stdin: options.stdin, output: options.output, cwd: options.cwd },
   );
 }
 
@@ -89,6 +103,8 @@ export async function detachOverSsh(options: {
   readonly logPath: string;
   readonly keyPath: string;
   readonly output: RemoteOutput;
+  /** Каталог вызывающего: в нём стартует локальный `ssh`. */
+  readonly cwd: string;
   readonly run?: RunProcess;
 }): Promise<number> {
   const run = options.run ?? spawnProcess;
@@ -101,8 +117,11 @@ export async function detachOverSsh(options: {
       `docker exec -i ${container} sh -c ` +
         quoteArg(`cat > ${options.scriptPath}`),
     ),
-    new TextEncoder().encode(options.script),
-    options.output,
+    {
+      stdin: new TextEncoder().encode(options.script),
+      output: options.output,
+      cwd: options.cwd,
+    },
   );
   if (upload !== 0) return upload;
   return await run(
@@ -115,8 +134,7 @@ export async function detachOverSsh(options: {
           `node ${options.scriptPath} > ${options.logPath} 2>&1 < /dev/null`,
         ),
     ),
-    new Uint8Array(),
-    options.output,
+    { stdin: new Uint8Array(), output: options.output, cwd: options.cwd },
   );
 }
 
@@ -125,18 +143,19 @@ export async function detachOverSsh(options: {
  * одновременно: труба конечна, и запись целиком до первого чтения
  * встала бы намертво на команде, печатающей больше её размера.
  */
-export const spawnProcess: RunProcess = async (bin, args, stdin, output) => {
+export const spawnProcess: RunProcess = async (bin, args, proc) => {
   const child = new Deno.Command(bin, {
     args: [...args],
+    cwd: proc.cwd,
     stdin: "piped",
     stdout: "piped",
     stderr: "piped",
   }).spawn();
   try {
     await Promise.all([
-      feed(child.stdin, stdin),
-      pump(child.stdout, output.out),
-      pump(child.stderr, output.err),
+      feed(child.stdin, proc.stdin),
+      pump(child.stdout, proc.output.out),
+      pump(child.stderr, proc.output.err),
     ]);
   } catch (err) {
     // Отказ чтения потока оставляет процесс живым, а его промис статуса

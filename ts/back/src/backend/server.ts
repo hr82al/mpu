@@ -16,7 +16,6 @@ import { AGENT, BROWSER, type Caller, OWNER } from "./caller.ts";
 import { AGENT_DOOR, type Door, HUMAN_DOOR } from "./door.ts";
 import {
   BadFrame,
-  type CallContext,
   type LineRequest,
   lineRequest,
   ticketAnswerOf,
@@ -28,6 +27,7 @@ import { Tickets } from "./tickets.ts";
 import { staticFile } from "./static.ts";
 import { SESSION_TTL_MS, type WebAccess } from "./web.ts";
 import { Serial } from "./queue.ts";
+import { Workdir } from "../workdir/mod.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
 import { DENO_FS, type SnapshotFs, writeSnapshot } from "./snapshot.ts";
@@ -228,20 +228,34 @@ function keyOf(text: string): string {
 
 /**
  * Окружение строки: ввод, терминальность и переменные — из того, что
- * принёс вызывающий (`platform/call-context.md`); всё остальное —
- * окружение сервера. Своих дескрипторов сервер не спрашивает: консоль
- * и потоки у него не те, что у клиента.
+ * принёс вызывающий (`platform/call-context.md`); каталог — её
+ * собственный (`platform/line-concurrency.md`); всё остальное —
+ * окружение сервера. Своих дескрипторов и своего каталога сервер не
+ * подставляет: ни консоль, ни каталог у него не те, что у клиента.
  */
 function lineIo(
   io: CommandIo,
   output: Output,
-  context: CallContext,
+  request: LineRequest,
 ): CommandIo {
+  const context = request.context;
   const environment = context.env.over(io.env);
   const terminals = context.terminals;
+  const dir = new Workdir(request.cwd);
   return {
     ...io,
     env: (name) => environment.value(name),
+    cwd: () => dir.path(),
+    // Пути файлов — от каталога строки: `Deno.*` разрешает
+    // относительный путь от процесса, а он больше не переезжает в
+    // каталог строки.
+    readFile: (path) => io.readFile(dir.resolve(path)),
+    readRegularFile: (path) => io.readRegularFile(dir.resolve(path)),
+    readTextFile: (path) => io.readTextFile(dir.resolve(path)),
+    appendFile: (path, text) => io.appendFile(dir.resolve(path), text),
+    // `launchOpener` не трогаем: его цель — не обязательно путь
+    // (`sheet open` отдаёт ссылку), а путь `xlsx open` резолвит сам
+    // через `io.cwd()` — то есть уже от каталога строки.
     readStdin: () => Promise.resolve(context.input.bytes()),
     stdinIsTerminal: () => terminals.stdin(),
     stdoutIsTerminal: () => terminals.stdout(),
@@ -511,7 +525,7 @@ class Back {
       channel: () => channel,
       execute: (run) => line.execute(request.cwd, run, this.#serial),
     });
-    const io = lineIo(this.#options.io, line, request.context);
+    const io = lineIo(this.#options.io, line, request);
     line.finish(
       await runJournaled(request.words, entry, io, this.#options.log, line),
     );

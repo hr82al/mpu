@@ -7,7 +7,12 @@
 
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal, Output } from "../entrypoint/mod.ts";
-import { type InvokeLog, makeInvokeLog } from "../invokelog/mod.ts";
+import {
+  type InvokeLog,
+  type InvokeRecording,
+  makeInvokeLog,
+  NO_INVOKE_LOG,
+} from "../invokelog/mod.ts";
 import {
   defaultCredsDir,
   defaultInvokeLogPath,
@@ -55,9 +60,32 @@ export function processLog(io: CommandIo): InvokeLog {
     env: io.envFile,
     defaultFile: defaultInvokeLogPath(),
     pid: Deno.pid,
-    cwd: () => Deno.cwd(),
     now: () => new Date(),
   });
+}
+
+/**
+ * Начало записи: в ней каталог того, кто позвал, — у процесса CLI свой,
+ * у строки сервера её (`platform/line-concurrency.md`).
+ *
+ * Каталог процесса читается у ОС и бросает, если его удалили; отказ
+ * журнала не меняет ни результат команды, ни её код
+ * (`platform/invoke-log.md`, «Инварианты»), поэтому такой вызов
+ * записывается пустым журналом — то есть не записывается вовсе.
+ */
+function beginRecord(
+  log: InvokeLog,
+  args: readonly string[],
+  io: Pick<CommandIo, "cwd">,
+): InvokeRecording {
+  let cwd: string;
+  try {
+    cwd = io.cwd();
+  } catch {
+    // Причина не важна и сообщать её некуда: вывод принадлежит команде.
+    return NO_INVOKE_LOG.begin({ kind: "argv", argv: args, cwd: "" });
+  }
+  return log.begin({ kind: "argv", argv: args, cwd });
 }
 
 /**
@@ -81,7 +109,7 @@ export async function runJournaled(
   // Запись начинается до маршрутизации: она фиксирует время старта, а
   // писаться будет только у вызова маршрута `native` — отметку ставит
   // точка входа (`platform/invoke-log.md`).
-  const record = log.begin({ kind: "argv", argv: args });
+  const record = beginRecord(log, args, io);
   const output = record.capture(streams);
   let code: number;
   try {

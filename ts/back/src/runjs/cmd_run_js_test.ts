@@ -111,11 +111,11 @@ function fakeSsh(
 ) {
   const calls: { remote: string; stdin: string }[] = [];
   let index = 0;
-  const run: RunProcess = (_bin, argv, stdin, output) => {
+  const run: RunProcess = (_bin, argv, proc) => {
     const remote = argv[3] ?? "";
-    calls.push({ remote, stdin: new TextDecoder().decode(stdin) });
+    calls.push({ remote, stdin: new TextDecoder().decode(proc.stdin) });
     const text = answer.stdout?.(remote);
-    if (text !== undefined) output.out(new TextEncoder().encode(text));
+    if (text !== undefined) proc.output.out(new TextEncoder().encode(text));
     return Promise.resolve(answer.codes?.[index++] ?? 0);
   };
   return { run, calls };

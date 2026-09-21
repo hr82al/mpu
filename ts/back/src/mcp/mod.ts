@@ -331,7 +331,12 @@ async function callTool(
     return errorBody(id, RPC_INVALID_PARAMS, `Unknown tool "${name}"`);
   }
   const input = message.params["arguments"] ?? {};
-  const record = deps.log.begin({ kind: "tool", path: entry.path, input });
+  const record = deps.log.begin({
+    kind: "tool",
+    path: entry.path,
+    input,
+    cwd: deps.io.cwd(),
+  });
   record.nativeCall(entry.journal);
   const outcome = await invokeTool(entry, input, recordedIo(deps.io, record));
   if (outcome.kind === "ok") record.out(outcome.text);

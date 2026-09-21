@@ -35,14 +35,22 @@ export interface OutputSink {
   readonly stderr: (text: string) => void;
 }
 
-/** Что журналируется: вызов CLI либо вызов тула MCP-сервером. */
+/**
+ * Что журналируется: вызов CLI либо вызов тула MCP-сервером — и откуда
+ * он пришёл. Каталог приходит вместе с вызовом, а не спрашивается у
+ * процесса в момент записи: у сервера строк каталог принадлежит строке,
+ * а не процессу (`platform/line-concurrency.md`).
+ */
 export type InvokeCommand =
-  | { readonly kind: "argv"; readonly argv: readonly string[] }
-  | {
-    readonly kind: "tool";
-    readonly path: readonly string[];
-    readonly input: unknown;
-  };
+  & { readonly cwd: string }
+  & (
+    | { readonly kind: "argv"; readonly argv: readonly string[] }
+    | {
+      readonly kind: "tool";
+      readonly path: readonly string[];
+      readonly input: unknown;
+    }
+  );
 
 /** Пометка команды: пишутся ли в её запись секции out/err и аргументы. */
 export interface OutputPolicy {
@@ -102,7 +110,6 @@ export interface InvokeLogDeps {
   /** Путь файла журнала по умолчанию; неизвестен — записей нет. */
   readonly defaultFile: string | undefined;
   readonly pid: number;
-  readonly cwd: () => string;
   readonly now: () => Date;
 }
 
@@ -188,7 +195,7 @@ function recording(
             startedAt: stamp,
             offsetMinutes: -stamp.getTimezoneOffset(),
             pid: deps.pid,
-            cwd: deps.cwd(),
+            cwd: command.cwd,
             commandLine: lineOf(command, policy),
             note: [...settings.notes, ...notes]
               .map((note) => `${note}\n`)

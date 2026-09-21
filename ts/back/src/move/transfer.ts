@@ -33,7 +33,7 @@ export const TRANSFER_CONTAINER = "mp-dt-cli";
 /** Срез порта: env-файл, приёмник вывода и печать хода. */
 export type TransferIo = Pick<
   CommandIo,
-  "env" | "envFile" | "openRemoteOutput" | "progress"
+  "cwd" | "env" | "envFile" | "openRemoteOutput" | "progress"
 >;
 
 /** Подстановки для тестов: живого контейнера у них нет. */
@@ -125,6 +125,7 @@ export async function putJob(
       stdin: new Uint8Array(),
       keyPath: keyPath(io),
       output,
+      cwd: io.cwd(),
       run: options.runProcess,
     })
     : await runOverPortainer({

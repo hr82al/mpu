@@ -43,7 +43,6 @@ async function withStand(
         env: { get: () => undefined },
         defaultFile: path,
         pid: 777,
-        cwd: () => "/work",
         now,
       }),
       path,
@@ -60,11 +59,11 @@ async function withStand(
 async function cli(
   stand: Stand,
   argv: readonly string[],
-  io = makeFakeIo(),
+  io = makeFakeIo({ cwd: () => "/work" }),
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   const out: string[] = [];
   const err: string[] = [];
-  const record = stand.log.begin({ kind: "argv", argv });
+  const record = stand.log.begin({ kind: "argv", argv, cwd: "/work" });
   const output = record.capture({
     stdout: (text) => void out.push(text),
     stderr: (text) => void err.push(text),
@@ -285,7 +284,7 @@ function toolCall(
   log: InvokeLog,
   name: string,
   args: Readonly<Record<string, unknown>>,
-  io = makeFakeIo(),
+  io = makeFakeIo({ cwd: () => "/work" }),
   published: readonly Command[] = commands,
 ) {
   return handleMcp({
@@ -550,7 +549,7 @@ Deno.test("журнал: значение опции по объявлению �
       const argv = ["ssh", "sl-9", "psql", "--tuples-only", "-c", "SELECT 1"];
       const ssh = commands.find((command) => command.path.join(" ") === "ssh");
       assertEquals(ssh?.inputs.some((input) => input.form.keepsUnknown), true);
-      const record = stand.log.begin({ kind: "argv", argv });
+      const record = stand.log.begin({ kind: "argv", argv, cwd: "/work" });
       record.nativeCall(ssh!);
       await record.finish(0);
       const text = await stand.text();

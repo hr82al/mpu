@@ -97,13 +97,15 @@ function fakeSsh(
     args?: readonly string[];
     stdin?: string;
     bytes?: Uint8Array;
+    cwd?: string;
   } = {};
-  const run: RunProcess = (_bin, argv, stdin, output) => {
+  const run: RunProcess = (_bin, argv, proc) => {
     seen.args = argv;
-    seen.bytes = stdin;
-    seen.stdin = new TextDecoder().decode(stdin);
+    seen.bytes = proc.stdin;
+    seen.stdin = new TextDecoder().decode(proc.stdin);
+    seen.cwd = proc.cwd;
     if (answer.stdout !== undefined) {
-      output.out(new TextEncoder().encode(answer.stdout));
+      proc.output.out(new TextEncoder().encode(answer.stdout));
     }
     return Promise.resolve(answer.code ?? 0);
   };
@@ -578,6 +580,10 @@ Deno.test("клиентский селектор резолвится общим
     // Резолв дал сервер 1 — значит, вызов пошёл в его контейнер.
     assertEquals(ssh.seen.args?.[2], "u@10.0.0.1");
     assertEquals(ssh.seen.args?.[3], "docker exec -i sl-1-cli sh -c ls");
+    // Локальный `ssh` стартует в каталоге вызывающего, а не процесса
+    // (`platform/line-concurrency.md`): у фейкового окружения он
+    // «/nowhere», и подмена каталога процесса его не даст.
+    assertEquals(ssh.seen.cwd, io.cwd());
   } finally {
     await Deno.remove(dir, { recursive: true });
   }

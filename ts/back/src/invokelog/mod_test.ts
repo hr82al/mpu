@@ -25,7 +25,6 @@ async function withLog(
         env: { get: (name) => values[name] },
         defaultFile: path,
         pid: 4242,
-        cwd: () => "/work",
         now: () => new Date("2026-08-05T04:42:28.205Z"),
         ...patch,
       }),
@@ -50,7 +49,11 @@ async function logText(path: string): Promise<string> {
 Deno.test("запись появляется только у помеченного вызова", async (t) => {
   await t.step("без пометки native — файла нет вовсе", async () => {
     await withLog(async (log, path) => {
-      const record = log.begin({ kind: "argv", argv: ["version"] });
+      const record = log.begin({
+        kind: "argv",
+        argv: ["version"],
+        cwd: "/work",
+      });
       record.capture({ stdout: () => {}, stderr: () => {} }).stdout("1.2.3\n");
       await record.finish(0);
       assertEquals(await logText(path), "");
@@ -58,7 +61,11 @@ Deno.test("запись появляется только у помеченно�
   });
   await t.step("с пометкой — ровно одна запись", async () => {
     await withLog(async (log, path) => {
-      const record = log.begin({ kind: "argv", argv: ["xlsx", "ls"] });
+      const record = log.begin({
+        kind: "argv",
+        argv: ["xlsx", "ls"],
+        cwd: "/work",
+      });
       record.nativeCall(LOGGED);
       await record.finish(0);
       const text = await logText(path);
@@ -78,7 +85,11 @@ Deno.test("запись появляется только у помеченно�
 
 Deno.test("копия копится только у помеченного вызова", async () => {
   await withLog(async (log, path) => {
-    const record = log.begin({ kind: "argv", argv: ["xlsx", "ls"] });
+    const record = log.begin({
+      kind: "argv",
+      argv: ["xlsx", "ls"],
+      cwd: "/work",
+    });
     const output = record.capture({ stdout: () => {}, stderr: () => {} });
     // До пометки вызов ещё может оказаться нежурналируемым — и тогда
     // копить копию нечего: у `mpu mcp` процесс живёт часами.
@@ -97,7 +108,11 @@ Deno.test("копия копится только у помеченного вы
 Deno.test("перехват вывода: копия в запись, печать не меняется", async () => {
   await withLog(async (log, path) => {
     const printed: string[] = [];
-    const record = log.begin({ kind: "argv", argv: ["xlsx", "ls"] });
+    const record = log.begin({
+      kind: "argv",
+      argv: ["xlsx", "ls"],
+      cwd: "/work",
+    });
     record.nativeCall(LOGGED);
     const output = record.capture({
       stdout: (text) => printed.push(`out:${text}`),
@@ -123,6 +138,7 @@ const MASKED_ARGS = {
 Deno.test("помеченная команда: ошибка ввода уходит в запись маской", async () => {
   await withLog(async (log, path) => {
     const record = log.begin({
+      cwd: "/work",
       kind: "argv",
       argv: ["telegram", "log", "заметка", "-f", "/home/me/тайна.md"],
     });
@@ -143,6 +159,7 @@ Deno.test("помеченная команда: ошибка ввода уход
 Deno.test("помеченная команда: отказ внешней системы остаётся в записи", async () => {
   await withLog(async (log, path) => {
     const record = log.begin({
+      cwd: "/work",
       kind: "argv",
       argv: ["telegram", "log", "заметка"],
     });
@@ -159,7 +176,11 @@ Deno.test("помеченная команда: отказ внешней сис
 
 Deno.test("команда без записи вывода: запись есть, секций нет", async () => {
   await withLog(async (log, path) => {
-    const record = log.begin({ kind: "argv", argv: ["mcp", "token"] });
+    const record = log.begin({
+      kind: "argv",
+      argv: ["mcp", "token"],
+      cwd: "/work",
+    });
     record.nativeCall({
       logsOutput: false,
       logsArguments: true,
@@ -183,7 +204,11 @@ Deno.test("команда без записи вывода: запись ест�
 Deno.test("выключенный журнал не пишет ничего", async () => {
   await withLog(
     async (log, path) => {
-      const record = log.begin({ kind: "argv", argv: ["xlsx", "ls"] });
+      const record = log.begin({
+        kind: "argv",
+        argv: ["xlsx", "ls"],
+        cwd: "/work",
+      });
       record.nativeCall(LOGGED);
       await record.finish(0);
       assertEquals(await logText(path), "");
@@ -197,7 +222,11 @@ Deno.test("путь файла берётся из ключа env-файла", a
   await withLog(
     async (log, path, dir) => {
       const custom = `${dir}/своё.log`;
-      const record = log.begin({ kind: "argv", argv: ["xlsx", "ls"] });
+      const record = log.begin({
+        kind: "argv",
+        argv: ["xlsx", "ls"],
+        cwd: "/work",
+      });
       record.nativeCall(LOGGED);
       await record.finish(0);
       assertEquals(await logText(path), "");
@@ -211,7 +240,11 @@ Deno.test("путь файла берётся из ключа env-файла", a
 Deno.test("битое числовое значение — note в этой же записи", async () => {
   await withLog(
     async (log, path) => {
-      const record = log.begin({ kind: "argv", argv: ["xlsx", "ls"] });
+      const record = log.begin({
+        kind: "argv",
+        argv: ["xlsx", "ls"],
+        cwd: "/work",
+      });
       record.nativeCall(LOGGED);
       await record.finish(0);
       assertMatch(
@@ -227,6 +260,7 @@ Deno.test("битое числовое значение — note в этой ж�
 Deno.test("секреты argv в запись не попадают", async () => {
   await withLog(async (log, path) => {
     const record = log.begin({
+      cwd: "/work",
       kind: "argv",
       argv: ["sql-ro", "sl-1", "--token", "s3cret"],
     });
@@ -241,6 +275,7 @@ Deno.test("секреты argv в запись не попадают", async () 
 Deno.test("помеченная команда: аргументы под маской, путь цел", async () => {
   await withLog(async (log, path) => {
     const record = log.begin({
+      cwd: "/work",
       kind: "argv",
       argv: ["telegram", "log", "личная заметка"],
     });
@@ -264,6 +299,7 @@ Deno.test("помеченная команда: общий --json между с�
     // команда обязана и в этом случае оставить путь целым, замаскировав
     // сам `--json` наравне с текстом заметки.
     const record = log.begin({
+      cwd: "/work",
       kind: "argv",
       argv: ["telegram", "--json", "log", "личная заметка"],
     });
@@ -282,6 +318,7 @@ Deno.test("помеченная команда: общий --json между с�
 Deno.test("вызов тула: путь через пробел и JSON одной строкой", async () => {
   await withLog(async (log, path) => {
     const record = log.begin({
+      cwd: "/work",
       kind: "tool",
       path: ["xlsx", "ls"],
       input: { path: "/tmp/a.xlsx", token: "s3cret" },
@@ -301,7 +338,7 @@ Deno.test("вызов тула: путь через пробел и JSON одн�
 Deno.test("run_id различаются у вызовов в одну миллисекунду", async () => {
   await withLog(async (log, path) => {
     for (const argv of [["a"], ["b"], ["c"]]) {
-      const record = log.begin({ kind: "argv", argv });
+      const record = log.begin({ kind: "argv", argv, cwd: "/work" });
       record.nativeCall(LOGGED);
       await record.finish(0);
     }
@@ -320,7 +357,11 @@ Deno.test("fail-open: журнал не бросает и не меняет ис
       async (log, _path, dir) => {
         const blocked = `${dir}/занято`;
         await Deno.writeTextFile(blocked, "");
-        const record = log.begin({ kind: "argv", argv: ["xlsx", "ls"] });
+        const record = log.begin({
+          kind: "argv",
+          argv: ["xlsx", "ls"],
+          cwd: "/work",
+        });
         record.nativeCall(LOGGED);
         await record.finish(0);
         assertEquals(await Deno.readTextFile(blocked), "");
@@ -331,28 +372,24 @@ Deno.test("fail-open: журнал не бросает и не меняет ис
   });
   await t.step("путь файла неизвестен вовсе", async () => {
     await withLog(async (log) => {
-      const record = log.begin({ kind: "argv", argv: ["xlsx", "ls"] });
+      const record = log.begin({
+        kind: "argv",
+        argv: ["xlsx", "ls"],
+        cwd: "/work",
+      });
       record.nativeCall(LOGGED);
       await record.finish(0);
     }, { defaultFile: undefined });
-  });
-  await t.step("cwd недоступен", async () => {
-    await withLog(async (log, path) => {
-      const record = log.begin({ kind: "argv", argv: ["xlsx", "ls"] });
-      record.nativeCall(LOGGED);
-      await record.finish(0);
-      assertEquals(await logText(path), "");
-    }, {
-      cwd: () => {
-        throw new Deno.errors.NotFound("каталог исчез");
-      },
-    });
   });
 });
 
 Deno.test("журнал-пустышка не пишет и не мешает печати", async () => {
   const printed: string[] = [];
-  const record = NO_INVOKE_LOG.begin({ kind: "argv", argv: ["version"] });
+  const record = NO_INVOKE_LOG.begin({
+    kind: "argv",
+    argv: ["version"],
+    cwd: "/work",
+  });
   record.nativeCall(LOGGED);
   const output = record.capture({
     stdout: (text) => printed.push(text),

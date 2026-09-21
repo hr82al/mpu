@@ -145,9 +145,9 @@ async function withCache(
 /** Подставной ssh: помнит удалённую строку и отдаёт код. */
 function fakeSsh(code = 0) {
   const calls: string[] = [];
-  const run: RunProcess = (_bin, argv, _stdin, output) => {
+  const run: RunProcess = (_bin, argv, proc) => {
     calls.push(argv[3] ?? "");
-    output.out(new TextEncoder().encode("вывод inner-команды\n"));
+    proc.output.out(new TextEncoder().encode("вывод inner-команды\n"));
     return Promise.resolve(code);
   };
   return { run, calls };

@@ -35,6 +35,7 @@ const KEY_FILE = ".ssh/id_rsa";
 /** Порт исполнения глазами команды. */
 export type SshIo = Pick<
   CommandIo,
+  | "cwd"
   | "env"
   | "envFile"
   | "openCacheDb"
@@ -155,6 +156,7 @@ function execute(place: ExecPlace, attempt: Attempt): Promise<number> {
       stdin: attempt.stdin,
       keyPath: keyPath(attempt.io),
       output: attempt.output,
+      cwd: attempt.io.cwd(),
       run: attempt.options.runProcess,
     })
     : runOverPortainer({

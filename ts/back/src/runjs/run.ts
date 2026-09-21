@@ -44,6 +44,7 @@ export const NODE_COMMAND: readonly [string, ...string[]] = [
 /** Порт исполнения глазами команды. */
 export type RunJsIo = Pick<
   CommandIo,
+  | "cwd"
   | "env"
   | "envFile"
   | "openCacheDb"
@@ -384,6 +385,7 @@ function execute(
       stdin,
       keyPath: keyPath(call.io),
       output,
+      cwd: call.io.cwd(),
       run: call.options.runProcess,
     })
     : runOverPortainer({
@@ -412,6 +414,7 @@ function launch(
       logPath: log,
       keyPath: keyPath(call.io),
       output: call.output,
+      cwd: call.io.cwd(),
       run: call.options.runProcess,
     })
     : detachOverPortainer({

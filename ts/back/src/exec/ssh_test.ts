@@ -63,14 +63,20 @@ Deno.test("аргументы ssh: ключ, адрес и одна строка
 });
 
 Deno.test("прогон: stdin доезжает, потоки раздельны, код выхода 1:1", async (t) => {
-  const seen: { bin?: string; args?: readonly string[]; stdin?: string } = {};
+  const seen: {
+    bin?: string;
+    args?: readonly string[];
+    stdin?: string;
+    cwd?: string;
+  } = {};
   const encoder = new TextEncoder();
-  const run: RunProcess = (bin, args, stdin, output) => {
+  const run: RunProcess = (bin, args, proc) => {
     seen.bin = bin;
     seen.args = args;
-    seen.stdin = new TextDecoder().decode(stdin);
-    output.out(encoder.encode("привет\n"));
-    output.err(encoder.encode("ворчание\n"));
+    seen.stdin = new TextDecoder().decode(proc.stdin);
+    seen.cwd = proc.cwd;
+    proc.output.out(encoder.encode("привет\n"));
+    proc.output.err(encoder.encode("ворчание\n"));
     return Promise.resolve(7);
   };
   const { output, out, err } = sink();
@@ -80,6 +86,7 @@ Deno.test("прогон: stdin доезжает, потоки раздельны
     stdin: encoder.encode("тело\n"),
     keyPath: KEY,
     output,
+    cwd: "/каталог/вызывающего",
     run,
   });
 
@@ -93,6 +100,10 @@ Deno.test("прогон: stdin доезжает, потоки раздельны
     assertEquals(seen.args?.[0], "-i");
   });
 
+  await t.step("каталог вызывающего доезжает до запуска", () => {
+    assertEquals(seen.cwd, "/каталог/вызывающего");
+  });
+
   await t.step("stdout и stderr не смешиваются", () => {
     assertEquals(out.join(""), "привет\n");
     assertEquals(err.join(""), "ворчание\n");
@@ -104,21 +115,42 @@ Deno.test("настоящий подпроцесс: потоки и код вы�
   // большего здесь не нужно: проверяется сам подпроцесс, а не ssh.
   await t.step("stdout доезжает в приёмник, код 0", async () => {
     const { output, out, err } = sink();
-    const code = await spawnProcess(
-      "/bin/echo",
-      ["проба"],
-      new TextEncoder().encode("вход\n"),
+    const code = await spawnProcess("/bin/echo", ["проба"], {
+      stdin: new TextEncoder().encode("вход\n"),
       output,
-    );
+      cwd: Deno.cwd(),
+    });
     assertEquals(code, 0);
     assertEquals(out.join(""), "проба\n");
     assertEquals(err.join(""), "");
   });
 
+  await t.step("подпроцесс стартует в переданном каталоге", async () => {
+    const dir = await Deno.makeTempDir();
+    try {
+      const { output, out } = sink();
+      const code = await spawnProcess("/bin/bash", ["-c", "pwd"], {
+        stdin: new Uint8Array(),
+        output,
+        cwd: dir,
+      });
+      assertEquals(code, 0);
+      // `pwd` печатает разрешённый путь: у временного каталога он
+      // может отличаться от выданного символьной ссылкой (`/tmp`).
+      assertEquals(out.join("").trim(), await Deno.realPath(dir));
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
+  });
+
   await t.step("ненулевой код доходит как есть", async () => {
     const { output } = sink();
     assertEquals(
-      await spawnProcess("/bin/false", [], new Uint8Array(), output),
+      await spawnProcess("/bin/false", [], {
+        stdin: new Uint8Array(),
+        output,
+        cwd: Deno.cwd(),
+      }),
       1,
     );
   });
@@ -128,10 +160,10 @@ Deno.test("фоновый запуск: заливка скрипта, зате�
   const calls: { remote: string; stdin: string }[] = [];
   const runWith = (codes: readonly number[]): RunProcess => {
     let index = 0;
-    return (_bin, argv, stdin) => {
+    return (_bin, argv, proc) => {
       calls.push({
         remote: argv[3] ?? "",
-        stdin: new TextDecoder().decode(stdin),
+        stdin: new TextDecoder().decode(proc.stdin),
       });
       return Promise.resolve(codes[index++] ?? 0);
     };
@@ -141,6 +173,7 @@ Deno.test("фоновый запуск: заливка скрипта, зате�
     calls.length = 0;
     const { output } = sink();
     const code = await detachOverSsh({
+      cwd: "/каталог/вызывающего",
       target: TARGET,
       script: "console.log(1)\n",
       scriptPath: "/tmp/mpu-run-0a1b2c3d.mjs",
@@ -168,6 +201,7 @@ Deno.test("фоновый запуск: заливка скрипта, зате�
     calls.length = 0;
     const { output } = sink();
     const code = await detachOverSsh({
+      cwd: "/каталог/вызывающего",
       target: TARGET,
       script: "x",
       scriptPath: "/tmp/s.mjs",
