@@ -69,7 +69,7 @@ export async function followEntries(
     } catch (err) {
       const failure = lokiFailure(err, plan.logql);
       if (!(failure instanceof DomainError)) throw failure;
-      deps.stream.err(`\n${formatCommandError("logs", failure)}\n`);
+      await deps.stream.err(`\n${formatCommandError("logs", failure)}\n`);
     }
   }
 }
@@ -95,6 +95,6 @@ async function poll(
     }),
   );
   if (entries.length === 0) return undefined;
-  deps.stream.out(formatEntries(entries, plan.timestamps));
+  await deps.stream.out(formatEntries(entries, plan.timestamps));
   return BigInt(entries[entries.length - 1].tsNs);
 }

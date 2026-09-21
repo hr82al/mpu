@@ -191,7 +191,7 @@ interface ExecCall {
   ) => Promise<HttpResponse>;
   readonly stream: (
     id: string,
-    onData: (chunk: Uint8Array) => void,
+    onData: (chunk: Uint8Array) => Promise<void>,
     signal?: AbortSignal,
   ) => Promise<void>;
 }
@@ -315,7 +315,7 @@ function cleanup(call: ExecCall, withStdin: boolean): Promise<void> {
 /** Служебный exec: вывод не нужен, отказ на код выхода не влияет. */
 async function silentExec(call: ExecCall, script: string): Promise<void> {
   const id = await createExec(call, ["sh", "-c", script]);
-  await call.stream(id, () => {});
+  await call.stream(id, () => Promise.resolve());
 }
 
 function requireOk(response: HttpResponse, what: string): void {

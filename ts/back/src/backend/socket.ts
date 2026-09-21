@@ -17,6 +17,10 @@ function socketDelivery(socket: WebSocket): Delivery {
       if (socket.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify(frame));
     },
+    // Давление сокетом не передаётся: события «буфер отправки
+    // опустел» у WebSocket нет, а опрос поля буфера — синхронизация по
+    // таймеру (отклонение в `platform/line-cancel.md`).
+    ready: () => Promise.resolve(),
     end: () => socket.close(NORMAL_CLOSURE),
   };
 }

@@ -53,8 +53,9 @@ export type ReadContainerLogs = (
  * (`platform/command-contract.md` знает один канал — stdout рендера).
  */
 export interface LogStream {
-  readonly out: (text: string) => void;
-  readonly err: (text: string) => void;
+  /** Кусок вывода; ответ — готовность принять следующий. */
+  readonly out: (text: string) => Promise<void>;
+  readonly err: (text: string) => Promise<void>;
 }
 
 /**

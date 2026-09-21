@@ -46,8 +46,8 @@ async function seen(
 const SSH_IO: Partial<CommandIo> = {
   stdinIsTerminal: () => true,
   openRemoteOutput: () => ({
-    out: () => {},
-    err: () => {},
+    out: () => Promise.resolve(),
+    err: () => Promise.resolve(),
     captured: () => "",
   }),
 };

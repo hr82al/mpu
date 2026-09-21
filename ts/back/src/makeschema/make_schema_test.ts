@@ -67,8 +67,14 @@ async function withCache(
 function io(db: CacheDb) {
   const parts: string[] = [];
   const output: RemoteOutput = {
-    out: (chunk) => void parts.push(new TextDecoder().decode(chunk)),
-    err: (chunk) => void parts.push(new TextDecoder().decode(chunk)),
+    out: (chunk) => {
+      parts.push(new TextDecoder().decode(chunk));
+      return Promise.resolve();
+    },
+    err: (chunk) => {
+      parts.push(new TextDecoder().decode(chunk));
+      return Promise.resolve();
+    },
     captured: () => parts.join(""),
   };
   return makeFakeIo({

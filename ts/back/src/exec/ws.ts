@@ -38,7 +38,12 @@ export interface WsStream {
   readonly headers: Readonly<Record<string, string>>;
   readonly insecure: boolean;
   /** Данные сервера по мере поступления; порядок сохраняется. */
-  readonly onData: (chunk: Uint8Array) => void;
+  /**
+   * Кусок данных; ответ — готовность принять следующий. Разбор ждёт
+   * её, поэтому давление медленного читателя доходит до сокета
+   * (`platform/line-cancel.md`).
+   */
+  readonly onData: (chunk: Uint8Array) => Promise<void>;
   /** Прерывание вызова: канал закрывается, стрим завершается. */
   readonly signal?: AbortSignal;
   readonly pingIntervalMs?: number;
@@ -85,7 +90,7 @@ export async function streamWebSocket(stream: WsStream): Promise<void> {
   try {
     let buffer = await handshake(channel, reader, stream.url, stream.headers);
     for (;;) {
-      const done = drain(channel, buffer, stream.onData);
+      const done = await drain(channel, buffer, stream.onData);
       buffer = done.rest;
       if (done.closed) break;
       const next = await reader.next();
@@ -103,11 +108,11 @@ export async function streamWebSocket(stream: WsStream): Promise<void> {
 }
 
 /** Разбор всех целых кадров буфера; остаток копится до следующего куска. */
-function drain(
+async function drain(
   channel: ByteChannel,
   buffer: Uint8Array,
-  onData: (chunk: Uint8Array) => void,
-): { readonly rest: Uint8Array; readonly closed: boolean } {
+  onData: (chunk: Uint8Array) => Promise<void>,
+): Promise<{ readonly rest: Uint8Array; readonly closed: boolean }> {
   let rest = buffer;
   for (;;) {
     const cut = decodeFrame(rest);
@@ -122,7 +127,9 @@ function drain(
     // Pong сервера ничего не значит для вызывающего: он лишь
     // подтверждает, что соединение живо, а это и так видно.
     if (opcode === OPCODE.pong) continue;
-    if (payload.length > 0) onData(payload);
+    // Ждём готовности приёмника: без этого чтение сокета обгоняло бы
+    // клиента, и вывод копился бы в памяти сервера.
+    if (payload.length > 0) await onData(payload);
   }
 }
 

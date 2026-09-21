@@ -268,7 +268,10 @@ async function feed(
 
 async function pump(
   stream: ReadableStream<Uint8Array>,
-  write: (chunk: Uint8Array) => void,
+  write: (chunk: Uint8Array) => Promise<void>,
 ): Promise<void> {
-  for await (const chunk of stream) write(chunk);
+  // Каждый кусок — до готовности приёмника: пока клиент не разобрал
+  // отданное, мы не читаем следующий, и труба ребёнка притормаживает
+  // его саму (`platform/line-cancel.md`).
+  for await (const chunk of stream) await write(chunk);
 }

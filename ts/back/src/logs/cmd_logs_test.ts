@@ -182,8 +182,14 @@ function fakeStream() {
   const out: string[] = [];
   const err: string[] = [];
   const stream: LogStream = {
-    out: (text) => void out.push(text),
-    err: (text) => void err.push(text),
+    out: (text) => {
+      out.push(text);
+      return Promise.resolve();
+    },
+    err: (text) => {
+      err.push(text);
+      return Promise.resolve();
+    },
   };
   return { stream, out: () => out.join(""), err: () => err.join("") };
 }

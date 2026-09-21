@@ -74,8 +74,16 @@ export interface CacheDb extends Disposable {
  * обоими путями: что ушло в поток, в результате не повторяется.
  */
 export interface RemoteOutput {
-  readonly out: (chunk: Uint8Array) => void;
-  readonly err: (chunk: Uint8Array) => void;
+  /**
+   * Кусок вывода. Ответ — обещание готовности принять следующий: у
+   * потоков процесса и у накопителя оно разрешено сразу, а у строки
+   * сервера ждёт, пока клиент разберёт уже отданное
+   * (`platform/line-cancel.md`, «Вывод — по мере появления»). Так
+   * медленный читатель притормаживает того, кто печатает, вместо того
+   * чтобы копиться в памяти сервера.
+   */
+  readonly out: (chunk: Uint8Array) => Promise<void>;
+  readonly err: (chunk: Uint8Array) => Promise<void>;
   /** Накопленное; у проточного приёмника — пустая строка. */
   readonly captured: () => string;
 }

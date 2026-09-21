@@ -131,8 +131,14 @@ function openChannel(
 function sink() {
   const parts: string[] = [];
   const output: RemoteOutput = {
-    out: (chunk) => parts.push(new TextDecoder().decode(chunk)),
-    err: (chunk) => parts.push(new TextDecoder().decode(chunk)),
+    out: (chunk) => {
+      parts.push(new TextDecoder().decode(chunk));
+      return Promise.resolve();
+    },
+    err: (chunk) => {
+      parts.push(new TextDecoder().decode(chunk));
+      return Promise.resolve();
+    },
     captured: () => parts.join(""),
   };
   return { output, text: () => parts.join("") };
@@ -330,8 +336,8 @@ Deno.test("Ctrl+C: предупреждение, kill по pidfile, уборка
     // Ctrl+C приходит посреди стрима, на первом же куске вывода.
     output: {
       ...output,
-      out: (chunk) => {
-        output.out(chunk);
+      out: async (chunk) => {
+        await output.out(chunk);
         interrupt();
       },
     },

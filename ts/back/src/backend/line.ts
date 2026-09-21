@@ -23,12 +23,26 @@ const STOPPED = "mpu-back: остановлен\n";
 /** Куда уходят кадры строки. */
 export interface Delivery {
   frame(frame: ServerFrame): void;
+  /**
+   * Готовность принять следующий кадр: медленный клиент отвечает
+   * обещанием, которое разрешится, когда он разберёт уже отданное
+   * (`platform/line-cancel.md`). Доставке, у которой давления нет,
+   * отвечать нечем — она готова всегда.
+   */
+  ready(): Promise<void>;
   /** Кадров больше не будет: закрыть поток. */
   end(): void;
 }
 
+/** Готова всегда: давление такой доставке передать нечем. */
+const READY: Promise<void> = Promise.resolve();
+
 /** Доставки нет: строка ждёт ответа по номеру, её ответ уже закончен. */
-export const DETACHED: Delivery = { frame() {}, end() {} };
+export const DETACHED: Delivery = {
+  frame() {},
+  ready: () => READY,
+  end() {},
+};
 
 /** Что отменить, когда ожидание ответа кончилось. */
 export interface Revocable {
@@ -57,6 +71,7 @@ const NOT_ASKED: Waiting = { settle() {} };
  */
 interface State {
   deliver(delivery: Delivery, frame: ServerFrame): void;
+  ready(delivery: Delivery): Promise<void>;
   wait(line: Line, posed: Revocable): Promise<string | undefined>;
   execute(
     line: Line,
@@ -70,6 +85,7 @@ interface State {
 /** Строка живёт: кадры идут клиенту, уход клиента — просьба остановиться. */
 const OPEN: State = {
   deliver: (delivery, frame) => delivery.frame(frame),
+  ready: (delivery) => delivery.ready(),
   wait: (line, posed) => line.armed(posed),
   execute(line, slot, run) {
     line.hold(slot);
@@ -86,6 +102,7 @@ const OPEN: State = {
 
 const CLOSED: State = {
   deliver() {},
+  ready: () => READY,
   wait(_line, posed) {
     posed.revoke();
     return Promise.resolve(undefined);
@@ -140,6 +157,14 @@ export class Line implements Output {
   /** Кадр текущей доставке, если строка открыта. */
   deliver(frame: ServerFrame) {
     this.#state.deliver(this.#delivery, frame);
+  }
+
+  /**
+   * Готовность клиента принять следующий кадр. Закрытая строка готова
+   * всегда: ждать её вывод некому.
+   */
+  ready(): Promise<void> {
+    return this.#state.ready(this.#delivery);
   }
 
   /** Вопрос способом транспорта. */

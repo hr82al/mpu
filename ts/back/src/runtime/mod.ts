@@ -472,9 +472,17 @@ function consoleColumns(): number | undefined {
  * `platform/exec-transport.md`). Копить нечего: всё уже напечатано.
  */
 function streamingRemoteOutput(): RemoteOutput {
+  // Запись в потоки процесса синхронна: готовность принять следующий
+  // кусок наступает тут же, давление передавать нечем и некому.
   return {
-    out: (chunk) => writeAllBytesSync(Deno.stdout, chunk),
-    err: (chunk) => writeAllBytesSync(Deno.stderr, chunk),
+    out: (chunk) => {
+      writeAllBytesSync(Deno.stdout, chunk);
+      return Promise.resolve();
+    },
+    err: (chunk) => {
+      writeAllBytesSync(Deno.stderr, chunk);
+      return Promise.resolve();
+    },
     captured: () => "",
   };
 }

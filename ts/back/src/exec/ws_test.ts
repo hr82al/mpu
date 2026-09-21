@@ -86,7 +86,7 @@ Deno.test("рукопожатие: свои заголовки и ключ", asy
       url: server.url,
       headers: { "X-API-Key": "секрет" },
       insecure: false,
-      onData: () => {},
+      onData: () => Promise.resolve(),
     });
     const request = server.request();
     assertEquals(
@@ -123,7 +123,10 @@ Deno.test("данные приходят по мере поступления и
       url: server.url,
       headers: {},
       insecure: false,
-      onData: (chunk) => seen.push(decoder.decode(chunk)),
+      onData: (chunk) => {
+        seen.push(decoder.decode(chunk));
+        return Promise.resolve();
+      },
     });
     assertEquals(seen.join(""), "раз\nдва\n");
   } finally {
@@ -144,7 +147,10 @@ Deno.test("кадр, разорванный на два куска, собира
       url: server.url,
       headers: {},
       insecure: false,
-      onData: (chunk) => seen.push(decoder.decode(chunk)),
+      onData: (chunk) => {
+        seen.push(decoder.decode(chunk));
+        return Promise.resolve();
+      },
     });
     assertEquals(seen.join(""), "склейка");
   } finally {
@@ -164,7 +170,7 @@ Deno.test("на ping сервера уходит pong с той же нагру�
       url: server.url,
       headers: {},
       insecure: false,
-      onData: () => {},
+      onData: () => Promise.resolve(),
     });
   } finally {
     await server.stop();
@@ -186,7 +192,7 @@ Deno.test("в простое клиент шлёт ping", async () => {
       url: server.url,
       headers: {},
       insecure: false,
-      onData: () => {},
+      onData: () => Promise.resolve(),
       // Пауза простоя — параметр: продуктовые 30 секунд тест ждал бы
       // стеной, а сравнивать всё равно нечего, кроме самого кадра.
       pingIntervalMs: 1,
@@ -209,7 +215,7 @@ Deno.test("ответ не 101 — ошибка транспорта со ста
           url: server.url,
           headers: {},
           insecure: false,
-          onData: () => {},
+          onData: () => Promise.resolve(),
         }),
       DomainError,
       "WebSocket отклонён: HTTP/1.1 403 Forbidden",
@@ -231,7 +237,10 @@ Deno.test("отмена закрывает канал и завершает ст
       url: server.url,
       headers: {},
       insecure: false,
-      onData: () => controller.abort(),
+      onData: () => {
+        controller.abort();
+        return Promise.resolve();
+      },
       signal: controller.signal,
     });
   } finally {

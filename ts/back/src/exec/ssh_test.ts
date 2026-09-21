@@ -30,8 +30,14 @@ function sink() {
   const err: string[] = [];
   const decoder = new TextDecoder();
   const output: RemoteOutput = {
-    out: (chunk) => out.push(decoder.decode(chunk)),
-    err: (chunk) => err.push(decoder.decode(chunk)),
+    out: (chunk) => {
+      out.push(decoder.decode(chunk));
+      return Promise.resolve();
+    },
+    err: (chunk) => {
+      err.push(decoder.decode(chunk));
+      return Promise.resolve();
+    },
     captured: () => "",
   };
   return { output, out, err };
@@ -172,8 +178,9 @@ Deno.test("настоящий подпроцесс: потоки и код вы�
     const output = {
       out: (chunk: Uint8Array) => {
         if (decoder.decode(chunk).includes("готов")) ready.resolve();
+        return Promise.resolve();
       },
-      err: () => {},
+      err: () => Promise.resolve(),
       captured: () => "",
     };
     const stopping = new AbortController();

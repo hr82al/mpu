@@ -256,7 +256,7 @@ async function parallel(
       if (target === undefined) return;
       const buffered = buffer();
       const result = await attempt(target, call, buffered);
-      buffered.flush(call.output);
+      await buffered.flush(call.output);
       done.push(result);
     }
   };
@@ -463,19 +463,27 @@ function idle(label: string): TargetResult {
 /** Приёмник, копящий оба потока раздельно до завершения таргета. */
 function buffer(): {
   readonly sink: RemoteOutput;
-  readonly flush: (to: RemoteOutput) => void;
+  readonly flush: (to: RemoteOutput) => Promise<void>;
 } {
   const out: Uint8Array[] = [];
   const err: Uint8Array[] = [];
   return {
     sink: {
-      out: (chunk) => out.push(chunk),
-      err: (chunk) => err.push(chunk),
+      // Копящий приёмник готов всегда: он и заведён, чтобы не держать
+      // таргет чужой печатью.
+      out: (chunk) => {
+        out.push(chunk);
+        return Promise.resolve();
+      },
+      err: (chunk) => {
+        err.push(chunk);
+        return Promise.resolve();
+      },
       captured: () => "",
     },
-    flush: (to) => {
-      for (const chunk of out) to.out(chunk);
-      for (const chunk of err) to.err(chunk);
+    flush: async (to) => {
+      for (const chunk of out) await to.out(chunk);
+      for (const chunk of err) await to.err(chunk);
     },
   };
 }

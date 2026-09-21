@@ -165,6 +165,46 @@ Deno.test("отмена после конца строки: итог прежн�
   assertEquals(log.codes, [0]);
 });
 
+Deno.test("голдены: кадры слежения и кадры отменённой строки", async () => {
+  const log = journal();
+  await withLoki(async (back) => {
+    const line = await open(back, FOLLOW);
+    // Три кадра слежения — до того, как строка кончилась: она и не
+    // кончается, пока её слушают.
+    while (line.frames.filter((frame) => "out" in frame).length < 3) {
+      await within(
+        line.frame((frame) =>
+          line.frames.filter((one) => "out" in one).length >= 3 &&
+          "out" in frame
+        ),
+        10_000,
+        "три кадра слежения",
+      );
+    }
+    const follow = [...line.frames];
+    line.close();
+    await line.closed();
+    await within(log.written(1), 5000, "запись журнала");
+    await golden("frames-follow.json", {
+      "описание": "строка со слежением: кадры идут до конца строки",
+      "слова": FOLLOW,
+      "кадры": follow.slice(0, 3),
+    });
+    await golden("frames-cancel.json", {
+      "описание": "отменённая строка: клиент закрыл канал",
+      "слова": FOLLOW,
+      "кадры после обрыва": line.frames.slice(follow.length),
+      "код записи журнала": log.codes,
+    });
+  }, { finishedWith: log.finishedWith });
+});
+
+/** Копия снятого прогоном голдена совпадает с ним. */
+async function golden(name: string, body: unknown) {
+  const url = new URL(`testdata/line-cancel/${name}`, import.meta.url);
+  assertEquals(body, JSON.parse(await Deno.readTextFile(url)));
+}
+
 Deno.test("отмена в ожидании ответа: вопрос снят, команда не вызвана", async () => {
   const log = journal();
   await withBack(async (back) => {

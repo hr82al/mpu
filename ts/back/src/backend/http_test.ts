@@ -9,6 +9,7 @@ import { FakeTime } from "@std/testing/time";
 import type { CommandIo } from "../command/mod.ts";
 import { rulesOf } from "../next/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
+import { formFor } from "./http.ts";
 import { ANSWER_TIMEOUT_MS } from "./mod.ts";
 import {
   collected,
@@ -462,3 +463,41 @@ Deno.test("остановка: поток в работе получает err �
     ]);
   }, { io });
 });
+
+Deno.test("поток NDJSON: очередь набита — печатающий ждёт читателя", async () => {
+  const form = formFor("application/x-ndjson");
+  if (form === undefined) throw new Error("формы NDJSON нет");
+  let lost = 0;
+  const opened = form.open({ lost: () => lost++ });
+  const { delivery } = opened;
+  // До первого кадра очередь пуста: печатающему ждать нечего.
+  await within(delivery.ready(), 5000, "готовность до первого кадра");
+  // Отданный кадр набивает очередь потока, и готовность становится
+  // обещанием, которое разрешит только сам читатель
+  // (`platform/line-cancel.md`).
+  delivery.frame({ out: "первый\n" });
+  const waiting = delivery.ready();
+  assertEquals(await raced(waiting), "ждёт");
+  const body = (await opened.response).body;
+  if (body === null) throw new Error("у ответа NDJSON нет тела");
+  const reader = body.getReader();
+  await within(reader.read(), 5000, "первый кадр читателю");
+  await within(waiting, 5000, "готовность после чтения");
+  // Читатель ушёл — ждущие отпускаются, иначе печатающий встал бы
+  // навсегда и с ним остановка сервера.
+  delivery.frame({ out: "второй\n" });
+  const orphan = delivery.ready();
+  await reader.cancel();
+  await within(orphan, 5000, "готовность после ухода читателя");
+  assertEquals(lost, 1);
+});
+
+/** Разрешилось обещание к этому моменту или ещё ждёт. */
+function raced(promise: Promise<void>): Promise<string> {
+  return Promise.race([
+    promise.then(() => "разрешилось"),
+    // Спуск очереди микрозадач: дальше продвинуться можно только от
+    // внешнего события, которого в этот момент нет.
+    new Promise<string>((resolve) => setTimeout(() => resolve("ждёт"), 0)),
+  ]);
+}

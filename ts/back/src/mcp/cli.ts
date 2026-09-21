@@ -371,8 +371,11 @@ function capturingRemoteOutput(): RemoteOutput {
   // недобранный хвост последнего куска — без него он пропал бы.
   const out = new TextDecoder();
   const err = new TextDecoder();
+  // Накопитель готов принять следующий кусок всегда: он копит в
+  // памяти вызова, и притормаживать печатающего нечем.
   const append = (decoder: TextDecoder) => (chunk: Uint8Array) => {
     parts.push(decoder.decode(chunk, { stream: true }));
+    return Promise.resolve();
   };
   return {
     out: append(out),

@@ -432,7 +432,7 @@ async function runSnapshot(
   // stderr-часть снимка печатается здесь: рендер отдаёт только stdout,
   // а спека требует развести потоки (см. `sources.ts`, `LogStream`).
   if (snapshot.stderr !== "") {
-    (options.stream ?? streamOf(io)).err(snapshot.stderr);
+    await (options.stream ?? streamOf(io)).err(snapshot.stderr);
   }
   return { ...EMPTY, kind: "snapshot", snapshot };
 }

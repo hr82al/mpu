@@ -15,7 +15,11 @@ import { randomTicket, Tickets } from "./tickets.ts";
 function waitingLine(tickets: Tickets) {
   const frames: unknown[] = [];
   const line = new Line(
-    { frame: (frame) => void frames.push(frame), end() {} },
+    {
+      frame: (frame) => void frames.push(frame),
+      ready: () => Promise.resolve(),
+      end() {},
+    },
     ticketAsking(tickets, HUMAN_DOOR, OWNER),
     Promise.resolve(),
   );

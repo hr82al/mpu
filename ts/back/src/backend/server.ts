@@ -7,7 +7,6 @@
 import { Hono } from "@hono/hono";
 import { hasBearer, LOOPBACK, LOOPBACK_ORIGINS } from "../access/mod.ts";
 import type { CommandIo, RemoteOutput } from "../command/mod.ts";
-import type { Output } from "../entrypoint/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 import { nextEntry, policyTree, registryNodes, rulesOf } from "../next/mod.ts";
 import { runJournaled } from "../process/mod.ts";
@@ -275,17 +274,22 @@ function lineIo(
 }
 
 /** Вывод удалённой команды — кадрами строки, UTF-8 по кускам. */
-function remoteFrames(output: Output): RemoteOutput {
+function remoteFrames(line: Line): RemoteOutput {
   const out = new TextDecoder();
   const err = new TextDecoder();
-  const sent = (text: string, send: (text: string) => void) => {
-    if (text !== "") send(text);
+  const sent = async (text: string, send: (text: string) => void) => {
+    if (text === "") return;
+    send(text);
+    // Кадр отдан — ждём, пока клиент его разберёт: иначе вывод
+    // быстрой команды копился бы в памяти сервера
+    // (`platform/line-cancel.md`).
+    await line.ready();
   };
   return {
     out: (chunk) =>
-      sent(out.decode(chunk, { stream: true }), (text) => output.stdout(text)),
+      sent(out.decode(chunk, { stream: true }), (text) => line.stdout(text)),
     err: (chunk) =>
-      sent(err.decode(chunk, { stream: true }), (text) => output.stderr(text)),
+      sent(err.decode(chunk, { stream: true }), (text) => line.stderr(text)),
     captured: () => "",
   };
 }

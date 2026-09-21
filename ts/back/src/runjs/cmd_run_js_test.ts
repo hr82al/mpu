@@ -62,6 +62,7 @@ function sink(): RemoteOutput & { readonly text: () => string } {
   const parts: string[] = [];
   const append = (chunk: Uint8Array) => {
     parts.push(new TextDecoder().decode(chunk));
+    return Promise.resolve();
   };
   return {
     out: append,

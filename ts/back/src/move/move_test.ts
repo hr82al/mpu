@@ -73,8 +73,8 @@ async function withIo(
       progress: () => {},
       openCacheDb: () => ({ ...db, [Symbol.dispose]: () => {} }),
       openRemoteOutput: () => ({
-        out: () => {},
-        err: () => {},
+        out: () => Promise.resolve(),
+        err: () => Promise.resolve(),
         captured: () => "",
       }),
       envFile: {
