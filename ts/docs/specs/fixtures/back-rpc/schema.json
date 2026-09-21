@@ -126,6 +126,26 @@
               "type": "string",
               "pattern": "^[0-9a-f]{32}$",
               "description": "Только у строки простым HTTP: номер ответа, ответ на этом кадре кончается."
+            },
+            "kind": {
+              "description": "Вид ответа: line — видимый (умолчание, в кадр не пишется), secret — скрытый, клиент читает без эха (platform/line-prompt.md).",
+              "enum": [
+                "line",
+                "secret"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Просьба положить текст в буфер обмена того, кто позвал; клиент без буфера печатает его в stderr. На двери агента не приходит.",
+          "type": "object",
+          "required": [
+            "clip"
+          ],
+          "properties": {
+            "clip": {
+              "type": "string"
             }
           },
           "additionalProperties": false
@@ -163,6 +183,13 @@
         },
         "ask": {
           "type": "string"
+        },
+        "kind": {
+          "description": "Вид ответа: line — видимый (умолчание, в ответ не пишется), secret — скрытый, клиент читает без эха (platform/line-prompt.md).",
+          "enum": [
+            "line",
+            "secret"
+          ]
         },
         "ticket": {
           "type": "string",
