@@ -26,7 +26,7 @@ import { socketLine } from "./socket.ts";
 import { Tickets } from "./tickets.ts";
 import { staticFile } from "./static.ts";
 import { SESSION_TTL_MS, type WebAccess } from "./web.ts";
-import { Serial } from "./queue.ts";
+import { DEFAULT_LINES, Lines } from "./limit.ts";
 import { Workdir } from "../workdir/mod.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
@@ -45,6 +45,8 @@ const BEARER_PROTOCOL = "bearer.";
 export interface BackOptions {
   /** Порт; `0` — выдаёт ОС. */
   readonly port: number;
+  /** Сколько строк исполняется разом; не сказано — `DEFAULT_LINES`. */
+  readonly lines?: number;
   /** Токены доступа: основной и агентский. */
   readonly tokens: Tokens;
   /** Файл правил подтверждения; нет HOME — `undefined`. */
@@ -297,7 +299,7 @@ async function isDirectory(path: string): Promise<boolean> {
 
 class Back {
   readonly #options: BackOptions;
-  readonly #serial = new Serial();
+  readonly #lines: Lines;
   readonly #tickets: Tickets;
   readonly #open = new Map<Line, Promise<void>>();
   readonly #methods: Methods;
@@ -306,6 +308,7 @@ class Back {
 
   constructor(options: BackOptions, snapshot: unknown) {
     this.#options = options;
+    this.#lines = new Lines(options.lines ?? DEFAULT_LINES);
     this.#tickets = new Tickets(options.newTicket);
     this.#methods = new Map<string, () => unknown>([
       ["tree.snapshot", () => snapshot],
@@ -523,7 +526,7 @@ class Back {
       }),
       file: this.#options.policyFile,
       channel: () => channel,
-      execute: (run) => line.execute(request.cwd, run, this.#serial),
+      execute: (run) => line.execute(run, this.#lines),
     });
     const io = lineIo(this.#options.io, line, request);
     line.finish(

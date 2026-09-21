@@ -1,6 +1,7 @@
 /**
  * Процесс `mpu-back` (`platform/back-rpc.md`, «CLI-контракт»): разбор
- * `--port`, токен, сервер до сигнала остановки.
+ * `--port` и `--lines` (`platform/line-concurrency.md`), токен, сервер
+ * до сигнала остановки.
  */
 
 import type { CommandIo } from "../command/mod.ts";
@@ -9,13 +10,18 @@ import type { InvokeLog } from "../invokelog/mod.ts";
 import { ensureAccessToken } from "../mcp/mod.ts";
 import { VERSION } from "../version.ts";
 import type { SecretText } from "../runtime/mod.ts";
+import { DEFAULT_LINES } from "./limit.ts";
 import { DEFAULT_BACK_PORT, serveBack } from "./server.ts";
 import { WebAccess } from "./web.ts";
 
 /** Чтение и запись файла токена. */
 type TokenIo = Pick<CommandIo, "readAccessToken" | "writeAccessToken">;
 
-const USAGE = "mpu-back: использование: deno task back [--port <число>]\n";
+const USAGE =
+  "mpu-back: использование: deno task back [--port <число>] [--lines <число>]\n";
+
+/** Отказ запуска: предел строк назван, но негоден (`--lines 0`). */
+const BAD_LINES = "mpu-back: предел строк должен быть больше нуля\n";
 
 /** Что процессу нужно снаружи. */
 export interface BackProcess {
@@ -37,13 +43,42 @@ export interface BackProcess {
   readonly stopped: Promise<void>;
 }
 
-/** Порт из аргументов; не разобрался — `undefined`. */
-function portOf(args: readonly string[]): number | undefined {
-  if (args.length === 0) return DEFAULT_BACK_PORT;
-  if (args.length !== 2 || args[0] !== "--port") return undefined;
-  const port = Number(args[1]);
-  if (!Number.isInteger(port) || port < 0 || port > 65535) return undefined;
-  return port;
+/** С чем поднимать сервер либо готовый отказ в stderr. */
+type Startup =
+  | { readonly port: number; readonly lines: number }
+  | { readonly refusal: string };
+
+/** Целое из значения флага; не целое — `undefined`. */
+function integerOf(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const number = Number(value);
+  return Number.isInteger(number) ? number : undefined;
+}
+
+/**
+ * Разбор аргументов: пары `--port`/`--lines` в любом порядке. «Не
+ * число» — ошибка формы вызова (строка использования), «число, но не
+ * годится» — названный отказ (`platform/line-concurrency.md`).
+ */
+function startupOf(args: readonly string[]): Startup {
+  let port = DEFAULT_BACK_PORT;
+  let lines = DEFAULT_LINES;
+  for (let index = 0; index < args.length; index += 2) {
+    const value = integerOf(args[index + 1]);
+    if (value === undefined) return { refusal: USAGE };
+    if (args[index] === "--port") {
+      if (value < 0 || value > 65535) return { refusal: USAGE };
+      port = value;
+      continue;
+    }
+    if (args[index] === "--lines") {
+      if (value <= 0) return { refusal: BAD_LINES };
+      lines = value;
+      continue;
+    }
+    return { refusal: USAGE };
+  }
+  return { port, lines };
 }
 
 /**
@@ -60,15 +95,17 @@ export async function runBack(
     proc.output.stdout(`${VERSION}\n`);
     return 0;
   }
-  const port = portOf(args);
-  if (port === undefined) {
-    proc.output.stderr(USAGE);
+  const startup = startupOf(args);
+  if ("refusal" in startup) {
+    proc.output.stderr(startup.refusal);
     return 2;
   }
+  const { port, lines } = startup;
   let running;
   try {
     running = await serveBack({
       port,
+      lines,
       // Оба токена создаёт сервер при старте; клиент файлов не пишет.
       tokens: {
         main: await ensureAccessToken(proc.io),

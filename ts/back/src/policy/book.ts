@@ -5,6 +5,7 @@
  */
 
 import { DatabaseSync } from "node:sqlite";
+import { BUSY_TIMEOUT_MS } from "../store/mod.ts";
 import { RulePath } from "./path.ts";
 import { Rule, Rules, type Ruling } from "./rules.ts";
 import { type RuleEntry, type Verdict, verdictNamed } from "./verdict.ts";
@@ -25,13 +26,6 @@ CREATE TABLE IF NOT EXISTS rules (
 CREATE TABLE IF NOT EXISTS seeded (
   path TEXT PRIMARY KEY
 );`;
-
-/**
- * Сколько ждать, пока файл держит запись другой процесс. Ожидание —
- * внутри SQLite, а не сон в коде: два одновременных старта с посевом
- * иначе получили бы «database is locked» вместо правил.
- */
-const BUSY_TIMEOUT_MS = 5000;
 
 /** Набор правил в файле: сам читает, сверяет и пишет. */
 export class RuleBook implements Disposable {
@@ -112,6 +106,9 @@ export class RuleBook implements Disposable {
   }
 
   #prepare(seeds: readonly Rule[]) {
+    // Ожидание занятого файла — внутри SQLite, а не сон в коде: два
+    // одновременных старта с посевом иначе получили бы «database is
+    // locked» вместо правил. Значение общее с кэш-БД.
     this.#db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
     this.#db.exec(SCHEMA);
     this.#seed(seeds);

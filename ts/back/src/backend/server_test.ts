@@ -152,6 +152,10 @@ Deno.test("rpc: сбой метода — -32603", () =>
     assertStringIncludes(broken.error.message, "правила подтверждения: ");
   }));
 
+/** Строка использования: она же ответ на «не число» у обоих флагов. */
+const USAGE_LINE =
+  "mpu-back: использование: deno task back [--port <число>] [--lines <число>]\n";
+
 Deno.test("процесс: адрес в stdout, оба токена 0600, остановка — 0, порт занят — 1", async () => {
   const dir = await Deno.makeTempDir();
   const out: string[] = [];
@@ -177,6 +181,18 @@ Deno.test("процесс: адрес в stdout, оба токена 0600, ос�
     assertEquals(await runBack(["--port", String(port)], proc), 1);
     assertEquals(err, [`mpu-back: порт ${port} занят\n`]);
     assertEquals(await runBack(["--port", "x"], proc), 2);
+    assertEquals(err.at(-1), USAGE_LINE);
+    // Предел одновременности: «не число» — ошибка формы вызова, а
+    // «число, но не годится» — свой отказ (`platform/line-concurrency.md`).
+    assertEquals(await runBack(["--lines", "abc"], proc), 2);
+    assertEquals(err.at(-1), USAGE_LINE);
+    for (const value of ["0", "-3"]) {
+      assertEquals(await runBack(["--lines", value], proc), 2);
+      assertEquals(
+        err.at(-1),
+        "mpu-back: предел строк должен быть больше нуля\n",
+      );
+    }
     // --version — до токенов и порта: ничего не поднимается.
     const version: string[] = [];
     assertEquals(

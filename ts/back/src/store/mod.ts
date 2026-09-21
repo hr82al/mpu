@@ -33,6 +33,13 @@ export function isMissingTable(err: unknown): boolean {
   return err instanceof Error && err.message.includes("no such table");
 }
 
+/**
+ * Сколько ждать занятую базу, прежде чем отказать. Одно значение на
+ * кэш-БД и на файл правил подтверждения: ждут они одного и того же —
+ * чужой записи, идущей прямо сейчас.
+ */
+export const BUSY_TIMEOUT_MS = 5000;
+
 export function openCacheDb(path: string): CacheDb {
   const dir = path.slice(0, path.lastIndexOf("/"));
   if (dir !== "") Deno.mkdirSync(dir, { recursive: true });
@@ -51,6 +58,11 @@ export function openCacheDb(path: string): CacheDb {
 
   const db = new DatabaseSync(path);
   try {
+    // Занятая база ждёт, а не отказывает: к одному файлу ходят соседние
+    // процессы `mpu` и — с порции 12 — одновременные строки сервера
+    // (`platform/line-concurrency.md`). Правило то же, что у файла
+    // правил подтверждения, и значение у них одно.
+    db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
     // Персистентный в файле БД режим (`platform/store.md`, «Ввод/вывод»):
     // конкурентные вызовы `mpu`, включая параллельную Python-реализацию,
     // читают и пишут без взаимной блокировки.

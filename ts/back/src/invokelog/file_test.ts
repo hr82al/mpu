@@ -129,6 +129,32 @@ Deno.test("сбой ротации не теряет запись", async (t) =>
   });
 });
 
+Deno.test("две записи разом: обе целы, ни одна не разрезана", async () => {
+  await withDir(async (_dir, path) => {
+    // Мегабайт на запись: две одновременно кончившиеся строки сервера
+    // пишут в один файл (`platform/line-concurrency.md`). Целостность
+    // держится поведением ядра — запись в файл, открытый на дозапись,
+    // уходит одним обращением и не режется, — а не нашим замком;
+    // сменится способ записи или файловая система, и этот тест первым
+    // об этом скажет.
+    const first = `${"а".repeat(1024 * 1024)}\n`;
+    const second = `${"б".repeat(1024 * 1024)}\n`;
+    await Promise.all([
+      appendRecord(path, first, NO_ROTATION),
+      appendRecord(path, second, NO_ROTATION),
+    ]);
+    const text = await Deno.readTextFile(path);
+    // Порядок между одновременными записями не определён, целостность —
+    // определена: файл ровно из двух записей.
+    assertEquals(text.length, first.length + second.length);
+    assertEquals(
+      text === first + second || text === second + first,
+      true,
+      "записи перемешались",
+    );
+  });
+});
+
 Deno.test("лок занят: запись не теряется, ротации нет", async () => {
   await withDir(async (dir, path) => {
     await appendRecord(path, "старое\n", NO_ROTATION);

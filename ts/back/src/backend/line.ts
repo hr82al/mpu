@@ -8,7 +8,7 @@
 
 import type { Output } from "../entrypoint/mod.ts";
 import type { ServerFrame } from "../frames/mod.ts";
-import { NO_SLOT, type Serial, type Slot } from "./queue.ts";
+import { type Lines, NO_SLOT, type Slot } from "./limit.ts";
 
 /** Сколько ждать ответа на вопрос: дальше ответ «нет». */
 export const ANSWER_TIMEOUT_MS = 120_000;
@@ -56,7 +56,6 @@ interface State {
   execute(
     line: Line,
     slot: Slot,
-    cwd: string,
     run: () => Promise<number>,
   ): Promise<number>;
 }
@@ -64,11 +63,11 @@ interface State {
 const OPEN: State = {
   deliver: (delivery, frame) => delivery.frame(frame),
   wait: (line, posed) => line.armed(posed),
-  execute(line, slot, cwd, run) {
+  execute(line, slot, run) {
     line.hold(slot);
-    // Исполнение одно на процесс (очередь), поэтому каталог процесса —
-    // каталог этой строки на всё её исполнение.
-    Deno.chdir(cwd);
+    // Каталог процесса не трогаем: он у строки свой и доезжает до
+    // команды портами (`platform/line-concurrency.md`), поэтому строки
+    // и могут идти одновременно.
     return run();
   },
 };
@@ -160,24 +159,23 @@ export class Line implements Output {
   }
 
   /**
-   * Исполнение строки в очереди, если к своей очереди она ещё открыта.
-   * Место держится до кадра `exit`.
+   * Исполнение строки, когда в пределе одновременности нашлось место и
+   * строка к этому времени ещё открыта. Место держится до кадра `exit`.
    */
   async execute(
-    cwd: string,
     run: () => Promise<number>,
-    serial: Serial,
+    lines: Lines,
   ): Promise<number> {
-    const slot = await serial.enter();
-    return await this.#state.execute(this, slot, cwd, run);
+    const slot = await lines.enter();
+    return await this.#state.execute(this, slot, run);
   }
 
-  /** Место в очереди, которое строка отпустит своим кадром `exit`. */
+  /** Место в пределе, которое строка отпустит своим кадром `exit`. */
   hold(slot: Slot) {
     this.#slot = slot;
   }
 
-  /** Итог: кадр `exit`, конец доставки, место в очереди — следующему. */
+  /** Итог: кадр `exit`, конец доставки, место в пределе — следующему. */
   finish(code: number) {
     this.deliver({ exit: code });
     const delivery = this.#delivery;

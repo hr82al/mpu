@@ -9,7 +9,7 @@
 
 import { assertEquals, assertThrows } from "@std/assert";
 import type { CacheDb, SqlRow } from "../command/mod.ts";
-import { openCacheDb } from "./mod.ts";
+import { BUSY_TIMEOUT_MS, openCacheDb } from "./mod.ts";
 
 /** Ошибка с именем — чтобы transaction-тест различал её не по тексту. */
 class BoomError extends Error {
@@ -61,6 +61,21 @@ Deno.test("bootstrap: sqlite_master чистой БД совпадает с фи
     using db = openCacheDb(`${dir}/mpu.db`);
     db.bootstrap();
     assertEquals(dumpSchema(db), await readExpectedDump());
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("занятая база ждёт, а не отказывает: busy_timeout выставлен", async () => {
+  const dir = await Deno.makeTempDir();
+  try {
+    using db = openCacheDb(`${dir}/mpu.db`);
+    // К одному файлу ходят соседние процессы `mpu` и одновременные
+    // строки сервера (`platform/line-concurrency.md`); ждать их — дело
+    // самой SQLite, и значение ожидания задаётся при открытии.
+    assertEquals(db.query("PRAGMA busy_timeout")[0], {
+      timeout: BUSY_TIMEOUT_MS,
+    });
   } finally {
     await Deno.remove(dir, { recursive: true });
   }

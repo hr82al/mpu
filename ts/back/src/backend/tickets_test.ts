@@ -9,7 +9,7 @@ import { AGENT, OWNER } from "./caller.ts";
 import { AGENT_DOOR, HUMAN_DOOR } from "./door.ts";
 import { ticketAsking } from "./http.ts";
 import { DETACHED, Line } from "./line.ts";
-import { Serial } from "./queue.ts";
+import { Lines } from "./limit.ts";
 import { randomTicket, Tickets } from "./tickets.ts";
 
 function waitingLine(tickets: Tickets) {
@@ -47,9 +47,9 @@ Deno.test("остановка: ждущая номера строка не ис�
   assertEquals(await answer, undefined);
   assertEquals(tickets.take("n2", HUMAN_DOOR, OWNER), undefined);
   let ran = false;
-  const code = await line.execute("/", () => {
+  const code = await line.execute(() => {
     ran = true;
     return Promise.resolve(0);
-  }, new Serial());
+  }, new Lines(1));
   assertEquals([code, ran], [1, false]);
 });

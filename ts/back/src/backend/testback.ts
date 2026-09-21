@@ -27,6 +27,8 @@ export interface TestBack {
   readonly webSessions: string;
   /** Пути команд, дошедших до исполнения, по порядку. */
   readonly called: string[];
+  /** Каталоги, названные записями журнала, по порядку начала записи. */
+  readonly dirs: string[];
   /** Строки диагностики сервера. */
   readonly diagnosed: string[];
   /** Всё, что сервер отдал наружу, — для поиска токена. */
@@ -43,6 +45,8 @@ export interface BackSetup {
   readonly snapshotFile?: (dir: string) => string;
   /** Строка начала запись журнала: разбор и правила — дальше. */
   readonly begun?: (words: readonly string[]) => void;
+  /** Предел одновременности строк; не сказано — умолчание сервера. */
+  readonly lines?: number;
   /** Завершение записи журнала — после вывода строки, до кадра `exit`. */
   readonly finished?: () => Promise<void>;
   /** Генератор номера подтверждения. */
@@ -57,6 +61,7 @@ const AGENT_TOKEN = "ag3nt-" + "t0ken-" + "value";
 function recordingLog(
   called: string[],
   logged: string[],
+  dirs: string[],
   begun: (words: readonly string[]) => void,
   finished: () => Promise<void>,
 ): InvokeLog {
@@ -64,6 +69,7 @@ function recordingLog(
     begin: (command) => {
       const argv = "argv" in command ? command.argv : [];
       logged.push(JSON.stringify(argv));
+      dirs.push(command.cwd);
       begun(argv);
       return ({
         nativeCall: (command) => void called.push(command.path.join(" ")),
@@ -90,26 +96,29 @@ function recordingLog(
 
 /**
  * Сервер на время `body`; остановка и проверка токена — после.
- * Каталог процесса возвращается прежним: строки его меняют.
+ * Каталог процесса строки не трогают (`platform/line-concurrency.md`),
+ * возвращать его незачем.
  */
 export async function withBack(
   body: (back: TestBack) => Promise<void>,
   setup: BackSetup = {},
 ): Promise<void> {
   const dir = await Deno.makeTempDir();
-  const cwd = Deno.cwd();
   const called: string[] = [];
   const logged: string[] = [];
+  const dirs: string[] = [];
   const diagnosed: string[] = [];
   const snapshotFile = setup.snapshotFile?.(dir) ?? `${dir}/cache/tree.json`;
   const running = await serveBack({
     port: 0,
+    lines: setup.lines,
     tokens: { main: TOKEN, agent: AGENT_TOKEN },
     policyFile: `${dir}/policy.db`,
     io: makeFakeIo(setup.io ?? {}),
     log: recordingLog(
       called,
       logged,
+      dirs,
       setup.begun ?? (() => {}),
       setup.finished ?? (() => Promise.resolve()),
     ),
@@ -132,6 +141,7 @@ export async function withBack(
     webSessions: `${dir}/web-sessions`,
     called,
     logged,
+    dirs,
     diagnosed,
     seen: [],
     running,
@@ -139,12 +149,8 @@ export async function withBack(
   try {
     await body(back);
   } finally {
-    try {
-      // Повисшая очередь держала бы остановку вечно: тест краснеет.
-      await within(running.stop(), 10_000, "остановка сервера");
-    } finally {
-      Deno.chdir(cwd);
-    }
+    // Повисшее исполнение держало бы остановку вечно: тест краснеет.
+    await within(running.stop(), 10_000, "остановка сервера");
     await Deno.remove(dir, { recursive: true });
   }
   for (const text of [...back.seen, ...diagnosed]) {
