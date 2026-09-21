@@ -105,7 +105,7 @@ const ASKING: Script = async (socket, _first, answers) => {
   }
 };
 
-Deno.test("кадр ask: вопрос в stderr без перевода строки, ответ — строка stdin", async (t) => {
+Deno.test("кадр ask: вопрос на терминале, ответ — строка оттуда же", async (t) => {
   const cases: readonly (readonly [readonly string[], string, number])[] = [
     [["y"], "y", 0],
     [["n"], "n", 1],
@@ -118,7 +118,13 @@ Deno.test("кадр ask: вопрос в stderr без перевода стро
         withFakeServer(async (base, visits) => {
           const run = testEnv({ base, main: MAIN, terminals: true, answers });
           assertEquals(await runClient(["x"], run.env), code);
-          assertEquals(run.stderr, ["выполнить mpu x? [y/N] "]);
+          // Вопрос показывается на управляющем терминале — там же, где
+          // его видит человек (`cli-client.md`, «Канал и токен»).
+          assertEquals(run.asked, [{
+            kind: "line",
+            question: "выполнить mpu x? [y/N] ",
+          }]);
+          assertEquals(run.stderr, []);
           assertEquals(run.stdout, [`ответ ${JSON.stringify(sent)}\n`]);
           assertEquals(visits[0].answers, [sent]);
         }, { script: ASKING }),
@@ -126,11 +132,69 @@ Deno.test("кадр ask: вопрос в stderr без перевода стро
   }
 });
 
+/** Скрытый вопрос: пароль спрашивают и больше нигде не показывают. */
+const ASKING_SECRET: Script = async (socket, _first, answers) => {
+  socket.send(JSON.stringify({ ask: "Пароль: ", kind: "secret" }));
+  for await (const _answer of answers) {
+    socket.send(JSON.stringify({ exit: 0 }));
+    socket.close(1000);
+    return;
+  }
+};
+
+Deno.test("кадр ask вида secret: чтение без эха, ответ наружу не выходит", () =>
+  withFakeServer(async (base, visits) => {
+    const password = "п4роль-м4ркер";
+    const run = testEnv({
+      base,
+      main: MAIN,
+      terminals: true,
+      answers: [password],
+    });
+    assertEquals(await runClient(["x"], run.env), 0);
+    // Вид вопроса выбрал чтение: `secret` читается без эха, и это
+    // видно по тому, каким способом терминал отдал ответ.
+    assertEquals(run.asked, [{ kind: "secret", question: "Пароль: " }]);
+    assertEquals(visits[0].answers, [password]);
+    // Сам пароль клиент никуда не печатает.
+    assertEquals([...run.stdout, ...run.stderr], []);
+  }, { script: ASKING_SECRET }));
+
+/** Просьба положить текст в буфер и выход. */
+const CLIPPING: Script = (socket) => {
+  socket.send(JSON.stringify({ clip: "docker exec mp-sl-1-cli" }));
+  socket.send(JSON.stringify({ exit: 0 }));
+  socket.close(1000);
+  return Promise.resolve();
+};
+
+Deno.test("кадр clip: буфер у терминала, stderr у пайпа", async (t) => {
+  const cases: readonly (readonly [string, boolean, boolean])[] = [
+    ["терминал: текст в буфере", true, true],
+    ["терминал без буфера: текст в stderr", true, false],
+    ["пайп: буфер не трогается", false, false],
+  ];
+  for (const [name, terminals, clipboard] of cases) {
+    await t.step(name, () =>
+      withFakeServer(async (base) => {
+        const run = testEnv({ base, main: MAIN, terminals, clipboard });
+        assertEquals(await runClient(["x"], run.env), 0);
+        // Пайп в буфер не ходит вовсе: копировать там некуда, и
+        // попытка запустила бы чужую программу (`line-prompt.md`).
+        assertEquals(run.copied, terminals ? ["docker exec mp-sl-1-cli"] : []);
+        assertEquals(
+          run.stderr,
+          clipboard ? [] : ["docker exec mp-sl-1-cli\n"],
+        );
+      }, { script: CLIPPING }));
+  }
+});
+
 Deno.test("без человека вопрос не задаётся: ответ «нет» сразу", () =>
   withFakeServer(async (base, visits) => {
     const run = testEnv({ base, main: MAIN, terminals: false, answers: ["y"] });
     assertEquals(await runClient(["x"], run.env), 1);
-    assertEquals(run.stderr, []);
+    assertEquals(run.asked, []);
     assertEquals(visits[0].answers, [""]);
   }, { script: ASKING }));
 
@@ -228,4 +292,32 @@ Deno.test("--version — версия сборки, к серверу не хо�
   assertEquals(await runClient(["--version"], run.env), 0);
   assertEquals(run.stdout, ["0.1.0\n"]);
   assertEquals(run.stderr, []);
+});
+
+Deno.test("копирование дожидается программы: клиент не выходит раньше", () => {
+  // Копирование отпускается тем, что сокет уже закрыт со стороны
+  // сервера, — а это заведомо позже, чем закрылся клиент. Дождался
+  // клиент копирования или нет, видно по тому, что он успел положить
+  // в буфер к моменту своего выхода.
+  const closed = Promise.withResolvers<void>();
+  const script: Script = (socket) => {
+    socket.addEventListener("close", () => closed.resolve());
+    socket.send(JSON.stringify({ clip: "docker exec mp-sl-1-cli" }));
+    socket.send(JSON.stringify({ exit: 0 }));
+    socket.close(1000);
+    return Promise.resolve();
+  };
+  return withFakeServer(async (base) => {
+    const run = testEnv({
+      base,
+      main: MAIN,
+      terminals: true,
+      copying: closed.promise,
+    });
+    const atExit = await runClient(["x"], run.env).then((code) => ({
+      code,
+      copied: [...run.copied],
+    }));
+    assertEquals(atExit, { code: 0, copied: ["docker exec mp-sl-1-cli"] });
+  }, { script });
 });

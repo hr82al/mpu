@@ -9,7 +9,6 @@
 
 import { z } from "@zod/zod";
 import { type CacheDb, type CommandIo, UsageError } from "../command/mod.ts";
-import { copyToClipboard } from "../clipboard/mod.ts";
 import {
   chooseTransport,
   devCliContainer,
@@ -46,6 +45,7 @@ export type WrapIo = Pick<
   | "openCacheDb"
   | "openRemoteOutput"
   | "progress"
+  | "prompt"
   | "signal"
 >;
 
@@ -203,7 +203,7 @@ export interface WrapOptions {
   readonly runProcess?: RunProcess;
   readonly openChannel?: OpenChannel;
   readonly httpCall?: HttpCall;
-  readonly copy?: (text: string) => Promise<boolean>;
+  readonly copy?: (text: string) => Promise<void>;
 }
 
 /** Исполняет или печатает вызов обёртки. */
@@ -301,7 +301,7 @@ export async function runWrap(
       : `mpu ssh dev:${dev} -- ${text}`;
     // Недоступность буфера молчалива: строка уже напечатана, копирование
     // — довесок (`platform/clipboard.md`).
-    await (options.copy ?? copyToClipboard)(printed);
+    await (options.copy ?? ((text: string) => io.prompt.copy(text)))(printed);
     return { server, inner: text, printed, output: "", exitCode: 0 };
   } finally {
     // Кэш закрывается детерминированно: у MCP-сервера процесс живёт

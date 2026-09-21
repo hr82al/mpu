@@ -9,9 +9,12 @@
 
 import { DatabaseSync } from "node:sqlite";
 import {
+  type Answer,
   type CacheDb,
   type CommandIo,
   NEVER_STOPPED,
+  NO_ONE,
+  type Prompt,
   type SqlRow,
 } from "../command/mod.ts";
 import { SCHEMA_STATEMENTS } from "../store/schema.ts";
@@ -21,6 +24,69 @@ import { SCHEMA_STATEMENTS } from "../store/schema.ts";
  * остальное — падение с именем тронутой операции: тест, случайно
  * ушедший в файловую систему, должен краснеть, а не тихо работать.
  */
+/**
+ * Подставной спрошенный: отвечает заготовленным и помнит вопросы.
+ * Один на все тесты, потому что копия в каждом разъехалась бы ровно
+ * там, где важна одинаковость, — в том, что считать отсутствием ответа.
+ */
+export function promptAnswering(
+  answers: {
+    /** Ответ на видимый вопрос; не задан — спросить некого. */
+    readonly line?: string;
+    /** Ответ на скрытый вопрос; не задан — спросить некого. */
+    readonly secret?: string;
+  } = {},
+): Prompt & {
+  /** Заданные вопросы по порядку: вид и текст. */
+  readonly asked: { kind: "line" | "secret"; question: string }[];
+  /** Тексты, которые просили положить в буфер обмена. */
+  readonly copied: string[];
+} {
+  const asked: { kind: "line" | "secret"; question: string }[] = [];
+  const copied: string[] = [];
+  const reply = <T>(
+    kind: "line" | "secret",
+    question: string,
+    answer: Answer<T>,
+    text: string | undefined,
+  ): Promise<T> => {
+    asked.push({ kind, question });
+    return Promise.resolve(
+      text === undefined ? answer.absent() : answer.given(text),
+    );
+  };
+  return {
+    asked,
+    copied,
+    line: (question, answer) => reply("line", question, answer, answers.line),
+    secret: (question, answer) =>
+      reply("secret", question, answer, answers.secret),
+    copy: (text) => {
+      copied.push(text);
+      return Promise.resolve();
+    },
+  };
+}
+
+/**
+ * Спрошенный с очередью ответов: каждый вопрос забирает следующий,
+ * очередь кончилась — спросить некого. Нужен сценариям, которые
+ * спрашивают несколько раз подряд.
+ */
+export function promptQueue(answers: (string | undefined)[]): Prompt {
+  const next = <T>(answer: Answer<T>): Promise<T> => {
+    const text = answers.shift();
+    return Promise.resolve(
+      text === undefined ? answer.absent() : answer.given(text),
+    );
+  };
+  return {
+    line: (_question, answer) => next(answer),
+    secret: (_question, answer) => next(answer),
+    copy: () => Promise.resolve(),
+  };
+}
+
 export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
   const mustNotTouch = (what: string) => () => {
     throw new Error(`${what} must not be touched`);
@@ -49,9 +115,9 @@ export function makeFakeIo(overrides: Partial<CommandIo> = {}): CommandIo {
     // Заметки журнала тест по умолчанию глотает: они не наблюдаемая
     // поверхность команды, а запись о вызове.
     note: () => {},
-    // Терминала у теста по умолчанию нет: вопрос человеку в прогоне
-    // тестов задать некому, и команда обязана это заметить.
-    openTerminal: () => Promise.resolve(undefined),
+    // Спросить в прогоне тестов некого, и команда обязана это
+    // заметить; тест, которому нужен ответ, объявляет свой порт сам.
+    prompt: NO_ONE,
     readAccessToken: () => Promise.resolve(undefined),
     writeAccessToken: mustNotTouch("writeAccessToken"),
     // Холодный токен-кэш sl-back — штатный путь каждой команды `api`,

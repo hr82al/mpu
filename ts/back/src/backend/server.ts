@@ -20,6 +20,7 @@ import {
   ticketAnswerOf,
 } from "../frames/mod.ts";
 import { formFor, ticketAsking } from "./http.ts";
+import { linePrompt, type PromptDoor } from "./prompt.ts";
 import { DETACHED, Line } from "./line.ts";
 import { socketLine } from "./socket.ts";
 import { Tickets } from "./tickets.ts";
@@ -237,6 +238,7 @@ function keyOf(text: string): string {
 function lineIo(
   io: CommandIo,
   line: Line,
+  door: PromptDoor,
   request: LineRequest,
 ): CommandIo {
   const context = request.context;
@@ -265,10 +267,9 @@ function lineIo(
     // Просьба остановиться приходит от клиента, переставшего слушать
     // (`platform/line-cancel.md`).
     signal: line.stopping(),
-    // Терминала у строки нет при любом `tty`: вопрос человеку уходит
-    // кадром `ask`, а ввод в терминал клиента — следующая порция
-    // переключения.
-    openTerminal: () => Promise.resolve(undefined),
+    // Спрашивает и копирует тот, кто позвал: сервер только просит
+    // кадрами (`platform/line-prompt.md`).
+    prompt: linePrompt(line, door),
     openRemoteOutput: () => remoteFrames(line),
   };
 }
@@ -535,7 +536,12 @@ class Back {
       channel: () => channel,
       execute: (run) => line.execute(run, this.#lines),
     });
-    const io = lineIo(this.#options.io, line, request);
+    const io = lineIo(
+      this.#options.io,
+      line,
+      door.prompting(caller.human(request.human)),
+      request,
+    );
     line.finish(
       await runJournaled(request.words, entry, io, this.#options.log, line),
     );

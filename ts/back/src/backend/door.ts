@@ -7,6 +7,7 @@
 import { Agent, type Channel, Human, NOBODY } from "../policy/mod.ts";
 import type { RootMethod } from "../next/mod.ts";
 import type { Line } from "./line.ts";
+import type { PromptDoor } from "./prompt.ts";
 import type { WebAccess } from "./web.ts";
 
 /** Путь подключения: строит канал строки. */
@@ -16,6 +17,14 @@ export interface Door {
    * @param human есть ли у клиента, кого спросить (поле первого кадра)
    */
   channel(line: Line, human: boolean): Channel;
+  /**
+   * Что проходит по двери, когда спрашивает сама команда
+   * (`platform/line-prompt.md`): какие виды вопроса и предлагается ли
+   * копирование.
+   *
+   * @param human есть ли у клиента, кого спросить
+   */
+  prompting(human: boolean): PromptDoor;
   /** Методы корня, которые есть только у этой двери. */
   rootMethods(services: DoorServices): readonly RootMethod[];
 }
@@ -58,14 +67,39 @@ function clientChannel(line: Line, human: boolean): Channel {
   return new Human((question) => line.question(question), () => line.answer());
 }
 
+/** Дверь человека: спрашивает оба вида и предлагает копирование. */
+const HUMAN_PROMPTS: PromptDoor = {
+  asks: () => true,
+  copies: () => true,
+};
+
+/**
+ * Дверь агента: скрытый ввод не задаётся никогда, даже с `human: true`
+ * (`platform/line-prompt.md`) — ответ прошёл бы через переписку клиента
+ * агента и осел в его истории. Копирование ему не предлагается: буфера
+ * обмена у агента нет.
+ */
+const AGENT_PROMPTS: PromptDoor = {
+  asks: (kind) => kind === "line",
+  copies: () => false,
+};
+
+/** Спросить некого: клиент пришёл без человека. */
+const NO_PROMPTS: PromptDoor = {
+  asks: () => false,
+  copies: () => false,
+};
+
 /** `/line`: клиент отвечает на вопросы, включая изменение правила. */
 export const HUMAN_DOOR: Door = {
   channel: clientChannel,
+  prompting: (human) => human ? HUMAN_PROMPTS : NO_PROMPTS,
   rootMethods: webMethods,
 };
 
 /** `/agent/line`: вопрос `ask` — клиенту, изменение правила — никому. */
 export const AGENT_DOOR: Door = {
   channel: (line, human) => new Agent(clientChannel(line, human)),
+  prompting: (human) => human ? AGENT_PROMPTS : NO_PROMPTS,
   rootMethods: () => [],
 };

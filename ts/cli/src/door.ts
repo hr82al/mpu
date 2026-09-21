@@ -4,7 +4,11 @@
  * выбранные один раз: дальше клиент о токенах и терминалах не спрашивает.
  */
 
-import type { ContextFields, FirstFrame } from "../../back/src/frames/mod.ts";
+import type {
+  AskKind,
+  ContextFields,
+  FirstFrame,
+} from "../../back/src/frames/mod.ts";
 import { type Asker, NOBODY } from "./asker.ts";
 
 /** Путь, токен и отвечающий строки. */
@@ -55,8 +59,8 @@ export class Door {
     return { words, cwd, human: this.#asker.present, ...context };
   }
 
-  answer(question: string): Promise<string> {
-    return this.#asker.answer(question);
+  answer(question: string, kind: AskKind): Promise<string> {
+    return this.#asker.answer(question, kind);
   }
 }
 

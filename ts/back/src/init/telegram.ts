@@ -20,7 +20,7 @@ import { loginFailureReason, runTelegramLoginStep } from "../telegram/mod.ts";
 /** Срез порта: ровно то, что нужно самому входу. */
 export type TelegramIo = Pick<
   CommandIo,
-  "envFile" | "openTerminal" | "progress"
+  "envFile" | "progress" | "prompt"
 >;
 
 /**

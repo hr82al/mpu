@@ -10,6 +10,8 @@ export { BadFrame } from "./bad.ts";
 
 export {
   answerOf,
+  askFrame,
+  type AskKind,
   type Collected,
   collectedOf,
   type FirstFrame,

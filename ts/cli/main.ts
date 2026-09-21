@@ -3,7 +3,9 @@
  * процесса → строка на сервере → код.
  */
 
+import { copyToClipboard } from "../back/src/clipboard/mod.ts";
 import type { CallerFacts } from "../back/src/frames/mod.ts";
+import { openControllingTerminal } from "../back/src/terminal/mod.ts";
 import { type ClientEnv, runClient } from "./src/mod.ts";
 
 const DEFAULT_URL = "http://127.0.0.1:7338";
@@ -28,20 +30,6 @@ async function tokenAt(path: string): Promise<string | undefined> {
     // токеном он не ходит (`cli-client.md`, «Канал и токен»).
     return undefined;
   }
-}
-
-/** Строка stdin побайтно: лишнего из терминала не забирать. */
-async function readLine(): Promise<string | undefined> {
-  const bytes: number[] = [];
-  const chunk = new Uint8Array(1);
-  while (true) {
-    const read = await Deno.stdin.read(chunk);
-    if (read === null) break;
-    if (read === 0) continue;
-    if (chunk[0] === 0x0a) return decoder.decode(new Uint8Array(bytes));
-    bytes.push(chunk[0]);
-  }
-  return bytes.length === 0 ? undefined : decoder.decode(new Uint8Array(bytes));
 }
 
 /** Весь stdin текстом; stdin — терминал — ввода нет (`cli-client.md`). */
@@ -82,7 +70,8 @@ if (import.meta.main) {
     mainToken: () => tokenAt(`${config}/token`),
     agentToken: () => tokenAt(`${config}/agent-token`),
     caller,
-    readLine,
+    openTerminal: openControllingTerminal,
+    copy: (text) => copyToClipboard(text),
     stdout: (text) => writeAll(Deno.stdout, text),
     stderr: (text) => writeAll(Deno.stderr, text),
     cwd: () => Deno.cwd(),

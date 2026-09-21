@@ -4,7 +4,7 @@
  * закрытие клиентом — строка закрыта.
  */
 
-import { answerOf } from "../frames/mod.ts";
+import { answerOf, askFrame } from "../frames/mod.ts";
 import { type Asking, type Delivery, Line } from "./line.ts";
 
 /** Код закрытия сокета после кадра `exit`. */
@@ -27,8 +27,8 @@ function socketDelivery(socket: WebSocket): Delivery {
 
 /** Вопрос — кадром `ask` в тот же сокет; отзывать нечего. */
 const SOCKET_ASKING: Asking = {
-  pose(line, question) {
-    line.deliver({ ask: question });
+  pose(line, question, kind) {
+    line.deliver(askFrame(question, kind));
     return { revoke() {} };
   },
 };

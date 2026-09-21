@@ -5,6 +5,7 @@
  */
 
 import {
+  type AskKind,
   BadFrame,
   type CallerFacts,
   type ContextFields,
@@ -13,7 +14,9 @@ import {
   serverFrameOf,
   VERSION,
 } from "../../back/src/frames/mod.ts";
+import type { TerminalIo } from "../../back/src/terminal/mod.ts";
 import { type Asker, humanAsker, NOBODY } from "./asker.ts";
+import { type Clip, clipboard, shown } from "./clip.ts";
 import { chooseDoor, type Door } from "./door.ts";
 
 /** Код прерывания по Ctrl+C: 128 + SIGINT. */
@@ -37,8 +40,10 @@ export interface ClientEnv {
   readonly agentToken: () => Promise<string | undefined>;
   /** Что клиент снимает у себя: ввод, терминальность, переменные. */
   readonly caller: CallerFacts;
-  /** Одна строка stdin; конец ввода — `undefined`. */
-  readonly readLine: () => Promise<string | undefined>;
+  /** Открыть управляющий терминал; его нет — спросить некого. */
+  readonly openTerminal: () => Promise<TerminalIo | undefined>;
+  /** Положить текст в буфер обмена; удалось ли. */
+  readonly copy: (text: string) => Promise<boolean>;
   readonly stdout: (text: string) => void;
   readonly stderr: (text: string) => void;
   readonly cwd: () => string;
@@ -83,15 +88,20 @@ class LineSocket {
   readonly #door: Door;
   readonly #env: ClientEnv;
   readonly #closed = Promise.withResolvers<void>();
+  readonly #clip: Clip;
   #ending: Ending = BROKEN;
+  #copying: Promise<void> = Promise.resolve();
+
   constructor(
     door: Door,
     env: ClientEnv,
+    clip: Clip,
     words: readonly string[],
     context: ContextFields,
   ) {
     this.#door = door;
     this.#env = env;
+    this.#clip = clip;
     this.#socket = new WebSocket(door.socket(env.base), door.protocols());
     this.#socket.onopen = () =>
       this.#socket.send(
@@ -111,6 +121,10 @@ class LineSocket {
       this.#env.interrupted.then(() => this.#interrupt()),
     ]);
     await this.#closed.promise;
+    // Копирование переживает закрытие сокета: клиент выходит
+    // `Deno.exit`, и незаконченная просьба пропала бы вместе с
+    // процессом, не дождавшись программы копирования.
+    await this.#copying;
     return this.#ending.close(this.#env);
   }
 
@@ -142,17 +156,25 @@ class LineSocket {
       // без него (таймаут 120 с, остановка), и клиент, ждущий строку
       // stdin, повис бы после конца строки. Отвергнуться `#reply` не
       // может — сбой чтения ответа он сам превращает в «нет».
-      this.#reply(frame.ask);
+      this.#reply(frame.ask, frame.kind ?? "line");
+      return;
+    }
+    // Просьба положить текст в буфер обмена: куда он ляжет — в буфер
+    // или в stderr — решает сам клиент (`platform/line-prompt.md`).
+    if ("clip" in frame) {
+      // Копирования идут по одному и в порядке прихода: буфер один, и
+      // две просьбы разом положили бы в него неизвестно что.
+      this.#copying = this.#copying.then(() => this.#clip.put(frame.clip));
       return;
     }
     this.#ending = exited(frame.exit);
     this.#socket.close();
   }
 
-  async #reply(question: string) {
+  async #reply(question: string, kind: AskKind) {
     let answer: string;
     try {
-      answer = await this.#door.answer(question);
+      answer = await this.#door.answer(question, kind);
     } catch (err) {
       // Не прочитался ответ — это «нет»: вопрос без ответа сервер так и
       // толкует; причина — в stderr, строку решит сервер.
@@ -210,12 +232,18 @@ export async function runClient(
     env.stderr(`mpu-next: ${err.report}\n`);
     return REFUSED_INPUT;
   }
-  // Спросить есть кого, когда у клиента терминалы и на вопрос, и на
-  // ответ (`cli-client.md`, «Канал и токен»).
-  const asker: Asker = env.caller.stdinIsTerminal() &&
-      env.caller.stderrIsTerminal()
-    ? humanAsker(env.stderr, env.readLine)
-    : NOBODY;
+  // Спросить есть кого, когда открывается управляющий терминал: у
+  // клиента в середине конвейера stdin занят данными, и по нему он
+  // объявил бы «спросить некого» (`cli-client.md`, «Канал и токен»).
+  using terminal = await env.openTerminal();
+  // Тем же терминалом решается и судьба кадра `clip`: буфер обмена
+  // есть у того, у кого есть терминал (`platform/line-prompt.md`).
+  const asker: Asker = terminal === undefined
+    ? NOBODY
+    : humanAsker(env.openTerminal);
+  const clip: Clip = terminal === undefined
+    ? shown(env.stderr)
+    : clipboard(env.copy, env.stderr);
   const door = chooseDoor(await env.mainToken(), await env.agentToken(), asker);
   if (door === undefined) {
     env.stderr(`mpu-next: нет токена доступа (${env.mainTokenPath})\n`);
@@ -228,5 +256,5 @@ export async function runClient(
     env.stderr(refused);
     return FAILED;
   }
-  return await new LineSocket(door, env, words, context).run();
+  return await new LineSocket(door, env, clip, words, context).run();
 }

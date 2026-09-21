@@ -7,7 +7,7 @@
  */
 
 import type { Output } from "../entrypoint/mod.ts";
-import type { ServerFrame } from "../frames/mod.ts";
+import type { AskKind, ServerFrame } from "../frames/mod.ts";
 import { type Lines, NO_SLOT, type Slot } from "./limit.ts";
 import { Stopping } from "./stopping.ts";
 
@@ -53,7 +53,7 @@ const NOTHING: Revocable = { revoke() {} };
 
 /** Как строка задаёт вопрос: кадром в тот же поток или номером. */
 export interface Asking {
-  pose(line: Line, question: string): Revocable;
+  pose(line: Line, question: string, kind: AskKind): Revocable;
 }
 
 /** Ожидание ответа на заданный вопрос. */
@@ -167,9 +167,14 @@ export class Line implements Output {
     return this.#state.ready(this.#delivery);
   }
 
-  /** Вопрос способом транспорта. */
-  question(text: string) {
-    this.#posed = this.#asking.pose(this, text);
+  /**
+   * Вопрос способом транспорта.
+   *
+   * @param text текст вопроса как его увидит человек
+   * @param kind вид ответа: видимый или скрытый
+   */
+  question(text: string, kind: AskKind = "line") {
+    this.#posed = this.#asking.pose(this, text, kind);
   }
 
   /** Ответ на заданный вопрос; тишина, закрытие, остановка — `undefined`. */

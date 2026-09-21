@@ -17,9 +17,9 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
 import { TelegramClient } from "@mtcute/deno";
 import { VerbatimError } from "../command/mod.ts";
-import type { EnvFile, TerminalIo } from "../command/mod.ts";
+import type { EnvFile, Prompt } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo, promptQueue } from "../testing/mod.ts";
 import { openSession } from "./session.ts";
 
 /** Причина отказа соединения, как её отдаёт Deno. */
@@ -128,16 +128,10 @@ function run(
     values: () => ({ ...values }),
   };
   const answers = ["+70001112233"];
-  const terminal: TerminalIo = {
-    name: undefined,
-    write: () => Promise.resolve(),
-    readLine: () => Promise.resolve(answers.shift()),
-    readSecret: () => Promise.resolve(undefined),
-    [Symbol.dispose]: () => {},
-  };
+  const prompt: Prompt = promptQueue(answers);
   const code = runCli(
     argv,
-    makeFakeIo({ envFile, openTerminal: () => Promise.resolve(terminal) }),
+    makeFakeIo({ envFile, prompt }),
     {
       stdout: (text) => void stdout.push(text),
       stderr: (text) => void stderr.push(text),

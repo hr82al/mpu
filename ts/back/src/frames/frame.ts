@@ -31,11 +31,50 @@ export interface LineRequest {
   readonly context: CallContext;
 }
 
+/** Вид вопроса: видимый ответ или скрытый (`platform/line-prompt.md`). */
+export type AskKind = "line" | "secret";
+
+/**
+ * Вид вопроса из кадра: нет поля или `line` — умолчание, и в разобранном
+ * кадре его тоже нет. Чужое значение — плохой кадр, а не молчаливое
+ * «видимый»: смысл вида в том, чтобы скрытое не стало видимым по ошибке.
+ *
+ * @throws BadFrame — вид не `line` и не `secret`
+ */
+function askKindOf(value: unknown): AskKind | undefined {
+  if (value === undefined || value === "line") return undefined;
+  if (value === "secret") return "secret";
+  throw new BadFrame("вид вопроса не line и не secret");
+}
+
+/**
+ * Кадр вопроса. Вид `line` в кадр не пишется: он и есть умолчание, а
+ * клиент прежней версии, не знающий поля, должен видеть тот же кадр,
+ * что и раньше (`platform/line-prompt.md`, инварианты).
+ *
+ * @param ask текст вопроса
+ * @param kind вид ответа
+ * @param ticket номер подтверждения, если вопрос задан им
+ */
+export function askFrame(
+  ask: string,
+  kind: AskKind,
+  ticket?: string,
+): ServerFrame {
+  const asked = kind === "secret" ? { ask, kind } : { ask };
+  return ticket === undefined ? asked : { ...asked, ticket };
+}
+
 /** Кадр сервера. */
 export type ServerFrame =
   | { readonly out: string }
   | { readonly err: string }
-  | { readonly ask: string; readonly ticket?: string }
+  | {
+    readonly ask: string;
+    readonly kind?: AskKind;
+    readonly ticket?: string;
+  }
+  | { readonly clip: string }
   | { readonly exit: number };
 
 /**
@@ -79,6 +118,13 @@ export function answerOf(data: unknown): string | undefined {
 export function serverFrameOf(data: unknown): ServerFrame {
   const frame = parsedJson(data);
   if (!isRecord(frame)) throw new BadFrame("кадр сервера не объект JSON");
+  const { ask, kind, ...rest } = frame;
+  // Вид вопроса — не отдельный кадр, а уточнение к `ask`; прочие кадры
+  // остаются однополевыми.
+  if (typeof ask === "string" && Object.keys(rest).length === 0) {
+    const asked = askKindOf(kind);
+    return asked === undefined ? { ask } : { ask, kind: asked };
+  }
   const keys = Object.keys(frame);
   if (keys.length !== 1) throw new BadFrame("у кадра сервера не одно поле");
   const [key] = keys;
@@ -89,7 +135,7 @@ export function serverFrameOf(data: unknown): ServerFrame {
   if (typeof value !== "string") throw new BadFrame(`кадр ${key} не строка`);
   if (key === "out") return { out: value };
   if (key === "err") return { err: value };
-  if (key === "ask") return { ask: value };
+  if (key === "clip") return { clip: value };
   throw new BadFrame(`неизвестный кадр ${key}`);
 }
 
@@ -127,6 +173,8 @@ export type Collected =
     readonly stdout: string;
     readonly stderr: string;
     readonly ask: string;
+    /** Вид ответа; `line` — умолчание, и поля тогда нет. */
+    readonly kind?: AskKind;
     readonly ticket: string;
   };
 
@@ -138,7 +186,7 @@ export type Collected =
 export function collectedOf(data: unknown): Collected {
   const body = parsedJson(data);
   if (!isRecord(body)) throw new BadFrame("собранный ответ не объект JSON");
-  const { stdout, stderr, exit, ask, ticket } = body;
+  const { stdout, stderr, exit, ask, kind, ticket } = body;
   if (typeof stdout !== "string" || typeof stderr !== "string") {
     throw new BadFrame("в собранном ответе нет потоков");
   }
@@ -146,7 +194,12 @@ export function collectedOf(data: unknown): Collected {
     return { stdout, stderr, exit };
   }
   if (typeof ask === "string" && typeof ticket === "string") {
-    return { stdout, stderr, ask, ticket };
+    // Вид вопроса доезжает и этим трактом: иначе скрытый ответ читался
+    // бы с эхом (`platform/line-prompt.md`).
+    const asked = askKindOf(kind);
+    return asked === undefined
+      ? { stdout, stderr, ask, ticket }
+      : { stdout, stderr, ask, kind: asked, ticket };
   }
   throw new BadFrame("в собранном ответе нет итога");
 }

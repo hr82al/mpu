@@ -116,7 +116,7 @@ Deno.test("печать: docker-команда одной строкой — э�
     const result = await runMakeSchema(args(), io(db), {
       copy: (text) => {
         copied.push(text);
-        return Promise.resolve(true);
+        return Promise.resolve();
       },
     });
     assertEquals(
@@ -204,7 +204,7 @@ Deno.test("явный --client-id кэш не открывает", async () => {
   const result = await runMakeSchema(
     { selector: "что угодно", server: "sl-3", "client-id": 42, print: true },
     io,
-    { copy: () => Promise.resolve(true) },
+    { copy: () => Promise.resolve() },
   );
   assertStringIncludes(result.command, "mp-sl-3-cli");
   assertStringIncludes(result.command, "--client-id 42 --server sl-3");

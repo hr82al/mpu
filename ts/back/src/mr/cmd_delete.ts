@@ -42,7 +42,7 @@ type DeleteArgs = z.infer<typeof argsSchema>;
 type DeleteResult = z.infer<typeof resultSchema>;
 
 /** Порт: к общему срезу добавляется терминал для вопроса человеку. */
-export type DeleteIo = MrIo & Pick<CommandIo, "openTerminal">;
+export type DeleteIo = MrIo & Pick<CommandIo, "prompt">;
 
 /** Ход вызова: адрес, подтверждение, DELETE. */
 export async function runDelete(
@@ -53,18 +53,19 @@ export async function runDelete(
   const access = gitlabAccess(io);
   const address = await mrAddress(io, access, args.mr, options);
   if (!args.yes) {
-    using terminal = await io.openTerminal();
-    if (terminal === undefined) {
-      // Отказ состояния, а не ввода: команда набрана верно, спросить
-      // некого. И DELETE при этом не выполняется — в этом весь смысл.
-      throw new DomainError("нет TTY для подтверждения — добавь --yes");
-    }
-    await terminal.write(
+    await io.prompt.line(
       `Удалить note ${args.note} в ${address.project}!${address.iid}? [y/N] `,
+      {
+        given: (answer) => {
+          if (!isYes(answer)) throw new DomainError("отменено");
+        },
+        // Отказ состояния, а не ввода: команда набрана верно, спросить
+        // некого. И DELETE при этом не выполняется — в этом весь смысл.
+        absent: () => {
+          throw new DomainError("нет TTY для подтверждения — добавь --yes");
+        },
+      },
     );
-    if (!isYes(await terminal.readLine())) {
-      throw new DomainError("отменено");
-    }
   }
   try {
     await deleteNote(access, address, args.note);

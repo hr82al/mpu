@@ -141,7 +141,11 @@ async function viaClient(line: Line, back: TestBack): Promise<Seen> {
   const code = await runClient(line.words, run.env);
   const seen = {
     stdout: run.stdout.join(""),
-    stderr: run.stderr.join(""),
+    // Вопрос клиент показывает на управляющем терминале, монолит — в
+    // stderr; у человека это одно и то же устройство (`cli-client.md`,
+    // «Канал и токен»), и сверка складывает их так же.
+    stderr: run.asked.map((one) => one.question).join("") +
+      run.stderr.join(""),
     code,
   };
   for (const token of [back.token, back.agentToken]) {

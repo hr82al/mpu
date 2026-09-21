@@ -28,6 +28,17 @@ export type { InputForm, InputSpec } from "./args.ts";
 export type { ObjectSchema, SchemaField } from "./schema.ts";
 
 /**
+ * Спросить некого: ни вопроса, ни копирования у этого вызывающего.
+ * Один на процесс — своей памяти у него нет.
+ */
+export const NO_ONE: Prompt = {
+  line: (_question, answer) => Promise.resolve(answer.absent()),
+  secret: (_question, answer) => Promise.resolve(answer.absent()),
+  // Копировать некому: текст команда печатает и без буфера.
+  copy: () => Promise.resolve(),
+};
+
+/**
  * Сигнал, который не взводится никогда: остановки у этого вызова нет.
  * Один на процесс — у него нет своей памяти (`platform/line-cancel.md`).
  */
@@ -176,13 +187,16 @@ export interface CommandIo {
    */
   readonly note: (line: string) => void;
   /**
-   * Управляющий терминал процесса для вопроса человеку. `undefined` —
-   * терминала нет: пайп без tty, cron, вызов тула.
+   * Спросить того, кто позвал (`platform/line-prompt.md`): вопрос с
+   * видимым ответом, вопрос со скрытым и просьба положить текст в его
+   * буфер обмена.
    *
    * Отдельный порт, а не stdin: у команды-ворот stdin занят данными, и
-   * спрашивать по нему нечего (`docs/specs/confirm.md`).
+   * спрашивать по нему нечего (`docs/specs/confirm.md`). Терминала у
+   * команды нет ни в каком виде: у строки сервера он чужой, а у
+   * процесса CLI за ним ходит рантайм.
    */
-  readonly openTerminal: () => Promise<TerminalIo | undefined>;
+  readonly prompt: Prompt;
   /** Токен доступа MCP-сервера; файла нет — `undefined`. */
   readonly readAccessToken: () => Promise<string | undefined>;
   /** Запись токена: отдельный файл конфиг-каталога, права 0600. */
@@ -279,26 +293,43 @@ export type JournalMarks =
   };
 
 /**
- * Открытый управляющий терминал: вопрос человеку и его ответ.
- *
- * Имя устройства необязательно: в Deno нет `ttyname`, и рантайм,
- * который его не знает, честно отдаёт `undefined` — диагностика назовёт
- * это вслух, а не укоротит вывод молча (`docs/specs/confirm.md`).
+ * Что делает спросивший с исходом вопроса: получен ответ или спросить
+ * оказалось некого. Решает получатель, а не порт: у `confirm` на
+ * «некого» свой текст с диагностикой, у входа в Telegram — пропуск
+ * шага, у `mr delete` — отказ с подсказкой `--yes`.
  */
-export interface TerminalIo extends Disposable {
-  readonly name: string | undefined;
-  /** Пишет текст в терминал как есть, без добавленного перевода. */
-  readonly write: (text: string) => Promise<void>;
-  /** Одна строка ответа без перевода; конец ввода — `undefined`. */
-  readonly readLine: () => Promise<string | undefined>;
+export interface Answer<T> {
+  /** Ответ пришёл — как его набрали, без перевода строки. */
+  given(text: string): Promise<T> | T;
   /**
-   * То же, но набранное не показывается на экране: пароль второго
-   * фактора Telegram (`docs/specs/telegram-login.md`, инвариант 1).
-   * Отдельный метод, а не флаг у `readLine`: у скрытого чтения другой
-   * режим терминала, и «видимо ли набранное» должно быть видно на
-   * месте вызова, а не спрятано в аргументе.
+   * Спрашивать некого: у вызывающего нет человека, либо его дверь
+   * такого вопроса не задаёт. Не то же, что пустой ответ: человек,
+   * закрывший ввод, ответил — просто ничем, и это `given("")`.
    */
-  readonly readSecret: () => Promise<string | undefined>;
+  absent(): Promise<T> | T;
+}
+
+/**
+ * Спросить того, кто позвал (`platform/line-prompt.md`). У строки
+ * сервера это кадры клиенту, у процесса CLI — его собственный
+ * терминал; спрашивающая команда разницы не видит.
+ */
+export interface Prompt {
+  /** Вопрос с видимым ответом. */
+  line<T>(question: string, answer: Answer<T>): Promise<T>;
+  /**
+   * Вопрос, ответ на который не показывается при наборе: пароль
+   * второго фактора Telegram (`docs/specs/telegram-login.md`,
+   * инвариант 1). Отдельное сообщение, а не флаг у `line`: «видно ли
+   * набранное» должно быть видно на месте вызова.
+   */
+  secret<T>(question: string, answer: Answer<T>): Promise<T>;
+  /**
+   * Просьба положить текст в буфер обмена того, кто позвал. Ответа
+   * нет: копирование — услуга, и её недоступность команду не меняет
+   * (текст она печатает и так).
+   */
+  copy(text: string): Promise<void>;
 }
 
 /**

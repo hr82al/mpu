@@ -193,7 +193,7 @@ async function withCache(
 }
 
 function options(run: RunProcess): RunJsOptions {
-  return { runProcess: run, copy: () => Promise.resolve(true) };
+  return { runProcess: run, copy: () => Promise.resolve() };
 }
 
 Deno.test("успех: вывод и служебные строки — эталоны канала", async (t) => {
@@ -240,7 +240,7 @@ Deno.test("--dry-run: блок эталона, буфер обмена, ни с�
     {
       copy: (text) => {
         copied.push(text);
-        return Promise.resolve(true);
+        return Promise.resolve();
       },
       runProcess: () => {
         throw new Error("выполнения при --dry-run быть не должно");
@@ -269,7 +269,7 @@ Deno.test("--dry-run: блок эталона, буфер обмена, ни с�
     const failed = await runRunJs(
       args({ selector: "sl-0", code: "console.log(1)", "dry-run": true }),
       io2,
-      { copy: () => Promise.resolve(false) },
+      { copy: () => Promise.resolve() },
     );
     assertEquals(failed.exitCode, 0);
     assertEquals(failed.preview, await golden("dry-run-stdout.txt"));
@@ -536,7 +536,7 @@ Deno.test("несколько таргетов в --dry-run: блок с мет�
     const result = await runRunJs(
       args({ all: true, selector: "console.log(1)", "dry-run": true }),
       io,
-      { copy: () => Promise.resolve(true) },
+      { copy: () => Promise.resolve() },
     );
     assertEquals(
       result.preview,

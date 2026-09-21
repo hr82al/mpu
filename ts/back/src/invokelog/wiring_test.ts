@@ -10,7 +10,12 @@ import { z } from "@zod/zod";
 import { runCli } from "../entrypoint/mod.ts";
 import { handleMcp } from "../mcp/mod.ts";
 import { nativeEntry } from "../mcp/native_tool.ts";
-import { type Command, defineCommand, DomainError } from "../command/mod.ts";
+import {
+  type Command,
+  defineCommand,
+  DomainError,
+  NO_ONE,
+} from "../command/mod.ts";
 import { commands } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { type InvokeLog, makeInvokeLog } from "./mod.ts";
@@ -111,9 +116,9 @@ Deno.test("вход в Telegram: журнал не получает ни стр�
           },
           set: () => Promise.reject(new Error("set не ожидается")),
         },
-        // Терминала нет — вход и не начинается; на экран идёт строка
+        // Спросить некого — вход и не начинается; на экран идёт строка
         // «уже авторизован», и она‑то в журнал попасть не должна.
-        openTerminal: () => Promise.resolve(undefined),
+        prompt: NO_ONE,
         progress: () => {},
       }),
     );

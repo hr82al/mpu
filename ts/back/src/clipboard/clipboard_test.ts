@@ -13,6 +13,7 @@
 import { assertEquals } from "@std/assert";
 import {
   type ClipboardPorts,
+  COPY_UTILITIES,
   copyToClipboard,
   denoPorts,
   osc52,
@@ -203,4 +204,10 @@ Deno.test("настоящие порты: утилита, её код выход
       false,
     );
   });
+});
+
+Deno.test("имена программ копирования — те же, что в порядке попыток", () => {
+  // Список имён отдан наружу (права задач `cli` сверяются с ним), а
+  // порядок попыток живёт таблицей рядом: разъедутся — тест краснеет.
+  assertEquals([...COPY_UTILITIES], ["wl-copy", "xclip", "xsel"]);
 });

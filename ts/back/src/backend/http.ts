@@ -5,7 +5,7 @@
  * ждёт продолжения следующим запросом.
  */
 
-import type { ServerFrame } from "../frames/mod.ts";
+import { type AskKind, askFrame, type ServerFrame } from "../frames/mod.ts";
 import type { Caller } from "./caller.ts";
 import type { Door } from "./door.ts";
 import type { Asking, Delivery } from "./line.ts";
@@ -115,7 +115,11 @@ const NDJSON: Form = {
 /** Итог собранного ответа: `exit` или вопрос с номером. */
 type Tail =
   | { readonly exit: number }
-  | { readonly ask: string; readonly ticket?: string };
+  | {
+    readonly ask: string;
+    readonly kind?: AskKind;
+    readonly ticket?: string;
+  };
 
 /**
  * Собранный ответ: копит потоки, отдаёт один объект в конце. Обрыв
@@ -133,6 +137,10 @@ const COLLECTED: Form = {
     const take = (frame: ServerFrame) => {
       if ("out" in frame) stdout += frame.out;
       else if ("err" in frame) stderr += frame.err;
+      // Просьба о буфере обмена в собранный ответ не входит: у него
+      // нет клиента с терминалом, и итогом строки она не является
+      // (`platform/line-prompt.md`).
+      else if ("clip" in frame) stderr += frame.clip;
       else tail = frame;
     };
     return {
@@ -223,9 +231,9 @@ export function ticketAsking(
   caller: Caller,
 ): Asking {
   return {
-    pose(line, question) {
+    pose(line, question, kind) {
       const ticket = tickets.issue(line, door, caller);
-      line.deliver({ ask: question, ticket: ticket.id });
+      line.deliver(askFrame(question, kind, ticket.id));
       line.detach();
       return ticket;
     },

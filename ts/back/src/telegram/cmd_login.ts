@@ -33,7 +33,7 @@ type LoginCommandResult = z.infer<typeof resultSchema>;
 /** Срез порта: env-файл, терминал и строка хода. */
 type LoginCommandIo = Pick<
   CommandIo,
-  "envFile" | "openTerminal" | "progress"
+  "envFile" | "progress" | "prompt"
 >;
 
 /** Прокси только для Telegram — те же источники, что у сеанса. */
@@ -58,10 +58,9 @@ function proxyOf(io: LoginCommandIo): ProxySettings | undefined {
 export async function runTelegramLoginStep(
   io: LoginCommandIo,
 ): Promise<LoginResult> {
-  using terminal = await io.openTerminal();
   const port: LoginIo = {
     envFile: io.envFile,
-    terminal,
+    prompt: io.prompt,
     progress: io.progress,
     // Ленивый импорт: крипта MTProto и её wasm не должны попадать в
     // старт каждого вызова `mpu`, а до входа доходит меньшинство

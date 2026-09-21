@@ -18,7 +18,7 @@ import {
 } from "../command/mod.ts";
 import type { RunGit } from "../gitlab/mod.ts";
 import { startFakeGitlab } from "../gitlab/testing.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo, promptAnswering } from "../testing/mod.ts";
 import { renderComment, runComment } from "./cmd_comment.ts";
 import { renderCreate, runCreate } from "./cmd_create.ts";
 import { renderDelete, runDelete } from "./cmd_delete.ts";
@@ -657,15 +657,7 @@ Deno.test("delete: без TTY отказ и ни одного DELETE", async (t)
     await t.step("отказ человека в терминале — без DELETE", async () => {
       const before = stand.seen.filter((r) => r.method === "DELETE").length;
       const io = ioTo(stand.baseUrl, {
-        openTerminal: () =>
-          Promise.resolve({
-            name: "/dev/tty",
-            write: () => Promise.resolve(),
-            readLine: () => Promise.resolve("n"),
-            readSecret: () =>
-              Promise.reject(new Error("readSecret не ожидается")),
-            [Symbol.dispose]: () => {},
-          }),
+        prompt: promptAnswering({ line: "n" }),
       });
       await assertRejects(
         () =>

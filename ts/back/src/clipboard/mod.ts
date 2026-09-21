@@ -27,7 +27,14 @@ const UTILITY_TIMEOUT_MS = 2_000;
 const ESC = 0x1b;
 const BEL = 0x07;
 
-/** Утилиты по порядку попыток (спека). */
+/**
+ * Имена программ копирования — тот же список, что перечислен в правах
+ * задач `cli`/`compile:cli` (`deno.jsonc`). Здесь он единственный:
+ * тест прав сверяет строку задачи с ним, а не повторяет имена.
+ */
+export const COPY_UTILITIES: readonly string[] = ["wl-copy", "xclip", "xsel"];
+
+/** Утилиты по порядку попыток (спека): имя и его аргументы. */
 const UTILITIES: readonly (readonly [string, readonly string[]])[] = [
   ["wl-copy", []],
   ["xclip", ["-selection", "clipboard"]],

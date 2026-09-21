@@ -1,5 +1,12 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { BadFrame, collectedOf, serverFrameOf, ticketAnswerOf } from "./mod.ts";
+import {
+  BadFrame,
+  type Collected,
+  collectedOf,
+  type ServerFrame,
+  serverFrameOf,
+  ticketAnswerOf,
+} from "./mod.ts";
 
 Deno.test("кадр сервера: четыре вида и отказ прочему", async (t) => {
   for (
@@ -26,6 +33,27 @@ Deno.test("кадр сервера: четыре вида и отказ проч
   }
 });
 
+Deno.test("вид вопроса: secret доезжает, line опускается, чужое — отказ", async (t) => {
+  const kept: ServerFrame = { ask: "Пароль: ", kind: "secret" };
+  assertEquals(serverFrameOf(JSON.stringify(kept)), kept);
+  // `line` — умолчание: в разобранном кадре поля нет, и прежний кадр
+  // без вида от него не отличается.
+  assertEquals(serverFrameOf('{"ask":"q? ","kind":"line"}'), { ask: "q? " });
+  for (
+    const bad of [
+      '{"ask":"q? ","kind":"Secret"}',
+      '{"ask":"q? ","kind":"menu"}',
+      '{"ask":"q? ","kind":1}',
+    ]
+  ) {
+    // Чужой вид — плохой кадр, а не молчаливое «видимый»: скрытое не
+    // должно становиться видимым по ошибке.
+    await t.step(bad, () => {
+      assertThrows(() => serverFrameOf(bad), BadFrame);
+    });
+  }
+});
+
 Deno.test("тело ответа по номеру: номер и ответ, мусор — пусто", async (t) => {
   const cases:
     readonly (readonly [string, { ticket: string; answer: string }])[] = [
@@ -45,8 +73,19 @@ Deno.test("собранный ответ: итог кодом или вопро�
   const asked = { stdout: "", stderr: "", ask: "q? ", ticket: "ab" };
   assertEquals(collectedOf(JSON.stringify(exited)), exited);
   assertEquals(collectedOf(JSON.stringify(asked)), asked);
+  // Вид вопроса доезжает и собранным ответом: иначе скрытый ответ
+  // читался бы с эхом (`platform/line-prompt.md`).
+  const secret: Collected = { ...asked, kind: "secret" };
+  assertEquals(collectedOf(JSON.stringify(secret)), secret);
+  assertEquals(collectedOf(JSON.stringify({ ...asked, kind: "line" })), asked);
   for (
-    const bad of ["{", "[]", '{"stdout":"a"}', '{"stdout":"","stderr":""}']
+    const bad of [
+      "{",
+      "[]",
+      '{"stdout":"a"}',
+      '{"stdout":"","stderr":""}',
+      '{"stdout":"","stderr":"","ask":"q? ","kind":"menu","ticket":"ab"}',
+    ]
   ) {
     await t.step(bad, () => {
       assertThrows(() => collectedOf(bad), BadFrame);

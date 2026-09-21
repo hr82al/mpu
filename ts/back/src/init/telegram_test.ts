@@ -6,8 +6,8 @@
  */
 
 import { assertEquals } from "@std/assert";
-import type { EnvFile, TerminalIo } from "../command/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import type { EnvFile } from "../command/mod.ts";
+import { makeFakeIo, promptAnswering } from "../testing/mod.ts";
 import { runTelegramLogin } from "./telegram.ts";
 
 Deno.test("вход при init: сбой криптографии — пропуск с текстом спеки", async () => {
@@ -24,13 +24,6 @@ Deno.test("вход при init: сбой криптографии — проп�
     set: () => Promise.reject(new Error("вход не должен ничего записывать")),
     values: () => ({ ...keys }),
   };
-  const terminal: TerminalIo = {
-    name: undefined,
-    write: () => Promise.resolve(),
-    readLine: () => Promise.resolve(undefined),
-    readSecret: () => Promise.resolve(undefined),
-    [Symbol.dispose]: () => {},
-  };
   const progress: string[] = [];
   const realReadFile = Deno.readFile;
   Deno.readFile = () =>
@@ -38,7 +31,9 @@ Deno.test("вход при init: сбой криптографии — проп�
   try {
     const reason = await runTelegramLogin(makeFakeIo({
       envFile,
-      openTerminal: () => Promise.resolve(terminal),
+      // Человек за терминалом есть, но отвечает пустым: вход дойдёт до
+      // ленивой загрузки криптографии, а она и проверяется.
+      prompt: promptAnswering({ line: "", secret: "" }),
       progress: (line) => void progress.push(line),
     }));
     const text =

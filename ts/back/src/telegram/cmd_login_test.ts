@@ -6,9 +6,9 @@
  */
 
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
-import type { EnvFile, TerminalIo } from "../command/mod.ts";
+import type { EnvFile, Prompt } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
-import { makeFakeIo } from "../testing/mod.ts";
+import { makeFakeIo, promptQueue } from "../testing/mod.ts";
 import { telegramLoginCommand } from "./cmd_login.ts";
 
 /** Что меняет прогон команды относительно обычного. */
@@ -48,16 +48,10 @@ async function login(
     values: () => ({ ...values }),
   };
   const answers = ["+70001112233"];
-  const terminal: TerminalIo = {
-    name: undefined,
-    write: () => Promise.resolve(),
-    readLine: () => Promise.resolve(answers.shift()),
-    readSecret: () => Promise.resolve(undefined),
-    [Symbol.dispose]: () => {},
-  };
+  const prompt: Prompt = promptQueue(answers);
   const code = await runCli(
     argv,
-    makeFakeIo({ envFile, openTerminal: () => Promise.resolve(terminal) }),
+    makeFakeIo({ envFile, prompt }),
     { stdout: () => {}, stderr: (text) => void err.push(text) },
   );
   return { code, stderr: err.join(""), written };

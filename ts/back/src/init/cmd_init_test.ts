@@ -18,6 +18,7 @@ import {
 } from "@std/assert";
 import { type CommandIo, type EnvFile } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
+import { NO_ONE } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { runTelegramLogin } from "./telegram.ts";
@@ -123,8 +124,14 @@ async function invokeInit(
   return { stdout: out.join(""), stderr: err.join(""), code };
 }
 
-/** Строка шага 5 в неинтерактивном прогоне: терминала у теста нет. */
+/**
+ * Строки шага 5 в неинтерактивном прогоне: спросить некого. Подсказка
+ * про ключи печатается и здесь — сценарий узнаёт, что спрашивать
+ * некого, от первого же вопроса, а не заранее
+ * (`platform/line-prompt.md`).
+ */
 const TELEGRAM_SKIPPED =
+  "# telegram: ключей приложения нет; взять их — https://my.telegram.org/apps\n" +
   "# telegram: пропущено (нет TTY; заполни TELEGRAM_API_ID/HASH в .env вручную)\n";
 
 /**
@@ -1438,6 +1445,7 @@ const STAND_CONTAINERS: readonly FakeContainer[] = [
 /** Сводки прогревов стенда — их же ждут тесты порядка и конкурентности. */
 const STAND_WARMUP_LINES = "# loki: 2 hosts, 2 (host, service) пар\n" +
   "# kaiten: 1 spaces, 2 boards, 3 lanes, 3 columns, 2 roles\n" +
+  "# telegram: ключей приложения нет; взять их — https://my.telegram.org/apps\n" +
   "# telegram: пропущено (нет TTY; заполни TELEGRAM_API_ID/HASH в .env вручную)\n";
 
 /** Доска из пути `/api/latest/boards/<id>/<что>`; путь не тот — undefined. */
@@ -1644,11 +1652,18 @@ Deno.test("сбой входа не остаётся молчаливым: ст�
       },
       set: () => Promise.reject(new Error("set не ожидается")),
     },
-    openTerminal: () => Promise.reject(new Error("сломался терминал")),
+    prompt: {
+      line: () => Promise.reject(new Error("сломался терминал")),
+      secret: () => Promise.reject(new Error("secret не ожидается")),
+      copy: () => Promise.reject(new Error("copy не ожидается")),
+    },
     progress: (line: string) => void lines.push(line),
   });
   assertEquals(await runTelegramLogin(io), "сломался терминал");
-  assertEquals(lines, ["# telegram: пропущено (сломался терминал)"]);
+  assertEquals(lines, [
+    "# telegram: ключей приложения нет; взять их — https://my.telegram.org/apps",
+    "# telegram: пропущено (сломался терминал)",
+  ]);
 });
 
 Deno.test("шаг 5 и команда дают один исход на одном входе", async () => {
@@ -1671,7 +1686,7 @@ Deno.test("шаг 5 и команда дают один исход на одно
         },
         set: () => Promise.reject(new Error("set не ожидается")),
       },
-      openTerminal: () => Promise.resolve(undefined),
+      prompt: NO_ONE,
       progress: (line: string) => void lines.push(line),
     });
     const step = await runTelegramLogin(io);
@@ -1681,9 +1696,15 @@ Deno.test("шаг 5 и команда дают один исход на одно
       direct.status === "skipped" ? direct.reason ?? "без причины" : null,
       `${name}: шаг и команда разошлись`,
     );
-    // Обе половины прогона напечатали одно и то же — по строке на вызов.
-    assertEquals(lines.length, 2, `${name}: ${JSON.stringify(lines)}`);
-    assertEquals(lines[0], lines[1], `${name}: тексты разошлись`);
+    // Обе половины прогона напечатали одно и то же: строки делятся
+    // пополам и половины совпадают.
+    const half = lines.length / 2;
+    assertEquals(lines.length % 2, 0, `${name}: ${JSON.stringify(lines)}`);
+    assertEquals(
+      lines.slice(0, half),
+      lines.slice(half),
+      `${name}: тексты разошлись`,
+    );
   }
 });
 

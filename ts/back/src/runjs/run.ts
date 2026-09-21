@@ -14,7 +14,6 @@ import {
   type RemoteOutput,
   UsageError,
 } from "../command/mod.ts";
-import { copyToClipboard } from "../clipboard/mod.ts";
 import {
   chooseTransport,
   detachOverPortainer,
@@ -50,6 +49,7 @@ export type RunJsIo = Pick<
   | "openCacheDb"
   | "openRemoteOutput"
   | "progress"
+  | "prompt"
   | "signal"
   | "readTextFile"
   | "readStdin"
@@ -117,7 +117,7 @@ export interface RunJsOptions {
   readonly runProcess?: RunProcess;
   readonly openChannel?: OpenChannel;
   readonly httpCall?: HttpCall;
-  readonly copy?: (text: string) => Promise<boolean>;
+  readonly copy?: (text: string) => Promise<void>;
   readonly newDetachId?: () => string;
 }
 
@@ -143,7 +143,7 @@ export async function runRunJs(
   };
   try {
     const found = targetsOf(scope, { cache, env: io.envFile });
-    if (args["dry-run"]) return preview(found, code, options);
+    if (args["dry-run"]) return preview(found, code, io, options);
     // Транспорт выбирается всем таргетам до первой служебной строки:
     // нехватка конфигурации и `--via ssh` с контейнером — ошибки ввода
     // (exit 2), и всплыть посреди обхода они не должны, иначе агрегация
@@ -196,10 +196,11 @@ interface Call {
 async function preview(
   targets: readonly Target[],
   code: string,
+  io: RunJsIo,
   options: RunJsOptions,
 ): Promise<RunJsResult> {
   const text = previewOf(targets.map((target) => target.label), code);
-  const copy = options.copy ?? copyToClipboard;
+  const copy = options.copy ?? ((text: string) => io.prompt.copy(text));
   await copy(text);
   return {
     mode: "dry-run",

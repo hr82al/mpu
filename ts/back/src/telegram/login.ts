@@ -14,8 +14,9 @@
  */
 
 import {
+  type Answer,
   type EnvFile,
-  type TerminalIo,
+  type Prompt,
   VerbatimError,
   VerbatimUsageError,
 } from "../command/mod.ts";
@@ -63,8 +64,8 @@ export interface AppKeys {
 /** Порт сценария. */
 export interface LoginIo {
   readonly envFile: Pick<EnvFile, "get" | "set">;
-  /** Терминал для вопросов; `undefined` — ввод не с терминала. */
-  readonly terminal: TerminalIo | undefined;
+  /** Кого спрашивать: тот, кто позвал (`platform/line-prompt.md`). */
+  readonly prompt: Prompt;
   /** Служебная строка хода: печатается в stderr точкой входа. */
   readonly progress: (line: string) => void;
   /** Открывает клиента входа; зовётся только когда до входа дошло. */
@@ -102,21 +103,23 @@ function skip(io: LoginIo, reason: string): LoginResult {
   return { status: "skipped", reason };
 }
 
-/** Вопросы поверх терминала: видимый и скрытый ответ. */
+/**
+ * Вопросы поверх порта: видимый и скрытый ответ. «Спросить некого» и
+ * «ответа не будет» для сценария одно и то же — `undefined`; что это
+ * значит, решает он сам на месте вопроса.
+ */
 function promptsOn(
-  terminal: TerminalIo,
+  prompt: Prompt,
   progress: (line: string) => void,
 ): LoginPrompts {
+  const answered: Answer<string | undefined> = {
+    given: (text) => text,
+    absent: () => undefined,
+  };
   return {
     progress,
-    ask: async (question) => {
-      await terminal.write(question);
-      return await terminal.readLine();
-    },
-    askSecret: async (question) => {
-      await terminal.write(question);
-      return await terminal.readSecret();
-    },
+    ask: (question) => prompt.line(question, answered),
+    askSecret: (question) => prompt.secret(question, answered),
   };
 }
 
@@ -141,7 +144,10 @@ async function appKeys(
   }
   io.progress(`# telegram: ключей приложения нет; взять их — ${KEYS_HINT}`);
   const agreed = await prompts.ask("Set up Telegram now? [y/N]: ");
-  if ((agreed ?? "").trim().toLowerCase() !== "y") {
+  // Ответа не будет — спросить некого: вход тут и кончается подсказкой
+  // заполнить ключи руками (`docs/specs/telegram-login.md`, ветка 2).
+  if (agreed === undefined) return { ok: false, result: skip(io, SKIP_NO_TTY) };
+  if (agreed.trim().toLowerCase() !== "y") {
     return { ok: false, result: skip(io, SKIP_LATER) };
   }
   const enteredId = (await prompts.ask("api_id (integer): ") ?? "").trim();
@@ -165,19 +171,25 @@ async function appKeys(
   return { ok: true, keys: { apiId: enteredId, apiHash: enteredHash } };
 }
 
+/** Телефон сценария либо причина, по которой его нет. */
+type PhoneOutcome = { readonly number: string } | { readonly reason: string };
+
 /** Телефон: из env-файла либо у человека, и тогда он сохраняется. */
 async function phone(
   io: LoginIo,
   prompts: LoginPrompts,
-): Promise<string | undefined> {
+): Promise<PhoneOutcome> {
   const saved = value(io, PHONE_KEY);
-  if (saved !== undefined) return saved;
-  const entered = (await prompts.ask("phone (+7…): ") ?? "").trim();
-  if (entered === "") return undefined;
+  if (saved !== undefined) return { number: saved };
+  const answer = await prompts.ask("phone (+7…): ");
+  // Ответа не будет — спросить некого; пустой ответ — человек передумал.
+  if (answer === undefined) return { reason: SKIP_NO_TTY };
+  const entered = answer.trim();
+  if (entered === "") return { reason: "телефон не введён" };
   // Телефон переживает неудачный вход намеренно: он не секрет доступа
   // (инвариант 2 спеки).
   await io.envFile.set(PHONE_KEY, entered);
-  return entered;
+  return { number: entered };
 }
 
 /**
@@ -193,12 +205,12 @@ export async function runLogin(io: LoginIo): Promise<LoginResult> {
     io.progress("# telegram: уже авторизован");
     return { status: "already" };
   }
-  if (io.terminal === undefined) return skip(io, SKIP_NO_TTY);
-  const prompts = promptsOn(io.terminal, io.progress);
+  const prompts = promptsOn(io.prompt, io.progress);
   const keys = await appKeys(io, prompts);
   if (!keys.ok) return keys.result;
-  const number = await phone(io, prompts);
-  if (number === undefined) return skip(io, "телефон не введён");
+  const outcome = await phone(io, prompts);
+  if ("reason" in outcome) return skip(io, outcome.reason);
+  const number = outcome.number;
   // Сбой самого входа — неверный код, недоступная служба, битый прокси,
   // сбой криптографии клиента — «пропущено» с причиной, а не отказ
   // (инвариант 3): и у отдельной команды, и у шага `mpu init`. Прочее —

@@ -114,7 +114,11 @@ Deno.test("ввод больше предела: отказ до исполне�
 
 Deno.test("терминальность: из кадра, а не из дескрипторов сервера", () =>
   withBack(async (back) => {
+    // `human: false` — спросить некого, и `confirm` печатает свою
+    // диагностику трёх потоков; она и описывает терминальность
+    // клиента, пришедшую кадром (`platform/line-prompt.md`).
     const asked = await lineWith(back, ["confirm"], {
+      human: false,
       tty: { stdin: false, stdout: true, stderr: true },
     });
     const diagnostics = asked.map((frame) => frame.err ?? "").join("");
@@ -123,7 +127,7 @@ Deno.test("терминальность: из кадра, а не из деск�
     assertStringIncludes(diagnostics, "fd 2 (stderr): isatty=true\n");
     assertEquals(asked.at(-1), { exit: 2 });
     // Поля нет — все три в канале, как до порции 11.
-    const silent = await line(back, "/line", ["confirm"]);
+    const silent = await line(back, "/line", ["confirm"], [], false);
     assertStringIncludes(
       silent.map((frame) => frame.err ?? "").join(""),
       "fd 1 (stdout): isatty=false\n",

@@ -1,8 +1,8 @@
 /**
  * Команда `mpu confirm` (`docs/specs/confirm.md`): y/N-ворота в пайпе.
  *
- * Данные идут через stdin, а вопрос задаётся терминалу: stdin занят, и
- * спрашивать по нему нечего. Отсюда отдельный порт `openTerminal` —
+ * Данные идут через stdin, а вопрос задаётся тому, кто позвал: stdin
+ * занят, и спрашивать по нему нечего. Отсюда отдельный порт `prompt` —
  * без него команда либо читала бы ответ из данных, либо не работала бы
  * в конвейере вовсе.
  */
@@ -43,7 +43,7 @@ const NO_TERMINAL =
 type ConfirmIo = Pick<
   CommandIo,
   | "readStdin"
-  | "openTerminal"
+  | "prompt"
   | "progress"
   | "stdinIsTerminal"
   | "stdoutIsTerminal"
@@ -62,15 +62,19 @@ async function runConfirm(
   // `--yes` пропускает всё дальше без вопроса: спрашивать в скрипте
   // некого.
   if (args.yes) return { text };
-  using terminal = await io.openTerminal();
-  if (terminal === undefined) {
-    throw new UsageError(NO_TERMINAL, { details: ttyDiagnostics(io) });
-  }
-  await terminal.write(`${args.message} [y/N] `);
-  const answer = await terminal.readLine();
-  // Отказ — обычный исход ворот, а не сбой: код 1, stdout пуст.
-  if (!isYes(answer)) throw new DomainError("отменено — pipe прерван.");
-  return { text };
+  // Спрашивает тот, кто позвал (`platform/line-prompt.md`); спросить
+  // некого — свой текст с диагностикой трёх потоков: она описывает
+  // терминальность вызывающего, пришедшую контекстом вызова.
+  return await io.prompt.line(`${args.message} [y/N] `, {
+    given: (answer) => {
+      // Отказ — обычный исход ворот, а не сбой: код 1, stdout пуст.
+      if (!isYes(answer)) throw new DomainError("отменено — pipe прерван.");
+      return { text };
+    },
+    absent: () => {
+      throw new UsageError(NO_TERMINAL, { details: ttyDiagnostics(io) });
+    },
+  });
 }
 
 export const confirmCommand = defineCommand({

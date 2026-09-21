@@ -13,6 +13,7 @@ import {
   type Command,
   type CommandIo,
   NEVER_STOPPED,
+  NO_ONE,
   UsageError,
 } from "../command/mod.ts";
 import { WRITE_ENDPOINTS } from "../api/endpoints_write.ts";
@@ -1900,8 +1901,8 @@ const CASES: readonly CommandCase[] = [
     sampleResult: SAMPLE_API,
   })),
   {
-    // Вход в Telegram: у обхода нет терминала (`openTerminal` фейка
-    // отвечает `undefined`), поэтому образец идёт веткой «нет TTY» —
+    // Вход в Telegram: спросить у обхода некого (порт фейка —
+    // `NO_ONE`), поэтому образец идёт веткой «нет TTY» —
     // ни сети, ни записи в env-файл, и это ровно тот исход, который
     // спека требует от неинтерактивного запуска.
     path: "telegram login",
@@ -2423,9 +2424,9 @@ function makeIo(dir: string): CommandIo {
     consoleColumns: () => undefined,
     stderrIsTerminal: () => false,
     note: () => {},
-    // Терминала у обхода нет: вопрос человеку в прогоне задать некому,
-    // и команда-ворота обязана это заметить, а не ждать ответа.
-    openTerminal: () => Promise.resolve(undefined),
+    // Спросить в прогоне некого: команда-ворота обязана это заметить,
+    // а не ждать ответа.
+    prompt: NO_ONE,
     currentShell: () => undefined,
     appendFile: (path, text) =>
       Deno.writeTextFile(inDir(path), text, {

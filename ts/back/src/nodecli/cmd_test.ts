@@ -155,7 +155,7 @@ function fakeSsh(code = 0) {
 }
 
 function options(overrides: Partial<WrapOptions> = {}): WrapOptions {
-  return { copy: () => Promise.resolve(true), ...overrides };
+  return { copy: () => Promise.resolve(), ...overrides };
 }
 
 /** Аргументы `ss-update`: всё, кроме названного, — умолчания схемы. */
@@ -227,7 +227,7 @@ Deno.test("ss-update: ssh-печать — эталон канала", async (t)
       const { io: io2 } = harness(db);
       const printed = await printWith(io2, (text) => {
         copied.push(text);
-        return Promise.resolve(true);
+        return Promise.resolve();
       });
       // В буфер уходит ровно та строка, что напечатана: копирование —
       // довесок к уже готовому тексту (`platform/clipboard.md`).
@@ -435,7 +435,7 @@ const SS_UPDATE = {
 /** Прогон обёртки печатью — с подставным буфером обмена. */
 function printWith(
   io: WrapIo,
-  copy: (text: string) => Promise<boolean>,
+  copy: (text: string) => Promise<void>,
 ): Promise<WrapResult> {
   return runWrap(
     SS_UPDATE,
@@ -476,7 +476,7 @@ Deno.test("три режима строят одну и ту же inner-кома
   await withCache([], async (db) => {
     const printed = await printWith(
       harness(db).io,
-      () => Promise.resolve(true),
+      () => Promise.resolve(),
     );
     const local = await runWrap(
       SS_UPDATE,

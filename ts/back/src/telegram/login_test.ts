@@ -9,7 +9,7 @@
  */
 
 import { assertEquals, assertRejects } from "@std/assert";
-import type { TerminalIo } from "../command/mod.ts";
+import { NO_ONE, type Prompt } from "../command/mod.ts";
 import { configError } from "./errors.ts";
 import {
   API_HASH_KEY,
@@ -52,18 +52,24 @@ function makeStand(opts: {
   const answers = [...(opts.answers ?? [])];
   const secrets = [...(opts.secrets ?? [])];
   const state = { opened: 0 };
-  const terminal: TerminalIo = {
-    name: undefined,
-    write: (text) => {
-      asked.push(text);
-      return Promise.resolve();
+  /** Спрошенный сценарием: очередь заготовленных ответов по видам. */
+  const prompt: Prompt = {
+    line: (question, answer) => {
+      asked.push(question);
+      const text = answers.shift();
+      return Promise.resolve(
+        text === undefined ? answer.absent() : answer.given(text),
+      );
     },
-    readLine: () => Promise.resolve(answers.shift()),
-    readSecret: () => {
-      secretAsked.push(asked[asked.length - 1] ?? "");
-      return Promise.resolve(secrets.shift());
+    secret: (question, answer) => {
+      asked.push(question);
+      secretAsked.push(question);
+      const text = secrets.shift();
+      return Promise.resolve(
+        text === undefined ? answer.absent() : answer.given(text),
+      );
     },
-    [Symbol.dispose]: () => {},
+    copy: () => Promise.reject(new Error("copy не ожидается")),
   };
   const io: LoginIo = {
     envFile: {
@@ -74,7 +80,7 @@ function makeStand(opts: {
         return Promise.resolve();
       },
     },
-    terminal: opts.terminal === false ? undefined : terminal,
+    prompt: opts.terminal === false ? NO_ONE : prompt,
     progress: (line) => void progress.push(line),
     openClient: () => {
       state.opened++;
@@ -116,10 +122,10 @@ Deno.test("ввод не с терминала: пропуск с подсказ
   const stand = makeStand({ terminal: false });
   const result = await runLogin(stand.io);
   assertEquals(result.status, "skipped");
-  assertEquals(
-    stand.progress,
-    ["# telegram: пропущено (нет TTY; заполни TELEGRAM_API_ID/HASH в .env вручную)"],
-  );
+  assertEquals(stand.progress, [
+    "# telegram: ключей приложения нет; взять их — https://my.telegram.org/apps",
+    "# telegram: пропущено (нет TTY; заполни TELEGRAM_API_ID/HASH в .env вручную)",
+  ]);
   assertEquals(stand.written, {});
   assertEquals(stand.opened, 0);
 });

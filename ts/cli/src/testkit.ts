@@ -3,6 +3,7 @@
  * который видит дверь, токен и первый кадр и отвечает кадрами сценария.
  */
 
+import type { TerminalIo } from "../../back/src/terminal/mod.ts";
 import type { ClientEnv } from "./client.ts";
 
 /** Окружение клиента и то, что он напечатал. */
@@ -10,6 +11,10 @@ export interface TestEnv {
   readonly env: ClientEnv;
   readonly stdout: string[];
   readonly stderr: string[];
+  /** Тексты, которые клиент положил в буфер обмена. */
+  readonly copied: string[];
+  /** Вопросы, заданные терминалу: вид и текст. */
+  readonly asked: { kind: "line" | "secret"; question: string }[];
   readonly interrupt: () => void;
 }
 
@@ -26,19 +31,53 @@ export interface EnvSetup {
   /** Терминал ли stdout и какая у него ширина. */
   readonly stdout?: boolean;
   readonly columns?: number;
+  /** Удаётся ли копирование в буфер обмена. */
+  readonly clipboard?: boolean;
+  /** Копирование ждёт этого промиса: проверка, что клиент его дождётся. */
+  readonly copying?: Promise<void>;
   /** Переменные окружения клиента. */
   readonly values?: Readonly<Record<string, string>>;
+}
+
+/** Подставной управляющий терминал: вопросы и заготовленные ответы. */
+function fakeTerminal(
+  answers: string[],
+  asked: { kind: "line" | "secret"; question: string }[],
+): TerminalIo {
+  let kind: "line" | "secret" = "line";
+  return {
+    name: undefined,
+    write: (text) => {
+      asked.push({ kind, question: text });
+      return Promise.resolve();
+    },
+    readLine: () => {
+      kind = "line";
+      asked[asked.length - 1] = { ...asked[asked.length - 1], kind };
+      return Promise.resolve(answers.shift());
+    },
+    readSecret: () => {
+      kind = "secret";
+      asked[asked.length - 1] = { ...asked[asked.length - 1], kind };
+      return Promise.resolve(answers.shift());
+    },
+    [Symbol.dispose]: () => {},
+  };
 }
 
 export function testEnv(setup: EnvSetup): TestEnv {
   const stdout: string[] = [];
   const stderr: string[] = [];
+  const copied: string[] = [];
+  const asked: { kind: "line" | "secret"; question: string }[] = [];
   const answers = [...setup.answers ?? []];
   const terminals = setup.terminals ?? false;
   const interrupted = Promise.withResolvers<void>();
   return {
     stdout,
     stderr,
+    copied,
+    asked,
     interrupt: () => interrupted.resolve(),
     env: {
       base: setup.base,
@@ -55,7 +94,13 @@ export function testEnv(setup: EnvSetup): TestEnv {
         columns: () => setup.columns,
         value: (name) => setup.values?.[name],
       },
-      readLine: () => Promise.resolve(answers.shift()),
+      openTerminal: () =>
+        Promise.resolve(terminals ? fakeTerminal(answers, asked) : undefined),
+      copy: async (text) => {
+        await setup.copying;
+        copied.push(text);
+        return setup.clipboard ?? true;
+      },
       stdout: (text) => void stdout.push(text),
       stderr: (text) => void stderr.push(text),
       cwd: () => Deno.cwd(),

@@ -11,7 +11,8 @@ import {
   terminalChannel,
 } from "./src/next/mod.ts";
 import { runProcess } from "./src/process/mod.ts";
-import { defaultStateDir, readStdinLine } from "./src/runtime/mod.ts";
+import { defaultStateDir } from "./src/runtime/mod.ts";
+import { readStdinLine } from "./src/terminal/mod.ts";
 
 if (import.meta.main) {
   const ports = {

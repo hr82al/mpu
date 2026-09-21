@@ -15,7 +15,6 @@ import {
   defineCommand,
   UsageError,
 } from "../command/mod.ts";
-import { copyToClipboard } from "../clipboard/mod.ts";
 import { type RunProcess, spawnProcess } from "../exec/mod.ts";
 import {
   type CacheReader,
@@ -53,13 +52,13 @@ type MakeSchemaResult = z.infer<typeof resultSchema>;
 /** Срез порта: кэш селектора, env-файл и приёмник вывода. */
 export type MakeSchemaIo = Pick<
   CommandIo,
-  "cwd" | "envFile" | "openCacheDb" | "openRemoteOutput" | "signal"
+  "cwd" | "envFile" | "openCacheDb" | "openRemoteOutput" | "prompt" | "signal"
 >;
 
 /** Подстановки для тестов: живого docker у них нет. */
 export interface MakeSchemaOptions {
   readonly runProcess?: RunProcess;
-  readonly copy?: (text: string) => Promise<boolean>;
+  readonly copy?: (text: string) => Promise<void>;
 }
 
 /** Номер контейнера стенда по умолчанию. */
@@ -118,7 +117,7 @@ export async function runMakeSchema(
   if (args.print) {
     // Недоступность буфера молчалива: строка уже напечатана
     // (`platform/clipboard.md`).
-    await (options.copy ?? copyToClipboard)(command);
+    await (options.copy ?? ((text: string) => io.prompt.copy(text)))(command);
     return { container, command, printed: command, output: "", exitCode: 0 };
   }
   const output = io.openRemoteOutput();

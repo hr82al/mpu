@@ -5,46 +5,40 @@
  */
 
 import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
-import type { CommandIo, TerminalIo } from "../command/mod.ts";
+import { type CommandIo, NO_ONE, type Prompt } from "../command/mod.ts";
 import { DomainError, formatCommandError, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { confirmCommand } from "./cmd_confirm.ts";
 import { echoLine, isYes, ttyDiagnostics } from "./gate.ts";
 
-/** Подставной терминал: помнит вопрос и отдаёт заготовленный ответ. */
+/** Подставной спрошенный: помнит вопрос и отдаёт заготовленный ответ. */
 function terminal(answer: string | undefined) {
   const asked: string[] = [];
-  let closed = false;
-  const port: TerminalIo = {
-    name: undefined,
-    write: (text) => {
-      asked.push(text);
-      return Promise.resolve();
+  let opened = 0;
+  const port: Prompt = {
+    line: (question, reply) => {
+      opened += 1;
+      asked.push(question);
+      // Конец ввода — пустой ответ: человека спросили, он промолчал.
+      return Promise.resolve(reply.given(answer ?? ""));
     },
-    readLine: () => Promise.resolve(answer),
-    // Скрытого чтения у ворот нет: ответ «да/нет» секретом не бывает.
-    readSecret: () => Promise.reject(new Error("readSecret не ожидается")),
-    [Symbol.dispose]: () => {
-      closed = true;
-    },
+    // Скрытого вопроса у ворот нет: ответ «да/нет» секретом не бывает.
+    secret: () => Promise.reject(new Error("secret не ожидается")),
+    copy: () => Promise.reject(new Error("copy не ожидается")),
   };
-  return { port, asked, wasClosed: () => closed };
+  return { port, asked, opened: () => opened };
 }
 
-/** Окружение ворот: буфер на stdin, терминал и приёмник эха. */
+/** Окружение ворот: буфер на stdin, спрошенный и приёмник эха. */
 function harness(stdin: string, answer: string | undefined) {
   const tty = terminal(answer);
   const echoed: string[] = [];
-  let opened = 0;
   const io: CommandIo = makeFakeIo({
     readStdin: () => Promise.resolve(new TextEncoder().encode(stdin)),
     progress: (line: string) => void echoed.push(line),
-    openTerminal: () => {
-      opened += 1;
-      return Promise.resolve(tty.port);
-    },
+    prompt: tty.port,
   });
-  return { io, tty, echoed, opened: () => opened };
+  return { io, tty, echoed, opened: tty.opened };
 }
 
 async function golden(name: string): Promise<string> {
@@ -65,7 +59,7 @@ Deno.test("«да»: буфер уходит в stdout как есть", async (
   );
   assertEquals(echoed, ['{"ok": true}']);
   assertEquals(tty.asked, ["Применить? [y/N] "]);
-  assertEquals(tty.wasClosed(), true);
+  assertEquals(tty.opened(), 1);
 });
 
 Deno.test("вопрос задаётся терминалу, а не stdin", async () => {
@@ -93,7 +87,7 @@ Deno.test("«нет» и конец ввода: отказ, exit 1, stdout пу�
         `${formatCommandError("confirm", err)}\n`,
         await golden("err-cancelled-stderr.txt"),
       );
-      assertEquals(tty.wasClosed(), true);
+      assertEquals(tty.opened(), 1);
     });
   }
 });
@@ -103,7 +97,7 @@ Deno.test("терминала нет: отказ с диагностикой, ex
   const io = makeFakeIo({
     readStdin: () => Promise.resolve(new TextEncoder().encode("данные\n")),
     progress: (line: string) => void echoed.push(line),
-    openTerminal: () => Promise.resolve(undefined),
+    prompt: NO_ONE,
   });
   const err = await assertRejects(
     () => confirmCommand.invokeInput({ message: "Применить?", yes: false }, io),
