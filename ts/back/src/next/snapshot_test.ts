@@ -57,7 +57,6 @@ Deno.test("flags: sql-ro с описаниями, короткая форма �
   );
   assertEquals(long !== undefined, true);
   assertEquals(node("kiten").flags, []);
-  assertEquals(node("mcp").flags, []);
   assertEquals(node("ozon-jobs").flags, []);
 });
 

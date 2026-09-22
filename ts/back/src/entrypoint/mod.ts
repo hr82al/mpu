@@ -10,7 +10,6 @@ import {
   type CommandIo,
   DomainError,
   formatCommandError,
-  NotFoundIoError,
   UsageError,
 } from "../command/mod.ts";
 import {
@@ -30,17 +29,6 @@ import {
   NO_INVOKE_LOG,
   type OutputPolicy,
 } from "../invokelog/mod.ts";
-import {
-  COMPLETE_ENV,
-  completionCandidates,
-  completionInput,
-  completionInstalled,
-  type CompletionItem,
-  completionMode,
-  completionRcPath,
-  completionReply,
-  completionScript,
-} from "./completion.ts";
 
 /** Приёмник вывода процесса. */
 export interface Output {
@@ -94,11 +82,7 @@ export const ROOT_SUMMARY =
  */
 export const JSON_FLAG = "--json";
 
-/** Общий флаг справки: он есть на каждом уровне дерева. */
-const HELP_FLAG = "--help";
-
-/** Описания общих флагов: у них нет объявления, откуда их взять. */
-const HELP_FLAG_SUMMARY = "справка по этому уровню";
+/** Описание общего флага формы вывода: объявления у него нет. */
 const JSON_FLAG_SUMMARY = "результат как JSON вместо текста";
 
 /** Имя справочной поверхности: `mpu help [<полное имя>]`. */
@@ -107,10 +91,6 @@ const HELP_COMMAND = "help";
 /** Имя поверхности версии: `mpu version`. */
 const VERSION_COMMAND = "version";
 
-/** Опции дополнения: печать скрипта и его установка в rc-файл shell. */
-const SHOW_COMPLETION = "--show-completion";
-const INSTALL_COMPLETION = "--install-completion";
-
 /** Исполняет вызов CLI и возвращает код завершения процесса. */
 export async function runCli(
   argv: readonly string[],
@@ -118,8 +98,6 @@ export async function runCli(
   output: Output,
   journal?: InvokeJournal,
 ): Promise<number> {
-  const completionExit = runCompletionMode(baseIo, output);
-  if (completionExit !== undefined) return completionExit;
   return await runLine(argv, baseIo, output, journal);
 }
 
@@ -138,7 +116,7 @@ export async function runLine(
   const io = withProgressIo(baseIo, output, journal);
   const { args: rest, json } = takeJsonFlag(argv);
 
-  const surfaceExit = await runEntrypointSurface(rest, io, output);
+  const surfaceExit = runEntrypointSurface(rest, output);
   if (surfaceExit !== undefined) return surfaceExit;
 
   const { path, rest: args } = matchPath(rest);
@@ -167,10 +145,9 @@ export async function runLine(
  * хода исполнения печатает точка входа, а не команда
  * (`platform/command-contract.md`, инвариант 1): команда отдаёт их
  * портом `progress`, а куда они попадут — решается здесь, рядом с
- * печатью результата и ошибок. Этот же приёмник достаётся и
- * MCP-серверу — он поднимается голым вызовом `mpu mcp` и печатает
- * строки хода туда же; копию в запись своего вызова тула дописывает
- * уже он сам (`platform/invoke-log.md`).
+ * печатью результата и ошибок. Этот же приёмник достаётся и вызову
+ * тула: строки хода идут туда же, а копию в запись вызова дописывает
+ * тот, кто вызвал (`platform/invoke-log.md`).
  */
 function withProgressIo(
   baseIo: CommandIo,
@@ -187,41 +164,16 @@ function withProgressIo(
   };
 }
 
-/** Срез порта для дополнения shell: слово и режим лежат в окружении. */
-type CompletionEnvIo = Pick<CommandIo, "env">;
-
-/**
- * Режим дополнения shell: печатаем варианты и молчим обо всём прочем —
- * сюда попадают из shell, а не из рук пользователя. `undefined` — вызов
- * пришёл не из shell-дополнения, маршрутизация идёт дальше как обычно.
- */
-function runCompletionMode(
-  io: CompletionEnvIo,
-  output: Output,
-): number | undefined {
-  const mode = completionMode(io.env(COMPLETE_ENV));
-  if (mode === undefined) return undefined;
-  output.stdout(completionReply(mode, candidates(io)));
-  return 0;
-}
-
-/**
- * Срез порта поверхностей точки входа: собственных полей у них нет —
- * это ровно то, что нужно опциям дополнения.
- */
-type EntrypointSurfaceIo = CompletionOptionIo;
-
 /**
  * Поверхности точки входа, для которых поиск пути в реестре не нужен:
- * пустой вызов, справка верхнего уровня, опции дополнения shell,
- * неизвестная опция, `version`, `help`. `undefined` — это не такая
+ * пустой вызов, справка верхнего уровня, неизвестная опция, `version`,
+ * `help`. `undefined` — это не такая
  * поверхность, маршрутизация идёт дальше к поиску пути команды.
  */
-async function runEntrypointSurface(
+function runEntrypointSurface(
   rest: readonly string[],
-  io: EntrypointSurfaceIo,
   output: Output,
-): Promise<number | undefined> {
+): number | undefined {
   if (rest.length === 0) {
     // Вызов без команды: справка печатается, но это ошибка (спека).
     output.stdout(rootIndex());
@@ -230,9 +182,6 @@ async function runEntrypointSurface(
   if (isHelpRequest(rest[0])) {
     output.stdout(rootIndex());
     return 0;
-  }
-  if (rest[0] === SHOW_COMPLETION || rest[0] === INSTALL_COMPLETION) {
-    return await runCompletionOption(rest[0], rest[1], io, output);
   }
   if (rest[0].startsWith("-")) {
     output.stderr(`No such option "${rest[0]}"\n`);
@@ -472,31 +421,6 @@ async function runCommand(
   return command.textExitCode(result);
 }
 
-/**
- * Варианты дополнения: имена верхнего уровня, отфильтрованные по уже
- * набранному слову. Слово берётся из служебных переменных shell — сам
- * режим дополнения командную строку не разбирает.
- */
-function candidates(io: CompletionEnvIo): readonly CompletionItem[] {
-  const bash = io.env("COMP_WORDS");
-  const line = bash ?? io.env("_TYPER_COMPLETE_ARGS") ?? "";
-  const input = completionInput(
-    line,
-    bash === undefined ? undefined : io.env("COMP_CWORD"),
-  );
-  // Слово с дефиса — это флаг: предлагаются флаги уровня, а не имена
-  // подкоманд (`platform/registry.md`).
-  const items = input.word.startsWith("-")
-    ? levelFlags(input.prefix)
-    // Дополняется тот уровень дерева, до которого дошли: после
-    // `mpu xlsx` — его подкоманды, а не имена верхнего уровня.
-    : childrenOf(input.prefix).map((child) => ({
-      name: child.name,
-      summary: child.summary,
-    }));
-  return completionCandidates(items, input.word);
-}
-
 /** Флаг команды: длинная форма, короткая (если есть) и описание. */
 export interface CommandFlag {
   /** С `--`. */
@@ -510,8 +434,8 @@ export interface CommandFlag {
  * Флаги команды — из её объявления: входы-флаги с описанием из схемы
  * аргументов (то же, что в справке) и общий `--json`, если своего
  * флага с таким именем у команды нет. `--help` сюда не входит: его
- * добавляет тот, кто показывает (дополнение). Одно место для старого
- * дополнения и снимка дерева `mpu-back` (`specs/complete.md`).
+ * добавляет тот, кто показывает. Одно место для снимка дерева
+ * `mpu-back` (`specs/complete.md`).
  */
 export function commandFlags(command: Command): readonly CommandFlag[] {
   const declared = command.inputs
@@ -533,85 +457,10 @@ export function commandFlags(command: Command): readonly CommandFlag[] {
 }
 
 /**
- * Флаги уровня для старого дополнения: длинные формы флагов команды и
- * `--help`; у прочих уровней — только `--help`. Прежде здесь была вторая
- * ветка, для записи маршрута `legacy` со флагами из слепка; маршрута
- * больше нет (порция 97).
- */
-function levelFlags(path: readonly string[]): readonly CompletionItem[] {
-  const help = { name: HELP_FLAG, summary: HELP_FLAG_SUMMARY };
-  const command = findCommand(path);
-  if (command === undefined) return [help];
-  return [
-    ...commandFlags(command).map((flag) => ({
-      name: flag.name,
-      summary: flag.summary,
-    })),
-    help,
-  ];
-}
-
-/** Срез порта для опций дополнения: shell, HOME, чтение и запись rc-файла. */
-type CompletionOptionIo =
-  & Pick<CommandIo, "currentShell" | "env" | "appendFile">
-  & RcFileIo;
-
-/**
- * `--show-completion` печатает скрипт, `--install-completion` дописывает
- * его в rc-файл. Shell берётся из аргумента, если он задан, иначе от
- * окружения: определение по дереву процессов-предков — забота адаптера
- * рантайма, а не этой функции (`platform/registry.md`).
- */
-async function runCompletionOption(
-  option: string,
-  argument: string | undefined,
-  io: CompletionOptionIo,
-  output: Output,
-): Promise<number> {
-  const shell = argument ?? io.currentShell();
-  if (shell !== "bash" && shell !== "zsh") {
-    output.stderr(
-      `mpu: неизвестный shell для completion: ${shell ?? "(не определён)"}\n`,
-    );
-    return 2;
-  }
-  const script = completionScript(shell);
-  if (option === SHOW_COMPLETION) {
-    output.stdout(script);
-    return 0;
-  }
-  const path = completionRcPath(shell, io.env("HOME"));
-  if (path === undefined) {
-    output.stderr("mpu: HOME не задан, некуда устанавливать completion\n");
-    return 1;
-  }
-  if (completionInstalled(await readRcFile(io, path))) {
-    // Повторный запуск не плодит копии: вторая ничего не меняет, но
-    // засоряет rc-файл и путает при чтении.
-    output.stdout(`completion для ${shell} уже установлен в ${path}\n`);
-    return 0;
-  }
-  await io.appendFile(path, `\n${script}`);
-  output.stdout(`completion для ${shell} дописан в ${path}\n`);
-  return 0;
-}
-
-/** Срез порта для чтения rc-файла. */
-type RcFileIo = Pick<CommandIo, "readTextFile">;
-
-/** Содержимое rc-файла; файла ещё нет — пустая строка. */
-async function readRcFile(io: RcFileIo, path: string): Promise<string> {
-  try {
-    return await io.readTextFile(path);
-  } catch (err) {
-    if (err instanceof NotFoundIoError) return "";
-    throw err;
-  }
-}
-
-/**
  * Промежуточный уровень: обычно только индекс, но уровень может нести
- * собственную поверхность голого вызова (`mpu mcp` поднимает сервер).
+ * собственную поверхность голого вызова. Своего такого уровня сейчас
+ * нет — узел `mcp` ушёл вместе со старым сервером
+ * (`platform/cutover.md`).
  */
 async function runGroup(
   path: readonly string[],

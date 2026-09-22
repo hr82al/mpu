@@ -95,7 +95,7 @@ Deno.test("список --json: форма записи — эталон кан�
       value: "7337",
       source: "default",
       default: "7337",
-      description: "Порт HTTP-сервера `mpu mcp`",
+      description: "Порт HTTP-сервера MCP прежнего монолита (не поднимается)",
     });
   });
 });

@@ -85,8 +85,6 @@ const LINES: readonly {
   { argv: ["ozon-jobs", "sl-2", "show", "--нет-флага"] },
   { argv: ["ozon-jobs", "show", "sl-2"] },
   { argv: ["ozon-jobs", "-p", "sl-2", "show", "--нет-флага"] },
-  { argv: ["mcp", "--port", "не-число"] },
-  { argv: ["mcp", "port:", "1"] },
   { argv: ["ss-update"] },
   { argv: ["telegram", "send"] },
   { argv: ["update"] },

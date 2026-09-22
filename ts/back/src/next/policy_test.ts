@@ -86,7 +86,6 @@ Deno.test("посев первого старта и ничего заново �
       const [path, verdict] of [
         ["kiten card", "allow"],
         ["kiten comment", "ask"],
-        ["mcp", "ask"],
         ["ozon-jobs", "ask"],
         ["policy", "allow"],
         ["version", "allow"],

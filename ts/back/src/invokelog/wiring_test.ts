@@ -194,23 +194,6 @@ Deno.test("ошибка команды: запись остаётся, код и
   });
 });
 
-Deno.test("mcp token: запись есть, токена в ней нет", async () => {
-  await withStand(async (stand) => {
-    const outcome = await cli(
-      stand,
-      ["mcp", "token"],
-      makeFakeIo({ readAccessToken: () => Promise.resolve("s3cret-token") }),
-    );
-    assertEquals(outcome.code, 0);
-    assertStringIncludes(outcome.stdout, "s3cret-token");
-    const text = await stand.text();
-    assertEquals((await stand.records()).length, 1);
-    assertMatch(text, /^\$ mpu mcp token$/mu);
-    assertEquals(text.includes("s3cret-token"), false);
-    assertEquals(text.includes("--- out "), false);
-  });
-});
-
 Deno.test("пометка «без записи вывода» — часть объявления команды", async (t) => {
   const declaration = {
     path: ["фейк"],
@@ -245,10 +228,10 @@ Deno.test("пометка «без записи вывода» — часть о
       path: ["фейк"],
     });
   });
-  await t.step("в реестре пометка стоит у девятнадцати команд", () => {
+  await t.step("в реестре пометка стоит у восемнадцати команд", () => {
     // Все печатают то, чему в журнале не место: `search` — живые
     // токены сессий 10X, `log` — сам журнал (иначе он печатал бы
-    // себя), `mcp token` — токен доступа, `users add` — собранную
+    // себя), `users add` — собранную
     // команду с паролем заводимого пользователя, `confirm` — чужой
     // буфер конвейера, дословно равный его вводу, `telegram login` —
     // строку сессии Telegram, то есть полноценный доступ к аккаунту
@@ -263,7 +246,6 @@ Deno.test("пометка «без записи вывода» — часть о
     assertEquals(marked, [
       "search",
       "log",
-      "mcp token",
       "telegram login",
       "users add",
       "confirm",

@@ -44,7 +44,7 @@ export const CONFIG_KEYS: readonly ConfigKey[] = [
     type: "int",
     fallback: "7337",
     range: { min: 1, max: 65535 },
-    description: "Порт HTTP-сервера `mpu mcp`",
+    description: "Порт HTTP-сервера MCP прежнего монолита (не поднимается)",
   },
   {
     key: "sheet.default",

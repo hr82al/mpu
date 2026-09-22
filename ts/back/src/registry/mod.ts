@@ -20,9 +20,6 @@ import type { Command, CommandIo } from "../command/mod.ts";
 import { xlsxCommands } from "../xlsx/mod.ts";
 import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "../update/mod.ts";
-import { buildCommand } from "../install/cmd_build.ts";
-import { mcpTokenCommand } from "../mcp/cmd_token.ts";
-import { mcpServiceCommands } from "../mcp/cmd_service.ts";
 import { sqlCommand, sqlRoCommand } from "../sql/mod.ts";
 import { healthCommand } from "../health/mod.ts";
 import {
@@ -142,12 +139,18 @@ import {
 } from "../mr/mod.ts";
 import { confirmCommand } from "../confirm/mod.ts";
 import { sunCommand } from "../sun/mod.ts";
-import { type ErrorSink, runMcpServer } from "../mcp/cli.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 
+/** Куда голый вызов уровня пишет диагностику. */
+interface ErrorSink {
+  readonly stderr: (text: string) => void;
+}
+
 /**
- * Что делает голый вызов уровня (`mpu mcp`), если он делает не индекс.
- * Возвращает код завершения процесса.
+ * Что делает голый вызов уровня, если он делает не индекс: возвращает
+ * код завершения процесса. Своего такого уровня сейчас нет — узел `mcp`
+ * ушёл вместе со старым сервером (`platform/cutover.md`), — но снимок
+ * дерева и дополнение этот вид уровня знают (`complete.md`).
  */
 type BareHandler = (
   argv: readonly string[],
@@ -175,9 +178,10 @@ export interface CommandGroup {
   readonly summary: string;
   readonly usage: string;
   /**
-   * Поверхность голого вызова уровня. Есть только у `mpu mcp`: сервер
-   * не команда контракта — у него нет результата, который рендерится
-   * (см. `mcp/cli.ts`).
+   * Поверхность голого вызова уровня: долгоживущий процесс командой
+   * контракта не бывает — у него нет результата, который рендерится.
+   * Уровня с такой поверхностью сейчас нет (`platform/cutover.md`);
+   * снимок дерева и дополнение этот вид уровня знают (`complete.md`).
    */
   readonly bare?: BareHandler;
   /**
@@ -200,7 +204,6 @@ export const commands: readonly Command[] = [
   ...xlsxCommands,
   initCommand,
   updateCommand,
-  buildCommand,
   sqlCommand,
   sqlRoCommand,
   healthCommand,
@@ -218,8 +221,6 @@ export const commands: readonly Command[] = [
   sshCommand,
   logsCommand,
   logCommand,
-  mcpTokenCommand,
-  ...mcpServiceCommands,
   // Первый переехавший лист группы `kiten`.
   kitenCardCommand,
   // Справочники и обзорные подкоманды (`specs/kiten-refs.md`,
@@ -358,8 +359,7 @@ export const commands: readonly Command[] = [
 /**
  * Поверхности точки входа: исполняются кодом CLI, но командами
  * контракта не являются — ни схем, ни результата у них нет. `mpu help`
- * печатает список из единого реестра (`platform/registry.md`), `mpu mcp`
- * поднимает долгоживущий процесс (`platform/command-contract.md`).
+ * печатает список из единого реестра (`platform/registry.md`).
  *
  * Однострока `help` — из слепка дерева: поверхность своя, но имя и
  * описание унаследованы, и расхождение с оригиналом здесь ни к чему.
@@ -550,13 +550,6 @@ export const groups: readonly CommandGroup[] = [
     path: ["claude-hook"],
     summary: "адаптеры хуков Claude Code: уведомление себе в бота",
     usage: "mpu claude-hook <подкоманда>",
-  },
-  {
-    path: ["mcp"],
-    summary: "MCP-сервер над реестром команд: запуск, служба и токен доступа",
-    usage: "mpu mcp [--profile ro|rw|ro,rw] [--port N] | <подкоманда>",
-    bare: (argv, io, output, log) =>
-      runMcpServer(argv, { io, output, commands, log }),
   },
 ];
 
