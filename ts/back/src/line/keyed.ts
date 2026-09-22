@@ -69,6 +69,10 @@ class FlagPlacement implements Placement {
 /** Ключ команды: имя в строке, вид, обязательность и место во входах. */
 interface KeySpec {
   readonly name: string;
+  /** Вход команды, на который ложится ключ. */
+  readonly input: string;
+  /** Как ключ пишется в строке: `id:` или `--no-comments`. */
+  readonly address: string;
   readonly kind: KeyKind;
   readonly required: boolean;
   readonly purpose: string;
@@ -135,6 +139,14 @@ interface Accepted {
   readonly rest: Rest;
 }
 
+/** Вход команды в новой записи: его адрес и ключи, если он ключ. */
+interface Entry {
+  readonly input: string;
+  /** Как вход пишется теперь: ключ, формат результата или снятый вход. */
+  readonly address: string;
+  readonly specs: readonly KeySpec[];
+}
+
 /** Ключи команды, выведенные из её объявления. */
 class Keys {
   readonly #path: readonly string[];
@@ -143,6 +155,7 @@ class Keys {
   readonly #ordered: readonly string[];
   readonly #formats: ReadonlySet<string>;
   readonly #retired: Readonly<Record<string, string>>;
+  readonly #entries: readonly Entry[];
 
   constructor(command: Command, formats: readonly string[]) {
     this.#path = command.path;
@@ -151,13 +164,32 @@ class Keys {
     const named = new Map(
       Object.entries(command.keys ?? {}).map(([key, input]) => [input, key]),
     );
-    const specs = command.inputs.flatMap((input) =>
-      this.#specOf(command, input, named.get(input.name))
+    this.#entries = command.inputs.map((input) =>
+      this.#entryOf(command, input, named.get(input.name))
     );
+    const specs = this.#entries.flatMap((entry) => entry.specs);
     this.#specs = specs;
     this.#ordered = specs
       .filter((spec) => spec.placement === POSITIONAL)
       .map((spec) => spec.name);
+  }
+
+  /** Где вход в новой записи — решается здесь, один раз на вход. */
+  #entryOf(
+    command: Command,
+    input: InputSpec,
+    key: string | undefined,
+  ): Entry {
+    const name = input.name;
+    if (this.#formats.has(name)) {
+      return { input: name, address: `формат ${name}`, specs: [] };
+    }
+    const replacement = this.#retired[name];
+    if (replacement !== undefined) {
+      return { input: name, address: `снят: ${replacement}:`, specs: [] };
+    }
+    const specs = this.#specOf(command, input, key);
+    return { input: name, address: specs[0].address, specs };
   }
 
   #specOf(
@@ -165,8 +197,6 @@ class Keys {
     input: InputSpec,
     key: string | undefined,
   ): KeySpec[] {
-    if (this.#formats.has(input.name)) return [];
-    if (this.#retired[input.name] !== undefined) return [];
     const field = command.argsJsonSchema.properties[input.name];
     const required = command.requiredInputNames.includes(input.name);
     const purpose = field.description ?? "";
@@ -174,6 +204,8 @@ class Keys {
       const name = key ?? input.name;
       return [{
         name,
+        input: input.name,
+        address: `${name}:`,
         kind: "value",
         required,
         purpose,
@@ -191,7 +223,24 @@ class Keys {
     const negated = field.default === true;
     const name = negated ? `no-${input.name}` : key ?? input.name;
     const placement = new FlagPlacement(`--${name}`);
-    return [{ name, kind: "flag", required: false, purpose, placement }];
+    return [{
+      name,
+      input: input.name,
+      address: `--${name}`,
+      kind: "flag",
+      required: false,
+      purpose,
+      placement,
+    }];
+  }
+
+  /**
+   * Адрес каждого входа команды в новой записи: ключ, формат результата
+   * или снятый вход — для теста полноты (`platform/keys-translation.md`).
+   * Входа без адреса в ответе нет.
+   */
+  addresses(): ReadonlyMap<string, string> {
+    return new Map(this.#entries.map((entry) => [entry.input, entry.address]));
   }
 
   /** Ключевой метод для разбора и справки. */
@@ -470,4 +519,18 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
     closing,
     strays: new KeyStrays(parts.command, keys),
   });
+}
+
+/**
+ * Адреса входов команды в новой записи. Команда без ключей пока принимает
+ * прежнюю строку хвостом — все её входы адресуются хвостом.
+ */
+export function addressesOf(
+  command: Command,
+  formats: readonly string[],
+): ReadonlyMap<string, string> {
+  if (command.keys === undefined) {
+    return new Map(command.inputs.map((input) => [input.name, "хвост"]));
+  }
+  return new Keys(command, formats).addresses();
 }

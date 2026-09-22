@@ -146,7 +146,9 @@ function tailKind(path: readonly string[]): TailKind {
  * Форматы результата узла: `json` у любого, прочие — объявленные
  * командой; у поверхности и у группы с селектором впереди — только `json`.
  */
-function formatsOf(path: readonly string[]): Record<string, readonly string[]> {
+export function formatsOf(
+  path: readonly string[],
+): Record<string, readonly string[]> {
   return { json: [JSON_FLAG], ...findCommand(path)?.formats };
 }
 
