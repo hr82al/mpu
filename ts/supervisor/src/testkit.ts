@@ -1,5 +1,5 @@
 /**
- * Оснастка прогонов `ts/install.sh` и `ts/cutover.sh`
+ * Оснастка прогонов `ts/install.sh`
  * (`platform/supervisor-install.md`, `platform/cutover.md`): всё во
  * временных каталогах, сборка — поддельным `deno` (`MPU_DENO`), служба —
  * поддельным `systemctl`, проверки против серверов, поднятых тестом.

@@ -65,7 +65,10 @@ Deno.test("mpu --help ≡ mpu -h, голый mpu — тот же текст с e
 Deno.test("help-root.txt: состав и тексты, а не рамки", async () => {
   const { stdout } = await run(["--help"]);
   const fixture = await golden("help-root.txt");
-  // Описание CLI — дословно из эталона (отклонение оставляет его в силе).
+  // Описание CLI — своё, не из эталона: эталон описывает прежний
+  // Python-инструмент, которого нет (`platform/monolith-removal.md`).
+  // Сам голден `help-root.txt` намеренно не трогается — он остаётся
+  // снимком оригинала.
   assertStringIncludes(
     stdout,
     "mpu — тонкий клиент сервера строк: команды исполняет mpu-back.",

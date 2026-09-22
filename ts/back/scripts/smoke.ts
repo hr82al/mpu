@@ -94,29 +94,30 @@ async function serve(
     stderr: "piped",
   }).spawn();
   const reader = child.stdout.getReader();
+  const stop = async () => {
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      // Сервер уже мёртв — гасить нечего, и это не ошибка прогона.
+    }
+    await child.status;
+    await reader.cancel();
+    await child.stderr.cancel();
+  };
   let said = "";
   let found: RegExpMatchArray | null = null;
   while (found === null) {
     const next = await reader.read();
     if (next.done) {
+      // Убрать за собой обязан и этот путь: иначе процесс и оба пайпа
+      // остаются висеть, а прогон сообщает лишь про адрес.
+      await stop();
       throw new Error(`mpu-back не сообщил адрес: ${said.trim()}`);
     }
     said += decoder.decode(next.value);
     found = said.match(/http:\/\/\S+/);
   }
-  return {
-    url: found[0],
-    async [Symbol.asyncDispose]() {
-      try {
-        child.kill("SIGTERM");
-      } catch {
-        // Сервер уже мёртв — гасить нечего, и это не ошибка прогона.
-      }
-      await child.status;
-      await reader.cancel();
-      await child.stderr.cancel();
-    },
-  };
+  return { url: found[0], [Symbol.asyncDispose]: stop };
 }
 
 /** Результат запуска бинаря. */
@@ -126,19 +127,6 @@ interface Outcome {
   readonly stderr: string;
 }
 
-/**
- * Строка через клиента — тем же путём, которым ходит человек.
- * Окружение достаётся серверу: исполняет строку он. Пустое окружение
- * идёт к общему серверу прогона, непустое — к своему: перезапуск на
- * каждую строку стоил бы дороже самой проверки.
- *
- * @param subject пара программ прогона
- * @param args слова строки
- * @param env окружение сервера сверх `HOME`
- * @param cwd каталог, из которого человек зовёт клиента: строка несёт
- *   его серверу (`platform/line-concurrency.md`), и команда, ищущая
- *   рабочую область по предкам, видит именно его
- */
 /**
  * Строка через клиента — тем же путём, которым ходит человек: под
  * каждую поднимается свой сервер. Свой, а не общий: сервер читает

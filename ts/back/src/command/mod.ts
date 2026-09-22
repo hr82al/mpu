@@ -370,9 +370,9 @@ interface CommandDeclaration<A, R> {
    * команда реестра, её реализация заранее неизвестна, и срез значил бы
    * решение за неё, чем она пользуется. Тем же держатся полными все
    * места, которые порт только передают: `Command.invoke`,
-   * `Command.invokeInput`, `BareHandler`, `dispatchPath`,
-   * `runLeafCommand`, `runCommand`, `runGroup`. Сузить их можно только
-   * вместе с этим полем, то есть никак.
+   * `Command.invokeInput`, `dispatchPath`, `runLeafCommand` и
+   * `runCommand`. Сузить их можно только вместе с этим полем, то есть
+   * никак.
    */
   readonly run: (args: A, io: CommandIo) => Promise<R>;
   /** Рендер результата в текст для человека. Чист. */
