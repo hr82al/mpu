@@ -164,7 +164,7 @@
 | `mpu ask kitn` | `mpu ask: не понимает kitn; ближайшие: kiten`, код 2 |
 | `mpu ask:` `"kiten ls"` | как сегодня: правило, вопрос изменения |
 | `mpu ask sql --help` и `mpu sql --help` | справка `sql`, код 0, вопроса нет |
-| `mpu ask ozon-jobs sl-2 show` (`ozon-jobs` — `ask`) | вопрос → исполнение; правило — путь `ozon-jobs <args>` |
+| `mpu ask ozon-jobs show target: sl-2` (`ozon-jobs show` — `ask`; с порции 159) | вопрос → исполнение; правило — путь `ozon-jobs show <args>` |
 | `mpu ask` при посеве | `code` нет (все дети `allow`) |
 | MCP `mpu` `["sql", "sl-1", "select 1"]` | `isError`, stderr с подсказкой `вызывай mpu ask sql …`, elicitation нет |
 | MCP `mpu` `["ask", "sql", "sl-1", "select 1"]`, accept | исполнение, как сегодня без `ask` |
