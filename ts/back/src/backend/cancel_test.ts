@@ -10,7 +10,14 @@ import type { CommandIo } from "../command/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { CANCELLED_CODE, Stopping } from "./stopping.ts";
-import { Client, post, type TestBack, withBack, within } from "./testback.ts";
+import {
+  Client,
+  collected,
+  post,
+  type TestBack,
+  withBack,
+  within,
+} from "./testback.ts";
 
 /** Слежение за логами: команда, которая сама не кончается. */
 const FOLLOW = ["logs", "--follow"];
@@ -296,3 +303,78 @@ function awaited(word: string, count: number) {
     },
   };
 }
+
+Deno.test("собранный ответ: клиент дочитал — запись своим кодом, не 130", async () => {
+  // Ложное срабатывание опаснее пропущенного: Deno взводит
+  // `request.signal` и после успешно отданного ответа (замер
+  // 2026-09-22), и строка, объявленная отменённой, испортила бы журнал
+  // обычных вызовов (`platform/mcp-cancel.md`).
+  const log = journal();
+  await withBack(async (back) => {
+    const answer = await collected(
+      back,
+      await post(back, "/line", {
+        words: ["xlsx", "alias", "ls"],
+        cwd: Deno.cwd(),
+        human: false,
+      }, { accept: "application/json" }),
+    );
+    assertEquals(answer, { stdout: "", stderr: "", exit: 0 });
+    await within(log.written(1), 5000, "запись журнала");
+    assertEquals(log.codes, [0]);
+  }, { finishedWith: log.finishedWith });
+});
+
+Deno.test("собранный ответ: клиент оборвал чтение — строка остановлена", async () => {
+  // Без всякого MCP: обрыв запроса к `POST`-двери и есть отмена
+  // строки, какой бы формой ответа клиент ни ходил.
+  const log = journal();
+  const start = Promise.withResolvers<void>();
+  await withLoki(async (back) => {
+    const stop = new AbortController();
+    const asked = post(back, "/line", {
+      words: FOLLOW,
+      cwd: Deno.cwd(),
+      human: false,
+    }, { accept: "application/json", signal: stop.signal });
+    await within(start.promise, 10_000, "строка началась");
+    stop.abort();
+    await asked.catch(() => undefined);
+    await within(log.written(1), 10_000, "запись журнала");
+    assertEquals(log.codes, [CANCELLED_CODE]);
+  }, { finishedWith: log.finishedWith, begun: () => start.resolve() });
+});
+
+Deno.test("собранный ответ с номером: сигнал после ответа строку не гасит", () =>
+  withBack(async (back) => {
+    // Строка с вопросом отдаёт собранный ответ с номером и живёт
+    // дальше, ожидая ответа человека. Сигнал запроса взводится сразу
+    // после доставки этого ответа (легаси-поведение Deno), и принять
+    // его за уход клиента значило бы убить живую строку — номер стал
+    // бы недействителен (`platform/mcp-cancel.md`).
+    {
+      using book = RuleBook.open(back.policyFile, []);
+      book.set(RulePath.parse("xlsx alias ls"), ASK);
+    }
+    const asked = await collected(
+      back,
+      await post(back, "/line", {
+        words: ["xlsx", "alias", "ls"],
+        cwd: Deno.cwd(),
+        human: true,
+      }, { accept: "application/json" }),
+    );
+    const ticket = String(asked.ticket);
+    assertEquals(ticket.length > 0, true, JSON.stringify(asked));
+    // Сигнал доставленного ответа взводится, пока клиент дочитывает
+    // тело: `collected` возвращается уже после него (замер 2026-09-22 —
+    // сигнал приходит раньше `completed`). Ждать сном нечего.
+    const answered = await collected(
+      back,
+      await post(back, "/line/answer", { ticket, answer: "y" }, {
+        accept: "application/json",
+      }),
+    );
+    assertEquals(answered, { stdout: "", stderr: "", exit: 0 });
+    assertEquals(back.called, ["xlsx alias ls"]);
+  }));

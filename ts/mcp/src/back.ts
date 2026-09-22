@@ -39,8 +39,30 @@ function offContract(status: number): Reply {
   return { failed: `mpu-back ответил не по контракту (${status})` };
 }
 
-function pause(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Пауза между повторами, которую прекращает отмена вызова: ждать
+ * поднятия `back` ради вызова, которого больше никто не слушает,
+ * незачем (`platform/mcp-cancel.md`).
+ *
+ * @param ms сколько ждать
+ * @param signal отмена вызова; взведён — ожидание кончается отказом
+ */
+function pause(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted === true) {
+      reject(signal.reason);
+      return;
+    }
+    const stop = () => {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", stop);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", stop, { once: true });
+  });
 }
 
 /** Строка `back` для переводчика. */
@@ -59,26 +81,56 @@ export class BackLine {
     this.#fetch = fetcher;
   }
 
-  /** Строка `words` в канале агента. */
-  start(words: readonly string[], human: boolean): Promise<Reply> {
-    return this.#post("/agent/line", {
-      words,
-      cwd: this.#target.cwd,
-      human,
-    }, offContract(404));
+  /**
+   * Строка `words` в канале агента.
+   *
+   * @param options отмена вызова: обрыв чтения ответа и есть отмена
+   *   строки у `POST`-двери (`platform/back-http-line.md`)
+   */
+  start(
+    words: readonly string[],
+    human: boolean,
+    options: { readonly signal?: AbortSignal } = {},
+  ): Promise<Reply> {
+    return this.#post(
+      "/agent/line",
+      {
+        words,
+        cwd: this.#target.cwd,
+        human,
+      },
+      offContract(404),
+      options.signal,
+    );
   }
 
   /** Ответ на вопрос строки по номеру. */
-  answer(ticket: string, answer: string): Promise<Reply> {
+  answer(
+    ticket: string,
+    answer: string,
+    options: { readonly signal?: AbortSignal } = {},
+  ): Promise<Reply> {
     // 404 на ответ — номер истёк, пока человек думал.
-    return this.#post("/agent/line/answer", { ticket, answer }, EXPIRED);
+    return this.#post(
+      "/agent/line/answer",
+      { ticket, answer },
+      EXPIRED,
+      options.signal,
+    );
   }
 
   /**
    * @param missing исход на 404 от `back`
+   * @param signal отмена вызова; взведён — запрос рвётся, и наружу
+   *   уходит отказ сигнала, а не ответ
    */
-  async #post(path: string, body: unknown, missing: Reply): Promise<Reply> {
-    const response = await this.#reach(path, JSON.stringify(body));
+  async #post(
+    path: string,
+    body: unknown,
+    missing: Reply,
+    signal?: AbortSignal,
+  ): Promise<Reply> {
+    const response = await this.#reach(path, JSON.stringify(body), signal);
     if (response === undefined) {
       return { failed: `mpu-back недоступен на ${this.#target.base}` };
     }
@@ -96,7 +148,11 @@ export class BackLine {
   }
 
   /** Ответ `back`; не поднялся до срока — ничего. */
-  async #reach(path: string, body: string): Promise<Response | undefined> {
+  async #reach(
+    path: string,
+    body: string,
+    signal?: AbortSignal,
+  ): Promise<Response | undefined> {
     const until = Date.now() + this.#patience.deadlineMs;
     while (true) {
       try {
@@ -107,13 +163,15 @@ export class BackLine {
             Accept: "application/json",
           },
           body,
+          signal,
         });
       } catch (err) {
         // `fetch` отвергает сетевой сбой именно `TypeError`: `back` не
-        // слушает. Прочее (нет права на адрес) — не повод ждать.
+        // слушает. Прочее — отмену вызова в том числе — наружу: ждать
+        // ради вызова, которого никто не слушает, незачем.
         if (!(err instanceof TypeError)) throw err;
         if (Date.now() >= until) return undefined;
-        await pause(this.#patience.everyMs);
+        await pause(this.#patience.everyMs, signal);
       }
     }
   }

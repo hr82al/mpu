@@ -134,8 +134,9 @@ export async function runLine(
   back: BackLine,
   asker: Asker,
   requestId: string | number,
+  options: { readonly signal?: AbortSignal } = {},
 ): Promise<ToolResult> {
-  let reply = await back.start(line, asker.human);
+  let reply = await back.start(line, asker.human, options);
   let stdout = "";
   let stderr = "";
   while (true) {
@@ -145,7 +146,7 @@ export async function runLine(
     stdout += collected.stdout;
     stderr += collected.stderr;
     if ("exit" in collected) return finished(stdout, stderr, collected.exit);
-    const verdict = await asker.ask(collected.ask, requestId);
-    reply = await back.answer(collected.ticket, verdict);
+    const verdict = await asker.ask(collected.ask, requestId, options);
+    reply = await back.answer(collected.ticket, verdict, options);
   }
 }

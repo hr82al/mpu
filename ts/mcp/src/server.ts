@@ -92,12 +92,19 @@ function sessionServer(options: McpOptions): Server {
   );
   server.setRequestHandler(
     CallToolRequestSchema,
-    (request: CallToolRequest, extra: { readonly requestId: RequestId }) =>
+    (
+      request: CallToolRequest,
+      // `signal` SDK взводит у идущего запроса, когда клиент отменил
+      // вызов или порвал транспорт (`platform/mcp-cancel.md`): без него
+      // отмену некому увидеть.
+      extra: { readonly requestId: RequestId; readonly signal: AbortSignal },
+    ) =>
       runLine(
         lineOf(request.params.name, request.params.arguments),
         options.back,
         asker,
         extra.requestId,
+        { signal: extra.signal },
       ),
   );
   return server;
@@ -106,6 +113,8 @@ function sessionServer(options: McpOptions): Server {
 class Translator {
   readonly #options: McpOptions;
   readonly #sessions = new Map<string, Session>();
+  /** Закрытия ушедших сессий: остановка ждёт их, а не бросает. */
+  #closing: Promise<void> = Promise.resolve();
 
   constructor(options: McpOptions) {
     this.#options = options;
@@ -130,6 +139,7 @@ class Translator {
     const sessions = [...this.#sessions.values()];
     this.#sessions.clear();
     for (const session of sessions) await session.server.close();
+    await this.#closing;
   }
 
   /** Новая сессия; запрос не `initialize` — SDK отказывает, сессии нет. */
@@ -141,7 +151,20 @@ class Translator {
         this.#sessions.set(id, { server, transport });
       },
       onsessionclosed: (id: string) => {
+        const closed = this.#sessions.get(id);
         this.#sessions.delete(id);
+        if (closed === undefined) return;
+        // Клиент ушёл — идущие вызовы этой сессии обрывает SDK, но
+        // только при закрытии сервера: без него строка осталась бы
+        // жить, хотя её итога уже некому ждать
+        // (`platform/mcp-cancel.md`).
+        this.#closing = this.#closing.then(() => closed.server.close()).catch(
+          () => {
+            // Закрытие чужой сессии — уборка: её отказ не должен
+            // всплыть отказом постороннего по времени `stop()`, а
+            // чинить тут нечего — клиента уже нет.
+          },
+        );
       },
     });
     await server.connect(transport);

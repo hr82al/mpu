@@ -4,7 +4,7 @@
  * перезапуска; отказы — своим текстом.
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { BackLine } from "./back.ts";
 import { QUICK } from "./testkit.ts";
 
@@ -72,4 +72,21 @@ Deno.test("отказы back: 401/403, истёкший номер, не по к
       : await line.answer("n1", "y");
     assertEquals(reply, { failed: text });
   }
+});
+
+Deno.test("отмена в ожидании подъёма: ждать перестаём сразу", async () => {
+  // Ждать поднятия `back` ради вызова, которого больше никто не
+  // слушает, незачем (`platform/mcp-cancel.md`).
+  const { fetcher, attempts } = scripted([]);
+  const line = new BackLine(TARGET, QUICK, fetcher);
+  const stop = new AbortController();
+  const started = line.start(["version"], false, { signal: stop.signal });
+  const before = attempts();
+  stop.abort();
+  await assertRejects(() => started);
+  // После отмены ни одной новой попытки: пауза кончилась сигналом, а не
+  // сроком.
+  const after = attempts();
+  await new Promise((resolve) => setTimeout(resolve, QUICK.everyMs * 3));
+  assertEquals(attempts(), after, `попытки после отмены: ${before} → ${after}`);
 });

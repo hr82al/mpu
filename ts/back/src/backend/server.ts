@@ -19,7 +19,7 @@ import {
   lineRequest,
   ticketAnswerOf,
 } from "../frames/mod.ts";
-import { formFor, ticketAsking } from "./http.ts";
+import { formFor, type Opened, ticketAsking } from "./http.ts";
 import { linePrompt, type PromptDoor } from "./prompt.ts";
 import { DETACHED, Line } from "./line.ts";
 import { socketLine } from "./socket.ts";
@@ -274,6 +274,25 @@ function lineIo(
   };
 }
 
+/**
+ * Оборванный запрос — ушедший клиент: сигнал запроса ведёт в ту же
+ * остановку строки, что и обрыв сокета (`platform/mcp-cancel.md`).
+ * Что значит уход для конкретной формы ответа, решает она сама: у
+ * потока он уже виден его отменой, у собранного ответа — только здесь.
+ *
+ * @param request запрос строки
+ * @param opened открытый ответ этой строки
+ */
+function leaving(request: Request, opened: Opened): void {
+  if (request.signal.aborted) {
+    opened.leave();
+    return;
+  }
+  request.signal.addEventListener("abort", () => opened.leave(), {
+    once: true,
+  });
+}
+
 /** Вывод удалённой команды — кадрами строки, UTF-8 по кускам. */
 function remoteFrames(line: Line): RemoteOutput {
   const out = new TextDecoder();
@@ -464,6 +483,7 @@ class Back {
     const line = new Line(DETACHED, asking, Promise.resolve());
     const opened = form.open(line);
     line.attach(opened.delivery);
+    leaving(request, opened);
     this.#track(line, Promise.resolve(first), door, caller);
     return await opened.response;
   }
@@ -488,6 +508,7 @@ class Back {
     }
     const opened = form.open(line);
     line.resume(opened.delivery, reply.answer);
+    leaving(request, opened);
     return await opened.response;
   }
 

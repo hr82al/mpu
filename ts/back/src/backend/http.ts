@@ -25,6 +25,12 @@ export interface Client {
 export interface Opened {
   readonly delivery: Delivery;
   readonly response: Promise<Response>;
+  /**
+   * Запрос оборвался. Что это значит, решает сама форма: у потока уход
+   * клиента виден его отменой, у собранного ответа — только отсюда
+   * (`platform/mcp-cancel.md`).
+   */
+  leave(): void;
 }
 
 /** Форма ответа строки. */
@@ -108,6 +114,9 @@ const NDJSON: Form = {
       response: Promise.resolve(
         new Response(stream, { headers: { "Content-Type": NDJSON_TYPE } }),
       ),
+      // Уход клиента поток видит своей отменой (`cancel` выше), и она
+      // приходит раньше: второй раз говорить строке нечего.
+      leave: () => {},
     };
   },
 };
@@ -122,13 +131,16 @@ type Tail =
   };
 
 /**
- * Собранный ответ: копит потоки, отдаёт один объект в конце. Обрыв
- * клиентом не отслеживается: строка всё равно доходит до конца, ответ
- * просто некому отдать (`request.signal` Deno к тому же срабатывает и на
- * успешном ответе).
+ * Собранный ответ: копит потоки, отдаёт один объект в конце. Уход
+ * клиента здесь не виден ни потоку (его нет), ни `request.signal`
+ * самому по себе: Deno взводит сигнал и после успешно отданного ответа
+ * (замер 2026-09-22, легаси-поведение). Различает их состояние самой
+ * формы: ответ уже готов — сигнал опоздал и ничего не значит; ответа
+ * ещё нет — клиента больше нет, и строке пора останавливаться
+ * (`platform/mcp-cancel.md`).
  */
 const COLLECTED: Form = {
-  open() {
+  open(client) {
     let stdout = "";
     let stderr = "";
     let tail: Tail = { exit: 1 };
@@ -143,19 +155,35 @@ const COLLECTED: Form = {
       else if ("clip" in frame) stderr += frame.clip;
       else tail = frame;
     };
+    let answered = false;
     return {
       delivery: {
         frame: take,
         // Собранный ответ копится по устройству: давления нет.
         ready: () => Promise.resolve(),
-        end: () =>
+        end: () => {
+          answered = true;
           body.resolve(
             new Response(JSON.stringify({ stdout, stderr, ...tail }), {
               headers: { "Content-Type": JSON_TYPE },
             }),
-          ),
+          );
+        },
       },
       response: body.promise,
+      // Ложное срабатывание здесь опаснее пропущенного: строка,
+      // объявленная отменённой после успешного ответа, дала бы запись
+      // журнала кодом 130 вместо своего.
+      leave: () => {
+        if (answered) return;
+        answered = true;
+        client.lost();
+        // Ответ всё равно нужен: обработчик обязан вернуть `Response`,
+        // иначе запрос висит до остановки сервера. Читать его некому —
+        // клиент ушёл, — поэтому тело пустое, а код говорит, что
+        // случилось (499, «клиент закрыл запрос»).
+        body.resolve(new Response(null, { status: 499 }));
+      },
     };
   },
 };

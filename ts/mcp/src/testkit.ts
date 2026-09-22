@@ -35,7 +35,10 @@ export interface Stack {
 /** `back` и `mcp` на время `body`; остановка — в обратном порядке. */
 export function withStack(
   body: (stack: Stack) => Promise<void>,
-  setup: Parameters<typeof withBack>[1] = {},
+  setup: Parameters<typeof withBack>[1] & {
+    /** Чем переводчик ходит в `back`: для записи его запросов. */
+    readonly fetcher?: typeof fetch;
+  } = {},
 ): Promise<void> {
   return withBack(async (back) => {
     const mcp = await serveMcp({
@@ -45,6 +48,7 @@ export function withStack(
       back: new BackLine(
         { base: back.url, token: back.token, cwd: Deno.cwd() },
         QUICK,
+        setup.fetcher,
       ),
     });
     const stack: Stack = {
@@ -73,6 +77,8 @@ export async function connect(
   url: string,
   elicit?: Elicit,
   token = MCP_TOKEN,
+  /** Тела запросов клиента к переводчику: для голденов протокола. */
+  record?: (body: string) => void,
 ): Promise<Client> {
   const client = new Client(
     { name: "test", version: "1" },
@@ -86,6 +92,11 @@ export async function connect(
   }
   const transport = new StreamableHTTPClientTransport(new URL(url), {
     requestInit: { headers: { Authorization: `Bearer ${token}` } },
+    fetch: record === undefined ? undefined : ((url, init) => {
+      const body = init?.body;
+      if (typeof body === "string") record(body);
+      return fetch(url, init);
+    }) as typeof fetch,
   });
   await client.connect(transport);
   return client;

@@ -25,8 +25,14 @@ export interface Asker {
   /**
    * @param question текст вопроса строки
    * @param requestId вызов тула, в поток которого уходит вопрос
+   * @param options отмена вызова: вопрос снимается вместе с ним, и
+   *   ответ в `back` не уходит вовсе (`platform/mcp-cancel.md`)
    */
-  ask(question: string, requestId: string | number): Promise<Verdict>;
+  ask(
+    question: string,
+    requestId: string | number,
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<Verdict>;
 }
 
 /**
@@ -53,7 +59,7 @@ const CONFIRM_SCHEMA = {
 export function eliciting(server: Server): Asker {
   return {
     human: true,
-    async ask(question, requestId) {
+    async ask(question, requestId, options = {}) {
       try {
         return verdictOf(
           await server.elicitInput(
@@ -64,10 +70,18 @@ export function eliciting(server: Server): Asker {
             },
             // Вопрос — в поток того же вызова тула: отдельного потока
             // клиент может и не открыть, и запрос пропал бы молча.
-            { relatedRequestId: requestId, timeout: ELICIT_TIMEOUT_MS },
+            {
+              relatedRequestId: requestId,
+              timeout: ELICIT_TIMEOUT_MS,
+              signal: options.signal,
+            },
           ),
         );
-      } catch {
+      } catch (err) {
+        // Вызов отменён — это не ответ человека: форма снята вместе с
+        // вызовом, и в `back` не уходит ничего. «Нет» здесь записало бы
+        // строке отказ от имени человека, который ничего не выбирал.
+        if (options.signal?.aborted === true) throw err;
         // Ошибка, таймаут, обрыв — ответа человека нет, это «нет».
         return "n";
       }
