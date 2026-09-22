@@ -1,8 +1,8 @@
 /**
- * Процесс CLI: собирает зависимости, ведёт запись журнала вызовов и
- * отдаёт argv точке входа. Точек входа две (`main.ts`, `next.ts`), и
- * журнал у них обязан писаться одинаково (`platform/invoke-log.md`,
- * `platform/registry-objects.md`) — поэтому склейка живёт здесь одна.
+ * Окружение процесса и журнал вызовов: их берёт сервер строк
+ * (`back/back.ts`) и склейка строки в `backend/server.ts`. Журнал у
+ * всех вызовов обязан писаться одинаково (`platform/invoke-log.md`),
+ * поэтому склейка живёт здесь одна.
  */
 
 import type { CommandIo } from "../command/mod.ts";
@@ -18,7 +18,6 @@ import {
   defaultInvokeLogPath,
   defaultStateDir,
   makeDenoIo,
-  makeDenoOutput,
 } from "../runtime/mod.ts";
 
 /** Точка входа: argv, окружение, вывод, журнал → код завершения. */
@@ -28,21 +27,6 @@ export type CliEntry = (
   output: Output,
   journal: InvokeJournal,
 ) => Promise<number>;
-
-/**
- * Исполняет вызов процесса точкой входа `entry` и возвращает код
- * завершения.
- *
- * @param args argv процесса без имени программы
- * @param entry точка входа
- */
-export async function runProcess(
-  args: readonly string[],
-  entry: CliEntry,
-): Promise<number> {
-  const io = processIo();
-  return await runJournaled(args, entry, io, processLog(io), makeDenoOutput());
-}
 
 /** Окружение процесса: каталоги состояния и конфигурации из окружения. */
 export function processIo(): CommandIo {
