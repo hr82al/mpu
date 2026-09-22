@@ -7,6 +7,7 @@
 import { assertEquals } from "@std/assert";
 import {
   type Place,
+  ROOT,
   type Run,
   runScript,
   snapshot,
@@ -18,8 +19,9 @@ function install(
   place: Place,
   args: readonly string[] = [],
   env: Record<string, string> = {},
+  where: { readonly tree?: string; readonly from?: string } = {},
 ): Promise<Run> {
-  return runScript(place, "install.sh", args, env);
+  return runScript(place, "install.sh", args, env, where);
 }
 
 const PROGRAMS = [
@@ -144,8 +146,10 @@ Deno.test("старая служба рядом: отказ до установ�
         `install: служба: ошибка: рядом старая служба ${old}, ` +
           "сначала ./cutover.sh",
       );
-      // Служба не поставлена: в каталоге только чужой файл.
+      // Ни служба не поставлена, ни программы: отказ приходит до
+      // сборки, и машина не остаётся наполовину переключённой.
       assertEquals(Object.keys(await snapshot(place.unit)), [old]);
+      assertEquals(await snapshot(place.bin), {});
       assertEquals(run.calls, []);
       await Deno.remove(`${place.unit}/${old}`);
     }
@@ -219,4 +223,219 @@ Deno.test("фронт: каталог web/<хэш>/ и ссылка current, б�
     assertEquals((await Deno.stat(`${web}/${first}`)).isDirectory, true);
     // Только фронт изменился — служба не трогается.
     assertEquals(run.calls, []);
+  }));
+
+/** Файл настроек оболочки во временном HOME. */
+async function shellConfig(place: Place, shell: string, text: string) {
+  const paths: Record<string, string> = {
+    bash: `${place.dir}/.bashrc`,
+    fish: `${place.dir}/config/fish/config.fish`,
+    nu: `${place.dir}/config/nushell/config.nu`,
+  };
+  const path = paths[shell];
+  await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+  await Deno.writeTextFile(path, text);
+  return path;
+}
+
+/** Что печатает подставной `mpu-complete init` — тело блока. */
+function fakeBody(shell: string): string {
+  return [
+    `# дополнение ${shell} для mpu`,
+    "local IFS=$'\\n'",
+    'split column "\\t"',
+  ].join("\n");
+}
+
+const BEGIN = "# >>> mpu completion >>>";
+const END = "# <<< mpu completion <<<";
+
+/** Строки между маркерами; блока нет — пусто. */
+function blocks(text: string): string[] {
+  const found: string[] = [];
+  let inside: string[] | undefined;
+  for (const line of text.split("\n")) {
+    if (line === BEGIN) {
+      inside = [];
+      continue;
+    }
+    if (line === END && inside !== undefined) {
+      found.push(inside.join("\n"));
+      inside = undefined;
+      continue;
+    }
+    inside?.push(line);
+  }
+  return found;
+}
+
+Deno.test("дополнение: блок в каждой настроенной оболочке, прочие — не настроены", () =>
+  withPlace(async (place) => {
+    const bashrc = await shellConfig(place, "bash", "export PS1='$ '\n");
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(
+      run.lines.filter((line) => line.startsWith("install: дополнение")),
+      [
+        "install: дополнение bash: подключено",
+        "install: дополнение fish: не настроена",
+        "install: дополнение nu: не настроена",
+      ],
+    );
+    const text = await Deno.readTextFile(bashrc);
+    assertEquals(blocks(text), [fakeBody("bash")]);
+    // Текст человека остался на месте.
+    assertEquals(text.startsWith("export PS1='$ '\n"), true);
+  }));
+
+Deno.test("дополнение: три прогона — один блок, чужой текст не тронут", () =>
+  withPlace(async (place) => {
+    const before = "export PS1='$ '\n# хвост человека\n";
+    const bashrc = await shellConfig(place, "bash", before);
+    await shellConfig(place, "fish", "# fish\n");
+    await shellConfig(place, "nu", "# nu\n");
+    await install(place);
+    const second = await install(place);
+    const third = await install(place);
+    for (const run of [second, third]) {
+      assertEquals(
+        run.lines.filter((line) => line.startsWith("install: дополнение")),
+        [
+          "install: дополнение bash: без изменений",
+          "install: дополнение fish: без изменений",
+          "install: дополнение nu: без изменений",
+        ],
+      );
+    }
+    const text = await Deno.readTextFile(bashrc);
+    assertEquals(blocks(text).length, 1);
+    assertEquals(text.startsWith(before), true);
+    assertEquals(
+      text,
+      await Deno.readTextFile(
+        new URL(
+          "testdata/cutover/bashrc-after-three-runs.txt",
+          import.meta.url,
+        ),
+      ),
+    );
+  }));
+
+Deno.test("дополнение: правка внутри блока затирается, соседний текст — нет", () =>
+  withPlace(async (place) => {
+    const bashrc = await shellConfig(place, "bash", "# сверху\n");
+    await install(place);
+    const edited = (await Deno.readTextFile(bashrc))
+      .replace("# дополнение bash для mpu", "# правка человека") + "# снизу\n";
+    await Deno.writeTextFile(bashrc, edited);
+    const run = await install(place);
+    assertEquals(
+      run.lines.filter((line) => line.startsWith("install: дополнение bash")),
+      ["install: дополнение bash: подключено"],
+    );
+    const text = await Deno.readTextFile(bashrc);
+    // Тело вернулось дословно: обратные слэши скрипта не раскрылись.
+    assertEquals(blocks(text), [fakeBody("bash")]);
+    assertEquals(text.startsWith("# сверху\n"), true);
+    assertEquals(text.endsWith("# снизу\n"), true);
+  }));
+
+/**
+ * Дерево, в котором установщику хватает всего: он сам, уборка и эталон
+ * службы. Сборка идёт поддельным `deno`, задачи ему не нужны, поэтому
+ * копировать дерево целиком незачем.
+ *
+ * @param at каталог будущего дерева (может содержать пробел)
+ */
+async function fakeTree(at: string): Promise<string> {
+  await Deno.mkdir(`${at}/supervisor`, { recursive: true });
+  for (const name of ["install.sh", "cutover.sh"]) {
+    await Deno.copyFile(`${ROOT}${name}`, `${at}/${name}`);
+    await Deno.chmod(`${at}/${name}`, 0o755);
+  }
+  await Deno.copyFile(
+    `${ROOT}supervisor/mpu.service`,
+    `${at}/supervisor/mpu.service`,
+  );
+  return `${at}/`;
+}
+
+Deno.test("зовётся по пути из чужого каталога, в том числе по ссылке", async (t) => {
+  await t.step(
+    "абсолютный путь, рабочий каталог — корень",
+    () =>
+      withPlace(async (place) => {
+        const run = await install(place, [], {}, { from: "/" });
+        assertEquals(run.code, 0, run.lines.join("\n"));
+        assertEquals(run.lines.at(-1), "install: готово");
+        assertEquals(Object.keys(await snapshot(place.bin)).sort(), PROGRAMS);
+      }),
+  );
+  await t.step(
+    "символическая ссылка на скрипт",
+    () =>
+      withPlace(async (place) => {
+        // Ссылка разыменовывается до конца: дерево — настоящее, а не
+        // каталог ссылки, где нет ни задач, ни эталона службы.
+        const link = `${place.dir}/link`;
+        await Deno.mkdir(link, { recursive: true });
+        await Deno.symlink(`${ROOT}install.sh`, `${link}/install.sh`);
+        const run = await install(place, [], {}, {
+          tree: `${link}/`,
+          from: "/",
+        });
+        assertEquals(run.code, 0, run.lines.join("\n"));
+        assertEquals(run.lines.at(-1), "install: готово");
+      }),
+  );
+  await t.step("дерево по пути с пробелом", () =>
+    withPlace(async (place) => {
+      const tree = await fakeTree(`${place.dir}/дерево с пробелом`);
+      const run = await install(place, [], {}, { tree, from: "/" });
+      assertEquals(run.code, 0, run.lines.join("\n"));
+      assertEquals(run.lines.at(-1), "install: готово");
+      assertEquals(
+        await Deno.readTextFile(`${place.unit}/mpu.service`),
+        await Deno.readTextFile(`${tree}supervisor/mpu.service`),
+      );
+    }));
+});
+
+Deno.test("дополнение: файл настроек — ссылка, ссылка остаётся ссылкой", () =>
+  withPlace(async (place) => {
+    // Точечные файлы часто лежат в чужом каталоге, а в HOME — ссылки:
+    // подменять надо то, на что ссылка смотрит, иначе установка её
+    // снесёт вместе с чужой историей.
+    const real = `${place.dir}/dotfiles/bashrc`;
+    await Deno.mkdir(`${place.dir}/dotfiles`, { recursive: true });
+    await Deno.writeTextFile(real, "# сверху\n");
+    await Deno.symlink(real, `${place.dir}/.bashrc`);
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(
+      (await Deno.lstat(`${place.dir}/.bashrc`)).isSymlink,
+      true,
+      "ссылка заменена обычным файлом",
+    );
+    assertEquals(blocks(await Deno.readTextFile(real)), [fakeBody("bash")]);
+  }));
+
+Deno.test("дополнение: подключать нечем — пропуск, а не отказ", () =>
+  withPlace(async (place) => {
+    await shellConfig(place, "bash", "# сверху\n");
+    // Всё, кроме `complete`: дополняющей программы на машине нет, и
+    // шаг не должен ронять установку уже поставленного.
+    const run = await install(place, [
+      "--only",
+      "back,mcp,cli,supervisor,web",
+    ]);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(
+      run.lines.filter((line) => line.startsWith("install: дополнение")),
+      ["install: дополнение: mpu-complete не установлен"],
+    );
+    assertEquals(
+      (await Deno.readTextFile(`${place.dir}/.bashrc`)).includes(BEGIN),
+      false,
+    );
   }));

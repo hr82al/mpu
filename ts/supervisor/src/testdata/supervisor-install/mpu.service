@@ -1,5 +1,5 @@
 [Unit]
-Description=mpu-next: сервер строк и переводчик MCP
+Description=mpu: сервер строк и переводчик MCP
 After=default.target
 StartLimitIntervalSec=60
 StartLimitBurst=5

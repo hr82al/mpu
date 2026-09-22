@@ -19,6 +19,18 @@ import { type Asker, humanAsker, NOBODY } from "./asker.ts";
 import { type Clip, clipboard, shown } from "./clip.ts";
 import { chooseDoor, type Door } from "./door.ts";
 
+/**
+ * Имя, которым человек зовёт систему: им названы и программа, и её
+ * служба (`platform/cutover.md`). Названо здесь один раз — все семь
+ * диагностик клиента складываются из него.
+ */
+const ME = "mpu";
+
+/** Строка диагностики клиента: имя, двоеточие, текст, перевод строки. */
+function mine(text: string): string {
+  return `${ME}: ${text}\n`;
+}
+
 /** Код прерывания по Ctrl+C: 128 + SIGINT. */
 const INTERRUPTED_CODE = 130;
 
@@ -62,7 +74,7 @@ interface Ending {
 /** Кадра `exit` не было: сервер оборвал строку. */
 const BROKEN: Ending = {
   close(env) {
-    env.stderr("mpu-next: сервер оборвал строку\n");
+    env.stderr(mine("сервер оборвал строку"));
     return FAILED;
   },
   interrupt: () => INTERRUPTED,
@@ -70,7 +82,7 @@ const BROKEN: Ending = {
 
 const INTERRUPTED: Ending = {
   close(env) {
-    env.stderr("mpu-next: прервано\n");
+    env.stderr(mine("прервано"));
     return INTERRUPTED_CODE;
   },
   interrupt: () => INTERRUPTED,
@@ -179,7 +191,7 @@ class LineSocket {
       // Не прочитался ответ — это «нет»: вопрос без ответа сервер так и
       // толкует; причина — в stderr, строку решит сервер.
       const reason = err instanceof Error ? err.message : String(err);
-      this.#env.stderr(`mpu-next: ответ не прочитан: ${reason}\n`);
+      this.#env.stderr(mine(`ответ не прочитан: ${reason}`));
       answer = "";
     }
     if (this.#socket.readyState !== WebSocket.OPEN) return;
@@ -198,12 +210,17 @@ async function refusal(
   } catch (err) {
     // `fetch` отвергает сетевой сбой именно `TypeError`: соединения нет.
     if (!(err instanceof TypeError)) throw err;
-    return `mpu-next: сервер строк не отвечает на ${env.base} ` +
-      "(запуск: deno task back)\n";
+    // Подсказка ведёт к службе, а не к дереву исходников: у человека,
+    // у которого сломалась установка, дерева под рукой может не быть
+    // (`platform/cutover.md`).
+    return mine(
+      `сервер строк не отвечает на ${env.base} ` +
+        `(запуск: systemctl --user start ${ME})`,
+    );
   }
   await response.body?.cancel();
   if (response.status === 401 || response.status === 403) {
-    return `mpu-next: сервер отказал в доступе (${response.status})\n`;
+    return mine(`сервер отказал в доступе (${response.status})`);
   }
   return undefined;
 }
@@ -229,7 +246,7 @@ export async function runClient(
     context = await contextFieldsOf(env.caller);
   } catch (err) {
     if (!(err instanceof BadFrame)) throw err;
-    env.stderr(`mpu-next: ${err.report}\n`);
+    env.stderr(mine(err.report));
     return REFUSED_INPUT;
   }
   // Спросить есть кого, когда открывается управляющий терминал: у
@@ -246,7 +263,7 @@ export async function runClient(
     : clipboard(env.copy, env.stderr);
   const door = chooseDoor(await env.mainToken(), await env.agentToken(), asker);
   if (door === undefined) {
-    env.stderr(`mpu-next: нет токена доступа (${env.mainTokenPath})\n`);
+    env.stderr(mine(`нет токена доступа (${env.mainTokenPath})`));
     return FAILED;
   }
   // Проверка доступа обычным запросом к той же двери: у сокета отказ

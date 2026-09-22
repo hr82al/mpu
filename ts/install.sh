@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Установка новых частей рядом со старым mpu
-# (docs/specs/platform/supervisor-install.md, «ts/install.sh»):
-# mpu-back, mpu-mcp, mpu-next, mpu-supervisor, mpu-complete, каталог
-# фронта и служба mpu-next.service (mpu-complete и фронт — без службы:
-# первого зовёт оболочка, второй читает mpu-back через ссылку current).
-# Старую программу, её службу и её порт скрипт не знает и не трогает.
+# Установка mpu (docs/specs/platform/supervisor-install.md, «ts/install.sh»;
+# переключение имён — platform/cutover.md): mpu-back, mpu-mcp, mpu,
+# mpu-supervisor, mpu-complete, каталог фронта и служба mpu.service
+# (mpu-complete и фронт — без службы: первого зовёт оболочка, второй
+# читает mpu-back через ссылку current). Уборка старого — одноразовая и
+# живёт в ./cutover.sh; здесь от неё одна проверка — до сборки, чтобы
+# машина не осталась наполовину переключённой.
 #
 #   ./install.sh [--only back,mcp,cli,supervisor,complete,web] [--check]
 #
@@ -14,7 +15,10 @@
 # MPU_WEB_DIR.
 set -uo pipefail
 
-here=$(cd "$(dirname "$0")" && pwd)
+# Дерево исходников — каталог самого скрипта, а не текущий: скрипт зовут
+# откуда придётся и бывает, что по символической ссылке. Ни один путь
+# ниже не берётся от $PWD (`platform/cutover.md`).
+here=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
 bin_dir=${MPU_BIN_DIR:-$HOME/.local/bin}
 unit_dir=${MPU_UNIT_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user}
 web_dir=${MPU_WEB_DIR:-$HOME/.local/share/mpu/web}
@@ -22,7 +26,10 @@ systemctl=${MPU_SYSTEMCTL:-systemctl}
 deno=${MPU_DENO:-deno}
 back_url=${MPU_BACK_URL:-http://127.0.0.1:7338}
 mcp_url=${MPU_MCP_URL:-http://127.0.0.1:7339}
-unit=mpu-next.service
+unit=mpu.service
+# Службы, оставшиеся от старой установки: рядом с новой они дерутся за
+# порт 7338 (`platform/cutover.md`), поэтому установка их не терпит.
+old_units=(mpu-mcp.service mpu-next.service)
 wait_seconds=15
 
 say() { printf 'install: %s\n' "$*"; }
@@ -33,7 +40,7 @@ program_of() {
   case $1 in
     back) echo mpu-back ;;
     mcp) echo mpu-mcp ;;
-    cli) echo mpu-next ;;
+    cli) echo mpu ;;
     supervisor) echo mpu-supervisor ;;
     complete) echo mpu-complete ;;
     web) echo web ;;
@@ -56,6 +63,14 @@ while (($# > 0)); do
 done
 for part in "${parts[@]}"; do
   program_of "$part" >/dev/null || fail "аргументы" "нет части $part"
+done
+
+# Старая служба рядом — установка не начинается вовсе: иначе отказ
+# пришёл бы уже после подмены программ, и машина осталась бы
+# наполовину переключённой (`platform/cutover.md`).
+for old in "${old_units[@]}"; do
+  [[ -e $unit_dir/$old ]] &&
+    fail "служба" "рядом старая служба $old, сначала ./cutover.sh"
 done
 
 # 1. Сборка — во временный каталог рядом с целью (подмена mv атомарна в
@@ -143,7 +158,6 @@ for part in "${changed[@]}"; do
   say "установка $part: поставлено"
 done
 
-# 5. Служба: эталонный файл, при расхождении — записать, перечитать, включить.
 unit_changed=0
 if cmp -s "$here/supervisor/$unit" "$unit_dir/$unit"; then
   say "служба: без изменений"
@@ -151,7 +165,7 @@ else
   mkdir -p "$unit_dir" || fail "служба" "нет каталога $unit_dir"
   cp "$here/supervisor/$unit" "$unit_dir/$unit" || fail "служба" "не записана"
   "$systemctl" --user daemon-reload || fail "служба" "daemon-reload"
-  "$systemctl" --user enable mpu-next || fail "служба" "enable"
+  "$systemctl" --user enable mpu || fail "служба" "enable"
   unit_changed=1
   say "служба: записана"
 fi
@@ -171,26 +185,26 @@ pid_of() {
 old_back=""
 old_mcp=""
 restarted=0
-if ! "$systemctl" --user is-active --quiet mpu-next; then
-  "$systemctl" --user start mpu-next || fail "перезапуск" "start"
+if ! "$systemctl" --user is-active --quiet mpu; then
+  "$systemctl" --user start mpu || fail "перезапуск" "start"
   restarted=1
   say "перезапуск: служба запущена"
 elif has supervisor || ((unit_changed)); then
   old_back=$(pid_of "$back_url")
   old_mcp=$(pid_of "$mcp_url")
-  "$systemctl" --user restart mpu-next || fail "перезапуск" "restart"
+  "$systemctl" --user restart mpu || fail "перезапуск" "restart"
   restarted=1
   say "перезапуск: служба перезапущена"
 else
   if has back; then
     old_back=$(pid_of "$back_url")
-    "$systemctl" --user kill --kill-whom=main -s USR1 mpu-next || fail "перезапуск" "USR1"
+    "$systemctl" --user kill --kill-whom=main -s USR1 mpu || fail "перезапуск" "USR1"
     restarted=1
     say "перезапуск: back"
   fi
   if has mcp; then
     old_mcp=$(pid_of "$mcp_url")
-    "$systemctl" --user kill --kill-whom=main -s USR2 mpu-next || fail "перезапуск" "USR2"
+    "$systemctl" --user kill --kill-whom=main -s USR2 mpu || fail "перезапуск" "USR2"
     restarted=1
     say "перезапуск: mcp"
   fi
@@ -223,9 +237,9 @@ mcp_ok() {
   fresh "$mcp_url" "$old_mcp" &&
     [[ $(curl -s -o /dev/null -w '%{http_code}' -X POST "$mcp_url/mcp" 2>/dev/null) == 401 ]]
 }
-next_ok() {
+cli_ok() {
   local said
-  said=$(MPU_BACK_URL=$back_url "$bin_dir/mpu-next" version 2>/dev/null) || return 1
+  said=$(MPU_BACK_URL=$back_url "$bin_dir/mpu" version 2>/dev/null) || return 1
   [[ -z ${version[cli]:-} || $said == "${version[cli]}" ]]
 }
 
@@ -233,7 +247,90 @@ until_ok back_ok || fail "проверка back" "нет ответа 200 с в�
 say "проверка back: отвечает"
 until_ok mcp_ok || fail "проверка mcp" "нет ответа 401 на $mcp_url/mcp"
 say "проверка mcp: отвечает"
-until_ok next_ok || fail "проверка cli" "mpu-next version не отвечает"
+until_ok cli_ok || fail "проверка cli" "mpu version не отвечает"
 say "проверка cli: отвечает"
+
+# 8. Дополнение: в файле настроек каждой оболочки — один блок между
+# маркерами. Блок принадлежит установщику целиком: есть — содержимое
+# заменяется на месте, нет — дописывается в конец; совпало — файл не
+# переписывается вовсе. Поэтому сколько ни запускай, строк не
+# прибавляется (`platform/cutover.md`).
+begin_mark='# >>> mpu completion >>>'
+end_mark='# <<< mpu completion <<<'
+
+# Файл настроек оболочки; его нет — пусто, и оболочка пропускается.
+# Каталог nu спрашивается у самого nu: другого источника у него нет.
+config_bash() { [[ -f $HOME/.bashrc ]] && echo "$HOME/.bashrc"; }
+config_fish() {
+  local file=${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish
+  [[ -f $file ]] && echo "$file"
+}
+config_nu() {
+  local dir
+  dir=$(nu --no-config-file -c '$nu.default-config-dir' 2>/dev/null) || return 0
+  [[ -f $dir/config.nu ]] && echo "$dir/config.nu"
+}
+
+# Содержимое блока, как оно лежит сейчас; блока нет — пусто.
+block_in() {
+  awk -v b="$begin_mark" -v e="$end_mark" \
+    '$0==b{inside=1;next} $0==e{inside=0;next} inside' "$1"
+}
+
+# Блок на своё место: есть — заменить содержимое, не двигая соседний
+# текст; нет — дописать в конец.
+#
+# Тело уходит в awk переменной ОКРУЖЕНИЯ, а не через `-v`: `-v`
+# раскрывает escape-последовательности, а в скриптах дополнения они
+# есть дословно (`local IFS=$'\n'` у bash, `split column "\t"` у nu) —
+# замер 2026-09-22: `-v` превращает их в настоящие перевод строки и
+# табуляцию, то есть кладёт в файл испорченный скрипт.
+write_block() {
+  local file=$1 body=$2 target tmp
+  # Файл настроек бывает символической ссылкой в чужой каталог с
+  # точечными файлами: подменять надо то, на что она смотрит, иначе
+  # установка снесла бы саму ссылку.
+  target=$(readlink -f "$file") || return 1
+  tmp=$target.mpu-install
+  if grep -Fxq "$begin_mark" "$target"; then
+    body="$body" awk -v b="$begin_mark" -v e="$end_mark" \
+      '$0==b{print; print ENVIRON["body"]; skip=1; next} $0==e{skip=0} !skip{print}' \
+      "$target" >"$tmp" || return 1
+  else
+    cat "$target" >"$tmp" || return 1
+    printf '%s\n%s\n%s\n' "$begin_mark" "$body" "$end_mark" >>"$tmp" || return 1
+  fi
+  mv -f "$tmp" "$target"
+}
+
+# Имя дополняемой программы установщик не повторяет: оно умолчание
+# `mpu-complete init` (`docs/specs/complete.md`).
+hook_shell() {
+  local shell=$1 file=$2 body
+  body=$("$bin_dir/mpu-complete" init "$shell" 2>/dev/null) ||
+    fail "дополнение $shell" "mpu-complete init $shell не отработал"
+  if [[ $(block_in "$file") == "$body" ]]; then
+    say "дополнение $shell: без изменений"
+    return
+  fi
+  write_block "$file" "$body" || fail "дополнение $shell" "файл не записан"
+  say "дополнение $shell: подключено"
+}
+
+# Подключать нечем — дополняющей программы на месте нет (её не просили
+# ставить: `--only` без `complete` на чистой машине). Это пропуск, а не
+# отказ: остальное уже поставлено и работает.
+if [[ ! -x $bin_dir/mpu-complete ]]; then
+  say "дополнение: mpu-complete не установлен"
+else
+  for shell in bash fish nu; do
+    file=$("config_$shell")
+    if [[ -z $file ]]; then
+      say "дополнение $shell: не настроена"
+      continue
+    fi
+    hook_shell "$shell" "$file"
+  done
+fi
 
 say "готово"

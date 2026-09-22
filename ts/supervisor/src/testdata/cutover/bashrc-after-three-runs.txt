@@ -1,0 +1,7 @@
+export PS1='$ '
+# хвост человека
+# >>> mpu completion >>>
+# дополнение bash для mpu
+local IFS=$'\n'
+split column "\t"
+# <<< mpu completion <<<

@@ -27,7 +27,17 @@ cat >"$MPU_OUT" <<SCRIPT
 #!/bin/bash
 # $part \${!tag_var:-1}
 if [[ \\$1 == --version || \\$1 == version ]]; then echo 0.1.0; exit 0; fi
-if [[ \\$1 == init ]]; then echo "# дополнение \\$2 для mpu"; exit 0; fi
+if [[ \\$1 == init ]]; then
+  echo "# дополнение \\$2 для mpu"
+  # Отпечаток настоящего скрипта: обратные слэши в теле
+  # (у bash — IFS, у nu — split column), на которых ломается
+  # передача тела в awk через -v.
+  cat <<'BODY'
+local IFS=$'\\n'
+split column "\\t"
+BODY
+  exit 0
+fi
 exit 3
 SCRIPT
 chmod +x "$MPU_OUT"
@@ -129,11 +139,14 @@ export async function runScript(
   script: string,
   args: readonly string[] = [],
   env: Record<string, string> = {},
+  /** Откуда и чем звать: дерево и рабочий каталог вызывающего. */
+  where: { readonly tree?: string; readonly from?: string } = {},
 ): Promise<Run> {
+  const tree = where.tree ?? ROOT;
   await Deno.writeTextFile(place.calls, "");
   const output = await new Deno.Command("/bin/bash", {
-    args: [script, ...args],
-    cwd: ROOT,
+    args: [`${tree}${script}`, ...args],
+    cwd: where.from ?? ROOT,
     env: {
       HOME: place.dir,
       // Каталог настроек — во временном HOME: без этого fish и nu

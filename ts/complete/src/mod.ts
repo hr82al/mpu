@@ -1,4 +1,4 @@
-/** Дополнение строки `mpu-next` в оболочке (`docs/specs/complete.md`). */
+/** Дополнение строки `mpu` в оболочке (`docs/specs/complete.md`). */
 
 export { complete } from "./complete.ts";
 export { type CompleteProcess, runComplete } from "./entry.ts";

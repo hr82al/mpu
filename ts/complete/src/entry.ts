@@ -8,7 +8,7 @@ import { VERSION } from "../../back/src/frames/mod.ts";
 import { complete } from "./complete.ts";
 import { initScript, SHELL_NAMES, shellOf } from "./init.ts";
 
-const DEFAULT_COMMAND = "mpu-next";
+const DEFAULT_COMMAND = "mpu";
 
 /** Что процессу нужно снаружи. */
 export interface CompleteProcess {

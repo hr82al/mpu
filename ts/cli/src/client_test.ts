@@ -89,7 +89,7 @@ Deno.test("токена нет ни одного — отказ с путём о
     const run = testEnv({ base, terminals: true });
     assertEquals(await runClient(["version"], run.env), 1);
     assertEquals(run.stderr, [
-      "mpu-next: нет токена доступа (/home/test/.config/mpu/token)\n",
+      "mpu: нет токена доступа (/home/test/.config/mpu/token)\n",
     ]);
     assertEquals(visits, []);
   }));
@@ -243,7 +243,8 @@ Deno.test("сервер не отвечает — адрес и подсказк
   const run = testEnv({ base, main: MAIN });
   assertEquals(await runClient(["version"], run.env), 1);
   assertEquals(run.stderr, [
-    `mpu-next: сервер строк не отвечает на ${base} (запуск: deno task back)\n`,
+    `mpu: сервер строк не отвечает на ${base} ` +
+    `(запуск: systemctl --user start mpu)\n`,
   ]);
 });
 
@@ -254,7 +255,7 @@ Deno.test("сервер отказал в доступе — код ответа
         const run = testEnv({ base, main: MAIN });
         assertEquals(await runClient(["version"], run.env), 1);
         assertEquals(run.stderr, [
-          `mpu-next: сервер отказал в доступе (${status})\n`,
+          `mpu: сервер отказал в доступе (${status})\n`,
         ]);
         assertEquals(visits, []);
       }, { status }));
@@ -266,7 +267,7 @@ Deno.test("сокет закрыт без exit — оборвал строку",
     const run = testEnv({ base, main: MAIN });
     assertEquals(await runClient(["x"], run.env), 1);
     assertEquals(run.stdout, ["частично"]);
-    assertEquals(run.stderr, ["mpu-next: сервер оборвал строку\n"]);
+    assertEquals(run.stderr, ["mpu: сервер оборвал строку\n"]);
   }, {
     script: (socket) => {
       socket.send(JSON.stringify({ out: "частично" }));
@@ -281,7 +282,7 @@ Deno.test("Ctrl+C во время строки — прервано, 130", () =>
     const code = runClient(["x"], run.env);
     run.interrupt();
     assertEquals(await code, 130);
-    assertEquals(run.stderr.at(-1), "mpu-next: прервано\n");
+    assertEquals(run.stderr.at(-1), "mpu: прервано\n");
   }, {
     // Строка висит: сервер ждёт закрытия от клиента.
     script: () => Promise.resolve(),

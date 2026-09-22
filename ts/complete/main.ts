@@ -1,6 +1,6 @@
 /**
  * Точка входа `mpu-complete` (`deno task complete`): дополнение строки
- * `mpu-next` из снимка дерева. Ни сети, ни токенов, ни записи.
+ * `mpu` из снимка дерева. Ни сети, ни токенов, ни записи.
  */
 
 import { runComplete } from "./src/mod.ts";
