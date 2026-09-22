@@ -85,7 +85,7 @@ Deno.test("help: корень без path, группа по path", () =>
       const kiten = await call(stack, client, "help", { path: ["kiten"] });
       assertEquals(
         kiten.structuredContent,
-        await direct(stack, ["help", "kiten"]),
+        await direct(stack, ["kiten", "help"]),
       );
       const text = String(
         (kiten.content as { text: string }[])[0].text,

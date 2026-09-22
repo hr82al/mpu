@@ -3,7 +3,7 @@
  * вида, решает оно само. Перевод из данных разбора — один, в `sentOf`.
  */
 
-import { ESCAPE_WORD, HELP_FLAG, type Message } from "../messages/mod.ts";
+import { GRAMMAR, HELP_FLAG, type Message } from "../messages/mod.ts";
 import type {
   Args,
   Call,
@@ -86,6 +86,19 @@ class KeywordSent implements Named {
 /** Слова хвоста, включающие режим справки: `help` и `--help`. */
 const HELP_WORDS: ReadonlySet<string> = new Set([HELP_SELECTOR, HELP_FLAG]);
 
+/** Чужой хвост: слова справки в нём — слова чужой строки. */
+class ForeignTailSent implements Entry {
+  readonly #words: readonly string[];
+
+  constructor(words: readonly string[]) {
+    this.#words = words;
+  }
+
+  enter(walker: Walker): Promise<void> {
+    return walker.send(new TailSent(this.#words));
+  }
+}
+
 /** Хвост: остаток строки, который приёмник забирает как есть. */
 class TailSent implements Sent {
   readonly #words: readonly string[];
@@ -103,16 +116,15 @@ class TailSent implements Sent {
    * Слова справки до первого `--` убираются и включают режим справки;
    * хвост, ставший пустым, сообщением не становится.
    */
-  enter(walker: Walker): Promise<void> {
+  async enter(walker: Walker): Promise<void> {
     // За `--` хвост справку не ищет (`platform/registry-objects.md`).
-    const cut = this.#words.indexOf(ESCAPE_WORD);
+    const cut = this.#words.indexOf(GRAMMAR.literal);
     const end = cut < 0 ? this.#words.length : cut;
     const head = this.#words.slice(0, end);
     const kept = head.filter((word) => !HELP_WORDS.has(word));
-    if (kept.length < head.length) walker.askHelp();
     const words = [...kept, ...this.#words.slice(end)];
-    if (words.length === 0) return Promise.resolve();
-    return walker.send(new TailSent(words));
+    if (words.length > 0) await walker.send(new TailSent(words));
+    if (kept.length < head.length) walker.help();
   }
 
   viaLink(target: LinkTarget): Call {
@@ -124,17 +136,31 @@ class TailSent implements Sent {
   }
 }
 
-/** `help` из строки: не уходит объекту, а включает режим справки. */
+/** Закрытие: следующее слово — сообщение результату выражения. */
+const CLOSE: Sent = {
+  selector: () => GRAMMAR.close,
+  enter(walker) {
+    return walker.send(CLOSE);
+  },
+  viaLink: (target) => target.refuse(),
+  route: (finder) => finder.close(),
+};
+
+/** `help` из строки: объекту, который обозначает выражение до него. */
 const HELP: Entry = {
   enter(walker) {
-    walker.askHelp();
+    walker.help();
     return Promise.resolve();
   },
 };
 
 /** Сообщение разбора как объект. */
 export function sentOf(message: Message): Entry {
-  if ("tail" in message) return new TailSent(message.tail);
+  if ("close" in message) return CLOSE;
+  if ("tail" in message) {
+    if (message.foreign === true) return new ForeignTailSent(message.tail);
+    return new TailSent(message.tail);
+  }
   if ("keyword" in message) return new KeywordSent(message.keyword);
   if (message.unary === HELP_SELECTOR) return HELP;
   return new UnarySent(message.unary);

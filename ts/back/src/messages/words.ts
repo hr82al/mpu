@@ -1,11 +1,21 @@
 /**
  * Слова строки вызова как объекты: что делает слово, решает оно само —
- * в начале шага, за законченной парой, на месте значения, за `--` и за
- * точкой. Строка превращается в объект один раз, в `wordOf`.
+ * в начале шага, за законченной парой, на месте значения, за `--` и в
+ * хвосте. Строка превращается в объект один раз, в `wordOf`.
  */
 
-import { type Message, MessageParseError } from "./message.ts";
+import { type Message, MessageParseError, StrayWord } from "./message.ts";
 import type { Draft, Kind, Receiver, ValueSource } from "./receiver.ts";
+
+/**
+ * Слова грамматики (`platform/line-grammar.md` [D.1]): открытие группы,
+ * закрытие и знак литерала. Литералом эти слова больше нигде не пишутся —
+ * разбор, справка, подсказки и описание тула читают их отсюда.
+ */
+export const GRAMMAR = { open: "do", close: "end", literal: "--" } as const;
+
+/** Слово строки, которое разбор читает как сообщение `help`. */
+export const HELP_FLAG = "--help";
 
 /** Слово строки вызова. */
 interface Word {
@@ -17,10 +27,12 @@ interface Word {
   valueFor(key: string, words: Words): string;
   /** Слово стоит за `--`: берётся буквально. */
   literal(): string;
-  /** Слово стоит за точкой, закрывшей сообщение. */
-  afterDot(): void;
-  /** Слово стоит сразу за законченным сообщением. */
-  close(words: Words): void;
+  /** Слово стоит за ключевым сообщением: закрывает его или лишнее. */
+  afterPair(draft: Draft, words: Words): void;
+  /** Слово в хвосте: кладёт себя в `into`; `false` — хвост кончился. */
+  intoTail(words: Words, into: string[]): boolean;
+  /** Начинает ли слово хвост у приёмника со своими селекторами `own`. */
+  opensTail(own: ReadonlySet<string>): boolean;
 }
 
 /** Слова строки и позиция в них. */
@@ -32,10 +44,9 @@ export class Words implements ValueSource {
     this.#list = list;
   }
 
-  /** Лежит ли в начале слово, которого нет в `known`; слов нет — нет. */
-  firstOutside(known: ReadonlySet<string>): boolean {
-    if (this.#at >= this.#list.length) return false;
-    return !known.has(this.#list[this.#at]);
+  /** Начинает ли очередное слово хвост приёмника со своими `own`. */
+  opensTail(own: ReadonlySet<string>): boolean {
+    return this.peek().opensTail(own);
   }
 
   /** Забирает все оставшиеся слова как есть. */
@@ -43,6 +54,18 @@ export class Words implements ValueSource {
     const taken = this.rest();
     this.#at = this.#list.length;
     return taken;
+  }
+
+  /** Забирает слова хвоста — до закрытия без `--` перед ним. */
+  takeTail(): string[] {
+    const tail: string[] = [];
+    while (this.peek().intoTail(this, tail)) continue;
+    return tail;
+  }
+
+  /** Слова, забранные с начала шага, — как в строке. */
+  consumed(): string[] {
+    return this.#list.slice(0, this.#at);
   }
 
   /** Очередное слово, не забирая его; за концом — `END`. */
@@ -101,9 +124,19 @@ class Bare implements Word {
     return this.#text;
   }
 
-  afterDot() {}
+  afterPair(draft: Draft, words: Words): never {
+    throw new StrayWord(draft.last(), this.#text, words.consumed());
+  }
 
-  close() {}
+  intoTail(words: Words, into: string[]): boolean {
+    into.push(this.#text);
+    words.skip();
+    return true;
+  }
+
+  opensTail(own: ReadonlySet<string>): boolean {
+    return !own.has(this.#text);
+  }
 }
 
 /** Как форма записи ключа получает значение. */
@@ -147,14 +180,14 @@ class Key implements Word {
   }
 
   start(words: Words, receiver: Receiver): Message {
-    const draft = receiver.draft(this.#name);
+    const draft = receiver.draft();
     this.#addTo(draft, words);
     while (words.peek().joinTo(draft, words)) continue;
+    words.peek().afterPair(draft, words);
     return draft.finish();
   }
 
   joinTo(draft: Draft, words: Words): boolean {
-    if (!draft.accepts(this.#name)) return false;
     words.skip();
     this.#addTo(draft, words);
     return true;
@@ -172,46 +205,43 @@ class Key implements Word {
     return this.#text;
   }
 
-  afterDot() {}
+  // Ключ за ключом всегда входит в то же сообщение (`joinTo`), поэтому
+  // стоять за законченным ключевым сообщением он не может.
+  afterPair() {}
 
-  close() {}
+  intoTail(words: Words, into: string[]): boolean {
+    into.push(this.#text);
+    words.skip();
+    return true;
+  }
+
+  opensTail(): boolean {
+    return true;
+  }
 }
 
-/** Слово строки, за которым следующее слово берётся буквально. */
-export const ESCAPE_WORD = "--";
-
-/** Слово строки, которое разбор читает как сообщение `help`. */
-export const HELP_FLAG = "--help";
+/** Селектор справки: его шлёт слово `--help`. */
+const HELP = "help";
 
 /** `--help`: справка текущему приёмнику. */
-const HELP: Word = {
-  start: () => ({ unary: "help" }),
+const HELP_WORD: Word = {
+  start: () => ({ unary: HELP }),
   joinTo: () => false,
   valueFor(key) {
     throw MessageParseError.noValue(key);
   },
   literal: () => HELP_FLAG,
-  afterDot() {},
-  close() {},
-};
-
-/** `.`: граница между сообщениями. */
-const DOT: Word = {
-  start() {
-    throw new MessageParseError("перед точкой нет сообщения");
+  afterPair(draft, words) {
+    throw new StrayWord(draft.last(), HELP_FLAG, words.consumed());
   },
-  joinTo: () => false,
-  valueFor(key) {
-    throw MessageParseError.noValue(key);
-  },
-  literal: () => ".",
-  // Вторая точка подряд — не забота закрывшего шага: следующий шаг
-  // начнётся с неё и ответит «перед точкой нет сообщения» (`start`).
-  afterDot() {},
-  close(words) {
+  intoTail(words, into) {
+    into.push(HELP_FLAG);
     words.skip();
-    words.peek().afterDot();
+    return true;
   },
+  // `--help` — флаговая форма `help`: хвост начинает, только если
+  // приёмник `help` не понимает.
+  opensTail: (own) => !own.has(HELP),
 };
 
 /** `--`: следующее слово берётся буквально. */
@@ -219,38 +249,100 @@ const ESCAPE: Word = {
   start: (words) => ({ unary: words.literal() }),
   joinTo: () => false,
   valueFor: (_key, words) => words.literal(),
-  literal: () => "--",
-  afterDot() {},
-  close() {},
+  literal: () => GRAMMAR.literal,
+  afterPair(draft, words) {
+    const taken = words.consumed();
+    words.skip();
+    throw new StrayWord(draft.last(), words.literal(), taken);
+  },
+  // Перед словом грамматики знак снимается, слово остаётся словом
+  // хвоста; перед прочими словами знак — сам слово хвоста.
+  intoTail(words, into) {
+    words.skip();
+    const next = words.peek();
+    if (!GRAMMATICAL.has(next)) {
+      into.push(GRAMMAR.literal);
+      return true;
+    }
+    into.push(next.literal());
+    words.skip();
+    return true;
+  },
+  opensTail: () => true,
+};
+
+/** `do` не первым словом строки. */
+function openElsewhere(): MessageParseError {
+  return new MessageParseError(`${GRAMMAR.open} — только в начале строки`);
+}
+
+/** `do` — открытие группы; первым словом его снимает исполнитель строки. */
+const OPEN: Word = {
+  start() {
+    throw openElsewhere();
+  },
+  joinTo: () => false,
+  valueFor() {
+    throw openElsewhere();
+  },
+  literal: () => GRAMMAR.open,
+  afterPair() {
+    throw openElsewhere();
+  },
+  intoTail(words, into) {
+    into.push(GRAMMAR.open);
+    words.skip();
+    return true;
+  },
+  opensTail: () => true,
+};
+
+/** `end` — закрытие: всё до него выражение, дальше — его результату. */
+const CLOSE: Word = {
+  start: () => ({ close: true }),
+  joinTo: () => false,
+  valueFor(key) {
+    throw MessageParseError.noValue(key);
+  },
+  literal: () => GRAMMAR.close,
+  afterPair() {},
+  intoTail: () => false,
+  opensTail: () => false,
 };
 
 /** Конец слов. Пустая строка — справка корню. */
 const END: Word = {
-  start: () => ({ unary: "help" }),
+  start: () => ({ unary: HELP }),
   joinTo: () => false,
   valueFor(key) {
     throw MessageParseError.noValue(key);
   },
   literal() {
-    throw new MessageParseError("после -- нет слова");
+    throw new MessageParseError(`после ${GRAMMAR.literal} нет слова`);
   },
-  afterDot() {
-    throw new MessageParseError("после точки нет сообщения");
-  },
-  close() {},
+  afterPair() {},
+  intoTail: () => false,
+  opensTail: () => false,
 };
 
+/** Слова грамматики, перед которыми `--` в хвосте снимается. */
+const GRAMMATICAL: ReadonlySet<Word> = new Set([OPEN, CLOSE]);
+
 const EXACT: ReadonlyMap<string, Word> = new Map([
-  [".", DOT],
-  [ESCAPE_WORD, ESCAPE],
-  [HELP_FLAG, HELP],
+  [GRAMMAR.literal, ESCAPE],
+  [GRAMMAR.open, OPEN],
+  [GRAMMAR.close, CLOSE],
+  [HELP_FLAG, HELP_WORD],
 ]);
 
 /** Слово строки как объект. Ключ — только с непустым именем. */
+/** Приставка ключа в форме флага (`--ключ`); знак литерала — иное слово. */
+const DASHES = "--";
+
 function wordOf(text: string): Word {
   const exact = EXACT.get(text);
   if (exact !== undefined) return exact;
-  if (text.startsWith("--")) return dashed(text);
+  if (text.startsWith(DASHES)) return dashed(text);
   if (text.length > 1 && text.endsWith(":")) {
     return new Key(text.slice(0, -1), text, COLON);
   }
@@ -258,7 +350,7 @@ function wordOf(text: string): Word {
 }
 
 function dashed(text: string): Word {
-  const body = text.slice(2);
+  const body = text.slice(DASHES.length);
   const eq = body.indexOf("=");
   if (eq < 0) return new Key(body, text, DASH);
   if (eq === 0) return new Bare(text);

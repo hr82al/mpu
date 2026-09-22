@@ -348,9 +348,14 @@ Deno.test("значение ключа — путь правила, а не сп
 Deno.test("справка сообщения правил ничего не пишет", () =>
   withPolicyFile(async (file) => {
     const before = await rules(file);
+    // Справка — последним словом объекту, а не значению ключа.
     const help = await run(file, ["allow:", "kiten", "--help"], ["y"]);
-    assertEquals(help.code, 0);
-    assertEquals(help.stderr, "");
+    assertEquals(help.code, 2);
+    assertEquals(
+      help.stderr,
+      "mpu allow: kiten: значение kiten не понимает --help; " +
+        "справка — последним словом: mpu help\n",
+    );
     assertEquals(await rules(file), before);
   }));
 

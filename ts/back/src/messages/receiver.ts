@@ -17,13 +17,15 @@ export interface KeywordMethod {
 
 /**
  * Что приёмник объявил: унарные селекторы, ключевые методы и, если есть,
- * имя вида звена хвоста — остатка строки, который приёмник забирает
- * целиком.
+ * имя вида звена хвоста — остатка строки, который приёмник забирает до
+ * закрытия. Чужой хвост (`foreign`) забирает всё до конца как есть: в нём
+ * слова грамматики не толкуются (`ssh`).
  */
 export interface ReceiverDescription {
   readonly unary: readonly string[];
   readonly keyword: readonly KeywordMethod[];
   readonly tail?: string;
+  readonly foreign?: true;
 }
 
 /** Откуда ключ, ждущий значения, берёт следующее слово. */
@@ -103,72 +105,51 @@ class Method {
   }
 }
 
-/** Ключевое сообщение, пока оно набирается. */
-export interface Draft {
-  /** Входит ли ключ в это сообщение. */
-  accepts(key: string): boolean;
-  /** Добавляет ключ; значение читает `read` по виду ключа. */
-  take(key: string, read: (kind: Kind) => string | boolean): void;
-  /** Готовое сообщение либо ошибка недостающего ключа. */
-  finish(): Message;
-}
-
-/** Сообщение, первый ключ которого знает хотя бы один метод. */
-class KnownDraft implements Draft {
+/**
+ * Ключевое сообщение, пока оно набирается. Ключи подряд — всегда одно
+ * сообщение: деления на сообщения разным приёмникам нет
+ * (`platform/line-grammar.md` [D.2]).
+ */
+export class Draft {
   readonly #pairs = new Pairs();
   readonly #methods: readonly Method[];
   readonly #receiver: Receiver;
+  #last: string | boolean = "";
 
   constructor(methods: readonly Method[], receiver: Receiver) {
     this.#methods = methods;
     this.#receiver = receiver;
   }
 
-  accepts(key: string): boolean {
-    const keys = [...this.#pairs.names(), key];
-    return this.#methods.some((method) => method.has(keys));
-  }
-
+  /** Добавляет ключ; значение читает `read` по виду ключа. */
   take(key: string, read: (kind: Kind) => string | boolean) {
-    this.#pairs.take(key, this.#receiver.kindOf(key), read);
+    this.#pairs.take(key, this.#receiver.kindOf(key), (kind) => {
+      this.#last = read(kind);
+      return this.#last;
+    });
   }
 
+  /** Значение последней пары текстом: о нём говорит отказ лишнему слову. */
+  last(): string {
+    return String(this.#last);
+  }
+
+  /**
+   * Готовое сообщение. Если набор знает хотя бы один метод, недостающий
+   * обязательный ключ — ошибка; набор, которого не знает никто, решает
+   * сам приёмник.
+   */
   finish(): Message {
     const keys = this.#pairs.names();
     const shortfalls = this.#methods
       .filter((method) => method.has(keys))
       .map((method) => method.missing(keys));
-    // Методов с этим набором не меньше одного: каждый ключ вошёл в
-    // сообщение только потому, что такой метод нашёлся (`accepts`).
+    const complete = shortfalls.some((missing) => missing.length === 0);
+    if (shortfalls.length === 0 || complete) return this.#pairs.message();
     const fewest = shortfalls.reduce((best, next) =>
       next.length < best.length ? next : best
     );
-    if (fewest.length > 0) {
-      throw new MessageParseError(`не хватает ключа ${fewest[0]}`);
-    }
-    return this.#pairs.message();
-  }
-}
-
-/** Сообщение из ключей, которых приёмник не знает: решать ему самому. */
-class LooseDraft implements Draft {
-  readonly #pairs = new Pairs();
-  readonly #receiver: Receiver;
-
-  constructor(receiver: Receiver) {
-    this.#receiver = receiver;
-  }
-
-  accepts(): boolean {
-    return true;
-  }
-
-  take(key: string, read: (kind: Kind) => string | boolean) {
-    this.#pairs.take(key, this.#receiver.kindOf(key), read);
-  }
-
-  finish(): Message {
-    return this.#pairs.message();
+    throw new MessageParseError(`не хватает ключа ${fewest[0]}`);
   }
 }
 
@@ -202,9 +183,8 @@ export class Receiver {
     return this.#kinds.get(key) ?? VALUE;
   }
 
-  /** Черновик сообщения, которое начинается ключом `key`. */
-  draft(key: string): Draft {
-    const known = this.#methods.some((method) => method.has([key]));
-    return known ? new KnownDraft(this.#methods, this) : new LooseDraft(this);
+  /** Черновик ключевого сообщения. */
+  draft(): Draft {
+    return new Draft(this.#methods, this);
   }
 }

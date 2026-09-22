@@ -7,7 +7,7 @@
 
 import type { CommandIo } from "../command/mod.ts";
 import { JSON_FLAG, type Output, runLine } from "../entrypoint/mod.ts";
-import { ESCAPE_WORD } from "../messages/mod.ts";
+import { GRAMMAR } from "../messages/mod.ts";
 import { type Outcome, runChain } from "../objects/mod.ts";
 import {
   type Channel,
@@ -58,7 +58,7 @@ export function policyTree(file: string | undefined): NodeRuling[] {
  * получил бы непонятое сообщение. Исполнение получает исходный argv.
  */
 function walkedWords(argv: readonly string[]): string[] {
-  const cut = argv.indexOf(ESCAPE_WORD);
+  const cut = argv.indexOf(GRAMMAR.literal);
   const end = cut < 0 ? argv.length : cut;
   return [
     ...argv.slice(0, end).filter((word) => word !== JSON_FLAG),
@@ -170,8 +170,10 @@ export function lineEntry(ports: LinePorts): CliEntry {
       book,
       channel: ports.channel(io, output),
       output,
-      dispatch: (view) =>
-        ports.execute(() => runLine(view.executed(argv), io, output, journal)),
+      dispatch: (view, order) =>
+        ports.execute(() =>
+          runLine(order.argv(view.executed(argv)), io, output, journal)
+        ),
     });
     const root = registryRoot(line, book, ports.rootMethods.map(rootMethod));
     const outcome = await runChain(walkedWords(argv), root);

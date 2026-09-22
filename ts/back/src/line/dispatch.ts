@@ -1,5 +1,6 @@
 import type { Outcome, Report } from "../objects/mod.ts";
 import type { Change, RulePath } from "../policy/mod.ts";
+import type { Order } from "./order.ts";
 import type { View } from "./view.ts";
 
 /**
@@ -7,8 +8,11 @@ import type { View } from "./view.ts";
  * сделать. Решают ли правила и спрашивать ли человека — дело строки.
  */
 export interface Line {
-  /** Исполнить строку нынешней диспетчеризацией, пришедшую взглядом `view`. */
-  dispatch(report: Report, view: View): Promise<Outcome>;
+  /**
+   * Исполнить строку нынешней диспетчеризацией, пришедшую взглядом
+   * `view`; строку ей собирает `order` листа.
+   */
+  dispatch(report: Report, view: View, order: Order): Promise<Outcome>;
   /** Отдать правила данными. */
   listRules(report: Report): Promise<Outcome>;
   /** Изменить правило на пути `path`. */

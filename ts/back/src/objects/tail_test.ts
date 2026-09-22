@@ -72,25 +72,26 @@ Deno.test("хвост и конец строки", async (t) => {
     {
       words: ["run", "a", "--help"],
       outcome: {
-        path: ["help", "run", "<args>"],
+        path: ["run", "<args>", "help"],
         value: "Использование: mpu run a <сообщение>\n\nпроба\n\n" +
           "Справка: проба.\n\nСообщения:\n  <args>  проба\n",
       },
       runs: 0,
     },
     {
+      // Справка — последним словом: слова за `help` уходят справке.
       words: ["run", "help", "a", "--help"],
       outcome: {
-        path: ["help", "run", "<args>"],
-        value: "Использование: mpu run a <сообщение>\n\nпроба\n\n" +
-          "Справка: проба.\n\nСообщения:\n  <args>  проба\n",
+        error: "mpu run help: не понимает a; справка — последним словом: " +
+          "mpu run a help",
+        code: 2,
       },
       runs: 0,
     },
     {
       words: ["run", "--help"],
       outcome: {
-        path: ["help", "run"],
+        path: ["run", "help"],
         value: "Использование: mpu run <сообщение>\n\nпроба\n\n" +
           "Справка: проба.\n\nСообщения:\n  <args>  проба\n",
       },

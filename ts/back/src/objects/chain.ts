@@ -4,58 +4,104 @@
  * иначе справка не могла бы оставить последнее сообщение неисполненным.
  */
 
-import { MessageParseError, readMessage } from "../messages/mod.ts";
-import type { Call, Outcome, Receiver, Sent, Walker } from "./protocol.ts";
+import {
+  GRAMMAR,
+  MessageParseError,
+  readMessage,
+  StrayWord,
+} from "../messages/mod.ts";
+import type { Help } from "./help.ts";
+import type {
+  Call,
+  Outcome,
+  Receiver,
+  ResultKind,
+  Sent,
+  Trace,
+  Walker,
+} from "./protocol.ts";
 import { HELP_SELECTOR } from "./protocol.ts";
+import { ANSWERED, answered, HELP_DOC } from "./result.ts";
 import { Refusal, Rejection } from "./refusal.ts";
 import { sentOf } from "./sent.ts";
 import { Trail } from "./trail.ts";
 
-/** Чем кончается строка. */
-interface Mode {
-  finish(walk: Walk): Promise<Outcome>;
+/**
+ * `help` объекту, который обозначает выражение до него: выражение не
+ * вычисляется — справку о его результате даёт вид результата. Ответ —
+ * объект-справка.
+ */
+class HelpCall implements Call {
+  readonly #of: Call;
+  readonly #at: Trail;
+
+  /**
+   * @param of последнее, ещё не исполненное сообщение выражения
+   * @param at путь до него
+   */
+  constructor(of: Call, at: Trail) {
+    this.#of = of;
+    this.#at = at;
+  }
+
+  trace(trail: Trace) {
+    this.#of.trace(trail);
+    trail.step(HELP_SELECTOR, HELP_SELECTOR);
+  }
+
+  result(): ResultKind {
+    return ANSWERED;
+  }
+
+  /** Справка ответа на `help`: путь — путь выражения со словом `help`. */
+  help(trail: Trace): Help {
+    const of = this.#of.help(trail).data().path;
+    return ANSWERED.about(`${of} ${HELP_SELECTOR}`, HELP_DOC);
+  }
+
+  perform(): Promise<Receiver> {
+    return Promise.resolve(answered(this.#of.help(this.#at)));
+  }
 }
-
-/** Последнее сообщение исполняется; итог — его ответ. */
-const NORMAL: Mode = {
-  finish: (walk) => walk.settle(),
-};
-
-/** Последнее сообщение не исполняется; итог — справка его метода. */
-const HELP: Mode = {
-  finish: (walk) => Promise.resolve(walk.explain()),
-};
 
 class Walk implements Walker {
   readonly #trail = new Trail();
   #pending: Call;
-  #mode: Mode = NORMAL;
 
   constructor(origin: Call) {
     this.#pending = origin;
   }
 
-  /** Описание для разбора — от вида того, кто примет следующее сообщение. */
+  /**
+   * Описание для разбора — от вида того, кто примет следующее сообщение.
+   * Лишнее слово за значением называется с адресом до него.
+   */
   read(words: readonly string[]) {
     try {
       return readMessage(words, this.#pending.result().parsing());
     } catch (err) {
+      if (err instanceof StrayWord) throw this.#stray(err);
       if (!(err instanceof MessageParseError)) throw err;
       throw new Rejection(err.message, { cause: err });
     }
   }
 
-  askHelp() {
-    this.#mode = HELP;
+  #stray(err: StrayWord): Rejection {
+    const shown = this.#trail.copy();
+    this.#pending.trace(shown);
+    const at = shown.textWith(err.taken.join(" "));
+    const hint = this.#pending.result().remedy(err.word)
+      .spell(shown.address(), err.taken);
+    return new Rejection(`${at}: ${err.message}${hint}`, { cause: err });
+  }
+
+  help() {
+    this.#pending = new HelpCall(this.#pending, this.#trail.copy());
   }
 
   async send(sent: Sent) {
     const receiver = await this.#advance();
     this.#pending = this.#refused(() => receiver.lookup(sent));
-  }
-
-  finish(): Promise<Outcome> {
-    return this.#mode.finish(this);
   }
 
   /**
@@ -69,26 +115,17 @@ class Walk implements Walker {
     return await this.#refusedAsync(() =>
       receiver.final({
         value: (value) => ({ path, value }),
+        shown: (item) => ({ path, value: item.text() }),
         exit: (exit) => ({ path, exit }),
         links: () => [...path],
         text: () => this.#trail.text(),
         through: (gate) => this.#trail.through(gate),
         object: () => ({
           path,
-          object: this.#refused(() => this.#pending.help(before)),
+          object: this.#refused(() => this.#pending.help(before).text()),
         }),
       })
     );
-  }
-
-  /** Справка метода последнего сообщения, без его исполнения. */
-  explain(): Outcome {
-    const shown = this.#trail.copy();
-    this.#pending.trace(shown);
-    return {
-      path: [HELP_SELECTOR, ...shown.links()],
-      value: this.#refused(() => this.#pending.help(this.#trail)),
-    };
   }
 
   async #advance(): Promise<Receiver> {
@@ -135,13 +172,15 @@ export async function runChain(
 ): Promise<Outcome> {
   const walk = new Walk(origin);
   try {
-    let rest = words;
+    // Открытие группы первым словом — то же, что без него
+    // (`platform/line-grammar.md`): группу закрывает `end` от начала.
+    let rest = words[0] === GRAMMAR.open ? words.slice(1) : words;
     do {
       const step = walk.read(rest);
       rest = step.rest;
       await sentOf(step.message).enter(walk);
     } while (rest.length > 0);
-    return await walk.finish();
+    return await walk.settle();
   } catch (err) {
     if (!(err instanceof Rejection)) throw err;
     return { error: err.message, code: 2 };

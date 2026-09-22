@@ -10,6 +10,8 @@ import {
   type Doc,
   type Ending,
   EVERYONE,
+  type Fallback,
+  foreignTail,
   gate,
   type Method,
   origin,
@@ -30,6 +32,7 @@ import {
   surfaces,
 } from "../registry/mod.ts";
 import type { Line } from "./dispatch.ts";
+import { FOREIGN, type Order, OWN } from "./order.ts";
 import { ruleMethods } from "./rules.ts";
 import { ASK_DOC, ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";
 
@@ -38,15 +41,17 @@ export const ARGS = "<args>";
 
 /** Как строится дерево для взгляда: чем кончать строку, кого называть. */
 interface Sight {
-  /** Конец строки у узла, который исполняется. */
-  readonly ending: Ending<Line>;
+  /** Конец строки у узла, который исполняется и собирает строку `order`. */
+  ending(order: Order): Ending<Line>;
   /** Роспись детей узла `path`. */
   roster(path: readonly string[]): Roster;
 }
 
 /** Снимок дерева: структура без решений правил — все узлы, обычный конец. */
 const WHOLE: Sight = {
-  ending: { finish: (report, line) => line.dispatch(report, NORMAL) },
+  ending: (order) => ({
+    finish: (report, line) => line.dispatch(report, NORMAL, order),
+  }),
   roster: () => EVERYONE,
 };
 
@@ -55,7 +60,6 @@ const WHOLE: Sight = {
  * каждый вопрос росписи: книга сама сверяется с файлом.
  */
 class Seen implements Sight {
-  readonly ending: Ending<Line>;
   readonly #view: View;
   readonly #book: RuleBook;
   #executing: readonly TreeNode[] | undefined;
@@ -63,7 +67,12 @@ class Seen implements Sight {
   constructor(view: View, book: RuleBook) {
     this.#view = view;
     this.#book = book;
-    this.ending = { finish: (report, line) => line.dispatch(report, view) };
+  }
+
+  ending(order: Order): Ending<Line> {
+    return {
+      finish: (report, line) => line.dispatch(report, this.#view, order),
+    };
   }
 
   roster(path: readonly string[]): Roster {
@@ -99,11 +108,40 @@ class Seen implements Sight {
   }
 }
 
+/** Как лист берёт хвост и отдаёт строку диспетчеризации. */
+interface TailKind {
+  fallback(doc: Doc, kind: () => Shape<Line>): Fallback<Line>;
+  readonly order: Order;
+}
+
+/** Свой хвост — до закрытия. */
+const OWN_TAIL: TailKind = {
+  fallback: (doc, kind) => tail(ARGS, doc, kind),
+  order: OWN,
+};
+
+/** Чужой хвост (`ssh`) — до конца строки, как есть. */
+const FOREIGN_TAIL: TailKind = {
+  fallback: (doc, kind) => foreignTail(ARGS, doc, kind),
+  order: FOREIGN,
+};
+
+/** Хвост листа: чужой у команды, чей вход забирает неопознанное. */
+function tailKind(path: readonly string[]): TailKind {
+  const inputs = findCommand(path)?.inputs ?? [];
+  const foreign = inputs.some((input) => input.form.keepsUnknown === true);
+  return foreign ? FOREIGN_TAIL : OWN_TAIL;
+}
+
 /** Вид, который забирает хвост и в конце строки исполняет её. */
-function dispatching(doc: Doc, sight: Sight): Shape<Line> {
+function dispatching(
+  doc: Doc,
+  sight: Sight,
+  kind: TailKind = OWN_TAIL,
+): Shape<Line> {
   const shape: Shape<Line> = new Shape<Line>([], {
-    fallback: tail(ARGS, doc, () => shape),
-    ending: sight.ending,
+    fallback: kind.fallback(doc, () => shape),
+    ending: sight.ending(kind.order),
   });
   return shape;
 }
@@ -163,7 +201,7 @@ function childMethod(
     );
   }
   const doc = leafDoc(path);
-  return unary(name, doc, dispatching(doc, sight), same);
+  return unary(name, doc, dispatching(doc, sight, tailKind(path)), same);
 }
 
 /** Назначение и справка листа: команды или поверхности точки входа. */
@@ -265,7 +303,13 @@ function nodesUnder(
         );
       }
       const doc = leafDoc(childPath);
-      return [nodeOf(childPath, doc.purpose, dispatching(doc, WHOLE))];
+      return [
+        nodeOf(
+          childPath,
+          doc.purpose,
+          dispatching(doc, WHOLE, tailKind(childPath)),
+        ),
+      ];
     }),
   ];
 }

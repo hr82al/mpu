@@ -5,6 +5,7 @@
  */
 
 import type { ReceiverDescription } from "../messages/mod.ts";
+import type { Help } from "./help.ts";
 
 /**
  * Слово справки: общий селектор, звено пути в режиме справки и слово
@@ -16,6 +17,8 @@ export const HELP_SELECTOR = "help";
 export interface Doc {
   readonly purpose: string;
   readonly help: string;
+  /** Строки вызова для раздела «Примеры»; нет — пусто. */
+  readonly examples?: readonly string[];
 }
 
 /** Значения ключей ключевого сообщения. */
@@ -28,12 +31,26 @@ export type Outcome =
   | { readonly path: readonly string[]; readonly exit: number }
   | { readonly error: string; readonly code: 2 };
 
+/**
+ * Подсказка к слову, которое стоит за значением ключа: как надо. Пусто —
+ * подсказать нечего.
+ */
+export interface Remedy {
+  /**
+   * @param address адрес до ключевого сообщения
+   * @param taken слова ключевого сообщения, как в строке
+   */
+  spell(address: string, taken: readonly string[]): string;
+}
+
 /** Вид результата метода: известен без исполнения метода. */
 export interface ResultKind {
   /** Описание для шага разбора: собственные селекторы плюс общие. */
   parsing(): ReceiverDescription;
   /** Справка метода с назначением `doc`, вернувшего бы этот вид. */
-  usage(path: string, doc: Doc): string;
+  about(path: string, doc: Doc): Help;
+  /** Подсказка к слову `word`, стоящему за значением ключа. */
+  remedy(word: string): Remedy;
 }
 
 /** Вид результата, который превращает ответ метода в приёмник. */
@@ -48,17 +65,26 @@ export interface Trace {
   /** Начало текста без звена (корень). */
   begin(text: string): void;
   /**
-   * Слово входа: оно есть в адресе строки, но не в звеньях правил и не
-   * в тексте, которым строку называют правила.
+   * Слово в стороне: оно есть в адресе строки, но не в звеньях правил и
+   * не в тексте, которым строку называют правила (вход `ask`, закрытие,
+   * формат).
    */
-  gate(text: string): void;
+  aside(text: string): void;
   /** Адрес с ещё одним словом на конце. */
   textWith(text: string): string;
+}
+
+/** Данные со своим видом по умолчанию (справка): текст и данные. */
+export interface Shown {
+  text(): string;
+  data(): unknown;
 }
 
 /** Как итог спрашивает приёмник, на котором кончились слова. */
 export interface Report {
   value(data: unknown): Outcome;
+  /** Данные со своим видом: без формата — текст, `json` — данные. */
+  shown(item: Shown): Outcome;
   object(): Outcome;
   /** Приёмник сделал своё сам и назвал код завершения. */
   exit(code: number): Outcome;
@@ -85,7 +111,8 @@ export interface Receiver {
 export interface Call {
   trace(trail: Trace): void;
   result(): ResultKind;
-  help(trail: Trace): string;
+  /** Справка того, что вызов вернул бы, — без исполнения. */
+  help(trail: Trace): Help;
   perform(): Promise<Receiver>;
 }
 
@@ -104,11 +131,14 @@ export interface Finder {
   named(sent: Named): Call;
   /** Хвост: только ответ вида на непонятое — у словарей селектора нет. */
   tail(): Call;
+  /** Закрытие: следующее слово — сообщение результату выражения. */
+  close(): Call;
 }
 
 /** Исполнитель цепочки глазами сообщения. */
 export interface Walker {
-  askHelp(): void;
+  /** `help` — объекту, который обозначает выражение до него. */
+  help(): void;
   send(sent: Sent): Promise<void>;
 }
 

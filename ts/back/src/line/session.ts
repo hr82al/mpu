@@ -16,6 +16,7 @@ import {
 } from "../policy/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { selectorFirstWriters } from "./seeds.ts";
+import type { Order } from "./order.ts";
 import { NORMAL, type View } from "./view.ts";
 
 /** Код отказа правил и изменения правил. */
@@ -26,8 +27,11 @@ export interface SessionParts {
   readonly book: RuleBook;
   readonly channel: Channel;
   readonly output: Output;
-  /** Строка нынешней диспетчеризацией, какой её видит `view`; итог — код. */
-  readonly dispatch: (view: View) => Promise<number>;
+  /**
+   * Строка нынешней диспетчеризацией, какой её видит `view` и собирает
+   * `order`; итог — код.
+   */
+  readonly dispatch: (view: View, order: Order) => Promise<number>;
 }
 
 /** Строка вызова одного процесса. */
@@ -35,7 +39,7 @@ export class Session implements Line {
   readonly #book: RuleBook;
   readonly #channel: Channel;
   readonly #output: Output;
-  readonly #dispatch: (view: View) => Promise<number>;
+  readonly #dispatch: (view: View, order: Order) => Promise<number>;
 
   constructor(parts: SessionParts) {
     this.#book = parts.book;
@@ -44,11 +48,11 @@ export class Session implements Line {
     this.#dispatch = parts.dispatch;
   }
 
-  dispatch(report: Report, view: View): Promise<Outcome> {
+  dispatch(report: Report, view: View, order: Order): Promise<Outcome> {
     return this.#ruled(
       report,
       view,
-      async () => report.exit(await this.#dispatch(view)),
+      async () => report.exit(await this.#dispatch(view, order)),
     );
   }
 

@@ -8,6 +8,7 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import golden from "./testdata/messages/cases.json" with { type: "json" };
 import {
+  GRAMMAR,
   type KeyKind,
   type Message,
   MessageParseError,
@@ -23,6 +24,7 @@ interface RawReceiver {
     readonly required: readonly string[];
   }[];
   readonly tail?: string;
+  readonly foreign?: boolean;
 }
 
 function kindOf(text: string | undefined): KeyKind {
@@ -34,6 +36,7 @@ function described(raw: RawReceiver): ReceiverDescription {
   return {
     unary: raw.unary,
     tail: raw.tail,
+    ...(raw.foreign === true ? { foreign: true } : {}),
     keyword: raw.keyword.map((method) => ({
       keys: Object.fromEntries(
         Object.entries(method.keys).map(([key, kind]) => [key, kindOf(kind)]),
@@ -41,6 +44,30 @@ function described(raw: RawReceiver): ReceiverDescription {
       required: method.required,
     })),
   };
+}
+
+/**
+ * Слова грамматики в эталоне — метками: эталон не зависит от того, как
+ * они пишутся (`platform/line-grammar.md` [D.1]).
+ */
+const MARKS: Readonly<Record<string, string>> = {
+  $open: GRAMMAR.open,
+  $close: GRAMMAR.close,
+  $literal: GRAMMAR.literal,
+};
+
+function word(text: string): string {
+  return MARKS[text] ?? text;
+}
+
+/** Эталон со словами грамматики вместо меток. */
+function unmarked(value: unknown): unknown {
+  if (typeof value === "string") return value.split(" ").map(word).join(" ");
+  if (Array.isArray(value)) return value.map(unmarked);
+  if (value === null || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, unmarked(item)]),
+  );
 }
 
 const receivers = new Map<string, ReceiverDescription>(
@@ -82,23 +109,26 @@ function readChain(
   return messages;
 }
 
-Deno.test("в эталоне 39 случаев", () => {
-  assertEquals(golden.cases.length, 39);
+Deno.test("в эталоне 58 случаев", () => {
+  assertEquals(golden.cases.length, 58);
 });
 
 Deno.test("случаи эталона разбора сообщений", async (t) => {
   for (const c of golden.cases) {
     await t.step(c.name, () => {
+      const words = c.words.map(word);
       if ("error" in c) {
         const err = assertThrows(
-          () => readChain(c.words, c.receivers),
+          () => readChain(words, c.receivers),
           MessageParseError,
         );
-        assertEquals(err.message, c.error);
+        assertEquals(err.message, unmarked(c.error));
         return;
       }
-      const expected: unknown = c.messages;
-      assertEquals<unknown>(readChain(c.words, c.receivers), expected);
+      assertEquals<unknown>(
+        readChain(words, c.receivers),
+        unmarked(c.messages),
+      );
     });
   }
 });

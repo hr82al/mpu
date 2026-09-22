@@ -9,11 +9,13 @@ import type {
   KeywordMethod,
   ReceiverDescription,
 } from "../messages/mod.ts";
+import type { Help } from "./help.ts";
 import type {
   Args,
   Call,
   Doc,
   Named,
+  Receiver,
   ResultKind,
   Sent,
   Trace,
@@ -30,7 +32,7 @@ export interface Line {
 export class Description {
   readonly #unary: string[] = [];
   readonly #keyword: KeywordMethod[] = [];
-  #tail: Pick<ReceiverDescription, "tail"> = {};
+  #tail: Pick<ReceiverDescription, "tail" | "foreign"> = {};
 
   unary(selector: string) {
     this.#unary.push(selector);
@@ -43,6 +45,11 @@ export class Description {
   /** Хвост у вида один: его объявляет ответ вида на непонятое. */
   tail(name: string) {
     this.#tail = { tail: name };
+  }
+
+  /** Чужой хвост: всё до конца строки, грамматика в нём не толкуется. */
+  foreignTail(name: string) {
+    this.#tail = { tail: name, foreign: true };
   }
 
   build(): ReceiverDescription {
@@ -100,8 +107,8 @@ class BoundCall<T> implements Call {
     return this.#kind;
   }
 
-  help(trail: Trace): string {
-    return this.#kind.usage(trail.textWith(this.#text), this.#doc);
+  help(trail: Trace): Help {
+    return this.#kind.about(trail.textWith(this.#text), this.#doc);
   }
 
   async perform() {
@@ -243,15 +250,25 @@ class LinkMethod<S, T> implements Fallback<S> {
   describe() {}
 }
 
+/** Как хвост входит в описание для разбора: свой или чужой. */
+type TailDeclaration = (into: Description, name: string) => void;
+
 class TailMethod<S> implements Fallback<S> {
   readonly #name: string;
   readonly #doc: Doc;
   readonly #kind: () => Yields<S>;
+  readonly #declare: TailDeclaration;
 
-  constructor(name: string, doc: Doc, kind: () => Yields<S>) {
+  constructor(
+    name: string,
+    doc: Doc,
+    kind: () => Yields<S>,
+    declare: TailDeclaration,
+  ) {
     this.#name = name;
     this.#doc = doc;
     this.#kind = kind;
+    this.#declare = declare;
   }
 
   understand(sent: Sent, self: S, refuse: () => Call): Call {
@@ -274,7 +291,7 @@ class TailMethod<S> implements Fallback<S> {
   }
 
   describe(into: Description) {
-    into.tail(this.#name);
+    this.#declare(into, this.#name);
   }
 }
 
@@ -292,7 +309,23 @@ export function tail<S>(
   doc: Doc,
   kind: () => Yields<S>,
 ): Fallback<S> {
-  return new TailMethod(name, doc, kind);
+  return new TailMethod(name, doc, kind, (into, n) => into.tail(n));
+}
+
+/**
+ * Чужой хвост: остаток строки до конца как есть — слова грамматики в нём
+ * не толкуются (`ssh`: чужая командная строка).
+ *
+ * @param name вид звена хвоста в угловых скобках
+ * @param doc назначение и справка
+ * @param kind вид, которым станет состояние после хвоста
+ */
+export function foreignTail<S>(
+  name: string,
+  doc: Doc,
+  kind: () => Yields<S>,
+): Fallback<S> {
+  return new TailMethod(name, doc, kind, (into, n) => into.foreignTail(n));
 }
 
 /**
@@ -325,14 +358,14 @@ class GateCall implements Call {
   }
 
   trace(trail: Trace) {
-    trail.gate(this.#text);
+    trail.aside(this.#text);
   }
 
   result(): ResultKind {
     return this.#call.result();
   }
 
-  help(trail: Trace): string {
+  help(trail: Trace): Help {
     return this.#call.help(trail);
   }
 
@@ -380,4 +413,46 @@ export function gate<S, T>(
   run: (self: S) => T | Promise<T>,
 ): Method<S> {
   return new GateMethod(unary(selector, doc, kind, run));
+}
+
+/** Вызов слова в стороне: пишется в адрес, звена не даёт. */
+export class AsideCall implements Call {
+  readonly #text: string;
+  readonly #doc: Doc;
+  readonly #kind: ResultKind;
+  readonly #receive: () => Receiver;
+
+  /**
+   * @param text слово в адресе
+   * @param doc назначение и справка того, что вызов вернёт
+   * @param kind вид ответа
+   * @param receive ответ
+   */
+  constructor(
+    text: string,
+    doc: Doc,
+    kind: ResultKind,
+    receive: () => Receiver,
+  ) {
+    this.#text = text;
+    this.#doc = doc;
+    this.#kind = kind;
+    this.#receive = receive;
+  }
+
+  trace(trail: Trace) {
+    trail.aside(this.#text);
+  }
+
+  result(): ResultKind {
+    return this.#kind;
+  }
+
+  help(trail: Trace): Help {
+    return this.#kind.about(trail.textWith(this.#text), this.#doc);
+  }
+
+  perform(): Promise<Receiver> {
+    return Promise.resolve(this.#receive());
+  }
 }

@@ -4,7 +4,10 @@
  */
 
 import { Description, keyword, type Method, unary } from "./method.ts";
+import { DATA_FORMATS, dataHelp, ended } from "./result.ts";
+import { remedyFor } from "./remedy.ts";
 import type {
+  Call,
   Doc,
   Outcome,
   Receiver,
@@ -13,7 +16,6 @@ import type {
   Yields,
 } from "./protocol.ts";
 import { HELP_SELECTOR } from "./protocol.ts";
-import { Refusal } from "./refusal.ts";
 
 /** Данные в конце цепочки: любое сообщение к ним — отказ. */
 class Value implements Receiver {
@@ -23,10 +25,8 @@ class Value implements Receiver {
     this.#data = data;
   }
 
-  lookup(sent: Sent): never {
-    throw new Refusal(
-      `цепочка окончена, ${sent.selector()} отправить некому`,
-    );
+  lookup(sent: Sent): Call {
+    return ended(this, sent);
   }
 
   final(report: Report): Promise<Outcome> {
@@ -37,7 +37,8 @@ class Value implements Receiver {
 /** Вид результата «данные». */
 export const DATA: Yields<unknown> = {
   parsing: () => withCommon(new Description()).build(),
-  usage: (path, doc) => `${path}\n\n${doc.purpose}\n\n${doc.help}\n`,
+  about: (path, doc) => dataHelp(path, doc),
+  remedy: (word) => remedyFor(word, DATA_FORMATS),
   receive: (data) => new Value(data),
 };
 

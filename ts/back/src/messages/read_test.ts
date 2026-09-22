@@ -1,10 +1,14 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
+  GRAMMAR,
   type Message,
   MessageParseError,
   readMessage,
   type ReceiverDescription,
+  StrayWord,
 } from "./mod.ts";
+
+const { close: END, literal: LITERAL } = GRAMMAR;
 
 const SQLRO: ReceiverDescription = {
   unary: [],
@@ -18,15 +22,21 @@ Deno.test({
   name: "шаг не трогает окружение, файлы и сеть и повторяется",
   permissions: "none",
   fn() {
-    const words = Object.freeze(["--seller-id=54", "--query", "select 1", "x"]);
+    const words = Object.freeze([
+      "--seller-id=54",
+      "--query",
+      "select 1",
+      END,
+      "x",
+    ]);
     const first = readMessage(words, SQLRO);
     const second = readMessage(words, SQLRO);
     assertEquals(first, second);
     assertEquals(first, {
       message: { keyword: { query: "select 1", "seller-id": "54" } },
-      rest: ["x"],
+      rest: [END, "x"],
     });
-    assertEquals(words, ["--seller-id=54", "--query", "select 1", "x"]);
+    assertEquals(words, ["--seller-id=54", "--query", "select 1", END, "x"]);
   },
 });
 
@@ -42,28 +52,19 @@ Deno.test("правила спеки вне эталона: один шаг", as
     readonly rest: readonly string[];
   }[] = [
     {
-      words: ["nope:", "1", "--zzz", "2", "x"],
+      words: ["nope:", "1", "--zzz", "2", END, "x"],
       message: { keyword: { nope: "1", zzz: "2" } },
-      rest: ["x"],
+      rest: [END, "x"],
     },
-    { words: ["--", "--help"], message: { unary: "--help" }, rest: [] },
-    { words: ["--", "."], message: { unary: "." }, rest: [] },
-    { words: ["--", "--"], message: { unary: "--" }, rest: [] },
-    { words: ["--", "x"], message: { unary: "x" }, rest: [] },
+    { words: [LITERAL, "--help"], message: { unary: "--help" }, rest: [] },
+    { words: [LITERAL, "."], message: { unary: "." }, rest: [] },
+    { words: [LITERAL, LITERAL], message: { unary: LITERAL }, rest: [] },
+    { words: [LITERAL, "x"], message: { unary: "x" }, rest: [] },
+    { words: ["card:", "."], message: { keyword: { card: "." } }, rest: [] },
     {
-      words: ["card:", "1", ".", "--help"],
+      words: ["card:", "1", END, "--help"],
       message: { keyword: { card: "1" } },
-      rest: ["--help"],
-    },
-    {
-      words: ["card:", "1", ".", "--", "x"],
-      message: { keyword: { card: "1" } },
-      rest: ["--", "x"],
-    },
-    {
-      words: ["card:", "1", ".", "x"],
-      message: { keyword: { card: "1" } },
-      rest: ["x"],
+      rest: [END, "--help"],
     },
   ];
   for (const c of cases) {
@@ -76,8 +77,27 @@ Deno.test("правила спеки вне эталона: один шаг", as
   }
 });
 
+Deno.test("правила спеки вне эталона: слово за значением", async (t) => {
+  for (
+    const [words, word] of [
+      [["card:", "1", "--help"], "--help"],
+      [["card:", "1", LITERAL, "x"], "x"],
+      [["card:", "1", "x"], "x"],
+    ] as const
+  ) {
+    await t.step(words.join(" "), () => {
+      const err = assertThrows(() => readMessage(words, KITEN), StrayWord);
+      assertEquals(err.message, `значение 1 не понимает ${word}`);
+      assertEquals([err.value, err.word, err.taken], ["1", word, [
+        "card:",
+        "1",
+      ]]);
+    });
+  }
+});
+
 Deno.test("правила спеки вне эталона: слово-не-значение", async (t) => {
-  for (const words of [["card:", "--help"], ["card:", "."]]) {
+  for (const words of [["card:", "--help"], ["card:", END]]) {
     await t.step(words.join(" "), () => {
       const err = assertThrows(
         () => readMessage(words, KITEN),

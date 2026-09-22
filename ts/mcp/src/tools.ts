@@ -102,7 +102,7 @@ export function lineOf(
 ): string[] {
   if (name === "mpu") return words(args?.words, "words", false);
   if (name === "help") {
-    return ["help", ...words(args?.path ?? [], "path", true)];
+    return [...words(args?.path ?? [], "path", true), "help"];
   }
   throw new McpError(ErrorCode.InvalidParams, `нет тула ${name}`);
 }

@@ -5,6 +5,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { GRAMMAR } from "../messages/mod.ts";
 import { type Call, runChain } from "./mod.ts";
 import { testTree } from "./testtree.ts";
 
@@ -39,21 +40,32 @@ async function textOf(root: Call, words: readonly string[]): Promise<string> {
   return String(outcome.value);
 }
 
+/**
+ * Слова строки с сообщением `next` объекту, который обозначают `words`:
+ * за значением ключа — после закрытия (`platform/line-grammar.md`).
+ */
+function sending(words: readonly string[], ...next: string[]): string[] {
+  const valued = words.at(-2)?.endsWith(":") === true;
+  return valued ? [...words, GRAMMAR.close, ...next] : [...words, ...next];
+}
+
 async function visit(
   root: Call,
   words: readonly string[],
   visited: string[],
 ): Promise<void> {
-  const own = await runChain([...words, "selectors"], root);
+  const own = await runChain(sending(words, "selectors"), root);
   if ("error" in own) {
+    // Данные сообщений не понимают, а закрытые — понимают только форматы.
     assert(
-      own.error.endsWith("цепочка окончена, selectors отправить некому"),
+      own.error.endsWith("цепочка окончена, selectors отправить некому") ||
+        own.error.endsWith("не понимает selectors; есть: json"),
       own.error,
     );
     return;
   }
   visited.push(words.join(" "));
-  const listed = messages(await textOf(root, [...words, "--help"]));
+  const listed = messages(await textOf(root, sending(words, "--help")));
   assert("value" in own);
   assertEquals(
     own.value,
@@ -61,7 +73,7 @@ async function visit(
     words.join(" "),
   );
   for (const selector of listed) {
-    await visit(root, [...words, ...wordsFor(selector)], visited);
+    await visit(root, sending(words, ...wordsFor(selector)), visited);
   }
 }
 
@@ -75,6 +87,6 @@ Deno.test("selectors каждого объекта совпадает с его 
     "kiten card 123",
     "kiten card 123 comment",
     "kiten card: 123",
-    "kiten card: 123 comment",
+    `kiten card: 123 ${GRAMMAR.close} comment`,
   ]);
 });

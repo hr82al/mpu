@@ -227,7 +227,7 @@ Deno.test("справка двери: три адреса, живой списо
       ),
       door.stdout,
     );
-    for (const line of [["ask", "--help"], ["help", "ask"]]) {
+    for (const line of [["ask", "--help"], ["ask", "help"]]) {
       assertEquals((await run(file, line)).stdout, door.stdout, line.join(" "));
     }
     const shown = listed(door.stdout);

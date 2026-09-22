@@ -9,6 +9,7 @@ import {
   type Call,
   DATA,
   type Doc,
+  ended,
   keyword,
   type Method,
   type Outcome,
@@ -44,9 +45,9 @@ class Deferred implements Receiver {
     this.#pending = pending;
   }
 
-  /** Тот же отказ, что у данных в конце цепочки. */
+  /** Как у данных в конце цепочки: отказ всему, кроме закрытия. */
   lookup(sent: Sent): Call {
-    return DATA.receive(undefined).lookup(sent);
+    return ended(this, sent);
   }
 
   final(report: Report): Promise<Outcome> {
@@ -57,7 +58,8 @@ class Deferred implements Receiver {
 /** Вид результата: справка и разбор — как у данных. */
 const DEFERRED: Yields<Pending> = {
   parsing: () => DATA.parsing(),
-  usage: (path, doc) => DATA.usage(path, doc),
+  about: (path, doc) => DATA.about(path, doc),
+  remedy: (word) => DATA.remedy(word),
   receive: (pending) => new Deferred(pending),
 };
 

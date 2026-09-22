@@ -11,19 +11,24 @@ import {
   type Reflective,
   withCommon,
 } from "./common.ts";
+import { GRAMMAR } from "../messages/mod.ts";
 import {
+  AsideCall,
   Description,
   type Fallback,
   type Line,
   type Method,
   REFUSE,
 } from "./method.ts";
+import { Help, type HelpKey, OBJECT_VIEW } from "./help.ts";
 import { nearest, order } from "./nearest.ts";
+import { remedyFor } from "./remedy.ts";
 import type {
   Call,
   Doc,
   Outcome,
   Receiver,
+  Remedy,
   Report,
   Sent,
   Trace,
@@ -53,6 +58,25 @@ export interface Roster {
 /** Умолчание: вид называет все свои селекторы. */
 export const EVERYONE: Roster = { lists: () => true };
 
+/** Как объект отвечает на закрытие выражения (`end`). */
+export interface Closing<S> {
+  close(self: S, shape: Shape<S>): Call;
+  /** Форматы, которые понимает результат после закрытия. */
+  formats(): readonly string[];
+}
+
+const SAME_DOC: Doc = {
+  purpose: "тот же объект",
+  help: `Закрытие объект не меняет: слово после ${GRAMMAR.close} — ему же.`,
+};
+
+/** Умолчание: закрытие — тот же объект, следующее слово — ему. */
+const STAYS: Closing<unknown> = {
+  close: (self, shape) =>
+    new AsideCall(GRAMMAR.close, SAME_DOC, shape, () => shape.receive(self)),
+  formats: () => [],
+};
+
 /** Необязательное в виде: ответ на непонятое, на конец строки, роспись. */
 export interface ShapeOptions<S> {
   /** По умолчанию — отказ. */
@@ -61,6 +85,8 @@ export interface ShapeOptions<S> {
   readonly ending?: Ending<S>;
   /** По умолчанию — все собственные селекторы. */
   readonly roster?: Roster;
+  /** По умолчанию — тот же объект. */
+  readonly closing?: Closing<S>;
 }
 
 /** Объект: вид и состояние. */
@@ -88,6 +114,7 @@ export class Shape<S> implements Yields<S>, Reflective {
   readonly #fallback: Fallback<S>;
   readonly #ending: Ending<S>;
   readonly #roster: Roster;
+  readonly #closing: Closing<S>;
 
   /**
    * @param methods собственные методы вида
@@ -98,6 +125,7 @@ export class Shape<S> implements Yields<S>, Reflective {
     this.#fallback = options.fallback ?? REFUSE;
     this.#ending = options.ending ?? DESCRIBE;
     this.#roster = options.roster ?? EVERYONE;
+    this.#closing = options.closing ?? STAYS;
   }
 
   /** Собственные селекторы по алфавиту — те, что вид называет. */
@@ -126,14 +154,37 @@ export class Shape<S> implements Yields<S>, Reflective {
     return withCommon(into).build();
   }
 
-  usage(path: string, doc: Doc): string {
-    const lines = [...this.#ownLines(), ...this.#fallback.lines()];
-    const width = Math.max(...lines.map((line) => line.selector.length)) + 2;
-    const messages = lines
-      .map((line) => `  ${line.selector.padEnd(width)}${line.purpose}\n`)
-      .join("");
-    return `Использование: ${path} <сообщение>\n\n${doc.purpose}\n\n` +
-      `${doc.help}\n\nСообщения:\n${messages}`;
+  about(path: string, doc: Doc): Help {
+    const messages = [...this.#ownLines(), ...this.#fallback.lines()];
+    return new Help({
+      path,
+      purpose: doc.purpose,
+      text: doc.help,
+      examples: [...(doc.examples ?? [])],
+      keys: this.#keys(),
+      formats: [...this.#closing.formats()],
+      messages,
+    }, OBJECT_VIEW);
+  }
+
+  remedy(word: string): Remedy {
+    return remedyFor(word, this.#closing.formats());
+  }
+
+  /** Ключи собственных ключевых методов, которые вид называет. */
+  #keys(): HelpKey[] {
+    const into = new Description();
+    for (const method of this.#methods.values()) {
+      if (this.#roster.lists(method.selector)) method.describe(into);
+    }
+    return into.build().keyword.flatMap((method) =>
+      Object.entries(method.keys).map(([name, kind]) => ({
+        name,
+        kind,
+        required: method.required.includes(name),
+        purpose: "",
+      }))
+    );
   }
 
   #ownLines(): Line[] {
@@ -160,6 +211,7 @@ export class Shape<S> implements Yields<S>, Reflective {
         this.#methods.get(selector)?.bind(self, named) ??
           COMMON.get(selector)?.bind(this, named) ?? otherwise(),
       tail: otherwise,
+      close: () => this.#closing.close(self, this),
     });
   }
 
@@ -195,8 +247,8 @@ class Origin<S> implements Call {
     return this.#shape;
   }
 
-  help(trail: Trace): string {
-    return this.#shape.usage(trail.textWith(ROOT_TEXT), this.#doc);
+  help(trail: Trace): Help {
+    return this.#shape.about(trail.textWith(ROOT_TEXT), this.#doc);
   }
 
   perform(): Promise<Receiver> {

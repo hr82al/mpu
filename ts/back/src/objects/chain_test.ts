@@ -38,20 +38,38 @@ Deno.test("справка к методу не исполняет его", async
   assertEquals(kiten.listed(), 1);
 });
 
-Deno.test("три записи справки дают один текст", async () => {
+Deno.test("help и --help последним словом дают один текст", async () => {
   const { root } = testTree();
   const texts = new Set<unknown>();
   for (
-    const words of [
-      ["help", "kiten", "card"],
-      ["kiten", "help", "card"],
-      ["kiten", "card", "--help"],
-    ]
+    const words of [["kiten", "card", "help"], ["kiten", "card", "--help"]]
   ) {
     const outcome = await runChain(words, root);
     texts.add("value" in outcome ? outcome.value : outcome);
   }
   assertEquals(texts.size, 1);
+});
+
+Deno.test("help не последним словом — отказ с готовой строкой", async (t) => {
+  const { root } = testTree();
+  for (
+    const [words, error] of [
+      [
+        ["help", "kiten", "card"],
+        "mpu help: не понимает kiten; справка — последним словом: " +
+        "mpu kiten card help",
+      ],
+      [
+        ["kiten", "help", "card"],
+        "mpu kiten help: не понимает card; справка — последним словом: " +
+        "mpu kiten card help",
+      ],
+    ] as const
+  ) {
+    await t.step(words.join(" "), async () => {
+      assertEquals(await runChain(words, root), { error, code: 2 });
+    });
+  }
 });
 
 const DOC = { purpose: "проба", help: "Справка: проба." };

@@ -8,6 +8,7 @@ import { assertEquals } from "@std/assert";
 const FIXTURES: readonly string[] = [
   "cases.json",
   "help-card-keyword.txt",
+  "help-card-keyword-end.txt",
   "help-card-word-abc.txt",
   "help-card-word.txt",
   "help-comment.txt",
