@@ -950,7 +950,13 @@ function checks(subject: Subject): readonly Check[] {
         "DEV_NODE_HOST=127.0.0.1\nDEV_NODE_USER=nobody\n",
       );
       try {
-        const outcome = await run(subject, ["ssh", "dev:1", "echo", "hi"], {
+        const outcome = await run(subject, [
+          "ssh",
+          "target:",
+          "dev:1",
+          "cmd:",
+          "echo hi",
+        ], {
           XDG_CONFIG_HOME: subject.configHome,
           PATH: "/usr/bin:/bin",
         });

@@ -178,3 +178,43 @@ Deno.test("отказы с готовой строкой — раздел 4", as
     }
   });
 });
+
+Deno.test("отказы с готовой строкой — разделы 5 и 6", async (t) => {
+  const cases: readonly (readonly [readonly string[], string])[] = [
+    [
+      ["api", "get-client-module", "54", "wb"],
+      "mpu api get-client-module: значение — ключом: " +
+      "mpu api get-client-module client: 54 id: wb",
+    ],
+    [
+      ["api", "ss-access", "status", "abc"],
+      "mpu api ss-access status: значение — ключом: " +
+      "mpu api ss-access status spreadsheet: abc",
+    ],
+    [
+      ["ssh", "sl-1", "--", "ls", "-la"],
+      'mpu ssh: значение — ключом: mpu ssh target: sl-1 cmd: "ls -la"',
+    ],
+    [
+      ["run-js", "sl-1", "1+1"],
+      "mpu run-js: значение — ключом: mpu run-js target: sl-1 text: 1+1",
+    ],
+    [
+      ["xlsx", "get", "A1", "B2"],
+      "mpu xlsx get: значение — ключом: mpu xlsx get range: A1 range: B2",
+    ],
+  ];
+  await withPolicyFile(async (file) => {
+    allowEverything(file);
+    for (const [argv, stderr] of cases) {
+      await t.step(argv.join(" "), async () => {
+        assertEquals(await run(file, argv), {
+          code: 2,
+          stdout: "",
+          stderr: `${stderr}\n`,
+          called: [],
+        });
+      });
+    }
+  });
+});

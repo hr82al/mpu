@@ -171,6 +171,7 @@ export function curlOf(result: ResetResult): string {
 
 export const wbCardsResetCommand = defineCommand({
   path: ["api", "wb-cards-reset"],
+  keys: {},
   errorName: "api wb-cards-reset",
   summary: "Форсировать полный проход загрузчика карточек WB-кабинета.",
   usage: "mpu api wb-cards-reset СЕЛЕКТОР [--sid SID] [--client-id ID] [-p]",

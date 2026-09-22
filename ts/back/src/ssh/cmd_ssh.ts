@@ -9,6 +9,12 @@ import { argsSchema, resultSchema, runSsh, type SshIo } from "./run.ts";
 
 export const sshCommand = defineCommand({
   path: ["ssh"],
+  keys: {
+    cmd: {
+      input: "command",
+      why: 'команда контейнера одним словом: cmd: "ls -la" — как в спеке',
+    },
+  },
   // Однострока — из слепка дерева: её видит режим дополнения, и
   // расходиться с эталоном ему незачем.
   summary:

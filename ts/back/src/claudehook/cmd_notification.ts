@@ -52,6 +52,7 @@ export async function runNotification(
 
 export const claudeHookNotificationCommand = defineCommand({
   path: ["claude-hook", "notification"],
+  keys: {},
   errorName: "claude-hook notification",
   summary: "Отправить уведомление хука Claude Code в личного бота.",
   usage: "mpu claude-hook notification",

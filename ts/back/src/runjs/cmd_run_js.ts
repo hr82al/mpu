@@ -9,6 +9,7 @@ import { argsSchema, resultSchema, type RunJsIo, runRunJs } from "./run.ts";
 
 export const runJsCommand = defineCommand({
   path: ["run-js"],
+  keys: { text: "code" },
   // Однострока — из слепка дерева: её видит режим дополнения.
   summary: "Выполнить JS-код в контейнере sl-back.",
   usage:

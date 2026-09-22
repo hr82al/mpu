@@ -178,6 +178,7 @@ export async function runBlocked(
 
 export const wbLoaderBlockedCommand = defineCommand({
   path: ["api", "wb-loader-blocked"],
+  keys: {},
   errorName: "api wb-loader-blocked",
   summary: "POST /admin/wb-loader/blocked-loaders/v1/find — блокировки фермы.",
   usage: "mpu api wb-loader-blocked [--loader ИМЯ] [--reason R] [-p]",
@@ -241,6 +242,7 @@ async function runOnLoader(
 
 export const wbLoaderStatusCommand = defineCommand({
   path: ["api", "wb-loader-status"],
+  keys: { loader: "loader" },
   errorName: "api wb-loader-status",
   summary: "GET …/loaders/<sid>/<loader>/v1/status — состояние загрузчика.",
   usage: "mpu api wb-loader-status СЕЛЕКТОР LOADER [--sid SID] [-p]",
@@ -265,6 +267,7 @@ Exit: 0 — успех; 1 — отказ sl-back; 2 — негодный сла�
 
 export const wbLoaderLoadCommand = defineCommand({
   path: ["api", "wb-loader-load"],
+  keys: { loader: "loader" },
   errorName: "api wb-loader-load",
   summary: "POST …/v1/load — форс-прогон отложенной задачи.",
   usage: "mpu api wb-loader-load СЕЛЕКТОР LOADER [--sid SID] [-p]",
@@ -345,6 +348,7 @@ export async function runConfig(
 
 export const wbLoaderConfigCommand = defineCommand({
   path: ["api", "wb-loader-config"],
+  keys: { loader: "loader" },
   errorName: "api wb-loader-config",
   summary: "Конфигурация загрузчика на кабинете: чтение и правка.",
   usage:
@@ -456,6 +460,7 @@ export async function runReset(
 
 export const wbLoaderResetCommand = defineCommand({
   path: ["api", "wb-loader-reset"],
+  keys: { loader: "loader" },
   errorName: "api wb-loader-reset",
   summary: "POST …/v1/reset — сброс состояния загрузчика и перезапуск.",
   usage:
@@ -598,6 +603,7 @@ async function resumeCalls(
 
 export const wbLoaderResumeCommand = defineCommand({
   path: ["api", "wb-loader-resume"],
+  keys: { loader: "loader" },
   errorName: "api wb-loader-resume",
   summary: "Показать блокировки кабинета или снять их.",
   usage: "mpu api wb-loader-resume СЕЛЕКТОР [LOADER] [--all] [-p]",

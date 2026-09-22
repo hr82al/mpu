@@ -8,6 +8,7 @@
 
 import { assertEquals } from "@std/assert";
 import type { Command, InputSpec } from "../command/mod.ts";
+import { shellCommand } from "../exec/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import { type Outcome, type Report, runChain } from "../objects/mod.ts";
 import { RuleBook } from "../policy/mod.ts";
@@ -143,6 +144,25 @@ const NAMED: readonly (readonly [readonly string[], readonly string[]])[] = [
   ]],
   [["move-client-back", "ls"], ["move-client-back", "ls"]],
   [["move-client-back", "1234"], ["move-client-back", "target:", "1234"]],
+  [["api", "get-client-module", "54", "wb"], [
+    "api",
+    "get-client-module",
+    "client:",
+    "54",
+    "id:",
+    "wb",
+  ]],
+  // `cmd:` — одно слово: прежняя пара — команда одним словом; что
+  // разбитая на слова она даёт ту же строку шелла, проверяет тест ниже.
+  [["ssh", "sl-1", "ls -la"], ["ssh", "target:", "sl-1", "cmd:", "ls -la"]],
+  [["run-js", "sl-1", "1+1", "-d"], [
+    "run-js",
+    "target:",
+    "sl-1",
+    "text:",
+    "1+1",
+    "--detach",
+  ]],
   [["ps", "--tsv"], ["ps", GRAMMAR.close, "tsv"]],
   [["confirm", "-y", "-m", "да?"], ["confirm", "--yes", "text:", "да?"]],
 ];
@@ -165,3 +185,7 @@ Deno.test("поимённые пары спеки дают один вход к�
       });
     }
   }));
+
+Deno.test("ssh: cmd одним словом — та же строка шелла, что и по словам", () => {
+  assertEquals(shellCommand(["ls -la"]), shellCommand(["ls", "-la"]));
+});

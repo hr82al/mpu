@@ -179,6 +179,7 @@ export async function runRequest(
 
 export const ssAccessRequestCommand = defineCommand({
   path: ["api", "ss-access", "request"],
+  keys: { spreadsheet: "spreadsheet" },
   errorName: "api ss-access request",
   summary: "POST /admin/ss/<ss>/my-access/request — выдать себе доступ.",
   usage: "mpu api ss-access request ТАБЛИЦА [--role R] [--reason T] [-b JSON]",
@@ -220,6 +221,7 @@ export async function runStatus(
 
 export const ssAccessStatusCommand = defineCommand({
   path: ["api", "ss-access", "status"],
+  keys: { spreadsheet: "spreadsheet" },
   errorName: "api ss-access status",
   summary: "GET /admin/ss/<ss>/my-access — текущие активные доступы.",
   usage: "mpu api ss-access status ТАБЛИЦА",
@@ -310,6 +312,7 @@ export async function runRevoke(
 
 export const ssAccessRevokeCommand = defineCommand({
   path: ["api", "ss-access", "revoke"],
+  keys: { spreadsheet: "spreadsheet" },
   errorName: "api ss-access revoke",
   summary: "Отозвать доступ (job accessGrantRevoke).",
   usage: "mpu api ss-access revoke ТАБЛИЦА [--grant-id G] [--reason T]",
@@ -424,6 +427,7 @@ const sleep = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 
 export const ssAccessResetCommand = defineCommand({
   path: ["api", "ss-access", "reset"],
+  keys: { spreadsheet: "spreadsheet" },
   errorName: "api ss-access reset",
   summary: "Отозвать застрявшую выдачу, дождаться и выдать заново.",
   usage: "mpu api ss-access reset ТАБЛИЦА [--reason T] [--role R]",

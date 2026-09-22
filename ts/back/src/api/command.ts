@@ -15,6 +15,7 @@ import {
   type CommandIo,
   defineCommand,
   DomainError,
+  type KeyRename,
   UsageError,
 } from "../command/mod.ts";
 import { openSlback, SlbackError } from "../slback/mod.ts";
@@ -66,6 +67,7 @@ export function endpointCommand(spec: EndpointSpec): Command {
 
   return defineCommand({
     path: ["api", spec.name],
+    keys: pathKeys(params),
     errorName: `api ${spec.name}`,
     summary: `${spec.method} ${spec.path}`,
     usage: usageOf(spec, params),
@@ -93,6 +95,28 @@ export function endpointCommand(spec: EndpointSpec): Command {
     run: (args, io) => runEndpoint(spec, params, fields, args, io),
     render: (result: EndpointResult) => renderResponse(result.response),
   });
+}
+
+/**
+ * Ключи параметров пути (`platform/keys-translation.md`): внутренний —
+ * `id:`, внешние — по имени сущности (`:clientId` → `client:`).
+ */
+function pathKeys(
+  params: readonly string[],
+): Record<string, string | KeyRename> {
+  const keys: Record<string, string | KeyRename> = {};
+  for (const [at, param] of params.entries()) {
+    if (at === params.length - 1) {
+      keys.id = param;
+      continue;
+    }
+    const entity = param.replace(/Id$/, "");
+    keys[entity] = entity === param ? param : {
+      input: param,
+      why: `параметр пути :${param} — по имени сущности`,
+    };
+  }
+  return keys;
 }
 
 /** Добавляет к ошибке ввода ту же подсказку, что даёт разбор схемы. */

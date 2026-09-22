@@ -113,8 +113,16 @@ const LINES: readonly {
     argv: ["sql-ro", "sw", "select 1"],
     line: ["sql-ro", "target:", "sw", "sql:", "select 1"],
   },
-  { argv: ["ssh", "sl-1", "--json"], io: SSH_IO },
-  { argv: ["ssh", "sl-1", "--", "ls", "--help"], io: SSH_IO },
+  {
+    argv: ["ssh", "sl-1", "--", "ls", "--help"],
+    line: ["ssh", "target:", "sl-1", "cmd:", "ls --help"],
+    io: SSH_IO,
+  },
+  {
+    argv: ["ssh", "sl-1", "ls", "-la"],
+    line: ["ssh", "target:", "sl-1", "cmd:", "ls -la"],
+    io: SSH_IO,
+  },
   {
     argv: ["ozon-jobs", "sl-2", "show", "--print", "--local"],
     line: ["ozon-jobs", "show", "target:", "sl-2", "--print", "--local"],

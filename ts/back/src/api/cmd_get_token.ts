@@ -55,6 +55,7 @@ async function runGetToken(
 
 export const apiGetTokenCommand = defineCommand({
   path: ["api", "get-token"],
+  keys: {},
   errorName: "api get-token",
   summary: "POST /auth/login → print accessToken (cached 10 min)",
   usage: "mpu api get-token [--email E] [--password P]",
