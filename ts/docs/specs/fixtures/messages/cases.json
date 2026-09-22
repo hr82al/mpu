@@ -155,6 +155,20 @@
       ],
       "keyword": [],
       "tail": "args"
+    },
+    "foreign": {
+      "unary": [],
+      "keyword": [],
+      "tail": "args",
+      "foreign": true
+    },
+    "shell": {
+      "unary": [
+        "help"
+      ],
+      "keyword": [],
+      "tail": "args",
+      "foreign": true
     }
   },
   "cases": [
@@ -236,7 +250,7 @@
       ]
     },
     {
-      "name": "чужой ключ начинает сообщение результату",
+      "name": "ключи подряд — одно сообщение, даже чужие",
       "words": [
         "kiten",
         "card:",
@@ -255,42 +269,7 @@
         },
         {
           "keyword": {
-            "card": "123"
-          }
-        },
-        {
-          "keyword": {
-            "comment": "x"
-          }
-        }
-      ]
-    },
-    {
-      "name": "то же с точкой",
-      "words": [
-        "kiten",
-        "card:",
-        "123",
-        ".",
-        "comment:",
-        "x"
-      ],
-      "receivers": [
-        "root",
-        "kiten",
-        "card"
-      ],
-      "messages": [
-        {
-          "unary": "kiten"
-        },
-        {
-          "keyword": {
-            "card": "123"
-          }
-        },
-        {
-          "keyword": {
+            "card": "123",
             "comment": "x"
           }
         }
@@ -316,37 +295,6 @@
         {
           "keyword": {
             "card": "123",
-            "note": "x"
-          }
-        }
-      ]
-    },
-    {
-      "name": "ключ принимают оба — точка отдаёт результату",
-      "words": [
-        "kiten",
-        "card:",
-        "123",
-        ".",
-        "note:",
-        "x"
-      ],
-      "receivers": [
-        "root",
-        "kiten",
-        "card"
-      ],
-      "messages": [
-        {
-          "unary": "kiten"
-        },
-        {
-          "keyword": {
-            "card": "123"
-          }
-        },
-        {
-          "keyword": {
             "note": "x"
           }
         }
@@ -405,8 +353,8 @@
         },
         {
           "keyword": {
-            "query": "select 1",
-            "seller-id": "54"
+            "seller-id": "54",
+            "query": "select 1"
           }
         }
       ]
@@ -429,8 +377,8 @@
         },
         {
           "keyword": {
-            "query": "select 1",
-            "seller-id": "54"
+            "seller-id": "54",
+            "query": "select 1"
           }
         }
       ]
@@ -508,7 +456,7 @@
       "words": [
         "kiten",
         "card:",
-        "--",
+        "$literal",
         "a:"
       ],
       "receivers": [
@@ -531,7 +479,7 @@
       "words": [
         "kiten",
         "card:",
-        "--",
+        "$literal",
         "--x"
       ],
       "receivers": [
@@ -554,7 +502,7 @@
       "words": [
         "kiten",
         "card",
-        "--",
+        "$literal",
         "ls:"
       ],
       "receivers": [
@@ -575,7 +523,7 @@
       ]
     },
     {
-      "name": "--help — унарное help текущему приёмнику",
+      "name": "--help за значением — лишнее слово",
       "words": [
         "kiten",
         "card:",
@@ -587,19 +535,7 @@
         "kiten",
         "card"
       ],
-      "messages": [
-        {
-          "unary": "kiten"
-        },
-        {
-          "keyword": {
-            "card": "123"
-          }
-        },
-        {
-          "unary": "help"
-        }
-      ]
+      "error": "значение 123 не понимает --help"
     },
     {
       "name": "ключа нет ни у одного метода — сообщение всё равно формируется",
@@ -645,12 +581,12 @@
       ]
     },
     {
-      "name": "-- после законченной пары закрывает сообщение",
+      "name": "-- за законченной парой — лишнее слово",
       "words": [
         "kiten",
         "card:",
         "123",
-        "--",
+        "$literal",
         "note:"
       ],
       "receivers": [
@@ -658,19 +594,7 @@
         "kiten",
         "card"
       ],
-      "messages": [
-        {
-          "unary": "kiten"
-        },
-        {
-          "keyword": {
-            "card": "123"
-          }
-        },
-        {
-          "unary": "note:"
-        }
-      ]
+      "error": "значение 123 не понимает note:"
     },
     {
       "name": "ключ дважды",
@@ -740,53 +664,16 @@
       "error": "ключ check ждёт true или false"
     },
     {
-      "name": "точка в конце",
-      "words": [
-        "kiten",
-        "."
-      ],
-      "receivers": [
-        "root",
-        "kiten"
-      ],
-      "error": "после точки нет сообщения"
-    },
-    {
-      "name": "точка в начале",
-      "words": [
-        ".",
-        "kiten"
-      ],
-      "receivers": [
-        "root"
-      ],
-      "error": "перед точкой нет сообщения"
-    },
-    {
       "name": "-- в конце",
       "words": [
         "kiten",
-        "--"
+        "$literal"
       ],
       "receivers": [
         "root",
         "kiten"
       ],
-      "error": "после -- нет слова"
-    },
-    {
-      "name": "две точки подряд",
-      "words": [
-        "kiten",
-        ".",
-        ".",
-        "ls"
-      ],
-      "receivers": [
-        "root",
-        "kiten"
-      ],
-      "error": "перед точкой нет сообщения"
+      "error": "после $literal нет слова"
     },
     {
       "name": "у ключа два вида в описании",
@@ -864,7 +751,7 @@
         "--x",
         "a:",
         ".",
-        "--",
+        "$literal",
         "-v"
       ],
       "receivers": [
@@ -885,7 +772,7 @@
             "--x",
             "a:",
             ".",
-            "--",
+            "$literal",
             "-v"
           ]
         }
@@ -981,6 +868,575 @@
             "port:",
             "1"
           ]
+        }
+      ]
+    },
+    {
+      "name": "точка — обычное слово",
+      "words": [
+        "kiten",
+        "."
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "."
+        }
+      ]
+    },
+    {
+      "name": "слово за значением — ошибка",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        "md"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "error": "значение 123 не понимает md"
+    },
+    {
+      "name": "флаг и лишнее слово",
+      "words": [
+        "build",
+        "--check",
+        "x"
+      ],
+      "receivers": [
+        "root",
+        "build"
+      ],
+      "error": "значение true не понимает x"
+    },
+    {
+      "name": "end закрывает ключевое, дальше — результату",
+      "words": [
+        "kiten",
+        "card:",
+        "123",
+        "$close",
+        "md"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "any",
+        "any"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "123"
+          }
+        },
+        {
+          "close": true
+        },
+        {
+          "unary": "md"
+        }
+      ]
+    },
+    {
+      "name": "end последним словом",
+      "words": [
+        "kiten",
+        "ls",
+        "$close"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "any"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "ls"
+        },
+        {
+          "close": true
+        }
+      ]
+    },
+    {
+      "name": "второй end закрывает от начала строки",
+      "words": [
+        "kiten",
+        "ls",
+        "$close",
+        "json",
+        "$close",
+        "md"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "any",
+        "any",
+        "any",
+        "any"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "ls"
+        },
+        {
+          "close": true
+        },
+        {
+          "unary": "json"
+        },
+        {
+          "close": true
+        },
+        {
+          "unary": "md"
+        }
+      ]
+    },
+    {
+      "name": "end как значение — нет значения",
+      "words": [
+        "kiten",
+        "card:",
+        "$close"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "error": "у ключа card нет значения"
+    },
+    {
+      "name": "do не первым словом",
+      "words": [
+        "kiten",
+        "$open"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "error": "$open — только в начале строки"
+    },
+    {
+      "name": "do за значением",
+      "words": [
+        "kiten",
+        "card:",
+        "1",
+        "$open"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "error": "$open — только в начале строки"
+    },
+    {
+      "name": "-- перед end — литерал значения",
+      "words": [
+        "kiten",
+        "card:",
+        "$literal",
+        "$close"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "$close"
+          }
+        }
+      ]
+    },
+    {
+      "name": "-- перед do — литерал унарного",
+      "words": [
+        "kiten",
+        "$literal",
+        "$open"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "$open"
+        }
+      ]
+    },
+    {
+      "name": "-- перед -- — литерал",
+      "words": [
+        "kiten",
+        "card:",
+        "$literal",
+        "$literal"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "$literal"
+          }
+        }
+      ]
+    },
+    {
+      "name": "хвост до end, дальше — результату",
+      "words": [
+        "kiten",
+        "comment",
+        "55",
+        "x",
+        "$close",
+        "json"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "command",
+        "any",
+        "any"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "comment"
+        },
+        {
+          "tail": [
+            "55",
+            "x"
+          ]
+        },
+        {
+          "close": true
+        },
+        {
+          "unary": "json"
+        }
+      ]
+    },
+    {
+      "name": "хвост: -- перед end снимается",
+      "words": [
+        "kiten",
+        "comment",
+        "55",
+        "$literal",
+        "$close"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "command"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "comment"
+        },
+        {
+          "tail": [
+            "55",
+            "$close"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "хвост: -- перед do снимается",
+      "words": [
+        "kiten",
+        "comment",
+        "55",
+        "$literal",
+        "$open"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "command"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "comment"
+        },
+        {
+          "tail": [
+            "55",
+            "$open"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "хвост: -- перед обычным словом остаётся",
+      "words": [
+        "kiten",
+        "comment",
+        "55",
+        "$literal",
+        "x"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "command"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "comment"
+        },
+        {
+          "tail": [
+            "55",
+            "$literal",
+            "x"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "хвост: голое do — слово хвоста",
+      "words": [
+        "kiten",
+        "comment",
+        "55",
+        "$open"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "command"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "comment"
+        },
+        {
+          "tail": [
+            "55",
+            "$open"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "хвост пуст перед end",
+      "words": [
+        "kiten",
+        "ls",
+        "$close",
+        "json"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "command",
+        "any"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "ls"
+        },
+        {
+          "close": true
+        },
+        {
+          "unary": "json"
+        }
+      ]
+    },
+    {
+      "name": "do как значение — отказ",
+      "words": [
+        "kiten",
+        "card:",
+        "$open"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "error": "$open — только в начале строки"
+    },
+    {
+      "name": "хвост начинается с --",
+      "words": [
+        "kiten",
+        "comment",
+        "$literal",
+        "x"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "command"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "comment"
+        },
+        {
+          "tail": [
+            "$literal",
+            "x"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "хвост начинается с голого do",
+      "words": [
+        "kiten",
+        "comment",
+        "$open"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "command"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "comment"
+        },
+        {
+          "tail": [
+            "$open"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "--help первым словом — справка, даже у чужого хвоста",
+      "words": [
+        "ssh",
+        "--help"
+      ],
+      "receivers": [
+        "root",
+        "shell"
+      ],
+      "messages": [
+        {
+          "unary": "ssh"
+        },
+        {
+          "unary": "help"
+        }
+      ]
+    },
+    {
+      "name": "--help внутри чужого хвоста — слово хвоста",
+      "words": [
+        "ssh",
+        "sl-1",
+        "--help"
+      ],
+      "receivers": [
+        "root",
+        "shell"
+      ],
+      "messages": [
+        {
+          "unary": "ssh"
+        },
+        {
+          "tail": [
+            "sl-1",
+            "--help"
+          ],
+          "foreign": true
+        }
+      ]
+    },
+    {
+      "name": "чужой хвост забирает end и -- как есть",
+      "words": [
+        "ssh",
+        "sl-1",
+        "ls",
+        "$literal",
+        "$close",
+        "x"
+      ],
+      "receivers": [
+        "root",
+        "foreign"
+      ],
+      "messages": [
+        {
+          "unary": "ssh"
+        },
+        {
+          "tail": [
+            "sl-1",
+            "ls",
+            "$literal",
+            "$close",
+            "x"
+          ],
+          "foreign": true
         }
       ]
     }

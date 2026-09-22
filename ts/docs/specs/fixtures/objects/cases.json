@@ -39,6 +39,7 @@
         "kiten",
         "card:",
         "123",
+        "$close",
         "show"
       ],
       "path": [
@@ -77,6 +78,7 @@
         "kiten",
         "card:",
         "123",
+        "$close",
         "comment:",
         "hi"
       ],
@@ -125,8 +127,8 @@
         "--help"
       ],
       "path": [
-        "help",
-        "kiten"
+        "kiten",
+        "help"
       ],
       "value_file": "help-kiten.txt"
     },
@@ -138,25 +140,21 @@
         "--help"
       ],
       "path": [
-        "help",
         "kiten",
-        "card"
+        "card",
+        "help"
       ],
       "value_file": "help-kiten-card.txt"
     },
     {
-      "name": "help со словами",
+      "name": "help впереди слов — отказ с готовой строкой",
       "words": [
         "help",
         "kiten",
         "card"
       ],
-      "path": [
-        "help",
-        "kiten",
-        "card"
-      ],
-      "value_file": "help-kiten-card.txt"
+      "error": "mpu help: не понимает kiten; справка — последним словом: mpu kiten card help",
+      "code": 2
     },
     {
       "name": "справка объекта после ключевого",
@@ -164,14 +162,15 @@
         "kiten",
         "card:",
         "123",
+        "$close",
         "--help"
       ],
       "path": [
-        "help",
         "kiten",
-        "card:"
+        "card:",
+        "help"
       ],
-      "value_file": "help-card-keyword.txt"
+      "value_file": "help-card-keyword-end.txt"
     },
     {
       "name": "справка объекта с видом звена",
@@ -183,11 +182,11 @@
         "--help"
       ],
       "path": [
-        "help",
         "kiten",
         "card",
         "<card>",
-        "comment"
+        "comment",
+        "help"
       ],
       "value_file": "help-comment.txt"
     },
@@ -198,24 +197,20 @@
         "--help"
       ],
       "path": [
-        "help",
-        "version"
+        "version",
+        "help"
       ],
       "value_file": "help-version.txt"
     },
     {
-      "name": "help в середине строки",
+      "name": "help в середине строки — отказ с готовой строкой",
       "words": [
         "kiten",
         "help",
         "card"
       ],
-      "path": [
-        "help",
-        "kiten",
-        "card"
-      ],
-      "value_file": "help-kiten-card.txt"
+      "error": "mpu kiten help: не понимает card; справка — последним словом: mpu kiten card help",
+      "code": 2
     },
     {
       "name": "справка данных не исполняет метод",
@@ -225,9 +220,9 @@
         "--help"
       ],
       "path": [
-        "help",
         "kiten",
-        "ls"
+        "ls",
+        "help"
       ],
       "value_file": "help-kiten-ls.txt"
     },
@@ -240,26 +235,26 @@
         "--help"
       ],
       "path": [
-        "help",
         "kiten",
         "card",
-        "<card>"
+        "<card>",
+        "help"
       ],
       "value_file": "help-card-word.txt"
     },
     {
       "name": "справка вида звена на непонятном слове",
       "words": [
-        "help",
         "kiten",
         "card",
-        "abc"
+        "abc",
+        "help"
       ],
       "path": [
-        "help",
         "kiten",
         "card",
-        "<card>"
+        "<card>",
+        "help"
       ],
       "value_file": "help-card-word-abc.txt"
     },
@@ -332,7 +327,7 @@
       "words": [
         "kiten",
         "respondsTo:",
-        "--",
+        "$literal",
         "card:"
       ],
       "path": [
@@ -407,7 +402,7 @@
       "words": [
         "kiten",
         "respondsTo:",
-        "--",
+        "$literal",
         "nope:"
       ],
       "path": [
@@ -506,10 +501,11 @@
         "kiten",
         "card:",
         "123",
+        "$close",
         "nope:",
         "x"
       ],
-      "error": "mpu kiten card: 123: не понимает nope:",
+      "error": "mpu kiten card: 123 $close: не понимает nope:",
       "code": 2
     },
     {
@@ -524,8 +520,8 @@
     {
       "name": "help со словами — непонятое",
       "words": [
-        "help",
-        "kitn"
+        "kitn",
+        "help"
       ],
       "error": "mpu: не понимает kitn; ближайшие: kiten",
       "code": 2
@@ -533,9 +529,9 @@
     {
       "name": "help со словами — после данных",
       "words": [
-        "help",
         "version",
-        "name"
+        "name",
+        "help"
       ],
       "error": "mpu version: цепочка окончена, name отправить некому",
       "code": 2
