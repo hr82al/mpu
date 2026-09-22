@@ -453,10 +453,13 @@
     //   — `--allow-read` двух файлов токена и `/dev/tty`: вопрос строки
     //     клиент показывает и читает на управляющем терминале
     //     (`platform/line-prompt.md`), больше он ничего не читает;
-    //   — `--allow-run` трёх программ копирования: кадр `clip` кладёт
-    //     текст в буфер обмена того, кто позвал; их список — в
-    //     `cli/src/clipboard/mod.ts`, здесь он повторён поимённо,
-    //     потому что права Deno перечисляются литералами;
+    //   — `--allow-run` трёх программ копирования, **абсолютными
+    //     путями**: кадр `clip` кладёт текст в буфер обмена того, кто
+    //     позвал. Путями, а не именами: имя Deno разрешает по `PATH`
+    //     при старте, и с пустым `PATH` клиент падает до первой своей
+    //     строки (замер 2026-09-22, `cli-client.md`). Список — в
+    //     `cli/src/clipboard/mod.ts`, здесь он повторён, потому что
+    //     права Deno перечисляются литералами;
     //   — `--allow-env`: каталог токенов и адрес (`HOME`, `MPU_BACK_URL`)
     //     плюс имена контекста вызова — тот самый закрытый список из
     //     `back/src/frames/context.ts` (`CLIENT_ENV_NAMES`), который
@@ -465,7 +468,7 @@
     //     решается — он оттуда, и `cli/src/tasks_test.ts` сверяет строку
     //     с кодом.
     // Шире не стали — `next/tasks_test.ts`.
-    "cli": "deno run --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=wl-copy,xclip,xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,WT_SESSION,OS cli/main.ts",
+    "cli": "deno run --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=/usr/bin/wl-copy,/usr/bin/xclip,/usr/bin/xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,WT_SESSION,OS cli/main.ts",
     // Переводчик MCP `mpu-mcp` (`docs/specs/platform/mcp-objects.md`):
     // сам ничего не исполняет, прав — ровно на перевод:
     //   — `--allow-net=127.0.0.1`: слушать на петле и ходить к `mpu-back`;
@@ -504,7 +507,7 @@
     // только пакеты графа программы.
     "compile:back": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
     "compile:mcp": "deno compile --node-modules-dir=none --exclude-unused-npm --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT mcp/main.ts",
-    "compile:cli": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=wl-copy,xclip,xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,WT_SESSION,OS -o $MPU_OUT cli/main.ts",
+    "compile:cli": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=/usr/bin/wl-copy,/usr/bin/xclip,/usr/bin/xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,WT_SESSION,OS -o $MPU_OUT cli/main.ts",
     "compile:complete": "deno compile --allow-read=$HOME/.cache/mpu/tree.json --allow-env=HOME -o $MPU_OUT complete/main.ts",
     "compile:supervisor": "deno compile --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp --allow-env=HOME -o $MPU_OUT supervisor/main.ts",
     // Фронт (`docs/specs/web.md`, 10b): dev-сервер Vite с прокси на

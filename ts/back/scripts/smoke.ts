@@ -21,8 +21,15 @@ import { assert, assertEquals } from "@std/assert";
 import { VERSION } from "../src/version.ts";
 import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/http/mod.ts";
 import { WARMUP_BUDGET_MS } from "../src/kaiten/mod.ts";
-import { compileArgs, CompileTaskError } from "./compile_task.ts";
+import {
+  BACK_TASK,
+  CLI_TASK,
+  compileArgs,
+  CompileTaskError,
+} from "./compile_task.ts";
 import { envFilePath, makeEnvFile } from "../src/env/mod.ts";
+import { ALLOW, RuleBook, RulePath } from "../src/policy/mod.ts";
+import { policyFile } from "../src/next/mod.ts";
 import { makeEnvFileStore } from "../src/runtime/mod.ts";
 import { denoSession } from "../src/sql/mod.ts";
 import {
@@ -45,15 +52,71 @@ class Skipped extends Error {
 }
 
 /**
- * Собранный бинарь и два каталога, которыми ему подменяют окружение:
- * `home` — состояние (`HOME`), `configHome` — конфигурация
- * (`XDG_CONFIG_HOME`). Второй нужен и на сборке: путь в
+ * Предмет прогона: пара собранных программ, которыми человек и
+ * пользуется, — сервер строк и клиент, — и два каталога, которыми им
+ * подменяют окружение: `home` — состояние (`HOME`), `configHome` —
+ * конфигурация (`XDG_CONFIG_HOME`). Второй нужен и на сборке: путь в
  * `--allow-write` запекается в бинарь, а не читается при запуске.
  */
 interface Subject {
-  readonly bin: string;
+  /** `mpu-back`: исполняет строки. */
+  readonly back: string;
+  /** `mpu`: тонкий клиент, которым строка подаётся. */
+  readonly cli: string;
   readonly home: string;
   readonly configHome: string;
+}
+
+/** Поднятый сервер строк: адрес и остановка. */
+interface Serving extends AsyncDisposable {
+  readonly url: string;
+}
+
+/**
+ * Поднимает сервер строк на порту от ОС и ждёт строку, которой он
+ * сообщает адрес (`platform/back-rpc.md`). Адрес берётся из неё, а не
+ * задаётся заранее: занятый порт иначе выглядел бы как молчащий
+ * сервер.
+ *
+ * @param subject пара программ прогона
+ * @param env окружение сервера сверх `HOME`
+ */
+async function serve(
+  subject: Subject,
+  env: Readonly<Record<string, string>> = {},
+): Promise<Serving> {
+  const child = new Deno.Command(subject.back, {
+    args: ["--port", "0"],
+    env: { HOME: subject.home, ...env },
+    clearEnv: true,
+    stdin: "null",
+    stdout: "piped",
+    stderr: "piped",
+  }).spawn();
+  const reader = child.stdout.getReader();
+  let said = "";
+  let found: RegExpMatchArray | null = null;
+  while (found === null) {
+    const next = await reader.read();
+    if (next.done) {
+      throw new Error(`mpu-back не сообщил адрес: ${said.trim()}`);
+    }
+    said += decoder.decode(next.value);
+    found = said.match(/http:\/\/\S+/);
+  }
+  return {
+    url: found[0],
+    async [Symbol.asyncDispose]() {
+      try {
+        child.kill("SIGTERM");
+      } catch {
+        // Сервер уже мёртв — гасить нечего, и это не ошибка прогона.
+      }
+      await child.status;
+      await reader.cancel();
+      await child.stderr.cancel();
+    },
+  };
 }
 
 /** Результат запуска бинаря. */
@@ -63,20 +126,56 @@ interface Outcome {
   readonly stderr: string;
 }
 
+/**
+ * Строка через клиента — тем же путём, которым ходит человек.
+ * Окружение достаётся серверу: исполняет строку он. Пустое окружение
+ * идёт к общему серверу прогона, непустое — к своему: перезапуск на
+ * каждую строку стоил бы дороже самой проверки.
+ *
+ * @param subject пара программ прогона
+ * @param args слова строки
+ * @param env окружение сервера сверх `HOME`
+ * @param cwd каталог, из которого человек зовёт клиента: строка несёт
+ *   его серверу (`platform/line-concurrency.md`), и команда, ищущая
+ *   рабочую область по предкам, видит именно его
+ */
+/**
+ * Строка через клиента — тем же путём, которым ходит человек: под
+ * каждую поднимается свой сервер. Свой, а не общий: сервер читает
+ * env-файл и кэш-БД при старте, а проверки эти файлы по ходу и меняют
+ * — общий сервер видел бы состояние, которого уже нет.
+ *
+ * @param subject пара программ прогона
+ * @param args слова строки
+ * @param env окружение сервера сверх `HOME`
+ * @param cwd каталог, из которого человек зовёт клиента: строка несёт
+ *   его серверу (`platform/line-concurrency.md`), и команда, ищущая
+ *   рабочую область по предкам, видит именно его
+ */
 async function run(
   subject: Subject,
   args: readonly string[],
   env: Readonly<Record<string, string>> = {},
-  /**
-   * Рабочий каталог запуска. Нужен команде, которая ищет рабочую
-   * область по предкам текущего каталога (`mpu code`): у неё вход —
-   * не только argv.
-   */
   cwd?: string,
 ): Promise<Outcome> {
-  const output = await new Deno.Command(subject.bin, {
+  await using server = await serve(subject, env);
+  return await ask(subject, server.url, args, cwd);
+}
+
+/** Один вызов клиента к названному серверу. */
+async function ask(
+  subject: Subject,
+  url: string,
+  args: readonly string[],
+  cwd?: string,
+): Promise<Outcome> {
+  const output = await new Deno.Command(subject.cli, {
     args: [...args],
-    env: { HOME: subject.home, ...env },
+    // `PATH` клиенту не даётся намеренно: программы копирования
+    // перечислены в его правах абсолютными путями, и старт без `PATH`
+    // — проверяемое свойство, а не удобство прогона
+    // (`cli-client.md`, «Права клиента и `PATH`»).
+    env: { HOME: subject.home, MPU_BACK_URL: url },
     clearEnv: true,
     cwd,
     stdin: "null",
@@ -88,6 +187,42 @@ async function run(
     stdout: decoder.decode(output.stdout),
     stderr: decoder.decode(output.stderr),
   };
+}
+
+/**
+ * Строки прогона, которым нужно записанное разрешение: у мутирующей
+ * команды умолчание — «спросить», а спросить в прогоне некого
+ * (`platform/policy.md`). Записывается только то, что прогон
+ * действительно зовёт: машина прогона выглядит как машина, где человек
+ * однажды разрешил именно эти строки, а не всё подряд.
+ */
+const ALLOWED: readonly string[] = [
+  "config",
+  "copy-dev",
+  "d2-miro",
+  "init",
+  "ssh",
+  "telegram send",
+  "update",
+];
+
+/**
+ * Записывает разрешение для строк прогона. Умолчание команды правилом
+ * не является: в книге лежит только решённое человеком, и корневое
+ * правило умолчания не перебивает — путь называется целиком.
+ *
+ * Зовётся до старта серверов: пока сервер работает, запись в книгу со
+ * стороны до него не доходит (замер 2026-09-22).
+ *
+ * @param home каталог состояния прогона
+ */
+function allowLines(home: string): void {
+  // Каталог состояния — тот же, что у серверов прогона:
+  // `$HOME/.config/mpu` (`defaultStateDir`), а не сам `HOME`.
+  const file = policyFile(`${home}/.config/mpu`);
+  if (file === undefined) throw new Error("каталога состояния нет");
+  using book = RuleBook.open(file, []);
+  for (const path of ALLOWED) book.set(RulePath.parse(path), ALLOW);
 }
 
 /** Отсутствие файла как утверждение: есть — проверка красная. */
@@ -185,23 +320,31 @@ function requireOutsideTempPermission(...paths: readonly string[]): void {
 }
 
 /**
- * Собирает бинарь прогона. Аргументы — из задачи сборки монолита
+ * Собирает программу прогона. Аргументы — из её задачи
  * (`compile_task.ts`): список прав здесь не переписывается, иначе smoke
  * проверял бы не те права, с которыми собирается программа. Подменяются
  * только путь вывода и два каталога окружения.
+ *
+ * @param task имя задачи сборки
+ * @param out путь готовой программы
+ * @param where каталоги, которыми раскрываются переменные прав
  */
-async function compile(subject: Subject): Promise<void> {
-  const args = compileArgs(await Deno.readTextFile("deno.jsonc"), {
-    home: subject.home,
-    configHome: subject.configHome,
-    out: subject.bin,
+async function compile(
+  task: string,
+  out: string,
+  where: { readonly home: string; readonly configHome: string },
+): Promise<void> {
+  const args = compileArgs(await Deno.readTextFile("deno.jsonc"), task, {
+    home: where.home,
+    configHome: where.configHome,
+    out,
   });
   const compiled = await new Deno.Command("deno", {
     args,
     stdout: "inherit",
     stderr: "inherit",
   }).output();
-  if (!compiled.success) throw new Error("deno compile не собрал бинарь");
+  if (!compiled.success) throw new Error(`deno compile не собрал ${task}`);
 }
 
 /** Первый существующий путь из списка; ни одного — `undefined`. */
@@ -295,6 +438,27 @@ function checks(subject: Subject): readonly Check[] {
     ["version", async () => {
       const outcome = await runOk(subject, ["version"]);
       assertEquals(outcome.stdout.trim(), VERSION, "не та версия");
+    }],
+    // Права клиента: до этой порции их не проверял никто — собранного
+    // клиента прогон не запускал вовсе (`platform/monolith-removal.md`).
+    // Проверяется наблюдаемым следом, а не списком флагов: основной
+    // токен прочитан — значит клиент пришёл дверью человека, и ему
+    // доступен её собственный метод; не прочитан — дверь была бы
+    // агентской, и метода бы не было.
+    ["права клиента: основной токен читается, дверь человека", async () => {
+      const outcome = await runOk(subject, ["web"]);
+      assert(
+        outcome.stdout.startsWith("http://mpu.localhost"),
+        `ссылка входа не та: ${JSON.stringify(outcome.stdout)}`,
+      );
+    }],
+    // Клиент живёт без `PATH`: программы копирования названы в его
+    // правах абсолютными путями. С именами он падал бы здесь чужим
+    // текстом ещё до своей первой строки (замер 2026-09-22,
+    // `cli-client.md`, «Права клиента и `PATH`»).
+    ["клиент стартует без PATH в окружении", async () => {
+      const outcome = await run(subject, ["version"]);
+      assertEquals(outcome.stdout.trim(), VERSION, outcome.stderr);
     }],
     // Право на каталог временных файлов: дамп `copy-client`/`copy-dev`
     // пишется во временный файл, и без права бинарь падает `Requires
@@ -476,9 +640,13 @@ function checks(subject: Subject): readonly Check[] {
           "TELEGRAM_API_ID=1\nTELEGRAM_API_HASH=проба\n" +
             `TELEGRAM_SESSION=${loopbackSession(node.addr.port)}\n`,
         );
-        const child = new Deno.Command(subject.bin, {
+        // Окружение достаётся серверу: строку исполняет он.
+        await using server = await serve(subject, {
+          HTTPS_PROXY: "http://127.0.0.1:1",
+        });
+        const child = new Deno.Command(subject.cli, {
           args: ["telegram", "ls", "--limit", "1"],
-          env: { HOME: subject.home, HTTPS_PROXY: "http://127.0.0.1:1" },
+          env: { HOME: subject.home, MPU_BACK_URL: server.url },
           clearEnv: true,
           stdin: "null",
           stdout: "null",
@@ -539,9 +707,10 @@ function checks(subject: Subject): readonly Check[] {
             `TELEGRAM_SESSION=${loopbackSession(1)}\n` +
             "TELEGRAM_PROXY=http://127.0.0.1:1\n",
         );
-        const child = new Deno.Command(subject.bin, {
+        await using server = await serve(subject);
+        const child = new Deno.Command(subject.cli, {
           args: ["telegram", "ls", "--limit", "1"],
-          env: { HOME: subject.home },
+          env: { HOME: subject.home, MPU_BACK_URL: server.url },
           clearEnv: true,
           stdin: "null",
           stdout: "piped",
@@ -1140,21 +1309,27 @@ async function main(): Promise<number> {
     // `.config/mpu`, и запись в `xdg/mpu` им не покрыта — иначе
     // проверка границы ничего бы не доказывала.
     const subject: Subject = {
-      bin: `${home}/mpu`,
+      back: `${home}/mpu-back`,
+      cli: `${home}/mpu`,
       home,
       configHome: `${home}/xdg`,
     };
     console.log("== сборка ==");
     try {
-      await compile(subject);
+      await compile(BACK_TASK, subject.back, subject);
+      await compile(CLI_TASK, subject.cli, subject);
     } catch (err) {
       // Задачи нет — прогон говорит, какой именно, и уходит: падать
       // разбором незачем, а молча пропускать сборку нельзя
-      // (`platform/cutover.md`).
+      // (`platform/monolith-removal.md`).
       if (!(err instanceof CompileTaskError)) throw err;
       console.error(`smoke: ${err.message}`);
       return 1;
     }
+    // Человек однажды разрешил эти строки: иначе мутирующие отказали
+    // бы «спросить некого». До старта сервера — см. `allowLines`.
+    await Deno.mkdir(`${home}/.config/mpu`, { recursive: true });
+    allowLines(home);
     console.log("== проверки ==");
     let passed = 0;
     let failed = 0;

@@ -25,7 +25,7 @@ const TASK = `{
 }`;
 
 Deno.test("аргументы задачи: права дословно, -o и каталоги подменены", () => {
-  assertEquals(compileArgs(TASK, TARGET), [
+  assertEquals(compileArgs(TASK, MONOLITH_TASK, TARGET), [
     "compile",
     "--allow-write=/h/.config/mpu,/h/cfg/mpu",
     "--allow-run",
@@ -50,13 +50,21 @@ Deno.test("задача не той формы — отказ с именем з
   ];
   for (const { name, text, says } of cases) {
     await t.step(name, () => {
-      assertThrows(() => compileArgs(text, TARGET), CompileTaskError, says);
+      assertThrows(
+        () => compileArgs(text, MONOLITH_TASK, TARGET),
+        CompileTaskError,
+        says,
+      );
     });
   }
 });
 
 Deno.test("настоящая задача: путь вывода — только подставленный", async () => {
-  const args = compileArgs(await Deno.readTextFile("deno.jsonc"), TARGET);
+  const args = compileArgs(
+    await Deno.readTextFile("deno.jsonc"),
+    MONOLITH_TASK,
+    TARGET,
+  );
   assertEquals(args[0], "compile");
   assertEquals(args[args.indexOf("-o") + 1], TARGET.out);
   assertEquals(

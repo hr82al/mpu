@@ -56,19 +56,24 @@ Deno.test("первая удавшаяся попытка — последняя
   });
 
   await t.step("терминала нет — идут утилиты по порядку", async () => {
-    const { io, utilities } = ports({ utility: (bin) => bin === "xclip" });
+    const { io, utilities } = ports({
+      utility: (bin) => bin === "/usr/bin/xclip",
+    });
     assertEquals(await copyToClipboard(TEXT, io), true);
     // `xsel` не запускался: список кончается на первой удавшейся.
-    assertEquals(utilities, ["wl-copy", "xclip -selection clipboard"]);
+    assertEquals(utilities, [
+      "/usr/bin/wl-copy",
+      "/usr/bin/xclip -selection clipboard",
+    ]);
   });
 
   await t.step("не удалось ничем — ответ «нет», без ошибки", async () => {
     const { io, utilities } = ports({});
     assertEquals(await copyToClipboard(TEXT, io), false);
     assertEquals(utilities, [
-      "wl-copy",
-      "xclip -selection clipboard",
-      "xsel --clipboard --input",
+      "/usr/bin/wl-copy",
+      "/usr/bin/xclip -selection clipboard",
+      "/usr/bin/xsel --clipboard --input",
     ]);
   });
 });
@@ -206,8 +211,14 @@ Deno.test("настоящие порты: утилита, её код выход
   });
 });
 
-Deno.test("имена программ копирования — те же, что в порядке попыток", () => {
-  // Список имён отдан наружу (права задач `cli` сверяются с ним), а
+Deno.test("пути программ копирования — те же, что в порядке попыток", () => {
+  // Список путей отдан наружу (права задач `cli` сверяются с ним), а
   // порядок попыток живёт таблицей рядом: разъедутся — тест краснеет.
-  assertEquals([...COPY_UTILITIES], ["wl-copy", "xclip", "xsel"]);
+  // Пути, а не имена: имя в `--allow-run` Deno разрешает по `PATH`, и
+  // с пустым `PATH` клиент не стартует вовсе (`cli-client.md`).
+  assertEquals([...COPY_UTILITIES], [
+    "/usr/bin/wl-copy",
+    "/usr/bin/xclip",
+    "/usr/bin/xsel",
+  ]);
 });
