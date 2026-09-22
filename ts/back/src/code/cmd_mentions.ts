@@ -30,6 +30,7 @@ const argsSchema = z.object({
 
 export const codeMentionsCommand = defineCommand({
   path: ["code", "mentions"],
+  keys: { path: "path" },
   summary: "после переезда файла: где путь упомянут в документах и цел ли он",
   usage: "mpu code mentions ПУТЬ [--in ОКНО] [--limit N]",
   help: `Спрашивают после переезда или переименования файла: где путь

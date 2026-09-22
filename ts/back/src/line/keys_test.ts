@@ -91,3 +91,45 @@ Deno.test("отказы с готовой строкой — раздел 2", as
     }
   });
 });
+
+Deno.test("отказы с готовой строкой — раздел 3", async (t) => {
+  const cases: readonly (readonly [readonly string[], string])[] = [
+    [["logs", "ls"], "mpu logs: хосты — сообщением: mpu logs hosts"],
+    [
+      ["logs", "sl-1", "ls"],
+      "mpu logs: сервисы — сообщением: mpu logs services target: sl-1",
+    ],
+    [
+      ["ps", "--tsv"],
+      `mpu ps: формат — сообщение результату: mpu ps ${END} tsv`,
+    ],
+    [["confirm", "-y"], "mpu confirm: флаг — полным именем: mpu confirm --yes"],
+    [
+      ["confirm", "-m", "да?"],
+      "mpu confirm: текст — ключом: mpu confirm text: да?",
+    ],
+    [
+      ["code", "refs", "addOne"],
+      "mpu code refs: значение — ключом: mpu code refs address: addOne",
+    ],
+    [["search", "54"], "mpu search: значение — ключом: mpu search query: 54"],
+    [
+      ["move-client-back", "rm", "1234"],
+      "mpu move-client-back rm: значение — ключом: " +
+      "mpu move-client-back rm target: 1234",
+    ],
+  ];
+  await withPolicyFile(async (file) => {
+    allowEverything(file);
+    for (const [argv, stderr] of cases) {
+      await t.step(argv.join(" "), async () => {
+        assertEquals(await run(file, argv), {
+          code: 2,
+          stdout: "",
+          stderr: `${stderr}\n`,
+          called: [],
+        });
+      });
+    }
+  });
+});

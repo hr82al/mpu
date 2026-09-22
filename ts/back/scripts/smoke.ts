@@ -1010,11 +1010,14 @@ function checks(subject: Subject): readonly Check[] {
         // жил маршрут `legacy`, запись о его вызове делал подпроцесс, и
         // обвязка своей не добавляла. Маршрута нет, записи делает
         // только обвязка — считаем, что ровно по одной.
-        await runOk(subject, ["config", "--json"]);
+        await runOk(subject, ["config", GRAMMAR.close, "json"]);
         const afterSecond = await Deno.readTextFile(logPath);
         assertEquals(
           logRecords(afterSecond),
-          [`$ mpu xlsx resolve ${GRAMMAR.close} json`, "$ mpu config --json"],
+          [
+            `$ mpu xlsx resolve ${GRAMMAR.close} json`,
+            `$ mpu config ${GRAMMAR.close} json`,
+          ],
           `записи задвоились: ${JSON.stringify(afterSecond)}`,
         );
         // Права — последним утверждением: их отсутствие у файловой
@@ -1117,7 +1120,7 @@ function checks(subject: Subject): readonly Check[] {
         );
         const outcome = await run(
           subject,
-          ["code", "refs", "probe:src/a.ts:1"],
+          ["code", "refs", "address:", "probe:src/a.ts:1"],
           {},
           repo,
         );
@@ -1141,7 +1144,7 @@ function checks(subject: Subject): readonly Check[] {
         // окружение бинарь падал бы и здесь.
         const twins = await run(
           subject,
-          ["code", "twins", "probe:src/a.ts:1"],
+          ["code", "twins", "address:", "probe:src/a.ts:1"],
           {},
           repo,
         );
@@ -1173,7 +1176,12 @@ function checks(subject: Subject): readonly Check[] {
           `${other}/src/c.ts`,
           "export function addOne(n: number): number {\n  return n + 2;\n}\n",
         );
-        const name = await run(subject, ["code", "name", "addOne"], {}, repo);
+        const name = await run(
+          subject,
+          ["code", "name", "name:", "addOne"],
+          {},
+          repo,
+        );
         assertEquals(name.code, 0, `stderr: ${name.stderr}`);
         // Разделы идут в порядке перечня репозиториев, а не готовности.
         assert(

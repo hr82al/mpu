@@ -91,6 +91,7 @@ export type UpdateResult = z.infer<typeof resultSchema>;
 
 export const updateCommand = defineCommand({
   path: ["update"],
+  keys: {},
   summary: "синк снапшота кэш-БД с PG: клиенты, их таблицы, wb-sid'ы",
   usage: "mpu update [--quiet]",
   help: `Полная перезапись снапшота кэш-БД одной транзакцией: список

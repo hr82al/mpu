@@ -9,6 +9,7 @@ import { argsSchema, type PsIo, resultSchema, runPs } from "./run.ts";
 
 export const psCommand = defineCommand({
   path: ["ps"],
+  keys: {},
   // Однострока — из слепка дерева: её видит режим дополнения.
   summary: "Список Docker-контейнеров (кэш или живой Portainer).",
   usage: "mpu ps [SELECTOR] [-f SUBSTR] [--json | --tsv]",

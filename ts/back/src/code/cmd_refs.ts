@@ -30,6 +30,7 @@ const argsSchema = z.object({
 
 export const codeRefsCommand = defineCommand({
   path: ["code", "refs"],
+  keys: { address: "address" },
   summary:
     "перед переименованием или переносом: кто держится за символ или модуль",
   usage: "mpu code refs АДРЕС [--limit N]",

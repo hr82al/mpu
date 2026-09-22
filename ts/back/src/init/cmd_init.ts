@@ -498,6 +498,7 @@ function runContainerTransaction(
 
 export const initCommand = defineCommand({
   path: ["init"],
+  keys: {},
   summary: "первичная инициализация локальной кэш-БД: пять шагов",
   usage: "mpu init [--portainer TEXT] [--dry-run] [--reset]",
   help: `Пять шагов: 1) схема кэш-БД; 2) discovery контейнеров через

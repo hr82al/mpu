@@ -74,7 +74,7 @@ Deno.test("ввод больше предела: код 2, серверу не �
     main: MAIN,
     stdin: "a".repeat(MAX_STDIN_BYTES + 1),
   });
-  assertEquals(await runClient(["confirm", "-y"], run.env), 2);
+  assertEquals(await runClient(["confirm", "--yes"], run.env), 2);
   assertEquals(run.stderr, ["mpu: ввод больше 8 МиБ\n"]);
   assertEquals(run.stdout, []);
 });

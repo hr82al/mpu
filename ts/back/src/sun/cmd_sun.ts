@@ -152,6 +152,7 @@ function momentsOf(
 
 export const sunCommand = defineCommand({
   path: ["sun"],
+  keys: {},
   summary: "Восход, полдень, закат и длина дня для точки и даты.",
   usage: "mpu sun [--lat 55.693516] [--lon 37.967941] [--date YYYY-MM-DD]",
   help: `Считает локально, без сети: алгоритм NOAA Solar Calculator.

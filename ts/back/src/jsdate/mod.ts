@@ -30,6 +30,7 @@ const resultSchema = z.object({
 
 export const jsdateCommand = defineCommand({
   path: ["jsdate"],
+  keys: {},
   summary: "текущий момент меткой YYYYMMDDhhmmss по местному времени",
   usage: "mpu jsdate",
   help: `Печатает текущий момент времени машины 14 цифрами без

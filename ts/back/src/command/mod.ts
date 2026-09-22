@@ -410,6 +410,11 @@ interface CommandDeclaration<A, R> {
   readonly retired?: Readonly<Record<string, string>>;
   /** Строки вызова для раздела «Примеры» справки. */
   readonly examples?: readonly string[];
+  /**
+   * Режимы, прежде бывшие значением (`mpu logs ls`): имя унарного
+   * сообщения → режим (`platform/keys-translation.md`, «Исключения»).
+   */
+  readonly modes?: Readonly<Record<string, CommandMode>>;
 }
 
 /**
@@ -419,6 +424,21 @@ interface CommandDeclaration<A, R> {
 export interface KeyRename {
   readonly input: string;
   readonly why: string;
+}
+
+/**
+ * Режим команды — унарное сообщение листа (`mpu logs hosts`): прежде его
+ * выбирало значение позиционного входа (`mpu logs ls`). Режим задаёт это
+ * значение сам и берёт только свои ключи.
+ */
+export interface CommandMode {
+  readonly purpose: string;
+  /** Как режим назван в отказе прежней записи: «хосты — сообщением». */
+  readonly label: string;
+  /** Входы, значения которых задаёт режим: `{ selector: "ls" }`. */
+  readonly fixed: Readonly<Record<string, string>>;
+  /** Ключи режима: ключ → вход команды. */
+  readonly keys: Readonly<Record<string, string>>;
 }
 
 /** Команда в реестре: типы аргументов и результата скрыты внутри. */
@@ -482,6 +502,8 @@ export interface Command {
   readonly retired: Readonly<Record<string, string>>;
   /** Строки вызова для раздела «Примеры» справки. */
   readonly examples: readonly string[];
+  /** Режимы команды: имя унарного сообщения → режим. */
+  readonly modes: Readonly<Record<string, CommandMode>>;
   /** Проверяет образец результата объявленной схемой. */
   readonly assertResult: (value: unknown) => void;
 }
@@ -548,6 +570,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     ...(spec.keys === undefined ? {} : { keys: { ...spec.keys } }),
     retired: { ...spec.retired },
     examples: [...(spec.examples ?? [])],
+    modes: { ...spec.modes },
     textExitCode: (result) =>
       spec.textExitCode === undefined
         ? 0

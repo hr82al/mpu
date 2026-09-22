@@ -8,6 +8,7 @@
 
 import { assertEquals } from "@std/assert";
 import type { Command, InputSpec } from "../command/mod.ts";
+import { GRAMMAR } from "../messages/mod.ts";
 import { type Outcome, type Report, runChain } from "../objects/mod.ts";
 import { RuleBook } from "../policy/mod.ts";
 import { commands } from "../registry/mod.ts";
@@ -121,6 +122,18 @@ const NAMED: readonly (readonly [readonly string[], readonly string[]])[] = [
   ],
   [["mr", "show", "abcdef12"], ["mr", "show", "id:", "abcdef12"]],
   [["kiten", "card", "1"], ["kiten", "card", "id:", "1"]],
+  [["logs", "ls"], ["logs", "hosts"]],
+  [["logs", "sl-1", "ls"], ["logs", "services", "target:", "sl-1"]],
+  [["move-client-back", "rm", "1234"], [
+    "move-client-back",
+    "rm",
+    "target:",
+    "1234",
+  ]],
+  [["move-client-back", "ls"], ["move-client-back", "ls"]],
+  [["move-client-back", "1234"], ["move-client-back", "target:", "1234"]],
+  [["ps", "--tsv"], ["ps", GRAMMAR.close, "tsv"]],
+  [["confirm", "-y", "-m", "да?"], ["confirm", "--yes", "text:", "да?"]],
 ];
 
 Deno.test("поимённые пары спеки дают один вход команды", (t) =>

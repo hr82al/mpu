@@ -5,19 +5,21 @@
  * которую получает нынешняя диспетчеризация.
  */
 
-import type { Command } from "../command/mod.ts";
+import type { Command, CommandMode } from "../command/mod.ts";
 import {
   type Call,
   callLine,
   type Doc,
   type Fallback,
   type Help,
+  type Method,
   NO_REMEDY,
   type Remedy,
   type Sent,
   Shape,
   type Strays,
   type Trace,
+  unary,
 } from "../objects/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { formatAsFlag, Keys, NO_REST, type Rest } from "./keys.ts";
@@ -131,6 +133,8 @@ class KeyStrays implements Strays {
 /** Что нужно листу ключевой команды от дерева. */
 export interface KeyedParts {
   readonly command: Command;
+  /** Режим, чей это лист; нет — лист всей команды. */
+  readonly mode?: CommandMode;
   readonly doc: Doc;
   readonly results: ResultOf;
   readonly settle: Settle;
@@ -138,11 +142,27 @@ export interface KeyedParts {
 }
 
 /**
+ * Режимы команды — унарные сообщения её листа (`mpu logs hosts`): каждый
+ * отвечает листом со своими ключами. У листа режима режимов нет.
+ */
+function modesOf(parts: KeyedParts): Method<Line>[] {
+  if (parts.mode !== undefined) return [];
+  return Object.entries(parts.command.modes).map(([name, mode]) =>
+    unary(
+      name,
+      { purpose: mode.purpose, help: `${mode.purpose}.` },
+      keyedLeaf({ ...parts, mode }),
+      (line: Line) => line,
+    )
+  );
+}
+
+/**
  * Лист ключевой команды: ключевое сообщение — строка к исполнению; голые
  * значения, формат флагом, снятый вход и недостающий ключ — отказы.
  */
 export function keyedLeaf(parts: KeyedParts): Shape<Line> {
-  const keys = new Keys(parts.command, parts.results.names());
+  const keys = new Keys(parts.command, parts.results.names(), parts.mode);
   const keyed = new Shape<Keyed>([], {
     ending: {
       finish: (report, self) => self.pending().settle(report, parts.settle),
@@ -192,7 +212,7 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
       NO_REST,
       parts.results.names(),
     );
-  return new Shape<Line>([], {
+  return new Shape<Line>(modesOf(parts), {
     fallback,
     ending: {
       finish: (report, line) =>

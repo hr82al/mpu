@@ -79,6 +79,7 @@ async function runConfirm(
 
 export const confirmCommand = defineCommand({
   path: ["confirm"],
+  keys: { text: "message" },
   summary: "y/N-ворота в пайпе: показать буфер и спросить у терминала.",
   usage: "mpu confirm [-m ТЕКСТ] [-y]",
   help: `Читает весь stdin, показывает его в stderr и спрашивает

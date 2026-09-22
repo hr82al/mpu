@@ -146,6 +146,21 @@ export interface LogsOptions {
 
 const command = defineCommand({
   path: ["logs"],
+  keys: { service: "service" },
+  modes: {
+    hosts: {
+      purpose: "хосты с логами",
+      label: "хосты",
+      fixed: { selector: "ls" },
+      keys: {},
+    },
+    services: {
+      purpose: "сервисы хоста",
+      label: "сервисы",
+      fixed: { service: "ls" },
+      keys: { target: "selector" },
+    },
+  },
   // Однострока — из слепка дерева: имя и описание переехавшей команды
   // видит режим дополнения, и расходиться с эталоном им незачем.
   summary:

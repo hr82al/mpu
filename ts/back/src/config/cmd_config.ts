@@ -252,6 +252,7 @@ export function renderConfig(
 
 export const configCommand = defineCommand({
   path: ["config"],
+  keys: { key: "key", value: "value" },
   errorName: "config",
   summary: "Локальные предпочтения CLI: показать и задать ключи.",
   usage: "mpu config [KEY] [VALUE] [--unset] [--json]",

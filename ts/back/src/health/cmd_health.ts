@@ -9,6 +9,7 @@ import { argsSchema, type HealthIo, resultSchema, runHealth } from "./run.ts";
 
 export const healthCommand = defineCommand({
   path: ["health"],
+  keys: {},
   // Однострока — из слепка дерева: её видит режим дополнения.
   summary: "Health-check сервера: контейнеры + tail логов виновников.",
   usage: "mpu health SELECTOR [-n N] [--since S] [--all]",

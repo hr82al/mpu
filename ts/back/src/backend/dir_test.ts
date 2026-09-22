@@ -60,8 +60,8 @@ Deno.test("рабочий каталог команды — каталог её 
       // каталога и называет каталог в отказе — по нему и видно, чей он.
       const [first, second] = await bothIn(
         back,
-        { cwd: a, words: ["code", "refs", "чегоТоНет"] },
-        { cwd: b, words: ["code", "refs", "чегоТоНет"] },
+        { cwd: a, words: ["code", "refs", "address:", "чегоТоНет"] },
+        { cwd: b, words: ["code", "refs", "address:", "чегоТоНет"] },
       );
       // Каталог назван в отказе дословно — по нему и видно, чей он.
       assertStringIncludes(stderr(first), `нет ни у одного предка ${a}\n`);
@@ -89,7 +89,7 @@ Deno.test("относительный путь разрешается от ка�
     await Deno.writeTextFile(`${a}/свой.log`, record("строка из A"));
     await Deno.writeTextFile(`${b}/свой.log`, record("строка из B"));
     await withBack(async (back) => {
-      const words = ["log", "--file", "свой.log"];
+      const words = ["log", "file:", "свой.log"];
       const [first, second] = await bothIn(
         back,
         { cwd: a, words },
@@ -115,7 +115,7 @@ Deno.test("голден: кадры двух одновременных стро
     await withBack(async (back) => {
       const [first, second] = await bothIn(
         back,
-        { cwd: a, words: ["code", "refs", "чегоТоНет"] },
+        { cwd: a, words: ["code", "refs", "address:", "чегоТоНет"] },
         { cwd: b, words: ["version"] },
       );
       const snapshot = {
@@ -123,7 +123,7 @@ Deno.test("голден: кадры двух одновременных стро
         "строки": [
           {
             cwd: MASK,
-            words: ["code", "refs", "чегоТоНет"],
+            words: ["code", "refs", "address:", "чегоТоНет"],
             "кадры": masked(first, a),
           },
           { cwd: MASK, words: ["version"], "кадры": masked(second, b) },

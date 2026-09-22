@@ -62,6 +62,7 @@ export interface LogOptions {
 
 export const logCommand = defineCommand({
   path: ["log"],
+  keys: {},
   summary: "Показать записи журнала вызовов mpu.",
   usage:
     "mpu log [-n N] [--failed] [--cmd ПРЕФИКС] [--since КОГДА] [--run ID] [--file ПУТЬ]",

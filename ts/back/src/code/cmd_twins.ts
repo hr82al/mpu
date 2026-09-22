@@ -34,6 +34,7 @@ const argsSchema = z.object({
 
 export const codeTwinsCommand = defineCommand({
   path: ["code", "twins"],
+  keys: { address: "address" },
   summary: "перед правкой тела: нет ли у него близнеца в другом файле",
   usage: "mpu code twins АДРЕС [--limit N]",
   help: `Спрашивают перед тем, как править тело функции: нет ли у него

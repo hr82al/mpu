@@ -5,7 +5,12 @@
  * строки прежней диспетчеризации и теста полноты.
  */
 
-import type { Command, InputSpec, KeyRename } from "../command/mod.ts";
+import type {
+  Command,
+  CommandMode,
+  InputSpec,
+  KeyRename,
+} from "../command/mod.ts";
 import { GRAMMAR, type KeyKind, type KeyValue } from "../messages/mod.ts";
 import { type Args, callLine, type Named, Refusal } from "../objects/mod.ts";
 import type { Order } from "./order.ts";
@@ -256,24 +261,42 @@ export class Keys {
   readonly #formatNames: ReadonlySet<string>;
   readonly #retired: Readonly<Record<string, string>>;
   readonly #shorts: ReadonlyMap<string, KeySpec>;
+  /** Режимы команды: прежняя запись каждого — отказ с новой. */
+  readonly #modes: ReadonlyMap<string, CommandMode>;
+  /** Входы, значения которых задаёт режим; вне режима — нет. */
+  readonly #fixed: Readonly<Record<string, string>>;
+  readonly #inputs: readonly InputSpec[];
 
   /**
    * @param command команда реестра
    * @param formats имена форматов её результата, `json` в их числе
+   * @param mode режим, чьи ключи берёт каталог; нет — вся команда
    */
-  constructor(command: Command, formats: readonly string[]) {
+  constructor(
+    command: Command,
+    formats: readonly string[],
+    mode: CommandMode = WHOLE_COMMAND,
+  ) {
     this.#path = command.path;
+    this.#modes = new Map(Object.entries(command.modes));
+    this.#fixed = mode.fixed;
+    this.#inputs = command.inputs;
     this.#formats = formatInputs(command, formats);
     this.#formatNames = new Set(formats);
     this.#retired = command.retired;
+    // Режим объявляет свои ключи сам и берёт только их входы.
     const declared = new Map(
-      Object.entries(command.keys ?? {}).map(([key, value]) => {
-        const rename = renameOf(value);
-        return [rename.input, { key, why: rename.why }] as const;
-      }),
+      Object.entries(mode === WHOLE_COMMAND ? command.keys ?? {} : mode.keys)
+        .map(([key, value]) => {
+          const rename = renameOf(value);
+          return [rename.input, { key, why: rename.why }] as const;
+        }),
     );
     const names = new Set(command.inputs.map((input) => input.name));
-    this.#entries = command.inputs.map((input) =>
+    const inputs = mode === WHOLE_COMMAND
+      ? command.inputs
+      : command.inputs.filter((input) => declared.has(input.name));
+    this.#entries = inputs.map((input) =>
       this.#entryOf(command, input, declared.get(input.name), names)
     );
     this.#specs = this.#entries.flatMap((entry) => entry.specs);
@@ -321,6 +344,10 @@ export class Keys {
         specs: [],
         spellings: [spelling],
       };
+    }
+    const owner = modeOwning(command, input, declared);
+    if (owner !== undefined) {
+      return { input: name, address: owner, ...none };
     }
     const spec = this.#specOf(command, input, declared, dashed);
     const spellings: Spelling[] = [];
@@ -451,7 +478,14 @@ export class Keys {
     }
     // Недостающий обязательный ключ называет раньше разбор: этот набор
     // ключей ему известен целиком.
-    return { args: named.args(), text: named.text(), rest: NO_REST };
+    return { args: named.args(), text: this.#text(entries), rest: NO_REST };
+  }
+
+  /** Ключи строкой, как их пишут: флаг — `--имя`, список — ключ на значение. */
+  #text(entries: readonly (readonly [string, KeyValue])[]): string {
+    return entries
+      .flatMap(([key, value]) => written(this.#spec(key), value))
+      .join(" ");
   }
 
   #known(key: string): boolean {
@@ -475,9 +509,7 @@ export class Keys {
     if (at === 0 || this.missing(args) !== undefined) {
       throw new Refusal(`не понимает ${named.selector()}`);
     }
-    const text = understood
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(" ");
+    const text = this.#text(understood);
     const selector = (part: typeof entries) =>
       part.map(([key]) => `${key}:`).join("");
     const rest = new Leftover(
@@ -489,6 +521,16 @@ export class Keys {
 
   /** Отказ голым значениям: слова — ключам по порядку входов. */
   bare(words: readonly string[]): Refusal {
+    // Короткий флаг первым словом — не значение: хвост ловит его голым.
+    const short = this.short(words[0], words.slice(1));
+    if (short !== undefined) return hinted(short.reason, short.words);
+    const positionals = this.#inputs
+      .filter((input) => input.form.positional !== undefined)
+      .map((input) => input.name);
+    for (const [name, mode] of this.#modes) {
+      const hint = modeHint(name, mode, positionals, words);
+      if (hint !== undefined) return hint;
+    }
     // Голые слова — позиционным ключам по порядку, затем тексту.
     const text = this.#specs
       .filter((spec) => spec.name === "text" && spec.placement !== POSITIONAL)
@@ -521,9 +563,14 @@ export class Keys {
   /** Строка прежней диспетчеризации: опции, затем `--` и позиционные. */
   order(args: Args): Order {
     const into: Argv = { options: [], positional: [] };
-    for (const spec of this.#specs) {
-      const value = args[spec.name];
-      if (value !== undefined) spec.placement.place(value, into);
+    for (const input of this.#inputs) {
+      const fixed = this.#fixed[input.name];
+      if (fixed !== undefined) placementOf(input).place(fixed, into);
+      const spec = this.#specs.find((one) => one.input === input.name);
+      const value = spec === undefined ? undefined : args[spec.name];
+      if (spec !== undefined && value !== undefined) {
+        spec.placement.place(value, into);
+      }
     }
     const argv = [
       ...this.#path,
@@ -533,6 +580,70 @@ export class Keys {
     ];
     return { argv: () => argv };
   }
+}
+
+/** Вся команда, а не режим: ключи — все, заданных входов нет. */
+const WHOLE_COMMAND: CommandMode = {
+  purpose: "",
+  label: "",
+  fixed: {},
+  keys: {},
+};
+
+/**
+ * Режим, набранный прежней записью (`logs ls`, `logs sl-1 ls`,
+ * `move-client-back rm 1234`): голые слова ложатся на позиционные входы по
+ * порядку, как у прежнего разбора; совпали заданные режимом — отказ с
+ * готовой строкой нового. Не та запись — нет подсказки.
+ */
+function modeHint(
+  name: string,
+  mode: CommandMode,
+  positionals: readonly string[],
+  words: readonly string[],
+): Refusal | undefined {
+  if (words.length > positionals.length) return undefined;
+  const given = new Map(words.map((word, i) => [positionals[i], word]));
+  const inputs = new Map(
+    Object.entries(mode.keys).map(([key, input]) => [input, key]),
+  );
+  const pairs: string[] = [];
+  for (const [input, word] of given) {
+    if (mode.fixed[input] === word) continue;
+    const key = inputs.get(input);
+    if (key === undefined) return undefined;
+    pairs.push(`${key}:`, word);
+  }
+  const all = Object.keys(mode.fixed).every((input) => given.has(input));
+  return all
+    ? hinted(`${mode.label} — сообщением`, [name, ...pairs])
+    : undefined;
+}
+
+/**
+ * Позиционный вход, ключ которому даёт только режим (`move-client-back`
+ * `rm target:`): у всей команды его адрес — сообщение режима.
+ */
+function modeOwning(
+  command: Command,
+  input: InputSpec,
+  declared: { readonly key: string } | undefined,
+): string | undefined {
+  if (declared !== undefined || input.name === SELECTOR) return undefined;
+  if (input.form.positional === undefined) return undefined;
+  for (const [name, mode] of Object.entries(command.modes)) {
+    for (const [key, owned] of Object.entries(mode.keys)) {
+      if (owned === input.name) return `${name} ${key}:`;
+    }
+  }
+  return undefined;
+}
+
+/** Куда ложится значение, заданное режимом: позиционно или опцией. */
+function placementOf(input: InputSpec): Placement {
+  return input.form.positional === undefined
+    ? new OptionPlacement(input.name)
+    : POSITIONAL;
 }
 
 /** Подсказка к короткому флагу: причина и слова нового написания. */

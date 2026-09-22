@@ -33,6 +33,7 @@ const argsSchema = z.object({
 
 export const codeNameCommand = defineCommand({
   path: ["code", "name"],
+  keys: { name: "name" },
   summary: "перед внесением имени: не занято ли оно другим смыслом",
   usage: "mpu code name ИМЯ [--in ОКНО] [--limit N]",
   help: `Спрашивают перед тем, как внести новое имя: не занято ли оно

@@ -216,6 +216,21 @@ export function renderMoveClientBack(result: BackResult): string {
 
 export const moveClientBackCommand = defineCommand({
   path: ["move-client-back"],
+  keys: {},
+  modes: {
+    ls: {
+      purpose: "записанные ходы",
+      label: "список ходов",
+      fixed: { selector: "ls" },
+      keys: {},
+    },
+    rm: {
+      purpose: "удалить запись хода, ничего не перенося",
+      label: "удаление записи",
+      fixed: { selector: "rm" },
+      keys: { target: "target" },
+    },
+  },
   errorName: "move-client-back",
   summary: "Вернуть клиента обратно и управлять журналом переносов.",
   usage: "mpu move-client-back [SELECTOR | ls | rm SELECTOR]",
