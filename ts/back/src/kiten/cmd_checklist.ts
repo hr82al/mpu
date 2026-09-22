@@ -334,6 +334,7 @@ KITEN_API_KEY).`;
 
 export const kitenChecklistLsCommand = defineCommand({
   path: ["kiten", "checklist", "ls"],
+  keys: { id: "selector" },
   errorName: "kiten checklist ls",
   summary: "Показать чек-листы карточки Kaiten с пунктами.",
   usage: "mpu kiten checklist ls SELECTOR [--json]",
@@ -369,6 +370,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
 
 export const kitenChecklistAddCommand = defineCommand({
   path: ["kiten", "checklist", "add"],
+  keys: { id: "selector" },
   errorName: "kiten checklist add",
   summary: "Создать чек-лист карточки Kaiten и дописать в него пункты.",
   usage: "mpu kiten checklist add SELECTOR -n NAME [-i TEXT]...",
@@ -410,6 +412,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
 
 export const kitenChecklistCheckCommand = defineCommand({
   path: ["kiten", "checklist", "check"],
+  keys: { id: "selector", item: "item" },
   errorName: "kiten checklist check",
   summary: "Отметить пункт чек-листа карточки Kaiten.",
   usage: "mpu kiten checklist check SELECTOR ITEM",
@@ -439,6 +442,7 @@ ${MARK_EXIT}
 
 export const kitenChecklistUncheckCommand = defineCommand({
   path: ["kiten", "checklist", "uncheck"],
+  keys: { id: "selector", item: "item" },
   errorName: "kiten checklist uncheck",
   summary: "Снять отметку пункта чек-листа карточки Kaiten.",
   usage: "mpu kiten checklist uncheck SELECTOR ITEM",

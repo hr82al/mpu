@@ -125,6 +125,12 @@ export async function runGet(
 
 export const sheetGetCommand = defineCommand({
   path: ["sheet", "get"],
+  keys: {
+    range: {
+      input: "ranges",
+      why: "вход-список: ключ в единственном числе, повторяется",
+    },
+  },
   errorName: "sheet",
   summary: "Прочитать диапазоны Google-таблицы.",
   usage:

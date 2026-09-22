@@ -67,6 +67,7 @@ export function renderDescribe(result: DescribeResult): string {
 
 export const mrDescribeCommand = defineCommand({
   path: ["mr", "describe"],
+  keys: { id: "mr", text: "message" },
   errorName: "mr describe",
   summary: "Заменить описание merge request'а целиком.",
   usage: "mpu mr describe [--mr REF] (-m TEXT | -F PATH)",

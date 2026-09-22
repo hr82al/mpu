@@ -78,6 +78,7 @@ async function runTelegramSend(
 
 export const telegramSendCommand = defineCommand({
   path: ["telegram", "send"],
+  keys: { text: "message" },
   errorName: "telegram send",
   summary: "Отправить сообщение от имени личного аккаунта.",
   usage: "mpu telegram send MESSAGE [--chat X] [--md] [-f PATH]...",

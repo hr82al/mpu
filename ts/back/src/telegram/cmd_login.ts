@@ -87,6 +87,7 @@ async function runLoginCommand(
 
 export const telegramLoginCommand = defineCommand({
   path: ["telegram", "login"],
+  keys: {},
   errorName: "telegram login",
   summary: "Вход в Telegram: сохранить пользовательскую сессию в env-файл.",
   usage: "mpu telegram login",

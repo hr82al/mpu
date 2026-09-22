@@ -150,6 +150,7 @@ export async function runTelegramSearch(
 
 export const telegramSearchCommand = defineCommand({
   path: ["telegram", "search"],
+  keys: { query: "query" },
   errorName: "telegram search",
   summary: "Найти сообщения по содержимому: везде или в одном чате.",
   usage:

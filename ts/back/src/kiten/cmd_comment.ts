@@ -238,6 +238,7 @@ function reason(err: unknown): string {
 
 export const kitenCommentCommand = defineCommand({
   path: ["kiten", "comment"],
+  keys: { id: "selector", text: "message" },
   errorName: "kiten comment",
   summary: "Комментарий к карточке Kaiten: текст, вложения, адресаты.",
   usage:

@@ -68,6 +68,7 @@ export function renderShow(thread: ShowResult, json: boolean): string {
 
 export const mrShowCommand = defineCommand({
   path: ["mr", "show"],
+  keys: { id: "discussion" },
   errorName: "mr show",
   summary: "Один тред ревью целиком: все ноты по порядку.",
   usage: "mpu mr show DISCUSSION [--mr REF] [--json]",

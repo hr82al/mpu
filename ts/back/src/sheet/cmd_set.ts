@@ -344,6 +344,7 @@ function known(name: string, value: number | null): Record<string, number> {
 
 export const sheetSetCommand = defineCommand({
   path: ["sheet", "set"],
+  keys: { range: "range", value: "value" },
   errorName: "sheet set",
   summary: "Записать значения в Google-таблицу.",
   usage: "mpu sheet set [ДИАПАЗОН ЗНАЧЕНИЕ | --from FILE | ЦЕЛЬ] [-s SS] [-l]",

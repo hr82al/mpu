@@ -81,6 +81,7 @@ export function renderDelete(result: DeleteResult): string {
 
 export const mrDeleteCommand = defineCommand({
   path: ["mr", "delete"],
+  keys: { id: "note" },
   errorName: "mr delete",
   summary: "Удалить свою заметку в merge request'е.",
   usage: "mpu mr delete NOTE_ID [--mr REF] [--yes]",

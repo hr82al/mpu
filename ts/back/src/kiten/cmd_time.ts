@@ -419,6 +419,7 @@ const DURATION_HELP = `Длительность: 3h | 1h15m | 1:15 | 90 (гол�
 
 export const kitenTimeLsCommand = defineCommand({
   path: ["kiten", "time", "ls"],
+  keys: { id: "selector" },
   errorName: "kiten time ls",
   summary: "Показать записи учёта времени карточки Kaiten.",
   usage:
@@ -461,6 +462,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
 
 export const kitenTimeAddCommand = defineCommand({
   path: ["kiten", "time", "add"],
+  keys: { id: "selector", duration: "duration", text: "comment" },
   errorName: "kiten time add",
   summary: "Создать запись учёта времени на карточке Kaiten.",
   usage:
@@ -501,6 +503,11 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
 
 export const kitenTimeEditCommand = defineCommand({
   path: ["kiten", "time", "edit"],
+  keys: {
+    id: "selector",
+    log: { input: "logId", why: "второй идентификатор: запись учёта времени" },
+    text: "comment",
+  },
   errorName: "kiten time edit",
   summary: "Изменить запись учёта времени на карточке Kaiten.",
   usage:
@@ -545,6 +552,10 @@ Exit: 0 — успех; 1 — записи нет на карточке, чуж�
 
 export const kitenTimeRmCommand = defineCommand({
   path: ["kiten", "time", "rm"],
+  keys: {
+    id: "selector",
+    log: { input: "logId", why: "второй идентификатор: запись учёта времени" },
+  },
   errorName: "kiten time rm",
   summary: "Удалить запись учёта времени с карточки Kaiten.",
   usage: "mpu kiten time rm SELECTOR LOG_ID [--force]",

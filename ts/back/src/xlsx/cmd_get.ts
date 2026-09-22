@@ -67,6 +67,12 @@ const resultSchema = z.object({
 
 export const getCommand = defineCommand({
   path: ["xlsx", "get"],
+  keys: {
+    range: {
+      input: "ranges",
+      why: "вход-список: ключ в единственном числе, повторяется",
+    },
+  },
   summary: "значения диапазонов книги",
   usage: "mpu xlsx get [RANGES...] [-f FILE] [-n|--sheet SHEET] " +
     "[--from FROM] [--render both|values|formulas] [--raw|--tsv]",

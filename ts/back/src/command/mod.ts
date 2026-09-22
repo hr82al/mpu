@@ -399,17 +399,26 @@ interface CommandDeclaration<A, R> {
    */
   readonly formats?: Readonly<Record<string, readonly string[]>>;
   /**
-   * Ключи команды (`platform/line-grammar.md`, «Команда-образец»): имя
-   * ключа → имя входа (`id` → `selector`). Объявлены — команда
-   * исполняется своим ключевым сообщением, а не хвостом; прочие входы
-   * становятся ключами под своими именами (булев с умолчанием `true` —
-   * флаг `no-<имя>`), кроме входов-форматов и снятых.
+   * Ключи команды (`platform/keys-translation.md`): имя ключа → вход,
+   * если правило его не выводит (позиционный вход, переименование).
+   * Переименованному ключу вне словаря — причина (`KeyRename`).
+   * Объявлены — команда исполняется своим ключевым сообщением, а не
+   * хвостом; прочие входы становятся ключами по правилам.
    */
-  readonly keys?: Readonly<Record<string, string>>;
+  readonly keys?: Readonly<Record<string, string | KeyRename>>;
   /** Снятые входы: имя → ключ, который его заменил (`server` → `target`). */
   readonly retired?: Readonly<Record<string, string>>;
   /** Строки вызова для раздела «Примеры» справки. */
   readonly examples?: readonly string[];
+}
+
+/**
+ * Ключ с именем вне словаря, которое правило не выводит: вход и почему
+ * имя такое (`mr comment` `at:` — `target` занят словарём).
+ */
+export interface KeyRename {
+  readonly input: string;
+  readonly why: string;
 }
 
 /** Команда в реестре: типы аргументов и результата скрыты внутри. */
@@ -467,8 +476,8 @@ export interface Command {
   readonly helpWhenBare: boolean;
   /** Форматы результата сверх `json`: имя → слова прежнего флага. */
   readonly formats: Readonly<Record<string, readonly string[]>>;
-  /** Ключи команды: имя ключа → имя входа; команда с хвостом — нет. */
-  readonly keys?: Readonly<Record<string, string>>;
+  /** Ключи команды: имя ключа → вход; команда с хвостом — нет. */
+  readonly keys?: Readonly<Record<string, string | KeyRename>>;
   /** Снятые входы: имя → ключ, который его заменил. */
   readonly retired: Readonly<Record<string, string>>;
   /** Строки вызова для раздела «Примеры» справки. */

@@ -514,6 +514,7 @@ const ENV_KEYS = `Ключи env-файла: KITEN_API_KEY (обязателен
 
 export const kitenTimeStartCommand = defineCommand({
   path: ["kiten", "time", "start"],
+  keys: { id: "selector", text: "comment" },
   errorName: "kiten time start",
   summary: "Запустить личный таймер на карточке Kaiten.",
   usage: "mpu kiten time start SELECTOR [--comment TEXT]",
@@ -552,6 +553,7 @@ Exit: 0 — успех; 1 — таймер уже идёт, ошибка API Kai
 
 export const kitenTimeStatusCommand = defineCommand({
   path: ["kiten", "time", "status"],
+  keys: { id: "selector" },
   errorName: "kiten time status",
   summary: "Показать состояние личного таймера карточки Kaiten.",
   usage: "mpu kiten time status SELECTOR [--json]",
@@ -582,6 +584,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
 
 export const kitenTimeStopCommand = defineCommand({
   path: ["kiten", "time", "stop"],
+  keys: { id: "selector", text: "comment" },
   errorName: "kiten time stop",
   summary: "Остановить таймер карточки Kaiten, создав запись времени.",
   usage:
@@ -620,6 +623,7 @@ Exit: 0 — успех; 1 — таймер не запущен, ошибка API
 
 export const kitenTimeDiscardCommand = defineCommand({
   path: ["kiten", "time", "discard"],
+  keys: { id: "selector" },
   errorName: "kiten time discard",
   summary: "Сбросить таймер карточки Kaiten без создания записи.",
   usage: "mpu kiten time discard SELECTOR",

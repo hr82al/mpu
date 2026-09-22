@@ -105,6 +105,7 @@ export function renderCacheClear(result: ClearResult): string {
 
 export const sheetCacheInfoCommand = defineCommand({
   path: ["sheet", "cache", "info"],
+  keys: {},
   errorName: "sheet cache info",
   summary: "Показать состояние локального кэша вкладок.",
   usage: "mpu sheet cache info",
@@ -146,6 +147,7 @@ Exit: 0 — успех.`,
 
 export const sheetCacheClearCommand = defineCommand({
   path: ["sheet", "cache", "clear"],
+  keys: {},
   errorName: "sheet cache clear",
   summary: "Очистить локальный кэш вкладок.",
   usage: "mpu sheet cache clear [-s SS]",

@@ -130,6 +130,7 @@ function launch(io: OpenIo, url: string): boolean {
 
 export const sheetOpenCommand = defineCommand({
   path: ["sheet", "open"],
+  keys: { tab: "tab" },
   errorName: "sheet open",
   summary: "Открыть таблицу или её лист в браузере.",
   usage: "mpu sheet open [ЛИСТ] [-s SS]",

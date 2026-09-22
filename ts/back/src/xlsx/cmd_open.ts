@@ -27,6 +27,7 @@ const resultSchema = z.object({
 
 export const openCommand = defineCommand({
   path: ["xlsx", "open"],
+  keys: {},
   summary: "открыть книгу в системном приложении",
   usage: "mpu xlsx open [-f FILE] [-p|--print]",
   help: `Открыватель (xdg-open, затем open) запускается отвязанным процессом:

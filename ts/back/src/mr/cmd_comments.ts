@@ -89,6 +89,7 @@ export function renderComments(
 
 export const mrCommentsCommand = defineCommand({
   path: ["mr", "comments"],
+  keys: { id: "mr" },
   errorName: "mr comments",
   summary: "Треды ревью merge request'а: таблица, JSON или markdown.",
   usage:

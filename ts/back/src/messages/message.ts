@@ -1,3 +1,6 @@
+/** Значение ключа: текст, флаг или значения ключа-списка по порядку. */
+export type KeyValue = string | boolean | readonly string[];
+
 /**
  * Сообщение: унарное — одно слово, ключевое — пары «ключ → значение»
  * в порядке строки, хвост — остаток строки до закрытия, закрытие — слово
@@ -6,7 +9,7 @@
  */
 export type Message =
   | { readonly unary: string }
-  | { readonly keyword: Readonly<Record<string, string | boolean>> }
+  | { readonly keyword: Readonly<Record<string, KeyValue>> }
   | { readonly tail: readonly string[]; readonly foreign?: true }
   | { readonly close: true };
 
@@ -35,11 +38,19 @@ export class StrayWord extends MessageParseError {
   readonly word: string;
   /** Слова ключевого сообщения до этого слова, как в строке. */
   readonly taken: readonly string[];
+  /** Слова строки за этим словом — для подсказки (`-m x` → `text: x`). */
+  readonly after: readonly string[];
 
-  constructor(value: string, word: string, taken: readonly string[]) {
+  constructor(
+    value: string,
+    word: string,
+    taken: readonly string[],
+    after: readonly string[] = [],
+  ) {
     super(`значение ${value} не понимает ${word}`);
     this.value = value;
     this.word = word;
     this.taken = [...taken];
+    this.after = [...after];
   }
 }

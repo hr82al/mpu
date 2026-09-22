@@ -29,6 +29,7 @@ const resultSchema = z.object({
 
 export const lsCommand = defineCommand({
   path: ["xlsx", "ls"],
+  keys: {},
   summary: "список листов книги",
   usage: "mpu xlsx ls [-f FILE] [-l|--long]",
   help: `Вывод по умолчанию: имя листа на строку, порядок как в книге.

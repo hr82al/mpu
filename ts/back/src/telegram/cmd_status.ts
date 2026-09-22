@@ -221,6 +221,7 @@ async function send(
 
 export const telegramStatusCommand = defineCommand({
   path: ["telegram", "status"],
+  keys: {},
   errorName: "telegram status",
   summary: "Отправить отчёт о сегодняшних перемещениях карточек.",
   usage: "mpu telegram status [--chat X] [--no-live] [--dry-run]",

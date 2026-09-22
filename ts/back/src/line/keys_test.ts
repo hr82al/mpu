@@ -1,0 +1,93 @@
+/**
+ * Команды на ключах (`platform/keys-translation.md`, «Граничные случаи»):
+ * отказы с готовой строкой и пара разбора из сценариев спеки. До сети
+ * строки не доходят: исполнение подменено строкой диспетчеризации.
+ */
+
+import { assertEquals } from "@std/assert";
+import type { InvokeJournal } from "../entrypoint/mod.ts";
+import { GRAMMAR } from "../messages/mod.ts";
+import { makeFakeIo } from "../testing/mod.ts";
+import { lineEntry } from "./mod.ts";
+import { allowEverything, consentOf, withPolicyFile } from "./testconsent.ts";
+
+const END = GRAMMAR.close;
+
+async function run(file: string, argv: readonly string[]) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const called: string[] = [];
+  const journal = {
+    nativeCall: (command: { readonly path: readonly string[] }) =>
+      void called.push(command.path.join(" ")),
+    note: () => {},
+  } as unknown as InvokeJournal;
+  const code = await lineEntry(consentOf(file))(argv, makeFakeIo(), {
+    stdout: (text: string) => void out.push(text),
+    stderr: (text: string) => void err.push(text),
+  }, journal);
+  return { code, stdout: out.join(""), stderr: err.join(""), called };
+}
+
+Deno.test("отказы с готовой строкой — раздел 2", async (t) => {
+  const cases: readonly (readonly [readonly string[], string])[] = [
+    [
+      ["kiten", "comment", "55", "ok"],
+      "mpu kiten comment: значение — ключом: mpu kiten comment id: 55 text: ok",
+    ],
+    [
+      ["kiten", "comment", "id:", "55", "--message", "x"],
+      "mpu kiten comment: текст — ключом: mpu kiten comment id: 55 text: x",
+    ],
+    [
+      ["kiten", "comment", "id:", "55", "text:", "ok", "-m", "x"],
+      "mpu kiten comment id: 55 text: ok: значение ok не понимает -m; " +
+      "текст — ключом: mpu kiten comment id: 55 text: ok text: x",
+    ],
+    [
+      ["xlsx", "get", "file:", "a.xlsx", "-n", "Лист1"],
+      "mpu xlsx get file: a.xlsx: значение a.xlsx не понимает -n; " +
+      "флаг — полным именем: mpu xlsx get file: a.xlsx --sheet Лист1",
+    ],
+    [
+      ["kiten", "ls", "--date_from", "2026-01-01"],
+      "mpu kiten ls: ключ через дефис: mpu kiten ls --date-from 2026-01-01",
+    ],
+    [
+      ["kiten", "ls", "--md"],
+      `mpu kiten ls: формат — сообщение результату: mpu kiten ls ${END} md`,
+    ],
+    [
+      ["kiten", "status", "--out", "group"],
+      "mpu kiten status: формат — сообщение результату: " +
+      `mpu kiten status ${END} group`,
+    ],
+    [
+      ["mr", "view", "--mr", "5"],
+      "mpu mr view: номер — ключом: mpu mr view id: 5",
+    ],
+    [
+      ["mr", "create", "--title", "t", "--target", "main"],
+      "mpu mr create: --target — теперь ключ into: " +
+      "mpu mr create title: t into: main",
+    ],
+    [
+      ["kiten", "status", "--time-since", "30d"],
+      "mpu kiten status: --time-since — теперь ключ horizon: " +
+      "mpu kiten status horizon: 30d",
+    ],
+  ];
+  await withPolicyFile(async (file) => {
+    allowEverything(file);
+    for (const [argv, stderr] of cases) {
+      await t.step(argv.join(" "), async () => {
+        assertEquals(await run(file, argv), {
+          code: 2,
+          stdout: "",
+          stderr: `${stderr}\n`,
+          called: [],
+        });
+      });
+    }
+  });
+});

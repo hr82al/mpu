@@ -324,6 +324,7 @@ const ENV_KEYS = `Ключи env-файла: KITEN_API_KEY, KITEN_BASE_URL`;
 
 export const kitenMoveCommand = defineCommand({
   path: ["kiten", "move"],
+  keys: { id: "selector" },
   errorName: "kiten move",
   summary: "Перенести карточку Kaiten по осям доска / дорожка / колонка.",
   usage: "mpu kiten move SELECTOR [--lane REF] [--column REF] [--board REF]",
@@ -360,6 +361,7 @@ Exit: 0 — успех; 1 — ошибка API; 2 — ошибка ввода (�
 
 export const kitenReadyCommand = defineCommand({
   path: ["kiten", "ready"],
+  keys: { id: "selector" },
   errorName: "kiten ready",
   summary: "Перевести карточку Kaiten в колонку «Готово».",
   usage: "mpu kiten ready SELECTOR [--column REF] [--note TEXT] [--dry-run]",
@@ -374,6 +376,7 @@ export const kitenReadyCommand = defineCommand({
 
 export const kitenReviewCommand = defineCommand({
   path: ["kiten", "review"],
+  keys: { id: "selector" },
   errorName: "kiten review",
   summary: "Перевести карточку Kaiten в колонку «Код-ревью».",
   usage: "mpu kiten review SELECTOR [--column REF] [--note TEXT] [--dry-run]",

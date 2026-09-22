@@ -67,6 +67,11 @@ export class Words implements ValueSource {
     return tail;
   }
 
+  /** Слова строки за очередным словом. */
+  beyond(): string[] {
+    return this.#list.slice(this.#at + 1);
+  }
+
   /** Слова, забранные с начала шага, — как в строке. */
   consumed(): string[] {
     return this.#list.slice(0, this.#at);
@@ -132,7 +137,7 @@ const TO_RESULT: AfterValue = {
 /** Слово вида короткого флага (`-v`): не унарное, значению лишнее. */
 const STRAY: AfterValue = {
   follow(text, draft, words) {
-    throw new StrayWord(draft.last(), text, words.consumed());
+    throw new StrayWord(draft.last(), text, words.consumed(), words.beyond());
   },
 };
 

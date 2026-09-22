@@ -6,6 +6,7 @@
  * эталона лежит в `testdata/back-rpc/frames-*.json`.
  */
 
+import { GRAMMAR } from "../messages/mod.ts";
 import { assertEquals } from "@std/assert";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { immediately, lineEntry, rulesOf } from "../line/mod.ts";
@@ -48,14 +49,14 @@ const CASES: readonly Case[] = [
   {
     name: "ask-nobody",
     path: "/line",
-    words: ["ask", "kiten", "comment", "1", "x"],
+    words: ["ask", "kiten", "comment", "id:", "1", "text:", "x"],
     answers: [],
     human: false,
   },
   {
     name: "xlsx-alias-ls",
     path: "/line",
-    words: ["xlsx", "alias", "ls", "--json"],
+    words: ["xlsx", "alias", "ls", GRAMMAR.close, "json"],
     answers: [],
     human: true,
   },
@@ -148,7 +149,7 @@ Deno.test("ask без человека: отказ, команда не вызв
     const frames = await line(
       back,
       "/line",
-      ["ask", "kiten", "comment", "1", "x"],
+      ["ask", "kiten", "comment", "id:", "1", "text:", "x"],
       ["y"],
       false,
     );

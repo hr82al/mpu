@@ -68,7 +68,7 @@ const CASES: readonly Case[] = [
   {
     name: "ask-nobody",
     path: "/line",
-    words: ["ask", "kiten", "comment", "1", "x"],
+    words: ["ask", "kiten", "comment", "id:", "1", "text:", "x"],
     answers: [],
     human: false,
   },
@@ -321,7 +321,7 @@ Deno.test("клиент оборвал поток: исполнение до к�
   await withBack(async (back) => {
     const abort = new AbortController();
     const response = await post(back, "/line", {
-      words: ["xlsx", "ls", "-f", "/a.xlsx"],
+      words: ["xlsx", "ls", "file:", "/a.xlsx"],
       cwd: Deno.cwd(),
     }, { signal: abort.signal });
     await reading.promise;
@@ -455,7 +455,7 @@ Deno.test("остановка: поток в работе получает err �
   const { gate, reading, io } = gated();
   await withBack(async (back) => {
     const response = await post(back, "/line", {
-      words: ["xlsx", "ls", "-f", "/a.xlsx"],
+      words: ["xlsx", "ls", "file:", "/a.xlsx"],
       cwd: Deno.cwd(),
     });
     await reading.promise;

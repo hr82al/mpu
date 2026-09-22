@@ -20,6 +20,7 @@ import {
   unary,
   type Yields,
 } from "../objects/mod.ts";
+import type { KeyValue } from "../messages/mod.ts";
 import {
   ALLOW,
   ASK,
@@ -59,7 +60,7 @@ class Deferred implements Receiver {
 const DEFERRED: Yields<Pending> = {
   parsing: () => DATA.parsing(),
   about: (path, doc) => DATA.about(path, doc),
-  remedy: (word) => DATA.remedy(word),
+  remedy: (word, after) => DATA.remedy(word, after),
   receive: (pending) => new Deferred(pending),
 };
 
@@ -99,7 +100,7 @@ const CHANGE_DOCS: readonly (readonly [Change, Doc])[] = [
 ];
 
 /** Путь правила из значения ключа; пустой — отказ объекта. */
-function rulePath(value: string | boolean): RulePath {
+function rulePath(value: KeyValue): RulePath {
   try {
     return RulePath.parse(String(value));
   } catch (err) {

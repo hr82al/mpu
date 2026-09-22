@@ -30,6 +30,7 @@ const resultSchema = z.object({
 
 export const resolveCommand = defineCommand({
   path: ["xlsx", "resolve"],
+  keys: {},
   summary: "диагностика резолва пути к книге",
   usage: "mpu xlsx resolve [-f FILE]",
   help: `Показывает три источника пути в порядке приоритета

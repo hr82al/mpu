@@ -123,6 +123,7 @@ export function renderBatchUpdate(result: UpdateResult): string {
 
 export const sheetBatchUpdateCommand = defineCommand({
   path: ["sheet", "batch-update"],
+  keys: {},
   errorName: "sheet batch-update",
   summary: "Пакетная правка Google-таблицы мини-языком.",
   usage:

@@ -90,7 +90,7 @@ class Walk implements Walker {
     const shown = this.#trail.copy();
     this.#pending.trace(shown);
     const at = shown.textWith(err.taken.join(" "));
-    const hint = this.#pending.result().remedy(err.word)
+    const hint = this.#pending.result().remedy(err.word, err.after)
       .spell(shown.address(), err.taken);
     return new Rejection(`${at}: ${err.message}${hint}`, { cause: err });
   }

@@ -80,6 +80,7 @@ function resolveCommand(resolved: boolean): Command {
   const action = resolved ? "Закрыть" : "Переоткрыть";
   return defineCommand({
     path: ["mr", name],
+    keys: { id: "discussion" },
     errorName: `mr ${name}`,
     summary: `${action} тред ревью merge request'а.`,
     usage: `mpu mr ${name} DISCUSSION [--mr REF]`,

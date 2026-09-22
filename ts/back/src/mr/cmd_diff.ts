@@ -113,6 +113,7 @@ export function renderDiff(result: DiffResult, json: boolean): string {
 
 export const mrDiffCommand = defineCommand({
   path: ["mr", "diff"],
+  keys: { id: "mr" },
   errorName: "mr diff",
   summary: "Unified diff merge request'а блоками по файлам.",
   usage: "mpu mr diff [--mr REF] [--file SUBSTR] [--json]",

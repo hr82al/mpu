@@ -636,6 +636,7 @@ function renderApplied(result: KitenCloseResult): string {
 
 export const kitenCloseCommand = defineCommand({
   path: ["kiten", "close"],
+  keys: { id: "selector" },
   errorName: "kiten close",
   summary: "Закрыть карточку Kaiten: поля, ответ клиенту, перенос в «Готово».",
   usage:

@@ -15,6 +15,7 @@ const nameSchema = z.string({
 
 export const aliasAddCommand = defineCommand({
   path: ["xlsx", "alias", "add"],
+  keys: { name: "name", path: "path" },
   summary: "добавить или заменить алиас",
   usage: "mpu xlsx alias add NAME PATH",
   help: `NAME — по [A-Za-z0-9_.-]+, иначе exit 2. PATH — непустой;
@@ -50,6 +51,7 @@ Exit: 0 — успех; 2 — ошибка ввода; 1 — хранилище 
 
 export const aliasLsCommand = defineCommand({
   path: ["xlsx", "alias", "ls"],
+  keys: {},
   summary: "список алиасов",
   usage: "mpu xlsx alias ls",
   help: `«имя<TAB>путь» на строку, сортировка по имени. Пустой список —
@@ -73,6 +75,7 @@ Exit: 0 — всегда при читаемом хранилище; 1 — хр�
 
 export const aliasRmCommand = defineCommand({
   path: ["xlsx", "alias", "rm"],
+  keys: { name: "name" },
   summary: "удалить алиас (идемпотентно)",
   usage: "mpu xlsx alias rm NAME",
   help: `Удаляет алиас NAME; отсутствие имени в хранилище — не ошибка,

@@ -19,6 +19,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { VERSION } from "../src/version.ts";
+import { GRAMMAR } from "../src/messages/mod.ts";
 import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/http/mod.ts";
 import { WARMUP_BUDGET_MS } from "../src/kaiten/mod.ts";
 import {
@@ -537,7 +538,12 @@ function checks(subject: Subject): readonly Check[] {
         });
 
         await Deno.writeTextFile(envPath, `MPU_XLSX=${book}\n`);
-        const fromFile = await runOk(subject, ["xlsx", "resolve", "--json"]);
+        const fromFile = await runOk(subject, [
+          "xlsx",
+          "resolve",
+          GRAMMAR.close,
+          "json",
+        ]);
         // Форму результата объявляет схема команды; здесь важен только
         // победивший источник — что ключ env-файла вообще прочитан.
         const fileResult = JSON.parse(fromFile.stdout) as {
@@ -559,7 +565,8 @@ function checks(subject: Subject): readonly Check[] {
         const fromProcessEnv = await run(subject, [
           "xlsx",
           "resolve",
-          "--json",
+          GRAMMAR.close,
+          "json",
         ], {
           MPU_XLSX: book,
         });
@@ -594,6 +601,7 @@ function checks(subject: Subject): readonly Check[] {
         const outcome = await run(subject, [
           "telegram",
           "send",
+          "text:",
           "привет",
           "--chat",
           "me",
@@ -903,6 +911,7 @@ function checks(subject: Subject): readonly Check[] {
       );
       const outcome = await runOk(subject, [
         "d2-miro",
+        "file:",
         `${base}.d2`,
         "--dry-run",
       ]);
@@ -984,12 +993,17 @@ function checks(subject: Subject): readonly Check[] {
       try {
         // Пути нет — код 2 (`platform/line-grammar.md` [D.6]); запись
         // журнала от кода не зависит.
-        const resolve = await run(subject, ["xlsx", "resolve", "--json"]);
+        const resolve = await run(subject, [
+          "xlsx",
+          "resolve",
+          GRAMMAR.close,
+          "json",
+        ]);
         assertEquals(resolve.code, 2, resolve.stderr);
         const afterFirst = await Deno.readTextFile(logPath);
         assertEquals(
           logRecords(afterFirst),
-          ["$ mpu xlsx resolve --json"],
+          [`$ mpu xlsx resolve ${GRAMMAR.close} json`],
           `не одна запись вызова: ${JSON.stringify(afterFirst)}`,
         );
         // Второй вызов — вторая запись, не больше и не меньше: пока
@@ -1000,7 +1014,7 @@ function checks(subject: Subject): readonly Check[] {
         const afterSecond = await Deno.readTextFile(logPath);
         assertEquals(
           logRecords(afterSecond),
-          ["$ mpu xlsx resolve --json", "$ mpu config --json"],
+          [`$ mpu xlsx resolve ${GRAMMAR.close} json`, "$ mpu config --json"],
           `записи задвоились: ${JSON.stringify(afterSecond)}`,
         );
         // Права — последним утверждением: их отсутствие у файловой

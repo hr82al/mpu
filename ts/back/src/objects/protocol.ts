@@ -4,7 +4,7 @@
  * знает о другой больше, чем говорит протокол.
  */
 
-import type { ReceiverDescription } from "../messages/mod.ts";
+import type { KeyValue, ReceiverDescription } from "../messages/mod.ts";
 import type { Help } from "./help.ts";
 
 /**
@@ -22,7 +22,7 @@ export interface Doc {
 }
 
 /** Значения ключей ключевого сообщения. */
-export type Args = Readonly<Record<string, string | boolean>>;
+export type Args = Readonly<Record<string, KeyValue>>;
 
 /** Итог цепочки — данные границы контракта. */
 export type Outcome =
@@ -49,8 +49,11 @@ export interface ResultKind {
   parsing(): ReceiverDescription;
   /** Справка метода с назначением `doc`, вернувшего бы этот вид. */
   about(path: string, doc: Doc): Help;
-  /** Подсказка к слову `word`, стоящему за значением ключа. */
-  remedy(word: string): Remedy;
+  /**
+   * Подсказка к слову `word`, стоящему за значением ключа; `after` —
+   * слова строки за ним.
+   */
+  remedy(word: string, after: readonly string[]): Remedy;
 }
 
 /** Вид результата, который превращает ответ метода в приёмник. */

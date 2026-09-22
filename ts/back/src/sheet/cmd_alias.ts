@@ -61,6 +61,7 @@ function spreadsheetArg(value: string): string {
 
 export const sheetAliasAddCommand = defineCommand({
   path: ["sheet", "alias", "add"],
+  keys: { name: "name", spreadsheet: "spreadsheet" },
   errorName: "sheet alias add",
   summary: "Завести или переназначить короткое имя таблицы.",
   usage: "mpu sheet alias add ИМЯ ТАБЛИЦА",
@@ -106,6 +107,7 @@ Exit: 0 — успех; 2 — недопустимое имя или ТАБЛИ�
 
 export const sheetAliasLsCommand = defineCommand({
   path: ["sheet", "alias", "ls"],
+  keys: {},
   errorName: "sheet alias ls",
   summary: "Показать заведённые имена таблиц.",
   usage: "mpu sheet alias ls",
@@ -131,6 +133,7 @@ Exit: 0 — успех; 1 — хранилище недоступно.
 
 export const sheetAliasRmCommand = defineCommand({
   path: ["sheet", "alias", "rm"],
+  keys: { name: "name" },
   errorName: "sheet alias rm",
   summary: "Снять короткое имя таблицы.",
   usage: "mpu sheet alias rm ИМЯ",

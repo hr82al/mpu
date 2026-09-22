@@ -97,6 +97,7 @@ export function renderFiles(result: FilesResult, json: boolean): string {
 
 export const mrFilesCommand = defineCommand({
   path: ["mr", "files"],
+  keys: { id: "mr" },
   errorName: "mr files",
   summary: "Изменённые файлы merge request'а со счётчиками строк.",
   usage: "mpu mr files [--mr REF] [--json]",

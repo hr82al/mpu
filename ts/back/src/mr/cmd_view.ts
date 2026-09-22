@@ -93,6 +93,7 @@ export function renderView(mr: ViewResult, json: boolean): string {
 
 export const mrViewCommand = defineCommand({
   path: ["mr", "view"],
+  keys: { id: "mr" },
   errorName: "mr view",
   summary: "Шапка merge request'а: заголовок, автор, ветки, описание.",
   usage: "mpu mr view [--mr REF] [--json]",

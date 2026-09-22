@@ -8,6 +8,7 @@
  * по относительному пути, `mpu xlsx alias add` пишет в кэш-БД.
  */
 
+import { GRAMMAR } from "../messages/mod.ts";
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { openCacheDb } from "../store/mod.ts";
 import { Client, type Frame, type TestBack, withBack } from "./testback.ts";
@@ -180,18 +181,42 @@ Deno.test("две строки пишут в кэш-БД разом — дохо
         // и человек отвечает «да».
         {
           cwd: dir,
-          words: ["ask", "xlsx", "alias", "add", "pervyi", "/1.xlsx"],
+          words: [
+            "ask",
+            "xlsx",
+            "alias",
+            "add",
+            "name:",
+            "pervyi",
+            "path:",
+            "/1.xlsx",
+          ],
           answers: ["y"],
         },
         {
           cwd: dir,
-          words: ["ask", "xlsx", "alias", "add", "vtoroi", "/2.xlsx"],
+          words: [
+            "ask",
+            "xlsx",
+            "alias",
+            "add",
+            "name:",
+            "vtoroi",
+            "path:",
+            "/2.xlsx",
+          ],
           answers: ["y"],
         },
       );
       assertEquals(first.at(-1), { exit: 0 });
       assertEquals(second.at(-1), { exit: 0 });
-      const listed = await lineIn(back, dir, ["xlsx", "alias", "ls", "--json"]);
+      const listed = await lineIn(back, dir, [
+        "xlsx",
+        "alias",
+        "ls",
+        GRAMMAR.close,
+        "json",
+      ]);
       const text = listed.map((frame) => frame.out ?? "").join("");
       assertStringIncludes(text, "pervyi");
       assertStringIncludes(text, "vtoroi");

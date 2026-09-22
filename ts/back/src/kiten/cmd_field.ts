@@ -235,6 +235,11 @@ const ENV_KEYS = `Ключи env-файла: KITEN_API_KEY (обязателен
 
 export const kitenFieldSetCommand = defineCommand({
   path: ["kiten", "field", "set"],
+  keys: {
+    id: "selector",
+    field: { input: "kind", why: "имя поля карточки — не номер и не текст" },
+    text: "value",
+  },
   errorName: "kiten field set",
   summary: "Записать скалярное кастомное поле карточки Kaiten.",
   usage: "mpu kiten field set SELECTOR KIND VALUE",
@@ -274,6 +279,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
 
 export const kitenArtefactSetCommand = defineCommand({
   path: ["kiten", "field", "artefact", "set"],
+  keys: { id: "selector", path: "path" },
   errorName: "kiten field artefact set",
   summary: "Загрузить md-файл в поле карточки «9. AI-артефакт».",
   usage: "mpu kiten field artefact set SELECTOR PATH",
@@ -308,6 +314,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
 
 export const kitenArtefactRmCommand = defineCommand({
   path: ["kiten", "field", "artefact", "rm"],
+  keys: { id: "selector" },
   errorName: "kiten field artefact rm",
   summary: "Удалить файлы карточки, привязанные к полю «9. AI-артефакт».",
   usage: "mpu kiten field artefact rm SELECTOR",

@@ -12,7 +12,7 @@ import { Lines } from "./limit.ts";
 import { Client, type TestBack, withBack, within } from "./testback.ts";
 
 /** Строка, чьё исполнение читает файл книги — его задерживает тест. */
-const READING = (path: string) => ["xlsx", "ls", "-f", path];
+const READING = (path: string) => ["xlsx", "ls", "file:", path];
 
 function open(
   back: TestBack,

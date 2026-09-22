@@ -5,6 +5,7 @@
  * мере появления и останавливается, когда клиент закрыл канал.
  */
 
+import { GRAMMAR } from "../messages/mod.ts";
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import type { CommandIo } from "../command/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
@@ -161,7 +162,13 @@ Deno.test("обрыв отпускает место в пределе сразу
 Deno.test("отмена после конца строки: итог прежний, второй записи нет", async () => {
   const log = journal();
   await withBack(async (back) => {
-    const line = await open(back, ["xlsx", "alias", "ls", "--json"]);
+    const line = await open(back, [
+      "xlsx",
+      "alias",
+      "ls",
+      GRAMMAR.close,
+      "json",
+    ]);
     const frames = await within(line.finished(), 5000, "exit строки");
     // Строка кончилась сама; обрыв канала приходит уже после — итог
     // прежний, и 130 не появляется (`platform/line-cancel.md`).

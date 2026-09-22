@@ -195,6 +195,11 @@ export function renderComment(result: CommentResult): string {
 
 export const mrCommentCommand = defineCommand({
   path: ["mr", "comment"],
+  keys: {
+    id: "mr",
+    at: { input: "target", why: "target занят словарём: FILE:LINE" },
+    text: "message",
+  },
   errorName: "mr comment",
   summary: "Инлайн-комментарий к строке диффа merge request'а.",
   usage: "mpu mr comment FILE:LINE [--mr REF] (-m TEXT | -F PATH) [--old]",

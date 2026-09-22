@@ -5,6 +5,7 @@
  * строки. Исполнялась ли команда — по отметке журнала.
  */
 
+import { GRAMMAR } from "../messages/mod.ts";
 import {
   assert,
   assertEquals,
@@ -33,7 +34,7 @@ const HUMAN: Partial<CommandIo> = {
 };
 
 /** Читающая команда, исполнимая без сети и с отметкой журнала. */
-const READING = ["xlsx", "alias", "ls", "--json"];
+const READING = ["xlsx", "alias", "ls", GRAMMAR.close, "json"];
 
 interface Run {
   readonly code: number;
@@ -123,13 +124,7 @@ Deno.test("через дверь «да» — исполнение строки 
     assertEquals(yes.stderr, "выполнить mpu xlsx alias ls? [y/N] ");
     assertEquals(yes.code, 0);
     assertEquals(yes.called, ["xlsx alias ls"]);
-    assertEquals(
-      JSON.parse(yes.stdout),
-      JSON.parse(
-        (await run(file, ["--json", "ask", ...READING.slice(0, 3)], ["y"]))
-          .stdout,
-      ),
-    );
+    assertEquals(JSON.parse(yes.stdout), { aliases: [] });
   }));
 
 Deno.test("allow-строка через дверь — исполнение, как без ask", () =>
@@ -154,12 +149,18 @@ Deno.test("deny-строка: отказ по обоим адресам, в сп
   withPolicyFile(async (file) => {
     ruleFrom(file, "kiten close", DENY);
     for (
-      const line of [["kiten", "close", "1"], ["ask", "kiten", "close", "1"]]
+      const line of [["kiten", "close", "id:", "1"], [
+        "ask",
+        "kiten",
+        "close",
+        "id:",
+        "1",
+      ]]
     ) {
       assertEquals(await run(file, line, ["y"]), {
         code: 1,
         stdout: "",
-        stderr: "mpu kiten close 1: запрещено правилом «kiten close»\n",
+        stderr: "mpu kiten close id: 1: запрещено правилом «kiten close»\n",
         called: [],
       }, line.join(" "));
     }

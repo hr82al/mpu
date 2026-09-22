@@ -73,6 +73,7 @@ export async function runLs(
 
 export const sheetLsCommand = defineCommand({
   path: ["sheet", "ls"],
+  keys: {},
   errorName: "sheet",
   summary: "Показать листы таблицы.",
   usage: "mpu sheet ls [-s SS] [-l] [--json] [-R]",

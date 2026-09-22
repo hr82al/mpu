@@ -30,6 +30,7 @@ type ResolveResult = z.infer<typeof resultSchema>;
 
 export const sheetResolveCommand = defineCommand({
   path: ["sheet", "resolve"],
+  keys: {},
   errorName: "sheet",
   summary: "Показать, в какую таблицу разрешается цель.",
   usage: "mpu sheet resolve [-s SS]",

@@ -4,10 +4,13 @@
  * разбор не спрашивает — непонятое решает сам приёмник.
  */
 
-import { type Message, MessageParseError } from "./message.ts";
+import { type KeyValue, type Message, MessageParseError } from "./message.ts";
 
-/** Вид ключа в описании приёмника. */
-export type KeyKind = "value" | "flag";
+/**
+ * Вид ключа в описании приёмника: значение, флаг или список — ключ,
+ * который можно повторять, значения копятся по порядку.
+ */
+export type KeyKind = "value" | "flag" | "list";
 
 /** Ключевой метод приёмника: его ключи с видом и обязательные из них. */
 export interface KeywordMethod {
@@ -52,11 +55,45 @@ export interface Kind {
   fromText(key: string, text: string): string | boolean;
   /** Форма `--ключ` без `=`. */
   bare(key: string, source: ValueSource): string | boolean;
+  /**
+   * Значение ключа с новым словом: у списка — дописано, у прочих повтор
+   * ключа — ошибка.
+   */
+  join(
+    key: string,
+    before: KeyValue | undefined,
+    value: string | boolean,
+  ): KeyValue;
+}
+
+/** Повтор ключа, который не список. */
+function once(
+  key: string,
+  before: KeyValue | undefined,
+  value: string | boolean,
+): KeyValue {
+  if (before !== undefined) {
+    throw new MessageParseError(`ключ ${key} указан дважды`);
+  }
+  return value;
 }
 
 const VALUE: Kind = {
   fromText: (_key, text) => text,
   bare: (key, source) => source.valueFor(key),
+  join: once,
+};
+
+/** Значения ключа-списка до нового слова: первое слово — пусто. */
+function valuesOf(before: KeyValue | undefined): readonly string[] {
+  return Array.isArray(before) ? before : [];
+}
+
+/** Ключ-список: значения копятся по порядку строки. */
+const LIST: Kind = {
+  fromText: (_key, text) => text,
+  bare: (key, source) => source.valueFor(key),
+  join: (_key, before, value) => [...valuesOf(before), String(value)],
 };
 
 const FLAG_TEXTS: ReadonlyMap<string, boolean> = new Map([
@@ -73,24 +110,26 @@ const FLAG: Kind = {
     return flag;
   },
   bare: () => true,
+  join: once,
 };
 
-const KINDS: Readonly<Record<KeyKind, Kind>> = { value: VALUE, flag: FLAG };
+const KINDS: Readonly<Record<KeyKind, Kind>> = {
+  value: VALUE,
+  flag: FLAG,
+  list: LIST,
+};
 
 /** Набор пар одного ключевого сообщения. */
 class Pairs {
-  readonly #values = new Map<string, string | boolean>();
+  readonly #values = new Map<string, KeyValue>();
 
   names(): string[] {
     return [...this.#values.keys()];
   }
 
-  /** Записывает ключ; значение читается, только если ключ новый. */
+  /** Записывает ключ: повтор решает вид ключа (`Kind.join`). */
   take(key: string, kind: Kind, read: (kind: Kind) => string | boolean) {
-    if (this.#values.has(key)) {
-      throw new MessageParseError(`ключ ${key} указан дважды`);
-    }
-    this.#values.set(key, read(kind));
+    this.#values.set(key, kind.join(key, this.#values.get(key), read(kind)));
   }
 
   message(): Message {

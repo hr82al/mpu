@@ -81,9 +81,18 @@ const LINES: readonly {
 }[] = [
   { argv: ["version"] },
   { argv: ["version", "extra"] },
-  { argv: ["xlsx", "alias", "ls", "--json"] },
-  { argv: ["xlsx", "--json", "alias", "ls"] },
-  { argv: ["xlsx", "get", "--", "--json"] },
+  {
+    argv: ["xlsx", "alias", "ls", "--json"],
+    line: ["xlsx", "alias", "ls", GRAMMAR.close, "json"],
+  },
+  {
+    argv: ["xlsx", "--json", "alias", "ls"],
+    line: ["xlsx", "alias", "ls", GRAMMAR.close, "json"],
+  },
+  {
+    argv: ["xlsx", "get", "--", "--json"],
+    line: ["xlsx", "get", "range:", GRAMMAR.literal, "--json"],
+  },
   {
     // `end json` — прежний `--json` после имени команды: у `sql-ro` он
     // свой (`specs/sql-ro.md`), а не общий JSON результата.
@@ -110,7 +119,6 @@ const LINES: readonly {
   { argv: ["ozon-jobs", "show", "sl-2"] },
   { argv: ["ozon-jobs", "-p", "sl-2", "show", "--нет-флага"] },
   { argv: ["ss-update"] },
-  { argv: ["telegram", "send"] },
   { argv: ["update"] },
   { argv: ["backup-wb-unit-proto", "777", "--date", "не-дата", "--dry"] },
   { argv: ["kiten", "card", "123"], line: ["kiten", "card", "id:", "123"] },

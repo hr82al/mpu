@@ -324,7 +324,7 @@ Deno.test("схема кадров называет те же пределы, ч
 const LONG_TITLE =
   "feat(scope): очень длинный заголовок, который обязан усечься по ширине";
 
-const MR_WORDS = ["glab-status", "group/repo!456"];
+const MR_WORDS = ["glab-status", "mr:", "group/repo!456"];
 
 const MR = {
   iid: 456,

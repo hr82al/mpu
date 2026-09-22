@@ -289,6 +289,13 @@ export function renderGlabStatus(
 
 export const glabStatusCommand = defineCommand({
   path: ["glab-status"],
+  keys: {
+    mr: "mr",
+    repo: {
+      input: "repos",
+      why: "вход-список: ключ в единственном числе, повторяется",
+    },
+  },
   errorName: "glab-status",
   summary: "Прохождение merge request'ов по веткам деплой-пайплайна.",
   usage:

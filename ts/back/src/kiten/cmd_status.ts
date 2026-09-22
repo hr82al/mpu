@@ -131,6 +131,12 @@ export interface StatusOptions {
 
 export const kitenStatusCommand = defineCommand({
   path: ["kiten", "status"],
+  keys: {
+    horizon: {
+      input: "time-since",
+      why: "второе окно рядом с since: — горизонт учёта времени",
+    },
+  },
   summary: "Вся моя работа в Kaiten одной таблицей по всем доскам.",
   usage:
     "mpu kiten status [--since 7d] [--out matrix|group|json|md|url] [--stage X] [--board REF] [--source assigned|time|activity|touch] [--only open|done] [--format TPL] [--time-since 365d]",

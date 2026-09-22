@@ -30,7 +30,7 @@ interface RawReceiver {
 }
 
 function kindOf(text: string | undefined): KeyKind {
-  if (text === "value" || text === "flag") return text;
+  if (text === "value" || text === "flag" || text === "list") return text;
   throw new Error(`в эталоне неизвестный вид ключа: ${text}`);
 }
 
@@ -117,8 +117,8 @@ function readChain(
   return messages;
 }
 
-Deno.test("в эталоне 63 случая", () => {
-  assertEquals(golden.cases.length, 63);
+Deno.test("в эталоне 66 случаев", () => {
+  assertEquals(golden.cases.length, 66);
 });
 
 Deno.test("случаи эталона разбора сообщений", async (t) => {

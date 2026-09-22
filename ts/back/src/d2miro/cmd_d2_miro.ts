@@ -326,6 +326,7 @@ function doneLine(
 
 export const d2MiroCommand = defineCommand({
   path: ["d2-miro"],
+  keys: { file: "file" },
   errorName: "d2-miro",
   summary: "Рендер d2-диаграммы в Miro как редактируемый фрейм.",
   usage:

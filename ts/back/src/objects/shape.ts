@@ -79,7 +79,7 @@ const STAYS: Closing<unknown> = {
 
 /** Подсказки к слову за значением ключа, которое пришло этому виду. */
 export interface Strays {
-  remedy(word: string): Remedy;
+  remedy(word: string, after: readonly string[]): Remedy;
 }
 
 /** Умолчание: подсказать нечего. */
@@ -179,8 +179,8 @@ export class Shape<S> implements Yields<S>, Reflective {
     }, OBJECT_VIEW);
   }
 
-  remedy(word: string): Remedy {
-    return this.#strays.remedy(word);
+  remedy(word: string, after: readonly string[]): Remedy {
+    return this.#strays.remedy(word, after);
   }
 
   /**

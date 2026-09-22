@@ -69,6 +69,7 @@ export function renderNote(result: NoteResult): string {
 
 export const mrNoteCommand = defineCommand({
   path: ["mr", "note"],
+  keys: { id: "mr", text: "message" },
   errorName: "mr note",
   summary: "Общий комментарий к merge request'у, без привязки к строке.",
   usage: "mpu mr note [--mr REF] (-m TEXT | -F PATH)",

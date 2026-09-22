@@ -5,6 +5,7 @@
  * команда — по отметке журнала, а не по тексту отказа.
  */
 
+import { GRAMMAR } from "../messages/mod.ts";
 import { assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import type { CommandIo } from "../command/mod.ts";
@@ -23,7 +24,7 @@ const HUMAN: Partial<CommandIo> = {
 };
 
 /** Читающая команда, исполнимая без сети и с отметкой журнала. */
-const READING = ["xlsx", "alias", "ls", "--json"];
+const READING = ["xlsx", "alias", "ls", GRAMMAR.close, "json"];
 
 interface Run {
   readonly code: number;

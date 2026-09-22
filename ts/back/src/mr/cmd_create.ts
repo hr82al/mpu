@@ -123,6 +123,10 @@ export function renderCreate(result: CreateResult): string {
 
 export const mrCreateCommand = defineCommand({
   path: ["mr", "create"],
+  keys: {
+    into: { input: "target", why: "target занят словарём: ветка назначения" },
+    text: "message",
+  },
   errorName: "mr create",
   summary: "Создать merge request из текущей ветки.",
   usage:

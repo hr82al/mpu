@@ -32,7 +32,7 @@ async function run(file: string, argv: readonly string[]) {
 }
 
 /** Читающая команда, исполнимая без сети и с отметкой журнала. */
-const READING = ["xlsx", "alias", "ls", "--json"];
+const READING = ["xlsx", "alias", "ls", GRAMMAR.close, "json"];
 
 Deno.test("do … end у хвостовой команды — та же строка, что без них", () =>
   withPolicyFile(async (file) => {
@@ -60,7 +60,7 @@ Deno.test("данные после end понимают json", () =>
 Deno.test("help — последним словом, ничего не исполняет", () =>
   withPolicyFile(async (file) => {
     for (
-      const line of [["kiten", "card", "help"], ["kiten", "ls", "5", "help"]]
+      const line of [["kiten", "card", "help"], ["kiten", "ls", "help"]]
     ) {
       const help = await run(file, line);
       assertEquals(help.code, 0, line.join(" "));
@@ -134,7 +134,7 @@ Deno.test("формат результата: json — прежний JSON, чу
   withPolicyFile(async (file) => {
     const line = ["xlsx", "alias", "ls"];
     const json = await run(file, [...line, END, "json"]);
-    assertEquals(json, await run(file, [...line, "--json"]));
+    assertEquals(JSON.parse(json.stdout), { aliases: [] });
     assertEquals(json.called, ["xlsx alias ls"]);
     assertEquals(await run(file, [...line, END, "xml"]), {
       code: 2,

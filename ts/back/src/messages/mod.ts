@@ -9,6 +9,11 @@ export type {
   KeywordMethod,
   ReceiverDescription,
 } from "./receiver.ts";
-export { type Message, MessageParseError, StrayWord } from "./message.ts";
+export {
+  type KeyValue,
+  type Message,
+  MessageParseError,
+  StrayWord,
+} from "./message.ts";
 export { type MessageStep, readMessage } from "./read.ts";
 export { GRAMMAR, HELP_FLAG } from "./words.ts";

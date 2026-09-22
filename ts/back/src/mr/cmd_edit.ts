@@ -69,6 +69,7 @@ export function renderEdit(result: EditResult): string {
 
 export const mrEditCommand = defineCommand({
   path: ["mr", "edit"],
+  keys: { id: "note", text: "message" },
   errorName: "mr edit",
   summary: "Заменить текст своей заметки в merge request'е.",
   usage: "mpu mr edit NOTE_ID [--mr REF] (-m TEXT | -F PATH)",

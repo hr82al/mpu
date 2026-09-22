@@ -426,6 +426,7 @@ exit 0.`;
 
 export const kitenWhoamiCommand = defineCommand({
   path: ["kiten", "whoami"],
+  keys: {},
   errorName: "kiten whoami",
   summary: "Владелец токена Kaiten: id, имя, логин, почта.",
   usage: "mpu kiten whoami [--json]",
@@ -448,6 +449,7 @@ ${COMMON_HELP}
 
 export const kitenSpacesCommand = defineCommand({
   path: ["kiten", "spaces"],
+  keys: {},
   errorName: "kiten spaces",
   summary: "Пространства компании; архивные — по --all.",
   usage: "mpu kiten spaces [--all] [--json]",
@@ -475,6 +477,7 @@ ${COMMON_HELP}
 
 export const kitenBoardsCommand = defineCommand({
   path: ["kiten", "boards"],
+  keys: {},
   errorName: "kiten boards",
   summary: "Доски всех пространств плоским списком; --space фильтрует.",
   usage: "mpu kiten boards [--space REF] [--json]",
@@ -503,6 +506,7 @@ ${COMMON_HELP}
 
 export const kitenLanesCommand = defineCommand({
   path: ["kiten", "lanes"],
+  keys: {},
   errorName: "kiten lanes",
   summary: "Дорожки досок: одной доски, пространства либо всех сразу.",
   usage: "mpu kiten lanes [--space REF] [--board REF] [--json]",
@@ -529,6 +533,7 @@ ${COMMON_HELP}
 
 export const kitenColumnsCommand = defineCommand({
   path: ["kiten", "columns"],
+  keys: {},
   errorName: "kiten columns",
   summary: "Колонки досок: одной доски, пространства либо всех сразу.",
   usage: "mpu kiten columns [--space REF] [--board REF] [--json]",
@@ -555,6 +560,7 @@ ${COMMON_HELP}
 
 export const kitenRolesCommand = defineCommand({
   path: ["kiten", "roles"],
+  keys: {},
   errorName: "kiten roles",
   summary: "Роли компании — типы работ учёта времени.",
   usage: "mpu kiten roles [--all] [--json]",

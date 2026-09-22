@@ -115,6 +115,7 @@ function parseLimit(raw: string): number {
 
 export const telegramLsCommand = defineCommand({
   path: ["telegram", "ls"],
+  keys: { query: "query" },
   errorName: "telegram ls",
   summary: "Найти адресата: последние диалоги или поиск по названию.",
   usage: "mpu telegram ls [QUERY] [--limit N] [--table]",

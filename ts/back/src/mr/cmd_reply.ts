@@ -84,6 +84,7 @@ export function renderReply(result: ReplyResult): string {
 
 export const mrReplyCommand = defineCommand({
   path: ["mr", "reply"],
+  keys: { id: "discussion", text: "message" },
   errorName: "mr reply",
   summary: "Ответ в существующий тред ревью.",
   usage: "mpu mr reply DISCUSSION [--mr REF] (-m TEXT | -F PATH)",

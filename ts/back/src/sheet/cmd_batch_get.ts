@@ -161,6 +161,7 @@ export function renderBatchGet(result: GetResult): string {
 
 export const sheetBatchGetCommand = defineCommand({
   path: ["sheet", "batch-get"],
+  keys: {},
   errorName: "sheet batch-get",
   summary: "Прочитать значения и структуру Google-таблицы одним планом.",
   usage:

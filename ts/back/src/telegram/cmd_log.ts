@@ -95,6 +95,7 @@ async function runTelegramLog(args: LogArgs, io: LogIo): Promise<LogResult> {
 
 export const telegramLogCommand = defineCommand({
   path: ["telegram", "log"],
+  keys: { text: "message" },
   errorName: "telegram log",
   summary: "Отправить заметку себе в личного бота.",
   usage: "mpu telegram log MESSAGE [-f PATH]",

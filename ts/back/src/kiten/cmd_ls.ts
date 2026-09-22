@@ -451,6 +451,8 @@ function columnTitlesOf(db: CacheDb): ReadonlyMap<number, string> {
 
 export const kitenLsCommand = defineCommand({
   path: ["kiten", "ls"],
+  keys: {},
+  formats: { md: ["--md"] },
   errorName: "kiten ls",
   summary: "Список карточек Kaiten, где я участник.",
   usage:
