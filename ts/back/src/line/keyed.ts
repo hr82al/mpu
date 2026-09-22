@@ -22,7 +22,7 @@ import {
   unary,
 } from "../objects/mod.ts";
 import type { Line } from "./dispatch.ts";
-import { formatAsFlag, Keys, NO_REST, type Rest } from "./keys.ts";
+import { formatAsFlag, Keys, type Layout, NO_REST, type Rest } from "./keys.ts";
 import type { Order } from "./order.ts";
 import { Pending as PendingOf, type ResultOf, type Settle } from "./result.ts";
 
@@ -135,6 +135,8 @@ export interface KeyedParts {
   readonly command: Command;
   /** Режим, чей это лист; нет — лист всей команды. */
   readonly mode?: CommandMode;
+  /** Раскладка строки прежней диспетчеризации. */
+  readonly layout: Layout;
   readonly doc: Doc;
   readonly results: ResultOf;
   readonly settle: Settle;
@@ -162,7 +164,12 @@ function modesOf(parts: KeyedParts): Method<Line>[] {
  * значения, формат флагом, снятый вход и недостающий ключ — отказы.
  */
 export function keyedLeaf(parts: KeyedParts): Shape<Line> {
-  const keys = new Keys(parts.command, parts.results.names(), parts.mode);
+  const keys = new Keys(
+    parts.command,
+    parts.results.names(),
+    parts.mode,
+    parts.layout,
+  );
   const keyed = new Shape<Keyed>([], {
     ending: {
       finish: (report, self) => self.pending().settle(report, parts.settle),

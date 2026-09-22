@@ -146,6 +146,7 @@ export function renderCopyDev(result: DevResult): string {
 
 export const copyDevCommand = defineCommand({
   path: ["copy-dev"],
+  keys: { target: "client" },
   errorName: "copy-dev",
   summary: "Скопировать данные с dev-стенда в локальный.",
   usage: "mpu copy-dev [CLIENT_ID]",

@@ -39,6 +39,7 @@ import {
 } from "../registry/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { FOREIGN, type Order, OWN } from "./order.ts";
+import { BY_PATH, hinted, SELECTOR_AHEAD } from "./keys.ts";
 import { keyedLeaf, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
 import { Pending, ResultOf } from "./result.ts";
 import { ruleMethods } from "./rules.ts";
@@ -186,8 +187,10 @@ function leafShape(
     return dispatching(path, doc, sight, tailKind(path));
   }
   const settle = sight.settle.bind(sight);
+  const ahead = findGroup(path.slice(0, -1))?.layout === "selector-first";
   return keyedLeaf({
     command,
+    layout: ahead ? SELECTOR_AHEAD : BY_PATH,
     doc,
     results: new ResultOf(formatsOf(path), settle),
     settle,
@@ -207,13 +210,41 @@ interface GroupKind {
 /** Только дети; конец строки — справка. */
 const PLAIN: GroupKind = { options: () => ({}) };
 
-/** Группа с селектором перед подкомандой: чужое слово начинает хвост. */
+/**
+ * Группа с селектором перед подкомандой: селектор — ключ подкоманды
+ * (`ozon-jobs show target: sl-2`), хвоста у группы нет. Прежняя запись
+ * (`ozon-jobs sl-2 show`) — отказ с готовой строкой.
+ */
 const SELECTOR_FIRST: GroupKind = {
-  options: (path, doc, sight) => {
-    const after = dispatching(path, doc, sight);
-    return { fallback: tail(ARGS, doc, () => after) };
-  },
+  options: (path) => ({ fallback: selectorAhead(path) }),
 };
+
+function selectorAhead(path: readonly string[]): Fallback<Line> {
+  const subs = new Set(childrenOf(path).map((child) => child.name));
+  return {
+    understand: (sent, _line, refuse) =>
+      sent.route({
+        named: () => refuse(),
+        tail: () =>
+          sent.viaLink({
+            word: () => refuse(),
+            words: ([selector, sub, ...rest]) => {
+              if (!subs.has(sub)) return refuse();
+              throw hinted("значение — ключом", [
+                sub,
+                "target:",
+                selector,
+                ...rest,
+              ]);
+            },
+            refuse,
+          }),
+        close: refuse,
+      }),
+    lines: () => [],
+    describe: (into) => into.valueTail(ARGS),
+  };
+}
 
 function groupKind(group: CommandGroup): GroupKind {
   if (group.layout === "selector-first") return SELECTOR_FIRST;

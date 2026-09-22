@@ -30,6 +30,7 @@ const argsSchema = z.object({
 
 export const ssLoadCommand = defineCommand({
   path: ["ss-load"],
+  keys: {},
   summary: "Загрузить лист Google-таблицы клиента в БД.",
   usage:
     "mpu ss-load SELECTOR --dataset D [--server sl-N] [-p [--local]] [--client-id N] [--spreadsheet-id S] [--sheet-name N] [--forced] [--logs L]",

@@ -3,14 +3,15 @@
   "слова": [
     "ask",
     "make-schema",
+    "target:",
     "777",
-    "--client-id",
+    "client-id:",
     "777",
-    "-p"
+    "--print"
   ],
   "кадры у человека": [
     {
-      "ask": "выполнить mpu make-schema 777 --client-id 777 -p? [y/N] "
+      "ask": "выполнить mpu make-schema target: 777 client-id: 777 --print? [y/N] "
     },
     {
       "clip": "docker exec mp-sl-1-cli node cli service:clientsMigrations init --client-id 777 --server sl-1"
@@ -24,7 +25,7 @@
   ],
   "кадры у агента": [
     {
-      "ask": "выполнить mpu make-schema 777 --client-id 777 -p? [y/N] "
+      "ask": "выполнить mpu make-schema target: 777 client-id: 777 --print? [y/N] "
     },
     {
       "out": "docker exec mp-sl-1-cli node cli service:clientsMigrations init --client-id 777 --server sl-1\n"

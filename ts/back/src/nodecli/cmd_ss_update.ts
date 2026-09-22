@@ -30,6 +30,7 @@ const argsSchema = z.object({
 
 export const ssUpdateCommand = defineCommand({
   path: ["ss-update"],
+  keys: {},
   // Однострока — из слепка дерева, но с поправкой отклонения `fix`:
   // дефолт у обёртки — выполнение, а не печать.
   summary: "Запустить обновление Google-таблицы клиента в контейнере sl-back.",

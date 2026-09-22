@@ -175,6 +175,7 @@ function pickClientId(candidates: readonly Candidate[]): string {
 
 export const makeSchemaCommand = defineCommand({
   path: ["make-schema"],
+  keys: {},
   summary: "Создать схему клиента в локальном стенде.",
   usage: "mpu make-schema SELECTOR [--server sl-N] [--client-id N] [-p]",
   help: `По умолчанию команда ВЫПОЛНЯЕТСЯ: запускает на ЭТОЙ машине

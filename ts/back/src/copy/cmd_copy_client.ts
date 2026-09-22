@@ -307,6 +307,7 @@ export function renderCopyClient(result: CopyResult): string {
 
 export const copyClientCommand = defineCommand({
   path: ["copy-client"],
+  keys: {},
   errorName: "copy-client",
   summary: "Скопировать клиента с прод-инстанса в локальный стенд.",
   usage: "mpu copy-client SELECTOR",

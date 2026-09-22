@@ -23,6 +23,7 @@ const argsSchema = z.object({
 
 export const ozonSaveExpensesCommand = defineCommand({
   path: ["ozon-save-expenses"],
+  keys: {},
   summary: "Сохранить расходы Ozon UNIT клиента за период.",
   usage:
     "mpu ozon-save-expenses SELECTOR [--server sl-N] [-p [--local]] [--client-id N] [--date-from F] [--date-to T]",

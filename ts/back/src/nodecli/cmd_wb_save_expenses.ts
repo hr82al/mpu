@@ -27,6 +27,7 @@ const argsSchema = z.object({
 
 export const wbSaveExpensesCommand = defineCommand({
   path: ["wb-save-expenses"],
+  keys: {},
   summary: "Сохранить расходы WB UNIT клиента за период.",
   usage:
     "mpu wb-save-expenses SELECTOR [--server sl-N] [-p [--local]] [--client-id N] [--date-from F] [--date-to T] [--nm-ids [..]]",

@@ -25,6 +25,7 @@ const argsSchema = z.object({
 
 export const dataLoaderCommand = defineCommand({
   path: ["data-loader"],
+  keys: {},
   summary: "Найти кандидата загрузки данных клиента по кабинетам.",
   usage:
     "mpu data-loader SELECTOR --sids SID… [--server sl-N] [-p [--local]] [--client-id N]",

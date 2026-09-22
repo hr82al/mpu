@@ -139,6 +139,12 @@ export function renderMoveClient(): string {
 
 export const moveClientCommand = defineCommand({
   path: ["move-client"],
+  keys: {
+    to: {
+      input: "target",
+      why: "target занят словарём: это сервер назначения, не цель вызова",
+    },
+  },
   errorName: "move-client",
   summary: "Перенести клиента на другой sl-сервер фермы.",
   usage: "mpu move-client SELECTOR [--target sl-N]",

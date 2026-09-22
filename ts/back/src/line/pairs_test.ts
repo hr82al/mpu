@@ -78,6 +78,17 @@ function lines(command: Command, addresses: ReadonlyMap<string, string>) {
   return { before: [...before, "--", ...positional], after };
 }
 
+/**
+ * Вход команды из строки прежней диспетчеризации: слова пути вырезаются
+ * там, где стоят, — у группы с селектором впереди имя подкоманды идёт за
+ * позиционными.
+ */
+function argsOf(command: Command, argv: readonly string[]): string[] {
+  const words = [...argv];
+  for (const word of command.path) words.splice(words.indexOf(word), 1);
+  return words;
+}
+
 async function pairOf(file: string, command: Command) {
   const addresses = addressesOf(
     command,
@@ -95,7 +106,7 @@ async function pairOf(file: string, command: Command) {
     before: command.parseArgs(before),
     after: line.argv.length === 0
       ? outcome
-      : command.parseArgs(line.argv.slice(command.path.length)),
+      : command.parseArgs(argsOf(command, line.argv)),
   };
 }
 
@@ -146,10 +157,10 @@ Deno.test("поимённые пары спеки дают один вход к�
         const command = commands.find((one) =>
           one.path.every((word, i) => before[i] === word)
         );
-        const size = command?.path.length ?? 0;
+        if (command === undefined) throw new Error(`нет команды ${before}`);
         assertEquals(
-          command?.parseArgs(line.argv.slice(size)),
-          command?.parseArgs(before.slice(size)),
+          command.parseArgs(argsOf(command, line.argv)),
+          command.parseArgs(argsOf(command, before)),
         );
       });
     }

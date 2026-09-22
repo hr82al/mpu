@@ -133,3 +133,48 @@ Deno.test("отказы с готовой строкой — раздел 3", as
     }
   });
 });
+
+Deno.test("отказы с готовой строкой — раздел 4", async (t) => {
+  const cases: readonly (readonly [readonly string[], string])[] = [
+    [
+      ["process", "target:", "54", "--spreadsheet_id", "X"],
+      "mpu process: ключ через дефис: " +
+      "mpu process target: 54 --spreadsheet-id X",
+    ],
+    [
+      ["ss-update", "target:", "54", "--update_type", "full"],
+      "mpu ss-update: ключ через дефис: " +
+      "mpu ss-update target: 54 --update-type full",
+    ],
+    [
+      ["ozon-jobs", "sl-2", "show"],
+      "mpu ozon-jobs: значение — ключом: mpu ozon-jobs show target: sl-2",
+    ],
+    [
+      ["ozon-jobs", "show", "sl-2"],
+      "mpu ozon-jobs show: значение — ключом: " +
+      "mpu ozon-jobs show target: sl-2",
+    ],
+    [
+      ["move-client", "target:", "54", "--target", "sl-2"],
+      "ключ target указан дважды",
+    ],
+    [
+      ["copy-dev", "54"],
+      "mpu copy-dev: значение — ключом: mpu copy-dev target: 54",
+    ],
+  ];
+  await withPolicyFile(async (file) => {
+    allowEverything(file);
+    for (const [argv, stderr] of cases) {
+      await t.step(argv.join(" "), async () => {
+        assertEquals(await run(file, argv), {
+          code: 2,
+          stdout: "",
+          stderr: `${stderr}\n`,
+          called: [],
+        });
+      });
+    }
+  });
+});

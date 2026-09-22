@@ -93,6 +93,7 @@ export const ozonLoaderCommands: readonly Command[] = [
 function loader(sub: string, method: string, what: string): Command {
   return defineCommand({
     path: ["ozon-loader", sub],
+    keys: {},
     summary: `Загрузить в БД клиента: ${what} (Ozon-кабинет).`,
     usage:
       `mpu ozon-loader ${sub} SELECTOR --seller-client-id S [-p [--local]]`,
@@ -134,6 +135,7 @@ mpu ozon-loader ${sub} 777 --seller-client-id 999001 -p`,
 function loadData(): Command {
   return defineCommand({
     path: ["ozon-loader", "load-data"],
+    keys: {},
     summary: "Загрузить в БД клиента все данные Ozon-кабинетов по порядку.",
     usage:
       "mpu ozon-loader load-data SELECTOR --seller-client-id S… [-p [--local]]",

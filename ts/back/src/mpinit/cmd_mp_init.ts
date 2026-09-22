@@ -383,6 +383,7 @@ export function renderMpInit(): string {
 
 export const mpInitCommand = defineCommand({
   path: ["mp-init"],
+  keys: {},
   errorName: "mp-init",
   summary: "Поднять локальный стенд целиком: core-стеки и web поверх.",
   usage: "mpu mp-init [--dry-run|-n]",

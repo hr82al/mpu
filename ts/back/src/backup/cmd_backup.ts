@@ -215,6 +215,7 @@ export const backupCommands: readonly Command[] = TABLES.map(
 function backup(name: string, table: BackupTable): Command {
   return defineCommand({
     path: [name],
+    keys: {},
     summary: `Снять копию ${table.table} клиента в схему backups.`,
     usage: `mpu ${name} SELECTOR [--date YYYYMMDD] [--schema-id N] ` +
       "[--server sl-N] [--dry]",

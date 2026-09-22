@@ -77,6 +77,7 @@ function jobs(group: JobsGroup, sub: string): Command {
   const [method, what] = SUBCOMMANDS[sub];
   return defineCommand({
     path: [group.group, sub],
+    keys: {},
     summary: `Очередь задач ${group.what}: ${what}.`,
     usage: `mpu ${group.group} [-p [--local]] SELECTOR ${sub} [--pattern P]`,
     help: `Селектор и режимы печати набираются ДО имени подкоманды:

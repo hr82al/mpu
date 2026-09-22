@@ -59,6 +59,7 @@ export const usersCommands: readonly Command[] = [usersAdd(), usersAddRole()];
 function usersAdd(): Command {
   return defineCommand({
     path: ["users", "add"],
+    keys: {},
     summary: "Завести пользователя sl-back на сервере.",
     usage:
       "mpu users [-p [--local]] SELECTOR add --email E [--server sl-N] [--id I] [--user U] [--name N] [--password P] [--is-active]",
@@ -117,6 +118,7 @@ ${DELIVERY}
 function usersAddRole(): Command {
   return defineCommand({
     path: ["users", "add-role"],
+    keys: {},
     summary: "Выдать роль пользователю sl-back.",
     usage:
       "mpu users [-p [--local]] SELECTOR add-role --id I --role R [--server sl-N]",

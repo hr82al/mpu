@@ -34,6 +34,7 @@ const argsSchema = z.object({
 
 export const ssDatasetsCommand = defineCommand({
   path: ["ss-datasets"],
+  keys: {},
   summary: "Зарегистрировать датасет таблицы клиента.",
   usage:
     "mpu ss-datasets SELECTOR --dataset D [--server sl-N] [-p [--local]] [--spreadsheet-id S] [--sheet-name N] [--is-active]",

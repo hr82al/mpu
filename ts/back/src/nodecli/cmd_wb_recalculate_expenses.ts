@@ -28,6 +28,7 @@ const argsSchema = z.object({
 
 export const wbRecalculateExpensesCommand = defineCommand({
   path: ["wb-recalculate-expenses"],
+  keys: {},
   summary: "Пересчитать расходы WB UNIT клиента за период.",
   usage:
     "mpu wb-recalculate-expenses SELECTOR [--server sl-N] [-p [--local]] [--client-id N] [--date-from F] [--date-to T] [--nm-ids [..]]",

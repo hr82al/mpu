@@ -284,6 +284,7 @@ export function renderCleanLocal(result: CleanResult): string {
 
 export const cleanLocalClientsCommand = defineCommand({
   path: ["clean-local-clients"],
+  keys: {},
   errorName: "clean-local-clients",
   summary: "Снести данные локальных клиентов, кроме keep-листа.",
   usage: "mpu clean-local-clients [--keep IDS] [--yes]",

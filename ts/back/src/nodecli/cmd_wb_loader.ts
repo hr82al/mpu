@@ -45,6 +45,7 @@ export const wbLoaderCommands: readonly Command[] = SUBCOMMANDS.map(
 function loader(sub: string, method: string, what: string): Command {
   return defineCommand({
     path: ["wb-loader", sub],
+    keys: {},
     summary: `Загрузить в БД клиента: ${what} (WB-кабинет).`,
     usage:
       `mpu wb-loader ${sub} SELECTOR --sid SID [--server sl-N] [-p [--local]] [--client-id N]`,

@@ -115,12 +115,39 @@ const LINES: readonly {
   },
   { argv: ["ssh", "sl-1", "--json"], io: SSH_IO },
   { argv: ["ssh", "sl-1", "--", "ls", "--help"], io: SSH_IO },
-  { argv: ["ozon-jobs", "sl-2", "show", "--нет-флага"] },
-  { argv: ["ozon-jobs", "show", "sl-2"] },
-  { argv: ["ozon-jobs", "-p", "sl-2", "show", "--нет-флага"] },
-  { argv: ["ss-update"] },
+  {
+    argv: ["ozon-jobs", "sl-2", "show", "--print", "--local"],
+    line: ["ozon-jobs", "show", "target:", "sl-2", "--print", "--local"],
+  },
+  {
+    argv: ["ozon-jobs", "-p", "--local", "sl-2", "prune", "--pattern", "x"],
+    line: [
+      "ozon-jobs",
+      "prune",
+      "target:",
+      "sl-2",
+      "pattern:",
+      "x",
+      "--print",
+      "--local",
+    ],
+  },
+  {
+    argv: ["ss-update", "54", "--print"],
+    line: ["ss-update", "target:", "54", "--print"],
+  },
   { argv: ["update"] },
-  { argv: ["backup-wb-unit-proto", "777", "--date", "не-дата", "--dry"] },
+  {
+    argv: ["backup-wb-unit-proto", "777", "--date", "не-дата", "--dry"],
+    line: [
+      "backup-wb-unit-proto",
+      "target:",
+      "777",
+      "date:",
+      "не-дата",
+      "--dry",
+    ],
+  },
   { argv: ["kiten", "card", "123"], line: ["kiten", "card", "id:", "123"] },
 ];
 

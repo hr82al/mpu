@@ -98,6 +98,7 @@ function appMigrations(sub: string): Command {
   const method = methodOf(sub);
   return defineCommand({
     path: ["app-migrations", sub],
+    keys: {},
     summary: `Миграции схемы приложения: ${sub}.`,
     usage: `mpu app-migrations [-p [--local]] SELECTOR ${sub} [--name N]`,
     help: `Селектор и режимы печати набираются ДО имени подкоманды:
@@ -137,6 +138,7 @@ function clientsMigrations(sub: string): Command {
   const method = methodOf(sub);
   return defineCommand({
     path: ["clients-migrations", sub],
+    keys: {},
     summary: `Миграции клиентской схемы: ${sub}.`,
     usage:
       `mpu clients-migrations ${sub} SELECTOR --type T [--name N] [--forced] [-p [--local]]`,
@@ -180,6 +182,7 @@ inner-команде не появляются, а --forced уходит гол�
 function clientsMigrationsAll(): Command {
   return defineCommand({
     path: ["clients-migrations", "latest-all"],
+    keys: {},
     summary: "Миграции клиентских схем: latest по всем клиентам сервера.",
     usage: "mpu clients-migrations latest-all SELECTOR --type T [-p [--local]]",
     help: `Селектор идёт ПОСЛЕ имени подкоманды и означает сервер:
@@ -217,6 +220,7 @@ function datasetsMigrations(sub: string): Command {
   const method = methodOf(sub);
   return defineCommand({
     path: ["datasets-migrations", sub],
+    keys: {},
     summary: `Миграции датасетов клиента: ${sub}.`,
     usage:
       `mpu datasets-migrations ${sub} SELECTOR --dataset D [--name N] [-p [--local]]`,

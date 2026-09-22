@@ -225,6 +225,7 @@ export function renderCopyShared(): string {
 
 export const copySharedCommand = defineCommand({
   path: ["copy-shared"],
+  keys: {},
   errorName: "copy-shared",
   summary: "Обновить общие справочные таблицы shared в локальном стенде.",
   usage: "mpu copy-shared SELECTOR",

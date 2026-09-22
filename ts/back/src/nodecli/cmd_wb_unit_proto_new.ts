@@ -22,6 +22,7 @@ const argsSchema = z.object({ ...commonArgs });
 
 export const wbUnitProtoNewCommand = defineCommand({
   path: ["wb-unit-proto-new"],
+  keys: {},
   summary: "Перелить данные WB UNIT из старой таблицы в новую.",
   usage:
     "mpu wb-unit-proto-new SELECTOR [--server sl-N] [-p [--local]] [--client-id N]",

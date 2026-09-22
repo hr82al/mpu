@@ -50,6 +50,7 @@ const argsSchema = z.object({
 
 export const ozonRecalculateExpensesCommand = defineCommand({
   path: ["ozon-recalculate-expenses"],
+  keys: {},
   summary: "Пересчитать расходы Ozon UNIT клиента за период.",
   usage:
     "mpu ozon-recalculate-expenses SELECTOR [--server sl-N] [-p [--local]] [--client-id N] [--date-from F] [--date-to T] [--ref-date D] [--ref-fields F]… [--skus SKU]… [--logs-level L] [-v]",

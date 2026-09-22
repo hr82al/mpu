@@ -74,6 +74,7 @@ type ProcessArgs = z.infer<typeof argsSchema>;
 
 export const processCommand = defineCommand({
   path: ["process"],
+  keys: {},
   summary: "Пересчитать витрины клиента (dataProcessor.process).",
   usage:
     "mpu process SELECTOR [--server sl-N] [-p [--local]] [--client-id N] [--dataset D] [--datasets D…] [--modules M…] [--with-tags T…] [--forced] [--dry-run] [--skus SKU]… [--logs L] [-v]",

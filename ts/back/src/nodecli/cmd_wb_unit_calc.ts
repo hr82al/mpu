@@ -29,6 +29,7 @@ const argsSchema = z.object({
 
 export const wbUnitCalcCommand = defineCommand({
   path: ["wb-unit-calc"],
+  keys: {},
   summary: "Показать расчётные данные WB UNIT по товару за дату.",
   usage:
     "mpu wb-unit-calc SELECTOR --nm-id N [--server sl-N] [-p [--local]] [--client-id N] [--date YYYY-MM-DD]",

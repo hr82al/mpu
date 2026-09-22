@@ -25,6 +25,7 @@ import {
 } from "../policy/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { lineEntry, policyTree, registryNodes } from "./mod.ts";
+import { registrySeeds } from "./seeds.ts";
 import { consentOf, withPolicyFile } from "./testconsent.ts";
 
 /** Канал с человеком: stdin и stderr — терминалы. */
@@ -74,6 +75,12 @@ async function run(
 function ruleFrom(file: string, path: string, verdict: Verdict) {
   using book = RuleBook.open(file, []);
   book.set(RulePath.parse(path), verdict);
+}
+
+/** Снять посеянное правило: книга открывается с посевом, чтобы он не вернулся. */
+function forgetFrom(file: string, path: string) {
+  using book = RuleBook.open(file, registrySeeds());
+  book.forget(RulePath.parse(path));
 }
 
 /** Селекторы раздела «Сообщения» справки объекта. */
@@ -135,7 +142,7 @@ Deno.test("allow-строка через дверь — исполнение, к
     for (
       const line of [
         [...READING],
-        ["ozon-jobs", "show"],
+        ["ozon-jobs", "show", "target:", "sl-2", "--print", "--local"],
       ]
     ) {
       const plain = await run(file, line, ["y"]);
@@ -328,21 +335,36 @@ Deno.test("справка команды не зависит от адреса",
     }
   }));
 
-Deno.test("группа с селектором впереди: решение группы, путь без ask", () =>
+Deno.test("группа с селектором впереди: строка — через подкоманду", () =>
   withPolicyFile(async (file) => {
-    const line = ["ozon-jobs", "sl-2", "show"];
+    const line = ["ozon-jobs", "show", "target:", "sl-2"];
     assertEquals(await run(file, line), {
       code: 2,
       stdout: "",
-      stderr: "mpu ozon-jobs sl-2 show: требует подтверждения — " +
-        "вызывай mpu ask ozon-jobs sl-2 show\n",
+      stderr: "mpu ozon-jobs show target: sl-2: требует подтверждения — " +
+        "вызывай mpu ask ozon-jobs show target: sl-2\n",
       called: [],
     });
     assertEquals(
       (await run(file, ["ask", ...line], ["n"])).stderr,
-      "выполнить mpu ozon-jobs sl-2 show? [y/N] " +
-        "mpu ozon-jobs sl-2 show: не подтверждено\n",
+      "выполнить mpu ozon-jobs show target: sl-2? [y/N] " +
+        "mpu ozon-jobs show target: sl-2: не подтверждено\n",
     );
+  }));
+
+Deno.test("группа с селектором впереди: правило группы — подкомандам без своего", () =>
+  withPolicyFile(async (file) => {
+    ruleFrom(file, "ozon-jobs", ALLOW);
+    forgetFrom(file, "ozon-jobs show");
+    const local = await run(file, [
+      "ozon-jobs",
+      "show",
+      "target:",
+      "sl-2",
+      "--print",
+      "--local",
+    ]);
+    assertEquals(local.code, 0, local.stderr);
   }));
 
 Deno.test("ask — не звено пути правил", () =>

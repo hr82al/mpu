@@ -42,7 +42,7 @@ const SELECTOR = "selector";
 const END_OF_OPTIONS = "--";
 
 /** Строка прежней диспетчеризации, пока она собирается из ключей. */
-interface Argv {
+export interface Argv {
   readonly options: string[];
   readonly positional: string[];
 }
@@ -124,7 +124,7 @@ interface Entry {
 }
 
 /** Отказ с готовой строкой: `причина: <адрес> <слова>`. */
-function hinted(reason: string, words: readonly string[]): Refusal {
+export function hinted(reason: string, words: readonly string[]): Refusal {
   return new Refusal(reason, {
     remedy: { spell: (address) => `: ${callLine(address, words)}` },
   });
@@ -266,17 +266,21 @@ export class Keys {
   /** Входы, значения которых задаёт режим; вне режима — нет. */
   readonly #fixed: Readonly<Record<string, string>>;
   readonly #inputs: readonly InputSpec[];
+  readonly #layout: Layout;
 
   /**
    * @param command команда реестра
    * @param formats имена форматов её результата, `json` в их числе
    * @param mode режим, чьи ключи берёт каталог; нет — вся команда
+   * @param layout раскладка строки прежней диспетчеризации
    */
   constructor(
     command: Command,
     formats: readonly string[],
     mode: CommandMode = WHOLE_COMMAND,
+    layout: Layout = BY_PATH,
   ) {
+    this.#layout = layout;
     this.#path = command.path;
     this.#modes = new Map(Object.entries(command.modes));
     this.#fixed = mode.fixed;
@@ -300,8 +304,12 @@ export class Keys {
       this.#entryOf(command, input, declared.get(input.name), names)
     );
     this.#specs = this.#entries.flatMap((entry) => entry.specs);
+    // Прежнее имя, ставшее ключом другого входа (`move-client --target`
+    // при `target:`), — ключ: написанием его не прочесть.
+    const current = new Set(this.#specs.map((spec) => spec.name));
     this.#spellings = new Map(
       this.#entries.flatMap((entry) => entry.spellings)
+        .filter((spelling) => !current.has(spelling.old))
         .map((spelling) => [spelling.old, spelling]),
     );
     this.#ordered = this.#specs
@@ -351,6 +359,13 @@ export class Keys {
     }
     const spec = this.#specOf(command, input, declared, dashed);
     const spellings: Spelling[] = [];
+    // Подчёркивание вместо дефиса — прежнее написание, даже если такого
+    // входа не было (`process --spreadsheet_id`): отказ с готовой строкой.
+    const snake = dashed.replaceAll("-", "_");
+    const positional = input.form.positional !== undefined;
+    if (!positional && snake !== dashed && !names.has(snake)) {
+      spellings.push(new Snake(snake, spec.kind, dashed));
+    }
     if (dashed !== name) spellings.push(new Snake(name, spec.kind, dashed));
     const renamed = input.form.positional === undefined &&
       spec.name !== dashed &&
@@ -536,11 +551,30 @@ export class Keys {
       .filter((spec) => spec.name === "text" && spec.placement !== POSITIONAL)
       .map((spec) => spec.name);
     const keys = [...this.#ordered, ...text];
-    const pairs = words.slice(0, keys.length).flatMap((word, i) => [
-      `${keys[i]}:`,
-      word,
-    ]);
-    return hinted("значение — ключом", pairs);
+    // `--` прежней записи (`ssh sl-1 -- ls`) конец опций, а не значение.
+    const values = words.filter((word) => word !== END_OF_OPTIONS);
+    return hinted("значение — ключом", this.#pairs(keys, values));
+  }
+
+  /**
+   * Голые слова по ключам: лишние слова достаются последнему ключу, если
+   * он список, — повтором (`range: A1 range: B2`), а у чужого хвоста —
+   * одним значением (`cmd: "ls -la"`).
+   */
+  #pairs(keys: readonly string[], words: readonly string[]): string[] {
+    const head = words.slice(0, keys.length);
+    const extra = words.slice(keys.length);
+    const pairs = head.flatMap((word, i) => [`${keys[i]}:`, word]);
+    const last = keys.at(-1);
+    if (last === undefined || extra.length === 0) return pairs;
+    const spec = this.#spec(last);
+    if (spec.kind !== "list") return pairs;
+    const input = this.#inputs.find((one) => one.name === spec.input);
+    if (input?.form.keepsUnknown !== true) {
+      return [...pairs, ...extra.flatMap((word) => [`${last}:`, word])];
+    }
+    const joined = [...head.slice(-1), ...extra].join(" ");
+    return [...pairs.slice(0, -1), joined];
   }
 
   /**
@@ -572,15 +606,42 @@ export class Keys {
         spec.placement.place(value, into);
       }
     }
-    const argv = [
-      ...this.#path,
-      ...into.options,
-      END_OF_OPTIONS,
-      ...into.positional,
-    ];
+    const argv = this.#layout.argv(this.#path, into);
     return { argv: () => argv };
   }
 }
+
+/**
+ * Раскладка строки прежней диспетчеризации: где путь команды, опции и
+ * позиционные. Её знает группа реестра (`layout`).
+ */
+export interface Layout {
+  argv(path: readonly string[], into: Argv): string[];
+}
+
+/** Путь, опции, затем `--` и позиционные. */
+export const BY_PATH: Layout = {
+  argv: (path, into) => [
+    ...path,
+    ...into.options,
+    END_OF_OPTIONS,
+    ...into.positional,
+  ],
+};
+
+/**
+ * Селектор перед подкомандой (`ozon-jobs sl-2 show`): имя подкоманды —
+ * за позиционными, прежний разбор находит его там с пропуском.
+ */
+export const SELECTOR_AHEAD: Layout = {
+  argv: (path, into) => [
+    ...path.slice(0, -1),
+    ...into.options,
+    END_OF_OPTIONS,
+    ...into.positional,
+    ...path.slice(-1),
+  ],
+};
 
 /** Вся команда, а не режим: ключи — все, заданных входов нет. */
 const WHOLE_COMMAND: CommandMode = {
