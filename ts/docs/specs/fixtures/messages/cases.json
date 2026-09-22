@@ -169,6 +169,25 @@
       "keyword": [],
       "tail": "args",
       "foreign": true
+    },
+    "keyed": {
+      "unary": [
+        "help"
+      ],
+      "keyword": [
+        {
+          "keys": {
+            "id": "value"
+          },
+          "required": [
+            "id"
+          ]
+        }
+      ],
+      "tail": "args",
+      "flags": [
+        "md"
+      ]
     }
   },
   "cases": [
@@ -1364,6 +1383,73 @@
           "tail": [
             "$open"
           ]
+        }
+      ]
+    },
+    {
+      "name": "ключ, который приёмник с хвостом знает, — ключевое",
+      "words": [
+        "card",
+        "id:",
+        "1"
+      ],
+      "receivers": [
+        "root",
+        "keyed"
+      ],
+      "messages": [
+        {
+          "unary": "card"
+        },
+        {
+          "keyword": {
+            "id": "1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "голое значение у ключевого приёмника — хвост",
+      "words": [
+        "card",
+        "1"
+      ],
+      "receivers": [
+        "root",
+        "keyed"
+      ],
+      "messages": [
+        {
+          "unary": "card"
+        },
+        {
+          "tail": [
+            "1"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "формат флагом читается без значения",
+      "words": [
+        "card",
+        "id:",
+        "1",
+        "--md"
+      ],
+      "receivers": [
+        "root",
+        "keyed"
+      ],
+      "messages": [
+        {
+          "unary": "card"
+        },
+        {
+          "keyword": {
+            "id": "1",
+            "md": true
+          }
         }
       ]
     },
