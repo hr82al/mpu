@@ -169,6 +169,26 @@
       "keyword": [],
       "tail": "args",
       "foreign": true
+    },
+    "keyed": {
+      "unary": [
+        "help"
+      ],
+      "keyword": [
+        {
+          "keys": {
+            "id": "value"
+          },
+          "required": [
+            "id"
+          ]
+        }
+      ],
+      "tail": "args",
+      "values": true,
+      "flags": [
+        "md"
+      ]
     }
   },
   "cases": [
@@ -523,7 +543,7 @@
       ]
     },
     {
-      "name": "--help за значением — лишнее слово",
+      "name": "--help за значением — справка результата",
       "words": [
         "kiten",
         "card:",
@@ -533,9 +553,25 @@
       "receivers": [
         "root",
         "kiten",
-        "card"
+        "card",
+        "any"
       ],
-      "error": "значение 123 не понимает --help"
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "123"
+          }
+        },
+        {
+          "close": true
+        },
+        {
+          "unary": "help"
+        }
+      ]
     },
     {
       "name": "ключа нет ни у одного метода — сообщение всё равно формируется",
@@ -581,7 +617,7 @@
       ]
     },
     {
-      "name": "-- за законченной парой — лишнее слово",
+      "name": "литерал за значением — результату",
       "words": [
         "kiten",
         "card:",
@@ -592,9 +628,25 @@
       "receivers": [
         "root",
         "kiten",
-        "card"
+        "card",
+        "any"
       ],
-      "error": "значение 123 не понимает note:"
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "123"
+          }
+        },
+        {
+          "close": true
+        },
+        {
+          "unary": "note:"
+        }
+      ]
     },
     {
       "name": "ключ дважды",
@@ -872,6 +924,20 @@
       ]
     },
     {
+      "name": "короткий флаг за значением — лишнее слово",
+      "words": [
+        "kiten",
+        "card:",
+        "1",
+        "-v"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "error": "значение 1 не понимает -v"
+    },
+    {
       "name": "точка — обычное слово",
       "words": [
         "kiten",
@@ -891,7 +957,7 @@
       ]
     },
     {
-      "name": "слово за значением — ошибка",
+      "name": "слово за значением — результату (неявное закрытие)",
       "words": [
         "kiten",
         "card:",
@@ -900,12 +966,29 @@
       ],
       "receivers": [
         "root",
-        "kiten"
+        "kiten",
+        "any",
+        "any"
       ],
-      "error": "значение 123 не понимает md"
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "123"
+          }
+        },
+        {
+          "close": true
+        },
+        {
+          "unary": "md"
+        }
+      ]
     },
     {
-      "name": "флаг и лишнее слово",
+      "name": "слово за флагом — результату",
       "words": [
         "build",
         "--check",
@@ -913,9 +996,26 @@
       ],
       "receivers": [
         "root",
-        "build"
+        "build",
+        "any",
+        "any"
       ],
-      "error": "значение true не понимает x"
+      "messages": [
+        {
+          "unary": "build"
+        },
+        {
+          "keyword": {
+            "check": true
+          }
+        },
+        {
+          "close": true
+        },
+        {
+          "unary": "x"
+        }
+      ]
     },
     {
       "name": "end закрывает ключевое, дальше — результату",
@@ -1364,6 +1464,95 @@
           "tail": [
             "$open"
           ]
+        }
+      ]
+    },
+    {
+      "name": "ключ, который приёмник с хвостом знает, — ключевое",
+      "words": [
+        "card",
+        "id:",
+        "1"
+      ],
+      "receivers": [
+        "root",
+        "keyed"
+      ],
+      "messages": [
+        {
+          "unary": "card"
+        },
+        {
+          "keyword": {
+            "id": "1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "голое значение у ключевого приёмника — хвост",
+      "words": [
+        "card",
+        "1"
+      ],
+      "receivers": [
+        "root",
+        "keyed"
+      ],
+      "messages": [
+        {
+          "unary": "card"
+        },
+        {
+          "tail": [
+            "1"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "незнакомый ключ у хвоста голых значений — ключевое",
+      "words": [
+        "card",
+        "nope:",
+        "x"
+      ],
+      "receivers": [
+        "root",
+        "keyed"
+      ],
+      "messages": [
+        {
+          "unary": "card"
+        },
+        {
+          "keyword": {
+            "nope": "x"
+          }
+        }
+      ]
+    },
+    {
+      "name": "формат флагом читается без значения",
+      "words": [
+        "card",
+        "id:",
+        "1",
+        "--md"
+      ],
+      "receivers": [
+        "root",
+        "keyed"
+      ],
+      "messages": [
+        {
+          "unary": "card"
+        },
+        {
+          "keyword": {
+            "id": "1",
+            "md": true
+          }
         }
       ]
     },

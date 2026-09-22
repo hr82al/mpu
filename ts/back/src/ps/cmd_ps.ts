@@ -31,6 +31,7 @@ Exit: 0 — успех, включая пустые списки; 1 — ошиб
 Примеры: mpu ps; mpu ps -f wb-loader --tsv; mpu ps sl-1; mpu ps 42 --json`,
   policy: "ro",
   argsSchema,
+  formats: { tsv: ["--tsv"] },
   forms: {
     selector: { positional: "one" },
     filter: { short: "f" },

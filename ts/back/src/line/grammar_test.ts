@@ -7,6 +7,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
+import { commands, groups, surfaces } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { lineEntry } from "./mod.ts";
 import { FOREIGN, OWN } from "./order.ts";
@@ -128,3 +129,46 @@ Deno.test("справка результата, справка справки, �
       `${JSON.stringify(json, null, 2)}\n`,
     );
   }));
+
+Deno.test("формат результата: json — прежний JSON, чужой — отказ до исполнения", () =>
+  withPolicyFile(async (file) => {
+    const line = ["xlsx", "alias", "ls"];
+    const json = await run(file, [...line, END, "json"]);
+    assertEquals(json, await run(file, [...line, "--json"]));
+    assertEquals(json.called, ["xlsx alias ls"]);
+    assertEquals(await run(file, [...line, END, "xml"]), {
+      code: 2,
+      stdout: "",
+      stderr: `mpu xlsx alias ls ${END}: не понимает xml; есть: json\n`,
+      called: [],
+    });
+    assertEquals(await run(file, [...line, END, "json", "md"]), {
+      code: 2,
+      stdout: "",
+      stderr: `mpu xlsx alias ls ${END} json: не понимает md\n`,
+      called: [],
+    });
+  }));
+
+Deno.test("код завершения один с форматом и без", () =>
+  withPolicyFile(async (file) => {
+    // Путь к книге не задан: текст завершается кодом 2 (`specs/xlsx.md`).
+    const text = await run(file, ["xlsx", "resolve"]);
+    assertEquals(text.code, 2, text.stderr);
+    assertEquals((await run(file, ["xlsx", "resolve", END, "json"])).code, 2);
+    assertEquals((await run(file, ["xlsx", "resolve", "--json"])).code, 2);
+  }));
+
+Deno.test("слова грамматики зарезервированы: так не зовут ни узел, ни ключ, ни формат", () => {
+  const reserved = new Set<string>([DO, END]);
+  const names = [
+    ...[...commands, ...surfaces, ...groups].flatMap((node) => node.path),
+    ...commands.flatMap((command) => [
+      ...Object.keys(command.keys ?? {}),
+      ...command.inputs.map((input) => input.name),
+      ...Object.keys(command.formats),
+    ]),
+  ];
+  assert(names.length > 300, `имён ${names.length}`);
+  assertEquals(names.filter((name) => reserved.has(name)), []);
+});

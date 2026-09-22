@@ -10,6 +10,7 @@
  */
 
 import { defineCommand } from "../command/mod.ts";
+import { GRAMMAR } from "../messages/mod.ts";
 import { renderOutcome } from "./render.ts";
 import {
   argsSchema,
@@ -24,22 +25,25 @@ export const sqlCommand = defineCommand({
   // Однострока — из слепка дерева: имя и описание переехавшей команды
   // видит режим дополнения, и расходиться с эталоном им незачем.
   summary: "Выполнить SQL (write-capable) на PG, выбранном по селектору.",
-  usage: "mpu sql SELECTOR [SQL] [--server sl-N] [--dry] [--json|--md] [-v]",
-  help: `Сессия пишущая: INSERT/UPDATE/DELETE/DDL исполняются и
-фиксируются в БД клиента. Для чтения — \`mpu sql-ro\`.
+  usage: `mpu sql target: ЦЕЛЬ [sql: ЗАПРОС] [--dry] [--verbose] ` +
+    `[${GRAMMAR.close} md|json]`,
+  help: `Звать, когда запрос пишет: INSERT/UPDATE/DELETE/DDL исполняются и
+фиксируются в БД клиента, поэтому строка спрашивает подтверждение
+человека. Для чтения — mpu sql-ro.
 
-SELECTOR: sl-N (сервер целиком, main — sl-0), dev:<client_id>
-(dev-стенд, схема schema_<client_id>) либо поиск по кэшу. Ровно один client_id среди кандидатов — search_path на
-его схему, иначе search_path сервера. --server sl-N резолв отменяет.
+target: — где исполнить: sl-N (сервер целиком, main — sl-0),
+dev:<client_id> (dev-стенд, схема schema_<client_id>), номер клиента,
+имя или его часть (поиск по кэшу). Ровно один client_id среди кандидатов
+— search_path на его схему, иначе search_path сервера.
 
-SQL — второй аргумент, иначе stdin целиком (с терминала — до Ctrl+D);
+sql: — текст запроса, иначе stdin целиком (с терминала — до Ctrl+D);
 пустой — ошибка ввода без подключения. Уходит серверу как есть, в одной
 транзакции: печатается результат ПЕРВОГО оператора, ошибка любого —
 откат всего вызова, частичной записи не бывает.
 
-Вывод: таблица, --json (массив объектов), --md; вместе --json и --md —
-ошибка ввода. Запись без набора строк — OK (rowcount=<N>). --dry:
-мета-блок и SQL без подключения; -v — тот же блок при прогоне.
+Форматы после ${GRAMMAR.close}: без формата — таблица; md; json — массив объектов.
+Запись без набора строк — OK (rowcount=<N>). --dry: мета-блок и SQL без
+подключения; --verbose — тот же блок при прогоне.
 
 Ключи env-файла (окружение процесса не читается): pg_<N>, PG_PORT
 (5432), PG_DB_NAME (wb), PG_MY_USER_NAME/PG_MAIN_USER_NAME и пароли
@@ -48,11 +52,16 @@ DEV_PG_PORT (5434), DEV_PG_DB (mp_sl_1_dev), DEV_PG_USER,
 DEV_PG_PASSWORD.
 
 Exit: 0 — успех, включая --dry и запрос без набора строк; 1 — ошибка
-БД; 2 — ошибка ввода, резолва и конфигурации.
-
-Пример: mpu sql 42 "UPDATE orders SET status = 'done' WHERE id = 7"`,
+БД; 2 — ошибка ввода, резолва и конфигурации.`,
+  examples: [
+    `mpu ask sql target: 42 sql: "UPDATE orders SET status = 'done' WHERE id = 7"`,
+    "mpu ask sql target: sl-1 --dry",
+  ],
+  keys: { target: "selector", sql: "sql" },
+  retired: { server: "target" },
   policy: "rw",
   argsSchema,
+  formats: { md: ["--md"] },
   forms: {
     selector: { positional: "one" },
     sql: { positional: "one" },

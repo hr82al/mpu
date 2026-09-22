@@ -121,11 +121,11 @@ Deno.test("забытое правило не возвращается посе�
       verdict: null,
     });
     assertEquals(verdictOf(await rules(file), "kiten card"), undefined);
-    const card = await run(file, ["ask", "kiten", "card", "1"]);
+    const card = await run(file, ["ask", "kiten", "card", "id:", "1"]);
     assertEquals(card, {
       code: 1,
       stdout: "",
-      stderr: "mpu kiten card 1: нужно подтверждение, а спросить некого\n",
+      stderr: "mpu kiten card id: 1: нужно подтверждение, а спросить некого\n",
       called: [],
     });
   }));
@@ -144,7 +144,7 @@ Deno.test("deny на корне: отказ строке, policy и справк
       called: [],
     });
     assertEquals(verdictOf(await rules(file), "*"), "deny");
-    const help = await run(file, ["kiten", "card", "1", "--help"]);
+    const help = await run(file, ["kiten", "card", "help"]);
     assertEquals(help.code, 0);
     assertEquals(help.stderr, "");
     assertEquals(help.called, []);
@@ -348,14 +348,11 @@ Deno.test("значение ключа — путь правила, а не сп
 Deno.test("справка сообщения правил ничего не пишет", () =>
   withPolicyFile(async (file) => {
     const before = await rules(file);
-    // Справка — последним словом объекту, а не значению ключа.
+    // `--help` за значением — справка результата сообщения, а не его
+    // исполнение (`platform/line-grammar.md` [D.8]).
     const help = await run(file, ["allow:", "kiten", "--help"], ["y"]);
-    assertEquals(help.code, 2);
-    assertEquals(
-      help.stderr,
-      "mpu allow: kiten: значение kiten не понимает --help; " +
-        "справка — последним словом: mpu help\n",
-    );
+    assertEquals(help.code, 0);
+    assertEquals(help.stderr, "");
     assertEquals(await rules(file), before);
   }));
 

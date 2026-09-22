@@ -32,7 +32,8 @@ export interface Line {
 export class Description {
   readonly #unary: string[] = [];
   readonly #keyword: KeywordMethod[] = [];
-  #tail: Pick<ReceiverDescription, "tail" | "foreign"> = {};
+  #tail: Pick<ReceiverDescription, "tail" | "foreign" | "values"> = {};
+  readonly #flags: string[] = [];
 
   unary(selector: string) {
     this.#unary.push(selector);
@@ -47,6 +48,16 @@ export class Description {
     this.#tail = { tail: name };
   }
 
+  /** Хвост только голых значений: ключ его не начинает. */
+  valueTail(name: string) {
+    this.#tail = { tail: name, values: true };
+  }
+
+  /** Ключи-флаги, которые разбор читает без значения, но метода у них нет. */
+  flags(names: readonly string[]) {
+    this.#flags.push(...names);
+  }
+
   /** Чужой хвост: всё до конца строки, грамматика в нём не толкуется. */
   foreignTail(name: string) {
     this.#tail = { tail: name, foreign: true };
@@ -57,6 +68,7 @@ export class Description {
       unary: [...this.#unary],
       keyword: [...this.#keyword],
       ...this.#tail,
+      ...(this.#flags.length === 0 ? {} : { flags: [...this.#flags] }),
     };
   }
 }
@@ -397,9 +409,10 @@ class GateMethod<S> implements Method<S> {
 }
 
 /**
- * Унарный метод-вход: его слово — часть адреса строки, но не звено пути,
- * по которому решают правила, и не слово текста, которым правила строку
- * называют (`platform/ask-door.md`).
+ * Унарный метод в стороне: его слово — часть адреса строки, но не звено
+ * пути, по которому решают правила, и не слово текста, которым правила
+ * строку называют — вход `ask` (`platform/ask-door.md`), формат после
+ * `end` (`platform/line-grammar.md`).
  *
  * @param selector слово сообщения
  * @param doc назначение и справка

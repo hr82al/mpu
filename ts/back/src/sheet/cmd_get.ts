@@ -158,6 +158,7 @@ Exit: 0 — успех; 2 — ошибки ввода и резолва цели
 mpu sheet get -n Отчёт --tsv -s 4326`,
   policy: "ro",
   argsSchema,
+  formats: { raw: ["--raw"], tsv: ["--tsv"] },
   forms: {
     ranges: { positional: "rest" },
     spreadsheet: { short: "s" },

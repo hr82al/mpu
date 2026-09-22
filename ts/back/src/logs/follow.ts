@@ -13,7 +13,7 @@ import { DomainError, formatCommandError } from "../command/mod.ts";
 import type { LogEntry, RangeQuery } from "../loki/mod.ts";
 import { lokiFailure } from "./failure.ts";
 import { toNanoseconds } from "./query.ts";
-import { byTimeAscending, formatEntries } from "./render.ts";
+import { byTimeAscending, type EntryPrinter } from "./render.ts";
 import type { LogStream } from "./sources.ts";
 
 /** Пауза между опросами. */
@@ -29,7 +29,8 @@ export interface FollowPlan {
   readonly startMs: number;
   /** Предел начальной порции — значение `--tail`. */
   readonly limit: number;
-  readonly timestamps: boolean;
+  /** Печать порции: текст или JSON Lines — по формату строки. */
+  readonly printer: EntryPrinter;
 }
 
 /** Чем слежение пользуется: источник, часы, пауза, вывод и остановка. */
@@ -95,6 +96,6 @@ async function poll(
     }),
   );
   if (entries.length === 0) return undefined;
-  await deps.stream.out(formatEntries(entries, plan.timestamps));
+  await deps.stream.out(plan.printer.print(entries));
   return BigInt(entries[entries.length - 1].tsNs);
 }

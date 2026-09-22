@@ -31,22 +31,26 @@ interface Word {
   afterPair(draft: Draft, words: Words): void;
   /** Слово в хвосте: кладёт себя в `into`; `false` — хвост кончился. */
   intoTail(words: Words, into: string[]): boolean;
-  /** Начинает ли слово хвост у приёмника со своими селекторами `own`. */
-  opensTail(own: ReadonlySet<string>): boolean;
+  /**
+   * Начинает ли слово хвост у приёмника `receiver` со своими унарными
+   * селекторами `own`.
+   */
+  opensTail(own: ReadonlySet<string>, receiver: Receiver): boolean;
 }
 
 /** Слова строки и позиция в них. */
 export class Words implements ValueSource {
   readonly #list: readonly string[];
   #at = 0;
+  #closed = false;
 
   constructor(list: readonly string[]) {
     this.#list = list;
   }
 
   /** Начинает ли очередное слово хвост приёмника со своими `own`. */
-  opensTail(own: ReadonlySet<string>): boolean {
-    return this.peek().opensTail(own);
+  opensTail(own: ReadonlySet<string>, receiver: Receiver): boolean {
+    return this.peek().opensTail(own, receiver);
   }
 
   /** Забирает все оставшиеся слова как есть. */
@@ -66,6 +70,21 @@ export class Words implements ValueSource {
   /** Слова, забранные с начала шага, — как в строке. */
   consumed(): string[] {
     return this.#list.slice(0, this.#at);
+  }
+
+  /**
+   * Перед очередным словом — неявное закрытие: унарное за литеральным
+   * значением уходит результату ключевого сообщения
+   * (`platform/line-grammar.md` [D.8]).
+   */
+  closeHere() {
+    this.#closed = true;
+  }
+
+  /** Слова следующего шага: с неявным закрытием, если оно есть. */
+  remaining(): string[] {
+    const rest = this.rest();
+    return this.#closed ? [GRAMMAR.close, ...rest] : rest;
   }
 
   /** Очередное слово, не забирая его; за концом — `END`. */
@@ -100,12 +119,31 @@ export class Words implements ValueSource {
   }
 }
 
+/** Что голое слово делает за литеральным значением ключа. */
+interface AfterValue {
+  follow(text: string, draft: Draft, words: Words): void;
+}
+
+/** Унарное — результату всего ключевого сообщения: неявное закрытие. */
+const TO_RESULT: AfterValue = {
+  follow: (_text, _draft, words) => words.closeHere(),
+};
+
+/** Слово вида короткого флага (`-v`): не унарное, значению лишнее. */
+const STRAY: AfterValue = {
+  follow(text, draft, words) {
+    throw new StrayWord(draft.last(), text, words.consumed());
+  },
+};
+
 /** Слово без особого смысла: унарное сообщение или значение. */
 class Bare implements Word {
   readonly #text: string;
+  readonly #after: AfterValue;
 
-  constructor(text: string) {
+  constructor(text: string, after: AfterValue = TO_RESULT) {
     this.#text = text;
+    this.#after = after;
   }
 
   start(): Message {
@@ -124,8 +162,8 @@ class Bare implements Word {
     return this.#text;
   }
 
-  afterPair(draft: Draft, words: Words): never {
-    throw new StrayWord(draft.last(), this.#text, words.consumed());
+  afterPair(draft: Draft, words: Words) {
+    this.#after.follow(this.#text, draft, words);
   }
 
   intoTail(words: Words, into: string[]): boolean {
@@ -215,8 +253,9 @@ class Key implements Word {
     return true;
   }
 
-  opensTail(): boolean {
-    return true;
+  // Незнакомый ключ — слово хвоста (`mcp port: 1`), если хвост его берёт.
+  opensTail(_own: ReadonlySet<string>, receiver: Receiver): boolean {
+    return receiver.opensTailWith(this.#name);
   }
 }
 
@@ -231,9 +270,8 @@ const HELP_WORD: Word = {
     throw MessageParseError.noValue(key);
   },
   literal: () => HELP_FLAG,
-  afterPair(draft, words) {
-    throw new StrayWord(draft.last(), HELP_FLAG, words.consumed());
-  },
+  // `--help` за значением — справка результата ключевого сообщения.
+  afterPair: (_draft, words) => words.closeHere(),
   intoTail(words, into) {
     into.push(HELP_FLAG);
     words.skip();
@@ -250,11 +288,8 @@ const ESCAPE: Word = {
   joinTo: () => false,
   valueFor: (_key, words) => words.literal(),
   literal: () => GRAMMAR.literal,
-  afterPair(draft, words) {
-    const taken = words.consumed();
-    words.skip();
-    throw new StrayWord(draft.last(), words.literal(), taken);
-  },
+  // Литерал за значением — унарное результату, как голое слово.
+  afterPair: (_draft, words) => words.closeHere(),
   // Перед словом грамматики знак снимается, слово остаётся словом
   // хвоста; перед прочими словами знак — сам слово хвоста.
   intoTail(words, into) {
@@ -343,6 +378,7 @@ function wordOf(text: string): Word {
   const exact = EXACT.get(text);
   if (exact !== undefined) return exact;
   if (text.startsWith(DASHES)) return dashed(text);
+  if (text.length > 1 && text.startsWith("-")) return new Bare(text, STRAY);
   if (text.length > 1 && text.endsWith(":")) {
     return new Key(text.slice(0, -1), text, COLON);
   }

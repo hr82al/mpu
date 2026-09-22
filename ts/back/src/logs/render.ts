@@ -27,6 +27,22 @@ export function byTimeAscending(
   });
 }
 
+/** Как печатается порция записей слежения. */
+export interface EntryPrinter {
+  print(entries: readonly LogEntry[]): string;
+}
+
+/** Текст: по строке на запись, с префиксом времени по флагу. */
+export function textEntries(timestamps: boolean): EntryPrinter {
+  return { print: (entries) => formatEntries(entries, timestamps) };
+}
+
+/** JSON Lines: одна строка JSON на запись, с переводом строки. */
+export const JSON_LINES: EntryPrinter = {
+  print: (entries) =>
+    entries.map((entry) => `${JSON.stringify(entry)}\n`).join(""),
+};
+
 /** Записи в текст: по строке на запись, с префиксом времени по флагу. */
 export function formatEntries(
   entries: readonly LogEntry[],

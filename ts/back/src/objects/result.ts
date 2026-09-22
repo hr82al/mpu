@@ -20,7 +20,7 @@ import {
   type Shown,
 } from "./protocol.ts";
 import { Refusal } from "./refusal.ts";
-import { remedyFor } from "./remedy.ts";
+import { NO_REMEDY } from "./remedy.ts";
 
 /** Как результат отдаёт данные в конце строки. */
 interface Printer {
@@ -67,7 +67,7 @@ const FORMATS: ReadonlyMap<string, readonly [Doc, Printer]> = new Map([
 ]);
 
 /** Имена форматов, которые понимает результат данных. */
-export const DATA_FORMATS: readonly string[] = [...FORMATS.keys()];
+const DATA_FORMATS: readonly string[] = [...FORMATS.keys()];
 
 const RESULT_DOC: Doc = {
   purpose: "результат выражения",
@@ -143,7 +143,7 @@ const PRINTED: ResultKind = {
         purpose: format.purpose,
       })),
     }, OBJECT_VIEW),
-  remedy: (word) => remedyFor(word, DATA_FORMATS),
+  remedy: () => NO_REMEDY,
 };
 
 /** Закрытие выражения, которое кончается данными: результат с форматами. */
@@ -222,7 +222,7 @@ export const HELP_DOC: Doc = {
 export const ANSWERED: ResultKind = {
   parsing: () => ({ unary: [], keyword: [], tail: "<слово>" }),
   about: (path, doc) => dataHelp(path, doc),
-  remedy: (word) => remedyFor(word, DATA_FORMATS),
+  remedy: () => NO_REMEDY,
 };
 
 /** Ответ на `help` — объект-справка приёмником. */

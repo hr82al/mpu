@@ -182,6 +182,7 @@ Exit: 1 — конфигурация, отказ Telegram, ненайденны�
 Пример: mpu telegram search 'выгрузка' --chat me --limit 20 --table`,
   policy: "ro",
   argsSchema,
+  formats: { table: ["--table"] },
   forms: { query: { positional: "one" } },
   resultSchema,
   run: runTelegramSearch,

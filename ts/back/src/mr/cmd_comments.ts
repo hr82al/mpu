@@ -125,6 +125,7 @@ Exit: 0 — успех, в том числе когда после фильтр�
 Примеры: mpu mr comments --unresolved; mpu mr comments --mr 456 --md`,
   policy: "ro",
   argsSchema,
+  formats: { md: ["--md"] },
   resultSchema,
   run: (args: CommentsArgs, io: MrIo) => runComments(args, io),
   render: (result: CommentsResult, args: CommentsArgs) =>

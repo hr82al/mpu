@@ -4,18 +4,24 @@
  * узел отвечает сам — детьми, хвостом и своим концом строки.
  */
 
-import { commandFlags, ROOT_SUMMARY, ROOT_USAGE } from "../entrypoint/mod.ts";
+import {
+  commandFlags,
+  JSON_FLAG,
+  ROOT_SUMMARY,
+  ROOT_USAGE,
+} from "../entrypoint/mod.ts";
 import {
   type Call,
   type Doc,
-  type Ending,
   EVERYONE,
   type Fallback,
   foreignTail,
   gate,
   type Method,
   origin,
+  type Outcome,
   Refusal,
+  type Report,
   type Roster,
   Shape,
   type ShapeOptions,
@@ -33,6 +39,8 @@ import {
 } from "../registry/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { FOREIGN, type Order, OWN } from "./order.ts";
+import { keyedLeaf, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
+import { Pending, ResultOf } from "./result.ts";
 import { ruleMethods } from "./rules.ts";
 import { ASK_DOC, ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";
 
@@ -41,17 +49,18 @@ export const ARGS = "<args>";
 
 /** Как строится дерево для взгляда: чем кончать строку, кого называть. */
 interface Sight {
-  /** Конец строки у узла, который исполняется и собирает строку `order`. */
-  ending(order: Order): Ending<Line>;
+  /** Исполнение строки в конце: её собирает для диспетчеризации `order`. */
+  settle(report: Report, line: Line, order: Order): Promise<Outcome>;
+  /** Формат, снятый со строки до обхода: у ключевой команды — отказ. */
+  readonly stripped: Stripped;
   /** Роспись детей узла `path`. */
   roster(path: readonly string[]): Roster;
 }
 
 /** Снимок дерева: структура без решений правил — все узлы, обычный конец. */
 const WHOLE: Sight = {
-  ending: (order) => ({
-    finish: (report, line) => line.dispatch(report, NORMAL, order),
-  }),
+  settle: (report, line, order) => line.dispatch(report, NORMAL, order),
+  stripped: NOTHING_STRIPPED,
   roster: () => EVERYONE,
 };
 
@@ -60,19 +69,19 @@ const WHOLE: Sight = {
  * каждый вопрос росписи: книга сама сверяется с файлом.
  */
 class Seen implements Sight {
+  readonly stripped: Stripped;
   readonly #view: View;
   readonly #book: RuleBook;
   #executing: readonly TreeNode[] | undefined;
 
-  constructor(view: View, book: RuleBook) {
+  constructor(view: View, book: RuleBook, stripped: Stripped) {
     this.#view = view;
     this.#book = book;
+    this.stripped = stripped;
   }
 
-  ending(order: Order): Ending<Line> {
-    return {
-      finish: (report, line) => line.dispatch(report, this.#view, order),
-    };
+  settle(report: Report, line: Line, order: Order): Promise<Outcome> {
+    return line.dispatch(report, this.#view, order);
   }
 
   roster(path: readonly string[]): Roster {
@@ -133,22 +142,64 @@ function tailKind(path: readonly string[]): TailKind {
   return foreign ? FOREIGN_TAIL : OWN_TAIL;
 }
 
-/** Вид, который забирает хвост и в конце строки исполняет её. */
+/**
+ * Форматы результата узла: `json` у любого, прочие — объявленные
+ * командой; у поверхности и у группы с селектором впереди — только `json`.
+ */
+function formatsOf(path: readonly string[]): Record<string, readonly string[]> {
+  return { json: [JSON_FLAG], ...findCommand(path)?.formats };
+}
+
+/**
+ * Вид, который забирает хвост и в конце строки исполняет её; закрытие —
+ * результат с форматами узла `path`.
+ */
 function dispatching(
+  path: readonly string[],
   doc: Doc,
   sight: Sight,
   kind: TailKind = OWN_TAIL,
 ): Shape<Line> {
+  const settle = sight.settle.bind(sight);
+  const results = new ResultOf(formatsOf(path), settle);
   const shape: Shape<Line> = new Shape<Line>([], {
     fallback: kind.fallback(doc, () => shape),
-    ending: sight.ending(kind.order),
+    ending: { finish: (report, line) => settle(report, line, kind.order) },
+    closing: results.closing((line: Line) => new Pending(line, kind.order)),
   });
   return shape;
 }
 
+/**
+ * Лист команды: ключевой, если команда объявила ключи, иначе — с
+ * хвостом.
+ */
+function leafShape(
+  path: readonly string[],
+  doc: Doc,
+  sight: Sight,
+): Shape<Line> {
+  const command = findCommand(path);
+  if (command?.keys === undefined) {
+    return dispatching(path, doc, sight, tailKind(path));
+  }
+  const settle = sight.settle.bind(sight);
+  return keyedLeaf({
+    command,
+    doc,
+    results: new ResultOf(formatsOf(path), settle),
+    settle,
+    stripped: sight.stripped,
+  });
+}
+
 /** Вид узла группы: что она делает с чужим словом и с концом строки. */
 interface GroupKind {
-  options(doc: Doc, sight: Sight): ShapeOptions<Line>;
+  options(
+    path: readonly string[],
+    doc: Doc,
+    sight: Sight,
+  ): ShapeOptions<Line>;
 }
 
 /** Только дети; конец строки — справка. */
@@ -156,8 +207,8 @@ const PLAIN: GroupKind = { options: () => ({}) };
 
 /** Группа с селектором перед подкомандой: чужое слово начинает хвост. */
 const SELECTOR_FIRST: GroupKind = {
-  options: (doc, sight) => {
-    const after = dispatching(doc, sight);
+  options: (path, doc, sight) => {
+    const after = dispatching(path, doc, sight);
     return { fallback: tail(ARGS, doc, () => after) };
   },
 };
@@ -179,7 +230,7 @@ function groupShape(
     childMethod([...path, child.name], child.name, sight)
   );
   return new Shape<Line>([...methods, ...own], {
-    ...kind.options(doc, sight),
+    ...kind.options(path, doc, sight),
     roster: sight.roster(path),
   });
 }
@@ -201,14 +252,18 @@ function childMethod(
     );
   }
   const doc = leafDoc(path);
-  return unary(name, doc, dispatching(doc, sight, tailKind(path)), same);
+  return unary(name, doc, leafShape(path, doc, sight), same);
 }
 
 /** Назначение и справка листа: команды или поверхности точки входа. */
 function leafDoc(path: readonly string[]): Doc {
   const command = findCommand(path);
   if (command !== undefined) {
-    return { purpose: command.summary, help: command.help };
+    return {
+      purpose: command.summary,
+      help: command.help,
+      examples: command.examples,
+    };
   }
   const surface = findSurface(path);
   if (surface !== undefined) {
@@ -307,7 +362,7 @@ function nodesUnder(
         nodeOf(
           childPath,
           doc.purpose,
-          dispatching(doc, WHOLE, tailKind(childPath)),
+          leafShape(childPath, doc, WHOLE),
         ),
       ];
     }),
@@ -345,9 +400,10 @@ const SURFACES: ReadonlySet<string> = new Set(
  * Корень двери: только команды и группы реестра — сообщений корня
  * (правила, поверхности, методы двери строки) дверь не понимает.
  */
-function doorShape(book: RuleBook): Shape<Line> {
+function doorShape(book: RuleBook, stripped: Stripped): Shape<Line> {
   const children = childrenOf([]).filter((child) => !SURFACES.has(child.name));
-  return groupShape([], ASK_DOC, PLAIN, new Seen(DOOR, book), [], children);
+  const sight = new Seen(DOOR, book, stripped);
+  return groupShape([], ASK_DOC, PLAIN, sight, [], children);
 }
 
 /**
@@ -358,13 +414,16 @@ function doorShape(book: RuleBook): Shape<Line> {
  *
  * @param line строка вызова с её исполнением
  * @param book правила строки
+ * @param own методы корня, которые даёт дверь строки
+ * @param stripped формат, снятый со строки до обхода (`--json`)
  */
 export function registryRoot(
   line: Line,
   book: RuleBook,
   own: readonly Method<Line>[] = [],
+  stripped: Stripped = NOTHING_STRIPPED,
 ): Call {
-  const door = gate(ASK_WORD, ASK_DOC, doorShape(book), same);
-  const shape = rootShape(new Seen(NORMAL, book), [door, ...own]);
+  const door = gate(ASK_WORD, ASK_DOC, doorShape(book, stripped), same);
+  const shape = rootShape(new Seen(NORMAL, book, stripped), [door, ...own]);
   return origin(ROOT_DOC, shape, line);
 }

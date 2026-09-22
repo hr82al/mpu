@@ -378,9 +378,9 @@ interface CommandDeclaration<A, R> {
   /** Рендер результата в текст для человека. Чист. */
   readonly render: (result: R, args: A) => string;
   /**
-   * Код завершения текстовой формы, когда результат сам сообщает о
-   * неуспехе (`mpu xlsx resolve` без пути). Структурный результат
-   * отдаётся всегда и с кодом 0 — форма вывода класс команды не меняет.
+   * Код завершения, когда результат сам сообщает о неуспехе (`mpu xlsx
+   * resolve` без пути). Его отдаёт результат, а не форма вывода: с
+   * форматом и без — один код (`platform/line-grammar.md` [D.6]).
    */
   readonly textExitCode?: (result: R) => number;
   /**
@@ -391,6 +391,25 @@ interface CommandDeclaration<A, R> {
    * (`specs/portainer-wrappers.md` против `specs/sql-ro.md`).
    */
   readonly helpWhenBare?: boolean;
+  /**
+   * Форматы результата сверх `json` (`platform/line-grammar.md` [D.5]):
+   * имя формата → слова прежнего флага, которыми команда его выбирала
+   * (`md` → `--md`). Слово формата после `end` переводится в них, пока
+   * рендер не переехал в виды результата.
+   */
+  readonly formats?: Readonly<Record<string, readonly string[]>>;
+  /**
+   * Ключи команды (`platform/line-grammar.md`, «Команда-образец»): имя
+   * ключа → имя входа (`id` → `selector`). Объявлены — команда
+   * исполняется своим ключевым сообщением, а не хвостом; прочие входы
+   * становятся ключами под своими именами (булев с умолчанием `true` —
+   * флаг `no-<имя>`), кроме входов-форматов и снятых.
+   */
+  readonly keys?: Readonly<Record<string, string>>;
+  /** Снятые входы: имя → ключ, который его заменил (`server` → `target`). */
+  readonly retired?: Readonly<Record<string, string>>;
+  /** Строки вызова для раздела «Примеры» справки. */
+  readonly examples?: readonly string[];
 }
 
 /** Команда в реестре: типы аргументов и результата скрыты внутри. */
@@ -446,6 +465,14 @@ export interface Command {
   readonly textExitCode: (result: unknown) => number;
   /** Голый вызов печатает справку и завершается кодом 2. */
   readonly helpWhenBare: boolean;
+  /** Форматы результата сверх `json`: имя → слова прежнего флага. */
+  readonly formats: Readonly<Record<string, readonly string[]>>;
+  /** Ключи команды: имя ключа → имя входа; команда с хвостом — нет. */
+  readonly keys?: Readonly<Record<string, string>>;
+  /** Снятые входы: имя → ключ, который его заменил. */
+  readonly retired: Readonly<Record<string, string>>;
+  /** Строки вызова для раздела «Примеры» справки. */
+  readonly examples: readonly string[];
   /** Проверяет образец результата объявленной схемой. */
   readonly assertResult: (value: unknown) => void;
 }
@@ -508,6 +535,10 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     renderResult: (result, argv) =>
       spec.render(spec.resultSchema.parse(result), parse(argv)),
     helpWhenBare: spec.helpWhenBare ?? false,
+    formats: { ...spec.formats },
+    ...(spec.keys === undefined ? {} : { keys: { ...spec.keys } }),
+    retired: { ...spec.retired },
+    examples: [...(spec.examples ?? [])],
     textExitCode: (result) =>
       spec.textExitCode === undefined
         ? 0

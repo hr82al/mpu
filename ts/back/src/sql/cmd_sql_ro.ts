@@ -8,6 +8,7 @@
  */
 
 import { defineCommand } from "../command/mod.ts";
+import { GRAMMAR } from "../messages/mod.ts";
 import { renderOutcome } from "./render.ts";
 import {
   argsSchema,
@@ -23,22 +24,25 @@ export const sqlRoCommand = defineCommand({
   // видит режим дополнения, и расходиться с эталоном им незачем.
   summary:
     "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).",
-  usage: "mpu sql-ro SELECTOR [SQL] [--server sl-N] [--dry] [--json|--md] [-v]",
-  help: `Запись отклоняет сам сервер (SQLSTATE 25006), а не разбор
-текста запроса; для записи — \`mpu sql\`.
+  usage: `mpu sql-ro target: ЦЕЛЬ [sql: ЗАПРОС] [--dry] [--verbose] ` +
+    `[${GRAMMAR.close} md|json]`,
+  help: `Звать для любого чтения из БД клиента или сервера: запрос идёт в
+read-only сессии, запись отклоняет сам сервер (SQLSTATE 25006), а не
+разбор текста запроса. Для записи — mpu ask sql.
 
-SELECTOR: sl-N (сервер целиком, main — sl-0), dev:<client_id>
-(dev-стенд, схема schema_<client_id>) либо поиск по кэшу. Ровно один client_id среди кандидатов — search_path на
-его схему, иначе search_path сервера. --server sl-N резолв отменяет.
+target: — где исполнить: sl-N (сервер целиком, main — sl-0),
+dev:<client_id> (dev-стенд, схема schema_<client_id>), номер клиента,
+имя или его часть (поиск по кэшу). Ровно один client_id среди кандидатов
+— search_path на его схему, иначе search_path сервера.
 
-SQL — второй аргумент, иначе stdin целиком (с терминала — до Ctrl+D);
+sql: — текст запроса, иначе stdin целиком (с терминала — до Ctrl+D);
 пустой — ошибка ввода без подключения. Уходит серверу как есть, одним
 вызовом: печатается результат ПЕРВОГО оператора, ошибка любого — отказ
 всего вызова.
 
-Вывод: таблица, --json (массив объектов), --md; вместе --json и --md —
-ошибка ввода. --dry: мета-блок и SQL без подключения; -v — тот же блок
-при обычном прогоне.
+Форматы после ${GRAMMAR.close}: без формата — таблица; md; json — массив объектов.
+--dry: мета-блок и SQL без подключения; --verbose — тот же блок при
+обычном прогоне.
 
 Ключи env-файла (окружение процесса не читается): pg_<N>, PG_PORT
 (5432), PG_DB_NAME (wb), PG_MY_USER_NAME/PG_MAIN_USER_NAME и пароли
@@ -47,11 +51,17 @@ DEV_PG_PORT (5434), DEV_PG_DB (mp_sl_1_dev), DEV_PG_USER,
 DEV_PG_PASSWORD.
 
 Exit: 0 — успех, включая --dry и запрос без набора строк; 1 — отказ
-записи и ошибка БД; 2 — ошибка ввода, резолва и конфигурации.
-
-Пример: mpu sql-ro 42 'SELECT count(*) FROM orders' --json`,
+записи и ошибка БД; 2 — ошибка ввода, резолва и конфигурации.`,
+  examples: [
+    'mpu sql-ro target: 42 sql: "SELECT count(*) FROM orders"',
+    `mpu sql-ro target: sl-1 sql: "select 1" ${GRAMMAR.close} json`,
+    'echo "select 1" | mpu sql-ro target: dev:54 --dry',
+  ],
+  keys: { target: "selector", sql: "sql" },
+  retired: { server: "target" },
   policy: "ro",
   argsSchema,
+  formats: { md: ["--md"] },
   forms: {
     selector: { positional: "one" },
     sql: { positional: "one" },

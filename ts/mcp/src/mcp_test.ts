@@ -21,6 +21,14 @@ import {
 
 const encoder = new TextEncoder();
 
+Deno.test("описание тула mpu — текст v3 со словами грамматики из константы", async () => {
+  const text = await Deno.readTextFile(
+    new URL("testdata/mcp-objects/tool-desc-v3.txt", import.meta.url),
+  );
+  const mpu = TOOLS.find((tool) => tool.name === "mpu");
+  assertEquals(mpu?.description, text.trimEnd());
+});
+
 Deno.test("tools/list — ровно help и mpu, схема — голден, описания ≤ 2048 байт", () =>
   withStack((stack) =>
     withClient(stack, async (client) => {

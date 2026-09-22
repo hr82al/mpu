@@ -4,8 +4,8 @@
  */
 
 import { Description, keyword, type Method, unary } from "./method.ts";
-import { DATA_FORMATS, dataHelp, ended } from "./result.ts";
-import { remedyFor } from "./remedy.ts";
+import { dataHelp, ended } from "./result.ts";
+import { NO_REMEDY } from "./remedy.ts";
 import type {
   Call,
   Doc,
@@ -38,7 +38,7 @@ class Value implements Receiver {
 export const DATA: Yields<unknown> = {
   parsing: () => withCommon(new Description()).build(),
   about: (path, doc) => dataHelp(path, doc),
-  remedy: (word) => remedyFor(word, DATA_FORMATS),
+  remedy: () => NO_REMEDY,
   receive: (data) => new Value(data),
 };
 

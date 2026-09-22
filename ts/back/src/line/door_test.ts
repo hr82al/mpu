@@ -85,29 +85,33 @@ function listed(help: string): string[] {
 
 Deno.test("ask-строка без двери — адресный отказ, вопроса нет", () =>
   withPolicyFile(async (file) => {
-    assertEquals(await run(file, ["sql", "sl-1", "select 1"], ["y"]), {
-      code: 2,
-      stdout: "",
-      stderr: "mpu sql sl-1 select 1: требует подтверждения — " +
-        "вызывай mpu ask sql sl-1 select 1\n",
-      called: [],
-    });
+    assertEquals(
+      await run(file, ["sql", "target:", "sl-1", "sql:", "select 1"], ["y"]),
+      {
+        code: 2,
+        stdout: "",
+        stderr: "mpu sql target: sl-1 sql: select 1: требует подтверждения — " +
+          "вызывай mpu ask sql target: sl-1 sql: select 1\n",
+        called: [],
+      },
+    );
   }));
 
 Deno.test("ask-строка через дверь — прежний вопрос каналу", () =>
   withPolicyFile(async (file) => {
-    const line = ["ask", "sql", "sl-1", "select 1"];
+    const line = ["ask", "sql", "target:", "sl-1", "sql:", "select 1"];
     assertEquals(await run(file, line), {
       code: 1,
       stdout: "",
-      stderr: "mpu sql sl-1 select 1: нужно подтверждение, а спросить некого\n",
+      stderr:
+        "mpu sql target: sl-1 sql: select 1: нужно подтверждение, а спросить некого\n",
       called: [],
     });
     assertEquals(await run(file, line, ["n"]), {
       code: 1,
       stdout: "",
-      stderr: "выполнить mpu sql sl-1 select 1? [y/N] " +
-        "mpu sql sl-1 select 1: не подтверждено\n",
+      stderr: "выполнить mpu sql target: sl-1 sql: select 1? [y/N] " +
+        "mpu sql target: sl-1 sql: select 1: не подтверждено\n",
       called: [],
     });
   }));
@@ -128,23 +132,22 @@ Deno.test("через дверь «да» — исполнение строки 
     );
   }));
 
-Deno.test("allow-строка через дверь — адресный отказ", () =>
+Deno.test("allow-строка через дверь — исполнение, как без ask", () =>
   withPolicyFile(async (file) => {
-    assertEquals(await run(file, ["ask", "sql-ro", "sl-1", "select 1"]), {
-      code: 2,
-      stdout: "",
-      stderr: "mpu ask sql-ro sl-1 select 1: вопроса не требует — " +
-        "вызывай mpu sql-ro sl-1 select 1\n",
-      called: [],
-    });
+    // Лишний `ask` безвреден: строка `allow` исполняется, как без него
+    // (`platform/ask-door.md`, с порции 158).
     ruleFrom(file, "ozon-jobs show", ALLOW);
-    assertEquals(await run(file, ["ask", "ozon-jobs", "show"]), {
-      code: 2,
-      stdout: "",
-      stderr: "mpu ask ozon-jobs show: вопроса не требует — " +
-        "вызывай mpu ozon-jobs show\n",
-      called: [],
-    });
+    for (
+      const line of [
+        [...READING],
+        ["ozon-jobs", "show"],
+      ]
+    ) {
+      const plain = await run(file, line, ["y"]);
+      const door = await run(file, ["ask", ...line], ["y"]);
+      assertEquals(door, plain, line.join(" "));
+      assertFalse(door.stderr.includes("выполнить"), door.stderr);
+    }
   }));
 
 Deno.test("deny-строка: отказ по обоим адресам, в справке не видна", () =>
@@ -188,12 +191,10 @@ Deno.test("состав двери — по правилам на момент �
     assertFalse(listed((await run(file, ["kiten"])).stdout).includes("ls"));
     // `forget:` вернул бы наследуемое `ask`: посев снятый путь не сеет.
     ruleFrom(file, "kiten ls", ALLOW);
-    assertEquals(await run(file, ["ask", "kiten", "ls"]), {
-      code: 2,
-      stdout: "",
-      stderr: "mpu ask kiten ls: вопроса не требует — вызывай mpu kiten ls\n",
-      called: [],
-    });
+    assertEquals(
+      await run(file, ["ask", "kiten", "ls"]),
+      await run(file, ["kiten", "ls"]),
+    );
     assertFalse(
       listed((await run(file, ["ask", "kiten"])).stdout).includes("ls"),
     );

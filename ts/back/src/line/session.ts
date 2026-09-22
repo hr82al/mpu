@@ -17,7 +17,7 @@ import {
 import type { Line } from "./dispatch.ts";
 import { selectorFirstWriters } from "./seeds.ts";
 import type { Order } from "./order.ts";
-import { NORMAL, type View } from "./view.ts";
+import { NORMAL, toDoor, type View } from "./view.ts";
 
 /** Код отказа правил и изменения правил. */
 const REFUSED = 1;
@@ -96,7 +96,7 @@ export class Session implements Line {
         text: report.text(),
         run,
         refuse: (reason) => this.#refuse(report, reason),
-        redirect: () => view.redirect(report),
+        redirect: () => toDoor(report),
       },
       this.#channel,
       view,

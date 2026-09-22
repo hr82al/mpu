@@ -349,7 +349,7 @@ Deno.test("вывод больше мегабайта идёт потоком: �
   const sql = `SELECT '${"x".repeat(1024 * 1024)}'`;
   await withBack(async (back) => {
     const response = await post(back, "/line", {
-      words: ["sql-ro", "sl-1", sql, "--dry"],
+      words: ["sql-ro", "target:", "sl-1", "sql:", sql, "--dry"],
       cwd: Deno.cwd(),
     });
     const reader = response.body?.pipeThrough(new TextDecoderStream())

@@ -22,7 +22,7 @@ import {
 } from "./method.ts";
 import { Help, type HelpKey, OBJECT_VIEW } from "./help.ts";
 import { nearest, order } from "./nearest.ts";
-import { remedyFor } from "./remedy.ts";
+import { NO_REMEDY } from "./remedy.ts";
 import type {
   Call,
   Doc,
@@ -77,6 +77,14 @@ const STAYS: Closing<unknown> = {
   formats: () => [],
 };
 
+/** Подсказки к слову за значением ключа, которое пришло этому виду. */
+export interface Strays {
+  remedy(word: string): Remedy;
+}
+
+/** Умолчание: подсказать нечего. */
+const PLAIN_STRAYS: Strays = { remedy: () => NO_REMEDY };
+
 /** Необязательное в виде: ответ на непонятое, на конец строки, роспись. */
 export interface ShapeOptions<S> {
   /** По умолчанию — отказ. */
@@ -87,6 +95,8 @@ export interface ShapeOptions<S> {
   readonly roster?: Roster;
   /** По умолчанию — тот же объект. */
   readonly closing?: Closing<S>;
+  /** По умолчанию — подсказать нечего. */
+  readonly strays?: Strays;
 }
 
 /** Объект: вид и состояние. */
@@ -115,6 +125,7 @@ export class Shape<S> implements Yields<S>, Reflective {
   readonly #ending: Ending<S>;
   readonly #roster: Roster;
   readonly #closing: Closing<S>;
+  readonly #strays: Strays;
 
   /**
    * @param methods собственные методы вида
@@ -126,6 +137,7 @@ export class Shape<S> implements Yields<S>, Reflective {
     this.#ending = options.ending ?? DESCRIBE;
     this.#roster = options.roster ?? EVERYONE;
     this.#closing = options.closing ?? STAYS;
+    this.#strays = options.strays ?? PLAIN_STRAYS;
   }
 
   /** Собственные селекторы по алфавиту — те, что вид называет. */
@@ -168,21 +180,25 @@ export class Shape<S> implements Yields<S>, Reflective {
   }
 
   remedy(word: string): Remedy {
-    return remedyFor(word, this.#closing.formats());
+    return this.#strays.remedy(word);
   }
 
-  /** Ключи собственных ключевых методов, которые вид называет. */
+  /**
+   * Ключи ключевых методов, которые вид называет: собственных и ответа на
+   * непонятое.
+   */
   #keys(): HelpKey[] {
     const into = new Description();
     for (const method of this.#methods.values()) {
       if (this.#roster.lists(method.selector)) method.describe(into);
     }
+    this.#fallback.describe(into);
     return into.build().keyword.flatMap((method) =>
       Object.entries(method.keys).map(([name, kind]) => ({
         name,
         kind,
         required: method.required.includes(name),
-        purpose: "",
+        purpose: method.purposes?.[name] ?? "",
       }))
     );
   }

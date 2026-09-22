@@ -77,23 +77,30 @@ Deno.test("правила спеки вне эталона: один шаг", as
   }
 });
 
-Deno.test("правила спеки вне эталона: слово за значением", async (t) => {
+Deno.test("правила спеки вне эталона: унарное за значением — результату", async (t) => {
   for (
-    const [words, word] of [
-      [["card:", "1", "--help"], "--help"],
-      [["card:", "1", LITERAL, "x"], "x"],
-      [["card:", "1", "x"], "x"],
-    ] as const
+    const words of [
+      ["card:", "1", "--help"],
+      ["card:", "1", LITERAL, "x"],
+      ["card:", "1", "x"],
+    ]
   ) {
     await t.step(words.join(" "), () => {
-      const err = assertThrows(() => readMessage(words, KITEN), StrayWord);
-      assertEquals(err.message, `значение 1 не понимает ${word}`);
-      assertEquals([err.value, err.word, err.taken], ["1", word, [
-        "card:",
-        "1",
-      ]]);
+      assertEquals(readMessage(words, KITEN), {
+        message: { keyword: { card: "1" } },
+        rest: [END, ...words.slice(2)],
+      });
     });
   }
+});
+
+Deno.test("правила спеки вне эталона: короткий флаг за значением", () => {
+  const err = assertThrows(
+    () => readMessage(["card:", "1", "-v"], KITEN),
+    StrayWord,
+  );
+  assertEquals(err.message, "значение 1 не понимает -v");
+  assertEquals([err.value, err.word, err.taken], ["1", "-v", ["card:", "1"]]);
 });
 
 Deno.test("правила спеки вне эталона: слово-не-значение", async (t) => {

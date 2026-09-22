@@ -18,6 +18,7 @@ import {
   type RuleEntry,
 } from "../policy/mod.ts";
 import type { CliEntry } from "../process/mod.ts";
+import { JSON_STRIPPED, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
 import { registrySeeds } from "./seeds.ts";
 import { Session } from "./session.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
@@ -53,17 +54,31 @@ export function policyTree(file: string | undefined): NodeRuling[] {
   });
 }
 
+/** Граница, до которой ищется общий `--json`: первый `--`. */
+function jsonEnd(argv: readonly string[]): number {
+  const cut = argv.indexOf(GRAMMAR.literal);
+  return cut < 0 ? argv.length : cut;
+}
+
 /**
  * Слова для обхода цепочки: без `--json` до первого `--` — иначе корень
  * получил бы непонятое сообщение. Исполнение получает исходный argv.
  */
 function walkedWords(argv: readonly string[]): string[] {
-  const cut = argv.indexOf(GRAMMAR.literal);
-  const end = cut < 0 ? argv.length : cut;
+  const end = jsonEnd(argv);
   return [
     ...argv.slice(0, end).filter((word) => word !== JSON_FLAG),
     ...argv.slice(end),
   ];
+}
+
+/**
+ * Снятый `--json`: хвостовой команде он достаётся в исходной строке,
+ * ключевой — отказ «формат — сообщение результату».
+ */
+function strippedOf(argv: readonly string[]): Stripped {
+  const asked = argv.slice(0, jsonEnd(argv)).includes(JSON_FLAG);
+  return asked ? JSON_STRIPPED : NOTHING_STRIPPED;
 }
 
 /** Итог цепочки в поток и код (данные границы). */
@@ -175,7 +190,12 @@ export function lineEntry(ports: LinePorts): CliEntry {
           runLine(order.argv(view.executed(argv)), io, output, journal)
         ),
     });
-    const root = registryRoot(line, book, ports.rootMethods.map(rootMethod));
+    const root = registryRoot(
+      line,
+      book,
+      ports.rootMethods.map(rootMethod),
+      strippedOf(argv),
+    );
     const outcome = await runChain(walkedWords(argv), root);
     return printed(outcome, output);
   };

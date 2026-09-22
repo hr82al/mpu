@@ -43,7 +43,9 @@ class Tail implements Opening {
   }
 
   start(words: Words, receiver: Receiver): Message {
-    if (!words.opensTail(this.#own)) return OPEN.start(words, receiver);
+    if (!words.opensTail(this.#own, receiver)) {
+      return OPEN.start(words, receiver);
+    }
     return this.#taking.take(words);
   }
 }
@@ -81,5 +83,5 @@ export function readMessage(
   const target = new Receiver(receiver);
   const cursor = new Words(words);
   const message = openingOf(receiver).start(cursor, target);
-  return { message, rest: cursor.rest() };
+  return { message, rest: cursor.remaining() };
 }

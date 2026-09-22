@@ -36,12 +36,7 @@ async function run(
 Deno.test("справка команды не исполняет её", (t) =>
   withPolicyFile(async (file) => {
     for (
-      const argv of [["kiten", "card", "--help"], [
-        "kiten",
-        "card",
-        "123",
-        "--help",
-      ]]
+      const argv of [["kiten", "card", "--help"], ["kiten", "card", "help"]]
     ) {
       await t.step(argv.join(" "), async () => {
         const { code, stdout, stderr, native } = await run(file, argv);

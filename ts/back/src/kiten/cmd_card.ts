@@ -11,6 +11,7 @@
 
 import { z } from "@zod/zod";
 import { type CommandIo, defineCommand } from "../command/mod.ts";
+import { GRAMMAR } from "../messages/mod.ts";
 import {
   getCard,
   type KaitenAccess,
@@ -130,24 +131,26 @@ export const kitenCardCommand = defineCommand({
   errorName: "kiten card",
   summary:
     "Одна карточка Kaiten целиком: шапка, свойства, описание, файлы, комментарии.",
-  usage:
-    "mpu kiten card SELECTOR [--md] [--json] [--no-images] [--no-comments]",
-  help: `SELECTOR — id карточки (65634936) либо её URL, короткий
+  usage: `mpu kiten card id: ID [--no-comments] [--no-images] ` +
+    `[${GRAMMAR.close} md|json]`,
+  help: `Звать, когда нужна одна карточка Kaiten целиком: шапка, свойства,
+описание, файлы, комментарии. Свои карточки списком — mpu kiten ls.
+
+id: — id карточки (65634936) либо её URL, короткий
 (https://btlz.kaiten.ru/65634936) или глубокий: id — последний полностью
 числовой сегмент пути.
 
-Вид вывода, по убыванию приоритета: --json (сырой JSON карточки и
-комментариев, отступ 2) → --md (чистый GFM markdown) ЛИБО stdout не
-терминал → наглядный терминальный рендер. Пайп без флагов отдаёт
-markdown: mpu kiten card 123 | <потребитель>.
+Форматы после ${GRAMMAR.close}: без формата — наглядный вид в терминале и markdown в
+пайп; md — чистый GFM markdown; json — сырой JSON карточки и комментариев,
+отступ 2.
 
 --no-comments не только убирает комментарии из вывода, но и отменяет их
-запрос. --no-images убирает вложения-картинки из наглядного вида; на
---md и --json не влияет.
+запрос. --no-images убирает вложения-картинки из наглядного вида; на md и
+json не влияет.
 
 Имена кастомных полей для markdown и наглядного вида — отдельный запрос
 справочника компании; не ответил — печатаются сырые ключи id_NNN, вывод
-не срывается. На --json справочник не запрашивается: JSON несёт сырые
+не срывается. На json справочник не запрашивается: JSON несёт сырые
 ключи всегда.
 
 Чек-листы карточки эта команда не показывает ни в одном виде — их читает
@@ -157,11 +160,16 @@ mpu kiten checklist ls.
 умолчанию https://btlz.kaiten.ru).
 
 Exit: 0 — успех; 1 — ошибка API Kaiten (недоступная карточка приходит
-как 403 с пустым телом); 2 — из селектора не извлекается id.
-
-Пример: mpu kiten card 65634936 --md`,
+как 403 с пустым телом); 2 — из id не извлекается номер карточки.`,
+  examples: [
+    "mpu kiten card id: 65634936",
+    `mpu kiten card id: 65634936 ${GRAMMAR.close} md`,
+    `mpu kiten card id: https://btlz.kaiten.ru/65634936 --no-comments ${GRAMMAR.close} json`,
+  ],
+  keys: { id: "selector" },
   policy: "ro",
   argsSchema,
+  formats: { md: ["--md"] },
   forms: { selector: { positional: "one" } },
   resultSchema,
   run: runKitenCard,

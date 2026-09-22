@@ -153,7 +153,9 @@ class Walk implements Walker {
   /** Отказ объекта получает спереди путь до приёмника. */
   #rejection(err: unknown): unknown {
     if (!(err instanceof Refusal)) return err;
-    return new Rejection(`${this.#trail.address()}: ${err.message}`, {
+    const address = this.#trail.address();
+    const hint = err.remedy.spell(address, []);
+    return new Rejection(`${address}: ${err.message}${hint}`, {
       cause: err,
     });
   }

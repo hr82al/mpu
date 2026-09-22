@@ -140,6 +140,7 @@ Telegram; 2 — ошибка ввода (--limit вне диапазона).
 Пример: mpu telegram ls 'Команда релиза' --table`,
   policy: "ro",
   argsSchema,
+  formats: { table: ["--table"] },
   forms: { query: { positional: "one" } },
   resultSchema,
   run: runTelegramLs,

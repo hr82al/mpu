@@ -540,10 +540,11 @@ Deno.test("alias: add/ls/rm, права хранилища, использова
 
 Deno.test("resolve: структурный результат и exit-коды", async (t) => {
   await withSampleDir(async (dir) => {
-    await t.step("--json при нерезолве — exit 0, resolved null", async () => {
+    // Код отдаёт результат, а не форма (`platform/line-grammar.md` [D.6]).
+    await t.step("--json при нерезолве — exit 2, resolved null", async () => {
       const cli = makeDirCli(dir);
       const code = await cli.run("resolve", "--json");
-      assertEquals(code, 0);
+      assertEquals(code, 2);
       const parsed = JSON.parse(cli.stdout());
       assertEquals(parsed.resolved, null);
       assertEquals(parsed.checked.length, 3);

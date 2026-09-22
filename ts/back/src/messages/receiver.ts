@@ -13,6 +13,8 @@ export type KeyKind = "value" | "flag";
 export interface KeywordMethod {
   readonly keys: Readonly<Record<string, KeyKind>>;
   readonly required: readonly string[];
+  /** Назначения ключей для справки; разбор их не читает. */
+  readonly purposes?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -26,6 +28,17 @@ export interface ReceiverDescription {
   readonly keyword: readonly KeywordMethod[];
   readonly tail?: string;
   readonly foreign?: true;
+  /**
+   * Хвост ловит только голые значения: ключ его не начинает, даже
+   * незнакомый, — он входит в ключевое сообщение (лист ключевой команды).
+   */
+  readonly values?: true;
+  /**
+   * Ключи, которые разбор читает флагом, хотя ни один метод их не
+   * принимает: приёмник откажет им сам, но слово за ними — не их
+   * значение (`--md` у ключевой команды).
+   */
+  readonly flags?: readonly string[];
 }
 
 /** Откуда ключ, ждущий значения, берёт следующее слово. */
@@ -157,15 +170,18 @@ export class Draft {
 export class Receiver {
   readonly #methods: readonly Method[];
   readonly #kinds = new Map<string, Kind>();
+  readonly #values: boolean;
 
   /** @throws MessageParseError ключ объявлен с двумя видами */
   constructor(description: ReceiverDescription) {
     this.#methods = description.keyword.map((method) => new Method(method));
+    this.#values = description.values === true;
     for (const method of description.keyword) {
       for (const [key, name] of Object.entries(method.keys)) {
         this.#declare(key, KINDS[name]);
       }
     }
+    for (const key of description.flags ?? []) this.#declare(key, FLAG);
   }
 
   #declare(key: string, kind: Kind) {
@@ -181,6 +197,14 @@ export class Receiver {
   /** Вид ключа; ключ, которого нет ни у одного метода, берёт значение. */
   kindOf(key: string): Kind {
     return this.#kinds.get(key) ?? VALUE;
+  }
+
+  /**
+   * Начинает ли ключ `key` хвост: незнакомый — да, если хвост берёт не
+   * только голые значения.
+   */
+  opensTailWith(key: string): boolean {
+    return !this.#values && !this.#methods.some((method) => method.has([key]));
   }
 
   /** Черновик ключевого сообщения. */

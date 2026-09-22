@@ -25,6 +25,8 @@ interface RawReceiver {
   }[];
   readonly tail?: string;
   readonly foreign?: boolean;
+  readonly flags?: readonly string[];
+  readonly values?: boolean;
 }
 
 function kindOf(text: string | undefined): KeyKind {
@@ -37,6 +39,8 @@ function described(raw: RawReceiver): ReceiverDescription {
     unary: raw.unary,
     tail: raw.tail,
     ...(raw.foreign === true ? { foreign: true } : {}),
+    ...(raw.flags === undefined ? {} : { flags: raw.flags }),
+    ...(raw.values === true ? { values: true } : {}),
     keyword: raw.keyword.map((method) => ({
       keys: Object.fromEntries(
         Object.entries(method.keys).map(([key, kind]) => [key, kindOf(kind)]),
@@ -99,8 +103,12 @@ function readChain(
   let rest = words;
   do {
     const step = readMessage(rest, receiverFor(names, messages.length));
+    // Неявное закрытие ставит слово в начало остатка — его не считаем.
+    const left = step.rest[0] === GRAMMAR.close && rest[0] !== GRAMMAR.close
+      ? step.rest.length - 1
+      : step.rest.length;
     assert(
-      rest.length === 0 || step.rest.length < rest.length,
+      rest.length === 0 || left < rest.length,
       `шаг ${messages.length} не забрал ни одного слова`,
     );
     messages.push(step.message);
@@ -109,8 +117,8 @@ function readChain(
   return messages;
 }
 
-Deno.test("в эталоне 58 случаев", () => {
-  assertEquals(golden.cases.length, 58);
+Deno.test("в эталоне 63 случая", () => {
+  assertEquals(golden.cases.length, 63);
 });
 
 Deno.test("случаи эталона разбора сообщений", async (t) => {

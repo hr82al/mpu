@@ -97,8 +97,15 @@ Deno.test("хвост и конец строки", async (t) => {
       },
       runs: 0,
     },
+    // Ключ, который приёмник знает, — ключевое сообщение и у приёмника с
+    // хвостом; незнакомый начинает хвост (`platform/line-grammar.md`).
     {
       words: ["grp", "card:", "1"],
+      outcome: { path: ["grp", "card:"], value: "card" },
+      runs: 0,
+    },
+    {
+      words: ["grp", "nope:", "1"],
       outcome: { path: ["grp", "<args>"], exit: 7 },
       runs: 1,
     },

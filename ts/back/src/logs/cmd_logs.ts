@@ -26,7 +26,12 @@ import {
   toNanoseconds,
   windowStartMs,
 } from "./query.ts";
-import { byTimeAscending, formatEntries } from "./render.ts";
+import {
+  byTimeAscending,
+  formatEntries,
+  JSON_LINES,
+  textEntries,
+} from "./render.ts";
 import { readSnapshot } from "./snapshot.ts";
 import {
   type ListAllContainerNames,
@@ -86,6 +91,9 @@ const argsSchema = z.object({
   ),
   follow: z.boolean().default(false).describe(
     "следить за новыми записями; не через тул mpu-mcp, только loki",
+  ),
+  json: z.boolean().default(false).describe(
+    "результат JSON; у --follow — JSON Lines, запись на строку",
   ),
 });
 
@@ -342,7 +350,7 @@ async function runLoki(
       logql,
       startMs: windowStartMs(since, now(), FOLLOW_WINDOW_MS),
       limit: tail,
-      timestamps: args.timestamps,
+      printer: args.json ? JSON_LINES : textEntries(args.timestamps),
     });
     return { ...EMPTY, kind: "follow" };
   }
@@ -439,8 +447,17 @@ async function runSnapshot(
   return { ...EMPTY, kind: "snapshot", snapshot };
 }
 
-/** Текст результата для человека; stdout и ничего кроме него. */
+/**
+ * Результат в stdout. JSON — тот же, что давал общий `--json`; у слежения
+ * записи уже ушли JSON Lines по мере поступления, в конце — ничего.
+ */
 function renderLogs(result: LogsResult, args: LogsArgs): string {
+  if (!args.json) return renderText(result, args);
+  return result.kind === "follow" ? "" : JSON.stringify(result, null, 2);
+}
+
+/** Текст результата для человека; stdout и ничего кроме него. */
+function renderText(result: LogsResult, args: LogsArgs): string {
   switch (result.kind) {
     case "hosts":
     case "services":

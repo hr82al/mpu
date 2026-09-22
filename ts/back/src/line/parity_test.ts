@@ -10,6 +10,7 @@ import { assertEquals } from "@std/assert";
 import type { CommandIo } from "../command/mod.ts";
 import { type InvokeJournal, runCli } from "../entrypoint/mod.ts";
 import type { CliEntry } from "../process/mod.ts";
+import { GRAMMAR } from "../messages/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { lineEntry } from "./mod.ts";
 import { allowEverything, consentOf, withPolicyFile } from "./testconsent.ts";
@@ -68,8 +69,14 @@ const SQL_IO: Partial<CommandIo> = {
   },
 };
 
+/**
+ * Случай сверки: `argv` — прежняя запись для `runCli`; у ключевой
+ * команды строка набирается ключами (`line`), и сверяется она с тем же
+ * исполнением в прежней записи (`platform/line-grammar.md`).
+ */
 const LINES: readonly {
   readonly argv: readonly string[];
+  readonly line?: readonly string[];
   readonly io?: Partial<CommandIo>;
 }[] = [
   { argv: ["version"] },
@@ -77,9 +84,26 @@ const LINES: readonly {
   { argv: ["xlsx", "alias", "ls", "--json"] },
   { argv: ["xlsx", "--json", "alias", "ls"] },
   { argv: ["xlsx", "get", "--", "--json"] },
-  { argv: ["--json", "sql-ro", "sl-1", "SELECT 1", "--dry"], io: SQL_IO },
-  { argv: ["sql-ro", "sl-1", "SELECT 1", "--dry", "--dry"], io: SQL_IO },
-  { argv: ["sql-ro", "sw", "select 1"] },
+  {
+    // `end json` — прежний `--json` после имени команды: у `sql-ro` он
+    // свой (`specs/sql-ro.md`), а не общий JSON результата.
+    argv: ["sql-ro", "sl-1", "SELECT 1", "--dry", "--json"],
+    line: [
+      "sql-ro",
+      "target:",
+      "sl-1",
+      "sql:",
+      "SELECT 1",
+      "--dry",
+      GRAMMAR.close,
+      "json",
+    ],
+    io: SQL_IO,
+  },
+  {
+    argv: ["sql-ro", "sw", "select 1"],
+    line: ["sql-ro", "target:", "sw", "sql:", "select 1"],
+  },
   { argv: ["ssh", "sl-1", "--json"], io: SSH_IO },
   { argv: ["ssh", "sl-1", "--", "ls", "--help"], io: SSH_IO },
   { argv: ["ozon-jobs", "sl-2", "show", "--нет-флага"] },
@@ -89,7 +113,7 @@ const LINES: readonly {
   { argv: ["telegram", "send"] },
   { argv: ["update"] },
   { argv: ["backup-wb-unit-proto", "777", "--date", "не-дата", "--dry"] },
-  { argv: ["kiten", "card", "123"] },
+  { argv: ["kiten", "card", "123"], line: ["kiten", "card", "id:", "123"] },
 ];
 
 // Правила подтверждения дают `allow` любой строке: сравнивается
@@ -102,7 +126,7 @@ Deno.test("строка и runCli дают одно и то же", (t) =>
       await t.step(line.argv.join(" "), async () => {
         const io = line.io ?? {};
         assertEquals(
-          await seen(runLine, line.argv, io),
+          await seen(runLine, line.line ?? line.argv, io),
           await seen(runCli, line.argv, io),
         );
       });

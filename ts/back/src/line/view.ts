@@ -10,7 +10,13 @@ import {
   Refusal,
   type Report,
 } from "../objects/mod.ts";
-import { type Address, CONFIRM, EXECUTE, REDIRECT } from "../policy/mod.ts";
+import {
+  type Address,
+  CONFIRM,
+  EXECUTE,
+  REDIRECT,
+  type Treatment,
+} from "../policy/mod.ts";
 
 /** Слово входа двери. */
 export const ASK_WORD = "ask";
@@ -23,40 +29,48 @@ export const ASK_DOC: Doc = {
     "лежат ровно те строки, на которые правила сейчас требуют «да» человека.\n" +
     "Список живой — его меняют правила (mpu ask: / mpu allow: в терминале или\n" +
     "в web), грепом по коду его не получить.\n\n" +
-    'Строка набирается как без ask: mpu ask sql sl-1 "update …"; перед\n' +
-    "исполнением — вопрос человеку. Строку, которой вопрос не нужен, дверь не\n" +
-    "исполняет и называет её адрес без ask.",
+    "Строка набирается как без ask: mpu ask sql target: sl-1 sql: " +
+    '"update …";\nперед исполнением — вопрос человеку. Строку, которой вопрос ' +
+    "не нужен,\nдверь исполняет без вопроса, как без ask.",
 };
 
 /** Как дерево исполняется с данного адреса. */
 export interface View extends Address {
-  /** Адресный отказ: где эту строку исполнят. */
-  redirect(report: Report): Promise<Outcome>;
   /** Строка, как её получит нынешняя диспетчеризация. */
   executed(argv: readonly string[]): readonly string[];
 }
+
+/**
+ * Адресный отказ строке `ask`, набранной без двери: где её исполнят.
+ * Переадресует только обычный взгляд — дверь исполняет и `allow`.
+ */
+export function toDoor(report: Report): Promise<Outcome> {
+  return Promise.reject(
+    new Refusal(`требует подтверждения — вызывай ${report.through(ASK_WORD)}`),
+  );
+}
+
+/**
+ * Строка `allow` через дверь: исполняется без вопроса, как без `ask`
+ * (`platform/ask-door.md`, с порции 158), но состав двери не пополняет —
+ * под `ask` перечислены строки, которым нужен ответ человека.
+ */
+const QUIETLY: Treatment = {
+  settle: (execution, channel, won) => EXECUTE.settle(execution, channel, won),
+  admits: () => false,
+};
 
 /** Обычный взгляд: исполняет `allow`, строку `ask` отсылает к двери. */
 export const NORMAL: View = {
   onAllow: () => EXECUTE,
   onAsk: () => REDIRECT,
-  redirect: (report) =>
-    Promise.reject(
-      new Refusal(
-        `требует подтверждения — вызывай ${report.through(ASK_WORD)}`,
-      ),
-    ),
   executed: (argv) => argv,
 };
 
-/** Дверь: спрашивает о строке `ask`, строку `allow` отсылает без входа. */
+/** Дверь: спрашивает о строке `ask`, строку `allow` исполняет молча. */
 export const DOOR: View = {
-  onAllow: () => REDIRECT,
+  onAllow: () => QUIETLY,
   onAsk: () => CONFIRM,
-  redirect: (report) =>
-    Promise.reject(
-      new Refusal(`вопроса не требует — вызывай ${report.text()}`),
-    ),
   // Первое `ask` в строке — вход: до него стоит разве что `--json`.
   executed: (argv) => {
     const at = argv.indexOf(ASK_WORD);

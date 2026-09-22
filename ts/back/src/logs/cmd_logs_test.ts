@@ -156,6 +156,7 @@ function args(overrides: Partial<LogsArgs> = {}): LogsArgs {
     level: undefined,
     client: undefined,
     follow: false,
+    json: false,
     ...overrides,
   };
 }
@@ -1079,5 +1080,43 @@ Deno.test("результат: JSON-форма и рендер", async (t) => {
       entries: [],
       snapshot: { container: "mp-api", stdout: "о\n", stderr: "" },
     });
+  });
+});
+
+Deno.test("слежение с json — JSON Lines по мере поступления", async () => {
+  await withStand({}, { LOKI_URL }, async (io) => {
+    const controller = new AbortController();
+    const answers: (readonly LogEntry[])[] = [
+      [entry("1754380800000000001", "первая")],
+      [entry("1754380800000000009", "вторая")],
+    ];
+    let call = 0;
+    const loki = fakeLoki(() => answers[call++] ?? []);
+    const printed = fakeStream();
+    const seenBeforeSecond: string[] = [];
+    const result = await runLogs(
+      args({ selector: "sl-1", follow: true, json: true }),
+      io,
+      options({
+        readLoki: loki.read,
+        stream: printed.stream,
+        signal: controller.signal,
+        wait: () => {
+          // Первая запись уже напечатана, пока второй опрос не начался.
+          if (seenBeforeSecond.length === 0) {
+            seenBeforeSecond.push(printed.out());
+          } else controller.abort();
+          return Promise.resolve();
+        },
+      }),
+    );
+    const first = JSON.stringify(entry("1754380800000000001", "первая"));
+    const second = JSON.stringify(entry("1754380800000000009", "вторая"));
+    assertEquals(seenBeforeSecond, [`${first}\n`]);
+    assertEquals(printed.out(), `${first}\n${second}\n`);
+    assertEquals(
+      logsCommand.renderResult(result, ["sl-1", "--follow", "--json"]),
+      "",
+    );
   });
 });

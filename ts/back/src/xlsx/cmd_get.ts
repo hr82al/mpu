@@ -93,6 +93,7 @@ Exit: 0 — успех (пустой результат не ошибка); 2 �
   mpu xlsx get A1:C3 --sheet Данные --tsv`,
   policy: "ro",
   argsSchema,
+  formats: { raw: ["--raw"], tsv: ["--tsv"] },
   forms: {
     ranges: { positional: "rest" },
     file: { short: "f" },

@@ -36,3 +36,21 @@ export const OWN: Order = {
 
 /** Чужой хвост: закрытия в нём нет, строка идёт как есть. */
 export const FOREIGN: Order = { argv: unopened };
+
+/**
+ * Строка с выбранным форматом: слова прежнего флага встают перед первым
+ * `--` — за ним они стали бы позиционными словами команды.
+ *
+ * @param order как строку собирает лист
+ * @param words слова флага формата (`--md`)
+ */
+export function formatted(order: Order, words: readonly string[]): Order {
+  return {
+    argv(line) {
+      const argv = order.argv(line);
+      const at = argv.indexOf(GRAMMAR.literal);
+      const cut = at < 0 ? argv.length : at;
+      return [...argv.slice(0, cut), ...words, ...argv.slice(cut)];
+    },
+  };
+}

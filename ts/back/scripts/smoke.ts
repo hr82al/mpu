@@ -554,13 +554,16 @@ function checks(subject: Subject): readonly Check[] {
         // (других источников тоже нет). Это и есть smoke-подтверждение
         // того, что окружение процесса больше не читается.
         await Deno.remove(envPath);
-        const fromProcessEnv = await runOk(subject, [
+        // Путь не резолвится — код 2 и с JSON: код отдаёт результат, а не
+        // форма (`platform/line-grammar.md` [D.6]).
+        const fromProcessEnv = await run(subject, [
           "xlsx",
           "resolve",
           "--json",
         ], {
           MPU_XLSX: book,
         });
+        assertEquals(fromProcessEnv.code, 2, fromProcessEnv.stderr);
         const envResult = JSON.parse(fromProcessEnv.stdout) as {
           resolved: { source: string } | null;
         };
@@ -979,7 +982,10 @@ function checks(subject: Subject): readonly Check[] {
         // Файла ещё нет: считаем записи этой проверки, а не прогона.
       }
       try {
-        await runOk(subject, ["xlsx", "resolve", "--json"]);
+        // Пути нет — код 2 (`platform/line-grammar.md` [D.6]); запись
+        // журнала от кода не зависит.
+        const resolve = await run(subject, ["xlsx", "resolve", "--json"]);
+        assertEquals(resolve.code, 2, resolve.stderr);
         const afterFirst = await Deno.readTextFile(logPath);
         assertEquals(
           logRecords(afterFirst),
@@ -1024,10 +1030,12 @@ function checks(subject: Subject): readonly Check[] {
       try {
         const dry = await runOk(subject, [
           "sql-ro",
+          "target:",
           "sl-1",
+          "sql:",
           "SELECT 1",
           "--dry",
-          "-v",
+          "--verbose",
         ]);
         assertEquals(dry.stdout, "", "у --dry stdout обязан быть пуст");
         assertEquals(
@@ -1037,7 +1045,13 @@ function checks(subject: Subject): readonly Check[] {
           "мета-блок собран не из env-файла",
         );
 
-        const live = await run(subject, ["sql-ro", "sl-1", "SELECT 1"]);
+        const live = await run(subject, [
+          "sql-ro",
+          "target:",
+          "sl-1",
+          "sql:",
+          "SELECT 1",
+        ]);
         assertEquals(live.code, 1, `не отказ БД: ${JSON.stringify(live)}`);
         assert(
           live.stderr.startsWith("db error: "),
@@ -1163,7 +1177,13 @@ function checks(subject: Subject): readonly Check[] {
     ["sql-ro: выброшенный sw-маршрут отказывает, а не резолвит", async () => {
       // Отказ печатает собранный бинарь: маршрута воркспейсов больше
       // нет, а алиас остаётся распознанным ради причины по делу.
-      const outcome = await run(subject, ["sql-ro", "sw", "SELECT 1"]);
+      const outcome = await run(subject, [
+        "sql-ro",
+        "target:",
+        "sw",
+        "sql:",
+        "SELECT 1",
+      ]);
       assertEquals(outcome.code, 2, `не ошибка ввода: ${outcome.stderr}`);
       assertEquals(
         outcome.stderr,

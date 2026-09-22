@@ -401,13 +401,11 @@ async function runCommand(
   output: Output,
 ): Promise<number> {
   const result = await command.invoke(args, io);
-  if (json) {
-    // Структурный результат отдаётся как есть: форма вывода класс
-    // команды и её код завершения не меняет.
-    output.stdout(JSON.stringify(result, null, 2));
-    return 0;
-  }
-  output.stdout(command.renderResult(result, args));
+  // Код завершения отдаёт результат, а не форма его печати: строка с
+  // `--json` и без него — один код (`platform/line-grammar.md` [D.6]).
+  output.stdout(
+    json ? JSON.stringify(result, null, 2) : command.renderResult(result, args),
+  );
   return command.textExitCode(result);
 }
 
