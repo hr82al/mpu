@@ -16,7 +16,7 @@
  * (`platform/command-contract.md`).
  */
 
-import type { Command, CommandIo } from "../command/mod.ts";
+import type { Command } from "../command/mod.ts";
 import { xlsxCommands } from "../xlsx/mod.ts";
 import { initCommand } from "../init/mod.ts";
 import { updateCommand } from "../update/mod.ts";
@@ -139,26 +139,6 @@ import {
 } from "../mr/mod.ts";
 import { confirmCommand } from "../confirm/mod.ts";
 import { sunCommand } from "../sun/mod.ts";
-import type { InvokeLog } from "../invokelog/mod.ts";
-
-/** Куда голый вызов уровня пишет диагностику. */
-interface ErrorSink {
-  readonly stderr: (text: string) => void;
-}
-
-/**
- * Что делает голый вызов уровня, если он делает не индекс: возвращает
- * код завершения процесса. Своего такого уровня сейчас нет — узел `mcp`
- * ушёл вместе со старым сервером (`platform/cutover.md`), — но снимок
- * дерева и дополнение этот вид уровня знают (`complete.md`).
- */
-type BareHandler = (
-  argv: readonly string[],
-  io: CommandIo,
-  output: ErrorSink,
-  /** Журнал вызовов: сервер пишет запись на каждый вызов тула. */
-  log: InvokeLog,
-) => Promise<number>;
 
 /**
  * Поверхность точки входа: запись реестра со строкой использования.
@@ -177,13 +157,6 @@ export interface CommandGroup {
   readonly path: readonly string[];
   readonly summary: string;
   readonly usage: string;
-  /**
-   * Поверхность голого вызова уровня: долгоживущий процесс командой
-   * контракта не бывает — у него нет результата, который рендерится.
-   * Уровня с такой поверхностью сейчас нет (`platform/cutover.md`);
-   * снимок дерева и дополнение этот вид уровня знают (`complete.md`).
-   */
-  readonly bare?: BareHandler;
   /**
    * Раскладка argv уровня. Умолчание — имя подкоманды идёт сразу за
    * именем группы. `selector-first` означает форму

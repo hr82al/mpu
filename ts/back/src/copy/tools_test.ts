@@ -7,7 +7,7 @@
  */
 
 import { assertEquals, assertRejects } from "@std/assert";
-import { MONOLITH_TASK } from "../../scripts/compile_task.ts";
+import { BACK_TASK } from "../../scripts/compile_task.ts";
 import {
   DUMP_DIRS,
   makeDumpFile,
@@ -40,7 +40,7 @@ Deno.test("названные каталоги совпадают с право�
   );
   // Имя задачи сборки названо один раз — у её единственного читателя.
   const task = denoJsonc.match(
-    new RegExp(`"${MONOLITH_TASK}":\\s*"([^"]*)"`),
+    new RegExp(`"${BACK_TASK}":\\s*"([^"]*)"`),
   )?.[1] ?? "";
   const write = task.split(/\s+/)
     .find((arg) => arg.startsWith("--allow-write="))

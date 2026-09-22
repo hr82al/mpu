@@ -40,13 +40,6 @@ export interface ConfigKey {
 /** Ключи по порядку объявления — в этом же порядке их печатает вывод. */
 export const CONFIG_KEYS: readonly ConfigKey[] = [
   {
-    key: "mcp.port",
-    type: "int",
-    fallback: "7337",
-    range: { min: 1, max: 65535 },
-    description: "Порт HTTP-сервера MCP прежнего монолита (не поднимается)",
-  },
-  {
     key: "sheet.default",
     type: "str",
     fallback: undefined,

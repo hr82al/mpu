@@ -117,7 +117,7 @@ function assertValue(entry: ConfigKey, value: string): void {
   if (number < range.min || number > range.max) {
     // Отказ, а не запись: значение вне границ потребитель молча
     // заменит умолчанием, и `mpu config` станет показывать то, чего
-    // нет (`platform/config.md`, отклонение про mcp.port).
+    // нет (`platform/config.md`, отклонение про границы).
     throw new UsageError(
       `${entry.key} ожидает порт ${range.min}–${range.max}, ` +
         `получено "${value}"`,
@@ -264,7 +264,7 @@ mpu config KEY печатает значение: у строкового клю
 mpu config KEY VALUE задаёт значение, mpu config --unset KEY удаляет
 запись. Повторный --unset — тоже успех: команда идемпотентна.
 
-Ключи (закрытый список): mcp.port, sheet.default, xlsx.default, sheet.cache.tab_ttl, sheet.cache.max_tab_bytes,
+Ключи (закрытый список): sheet.default, xlsx.default, sheet.cache.tab_ttl, sheet.cache.max_tab_bytes,
 sheet.cache.max_total_mb. Имя вне списка — ошибка; записей «на лету» не
 появляется. Числовому ключу нечисловое значение задать нельзя — отказ
 до записи. Значения хранятся буквально: «007» останется «007».

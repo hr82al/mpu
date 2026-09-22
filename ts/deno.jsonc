@@ -401,7 +401,6 @@
     // `import.meta.url` (`back/src/telegram/crypto.ts`), и без этих строк
     // собранный бинарь не откроет сеанс ни при каком окружении (проверка
     // smoke «telegram: криптография без сети…» краснеет без них).
-    "compile:monolith": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
     // нехватку прав в задаче `compile:monolith` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь
@@ -429,7 +428,6 @@
     // это та же программа, запущенная из исходников, а не собранная.
     // Шире они не становятся; `--include` и `-o` сюда не переезжают —
     // это атрибуты сборки, а не доступы.
-    "next": "deno run --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/next.ts",
     // Сервер строк и запросов `mpu-back` (`platform/back-rpc.md`): те же
     // строки `mpu-next`, поэтому права — права задачи `next`, и два
     // сверх них:

@@ -51,14 +51,6 @@ interface GroupKind {
 /** Только дети; конец строки — справка. */
 const PLAIN: GroupKind = { options: () => ({}) };
 
-/** Группа с собственным исполнением без подкоманды (`mcp`). */
-const BARE: GroupKind = {
-  options: (doc) => {
-    const after = dispatching(doc);
-    return { fallback: tail(ARGS, doc, () => after), ending: DISPATCH };
-  },
-};
-
 /** Группа с селектором перед подкомандой: чужое слово начинает хвост. */
 const SELECTOR_FIRST: GroupKind = {
   options: (doc) => {
@@ -68,7 +60,6 @@ const SELECTOR_FIRST: GroupKind = {
 };
 
 function groupKind(group: CommandGroup): GroupKind {
-  if (group.bare !== undefined) return BARE;
   if (group.layout === "selector-first") return SELECTOR_FIRST;
   return PLAIN;
 }

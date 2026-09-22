@@ -341,7 +341,7 @@ Deno.test("дополнение: правка внутри блока затир
   }));
 
 /**
- * Дерево, в котором установщику хватает всего: он сам, уборка и эталон
+ * Дерево, в котором установщику хватает всего: он сам и эталон
  * службы. Сборка идёт поддельным `deno`, задачи ему не нужны, поэтому
  * копировать дерево целиком незачем.
  *
@@ -349,10 +349,8 @@ Deno.test("дополнение: правка внутри блока затир
  */
 async function fakeTree(at: string): Promise<string> {
   await Deno.mkdir(`${at}/supervisor`, { recursive: true });
-  for (const name of ["install.sh", "cutover.sh"]) {
-    await Deno.copyFile(`${ROOT}${name}`, `${at}/${name}`);
-    await Deno.chmod(`${at}/${name}`, 0o755);
-  }
+  await Deno.copyFile(`${ROOT}install.sh`, `${at}/install.sh`);
+  await Deno.chmod(`${at}/install.sh`, 0o755);
   await Deno.copyFile(
     `${ROOT}supervisor/mpu.service`,
     `${at}/supervisor/mpu.service`,

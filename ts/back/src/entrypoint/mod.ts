@@ -24,11 +24,7 @@ import {
 import { helpEntries, runHelpCommand } from "./help_command.ts";
 import { VERSION } from "../version.ts";
 import { renderCommandHelp, renderIndex, renderSurfaceHelp } from "./help.ts";
-import {
-  type InvokeLog,
-  NO_INVOKE_LOG,
-  type OutputPolicy,
-} from "../invokelog/mod.ts";
+import type { InvokeLog, OutputPolicy } from "../invokelog/mod.ts";
 
 /** Приёмник вывода процесса. */
 export interface Output {
@@ -73,7 +69,7 @@ const ENV_NOTE = `
 `;
 /** Однострока корня. */
 export const ROOT_SUMMARY =
-  "Monorepo Python utilities — multi-purpose CLI for ad-hoc operations.";
+  "mpu — тонкий клиент сервера строк: команды исполняет mpu-back.";
 
 /**
  * Общий параметр формы вывода: принимается с любой командой на любом
@@ -243,13 +239,7 @@ async function dispatchPath(
 ): Promise<number> {
   const command = findCommand(path);
   if (command === undefined) {
-    return await runGroup(
-      path,
-      args,
-      io,
-      output,
-      journal?.log ?? NO_INVOKE_LOG,
-    );
+    return runGroup(path, args, output);
   }
   // Аргументы из исходного argv: их получает и подпроцесс моста, и
   // команда со своим `--json` — обоим он нужен на своём месте.
@@ -462,13 +452,11 @@ export function commandFlags(command: Command): readonly CommandFlag[] {
  * нет — узел `mcp` ушёл вместе со старым сервером
  * (`platform/cutover.md`).
  */
-async function runGroup(
+function runGroup(
   path: readonly string[],
   args: readonly string[],
-  io: CommandIo,
   output: Output,
-  log: InvokeLog,
-): Promise<number> {
+): number {
   const group = findGroup(path);
   if (group === undefined) {
     // Путь опознан по реестру, значит группа обязана быть описана.
@@ -477,11 +465,6 @@ async function runGroup(
   if (args.length > 0 && isHelpRequest(args[0])) {
     output.stdout(groupIndex(group));
     return 0;
-  }
-  // Подкоманду называет только первый аргумент: дальше идут значения
-  // флагов уровня, и они выглядят так же («--profile ro»).
-  if (group.bare !== undefined && (args.length === 0 || isFlag(args[0]))) {
-    return await group.bare(args, io, output, log);
   }
   if (args.length === 0) {
     output.stdout(groupIndex(group));

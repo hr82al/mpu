@@ -1,15 +1,11 @@
 /**
- * Чтение задачи сборки монолита (`platform/cutover.md`): права идут в
+ * Чтение задачи сборки (`platform/monolith-removal.md`): права идут в
  * бинарь дословно, подменяются только путь вывода и два каталога
  * окружения; задачи нет — отказ с её именем, а не умолчание.
  */
 
 import { assertEquals, assertThrows } from "@std/assert";
-import {
-  compileArgs,
-  CompileTaskError,
-  MONOLITH_TASK,
-} from "./compile_task.ts";
+import { BACK_TASK, compileArgs, CompileTaskError } from "./compile_task.ts";
 
 const TARGET = {
   home: "/h",
@@ -20,18 +16,18 @@ const TARGET = {
 /** Задача той же формы, что настоящая, но короче. */
 const TASK = `{
   "tasks": {
-    "${MONOLITH_TASK}": "deno compile --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu --allow-run -o $MPU_OUT back/main.ts"
+    "${BACK_TASK}": "deno compile --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu --allow-run -o $MPU_OUT back/back.ts"
   }
 }`;
 
 Deno.test("аргументы задачи: права дословно, -o и каталоги подменены", () => {
-  assertEquals(compileArgs(TASK, MONOLITH_TASK, TARGET), [
+  assertEquals(compileArgs(TASK, BACK_TASK, TARGET), [
     "compile",
     "--allow-write=/h/.config/mpu,/h/cfg/mpu",
     "--allow-run",
     "-o",
     "/out/mpu",
-    "back/main.ts",
+    "back/back.ts",
   ]);
 });
 
@@ -40,18 +36,18 @@ Deno.test("задача не той формы — отказ с именем з
     {
       name: "задачи нет",
       text: `{ "tasks": { "test": "deno test" } }`,
-      says: `в deno.jsonc нет задачи ${MONOLITH_TASK}`,
+      says: `в deno.jsonc нет задачи ${BACK_TASK}`,
     },
     {
       name: "в задаче нет -o",
-      text: `{ "tasks": { "${MONOLITH_TASK}": "deno compile back/main.ts" } }`,
-      says: `в задаче ${MONOLITH_TASK} нет -o`,
+      text: `{ "tasks": { "${BACK_TASK}": "deno compile back/back.ts" } }`,
+      says: `в задаче ${BACK_TASK} нет -o`,
     },
   ];
   for (const { name, text, says } of cases) {
     await t.step(name, () => {
       assertThrows(
-        () => compileArgs(text, MONOLITH_TASK, TARGET),
+        () => compileArgs(text, BACK_TASK, TARGET),
         CompileTaskError,
         says,
       );
@@ -62,7 +58,7 @@ Deno.test("задача не той формы — отказ с именем з
 Deno.test("настоящая задача: путь вывода — только подставленный", async () => {
   const args = compileArgs(
     await Deno.readTextFile("deno.jsonc"),
-    MONOLITH_TASK,
+    BACK_TASK,
     TARGET,
   );
   assertEquals(args[0], "compile");
@@ -74,13 +70,13 @@ Deno.test("настоящая задача: путь вывода — тольк
   );
 });
 
-Deno.test("сборка монолита никуда не устанавливает", async () => {
+Deno.test("сборка никуда не устанавливает", async () => {
   // `-o` задачи — переменная прогона, а не путь установленной
-  // программы: после переключения там лежит клиент, и сборка монолита
-  // его не трогает (`platform/cutover.md`).
+  // программы: ставит программы `install.sh`, и сборка прогона их не
+  // трогает (`platform/monolith-removal.md`).
   const source = await Deno.readTextFile("deno.jsonc");
   const task = source.match(
-    new RegExp(`"${MONOLITH_TASK}":\\s*"([^"]*)"`),
+    new RegExp(`"${BACK_TASK}":\\s*"([^"]*)"`),
   )?.[1] ?? "";
   const words = task.split(/\s+/);
   assertEquals(words[words.indexOf("-o") + 1], "$MPU_OUT");

@@ -1,7 +1,7 @@
 /**
  * Права задач порции (`platform/supervisor-install.md`): у супервизора —
  * запуск двух программ и `HOME`; у `compile:*` — ровно права задачи
- * запуска (у `back` — плюс `--include` задачи сборки монолита). Версия
+ * запуска (у `back` — плюс `--include` воркера и двух `.wasm`). Версия
  * супервизора — та же, что у `back/src/version.ts`.
  */
 
@@ -12,21 +12,6 @@ async function task(name: string): Promise<string[]> {
   const denoJsonc = await Deno.readTextFile("deno.jsonc");
   const line = denoJsonc.match(new RegExp(`"${name}": "([^"]*)"`))?.[1];
   assertEquals(line !== undefined, true, `нет задачи ${name}`);
-  return (line ?? "").split(/\s+/);
-}
-
-/**
- * Задача, собирающая монолит: ищется по своему скрипту, а не по имени.
- * Имя задачи названо у её читателя (`back/scripts/compile_task.ts`), а
- * подпроекту `supervisor/` импорт из `back/` закрыт — второе написание
- * имени здесь разошлось бы с первым молча.
- */
-async function monolithTask(): Promise<string[]> {
-  const denoJsonc = await Deno.readTextFile("deno.jsonc");
-  const line = denoJsonc.split("\n").find((one) =>
-    one.includes('"deno compile') && one.trimEnd().endsWith('back/main.ts",')
-  );
-  assertEquals(line !== undefined, true, "нет задачи сборки монолита");
   return (line ?? "").split(/\s+/);
 }
 
@@ -60,13 +45,17 @@ Deno.test("compile:* — права задач запуска, путь — MPU_
   }
 });
 
-Deno.test("compile:back — те же --include, что у сборки монолита", async () => {
+Deno.test("compile:back несёт воркер разбора и оба .wasm Telegram", async () => {
+  // Без них собранный `mpu-back` падает на `code` и `telegram`
+  // (`platform/supervisor-install.md`). Сравнивать теперь не с чем:
+  // задача монолита ушла вместе с его точкой входа.
   const includes = (words: readonly string[]) =>
     words.flatMap((word, i) => word === "--include" ? [words[i + 1]] : []);
-  assertEquals(
-    includes(await task("compile:back")),
-    includes(await monolithTask()),
-  );
+  assertEquals(includes(await task("compile:back")), [
+    "back/src/code/repo_worker.ts",
+    "back/src/telegram/mtcute.wasm",
+    "back/src/telegram/mtcute-simd.wasm",
+  ]);
 });
 
 Deno.test("версия супервизора — версия сборки back", async () => {

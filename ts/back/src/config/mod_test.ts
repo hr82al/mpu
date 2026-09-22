@@ -64,13 +64,17 @@ Deno.test("configValue: значение лежит в таблице config к�
 
 Deno.test("unsetConfigValue: идемпотентно, пустое значение — как нет", () =>
   withDb((db) => {
-    setConfigValue(db, "mcp.port", "7777");
-    unsetConfigValue(db, "mcp.port");
-    assertEquals(configValue(db, "mcp.port"), undefined);
-    unsetConfigValue(db, "mcp.port");
-    assertEquals(configValue(db, "mcp.port"), undefined);
-    setConfigValue(db, "mcp.port", "");
-    assertEquals(configValue(db, "mcp.port"), undefined, "пустое — умолчание");
+    setConfigValue(db, "sheet.cache.tab_ttl", "7777");
+    unsetConfigValue(db, "sheet.cache.tab_ttl");
+    assertEquals(configValue(db, "sheet.cache.tab_ttl"), undefined);
+    unsetConfigValue(db, "sheet.cache.tab_ttl");
+    assertEquals(configValue(db, "sheet.cache.tab_ttl"), undefined);
+    setConfigValue(db, "sheet.cache.tab_ttl", "");
+    assertEquals(
+      configValue(db, "sheet.cache.tab_ttl"),
+      undefined,
+      "пустое — умолчание",
+    );
   }));
 
 Deno.test("алиасы: upsert, алфавитный порядок, удаление по факту", () =>

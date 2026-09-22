@@ -28,12 +28,11 @@ function ruleAt(path: readonly string[], verdict: Verdict): Rule {
 }
 
 /**
- * Посев группы: `bare` — `ask` (у голого исполнения признака нет);
- * селектор перед подкомандой — самое строгое из посевных решений детей;
- * прочие группы правила не получают — их путь до исполнения не доходит.
+ * Посев группы: селектор перед подкомандой — самое строгое из посевных
+ * решений детей; прочие группы правила не получают — их путь до
+ * исполнения не доходит.
  */
 function groupSeeds(group: CommandGroup): Rule[] {
-  if (group.bare !== undefined) return [ruleAt(group.path, ASK)];
   if (group.layout !== "selector-first") return [];
   const writes = under(group).some((command) => command.policy === "rw");
   return [ruleAt(group.path, writes ? ASK : ALLOW)];

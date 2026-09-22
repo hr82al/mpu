@@ -68,7 +68,7 @@ Deno.test("help-root.txt: состав и тексты, а не рамки", asy
   // Описание CLI — дословно из эталона (отклонение оставляет его в силе).
   assertStringIncludes(
     stdout,
-    "Monorepo Python utilities — multi-purpose CLI for ad-hoc operations.",
+    "mpu — тонкий клиент сервера строк: команды исполняет mpu-back.",
   );
   // Состав полный: 57 имён против 54 в дрейфующем эталоне.
   const names = allNames();

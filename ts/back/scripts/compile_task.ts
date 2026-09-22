@@ -8,7 +8,6 @@
  */
 
 /** Имена задач сборки: каждое названо здесь один раз. */
-export const MONOLITH_TASK = "compile:monolith";
 export const BACK_TASK = "compile:back";
 export const CLI_TASK = "compile:cli";
 

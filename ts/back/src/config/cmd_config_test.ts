@@ -23,7 +23,6 @@ import { makeFakeIo } from "../testing/mod.ts";
 import { configValue, setConfigValue } from "./mod.ts";
 import { renderConfig, runConfig } from "./cmd_config.ts";
 import { CONFIG_KEYS } from "./registry.ts";
-import { DEFAULT_PORT } from "../mcp/server.ts";
 import { DEFAULTS } from "../sheet/settings.ts";
 
 /** Аргументы вызова; по умолчанию — голый `mpu config`. */
@@ -71,11 +70,6 @@ Deno.test("список: форма строки — эталон канала",
       text,
     );
     assertEquals(text.split("\n").length - 1, CONFIG_KEYS.length);
-    assertEquals(
-      text.startsWith("mcp.port                   7337  (default)\n"),
-      true,
-      text,
-    );
   });
 });
 
@@ -85,18 +79,11 @@ Deno.test("список --json: форма записи — эталон кан�
     const entries = JSON.parse(renderConfig(result, true));
     const original = JSON.parse(await golden("list-json.stdout"));
     assertEquals(entries.length, CONFIG_KEYS.length);
-    // Пять записей оригинала обязаны совпасть с голденом дословно —
-    // вместе с описаниями: их читает человек.
-    assertEquals(entries.slice(1), original);
-    // Наша запись в голдене отсутствует, поэтому проверяется здесь: у
-    // неё есть умолчание, и источник у него один.
-    assertEquals(entries[0], {
-      key: "mcp.port",
-      value: "7337",
-      source: "default",
-      default: "7337",
-      description: "Порт HTTP-сервера MCP прежнего монолита (не поднимается)",
-    });
+    // Записи обязаны совпасть с голденом дословно — вместе с
+    // описаниями: их читает человек. Своей записи сверх голдена
+    // больше нет: `mcp.port` ушёл вместе с сервером 7337
+    // (`platform/monolith-removal.md`).
+    assertEquals(entries, original);
   });
 });
 
@@ -157,10 +144,13 @@ Deno.test("запись: буквально, с проверкой int до хр
     });
 
     await t.step("значение хранится строкой буквально", async () => {
-      await runConfig(args({ key: "mcp.port", value: "007" }), io);
+      await runConfig(
+        args({ key: "sheet.cache.max_total_mb", value: "007" }),
+        io,
+      );
       // Нормализация «007» → «7» развела бы наше хранилище с рабочим
       // на ровном месте: таблица одна на обе реализации.
-      assertEquals(configValue(db, "mcp.port"), "007");
+      assertEquals(configValue(db, "sheet.cache.max_total_mb"), "007");
     });
 
     await t.step(
@@ -182,29 +172,9 @@ Deno.test("запись: буквально, с проверкой int до хр
   });
 });
 
-Deno.test("mcp.port проверяется диапазоном, sheet.cache.* — нет", async (t) => {
+Deno.test("у ключей кэша границ нет намеренно", async (t) => {
   await withIo(async (io, db) => {
-    await t.step("порт вне 1–65535 — отказ до записи", async () => {
-      for (const value of ["0", "65536", "99999"]) {
-        await assertRejects(
-          () => runConfig(args({ key: "mcp.port", value }), io),
-          UsageError,
-          `mcp.port ожидает порт 1–65535, получено "${value}"`,
-        );
-      }
-      // Иначе `mpu config` показывал бы 99999, пока сервер слушает
-      // умолчание: parsePort молча заменяет несуразное значение.
-      assertEquals(configValue(db, "mcp.port"), undefined);
-    });
-
-    await t.step("границы диапазона допустимы", async () => {
-      await runConfig(args({ key: "mcp.port", value: "1" }), io);
-      assertEquals(configValue(db, "mcp.port"), "1");
-      await runConfig(args({ key: "mcp.port", value: "65535" }), io);
-      assertEquals(configValue(db, "mcp.port"), "65535");
-    });
-
-    await t.step("у ключей кэша границ нет намеренно", async () => {
+    await t.step("ноль и миллиард принимаются", async () => {
       // Оригинал принимает и ноль, и миллиард; потребитель отбрасывает
       // несуразное сам, с заметкой в журнал (отклонение preserve).
       await runConfig(args({ key: "sheet.cache.tab_ttl", value: "0" }), io);
@@ -290,10 +260,9 @@ Deno.test("реестр закрыт: имя вне списка не созда
       const text = formatCommandError("config", err);
       const tail = (await golden("err-unknown-key.stderr")).trim()
         .split("допустимые ключи: ")[1];
-      // Состав у голдена оригинальный (без нашего mcp.port), поэтому
-      // сверяется хвост перечня и форма подсказки.
+      // Состав совпал с голденом целиком: своих ключей сверх него у
+      // нас не осталось (`platform/monolith-removal.md`).
       assertEquals(text.endsWith(tail), true, text);
-      assertEquals(text.includes("mcp.port, sheet.default"), true, text);
     });
   });
 });
@@ -333,8 +302,11 @@ Deno.test("переменные окружения на выдачу не вли
       // них нет (`platform/config.md`, «Граничные случаи»).
       assertEquals(list.includes("9999"), false, list);
       assertEquals(
-        renderConfig(await runConfig(args({ key: "mcp.port" }), io), false),
-        "7337\n",
+        renderConfig(
+          await runConfig(args({ key: "sheet.cache.tab_ttl" }), io),
+          false,
+        ),
+        "7200\n",
       );
       assertEquals(
         renderConfig(
@@ -344,9 +316,12 @@ Deno.test("переменные окружения на выдачу не вли
         "",
       );
       // И запись в хранилище от окружения тоже не зависит.
-      setConfigValue(db, "mcp.port", "7000");
+      setConfigValue(db, "sheet.cache.tab_ttl", "7000");
       assertEquals(
-        renderConfig(await runConfig(args({ key: "mcp.port" }), io), false),
+        renderConfig(
+          await runConfig(args({ key: "sheet.cache.tab_ttl" }), io),
+          false,
+        ),
         "7000\n",
       );
     });
@@ -358,9 +333,8 @@ Deno.test("переменные окружения на выдачу не вли
   }
 });
 
-Deno.test("реестр: шесть ключей по порядку спеки", () => {
+Deno.test("реестр: пять ключей по порядку спеки", () => {
   assertEquals(CONFIG_KEYS.map((entry) => entry.key), [
-    "mcp.port",
     "sheet.default",
     "xlsx.default",
     "sheet.cache.tab_ttl",
@@ -375,7 +349,6 @@ Deno.test("умолчания реестра совпадают с теми, ч�
   // `mpu config` красивой ложью: печатает одно, работает другое.
   const fallback = (key: string) =>
     CONFIG_KEYS.find((entry) => entry.key === key)?.fallback;
-  assertEquals(fallback("mcp.port"), String(DEFAULT_PORT));
   assertEquals(fallback("sheet.cache.tab_ttl"), String(DEFAULTS.tabTtlSeconds));
   assertEquals(
     fallback("sheet.cache.max_tab_bytes"),
@@ -438,7 +411,10 @@ Deno.test("ввод разбирается до хранилища: отказ �
 
     const cases: readonly [string, Parameters<typeof runConfig>[0]][] = [
       ["имя вне реестра", args({ key: "nope.key" })],
-      ["нечисловое значение", args({ key: "mcp.port", value: "abc" })],
+      [
+        "нечисловое значение",
+        args({ key: "sheet.cache.tab_ttl", value: "abc" }),
+      ],
       ["--unset без ключа", args({ unset: true })],
       ["пустое значение", args({ key: "sheet.default", value: "" })],
     ];
@@ -469,17 +445,17 @@ Deno.test("чтение работает и без хранилища — по �
   await t.step("список печатается целиком", async () => {
     const text = renderConfig(await runConfig(args(), io), false);
     assertEquals(text.split("\n").length - 1, CONFIG_KEYS.length);
-    assertEquals(text.includes("7337  (default)"), true, text);
+    assertEquals(text.includes("7200  (default)"), true, text);
   });
 
   await t.step("чтение ключа отдаёт умолчание", async () => {
-    const result = await runConfig(args({ key: "mcp.port" }), io);
-    assertEquals(renderConfig(result, false), "7337\n");
+    const result = await runConfig(args({ key: "sheet.cache.tab_ttl" }), io);
+    assertEquals(renderConfig(result, false), "7200\n");
   });
 
   await t.step("запись без хранилища — отказ инфраструктуры", async () => {
     await assertRejects(
-      () => runConfig(args({ key: "mcp.port", value: "7000" }), io),
+      () => runConfig(args({ key: "sheet.cache.tab_ttl", value: "7000" }), io),
       DomainError,
       "путь к кэш-БД не определён",
     );
