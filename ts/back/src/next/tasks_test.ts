@@ -1,5 +1,5 @@
 /**
- * Права задачи `next` — те же, что у задачи `build`
+ * Права задачи `next` — те же, что у задачи сборки монолита
  * (`platform/registry-objects.md`, «`mpu-next`»): это та же программа,
  * запущенная из исходников. Разъехавшись, списки дали бы точке входа
  * доступ, которого у собранного бинаря нет, и заметить это было бы
@@ -7,6 +7,7 @@
  */
 
 import { assertEquals, assertGreater } from "@std/assert";
+import { MONOLITH_TASK } from "../../scripts/compile_task.ts";
 
 function permissionsOf(denoJsonc: string, task: string): string[] {
   const line = denoJsonc.match(new RegExp(`"${task}": "([^"]*)"`))?.[1] ?? "";
@@ -16,11 +17,11 @@ function permissionsOf(denoJsonc: string, task: string): string[] {
     .sort();
 }
 
-Deno.test("права next и build совпадают", async () => {
+Deno.test("права next и сборки монолита совпадают", async () => {
   const denoJsonc = await Deno.readTextFile("deno.jsonc");
-  const build = permissionsOf(denoJsonc, "build");
+  const build = permissionsOf(denoJsonc, MONOLITH_TASK);
   // Пустые списки совпали бы между собой молча.
-  assertGreater(build.length, 3, "прав задачи build не нашлось");
+  assertGreater(build.length, 3, `прав задачи ${MONOLITH_TASK} не нашлось`);
   assertEquals(permissionsOf(denoJsonc, "next"), build);
 });
 

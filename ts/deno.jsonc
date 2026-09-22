@@ -199,7 +199,7 @@
     //     тем же разбором, что и ответ, сравнивал бы ответ с самим
     //     собой, и мутация портила бы обе стороны сравнения разом.
     //     Право нужно тесту, а не команде: бинарь `deno check` не
-    //     запускает, и в задаче `build` этого права нет.
+    //     запускает, и в задаче `compile:monolith` этого права нет.
     //     Именем, а не путём из `Deno.execPath()`: абсолютный путь
     //     версионный (`…/installs/deno/<версия>/bin/deno`) и сломается
     //     на первом же обновлении Deno — причём тихо, и выглядеть это
@@ -220,13 +220,14 @@
     //   --allow-read                     без ограничения пути: аргумент
     //     команды — произвольный файл пользователя (`mpu xlsx <файл>`),
     //     заранее известного корня у него нет;
-    //   --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp
+    //   --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp
     //     каталог состояния — кэш-БД, журнал и файл токена доступа
-    //     (все три 0600); rc-файлы — установка дополнения
-    //     (`mpu --install-completion`, `platform/registry.md`): она
-    //     дописывает скрипт в конец файла и другого места записи не
-    //     знает. Списком именно этих файлов, а не всего $HOME: промах
-    //     мимо них — ошибка, и её видно сразу. Второй элемент —
+    //     (все три 0600). Ни rc-файлов оболочек, ни каталога программ,
+    //     ни каталога служб здесь больше нет: дополнение подключает
+    //     `install.sh`, программы ставит он же, службу — он же
+    //     (`platform/cutover.md`). Списком именно этих каталогов, а не
+    //     всего $HOME: промах мимо них — ошибка, и её видно сразу.
+    //     Второй элемент —
     //     каталог конфигурации: туда уводятся env-файл (`envFile.set`,
     //     `platform/env-file.md`) и токен-кэш sl-back, когда задана
     //     `XDG_CONFIG_HOME` (правило границы — порция 87, названо в
@@ -245,26 +246,6 @@
     //     не открывало, а попытка копирования, ради которой оно
     //     стояло, убрана порцией 91. Чтение `/dev/tty` (вопрос
     //     терминала, `confirm.md`) покрыто `--allow-read`;
-    //     `$HOME/.local/bin` — каталог установки: `mpu build` пишет
-    //     туда кандидата, переименовывает его поверх цели и возвращает
-    //     на место прежний экземпляр (`docs/specs/build.md`). Одним
-    //     путём, а не всем `$HOME`: промах мимо него — ошибка, и её
-    //     видно сразу. Право smoke НЕ покрывает: покрыл бы его только
-    //     полный `mpu build`, а он заменяет установленную программу
-    //     запускающего — проверка, меняющая машину оператора, хуже
-    //     непроверенного права (см. CLAUDE.md, «Проверка каждого
-    //     изменения», список исключений);
-    //     Каталог служб пользователя (`systemd/user`, оба написания —
-    //     по той же причине, что у каталога конфигурации выше) —
-    //     описание службы MCP-сервера: `mpu mcp enable` пишет туда файл
-    //     `mpu-mcp.service`, `mpu mcp disable` его удаляет
-    //     (`docs/specs/mcp-service.md`). Другого места записи это
-    //     семейство не знает; менеджер служб правится не файлом, а
-    //     `systemctl`, и он уже покрыт `--allow-run`. Право smoke НЕ
-    //     покрывает: проверить его можно только там, где есть менеджер
-    //     служб пользователя, а в изолированном прогоне его нет
-    //     (см. CLAUDE.md, «Проверка каждого изменения» — исключения
-    //     называются поимённо, это третье);
     //     `/tmp` и `/var/tmp` — каталог временных файлов: дамп
     //     `copy-client` и `copy-dev` пишется во временный файл
     //     (`docs/specs/copy-client.md`, «Известные ловушки»), и без
@@ -279,7 +260,7 @@
     //     гигабайт. `TMPDIR`, указывающий куда-то ещё, правом не
     //     покрыт — отказ переводится в понятный текст
     //     (`back/src/copy/tools.ts`, `makeDumpFile`);
-    //   --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*
+    //   --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*
     //     HOME даёт путь каталога состояния и rc-файла;
     //     XDG_CONFIG_HOME — путь env-файла секретов
     //     (`platform/env-file.md`, «Известные отклонения»: учёт этой
@@ -298,13 +279,9 @@
     //     `envFile.get/require/set` разбирают только файл, `Deno.env.get`
     //     не зовут, и права на чтение ключа команде-потребителю не
     //     нужно (часть имён на `PG` попадает под префикс ниже —
-    //     побочно, не ради них). Остальные четыре — режим дополнения:
-    //     `_MPU_COMPLETE` включает его и читается до разбора argv, то
-    //     есть на любой команде, а COMP_WORDS с COMP_CWORD (bash) и
-    //     `_TYPER_COMPLETE_ARGS` (zsh) сообщают набранную строку. Имена
-    //     задаёт не код, а скрипт дополнения в rc-файле пользователя
-    //     (эталон `fixtures/platform/registry/completion-*.txt`) —
-    //     сузить список нельзя. `SHELL` в списке нет намеренно: shell
+    //     побочно, не ради них). Режима дополнения в этом списке больше
+    //     нет: дополняет `mpu-complete`, у него свои переменные
+    //     (`platform/cutover.md`). `SHELL` в списке нет намеренно: shell
     //     определяется по дереву процессов-предков (`back/src/runtime`), а
     //     не по этой переменной. Единственная запись не из этого ряда —
     //     префикс `PG*`: клиент PostgreSQL (`npm:pg` — см. `imports`
@@ -424,9 +401,9 @@
     // `import.meta.url` (`back/src/telegram/crypto.ts`), и без этих строк
     // собранный бинарь не откроет сеанс ни при каком окружении (проверка
     // smoke «telegram: криптография без сети…» краснеет без них).
-    "build": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $HOME/.local/bin/mpu back/main.ts",
+    "compile:monolith": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/main.ts",
     // Проверка собранного бинаря: `deno test` идёт с широкими правами и
-    // нехватку прав в задаче `build` не видит — её ловит только запуск
+    // нехватку прав в задаче `compile:monolith` не видит — её ловит только запуск
     // бинаря. Права самого скрипта широки по делу: он собирает бинарь
     // во временный каталог (`--allow-write`) и запускает сначала `deno`,
     // потом собранное (`--allow-run`) — оба пути заранее неизвестны.
@@ -439,7 +416,7 @@
     //     `127.0.0.1`: «только локальный стенд» держится правом, а не
     //     намерением — с прод-настройками проверка не дотянется до
     //     чужой базы и честно пропустится. `PG*` — то же право и по той
-    //     же причине, что у задачи `build`: драйвер `pg` читает
+    //     же причине, что у задачи `compile:monolith`: драйвер `pg` читает
     //     окружение сам (`PGBINARY` и прочие), и без этого права
     //     проверка падала на нём, печатая пропуск «стенд не поднят» —
     //     то есть притворялась живой, не исполняясь ни разу
@@ -447,11 +424,12 @@
     "smoke": "deno run --allow-read --allow-write --allow-run --allow-env=HOME,XDG_CONFIG_HOME,PG* --deny-env=NODE_PG_FORCE_NATIVE --allow-net=127.0.0.1 back/scripts/smoke.ts",
     // Точка входа `mpu-next` (`platform/registry-objects.md`): та же
     // строка вызова, исполненная цепочкой сообщений по дереву реестра.
-    // Права — ровно те же, что у задачи `build`, и по тем же причинам:
+    // Права — ровно те же, что у задачи `compile:monolith`, и по тем же
+    // причинам:
     // это та же программа, запущенная из исходников, а не собранная.
     // Шире они не становятся; `--include` и `-o` сюда не переезжают —
     // это атрибуты сборки, а не доступы.
-    "next": "deno run --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/next.ts",
+    "next": "deno run --allow-read --allow-write=$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/next.ts",
     // Сервер строк и запросов `mpu-back` (`platform/back-rpc.md`): те же
     // строки `mpu-next`, поэтому права — права задачи `next`, и два
     // сверх них:
@@ -467,7 +445,7 @@
     //     `--allow-read` без списка (оно у `next` для команд);
     //   — запись `$HOME/.config/mpu/web-sessions` (хэши сессий браузера,
     //     0600) покрыта `--allow-write=$HOME/.config/mpu`.
-    "back": "deno run --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/back.ts",
+    "back": "deno run --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/back.ts",
     // Тонкий клиент `mpu-next` (`docs/specs/cli-client.md`): сам ничего
     // не исполняет, поэтому прав — ровно на разговор с сервером строк:
     //   — `--allow-net=127.0.0.1`: сервер слушает только петлю
@@ -514,8 +492,8 @@
     "supervisor": "deno run --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp --allow-env=HOME supervisor/main.ts",
     // Сборка частей рядом со старым `mpu` (`platform/supervisor-install.md`,
     // «Части»): права каждой — ровно права её задачи запуска, у `back` —
-    // те же `--include`, что у `build` (воркер разбора кода и два `.wasm`
-    // Telegram: без них собранный `mpu-back` падает на `code` и
+    // те же `--include`, что у `compile:monolith` (воркер разбора кода и
+    // два `.wasm` Telegram: без них собранный `mpu-back` падает на `code` и
     // `telegram`). Путь результата — `MPU_OUT`: `deno task` дописывает
     // аргументы в конец, а у `deno compile` всё после скрипта — аргументы
     // самой программы. Совпадение прав с задачами запуска —
@@ -524,7 +502,7 @@
     // (он нужен фронту) `deno compile` вшивал его целиком — Vite, jsdom,
     // React, +61 МБ к каждому бинарю (замер порции 148); так вшиваются
     // только пакеты графа программы.
-    "compile:back": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,$HOME/.config/systemd/user,$XDG_CONFIG_HOME/systemd/user,$HOME/.local/bin,$HOME/.bashrc,$HOME/.zshrc,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,_MPU_COMPLETE,COMP_WORDS,COMP_CWORD,_TYPER_COMPLETE_ARGS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
+    "compile:back": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
     "compile:mcp": "deno compile --node-modules-dir=none --exclude-unused-npm --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT mcp/main.ts",
     "compile:cli": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=wl-copy,xclip,xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,WT_SESSION,OS -o $MPU_OUT cli/main.ts",
     "compile:complete": "deno compile --allow-read=$HOME/.cache/mpu/tree.json --allow-env=HOME -o $MPU_OUT complete/main.ts",

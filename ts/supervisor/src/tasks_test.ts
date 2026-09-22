@@ -1,7 +1,7 @@
 /**
  * Права задач порции (`platform/supervisor-install.md`): у супервизора —
  * запуск двух программ и `HOME`; у `compile:*` — ровно права задачи
- * запуска (у `back` — плюс `--include` задачи `build`). Версия
+ * запуска (у `back` — плюс `--include` задачи сборки монолита). Версия
  * супервизора — та же, что у `back/src/version.ts`.
  */
 
@@ -12,6 +12,21 @@ async function task(name: string): Promise<string[]> {
   const denoJsonc = await Deno.readTextFile("deno.jsonc");
   const line = denoJsonc.match(new RegExp(`"${name}": "([^"]*)"`))?.[1];
   assertEquals(line !== undefined, true, `нет задачи ${name}`);
+  return (line ?? "").split(/\s+/);
+}
+
+/**
+ * Задача, собирающая монолит: ищется по своему скрипту, а не по имени.
+ * Имя задачи названо у её читателя (`back/scripts/compile_task.ts`), а
+ * подпроекту `supervisor/` импорт из `back/` закрыт — второе написание
+ * имени здесь разошлось бы с первым молча.
+ */
+async function monolithTask(): Promise<string[]> {
+  const denoJsonc = await Deno.readTextFile("deno.jsonc");
+  const line = denoJsonc.split("\n").find((one) =>
+    one.includes('"deno compile') && one.trimEnd().endsWith('back/main.ts",')
+  );
+  assertEquals(line !== undefined, true, "нет задачи сборки монолита");
   return (line ?? "").split(/\s+/);
 }
 
@@ -45,12 +60,12 @@ Deno.test("compile:* — права задач запуска, путь — MPU_
   }
 });
 
-Deno.test("compile:back — те же --include, что у build", async () => {
+Deno.test("compile:back — те же --include, что у сборки монолита", async () => {
   const includes = (words: readonly string[]) =>
     words.flatMap((word, i) => word === "--include" ? [words[i + 1]] : []);
   assertEquals(
     includes(await task("compile:back")),
-    includes(await task("build")),
+    includes(await monolithTask()),
   );
 });
 

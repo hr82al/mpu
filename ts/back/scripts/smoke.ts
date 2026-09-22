@@ -19,11 +19,9 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { VERSION } from "../src/version.ts";
-import { REQUIRES_INTERACTION } from "../src/mcp/tool.ts";
-import { PROTOCOL_VERSION } from "../src/mcp/jsonrpc.ts";
 import { HEADERS_TIMEOUT_MS, TOTAL_TIMEOUT_MS } from "../src/http/mod.ts";
 import { WARMUP_BUDGET_MS } from "../src/kaiten/mod.ts";
-import { compileArgs } from "../src/install/mod.ts";
+import { compileArgs, CompileTaskError } from "./compile_task.ts";
 import { envFilePath, makeEnvFile } from "../src/env/mod.ts";
 import { makeEnvFileStore } from "../src/runtime/mod.ts";
 import { denoSession } from "../src/sql/mod.ts";
@@ -34,19 +32,6 @@ import {
   skipCause,
   skipReason,
 } from "../src/api/schema_golden.ts";
-
-/**
- * Значения `_MPU_COMPLETE` и переменные, которые подставляет shell.
- * Повторяют эталон скрипта дополнения
- * (`fixtures/platform/registry/completion-*.txt`): здесь мы играем роль
- * shell, а не зовём код точки входа.
- */
-const COMPLETE_ENV = "_MPU_COMPLETE";
-const COMPLETE_BASH = "complete_bash";
-const COMPLETE_ZSH = "complete_zsh";
-
-/** Строка, которой `mpu mcp` сообщает, что сокет уже слушает. */
-const LISTEN_MARKER = "слушаю http://";
 
 const decoder = new TextDecoder();
 
@@ -200,10 +185,10 @@ function requireOutsideTempPermission(...paths: readonly string[]): void {
 }
 
 /**
- * Собирает бинарь прогона. Аргументы — из задачи `build`
- * (`src/install/mod.ts`): список прав здесь не переписывается, иначе
- * smoke проверял бы не те права, с которыми бинарь ставится.
- * Подменяются только путь вывода и два каталога окружения.
+ * Собирает бинарь прогона. Аргументы — из задачи сборки монолита
+ * (`compile_task.ts`): список прав здесь не переписывается, иначе smoke
+ * проверял бы не те права, с которыми собирается программа. Подменяются
+ * только путь вывода и два каталога окружения.
  */
 async function compile(subject: Subject): Promise<void> {
   const args = compileArgs(await Deno.readTextFile("deno.jsonc"), {
@@ -237,157 +222,6 @@ async function firstExisting(
 /** Строки команд из журнала: по одной на запись. */
 function logRecords(text: string): readonly string[] {
   return text.split("\n").filter((line) => line.startsWith("$ mpu "));
-}
-
-/** Ждёт сообщение о старте сервера; поток кончился — сервер не встал. */
-async function waitForListening(
-  stderr: ReadableStream<Uint8Array>,
-): Promise<number> {
-  let text = "";
-  for await (const chunk of stderr) {
-    text += decoder.decode(chunk);
-    // Порт выдаёт ОС (`--port 0`), и узнать его можно только отсюда.
-    const port = /слушаю http:\/\/127\.0\.0\.1:(\d+)/.exec(text);
-    if (port !== null) return Number(port[1]);
-    if (text.includes(LISTEN_MARKER)) {
-      throw new Error(`в сообщении о старте нет порта: ${text.trim()}`);
-    }
-  }
-  throw new Error(`сервер не сообщил о старте: ${text.trim()}`);
-}
-
-/**
- * `mpu mcp` разом проверяет права слушающего сокета, записи токена и
- * подпроцесса сверки версий, а поднятый сервер — то, что видно только
- * снаружи: аннотации тулов в ответе `tools/list`.
- */
-async function checkMcpServer(subject: Subject): Promise<void> {
-  // Файл токена сервер заводит сам — ещё одно утверждение о праве на
-  // каталог состояния, слепое под `/tmp`.
-  requireOutsideTempPermission(subject.home);
-  const child = new Deno.Command(subject.bin, {
-    args: ["mcp", "--port", "0", "--profile", "rw"],
-    env: { HOME: subject.home },
-    clearEnv: true,
-    stdin: "null",
-    stdout: "null",
-    stderr: "piped",
-  }).spawn();
-  try {
-    const port = await waitForListening(child.stderr);
-    const token = (await Deno.readTextFile(`${subject.home}/.config/mpu/token`))
-      .trim();
-    await checkToolAnnotations(port, token);
-    assertEquals(
-      (await modeOf(`${subject.home}/.config/mpu/token`)).toString(8),
-      "600",
-      "права файла токена не 0600",
-    );
-    // Сервер обязан гаснуть по сигналу завершения САМ и выходить
-    // нулём: убитый сигналом процесс выходит ненулевым кодом (замер
-    // 2026-09-09: 143 на SIGTERM, 130 на SIGINT), и менеджер служб
-    // видел бы `failed` там, где мы напечатали «остановлена»
-    // (`docs/specs/mcp-service.md`). Проверяется только запуском
-    // бинаря: `deno test` сигналов своему процессу не шлёт.
-    stopServer(child);
-    const status = await stoppedWithin(child, STOP_DEADLINE_MS);
-    assertEquals(
-      status.code,
-      0,
-      `сервер не погасился по SIGTERM: код ${status.code}` +
-        `${status.signal === null ? "" : `, сигнал ${status.signal}`}`,
-    );
-  } finally {
-    // Повторное гашение безопасно: `stopServer` глотает `TypeError`
-    // уже завершённого процесса, а статус ждётся сколько угодно раз.
-    stopServer(child);
-    await child.status;
-  }
-}
-
-/** Сколько ждать, пока сервер погаснет по сигналу. */
-const STOP_DEADLINE_MS = 10_000;
-
-/**
- * Статус завершения в срок. Без срока регрессия «сервер не гасится по
- * сигналу» — та самая, которую ловит эта проверка, — давала бы не
- * красное, а вечное ожидание: обработчик стоит всегда, и не доведённое
- * до конца гашение некому прервать.
- */
-async function stoppedWithin(
-  child: Deno.ChildProcess,
-  ms: number,
-): Promise<Deno.CommandStatus> {
-  const late = Promise.withResolvers<never>();
-  const timer = setTimeout(() => {
-    try {
-      child.kill("SIGKILL");
-    } catch {
-      // Уже мёртв — тогда статус придёт сам, и срок ни при чём.
-    }
-    late.reject(new Error(`сервер не погас за ${ms / 1000} с после SIGTERM`));
-  }, ms);
-  try {
-    return await Promise.race([child.status, late.promise]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/** Тул в ответе `tools/list` — ровно то, что нужно этой проверке. */
-interface ListedTool {
-  readonly name: string;
-  readonly annotations: { readonly destructiveHint?: boolean };
-  readonly _meta?: Readonly<Record<string, unknown>>;
-}
-
-/**
- * Аннотации необратимых тулов видны только снаружи: `deno test` берёт
- * их из сборки профилей, а клиент — из ответа по HTTP. Здесь проверяем
- * именно ответ поднятого бинаря.
- */
-async function checkToolAnnotations(
-  port: number,
-  token: string,
-): Promise<void> {
-  const response = await fetch(`http://127.0.0.1:${port}/rw`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${token}`,
-      "MCP-Protocol-Version": PROTOCOL_VERSION,
-      "Mcp-Method": "tools/list",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
-  });
-  assertEquals(response.status, 200, "tools/list не ответил");
-  const body = await response.json() as { result: { tools: ListedTool[] } };
-  const find = (name: string) => {
-    const tool = body.result.tools.find((item) => item.name === name);
-    assert(tool !== undefined, `в профиле rw нет тула ${name}`);
-    return tool;
-  };
-  // Необратимый: помечен обоими способами — аннотацией и `_meta`.
-  const destructive = find("sql");
-  assertEquals(destructive.annotations.destructiveHint, true);
-  assertEquals(destructive._meta?.[REQUIRES_INTERACTION], true);
-  // Мутирующий, но локальный: не помечен ни тем, ни другим.
-  const local = find("xlsx_alias_add");
-  assertEquals(local.annotations.destructiveHint, undefined);
-  assertEquals(local._meta, undefined);
-}
-
-/**
- * Гасит сервер. Сервер мог упасть сам — тогда гасить нечего, и эта
- * ошибка не должна затирать настоящую причину падения; прочие ошибки
- * гашения — наружу.
- */
-function stopServer(child: Deno.ChildProcess): void {
-  try {
-    child.kill("SIGTERM");
-  } catch (err) {
-    if (!(err instanceof TypeError)) throw err;
-  }
 }
 
 /** Проверка: имя для отчёта и запуск, падающий с объяснением. */
@@ -461,37 +295,6 @@ function checks(subject: Subject): readonly Check[] {
     ["version", async () => {
       const outcome = await runOk(subject, ["version"]);
       assertEquals(outcome.stdout.trim(), VERSION, "не та версия");
-    }],
-    ["дополнение bash", async () => {
-      const outcome = await runOk(subject, [], {
-        [COMPLETE_ENV]: COMPLETE_BASH,
-        COMP_WORDS: "mpu ver",
-        COMP_CWORD: "1",
-      });
-      assert(
-        outcome.stdout.split("\n").includes("version"),
-        `среди вариантов нет version: ${JSON.stringify(outcome.stdout)}`,
-      );
-    }],
-    ["дополнение zsh", async () => {
-      const outcome = await runOk(subject, [], {
-        [COMPLETE_ENV]: COMPLETE_ZSH,
-        _TYPER_COMPLETE_ARGS: "mpu ver",
-      });
-      assert(
-        outcome.stdout.includes(`"version"`),
-        `среди вариантов нет version: ${JSON.stringify(outcome.stdout)}`,
-      );
-    }],
-    // Оба shell разом: rc-файлы разрешены поимённо, и промах по
-    // любому из них — отказ в записи уже у пользователя.
-    ["установка дополнения в rc-файлы", async () => {
-      requireOutsideTempPermission(subject.home);
-      for (const [shell, rc] of [["bash", ".bashrc"], ["zsh", ".zshrc"]]) {
-        await runOk(subject, ["--install-completion", shell]);
-        const text = await Deno.readTextFile(`${subject.home}/${rc}`);
-        assert(text.includes("_mpu_completion"), `скрипт не дописан в ${rc}`);
-      }
     }],
     // Право на каталог временных файлов: дамп `copy-client`/`copy-dev`
     // пишется во временный файл, и без права бинарь падает `Requires
@@ -1253,7 +1056,6 @@ function checks(subject: Subject): readonly Check[] {
         await session.close();
       }
     }],
-    ["mcp: сокет, токен, аннотации тулов", () => checkMcpServer(subject)],
   ];
 }
 
@@ -1334,7 +1136,7 @@ async function main(): Promise<number> {
   const home = await makeSubjectHome();
   try {
     // Каталог конфигурации — внутри подменного HOME, но вне
-    // `.config/mpu`: право задачи `build` перечисляет именно
+    // `.config/mpu`: право задачи сборки перечисляет именно
     // `.config/mpu`, и запись в `xdg/mpu` им не покрыта — иначе
     // проверка границы ничего бы не доказывала.
     const subject: Subject = {
@@ -1343,7 +1145,16 @@ async function main(): Promise<number> {
       configHome: `${home}/xdg`,
     };
     console.log("== сборка ==");
-    await compile(subject);
+    try {
+      await compile(subject);
+    } catch (err) {
+      // Задачи нет — прогон говорит, какой именно, и уходит: падать
+      // разбором незачем, а молча пропускать сборку нельзя
+      // (`platform/cutover.md`).
+      if (!(err instanceof CompileTaskError)) throw err;
+      console.error(`smoke: ${err.message}`);
+      return 1;
+    }
     console.log("== проверки ==");
     let passed = 0;
     let failed = 0;

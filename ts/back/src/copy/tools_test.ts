@@ -7,6 +7,7 @@
  */
 
 import { assertEquals, assertRejects } from "@std/assert";
+import { MONOLITH_TASK } from "../../scripts/compile_task.ts";
 import {
   DUMP_DIRS,
   makeDumpFile,
@@ -30,15 +31,18 @@ Deno.test("временный файл дампа ложится в катало
   }
 });
 
-Deno.test("названные каталоги совпадают с правом задачи build", async () => {
+Deno.test("названные каталоги совпадают с правом задачи сборки", async () => {
   // Текст отказа перечисляет каталоги, а право их разрешает — два
   // места про одно. Сверка здесь: разойдясь, они дали бы оператору
   // совет, которого сборка не поддерживает.
   const denoJsonc = await Deno.readTextFile(
     new URL("../../../deno.jsonc", import.meta.url),
   );
-  const build = denoJsonc.match(/"build":\s*"([^"]*)"/)?.[1] ?? "";
-  const write = build.split(/\s+/)
+  // Имя задачи сборки названо один раз — у её единственного читателя.
+  const task = denoJsonc.match(
+    new RegExp(`"${MONOLITH_TASK}":\\s*"([^"]*)"`),
+  )?.[1] ?? "";
+  const write = task.split(/\s+/)
     .find((arg) => arg.startsWith("--allow-write="))
     ?.slice("--allow-write=".length)
     .split(",") ?? [];
