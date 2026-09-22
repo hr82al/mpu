@@ -189,6 +189,18 @@
       "flags": [
         "md"
       ]
+    },
+    "ranged": {
+      "unary": [],
+      "keyword": [
+        {
+          "keys": {
+            "range": "list",
+            "file": "value"
+          },
+          "required": []
+        }
+      ]
     }
   },
   "cases": [
@@ -1555,6 +1567,77 @@
           }
         }
       ]
+    },
+    {
+      "name": "ключ-список повторяется, значения копятся по порядку",
+      "words": [
+        "get",
+        "range:",
+        "A1",
+        "file:",
+        "x",
+        "range:",
+        "B2"
+      ],
+      "receivers": [
+        "root",
+        "ranged"
+      ],
+      "messages": [
+        {
+          "unary": "get"
+        },
+        {
+          "keyword": {
+            "range": [
+              "A1",
+              "B2"
+            ],
+            "file": "x"
+          }
+        }
+      ]
+    },
+    {
+      "name": "ключ-список один раз — список из одного",
+      "words": [
+        "get",
+        "range:",
+        "A1"
+      ],
+      "receivers": [
+        "root",
+        "ranged"
+      ],
+      "messages": [
+        {
+          "unary": "get"
+        },
+        {
+          "keyword": {
+            "range": [
+              "A1"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "повтор обычного ключа рядом со списком — ошибка",
+      "words": [
+        "get",
+        "file:",
+        "x",
+        "range:",
+        "A1",
+        "file:",
+        "y"
+      ],
+      "receivers": [
+        "root",
+        "ranged"
+      ],
+      "error": "ключ file указан дважды"
     },
     {
       "name": "--help первым словом — справка, даже у чужого хвоста",

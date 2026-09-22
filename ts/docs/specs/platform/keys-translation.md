@@ -66,6 +66,7 @@
 | `logs` | `ls` значением селектора / сервиса | унарные `hosts` (`mpu logs hosts`), `services` (`mpu logs services target: sl-1`) | то же |
 | `kiten status` | `--since` и `--time-since` | `since:` и `horizon:` | два независимых окна |
 | `kiten time edit/rm` | карточка и запись учёта | `id:` (карточка), `log:` (запись) | два идентификатора |
+| `mr view/files/diff/comments/describe/note/comment` | MR — опцией `--mr` | `id:` (MR); `--mr 5` — отказ «номер — ключом: … id: 5» | один идентификатор |
 | `mr delete/edit` | заметка и MR | `id:` (заметка), `mr:` | то же |
 | `mr reply/resolve/unresolve/show` | тред и MR | `id:` (тред), `mr:` | то же |
 | `run-js` | код значением / `--file` / stdin | `text:` / `file:` / stdin | три режима называются, не угадываются |
@@ -103,7 +104,7 @@
 | `mpu process 54 --spreadsheet_id X` | `…: ключ через дефис: … --spreadsheet-id X`, код 2 |
 | `mpu ps --tsv` | `…: формат — сообщение результату: mpu ps end tsv`, код 2 |
 | `mpu logs ls` | `…: хосты — сообщением: mpu logs hosts`, код 2 |
-| `mpu mr comment id: 5 at: src/a.ts:10 text: "см. тут"` | комментарий к строке, как прежде `mr comment 5 src/a.ts:10 -m …` (пара разбора) |
+| `mpu mr comment id: 5 at: src/a.ts:10 text: "см. тут"` | комментарий к строке, как прежде `mr comment src/a.ts:10 --mr 5 -m …` (пара разбора) |
 | `mpu ssh target: sl-1 cmd: "ls -la"` | как прежде `mpu ssh sl-1 ls -la` |
 | `mpu api get-client-module client: 54 id: wb` | как прежде `mpu api get-client-module 54 wb` |
 
