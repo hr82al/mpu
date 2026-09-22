@@ -43,7 +43,12 @@
   | команда с решением `allow` | понимает | не понимает |
   | команда с решением `ask` | не понимает | понимает |
   | команда с решением `deny` | не понимает | не понимает |
-  | группа | понимает, если у неё или у потомка решение `allow` | понимает, если у неё или у потомка решение `ask` |
+  | группа, которая сама не исполняется (плоская: `kiten`, `code`, `xlsx`) | понимает, если у потомка решение `allow` | понимает, если у потомка решение `ask` |
+  | группа, которая исполняется сама (селектор впереди: `ozon-jobs`, `wb-jobs`, …; путь `<группа> <args>`) | понимает, если у неё или у потомка решение `allow` | понимает, если у неё или у потомка решение `ask` |
+
+  Своё решение у плоской группы в расчёт не идёт: правила на ней обычно нет,
+  и наследуемое `ask` корня затянуло бы в дверь группу, все дети которой
+  `allow` (`code`).
 
   «Не понимает» в таблице касается **списков** (справка, дополнение,
   «ближайшие»). Исполнение по слову, которого нет в списке, не превращается в
@@ -146,7 +151,7 @@
 | `sql-ro` — `allow`; `mpu sql-ro sl-1 "select 1"` | исполнение, как сегодня |
 | `deny: "kiten close"`; `mpu kiten close 1` и `mpu ask kiten close 1` | оба: `mpu kiten close 1: запрещено правилом «kiten close»`, код 1; вопроса нет |
 | `deny: "kiten close"`; `mpu kiten --help`, `mpu ask kiten --help` | `close` нет ни в одном разделе «Сообщения» |
-| `mpu ask` при посеве | справка двери; в «Сообщениях» есть `sql`, `kiten`, `mcp`; нет `sql-ro`, `ps`, `log` |
+| `mpu ask` при посеве | справка двери; в «Сообщениях» есть `sql`, `kiten`, `ozon-jobs`; нет `sql-ro`, `ps`, `log`, `code` |
 | `mpu ask kiten` при посеве | «Сообщения» — `checklist`, `close`, `comment`, `field`, `move`, `ready`, `review`, `time`; нет `ls`, `card`, `boards` |
 | `mpu kiten` при посеве | нет `close`, `comment`, `move`, `ready`, `review`; есть `ls`, `card`, `checklist`, `time` (у них есть allow-дети) |
 | `ask: "kiten ls"`, затем `mpu kiten ls` | `mpu kiten ls: требует подтверждения — вызывай mpu ask kiten ls`, код 2 |
@@ -159,7 +164,7 @@
 | `mpu ask:` `"kiten ls"` | как сегодня: правило, вопрос изменения |
 | `mpu ask sql --help` и `mpu sql --help` | справка `sql`, код 0, вопроса нет |
 | `mpu ask ozon-jobs sl-2 show` (`ozon-jobs` — `ask`) | вопрос → исполнение; правило — путь `ozon-jobs <args>` |
-| `mcp` (группа с `bare`) — `ask`, `mcp status` — `allow`; `mpu mcp` | адресный отказ → `mpu ask mcp`; `mpu mcp status` исполняется |
+| `mpu ask` при посеве | `code` нет (все дети `allow`) |
 | MCP `mpu` `["sql", "sl-1", "select 1"]` | `isError`, stderr с подсказкой `вызывай mpu ask sql …`, elicitation нет |
 | MCP `mpu` `["ask", "sql", "sl-1", "select 1"]`, accept | исполнение, как сегодня без `ask` |
 | `policy.tree` после любой строки через дверь | без узла `ask`; как до порции |
