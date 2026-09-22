@@ -14,7 +14,7 @@ import {
   serverFrameOf,
   VERSION,
 } from "../../back/src/frames/mod.ts";
-import type { TerminalIo } from "../../back/src/terminal/mod.ts";
+import type { TerminalIo } from "./terminal/mod.ts";
 import { type Asker, humanAsker, NOBODY } from "./asker.ts";
 import { type Clip, clipboard, shown } from "./clip.ts";
 import { chooseDoor, type Door } from "./door.ts";

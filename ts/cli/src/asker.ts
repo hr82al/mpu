@@ -1,5 +1,5 @@
 import type { AskKind } from "../../back/src/frames/mod.ts";
-import type { TerminalIo } from "../../back/src/terminal/mod.ts";
+import type { TerminalIo } from "./terminal/mod.ts";
 
 /**
  * Кто отвечает на кадр `ask` (`cli-client.md`, «Канал и токен»): человек

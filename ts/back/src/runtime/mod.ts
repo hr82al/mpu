@@ -6,15 +6,12 @@
  * потребителя.
  */
 
-import { copyToClipboard } from "../clipboard/mod.ts";
-import { openControllingTerminal, type TerminalIo } from "../terminal/mod.ts";
 import {
-  type Answer,
   type CommandIo,
   DomainError,
   NEVER_STOPPED,
+  NO_ONE,
   NotFoundIoError,
-  type Prompt,
   type RemoteOutput,
 } from "../command/mod.ts";
 import type { Output } from "../entrypoint/mod.ts";
@@ -381,10 +378,11 @@ export function makeDenoIo(
     // Заметку журнала подставляет точка входа: у рантайма записи нет
     // (как и с `progress`, `platform/invoke-log.md`).
     note: () => {},
-    // У процесса CLI спрашивают его собственный терминал, а копируют
-    // его же буфером обмена (`platform/line-prompt.md`): просьба
-    // адресована тому, кто позвал, а позвал здесь сам человек.
-    prompt: terminalPrompt(),
+    // Спросить некого: у строки сервера свой порт вопроса — его
+    // ставит сама строка (`backend/server.ts`, `linePrompt`), а
+    // терминал процесса переехал к клиенту вместе с копированием
+    // (`platform/monolith-removal.md`).
+    prompt: NO_ONE,
     readAccessToken: async () => {
       if (tokenPath === undefined) return undefined;
       try {
@@ -489,34 +487,5 @@ function streamingRemoteOutput(): RemoteOutput {
       return Promise.resolve();
     },
     captured: () => "",
-  };
-}
-
-/**
- * Спросить человека за терминалом процесса и положить текст в его
- * буфер обмена. Терминала нет (пайп без tty, cron) — спросить некого,
- * и решает это тот, кто спросил, своим `absent()`.
- */
-function terminalPrompt(): Prompt {
-  const asked = async <T>(
-    question: string,
-    answer: Answer<T>,
-    read: (terminal: TerminalIo) => Promise<string | undefined>,
-  ): Promise<T> => {
-    using terminal = await openControllingTerminal();
-    // Терминала нет — спросить некого; закрытый ввод у живого
-    // терминала — пустой ответ, а не отсутствие спрошенного.
-    if (terminal === undefined) return await answer.absent();
-    await terminal.write(question);
-    return await answer.given(await read(terminal) ?? "");
-  };
-  return {
-    line: (question, answer) =>
-      asked(question, answer, (terminal) => terminal.readLine()),
-    secret: (question, answer) =>
-      asked(question, answer, (terminal) => terminal.readSecret()),
-    // Буфер недоступен — текст команда печатает и без него: копирование
-    // услуга, а не часть результата (`platform/clipboard.md`).
-    copy: async (text) => void await copyToClipboard(text),
   };
 }

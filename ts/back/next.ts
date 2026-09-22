@@ -12,7 +12,29 @@ import {
 } from "./src/next/mod.ts";
 import { runProcess } from "./src/process/mod.ts";
 import { defaultStateDir } from "./src/runtime/mod.ts";
-import { readStdinLine } from "./src/terminal/mod.ts";
+
+/**
+ * Одна строка ответа человека со stdin процесса: вопрос правил
+ * подтверждения (`platform/policy.md`, «Канал вызова»). Живёт здесь, у
+ * своего единственного вызывающего: у клиента ответ читается с
+ * управляющего терминала, а не со stdin (`cli-client.md`).
+ */
+async function readStdinLine(): Promise<string | undefined> {
+  const bytes: number[] = [];
+  const chunk = new Uint8Array(1);
+  while (true) {
+    const read = await Deno.stdin.read(chunk);
+    if (read === null) break;
+    if (read === 0) continue;
+    if (chunk[0] === 0x0a) {
+      return new TextDecoder().decode(new Uint8Array(bytes));
+    }
+    bytes.push(chunk[0]);
+  }
+  return bytes.length === 0
+    ? undefined
+    : new TextDecoder().decode(new Uint8Array(bytes));
+}
 
 if (import.meta.main) {
   const ports = {

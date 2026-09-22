@@ -3,9 +3,9 @@
  * процесса → строка на сервере → код.
  */
 
-import { copyToClipboard } from "../back/src/clipboard/mod.ts";
+import { copyToClipboard } from "./src/clipboard/mod.ts";
 import type { CallerFacts } from "../back/src/frames/mod.ts";
-import { openControllingTerminal } from "../back/src/terminal/mod.ts";
+import { openControllingTerminal } from "./src/terminal/mod.ts";
 import { type ClientEnv, runClient } from "./src/mod.ts";
 
 const DEFAULT_URL = "http://127.0.0.1:7338";

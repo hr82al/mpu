@@ -3,7 +3,7 @@
  * который видит дверь, токен и первый кадр и отвечает кадрами сценария.
  */
 
-import type { TerminalIo } from "../../back/src/terminal/mod.ts";
+import type { TerminalIo } from "./terminal/mod.ts";
 import type { ClientEnv } from "./client.ts";
 
 /** Окружение клиента и то, что он напечатал. */

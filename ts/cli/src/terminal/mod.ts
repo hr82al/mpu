@@ -46,14 +46,6 @@ export interface TerminalIo extends Disposable {
 }
 
 /**
- * Одна строка ответа человека из stdin процесса: вопрос правил
- * подтверждения `mpu-next` (`platform/policy.md`, «Канал вызова»).
- */
-export function readStdinLine(): Promise<string | undefined> {
-  return readLineFrom(Deno.stdin);
-}
-
-/**
  * Строка, набранная вслепую: терминал переводится в raw-режим, эхо
  * гасит он сам. Режим возвращается в `finally` — иначе терминал
  * остался бы без эха у вызывающего shell'а, и это чинилось бы уже

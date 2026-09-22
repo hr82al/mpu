@@ -12,7 +12,7 @@
 
 import { assertEquals } from "@std/assert";
 import { CLIENT_ENV_NAMES } from "../../back/src/frames/mod.ts";
-import { COPY_UTILITIES } from "../../back/src/clipboard/mod.ts";
+import { COPY_UTILITIES } from "./clipboard/mod.ts";
 
 Deno.test("права задачи cli — ровно четыре флага", async () => {
   const denoJsonc = await Deno.readTextFile("deno.jsonc");
