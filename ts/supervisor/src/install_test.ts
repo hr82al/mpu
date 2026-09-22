@@ -439,3 +439,36 @@ Deno.test("дополнение: подключать нечем — пропу�
       false,
     );
   }));
+
+Deno.test("дополнение: файл без перевода строки в конце — один блок", async (t) => {
+  // Замер на живой машине 2026-09-22: `config.fish` и `config.nu` без
+  // концевого перевода строки получали блок, приклеенный к хвосту чужой
+  // строки; поиск маркера такого блока не видел, и следующий прогон
+  // дописывал второй.
+  const cases = [
+    ["строка без перевода", "# чужая строка"],
+    ["пустой файл", ""],
+    ["одна строка с переводом", "# чужая строка\n"],
+  ] as const;
+  for (const [name, before] of cases) {
+    await t.step(name, () =>
+      withPlace(async (place) => {
+        const bashrc = await shellConfig(place, "bash", before);
+        await install(place);
+        const second = await install(place);
+        assertEquals(
+          second.lines.filter((line) =>
+            line.startsWith("install: дополнение bash")
+          ),
+          ["install: дополнение bash: без изменений"],
+        );
+        const text = await Deno.readTextFile(bashrc);
+        assertEquals(blocks(text), [fakeBody("bash")]);
+        // Чужая строка цела и маркер начинается со своей строки.
+        assertEquals(text.includes(`# чужая строка${BEGIN}`), false);
+        if (before !== "") {
+          assertEquals(text.startsWith("# чужая строка\n"), true);
+        }
+      }));
+  }
+});
