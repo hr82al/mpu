@@ -7,9 +7,9 @@
 import { assertEquals } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
 import { DatabaseSync } from "node:sqlite";
-import { rulesOf } from "../next/mod.ts";
+import { rulesOf } from "../line/mod.ts";
 import { ALLOW, ASK, DENY, RuleBook, RulePath } from "../policy/mod.ts";
-import { registrySeeds } from "../next/seeds.ts";
+import { registrySeeds } from "../line/seeds.ts";
 import { secretText } from "../runtime/mod.ts";
 import {
   Client,

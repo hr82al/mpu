@@ -5,7 +5,7 @@
  */
 
 import { Agent, type Channel, Human, NOBODY } from "../policy/mod.ts";
-import type { RootMethod } from "../next/mod.ts";
+import type { RootMethod } from "../line/mod.ts";
 import type { Line } from "./line.ts";
 import type { PromptDoor } from "./prompt.ts";
 import type { WebAccess } from "./web.ts";

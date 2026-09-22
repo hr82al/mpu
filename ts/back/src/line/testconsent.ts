@@ -1,10 +1,10 @@
 /**
- * Правила подтверждения для тестов `mpu-next`: файл во временном
+ * Правила подтверждения для тестов строки: файл во временном
  * каталоге, настоящий `~/.config/mpu/policy.db` не трогается.
  */
 
 import { ALLOW, RuleBook, RulePath } from "../policy/mod.ts";
-import { immediately, type NextPorts, terminalChannel } from "./mod.ts";
+import { immediately, type LinePorts, terminalChannel } from "./mod.ts";
 import { registrySeeds } from "./seeds.ts";
 
 /** Файл правил во временном каталоге на время `body`. */
@@ -20,13 +20,13 @@ export async function withPolicyFile(
 }
 
 /**
- * Порты `mpu-next` с файлом `file`: канал терминала (человек — если в
+ * Порты строки с файлом `file`: канал терминала (человек — если в
  * подменах окружения stdin и stderr терминалы), ответы — по очереди.
  */
 export function consentOf(
   file: string,
   answers: readonly string[] = [],
-): NextPorts {
+): LinePorts {
   const queue = [...answers];
   return {
     file,

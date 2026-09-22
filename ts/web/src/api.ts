@@ -83,7 +83,7 @@ export function rpc<T>(
   }, async (response) => (await response.json()).result as T);
 }
 
-/** Ключ из ссылки `mpu-next web` → сессия; `true` — cookie выдана. */
+/** Ключ из ссылки `mpu web` → сессия; `true` — cookie выдана. */
 export async function exchangeKey(
   transport: Transport,
   key: string,

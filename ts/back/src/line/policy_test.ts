@@ -1,5 +1,5 @@
 /**
- * Правила подтверждения на строке `mpu-next` (`platform/policy.md`):
+ * Правила подтверждения на строке (`platform/policy.md`):
  * посев, решение перед исполнением, вопрос каналу, изменение правил
  * только человеком, чужая запись и нечитаемый файл. Исполнялась ли
  * команда — по отметке журнала, а не по тексту отказа.
@@ -12,7 +12,7 @@ import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { DENY, RuleBook, RulePath } from "../policy/mod.ts";
 import { commands } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { nextEntry } from "./mod.ts";
+import { lineEntry } from "./mod.ts";
 import { ruleMethods } from "./rules.ts";
 import { consentOf, withPolicyFile } from "./testconsent.ts";
 
@@ -52,7 +52,7 @@ async function run(
     note: () => {},
   } as unknown as InvokeJournal;
   const io = makeFakeIo(answers === undefined ? {} : HUMAN);
-  const code = await nextEntry(consentOf(file, answers))(argv, io, {
+  const code = await lineEntry(consentOf(file, answers))(argv, io, {
     stdout: (text: string) => void out.push(text),
     stderr: (text: string) => void err.push(text),
   }, journal);
@@ -231,7 +231,7 @@ Deno.test("правило, записанное другим процессом,
         return false;
       },
     });
-    const code = await nextEntry(consentOf(file))(
+    const code = await lineEntry(consentOf(file))(
       ["kiten", "ls"],
       io,
       output,
@@ -286,7 +286,7 @@ Deno.test("файл испорчен после открытия: отказ п�
             return false;
           },
         });
-        const code = await nextEntry(consentOf(file))(argv, io, {
+        const code = await lineEntry(consentOf(file))(argv, io, {
           stdout: () => {},
           stderr: (text: string) => void err.push(text),
         }, journal);

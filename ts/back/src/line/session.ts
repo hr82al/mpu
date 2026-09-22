@@ -1,5 +1,5 @@
 /**
- * Строка `mpu-next` с её правилами и каналом (`platform/policy.md`,
+ * Строка с её правилами и каналом (`platform/policy.md`,
  * «Когда проверяется»): исполнение и список правил проходят решение
  * правил, изменение правила — только ответ человека.
  */
@@ -14,7 +14,7 @@ import {
   type RulePath,
   type Ruling,
 } from "../policy/mod.ts";
-import type { Line } from "./line.ts";
+import type { Line } from "./dispatch.ts";
 import { selectorFirstWriters } from "./seeds.ts";
 
 /** Код отказа правил и изменения правил. */

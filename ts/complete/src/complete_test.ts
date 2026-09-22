@@ -111,7 +111,7 @@ Deno.test("--version — версия, снимок не читается", asyn
  */
 async function bashComplete(line: string, words: string[], answer: string) {
   // Скрипт — из кода, а не эталон: проверяется то, что печатает `init`.
-  const script = initScript("bash", "mpu-next");
+  const script = initScript("bash", "mpu-dev");
   const program = `
 ${script}
 mpu-complete() { local IFS=' '; printf '%s\\n' "$*" >&2; printf '${answer}'; }
@@ -119,7 +119,7 @@ COMP_LINE=${JSON.stringify(line)}
 COMP_POINT=\${#COMP_LINE}
 COMP_WORDS=(${words.map((word) => JSON.stringify(word)).join(" ")})
 COMP_CWORD=${words.length - 1}
-_mpu_next_complete
+_mpu_dev_complete
 printf '%s\\n' "\${COMPREPLY[@]}"
 `;
   const output = await new Deno.Command("/bin/bash", {
@@ -135,22 +135,22 @@ printf '%s\\n' "\${COMPREPLY[@]}"
 Deno.test("bash: слово с «:» не разрезается, ответ — без набранного до «:»", async () => {
   // bash разрезал «seller-id:12» по ':' на три слова.
   const glued = await bashComplete(
-    "mpu-next ozon-loader seller-id:12",
-    ["mpu-next", "ozon-loader", "seller-id", ":", "12"],
+    "mpu-dev ozon-loader seller-id:12",
+    ["mpu-dev", "ozon-loader", "seller-id", ":", "12"],
     "seller-id:123\\tописание\\n",
   );
   assertEquals(glued.asked, ["-- ozon-loader seller-id:12"]);
   assertEquals(glued.replies, ["123"]);
   const plain = await bashComplete(
-    "mpu-next ki",
-    ["mpu-next", "ki"],
+    "mpu-dev ki",
+    ["mpu-dev", "ki"],
     "kiten\\tкарточки\\n",
   );
   assertEquals(plain.asked, ["-- ki"]);
   assertEquals(plain.replies, ["kiten"]);
   const empty = await bashComplete(
-    "mpu-next kiten ",
-    ["mpu-next", "kiten", ""],
+    "mpu-dev kiten ",
+    ["mpu-dev", "kiten", ""],
     "card\\tx\\nls\\ty\\n",
   );
   assertEquals(empty.asked, ["-- kiten "]);

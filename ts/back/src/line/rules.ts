@@ -28,7 +28,7 @@ import {
   FORGET,
   RulePath,
 } from "../policy/mod.ts";
-import type { Line } from "./line.ts";
+import type { Line } from "./dispatch.ts";
 import { POLICY_SELECTOR } from "./seeds.ts";
 
 /** То, что сообщение сделает в конце строки. */

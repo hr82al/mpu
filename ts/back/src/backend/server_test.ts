@@ -4,7 +4,7 @@
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
-import { rulesOf } from "../next/mod.ts";
+import { rulesOf } from "../line/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
 import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
 import { makeDenoIo, secretText, tokenFile } from "../runtime/mod.ts";

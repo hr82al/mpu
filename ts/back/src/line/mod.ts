@@ -1,5 +1,5 @@
 /**
- * Точка входа `mpu-next` (`platform/registry-objects.md`): строка вызова
+ * Исполнение строки (`platform/registry-objects.md`): строка вызова
  * исполняется цепочкой сообщений по дереву реестра, а команду исполняет
  * нынешняя диспетчеризация, получая исходную строку целиком, — если
  * позволяют правила подтверждения (`platform/policy.md`).
@@ -95,7 +95,7 @@ function textOf(value: unknown): string {
 export type ChannelOf = (io: CommandIo, output: Output) => Channel;
 
 /** Чем точка входа отличается от соседей: правила, вопрос, исполнение. */
-export interface NextPorts {
+export interface LinePorts {
   /** Файл правил; каталога состояния нет — `undefined`. */
   readonly file: string | undefined;
   readonly channel: ChannelOf;
@@ -105,7 +105,7 @@ export interface NextPorts {
    * ждущая ответа, других не держит.
    */
   readonly execute: (run: () => Promise<number>) => Promise<number>;
-  /** Методы корня, которые даёт дверь строки (у `mpu-next` — нет). */
+  /** Методы корня, которые даёт дверь строки (у прямого — нет). */
   readonly rootMethods: readonly RootMethod[];
 }
 
@@ -144,19 +144,19 @@ export function rulesOf(file: string | undefined): RuleEntry[] {
   return book.list();
 }
 
-/** Исполнение сразу: у процесса `mpu-next` строка одна. */
+/** Прямое исполнение: строка одна, ждать места не у кого. */
 export function immediately(run: () => Promise<number>): Promise<number> {
   return run();
 }
 
 /**
- * Точка входа `mpu-next`: исполняет строку вызова и возвращает код
- * завершения. Файл правил открывается до разбора строки — нечитаемый
- * файл отказывает любой строке, включая справку.
+ * Исполняет строку вызова и возвращает код завершения. Файл правил
+ * открывается до разбора строки — нечитаемый файл отказывает любой
+ * строке, включая справку.
  *
  * @param ports файл правил, канал вопроса и исполнение
  */
-export function nextEntry(ports: NextPorts): CliEntry {
+export function lineEntry(ports: LinePorts): CliEntry {
   return async (argv, io, output, journal) => {
     let book: RuleBook;
     try {

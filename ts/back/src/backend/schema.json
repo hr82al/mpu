@@ -242,7 +242,7 @@
       "additionalProperties": false
     },
     "rpc.tree.snapshot": {
-      "description": "Результат tree.snapshot: узлы дерева mpu-next в глубину, дети по алфавиту.",
+      "description": "Результат tree.snapshot: узлы дерева команд в глубину, дети по алфавиту.",
       "type": "object",
       "required": [
         "version",

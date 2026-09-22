@@ -7,7 +7,7 @@
 import { assertEquals } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
 import type { CommandIo } from "../command/mod.ts";
-import { rulesOf } from "../next/mod.ts";
+import { rulesOf } from "../line/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
 import { formFor } from "./http.ts";
 import { ANSWER_TIMEOUT_MS } from "./mod.ts";

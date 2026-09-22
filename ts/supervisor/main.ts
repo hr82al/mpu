@@ -1,6 +1,6 @@
 /**
  * Точка входа `mpu-supervisor` (`deno task supervisor`): единственное, что
- * запускает служба `mpu-next.service`.
+ * запускает служба `mpu.service`.
  */
 
 import { runSupervisor, SYSTEM_CLOCK, SYSTEM_LAUNCHER } from "./src/mod.ts";

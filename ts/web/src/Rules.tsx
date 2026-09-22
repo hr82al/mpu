@@ -28,7 +28,7 @@ export function NoSession() {
     <main>
       <h1>mpu</h1>
       <p>
-        Откройте ссылку из <code>mpu-next web</code>.
+        Откройте ссылку из <code>mpu web</code>.
       </p>
     </main>
   );

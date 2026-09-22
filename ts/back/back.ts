@@ -4,7 +4,7 @@
  */
 
 import { runBack } from "./src/backend/mod.ts";
-import { policyFile } from "./src/next/mod.ts";
+import { policyFile } from "./src/line/mod.ts";
 import { processIo, processLog } from "./src/process/mod.ts";
 import {
   defaultStateDir,

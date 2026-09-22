@@ -1,5 +1,5 @@
 /**
- * Сервер `mpu-back` (`platform/back-rpc.md`): строки `mpu-next` по
+ * Сервер `mpu-back` (`platform/back-rpc.md`): строки по
  * WebSocket и запросы без исполнения по HTTP, только на петле. Доступ
  * решается до всего остального: путь, метод, `Origin`, токен.
  */
@@ -8,7 +8,7 @@ import { Hono } from "@hono/hono";
 import { hasBearer, LOOPBACK, LOOPBACK_ORIGINS } from "../access/mod.ts";
 import type { CommandIo, RemoteOutput } from "../command/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
-import { nextEntry, policyTree, registryNodes, rulesOf } from "../next/mod.ts";
+import { lineEntry, policyTree, registryNodes, rulesOf } from "../line/mod.ts";
 import { runJournaled } from "../process/mod.ts";
 import { VERSION } from "../version.ts";
 import { AGENT, BROWSER, type Caller, OWNER } from "./caller.ts";
@@ -527,7 +527,7 @@ class Back {
       return;
     }
     const channel = door.channel(line, caller.human(request.human));
-    const entry = nextEntry({
+    const entry = lineEntry({
       rootMethods: door.rootMethods({
         web: this.#options.web,
         origin: this.#origin,

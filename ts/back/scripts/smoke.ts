@@ -29,7 +29,7 @@ import {
 } from "./compile_task.ts";
 import { envFilePath, makeEnvFile } from "../src/env/mod.ts";
 import { ALLOW, RuleBook, RulePath } from "../src/policy/mod.ts";
-import { policyFile } from "../src/next/mod.ts";
+import { policyFile } from "../src/line/mod.ts";
 import { makeEnvFileStore } from "../src/runtime/mod.ts";
 import { denoSession } from "../src/sql/mod.ts";
 import {

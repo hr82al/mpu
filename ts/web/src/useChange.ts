@@ -37,7 +37,7 @@ export function useChange(changed: () => void): Change {
       setPending(undefined);
       setFailure(
         reply.kind === "no-session"
-          ? "Сессия истекла — откройте ссылку из mpu-next web"
+          ? "Сессия истекла — откройте ссылку из mpu web"
           : `mpu-back недоступен на ${reply.base}`,
       );
       return;

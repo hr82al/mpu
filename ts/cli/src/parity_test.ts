@@ -1,7 +1,7 @@
 /**
- * Клиент и `back/next.ts` дают одно и то же (`cli-client.md`,
+ * Клиент и прямое исполнение строки дают одно и то же (`cli-client.md`,
  * «Инварианты», «Golden-примеры»): одни слова, правила и ответ — через
- * тонкий клиент к серверу в процессе теста и через `nextEntry` с теми же
+ * тонкий клиент к серверу в процессе теста и через `lineEntry` с теми же
  * правилами, каналом и окружением строки. Сервер из `back/` поднимается
  * только тестом: код `cli/` берёт из `back/` лишь контракт кадров.
  */
@@ -9,8 +9,8 @@
 import { assertEquals } from "@std/assert";
 import type { CommandIo } from "../../back/src/command/mod.ts";
 import type { InvokeJournal } from "../../back/src/entrypoint/mod.ts";
-import { immediately, nextEntry, rulesOf } from "../../back/src/next/mod.ts";
-import { withPolicyFile } from "../../back/src/next/testconsent.ts";
+import { immediately, lineEntry, rulesOf } from "../../back/src/line/mod.ts";
+import { withPolicyFile } from "../../back/src/line/testconsent.ts";
 import {
   Agent,
   type Channel,
@@ -91,7 +91,7 @@ interface Seen {
   readonly code: number;
 }
 
-/** Канал `back/next.ts` при той же стойке: у сервера — тот же. */
+/** Канал прямого исполнения при той же стойке: у сервера — тот же. */
 function channelOf(
   stance: Stance,
   output: { stderr(text: string): void },
@@ -102,7 +102,7 @@ function channelOf(
   return new Human(output.stderr, () => Promise.resolve(answers.shift()));
 }
 
-async function viaNext(line: Line, file: string): Promise<Seen> {
+async function viaLine(line: Line, file: string): Promise<Seen> {
   const out: string[] = [];
   const err: string[] = [];
   const output = {
@@ -116,7 +116,7 @@ async function viaNext(line: Line, file: string): Promise<Seen> {
   } as unknown as InvokeJournal;
   // Строка у сервера видит потоки не-терминалами и пустой stdin — у
   // эталона то же окружение (`back-rpc.md`, «Известные отклонения»).
-  const code = await nextEntry({
+  const code = await lineEntry({
     file,
     channel: () => channel,
     execute: immediately,
@@ -158,7 +158,7 @@ async function viaClient(line: Line, back: TestBack): Promise<Seen> {
   return seen;
 }
 
-Deno.test("клиент и back/next.ts дают одно и то же", async (t) => {
+Deno.test("клиент и прямое исполнение дают одно и то же", async (t) => {
   for (const line of LINES) {
     const name = `${line.stance}: ${line.words.join(" ")} ${
       line.answers ?? ""
@@ -166,7 +166,7 @@ Deno.test("клиент и back/next.ts дают одно и то же", async (
     await t.step(name, () =>
       withPolicyFile((file) =>
         withBack(async (back) => {
-          const expected = await viaNext(line, file);
+          const expected = await viaLine(line, file);
           assertEquals(await viaClient(line, back), expected);
           assertEquals(rulesOf(back.policyFile), rulesOf(file));
         }, { io: line.io })

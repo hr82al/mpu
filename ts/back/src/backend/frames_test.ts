@@ -1,15 +1,15 @@
 /**
- * Итог строки по WebSocket равен итогу `mpu-next` на тех же словах,
+ * Итог строки по WebSocket равен итогу прямого исполнения на тех же словах,
  * правилах и ответе (`platform/back-rpc.md`, инвариант второй). Эталон —
- * живой прогон `nextEntry` в том же тесте; вопрос у него — событие `ask`,
+ * живой прогон `lineEntry` в том же тесте; вопрос у него — событие `ask`,
  * вывод — события `out`/`err` в порядке появления, код — `exit`. Копия
  * эталона лежит в `testdata/back-rpc/frames-*.json`.
  */
 
 import { assertEquals } from "@std/assert";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { immediately, nextEntry, rulesOf } from "../next/mod.ts";
-import { withPolicyFile } from "../next/testconsent.ts";
+import { immediately, lineEntry, rulesOf } from "../line/mod.ts";
+import { withPolicyFile } from "../line/testconsent.ts";
 import { Agent, type Channel, Human, NOBODY } from "../policy/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { Client, type Frame, line, withBack } from "./testback.ts";
@@ -61,8 +61,8 @@ const CASES: readonly Case[] = [
   },
 ];
 
-/** Прогон `mpu-next` с каналом того же пути и теми же ответами. */
-async function nextFrames(one: Case, file: string) {
+/** Прямое исполнение строки с тем же каналом и теми же ответами. */
+async function directFrames(one: Case, file: string) {
   const frames: Frame[] = [];
   const called: string[] = [];
   const queue = [...one.answers];
@@ -78,7 +78,7 @@ async function nextFrames(one: Case, file: string) {
       void called.push(command.path.join(" ")),
     note: () => {},
   } as unknown as InvokeJournal;
-  const code = await nextEntry({
+  const code = await lineEntry({
     file,
     channel: () => channel,
     execute: immediately,
@@ -91,14 +91,14 @@ async function nextFrames(one: Case, file: string) {
   return { frames, called, rules: rulesOf(file) };
 }
 
-Deno.test("кадры строки равны прогону mpu-next", async (t) => {
+Deno.test("кадры строки равны прямому исполнению", async (t) => {
   for (const one of CASES) {
     await t.step(
       one.name,
       () =>
         withPolicyFile((file) =>
           withBack(async (back) => {
-            const expected = await nextFrames(one, file);
+            const expected = await directFrames(one, file);
             const frames = await line(
               back,
               one.path,

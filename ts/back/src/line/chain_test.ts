@@ -9,7 +9,7 @@ import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { childrenOf, commands, groups, surfaces } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { nextEntry } from "./mod.ts";
+import { lineEntry } from "./mod.ts";
 import { consentOf, withPolicyFile } from "./testconsent.ts";
 
 /** Прогон строки с файлом правил `file`: потоки, код и отметки журнала. */
@@ -26,7 +26,7 @@ async function run(
       void native.push(command.path.join(" ")),
     note: () => {},
   } as unknown as InvokeJournal;
-  const code = await nextEntry(consentOf(file))(argv, makeFakeIo(overrides), {
+  const code = await lineEntry(consentOf(file))(argv, makeFakeIo(overrides), {
     stdout: (text: string) => void out.push(text),
     stderr: (text: string) => void err.push(text),
   }, journal);

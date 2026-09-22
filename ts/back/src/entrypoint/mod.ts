@@ -101,7 +101,7 @@ export async function runCli(
  * Исполняет строку вызова без режима дополнения shell: общий параметр
  * `--json`, поверхности точки входа, поиск пути по реестру,
  * диспетчеризация и перевод ошибок в коды. Это же исполнение получает
- * `mpu-next` с исходной строкой целиком (`platform/registry-objects.md`).
+ * строку целиком (`platform/registry-objects.md`).
  */
 export async function runLine(
   argv: readonly string[],

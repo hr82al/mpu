@@ -1,7 +1,7 @@
 /**
- * Равенство `mpu-next` и нынешнего CLI (`platform/registry-objects.md`,
+ * Равенство строки и нынешнего CLI (`platform/registry-objects.md`,
  * инвариант первый): одна и та же строка через `runCli` и через
- * `runNext` с одними подменами даёт равные stdout, stderr, код и запись
+ * `runLine` с одними подменами даёт равные stdout, stderr, код и запись
  * журнала. Эталон — живой `runCli` в том же прогоне, а не записанный
  * текст: сверяется поведение, а не его снимок.
  */
@@ -11,7 +11,7 @@ import type { CommandIo } from "../command/mod.ts";
 import { type InvokeJournal, runCli } from "../entrypoint/mod.ts";
 import type { CliEntry } from "../process/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { nextEntry } from "./mod.ts";
+import { lineEntry } from "./mod.ts";
 import { allowEverything, consentOf, withPolicyFile } from "./testconsent.ts";
 
 /** Что наблюдает вызывающий: потоки, код и отметки журнала. */
@@ -94,15 +94,15 @@ const LINES: readonly {
 
 // Правила подтверждения дают `allow` любой строке: сравнивается
 // исполнение, а решение правил проверяют свои тесты (`policy_test.ts`).
-Deno.test("mpu-next и runCli дают одно и то же", (t) =>
+Deno.test("строка и runCli дают одно и то же", (t) =>
   withPolicyFile(async (file) => {
     allowEverything(file);
-    const runNext = nextEntry(consentOf(file));
+    const runLine = lineEntry(consentOf(file));
     for (const line of LINES) {
       await t.step(line.argv.join(" "), async () => {
         const io = line.io ?? {};
         assertEquals(
-          await seen(runNext, line.argv, io),
+          await seen(runLine, line.argv, io),
           await seen(runCli, line.argv, io),
         );
       });

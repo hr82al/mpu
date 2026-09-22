@@ -23,7 +23,7 @@ import {
   findGroup,
   findSurface,
 } from "../registry/mod.ts";
-import type { Line } from "./line.ts";
+import type { Line } from "./dispatch.ts";
 import { ruleMethods } from "./rules.ts";
 
 /** Вид звена хвоста: оно же звено пути строки у правил. */
@@ -191,7 +191,7 @@ function nodesUnder(
   ];
 }
 
-/** Узлы дерева `mpu-next` для снимка: корень, группы, команды. */
+/** Узлы дерева команд для снимка: корень, группы, команды. */
 export function registryNodes(): TreeNode[] {
   return nodesUnder([], ROOT_SUMMARY, rootShape());
 }
