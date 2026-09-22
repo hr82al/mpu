@@ -987,14 +987,6 @@
   },
   {
     "path": [
-      "build"
-    ],
-    "verdict": "deny",
-    "rule": "*",
-    "own": false
-  },
-  {
-    "path": [
       "claude-hook"
     ],
     "verdict": "deny",
@@ -1632,77 +1624,6 @@
   {
     "path": [
       "make-schema"
-    ],
-    "verdict": "deny",
-    "rule": "*",
-    "own": false
-  },
-  {
-    "path": [
-      "mcp"
-    ],
-    "verdict": "deny",
-    "rule": "*",
-    "own": false
-  },
-  {
-    "path": [
-      "mcp",
-      "disable"
-    ],
-    "verdict": "deny",
-    "rule": "*",
-    "own": false
-  },
-  {
-    "path": [
-      "mcp",
-      "enable"
-    ],
-    "verdict": "deny",
-    "rule": "*",
-    "own": false
-  },
-  {
-    "path": [
-      "mcp",
-      "restart"
-    ],
-    "verdict": "deny",
-    "rule": "*",
-    "own": false
-  },
-  {
-    "path": [
-      "mcp",
-      "start"
-    ],
-    "verdict": "deny",
-    "rule": "*",
-    "own": false
-  },
-  {
-    "path": [
-      "mcp",
-      "status"
-    ],
-    "verdict": "deny",
-    "rule": "*",
-    "own": false
-  },
-  {
-    "path": [
-      "mcp",
-      "stop"
-    ],
-    "verdict": "deny",
-    "rule": "*",
-    "own": false
-  },
-  {
-    "path": [
-      "mcp",
-      "token"
     ],
     "verdict": "deny",
     "rule": "*",
