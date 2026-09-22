@@ -313,3 +313,71 @@ export function link<S, T>(
 ): Fallback<S> {
   return new LinkMethod(name, doc, kind, run);
 }
+
+/** Вызов метода-входа: в адрес пишет слово, в звенья правил — нет. */
+class GateCall implements Call {
+  readonly #text: string;
+  readonly #call: Call;
+
+  constructor(text: string, call: Call) {
+    this.#text = text;
+    this.#call = call;
+  }
+
+  trace(trail: Trace) {
+    trail.gate(this.#text);
+  }
+
+  result(): ResultKind {
+    return this.#call.result();
+  }
+
+  help(trail: Trace): string {
+    return this.#call.help(trail);
+  }
+
+  perform() {
+    return this.#call.perform();
+  }
+}
+
+class GateMethod<S> implements Method<S> {
+  readonly selector: string;
+  readonly #method: Method<S>;
+
+  constructor(method: Method<S>) {
+    this.selector = method.selector;
+    this.#method = method;
+  }
+
+  describe(into: Description) {
+    this.#method.describe(into);
+  }
+
+  line(): Line {
+    return this.#method.line();
+  }
+
+  bind(self: S, sent: Named): Call {
+    return new GateCall(sent.text(), this.#method.bind(self, sent));
+  }
+}
+
+/**
+ * Унарный метод-вход: его слово — часть адреса строки, но не звено пути,
+ * по которому решают правила, и не слово текста, которым правила строку
+ * называют (`platform/ask-door.md`).
+ *
+ * @param selector слово сообщения
+ * @param doc назначение и справка
+ * @param kind вид результата
+ * @param run что метод делает с состоянием объекта
+ */
+export function gate<S, T>(
+  selector: string,
+  doc: Doc,
+  kind: Yields<T>,
+  run: (self: S) => T | Promise<T>,
+): Method<S> {
+  return new GateMethod(unary(selector, doc, kind, run));
+}

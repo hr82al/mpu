@@ -192,7 +192,7 @@ Deno.test("отмена в ожидании подтверждения: отве
     try {
       const stop = new AbortController();
       const call = client.callTool(
-        { name: "mpu", arguments: { words: ["xlsx", "alias", "ls"] } },
+        { name: "mpu", arguments: { words: ["ask", "xlsx", "alias", "ls"] } },
         undefined,
         { signal: stop.signal },
       );

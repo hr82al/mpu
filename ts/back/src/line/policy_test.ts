@@ -121,7 +121,7 @@ Deno.test("забытое правило не возвращается посе�
       verdict: null,
     });
     assertEquals(verdictOf(await rules(file), "kiten card"), undefined);
-    const card = await run(file, ["kiten", "card", "1"]);
+    const card = await run(file, ["ask", "kiten", "card", "1"]);
     assertEquals(card, {
       code: 1,
       stdout: "",
@@ -150,23 +150,24 @@ Deno.test("deny на корне: отказ строке, policy и справк
     assertEquals(help.called, []);
   }));
 
-Deno.test("ask: без человека, ответ нет, ответ YES", () =>
+Deno.test("ask через дверь: без человека, ответ нет, ответ YES", () =>
   withPolicyFile(async (file) => {
     await confirmed(file, "ask:", READING.slice(0, 3).join(" "));
-    assertEquals(await run(file, READING), {
+    const line = ["ask", ...READING];
+    assertEquals(await run(file, line), {
       code: 1,
       stdout: "",
       stderr: "mpu xlsx alias ls: нужно подтверждение, а спросить некого\n",
       called: [],
     });
-    assertEquals(await run(file, READING, ["n"]), {
+    assertEquals(await run(file, line, ["n"]), {
       code: 1,
       stdout: "",
       stderr: "выполнить mpu xlsx alias ls? [y/N] " +
         "mpu xlsx alias ls: не подтверждено\n",
       called: [],
     });
-    const yes = await run(file, READING, ["YES"]);
+    const yes = await run(file, line, ["YES"]);
     assertEquals(yes.code, 0, yes.stderr);
     assertEquals(yes.stderr, "выполнить mpu xlsx alias ls? [y/N] ");
     assertEquals(yes.called, ["xlsx alias ls"]);
@@ -357,7 +358,7 @@ Deno.test("имена сообщений корня не совпадают с �
   const own = ruleMethods().map((method) => method.selector).sort();
   assertEquals(own, ["allow:", "ask:", "deny:", "forget:", "policy"]);
   const top = new Set(commands.map((command) => command.path[0]));
-  for (const name of own) {
+  for (const name of [...own, "ask"]) {
     assertEquals(top.has(name), false, name);
     assertEquals(top.has(name.replace(/:$/, "")), false, name);
   }

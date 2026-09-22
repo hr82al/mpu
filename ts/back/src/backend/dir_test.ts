@@ -180,12 +180,12 @@ Deno.test("две строки пишут в кэш-БД разом — дохо
         // и человек отвечает «да».
         {
           cwd: dir,
-          words: ["xlsx", "alias", "add", "pervyi", "/1.xlsx"],
+          words: ["ask", "xlsx", "alias", "add", "pervyi", "/1.xlsx"],
           answers: ["y"],
         },
         {
           cwd: dir,
-          words: ["xlsx", "alias", "add", "vtoroi", "/2.xlsx"],
+          words: ["ask", "xlsx", "alias", "add", "vtoroi", "/2.xlsx"],
           answers: ["y"],
         },
       );

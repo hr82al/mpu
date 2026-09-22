@@ -165,7 +165,7 @@ Deno.test("вопрос формой: accept+true — исполнено, ина
         const asked: ElicitRequest[] = [];
         await withClient(stack, async (client) => {
           const result = await call(stack, client, "mpu", {
-            words: ["xlsx", "alias", "ls"],
+            words: ["ask", "xlsx", "alias", "ls"],
           });
           assertEquals(result.isError, !runs);
           if (!runs) {
@@ -194,7 +194,7 @@ Deno.test("вопрос формой: accept+true — исполнено, ина
         askOnAliases(stack);
         await withClient(stack, async (client) => {
           const result = await call(stack, client, "mpu", {
-            words: ["xlsx", "alias", "ls"],
+            words: ["ask", "xlsx", "alias", "ls"],
           });
           assertEquals(result.isError, true);
           assertEquals(
@@ -206,6 +206,28 @@ Deno.test("вопрос формой: accept+true — исполнено, ина
       }),
   );
 });
+
+Deno.test("ask-строка без двери — ошибка с подсказкой, формы нет", () =>
+  withStack(async (stack) => {
+    askOnAliases(stack);
+    const asked: ElicitRequest[] = [];
+    await withClient(stack, async (client) => {
+      const result = await call(stack, client, "mpu", {
+        words: ["xlsx", "alias", "ls"],
+      });
+      assertEquals(result.isError, true);
+      assertEquals(
+        (result.content as { text: string }[])[1].text,
+        "stderr:\nmpu xlsx alias ls: требует подтверждения — " +
+          "вызывай mpu ask xlsx alias ls\n",
+      );
+    }, (request) => {
+      asked.push(request);
+      return { action: "accept", content: { confirm: true } };
+    });
+    assertEquals(asked, []);
+    assertEquals(stack.back.called, []);
+  }));
 
 Deno.test("доступ: неизвестная сессия — 404, чужой токен — 401, чужой Origin — 403", () =>
   withStack(async (stack) => {

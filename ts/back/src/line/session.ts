@@ -16,6 +16,7 @@ import {
 } from "../policy/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { selectorFirstWriters } from "./seeds.ts";
+import { NORMAL, type View } from "./view.ts";
 
 /** Код отказа правил и изменения правил. */
 const REFUSED = 1;
@@ -25,8 +26,8 @@ export interface SessionParts {
   readonly book: RuleBook;
   readonly channel: Channel;
   readonly output: Output;
-  /** Исходная строка нынешней диспетчеризации; итог — код. */
-  readonly dispatch: () => Promise<number>;
+  /** Строка нынешней диспетчеризацией, какой её видит `view`; итог — код. */
+  readonly dispatch: (view: View) => Promise<number>;
 }
 
 /** Строка вызова одного процесса. */
@@ -34,7 +35,7 @@ export class Session implements Line {
   readonly #book: RuleBook;
   readonly #channel: Channel;
   readonly #output: Output;
-  readonly #dispatch: () => Promise<number>;
+  readonly #dispatch: (view: View) => Promise<number>;
 
   constructor(parts: SessionParts) {
     this.#book = parts.book;
@@ -43,13 +44,19 @@ export class Session implements Line {
     this.#dispatch = parts.dispatch;
   }
 
-  dispatch(report: Report): Promise<Outcome> {
-    return this.#ruled(report, async () => report.exit(await this.#dispatch()));
+  dispatch(report: Report, view: View): Promise<Outcome> {
+    return this.#ruled(
+      report,
+      view,
+      async () => report.exit(await this.#dispatch(view)),
+    );
   }
 
+  /** Сообщение корня обычного взгляда: у двери его нет. */
   listRules(report: Report): Promise<Outcome> {
     return this.#ruled(
       report,
+      NORMAL,
       () => this.#guarded(report, () => report.value(this.#book.list())),
     );
   }
@@ -68,19 +75,28 @@ export class Session implements Line {
     });
   }
 
-  /** Решение правил для пути строки исполняет свой исход. */
-  #ruled(report: Report, run: () => Promise<Outcome>): Promise<Outcome> {
+  /** Решение правил для пути строки исполняет свой исход у взгляда. */
+  #ruled(
+    report: Report,
+    view: View,
+    run: () => Promise<Outcome>,
+  ): Promise<Outcome> {
     let ruling: Ruling;
     try {
       ruling = this.#book.decide(report.links());
     } catch (err) {
       return this.#broken(report, err);
     }
-    return ruling.settle({
-      text: report.text(),
-      run,
-      refuse: (reason) => this.#refuse(report, reason),
-    }, this.#channel);
+    return ruling.settle(
+      {
+        text: report.text(),
+        run,
+        refuse: (reason) => this.#refuse(report, reason),
+        redirect: () => view.redirect(report),
+      },
+      this.#channel,
+      view,
+    );
   }
 
   /** Работа с файлом правил: его сбой — отказ строки. */

@@ -219,7 +219,7 @@ Deno.test("отмена в ожидании ответа: вопрос снят,
       using book = RuleBook.open(back.policyFile, []);
       book.set(RulePath.parse("xlsx alias ls"), ASK);
     }
-    const line = await open(back, ["xlsx", "alias", "ls"]);
+    const line = await open(back, ["ask", "xlsx", "alias", "ls"]);
     await line.frame((frame) => "ask" in frame);
     line.close();
     await line.closed();
@@ -359,7 +359,7 @@ Deno.test("собранный ответ с номером: сигнал пос�
     const asked = await collected(
       back,
       await post(back, "/line", {
-        words: ["xlsx", "alias", "ls"],
+        words: ["ask", "xlsx", "alias", "ls"],
         cwd: Deno.cwd(),
         human: true,
       }, { accept: "application/json" }),

@@ -9,43 +9,108 @@ import {
   type Call,
   type Doc,
   type Ending,
+  EVERYONE,
+  gate,
   type Method,
   origin,
+  Refusal,
+  type Roster,
   Shape,
   type ShapeOptions,
   tail,
   unary,
 } from "../objects/mod.ts";
+import { PolicyError, type RuleBook } from "../policy/mod.ts";
 import {
   childrenOf,
   type CommandGroup,
   findCommand,
   findGroup,
   findSurface,
+  surfaces,
 } from "../registry/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { ruleMethods } from "./rules.ts";
+import { ASK_DOC, ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";
 
 /** Вид звена хвоста: оно же звено пути строки у правил. */
 export const ARGS = "<args>";
 
-/** Конец строки — исполнение строки диспетчеризацией. */
-const DISPATCH: Ending<Line> = {
-  finish: (report, line) => line.dispatch(report),
+/** Как строится дерево для взгляда: чем кончать строку, кого называть. */
+interface Sight {
+  /** Конец строки у узла, который исполняется. */
+  readonly ending: Ending<Line>;
+  /** Роспись детей узла `path`. */
+  roster(path: readonly string[]): Roster;
+}
+
+/** Снимок дерева: структура без решений правил — все узлы, обычный конец. */
+const WHOLE: Sight = {
+  ending: { finish: (report, line) => line.dispatch(report, NORMAL) },
+  roster: () => EVERYONE,
 };
 
+/**
+ * Взгляд над книгой правил строки. Решения спрашиваются у книги на
+ * каждый вопрос росписи: книга сама сверяется с файлом.
+ */
+class Seen implements Sight {
+  readonly ending: Ending<Line>;
+  readonly #view: View;
+  readonly #book: RuleBook;
+  #executing: readonly TreeNode[] | undefined;
+
+  constructor(view: View, book: RuleBook) {
+    this.#view = view;
+    this.#book = book;
+    this.ending = { finish: (report, line) => line.dispatch(report, view) };
+  }
+
+  roster(path: readonly string[]): Roster {
+    return { lists: (selector) => this.#lists([...path, selector]) };
+  }
+
+  /**
+   * Ребёнок реестра называется, если его поддерево исполняет хоть одну
+   * строку по этому адресу; сообщения корня и поверхности — всегда.
+   */
+  #lists(path: readonly string[]): boolean {
+    if (findCommand(path) === undefined && findGroup(path) === undefined) {
+      return true;
+    }
+    return this.#under(path).some((node) => this.#admits(ruleLinks(node)));
+  }
+
+  /** Узлы поддерева `path`, которые исполняются сами (у них есть хвост). */
+  #under(path: readonly string[]): TreeNode[] {
+    this.#executing ??= registryNodes().filter((node) => node.tail !== null);
+    return this.#executing.filter((node) =>
+      path.every((link, i) => node.path[i] === link)
+    );
+  }
+
+  #admits(links: readonly string[]): boolean {
+    try {
+      return this.#book.decide(links).admits(this.#view);
+    } catch (err) {
+      if (!(err instanceof PolicyError)) throw err;
+      throw new Refusal(err.message, { cause: err });
+    }
+  }
+}
+
 /** Вид, который забирает хвост и в конце строки исполняет её. */
-function dispatching(doc: Doc): Shape<Line> {
+function dispatching(doc: Doc, sight: Sight): Shape<Line> {
   const shape: Shape<Line> = new Shape<Line>([], {
     fallback: tail(ARGS, doc, () => shape),
-    ending: DISPATCH,
+    ending: sight.ending,
   });
   return shape;
 }
 
 /** Вид узла группы: что она делает с чужим словом и с концом строки. */
 interface GroupKind {
-  options(doc: Doc): ShapeOptions<Line>;
+  options(doc: Doc, sight: Sight): ShapeOptions<Line>;
 }
 
 /** Только дети; конец строки — справка. */
@@ -53,8 +118,8 @@ const PLAIN: GroupKind = { options: () => ({}) };
 
 /** Группа с селектором перед подкомандой: чужое слово начинает хвост. */
 const SELECTOR_FIRST: GroupKind = {
-  options: (doc) => {
-    const after = dispatching(doc);
+  options: (doc, sight) => {
+    const after = dispatching(doc, sight);
     return { fallback: tail(ARGS, doc, () => after) };
   },
 };
@@ -68,23 +133,37 @@ function groupShape(
   path: readonly string[],
   doc: Doc,
   kind: GroupKind,
+  sight: Sight,
   own: readonly Method<Line>[] = [],
+  children: readonly { name: string }[] = childrenOf(path),
 ): Shape<Line> {
-  const methods = childrenOf(path).map((child) =>
-    childMethod([...path, child.name], child.name)
+  const methods = children.map((child) =>
+    childMethod([...path, child.name], child.name, sight)
   );
-  return new Shape<Line>([...methods, ...own], kind.options(doc));
+  return new Shape<Line>([...methods, ...own], {
+    ...kind.options(doc, sight),
+    roster: sight.roster(path),
+  });
 }
 
 /** Узел под группой: группа или лист (команда, поверхность). */
-function childMethod(path: readonly string[], name: string): Method<Line> {
+function childMethod(
+  path: readonly string[],
+  name: string,
+  sight: Sight,
+): Method<Line> {
   const group = findGroup(path);
   if (group !== undefined) {
     const doc = { purpose: group.summary, help: group.usage };
-    return unary(name, doc, groupShape(path, doc, groupKind(group)), same);
+    return unary(
+      name,
+      doc,
+      groupShape(path, doc, groupKind(group), sight),
+      same,
+    );
   }
   const doc = leafDoc(path);
-  return unary(name, doc, dispatching(doc), same);
+  return unary(name, doc, dispatching(doc, sight), same);
 }
 
 /** Назначение и справка листа: команды или поверхности точки входа. */
@@ -182,36 +261,66 @@ function nodesUnder(
         return nodesUnder(
           childPath,
           group.summary,
-          groupShape(childPath, doc, groupKind(group)),
+          groupShape(childPath, doc, groupKind(group), WHOLE),
         );
       }
       const doc = leafDoc(childPath);
-      return [nodeOf(childPath, doc.purpose, dispatching(doc))];
+      return [nodeOf(childPath, doc.purpose, dispatching(doc, WHOLE))];
     }),
   ];
 }
 
 /** Узлы дерева команд для снимка: корень, группы, команды. */
 export function registryNodes(): TreeNode[] {
-  return nodesUnder([], ROOT_SUMMARY, rootShape());
+  return nodesUnder([], ROOT_SUMMARY, rootShape(WHOLE));
 }
 
-function rootShape(own: readonly Method<Line>[] = []): Shape<Line> {
-  const doc = { purpose: ROOT_SUMMARY, help: ROOT_USAGE };
-  return groupShape([], doc, PLAIN, [...ruleMethods(), ...own]);
+/**
+ * Путь правил узла снимка — тот, которым решается строка, дошедшая до
+ * него: у узла с хвостом — со звеном `<args>`.
+ */
+export function ruleLinks(node: TreeNode): readonly string[] {
+  return node.tail === null ? node.path : [...node.path, ARGS];
+}
+
+const ROOT_DOC: Doc = { purpose: ROOT_SUMMARY, help: ROOT_USAGE };
+
+function rootShape(
+  sight: Sight,
+  own: readonly Method<Line>[] = [],
+): Shape<Line> {
+  return groupShape([], ROOT_DOC, PLAIN, sight, [...ruleMethods(), ...own]);
+}
+
+/** Имена поверхностей: у двери их нет, как и прочих сообщений корня. */
+const SURFACES: ReadonlySet<string> = new Set(
+  surfaces.map((surface) => surface.path[0]),
+);
+
+/**
+ * Корень двери: только команды и группы реестра — сообщений корня
+ * (правила, поверхности, методы двери строки) дверь не понимает.
+ */
+function doorShape(book: RuleBook): Shape<Line> {
+  const children = childrenOf([]).filter((child) => !SURFACES.has(child.name));
+  return groupShape([], ASK_DOC, PLAIN, new Seen(DOOR, book), [], children);
 }
 
 /**
  * Корень дерева реестра для строки `line`: команды и группы верхнего
- * уровня, сообщения о правилах подтверждения и методы `own`, которые
- * даёт дверь строки.
+ * уровня, сообщения о правилах подтверждения, вход в дверь `ask` и
+ * методы `own`, которые даёт дверь строки. Списки справки обоих взглядов
+ * — по решениям книги `book` на момент вопроса.
  *
  * @param line строка вызова с её исполнением
+ * @param book правила строки
  */
 export function registryRoot(
   line: Line,
+  book: RuleBook,
   own: readonly Method<Line>[] = [],
 ): Call {
-  const doc = { purpose: ROOT_SUMMARY, help: ROOT_USAGE };
-  return origin(doc, rootShape(own), line);
+  const door = gate(ASK_WORD, ASK_DOC, doorShape(book), same);
+  const shape = rootShape(new Seen(NORMAL, book), [door, ...own]);
+  return origin(ROOT_DOC, shape, line);
 }

@@ -228,7 +228,7 @@ Deno.test("вопрос по номеру: исполнение видит то�
       { exit: 0 },
     );
     const responses = await httpLine(back, "/line", {
-      words: ["confirm", "-y"],
+      words: ["ask", "confirm", "-y"],
       cwd: Deno.cwd(),
       human: true,
       stdin: "через номер\n",
@@ -249,7 +249,7 @@ Deno.test("контекст в теле ответа по номеру — 400, 
     const asked = await ndjson(
       back,
       await post(back, "/line", {
-        words: ["confirm", "-y"],
+        words: ["ask", "confirm", "-y"],
         cwd: Deno.cwd(),
         human: true,
         stdin: "первый\n",

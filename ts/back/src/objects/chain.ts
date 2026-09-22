@@ -58,21 +58,27 @@ class Walk implements Walker {
     return this.#mode.finish(this);
   }
 
-  /** Исполняет последнее сообщение и спрашивает итог у ответа. */
+  /**
+   * Исполняет последнее сообщение и спрашивает итог у ответа. Отказ
+   * ответа в конце строки получает спереди адрес, как отказ до неё.
+   */
   async settle(): Promise<Outcome> {
     const before = this.#trail.copy();
     const receiver = await this.#advance();
     const path = this.#trail.links();
-    return await receiver.final({
-      value: (value) => ({ path, value }),
-      exit: (exit) => ({ path, exit }),
-      links: () => [...path],
-      text: () => this.#trail.text(),
-      object: () => ({
-        path,
-        object: this.#refused(() => this.#pending.help(before)),
-      }),
-    });
+    return await this.#refusedAsync(() =>
+      receiver.final({
+        value: (value) => ({ path, value }),
+        exit: (exit) => ({ path, exit }),
+        links: () => [...path],
+        text: () => this.#trail.text(),
+        through: (gate) => this.#trail.through(gate),
+        object: () => ({
+          path,
+          object: this.#refused(() => this.#pending.help(before)),
+        }),
+      })
+    );
   }
 
   /** Справка метода последнего сообщения, без его исполнения. */
@@ -110,7 +116,7 @@ class Walk implements Walker {
   /** Отказ объекта получает спереди путь до приёмника. */
   #rejection(err: unknown): unknown {
     if (!(err instanceof Refusal)) return err;
-    return new Rejection(`${this.#trail.text()}: ${err.message}`, {
+    return new Rejection(`${this.#trail.address()}: ${err.message}`, {
       cause: err,
     });
   }

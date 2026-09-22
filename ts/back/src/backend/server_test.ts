@@ -33,7 +33,7 @@ Deno.test("остановка: открытая строка получает er
     }
     const open = new Client(back, "/line");
     await open.opened();
-    open.start(["xlsx", "alias", "ls"]);
+    open.start(["ask", "xlsx", "alias", "ls"]);
     await open.frame((frame) => "ask" in frame);
     await back.running.stop();
     assertEquals(await open.finished(), [

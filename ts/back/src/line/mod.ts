@@ -21,7 +21,7 @@ import type { CliEntry } from "../process/mod.ts";
 import { registrySeeds } from "./seeds.ts";
 import { Session } from "./session.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
-import { ARGS, registryNodes, registryRoot } from "./tree.ts";
+import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 
 export type { RootMethod } from "./rules.ts";
 
@@ -47,8 +47,7 @@ export function policyTree(file: string | undefined): NodeRuling[] {
   using book = RuleBook.open(file, registrySeeds());
   const owned = new Set(book.list().map((rule) => rule.path));
   return registryNodes().map((node) => {
-    const links = node.tail === null ? node.path : [...node.path, ARGS];
-    const { verdict, won } = book.decide(links).record();
+    const { verdict, won } = book.decide(ruleLinks(node)).record();
     const own = owned.has(node.path.length === 0 ? "*" : node.path.join(" "));
     return { path: node.path, verdict, rule: won, own };
   });
@@ -171,9 +170,10 @@ export function lineEntry(ports: LinePorts): CliEntry {
       book,
       channel: ports.channel(io, output),
       output,
-      dispatch: () => ports.execute(() => runLine(argv, io, output, journal)),
+      dispatch: (view) =>
+        ports.execute(() => runLine(view.executed(argv), io, output, journal)),
     });
-    const root = registryRoot(line, ports.rootMethods.map(rootMethod));
+    const root = registryRoot(line, book, ports.rootMethods.map(rootMethod));
     const outcome = await runChain(walkedWords(argv), root);
     return printed(outcome, output);
   };

@@ -10,7 +10,7 @@ import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { childrenOf, commands, groups, surfaces } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { lineEntry } from "./mod.ts";
-import { consentOf, withPolicyFile } from "./testconsent.ts";
+import { allowEverything, consentOf, withPolicyFile } from "./testconsent.ts";
 
 /** Прогон строки с файлом правил `file`: потоки, код и отметки журнала. */
 async function run(
@@ -66,11 +66,10 @@ Deno.test("непонятое слово: ближайшие и путь при�
   withPolicyFile(async (file) => {
     const cases: readonly (readonly [readonly string[], string])[] = [
       [["kitn"], "mpu: не понимает kitn; ближайшие: kiten\n"],
-      // Спека в таблице граничных случаев печатает эту строку без
-      // подсказки, но у `kiten` есть ребёнок `move` — две правки от
-      // `nope`, то есть в пороге правила. Правило сильнее примера;
-      // расхождение названо в отчёте порции.
-      [["kiten", "nope"], "mpu kiten: не понимает nope; ближайшие: move\n"],
+      // Ребёнок `move` — две правки от `nope`, но при посеве он `ask`:
+      // обычный взгляд его не называет, и в «ближайших» его нет
+      // (`platform/ask-door.md`).
+      [["kiten", "nope"], "mpu kiten: не понимает nope\n"],
       // Отклонение спеки: у `runCli` здесь «No such command 'wb-loader 777'».
       [["wb-loader", "777", "cards"], "mpu wb-loader: не понимает 777\n"],
     ];
@@ -111,8 +110,9 @@ Deno.test("каждый путь реестра достижим: справка
     }
   }));
 
-Deno.test("selectors группы — ровно её дети", () =>
+Deno.test("selectors группы — ровно её дети, когда разрешено всё", () =>
   withPolicyFile(async (file) => {
+    allowEverything(file);
     for (const group of groups) {
       const { code, stdout } = await run(file, [...group.path, "selectors"]);
       assertEquals(code, 0, group.path.join(" "));
@@ -124,8 +124,9 @@ Deno.test("selectors группы — ровно её дети", () =>
     }
   }));
 
-Deno.test("selectors корня — дети и сообщения о правилах", () =>
+Deno.test("selectors корня — дети, сообщения о правилах и вход ask", () =>
   withPolicyFile(async (file) => {
+    allowEverything(file);
     const { code, stdout } = await run(file, ["selectors"]);
     assertEquals(code, 0);
     assertEquals(
@@ -134,6 +135,7 @@ Deno.test("selectors корня — дети и сообщения о прави
         ...childrenOf([]).map((child) => child.name),
         "policy",
         "allow:",
+        "ask",
         "ask:",
         "deny:",
         "forget:",

@@ -68,7 +68,7 @@ const CASES: readonly Case[] = [
   {
     name: "ask-nobody",
     path: "/line",
-    words: ["kiten", "comment", "1", "x"],
+    words: ["ask", "kiten", "comment", "1", "x"],
     answers: [],
     human: false,
   },
@@ -233,7 +233,12 @@ Deno.test("номер: второй раз, чужая дверь, чужой т
       using book = RuleBook.open(back.policyFile, []);
       book.set(RulePath.parse("xlsx alias ls"), ASK);
     }
-    const owners = await asked(back, "/agent/line", ["xlsx", "alias", "ls"]);
+    const owners = await asked(back, "/agent/line", [
+      "ask",
+      "xlsx",
+      "alias",
+      "ls",
+    ]);
     assertEquals((await answer(back, "/agent/line", owners, true)).status, 404);
     assertEquals((await answer(back, "/agent/line", owners)).status, 200);
     assertEquals((await answer(back, "/line", "не номер")).status, 404);
@@ -249,7 +254,7 @@ Deno.test("номер: 120 секунд без ответа — «нет», но
     const frames = await ndjson(
       back,
       await post(back, "/line", {
-        words: ["xlsx", "alias", "ls"],
+        words: ["ask", "xlsx", "alias", "ls"],
         cwd: Deno.cwd(),
         human: true,
       }),
@@ -271,7 +276,7 @@ Deno.test("агентский токен: вопроса нет, спросит�
       back,
       "/agent/line",
       {
-        words: ["xlsx", "alias", "ls"],
+        words: ["ask", "xlsx", "alias", "ls"],
         cwd: Deno.cwd(),
         human: true,
       },

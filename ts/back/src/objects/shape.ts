@@ -41,12 +41,26 @@ const DESCRIBE: Ending<unknown> = {
   finish: (report) => Promise.resolve(report.object()),
 };
 
-/** Необязательное в виде: ответ на непонятое и на конец строки. */
+/**
+ * Кого из собственных селекторов вид называет в списках: `selectors`,
+ * `respondsTo:`, раздел «Сообщения» справки, «ближайшие» в отказе.
+ * Поиск метода роспись не трогает — неназванный селектор исполняется.
+ */
+export interface Roster {
+  lists(selector: string): boolean;
+}
+
+/** Умолчание: вид называет все свои селекторы. */
+export const EVERYONE: Roster = { lists: () => true };
+
+/** Необязательное в виде: ответ на непонятое, на конец строки, роспись. */
 export interface ShapeOptions<S> {
   /** По умолчанию — отказ. */
   readonly fallback?: Fallback<S>;
   /** По умолчанию — справка вернувшего метода. */
   readonly ending?: Ending<S>;
+  /** По умолчанию — все собственные селекторы. */
+  readonly roster?: Roster;
 }
 
 /** Объект: вид и состояние. */
@@ -73,20 +87,24 @@ export class Shape<S> implements Yields<S>, Reflective {
   readonly #methods: ReadonlyMap<string, Method<S>>;
   readonly #fallback: Fallback<S>;
   readonly #ending: Ending<S>;
+  readonly #roster: Roster;
 
   /**
    * @param methods собственные методы вида
-   * @param options ответ на непонятое и на конец строки
+   * @param options ответ на непонятое, на конец строки и роспись
    */
   constructor(methods: readonly Method<S>[], options: ShapeOptions<S> = {}) {
     this.#methods = new Map(methods.map((method) => [method.selector, method]));
     this.#fallback = options.fallback ?? REFUSE;
     this.#ending = options.ending ?? DESCRIBE;
+    this.#roster = options.roster ?? EVERYONE;
   }
 
-  /** Собственные селекторы по алфавиту. */
+  /** Собственные селекторы по алфавиту — те, что вид называет. */
   selectors(): string[] {
-    return [...this.#methods.keys()].sort(order);
+    return [...this.#methods.keys()]
+      .filter((selector) => this.#roster.lists(selector))
+      .sort(order);
   }
 
   /** Назначения собственных селекторов: селектор → назначение. */
@@ -97,7 +115,8 @@ export class Shape<S> implements Yields<S>, Reflective {
   }
 
   respondsTo(selector: string): boolean {
-    return this.#methods.has(selector) || COMMON_SELECTORS.has(selector);
+    return (this.#methods.has(selector) && this.#roster.lists(selector)) ||
+      COMMON_SELECTORS.has(selector);
   }
 
   parsing(): ReceiverDescription {
@@ -119,6 +138,7 @@ export class Shape<S> implements Yields<S>, Reflective {
 
   #ownLines(): Line[] {
     return [...this.#methods.values()]
+      .filter((method) => this.#roster.lists(method.selector))
       .map((method) => method.line())
       .sort((a, b) => order(a.selector, b.selector));
   }

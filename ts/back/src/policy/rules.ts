@@ -7,6 +7,7 @@
 import type { Channel } from "./channel.ts";
 import type { RulePath } from "./path.ts";
 import {
+  type Address,
   ASK,
   type Execution,
   type RuleEntry,
@@ -15,7 +16,14 @@ import {
 
 /** Решение для строки: исполняет исход и называет себя эталону. */
 export interface Ruling {
-  settle<T>(execution: Execution<T>, channel: Channel): Promise<T>;
+  /** Исход решения у адреса `address`, по которому пришла строка. */
+  settle<T>(
+    execution: Execution<T>,
+    channel: Channel,
+    address: Address,
+  ): Promise<T>;
+  /** Исполняется ли строка с этим решением по адресу `address`. */
+  admits(address: Address): boolean;
   /** Решение и путь выигравшего правила (`null` — не совпало ни одно). */
   record(): { readonly verdict: string; readonly won: string | null };
   /** Уступает ли это решение правилу `challenger`, совпавшему с той же строкой. */
@@ -32,8 +40,21 @@ export class Rule implements Ruling {
     this.#verdict = verdict;
   }
 
-  settle<T>(execution: Execution<T>, channel: Channel): Promise<T> {
-    return this.#verdict.settle(execution, channel, this.#path.text());
+  settle<T>(
+    execution: Execution<T>,
+    channel: Channel,
+    address: Address,
+  ): Promise<T> {
+    return this.#verdict.settle(
+      execution,
+      channel,
+      this.#path.text(),
+      address,
+    );
+  }
+
+  admits(address: Address): boolean {
+    return this.#verdict.admits(address);
   }
 
   record() {
@@ -60,7 +81,9 @@ export class Rule implements Ruling {
  * Уступает любому совпавшему. Единственный null-объект модуля.
  */
 export const INHERITED: Ruling = {
-  settle: (execution, channel) => ASK.settle(execution, channel, ""),
+  settle: (execution, channel, address) =>
+    ASK.settle(execution, channel, "", address),
+  admits: (address) => ASK.admits(address),
   record: () => ({ verdict: ASK.word, won: null }),
   yieldsTo: () => true,
 };

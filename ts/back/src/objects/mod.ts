@@ -14,9 +14,16 @@ export type {
   Yields,
 } from "./protocol.ts";
 export type { Fallback, Method } from "./method.ts";
-export { keyword, link, tail, unary } from "./method.ts";
+export { gate, keyword, link, tail, unary } from "./method.ts";
 export { DATA } from "./common.ts";
-export { type Ending, origin, Shape, type ShapeOptions } from "./shape.ts";
+export {
+  type Ending,
+  EVERYONE,
+  origin,
+  type Roster,
+  Shape,
+  type ShapeOptions,
+} from "./shape.ts";
 export { Refusal } from "./refusal.ts";
 export { type Loader, Replaceable } from "./replaceable.ts";
 export { runChain } from "./chain.ts";

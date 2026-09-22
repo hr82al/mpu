@@ -152,7 +152,7 @@ Deno.test("строка, закрытая до своего места, отпу
 Deno.test("строка, ждущая ответа, места не занимает", async () => {
   await withBack(async (back) => {
     askOn(back, "xlsx alias ls");
-    const a = await open(back, ["xlsx", "alias", "ls"]);
+    const a = await open(back, ["ask", "xlsx", "alias", "ls"]);
     await a.frame((frame) => "ask" in frame);
     const b = await open(back, ["version"]);
     const bFrames = await within(b.finished(), 5000, "exit строки B");
@@ -169,7 +169,7 @@ Deno.test("ответа нет 120 секунд — не подтвержден�
   using time = new FakeTime();
   await withBack(async (back) => {
     askOn(back, "xlsx alias ls");
-    const a = await open(back, ["xlsx", "alias", "ls"]);
+    const a = await open(back, ["ask", "xlsx", "alias", "ls"]);
     await a.frame((frame) => "ask" in frame);
     await time.tickAsync(ANSWER_TIMEOUT_MS - 1);
     assertEquals(a.frames.some((frame) => "exit" in frame), false);
@@ -188,7 +188,7 @@ Deno.test("клиент закрыл сокет, не ответив — исп�
   await withBack(async (back) => {
     called.push(back.called);
     askOn(back, "xlsx alias ls");
-    const a = await open(back, ["xlsx", "alias", "ls"]);
+    const a = await open(back, ["ask", "xlsx", "alias", "ls"]);
     await a.frame((frame) => "ask" in frame);
     a.close();
     await a.closed();
@@ -200,7 +200,7 @@ Deno.test("клиент закрыл сокет, не ответив — исп�
 Deno.test("кадр не-ответ после первого игнорируется", async () => {
   await withBack(async (back) => {
     askOn(back, "xlsx alias ls");
-    const a = await open(back, ["xlsx", "alias", "ls"]);
+    const a = await open(back, ["ask", "xlsx", "alias", "ls"]);
     await a.frame((frame) => "ask" in frame);
     a.send({ words: ["version"] });
     a.send("мусор");

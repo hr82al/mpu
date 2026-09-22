@@ -95,7 +95,7 @@ Deno.test("два вопроса подряд: каждый ждёт своег�
     // подряд в одной строке (`docs/specs/telegram-login.md`).
     // Первый вопрос — правил подтверждения (команда мутирующая), два
     // следующих — самого сценария: каждый ждёт своего ответа.
-    const frames = await lineAsking(back, ["telegram", "login"], {
+    const frames = await lineAsking(back, ["ask", "telegram", "login"], {
       answers: ["y", "y", "", ""],
     });
     assertEquals(asked(frames).map((frame) => frame.ask), [
@@ -120,7 +120,7 @@ Deno.test("ответ по номеру: тело в журнал и диагн�
     const frames = await ndjson(
       back,
       await post(back, "/line", {
-        words: ["xlsx", "alias", "ls"],
+        words: ["ask", "xlsx", "alias", "ls"],
         cwd: Deno.cwd(),
         human: true,
       }),
@@ -148,7 +148,7 @@ Deno.test("ответ человека не выходит из строки: н
     // здесь проверяется, что вид доезжает до клиента и что ответ на
     // него не выходит наружу ни одним путём.
     client.send({
-      words: ["telegram", "login"],
+      words: ["ask", "telegram", "login"],
       cwd: Deno.cwd(),
       human: true,
     });
@@ -177,7 +177,7 @@ Deno.test("копирование: кадр clip у человека, у аге�
     // `make-schema -p` ничего не выполняет: печатает docker-команду и
     // предлагает положить её в буфер обмена. Команда мутирующая, поэтому
     // первым идёт вопрос правил.
-    const words = ["make-schema", "777", "--client-id", "777", "-p"];
+    const words = ["ask", "make-schema", "777", "--client-id", "777", "-p"];
     const human = await lineAsking(back, words, { answers: ["y"] });
     const clips = human.filter((frame) => "clip" in frame);
     assertEquals(clips.length, 1, JSON.stringify(human));
@@ -317,7 +317,7 @@ Deno.test("голдены: кадры вопроса, скрытого вопр�
       "кадры отвеченной строки": answered,
       "запись журнала": back.logged,
     });
-    const words = ["make-schema", "777", "--client-id", "777", "-p"];
+    const words = ["ask", "make-schema", "777", "--client-id", "777", "-p"];
     const human = await lineAsking(back, words, { answers: ["y"] });
     const agent = await lineAsking(back, words, {
       path: "/agent/line",

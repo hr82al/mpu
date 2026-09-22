@@ -48,7 +48,7 @@ const CASES: readonly Case[] = [
   {
     name: "ask-nobody",
     path: "/line",
-    words: ["kiten", "comment", "1", "x"],
+    words: ["ask", "kiten", "comment", "1", "x"],
     answers: [],
     human: false,
   },
@@ -148,7 +148,7 @@ Deno.test("ask без человека: отказ, команда не вызв
     const frames = await line(
       back,
       "/line",
-      ["kiten", "comment", "1", "x"],
+      ["ask", "kiten", "comment", "1", "x"],
       ["y"],
       false,
     );

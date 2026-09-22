@@ -14,6 +14,11 @@ export interface Execution<T> {
   run(): Promise<T>;
   /** Отказ с готовым текстом. */
   refuse(reason: string): Promise<T>;
+  /**
+   * Строка пришла не по тому адресу: отказ с подсказкой верного. Какой
+   * адрес верный, знает тот, кто собрал строку, а не правила.
+   */
+  redirect(): Promise<T>;
 }
 
 /** Правило, как его показывает `policy` и отдают сообщения изменения. */
@@ -43,13 +48,24 @@ export interface Change {
   apply(book: RuleWriter, path: RulePath): RuleEntry;
 }
 
-/** Исход решения: каждый исполняет себя сам. */
-interface Outcome {
+/** Исход решения по адресу строки: каждый исполняет себя сам. */
+export interface Treatment {
   settle<T>(
     execution: Execution<T>,
     channel: Channel,
     won: string,
   ): Promise<T>;
+  /** Исполняется ли строка по этому адресу: такую показывают в списках. */
+  admits(): boolean;
+}
+
+/**
+ * Адрес, по которому пришла строка: чем он отвечает на решения `allow`
+ * и `ask`. На `deny` адрес не влияет — отказ одинаков везде.
+ */
+export interface Address {
+  onAllow(): Treatment;
+  onAsk(): Treatment;
 }
 
 /** Что решение добавляет после стрелки в вопросе об изменении правила. */
@@ -57,15 +73,24 @@ interface Caveat {
   after(word: string, path: RulePath, writers: Writers): string;
 }
 
-/** Решение правила: исход и изменение правила этим решением. */
+/** Решение правила: исход по адресу и изменение правила этим решением. */
 export class Verdict implements Change {
   readonly word: string;
-  readonly #outcome: Outcome;
+  readonly #at: (address: Address) => Treatment;
   readonly #caveat: Caveat;
 
-  constructor(word: string, outcome: Outcome, caveat: Caveat) {
+  /**
+   * @param word слово решения в файле и в `policy`
+   * @param at исход решения у адреса строки
+   * @param caveat что вопрос об изменении правила добавляет после стрелки
+   */
+  constructor(
+    word: string,
+    at: (address: Address) => Treatment,
+    caveat: Caveat,
+  ) {
     this.word = word;
-    this.#outcome = outcome;
+    this.#at = at;
     this.#caveat = caveat;
   }
 
@@ -75,13 +100,20 @@ export class Verdict implements Change {
    * @param execution строка под решением
    * @param channel у кого спросить
    * @param won путь выигравшего правила текстом
+   * @param address адрес, по которому пришла строка
    */
   settle<T>(
     execution: Execution<T>,
     channel: Channel,
     won: string,
+    address: Address,
   ): Promise<T> {
-    return this.#outcome.settle(execution, channel, won);
+    return this.#at(address).settle(execution, channel, won);
+  }
+
+  /** Исполняется ли строка с этим решением по адресу `address`. */
+  admits(address: Address): boolean {
+    return this.#at(address).admits();
   }
 
   question(path: RulePath, writers: Writers): string {
@@ -110,11 +142,14 @@ const OPENS_WRITERS: Caveat = {
   },
 };
 
-const RUN: Outcome = {
+/** Исполнить строку. */
+export const EXECUTE: Treatment = {
   settle: (execution) => execution.run(),
+  admits: () => true,
 };
 
-const QUESTION: Outcome = {
+/** Спросить канал; «да» — исполнить. */
+export const CONFIRM: Treatment = {
   settle(execution, channel) {
     const text = execution.text;
     return channel.ask(`выполнить ${text}? [y/N] `, {
@@ -124,16 +159,32 @@ const QUESTION: Outcome = {
         execution.refuse(`${text}: нужно подтверждение, а спросить некого`),
     });
   },
+  admits: () => true,
 };
 
-const REFUSAL: Outcome = {
+/** Адрес не тот: ни вопроса, ни исполнения. */
+export const REDIRECT: Treatment = {
+  settle: (execution) => execution.redirect(),
+  admits: () => false,
+};
+
+const FORBIDDEN: Treatment = {
   settle: (execution, _channel, won) =>
     execution.refuse(`${execution.text}: запрещено правилом «${won}»`),
+  admits: () => false,
 };
 
-export const ALLOW: Verdict = new Verdict("allow", RUN, OPENS_WRITERS);
-export const ASK: Verdict = new Verdict("ask", QUESTION, PLAIN);
-export const DENY: Verdict = new Verdict("deny", REFUSAL, PLAIN);
+export const ALLOW: Verdict = new Verdict(
+  "allow",
+  (address) => address.onAllow(),
+  OPENS_WRITERS,
+);
+export const ASK: Verdict = new Verdict(
+  "ask",
+  (address) => address.onAsk(),
+  PLAIN,
+);
+export const DENY: Verdict = new Verdict("deny", () => FORBIDDEN, PLAIN);
 
 /** Правило удаляется: путь снова наследует. */
 export const FORGET: Change = {

@@ -50,7 +50,7 @@ Deno.test("канал агента: human с агентским токеном �
       answers: ["y"],
     });
     await byAgent.opened();
-    byAgent.start(["xlsx", "alias", "ls"], true);
+    byAgent.start(["ask", "xlsx", "alias", "ls"], true);
     assertEquals(await byAgent.finished(), [
       { err: "mpu xlsx alias ls: нужно подтверждение, а спросить некого\n" },
       { exit: 1 },
@@ -58,7 +58,7 @@ Deno.test("канал агента: human с агентским токеном �
     assertEquals(back.called, []);
     const byOwner = new Client(back, "/agent/line", { answers: ["y"] });
     await byOwner.opened();
-    byOwner.start(["xlsx", "alias", "ls"], true);
+    byOwner.start(["ask", "xlsx", "alias", "ls"], true);
     const frames = await byOwner.finished();
     assertEquals(frames[0], { ask: "выполнить mpu xlsx alias ls? [y/N] " });
     assertEquals(frames.at(-1), { exit: 0 });
