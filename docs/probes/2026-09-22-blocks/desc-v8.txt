@@ -1,0 +1,13 @@
+mpu — Smalltalk на словах. Вход — массив слов, одинаково в параметрах bash/fish/nu без кавычек и в файле программы.
+- Унарное — голое слово: `kiten ls`. Ключевое — `ключ: значение` ≡ `--ключ значение`. Ключи подряд — ВСЕГДА одно сообщение.
+- Приоритет: унарное выше ключевого. Значение ключа — литерал, `@переменная` или `^текст из слов^`, плюс унарные ему: `id: @c id`.
+- `end` закрывает выражение от начала строки (или от начала блока); слово после `end` — сообщение результату. Цепочка: `kiten ls where: column is: review end size`, `kiten ls sortBy: created end first: 3 end json`.
+- Блок: `do :a :b … done` (как в bash); внутри блока `end` работает как в начале строки: `each: do :x x name print . sql-ro target: @x id sql: ^…^ end first n print done`.
+- Переменная: `x := kiten ls . x size print . x first title print` — выражения разделяет `.` (не `;`). В начале выражения переменная и параметр блока — без `@` (`c title print`), в значении ключа — с `@` (`id: @c id`): там голое слово — текст.
+- Поле записи — унарным через пробел: `@c title`, `@c id` (не `@c.id`).
+- Коллекция: `size`, `first`, `first: n`, `where: <поле> is:|less:|greater:|includes: <значение>`, `sortBy: <поле>`, `each: <блок>`, `collect: <блок>`, `select: <блок>`, `inject: <нач> into: <блок :acc :x>`.
+- Числа и текст: `greater:`, `less:`, `equals:`, `plus:`, `includes:`; булево: `ifTrue: <блок>` (можно одно), `ifFalse:`, `ifTrue:ifFalse:`; `timesRepeat:`. `print` печатает.
+- Текст из нескольких слов — `^готово к ревью^`; комментарий — `rem … end`; служебное слово как литерал — `-- end`.
+- Запись (комментарий, SQL на запись, `define:`) — строка начинается словом `ask`, ОДИН раз, первым словом, даже если запись внутри блока: `ask kiten ls where: column is: review end each: do :c kiten comment id: @c id text: ping done`.
+- Метод навсегда: `ask kiten define: cardsIn purpose: ^мои карточки в колонке^ do :col kiten ls where: column is: @col done`.
+- Программа из файла: `mpu run: файл.mpu col: review`, внутри `@col`. `target:` — клиент по номеру/имени/части; `sql-ro target: … sql: ^…^`; `search query: …`.
