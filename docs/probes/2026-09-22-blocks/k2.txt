@@ -1,0 +1,2 @@
+Блок: `block :a :b … end` — параметры `:имя` сразу после `block`, дальше тело. Группа, вычисляемая сразу, — `do … end` (не блок).
+Пример: `kiten ls do: block :c @c id print end`; `kiten ls size greater: 10 ifTrue: block много print end ifFalse: block мало print end`.
