@@ -45,6 +45,8 @@ export interface TestBack {
   readonly spillDir: string;
   /** Исполнители строк сервера — в памяти теста. */
   readonly launcher: MemoryLauncher;
+  /** pid исполнителей, названные записями журнала, по порядку. */
+  readonly executors: number[];
   /** Каталог отметок сторожа (`platform/line-executor.md`). */
   readonly markersDir: string;
   readonly running: RunningBack;
@@ -78,6 +80,7 @@ const AGENT_TOKEN = "ag3nt-" + "t0ken-" + "value";
 export const FIRST_WORKER_PID = 900_001;
 
 function recordingLog(
+  executors: number[],
   called: string[],
   logged: string[],
   dirs: string[],
@@ -99,7 +102,7 @@ function recordingLog(
       let marked = false;
       return ({
         runId: () => runId,
-        executedBy: () => {},
+        executedBy: (pid: number) => void executors.push(pid),
         nativeCall: (command) => {
           marked = true;
           called.push(command.path.join(" "));
@@ -136,6 +139,7 @@ export async function withBack(
 ): Promise<void> {
   const dir = await Deno.makeTempDir();
   const called: string[] = [];
+  const executors: number[] = [];
   const logged: string[] = [];
   const dirs: string[] = [];
   const diagnosed: string[] = [];
@@ -152,6 +156,7 @@ export async function withBack(
     policyFile: `${dir}/policy.db`,
     io,
     log: recordingLog(
+      executors,
       called,
       logged,
       dirs,
@@ -191,6 +196,7 @@ export async function withBack(
     seen: [],
     spillDir: `${dir}/mpu-out`,
     launcher,
+    executors,
     markersDir: `${dir}/killed`,
     running,
   };

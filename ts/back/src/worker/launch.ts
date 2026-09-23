@@ -76,10 +76,13 @@ export class ProcessLauncher implements Launcher {
       stderr: "piped",
     }).spawn();
     const pid = child.pid;
+    // Сбой чтения stderr — строка диагностики, а не отказ статуса: конец
+    // процесса ждут пул и остановка, и отвергнутый статус оставил бы их
+    // без него.
     const errors = eachLine(
       child.stderr,
       (text) => diagnose(`[worker ${pid}] ${text}`),
-    );
+    ).catch((err) => diagnose(`[worker ${pid}] stderr не дочитан: ${err}`));
     return {
       pid,
       startedAt: now(),

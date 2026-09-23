@@ -6,7 +6,14 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { Client, type Frame, line, request, withBack } from "./testback.ts";
+import {
+  Client,
+  FIRST_WORKER_PID,
+  type Frame,
+  line,
+  request,
+  withBack,
+} from "./testback.ts";
 import type { TestBack } from "./testback.ts";
 
 /** Строка `confirm`, повисшая на вопросе, и её исполнитель. */
@@ -68,4 +75,11 @@ Deno.test("исполнитель умер сигналом без отметк�
       { err: "mpu-back: исполнитель строки упал (сигнал 9)\n" },
       { exit: 1 },
     ]);
+  }));
+
+Deno.test("запись журнала строки называет pid исполнителя, а не ядра", () =>
+  withBack(async (back) => {
+    assertEquals((await line(back, "/line", ["jsdate"])).at(-1), { exit: 0 });
+    assertEquals(back.executors, [FIRST_WORKER_PID]);
+    assertEquals(back.executors.includes(Deno.pid), false);
   }));
