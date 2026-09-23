@@ -1147,7 +1147,7 @@
         "root",
         "kiten"
       ],
-      "error": "$open — только в начале строки"
+      "error": "$open — в начале строки или на месте значения"
     },
     {
       "name": "do за значением",
@@ -1161,7 +1161,7 @@
         "root",
         "kiten"
       ],
-      "error": "$open — только в начале строки"
+      "error": "$open — в начале строки или на месте значения"
     },
     {
       "name": "-- перед end — литерал значения",
@@ -1413,7 +1413,7 @@
       ]
     },
     {
-      "name": "do как значение — отказ",
+      "name": "do как значение без закрытия — отказ",
       "words": [
         "kiten",
         "card:",
@@ -1423,7 +1423,7 @@
         "root",
         "kiten"
       ],
-      "error": "$open — только в начале строки"
+      "error": "группа значения ключа card не закрыта"
     },
     {
       "name": "хвост начинается с --",
@@ -1709,6 +1709,155 @@
             "x"
           ],
           "foreign": true
+        }
+      ]
+    },
+    {
+      "name": "группа на месте значения",
+      "words": [
+        "kiten",
+        "card:",
+        "$open",
+        "jsdate",
+        "$close"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "« $open jsdate $close »"
+          }
+        }
+      ]
+    },
+    {
+      "name": "группа внутри группы значения",
+      "words": [
+        "kiten",
+        "card:",
+        "$open",
+        "x:",
+        "$open",
+        "y",
+        "$close",
+        "$close"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "« $open x: $open y $close $close »"
+          }
+        }
+      ]
+    },
+    {
+      "name": "группа значения, затем закрытие и формат",
+      "words": [
+        "kiten",
+        "card:",
+        "$open",
+        "jsdate",
+        "$close",
+        "$close",
+        "json"
+      ],
+      "receivers": [
+        "root",
+        "kiten",
+        "any",
+        "any"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "« $open jsdate $close »"
+          }
+        },
+        {
+          "close": true
+        },
+        {
+          "unary": "json"
+        }
+      ]
+    },
+    {
+      "name": "stdin на месте значения",
+      "words": [
+        "kiten",
+        "card:",
+        "stdin"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "« stdin »"
+          }
+        }
+      ]
+    },
+    {
+      "name": "-- stdin — слово stdin",
+      "words": [
+        "kiten",
+        "card:",
+        "$literal",
+        "stdin"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "stdin"
+          }
+        }
+      ]
+    },
+    {
+      "name": "stdin вне значения — унарное",
+      "words": [
+        "kiten",
+        "stdin"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "stdin"
         }
       ]
     }
