@@ -7,7 +7,7 @@
  */
 
 import { z } from "@zod/zod";
-import { type CommandIo, defineCommand } from "../command/mod.ts";
+import { type CommandIo, defineCommand, items } from "../command/mod.ts";
 import { housekeeping, type TabInfo } from "./cache.ts";
 import { tabsOf } from "./read.ts";
 import type { WebappDeps } from "./webapp.ts";
@@ -107,6 +107,10 @@ Exit: 0 — успех; 2 — ошибки резолва цели; 1 — отк
     refresh: { short: "R" },
   },
   resultSchema,
+  data: items<LsResult>({
+    records: (result) => result.tabs,
+    with: (result, tabs) => ({ ...result, tabs }),
+  }),
   run: (args: LsArgs, io: LsIo) => runLs(args, io),
   render: (result: LsResult, args: LsArgs) => renderTabs(result.tabs, args),
 });

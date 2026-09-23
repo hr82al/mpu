@@ -18,6 +18,7 @@ import {
   type CommandIo,
   defineCommand,
   DomainError,
+  items,
   UsageError,
 } from "../command/mod.ts";
 import type { CacheReader } from "../selector/mod.ts";
@@ -638,6 +639,10 @@ Exit: 0 — успех; 1 — отказ sl-back (403 — не хватает р
   argsSchema: resumeArgs,
   forms: targetForms,
   resultSchema: resumeResult,
+  data: items<ResumeResult>({
+    records: (result) => result.entries,
+    with: (result, entries) => ({ ...result, entries }),
+  }),
   run: (args: ResumeArgs, io: LoaderIo) => runResume(args, io),
   // Печать показывает вызов на каждый кабинет: показанное меньше
   // сделанного — тот же дефект, что чинили в печати `--and-load`.

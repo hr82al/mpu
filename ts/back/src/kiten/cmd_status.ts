@@ -12,6 +12,7 @@ import {
   type CacheDb,
   type CommandIo,
   defineCommand,
+  items,
   UsageError,
 } from "../command/mod.ts";
 import { windowStart } from "../dates/mod.ts";
@@ -182,6 +183,10 @@ API.`,
   },
   forms: {},
   resultSchema,
+  data: items<KitenStatusResult>({
+    records: (result) => result.rows,
+    with: (result, rows) => ({ ...result, rows }),
+  }),
   run: (args, io: StatusIo) => runKitenStatus(args, io),
   render: renderStatus,
 });

@@ -19,6 +19,7 @@ import {
   type CacheDb,
   type CommandIo,
   defineCommand,
+  items,
   UsageError,
 } from "../command/mod.ts";
 import {
@@ -292,6 +293,10 @@ Exit: 0 — успех; 2 — имя вне реестра, нечисловое
   argsSchema,
   forms: { key: { positional: "one" }, value: { positional: "one" } },
   resultSchema,
+  data: items<ConfigResult>({
+    records: (result) => result.entries,
+    with: (result, entries) => ({ ...result, entries }),
+  }),
   run: (args: ConfigArgs, io: ConfigIo) => runConfig(args, io),
   render: (result: ConfigResult, args: ConfigArgs) =>
     renderConfig(result, args.json),

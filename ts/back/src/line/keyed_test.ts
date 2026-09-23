@@ -194,7 +194,7 @@ Deno.test("справка образца end json — ключи из объяв
     assertEquals(data.keys[0].kind, "value");
     assertEquals(data.keys[0].required, true);
     assertEquals(data.formats, ["json", "md"]);
-    assertEquals(data.examples.length, 3);
+    assertEquals(data.examples.length, 4);
     assertEquals(
       data.keys.map((key: { name: string }) => key.name).sort(),
       ["id"],

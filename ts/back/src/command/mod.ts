@@ -14,7 +14,16 @@ import { z } from "@zod/zod";
 import { type InputForm, type InputSpec, parseArgv } from "./args.ts";
 import { type ObjectSchema, readObjectSchema } from "./schema.ts";
 import { UsageError } from "./errors.ts";
-import { collectionOf, type Data, resultData } from "../objects/mod.ts";
+import {
+  type Call,
+  collectionOf,
+  type Data,
+  dataOf,
+  type Named,
+  resultData,
+  selecting,
+  type Source,
+} from "../objects/mod.ts";
 
 export {
   DomainError,
@@ -436,9 +445,10 @@ interface CommandDeclaration<A, R> {
    */
   readonly terminalInput?: string;
   /**
-   * Вид данных результата для отбора: коллекция (`items`,
-   * `platform/collection-protocol.md`). Без объявления — результат
-   * целиком как данные JSON.
+   * Вид данных результата для отбора — то, что печатает `end json`:
+   * коллекция (`items`, `platform/collection-protocol.md`) или одна
+   * сущность (`record`, `platform/result-record.md`). Без объявления —
+   * результат целиком как данные JSON.
    */
   readonly data?: ResultData<R>;
   /**
@@ -472,11 +482,21 @@ export interface ResultData<R> {
     schema: z.ZodType<R>,
     redraw: (result: unknown) => string,
   ): Data;
+  /**
+   * Слово после закрытия — не формат и не отбор: у записи — её поле
+   * (отбор по данным `source`), у прочих — `refuse()`.
+   */
+  field(named: Named, source: () => Source, refuse: () => Call): Call;
 }
 
-/** Результат целиком — данные JSON, как есть: вид без объявления. */
+/**
+ * Результат целиком — данные JSON, как есть: вид без объявления. Тип
+ * результата ему не нужен вовсе (схему он не зовёт), поэтому `never`:
+ * так он встаёт на место вида любой команды.
+ */
 const WHOLE: ResultData<never> = {
   data: (result) => resultData(result),
+  field: (_named, _source, refuse) => refuse(),
 };
 
 /**
@@ -492,6 +512,22 @@ export function items<R>(items: Items<R>): ResultData<R> {
           redraw(items.with(whole, selected.map((item) => item.data()))),
       });
     },
+    field: (_named, _source, refuse) => refuse(),
+  };
+}
+
+/**
+ * Одна сущность в результате — запись: её поля — слова после закрытия,
+ * коллекционных сообщений у неё нет (`platform/result-record.md`).
+ *
+ * @param entity запись из результата — то, что печатает `end json`
+ */
+export function record<R>(entity: (result: R) => unknown): ResultData<R> {
+  return {
+    // Запись как есть, без правила «одно поле — скаляр»: оно — для
+    // результата без объявления, а сущность объявлена.
+    data: (result, schema) => dataOf(entity(schema.parse(result))),
+    field: (named, source) => selecting(source(), named),
   };
 }
 
@@ -597,10 +633,19 @@ export interface Command {
   /** Проверяет образец результата объявленной схемой. */
   readonly assertResult: (value: unknown) => void;
   /**
-   * Результат для отбора: коллекция с видом команды, если команда её
-   * объявила, иначе — как данные JSON.
+   * Результат для отбора: коллекция с видом команды или запись, если
+   * команда их объявила, иначе — как данные JSON.
    */
   readonly dataOf: (result: unknown, argv: readonly string[]) => Data;
+  /**
+   * Слово после закрытия — не формат и не отбор: поле записи (отбор по
+   * данным `source`) или `refuse()`.
+   */
+  readonly field: (
+    named: Named,
+    source: () => Source,
+    refuse: () => Call,
+  ) => Call;
   /** Результат строки `argv` — поток: отбору не подлежит. */
   readonly streams: (argv: readonly string[]) => boolean;
   /**
@@ -699,6 +744,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
         spec.resultSchema,
         (other) => spec.render(spec.resultSchema.parse(other), parse(argv)),
       ),
+    field: (named, source, refuse) => data.field(named, source, refuse),
     streams: (argv) => spec.streams?.(parse(argv)) ?? false,
     remember(result, argv, memory) {
       // Поток не повторить из памяти: его записи ушли, пока он шёл.

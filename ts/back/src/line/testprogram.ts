@@ -2,7 +2,8 @@
  * Стенд программы для тестов и пересборки эталона
  * `fixtures/evaluator/cases.json` (`platform/evaluator.md`,
  * «Golden-примеры»): точка входа строки, подменённый Kaiten с тремя
- * карточками, кэш-БД во временном каталоге, программа — здесь же.
+ * карточками (списком и каждая целиком), кэш-БД во временном каталоге,
+ * программа — здесь же.
  */
 
 import type { CommandIo } from "../command/mod.ts";
@@ -12,6 +13,7 @@ import { startFakeKaiten } from "../kaiten/testing.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
+import { type Memory, NO_CALLER } from "./it.ts";
 import { lineEntry } from "./mod.ts";
 import { consentOf } from "./testconsent.ts";
 
@@ -23,6 +25,32 @@ const CARDS: readonly Record<string, unknown>[] = [
   { id: 12, title: "два", state: 2, column_id: 9102, updated: "2026-09-05" },
   { id: 13, title: "три", state: 3, column_id: 9101, updated: "2026-08-01" },
 ];
+
+/** Одна карточка и её комментарии: `/cards/{id}` и `…/comments`. */
+const CARD_PATH = /^\/api\/latest\/cards\/(\d+)(\/comments)?$/;
+
+/** Справочник кастомных полей: на стенде пуст. */
+const PROPERTIES_PATH = "/api/latest/company/custom-properties";
+
+/**
+ * Карточка и комментарии, снятые с живого Kaiten (голдены `kiten card`):
+ * у карточки стенда — её `id`, `title` и `state` из списка.
+ */
+const LIVE = new URL("../kiten/testdata/kiten-card/", import.meta.url);
+
+async function liveJson(name: string): Promise<unknown> {
+  return JSON.parse(await Deno.readTextFile(new URL(name, LIVE)));
+}
+
+/** Ответ на `/cards/{id}[/comments]`; карточки нет в списке — 404. */
+async function cardReply(id: number, comments: boolean): Promise<Response> {
+  const listed = CARDS.find((card) => card.id === id);
+  if (listed === undefined) return new Response(null, { status: 404 });
+  if (comments) return Response.json(await liveJson("live-raw-comments.json"));
+  const card = await liveJson("live-raw-card.json");
+  const { title, state } = listed;
+  return Response.json(Object.assign({}, card, { id, title, state }));
+}
 
 /** Подменённый Kaiten и порт исполнения к нему. */
 export interface Stand {
@@ -40,6 +68,9 @@ export async function withStand(fn: (stand: Stand) => Promise<void>) {
     if (last.pathname === "/api/latest/users/current") {
       return Response.json({ id: 9001, full_name: "Тест", username: "t" });
     }
+    if (last.pathname === PROPERTIES_PATH) return Response.json([]);
+    const card = CARD_PATH.exec(last.pathname);
+    if (card !== null) return cardReply(Number(card[1]), card[2] !== undefined);
     if (last.pathname !== CARDS_PATH) {
       return new Response("путь, которого тест не ждал", { status: 500 });
     }
@@ -114,13 +145,14 @@ function recordingLog(records: JournalRecord[]): InvokeLog {
 
 /**
  * Строка `words` на стенде с файлом правил `file`: stdin и stderr —
- * терминалы, ответы человека — `answers`.
+ * терминалы, ответы человека — `answers`, память вызывающего — `memory`.
  */
 export async function runOnStand(
   file: string,
   words: readonly string[],
   stand: Stand,
   answers: readonly string[] = [],
+  memory: Memory = NO_CALLER,
 ): Promise<Ran> {
   let stdout = "";
   let stderr = "";
@@ -132,7 +164,7 @@ export async function runOnStand(
     executedBy: () => {},
     log: recordingLog(records),
   };
-  const exit = await lineEntry(consentOf(file, answers))(
+  const exit = await lineEntry(consentOf(file, answers, memory))(
     words,
     makeFakeIo({
       ...stand.io,

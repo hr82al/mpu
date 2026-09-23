@@ -15,7 +15,12 @@
  */
 
 import { z } from "@zod/zod";
-import { type CommandIo, defineCommand, DomainError } from "../command/mod.ts";
+import {
+  type CommandIo,
+  defineCommand,
+  DomainError,
+  record,
+} from "../command/mod.ts";
 import {
   getCard,
   type KaitenAccess,
@@ -474,14 +479,18 @@ function renderStatus(result: KitenTimeStatusResult): string {
   }${since}${note}\n${total}`;
 }
 
-/** JSON-вывод `status`: отступ 2, ровно один перевод строки в конце. */
-function renderStatusJson(result: KitenTimeStatusResult): string {
-  const body = {
+/** Запись `status`: её печатает json и видит отбор. */
+function statusRecord(result: KitenTimeStatusResult) {
+  return {
     card_id: result.cardId,
     timer: result.timer,
     total_minutes: result.totalMinutes,
   };
-  return `${JSON.stringify(body, null, 2)}\n`;
+}
+
+/** JSON-вывод `status`: отступ 2, ровно один перевод строки в конце. */
+function renderStatusJson(result: KitenTimeStatusResult): string {
+  return `${JSON.stringify(statusRecord(result), null, 2)}\n`;
 }
 
 /**
@@ -572,7 +581,8 @@ id: — id карточки либо её URL.
 записи учёта времени, идущий таймер в него не входит.
 
 end json печатает {"card_id", "timer", "total_minutes"}, где timer — либо
-null, либо {id, started_at, elapsed_minutes, comment}.
+null, либо {id, started_at, elapsed_minutes, comment}. Те же поля —
+словом после end: end total_minutes.
 
 ${ENV_KEYS}
 
@@ -585,6 +595,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
   argsSchema: statusArgsSchema,
   forms: { selector: { positional: "one" } },
   resultSchema: statusResultSchema,
+  data: record(statusRecord),
   run: runKitenTimeStatus,
   render: (result, args) =>
     args.json ? renderStatusJson(result) : renderStatus(result),

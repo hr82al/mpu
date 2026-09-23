@@ -148,19 +148,44 @@ class CommandResult implements Receiver {
 }
 
 /**
- * Отказ слову, которого результат не понимает, — со списком того, что
- * он понимает: форматы, затем сообщения отбора.
+ * Ответ результата на слово — не формат и не отбор: поле записи (отбор
+ * по данным `source`) или `refuse()` (`platform/result-record.md`).
  */
-function refusing(names: readonly string[]): Fallback<Pending> {
+export type Field = (
+  named: Named,
+  source: () => Source,
+  refuse: () => Call,
+) => Call;
+
+/** Результат без записи: такое слово — отказ. */
+export const NO_FIELD: Field = (_named, _source, refuse) => refuse();
+
+/**
+ * Слово, которого результат не понимает форматом и отбором: вариант —
+ * отказ с готовой строкой; поле — записи, если она есть; иначе отказ со
+ * списком того, что результат понимает: форматы, затем сообщения отбора.
+ */
+function unknownWord(
+  names: readonly string[],
+  field: Field,
+  execution: Execution,
+): Fallback<Pending> {
   return {
-    understand(sent, pending): never {
-      pending.misplaced(sent.selector());
-      const known = [
-        ...names,
-        ...selectionMessages().map((line) => line.selector).sort(),
-      ];
+    understand(sent, pending) {
       const selector = sent.selector();
-      throw notUnderstood(`не понимает ${selector}`, selector, known, "есть");
+      pending.misplaced(selector);
+      const refuse = (): never => {
+        const known = [
+          ...names,
+          ...selectionMessages().map((line) => line.selector).sort(),
+        ];
+        throw notUnderstood(`не понимает ${selector}`, selector, known, "есть");
+      };
+      return sent.route({
+        named: (named) => field(named, () => pending.source(execution), refuse),
+        tail: refuse,
+        close: refuse,
+      });
     },
     lines: () => [],
     describe() {},
@@ -189,10 +214,12 @@ export class ResultOf {
   /**
    * @param formats форматы результата команды, `json` в их числе
    * @param execution исполнение строки в конце: печатью или отбором
+   * @param field ответ на слово — не формат и не отбор
    */
   constructor(
     formats: Readonly<Record<string, readonly string[]>>,
     execution: Execution,
+    field: Field,
   ) {
     const names = Object.keys(formats).sort();
     const settle = execution.settle.bind(execution);
@@ -212,7 +239,7 @@ export class ResultOf {
           (pending) => pending.as(formats[name]),
         )
       ),
-      { fallback: refusing(names), ending },
+      { fallback: unknownWord(names, field, execution), ending },
     );
     this.#kind = selectable(this.#shape);
     this.#execution = execution;

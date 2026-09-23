@@ -8,7 +8,7 @@
  */
 
 import { z } from "@zod/zod";
-import { defineCommand } from "../command/mod.ts";
+import { defineCommand, items } from "../command/mod.ts";
 import { type ChangedFile, changedFiles } from "../gitlab/mod.ts";
 import { renderTable } from "../ps/table.ts";
 import {
@@ -128,6 +128,10 @@ Exit: 0 — успех, в том числе у MR без изменённых �
   policy: "ro",
   argsSchema,
   resultSchema,
+  data: items<FilesResult>({
+    records: (result) => result.files,
+    with: (result, files) => ({ ...result, files }),
+  }),
   run: (args: FilesArgs, io: MrIo) => runFiles(args, io),
   render: (result: FilesResult, args: FilesArgs) =>
     renderFiles(result, args.json),

@@ -51,7 +51,13 @@ import {
   type Stripped,
   type Targets,
 } from "./keyed.ts";
-import { type Execution, Pending, ResultOf } from "./result.ts";
+import {
+  type Execution,
+  type Field,
+  NO_FIELD,
+  Pending,
+  ResultOf,
+} from "./result.ts";
 import { ruleMethods } from "./rules.ts";
 import { ASK_DOC, ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";
 
@@ -186,6 +192,14 @@ export function formatsOf(
 }
 
 /**
+ * Ответ результата узла на слово — не формат и не отбор: у команды — её
+ * (поле записи или отказ), у поверхности — отказ.
+ */
+function fieldOf(path: readonly string[]): Field {
+  return findCommand(path)?.field ?? NO_FIELD;
+}
+
+/**
  * Вид, который забирает хвост и в конце строки исполняет её; закрытие —
  * результат с форматами узла `path`.
  */
@@ -196,7 +210,7 @@ function dispatching(
   kind: TailKind = OWN_TAIL,
 ): Shape<Line> {
   const settle = sight.settle.bind(sight);
-  const results = new ResultOf(formatsOf(path), sight);
+  const results = new ResultOf(formatsOf(path), sight, fieldOf(path));
   const shape: Shape<Line> = new Shape<Line>([], {
     fallback: kind.fallback(doc, () => shape),
     ending: { finish: (report, line) => settle(report, line, kind.order) },
@@ -224,7 +238,7 @@ function leafShape(
     command,
     layout: ahead ? SELECTOR_AHEAD : BY_PATH,
     doc,
-    results: new ResultOf(formatsOf(path), sight),
+    results: new ResultOf(formatsOf(path), sight, fieldOf(path)),
     settle,
     stripped: sight.stripped,
     targets: sight.targets,

@@ -13,7 +13,12 @@
  */
 
 import { z } from "@zod/zod";
-import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import {
+  type CommandIo,
+  defineCommand,
+  items,
+  UsageError,
+} from "../command/mod.ts";
 import {
   commitBranches,
   type GitlabAccess,
@@ -340,6 +345,10 @@ Exit: 0 — успех, включая пустой список; 1 — отка
   argsSchema,
   forms: { mr: { positional: "rest" } },
   resultSchema,
+  data: items<StatusResult>({
+    records: (result) => result.rows,
+    with: (result, rows) => ({ ...result, rows }),
+  }),
   run: (args: StatusArgs, io: StatusIo) => runGlabStatus(args, io),
   render: (result: StatusResult, args: StatusArgs) =>
     renderGlabStatus(result, args),

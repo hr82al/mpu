@@ -8,7 +8,7 @@
  */
 
 import { z } from "@zod/zod";
-import { defineCommand, DomainError } from "../command/mod.ts";
+import { defineCommand, DomainError, items } from "../command/mod.ts";
 import { type ChangedFile, changedFiles } from "../gitlab/mod.ts";
 import {
   asCommandError,
@@ -147,6 +147,10 @@ Exit: 0 — успех, в том числе у MR без изменённых �
   policy: "ro",
   argsSchema,
   resultSchema,
+  data: items<DiffResult>({
+    records: (result) => result.files,
+    with: (result, files) => ({ ...result, files }),
+  }),
   run: (args: DiffArgs, io: MrIo) => runDiff(args, io),
   render: (result: DiffResult, args: DiffArgs) => renderDiff(result, args.json),
 });

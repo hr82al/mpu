@@ -168,8 +168,8 @@ function formatLast(sent: Sent): never {
 
 /**
  * Прошлый результат: без слова — прежний текст команды; форматы команды
- * и `json` — тем же рендером; отбор — по её данным. Команда не
- * исполняется.
+ * и `json` — тем же рендером; отбор и поле записи — по её данным.
+ * Команда не исполняется.
  */
 class Recalled implements Receiver {
   readonly #kept: Kept;
@@ -182,9 +182,15 @@ class Recalled implements Receiver {
     return sent.route({
       named: (named) =>
         this.#format(named) ??
-          selectionOf(named, KIND, () => this.#source(), () => {
-            throw this.#refusal(named.selector());
-          }),
+          selectionOf(
+            named,
+            KIND,
+            () => this.#source(),
+            () =>
+              this.#kept.command.field(named, () => this.#source(), () => {
+                throw this.#refusal(named.selector());
+              }),
+          ),
       tail: () => {
         throw this.#refusal(sent.selector());
       },

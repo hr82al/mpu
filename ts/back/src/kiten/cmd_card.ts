@@ -10,7 +10,7 @@
  */
 
 import { z } from "@zod/zod";
-import { type CommandIo, defineCommand } from "../command/mod.ts";
+import { type CommandIo, defineCommand, record } from "../command/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import {
   getCard,
@@ -148,6 +148,9 @@ no-comments не только убирает комментарии из выв�
 запрос. no-images убирает вложения-картинки из наглядного вида; на md и
 json не влияет.
 
+Слово после ${GRAMMAR.close}, не формат, — поле карточки, как в json: title,
+state, column, comments (коллекция: comments size).
+
 Имена кастомных полей для markdown и наглядного вида — отдельный запрос
 справочника компании; не ответил — печатаются сырые ключи id_NNN, вывод
 не срывается. На json справочник не запрашивается: JSON несёт сырые
@@ -164,6 +167,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten (недоступная к
   examples: [
     "mpu kiten card id: 65634936",
     `mpu kiten card id: 65634936 ${GRAMMAR.close} md`,
+    `mpu kiten card id: 65634936 ${GRAMMAR.close} comments size`,
     `mpu kiten card no-comments id: https://btlz.kaiten.ru/65634936 ${GRAMMAR.close} json`,
   ],
   keys: { id: "selector" },
@@ -172,6 +176,8 @@ Exit: 0 — успех; 1 — ошибка API Kaiten (недоступная к
   formats: { md: ["--md"] },
   forms: { selector: { positional: "one" } },
   resultSchema,
+  // Отбор видит то, что печатает json: карточку, а не конверт вида.
+  data: record<KitenCardResult>((result) => result.card),
   run: runKitenCard,
   render: (result, args) => {
     switch (result.view) {

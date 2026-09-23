@@ -8,7 +8,7 @@
  */
 
 import { z } from "@zod/zod";
-import { defineCommand, UsageError } from "../command/mod.ts";
+import { defineCommand, items, UsageError } from "../command/mod.ts";
 import { discussions, mergeRequest } from "../gitlab/mod.ts";
 import {
   asCommandError,
@@ -131,6 +131,10 @@ Exit: 0 — успех, в том числе когда после фильтр�
   argsSchema,
   formats: { md: ["--md"] },
   resultSchema,
+  data: items<CommentsResult>({
+    records: (result) => result.threads,
+    with: (result, threads) => ({ ...result, threads }),
+  }),
   run: (args: CommentsArgs, io: MrIo) => runComments(args, io),
   render: (result: CommentsResult, args: CommentsArgs) =>
     renderComments(result, args),
