@@ -289,7 +289,7 @@ Deno.test("обязательность поля видна в справке к
   for (const name of ["server", "name", "method"]) {
     assertStringIncludes(
       fields[name].description ?? "",
-      "(required, если не задан body:)",
+      "(required, если не задан body: или body-file:)",
       `${name}: обязательность не названа в справке`,
     );
   }
@@ -368,7 +368,7 @@ Deno.test("поля тела собираются в JSON, --body замещае
     await run(command, ["ss1", "--range", "A1:B2", "-b", '{"range":"C3"}'], io);
     assertEquals(JSON.parse(stand.seen[2].body), { range: "C3" });
 
-    await run(command, ["ss1", "--body", "@/тело.json"], io);
+    await run(command, ["ss1", "--body-file", "/тело.json"], io);
     assertEquals(JSON.parse(stand.seen[3].body), { range: "Z9" });
   } finally {
     await stand.stop();
@@ -391,11 +391,16 @@ Deno.test("ошибки ввода отбиваются до сети", async ()
     );
     assertStringIncludes(badBody.message, "--body: невалидный JSON: ");
     const noFile = await assertRejects(
-      () => command.invoke(["ss1", "-b", "@/нет.json"], io),
+      () => command.invoke(["ss1", "--body-file", "/нет.json"], io),
       UsageError,
     );
-    assertEquals(noFile.message, "--body @/нет.json: file not found");
-    // Ни один из трёх отказов не стоил обращения наружу.
+    assertEquals(noFile.message, "body-file: /нет.json: file not found");
+    const both = await assertRejects(
+      () => command.invoke(["ss1", "-b", "{}", "--body-file", "/нет.json"], io),
+      UsageError,
+    );
+    assertEquals(both.message, "body: и body-file: вместе нельзя — тело одно");
+    // Ни один из отказов не стоил обращения наружу.
     assertEquals(stand.seen.length, 0);
   } finally {
     await stand.stop();

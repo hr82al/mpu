@@ -27,7 +27,22 @@ import {
   RuleBook,
   type RuleEntry,
 } from "../policy/mod.ts";
-import type { CliEntry } from "../process/mod.ts";
+import { type CliEntry, runJournaled } from "../process/mod.ts";
+import {
+  isProgram,
+  type LineReply,
+  parseProgram,
+  Placed,
+  refusalOf,
+  type Root,
+} from "../program/mod.ts";
+import {
+  Capture,
+  type Evaluator,
+  programCommands,
+  programPolicy,
+  programRoot,
+} from "./program.ts";
 import { JSON_STRIPPED, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
 import { registrySeeds } from "./seeds.ts";
 import { targetValues } from "../selector/mod.ts";
@@ -41,6 +56,11 @@ import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 
 export type { RootMethod } from "./rules.ts";
+export {
+  type Evaluator,
+  IN_PLACE_PROGRAMS,
+  programCommands,
+} from "./program.ts";
 export { LastResults, type Memory, NO_CALLER } from "./it.ts";
 
 export { registryNodes, type TreeNode } from "./tree.ts";
@@ -127,6 +147,11 @@ export interface LinePorts {
    * (`platform/refusal-object.md`); у прямого вызова объект не нужен.
    */
   readonly refusal: (data: RefusalData) => void;
+  /**
+   * Где исполняется программа (`platform/evaluator.md`): у сервера строк
+   * — исполнитель вне предела пула, у прочих — `IN_PLACE_PROGRAMS`.
+   */
+  readonly evaluator: Evaluator;
 }
 
 /**
@@ -275,7 +300,97 @@ export function lineEntry(ports: LinePorts): CliEntry {
       ...parts,
       stripped: strippedOf(argv),
     });
-    const outcome = await runChain(walked, root, values);
-    return printed(outcome, speech);
+    const said = walked.slice(door.length);
+    if (!isProgram(said)) {
+      const outcome = await runChain(walked, root, values);
+      return printed(outcome, speech);
+    }
+    /**
+     * Команда программы — отдельной строкой той же дверью: правила в
+     * момент отправки, своя запись журнала, `it`; место в очереди строк
+     * у неё то же, что у программы.
+     */
+    const core = async (words: readonly string[]): Promise<LineReply> => {
+      const line = [...door, ...words];
+      const capture = new Capture();
+      let reply: LineReply = { exit: 1 };
+      await runJournaled(
+        line,
+        async (sub, _io, out, subJournal) => {
+          const texts: string[] = [];
+          const heard: Speech = {
+            stdout: (text) => void texts.push(text),
+            stderr: out.stderr,
+            refusal: speech.refusal,
+          };
+          const running = {
+            journal: subJournal,
+            execute: immediately,
+            delivery: capture,
+          };
+          const subRoot = registryRoot(
+            sessionOf(sub, heard, ports.memory, running),
+            book,
+            parts,
+          );
+          const code = printed(await runChain(sub, subRoot, values), heard);
+          reply = capture.reply(code, texts.join(""));
+          return code;
+        },
+        lineIo,
+        journal.log,
+        output,
+      );
+      return reply;
+    };
+    return await runProgramLine(said, programRoot(root), {
+      ports,
+      speech,
+      io: lineIo,
+      journal,
+      core,
+    });
   };
+}
+
+/** Что нужно строке-программе в ядре. */
+interface ProgramLine {
+  readonly ports: LinePorts;
+  readonly speech: Speech;
+  readonly io: CommandIo;
+  readonly journal: InvokeJournal;
+  readonly core: (words: readonly string[]) => Promise<LineReply>;
+}
+
+/**
+ * Строка-программа: отказы до исполнения — здесь, код 2; исполнение —
+ * месту исполнения программ, в очереди строк одним местом.
+ */
+async function runProgramLine(
+  words: readonly string[],
+  root: Root,
+  line: ProgramLine,
+): Promise<number> {
+  try {
+    parseProgram(words, programCommands(), root);
+  } catch (err) {
+    if (!(err instanceof Placed)) throw err;
+    refusalOf(words, err).tell(line.speech);
+    return 2;
+  }
+  line.journal.nativeCall(programPolicy(words));
+  return await line.ports.execute(async () => {
+    const end = await line.ports.evaluator.evaluate(
+      words,
+      line.io,
+      line.speech,
+      line.core,
+      line.journal,
+    );
+    if (end.refusal !== null) {
+      line.speech.refusal(end.refusal);
+      line.speech.stderr(`${end.refusal.text}\n`);
+    }
+    return end.exit;
+  });
 }

@@ -60,6 +60,10 @@ const MARKS: Readonly<Record<string, string>> = {
   $open: GRAMMAR.open,
   $close: GRAMMAR.close,
   $literal: GRAMMAR.literal,
+  $done: GRAMMAR.blockEnd,
+  $rem: GRAMMAR.comment,
+  $separator: GRAMMAR.separator,
+  $assign: GRAMMAR.assign,
 };
 
 function word(text: string): string {
@@ -129,8 +133,8 @@ async function readChain(
   return messages;
 }
 
-Deno.test("в эталоне 72 случая", () => {
-  assertEquals(golden.cases.length, 72);
+Deno.test("в эталоне 76 случаев", () => {
+  assertEquals(golden.cases.length, 76);
 });
 
 Deno.test("случаи эталона разбора сообщений", async (t) => {

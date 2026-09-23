@@ -1860,6 +1860,88 @@
           "unary": "stdin"
         }
       ]
+    },
+    {
+      "name": "done на месте значения — литерал",
+      "words": [
+        "kiten",
+        "card:",
+        "$done"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "$done"
+          }
+        }
+      ]
+    },
+    {
+      "name": "rem на месте значения — литерал",
+      "words": [
+        "kiten",
+        "card:",
+        "$rem"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "keyword": {
+            "card": "$rem"
+          }
+        }
+      ]
+    },
+    {
+      "name": "разделитель выражений в однокомандной строке — голое слово",
+      "words": [
+        "kiten",
+        "$separator"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "$separator"
+        }
+      ]
+    },
+    {
+      "name": "присваивание в однокомандной строке — голое слово",
+      "words": [
+        "kiten",
+        "$assign"
+      ],
+      "receivers": [
+        "root",
+        "kiten"
+      ],
+      "messages": [
+        {
+          "unary": "kiten"
+        },
+        {
+          "unary": "$assign"
+        }
+      ]
     }
   ]
 }

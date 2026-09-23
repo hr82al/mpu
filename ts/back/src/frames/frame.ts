@@ -245,7 +245,12 @@ function outputFileOf(value: unknown): OutputFile {
   return { path, bytes, lines, slice };
 }
 
-function refusalOf(value: unknown): RefusalData {
+/**
+ * Отказ-объект из данных JSON (граница кадра).
+ *
+ * @throws BadFrame — не отказ
+ */
+export function refusalOf(value: unknown): RefusalData {
   if (!isRecord(value)) throw new BadFrame("отказ не объект JSON");
   const { reason, hint, candidates, text } = value;
   const words = hint === null ? null : stringsOf(hint);

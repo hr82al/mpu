@@ -32,6 +32,7 @@ import {
   wordListing,
 } from "../objects/mod.ts";
 import { PolicyError, type RuleBook } from "../policy/mod.ts";
+import { programHelp } from "../program/mod.ts";
 import {
   childrenOf,
   type CommandGroup,
@@ -430,7 +431,10 @@ export function ruleLinks(node: TreeNode): readonly string[] {
   return node.tail === null ? node.path : [...node.path, ARGS];
 }
 
-const ROOT_DOC: Doc = { purpose: ROOT_SUMMARY, help: ROOT_USAGE };
+const ROOT_DOC: Doc = {
+  purpose: ROOT_SUMMARY,
+  help: `${ROOT_USAGE}\n\n${programHelp()}`,
+};
 
 function rootShape(
   sight: Sight,

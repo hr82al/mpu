@@ -1,5 +1,5 @@
 import type { RefusalData } from "../frames/mod.ts";
-import { UNNAMED_REFUSAL } from "../messages/mod.ts";
+import { GRAMMAR, UNNAMED_REFUSAL } from "../messages/mod.ts";
 import type { Hint, Refused, Remedy, Told } from "./protocol.ts";
 import { nearest } from "./nearest.ts";
 import { nearestOf, NO_HINT, NO_REMEDY } from "./remedy.ts";
@@ -59,11 +59,22 @@ export function notUnderstood(
   const named = candidates.length > 0
     ? `; ${label}: ${candidates.join(", ")}`
     : "";
-  return new Refusal(`${said}${named}`, {
+  return new Refusal(`${said}${named}${separated(selector)}`, {
     reason: NOT_UNDERSTOOD,
     candidates,
     remedy: nearestOf(selector, candidates),
   });
+}
+
+/**
+ * Хвост отказа слову с приклеенным разделителем выражений (`title.`):
+ * разделитель — отдельное слово (`platform/evaluator.md`, «Разбор»);
+ * у прочих слов — пусто.
+ */
+export function separated(selector: string): string {
+  const separator = GRAMMAR.separator;
+  if (selector === separator || !selector.endsWith(separator)) return "";
+  return `; ${separator} — отдельным словом`;
 }
 
 /**

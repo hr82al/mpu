@@ -178,15 +178,22 @@ Deno.test("код завершения один с форматом и без", 
   }));
 
 Deno.test("слова грамматики зарезервированы: так не зовут ни узел, ни ключ, ни формат", () => {
-  const reserved = new Set<string>([DO, END]);
-  const names = [
+  // Узел и формат пишутся голым словом — им нельзя ни одно слово
+  // грамматики, и строки, и программы (`platform/evaluator.md`). Ключ
+  // пишется `имя:` или `--имя` — другим словом, чем голое слово
+  // программы (`done:` у `kiten close` блок не закрывает); ему нельзя
+  // только слова строки.
+  const everyWord = new Set<string>(Object.values(GRAMMAR));
+  const lineWords = new Set<string>([DO, END]);
+  const bare = [
     ...[...commands, ...surfaces, ...groups].flatMap((node) => node.path),
-    ...commands.flatMap((command) => [
-      ...Object.keys(command.keys ?? {}),
-      ...command.inputs.map((input) => input.name),
-      ...Object.keys(command.formats),
-    ]),
+    ...commands.flatMap((command) => Object.keys(command.formats)),
   ];
-  assert(names.length > 300, `имён ${names.length}`);
-  assertEquals(names.filter((name) => reserved.has(name)), []);
+  const keys = commands.flatMap((command) => [
+    ...Object.keys(command.keys ?? {}),
+    ...command.inputs.map((input) => input.name),
+  ]);
+  assert(bare.length + keys.length > 300, `имён ${bare.length + keys.length}`);
+  assertEquals(bare.filter((name) => everyWord.has(name)), []);
+  assertEquals(keys.filter((name) => lineWords.has(name)), []);
 });

@@ -149,6 +149,21 @@ export function nearestOf(
   };
 }
 
+/**
+ * Слова, которым отказали, заменены словами `words`; прочие слова строки
+ * — как набраны. Текст отказа строку не называет.
+ */
+export function substituted(words: readonly string[]): Remedy {
+  return {
+    hint: (scene) =>
+      new Unsaid([
+        ...scene.line.slice(0, scene.start),
+        ...words,
+        ...scene.line.slice(scene.end),
+      ]),
+  };
+}
+
 /** Слова селектора, как их набирают: `id:text:` → `id:`, `text:`. */
 function parts(selector: string): string[] {
   if (!selector.endsWith(":")) return [selector];

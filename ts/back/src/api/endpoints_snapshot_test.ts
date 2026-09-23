@@ -284,7 +284,7 @@ for (const half of HALVES) {
           );
           assertStringIncludes(
             command.argsJsonSchema.properties[field.name].description ?? "",
-            "(required, если не задан body:)",
+            "(required, если не задан body: или body-file:)",
             `${entry.name}.${field.name}: условие не названо`,
           );
         }

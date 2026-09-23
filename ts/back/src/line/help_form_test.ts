@@ -21,6 +21,8 @@ import { addressesOf } from "./keyed.ts";
 import { registrySeeds } from "./seeds.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
 import { formatsOf, registryRoot } from "./tree.ts";
+import { isProgram, parseProgram } from "../program/mod.ts";
+import { programCommands, programRoot } from "./program.ts";
 
 /** Строка доходит до исполнения; самого исполнения нет. */
 class Captured implements Line {
@@ -133,11 +135,16 @@ Deno.test("справки: каждый пример доходит до исп�
       for (const example of command.examples) {
         await t.step(example, async () => {
           using book = RuleBook.open(file, registrySeeds());
-          const outcome = await runChain(
-            lineOf(example),
-            registryRoot(new Captured(), book),
-            SAMPLE_VALUES,
-          );
+          const words = lineOf(example);
+          const root = registryRoot(new Captured(), book);
+          // Пример-программа разбирается программой — без отказа до
+          // исполнения (`platform/evaluator.md`): `to: @all` без `--` был
+          // бы несвязанной переменной.
+          if (isProgram(words)) {
+            parseProgram(words, programCommands(), programRoot(root));
+            return;
+          }
+          const outcome = await runChain(words, root, SAMPLE_VALUES);
           assertEquals(
             "exit" in outcome && outcome.exit,
             0,

@@ -622,6 +622,7 @@ class Back {
       channel: () => channel,
       execute: (run) => line.execute(run, this.#lines),
       invoker: this.#workers,
+      evaluator: this.#workers,
       memory,
       refusal: (data) => line.deliver({ refusal: data }),
     });

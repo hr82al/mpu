@@ -471,6 +471,18 @@ function wordOf(text: string): Word {
   return new Bare(text);
 }
 
+/**
+ * Слова, которыми значение `text` записывается так, что разбор прочтёт
+ * его ровно этим текстом: слово грамматики, ключ и флаг — за `--`, прочее
+ * — как есть. Решает тот же `wordOf`: литерал — только голое слово.
+ */
+export function literalWords(text: string): string[] {
+  const word = wordOf(text);
+  const plain = word instanceof Bare && word.literal() === text &&
+    !text.startsWith("-");
+  return plain ? [text] : [GRAMMAR.literal, text];
+}
+
 function dashed(text: string): Word {
   const body = text.slice(DASHES.length);
   const eq = body.indexOf("=");

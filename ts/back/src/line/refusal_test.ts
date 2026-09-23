@@ -83,6 +83,15 @@ const HINTED: readonly (readonly [string, readonly string[]])[] = [
   ["селектор перед подкомандой", ["ozon-jobs", "sl-2", "show"]],
   ["ближайшее унарное", ["kitn", "ls"]],
   ["ближайший ключ", ["kiten", "card", "idd:", "1"]],
+  ["файл — ключом", [
+    "api",
+    "get-ss-values",
+    "id:",
+    "ss1",
+    "body:",
+    GRAMMAR.literal,
+    `${GRAMMAR.variable}req.json`,
+  ]],
 ];
 
 Deno.test("у каждого вида с подсказкой: текст — stderr, hint — не тот же отказ", async (t) => {
@@ -168,3 +177,30 @@ Deno.test("сколько — limit: у всех «сколько» (long-output
     }
   });
 });
+
+Deno.test("файл значением — отказ с готовой строкой body-file:", () =>
+  withPolicyFile(async (file) => {
+    const got = await run(file, [
+      "api",
+      "get-ss-values",
+      "id:",
+      "ss1",
+      "body:",
+      GRAMMAR.literal,
+      `${GRAMMAR.variable}req.json`,
+    ]);
+    assertEquals(got.code, 2);
+    assertEquals(
+      got.stderr,
+      "mpu api get-ss-values: файл — ключом: " +
+        "mpu api get-ss-values id: ss1 body-file: req.json\n",
+    );
+    assertEquals(got.refusals[0].hint, [
+      "api",
+      "get-ss-values",
+      "id:",
+      "ss1",
+      "body-file:",
+      "req.json",
+    ]);
+  }));

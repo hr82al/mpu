@@ -570,6 +570,14 @@ function noSuchCommand(name: string): string {
 }
 
 /**
+ * Аргументы без общего параметра формы вывода: так результат команды
+ * рисуется видом по умолчанию.
+ */
+export function withoutJsonFlag(argv: readonly string[]): readonly string[] {
+  return takeJsonFlag(argv).args;
+}
+
+/**
  * Снимает общий параметр формы вывода из argv. Всё после `--` —
  * позиционные аргументы команды и не разбирается.
  */

@@ -11,6 +11,7 @@ import type { CommandIo } from "../../back/src/command/mod.ts";
 import { IN_PLACE, type InvokeJournal } from "../../back/src/entrypoint/mod.ts";
 import {
   immediately,
+  IN_PLACE_PROGRAMS,
   lineEntry,
   NO_CALLER,
   NO_REFUSAL,
@@ -127,6 +128,7 @@ async function viaLine(line: Line, file: string): Promise<Seen> {
     channel: () => channel,
     execute: immediately,
     invoker: IN_PLACE,
+    evaluator: IN_PLACE_PROGRAMS,
     rootMethods: [],
     memory: NO_CALLER,
     refusal: NO_REFUSAL,

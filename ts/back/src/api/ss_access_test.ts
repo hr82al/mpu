@@ -181,17 +181,17 @@ Deno.test("--body отменяет точечные опции, а не смеш
     assertEquals(sent.length, 0);
   });
 
-  await t.step("@файл читается, а отсутствие названо путём", async () => {
+  await t.step("body-file: читается, а отсутствие названо путём", async () => {
     const { session, sent } = sessionOf();
     await runRequest(
-      { spreadsheet: SS, body: "@/тело.json" },
+      { spreadsheet: SS, "body-file": "/тело.json" },
       ioOf({ "/тело.json": '{"из":"файла"}' }),
       { session },
     );
     assertEquals(sent[0].body, { "из": "файла" });
     const err = await assertRejects(
       () =>
-        runRequest({ spreadsheet: SS, body: "@/нет.json" }, ioOf(), {
+        runRequest({ spreadsheet: SS, "body-file": "/нет.json" }, ioOf(), {
           session,
         }),
       UsageError,

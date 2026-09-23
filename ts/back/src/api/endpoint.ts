@@ -97,6 +97,12 @@ export const PATH_ARG_HELP: Readonly<Record<string, string>> = {
 /** Имя входа под `--body/-b`; занято, полем тела быть не может. */
 export const BODY_INPUT = "body";
 
+/**
+ * Имя входа, читающего тело из файла (`body-file: req.json`); занято, как
+ * и `body`. Прежняя запись `body: @req.json` — отказ с этой строкой.
+ */
+export const BODY_FILE_INPUT = "body-file";
+
 /** Объявление таблицы противоречиво — дефект, видимый при сборке реестра. */
 export class EndpointDeclarationError extends Error {
   override name = "EndpointDeclarationError";

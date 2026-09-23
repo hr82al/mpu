@@ -409,6 +409,13 @@ interface CommandDeclaration<A, R> {
   readonly keys?: Readonly<Record<string, string | KeyRename>>;
   /** Снятые входы: имя → ключ, который его заменил (`server` → `target`). */
   readonly retired?: Readonly<Record<string, string>>;
+  /**
+   * Входы, чьё значение `@путь` прежде читалось из файла: имя → ключ,
+   * которым файл читается теперь (`body` → `body-file`). Значение на `@`
+   * — отказ «файл — ключом» с готовой строкой: слово `@…` в строке —
+   * переменная программы (`platform/evaluator.md`).
+   */
+  readonly fromFile?: Readonly<Record<string, string>>;
   /** Строки вызова для раздела «Примеры» справки. */
   readonly examples?: readonly string[];
   /**
@@ -539,6 +546,8 @@ export interface Command {
   readonly keys?: Readonly<Record<string, string | KeyRename>>;
   /** Снятые входы: имя → ключ, который его заменил. */
   readonly retired: Readonly<Record<string, string>>;
+  /** Входы, чей `@путь` теперь — ключ файла: имя → этот ключ. */
+  readonly fromFile: Readonly<Record<string, string>>;
   /** Строки вызова для раздела «Примеры» справки. */
   readonly examples: readonly string[];
   /** Режимы команды: имя унарного сообщения → режим. */
@@ -594,6 +603,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     `${name}: схема результата`,
   );
   const specs = inputSpecs(argsJsonSchema, spec.forms ?? {});
+  requireTextFiles(name, specs, spec.fromFile ?? {});
   const helpHint = `mpu ${name} --help`;
   // Пометка «аргументы в журнал не пишутся» доезжает до разбора argv:
   // иначе сообщения разбора эхо-печатают ввод, и он всё равно попадает
@@ -634,6 +644,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     formats: { ...spec.formats },
     ...(spec.keys === undefined ? {} : { keys: { ...spec.keys } }),
     retired: { ...spec.retired },
+    fromFile: { ...spec.fromFile },
     examples: [...(spec.examples ?? [])],
     modes: { ...spec.modes },
     choices: { ...spec.choices },
@@ -739,6 +750,26 @@ function onlyKnownInputs(
 }
 
 /** Обязательный справочный текст команды; пустой — дефект объявления. */
+/**
+ * `fromFile` — только у текстового входа: файл заменяет одно значение,
+ * а значение-список склеилось бы в подсказке в одно слово. Ловим при
+ * сборке реестра, а не при вызове.
+ */
+function requireTextFiles(
+  name: string,
+  specs: readonly InputSpec[],
+  fromFile: Readonly<Record<string, string>>,
+): void {
+  for (const input of Object.keys(fromFile)) {
+    const kind = specs.find((one) => one.name === input)?.kind;
+    if (kind !== "string") {
+      throw new TypeError(
+        `${name}: fromFile ${input} — только у текстового входа, а он ${kind}`,
+      );
+    }
+  }
+}
+
 function requireText(text: string, what: string): void {
   if (text.trim() === "") {
     throw new TypeError(`${what}: текст обязателен и не может быть пустым`);

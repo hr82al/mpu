@@ -13,8 +13,9 @@ import {
   VerbatimError,
   VerbatimUsageError,
 } from "../command/mod.ts";
-import type { InvokeJournal } from "../entrypoint/mod.ts";
+import type { InvokeJournal, Output } from "../entrypoint/mod.ts";
 import { contextFieldsOf } from "../frames/mod.ts";
+import type { LineReply, ProgramEnd } from "../program/mod.ts";
 import { deathOf, type ExitStatus, type Markers } from "./death.ts";
 import {
   BadWorkerFrame,
@@ -79,10 +80,33 @@ function orderOf(
   return { path: command.path, args, cwd: io.cwd(), context };
 }
 
+/** Строка команды программы — ядру; у команды таких строк нет. */
+type Core = (words: readonly string[]) => Promise<LineReply>;
+
+/** Исполнитель команды строк ядру не шлёт: такая строка — отказ. */
+const NO_CORE: Core = () => Promise.resolve({ exit: 1 });
+
+/** Куда идёт вывод исполнителя: команды — её удалённый вывод, программы — строка. */
+interface Sink {
+  out(text: string): Promise<void>;
+  err(text: string): Promise<void>;
+}
+
+/** Вывод программы — в вывод строки: его перехватывает журнал. */
+function lineSink(output: Output): Sink {
+  return {
+    out: (text) => Promise.resolve(output.stdout(text)),
+    err: (text) => Promise.resolve(output.stderr(text)),
+  };
+}
+
 /** Исход исполнителя — значение или брошенный отказ того же класса. */
 function valueOf(outcome: Outcome): unknown {
   if ("value" in outcome) return outcome.value;
   if ("crash" in outcome) throw new Error(outcome.crash);
+  if ("exit" in outcome) {
+    throw new Error("исполнитель команды отдал итог программы");
+  }
   // Текст уже собран исполнителем: печатается дословно, код — его.
   if (outcome.code === 2) throw new VerbatimUsageError(outcome.stderr);
   throw new VerbatimError(outcome.stderr);
@@ -136,7 +160,34 @@ export class LineWorker {
       await this.#send({ run: orderOf(command, args, io) });
       // Остановку, пришедшую до подписки, слушатель не услышит.
       if (io.signal.aborted) this.stop();
-      return valueOf(await this.#converse(io));
+      return valueOf(await this.#converse(io, new LazyRemote(io), NO_CORE));
+    } finally {
+      io.signal.removeEventListener("abort", stop);
+      await this.close();
+    }
+  }
+
+  /**
+   * Исполняет программу (`platform/evaluator.md`): её печать — в
+   * `output`, её команды — `core` отдельными строками.
+   *
+   * @throws смерть исполнителя — `VerbatimError` с её текстом;
+   *   остановленный ядром без итога — `WorkerStopped`
+   */
+  async evaluate(
+    words: readonly string[],
+    io: CommandIo,
+    output: Output,
+    core: Core,
+    journal: InvokeJournal,
+  ): Promise<ProgramEnd> {
+    journal.executedBy(this.pid());
+    const stop = () => this.stop();
+    io.signal.addEventListener("abort", stop, { once: true });
+    try {
+      await this.#send({ evaluate: { words } });
+      if (io.signal.aborted) this.stop();
+      return endOf(await this.#converse(io, lineSink(output), core));
     } finally {
       io.signal.removeEventListener("abort", stop);
       await this.close();
@@ -217,15 +268,14 @@ export class LineWorker {
   }
 
   /** Кадры исполнителя до результата; конец без результата — смерть. */
-  async #converse(io: CommandIo): Promise<Outcome> {
-    const remote = new LazyRemote(io);
+  async #converse(io: CommandIo, sink: Sink, core: Core): Promise<Outcome> {
     for (;;) {
       const next = await this.#lines.next();
       if (next.done === true) break;
       const frame = this.#frameOf(next.value);
       if (frame === undefined) continue;
       if ("result" in frame) return frame.result;
-      await this.#serve(frame, io, remote);
+      await this.#serve(frame, io, sink, core);
     }
     const status = await this.#spawned.status;
     throw await this.#ending.error(this, status);
@@ -243,9 +293,14 @@ export class LineWorker {
   }
 
   /** Кадр исполнителя — действие порта строки; вопрос и ввод — ответ. */
-  async #serve(frame: WorkerFrame, io: CommandIo, remote: LazyRemote) {
-    if ("out" in frame) return await remote.out(frame.out);
-    if ("err" in frame) return await remote.err(frame.err);
+  async #serve(frame: WorkerFrame, io: CommandIo, sink: Sink, core: Core) {
+    if ("out" in frame) return await sink.out(frame.out);
+    if ("err" in frame) return await sink.err(frame.err);
+    if ("line" in frame) {
+      return await this.#unlessGone(
+        core(frame.line).then((lined) => this.#send({ lined })),
+      );
+    }
     if ("progress" in frame) return io.progress(frame.progress);
     if ("note" in frame) return io.note(frame.note);
     if ("stdin" in frame) {
@@ -275,6 +330,13 @@ export class LineWorker {
   }
 }
 
+/** Итог программы из исхода исполнителя; прочий исход — сбой. */
+function endOf(outcome: Outcome): ProgramEnd {
+  if ("exit" in outcome) return outcome;
+  if ("crash" in outcome) throw new Error(outcome.crash);
+  throw new Error("исполнитель программы отдал итог команды");
+}
+
 /** Ответ человека на вопрос исполнителя; `null` — спросить некого. */
 async function answerOf(
   ask: { readonly kind: "line" | "secret" | "copy"; readonly text: string },
@@ -300,7 +362,7 @@ async function answerOf(
  * на всю строку — сколько бы приёмников ни открыла команда у
  * исполнителя, кадры идут строке по порядку.
  */
-class LazyRemote {
+class LazyRemote implements Sink {
   readonly #io: CommandIo;
   readonly #encoder = new TextEncoder();
   #remote: RemoteOutput | undefined;

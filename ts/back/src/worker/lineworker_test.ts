@@ -309,3 +309,91 @@ Deno.test("исполнитель: умер, пока человек думае�
   );
   await worker.exited();
 });
+
+/** Вывод строки, собранный тестом. */
+function collected(into: string[]) {
+  return {
+    stdout: (text: string) => void into.push(`out:${text}`),
+    stderr: (text: string) => void into.push(`err:${text}`),
+  };
+}
+
+Deno.test("исполнитель программы: строка команды — ядру, печать — строке, итог — код", async () => {
+  const script = new ScriptedWorker(4);
+  const worker = lineWorker(script);
+  const printed: string[] = [];
+  const sent: string[][] = [];
+  const pids: number[] = [];
+  const running = worker.evaluate(
+    ["x"],
+    makeFakeIo({}),
+    collected(printed),
+    (words) => {
+      sent.push([...words]);
+      return Promise.resolve({ data: 1, command: null, shown: "1\n" });
+    },
+    journal(pids),
+  );
+  assertEquals(await script.next(), { evaluate: { words: ["x"] } });
+  await script.send({ line: ["kiten", "ls"] });
+  assertEquals(await script.next(), {
+    lined: { data: 1, command: null, shown: "1\n" },
+  });
+  await script.send({ out: "1\n" });
+  await script.send({ err: "ход\n" });
+  await script.send({ result: { exit: 0, refusal: null } });
+  assertEquals(await within(running, 5_000, "итог программы"), {
+    exit: 0,
+    refusal: null,
+  });
+  assertEquals(sent, [["kiten", "ls"]]);
+  assertEquals(printed, ["out:1\n", "err:ход\n"]);
+  assertEquals(pids, [4]);
+  await script.end({ code: 0, signal: null });
+  await worker.exited();
+});
+
+Deno.test("исполнитель программы умер, пока ядро исполняло её команду, — отказ сразу", async () => {
+  const script = new ScriptedWorker(5);
+  const worker = lineWorker(script);
+  const never = Promise.withResolvers<never>();
+  const running = worker.evaluate(
+    ["x"],
+    makeFakeIo({}),
+    collected([]),
+    () => never.promise,
+    journal([]),
+  );
+  await script.next();
+  await script.send({ line: ["kiten", "ls"] });
+  await script.end({ code: 137, signal: "SIGKILL" });
+  await assertRejects(
+    () => within(running, 5_000, "отказ по смерти исполнителя программы"),
+    VerbatimError,
+    "mpu-back: исполнитель строки упал (сигнал 9)",
+  );
+  await worker.exited();
+});
+
+Deno.test("исполнитель программы: отмена строки — кадр stop", async () => {
+  const script = new ScriptedWorker(6);
+  const worker = lineWorker(script);
+  const stop = new AbortController();
+  const running = worker.evaluate(
+    ["x"],
+    makeFakeIo({ signal: stop.signal }),
+    collected([]),
+    () => Promise.resolve({ exit: 1 }),
+    journal([]),
+  );
+  await script.next();
+  stop.abort();
+  assertEquals(await script.next(), { stop: true });
+  await script.send({ result: { exit: 130, refusal: null } });
+  assertEquals(await within(running, 5_000, "итог отменённой программы"), {
+    exit: 130,
+    refusal: null,
+  });
+  await script.end({ code: 0, signal: null });
+  await worker.exited();
+});

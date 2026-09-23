@@ -17,7 +17,7 @@ export {
   UNNAMED_REFUSAL,
 } from "./message.ts";
 export { type MessageStep, readMessage } from "./read.ts";
-export { GRAMMAR, HELP_FLAG } from "./words.ts";
+export { GRAMMAR, HELP_FLAG, literalWords } from "./words.ts";
 export { flagged } from "./grammar.ts";
 export {
   type Evaluation,

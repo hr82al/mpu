@@ -5,6 +5,8 @@
  */
 
 import { isRecord, parsedJson } from "../frames/json.ts";
+import { BadFrame, type RefusalData, refusalOf } from "../frames/mod.ts";
+import type { LineReply } from "../program/mod.ts";
 
 /**
  * Что исполнить: путь команды, её аргументы, каталог строки и поля
@@ -19,21 +21,35 @@ export interface Order {
   readonly context: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * Что исполнить программой (`platform/evaluator.md`, «Где исполняется»):
+ * её слова. Контекст вызова ей не нужен — окружения она не касается,
+ * команды исполняет ядро.
+ */
+export interface Evaluation {
+  readonly words: readonly string[];
+}
+
 /** Вид вопроса исполнителя; `copy` — просьба в буфер обмена. */
 export type AskKind = "line" | "secret" | "copy";
 
 /**
  * Исход команды у исполнителя: значение результата, отказ команды
- * готовым текстом с кодом или падение с сообщением.
+ * готовым текстом с кодом или падение с сообщением; у программы — код и
+ * отказ-объект (нет — `null`).
  */
 export type Outcome =
   | { readonly value: unknown }
   | { readonly code: 1 | 2; readonly stderr: string }
-  | { readonly crash: string };
+  | { readonly crash: string }
+  | { readonly exit: number; readonly refusal: RefusalData | null };
 
 /** Кадр ядра исполнителю. */
 export type HostFrame =
   | { readonly run: Order }
+  | { readonly evaluate: Evaluation }
+  /** Ответ ядра на строку команды программы. */
+  | { readonly lined: LineReply }
   /** Ответ человека; `null` — спросить некого. */
   | { readonly answer: string | null }
   /** Ввод строки целиком, текстом (ввод строки приходит JSON-строкой). */
@@ -49,6 +65,8 @@ export type WorkerFrame =
   | { readonly note: string }
   | { readonly ask: { readonly kind: AskKind; readonly text: string } }
   | { readonly stdin: true }
+  /** Команда программы — ядру отдельной строкой. */
+  | { readonly line: readonly string[] }
   | { readonly result: Outcome };
 
 /** Строка не разобралась как кадр своей стороны. */
@@ -74,6 +92,27 @@ function stringsOf(value: unknown, name: string): readonly string[] {
   return value;
 }
 
+function evaluationOf(evaluate: Record<string, unknown>): Evaluation {
+  return { words: stringsOf(evaluate.words, "words") };
+}
+
+/** Ответ ядра на строку команды: данные с командой либо код. */
+function linedOf(lined: Record<string, unknown>): LineReply {
+  if (typeof lined.exit === "number") return { exit: lined.exit };
+  const { data, command, shown } = lined;
+  if (typeof shown !== "string") throw new BadWorkerFrame("lined без текста");
+  if (command === null) return { data, command: null, shown };
+  if (!isRecord(command)) throw new BadWorkerFrame("lined без команды");
+  return {
+    data,
+    command: {
+      path: stringsOf(command.path, "path"),
+      argv: stringsOf(command.argv, "argv"),
+    },
+    shown,
+  };
+}
+
 function orderOf(run: Record<string, unknown>): Order {
   if (typeof run.cwd !== "string") throw new BadWorkerFrame("run без каталога");
   if (!isRecord(run.context)) throw new BadWorkerFrame("run без контекста");
@@ -93,6 +132,10 @@ function orderOf(run: Record<string, unknown>): Order {
 export function hostFrameOf(line: string): HostFrame {
   const frame = recordOf(line);
   if (isRecord(frame.run)) return { run: orderOf(frame.run) };
+  if (isRecord(frame.evaluate)) {
+    return { evaluate: evaluationOf(frame.evaluate) };
+  }
+  if (isRecord(frame.lined)) return { lined: linedOf(frame.lined) };
   if (typeof frame.answer === "string" || frame.answer === null) {
     return { answer: frame.answer };
   }
@@ -101,9 +144,23 @@ export function hostFrameOf(line: string): HostFrame {
   throw new BadWorkerFrame("незнакомый кадр ядра");
 }
 
+/** Отказ-объект программы; не объект отказа — кадр не свой. */
+function refusalIn(value: unknown): RefusalData | null {
+  if (value === null) return null;
+  try {
+    return refusalOf(value);
+  } catch (err) {
+    if (!(err instanceof BadFrame)) throw err;
+    throw new BadWorkerFrame(`отказ программы: ${err.message}`);
+  }
+}
+
 function outcomeOf(value: unknown): Outcome {
   if (!isRecord(value)) throw new BadWorkerFrame("result — не объект");
   if (typeof value.crash === "string") return { crash: value.crash };
+  if (typeof value.exit === "number") {
+    return { exit: value.exit, refusal: refusalIn(value.refusal) };
+  }
   if ("code" in value) {
     if (value.code !== 1 && value.code !== 2) {
       throw new BadWorkerFrame("код отказа не 1 и не 2");
@@ -139,6 +196,7 @@ export function workerFrameOf(line: string): WorkerFrame {
   if (typeof frame.note === "string") return { note: frame.note };
   if (isRecord(frame.ask)) return askOf(frame.ask);
   if (frame.stdin === true) return { stdin: true };
+  if ("line" in frame) return { line: stringsOf(frame.line, "line") };
   if ("result" in frame) return { result: outcomeOf(frame.result) };
   throw new BadWorkerFrame("незнакомый кадр исполнителя");
 }

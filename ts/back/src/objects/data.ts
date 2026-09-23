@@ -49,6 +49,16 @@ export interface Data extends Receiver, Shown {
    * §4): да только у коллекции.
    */
   sliced(): boolean;
+  /**
+   * Ответ на собственное сообщение — отбор, поле; непонятое — отказ
+   * `doesNotUnderstand` с ближайшими.
+   */
+  reply(named: Named): Data;
+  /**
+   * Понимают ли данные собственное сообщение `selector` (ключевое — ключи
+   * по алфавиту, `is:where:`).
+   */
+  understands(selector: string): boolean;
 }
 
 /** Значение, которое сравнивают `where:` и `sortBy:`. */
@@ -298,8 +308,16 @@ class Scalar implements Data, Comparable {
       this,
       sent,
       dataReflection([]),
-      (named) => refusedBy("скаляр", named.selector(), []),
+      (named) => this.reply(named),
     );
+  }
+
+  reply(named: Named): Data {
+    return refusedBy("скаляр", named.selector(), []);
+  }
+
+  understands(): boolean {
+    return false;
   }
 
   final(report: Report): Promise<Outcome> {
@@ -371,12 +389,9 @@ class Scalar implements Data, Comparable {
  */
 const NIL: Data & Comparable = {
   lookup: (sent) =>
-    lookupData(
-      NIL,
-      sent,
-      dataReflection([]),
-      (named) => refusedBy("скаляр", named.selector(), []),
-    ),
+    lookupData(NIL, sent, dataReflection([]), (named) => NIL.reply(named)),
+  reply: (named) => refusedBy("скаляр", named.selector(), []),
+  understands: () => false,
   final: (report) => Promise.resolve(report.shown(NIL)),
   field: (name) => refusedBy("скаляр", name, []),
   comparable: () => NIL,
@@ -449,15 +464,26 @@ class Collection implements Data {
 
   lookup(sent: Sent): Call {
     const messages = selectionMessages();
-    return lookupData(this, sent, dataReflection(messages), (named) => {
-      const method = COLLECTION_METHODS.get(named.selector());
-      if (method !== undefined) return method(this, named.args());
-      return refusedBy(
-        "коллекция",
-        named.selector(),
-        messages.map((line) => line.selector),
-      );
-    });
+    return lookupData(
+      this,
+      sent,
+      dataReflection(messages),
+      (named) => this.reply(named),
+    );
+  }
+
+  reply(named: Named): Data {
+    const method = COLLECTION_METHODS.get(named.selector());
+    if (method !== undefined) return method(this, named.args());
+    return refusedBy(
+      "коллекция",
+      named.selector(),
+      selectionMessages().map((line) => line.selector),
+    );
+  }
+
+  understands(selector: string): boolean {
+    return COLLECTION_METHODS.has(selector);
   }
 
   final(report: Report): Promise<Outcome> {
@@ -570,12 +596,23 @@ class Row implements Data {
       })),
       { selector: PICK, kind: "keyword", purpose: "поле по имени" },
     ];
-    return lookupData(this, sent, dataReflection(messages), (named) => {
-      if (named.selector() === PICK) {
-        return this.field(argOf(named.args(), "pick"));
-      }
-      return this.field(named.selector());
-    });
+    return lookupData(
+      this,
+      sent,
+      dataReflection(messages),
+      (named) => this.reply(named),
+    );
+  }
+
+  reply(named: Named): Data {
+    if (named.selector() === PICK) {
+      return this.field(argOf(named.args(), "pick"));
+    }
+    return this.field(named.selector());
+  }
+
+  understands(selector: string): boolean {
+    return selector === PICK || Object.hasOwn(this.#fields, selector);
   }
 
   final(report: Report): Promise<Outcome> {

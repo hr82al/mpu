@@ -19,6 +19,7 @@ export {
   lineRequest,
   type OutputFile,
   type RefusalData,
+  refusalOf,
   type ServerFrame,
   serverFrameOf,
   STDIN_REQUEST,

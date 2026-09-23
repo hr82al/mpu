@@ -235,3 +235,27 @@ Deno.test("пометка «без записи аргументов» доез�
     );
   });
 });
+
+Deno.test("fromFile — только у текстового входа: у списка объявление не собирается", () => {
+  const declared = (input: z.ZodType) =>
+    defineCommand({
+      path: ["proba"],
+      summary: "проба пера",
+      usage: "mpu proba",
+      help: "Подробности пробы.",
+      policy: "ro",
+      argsSchema: z.object({ tags: input }),
+      resultSchema: z.object({ ok: z.boolean() }),
+      run: () => Promise.resolve({ ok: true }),
+      render: () => "",
+      fromFile: { tags: "tags-file" },
+    });
+  assertThrows(
+    () => declared(z.array(z.string()).optional()),
+    TypeError,
+    "proba: fromFile tags — только у текстового входа, а он strings",
+  );
+  assertEquals(declared(z.string().optional()).fromFile, {
+    tags: "tags-file",
+  });
+});

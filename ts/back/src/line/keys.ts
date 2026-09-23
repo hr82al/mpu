@@ -22,6 +22,7 @@ import {
   Refusal,
   RENAMED,
   type ResultKind,
+  separated,
   type Trace,
   UNDERSTOOD_NOT,
   unknownKey,
@@ -418,6 +419,8 @@ export class Keys {
   /** Имена форматов результата — без входов, которыми их выбирали. */
   readonly #formatNames: ReadonlySet<string>;
   readonly #retired: Readonly<Record<string, string>>;
+  /** Входы, чей `@путь` теперь — ключ файла. */
+  readonly #fromFile: Readonly<Record<string, string>>;
   readonly #shorts: ReadonlyMap<string, KeySpec>;
   /** Короткие флаги вариантов (`-n` → `dry`). */
   readonly #variantShorts: ReadonlyMap<string, Variant>;
@@ -451,6 +454,7 @@ export class Keys {
     this.#formats = formatInputs(command, formats);
     this.#formatNames = new Set(formats);
     this.#retired = command.retired;
+    this.#fromFile = command.fromFile;
     // Режим объявляет свои ключи сам и берёт только их входы.
     const declared = new Map(
       Object.entries(mode === WHOLE_COMMAND ? command.keys ?? {} : mode.keys)
@@ -695,6 +699,7 @@ export class Keys {
       }
       const spelling = this.#spellings.get(key);
       if (spelling !== undefined) throw spelling.refusal(value, pairs);
+      this.#noFile(key, value, kept);
       if (!this.#known(key)) return this.#split(named, entries, at, result);
     }
     // Недостающий обязательный ключ называет раньше разбор: этот набор
@@ -705,6 +710,26 @@ export class Keys {
       pairs: this.#words(entries),
       rest: NO_REST,
     };
+  }
+
+  /**
+   * Значение `@путь` у входа, чей файл читается своим ключом, — отказ с
+   * готовой строкой: `body: @req.json` → `body-file: req.json`.
+   */
+  #noFile(
+    key: string,
+    value: KeyValue,
+    kept: readonly (readonly [string, KeyValue])[],
+  ) {
+    const fileKey = this.#fromFile[key];
+    const text = String(value);
+    if (fileKey === undefined || !text.startsWith(GRAMMAR.variable)) return;
+    const others = kept.filter(([one]) => one !== key);
+    throw hinted("файл — ключом", [
+      ...this.#words(others),
+      `${fileKey}:`,
+      text.slice(GRAMMAR.variable.length),
+    ]);
   }
 
   /** Ключи строкой, как их пишут: флаг — `--имя`, список — ключ на значение. */
@@ -810,7 +835,7 @@ export class Keys {
     const noKey = keys.length === 0;
     const variant = this.#variants.some((one) => one.name === first);
     if (first !== undefined && (noKey || variant)) {
-      return new Refusal(`лишнее слово ${first}`);
+      return new Refusal(`лишнее слово ${first}${separated(first)}`);
     }
     return hinted("значение — ключом", this.#pairs(keys, values));
   }

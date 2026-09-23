@@ -270,7 +270,7 @@ to:, и самостоятельным токеном в тексте — раз
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (источники
 текста, вложение, селектор, ненастроенный KITEN_API_KEY).`,
   examples: [
-    'mpu kiten comment id: 65634936 to: @all text: "Готово, проверьте"',
+    'mpu kiten comment id: 65634936 to: -- @all text: "Готово, проверьте"',
   ],
   policy: "rw",
   argsSchema,

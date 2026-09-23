@@ -104,7 +104,10 @@ const requestArgs = z.object({
   reason: z.string().optional().describe("обоснование, 3..500 символов"),
   template: z.string().optional().describe("accessTemplateId (UUID)"),
   body: z.string().optional().describe(
-    "полный JSON тела или @файл; отменяет --role/--reason/--template",
+    "полный JSON тела; отменяет --role/--reason/--template",
+  ),
+  "body-file": z.string().optional().describe(
+    "путь к файлу с полным JSON тела; как body:",
   ),
 });
 
@@ -119,7 +122,8 @@ async function requestPayload(
   args: RequestArgs,
   io: SsIo,
 ): Promise<unknown> {
-  if (args.body === undefined) {
+  const whole = args.body ?? args["body-file"];
+  if (whole === undefined) {
     return requestBody({
       role: args.role,
       reason: args.reason,
@@ -138,20 +142,30 @@ async function requestPayload(
         "сочетаются — оставь что-то одно",
     );
   }
-  return await bodyText(args.body, io);
+  return parsedBody(await bodyText(args, io));
 }
 
-/** `--body`: JSON-литерал либо содержимое файла по `@путь`. */
-async function bodyText(raw: string, io: SsIo): Promise<unknown> {
-  let text = raw;
-  if (raw.startsWith("@")) {
-    const path = raw.slice(1);
-    try {
-      text = await io.readTextFile(path);
-    } catch (err) {
-      throw new UsageError(`--body @${path}: ${reasonOf(err)}`, { cause: err });
-    }
+/**
+ * Текст тела: `body:` — JSON-литерал, `body-file:` — файл с ним; оба
+ * сразу — отказ.
+ */
+async function bodyText(args: RequestArgs, io: SsIo): Promise<string> {
+  const path = args["body-file"];
+  if (path === undefined) return args.body ?? "";
+  if (args.body !== undefined) {
+    throw new UsageError("body: и body-file: вместе нельзя — тело одно");
   }
+  try {
+    return await io.readTextFile(path);
+  } catch (err) {
+    throw new UsageError(`body-file: ${path}: ${reasonOf(err)}`, {
+      cause: err,
+    });
+  }
+}
+
+/** Тело из текста JSON. */
+function parsedBody(text: string): unknown {
   try {
     return JSON.parse(text);
   } catch (err) {
@@ -167,7 +181,7 @@ export async function runRequest(
   options: SsAccessOptions = {},
 ): Promise<{ response: unknown }> {
   // Тело собирается до сети: негодный `--body` не стоит обращения
-  // наружу, а `@файл` может и не найтись.
+  // наружу, а файл `body-file:` может и не найтись.
   const payload = await requestPayload(args, io);
   return {
     response: await call(
@@ -185,7 +199,7 @@ export const ssAccessRequestCommand = defineCommand({
   errorName: "api ss-access request",
   summary: "POST /admin/ss/<ss>/my-access/request — выдать себе доступ.",
   usage:
-    "mpu api ss-access request spreadsheet: ТАБЛИЦА [role: R] [reason: T] [body: JSON]",
+    "mpu api ss-access request spreadsheet: ТАБЛИЦА [role: R] [reason: T] [body: JSON | body-file: <путь>]",
   help: `Звать, когда владельцу токена (TOKEN_EMAIL) нужен доступ к
 таблице клиента: выдаёт или продлевает его ровно как кнопка в sl-front. Получателя выбрать нельзя: эндпоинт
 выдаёт доступ тому, чьим токеном ходят.
@@ -194,8 +208,8 @@ export const ssAccessRequestCommand = defineCommand({
 умолчанию, accessTemplateId null. role:/reason:/template: правят
 отдельные поля.
 
-body: задаёт тело целиком ('<json>' или @файл) и с точечными
-опциями не сочетается: у поля не должно быть двух источников.
+body: задаёт тело целиком ('<json>'), body-file: — то же из файла; с
+точечными опциями не сочетаются: у поля не должно быть двух источников.
 
 Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода.`,
   examples: [
@@ -204,6 +218,7 @@ Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода.
   policy: "rw",
   argsSchema: requestArgs,
   forms: { spreadsheet: { positional: "one" }, body: { short: "b" } },
+  fromFile: { body: "body-file" },
   resultSchema: responseResult,
   run: (args: RequestArgs, io: SsIo) => runRequest(args, io),
   render: (result) => printResponse(result.response),

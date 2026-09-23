@@ -60,8 +60,10 @@ export {
   notUnderstood,
   plainRefusal,
   Refusal,
+  RefusalNotice,
   Rejection,
   RENAMED,
+  separated,
   UNDERSTOOD_NOT,
   unknownKey,
 } from "./refusal.ts";
@@ -69,16 +71,19 @@ export {
   atAddress,
   NO_REMEDY,
   ROOT_TEXT,
+  substituted,
   throughGate,
   wholeLine,
 } from "./remedy.ts";
 export { type Loader, Replaceable } from "./replaceable.ts";
 export { GroupExit, runChain } from "./chain.ts";
-export { keywordSent } from "./sent.ts";
-export { ended } from "./result.ts";
+export { keywordSent, unarySent } from "./sent.ts";
+export { ended, jsonText } from "./result.ts";
+export { nearest } from "./nearest.ts";
 export {
   collectionOf,
   type Data,
+  dataOf,
   isSelection,
   type ListView,
   resultData,

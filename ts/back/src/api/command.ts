@@ -20,6 +20,7 @@ import {
 } from "../command/mod.ts";
 import { openSlback, SlbackError } from "../slback/mod.ts";
 import {
+  BODY_FILE_INPUT,
   BODY_INPUT,
   bodyFromFields,
   EndpointDeclarationError,
@@ -58,7 +59,10 @@ export function endpointCommand(spec: EndpointSpec): Command {
   for (const field of fields) shape[field.name] = fieldSchema(spec, field);
   if (spec.body === true) {
     shape[BODY_INPUT] = z.string().optional().describe(
-      "полный JSON body: '<json>' или @path/to.json",
+      "полный JSON body: '<json>'",
+    );
+    shape[BODY_FILE_INPUT] = z.string().optional().describe(
+      "путь к файлу с полным JSON body",
     );
   }
 
@@ -74,6 +78,7 @@ export function endpointCommand(spec: EndpointSpec): Command {
     usage: usageOf(spec, params),
     help: helpText(spec),
     examples: examplesOf(spec, params),
+    fromFile: spec.body === true ? { [BODY_INPUT]: BODY_FILE_INPUT } : {},
     // Политика следует методу, а не таблице: `GET` читает, остальные
     // меняют состояние. Объявить `rw`-эндпоинт читающим значило бы
     // выдать его читающему профилю MCP-сервера, где мутациям места
@@ -180,7 +185,9 @@ function schemaRequires(spec: EndpointSpec, field: FieldSpec): boolean {
  */
 function requirementMark(spec: EndpointSpec, field: FieldSpec): string {
   if (field.required !== true) return "";
-  return spec.body === true ? ` (required, если не задан ${BODY_INPUT}:)` : "";
+  return spec.body === true
+    ? ` (required, если не задан ${BODY_INPUT}: или ${BODY_FILE_INPUT}:)`
+    : "";
 }
 
 /**
@@ -210,14 +217,14 @@ async function runEndpoint(
     if (value !== undefined) values[name] = value;
   }
   const path = fillPath(spec.path, values);
-  const raw = spec.body === true ? args[BODY_INPUT] : undefined;
+  const raw = spec.body === true ? await bodyText(args, io) : undefined;
   // Отказ «поля не хватает» приходит из двух мест: у команды без
   // `--body` его бросает схема (там же и подсказка), у команды с
   // `--body` — разбор полей. Подсказка добавляется здесь, чтобы одна
   // и та же нехватка печаталась одинаково независимо от слоя.
   const body = raw === undefined
     ? withHelpHint(spec, () => bodyFromFields(fields, args))
-    : await bodyArg(raw, io);
+    : bodyArg(raw);
 
   const session = openSlback(io);
   try {
@@ -244,17 +251,33 @@ export function asDomainError(err: unknown): unknown {
   });
 }
 
-/** Значение `--body`: JSON-литерал либо содержимое файла по `@путь`. */
-async function bodyArg(raw: string, io: CommandIo): Promise<unknown> {
-  let text = raw;
-  if (raw.startsWith("@")) {
-    const path = raw.slice(1);
-    try {
-      text = await io.readTextFile(path);
-    } catch (err) {
-      throw new UsageError(`--body @${path}: ${reasonOf(err)}`, { cause: err });
-    }
+/**
+ * Текст тела: `body:` — JSON-литерал, `body-file:` — файл с ним; оба
+ * сразу — отказ, ни одного — тела целиком нет.
+ */
+async function bodyText(
+  args: EndpointArgs,
+  io: CommandIo,
+): Promise<string | undefined> {
+  const literal = args[BODY_INPUT];
+  const path = args[BODY_FILE_INPUT];
+  if (path === undefined) return literal;
+  if (literal !== undefined) {
+    throw new UsageError(
+      `${BODY_INPUT}: и ${BODY_FILE_INPUT}: вместе нельзя — тело одно`,
+    );
   }
+  try {
+    return await io.readTextFile(path);
+  } catch (err) {
+    throw new UsageError(`${BODY_FILE_INPUT}: ${path}: ${reasonOf(err)}`, {
+      cause: err,
+    });
+  }
+}
+
+/** Тело из текста JSON: объект, иначе отказ. */
+function bodyArg(text: string): unknown {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -301,10 +324,10 @@ function assertDeclaration(
     }
     names.add(field.name);
   }
-  if (spec.body === true && names.has(BODY_INPUT)) {
-    throw new EndpointDeclarationError(
-      `${spec.name}: имя ${BODY_INPUT} занято`,
-    );
+  for (const taken of [BODY_INPUT, BODY_FILE_INPUT]) {
+    if (spec.body === true && names.has(taken)) {
+      throw new EndpointDeclarationError(`${spec.name}: имя ${taken} занято`);
+    }
   }
   // Ключи строки выводятся из имён, и два входа могут сойтись в одном.
   const keys = [
@@ -344,7 +367,9 @@ function usageOf(spec: EndpointSpec, params: readonly string[]): string {
         ? `${fieldKey(field)}: ЗНАЧЕНИЕ`
         : `[${fieldKey(field)}: ЗНАЧЕНИЕ]`
     ),
-    ...(spec.body === true ? [`[${BODY_INPUT}: JSON]`] : []),
+    ...(spec.body === true
+      ? [`[${BODY_INPUT}: JSON | ${BODY_FILE_INPUT}: <путь>]`]
+      : []),
   ];
   return `mpu api ${spec.name}${tail.length === 0 ? "" : ` ${tail.join(" ")}`}`;
 }
@@ -387,7 +412,7 @@ function examplesOf(
   ).map((field) => `${fieldKey(field)}: ${SAMPLE_FIELD[field.type]}`);
   const plain = [...words, ...required].join(" ");
   if (spec.body !== true) return [plain];
-  return [plain, `${words.join(" ")} ${BODY_INPUT}: @req.json`];
+  return [plain, `${words.join(" ")} ${BODY_FILE_INPUT}: req.json`];
 }
 
 function helpText(spec: EndpointSpec): string {
@@ -398,8 +423,8 @@ function helpText(spec: EndpointSpec): string {
   if (spec.about !== undefined) parts.push(spec.about);
   if (spec.body === true) {
     parts.push(
-      `${BODY_INPUT}: — JSON-литерал либо @путь/к.json; задан — замещает ` +
-        "все поля тела.",
+      `${BODY_INPUT}: — JSON-литерал, ${BODY_FILE_INPUT}: — путь к файлу с ` +
+        "ним; задан — замещает все поля тела.",
     );
   }
   parts.push(

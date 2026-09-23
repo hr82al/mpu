@@ -27,6 +27,16 @@ Deno.test("кадры: строка NDJSON разбирается в тот же
     { answer: null },
     { stdin: "ввод\n" },
     { stop: true },
+    { evaluate: { words: ["x", ":=", "5"] } },
+    {
+      lined: {
+        data: { rows: [] },
+        command: { path: ["kiten", "ls"], argv: ["column:", "9101"] },
+        shown: "(0 cards)\n",
+      },
+    },
+    { lined: { data: "0.1.0", command: null, shown: "0.1.0\n" } },
+    { lined: { exit: 2 } },
   ];
   const worker: readonly WorkerFrame[] = [
     { out: "да\n" },
@@ -38,6 +48,19 @@ Deno.test("кадры: строка NDJSON разбирается в тот же
     { result: { value: { a: 1 } } },
     { result: { code: 2, stderr: "mpu x: плохо" } },
     { result: { crash: "сломалось" } },
+    { line: ["kiten", "ls"] },
+    { result: { exit: 0, refusal: null } },
+    {
+      result: {
+        exit: 1,
+        refusal: {
+          reason: "не понимает",
+          hint: ["x", "title"],
+          candidates: ["title"],
+          text: "выражение 1: запись не понимает titel; ближайшие: title",
+        },
+      },
+    },
   ];
   for (const frame of host) {
     await t.step(JSON.stringify(frame), () => {
@@ -76,6 +99,11 @@ Deno.test("кадры: чужое — отказ разбора своей ст�
     ['{"ask": {"kind": "shout", "text": "?"}}', workerFrameOf],
     ['{"result": {"code": 3, "stderr": "?"}}', workerFrameOf],
     ['{"stop": true}', workerFrameOf],
+    ['{"lined": {"data": 1, "command": null}}', hostFrameOf],
+    ['{"lined": {"data": 1, "command": 5, "shown": ""}}', hostFrameOf],
+    ['{"evaluate": {"words": [1]}}', hostFrameOf],
+    ['{"line": "kiten ls"}', workerFrameOf],
+    ['{"result": {"exit": 1, "refusal": {"reason": 1}}}', workerFrameOf],
   ];
   for (const [line, parse] of bad) {
     await t.step(line, () => {
