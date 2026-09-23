@@ -395,3 +395,8 @@
 | обход до исполнения | `Reach`, `reach`, `Ahead`, `verdict`, `Addressee`, `Known`, `UNKNOWN` (167) | сбор достижимых команд программы и решение правил до исполнения |
 | итог обхода | `Finding`, `CLEAR`, `NeedsDoor`, `RuledOut` (167) | исполнять / нужен `ask` / запрещено |
 | вход строки | `Entry`, `entryOf`, `needsDoor`, `redirected`, `outward` (167) | дверь строки, отказ всей строки, код программы наружу |
+| образ, метод образа | `Image`, `ImageMethod`, `ImageError`, `MethodRecord`, `MethodSnapshot` (168) | методы пользователя в `image.db` |
+| строка образа | `ImageLine`, `imageLineOf`, `Definition`, `Forgetting`, `ImageContext` (168) | `define:`/`forget:` |
+| вызов метода | `MethodCall`, `MethodBody`, `MethodSource`, `parseMethodBody`, `nameParts`, `callWord`, `Line.consent`, `Consent` (168) | согласие ядра, затем тело в исполнителе |
+| посев по надобности | `RuleBook.sow` (168) | правило пути ставится при первом касании |
+| автор метода | `Door.author`, `Caller.author` (168) | human / agent / web |
