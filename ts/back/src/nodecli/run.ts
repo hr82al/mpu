@@ -15,6 +15,7 @@ import {
   type ExecPlace,
   type HttpCall,
   type OpenChannel,
+  quoteArg,
   runOverPortainer,
   runOverSsh,
   type RunProcess,
@@ -295,10 +296,11 @@ export async function runWrap(
       ? localForm(container, text)
       // Форма dev-ветки — не ssh-обёртка, а вызов соседней команды: до
       // dev-ноды ходит `mpu ssh`, и вставлять её ключ и хост здесь
-      // значило бы держать вторую копию его настройки.
+      // значило бы держать вторую копию его настройки. Команда — ключом
+      // cmd: одним словом: напечатанное вставляется и исполняется.
       : dev === undefined
       ? sshForm(io, resolved.serverNumber, container, text)
-      : `mpu ssh dev:${dev} -- ${text}`;
+      : `mpu ssh target: dev:${dev} cmd: ${quoteArg(text)}`;
     // Недоступность буфера молчалива: строка уже напечатана, копирование
     // — довесок (`platform/clipboard.md`).
     await (options.copy ?? ((text: string) => io.prompt.copy(text)))(printed);

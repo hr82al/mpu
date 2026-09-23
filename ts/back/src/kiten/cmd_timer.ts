@@ -52,7 +52,7 @@ import {
   timeLogViewSchema,
 } from "./time_view.ts";
 
-const selector = z.string({ error: "нужен SELECTOR: id карточки или её URL" })
+const selector = z.string({ error: "нужен id: id карточки или её URL" })
   .describe("id карточки либо её URL, короткий или глубокий");
 
 const comment = z.string().optional().describe(
@@ -303,7 +303,7 @@ async function requireTimer(
   const timer = (await getCard(access, cardId)).timer;
   if (timer === null) {
     throw new DomainError(`таймер на карточке ${cardId} не запущен`, {
-      hint: `mpu kiten time start ${cardId}`,
+      hint: `mpu kiten time start id: ${cardId}`,
     });
   }
   return timer;
@@ -334,8 +334,8 @@ async function conflictError(
   const clock = startedClock(timer.startedAt);
   const since = clock === null ? "" : ` (с ${clock})`;
   return new DomainError(`таймер уже идёт на карточке ${cardId}${since}`, {
-    advice: `останови \`mpu kiten time stop ${cardId}\` или сбрось ` +
-      `\`mpu kiten time discard ${cardId}\``,
+    advice: `останови \`mpu kiten time stop id: ${cardId}\` или сбрось ` +
+      `\`mpu kiten time discard id: ${cardId}\``,
   });
 }
 
@@ -517,14 +517,17 @@ export const kitenTimeStartCommand = defineCommand({
   keys: { id: "selector", text: "comment" },
   errorName: "kiten time start",
   summary: "Запустить личный таймер на карточке Kaiten.",
-  usage: "mpu kiten time start SELECTOR [--comment TEXT]",
-  help: `SELECTOR — id карточки либо её URL.
+  usage: "mpu kiten time start id: КАРТОЧКА [text: TEXT]",
+  help: `Звать, когда начинаешь работу над карточкой Kaiten: время пойдёт
+само, записью оно станет при остановке.
 
-Роль таймер не хранит — внешний API её у него не держит, и флага --role
-у start нет: роль выбирается при остановке, цепочкой --role → env →
+id: — id карточки либо её URL.
+
+Роль таймер не хранит — внешний API её у него не держит, и ключа role:
+у start нет: роль выбирается при остановке, цепочкой role: → env →
 умолчание.
 
---comment/-m — комментарий; он хранится на таймере и уходит в запись при
+text: — комментарий; он хранится на таймере и уходит в запись при
 stop, если у stop своего комментария нет.
 
 Таймер у пользователя один на всю компанию. Если он уже идёт — неважно,
@@ -536,9 +539,10 @@ Kaiten не называет никак — его придётся найти �
 ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — таймер уже идёт, ошибка API Kaiten; 2 — ошибка
-ввода (селектор, ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten time start 10000001 -m 'разбор жалобы'`,
+ввода (селектор, ненастроенный KITEN_API_KEY).`,
+  examples: [
+    'mpu kiten time start id: 10000001 text: "разбор жалобы"',
+  ],
   policy: "rw",
   argsSchema: startArgsSchema,
   forms: { selector: { positional: "one" }, comment: { short: "m" } },
@@ -556,23 +560,27 @@ export const kitenTimeStatusCommand = defineCommand({
   keys: { id: "selector" },
   errorName: "kiten time status",
   summary: "Показать состояние личного таймера карточки Kaiten.",
-  usage: "mpu kiten time status SELECTOR [--json]",
-  help: `SELECTOR — id карточки либо её URL.
+  usage: "mpu kiten time status id: КАРТОЧКА [end json]",
+  help: `Звать, когда надо узнать, идёт ли таймер по карточке и сколько
+натекло.
+
+id: — id карточки либо её URL.
 
 Чтение без мутаций: одно обращение к карточке. Печатает две строки —
 состояние таймера («идёт <длительность> (с <ЧЧ:ММ МСК>)» и комментарий,
 если он есть, либо «не запущен») и «всего по карточке». Итог считает
 записи учёта времени, идущий таймер в него не входит.
 
---json печатает {"card_id", "timer", "total_minutes"}, где timer — либо
+end json печатает {"card_id", "timer", "total_minutes"}, где timer — либо
 null, либо {id, started_at, elapsed_minutes, comment}.
 
 ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор,
-ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten time status 10000001`,
+ненастроенный KITEN_API_KEY).`,
+  examples: [
+    "mpu kiten time status id: 10000001",
+  ],
   policy: "ro",
   argsSchema: statusArgsSchema,
   forms: { selector: { positional: "one" } },
@@ -588,10 +596,13 @@ export const kitenTimeStopCommand = defineCommand({
   errorName: "kiten time stop",
   summary: "Остановить таймер карточки Kaiten, создав запись времени.",
   usage:
-    "mpu kiten time stop SELECTOR [--time DURATION] [--role REF] [--comment TEXT]",
-  help: `SELECTOR — id карточки либо её URL.
+    "mpu kiten time stop id: КАРТОЧКА [time: DURATION] [role: REF] [text: TEXT]",
+  help: `Звать, когда работа над карточкой закончена: таймер останавливается,
+натёкшее время становится записью учёта.
 
-Без --time записывается натёкшее время. С --time N начало берётся от
+id: — id карточки либо её URL.
+
+Без time: записывается натёкшее время. С time: N начало берётся от
 старта таймера, усечённого до минуты, а финиш — начало + N; если такой
 финиш попал бы в будущее, финиш становится «сейчас», а назад сдвигается
 начало, и об этом предупреждает stderr.
@@ -599,8 +610,8 @@ export const kitenTimeStopCommand = defineCommand({
 Длительность: 3h | 1h15m | 1:15 | 90 (голое число — минуты) | 2.5h;
 единицы h/m/ч/м, дробь округляется вверх до минуты, итог 1..1440 минут.
 
-Роль: --role (id либо название) → ключ ${ROLE_ENV_KEY} env-файла → 12058
-(«Техподдержка»). Комментарий: свой -m, иначе комментарий таймера.
+Роль: role: (id либо название) → ключ ${ROLE_ENV_KEY} env-файла → 12058
+(«Техподдержка»). Комментарий: свой text:, иначе комментарий таймера.
 
 Печатается запись, ПЕРЕЧИТАННАЯ с сервера, а не вычисленная командой.
 День записи сервер берёт от финиша в UTC, поэтому в 00:00–03:00 МСК он
@@ -610,9 +621,10 @@ export const kitenTimeStopCommand = defineCommand({
 ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — таймер не запущен, ошибка API Kaiten; 2 — ошибка
-ввода (длительность, роль, селектор, ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten time stop 10000001 --role Диагностика -m 'разбор'`,
+ввода (длительность, роль, селектор, ненастроенный KITEN_API_KEY).`,
+  examples: [
+    "mpu kiten time stop id: 10000001 role: Диагностика text: разбор",
+  ],
   policy: "rw",
   argsSchema: stopArgsSchema,
   forms: { selector: { positional: "one" }, comment: { short: "m" } },
@@ -626,8 +638,10 @@ export const kitenTimeDiscardCommand = defineCommand({
   keys: { id: "selector" },
   errorName: "kiten time discard",
   summary: "Сбросить таймер карточки Kaiten без создания записи.",
-  usage: "mpu kiten time discard SELECTOR",
-  help: `SELECTOR — id карточки либо её URL.
+  usage: "mpu kiten time discard id: КАРТОЧКА",
+  help: `Звать, когда таймер запущен зря: он снимается без записи учёта.
+
+id: — id карточки либо её URL.
 
 Сбрасывает идущий таймер, не создавая записи учёта времени: натёкшее
 время пропадает. Нужна запись — останавливай через stop.
@@ -638,9 +652,10 @@ export const kitenTimeDiscardCommand = defineCommand({
 ${ENV_KEYS}
 
 Exit: 0 — успех и «нечего сбрасывать»; 1 — ошибка API Kaiten; 2 — ошибка
-ввода (селектор, ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten time discard 10000001`,
+ввода (селектор, ненастроенный KITEN_API_KEY).`,
+  examples: [
+    "mpu kiten time discard id: 10000001",
+  ],
   policy: "rw",
   argsSchema: discardArgsSchema,
   forms: { selector: { positional: "one" } },

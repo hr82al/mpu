@@ -33,13 +33,16 @@ export const sheetResolveCommand = defineCommand({
   keys: {},
   errorName: "sheet",
   summary: "Показать, в какую таблицу разрешается цель.",
-  usage: "mpu sheet resolve [-s SS]",
-  help: `Печатает JSON: ss_id, источник значения (flag | env | config),
+  usage: "mpu sheet resolve [spreadsheet: SS]",
+  help: `Звать, когда непонятно, какую Google-таблицу возьмут команды
+sheet при этой цели: резолв без сети, с источником и видом значения.
+
+Печатает JSON: ss_id, источник значения (flag | env | config),
 вид значения (url | id | alias | client_id | title_fuzzy) и исходную
 строку. В сеть не ходит вовсе — только кэш-БД и настройки.
 
-Цель берётся из первого непустого источника: -s/--spreadsheet, затем
-ключ конфигурации sheet.default (mpu config sheet.default <id>).
+Цель берётся из первого непустого источника: spreadsheet:, затем
+ключ конфигурации sheet.default (mpu config key: sheet.default value: <id>).
 Переменные окружения командой не читаются вовсе.
 
 Значение разбирается по порядку: ссылка docs.google.com → ID → алиас
@@ -47,9 +50,11 @@ export const sheetResolveCommand = defineCommand({
 Несколько совпадений — отказ со списком кандидатов, exit 2.
 
 Exit: 0 — цель разрешена; 2 — цель не задана, не найдена или
-неоднозначна.
-
-Примеры: mpu sheet resolve -s 4326; mpu sheet resolve -s 'Отчёт WB'`,
+неоднозначна.`,
+  examples: [
+    "mpu sheet resolve spreadsheet: 4326",
+    'mpu sheet resolve spreadsheet: "Отчёт WB"',
+  ],
   policy: "ro",
   argsSchema,
   forms: { spreadsheet: { short: "s" } },

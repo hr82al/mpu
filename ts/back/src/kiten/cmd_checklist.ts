@@ -39,11 +39,11 @@ import {
   renderChecklistsJson,
 } from "./checklist_view.ts";
 
-const selector = z.string({ error: "нужен SELECTOR: id карточки или её URL" })
+const selector = z.string({ error: "нужен id: id карточки или её URL" })
   .describe("id карточки либо её URL, короткий или глубокий");
 
 const itemRef = z.string({
-  error: "нужен ITEM: id пункта либо подстрока его текста",
+  error: "нужен item: id пункта либо подстрока его текста",
 }).describe("ссылка на пункт: id из вывода ls либо подстрока текста");
 
 const lsArgsSchema = z.object({
@@ -59,10 +59,10 @@ const lsResultSchema = z.object({
 
 const addArgsSchema = z.object({
   selector,
-  name: z.string({ error: "нужен --name: название чек-листа" })
+  name: z.string({ error: "нужен name: название чек-листа" })
     .describe("название чек-листа; совпадение с существующим точное"),
   item: z.array(z.string()).default([]).describe(
-    "текст пункта; флаг повторяется, пункты добавляются в порядке флагов",
+    "текст пункта; ключ повторяется, пункты добавляются в порядке ключей",
   ),
 });
 
@@ -319,7 +319,7 @@ function addFailure(err: unknown, added: number): unknown {
 const ENV_KEYS = `Ключи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL
 (по умолчанию https://btlz.kaiten.ru).`;
 
-const ITEM_HELP = `ITEM — ссылка на пункт: id из вывода ls либо подстрока
+const ITEM_HELP = `item: — ссылка на пункт: id из вывода ls либо подстрока
 его текста. Строка из одних цифр сначала пробуется как id: совпал — он и
 побеждает, не совпал — та же строка ищется подстрокой. Подстрока
 сравнивается без учёта регистра и ищется по ВСЕМ чек-листам карточки;
@@ -337,8 +337,11 @@ export const kitenChecklistLsCommand = defineCommand({
   keys: { id: "selector" },
   errorName: "kiten checklist ls",
   summary: "Показать чек-листы карточки Kaiten с пунктами.",
-  usage: "mpu kiten checklist ls SELECTOR [--json]",
-  help: `SELECTOR — id карточки либо её URL.
+  usage: "mpu kiten checklist ls id: КАРТОЧКА [end json]",
+  help: `Звать, когда нужны чек-листы карточки Kaiten с отметками — и id
+пунктов для check/uncheck.
+
+id: — id карточки либо её URL.
 
 Печатает по блоку на чек-лист: заголовок «название · отмечено/всего
 (checklist id N)» и таблицу пунктов — id, отметка ([x] или [ ]) и текст.
@@ -348,15 +351,16 @@ export const kitenChecklistLsCommand = defineCommand({
 веб-карточкой. Текст пункта печатается одной строкой целиком — его же
 копируют в check/uncheck. Чек-листов нет — строка «(чек-листов нет)».
 
---json печатает массив чек-листов: id, name, items[] с полями id,
+end json печатает массив чек-листов: id, name, items[] с полями id,
 checked, text — в том же порядке пунктов. Чек-листов нет — [].
 
 ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор,
-ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten checklist ls 10000001 --json`,
+ненастроенный KITEN_API_KEY).`,
+  examples: [
+    "mpu kiten checklist ls id: 10000001 end json",
+  ],
   policy: "ro",
   argsSchema: lsArgsSchema,
   forms: { selector: { positional: "one" } },
@@ -373,17 +377,19 @@ export const kitenChecklistAddCommand = defineCommand({
   keys: { id: "selector" },
   errorName: "kiten checklist add",
   summary: "Создать чек-лист карточки Kaiten и дописать в него пункты.",
-  usage: "mpu kiten checklist add SELECTOR -n NAME [-i TEXT]...",
-  help: `SELECTOR — id карточки либо её URL.
+  usage: "mpu kiten checklist add id: КАРТОЧКА name: NAME [item: TEXT]...",
+  help: `Звать, когда в карточку Kaiten надо добавить чек-лист с пунктами.
 
--n/--name NAME (обязателен) — название чек-листа. Совпадение с уже
+id: — id карточки либо её URL.
+
+name: NAME (обязателен) — название чек-листа. Совпадение с уже
 существующим точное: регистр и пробелы значимы. Совпал — пункты идут в
 него, чек-лист не создаётся.
 
--i/--item TEXT (повторяется, необязателен) — текст пункта. Пункты
-добавляются в порядке флагов; текст, который на этом чек-листе уже есть,
-пропускается — дубль не создаётся ни повтором команды, ни повтором флага.
-Без -i чек-лист просто создаётся, «добавлено пунктов: 0».
+item: TEXT (повторяется, необязателен) — текст пункта. Пункты
+добавляются в порядке ключей; текст, который на этом чек-листе уже есть,
+пропускается — дубль не создаётся ни повтором команды, ни повтором ключа.
+Без item: чек-лист просто создаётся, «добавлено пунктов: 0».
 
 Ничего не удаляется и не переписывается: команда только создаёт.
 Отказ на середине списка не откатывает уже созданные пункты — их число
@@ -392,9 +398,10 @@ export const kitenChecklistAddCommand = defineCommand({
 ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор,
-отсутствие --name, ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten checklist add 10000001 -n 'Подзадачи' -i 'Спека — 1 ч'`,
+отсутствие name:, ненастроенный KITEN_API_KEY).`,
+  examples: [
+    'mpu kiten checklist add id: 10000001 name: Подзадачи item: "Спека — 1 ч"',
+  ],
   policy: "rw",
   argsSchema: addArgsSchema,
   forms: {
@@ -415,8 +422,10 @@ export const kitenChecklistCheckCommand = defineCommand({
   keys: { id: "selector", item: "item" },
   errorName: "kiten checklist check",
   summary: "Отметить пункт чек-листа карточки Kaiten.",
-  usage: "mpu kiten checklist check SELECTOR ITEM",
-  help: `SELECTOR — id карточки либо её URL.
+  usage: "mpu kiten checklist check id: КАРТОЧКА item: ПУНКТ",
+  help: `Звать, когда пункт чек-листа карточки выполнен.
+
+id: — id карточки либо её URL.
 
 ${ITEM_HELP}
 
@@ -426,9 +435,10 @@ ${ITEM_HELP}
 
 ${ENV_KEYS}
 
-${MARK_EXIT}
-
-Пример: mpu kiten checklist check 10000001 'Ревью'`,
+${MARK_EXIT}`,
+  examples: [
+    "mpu kiten checklist check id: 10000001 item: Ревью",
+  ],
   policy: "rw",
   argsSchema: markArgsSchema,
   forms: {
@@ -445,8 +455,10 @@ export const kitenChecklistUncheckCommand = defineCommand({
   keys: { id: "selector", item: "item" },
   errorName: "kiten checklist uncheck",
   summary: "Снять отметку пункта чек-листа карточки Kaiten.",
-  usage: "mpu kiten checklist uncheck SELECTOR ITEM",
-  help: `SELECTOR — id карточки либо её URL.
+  usage: "mpu kiten checklist uncheck id: КАРТОЧКА item: ПУНКТ",
+  help: `Звать, когда отметку пункта чек-листа надо снять.
+
+id: — id карточки либо её URL.
 
 ${ITEM_HELP}
 
@@ -455,9 +467,10 @@ ${ITEM_HELP}
 
 ${ENV_KEYS}
 
-${MARK_EXIT}
-
-Пример: mpu kiten checklist uncheck 10000001 66470402`,
+${MARK_EXIT}`,
+  examples: [
+    "mpu kiten checklist uncheck id: 10000001 item: 66470402",
+  ],
   policy: "rw",
   argsSchema: markArgsSchema,
   forms: {

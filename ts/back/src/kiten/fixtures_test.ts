@@ -96,9 +96,6 @@ const SETS: readonly FixtureSet[] = [
   {
     channel: "kiten-time",
     copy: "kiten-time/",
-    // Голдены таймера (`status-*`, `start-*`, `discard-*`, `err-start-*`)
-    // не копируются: подкоманды таймера едут следующей порцией, а копия
-    // без теста — второй источник истины без стерегущей его проверки.
     names: [
       "ls-stdout.txt",
       "ls-all-stdout.txt",
@@ -110,6 +107,8 @@ const SETS: readonly FixtureSet[] = [
       "rm-stdout.txt",
       "rm-with-comment-stdout.txt",
       "err-log-not-on-card-stderr.txt",
+      "err-start-same-card-local-stderr.txt",
+      "err-start-other-card-local-stderr.txt",
       "err-duration-zero-message.txt",
       "err-duration-empty-message.txt",
       "err-duration-tail-message.txt",

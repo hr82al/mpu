@@ -40,7 +40,7 @@ import {
 } from "./comment_text.ts";
 
 const argsSchema = z.object({
-  selector: z.string({ error: "нужен SELECTOR: id карточки или её URL" })
+  selector: z.string({ error: "нужен id: id карточки или её URL" })
     .describe("id карточки либо её URL, короткий или глубокий"),
   message: z.string().optional().describe("текст комментария (GFM markdown)"),
   "body-file": z.string().optional().describe(
@@ -58,7 +58,7 @@ const resultSchema = z.object({
   id: z.number().describe("id созданного комментария из ответа сервера"),
   cardUrl: z.string().describe("адрес карточки: базовый URL и её id"),
   attachments: z.array(z.string()).describe(
-    "имена приложенных файлов в порядке флагов -f",
+    "имена приложенных файлов в порядке ключей file:",
   ),
   recipients: z.array(z.string()).describe(
     "реально упомянутые адресаты; литеральный @all сюда не входит",
@@ -242,32 +242,36 @@ export const kitenCommentCommand = defineCommand({
   errorName: "kiten comment",
   summary: "Комментарий к карточке Kaiten: текст, вложения, адресаты.",
   usage:
-    "mpu kiten comment SELECTOR [-m TEXT | -F PATH] [-f PATH]... [--to HANDLES]...",
-  help: `SELECTOR — id карточки либо её URL.
+    "mpu kiten comment id: КАРТОЧКА [text: TEXT | body-file: PATH] [file: PATH]... [to: HANDLES]...",
+  help: `Звать, когда в карточку Kaiten надо написать комментарий — текст,
+файлы, упоминания.
 
-Текст — ровно один источник: -m/--message TEXT либо -F/--body-file PATH
+id: — id карточки либо её URL.
+
+Текст — ровно один источник: text: TEXT либо body-file: PATH
 ('-' — stdin); текст GFM markdown, интерактивных чекбоксов Kaiten в
 комментарии не рендерит.
 
--f/--file PATH — вложение (флаг повторяется): уходит сам файл, имя в
+file: PATH — вложение (ключ повторяется): уходит сам файл, имя в
 Kaiten — базовое имя пути. Текста вложения не дают: комментарий из одних
-файлов Kaiten не принимает, поэтому -f без -m/-F и без --to отбивается до
+файлов Kaiten не принимает, поэтому file: без text:/body-file: и без to: отбивается до
 запроса.
 
---to HANDLES — адресаты (флаг повторяется, значение делится по пробелам);
+to: HANDLES — адресаты (ключ повторяется, значение делится по пробелам);
 токен без '@' его получает, дубли уходят без учёта регистра. Адресаты
-становятся первой строкой, поэтому --to без текста проходит. '@all' — и в
---to, и самостоятельным токеном в тексте — разворачивается в логин
+становятся первой строкой, поэтому to: без текста проходит. '@all' — и в
+to:, и самостоятельным токеном в тексте — разворачивается в логин
 владельца карточки; владельца нет — предупреждение в stderr и '@all' как
-есть. Ради владельца и читается карточка: без --to и без '@all' уходит
+есть. Ради владельца и читается карточка: без to: и без '@all' уходит
 ровно один запрос.
 
 Ключи env-файла: KITEN_API_KEY (обязателен), KITEN_BASE_URL.
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (источники
-текста, вложение, селектор, ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten comment 65634936 --to '@all' -m 'Готово, проверьте'`,
+текста, вложение, селектор, ненастроенный KITEN_API_KEY).`,
+  examples: [
+    'mpu kiten comment id: 65634936 to: @all text: "Готово, проверьте"',
+  ],
   policy: "rw",
   argsSchema,
   forms: {

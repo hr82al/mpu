@@ -77,34 +77,37 @@ export const processCommand = defineCommand({
   keys: {},
   summary: "Пересчитать витрины клиента (dataProcessor.process).",
   usage:
-    "mpu process SELECTOR [--server sl-N] [-p [--local]] [--client-id N] [--dataset D] [--datasets D…] [--modules M…] [--with-tags T…] [--forced] [--dry-run] [--skus SKU]… [--logs L] [-v]",
-  help: `По умолчанию ВЫПОЛНЯЕТСЯ в прод-контейнере клиента: запускает
-\`node cli service:dataProcessor process\`, стримит вывод, наследует код
-выхода 1:1 и пересчитывает витрины клиента.
+    "mpu process target: СЕЛЕКТОР [server: sl-N] [--print [--local]] [client-id: N] [dataset: D] [datasets: D…] [modules: M…] [with-tags: T…] [--forced] [--dry-run] [skus: SKU]… [logs: L] [--verbose]",
+  help: `Звать, когда витрины клиента надо пересчитать сейчас: после
+догрузки, правки себестоимости или сбоя.
 
--p/--print печатает команду и копирует её в буфер, не выполняя;
---local вместе с -p — форма локального стенда. --dry-run к печати
+По умолчанию ВЫПОЛНЯЕТСЯ в прод-контейнере клиента: запускает
+\`node cli service:dataProcessor process\`, стримит вывод, код выхода
+наследуется 1:1.
+
+--print печатает команду и копирует её в буфер, не выполняя;
+--local вместе с --print — форма локального стенда. --dry-run к печати
 отношения не имеет: это флаг метода.
 
-SELECTOR — client_id, spreadsheet_id, заголовок либо dev:N.
---client-id и --spreadsheet-id берутся из кандидатов, если значение там
-одно; неоднозначный --spreadsheet-id не ошибка — флаг не эмитится.
+target: — client_id, spreadsheet_id, заголовок либо dev:N; server:
+sl-N — сервер напрямую. client-id: и spreadsheet-id: берутся из
+кандидатов, если значение одно; неоднозначный spreadsheet-id: не эмитится.
 dev:N идёт мимо резолва (кэша клиентов на dev-ноде нет): там
---client-id обязателен, а печать даёт mpu ssh dev:N -- <inner>.
+client-id: обязателен, а печать даёт mpu ssh target: dev:N cmd: '<inner>'.
 
-Три правила списков: --datasets, --modules, --exclude-datasets,
---exclude-modules, --with-tags, --without-tags уходят одним флагом со
-значениями подряд, а единственное значение ДУБЛИРУЕТСЯ (--datasets
-wb_unit → --datasets wb_unit wb_unit); --skus повторяется у оператора и
-уходит одним токеном [1,2]; --nm-ids приходит строкой [7,8] как есть.
---dataset — обычная строка.
+Списки: datasets:, modules:, exclude-datasets:, exclude-modules:,
+with-tags:, without-tags: уходят одним флагом со значениями подряд,
+единственное значение ДУБЛИРУЕТСЯ (datasets: wb_unit → --datasets
+wb_unit wb_unit); skus: повторяется и уходит токеном [1,2]; nm-ids:
+строкой [7,8] как есть. dataset: — обычная строка.
 
--v печатает # inner: <команда> в stderr во всех режимах. Значения
+--verbose печатает # inner: <команда> в stderr во всех режимах. Значения
 проверяются до сети: допустимы A-Za-z0-9 и _ . / : - , @ [ ].
 
-Exit: код inner-команды; 0 при печати; 2 — ошибки ввода и резолва.
-
-Пример: mpu process 777 --dataset wb_unit -p`,
+Exit: код inner-команды; 0 при печати; 2 — ошибки ввода и резолва.`,
+  examples: [
+    "mpu process target: 777 dataset: wb_unit --print",
+  ],
   policy: "rw",
   helpWhenBare: true,
   argsSchema,

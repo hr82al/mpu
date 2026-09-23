@@ -500,16 +500,18 @@ export const initCommand = defineCommand({
   path: ["init"],
   keys: {},
   summary: "первичная инициализация локальной кэш-БД: пять шагов",
-  usage: "mpu init [--portainer TEXT] [--dry-run] [--reset]",
-  help: `Пять шагов: 1) схема кэш-БД; 2) discovery контейнеров через
+  usage: "mpu init [portainer: TEXT] [--dry-run] [--reset]",
+  help: `Звать на новой машине или когда mpu жалуется на пустой кэш.
+
+Пять шагов: 1) схема кэш-БД; 2) discovery контейнеров через
 Portainer; 3) прогрев кэша Loki; 4) прогрев справочников Kaiten;
-5) вход в Telegram (та же реализация, что у mpu telegram login). Шаг 1 первым,
+5) вход в Telegram (как mpu telegram login). Шаг 1 первым,
 2-4 конкурентно, 5 после них; блоки вывода — всегда в порядке 1..5.
 
 Ключи env-файла ~/.config/mpu/.env (окружение процесса не читается):
-PORTAINER_API_KEY, PORTAINER_URL (или --portainer),
-PORTAINER_VERIFY_TLS (=true без учёта регистра включает проверку
-TLS-сертификата, иначе выключена), LOKI_URL, KITEN_API_KEY,
+PORTAINER_API_KEY, PORTAINER_URL (или portainer:),
+PORTAINER_VERIFY_TLS (=true в любом регистре — проверять
+TLS-сертификат), LOKI_URL, KITEN_API_KEY,
 KITEN_BASE_URL.
 
 Пределы (до заголовков/целиком): Portainer и Loki ${HEADERS_TIMEOUT_MS}/${TOTAL_TIMEOUT_MS} ms,
@@ -525,9 +527,10 @@ Kaiten ${KAITEN_TIMEOUTS.headersTimeoutMs}/${KAITEN_TIMEOUTS.totalTimeoutMs} ms;
 шаги 3-5 не идут.
 
 Exit: 0 — успех; 2 — нет PORTAINER_API_KEY/URL либо URL без схемы;
-1 — сбой списка endpoints либо ни одного контейнера.
-
-Пример: mpu init --portainer https://portainer.example.com`,
+1 — сбой списка endpoints либо ни одного контейнера.`,
+  examples: [
+    "mpu init portainer: https://portainer.example.com",
+  ],
   policy: "rw",
   argsSchema,
   resultSchema,

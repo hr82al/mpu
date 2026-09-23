@@ -21,7 +21,7 @@ import {
 
 const argsSchema = z.object({
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
   message: z.string().optional().describe("текст комментария"),
   "body-file": z.string().optional().describe(
@@ -72,15 +72,16 @@ export const mrNoteCommand = defineCommand({
   keys: { id: "mr", text: "message" },
   errorName: "mr note",
   summary: "Общий комментарий к merge request'у, без привязки к строке.",
-  usage: "mpu mr note [--mr REF] (-m TEXT | -F PATH)",
-  help: `Создаёт общий тред MR — тот, что виден в обсуждении, а не у
+  usage: "mpu mr note [id: REF] (text: TEXT | body-file: PATH)",
+  help:
+    `Звать, когда замечание касается MR в целом. Создаёт общий тред — тот, что виден в обсуждении, а не у
 строки диффа. Для замечания к конкретной строке есть mpu mr comment.
 
-Текст — ровно один из -m/--message TEXT и -F/--body-file PATH; '-'
-вместо пути означает весь stdin и работает только в CLI. Оба флага
+Текст — ровно один из text: TEXT и body-file: PATH; '-'
+вместо пути означает весь stdin и работает только в CLI. Оба ключа
 сразу либо ни одного — ошибка ввода. Тело уходит дословно.
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —
+id: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без ключа —
 открытый MR текущей ветки.
 
 Повторный вызов с тем же текстом создаёт второй тред: дедупликации
@@ -89,11 +90,12 @@ export const mrNoteCommand = defineCommand({
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
-Exit: 0 — успех; 2 — сочетание флагов тела, пустое тело,
-нераспознанный --mr; 1 — отказ GitLab, ненайденный MR.
-
-Примеры: mpu mr note -m 'посмотрел, вопросов нет';
-mpu mr note --mr 456 -F разбор.md`,
+Exit: 0 — успех; 2 — сочетание ключей тела, пустое тело,
+нераспознанный id:; 1 — отказ GitLab, ненайденный MR.`,
+  examples: [
+    'mpu mr note text: "посмотрел, вопросов нет"',
+    "mpu mr note id: 456 body-file: разбор.md",
+  ],
   policy: "rw",
   argsSchema,
   forms: { message: { short: "m" }, "body-file": { short: "F" } },

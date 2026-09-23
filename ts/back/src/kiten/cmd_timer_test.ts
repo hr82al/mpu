@@ -283,10 +283,11 @@ Deno.test("time start: запуск таймера", async (t) => {
     try {
       assertEquals(
         await errorText(kitenTimeStartCommand, [SELECTOR], io, DomainError),
-        `mpu kiten time start: таймер уже идёт на карточке ${CARD_ID} (с ${
-          mskClock(startedAtMs)
-        } МСК); останови \`mpu kiten time stop ${CARD_ID}\` или сбрось ` +
-          `\`mpu kiten time discard ${CARD_ID}\`\n`,
+        await expected(
+          "err-start-same-card-local-stderr.txt",
+          "",
+          startedAtMs,
+        ),
       );
       // Таймер читается ПОСЛЕ конфликта: до него решать было не по чему.
       assertEquals(calls(seen), [
@@ -311,8 +312,7 @@ Deno.test("time start: запуск таймера", async (t) => {
       try {
         assertEquals(
           await errorText(kitenTimeStartCommand, [SELECTOR], io, DomainError),
-          "mpu kiten time start: таймер уже идёт на другой карточке; " +
-            "Kaiten не сообщает, на какой — найди её в интерфейсе\n",
+          await golden("err-start-other-card-local-stderr.txt"),
         );
         assertEquals(calls(seen), [
           `GET ${CARD_PATH}`,
@@ -337,8 +337,8 @@ Deno.test("time start: запуск таймера", async (t) => {
         assertEquals(
           await errorText(kitenTimeStartCommand, [SELECTOR], io, DomainError),
           `mpu kiten time start: таймер уже идёт на карточке ${CARD_ID}; ` +
-            `останови \`mpu kiten time stop ${CARD_ID}\` или сбрось ` +
-            `\`mpu kiten time discard ${CARD_ID}\`\n`,
+            `останови \`mpu kiten time stop id: ${CARD_ID}\` или сбрось ` +
+            `\`mpu kiten time discard id: ${CARD_ID}\`\n`,
         );
       } finally {
         await stop();
@@ -746,7 +746,7 @@ Deno.test("time stop: остановка с созданием записи", as
       assertEquals(
         await errorText(kitenTimeStopCommand, [SELECTOR], io, DomainError),
         `mpu kiten time stop: таймер на карточке ${CARD_ID} не запущен; ` +
-          `попробуй: mpu kiten time start ${CARD_ID}\n`,
+          `попробуй: mpu kiten time start id: ${CARD_ID}\n`,
       );
       assertEquals(calls(seen), [`GET ${CARD_PATH}`]);
     } finally {

@@ -20,7 +20,7 @@ import {
 
 const argsSchema = z.object({
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
   file: z.string().optional().describe(
     "подстрока пути: только файлы, чей старый или новый путь её содержит",
@@ -116,31 +116,34 @@ export const mrDiffCommand = defineCommand({
   keys: { id: "mr" },
   errorName: "mr diff",
   summary: "Unified diff merge request'а блоками по файлам.",
-  usage: "mpu mr diff [--mr REF] [--file SUBSTR] [--json]",
-  help: `Печатает дифф MR блоками: заголовок 'diff --git a/… b/…' и тело
+  usage: "mpu mr diff [id: REF] [file: SUBSTR] [end json]",
+  help: `Звать на ревью, когда нужен сам дифф MR — целиком или по
+файлам. Печатает дифф блоками: заголовок 'diff --git a/… b/…' и тело
 диффа под ним, блоки разделены пустой строкой. У нового, удалённого и
 переименованного файла заголовок несёт пометку [new file], [deleted
 file] или [renamed]. Binary-файл печатается как '(binary / без
 текстового диффа)'.
 
---file SUBSTR оставляет только файлы, чей новый ИЛИ старый путь
+file: SUBSTR оставляет только файлы, чей новый ИЛИ старый путь
 содержит подстроку; переименованный файл находится по любому из имён.
 Ни одного совпадения — отказ, а не пустой вывод.
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —
+id: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без ключа —
 открытый MR текущей ветки.
 
---json печатает массив объектов {old_path, new_path, diff, new_file,
+end json печатает массив объектов {old_path, new_path, diff, new_file,
 renamed_file, deleted_file} — уже после фильтра.
 
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
 Exit: 0 — успех, в том числе у MR без изменённых файлов; 2 —
-нераспознанный --mr; 1 — отказ GitLab, ненайденный MR, пустой результат
-фильтра --file.
-
-Примеры: mpu mr diff; mpu mr diff --file loader.ts --mr 456`,
+нераспознанный id:; 1 — отказ GitLab, ненайденный MR, пустой результат
+фильтра file:.`,
+  examples: [
+    "mpu mr diff",
+    "mpu mr diff file: loader.ts id: 456",
+  ],
   policy: "ro",
   argsSchema,
   resultSchema,

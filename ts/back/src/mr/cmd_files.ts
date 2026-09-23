@@ -21,7 +21,7 @@ import {
 
 const argsSchema = z.object({
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
   json: z.boolean().default(false).describe("массив объектов JSON"),
 });
@@ -100,8 +100,9 @@ export const mrFilesCommand = defineCommand({
   keys: { id: "mr" },
   errorName: "mr files",
   summary: "Изменённые файлы merge request'а со счётчиками строк.",
-  usage: "mpu mr files [--mr REF] [--json]",
-  help: `Таблица изменённых файлов: ST — статус (A новый, D удалённый,
+  usage: "mpu mr files [id: REF] [end json]",
+  help: `Звать перед ревью, когда нужен состав MR: какие файлы
+затронуты и насколько. Таблица изменённых файлов: ST — статус (A новый, D удалённый,
 R переименованный, M изменённый), затем добавленные и удалённые строки
 и путь файла. Переименование показано как 'старый → новый'. Последняя
 строка — сумма по всем файлам.
@@ -109,19 +110,21 @@ R переименованный, M изменённый), затем добав
 Счётчики строк считаются из самого диффа: в ответе GitLab их нет.
 У binary-файла дифф пуст, поэтому у него +0 / -0.
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —
+id: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без ключа —
 открытый MR текущей ветки.
 
---json печатает массив объектов {status, old_path, new_path, additions,
+end json печатает массив объектов {status, old_path, new_path, additions,
 deletions} в том же порядке, что и таблица.
 
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
 Exit: 0 — успех, в том числе у MR без изменённых файлов; 2 —
-нераспознанный --mr; 1 — отказ GitLab, ненайденный MR.
-
-Примеры: mpu mr files; mpu mr files --mr 456 --json`,
+нераспознанный id:; 1 — отказ GitLab, ненайденный MR.`,
+  examples: [
+    "mpu mr files",
+    "mpu mr files id: 456 end json",
+  ],
   policy: "ro",
   argsSchema,
   resultSchema,

@@ -21,13 +21,13 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  note: z.number({ error: "нужен NOTE_ID: номер заметки" }).int(
-    "NOTE_ID — целое число",
-  ).positive("NOTE_ID — положительное число").describe(
-    "номер заметки (id из mpu mr comments --json)",
+  note: z.number({ error: "нужен id: номер заметки" }).int(
+    "id: — целое число",
+  ).positive("id: — положительное число").describe(
+    "номер заметки (id из mpu mr comments end json)",
   ),
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
   yes: z.boolean().default(false).describe(
     "не спрашивать подтверждения (для скриптов)",
@@ -84,11 +84,12 @@ export const mrDeleteCommand = defineCommand({
   keys: { id: "note" },
   errorName: "mr delete",
   summary: "Удалить свою заметку в merge request'е.",
-  usage: "mpu mr delete NOTE_ID [--mr REF] [--yes]",
-  help: `Удаляет заметку. Действие необратимо: GitLab удалённую заметку
+  usage: "mpu mr delete id: ЗАМЕТКА [mr: REF] [--yes]",
+  help: `Звать, когда свою заметку в MR надо убрать. Удаляет её; действие
+необратимо: GitLab удалённую заметку
 не возвращает.
 
-NOTE_ID — номер заметки, тот самый id из mpu mr comments --json и из
+id: — номер заметки, тот самый id из mpu mr comments end json и из
 ссылки #note_<id>.
 
 Без --yes команда спрашивает подтверждение в терминале. Если терминала
@@ -98,17 +99,19 @@ NOTE_ID — номер заметки, тот самый id из mpu mr comments
 
 Чужую заметку удалить не получится: откажет сам GitLab.
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —
+mr: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без ключа —
 открытый MR текущей ветки.
 
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
-Exit: 0 — успех; 2 — NOTE_ID не передан или не число, нераспознанный
---mr; 1 — нет терминала без --yes, отказ человека, отказ GitLab,
-несуществующая заметка.
-
-Примеры: mpu mr delete 42; mpu mr delete 42 --yes --mr 456`,
+Exit: 0 — успех; 2 — id: не передан или не число, нераспознанный
+mr:; 1 — нет терминала без --yes, отказ человека, отказ GitLab,
+несуществующая заметка.`,
+  examples: [
+    "mpu mr delete id: 42",
+    "mpu mr delete id: 42 --yes mr: 456",
+  ],
   policy: "rw",
   argsSchema,
   forms: { note: { positional: "one" } },

@@ -79,7 +79,7 @@ const fieldValue = (what: string) =>
   z.string().optional().describe(`значение поля «${what}»`);
 
 const argsSchema = z.object({
-  selector: z.string({ error: "нужен SELECTOR: id карточки или её URL" })
+  selector: z.string({ error: "нужен id: id карточки или её URL" })
     .describe("id карточки либо её URL, короткий или глубокий"),
   hypothesis: fieldValue("6. Причина/гипотеза"),
   done: fieldValue("7. Что сделано"),
@@ -548,7 +548,7 @@ function timerRunningBody(
   timer: RunningTimer,
 ): string {
   return `на карточке запущен таймер (${since(timer)}); он НЕ остановлен — ` +
-    `\`mpu kiten time stop ${cardId}\` (или --stop-timer)`;
+    `\`mpu kiten time stop id: ${cardId}\` (или --stop-timer)`;
 }
 
 /** «с 14.08 19:50 МСК, 1 мин»; метки старта нет — «с ?», без длительности. */
@@ -640,21 +640,24 @@ export const kitenCloseCommand = defineCommand({
   errorName: "kiten close",
   summary: "Закрыть карточку Kaiten: поля, ответ клиенту, перенос в «Готово».",
   usage:
-    "mpu kiten close SELECTOR [--hypothesis TEXT] [--done TEXT] [--result TEXT] [--mr URL] [--reply TEXT | --reply-file PATH] [--column REF] [--force-fields] [--no-move] [--stop-timer] [--dry-run]",
-  help: `SELECTOR — id карточки либо её URL.
+    "mpu kiten close id: КАРТОЧКА [hypothesis: TEXT] [done: TEXT] [result: TEXT] [mr: URL] [reply: TEXT | reply-file: PATH] [column: REF] [--force-fields] [--no-move] [--stop-timer] [--dry-run]",
+  help: `Звать, когда задача по карточке Kaiten сделана: таймер, поля
+разбора, ответ и перенос — одним вызовом; --dry-run — план без
+мутаций.
 
-Шаги: таймер → поля → ответ → перенос. Отката нет: сбой позднего шага
-оставляет ранние применёнными, повтор безопасен.
+id: — id карточки либо её URL. Шаги: таймер → поля → ответ → перенос.
+Отката нет: сбой позднего шага оставляет ранние применёнными, повтор
+безопасен.
 
---hypothesis/--done/--result/--mr — значения полей. Пишутся только
+hypothesis:/done:/result:/mr: — значения полей. Пишутся только
 переданные и только в пустое поле; заполненное пропускается,
 --force-fields перезаписывает. Порядок: hypothesis, done, result, mr.
 
-Ответ — один источник: --reply TEXT либо --reply-file PATH ('-' —
+Ответ — один источник: reply: TEXT либо reply-file: PATH ('-' —
 stdin), пустой текст отвергается. Самостоятельный '@all' раскрывается в
 логин владельца; владельца нет — предупреждение и '@all' как есть.
 
---column REF — колонка переноса (id либо название), иначе ключ
+column: REF — колонка переноса (id либо название), иначе ключ
 ${COLUMN_ENV_KEY}, иначе «${DEFAULT_COLUMN}»; резолвится на доске карточки
 до первой мутации. --no-move — не переносить.
 
@@ -662,15 +665,14 @@ ${COLUMN_ENV_KEY}, иначе «${DEFAULT_COLUMN}»; резолвится на �
 ${ROLE_ENV_KEY} → 12058). Без флага таймер не трогается никогда, о
 запущенном команда предупреждает.
 
---dry-run — печать плана: только чтения.
-
 Ключи env-файла: KITEN_API_KEY, KITEN_BASE_URL,
 ${COLUMN_ENV_KEY}, ${ROLE_ENV_KEY}.
 
 Exit: 0 — успех; 1 — ошибка API (назван упавший шаг); 2 — ошибка ввода
-(селектор, источники ответа, колонка, ключ доступа).
-
-Пример: mpu kiten close 10000001 --done 'Починили' --reply-file - --stop-timer`,
+(id:, источники ответа, колонка, ключ доступа).`,
+  examples: [
+    "mpu kiten close id: 10000001 done: Починили reply-file: - --stop-timer",
+  ],
   policy: "rw",
   argsSchema,
   forms: { selector: { positional: "one" } },

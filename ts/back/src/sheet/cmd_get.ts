@@ -30,7 +30,7 @@ const RENDERS: Readonly<Record<string, readonly Layer[]>> = {
 };
 
 const USAGE_NO_RANGES =
-  "Usage: mpu sheet get [RANGES...] [--from FILE] [--sheet TAB]";
+  "Usage: mpu sheet get range: ДИАПАЗОН... [from: FILE] [sheet: TAB]";
 
 const argsSchema = z.object({
   ranges: z.array(z.string()).default([]).describe(
@@ -134,34 +134,35 @@ export const sheetGetCommand = defineCommand({
   errorName: "sheet",
   summary: "Прочитать диапазоны Google-таблицы.",
   usage:
-    "mpu sheet get [RANGES...] [-s SS] [-n TAB] [--from FILE] [--render R] [--raw|--tsv] [-R]",
-  help: `Читает диапазоны A1 через Apps Script webapp с кэшом целых
-листов: повторный вызов того же диапазона отвечает из кэша и помечает
-это полем "fromCache": true.
+    "mpu sheet get [range: ДИАПАЗОН]... [spreadsheet: SS] [sheet: TAB] [from: FILE] [render: R] [--refresh] [end raw|tsv|json]",
+  help: `Звать, когда нужны значения или формулы ячеек Google-таблицы
+клиента — из самой таблицы, а не из БД, куда она грузится.
 
-Диапазоны берутся из аргументов и из --from (файл построчно, '-' —
+Цель — spreadsheet:, иначе sheet.default. Чтение — через Apps Script
+webapp с кэшом целых листов: повтор диапазона отвечает из кэша с полем
+"fromCache": true; --refresh не читает кэш, но перезаписывает его.
+
+Диапазоны берутся из range: (повторяется) и из from: (файл построчно, '-' —
 stdin; пустые строки и строки с # пропускаются) — источники
-складываются. -n/--sheet TAB префиксует диапазоны без '!' и, если
+складываются. sheet: TAB префиксует диапазоны без '!' и, если
 диапазонов нет вовсе, означает «весь лист TAB».
 
---render both (по умолчанию) даёт значения и формулы, values и formulas
+render: both (по умолчанию) даёт значения и формулы, values и formulas
 — по одному слою, formatted — отформатированные строки локали таблицы
 (всегда мимо кэша). Ключ слоя есть в JSON ровно тогда, когда слой
 запрошен.
 
---raw печатает один слой (values → formulas → formatted) ячейками через
+end raw печатает один слой (values → formulas → formatted) ячейками через
 табуляцию; единственная строка единственного диапазона идёт без
-финального перевода строки. --tsv — то же, но диапазоны разделены
-пустой строкой и перевод строки в конце есть всегда. Вместе они не
-конфликтуют: побеждает --tsv.
-
--R/--refresh не читает кэш листов и метаданных, но перезаписывает его.
+финального перевода строки. end tsv — то же, но диапазоны разделены
+пустой строкой и перевод строки в конце есть всегда.
 
 Exit: 0 — успех; 2 — ошибки ввода и резолва цели; 1 — отказ webapp,
-отсутствующий WB_PLUS_WEB_APP_URL и ненайденный лист.
-
-Примеры: mpu sheet get 'Sheet1!A1:B2' -s 4326;
-mpu sheet get -n Отчёт --tsv -s 4326`,
+отсутствующий WB_PLUS_WEB_APP_URL и ненайденный лист.`,
+  examples: [
+    "mpu sheet get range: Sheet1!A1:B2 spreadsheet: 4326",
+    "mpu sheet get sheet: Отчёт spreadsheet: 4326 end tsv",
+  ],
   policy: "ro",
   argsSchema,
   formats: { raw: ["--raw"], tsv: ["--tsv"] },

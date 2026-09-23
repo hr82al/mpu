@@ -31,14 +31,18 @@ export const lsCommand = defineCommand({
   path: ["xlsx", "ls"],
   keys: {},
   summary: "список листов книги",
-  usage: "mpu xlsx ls [-f FILE] [-l|--long]",
-  help: `Вывод по умолчанию: имя листа на строку, порядок как в книге.
+  usage: "mpu xlsx ls [file: FILE] [--long]",
+  help: `Звать, когда надо узнать, какие листы есть в локальной книге
+xlsx и сколько в них данных, прежде чем читать ячейки.
+
+Вывод по умолчанию: имя листа на строку, порядок как в книге.
 rows/cols — фактический максимум встреченных ячеек (учитывая merge);
 у пустого листа 0×0.
 
-Exit: 0 — успех; 2 — ошибка ввода; 1 — файл не найден / не xlsx.
-
-Пример: mpu xlsx ls -f report.xlsx --long`,
+Exit: 0 — успех; 2 — ошибка ввода; 1 — файл не найден / не xlsx.`,
+  examples: [
+    "mpu xlsx ls file: report.xlsx --long",
+  ],
   policy: "ro",
   argsSchema,
   forms: { file: { short: "f" }, long: { short: "l" } },

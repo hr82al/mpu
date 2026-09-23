@@ -154,33 +154,37 @@ export const telegramSearchCommand = defineCommand({
   errorName: "telegram search",
   summary: "Найти сообщения по содержимому: везде или в одном чате.",
   usage:
-    "mpu telegram search [QUERY] [--chat X] [--from Y] [--limit N] [--table]",
-  help: `QUERY — что искать в тексте сообщений. Пустой запрос допустим
-только с --chat: это история чата. Пробелы — значимый запрос.
+    "mpu telegram search [query: ЗАПРОС] [chat: X] [from: Y] [limit: N] [end table]",
+  help: `Звать, когда в Telegram надо найти сообщение: по тексту, чату,
+отправителю.
 
---chat X — искать в одном чате: id, @username, ссылка t.me, название
+query: — что искать в тексте сообщений. Пустой запрос допустим
+только с chat:: это история чата. Пробелы — значимый запрос.
+
+chat: X — искать в одном чате: id, @username, ссылка t.me, название
 или me (Избранное). Без него — по всем диалогам.
---from Y — только сообщения этого отправителя, тем же видом адресата.
-Без --chat фильтр идёт на стороне команды (своего у глобального поиска
+from: Y — только сообщения этого отправителя, тем же видом адресата.
+Без chat: фильтр идёт на стороне команды (своего у глобального поиска
 нет): просмотр обрывается на ${SCAN_CAP} сообщениях, и тогда в stderr
 уходит предупреждение.
---limit N — сколько сообщений в выдаче, ${LIMIT_MIN}..${LIMIT_MAX}, по
+limit: N — сколько сообщений в выдаче, ${LIMIT_MIN}..${LIMIT_MAX}, по
 умолчанию 50. Ограничивает выдачу, а не число просмотренных.
---table — таблица колонками DATE, CHAT, SENDER, TEXT вместо JSON.
+end table — таблица колонками DATE, CHAT, SENDER, TEXT вместо JSON.
 
 Вывод по умолчанию — массив JSON: id, chat_id, chat_title, sender, date,
-text, link; порядок — от новых к старым. chat_id маркированный: его
-можно без правки передать в --chat. Пустая выдача — [] и код 0.
+text, link; от новых к старым. chat_id маркированный: его можно без
+правки передать в chat:. Пустая выдача — [] и код 0.
 TELEGRAM_DEFAULT_CHAT не читается.
 
 Ключи env-файла: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION
 (обязательны), TELEGRAM_PROXY.
 
 Exit: 1 — конфигурация, отказ Telegram, ненайденный адресат; 2 — ошибка
-ввода (--limit вне диапазона, пустой глобальный поиск, --from без --chat
-и без запроса).
-
-Пример: mpu telegram search 'выгрузка' --chat me --limit 20 --table`,
+ввода (limit: вне диапазона, пустой глобальный поиск, from: без chat:
+и без запроса).`,
+  examples: [
+    "mpu telegram search query: выгрузка chat: me limit: 20 end table",
+  ],
   policy: "ro",
   argsSchema,
   formats: { table: ["--table"] },

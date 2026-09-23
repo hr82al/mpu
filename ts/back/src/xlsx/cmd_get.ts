@@ -22,33 +22,34 @@ import {
 import { cellKey, findSheet, type Workbook } from "./workbook.ts";
 import { type OutputCell, renderGetRaw, renderGetTsv } from "./render.ts";
 
-const RANGES_HINT = "mpu xlsx get [RANGES...] [--from FILE] [--sheet SHEET]";
+const RANGES_HINT =
+  "mpu xlsx get range: ДИАПАЗОН... [from: FILE] [sheet: ЛИСТ]";
 
 const argsSchema = z.object({
   ranges: z.array(z.string()).default([]).describe(
     "диапазоны вида 'Лист!A1:C3', открытые 'Лист!A:A', голое имя листа",
   ),
   file: z.string().optional().describe(
-    "путь или алиас .xlsx; без флага: MPU_XLSX (env-файл), " +
+    "путь или алиас .xlsx; без ключа: MPU_XLSX (env-файл), " +
       "config xlsx.default",
   ),
   sheet: z.string().optional().describe(
     "префиксует диапазоны без «!»; без диапазонов — весь лист",
   ),
   from: z.array(z.string()).default([]).describe(
-    "файл с диапазонами построчно; флаг повторяем; «-» — stdin",
+    "файл с диапазонами построчно; ключ повторяется; «-» — stdin",
   ),
   render: z.enum(["both", "values", "formulas"], {
-    error: (issue) => `invalid --render value "${String(issue.input)}"`,
+    error: (issue) => `invalid render: value "${String(issue.input)}"`,
   }).default("both").describe("что попадает в ячейку результата"),
   raw: z.boolean().default(false).describe(
-    "голые значения без шапки; с --tsv несовместим (exit 2)",
+    "формат raw: голые значения без шапки",
   ),
   tsv: z.boolean().default(false).describe(
-    "таблица с шапкой range/value; с --raw несовместим (exit 2)",
+    "формат tsv: таблица с шапкой range/value",
   ),
 }).refine((args) => !(args.raw && args.tsv), {
-  error: "only one of --raw / --tsv can be set",
+  error: "only one format: raw or tsv",
 });
 
 const cellSchema = z.object({
@@ -74,29 +75,33 @@ export const getCommand = defineCommand({
     },
   },
   summary: "значения диапазонов книги",
-  usage: "mpu xlsx get [RANGES...] [-f FILE] [-n|--sheet SHEET] " +
-    "[--from FROM] [--render both|values|formulas] [--raw|--tsv]",
-  help: `Диапазоны: 'Лист!A1', 'Лист!A1:C3', открытые 'Лист!A:A',
+  usage: "mpu xlsx get [range: ДИАПАЗОН]... [file: FILE] [sheet: ЛИСТ] " +
+    "[from: FROM] [render: both|values|formulas] [end raw|tsv|json]",
+  help: `Звать, когда нужны значения или формулы ячеек локальной книги
+xlsx — присланной клиентом выгрузки или своей копии: ответ точный, со
+ссылкой на каждую ячейку, без открытия файла глазами.
+
+range: повторяется. Диапазоны: 'Лист!A1', 'Лист!A1:C3', открытые 'Лист!A:A',
 'Лист!1:5', 'Лист!A5:A' (клэмп к данным; заданная граница не
 уменьшается), голое имя листа — весь лист. Имя с пробелом/'/! — в
 одинарных кавычках, кавычка внутри удваивается.
 
-Источники складываются: аргументы + --from (файл построчно, «-» —
+Источники складываются: range: + from: (файл построчно, «-» —
 stdin; строка с # — комментарий, пустые пропускаются). Дубликаты
 убираются, порядок первого вхождения сохраняется.
 
 Вывод по умолчанию — JSON (indent 2, без финального \\n): file и
 cells[{range, value, formula}]; formula только у реальных формул,
-пустые ячейки включены (value null). --tsv: шапка range/value/formula,
-экранирование \\ \\n \\r \\t, bool → True/False, null — пусто. --raw:
+пустые ячейки включены (value null). end tsv: шапка range/value/formula,
+экранирование \\ \\n \\r \\t, bool → True/False, null — пусто. end raw:
 одна ячейка — голое значение без \\n; несколько — строка на ячейку.
 
 Exit: 0 — успех (пустой результат не ошибка); 2 — ошибка ввода;
-1 — файл не найден / не xlsx / лист не найден.
-
-Примеры:
-  mpu xlsx get 'Данные!A1:C3' -f report.xlsx
-  mpu xlsx get A1:C3 --sheet Данные --tsv`,
+1 — файл не найден / не xlsx / лист не найден.`,
+  examples: [
+    "mpu xlsx get range: Данные!A1:C3 file: report.xlsx",
+    "mpu xlsx get range: A1:C3 sheet: Данные end tsv",
+  ],
   policy: "ro",
   argsSchema,
   formats: { raw: ["--raw"], tsv: ["--tsv"] },

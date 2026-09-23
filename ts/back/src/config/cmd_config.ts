@@ -255,14 +255,17 @@ export const configCommand = defineCommand({
   keys: { key: "key", value: "value" },
   errorName: "config",
   summary: "Локальные предпочтения CLI: показать и задать ключи.",
-  usage: "mpu config [KEY] [VALUE] [--unset] [--json]",
-  help: `Без аргументов печатает все ключи реестра с действующими
+  usage: "mpu config [key: КЛЮЧ] [value: ЗНАЧЕНИЕ] [--unset] [end json]",
+  help: `Звать, когда надо посмотреть или поменять настройку mpu — цель
+sheet и xlsx по умолчанию, пределы кэша таблиц.
+
+Без ключей печатает все ключи реестра с действующими
 значениями; у взятого из умолчания стоит пометка (default), у
 заданного — ничего.
 
-mpu config KEY печатает значение: у строкового ключа без записи вывод
-пуст (на это опираются скрипты), у числового печатается умолчание.
-mpu config KEY VALUE задаёт значение, mpu config --unset KEY удаляет
+mpu config key: K печатает значение: у строкового ключа без записи
+вывод пуст (на это опираются скрипты), у числового печатается
+умолчание. key: K value: V задаёт значение, key: K --unset удаляет
 запись. Повторный --unset — тоже успех: команда идемпотентна.
 
 Ключи (закрытый список): sheet.default, xlsx.default, sheet.cache.tab_ttl, sheet.cache.max_tab_bytes,
@@ -276,13 +279,15 @@ sheet.cache.max_total_mb. Имя вне списка — ошибка; запи�
 Хранилище — таблица config кэш-БД ~/.config/mpu/mpu.db, общая с прежней
 реализацией: заданное здесь немедленно действует и там.
 
---json печатает массив {key, value, source, default, description}.
+end json печатает массив {key, value, source, default, description}.
 
 Exit: 0 — успех; 2 — имя вне реестра, нечисловое значение числового
-ключа, --unset без ключа; 1 — хранилище недоступно.
-
-Примеры: mpu config; mpu config sheet.default 4326;
-mpu config --unset sheet.default`,
+ключа, --unset без ключа; 1 — хранилище недоступно.`,
+  examples: [
+    "mpu config",
+    "mpu config key: sheet.default value: 4326",
+    "mpu config --unset key: sheet.default",
+  ],
   policy: "rw",
   argsSchema,
   forms: { key: { positional: "one" }, value: { positional: "one" } },

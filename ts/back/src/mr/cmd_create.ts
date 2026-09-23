@@ -25,15 +25,15 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  title: z.string({ error: "нужен --title" }).describe("заголовок MR"),
-  target: z.string({ error: "нужен --target" }).describe(
+  title: z.string({ error: "нужен title:" }).describe("заголовок MR"),
+  target: z.string({ error: "нужен into:" }).describe(
     "ветка назначения, куда вливать",
   ),
   source: z.string().optional().describe(
-    "исходная ветка; без флага — текущая ветка каталога",
+    "исходная ветка; без ключа — текущая ветка каталога",
   ),
   project: z.string().optional().describe(
-    "проект group/repo; без флага — из git remote origin",
+    "проект group/repo; без ключа — из git remote origin",
   ),
   message: z.string().optional().describe("описание MR; необязательно"),
   "body-file": z.string().optional().describe(
@@ -130,15 +130,15 @@ export const mrCreateCommand = defineCommand({
   errorName: "mr create",
   summary: "Создать merge request из текущей ветки.",
   usage:
-    "mpu mr create --title TEXT --target BRANCH [--source B] [--project P] [-m|-F]",
-  help: `Создаёт merge request.
+    "mpu mr create title: TEXT into: BRANCH [source: B] [project: P] [text: TEXT | body-file: PATH]",
+  help: `Звать, когда ветку пора отдать на ревью: создаёт merge request.
 
---title и --target обязательны: заголовок и ветка, куда вливать.
---source — исходная ветка; без флага берётся текущая ветка каталога, а
+title: и into: обязательны: заголовок и ветка, куда вливать.
+source: — исходная ветка; без ключа берётся текущая ветка каталога, а
 в detached HEAD команда отказывается и просит указать её явно.
---project group/repo; без флага берётся из git remote origin.
+project: group/repo; без ключа берётся из git remote origin.
 
-Описание необязательно: -m/--message TEXT либо -F/--body-file PATH
+Описание необязательно: text: TEXT либо body-file: PATH
 ('-' — весь stdin, только в CLI). Без обоих MR создаётся с пустым
 описанием; оба сразу — ошибка ввода.
 
@@ -148,12 +148,13 @@ export const mrCreateCommand = defineCommand({
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
-Exit: 0 — успех; 2 — нет --title или --target, оба флага описания; 1 —
-detached HEAD без --source, git недоступен, отказ GitLab (в том числе
-уже существующий MR ветки).
-
-Примеры: mpu mr create --title 'feat: загрузчик' --target main;
-mpu mr create --title 'fix' --target main --source hotfix -F тело.md`,
+Exit: 0 — успех; 2 — нет title: или into:, оба ключа описания; 1 —
+detached HEAD без source:, git недоступен, отказ GitLab (в том числе
+уже существующий MR ветки).`,
+  examples: [
+    'mpu mr create title: "feat: загрузчик" into: main',
+    "mpu mr create title: fix into: main source: hotfix body-file: тело.md",
+  ],
   policy: "rw",
   argsSchema,
   forms: { message: { short: "m" }, "body-file": { short: "F" } },

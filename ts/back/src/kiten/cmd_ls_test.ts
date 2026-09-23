@@ -779,7 +779,7 @@ Deno.test("ls: отказы ввода — точные тексты спеки"
         () => kitenLsCommand.invoke(["--state", "wat"], st.io),
         UsageError,
       );
-      assertStringIncludes(err.message, "--state");
+      assertStringIncludes(err.message, "state:");
     } finally {
       await st.stop();
     }

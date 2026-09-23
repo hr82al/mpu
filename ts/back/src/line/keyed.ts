@@ -230,16 +230,10 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
   });
 }
 
-/**
- * Адреса входов команды в новой записи. Команда без ключей пока принимает
- * прежнюю строку хвостом — все её входы адресуются хвостом.
- */
+/** Адреса входов команды в новой записи: ключ, формат или снятый вход. */
 export function addressesOf(
   command: Command,
   formats: readonly string[],
 ): ReadonlyMap<string, string> {
-  if (command.keys === undefined) {
-    return new Map(command.inputs.map((input) => [input.name, "хвост"]));
-  }
   return new Keys(command, formats).addresses();
 }

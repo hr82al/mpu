@@ -181,24 +181,27 @@ export const wbLoaderBlockedCommand = defineCommand({
   keys: {},
   errorName: "api wb-loader-blocked",
   summary: "POST /admin/wb-loader/blocked-loaders/v1/find — блокировки фермы.",
-  usage: "mpu api wb-loader-blocked [--loader ИМЯ] [--reason R] [-p]",
-  help: `Показывает заблокированные загрузчики по всей ферме. Без
-фильтров — все; --loader (camelCase), --reason и --sid сужают запрос,
+  usage: "mpu api wb-loader-blocked [loader: ИМЯ] [reason: R] [--print]",
+  help: `Звать, когда надо понять, какие WB-загрузчики стоят по всей ферме
+и почему: ответ — блокировки из sl-back, а не догадка по логам. Без
+фильтров — все; loader: (camelCase), reason: и sid: сужают запрос,
 --only-permanent оставляет причины, которые сами не восстановятся.
 
---server — клиентский постфильтр по инстансу: в тело запроса он не
+server: — клиентский постфильтр по инстансу: в тело запроса он не
 входит, ответ фильтруется после получения.
 
 Имена загрузчиков и причин проверяются по закрытым спискам до сети;
 перепутанная форма имени даёт подсказку с правильной.
 
--p/--print печатает эквивалентный вызов и выходит; токен в нём не
+--print печатает эквивалентный вызов и выходит; токен в нём не
 подставляется.
 
 Exit: 0 — успех; 1 — отказ sl-back; 2 — негодное имя загрузчика или
-причины.
-
-Пример: mpu api wb-loader-blocked --only-permanent --print`,
+причины.`,
+  examples: [
+    "mpu api wb-loader-blocked",
+    "mpu api wb-loader-blocked --only-permanent --print",
+  ],
   policy: "ro",
   argsSchema: blockedArgs,
   forms: { print: { short: "p" } },
@@ -245,17 +248,18 @@ export const wbLoaderStatusCommand = defineCommand({
   keys: { loader: "loader" },
   errorName: "api wb-loader-status",
   summary: "GET …/loaders/<sid>/<loader>/v1/status — состояние загрузчика.",
-  usage: "mpu api wb-loader-status СЕЛЕКТОР LOADER [--sid SID] [-p]",
-  help: `Читает состояние одного загрузчика кабинета. LOADER — слаг
-(cards, adv-fullstats), не camelCase: слаг идёт сегментом пути.
+  usage:
+    "mpu api wb-loader-status target: СЕЛЕКТОР loader: СЛАГ [sid: SID] [--print]",
+  help: `Звать, когда надо узнать, где сейчас один загрузчик кабинета:
+состояние читается у sl-back, ничего не меняя. loader: — слаг (cards,
+adv-fullstats), не camelCase: слаг идёт сегментом пути.
 
-Цель — селектор либо --sid; при --sid или селекторе формы sid кэш не
+Цель — target: либо sid:; при sid: или цели формы sid кэш не
 открывается вовсе.
 
-Exit: 0 — успех; 1 — отказ sl-back; 2 — негодный слаг, нерезолвимый
-селектор, несколько кабинетов.
-
-Пример: mpu api wb-loader-status 777 cards`,
+Exit: 0 — успех; 1 — отказ sl-back; 2 — негодный слаг, нерезолвимая
+цель, несколько кабинетов.`,
+  examples: ["mpu api wb-loader-status target: 777 loader: cards"],
   policy: "ro",
   argsSchema: statusArgs,
   forms: targetForms,
@@ -270,15 +274,16 @@ export const wbLoaderLoadCommand = defineCommand({
   keys: { loader: "loader" },
   errorName: "api wb-loader-load",
   summary: "POST …/v1/load — форс-прогон отложенной задачи.",
-  usage: "mpu api wb-loader-load СЕЛЕКТОР LOADER [--sid SID] [-p]",
-  help: `Запускает отложенную задачу загрузчика немедленно, не
-дожидаясь его цикла. Читающий аналог — mpu api wb-loader-status.
+  usage:
+    "mpu api wb-loader-load target: СЕЛЕКТОР loader: СЛАГ [sid: SID] [--print]",
+  help: `Звать, когда данные загрузчика нужны сейчас, а не к его
+следующему циклу: отложенная задача запускается немедленно. Читающий
+аналог — mpu api wb-loader-status.
 
-LOADER — слаг. Цель — селектор либо --sid.
+loader: — слаг. Цель — target: либо sid:.
 
-Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода и резолва.
-
-Пример: mpu api wb-loader-load 777 cards`,
+Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода и резолва.`,
+  examples: ["mpu api wb-loader-load target: 777 loader: cards"],
   policy: "rw",
   argsSchema: statusArgs,
   forms: targetForms,
@@ -352,21 +357,25 @@ export const wbLoaderConfigCommand = defineCommand({
   errorName: "api wb-loader-config",
   summary: "Конфигурация загрузчика на кабинете: чтение и правка.",
   usage:
-    "mpu api wb-loader-config СЕЛЕКТОР LOADER [--enable|--disable|--reset] [-p]",
-  help: `Без флагов читает конфигурацию: действующие параметры (база
-плюс дельта кабинета), базовые, сырую дельту этого кабинета и перечень
-полей, которые можно править per-sid.
+    "mpu api wb-loader-config target: СЕЛЕКТОР loader: СЛАГ [--enable|--disable|--reset] [--print]",
+  help: `Звать, когда загрузчик кабинета надо включить, выключить или
+понять, с какими параметрами он работает. Без флагов читает
+конфигурацию: действующие параметры (база плюс дельта кабинета),
+базовые, сырую дельту этого кабинета и перечень полей, которые можно
+править per-sid.
 
 --enable/--disable включают и выключают загрузчик на этом кабинете,
 --reset снимает дельту. Три флага ВЗАИМОИСКЛЮЧАЮЩИ: два вместе — ошибка
 ввода до сети, а не «последний выигрывает».
 
-LOADER — слаг. Цель — селектор либо --sid.
+loader: — слаг. Цель — target: либо sid:.
 
 Exit: 0 — успех; 1 — отказ sl-back; 2 — два флага сразу, негодный слаг,
-ошибки резолва.
-
-Пример: mpu api wb-loader-config 777 cards --disable`,
+ошибки резолва.`,
+  examples: [
+    "mpu api wb-loader-config target: 777 loader: cards",
+    "mpu api wb-loader-config target: 777 loader: cards --disable",
+  ],
   policy: "rw",
   argsSchema: configArgs,
   forms: targetForms,
@@ -464,12 +473,13 @@ export const wbLoaderResetCommand = defineCommand({
   errorName: "api wb-loader-reset",
   summary: "POST …/v1/reset — сброс состояния загрузчика и перезапуск.",
   usage:
-    "mpu api wb-loader-reset СЕЛЕКТОР LOADER [--state JSON|--from ДАТА] [--and-load] [-p]",
-  help: `Сбрасывает состояние загрузчика: ближайший прогон пересчитает
-окно. Без опций тело пустое.
+    "mpu api wb-loader-reset target: СЕЛЕКТОР loader: СЛАГ [state: JSON|from: ДАТА] [--and-load] [--print]",
+  help: `Звать, когда загрузчик надо заставить перезалить данные с
+даты: состояние сбрасывается, ближайший прогон пересчитает окно. Без
+state: и from: тело пустое.
 
 Окно дозагрузки задаётся одним из двух ВЗАИМОИСКЛЮЧАЮЩИХ способов:
---state кладёт частичное состояние как есть, --from собирает состояние
+state: кладёт частичное состояние как есть, from: собирает состояние
 с датой НА ДЕНЬ РАНЬШЕ указанной — загрузчик идёт вперёд по дате и
 начинает со следующего дня после сохранённого. Два флага вместе —
 ошибка ввода до сети.
@@ -481,10 +491,11 @@ export const wbLoaderResetCommand = defineCommand({
 --and-load следом дёргает форс-прогон. Отказ этого шага не отменяет
 сброса: он уже произошёл, и сообщение это скажет.
 
-Exit: 0 — успех; 1 — отказ sl-back; 2 — --state вместе с --from,
-негодная дата, ошибки резолва.
-
-Пример: mpu api wb-loader-reset 777 orders --from 2026-08-01 --and-load`,
+Exit: 0 — успех; 1 — отказ sl-back; 2 — state: вместе с from:,
+негодная дата, ошибки резолва.`,
+  examples: [
+    "mpu api wb-loader-reset target: 777 loader: orders from: 2026-08-01 --and-load",
+  ],
   policy: "rw",
   argsSchema: resetArgs,
   forms: targetForms,
@@ -606,19 +617,23 @@ export const wbLoaderResumeCommand = defineCommand({
   keys: { loader: "loader" },
   errorName: "api wb-loader-resume",
   summary: "Показать блокировки кабинета или снять их.",
-  usage: "mpu api wb-loader-resume СЕЛЕКТОР [LOADER] [--all] [-p]",
-  help: `Без LOADER и без --all показывает блокировки кабинета —
-только чтение, снятие не вызывается. С LOADER (camelCase) снимает
+  usage:
+    "mpu api wb-loader-resume target: СЕЛЕКТОР [loader: ИМЯ | --all] [--print]",
+  help: `Звать, когда загрузчик кабинета заблокирован и его надо
+запустить снова. Без loader: и без --all показывает блокировки кабинета
+— только чтение, снятие не вызывается. С loader: (camelCase) снимает
 блокировку одного загрузчика, с --all — всех.
 
---all вместе с позиционным LOADER — ошибка ввода: оставь что-то одно.
+--all вместе с loader: — ошибка ввода: оставь что-то одно.
 
-Цель — селектор либо --sid.
+Цель — target: либо sid:.
 
 Exit: 0 — успех; 1 — отказ sl-back (403 — не хватает роли); 2 — ошибки
-ввода и резолва.
-
-Пример: mpu api wb-loader-resume 777 wbCards`,
+ввода и резолва.`,
+  examples: [
+    "mpu api wb-loader-resume target: 777",
+    "mpu api wb-loader-resume target: 777 loader: wbCards",
+  ],
   policy: "rw",
   argsSchema: resumeArgs,
   forms: targetForms,

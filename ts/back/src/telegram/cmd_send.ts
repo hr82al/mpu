@@ -17,7 +17,7 @@ import { sendMessage } from "./send.ts";
 import { renderSent } from "./send_view.ts";
 
 const argsSchema = z.object({
-  message: z.string({ error: "нужен MESSAGE: текст сообщения либо '-'" })
+  message: z.string({ error: "нужен text: текст сообщения либо '-'" })
     .describe("текст сообщения; '-' — весь stdin"),
   chat: z.string().optional().describe(
     "адресат: me, id, @username, ссылка t.me, телефон или название чата",
@@ -81,11 +81,14 @@ export const telegramSendCommand = defineCommand({
   keys: { text: "message" },
   errorName: "telegram send",
   summary: "Отправить сообщение от имени личного аккаунта.",
-  usage: "mpu telegram send MESSAGE [--chat X] [--md] [-f PATH]...",
-  help: `MESSAGE — текст сообщения; '-' означает весь stdin. Пустая строка
-допустима только вместе с -f.
+  usage: "mpu telegram send text: ТЕКСТ [chat: X] [--md] [file: PATH]...",
+  help: `Звать, когда сообщение надо отправить в Telegram от имени
+пользователя — человеку, в группу или себе в «Избранное».
 
---chat X — адресат: me («Избранное»), id, @username, ссылка t.me,
+text: — текст сообщения; '-' означает весь stdin. Пустая строка
+допустима только вместе с file:.
+
+chat: X — адресат: me («Избранное»), id, @username, ссылка t.me,
 телефон или название чата. Название ищется поиском, как mpu telegram ls:
 точное совпадение старше подстрочного, один подходящий чат — он и
 адресат, несколько — отказ со списком. Не задан — берётся
@@ -94,7 +97,7 @@ TELEGRAM_DEFAULT_CHAT.
 --md — текст и подпись размечены Markdown: [текст](url) становится
 ссылкой, **жирный** — жирным. Без флага разметка остаётся видимой.
 
--f/--file PATH — вложение (флаг повторяется, порядок сохраняется). Файлы
+file: PATH — вложение (ключ повторяется, порядок сохраняется). Файлы
 уходят документами без превью, под своими именами; несколько — одним
 альбомом. Непустой текст становится подписью к последнему вложению,
 отдельного сообщения рядом с файлами не отправляется.
@@ -106,9 +109,10 @@ stdout — одна строка JSON: {"id": …, "chat_id": …, "date": …}.
 Ключи env-файла: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION
 (обязательны, пишет mpu init), TELEGRAM_DEFAULT_CHAT, TELEGRAM_PROXY.
 
-Exit: 0 — успех; 1 — конфигурация или отказ Telegram; 2 — ошибка ввода.
-
-Пример: mpu telegram send 'готово' --chat me -f /tmp/report.xlsx`,
+Exit: 0 — успех; 1 — конфигурация или отказ Telegram; 2 — ошибка ввода.`,
+  examples: [
+    "mpu telegram send text: готово chat: me file: /tmp/report.xlsx",
+  ],
   policy: "rw",
   argsSchema,
   forms: {

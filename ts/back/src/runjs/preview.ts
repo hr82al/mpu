@@ -4,6 +4,8 @@
  * руками. Отсюда here-doc: код уезжает на stdin, а не аргументом.
  */
 
+import { quoteArg } from "../exec/mod.ts";
+
 /** Маркер here-doc; в кавычках, чтобы шелл не трогал содержимое. */
 const EOF_MARK = "__MPU_RUN_JS_EOF__";
 
@@ -18,7 +20,8 @@ export function previewOf(
   const body = code.replace(/\n+$/, "");
   return labels
     .map((label) => {
-      const block = `mpu ssh ${label} -- node --input-type=module -` +
+      const block = `mpu ssh target: ${label} cmd: ` +
+        quoteArg("node --input-type=module -") +
         ` <<'${EOF_MARK}'\n${body}\n${EOF_MARK}\n`;
       return labels.length > 1 ? `# target=${label}\n${block}` : block;
     })

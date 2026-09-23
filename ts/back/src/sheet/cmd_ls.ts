@@ -76,24 +76,29 @@ export const sheetLsCommand = defineCommand({
   keys: {},
   errorName: "sheet",
   summary: "Показать листы таблицы.",
-  usage: "mpu sheet ls [-s SS] [-l] [--json] [-R]",
-  help: `По умолчанию печатает по строке на лист — только заголовки, в
+  usage: "mpu sheet ls [spreadsheet: SS] [--long] [end json] [--refresh]",
+  help: `Звать, когда надо узнать, какие вкладки есть в Google-таблице
+клиента, прежде чем читать ячейки.
+
+По умолчанию печатает по строке на лист — только заголовки, в
 порядке самой таблицы.
 
--l/--long даёт строку вида «Лист\\t1000×26\\tsheetId=0\\tindex=0».
---json печатает массив объектов {title, sheet_id, rows, cols, index}.
-Вместе -l и --json не конфликтуют: побеждает --json.
+--long даёт строку вида «Лист\\t1000×26\\tsheetId=0\\tindex=0».
+end json печатает массив объектов {title, sheet_id, rows, cols, index}.
+Вместе --long и end json не конфликтуют: побеждает end json.
 
--R/--refresh не читает кэш метаданных и перезаписывает его свежим
+--refresh не читает кэш метаданных и перезаписывает его свежим
 ответом; без флага список живёт в кэше два часа.
 
-Цель — -s/--spreadsheet, иначе ключ конфигурации sheet.default
+Цель — spreadsheet:, иначе ключ конфигурации sheet.default
 (mpu sheet resolve покажет, что выбрано).
 
 Exit: 0 — успех; 2 — ошибки резолва цели; 1 — отказ webapp и
-отсутствующий WB_PLUS_WEB_APP_URL.
-
-Примеры: mpu sheet ls -s 4326; mpu sheet ls -s 4326 --json`,
+отсутствующий WB_PLUS_WEB_APP_URL.`,
+  examples: [
+    "mpu sheet ls spreadsheet: 4326",
+    "mpu sheet ls spreadsheet: 4326 end json",
+  ],
   policy: "ro",
   argsSchema,
   forms: {

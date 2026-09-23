@@ -323,7 +323,7 @@ Deno.test("раскладка selector-first: селектор до имени �
   await t.step("голая подкоманда — справка листа, exit 2", async () => {
     const cli = makeCli();
     assertEquals(await cli.run("ozon-jobs", "show"), 2);
-    assertStringIncludes(cli.stdout(), "mpu ozon-jobs [-p [--local]] SELECTOR");
+    assertStringIncludes(cli.stdout(), "mpu ozon-jobs show target: СЕЛЕКТОР");
   });
 
   await t.step("справка подкоманды доступна за её именем", async () => {

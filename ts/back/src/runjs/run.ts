@@ -21,6 +21,7 @@ import {
   type ExecTarget,
   type HttpCall,
   type OpenChannel,
+  quoteArg,
   runOverPortainer,
   runOverSsh,
   type RunProcess,
@@ -336,10 +337,14 @@ function hints(
 ): void {
   const servers = targets.filter((target) => target.place.kind !== "container");
   if (servers.length === 0) return;
-  const scope = servers.length > 1 ? "--all" : servers[0].label;
-  call.io.progress(`# собрать логи: mpu run-js ${scope} '${reader(log)}'`);
+  // Строки — в записи ключами: их вставляют и исполняют как есть.
+  const scope = servers.length > 1 ? "--all" : `target: ${servers[0].label}`;
   call.io.progress(
-    `# или вживую: mpu ssh ${servers[0].label} -- tail -f ${log}`,
+    `# собрать логи: mpu run-js ${scope} text: '${reader(log)}'`,
+  );
+  call.io.progress(
+    `# или вживую: mpu ssh target: ${servers[0].label} cmd: ` +
+      quoteArg(`tail -f ${log}`),
   );
 }
 

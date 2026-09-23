@@ -289,7 +289,7 @@ Deno.test("обязательность поля видна в справке к
   for (const name of ["server", "name", "method"]) {
     assertStringIncludes(
       fields[name].description ?? "",
-      "(required, если не задан --body)",
+      "(required, если не задан body:)",
       `${name}: обязательность не названа в справке`,
     );
   }

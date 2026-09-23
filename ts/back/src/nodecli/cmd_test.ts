@@ -1905,7 +1905,7 @@ Deno.test("process: ветка dev:N — своя печать и обязате
         }),
         { ...bare, progress: () => {} },
       ) as WrapResult;
-      assertStringIncludes(result.printed ?? "", "mpu ssh dev:1 --");
+      assertStringIncludes(result.printed ?? "", "mpu ssh target: dev:1 cmd: ");
     });
 
     await t.step("--server вместе с dev:N — ошибка ввода", async () => {

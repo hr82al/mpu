@@ -429,16 +429,19 @@ export const kitenWhoamiCommand = defineCommand({
   keys: {},
   errorName: "kiten whoami",
   summary: "Владелец токена Kaiten: id, имя, логин, почта.",
-  usage: "mpu kiten whoami [--json]",
-  help: `Кто я по ключу KITEN_API_KEY: один запрос к Kaiten, без записи
+  usage: "mpu kiten whoami [end json]",
+  help: `Звать, когда надо проверить, чей ключ KITEN_API_KEY и жив ли он.
+
+Кто я по ключу KITEN_API_KEY: один запрос к Kaiten, без записи
 куда бы то ни было.
 
-Без --json — четыре строки id/name/login/email; с --json — объект с теми
+Без end json — четыре строки id/name/login/email; с end json — объект с теми
 же четырьмя ключами.
 
-${COMMON_HELP}
-
-Пример: mpu kiten whoami --json`,
+${COMMON_HELP}`,
+  examples: [
+    "mpu kiten whoami end json",
+  ],
   policy: "ro",
   argsSchema: whoamiArgsSchema,
   resultSchema: whoamiResultSchema,
@@ -452,9 +455,12 @@ export const kitenSpacesCommand = defineCommand({
   keys: {},
   errorName: "kiten spaces",
   summary: "Пространства компании; архивные — по --all.",
-  usage: "mpu kiten spaces [--all] [--json]",
-  help: `Живой список пространств; он же обновляет кэш справочников, на
-котором резолвятся --space и --board у соседних команд.
+  usage: "mpu kiten spaces [--all] [end json]",
+  help: `Звать, когда нужен id или точное имя пространства Kaiten, или кэш
+справочников устарел.
+
+Живой список пространств; он же обновляет кэш справочников, на
+котором резолвятся space: и board: у соседних команд.
 
 --all показывает архивные пространства. Фильтр действует только на
 вывод: в кэш всегда попадает полный ответ.
@@ -462,9 +468,10 @@ export const kitenSpacesCommand = defineCommand({
 Колонки таблицы: ID, TITLE, ARCHIVED (yes у архивного). Итог —
 (N spaces); пустой список — (нет пространств).
 
-${COMMON_HELP}
-
-Пример: mpu kiten spaces --all`,
+${COMMON_HELP}`,
+  examples: [
+    "mpu kiten spaces --all",
+  ],
   policy: "ro",
   argsSchema: spacesArgsSchema,
   resultSchema: spacesResultSchema,
@@ -480,20 +487,23 @@ export const kitenBoardsCommand = defineCommand({
   keys: {},
   errorName: "kiten boards",
   summary: "Доски всех пространств плоским списком; --space фильтрует.",
-  usage: "mpu kiten boards [--space REF] [--json]",
-  help: `Доски приходят вложенными в пространства (отдельного списка досок
+  usage: "mpu kiten boards [space: REF] [end json]",
+  help: `Звать, когда нужен id или имя доски Kaiten для board: других команд.
+
+Доски приходят вложенными в пространства (отдельного списка досок
 у API нет) и печатаются плоско, в порядке ответа.
 
---space REF оставляет доски одного пространства; REF — id либо подстрока
+space: REF оставляет доски одного пространства; REF — id либо подстрока
 названия без учёта регистра. Фильтр действует только на вывод: в кэш
 всегда попадает полный ответ.
 
 Колонки таблицы: ID, SPACE, TITLE. Итог — (N boards); пустой список —
 (нет досок).
 
-${COMMON_HELP}
-
-Пример: mpu kiten boards --space Разработка`,
+${COMMON_HELP}`,
+  examples: [
+    "mpu kiten boards space: Разработка",
+  ],
   policy: "ro",
   argsSchema: boardsArgsSchema,
   resultSchema: boardsResultSchema,
@@ -509,8 +519,10 @@ export const kitenLanesCommand = defineCommand({
   keys: {},
   errorName: "kiten lanes",
   summary: "Дорожки досок: одной доски, пространства либо всех сразу.",
-  usage: "mpu kiten lanes [--space REF] [--board REF] [--json]",
-  help: `Скоуп: --board — одна доска, --space — доски пространства, без
+  usage: "mpu kiten lanes [space: REF] [board: REF] [end json]",
+  help: `Звать, когда нужен id дорожки Kaiten для lane: других команд.
+
+Скоуп: board: — одна доска, space: — доски пространства, без
 фильтров — все доски компании (запрос на каждую доску скоупа).
 
 ${SCOPE_HELP}
@@ -518,9 +530,10 @@ ${SCOPE_HELP}
 Колонки таблицы: ID, BOARD, TITLE. Итог — (N lanes); пустой список —
 (нет дорожек).
 
-${COMMON_HELP}
-
-Пример: mpu kiten lanes --board 4001`,
+${COMMON_HELP}`,
+  examples: [
+    "mpu kiten lanes board: 4001",
+  ],
   policy: "ro",
   argsSchema: boardRowsArgsSchema,
   resultSchema: lanesResultSchema,
@@ -536,8 +549,10 @@ export const kitenColumnsCommand = defineCommand({
   keys: {},
   errorName: "kiten columns",
   summary: "Колонки досок: одной доски, пространства либо всех сразу.",
-  usage: "mpu kiten columns [--space REF] [--board REF] [--json]",
-  help: `Скоуп: --board — одна доска, --space — доски пространства, без
+  usage: "mpu kiten columns [space: REF] [board: REF] [end json]",
+  help: `Звать, когда нужен id колонки Kaiten для column: других команд.
+
+Скоуп: board: — одна доска, space: — доски пространства, без
 фильтров — все доски компании (запрос на каждую доску скоупа).
 
 ${SCOPE_HELP}
@@ -545,9 +560,10 @@ ${SCOPE_HELP}
 Колонки таблицы: ID, BOARD, TITLE. Итог — (N columns); пустой список —
 (нет колонок).
 
-${COMMON_HELP}
-
-Пример: mpu kiten columns --space Разработка`,
+${COMMON_HELP}`,
+  examples: [
+    "mpu kiten columns space: Разработка",
+  ],
   policy: "ro",
   argsSchema: boardRowsArgsSchema,
   resultSchema: columnsResultSchema,
@@ -563,8 +579,10 @@ export const kitenRolesCommand = defineCommand({
   keys: {},
   errorName: "kiten roles",
   summary: "Роли компании — типы работ учёта времени.",
-  usage: "mpu kiten roles [--all] [--json]",
-  help: `Роли — «типы работ» записей времени: их id принимает --role у
+  usage: "mpu kiten roles [--all] [end json]",
+  help: `Звать, когда для учёта времени нужен id роли.
+
+Роли — «типы работ» записей времени: их id принимает role: у
 mpu kiten time.
 
 Роли с неположительным id (системная Employee) скрыты; --all показывает
@@ -574,9 +592,10 @@ mpu kiten time.
 Колонки таблицы: ID, NAME. Итог — (N roles); пустой список —
 (нет ролей).
 
-${COMMON_HELP}
-
-Пример: mpu kiten roles --json`,
+${COMMON_HELP}`,
+  examples: [
+    "mpu kiten roles end json",
+  ],
   policy: "ro",
   argsSchema: rolesArgsSchema,
   resultSchema: rolesResultSchema,

@@ -29,14 +29,18 @@ export const openCommand = defineCommand({
   path: ["xlsx", "open"],
   keys: {},
   summary: "открыть книгу в системном приложении",
-  usage: "mpu xlsx open [-f FILE] [-p|--print]",
-  help: `Открыватель (xdg-open, затем open) запускается отвязанным процессом:
+  usage: "mpu xlsx open [file: FILE] [--print]",
+  help: `Звать, когда книгу xlsx надо показать человеку в его
+приложении; --print только печатает путь.
+
+Открыватель (xdg-open, затем open) запускается отвязанным процессом:
 результат и существование файла не проверяются. Ни одного открывателя
 нет — exit 1 с подсказкой --print.
 
-Exit: 0 — успех; 2 — ошибка ввода/путь не задан; 1 — нет открывателя.
-
-Пример: mpu xlsx open -f report.xlsx --print`,
+Exit: 0 — успех; 2 — ошибка ввода/путь не задан; 1 — нет открывателя.`,
+  examples: [
+    "mpu xlsx open file: report.xlsx --print",
+  ],
   // Мутирующая при любом значении --print: параметр класс команды не
   // меняет (`platform/command-contract.md`, отклонение-fix про --print).
   policy: "rw",

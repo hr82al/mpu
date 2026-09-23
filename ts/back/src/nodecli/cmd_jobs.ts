@@ -79,35 +79,36 @@ function jobs(group: JobsGroup, sub: string): Command {
     path: [group.group, sub],
     keys: {},
     summary: `Очередь задач ${group.what}: ${what}.`,
-    usage: `mpu ${group.group} [-p [--local]] SELECTOR ${sub} [--pattern P]`,
-    help: `Селектор и режимы печати набираются ДО имени подкоманды:
-mpu ${group.group} sl-2 ${sub}. Имя подкоманды перед селектором — ошибка
-ввода: раскладка сохранена от рабочей версии, её набирают руками
-каждый день.
+    usage:
+      `mpu ${group.group} ${sub} target: СЕЛЕКТОР [pattern: P] [--print [--local]]`,
+    help: `Звать, когда надо ${
+      sub === "show" ? "увидеть" : "расчистить"
+    } очередь задач ${group.what} на сервере.
 
 По умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере сервера: запускает
 \`node cli service:${group.service} ${method}\` и стримит его вывод, код
 выхода наследуется 1:1.
 
--p/--print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с -p печатает форму локального стенда
-(без ssh); сам по себе --local — ошибка ввода.
+--print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. --local вместе с --print печатает форму локального
+стенда (без ssh); сам по себе --local — ошибка ввода.
 
-SELECTOR — client_id, spreadsheet_id, заголовок таблицы либо сам сервер
-(sl-N); --server sl-N задаёт сервер напрямую. --client-id у этой
+target: — client_id, spreadsheet_id, заголовок таблицы либо сам сервер
+(sl-N); server: sl-N задаёт сервер напрямую. client-id: у этой
 команды нет: очередь принадлежит серверу, а не клиенту, и в
 inner-команду он не идёт.
 
---pattern необязателен; незаданный флаг в inner-команде не появляется
+pattern: необязателен; незаданный ключ в inner-команде не появляется
 вовсе. Значения проверяются до сети и до печати: допустимы только
 A-Za-z0-9 и _ . / : - , @ [ ] — пробел, кавычка или звёздочка это
 ошибка ввода.
 
 Exit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,
-резолва и конфигурации.
-
-Примеры: mpu ${group.group} sl-2 ${sub};
-mpu ${group.group} -p sl-2 ${sub} --pattern ${group.sample}`,
+резолва и конфигурации.`,
+    examples: [
+      `mpu ${group.group} ${sub} target: sl-2`,
+      `mpu ${group.group} ${sub} target: sl-2 pattern: ${group.sample} --print`,
+    ],
     policy: "rw",
     helpWhenBare: true,
     errorName: group.group,

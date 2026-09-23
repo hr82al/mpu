@@ -61,7 +61,7 @@ const REVIEW: ColumnDefault = {
 };
 
 const moveArgsSchema = z.object({
-  selector: z.string({ error: "нужен SELECTOR: id карточки либо её URL" })
+  selector: z.string({ error: "нужен id: id карточки либо её URL" })
     .describe("id карточки либо её URL"),
   lane: z.string().optional().describe("дорожка: id или подстрока названия"),
   column: z.string().optional().describe("колонка: id или подстрока названия"),
@@ -69,7 +69,7 @@ const moveArgsSchema = z.object({
 });
 
 const fixedArgsSchema = z.object({
-  selector: z.string({ error: "нужен SELECTOR: id карточки либо её URL" })
+  selector: z.string({ error: "нужен id: id карточки либо её URL" })
     .describe("id карточки либо её URL"),
   column: z.string().optional().describe(
     "целевая колонка: id или подстрока названия",
@@ -327,16 +327,19 @@ export const kitenMoveCommand = defineCommand({
   keys: { id: "selector" },
   errorName: "kiten move",
   summary: "Перенести карточку Kaiten по осям доска / дорожка / колонка.",
-  usage: "mpu kiten move SELECTOR [--lane REF] [--column REF] [--board REF]",
-  help: `SELECTOR — id карточки либо её URL.
+  usage: "mpu kiten move id: КАРТОЧКА [lane: REF] [column: REF] [board: REF]",
+  help: `Звать, когда карточку Kaiten надо перенести в другую колонку,
+дорожку или доску.
+
+id: — id карточки либо её URL.
 
 Нужна хотя бы одна ось; незаданные оси не меняются. REF — id или
 подстрока названия: точное совпадение старше подстроки, несколько
 совпадений — отказ со списком кандидатов. Дорожка и колонка резолвятся
-на целевой доске (явный --board, иначе доска карточки), поэтому
+на целевой доске (явный board:, иначе доска карточки), поэтому
 одноимённые колонки чужих досок не конфликтуют.
 
---column с текущей колонкой карточки (и без других изменений) делает
+column: с текущей колонкой карточки (и без других изменений) делает
 релог-bump: перевод в соседнюю колонку и обратно. Иначе Kaiten такой
 PATCH молча игнорирует и перемещение не фиксируется.
 
@@ -348,9 +351,10 @@ stdout: ok: {до} → {после}[ (релог)] · {url карточки}.
 ${ENV_KEYS}.
 
 Exit: 0 — успех; 1 — ошибка API; 2 — ошибка ввода (ни одной оси,
-селектор, нерезолвящийся REF).
-
-Пример: mpu kiten move 10000001 --column Очередь --board 'Доска поддержки'`,
+селектор, нерезолвящийся REF).`,
+  examples: [
+    'mpu kiten move id: 10000001 column: Очередь board: "Доска поддержки"',
+  ],
   policy: "rw",
   argsSchema: moveArgsSchema,
   forms: { selector: { positional: "one" } },
@@ -364,8 +368,9 @@ export const kitenReadyCommand = defineCommand({
   keys: { id: "selector" },
   errorName: "kiten ready",
   summary: "Перевести карточку Kaiten в колонку «Готово».",
-  usage: "mpu kiten ready SELECTOR [--column REF] [--note TEXT] [--dry-run]",
+  usage: "mpu kiten ready id: КАРТОЧКА [column: REF] [note: TEXT] [--dry-run]",
   help: fixedHelp(READY),
+  examples: ['mpu kiten ready id: 10000001 note: "MR !999"'],
   policy: "rw",
   argsSchema: fixedArgsSchema,
   forms: { selector: { positional: "one" } },
@@ -379,8 +384,9 @@ export const kitenReviewCommand = defineCommand({
   keys: { id: "selector" },
   errorName: "kiten review",
   summary: "Перевести карточку Kaiten в колонку «Код-ревью».",
-  usage: "mpu kiten review SELECTOR [--column REF] [--note TEXT] [--dry-run]",
+  usage: "mpu kiten review id: КАРТОЧКА [column: REF] [note: TEXT] [--dry-run]",
   help: fixedHelp(REVIEW),
+  examples: ['mpu kiten review id: 10000001 note: "MR !999"'],
   policy: "rw",
   argsSchema: fixedArgsSchema,
   forms: { selector: { positional: "one" } },
@@ -391,10 +397,14 @@ export const kitenReviewCommand = defineCommand({
 
 /** Справка `ready` и `review`: у них разнятся только колонка и ключ. */
 function fixedHelp(fixed: ColumnDefault): string {
-  return `SELECTOR — id карточки либо её URL.
+  return `Звать, когда карточка Kaiten ${
+    fixed === READY ? "готова" : "уходит на проверку"
+  } и её надо перевести в «${fixed.title}».
+
+id: — id карточки либо её URL.
 
 Перевод в колонку «${fixed.title}» на текущей доске карточки: дорожка и
-доска не меняются. Целевая колонка — --column, иначе ключ
+доска не меняются. Целевая колонка — column:, иначе ключ
 ${fixed.envKey}, иначе «${fixed.title}»; REF это id или подстрока
 названия.
 
@@ -406,7 +416,7 @@ ${fixed.envKey}, иначе «${fixed.title}»; REF это id или подст�
 карточек вместо исходной: в этой рабочей области Kaiten так и задумано —
 не ошибка и не повод переносить обратно.
 
---note TEXT — заметка; она уходит в строку локального журнала
+note: TEXT — заметка; она уходит в строку локального журнала
 перемещений, по которому mpu telegram status строит дневную сводку.
 --dry-run — печать намерения: только чтения, PATCH не отправляется и
 журнал не пополняется.
@@ -415,10 +425,6 @@ stdout: ok: {до} → {после}[ (релог)] · {url карточки}.
 
 ${ENV_KEYS}, ${fixed.envKey}.
 
-Exit: 0 — успех; 1 — ошибка API; 2 — ошибка ввода (селектор,
-нерезолвящийся REF).
-
-Пример: mpu kiten ${
-    fixed === READY ? "ready" : "review"
-  } 10000001 --note 'MR !999'`;
+Exit: 0 — успех; 1 — ошибка API; 2 — ошибка ввода (id:,
+нерезолвящийся REF).`;
 }

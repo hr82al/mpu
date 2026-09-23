@@ -16,7 +16,7 @@ import { botConfig } from "./bot_config.ts";
 import { inputError } from "./errors.ts";
 
 const argsSchema = z.object({
-  message: z.string({ error: "нужен MESSAGE: текст заметки либо '-'" })
+  message: z.string({ error: "нужен text: текст заметки либо '-'" })
     .describe("текст заметки; '-' — весь stdin, только в CLI"),
   file: z.string().optional().describe(
     "вложение: путь к файлу; ровно один, флаг не повторяется",
@@ -98,12 +98,15 @@ export const telegramLogCommand = defineCommand({
   keys: { text: "message" },
   errorName: "telegram log",
   summary: "Отправить заметку себе в личного бота.",
-  usage: "mpu telegram log MESSAGE [-f PATH]",
-  help: `MESSAGE — текст заметки; '-' означает весь stdin и работает
-только в CLI: у вызова тула stdin нет. Пустой текст — ошибка ввода,
-кроме случая с -f.
+  usage: "mpu telegram log text: ТЕКСТ [file: PATH]",
+  help: `Звать, когда себе нужна заметка в Telegram — ссылка, итог,
+напоминание — без записи в историю личных чатов: шлёт бот.
 
--f/--file PATH — вложение, ровно одно: флаг не повторяется. Файл уходит
+text: — текст заметки; '-' означает весь stdin и работает
+только в CLI: у вызова тула stdin нет. Пустой текст — ошибка ввода,
+кроме случая с file:.
+
+file: PATH — вложение, ровно одно: ключ не повторяется. Файл уходит
 документом под своим именем, текст становится его подписью, отдельного
 сообщения рядом нет. Подпись длиннее 1024 символов — ошибка ввода до
 сети (у текста без файла предел 4096).
@@ -126,9 +129,10 @@ TELEGRAM_BOT_NAME (необязателен, идёт в подсказку пр
 http, https, socks5, socks5h; socks4 не принимается (у mpu telegram send
 через MTProto — работает).
 
-Exit: 0 — успех; 1 — конфигурация или отказ Bot API; 2 — ошибка ввода.
-
-Пример: mpu telegram log 'разбор за среду' -f /tmp/разбор.md`,
+Exit: 0 — успех; 1 — конфигурация или отказ Bot API; 2 — ошибка ввода.`,
+  examples: [
+    'mpu telegram log text: "разбор за среду" file: /tmp/разбор.md',
+  ],
   policy: "rw",
   logsArguments: false,
   // Вывод пишется: в нём только номер отправленного сообщения, ввода в

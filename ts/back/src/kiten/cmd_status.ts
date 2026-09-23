@@ -87,7 +87,7 @@ const argsSchema = z.object({
     "только незавершённые или только завершённые",
   ),
   format: z.string().optional().describe(
-    "строка на карточку; перекрывает --out",
+    "строка на карточку; перекрывает формат после end",
   ),
 });
 
@@ -139,32 +139,38 @@ export const kitenStatusCommand = defineCommand({
   },
   summary: "Вся моя работа в Kaiten одной таблицей по всем доскам.",
   usage:
-    "mpu kiten status [--since 7d] [--out matrix|group|json|md|url] [--stage X] [--board REF] [--source assigned|time|activity|touch] [--only open|done] [--format TPL] [--time-since 365d]",
-  help: `Собирает карточки из трёх источников и печатает их одной
+    "mpu kiten status [since: 7d] [end url matrix|group|json|md|url] [stage: X] [board: REF] [source: assigned|time|activity|touch] [only: open|done] [format: TPL] [horizon: 365d]",
+  help: `Звать, когда нужна вся своя работа в Kaiten разом — назначенное,
+списанное время и тронутое, по всем доскам.
+
+Собирает карточки из трёх источников и печатает их одной
 выдачей: где я назначен, где списывал время и где что-то делал
 (комментарий, перемещение). Ни один источник по отдельности не полон.
 
-Два независимых окна: --since (дефолт 7d) решает, что попадёт в
-выдачу, --time-since (дефолт 365d) — за какой период суммируется
+Два независимых окна: since: (дефолт 7d) решает, что попадёт в
+выдачу, horizon: (дефолт 365d) — за какой период суммируется
 колонка ВРЕМЯ. Форма обоих: <число>{s|m|h|d} или unix-ts.
 
---out: matrix (дефолт) — матрица «карточка × этап», group — секции по
-этапам, json/md/url — машинные формы; --format перекрывает --out.
+end url: matrix (дефолт) — матрица «карточка × этап», group — секции по
+этапам, json/md/url — машинные формы; format: перекрывает end url.
 Машинные формы подвала и рамок не печатают.
 
-Фильтры применяются после сбора, каждый независимо: --stage (алиас
+Фильтры применяются после сбора, каждый независимо: stage: (алиас
 queue|estimate|work|review|test|dev|preprod|done, точное имя этапа или
-подстрока), --board (ID или подстрока названия), --source (touch —
-карточка только из ленты действий), --only open|done.
+подстрока), board: (ID или подстрока названия), source: (touch —
+карточка только из ленты действий), only: open|done.
 
 Этап определяется по названию колонки; KITEN_STAGE_MAP (JSON «колонка →
 этап») перекрывает правила для своих колонок.
 
 Exit: 0 — успех, включая пустую выдачу; 2 — ошибки ввода; 1 — ошибки
-API.
-
-Примеры: mpu kiten status; mpu kiten status --only open;
-mpu kiten status --out json --since 30d; mpu kiten status --source touch`,
+API.`,
+  examples: [
+    "mpu kiten status",
+    "mpu kiten status only: open",
+    "mpu kiten status since: 30d end json",
+    "mpu kiten status source: touch",
+  ],
   policy: "ro",
   errorName: "kiten status",
   argsSchema,

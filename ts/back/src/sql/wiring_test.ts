@@ -67,7 +67,7 @@ Deno.test("вызов без аргументов: код 2 и что делат
   assertEquals(run.code, 2);
   assertEquals(
     run.stderr,
-    "mpu sql-ro: нужен SELECTOR: client_id, sl-N или dev:<client_id>; " +
+    "mpu sql-ro: нужен target: client_id, sl-N или dev:<client_id>; " +
       "попробуй: mpu sql-ro --help\n",
   );
   assertEquals(run.stdout, "");

@@ -51,7 +51,7 @@ const argsSchema = z.object({
     "окно режима «мои MR»: <число>{s|m|h|d} или unix-ts; дефолт 7d",
   ),
   repos: z.array(z.string()).default([]).describe(
-    "репозитории режима «мои MR»: через запятую либо повтором флага",
+    "репозитории режима «мои MR»: через запятую либо повтором ключа",
   ),
   branches: z.boolean().default(false).describe(
     "печатать «прочие ветки» полным списком; только с адресом MR",
@@ -171,8 +171,8 @@ export async function runGlabStatus(
   // Конфликты режимов — до чтения токена и до сети: вызов заведомо
   // неверен, и незачем спрашивать у оператора доступ ради отказа.
   const misplaced = [
-    ...(args.since !== undefined ? ["--since"] : []),
-    ...(args.repos.length > 0 ? ["--repos"] : []),
+    ...(args.since !== undefined ? ["since:"] : []),
+    ...(args.repos.length > 0 ? ["repo:"] : []),
   ];
   if (selectors && misplaced.length > 0) {
     // Оба флага названы разом: убрав только первый, оператор получил
@@ -180,13 +180,13 @@ export async function runGlabStatus(
     const named = misplaced.join("/");
     throw new UsageError(
       `${named} — только для режима «мои MR», с адресом MR не сочетается`,
-      { hint: `убрать ${named} либо вызвать mpu glab-status без адресов MR` },
+      { hint: `убрать ${named} либо вызвать mpu glab-status без mr:` },
     );
   }
   if (!selectors && args.branches) {
     throw new UsageError(
       "--branches применяется только с адресом MR",
-      { hint: "указать адрес MR либо убрать флаг" },
+      { hint: "указать mr: либо убрать флаг" },
     );
   }
 
@@ -299,17 +299,18 @@ export const glabStatusCommand = defineCommand({
   errorName: "glab-status",
   summary: "Прохождение merge request'ов по веткам деплой-пайплайна.",
   usage:
-    "mpu glab-status [MR]... [--since S] [--repos R] [--branches] [--json]",
-  help: `Показывает таблицей, до каких веток пайплайна доехал каждый MR:
+    "mpu glab-status [mr: MR]... [since: S] [repo: R] [--branches] [end json]",
+  help: `Звать, когда надо понять, докуда доехал MR: влит ли он в trunk,
+main, dev, qa, predprod, prod. Показывает таблицей, до каких веток пайплайна доехал каждый MR:
 колонка на ветку (trunk, main, dev, qa, predprod, prod), галочка — ветка
 содержит landing-коммит MR.
 
-Без аргументов печатает мои MR за окно: по умолчанию неделя и пять
-репозиториев. --since задаёт окно (<число>{s|m|h|d} или unix-ts),
---repos — репозитории через запятую или повтором флага; имя без слэша
+Без mr: печатает мои MR за окно: по умолчанию неделя и пять
+репозиториев. since: задаёт окно (<число>{s|m|h|d} или unix-ts),
+repo: — репозитории через запятую или повтором ключа; имя без слэша
 получает префикс wb/. Пустой список — одна строка-объяснение, не ошибка.
 
-С адресами MR показывает ровно их, любых авторов и репозиториев; окно и
+С mr: (повторяется) показывает ровно эти MR, любых авторов и репозиториев; окно и
 фильтр репозиториев тогда не действуют, и указывать их вместе с адресом
 нельзя. Адрес — URL, 'group/repo!iid' или голый iid: во втором случае
 проект берётся из git remote текущего каталога.
@@ -322,17 +323,19 @@ landing-коммитом вне пайплайна. --branches раскрыва�
 Ветки спрашиваются только у смерженного MR: у остальных landed пуст, и
 это корректные данные, а не ошибка.
 
---json печатает массив строк со всеми полями, включая полный список
+end json печатает массив строк со всеми полями, включая полный список
 прочих веток.
 
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
 Exit: 0 — успех, включая пустой список; 1 — отказ GitLab, неразбираемый
-адрес, конфликт режимов; 2 — неизвестный флаг.
-
-Примеры: mpu glab-status; mpu glab-status --since 2d;
-mpu glab-status 'group/repo!456' --branches`,
+адрес, конфликт режимов; 2 — неизвестный флаг.`,
+  examples: [
+    "mpu glab-status",
+    "mpu glab-status since: 2d",
+    "mpu glab-status mr: group/repo!456 --branches",
+  ],
   policy: "ro",
   argsSchema,
   forms: { mr: { positional: "rest" } },

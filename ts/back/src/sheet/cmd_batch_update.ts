@@ -127,15 +127,19 @@ export const sheetBatchUpdateCommand = defineCommand({
   errorName: "sheet batch-update",
   summary: "Пакетная правка Google-таблицы мини-языком.",
   usage:
-    "mpu sheet batch-update [-e ВЫРАЖЕНИЕ]… [--from FILE|-] [-s SS] [-n TAB] [--dry-run] [-l]",
-  help: `Скрипт компилируется целиком и уходит одним вызовом
-spreadsheets/batchUpdate: применяются либо все инструкции, либо ни одна.
+    "mpu sheet batch-update [expression: ВЫРАЖЕНИЕ]… [from: FILE|-] [spreadsheet: SS] [sheet: TAB] [--dry-run] [--literal]",
+  help: `Звать, когда в Google-таблице надо поменять больше одного места
+(значения, формат, структуру) и правки должны лечь вместе или никак:
+скрипт уходит одним spreadsheets/batchUpdate.
 
-Скрипт — все -e плюс содержимое --from (файл, '-' — весь stdin);
-источники складываются. Нет ни -e, ни --from и stdin не терминал —
+Цель — spreadsheet:, иначе sheet.default. --dry-run печатает
+{"requests": […]} без записи; --literal делает все значения строками.
+
+Скрипт — все expression: плюс содержимое from: (файл, '-' — весь stdin);
+источники складываются. Нет ни expression:, ни from: и stdin не терминал —
 скрипт читается из stdin. Инструкции разделяются переводом строки или
 ';' вне скобок и кавычек; '#' на границе токена — комментарий до конца
-строки. -n/--sheet задаёт лист для диапазонов без 'Лист!'.
+строки. sheet: задаёт лист для диапазонов без 'Лист!'.
 
 Глаголы: set label note style clear merge unmerge border sort dedupe
 trim validate protect unprotect autofill copy cut find-replace freeze,
@@ -145,16 +149,14 @@ group/ungroup, append, sheet (add delete rename dup tab), cond
 
 Лист, создаваемый этим же скриптом, на компиляции не существует.
 
---dry-run печатает {"requests": […]} и молчит в сеть (метаданные всё
-равно читаются: без них не собрать sheetId). -l/--literal делает все
-значения строками. Скрипт из одних комментариев печатает «нет
-операций».
+При --dry-run метаданные всё равно читаются: без них не собрать
+sheetId. Скрипт из одних комментариев печатает «нет операций».
 
 Exit: 0 — успех; 2 — ошибки скрипта, ввода и резолва цели; 1 — отказ
-webapp и отсутствующий WB_PLUS_WEB_APP_URL.
-
-Пример: mpu sheet batch-update -s 4326 -n Отчёт \
-  -e "cols insert H +1; label H1 'Итого' bold"`,
+webapp и отсутствующий WB_PLUS_WEB_APP_URL.`,
+  examples: [
+    `mpu sheet batch-update spreadsheet: 4326 sheet: Отчёт expression: "cols insert H +1; label H1 'Итого' bold"`,
+  ],
   policy: "rw",
   argsSchema,
   forms: {

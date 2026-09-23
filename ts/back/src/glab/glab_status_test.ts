@@ -335,12 +335,12 @@ Deno.test("конфликты режимов отбиваются до сети"
         [
           "--since с адресом",
           args({ mr: ["group/repo!1"], since: "2d" }),
-          "--since",
+          "since:",
         ],
         [
           "--repos с адресом",
           args({ mr: ["group/repo!1"], repos: ["wb/x"] }),
-          "--repos",
+          "repo:",
         ],
         ["--branches без адреса", args({ branches: true }), "--branches"],
       ] as const

@@ -38,15 +38,15 @@ const ARTEFACT_PROPERTY_ID = 610303;
 /** Имя поля в выводе `artefact`: короткое, как у прежней реализации. */
 const ARTEFACT_TITLE = "AI-артефакт";
 
-const selector = z.string({ error: "нужен SELECTOR: id карточки или её URL" })
+const selector = z.string({ error: "нужен id: id карточки или её URL" })
   .describe("id карточки либо её URL, короткий или глубокий");
 
 const setArgsSchema = z.object({
   selector,
   kind: z.enum(FIELD_KINDS, {
-    error: `KIND — одно из: ${FIELD_KINDS.join(", ")}`,
+    error: `field: — одно из: ${FIELD_KINDS.join(", ")}`,
   }).describe("какое поле карточки писать"),
-  value: z.string({ error: "нужен VALUE: значение поля" })
+  value: z.string({ error: "нужен text: значение поля" })
     .describe("значение поля: пишется ровно как передано; пустое — очистка"),
 });
 
@@ -60,7 +60,7 @@ const setResultSchema = z.object({
 
 const artefactSetArgsSchema = z.object({
   selector,
-  path: z.string({ error: "нужен PATH: путь к md-файлу" })
+  path: z.string({ error: "нужен path: путь к md-файлу" })
     .describe("md-файл артефакта; имя обязано оканчиваться на .md"),
 });
 
@@ -242,28 +242,32 @@ export const kitenFieldSetCommand = defineCommand({
   },
   errorName: "kiten field set",
   summary: "Записать скалярное кастомное поле карточки Kaiten.",
-  usage: "mpu kiten field set SELECTOR KIND VALUE",
-  help: `SELECTOR — id карточки (65634936) либо её URL: id — последний
+  usage: "mpu kiten field set id: КАРТОЧКА field: ПОЛЕ text: ЗНАЧЕНИЕ",
+  help: `Звать, когда в карточке Kaiten надо заполнить поле разбора: ссылку
+на MR, причину, что сделано, результат.
+
+id: — id карточки (65634936) либо её URL: id — последний
 полностью числовой сегмент пути.
 
-KIND — одно из: mr (ссылка на merge request), hypothesis
+field: — одно из: mr (ссылка на merge request), hypothesis
 («6. Причина/гипотеза»), done («7. Что сделано»), result
 («8. Результат»). Иное значение — ошибка ввода, запроса не будет.
 
-VALUE записывается ровно как передан: прежнее значение заменяется целиком,
+text: записывается ровно как передан: прежнее значение заменяется целиком,
 без чтения и без слияния. Пробелы внутри — обычный текст, значение с
 пробелами берётся в кавычки shell'а.
 
-Пустой VALUE очищает поле: серверу уходит null, а не пустая строка, и
+Пустой text: "" очищает поле: серверу уходит null, а не пустая строка, и
 успех печатается как «ok: KIND → —». Значение из одних пробелов —
 обычное значение, а не очистка.
 
 ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (KIND, селектор,
-ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten field set 65634936 mr https://gitlab/team/repo/-/merge_requests/999`,
+ненастроенный KITEN_API_KEY).`,
+  examples: [
+    "mpu kiten field set id: 65634936 field: mr text: https://gitlab/team/repo/-/merge_requests/999",
+  ],
   policy: "rw",
   argsSchema: setArgsSchema,
   forms: {
@@ -282,8 +286,11 @@ export const kitenArtefactSetCommand = defineCommand({
   keys: { id: "selector", path: "path" },
   errorName: "kiten field artefact set",
   summary: "Загрузить md-файл в поле карточки «9. AI-артефакт».",
-  usage: "mpu kiten field artefact set SELECTOR PATH",
-  help: `SELECTOR — id карточки либо её URL.
+  usage: "mpu kiten field artefact set id: КАРТОЧКА path: ФАЙЛ",
+  help: `Звать, когда разбор задачи готов и его md-файл надо приложить к
+карточке Kaiten в поле AI-артефакта.
+
+id: — id карточки либо её URL.
 
 PATH — существующий обычный файл, имя которого оканчивается на .md
 (регистр не значим: .MD проходит). Проверяется имя, не содержимое, и
@@ -297,9 +304,10 @@ PATH — существующий обычный файл, имя которог
 ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (не .md, пути
-нет либо он не обычный файл, селектор, ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten field artefact set 65634936 razbor.md`,
+нет либо он не обычный файл, селектор, ненастроенный KITEN_API_KEY).`,
+  examples: [
+    "mpu kiten field artefact set id: 65634936 path: razbor.md",
+  ],
   policy: "rw",
   argsSchema: artefactSetArgsSchema,
   forms: {
@@ -317,8 +325,10 @@ export const kitenArtefactRmCommand = defineCommand({
   keys: { id: "selector" },
   errorName: "kiten field artefact rm",
   summary: "Удалить файлы карточки, привязанные к полю «9. AI-артефакт».",
-  usage: "mpu kiten field artefact rm SELECTOR",
-  help: `SELECTOR — id карточки либо её URL.
+  usage: "mpu kiten field artefact rm id: КАРТОЧКА",
+  help: `Звать, когда приложенный к карточке AI-артефакт надо снять.
+
+id: — id карточки либо её URL.
 
 Удаляет ВСЕ файлы карточки, привязанные к полю «9. AI-артефакт»; значение
 поля сервер чистит сам. Файлы комментариев и файлы карточки вне поля не
@@ -330,9 +340,10 @@ export const kitenArtefactRmCommand = defineCommand({
 ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор,
-ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten field artefact rm 65634936`,
+ненастроенный KITEN_API_KEY).`,
+  examples: [
+    "mpu kiten field artefact rm id: 65634936",
+  ],
   policy: "rw",
   argsSchema: artefactRmArgsSchema,
   forms: { selector: { positional: "one" } },

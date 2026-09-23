@@ -25,6 +25,7 @@ import {
   EndpointDeclarationError,
   type EndpointSpec,
   type FieldSpec,
+  type FieldType,
   fillPath,
   PATH_ARG_HELP,
   pathParams,
@@ -71,7 +72,8 @@ export function endpointCommand(spec: EndpointSpec): Command {
     errorName: `api ${spec.name}`,
     summary: `${spec.method} ${spec.path}`,
     usage: usageOf(spec, params),
-    help: helpText(spec, params, fields),
+    help: helpText(spec),
+    examples: examplesOf(spec, params),
     // Политика следует методу, а не таблице: `GET` читает, остальные
     // меняют состояние. Объявить `rw`-эндпоинт читающим значило бы
     // выдать его читающему профилю MCP-сервера, где мутациям места
@@ -106,17 +108,19 @@ function pathKeys(
 ): Record<string, string | KeyRename> {
   const keys: Record<string, string | KeyRename> = {};
   for (const [at, param] of params.entries()) {
-    if (at === params.length - 1) {
-      keys.id = param;
-      continue;
-    }
-    const entity = param.replace(/Id$/, "");
-    keys[entity] = entity === param ? param : {
+    const key = pathKeyOf(params, at);
+    keys[key] = key === param || key === "id" ? param : {
       input: param,
       why: `параметр пути :${param} — по имени сущности`,
     };
   }
   return keys;
+}
+
+/** Ключ параметра пути номер `at`: последний — `id`, прочие — сущность. */
+function pathKeyOf(params: readonly string[], at: number): string {
+  if (at === params.length - 1) return "id";
+  return params[at].replace(/Id$/, "");
 }
 
 /** Добавляет к ошибке ввода ту же подсказку, что даёт разбор схемы. */
@@ -171,13 +175,12 @@ function schemaRequires(spec: EndpointSpec, field: FieldSpec): boolean {
 }
 
 /**
- * Пометка обязательности словами — там, где схема сказать не может.
- * Один источник на все три места, где факт называется: описание поля,
- * строка использования и раздел «Поля тела» справки.
+ * Пометка обязательности словами — там, где схема сказать не может:
+ * описание поля, из которого раздел «Ключи» справки печатает его строку.
  */
 function requirementMark(spec: EndpointSpec, field: FieldSpec): string {
   if (field.required !== true) return "";
-  return spec.body === true ? " (required, если не задан --body)" : "";
+  return spec.body === true ? ` (required, если не задан ${BODY_INPUT}:)` : "";
 }
 
 /**
@@ -303,58 +306,100 @@ function assertDeclaration(
       `${spec.name}: имя ${BODY_INPUT} занято`,
     );
   }
+  // Ключи строки выводятся из имён, и два входа могут сойтись в одном.
+  const keys = [
+    ...params.map((_, at) => pathKeyOf(params, at)),
+    ...fields.map(fieldKey),
+  ];
+  const twice = keys.find((key, at) => keys.indexOf(key) !== at);
+  if (twice !== undefined) {
+    throw new EndpointDeclarationError(
+      `${spec.name}: ключ ${twice}: у двух входов`,
+    );
+  }
+}
+
+/** Как вход пишется ключом: параметр пути — по `pathKeys`, поле — своим именем. */
+function keyWords(params: readonly string[]): ReadonlyMap<string, string> {
+  const keys = Object.entries(pathKeys(params)).map(([key, declared]) =>
+    [typeof declared === "string" ? declared : declared.input, key] as const
+  );
+  return new Map(keys);
+}
+
+/** Имя ключа поля тела: подчёркивание — через дефис, как у всех ключей. */
+function fieldKey(field: FieldSpec): string {
+  return field.name.replaceAll("_", "-");
 }
 
 function usageOf(spec: EndpointSpec, params: readonly string[]): string {
+  const keys = keyWords(params);
   const tail = [
-    ...params.map((name) => name.toUpperCase()),
+    ...params.map((name) => `${keys.get(name)}: ${name.toUpperCase()}`),
     ...(spec.fields ?? []).map((field) =>
       // Скобки значат «необязателен», и у поля, которого схема
       // требует, их быть не должно: строка использования — та же
       // правда, что и схема.
       schemaRequires(spec, field)
-        ? `--${field.name} ЗНАЧЕНИЕ`
-        : `[--${field.name} ЗНАЧЕНИЕ]`
+        ? `${fieldKey(field)}: ЗНАЧЕНИЕ`
+        : `[${fieldKey(field)}: ЗНАЧЕНИЕ]`
     ),
-    ...(spec.body === true ? ["[--body JSON]"] : []),
+    ...(spec.body === true ? [`[${BODY_INPUT}: JSON]`] : []),
   ];
   return `mpu api ${spec.name}${tail.length === 0 ? "" : ` ${tail.join(" ")}`}`;
 }
 
-function helpText(
+/** Пробное значение параметра пути для примера справки. */
+const SAMPLE_PARAM: Readonly<Record<string, string>> = {
+  userId: "7",
+  clientId: "54",
+  spreadsheetId: "1AbCdEf",
+  spreadsheet_id: "1AbCdEf",
+  sheetName: "UNIT",
+  sid: "12345",
+  module: "wb",
+};
+
+/** Пробное значение обязательного поля по его типу. */
+const SAMPLE_FIELD: Readonly<Record<FieldType, string>> = {
+  string: "ЗНАЧЕНИЕ",
+  number: "1",
+  boolean: "true",
+  json: "[]",
+};
+
+/**
+ * Примеры справки: параметры пути и обязательные поля ключами (у
+ * эндпоинта с телом — обязательные без `body:`); тело целиком — вторым
+ * примером, из файла.
+ */
+function examplesOf(
   spec: EndpointSpec,
   params: readonly string[],
-  fields: readonly FieldSpec[],
-): string {
-  const parts = [`${spec.method} ${spec.path}`];
+): readonly string[] {
+  const keys = keyWords(params);
+  const words = [
+    `mpu api ${spec.name}`,
+    ...params.map((name) => `${keys.get(name)}: ${SAMPLE_PARAM[name] ?? name}`),
+  ];
+  const required = (spec.fields ?? []).filter((field) =>
+    field.required === true
+  ).map((field) => `${fieldKey(field)}: ${SAMPLE_FIELD[field.type]}`);
+  const plain = [...words, ...required].join(" ");
+  if (spec.body !== true) return [plain];
+  return [plain, `${words.join(" ")} ${BODY_INPUT}: @req.json`];
+}
+
+function helpText(spec: EndpointSpec): string {
+  const parts = [
+    `Звать, когда нужен прямой вызов sl-back ${spec.method} ${spec.path}: ` +
+    "ответ приходит как есть, без разбора и пересчёта.",
+  ];
   if (spec.about !== undefined) parts.push(spec.about);
-  if (params.length > 0) {
-    parts.push(
-      [
-        "Path-аргументы (в порядке пути):",
-        ...params.map(
-          (name) => `  ${name}: ${helpOf(name)}`,
-        ),
-      ].join("\n"),
-    );
-  }
-  if (fields.length > 0) {
-    parts.push(
-      [
-        "Поля тела (--<имя> <значение>):",
-        ...fields.map((field) =>
-          `  --${field.name} (${field.type})${
-            schemaRequires(spec, field)
-              ? " (required)"
-              : requirementMark(spec, field)
-          }: ${field.help}`
-        ),
-      ].join("\n"),
-    );
-  }
   if (spec.body === true) {
     parts.push(
-      "--body/-b: JSON-литерал либо @путь/к.json; задан — замещает все --<поле>.",
+      `${BODY_INPUT}: — JSON-литерал либо @путь/к.json; задан — замещает ` +
+        "все поля тела.",
     );
   }
   parts.push(

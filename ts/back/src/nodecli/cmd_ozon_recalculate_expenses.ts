@@ -53,32 +53,36 @@ export const ozonRecalculateExpensesCommand = defineCommand({
   keys: {},
   summary: "Пересчитать расходы Ozon UNIT клиента за период.",
   usage:
-    "mpu ozon-recalculate-expenses SELECTOR [--server sl-N] [-p [--local]] [--client-id N] [--date-from F] [--date-to T] [--ref-date D] [--ref-fields F]… [--skus SKU]… [--logs-level L] [-v]",
-  help: `По умолчанию ВЫПОЛНЯЕТСЯ в прод-контейнере клиента: запускает
+    "mpu ozon-recalculate-expenses target: СЕЛЕКТОР [server: sl-N] [--print [--local]] [client-id: N] [date-from: F] [date-to: T] [ref-date: D] [ref-fields: F]… [skus: SKU]… [logs-level: L] [--verbose]",
+  help: `Звать, когда расходы Ozon UNIT клиента за период неверны или
+устарели и их надо пересчитать.
+
+target: — client_id, spreadsheet_id или заголовок таблицы; server:
+sl-N задаёт сервер, client-id: берётся из кандидатов, когда у всех он
+один.
+
+По умолчанию ВЫПОЛНЯЕТСЯ в прод-контейнере клиента: запускает
 \`node cli service:ozonUnitCalculatedData recalculateExpenses\`, стримит
 вывод, код выхода наследует 1:1 и перезаписывает расчётные данные UNIT
 клиента за период.
 
--p/--print не выполняет: печатает ssh-команду и копирует в буфер обмена;
---local вместе с -p даёт форму локального стенда, сам по себе — ошибка
-ввода. -v печатает команду строкой \`# inner: …\` в stderr во всех трёх
+--print не выполняет: печатает ssh-команду и копирует в буфер обмена;
+--local вместе с --print даёт форму локального стенда, сам по себе — ошибка
+ввода. --verbose печатает команду строкой \`# inner: …\` в stderr во всех трёх
 режимах, обычный вывод не подменяя.
 
-Период: --date-from по умолчанию 2025-01-01, --date-to — сегодняшняя
-дата (вычисляется в момент вызова). --ref-date с повторяемым
---ref-fields копирует значения этих полей из той даты. --skus
-повторяется, уходит токеном [1,2,3]. --logs-level — уровень логов.
+Период: date-from: по умолчанию 2025-01-01, date-to: — сегодняшняя
+дата (вычисляется в момент вызова). ref-date: с повторяемым
+ref-fields: копирует значения этих полей из той даты. skus:
+повторяется, уходит токеном [1,2,3]. logs-level: — уровень логов.
 
-SELECTOR — client_id, spreadsheet_id или заголовок таблицы; --server
-sl-N задаёт сервер, --client-id берётся из кандидатов селектора, когда у
-всех он один. У доменных флагов есть snake-написания (--date_from).
 Значения проверяются до сети и печати: только A-Za-z0-9 и _ . / : - , @
 [ ] — пробел или кавычка это ошибка ввода.
 
-Exit: код inner-команды; 0 при печати; 2 — ввод, резолв, конфигурация.
-
-Пример: mpu ozon-recalculate-expenses 777 -p -v --skus 123 --ref-date
-2026-01-05 --ref-fields sebes_rub`,
+Exit: код inner-команды; 0 при печати; 2 — ввод, резолв, конфигурация.`,
+  examples: [
+    "mpu ozon-recalculate-expenses target: 777 --print --verbose skus: 123 ref-date: 2026-01-05 ref-fields: sebes_rub",
+  ],
   policy: "rw",
   helpWhenBare: true,
   argsSchema,

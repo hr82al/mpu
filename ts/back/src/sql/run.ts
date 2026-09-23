@@ -75,7 +75,7 @@ export const argsSchema = z.object({
   // и сообщение обязано называть, чего не хватает, а не показывать
   // формулировку схемы («expected string, received undefined»).
   selector: z.string({
-    error: "нужен SELECTOR: client_id, sl-N или dev:<client_id>",
+    error: "нужен target: client_id, sl-N или dev:<client_id>",
   }).describe(
     "client_id / spreadsheet_id / заголовок (подстрока), sl-N " +
       "или dev:<client_id>",

@@ -29,7 +29,7 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
     "область видимости",
     "не разрешено",
     // значение и умолчание предела
-    "--limit N",
+    "limit: N",
     "предел записей в разделе, не строк",
     "по умолчанию 200",
     // коды выхода — перечнем, а не наличием раздела
@@ -48,7 +48,7 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
     "переименованы по порядку появления",
     "литералы заменены позиционными метками",
     "не разрешено",
-    "--limit N",
+    "limit: N",
     "предел записей в разделе, не строк",
     "по умолчанию 200",
     "0 —",
@@ -60,7 +60,7 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
     "файлы .md",
     "существует ли путь в коде",
     "Гарантия в шапке всегда пониженная",
-    "--limit N",
+    "limit: N",
     "предел записей в разделе, не строк",
     "по умолчанию 200",
     // Кодов у этой поверхности два: отказа не бывает, анализатора она
@@ -71,7 +71,7 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
   "code name": [
     // форма окна и что без него отвечает каждый репозиторий
     "РЕПОЗИТОРИЙ либо РЕПОЗИТОРИЙ:КАТАЛОГ",
-    "Без --in отвечает КАЖДЫЙ репозиторий",
+    "Без in: отвечает КАЖДЫЙ репозиторий",
     // состав строк объявления и строка типов возврата
     "сигнатура как",
     "область видимости",
@@ -79,7 +79,7 @@ const REQUIRED: Readonly<Record<string, readonly string[]>> = {
     "двух и более вызываемых",
     "та же сигнатура, другое имя",
     "не разрешено",
-    "--limit N",
+    "limit: N",
     "предел записей в разделе, не строк",
     "по умолчанию 200",
     "0 —",
@@ -123,7 +123,7 @@ Deno.test("пример вызова из справки — полный и р�
   for (const command of COMMANDS) {
     const name = command.path.join(" ");
     await t.step(name, () => {
-      const examples = examplesIn(command.help, name);
+      const examples = command.examples;
       assertEquals(examples.length > 0, true, `${name}: примеров нет вовсе`);
       for (const example of examples) {
         // Существования адреса и окна на диске не требуется: пример,
@@ -132,27 +132,21 @@ Deno.test("пример вызова из справки — полный и р�
         // был полным вызовом и чтобы его адрес либо окно разбирались.
         const tail = example.slice(`mpu ${name} `.length).split(" ");
         if (name === "code name" || name === "code mentions") {
-          // Пример без окна проверять нечем: `--in` обязан быть в нём и
+          // Пример без окна проверять нечем: in: обязан быть в нём и
           // обязан нести значение, иначе разбор молча уходит в имя.
-          const at = tail.indexOf("--in");
-          assertEquals(at >= 0, true, `${name}: в примере нет --in`);
+          const at = tail.indexOf("in:");
+          assertEquals(at >= 0, true, `${name}: в примере нет in:`);
           assertEquals(
             at + 1 < tail.length,
             true,
-            `${name}: у --in нет значения`,
+            `${name}: у in: нет значения`,
           );
           parseWindow(tail[at + 1]);
           continue;
         }
-        parseAddress(tail[0]);
+        assertEquals(tail[0], "address:", `${name}: адрес не ключом`);
+        parseAddress(tail[1]);
       }
     });
   }
 });
-
-/** Строки справки, начинающиеся с полного вызова этой команды. */
-function examplesIn(help: string, name: string): readonly string[] {
-  return help.split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith(`mpu ${name} `));
-}

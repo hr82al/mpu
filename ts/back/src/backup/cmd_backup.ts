@@ -34,7 +34,7 @@ import {
 
 const argsSchema = z.object({
   selector: z.string({
-    error: "нужен SELECTOR: client_id, spreadsheet_id, заголовок или sl-N",
+    error: "нужен target: client_id, spreadsheet_id, заголовок или sl-N",
   }).describe("клиент: client_id, spreadsheet_id, заголовок; либо sl-N"),
   date: z.string().optional().describe(
     "суффикс копии, YYYYMMDD; по умолчанию сегодняшняя дата по Москве",
@@ -217,9 +217,12 @@ function backup(name: string, table: BackupTable): Command {
     path: [name],
     keys: {},
     summary: `Снять копию ${table.table} клиента в схему backups.`,
-    usage: `mpu ${name} SELECTOR [--date YYYYMMDD] [--schema-id N] ` +
-      "[--server sl-N] [--dry]",
-    help: `По умолчанию команда ВЫПОЛНЯЕТСЯ: создаёт в схеме backups
+    usage: `mpu ${name} target: СЕЛЕКТОР [date: YYYYMMDD] [schema-id: N] ` +
+      "[server: sl-N] [--dry]",
+    help: `Звать перед правкой ${table.table} клиента руками или скриптом,
+когда нужна точка отката: копия таблицы в схеме backups.
+
+По умолчанию команда ВЫПОЛНЯЕТСЯ: создаёт в схеме backups
 копию таблицы ${table.table} клиента запросом
 
   CREATE TABLE backups.${table.table}_<schema_id>_<YYYYMMDD> AS
@@ -232,19 +235,21 @@ Portainer здесь нет — это не обёртка над sl-back CLI.
 и запрос, который ушёл бы серверу. Тот же блок печатается и после
 выполнения — записью о том, что было сделано.
 
-SELECTOR — client_id, spreadsheet_id, заголовок таблицы либо сам сервер
-(sl-N); --server sl-N задаёт сервер напрямую. --schema-id по умолчанию
-равен client_id: он берётся из кандидатов селектора, если у всех
-кандидатов он один, а при пустых кандидатах — из самого селектора,
-если тот число. Неоднозначность — ошибка ввода со списком кандидатов.
+target: — client_id, spreadsheet_id, заголовок таблицы либо сам сервер
+(sl-N); server: sl-N задаёт сервер напрямую. schema-id: по умолчанию
+равен client_id: он берётся из кандидатов цели, если у всех
+кандидатов он один, а при пустых кандидатах — из самой цели,
+если та — число. Неоднозначность — ошибка ввода со списком кандидатов.
 
---date — ровно восемь цифр (YYYYMMDD); по умолчанию сегодняшняя дата по
+date: — ровно восемь цифр (YYYYMMDD); по умолчанию сегодняшняя дата по
 Москве. Неверная дата отбивается до соединения.
 
 Exit: 0 — копия создана либо показана; 1 — отказ PostgreSQL; 2 — ошибки
-ввода, резолва и конфигурации.
-
-Примеры: mpu ${name} 777 --dry; mpu ${name} 777 --date 20260827`,
+ввода, резолва и конфигурации.`,
+    examples: [
+      `mpu ${name} target: 777 --dry`,
+      `mpu ${name} target: 777 date: 20260827`,
+    ],
     // Мутирующая: CREATE TABLE в базе клиента. `--dry` — режим флага, а
     // не отдельная читающая команда: класс объявляется командой и от
     // аргументов не зависит (`platform/command-contract.md`).

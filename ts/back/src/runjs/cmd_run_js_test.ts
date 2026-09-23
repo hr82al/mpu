@@ -468,10 +468,10 @@ Deno.test("--detach: один id на вызов, обход не прерыва
       `# mpu run-js: detached run_id=${DETACH_ID} — лог на каждом сервере: ${log}`,
       "# sl-1: launch exit=4",
       `# sl-2: started → ${log}`,
-      '# собрать логи: mpu run-js --all \'import fs from "node:fs";' +
+      '# собрать логи: mpu run-js --all text: \'import fs from "node:fs";' +
       ` process.stdout.write(fs.existsSync("${log}")` +
       ` ? fs.readFileSync("${log}","utf8") : "no log yet\\n")'`,
-      `# или вживую: mpu ssh sl-1 -- tail -f ${log}`,
+      `# или вживую: mpu ssh target: sl-1 cmd: 'tail -f ${log}'`,
       "mpu run-js: detach failures on [sl-1]",
     ]);
     // Один id на все таргеты: пути скрипта совпадают.
@@ -540,9 +540,9 @@ Deno.test("несколько таргетов в --dry-run: блок с мет�
     );
     assertEquals(
       result.preview,
-      "# target=sl-1\nmpu ssh sl-1 -- node --input-type=module -" +
+      "# target=sl-1\nmpu ssh target: sl-1 cmd: 'node --input-type=module -'" +
         " <<'__MPU_RUN_JS_EOF__'\nconsole.log(1)\n__MPU_RUN_JS_EOF__\n" +
-        "# target=sl-2\nmpu ssh sl-2 -- node --input-type=module -" +
+        "# target=sl-2\nmpu ssh target: sl-2 cmd: 'node --input-type=module -'" +
         " <<'__MPU_RUN_JS_EOF__'\nconsole.log(1)\n__MPU_RUN_JS_EOF__\n",
     );
   });

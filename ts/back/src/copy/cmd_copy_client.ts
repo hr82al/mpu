@@ -50,7 +50,7 @@ function clientTempFile(): string {
 
 const argsSchema = z.object({
   selector: z.string({
-    error: "нужен SELECTOR: client_id, spreadsheet_id или заголовок",
+    error: "нужен target: client_id, spreadsheet_id или заголовок",
   }).describe("клиент: client_id, spreadsheet_id, заголовок таблицы"),
 });
 
@@ -310,8 +310,11 @@ export const copyClientCommand = defineCommand({
   keys: {},
   errorName: "copy-client",
   summary: "Скопировать клиента с прод-инстанса в локальный стенд.",
-  usage: "mpu copy-client SELECTOR",
-  help: `Копирует клиента с прод-инстанса в локальный стенд: схему
+  usage: "mpu copy-client target: СЕЛЕКТОР",
+  help: `Звать, когда проблему клиента надо воспроизвести на локальном стенде
+на его данных.
+
+Копирует клиента с прод-инстанса в локальный стенд: схему
 schema_<id> и public-строки — в локальный sl-1, токен-строки — в
 локальный sl-0.
 
@@ -319,7 +322,7 @@ schema_<id> и public-строки — в локальный sl-1, токен-с
 локальные контейнеры — их адрес зашит 127.0.0.1 и не настраивается,
 поэтому копия не может уйти обратно в прод.
 
-SELECTOR — client_id, подстрока spreadsheet_id или заголовка таблицы;
+target: — client_id, подстрока spreadsheet_id или заголовка таблицы;
 сервер берётся из резолва. Селектор, не сузившийся до одного client_id,
 — ошибка ввода с перечнем кандидатов.
 
@@ -344,9 +347,11 @@ PG_MAIN_USER_PASSWORD, PG_LOCAL_PORT (5441), PG_LOCAL_MAIN_PORT (5440),
 PG_PASSWORD.
 
 Exit: 0 — успех; 2 — резолв селектора, неполная конфигурация,
-недоступный локальный контейнер; 1 — падение pg_dump или pg_restore.
-
-Примеры: mpu copy-client 5175; mpu copy-client 'название магазина'`,
+недоступный локальный контейнер; 1 — падение pg_dump или pg_restore.`,
+  examples: [
+    "mpu copy-client target: 5175",
+    'mpu copy-client target: "название магазина"',
+  ],
   policy: "rw",
   argsSchema,
   forms: { selector: { positional: "one" } },

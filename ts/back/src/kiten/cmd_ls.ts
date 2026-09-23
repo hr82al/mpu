@@ -65,7 +65,7 @@ const argsSchema = z.object({
     "архивные карточки (condition=2) вместо активных",
   ),
   state: z.enum(STATE_VALUES, {
-    error: `--state — одно из: ${STATE_VALUES.join(", ")}`,
+    error: `state: — одно из: ${STATE_VALUES.join(", ")}`,
   }).optional().describe("этап карточки: queued, in-progress, done"),
   space: z.string().optional().describe(
     "пространство: id или подстрока названия",
@@ -456,32 +456,35 @@ export const kitenLsCommand = defineCommand({
   errorName: "kiten ls",
   summary: "Список карточек Kaiten, где я участник.",
   usage:
-    "mpu kiten ls [--archived] [--state S] [--space REF] [--board REF] [--lane REF] [--column REF] [--date-from D] [--date-to D] [--json | --format TPL | --only-url | --md]",
-  help: `Карточки, где владелец токена — участник (member).
+    "mpu kiten ls [--archived] [state: S] [space: REF] [board: REF] [lane: REF] [column: REF] [date-from: D] [date-to: D] [end json | format: TPL | --only-url | end md]",
+  help: `Звать, когда нужен список своих карточек Kaiten — активных, архивных,
+по доске или за период.
 
-Фильтры сводятся пооснó: CLI-флаг → env KITEN_LS_* → дефолт (он есть
+Карточки, где владелец токена — участник (member).
+
+Фильтры сводятся пооснó: ключ → env KITEN_LS_* → дефолт (он есть
 только у condition — 1, активные). --archived даёт condition=2 и
 побеждает env всегда.
 
-Любая из --date-from/--date-to (принимаются и --date_from/--date_to)
-включает глобальный режим: env-оси, включая KITEN_LS_BOARD_ID, не
+Любой из date-from:/date-to: включает глобальный режим: env-оси, включая KITEN_LS_BOARD_ID, не
 применяются вовсе, condition не уходит без --archived. Границы окна по
 updated инклюзивные: X → XT00:00:00Z, Y → YT23:59:59Z.
 
---space/--board/--lane/--column — id или подстрока названия; последние
+space:/board:/lane:/column: — id или подстрока названия; последние
 две резолвятся в скоупе эффективной доски. Кэш только читается.
 
-Виды вывода по убыванию приоритета: --json (id, state, due_date,
-updated, title, url — колонки и доски там нет) → --format TPL →
---only-url → --md → таблица. Плейсхолдеры: {n} {id} {title} {url}
+Виды вывода по убыванию приоритета: end json (id, state, due_date,
+updated, title, url — колонки и доски там нет) → format: TPL →
+--only-url → end md → таблица. Плейсхолдеры: {n} {id} {title} {url}
 {state} {due} {column} {column_mapped}; неизвестный остаётся как есть.
 {column} — из кэша (промах — id числом), {column_mapped} — метка из
 KITEN_COLUMN_MAP; битая карта не роняет команду.
 
 Exit: 0 — успех, в т.ч. пустая выдача; 1 — ошибка API; 2 — ошибки
-ввода: дата, env-ось, --state, REF.
-
-Пример: mpu kiten ls --date-from 2026-07-01 --json`,
+ввода: дата, env-ось, state:, REF.`,
+  examples: [
+    "mpu kiten ls date-from: 2026-07-01 end json",
+  ],
   policy: "ro",
   argsSchema,
   resultSchema,

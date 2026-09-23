@@ -68,10 +68,10 @@ type EditAxis = typeof EDIT_AXES[number];
 /** Только цифры: id записи приходит строкой и из argv, и из объекта тула. */
 const NUMERIC_ID = /^\d+$/;
 
-const selector = z.string({ error: "нужен SELECTOR: id карточки или её URL" })
+const selector = z.string({ error: "нужен id: id карточки или её URL" })
   .describe("id карточки либо её URL, короткий или глубокий");
 
-const logId = z.string({ error: "нужен LOG_ID: id записи" })
+const logId = z.string({ error: "нужен log: id записи" })
   .describe("id записи учёта времени с этой карточки");
 
 const roleRef = z.string().optional().describe(
@@ -107,7 +107,7 @@ const lsResultSchema = z.object({
 
 const addArgsSchema = z.object({
   selector,
-  duration: z.string({ error: "нужен DURATION: длительность записи" })
+  duration: z.string({ error: "нужен duration: длительность записи" })
     .describe("длительность: 3h | 1h15m | 1:15 | 90 (минуты) | 2.5h"),
   date: z.string().optional().describe(
     "день записи YYYY-MM-DD; без флага — сегодня по МСК",
@@ -338,7 +338,7 @@ async function requireOwnLog(
   const log = logs.find((item) => item.id === logId);
   if (log === undefined) {
     throw new DomainError(`записи ${logId} нет на карточке ${cardId}`, {
-      hint: `mpu kiten time ls ${cardId}`,
+      hint: `mpu kiten time ls id: ${cardId}`,
     });
   }
   if (force || log.userId === null) return log;
@@ -406,7 +406,7 @@ function axisLines(result: KitenTimeEditResult): readonly string[] {
   });
 }
 
-const ROLE_SOURCES = `Роль: --role (id либо название) → ключ ${ROLE_ENV_KEY}
+const ROLE_SOURCES = `Роль: role: (id либо название) → ключ ${ROLE_ENV_KEY}
 env-файла → 12058 («Техподдержка»). Числовое значение берётся как id,
 нечисловое резолвится справочником ролей.`;
 
@@ -423,30 +423,34 @@ export const kitenTimeLsCommand = defineCommand({
   errorName: "kiten time ls",
   summary: "Показать записи учёта времени карточки Kaiten.",
   usage:
-    "mpu kiten time ls SELECTOR [--all] [--date-from D] [--date-to D] [--role REF] [--json]",
-  help: `SELECTOR — id карточки либо её URL.
+    "mpu kiten time ls id: КАРТОЧКА [--all] [date-from: D] [date-to: D] [role: REF] [end json]",
+  help: `Звать, когда нужны записи учёта времени по карточке Kaiten — свои
+или всех.
+
+id: — id карточки либо её URL.
 
 По умолчанию показаны только записи владельца токена: внешняя система
 отдаёт записи всей компании, и фильтр делается на стороне команды —
 поэтому без --all идёт второй запрос, за текущим пользователем. С --all
 записи всех пользователей и появляется колонка ПОЛЬЗОВАТЕЛЬ.
 
---date-from/--date-to — границы даты записи YYYY-MM-DD, обе включительно.
---role фильтрует по роли; без флага фильтра по роли нет (ни env, ни
+date-from:/date-to: — границы даты записи YYYY-MM-DD, обе включительно.
+role: фильтрует по роли; без флага фильтра по роли нет (ни env, ни
 умолчание здесь не подставляются).
 
 Таблица: ID ДАТА ВРЕМЯ РОЛЬ [ПОЛЬЗОВАТЕЛЬ] КОММЕНТАРИЙ и строка «итого».
 Ширина колонок подгоняется под содержимое и контрактом не является. Нет
-записей — «(пусто)». --json печатает {"total_minutes", "logs":[…]}, где у
+записей — «(пусто)». end json печатает {"total_minutes", "logs":[…]}, где у
 записи поле role — название роли либо null (в таблице на его месте
 числовой id).
 
 ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (селектор, даты,
-роль, ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten time ls 10000001 --date-from 2026-08-01`,
+роль, ненастроенный KITEN_API_KEY).`,
+  examples: [
+    "mpu kiten time ls id: 10000001 date-from: 2026-08-01",
+  ],
   policy: "ro",
   argsSchema: lsArgsSchema,
   forms: { selector: { positional: "one" } },
@@ -466,26 +470,30 @@ export const kitenTimeAddCommand = defineCommand({
   errorName: "kiten time add",
   summary: "Создать запись учёта времени на карточке Kaiten.",
   usage:
-    "mpu kiten time add SELECTOR DURATION [--date D] [--role REF] [--comment TEXT]",
-  help: `SELECTOR — id карточки либо её URL. DURATION — позиционный
-аргумент, флага --time у add нет.
+    "mpu kiten time add id: КАРТОЧКА duration: ДЛИТЕЛЬНОСТЬ [date: D] [role: REF] [text: TEXT]",
+  help: `Звать, когда время по карточке Kaiten надо записать задним числом,
+без таймера.
+
+id: — id карточки либо её URL. duration: — длительность записи;
+time: у add нет.
 
 ${DURATION_HELP}
 
---date — день записи YYYY-MM-DD; без флага сегодня по МСК, а не по зоне
+date: — день записи YYYY-MM-DD; без флага сегодня по МСК, а не по зоне
 машины. Дата в будущем не блокируется: в stderr уходит «внимание: дата
 <D> в будущем», запись создаётся.
 
---comment/-m — комментарий; без флага запись без комментария.
+text: — комментарий; без флага запись без комментария.
 
 ${ROLE_SOURCES}
 
 ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка ввода (длительность,
-дата, роль, селектор, ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten time add 10000001 1h30m -m 'фикс'`,
+дата, роль, селектор, ненастроенный KITEN_API_KEY).`,
+  examples: [
+    "mpu kiten time add id: 10000001 duration: 1h30m text: фикс",
+  ],
   policy: "rw",
   argsSchema: addArgsSchema,
   forms: {
@@ -511,17 +519,20 @@ export const kitenTimeEditCommand = defineCommand({
   errorName: "kiten time edit",
   summary: "Изменить запись учёта времени на карточке Kaiten.",
   usage:
-    "mpu kiten time edit SELECTOR LOG_ID [--time DURATION] [--date D] [--role REF] [--comment TEXT] [--force]",
-  help: `SELECTOR — id карточки либо её URL. LOG_ID — id записи с этой же
+    "mpu kiten time edit id: КАРТОЧКА log: ЗАПИСЬ [time: DURATION] [date: D] [role: REF] [text: TEXT] [--force]",
+  help: `Звать, когда запись учёта времени надо поправить: длительность, дату,
+роль или комментарий.
+
+id: — id карточки либо её URL. log: — id записи с этой же
 карточки; записи с другой карточки команда не трогает.
 
 Обновление частичное: уходят только названные оси, остальные поля сервер
 не меняет. Нужна хотя бы одна ось, иначе ошибка ввода и запроса не будет.
---comment '' очищает комментарий — это ось, а не её отсутствие.
+text: '' очищает комментарий — это ось, а не её отсутствие.
 
 ${DURATION_HELP}
 
---role — id либо название роли; нечисловое значение резолвится
+role: — id либо название роли; нечисловое значение резолвится
 справочником. Цепочки «env → умолчание» здесь нет: без флага ось роли не
 задана, и роль записи остаётся прежней.
 
@@ -532,9 +543,10 @@ ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — записи нет на карточке, чужая запись без --force,
 ошибка API Kaiten; 2 — ошибка ввода (пустое обновление, длительность,
-дата, роль, селектор, ненастроенный KITEN_API_KEY).
-
-Пример: mpu kiten time edit 10000001 7000001 --time 2h -m 'разбор'`,
+дата, роль, селектор, ненастроенный KITEN_API_KEY).`,
+  examples: [
+    "mpu kiten time edit id: 10000001 log: 7000001 time: 2h text: разбор",
+  ],
   policy: "rw",
   argsSchema: editArgsSchema,
   forms: {
@@ -558,8 +570,10 @@ export const kitenTimeRmCommand = defineCommand({
   },
   errorName: "kiten time rm",
   summary: "Удалить запись учёта времени с карточки Kaiten.",
-  usage: "mpu kiten time rm SELECTOR LOG_ID [--force]",
-  help: `SELECTOR — id карточки либо её URL. LOG_ID — id записи с этой же
+  usage: "mpu kiten time rm id: КАРТОЧКА log: ЗАПИСЬ [--force]",
+  help: `Звать, когда запись учёта времени ошибочна и её надо удалить.
+
+id: — id карточки либо её URL. log: — id записи с этой же
 карточки.
 
 Печатает удалённую запись целиком — дату, длительность, роль и
@@ -573,9 +587,10 @@ ${ENV_KEYS}
 
 Exit: 0 — успех; 1 — записи нет на карточке, чужая запись без --force,
 ошибка API Kaiten; 2 — ошибка ввода (селектор, LOG_ID, ненастроенный
-KITEN_API_KEY).
-
-Пример: mpu kiten time rm 10000001 7000003`,
+KITEN_API_KEY).`,
+  examples: [
+    "mpu kiten time rm id: 10000001 log: 7000003",
+  ],
   policy: "rw",
   argsSchema: rmArgsSchema,
   forms: {

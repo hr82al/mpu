@@ -22,6 +22,11 @@ Deno.test("у каждого входа снимка есть адрес в но
       lost.push(`${before.path}: команды нет`);
       continue;
     }
+    // Без объявления ключей лист остаётся хвостом прежней строки.
+    if (command.keys === undefined) {
+      lost.push(`${before.path}: ключи не объявлены`);
+      continue;
+    }
     const addresses = addressesOf(command, Object.keys(formatsOf(path)));
     for (const input of before.inputs) {
       if (!addresses.has(input.name)) lost.push(`${before.path} ${input.name}`);

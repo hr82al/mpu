@@ -26,10 +26,10 @@ import {
 
 const argsSchema = z.object({
   discussion: z.string({
-    error: "нужен DISCUSSION: полный id треда или префикс от 6 символов",
+    error: "нужен id: полный id треда или префикс от 6 символов",
   }).describe("id треда или его префикс (≥6 символов)"),
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
   message: z.string().optional().describe("текст ответа"),
   "body-file": z.string().optional().describe(
@@ -87,30 +87,33 @@ export const mrReplyCommand = defineCommand({
   keys: { id: "discussion", text: "message" },
   errorName: "mr reply",
   summary: "Ответ в существующий тред ревью.",
-  usage: "mpu mr reply DISCUSSION [--mr REF] (-m TEXT | -F PATH)",
-  help: `Добавляет заметку в существующий тред — тот же разговор, а не
+  usage: "mpu mr reply id: ТРЕД [mr: REF] (text: TEXT | body-file: PATH)",
+  help: `Звать, когда на замечание ревью надо ответить в том же треде.
+Добавляет заметку в существующий тред — тот же разговор, а не
 новый тред рядом.
 
-DISCUSSION — полный id треда либо его префикс от 6 символов; восемь
+id: — полный id треда либо его префикс от 6 символов; восемь
 символов, которые печатает mpu mr comments, годятся. Префикс, подошедший
 нескольким тредам, — отказ с перечнем кандидатов. Системные треды
 GitLab списком не показываются и по префиксу недостижимы.
 
-Текст — ровно один из -m/--message TEXT и -F/--body-file PATH; '-'
+Текст — ровно один из text: TEXT и body-file: PATH; '-'
 вместо пути означает весь stdin и работает только в CLI. Тело уходит
 дословно.
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —
+mr: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без ключа —
 открытый MR текущей ветки.
 
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
-Exit: 0 — успех; 2 — DISCUSSION не передан, сочетание флагов тела,
-пустое тело, нераспознанный --mr; 1 — отказ GitLab, ненайденный или
-неоднозначный тред.
-
-Примеры: mpu mr reply 953d395b -m 'поправил'; mpu mr reply 953d395b -F -`,
+Exit: 0 — успех; 2 — id: не передан, сочетание ключей тела,
+пустое тело, нераспознанный mr:; 1 — отказ GitLab, ненайденный или
+неоднозначный тред.`,
+  examples: [
+    "mpu mr reply id: 953d395b text: поправил",
+    "mpu mr reply id: 953d395b body-file: -",
+  ],
   policy: "rw",
   argsSchema,
   forms: {

@@ -39,7 +39,7 @@ const argsSchema = z.object({
     "файл и строка: FILE:LINE, разделитель — последний ':'",
   ),
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
   message: z.string().optional().describe("текст комментария"),
   "body-file": z.string().optional().describe(
@@ -202,10 +202,12 @@ export const mrCommentCommand = defineCommand({
   },
   errorName: "mr comment",
   summary: "Инлайн-комментарий к строке диффа merge request'а.",
-  usage: "mpu mr comment FILE:LINE [--mr REF] (-m TEXT | -F PATH) [--old]",
-  help: `Создаёт тред ревью, привязанный к строке диффа.
+  usage:
+    "mpu mr comment at: FILE:LINE [id: REF] (text: TEXT | body-file: PATH) [--old]",
+  help: `Звать на ревью, когда замечание относится к конкретной строке
+диффа: создаёт тред ревью, привязанный к ней.
 
-FILE:LINE — путь и номер строки; разделитель — последнее двоеточие, так
+at: — путь и номер строки (FILE:LINE); разделитель — последнее двоеточие, так
 что двоеточия в пути допустимы. LINE — номер в НОВОЙ версии файла, то
 есть в правой колонке диффа GitLab. Удалённой строки в новой версии
 нет: её старый номер задаётся вместе с --old.
@@ -215,22 +217,23 @@ FILE:LINE — путь и номер строки; разделитель — п
 принял бы такой комментарий молча, оставив его висеть без привязки к
 строке.
 
-Текст — ровно один из -m/--message TEXT и -F/--body-file PATH; '-'
-вместо пути означает весь stdin и работает только в CLI. Оба флага
+Текст — ровно один из text: TEXT и body-file: PATH; '-'
+вместо пути означает весь stdin и работает только в CLI. Оба ключа
 сразу либо ни одного — ошибка ввода. Тело уходит дословно.
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —
+id: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без ключа —
 открытый MR текущей ветки.
 
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
-Exit: 0 — успех; 2 — форма FILE:LINE, сочетание флагов тела, пустое
-тело, нераспознанный --mr; 1 — отказ GitLab, файл не изменён в MR,
-строка вне диффа, у MR нет коммитов.
-
-Примеры: mpu mr comment src/loader.ts:42 -m 'тут гонка';
-mpu mr comment src/loader.ts:17 --old -F замечание.md`,
+Exit: 0 — успех; 2 — форма FILE:LINE, сочетание ключей тела, пустое
+тело, нераспознанный id:; 1 — отказ GitLab, файл не изменён в MR,
+строка вне диффа, у MR нет коммитов.`,
+  examples: [
+    'mpu mr comment at: src/loader.ts:42 text: "тут гонка"',
+    "mpu mr comment at: src/loader.ts:17 --old body-file: замечание.md",
+  ],
   policy: "rw",
   argsSchema,
   forms: {

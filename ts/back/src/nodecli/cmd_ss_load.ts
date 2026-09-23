@@ -33,32 +33,36 @@ export const ssLoadCommand = defineCommand({
   keys: {},
   summary: "Загрузить лист Google-таблицы клиента в БД.",
   usage:
-    "mpu ss-load SELECTOR --dataset D [--server sl-N] [-p [--local]] [--client-id N] [--spreadsheet-id S] [--sheet-name N] [--forced] [--logs L]",
-  help: `По умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:
+    "mpu ss-load target: СЕЛЕКТОР dataset: D [server: sl-N] [--print [--local]] [client-id: N] [spreadsheet-id: S] [sheet-name: N] [--forced] [logs: L]",
+  help: `Звать, когда правки клиента в листе Google-таблицы надо перенести в
+БД сейчас, не дожидаясь расписания.
+
+По умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:
 запускает \`node cli service:ssLoader load\` и стримит его вывод, код
 выхода наследуется 1:1. Это запись в БД клиента, а не отчёт о ней.
 
--p/--print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с -p печатает форму локального стенда
+--print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. --local вместе с --print печатает форму локального стенда
 (без ssh); сам по себе --local — ошибка ввода.
 
-SELECTOR — client_id, spreadsheet_id или заголовок таблицы;
---server sl-N задаёт сервер напрямую. --client-id и --spreadsheet-id
+target: — client_id, spreadsheet_id или заголовок таблицы;
+server: sl-N задаёт сервер напрямую. client-id: и spreadsheet-id:
 берутся из кандидатов селектора, если у всех кандидатов значение одно;
-иначе задайте их флагом.
+иначе задайте их ключом.
 
---dataset обязателен. --logs эмитится всегда, по умолчанию info.
---forced уходит голым флагом без значения; незаданные --sheet-name и
+dataset: обязателен. logs: эмитится всегда, по умолчанию info.
+--forced уходит голым флагом без значения; незаданные sheet-name: и
 --forced следа в inner-команде не оставляют.
 
-Значения флагов проверяются до сети и до печати: допустимы только
+Значения ключей проверяются до сети и до печати: допустимы только
 A-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка это ошибка ввода.
 
 Exit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,
-резолва и конфигурации.
-
-Примеры: mpu ss-load 777 --dataset wb_unit --sheet-name UNIT;
-mpu ss-load 777 --dataset wb_unit -p`,
+резолва и конфигурации.`,
+  examples: [
+    "mpu ss-load target: 777 dataset: wb_unit sheet-name: UNIT",
+    "mpu ss-load target: 777 dataset: wb_unit --print",
+  ],
   policy: "rw",
   helpWhenBare: true,
   argsSchema,

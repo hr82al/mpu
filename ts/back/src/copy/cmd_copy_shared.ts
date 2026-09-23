@@ -24,7 +24,7 @@ import { shellCommand } from "../exec/mod.ts";
 
 const argsSchema = z.object({
   selector: z.string({
-    error: "нужен SELECTOR: sl-N, client_id или заголовок",
+    error: "нужен target: sl-N, client_id или заголовок",
   }).describe("сервер-источник: используется только его номер"),
 });
 
@@ -228,13 +228,15 @@ export const copySharedCommand = defineCommand({
   keys: {},
   errorName: "copy-shared",
   summary: "Обновить общие справочные таблицы shared в локальном стенде.",
-  usage: "mpu copy-shared SELECTOR",
-  help: `Переносит 18 справочных таблиц схемы shared с выбранного
+  usage: "mpu copy-shared target: СЕЛЕКТОР",
+  help: `Звать, когда справочники shared на локальном стенде устарели.
+
+Переносит 18 справочных таблиц схемы shared с выбранного
 сервера в локальный dev-PG. Каждая таблица очищается и наполняется
 заново, структура не меняется: новые колонки приезжают миграциями, а не
 этой командой.
 
-SELECTOR влияет ровно на одно — адрес источника: и sl-N, и client_id, и
+target: влияет ровно на одно — адрес источника: и sl-N, и client_id, и
 заголовок таблицы дают один и тот же результат, до клиента селектор не
 сужается. Целевой адрес 127.0.0.1:5441 зашит: настраиваемая цель
 провоцировала бы очистку чужой БД.
@@ -250,9 +252,11 @@ SELECTOR влияет ровно на одно — адрес источника
 берётся из MPU_MP_CONFIG_LOCAL, иначе ~/mr/mp/mp-config-local.
 
 Exit: код переносящего процесса; 2 — резолв селектора, нет pg_<N>, нет
-каталога или compose-файла.
-
-Примеры: mpu copy-shared sl-1; mpu copy-shared 5175`,
+каталога или compose-файла.`,
+  examples: [
+    "mpu copy-shared target: sl-1",
+    "mpu copy-shared target: 5175",
+  ],
   policy: "rw",
   argsSchema,
   forms: { selector: { positional: "one" } },

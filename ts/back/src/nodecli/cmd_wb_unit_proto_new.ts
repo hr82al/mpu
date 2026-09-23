@@ -25,27 +25,32 @@ export const wbUnitProtoNewCommand = defineCommand({
   keys: {},
   summary: "Перелить данные WB UNIT из старой таблицы в новую.",
   usage:
-    "mpu wb-unit-proto-new SELECTOR [--server sl-N] [-p [--local]] [--client-id N]",
-  help: `По умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:
+    "mpu wb-unit-proto-new target: СЕЛЕКТОР [server: sl-N] [--print [--local]] [client-id: N]",
+  help: `Звать, когда клиент переходит на новую таблицу WB UNIT и данные
+старой надо перелить.
+
+По умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:
 запускает \`node cli service:wbUnitProtoNew copyDataFromOldTable\` и
 стримит его вывод, код выхода наследуется 1:1. Это перелив данных
 клиента, а не отчёт о нём.
 
--p/--print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с -p печатает форму локального стенда
+--print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. --local вместе с --print печатает форму локального стенда
 (без ssh); сам по себе --local — ошибка ввода.
 
-SELECTOR — client_id, spreadsheet_id или заголовок таблицы;
---client-id берётся из кандидатов селектора, если у всех кандидатов он
+target: — client_id, spreadsheet_id или заголовок таблицы;
+client-id: берётся из кандидатов селектора, если у всех кандидатов он
 один. Доменных флагов у команды нет вовсе.
 
 Имени подкоманды у команды нет: в рабочей версии группа с единственной
 подкомандой схлопнута.
 
 Exit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,
-резолва и конфигурации.
-
-Примеры: mpu wb-unit-proto-new 777; mpu wb-unit-proto-new 777 -p`,
+резолва и конфигурации.`,
+  examples: [
+    "mpu wb-unit-proto-new target: 777",
+    "mpu wb-unit-proto-new target: 777 --print",
+  ],
   policy: "rw",
   helpWhenBare: true,
   argsSchema,

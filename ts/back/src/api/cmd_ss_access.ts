@@ -53,7 +53,9 @@ export interface SsAccessOptions {
 
 type SsIo = CommandIo;
 
-const spreadsheet = z.string({ error: "нужен ТАБЛИЦА: идентификатор таблицы" })
+const spreadsheet = z.string({
+  error: "нужен spreadsheet: идентификатор таблицы",
+})
   .describe("идентификатор таблицы (spreadsheet_id)");
 
 const grantSchema = z.object({ id: z.string(), status: z.string() });
@@ -182,21 +184,23 @@ export const ssAccessRequestCommand = defineCommand({
   keys: { spreadsheet: "spreadsheet" },
   errorName: "api ss-access request",
   summary: "POST /admin/ss/<ss>/my-access/request — выдать себе доступ.",
-  usage: "mpu api ss-access request ТАБЛИЦА [--role R] [--reason T] [-b JSON]",
-  help: `Выдаёт или продлевает доступ владельцу токена (TOKEN_EMAIL) —
-ровно как кнопка в sl-front. Получателя выбрать нельзя: эндпоинт
+  usage:
+    "mpu api ss-access request spreadsheet: ТАБЛИЦА [role: R] [reason: T] [body: JSON]",
+  help: `Звать, когда владельцу токена (TOKEN_EMAIL) нужен доступ к
+таблице клиента: выдаёт или продлевает его ровно как кнопка в sl-front. Получателя выбрать нельзя: эндпоинт
 выдаёт доступ тому, чьим токеном ходят.
 
 Без опций уходит авто-тело кнопки: роль editor, обоснование по
-умолчанию, accessTemplateId null. --role/--reason/--template правят
+умолчанию, accessTemplateId null. role:/reason:/template: правят
 отдельные поля.
 
--b/--body задаёт тело целиком ('<json>' или @файл) и с точечными
+body: задаёт тело целиком ('<json>' или @файл) и с точечными
 опциями не сочетается: у поля не должно быть двух источников.
 
-Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода.
-
-Пример: mpu api ss-access request 1BxiMVs0 --reason 'разбор обращения'`,
+Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода.`,
+  examples: [
+    'mpu api ss-access request spreadsheet: 1BxiMVs0 reason: "разбор обращения"',
+  ],
   policy: "rw",
   argsSchema: requestArgs,
   forms: { spreadsheet: { positional: "one" }, body: { short: "b" } },
@@ -224,14 +228,13 @@ export const ssAccessStatusCommand = defineCommand({
   keys: { spreadsheet: "spreadsheet" },
   errorName: "api ss-access status",
   summary: "GET /admin/ss/<ss>/my-access — текущие активные доступы.",
-  usage: "mpu api ss-access status ТАБЛИЦА",
-  help: `Показывает активные доступы владельца токена к таблице.
-Только чтение: ни выдач, ни отзывов эта команда не делает и в main-БД
+  usage: "mpu api ss-access status spreadsheet: ТАБЛИЦА",
+  help: `Звать, когда надо понять, есть ли у владельца токена доступ к
+таблице: показывает его активные доступы. Только чтение: ни выдач, ни отзывов эта команда не делает и в main-БД
 не ходит.
 
-Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода.
-
-Пример: mpu api ss-access status 1BxiMVs0`,
+Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода.`,
+  examples: ["mpu api ss-access status spreadsheet: 1BxiMVs0"],
   policy: "ro",
   argsSchema: z.object({ spreadsheet }),
   forms: { spreadsheet: { positional: "one" } },
@@ -315,9 +318,11 @@ export const ssAccessRevokeCommand = defineCommand({
   keys: { spreadsheet: "spreadsheet" },
   errorName: "api ss-access revoke",
   summary: "Отозвать доступ (job accessGrantRevoke).",
-  usage: "mpu api ss-access revoke ТАБЛИЦА [--grant-id G] [--reason T]",
-  help: `Ставит job отзыва на каждую активную выдачу владельца токена.
-Без --grant-id идентификаторы резолвятся из main-БД: таблица
+  usage:
+    "mpu api ss-access revoke spreadsheet: ТАБЛИЦА [grant-id: G] [reason: T]",
+  help: `Звать, когда доступ владельца токена к таблице надо снять:
+ставит job отзыва на каждую его активную выдачу.
+Без grant-id: идентификаторы резолвятся из main-БД: таблица
 public.spreadsheets_access_grants, статусы created, permission_added и
 applied — те, что входят в частичный уникальный индекс активной
 выдачи.
@@ -326,9 +331,8 @@ applied — те, что входят в частичный уникальный
 целевое, отказывать не в чем. Недоступная main-БД — код 2 с указанием,
 что упал резолв, а не запрос к sl-back.
 
-Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода и отказ резолва.
-
-Пример: mpu api ss-access revoke 1BxiMVs0`,
+Exit: 0 — успех; 1 — отказ sl-back; 2 — ошибки ввода и отказ резолва.`,
+  examples: ["mpu api ss-access revoke spreadsheet: 1BxiMVs0"],
   policy: "rw",
   argsSchema: revokeArgs,
   forms: { spreadsheet: { positional: "one" } },
@@ -430,8 +434,10 @@ export const ssAccessResetCommand = defineCommand({
   keys: { spreadsheet: "spreadsheet" },
   errorName: "api ss-access reset",
   summary: "Отозвать застрявшую выдачу, дождаться и выдать заново.",
-  usage: "mpu api ss-access reset ТАБЛИЦА [--reason T] [--role R]",
-  help: `Три шага: отозвать все активные выдачи владельца токена,
+  usage: "mpu api ss-access reset spreadsheet: ТАБЛИЦА [reason: T] [role: R]",
+  help: `Звать, когда доступ к таблице застрял и выдать его заново
+обычным request нельзя. Три шага: отозвать все активные выдачи
+владельца токена,
 дождаться их исчезновения из уникального индекса, выдать доступ
 заново.
 
@@ -440,13 +446,12 @@ export const ssAccessResetCommand = defineCommand({
 молчаливого успеха тут быть не может, иначе повторная выдача упёрлась
 бы в тот же индекс.
 
---reason относится к ПОВТОРНОЙ ВЫДАЧЕ, а не к отзыву: причина отзыва
+reason: относится к ПОВТОРНОЙ ВЫДАЧЕ, а не к отзыву: причина отзыва
 внутри reset своя и не настраивается.
 
 Exit: 0 — успех; 1 — отказ sl-back либо истёкшее ожидание; 2 — ошибки
-ввода и отказ резолва в main-БД.
-
-Пример: mpu api ss-access reset 1BxiMVs0`,
+ввода и отказ резолва в main-БД.`,
+  examples: ["mpu api ss-access reset spreadsheet: 1BxiMVs0"],
   policy: "rw",
   argsSchema: resetArgs,
   forms: { spreadsheet: { positional: "one" } },

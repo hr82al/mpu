@@ -189,3 +189,90 @@ Deno.test("поимённые пары спеки дают один вход к�
 Deno.test("ssh: cmd одним словом — та же строка шелла, что и по словам", () => {
   assertEquals(shellCommand(["ls -la"]), shellCommand(["ls", "-la"]));
 });
+
+/**
+ * Слова строки, как их отдаст оболочка: одинарные кавычки держат всё
+ * буквально (`'"'"'` — кавычка внутри, как пишет `quoteArg`), двойные —
+ * тоже, для простоты; here-doc (`<<`) и дальше — не аргументы.
+ */
+function pasted(line: string): string[] {
+  const words: string[] = [];
+  const head = line.split(" <<")[0];
+  for (const match of head.matchAll(/(?:'[^']*'|"[^"]*"|[^\s'"]+)+/g)) {
+    const word = match[0].replace(/'([^']*)'|"([^"]*)"/g, "$1$2");
+    words.push(word);
+  }
+  return words.slice(words.indexOf("mpu") + 1);
+}
+
+/** Строка `mpu`, собранная из напечатанного, — argv прежней диспетчеризации. */
+async function argvOf(file: string, words: readonly string[]) {
+  using book = RuleBook.open(file, registrySeeds());
+  const line = new Captured();
+  const outcome = await runChain(words, registryRoot(line, book));
+  assertEquals("exit" in outcome, true, JSON.stringify(outcome));
+  return line.argv;
+}
+
+Deno.test("напечатанные строки вставляются: тот же вход ssh", (t) =>
+  withPolicyFile(async (file) => {
+    const ssh = commands.find((one) => one.path.join(" ") === "ssh");
+    if (ssh === undefined) throw new Error("нет ssh");
+    const cases = [
+      [
+        "../nodecli/testdata/portainer-wrappers/process-dev-print.stdout.txt",
+        "dev:1",
+        "node cli service:dataProcessor process --client-id 777 --dataset wb_unit",
+      ],
+      [
+        "../runjs/testdata/run-js/dry-run-stdout.txt",
+        "sl-0",
+        "node --input-type=module -",
+      ],
+    ] as const;
+    for (const [golden, target, command] of cases) {
+      await t.step(golden, async () => {
+        const url = new URL(golden, import.meta.url);
+        const printed = (await Deno.readTextFile(url)).split("\n")[0];
+        // Вход ssh — объект разбора его схемы; поля те, что она объявляет.
+        const args = ssh.parseArgs(
+          argsOf(ssh, await argvOf(file, pasted(printed))),
+        ) as { selector: string; command: [string, ...string[]] };
+        assertEquals(args.selector, target);
+        assertEquals(shellCommand(args.command), command);
+      });
+    }
+  }));
+
+Deno.test("подсказки run-js --detach вставляются: тот же вход", (t) =>
+  withPolicyFile(async (file) => {
+    const log = "/tmp/mpu-run-js-x.log";
+    const reader = `import fs from "node:fs"; process.stdout.write(` +
+      `fs.existsSync("${log}") ? fs.readFileSync("${log}","utf8") : ` +
+      `"no log yet\\n")`;
+    // Строки — те, что печатает run.ts (их дословно сверяет
+    // cmd_run_js_test.ts, «--detach … подсказки»); пара — прежняя запись
+    // той же строки.
+    const cases = [
+      [
+        `# собрать логи: mpu run-js --all text: '${reader}'`,
+        ["run-js", "--all", reader],
+      ],
+      [
+        `# или вживую: mpu ssh target: sl-1 cmd: 'tail -f ${log}'`,
+        ["ssh", "sl-1", `tail -f ${log}`],
+      ],
+    ] as const;
+    for (const [printed, before] of cases) {
+      await t.step(before[0], async () => {
+        const command = commands.find((one) => one.path[0] === before[0]);
+        if (command === undefined) throw new Error(`нет ${before[0]}`);
+        assertEquals(
+          command.parseArgs(
+            argsOf(command, await argvOf(file, pasted(printed))),
+          ),
+          command.parseArgs(before.slice(1)),
+        );
+      });
+    }
+  }));

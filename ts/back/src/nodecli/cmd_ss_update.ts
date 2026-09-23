@@ -35,29 +35,34 @@ export const ssUpdateCommand = defineCommand({
   // дефолт у обёртки — выполнение, а не печать.
   summary: "Запустить обновление Google-таблицы клиента в контейнере sl-back.",
   usage:
-    "mpu ss-update SELECTOR [--server sl-N] [-p [--local]] [--client-id N] [--spreadsheet-id S] [--update-type T] [--logs L]",
-  help: `По умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:
+    "mpu ss-update target: СЕЛЕКТОР [server: sl-N] [--print [--local]] [client-id: N] [spreadsheet-id: S] [update-type: T] [logs: L]",
+  help: `Звать, когда Google-таблица клиента не обновилась и её надо
+перестроить из БД сейчас, не дожидаясь расписания.
+
+По умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере клиента:
 запускает \`node cli service:ssUpdater update\` и стримит его вывод, код
 выхода наследуется 1:1.
 
--p/--print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с -p печатает форму локального стенда
+--print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. --local вместе с --print печатает форму локального стенда
 (без ssh); сам по себе --local — ошибка ввода.
 
-SELECTOR — client_id, spreadsheet_id или заголовок таблицы;
---server sl-N задаёт сервер напрямую. --client-id и --spreadsheet-id
+target: — client_id, spreadsheet_id или заголовок таблицы;
+server: sl-N задаёт сервер напрямую. client-id: и spreadsheet-id:
 берутся из кандидатов селектора, если у всех кандидатов значение одно;
-иначе задайте их флагом.
+иначе задайте их ключом.
 
-Значения флагов проверяются до сети и до печати: допустимы только
+Значения ключей проверяются до сети и до печати: допустимы только
 A-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка в значении это
 ошибка ввода.
 
 Exit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,
-резолва и конфигурации.
-
-Примеры: mpu ss-update 777; mpu ss-update 777 -p; mpu ss-update 777 -p
---local --update-type manual`,
+резолва и конфигурации.`,
+  examples: [
+    "mpu ss-update target: 777",
+    "mpu ss-update target: 777 --print",
+    "mpu ss-update target: 777 --print --local update-type: manual",
+  ],
   policy: "rw",
   // Голый вызов печатает справку, а не сообщение схемы (спека
   // семейства, «CLI-контракт»).

@@ -21,7 +21,7 @@ import {
 
 const argsSchema = z.object({
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
   message: z.string().optional().describe("новое описание"),
   "body-file": z.string().optional().describe(
@@ -70,25 +70,27 @@ export const mrDescribeCommand = defineCommand({
   keys: { id: "mr", text: "message" },
   errorName: "mr describe",
   summary: "Заменить описание merge request'а целиком.",
-  usage: "mpu mr describe [--mr REF] (-m TEXT | -F PATH)",
-  help: `Заменяет описание MR целиком: новый текст встаёт вместо
+  usage: "mpu mr describe [id: REF] (text: TEXT | body-file: PATH)",
+  help:
+    `Звать, когда описание MR надо переписать. Заменяет его целиком: новый текст встаёт вместо
 прежнего, дописать к нему нельзя.
 
-Текст — ровно один из -m/--message TEXT и -F/--body-file PATH; '-'
+Текст — ровно один из text: TEXT и body-file: PATH; '-'
 вместо пути означает весь stdin и работает только в CLI. Тело уходит
 дословно, поэтому markdown, ссылки и переводы строк сохраняются.
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —
+id: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без ключа —
 открытый MR текущей ветки.
 
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
-Exit: 0 — успех; 2 — сочетание флагов тела, пустое тело,
-нераспознанный --mr; 1 — отказ GitLab, ненайденный MR.
-
-Примеры: mpu mr describe -F описание.md;
-mpu mr describe --mr 456 -m 'Правит загрузчик WB.'`,
+Exit: 0 — успех; 2 — сочетание ключей тела, пустое тело,
+нераспознанный id:; 1 — отказ GitLab, ненайденный MR.`,
+  examples: [
+    "mpu mr describe body-file: описание.md",
+    'mpu mr describe id: 456 text: "Правит загрузчик WB."',
+  ],
   policy: "rw",
   argsSchema,
   forms: { message: { short: "m" }, "body-file": { short: "F" } },

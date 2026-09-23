@@ -287,8 +287,11 @@ export const cleanLocalClientsCommand = defineCommand({
   keys: {},
   errorName: "clean-local-clients",
   summary: "Снести данные локальных клиентов, кроме keep-листа.",
-  usage: "mpu clean-local-clients [--keep IDS] [--yes]",
-  help: `Убирает из локального стенда данные клиентов: схемы и
+  usage: "mpu clean-local-clients [keep: IDS] [--yes]",
+  help: `Звать, когда локальный стенд забит копиями клиентов и их надо убрать,
+оставив нужных.
+
+Убирает из локального стенда данные клиентов: схемы и
 public-строки на sl-1, токены на sl-0, собственную проводку входа в
 sw-front. Только локальные адреса — прод командой недостижим.
 
@@ -296,7 +299,7 @@ sw-front. Только локальные адреса — прод команд
 keep-лист и список под удаление, но ничего не трогает. Удаляет только с
 --yes.
 
---keep — client_id через запятую, которых ОСТАВИТЬ (список инверсный);
+keep: — client_id через запятую, которых ОСТАВИТЬ (список инверсный);
 по умолчанию 54,776. Схема shared номера клиента не имеет и под
 удаление не попадает никогда. Нечисловой токен — ошибка ввода.
 
@@ -314,10 +317,11 @@ PG_LOCAL_MAIN_PORT (5440), PG_DB_NAME (wb), PG_MAIN_USER_NAME
 LOCAL_WORKSPACES_PASSWORD (postgres).
 
 Exit: 0 — успех, в том числе когда удалять нечего; 2 — нечисловой
---keep, неполная конфигурация подключений.
-
-Примеры: mpu clean-local-clients;
-mpu clean-local-clients --keep 54,776,1234 --yes`,
+keep:, неполная конфигурация подключений.`,
+  examples: [
+    "mpu clean-local-clients",
+    "mpu clean-local-clients keep: 54,776,1234 --yes",
+  ],
   policy: "rw",
   argsSchema,
   resultSchema,

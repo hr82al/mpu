@@ -18,7 +18,7 @@ import {
 
 const argsSchema = z.object({
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
   json: z.boolean().default(false).describe("объект MR целиком"),
 });
@@ -96,16 +96,17 @@ export const mrViewCommand = defineCommand({
   keys: { id: "mr" },
   errorName: "mr view",
   summary: "Шапка merge request'а: заголовок, автор, ветки, описание.",
-  usage: "mpu mr view [--mr REF] [--json]",
-  help: `Печатает четыре строки — заголовок, автор, ветки, адрес — и
+  usage: "mpu mr view [id: REF] [end json]",
+  help: `Звать, когда надо понять, что это за MR: заголовок, автор,
+ветки, адрес и описание. Печатает четыре строки — заголовок, автор, ветки, адрес — и
 описание MR под ними.
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid. Без флага
+id: REF — адрес MR: URL, 'group/repo!iid' или голый iid. Без флага
 project берётся из git remote origin текущего каталога, а iid — у
 единственного открытого MR текущей ветки; ноль или несколько открытых
 MR — отказ с перечнем.
 
---json печатает объект MR целиком: project, iid, title, state,
+end json печатает объект MR целиком: project, iid, title, state,
 source_branch, target_branch, web_url, author_name, author_username,
 description, diff_refs, project_id, sha, merge_commit_sha,
 squash_commit_sha. diff_refs — три SHA диффа либо null.
@@ -113,10 +114,12 @@ squash_commit_sha. diff_refs — три SHA диффа либо null.
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
-Exit: 0 — успех; 2 — нераспознанный --mr; 1 — отказ GitLab, ненайденный
-MR, неопределимая ветка.
-
-Примеры: mpu mr view; mpu mr view --mr 'group/repo!456' --json`,
+Exit: 0 — успех; 2 — нераспознанный id:; 1 — отказ GitLab, ненайденный
+MR, неопределимая ветка.`,
+  examples: [
+    "mpu mr view",
+    "mpu mr view id: group/repo!456 end json",
+  ],
   policy: "ro",
   argsSchema,
   resultSchema,

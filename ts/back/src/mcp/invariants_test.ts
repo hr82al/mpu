@@ -165,7 +165,9 @@ Deno.test("усечение оставляет повод звать и конт
       // Имена опций берутся из строки использования — источника, не
       // совпадающего с проверяемым текстом: перевёрстка блока флагов в
       // справке не должна обнулять проверку молча.
-      for (const option of command.usage.match(/--[\w-]+/g) ?? []) {
+      // Ключи (`range:`) — тот же контракт, что опции (`--refresh`).
+      const words = command.usage.match(/--[\w-]+|[\w-]+:(?= )/g) ?? [];
+      for (const option of words) {
         assertEquals(
           tool.description.includes(option),
           true,

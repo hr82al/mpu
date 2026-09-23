@@ -26,10 +26,10 @@ import {
 
 const argsSchema = z.object({
   discussion: z.string({
-    error: "нужен DISCUSSION: полный id треда или префикс от 6 символов",
+    error: "нужен id: полный id треда или префикс от 6 символов",
   }).describe("id треда или его префикс (≥6 символов)"),
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
   json: z.boolean().default(false).describe("объект треда JSON"),
 });
@@ -71,29 +71,32 @@ export const mrShowCommand = defineCommand({
   keys: { id: "discussion" },
   errorName: "mr show",
   summary: "Один тред ревью целиком: все ноты по порядку.",
-  usage: "mpu mr show DISCUSSION [--mr REF] [--json]",
-  help: `Печатает тред целиком: заголовок с полным id, позицией и
+  usage: "mpu mr show id: ТРЕД [mr: REF] [end json]",
+  help: `Звать, когда из списка mpu mr comments нужен один тред целиком.
+Печатает заголовок с полным id, позицией и
 состоянием, затем каждую ноту — кто, когда и текст.
 
-DISCUSSION — полный id треда либо его префикс от 6 символов (короче —
+id: — полный id треда либо его префикс от 6 символов (короче —
 отказ). Префикс, подошедший нескольким тредам, тоже отказ, с перечнем
 кандидатов: показать «какой-нибудь» из них хуже, чем не показать
 ничего. Восемь символов, которые печатает mpu mr comments, годятся.
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —
+mr: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без ключа —
 открытый MR текущей ветки.
 
---json печатает объект треда {id, resolvable, resolved, location,
-notes} — той же формы, что элемент массива mpu mr comments --json.
+end json печатает объект треда {id, resolvable, resolved, location,
+notes} — той же формы, что элемент массива mpu mr comments end json.
 
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
-Exit: 0 — успех; 2 — DISCUSSION не передан, нераспознанный --mr; 1 —
+Exit: 0 — успех; 2 — id: не передан, нераспознанный mr:; 1 —
 отказ GitLab, ненайденный MR, короткий/ненайденный/неоднозначный
-селектор треда.
-
-Примеры: mpu mr show 953d395b; mpu mr show 953d395b --mr 456 --json`,
+селектор треда.`,
+  examples: [
+    "mpu mr show id: 953d395b",
+    "mpu mr show id: 953d395b mr: 456 end json",
+  ],
   policy: "ro",
   argsSchema,
   forms: { discussion: { positional: "one" } },

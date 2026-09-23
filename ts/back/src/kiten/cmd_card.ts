@@ -29,7 +29,7 @@ import {
 } from "./render.ts";
 
 const argsSchema = z.object({
-  selector: z.string({ error: "нужен SELECTOR: id карточки или её URL" })
+  selector: z.string({ error: "нужен id: id карточки или её URL" })
     .describe("id карточки либо её URL, короткий или глубокий"),
   md: z.boolean().default(false).describe("чистый GFM markdown"),
   json: z.boolean().default(false).describe(

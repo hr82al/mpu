@@ -145,13 +145,15 @@ export const searchCommand = defineCommand({
   keys: { query: "value" },
   summary: "Найти клиента или таблицу по селектору; вход в 10X по email.",
   usage:
-    "mpu search VALUE [проекция] [--no-update] [--reason TEXT] [--refresh-cache] [--scope auto|user|access]",
-  help: `Ищет по локальному кэшу (\`mpu init\`/\`mpu update\`) и печатает
+    "mpu search query: ЗНАЧЕНИЕ [--client-id|--title|…] [--no-update] [reason: TEXT] [--refresh-cache] [scope: auto|user|access]",
+  help: `Звать, когда по любому следу клиента — номеру, таблице, куску
+заголовка, кабинету, email — надо найти его client_id, таблицу и
+сервер. Ищет по локальному кэшу (\`mpu init\`/\`mpu update\`) и печатает
 JSON-массив строк с восемью полями: client_id, spreadsheet_id, title,
 server, server_number, sl_ip, pg_ip, sids. Ничего не нашлось — [] и
 exit 0.
 
-VALUE — client_id, spreadsheet_id, кусок заголовка, WB-кабинет, адрес
+query: — client_id, spreadsheet_id, кусок заголовка, WB-кабинет, адрес
 сервера или email. Порядок предикатов общий для всех команд: client_id,
 адрес, кабинет, spreadsheet_id, заголовок.
 
@@ -165,10 +167,12 @@ VALUE — client_id, spreadsheet_id, кусок заголовка, WB-каби�
 запускается: адреса живут в env-файле, а не в кэше.
 
 Exit: 0 — успех, включая пустой результат; 1 — сбой обновления кэша;
-2 — ошибки ввода.
-
-Примеры: mpu search 777; mpu search 'Отчёт' --client-id;
-mpu search 10.9.9.9 --no-update`,
+2 — ошибки ввода.`,
+  examples: [
+    "mpu search query: 777",
+    "mpu search query: Отчёт --client-id",
+    "mpu search query: 10.9.9.9 --no-update",
+  ],
   // Локальный режим только читает, но дефолтный `--update` пишет кэш, а
   // 10X-ветка создаёт audit-запись impersonation на проде.
   policy: "rw",

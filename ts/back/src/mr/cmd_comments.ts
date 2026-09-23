@@ -29,7 +29,7 @@ import {
 
 const argsSchema = z.object({
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
   unresolved: z.boolean().default(false).describe(
     "только незакрытые треды (resolvable и не resolved)",
@@ -93,8 +93,9 @@ export const mrCommentsCommand = defineCommand({
   errorName: "mr comments",
   summary: "Треды ревью merge request'а: таблица, JSON или markdown.",
   usage:
-    "mpu mr comments [--mr REF] [--unresolved] [--file S] [--author S] [--json|--md]",
-  help: `Печатает треды ревью MR таблицей: первые 8 символов id, признак
+    "mpu mr comments [id: REF] [--unresolved] [file: S] [author: S] [end json|md]",
+  help: `Звать, когда надо увидеть, что сказано на ревью MR и что ещё не
+закрыто. Печатает треды таблицей: первые 8 символов id, признак
 резолва (✓ закрыт, · открыт, пусто — общий тред), позиция в диффе,
 автор первой ноты, число нот и начало первой ноты. Последняя строка —
 сколько всего тредов и сколько из них открыто.
@@ -104,26 +105,28 @@ export const mrCommentsCommand = defineCommand({
 
 Фильтры складываются:
 --unresolved — только незакрытые треды;
---file SUBSTR — только треды, чья позиция указывает на файл с такой
+file: SUBSTR — только треды, чья позиция указывает на файл с такой
 подстрокой в пути; тред без позиции при этом фильтре отпадает;
---author SUBSTR — подстрока в имени или username автора первой ноты,
+author: SUBSTR — подстрока в имени или username автора первой ноты,
 без учёта регистра.
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —
+id: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без ключа —
 открытый MR текущей ветки.
 
---json печатает массив тредов {id, resolvable, resolved, location,
-notes}; --md печатает markdown с телами нот целиком. Вместе они не
+end json печатает массив тредов {id, resolvable, resolved, location,
+notes}; end md печатает markdown с телами нот целиком. Вместе они не
 задаются: это ошибка ввода.
 
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
 Exit: 0 — успех, в том числе когда после фильтров не осталось тредов;
-2 — нераспознанный --mr, --json вместе с --md; 1 — отказ GitLab,
-ненайденный MR.
-
-Примеры: mpu mr comments --unresolved; mpu mr comments --mr 456 --md`,
+2 — нераспознанный id:, end json вместе с end md; 1 — отказ GitLab,
+ненайденный MR.`,
+  examples: [
+    "mpu mr comments --unresolved",
+    "mpu mr comments id: 456 end md",
+  ],
   policy: "ro",
   argsSchema,
   formats: { md: ["--md"] },

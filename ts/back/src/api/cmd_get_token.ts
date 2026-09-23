@@ -58,16 +58,17 @@ export const apiGetTokenCommand = defineCommand({
   keys: {},
   errorName: "api get-token",
   summary: "POST /auth/login → print accessToken (cached 10 min)",
-  usage: "mpu api get-token [--email E] [--password P]",
-  help: `Печатает accessToken sl-back одной строкой — без JSON-обёртки, чтобы
-его можно было подставить в curl: TOKEN=$(mpu api get-token).
+  usage: "mpu api get-token [email: E] [password: P]",
+  help: `Звать, когда нужен accessToken sl-back для ручного запроса:
+печатает его одной строкой — без JSON-обёртки, чтобы его можно было
+подставить в curl: TOKEN=$(mpu api get-token).
 
 Без явных кред: живой токен из кэша печатается без обращения к сети;
 иначе идёт логин на TOKEN_EMAIL / TOKEN_PASSWORD из env-файла, и токен
 кладётся в кэш .api-token.json на 10 минут — рядом с самим env-файлом,
 то есть в $XDG_CONFIG_HOME/mpu (дефолт ~/.config/mpu).
 
---email и --password: заданный флаг старше env по своему полю. Заданы
+email: и password: заданный ключ старше env по своему полю. Заданы
 оба — кэш при чтении игнорируется (всегда свежий логин), и запись кэша
 перезаписывается под названного пользователя.
 
@@ -76,6 +77,7 @@ export const apiGetTokenCommand = defineCommand({
 
 Exit: 0 — успех; 2 — ошибки ввода; 1 — сеть, HTTP ≥ 400, ответ без
 accessToken, отсутствие конфигурации.`,
+  examples: ["mpu api get-token", "mpu api get-token email: me@example.com"],
   policy: "ro",
   // Пароль приходит аргументом, поэтому argv в журнал не пишется; вывод
   // — живой токен, и он тем более не пишется (`api.md`, «Побочные

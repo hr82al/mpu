@@ -207,7 +207,7 @@ Deno.test("get: конфликты флагов и режимов — до от�
     assertEquals(code, 2);
     assertEquals(
       cli.stderr(),
-      "mpu xlsx: only one of --raw / --tsv can be set; " +
+      "mpu xlsx: only one format: raw or tsv; " +
         "попробуй: mpu xlsx get --help\n",
     );
   });
@@ -222,7 +222,7 @@ Deno.test("get: конфликты флагов и режимов — до от�
       "wat",
     );
     assertEquals(code, 2);
-    assertStringIncludes(cli.stderr(), `invalid --render value "wat"`);
+    assertStringIncludes(cli.stderr(), `invalid render: value "wat"`);
   });
   await t.step("диапазон без листа и без --sheet", async () => {
     const cli = makeTestCli();
@@ -513,8 +513,8 @@ Deno.test("alias: add/ls/rm, права хранилища, использова
     });
     await t.step("ошибки аргументов: exit 2 без записи", async () => {
       const cases: readonly (readonly [readonly string[], string])[] = [
-        [["alias", "rm"], "ожидает один аргумент"],
-        [["alias", "add", "x"], "ожидает два аргумента"],
+        [["alias", "rm"], "ожидает name:"],
+        [["alias", "add", "x"], "ожидает name: и path:"],
         [["alias", "add", "a", "b", "c"], `unexpected argument "c"`],
         [["alias", "wat"], "No such command 'xlsx alias wat'."],
       ];

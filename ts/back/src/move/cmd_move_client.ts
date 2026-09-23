@@ -34,7 +34,7 @@ import {
 
 const argsSchema = z.object({
   selector: z.string({
-    error: "нужен SELECTOR: client_id, spreadsheet_id или заголовок",
+    error: "нужен target: client_id, spreadsheet_id или заголовок",
   }).describe("клиент: client_id, spreadsheet_id, заголовок таблицы"),
   target: z.string().default("sl-1").describe(
     "сервер назначения вида sl-N; по умолчанию sl-1",
@@ -147,14 +147,16 @@ export const moveClientCommand = defineCommand({
   },
   errorName: "move-client",
   summary: "Перенести клиента на другой sl-сервер фермы.",
-  usage: "mpu move-client SELECTOR [--target sl-N]",
-  help: `Ставит задачу переноса клиента между серверами фермы: запускает
+  usage: "mpu move-client target: СЕЛЕКТОР [to: sl-N]",
+  help: `Звать, когда клиента надо перевести на другой sl-сервер фермы.
+
+Ставит задачу переноса клиента между серверами фермы: запускает
 clientsTransfer createJob в контейнере mp-dt-cli. Сам перенос выполняют
 воркеры очереди, и команда за ним не следит — её успех означает, что
 задача поставлена.
 
-SELECTOR — client_id, подстрока spreadsheet_id или заголовка; сервер
-источника берётся из резолва. --target — сервер назначения вида sl-N,
+target: — client_id, подстрока spreadsheet_id или заголовка; сервер
+источника берётся из резолва. to: — сервер назначения вида sl-N,
 по умолчанию sl-1. Совпадение источника и назначения — ошибка ввода:
 переносить нечего.
 
@@ -166,11 +168,13 @@ SELECTOR — client_id, подстрока spreadsheet_id или заголов�
 mpu move-client-back. Если запись не удалась, команда предупреждает:
 задача уже поставлена, но вернуть клиента обратной командой не выйдет.
 
-Exit: 0 — задача поставлена; 2 — резолв селектора, --target не вида
+Exit: 0 — задача поставлена; 2 — резолв селектора, to: не вида
 sl-N, совпадение источника и назначения, нерезолвящийся контейнер; иначе
-— код createJob как есть.
-
-Примеры: mpu move-client 1234 --target sl-4; mpu move-client 'магазин'`,
+— код createJob как есть.`,
+  examples: [
+    "mpu move-client target: 1234 to: sl-4",
+    "mpu move-client target: магазин",
+  ],
   policy: "rw",
   argsSchema,
   forms: { selector: { positional: "one" } },

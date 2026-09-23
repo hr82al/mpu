@@ -114,6 +114,10 @@ Deno.test("отказы с готовой строкой — раздел 3", as
     ],
     [["search", "54"], "mpu search: значение — ключом: mpu search query: 54"],
     [
+      ["search", "query:", "54", "-z"],
+      "mpu search query: 54: значение 54 не понимает -z",
+    ],
+    [
       ["move-client-back", "rm", "1234"],
       "mpu move-client-back rm: значение — ключом: " +
       "mpu move-client-back rm target: 1234",

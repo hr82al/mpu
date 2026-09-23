@@ -149,18 +149,21 @@ export const copyDevCommand = defineCommand({
   keys: { target: "client" },
   errorName: "copy-dev",
   summary: "Скопировать данные с dev-стенда в локальный.",
-  usage: "mpu copy-dev [CLIENT_ID]",
-  help: `Без аргумента копирует всю БД воркспейсов с dev в локальный
+  usage: "mpu copy-dev [target: НОМЕР]",
+  help: `Звать, когда локальному стенду нужны данные dev: вся БД
+воркспейсов или один клиент.
+
+Без target: копирует всю БД воркспейсов с dev в локальный
 mp-sw-pg: существующие объекты локальной БД сносятся перед
 восстановлением — это назначение команды, подтверждения она не
 спрашивает.
 
-С аргументом копирует клиента: схему schema_<id> и public-строки в
+С target: копирует клиента: схему schema_<id> и public-строки в
 локальный sl-1, токен-строки в локальный sl-0. Машинерия та же, что у
 mpu copy-client, но источник — dev, а Redis-кэша и проводки sw-front
 здесь нет.
 
-CLIENT_ID трактуется как номер клиента напрямую: резолв селектора не
+target: трактуется как номер клиента напрямую: резолв селектора не
 выполняется и кэш не читается, потому что dev-клиентов в нём нет.
 
 Dev-стенд только читается; запись идёт исключительно в локальные
@@ -173,10 +176,12 @@ DEV_WORKSPACES_PORT (5432), DEV_WORKSPACES_DB (workspaces),
 DEV_WORKSPACES_USER и DEV_WORKSPACES_PASSWORD — обязательны, fallback'ов
 у них нет.
 
-Exit: 0 — успех; 2 — нецелый аргумент, неполная конфигурация,
-недоступный локальный контейнер; 1 — падение pg_dump или pg_restore.
-
-Примеры: mpu copy-dev; mpu copy-dev 776`,
+Exit: 0 — успех; 2 — нецелый target:, неполная конфигурация,
+недоступный локальный контейнер; 1 — падение pg_dump или pg_restore.`,
+  examples: [
+    "mpu copy-dev",
+    "mpu copy-dev target: 776",
+  ],
   policy: "rw",
   argsSchema,
   forms: { client: { positional: "one" } },

@@ -165,35 +165,43 @@ const command = defineCommand({
   // видит режим дополнения, и расходиться с эталоном им незачем.
   summary:
     "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).",
-  usage: "mpu logs [SELECTOR] [SERVICE] [--via loki|portainer] [флаги]",
-  help: `Без SELECTOR — все хосты. SELECTOR: sl-N / wb-N / dt-N /
-wb-clusters / wb-positions — как есть; клиентский селектор (client_id,
-spreadsheet_id, заголовок) — в сервер sl-N. Первый аргумент, не похожий
-на хост, но известный кэшу как сервис, — это SERVICE со всех хостов.
+  usage:
+    "mpu logs [target: СЕЛЕКТОР] [service: СЕРВИС] [via: loki|portainer] [фильтры]",
+  help: `Звать, когда надо понять, что сервис писал в лог: ошибки,
+конкретный клиент, окно времени — с одного хоста или со всей фермы.
 
-Списки из кэша, без сети: \`mpu logs ls\` — хосты, \`mpu logs sl-1 ls\` —
-сервисы хоста; кэш наполняют \`mpu init\` и \`mpu update\`.
+Без target: — все хосты. target: — sl-N / wb-N / dt-N /
+wb-clusters / wb-positions как есть; клиентский селектор (client_id,
+spreadsheet_id, заголовок) — в сервер sl-N. service: — сервис; без
+target: он ищется со всех хостов.
 
-Фильтры Loki, И между собой: --grep S (подстрока), --grep-regex S,
---level error|warn|info|debug, --client N (подстрока числа в строке —
+Списки из кэша, без сети: \`mpu logs hosts\` — хосты,
+\`mpu logs services target: sl-1\` — сервисы хоста; кэш наполняют
+\`mpu init\` и \`mpu update\`.
+
+Фильтры Loki, И между собой: grep: S (подстрока), grep-regex: S,
+level: error|warn|info|debug, client: N (подстрока числа в строке —
 совпадёт и порт). Потоки: --no-stdout, --no-stderr.
 
-Окно: --since 30s|10m|1h|2d или unix-ts (умолчание 5m, слежение 10s);
---tail/-n N > 0 (200); --timestamps/-t — префикс
-YYYY-MM-DDThh:mm:ss.mmmZ; --follow/-f — опрос раз в 2 с до Ctrl+C;
+Окно: since: 30s|10m|1h|2d или unix-ts (умолчание 5m, слежение 10s);
+tail: N > 0 (200); --timestamps — префикс
+YYYY-MM-DDThh:mm:ss.mmmZ; --follow — опрос раз в 2 с до Ctrl+C;
 недоступен только вызовом тула (mpu-mcp). Печать всегда по возрастанию
 времени.
 
---via portainer — снимок логов одного контейнера: нужны оба аргумента
-(SERVICE — имя контейнера или подстрока), фильтры и --follow нельзя,
+via: portainer — снимок логов одного контейнера: нужны target: и
+service: (имя контейнера или подстрока), фильтры и --follow нельзя,
 байты потоков идут как есть.
 
 Env: LOKI_URL; PORTAINER_API_KEY, PORTAINER_VERIFY_TLS, sl_<N>_portainer.
 
 Exit: 0 — успех, в том числе пустой вывод; 1 — отказ источника; 2 —
-ошибка ввода, конфигурации или резолва.
-
-Пример: mpu logs sl-1 wb-loader --level error --since 1h -n 500`,
+ошибка ввода, конфигурации или резолва.`,
+  examples: [
+    "mpu logs target: sl-1 service: wb-loader level: error since: 1h tail: 500",
+    "mpu logs hosts",
+    "mpu logs services target: sl-1",
+  ],
   policy: "ro",
   argsSchema,
   forms: {

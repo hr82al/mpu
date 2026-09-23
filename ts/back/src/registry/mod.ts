@@ -473,48 +473,48 @@ export const groups: readonly CommandGroup[] = [
     // подкоманды (`specs/portainer-wrappers.md`).
     path: ["wb-jobs"],
     summary: "очередь задач WB-загрузчика на сервере: show",
-    usage: "mpu wb-jobs [-p [--local]] SELECTOR <подкоманда>",
+    usage: "mpu wb-jobs <подкоманда> target: СЕЛЕКТОР [ключи]",
     layout: "selector-first",
   },
   {
     path: ["data-loader-jobs"],
     summary: "очередь задач загрузчика данных на сервере: show",
-    usage: "mpu data-loader-jobs [-p [--local]] SELECTOR <подкоманда>",
+    usage: "mpu data-loader-jobs <подкоманда> target: СЕЛЕКТОР [ключи]",
     layout: "selector-first",
   },
   {
     path: ["ozon-jobs"],
     summary: "очередь задач Ozon-загрузчика на сервере: show | prune",
-    usage: "mpu ozon-jobs [-p [--local]] SELECTOR <подкоманда>",
+    usage: "mpu ozon-jobs <подкоманда> target: СЕЛЕКТОР [ключи]",
     layout: "selector-first",
   },
   {
     path: ["app-migrations"],
     summary: "миграции схемы приложения: latest | up",
-    usage: "mpu app-migrations [-p [--local]] SELECTOR <подкоманда>",
+    usage: "mpu app-migrations <подкоманда> target: СЕЛЕКТОР [ключи]",
     layout: "selector-first",
   },
   {
     path: ["users"],
     summary: "пользователи sl-back на сервере: add | add-role",
-    usage: "mpu users [-p [--local]] SELECTOR <подкоманда>",
+    usage: "mpu users <подкоманда> target: СЕЛЕКТОР [ключи]",
     layout: "selector-first",
   },
   {
     path: ["clients-migrations"],
     summary:
       "миграции клиентских схем: latest | up | rollback | latest-all | …",
-    usage: "mpu clients-migrations <подкоманда> SELECTOR --type T",
+    usage: "mpu clients-migrations <подкоманда> target: СЕЛЕКТОР type: T",
   },
   {
     path: ["datasets-migrations"],
     summary: "миграции датасетов клиента: latest | up | rollback | down | list",
-    usage: "mpu datasets-migrations <подкоманда> SELECTOR --dataset D",
+    usage: "mpu datasets-migrations <подкоманда> target: СЕЛЕКТОР dataset: D",
   },
   {
     path: ["ozon-loader"],
     summary: "загрузка данных Ozon-кабинета в БД клиента: campaigns | …",
-    usage: "mpu ozon-loader <подкоманда> SELECTOR --seller-client-id S",
+    usage: "mpu ozon-loader <подкоманда> target: СЕЛЕКТОР seller-client-id: S",
   },
   {
     // Группа с единственным листом: следующий хук Claude Code

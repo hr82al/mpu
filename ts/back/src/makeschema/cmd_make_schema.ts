@@ -25,7 +25,7 @@ import {
 
 const argsSchema = z.object({
   selector: z.string({
-    error: "нужен SELECTOR: client_id, spreadsheet_id или заголовок",
+    error: "нужен target: client_id, spreadsheet_id или заголовок",
   }).describe("клиент: client_id, spreadsheet_id, заголовок таблицы"),
   server: z.string().optional().describe(
     "номер контейнера стенда: sl-N; по умолчанию sl-1",
@@ -177,8 +177,11 @@ export const makeSchemaCommand = defineCommand({
   path: ["make-schema"],
   keys: {},
   summary: "Создать схему клиента в локальном стенде.",
-  usage: "mpu make-schema SELECTOR [--server sl-N] [--client-id N] [-p]",
-  help: `По умолчанию команда ВЫПОЛНЯЕТСЯ: запускает на ЭТОЙ машине
+  usage:
+    "mpu make-schema target: СЕЛЕКТОР [server: sl-N] [client-id: N] [--print]",
+  help: `Звать, когда локальному стенду нужна схема клиента для копии данных.
+
+По умолчанию команда ВЫПОЛНЯЕТСЯ: запускает на ЭТОЙ машине
 \`docker exec mp-sl-<N>-cli node cli service:clientsMigrations init\` и
 наследует его код выхода 1:1. Метод идемпотентен: схема
 schema_<client_id> создаётся, только если её ещё нет.
@@ -186,21 +189,23 @@ schema_<client_id> создаётся, только если её ещё нет.
 Транспорт локальный — ни Portainer, ни ssh здесь нет, и --local у
 команды поэтому не бывает: она и так локальная.
 
--p/--print ничего не выполняет: печатает docker-команду одной строкой и
+--print ничего не выполняет: печатает docker-команду одной строкой и
 копирует её в буфер обмена.
 
-SELECTOR — client_id, spreadsheet_id или заголовок таблицы; --client-id
-берётся из кандидатов, если он там один, иначе задайте флагом.
---server sl-N выбирает контейнер стенда; без него это mp-sl-1-cli
+target: — client_id, spreadsheet_id или заголовок таблицы; client-id:
+берётся из кандидатов, если он там один, иначе задайте ключом.
+server: sl-N выбирает контейнер стенда; без него это mp-sl-1-cli
 независимо от того, в какой сервер резолвится селектор.
 
---server уходит и внутрь вызова, хотя init его игнорирует: так делает
+server: уходит и внутрь вызова, хотя init его игнорирует: так делает
 исходная команда, и паритет здесь важнее чистоты.
 
 Exit: код docker exec при выполнении; 0 при печати; 2 — ошибки ввода и
-резолва.
-
-Примеры: mpu make-schema 777 -p; mpu make-schema 777 --server sl-2`,
+резолва.`,
+  examples: [
+    "mpu make-schema target: 777 --print",
+    "mpu make-schema target: 777 server: sl-2",
+  ],
   // Мутирующая: создаёт схему в БД стенда.
   policy: "rw",
   helpWhenBare: true,

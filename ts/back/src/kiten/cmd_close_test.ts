@@ -310,7 +310,7 @@ Deno.test("close --dry-run: план целиком, без единой мут�
         `  таймер: на карточке запущен таймер (с ${
           mskStamp(startedAtMs)
         } МСК, 1 мин); он НЕ остановлен — ` +
-          `\`mpu kiten time stop ${CARD_ID}\` (или --stop-timer)\n`,
+          `\`mpu kiten time stop id: ${CARD_ID}\` (или --stop-timer)\n`,
       );
       // План не трогает таймер даже предупреждением в stderr.
       assertEquals(st.warnings, []);

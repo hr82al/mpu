@@ -118,17 +118,20 @@ export const telegramLsCommand = defineCommand({
   keys: { query: "query" },
   errorName: "telegram ls",
   summary: "Найти адресата: последние диалоги или поиск по названию.",
-  usage: "mpu telegram ls [QUERY] [--limit N] [--table]",
-  help: `QUERY — что искать. Без запроса печатаются последние диалоги, с
+  usage: "mpu telegram ls [query: ЗАПРОС] [limit: N] [end table]",
+  help: `Звать, когда нужен id чата или контакта для chat: других команд
+telegram, либо список последних диалогов.
+
+query: — что искать. Без запроса печатаются последние диалоги, с
 запросом идёт серверный поиск по контактам и глобальному каталогу.
 Запрос из одних пробелов — обычный запрос, а не пустота.
 
---limit N — сколько записей, ${LIMIT_MIN}..${LIMIT_MAX}, по умолчанию 50.
---table — таблица колонками ID, KIND, USERNAME, TITLE вместо JSON.
+limit: N — сколько записей, ${LIMIT_MIN}..${LIMIT_MAX}, по умолчанию 50.
+end table — таблица колонками ID, KIND, USERNAME, TITLE вместо JSON.
 
 Вывод по умолчанию — массив JSON: id, title, kind (user|bot|group|
 channel|unknown), username. Напечатанный id — маркированный: его можно
-без правки передать в --chat других подкоманд.
+без правки передать в chat: других подкоманд.
 
 Адресата команда не принимает: TELEGRAM_DEFAULT_CHAT здесь не читается.
 
@@ -136,9 +139,10 @@ channel|unknown), username. Напечатанный id — маркирован
 (обязательны), TELEGRAM_PROXY.
 
 Exit: 0 — успех, в том числе пустая выдача; 1 — конфигурация или отказ
-Telegram; 2 — ошибка ввода (--limit вне диапазона).
-
-Пример: mpu telegram ls 'Команда релиза' --table`,
+Telegram; 2 — ошибка ввода (limit: вне диапазона).`,
+  examples: [
+    'mpu telegram ls query: "Команда релиза" end table',
+  ],
   policy: "ro",
   argsSchema,
   formats: { table: ["--table"] },

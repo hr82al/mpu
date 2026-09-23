@@ -26,10 +26,10 @@ import {
 
 const argsSchema = z.object({
   discussion: z.string({
-    error: "нужен DISCUSSION: полный id треда или префикс от 6 символов",
+    error: "нужен id: полный id треда или префикс от 6 символов",
   }).describe("id треда или его префикс (≥6 символов)"),
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
 });
 
@@ -83,10 +83,12 @@ function resolveCommand(resolved: boolean): Command {
     keys: { id: "discussion" },
     errorName: `mr ${name}`,
     summary: `${action} тред ревью merge request'а.`,
-    usage: `mpu mr ${name} DISCUSSION [--mr REF]`,
-    help: `${action} тред ревью.
+    usage: `mpu mr ${name} id: ТРЕД [mr: REF]`,
+    help: `Звать, когда тред ревью ${
+      resolved ? "исчерпан и его надо закрыть" : "закрыт зря и его надо вернуть"
+    }.
 
-DISCUSSION — полный id треда либо его префикс от 6 символов; восемь
+id: — полный id треда либо его префикс от 6 символов; восемь
 символов из mpu mr comments годятся. Префикс, подошедший нескольким
 тредам, — отказ с перечнем.
 
@@ -99,16 +101,18 @@ DISCUSSION — полный id треда либо его префикс от 6 
 показываются, и по их идентификатору команда отвечает «дискуссия не
 найдена в этом MR».
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —
+mr: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без ключа —
 открытый MR текущей ветки.
 
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
-Exit: 0 — успех; 2 — DISCUSSION не передан, нераспознанный --mr; 1 —
-отказ GitLab, ненайденный или неоднозначный тред, нерезолвабельный тред.
-
-Примеры: mpu mr ${name} 953d395b; mpu mr ${name} 953d395b --mr 456`,
+Exit: 0 — успех; 2 — id: не передан, нераспознанный mr:; 1 —
+отказ GitLab, ненайденный или неоднозначный тред, нерезолвабельный тред.`,
+    examples: [
+      `mpu mr ${name} id: 953d395b`,
+      `mpu mr ${name} id: 953d395b mr: 456`,
+    ],
     policy: "rw",
     argsSchema,
     forms: { discussion: { positional: "one" } },

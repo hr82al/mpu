@@ -20,13 +20,13 @@ import {
 } from "./common.ts";
 
 const argsSchema = z.object({
-  note: z.number({ error: "нужен NOTE_ID: номер заметки" }).int(
-    "NOTE_ID — целое число",
-  ).positive("NOTE_ID — положительное число").describe(
-    "номер заметки (id из mpu mr comments --json)",
+  note: z.number({ error: "нужен id: номер заметки" }).int(
+    "id: — целое число",
+  ).positive("id: — положительное число").describe(
+    "номер заметки (id из mpu mr comments end json)",
   ),
   mr: z.string().optional().describe(
-    "MR: URL | 'group/repo!iid' | iid; без флага — открытый MR ветки",
+    "MR: URL | 'group/repo!iid' | iid; без ключа — открытый MR ветки",
   ),
   message: z.string().optional().describe("новый текст заметки"),
   "body-file": z.string().optional().describe(
@@ -72,30 +72,33 @@ export const mrEditCommand = defineCommand({
   keys: { id: "note", text: "message" },
   errorName: "mr edit",
   summary: "Заменить текст своей заметки в merge request'е.",
-  usage: "mpu mr edit NOTE_ID [--mr REF] (-m TEXT | -F PATH)",
-  help: `Заменяет тело заметки целиком — дописать к прежнему тексту
+  usage: "mpu mr edit id: ЗАМЕТКА [mr: REF] (text: TEXT | body-file: PATH)",
+  help: `Звать, когда свою заметку в MR надо поправить. Заменяет её тело
+целиком — дописать к прежнему тексту
 нельзя, новый текст встаёт вместо старого.
 
-NOTE_ID — номер заметки, тот самый id из mpu mr comments --json и из
+id: — номер заметки, тот самый id из mpu mr comments end json и из
 ссылки #note_<id>.
 
-Текст — ровно один из -m/--message TEXT и -F/--body-file PATH; '-'
+Текст — ровно один из text: TEXT и body-file: PATH; '-'
 вместо пути означает весь stdin и работает только в CLI. Тело уходит
 дословно.
 
 Правится только своя заметка: чужую отобьёт сам GitLab.
 
---mr REF — адрес MR: URL, 'group/repo!iid' или голый iid; без флага —
+mr: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без ключа —
 открытый MR текущей ветки.
 
 Ключи env-файла: GLAB_TOKEN (обязателен), GITLAB_BASE_URL
 (необязателен).
 
-Exit: 0 — успех; 2 — NOTE_ID не передан или не число, сочетание флагов
-тела, пустое тело, нераспознанный --mr; 1 — отказ GitLab, чужая или
-несуществующая заметка.
-
-Примеры: mpu mr edit 42 -m 'уточнил'; mpu mr edit 42 -F правка.md`,
+Exit: 0 — успех; 2 — id: не передан или не число, сочетание ключей
+тела, пустое тело, нераспознанный mr:; 1 — отказ GitLab, чужая или
+несуществующая заметка.`,
+  examples: [
+    "mpu mr edit id: 42 text: уточнил",
+    "mpu mr edit id: 42 body-file: правка.md",
+  ],
   policy: "rw",
   argsSchema,
   forms: {

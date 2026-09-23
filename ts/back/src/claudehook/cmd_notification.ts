@@ -56,7 +56,10 @@ export const claudeHookNotificationCommand = defineCommand({
   errorName: "claude-hook notification",
   summary: "Отправить уведомление хука Claude Code в личного бота.",
   usage: "mpu claude-hook notification",
-  help: `Адаптер хука Notification: весь stdin — JSON-объект payload'а
+  help: `Звать не руками: команду вызывает хук Notification Claude Code,
+чтобы уведомление пришло в личного бота Telegram.
+
+Адаптер хука Notification: весь stdin — JSON-объект payload'а
 события, наружу уходит одно сообщение личному боту (тот же канал, что
 у mpu telegram log). Аргументов и опций нет.
 
@@ -89,6 +92,7 @@ Exit: 0 — успех; 1 — конфигурация или отказ Bot API
 
 Включение — в ~/.claude/settings.json, секция hooks.Notification:
 {"type": "command", "command": "mpu claude-hook notification"}`,
+  examples: ["mpu claude-hook notification"],
   policy: "rw",
   argsSchema,
   resultSchema,

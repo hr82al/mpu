@@ -63,7 +63,7 @@ const SHOWN_CANDIDATES = 10;
  * `fix`).
  */
 const NOT_SET = "Spreadsheet не указан. Используй --spreadsheet/-s или " +
-  "установи `sheet.default`: mpu config sheet.default <id-or-name>.";
+  "установи `sheet.default`: mpu config key: sheet.default value: <id-or-name>.";
 
 /** Цель по источникам; ни один не задан — ошибка ввода. */
 export function resolveTarget(

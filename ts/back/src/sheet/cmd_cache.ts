@@ -109,7 +109,10 @@ export const sheetCacheInfoCommand = defineCommand({
   errorName: "sheet cache info",
   summary: "Показать состояние локального кэша вкладок.",
   usage: "mpu sheet cache info",
-  help: `Печатает итог и разбивку по таблицам, от крупных к мелким:
+  help: `Звать, когда кажется, что sheet отвечает устаревшим: показывает,
+что и как давно лежит в кэше таблиц.
+
+Печатает итог и разбивку по таблицам, от крупных к мелким:
 размер тел вкладок и момент самой свежей записи.
 
 Состояние только читается: команда «покажи состояние», молча его
@@ -121,6 +124,7 @@ clear.
 говорит об этом и советует mpu init; ошибкой это не является.
 
 Exit: 0 — успех.`,
+  examples: ["mpu sheet cache info"],
   policy: "ro",
   argsSchema: infoArgs,
   resultSchema: infoResult,
@@ -150,9 +154,11 @@ export const sheetCacheClearCommand = defineCommand({
   keys: {},
   errorName: "sheet cache clear",
   summary: "Очистить локальный кэш вкладок.",
-  usage: "mpu sheet cache clear [-s SS]",
-  help: `Удаляет две вещи: тела вкладок и метаданные таблицы. С -s —
-по одной таблице, без -s — весь кэш.
+  usage: "mpu sheet cache clear [spreadsheet: SS]",
+  help: `Звать, когда sheet отвечает устаревшим и --refresh не помогает
+или кэш надо освободить: удаляет две вещи — тела вкладок и метаданные
+таблицы. С spreadsheet: — по одной таблице, без spreadsheet: — весь
+кэш.
 
 Вывод различает три исхода: чистить было нечего; удалены вкладки;
 вкладок не было, но метаданные сброшены. Одним числом это не
@@ -162,9 +168,10 @@ export const sheetCacheClearCommand = defineCommand({
 
 Таблиц кэша нет вовсе — команда говорит об этом и завершается успехом.
 
-Exit: 0 — успех; 2 — цель не резолвится.
-
-Пример: mpu sheet cache clear -s 4326`,
+Exit: 0 — успех; 2 — цель не резолвится.`,
+  examples: [
+    "mpu sheet cache clear spreadsheet: 4326",
+  ],
   policy: "rw",
   argsSchema: clearArgs,
   forms: { spreadsheet: { short: "s" } },

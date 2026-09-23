@@ -165,8 +165,12 @@ export const sheetBatchGetCommand = defineCommand({
   errorName: "sheet batch-get",
   summary: "Прочитать значения и структуру Google-таблицы одним планом.",
   usage:
-    "mpu sheet batch-get [-e ВЫРАЖЕНИЕ]… [--from FILE|-] [-s SS] [-n TAB] [--dry-run]",
-  help: `Скрипт из инструкций get и read сливается в один план: все
+    "mpu sheet batch-get [expression: ВЫРАЖЕНИЕ]… [from: FILE|-] [spreadsheet: SS] [sheet: TAB] [--dry-run]",
+  help: `Звать, когда из Google-таблицы нужно прочитать много
+диапазонов или её структуру (слияния, форматы условий, свойства) одним
+заходом, а не серией sheet get.
+
+Скрипт из инструкций get и read сливается в один план: все
 диапазоны уходят одним values/batchGet, все аспекты структуры — одним
 spreadsheets/get. Опции — «последнее слово побеждает».
 
@@ -188,10 +192,10 @@ webapp. Кэш листов не читается и не пишется: пов
 одного вызова.
 
 Exit: 0 — успех; 2 — ошибки скрипта, ввода и резолва цели; 1 — отказ
-webapp и отсутствующий WB_PLUS_WEB_APP_URL.
-
-Пример: mpu sheet batch-get -s 4326 -n Sheet1 \\
-  -e "get A1:B2 formula; read Sheet1 merges props"`,
+webapp и отсутствующий WB_PLUS_WEB_APP_URL.`,
+  examples: [
+    'mpu sheet batch-get spreadsheet: 4326 sheet: Sheet1 expression: "get A1:B2 formula; read Sheet1 merges props"',
+  ],
   policy: "ro",
   argsSchema,
   forms: {

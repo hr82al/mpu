@@ -81,11 +81,11 @@ function delivery(group: string, service: string, method: string): string {
 \`node cli service:${service} ${method}\` и стримит его вывод, код выхода
 наследуется 1:1. Это мутация прод-схемы, а не отчёт о ней.
 
--p/--print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с -p печатает форму локального стенда
-(без ssh); сам по себе --local — ошибка ввода.
+--print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. --local вместе с --print печатает форму локального
+стенда (без ssh); сам по себе --local — ошибка ввода.
 
-Значения флагов проверяются до сети и до печати: допустимы только
+Значения ключей проверяются до сети и до печати: допустимы только
 A-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка это ошибка ввода.
 
 Exit: код inner-команды при выполнении; 0 при печати; 2 — ошибки ввода,
@@ -100,17 +100,16 @@ function appMigrations(sub: string): Command {
     path: ["app-migrations", sub],
     keys: {},
     summary: `Миграции схемы приложения: ${sub}.`,
-    usage: `mpu app-migrations [-p [--local]] SELECTOR ${sub} [--name N]`,
-    help: `Селектор и режимы печати набираются ДО имени подкоманды:
-mpu app-migrations sl-1 ${sub}. Имя подкоманды перед селектором —
-ошибка ввода.
+    usage:
+      `mpu app-migrations ${sub} target: СЕЛЕКТОР [name: N] [--print [--local]]`,
+    help: `Звать, когда схеме приложения sl-back на сервере нужен шаг
+миграций ${sub}.
 
 ${delivery("app-migrations", "appMigrations", method)}
 
-SELECTOR — сам сервер (sl-N) либо клиент, по которому он находится.
---client-id у этой команды нет: схема приложения одна на сервер.
-
-Пример: mpu app-migrations -p sl-1 ${sub}`,
+target: — сам сервер (sl-N) либо клиент, по которому он находится.
+client-id: у этой команды нет: схема приложения одна на сервер.`,
+    examples: [`mpu app-migrations ${sub} target: sl-1 --print`],
     policy: "rw",
     helpWhenBare: true,
     errorName: "app-migrations",
@@ -141,17 +140,16 @@ function clientsMigrations(sub: string): Command {
     keys: {},
     summary: `Миграции клиентской схемы: ${sub}.`,
     usage:
-      `mpu clients-migrations ${sub} SELECTOR --type T [--name N] [--forced] [-p [--local]]`,
-    help: `Селектор идёт ПОСЛЕ имени подкоманды — как у mpu wb-loader.
+      `mpu clients-migrations ${sub} target: СЕЛЕКТОР type: T [name: N] [--forced] [--print [--local]]`,
+    help: `Звать, когда схеме одного клиента нужен шаг миграций ${sub}.
 
 ${delivery("clients-migrations", "clientsMigrations", method)}
 
---type обязателен. --name и --forced необязательны: незаданные в
+type: обязателен. name: и --forced необязательны: незаданные в
 inner-команде не появляются, а --forced уходит голым флагом без
-значения. --client-id берётся из кандидатов селектора, если у всех
-кандидатов он один.
-
-Пример: mpu clients-migrations ${sub} 777 --type wb -p`,
+значения. client-id: берётся из кандидатов цели, если у всех
+кандидатов он один.`,
+    examples: [`mpu clients-migrations ${sub} target: 777 type: wb --print`],
     policy: "rw",
     helpWhenBare: true,
     errorName: "clients-migrations",
@@ -184,16 +182,19 @@ function clientsMigrationsAll(): Command {
     path: ["clients-migrations", "latest-all"],
     keys: {},
     summary: "Миграции клиентских схем: latest по всем клиентам сервера.",
-    usage: "mpu clients-migrations latest-all SELECTOR --type T [-p [--local]]",
-    help: `Селектор идёт ПОСЛЕ имени подкоманды и означает сервер:
-метод сам разъезжается по всем клиентам, и --client-id у него нет — ни
-в CLI, ни в inner-команде.
+    usage:
+      "mpu clients-migrations latest-all target: СЕЛЕКТОР type: T [--print [--local]]",
+    help: `Звать, когда схемы всех клиентов сервера надо довести до
+последней миграции одним вызовом. target: здесь означает сервер: метод
+сам разъезжается по всем клиентам, и client-id: у него нет — ни в
+строке, ни в inner-команде.
 
 ${delivery("clients-migrations", "clientsMigrations", "latestAll")}
 
---type обязателен.
-
-Пример: mpu clients-migrations latest-all sl-8 --type wb -p`,
+type: обязателен.`,
+    examples: [
+      "mpu clients-migrations latest-all target: sl-8 type: wb --print",
+    ],
     policy: "rw",
     helpWhenBare: true,
     errorName: "clients-migrations",
@@ -223,15 +224,16 @@ function datasetsMigrations(sub: string): Command {
     keys: {},
     summary: `Миграции датасетов клиента: ${sub}.`,
     usage:
-      `mpu datasets-migrations ${sub} SELECTOR --dataset D [--name N] [-p [--local]]`,
-    help: `Селектор идёт ПОСЛЕ имени подкоманды — как у mpu wb-loader.
+      `mpu datasets-migrations ${sub} target: СЕЛЕКТОР dataset: D [name: N] [--print [--local]]`,
+    help: `Звать, когда датасету клиента нужен шаг миграций ${sub}.
 
 ${delivery("datasets-migrations", "datasetsMigrations", method)}
 
---dataset обязателен, --name необязателен. --client-id берётся из
-кандидатов селектора, если у всех кандидатов он один.
-
-Пример: mpu datasets-migrations ${sub} 777 --dataset wb_unit -p`,
+dataset: обязателен, name: необязателен. client-id: берётся из
+кандидатов цели, если у всех кандидатов он один.`,
+    examples: [
+      `mpu datasets-migrations ${sub} target: 777 dataset: wb_unit --print`,
+    ],
     policy: "rw",
     helpWhenBare: true,
     errorName: "datasets-migrations",

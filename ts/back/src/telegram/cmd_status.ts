@@ -224,12 +224,13 @@ export const telegramStatusCommand = defineCommand({
   keys: {},
   errorName: "telegram status",
   summary: "Отправить отчёт о сегодняшних перемещениях карточек.",
-  usage: "mpu telegram status [--chat X] [--no-live] [--dry-run]",
-  help: `Отчёт за сегодня (день МСК): какие карточки Kaiten я двигал и
+  usage: "mpu telegram status [chat: X] [--no-live] [--dry-run]",
+  help: `Звать в конце дня, когда нужна сводка о движении карточек
+Kaiten для отправки в Telegram. Отчёт за сегодня (день МСК): какие карточки Kaiten я двигал и
 куда. Источники — журнал перемещений (его пишут команды mpu kiten) и
 живой опрос Kaiten.
 
---chat X — адресат: me («Избранное»), id, @username, ссылка t.me,
+chat: X — адресат: me («Избранное»), id, @username, ссылка t.me,
 телефон или название чата. Не задан — берётся TELEGRAM_DEFAULT_CHAT.
 --no-live — не опрашивать Kaiten: отчёт на одном журнале.
 --dry-run — напечатать отчёт в stdout и выйти: ни адресат, ни Telegram
@@ -248,9 +249,10 @@ stdout — текст отчёта при --dry-run, иначе строка JSO
 (обязательны), TELEGRAM_DEFAULT_CHAT, TELEGRAM_PROXY, KITEN_API_KEY,
 KITEN_BASE_URL, KITEN_COLUMN_MAP, KITEN_STATUS_EMOJI.
 
-Exit: 1 — конфигурация или отказ Telegram; 2 — адресат не задан.
-
-Пример: mpu telegram status --dry-run --no-live`,
+Exit: 1 — конфигурация или отказ Telegram; 2 — адресат не задан.`,
+  examples: [
+    "mpu telegram status --dry-run --no-live",
+  ],
   policy: "rw",
   argsSchema,
   resultSchema,

@@ -93,7 +93,7 @@ Deno.test("отказы резолва — тексты атома дослов�
     assertEquals(
       err.message,
       "Spreadsheet не указан. Используй --spreadsheet/-s или установи " +
-        "`sheet.default`: mpu config sheet.default <id-or-name>.",
+        "`sheet.default`: mpu config key: sheet.default value: <id-or-name>.",
     );
   });
 

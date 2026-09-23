@@ -1,1 +1,1 @@
-Usage: mpu sheet get [RANGES...] [--from FILE] [--sheet TAB]
+Usage: mpu sheet get range: ДИАПАЗОН... [from: FILE] [sheet: TAB]
