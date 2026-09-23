@@ -5,15 +5,17 @@
  * цепочки, узнающий следующий приёмник лишь после сообщения.
  */
 
-import { assert, assertEquals, assertThrows } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import golden from "./testdata/messages/cases.json" with { type: "json" };
 import {
+  type Evaluation,
   GRAMMAR,
   type KeyKind,
   type Message,
   MessageParseError,
   readMessage,
   type ReceiverDescription,
+  resolvedMessage,
 } from "./mod.ts";
 
 interface RawReceiver {
@@ -94,11 +96,21 @@ function receiverFor(
   return receiver;
 }
 
-/** Разбирает строку шаг за шагом, пока не кончатся слова. */
-function readChain(
+/** Выражения значений видны метками: группа — «do … end», ввод — «stdin». */
+const SHOWN: Evaluation = {
+  group: (words) =>
+    Promise.resolve(`« ${[GRAMMAR.open, ...words, GRAMMAR.close].join(" ")} »`),
+  stdin: () => Promise.resolve(`« ${GRAMMAR.stdin} »`),
+};
+
+/**
+ * Разбирает строку шаг за шагом, пока не кончатся слова; значения
+ * сообщений — с метками выражений.
+ */
+async function readChain(
   words: readonly string[],
   names: readonly string[],
-): Message[] {
+): Promise<Message[]> {
   const messages: Message[] = [];
   let rest = words;
   do {
@@ -111,22 +123,22 @@ function readChain(
       rest.length === 0 || left < rest.length,
       `шаг ${messages.length} не забрал ни одного слова`,
     );
-    messages.push(step.message);
+    messages.push(await resolvedMessage(step.message, SHOWN));
     rest = step.rest;
   } while (rest.length > 0);
   return messages;
 }
 
-Deno.test("в эталоне 66 случаев", () => {
-  assertEquals(golden.cases.length, 66);
+Deno.test("в эталоне 72 случая", () => {
+  assertEquals(golden.cases.length, 72);
 });
 
 Deno.test("случаи эталона разбора сообщений", async (t) => {
   for (const c of golden.cases) {
-    await t.step(c.name, () => {
+    await t.step(c.name, async () => {
       const words = c.words.map(word);
       if ("error" in c) {
-        const err = assertThrows(
+        const err = await assertRejects(
           () => readChain(words, c.receivers),
           MessageParseError,
         );
@@ -134,7 +146,7 @@ Deno.test("случаи эталона разбора сообщений", async
         return;
       }
       assertEquals<unknown>(
-        readChain(words, c.receivers),
+        await readChain(words, c.receivers),
         unmarked(c.messages),
       );
     });

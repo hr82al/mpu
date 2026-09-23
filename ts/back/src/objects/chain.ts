@@ -6,8 +6,11 @@
 
 import {
   GRAMMAR,
+  type Message,
   MessageParseError,
+  type ParsedMessage,
   readMessage,
+  resolvedMessage,
   StrayWord,
 } from "../messages/mod.ts";
 import type { Help } from "./help.ts";
@@ -18,6 +21,7 @@ import type {
   ResultKind,
   Sent,
   Trace,
+  ValueEvaluation,
   Walker,
 } from "./protocol.ts";
 import { HELP_SELECTOR } from "./protocol.ts";
@@ -99,6 +103,30 @@ class Walk implements Walker {
     this.#pending = new HelpCall(this.#pending, this.#trail.copy());
   }
 
+  /**
+   * Сообщение с вычисленными значениями. Отказ вычисления получает
+   * спереди адрес того, кто примет сообщение, — как лишнее слово.
+   */
+  async valued(
+    message: ParsedMessage,
+    evaluation: ValueEvaluation,
+  ): Promise<Message> {
+    const kind = this.#pending.result().reflect();
+    try {
+      return await resolvedMessage(message, {
+        group: (words, key) => evaluation.group(words, key),
+        stdin: (key) => evaluation.stdin(key, kind.prompts(key)),
+      });
+    } catch (err) {
+      if (!(err instanceof Refusal)) throw err;
+      const shown = this.#trail.copy();
+      this.#pending.trace(shown);
+      const at = shown.address();
+      const hint = err.remedy.spell(at, []);
+      throw new Rejection(`${at}: ${err.message}${hint}`, { cause: err });
+    }
+  }
+
   async send(sent: Sent) {
     const receiver = await this.#advance();
     this.#pending = this.#refused(() => receiver.lookup(sent));
@@ -166,11 +194,13 @@ class Walk implements Walker {
  *
  * @param words слова строки, как их отдала оболочка
  * @param origin корень дерева (`origin`)
- * @returns итог-данные, итог-объект или отказ с кодом 2
+ * @param evaluation где вычисляются группы и `stdin` на месте значений
+ * @returns итог-данные, итог-объект, код группы или отказ с кодом 2
  */
 export async function runChain(
   words: readonly string[],
   origin: Call,
+  evaluation: ValueEvaluation = NO_EVALUATION,
 ): Promise<Outcome> {
   const walk = new Walk(origin);
   try {
@@ -180,11 +210,36 @@ export async function runChain(
     do {
       const step = walk.read(rest);
       rest = step.rest;
-      await sentOf(step.message).enter(walk);
+      // Значения — до сообщения: внешнее не уходит, пока группа не дала
+      // значение (`platform/value-expression.md`, «Инварианты»).
+      const message = await walk.valued(step.message, evaluation);
+      await sentOf(message).enter(walk);
     } while (rest.length > 0);
     return await walk.settle();
   } catch (err) {
+    if (err instanceof GroupExit) return { path: [], exit: err.code };
     if (!(err instanceof Rejection)) throw err;
     return { error: err.message, code: 2 };
   }
 }
+
+/** Группа значения кончилась кодом ≠ 0: строка кончается им же. */
+export class GroupExit extends Error {
+  override name = "GroupExit";
+  readonly code: number;
+
+  constructor(code: number) {
+    super(`группа значения кончилась кодом ${code}`);
+    this.code = code;
+  }
+}
+
+/** Значений-выражений у строки нет: отказ, а не молчание. */
+const NO_EVALUATION: ValueEvaluation = {
+  group: () => {
+    throw new Refusal("выражение значения здесь не вычисляется");
+  },
+  stdin: () => {
+    throw new Refusal("stdin здесь не читается");
+  },
+};

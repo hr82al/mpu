@@ -1,10 +1,10 @@
-import type { Message } from "./message.ts";
+import type { ParsedMessage } from "./value.ts";
 import { Receiver, type ReceiverDescription } from "./receiver.ts";
 import { Words } from "./words.ts";
 
 /** Как приёмник начинает шаг. */
 interface Opening {
-  start(words: Words, receiver: Receiver): Message;
+  start(words: Words, receiver: Receiver): ParsedMessage;
 }
 
 /** Хвоста нет: шаг начинается с очередного слова. */
@@ -14,7 +14,7 @@ const OPEN: Opening = {
 
 /** Как хвост забирает слова. */
 interface Taking {
-  take(words: Words): Message;
+  take(words: Words): ParsedMessage;
 }
 
 /** Свой хвост: до закрытия. */
@@ -42,7 +42,7 @@ class Tail implements Opening {
     this.#taking = taking;
   }
 
-  start(words: Words, receiver: Receiver): Message {
+  start(words: Words, receiver: Receiver): ParsedMessage {
     if (!words.opensTail(this.#own, receiver)) {
       return OPEN.start(words, receiver);
     }
@@ -58,7 +58,7 @@ function openingOf(description: ReceiverDescription): Opening {
 
 /** Итог шага: сообщение текущему приёмнику и слова, оставшиеся за ним. */
 export interface MessageStep {
-  readonly message: Message;
+  readonly message: ParsedMessage;
   readonly rest: readonly string[];
 }
 

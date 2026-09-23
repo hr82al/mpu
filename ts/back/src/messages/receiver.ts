@@ -4,7 +4,14 @@
  * разбор не спрашивает — непонятое решает сам приёмник.
  */
 
-import { type KeyValue, type Message, MessageParseError } from "./message.ts";
+import { MessageParseError } from "./message.ts";
+import {
+  Flag,
+  ListValue,
+  Literal,
+  type ParsedMessage,
+  type Value,
+} from "./value.ts";
 
 /**
  * Вид ключа в описании приёмника: значение, флаг или список — ключ,
@@ -23,6 +30,12 @@ export interface KeywordMethod {
    * отражения; разбор их не читает.
    */
   readonly reasons?: Readonly<Record<string, string>>;
+  /**
+   * Ключи, которые команда при терминале читает сама (`sql`): `stdin` на
+   * их месте при терминале оставляет ключ без значения; разбор их не
+   * читает.
+   */
+  readonly prompts?: readonly string[];
 }
 
 /**
@@ -51,32 +64,24 @@ export interface ReceiverDescription {
 
 /** Откуда ключ, ждущий значения, берёт следующее слово. */
 export interface ValueSource {
-  valueFor(key: string): string;
+  valueFor(key: string): Value;
 }
 
 /** Вид ключа: как из слова строки получается значение. */
 export interface Kind {
-  /** Значение записано текстом: `ключ: текст` или `--ключ=текст`. */
-  fromText(key: string, text: string): string | boolean;
+  /** Значение записано в строке: `ключ: …` или `--ключ=текст`. */
+  fromText(key: string, value: Value): Value;
   /** Форма `--ключ` без `=`. */
-  bare(key: string, source: ValueSource): string | boolean;
+  bare(key: string, source: ValueSource): Value;
   /**
    * Значение ключа с новым словом: у списка — дописано, у прочих повтор
    * ключа — ошибка.
    */
-  join(
-    key: string,
-    before: KeyValue | undefined,
-    value: string | boolean,
-  ): KeyValue;
+  join(key: string, before: Value | undefined, value: Value): Value;
 }
 
 /** Повтор ключа, который не список. */
-function once(
-  key: string,
-  before: KeyValue | undefined,
-  value: string | boolean,
-): KeyValue {
+function once(key: string, before: Value | undefined, value: Value): Value {
   if (before !== undefined) {
     throw new MessageParseError(`ключ ${key} указан дважды`);
   }
@@ -84,37 +89,22 @@ function once(
 }
 
 const VALUE: Kind = {
-  fromText: (_key, text) => text,
+  fromText: (_key, value) => value,
   bare: (key, source) => source.valueFor(key),
   join: once,
 };
 
-/** Значения ключа-списка до нового слова: первое слово — пусто. */
-function valuesOf(before: KeyValue | undefined): readonly string[] {
-  return Array.isArray(before) ? before : [];
-}
-
 /** Ключ-список: значения копятся по порядку строки. */
 const LIST: Kind = {
-  fromText: (_key, text) => text,
+  fromText: (_key, value) => value,
   bare: (key, source) => source.valueFor(key),
-  join: (_key, before, value) => [...valuesOf(before), String(value)],
+  join: (_key, before, value) =>
+    before === undefined ? new ListValue([value]) : before.append(value),
 };
 
-const FLAG_TEXTS: ReadonlyMap<string, boolean> = new Map([
-  ["true", true],
-  ["false", false],
-]);
-
 const FLAG: Kind = {
-  fromText(key, text) {
-    const flag = FLAG_TEXTS.get(text);
-    if (flag === undefined) {
-      throw new MessageParseError(`ключ ${key} ждёт true или false`);
-    }
-    return flag;
-  },
-  bare: () => true,
+  fromText: (key, value) => value.asFlag(key),
+  bare: () => new Flag(true),
   join: once,
 };
 
@@ -126,18 +116,18 @@ const KINDS: Readonly<Record<KeyKind, Kind>> = {
 
 /** Набор пар одного ключевого сообщения. */
 class Pairs {
-  readonly #values = new Map<string, KeyValue>();
+  readonly #values = new Map<string, Value>();
 
   names(): string[] {
     return [...this.#values.keys()];
   }
 
   /** Записывает ключ: повтор решает вид ключа (`Kind.join`). */
-  take(key: string, kind: Kind, read: (kind: Kind) => string | boolean) {
+  take(key: string, kind: Kind, read: (kind: Kind) => Value) {
     this.#values.set(key, kind.join(key, this.#values.get(key), read(kind)));
   }
 
-  message(): Message {
+  message(): ParsedMessage {
     return { keyword: Object.fromEntries(this.#values) };
   }
 }
@@ -171,7 +161,7 @@ export class Draft {
   readonly #pairs = new Pairs();
   readonly #methods: readonly Method[];
   readonly #receiver: Receiver;
-  #last: string | boolean = "";
+  #last: Value = new Literal("");
 
   constructor(methods: readonly Method[], receiver: Receiver) {
     this.#methods = methods;
@@ -179,7 +169,7 @@ export class Draft {
   }
 
   /** Добавляет ключ; значение читает `read` по виду ключа. */
-  take(key: string, read: (kind: Kind) => string | boolean) {
+  take(key: string, read: (kind: Kind) => Value) {
     this.#pairs.take(key, this.#receiver.kindOf(key), (kind) => {
       this.#last = read(kind);
       return this.#last;
@@ -188,7 +178,7 @@ export class Draft {
 
   /** Значение последней пары текстом: о нём говорит отказ лишнему слову. */
   last(): string {
-    return String(this.#last);
+    return this.#last.text();
   }
 
   /**
@@ -196,7 +186,7 @@ export class Draft {
    * обязательный ключ — ошибка; набор, которого не знает никто, решает
    * сам приёмник.
    */
-  finish(): Message {
+  finish(): ParsedMessage {
     const keys = this.#pairs.names();
     const shortfalls = this.#methods
       .filter((method) => method.has(keys))

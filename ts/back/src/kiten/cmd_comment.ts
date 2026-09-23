@@ -248,8 +248,8 @@ export const kitenCommentCommand = defineCommand({
 
 id: — id карточки либо её URL.
 
-Текст — ровно один источник: text: TEXT либо body-file: PATH
-('-' — stdin); текст GFM markdown, интерактивных чекбоксов Kaiten в
+Текст — ровно один источник: text: TEXT (text: stdin — весь ввод) либо
+body-file: PATH ('-' — ввод, прежняя запись); текст GFM markdown, интерактивных чекбоксов Kaiten в
 комментарии не рендерит.
 
 file: PATH — вложение (ключ повторяется): уходит сам файл, имя в

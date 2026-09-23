@@ -4,15 +4,18 @@
  * хвосте. Строка превращается в объект один раз, в `wordOf`.
  */
 
-import { type Message, MessageParseError, StrayWord } from "./message.ts";
+import { GRAMMAR } from "./grammar.ts";
+import { MessageParseError, StrayWord } from "./message.ts";
 import type { Draft, Kind, Receiver, ValueSource } from "./receiver.ts";
+import {
+  GroupValue,
+  Literal,
+  type ParsedMessage,
+  StdinValue,
+  type Value,
+} from "./value.ts";
 
-/**
- * Слова грамматики (`platform/line-grammar.md` [D.1]): открытие группы,
- * закрытие и знак литерала. Литералом эти слова больше нигде не пишутся —
- * разбор, справка, подсказки и описание тула читают их отсюда.
- */
-export const GRAMMAR = { open: "do", close: "end", literal: "--" } as const;
+export { GRAMMAR };
 
 /** Слово строки, которое разбор читает как сообщение `help`. */
 export const HELP_FLAG = "--help";
@@ -20,11 +23,11 @@ export const HELP_FLAG = "--help";
 /** Слово строки вызова. */
 interface Word {
   /** Слово начинает шаг: какое сообщение получит текущий приёмник. */
-  start(words: Words, receiver: Receiver): Message;
+  start(words: Words, receiver: Receiver): ParsedMessage;
   /** Слово стоит за законченной парой: входит ли оно в сообщение. */
   joinTo(draft: Draft, words: Words): boolean;
   /** Слово стоит там, где ключ `key` ждёт значения. */
-  valueFor(key: string, words: Words): string;
+  valueFor(key: string, words: Words): Value;
   /** Слово стоит за `--`: берётся буквально. */
   literal(): string;
   /** Слово стоит за ключевым сообщением: закрывает его или лишнее. */
@@ -109,7 +112,7 @@ export class Words implements ValueSource {
     this.#at = Math.min(this.#at + 1, this.#list.length);
   }
 
-  valueFor(key: string): string {
+  valueFor(key: string): Value {
     return this.next().valueFor(key, this);
   }
 
@@ -151,7 +154,7 @@ class Bare implements Word {
     this.#after = after;
   }
 
-  start(): Message {
+  start(): ParsedMessage {
     return { unary: this.#text };
   }
 
@@ -159,8 +162,8 @@ class Bare implements Word {
     return false;
   }
 
-  valueFor(): string {
-    return this.#text;
+  valueFor(): Value {
+    return new Literal(this.#text);
   }
 
   literal(): string {
@@ -184,7 +187,7 @@ class Bare implements Word {
 
 /** Как форма записи ключа получает значение. */
 interface KeyForm {
-  read(key: string, kind: Kind, words: Words): string | boolean;
+  read(key: string, kind: Kind, words: Words): Value;
 }
 
 /** `ключ:` — значение в следующем слове. */
@@ -205,8 +208,8 @@ class Inline implements KeyForm {
     this.#text = text;
   }
 
-  read(key: string, kind: Kind): string | boolean {
-    return kind.fromText(key, this.#text);
+  read(key: string, kind: Kind): Value {
+    return kind.fromText(key, new Literal(this.#text));
   }
 }
 
@@ -222,7 +225,7 @@ class Key implements Word {
     this.#form = form;
   }
 
-  start(words: Words, receiver: Receiver): Message {
+  start(words: Words, receiver: Receiver): ParsedMessage {
     const draft = receiver.draft();
     this.#addTo(draft, words);
     while (words.peek().joinTo(draft, words)) continue;
@@ -240,7 +243,7 @@ class Key implements Word {
     draft.take(this.#name, (kind) => this.#form.read(this.#name, kind, words));
   }
 
-  valueFor(key: string): string {
+  valueFor(key: string): Value {
     throw MessageParseError.noValue(key);
   }
 
@@ -271,7 +274,7 @@ const HELP = "help";
 const HELP_WORD: Word = {
   start: () => ({ unary: HELP }),
   joinTo: () => false,
-  valueFor(key) {
+  valueFor(key): Value {
     throw MessageParseError.noValue(key);
   },
   literal: () => HELP_FLAG,
@@ -291,7 +294,7 @@ const HELP_WORD: Word = {
 const ESCAPE: Word = {
   start: (words) => ({ unary: words.literal() }),
   joinTo: () => false,
-  valueFor: (_key, words) => words.literal(),
+  valueFor: (_key, words) => new Literal(words.literal()),
   literal: () => GRAMMAR.literal,
   // Литерал за значением — унарное результату, как голое слово.
   afterPair: (_draft, words) => words.closeHere(),
@@ -311,20 +314,43 @@ const ESCAPE: Word = {
   opensTail: () => true,
 };
 
-/** `do` не первым словом строки. */
+/** `do` не в начале строки и не на месте значения. */
 function openElsewhere(): MessageParseError {
-  return new MessageParseError(`${GRAMMAR.open} — только в начале строки`);
+  return new MessageParseError(
+    `${GRAMMAR.open} — в начале строки или на месте значения`,
+  );
 }
 
-/** `do` — открытие группы; первым словом его снимает исполнитель строки. */
+/**
+ * Слова группы значения до парного закрытия: вложенные группы и `--`
+ * перед словом грамматики учитываются, закрытие не входит.
+ */
+function groupWords(key: string, words: Words): string[] {
+  const taken: string[] = [];
+  let depth = 0;
+  for (;;) {
+    const word = words.next();
+    if (word === END) {
+      throw new MessageParseError(`группа значения ключа ${key} не закрыта`);
+    }
+    if (word === CLOSE && depth === 0) return taken;
+    if (word === OPEN) depth++;
+    if (word === CLOSE) depth--;
+    taken.push(word.literal());
+    if (word === ESCAPE) taken.push(words.literal());
+  }
+}
+
+/**
+ * `do` — открытие группы: первым словом строки его снимает исполнитель,
+ * на месте значения группа — выражение значения.
+ */
 const OPEN: Word = {
   start() {
     throw openElsewhere();
   },
   joinTo: () => false,
-  valueFor() {
-    throw openElsewhere();
-  },
+  valueFor: (key, words) => new GroupValue(groupWords(key, words)),
   literal: () => GRAMMAR.open,
   afterPair() {
     throw openElsewhere();
@@ -341,7 +367,7 @@ const OPEN: Word = {
 const CLOSE: Word = {
   start: () => ({ close: true }),
   joinTo: () => false,
-  valueFor(key) {
+  valueFor(key): Value {
     throw MessageParseError.noValue(key);
   },
   literal: () => GRAMMAR.close,
@@ -354,7 +380,7 @@ const CLOSE: Word = {
 const END: Word = {
   start: () => ({ unary: HELP }),
   joinTo: () => false,
-  valueFor(key) {
+  valueFor(key): Value {
     throw MessageParseError.noValue(key);
   },
   literal() {
@@ -368,11 +394,29 @@ const END: Word = {
 /** Слова грамматики, перед которыми `--` в хвосте снимается. */
 const GRAMMATICAL: ReadonlySet<Word> = new Set([OPEN, CLOSE]);
 
-const EXACT: ReadonlyMap<string, Word> = new Map([
+/**
+ * `stdin` — голое слово везде, кроме места значения: там оно первичное
+ * выражение — ввод строки. Словом `stdin` значение пишется за `--`.
+ */
+function stdinWord(): Word {
+  const bare = new Bare(GRAMMAR.stdin);
+  return {
+    start: () => bare.start(),
+    joinTo: () => bare.joinTo(),
+    valueFor: () => new StdinValue(),
+    literal: () => bare.literal(),
+    afterPair: (draft, words) => bare.afterPair(draft, words),
+    intoTail: (words, into) => bare.intoTail(words, into),
+    opensTail: (own) => bare.opensTail(own),
+  };
+}
+
+const EXACT: ReadonlyMap<string, Word> = new Map<string, Word>([
   [GRAMMAR.literal, ESCAPE],
   [GRAMMAR.open, OPEN],
   [GRAMMAR.close, CLOSE],
   [HELP_FLAG, HELP_WORD],
+  [GRAMMAR.stdin, stdinWord()],
 ]);
 
 /** Слово строки как объект. Ключ — только с непустым именем. */

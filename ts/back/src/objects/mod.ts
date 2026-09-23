@@ -17,6 +17,7 @@ export type {
   Report,
   Sent,
   Trace,
+  ValueEvaluation,
   ValueLine,
   Yields,
 } from "./protocol.ts";
@@ -51,9 +52,9 @@ export {
 } from "./reflection.ts";
 export { completeLine, type Suggestion } from "./complete.ts";
 export { SILENT } from "./silent.ts";
-export { Refusal } from "./refusal.ts";
+export { Refusal, Rejection } from "./refusal.ts";
 export { line as callLine, NO_REMEDY, spoken } from "./remedy.ts";
 export { type Loader, Replaceable } from "./replaceable.ts";
-export { runChain } from "./chain.ts";
+export { GroupExit, runChain } from "./chain.ts";
 export { ended } from "./result.ts";
 export { Help, type HelpData } from "./help.ts";

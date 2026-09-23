@@ -1,14 +1,32 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
+  type Evaluation,
   GRAMMAR,
   type Message,
   MessageParseError,
+  type MessageStep,
   readMessage,
   type ReceiverDescription,
+  resolvedMessage,
   StrayWord,
 } from "./mod.ts";
 
 const { close: END, literal: LITERAL } = GRAMMAR;
+
+/** Выражения значений видны метками: группа — «do … end», ввод — «stdin». */
+const SHOWN: Evaluation = {
+  group: (words) =>
+    Promise.resolve(`«${[GRAMMAR.open, ...words, GRAMMAR.close].join(" ")}»`),
+  stdin: () => Promise.resolve(`«${GRAMMAR.stdin}»`),
+};
+
+/** Шаг разбора с вычисленными значениями — данными. */
+async function plain(step: MessageStep) {
+  return {
+    message: await resolvedMessage(step.message, SHOWN),
+    rest: step.rest,
+  };
+}
 
 const SQLRO: ReceiverDescription = {
   unary: [],
@@ -21,7 +39,7 @@ const SQLRO: ReceiverDescription = {
 Deno.test({
   name: "шаг не трогает окружение, файлы и сеть и повторяется",
   permissions: "none",
-  fn() {
+  async fn() {
     const words = Object.freeze([
       "--seller-id=54",
       "--query",
@@ -29,8 +47,8 @@ Deno.test({
       END,
       "x",
     ]);
-    const first = readMessage(words, SQLRO);
-    const second = readMessage(words, SQLRO);
+    const first = await plain(readMessage(words, SQLRO));
+    const second = await plain(readMessage(words, SQLRO));
     assertEquals(first, second);
     assertEquals(first, {
       message: { keyword: { query: "select 1", "seller-id": "54" } },
@@ -68,8 +86,8 @@ Deno.test("правила спеки вне эталона: один шаг", as
     },
   ];
   for (const c of cases) {
-    await t.step(c.words.join(" "), () => {
-      assertEquals(readMessage(c.words, KITEN), {
+    await t.step(c.words.join(" "), async () => {
+      assertEquals(await plain(readMessage(c.words, KITEN)), {
         message: c.message,
         rest: c.rest,
       });
@@ -85,8 +103,8 @@ Deno.test("правила спеки вне эталона: унарное за 
       ["card:", "1", "x"],
     ]
   ) {
-    await t.step(words.join(" "), () => {
-      assertEquals(readMessage(words, KITEN), {
+    await t.step(words.join(" "), async () => {
+      assertEquals(await plain(readMessage(words, KITEN)), {
         message: { keyword: { card: "1" } },
         rest: [END, ...words.slice(2)],
       });
@@ -115,9 +133,55 @@ Deno.test("правила спеки вне эталона: слово-не-зн
   }
 });
 
-Deno.test("у приёмника с хвостом пустая строка — всё равно справка", () => {
+Deno.test("у приёмника с хвостом пустая строка — всё равно справка", async () => {
   assertEquals(
-    readMessage([], { unary: [], keyword: [], tail: "args" }),
+    await plain(readMessage([], { unary: [], keyword: [], tail: "args" })),
     { message: { unary: "help" }, rest: [] },
   );
+});
+
+const LISTED: ReceiverDescription = {
+  unary: [],
+  keyword: [{
+    keys: { range: "list", dry: "flag" },
+    required: ["range"],
+  }],
+};
+
+Deno.test("выражения значений: список, флаг, лишнее слово", async (t) => {
+  await t.step("ключ-список — группа и stdin по порядку", async () => {
+    const words = [
+      "range:",
+      GRAMMAR.open,
+      "x",
+      END,
+      "range:",
+      "A1",
+      "range:",
+      GRAMMAR.stdin,
+    ];
+    assertEquals(await plain(readMessage(words, LISTED)), {
+      message: { keyword: { range: ["«do x end»", "A1", "«stdin»"] } },
+      rest: [],
+    });
+  });
+  for (const value of [[GRAMMAR.open, "x", END], [GRAMMAR.stdin]]) {
+    await t.step(`флаг: ${value.join(" ")}`, () => {
+      const err = assertThrows(
+        () => readMessage(["range:", "A1", "dry:", ...value], LISTED),
+        MessageParseError,
+      );
+      assertEquals(err.message, "ключ dry ждёт true или false");
+    });
+  }
+  await t.step("лишнее слово за группой — отказ с её текстом", () => {
+    const err = assertThrows(
+      () => readMessage(["card:", GRAMMAR.open, "x", END, "-v"], KITEN),
+      StrayWord,
+    );
+    assertEquals(
+      err.message,
+      `значение ${GRAMMAR.open} x ${END} не понимает -v`,
+    );
+  });
 });

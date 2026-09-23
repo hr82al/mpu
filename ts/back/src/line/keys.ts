@@ -266,6 +266,8 @@ export class Keys {
   /** Входы, значения которых задаёт режим; вне режима — нет. */
   readonly #fixed: Readonly<Record<string, string>>;
   readonly #inputs: readonly InputSpec[];
+  /** Вход, который команда при терминале читает сама. */
+  readonly #terminal: string | undefined;
   readonly #layout: Layout;
 
   /**
@@ -284,6 +286,7 @@ export class Keys {
     this.#path = command.path;
     this.#modes = new Map(Object.entries(command.modes));
     this.#fixed = mode.fixed;
+    this.#terminal = command.terminalInput;
     this.#inputs = command.inputs;
     this.#formats = formatInputs(command, formats);
     this.#formatNames = new Set(formats);
@@ -433,6 +436,8 @@ export class Keys {
       reasons: Object.fromEntries(
         this.#specs.map((spec) => [spec.name, spec.why]),
       ),
+      prompts: this.#specs.filter((spec) => spec.input === this.#terminal)
+        .map((spec) => spec.name),
     };
   }
 

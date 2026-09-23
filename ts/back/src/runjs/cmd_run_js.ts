@@ -14,9 +14,8 @@ export const runJsCommand = defineCommand({
   summary: "Выполнить JS-код в контейнере sl-back.",
   usage:
     "mpu run-js [target: СЕЛЕКТОР] [text: КОД] [file: PATH] [--all|--all-containers SUBSTR] [--dry-run] [via: ssh|portainer] [--parallel [jobs: N]] [--detach]",
-  help: `Звать, когда нужно выполнить JS-код внутри приложения
-sl-back на сервере или в контейнере: с его node_modules, алиасами и env,
-а не в локальном node.
+  help: `Звать, когда JS-код надо выполнить внутри приложения sl-back —
+с его node_modules, алиасами и env, а не в локальном node.
 
 Код уходит на stdin команде \`node --input-type=module -\`,
 поэтому ему доступны node_modules, import-алиасы и env приложения;
@@ -26,7 +25,8 @@ sl-back на сервере или в контейнере: с его node_modul
 (инстанс-серверы кэша, N>0; sl-0 не входит) либо all-containers:
 ПОДСТРОКА.
 
-Код: text:, иначе file:, иначе stdin (с терминала — до Ctrl+D).
+Код: text: (text: stdin — ввод), иначе file:, иначе ввод (с терминала
+— до Ctrl+D).
 text: вместе с file: и пустой код — ошибки ввода.
 
 Режимы: по умолчанию последовательно, первый ненулевой код прерывает

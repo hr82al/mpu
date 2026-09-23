@@ -22,6 +22,8 @@ import { JSON_STRIPPED, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
 import { registrySeeds } from "./seeds.ts";
 import { targetValues } from "../selector/mod.ts";
 import { Session } from "./session.ts";
+import { LineValues, StdinOnce } from "./value.ts";
+import { ASK_WORD } from "./view.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 
@@ -182,24 +184,48 @@ export function lineEntry(ports: LinePorts): CliEntry {
       return 1;
     }
     using _book = book;
-    const line = new Session({
-      book,
-      channel: ports.channel(io, output),
-      output,
-      dispatch: (view, order) =>
-        ports.execute(() =>
-          runLine(order.argv(view.executed(argv)), io, output, journal)
-        ),
-    });
-    const root = registryRoot(line, book, {
+    // stdin строки — один источник: ключом `stdin` и прежней подстановкой.
+    const stdin = new StdinOnce(io);
+    const lineIo: CommandIo = { ...io, readStdin: () => stdin.forCommand() };
+    const channel = ports.channel(io, output);
+    const parts = {
       own: ports.rootMethods.map(rootMethod),
-      stripped: strippedOf(argv),
-      targets: (like) => {
+      targets: (like: string) => {
         using db = io.openCacheDb();
         return Promise.resolve(targetValues(db, like));
       },
+    };
+    /** Строка `words` с выводом `out`: её собственная сессия. */
+    const sessionOf = (words: readonly string[], out: Output) =>
+      new Session({
+        book,
+        channel,
+        output: out,
+        dispatch: (view, order) =>
+          ports.execute(() =>
+            runLine(order.argv(view.executed(words)), lineIo, out, journal)
+          ),
+      });
+    const walked = walkedWords(argv);
+    // Строка через дверь объявляет запись для всей строки: группы
+    // значений идут той же дверью (`platform/value-expression.md`).
+    const door = walked[0] === ASK_WORD ? [ASK_WORD] : [];
+    const values: LineValues = new LineValues(async (words) => {
+      const printed: string[] = [];
+      const captured: Output = {
+        stdout: (text) => void printed.push(text),
+        stderr: output.stderr,
+      };
+      const group = [...door, ...words];
+      const root = registryRoot(sessionOf(group, captured), book, parts);
+      const outcome = await runChain(group, root, values);
+      return { outcome, printed: printed.join("") };
+    }, stdin);
+    const root = registryRoot(sessionOf(argv, output), book, {
+      ...parts,
+      stripped: strippedOf(argv),
     });
-    const outcome = await runChain(walkedWords(argv), root);
+    const outcome = await runChain(walked, root, values);
     return printed(outcome, output);
   };
 }

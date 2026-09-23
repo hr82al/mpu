@@ -6,15 +6,26 @@
  */
 
 import {
+  type Evaluation,
   GRAMMAR,
   type KeywordMethod,
   MessageParseError,
   readMessage,
+  resolvedMessage,
 } from "../messages/mod.ts";
 import { spelled } from "./reflection.ts";
 import { Refusal, Rejection } from "./refusal.ts";
 import { sentOf } from "./sent.ts";
 import type { Call, Reflection, Sent, ValueLine, Walker } from "./protocol.ts";
+
+/**
+ * Дополнение значений не вычисляет: группа и `stdin` — пустой текст, ни
+ * команды, ни чтения.
+ */
+const UNEVALUATED: Evaluation = {
+  group: () => Promise.resolve(""),
+  stdin: () => Promise.resolve(""),
+};
 
 /** Слово дополнения и что оно значит. */
 export interface Suggestion {
@@ -111,7 +122,7 @@ async function walked(
       return moreKeys(next.parsing.keyword, Object.keys(step.message.keyword));
     }
     rest = step.rest;
-    await sentOf(step.message).enter(probe);
+    await sentOf(await resolvedMessage(step.message, UNEVALUATED)).enter(probe);
   }
   const next = probe.next();
   if (key !== undefined) {

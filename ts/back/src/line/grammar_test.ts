@@ -98,7 +98,7 @@ Deno.test("do не первым словом — отказ", () =>
     assertEquals(await run(file, ["kiten", DO]), {
       code: 2,
       stdout: "",
-      stderr: `${DO} — только в начале строки\n`,
+      stderr: `${DO} — в начале строки или на месте значения\n`,
       called: [],
     });
   }));

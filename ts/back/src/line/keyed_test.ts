@@ -117,7 +117,7 @@ Deno.test("отказы с подсказкой по таблице спеки",
     ],
     [
       ["kiten", "card", "id:", "1", GRAMMAR.open],
-      `${GRAMMAR.open} — только в начале строки`,
+      `${GRAMMAR.open} — в начале строки или на месте значения`,
     ],
   ];
   await withPolicyFile(async (file) => {

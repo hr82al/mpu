@@ -80,8 +80,8 @@ export const mrEditCommand = defineCommand({
 id: — номер заметки, тот самый id из mpu mr comments end json и из
 ссылки #note_<id>.
 
-Текст — ровно один из text: TEXT и body-file: PATH; '-'
-вместо пути означает весь stdin и работает только в CLI. Тело уходит
+Текст — ровно один из text: TEXT и body-file: PATH; text: stdin —
+весь ввод ('-' вместо пути — прежняя запись), только в CLI. Тело уходит
 дословно.
 
 Правится только своя заметка: чужую отобьёт сам GitLab.

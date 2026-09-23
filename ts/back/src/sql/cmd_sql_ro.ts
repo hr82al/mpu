@@ -20,6 +20,7 @@ import {
 
 export const sqlRoCommand = defineCommand({
   path: ["sql-ro"],
+  terminalInput: "sql",
   // Однострока — из слепка дерева: имя и описание переехавшей команды
   // видит режим дополнения, и расходиться с эталоном им незачем.
   summary:
@@ -35,7 +36,7 @@ dev:<client_id> (dev-стенд, схема schema_<client_id>), номер кл
 имя или его часть (поиск по кэшу). Ровно один client_id среди кандидатов
 — search_path на его схему, иначе search_path сервера.
 
-sql: — текст запроса, иначе stdin целиком (с терминала — до Ctrl+D);
+sql: — запрос; sql: stdin или без sql: — ввод (с терминала — до Ctrl+D);
 пустой — ошибка ввода без подключения. Уходит серверу как есть, одним
 вызовом: печатается результат ПЕРВОГО оператора, ошибка любого — отказ
 всего вызова.
@@ -55,7 +56,7 @@ Exit: 0 — успех, включая --dry и запрос без набора
   examples: [
     'mpu sql-ro target: 42 sql: "SELECT count(*) FROM orders"',
     `mpu sql-ro target: sl-1 sql: "select 1" ${GRAMMAR.close} json`,
-    'echo "select 1" | mpu sql-ro target: dev:54 --dry',
+    'echo "select 1" | mpu sql-ro target: dev:54 sql: stdin --dry',
   ],
   keys: { target: "selector", sql: "sql" },
   retired: { server: "target" },

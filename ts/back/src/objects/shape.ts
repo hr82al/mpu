@@ -173,6 +173,10 @@ export class Shape<S> implements Yields<S> {
       formats: () => [...this.#closing.formats()],
       candidates: (key, like) => this.#values.candidates(key, like),
       understands: (selector) => this.#understands(selector),
+      prompts: (key) =>
+        this.#fallbackKeyword().some((method) =>
+          method.prompts?.includes(key) === true
+        ),
     };
   }
 

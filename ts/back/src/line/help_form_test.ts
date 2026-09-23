@@ -8,7 +8,12 @@
 
 import { assert, assertEquals } from "@std/assert";
 import type { Command } from "../command/mod.ts";
-import { type Outcome, type Report, runChain } from "../objects/mod.ts";
+import {
+  type Outcome,
+  type Report,
+  runChain,
+  type ValueEvaluation,
+} from "../objects/mod.ts";
 import { RuleBook } from "../policy/mod.ts";
 import { commands } from "../registry/mod.ts";
 import type { Line } from "./dispatch.ts";
@@ -31,6 +36,12 @@ class Captured implements Line {
     return Promise.resolve(report.exit(0));
   }
 }
+
+/** Значения-выражения примера: проверяется запись, а не исполнение. */
+const SAMPLE_VALUES: ValueEvaluation = {
+  group: () => Promise.resolve("1"),
+  stdin: () => Promise.resolve("select 1"),
+};
 
 /** Слова примера, как их разберёт оболочка: кавычки держат пробелы. */
 function shellWords(example: string): string[] {
@@ -113,6 +124,7 @@ Deno.test("справки: каждый пример доходит до исп�
           const outcome = await runChain(
             lineOf(example),
             registryRoot(new Captured(), book),
+            SAMPLE_VALUES,
           );
           assertEquals(
             "exit" in outcome && outcome.exit,

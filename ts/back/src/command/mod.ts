@@ -415,6 +415,12 @@ interface CommandDeclaration<A, R> {
    * сообщения → режим (`platform/keys-translation.md`, «Исключения»).
    */
   readonly modes?: Readonly<Record<string, CommandMode>>;
+  /**
+   * Вход, который команда при терминале читает сама, если значения нет
+   * (`sql`: чтение до Ctrl+D): `stdin` на его месте при терминале
+   * оставляет его без значения (`platform/value-expression.md`).
+   */
+  readonly terminalInput?: string;
 }
 
 /**
@@ -504,6 +510,8 @@ export interface Command {
   readonly examples: readonly string[];
   /** Режимы команды: имя унарного сообщения → режим. */
   readonly modes: Readonly<Record<string, CommandMode>>;
+  /** Вход, который команда при терминале читает сама; нет — `undefined`. */
+  readonly terminalInput: string | undefined;
   /** Проверяет образец результата объявленной схемой. */
   readonly assertResult: (value: unknown) => void;
 }
@@ -571,6 +579,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     retired: { ...spec.retired },
     examples: [...(spec.examples ?? [])],
     modes: { ...spec.modes },
+    terminalInput: spec.terminalInput,
     textExitCode: (result) =>
       spec.textExitCode === undefined
         ? 0

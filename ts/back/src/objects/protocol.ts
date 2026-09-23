@@ -83,6 +83,22 @@ export interface Reflection {
   /** Значения ключа `key`, начинающиеся с `like`, — не больше 20. */
   candidates(key: string, like: string): Promise<ValueLine[]>;
   understands(selector: string): boolean;
+  /** Ключ `key` команда при терминале читает сама (`sql`). */
+  prompts(key: string): boolean;
+}
+
+/**
+ * Где исполнитель строки вычисляет значения ключей
+ * (`platform/value-expression.md`): у строки, а не у дерева объектов.
+ */
+export interface ValueEvaluation {
+  /** Результат группы `words` — значением ключа `key`. */
+  group(words: readonly string[], key: string): Promise<string>;
+  /**
+   * stdin строки — значением ключа `key`; `prompts` — ключ команда при
+   * терминале читает сама. `undefined` — ключ остаётся без значения.
+   */
+  stdin(key: string, prompts: boolean): Promise<string | undefined>;
 }
 
 /** Вид результата метода: известен без исполнения метода. */

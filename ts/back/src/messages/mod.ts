@@ -17,3 +17,9 @@ export {
 } from "./message.ts";
 export { type MessageStep, readMessage } from "./read.ts";
 export { GRAMMAR, HELP_FLAG } from "./words.ts";
+export {
+  type Evaluation,
+  type ParsedMessage,
+  resolvedMessage,
+  type Value,
+} from "./value.ts";
