@@ -11,7 +11,7 @@ Google-таблице клиента. Механика своя, и потому
 main-БД**, а не из ответа сервера.
 
 ```
-mpu api ss-access request ТАБЛИЦА [--role R] [--reason T] [--template U] [-b JSON|@файл]
+mpu api ss-access request ТАБЛИЦА [--role R] [--reason T] [--template U] [body: JSON | body-file: <путь>]
 mpu api ss-access status  ТАБЛИЦА
 mpu api ss-access revoke  ТАБЛИЦА [--grant-id G] [--reason T]
 mpu api ss-access reset   ТАБЛИЦА [--reason T] [--role R] [--template U]
@@ -26,7 +26,7 @@ mpu api ss-access reset   ТАБЛИЦА [--reason T] [--role R] [--template U]
 1. **Авто-тело.** `request` без опций отправляет умолчания кнопки:
    роль `editor`, обоснование по умолчанию, шаблон `null`. Точечные опции
    (`--role`, `--reason`, `--template`) правят поля; `--body` заменяет тело
-   целиком и отменяет их. `@файл` читает тело из файла.
+   целиком и отменяет их. `body-file: <путь>` читает тело из файла (166; прежнее `@файл` — отказ с готовой строкой).
 
 2. **Резолв идентификатора выдачи из main-БД.** `revoke` без `--grant-id`
    ищет выдачи в `public.spreadsheets_access_grants` со статусами `created`,
@@ -133,7 +133,7 @@ mpu api ss-access reset   ТАБЛИЦА [--reason T] [--role R] [--template U]
 ## Граничные случаи и ошибки
 
 - `--body` с невалидным JSON → код 2, назвать позицию ошибки;
-- `--body @файл`, файла нет → код 2 с путём;
+- `body-file: <путь>`, файла нет → код 2 с путём;
 - `revoke`, выдач не найдено и `--grant-id` не задан → код 0 и сообщение,
   что отзывать нечего (не отказ: состояние уже целевое);
 - main-БД недоступна → код 2 (инвариант 4);
