@@ -18,7 +18,12 @@ import {
 } from "../entrypoint/mod.ts";
 import type { RefusalData } from "../frames/mod.ts";
 import { GRAMMAR, UNNAMED_REFUSAL } from "../messages/mod.ts";
-import { plainRefusal, runChain } from "../objects/mod.ts";
+import {
+  type Outcome,
+  plainRefusal,
+  type Report,
+  runChain,
+} from "../objects/mod.ts";
 import {
   type Channel,
   Human,
@@ -51,7 +56,7 @@ import { printed, type Speech } from "./printed.ts";
 import { Session } from "./session.ts";
 export { HUMAN_ONLY } from "./session.ts";
 import { LineValues, StdinOnce } from "./value.ts";
-import { ASK_WORD } from "./view.ts";
+import { ASK_WORD, toDoor } from "./view.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 
@@ -162,6 +167,8 @@ interface Running {
   readonly journal: InvokeJournal;
   readonly execute: (run: () => Promise<number>) => Promise<number>;
   readonly delivery: Delivery;
+  /** Строка `ask` без двери: куда её отослать. */
+  readonly redirect: (report: Report) => Promise<Outcome>;
 }
 
 /** Отказ-объект никому не нужен: достаточно текста. */
@@ -245,7 +252,12 @@ export function lineEntry(ports: LinePorts): CliEntry {
       },
     };
     /** Как исполняется команда самой строки: её журнал, очередь, печать. */
-    const own: Running = { journal, execute: ports.execute, delivery: PRINT };
+    const own: Running = {
+      journal,
+      execute: ports.execute,
+      delivery: PRINT,
+      redirect: () => toDoor(),
+    };
     /**
      * Строка `words` с выводом `out`: её собственная сессия; результат
      * команды запоминает `memory`, исполняется она так, как велит
@@ -274,6 +286,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
           ),
         streams: (view, order) => streams(order.argv(view.executed(words))),
         terminal: io.stdinIsTerminal(),
+        redirect: running.redirect,
       });
     const walked = walkedWords(argv);
     // Строка через дверь объявляет запись для всей строки: группы
@@ -327,6 +340,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
             journal: subJournal,
             execute: immediately,
             delivery: capture,
+            redirect: () => toDoor(),
           };
           const subRoot = registryRoot(
             sessionOf(sub, heard, ports.memory, running),

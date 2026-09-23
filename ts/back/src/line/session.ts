@@ -26,7 +26,7 @@ import type { Line } from "./dispatch.ts";
 import { printed, type Speech } from "./printed.ts";
 import { selectorFirstWriters } from "./seeds.ts";
 import type { Order } from "./order.ts";
-import { NORMAL, toDoor, type View } from "./view.ts";
+import { NORMAL, type View } from "./view.ts";
 
 /** Код отказа правил и изменения правил. */
 const REFUSED = 1;
@@ -53,6 +53,11 @@ export interface SessionParts {
   readonly streams: (view: View, order: Order) => boolean;
   /** stdin строки — терминал. */
   readonly terminal: boolean;
+  /**
+   * Строка `ask` пришла без двери: отказ с подсказкой верного адреса.
+   * Какой адрес верный, знает тот, кто собрал строку.
+   */
+  readonly redirect: (report: Report) => Promise<Outcome>;
 }
 
 /** Что отбор получил от исполнения. */
@@ -118,6 +123,7 @@ export class Session implements Line {
   readonly #dispatch: SessionParts["dispatch"];
   readonly #streams: SessionParts["streams"];
   readonly #terminal: boolean;
+  readonly #redirect: SessionParts["redirect"];
 
   constructor(parts: SessionParts) {
     this.#book = parts.book;
@@ -126,6 +132,7 @@ export class Session implements Line {
     this.#dispatch = parts.dispatch;
     this.#streams = parts.streams;
     this.#terminal = parts.terminal;
+    this.#redirect = parts.redirect;
   }
 
   terminal(): boolean {
@@ -201,7 +208,7 @@ export class Session implements Line {
         text: report.text(),
         run,
         refuse: (reason, text) => this.#refuse(report, reason, text),
-        redirect: () => toDoor(),
+        redirect: () => this.#redirect(report),
       },
       this.#channel,
       view,

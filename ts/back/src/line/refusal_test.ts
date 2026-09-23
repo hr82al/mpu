@@ -16,6 +16,7 @@ import { registrySeeds } from "./seeds.ts";
 import { Session } from "./session.ts";
 import { consentOf, withPolicyFile } from "./testconsent.ts";
 import { registryRoot } from "./tree.ts";
+import { toDoor } from "./view.ts";
 
 const END = GRAMMAR.close;
 
@@ -53,6 +54,7 @@ async function parsedReason(file: string, words: readonly string[]) {
     dispatch: () => Promise.resolve(0),
     streams: () => false,
     terminal: false,
+    redirect: () => toDoor(),
   });
   const outcome = await runChain(words, registryRoot(session, book));
   if ("refused" in outcome) reasons.push(outcome.refused.data().reason);

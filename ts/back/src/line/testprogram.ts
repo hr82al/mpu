@@ -9,7 +9,7 @@
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import type { InvokeCommand, InvokeLog } from "../invokelog/mod.ts";
-import { startFakeKaiten } from "../kaiten/testing.ts";
+import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
@@ -42,14 +42,38 @@ async function liveJson(name: string): Promise<unknown> {
   return JSON.parse(await Deno.readTextFile(new URL(name, LIVE)));
 }
 
-/** Ответ на `/cards/{id}[/comments]`; карточки нет в списке — 404. */
-async function cardReply(id: number, comments: boolean): Promise<Response> {
+/**
+ * Ответ на `/cards/{id}[/comments]`; карточки нет в списке — 404.
+ * Созданный комментарий — первый из снятых, с новым id.
+ */
+async function cardReply(
+  id: number,
+  comments: boolean,
+  method: string,
+  posted: number,
+): Promise<Response> {
   const listed = CARDS.find((card) => card.id === id);
   if (listed === undefined) return new Response(null, { status: 404 });
-  if (comments) return Response.json(await liveJson("live-raw-comments.json"));
+  const live = await liveJson("live-raw-comments.json");
+  if (comments && method === "POST") {
+    // Снятый список — массив комментариев: так его отдаёт GET.
+    const [first] = live as readonly Record<string, unknown>[];
+    return Response.json({ ...first, id: 900000 + posted });
+  }
+  if (comments) return Response.json(live);
   const card = await liveJson("live-raw-card.json");
   const { title, state } = listed;
   return Response.json(Object.assign({}, card, { id, title, state }));
+}
+
+/** Созданные комментарии в запросах `seen`: `карточка текст`. */
+function postedOf(seen: readonly CapturedRequest[]): string[] {
+  return seen
+    .filter((one) => one.method === "POST" && CARD_PATH.test(one.pathname))
+    .map((one) => {
+      const id = CARD_PATH.exec(one.pathname)?.[1];
+      return `${id} ${JSON.parse(one.body).text}`;
+    });
 }
 
 /** Подменённый Kaiten и порт исполнения к нему. */
@@ -59,23 +83,40 @@ export interface Stand {
   readonly baseUrl: string;
   /** Сколько раз команда спросила карточки. */
   readonly asked: () => number;
+  /** Созданные комментарии: `карточка текст` по порядку. */
+  readonly posted: () => readonly string[];
 }
 
-/** Стенд на время `fn`: Kaiten на петле, кэш-БД во временном каталоге. */
-export async function withStand(fn: (stand: Stand) => Promise<void>) {
+/**
+ * Стенд на время `fn`: Kaiten на петле, кэш-БД во временном каталоге.
+ * `listed` зовётся на каждом запросе списка карточек — так тест делает
+ * что-то посреди исполнения строки (правило из другого процесса).
+ */
+export async function withStand(
+  fn: (stand: Stand) => Promise<void>,
+  listed: () => void = () => {},
+) {
   const fake = startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     if (last.pathname === "/api/latest/users/current") {
       return Response.json({ id: 9001, full_name: "Тест", username: "t" });
     }
     if (last.pathname === PROPERTIES_PATH) return Response.json([]);
+    if (last.pathname === CARDS_PATH) {
+      listed();
+      const offset = new URLSearchParams(last.search).get("offset");
+      return Response.json(offset === "0" || offset === null ? CARDS : []);
+    }
     const card = CARD_PATH.exec(last.pathname);
-    if (card !== null) return cardReply(Number(card[1]), card[2] !== undefined);
-    if (last.pathname !== CARDS_PATH) {
+    if (card === null) {
       return new Response("путь, которого тест не ждал", { status: 500 });
     }
-    const offset = new URLSearchParams(last.search).get("offset");
-    return Response.json(offset === "0" || offset === null ? CARDS : []);
+    return cardReply(
+      Number(card[1]),
+      card[2] !== undefined,
+      last.method,
+      postedOf(seen).length,
+    );
   });
   const dir = await Deno.makeTempDir();
   const values: Readonly<Record<string, string>> = {
@@ -96,6 +137,7 @@ export async function withStand(fn: (stand: Stand) => Promise<void>) {
       },
       asked: () =>
         fake.seen.filter((one) => one.pathname === CARDS_PATH).length,
+      posted: () => postedOf(fake.seen),
     });
   } finally {
     await fake.stop();
