@@ -160,6 +160,8 @@ stdin у строки пуст (конец ввода сразу); станда�
 строкой.
 
 **Снимок дерева** — узлы дерева `mpu-next` в порядке обхода в глубину, дети
+
+> С порции 160 поля узла снимка — `reflection.md` («`mpu-complete`»): `path`, `summary`, `tail`, `messages`, `keys`, `formats`; `selectors`, `flags`, `summaries` сняты.
 по алфавиту:
 
 ```json
