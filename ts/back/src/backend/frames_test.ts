@@ -8,7 +8,7 @@
 
 import { GRAMMAR } from "../messages/mod.ts";
 import { assertEquals } from "@std/assert";
-import type { InvokeJournal } from "../entrypoint/mod.ts";
+import { IN_PLACE, type InvokeJournal } from "../entrypoint/mod.ts";
 import {
   HUMAN_ONLY,
   immediately,
@@ -95,6 +95,7 @@ async function directFrames(one: Case, file: string) {
     file,
     channel: () => channel,
     execute: immediately,
+    invoker: IN_PLACE,
     rootMethods: [],
     memory: NO_CALLER,
     refusal: (data) => void frames.push({ refusal: data }),

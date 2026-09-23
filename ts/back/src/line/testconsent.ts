@@ -3,6 +3,7 @@
  * каталоге, настоящий `~/.config/mpu/policy.db` не трогается.
  */
 
+import { IN_PLACE } from "../entrypoint/mod.ts";
 import { ALLOW, RuleBook, RulePath } from "../policy/mod.ts";
 import {
   immediately,
@@ -41,6 +42,7 @@ export function consentOf(
     file,
     channel: terminalChannel(() => Promise.resolve(queue.shift())),
     execute: immediately,
+    invoker: IN_PLACE,
     rootMethods: [],
     memory,
     refusal: NO_REFUSAL,

@@ -111,6 +111,32 @@ export interface Delivery {
 }
 
 /**
+ * Где исполняется найденная команда (`platform/line-executor.md`): всё до
+ * вызова — разбор, правила, справка — и всё после — доставка результата —
+ * остаются у вызывающего, меняется только место самого исполнения.
+ */
+export interface Invoker {
+  /**
+   * Результат команды `command` с аргументами `args`. Ошибки команды
+   * (`UsageError`, `DomainError`) бросаются так же, как бросила бы она
+   * сама.
+   *
+   * @param journal запись журнала строки, если она ведётся
+   */
+  invoke(
+    command: Command,
+    args: readonly string[],
+    io: CommandIo,
+    journal: InvokeJournal | undefined,
+  ): Promise<unknown>;
+}
+
+/** Исполнение здесь же, в процессе вызывающего. */
+export const IN_PLACE: Invoker = {
+  invoke: (command, args, io) => command.invoke(args, io),
+};
+
+/**
  * Результат команды в формате `json`, как его печатает `… end json`:
  * команда со своим `--json` (`sql-ro`) рисует его сама, прочим — JSON
  * результата.
@@ -147,6 +173,7 @@ export const PRINT: Delivery = {
  * строку целиком (`platform/registry-objects.md`).
  *
  * @param delivery куда уходит результат команды; по умолчанию — печать
+ * @param invoker где исполняется команда; по умолчанию — здесь же
  */
 export async function runLine(
   argv: readonly string[],
@@ -154,6 +181,7 @@ export async function runLine(
   output: Output,
   journal?: InvokeJournal,
   delivery: Delivery = PRINT,
+  invoker: Invoker = IN_PLACE,
 ): Promise<number> {
   const io = withProgressIo(baseIo, output, journal);
   const { args: rest, json } = takeJsonFlag(argv);
@@ -177,6 +205,7 @@ export async function runLine(
       output,
       journal,
       delivery,
+      invoker,
     );
   } catch (err) {
     return errorToExitCode(err, path, output);
@@ -302,6 +331,7 @@ async function dispatchPath(
   output: Output,
   journal: InvokeJournal | undefined,
   delivery: Delivery,
+  invoker: Invoker,
 ): Promise<number> {
   const command = findCommand(path);
   if (command === undefined) {
@@ -319,6 +349,7 @@ async function dispatchPath(
     output,
     journal,
     delivery,
+    invoker,
   );
 }
 
@@ -336,7 +367,10 @@ async function runLeafCommand(
   output: Output,
   journal: InvokeJournal | undefined,
   delivery: Delivery,
+  invoker: Invoker,
 ): Promise<number> {
+  const run = (argv: readonly string[], json: boolean) =>
+    runCommand(command, argv, json, { io, output, journal, delivery, invoker });
   if (args.length > 0 && isHelpRequest(args[0])) {
     output.stdout(renderCommandHelp(command));
     return 0;
@@ -355,7 +389,7 @@ async function runLeafCommand(
   // (`platform/invoke-log.md`).
   journal?.nativeCall(command);
   if (!keepsJson(command)) {
-    return await runCommand(command, args, json.json, io, output, delivery);
+    return await run(args, json.json);
   }
   // Оба исключения действуют только ПОСЛЕ имени команды: до него чужой
   // командной строки ещё нет, и параметр снят обычным порядком
@@ -368,7 +402,7 @@ async function runLeafCommand(
     if (!takesUnknown(command)) {
       // Параметр снят обычным порядком и применяется генерически:
       // собственная форма вывода команды начинается с её имени.
-      return await runCommand(command, args, json.json, io, output, delivery);
+      return await run(args, json.json);
     }
     output.stderr(
       `mpu: --json не применяется к команде '${path.join(" ")}'\n`,
@@ -378,7 +412,7 @@ async function runLeafCommand(
   // Команда, объявившая собственный `--json` (`specs/sql-ro.md`),
   // разбирает его сама; команда с хвостовым входом уносит его удалённой
   // стороне. И той и другой argv нужен как есть.
-  return await runCommand(command, own, false, io, output, delivery);
+  return await run(own, false);
 }
 
 /** Общий параметр формы вывода: снят ли он и где стоял. */
@@ -461,16 +495,28 @@ function keepsJson(command: Command): boolean {
   return declaresJson(command) || takesUnknown(command);
 }
 
+/** Что нужно исполнению листа кроме самой команды и её аргументов. */
+interface LeafPorts {
+  readonly io: CommandIo;
+  readonly output: Output;
+  readonly journal: InvokeJournal | undefined;
+  readonly delivery: Delivery;
+  readonly invoker: Invoker;
+}
+
 async function runCommand(
   command: Command,
   args: readonly string[],
   json: boolean,
-  io: CommandIo,
-  output: Output,
-  delivery: Delivery,
+  ports: LeafPorts,
 ): Promise<number> {
-  const result = await command.invoke(args, io);
-  return delivery.deliver(command, result, args, json, output);
+  const result = await ports.invoker.invoke(
+    command,
+    args,
+    ports.io,
+    ports.journal,
+  );
+  return ports.delivery.deliver(command, result, args, json, ports.output);
 }
 
 /**

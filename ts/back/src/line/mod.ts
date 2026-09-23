@@ -7,6 +7,7 @@
 
 import type { CommandIo } from "../command/mod.ts";
 import {
+  type Invoker,
   JSON_FLAG,
   type Output,
   PRINT,
@@ -110,6 +111,11 @@ export interface LinePorts {
    * ждущая ответа, других не держит.
    */
   readonly execute: (run: () => Promise<number>) => Promise<number>;
+  /**
+   * Где исполняется сама команда: у сервера строк — исполнитель из пула
+   * (`platform/line-executor.md`), у прочих — `IN_PLACE`.
+   */
+  readonly invoker: Invoker;
   /** Методы корня, которые даёт дверь строки (у прямого — нет). */
   readonly rootMethods: readonly RootMethod[];
   /** Память вызывающего строки: её результат и ответ на `it`. */
@@ -222,6 +228,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
               out,
               journal,
               remembering(delivery ?? PRINT, memory),
+              ports.invoker,
             )
           ),
         streams: (view, order) => streams(order.argv(view.executed(words))),

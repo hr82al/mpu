@@ -8,7 +8,7 @@
 
 import { assertEquals } from "@std/assert";
 import type { CommandIo } from "../../back/src/command/mod.ts";
-import type { InvokeJournal } from "../../back/src/entrypoint/mod.ts";
+import { IN_PLACE, type InvokeJournal } from "../../back/src/entrypoint/mod.ts";
 import {
   immediately,
   lineEntry,
@@ -126,6 +126,7 @@ async function viaLine(line: Line, file: string): Promise<Seen> {
     file,
     channel: () => channel,
     execute: immediately,
+    invoker: IN_PLACE,
     rootMethods: [],
     memory: NO_CALLER,
     refusal: NO_REFUSAL,

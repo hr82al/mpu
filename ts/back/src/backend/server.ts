@@ -7,6 +7,7 @@
 import { Hono } from "@hono/hono";
 import { hasBearer, LOOPBACK, LOOPBACK_ORIGINS } from "../access/mod.ts";
 import type { CommandIo, RemoteOutput } from "../command/mod.ts";
+import { IN_PLACE } from "../entrypoint/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 import {
   LastResults,
@@ -602,6 +603,7 @@ class Back {
       file: this.#options.policyFile,
       channel: () => channel,
       execute: (run) => line.execute(run, this.#lines),
+      invoker: IN_PLACE,
       memory,
       refusal: (data) => line.deliver({ refusal: data }),
     });
