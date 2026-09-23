@@ -25,6 +25,16 @@ kiten card id: 1 end title` — «не понимает title; есть: json, m
   объект сущности, а структурный результат — конверт. Исполнитель перечисляет
   их в отчёте (обход — субагентом), спорные решает хост. Обязательно:
   `kiten card`, `mr view`, `sheet get` (если конверт).
+- Решено хостом по обходу: `record` — `kiten card`, `kiten time status` (запись
+  = собранный объект `end json`: `card_id`, `timer`, `total_minutes`). Не
+  объявляют: `mr view`, `mr show`, `sheet get`, `sheet resolve`, `sun`, `xlsx
+  get`, `logs` (`end json` — результат целиком); `api ss-access …`, `api
+  wb-cards-reset`, `api wb-loader-*` (ответ сервера — любой JSON).
+- Одно правило: отбор видит то, что печатает `end json`. Поэтому в эту же
+  порцию `items` объявляют команды, чей `end json` — массив под-поля: `config`
+  (entries), `glab-status` (rows), `kiten status` (rows), `mr comments`
+  (threads), `mr diff` и `mr files` (files), `sheet ls` (tabs), `api
+  wb-loader-resume` (entries).
 - Поле записи-коллекции (`comments` у карточки) — коллекция: `@c comments
   size`.
 
