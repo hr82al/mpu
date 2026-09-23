@@ -11,8 +11,9 @@ import {
   GroupValue,
   Literal,
   type ParsedMessage,
+  type Spelled,
   StdinValue,
-  type Value,
+  type Written,
 } from "./value.ts";
 
 export { GRAMMAR };
@@ -27,7 +28,7 @@ interface Word {
   /** Слово стоит за законченной парой: входит ли оно в сообщение. */
   joinTo(draft: Draft, words: Words): boolean;
   /** Слово стоит там, где ключ `key` ждёт значения. */
-  valueFor(key: string, words: Words): Value;
+  valueFor(key: string, words: Words): Written;
   /** Слово стоит за `--`: берётся буквально. */
   literal(): string;
   /** Слово стоит за ключевым сообщением: закрывает его или лишнее. */
@@ -112,7 +113,7 @@ export class Words implements ValueSource {
     this.#at = Math.min(this.#at + 1, this.#list.length);
   }
 
-  valueFor(key: string): Value {
+  valueFor(key: string): Written {
     return this.next().valueFor(key, this);
   }
 
@@ -162,7 +163,7 @@ class Bare implements Word {
     return false;
   }
 
-  valueFor(): Value {
+  valueFor(): Written {
     return new Literal(this.#text);
   }
 
@@ -187,7 +188,7 @@ class Bare implements Word {
 
 /** Как форма записи ключа получает значение. */
 interface KeyForm {
-  read(key: string, kind: Kind, words: Words): Value;
+  read(key: string, kind: Kind, words: Words): Spelled;
 }
 
 /** `ключ:` — значение в следующем слове. */
@@ -208,7 +209,7 @@ class Inline implements KeyForm {
     this.#text = text;
   }
 
-  read(key: string, kind: Kind): Value {
+  read(key: string, kind: Kind): Spelled {
     return kind.fromText(key, new Literal(this.#text));
   }
 }
@@ -243,7 +244,7 @@ class Key implements Word {
     draft.take(this.#name, (kind) => this.#form.read(this.#name, kind, words));
   }
 
-  valueFor(key: string): Value {
+  valueFor(key: string): Written {
     throw MessageParseError.noValue(key);
   }
 
@@ -274,7 +275,7 @@ const HELP = "help";
 const HELP_WORD: Word = {
   start: () => ({ unary: HELP }),
   joinTo: () => false,
-  valueFor(key): Value {
+  valueFor(key): Written {
     throw MessageParseError.noValue(key);
   },
   literal: () => HELP_FLAG,
@@ -367,7 +368,7 @@ const OPEN: Word = {
 const CLOSE: Word = {
   start: () => ({ close: true }),
   joinTo: () => false,
-  valueFor(key): Value {
+  valueFor(key): Written {
     throw MessageParseError.noValue(key);
   },
   literal: () => GRAMMAR.close,
@@ -380,7 +381,7 @@ const CLOSE: Word = {
 const END: Word = {
   start: () => ({ unary: HELP }),
   joinTo: () => false,
-  valueFor(key): Value {
+  valueFor(key): Written {
     throw MessageParseError.noValue(key);
   },
   literal() {

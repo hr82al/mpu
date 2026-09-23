@@ -20,12 +20,18 @@ export interface Evaluation {
 export interface Value {
   /** Значение для приёмника; `undefined` — ключ остаётся без значения. */
   settle(evaluation: Evaluation, key: string): Promise<KeyValue | undefined>;
-  /** Значение ключа-флага из того, что записано. */
-  asFlag(key: string): Value;
-  /** Значения ключа-списка: это и следующее. */
-  append(next: Value): Value;
+}
+
+/** Значение одной пары: о нём говорит отказ лишнему слову за ней. */
+export interface Spelled extends Value {
   /** Как значение записано в строке. */
   text(): string;
+}
+
+/** Значение, как его записало одно слово строки: ключу-флагу — флаг. */
+export interface Written extends Spelled {
+  /** Значение ключа-флага из того, что записано. */
+  asFlag(key: string): Spelled;
 }
 
 const FLAG_TEXTS: ReadonlyMap<string, boolean> = new Map([
@@ -34,7 +40,7 @@ const FLAG_TEXTS: ReadonlyMap<string, boolean> = new Map([
 ]);
 
 /** Флаг: `true` или `false`. */
-export class Flag implements Value {
+export class Flag implements Spelled {
   readonly #on: boolean;
 
   constructor(on: boolean) {
@@ -45,21 +51,13 @@ export class Flag implements Value {
     return Promise.resolve(this.#on);
   }
 
-  asFlag(): Value {
-    return this;
-  }
-
-  append(next: Value): Value {
-    return new ListValue([this, next]);
-  }
-
   text(): string {
     return String(this.#on);
   }
 }
 
 /** Текст, записанный в строке. */
-export class Literal implements Value {
+export class Literal implements Written {
   readonly #text: string;
 
   constructor(text: string) {
@@ -70,16 +68,12 @@ export class Literal implements Value {
     return Promise.resolve(this.#text);
   }
 
-  asFlag(key: string): Value {
+  asFlag(key: string): Spelled {
     const on = FLAG_TEXTS.get(this.#text);
     if (on === undefined) {
       throw new MessageParseError(`ключ ${key} ждёт true или false`);
     }
     return new Flag(on);
-  }
-
-  append(next: Value): Value {
-    return new ListValue([this, next]);
   }
 
   text(): string {
@@ -93,7 +87,7 @@ function notFlag(key: string): never {
 }
 
 /** Группа `do … end` на месте значения: её результат. */
-export class GroupValue implements Value {
+export class GroupValue implements Written {
   readonly #words: readonly string[];
 
   constructor(words: readonly string[]) {
@@ -104,12 +98,8 @@ export class GroupValue implements Value {
     return evaluation.group(this.#words, key);
   }
 
-  asFlag(key: string): Value {
+  asFlag(key: string): Spelled {
     return notFlag(key);
-  }
-
-  append(next: Value): Value {
-    return new ListValue([this, next]);
   }
 
   text(): string {
@@ -118,17 +108,13 @@ export class GroupValue implements Value {
 }
 
 /** `stdin` на месте значения: весь ввод строки. */
-export class StdinValue implements Value {
+export class StdinValue implements Written {
   settle(evaluation: Evaluation, key: string): Promise<string | undefined> {
     return evaluation.stdin(key);
   }
 
-  asFlag(key: string): Value {
+  asFlag(key: string): Spelled {
     return notFlag(key);
-  }
-
-  append(next: Value): Value {
-    return new ListValue([this, next]);
   }
 
   text(): string {
@@ -144,10 +130,6 @@ export class ListValue implements Value {
     this.#parts = [...parts];
   }
 
-  append(next: Value): Value {
-    return new ListValue([...this.#parts, next]);
-  }
-
   async settle(evaluation: Evaluation, key: string): Promise<string[]> {
     const values: string[] = [];
     for (const part of this.#parts) {
@@ -155,14 +137,6 @@ export class ListValue implements Value {
       if (got !== undefined) values.push(String(got));
     }
     return values;
-  }
-
-  asFlag(key: string): Value {
-    return notFlag(key);
-  }
-
-  text(): string {
-    return this.#parts.map((part) => part.text()).join(" ");
   }
 }
 

@@ -10,7 +10,9 @@ import {
   ListValue,
   Literal,
   type ParsedMessage,
+  type Spelled,
   type Value,
+  type Written,
 } from "./value.ts";
 
 /**
@@ -64,48 +66,77 @@ export interface ReceiverDescription {
 
 /** Откуда ключ, ждущий значения, берёт следующее слово. */
 export interface ValueSource {
-  valueFor(key: string): Value;
+  valueFor(key: string): Written;
+}
+
+/** Что набрано под ключом: повтор ключа решает она. */
+interface Slot {
+  /** Ячейка с ещё одним значением того же ключа. */
+  add(key: string, value: Value): Slot;
+  /** Значение ключа для сообщения. */
+  value(): Value;
+}
+
+/** Ключ с одним значением: повтор — ошибка. */
+class Single implements Slot {
+  readonly #value: Value;
+
+  constructor(value: Value) {
+    this.#value = value;
+  }
+
+  add(key: string): Slot {
+    throw new MessageParseError(`ключ ${key} указан дважды`);
+  }
+
+  value(): Value {
+    return this.#value;
+  }
+}
+
+/** Ключ-список: значения копятся по порядку строки. */
+class Many implements Slot {
+  readonly #values: readonly Value[];
+
+  constructor(values: readonly Value[]) {
+    this.#values = values;
+  }
+
+  add(_key: string, value: Value): Slot {
+    return new Many([...this.#values, value]);
+  }
+
+  value(): Value {
+    return new ListValue(this.#values);
+  }
 }
 
 /** Вид ключа: как из слова строки получается значение. */
 export interface Kind {
   /** Значение записано в строке: `ключ: …` или `--ключ=текст`. */
-  fromText(key: string, value: Value): Value;
+  fromText(key: string, value: Written): Spelled;
   /** Форма `--ключ` без `=`. */
-  bare(key: string, source: ValueSource): Value;
-  /**
-   * Значение ключа с новым словом: у списка — дописано, у прочих повтор
-   * ключа — ошибка.
-   */
-  join(key: string, before: Value | undefined, value: Value): Value;
-}
-
-/** Повтор ключа, который не список. */
-function once(key: string, before: Value | undefined, value: Value): Value {
-  if (before !== undefined) {
-    throw new MessageParseError(`ключ ${key} указан дважды`);
-  }
-  return value;
+  bare(key: string, source: ValueSource): Spelled;
+  /** Ячейка первого значения ключа: как она примет повтор. */
+  slot(value: Value): Slot;
 }
 
 const VALUE: Kind = {
   fromText: (_key, value) => value,
   bare: (key, source) => source.valueFor(key),
-  join: once,
+  slot: (value) => new Single(value),
 };
 
-/** Ключ-список: значения копятся по порядку строки. */
 const LIST: Kind = {
   fromText: (_key, value) => value,
   bare: (key, source) => source.valueFor(key),
-  join: (_key, before, value) =>
-    before === undefined ? new ListValue([value]) : before.append(value),
+  slot: (value) => new Many([value]),
 };
 
 const FLAG: Kind = {
   fromText: (key, value) => value.asFlag(key),
   bare: () => new Flag(true),
-  join: once,
+  slot: (value) => new Single(value),
 };
 
 const KINDS: Readonly<Record<KeyKind, Kind>> = {
@@ -116,19 +147,26 @@ const KINDS: Readonly<Record<KeyKind, Kind>> = {
 
 /** Набор пар одного ключевого сообщения. */
 class Pairs {
-  readonly #values = new Map<string, Value>();
+  readonly #slots = new Map<string, Slot>();
 
   names(): string[] {
-    return [...this.#values.keys()];
+    return [...this.#slots.keys()];
   }
 
-  /** Записывает ключ: повтор решает вид ключа (`Kind.join`). */
-  take(key: string, kind: Kind, read: (kind: Kind) => Value) {
-    this.#values.set(key, kind.join(key, this.#values.get(key), read(kind)));
+  /** Записывает ключ: повтор решает ячейка его вида (`Kind.slot`). */
+  take(key: string, kind: Kind, read: (kind: Kind) => Spelled) {
+    const value = read(kind);
+    const before = this.#slots.get(key);
+    this.#slots.set(
+      key,
+      before === undefined ? kind.slot(value) : before.add(key, value),
+    );
   }
 
   message(): ParsedMessage {
-    return { keyword: Object.fromEntries(this.#values) };
+    const keyword: Record<string, Value> = {};
+    for (const [key, slot] of this.#slots) keyword[key] = slot.value();
+    return { keyword };
   }
 }
 
@@ -161,7 +199,7 @@ export class Draft {
   readonly #pairs = new Pairs();
   readonly #methods: readonly Method[];
   readonly #receiver: Receiver;
-  #last: Value = new Literal("");
+  #last: Spelled = new Literal("");
 
   constructor(methods: readonly Method[], receiver: Receiver) {
     this.#methods = methods;
@@ -169,7 +207,7 @@ export class Draft {
   }
 
   /** Добавляет ключ; значение читает `read` по виду ключа. */
-  take(key: string, read: (kind: Kind) => Value) {
+  take(key: string, read: (kind: Kind) => Spelled) {
     this.#pairs.take(key, this.#receiver.kindOf(key), (kind) => {
       this.#last = read(kind);
       return this.#last;

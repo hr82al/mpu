@@ -117,6 +117,27 @@ Deno.test("сценарий 2: не-скаляр — отказ, ничего н
   });
 });
 
+Deno.test("группа печатает не JSON — «не данные», внешнее не исполнено", () =>
+  withPolicyFile(async (file) => {
+    allowEverything(file);
+    const got = await run(file, [
+      "kiten",
+      "comment",
+      "id:",
+      "1",
+      "text:",
+      DO,
+      "version",
+      END,
+    ]);
+    assertEquals(got.code, 2);
+    assertEquals(
+      got.stderr,
+      "mpu kiten comment: значение ключа text — не данные\n",
+    );
+    assertFalse(got.called.includes("kiten comment"));
+  }));
+
 Deno.test("сценарий 3: отказ группы — отказ строки, внешнее не исполнено", () =>
   withPolicyFile(async (file) => {
     allowEverything(file);
@@ -167,6 +188,19 @@ Deno.test("сценарий 5: stdin дважды — отказ до испол
       "mpu mr create: stdin уже прочитан ключом title\n",
     );
     assertEquals(got.called, []);
+  }));
+
+Deno.test("stdin взят ключом — команда сама его не читает", () =>
+  withPolicyFile(async (file) => {
+    allowEverything(file);
+    const got = await run(
+      file,
+      ["sql-ro", "target:", STDIN, "--dry"],
+      { stdin: "sl-1\n", io: SQL_IO },
+    );
+    assertEquals(got.code, 2, got.stderr);
+    assertEquals(got.stderr, "mpu sql-ro: stdin уже прочитан ключом target\n");
+    assertEquals(got.reads, 1);
   }));
 
 Deno.test("сценарий 6: -- stdin — слово stdin", () =>
@@ -275,4 +309,74 @@ Deno.test("группа значения, затем формат внешнег
     assertEquals(got.code, 0, got.stderr);
     assertEquals(got.called, ["jsdate", "sql-ro"]);
     assert(/sql:\n\d{14}\n$/.test(got.stderr), got.stderr);
+  }));
+
+/** Чтение файлов — настоящее: книга лежит во временном каталоге. */
+const FILES: Partial<CommandIo> = {
+  readFile: (path) => Deno.readFile(path),
+};
+
+/** Копия `sample.xlsx` во временном каталоге. */
+async function withSample(fn: (file: string) => Promise<void>) {
+  const dir = await Deno.makeTempDir();
+  try {
+    const b64 = await Deno.readTextFile(
+      new URL("../xlsx/testdata/sample.xlsx.b64", import.meta.url),
+    );
+    const file = `${dir}/sample.xlsx`;
+    await Deno.writeFile(
+      file,
+      Uint8Array.from(
+        atob(b64.replaceAll(/\s+/g, "")),
+        (ch) => ch.codePointAt(0) ?? 0,
+      ),
+    );
+    await fn(file);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+}
+
+/** Диапазоны ячеек в ответе `xlsx get … end json`, по порядку. */
+function rangesOf(stdout: string): string[] {
+  const cells: { range: string }[] = JSON.parse(stdout).cells;
+  return cells.map((cell) => cell.range);
+}
+
+Deno.test("ключ-список: stdin и группа — элементами, по порядку строки", () =>
+  withPolicyFile(async (policy) => {
+    allowEverything(policy);
+    await withSample(async (file) => {
+      const piped = await run(policy, [
+        "xlsx",
+        "get",
+        "file:",
+        file,
+        "range:",
+        STDIN,
+        "range:",
+        "Данные!B1",
+        END,
+        "json",
+      ], { stdin: "Данные!A1\n", io: FILES });
+      assertEquals(piped.code, 0, piped.stderr);
+      assertEquals(rangesOf(piped.stdout), ["Данные!A1", "Данные!B1"]);
+      assertEquals(piped.reads, 1);
+
+      const grouped = await run(policy, [
+        "xlsx",
+        "get",
+        "file:",
+        file,
+        "range:",
+        DO,
+        "jsdate",
+        END,
+        "range:",
+        "Данные!B1",
+      ], { io: FILES });
+      assertEquals(grouped.called, ["jsdate", "xlsx get"]);
+
+      assert(/\d{14}/.test(grouped.stderr), grouped.stderr);
+    });
   }));

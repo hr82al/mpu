@@ -102,8 +102,8 @@ function valueOf(data: unknown, key: string): string {
 }
 
 /**
- * Текст JSON группы данными. Группа идёт с форматом json, и печать —
- * JSON по построению; не JSON — защита границы, а не путь спеки.
+ * Текст JSON группы данными. Не JSON печатает поверхность вне контрактов
+ * команд (`version`): формат `json` ей не указ.
  */
 function parsed(text: string, key: string): unknown {
   try {
@@ -115,23 +115,17 @@ function parsed(text: string, key: string): unknown {
 }
 
 /**
- * Данные итога группы (граница итога): из её печати или из значения.
- * Отказ группы — отказ строки тем же текстом; код ≠ 0 — тем же кодом.
+ * Данные итога группы (граница итога): отказ группы — отказ строки тем же
+ * текстом; код ≠ 0 — тем же кодом. Прочее — JSON её печати: у итога-
+ * значения это его текст (формат `json`), у исполненной команды — stdout.
+ * Итога без печати (вершина дерева) у группы нет: `json` она не понимает.
  */
 function dataOf(outcome: Outcome, printed: string, key: string): unknown {
   if ("error" in outcome) throw new Rejection(outcome.error);
-  if ("exit" in outcome) {
-    if (outcome.exit !== 0) throw new GroupExit(outcome.exit);
-    return parsed(printed, key);
+  if ("exit" in outcome && outcome.exit !== 0) {
+    throw new GroupExit(outcome.exit);
   }
-  if ("value" in outcome) {
-    return typeof outcome.value === "string"
-      ? parsed(outcome.value, key)
-      : outcome.value;
-  }
-  // Итог-объект: `json` понимает любой результат (line-grammar.md), и
-  // сюда строка не доходит; граница итога требует ответа на все виды.
-  throw new Refusal(`значение ключа ${key} — не скаляр (объект)`);
+  return parsed("value" in outcome ? String(outcome.value) : printed, key);
 }
 
 /** Значения строки: группы исполняет `run`, stdin — один на строку. */

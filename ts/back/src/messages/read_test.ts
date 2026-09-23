@@ -174,6 +174,20 @@ Deno.test("выражения значений: список, флаг, лишн
       assertEquals(err.message, "ключ dry ждёт true или false");
     });
   }
+  for (
+    const [value, text] of [
+      [["dry:", "true"], "true"],
+      [["range:", GRAMMAR.stdin], GRAMMAR.stdin],
+    ]
+  ) {
+    await t.step(`лишнее слово за ${text} — отказ с ним`, () => {
+      const err = assertThrows(
+        () => readMessage(["range:", "A1", ...value, "-v"], LISTED),
+        StrayWord,
+      );
+      assertEquals(err.message, `значение ${text} не понимает -v`);
+    });
+  }
   await t.step("лишнее слово за группой — отказ с её текстом", () => {
     const err = assertThrows(
       () => readMessage(["card:", GRAMMAR.open, "x", END, "-v"], KITEN),
