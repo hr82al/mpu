@@ -280,136 +280,127 @@
       }
     },
     {
-      "name": "selectors корня",
+      "name": "messages корня",
       "words": [
-        "selectors"
+        "messages"
       ],
       "path": [
-        "selectors"
+        "messages"
       ],
-      "value": [
-        "kiten",
-        "version"
-      ]
+      "value": "kiten\tкарточки Kaiten\nversion\tверсия mpu\n"
     },
     {
-      "name": "selectors объекта",
+      "name": "messages объекта",
       "words": [
         "kiten",
-        "selectors"
+        "messages"
       ],
       "path": [
         "kiten",
-        "selectors"
+        "messages"
       ],
-      "value": [
-        "card",
-        "card:",
-        "ls"
-      ]
+      "value": "card\tкарточки по номеру\ncard:\tодна карточка по номеру\nls\tмои карточки\n"
     },
     {
-      "name": "selectors объекта без собственных",
+      "name": "messages объекта без собственных",
       "words": [
         "kiten",
         "card",
-        "selectors"
+        "messages"
       ],
       "path": [
         "kiten",
         "card",
-        "selectors"
+        "messages"
       ],
-      "value": []
+      "value": ""
     },
     {
-      "name": "respondsTo: ключевой",
+      "name": "understands: ключевой",
       "words": [
         "kiten",
-        "respondsTo:",
+        "understands:",
         "$literal",
         "card:"
       ],
       "path": [
         "kiten",
-        "respondsTo:"
+        "understands:"
       ],
-      "value": true
+      "value": "true\n"
     },
     {
-      "name": "respondsTo: унарный",
+      "name": "understands: унарный",
       "words": [
         "kiten",
-        "respondsTo:",
+        "understands:",
         "ls"
       ],
       "path": [
         "kiten",
-        "respondsTo:"
+        "understands:"
       ],
-      "value": true
+      "value": "true\n"
     },
     {
-      "name": "respondsTo: общий",
+      "name": "understands: общий",
       "words": [
         "kiten",
-        "respondsTo:",
+        "understands:",
         "help"
       ],
       "path": [
         "kiten",
-        "respondsTo:"
+        "understands:"
       ],
-      "value": true
+      "value": "true\n"
     },
     {
-      "name": "selectors объекта с видом звена",
+      "name": "messages объекта с видом звена",
       "words": [
         "kiten",
         "card",
         "123",
         "comment",
-        "selectors"
+        "messages"
       ],
       "path": [
         "kiten",
         "card",
         "<card>",
         "comment",
-        "selectors"
+        "messages"
       ],
-      "value": [
-        "clear"
-      ]
+      "value": "clear\tубрать текст\n"
     },
     {
-      "name": "respondsTo: произвольное слово",
+      "name": "understands: произвольное слово",
       "words": [
         "kiten",
         "card",
-        "respondsTo:",
+        "understands:",
         "123"
       ],
       "path": [
         "kiten",
         "card",
-        "respondsTo:"
+        "understands:"
       ],
-      "value": false
+      "value": "false\n"
     },
     {
-      "name": "respondsTo: нет",
+      "name": "understands: нет",
       "words": [
         "kiten",
-        "respondsTo:",
+        "understands:",
         "$literal",
         "nope:"
       ],
       "path": [
         "kiten",
-        "respondsTo:"
+        "understands:"
       ],
-      "value": false
+      "value": "false\n"
     },
     {
       "name": "слова кончились на объекте",
@@ -551,9 +542,18 @@
       "name": "общее сообщение значению",
       "words": [
         "version",
+        "messages"
+      ],
+      "error": "mpu version: цепочка окончена, messages отправить некому",
+      "code": 2
+    },
+    {
+      "name": "прежнее имя selectors",
+      "words": [
+        "kiten",
         "selectors"
       ],
-      "error": "mpu version: цепочка окончена, selectors отправить некому",
+      "error": "mpu kiten: selectors — теперь messages: mpu kiten messages",
       "code": 2
     }
   ]
