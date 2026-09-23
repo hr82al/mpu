@@ -367,3 +367,8 @@
 | источник ввода строки | `InputSource`, `FRAME_INPUT`, `inputOnRequest` (165c) | откуда строка берёт ввод: кадр или запрос |
 | ввод клиента | `ClientInput` (165c) | stdin клиента, читается один раз по запросу |
 | ввод потерян (клиент ушёл) | `InputLost` (165c) | клиент ушёл до ввода — чтение отвергнуто |
+| страницы окна Loki | `NewestPages`, `readNewest`, `LOKI_MAX_ENTRIES` (165d) | чтение последних N записей страницами по пределу сервера |
+| запись строки лога | `LogRecord` (165d) | `{time, host, service, stream, text}` — элемент коллекции `logs` |
+| отдача вывода | `Outlet`, `WHOLE`, `FileOutlet`, `Spill`, `SPILL_DIR`, `SPILL_THRESHOLD` (165d) | целиком или файлом по порогу у двери агента |
+| вывод файлом | `OutputFile`, поле `file` (165d) | `{path, bytes, lines, slice}` в собранном ответе |
+| срез | `sliced()` (165d) | результат — коллекция, строка среза уместна |
