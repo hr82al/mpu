@@ -143,6 +143,7 @@ export interface SearchOptions {
 export const searchCommand = defineCommand({
   path: ["search"],
   keys: { query: "value" },
+  texts: ["reason"],
   summary: "Найти клиента или таблицу по селектору; вход в 10X по email.",
   usage:
     "mpu search [client-id|title|…] [no-update] [refresh-cache] query: ЗНАЧЕНИЕ [reason: TEXT] [scope: auto|user|access]",

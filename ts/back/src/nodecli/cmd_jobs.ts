@@ -78,6 +78,7 @@ function jobs(group: JobsGroup, sub: string): Command {
   return defineCommand({
     path: [group.group, sub],
     keys: {},
+    texts: ["pattern"],
     summary: `Очередь задач ${group.what}: ${what}.`,
     usage:
       `mpu ${group.group} ${sub} [print [local]] target: СЕЛЕКТОР [pattern: P]`,

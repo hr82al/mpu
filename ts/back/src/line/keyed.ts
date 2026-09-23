@@ -289,6 +289,14 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
   });
 }
 
+/** Ключи-текст команды: значение — слово как есть. */
+export function textKeysOf(
+  command: Command,
+  formats: readonly string[],
+): readonly string[] {
+  return new Keys(command, formats).texts();
+}
+
 /** Адреса входов команды в новой записи: ключ, формат или снятый вход. */
 export function addressesOf(
   command: Command,

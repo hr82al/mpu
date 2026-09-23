@@ -366,6 +366,7 @@ Exit: 0 — успех; 1 — ошибка API; 2 — ошибка ввода (�
 export const kitenReadyCommand = defineCommand({
   path: ["kiten", "ready"],
   keys: { id: "selector" },
+  texts: ["note"],
   errorName: "kiten ready",
   summary: "Перевести карточку Kaiten в колонку «Готово».",
   usage: "mpu kiten ready [dry] id: КАРТОЧКА [column: REF] [note: TEXT]",
@@ -382,6 +383,7 @@ export const kitenReadyCommand = defineCommand({
 export const kitenReviewCommand = defineCommand({
   path: ["kiten", "review"],
   keys: { id: "selector" },
+  texts: ["note"],
   errorName: "kiten review",
   summary: "Перевести карточку Kaiten в колонку «Код-ревью».",
   usage: "mpu kiten review [dry] id: КАРТОЧКА [column: REF] [note: TEXT]",

@@ -1,6 +1,6 @@
 {
   "описание": "пять записей, да да нет — четвёртая и пятая вопросов не получают",
-  "строка": "ask 1 to: 5 do: {do} {:}i kiten comment id: 11 text: {@}i {done}",
+  "строка": "ask 1 to: 5 do: {do} {:}i kiten comment id: 11 text: {do} {@}i {end} {done}",
   "ответы": [
     "y",
     "y",

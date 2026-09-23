@@ -34,6 +34,7 @@ function node(
     messages: [],
     formats: leaf ? ["json"] : [],
     fromFile: new Map(),
+    texts: new Set(),
     links: path === "" ? [] : [...path.split(" "), "<rule>"],
     methods: new Map(),
   };

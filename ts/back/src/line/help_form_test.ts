@@ -144,8 +144,9 @@ Deno.test("справки: каждый пример доходит до исп�
           // Пример-программа разбирается программой — без отказа до
           // исполнения (`platform/evaluator.md`): `to: @all` без `--` был
           // бы несвязанной переменной.
-          if (isProgram(words)) {
-            parseProgram(words, programCommands(), programRoot(root));
+          const tree = programCommands();
+          if (isProgram(words, tree)) {
+            parseProgram(words, tree, programRoot(root));
             return;
           }
           const outcome = await runChain(words, root, SAMPLE_VALUES);

@@ -199,3 +199,72 @@ Deno.test("выражения значений: список, флаг, лишн
     );
   });
 });
+
+const SEND: ReceiverDescription = {
+  unary: [],
+  keyword: [
+    {
+      keys: { text: "value", chat: "value", to: "list", id: "value" },
+      required: [],
+      texts: ["text", "chat", "to"],
+    },
+    { keys: { text: "value", id: "value" }, required: [], texts: ["text"] },
+  ],
+};
+
+Deno.test("ключ-текст берёт слово как есть (`platform/at-word-literal.md`)", async (t) => {
+  const cases: readonly {
+    readonly words: readonly string[];
+    readonly message: Message;
+  }[] = [
+    {
+      words: [
+        "chat:",
+        "@kalabass",
+        "text:",
+        "@kalabass Иван, итог: всё готово.",
+      ],
+      message: {
+        keyword: {
+          chat: "@kalabass",
+          text: "@kalabass Иван, итог: всё готово.",
+        },
+      },
+    },
+    { words: ["text:", "."], message: { keyword: { text: "." } } },
+    { words: ["text:", END], message: { keyword: { text: END } } },
+    {
+      words: ["text:", GRAMMAR.comment],
+      message: { keyword: { text: "rem" } },
+    },
+    { words: ["text:", "--help"], message: { keyword: { text: "--help" } } },
+    { words: ["text:", LITERAL, END], message: { keyword: { text: END } } },
+    {
+      words: ["text:", GRAMMAR.stdin],
+      message: { keyword: { text: "«stdin»" } },
+    },
+    {
+      words: ["text:", GRAMMAR.open, "kiten", "ls", END],
+      message: { keyword: { text: "«do kiten ls end»" } },
+    },
+    {
+      words: ["to:", "@all", "to:", "@ivan"],
+      message: { keyword: { to: ["@all", "@ivan"] } },
+    },
+    { words: ["--text", "@all"], message: { keyword: { text: "@all" } } },
+  ];
+  for (const one of cases) {
+    await t.step(one.words.join(" "), async () => {
+      const step = await plain(readMessage(one.words, SEND));
+      assertEquals(step, { message: one.message, rest: [] });
+    });
+  }
+});
+
+Deno.test("ключ-текст: ключ на месте значения — нет значения, как прежде", () => {
+  assertThrows(
+    () => readMessage(["text:", "chat:", "me"], SEND),
+    MessageParseError,
+    "у ключа text нет значения",
+  );
+});

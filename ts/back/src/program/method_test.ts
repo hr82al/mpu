@@ -59,6 +59,7 @@ function node(
     messages,
     formats: leaf ? ["json"] : [],
     fromFile: new Map(),
+    texts: new Set(),
     links: leaf ? [...path.split(" "), "<args>"] : path.split(" "),
     methods: new Map(own.map((one) => [firstWord(one.name), one])),
   };

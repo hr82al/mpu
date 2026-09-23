@@ -180,6 +180,7 @@ export async function runBlocked(
 export const wbLoaderBlockedCommand = defineCommand({
   path: ["api", "wb-loader-blocked"],
   keys: {},
+  texts: ["reason"],
   errorName: "api wb-loader-blocked",
   summary: "POST /admin/wb-loader/blocked-loaders/v1/find — блокировки фермы.",
   usage: "mpu api wb-loader-blocked [print] [loader: ИМЯ] [reason: R]",

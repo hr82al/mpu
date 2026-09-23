@@ -44,6 +44,12 @@ const DICTIONARY: ReadonlyMap<string, string> = new Map([
   ["limit", "сколько"],
 ]);
 
+/**
+ * Словарные ключи, чьё значение — текст как есть: свободный текст и что
+ * искать (`platform/at-word-literal.md`, правило 1).
+ */
+const TEXT_KEYS: ReadonlySet<string> = new Set(["text", "query"]);
+
 /** Причина имени ключа, оставшегося прежним именем входа. */
 const KEPT = "прежнее имя входа";
 
@@ -421,6 +427,8 @@ export class Keys {
   readonly #retired: Readonly<Record<string, string>>;
   /** Входы, чей `@путь` теперь — ключ файла. */
   readonly #fromFile: Readonly<Record<string, string>>;
+  /** Входы, объявленные текстом как есть. */
+  readonly #texts: ReadonlySet<string>;
   readonly #shorts: ReadonlyMap<string, KeySpec>;
   /** Короткие флаги вариантов (`-n` → `dry`). */
   readonly #variantShorts: ReadonlyMap<string, Variant>;
@@ -455,6 +463,7 @@ export class Keys {
     this.#formatNames = new Set(formats);
     this.#retired = command.retired;
     this.#fromFile = command.fromFile;
+    this.#texts = new Set(command.texts);
     // Режим объявляет свои ключи сам и берёт только их входы.
     const declared = new Map(
       Object.entries(mode === WHOLE_COMMAND ? command.keys ?? {} : mode.keys)
@@ -610,6 +619,13 @@ export class Keys {
     return new Map(this.#specs.map((spec) => [spec.name, spec.why]));
   }
 
+  /** Ключи-текст: словарные `text`/`query` и объявленные входы. */
+  texts(): string[] {
+    return this.#specs
+      .filter((spec) => TEXT_KEYS.has(spec.name) || this.#texts.has(spec.input))
+      .map((spec) => spec.name);
+  }
+
   /** Ключевой метод для разбора и справки. */
   describe() {
     return {
@@ -627,6 +643,7 @@ export class Keys {
       ),
       prompts: this.#specs.filter((spec) => spec.input === this.#terminal)
         .map((spec) => spec.name),
+      texts: this.texts(),
     };
   }
 

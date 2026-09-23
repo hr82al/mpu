@@ -151,6 +151,7 @@ export async function runTelegramSearch(
 export const telegramSearchCommand = defineCommand({
   path: ["telegram", "search"],
   keys: { query: "query" },
+  texts: ["chat"],
   errorName: "telegram search",
   summary: "Найти сообщения по содержимому: везде или в одном чате.",
   usage:
@@ -184,6 +185,7 @@ Exit: 1 — конфигурация, отказ Telegram, ненайденны�
 и без запроса).`,
   examples: [
     "mpu telegram search query: выгрузка chat: me limit: 20 end table",
+    "mpu telegram search query: релиз chat: @username",
   ],
   policy: "ro",
   argsSchema,

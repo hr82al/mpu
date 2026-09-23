@@ -38,6 +38,11 @@ export interface KeywordMethod {
    * читает.
    */
   readonly prompts?: readonly string[];
+  /**
+   * Ключи-текст: слово значения берётся как есть, не толкуясь
+   * (`platform/at-word-literal.md`, правило 1).
+   */
+  readonly texts?: readonly string[];
 }
 
 /**
@@ -66,7 +71,10 @@ export interface ReceiverDescription {
 
 /** Откуда ключ, ждущий значения, берёт следующее слово. */
 export interface ValueSource {
+  /** Слово значения: литерал, группа, ввод строки. */
   valueFor(key: string): Written;
+  /** Слово значения ключа-текста: как есть, кроме `--`, `do`, `stdin`. */
+  textFor(key: string): Written;
 }
 
 /** Что набрано под ключом: повтор ключа решает она. */
@@ -113,6 +121,8 @@ class Many implements Slot {
 
 /** Вид ключа: как из слова строки получается значение. */
 export interface Kind {
+  /** Следующее слово строки — значение ключа `key`, прочитанное этим видом. */
+  word(key: string, source: ValueSource): Written;
   /** Значение записано в строке: `ключ: …` или `--ключ=текст`. */
   fromText(key: string, value: Written): Spelled;
   /** Форма `--ключ` без `=`. */
@@ -122,18 +132,21 @@ export interface Kind {
 }
 
 const VALUE: Kind = {
+  word: (key, source) => source.valueFor(key),
   fromText: (_key, value) => value,
   bare: (key, source) => source.valueFor(key),
   slot: (value) => new Single(value),
 };
 
 const LIST: Kind = {
+  word: (key, source) => source.valueFor(key),
   fromText: (_key, value) => value,
   bare: (key, source) => source.valueFor(key),
   slot: (value) => new Many([value]),
 };
 
 const FLAG: Kind = {
+  word: (key, source) => source.valueFor(key),
   fromText: (key, value) => value.asFlag(key),
   bare: () => new Flag(true),
   slot: (value) => new Single(value),
@@ -143,6 +156,26 @@ const KINDS: Readonly<Record<KeyKind, Kind>> = {
   value: VALUE,
   flag: FLAG,
   list: LIST,
+};
+
+/** Вид `kind`, чьё слово значения — текст как есть. */
+function textual(kind: Kind): Kind {
+  return {
+    word: (key, source) => source.textFor(key),
+    fromText: (key, value) => kind.fromText(key, value),
+    bare: (key, source) => source.textFor(key),
+    slot: (value) => kind.slot(value),
+  };
+}
+
+/**
+ * Виды ключей-текст — константы: `Receiver` сравнивает виды тождеством,
+ * и ключ-текст двух методов остаётся одного вида. Флаг текстом не бывает.
+ */
+const TEXT_KINDS: Readonly<Record<KeyKind, Kind>> = {
+  value: textual(VALUE),
+  flag: FLAG,
+  list: textual(LIST),
 };
 
 /** Набор пар одного ключевого сообщения. */
@@ -249,8 +282,9 @@ export class Receiver {
     this.#methods = description.keyword.map((method) => new Method(method));
     this.#values = description.values === true;
     for (const method of description.keyword) {
+      const texts = new Set(method.texts);
       for (const [key, name] of Object.entries(method.keys)) {
-        this.#declare(key, KINDS[name]);
+        this.#declare(key, (texts.has(key) ? TEXT_KINDS : KINDS)[name]);
       }
     }
     for (const key of description.flags ?? []) this.#declare(key, FLAG);

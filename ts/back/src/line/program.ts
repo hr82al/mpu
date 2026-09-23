@@ -29,7 +29,7 @@ import {
   runProgram,
 } from "../program/mod.ts";
 import { commands, findCommand } from "../registry/mod.ts";
-import { addressesOf } from "./keyed.ts";
+import { addressesOf, textKeysOf } from "./keyed.ts";
 import { formatsOf, registryNodes, ruleLinks } from "./tree.ts";
 
 /** Текст, который печать доставила бы для результата. */
@@ -93,6 +93,13 @@ function fileKeys(path: readonly string[]): ReadonlyMap<string, string> {
   );
 }
 
+/** Ключи-текст команды `path`; не команда — пусто. */
+function textKeys(path: readonly string[]): ReadonlySet<string> {
+  const command = findCommand(path);
+  if (command === undefined) return new Set();
+  return new Set(textKeysOf(command, Object.keys(formatsOf(path))));
+}
+
 /**
  * Дерево команд реестра для разбора программы — из снимка дерева; вид
  * результата — у самой команды.
@@ -117,6 +124,7 @@ export function programCommands(
       messages: node.messages.map((line) => line.selector),
       formats: node.formats,
       fromFile: fileKeys(node.path),
+      texts: textKeys(node.path),
       links: ruleLinks(node),
       methods: new Map(own.map((one) => [callWord(one.name), one])),
     }];

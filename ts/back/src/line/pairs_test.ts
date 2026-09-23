@@ -6,15 +6,17 @@
  * которую получила бы прежняя диспетчеризация; исполнения нет.
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertObjectMatch } from "@std/assert";
 import type { Command, InputSpec } from "../command/mod.ts";
 import { shellCommand } from "../exec/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import { type Outcome, type Report, runChain } from "../objects/mod.ts";
 import { RuleBook } from "../policy/mod.ts";
-import { commands } from "../registry/mod.ts";
+import { isProgram } from "../program/mod.ts";
+import { commands, findCommand } from "../registry/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { addressesOf } from "./keyed.ts";
+import { programCommands } from "./program.ts";
 import type { Order } from "./order.ts";
 import { registrySeeds } from "./seeds.ts";
 import { withPolicyFile } from "./testconsent.ts";
@@ -338,6 +340,41 @@ Deno.test("подсказки run-js --detach вставляются: тот ж�
           ),
           command.parseArgs(before.slice(1)),
         );
+      });
+    }
+  }));
+
+Deno.test("ключ-текст: слово MCP как есть доходит до входа команды", (t) =>
+  withPolicyFile(async (file) => {
+    const cases: readonly (readonly [
+      readonly string[],
+      Readonly<Record<string, unknown>>,
+    ])[] = [
+      [
+        [
+          "telegram",
+          "send",
+          "chat:",
+          "@kalabass",
+          "text:",
+          "@kalabass Иван, итог: всё готово.",
+        ],
+        { chat: "@kalabass", message: "@kalabass Иван, итог: всё готово." },
+      ],
+      [["telegram", "send", "chat:", "me", "text:", "."], { message: "." }],
+      [["telegram", "search", "query:", "@ivan"], { query: "@ivan" }],
+      [
+        ["kiten", "comment", "id:", "5", "to:", "@petr", "text:", "@ivan ок."],
+        { selector: "5", to: ["@petr"], message: "@ivan ок." },
+      ],
+    ];
+    for (const [words, input] of cases) {
+      await t.step(words.join(" "), async () => {
+        assertEquals(isProgram(words, programCommands()), false);
+        const command = findCommand(words.slice(0, 2));
+        if (command === undefined) throw new Error("нет команды");
+        const argv = await argvOf(file, words);
+        assertObjectMatch(command.parseArgs(argsOf(command, argv)), input);
       });
     }
   }));

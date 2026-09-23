@@ -60,6 +60,7 @@ Exit: 0 — успех, включая dry и запрос без набора �
     'echo "select 1" | mpu sql-ro dry target: dev:54 sql: stdin',
   ],
   keys: { target: "selector", sql: "sql" },
+  texts: ["sql"],
   retired: { server: "target" },
   policy: "ro",
   argsSchema,

@@ -167,6 +167,7 @@ const command = defineCommand({
   },
   path: ["logs"],
   keys: { service: "service", limit: "tail" },
+  texts: ["grep", "grep-regex"],
   modes: {
     hosts: {
       purpose: "хосты с логами",

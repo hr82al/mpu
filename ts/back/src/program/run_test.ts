@@ -37,6 +37,7 @@ function node(
   keys: readonly string[],
   messages: readonly string[] = [],
   fromFile: ReadonlyMap<string, string> = new Map(),
+  texts: readonly string[] = [],
 ): CommandNode {
   return {
     leaf,
@@ -44,6 +45,7 @@ function node(
     messages,
     formats: leaf ? ["json", "md"] : [],
     fromFile,
+    texts: new Set(texts),
     links: [],
     methods: new Map(),
   };
@@ -56,7 +58,12 @@ function node(
 const CLOSE_KEY = "done";
 
 const NODES: ReadonlyMap<string, CommandNode> = new Map([
-  ["", node(false, [], ["kiten"])],
+  ["", node(false, [], ["kiten", "telegram"])],
+  ["telegram", node(false, [], ["send"])],
+  [
+    "telegram send",
+    node(true, ["chat", "text"], [], new Map(), ["chat", "text"]),
+  ],
   ["kiten", node(false, [], ["card", "close", "ls", "post"])],
   ["kiten ls", node(true, ["column"])],
   ["kiten card", node(true, ["id"])],
@@ -158,12 +165,13 @@ interface Ran {
 }
 
 async function run(
-  line: string,
+  line: string | readonly string[],
   signal: AbortSignal = new AbortController().signal,
 ): Promise<Ran> {
   const lines: string[][] = [];
   let out = "";
-  const end = await runProgram(line.split(" "), {
+  const words = typeof line === "string" ? line.split(" ") : line;
+  const end = await runProgram(words, {
     commands: COMMANDS,
     core: core(lines),
     print: (text) => out += text,
@@ -285,7 +293,6 @@ Deno.test("программа печатает значение последне
 const REFUSALS: readonly (readonly [string, string, number])[] = [
   ["3 greater: ^a^", "выражение 1: сравнение числа и текста", 1],
   ["10 div: 0", "выражение 1: деление на ноль", 1],
-  ["^a b", "выражение 1: текст не закрыт", 2],
   [
     `kiten ls each: ${DO} :c kiten card id: c ${DONE}`,
     "выражение 1, блок each:: переменная в значении — @c; текст — -- c",
@@ -423,6 +430,55 @@ Deno.test("ключ done: блок не закрывает — это друго
     `kiten close id: 12 ${CLOSE_KEY}: x`,
     `kiten close id: 13 ${CLOSE_KEY}: x`,
   ]);
+});
+
+const TEXTS: readonly (readonly [string | readonly string[], string])[] = [
+  ["^ответ: 2^^ готово^", "ответ: 2^ готово\n"],
+  ["^формула x^2 верна^", "формула x^2 верна\n"],
+  ["^^^_^^ спасибо^", "^_^ спасибо\n"],
+  ["^a^^ и b^^^", "a^ и b^\n"],
+  [`^итог: 5 штук. ${END}^`, `итог: 5 штук. ${END}\n`],
+  ["^a -- b^", "a -- b\n"],
+  ["^^ size", "0\n"],
+  ["^^^^", "^\n"],
+  [["^_^ спасибо"], "^_^ спасибо\n"],
+  [["^a b^"], "a b\n"],
+  [["^a b^^"], "a b^\n"],
+];
+
+Deno.test("текст ^…^: ^ внутри — удвоением, слово с пробелом — одно", async (t) => {
+  for (const [line, out] of TEXTS) {
+    await t.step(String(line), async () => {
+      const ran = await run(line);
+      assertEquals(ran.end, { exit: 0, refusal: null });
+      assertEquals(ran.out, out);
+    });
+  }
+});
+
+Deno.test("текст ^…^: отказы до исполнения с готовой строкой", async (t) => {
+  const cases: readonly (readonly [string, string, readonly string[]])[] = [
+    [
+      "^ответ: 2^ готово^",
+      "выражение 1: текст ^…^ закрылся раньше: слово «2^» закрыло его, " +
+      "а «готово^» дальше закрывать нечему. Если ^ — часть текста, " +
+      "удвой: 2^^ — mpu ^ответ: 2^^ готово^",
+      ["^ответ:", "2^^", "готово^"],
+    ],
+    [
+      "^a b",
+      "выражение 1: текст не закрыт: добавь ^ к последнему слову — mpu ^a b^",
+      ["^a", "b^"],
+    ],
+  ];
+  for (const [line, text, hint] of cases) {
+    await t.step(line, async () => {
+      const ran = await run(line);
+      assertEquals(ran.end.exit, 2);
+      assertEquals(ran.end.refusal?.text, text);
+      assertEquals(ran.end.refusal?.hint, hint);
+    });
+  }
 });
 
 Deno.test("значение ключа команды — текст выражения, словом-литералом", async () => {
@@ -593,8 +649,118 @@ Deno.test("строка — программа по словам, --  экран
     [`rem a ${END} kiten ls`, true],
     ["text: -- .", false],
     ["text: -- @x", false],
+    ["telegram send chat: @kalabass text: @x", false],
+    ["telegram send text: .", false],
+    [`telegram send text: ${DONE}`, false],
+    ["telegram send --text @x", false],
+    ["telegram send text: ^a b^", true],
+    [`telegram send text: ${DO} :c c ${DONE}`, true],
+    ["telegram send text: @x . 1", true],
   ];
   for (const [line, program] of cases) {
-    assertEquals(isProgram(line.split(" ")), program, line);
+    assertEquals(isProgram(line.split(" "), COMMANDS), program, line);
   }
+});
+
+/** Строка ядру: `telegram send chat: me text: <текст>`. */
+function sent(text: string): string[] {
+  return ["telegram", "send", "chat:", "me", "text:", text];
+}
+
+Deno.test("ключ-текст: слово как есть, выражение — группой или ^…^", async (t) => {
+  const cases: readonly (readonly [string | readonly string[], string[][]])[] =
+    [
+      [
+        "telegram send chat: @kalabass text: ^@kalabass Иван, итог: всё готово.^",
+        [[
+          "telegram",
+          "send",
+          "chat:",
+          "@kalabass",
+          "text:",
+          "@kalabass Иван, итог: всё готово.",
+        ]],
+      ],
+      [
+        ["telegram", "send", "chat:", "@kalabass", "text:", "@kalabass Иван."],
+        [[
+          "telegram",
+          "send",
+          "chat:",
+          "@kalabass",
+          "text:",
+          "@kalabass Иван.",
+        ]],
+      ],
+      ["x := 1 . telegram send chat: me text: .", [sent(".")]],
+      [`x := 1 . telegram send chat: me text: ${GRAMMAR.comment}`, [
+        sent("rem"),
+      ]],
+      [`x := 1 . telegram send chat: me text: ${DONE}`, [sent(DONE)]],
+      [
+        `telegram send chat: me text: ^итог: 5 штук. ${END}^`,
+        [["telegram", "send", "chat:", "me", "text:", `итог: 5 штук. ${END}`]],
+      ],
+      ["telegram send chat: me text: ^ответ: 2^^ готово^", [
+        sent("ответ: 2^ готово"),
+      ]],
+      ["telegram send chat: me text: ^a b^ print", [sent("a b")]],
+      [
+        "telegram send chat: ^Иван Петров^ text: ура^",
+        [["telegram", "send", "chat:", "Иван Петров", "text:", "ура^"]],
+      ],
+      [
+        `kiten ls each: ${DO} :c telegram send chat: me text: ${DO} @c title ${END} ${DONE}`,
+        [["kiten", "ls"], sent("один"), sent("два"), sent("три")],
+      ],
+      [
+        `kiten ls each: ${DO} :c telegram send chat: me text: @all ${DONE}`,
+        [["kiten", "ls"], sent("@all"), sent("@all"), sent("@all")],
+      ],
+    ];
+  for (const [line, lines] of cases) {
+    await t.step(String(line), async () => {
+      const ran = await run(line);
+      assertEquals(ran.end, { exit: 0, refusal: null });
+      assertEquals(ran.lines, lines);
+    });
+  }
+});
+
+Deno.test("ключ-текст: связанная переменная — отказ до исполнения", async (t) => {
+  const each = `kiten ls each: ${DO} :c telegram send chat: me text:`;
+  const said = "выражение 1, блок each:: ключ-текст берёт слово как есть; " +
+    `переменную — группой: text: ${DO} @c ${END}`;
+  const cases: readonly (readonly [string, string])[] = [
+    [`${each} @c ${DONE}`, said],
+    [`${each} c ${DONE}`, `${said}; текстом — -- c`],
+  ];
+  for (const [line, text] of cases) {
+    await t.step(line, async () => {
+      const ran = await run(line);
+      assertEquals(ran.end.exit, 2);
+      assertEquals(ran.end.refusal?.text, text);
+      assertEquals(ran.end.refusal?.hint, [
+        ...`${each} ${DO} @c ${END} ${DONE}`.split(" "),
+      ]);
+      assertEquals(ran.lines, []);
+    });
+  }
+});
+
+Deno.test("ключ-текст: ^ закрыл текст раньше, за ним непонятое — отказ до исполнения", async () => {
+  const ran = await run("telegram send chat: me text: ^ответ: 2^ готово");
+  assertEquals(ran.end.exit, 2);
+  assertEquals(
+    ran.end.refusal?.text,
+    "выражение 1: mpu telegram send: не понимает готово; возможно, ^ " +
+      "внутри текста закрыл его раньше — удвой ^^",
+  );
+  assertEquals(ran.end.refusal?.hint, [
+    ...sent("^ответ:").slice(0, 5),
+    "^ответ:",
+    "2^^",
+    "готово^",
+  ]);
+  assertEquals(ran.lines, []);
 });

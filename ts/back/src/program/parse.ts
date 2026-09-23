@@ -15,7 +15,7 @@ import {
   substituted,
 } from "../objects/mod.ts";
 import { RESULT } from "./data.ts";
-import { NUMBER } from "./lexis.ts";
+import { isKey, NUMBER } from "./lexis.ts";
 import { Misstep, placed, type Span } from "./machine.ts";
 import { Names } from "./names.ts";
 import {
@@ -39,7 +39,7 @@ import {
   Written,
 } from "./nodes.ts";
 import { Num, selectorOf, Text } from "./objects.ts";
-import { closerOf, textAt, unparsed } from "./scan.ts";
+import { closerOf, doubled, textAt, unparsed } from "./scan.ts";
 import type { CommandView } from "./data.ts";
 import type { Reach } from "./protocol.ts";
 import {
@@ -64,6 +64,11 @@ export interface CommandNode {
    * (`body` → `body-file`); `@путь` значением — отказ с готовой строкой.
    */
   readonly fromFile: ReadonlyMap<string, string>;
+  /**
+   * Ключи-текст: слово значения — текст как есть, выражение — только
+   * группой или `^…^` (`platform/at-word-literal.md`).
+   */
+  readonly texts: ReadonlySet<string>;
   /**
    * Звенья пути правила: по ним правила решают команду до исполнения
    * (`platform/ask-composite.md`); у команды с хвостом — со звеном `<args>`.
@@ -110,12 +115,6 @@ export const LENIENT_ROOT: Root = {
 
 /** Слова грамматики: переменной так не назвать. */
 const GRAMMAR_WORDS: ReadonlySet<string> = new Set(Object.values(GRAMMAR));
-
-/** Слово — ключ ключевого сообщения: `id:`. */
-function isKey(word: string): boolean {
-  return word.length > 1 && word.endsWith(GRAMMAR.parameter) &&
-    word !== GRAMMAR.assign;
-}
 
 /** Имя ключа слова в любой форме (`id:`, `--id`, `--id=1`); не ключ — `undefined`. */
 function keyName(word: string): string | undefined {
@@ -481,7 +480,7 @@ class Parser {
     this.#known(path, node);
     const parts: Part[] = [new Written(this.#words.slice(start, this.#at))];
     if (node.leaf) {
-      const keyed = this.#leafParts(node, parts, start);
+      const keyed = this.#leafParts(path, node, parts, start);
       const format = this.#format(node, keyed);
       const reading = format.length === 0 ? AS_VALUE : AS_PRINTED;
       return {
@@ -567,8 +566,13 @@ class Parser {
     }
   }
 
-  /** Слова команды-листа с позиции `start`; набраны ли ключи. */
-  #leafParts(node: CommandNode, parts: Part[], start: number): boolean {
+  /** Слова команды-листа `path` с позиции `start`; набраны ли ключи. */
+  #leafParts(
+    path: readonly string[],
+    node: CommandNode,
+    parts: Part[],
+    start: number,
+  ): boolean {
     let keyed = false;
     for (;;) {
       this.#skip();
@@ -584,7 +588,11 @@ class Parser {
       if (!node.keys.has(key)) return keyed;
       keyed = true;
       this.#noFile(node, key, start);
-      this.#keyParts(word, key, node.keys.get(key) === "flag", parts);
+      if (!this.#keyWord(word, node.keys.get(key) === "flag", parts)) {
+        continue;
+      }
+      if (!node.texts.has(key)) this.#segmentValue(key, parts);
+      else this.#textValue(key, path, node, parts);
     }
   }
 
@@ -614,7 +622,9 @@ class Parser {
       const word = this.#word();
       const key = keyName(word);
       if (key === undefined) this.#segmentValue("значение", parts);
-      else this.#keyParts(word, key, false, parts);
+      else if (this.#keyWord(word, false, parts)) {
+        this.#segmentValue(key, parts);
+      }
     }
   }
 
@@ -659,12 +669,94 @@ class Parser {
     return { value, words: escaped ? 3 : 2 };
   }
 
-  /** Ключ сегмента и его значение, если форма его ждёт. */
-  #keyParts(word: string, key: string, flag: boolean, parts: Part[]) {
+  /** Слово ключа сегмента; ждёт ли его форма значения следующим словом. */
+  #keyWord(word: string, flag: boolean, parts: Part[]): boolean {
     parts.push(new Written([word]));
     this.#at++;
-    const inline = word.includes("=") || flag && word.startsWith("--");
-    if (!inline) this.#segmentValue(key, parts);
+    return !(word.includes("=") || flag && word.startsWith("--"));
+  }
+
+  /**
+   * Значение ключа-текста (`platform/at-word-literal.md`, правило 1):
+   * слово как есть — ядро прочтёт его тем же видом; выражение — только
+   * группой или `^…^`; `--` — как везде. Комментарий здесь не
+   * пропускается: `rem` — текст.
+   */
+  #textValue(
+    key: string,
+    path: readonly string[],
+    node: CommandNode,
+    parts: Part[],
+  ) {
+    if (this.#over() || isKey(this.#word())) return;
+    const start = this.#at;
+    const word = this.#word();
+    if (word === GRAMMAR.literal || word === GRAMMAR.open) {
+      this.#segmentValue(key, parts);
+      return;
+    }
+    if (word.startsWith(GRAMMAR.quote)) {
+      parts.push(new Computed(key, this.#text(), this.#spanFrom(start)));
+      if (this.#at - start > 1) this.#understood(path, node, this.#at - 1);
+      return;
+    }
+    this.#unbound(key, word);
+    this.#at++;
+    parts.push(new Written([word]));
+  }
+
+  /**
+   * Слово ключа-текста — связанная переменная (`@c`, `c`, `@c.title`):
+   * отказ до исполнения, переменная в текст — группой.
+   */
+  #unbound(key: string, word: string) {
+    const bare = !word.startsWith(GRAMMAR.variable);
+    const name = bare ? word : word.slice(GRAMMAR.variable.length);
+    const [head, ...fields] = name.split(".");
+    if (!this.#names.has(head)) return;
+    const group = [
+      GRAMMAR.open,
+      `${GRAMMAR.variable}${head}`,
+      ...fields,
+      GRAMMAR.close,
+    ];
+    const said = `${AS_IS}; переменную — группой: ${key}: ${group.join(" ")}`;
+    const text = bare ? `${said}; текстом — ${GRAMMAR.literal} ${word}` : said;
+    throw new Misstep(
+      new Refusal(text, { reason: AS_IS, remedy: substituted(group) }),
+      this.#span(1),
+    );
+  }
+
+  /**
+   * За многословным `^…^`, закрытым словом `closer`, — голое слово,
+   * которого результат не поймёт: вероятно, `^` внутри текста закрыл
+   * его раньше. Отказ до исполнения: закрывший `^` удвоен, текст закрыт
+   * на последнем голом слове (решение хоста к 167b).
+   */
+  #understood(path: readonly string[], node: CommandNode, closer: number) {
+    if (this.#over()) return;
+    const word = this.#word();
+    if (!isPlain(word) || stops(word)) return;
+    if (node.formats.includes(word) || UNDERSTOOD.has(word)) return;
+    let last = this.#at;
+    while (last + 1 < this.#to && isPlain(this.#words[last + 1])) {
+      if (stops(this.#words[last + 1])) break;
+      last++;
+    }
+    const fixed = [
+      doubled(this.#words[closer]),
+      ...this.#words.slice(closer + 1, last),
+      this.#words[last] + GRAMMAR.quote,
+    ];
+    const said = `mpu ${path.join(" ")}: не понимает ${word}`;
+    throw new Misstep(
+      new Refusal(`${said}; ${CLOSED_EARLY}`, {
+        reason: CLOSED_EARLY,
+        remedy: substituted(fixed),
+      }),
+      { start: closer, end: last + 1 },
+    );
   }
 
   /** Значение ключа команды: слова как есть или выражение текстом. */
@@ -739,9 +831,16 @@ const NO_NODE: CommandNode = {
   messages: [],
   formats: [],
   fromFile: new Map(),
+  texts: new Set(),
   links: [],
   methods: new Map(),
 };
+
+/** Вид отказа: связанная переменная в ключе-тексте. */
+const AS_IS = "ключ-текст берёт слово как есть";
+
+/** Добавка к непонятому за многословным текстом. */
+const CLOSED_EARLY = "возможно, ^ внутри текста закрыл его раньше — удвой ^^";
 
 /** Хвост строки без команды: её напечатанное — данные JSON. */
 const AS_DATA: readonly string[] = [GRAMMAR.close, "json"];
@@ -753,6 +852,16 @@ const REFLECTION: ReadonlySet<string> = new Set([
   "keys",
   "formats",
   "variants",
+]);
+
+/**
+ * Слова, которые результат команды понимает всегда: за многословным
+ * текстом они — не признак закрытого раньше `^`.
+ */
+const UNDERSTOOD: ReadonlySet<string> = new Set([
+  "print",
+  "isNil",
+  ...REFLECTION,
 ]);
 
 /** Первичное без проверки остатка. */

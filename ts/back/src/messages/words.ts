@@ -29,6 +29,11 @@ interface Word {
   joinTo(draft: Draft, words: Words): boolean;
   /** Слово стоит там, где ключ `key` ждёт значения. */
   valueFor(key: string, words: Words): Written;
+  /**
+   * Слово стоит там, где ждёт значения ключ-текст `key`: как есть — кроме
+   * `--`, `do` и `stdin`, которые и здесь значат своё.
+   */
+  textFor(key: string, words: Words): Written;
   /** Слово стоит за `--`: берётся буквально. */
   literal(): string;
   /** Слово стоит за ключевым сообщением: закрывает его или лишнее. */
@@ -123,6 +128,10 @@ export class Words implements ValueSource {
     return this.next().valueFor(key, this);
   }
 
+  textFor(key: string): Written {
+    return this.next().textFor(key, this);
+  }
+
   /** Слово за `--`, взятое буквально. */
   literal(): string {
     return this.next().literal();
@@ -178,6 +187,10 @@ class Bare implements Word {
     return new Literal(this.#text);
   }
 
+  textFor(): Written {
+    return new Literal(this.#text);
+  }
+
   literal(): string {
     return this.#text;
   }
@@ -211,7 +224,7 @@ interface KeyForm {
 
 /** `ключ:` — значение в следующем слове. */
 const COLON: KeyForm = {
-  read: (key, kind, words) => kind.fromText(key, words.valueFor(key)),
+  read: (key, kind, words) => kind.fromText(key, kind.word(key, words)),
 };
 
 /** `--ключ` — значение в следующем слове, флагу оно не нужно. */
@@ -266,6 +279,12 @@ class Key implements Word {
     throw MessageParseError.noValue(key);
   }
 
+  // Ключ на месте значения почти всегда — пропущенное значение, и у
+  // ключа-текста тоже: `text: chat: me`.
+  textFor(key: string): Written {
+    throw MessageParseError.noValue(key);
+  }
+
   literal(): string {
     return this.#text;
   }
@@ -300,6 +319,7 @@ const HELP_WORD: Word = {
   valueFor(key): Written {
     throw MessageParseError.noValue(key);
   },
+  textFor: () => new Literal(HELP_FLAG),
   literal: () => HELP_FLAG,
   // `--help` за значением — справка результата ключевого сообщения.
   afterPair: (_draft, words) => words.closeHere(),
@@ -319,6 +339,7 @@ const ESCAPE: Word = {
   start: (words) => ({ unary: words.literal() }),
   joinTo: () => false,
   valueFor: (_key, words) => new Literal(words.literal()),
+  textFor: (_key, words) => new Literal(words.literal()),
   literal: () => GRAMMAR.literal,
   // Литерал за значением — унарное результату, как голое слово.
   afterPair: (_draft, words) => words.closeHere(),
@@ -384,6 +405,8 @@ const OPEN: Word = {
   joinTo: () => false,
   valueFor: (key, words) =>
     new GroupValue(groupWords(key, words), groupMessages(words)),
+  // Выражение в ключ-текст — группой (`text: do @c title end`).
+  textFor: (key, words) => OPEN.valueFor(key, words),
   literal: () => GRAMMAR.open,
   afterPair() {
     throw openElsewhere();
@@ -404,6 +427,7 @@ const CLOSE: Word = {
   valueFor(key): Written {
     throw MessageParseError.noValue(key);
   },
+  textFor: () => new Literal(GRAMMAR.close),
   literal: () => GRAMMAR.close,
   afterPair() {},
   toGroup: () => false,
@@ -416,6 +440,9 @@ const END: Word = {
   start: () => ({ unary: HELP }),
   joinTo: () => false,
   valueFor(key): Written {
+    throw MessageParseError.noValue(key);
+  },
+  textFor(key): Written {
     throw MessageParseError.noValue(key);
   },
   literal() {
@@ -440,6 +467,7 @@ function stdinWord(): Word {
     start: () => bare.start(),
     joinTo: () => bare.joinTo(),
     valueFor: () => new StdinValue(),
+    textFor: () => new StdinValue(),
     literal: () => bare.literal(),
     afterPair: (draft, words) => bare.afterPair(draft, words),
     toGroup: (words, into) => bare.toGroup(words, into),

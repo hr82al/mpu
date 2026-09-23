@@ -196,6 +196,7 @@ export async function runRequest(
 export const ssAccessRequestCommand = defineCommand({
   path: ["api", "ss-access", "request"],
   keys: { spreadsheet: "spreadsheet" },
+  texts: ["reason"],
   errorName: "api ss-access request",
   summary: "POST /admin/ss/<ss>/my-access/request — выдать себе доступ.",
   usage:
@@ -331,6 +332,7 @@ export async function runRevoke(
 export const ssAccessRevokeCommand = defineCommand({
   path: ["api", "ss-access", "revoke"],
   keys: { spreadsheet: "spreadsheet" },
+  texts: ["reason"],
   errorName: "api ss-access revoke",
   summary: "Отозвать доступ (job accessGrantRevoke).",
   usage:
@@ -447,6 +449,7 @@ const sleep = (ms: number) => new Promise<void>((ok) => setTimeout(ok, ms));
 export const ssAccessResetCommand = defineCommand({
   path: ["api", "ss-access", "reset"],
   keys: { spreadsheet: "spreadsheet" },
+  texts: ["reason"],
   errorName: "api ss-access reset",
   summary: "Отозвать застрявшую выдачу, дождаться и выдать заново.",
   usage: "mpu api ss-access reset spreadsheet: ТАБЛИЦА [reason: T] [role: R]",

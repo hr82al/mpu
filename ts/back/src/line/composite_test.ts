@@ -113,7 +113,7 @@ Deno.test("пять записей, да да нет — четвёртая и �
     const ran = await runOnStand(
       file,
       words(
-        "ask 1 to: 5 do: {do} {:}i kiten comment id: 11 text: {@}i {done}",
+        "ask 1 to: 5 do: {do} {:}i kiten comment id: 11 text: {do} {@}i {end} {done}",
       ),
       stand,
       { answers: ["y", "y", "n", "y", "y"] },

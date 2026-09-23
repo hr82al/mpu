@@ -375,6 +375,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten; 2 — ошибка вво
 export const kitenChecklistAddCommand = defineCommand({
   path: ["kiten", "checklist", "add"],
   keys: { id: "selector" },
+  texts: ["name"],
   errorName: "kiten checklist add",
   summary: "Создать чек-лист карточки Kaiten и дописать в него пункты.",
   usage: "mpu kiten checklist add id: КАРТОЧКА name: NAME [item: TEXT]...",

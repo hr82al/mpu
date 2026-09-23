@@ -140,3 +140,42 @@ Deno.test("справка корня называет слова програм�
       }
     })
   ));
+
+Deno.test("ключ-текст на стенде: текст уходит как есть", (t) =>
+  withPolicyFile((file) =>
+    withStand(async (stand) => {
+      allowEverything(file);
+      const cases:
+        readonly (readonly [readonly string[], readonly string[]])[] = [
+          [
+            [
+              "kiten",
+              "comment",
+              "id:",
+              "11",
+              "text:",
+              "@ivan готово. Проверьте",
+            ],
+            ["11 @ivan готово. Проверьте"],
+          ],
+          [words("kiten comment id: 11 text: ^ответ: 2^^ готово^"), [
+            "11 ответ: 2^ готово",
+          ]],
+          [
+            words(
+              "ask kiten ls each: {do} {:}c kiten comment id: {@}c id " +
+                "text: {do} {@}c title {end} {done}",
+            ),
+            ["11 один", "12 два", "13 три"],
+          ],
+        ];
+      for (const [line, posted] of cases) {
+        await t.step(line.join(" "), async () => {
+          const before = stand.posted().length;
+          const ran = await runOnStand(file, line, stand);
+          assertEquals(ran.exit, 0, ran.stderr);
+          assertEquals(stand.posted().slice(before), posted);
+        });
+      }
+    })
+  ));

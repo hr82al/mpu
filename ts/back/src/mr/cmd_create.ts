@@ -127,6 +127,7 @@ export const mrCreateCommand = defineCommand({
     into: { input: "target", why: "target занят словарём: ветка назначения" },
     text: "message",
   },
+  texts: ["title"],
   errorName: "mr create",
   summary: "Создать merge request из текущей ветки.",
   usage:

@@ -259,3 +259,25 @@ Deno.test("fromFile — только у текстового входа: у сп
     tags: "tags-file",
   });
 });
+
+Deno.test("texts называет входы команды: опечатка — объявление не собирается", () => {
+  const declared = (texts: readonly string[]) =>
+    defineCommand({
+      path: ["proba"],
+      summary: "проба пера",
+      usage: "mpu proba",
+      help: "Подробности пробы.",
+      policy: "ro",
+      argsSchema: z.object({ chat: z.string().optional() }),
+      resultSchema: z.object({ ok: z.boolean() }),
+      run: () => Promise.resolve({ ok: true }),
+      render: () => "",
+      texts,
+    });
+  assertThrows(
+    () => declared(["chta"]),
+    TypeError,
+    "proba: texts chta — такого входа нет",
+  );
+  assertEquals(declared(["chat"]).texts, ["chat"]);
+});

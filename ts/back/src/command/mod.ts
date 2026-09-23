@@ -425,6 +425,13 @@ interface CommandDeclaration<A, R> {
    * переменная программы (`platform/evaluator.md`).
    */
   readonly fromFile?: Readonly<Record<string, string>>;
+  /**
+   * Входы, чьё значение — текст как есть: адресат, запрос, свободный
+   * текст вне словаря (`chat`, `to`, `title`). Слово значения не
+   * толкуется — ни переменной, ни знаком (`platform/at-word-literal.md`).
+   * Словарные `text` и `query` — текст всегда, их не объявляют.
+   */
+  readonly texts?: readonly string[];
   /** Строки вызова для раздела «Примеры» справки. */
   readonly examples?: readonly string[];
   /**
@@ -622,6 +629,8 @@ export interface Command {
   readonly retired: Readonly<Record<string, string>>;
   /** Входы, чей `@путь` теперь — ключ файла: имя → этот ключ. */
   readonly fromFile: Readonly<Record<string, string>>;
+  /** Входы, чьё значение — текст как есть (см. объявление). */
+  readonly texts: readonly string[];
   /** Строки вызова для раздела «Примеры» справки. */
   readonly examples: readonly string[];
   /** Режимы команды: имя унарного сообщения → режим. */
@@ -687,6 +696,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
   );
   const specs = inputSpecs(argsJsonSchema, spec.forms ?? {});
   requireTextFiles(name, specs, spec.fromFile ?? {});
+  requireInputs(name, specs, spec.texts ?? []);
   const helpHint = `mpu ${name} --help`;
   // Пометка «аргументы в журнал не пишутся» доезжает до разбора argv:
   // иначе сообщения разбора эхо-печатают ввод, и он всё равно попадает
@@ -729,6 +739,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     ...(spec.keys === undefined ? {} : { keys: { ...spec.keys } }),
     retired: { ...spec.retired },
     fromFile: { ...spec.fromFile },
+    texts: [...(spec.texts ?? [])],
     examples: [...(spec.examples ?? [])],
     modes: { ...spec.modes },
     choices: { ...spec.choices },
@@ -844,6 +855,22 @@ function requireTextFiles(
       throw new TypeError(
         `${name}: fromFile ${input} — только у текстового входа, а он ${kind}`,
       );
+    }
+  }
+}
+
+/**
+ * `texts` называет входы команды: опечатка в имени оставила бы ключ
+ * выражением молча. Ловим при сборке реестра.
+ */
+function requireInputs(
+  name: string,
+  specs: readonly InputSpec[],
+  texts: readonly string[],
+): void {
+  for (const input of texts) {
+    if (!specs.some((one) => one.name === input)) {
+      throw new TypeError(`${name}: texts ${input} — такого входа нет`);
     }
   }
 }

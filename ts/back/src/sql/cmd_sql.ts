@@ -59,6 +59,7 @@ Exit: 0 — успех, включая dry и запрос без набора �
     "mpu ask sql dry target: sl-1",
   ],
   keys: { target: "selector", sql: "sql" },
+  texts: ["sql"],
   retired: { server: "target" },
   policy: "rw",
   argsSchema,

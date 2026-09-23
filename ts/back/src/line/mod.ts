@@ -414,7 +414,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
       changed: imaging.changed,
     };
     return await imageLineOf(said).settle(context, async () => {
-      if (!isProgram(said) && !callsImage(said, methods)) {
+      if (!isProgram(said, commands) && !callsImage(said, methods)) {
         return printed(await runChain(walked, root, values), speech);
       }
       return await runProgramLine(said, context.root, {

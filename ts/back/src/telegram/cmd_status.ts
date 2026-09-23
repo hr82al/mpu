@@ -222,6 +222,7 @@ async function send(
 export const telegramStatusCommand = defineCommand({
   path: ["telegram", "status"],
   keys: {},
+  texts: ["chat"],
   errorName: "telegram status",
   summary: "Отправить отчёт о сегодняшних перемещениях карточек.",
   usage: "mpu telegram status [no-live] [dry] [chat: X]",
@@ -252,6 +253,7 @@ KITEN_BASE_URL, KITEN_COLUMN_MAP, KITEN_STATUS_EMOJI.
 Exit: 1 — конфигурация или отказ Telegram; 2 — адресат не задан.`,
   examples: [
     "mpu telegram status dry no-live",
+    "mpu telegram status dry chat: @username",
   ],
   policy: "rw",
   argsSchema,
