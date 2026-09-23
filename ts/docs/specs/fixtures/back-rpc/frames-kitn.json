@@ -1,5 +1,17 @@
 [
   {
+    "refusal": {
+      "reason": "не понимает",
+      "hint": [
+        "kiten"
+      ],
+      "candidates": [
+        "kiten"
+      ],
+      "text": "mpu: не понимает kitn; ближайшие: kiten"
+    }
+  },
+  {
     "err": "mpu: не понимает kitn; ближайшие: kiten\n"
   },
   {

@@ -151,6 +151,19 @@
           "additionalProperties": false
         },
         {
+          "description": "Отказ строки объектом — непосредственно перед кадром err с тем же текстом; клиент-человек его не печатает.",
+          "type": "object",
+          "required": [
+            "refusal"
+          ],
+          "properties": {
+            "refusal": {
+              "$ref": "#/$defs/refusal"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
           "type": "object",
           "required": [
             "exit"
@@ -163,6 +176,44 @@
           "additionalProperties": false
         }
       ]
+    },
+    "refusal": {
+      "description": "Отказ строки объектом (platform/refusal-object.md): вид — постоянная строка; исправленная строка словами, как words тула, или null; ближайшие к непонятому; текст stderr отказа без перевода строки.",
+      "type": "object",
+      "required": [
+        "reason",
+        "hint",
+        "candidates",
+        "text"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "hint": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "http.line.collected": {
       "description": "Собранный ответ строки простым HTTP (Accept: application/json): склейка кадров потока.",
@@ -180,6 +231,10 @@
         },
         "exit": {
           "type": "integer"
+        },
+        "refusal": {
+          "description": "Отказ строки объектом; строка не отказана — поля нет.",
+          "$ref": "#/$defs/refusal"
         },
         "ask": {
           "type": "string"

@@ -1,5 +1,13 @@
 [
   {
+    "refusal": {
+      "reason": "нужно подтверждение, а спросить некого",
+      "hint": null,
+      "candidates": [],
+      "text": "mpu kiten comment id: 1 text: x: нужно подтверждение, а спросить некого"
+    }
+  },
+  {
     "err": "mpu kiten comment id: 1 text: x: нужно подтверждение, а спросить некого\n"
   },
   {

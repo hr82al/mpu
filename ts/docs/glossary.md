@@ -362,3 +362,4 @@
 | вариант команды | `Variant`, `Chosen`, `NONE_CHOSEN`, `VariantLine` (`input`), `back/src/line/variants.ts` | унарное сообщение команде до ключей вместо флага поведения; входит в текст вопроса, не в путь правила |
 | вариант-выбор | `Choice` | варианты одного входа, исключающие друг друга (`ssh`/`portainer`) |
 | вариант не на месте | `Misplaced` | вариант после ключей — отказ с готовой строкой |
+| отказ-объект | кадр `refusal` (`reason`, `hint`, `candidates`, `text`), `back/src/objects/refusal.ts` | отказ данными: MCP кладёт в `structuredContent`, агент берёт `hint`; stderr — из того же объекта |
