@@ -12,6 +12,7 @@ import { VERSION } from "../version.ts";
 import { runBack } from "./entry.ts";
 import type { SnapshotFs } from "./mod.ts";
 import { Client, request, type TestBack, withBack } from "./testback.ts";
+import { MemoryLauncher, NO_MARKERS } from "../worker/mod.ts";
 
 function rpc(back: TestBack, body: string) {
   return request(back, "/rpc", {
@@ -157,7 +158,8 @@ Deno.test("rpc: сбой метода — -32603", () =>
 
 /** Строка использования: она же ответ на «не число» у обоих флагов. */
 const USAGE_LINE =
-  "mpu-back: использование: deno task back [--port <число>] [--lines <число>]\n";
+  "mpu-back: использование: deno task back [--port <число>] [--lines <число>] " +
+  "[--worker <путь>]\n";
 
 Deno.test("процесс: адрес в stdout, оба токена 0600, остановка — 0, порт занят — 1", async () => {
   const dir = await Deno.makeTempDir();
@@ -166,8 +168,10 @@ Deno.test("процесс: адрес в stdout, оба токена 0600, ос�
   const stopped = Promise.withResolvers<void>();
   const busy = Deno.listen({ hostname: "127.0.0.1", port: 0 });
   try {
+    const io = makeDenoIo(dir);
+    const programs: string[] = [];
     const proc = {
-      io: makeDenoIo(dir),
+      io,
       agentToken: tokenFile(`${dir}/agent-token`),
       log: NO_INVOKE_LOG,
       policyFile: `${dir}/policy.db`,
@@ -179,6 +183,14 @@ Deno.test("процесс: адрес в stdout, оба токена 0600, ос�
         stderr: (text: string) => void err.push(text),
       },
       stopped: stopped.promise,
+      workers: {
+        program: "/нет/mpu-worker",
+        launcher: (program: string) => {
+          programs.push(program);
+          return new MemoryLauncher(io, 1, () => Date.now());
+        },
+        markers: NO_MARKERS,
+      },
     };
     const port = (busy.addr as Deno.NetAddr).port;
     assertEquals(await runBack(["--port", String(port)], proc), 1);
@@ -206,7 +218,7 @@ Deno.test("процесс: адрес в stdout, оба токена 0600, ос�
       0,
     );
     assertEquals(version, ["0.1.0\n"]);
-    const running = runBack(["--port", "0"], {
+    const running = runBack(["--port", "0", "--worker", "/мой/mpu-worker"], {
       ...proc,
       output: {
         stdout: (text: string) => {
@@ -217,6 +229,8 @@ Deno.test("процесс: адрес в stdout, оба токена 0600, ос�
       },
     });
     assertEquals(await running, 0);
+    // Программа исполнителя: без флага — умолчание процесса, с ним — его.
+    assertEquals(programs, ["/нет/mpu-worker", "/мой/mpu-worker"]);
     assertEquals(out.length, 1);
     assertEquals(/^mpu-back: http:\/\/127\.0\.0\.1:\d+\n$/.test(out[0]), true);
     const tokens: string[] = [];

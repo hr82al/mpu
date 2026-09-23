@@ -16,3 +16,20 @@ export {
 } from "./entry.ts";
 export { BACK_PORT, MCP_PORT, Supervisor } from "./supervisor.ts";
 export { SYSTEM_CLOCK, SYSTEM_LAUNCHER } from "./system.ts";
+export {
+  DEFAULT_MIN_BYTES,
+  defaultThreshold,
+  type Hands,
+  MARKLESS_HANDS,
+  type Proc,
+  processesOf,
+  type ProcSource,
+  type Snapshot,
+  snapshotOf,
+  SYSTEM_PROCS,
+  systemHands,
+  WATCH_INTERVAL_MS,
+  Watchdog,
+  type WatchdogParts,
+  type WatchSetup,
+} from "./watchdog.ts";

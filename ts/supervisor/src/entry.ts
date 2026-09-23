@@ -5,6 +5,7 @@
 
 import type { Child, Clock, Launcher, Log } from "./child.ts";
 import { Supervisor } from "./supervisor.ts";
+import type { WatchSetup } from "./watchdog.ts";
 
 /**
  * Версия сборки. Соседей супервизор не импортирует, поэтому это литерал;
@@ -24,6 +25,8 @@ export interface SupervisorProcess {
   readonly clock: Clock;
   readonly log: Log;
   readonly stdout: (text: string) => void;
+  /** Сторож памяти исполнителей (`platform/line-executor.md`). */
+  readonly watch: WatchSetup;
   /** Подписка на сигналы процесса. */
   readonly onSignal: (
     signal: SupervisorSignal,

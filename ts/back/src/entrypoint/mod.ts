@@ -45,6 +45,8 @@ export interface InvokeJournal {
   readonly nativeCall: (command: OutputPolicy) => void;
   /** Заметка о ходе вызова в запись журнала, не на экран. */
   readonly note: (text: string) => void;
+  /** Команду исполнил процесс `pid` — исполнитель строки. */
+  readonly executedBy: (pid: number) => void;
   readonly log: InvokeLog;
 }
 

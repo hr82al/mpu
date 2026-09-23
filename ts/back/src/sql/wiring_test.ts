@@ -24,6 +24,7 @@ async function cli(argv: readonly string[], io: CommandIo) {
   }, {
     nativeCall: (command) => void journaled.push(command),
     note: () => {},
+    executedBy: () => {},
     log: NO_INVOKE_LOG,
   });
   return { code, stdout: out.join(""), stderr: err.join(""), journaled };

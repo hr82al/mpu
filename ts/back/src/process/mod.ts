@@ -100,6 +100,7 @@ export async function runJournaled(
     code = await entry(args, io, output, {
       nativeCall: (command) => record.nativeCall(command),
       note: (line) => record.note(line),
+      executedBy: (pid) => record.executedBy(pid),
       log,
     });
   } catch (err) {

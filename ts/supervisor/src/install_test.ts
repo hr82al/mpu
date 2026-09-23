@@ -30,6 +30,7 @@ const PROGRAMS = [
   "mpu-complete",
   "mpu-mcp",
   "mpu-supervisor",
+  "mpu-worker",
 ];
 
 Deno.test("первая установка: всё собрано и поставлено, служба — эталон, start", () =>
@@ -63,9 +64,9 @@ Deno.test("второй запуск без изменений: ничего н�
     assertEquals(run.code, 0, run.lines.join("\n"));
     assertEquals(
       run.lines.filter((line) => line.includes("сравнение")),
-      ["back", "mcp", "cli", "supervisor", "complete", "web"].map((part) =>
-        `install: сравнение ${part}: без изменений`
-      ),
+      ["back", "worker", "mcp", "cli", "supervisor", "complete", "web"].map((
+        part,
+      ) => `install: сравнение ${part}: без изменений`),
     );
     assertEquals(run.calls, []);
     assertEquals(await snapshot(place.bin), before);
@@ -95,6 +96,25 @@ Deno.test("--only mcp после правки: только mpu-mcp и USR2 гл
       "--user kill --kill-whom=main -s USR1 mpu",
       "--user kill --kill-whom=main -s USR2 mpu",
     ]);
+  }));
+
+Deno.test("--only worker после правки: только mpu-worker и USR1 — исполнителей берёт новое ядро", () =>
+  withPlace(async (place) => {
+    await install(place);
+    const before = await snapshot(place.bin);
+    const run = await install(place, ["--only", "worker"], {
+      FAKE_TAG_worker: "2",
+    });
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    const after = await snapshot(place.bin);
+    for (const program of PROGRAMS) {
+      assertEquals(
+        after[program] === before[program],
+        program !== "mpu-worker",
+        program,
+      );
+    }
+    assertEquals(run.calls, ["--user kill --kill-whom=main -s USR1 mpu"]);
   }));
 
 Deno.test("сборка упала: ошибка шага, код 1, каталог программ не тронут", () =>

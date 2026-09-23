@@ -9,6 +9,8 @@
 
 /** Имена задач сборки: каждое названо здесь один раз. */
 export const BACK_TASK = "compile:back";
+/** Исполнитель строк: ядро ищет его рядом с собой (`platform/line-executor.md`). */
+export const WORKER_TASK = "compile:worker";
 export const CLI_TASK = "compile:cli";
 
 /** Задачи сборки в `deno.jsonc` нет либо она не той формы. */

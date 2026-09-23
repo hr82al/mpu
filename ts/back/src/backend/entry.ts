@@ -1,7 +1,7 @@
 /**
  * Процесс `mpu-back` (`platform/back-rpc.md`, «CLI-контракт»): разбор
- * `--port` и `--lines` (`platform/line-concurrency.md`), токен, сервер
- * до сигнала остановки.
+ * `--port`, `--lines` (`platform/line-concurrency.md`) и `--worker`
+ * (`platform/line-executor.md`), токен, сервер до сигнала остановки.
  */
 
 import type { CommandIo } from "../command/mod.ts";
@@ -13,12 +13,13 @@ import type { SecretText } from "../runtime/mod.ts";
 import { DEFAULT_LINES } from "./limit.ts";
 import { DEFAULT_BACK_PORT, serveBack } from "./server.ts";
 import { WebAccess } from "./web.ts";
+import type { Launcher, Markers } from "../worker/mod.ts";
 
 /** Чтение и запись файла токена. */
 type TokenIo = Pick<CommandIo, "readAccessToken" | "writeAccessToken">;
 
-const USAGE =
-  "mpu-back: использование: deno task back [--port <число>] [--lines <число>]\n";
+const USAGE = "mpu-back: использование: deno task back [--port <число>] " +
+  "[--lines <число>] [--worker <путь>]\n";
 
 /** Отказ запуска: предел строк назван, но негоден (`--lines 0`). */
 const BAD_LINES = "mpu-back: предел строк должен быть больше нуля\n";
@@ -41,11 +42,26 @@ export interface BackProcess {
   readonly output: Output;
   /** Завершается по SIGTERM или SIGINT. */
   readonly stopped: Promise<void>;
+  /**
+   * Исполнители строк (`platform/line-executor.md`): программа по
+   * умолчанию (`mpu-worker` рядом с `mpu-back`), как запускать программу,
+   * названную `--worker`, и отметки сторожа.
+   */
+  readonly workers: {
+    readonly program: string;
+    readonly launcher: (program: string) => Launcher;
+    readonly markers: Markers;
+  };
 }
 
 /** С чем поднимать сервер либо готовый отказ в stderr. */
 type Startup =
-  | { readonly port: number; readonly lines: number }
+  | {
+    readonly port: number;
+    readonly lines: number;
+    /** Программа исполнителя из `--worker`; не названа — умолчание. */
+    readonly worker?: string;
+  }
   | { readonly refusal: string };
 
 /** Целое из значения флага; не целое — `undefined`. */
@@ -56,14 +72,20 @@ function integerOf(value: string | undefined): number | undefined {
 }
 
 /**
- * Разбор аргументов: пары `--port`/`--lines` в любом порядке. «Не
+ * Разбор аргументов: пары `--port`/`--lines`/`--worker` в любом порядке. «Не
  * число» — ошибка формы вызова (строка использования), «число, но не
  * годится» — названный отказ (`platform/line-concurrency.md`).
  */
 function startupOf(args: readonly string[]): Startup {
   let port = DEFAULT_BACK_PORT;
   let lines = DEFAULT_LINES;
+  let worker: string | undefined;
   for (let index = 0; index < args.length; index += 2) {
+    // Путь — не число: его значение не разбирается, лишь бы было.
+    if (args[index] === "--worker" && args[index + 1] !== undefined) {
+      worker = args[index + 1];
+      continue;
+    }
     const value = integerOf(args[index + 1]);
     if (value === undefined) return { refusal: USAGE };
     if (args[index] === "--port") {
@@ -78,7 +100,7 @@ function startupOf(args: readonly string[]): Startup {
     }
     return { refusal: USAGE };
   }
-  return { port, lines };
+  return { port, lines, worker };
 }
 
 /**
@@ -101,6 +123,7 @@ export async function runBack(
     return 2;
   }
   const { port, lines } = startup;
+  const workers = proc.workers;
   let running;
   try {
     running = await serveBack({
@@ -121,6 +144,10 @@ export async function runBack(
       }),
       webRoot: proc.webRoot,
       diagnose: (line) => proc.output.stderr(`${line}\n`),
+      workers: {
+        launcher: workers.launcher(startup.worker ?? workers.program),
+        markers: workers.markers,
+      },
     });
   } catch (err) {
     if (!(err instanceof Deno.errors.AddrInUse)) throw err;

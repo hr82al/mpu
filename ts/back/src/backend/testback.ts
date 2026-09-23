@@ -12,6 +12,7 @@ import { makeFakeIo } from "../testing/mod.ts";
 import { secretText } from "../runtime/mod.ts";
 import { type RunningBack, serveBack, type SnapshotFs } from "./mod.ts";
 import { WebAccess } from "./web.ts";
+import { MarkerDir, MemoryLauncher } from "../worker/mod.ts";
 
 /** Кадр сервера как его получил клиент. */
 export type Frame = Readonly<Record<string, unknown>>;
@@ -42,6 +43,10 @@ export interface TestBack {
   readonly logged: string[];
   /** Каталог файлов большого вывода — во временном каталоге теста. */
   readonly spillDir: string;
+  /** Исполнители строк сервера — в памяти теста. */
+  readonly launcher: MemoryLauncher;
+  /** Каталог отметок сторожа (`platform/line-executor.md`). */
+  readonly markersDir: string;
   readonly running: RunningBack;
 }
 
@@ -69,6 +74,9 @@ export interface BackSetup {
 const TOKEN = "t0ken-" + "s3cret-" + "value";
 const AGENT_TOKEN = "ag3nt-" + "t0ken-" + "value";
 
+/** pid первого исполнителя в памяти: заведомо не pid процесса теста. */
+export const FIRST_WORKER_PID = 900_001;
+
 function recordingLog(
   called: string[],
   logged: string[],
@@ -90,7 +98,8 @@ function recordingLog(
       // закрытия виден тесту лишь у тех строк, чья запись пишется.
       let marked = false;
       return ({
-        runId,
+        runId: () => runId,
+        executedBy: () => {},
         nativeCall: (command) => {
           marked = true;
           called.push(command.path.join(" "));
@@ -131,12 +140,17 @@ export async function withBack(
   const dirs: string[] = [];
   const diagnosed: string[] = [];
   const snapshotFile = setup.snapshotFile?.(dir) ?? `${dir}/cache/tree.json`;
+  const io = makeFakeIo(setup.io ?? {});
+  // Исполнители — в памяти: тот же протокол кадров, что у процесса
+  // (`platform/line-executor.md`), без порождения процессов.
+  const launcher = new MemoryLauncher(io, FIRST_WORKER_PID, () => Date.now());
+  const markers = new MarkerDir(`${dir}/killed`);
   const running = await serveBack({
     port: 0,
     lines: setup.lines,
     tokens: { main: TOKEN, agent: AGENT_TOKEN },
     policyFile: `${dir}/policy.db`,
-    io: makeFakeIo(setup.io ?? {}),
+    io,
     log: recordingLog(
       called,
       logged,
@@ -161,6 +175,7 @@ export async function withBack(
       dir: `${dir}/mpu-out`,
       threshold: setup.spillThreshold ?? 64 * 1024,
     },
+    workers: { launcher, markers },
   });
   const back: TestBack = {
     url: `http://127.0.0.1:${running.port}`,
@@ -175,6 +190,8 @@ export async function withBack(
     diagnosed,
     seen: [],
     spillDir: `${dir}/mpu-out`,
+    launcher,
+    markersDir: `${dir}/killed`,
     running,
   };
   try {

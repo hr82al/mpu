@@ -3,7 +3,17 @@
  * запускает служба `mpu.service`.
  */
 
-import { runSupervisor, SYSTEM_CLOCK, SYSTEM_LAUNCHER } from "./src/mod.ts";
+import {
+  DEFAULT_MIN_BYTES,
+  defaultThreshold,
+  MARKLESS_HANDS,
+  runSupervisor,
+  SYSTEM_CLOCK,
+  SYSTEM_LAUNCHER,
+  SYSTEM_PROCS,
+  systemHands,
+  WATCH_INTERVAL_MS,
+} from "./src/mod.ts";
 
 const encoder = new TextEncoder();
 
@@ -16,6 +26,7 @@ function write(file: { writeSync(p: Uint8Array): number }, text: string) {
 }
 
 if (import.meta.main) {
+  const runtimeDir = Deno.env.get("XDG_RUNTIME_DIR");
   Deno.exit(
     await runSupervisor(Deno.args, {
       launcher: SYSTEM_LAUNCHER,
@@ -26,6 +37,17 @@ if (import.meta.main) {
       },
       stdout: (text) => write(Deno.stdout, text),
       onSignal: (signal, handler) => Deno.addSignalListener(signal, handler),
+      watch: {
+        source: SYSTEM_PROCS,
+        hands: runtimeDir === undefined || runtimeDir === ""
+          ? MARKLESS_HANDS
+          : systemHands(`${runtimeDir}/mpu/killed`),
+        sleep: SYSTEM_CLOCK.sleep,
+        comm: "mpu-worker",
+        threshold: defaultThreshold,
+        minBytes: DEFAULT_MIN_BYTES,
+        intervalMs: WATCH_INTERVAL_MS,
+      },
     }),
   );
 }

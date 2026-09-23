@@ -18,7 +18,8 @@ function recordingLog(): { log: InvokeLog; begun: InvokeCommand[] } {
       begin: (command) => {
         begun.push(command);
         return {
-          runId: "",
+          runId: () => "",
+          executedBy: () => {},
           nativeCall: () => {},
           capture: (output) => output,
           out: () => {},

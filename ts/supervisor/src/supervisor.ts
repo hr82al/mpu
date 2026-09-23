@@ -4,6 +4,7 @@
  */
 
 import { Child, type Clock, type Launcher, type Log } from "./child.ts";
+import { Watchdog, type WatchSetup } from "./watchdog.ts";
 
 /** Порты дочерних по умолчанию. */
 export const BACK_PORT = 7338;
@@ -18,13 +19,18 @@ export interface SupervisorParts {
   readonly launcher: Launcher;
   readonly clock: Clock;
   readonly log: Log;
+  /** Сторож памяти исполнителей `mpu-back` (`platform/line-executor.md`). */
+  readonly watch: WatchSetup;
 }
 
-/** Два дочерних под одной службой. */
+/** Два дочерних под одной службой и сторож исполнителей `back`. */
 export class Supervisor {
   readonly back: Child;
   readonly mcp: Child;
   readonly #log: Log;
+  readonly #watchdog: Watchdog;
+  readonly #stopping = new AbortController();
+  #watching: Promise<void> = Promise.resolve();
 
   constructor(parts: SupervisorParts) {
     const common = {
@@ -45,17 +51,26 @@ export class Supervisor {
       args: ["--port", String(MCP_PORT)],
     });
     this.#log = parts.log;
+    this.#watchdog = new Watchdog({
+      ...parts.watch,
+      // Исполнители — потомки текущего `mpu-back`: после его перезапуска
+      // сторож смотрит уже на новый.
+      core: () => this.back.pid(),
+      log: parts.log,
+    });
   }
 
   start() {
     this.#log.out("[supervisor] старт");
     this.back.start();
     this.mcp.start();
+    this.#watching = this.#watchdog.run(this.#stopping.signal);
   }
 
   /** Остановка обоих: `SIGTERM`, через 10 с — `SIGKILL`. */
   async stop() {
     this.#log.out("[supervisor] остановка");
-    await Promise.all([this.back.stop(), this.mcp.stop()]);
+    this.#stopping.abort();
+    await Promise.all([this.back.stop(), this.mcp.stop(), this.#watching]);
   }
 }

@@ -7,8 +7,11 @@
 import { Hono } from "@hono/hono";
 import { hasBearer, LOOPBACK, LOOPBACK_ORIGINS } from "../access/mod.ts";
 import type { CommandIo, RemoteOutput } from "../command/mod.ts";
-import { IN_PLACE } from "../entrypoint/mod.ts";
-import type { InvokeLog } from "../invokelog/mod.ts";
+import {
+  type InvokeLog,
+  type InvokeRecording,
+  NO_INVOKE_LOG,
+} from "../invokelog/mod.ts";
 import {
   LastResults,
   lineEntry,
@@ -46,7 +49,13 @@ import { Tickets } from "./tickets.ts";
 import { staticFile } from "./static.ts";
 import { SESSION_TTL_MS, type WebAccess } from "./web.ts";
 import { DEFAULT_LINES, Lines } from "./limit.ts";
-import { callIo } from "../worker/mod.ts";
+import {
+  callIo,
+  DEFAULT_WARM,
+  type Launcher,
+  type Markers,
+  Workers,
+} from "../worker/mod.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
 import { DENO_FS, type SnapshotFs, writeSnapshot } from "./snapshot.ts";
@@ -91,6 +100,16 @@ export interface BackOptions {
    * каталог и порог; не сказано — `SPILL_DIR` и `SPILL_THRESHOLD`.
    */
   readonly spill?: { readonly dir: string; readonly threshold: number };
+  /**
+   * Исполнители строк (`platform/line-executor.md`): как запускать,
+   * где отметки сторожа, сколько держать тёплыми (не сказано —
+   * `DEFAULT_WARM`).
+   */
+  readonly workers: {
+    readonly launcher: Launcher;
+    readonly markers: Markers;
+    readonly warm?: number;
+  };
 }
 
 /** Поднятый сервер. */
@@ -331,6 +350,8 @@ class Back {
   #origin = "";
   /** Куда и с какого размера вывод двери агента уходит файлом. */
   readonly #spill: Spill;
+  /** Пул исполнителей: на них идёт каждая команда строки. */
+  readonly #workers: Workers;
 
   constructor(options: BackOptions, snapshot: unknown) {
     this.#options = options;
@@ -340,7 +361,15 @@ class Back {
       now: options.now ?? Date.now,
       diagnose: options.diagnose,
     };
-    this.#lines = new Lines(options.lines ?? DEFAULT_LINES);
+    const lines = options.lines ?? DEFAULT_LINES;
+    this.#lines = new Lines(lines);
+    this.#workers = new Workers({
+      launcher: options.workers.launcher,
+      markers: options.workers.markers,
+      warm: options.workers.warm ?? DEFAULT_WARM,
+      limit: lines,
+      diagnose: options.diagnose,
+    });
     this.#tickets = new Tickets(options.newTicket);
     this.#results = new LastResults(options.now ?? Date.now);
     this.#methods = new Map<string, () => unknown>([
@@ -397,9 +426,19 @@ class Back {
     return app;
   }
 
+  /** Тёплые исполнители — до первой строки. */
+  start() {
+    this.#workers.start();
+  }
+
   async stop() {
     for (const line of this.#open.keys()) line.stop();
+    // Исполнители — до ожидания строк: строка ждёт итога своего
+    // исполнителя, и без `stop` ему остановка сервера дождалась бы
+    // конца команды.
+    const workers = this.#workers.stop();
     await Promise.allSettled(this.#open.values());
+    await workers;
   }
 
   /**
@@ -582,7 +621,7 @@ class Back {
       file: this.#options.policyFile,
       channel: () => channel,
       execute: (run) => line.execute(run, this.#lines),
-      invoker: IN_PLACE,
+      invoker: this.#workers,
       memory,
       refusal: (data) => line.deliver({ refusal: data }),
     });
@@ -592,17 +631,23 @@ class Back {
       door.prompting(caller.human(request.human)),
       request,
     );
-    // Имя записи журнала — оно же имя файла большого вывода.
-    let runId = "";
+    // Имя записи журнала — оно же имя файла большого вывода; спрашивается
+    // после исполнения, когда pid исполнителя в нём уже свой.
+    let recorded: InvokeRecording = NO_INVOKE_LOG.begin({
+      kind: "argv",
+      argv: [],
+      cwd: "",
+    });
     const log: InvokeLog = {
-      begin: (command) => {
-        const recording = this.#options.log.begin(command);
-        runId = recording.runId;
-        return recording;
-      },
+      begin: (command) => recorded = this.#options.log.begin(command),
     };
     const code = await runJournaled(request.words, entry, io, log, line);
-    line.ran(door.outlet(this.#spill, { runId, sliced: memory.sliced() }));
+    line.ran(
+      door.outlet(this.#spill, {
+        runId: recorded.runId(),
+        sliced: memory.sliced(),
+      }),
+    );
     line.finish(code);
   }
 }
@@ -619,6 +664,7 @@ export async function serveBack(options: BackOptions): Promise<RunningBack> {
     selection: selectionMessages(),
   };
   const back = new Back(options, snapshot);
+  back.start();
   const address = Promise.withResolvers<Deno.NetAddr>();
   const server = Deno.serve({
     hostname: LOOPBACK,

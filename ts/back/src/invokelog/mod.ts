@@ -81,9 +81,15 @@ export interface InvokeRecording {
   /**
    * `run_id` записи (`YYYYMMDD-HHMMSS.mmm-<pid>`): им названа и запись, и
    * файл большого вывода строки (`platform/long-output.md`, §4). У
-   * вызова без журнала — пусто.
+   * вызова без журнала — пусто. Спрашивается после исполнения: pid в нём
+   * — исполнителя строки, если она его получила.
    */
-  readonly runId: string;
+  readonly runId: () => string;
+  /**
+   * Строку исполнил процесс `pid` (`platform/line-executor.md`): его pid
+   * в шапке записи и в `run_id`, а не pid того, кто ведёт журнал.
+   */
+  readonly executedBy: (pid: number) => void;
   /**
    * Вызов пошёл маршрутом `native` — только такие журналирует обвязка.
    * Не вызвано ни разу — записи не будет.
@@ -123,7 +129,8 @@ export interface InvokeLogDeps {
 export const NO_INVOKE_LOG: InvokeLog = { begin: () => SILENT };
 
 const SILENT: InvokeRecording = {
-  runId: "",
+  runId: () => "",
+  executedBy: () => {},
   nativeCall: () => {},
   capture: (output) => output,
   out: () => {},
@@ -162,8 +169,12 @@ function recording(
   const err: string[] = [];
   const notes: string[] = [];
   let policy: OutputPolicy | undefined;
+  let pid = deps.pid;
   return {
-    runId: runIdOf(stamp, -stamp.getTimezoneOffset(), deps.pid),
+    runId: () => runIdOf(stamp, -stamp.getTimezoneOffset(), pid),
+    executedBy: (executor) => {
+      pid = executor;
+    },
     nativeCall: (marked) => {
       policy = marked;
     },
@@ -202,7 +213,7 @@ function recording(
           formatRecord({
             startedAt: stamp,
             offsetMinutes: -stamp.getTimezoneOffset(),
-            pid: deps.pid,
+            pid,
             cwd: command.cwd,
             commandLine: lineOf(command, policy),
             note: [...settings.notes, ...notes]

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Установка mpu (docs/specs/platform/supervisor-install.md, «ts/install.sh»;
-# переключение имён — platform/cutover.md): mpu-back, mpu-mcp, mpu,
+# переключение имён — platform/cutover.md): mpu-back, mpu-worker
+# (исполнитель строк — platform/line-executor.md), mpu-mcp, mpu,
 # mpu-supervisor, mpu-complete, каталог фронта и служба mpu.service
 # (mpu-complete и фронт — без службы: первого зовёт оболочка, второй
 # читает mpu-back через ссылку current). Старых служб на машине быть не
 # должно: если они есть, установка не начинается — иначе машина
 # осталась бы наполовину переключённой.
 #
-#   ./install.sh [--only back,mcp,cli,supervisor,complete,web] [--check]
+#   ./install.sh [--only back,worker,mcp,cli,supervisor,complete,web] [--check]
 #
 # Права и состав сборки — только в задачах compile:* корневого deno.jsonc;
 # здесь их нет. Переопределения окружением — для тестов: MPU_BIN_DIR,
@@ -39,6 +40,7 @@ fail() { say "$1: ошибка: $2"; exit 1; }
 program_of() {
   case $1 in
     back) echo mpu-back ;;
+    worker) echo mpu-worker ;;
     mcp) echo mpu-mcp ;;
     cli) echo mpu ;;
     supervisor) echo mpu-supervisor ;;
@@ -48,7 +50,7 @@ program_of() {
   esac
 }
 
-parts=(back mcp cli supervisor complete web)
+parts=(back worker mcp cli supervisor complete web)
 check=0
 while (($# > 0)); do
   case $1 in
@@ -198,7 +200,9 @@ elif has supervisor || ((unit_changed)); then
   restarted=1
   say "перезапуск: служба перезапущена"
 else
-  if has back; then
+  # Исполнителей запускает ядро: новый mpu-worker берёт в работу только
+  # новый mpu-back, поэтому перезапуск — общий (platform/line-executor.md).
+  if has back || has worker; then
     old_back=$(pid_of "$back_url")
     "$systemctl" --user kill --kill-whom=main -s USR1 mpu || fail "перезапуск" "USR1"
     restarted=1

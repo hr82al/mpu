@@ -27,6 +27,7 @@ import {
   CLI_TASK,
   compileArgs,
   CompileTaskError,
+  WORKER_TASK,
 } from "./compile_task.ts";
 import { envFilePath, makeEnvFile } from "../src/env/mod.ts";
 import { ALLOW, RuleBook, RulePath } from "../src/policy/mod.ts";
@@ -1353,6 +1354,9 @@ async function main(): Promise<number> {
     console.log("== сборка ==");
     try {
       await compile(BACK_TASK, subject.back, subject);
+      // Рядом с `mpu-back`, как у установки: ядро исполняет строки на нём,
+      // и каждая проверка ниже идёт через исполнителя с его правами.
+      await compile(WORKER_TASK, `${home}/mpu-worker`, subject);
       await compile(CLI_TASK, subject.cli, subject);
     } catch (err) {
       // Задачи нет — прогон говорит, какой именно, и уходит: падать

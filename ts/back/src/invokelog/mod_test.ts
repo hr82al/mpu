@@ -83,6 +83,24 @@ Deno.test("запись появляется только у помеченно�
   });
 });
 
+Deno.test("строку исполнил другой процесс: его pid в шапке, run= и имени", async () => {
+  // `platform/line-executor.md`: запись ведёт ядро, а исполняет
+  // исполнитель — шапка называет того, кто исполнил.
+  await withLog(async (log, path) => {
+    const record = log.begin({ kind: "argv", argv: ["jsdate"], cwd: "/work" });
+    record.nativeCall(LOGGED);
+    record.executedBy(9001);
+    assertEquals(record.runId().endsWith("-9001"), true, record.runId());
+    await record.finish(0);
+    const text = await logText(path);
+    assertMatch(
+      text,
+      /^### \S+ \S+ [+-]\d\d:\d\d run=\d{8}-\d{6}\.\d{3}-9001 pid=9001 cwd=\/work$/mu,
+    );
+    assertMatch(text, /^--- end run=\d{8}-\d{6}\.\d{3}-9001 exit=0 /mu);
+  });
+});
+
 Deno.test("копия копится только у помеченного вызова", async () => {
   await withLog(async (log, path) => {
     const record = log.begin({

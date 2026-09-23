@@ -15,6 +15,7 @@ import {
   Supervisor,
   type SupervisorSignal,
   SYSTEM_LAUNCHER,
+  type WatchSetup,
 } from "./mod.ts";
 
 const FAKE = new URL("testdata/fake_child.ts", import.meta.url).pathname;
@@ -27,6 +28,29 @@ const LAUNCHER: Launcher = {
       ["run", "--no-lock", FAKE, mode, ...args],
       line,
     ),
+};
+
+/**
+ * Сторож, которому памяти всегда хватает: такт ждёт остановки и в
+ * паузы часов теста не вмешивается.
+ */
+const QUIET_WATCH: WatchSetup = {
+  source: {
+    read: () => Promise.resolve({ available: 1, total: 1, processes: [] }),
+  },
+  hands: {
+    mark: () => Promise.reject(new Error("отметка не ожидается")),
+    kill: () => Promise.reject(new Error("убийство не ожидается")),
+  },
+  sleep: (_ms, signal) =>
+    new Promise((resolve) => {
+      if (signal.aborted) return resolve();
+      signal.addEventListener("abort", () => resolve(), { once: true });
+    }),
+  comm: "mpu-worker",
+  threshold: () => 0,
+  minBytes: 0,
+  intervalMs: 1_000,
 };
 
 /** Часы: первые `free` пауз отпускаются сразу, дальше — ждут остановки. */
@@ -119,6 +143,7 @@ Deno.test("back падает трижды: паузы 1, 2, 4 с, mcp жив с 
     launcher: LAUNCHER,
     clock: time.fake,
     log: out.sink,
+    watch: QUIET_WATCH,
   });
   supervisor.start();
   await out.until(() => time.pauses.length >= 4);
@@ -149,6 +174,7 @@ Deno.test("SIGUSR1 — новый back, mcp прежний; SIGUSR2 — наоб
     log: out.sink,
     stdout: () => {},
     onSignal: (signal, handler) => handlers.set(signal, handler),
+    watch: QUIET_WATCH,
   });
   const started = (name: string, n: number) =>
     within(
@@ -204,6 +230,7 @@ Deno.test("--version — версия и код 0, ничего не запус�
     log: { out() {}, err() {} },
     stdout: (text) => void printed.push(text),
     onSignal: () => {},
+    watch: QUIET_WATCH,
   });
   assertEquals([code, printed], [0, ["0.1.0\n"]]);
 });
@@ -229,6 +256,7 @@ Deno.test("неверные флаги — строка использовани
         log: { out() {}, err: (text) => void errors.push(text) },
         stdout: () => {},
         onSignal: () => {},
+        watch: QUIET_WATCH,
       });
       assertEquals(code, 2);
       assertEquals(errors.length, 1);
