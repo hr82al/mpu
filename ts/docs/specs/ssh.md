@@ -56,7 +56,7 @@ sl-сервере (`mp-sl-N-cli`), на dev-ноде или в произвол�
   stderr-подсказкой «mpu ssh: введите stdin для команды, завершите
   Ctrl+D». Без явного источника: stdin-пайп читается целиком;
   интерактивный терминал — пустой stdin (не блокироваться).
-- Примеры (обезличенные): `mpu ssh sl-1 -- ls -la /app`; `mpu ssh sl-5
+- Примеры (обезличенные; с порции 159 — `mpu ssh target: sl-1 cmd: 'ls -la /app'`, `keys-translation.md`): `mpu ssh sl-1 -- ls -la /app`; `mpu ssh sl-5
   "VAR=x node cli service:example run"`; `mpu ssh dev:1 -- ls /app`;
   `mpu ssh mp-dt-cli -- env`; `cat s.mjs | mpu ssh sl-11 -- node
   --input-type=module -`; `mpu ssh --all-containers wb-loader -- node -v`.
