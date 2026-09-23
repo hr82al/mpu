@@ -372,3 +372,13 @@
 | отдача вывода | `Outlet`, `WHOLE`, `FileOutlet`, `Spill`, `SPILL_DIR`, `SPILL_THRESHOLD` (165d) | целиком или файлом по порогу у двери агента |
 | вывод файлом | `OutputFile`, поле `file` (165d) | `{path, bytes, lines, slice}` в собранном ответе |
 | срез | `sliced()` (165d) | результат — коллекция, строка среза уместна |
+| исполнитель строки | `mpu-worker`, `LineWorker` (166a) | процесс, исполняющий одну строку и завершающийся |
+| пул исполнителей | `Workers`, `DEFAULT_WARM` (166a) | тёплые исполнители ядра, выдача и долив |
+| место исполнения | `Invoker`, `IN_PLACE` (166a) | где исполняется команда: в процессе или исполнителем |
+| провод | `Wire`, `streamWire`, `memoryWires` (166a) | NDJSON-кадры поверх потоков или памяти |
+| кадры исполнителя | `HostFrame`, `WorkerFrame`, `BadWorkerFrame`, `Order`, `Outcome` (166a) | протокол ядро ↔ исполнитель |
+| запуск исполнителя | `Launcher`, `ProcessLauncher`, `MemoryLauncher`, `Spawned` (166a) | процесс через `sh` с `oom_score_adj` или в памяти для тестов |
+| отметка сторожа | `Mark`, `Markers`, `MarkerDir`, `NO_MARKERS` (166a) | файл `$XDG_RUNTIME_DIR/mpu/killed/<pid>` с размером убитого |
+| смерть исполнителя | `deathOf`, `unlaunched`, `killedStatus`, `WorkerStopped`, `STOP_GRACE_MS` (166a) | текст и код исхода без `result` |
+| сторож памяти | `Watchdog`, `WatchSetup`, `ProcSource`, `Snapshot`, `Proc`, `Hands`, `MARKLESS_HANDS`, `SYSTEM_PROCS`, `defaultThreshold`, `DEFAULT_MIN_BYTES`, `WATCH_INTERVAL_MS` (166a) | такт супервизора: мало памяти — убить самого большого исполнителя |
+| порт строки из контекста | `callIo` (166a) | каталог, окружение, ввод, терминалы строки — одним портом |
