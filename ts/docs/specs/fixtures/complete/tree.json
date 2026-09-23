@@ -821,5 +821,47 @@
         "json"
       ]
     }
+  ],
+  "selection": [
+    {
+      "selector": "size",
+      "kind": "unary",
+      "purpose": "число элементов"
+    },
+    {
+      "selector": "isEmpty",
+      "kind": "unary",
+      "purpose": "пуста ли коллекция"
+    },
+    {
+      "selector": "first",
+      "kind": "unary",
+      "purpose": "первый элемент; пустая — nil"
+    },
+    {
+      "selector": "last",
+      "kind": "unary",
+      "purpose": "последний элемент; пустая — nil"
+    },
+    {
+      "selector": "first:",
+      "kind": "keyword",
+      "purpose": "коллекция первых n элементов"
+    },
+    {
+      "selector": "pick:",
+      "kind": "keyword",
+      "purpose": "значения поля у каждой записи"
+    },
+    {
+      "selector": "sortBy:",
+      "kind": "keyword",
+      "purpose": "по возрастанию поля; nil — в конце"
+    },
+    {
+      "selector": "where:",
+      "kind": "keyword",
+      "purpose": "записи по полю: is:, less:, greater: или includes:"
+    }
   ]
 }
