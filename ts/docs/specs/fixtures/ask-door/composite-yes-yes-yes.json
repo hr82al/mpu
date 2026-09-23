@@ -1,0 +1,32 @@
+{
+  "описание": "с ask, ответы да да да — три вопроса, три комментария",
+  "строка": "ask kiten ls each: {do} {:}c kiten comment id: {@}c id text: ping {done}",
+  "ответы": [
+    "y",
+    "y",
+    "y"
+  ],
+  "без человека": false,
+  "правило посреди строки": false,
+  "кадры": [
+    {
+      "err": "выполнить mpu kiten comment id: 11 text: ping? [y/N] "
+    },
+    {
+      "err": "выполнить mpu kiten comment id: 12 text: ping? [y/N] "
+    },
+    {
+      "err": "выполнить mpu kiten comment id: 13 text: ping? [y/N] "
+    },
+    {
+      "out": ""
+    }
+  ],
+  "созданные": [
+    "11 ping",
+    "12 ping",
+    "13 ping"
+  ],
+  "отказ": null,
+  "код": 0
+}

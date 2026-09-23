@@ -392,3 +392,6 @@
 | файл ключом | `fromFile`, `body-file` (166) | значение из файла — отдельным ключом, не `@путь` |
 | вид данных результата | `ResultData`, `data`, `items`, `record`, `WHOLE` (166b) | как отбор, `it` и программа видят результат команды |
 | поле результата после закрытия | `field`, `Field`, `NO_FIELD`, `fieldOf`, `unknownWord` (166b) | `kiten card id: 1 end title` |
+| обход до исполнения | `Reach`, `reach`, `Ahead`, `verdict`, `Addressee`, `Known`, `UNKNOWN` (167) | сбор достижимых команд программы и решение правил до исполнения |
+| итог обхода | `Finding`, `CLEAR`, `NeedsDoor`, `RuledOut` (167) | исполнять / нужен `ask` / запрещено |
+| вход строки | `Entry`, `entryOf`, `needsDoor`, `redirected`, `outward` (167) | дверь строки, отказ всей строки, код программы наружу |
