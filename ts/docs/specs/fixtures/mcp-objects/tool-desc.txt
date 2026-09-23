@@ -1,0 +1,12 @@
+mpu — Smalltalk на словах к mpu-back. Вход — массив слов `words`.
+
+- Голое слово — сообщение: `kiten ls`. Значение — только ключом: `ключ: значение` ≡ `--ключ значение`; одно слово массива — одно значение, пробелы можно: `sql: "select 1"`.
+- Порядок: команда → варианты → ключи → `end` → сообщения результату. Вариант — слово ДО ключей: `process dry target: 54`, `logs portainer target: sl-1 since: 1h`.
+- `end` закрывает выражение; слово после — результату: формат (`end json`, `end md`; список — `<команда> formats`) или отбор: `kiten ls end size`, `kiten ls where: column is: review end pick: title` (поле всех), `… end first title` (поле первой), `end first: 3`, `where: <поле> is:|less:|greater:|includes: <значение>`.
+- Ключи везде одни: `target:` где (клиент по номеру/имени/части, `sl-N`, `dev:N`), `id:` номер сущности, `text:` текст, `query:` поиск, `since:`/`until:` время, `limit:` сколько.
+- Значение из команды — группой: `id: do kiten ls end first id`; из stdin — `sql: stdin`.
+- `it` — последний результат без повторного запроса: `it end json`.
+- Запись или отправка — строка начинается `ask`: `ask sql target: sl-1 sql: "…"`, `ask kiten comment id: 5 text: ok`.
+- Слово грамматики как значение — через `--`: `text: -- end`.
+- Справка — `help` последним: `kiten card help`; ключи — `… keys`, варианты — `… variants`.
+- Отказ несёт `refusal.hint` — исправленную строку `words`: вызови её.
