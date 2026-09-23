@@ -55,15 +55,12 @@ export class NewestPages {
    */
   take(page: readonly LogEntry[]) {
     const asked = this.#next?.limit ?? 0;
-    let fresh = 0;
-    for (const entry of page) {
-      const key = keyOf(entry);
-      if (this.#seen.has(key)) continue;
-      this.#seen.add(key);
-      this.#entries.push(entry);
-      fresh++;
-    }
-    const done = fresh === 0 || page.length < asked ||
+    // Отбрасывается полученное прошлыми страницами; одинаковые записи
+    // внутри одной страницы печатаются все, как у разового запроса.
+    const fresh = page.filter((entry) => !this.#seen.has(keyOf(entry)));
+    for (const entry of page) this.#seen.add(keyOf(entry));
+    this.#entries.push(...fresh);
+    const done = fresh.length === 0 || page.length < asked ||
       this.#entries.length >= this.#limit;
     // Граница — самая старая запись страницы: `+ 1` держит её внутри
     // окна при любой трактовке конца у источника, а повтор отбрасывает

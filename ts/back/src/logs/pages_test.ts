@@ -99,6 +99,13 @@ Deno.test("граница страниц с одним временем — бе
   }
 });
 
+Deno.test("одинаковые записи внутри страницы — все, как у разового запроса", async () => {
+  const all = [entry(1, "a"), entry(2, "двойная"), entry(2, "двойная")];
+  const loki = fakeLoki(all, 5000);
+  const got = await readNewest(loki.read, WINDOW, 200, 5000);
+  assertEquals(got, all);
+});
+
 Deno.test("та же строка в другом потоке — другая запись", async () => {
   const other = { ...entry(2, "x"), labels: { host: "sl-2" } };
   const all = [entry(1, "a"), entry(2, "x"), other, entry(3, "c")];
