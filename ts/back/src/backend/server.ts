@@ -46,7 +46,7 @@ import { Tickets } from "./tickets.ts";
 import { staticFile } from "./static.ts";
 import { SESSION_TTL_MS, type WebAccess } from "./web.ts";
 import { DEFAULT_LINES, Lines } from "./limit.ts";
-import { Workdir } from "../workdir/mod.ts";
+import { callIo } from "../worker/mod.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
 import { DENO_FS, type SnapshotFs, writeSnapshot } from "./snapshot.ts";
@@ -257,29 +257,8 @@ function lineIo(
   door: PromptDoor,
   request: LineRequest,
 ): CommandIo {
-  const context = request.context;
-  const environment = context.env.over(io.env);
-  const terminals = context.terminals;
-  const dir = new Workdir(request.cwd);
   return {
-    ...io,
-    env: (name) => environment.value(name),
-    cwd: () => dir.path(),
-    // Пути файлов — от каталога строки: `Deno.*` разрешает
-    // относительный путь от процесса, а он больше не переезжает в
-    // каталог строки.
-    readFile: (path) => io.readFile(dir.resolve(path)),
-    readRegularFile: (path) => io.readRegularFile(dir.resolve(path)),
-    readTextFile: (path) => io.readTextFile(dir.resolve(path)),
-    appendFile: (path, text) => io.appendFile(dir.resolve(path), text),
-    // `launchOpener` не трогаем: его цель — не обязательно путь
-    // (`sheet open` отдаёт ссылку), а путь `xlsx open` резолвит сам
-    // через `io.cwd()` — то есть уже от каталога строки.
-    readStdin: () => context.input.bytes(),
-    stdinIsTerminal: () => terminals.stdin(),
-    stdoutIsTerminal: () => terminals.stdout(),
-    stderrIsTerminal: () => terminals.stderr(),
-    consoleColumns: () => terminals.columns(),
+    ...callIo(io, request.context, request.cwd),
     // Просьба остановиться приходит от клиента, переставшего слушать
     // (`platform/line-cancel.md`).
     signal: line.stopping(),
