@@ -81,7 +81,9 @@ outcome: {columns, rows}}`), поэтому «где коллекция» зна
 | `mpu sql-ro target: 54 sql: "select 1 as n" end first n` | `1` |
 | `mpu kiten ls end first nope` | `…: запись не понимает nope; ближайшие: …` поля (нет близких — все поля), код 2 |
 | `mpu kiten ls where: column is: review end size` | как `mpu kiten ls end where: …`; команда исполнена один раз |
-| `mpu sql-ro target: 54 where: n is: 1` | отказ до исполнения: у `sql-ro` обязательный `sql:` не дан |
+| `mpu sql-ro target: 54 where: n is: 1`, stdin — терминал | отказ до исполнения «не хватает ключа sql» (ключ, который команда иначе спросила бы с терминала, при делении — недостающий) |
+| `echo "select 1 as n" \| mpu sql-ro target: 54 where: n is: 1` | SQL из stdin, отбор по результату |
+| `mpu sql-ro target: 54 sql: x where: n is: 1` | остаток `where:is:` — результату |
 | `mpu kiten ls end first: -1` | отказ «ожидается n ≥ 0», код 2 |
 | `mpu kiten ls where: updated less: 2026-09-01 end size` | карточки старше даты (у строк `kiten ls` поле `updated`) |
 | `mpu kiten ls end sortBy: updated end first title` | название самой давней |
