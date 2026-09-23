@@ -18,6 +18,11 @@ export interface KeywordMethod {
   readonly required: readonly string[];
   /** Назначения ключей для справки; разбор их не читает. */
   readonly purposes?: Readonly<Record<string, string>>;
+  /**
+   * Причины имён ключей вне словаря (`platform/keys-translation.md`) для
+   * отражения; разбор их не читает.
+   */
+  readonly reasons?: Readonly<Record<string, string>>;
 }
 
 /**

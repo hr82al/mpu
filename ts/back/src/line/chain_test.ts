@@ -4,6 +4,7 @@
  * (`platform/registry-objects.md`, «Известные отклонения»).
  */
 
+import { GRAMMAR } from "../messages/mod.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
@@ -105,33 +106,48 @@ Deno.test("каждый путь реестра достижим: справка
     }
   }));
 
-Deno.test("selectors группы — ровно её дети, когда разрешено всё", () =>
+/** Селекторы из ответа `messages … end json`. */
+function selectorsOf(stdout: string): string[] {
+  return JSON.parse(stdout).map((line: { selector: string }) => line.selector);
+}
+
+Deno.test("messages группы — ровно её дети, когда разрешено всё", () =>
   withPolicyFile(async (file) => {
     allowEverything(file);
     for (const group of groups) {
-      const { code, stdout } = await run(file, [...group.path, "selectors"]);
+      const { code, stdout } = await run(file, [
+        ...group.path,
+        "messages",
+        GRAMMAR.close,
+        "json",
+      ]);
       assertEquals(code, 0, group.path.join(" "));
       assertEquals(
-        JSON.parse(stdout),
+        selectorsOf(stdout),
         childrenOf(group.path).map((child) => child.name).sort(),
         group.path.join(" "),
       );
     }
   }));
 
-Deno.test("selectors корня — дети, сообщения о правилах и вход ask", () =>
+Deno.test("messages корня — дети, правила, вход ask и дополнение", () =>
   withPolicyFile(async (file) => {
     allowEverything(file);
-    const { code, stdout } = await run(file, ["selectors"]);
+    const { code, stdout } = await run(file, [
+      "messages",
+      GRAMMAR.close,
+      "json",
+    ]);
     assertEquals(code, 0);
     assertEquals(
-      JSON.parse(stdout),
+      selectorsOf(stdout),
       [
         ...childrenOf([]).map((child) => child.name),
         "policy",
         "allow:",
         "ask",
         "ask:",
+        "complete:",
         "deny:",
         "forget:",
       ].sort(),

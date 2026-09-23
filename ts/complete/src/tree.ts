@@ -1,8 +1,9 @@
 /**
- * Дерево дополнения из снимка `mpu-back` (`specs/complete.md`): узел с
- * хвостом и без, «после аргумента» и «нигде» отвечают на «шаг» и
- * «варианты для слова» по-своему. JSON снимка разбирается здесь, на
- * границе; дальше — только узлы.
+ * Дерево дополнения из снимка `mpu-back` (`platform/reflection.md`,
+ * «mpu-complete»): снимок — вывод протокола отражения, у узла его
+ * `messages`, `keys`, `formats`. Место строки отвечает на «шаг» и
+ * «варианты» по-своему; значений ключей снимок не знает. JSON снимка
+ * разбирается здесь, на границе; дальше — только места.
  */
 
 /** Вариант дополнения. */
@@ -11,20 +12,20 @@ export interface Choice {
   readonly summary: string;
 }
 
-/** Узел дерева глазами дополнения. */
+/** Место строки глазами дополнения. */
 export interface Place {
-  /** Узел после слова `word` строки. */
+  /** Место после слова `word` строки. */
   step(word: string): Place;
   /** Варианты для дописываемого слова (без отбора по префиксу). */
-  choices(word: string): readonly Choice[];
+  choices(): readonly Choice[];
 }
 
-/** `--help` предлагается везде, где ждут флаг. */
-const HELP: Choice = { value: "--help", summary: "справка" };
+/** Слова грамматики строки (`platform/line-grammar.md`). */
+const CLOSE = "end";
+const LITERAL = "--";
 
-function flagLike(word: string): boolean {
-  return word.startsWith("-");
-}
+/** Слова справки: путь они не меняют. */
+const SKIPPED: ReadonlySet<string> = new Set(["help", "--help"]);
 
 /** Пути нет или снимка нет: вариантов нет, дальше — тоже нигде. */
 export const NOWHERE: Place = {
@@ -32,62 +33,112 @@ export const NOWHERE: Place = {
   choices: () => [],
 };
 
-/** Узел из снимка: селекторы с назначениями и флаги. */
+/** Ключ ключевого сообщения узла. */
+interface Key {
+  readonly name: string;
+  readonly kind: string;
+  readonly purpose: string;
+}
+
+/** Как ключ набирают: флаг — `--имя`, прочие — `имя:`. */
+function spelled(key: Key): string {
+  return key.kind === "flag" ? `--${key.name}` : `${key.name}:`;
+}
+
+/** Узел снимка: его сообщения, ключи, форматы и дети. */
 interface Known {
-  readonly selectors: readonly Choice[];
-  readonly flags: readonly Choice[];
-  /** Узел селектора; не селектор этого узла — `otherwise`. */
-  child(selector: string, otherwise: Place): Place;
+  readonly messages: readonly Choice[];
+  readonly keys: readonly Key[];
+  readonly formats: readonly Choice[];
+  child(selector: string): Place | undefined;
 }
 
-/** Группа без хвоста: слово — селектор; флагов своих нет. */
-class Group implements Place {
-  readonly #node: Known;
+/** Результат после закрытия: варианты — форматы, дальше — нигде. */
+class Result implements Place {
+  readonly #formats: readonly Choice[];
 
-  constructor(node: Known) {
-    this.#node = node;
-  }
-
-  step(word: string): Place {
-    return this.#node.child(word, NOWHERE);
-  }
-
-  choices(word: string): readonly Choice[] {
-    return flagLike(word) ? [HELP] : this.#node.selectors;
-  }
-}
-
-/** Узел с хвостом: селектор — дальше, прочее слово — уже аргумент. */
-class Tailed implements Place {
-  readonly #node: Known;
-
-  constructor(node: Known) {
-    this.#node = node;
-  }
-
-  step(word: string): Place {
-    return this.#node.child(word, new Args(this.#node));
-  }
-
-  choices(word: string): readonly Choice[] {
-    return flagLike(word) ? [...this.#node.flags, HELP] : this.#node.selectors;
-  }
-}
-
-/** После аргумента: значения не дополняются, только флаги. */
-class Args implements Place {
-  readonly #node: Known;
-
-  constructor(node: Known) {
-    this.#node = node;
+  constructor(formats: readonly Choice[]) {
+    this.#formats = formats;
   }
 
   step(): Place {
-    return this;
+    return NOWHERE;
   }
 
-  choices(word: string): readonly Choice[] {
-    return flagLike(word) ? [...this.#node.flags, HELP] : [];
+  choices(): readonly Choice[] {
+    return this.#formats;
+  }
+}
+
+/** Знак литерала: следующее слово — значение, дописывать нечего. */
+class Literal implements Place {
+  readonly #after: Place;
+
+  constructor(after: Place) {
+    this.#after = after;
+  }
+
+  step(): Place {
+    return this.#after;
+  }
+
+  choices(): readonly Choice[] {
+    return [];
+  }
+}
+
+/** Ключевое сообщение узла: набранные ключи и ждёт ли ключ значения. */
+class Keyword implements Place {
+  readonly #node: Known;
+  readonly #typed: readonly string[];
+  readonly #waiting: boolean;
+
+  constructor(node: Known, typed: readonly string[], waiting: boolean) {
+    this.#node = node;
+    this.#typed = typed;
+    this.#waiting = waiting;
+  }
+
+  step(word: string): Place {
+    if (this.#waiting) return new Keyword(this.#node, this.#typed, false);
+    if (word === CLOSE) return new Result(this.#node.formats);
+    if (word === LITERAL) return new Literal(this);
+    const key = this.#node.keys.find((one) => spelled(one) === word);
+    if (key === undefined) return NOWHERE;
+    return new Keyword(
+      this.#node,
+      [...this.#typed, key.name],
+      key.kind !== "flag",
+    );
+  }
+
+  choices(): readonly Choice[] {
+    if (this.#waiting) return [];
+    return this.#node.keys
+      .filter((key) => !this.#typed.includes(key.name) || key.kind === "list")
+      .map((key) => ({ value: spelled(key), summary: key.purpose }));
+  }
+}
+
+/** Узел дерева: слово — сообщение, ключ, закрытие или литерал. */
+class Node implements Place {
+  readonly #node: Known;
+
+  constructor(node: Known) {
+    this.#node = node;
+  }
+
+  step(word: string): Place {
+    if (SKIPPED.has(word)) return this;
+    if (word === CLOSE) return new Result(this.#node.formats);
+    if (word === LITERAL) return new Literal(NOWHERE);
+    const child = this.#node.child(word);
+    if (child !== undefined) return child;
+    return new Keyword(this.#node, [], false).step(word);
+  }
+
+  choices(): readonly Choice[] {
+    return this.#node.messages;
   }
 }
 
@@ -95,13 +146,13 @@ class Args implements Place {
 interface RawNode {
   readonly path: readonly string[];
   readonly summary: string;
-  readonly selectors: readonly string[];
-  readonly tail: string | null;
-  readonly flags: readonly {
-    readonly name: string;
-    readonly summary: string;
+  readonly messages: readonly {
+    readonly selector: string;
+    readonly kind: string;
+    readonly purpose: string;
   }[];
-  readonly summaries: Readonly<Record<string, string>>;
+  readonly keys: readonly Key[];
+  readonly formats: readonly string[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -113,27 +164,34 @@ function strings(value: unknown): value is string[] {
     value.every((item) => typeof item === "string");
 }
 
+/** Записи с тремя строковыми полями; прочие отбрасываются. */
+function records<K extends string>(
+  value: unknown,
+  fields: readonly K[],
+): Record<K, string>[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is Record<K, string> =>
+    isRecord(item) && fields.every((field) => typeof item[field] === "string")
+  );
+}
+
 /** Узел снимка; не по контракту — `undefined`. */
 function rawNode(value: unknown): RawNode | undefined {
   if (!isRecord(value)) return undefined;
-  const { path, summary, selectors, tail, flags = [], summaries = {} } = value;
-  if (!strings(path) || !strings(selectors) || typeof summary !== "string") {
+  const { path, summary, messages, keys, formats = [] } = value;
+  if (!strings(path) || typeof summary !== "string" || !strings(formats)) {
     return undefined;
   }
-  if (tail !== null && typeof tail !== "string") return undefined;
-  if (!Array.isArray(flags) || !isRecord(summaries)) return undefined;
-  const choices = flags.filter((flag): flag is RawNode["flags"][number] =>
-    isRecord(flag) && typeof flag.name === "string" &&
-    typeof flag.summary === "string"
-  );
-  const texts: Record<string, string> = {};
-  for (const [selector, text] of Object.entries(summaries)) {
-    if (typeof text === "string") texts[selector] = text;
-  }
-  return { path, summary, selectors, tail, flags: choices, summaries: texts };
+  return {
+    path,
+    summary,
+    messages: records(messages, ["selector", "kind", "purpose"]),
+    keys: records(keys, ["name", "kind", "purpose"]),
+    formats,
+  };
 }
 
-const key = (path: readonly string[]) => JSON.stringify(path);
+const keyOf = (path: readonly string[]) => JSON.stringify(path);
 
 /**
  * Корень дерева из текста снимка; не JSON, не по контракту, без корня —
@@ -151,32 +209,30 @@ export function treeOf(text: string): Place {
   const raws = new Map<string, RawNode>();
   for (const value of body.nodes) {
     const raw = rawNode(value);
-    if (raw !== undefined) raws.set(key(raw.path), raw);
+    if (raw !== undefined) raws.set(keyOf(raw.path), raw);
   }
   const places = new Map<string, Place>();
-  const placeAt = (path: readonly string[]): Place => {
-    const found = places.get(key(path));
+  const placeAt = (path: readonly string[]): Place | undefined => {
+    const found = places.get(keyOf(path));
     if (found !== undefined) return found;
-    const raw = raws.get(key(path));
-    if (raw === undefined) return NOWHERE;
-    const known: Known = {
-      selectors: raw.selectors.map((selector) => ({
-        value: selector,
-        summary: raws.get(key([...path, selector]))?.summary ??
-          raw.summaries[selector] ?? "",
+    const raw = raws.get(keyOf(path));
+    if (raw === undefined) return undefined;
+    const unary = new Set(
+      raw.messages.filter((line) => line.kind === "unary")
+        .map((line) => line.selector),
+    );
+    const place = new Node({
+      messages: raw.messages.map((line) => ({
+        value: line.selector,
+        summary: line.purpose,
       })),
-      flags: raw.flags.map((flag) => ({
-        value: flag.name,
-        summary: flag.summary,
-      })),
-      child: (selector, otherwise) =>
-        raw.selectors.includes(selector)
-          ? placeAt([...path, selector])
-          : otherwise,
-    };
-    const place = raw.tail === null ? new Group(known) : new Tailed(known);
-    places.set(key(path), place);
+      keys: raw.keys,
+      formats: raw.formats.map((format) => ({ value: format, summary: "" })),
+      child: (selector) =>
+        unary.has(selector) ? placeAt([...path, selector]) : undefined,
+    });
+    places.set(keyOf(path), place);
     return place;
   };
-  return placeAt([]);
+  return placeAt([]) ?? NOWHERE;
 }

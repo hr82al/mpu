@@ -78,9 +78,6 @@ export const ROOT_SUMMARY =
  */
 export const JSON_FLAG = "--json";
 
-/** Описание общего флага формы вывода: объявления у него нет. */
-const JSON_FLAG_SUMMARY = "результат как JSON вместо текста";
-
 /** Имя справочной поверхности: `mpu help [<полное имя>]`. */
 const HELP_COMMAND = "help";
 
@@ -407,41 +404,6 @@ async function runCommand(
     json ? JSON.stringify(result, null, 2) : command.renderResult(result, args),
   );
   return command.textExitCode(result);
-}
-
-/** Флаг команды: длинная форма, короткая (если есть) и описание. */
-export interface CommandFlag {
-  /** С `--`. */
-  readonly name: string;
-  /** С `-`; нет короткой формы — `undefined`. */
-  readonly short: string | undefined;
-  readonly summary: string;
-}
-
-/**
- * Флаги команды — из её объявления: входы-флаги с описанием из схемы
- * аргументов (то же, что в справке) и общий `--json`, если своего
- * флага с таким именем у команды нет. `--help` сюда не входит: его
- * добавляет тот, кто показывает. Одно место для снимка дерева
- * `mpu-back` (`specs/complete.md`).
- */
-export function commandFlags(command: Command): readonly CommandFlag[] {
-  const declared = command.inputs
-    .filter((input) => input.form.positional === undefined)
-    .map((input) => ({
-      name: `--${input.name}`,
-      short: input.form.short === undefined
-        ? undefined
-        : `-${input.form.short}`,
-      summary: command.argsJsonSchema.properties[input.name].description ?? "",
-    }));
-  // Свой флаг с тем же именем уже в списке — второй раз его не
-  // предлагаем (описание берётся из схемы команды).
-  if (keepsJson(command)) return declared;
-  return [
-    ...declared,
-    { name: JSON_FLAG, short: undefined, summary: JSON_FLAG_SUMMARY },
-  ];
 }
 
 /**

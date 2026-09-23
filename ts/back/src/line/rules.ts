@@ -61,6 +61,7 @@ const DEFERRED: Yields<Pending> = {
   parsing: () => DATA.parsing(),
   about: (path, doc) => DATA.about(path, doc),
   remedy: (word, after) => DATA.remedy(word, after),
+  reflect: () => DATA.reflect(),
   receive: (pending) => new Deferred(pending),
 };
 

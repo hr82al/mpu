@@ -20,6 +20,7 @@ import {
   type Strays,
   type Trace,
   unary,
+  type ValueLine,
 } from "../objects/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { formatAsFlag, Keys, type Layout, NO_REST, type Rest } from "./keys.ts";
@@ -141,7 +142,15 @@ export interface KeyedParts {
   readonly results: ResultOf;
   readonly settle: Settle;
   readonly stripped: Stripped;
+  /** Значения ключа `target:` для дополнения. */
+  readonly targets: Targets;
 }
+
+/** Значения ключа `target:`, начинающиеся с набранного. */
+export type Targets = (like: string) => Promise<readonly ValueLine[]>;
+
+/** Значений нет: снимок дерева и строки без кэша. */
+export const NO_TARGETS: Targets = () => Promise.resolve([]);
 
 /**
  * Режимы команды — унарные сообщения её листа (`mpu logs hosts`): каждый
@@ -219,8 +228,17 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
       NO_REST,
       parts.results.names(),
     );
+  const target = keys.describe().keys.target !== undefined;
   return new Shape<Line>(modesOf(parts), {
     fallback,
+    values: {
+      // Значения объявлены только у `target:` (спека, «Известные
+      // отклонения»): у прочих ключей их нет.
+      candidates: (key, like) =>
+        target && key === "target"
+          ? parts.targets(like).then((found) => [...found])
+          : Promise.resolve([]),
+    },
     ending: {
       finish: (report, line) =>
         bare(line).pending().settle(report, parts.settle),

@@ -18,3 +18,4 @@ export {
   type SelectorSources,
   type ServerAddresses,
 } from "./resolve.ts";
+export { type TargetValue, targetValues } from "./values.ts";

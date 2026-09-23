@@ -7,13 +7,17 @@ export type {
   Args,
   Call,
   Doc,
+  KeyLine,
+  MessageLine,
   Named,
   Outcome,
   Receiver,
+  Reflection,
   Remedy,
   Report,
   Sent,
   Trace,
+  ValueLine,
   Yields,
 } from "./protocol.ts";
 export type { Fallback, Method } from "./method.ts";
@@ -31,12 +35,22 @@ export {
   type Closing,
   type Ending,
   EVERYONE,
+  NO_VALUES,
   origin,
   type Roster,
   Shape,
   type ShapeOptions,
   type Strays,
+  type Values,
 } from "./shape.ts";
+export {
+  LISTED,
+  messageListing,
+  valueListing,
+  wordListing,
+} from "./reflection.ts";
+export { completeLine, type Suggestion } from "./complete.ts";
+export { SILENT } from "./silent.ts";
 export { Refusal } from "./refusal.ts";
 export { line as callLine, NO_REMEDY, spoken } from "./remedy.ts";
 export { type Loader, Replaceable } from "./replaceable.ts";

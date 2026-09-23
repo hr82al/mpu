@@ -5,13 +5,15 @@
  */
 
 import type { ReceiverDescription } from "../messages/mod.ts";
-import {
-  COMMON,
-  COMMON_SELECTORS,
-  type Reflective,
-  withCommon,
-} from "./common.ts";
 import { GRAMMAR } from "../messages/mod.ts";
+import {
+  keyLines,
+  keywordLine,
+  reflected,
+  sorted,
+  spelled,
+  withProtocol,
+} from "./reflection.ts";
 import {
   AsideCall,
   Description,
@@ -26,12 +28,16 @@ import { NO_REMEDY } from "./remedy.ts";
 import type {
   Call,
   Doc,
+  KeyLine,
+  MessageLine,
   Outcome,
   Receiver,
+  Reflection,
   Remedy,
   Report,
   Sent,
   Trace,
+  ValueLine,
   Yields,
 } from "./protocol.ts";
 import { Refusal } from "./refusal.ts";
@@ -47,8 +53,8 @@ const DESCRIBE: Ending<unknown> = {
 };
 
 /**
- * Кого из собственных селекторов вид называет в списках: `selectors`,
- * `respondsTo:`, раздел «Сообщения» справки, «ближайшие» в отказе.
+ * Кого из собственных селекторов вид называет в списках: `messages`,
+ * `understands:`, раздел «Сообщения» справки, «ближайшие» в отказе.
  * Поиск метода роспись не трогает — неназванный селектор исполняется.
  */
 export interface Roster {
@@ -85,6 +91,14 @@ export interface Strays {
 /** Умолчание: подсказать нечего. */
 const PLAIN_STRAYS: Strays = { remedy: () => NO_REMEDY };
 
+/** Значения ключей, которые вид предлагает (`candidates: … like: …`). */
+export interface Values {
+  candidates(key: string, like: string): Promise<ValueLine[]>;
+}
+
+/** Умолчание: значений не предлагает. */
+export const NO_VALUES: Values = { candidates: () => Promise.resolve([]) };
+
 /** Необязательное в виде: ответ на непонятое, на конец строки, роспись. */
 export interface ShapeOptions<S> {
   /** По умолчанию — отказ. */
@@ -97,6 +111,8 @@ export interface ShapeOptions<S> {
   readonly closing?: Closing<S>;
   /** По умолчанию — подсказать нечего. */
   readonly strays?: Strays;
+  /** По умолчанию — значений ключей нет. */
+  readonly values?: Values;
 }
 
 /** Объект: вид и состояние. */
@@ -119,13 +135,14 @@ class Instance<S> implements Receiver {
 }
 
 /** Вид объекта с состоянием `S`. */
-export class Shape<S> implements Yields<S>, Reflective {
+export class Shape<S> implements Yields<S> {
   readonly #methods: ReadonlyMap<string, Method<S>>;
   readonly #fallback: Fallback<S>;
   readonly #ending: Ending<S>;
   readonly #roster: Roster;
   readonly #closing: Closing<S>;
   readonly #strays: Strays;
+  readonly #values: Values;
 
   /**
    * @param methods собственные методы вида
@@ -138,32 +155,68 @@ export class Shape<S> implements Yields<S>, Reflective {
     this.#roster = options.roster ?? EVERYONE;
     this.#closing = options.closing ?? STAYS;
     this.#strays = options.strays ?? PLAIN_STRAYS;
-  }
-
-  /** Собственные селекторы по алфавиту — те, что вид называет. */
-  selectors(): string[] {
-    return [...this.#methods.keys()]
-      .filter((selector) => this.#roster.lists(selector))
-      .sort(order);
-  }
-
-  /** Назначения собственных селекторов: селектор → назначение. */
-  purposes(): Record<string, string> {
-    return Object.fromEntries(
-      this.#ownLines().map((line) => [line.selector, line.purpose]),
-    );
-  }
-
-  respondsTo(selector: string): boolean {
-    return (this.#methods.has(selector) && this.#roster.lists(selector)) ||
-      COMMON_SELECTORS.has(selector);
+    this.#values = options.values ?? NO_VALUES;
   }
 
   parsing(): ReceiverDescription {
     const into = new Description();
     for (const method of this.#methods.values()) method.describe(into);
     this.#fallback.describe(into);
-    return withCommon(into).build();
+    return withProtocol(into).build();
+  }
+
+  /** Что вид знает о себе: из своих методов, ответа на непонятое, закрытия. */
+  reflect(): Reflection {
+    return {
+      messages: () => this.#messages(),
+      keys: () => this.#commandKeys(),
+      formats: () => [...this.#closing.formats()],
+      candidates: (key, like) => this.#values.candidates(key, like),
+      understands: (selector) => this.#understands(selector),
+    };
+  }
+
+  /**
+   * Сообщения, которые вид называет: собственные унарные — словом,
+   * ключевые — первым ключом; ключевое сообщение ответа на непонятое —
+   * тоже первым ключом.
+   */
+  #messages(): MessageLine[] {
+    const own = this.#listed().map((method): MessageLine => {
+      const into = new Description();
+      method.describe(into);
+      const signature = into.build().keyword[0];
+      const line = method.line();
+      return signature === undefined
+        ? { selector: line.selector, kind: "unary", purpose: line.purpose }
+        : keywordLine(signature, line.purpose);
+    });
+    const fallback = this.#fallbackKeyword().map((one) => keywordLine(one));
+    return sorted([...own, ...fallback]);
+  }
+
+  /** Ключи ключевого сообщения команды — у ответа на непонятое. */
+  #commandKeys(): KeyLine[] {
+    return this.#fallbackKeyword().flatMap(keyLines);
+  }
+
+  #fallbackKeyword() {
+    const into = new Description();
+    this.#fallback.describe(into);
+    return into.build().keyword;
+  }
+
+  #understands(selector: string): boolean {
+    if (this.#methods.has(selector)) return this.#roster.lists(selector);
+    return this.#messages().some((line) => line.selector === selector) ||
+      this.#commandKeys().some((key) =>
+        spelled(key.name, key.kind) === selector
+      );
+  }
+
+  #listed(): Method<S>[] {
+    return [...this.#methods.values()]
+      .filter((method) => this.#roster.lists(method.selector));
   }
 
   about(path: string, doc: Doc): Help {
@@ -225,7 +278,7 @@ export class Shape<S> implements Yields<S>, Reflective {
     return sent.route({
       named: (named) =>
         this.#methods.get(selector)?.bind(self, named) ??
-          COMMON.get(selector)?.bind(this, named) ?? otherwise(),
+          reflected(named, this.reflect()) ?? otherwise(),
       tail: otherwise,
       close: () => this.#closing.close(self, this),
     });
@@ -237,7 +290,10 @@ export class Shape<S> implements Yields<S>, Reflective {
   }
 
   #refuse(selector: string): never {
-    const close = nearest(selector, this.selectors());
+    const close = nearest(
+      selector,
+      this.#messages().map((line) => line.selector),
+    );
     const hint = close.length > 0 ? `; ближайшие: ${close.join(", ")}` : "";
     throw new Refusal(`не понимает ${selector}${hint}`);
   }

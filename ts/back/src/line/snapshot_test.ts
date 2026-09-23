@@ -1,12 +1,14 @@
 /**
- * Поля `flags` и `summaries` снимка дерева (`specs/complete.md`,
- * «Снимок»): флаги — из объявления команды, короткая форма — отдельной
- * записью, `--help` не входит; назначения селекторов без своего узла.
+ * Снимок дерева — вывод протокола отражения (`platform/reflection.md`,
+ * «mpu-complete»): у узла `messages`, `keys`, `formats` вида узла; ключи
+ * команды — из каталога ключей, как у справки.
  */
 
 import { assertEquals } from "@std/assert";
 import { commands } from "../registry/mod.ts";
+import { addressesOf } from "./keyed.ts";
 import { registryNodes, type TreeNode } from "./mod.ts";
+import { formatsOf } from "./tree.ts";
 
 function node(path: string): TreeNode {
   const found = registryNodes().find((one) => one.path.join(" ") === path);
@@ -14,61 +16,40 @@ function node(path: string): TreeNode {
   return found as TreeNode;
 }
 
-Deno.test("flags каждой команды — её входы-флаги из объявления", () => {
+Deno.test("keys каждой команды — её ключи из каталога", () => {
   const nodes = new Map(
     registryNodes().map((one) => [one.path.join(" "), one]),
   );
   for (const command of commands) {
-    const flags = nodes.get(command.path.join(" "))?.flags ?? [];
-    const names = new Set(flags.map((flag) => flag.name));
-    for (const input of command.inputs) {
-      if (input.form.positional !== undefined) continue;
-      assertEquals(
-        names.has(`--${input.name}`),
-        true,
-        `${command.path} --${input.name}`,
-      );
-      if (input.form.short !== undefined) {
-        assertEquals(
-          names.has(`-${input.form.short}`),
-          true,
-          `${command.path} -${input.form.short}`,
-        );
-      }
-    }
-    assertEquals(names.has("--help"), false, command.path.join(" "));
+    const keys = nodes.get(command.path.join(" "))?.keys ?? [];
+    const written = keys.map((key) =>
+      key.kind === "flag" ? `--${key.name}` : `${key.name}:`
+    ).sort();
+    const addresses = [
+      ...addressesOf(command, Object.keys(formatsOf(command.path))).values(),
+    ].filter((address) => !address.includes(" ")).sort();
+    assertEquals(written, [...new Set(addresses)], command.path.join(" "));
   }
 });
 
-Deno.test("flags: sql-ro с описаниями, короткая форма — своя запись, группы — пусто", () => {
-  const sql = node("sql-ro");
-  assertEquals(sql.flags.some((flag) => flag.name === "--json"), true);
+Deno.test("образцы: ключи kiten card, форматы sql-ro, сообщения корня", () => {
   assertEquals(
-    sql.flags.every((flag) => typeof flag.summary === "string"),
+    node("kiten card").keys.map((key) => [key.name, key.kind, key.required]),
+    [["id", "value", true], ["no-images", "flag", false], [
+      "no-comments",
+      "flag",
+      false,
+    ]],
+  );
+  assertEquals(node("sql-ro").formats, ["json", "md"]);
+  assertEquals(node("kiten").formats, []);
+  assertEquals(node("kiten").keys, []);
+  const root = node("").messages.map((line) => line.selector);
+  for (const selector of ["allow:", "deny:", "forget:", "kiten", "policy"]) {
+    assertEquals(root.includes(selector), true, selector);
+  }
+  assertEquals(
+    node("").messages.every((line) => line.purpose !== ""),
     true,
   );
-  const withShort = registryNodes().find((one) =>
-    one.flags.some((flag) => /^-[^-]/.test(flag.name))
-  );
-  assertEquals(withShort !== undefined, true);
-  const short = withShort?.flags.find((flag) => /^-[^-]/.test(flag.name));
-  const long = withShort?.flags.find((flag) =>
-    flag.name.startsWith("--") && flag.summary === short?.summary
-  );
-  assertEquals(long !== undefined, true);
-  assertEquals(node("kiten").flags, []);
-  assertEquals(node("ozon-jobs").flags, []);
-});
-
-Deno.test("summaries — назначения селекторов без своего узла", () => {
-  const root = node("");
-  assertEquals(
-    Object.keys(root.summaries).sort(),
-    ["allow:", "ask:", "deny:", "forget:", "policy"],
-  );
-  assertEquals(
-    Object.values(root.summaries).every((text) => text !== ""),
-    true,
-  );
-  assertEquals(node("kiten").summaries, {});
 });

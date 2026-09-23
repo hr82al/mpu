@@ -470,15 +470,19 @@
     //   — `--allow-env=HOME,MPU_BACK_URL`: каталог токенов и адрес `back`.
     // Шире не стали — `mcp/src/tasks_test.ts`.
     "mcp": "deno run --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL mcp/main.ts",
-    // Дополнение `mpu-complete` (`docs/specs/complete.md`): варианты —
-    // только из снимка дерева, поэтому права — ровно на него:
-    //   — `--allow-read` одного файла снимка `$HOME/.cache/mpu/tree.json`
-    //     (`--snapshot` на другой путь без права — «снимка нет», вариантов
-    //     нет, код 0);
-    //   — `--allow-env=HOME`: где лежит снимок.
-    // Ни сети, ни записи, ни токенов. Шире не стали —
-    // `complete/src/tasks_test.ts`.
-    "complete": "deno run --allow-read=$HOME/.cache/mpu/tree.json --allow-env=HOME complete/main.ts",
+    // Дополнение `mpu-complete` (`docs/specs/complete.md`,
+    // `platform/reflection.md`): варианты — от `mpu-back`, без него — из
+    // снимка дерева. Права:
+    //   — `--allow-net=127.0.0.1`: спросить `back` сообщением `complete:`
+    //     по петле;
+    //   — `--allow-read` снимка `$HOME/.cache/mpu/tree.json` и основного
+    //     токена `$HOME/.config/mpu/token` (`back` спрашивается только с
+    //     ним; агентский не читается — нет основного, значит снимок);
+    //     `--snapshot` на другой путь без права — «снимка нет», код 0;
+    //   — `--allow-env=HOME,MPU_BACK_URL`: где снимок и токен, адрес `back`.
+    // Ни записи, ни запусков. Каждое право нужно ответу `back` —
+    // `complete/src/tasks_test.ts` краснеет без любого из них.
+    "complete": "deno run --allow-net=127.0.0.1 --allow-read=$HOME/.cache/mpu/tree.json,$HOME/.config/mpu/token --allow-env=HOME,MPU_BACK_URL complete/main.ts",
     // Супервизор `mpu-supervisor` (`platform/supervisor-install.md`):
     // единственное, что запускает служба `mpu.service`. Права:
     //   — `--allow-run` двух программ из `$HOME/.local/bin`: запуск и
@@ -500,7 +504,7 @@
     "compile:back": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
     "compile:mcp": "deno compile --node-modules-dir=none --exclude-unused-npm --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT mcp/main.ts",
     "compile:cli": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=/usr/bin/wl-copy,/usr/bin/xclip,/usr/bin/xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,WT_SESSION,OS -o $MPU_OUT cli/main.ts",
-    "compile:complete": "deno compile --allow-read=$HOME/.cache/mpu/tree.json --allow-env=HOME -o $MPU_OUT complete/main.ts",
+    "compile:complete": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.cache/mpu/tree.json,$HOME/.config/mpu/token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT complete/main.ts",
     "compile:supervisor": "deno compile --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp --allow-env=HOME -o $MPU_OUT supervisor/main.ts",
     // Фронт (`docs/specs/web.md`, 10b): dev-сервер Vite с прокси на
     // `mpu-back` и сборка в каталог `$MPU_OUT`. Права — `-A`, как в спеке:

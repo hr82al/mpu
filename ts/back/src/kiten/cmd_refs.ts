@@ -486,7 +486,7 @@ export const kitenBoardsCommand = defineCommand({
   path: ["kiten", "boards"],
   keys: {},
   errorName: "kiten boards",
-  summary: "Доски всех пространств плоским списком; --space фильтрует.",
+  summary: "Доски всех пространств плоским списком; space: фильтрует.",
   usage: "mpu kiten boards [space: REF] [end json]",
   help: `Звать, когда нужен id или имя доски Kaiten для board: других команд.
 

@@ -20,6 +20,7 @@ import {
 import type { CliEntry } from "../process/mod.ts";
 import { JSON_STRIPPED, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
 import { registrySeeds } from "./seeds.ts";
+import { targetValues } from "../selector/mod.ts";
 import { Session } from "./session.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
@@ -190,12 +191,14 @@ export function lineEntry(ports: LinePorts): CliEntry {
           runLine(order.argv(view.executed(argv)), io, output, journal)
         ),
     });
-    const root = registryRoot(
-      line,
-      book,
-      ports.rootMethods.map(rootMethod),
-      strippedOf(argv),
-    );
+    const root = registryRoot(line, book, {
+      own: ports.rootMethods.map(rootMethod),
+      stripped: strippedOf(argv),
+      targets: (like) => {
+        using db = io.openCacheDb();
+        return Promise.resolve(targetValues(db, like));
+      },
+    });
     const outcome = await runChain(walkedWords(argv), root);
     return printed(outcome, output);
   };

@@ -14,6 +14,7 @@ import {
   HELP_SELECTOR,
   type Outcome,
   type Receiver,
+  type Reflection,
   type Report,
   type ResultKind,
   type Sent,
@@ -21,6 +22,7 @@ import {
 } from "./protocol.ts";
 import { Refusal } from "./refusal.ts";
 import { NO_REMEDY } from "./remedy.ts";
+import { SILENT } from "./silent.ts";
 
 /** Как результат отдаёт данные в конце строки. */
 interface Printer {
@@ -68,6 +70,12 @@ const FORMATS: ReadonlyMap<string, readonly [Doc, Printer]> = new Map([
 
 /** Имена форматов, которые понимает результат данных. */
 const DATA_FORMATS: readonly string[] = [...FORMATS.keys()];
+
+/** Отражение данных: сообщений нет, результат понимает форматы данных. */
+export const DATA_REFLECTION: Reflection = {
+  ...SILENT,
+  formats: () => [...DATA_FORMATS],
+};
 
 const RESULT_DOC: Doc = {
   purpose: "результат выражения",
@@ -144,6 +152,16 @@ const PRINTED: ResultKind = {
       })),
     }, OBJECT_VIEW),
   remedy: () => NO_REMEDY,
+  reflect: () => ({
+    ...DATA_REFLECTION,
+    messages: () =>
+      [...FORMATS].map(([selector, [format]]) => ({
+        selector,
+        kind: "unary" as const,
+        purpose: format.purpose,
+      })),
+    understands: (selector) => FORMATS.has(selector),
+  }),
 };
 
 /** Закрытие выражения, которое кончается данными: результат с форматами. */
@@ -223,6 +241,7 @@ export const ANSWERED: ResultKind = {
   parsing: () => ({ unary: [], keyword: [], tail: "<слово>" }),
   about: (path, doc) => dataHelp(path, doc),
   remedy: () => NO_REMEDY,
+  reflect: () => DATA_REFLECTION,
 };
 
 /** Ответ на `help` — объект-справка приёмником. */

@@ -3,42 +3,423 @@
   "nodes": [
     {
       "path": [],
-      "summary": "Monorepo Python utilities — multi-purpose CLI for ad-hoc operations.",
-      "selectors": [
-        "allow:",
-        "ask:",
-        "deny:",
-        "forget:",
-        "kiten",
-        "mcp",
-        "policy",
-        "sql-ro",
-        "version"
-      ],
+      "summary": "mpu — тонкий клиент сервера строк: команды исполняет mpu-back.",
       "tail": null,
-      "flags": [],
-      "summaries": {
-        "allow:": "разрешить путь без вопроса",
-        "ask:": "спрашивать перед исполнением пути",
-        "deny:": "запретить путь",
-        "forget:": "снять правило с пути",
-        "policy": "правила подтверждения"
-      }
+      "messages": [
+        {
+          "selector": "allow:",
+          "kind": "keyword",
+          "purpose": "разрешить путь без вопроса"
+        },
+        {
+          "selector": "api",
+          "kind": "unary",
+          "purpose": "админские эндпоинты sl-back: чтение, правка, загрузчики"
+        },
+        {
+          "selector": "app-migrations",
+          "kind": "unary",
+          "purpose": "миграции схемы приложения: latest | up"
+        },
+        {
+          "selector": "ask:",
+          "kind": "keyword",
+          "purpose": "спрашивать перед исполнением пути"
+        },
+        {
+          "selector": "backup-ozon-unit-proto",
+          "kind": "unary",
+          "purpose": "Снять копию ozon_unit_proto клиента в схему backups."
+        },
+        {
+          "selector": "backup-wb-unit-manual-data",
+          "kind": "unary",
+          "purpose": "Снять копию wb_unit_manual_data клиента в схему backups."
+        },
+        {
+          "selector": "backup-wb-unit-proto",
+          "kind": "unary",
+          "purpose": "Снять копию wb_unit_proto клиента в схему backups."
+        },
+        {
+          "selector": "claude-hook",
+          "kind": "unary",
+          "purpose": "адаптеры хуков Claude Code: уведомление себе в бота"
+        },
+        {
+          "selector": "clean-local-clients",
+          "kind": "unary",
+          "purpose": "Снести данные локальных клиентов, кроме keep-листа."
+        },
+        {
+          "selector": "clients-migrations",
+          "kind": "unary",
+          "purpose": "миграции клиентских схем: latest | up | rollback | latest-all | …"
+        },
+        {
+          "selector": "code",
+          "kind": "unary",
+          "purpose": "перед правкой кода: кого заденет, есть ли копия, занято ли имя, цел ли путь"
+        },
+        {
+          "selector": "config",
+          "kind": "unary",
+          "purpose": "Локальные предпочтения CLI: показать и задать ключи."
+        },
+        {
+          "selector": "confirm",
+          "kind": "unary",
+          "purpose": "y/N-ворота в пайпе: показать буфер и спросить у терминала."
+        },
+        {
+          "selector": "copy-client",
+          "kind": "unary",
+          "purpose": "Скопировать клиента с прод-инстанса в локальный стенд."
+        },
+        {
+          "selector": "copy-dev",
+          "kind": "unary",
+          "purpose": "Скопировать данные с dev-стенда в локальный."
+        },
+        {
+          "selector": "copy-shared",
+          "kind": "unary",
+          "purpose": "Обновить общие справочные таблицы shared в локальном стенде."
+        },
+        {
+          "selector": "d2-miro",
+          "kind": "unary",
+          "purpose": "Рендер d2-диаграммы в Miro как редактируемый фрейм."
+        },
+        {
+          "selector": "data-loader",
+          "kind": "unary",
+          "purpose": "Найти кандидата загрузки данных клиента по кабинетам."
+        },
+        {
+          "selector": "data-loader-jobs",
+          "kind": "unary",
+          "purpose": "очередь задач загрузчика данных на сервере: show"
+        },
+        {
+          "selector": "datasets-migrations",
+          "kind": "unary",
+          "purpose": "миграции датасетов клиента: latest | up | rollback | down | list"
+        },
+        {
+          "selector": "deny:",
+          "kind": "keyword",
+          "purpose": "запретить путь"
+        },
+        {
+          "selector": "forget:",
+          "kind": "keyword",
+          "purpose": "снять правило с пути"
+        },
+        {
+          "selector": "glab-status",
+          "kind": "unary",
+          "purpose": "Прохождение merge request'ов по веткам деплой-пайплайна."
+        },
+        {
+          "selector": "health",
+          "kind": "unary",
+          "purpose": "Health-check сервера: контейнеры + tail логов виновников."
+        },
+        {
+          "selector": "help",
+          "kind": "unary",
+          "purpose": "Список всех mpu команд с опциональной справкой."
+        },
+        {
+          "selector": "init",
+          "kind": "unary",
+          "purpose": "первичная инициализация локальной кэш-БД: пять шагов"
+        },
+        {
+          "selector": "jsdate",
+          "kind": "unary",
+          "purpose": "текущий момент меткой YYYYMMDDhhmmss по местному времени"
+        },
+        {
+          "selector": "kiten",
+          "kind": "unary",
+          "purpose": "карточки Kaiten: чтение, комментарии, время, справочники"
+        },
+        {
+          "selector": "log",
+          "kind": "unary",
+          "purpose": "Показать записи журнала вызовов mpu."
+        },
+        {
+          "selector": "logs",
+          "kind": "unary",
+          "purpose": "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot)."
+        },
+        {
+          "selector": "make-schema",
+          "kind": "unary",
+          "purpose": "Создать схему клиента в локальном стенде."
+        },
+        {
+          "selector": "move-client",
+          "kind": "unary",
+          "purpose": "Перенести клиента на другой sl-сервер фермы."
+        },
+        {
+          "selector": "move-client-back",
+          "kind": "unary",
+          "purpose": "Вернуть клиента обратно и управлять журналом переносов."
+        },
+        {
+          "selector": "mp-init",
+          "kind": "unary",
+          "purpose": "Поднять локальный стенд целиком: core-стеки и web поверх."
+        },
+        {
+          "selector": "mr",
+          "kind": "unary",
+          "purpose": "merge request'ы GitLab: чтение, комментарии ревью, резолв"
+        },
+        {
+          "selector": "ozon-jobs",
+          "kind": "unary",
+          "purpose": "очередь задач Ozon-загрузчика на сервере: show | prune"
+        },
+        {
+          "selector": "ozon-loader",
+          "kind": "unary",
+          "purpose": "загрузка данных Ozon-кабинета в БД клиента: campaigns | …"
+        },
+        {
+          "selector": "ozon-recalculate-expenses",
+          "kind": "unary",
+          "purpose": "Пересчитать расходы Ozon UNIT клиента за период."
+        },
+        {
+          "selector": "ozon-save-expenses",
+          "kind": "unary",
+          "purpose": "Сохранить расходы Ozon UNIT клиента за период."
+        },
+        {
+          "selector": "policy",
+          "kind": "unary",
+          "purpose": "правила подтверждения"
+        },
+        {
+          "selector": "process",
+          "kind": "unary",
+          "purpose": "Пересчитать витрины клиента (dataProcessor.process)."
+        },
+        {
+          "selector": "ps",
+          "kind": "unary",
+          "purpose": "Список Docker-контейнеров (кэш или живой Portainer)."
+        },
+        {
+          "selector": "run-js",
+          "kind": "unary",
+          "purpose": "Выполнить JS-код в контейнере sl-back."
+        },
+        {
+          "selector": "search",
+          "kind": "unary",
+          "purpose": "Найти клиента или таблицу по селектору; вход в 10X по email."
+        },
+        {
+          "selector": "sheet",
+          "kind": "unary",
+          "purpose": "Google-таблицы: чтение, запись, алиасы, кэш"
+        },
+        {
+          "selector": "sql",
+          "kind": "unary",
+          "purpose": "Выполнить SQL (write-capable) на PG, выбранном по селектору."
+        },
+        {
+          "selector": "sql-ro",
+          "kind": "unary",
+          "purpose": "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения)."
+        },
+        {
+          "selector": "ss-datasets",
+          "kind": "unary",
+          "purpose": "Зарегистрировать датасет таблицы клиента."
+        },
+        {
+          "selector": "ss-load",
+          "kind": "unary",
+          "purpose": "Загрузить лист Google-таблицы клиента в БД."
+        },
+        {
+          "selector": "ss-update",
+          "kind": "unary",
+          "purpose": "Запустить обновление Google-таблицы клиента в контейнере sl-back."
+        },
+        {
+          "selector": "ssh",
+          "kind": "unary",
+          "purpose": "Выполнить команду в `sl-N-cli` ИЛИ в произвольном контейнере по точному имени."
+        },
+        {
+          "selector": "sun",
+          "kind": "unary",
+          "purpose": "Восход, полдень, закат и длина дня для точки и даты."
+        },
+        {
+          "selector": "telegram",
+          "kind": "unary",
+          "purpose": "Telegram от имени личного аккаунта: сообщения, диалоги, вход"
+        },
+        {
+          "selector": "update",
+          "kind": "unary",
+          "purpose": "синк снапшота кэш-БД с PG: клиенты, их таблицы, wb-sid'ы"
+        },
+        {
+          "selector": "users",
+          "kind": "unary",
+          "purpose": "пользователи sl-back на сервере: add | add-role"
+        },
+        {
+          "selector": "version",
+          "kind": "unary",
+          "purpose": "Show mpu version."
+        },
+        {
+          "selector": "wb-jobs",
+          "kind": "unary",
+          "purpose": "очередь задач WB-загрузчика на сервере: show"
+        },
+        {
+          "selector": "wb-loader",
+          "kind": "unary",
+          "purpose": "загрузка данных WB-кабинета в БД клиента: reports | cards | …"
+        },
+        {
+          "selector": "wb-recalculate-expenses",
+          "kind": "unary",
+          "purpose": "Пересчитать расходы WB UNIT клиента за период."
+        },
+        {
+          "selector": "wb-save-expenses",
+          "kind": "unary",
+          "purpose": "Сохранить расходы WB UNIT клиента за период."
+        },
+        {
+          "selector": "wb-unit-calc",
+          "kind": "unary",
+          "purpose": "Показать расчётные данные WB UNIT по товару за дату."
+        },
+        {
+          "selector": "wb-unit-proto-new",
+          "kind": "unary",
+          "purpose": "Перелить данные WB UNIT из старой таблицы в новую."
+        },
+        {
+          "selector": "xlsx",
+          "kind": "unary",
+          "purpose": "чтение локальных .xlsx: листы, значения, алиасы"
+        }
+      ],
+      "keys": [],
+      "formats": []
     },
     {
       "path": [
         "kiten"
       ],
       "summary": "карточки Kaiten: чтение, комментарии, время, справочники",
-      "selectors": [
-        "card",
-        "comment",
-        "field",
-        "ls"
-      ],
       "tail": null,
-      "flags": [],
-      "summaries": {}
+      "messages": [
+        {
+          "selector": "boards",
+          "kind": "unary",
+          "purpose": "Доски всех пространств плоским списком; space: фильтрует."
+        },
+        {
+          "selector": "card",
+          "kind": "unary",
+          "purpose": "Одна карточка Kaiten целиком: шапка, свойства, описание, файлы, комментарии."
+        },
+        {
+          "selector": "checklist",
+          "kind": "unary",
+          "purpose": "чек-листы карточки: ls | add | check | uncheck"
+        },
+        {
+          "selector": "close",
+          "kind": "unary",
+          "purpose": "Закрыть карточку Kaiten: поля, ответ клиенту, перенос в «Готово»."
+        },
+        {
+          "selector": "columns",
+          "kind": "unary",
+          "purpose": "Колонки досок: одной доски, пространства либо всех сразу."
+        },
+        {
+          "selector": "comment",
+          "kind": "unary",
+          "purpose": "Комментарий к карточке Kaiten: текст, вложения, адресаты."
+        },
+        {
+          "selector": "field",
+          "kind": "unary",
+          "purpose": "кастомные поля карточки: set | artefact"
+        },
+        {
+          "selector": "lanes",
+          "kind": "unary",
+          "purpose": "Дорожки досок: одной доски, пространства либо всех сразу."
+        },
+        {
+          "selector": "ls",
+          "kind": "unary",
+          "purpose": "Список карточек Kaiten, где я участник."
+        },
+        {
+          "selector": "move",
+          "kind": "unary",
+          "purpose": "Перенести карточку Kaiten по осям доска / дорожка / колонка."
+        },
+        {
+          "selector": "ready",
+          "kind": "unary",
+          "purpose": "Перевести карточку Kaiten в колонку «Готово»."
+        },
+        {
+          "selector": "review",
+          "kind": "unary",
+          "purpose": "Перевести карточку Kaiten в колонку «Код-ревью»."
+        },
+        {
+          "selector": "roles",
+          "kind": "unary",
+          "purpose": "Роли компании — типы работ учёта времени."
+        },
+        {
+          "selector": "spaces",
+          "kind": "unary",
+          "purpose": "Пространства компании; архивные — по --all."
+        },
+        {
+          "selector": "status",
+          "kind": "unary",
+          "purpose": "Вся моя работа в Kaiten одной таблицей по всем доскам."
+        },
+        {
+          "selector": "time",
+          "kind": "unary",
+          "purpose": "записи учёта времени карточки: ls | add | edit | rm"
+        },
+        {
+          "selector": "whoami",
+          "kind": "unary",
+          "purpose": "Владелец токена Kaiten: id, имя, логин, почта."
+        }
+      ],
+      "keys": [],
+      "formats": []
     },
     {
       "path": [
@@ -46,27 +427,41 @@
         "card"
       ],
       "summary": "Одна карточка Kaiten целиком: шапка, свойства, описание, файлы, комментарии.",
-      "selectors": [],
       "tail": "args",
-      "flags": [
+      "messages": [
         {
-          "name": "--md",
-          "summary": "чистый GFM markdown"
-        },
-        {
-          "name": "--json",
-          "summary": "сырой JSON: карточка и комментарии"
-        },
-        {
-          "name": "--images",
-          "summary": "вложения-картинки в наглядном виде; выключить — флагом --no-images"
-        },
-        {
-          "name": "--comments",
-          "summary": "комментарии карточки; не читать их — флагом --no-comments"
+          "selector": "id:",
+          "kind": "keyword",
+          "purpose": "id карточки либо её URL, короткий или глубокий"
         }
       ],
-      "summaries": {}
+      "keys": [
+        {
+          "name": "id",
+          "kind": "value",
+          "required": true,
+          "purpose": "id карточки либо её URL, короткий или глубокий",
+          "reason": null
+        },
+        {
+          "name": "no-images",
+          "kind": "flag",
+          "required": false,
+          "purpose": "вложения-картинки в наглядном виде; выключить — флагом --no-images",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "no-comments",
+          "kind": "flag",
+          "required": false,
+          "purpose": "комментарии карточки; не читать их — флагом --no-comments",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [
+        "json",
+        "md"
+      ]
     },
     {
       "path": [
@@ -74,43 +469,54 @@
         "comment"
       ],
       "summary": "Комментарий к карточке Kaiten: текст, вложения, адресаты.",
-      "selectors": [],
       "tail": "args",
-      "flags": [
+      "messages": [
         {
-          "name": "--message",
-          "summary": "текст комментария (GFM markdown)"
-        },
-        {
-          "name": "-m",
-          "summary": "текст комментария (GFM markdown)"
-        },
-        {
-          "name": "--body-file",
-          "summary": "файл с текстом комментария; '-' — stdin"
-        },
-        {
-          "name": "-F",
-          "summary": "файл с текстом комментария; '-' — stdin"
-        },
-        {
-          "name": "--file",
-          "summary": "вложение: путь к файлу; флаг повторяется"
-        },
-        {
-          "name": "-f",
-          "summary": "вложение: путь к файлу; флаг повторяется"
-        },
-        {
-          "name": "--to",
-          "summary": "адресаты первой строкой: '@ivan @petr' либо '@all'; флаг повторяется"
-        },
-        {
-          "name": "--json",
-          "summary": "результат как JSON вместо текста"
+          "selector": "id:",
+          "kind": "keyword",
+          "purpose": "id карточки либо её URL, короткий или глубокий"
         }
       ],
-      "summaries": {}
+      "keys": [
+        {
+          "name": "id",
+          "kind": "value",
+          "required": true,
+          "purpose": "id карточки либо её URL, короткий или глубокий",
+          "reason": null
+        },
+        {
+          "name": "text",
+          "kind": "value",
+          "required": false,
+          "purpose": "текст комментария (GFM markdown)",
+          "reason": null
+        },
+        {
+          "name": "body-file",
+          "kind": "value",
+          "required": false,
+          "purpose": "файл с текстом комментария; '-' — stdin",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "file",
+          "kind": "list",
+          "required": false,
+          "purpose": "вложение: путь к файлу; флаг повторяется",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "to",
+          "kind": "list",
+          "required": false,
+          "purpose": "адресаты первой строкой: '@ivan @petr' либо '@all'; флаг повторяется",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [
+        "json"
+      ]
     },
     {
       "path": [
@@ -118,13 +524,21 @@
         "field"
       ],
       "summary": "кастомные поля карточки: set | artefact",
-      "selectors": [
-        "artefact",
-        "set"
-      ],
       "tail": null,
-      "flags": [],
-      "summaries": {}
+      "messages": [
+        {
+          "selector": "artefact",
+          "kind": "unary",
+          "purpose": "файловое поле «9. AI-артефакт»: set | rm"
+        },
+        {
+          "selector": "set",
+          "kind": "unary",
+          "purpose": "Записать скалярное кастомное поле карточки Kaiten."
+        }
+      ],
+      "keys": [],
+      "formats": []
     },
     {
       "path": [
@@ -133,13 +547,21 @@
         "artefact"
       ],
       "summary": "файловое поле «9. AI-артефакт»: set | rm",
-      "selectors": [
-        "rm",
-        "set"
-      ],
       "tail": null,
-      "flags": [],
-      "summaries": {}
+      "messages": [
+        {
+          "selector": "rm",
+          "kind": "unary",
+          "purpose": "Удалить файлы карточки, привязанные к полю «9. AI-артефакт»."
+        },
+        {
+          "selector": "set",
+          "kind": "unary",
+          "purpose": "Загрузить md-файл в поле карточки «9. AI-артефакт»."
+        }
+      ],
+      "keys": [],
+      "formats": []
     },
     {
       "path": [
@@ -149,15 +571,26 @@
         "rm"
       ],
       "summary": "Удалить файлы карточки, привязанные к полю «9. AI-артефакт».",
-      "selectors": [],
       "tail": "args",
-      "flags": [
+      "messages": [
         {
-          "name": "--json",
-          "summary": "результат как JSON вместо текста"
+          "selector": "id:",
+          "kind": "keyword",
+          "purpose": "id карточки либо её URL, короткий или глубокий"
         }
       ],
-      "summaries": {}
+      "keys": [
+        {
+          "name": "id",
+          "kind": "value",
+          "required": true,
+          "purpose": "id карточки либо её URL, короткий или глубокий",
+          "reason": null
+        }
+      ],
+      "formats": [
+        "json"
+      ]
     },
     {
       "path": [
@@ -167,15 +600,33 @@
         "set"
       ],
       "summary": "Загрузить md-файл в поле карточки «9. AI-артефакт».",
-      "selectors": [],
       "tail": "args",
-      "flags": [
+      "messages": [
         {
-          "name": "--json",
-          "summary": "результат как JSON вместо текста"
+          "selector": "id:",
+          "kind": "keyword",
+          "purpose": "id карточки либо её URL, короткий или глубокий"
         }
       ],
-      "summaries": {}
+      "keys": [
+        {
+          "name": "id",
+          "kind": "value",
+          "required": true,
+          "purpose": "id карточки либо её URL, короткий или глубокий",
+          "reason": null
+        },
+        {
+          "name": "path",
+          "kind": "value",
+          "required": true,
+          "purpose": "md-файл артефакта; имя обязано оканчиваться на .md",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [
+        "json"
+      ]
     },
     {
       "path": [
@@ -184,15 +635,40 @@
         "set"
       ],
       "summary": "Записать скалярное кастомное поле карточки Kaiten.",
-      "selectors": [],
       "tail": "args",
-      "flags": [
+      "messages": [
         {
-          "name": "--json",
-          "summary": "результат как JSON вместо текста"
+          "selector": "id:",
+          "kind": "keyword",
+          "purpose": "id карточки либо её URL, короткий или глубокий"
         }
       ],
-      "summaries": {}
+      "keys": [
+        {
+          "name": "id",
+          "kind": "value",
+          "required": true,
+          "purpose": "id карточки либо её URL, короткий или глубокий",
+          "reason": null
+        },
+        {
+          "name": "field",
+          "kind": "value",
+          "required": true,
+          "purpose": "какое поле карточки писать",
+          "reason": "имя поля карточки — не номер и не текст"
+        },
+        {
+          "name": "text",
+          "kind": "value",
+          "required": true,
+          "purpose": "значение поля: пишется ровно как передано; пустое — очистка",
+          "reason": null
+        }
+      ],
+      "formats": [
+        "json"
+      ]
     },
     {
       "path": [
@@ -200,242 +676,150 @@
         "ls"
       ],
       "summary": "Список карточек Kaiten, где я участник.",
-      "selectors": [],
       "tail": "args",
-      "flags": [
+      "messages": [
         {
-          "name": "--archived",
-          "summary": "архивные карточки (condition=2) вместо активных"
-        },
-        {
-          "name": "--state",
-          "summary": "этап карточки: queued, in-progress, done"
-        },
-        {
-          "name": "--space",
-          "summary": "пространство: id или подстрока названия"
-        },
-        {
-          "name": "--board",
-          "summary": "доска: id или подстрока названия"
-        },
-        {
-          "name": "--lane",
-          "summary": "дорожка: id или подстрока названия"
-        },
-        {
-          "name": "--column",
-          "summary": "колонка: id или подстрока названия"
-        },
-        {
-          "name": "--date-from",
-          "summary": "нижняя граница активности YYYY-MM-DD, включительно"
-        },
-        {
-          "name": "--date_from",
-          "summary": "синоним --date-from"
-        },
-        {
-          "name": "--date-to",
-          "summary": "верхняя граница активности YYYY-MM-DD, включительно"
-        },
-        {
-          "name": "--date_to",
-          "summary": "синоним --date-to"
-        },
-        {
-          "name": "--json",
-          "summary": "массив объектов id/state/due_date/updated/title/url, отступ 2"
-        },
-        {
-          "name": "--format",
-          "summary": "шаблон строки на карточку: {n} {id} {title} {url} {state} {due} {column} {column_mapped}"
-        },
-        {
-          "name": "--only-url",
-          "summary": "[title](url) по строке на карточку"
-        },
-        {
-          "name": "--md",
-          "summary": "GFM-таблица"
+          "selector": "archived:",
+          "kind": "keyword",
+          "purpose": "архивные карточки (condition=2) вместо активных"
         }
       ],
-      "summaries": {}
-    },
-    {
-      "path": [
-        "mcp"
-      ],
-      "summary": "MCP-сервер над реестром команд: запуск, служба и токен доступа",
-      "selectors": [
-        "disable",
-        "enable",
-        "restart",
-        "start",
-        "status",
-        "stop",
-        "token"
-      ],
-      "tail": "args",
-      "flags": [],
-      "summaries": {}
-    },
-    {
-      "path": [
-        "mcp",
-        "disable"
-      ],
-      "summary": "остановить службу, снять с автозапуска и удалить описание",
-      "selectors": [],
-      "tail": "args",
-      "flags": [
+      "keys": [
         {
-          "name": "--json",
-          "summary": "результат как JSON вместо текста"
+          "name": "archived",
+          "kind": "flag",
+          "required": false,
+          "purpose": "архивные карточки (condition=2) вместо активных",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "state",
+          "kind": "value",
+          "required": false,
+          "purpose": "этап карточки: queued, in-progress, done",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "space",
+          "kind": "value",
+          "required": false,
+          "purpose": "пространство: id или подстрока названия",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "board",
+          "kind": "value",
+          "required": false,
+          "purpose": "доска: id или подстрока названия",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "lane",
+          "kind": "value",
+          "required": false,
+          "purpose": "дорожка: id или подстрока названия",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "column",
+          "kind": "value",
+          "required": false,
+          "purpose": "колонка: id или подстрока названия",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "date-from",
+          "kind": "value",
+          "required": false,
+          "purpose": "нижняя граница активности YYYY-MM-DD, включительно",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "date-to",
+          "kind": "value",
+          "required": false,
+          "purpose": "верхняя граница активности YYYY-MM-DD, включительно",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "format",
+          "kind": "value",
+          "required": false,
+          "purpose": "шаблон строки на карточку: {n} {id} {title} {url} {state} {due} {column} {column_mapped}",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "only-url",
+          "kind": "flag",
+          "required": false,
+          "purpose": "[title](url) по строке на карточку",
+          "reason": "прежнее имя входа"
         }
       ],
-      "summaries": {}
-    },
-    {
-      "path": [
-        "mcp",
-        "enable"
-      ],
-      "summary": "описать службу MCP-сервера, запустить и включить в автозапуск",
-      "selectors": [],
-      "tail": "args",
-      "flags": [
-        {
-          "name": "--json",
-          "summary": "результат как JSON вместо текста"
-        }
-      ],
-      "summaries": {}
-    },
-    {
-      "path": [
-        "mcp",
-        "restart"
-      ],
-      "summary": "перезапустить описанную службу MCP-сервера",
-      "selectors": [],
-      "tail": "args",
-      "flags": [
-        {
-          "name": "--json",
-          "summary": "результат как JSON вместо текста"
-        }
-      ],
-      "summaries": {}
-    },
-    {
-      "path": [
-        "mcp",
-        "start"
-      ],
-      "summary": "запустить описанную службу MCP-сервера",
-      "selectors": [],
-      "tail": "args",
-      "flags": [
-        {
-          "name": "--json",
-          "summary": "результат как JSON вместо текста"
-        }
-      ],
-      "summaries": {}
-    },
-    {
-      "path": [
-        "mcp",
-        "status"
-      ],
-      "summary": "состояние службы MCP-сервера: описание, автозапуск, версия",
-      "selectors": [],
-      "tail": "args",
-      "flags": [
-        {
-          "name": "--json",
-          "summary": "результат как JSON вместо текста"
-        }
-      ],
-      "summaries": {}
-    },
-    {
-      "path": [
-        "mcp",
-        "stop"
-      ],
-      "summary": "остановить службу MCP-сервера, не снимая с автозапуска",
-      "selectors": [],
-      "tail": "args",
-      "flags": [
-        {
-          "name": "--json",
-          "summary": "результат как JSON вместо текста"
-        }
-      ],
-      "summaries": {}
-    },
-    {
-      "path": [
-        "mcp",
-        "token"
-      ],
-      "summary": "заголовки авторизации для подключения к серверу",
-      "selectors": [],
-      "tail": "args",
-      "flags": [
-        {
-          "name": "--json",
-          "summary": "результат как JSON вместо текста"
-        }
-      ],
-      "summaries": {}
+      "formats": [
+        "json",
+        "md"
+      ]
     },
     {
       "path": [
         "sql-ro"
       ],
       "summary": "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).",
-      "selectors": [],
       "tail": "args",
-      "flags": [
+      "messages": [
         {
-          "name": "--server",
-          "summary": "override резолва: sl-N"
-        },
-        {
-          "name": "--dry",
-          "summary": "только мета-блок и SQL, без подключения"
-        },
-        {
-          "name": "--json",
-          "summary": "результат как JSON"
-        },
-        {
-          "name": "--md",
-          "summary": "результат как markdown-таблица"
-        },
-        {
-          "name": "--verbose",
-          "summary": "печатать мета-блок"
-        },
-        {
-          "name": "-v",
-          "summary": "печатать мета-блок"
+          "selector": "target:",
+          "kind": "keyword",
+          "purpose": "client_id / spreadsheet_id / заголовок (подстрока), sl-N или dev:<client_id>"
         }
       ],
-      "summaries": {}
+      "keys": [
+        {
+          "name": "target",
+          "kind": "value",
+          "required": true,
+          "purpose": "client_id / spreadsheet_id / заголовок (подстрока), sl-N или dev:<client_id>",
+          "reason": null
+        },
+        {
+          "name": "sql",
+          "kind": "value",
+          "required": false,
+          "purpose": "SQL; не задан — читается из stdin",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "dry",
+          "kind": "flag",
+          "required": false,
+          "purpose": "только мета-блок и SQL, без подключения",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "verbose",
+          "kind": "flag",
+          "required": false,
+          "purpose": "печатать мета-блок",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [
+        "json",
+        "md"
+      ]
     },
     {
       "path": [
         "version"
       ],
       "summary": "Show mpu version.",
-      "selectors": [],
       "tail": "args",
-      "flags": [],
-      "summaries": {}
+      "messages": [],
+      "keys": [],
+      "formats": [
+        "json"
+      ]
     }
   ]
 }

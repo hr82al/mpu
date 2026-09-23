@@ -58,11 +58,11 @@ const LIST = "ls";
 
 const argsSchema = z.object({
   selector: z.string().optional().describe(
-    "'ls' | sl-N/wb-N/dt-N/wb-clusters/wb-positions | client_id/ss/title |" +
+    "sl-N/wb-N/dt-N/wb-clusters/wb-positions | client_id/ss/title |" +
       " имя сервиса; не задан — все хосты",
   ),
   service: z.string().optional().describe(
-    "'ls' | loki: значение compose_service; portainer: подстрока имени" +
+    "loki: значение compose_service; portainer: подстрока имени" +
       " контейнера",
   ),
   via: z.string().default("loki").describe("источник: loki | portainer"),

@@ -5,7 +5,16 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { complete, initScript, runComplete } from "./mod.ts";
+import {
+  askBack,
+  complete,
+  type CompleteProcess,
+  fromSnapshot,
+  initScript,
+  runComplete,
+} from "./mod.ts";
+import { withBack } from "../../back/src/backend/testback.ts";
+import { allowEverything } from "../../back/src/line/testconsent.ts";
 
 const DATA = new URL("testdata/complete/", import.meta.url);
 const tree = () => Deno.readTextFile(new URL("tree.json", DATA));
@@ -28,8 +37,12 @@ Deno.test("случаи таблицы на снимке-фикстуре", asyn
   }
 });
 
-/** Прогон процесса с подставленным чтением снимка. */
-async function run(args: readonly string[], snapshot = "") {
+/** Прогон процесса с подставленным чтением снимка; `back` не отвечает. */
+async function run(
+  args: readonly string[],
+  snapshot = "",
+  back: CompleteProcess["back"] = () => Promise.resolve(undefined),
+) {
   const out: string[] = [];
   const err: string[] = [];
   const read: string[] = [];
@@ -39,6 +52,7 @@ async function run(args: readonly string[], snapshot = "") {
       read.push(path);
       return Promise.resolve(snapshot);
     },
+    back,
     stdout: (text) => void out.push(text),
     stderr: (text) => void err.push(text),
   });
@@ -155,4 +169,153 @@ Deno.test("bash: слово с «:» не разрезается, ответ —
   );
   assertEquals(empty.asked, ["-- kiten "]);
   assertEquals(empty.replies, ["card", "ls"]);
+});
+
+Deno.test("back ответил — его варианты, снимок не читается", async () => {
+  const asked: string[] = [];
+  const answered = await run(["--", "kiten", ""], await tree(), (line) => {
+    asked.push(line);
+    return Promise.resolve([{ value: "zzz", summary: "от back" }]);
+  });
+  assertEquals(asked, ["kiten "]);
+  assertEquals(answered.stdout, "zzz\tот back\n");
+  assertEquals(answered.read, []);
+});
+
+Deno.test("askBack: живой back — ответ complete:, по его дереву", () =>
+  withBack(async (back) => {
+    const choices = await askBack("xlsx al", {
+      base: back.url,
+      token: back.token,
+      fetch,
+      deadline: () => AbortSignal.timeout(5000),
+    });
+    assertEquals(choices?.map((choice) => choice.value), ["alias"]);
+    assertEquals(back.called, []);
+  }));
+
+Deno.test("askBack: back не запущен — нет ответа, причина — отказ соединения", async () => {
+  // Порт от ОС, слушатель закрыт до запроса: соединение отказывается.
+  const listener = Deno.listen({ hostname: "127.0.0.1", port: 0 });
+  const port = listener.addr.port;
+  listener.close();
+  const started = performance.now();
+  const choices = await askBack("ki", {
+    base: `http://127.0.0.1:${port}`,
+    token: "t",
+    fetch,
+    deadline: () => AbortSignal.timeout(150),
+  });
+  assertEquals(choices, undefined);
+  assertEquals(performance.now() - started < 150, true);
+});
+
+Deno.test("askBack: back не успел — срок истёк, нет ответа", async () => {
+  const deadline = new AbortController();
+  const hanging: typeof fetch = (_input, init) =>
+    new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener(
+        "abort",
+        () => reject(new DOMException("истёк", "TimeoutError")),
+      );
+    });
+  const pending = askBack("ki", {
+    base: "http://127.0.0.1:1",
+    token: "t",
+    fetch: hanging,
+    deadline: () => deadline.signal,
+  });
+  deadline.abort();
+  assertEquals(await pending, undefined);
+});
+
+Deno.test("askBack: нет основного токена — back не спрашивается", async () => {
+  let fetched = 0;
+  const choices = await askBack("ki", {
+    base: "http://127.0.0.1:1",
+    token: undefined,
+    fetch: () => {
+      fetched++;
+      return Promise.reject(new TypeError("не должно"));
+    },
+    deadline: () => AbortSignal.timeout(150),
+  });
+  assertEquals([choices, fetched], [undefined, 0]);
+});
+
+/**
+ * Слова корня строки, которых в снимке нет по устройству: вход в дверь
+ * (снимок — дерево без `ask`, 157), само дополнение и методы корня,
+ * которые даёт строке сервер (`web`, `web-logout`), а не реестр.
+ */
+const LINE_ONLY: ReadonlySet<string> = new Set([
+  "ask",
+  "complete:",
+  "web",
+  "web-logout",
+]);
+
+Deno.test("снимок и back на одном дереве — одни и те же слова", () =>
+  withBack(async (back) => {
+    // Снимок правил не знает: сравнение — при правилах «разрешено всё»,
+    // иначе обычный взгляд back не называет пишущих команд.
+    allowEverything(back.policyFile);
+    const snapshot = await Deno.readTextFile(back.snapshotFile);
+    for (
+      const line of [
+        "",
+        "ki",
+        "kiten ",
+        "kiten card ",
+        "kiten card id: 1 ",
+        "kiten card id: 1 end ",
+        "sql-ro target: 54 ",
+        "sql-ro target: 54 --d",
+        "logs ",
+        "ozon-jobs show ",
+      ]
+    ) {
+      const fromBack = await askBack(line, {
+        base: back.url,
+        token: back.token,
+        fetch,
+        deadline: () => AbortSignal.timeout(5000),
+      });
+      const words = (choices: readonly { value: string }[] | undefined) =>
+        (choices ?? []).map((choice) => choice.value)
+          .filter((word) => !LINE_ONLY.has(word)).sort();
+      assertEquals(
+        words(fromBack),
+        words(fromSnapshot(line.split(" "), snapshot)),
+        JSON.stringify(line),
+      );
+    }
+  }));
+
+Deno.test("askBack: ответ не по контракту — нет ответа", async (t) => {
+  const answer = (status: number, body: string): typeof fetch => () =>
+    Promise.resolve(new Response(body, { status }));
+  for (
+    const [name, reply] of [
+      ["401", answer(401, "")],
+      ["вопрос вместо ответа", answer(200, '{"ask":"выполнить? "}\n')],
+      ["не ноль", answer(200, '{"out":"[]"}\n{"exit":2}\n')],
+      ["не массив", answer(200, '{"out":"{}"}\n{"exit":0}\n')],
+      ["не JSON", answer(200, '{"out":"x"}\n{"exit":0}\n')],
+      ["чужой кадр", answer(200, '{"x":1,"y":2}\n')],
+      ["без кода", answer(200, '{"out":"[]"}\n')],
+    ] as const
+  ) {
+    await t.step(name, async () => {
+      assertEquals(
+        await askBack("ki", {
+          base: "http://127.0.0.1:1",
+          token: "t",
+          fetch: reply,
+          deadline: () => new AbortController().signal,
+        }),
+        undefined,
+      );
+    });
+  }
 });

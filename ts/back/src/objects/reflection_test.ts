@@ -1,5 +1,5 @@
 /**
- * `selectors` и раздел «Сообщения» справки не расходятся ни у одного
+ * `messages` и раздел «Сообщения» справки не расходятся ни у одного
  * объекта тестового дерева. Дерево обходится через саму цепочку: из
  * справки берутся селекторы, по каждому — шаг вглубь.
  */
@@ -54,12 +54,15 @@ async function visit(
   words: readonly string[],
   visited: string[],
 ): Promise<void> {
-  const own = await runChain(sending(words, "selectors"), root);
+  const own = await runChain(
+    sending(words, "messages", GRAMMAR.close, "json"),
+    root,
+  );
   if ("error" in own) {
     // Данные сообщений не понимают, а закрытые — понимают только форматы.
     assert(
-      own.error.endsWith("цепочка окончена, selectors отправить некому") ||
-        own.error.endsWith("не понимает selectors; есть: json"),
+      own.error.endsWith("цепочка окончена, messages отправить некому") ||
+        own.error.endsWith("не понимает messages; есть: json"),
       own.error,
     );
     return;
@@ -68,7 +71,9 @@ async function visit(
   const listed = messages(await textOf(root, sending(words, "--help")));
   assert("value" in own);
   assertEquals(
-    own.value,
+    JSON.parse(String(own.value)).map((line: { selector: string }) =>
+      line.selector
+    ),
     listed.filter((s) => !s.startsWith("<")),
     words.join(" "),
   );
@@ -77,7 +82,7 @@ async function visit(
   }
 }
 
-Deno.test("selectors каждого объекта совпадает с его справкой", async () => {
+Deno.test("messages каждого объекта совпадает с его справкой", async () => {
   const visited: string[] = [];
   await visit(testTree().root, [], visited);
   assertEquals(visited, [

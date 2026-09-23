@@ -37,8 +37,8 @@ function helpText(name: string): Promise<string> {
   return Deno.readTextFile(new URL(name, helpDir));
 }
 
-Deno.test("в эталоне объектов 42 случая", () => {
-  assertEquals(golden.cases.length, 42);
+Deno.test("в эталоне объектов 43 случая", () => {
+  assertEquals(golden.cases.length, 43);
 });
 
 Deno.test({

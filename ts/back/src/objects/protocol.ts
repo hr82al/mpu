@@ -4,7 +4,11 @@
  * знает о другой больше, чем говорит протокол.
  */
 
-import type { KeyValue, ReceiverDescription } from "../messages/mod.ts";
+import type {
+  KeyKind,
+  KeyValue,
+  ReceiverDescription,
+} from "../messages/mod.ts";
 import type { Help } from "./help.ts";
 
 /**
@@ -43,8 +47,48 @@ export interface Remedy {
   spell(address: string, taken: readonly string[]): string;
 }
 
+/** Сообщение, которое понимает объект (`platform/reflection.md`). */
+export interface MessageLine {
+  readonly selector: string;
+  readonly kind: "unary" | "keyword";
+  readonly purpose: string;
+}
+
+/** Ключ ключевого сообщения команды глазами отражения. */
+export interface KeyLine {
+  readonly name: string;
+  readonly kind: KeyKind;
+  readonly required: boolean;
+  readonly purpose: string;
+  /** Причина имени вне словаря; из словаря — `null`. */
+  readonly reason: string | null;
+}
+
+/** Значение, подходящее ключу, или слово дополнения. */
+export interface ValueLine {
+  readonly value: string;
+  readonly purpose: string;
+}
+
+/**
+ * Что вид знает о себе без исполнения: на этом работают протокол
+ * отражения, дополнение и снимок дерева.
+ */
+export interface Reflection {
+  /** Собственные сообщения по алфавиту; ключевое — первым ключом. */
+  messages(): MessageLine[];
+  /** Ключи ключевого сообщения команды; нет — пусто. */
+  keys(): KeyLine[];
+  formats(): string[];
+  /** Значения ключа `key`, начинающиеся с `like`, — не больше 20. */
+  candidates(key: string, like: string): Promise<ValueLine[]>;
+  understands(selector: string): boolean;
+}
+
 /** Вид результата метода: известен без исполнения метода. */
 export interface ResultKind {
+  /** Что вид знает о себе: сообщения, ключи, форматы, значения. */
+  reflect(): Reflection;
   /** Описание для шага разбора: собственные селекторы плюс общие. */
   parsing(): ReceiverDescription;
   /** Справка метода с назначением `doc`, вернувшего бы этот вид. */

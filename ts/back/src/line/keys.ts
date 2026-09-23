@@ -430,6 +430,9 @@ export class Keys {
       purposes: Object.fromEntries(
         this.#specs.map((spec) => [spec.name, spec.purpose]),
       ),
+      reasons: Object.fromEntries(
+        this.#specs.map((spec) => [spec.name, spec.why]),
+      ),
     };
   }
 

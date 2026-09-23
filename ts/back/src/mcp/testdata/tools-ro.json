@@ -780,11 +780,11 @@
       "type": "object",
       "properties": {
         "selector": {
-          "description": "'ls' | sl-N/wb-N/dt-N/wb-clusters/wb-positions | client_id/ss/title | имя сервиса; не задан — все хосты",
+          "description": "sl-N/wb-N/dt-N/wb-clusters/wb-positions | client_id/ss/title | имя сервиса; не задан — все хосты",
           "type": "string"
         },
         "service": {
-          "description": "'ls' | loki: значение compose_service; portainer: подстрока имени контейнера",
+          "description": "loki: значение compose_service; portainer: подстрока имени контейнера",
           "type": "string"
         },
         "via": {
@@ -1489,7 +1489,7 @@
   {
     "name": "kiten_boards",
     "title": "mpu kiten boards",
-    "description": "Доски всех пространств плоским списком; --space фильтрует.\n\nЗвать, когда нужен id или имя доски Kaiten для board: других команд.\n\nДоски приходят вложенными в пространства (отдельного списка досок\nу API нет) и печатаются плоско, в порядке ответа.\n\nspace: REF оставляет доски одного пространства; REF — id либо подстрока\nназвания без учёта регистра. Фильтр действует только на вывод: в кэш\nвсегда попадает полный ответ.\n\nКолонки таблицы: ID, SPACE, TITLE. Итог — (N boards); пустой список —\n(нет досок).\n\nКлючи env-файла: KITEN_API_KEY (обязателен),\nKITEN_BASE_URL (по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех, в том числе пустая выдача; 1 — ошибка API Kaiten либо\nзаписи кэша; 2 — ошибки ввода: не задан KITEN_API_KEY, не резолвится\nREF.",
+    "description": "Доски всех пространств плоским списком; space: фильтрует.\n\nЗвать, когда нужен id или имя доски Kaiten для board: других команд.\n\nДоски приходят вложенными в пространства (отдельного списка досок\nу API нет) и печатаются плоско, в порядке ответа.\n\nspace: REF оставляет доски одного пространства; REF — id либо подстрока\nназвания без учёта регистра. Фильтр действует только на вывод: в кэш\nвсегда попадает полный ответ.\n\nКолонки таблицы: ID, SPACE, TITLE. Итог — (N boards); пустой список —\n(нет досок).\n\nКлючи env-файла: KITEN_API_KEY (обязателен),\nKITEN_BASE_URL (по умолчанию https://btlz.kaiten.ru).\n\nExit: 0 — успех, в том числе пустая выдача; 1 — ошибка API Kaiten либо\nзаписи кэша; 2 — ошибки ввода: не задан KITEN_API_KEY, не резолвится\nREF.",
     "annotations": {
       "readOnlyHint": true
     },

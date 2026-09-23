@@ -4,19 +4,19 @@
  * узел отвечает сам — детьми, хвостом и своим концом строки.
  */
 
-import {
-  commandFlags,
-  JSON_FLAG,
-  ROOT_SUMMARY,
-  ROOT_USAGE,
-} from "../entrypoint/mod.ts";
+import { JSON_FLAG, ROOT_SUMMARY, ROOT_USAGE } from "../entrypoint/mod.ts";
 import {
   type Call,
+  completeLine,
   type Doc,
   EVERYONE,
   type Fallback,
   foreignTail,
   gate,
+  type KeyLine,
+  keyword,
+  LISTED,
+  type MessageLine,
   type Method,
   origin,
   type Outcome,
@@ -27,6 +27,7 @@ import {
   type ShapeOptions,
   tail,
   unary,
+  wordListing,
 } from "../objects/mod.ts";
 import { PolicyError, type RuleBook } from "../policy/mod.ts";
 import {
@@ -40,7 +41,13 @@ import {
 import type { Line } from "./dispatch.ts";
 import { FOREIGN, type Order, OWN } from "./order.ts";
 import { BY_PATH, hinted, SELECTOR_AHEAD } from "./keys.ts";
-import { keyedLeaf, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
+import {
+  keyedLeaf,
+  NO_TARGETS,
+  NOTHING_STRIPPED,
+  type Stripped,
+  type Targets,
+} from "./keyed.ts";
 import { Pending, ResultOf } from "./result.ts";
 import { ruleMethods } from "./rules.ts";
 import { ASK_DOC, ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";
@@ -56,6 +63,8 @@ interface Sight {
   readonly stripped: Stripped;
   /** Роспись детей узла `path`. */
   roster(path: readonly string[]): Roster;
+  /** Значения ключа `target:` для дополнения. */
+  readonly targets: Targets;
 }
 
 /** Снимок дерева: структура без решений правил — все узлы, обычный конец. */
@@ -63,6 +72,7 @@ const WHOLE: Sight = {
   settle: (report, line, order) => line.dispatch(report, NORMAL, order),
   stripped: NOTHING_STRIPPED,
   roster: () => EVERYONE,
+  targets: NO_TARGETS,
 };
 
 /**
@@ -71,14 +81,16 @@ const WHOLE: Sight = {
  */
 class Seen implements Sight {
   readonly stripped: Stripped;
+  readonly targets: Targets;
   readonly #view: View;
   readonly #book: RuleBook;
   #executing: readonly TreeNode[] | undefined;
 
-  constructor(view: View, book: RuleBook, stripped: Stripped) {
+  constructor(view: View, book: RuleBook, parts: RootParts) {
     this.#view = view;
     this.#book = book;
-    this.stripped = stripped;
+    this.stripped = parts.stripped ?? NOTHING_STRIPPED;
+    this.targets = parts.targets ?? NO_TARGETS;
   }
 
   settle(report: Report, line: Line, order: Order): Promise<Outcome> {
@@ -195,6 +207,7 @@ function leafShape(
     results: new ResultOf(formatsOf(path), settle),
     settle,
     stripped: sight.stripped,
+    targets: sight.targets,
   });
 }
 
@@ -313,58 +326,38 @@ function same(line: Line): Line {
   return line;
 }
 
-/** Узел снимка дерева (`platform/back-rpc.md`, «Снимок дерева»). */
+/**
+ * Узел снимка дерева (`platform/back-rpc.md`, «Снимок дерева»;
+ * `platform/reflection.md`): вывод протокола отражения вида узла.
+ */
 export interface TreeNode {
   readonly path: readonly string[];
   readonly summary: string;
-  /** Собственные селекторы узла по алфавиту. */
-  readonly selectors: readonly string[];
   /** Имя вида звена хвоста без скобок; хвоста нет — `null`. */
   readonly tail: string | null;
-  /**
-   * Флаги команды (`specs/complete.md`, «Снимок»): длинная форма и
-   * короткая отдельной записью; `--help` не входит. У групп и узлов без
-   * своих объявленных флагов — пусто.
-   */
-  readonly flags: readonly {
-    readonly name: string;
-    readonly summary: string;
-  }[];
-  /** Назначения собственных селекторов, у которых нет своего узла. */
-  readonly summaries: Readonly<Record<string, string>>;
+  /** Ответ на `messages`. */
+  readonly messages: readonly MessageLine[];
+  /** Ответ на `keys`. */
+  readonly keys: readonly KeyLine[];
+  /** Ответ на `formats`. */
+  readonly formats: readonly string[];
 }
 
-/** Флаги узла снимка: у команды — из её объявления, у прочих — нет. */
-function flagsOf(path: readonly string[]): TreeNode["flags"] {
-  const command = findCommand(path);
-  if (command === undefined) return [];
-  return commandFlags(command).flatMap((flag) => [
-    { name: flag.name, summary: flag.summary },
-    ...(flag.short === undefined
-      ? []
-      : [{ name: flag.short, summary: flag.summary }]),
-  ]);
-}
-
-/** Узел снимка — со слов самого вида: его селекторы и его хвост. */
+/** Узел снимка — со слов самого вида: его отражение и его хвост. */
 function nodeOf(
   path: readonly string[],
   summary: string,
   shape: Shape<Line>,
 ): TreeNode {
   const tail = shape.parsing().tail;
-  const children = new Set(childrenOf(path).map((child) => child.name));
+  const reflection = shape.reflect();
   return {
     path: [...path],
     summary,
-    selectors: shape.selectors(),
     tail: tail === undefined ? null : tail.slice(1, -1),
-    flags: flagsOf(path),
-    summaries: Object.fromEntries(
-      Object.entries(shape.purposes()).filter(([selector]) =>
-        !children.has(selector)
-      ),
-    ),
+    messages: reflection.messages(),
+    keys: reflection.keys(),
+    formats: reflection.formats(),
   };
 }
 
@@ -433,9 +426,9 @@ const SURFACES: ReadonlySet<string> = new Set(
  * Корень двери: только команды и группы реестра — сообщений корня
  * (правила, поверхности, методы двери строки) дверь не понимает.
  */
-function doorShape(book: RuleBook, stripped: Stripped): Shape<Line> {
+function doorShape(book: RuleBook, parts: RootParts): Shape<Line> {
   const children = childrenOf([]).filter((child) => !SURFACES.has(child.name));
-  const sight = new Seen(DOOR, book, stripped);
+  const sight = new Seen(DOOR, book, parts);
   return groupShape([], ASK_DOC, PLAIN, sight, [], children);
 }
 
@@ -447,16 +440,49 @@ function doorShape(book: RuleBook, stripped: Stripped): Shape<Line> {
  *
  * @param line строка вызова с её исполнением
  * @param book правила строки
- * @param own методы корня, которые даёт дверь строки
- * @param stripped формат, снятый со строки до обхода (`--json`)
+ * @param parts методы корня двери строки, снятый формат, значения ключей
  */
 export function registryRoot(
   line: Line,
   book: RuleBook,
-  own: readonly Method<Line>[] = [],
-  stripped: Stripped = NOTHING_STRIPPED,
+  parts: RootParts = {},
 ): Call {
-  const door = gate(ASK_WORD, ASK_DOC, doorShape(book, stripped), same);
-  const shape = rootShape(new Seen(NORMAL, book, stripped), [door, ...own]);
-  return origin(ROOT_DOC, shape, line);
+  const door = gate(ASK_WORD, ASK_DOC, doorShape(book, parts), same);
+  // Дополнение ходит по этому же дереву: корень называется ему функцией.
+  const root = (): Call => origin(ROOT_DOC, shape, line);
+  const shape = rootShape(new Seen(NORMAL, book, parts), [
+    door,
+    completion(root),
+    ...parts.own ?? [],
+  ]);
+  return root();
+}
+
+const COMPLETE_DOC: Doc = {
+  purpose: "варианты следующего слова набранной строки",
+  help: "Звать из дополнения оболочки: complete: — строка после mpu одним\n" +
+    "словом, последнее слово — дописываемое. Ничего не исполняет: ни\n" +
+    "команды, ни вопроса, ни записи в журнал вызовов.",
+};
+
+/** `complete:` корня: проход строки по дереву без исполнения. */
+function completion(root: () => Call): Method<Line> {
+  return keyword(
+    { complete: "value" },
+    ["complete"],
+    COMPLETE_DOC,
+    LISTED,
+    async (_line, args) =>
+      wordListing(await completeLine(String(args.complete), root())),
+  );
+}
+
+/** Необязательное у корня дерева строки. */
+export interface RootParts {
+  /** Методы корня, которые даёт дверь строки. */
+  readonly own?: readonly Method<Line>[];
+  /** Формат, снятый со строки до обхода (`--json`). */
+  readonly stripped?: Stripped;
+  /** Значения ключа `target:` — по умолчанию нет. */
+  readonly targets?: Targets;
 }

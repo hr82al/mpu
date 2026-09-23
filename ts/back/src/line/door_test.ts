@@ -382,7 +382,7 @@ Deno.test("ask — не звено пути правил", () =>
 
 Deno.test("снимок дерева без входа ask", () => {
   const [root] = registryNodes();
-  assertFalse(root.selectors.includes("ask"));
+  assertFalse(root.messages.some((line) => line.selector === "ask"));
 });
 
 Deno.test("голдены: справка двери и kiten в двух взглядах при посеве", (t) =>

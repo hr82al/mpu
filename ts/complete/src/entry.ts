@@ -1,11 +1,13 @@
 /**
- * Процесс `mpu-complete` (`specs/complete.md`, «CLI-контракт»):
- * `--version`, `init <оболочка>`, дополнение строки. Дополнение не падает:
- * нет снимка — нет вариантов, код 0.
+ * Процесс `mpu-complete` (`specs/complete.md`, «CLI-контракт»;
+ * `platform/reflection.md`, «mpu-complete»): `--version`, `init
+ * <оболочка>`, дополнение строки — от `mpu-back`, а без него из снимка.
+ * Дополнение не падает: нет ни того, ни другого — нет вариантов, код 0.
  */
 
 import { VERSION } from "../../back/src/frames/mod.ts";
-import { complete } from "./complete.ts";
+import { fromSnapshot, printed } from "./complete.ts";
+import type { Choice } from "./tree.ts";
 import { initScript, SHELL_NAMES, shellOf } from "./init.ts";
 
 const DEFAULT_COMMAND = "mpu";
@@ -16,6 +18,8 @@ export interface CompleteProcess {
   readonly snapshotPath: string;
   /** Текст файла; не читается — пустая строка. */
   readonly read: (path: string) => Promise<string>;
+  /** Варианты строки от `mpu-back`; не ответил — `undefined`. */
+  readonly back: (line: string) => Promise<readonly Choice[] | undefined>;
   readonly stdout: (text: string) => void;
   readonly stderr: (text: string) => void;
 }
@@ -66,6 +70,10 @@ export async function runComplete(
     proc.stderr("mpu-complete: нужен -- и слова\n");
     return 2;
   }
-  proc.stdout(complete(args.slice(cut + 1), await proc.read(snapshot)));
+  const words = args.slice(cut + 1);
+  const fromBack = await proc.back(words.join(" "));
+  proc.stdout(
+    printed(fromBack ?? fromSnapshot(words, await proc.read(snapshot))),
+  );
   return 0;
 }

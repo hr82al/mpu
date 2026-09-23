@@ -110,8 +110,8 @@ Deno.test("хвост и конец строки", async (t) => {
       runs: 1,
     },
     {
-      words: ["grp", "selectors"],
-      outcome: { path: ["grp", "selectors"], value: ["card:"] },
+      words: ["grp", "messages"],
+      outcome: { path: ["grp", "messages"], value: "card:\tпроба\n" },
       runs: 0,
     },
   ];

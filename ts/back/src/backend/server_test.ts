@@ -52,12 +52,15 @@ Deno.test("снимок дерева: записан при старте и ра
     assertEquals(answer.result.version, VERSION);
     const nodes = answer.result.nodes;
     assertEquals(nodes[0].path, []);
-    assertEquals(nodes[0].selectors.includes("allow:"), true);
+    const selectors = (node: { messages: { selector: string }[] }) =>
+      node.messages.map((line) => line.selector);
+    assertEquals(selectors(nodes[0]).includes("allow:"), true);
     const card = nodes.find((node: { path: string[] }) =>
       node.path.join(" ") === "kiten card"
     );
     assertEquals(card.tail, "args");
-    assertEquals(card.selectors, []);
+    assertEquals(selectors(card), ["id:"]);
+    assertEquals(card.formats, ["json", "md"]);
     const kiten = nodes.find((node: { path: string[] }) =>
       node.path.join(" ") === "kiten"
     );
