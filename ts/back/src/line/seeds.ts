@@ -11,8 +11,11 @@ import { type CommandGroup, commands, groups } from "../registry/mod.ts";
 /** Путь сообщения корня `policy` — его посев `allow`. */
 export const POLICY_SELECTOR = "policy";
 
-/** Поверхность, которая только читает: `version`. */
-const READ_ONLY_SURFACES: readonly string[] = ["version"];
+/**
+ * Поверхности, которые только читают: `version` и `help` — выражением
+ * программы `help` доходит до обхода правил поверхностью.
+ */
+const READ_ONLY_SURFACES: readonly string[] = ["version", "help"];
 
 const SEED_OF: Readonly<Record<Policy, Verdict>> = { ro: ALLOW, rw: ASK };
 

@@ -179,3 +179,14 @@ Deno.test("ключ-текст на стенде: текст уходит как
       }
     })
   ));
+
+Deno.test("корневое help выражением — справка корня, не запись", () =>
+  withPolicyFile((file) =>
+    withStand(async (stand) => {
+      const ran = await runOnStand(file, words("2 print {.} help"), stand, {
+        io: { stdinIsTerminal: () => false, stderrIsTerminal: () => false },
+      });
+      assertEquals(ran.exit, 0, ran.stderr);
+      assertEquals(ran.stdout.startsWith("2\nИспользование: mpu"), true);
+    })
+  ));
