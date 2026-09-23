@@ -382,3 +382,11 @@
 | смерть исполнителя | `deathOf`, `unlaunched`, `killedStatus`, `WorkerStopped`, `STOP_GRACE_MS` (166a) | текст и код исхода без `result` |
 | сторож памяти | `Watchdog`, `WatchSetup`, `ProcSource`, `Snapshot`, `Proc`, `Hands`, `MARKLESS_HANDS`, `SYSTEM_PROCS`, `defaultThreshold`, `DEFAULT_MIN_BYTES`, `WATCH_INTERVAL_MS` (166a) | такт супервизора: мало памяти — убить самого большого исполнителя |
 | порт строки из контекста | `callIo` (166a) | каталог, окружение, ввод, терминалы строки — одним портом |
+| программа строки | `Program`, `isProgram`, `parseProgram`, `runProgram` (166) | строка из выражений, переменных, блоков — исполняет исполнитель |
+| значение программы | `Value`, `Protocol`, `Operand`, `Num`, `Text`, `TRUE`/`FALSE`, `NIL`, `Block`, `List`, `Printed` (166) | объекты вычислителя |
+| машина программы | `Machine`, `Answer`, `Request`, `Stack`, `BlockCall`, `Every`, `Pace`, `Placed`, `Misstep`, `Cancelled` (166) | трамплин со стеком в куче и уступкой по часам |
+| узлы программы | `Statements`, `Chain`, `Keyword`, `Unary`, `Assignment`, `Group`, `BlockLiteral`, `Variable`, `Constant`, `Command` (166) | разобранная программа |
+| данные программы | `Items`, `Fields`, `CommandResult`, `fromData`, `RESULT` (166) | результат команды глазами программы |
+| область имён | `Scope`, `Names` (166) | переменные программы и параметры блоков |
+| подстрока программы | кадры `evaluate`/`line`/`lined`, `LineReply`, `Capture`, `shown`, `Evaluator` (166) | команда программы — отдельной строкой через ядро |
+| файл ключом | `fromFile`, `body-file` (166) | значение из файла — отдельным ключом, не `@путь` |
