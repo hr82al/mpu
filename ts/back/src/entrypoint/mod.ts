@@ -94,17 +94,49 @@ export async function runCli(
   return await runLine(argv, baseIo, output, journal);
 }
 
+/** Куда уходит результат исполненной команды. */
+export interface Delivery {
+  /**
+   * Результат `result` команды `command`, вызванной с аргументами `args`;
+   * `json` — снят общий параметр формы вывода. Итог — код завершения.
+   */
+  deliver(
+    command: Command,
+    result: unknown,
+    args: readonly string[],
+    json: boolean,
+    output: Output,
+  ): number;
+}
+
+/** Печать результата: JSON или текст команды, код — от результата. */
+export const PRINT: Delivery = {
+  deliver(command, result, args, json, output) {
+    // Код завершения отдаёт результат, а не форма его печати: строка с
+    // `--json` и без него — один код (`platform/line-grammar.md` [D.6]).
+    output.stdout(
+      json
+        ? JSON.stringify(result, null, 2)
+        : command.renderResult(result, args),
+    );
+    return command.textExitCode(result);
+  },
+};
+
 /**
  * Исполняет строку вызова без режима дополнения shell: общий параметр
  * `--json`, поверхности точки входа, поиск пути по реестру,
  * диспетчеризация и перевод ошибок в коды. Это же исполнение получает
  * строку целиком (`platform/registry-objects.md`).
+ *
+ * @param delivery куда уходит результат команды; по умолчанию — печать
  */
 export async function runLine(
   argv: readonly string[],
   baseIo: CommandIo,
   output: Output,
   journal?: InvokeJournal,
+  delivery: Delivery = PRINT,
 ): Promise<number> {
   const io = withProgressIo(baseIo, output, journal);
   const { args: rest, json } = takeJsonFlag(argv);
@@ -127,6 +159,7 @@ export async function runLine(
       io,
       output,
       journal,
+      delivery,
     );
   } catch (err) {
     return errorToExitCode(err, path, output);
@@ -233,6 +266,7 @@ async function dispatchPath(
   io: CommandIo,
   output: Output,
   journal: InvokeJournal | undefined,
+  delivery: Delivery,
 ): Promise<number> {
   const command = findCommand(path);
   if (command === undefined) {
@@ -249,6 +283,7 @@ async function dispatchPath(
     io,
     output,
     journal,
+    delivery,
   );
 }
 
@@ -265,6 +300,7 @@ async function runLeafCommand(
   io: CommandIo,
   output: Output,
   journal: InvokeJournal | undefined,
+  delivery: Delivery,
 ): Promise<number> {
   if (args.length > 0 && isHelpRequest(args[0])) {
     output.stdout(renderCommandHelp(command));
@@ -284,7 +320,7 @@ async function runLeafCommand(
   // (`platform/invoke-log.md`).
   journal?.nativeCall(command);
   if (!keepsJson(command)) {
-    return await runCommand(command, args, json.json, io, output);
+    return await runCommand(command, args, json.json, io, output, delivery);
   }
   // Оба исключения действуют только ПОСЛЕ имени команды: до него чужой
   // командной строки ещё нет, и параметр снят обычным порядком
@@ -297,7 +333,7 @@ async function runLeafCommand(
     if (!takesUnknown(command)) {
       // Параметр снят обычным порядком и применяется генерически:
       // собственная форма вывода команды начинается с её имени.
-      return await runCommand(command, args, json.json, io, output);
+      return await runCommand(command, args, json.json, io, output, delivery);
     }
     output.stderr(
       `mpu: --json не применяется к команде '${path.join(" ")}'\n`,
@@ -307,7 +343,7 @@ async function runLeafCommand(
   // Команда, объявившая собственный `--json` (`specs/sql-ro.md`),
   // разбирает его сама; команда с хвостовым входом уносит его удалённой
   // стороне. И той и другой argv нужен как есть.
-  return await runCommand(command, own, false, io, output);
+  return await runCommand(command, own, false, io, output, delivery);
 }
 
 /** Общий параметр формы вывода: снят ли он и где стоял. */
@@ -396,14 +432,10 @@ async function runCommand(
   json: boolean,
   io: CommandIo,
   output: Output,
+  delivery: Delivery,
 ): Promise<number> {
   const result = await command.invoke(args, io);
-  // Код завершения отдаёт результат, а не форма его печати: строка с
-  // `--json` и без него — один код (`platform/line-grammar.md` [D.6]).
-  output.stdout(
-    json ? JSON.stringify(result, null, 2) : command.renderResult(result, args),
-  );
-  return command.textExitCode(result);
+  return delivery.deliver(command, result, args, json, output);
 }
 
 /**
