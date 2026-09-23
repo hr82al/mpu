@@ -436,10 +436,11 @@ interface CommandDeclaration<A, R> {
    */
   readonly terminalInput?: string;
   /**
-   * Где в результате коллекция (`platform/collection-protocol.md`): без
-   * объявления результат для отбора — запись.
+   * Вид данных результата для отбора: коллекция (`items`,
+   * `platform/collection-protocol.md`). Без объявления — результат
+   * целиком как данные JSON.
    */
-  readonly items?: Items<R>;
+  readonly data?: ResultData<R>;
   /**
    * Результат — поток записей (`logs --follow`): отбору не подлежит,
    * только форматы. Без объявления — значение.
@@ -455,6 +456,43 @@ export interface Items<R> {
   records(result: R): readonly unknown[];
   /** Результат с записями `records`; проверяет его схема результата. */
   with(result: R, records: readonly unknown[]): unknown;
+}
+
+/** Вид данных результата: что из него видит отбор. */
+export interface ResultData<R> {
+  /**
+   * Данные результата для отбора.
+   *
+   * @param result результат, как его отдала команда
+   * @param schema схема результата: типизирует его, где вид его читает
+   * @param redraw текст команды над другим результатом — вид отобранного
+   */
+  data(
+    result: unknown,
+    schema: z.ZodType<R>,
+    redraw: (result: unknown) => string,
+  ): Data;
+}
+
+/** Результат целиком — данные JSON, как есть: вид без объявления. */
+const WHOLE: ResultData<never> = {
+  data: (result) => resultData(result),
+};
+
+/**
+ * Коллекция записей в результате: отобранное печатает вид команды над
+ * тем же результатом с другими записями.
+ */
+export function items<R>(items: Items<R>): ResultData<R> {
+  return {
+    data(result, schema, redraw) {
+      const whole = schema.parse(result);
+      return collectionOf(items.records(whole), {
+        text: (selected) =>
+          redraw(items.with(whole, selected.map((item) => item.data()))),
+      });
+    },
+  };
 }
 
 /**
@@ -609,6 +647,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
   // иначе сообщения разбора эхо-печатают ввод, и он всё равно попадает
   // в журнал секцией err (`platform/invoke-log.md`, «Инварианты»).
   const masked = spec.logsArguments === false;
+  const data: ResultData<R> = spec.data ?? WHOLE;
   const parse = (argv: readonly string[]): A =>
     parseArgs(
       spec.argsSchema,
@@ -654,19 +693,12 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
         ? 0
         : spec.textExitCode(spec.resultSchema.parse(result)),
     assertResult: (value) => void spec.resultSchema.parse(value),
-    dataOf: (result, argv) => {
-      const items = spec.items;
-      if (items === undefined) return resultData(result);
-      const whole = spec.resultSchema.parse(result);
-      const render = (records: readonly unknown[]) =>
-        spec.render(
-          spec.resultSchema.parse(items.with(whole, records)),
-          parse(argv),
-        );
-      return collectionOf(items.records(whole), {
-        text: (selected) => render(selected.map((item) => item.data())),
-      });
-    },
+    dataOf: (result, argv) =>
+      data.data(
+        result,
+        spec.resultSchema,
+        (other) => spec.render(spec.resultSchema.parse(other), parse(argv)),
+      ),
     streams: (argv) => spec.streams?.(parse(argv)) ?? false,
     remember(result, argv, memory) {
       // Поток не повторить из памяти: его записи ушли, пока он шёл.

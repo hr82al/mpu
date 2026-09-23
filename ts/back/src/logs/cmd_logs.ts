@@ -13,6 +13,7 @@ import {
   type Command,
   type CommandIo,
   defineCommand,
+  items,
   UsageError,
 } from "../command/mod.ts";
 import { type LokiAccess, LokiError, requireLokiAccess } from "../loki/mod.ts";
@@ -230,10 +231,10 @@ Exit: 0 — успех, в том числе пустой вывод; 1 — от
     follow: { short: "f" },
   },
   resultSchema,
-  items: {
+  data: items<LogsResult>({
     records: (result) => recordsOf(result),
     with: (result, records) => withRecords(result, records),
-  },
+  }),
   run: (args, io) => runLogs(args, io),
   render: (result, args) => renderLogs(result, args),
   streams: (args) => args.follow,
