@@ -2,7 +2,7 @@
   "first": {
     "words": [
       "confirm",
-      "--yes"
+      "yes"
     ],
     "cwd": "<cwd клиента>",
     "human": true,

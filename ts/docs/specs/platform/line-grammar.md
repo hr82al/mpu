@@ -118,7 +118,7 @@
 | `mpu sql-ro target: 54 sql: "select 1" end xml` | `mpu sql-ro target: 54 sql: select 1 end: не понимает xml; есть: json, md` | 2, запроса нет |
 | `mpu sql-ro sl-1 "select 1"` | `mpu sql-ro: значение — ключом: mpu sql-ro target: sl-1 sql: "select 1"` | 2 |
 | `mpu sql-ro target: sl-1 --server sl-2` | `…: --server снят — цель одна: target: sl-2` | 2 |
-| `mpu sql-ro target: 54 sql: "select 1" -v` | `…: значение select 1 не понимает -v; …: --verbose` | 2 |
+| `mpu sql-ro target: 54 sql: "select 1" -v` | `…: вариант — словом до ключей: mpu sql-ro verbose target: 54 sql: "select 1"` (с порции 164) | 2 |
 | `mpu --json kiten card id: 123` | как `… --json` после ключей | 2 |
 | `mpu sql-ro target: 54 sql: "select 1" limit: 5` (`sql-ro` понимает `target:sql:`, результат `limit:` не понимает) | `mpu sql-ro target: 54 sql: select 1: понимаю target:sql:; limit: результат не понимает; есть: json, md`, запроса нет | 2 |
 
