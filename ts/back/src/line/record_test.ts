@@ -110,16 +110,14 @@ Deno.test("it: поле прошлой карточки, команда не и�
         file,
         words("kiten card id: 11"),
         stand,
-        [],
-        results.of("ppid:1"),
+        { memory: results.of("ppid:1") },
       );
       assertEquals([card.exit, card.native], [0, ["kiten card"]], card.stderr);
       const it = await runOnStand(
         file,
         words("it title"),
         stand,
-        [],
-        results.of("ppid:1"),
+        { memory: results.of("ppid:1") },
       );
       assertEquals([it.exit, it.stdout, it.native], [0, "один\n", []]);
     })

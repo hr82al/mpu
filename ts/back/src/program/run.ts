@@ -128,12 +128,21 @@ function untilCancelled<T>(
   });
 }
 
+/**
+ * Код программы по коду её подстроки (граница кадра): отмена и отказ до
+ * исполнения — как есть, прочий отказ — ошибка вычисления
+ * (`platform/ask-composite.md`).
+ */
+function outward(code: number): number {
+  if (code === CANCELLED || code === REFUSED) return code;
+  return FAILED;
+}
+
 /** Итог по исключению исполнения; незнакомое — дальше. */
 function ended(err: unknown, words: readonly string[]): ProgramEnd {
   if (err instanceof Cancelled) return { exit: CANCELLED, refusal: null };
   if (err instanceof LineExit) {
-    const exit = err.code === CANCELLED ? CANCELLED : FAILED;
-    return { exit, refusal: null };
+    return { exit: outward(err.code), refusal: null };
   }
   if (err instanceof Placed) {
     return { exit: FAILED, refusal: refusalOf(words, err).data() };

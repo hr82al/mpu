@@ -87,7 +87,7 @@ Deno.test("вид команды в программе — тот же, что �
     })
   ));
 
-Deno.test("правила решают команду в момент отправки; сделанное не откатывается", () =>
+Deno.test("запрет, найденный обходом, — ничего не исполнено", () =>
   withPolicyFile(async (file) => {
     allowEverything(file);
     {
@@ -100,10 +100,8 @@ Deno.test("правила решают команду в момент отпра
         words("2 print {.} kiten ls {.} 3 print"),
         stand,
       );
-      assertEquals(ran.stdout, "2\n");
-      assertEquals(ran.exit, 1);
-      assertEquals(stand.asked(), 0);
-      assertEquals(ran.stderr.includes("запрещено правилом"), true, ran.stderr);
+      assertEquals([ran.stdout, ran.exit, stand.asked()], ["", 1, 0]);
+      assertEquals(ran.stderr, "mpu kiten ls: запрещено правилом «kiten ls»\n");
     });
   }));
 

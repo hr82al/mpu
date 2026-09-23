@@ -7,7 +7,14 @@
  */
 
 import { jsonText, nearest, notUnderstood, Refusal } from "../objects/mod.ts";
-import type { Answer, Operand, Request, Stack, Value } from "./protocol.ts";
+import type {
+  Answer,
+  Operand,
+  Reach,
+  Request,
+  Stack,
+  Value,
+} from "./protocol.ts";
 import type { Scope } from "./scope.ts";
 
 /** Метод значения вида `T`: назначение и ответ. */
@@ -615,6 +622,8 @@ export const NIL: Value = {
 /** Тело блока: исполняется в области с параметрами. */
 export interface Body {
   run(scope: Scope): Answer;
+  /** Команды тела — собирателю `into` (`platform/ask-composite.md`). */
+  reach(into: Reach): void;
 }
 
 /** Сообщение вызова блока со столькими значениями: `value`, `value:value:`. */

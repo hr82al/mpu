@@ -8,12 +8,13 @@
 
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
+import type { RefusalData } from "../frames/mod.ts";
 import type { InvokeCommand, InvokeLog } from "../invokelog/mod.ts";
 import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { type Memory, NO_CALLER } from "./it.ts";
+import type { Memory } from "./it.ts";
 import { lineEntry } from "./mod.ts";
 import { consentOf } from "./testconsent.ts";
 
@@ -156,6 +157,10 @@ export interface Ran {
   readonly exit: number;
   readonly stdout: string;
   readonly stderr: string;
+  /** stdout и stderr по порядку. */
+  readonly frames: readonly Frame[];
+  /** Отказ-объекты строки (`platform/refusal-object.md`). */
+  readonly refusals: readonly RefusalData[];
   /** Отметки `native` записи самой строки. */
   readonly native: readonly string[];
   /** Записи, начатые строкой в журнале (подстроки программы). */
@@ -185,19 +190,33 @@ function recordingLog(records: JournalRecord[]): InvokeLog {
   };
 }
 
+/** Кадр вывода строки по порядку: stdout или stderr. */
+export type Frame = { readonly out: string } | { readonly err: string };
+
+/** Что строке на стенде задают сверх слов. */
+export interface StandLine {
+  /** Ответы человека по очереди. */
+  readonly answers?: readonly string[];
+  /** Память вызывающего (`it`). */
+  readonly memory?: Memory;
+  /** Подмены окружения поверх стенда: без терминала — человека нет. */
+  readonly io?: Partial<CommandIo>;
+}
+
 /**
  * Строка `words` на стенде с файлом правил `file`: stdin и stderr —
- * терминалы, ответы человека — `answers`, память вызывающего — `memory`.
+ * терминалы, если `line.io` не сказал иного.
  */
 export async function runOnStand(
   file: string,
   words: readonly string[],
   stand: Stand,
-  answers: readonly string[] = [],
-  memory: Memory = NO_CALLER,
+  line: StandLine = {},
 ): Promise<Ran> {
   let stdout = "";
   let stderr = "";
+  const frames: Frame[] = [];
+  const refusals: RefusalData[] = [];
   const native: string[] = [];
   const records: JournalRecord[] = [];
   const journal: InvokeJournal = {
@@ -206,20 +225,31 @@ export async function runOnStand(
     executedBy: () => {},
     log: recordingLog(records),
   };
-  const exit = await lineEntry(consentOf(file, answers, memory))(
+  const ports = consentOf(file, line.answers, line.memory);
+  const exit = await lineEntry({
+    ...ports,
+    refusal: (data) => void refusals.push(data),
+  })(
     words,
     makeFakeIo({
       ...stand.io,
       stdinIsTerminal: () => true,
       stderrIsTerminal: () => true,
+      ...line.io,
     }),
     {
-      stdout: (text: string) => void (stdout += text),
-      stderr: (text: string) => void (stderr += text),
+      stdout: (text: string) => {
+        stdout += text;
+        frames.push({ out: text });
+      },
+      stderr: (text: string) => {
+        stderr += text;
+        frames.push({ err: text });
+      },
     },
     journal,
   );
-  return { exit, stdout, stderr, native, records };
+  return { exit, stdout, stderr, frames, refusals, native, records };
 }
 
 /** Метка адреса подменённого Kaiten в эталоне. */

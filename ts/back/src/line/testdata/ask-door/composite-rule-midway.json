@@ -1,0 +1,35 @@
+{
+  "описание": "правило сменил другой процесс посреди строки — отказ всей строки при отправке",
+  "строка": "kiten ls each: {do} {:}c kiten comment id: {@}c id text: ping {done}",
+  "ответы": [],
+  "без человека": false,
+  "правило посреди строки": true,
+  "кадры": [
+    {
+      "err": "mpu kiten ls each: do :c kiten comment id: @c id text: ping done: строка может записать (kiten comment) — начни с ask: mpu ask kiten ls each: do :c kiten comment id: @c id text: ping done\n"
+    }
+  ],
+  "созданные": [],
+  "отказ": {
+    "reason": "строка может записать",
+    "hint": [
+      "ask",
+      "kiten",
+      "ls",
+      "each:",
+      "do",
+      ":c",
+      "kiten",
+      "comment",
+      "id:",
+      "@c",
+      "id",
+      "text:",
+      "ping",
+      "done"
+    ],
+    "candidates": [],
+    "text": "mpu kiten ls each: do :c kiten comment id: @c id text: ping done: строка может записать (kiten comment) — начни с ask: mpu ask kiten ls each: do :c kiten comment id: @c id text: ping done"
+  },
+  "код": 2
+}

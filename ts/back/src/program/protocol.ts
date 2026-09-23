@@ -33,6 +33,20 @@ export interface Reply {
   printed(): Value;
 }
 
+/**
+ * Кто собирает достижимые команды при обходе программы до исполнения
+ * (`platform/ask-composite.md`): каждое место, где сообщение уходит
+ * команде реестра, известной по разбору.
+ */
+export interface Reach {
+  /**
+   * Команда `path`, до которой вычисление может дойти.
+   *
+   * @param links звенья пути правила команды
+   */
+  command(path: readonly string[], links: readonly string[]): void;
+}
+
 /** Запрос ответа машине: вызов блока, печать, строка ядру. */
 export interface Request {
   enter(stack: Stack): Promise<void>;

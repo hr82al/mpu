@@ -28,11 +28,13 @@ import {
   Constant,
   type Expression,
   Keyword,
+  Known,
   type Message,
   type Part,
   Program,
   Statements,
   Unary,
+  UNKNOWN,
   Variable,
   Written,
 } from "./nodes.ts";
@@ -55,6 +57,11 @@ export interface CommandNode {
    * (`body` → `body-file`); `@путь` значением — отказ с готовой строкой.
    */
   readonly fromFile: ReadonlyMap<string, string>;
+  /**
+   * Звенья пути правила: по ним правила решают команду до исполнения
+   * (`platform/ask-composite.md`); у команды с хвостом — со звеном `<args>`.
+   */
+  readonly links: readonly string[];
 }
 
 /** Дерево команд реестра: узлы для разбора, вид результата для печати. */
@@ -453,13 +460,18 @@ class Parser {
       const format = this.#format(node, keyed);
       const reading = format.length === 0 ? AS_VALUE : AS_PRINTED;
       return {
-        expression: new Command(parts, format, reading),
+        expression: new Command(
+          new Known(path, node.links),
+          parts,
+          format,
+          reading,
+        ),
         check: resultCheck,
       };
     }
     this.#plainParts(parts);
     return {
-      expression: new Command(parts, AS_DATA, AS_VALUE),
+      expression: new Command(UNKNOWN, parts, AS_DATA, AS_VALUE),
       check: resultCheck,
     };
   }
@@ -653,6 +665,7 @@ const NO_NODE: CommandNode = {
   messages: [],
   formats: [],
   fromFile: new Map(),
+  links: [],
 };
 
 /** Хвост строки без команды: её напечатанное — данные JSON. */

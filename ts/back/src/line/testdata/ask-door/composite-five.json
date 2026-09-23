@@ -1,0 +1,38 @@
+{
+  "описание": "пять записей, да да нет — четвёртая и пятая вопросов не получают",
+  "строка": "ask 1 to: 5 do: {do} {:}i kiten comment id: 11 text: {@}i {done}",
+  "ответы": [
+    "y",
+    "y",
+    "n",
+    "y",
+    "y"
+  ],
+  "без человека": false,
+  "правило посреди строки": false,
+  "кадры": [
+    {
+      "err": "выполнить mpu kiten comment id: 11 text: 1? [y/N] "
+    },
+    {
+      "err": "выполнить mpu kiten comment id: 11 text: 2? [y/N] "
+    },
+    {
+      "err": "выполнить mpu kiten comment id: 11 text: 3? [y/N] "
+    },
+    {
+      "err": "mpu kiten comment id: 11 text: 3: не подтверждено\n"
+    }
+  ],
+  "созданные": [
+    "11 1",
+    "11 2"
+  ],
+  "отказ": {
+    "reason": "не подтверждено",
+    "hint": null,
+    "candidates": [],
+    "text": "mpu kiten comment id: 11 text: 3: не подтверждено"
+  },
+  "код": 1
+}

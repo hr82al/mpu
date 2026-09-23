@@ -28,7 +28,7 @@ import {
 } from "../program/mod.ts";
 import { commands, findCommand } from "../registry/mod.ts";
 import { addressesOf } from "./keyed.ts";
-import { formatsOf, registryNodes } from "./tree.ts";
+import { formatsOf, registryNodes, ruleLinks } from "./tree.ts";
 
 /** Текст, который печать доставила бы для результата. */
 function printed(
@@ -110,6 +110,7 @@ export function programCommands(): Commands {
       messages: node.messages.map((line) => line.selector),
       formats: node.formats,
       fromFile: fileKeys(node.path),
+      links: ruleLinks(node),
     }];
   }));
   return {

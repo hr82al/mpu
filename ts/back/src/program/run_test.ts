@@ -44,6 +44,7 @@ function node(
     messages,
     formats: leaf ? ["json", "md"] : [],
     fromFile,
+    links: [],
   };
 }
 
@@ -116,7 +117,8 @@ function commandReply(
 
 /**
  * Ядро: `kiten ls` — три карточки, `kiten card id: N` — одна с
- * комментариями, `nope` — отказ с кодом 2, прочее — `null`.
+ * комментариями, `nope` — отказ до исполнения (код 2), `fail` — отказ
+ * исполнения (код 1), прочее — `null`.
  */
 function core(lines: string[][]) {
   return (words: readonly string[]): Promise<LineReply> => {
@@ -143,6 +145,7 @@ function core(lines: string[][]) {
       return commandReply(["jsdate"], [], data, "20260923\n");
     }
     if (argv[0] === "nope") return Promise.resolve({ exit: 2 });
+    if (argv[0] === "fail") return Promise.resolve({ exit: 1 });
     return Promise.resolve({ data: null, command: null, shown: "" });
   };
 }
@@ -526,10 +529,16 @@ Deno.test("отмена останавливает бесконечный цик
   assert(performance.now() - started < 1000, "остановка дольше секунды");
 });
 
-Deno.test("строка команды с кодом ≠ 0 — программа кончается кодом 1", async () => {
-  const ran = await run("x := 1 . nope . 2 print");
-  assertEquals(ran.end, { exit: 1, refusal: null });
-  assertEquals(ran.out, "");
+Deno.test("строка команды с кодом ≠ 0 — программа кончается", async (t) => {
+  // Отказ до исполнения (2) — как есть, прочий — 1 (`ask-composite.md`).
+  const cases: readonly [string, number][] = [["nope", 2], ["fail", 1]];
+  for (const [word, exit] of cases) {
+    await t.step(word, async () => {
+      const ran = await run(`x := 1 . ${word} . 2 print`);
+      assertEquals(ran.end, { exit, refusal: null });
+      assertEquals(ran.out, "");
+    });
+  }
 });
 
 /** Корень строки: понимает `kiten` и `it`. */

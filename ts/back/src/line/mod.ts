@@ -25,12 +25,14 @@ import {
   runChain,
 } from "../objects/mod.ts";
 import {
+  type Address,
   type Channel,
   Human,
   NOBODY,
   PolicyError,
   RuleBook,
   type RuleEntry,
+  type Ruling,
 } from "../policy/mod.ts";
 import { type CliEntry, runJournaled } from "../process/mod.ts";
 import {
@@ -56,7 +58,8 @@ import { printed, type Speech } from "./printed.ts";
 import { Session } from "./session.ts";
 export { HUMAN_ONLY } from "./session.ts";
 import { LineValues, StdinOnce } from "./value.ts";
-import { ASK_WORD, toDoor } from "./view.ts";
+import { toDoor } from "./view.ts";
+import { Ahead, entryOf, redirected } from "./ahead.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 
@@ -291,7 +294,8 @@ export function lineEntry(ports: LinePorts): CliEntry {
     const walked = walkedWords(argv);
     // Строка через дверь объявляет запись для всей строки: группы
     // значений идут той же дверью (`platform/value-expression.md`).
-    const door = walked[0] === ASK_WORD ? [ASK_WORD] : [];
+    const entry = entryOf(walked);
+    const door = entry.words;
     const values: LineValues = new LineValues(async (words) => {
       const texts: string[] = [];
       const captured: Speech = {
@@ -340,7 +344,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
             journal: subJournal,
             execute: immediately,
             delivery: capture,
-            redirect: () => toDoor(),
+            redirect: redirected(said, heard),
           };
           const subRoot = registryRoot(
             sessionOf(sub, heard, ports.memory, running),
@@ -363,6 +367,8 @@ export function lineEntry(ports: LinePorts): CliEntry {
       io: lineIo,
       journal,
       core,
+      decide: (links) => book.decide(links),
+      ahead: entry.ahead,
     });
   };
 }
@@ -374,10 +380,15 @@ interface ProgramLine {
   readonly io: CommandIo;
   readonly journal: InvokeJournal;
   readonly core: (words: readonly string[]) => Promise<LineReply>;
+  /** Решение правил для звеньев пути — обходу до исполнения. */
+  readonly decide: (links: readonly string[]) => Ruling;
+  /** Адрес обхода: в двери или без неё. */
+  readonly ahead: Address;
 }
 
 /**
- * Строка-программа: отказы до исполнения — здесь, код 2; исполнение —
+ * Строка-программа: отказы до исполнения — здесь (разбор — код 2, обход
+ * достижимых команд правилами — `platform/ask-composite.md`); исполнение —
  * месту исполнения программ, в очереди строк одним местом.
  */
 async function runProgramLine(
@@ -385,13 +396,25 @@ async function runProgramLine(
   root: Root,
   line: ProgramLine,
 ): Promise<number> {
+  let program;
   try {
-    parseProgram(words, programCommands(), root);
+    program = parseProgram(words, programCommands(), root);
   } catch (err) {
     if (!(err instanceof Placed)) throw err;
     refusalOf(words, err).tell(line.speech);
     return 2;
   }
+  const ahead = new Ahead(words);
+  program.reach(ahead);
+  const finding = await ahead.verdict(line.decide, line.ahead);
+  return await finding.settle(line.speech, () => runEvaluated(words, line));
+}
+
+/** Программа, прошедшая проверки: запись журнала и исполнение. */
+async function runEvaluated(
+  words: readonly string[],
+  line: ProgramLine,
+): Promise<number> {
   line.journal.nativeCall(programPolicy(words));
   return await line.ports.execute(async () => {
     const end = await line.ports.evaluator.evaluate(

@@ -7,18 +7,37 @@
 import { literalWords } from "../messages/mod.ts";
 import { misstep, type Span } from "./machine.ts";
 import { Block, type Body, done, NIL, selectorOf } from "./objects.ts";
-import type { Answer, Reply, Request, Stack, Value } from "./protocol.ts";
+import type {
+  Answer,
+  Reach,
+  Reply,
+  Request,
+  Stack,
+  Value,
+} from "./protocol.ts";
 import type { Scope } from "./scope.ts";
 import type { Place } from "./machine.ts";
 
 /** Выражение: вычисляется в области имён. */
 export interface Expression {
   evaluate(scope: Scope): Answer;
+  /** Команды, до которых вычисление может дойти, — собирателю `into`. */
+  reach(into: Reach): void;
 }
 
 /** Сообщение цепочки: уходит значению слева. */
 export interface Message {
   sendTo(receiver: Value, scope: Scope): Answer;
+  /** Команды в значениях сообщения — собирателю `into`. */
+  reach(into: Reach): void;
+}
+
+/** Обход выражений по порядку. */
+function reachAll(
+  list: readonly { reach(into: Reach): void }[],
+  into: Reach,
+) {
+  for (const one of list) one.reach(into);
 }
 
 /** Выражения тела блока или группы: итог — значение последнего. */
@@ -35,6 +54,10 @@ export class Statements implements Body {
       last = yield* expression.evaluate(scope);
     }
     return last;
+  }
+
+  reach(into: Reach) {
+    reachAll(this.#list, into);
   }
 }
 
@@ -55,6 +78,11 @@ export class Program {
     }
     return last;
   }
+
+  /** Команды, до которых программа может дойти, — собирателю `into`. */
+  reach(into: Reach) {
+    reachAll(this.#list, into);
+  }
 }
 
 /** Готовое значение: число, текст. */
@@ -68,6 +96,8 @@ export class Constant implements Expression {
   evaluate(): Answer {
     return done(this.#value);
   }
+
+  reach() {}
 }
 
 /** Переменная: имя, связанное разбором; не присвоенное ещё — `nil`. */
@@ -81,6 +111,8 @@ export class Variable implements Expression {
   evaluate(scope: Scope): Answer {
     return done(scope.find(this.#name, NIL));
   }
+
+  reach() {}
 }
 
 /** Запись блока: блок замыкает область, в которой его вычислили. */
@@ -96,6 +128,10 @@ export class BlockLiteral implements Expression {
   evaluate(scope: Scope): Answer {
     return done(new Block(this.#params, this.#body, scope));
   }
+
+  reach(into: Reach) {
+    this.#body.reach(into);
+  }
 }
 
 /** Группа `do … end`: выражения в той же области. */
@@ -108,6 +144,10 @@ export class Group implements Expression {
 
   evaluate(scope: Scope): Answer {
     return this.#body.run(scope);
+  }
+
+  reach(into: Reach) {
+    this.#body.reach(into);
   }
 }
 
@@ -125,6 +165,10 @@ export class Assignment implements Expression {
     const value = yield* this.#value.evaluate(scope);
     scope.assign(this.#name, value);
     return value;
+  }
+
+  reach(into: Reach) {
+    this.#value.reach(into);
   }
 }
 
@@ -144,6 +188,11 @@ export class Chain implements Expression {
       value = yield* message.sendTo(value, scope);
     }
     return value;
+  }
+
+  reach(into: Reach) {
+    this.#primary.reach(into);
+    reachAll(this.#messages, into);
   }
 }
 
@@ -174,6 +223,8 @@ export class Unary implements Message {
   sendTo(receiver: Value): Answer {
     return sent(receiver, this.#selector, [], this.#span);
   }
+
+  reach() {}
 }
 
 /**
@@ -216,11 +267,17 @@ export class Keyword implements Message {
     }
     return value;
   }
+
+  reach(into: Reach) {
+    reachAll(this.#args, into);
+  }
 }
 
 /** Слова сегмента команды: какие они в строке ядру. */
 export interface Part {
   spell(scope: Scope): Generator<Request, readonly string[], Value>;
+  /** Команды в вычисляемых словах — собирателю `into`. */
+  reach(into: Reach): void;
 }
 
 /** Слова как набраны: путь, ключи, литералы, `stdin`. */
@@ -235,6 +292,8 @@ export class Written implements Part {
   *spell(): Generator<Request, readonly string[], Value> {
     return this.#words;
   }
+
+  reach() {}
 }
 
 /**
@@ -260,6 +319,10 @@ export class Computed implements Part {
     } catch (err) {
       throw misstep(err, this.#span);
     }
+  }
+
+  reach(into: Reach) {
+    this.#value.reach(into);
   }
 }
 
@@ -287,6 +350,32 @@ class CoreLine implements Request {
   }
 }
 
+/** Кому команда программы уходит: обход до исполнения знает его или нет. */
+export interface Addressee {
+  reach(into: Reach): void;
+}
+
+/** Лист реестра, известный по разбору: путь и звенья пути правила. */
+export class Known implements Addressee {
+  readonly #path: readonly string[];
+  readonly #links: readonly string[];
+
+  constructor(path: readonly string[], links: readonly string[]) {
+    this.#path = path;
+    this.#links = links;
+  }
+
+  reach(into: Reach) {
+    into.command(this.#path, this.#links);
+  }
+}
+
+/**
+ * Не лист (группа): какая команда уйдёт ядру, решится при отправке — её
+ * решают правила в момент строки.
+ */
+export const UNKNOWN: Addressee = { reach() {} };
+
 /**
  * Команда реестра, до которой дошла программа: её слова со значениями,
  * вычисленными в текст, уходят ядру отдельной строкой. Результат ядро
@@ -295,20 +384,24 @@ class CoreLine implements Request {
  * уходит с ней — он меняет и исполнение, и печать.
  */
 export class Command implements Expression {
+  readonly #addressee: Addressee;
   readonly #parts: readonly Part[];
   readonly #closing: readonly string[];
   readonly #reading: Reading;
 
   /**
+   * @param addressee команда, которой уйдёт строка, — для обхода
    * @param closing слова в конце строки ядру: формат команды, `end json`
    *   строки без команды или никаких
    * @param reading как читается итог: значением или напечатанным
    */
   constructor(
+    addressee: Addressee,
     parts: readonly Part[],
     closing: readonly string[],
     reading: Reading,
   ) {
+    this.#addressee = addressee;
     this.#parts = parts;
     this.#closing = closing;
     this.#reading = reading;
@@ -318,5 +411,10 @@ export class Command implements Expression {
     const words: string[] = [];
     for (const part of this.#parts) words.push(...(yield* part.spell(scope)));
     return yield new CoreLine([...words, ...this.#closing], this.#reading);
+  }
+
+  reach(into: Reach) {
+    this.#addressee.reach(into);
+    reachAll(this.#parts, into);
   }
 }

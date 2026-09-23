@@ -69,6 +69,7 @@ export {
 } from "./refusal.ts";
 export {
   atAddress,
+  line,
   NO_REMEDY,
   ROOT_TEXT,
   substituted,

@@ -17,6 +17,7 @@ export {
   parseProgram,
   type Root,
 } from "./parse.ts";
+export type { Reach } from "./protocol.ts";
 export {
   type LineReply,
   type ProgramEnd,
