@@ -48,8 +48,14 @@ outcome: {columns, rows}}`), поэтому «где коллекция» зна
 | запись | `pick: <поле>` | то же, для имени поля, совпадающего с сообщением протокола (`size`, `help` …) |
 | скаляр | — | только форматы и протокол отражения |
 
-Цепочка — через `end`, как всегда: `mpu kiten ls where: column is: review end
-size`. Формат после отбора — последним: `… end first: 3 end json`.
+Цепочка — через `end`: `mpu kiten ls end where: column is: review end size`.
+**И без `end` сразу за командой**: ключевое сообщение, которого команда не
+понимает вовсе, при том что у неё нет обязательных ключей, а объявленный вид
+результата его понимает, — команда исполняется без ключей, сообщение уходит
+результату: `mpu kiten ls where: column is: review end size` (деление
+частично понятого ключевого 158 с пустой понятой частью; проверка до
+исполнения). Во всех слепых замерах описания агент писал именно так. Формат
+после отбора — последним: `… end first: 3 end json`.
 
 ## Где исполняется
 
@@ -70,10 +76,12 @@ id end text: ping`. Отказ 161 «не скаляр» подсказывае�
 | `mpu kiten ls end size` | число карточек |
 | `mpu kiten ls where: column is: review end first: 3 end json` | JSON трёх карточек |
 | `mpu sql-ro target: 54 sql: "select 1 as n" end first n` | `1` |
-| `mpu kiten ls end first nope` | `…: запись не понимает nope; ближайшие: …` поля, код 2 |
+| `mpu kiten ls end first nope` | `…: запись не понимает nope; ближайшие: …` поля (нет близких — все поля), код 2 |
+| `mpu kiten ls where: column is: review end size` | как `mpu kiten ls end where: …`; команда исполнена один раз |
+| `mpu sql-ro target: 54 where: n is: 1` | отказ до исполнения: у `sql-ro` обязательный `sql:` не дан |
 | `mpu kiten ls end first: -1` | отказ «ожидается n ≥ 0», код 2 |
-| `mpu kiten ls where: created less: 2026-09-01 end size` | карточки старше даты |
-| `mpu kiten ls end sortBy: created end first title` | название самой старой |
+| `mpu kiten ls where: updated less: 2026-09-01 end size` | карточки старше даты (у строк `kiten ls` поле `updated`) |
+| `mpu kiten ls end sortBy: updated end first title` | название самой давней |
 | `mpu jsdate end size` | `…: скаляр не понимает size`, код 2 |
 | `mpu logs --follow target: sl-1 end size` | отказ «поток — только форматы», до исполнения |
 | пустая коллекция `end first` | `nil` печатается пустой строкой, код 0 |
