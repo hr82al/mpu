@@ -10,6 +10,8 @@ import {
   CONTEXT_FIELDS,
   CONTEXT_IN_ANSWER,
   type ContextFields,
+  FRAME_INPUT,
+  type InputSource,
 } from "./context.ts";
 import { isRecord, parsedJson } from "./json.ts";
 
@@ -95,18 +97,27 @@ export type ServerFrame =
     readonly ticket?: string;
   }
   | { readonly clip: string }
+  /** Строке нужен ввод клиента (`platform/stdin-on-request.md`). */
+  | { readonly stdinRequest: true }
   | { readonly exit: number };
+
+/** Кадр запроса ввода: один на строку. */
+export const STDIN_REQUEST: ServerFrame = { stdinRequest: true };
 
 /**
  * Первый кадр строки.
  *
  * @param data данные кадра как их отдал сокет
+ * @param input откуда транспорт берёт ввод строки (`callContextOf`)
  * @throws BadFrame — не JSON-объект, нет `words` или `cwd`, `cwd` не
  *   абсолютный, `human` не булево, `caller` не строка, либо контекст
  *   вызова непринимаем
  *   (`callContextOf`)
  */
-export function lineRequest(data: unknown): LineRequest {
+export function lineRequest(
+  data: unknown,
+  input: InputSource = FRAME_INPUT,
+): LineRequest {
   const frame = parsedJson(data);
   if (!isRecord(frame)) throw new BadFrame("кадр не объект JSON");
   const { words, cwd, human = false } = frame;
@@ -127,7 +138,7 @@ export function lineRequest(data: unknown): LineRequest {
     words: [...words],
     cwd,
     human,
-    context: callContextOf(frame),
+    context: callContextOf(frame, input),
     caller,
   };
 }
@@ -137,6 +148,13 @@ export function answerOf(data: unknown): string | undefined {
   const frame = parsedJson(data);
   if (!isRecord(frame) || typeof frame.answer !== "string") return undefined;
   return frame.answer;
+}
+
+/** Ввод из кадра клиента `stdin`; кадр не ввод — `undefined`. */
+export function stdinOf(data: unknown): string | undefined {
+  const frame = parsedJson(data);
+  if (!isRecord(frame) || typeof frame.stdin !== "string") return undefined;
+  return frame.stdin;
 }
 
 /**
@@ -163,6 +181,10 @@ export function serverFrameOf(data: unknown): ServerFrame {
   if (key === "refusal") return { refusal: refusalOf(value) };
   if (key === "exit" && typeof value === "number" && Number.isInteger(value)) {
     return { exit: value };
+  }
+  if (key === "stdinRequest") {
+    if (value !== true) throw new BadFrame("кадр stdinRequest не true");
+    return { stdinRequest: true };
   }
   if (typeof value !== "string") throw new BadFrame(`кадр ${key} не строка`);
   if (key === "out") return { out: value };

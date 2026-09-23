@@ -32,9 +32,11 @@ async function tokenAt(path: string): Promise<string | undefined> {
   }
 }
 
-/** Весь stdin текстом; stdin — терминал — ввода нет (`cli-client.md`). */
-async function readStdin(): Promise<string | undefined> {
-  if (Deno.stdin.isTerminal()) return undefined;
+/**
+ * Весь stdin текстом. Зовётся только по запросу строки и только когда
+ * stdin не терминал (`platform/stdin-on-request.md`).
+ */
+async function readStdin(): Promise<string> {
   const bytes = await new Response(Deno.stdin.readable).arrayBuffer();
   return decoder.decode(new Uint8Array(bytes));
 }

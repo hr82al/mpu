@@ -162,6 +162,9 @@ const COLLECTED: Form = {
       // (`platform/line-prompt.md`).
       else if ("clip" in frame) stderr += frame.clip;
       else if ("refusal" in frame) refused = frame;
+      // Простым HTTP ввод не запрашивается: он приходит полем тела
+      // (`platform/stdin-on-request.md`).
+      else if ("stdinRequest" in frame) return;
       else tail = frame;
     };
     let answered = false;

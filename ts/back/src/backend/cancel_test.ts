@@ -6,7 +6,7 @@
  */
 
 import { GRAMMAR } from "../messages/mod.ts";
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertStringIncludes, assertThrows } from "@std/assert";
 import type { CommandIo } from "../command/mod.ts";
 import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
@@ -272,6 +272,15 @@ Deno.test("просьба остановиться: код 130 только у �
   assertEquals(asked.outcome(0), CANCELLED_CODE);
   asked.ask();
   assertEquals(asked.outcome(2), CANCELLED_CODE);
+});
+
+Deno.test("сорвавшееся исполнение: у остановленной — 130, у прочей — сбой", () => {
+  const cause = new Error("сбой");
+  const quiet = new Stopping();
+  assertEquals(assertThrows(() => quiet.failed(cause)), cause);
+  const asked = new Stopping();
+  asked.ask();
+  assertEquals(asked.failed(cause), CANCELLED_CODE);
 });
 
 /**

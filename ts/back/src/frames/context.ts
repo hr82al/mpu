@@ -13,18 +13,24 @@
 import { BadFrame } from "./bad.ts";
 import { isRecord } from "./json.ts";
 
-/** Ввод строки: значение, а не поток с позицией. */
+/**
+ * Ввод строки: значение, а не поток с позицией. Откуда оно берётся —
+ * пусто, пришло кадром или запрашивается у клиента
+ * (`platform/stdin-on-request.md`), — дело реализации.
+ */
 export interface LineInput {
   /** Весь ввод байтами; повторный вызов даёт то же содержимое. */
-  bytes(): Uint8Array;
+  bytes(): Promise<Uint8Array>;
 }
 
 /** Ввода нет: чтение `-` даёт пустое значение, конец сразу. */
-export const NO_INPUT: LineInput = { bytes: () => new Uint8Array() };
+export const NO_INPUT: LineInput = {
+  bytes: () => Promise.resolve(new Uint8Array()),
+};
 
 /** Ввод, пришедший кадром: копия на каждое чтение — буфер общий. */
 function givenInput(bytes: Uint8Array): LineInput {
-  return { bytes: () => bytes.slice() };
+  return { bytes: () => Promise.resolve(bytes.slice()) };
 }
 
 /** Терминальность потоков клиента и ширина его консоли. */
@@ -150,6 +156,8 @@ export const CLIENT_ENV_NAMES: readonly string[] = [
 /** Поля контекста в первом кадре — то, что шлёт клиент. */
 export interface ContextFields {
   readonly stdin?: string;
+  /** Ввод есть и будет отдан по запросу строки; только `true`. */
+  readonly stdinOnRequest?: true;
   readonly tty?: {
     readonly stdin: boolean;
     readonly stdout: boolean;
@@ -162,7 +170,12 @@ export interface ContextFields {
 const encoder = new TextEncoder();
 
 /** Поля первого кадра, которыми клиент приносит контекст вызова. */
-export const CONTEXT_FIELDS: readonly string[] = ["stdin", "tty", "env"];
+export const CONTEXT_FIELDS: readonly string[] = [
+  "stdin",
+  "stdinOnRequest",
+  "tty",
+  "env",
+];
 
 /** Отказ на контекст вызова в теле ответа по номеру. */
 export const CONTEXT_IN_ANSWER = "контекст вызова в ответе не принимается";
@@ -179,20 +192,72 @@ function columnsWithin(value: number): number | undefined {
 }
 
 /**
- * Ввод из поля кадра.
+ * Ввод байтами в пределе: одно место на обе стороны — сервер бракует
+ * им кадр, клиент — не шлёт лишнего.
  *
- * @throws BadFrame — не строка либо больше предела
+ * @param text весь ввод
+ * @throws BadFrame — больше предела
  */
-function inputOf(value: unknown): LineInput {
-  if (value === undefined) return NO_INPUT;
-  if (typeof value !== "string") throw new BadFrame("stdin — не строка");
-  const bytes = encoder.encode(value);
+export function boundedInput(text: string): Uint8Array {
+  const bytes = encoder.encode(text);
   // Замер по тому, что пришло: длина строки меньше числа байтов у
   // всего, кроме ASCII.
   if (bytes.length > MAX_STDIN_BYTES) {
     throw new BadFrame("ввод больше предела", tooLargeInput());
   }
-  return givenInput(bytes);
+  return bytes;
+}
+
+/**
+ * Ввод из поля кадра.
+ *
+ * @throws BadFrame — не строка либо больше предела
+ */
+function givenOf(value: unknown): LineInput {
+  if (value === undefined) return NO_INPUT;
+  if (typeof value !== "string") throw new BadFrame("stdin — не строка");
+  return givenInput(boundedInput(value));
+}
+
+/**
+ * Откуда транспорт берёт ввод строки: только из кадра или ещё и по
+ * запросу (`platform/stdin-on-request.md`).
+ */
+export interface InputSource {
+  /**
+   * Ввод строки из полей первого кадра.
+   *
+   * @throws BadFrame — поля ввода непринимаемы
+   */
+  of(frame: Record<string, unknown>): LineInput;
+}
+
+/**
+ * Спросить ввод нечем (простой HTTP): он приходит полем `stdin`, а
+ * `stdinOnRequest` не читается вовсе — как незнакомое поле.
+ */
+export const FRAME_INPUT: InputSource = { of: (frame) => givenOf(frame.stdin) };
+
+/**
+ * Ввод по запросу строки у транспорта, который умеет спросить.
+ *
+ * @param requested ввод, который транспорт запросит у клиента
+ */
+export function inputOnRequest(requested: LineInput): InputSource {
+  return {
+    of(frame) {
+      const { stdin, stdinOnRequest = false } = frame;
+      if (typeof stdinOnRequest !== "boolean") {
+        throw new BadFrame("stdinOnRequest — не булево");
+      }
+      if (!stdinOnRequest) return givenOf(stdin);
+      // Два источника одного ввода — противоречие в кадре, а не выбор.
+      if (stdin !== undefined) {
+        throw new BadFrame("stdin вместе с stdinOnRequest");
+      }
+      return requested;
+    },
+  };
 }
 
 /**
@@ -270,12 +335,16 @@ function envRuleOf(value: unknown): EnvRule {
  * Контекст вызова из первого кадра; полей нет — контекст сервера.
  *
  * @param frame первый кадр, уже разобранный в объект
- * @throws BadFrame — вид поля не тот, ввод больше предела, ширина без
- *   терминала или имя переменной вне списка
+ * @param input откуда транспорт берёт ввод строки
+ * @throws BadFrame — вид поля не тот, ввод больше предела, два источника
+ *   ввода, ширина без терминала или имя переменной вне списка
  */
-export function callContextOf(frame: Record<string, unknown>): CallContext {
+export function callContextOf(
+  frame: Record<string, unknown>,
+  input: InputSource = FRAME_INPUT,
+): CallContext {
   return {
-    input: inputOf(frame.stdin),
+    input: input.of(frame),
     terminals: terminalsOf(frame.tty),
     env: envRuleOf(frame.env),
   };
@@ -283,8 +352,11 @@ export function callContextOf(frame: Record<string, unknown>): CallContext {
 
 /** Чем клиент снимает свой контекст (`cli-client.md`, «Сторона клиента»). */
 export interface CallerFacts {
-  /** Весь stdin текстом; stdin — терминал — `undefined`. */
-  stdin(): Promise<string | undefined>;
+  /**
+   * Весь stdin текстом. Зовётся только по запросу строки и только когда
+   * stdin не терминал (`platform/stdin-on-request.md`).
+   */
+  stdin(): Promise<string>;
   stdinIsTerminal(): boolean;
   stdoutIsTerminal(): boolean;
   stderrIsTerminal(): boolean;
@@ -295,16 +367,13 @@ export interface CallerFacts {
 }
 
 /**
- * Поля контекста, снятые у клиента: ввод (только из пайпа), три
- * признака терминала с шириной и имена закрытого списка.
- *
- * @throws BadFrame — ввод больше предела: клиент не шлёт ничего
+ * Поля контекста, снятые у клиента: есть ли ввод (только из пайпа; сам
+ * ввод — по запросу строки), три признака терминала с шириной и имена
+ * закрытого списка. stdin здесь не читается.
  */
-export async function contextFieldsOf(
-  facts: CallerFacts,
-): Promise<ContextFields> {
+export function contextFieldsOf(facts: CallerFacts): ContextFields {
   const fields: {
-    stdin?: string;
+    stdinOnRequest?: true;
     tty: { stdin: boolean; stdout: boolean; stderr: boolean; columns?: number };
     env?: Record<string, string>;
   } = {
@@ -314,15 +383,9 @@ export async function contextFieldsOf(
       stderr: facts.stderrIsTerminal(),
     },
   };
-  const text = await facts.stdin();
-  if (text !== undefined) {
-    // Тот же предел и тот же текст, что у сервера: отказ печатает
-    // клиент своим префиксом, серверу при этом не уходит ничего.
-    if (encoder.encode(text).length > MAX_STDIN_BYTES) {
-      throw new BadFrame("ввод больше предела", tooLargeInput());
-    }
-    fields.stdin = text;
-  }
+  // Открытый stdin без писателя не кончается никогда: читать его до
+  // первого кадра — повесить строку, которой ввод не нужен.
+  if (!fields.tty.stdin) fields.stdinOnRequest = true;
   // Ширина — только при терминале на stdout и только в границах
   // контракта: иначе сервер забраковал бы кадр целиком.
   const declared = fields.tty.stdout ? facts.columns() : undefined;

@@ -6,9 +6,15 @@
     ],
     "cwd": "<cwd клиента>",
     "human": true,
-    "stdin": "текст\n"
+    "stdinOnRequest": true
   },
   "frames": [
+    {
+      "stdinRequest": true
+    },
+    {
+      "stdin": "текст\n"
+    },
     {
       "err": "текст\n"
     },

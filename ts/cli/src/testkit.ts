@@ -15,6 +15,8 @@ export interface TestEnv {
   readonly copied: string[];
   /** Вопросы, заданные терминалу: вид и текст. */
   readonly asked: { kind: "line" | "secret"; question: string }[];
+  /** Сколько раз клиент читал свой stdin. */
+  readonly stdinReads: () => number;
   readonly interrupt: () => void;
 }
 
@@ -28,6 +30,11 @@ export interface EnvSetup {
   readonly answers?: readonly string[];
   /** Весь stdin клиента; из терминала ввода нет (`cli-client.md`). */
   readonly stdin?: string;
+  /**
+   * Чтение stdin вместо `stdin`: например, открытый канал без писателя,
+   * чтение которого не кончается никогда.
+   */
+  readonly readStdin?: () => Promise<string>;
   /** Терминал ли stdout и какая у него ширина. */
   readonly stdout?: boolean;
   readonly columns?: number;
@@ -75,11 +82,15 @@ export function testEnv(setup: EnvSetup): TestEnv {
   const answers = [...setup.answers ?? []];
   const terminals = setup.terminals ?? false;
   const interrupted = Promise.withResolvers<void>();
+  const readStdin = setup.readStdin ??
+    (() => Promise.resolve(setup.stdin ?? ""));
+  let stdinReads = 0;
   return {
     stdout,
     stderr,
     copied,
     asked,
+    stdinReads: () => stdinReads,
     interrupt: () => interrupted.resolve(),
     env: {
       base: setup.base,
@@ -87,9 +98,10 @@ export function testEnv(setup: EnvSetup): TestEnv {
       mainToken: () => Promise.resolve(setup.main),
       agentToken: () => Promise.resolve(setup.agent),
       caller: {
-        // Из терминала клиент ввода не читает: он повис бы, ожидая
-        // того, чего никто не даёт.
-        stdin: () => Promise.resolve(terminals ? undefined : setup.stdin ?? ""),
+        stdin: () => {
+          stdinReads += 1;
+          return readStdin();
+        },
         stdinIsTerminal: () => terminals,
         stdoutIsTerminal: () => setup.stdout ?? false,
         stderrIsTerminal: () => terminals,
@@ -119,6 +131,8 @@ export interface Visit {
   readonly token: string;
   readonly first: Record<string, unknown>;
   readonly answers: string[];
+  /** Кадры `stdin` клиента по порядку. */
+  readonly inputs: string[];
 }
 
 /** Сценарий сервера: что ответить на строку. */
@@ -126,7 +140,31 @@ export type Script = (
   socket: WebSocket,
   first: Record<string, unknown>,
   answers: AsyncIterable<string>,
+  inputs: AsyncIterable<string>,
 ) => Promise<void>;
+
+/**
+ * Промис или отказ через `ms` миллисекунд. Не синхронизация, а сторож:
+ * тест, чьё ожидание не наступит никогда, краснеет, а не висит. Тот же
+ * приём, что у тестов сервера: импортировать их подпроекту `cli/`
+ * нельзя.
+ */
+export async function within<T>(
+  promise: Promise<T>,
+  ms: number,
+  what: string,
+): Promise<T> {
+  const watchdog = Promise.withResolvers<never>();
+  const timer = setTimeout(
+    () => watchdog.reject(new Error(`не дождались: ${what}`)),
+    ms,
+  );
+  try {
+    return await Promise.race([promise, watchdog.promise]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /** Отвечает кадром `exit 0`. */
 export const EXIT_ZERO: Script = (socket) => {
@@ -192,14 +230,21 @@ export async function withFakeServer(
       token: tokenOf(request),
       first: {},
       answers: [],
+      inputs: [],
     };
     const { socket, response } = Deno.upgradeWebSocket(request, {
       protocol: "mpu",
     });
     const answers = new Answers();
+    const inputs = new Answers();
     const started = Promise.withResolvers<void>();
     socket.onmessage = (event) => {
       const frame = JSON.parse(String(event.data));
+      if (visits.includes(visit) && "stdin" in frame) {
+        visit.inputs.push(frame.stdin);
+        inputs.push(frame.stdin);
+        return;
+      }
       if (visits.includes(visit)) {
         visit.answers.push(frame.answer);
         answers.push(frame.answer);
@@ -217,7 +262,8 @@ export async function withFakeServer(
     scripts.push(
       started.promise.then(async () => {
         if (socket.readyState === WebSocket.OPEN) {
-          await (options.script ?? EXIT_ZERO)(socket, visit.first, answers);
+          const script = options.script ?? EXIT_ZERO;
+          await script(socket, visit.first, answers, inputs);
         }
         await closed.promise;
       }),

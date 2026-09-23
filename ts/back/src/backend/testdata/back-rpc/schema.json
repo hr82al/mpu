@@ -29,6 +29,11 @@
           "description": "Весь ввод строки; поля нет — ввода нет. Больше 8 МиБ (в байтах UTF-8) — отказ mpu-back: ввод больше 8 МиБ, код 2.",
           "type": "string"
         },
+        "stdinOnRequest": {
+          "description": "Только WebSocket: ввод у клиента есть и отдаётся по запросу строки кадром stdinRequest → stdin (platform/stdin-on-request.md). Вместе со stdin или не булево — отказ mpu-back: плохой кадр строки, код 2. POST /line поле не читает.",
+          "type": "boolean",
+          "default": false
+        },
         "tty": {
           "description": "Терминальность трёх потоков клиента и ширина его консоли; поля нет — все три false, ширины нет. columns — только при stdout: true, иначе отказ mpu-back: ширина без терминала.",
           "type": "object",
@@ -85,6 +90,19 @@
           "type": "string"
         }
       }
+    },
+    "line.client.stdin": {
+      "description": "Ввод строки в ответ на кадр stdinRequest: весь stdin клиента одним кадром. Без запроса или второй — игнорируется. Больше 8 МиБ — mpu-back: ввод больше 8 МиБ, код 2.",
+      "type": "object",
+      "required": [
+        "stdin"
+      ],
+      "properties": {
+        "stdin": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "line.server": {
       "description": "Кадр сервера; exit — последний, после него сокет закрывается с кодом 1000.",
@@ -159,6 +177,19 @@
           "properties": {
             "refusal": {
               "$ref": "#/$defs/refusal"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Строке нужен ввод клиента, объявленного stdinOnRequest; не чаще одного раза за строку, ответ — кадр stdin (platform/stdin-on-request.md).",
+          "type": "object",
+          "required": [
+            "stdinRequest"
+          ],
+          "properties": {
+            "stdinRequest": {
+              "const": true
             }
           },
           "additionalProperties": false

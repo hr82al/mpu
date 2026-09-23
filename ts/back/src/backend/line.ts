@@ -216,7 +216,12 @@ export class Line implements Output {
     lines: Lines,
   ): Promise<number> {
     const slot = await lines.enter();
-    const code = await this.#state.execute(this, slot, run);
+    let code: number;
+    try {
+      code = await this.#state.execute(this, slot, run);
+    } catch (err) {
+      return this.#stopping.failed(err);
+    }
     // Код спрашивается по факту остановки, а не по факту обрыва канала:
     // обрыв мог прийти уже после конца команды.
     return this.#stopping.outcome(code);

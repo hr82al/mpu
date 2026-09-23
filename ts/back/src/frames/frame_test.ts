@@ -6,13 +6,19 @@ import {
   lineRequest,
   type ServerFrame,
   serverFrameOf,
+  stdinOf,
   ticketAnswerOf,
 } from "./mod.ts";
 
-Deno.test("кадр сервера: четыре вида и отказ прочему", async (t) => {
-  for (
-    const frame of [{ out: "a" }, { err: "b" }, { ask: "c? " }, { exit: 2 }]
-  ) {
+Deno.test("кадр сервера: пять видов и отказ прочему", async (t) => {
+  const frames: readonly ServerFrame[] = [
+    { out: "a" },
+    { err: "b" },
+    { ask: "c? " },
+    { stdinRequest: true },
+    { exit: 2 },
+  ];
+  for (const frame of frames) {
     await t.step(JSON.stringify(frame), () => {
       assertEquals(serverFrameOf(JSON.stringify(frame)), frame);
     });
@@ -26,11 +32,21 @@ Deno.test("кадр сервера: четыре вида и отказ проч
       '{"out":1}',
       '{"out":"a","err":"b"}',
       '{"what":"x"}',
+      '{"stdinRequest":false}',
+      '{"stdinRequest":"yes"}',
     ]
   ) {
     await t.step(bad, () => {
       assertThrows(() => serverFrameOf(bad), BadFrame);
     });
+  }
+});
+
+Deno.test("кадр ввода клиента: строка stdin, прочее — не ввод", () => {
+  assertEquals(stdinOf('{"stdin":"x"}'), "x");
+  assertEquals(stdinOf('{"stdin":""}'), "");
+  for (const other of ['{"stdin":1}', '{"answer":"y"}', "{", "[]", 7]) {
+    assertEquals(stdinOf(other), undefined);
   }
 });
 

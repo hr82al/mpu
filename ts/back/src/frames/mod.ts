@@ -20,10 +20,13 @@ export {
   type RefusalData,
   type ServerFrame,
   serverFrameOf,
+  STDIN_REQUEST,
+  stdinOf,
   ticketAnswerOf,
 } from "./frame.ts";
 
 export {
+  boundedInput,
   type CallContext,
   callContextOf,
   type CallerFacts,
@@ -33,6 +36,9 @@ export {
   contextFieldsOf,
   type Environment,
   type EnvRule,
+  FRAME_INPUT,
+  inputOnRequest,
+  type InputSource,
   type LineInput,
   MAX_COLUMNS,
   MAX_STDIN_BYTES,

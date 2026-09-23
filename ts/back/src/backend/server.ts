@@ -30,6 +30,8 @@ import {
 import { AGENT_DOOR, type Door, HUMAN_DOOR } from "./door.ts";
 import {
   BadFrame,
+  FRAME_INPUT,
+  type InputSource,
   type LineRequest,
   lineRequest,
   ticketAnswerOf,
@@ -266,7 +268,7 @@ function lineIo(
     // `launchOpener` не трогаем: его цель — не обязательно путь
     // (`sheet open` отдаёт ссылку), а путь `xlsx open` резолвит сам
     // через `io.cwd()` — то есть уже от каталога строки.
-    readStdin: () => Promise.resolve(context.input.bytes()),
+    readStdin: () => context.input.bytes(),
     stdinIsTerminal: () => terminals.stdin(),
     stdoutIsTerminal: () => terminals.stdout(),
     stderrIsTerminal: () => terminals.stderr(),
@@ -480,8 +482,8 @@ class Back {
       if (!(err instanceof TypeError)) throw err;
       return empty(400);
     }
-    const { line, first } = socketLine(upgraded.socket);
-    this.#track(line, first, door, caller, naming);
+    const { line, first, input } = socketLine(upgraded.socket);
+    this.#track(line, first, input, door, caller, naming);
     return upgraded.response;
   }
 
@@ -499,6 +501,8 @@ class Back {
     this.#track(
       line,
       Promise.resolve(first),
+      // Спросить ввод простым HTTP нечем: он приходит полем тела.
+      FRAME_INPUT,
       door,
       caller,
       caller.naming(request),
@@ -534,11 +538,12 @@ class Back {
   #track(
     line: Line,
     first: Promise<unknown>,
+    input: InputSource,
     door: Door,
     caller: Caller,
     naming: Naming,
   ) {
-    const task = this.#serveLine(line, first, door, caller, naming)
+    const task = this.#serveLine(line, first, input, door, caller, naming)
       .catch((err) => {
         const reason = err instanceof Error ? err.message : String(err);
         this.#options.diagnose(`mpu-back: сбой строки: ${reason}`);
@@ -554,13 +559,14 @@ class Back {
   async #serveLine(
     line: Line,
     first: Promise<unknown>,
+    input: InputSource,
     door: Door,
     caller: Caller,
     naming: Naming,
   ) {
     let request: LineRequest;
     try {
-      request = lineRequest(await first);
+      request = lineRequest(await first, input);
     } catch (err) {
       if (!(err instanceof BadFrame)) throw err;
       line.stderr(`mpu-back: ${err.report}\n`);

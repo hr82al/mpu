@@ -18,6 +18,7 @@ import type { TerminalIo } from "./terminal/mod.ts";
 import { type Asker, humanAsker, NOBODY } from "./asker.ts";
 import { type Clip, clipboard, shown } from "./clip.ts";
 import { chooseDoor, type Door } from "./door.ts";
+import { type ClientInput, clientInput } from "./input.ts";
 
 /**
  * Имя, которым человек зовёт систему: им названы и программа, и её
@@ -37,7 +38,7 @@ const INTERRUPTED_CODE = 130;
 /** Код клиентских отказов. */
 const FAILED = 1;
 
-/** Код отказа по входу: строка серверу не уходит вовсе. */
+/** Код отказа по входу: строка не исполняется — ввод больше предела. */
 const REFUSED_INPUT = 2;
 
 /** Что клиенту дано снаружи. */
@@ -106,6 +107,7 @@ class LineSocket {
   readonly #env: ClientEnv;
   readonly #closed = Promise.withResolvers<void>();
   readonly #clip: Clip;
+  readonly #input: ClientInput;
   #ending: Ending = BROKEN;
   #copying: Promise<void> = Promise.resolve();
 
@@ -113,12 +115,14 @@ class LineSocket {
     door: Door,
     env: ClientEnv,
     clip: Clip,
+    input: ClientInput,
     words: readonly string[],
     context: ContextFields,
   ) {
     this.#door = door;
     this.#env = env;
     this.#clip = clip;
+    this.#input = input;
     this.#socket = new WebSocket(door.socket(env.base), door.protocols());
     this.#socket.onopen = () =>
       this.#socket.send(
@@ -187,7 +191,43 @@ class LineSocket {
       this.#copying = this.#copying.then(() => this.#clip.put(frame.clip));
       return;
     }
+    if ("stdinRequest" in frame) {
+      // Как и ответ на вопрос, ввод не ждётся никем: строку решит
+      // `exit` или закрытие. Отвергнуться `#supply` не может — сбой
+      // чтения он сам превращает в конец строки.
+      this.#supply();
+      return;
+    }
     this.#ending = exited(frame.exit);
+    this.#socket.close();
+  }
+
+  /**
+   * Ввод строке по её запросу. Больше предела — прежний отказ клиента,
+   * код 2; не прочитался — причина в stderr, код 1. В обоих случаях сокет
+   * закрывается: сервер видит обрыв как отмену строки.
+   */
+  async #supply() {
+    let text: string;
+    try {
+      text = await this.#input.supply();
+    } catch (err) {
+      if (err instanceof BadFrame) {
+        this.#end(err.report, REFUSED_INPUT);
+        return;
+      }
+      const reason = err instanceof Error ? err.message : String(err);
+      this.#end(`ввод не прочитан: ${reason}`, FAILED);
+      return;
+    }
+    if (this.#socket.readyState !== WebSocket.OPEN) return;
+    this.#socket.send(JSON.stringify({ stdin: text }));
+  }
+
+  /** Конец строки со стороны клиента: причина, код, закрыть сокет. */
+  #end(text: string, code: number) {
+    this.#env.stderr(mine(text));
+    this.#ending = exited(code);
     this.#socket.close();
   }
 
@@ -247,16 +287,9 @@ export async function runClient(
     env.stdout(`${VERSION}\n`);
     return 0;
   }
-  // Контекст снимается до всего остального: ввод больше предела —
-  // клиент не шлёт ничего и не ходит к серверу вовсе.
-  let context: ContextFields;
-  try {
-    context = await contextFieldsOf(env.caller);
-  } catch (err) {
-    if (!(err instanceof BadFrame)) throw err;
-    env.stderr(mine(err.report));
-    return REFUSED_INPUT;
-  }
+  // stdin здесь не читается: ввод строка попросит сама, когда он ей
+  // понадобится (`platform/stdin-on-request.md`).
+  const context = contextFieldsOf(env.caller);
   // Спросить есть кого, когда открывается управляющий терминал: у
   // клиента в середине конвейера stdin занят данными, и по нему он
   // объявил бы «спросить некого» (`cli-client.md`, «Канал и токен»).
@@ -281,5 +314,6 @@ export async function runClient(
     env.stderr(refused);
     return FAILED;
   }
-  return await new LineSocket(door, env, clip, words, context).run();
+  const input = clientInput(env.caller);
+  return await new LineSocket(door, env, clip, input, words, context).run();
 }

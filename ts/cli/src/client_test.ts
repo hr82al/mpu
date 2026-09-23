@@ -56,7 +56,8 @@ Deno.test("канал и токен: три строки таблицы", async 
             [row.path, row.token],
           ]);
           // Первый кадр несёт и контекст вызова: терминальность —
-          // всегда, ввод — только из пайпа (`platform/call-context.md`).
+          // всегда, ввод по запросу — только из пайпа
+          // (`platform/stdin-on-request.md`).
           assertEquals(visits[0].first, {
             words: ["version"],
             cwd: Deno.cwd(),
@@ -66,7 +67,7 @@ Deno.test("канал и токен: три строки таблицы", async 
               stdout: false,
               stderr: row.terminals,
             },
-            ...(row.terminals ? {} : { stdin: "" }),
+            ...(row.terminals ? {} : { stdinOnRequest: true }),
             // Клиент называет себя родителем (`platform/it.md`).
             caller: "ppid:1",
           });

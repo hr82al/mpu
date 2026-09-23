@@ -48,28 +48,46 @@ async function golden(name: string, body: unknown) {
   assertEquals(body, JSON.parse(await Deno.readTextFile(url)));
 }
 
-Deno.test("ввод: поле кадра доходит до команды, без поля — пусто", () =>
+Deno.test("ввод по запросу: доходит до команды, без поля — пусто", () =>
   withBack(async (back) => {
     const first = {
       words: ["confirm", "yes"],
       cwd: Deno.cwd(),
       human: true,
-      stdin: "текст\n",
+      stdinOnRequest: true,
     };
-    const frames = await lineWith(back, first.words, { stdin: first.stdin });
+    const reply = { stdin: "текст\n" };
+    const client = new Client(back, "/line", { stdin: reply.stdin });
+    await client.opened();
+    client.send(first);
+    const frames = await client.finished();
     assertEquals(frames, [
+      { stdinRequest: true },
       { err: "текст\n" },
       { out: "текст\n" },
       { exit: 0 },
     ]);
+    // Разговор по порядку: ответ клиента уходит сразу за запросом.
     await golden("frames-stdin.json", {
       first: { ...first, cwd: CWD_IN_GOLDEN },
-      frames,
+      frames: [frames[0], reply, ...frames.slice(1)],
     });
     // Поля нет — ввод пуст, как до порции 11.
     assertEquals(await line(back, "/line", ["confirm", "yes"]), [
       { err: "\n" },
       { out: "" },
+      { exit: 0 },
+    ]);
+  }));
+
+Deno.test("ввод полем кадра: доходит до команды, как до порции 165c", () =>
+  withBack(async (back) => {
+    const frames = await lineWith(back, ["confirm", "yes"], {
+      stdin: "текст\n",
+    });
+    assertEquals(frames, [
+      { err: "текст\n" },
+      { out: "текст\n" },
       { exit: 0 },
     ]);
   }));

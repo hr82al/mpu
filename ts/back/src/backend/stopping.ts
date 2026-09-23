@@ -34,4 +34,19 @@ export class Stopping {
   outcome(code: number): number {
     return this.#controller.signal.aborted ? CANCELLED_CODE : code;
   }
+
+  /**
+   * Код строки, чьё исполнение сорвалось. Остановленную срывает её же
+   * остановка — чтение ввода, которого ушедший клиент уже не пришлёт
+   * (`platform/stdin-on-request.md`), — и код у неё тот же, что у любой
+   * остановленной. Сбой строки, которую не останавливали, — не её
+   * остановка: он идёт дальше как есть.
+   *
+   * @param err чем сорвалось исполнение
+   * @throws err — строку не просили остановиться
+   */
+  failed(err: unknown): number {
+    if (this.#controller.signal.aborted) return CANCELLED_CODE;
+    throw err;
+  }
 }

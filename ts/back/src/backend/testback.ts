@@ -208,9 +208,12 @@ export class Client {
       readonly agent?: boolean;
       /** Ответы на кадры `ask` по очереди; кончились — вопрос без ответа. */
       readonly answers?: readonly string[];
+      /** Ввод на каждый кадр `stdinRequest`; нет — запрос без ответа. */
+      readonly stdin?: string;
     } = {},
   ) {
     this.#answers = [...options.answers ?? []];
+    const stdin = options.stdin;
     const protocols = options.bearer === false
       ? ["mpu"]
       : ["mpu", `bearer.${options.agent ? back.agentToken : back.token}`];
@@ -228,6 +231,9 @@ export class Client {
       this.frames.push(frame);
       if ("ask" in frame && this.#answers.length > 0) {
         this.answer(this.#answers.shift() ?? "");
+      }
+      if ("stdinRequest" in frame && stdin !== undefined) {
+        this.send({ stdin });
       }
       this.#notify();
     };
