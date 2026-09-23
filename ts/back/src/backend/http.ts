@@ -5,7 +5,12 @@
  * ждёт продолжения следующим запросом.
  */
 
-import { askFrame, type AskKind, type ServerFrame } from "../frames/mod.ts";
+import {
+  askFrame,
+  type AskKind,
+  type RefusalData,
+  type ServerFrame,
+} from "../frames/mod.ts";
 import type { Caller } from "./caller.ts";
 import type { Door } from "./door.ts";
 import type { Asking, Delivery } from "./line.ts";
@@ -144,6 +149,9 @@ const COLLECTED: Form = {
     let stdout = "";
     let stderr = "";
     let tail: Tail = { exit: 1 };
+    // Отказ строки объектом (`platform/refusal-object.md`): у строки без
+    // отказа поля нет вовсе.
+    let refused: { readonly refusal?: RefusalData } = {};
     const body = Promise.withResolvers<Response>();
     // Кадр — данные границы контракта: его вид — его ключ.
     const take = (frame: ServerFrame) => {
@@ -153,6 +161,7 @@ const COLLECTED: Form = {
       // нет клиента с терминалом, и итогом строки она не является
       // (`platform/line-prompt.md`).
       else if ("clip" in frame) stderr += frame.clip;
+      else if ("refusal" in frame) refused = frame;
       else tail = frame;
     };
     let answered = false;
@@ -164,9 +173,12 @@ const COLLECTED: Form = {
         end: () => {
           answered = true;
           body.resolve(
-            new Response(JSON.stringify({ stdout, stderr, ...tail }), {
-              headers: { "Content-Type": JSON_TYPE },
-            }),
+            new Response(
+              JSON.stringify({ stdout, stderr, ...refused, ...tail }),
+              {
+                headers: { "Content-Type": JSON_TYPE },
+              },
+            ),
           );
         },
       },

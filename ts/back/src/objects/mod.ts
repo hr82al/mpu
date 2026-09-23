@@ -13,10 +13,12 @@ export type {
   Outcome,
   Receiver,
   Reflection,
+  Refused,
   Remedy,
   Report,
   ResultKind,
   Sent,
+  Told,
   Trace,
   ValueEvaluation,
   ValueLine,
@@ -40,7 +42,6 @@ export {
   EVERYONE,
   NO_VALUES,
   origin,
-  ROOT_TEXT,
   type Roster,
   Shape,
   type ShapeOptions,
@@ -55,8 +56,22 @@ export {
 } from "./reflection.ts";
 export { completeLine, type Suggestion } from "./complete.ts";
 export { SILENT } from "./silent.ts";
-export { Refusal, Rejection } from "./refusal.ts";
-export { line as callLine, NO_REMEDY, spoken } from "./remedy.ts";
+export {
+  notUnderstood,
+  plainRefusal,
+  Refusal,
+  Rejection,
+  RENAMED,
+  UNDERSTOOD_NOT,
+  unknownKey,
+} from "./refusal.ts";
+export {
+  atAddress,
+  NO_REMEDY,
+  ROOT_TEXT,
+  throughGate,
+  wholeLine,
+} from "./remedy.ts";
 export { type Loader, Replaceable } from "./replaceable.ts";
 export { GroupExit, runChain } from "./chain.ts";
 export { keywordSent } from "./sent.ts";

@@ -11,10 +11,21 @@ import {
   keyword,
   link,
   origin,
+  type Outcome,
   Refusal,
   Shape,
   unary,
 } from "./mod.ts";
+
+/**
+ * Итог для сравнения в тестах: отказ — его текстом (`error`). Объект
+ * отказа держит поля приватно, и `assertEquals` сравнил бы два разных
+ * отказа как равные.
+ */
+export function said(outcome: Outcome): unknown {
+  if (!("refused" in outcome)) return outcome;
+  return { error: outcome.refused.text(), code: outcome.code };
+}
 
 function about(purpose: string): Doc {
   return { purpose, help: `Справка: ${purpose}.` };

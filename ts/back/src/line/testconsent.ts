@@ -9,6 +9,7 @@ import {
   type LinePorts,
   type Memory,
   NO_CALLER,
+  NO_REFUSAL,
   terminalChannel,
 } from "./mod.ts";
 import { registrySeeds } from "./seeds.ts";
@@ -42,6 +43,7 @@ export function consentOf(
     execute: immediately,
     rootMethods: [],
     memory,
+    refusal: NO_REFUSAL,
   };
 }
 

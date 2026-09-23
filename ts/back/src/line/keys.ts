@@ -14,14 +14,17 @@ import type {
 import { GRAMMAR, type KeyKind, type KeyValue } from "../messages/mod.ts";
 import {
   type Args,
+  atAddress,
   type Call,
-  callLine,
   type Help,
   keywordSent,
   type Named,
   Refusal,
+  RENAMED,
   type ResultKind,
   type Trace,
+  UNDERSTOOD_NOT,
+  unknownKey,
 } from "../objects/mod.ts";
 import type { Order } from "./order.ts";
 import { type Chosen, Variant } from "./variants.ts";
@@ -147,10 +150,21 @@ interface Entry {
   readonly spellings: readonly Spelling[];
 }
 
-/** Отказ с готовой строкой: `причина: <адрес> <слова>`. */
-export function hinted(reason: string, words: readonly string[]): Refusal {
-  return new Refusal(reason, {
-    remedy: { spell: (address) => `: ${callLine(address, words)}` },
+/**
+ * Отказ с готовой строкой: `причина: <адрес> <слова>`.
+ *
+ * @param said причина в тексте
+ * @param reason вид отказа; по умолчанию — сама причина, если она
+ *   постоянна
+ */
+export function hinted(
+  said: string,
+  words: readonly string[],
+  reason: string = said,
+): Refusal {
+  return new Refusal(said, {
+    reason,
+    remedy: atAddress(": ", () => words),
   });
 }
 
@@ -187,10 +201,10 @@ class Renamed implements Spelling {
   refusal(value: KeyValue, pairs: readonly string[]): Refusal {
     // Словарный ключ назван смыслом (`текст — ключом`), прочий — именем.
     const label = DICTIONARY.get(this.#spec.name);
-    const reason = label === undefined
+    const said = label === undefined
       ? `--${this.old} — теперь ключ ${this.#spec.name}`
       : `${label} — ключом`;
-    return hinted(reason, [...pairs, ...written(this.#spec, value)]);
+    return hinted(said, [...pairs, ...written(this.#spec, value)], RENAMED);
   }
 }
 
@@ -721,7 +735,11 @@ export class Keys {
   ): Accepted {
     const understood = entries.slice(0, at);
     const args = Object.fromEntries(understood);
-    if (at === 0) throw new Refusal(`не понимает ${named.selector()}`);
+    if (at === 0) {
+      const names = this.#specs.map((spec) => spec.name);
+      const said = `не понимает ${named.selector()}`;
+      throw unknownKey(said, entries[0][0], names);
+    }
     const rest = entries.slice(at);
     if (result.selects(keywordSent(Object.fromEntries(rest)).selector())) {
       const absent = this.missing(args) ?? this.#asked(args, result.terminal);
@@ -734,7 +752,7 @@ export class Keys {
       return { args, text, pairs, rest: tail };
     }
     if (this.missing(args) !== undefined) {
-      throw new Refusal(`не понимает ${named.selector()}`);
+      throw new Refusal(`не понимает ${named.selector()}`, UNDERSTOOD_NOT);
     }
     return this.#leftover(args, understood, rest);
   }

@@ -4,12 +4,15 @@
  */
 
 import type { Output } from "../entrypoint/mod.ts";
-import type { Outcome } from "../objects/mod.ts";
+import type { Outcome, Told } from "../objects/mod.ts";
+
+/** Вывод строки, которому отказ говорит и объектом, и текстом. */
+export type Speech = Output & Told;
 
 /** Печатает итог и отдаёт код завершения. */
-export function printed(outcome: Outcome, output: Output): number {
-  if ("error" in outcome) {
-    output.stderr(`${outcome.error}\n`);
+export function printed(outcome: Outcome, output: Speech): number {
+  if ("refused" in outcome) {
+    outcome.refused.tell(output);
     return 2;
   }
   if ("exit" in outcome) return outcome.exit;

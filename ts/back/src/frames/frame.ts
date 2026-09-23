@@ -72,10 +72,23 @@ export function askFrame(
   return ticket === undefined ? asked : { ...asked, ticket };
 }
 
+/**
+ * Отказ строки объектом (`platform/refusal-object.md`): вид, исправленная
+ * строка словами (нет подсказки — `null`), ближайшие и текст stderr без
+ * перевода строки.
+ */
+export interface RefusalData {
+  readonly reason: string;
+  readonly hint: readonly string[] | null;
+  readonly candidates: readonly string[];
+  readonly text: string;
+}
+
 /** Кадр сервера. */
 export type ServerFrame =
   | { readonly out: string }
   | { readonly err: string }
+  | { readonly refusal: RefusalData }
   | {
     readonly ask: string;
     readonly kind?: AskKind;
@@ -131,7 +144,7 @@ export function answerOf(data: unknown): string | undefined {
  * `line.server`).
  *
  * @param data данные кадра как их отдал сокет
- * @throws BadFrame — не объект JSON или не один из четырёх видов
+ * @throws BadFrame — не объект JSON или не один из видов кадра
  */
 export function serverFrameOf(data: unknown): ServerFrame {
   const frame = parsedJson(data);
@@ -147,6 +160,7 @@ export function serverFrameOf(data: unknown): ServerFrame {
   if (keys.length !== 1) throw new BadFrame("у кадра сервера не одно поле");
   const [key] = keys;
   const value = frame[key];
+  if (key === "refusal") return { refusal: refusalOf(value) };
   if (key === "exit" && typeof value === "number" && Number.isInteger(value)) {
     return { exit: value };
   }
@@ -155,6 +169,32 @@ export function serverFrameOf(data: unknown): ServerFrame {
   if (key === "err") return { err: value };
   if (key === "clip") return { clip: value };
   throw new BadFrame(`неизвестный кадр ${key}`);
+}
+
+/** Список строк из JSON; иное — `undefined`. */
+function stringsOf(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  if (!value.every((one) => typeof one === "string")) return undefined;
+  return [...value];
+}
+
+/**
+ * Отказ-объект из кадра или собранного ответа.
+ *
+ * @throws BadFrame — не объект или поле не своего вида
+ */
+function refusalOf(value: unknown): RefusalData {
+  if (!isRecord(value)) throw new BadFrame("отказ не объект JSON");
+  const { reason, hint, candidates, text } = value;
+  const words = hint === null ? null : stringsOf(hint);
+  const near = stringsOf(candidates);
+  if (
+    typeof reason !== "string" || typeof text !== "string" ||
+    words === undefined || near === undefined
+  ) {
+    throw new BadFrame("у отказа поле не своего вида");
+  }
+  return { reason, hint: words, candidates: near, text };
 }
 
 /**
@@ -186,7 +226,13 @@ export function ticketAnswerOf(
  * `Accept: application/json`): потоки и итог — код или вопрос с номером.
  */
 export type Collected =
-  | { readonly stdout: string; readonly stderr: string; readonly exit: number }
+  | {
+    readonly stdout: string;
+    readonly stderr: string;
+    readonly exit: number;
+    /** Отказ строки объектом; строка не отказана — поля нет. */
+    readonly refusal?: RefusalData;
+  }
   | {
     readonly stdout: string;
     readonly stderr: string;
@@ -204,12 +250,15 @@ export type Collected =
 export function collectedOf(data: unknown): Collected {
   const body = parsedJson(data);
   if (!isRecord(body)) throw new BadFrame("собранный ответ не объект JSON");
-  const { stdout, stderr, exit, ask, kind, ticket } = body;
+  const { stdout, stderr, exit, ask, kind, ticket, refusal } = body;
   if (typeof stdout !== "string" || typeof stderr !== "string") {
     throw new BadFrame("в собранном ответе нет потоков");
   }
   if (typeof exit === "number" && Number.isInteger(exit)) {
-    return { stdout, stderr, exit };
+    // Поле границы: у строки без отказа его нет вовсе.
+    return refusal === undefined
+      ? { stdout, stderr, exit }
+      : { stdout, stderr, exit, refusal: refusalOf(refusal) };
   }
   if (typeof ask === "string" && typeof ticket === "string") {
     // Вид вопроса доезжает и этим трактом: иначе скрытый ответ читался

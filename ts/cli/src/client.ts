@@ -168,6 +168,9 @@ class LineSocket {
   #act(frame: ServerFrame) {
     if ("out" in frame) return this.#env.stdout(frame.out);
     if ("err" in frame) return this.#env.stderr(frame.err);
+    // Отказ-объект — для агента; человек читает тот же текст кадром `err`
+    // (`platform/refusal-object.md`).
+    if ("refusal" in frame) return;
     if ("ask" in frame) {
       // Ответ намеренно не ждётся никем: сервер может закончить строку
       // без него (таймаут 120 с, остановка), и клиент, ждущий строку

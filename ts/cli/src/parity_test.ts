@@ -13,6 +13,7 @@ import {
   immediately,
   lineEntry,
   NO_CALLER,
+  NO_REFUSAL,
   rulesOf,
 } from "../../back/src/line/mod.ts";
 import { withPolicyFile } from "../../back/src/line/testconsent.ts";
@@ -127,6 +128,7 @@ async function viaLine(line: Line, file: string): Promise<Seen> {
     execute: immediately,
     rootMethods: [],
     memory: NO_CALLER,
+    refusal: NO_REFUSAL,
   })(
     line.words,
     makeFakeIo(line.io ?? {}),

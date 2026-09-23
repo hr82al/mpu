@@ -14,6 +14,7 @@ export {
   type Message,
   MessageParseError,
   StrayWord,
+  UNNAMED_REFUSAL,
 } from "./message.ts";
 export { type MessageStep, readMessage } from "./read.ts";
 export { GRAMMAR, HELP_FLAG } from "./words.ts";

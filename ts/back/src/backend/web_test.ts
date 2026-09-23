@@ -96,6 +96,12 @@ Deno.test("web — ссылка с ключом только у двери че�
       stdout: "",
       stderr: "mpu: не понимает web\n",
       exit: 2,
+      refusal: {
+        reason: "не понимает",
+        hint: null,
+        candidates: [],
+        text: "mpu: не понимает web",
+      },
     });
     assertEquals((await lineOf(back, "/agent/line", ["web-logout"])).exit, 2);
   }));

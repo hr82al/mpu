@@ -16,6 +16,11 @@ import { WebAccess } from "./web.ts";
 /** Кадр сервера как его получил клиент. */
 export type Frame = Readonly<Record<string, unknown>>;
 
+/** Кадр отказа без подсказки и ближайших (`platform/refusal-object.md`). */
+export function refusalFrame(reason: string, text: string): Frame {
+  return { refusal: { reason, hint: null, candidates: [], text } };
+}
+
 /** Поднятый для теста сервер. */
 export interface TestBack {
   readonly url: string;

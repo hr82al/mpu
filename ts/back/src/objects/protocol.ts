@@ -9,6 +9,7 @@ import type {
   KeyValue,
   ReceiverDescription,
 } from "../messages/mod.ts";
+import type { RefusalData } from "../frames/mod.ts";
 import type { Help } from "./help.ts";
 
 /**
@@ -33,18 +34,54 @@ export type Outcome =
   | { readonly path: readonly string[]; readonly value: unknown }
   | { readonly path: readonly string[]; readonly object: string }
   | { readonly path: readonly string[]; readonly exit: number }
-  | { readonly error: string; readonly code: 2 };
+  | { readonly refused: Refused; readonly code: 2 };
+
+/** Куда говорит отказ: объект — вызывающему, текст — в stderr. */
+export interface Told {
+  refusal(data: RefusalData): void;
+  stderr(text: string): void;
+}
 
 /**
- * Подсказка к слову, которое стоит за значением ключа: как надо. Пусто —
- * подсказать нечего.
+ * Отказ строки объектом (`platform/refusal-object.md`): текст stderr и
+ * объект границы выводятся из одних полей.
  */
+export interface Refused {
+  /** Текст отказа, как в stderr, без перевода строки. */
+  text(): string;
+  /** Объект границы — копией. */
+  data(): RefusalData;
+  /** Сказать отказ: сначала объект, затем текст. */
+  tell(to: Told): void;
+}
+
+/** Где отказали: строка, адрес приёмника и промежуток сообщения. */
+export interface Scene {
+  /** Адрес до приёмника, как строку набрали (`mpu kiten comment`). */
+  readonly address: string;
+  /** Слова ключевого сообщения до лишнего слова, как в строке. */
+  readonly taken: readonly string[];
+  /** Слова строки, как их набрали (без `mpu`). */
+  readonly line: readonly string[];
+  /** Начало сообщения, которому отказали, в `line`. */
+  readonly start: number;
+  /** Конец (не включительно) того же сообщения. */
+  readonly end: number;
+}
+
+/** Подсказка отказа: что дописать к тексту и какая строка исправлена. */
+export interface Hint {
+  /** Хвост текста отказа; подсказки в тексте нет — пусто. */
+  said(): string;
+  /** Исправленная строка словами (без `mpu`); подсказать нечего — `null`. */
+  words(): readonly string[] | null;
+  /** Вид отказа с этой подсказкой; своего вида нет — `own` отказа. */
+  reason(own: string): string;
+}
+
+/** Как надо: подсказка к отказу по месту, где отказали. */
 export interface Remedy {
-  /**
-   * @param address адрес до ключевого сообщения
-   * @param taken слова ключевого сообщения, как в строке
-   */
-  spell(address: string, taken: readonly string[]): string;
+  hint(scene: Scene): Hint;
 }
 
 /** Сообщение, которое понимает объект (`platform/reflection.md`). */
@@ -183,8 +220,6 @@ export interface Report {
    * входа: так строку называют вопрос и отказы правил.
    */
   text(): string;
-  /** Та же строка текстом, набранная через вход `gate`. */
-  through(gate: string): string;
 }
 
 /** Приёмник сообщения в цепочке. */

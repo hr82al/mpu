@@ -18,7 +18,9 @@ import type {
   Call,
   Outcome,
   Receiver,
+  Remedy,
   ResultKind,
+  Scene,
   Sent,
   Trace,
   ValueEvaluation,
@@ -26,7 +28,8 @@ import type {
 } from "./protocol.ts";
 import { HELP_SELECTOR } from "./protocol.ts";
 import { ANSWERED, answered, HELP_DOC } from "./result.ts";
-import { Refusal, Rejection } from "./refusal.ts";
+import { Refusal, RefusalNotice, Rejection } from "./refusal.ts";
+import { NO_REMEDY } from "./remedy.ts";
 import { sentOf } from "./sent.ts";
 import { Trail } from "./trail.ts";
 
@@ -70,10 +73,16 @@ class HelpCall implements Call {
 
 class Walk implements Walker {
   readonly #trail = new Trail();
+  /** Слова строки, как их набрали: по ним — подсказки отказов. */
+  readonly #line: readonly string[];
+  /** Промежуток последнего прочитанного сообщения в `#line`. */
+  #start = 0;
+  #end = 0;
   #pending: Call;
 
-  constructor(origin: Call) {
+  constructor(origin: Call, line: readonly string[]) {
     this.#pending = origin;
+    this.#line = line;
   }
 
   /**
@@ -81,12 +90,22 @@ class Walk implements Walker {
    * Лишнее слово за значением называется с адресом до него.
    */
   read(words: readonly string[]) {
+    this.#start = this.#line.length - words.length;
     try {
-      return readMessage(words, this.#pending.result().parsing());
+      const step = readMessage(words, this.#pending.result().parsing());
+      this.#end = this.#line.length - step.rest.length;
+      return step;
     } catch (err) {
       if (err instanceof StrayWord) throw this.#stray(err);
       if (!(err instanceof MessageParseError)) throw err;
-      throw new Rejection(err.message, { cause: err });
+      throw this.#rejected(err, {
+        said: err.message,
+        reason: err.reason,
+        address: this.#trail.address(),
+        taken: [],
+        remedy: NO_REMEDY,
+        candidates: [],
+      });
     }
   }
 
@@ -94,9 +113,33 @@ class Walk implements Walker {
     const shown = this.#trail.copy();
     this.#pending.trace(shown);
     const at = shown.textWith(err.taken.join(" "));
-    const hint = this.#pending.result().remedy(err.word, err.after)
-      .spell(shown.address(), err.taken);
-    return new Rejection(`${at}: ${err.message}${hint}`, { cause: err });
+    return this.#rejected(err, {
+      said: `${at}: ${err.message}`,
+      reason: err.reason,
+      address: shown.address(),
+      taken: err.taken,
+      remedy: this.#pending.result().remedy(err.word, err.after),
+      candidates: [],
+    });
+  }
+
+  /** Отказ строки из отказа `err` по месту: адрес и строка — у прохода. */
+  #rejected(err: Error, told: Telling): Rejection {
+    const scene: Scene = {
+      address: told.address,
+      taken: told.taken,
+      line: this.#line,
+      start: this.#start,
+      end: this.#end,
+    };
+    const hint = told.remedy.hint(scene);
+    const notice = new RefusalNotice({
+      reason: hint.reason(told.reason),
+      said: told.said,
+      hint,
+      candidates: told.candidates,
+    });
+    return new Rejection(notice, { cause: err });
   }
 
   help() {
@@ -121,9 +164,7 @@ class Walk implements Walker {
       if (!(err instanceof Refusal)) throw err;
       const shown = this.#trail.copy();
       this.#pending.trace(shown);
-      const at = shown.address();
-      const hint = err.remedy.spell(at, []);
-      throw new Rejection(`${at}: ${err.message}${hint}`, { cause: err });
+      throw this.#refusal(err, shown.address());
     }
   }
 
@@ -147,7 +188,6 @@ class Walk implements Walker {
         exit: (exit) => ({ path, exit }),
         links: () => [...path],
         text: () => this.#trail.text(),
-        through: (gate) => this.#trail.through(gate),
         object: () => ({
           path,
           object: this.#refused(() => this.#pending.help(before).text()),
@@ -181,12 +221,32 @@ class Walk implements Walker {
   /** Отказ объекта получает спереди путь до приёмника. */
   #rejection(err: unknown): unknown {
     if (!(err instanceof Refusal)) return err;
-    const address = this.#trail.address();
-    const hint = err.remedy.spell(address, []);
-    return new Rejection(`${address}: ${err.message}${hint}`, {
-      cause: err,
+    return this.#refusal(err, this.#trail.address());
+  }
+
+  /** Отказ объекта по адресу `at`: вид, подсказка и ближайшие — его. */
+  #refusal(err: Refusal, at: string): Rejection {
+    return this.#rejected(err, {
+      said: `${at}: ${err.message}`,
+      reason: err.reason,
+      address: at,
+      taken: [],
+      remedy: err.remedy,
+      candidates: err.candidates,
     });
   }
+}
+
+/** Что проход знает об отказе, кроме места: текст, вид, подсказка. */
+interface Telling {
+  /** Текст с адресом спереди, без подсказки. */
+  readonly said: string;
+  readonly reason: string;
+  /** Адрес до приёмника, по которому строится подсказка. */
+  readonly address: string;
+  readonly taken: readonly string[];
+  readonly remedy: Remedy;
+  readonly candidates: readonly string[];
 }
 
 /**
@@ -202,11 +262,12 @@ export async function runChain(
   origin: Call,
   evaluation: ValueEvaluation = NO_EVALUATION,
 ): Promise<Outcome> {
-  const walk = new Walk(origin);
+  // Открытие группы первым словом — то же, что без него
+  // (`platform/line-grammar.md`): группу закрывает `end` от начала.
+  const line = words[0] === GRAMMAR.open ? words.slice(1) : words;
+  const walk = new Walk(origin, line);
   try {
-    // Открытие группы первым словом — то же, что без него
-    // (`platform/line-grammar.md`): группу закрывает `end` от начала.
-    let rest = words[0] === GRAMMAR.open ? words.slice(1) : words;
+    let rest = line;
     do {
       const step = walk.read(rest);
       rest = step.rest;
@@ -219,7 +280,7 @@ export async function runChain(
   } catch (err) {
     if (err instanceof GroupExit) return { path: [], exit: err.code };
     if (!(err instanceof Rejection)) throw err;
-    return { error: err.message, code: 2 };
+    return { refused: err.refused, code: 2 };
   }
 }
 

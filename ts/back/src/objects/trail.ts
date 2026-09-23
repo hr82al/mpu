@@ -3,8 +3,7 @@ import type { Trace } from "./protocol.ts";
 /**
  * Пройденный путь цепочки: звенья для правил, текст, которым строку
  * называет вопрос (звенья и варианты), и адрес — все слова строки по
- * порядку, со словами в стороне (вход `ask`, `end`, формат). Вход бывает только у корня, поэтому `through` ставит его сразу
- * за началом.
+ * порядку, со словами в стороне (вход `ask`, `end`, формат).
  */
 export class Trail implements Trace {
   readonly #links: string[] = [];
@@ -44,11 +43,6 @@ export class Trail implements Trace {
   /** Путь без слов в стороне: так строку называет вопрос подтверждения. */
   text(): string {
     return [...this.#start, ...this.#texts].join(" ");
-  }
-
-  /** Путь, набранный через вход `gate`. */
-  through(gate: string): string {
-    return [...this.#start, gate, ...this.#texts].join(" ");
   }
 
   /** Звенья — копией. */

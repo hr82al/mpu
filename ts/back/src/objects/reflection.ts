@@ -13,8 +13,8 @@ import type {
 import { dataHelp, ended } from "./result.ts";
 import { Description, keyword, type Method, unary } from "./method.ts";
 import { order } from "./nearest.ts";
-import { NO_REMEDY } from "./remedy.ts";
-import { Refusal } from "./refusal.ts";
+import { atAddress, NO_REMEDY } from "./remedy.ts";
+import { Refusal, RENAMED } from "./refusal.ts";
 import { SILENT } from "./silent.ts";
 import {
   type Call,
@@ -110,9 +110,10 @@ function about(purpose: string): Doc {
 function renamed(old: string, now: string, words: (args: Named) => string[]) {
   return (sent: Named): never => {
     const colon = sent.selector().endsWith(":") ? ":" : "";
-    const spelled = [`${now}${colon}`, ...words(sent)].join(" ");
+    const spelled = [`${now}${colon}`, ...words(sent)];
     throw new Refusal(`${old} — теперь ${now}`, {
-      remedy: { spell: (address) => `: ${address} ${spelled}` },
+      reason: RENAMED,
+      remedy: atAddress(": ", () => spelled),
     });
   };
 }

@@ -5,8 +5,14 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
-import { Client, request, type TestBack, withBack } from "./testback.ts";
+import { ASK, NOBODY_TO_ASK, RuleBook, RulePath } from "../policy/mod.ts";
+import {
+  Client,
+  refusalFrame,
+  request,
+  type TestBack,
+  withBack,
+} from "./testback.ts";
 
 function askOn(back: TestBack, path: string) {
   using book = RuleBook.open(back.policyFile, []);
@@ -52,6 +58,7 @@ Deno.test("канал агента: human с агентским токеном �
     await byAgent.opened();
     byAgent.start(["ask", "xlsx", "alias", "ls"], true);
     assertEquals(await byAgent.finished(), [
+      refusalFrame(NOBODY_TO_ASK, `mpu xlsx alias ls: ${NOBODY_TO_ASK}`),
       { err: "mpu xlsx alias ls: нужно подтверждение, а спросить некого\n" },
       { exit: 1 },
     ]);

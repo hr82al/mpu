@@ -7,8 +7,8 @@
 
 import type { Command, CommandMode } from "../command/mod.ts";
 import {
+  atAddress,
   type Call,
-  callLine,
   type Doc,
   type Fallback,
   type Help,
@@ -134,10 +134,11 @@ class KeyStrays implements Strays {
   remedy(word: string, after: readonly string[]): Remedy {
     const hint = this.#keys.short(word, after);
     if (hint === undefined) return NO_REMEDY;
-    return {
-      spell: (address, taken) =>
-        `; ${hint.reason}: ${callLine(address, hint.spelled(taken))}`,
-    };
+    return atAddress(
+      `; ${hint.reason}: `,
+      (taken) => hint.spelled(taken),
+      hint.reason,
+    );
   }
 }
 

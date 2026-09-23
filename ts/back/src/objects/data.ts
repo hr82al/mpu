@@ -24,7 +24,7 @@ import type {
   Shown,
 } from "./protocol.ts";
 import { reflected, sorted, withProtocol } from "./reflection.ts";
-import { Refusal } from "./refusal.ts";
+import { notUnderstood, Refusal, UNDERSTOOD_NOT } from "./refusal.ts";
 import { NO_REMEDY } from "./remedy.ts";
 import { DATA_FORMATS, jsonText, PRINTED, type ResultEnd } from "./result.ts";
 import { SILENT } from "./silent.ts";
@@ -200,7 +200,7 @@ function lookupData(
       format(data, named) ?? reflected(named, reflection) ??
         new AsideCall(named.text(), SAME_DOC, SELECTED, () => own(named)),
     tail: () => {
-      throw new Refusal(`не понимает ${sent.selector()}`);
+      throw new Refusal(`не понимает ${sent.selector()}`, UNDERSTOOD_NOT);
     },
     close: () => new AsideCall(GRAMMAR.close, SAME_DOC, SELECTED, () => data),
   });
@@ -236,14 +236,17 @@ class JsonOf implements Receiver {
 
 /** Слово после формата: формат — последним. */
 function formatLast(sent: Sent): never {
-  throw new Refusal(`не понимает ${sent.selector()}; формат — последним`);
+  throw new Refusal(
+    `не понимает ${sent.selector()}; формат — последним`,
+    UNDERSTOOD_NOT,
+  );
 }
 
 /**
  * Отказ вида `kind` слову `selector` с ближайшими из `known`; близких
  * нет — называются `otherwise`.
  */
-function notUnderstood(
+function refusedBy(
   kind: string,
   selector: string,
   known: readonly string[],
@@ -251,8 +254,8 @@ function notUnderstood(
 ): never {
   const close = nearest(selector, known);
   const shown = close.length > 0 ? close : otherwise;
-  const hint = shown.length > 0 ? `; ближайшие: ${shown.join(", ")}` : "";
-  throw new Refusal(`${kind} не понимает ${selector}${hint}`);
+  const said = `${kind} не понимает ${selector}`;
+  throw notUnderstood(said, selector, shown, "ближайшие");
 }
 
 /** Числа — как числа, прочее — как текст (даты ISO сравниваются верно). */
@@ -289,7 +292,7 @@ class Scalar implements Data, Comparable {
       this,
       sent,
       dataReflection([]),
-      (named) => notUnderstood("скаляр", named.selector(), []),
+      (named) => refusedBy("скаляр", named.selector(), []),
     );
   }
 
@@ -298,7 +301,7 @@ class Scalar implements Data, Comparable {
   }
 
   field(name: string): Data {
-    return notUnderstood("скаляр", name, []);
+    return refusedBy("скаляр", name, []);
   }
 
   comparable(): Comparable {
@@ -362,10 +365,10 @@ const NIL: Data & Comparable = {
       NIL,
       sent,
       dataReflection([]),
-      (named) => notUnderstood("скаляр", named.selector(), []),
+      (named) => refusedBy("скаляр", named.selector(), []),
     ),
   final: (report) => Promise.resolve(report.shown(NIL)),
-  field: (name) => notUnderstood("скаляр", name, []),
+  field: (name) => refusedBy("скаляр", name, []),
   comparable: () => NIL,
   is: () => false,
   compare: () => NaN,
@@ -429,7 +432,7 @@ class Collection implements Data {
     return lookupData(this, sent, dataReflection(messages), (named) => {
       const method = COLLECTION_METHODS.get(named.selector());
       if (method !== undefined) return method(this, named.args());
-      return notUnderstood(
+      return refusedBy(
         "коллекция",
         named.selector(),
         messages.map((line) => line.selector),
@@ -491,7 +494,7 @@ class Collection implements Data {
   }
 
   field(name: string): Data {
-    return notUnderstood("коллекция", name, []);
+    return refusedBy("коллекция", name, []);
   }
 
   comparable(): Comparable {
@@ -555,7 +558,7 @@ class Row implements Data {
     if (!Object.hasOwn(this.#fields, name)) {
       // Близкого поля нет — называются все: иначе ошибку не исправить.
       const names = Object.keys(this.#fields);
-      return notUnderstood("запись", name, names, names);
+      return refusedBy("запись", name, names, names);
     }
     return dataOf(this.#fields[name]);
   }
@@ -649,7 +652,6 @@ function dataReport(report: Report): Report {
     exit: (code) => report.exit(code),
     links: () => report.links(),
     text: () => report.text(),
-    through: (gate) => report.through(gate),
   };
 }
 
@@ -698,7 +700,7 @@ class Selecting implements Receiver {
         reflected(named, SELECTED.reflect()) ??
           new AsideCall(named.text(), SELECT_DOC, SELECTED, next),
       tail: () => {
-        throw new Refusal(`не понимает ${sent.selector()}`);
+        throw new Refusal(`не понимает ${sent.selector()}`, UNDERSTOOD_NOT);
       },
       close: () => new AsideCall(GRAMMAR.close, SELECT_DOC, SELECTED, next),
     });

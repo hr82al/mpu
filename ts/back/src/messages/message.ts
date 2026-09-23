@@ -14,11 +14,24 @@ export type Message =
   | { readonly close: true };
 
 /**
+ * Вид отказа, которого не назвали (`platform/refusal-object.md`): у отказа
+ * есть текст, но нет постоянной строки вида.
+ */
+export const UNNAMED_REFUSAL = "отказ";
+
+/**
  * Слова строки не складываются в сообщение. Текст — из спеки дословно;
  * имя ключа в нём без двоеточия и без `--`.
  */
 export class MessageParseError extends Error {
   override name = "MessageParseError";
+  /** Вид отказа — постоянная строка; не назван — «отказ». */
+  readonly reason: string;
+
+  constructor(message: string, reason: string = UNNAMED_REFUSAL) {
+    super(message);
+    this.reason = reason;
+  }
 
   /** Ключ ждёт значения, а за ним ничего подходящего нет. */
   static noValue(key: string): MessageParseError {

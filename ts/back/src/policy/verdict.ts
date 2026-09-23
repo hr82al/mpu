@@ -7,13 +7,25 @@
 import type { Channel } from "./channel.ts";
 import type { RulePath } from "./path.ts";
 
+/** Вид отказа: человек ответил «нет». */
+export const NOT_CONFIRMED = "не подтверждено";
+/** Вид отказа: подтверждение нужно, а канала к человеку нет. */
+export const NOBODY_TO_ASK = "нужно подтверждение, а спросить некого";
+/** Вид отказа: запрет правилом. */
+export const DENIED = "запрещено правилом";
+
 /** Строка, которую решают правила. */
 export interface Execution<T> {
   /** Текст пути строки (`mpu kiten ls`) для вопроса и отказов. */
   readonly text: string;
   run(): Promise<T>;
-  /** Отказ с готовым текстом. */
-  refuse(reason: string): Promise<T>;
+  /**
+   * Отказ с готовым текстом.
+   *
+   * @param reason вид отказа — постоянная строка (`platform/refusal-object.md`)
+   * @param text текст отказа целиком
+   */
+  refuse(reason: string, text: string): Promise<T>;
   /**
    * Строка пришла не по тому адресу: отказ с подсказкой верного. Какой
    * адрес верный, знает тот, кто собрал строку, а не правила.
@@ -154,9 +166,9 @@ export const CONFIRM: Treatment = {
     const text = execution.text;
     return channel.ask(`выполнить ${text}? [y/N] `, {
       yes: () => execution.run(),
-      no: () => execution.refuse(`${text}: не подтверждено`),
+      no: () => execution.refuse(NOT_CONFIRMED, `${text}: ${NOT_CONFIRMED}`),
       absent: () =>
-        execution.refuse(`${text}: нужно подтверждение, а спросить некого`),
+        execution.refuse(NOBODY_TO_ASK, `${text}: ${NOBODY_TO_ASK}`),
     });
   },
   admits: () => true,
@@ -170,7 +182,10 @@ export const REDIRECT: Treatment = {
 
 const FORBIDDEN: Treatment = {
   settle: (execution, _channel, won) =>
-    execution.refuse(`${execution.text}: запрещено правилом «${won}»`),
+    execution.refuse(
+      DENIED,
+      `${execution.text}: ${DENIED} «${won}»`,
+    ),
   admits: () => false,
 };
 

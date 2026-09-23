@@ -6,10 +6,16 @@
 
 import { assertEquals } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
-import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
+import { ASK, NOT_CONFIRMED, RuleBook, RulePath } from "../policy/mod.ts";
 import { ANSWER_TIMEOUT_MS } from "./mod.ts";
 import { Lines } from "./limit.ts";
-import { Client, type TestBack, withBack, within } from "./testback.ts";
+import {
+  Client,
+  refusalFrame,
+  type TestBack,
+  withBack,
+  within,
+} from "./testback.ts";
 
 /** Строка, чьё исполнение читает файл книги — его задерживает тест. */
 const READING = (path: string) => ["xlsx", "ls", "file:", path];
@@ -176,6 +182,7 @@ Deno.test("ответа нет 120 секунд — не подтвержден�
     await time.tickAsync(1);
     assertEquals(await a.finished(), [
       { ask: "выполнить mpu xlsx alias ls? [y/N] " },
+      refusalFrame(NOT_CONFIRMED, `mpu xlsx alias ls: ${NOT_CONFIRMED}`),
       { err: "mpu xlsx alias ls: не подтверждено\n" },
       { exit: 1 },
     ]);

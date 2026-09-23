@@ -8,7 +8,13 @@ import { assertEquals } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
 import type { CommandIo } from "../command/mod.ts";
 import { rulesOf } from "../line/mod.ts";
-import { ASK, RuleBook, RulePath } from "../policy/mod.ts";
+import {
+  ASK,
+  NOBODY_TO_ASK,
+  NOT_CONFIRMED,
+  RuleBook,
+  RulePath,
+} from "../policy/mod.ts";
 import { formFor } from "./http.ts";
 import { ANSWER_TIMEOUT_MS } from "./mod.ts";
 import {
@@ -18,6 +24,7 @@ import {
   line,
   ndjson,
   post,
+  refusalFrame,
   request,
   type TestBack,
   withBack,
@@ -142,11 +149,13 @@ Deno.test("собранный ответ — склейка кадров пот�
           streamed.filter((frame) => key in frame).map((frame) => frame[key])
             .join("");
         const { out: _o, err: _e, ...tail } = streamed.at(-1) ?? {};
+        const refused = streamed.find((frame) => "refusal" in frame) ?? {};
         assertEquals(
           { ...whole, ticket: "ticket" in whole ? "<ticket>" : undefined },
           {
             stdout: fold("out"),
             stderr: fold("err"),
+            ...refused,
             ...tail,
             ticket: "ticket" in tail ? "<ticket>" : undefined,
           },
@@ -181,6 +190,7 @@ Deno.test("вопрос номером: да — правило записано
       ["n"],
     );
     assertEquals(refused, [
+      refusalFrame(NOT_CONFIRMED, `mpu deny: kiten ls: ${NOT_CONFIRMED}`),
       { err: "mpu deny: kiten ls: не подтверждено\n" },
       { exit: 1 },
     ]);
@@ -284,6 +294,7 @@ Deno.test("агентский токен: вопроса нет, спросит�
       { agent: true },
     );
     assertEquals(frames, [
+      refusalFrame(NOBODY_TO_ASK, `mpu xlsx alias ls: ${NOBODY_TO_ASK}`),
       { err: "mpu xlsx alias ls: нужно подтверждение, а спросить некого\n" },
       { exit: 1 },
     ]);

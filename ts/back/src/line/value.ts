@@ -141,7 +141,7 @@ function parsed(text: string, key: string): unknown {
  * Итога без печати (вершина дерева) у группы нет: `json` она не понимает.
  */
 function dataOf(outcome: Outcome, printed: string, key: string): unknown {
-  if ("error" in outcome) throw new Rejection(outcome.error);
+  if ("refused" in outcome) throw new Rejection(outcome.refused);
   if ("exit" in outcome && outcome.exit !== 0) {
     throw new GroupExit(outcome.exit);
   }

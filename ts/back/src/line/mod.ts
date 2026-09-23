@@ -13,8 +13,9 @@ import {
   runLine,
   streams,
 } from "../entrypoint/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
-import { runChain } from "../objects/mod.ts";
+import type { RefusalData } from "../frames/mod.ts";
+import { GRAMMAR, UNNAMED_REFUSAL } from "../messages/mod.ts";
+import { plainRefusal, runChain } from "../objects/mod.ts";
 import {
   type Channel,
   Human,
@@ -28,8 +29,9 @@ import { JSON_STRIPPED, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
 import { registrySeeds } from "./seeds.ts";
 import { targetValues } from "../selector/mod.ts";
 import { itMethod, type Memory, NO_CALLER, remembering } from "./it.ts";
-import { printed } from "./printed.ts";
+import { printed, type Speech } from "./printed.ts";
 import { Session } from "./session.ts";
+export { HUMAN_ONLY } from "./session.ts";
 import { LineValues, StdinOnce } from "./value.ts";
 import { ASK_WORD } from "./view.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
@@ -112,7 +114,15 @@ export interface LinePorts {
   readonly rootMethods: readonly RootMethod[];
   /** Память вызывающего строки: её результат и ответ на `it`. */
   readonly memory: Memory;
+  /**
+   * Отказ строки объектом — вызывающему, перед его текстом в stderr
+   * (`platform/refusal-object.md`); у прямого вызова объект не нужен.
+   */
+  readonly refusal: (data: RefusalData) => void;
 }
+
+/** Отказ-объект никому не нужен: достаточно текста. */
+export const NO_REFUSAL = (_data: RefusalData) => {};
 
 /**
  * Файл правил в каталоге состояния (`platform/policy.md`, «Хранение»).
@@ -163,12 +173,17 @@ export function immediately(run: () => Promise<number>): Promise<number> {
  */
 export function lineEntry(ports: LinePorts): CliEntry {
   return async (argv, io, output, journal) => {
+    const speech: Speech = {
+      stdout: (text) => output.stdout(text),
+      stderr: (text) => output.stderr(text),
+      refusal: ports.refusal,
+    };
     let book: RuleBook;
     try {
       book = RuleBook.open(ports.file, registrySeeds());
     } catch (err) {
       if (!(err instanceof PolicyError)) throw err;
-      output.stderr(`${err.message}\n`);
+      plainRefusal(UNNAMED_REFUSAL, err.message).tell(speech);
       return 1;
     }
     using _book = book;
@@ -192,7 +207,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
      */
     const sessionOf = (
       words: readonly string[],
-      out: Output,
+      out: Speech,
       memory: Memory,
     ) =>
       new Session({
@@ -218,9 +233,10 @@ export function lineEntry(ports: LinePorts): CliEntry {
     const door = walked[0] === ASK_WORD ? [ASK_WORD] : [];
     const values: LineValues = new LineValues(async (words) => {
       const texts: string[] = [];
-      const captured: Output = {
+      const captured: Speech = {
         stdout: (text) => void texts.push(text),
-        stderr: output.stderr,
+        stderr: speech.stderr,
+        refusal: speech.refusal,
       };
       const group = [...door, ...words];
       // Результат группы — значение ключа, а не результат строки.
@@ -232,11 +248,11 @@ export function lineEntry(ports: LinePorts): CliEntry {
       const outcome = await runChain(group, root, values);
       return { outcome, printed: texts.join("") };
     }, stdin);
-    const root = registryRoot(sessionOf(argv, output, ports.memory), book, {
+    const root = registryRoot(sessionOf(argv, speech, ports.memory), book, {
       ...parts,
       stripped: strippedOf(argv),
     });
     const outcome = await runChain(walked, root, values);
-    return printed(outcome, output);
+    return printed(outcome, speech);
   };
 }

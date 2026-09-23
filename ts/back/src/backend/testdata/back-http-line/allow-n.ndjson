@@ -1,3 +1,4 @@
 {"ask":"изменить правило: kiten ls → allow? [y/N] ","ticket":"<ticket>"}
+{"refusal":{"reason":"не подтверждено","hint":null,"candidates":[],"text":"mpu allow: kiten ls: не подтверждено"}}
 {"err":"mpu allow: kiten ls: не подтверждено\n"}
 {"exit":1}

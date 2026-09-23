@@ -5,18 +5,25 @@
  */
 
 import type { Command } from "../command/mod.ts";
-import type { Delivery, Output } from "../entrypoint/mod.ts";
-import type { Data, Outcome, Report } from "../objects/mod.ts";
+import type { Delivery } from "../entrypoint/mod.ts";
+import { UNNAMED_REFUSAL } from "../messages/mod.ts";
+import {
+  type Data,
+  type Outcome,
+  plainRefusal,
+  type Report,
+} from "../objects/mod.ts";
 import {
   type Change,
   type Channel,
+  NOT_CONFIRMED,
   PolicyError,
   type RuleBook,
   type RulePath,
   type Ruling,
 } from "../policy/mod.ts";
 import type { Line } from "./dispatch.ts";
-import { printed } from "./printed.ts";
+import { printed, type Speech } from "./printed.ts";
 import { selectorFirstWriters } from "./seeds.ts";
 import type { Order } from "./order.ts";
 import { NORMAL, toDoor, type View } from "./view.ts";
@@ -24,11 +31,14 @@ import { NORMAL, toDoor, type View } from "./view.ts";
 /** Код отказа правил и изменения правил. */
 const REFUSED = 1;
 
+/** Вид отказа: правило меняет только человек (канал агента). */
+export const HUMAN_ONLY = "изменить правила может только человек";
+
 /** Из чего собрана строка. */
 export interface SessionParts {
   readonly book: RuleBook;
   readonly channel: Channel;
-  readonly output: Output;
+  readonly output: Speech;
   /**
    * Строка нынешней диспетчеризацией, какой её видит `view` и собирает
    * `order`; результат уходит доставкой `delivery` (нет — печать); итог
@@ -52,7 +62,7 @@ interface Take {
     code: number,
     replay: (data: Data) => Promise<Outcome>,
     report: Report,
-    output: Output,
+    output: Speech,
   ): Promise<Outcome>;
 }
 
@@ -74,7 +84,7 @@ class Delivered implements Take {
     code: number,
     replay: (data: Data) => Promise<Outcome>,
     report: Report,
-    output: Output,
+    output: Speech,
   ): Promise<Outcome> {
     const shown = printed(await replay(this.#data), output);
     return report.exit(shown === 0 ? code : shown);
@@ -94,7 +104,7 @@ class Taking implements Delivery {
     code: number,
     replay: (data: Data) => Promise<Outcome>,
     report: Report,
-    output: Output,
+    output: Speech,
   ): Promise<Outcome> {
     return this.#taken.finish(code, replay, report, output);
   }
@@ -104,7 +114,7 @@ class Taking implements Delivery {
 export class Session implements Line {
   readonly #book: RuleBook;
   readonly #channel: Channel;
-  readonly #output: Output;
+  readonly #output: Speech;
   readonly #dispatch: SessionParts["dispatch"];
   readonly #streams: SessionParts["streams"];
   readonly #terminal: boolean;
@@ -164,9 +174,13 @@ export class Session implements Line {
           report,
           () => report.value(change.apply(this.#book, path)),
         ),
-      no: () => this.#refuse(report, `${report.text()}: не подтверждено`),
-      absent: () =>
-        this.#refuse(report, "изменить правила может только человек"),
+      no: () =>
+        this.#refuse(
+          report,
+          NOT_CONFIRMED,
+          `${report.text()}: ${NOT_CONFIRMED}`,
+        ),
+      absent: () => this.#refuse(report, HUMAN_ONLY, HUMAN_ONLY),
     });
   }
 
@@ -186,8 +200,8 @@ export class Session implements Line {
       {
         text: report.text(),
         run,
-        refuse: (reason) => this.#refuse(report, reason),
-        redirect: () => toDoor(report),
+        refuse: (reason, text) => this.#refuse(report, reason, text),
+        redirect: () => toDoor(),
       },
       this.#channel,
       view,
@@ -206,11 +220,11 @@ export class Session implements Line {
   /** Сбой файла правил — отказ строки его текстом; прочее — дальше. */
   #broken(report: Report, err: unknown): Promise<Outcome> {
     if (!(err instanceof PolicyError)) throw err;
-    return this.#refuse(report, err.message);
+    return this.#refuse(report, UNNAMED_REFUSAL, err.message);
   }
 
-  #refuse(report: Report, reason: string): Promise<Outcome> {
-    this.#output.stderr(`${reason}\n`);
+  #refuse(report: Report, reason: string, text: string): Promise<Outcome> {
+    plainRefusal(reason, text).tell(this.#output);
     return Promise.resolve(report.exit(REFUSED));
   }
 }

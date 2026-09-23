@@ -7,7 +7,7 @@
 import { assertEquals } from "@std/assert";
 import type { ElicitRequest } from "@modelcontextprotocol/sdk/types.js";
 import { collected, post } from "../../back/src/backend/testback.ts";
-import { ASK, RuleBook, RulePath } from "../../back/src/policy/mod.ts";
+import { ASK, DENY, RuleBook, RulePath } from "../../back/src/policy/mod.ts";
 import { TOOLS } from "./mod.ts";
 import {
   call,
@@ -84,6 +84,66 @@ Deno.test("mpu: version и kitn — итог равен POST /agent/line", () =>
       assertEquals(kitn.structuredContent, await direct(stack, ["kitn"]));
     })
   ));
+
+/** Отказ-объект из ответа тула; у успешной строки его нет. */
+function refusalOf(result: { structuredContent?: unknown }): unknown {
+  const content = result.structuredContent as Record<string, unknown>;
+  return content.refusal;
+}
+
+Deno.test("отказ — объект в structuredContent, hint — слова строки", () =>
+  withStack((stack) =>
+    withClient(stack, async (client) => {
+      const keyed = await call(stack, client, "mpu", {
+        words: ["kiten", "comment", "55", "ok"],
+      });
+      assertEquals(keyed.isError, true);
+      assertEquals(refusalOf(keyed), {
+        reason: "значение — ключом",
+        hint: ["kiten", "comment", "id:", "55", "text:", "ok"],
+        candidates: [],
+        text:
+          "mpu kiten comment: значение — ключом: mpu kiten comment id: 55 text: ok",
+      });
+      const kitn = await call(stack, client, "mpu", { words: ["kitn"] });
+      assertEquals(refusalOf(kitn), {
+        reason: "не понимает",
+        hint: ["kiten"],
+        candidates: ["kiten"],
+        text: "mpu: не понимает kitn; ближайшие: kiten",
+      });
+      const door = await call(stack, client, "mpu", {
+        words: ["sql", "target:", "1", "sql:", "update t"],
+      });
+      assertEquals(door.isError, true);
+      assertEquals(
+        (refusalOf(door) as { hint: unknown }).hint,
+        ["ask", "sql", "target:", "1", "sql:", "update t"],
+      );
+      const version = await call(stack, client, "mpu", { words: ["version"] });
+      assertEquals("refusal" in (version.structuredContent ?? {}), false);
+    })
+  ));
+
+Deno.test("отказ правил deny — hint null", () =>
+  withStack((stack) => {
+    {
+      using book = RuleBook.open(stack.back.policyFile, []);
+      book.set(RulePath.parse("xlsx alias ls"), DENY);
+    }
+    return withClient(stack, async (client) => {
+      const denied = await call(stack, client, "mpu", {
+        words: ["xlsx", "alias", "ls"],
+      });
+      assertEquals(denied.isError, true);
+      assertEquals(refusalOf(denied), {
+        reason: "запрещено правилом",
+        hint: null,
+        candidates: [],
+        text: "mpu xlsx alias ls: запрещено правилом «xlsx alias ls»",
+      });
+    });
+  }));
 
 Deno.test("help: корень без path, группа по path", () =>
   withStack((stack) =>

@@ -6,6 +6,7 @@
  */
 
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import type { RefusalData } from "../../back/src/frames/mod.ts";
 import { GRAMMAR } from "../../back/src/messages/mod.ts";
 import type { Asker } from "./asker.ts";
 import type { BackLine } from "./back.ts";
@@ -27,7 +28,8 @@ const MPU_DESCRIPTION =
 - Форматы: \`json\`, \`md\`, \`csv\`, \`table\`.
 - Ключи везде одни: \`target:\` где исполнить (номер клиента, имя или часть, \`sl-N\`, \`dev:N\`), \`id:\` номер сущности, \`text:\` текст, \`query:\` что искать, \`since:\`/\`until:\` время (\`1h\`, \`2026-09-01\`), \`limit:\` сколько.
 - Справка — \`help\` последним словом объекту: \`help\`, \`kiten card help\`; \`--help\` — то же.
-- Строки с записью или отправкой требуют подтверждения человека и начинаются словом \`ask\`: \`ask sql target: sl-1 sql: "…"\`. Список — \`ask help\`.`;
+- Строки с записью или отправкой требуют подтверждения человека и начинаются словом \`ask\`: \`ask sql target: sl-1 sql: "…"\`. Список — \`ask help\`.
+- Отказ: \`refusal.hint\` — исправленная строка \`words\`.`;
 
 const HELP_DESCRIPTION =
   `Справка mpu: какие команды есть и как их писать. Звать перед тулом mpu, \
@@ -79,6 +81,8 @@ export interface ToolResult {
     readonly stdout: string;
     readonly stderr: string;
     readonly exit: number;
+    /** Отказ строки объектом (`platform/refusal-object.md`); нет — поля нет. */
+    readonly refusal?: RefusalData;
   };
   readonly isError: boolean;
 }
@@ -115,12 +119,23 @@ function failed(text: string): ToolResult {
   return { content: [{ type: "text", text }], isError: true };
 }
 
-function finished(stdout: string, stderr: string, exit: number): ToolResult {
+/**
+ * Итог строки: потоки всех ответов и последний ответ `back` — его код и
+ * отказ-объект, если строка отказана.
+ */
+function finished(
+  stdout: string,
+  stderr: string,
+  last: { readonly exit: number; readonly refusal?: RefusalData },
+): ToolResult {
   const content = [{ type: "text" as const, text: stdout }];
   if (stderr !== "") content.push({ type: "text", text: `stderr:\n${stderr}` });
+  const { exit, refusal } = last;
+  // Поле границы: у строки без отказа его нет вовсе.
+  const refused = refusal === undefined ? {} : { refusal };
   return {
     content,
-    structuredContent: { stdout, stderr, exit },
+    structuredContent: { stdout, stderr, exit, ...refused },
     isError: exit !== 0,
   };
 }
@@ -150,7 +165,7 @@ export async function runLine(
     const collected = reply.collected;
     stdout += collected.stdout;
     stderr += collected.stderr;
-    if ("exit" in collected) return finished(stdout, stderr, collected.exit);
+    if ("exit" in collected) return finished(stdout, stderr, collected);
     const verdict = await asker.ask(collected.ask, requestId, options);
     reply = await back.answer(collected.ticket, verdict, options);
   }

@@ -21,7 +21,7 @@ import {
   type Sent,
   type Shown,
 } from "./protocol.ts";
-import { Refusal } from "./refusal.ts";
+import { notUnderstood, Refusal, UNDERSTOOD_NOT } from "./refusal.ts";
 import { NO_REMEDY } from "./remedy.ts";
 import { SILENT } from "./silent.ts";
 
@@ -57,7 +57,6 @@ function printing(report: Report, printer: Printer): Report {
     exit: (code) => report.exit(code),
     links: () => report.links(),
     text: () => report.text(),
-    through: (gate) => report.through(gate),
   };
 }
 
@@ -107,8 +106,12 @@ export interface ResultEnd {
 
 /** Слово, которое не формат, — отказ со списком форматов. */
 function formatsOnly(selector: string): never {
-  const names = DATA_FORMATS.join(", ");
-  throw new Refusal(`не понимает ${selector}; есть: ${names}`);
+  throw notUnderstood(
+    `не понимает ${selector}`,
+    selector,
+    DATA_FORMATS,
+    "есть",
+  );
 }
 
 /**
@@ -240,6 +243,7 @@ class Answered implements Receiver {
       throw new Refusal(
         `не понимает ${sent.selector()}; справка — последним словом: ` +
           call.join(" "),
+        UNDERSTOOD_NOT,
       );
     };
     return sent.route({

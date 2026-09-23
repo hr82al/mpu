@@ -341,9 +341,9 @@ const ESCAPE: Word = {
 
 /** `do` не в начале строки и не на месте значения. */
 function openElsewhere(): MessageParseError {
-  return new MessageParseError(
-    `${GRAMMAR.open} — в начале строки или на месте значения`,
-  );
+  // Текст постоянный — он же вид отказа (`platform/refusal-object.md`).
+  const said = `${GRAMMAR.open} — в начале строки или на месте значения`;
+  return new MessageParseError(said, said);
 }
 
 /**

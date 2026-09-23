@@ -7,7 +7,7 @@ import { assertEquals } from "@std/assert";
 import { GRAMMAR } from "../messages/mod.ts";
 import golden from "./testdata/objects/cases.json" with { type: "json" };
 import { runChain } from "./mod.ts";
-import { testTree } from "./testtree.ts";
+import { said, testTree } from "./testtree.ts";
 
 const helpDir = new URL("testdata/objects/", import.meta.url);
 
@@ -49,7 +49,7 @@ Deno.test({
       await t.step(c.name, async () => {
         const outcome = await runChain(c.words.map(word), testTree().root);
         if (c.error !== undefined) {
-          assertEquals(outcome, { error: unmarked(c.error), code: 2 });
+          assertEquals(said(outcome), { error: unmarked(c.error), code: 2 });
           return;
         }
         if (c.value_file !== undefined) {

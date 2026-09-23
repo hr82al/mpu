@@ -9,11 +9,23 @@
 import { GRAMMAR } from "../messages/mod.ts";
 import { assertEquals } from "@std/assert";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { immediately, lineEntry, NO_CALLER, rulesOf } from "../line/mod.ts";
+import {
+  HUMAN_ONLY,
+  immediately,
+  lineEntry,
+  NO_CALLER,
+  rulesOf,
+} from "../line/mod.ts";
 import { withPolicyFile } from "../line/testconsent.ts";
 import { Agent, type Channel, Human, NOBODY } from "../policy/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import { Client, type Frame, line, withBack } from "./testback.ts";
+import {
+  Client,
+  type Frame,
+  line,
+  refusalFrame,
+  withBack,
+} from "./testback.ts";
 
 interface Case {
   readonly name: string;
@@ -85,6 +97,7 @@ async function directFrames(one: Case, file: string) {
     execute: immediately,
     rootMethods: [],
     memory: NO_CALLER,
+    refusal: (data) => void frames.push({ refusal: data }),
   })(one.words, makeFakeIo(), {
     stdout: (text) => void frames.push({ out: text }),
     stderr: (text) => void frames.push({ err: text }),
@@ -130,6 +143,7 @@ Deno.test("правило: человек меняет, агент — нет, �
       "y",
     ]);
     assertEquals(agent, [
+      refusalFrame(HUMAN_ONLY, HUMAN_ONLY),
       { err: "изменить правила может только человек\n" },
       { exit: 1 },
     ]);

@@ -16,6 +16,7 @@ import {
   tail,
   unary,
 } from "./mod.ts";
+import { said } from "./testtree.ts";
 
 const DOC: Doc = { purpose: "проба", help: "Справка: проба." };
 
@@ -54,7 +55,7 @@ const ROOT = new Shape<Runs>([
 async function chain(words: readonly string[]) {
   const runs = new Runs();
   const outcome = await runChain(words, origin(DOC, ROOT, runs));
-  return { outcome, runs: runs.count() };
+  return { outcome: said(outcome), runs: runs.count() };
 }
 
 Deno.test("хвост и конец строки", async (t) => {

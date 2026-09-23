@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import { DATA, origin, type Outcome, runChain, Shape, unary } from "./mod.ts";
-import { testTree } from "./testtree.ts";
+import { DATA, origin, runChain, Shape, unary } from "./mod.ts";
+import { said, testTree } from "./testtree.ts";
 
 Deno.test({
   name: "исполнение не трогает окружение, файлы и сеть и повторяется",
@@ -13,10 +13,10 @@ Deno.test({
       ["version", "name"],
       ["kiten", "card", "--help"],
     ];
-    const first: Outcome[] = [];
-    const second: Outcome[] = [];
-    for (const words of lines) first.push(await runChain(words, root));
-    for (const words of lines) second.push(await runChain(words, root));
+    const first: unknown[] = [];
+    const second: unknown[] = [];
+    for (const words of lines) first.push(said(await runChain(words, root)));
+    for (const words of lines) second.push(said(await runChain(words, root)));
     assertEquals(first, second);
     assertEquals(first.slice(0, 3), [
       { path: ["kiten", "card", "<card>", "show"], value: { id: "123" } },
@@ -67,7 +67,7 @@ Deno.test("help не последним словом — отказ с гото�
     ] as const
   ) {
     await t.step(words.join(" "), async () => {
-      assertEquals(await runChain(words, root), { error, code: 2 });
+      assertEquals(said(await runChain(words, root)), { error, code: 2 });
     });
   }
 });
@@ -76,7 +76,7 @@ const DOC = { purpose: "проба", help: "Справка: проба." };
 
 Deno.test("ключевое сообщение объекту с видом звена — непонятое", async () => {
   const { root } = testTree();
-  assertEquals(await runChain(["kiten", "card", "nope:", "1"], root), {
+  assertEquals(said(await runChain(["kiten", "card", "nope:", "1"], root)), {
     error: "mpu kiten card: не понимает nope:",
     code: 2,
   });
@@ -86,7 +86,7 @@ Deno.test("ближайших не больше трёх, при равном р
   const shape = new Shape<null>(
     ["ae", "ad", "aaa", "ac", "ab"].map((s) => unary(s, DOC, DATA, () => s)),
   );
-  assertEquals(await runChain(["a"], origin(DOC, shape, null)), {
+  assertEquals(said(await runChain(["a"], origin(DOC, shape, null))), {
     error: "mpu: не понимает a; ближайшие: ab, ac, ad",
     code: 2,
   });
@@ -102,7 +102,7 @@ Deno.test("порог ближайших — от длины селектора:
     ["itt", "mpu: не понимает itt; ближайшие: it"],
   ] as const;
   for (const [word, error] of cases) {
-    assertEquals(await runChain([word], origin(DOC, shape, null)), {
+    assertEquals(said(await runChain([word], origin(DOC, shape, null))), {
       error,
       code: 2,
     });

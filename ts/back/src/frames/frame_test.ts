@@ -34,6 +34,38 @@ Deno.test("кадр сервера: четыре вида и отказ проч
   }
 });
 
+Deno.test("кадр отказа: объект доезжает, поле не своего вида — отказ", async (t) => {
+  const refusal = {
+    reason: "не понимает",
+    hint: ["kiten"],
+    candidates: ["kiten"],
+    text: "mpu: не понимает kitn; ближайшие: kiten",
+  };
+  assertEquals(serverFrameOf(JSON.stringify({ refusal })), { refusal });
+  const bare = { ...refusal, hint: null, candidates: [] };
+  assertEquals(serverFrameOf(JSON.stringify({ refusal: bare })), {
+    refusal: bare,
+  });
+  assertEquals(
+    collectedOf(JSON.stringify({ stdout: "", stderr: "x", exit: 2, refusal })),
+    { stdout: "", stderr: "x", exit: 2, refusal },
+  );
+  for (
+    const bad of [
+      '{"refusal":"x"}',
+      '{"refusal":{"reason":"r","hint":"kiten","candidates":[],"text":"t"}}',
+      '{"refusal":{"reason":"r","hint":[1],"candidates":[],"text":"t"}}',
+      '{"refusal":{"reason":"r","hint":null,"candidates":null,"text":"t"}}',
+      '{"refusal":{"reason":1,"hint":null,"candidates":[],"text":"t"}}',
+      '{"refusal":{"reason":"r","hint":null,"candidates":[]}}',
+    ]
+  ) {
+    await t.step(bad, () => {
+      assertThrows(() => serverFrameOf(bad), BadFrame);
+    });
+  }
+});
+
 Deno.test("вид вопроса: secret доезжает, line опускается, чужое — отказ", async (t) => {
   const kept: ServerFrame = { ask: "Пароль: ", kind: "secret" };
   assertEquals(serverFrameOf(JSON.stringify(kept)), kept);

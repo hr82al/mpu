@@ -7,19 +7,21 @@
 
 import {
   type Call,
-  callLine,
   type Description,
   type Doc,
   type Help,
   type Named,
   type Receiver,
   Refusal,
-  ROOT_TEXT,
   type Shape,
   type Trace,
   type VariantLine,
   type VariantMethod as VariantMethodOf,
+  wholeLine,
 } from "../objects/mod.ts";
+
+/** Вид отказа: вариант набран после ключей. */
+const AFTER_KEYS = "вариант — до ключей";
 
 /** Вариант команды: слово, назначение и вход, который он задаёт. */
 export class Variant {
@@ -72,16 +74,16 @@ export class Chosen {
   }
 
   /**
-   * Готовая строка команды `path` с этими вариантами, ещё одним словом
-   * `extra` и ключами `pairs` — для подсказки отказа.
+   * Слова готовой строки команды `path` с этими вариантами, ещё одним
+   * словом `extra` и ключами `pairs` — для подсказки отказа.
    */
-  line(
+  words(
     path: readonly string[],
     extra: readonly string[],
     pairs: readonly string[],
-  ): string {
+  ): string[] {
     const names = this.#variants.map((variant) => variant.name);
-    return callLine(ROOT_TEXT, [...path, ...names, ...extra, ...pairs]);
+    return [...path, ...names, ...extra, ...pairs];
   }
 }
 
@@ -126,8 +128,11 @@ export class MisplacedVariants implements Misplaced {
 
   check(word: string) {
     if (!this.#names.has(word)) return;
-    const line = this.#chosen.line(this.#path, [word], this.#pairs);
-    throw new Refusal(`вариант — до ключей: ${line}`);
+    const words = this.#chosen.words(this.#path, [word], this.#pairs);
+    throw new Refusal(AFTER_KEYS, {
+      reason: AFTER_KEYS,
+      remedy: wholeLine(": ", words),
+    });
   }
 }
 

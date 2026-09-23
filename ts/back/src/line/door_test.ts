@@ -99,7 +99,7 @@ Deno.test("ask-строка без двери — адресный отказ, �
         code: 2,
         stdout: "",
         stderr: "mpu sql target: sl-1 sql: select 1: требует подтверждения — " +
-          "вызывай mpu ask sql target: sl-1 sql: select 1\n",
+          'вызывай mpu ask sql target: sl-1 sql: "select 1"\n',
         called: [],
       },
     );

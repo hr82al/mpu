@@ -13,6 +13,7 @@ import {
   type Doc,
   type Method,
   type Named,
+  notUnderstood,
   type Outcome,
   type Receiver,
   Refusal,
@@ -23,6 +24,7 @@ import {
   type Sent,
   type Source,
   unary,
+  UNDERSTOOD_NOT,
   type Yields,
 } from "../objects/mod.ts";
 import type { Line } from "./dispatch.ts";
@@ -147,7 +149,10 @@ class Printed implements Receiver {
 
 /** Слово после формата: формат — последним. */
 function formatLast(sent: Sent): never {
-  throw new Refusal(`не понимает ${sent.selector()}; формат — последним`);
+  throw new Refusal(
+    `не понимает ${sent.selector()}; формат — последним`,
+    UNDERSTOOD_NOT,
+  );
 }
 
 /**
@@ -213,7 +218,7 @@ class Recalled implements Receiver {
       ...Object.keys(this.#kept.command.formats).sort(),
       ...selectionMessages().map((line) => line.selector).sort(),
     ];
-    return new Refusal(`не понимает ${selector}; есть: ${known.join(", ")}`);
+    return notUnderstood(`не понимает ${selector}`, selector, known, "есть");
   }
 }
 

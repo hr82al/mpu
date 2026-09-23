@@ -58,12 +58,13 @@ async function visit(
     sending(words, "messages", GRAMMAR.close, "json"),
     root,
   );
-  if ("error" in own) {
+  if ("refused" in own) {
     // Данные сообщений не понимают, а закрытые ответы — только форматы.
+    const text = own.refused.text();
     assert(
-      own.error.endsWith("цепочка окончена, messages отправить некому") ||
-        own.error.endsWith("не понимает messages; есть: json"),
-      own.error,
+      text.endsWith("цепочка окончена, messages отправить некому") ||
+        text.endsWith("не понимает messages; есть: json"),
+      text,
     );
     return;
   }

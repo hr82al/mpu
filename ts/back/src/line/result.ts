@@ -16,6 +16,7 @@ import {
   gate,
   isSelection,
   type Named,
+  notUnderstood,
   type Outcome,
   type Receiver,
   Refusal,
@@ -158,9 +159,8 @@ function refusing(names: readonly string[]): Fallback<Pending> {
         ...names,
         ...selectionMessages().map((line) => line.selector).sort(),
       ];
-      throw new Refusal(
-        `не понимает ${sent.selector()}; есть: ${known.join(", ")}`,
-      );
+      const selector = sent.selector();
+      throw notUnderstood(`не понимает ${selector}`, selector, known, "есть");
     },
     lines: () => [],
     describe() {},

@@ -8,7 +8,7 @@ import {
   type Doc,
   type Outcome,
   Refusal,
-  type Report,
+  throughGate,
 } from "../objects/mod.ts";
 import {
   type Address,
@@ -44,11 +44,17 @@ export interface View extends Address {
  * Адресный отказ строке `ask`, набранной без двери: где её исполнят.
  * Переадресует только обычный взгляд — дверь исполняет и `allow`.
  */
-export function toDoor(report: Report): Promise<Outcome> {
+export function toDoor(): Promise<Outcome> {
   return Promise.reject(
-    new Refusal(`требует подтверждения — вызывай ${report.through(ASK_WORD)}`),
+    new Refusal(NEEDS_DOOR, {
+      reason: NEEDS_DOOR,
+      remedy: throughGate(" — вызывай ", ASK_WORD),
+    }),
   );
 }
+
+/** Вид отказа: строке нужен ответ человека, а набрана она без двери. */
+const NEEDS_DOOR = "требует подтверждения";
 
 /**
  * Строка `allow` через дверь: исполняется без вопроса, как без `ask`

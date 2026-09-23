@@ -10,6 +10,7 @@ import { runChain } from "./chain.ts";
 import { collectionOf, resultData, SELECTABLE } from "./data.ts";
 import { AsideCall } from "./method.ts";
 import type { Outcome } from "./protocol.ts";
+import { said } from "./testtree.ts";
 
 const END = GRAMMAR.close;
 
@@ -96,7 +97,7 @@ Deno.test("виды данных: отказы", async (t) => {
   ];
   for (const [value, words, error] of cases) {
     await t.step(words.join(" "), async () => {
-      assertEquals(await over(value, words), { error, code: 2 });
+      assertEquals(said(await over(value, words)), { error, code: 2 });
     });
   }
 });

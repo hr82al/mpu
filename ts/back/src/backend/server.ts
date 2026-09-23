@@ -582,6 +582,7 @@ class Back {
       channel: () => channel,
       execute: (run) => line.execute(run, this.#lines),
       memory: this.#results.of(await naming.of(request.caller)),
+      refusal: (data) => line.deliver({ refusal: data }),
     });
     const io = lineIo(
       this.#options.io,

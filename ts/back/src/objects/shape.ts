@@ -25,7 +25,7 @@ import {
 } from "./method.ts";
 import { Help, type HelpKey, OBJECT_VIEW } from "./help.ts";
 import { nearest, order } from "./nearest.ts";
-import { NO_REMEDY } from "./remedy.ts";
+import { NO_REMEDY, ROOT_TEXT } from "./remedy.ts";
 import type {
   Call,
   Doc,
@@ -42,7 +42,7 @@ import type {
   VariantLine,
   Yields,
 } from "./protocol.ts";
-import { Refusal } from "./refusal.ts";
+import { notUnderstood } from "./refusal.ts";
 
 /** Как объект отвечает на конец строки. */
 export interface Ending<S> {
@@ -325,8 +325,12 @@ export class Shape<S> implements Yields<S> {
       ...this.#messages().map((line) => line.selector),
       ...this.#variants.keys(),
     ]);
-    const hint = close.length > 0 ? `; ближайшие: ${close.join(", ")}` : "";
-    throw new Refusal(`не понимает ${selector}${hint}`);
+    throw notUnderstood(
+      `не понимает ${selector}`,
+      selector,
+      close,
+      "ближайшие",
+    );
   }
 }
 
@@ -358,9 +362,6 @@ class Origin<S> implements Call {
     return Promise.resolve(this.#shape.receive(this.#self));
   }
 }
-
-/** Слово корня в адресе строки. */
-export const ROOT_TEXT = "mpu";
 
 /**
  * Корневой объект цепочки.
