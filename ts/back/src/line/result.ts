@@ -23,6 +23,7 @@ import {
   type ResultKind,
   selectable,
   selecting,
+  selectionMessages,
   selectionOf,
   type Sent,
   Shape,
@@ -128,12 +129,19 @@ class CommandResult implements Receiver {
   }
 }
 
-/** Отказ формату, которого у результата нет, — со списком тех, что есть. */
+/**
+ * Отказ слову, которого результат не понимает, — со списком того, что
+ * он понимает: форматы, затем сообщения отбора.
+ */
 function refusing(names: readonly string[]): Fallback<Pending> {
   return {
     understand(sent): never {
+      const known = [
+        ...names,
+        ...selectionMessages().map((line) => line.selector).sort(),
+      ];
       throw new Refusal(
-        `не понимает ${sent.selector()}; есть: ${names.join(", ")}`,
+        `не понимает ${sent.selector()}; есть: ${known.join(", ")}`,
       );
     },
     lines: () => [],

@@ -13,6 +13,8 @@ export interface Line {
    * `view`; строку ей собирает `order` листа.
    */
   dispatch(report: Report, view: View, order: Order): Promise<Outcome>;
+  /** stdin строки — терминал: ключ ввода команда спросит сама. */
+  terminal(): boolean;
   /** Результат строки — поток: отбору не подлежит. */
   streams(view: View, order: Order): boolean;
   /**

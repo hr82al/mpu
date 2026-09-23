@@ -83,6 +83,11 @@ class KeywordSent implements Named {
   }
 }
 
+/** Ключевое сообщение из готовых значений: остаток, отделённый получателем. */
+export function keywordSent(args: Args): Named {
+  return new KeywordSent(args);
+}
+
 /** Слова хвоста, включающие режим справки: `help` и `--help`. */
 const HELP_WORDS: ReadonlySet<string> = new Set([HELP_SELECTOR, HELP_FLAG]);
 

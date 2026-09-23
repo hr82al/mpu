@@ -12,7 +12,17 @@ import type {
   KeyRename,
 } from "../command/mod.ts";
 import { GRAMMAR, type KeyKind, type KeyValue } from "../messages/mod.ts";
-import { type Args, callLine, type Named, Refusal } from "../objects/mod.ts";
+import {
+  type Args,
+  type Call,
+  callLine,
+  type Help,
+  keywordSent,
+  type Named,
+  Refusal,
+  type ResultKind,
+  type Trace,
+} from "../objects/mod.ts";
 import type { Order } from "./order.ts";
 
 /**
@@ -197,10 +207,76 @@ class Snake implements Spelling {
  */
 export interface Rest {
   check(formats: readonly string[]): void;
+  /**
+   * Вызов ключевого сообщения команды `call` с этим остатком: остаток,
+   * понятый отбором, `forward` отдаёт результату.
+   */
+  after(call: Call, forward: (rest: Named) => Call): Call;
 }
 
 /** Остатка нет. */
-export const NO_REST: Rest = { check() {} };
+export const NO_REST: Rest = { check() {}, after: (call) => call };
+
+/** Что строке известно о результате команды и о своём вводе. */
+export interface ResultSide {
+  /** Понимает ли результат ключевое сообщение `selector` отбором. */
+  selects(selector: string): boolean;
+  /** stdin строки — терминал: ключ ввода команда спросит сама. */
+  readonly terminal: boolean;
+}
+
+/**
+ * Остаток, понятый отбором результата: ключевое сообщение команды, затем
+ * — он же сообщением результату.
+ */
+class ToResult implements Rest {
+  readonly #args: Args;
+
+  constructor(args: Args) {
+    this.#args = args;
+  }
+
+  check() {}
+
+  after(call: Call, forward: (rest: Named) => Call): Call {
+    return new SplitCall(call, () => forward(keywordSent(this.#args)));
+  }
+}
+
+/** Ключевое сообщение команды и следом остаток результату — один шаг. */
+class SplitCall implements Call {
+  readonly #head: Call;
+  readonly #rest: () => Call;
+  #made: Call | undefined;
+
+  constructor(head: Call, rest: () => Call) {
+    this.#head = head;
+    this.#rest = rest;
+  }
+
+  trace(trail: Trace) {
+    this.#head.trace(trail);
+    this.#tail().trace(trail);
+  }
+
+  result(): ResultKind {
+    return this.#tail().result();
+  }
+
+  help(trail: Trace): Help {
+    return this.#tail().help(trail);
+  }
+
+  perform() {
+    return this.#tail().perform();
+  }
+
+  /** Остаток строится один раз: его источник — одно исполнение. */
+  #tail(): Call {
+    this.#made ??= this.#rest();
+    return this.#made;
+  }
+}
 
 /**
  * Остаток — ключевое сообщение: виды результата команд понимают только
@@ -220,6 +296,10 @@ class Leftover implements Rest {
       `понимаю ${this.#understood}; ${this.#selector} результат не ` +
         `понимает; есть: ${formats.join(", ")}`,
     );
+  }
+
+  after(call: Call): Call {
+    return call;
   }
 }
 
@@ -477,12 +557,12 @@ export class Keys {
    * (`platform/collection-protocol.md`): если обязательных ключей у
    * команды нет, а результат его понимает (`kiten ls where: … is: …`).
    *
-   * @param understood понимает ли результат селектор
+   * @param result понимает ли результат селектор
    */
-  toResult(named: Named, understood: (selector: string) => boolean): boolean {
+  toResult(named: Named, result: Pick<ResultSide, "selects">): boolean {
     const keys = Object.keys(named.args());
     return !keys.some((key) => this.#known(key)) &&
-      this.missing({}) === undefined && understood(named.selector());
+      this.missing({}) === undefined && result.selects(named.selector());
   }
 
   /**
@@ -490,7 +570,7 @@ export class Keys {
    * прежнее написание — отказ с готовой строкой. Чужой ключ за целым
    * сообщением этой команды начинает остаток — его получает результат.
    */
-  accept(named: Named): Accepted {
+  accept(named: Named, result: ResultSide): Accepted {
     const entries = Object.entries(named.args());
     const kept = entries.filter(([key]) => this.#known(key));
     const pairs = kept.flatMap(([key, value]) =>
@@ -510,7 +590,7 @@ export class Keys {
       }
       const spelling = this.#spellings.get(key);
       if (spelling !== undefined) throw spelling.refusal(value, pairs);
-      if (!this.#known(key)) return this.#split(named, entries, at);
+      if (!this.#known(key)) return this.#split(named, entries, at, result);
     }
     // Недостающий обязательный ключ называет раньше разбор: этот набор
     // ключей ему известен целиком.
@@ -539,20 +619,51 @@ export class Keys {
     named: Named,
     entries: readonly (readonly [string, KeyValue])[],
     at: number,
+    result: ResultSide,
   ): Accepted {
     const understood = entries.slice(0, at);
     const args = Object.fromEntries(understood);
-    if (at === 0 || this.missing(args) !== undefined) {
+    if (at === 0) throw new Refusal(`не понимает ${named.selector()}`);
+    const rest = entries.slice(at);
+    if (result.selects(keywordSent(Object.fromEntries(rest)).selector())) {
+      const absent = this.missing(args) ?? this.#asked(args, result.terminal);
+      if (absent !== undefined) {
+        throw new Refusal(`не хватает ключа ${absent}`);
+      }
+      const text = this.#text(understood);
+      return { args, text, rest: new ToResult(Object.fromEntries(rest)) };
+    }
+    if (this.missing(args) !== undefined) {
       throw new Refusal(`не понимает ${named.selector()}`);
     }
+    return this.#leftover(args, understood, rest);
+  }
+
+  /**
+   * Ключ, который команда при терминале спросила бы сама (`sql`): его нет
+   * в `args`, а stdin — терминал. Из пайпа команда прочтёт его сама.
+   */
+  #asked(args: Args, terminal: boolean): string | undefined {
+    if (!terminal) return undefined;
+    const spec = this.#specs.find((one) => one.input === this.#terminal);
+    if (spec === undefined || spec.name in args) return undefined;
+    return spec.name;
+  }
+
+  /** Остаток, которого результат не понимает: отказ при исполнении. */
+  #leftover(
+    args: Args,
+    understood: readonly (readonly [string, KeyValue])[],
+    rest: readonly (readonly [string, KeyValue])[],
+  ): Accepted {
     const text = this.#text(understood);
-    const selector = (part: typeof entries) =>
+    const selector = (part: typeof rest) =>
       part.map(([key]) => `${key}:`).join("");
-    const rest = new Leftover(
-      selector(understood),
-      selector(entries.slice(at)),
-    );
-    return { args, text, rest };
+    return {
+      args,
+      text,
+      rest: new Leftover(selector(understood), selector(rest)),
+    };
   }
 
   /** Отказ голым значениям: слова — ключам по порядку входов. */

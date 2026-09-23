@@ -177,12 +177,15 @@ async function fromFileTokens(
         ? await readTextStdin(io)
         : await io.readTextFile(file);
     } catch (err) {
+      // Отказ строки (`stdin` уже прочитан ключом) — её слово, не сбой файла.
+      if (err instanceof UsageError) throw err;
       if (err instanceof NotFoundIoError) {
         throw new DomainError(`ranges file not found: "${file}"`, {
           cause: err,
         });
       }
-      throw new DomainError(`cannot read ranges file "${file}"`, {
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new DomainError(`cannot read ranges file "${file}": ${reason}`, {
         cause: err,
       });
     }

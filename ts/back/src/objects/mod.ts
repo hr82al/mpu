@@ -57,6 +57,7 @@ export { Refusal, Rejection } from "./refusal.ts";
 export { line as callLine, NO_REMEDY, spoken } from "./remedy.ts";
 export { type Loader, Replaceable } from "./replaceable.ts";
 export { GroupExit, runChain } from "./chain.ts";
+export { keywordSent } from "./sent.ts";
 export { ended } from "./result.ts";
 export {
   collectionOf,

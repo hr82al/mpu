@@ -190,6 +190,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
             )
           ),
         streams: (view, order) => streams(order.argv(view.executed(words))),
+        terminal: io.stdinIsTerminal(),
       });
     const walked = walkedWords(argv);
     // Строка через дверь объявляет запись для всей строки: группы

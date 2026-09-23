@@ -41,6 +41,8 @@ export interface SessionParts {
   ) => Promise<number>;
   /** Результат строки — поток. */
   readonly streams: (view: View, order: Order) => boolean;
+  /** stdin строки — терминал. */
+  readonly terminal: boolean;
 }
 
 /** Что отбор получил от исполнения. */
@@ -105,6 +107,7 @@ export class Session implements Line {
   readonly #output: Output;
   readonly #dispatch: SessionParts["dispatch"];
   readonly #streams: SessionParts["streams"];
+  readonly #terminal: boolean;
 
   constructor(parts: SessionParts) {
     this.#book = parts.book;
@@ -112,6 +115,11 @@ export class Session implements Line {
     this.#output = parts.output;
     this.#dispatch = parts.dispatch;
     this.#streams = parts.streams;
+    this.#terminal = parts.terminal;
+  }
+
+  terminal(): boolean {
+    return this.#terminal;
   }
 
   dispatch(report: Report, view: View, order: Order): Promise<Outcome> {

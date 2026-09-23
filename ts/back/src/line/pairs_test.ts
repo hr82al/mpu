@@ -41,6 +41,10 @@ class Captured implements Line {
     return false;
   }
 
+  terminal(): boolean {
+    return false;
+  }
+
   select(report: Report): Promise<Outcome> {
     return Promise.resolve(report.exit(0));
   }

@@ -198,11 +198,14 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
     understand(sent: Sent, line: Line, refuse: () => Call): Call {
       return sent.route({
         named(named) {
-          const selects = (selector: string) => parts.results.selects(selector);
-          if (keys.toResult(named, selects)) {
+          const result = {
+            selects: (selector: string) => parts.results.selects(selector),
+            terminal: line.terminal(),
+          };
+          if (keys.toResult(named, result)) {
             return parts.results.select(bare(line).pending(), named);
           }
-          const accepted = keys.accept(named);
+          const accepted = keys.accept(named, result);
           const state = new Keyed(
             line,
             keys.order(accepted.args),
@@ -210,7 +213,10 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
             accepted.rest,
             parts.results.names(),
           );
-          return new KeyCall(accepted.text, parts.doc, keyed, state);
+          return accepted.rest.after(
+            new KeyCall(accepted.text, parts.doc, keyed, state),
+            (rest) => parts.results.select(state.pending(), rest),
+          );
         },
         tail: () =>
           sent.viaLink({

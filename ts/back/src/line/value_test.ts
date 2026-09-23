@@ -380,3 +380,62 @@ Deno.test("ключ-список: stdin и группа — элементами
       assert(/\d{14}/.test(grouped.stderr), grouped.stderr);
     });
   }));
+
+Deno.test("деление: остаток отбору — ключ ввода с терминала не хватает, из пайпа — есть", () =>
+  withPolicyFile(async (file) => {
+    allowEverything(file);
+    const line = ["sql-ro", "target:", "sl-1", "--dry", "where:", "n", "is:"];
+    const asked = await run(file, [...line, "1", END, "size"], {
+      io: SQL_IO,
+    });
+    assertEquals(asked.code, 2);
+    assertEquals(
+      asked.stderr,
+      "mpu sql-ro: не хватает ключа sql\n",
+    );
+    assertEquals(asked.called, []);
+    for (
+      const given of [
+        { argv: [...line, "1", END, "size"], stdin: "select 1\n" },
+        {
+          argv: [
+            "sql-ro",
+            "target:",
+            "sl-1",
+            "sql:",
+            "select 1",
+            ...line.slice(3),
+            "1",
+            END,
+            "size",
+          ],
+        },
+      ]
+    ) {
+      const got = await run(file, given.argv, {
+        io: SQL_IO,
+        stdin: given.stdin,
+      });
+      assertEquals([got.code, got.stdout], [0, "0\n"], got.stderr);
+      assertEquals(got.called, ["sql-ro"]);
+    }
+  }));
+
+Deno.test("xlsx get from: - — stdin, взятый ключом, называется отказом строки", () =>
+  withPolicyFile(async (policy) => {
+    allowEverything(policy);
+    await withSample(async (file) => {
+      const got = await run(policy, [
+        "xlsx",
+        "get",
+        "file:",
+        file,
+        "range:",
+        STDIN,
+        "from:",
+        "-",
+      ], { stdin: "Данные!A1\n", io: FILES });
+      assertEquals(got.code, 2);
+      assertEquals(got.stderr, "mpu xlsx: stdin уже прочитан ключом range\n");
+    });
+  }));
