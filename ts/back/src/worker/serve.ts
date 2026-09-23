@@ -265,7 +265,7 @@ async function evaluated(
 ): Promise<Outcome> {
   try {
     return await runProgram(evaluation.words, {
-      commands: programCommands(),
+      commands: programCommands(evaluation.methods),
       core: (words) => conversation.line(words),
       // Печать отдаётся без ожидания: порт синхронный, порядок держит
       // провод, а итог уйдёт за ней тем же проводом.

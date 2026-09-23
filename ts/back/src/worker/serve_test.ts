@@ -60,6 +60,7 @@ Deno.test("исполнитель программы: печать — out, ко
   await host.send(encode({
     evaluate: {
       words: ["2", "print", sep, "x", GRAMMAR.assign, "version", sep, "x"],
+      methods: [],
     },
   }));
   assertEquals(await next(), { out: "2\n" });
@@ -74,12 +75,41 @@ Deno.test("исполнитель программы: печать — out, ко
   await served;
 });
 
+Deno.test("исполнитель программы: метод образа из кадра — согласие, затем тело", async () => {
+  const { host, worker } = memoryWires();
+  const served = serveOne(worker, makeFakeIo({}), () => {});
+  const lines = host.lines()[Symbol.asyncIterator]();
+  const next = async () => workerFrameOf(String((await lines.next()).value));
+  await host.send(encode({
+    evaluate: {
+      words: ["kiten", "mine"],
+      methods: [{
+        receiver: ["kiten"],
+        name: "mine",
+        source: [GRAMMAR.open, "version", GRAMMAR.blockEnd],
+      }],
+    },
+  }));
+  assertEquals(await next(), { line: ["kiten", "mine"] });
+  await host.send(encode({ lined: { data: "", command: null, shown: "" } }));
+  assertEquals(await next(), { line: ["version"] });
+  await host.send(encode({
+    lined: { data: "0.1.0", command: null, shown: "0.1.0\n" },
+  }));
+  assertEquals(await next(), { out: "0.1.0\n" });
+  assertEquals(await next(), { result: { exit: 0, refusal: null } });
+  await host.close();
+  await served;
+});
+
 Deno.test("исполнитель программы: ядро ушло, пока ждали строку команды, — конец", async () => {
   const { host, worker } = memoryWires();
   const served = serveOne(worker, makeFakeIo({}), () => {});
   const lines = host.lines()[Symbol.asyncIterator]();
   await host.send(
-    encode({ evaluate: { words: ["x", GRAMMAR.assign, "version"] } }),
+    encode({
+      evaluate: { words: ["x", GRAMMAR.assign, "version"], methods: [] },
+    }),
   );
   assertEquals(workerFrameOf(String((await lines.next()).value)), {
     line: ["version"],

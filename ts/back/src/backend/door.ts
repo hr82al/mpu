@@ -34,6 +34,8 @@ export interface Door {
   prompting(human: boolean): PromptDoor;
   /** Методы корня, которые есть только у этой двери. */
   rootMethods(services: DoorServices): readonly RootMethod[];
+  /** Канал автора определения метода образа (`platform/image.md`). */
+  readonly author: string;
   /**
    * Как собранный ответ отдаст вывод прогона `run`
    * (`platform/long-output.md`, §4).
@@ -107,6 +109,7 @@ export const HUMAN_DOOR: Door = {
   channel: clientChannel,
   prompting: (human) => human ? HUMAN_PROMPTS : NO_PROMPTS,
   rootMethods: webMethods,
+  author: "human",
   // У человека терминал: большой вывод он направит сам.
   outlet: () => WHOLE,
 };
@@ -116,6 +119,7 @@ export const AGENT_DOOR: Door = {
   channel: (line, human) => new Agent(clientChannel(line, human)),
   prompting: (human) => human ? AGENT_PROMPTS : NO_PROMPTS,
   rootMethods: () => [],
+  author: "agent",
   // Ответ агенту целиком — в его контекст: большой уходит файлом.
   outlet: (spill, run) => new FileOutlet(spill, run),
 };

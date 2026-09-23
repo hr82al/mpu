@@ -22,6 +22,7 @@ import {
 } from "../line/mod.ts";
 import { runJournaled } from "../process/mod.ts";
 import { VERSION } from "../version.ts";
+import { Image, ImageError, type ImageMethod } from "../image/mod.ts";
 import {
   AGENT,
   BROWSER,
@@ -79,6 +80,8 @@ export interface BackOptions {
   readonly tokens: Tokens;
   /** Файл правил подтверждения; нет HOME — `undefined`. */
   readonly policyFile: string | undefined;
+  /** Файл образа (`platform/image.md`); нет HOME — `undefined`. */
+  readonly imageFile: string | undefined;
   /** Окружение сервера; строка получает его без stdin и терминалов. */
   readonly io: CommandIo;
   readonly log: InvokeLog;
@@ -352,9 +355,18 @@ class Back {
   readonly #spill: Spill;
   /** Пул исполнителей: на них идёт каждая команда строки. */
   readonly #workers: Workers;
+  /**
+   * Образ на весь процесс: сверка `data_version` видит методы, которые
+   * определил другой процесс, следующей строкой.
+   */
+  readonly #image: Image;
+  /** Снимок дерева: пересобирается, когда меняется образ. */
+  #snapshot: unknown;
 
-  constructor(options: BackOptions, snapshot: unknown) {
+  constructor(options: BackOptions) {
     this.#options = options;
+    this.#image = Image.at(options.imageFile);
+    this.#snapshot = snapshotOf(this.#imageMethods());
     this.#spill = {
       dir: options.spill?.dir ?? SPILL_DIR,
       threshold: options.spill?.threshold ?? SPILL_THRESHOLD,
@@ -373,11 +385,41 @@ class Back {
     this.#tickets = new Tickets(options.newTicket);
     this.#results = new LastResults(options.now ?? Date.now);
     this.#methods = new Map<string, () => unknown>([
-      ["tree.snapshot", () => snapshot],
+      ["tree.snapshot", () => this.#snapshot],
       ["policy.list", () => rulesOf(options.policyFile)],
-      ["policy.tree", () => policyTree(options.policyFile)],
+      [
+        "policy.tree",
+        () => policyTree(options.policyFile, this.#imageMethods()),
+      ],
       ["schema", () => SCHEMA],
     ]);
+  }
+
+  /**
+   * Методы образа для снимка и дерева web. Нечитаемый образ — без
+   * методов: строки отказывают сами, а снимок нужен дополнению и без них.
+   */
+  #imageMethods(): readonly ImageMethod[] {
+    try {
+      return this.#image.methods();
+    } catch (err) {
+      if (!(err instanceof ImageError)) throw err;
+      this.#options.diagnose(`mpu-back: ${err.message}`);
+      return [];
+    }
+  }
+
+  /** Пересобирает снимок дерева по образу и пишет его на диск. */
+  async writeSnapshot() {
+    this.#snapshot = snapshotOf(this.#imageMethods());
+    const failure = await writeSnapshot(
+      this.#options.snapshotFile,
+      JSON.stringify(this.#snapshot),
+      this.#options.fs ?? DENO_FS,
+    );
+    if (failure !== undefined) {
+      this.#options.diagnose(`mpu-back: снимок дерева не записан: ${failure}`);
+    }
   }
 
   /** Сокет слушает порт `port`: адрес страницы фронта известен. */
@@ -439,6 +481,7 @@ class Back {
     const workers = this.#workers.stop();
     await Promise.allSettled(this.#open.values());
     await workers;
+    this.#image[Symbol.dispose]();
   }
 
   /**
@@ -625,6 +668,12 @@ class Back {
       evaluator: this.#workers,
       memory,
       refusal: (data) => line.deliver({ refusal: data }),
+      image: {
+        image: this.#image,
+        author: caller.author(door.author),
+        now: () => new Date(),
+        changed: () => this.writeSnapshot(),
+      },
     });
     const io = lineIo(
       this.#options.io,
@@ -653,18 +702,22 @@ class Back {
   }
 }
 
+/** Снимок дерева: версия, узлы с методами образа, сообщения отбора. */
+function snapshotOf(image: readonly ImageMethod[]) {
+  return {
+    version: VERSION,
+    nodes: registryNodes(image),
+    selection: selectionMessages(),
+  };
+}
+
 /**
  * Поднимает сервер на петле и записывает снимок дерева.
  *
  * @throws Deno.errors.AddrInUse — порт занят
  */
 export async function serveBack(options: BackOptions): Promise<RunningBack> {
-  const snapshot = {
-    version: VERSION,
-    nodes: registryNodes(),
-    selection: selectionMessages(),
-  };
-  const back = new Back(options, snapshot);
+  const back = new Back(options);
   back.start();
   const address = Promise.withResolvers<Deno.NetAddr>();
   const server = Deno.serve({
@@ -674,14 +727,7 @@ export async function serveBack(options: BackOptions): Promise<RunningBack> {
   }, back.app().fetch);
   const bound = await address.promise;
   back.listening(bound.port);
-  const failure = await writeSnapshot(
-    options.snapshotFile,
-    JSON.stringify(snapshot),
-    options.fs ?? DENO_FS,
-  );
-  if (failure !== undefined) {
-    options.diagnose(`mpu-back: снимок дерева не записан: ${failure}`);
-  }
+  await back.writeSnapshot();
   // Остановка одна: повторный вызов ждёт ту же (сигнал может прийти
   // дважды, а второй `shutdown` у сервера Deno бросает).
   let stopping: Promise<void> | undefined;

@@ -10,10 +10,12 @@ import { GRAMMAR } from "../messages/mod.ts";
 export type { CommandView } from "./data.ts";
 export { isProgram } from "./lexis.ts";
 export { DEFAULT_PACE_MS, Every, type Pace, Placed } from "./machine.ts";
+export { callWord, type MethodSource, nameParts } from "./method.ts";
 export {
   type CommandNode,
   type Commands,
   LENIENT_ROOT,
+  parseMethodBody,
   parseProgram,
   type Root,
 } from "./parse.ts";

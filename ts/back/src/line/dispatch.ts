@@ -31,4 +31,10 @@ export interface Line {
   listRules(report: Report): Promise<Outcome>;
   /** Изменить правило на пути `path`. */
   change(report: Report, path: RulePath, change: Change): Promise<Outcome>;
+  /**
+   * Вызов метода образа (`platform/image.md`): решение правил пути строки
+   * у взгляда `view` — вопрос, отказ или согласие; исполнения нет, тело
+   * метода исполняет программа.
+   */
+  consent(report: Report, view: View): Promise<Outcome>;
 }

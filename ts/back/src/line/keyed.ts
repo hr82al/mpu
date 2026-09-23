@@ -157,6 +157,8 @@ export interface KeyedParts {
   readonly targets: Targets;
   /** Варианты, набранные до ключей; нет — лист без вариантов. */
   readonly chosen?: Chosen;
+  /** Методы образа команды (`platform/image.md`); нет — пусто. */
+  readonly methods?: readonly Method<Line>[];
 }
 
 /** Значения ключа `target:`, начинающиеся с набранного. */
@@ -175,7 +177,7 @@ function modesOf(parts: KeyedParts): Method<Line>[] {
     unary(
       name,
       { purpose: mode.purpose, help: `${mode.purpose}.` },
-      keyedLeaf({ ...parts, mode }),
+      keyedLeaf({ ...parts, mode, methods: [] }),
       (line: Line) => line,
     )
   );
@@ -267,7 +269,7 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
         () => keyedLeaf({ ...parts, chosen: chosen.with(variant) }),
       )
     );
-  return new Shape<Line>(modesOf(parts), {
+  return new Shape<Line>([...modesOf(parts), ...parts.methods ?? []], {
     variants,
     fallback,
     values: {

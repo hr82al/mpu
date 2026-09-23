@@ -15,7 +15,7 @@ import {
 } from "../command/mod.ts";
 import type { InvokeJournal, Output } from "../entrypoint/mod.ts";
 import { contextFieldsOf } from "../frames/mod.ts";
-import type { LineReply, ProgramEnd } from "../program/mod.ts";
+import type { LineReply, MethodSource, ProgramEnd } from "../program/mod.ts";
 import { deathOf, type ExitStatus, type Markers } from "./death.ts";
 import {
   BadWorkerFrame,
@@ -169,7 +169,8 @@ export class LineWorker {
 
   /**
    * Исполняет программу (`platform/evaluator.md`): её печать — в
-   * `output`, её команды — `core` отдельными строками.
+   * `output`, её команды — `core` отдельными строками; методы образа
+   * уходят исполнителю вместе со словами (`platform/image.md`).
    *
    * @throws смерть исполнителя — `VerbatimError` с её текстом;
    *   остановленный ядром без итога — `WorkerStopped`
@@ -180,12 +181,13 @@ export class LineWorker {
     output: Output,
     core: Core,
     journal: InvokeJournal,
+    methods: readonly MethodSource[],
   ): Promise<ProgramEnd> {
     journal.executedBy(this.pid());
     const stop = () => this.stop();
     io.signal.addEventListener("abort", stop, { once: true });
     try {
-      await this.#send({ evaluate: { words } });
+      await this.#send({ evaluate: { words, methods } });
       if (io.signal.aborted) this.stop();
       return endOf(await this.#converse(io, lineSink(output), core));
     } finally {

@@ -68,6 +68,10 @@ class Captured implements Line {
     return Promise.resolve(report.exit(0));
   }
 
+  consent(report: Report): Promise<Outcome> {
+    return Promise.resolve(report.exit(0));
+  }
+
   streams(): boolean {
     return false;
   }

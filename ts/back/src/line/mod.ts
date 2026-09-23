@@ -62,6 +62,10 @@ import { toDoor } from "./view.ts";
 import { Ahead, entryOf, redirected } from "./ahead.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
+import { Image, ImageError, type ImageMethod } from "../image/mod.ts";
+import type { Commands, MethodSource } from "../program/mod.ts";
+import { imageLineOf } from "./define.ts";
+import { callsImage } from "./methods.ts";
 
 export type { RootMethod } from "./rules.ts";
 export {
@@ -90,10 +94,13 @@ export interface NodeRuling {
  *
  * @throws PolicyError — файл правил нельзя открыть или прочитать
  */
-export function policyTree(file: string | undefined): NodeRuling[] {
+export function policyTree(
+  file: string | undefined,
+  image: readonly ImageMethod[] = [],
+): NodeRuling[] {
   using book = RuleBook.open(file, registrySeeds());
   const owned = new Set(book.list().map((rule) => rule.path));
-  return registryNodes().map((node) => {
+  return registryNodes(image).map((node) => {
     const { verdict, won } = book.decide(ruleLinks(node)).record();
     const own = owned.has(node.path.length === 0 ? "*" : node.path.join(" "));
     return { path: node.path, verdict, rule: won, own };
@@ -160,6 +167,29 @@ export interface LinePorts {
    * — исполнитель вне предела пула, у прочих — `IN_PLACE_PROGRAMS`.
    */
   readonly evaluator: Evaluator;
+  /** Образ строки (`platform/image.md`); нет — образ пуст, писать некуда. */
+  readonly image?: ImagePorts;
+}
+
+/** Образ строки: файл, кто пишет, часы и снимок дерева. */
+export interface ImagePorts {
+  /** Файл образа; живёт дольше строки — сверка `data_version` у него. */
+  readonly image: Image;
+  /** Канал автора определения: `human`, `agent`, `web`. */
+  readonly author: string;
+  readonly now: () => Date;
+  /** Образ изменился: снимок дерева переписывается. */
+  readonly changed: () => Promise<void>;
+}
+
+/** Образа нет: пуст, запись — отказ «нет HOME». */
+function noImage(): ImagePorts {
+  return {
+    image: Image.at(undefined),
+    author: "human",
+    now: () => new Date(),
+    changed: () => Promise.resolve(),
+  };
 }
 
 /**
@@ -240,6 +270,16 @@ export function lineEntry(ports: LinePorts): CliEntry {
       return 1;
     }
     using _book = book;
+    const imaging = ports.image ?? noImage();
+    let methods: readonly ImageMethod[];
+    try {
+      methods = imaging.image.methods();
+    } catch (err) {
+      if (!(err instanceof ImageError)) throw err;
+      plainRefusal(UNNAMED_REFUSAL, err.message).tell(speech);
+      return 1;
+    }
+    const sources = methods.map((method) => method.source());
     // stdin строки — один источник: ключом `stdin` и прежней подстановкой.
     const stdin = new StdinOnce(io);
     const lineIo: CommandIo = { ...io, readStdin: () => stdin.forCommand() };
@@ -253,6 +293,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
         using db = io.openCacheDb();
         return Promise.resolve(targetValues(db, like));
       },
+      image: methods,
     };
     /** Как исполняется команда самой строки: её журнал, очередь, печать. */
     const own: Running = {
@@ -318,10 +359,6 @@ export function lineEntry(ports: LinePorts): CliEntry {
       stripped: strippedOf(argv),
     });
     const said = walked.slice(door.length);
-    if (!isProgram(said)) {
-      const outcome = await runChain(walked, root, values);
-      return printed(outcome, speech);
-    }
     /**
      * Команда программы — отдельной строкой той же дверью: правила в
      * момент отправки, своя запись журнала, `it`; место в очереди строк
@@ -361,14 +398,36 @@ export function lineEntry(ports: LinePorts): CliEntry {
       );
       return reply;
     };
-    return await runProgramLine(said, programRoot(root), {
-      ports,
+    const commands = programCommands(sources);
+    const context = {
+      said,
+      view: entry.view,
+      book,
+      channel,
       speech,
-      io: lineIo,
-      journal,
-      core,
-      decide: (links) => book.decide(links),
-      ahead: entry.ahead,
+      image: imaging.image,
+      methods,
+      commands,
+      root: programRoot(root),
+      author: imaging.author,
+      now: imaging.now,
+      changed: imaging.changed,
+    };
+    return await imageLineOf(said).settle(context, async () => {
+      if (!isProgram(said) && !callsImage(said, methods)) {
+        return printed(await runChain(walked, root, values), speech);
+      }
+      return await runProgramLine(said, context.root, {
+        ports,
+        speech,
+        io: lineIo,
+        journal,
+        core,
+        decide: (links) => book.decide(links),
+        ahead: entry.ahead,
+        commands,
+        sources,
+      });
     });
   };
 }
@@ -384,6 +443,10 @@ interface ProgramLine {
   readonly decide: (links: readonly string[]) => Ruling;
   /** Адрес обхода: в двери или без неё. */
   readonly ahead: Address;
+  /** Дерево команд с методами образа — для разбора. */
+  readonly commands: Commands;
+  /** Методы образа — исполнителю программы. */
+  readonly sources: readonly MethodSource[];
 }
 
 /**
@@ -398,7 +461,7 @@ async function runProgramLine(
 ): Promise<number> {
   let program;
   try {
-    program = parseProgram(words, programCommands(), root);
+    program = parseProgram(words, line.commands, root);
   } catch (err) {
     if (!(err instanceof Placed)) throw err;
     refusalOf(words, err).tell(line.speech);
@@ -423,6 +486,7 @@ async function runEvaluated(
       line.speech,
       line.core,
       line.journal,
+      line.sources,
     );
     if (end.refusal !== null) {
       line.speech.refusal(end.refusal);

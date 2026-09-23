@@ -41,6 +41,13 @@ import {
 import { Num, selectorOf, Text } from "./objects.ts";
 import { closerOf, textAt, unparsed } from "./scan.ts";
 import type { CommandView } from "./data.ts";
+import type { Reach } from "./protocol.ts";
+import {
+  type MethodBody,
+  MethodCall,
+  type MethodSource,
+  nameParts,
+} from "./method.ts";
 
 /** Узел дерева команд глазами разбора (снимок дерева, граница). */
 export interface CommandNode {
@@ -62,6 +69,11 @@ export interface CommandNode {
    * (`platform/ask-composite.md`); у команды с хвостом — со звеном `<args>`.
    */
   readonly links: readonly string[];
+  /**
+   * Методы образа узла по слову, которым начинается вызов: первая часть
+   * имени (`cardsIn:`) или унарное имя (`platform/image.md`).
+   */
+  readonly methods: ReadonlyMap<string, MethodSource>;
 }
 
 /** Дерево команд реестра: узлы для разбора, вид результата для печати. */
@@ -163,12 +175,23 @@ class Parser {
   #names = new Names();
   #statement = 0;
   #label = "";
+  readonly #bodies: Bodies;
 
-  constructor(words: readonly string[], commands: Commands, root: Root) {
+  /**
+   * @param bodies тела методов, уже разобранные этой программой; у
+   *   программы — свои, у тела метода — программы
+   */
+  constructor(
+    words: readonly string[],
+    commands: Commands,
+    root: Root,
+    bodies: Bodies = new Bodies(commands),
+  ) {
     this.#words = words;
     this.#to = words.length;
     this.#commands = commands;
     this.#root = root;
+    this.#bodies = bodies;
   }
 
   /** Место в тексте отказа: номер верхнего выражения и блок. */
@@ -453,6 +476,8 @@ class Parser {
       node = child;
       this.#at++;
     }
+    const method = this.#over() ? undefined : node.methods.get(this.#word());
+    if (method !== undefined) return plain(this.#methodCall(path, method));
     this.#known(path, node);
     const parts: Part[] = [new Written(this.#words.slice(start, this.#at))];
     if (node.leaf) {
@@ -474,6 +499,55 @@ class Parser {
       expression: new Command(UNKNOWN, parts, AS_DATA, AS_VALUE),
       check: resultCheck,
     };
+  }
+
+  /**
+   * Вызов метода образа: части имени по порядку, значение каждой —
+   * выражение программы (объект).
+   */
+  #methodCall(path: readonly string[], method: MethodSource): Expression {
+    const start = this.#at;
+    const parts = nameParts(method.name);
+    if (parts.length === 0) this.#at++;
+    const args: Expression[] = [];
+    for (const part of parts) {
+      this.#skip();
+      if (this.#over() || this.#word() !== part) {
+        throw misplaced(
+          `метод ${method.name} ждёт ключ ${part}`,
+          this.#span(1),
+        );
+      }
+      this.#at++;
+      args.push(this.#argument(part.slice(0, -GRAMMAR.parameter.length)));
+    }
+    return new MethodCall(
+      path,
+      method.name,
+      args,
+      this.#bodies.of(method),
+      this.#spanFrom(start),
+    );
+  }
+
+  /**
+   * Тело метода: одна запись блока `do … done` на все слова; иначе —
+   * отказ.
+   */
+  methodBlock(): { literal: Expression; params: number } {
+    // Тело — одно выражение: место отказа в нём — выражение 1.
+    this.#statement = 1;
+    const refused = () =>
+      misplaced(
+        `тело метода — блок ${GRAMMAR.open} … ${GRAMMAR.blockEnd}`,
+        this.#span(this.#to),
+        "тело метода — блок",
+      );
+    if (this.#over() || this.#word() !== GRAMMAR.open) throw refused();
+    const closer = closerOf(this.#words, this.#at, this.#to);
+    if (closer.end !== this.#to - 1) throw refused();
+    const { expression } = this.#closed("");
+    return { literal: expression, params: closer.params(refused) };
   }
 
   /**
@@ -666,6 +740,7 @@ const NO_NODE: CommandNode = {
   formats: [],
   fromFile: new Map(),
   links: [],
+  methods: new Map(),
 };
 
 /** Хвост строки без команды: её напечатанное — данные JSON. */
@@ -773,6 +848,81 @@ export function parseProgram(
   const parser = new Parser(words, commands, root);
   try {
     return parser.program();
+  } catch (err) {
+    if (!(err instanceof Misstep || err instanceof Refusal)) throw err;
+    throw placed(err, parser.place());
+  }
+}
+
+/** Тело метода, разобранное при первой надобности, — однажды на программу. */
+class LazyBody implements MethodBody {
+  readonly #method: MethodSource;
+  readonly #bodies: Bodies;
+  #parsed: Expression | undefined;
+  #reached = false;
+
+  constructor(method: MethodSource, bodies: Bodies) {
+    this.#method = method;
+    this.#bodies = bodies;
+  }
+
+  literal(): Expression {
+    this.#parsed ??= this.#bodies.parse(this.#method).literal;
+    return this.#parsed;
+  }
+
+  reach(into: Reach) {
+    if (this.#reached) return;
+    this.#reached = true;
+    this.literal().reach(into);
+  }
+}
+
+/**
+ * Тела методов одной программы: по одному на метод, чтобы рекурсия
+ * разбиралась и обходилась конечно.
+ */
+class Bodies {
+  readonly #commands: Commands;
+  readonly #known = new Map<string, MethodBody>();
+
+  constructor(commands: Commands) {
+    this.#commands = commands;
+  }
+
+  of(method: MethodSource): MethodBody {
+    const key = [...method.receiver, method.name].join(" ");
+    let body = this.#known.get(key);
+    if (body === undefined) {
+      body = new LazyBody(method, this);
+      this.#known.set(key, body);
+    }
+    return body;
+  }
+
+  /** Тело метода своим разбором: тела, которые оно зовёт, — общие. */
+  parse(method: MethodSource): { literal: Expression; params: number } {
+    const words = method.source;
+    return new Parser(words, this.#commands, LENIENT_ROOT, this).methodBlock();
+  }
+}
+
+/**
+ * Разбирает исходник метода: одна запись блока `do … done`; число его
+ * параметров — части имени проверяет вызывающий. Тело проверяется так
+ * же, как строка программы.
+ *
+ * @throws Placed — не блок или отказ разбора тела
+ */
+export function parseMethodBody(
+  words: readonly string[],
+  commands: Commands,
+  root: Root,
+): { readonly params: number; reach(into: Reach): void } {
+  const parser = new Parser(words, commands, root);
+  try {
+    const { literal, params } = parser.methodBlock();
+    return { params, reach: (into) => literal.reach(into) };
   } catch (err) {
     if (!(err instanceof Misstep || err instanceof Refusal)) throw err;
     throw placed(err, parser.place());

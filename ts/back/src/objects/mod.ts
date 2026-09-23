@@ -25,6 +25,7 @@ export type {
   VariantLine,
   Yields,
 } from "./protocol.ts";
+export { HELP_SELECTOR } from "./protocol.ts";
 export type { Description, Fallback, Method, VariantMethod } from "./method.ts";
 export {
   AsideCall,
@@ -32,6 +33,7 @@ export {
   gate,
   keyword,
   link,
+  REFUSE,
   tail,
   unary,
 } from "./method.ts";
@@ -49,6 +51,7 @@ export {
   type Values,
 } from "./shape.ts";
 export {
+  isProtocol,
   LISTED,
   messageListing,
   valueListing,

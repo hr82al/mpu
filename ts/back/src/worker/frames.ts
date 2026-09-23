@@ -6,7 +6,7 @@
 
 import { isRecord, parsedJson } from "../frames/json.ts";
 import { BadFrame, type RefusalData, refusalOf } from "../frames/mod.ts";
-import type { LineReply } from "../program/mod.ts";
+import type { LineReply, MethodSource } from "../program/mod.ts";
 
 /**
  * Что исполнить: путь команды, её аргументы, каталог строки и поля
@@ -23,11 +23,13 @@ export interface Order {
 
 /**
  * Что исполнить программой (`platform/evaluator.md`, «Где исполняется»):
- * её слова. Контекст вызова ей не нужен — окружения она не касается,
- * команды исполняет ядро.
+ * её слова и методы образа, которые она может позвать
+ * (`platform/image.md`). Контекст вызова ей не нужен — окружения она не
+ * касается, команды исполняет ядро.
  */
 export interface Evaluation {
   readonly words: readonly string[];
+  readonly methods: readonly MethodSource[];
 }
 
 /** Вид вопроса исполнителя; `copy` — просьба в буфер обмена. */
@@ -93,7 +95,24 @@ function stringsOf(value: unknown, name: string): readonly string[] {
 }
 
 function evaluationOf(evaluate: Record<string, unknown>): Evaluation {
-  return { words: stringsOf(evaluate.words, "words") };
+  const { methods } = evaluate;
+  if (!Array.isArray(methods)) throw new BadWorkerFrame("methods — не список");
+  return {
+    words: stringsOf(evaluate.words, "words"),
+    methods: methods.map(methodOf),
+  };
+}
+
+/** Метод образа из кадра `evaluate`. */
+function methodOf(value: unknown): MethodSource {
+  if (!isRecord(value) || typeof value.name !== "string") {
+    throw new BadWorkerFrame("метод образа без имени");
+  }
+  return {
+    receiver: stringsOf(value.receiver, "receiver"),
+    name: value.name,
+    source: stringsOf(value.source, "source"),
+  };
 }
 
 /** Ответ ядра на строку команды: данные с командой либо код. */

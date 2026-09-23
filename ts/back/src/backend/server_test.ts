@@ -175,6 +175,7 @@ Deno.test("процесс: адрес в stdout, оба токена 0600, ос�
       agentToken: tokenFile(`${dir}/agent-token`),
       log: NO_INVOKE_LOG,
       policyFile: `${dir}/policy.db`,
+      imageFile: `${dir}/image.db`,
       snapshotFile: `${dir}/tree.json`,
       webSessions: secretText(`${dir}/web-sessions`),
       webRoot: `${dir}/web`,

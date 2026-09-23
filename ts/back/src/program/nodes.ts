@@ -336,7 +336,7 @@ export const AS_VALUE: Reading = (reply) => reply.value();
 export const AS_PRINTED: Reading = (reply) => reply.printed();
 
 /** Строка ядру: ответ машины — итог команды, прочитанный `reading`. */
-class CoreLine implements Request {
+export class CoreLine implements Request {
   readonly #words: readonly string[];
   readonly #reading: Reading;
 

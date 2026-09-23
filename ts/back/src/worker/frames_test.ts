@@ -27,7 +27,17 @@ Deno.test("кадры: строка NDJSON разбирается в тот же
     { answer: null },
     { stdin: "ввод\n" },
     { stop: true },
-    { evaluate: { words: ["x", ":=", "5"] } },
+    { evaluate: { words: ["x", ":=", "5"], methods: [] } },
+    {
+      evaluate: {
+        words: ["kiten", "mine"],
+        methods: [{
+          receiver: ["kiten"],
+          name: "mine",
+          source: ["do", "kiten", "ls", "done"],
+        }],
+      },
+    },
     {
       lined: {
         data: { rows: [] },

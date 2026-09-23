@@ -333,8 +333,11 @@ Deno.test("исполнитель программы: строка команд�
       return Promise.resolve({ data: 1, command: null, shown: "1\n" });
     },
     journal(pids),
+    [],
   );
-  assertEquals(await script.next(), { evaluate: { words: ["x"] } });
+  assertEquals(await script.next(), {
+    evaluate: { words: ["x"], methods: [] },
+  });
   await script.send({ line: ["kiten", "ls"] });
   assertEquals(await script.next(), {
     lined: { data: 1, command: null, shown: "1\n" },
@@ -363,6 +366,7 @@ Deno.test("исполнитель программы умер, пока ядро
     collected([]),
     () => never.promise,
     journal([]),
+    [],
   );
   await script.next();
   await script.send({ line: ["kiten", "ls"] });
@@ -385,6 +389,7 @@ Deno.test("исполнитель программы: отмена строки 
     collected([]),
     () => Promise.resolve({ exit: 1 }),
     journal([]),
+    [],
   );
   await script.next();
   stop.abort();

@@ -144,6 +144,7 @@ Deno.test("процесс исполнителя: программа — печ�
         });
       },
       journal,
+      [],
     );
     assertEquals(end, { exit: 0, refusal: null }, diagnosed.join("\n"));
     assertEquals(printed, ["2\n", "false\n"]);

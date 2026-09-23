@@ -15,7 +15,7 @@ import { GRAMMAR } from "../messages/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { Memory } from "./it.ts";
-import { lineEntry } from "./mod.ts";
+import { type ImagePorts, lineEntry } from "./mod.ts";
 import { consentOf } from "./testconsent.ts";
 
 const CARDS_PATH = "/api/latest/cards";
@@ -201,6 +201,8 @@ export interface StandLine {
   readonly memory?: Memory;
   /** Подмены окружения поверх стенда: без терминала — человека нет. */
   readonly io?: Partial<CommandIo>;
+  /** Образ строки (`platform/image.md`); нет — пуст. */
+  readonly image?: ImagePorts;
 }
 
 /**
@@ -229,6 +231,7 @@ export async function runOnStand(
   const exit = await lineEntry({
     ...ports,
     refusal: (data) => void refusals.push(data),
+    image: line.image,
   })(
     words,
     makeFakeIo({

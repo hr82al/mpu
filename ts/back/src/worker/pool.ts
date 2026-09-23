@@ -8,7 +8,7 @@
 import type { Command, CommandIo } from "../command/mod.ts";
 import type { InvokeJournal, Invoker, Output } from "../entrypoint/mod.ts";
 import type { Evaluator } from "../line/mod.ts";
-import type { LineReply, ProgramEnd } from "../program/mod.ts";
+import type { LineReply, MethodSource, ProgramEnd } from "../program/mod.ts";
 import { unlaunched } from "./death.ts";
 import type { Launcher } from "./launch.ts";
 import { LineWorker, type WorkerParts } from "./lineworker.ts";
@@ -86,9 +86,10 @@ export class Workers implements Invoker, Evaluator {
     output: Output,
     core: (words: readonly string[]) => Promise<LineReply>,
     journal: InvokeJournal,
+    methods: readonly MethodSource[],
   ): Promise<ProgramEnd> {
     const worker = this.#outside();
-    return await worker.evaluate(words, io, output, core, journal);
+    return await worker.evaluate(words, io, output, core, journal, methods);
   }
 
   /** Остановка ядра: простаивающим — конец stdin, занятым — `stop`. */

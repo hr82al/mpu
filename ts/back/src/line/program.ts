@@ -16,12 +16,14 @@ import {
 import { flagged, type KeyKind } from "../messages/mod.ts";
 import type { Call } from "../objects/mod.ts";
 import {
+  callWord,
   type CommandNode,
   type Commands,
   type CommandView,
   DEFAULT_PACE_MS,
   Every,
   type LineReply,
+  type MethodSource,
   type ProgramEnd,
   type Root,
   runProgram,
@@ -94,14 +96,19 @@ function fileKeys(path: readonly string[]): ReadonlyMap<string, string> {
 /**
  * Дерево команд реестра для разбора программы — из снимка дерева; вид
  * результата — у самой команды.
+ *
+ * @param methods методы образа: узел получателя знает свои
  */
-export function programCommands(): Commands {
+export function programCommands(
+  methods: readonly MethodSource[] = [],
+): Commands {
   const nodes = registryNodes();
   const parents = new Set(
     nodes.map((node) => node.path.slice(0, -1).join(" ")),
   );
   const byPath = new Map(nodes.map((node): [string, CommandNode] => {
     const path = node.path.join(" ");
+    const own = methods.filter((one) => one.receiver.join(" ") === path);
     return [path, {
       leaf: node.path.length > 0 && !parents.has(path),
       keys: new Map(
@@ -111,6 +118,7 @@ export function programCommands(): Commands {
       formats: node.formats,
       fromFile: fileKeys(node.path),
       links: ruleLinks(node),
+      methods: new Map(own.map((one) => [callWord(one.name), one])),
     }];
   }));
   return {
@@ -216,7 +224,8 @@ function holds(words: readonly string[], path: readonly string[]): boolean {
 export interface Evaluator {
   /**
    * Итог программы `words`; команды она отдаёт `core` отдельными
-   * строками, печать — в stdout `output`.
+   * строками, печать — в stdout `output`; методы образа `methods` —
+   * вызовы, которые она исполняет сама.
    */
   evaluate(
     words: readonly string[],
@@ -224,14 +233,15 @@ export interface Evaluator {
     output: Output,
     core: (words: readonly string[]) => Promise<LineReply>,
     journal: InvokeJournal,
+    methods: readonly MethodSource[],
   ): Promise<ProgramEnd>;
 }
 
 /** Программа исполняется здесь же, в процессе вызывающего. */
 export const IN_PLACE_PROGRAMS: Evaluator = {
-  evaluate: (words, io, output, core) =>
+  evaluate: (words, io, output, core, _journal, methods) =>
     runProgram(words, {
-      commands: programCommands(),
+      commands: programCommands(methods),
       core,
       print: output.stdout,
       signal: io.signal,

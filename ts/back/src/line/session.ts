@@ -164,6 +164,10 @@ export class Session implements Line {
     });
   }
 
+  consent(report: Report, view: View): Promise<Outcome> {
+    return this.#ruled(report, view, () => Promise.resolve(report.exit(0)));
+  }
+
   /** Сообщение корня обычного взгляда: у двери его нет. */
   listRules(report: Report): Promise<Outcome> {
     return this.#ruled(

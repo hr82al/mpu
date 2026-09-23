@@ -90,6 +90,11 @@ export interface Closer {
    * вокруг, `outer`.
    */
   label(by: string, outer: string): string;
+  /**
+   * Число параметров тела метода: у блока — его; группа телом метода не
+   * бывает — `refused`.
+   */
+  params(refused: () => Error): number;
 }
 
 /** Блок: `do :a … done` или `do … done`. */
@@ -119,6 +124,10 @@ class BlockClose implements Closer {
   label(by: string): string {
     return by === "" ? "блок" : `блок ${by}`;
   }
+
+  params(): number {
+    return this.#params.length;
+  }
 }
 
 /** Группа `do … end`: выражения в той же области. */
@@ -145,6 +154,10 @@ class GroupClose implements Closer {
 
   label(_by: string, outer: string): string {
     return outer;
+  }
+
+  params(refused: () => Error): number {
+    throw refused();
   }
 }
 

@@ -83,6 +83,17 @@ export class RuleBook implements Disposable {
     });
   }
 
+  /**
+   * Посев путей, которые посев ещё ни разу не видел, — по надобности, а не
+   * на открытии (путь `define:` получателя, `platform/image.md`).
+   */
+  sow(seeds: readonly Rule[]) {
+    guarded(() => {
+      this.#seed(seeds);
+      this.#load();
+    });
+  }
+
   /** Записывает правило (заменяет прежнее на том же пути). */
   set(path: RulePath, verdict: Verdict) {
     guarded(() => {

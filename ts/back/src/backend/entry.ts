@@ -33,6 +33,8 @@ export interface BackProcess {
   readonly log: InvokeLog;
   /** Файл правил подтверждения; нет HOME — `undefined`. */
   readonly policyFile: string | undefined;
+  /** Файл образа (`platform/image.md`); нет HOME — `undefined`. */
+  readonly imageFile: string | undefined;
   /** Файл снимка дерева; нет HOME — `undefined`. */
   readonly snapshotFile: string | undefined;
   /** Файл сессий входа в браузере (`web-sessions`, 0600). */
@@ -135,6 +137,7 @@ export async function runBack(
         agent: await ensureAccessToken(proc.agentToken),
       },
       policyFile: proc.policyFile,
+      imageFile: proc.imageFile,
       io: proc.io,
       log: proc.log,
       snapshotFile: proc.snapshotFile,

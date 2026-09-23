@@ -28,7 +28,7 @@ import {
 import type { Reach } from "../program/mod.ts";
 import type { Speech } from "./printed.ts";
 import { ARGS } from "./tree.ts";
-import { ASK_WORD } from "./view.ts";
+import { ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";
 
 /** Вид отказа: строка без двери может дойти до записи. */
 const MAY_WRITE = "строка может записать";
@@ -144,22 +144,28 @@ class RuledOut implements Finding {
   }
 }
 
-/** Вход строки: слова, которыми он начинает подстроки, и адрес обхода. */
+/**
+ * Вход строки: слова, которыми он начинает подстроки, адрес обхода и
+ * взгляд, которым решается строка образа (`platform/image.md`).
+ */
 export interface Entry {
   readonly words: readonly string[];
   readonly ahead: Address;
+  readonly view: View;
 }
 
 /** Через дверь: `ask` проходит обход, вопрос — при отправке. */
 const THROUGH_DOOR: Entry = {
   words: [ASK_WORD],
   ahead: { onAllow: () => EXECUTE, onAsk: () => EXECUTE },
+  view: DOOR,
 };
 
 /** Без двери: `ask` — отказ всей строки. */
 const OUTSIDE: Entry = {
   words: [],
   ahead: { onAllow: () => EXECUTE, onAsk: () => REDIRECT },
+  view: NORMAL,
 };
 
 /** Вход строки по её первому слову. */

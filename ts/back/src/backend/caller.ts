@@ -15,6 +15,11 @@ export interface Caller {
    * сокета запрос уже закрыт.
    */
   naming(request: Request): Naming;
+  /**
+   * Автор метода образа по каналу двери `door`: браузер — `web`, прочие
+   * — канал двери (`platform/image.md`).
+   */
+  author(door: string): string;
 }
 
 /** Имя строки для памяти результатов. */
@@ -33,10 +38,15 @@ const CLAIMED: Naming = { of: (claimed) => Promise.resolve(claimed) };
 export const OWNER: Caller = {
   human: (claimed) => claimed,
   naming: () => CLAIMED,
+  author: (door) => door,
 };
 
 /** Агентский токен: `human` — всегда `false`. */
-export const AGENT: Caller = { human: () => false, naming: () => CLAIMED };
+export const AGENT: Caller = {
+  human: () => false,
+  naming: () => CLAIMED,
+  author: (door) => door,
+};
 
 /**
  * Браузер с cookie сессии (`specs/web.md`): права основного токена —
@@ -45,6 +55,7 @@ export const AGENT: Caller = { human: () => false, naming: () => CLAIMED };
  */
 export const BROWSER: Caller = {
   human: (claimed) => claimed,
+  author: () => "web",
   // Cookie `HttpOnly` — странице не видна: вызывающего называет `back`
   // хэшем сессии, а поле кадра браузера не читается — чужая вкладка
   // подставила бы чужое имя.

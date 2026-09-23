@@ -35,6 +35,7 @@ function node(
     formats: leaf ? ["json"] : [],
     fromFile: new Map(),
     links: path === "" ? [] : [...path.split(" "), "<rule>"],
+    methods: new Map(),
   };
 }
 

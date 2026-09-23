@@ -28,6 +28,7 @@ export interface TestBack {
   readonly token: string;
   readonly agentToken: string;
   readonly policyFile: string;
+  readonly imageFile: string;
   readonly snapshotFile: string;
   /** Файл сессий браузера. */
   readonly webSessions: string;
@@ -154,6 +155,7 @@ export async function withBack(
     lines: setup.lines,
     tokens: { main: TOKEN, agent: AGENT_TOKEN },
     policyFile: `${dir}/policy.db`,
+    imageFile: `${dir}/image.db`,
     io,
     log: recordingLog(
       executors,
@@ -187,6 +189,7 @@ export async function withBack(
     token: TOKEN,
     agentToken: AGENT_TOKEN,
     policyFile: `${dir}/policy.db`,
+    imageFile: `${dir}/image.db`,
     snapshotFile,
     webSessions: `${dir}/web-sessions`,
     called,

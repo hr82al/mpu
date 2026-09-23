@@ -45,6 +45,7 @@ function node(
     formats: leaf ? ["json", "md"] : [],
     fromFile,
     links: [],
+    methods: new Map(),
   };
 }
 
