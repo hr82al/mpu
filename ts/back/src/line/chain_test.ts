@@ -61,7 +61,7 @@ Deno.test("группа без подкоманды — справка и код
 Deno.test("непонятое слово: ближайшие и путь приёмника", (t) =>
   withPolicyFile(async (file) => {
     const cases: readonly (readonly [readonly string[], string])[] = [
-      [["kitn"], "mpu: не понимает kitn; ближайшие: kiten, it\n"],
+      [["kitn"], "mpu: не понимает kitn; ближайшие: kiten\n"],
       // Ребёнок `move` — две правки от `nope`, но при посеве он `ask`:
       // обычный взгляд его не называет, и в «ближайших» его нет
       // (`platform/ask-door.md`).

@@ -77,7 +77,7 @@ Deno.test("mpu: version и kitn — итог равен POST /agent/line", () =>
         { type: "text", text: "" },
         {
           type: "text",
-          text: "stderr:\nmpu: не понимает kitn; ближайшие: kiten, it\n",
+          text: "stderr:\nmpu: не понимает kitn; ближайшие: kiten\n",
         },
       ]);
       assertEquals(kitn.isError, true);

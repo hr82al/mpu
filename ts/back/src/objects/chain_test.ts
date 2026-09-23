@@ -92,6 +92,23 @@ Deno.test("ближайших не больше трёх, при равном р
   });
 });
 
+Deno.test("порог ближайших — от длины селектора: короткий не цепляется", async () => {
+  const shape = new Shape<null>(
+    ["it", "kiten", "card", "card:"].map((s) => unary(s, DOC, DATA, () => s)),
+  );
+  const cases = [
+    ["kitn", "mpu: не понимает kitn; ближайшие: kiten"],
+    ["car", "mpu: не понимает car; ближайшие: card, card:"],
+    ["itt", "mpu: не понимает itt; ближайшие: it"],
+  ] as const;
+  for (const [word, error] of cases) {
+    assertEquals(await runChain([word], origin(DOC, shape, null)), {
+      error,
+      code: 2,
+    });
+  }
+});
+
 Deno.test("сбой объекта, не являющийся отказом, не превращается в отказ", async () => {
   const shape = new Shape<null>([
     unary("boom", DOC, DATA, () => {
