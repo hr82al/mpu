@@ -21,9 +21,9 @@ import {
 
 const encoder = new TextEncoder();
 
-Deno.test("описание тула mpu — текст v3 со словами грамматики из константы", async () => {
+Deno.test("описание тула mpu — текст tool-desc со словами грамматики из константы", async () => {
   const text = await Deno.readTextFile(
-    new URL("testdata/mcp-objects/tool-desc-v3.txt", import.meta.url),
+    new URL("testdata/mcp-objects/tool-desc.txt", import.meta.url),
   );
   const mpu = TOOLS.find((tool) => tool.name === "mpu");
   assertEquals(mpu?.description, text.trimEnd());
