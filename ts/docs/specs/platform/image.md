@@ -25,8 +25,8 @@
 
 ## Определение
 
-`ask kiten define: cardsIn purpose: ^мои карточки в колонке^ do :column kiten
-ls where: column is: @column done`
+`ask kiten define: cardsIn purpose: ^мои карточки в колонке^ do :col kiten
+ls where: column is: @col done`
 
 | Правило | Итог |
 |---|---|
@@ -59,7 +59,7 @@ ls where: column is: @column done`
 
 ## Вызов и отражение
 
-- `kiten cardsIn: review` — тело исполняется с `column` = `review`; итог —
+- `kiten cardsIn: review` — тело исполняется с `col` = `review`; итог —
   итог тела. Параметры — ключами по частям имени.
 - Метод отвечает протоколу корня: `kiten messages` перечисляет его рядом с
   командами (метка `образ`); `kiten cardsIn: help` — назначение, ключи,
@@ -97,7 +97,7 @@ ls where: column is: @column done`
 
 | Дано | Ожидается |
 |---|---|
-| `ask kiten define: cardsIn purpose: ^мои в колонке^ do :column kiten ls where: column is: @column done`, «да» | метод записан, правило `kiten cardsIn:` — `allow` (посев) |
+| `ask kiten define: cardsIn purpose: ^мои в колонке^ do :col kiten ls where: column is: @col done`, «да» | метод записан, правило `kiten cardsIn:` — `allow` (посев) |
 | затем `kiten cardsIn: review end size` | число карточек в `review` |
 | `kiten messages` | среди прочих `cardsIn:` с меткой `образ` |
 | `kiten cardsIn: help` | назначение «мои в колонке», ключ `cardsIn:`, исходник |
