@@ -7,6 +7,8 @@
 
 import type { CommandIo } from "../command/mod.ts";
 import {
+  type Delivery,
+  type InvokeJournal,
   type Invoker,
   JSON_FLAG,
   type Output,
@@ -127,6 +129,16 @@ export interface LinePorts {
   readonly refusal: (data: RefusalData) => void;
 }
 
+/**
+ * Как исполняется команда строки: чья запись журнала, в какой очереди и
+ * куда уходит результат, если строка не выбрала доставку сама.
+ */
+interface Running {
+  readonly journal: InvokeJournal;
+  readonly execute: (run: () => Promise<number>) => Promise<number>;
+  readonly delivery: Delivery;
+}
+
 /** Отказ-объект никому не нужен: достаточно текста. */
 export const NO_REFUSAL = (_data: RefusalData) => {};
 
@@ -207,27 +219,31 @@ export function lineEntry(ports: LinePorts): CliEntry {
         return Promise.resolve(targetValues(db, like));
       },
     };
+    /** Как исполняется команда самой строки: её журнал, очередь, печать. */
+    const own: Running = { journal, execute: ports.execute, delivery: PRINT };
     /**
      * Строка `words` с выводом `out`: её собственная сессия; результат
-     * команды запоминает `memory`.
+     * команды запоминает `memory`, исполняется она так, как велит
+     * `running`.
      */
     const sessionOf = (
       words: readonly string[],
       out: Speech,
       memory: Memory,
+      running: Running = own,
     ) =>
       new Session({
         book,
         channel,
         output: out,
         dispatch: (view, order, delivery) =>
-          ports.execute(() =>
+          running.execute(() =>
             runLine(
               order.argv(view.executed(words)),
               lineIo,
               out,
-              journal,
-              remembering(delivery ?? PRINT, memory),
+              running.journal,
+              remembering(delivery ?? running.delivery, memory),
               ports.invoker,
             )
           ),
