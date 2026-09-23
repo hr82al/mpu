@@ -152,6 +152,11 @@
 «поле — унарным», точки съедены). Спека `platform/at-word-literal.md`. Идёт
 сразу после 168.
 
+### Порция 167c: окно подтверждения MCP — только Accept / Decline
+
+Решение владельца: флажок `confirm` в форме лишний. `mcp-objects.md`,
+`fixtures/mcp-objects/elicitation.json`. Идёт после 167b.
+
 ### Порция 168: образ
 
 **Спека:** `ts/docs/specs/platform/image.md`.

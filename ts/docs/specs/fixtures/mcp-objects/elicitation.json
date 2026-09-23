@@ -1,10 +1,45 @@
 {
-  "client_initialize_capabilities": {"roots": {"listChanged": true}, "elicitation": {}},
-  "server_request": {"method": "elicitation/create", "params": {"message": "Проба mpu: выполнить действие «kiten card 123 comment»?", "requestedSchema": {"type": "object", "properties": {"confirm": {"type": "boolean", "title": "Выполнить?"}}, "required": ["confirm"]}, "mode": "form"}, "jsonrpc": "2.0", "id": 0},
+  "client_initialize_capabilities": {
+    "roots": {
+      "listChanged": true
+    },
+    "elicitation": {}
+  },
+  "server_request": {
+    "method": "elicitation/create",
+    "params": {
+      "message": "Проба mpu: выполнить действие «kiten card 123 comment»?",
+      "requestedSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "mode": "form"
+    },
+    "jsonrpc": "2.0",
+    "id": 0
+  },
   "client_responses": {
-    "accept_checked": {"result": {"action": "accept", "content": {"confirm": true}}, "jsonrpc": "2.0", "id": 0},
-    "accept_unchecked": {"result": {"action": "accept", "content": {"confirm": false}}, "jsonrpc": "2.0", "id": 0},
-    "decline": {"result": {"action": "decline"}, "jsonrpc": "2.0", "id": 0},
-    "escape": {"result": {"action": "cancel"}, "jsonrpc": "2.0", "id": 0}
+    "accept": {
+      "result": {
+        "action": "accept",
+        "content": {}
+      },
+      "jsonrpc": "2.0",
+      "id": 0
+    },
+    "decline": {
+      "result": {
+        "action": "decline"
+      },
+      "jsonrpc": "2.0",
+      "id": 0
+    },
+    "escape": {
+      "result": {
+        "action": "cancel"
+      },
+      "jsonrpc": "2.0",
+      "id": 0
+    }
   }
 }

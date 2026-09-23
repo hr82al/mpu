@@ -72,13 +72,15 @@ deno task mcp [--port <число>]
 
 **Вопрос подтверждения.** Собранный ответ пришёл с `ask` и `ticket` →
 `elicitation/create` клиенту в той же сессии, форма — как в голдене
-(`fixtures/mcp-objects/elicitation.json`): `message` — текст вопроса, одно
-обязательное поле `confirm` (boolean, заголовок `Выполнить?`). Ответ клиента:
+(`fixtures/mcp-objects/elicitation.json`): `message` — текст вопроса,
+`requestedSchema` — `{"type": "object", "properties": {}}` без полей: у
+человека только «Accept» / «Decline» (порция 167c; решение владельца
+2026-09-23 — флажок `confirm` в окне лишний). Ответ клиента:
 
 | Ответ | Уходит в `…/answer` |
 |---|---|
-| `action: "accept"` и `confirm: true` | `y` |
-| `accept` с `confirm: false`, `decline`, `cancel`, ошибка, нет ответа | `n` |
+| `action: "accept"` (содержимое любое, не читается) | `y` |
+| `decline`, `cancel`, ошибка, нет ответа | `n` |
 
 Ответ `back` на `…/answer` снова может кончиться вопросом — повторяется то же.
 
@@ -117,7 +119,8 @@ deno task mcp [--port <число>]
 | `mpu` `["kitn"]` | второй блок `stderr:\nmpu: не понимает kitn; ближайшие: kiten\n`, `isError` |
 | `help` без `path` | справка корня |
 | `mpu` `["allow:", "kiten ls"]` | `изменить правила может только человек`, `isError`, вопроса нет |
-| решение `ask`, клиент с elicitation, `accept` + `true` | строка исполнена |
+| решение `ask`, клиент с elicitation, `accept` | строка исполнена |
+| решение `ask`, `decline` | `… не подтверждено`, `isError` |
 | то же, `decline` | `…: не подтверждено`, `isError` |
 | решение `ask`, клиент без elicitation | `… спросить некого`, `isError` |
 | запрос с неизвестной сессией | 404 |
