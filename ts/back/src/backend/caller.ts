@@ -21,3 +21,15 @@ export const AGENT: Caller = { human: () => false };
  * принимался только от браузера.
  */
 export const BROWSER: Caller = { human: (claimed) => claimed };
+
+/** Cookie сессии браузера (`specs/web.md`). */
+export const SESSION_COOKIE = "mpu_session";
+
+/** Значение cookie `name` из запроса; нет — `undefined`. */
+export function cookieOf(request: Request, name: string): string | undefined {
+  for (const part of (request.headers.get("Cookie") ?? "").split(";")) {
+    const [key, ...value] = part.trim().split("=");
+    if (key === name) return value.join("=");
+  }
+  return undefined;
+}

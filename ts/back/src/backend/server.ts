@@ -17,7 +17,14 @@ import {
 } from "../line/mod.ts";
 import { runJournaled } from "../process/mod.ts";
 import { VERSION } from "../version.ts";
-import { AGENT, BROWSER, type Caller, OWNER } from "./caller.ts";
+import {
+  AGENT,
+  BROWSER,
+  type Caller,
+  cookieOf,
+  OWNER,
+  SESSION_COOKIE,
+} from "./caller.ts";
 import { AGENT_DOOR, type Door, HUMAN_DOOR } from "./door.ts";
 import {
   BadFrame,
@@ -141,16 +148,6 @@ function keyed(presentation: Presentation, keys: readonly Key[]): Gate {
 }
 
 /** Имя cookie сессии браузера. */
-const SESSION_COOKIE = "mpu_session";
-
-function cookieOf(request: Request, name: string): string | undefined {
-  for (const part of (request.headers.get("Cookie") ?? "").split(";")) {
-    const [key, ...value] = part.trim().split("=");
-    if (key === name) return value.join("=");
-  }
-  return undefined;
-}
-
 /**
  * Вход по cookie сессии (`specs/web.md`): права основного токена, но
  * только при `Origin` в точности `http://mpu.localhost:<порт>` — браузер

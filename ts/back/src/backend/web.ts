@@ -19,7 +19,11 @@ function randomHex(): string {
   ).join("");
 }
 
-async function sha256(text: string): Promise<string> {
+/**
+ * Хэш сессии, как он лежит в файле сессий: по нему сессию узнают, не
+ * храня её саму.
+ */
+export async function sessionHash(text: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(text),
@@ -81,14 +85,17 @@ export class WebAccess {
     this.#keys.delete(key);
     if (until === undefined || until <= this.#now()) return undefined;
     const session = randomHex();
-    this.#sessions.set(await sha256(session), this.#now() + SESSION_TTL_MS);
+    this.#sessions.set(
+      await sessionHash(session),
+      this.#now() + SESSION_TTL_MS,
+    );
     await this.#save();
     return session;
   }
 
   /** Действует ли сессия из cookie. */
   async admits(session: string): Promise<boolean> {
-    const until = this.#sessions.get(await sha256(session));
+    const until = this.#sessions.get(await sessionHash(session));
     return until !== undefined && until > this.#now();
   }
 
