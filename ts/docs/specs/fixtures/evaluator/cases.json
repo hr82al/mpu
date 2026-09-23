@@ -1,0 +1,249 @@
+{
+  "cases": [
+    {
+      "name": "однокомандная строка — как до порции",
+      "line": "kiten ls",
+      "stdout": "ID  STATE        COLUMN  DUE  TITLE  URL\n11  queued       9101         один   {kaiten}/11\n12  in progress  9102         два    {kaiten}/12\n13  done         9101         три    {kaiten}/13\n(3 cards)\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "присваивание и сообщение числу",
+      "line": "x {:=} 5 {.} x plus: 2",
+      "stdout": "7\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "print — результату plus:, итог nil не печатается",
+      "line": "x {:=} 5 {.} x plus: 2 print",
+      "stdout": "7\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "сравнение чисел",
+      "line": "3 greater: 2",
+      "stdout": "true\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "деление склеенного: greater: числу, ifTrue: булеву",
+      "line": "3 greater: 2 ifTrue: {do} {^}да{^} print {done}",
+      "stdout": "да\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "невыбранная ветка — ничего, код 0",
+      "line": "1 greater: 2 ifTrue: {do} {^}да{^} print {done}",
+      "stdout": "",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "ifTrue:ifFalse:",
+      "line": "3 greater: 2 ifTrue: {do} {^}да{^} {done} ifFalse: {do} {^}нет{^} {done}",
+      "stdout": "да\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "сравнение числа и текста — отказ",
+      "line": "3 greater: {^}a{^}",
+      "stdout": "",
+      "stderr": "выражение 1: сравнение числа и текста\n",
+      "exit": 1
+    },
+    {
+      "name": "to:do: включительно",
+      "line": "1 to: 3 do: {do} {:}i i print {done}",
+      "stdout": "1\n2\n3\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "timesRepeat:",
+      "line": "3 timesRepeat: {do} {^}x{^} print {done}",
+      "stdout": "x\nx\nx\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "деление на ноль",
+      "line": "10 div: 0",
+      "stdout": "",
+      "stderr": "выражение 1: деление на ноль\n",
+      "exit": 1
+    },
+    {
+      "name": "div: с округлением вниз",
+      "line": "-7 div: 2",
+      "stdout": "-4\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "dividedBy: — точное",
+      "line": "1250 dividedBy: 8",
+      "stdout": "156.25\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "текст из слов",
+      "line": "{^}готово к ревью{^} size",
+      "stdout": "14\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "пустой текст",
+      "line": "{^}{^} size",
+      "stdout": "0\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "незакрытый текст",
+      "line": "{^}a b",
+      "stdout": "",
+      "stderr": "выражение 1: текст не закрыт\n",
+      "exit": 2
+    },
+    {
+      "name": "комментарий",
+      "line": "{rem} проверка {end} 2 plus: 2",
+      "stdout": "4\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "результат команды в переменной",
+      "line": "x {:=} kiten ls {.} x size",
+      "stdout": "3\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "отбор, each: и печать",
+      "line": "x {:=} kiten ls {.} x where: column is: 9101 {end} each: {do} {:}c c title print {done} {.} x size print",
+      "stdout": "один\nтри\n3\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "collect:, печать списка",
+      "line": "kiten ls collect: {do} {:}c c id {done} print",
+      "stdout": "11\n12\n13\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "inject:into:",
+      "line": "kiten ls inject: 0 into: {do} {:}a {:}c {@}a plus: 1 {done}",
+      "stdout": "3\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "detect: без находки — nil, ничего",
+      "line": "kiten ls detect: {do} {:}c c id equals: 999999 {done}",
+      "stdout": "",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "голая переменная в значении ключа — отказ до исполнения",
+      "line": "kiten ls each: {do} {:}c kiten card id: c {done}",
+      "stdout": "",
+      "stderr": "выражение 1, блок each:: переменная в значении — @c; текст — -- c\n",
+      "exit": 2
+    },
+    {
+      "name": "запись не понимает — место и ближайшие",
+      "line": "kiten ls each: {do} {:}c {@}c titel print {done}",
+      "stdout": "",
+      "stderr": "выражение 1, блок each:: запись не понимает titel; ближайшие: title\n",
+      "exit": 1
+    },
+    {
+      "name": "блок value:",
+      "line": "b {:=} {do} {:}x {@}x plus: 1 {done} {.} b value: 2",
+      "stdout": "3\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "блок ждёт других значений",
+      "line": "b {:=} {do} {:}x {:}y {@}x {done} {.} b value: 1",
+      "stdout": "",
+      "stderr": "выражение 2: блок ждёт 2 значений, дано 1\n",
+      "exit": 1
+    },
+    {
+      "name": "имя корня — не переменная",
+      "line": "kiten {:=} 1",
+      "stdout": "",
+      "stderr": "выражение 1: kiten — сообщение корня, выбери другое имя\n",
+      "exit": 2
+    },
+    {
+      "name": "несвязанная переменная",
+      "line": "{@}y size",
+      "stdout": "",
+      "stderr": "выражение 1: y не связана; связанных нет\n",
+      "exit": 2
+    },
+    {
+      "name": "несвязанная переменная в значении ключа команды — подсказка текстом",
+      "line": "kiten card id: {@}all",
+      "stdout": "",
+      "stderr": "выражение 1: all не связана; связанных нет; текстом — -- @all\n",
+      "exit": 2
+    },
+    {
+      "name": "тело из файла прежней записью — файл ключом body-file:",
+      "line": "api get-ss-values id: ss1 body: {@}req.json",
+      "stdout": "",
+      "stderr": "выражение 1: файл — ключом: mpu api get-ss-values id: ss1 body-file: req.json\n",
+      "exit": 2
+    },
+    {
+      "name": "поле — унарным",
+      "line": "{@}c.title",
+      "stdout": "",
+      "stderr": "выражение 1: поле — унарным: @c title\n",
+      "exit": 2
+    },
+    {
+      "name": "done вне блока — литерал значения",
+      "line": "kiten ls where: column is: {done} {end} size",
+      "stdout": "0\n",
+      "stderr": "",
+      "exit": 0
+    },
+    {
+      "name": "несвязанное имя в начале выражения — отказ корня",
+      "line": "kiten ls {.} x",
+      "stdout": "",
+      "stderr": "выражение 2: mpu: не понимает x\n",
+      "exit": 2
+    },
+    {
+      "name": "приклеенная точка — подсказка",
+      "line": "kiten ls size.",
+      "stdout": "",
+      "stderr": "mpu kiten ls: лишнее слово size.; . — отдельным словом\n",
+      "exit": 2
+    },
+    {
+      "name": "два выражения — два вывода",
+      "line": "2 print {.} 3",
+      "stdout": "2\n3\n",
+      "stderr": "",
+      "exit": 0
+    }
+  ]
+}
