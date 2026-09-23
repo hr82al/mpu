@@ -786,6 +786,14 @@ export class Keys {
     const keys = [...this.#ordered, ...text];
     // `--` прежней записи (`ssh sl-1 -- ls`) конец опций, а не значение.
     const values = words.filter((word) => word !== END_OF_OPTIONS);
+    // Ключа, который слово могло бы занять, нет, или слово — имя варианта:
+    // «значение — ключом» подсказало бы строку, которой никто не хотел.
+    const [first] = values;
+    const noKey = keys.length === 0;
+    const variant = this.#variants.some((one) => one.name === first);
+    if (first !== undefined && (noKey || variant)) {
+      return new Refusal(`лишнее слово ${first}`);
+    }
     return hinted("значение — ключом", this.#pairs(keys, values));
   }
 

@@ -131,6 +131,40 @@ Deno.test("вариант не на месте и прежний флаг — о
   });
 });
 
+Deno.test("голое слово, которому нет ключа, — лишнее, без готовой строки", async (t) => {
+  const cases: readonly (readonly [readonly string[], string])[] = [
+    [
+      ["kiten", "spaces", "all", "all"],
+      "mpu kiten spaces all: лишнее слово all",
+    ],
+    [
+      ["kiten", "spaces", "archived"],
+      "mpu kiten spaces: лишнее слово archived",
+    ],
+    [
+      ["logs", "portainer", "loki"],
+      "mpu logs portainer: лишнее слово loki",
+    ],
+    [
+      ["logs", "portainer", "sl-1"],
+      "mpu logs portainer: значение — ключом: mpu logs portainer target: sl-1",
+    ],
+  ];
+  await withPolicyFile(async (file) => {
+    allowEverything(file);
+    for (const [argv, stderr] of cases) {
+      await t.step(argv.join(" "), async () => {
+        assertEquals(await run(file, argv), {
+          code: 2,
+          stdout: "",
+          stderr: `${stderr}\n`,
+          called: [],
+        });
+      });
+    }
+  });
+});
+
 Deno.test("несовместимые варианты — прежний отказ в новой записи", () =>
   withPolicyFile(async (file) => {
     allowEverything(file);
