@@ -142,6 +142,34 @@ Deno.test("собранный ответ: итог кодом или вопро�
   }
 });
 
+Deno.test("собранный ответ: вывод файлом вместо stdout", async (t) => {
+  const file = {
+    path: "/tmp/mpu-out/r.txt",
+    bytes: 70000,
+    lines: 9,
+    slice: true,
+  };
+  assertEquals(
+    collectedOf(JSON.stringify({ file, stderr: "", exit: 0 })),
+    { stdout: "", stderr: "", exit: 0, file },
+  );
+  for (
+    const bad of [
+      JSON.stringify({ stdout: "a", file, stderr: "", exit: 0 }),
+      JSON.stringify({ file, exit: 0 }),
+      JSON.stringify({ file: "x", stderr: "", exit: 0 }),
+      JSON.stringify({ file: { ...file, bytes: "1" }, stderr: "", exit: 0 }),
+      JSON.stringify({ file: { ...file, lines: 1.5 }, stderr: "", exit: 0 }),
+      JSON.stringify({ file: { ...file, slice: 1 }, stderr: "", exit: 0 }),
+      JSON.stringify({ file: { ...file, path: 1 }, stderr: "", exit: 0 }),
+    ]
+  ) {
+    await t.step(bad, () => {
+      assertThrows(() => collectedOf(bad), BadFrame);
+    });
+  }
+});
+
 Deno.test("первый кадр: caller — строка или нет поля", () => {
   const base = { words: ["it"], cwd: "/" };
   assertEquals(lineRequest(JSON.stringify(base)).caller, undefined);

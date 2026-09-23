@@ -157,7 +157,7 @@ Deno.test("формат результата: json — прежний JSON, чу
       code: 2,
       stdout: "",
       stderr: `mpu xlsx alias ls ${END}: не понимает xml; есть: json, ` +
-        "first, first:, isEmpty, last, pick:, size, sortBy:, where:\n",
+        "first, first:, isEmpty, last, last:, pick:, size, sortBy:, where:\n",
       called: [],
     });
     assertEquals(await run(file, [...line, END, "json", "md"]), {

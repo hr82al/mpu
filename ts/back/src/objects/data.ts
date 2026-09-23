@@ -44,6 +44,11 @@ export interface Data extends Receiver, Shown {
   asResult(): Data;
   /** Поле `row` — единственное: скаляр встаёт вместо записи, прочее — нет. */
   standIn(row: Data): Data;
+  /**
+   * Режут ли эти данные срезом — `last: <n>`, `size` (`long-output.md`,
+   * §4): да только у коллекции.
+   */
+  sliced(): boolean;
 }
 
 /** Значение, которое сравнивают `where:` и `sortBy:`. */
@@ -118,6 +123,7 @@ const SELECTIONS: readonly Selection[] = [
   unarySelection("first", "первый элемент; пустая — nil"),
   unarySelection("last", "последний элемент; пустая — nil"),
   keywordSelection(["first"], "коллекция первых n элементов"),
+  keywordSelection(["last"], "коллекция последних n элементов"),
   keywordSelection(["pick"], "значения поля у каждой записи"),
   keywordSelection(["sortBy"], "по возрастанию поля; nil — в конце"),
   ...[
@@ -348,6 +354,10 @@ class Scalar implements Data, Comparable {
     return this;
   }
 
+  sliced(): boolean {
+    return false;
+  }
+
   line(): string {
     return String(this.#value);
   }
@@ -382,6 +392,7 @@ const NIL: Data & Comparable = {
   asResult: () => NIL,
   // `null` — не скаляр значения ключа (161): запись остаётся записью.
   standIn: (row) => row,
+  sliced: () => false,
 };
 
 /** Методы коллекции: селектор → что она отдаёт. */
@@ -394,6 +405,7 @@ const COLLECTION_METHODS: ReadonlyMap<
   ["first", (items) => items.at(0)],
   ["last", (items) => items.at(-1)],
   ["first:", (items, args) => items.head(argOf(args, "first"))],
+  ["last:", (items, args) => items.tail(argOf(args, "last"))],
   ["pick:", (items, args) => items.pick(argOf(args, "pick"))],
   ["sortBy:", (items, args) => items.sortBy(argOf(args, "sortBy"))],
   [
@@ -416,6 +428,14 @@ const COLLECTION_METHODS: ReadonlyMap<
       items.where(args, (value) => value.includes(argOf(args, "includes"))),
   ],
 ]);
+
+/** Число элементов отбора `selector:`: целое ≥ 0 текстом, иначе отказ. */
+function countOf(selector: string, count: string): number {
+  if (!/^\d+$/.test(count)) {
+    throw new Refusal(`${selector}: ${count} — ожидается n ≥ 0`);
+  }
+  return Number(count);
+}
 
 /** Коллекция: элементы по порядку и вид её текста. */
 class Collection implements Data {
@@ -459,10 +479,14 @@ class Collection implements Data {
 
   /** Первые `count` элементов; `count` — целое ≥ 0 текстом. */
   head(count: string): Data {
-    if (!/^\d+$/.test(count)) {
-      throw new Refusal(`first: ${count} — ожидается n ≥ 0`);
-    }
-    return this.#with(this.#items.slice(0, Number(count)));
+    const n = countOf("first", count);
+    return this.#with(this.#items.slice(0, n));
+  }
+
+  /** Последние `count` элементов по порядку; `count` — целое ≥ 0 текстом. */
+  tail(count: string): Data {
+    const n = countOf("last", count);
+    return this.#with(this.#items.slice(Math.max(0, this.#items.length - n)));
   }
 
   /** Значения поля у каждого элемента: вид — построчный. */
@@ -515,6 +539,10 @@ class Collection implements Data {
 
   standIn(row: Data): Data {
     return row;
+  }
+
+  sliced(): boolean {
+    return true;
   }
 
   line(): string {
@@ -585,6 +613,10 @@ class Row implements Data {
 
   standIn(row: Data): Data {
     return row;
+  }
+
+  sliced(): boolean {
+    return false;
   }
 
   line(): string {

@@ -40,7 +40,7 @@ const DICTIONARY: ReadonlyMap<string, string> = new Map([
   ["query", "поиск"],
   ["since", "начало"],
   ["until", "конец"],
-  ["limit", "предел"],
+  ["limit", "сколько"],
 ]);
 
 /** Причина имени ключа, оставшегося прежним именем входа. */

@@ -39,6 +39,7 @@ import {
 import { formFor, type Opened, ticketAsking } from "./http.ts";
 import { linePrompt, type PromptDoor } from "./prompt.ts";
 import { DETACHED, Line } from "./line.ts";
+import { type Spill, SPILL_DIR, SPILL_THRESHOLD } from "./outlet.ts";
 import { socketLine } from "./socket.ts";
 import { Tickets } from "./tickets.ts";
 import { staticFile } from "./static.ts";
@@ -84,6 +85,11 @@ export interface BackOptions {
   readonly web: WebAccess;
   /** Каталог собранного фронта (`$HOME/.local/share/mpu/web`). */
   readonly webRoot: string;
+  /**
+   * Большой вывод двери агента — файлом (`platform/long-output.md`, §4):
+   * каталог и порог; не сказано — `SPILL_DIR` и `SPILL_THRESHOLD`.
+   */
+  readonly spill?: { readonly dir: string; readonly threshold: number };
 }
 
 /** Поднятый сервер. */
@@ -343,9 +349,17 @@ class Back {
   readonly #methods: Methods;
   /** `http://mpu.localhost:<порт>` — известен, когда сокет слушает. */
   #origin = "";
+  /** Куда и с какого размера вывод двери агента уходит файлом. */
+  readonly #spill: Spill;
 
   constructor(options: BackOptions, snapshot: unknown) {
     this.#options = options;
+    this.#spill = {
+      dir: options.spill?.dir ?? SPILL_DIR,
+      threshold: options.spill?.threshold ?? SPILL_THRESHOLD,
+      now: options.now ?? Date.now,
+      diagnose: options.diagnose,
+    };
     this.#lines = new Lines(options.lines ?? DEFAULT_LINES);
     this.#tickets = new Tickets(options.newTicket);
     this.#results = new LastResults(options.now ?? Date.now);
@@ -579,6 +593,7 @@ class Back {
       return;
     }
     const channel = door.channel(line, caller.human(request.human));
+    const memory = this.#results.of(await naming.of(request.caller));
     const entry = lineEntry({
       rootMethods: door.rootMethods({
         web: this.#options.web,
@@ -587,7 +602,7 @@ class Back {
       file: this.#options.policyFile,
       channel: () => channel,
       execute: (run) => line.execute(run, this.#lines),
-      memory: this.#results.of(await naming.of(request.caller)),
+      memory,
       refusal: (data) => line.deliver({ refusal: data }),
     });
     const io = lineIo(
@@ -596,9 +611,18 @@ class Back {
       door.prompting(caller.human(request.human)),
       request,
     );
-    line.finish(
-      await runJournaled(request.words, entry, io, this.#options.log, line),
-    );
+    // Имя записи журнала — оно же имя файла большого вывода.
+    let runId = "";
+    const log: InvokeLog = {
+      begin: (command) => {
+        const recording = this.#options.log.begin(command);
+        runId = recording.runId;
+        return recording;
+      },
+    };
+    const code = await runJournaled(request.words, entry, io, log, line);
+    line.ran(door.outlet(this.#spill, { runId, sliced: memory.sliced() }));
+    line.finish(code);
   }
 }
 

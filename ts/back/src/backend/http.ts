@@ -14,6 +14,7 @@ import {
 import type { Caller } from "./caller.ts";
 import type { Door } from "./door.ts";
 import type { Asking, Delivery } from "./line.ts";
+import type { Outlet } from "./outlet.ts";
 import type { Tickets } from "./tickets.ts";
 
 const NDJSON_TYPE = "application/x-ndjson";
@@ -21,9 +22,11 @@ const JSON_TYPE = "application/json";
 
 const encoder = new TextEncoder();
 
-/** Кому сказать, что клиент ушёл, не дочитав. */
+/** Кому сказать, что клиент ушёл, не дочитав, и кто отдаёт вывод. */
 export interface Client {
   lost(): void;
+  /** Отдача итогового вывода собранного ответа (`long-output.md`, §4). */
+  outlet(): Outlet;
 }
 
 /** Открытый ответ: куда слать кадры и что вернуть HTTP. */
@@ -175,14 +178,7 @@ const COLLECTED: Form = {
         ready: () => Promise.resolve(),
         end: () => {
           answered = true;
-          body.resolve(
-            new Response(
-              JSON.stringify({ stdout, stderr, ...refused, ...tail }),
-              {
-                headers: { "Content-Type": JSON_TYPE },
-              },
-            ),
-          );
+          body.resolve(assembled(client, stdout, stderr, refused, tail));
         },
       },
       response: body.promise,
@@ -202,6 +198,26 @@ const COLLECTED: Form = {
     };
   },
 };
+
+/**
+ * Тело собранного ответа. Вывод итога (`exit`) отдаёт строка — целиком или
+ * файлом; на вопросе строка не кончилась, и вывод идёт как есть.
+ */
+async function assembled(
+  client: Client,
+  stdout: string,
+  stderr: string,
+  refused: { readonly refusal?: RefusalData },
+  tail: Tail,
+): Promise<Response> {
+  const output = "exit" in tail
+    ? await client.outlet().settle(stdout)
+    : { stdout };
+  return new Response(
+    JSON.stringify({ ...output, stderr, ...refused, ...tail }),
+    { headers: { "Content-Type": JSON_TYPE } },
+  );
+}
 
 /** Диапазон заголовка `Accept`: тип, подтип, вес. */
 interface Range {

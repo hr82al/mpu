@@ -33,12 +33,18 @@ import type { Line } from "./dispatch.ts";
 export interface Memory extends Keeper {
   /** Прошлый результат приёмником; его нет — `absent`. */
   recall(absent: Receiver): Receiver;
+  /**
+   * Запомнила ли эта память коллекцию: срез из неё берётся без нового
+   * запроса (`platform/long-output.md`, §4).
+   */
+  sliced(): boolean;
 }
 
 /** Нет вызывающего: запоминать некому, вспомнить нечего. */
 export const NO_CALLER: Memory = {
   keep() {},
   recall: (absent) => absent,
+  sliced: () => false,
 };
 
 /** Срок, после которого вызывающий без строк забывается: час. */
@@ -84,13 +90,18 @@ export class LastResults {
     if (caller === undefined) return NO_CALLER;
     const kept = this.#entries.get(caller)?.kept;
     this.#entries.set(caller, { kept, seen: this.#now() });
+    // Память — на строку: коллекцию положила именно она или нет.
+    let sliced = false;
     return {
-      keep: (command, result, argv) =>
+      keep: (command, result, argv) => {
         this.#entries.set(caller, {
           kept: { command, result, argv: [...argv] },
           seen: this.#now(),
-        }),
+        });
+        sliced = command.dataOf(result, argv).sliced();
+      },
       recall: (absent) => this.#recall(caller, absent),
+      sliced: () => sliced,
     };
   }
 

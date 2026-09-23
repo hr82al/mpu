@@ -200,13 +200,13 @@ async function portainer<T>(call: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Значение `--tail`: целое больше нуля. Тип проверила схема, смысл —
+ * Значение `limit:`: целое больше нуля. Тип проверила схема, смысл —
  * здесь (`platform/command-contract.md`, «Ввод/вывод»); проверка идёт до
  * сети, как и у `--since`.
  */
 function requireTail(raw: number): number {
   if (!Number.isSafeInteger(raw) || raw <= 0) {
-    throw new UsageError(`--tail: ожидается целое > 0, получено '${raw}'`);
+    throw new UsageError(`limit: ожидается целое > 0, получено '${raw}'`);
   }
   return raw;
 }

@@ -17,6 +17,7 @@ export {
   type FirstFrame,
   type LineRequest,
   lineRequest,
+  type OutputFile,
   type RefusalData,
   type ServerFrame,
   serverFrameOf,

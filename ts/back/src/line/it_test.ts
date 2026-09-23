@@ -192,6 +192,6 @@ Deno.test("it: формат команды — её рендер с прежни
     assertEquals(
       refused.stderr,
       "mpu it: не понимает xml; есть: json, md, first, first:, isEmpty, " +
-        "last, pick:, size, sortBy:, where:\n",
+        "last, last:, pick:, size, sortBy:, where:\n",
     );
   }));

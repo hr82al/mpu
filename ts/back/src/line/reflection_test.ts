@@ -202,6 +202,7 @@ Deno.test("complete: — слова следующего шага", async (t) =>
           "isEmpty",
           "json",
           "last",
+          "last:",
           "md",
           "pick:",
           "size",

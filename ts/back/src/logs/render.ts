@@ -37,10 +37,16 @@ export function textEntries(timestamps: boolean): EntryPrinter {
   return { print: (entries) => formatEntries(entries, timestamps) };
 }
 
-/** JSON Lines: одна строка JSON на запись, с переводом строки. */
+/**
+ * JSON Lines: одна строка JSON на запись, с переводом строки. Метки
+ * потока в неё не входят — форма строки слежения прежняя
+ * (`platform/long-output.md`, §2).
+ */
 export const JSON_LINES: EntryPrinter = {
   print: (entries) =>
-    entries.map((entry) => `${JSON.stringify(entry)}\n`).join(""),
+    entries
+      .map(({ tsNs, line }) => `${JSON.stringify({ tsNs, line })}\n`)
+      .join(""),
 };
 
 /** Записи в текст: по строке на запись, с префиксом времени по флагу. */
@@ -56,7 +62,7 @@ export function formatEntries(
 }
 
 /** Время записи в UTC с миллисекундами: `YYYY-MM-DDThh:mm:ss.mmmZ`. */
-function isoOf(tsNs: string): string {
+export function isoOf(tsNs: string): string {
   return new Date(Number(BigInt(tsNs) / 1_000_000n)).toISOString();
 }
 

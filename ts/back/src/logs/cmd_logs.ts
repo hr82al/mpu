@@ -26,12 +26,15 @@ import {
   toNanoseconds,
   windowStartMs,
 } from "./query.ts";
+import { LOKI_MAX_ENTRIES, readNewest } from "./pages.ts";
 import {
-  byTimeAscending,
-  formatEntries,
-  JSON_LINES,
-  textEntries,
-} from "./render.ts";
+  entryRecords,
+  type LogRecord,
+  recordEntries,
+  recordSnapshot,
+  snapshotRecords,
+} from "./records.ts";
+import { formatEntries, JSON_LINES, textEntries } from "./render.ts";
 import { readSnapshot } from "./snapshot.ts";
 import {
   type ListAllContainerNames,
@@ -104,20 +107,27 @@ const resultSchema = z.object({
   names: z.array(z.string()).readonly(),
   /** Записи разового запроса по возрастанию времени; вне его — пусто. */
   entries: z.array(
-    z.object({ tsNs: z.string(), line: z.string() }),
+    z.object({
+      tsNs: z.string(),
+      line: z.string(),
+      labels: z.record(z.string(), z.string()),
+    }),
   ).readonly().describe(
-    "перечень усечён `--tail`: источник отдаёт последние N записей окна, " +
-      "а сколько их в окне всего — не сообщает",
+    "перечень усечён `limit:` (вход tail): последние N записей окна, а " +
+      "сколько их в окне всего, источник не сообщает",
   ),
   /** Снимок Portainer; вне legacy-пути — null. */
   snapshot: z.object({
     container: z.string(),
+    timestamps: z.boolean().describe(
+      "Docker ставил метку времени в начало строк",
+    ),
     stdout: z.string().describe(
-      "последние строки stdout, не больше `--tail`; сколько их в логе " +
+      "последние строки stdout, не больше `limit:`; сколько их в логе " +
         "всего, Docker не сообщает",
     ),
     stderr: z.string().describe(
-      "последние строки stderr, не больше `--tail`; сколько их в логе " +
+      "последние строки stderr, не больше `limit:`; сколько их в логе " +
         "всего, Docker не сообщает",
     ),
   }).nullable(),
@@ -140,6 +150,8 @@ export interface LogsOptions {
   readonly stream?: LogStream;
   readonly now?: () => number;
   readonly wait?: (ms: number, signal: AbortSignal) => Promise<void>;
+  /** Предел записей на запрос у Loki; не задан — `LOKI_MAX_ENTRIES`. */
+  readonly pageSize?: number;
   /** Остановка слежения; не задана — Ctrl+C процесса. */
   readonly signal?: AbortSignal;
 }
@@ -153,7 +165,7 @@ const command = defineCommand({
     },
   },
   path: ["logs"],
-  keys: { service: "service" },
+  keys: { service: "service", limit: "tail" },
   modes: {
     hosts: {
       purpose: "хосты с логами",
@@ -190,7 +202,7 @@ level: error|warn|info|debug, client: N (подстрока числа в стр
 совпадёт и порт). Потоки: no-stdout, no-stderr.
 
 Окно: since: 30s|10m|1h|2d или unix-ts (умолчание 5m, слежение 10s);
-tail: N > 0 (200); timestamps — префикс
+limit: N > 0 (200); timestamps — префикс
 YYYY-MM-DDThh:mm:ss.mmmZ; follow — опрос раз в 2 с до Ctrl+C;
 недоступен только вызовом тула (mpu-mcp). Печать всегда по возрастанию
 времени.
@@ -204,7 +216,7 @@ Env: LOKI_URL; PORTAINER_API_KEY, PORTAINER_VERIFY_TLS, sl_<N>_portainer.
 Exit: 0 — успех, в том числе пустой вывод; 1 — отказ источника; 2 —
 ошибка ввода, конфигурации или резолва.`,
   examples: [
-    "mpu logs target: sl-1 service: wb-loader level: error since: 1h tail: 500",
+    "mpu logs target: sl-1 service: wb-loader level: error since: 1h limit: 500",
     "mpu logs hosts",
     "mpu logs services target: sl-1",
   ],
@@ -218,6 +230,10 @@ Exit: 0 — успех, в том числе пустой вывод; 1 — от
     follow: { short: "f" },
   },
   resultSchema,
+  items: {
+    records: (result) => recordsOf(result),
+    with: (result, records) => withRecords(result, records),
+  },
   run: (args, io) => runLogs(args, io),
   render: (result, args) => renderLogs(result, args),
   streams: (args) => args.follow,
@@ -386,16 +402,20 @@ async function runLoki(
   }
 
   try {
-    // backward: при усечении лимитом источник отдаёт последние N записей
-    // окна; порядок печати от направления не зависит.
-    const entries = await read(access, {
-      logql,
-      startNs: toNanoseconds(windowStartMs(since, now(), ONE_SHOT_WINDOW_MS)),
-      endNs: toNanoseconds(now()),
-      limit: tail,
-      direction: "backward",
-    });
-    return { ...EMPTY, kind: "entries", entries: byTimeAscending(entries) };
+    // Последние `limit` записей окна — страницами назад от его конца:
+    // больше предела источника за один запрос не отдать
+    // (`platform/long-output.md`, §2). Порядок печати — по времени.
+    const entries = await readNewest(
+      (query) => read(access, query),
+      {
+        logql,
+        startNs: toNanoseconds(windowStartMs(since, now(), ONE_SHOT_WINDOW_MS)),
+        endNs: toNanoseconds(now()),
+      },
+      tail,
+      options.pageSize ?? LOKI_MAX_ENTRIES,
+    );
+    return { ...EMPTY, kind: "entries", entries };
   } catch (err) {
     throw lokiFailure(err, logql);
   }
@@ -474,7 +494,11 @@ async function runSnapshot(
   if (snapshot.stderr !== "") {
     await (options.stream ?? streamOf(io)).err(snapshot.stderr);
   }
-  return { ...EMPTY, kind: "snapshot", snapshot };
+  return {
+    ...EMPTY,
+    kind: "snapshot",
+    snapshot: { ...snapshot, timestamps: args.timestamps },
+  };
 }
 
 /**
@@ -500,6 +524,59 @@ function renderText(result: LogsResult, args: LogsArgs): string {
       return "\n";
     case "snapshot":
       return result.snapshot?.stdout ?? "";
+    default: {
+      const never: never = result.kind;
+      throw new TypeError(`неизвестный вид вывода: ${never}`);
+    }
+  }
+}
+
+/**
+ * Результат как коллекция (`platform/long-output.md`, §3): строки лога —
+ * записи, имена `hosts`/`services` — скаляры. Вид результата — данные
+ * границы контракта, поэтому ветвление по нему здесь, рядом с рендером.
+ */
+function recordsOf(result: LogsResult): readonly unknown[] {
+  switch (result.kind) {
+    case "hosts":
+    case "services":
+      return result.names;
+    case "entries":
+      return entryRecords(result.entries);
+    case "snapshot":
+      return result.snapshot === null ? [] : snapshotRecords(result.snapshot);
+    case "follow":
+      // Поток отбору не подлежит: отказ до исполнения (`streams`).
+      return [];
+    default: {
+      const never: never = result.kind;
+      throw new TypeError(`неизвестный вид вывода: ${never}`);
+    }
+  }
+}
+
+/**
+ * Тот же результат с отобранными записями. Записи — те, что отдал
+ * `recordsOf` этому же результату, поэтому приведение типа верно по
+ * построению; итог проверяет схема результата.
+ */
+function withRecords(
+  result: LogsResult,
+  records: readonly unknown[],
+): LogsResult {
+  switch (result.kind) {
+    case "hosts":
+    case "services":
+      return { ...result, names: records as string[] };
+    case "entries":
+      return { ...result, entries: recordEntries(records as LogRecord[]) };
+    case "snapshot":
+      return result.snapshot === null ? result : {
+        ...result,
+        snapshot: recordSnapshot(result.snapshot, records as LogRecord[]),
+      };
+    case "follow":
+      return result;
     default: {
       const never: never = result.kind;
       throw new TypeError(`неизвестный вид вывода: ${never}`);
@@ -536,11 +613,11 @@ function requireVia(value: string): "loki" | "portainer" {
   throw new UsageError(`--via '${value}', ожидается 'loki' или 'portainer'`);
 }
 
-/** Значение `--tail`: целое больше нуля, до сети и до сборки запроса. */
+/** Значение `limit:`: целое больше нуля, до сети и до сборки запроса. */
 function requireTail(raw: number): number {
-  const value = requireInteger(raw, "--tail");
+  const value = requireInteger(raw, "limit");
   if (value > 0) return value;
-  throw new UsageError(`--tail: ожидается целое > 0, получено '${raw}'`);
+  throw new UsageError(`limit: ожидается целое > 0, получено '${raw}'`);
 }
 
 /**

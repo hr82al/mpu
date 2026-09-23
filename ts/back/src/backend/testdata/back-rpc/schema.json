@@ -247,15 +247,18 @@
       "additionalProperties": false
     },
     "http.line.collected": {
-      "description": "Собранный ответ строки простым HTTP (Accept: application/json): склейка кадров потока.",
+      "description": "Собранный ответ строки простым HTTP (Accept: application/json): склейка кадров потока. Дверь агента отдаёт итоговый вывод больше порога файлом: поле file вместо stdout (platform/long-output.md, §4).",
       "type": "object",
       "required": [
-        "stdout",
         "stderr"
       ],
       "properties": {
         "stdout": {
           "type": "string"
+        },
+        "file": {
+          "description": "Вывод итога файлом вместо stdout: только у двери агента, только с exit.",
+          "$ref": "#/$defs/outputFile"
         },
         "stderr": {
           "type": "string"
@@ -295,6 +298,52 @@
           ]
         }
       ],
+      "anyOf": [
+        {
+          "required": [
+            "stdout"
+          ]
+        },
+        {
+          "required": [
+            "file",
+            "exit"
+          ]
+        }
+      ],
+      "not": {
+        "required": [
+          "stdout",
+          "file"
+        ]
+      },
+      "additionalProperties": false
+    },
+    "outputFile": {
+      "description": "Вывод строки файлом (platform/long-output.md, §4): путь, байты UTF-8, строки (\\n плюс хвост без перевода), результат — коллекция.",
+      "type": "object",
+      "required": [
+        "path",
+        "bytes",
+        "lines",
+        "slice"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "slice": {
+          "type": "boolean"
+        }
+      },
       "additionalProperties": false
     },
     "http.line.answer": {

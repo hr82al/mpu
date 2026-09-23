@@ -502,7 +502,7 @@
   {
     "name": "health",
     "title": "mpu health",
-    "description": "Health-check сервера: контейнеры + tail логов виновников.\n\nЗвать первым при жалобе «сервер не работает»: какие контейнеры\nлежат и что они пишут перед падением.\n\nЖивой список `mp-*` контейнеров сервера с состояниями и tail\nstderr-логов демонов, похожих на лоадеры. `mp`-строка — имя,\nначинающееся с sl- или wb-, префикс mp- перед ними необязателен: обе\nформы живут на ферме одновременно.\n\nШтатно завершённый one-shot (migrations/init-, exited, Exited (0))\nпроблемой не считается и печатается отдельным блоком. Любой другой\nне-running mp-контейнер даёт exit 1.\n\ntarget: обязателен: sl-N либо client_id/spreadsheet/title.\ntail: — строк лога на контейнер (30). since: — окно логов:\n<число>{s|m|h|d} назад либо строка из одних цифр как unix-ts; иной\nформат — ошибка ввода, и она проверяется до похода в сеть. all —\ntail у всех демонов, не только лоадер-подобных.\n\nВ tail печатается только stderr: сервисы стека пишут ошибки в него, а\nstdout утопил бы диагностику в рабочем шуме. Сбой получения логов по\nодному контейнеру кода выхода не меняет.\n\nExit: 0 — все mp-контейнеры running (или штатно завершены); 1 — есть\nнеожиданно не-running либо не получен сам список; 2 — ошибки ввода,\nрезолва и конфигурации.",
+    "description": "Health-check сервера: контейнеры + tail логов виновников.\n\nЗвать первым при жалобе «сервер не работает»: какие контейнеры\nлежат и что они пишут перед падением.\n\nЖивой список `mp-*` контейнеров сервера с состояниями и tail\nstderr-логов демонов, похожих на лоадеры. `mp`-строка — имя,\nначинающееся с sl- или wb-, префикс mp- перед ними необязателен: обе\nформы живут на ферме одновременно.\n\nШтатно завершённый one-shot (migrations/init-, exited, Exited (0))\nпроблемой не считается и печатается отдельным блоком. Любой другой\nне-running mp-контейнер даёт exit 1.\n\ntarget: обязателен: sl-N либо client_id/spreadsheet/title.\nlimit: — строк лога на контейнер (30). since: — окно логов:\n<число>{s|m|h|d} назад либо строка из одних цифр как unix-ts; иной\nформат — ошибка ввода, и она проверяется до похода в сеть. all —\ntail у всех демонов, не только лоадер-подобных.\n\nВ tail печатается только stderr: сервисы стека пишут ошибки в него, а\nstdout утопил бы диагностику в рабочем шуме. Сбой получения логов по\nодному контейнеру кода выхода не меняет.\n\nExit: 0 — все mp-контейнеры running (или штатно завершены); 1 — есть\nнеожиданно не-running либо не получен сам список; 2 — ошибки ввода,\nрезолва и конфигурации.",
     "annotations": {
       "readOnlyHint": true
     },
@@ -772,7 +772,7 @@
   {
     "name": "logs",
     "title": "mpu logs",
-    "description": "Логи со стенда (Loki по умолчанию, portainer для legacy snapshot).\n\nЗвать, когда надо понять, что сервис писал в лог: ошибки,\nконкретный клиент, окно времени — с одного хоста или со всей фермы.\n\nБез target: — все хосты. target: — sl-N / wb-N / dt-N /\nwb-clusters / wb-positions как есть; клиентский селектор (client_id,\nspreadsheet_id, заголовок) — в сервер sl-N. service: — сервис; без\ntarget: он ищется со всех хостов.\n\nСписки из кэша, без сети: `mpu logs hosts` — хосты,\n`mpu logs services target: sl-1` — сервисы хоста; кэш наполняют\n`mpu init` и `mpu update`.\n\nФильтры Loki, И между собой: grep: S (подстрока), grep-regex: S,\nlevel: error|warn|info|debug, client: N (подстрока числа в строке —\nсовпадёт и порт). Потоки: no-stdout, no-stderr.\n\nОкно: since: 30s|10m|1h|2d или unix-ts (умолчание 5m, слежение 10s);\ntail: N > 0 (200); timestamps — префикс\nYYYY-MM-DDThh:mm:ss.mmmZ; follow — опрос раз в 2 с до Ctrl+C;\nнедоступен только вызовом тула (mpu-mcp). Печать всегда по возрастанию\nвремени.\n\nvia: portainer — снимок логов одного контейнера: нужны target: и\nservice: (имя контейнера или подстрока), фильтры и follow нельзя,\nбайты потоков идут как есть.\n\nEnv: LOKI_URL; PORTAINER_API_KEY, PORTAINER_VERIFY_TLS, sl_<N>_portainer.\n\nExit: 0 — успех, в том числе пустой вывод; 1 — отказ источника; 2 —\nошибка ввода, конфигурации или резолва.",
+    "description": "Логи со стенда (Loki по умолчанию, portainer для legacy snapshot).\n\nЗвать, когда надо понять, что сервис писал в лог: ошибки,\nконкретный клиент, окно времени — с одного хоста или со всей фермы.\n\nБез target: — все хосты. target: — sl-N / wb-N / dt-N /\nwb-clusters / wb-positions как есть; клиентский селектор (client_id,\nspreadsheet_id, заголовок) — в сервер sl-N. service: — сервис; без\ntarget: он ищется со всех хостов.\n\nСписки из кэша, без сети: `mpu logs hosts` — хосты,\n`mpu logs services target: sl-1` — сервисы хоста; кэш наполняют\n`mpu init` и `mpu update`.\n\nФильтры Loki, И между собой: grep: S (подстрока), grep-regex: S,\nlevel: error|warn|info|debug, client: N (подстрока числа в строке —\nсовпадёт и порт). Потоки: no-stdout, no-stderr.\n\nОкно: since: 30s|10m|1h|2d или unix-ts (умолчание 5m, слежение 10s);\nlimit: N > 0 (200); timestamps — префикс\nYYYY-MM-DDThh:mm:ss.mmmZ; follow — опрос раз в 2 с до Ctrl+C;\nнедоступен только вызовом тула (mpu-mcp). Печать всегда по возрастанию\nвремени.\n\nvia: portainer — снимок логов одного контейнера: нужны target: и\nservice: (имя контейнера или подстрока), фильтры и follow нельзя,\nбайты потоков идут как есть.\n\nEnv: LOKI_URL; PORTAINER_API_KEY, PORTAINER_VERIFY_TLS, sl_<N>_portainer.\n\nExit: 0 — успех, в том числе пустой вывод; 1 — отказ источника; 2 —\nошибка ввода, конфигурации или резолва.",
     "annotations": {
       "readOnlyHint": true
     },
@@ -883,7 +883,7 @@
         },
         "entries": {
           "readOnly": true,
-          "description": "перечень усечён `--tail`: источник отдаёт последние N записей окна, а сколько их в окне всего — не сообщает",
+          "description": "перечень усечён `limit:` (вход tail): последние N записей окна, а сколько их в окне всего, источник не сообщает",
           "type": "array",
           "items": {
             "type": "object",
@@ -893,11 +893,21 @@
               },
               "line": {
                 "type": "string"
+              },
+              "labels": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
               }
             },
             "required": [
               "tsNs",
-              "line"
+              "line",
+              "labels"
             ],
             "additionalProperties": false
           }
@@ -910,17 +920,22 @@
                 "container": {
                   "type": "string"
                 },
+                "timestamps": {
+                  "type": "boolean",
+                  "description": "Docker ставил метку времени в начало строк"
+                },
                 "stdout": {
                   "type": "string",
-                  "description": "последние строки stdout, не больше `--tail`; сколько их в логе всего, Docker не сообщает"
+                  "description": "последние строки stdout, не больше `limit:`; сколько их в логе всего, Docker не сообщает"
                 },
                 "stderr": {
                   "type": "string",
-                  "description": "последние строки stderr, не больше `--tail`; сколько их в логе всего, Docker не сообщает"
+                  "description": "последние строки stderr, не больше `limit:`; сколько их в логе всего, Docker не сообщает"
                 }
               },
               "required": [
                 "container",
+                "timestamps",
                 "stdout",
                 "stderr"
               ],

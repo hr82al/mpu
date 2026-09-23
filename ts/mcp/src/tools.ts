@@ -6,7 +6,7 @@
  */
 
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
-import type { RefusalData } from "../../back/src/frames/mod.ts";
+import type { OutputFile, RefusalData } from "../../back/src/frames/mod.ts";
 import { GRAMMAR } from "../../back/src/messages/mod.ts";
 import type { Asker } from "./asker.ts";
 import type { BackLine } from "./back.ts";
@@ -78,7 +78,14 @@ export interface ToolResult {
   [key: string]: unknown;
   readonly content: { readonly type: "text"; readonly text: string }[];
   readonly structuredContent?: {
-    readonly stdout: string;
+    /** Вывод целиком; отдан файлом — поля нет, а место его — `file`. */
+    readonly stdout?: string;
+    /** Вывод файлом (`platform/long-output.md`, §4); иначе поля нет. */
+    readonly file?: {
+      readonly path: string;
+      readonly bytes: number;
+      readonly lines: number;
+    };
     readonly stderr: string;
     readonly exit: number;
     /** Отказ строки объектом (`platform/refusal-object.md`); нет — поля нет. */
@@ -126,18 +133,41 @@ function failed(text: string): ToolResult {
 function finished(
   stdout: string,
   stderr: string,
-  last: { readonly exit: number; readonly refusal?: RefusalData },
+  last: {
+    readonly exit: number;
+    readonly refusal?: RefusalData;
+    readonly file?: OutputFile;
+  },
 ): ToolResult {
-  const content = [{ type: "text" as const, text: stdout }];
-  if (stderr !== "") content.push({ type: "text", text: `stderr:\n${stderr}` });
-  const { exit, refusal } = last;
-  // Поле границы: у строки без отказа его нет вовсе.
+  const { exit, refusal, file } = last;
+  // Поля границы: у строки без отказа или без файла их нет вовсе.
   const refused = refusal === undefined ? {} : { refusal };
+  const output = file === undefined ? { text: stdout, fields: { stdout } } : {
+    // Куски до вопроса пришли целиком — они остаются перед путём.
+    text: stdout + fileNotice(file),
+    fields: {
+      file: { path: file.path, bytes: file.bytes, lines: file.lines },
+    },
+  };
+  const content = [{ type: "text" as const, text: output.text }];
+  if (stderr !== "") content.push({ type: "text", text: `stderr:\n${stderr}` });
   return {
     content,
-    structuredContent: { stdout, stderr, exit, ...refused },
+    structuredContent: { ...output.fields, stderr, exit, ...refused },
     isError: exit !== 0,
   };
+}
+
+/**
+ * Текст ответа вместо вывода, отданного файлом (`platform/long-output.md`,
+ * §4); у коллекции — строка среза из `it` без повторного запроса.
+ */
+function fileNotice(file: OutputFile): string {
+  const kib = Math.ceil(file.bytes / 1024);
+  const where = `вывод ${file.lines} строк, ${kib} КиБ — файл ${file.path}`;
+  if (!file.slice) return where;
+  return `${where}; срез без повторного запроса: it ${close} last: 100 · ` +
+    `it ${close} size`;
 }
 
 /**

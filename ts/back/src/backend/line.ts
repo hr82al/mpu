@@ -9,6 +9,7 @@
 import type { Output } from "../entrypoint/mod.ts";
 import type { AskKind, ServerFrame } from "../frames/mod.ts";
 import { type Lines, NO_SLOT, type Slot } from "./limit.ts";
+import { type Outlet, WHOLE } from "./outlet.ts";
 import { Stopping } from "./stopping.ts";
 
 /** Сколько ждать ответа на вопрос: дальше ответ «нет». */
@@ -124,6 +125,8 @@ export class Line implements Output {
   #waiting: Waiting = NOT_ASKED;
   #posed: Revocable = NOTHING;
   #slot: Slot = NO_SLOT;
+  /** Как собранный ответ отдаст вывод; до конца прогона — целиком. */
+  #outlet: Outlet = WHOLE;
 
   /**
    * @param delivery куда кадры идут сначала
@@ -230,6 +233,20 @@ export class Line implements Output {
   /** Место в пределе, которое строка отпустит своим кадром `exit`. */
   hold(slot: Slot) {
     this.#slot = slot;
+  }
+
+  /**
+   * Прогон кончился: отдачу вывода выбрала дверь по его итогу
+   * (`platform/long-output.md`, §4). Строка без прогона — остановленная
+   * сервером или упавшая до него — отдаёт вывод целиком.
+   */
+  ran(outlet: Outlet) {
+    this.#outlet = outlet;
+  }
+
+  /** Отдача вывода собранного ответа. */
+  outlet(): Outlet {
+    return this.#outlet;
   }
 
   /** Итог: кадр `exit`, конец доставки, место в пределе — следующему. */

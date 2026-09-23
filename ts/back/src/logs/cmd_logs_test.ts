@@ -196,7 +196,7 @@ function fakeStream() {
 }
 
 function entry(tsNs: string, line: string): LogEntry {
-  return { tsNs, line };
+  return { tsNs, line, labels: {} };
 }
 
 /** Умолчания подмен: часы стоят, сети нет. */
@@ -350,14 +350,14 @@ Deno.test("разбор аргументов: отказы до сети", async
     });
   }
 
-  await t.step("--tail 0 и отрицательный отвергаются", async () => {
+  await t.step("limit: 0 и отрицательный отвергаются", async () => {
     await withStand({}, { LOKI_URL }, async (io) => {
       for (const tail of [0, -5]) {
         const err = await assertRejects(
           () => runLogs(args({ tail }), io, options()),
           UsageError,
         );
-        assertStringIncludes(err.message, "--tail");
+        assertStringIncludes(err.message, "limit:");
       }
     });
   });
@@ -389,13 +389,13 @@ Deno.test("разбор аргументов: отказы до сети", async
     assertEquals(logsCommand.parseArgs(["sl-1", "--tail", "50"]).tail, 50);
   });
 
-  await t.step("дробный --tail — уже смысл, и текст команды", async () => {
+  await t.step("дробный limit: — уже смысл, и текст команды", async () => {
     await withStand({}, { LOKI_URL }, async (io) => {
       const err = await assertRejects(
         () => runLogs(args({ tail: 2.5 }), io, options()),
         UsageError,
       );
-      assertStringIncludes(err.message, "--tail: ожидается целое");
+      assertStringIncludes(err.message, "limit: ожидается целое");
     });
   });
 
@@ -1077,7 +1077,12 @@ Deno.test("результат: JSON-форма и рендер", async (t) => {
       kind: "snapshot",
       names: [],
       entries: [],
-      snapshot: { container: "mp-api", stdout: "о\n", stderr: "" },
+      snapshot: {
+        container: "mp-api",
+        stdout: "о\n",
+        stderr: "",
+        timestamps: false,
+      },
     });
   });
 });
@@ -1109,13 +1114,67 @@ Deno.test("слежение с json — JSON Lines по мере поступл�
         },
       }),
     );
-    const first = JSON.stringify(entry("1754380800000000001", "первая"));
-    const second = JSON.stringify(entry("1754380800000000009", "вторая"));
+    // Форма строки слежения прежняя: метки потока в неё не входят.
+    const first = '{"tsNs":"1754380800000000001","line":"первая"}';
+    const second = '{"tsNs":"1754380800000000009","line":"вторая"}';
     assertEquals(seenBeforeSecond, [`${first}\n`]);
     assertEquals(printed.out(), `${first}\n${second}\n`);
     assertEquals(
       logsCommand.renderResult(result, ["sl-1", "--follow", "--json"]),
       "",
     );
+  });
+});
+
+Deno.test("логи любой длины: страницы по пределу источника", async (t) => {
+  /** 11000 записей окна; источник отдаёт не больше 5000 на запрос. */
+  const all = Array.from(
+    { length: 11000 },
+    (_, i) => entry(String(NOW_NS - 20_000n + BigInt(i)), `строка ${i}`),
+  );
+  const window = (query: RangeQuery) =>
+    all.filter((one) => BigInt(one.tsNs) < query.endNs)
+      .reverse()
+      .slice(0, Math.min(query.limit, 5000));
+
+  await t.step(
+    "limit: 12000 — 11000 строк по возрастанию, 3 запроса",
+    async () => {
+      await withStand({}, { LOKI_URL }, async (io) => {
+        const loki = fakeLoki(window);
+        const result = await runLogs(
+          args({ selector: "sl-1", tail: 12000 }),
+          io,
+          options({ readLoki: loki.read, pageSize: 5000 }),
+        );
+        assertEquals(
+          logsCommand.renderResult(result, ["sl-1"]),
+          all.map((one) => `${one.line}\n`).join(""),
+        );
+        assertEquals(loki.asked.length, 3);
+      });
+    },
+  );
+
+  await t.step("вторая страница отвечает 500 — код 1, вывода нет", async () => {
+    await withStand({}, { LOKI_URL }, async (io) => {
+      let call = 0;
+      const loki = fakeLoki((query) =>
+        ++call === 2 ? new LokiHttpError(500, "boom") : window(query)
+      );
+      const err = await assertRejects(
+        () =>
+          runLogs(
+            args({ selector: "sl-1", tail: 12000 }),
+            io,
+            options({ readLoki: loki.read, pageSize: 5000 }),
+          ),
+        DomainError,
+      );
+      assertEquals(
+        shown(err),
+        'mpu logs: loki HTTP 500: boom\n  query: {host="sl-1"}\n',
+      );
+    });
   });
 });

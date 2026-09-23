@@ -21,7 +21,7 @@ import {
   REDACTED,
   toolCommandLine,
 } from "./mask.ts";
-import { formatRecord } from "./record.ts";
+import { formatRecord, runIdOf } from "./record.ts";
 import { type LogEnv, readSettings } from "./settings.ts";
 
 export type { LogEnv } from "./settings.ts";
@@ -79,6 +79,12 @@ export interface OutputPolicy {
  */
 export interface InvokeRecording {
   /**
+   * `run_id` записи (`YYYYMMDD-HHMMSS.mmm-<pid>`): им названа и запись, и
+   * файл большого вывода строки (`platform/long-output.md`, §4). У
+   * вызова без журнала — пусто.
+   */
+  readonly runId: string;
+  /**
    * Вызов пошёл маршрутом `native` — только такие журналирует обвязка.
    * Не вызвано ни разу — записи не будет.
    */
@@ -117,6 +123,7 @@ export interface InvokeLogDeps {
 export const NO_INVOKE_LOG: InvokeLog = { begin: () => SILENT };
 
 const SILENT: InvokeRecording = {
+  runId: "",
   nativeCall: () => {},
   capture: (output) => output,
   out: () => {},
@@ -156,6 +163,7 @@ function recording(
   const notes: string[] = [];
   let policy: OutputPolicy | undefined;
   return {
+    runId: runIdOf(stamp, -stamp.getTimezoneOffset(), deps.pid),
     nativeCall: (marked) => {
       policy = marked;
     },

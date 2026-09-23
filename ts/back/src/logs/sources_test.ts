@@ -113,7 +113,7 @@ Deno.test("чтение Loki уходит в query_range", async () => {
       limit: 3,
       direction: "forward",
     });
-    assertEquals(entries, [{ tsNs: "1", line: "строка" }]);
+    assertEquals(entries, [{ tsNs: "1", line: "строка", labels: {} }]);
     assertEquals(seen[0].pathname, "/loki/api/v1/query_range");
   } finally {
     await stop();

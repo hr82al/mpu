@@ -205,6 +205,46 @@ function stringsOf(value: unknown): string[] | undefined {
  *
  * @throws BadFrame — не объект или поле не своего вида
  */
+/**
+ * Потоки итогового ответа: `stdout` целиком либо `file` вместо него —
+ * одно из двух.
+ *
+ * @throws BadFrame — нет потоков, оба сразу или файл не своего вида
+ */
+function outputOf(
+  stdout: unknown,
+  stderr: unknown,
+  file: unknown,
+): { stdout: string; stderr: string; file?: OutputFile } {
+  if (typeof stderr !== "string") {
+    throw new BadFrame("в собранном ответе нет потоков");
+  }
+  if (file === undefined) {
+    if (typeof stdout !== "string") {
+      throw new BadFrame("в собранном ответе нет потоков");
+    }
+    return { stdout, stderr };
+  }
+  if (stdout !== undefined) {
+    throw new BadFrame("в собранном ответе и stdout, и file");
+  }
+  return { stdout: "", stderr, file: outputFileOf(file) };
+}
+
+/** @throws BadFrame — поле `file` не своего вида */
+function outputFileOf(value: unknown): OutputFile {
+  if (!isRecord(value)) throw new BadFrame("file не объект JSON");
+  const { path, bytes, lines, slice } = value;
+  if (
+    typeof path !== "string" || typeof bytes !== "number" ||
+    !Number.isSafeInteger(bytes) || typeof lines !== "number" ||
+    !Number.isSafeInteger(lines) || typeof slice !== "boolean"
+  ) {
+    throw new BadFrame("у file поле не своего вида");
+  }
+  return { path, bytes, lines, slice };
+}
+
 function refusalOf(value: unknown): RefusalData {
   if (!isRecord(value)) throw new BadFrame("отказ не объект JSON");
   const { reason, hint, candidates, text } = value;
@@ -247,13 +287,28 @@ export function ticketAnswerOf(
  * Собранный ответ строки простым HTTP (`platform/back-http-line.md`,
  * `Accept: application/json`): потоки и итог — код или вопрос с номером.
  */
+/**
+ * Вывод строки, отданный файлом (`platform/long-output.md`, §4): где
+ * лежит, сколько байт и строк, режется ли срезом `it`.
+ */
+export interface OutputFile {
+  readonly path: string;
+  readonly bytes: number;
+  readonly lines: number;
+  /** Результат — коллекция: срез из `it` без повторного запроса. */
+  readonly slice: boolean;
+}
+
 export type Collected =
   | {
+    /** Вывод строки; отдан файлом — пусто, а место его — `file`. */
     readonly stdout: string;
     readonly stderr: string;
     readonly exit: number;
     /** Отказ строки объектом; строка не отказана — поля нет. */
     readonly refusal?: RefusalData;
+    /** Вывод файлом; отдан целиком — поля нет. */
+    readonly file?: OutputFile;
   }
   | {
     readonly stdout: string;
@@ -272,15 +327,17 @@ export type Collected =
 export function collectedOf(data: unknown): Collected {
   const body = parsedJson(data);
   if (!isRecord(body)) throw new BadFrame("собранный ответ не объект JSON");
-  const { stdout, stderr, exit, ask, kind, ticket, refusal } = body;
+  const { stdout, stderr, exit, ask, kind, ticket, refusal, file } = body;
+  if (typeof exit === "number" && Number.isInteger(exit)) {
+    // Поля границы: у строки без отказа и без файла их нет вовсе.
+    return {
+      ...outputOf(stdout, stderr, file),
+      exit,
+      ...(refusal === undefined ? {} : { refusal: refusalOf(refusal) }),
+    };
+  }
   if (typeof stdout !== "string" || typeof stderr !== "string") {
     throw new BadFrame("в собранном ответе нет потоков");
-  }
-  if (typeof exit === "number" && Number.isInteger(exit)) {
-    // Поле границы: у строки без отказа его нет вовсе.
-    return refusal === undefined
-      ? { stdout, stderr, exit }
-      : { stdout, stderr, exit, refusal: refusalOf(refusal) };
   }
   if (typeof ask === "string" && typeof ticket === "string") {
     // Вид вопроса доезжает и этим трактом: иначе скрытый ответ читался

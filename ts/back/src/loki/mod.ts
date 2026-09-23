@@ -180,11 +180,16 @@ function parseSeries(text: string): LokiSeries {
 /** Путь чтения записей относительно `baseUrl`. */
 const QUERY_RANGE_PATH = "/loki/api/v1/query_range";
 
-/** Одна запись потока: время в наносекундах и текст строки как есть. */
+/** Одна запись потока: время в наносекундах, текст строки как есть, метки. */
 export interface LogEntry {
   /** Целое число наносекунд unix-времени, строкой (в `number` не влезает). */
   readonly tsNs: string;
   readonly line: string;
+  /**
+   * Метки потока записи (`stream` элемента `result`): `host`,
+   * `compose_service`, `stream` и прочие; нестроковые значения не берутся.
+   */
+  readonly labels: Readonly<Record<string, string>>;
 }
 
 /** Что спрашивают у `query_range`: окно, предел и конец окна-источник. */
@@ -266,15 +271,26 @@ function parseEntries(text: string): readonly LogEntry[] {
   const entries: LogEntry[] = [];
   for (const stream of result) {
     if (!isRecord(stream) || !Array.isArray(stream.values)) continue;
+    const labels = labelsOf(stream.stream);
     for (const pair of stream.values) {
       if (!Array.isArray(pair) || pair.length < 2) continue;
       const [tsNs, line] = pair;
       if (typeof tsNs !== "string" || typeof line !== "string") continue;
       if (!/^\d+$/.test(tsNs)) continue;
-      entries.push({ tsNs, line });
+      entries.push({ tsNs, line, labels });
     }
   }
   return entries;
+}
+
+/** Строковые метки потока; не объект — меток нет. */
+function labelsOf(value: unknown): Readonly<Record<string, string>> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((pair): pair is [string, string] =>
+      typeof pair[1] === "string"
+    ),
+  );
 }
 
 /** Значение — объект лейблов (не массив, не `null`, не примитив). */

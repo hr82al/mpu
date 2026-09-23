@@ -64,6 +64,12 @@ Deno.test("виды данных: сообщения, текст и JSON", async
     [{ stamp: "20260923" }, ["json"], { path: [], value: '"20260923"\n' }],
     [{ only: { a: 1 } }, ["only", "a"], { path: [], value: "1\n" }],
     [7, ["json"], { path: [], value: "7\n" }],
+    [ROWS, ["last:", "1", END, "first", "id"], { path: [], value: "2\n" }],
+    [ROWS, ["last:", "0", END, "size"], { path: [], value: "0\n" }],
+    [ROWS, ["last:", "5", END, "pick:", "id"], {
+      path: [],
+      value: "1\n2\n",
+    }],
   ];
   for (const [value, words, outcome] of cases) {
     await t.step(words.join(" "), async () => {
@@ -89,6 +95,7 @@ Deno.test("виды данных: отказы", async (t) => {
       "mpu first tags first: скаляр не понимает x",
     ],
     [ROWS, ["json", "size"], "mpu json: не понимает size; формат — последним"],
+    [ROWS, ["last:", "-1"], "mpu: last: -1 — ожидается n ≥ 0"],
     [
       ROWS,
       ["first", "nam"],

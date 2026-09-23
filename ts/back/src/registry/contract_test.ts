@@ -533,7 +533,11 @@ const CASES: readonly CommandCase[] = [
     sampleResult: {
       kind: "entries",
       names: [],
-      entries: [{ tsNs: "1754380800000000000", line: "строка сервиса" }],
+      entries: [{
+        tsNs: "1754380800000000000",
+        line: "строка сервиса",
+        labels: { host: "sl-1" },
+      }],
       snapshot: null,
     },
   },

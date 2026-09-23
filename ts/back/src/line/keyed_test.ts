@@ -78,8 +78,8 @@ Deno.test("отказы с подсказкой по таблице спеки",
     [
       ["sql-ro", "target:", "54", "sql:", "select 1", END, "xml"],
       `mpu sql-ro target: 54 sql: select 1 ${END}: не понимает xml; ` +
-      "есть: json, md, first, first:, isEmpty, last, pick:, size, sortBy:, " +
-      "where:",
+      "есть: json, md, first, first:, isEmpty, last, last:, pick:, size, " +
+      "sortBy:, where:",
     ],
     [
       ["sql-ro", "sl-1", "select 1"],

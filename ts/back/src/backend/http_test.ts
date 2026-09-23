@@ -16,6 +16,7 @@ import {
   RulePath,
 } from "../policy/mod.ts";
 import { formFor } from "./http.ts";
+import { WHOLE } from "./outlet.ts";
 import { ANSWER_TIMEOUT_MS } from "./mod.ts";
 import {
   collected,
@@ -484,7 +485,7 @@ Deno.test("поток NDJSON: очередь набита — печатающи
   const form = formFor("application/x-ndjson");
   if (form === undefined) throw new Error("формы NDJSON нет");
   let lost = 0;
-  const opened = form.open({ lost: () => lost++ });
+  const opened = form.open({ lost: () => lost++, outlet: () => WHOLE });
   const { delivery } = opened;
   // До первого кадра очередь пуста: печатающему ждать нечего.
   await within(delivery.ready(), 5000, "готовность до первого кадра");

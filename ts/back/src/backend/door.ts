@@ -7,6 +7,13 @@
 import { Agent, type Channel, Human, NOBODY } from "../policy/mod.ts";
 import type { RootMethod } from "../line/mod.ts";
 import type { Line } from "./line.ts";
+import {
+  FileOutlet,
+  type Outlet,
+  type Run,
+  type Spill,
+  WHOLE,
+} from "./outlet.ts";
 import type { PromptDoor } from "./prompt.ts";
 import type { WebAccess } from "./web.ts";
 
@@ -27,6 +34,11 @@ export interface Door {
   prompting(human: boolean): PromptDoor;
   /** Методы корня, которые есть только у этой двери. */
   rootMethods(services: DoorServices): readonly RootMethod[];
+  /**
+   * Как собранный ответ отдаст вывод прогона `run`
+   * (`platform/long-output.md`, §4).
+   */
+  outlet(spill: Spill, run: Run): Outlet;
 }
 
 /** Что сервер даёт методам двери. */
@@ -95,6 +107,8 @@ export const HUMAN_DOOR: Door = {
   channel: clientChannel,
   prompting: (human) => human ? HUMAN_PROMPTS : NO_PROMPTS,
   rootMethods: webMethods,
+  // У человека терминал: большой вывод он направит сам.
+  outlet: () => WHOLE,
 };
 
 /** `/agent/line`: вопрос `ask` — клиенту, изменение правила — никому. */
@@ -102,4 +116,6 @@ export const AGENT_DOOR: Door = {
   channel: (line, human) => new Agent(clientChannel(line, human)),
   prompting: (human) => human ? AGENT_PROMPTS : NO_PROMPTS,
   rootMethods: () => [],
+  // Ответ агенту целиком — в его контекст: большой уходит файлом.
+  outlet: (spill, run) => new FileOutlet(spill, run),
 };

@@ -133,3 +133,38 @@ Deno.test("исполненная строка отказа-объекта не 
     assertEquals([got.code, got.refusals], [0, []]);
   });
 });
+
+Deno.test("сколько — limit: у всех «сколько» (long-output.md, §1)", async (t) => {
+  const cases: readonly (readonly [readonly string[], string, string[]])[] = [
+    [
+      ["logs", "target:", "sl-1", "tail:", "50"],
+      "mpu logs: сколько — ключом: mpu logs target: sl-1 limit: 50",
+      ["logs", "target:", "sl-1", "limit:", "50"],
+    ],
+    [
+      ["log", "tail:", "5"],
+      "mpu log: сколько — ключом: mpu log limit: 5",
+      ["log", "limit:", "5"],
+    ],
+    [
+      ["health", "target:", "sl-1", "tail:", "100"],
+      "mpu health: сколько — ключом: mpu health target: sl-1 limit: 100",
+      ["health", "target:", "sl-1", "limit:", "100"],
+    ],
+    [
+      ["logs", "-n", "50"],
+      "mpu logs: сколько — ключом: mpu logs limit: 50",
+      ["logs", "limit:", "50"],
+    ],
+  ];
+  await withPolicyFile(async (file) => {
+    for (const [argv, text, hint] of cases) {
+      await t.step(argv.join(" "), async () => {
+        const got = await run(file, argv);
+        assertEquals(got.code, 2);
+        assertEquals(got.stderr, `${text}\n`);
+        assertEquals(got.refusals.map((one) => one.hint), [hint]);
+      });
+    }
+  });
+});

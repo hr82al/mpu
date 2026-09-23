@@ -63,8 +63,12 @@ Deno.test("запрос несёт LogQL, границы окна, лимит и
     assertEquals(seen[0].searchParams.get("limit"), "200");
     assertEquals(seen[0].searchParams.get("direction"), "backward");
     assertEquals(entries, [
-      { tsNs: "1754380800000000001", line: "первая" },
-      { tsNs: "1754380800000000002", line: "вторая\n" },
+      { tsNs: "1754380800000000001", line: "первая", labels: { host: "sl-1" } },
+      {
+        tsNs: "1754380800000000002",
+        line: "вторая\n",
+        labels: { host: "sl-2" },
+      },
     ]);
   } finally {
     await stop();
@@ -120,6 +124,34 @@ Deno.test("мусор в теле: пропуск поштучно, а не от
         await stop();
       }
     });
+  }
+});
+
+Deno.test("метки потока: строковые берутся, прочие и не-объект — нет", async () => {
+  const body = JSON.stringify({
+    data: {
+      result: [
+        {
+          stream: { host: "sl-1", n: 7, stream: "stderr" },
+          values: [["1", "a"]],
+        },
+        { stream: "мусор", values: [["2", "b"]] },
+        { values: [["3", "c"]] },
+      ],
+    },
+  });
+  const { baseUrl, stop } = fakeServer(() =>
+    new Response(body, { status: 200 })
+  );
+  try {
+    const entries = await queryRange({ baseUrl }, QUERY);
+    assertEquals(entries.map((entry) => entry.labels), [
+      { host: "sl-1", stream: "stderr" },
+      {},
+      {},
+    ]);
+  } finally {
+    await stop();
   }
 });
 

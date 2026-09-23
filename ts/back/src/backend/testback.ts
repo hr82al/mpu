@@ -40,6 +40,8 @@ export interface TestBack {
   readonly seen: string[];
   /** Всё, что увидел журнал вызовов, — для поиска чужих секретов. */
   readonly logged: string[];
+  /** Каталог файлов большого вывода — во временном каталоге теста. */
+  readonly spillDir: string;
   readonly running: RunningBack;
 }
 
@@ -60,6 +62,8 @@ export interface BackSetup {
   readonly newTicket?: () => string;
   /** Каталог фронта; по умолчанию — несуществующий. */
   readonly webRoot?: (dir: string) => string;
+  /** Порог вывода двери агента в байтах; по умолчанию — сервера. */
+  readonly spillThreshold?: number;
 }
 
 const TOKEN = "t0ken-" + "s3cret-" + "value";
@@ -72,9 +76,12 @@ function recordingLog(
   begun: (words: readonly string[]) => void,
   finished: (code: number) => Promise<void>,
 ): InvokeLog {
+  let runs = 0;
   return {
     begin: (command) => {
       const argv = "argv" in command ? command.argv : [];
+      // Номер записи по порядку: имя файла большого вывода предсказуемо.
+      const runId = `run-${++runs}`;
       logged.push(JSON.stringify(argv));
       dirs.push(command.cwd);
       begun(argv);
@@ -83,6 +90,7 @@ function recordingLog(
       // закрытия виден тесту лишь у тех строк, чья запись пишется.
       let marked = false;
       return ({
+        runId,
         nativeCall: (command) => {
           marked = true;
           called.push(command.path.join(" "));
@@ -148,6 +156,11 @@ export async function withBack(
       now: () => Date.now(),
     }),
     webRoot: setup.webRoot?.(dir) ?? `${dir}/web`,
+    // Не `/tmp/mpu-out`: тест не пишет туда, где читают живые агенты.
+    spill: {
+      dir: `${dir}/mpu-out`,
+      threshold: setup.spillThreshold ?? 64 * 1024,
+    },
   });
   const back: TestBack = {
     url: `http://127.0.0.1:${running.port}`,
@@ -161,6 +174,7 @@ export async function withBack(
     dirs,
     diagnosed,
     seen: [],
+    spillDir: `${dir}/mpu-out`,
     running,
   };
   try {

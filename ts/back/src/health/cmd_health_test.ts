@@ -568,7 +568,7 @@ Deno.test("непокрытые спекой ветви: нет mp-строк, �
   });
 });
 
-Deno.test("--tail: целое больше нуля, проверка до сети", async (t) => {
+Deno.test("limit: целое больше нуля, проверка до сети", async (t) => {
   const cases: readonly number[] = [0, -3, 2.5];
   for (const tail of cases) {
     await t.step(`--tail ${tail}`, async () => {
@@ -588,7 +588,7 @@ Deno.test("--tail: целое больше нуля, проверка до се�
         );
         assertEquals(
           err.message,
-          `--tail: ожидается целое > 0, получено '${tail}'`,
+          `limit: ожидается целое > 0, получено '${tail}'`,
         );
       });
     });
