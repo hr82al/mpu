@@ -65,7 +65,10 @@
 - `back` не ответил за 150 мс, не запущен или нет основного токена — снимок
   `tree.json`, как сейчас. Снимок — вывод того же протокола: узел `path`,
   `summary`, `tail` (его читают правила и дерево политики), `messages`,
-  `keys`, `formats`; поля `selectors`, `flags`, `summaries` сняты. Без `back`
+  `keys`, `formats`; поля `selectors`, `flags`, `summaries` сняты.
+  С порции 162 у документа снимка верхнее поле `selection` — ответ `messages`
+  отбора (один на все узлы); после `end` дополнение предлагает `formats` узла и
+  `selection` — так же, как `back`. Без `back`
   значения ключей (`candidates`) не предлагаются.
 - Права задачи `complete`: `--allow-net=127.0.0.1` (запрос к `back`),
   `--allow-read=$HOME/.config/mpu/token` (основной токен),
