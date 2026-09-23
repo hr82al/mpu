@@ -178,7 +178,7 @@ export const makeSchemaCommand = defineCommand({
   keys: {},
   summary: "Создать схему клиента в локальном стенде.",
   usage:
-    "mpu make-schema target: СЕЛЕКТОР [server: sl-N] [client-id: N] [--print]",
+    "mpu make-schema [print] target: СЕЛЕКТОР [server: sl-N] [client-id: N]",
   help: `Звать, когда локальному стенду нужна схема клиента для копии данных.
 
 По умолчанию команда ВЫПОЛНЯЕТСЯ: запускает на ЭТОЙ машине
@@ -186,10 +186,10 @@ export const makeSchemaCommand = defineCommand({
 наследует его код выхода 1:1. Метод идемпотентен: схема
 schema_<client_id> создаётся, только если её ещё нет.
 
-Транспорт локальный — ни Portainer, ни ssh здесь нет, и --local у
+Транспорт локальный — ни Portainer, ни ssh здесь нет, и local у
 команды поэтому не бывает: она и так локальная.
 
---print ничего не выполняет: печатает docker-команду одной строкой и
+print ничего не выполняет: печатает docker-команду одной строкой и
 копирует её в буфер обмена.
 
 target: — client_id, spreadsheet_id или заголовок таблицы; client-id:
@@ -203,7 +203,7 @@ server: уходит и внутрь вызова, хотя init его игно
 Exit: код docker exec при выполнении; 0 при печати; 2 — ошибки ввода и
 резолва.`,
   examples: [
-    "mpu make-schema target: 777 --print",
+    "mpu make-schema print target: 777",
     "mpu make-schema target: 777 server: sl-2",
   ],
   // Мутирующая: создаёт схему в БД стенда.

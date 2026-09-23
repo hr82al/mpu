@@ -163,7 +163,7 @@ function containerTarget(
 ): ExecTarget {
   if (via === "ssh") {
     throw new UsageError(
-      "--via ssh не поддерживается для контейнера по имени; только для sl-N",
+      "ssh не поддерживается для контейнера по имени; только для sl-N",
     );
   }
   const apiKey = value(env, "PORTAINER_API_KEY");
@@ -221,13 +221,13 @@ function serverTarget(
 function unavailable(serverNumber: number, via: Via | undefined): UsageError {
   if (via === "ssh") {
     return new UsageError(
-      `--via ssh: для sl-${serverNumber} не задан ssh-доступ` +
+      `ssh: для sl-${serverNumber} не задан ssh-доступ` +
         ` (sl_${serverNumber} + PG_MY_USER_NAME)`,
     );
   }
   if (via === "portainer") {
     return new UsageError(
-      `--via portainer: для sl-${serverNumber} не задан Portainer` +
+      `portainer: для sl-${serverNumber} не задан Portainer` +
         ` (sl_${serverNumber}_portainer + PORTAINER_API_KEY)`,
     );
   }

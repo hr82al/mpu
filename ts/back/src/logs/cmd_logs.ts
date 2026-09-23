@@ -93,7 +93,7 @@ const argsSchema = z.object({
     "следить за новыми записями; не через тул mpu-mcp, только loki",
   ),
   json: z.boolean().default(false).describe(
-    "результат JSON; у --follow — JSON Lines, запись на строку",
+    "результат JSON; у follow — JSON Lines, запись на строку",
   ),
 });
 
@@ -145,6 +145,13 @@ export interface LogsOptions {
 }
 
 const command = defineCommand({
+  choices: {
+    loki: { input: "via", purpose: "источник — Loki (по умолчанию)" },
+    portainer: {
+      input: "via",
+      purpose: "источник — снимок одного контейнера через Portainer",
+    },
+  },
   path: ["logs"],
   keys: { service: "service" },
   modes: {
@@ -163,10 +170,9 @@ const command = defineCommand({
   },
   // Однострока — из слепка дерева: имя и описание переехавшей команды
   // видит режим дополнения, и расходиться с эталоном им незачем.
-  summary:
-    "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot).",
+  summary: "Логи со стенда (Loki по умолчанию, portainer для legacy snapshot).",
   usage:
-    "mpu logs [target: СЕЛЕКТОР] [service: СЕРВИС] [via: loki|portainer] [фильтры]",
+    "mpu logs [loki|portainer] [target: СЕЛЕКТОР] [service: СЕРВИС] [фильтры]",
   help: `Звать, когда надо понять, что сервис писал в лог: ошибки,
 конкретный клиент, окно времени — с одного хоста или со всей фермы.
 
@@ -181,16 +187,16 @@ target: он ищется со всех хостов.
 
 Фильтры Loki, И между собой: grep: S (подстрока), grep-regex: S,
 level: error|warn|info|debug, client: N (подстрока числа в строке —
-совпадёт и порт). Потоки: --no-stdout, --no-stderr.
+совпадёт и порт). Потоки: no-stdout, no-stderr.
 
 Окно: since: 30s|10m|1h|2d или unix-ts (умолчание 5m, слежение 10s);
-tail: N > 0 (200); --timestamps — префикс
-YYYY-MM-DDThh:mm:ss.mmmZ; --follow — опрос раз в 2 с до Ctrl+C;
+tail: N > 0 (200); timestamps — префикс
+YYYY-MM-DDThh:mm:ss.mmmZ; follow — опрос раз в 2 с до Ctrl+C;
 недоступен только вызовом тула (mpu-mcp). Печать всегда по возрастанию
 времени.
 
 via: portainer — снимок логов одного контейнера: нужны target: и
-service: (имя контейнера или подстрока), фильтры и --follow нельзя,
+service: (имя контейнера или подстрока), фильтры и follow нельзя,
 байты потоков идут как есть.
 
 Env: LOKI_URL; PORTAINER_API_KEY, PORTAINER_VERIFY_TLS, sl_<N>_portainer.
@@ -228,7 +234,7 @@ export const logsCommand: Command = {
   ...command,
   invokeInput: async (input, io) => {
     if (isRecord(input) && input.follow === true) {
-      throw new UsageError("--follow доступен только в CLI");
+      throw new UsageError("follow доступен только в CLI");
     }
     return await command.invokeInput(input, io);
   },
@@ -420,15 +426,15 @@ async function runSnapshot(
   options: LogsOptions,
 ): Promise<LogsResult> {
   if (place.hostArg === undefined) {
-    throw new UsageError("--via portainer требует <selector>");
+    throw new UsageError("portainer требует target:");
   }
   if (place.service === undefined) {
     throw new UsageError(
-      "--via portainer требует <container> (2-й позиционный аргумент)",
+      "portainer требует service:",
     );
   }
   if (args.follow) {
-    throw new UsageError("--follow не поддерживается с --via portainer");
+    throw new UsageError("follow не поддерживается с portainer");
   }
   // Отклонение-fix спеки: оригинал молча игнорировал фильтры Loki на
   // этом пути, и вывод выглядел отфильтрованным.
@@ -438,7 +444,7 @@ async function runSnapshot(
     args.client !== undefined
   ) {
     throw new UsageError(
-      "--grep/--grep-regex/--level/--client поддерживаются только с --via loki",
+      "grep:/grep-regex:/level:/client: поддерживаются только с loki",
     );
   }
   const tail = requireTail(args.tail);

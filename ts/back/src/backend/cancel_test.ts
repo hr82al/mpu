@@ -21,7 +21,7 @@ import {
 } from "./testback.ts";
 
 /** Слежение за логами: команда, которая сама не кончается. */
-const FOLLOW = ["logs", "--follow"];
+const FOLLOW = ["logs", "follow"];
 
 function open(back: TestBack, words: readonly string[]) {
   const client = new Client(back, "/line");
@@ -239,7 +239,7 @@ Deno.test("отмена в ожидании ответа: вопрос снят,
 
 Deno.test("отмена в ожидании места: строка не исполнялась", async () => {
   const log = journal();
-  const second = awaited("--follow", 2);
+  const second = awaited("follow", 2);
   await withLoki(async (back, loki) => {
     const busy = await open(back, FOLLOW);
     await within(

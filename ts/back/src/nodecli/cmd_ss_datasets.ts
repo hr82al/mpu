@@ -37,7 +37,7 @@ export const ssDatasetsCommand = defineCommand({
   keys: {},
   summary: "Зарегистрировать датасет таблицы клиента.",
   usage:
-    "mpu ss-datasets target: СЕЛЕКТОР dataset: D [server: sl-N] [--print [--local]] [spreadsheet-id: S] [sheet-name: N] [--is-active]",
+    "mpu ss-datasets [print [local]] target: СЕЛЕКТОР dataset: D [server: sl-N] [spreadsheet-id: S] [sheet-name: N] [--is-active]",
   help: `Звать, когда лист таблицы клиента надо зарегистрировать как датасет,
 чтобы он загружался в БД.
 
@@ -45,9 +45,9 @@ export const ssDatasetsCommand = defineCommand({
 запускает \`node cli service:ssDatasets add\` и стримит его вывод, код
 выхода наследуется 1:1.
 
---print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального стенда
-(без ssh); сам по себе --local — ошибка ввода.
+print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального стенда
+(без ssh); сам по себе local — ошибка ввода.
 
 target: — client_id, spreadsheet_id или заголовок таблицы;
 spreadsheet-id: берётся из кандидатов селектора, если у всех
@@ -69,7 +69,7 @@ Exit: код inner-команды при выполнении; 0 при печа
 резолва и конфигурации.`,
   examples: [
     "mpu ss-datasets target: 777 dataset: wb_unit sheet-name: UNIT",
-    "mpu ss-datasets target: 777 dataset: wb_unit --is-active --print",
+    "mpu ss-datasets print target: 777 dataset: wb_unit --is-active",
   ],
   policy: "rw",
   helpWhenBare: true,

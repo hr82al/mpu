@@ -273,7 +273,11 @@ Deno.test("снимок и back на одном дереве — одни и т�
         "sql-ro target: 54 ",
         "sql-ro target: 54 --d",
         "logs ",
+        "logs portainer ",
+        "run-js ssh dry ",
+        "sql-ro ",
         "ozon-jobs show ",
+        "ozon-jobs show print ",
       ]
     ) {
       const fromBack = await askBack(line, {

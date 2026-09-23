@@ -260,13 +260,13 @@ Deno.test("--via без соответствующего доступа — те
       "ssh не настроен",
       "ssh",
       { PORTAINER_API_KEY: API_KEY },
-      "--via ssh: для sl-1 не задан ssh-доступ (sl_1 + PG_MY_USER_NAME)",
+      "ssh: для sl-1 не задан ssh-доступ (sl_1 + PG_MY_USER_NAME)",
     ],
     [
       "Portainer не настроен",
       "portainer",
       { sl_1: "10.0.0.1", PG_MY_USER_NAME: "u" },
-      "--via portainer: для sl-1 не задан Portainer" +
+      "portainer: для sl-1 не задан Portainer" +
       " (sl_1_portainer + PORTAINER_API_KEY)",
     ],
   ];
@@ -397,7 +397,7 @@ Deno.test("контейнер по точному имени — только Po
           via: "ssh",
         }),
       UsageError,
-      "--via ssh не поддерживается для контейнера по имени; только для sl-N",
+      "ssh не поддерживается для контейнера по имени; только для sl-N",
     );
     assertEquals(
       chooseTransport({

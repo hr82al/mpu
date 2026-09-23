@@ -386,7 +386,7 @@ export const mpInitCommand = defineCommand({
   keys: {},
   errorName: "mp-init",
   summary: "Поднять локальный стенд целиком: core-стеки и web поверх.",
-  usage: "mpu mp-init [--dry-run]",
+  usage: "mpu mp-init [dry]",
   help: `Звать, когда локальный стенд надо поднять с нуля или после остановки.
 
 Поднимает локальный стенд: docker-сеть и общий том, затем
@@ -398,7 +398,7 @@ core-стеки в фиксированном порядке (nats, sl-0, sl-1, 
 mp-dt:local) — останов с подсказкой, каким build-алиасом его собрать;
 нет web-образа — предупреждение, core поднимается.
 
---dry-run печатает все команды, не выполняя ни одной мутации;
+dry печатает все команды, не выполняя ни одной мутации;
 inspect-проверки при этом выполняются — без них план не построить.
 
 Каталог mp-config-local берётся из переменной окружения
@@ -413,7 +413,7 @@ MPU_MP_CONFIG_LOCAL, иначе ~/mr/mp/mp-config-local. Каталог web-ст
 Exit: 0 — успех, в том числе без web-стека; 2 — каталог mp-config-local
 не найден; 1 — нет обязательных образов; иначе код упавшего docker.`,
   examples: [
-    "mpu mp-init --dry-run",
+    "mpu mp-init dry",
     "mpu mp-init",
   ],
   policy: "rw",

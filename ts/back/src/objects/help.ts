@@ -26,6 +26,8 @@ export interface HelpData {
   readonly purpose: string;
   readonly text: string;
   readonly examples: readonly string[];
+  /** Варианты команды — до ключей (`platform/variants.md`). */
+  readonly variants: readonly HelpMessage[];
   readonly keys: readonly HelpKey[];
   readonly formats: readonly string[];
   readonly messages: readonly HelpMessage[];
@@ -79,14 +81,18 @@ function unnamed(data: HelpData): HelpKey[] {
 }
 
 /**
- * Справка объекта: строка использования, текст, раздел «Ключи» — ключи,
- * которых не называет ни одно сообщение, — и раздел «Сообщения», если
- * есть сообщения или нет ключей.
+ * Справка объекта: строка использования, текст, раздел «Варианты», если
+ * они есть, раздел «Ключи» — ключи, которых не называет ни одно
+ * сообщение, — и раздел «Сообщения», если есть сообщения или нет ключей.
  */
 export const OBJECT_VIEW: HelpView = {
   render(data) {
     const text = withExamples(data.text, data.examples);
     const shown = unnamed(data);
+    const variants = data.variants.length === 0 ? "" : section(
+      "Варианты",
+      data.variants.map((line) => [line.selector, line.purpose] as const),
+    );
     const keys = shown.length === 0 ? "" : section("Ключи", shown.map(keyRow));
     const messages = data.messages.length === 0 && shown.length > 0
       ? ""
@@ -95,7 +101,7 @@ export const OBJECT_VIEW: HelpView = {
         data.messages.map((line) => [line.selector, line.purpose] as const),
       );
     return `Использование: ${data.path} <сообщение>\n\n${data.purpose}\n\n` +
-      `${text}${keys}${messages}`;
+      `${text}${variants}${keys}${messages}`;
   },
 };
 

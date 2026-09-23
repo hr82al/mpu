@@ -92,8 +92,8 @@ Deno.test("отказы с подсказкой по таблице спеки",
     [
       ["sql-ro", "target:", "54", "sql:", "select 1", "-v"],
       "mpu sql-ro target: 54 sql: select 1: значение select 1 не понимает " +
-      '-v; флаг — полным именем: mpu sql-ro target: 54 sql: "select 1" ' +
-      "--verbose",
+      "-v; вариант — словом до ключей: mpu sql-ro verbose target: 54 " +
+      'sql: "select 1"',
     ],
     [["kiten", "card"], "mpu kiten card: не хватает ключа id"],
     [
@@ -147,7 +147,7 @@ Deno.test("ключи подряд — одно сообщение, строка
   withPolicyFile(async (file) => {
     const dry = await run(
       file,
-      ["sql-ro", "target:", "sl-1", "sql:", "SELECT 1", "--dry"],
+      ["sql-ro", "dry", "target:", "sl-1", "sql:", "SELECT 1"],
       SQL_IO,
     );
     assertEquals(dry.code, 0, dry.stderr);
@@ -157,7 +157,7 @@ Deno.test("ключи подряд — одно сообщение, строка
 
 Deno.test("без sql: — запрос из stdin", () =>
   withPolicyFile(async (file) => {
-    const stdin = await run(file, ["sql-ro", "target:", "sl-1", "--dry"], {
+    const stdin = await run(file, ["sql-ro", "dry", "target:", "sl-1"], {
       ...SQL_IO,
       readStdin: () => Promise.resolve(new TextEncoder().encode("select 2")),
     });
@@ -197,13 +197,17 @@ Deno.test("справка образца end json — ключи из объяв
     assertEquals(data.examples.length, 3);
     assertEquals(
       data.keys.map((key: { name: string }) => key.name).sort(),
-      ["id", "no-comments", "no-images"],
+      ["id"],
+    );
+    assertEquals(
+      data.variants.map((line: { selector: string }) => line.selector),
+      ["no-comments", "no-images"],
     );
   }));
 
 Deno.test("унарное за литералом — результату, как после end", () =>
   withPolicyFile(async (file) => {
-    const line = ["sql-ro", "target:", "sl-1", "sql:", "SELECT 1", "--dry"];
+    const line = ["sql-ro", "dry", "target:", "sl-1", "sql:", "SELECT 1"];
     const bare = await run(file, [...line, "json"], SQL_IO);
     assertEquals(bare.code, 0, bare.stderr);
     assertEquals(bare.called, ["sql-ro"]);

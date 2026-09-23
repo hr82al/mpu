@@ -53,7 +53,7 @@ const resultSchema = z.object({
     skipped: z.number(),
     retries: z.number(),
   }).optional().describe("что создано на доске — числами из ответов службы"),
-  plan: z.string().optional().describe("текст плана; только у --dry-run"),
+  plan: z.string().optional().describe("текст плана; только у dry"),
 });
 
 type D2MiroArgs = z.infer<typeof argsSchema>;
@@ -155,7 +155,7 @@ async function chooseSvg(
   }
   throw new DomainError(
     "d2 CLI is not in PATH and no SVG file exists next to the .d2 source. " +
-      "Install d2 (https://d2lang.com) or pass --skip-render with a " +
+      "Install d2 (https://d2lang.com) or use the skip-render variant with a " +
       "pre-rendered .svg.",
   );
 }
@@ -266,7 +266,7 @@ function requireSomethingToDraw(
       // Подсказка — действие, а не диагноз: она печатается как
       // «попробуй: …». Что именно предложить, зависит от того, сам ли
       // оператор запретил пере-рендер.
-      hint: skipRender ? "тот же вызов без --skip-render" : `d2 ${paths.d2}`,
+      hint: skipRender ? "тот же вызов без skip-render" : `d2 ${paths.d2}`,
     },
   );
 }
@@ -330,7 +330,7 @@ export const d2MiroCommand = defineCommand({
   errorName: "d2-miro",
   summary: "Рендер d2-диаграммы в Miro как редактируемый фрейм.",
   usage:
-    "mpu d2-miro file: D2_FILE [title: T] [board: ID] [position: x,y] [--skip-render] [--dry-run]",
+    "mpu d2-miro [skip-render] [dry] file: D2_FILE [title: T] [board: ID] [position: x,y]",
   help: `Звать, когда диаграмму .d2 надо показать на доске Miro так,
 чтобы её можно было править руками.
 
@@ -340,10 +340,10 @@ layout'у SVG, connectors по рёбрам. Повторный рендер и�
 блокировка снимается) и создаётся заново на прежнем месте.
 
 SVG берётся рядом с .d2: свежий — как есть, устаревший — пере-рендер
-через d2 из PATH; d2 нет и SVG нет — отказ. --skip-render берёт
+через d2 из PATH; d2 нет и SVG нет — отказ. skip-render берёт
 существующий SVG даже устаревшим.
 
---dry-run печатает план и не делает ни одного вызова Miro API; правила
+dry печатает план и не делает ни одного вызова Miro API; правила
 выбора SVG при этом выполняются, то есть d2 может перезаписать .svg.
 
 Имя шейпа исходника читается как [a-zA-Z_]\\w*, метка — из кавычек.
@@ -359,7 +359,7 @@ markdown-блоков: доска не трогается вовсе); 1 — о�
 d2-рендера, а также прогон, не создавший на доске ничего: числа итога и
 код возврата обязаны говорить одно и то же.`,
   examples: [
-    "mpu d2-miro file: arch.d2 --dry-run",
+    "mpu d2-miro dry file: arch.d2",
     'mpu d2-miro file: arch.d2 title: "Архитектура"',
   ],
   policy: "rw",

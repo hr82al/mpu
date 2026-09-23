@@ -13,6 +13,7 @@ import {
   readMessage,
   resolvedMessage,
 } from "../messages/mod.ts";
+import { order } from "./nearest.ts";
 import { spelled } from "./reflection.ts";
 import { Refusal, Rejection } from "./refusal.ts";
 import { sentOf } from "./sent.ts";
@@ -79,12 +80,14 @@ function moreKeys(
   );
 }
 
-/** Сообщения приёмника: унарные словом, ключевые — первым ключом. */
+/**
+ * Сообщения приёмника — унарные словом, ключевые первым ключом — и его
+ * варианты, по алфавиту вместе.
+ */
 function messagesOf(reflection: Reflection): Suggestion[] {
-  return reflection.messages().map((line) => ({
-    word: line.selector,
-    purpose: line.purpose,
-  }));
+  return [...reflection.messages(), ...reflection.variants()]
+    .map((line) => ({ word: line.selector, purpose: line.purpose }))
+    .sort((a, b) => order(a.word, b.word));
 }
 
 function asSuggestions(values: readonly ValueLine[]): Suggestion[] {

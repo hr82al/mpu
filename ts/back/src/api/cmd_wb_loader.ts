@@ -181,11 +181,11 @@ export const wbLoaderBlockedCommand = defineCommand({
   keys: {},
   errorName: "api wb-loader-blocked",
   summary: "POST /admin/wb-loader/blocked-loaders/v1/find — блокировки фермы.",
-  usage: "mpu api wb-loader-blocked [loader: ИМЯ] [reason: R] [--print]",
+  usage: "mpu api wb-loader-blocked [print] [loader: ИМЯ] [reason: R]",
   help: `Звать, когда надо понять, какие WB-загрузчики стоят по всей ферме
 и почему: ответ — блокировки из sl-back, а не догадка по логам. Без
 фильтров — все; loader: (camelCase), reason: и sid: сужают запрос,
---only-permanent оставляет причины, которые сами не восстановятся.
+only-permanent оставляет причины, которые сами не восстановятся.
 
 server: — клиентский постфильтр по инстансу: в тело запроса он не
 входит, ответ фильтруется после получения.
@@ -193,14 +193,14 @@ server: — клиентский постфильтр по инстансу: в 
 Имена загрузчиков и причин проверяются по закрытым спискам до сети;
 перепутанная форма имени даёт подсказку с правильной.
 
---print печатает эквивалентный вызов и выходит; токен в нём не
+print печатает эквивалентный вызов и выходит; токен в нём не
 подставляется.
 
 Exit: 0 — успех; 1 — отказ sl-back; 2 — негодное имя загрузчика или
 причины.`,
   examples: [
     "mpu api wb-loader-blocked",
-    "mpu api wb-loader-blocked --only-permanent --print",
+    "mpu api wb-loader-blocked only-permanent print",
   ],
   policy: "ro",
   argsSchema: blockedArgs,
@@ -249,7 +249,7 @@ export const wbLoaderStatusCommand = defineCommand({
   errorName: "api wb-loader-status",
   summary: "GET …/loaders/<sid>/<loader>/v1/status — состояние загрузчика.",
   usage:
-    "mpu api wb-loader-status target: СЕЛЕКТОР loader: СЛАГ [sid: SID] [--print]",
+    "mpu api wb-loader-status [print] target: СЕЛЕКТОР loader: СЛАГ [sid: SID]",
   help: `Звать, когда надо узнать, где сейчас один загрузчик кабинета:
 состояние читается у sl-back, ничего не меняя. loader: — слаг (cards,
 adv-fullstats), не camelCase: слаг идёт сегментом пути.
@@ -275,7 +275,7 @@ export const wbLoaderLoadCommand = defineCommand({
   errorName: "api wb-loader-load",
   summary: "POST …/v1/load — форс-прогон отложенной задачи.",
   usage:
-    "mpu api wb-loader-load target: СЕЛЕКТОР loader: СЛАГ [sid: SID] [--print]",
+    "mpu api wb-loader-load [print] target: СЕЛЕКТОР loader: СЛАГ [sid: SID]",
   help: `Звать, когда данные загрузчика нужны сейчас, а не к его
 следующему циклу: отложенная задача запускается немедленно. Читающий
 аналог — mpu api wb-loader-status.
@@ -357,15 +357,15 @@ export const wbLoaderConfigCommand = defineCommand({
   errorName: "api wb-loader-config",
   summary: "Конфигурация загрузчика на кабинете: чтение и правка.",
   usage:
-    "mpu api wb-loader-config target: СЕЛЕКТОР loader: СЛАГ [--enable|--disable|--reset] [--print]",
+    "mpu api wb-loader-config [print] target: СЕЛЕКТОР loader: СЛАГ [enable|disable|reset]",
   help: `Звать, когда загрузчик кабинета надо включить, выключить или
 понять, с какими параметрами он работает. Без флагов читает
 конфигурацию: действующие параметры (база плюс дельта кабинета),
 базовые, сырую дельту этого кабинета и перечень полей, которые можно
 править per-sid.
 
---enable/--disable включают и выключают загрузчик на этом кабинете,
---reset снимает дельту. Три флага ВЗАИМОИСКЛЮЧАЮЩИ: два вместе — ошибка
+enable/disable включают и выключают загрузчик на этом кабинете,
+reset снимает дельту. Три флага ВЗАИМОИСКЛЮЧАЮЩИ: два вместе — ошибка
 ввода до сети, а не «последний выигрывает».
 
 loader: — слаг. Цель — target: либо sid:.
@@ -374,7 +374,7 @@ Exit: 0 — успех; 1 — отказ sl-back; 2 — два флага сра
 ошибки резолва.`,
   examples: [
     "mpu api wb-loader-config target: 777 loader: cards",
-    "mpu api wb-loader-config target: 777 loader: cards --disable",
+    "mpu api wb-loader-config disable target: 777 loader: cards",
   ],
   policy: "rw",
   argsSchema: configArgs,
@@ -401,7 +401,7 @@ const resetArgs = z.object({
 });
 
 const resetResult = callResult.extend({
-  loaded: z.unknown().describe("ответ форс-прогона; без --and-load — null"),
+  loaded: z.unknown().describe("ответ форс-прогона; без and-load — null"),
   // Второй вызов объявлен в результате, а не собирается печатью: печать
   // обязана показать всю работу, которую команда бы сделала, и брать
   // это ей больше неоткуда (`ts/CLAUDE.md`, «Величина берётся там, где
@@ -410,7 +410,7 @@ const resetResult = callResult.extend({
     method: z.string(),
     path: z.string(),
     body: z.unknown(),
-  }).nullable().describe("вызов форс-прогона; без --and-load — null"),
+  }).nullable().describe("вызов форс-прогона; без and-load — null"),
 });
 
 type ResetArgs = z.infer<typeof resetArgs>;
@@ -473,7 +473,7 @@ export const wbLoaderResetCommand = defineCommand({
   errorName: "api wb-loader-reset",
   summary: "POST …/v1/reset — сброс состояния загрузчика и перезапуск.",
   usage:
-    "mpu api wb-loader-reset target: СЕЛЕКТОР loader: СЛАГ [state: JSON|from: ДАТА] [--and-load] [--print]",
+    "mpu api wb-loader-reset [and-load] [print] target: СЕЛЕКТОР loader: СЛАГ [state: JSON|from: ДАТА]",
   help: `Звать, когда загрузчик надо заставить перезалить данные с
 даты: состояние сбрасывается, ближайший прогон пересчитает окно. Без
 state: и from: тело пустое.
@@ -488,13 +488,13 @@ state: кладёт частичное состояние как есть, from:
 участок задать нельзя — свежие дни будут перезалиты. Это свойство
 загрузчика, а не команды.
 
---and-load следом дёргает форс-прогон. Отказ этого шага не отменяет
+and-load следом дёргает форс-прогон. Отказ этого шага не отменяет
 сброса: он уже произошёл, и сообщение это скажет.
 
 Exit: 0 — успех; 1 — отказ sl-back; 2 — state: вместе с from:,
 негодная дата, ошибки резолва.`,
   examples: [
-    "mpu api wb-loader-reset target: 777 loader: orders from: 2026-08-01 --and-load",
+    "mpu api wb-loader-reset and-load target: 777 loader: orders from: 2026-08-01",
   ],
   policy: "rw",
   argsSchema: resetArgs,
@@ -543,7 +543,7 @@ export async function runResume(
   options: LoaderOptions = {},
 ): Promise<ResumeResult> {
   if (args.all && args.loader !== undefined) {
-    throw new UsageError("--all и позиционный loader взаимоисключающи", {
+    throw new UsageError("all и loader: взаимоисключающи", {
       advice: "оставь что-то одно",
     });
   }
@@ -618,13 +618,13 @@ export const wbLoaderResumeCommand = defineCommand({
   errorName: "api wb-loader-resume",
   summary: "Показать блокировки кабинета или снять их.",
   usage:
-    "mpu api wb-loader-resume target: СЕЛЕКТОР [loader: ИМЯ | --all] [--print]",
+    "mpu api wb-loader-resume [all] [print] target: СЕЛЕКТОР [loader: ИМЯ]",
   help: `Звать, когда загрузчик кабинета заблокирован и его надо
-запустить снова. Без loader: и без --all показывает блокировки кабинета
+запустить снова. Без loader: и без all показывает блокировки кабинета
 — только чтение, снятие не вызывается. С loader: (camelCase) снимает
-блокировку одного загрузчика, с --all — всех.
+блокировку одного загрузчика, с all — всех.
 
---all вместе с loader: — ошибка ввода: оставь что-то одно.
+all вместе с loader: — ошибка ввода: оставь что-то одно.
 
 Цель — target: либо sid:.
 

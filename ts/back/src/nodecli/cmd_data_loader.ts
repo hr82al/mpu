@@ -28,7 +28,7 @@ export const dataLoaderCommand = defineCommand({
   keys: {},
   summary: "Найти кандидата загрузки данных клиента по кабинетам.",
   usage:
-    "mpu data-loader target: СЕЛЕКТОР sids: SID… [server: sl-N] [--print [--local]] [client-id: N]",
+    "mpu data-loader [print [local]] target: СЕЛЕКТОР sids: SID… [server: sl-N] [client-id: N]",
   help: `Звать, когда надо понять, какую загрузку данных клиента по кабинетам
 sl-back выберет следующей, или запустить её поиск.
 
@@ -36,9 +36,9 @@ sl-back выберет следующей, или запустить её пои
 запускает \`node cli service:dataLoader findCandidate\` и стримит его
 вывод, код выхода наследуется 1:1.
 
---print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального стенда
-(без ssh); сам по себе --local — ошибка ввода.
+print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального стенда
+(без ssh); сам по себе local — ошибка ввода.
 
 target: — client_id, spreadsheet_id или заголовок таблицы;
 server: sl-N задаёт сервер напрямую. client-id: берётся из кандидатов
@@ -54,7 +54,7 @@ Exit: код inner-команды при выполнении; 0 при печа
 резолва и конфигурации.`,
   examples: [
     "mpu data-loader target: 777 sids: abc sids: def",
-    "mpu data-loader target: 777 --print sid: abc",
+    "mpu data-loader print target: 777 sid: abc",
   ],
   policy: "rw",
   helpWhenBare: true,

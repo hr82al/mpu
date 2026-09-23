@@ -36,10 +36,10 @@ const argsSchema = z.object({
     "сырой JSON: карточка и комментарии",
   ),
   images: z.boolean().default(true).describe(
-    "вложения-картинки в наглядном виде; выключить — флагом --no-images",
+    "вложения-картинки в наглядном виде; выключить — вариантом no-images",
   ),
   comments: z.boolean().default(true).describe(
-    "комментарии карточки; не читать их — флагом --no-comments",
+    "комментарии карточки; не читать их — вариантом no-comments",
   ),
 });
 
@@ -131,7 +131,7 @@ export const kitenCardCommand = defineCommand({
   errorName: "kiten card",
   summary:
     "Одна карточка Kaiten целиком: шапка, свойства, описание, файлы, комментарии.",
-  usage: `mpu kiten card id: ID [--no-comments] [--no-images] ` +
+  usage: `mpu kiten card [no-comments] [no-images] id: ID ` +
     `[${GRAMMAR.close} md|json]`,
   help: `Звать, когда нужна одна карточка Kaiten целиком: шапка, свойства,
 описание, файлы, комментарии. Свои карточки списком — mpu kiten ls.
@@ -144,8 +144,8 @@ id: — id карточки (65634936) либо её URL, короткий
 пайп; md — чистый GFM markdown; json — сырой JSON карточки и комментариев,
 отступ 2.
 
---no-comments не только убирает комментарии из вывода, но и отменяет их
-запрос. --no-images убирает вложения-картинки из наглядного вида; на md и
+no-comments не только убирает комментарии из вывода, но и отменяет их
+запрос. no-images убирает вложения-картинки из наглядного вида; на md и
 json не влияет.
 
 Имена кастомных полей для markdown и наглядного вида — отдельный запрос
@@ -164,7 +164,7 @@ Exit: 0 — успех; 1 — ошибка API Kaiten (недоступная к
   examples: [
     "mpu kiten card id: 65634936",
     `mpu kiten card id: 65634936 ${GRAMMAR.close} md`,
-    `mpu kiten card id: https://btlz.kaiten.ru/65634936 --no-comments ${GRAMMAR.close} json`,
+    `mpu kiten card no-comments id: https://btlz.kaiten.ru/65634936 ${GRAMMAR.close} json`,
   ],
   keys: { id: "selector" },
   policy: "ro",

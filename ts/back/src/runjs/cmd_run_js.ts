@@ -8,12 +8,19 @@ import { defineCommand } from "../command/mod.ts";
 import { argsSchema, resultSchema, type RunJsIo, runRunJs } from "./run.ts";
 
 export const runJsCommand = defineCommand({
+  choices: {
+    ssh: { input: "via", purpose: "транспорт серверного таргета — ssh" },
+    portainer: {
+      input: "via",
+      purpose: "транспорт серверного таргета — Portainer",
+    },
+  },
   path: ["run-js"],
   keys: { text: "code" },
   // Однострока — из слепка дерева: её видит режим дополнения.
   summary: "Выполнить JS-код в контейнере sl-back.",
   usage:
-    "mpu run-js [target: СЕЛЕКТОР] [text: КОД] [file: PATH] [--all|--all-containers SUBSTR] [--dry-run] [via: ssh|portainer] [--parallel [jobs: N]] [--detach]",
+    "mpu run-js [all] [dry] [parallel] [detach] [ssh|portainer] [target: СЕЛЕКТОР | all-containers: SUBSTR] [text: КОД] [file: PATH] [jobs: N]",
   help: `Звать, когда JS-код надо выполнить внутри приложения sl-back —
 с его node_modules, алиасами и env, а не в локальном node.
 
@@ -21,7 +28,7 @@ export const runJsCommand = defineCommand({
 поэтому ему доступны node_modules, import-алиасы и env приложения;
 рабочий каталог — корень приложения.
 
-Адресация — ровно одна из трёх: target: (как у mpu ssh), --all
+Адресация — ровно одна из трёх: target: (как у mpu ssh), all
 (инстанс-серверы кэша, N>0; sl-0 не входит) либо all-containers:
 ПОДСТРОКА.
 
@@ -30,22 +37,22 @@ export const runJsCommand = defineCommand({
 text: вместе с file: и пустой код — ошибки ввода.
 
 Режимы: по умолчанию последовательно, первый ненулевой код прерывает
-обход и становится кодом выхода; --parallel — все сразу (jobs: N
+обход и становится кодом выхода; parallel — все сразу (jobs: N
 ограничивает одновременные, 0 — все), вывод каждого печатается по его
-завершении, обходятся все; --detach — фоновый запуск, скрипт и лог остаются в
+завершении, обходятся все; detach — фоновый запуск, скрипт и лог остаются в
 /tmp контейнера, завершения не ждём.
 
---dry-run печатает команду на каждый таргет и копирует её в буфер
+dry печатает команду на каждый таргет и копирует её в буфер
 обмена; ни выполнения, ни сети. via: меняет транспорт серверного
 таргета; контейнер по имени идёт Portainer'ом всегда.
 
 Exit: 0 — успех всех; код первого сбоя в последовательном режиме; 1 —
-любой сбой при --parallel и --detach; 2 — ошибки ввода и конфигурации.`,
+любой сбой при parallel и detach; 2 — ошибки ввода и конфигурации.`,
   examples: [
     'mpu run-js target: sl-1 text: "console.log(1)"',
     "cat s.mjs | mpu run-js target: sl-11",
-    "mpu run-js --all --parallel file: s.mjs",
-    "mpu run-js --all --detach file: s.mjs",
+    "mpu run-js all parallel file: s.mjs",
+    "mpu run-js all detach file: s.mjs",
   ],
   policy: "rw",
   argsSchema,

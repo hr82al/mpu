@@ -111,7 +111,7 @@ function lineOutside(
 ): DomainError {
   const head = `${path}:${line} не входит в diff MR`;
   if (side === "new" && file.deleted_file) {
-    return new DomainError(`${head}; файл удалён в MR — используй --old`);
+    return new DomainError(`${head}; файл удалён в MR — используй old`);
   }
   const numbers = commentableLines(file, side);
   if (numbers.length === 0) {
@@ -119,7 +119,7 @@ function lineOutside(
       `${head}; на ${side}-стороне нет комментируемых строк`,
     );
   }
-  const hint = side === "new" ? " (строки старой версии — через --old)" : "";
+  const hint = side === "new" ? " (строки старой версии — через old)" : "";
   return new DomainError(
     `${head}; комментируемые ${side}-строки: ${rangesText(numbers)}${hint}`,
   );
@@ -203,14 +203,14 @@ export const mrCommentCommand = defineCommand({
   errorName: "mr comment",
   summary: "Инлайн-комментарий к строке диффа merge request'а.",
   usage:
-    "mpu mr comment at: FILE:LINE [id: REF] (text: TEXT | body-file: PATH) [--old]",
+    "mpu mr comment [old] at: FILE:LINE [id: REF] (text: TEXT | body-file: PATH)",
   help: `Звать на ревью, когда замечание относится к конкретной строке
 диффа: создаёт тред ревью, привязанный к ней.
 
 at: — путь и номер строки (FILE:LINE); разделитель — последнее двоеточие, так
 что двоеточия в пути допустимы. LINE — номер в НОВОЙ версии файла, то
 есть в правой колонке диффа GitLab. Удалённой строки в новой версии
-нет: её старый номер задаётся вместе с --old.
+нет: её старый номер задаётся вместе с old.
 
 Строка проверяется по диффу MR ДО отправки. Если её там нет, команда
 отказывается и называет диапазоны, которые можно комментировать: GitLab
@@ -232,7 +232,7 @@ Exit: 0 — успех; 2 — форма FILE:LINE, сочетание ключ�
 строка вне диффа, у MR нет коммитов.`,
   examples: [
     'mpu mr comment at: src/loader.ts:42 text: "тут гонка"',
-    "mpu mr comment at: src/loader.ts:17 --old body-file: замечание.md",
+    "mpu mr comment old at: src/loader.ts:17 body-file: замечание.md",
   ],
   policy: "rw",
   argsSchema,

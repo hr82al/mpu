@@ -54,6 +54,16 @@ export interface MessageLine {
   readonly purpose: string;
 }
 
+/**
+ * Вариант команды глазами отражения: слово, назначение и вход, который он
+ * задаёт, — варианты одного входа друг друга исключают.
+ */
+export interface VariantLine {
+  readonly selector: string;
+  readonly purpose: string;
+  readonly input: string;
+}
+
 /** Ключ ключевого сообщения команды глазами отражения. */
 export interface KeyLine {
   readonly name: string;
@@ -80,6 +90,8 @@ export interface Reflection {
   /** Ключи ключевого сообщения команды; нет — пусто. */
   keys(): KeyLine[];
   formats(): string[];
+  /** Варианты команды по алфавиту; нет — пусто. */
+  variants(): VariantLine[];
   /** Значения ключа `key`, начинающиеся с `like`, — не больше 20. */
   candidates(key: string, like: string): Promise<ValueLine[]>;
   understands(selector: string): boolean;
@@ -140,6 +152,12 @@ export interface Trace {
    * формат).
    */
   aside(text: string): void;
+  /**
+   * Слово без звена: оно есть в адресе и в тексте, которым строку
+   * называет вопрос подтверждения, но не в звеньях правил (вариант
+   * команды, `platform/variants.md`).
+   */
+  unlinked(text: string): void;
   /** Адрес с ещё одним словом на конце. */
   textWith(text: string): string;
 }

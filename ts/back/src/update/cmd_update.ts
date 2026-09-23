@@ -93,7 +93,7 @@ export const updateCommand = defineCommand({
   path: ["update"],
   keys: {},
   summary: "синк снапшота кэш-БД с PG: клиенты, их таблицы, wb-sid'ы",
-  usage: "mpu update [--quiet]",
+  usage: "mpu update [quiet]",
   help: `Звать, когда кэш отстал от фермы: новый клиент не находится, сменился
 сервер или таблица. Синк снапшота с PG.
 
@@ -113,7 +113,7 @@ PG_MAIN_USER_PASSWORD (личные приоритетнее общих); LOKI_U
 входит и кода выхода не меняет.
 Прогрев Loki: ${DEFAULT_TIMEOUTS.headersTimeoutMs} ms до заголовков, ${DEFAULT_TIMEOUTS.totalTimeoutMs} ms целиком.
 
---quiet подавляет весь вывод целиком; обращения и записи при этом
+quiet подавляет весь вывод целиком; обращения и записи при этом
 выполняются полностью.
 
 Exit: 0 — успех, включая прогон с упавшими инстансами; 1 — недоступный

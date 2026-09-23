@@ -32,7 +32,7 @@ export const wbUnitCalcCommand = defineCommand({
   keys: {},
   summary: "Показать расчётные данные WB UNIT по товару за дату.",
   usage:
-    "mpu wb-unit-calc target: СЕЛЕКТОР nm-id: N [server: sl-N] [--print [--local]] [client-id: N] [date: YYYY-MM-DD]",
+    "mpu wb-unit-calc [print [local]] target: СЕЛЕКТОР nm-id: N [server: sl-N] [client-id: N] [date: YYYY-MM-DD]",
   help: `Звать, когда надо увидеть, из чего sl-back считает строку WB UNIT
 товара за дату.
 
@@ -40,9 +40,9 @@ export const wbUnitCalcCommand = defineCommand({
 запускает \`node cli service:wbUnitCalc getUnitDataByDateNmId\` и стримит
 его вывод, код выхода наследуется 1:1.
 
---print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального стенда
-(без ssh); сам по себе --local — ошибка ввода.
+print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального стенда
+(без ssh); сам по себе local — ошибка ввода.
 
 target: — client_id, spreadsheet_id или заголовок таблицы;
 client-id: берётся из кандидатов селектора, если у всех кандидатов он
@@ -63,7 +63,7 @@ Exit: код inner-команды при выполнении; 0 при печа
 резолва и конфигурации.`,
   examples: [
     "mpu wb-unit-calc target: 777 nm-id: 123",
-    "mpu wb-unit-calc target: 777 nm-id: 123 date: 2026-08-01 --print",
+    "mpu wb-unit-calc print target: 777 nm-id: 123 date: 2026-08-01",
   ],
   policy: "rw",
   helpWhenBare: true,

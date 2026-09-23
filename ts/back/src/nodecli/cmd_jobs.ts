@@ -80,7 +80,7 @@ function jobs(group: JobsGroup, sub: string): Command {
     keys: {},
     summary: `Очередь задач ${group.what}: ${what}.`,
     usage:
-      `mpu ${group.group} ${sub} target: СЕЛЕКТОР [pattern: P] [--print [--local]]`,
+      `mpu ${group.group} ${sub} [print [local]] target: СЕЛЕКТОР [pattern: P]`,
     help: `Звать, когда надо ${
       sub === "show" ? "увидеть" : "расчистить"
     } очередь задач ${group.what} на сервере.
@@ -89,9 +89,9 @@ function jobs(group: JobsGroup, sub: string): Command {
 \`node cli service:${group.service} ${method}\` и стримит его вывод, код
 выхода наследуется 1:1.
 
---print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального
-стенда (без ssh); сам по себе --local — ошибка ввода.
+print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального
+стенда (без ssh); сам по себе local — ошибка ввода.
 
 target: — client_id, spreadsheet_id, заголовок таблицы либо сам сервер
 (sl-N); server: sl-N задаёт сервер напрямую. client-id: у этой
@@ -107,7 +107,7 @@ Exit: код inner-команды при выполнении; 0 при печа
 резолва и конфигурации.`,
     examples: [
       `mpu ${group.group} ${sub} target: sl-2`,
-      `mpu ${group.group} ${sub} target: sl-2 pattern: ${group.sample} --print`,
+      `mpu ${group.group} ${sub} print target: sl-2 pattern: ${group.sample}`,
     ],
     policy: "rw",
     helpWhenBare: true,

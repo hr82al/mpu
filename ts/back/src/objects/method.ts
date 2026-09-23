@@ -19,6 +19,7 @@ import type {
   ResultKind,
   Sent,
   Trace,
+  VariantLine,
   Yields,
 } from "./protocol.ts";
 
@@ -79,6 +80,11 @@ export interface Method<S> {
   describe(into: Description): void;
   line(): Line;
   bind(self: S, sent: Named): Call;
+}
+
+/** Метод-вариант команды: метод и его строка для `variants`. */
+export interface VariantMethod<S> extends Method<S> {
+  variant(): VariantLine;
 }
 
 /** Ответ вида на сообщение без своего и общего селектора. */

@@ -90,6 +90,7 @@ export function dataHelp(path: string, doc: Doc): Help {
     purpose: doc.purpose,
     text: doc.help,
     examples: [...(doc.examples ?? [])],
+    variants: [],
     keys: [],
     formats: [...DATA_FORMATS],
     messages: [],
@@ -159,6 +160,7 @@ export const PRINTED: ResultKind = {
       purpose: doc.purpose,
       text: doc.help,
       examples: [],
+      variants: [],
       keys: [],
       formats: [...DATA_FORMATS],
       messages: [...FORMATS].map(([selector, [format]]) => ({

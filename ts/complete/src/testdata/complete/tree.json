@@ -154,7 +154,7 @@
         {
           "selector": "logs",
           "kind": "unary",
-          "purpose": "Логи со стенда (Loki по умолчанию, --via portainer для legacy snapshot)."
+          "purpose": "Логи со стенда (Loki по умолчанию, portainer для legacy snapshot)."
         },
         {
           "selector": "make-schema",
@@ -323,7 +323,8 @@
         }
       ],
       "keys": [],
-      "formats": []
+      "formats": [],
+      "variants": []
     },
     {
       "path": [
@@ -400,7 +401,7 @@
         {
           "selector": "spaces",
           "kind": "unary",
-          "purpose": "Пространства компании; архивные — по --all."
+          "purpose": "Пространства компании; архивные — по all."
         },
         {
           "selector": "status",
@@ -419,7 +420,8 @@
         }
       ],
       "keys": [],
-      "formats": []
+      "formats": [],
+      "variants": []
     },
     {
       "path": [
@@ -442,25 +444,23 @@
           "required": true,
           "purpose": "id карточки либо её URL, короткий или глубокий",
           "reason": null
-        },
-        {
-          "name": "no-images",
-          "kind": "flag",
-          "required": false,
-          "purpose": "вложения-картинки в наглядном виде; выключить — флагом --no-images",
-          "reason": "прежнее имя входа"
-        },
-        {
-          "name": "no-comments",
-          "kind": "flag",
-          "required": false,
-          "purpose": "комментарии карточки; не читать их — флагом --no-comments",
-          "reason": "прежнее имя входа"
         }
       ],
       "formats": [
         "json",
         "md"
+      ],
+      "variants": [
+        {
+          "selector": "no-comments",
+          "purpose": "комментарии карточки; не читать их — вариантом no-comments",
+          "input": "comments"
+        },
+        {
+          "selector": "no-images",
+          "purpose": "вложения-картинки в наглядном виде; выключить — вариантом no-images",
+          "input": "images"
+        }
       ]
     },
     {
@@ -516,7 +516,8 @@
       ],
       "formats": [
         "json"
-      ]
+      ],
+      "variants": []
     },
     {
       "path": [
@@ -538,7 +539,8 @@
         }
       ],
       "keys": [],
-      "formats": []
+      "formats": [],
+      "variants": []
     },
     {
       "path": [
@@ -561,7 +563,8 @@
         }
       ],
       "keys": [],
-      "formats": []
+      "formats": [],
+      "variants": []
     },
     {
       "path": [
@@ -590,7 +593,8 @@
       ],
       "formats": [
         "json"
-      ]
+      ],
+      "variants": []
     },
     {
       "path": [
@@ -626,7 +630,8 @@
       ],
       "formats": [
         "json"
-      ]
+      ],
+      "variants": []
     },
     {
       "path": [
@@ -668,7 +673,8 @@
       ],
       "formats": [
         "json"
-      ]
+      ],
+      "variants": []
     },
     {
       "path": [
@@ -679,19 +685,12 @@
       "tail": "args",
       "messages": [
         {
-          "selector": "archived:",
+          "selector": "state:",
           "kind": "keyword",
-          "purpose": "архивные карточки (condition=2) вместо активных"
+          "purpose": "этап карточки: queued, in-progress, done"
         }
       ],
       "keys": [
-        {
-          "name": "archived",
-          "kind": "flag",
-          "required": false,
-          "purpose": "архивные карточки (condition=2) вместо активных",
-          "reason": "прежнее имя входа"
-        },
         {
           "name": "state",
           "kind": "value",
@@ -747,18 +746,23 @@
           "required": false,
           "purpose": "шаблон строки на карточку: {n} {id} {title} {url} {state} {due} {column} {column_mapped}",
           "reason": "прежнее имя входа"
-        },
-        {
-          "name": "only-url",
-          "kind": "flag",
-          "required": false,
-          "purpose": "[title](url) по строке на карточку",
-          "reason": "прежнее имя входа"
         }
       ],
       "formats": [
         "json",
         "md"
+      ],
+      "variants": [
+        {
+          "selector": "archived",
+          "purpose": "архивные карточки (condition=2) вместо активных",
+          "input": "archived"
+        },
+        {
+          "selector": "only-url",
+          "purpose": "[title](url) по строке на карточку",
+          "input": "only-url"
+        }
       ]
     },
     {
@@ -788,25 +792,23 @@
           "required": false,
           "purpose": "SQL; не задан — читается из stdin",
           "reason": "прежнее имя входа"
-        },
-        {
-          "name": "dry",
-          "kind": "flag",
-          "required": false,
-          "purpose": "только мета-блок и SQL, без подключения",
-          "reason": "прежнее имя входа"
-        },
-        {
-          "name": "verbose",
-          "kind": "flag",
-          "required": false,
-          "purpose": "печатать мета-блок",
-          "reason": "прежнее имя входа"
         }
       ],
       "formats": [
         "json",
         "md"
+      ],
+      "variants": [
+        {
+          "selector": "dry",
+          "purpose": "только мета-блок и SQL, без подключения",
+          "input": "dry"
+        },
+        {
+          "selector": "verbose",
+          "purpose": "печатать мета-блок",
+          "input": "verbose"
+        }
       ]
     },
     {
@@ -819,7 +821,8 @@
       "keys": [],
       "formats": [
         "json"
-      ]
+      ],
+      "variants": []
     }
   ],
   "selection": [

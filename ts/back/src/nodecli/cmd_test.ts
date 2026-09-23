@@ -354,7 +354,7 @@ Deno.test("отказы ввода — эталоны канала", async (t) =
         () => ssUpdateCommand.invokeInput(ssArgs({ local: true }), io),
         UsageError,
       );
-      assertEquals(err.message, "--local имеет смысл только вместе с --print");
+      assertEquals(err.message, "local имеет смысл только вместе с print");
     });
   });
 

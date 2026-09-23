@@ -21,6 +21,7 @@ import {
   type Line,
   type Method,
   REFUSE,
+  type VariantMethod,
 } from "./method.ts";
 import { Help, type HelpKey, OBJECT_VIEW } from "./help.ts";
 import { nearest, order } from "./nearest.ts";
@@ -38,6 +39,7 @@ import type {
   Sent,
   Trace,
   ValueLine,
+  VariantLine,
   Yields,
 } from "./protocol.ts";
 import { Refusal } from "./refusal.ts";
@@ -113,6 +115,12 @@ export interface ShapeOptions<S> {
   readonly strays?: Strays;
   /** По умолчанию — значений ключей нет. */
   readonly values?: Values;
+  /**
+   * Варианты команды (`platform/variants.md`): унарные сообщения, которые
+   * вид понимает, как свои, но называет отдельно — в `variants` и в
+   * разделе «Варианты», а не в `messages`. По умолчанию — нет.
+   */
+  readonly variants?: readonly VariantMethod<S>[];
 }
 
 /** Объект: вид и состояние. */
@@ -143,6 +151,7 @@ export class Shape<S> implements Yields<S> {
   readonly #closing: Closing<S>;
   readonly #strays: Strays;
   readonly #values: Values;
+  readonly #variants: ReadonlyMap<string, VariantMethod<S>>;
 
   /**
    * @param methods собственные методы вида
@@ -156,11 +165,15 @@ export class Shape<S> implements Yields<S> {
     this.#closing = options.closing ?? STAYS;
     this.#strays = options.strays ?? PLAIN_STRAYS;
     this.#values = options.values ?? NO_VALUES;
+    this.#variants = new Map(
+      (options.variants ?? []).map((method) => [method.selector, method]),
+    );
   }
 
   parsing(): ReceiverDescription {
     const into = new Description();
     for (const method of this.#methods.values()) method.describe(into);
+    for (const method of this.#variants.values()) method.describe(into);
     this.#fallback.describe(into);
     return withProtocol(into).build();
   }
@@ -171,6 +184,7 @@ export class Shape<S> implements Yields<S> {
       messages: () => this.#messages(),
       keys: () => this.#commandKeys(),
       formats: () => [...this.#closing.formats()],
+      variants: () => this.#variantLines(),
       candidates: (key, like) => this.#values.candidates(key, like),
       understands: (selector) => this.#understands(selector),
       prompts: (key) =>
@@ -210,8 +224,16 @@ export class Shape<S> implements Yields<S> {
     return into.build().keyword;
   }
 
+  /** Варианты по алфавиту: слово, назначение и вход. */
+  #variantLines(): VariantLine[] {
+    return [...this.#variants.values()]
+      .map((method) => method.variant())
+      .sort((a, b) => order(a.selector, b.selector));
+  }
+
   #understands(selector: string): boolean {
     if (this.#methods.has(selector)) return this.#roster.lists(selector);
+    if (this.#variants.has(selector)) return true;
     return this.#messages().some((line) => line.selector === selector) ||
       this.#commandKeys().some((key) =>
         spelled(key.name, key.kind) === selector
@@ -230,6 +252,10 @@ export class Shape<S> implements Yields<S> {
       purpose: doc.purpose,
       text: doc.help,
       examples: [...(doc.examples ?? [])],
+      variants: this.#variantLines().map(({ selector, purpose }) => ({
+        selector,
+        purpose,
+      })),
       keys: this.#keys(),
       formats: [...this.#closing.formats()],
       messages,
@@ -272,8 +298,8 @@ export class Shape<S> implements Yields<S> {
   }
 
   /**
-   * Метод для сообщения: собственный, затем общий, затем ответ вида на
-   * непонятое.
+   * Метод для сообщения: собственный или вариант, затем общий, затем
+   * ответ вида на непонятое.
    */
   lookup(sent: Sent, self: S): Call {
     const selector = sent.selector();
@@ -281,7 +307,8 @@ export class Shape<S> implements Yields<S> {
       this.#fallback.understand(sent, self, () => this.#refuse(selector));
     return sent.route({
       named: (named) =>
-        this.#methods.get(selector)?.bind(self, named) ??
+        (this.#methods.get(selector) ?? this.#variants.get(selector))
+          ?.bind(self, named) ??
           reflected(named, this.reflect()) ?? otherwise(),
       tail: otherwise,
       close: () => this.#closing.close(self, this),
@@ -294,10 +321,10 @@ export class Shape<S> implements Yields<S> {
   }
 
   #refuse(selector: string): never {
-    const close = nearest(
-      selector,
-      this.#messages().map((line) => line.selector),
-    );
+    const close = nearest(selector, [
+      ...this.#messages().map((line) => line.selector),
+      ...this.#variants.keys(),
+    ]);
     const hint = close.length > 0 ? `; ближайшие: ${close.join(", ")}` : "";
     throw new Refusal(`не понимает ${selector}${hint}`);
   }
@@ -332,7 +359,8 @@ class Origin<S> implements Call {
   }
 }
 
-const ROOT_TEXT = "mpu";
+/** Слово корня в адресе строки. */
+export const ROOT_TEXT = "mpu";
 
 /**
  * Корневой объект цепочки.

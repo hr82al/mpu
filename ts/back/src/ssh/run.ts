@@ -50,7 +50,7 @@ export type SshIo = Pick<
 export const argsSchema = z.object({
   selector: z.string().optional().describe(
     "sl-N, dev:N, точное имя контейнера, client_id/spreadsheet/title;" +
-      " при --all-containers — первый токен команды",
+      " при all-containers: — первый токен команды",
   ),
   command: z.array(z.string()).default([]).describe(
     "команда для контейнера; неопознанные флаги уходят в неё как есть",
@@ -230,7 +230,7 @@ async function stdinOf(args: SshArgs, io: SshIo): Promise<Uint8Array> {
     .filter(Boolean).length;
   if (explicit > 1) {
     throw new UsageError(
-      "--stdin-text / --stdin-file / --stdin-tty взаимоисключающи",
+      "stdin-text: / stdin-file: / stdin-tty взаимоисключающи",
     );
   }
   const encoder = new TextEncoder();

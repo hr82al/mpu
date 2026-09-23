@@ -215,13 +215,13 @@ Deno.test("сценарий 6: поток — только форматы, до 
       allowEverything(file);
       const got = await run(
         file,
-        ["logs", "--follow", "target:", "sl-1", END, "size"],
+        ["logs", "follow", "target:", "sl-1", END, "size"],
         stand,
       );
       assertEquals(got.code, 2);
       assertEquals(
         got.stderr,
-        `mpu logs --follow target: sl-1 ${END}: поток — только форматы\n`,
+        `mpu logs follow target: sl-1 ${END}: поток — только форматы\n`,
       );
       assertEquals(got.called, []);
     })

@@ -102,7 +102,7 @@ function assertValue(entry: ConfigKey, value: string): void {
     // Обычный источник такого вызова — `mpu config KEY "$VAR"` с
     // пустой переменной, и промолчать здесь значит потерять намерение.
     throw new UsageError(
-      `${entry.key}: пустое значение не задаётся; сбросить ключ — --unset`,
+      `${entry.key}: пустое значение не задаётся; сбросить ключ — unset`,
     );
   }
   if (entry.type !== "int") return;
@@ -155,7 +155,7 @@ export function runConfig(
  */
 function configResult(args: ConfigArgs, io: ConfigIo): ConfigResult {
   if (args.unset && args.key === undefined) {
-    throw new UsageError("--unset требует имя ключа");
+    throw new UsageError("unset требует ключ key:");
   }
   const entry = args.key === undefined ? undefined : configKey(args.key);
   if (args.key !== undefined && entry === undefined) throw unknownKey(args.key);
@@ -163,7 +163,7 @@ function configResult(args: ConfigArgs, io: ConfigIo): ConfigResult {
     if (args.unset) {
       // Молча проглотить значение нельзя: оператор просил два разных
       // действия сразу, и какое из них он имел в виду — неизвестно.
-      throw new UsageError("--unset не сочетается со значением");
+      throw new UsageError("unset не сочетается с value:");
     }
     assertValue(entry, args.value);
   }
@@ -255,7 +255,7 @@ export const configCommand = defineCommand({
   keys: { key: "key", value: "value" },
   errorName: "config",
   summary: "Локальные предпочтения CLI: показать и задать ключи.",
-  usage: "mpu config [key: КЛЮЧ] [value: ЗНАЧЕНИЕ] [--unset] [end json]",
+  usage: "mpu config [unset] [key: КЛЮЧ] [value: ЗНАЧЕНИЕ] [end json]",
   help: `Звать, когда надо посмотреть или поменять настройку mpu — цель
 sheet и xlsx по умолчанию, пределы кэша таблиц.
 
@@ -265,8 +265,8 @@ sheet и xlsx по умолчанию, пределы кэша таблиц.
 
 mpu config key: K печатает значение: у строкового ключа без записи
 вывод пуст (на это опираются скрипты), у числового печатается
-умолчание. key: K value: V задаёт значение, key: K --unset удаляет
-запись. Повторный --unset — тоже успех: команда идемпотентна.
+умолчание. key: K value: V задаёт значение, unset key: K удаляет
+запись. Повторный unset — тоже успех: команда идемпотентна.
 
 Ключи (закрытый список): sheet.default, xlsx.default, sheet.cache.tab_ttl, sheet.cache.max_tab_bytes,
 sheet.cache.max_total_mb. Имя вне списка — ошибка; записей «на лету» не
@@ -282,11 +282,11 @@ sheet.cache.max_total_mb. Имя вне списка — ошибка; запи�
 end json печатает массив {key, value, source, default, description}.
 
 Exit: 0 — успех; 2 — имя вне реестра, нечисловое значение числового
-ключа, --unset без ключа; 1 — хранилище недоступно.`,
+ключа, unset без ключа; 1 — хранилище недоступно.`,
   examples: [
     "mpu config",
     "mpu config key: sheet.default value: 4326",
-    "mpu config --unset key: sheet.default",
+    "mpu config unset key: sheet.default",
   ],
   policy: "rw",
   argsSchema,

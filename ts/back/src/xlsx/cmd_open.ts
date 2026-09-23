@@ -29,17 +29,17 @@ export const openCommand = defineCommand({
   path: ["xlsx", "open"],
   keys: {},
   summary: "открыть книгу в системном приложении",
-  usage: "mpu xlsx open [file: FILE] [--print]",
+  usage: "mpu xlsx open [print] [file: FILE]",
   help: `Звать, когда книгу xlsx надо показать человеку в его
-приложении; --print только печатает путь.
+приложении; print только печатает путь.
 
 Открыватель (xdg-open, затем open) запускается отвязанным процессом:
 результат и существование файла не проверяются. Ни одного открывателя
-нет — exit 1 с подсказкой --print.
+нет — exit 1 с подсказкой print.
 
 Exit: 0 — успех; 2 — ошибка ввода/путь не задан; 1 — нет открывателя.`,
   examples: [
-    "mpu xlsx open file: report.xlsx --print",
+    "mpu xlsx open print file: report.xlsx",
   ],
   // Мутирующая при любом значении --print: параметр класс команды не
   // меняет (`platform/command-contract.md`, отклонение-fix про --print).
@@ -56,7 +56,7 @@ Exit: 0 — успех; 2 — ошибка ввода/путь не задан; 
       if (io.launchOpener(opener, path)) return { path, launched: true };
     }
     throw new DomainError(`no opener found (${OPENERS.join(", ")})`, {
-      hint: "--print",
+      hint: "print",
     });
   },
   // Печатать нечего, когда открыватель уже запущен: путь показывает

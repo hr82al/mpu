@@ -456,18 +456,18 @@ export const kitenLsCommand = defineCommand({
   errorName: "kiten ls",
   summary: "Список карточек Kaiten, где я участник.",
   usage:
-    "mpu kiten ls [--archived] [state: S] [space: REF] [board: REF] [lane: REF] [column: REF] [date-from: D] [date-to: D] [end json | format: TPL | --only-url | end md]",
+    "mpu kiten ls [archived] [only-url] [state: S] [space: REF] [board: REF] [lane: REF] [column: REF] [date-from: D] [date-to: D] [end json | format: TPL | end md]",
   help: `Звать, когда нужен список своих карточек Kaiten — активных, архивных,
 по доске или за период.
 
 Карточки, где владелец токена — участник (member).
 
 Фильтры сводятся пооснó: ключ → env KITEN_LS_* → дефолт (он есть
-только у condition — 1, активные). --archived даёт condition=2 и
+только у condition — 1, активные). archived даёт condition=2 и
 побеждает env всегда.
 
 Любой из date-from:/date-to: включает глобальный режим: env-оси, включая KITEN_LS_BOARD_ID, не
-применяются вовсе, condition не уходит без --archived. Границы окна по
+применяются вовсе, condition не уходит без archived. Границы окна по
 updated инклюзивные: X → XT00:00:00Z, Y → YT23:59:59Z.
 
 space:/board:/lane:/column: — id или подстрока названия; последние
@@ -475,7 +475,7 @@ space:/board:/lane:/column: — id или подстрока названия; �
 
 Виды вывода по убыванию приоритета: end json (id, state, due_date,
 updated, title, url — колонки и доски там нет) → format: TPL →
---only-url → end md → таблица. Плейсхолдеры: {n} {id} {title} {url}
+only-url → end md → таблица. Плейсхолдеры: {n} {id} {title} {url}
 {state} {due} {column} {column_mapped}; неизвестный остаётся как есть.
 {column} — из кэша (промах — id числом), {column_mapped} — метка из
 KITEN_COLUMN_MAP; битая карта не роняет команду.

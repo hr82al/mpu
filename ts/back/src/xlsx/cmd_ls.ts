@@ -31,7 +31,7 @@ export const lsCommand = defineCommand({
   path: ["xlsx", "ls"],
   keys: {},
   summary: "список листов книги",
-  usage: "mpu xlsx ls [file: FILE] [--long]",
+  usage: "mpu xlsx ls [long] [file: FILE]",
   help: `Звать, когда надо узнать, какие листы есть в локальной книге
 xlsx и сколько в них данных, прежде чем читать ячейки.
 
@@ -41,7 +41,7 @@ rows/cols — фактический максимум встреченных я�
 
 Exit: 0 — успех; 2 — ошибка ввода; 1 — файл не найден / не xlsx.`,
   examples: [
-    "mpu xlsx ls file: report.xlsx --long",
+    "mpu xlsx ls long file: report.xlsx",
   ],
   policy: "ro",
   argsSchema,

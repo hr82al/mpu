@@ -217,8 +217,8 @@ function backup(name: string, table: BackupTable): Command {
     path: [name],
     keys: {},
     summary: `Снять копию ${table.table} клиента в схему backups.`,
-    usage: `mpu ${name} target: СЕЛЕКТОР [date: YYYYMMDD] [schema-id: N] ` +
-      "[server: sl-N] [--dry]",
+    usage: `mpu ${name} [dry] target: СЕЛЕКТОР [date: YYYYMMDD] ` +
+      "[schema-id: N] [server: sl-N]",
     help: `Звать перед правкой ${table.table} клиента руками или скриптом,
 когда нужна точка отката: копия таблицы в схеме backups.
 
@@ -231,7 +231,7 @@ function backup(name: string, table: BackupTable): Command {
 Соединение прямое, с PostgreSQL сервера клиента: ни docker exec, ни
 Portainer здесь нет — это не обёртка над sl-back CLI.
 
---dry ничего не выполняет и никуда не подключается: печатает мета-блок
+dry ничего не выполняет и никуда не подключается: печатает мета-блок
 и запрос, который ушёл бы серверу. Тот же блок печатается и после
 выполнения — записью о том, что было сделано.
 
@@ -247,7 +247,7 @@ date: — ровно восемь цифр (YYYYMMDD); по умолчанию �
 Exit: 0 — копия создана либо показана; 1 — отказ PostgreSQL; 2 — ошибки
 ввода, резолва и конфигурации.`,
     examples: [
-      `mpu ${name} target: 777 --dry`,
+      `mpu ${name} dry target: 777`,
       `mpu ${name} target: 777 date: 20260827`,
     ],
     // Мутирующая: CREATE TABLE в базе клиента. `--dry` — режим флага, а

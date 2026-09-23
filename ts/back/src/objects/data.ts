@@ -179,6 +179,7 @@ const SELECTED: ResultKind = {
       purpose: doc.purpose,
       text: doc.help,
       examples: [],
+      variants: [],
       keys: [],
       formats: [...DATA_FORMATS],
       messages: selectionMessages(),

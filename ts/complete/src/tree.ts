@@ -1,7 +1,7 @@
 /**
  * Дерево дополнения из снимка `mpu-back` (`platform/reflection.md`,
  * «mpu-complete»): снимок — вывод протокола отражения, у узла его
- * `messages`, `keys`, `formats`. Место строки отвечает на «шаг» и
+ * `messages`, `variants`, `keys`, `formats`. Место строки отвечает на «шаг» и
  * «варианты» по-своему; значений ключей снимок не знает. JSON снимка
  * разбирается здесь, на границе; дальше — только места.
  */
@@ -45,9 +45,15 @@ function spelled(key: Key): string {
   return key.kind === "flag" ? `--${key.name}` : `${key.name}:`;
 }
 
-/** Узел снимка: его сообщения, ключи, слова результата и дети. */
+/** Вариант узла: слово, назначение и вход, который он задаёт. */
+interface Variant extends Choice {
+  readonly input: string;
+}
+
+/** Узел снимка: его сообщения, варианты, ключи, слова результата и дети. */
 interface Known {
   readonly messages: readonly Choice[];
+  readonly variants: readonly Variant[];
   readonly keys: readonly Key[];
   /** Слова после закрытия: форматы узла и сообщения отбора. */
   readonly results: readonly Choice[];
@@ -121,7 +127,10 @@ class Keyword implements Place {
   }
 }
 
-/** Узел дерева: слово — сообщение, ключ, закрытие или литерал. */
+/**
+ * Узел дерева: слово — сообщение, вариант, ключ, закрытие или литерал.
+ * Выбранный вариант исключает варианты своего входа, как у `back`.
+ */
 class Node implements Place {
   readonly #node: Known;
 
@@ -135,12 +144,25 @@ class Node implements Place {
     if (word === LITERAL) return new Literal(NOWHERE);
     const child = this.#node.child(word);
     if (child !== undefined) return child;
+    const variant = this.#node.variants.find((one) => one.value === word);
+    if (variant !== undefined) {
+      const variants = this.#node.variants
+        .filter((one) => one.input !== variant.input);
+      return new Node({ ...this.#node, variants });
+    }
     return new Keyword(this.#node, [], false).step(word);
   }
 
   choices(): readonly Choice[] {
-    return this.#node.messages;
+    return [...this.#node.messages, ...this.#node.variants]
+      .map(({ value, summary }) => ({ value, summary }))
+      .sort(byValue);
   }
+}
+
+/** Порядок слов дополнения — по алфавиту, как у `back`. */
+function byValue(a: Choice, b: Choice): number {
+  return a.value < b.value ? -1 : a.value > b.value ? 1 : 0;
 }
 
 /** Узел снимка как данные (граница контракта). */
@@ -154,6 +176,11 @@ interface RawNode {
   }[];
   readonly keys: readonly Key[];
   readonly formats: readonly string[];
+  readonly variants: readonly {
+    readonly selector: string;
+    readonly purpose: string;
+    readonly input: string;
+  }[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -165,7 +192,7 @@ function strings(value: unknown): value is string[] {
     value.every((item) => typeof item === "string");
 }
 
-/** Записи с тремя строковыми полями; прочие отбрасываются. */
+/** Записи со строковыми полями `fields`; прочие отбрасываются. */
 function records<K extends string>(
   value: unknown,
   fields: readonly K[],
@@ -179,7 +206,7 @@ function records<K extends string>(
 /** Узел снимка; не по контракту — `undefined`. */
 function rawNode(value: unknown): RawNode | undefined {
   if (!isRecord(value)) return undefined;
-  const { path, summary, messages, keys, formats = [] } = value;
+  const { path, summary, messages, keys, formats = [], variants } = value;
   if (!strings(path) || typeof summary !== "string" || !strings(formats)) {
     return undefined;
   }
@@ -189,6 +216,7 @@ function rawNode(value: unknown): RawNode | undefined {
     messages: records(messages, ["selector", "kind", "purpose"]),
     keys: records(keys, ["name", "kind", "purpose"]),
     formats,
+    variants: records(variants, ["selector", "purpose", "input"]),
   };
 }
 
@@ -230,11 +258,16 @@ export function treeOf(text: string): Place {
         value: line.selector,
         summary: line.purpose,
       })),
+      variants: raw.variants.map((line) => ({
+        value: line.selector,
+        summary: line.purpose,
+        input: line.input,
+      })),
       keys: raw.keys,
       results: [
         ...raw.formats.map((format) => ({ value: format, summary: "" })),
         ...selection,
-      ].sort((a, b) => a.value < b.value ? -1 : a.value > b.value ? 1 : 0),
+      ].sort(byValue),
       child: (selector) =>
         unary.has(selector) ? placeAt([...path, selector]) : undefined,
     });

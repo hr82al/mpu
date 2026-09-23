@@ -37,9 +37,9 @@ const addRoleArgs = z.object({
 
 /** Общая часть справки обеих подкоманд. */
 const DELIVERY =
-  `--print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального
-стенда (без ssh); сам по себе --local — ошибка ввода.
+  `print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального
+стенда (без ssh); сам по себе local — ошибка ввода.
 
 target: — сам сервер (sl-N) либо клиент, по которому он находится.
 client-id: у этих команд нет: пользователь принадлежит серверу.
@@ -59,7 +59,7 @@ function usersAdd(): Command {
     keys: {},
     summary: "Завести пользователя sl-back на сервере.",
     usage:
-      "mpu users add target: СЕЛЕКТОР email: E [server: sl-N] [id: I] [user: U] [name: N] [password: P] [--is-active] [--print [--local]]",
+      "mpu users add [print [local]] target: СЕЛЕКТОР email: E [server: sl-N] [id: I] [user: U] [name: N] [password: P] [--is-active]",
     help: `Звать, когда на сервере sl-back нужен новый пользователь.
 
 По умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере сервера:
@@ -72,12 +72,12 @@ email: обязателен, остальные ключи необязател�
 в inner-команде не оставляют. --is-active уходит голым флагом.
 
 Ни аргументы, ни вывод этой команды в журнал вызовов не пишутся: среди
-аргументов пароль (password:), а в режиме --print он же виден в
+аргументов пароль (password:), а в режиме print он же виден в
 напечатанной строке. В записи журнала аргументы заменены на REDACTED,
 секции вывода нет вовсе, и сообщения разбора ввода не эхо-печатают
 введённое.`,
     examples: [
-      "mpu users add target: sl-1 email: test@example.com --print",
+      "mpu users add print target: sl-1 email: test@example.com",
     ],
     policy: "rw",
     helpWhenBare: true,
@@ -121,7 +121,7 @@ function usersAddRole(): Command {
     keys: {},
     summary: "Выдать роль пользователю sl-back.",
     usage:
-      "mpu users add-role target: СЕЛЕКТОР id: I role: R [server: sl-N] [--print [--local]]",
+      "mpu users add-role [print [local]] target: СЕЛЕКТОР id: I role: R [server: sl-N]",
     help: `Звать, когда пользователю sl-back нужна роль.
 
 По умолчанию команда ВЫПОЛНЯЕТСЯ в прод-контейнере сервера:
@@ -132,7 +132,7 @@ ${DELIVERY}
 
 id: и role: обязательны оба; других ключей у метода нет.`,
     examples: [
-      "mpu users add-role target: sl-1 id: 42 role: client --print",
+      "mpu users add-role print target: sl-1 id: 42 role: client",
     ],
     policy: "rw",
     helpWhenBare: true,

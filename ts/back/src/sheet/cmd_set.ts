@@ -348,7 +348,7 @@ export const sheetSetCommand = defineCommand({
   errorName: "sheet set",
   summary: "Записать значения в Google-таблицу.",
   usage:
-    "mpu sheet set [range: ДИАПАЗОН value: ЗНАЧЕНИЕ | from: FILE] [spreadsheet: SS] [--literal]",
+    "mpu sheet set [literal] [range: ДИАПАЗОН value: ЗНАЧЕНИЕ | from: FILE] [spreadsheet: SS]",
   help: `Звать, когда в Google-таблицу надо записать значения или
 формулы: одну ячейку, пакет из файла или JSON из потока.
 
@@ -365,7 +365,7 @@ export const sheetSetCommand = defineCommand({
 
 JSON: [{"range": …, "formula"|"value": …}, …]. Тип задаёт имя
 свойства: 'formula' сервер разбирает как ввод пользователя, 'value'
-пишет как есть. Поэтому --literal JSON-режима не касается: он
+пишет как есть. Поэтому literal JSON-режима не касается: он
 задаёт умолчание двух других.
 
 Разные типы уходят двумя запросами, и операция НЕ атомарна: второй

@@ -180,11 +180,11 @@ Deno.test("копирование: кадр clip у человека, у аге�
     const words = [
       "ask",
       "make-schema",
+      "print",
       "target:",
       "777",
       "client-id:",
       "777",
-      "--print",
     ];
     const human = await lineAsking(back, words, { answers: ["y"] });
     const clips = human.filter((frame) => "clip" in frame);
@@ -328,11 +328,11 @@ Deno.test("голдены: кадры вопроса, скрытого вопр�
     const words = [
       "ask",
       "make-schema",
+      "print",
       "target:",
       "777",
       "client-id:",
       "777",
-      "--print",
     ];
     const human = await lineAsking(back, words, { answers: ["y"] });
     const agent = await lineAsking(back, words, {

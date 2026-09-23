@@ -81,7 +81,7 @@ export const telegramSendCommand = defineCommand({
   keys: { text: "message" },
   errorName: "telegram send",
   summary: "Отправить сообщение от имени личного аккаунта.",
-  usage: "mpu telegram send text: ТЕКСТ [chat: X] [--md] [file: PATH]...",
+  usage: "mpu telegram send [md] text: ТЕКСТ [chat: X] [file: PATH]...",
   help: `Звать, когда сообщение надо отправить в Telegram от имени
 пользователя — человеку, в группу или себе в «Избранное».
 
@@ -95,7 +95,7 @@ chat: X — адресат: me («Избранное»), id, @username, ссыл
 адресат, несколько — отказ со списком. Не задан — берётся
 TELEGRAM_DEFAULT_CHAT.
 
---md — текст и подпись размечены Markdown: [текст](url) становится
+md — текст и подпись размечены Markdown: [текст](url) становится
 ссылкой, **жирный** — жирным. Без флага разметка остаётся видимой.
 
 file: PATH — вложение (ключ повторяется, порядок сохраняется). Файлы

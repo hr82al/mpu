@@ -634,7 +634,7 @@ Deno.test("time edit: частичное обновление", async (t) => {
           DomainError,
         ),
         "mpu kiten time edit: запись 7000001 принадлежит другому " +
-          `пользователю (user_id=900002, я ${OWNER_ID}); повтори с --force\n`,
+          `пользователю (user_id=900002, я ${OWNER_ID}); повтори с force\n`,
       );
       assertEquals(calls(seen), [
         `GET ${LOGS_PATH}`,
@@ -760,7 +760,7 @@ Deno.test("time rm: удаление записи", async (t) => {
           DomainError,
         ),
         "mpu kiten time rm: запись 7000001 принадлежит другому " +
-          `пользователю (user_id=900002, я ${OWNER_ID}); повтори с --force\n`,
+          `пользователю (user_id=900002, я ${OWNER_ID}); повтори с force\n`,
       );
       assertEquals(calls(seen).includes(`DELETE ${logPath(7000001)}`), false);
     } finally {

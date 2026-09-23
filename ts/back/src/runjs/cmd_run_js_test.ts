@@ -323,7 +323,7 @@ Deno.test("отказы ввода — эталоны канала", async (t) =
     );
     assertEquals(
       err.message,
-      "укажите ровно один из <selector> / --all / --all-containers",
+      "укажите ровно один из target: / all / all-containers:",
     );
   });
 
@@ -338,7 +338,7 @@ Deno.test("отказы ввода — эталоны канала", async (t) =
         ),
       UsageError,
     );
-    assertStringIncludes(err.message, "<selector> избыточен");
+    assertStringIncludes(err.message, "target: избыточен");
   });
 
   await t.step("--via проверяется до любого вывода", async () => {
@@ -468,7 +468,7 @@ Deno.test("--detach: один id на вызов, обход не прерыва
       `# mpu run-js: detached run_id=${DETACH_ID} — лог на каждом сервере: ${log}`,
       "# sl-1: launch exit=4",
       `# sl-2: started → ${log}`,
-      '# собрать логи: mpu run-js --all text: \'import fs from "node:fs";' +
+      '# собрать логи: mpu run-js all text: \'import fs from "node:fs";' +
       ` process.stdout.write(fs.existsSync("${log}")` +
       ` ? fs.readFileSync("${log}","utf8") : "no log yet\\n")'`,
       `# или вживую: mpu ssh target: sl-1 cmd: 'tail -f ${log}'`,
@@ -719,7 +719,7 @@ Deno.test("--via ssh с таргетом-контейнером — отказ �
     // Отклонение `fix`: оригинал молча шёл Portainer'ом.
     assertEquals(
       err.message,
-      "--via ssh не поддерживается для контейнера по имени; только для sl-N",
+      "ssh не поддерживается для контейнера по имени; только для sl-N",
     );
     assertEquals(progress, []);
   });

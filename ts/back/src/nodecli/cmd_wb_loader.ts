@@ -48,7 +48,7 @@ function loader(sub: string, method: string, what: string): Command {
     keys: {},
     summary: `Загрузить в БД клиента: ${what} (WB-кабинет).`,
     usage:
-      `mpu wb-loader ${sub} target: СЕЛЕКТОР sid: SID [server: sl-N] [--print [--local]] [client-id: N]`,
+      `mpu wb-loader ${sub} [print [local]] target: СЕЛЕКТОР sid: SID [server: sl-N] [client-id: N]`,
     help: `Звать, когда в БД клиента надо догрузить ${what} одного
 WB-кабинета, не дожидаясь расписания загрузчика.
 
@@ -56,9 +56,9 @@ WB-кабинета, не дожидаясь расписания загрузч
 запускает \`node cli service:wbLoader ${method}\` и стримит его вывод,
 код выхода наследуется 1:1.
 
---print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального
-стенда (без ssh); сам по себе --local — ошибка ввода.
+print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального
+стенда (без ssh); сам по себе local — ошибка ввода.
 
 target: — client_id, spreadsheet_id или заголовок таблицы; server:
 sl-N задаёт сервер напрямую. client-id: берётся из кандидатов цели,
@@ -73,7 +73,7 @@ Exit: код inner-команды при выполнении; 0 при печа
 резолва и конфигурации.`,
     examples: [
       `mpu wb-loader ${sub} target: 777 sid: SID42`,
-      `mpu wb-loader ${sub} target: 777 sid: SID42 --print`,
+      `mpu wb-loader ${sub} print target: 777 sid: SID42`,
     ],
     policy: "rw",
     // Голый вызов печатает справку, а не сообщение схемы (спека

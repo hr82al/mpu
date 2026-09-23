@@ -5,7 +5,7 @@
       "words": [
         ""
       ],
-      "output": "allow:\tразрешить путь без вопроса\napi\tадминские эндпоинты sl-back: чтение, правка, загрузчики\napp-migrations\tмиграции схемы приложения: latest | up\nask:\tспрашивать перед исполнением пути\nbackup-ozon-unit-proto\tСнять копию ozon_unit_proto клиента в схему backups.\nbackup-wb-unit-manual-data\tСнять копию wb_unit_manual_data клиента в схему backups.\nbackup-wb-unit-proto\tСнять копию wb_unit_proto клиента в схему backups.\nclaude-hook\tадаптеры хуков Claude Code: уведомление себе в бота\nclean-local-clients\tСнести данные локальных клиентов, кроме keep-листа.\nclients-migrations\tмиграции клиентских схем: latest | up | rollback | latest-all | …\ncode\tперед правкой кода: кого заденет, есть ли копия, занято ли имя, цел ли путь\nconfig\tЛокальные предпочтения CLI: показать и задать ключи.\nconfirm\ty/N-ворота в пайпе: показать буфер и спросить у терминала.\ncopy-client\tСкопировать клиента с прод-инстанса в локальный стенд.\ncopy-dev\tСкопировать данные с dev-стенда в локальный.\ncopy-shared\tОбновить общие справочные таблицы shared в локальном стенде.\nd2-miro\tРендер d2-диаграммы в Miro как редактируемый фрейм.\ndata-loader\tНайти кандидата загрузки данных клиента по кабинетам.\ndata-loader-jobs\tочередь задач загрузчика данных на сервере: show\ndatasets-migrations\tмиграции датасетов клиента: latest | up | rollback | down | list\ndeny:\tзапретить путь\nforget:\tснять правило с пути\nglab-status\tПрохождение merge request'ов по веткам деплой-пайплайна.\nhealth\tHealth-check сервера: контейнеры + tail логов виновников.\nhelp\tСписок всех mpu команд с опциональной справкой.\ninit\tпервичная инициализация локальной кэш-БД: пять шагов\njsdate\tтекущий момент меткой YYYYMMDDhhmmss по местному времени\nkiten\tкарточки Kaiten: чтение, комментарии, время, справочники\nlog\tПоказать записи журнала вызовов mpu.\nlogs\tЛоги со стенда (Loki по умолчанию, --via portainer для legacy snapshot).\nmake-schema\tСоздать схему клиента в локальном стенде.\nmove-client\tПеренести клиента на другой sl-сервер фермы.\nmove-client-back\tВернуть клиента обратно и управлять журналом переносов.\nmp-init\tПоднять локальный стенд целиком: core-стеки и web поверх.\nmr\tmerge request'ы GitLab: чтение, комментарии ревью, резолв\nozon-jobs\tочередь задач Ozon-загрузчика на сервере: show | prune\nozon-loader\tзагрузка данных Ozon-кабинета в БД клиента: campaigns | …\nozon-recalculate-expenses\tПересчитать расходы Ozon UNIT клиента за период.\nozon-save-expenses\tСохранить расходы Ozon UNIT клиента за период.\npolicy\tправила подтверждения\nprocess\tПересчитать витрины клиента (dataProcessor.process).\nps\tСписок Docker-контейнеров (кэш или живой Portainer).\nrun-js\tВыполнить JS-код в контейнере sl-back.\nsearch\tНайти клиента или таблицу по селектору; вход в 10X по email.\nsheet\tGoogle-таблицы: чтение, запись, алиасы, кэш\nsql\tВыполнить SQL (write-capable) на PG, выбранном по селектору.\nsql-ro\tВыполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).\nss-datasets\tЗарегистрировать датасет таблицы клиента.\nss-load\tЗагрузить лист Google-таблицы клиента в БД.\nss-update\tЗапустить обновление Google-таблицы клиента в контейнере sl-back.\nssh\tВыполнить команду в `sl-N-cli` ИЛИ в произвольном контейнере по точному имени.\nsun\tВосход, полдень, закат и длина дня для точки и даты.\ntelegram\tTelegram от имени личного аккаунта: сообщения, диалоги, вход\nupdate\tсинк снапшота кэш-БД с PG: клиенты, их таблицы, wb-sid'ы\nusers\tпользователи sl-back на сервере: add | add-role\nversion\tShow mpu version.\nwb-jobs\tочередь задач WB-загрузчика на сервере: show\nwb-loader\tзагрузка данных WB-кабинета в БД клиента: reports | cards | …\nwb-recalculate-expenses\tПересчитать расходы WB UNIT клиента за период.\nwb-save-expenses\tСохранить расходы WB UNIT клиента за период.\nwb-unit-calc\tПоказать расчётные данные WB UNIT по товару за дату.\nwb-unit-proto-new\tПерелить данные WB UNIT из старой таблицы в новую.\nxlsx\tчтение локальных .xlsx: листы, значения, алиасы\n"
+      "output": "allow:\tразрешить путь без вопроса\napi\tадминские эндпоинты sl-back: чтение, правка, загрузчики\napp-migrations\tмиграции схемы приложения: latest | up\nask:\tспрашивать перед исполнением пути\nbackup-ozon-unit-proto\tСнять копию ozon_unit_proto клиента в схему backups.\nbackup-wb-unit-manual-data\tСнять копию wb_unit_manual_data клиента в схему backups.\nbackup-wb-unit-proto\tСнять копию wb_unit_proto клиента в схему backups.\nclaude-hook\tадаптеры хуков Claude Code: уведомление себе в бота\nclean-local-clients\tСнести данные локальных клиентов, кроме keep-листа.\nclients-migrations\tмиграции клиентских схем: latest | up | rollback | latest-all | …\ncode\tперед правкой кода: кого заденет, есть ли копия, занято ли имя, цел ли путь\nconfig\tЛокальные предпочтения CLI: показать и задать ключи.\nconfirm\ty/N-ворота в пайпе: показать буфер и спросить у терминала.\ncopy-client\tСкопировать клиента с прод-инстанса в локальный стенд.\ncopy-dev\tСкопировать данные с dev-стенда в локальный.\ncopy-shared\tОбновить общие справочные таблицы shared в локальном стенде.\nd2-miro\tРендер d2-диаграммы в Miro как редактируемый фрейм.\ndata-loader\tНайти кандидата загрузки данных клиента по кабинетам.\ndata-loader-jobs\tочередь задач загрузчика данных на сервере: show\ndatasets-migrations\tмиграции датасетов клиента: latest | up | rollback | down | list\ndeny:\tзапретить путь\nforget:\tснять правило с пути\nglab-status\tПрохождение merge request'ов по веткам деплой-пайплайна.\nhealth\tHealth-check сервера: контейнеры + tail логов виновников.\nhelp\tСписок всех mpu команд с опциональной справкой.\ninit\tпервичная инициализация локальной кэш-БД: пять шагов\njsdate\tтекущий момент меткой YYYYMMDDhhmmss по местному времени\nkiten\tкарточки Kaiten: чтение, комментарии, время, справочники\nlog\tПоказать записи журнала вызовов mpu.\nlogs\tЛоги со стенда (Loki по умолчанию, portainer для legacy snapshot).\nmake-schema\tСоздать схему клиента в локальном стенде.\nmove-client\tПеренести клиента на другой sl-сервер фермы.\nmove-client-back\tВернуть клиента обратно и управлять журналом переносов.\nmp-init\tПоднять локальный стенд целиком: core-стеки и web поверх.\nmr\tmerge request'ы GitLab: чтение, комментарии ревью, резолв\nozon-jobs\tочередь задач Ozon-загрузчика на сервере: show | prune\nozon-loader\tзагрузка данных Ozon-кабинета в БД клиента: campaigns | …\nozon-recalculate-expenses\tПересчитать расходы Ozon UNIT клиента за период.\nozon-save-expenses\tСохранить расходы Ozon UNIT клиента за период.\npolicy\tправила подтверждения\nprocess\tПересчитать витрины клиента (dataProcessor.process).\nps\tСписок Docker-контейнеров (кэш или живой Portainer).\nrun-js\tВыполнить JS-код в контейнере sl-back.\nsearch\tНайти клиента или таблицу по селектору; вход в 10X по email.\nsheet\tGoogle-таблицы: чтение, запись, алиасы, кэш\nsql\tВыполнить SQL (write-capable) на PG, выбранном по селектору.\nsql-ro\tВыполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).\nss-datasets\tЗарегистрировать датасет таблицы клиента.\nss-load\tЗагрузить лист Google-таблицы клиента в БД.\nss-update\tЗапустить обновление Google-таблицы клиента в контейнере sl-back.\nssh\tВыполнить команду в `sl-N-cli` ИЛИ в произвольном контейнере по точному имени.\nsun\tВосход, полдень, закат и длина дня для точки и даты.\ntelegram\tTelegram от имени личного аккаунта: сообщения, диалоги, вход\nupdate\tсинк снапшота кэш-БД с PG: клиенты, их таблицы, wb-sid'ы\nusers\tпользователи sl-back на сервере: add | add-role\nversion\tShow mpu version.\nwb-jobs\tочередь задач WB-загрузчика на сервере: show\nwb-loader\tзагрузка данных WB-кабинета в БД клиента: reports | cards | …\nwb-recalculate-expenses\tПересчитать расходы WB UNIT клиента за период.\nwb-save-expenses\tСохранить расходы WB UNIT клиента за период.\nwb-unit-calc\tПоказать расчётные данные WB UNIT по товару за дату.\nwb-unit-proto-new\tПерелить данные WB UNIT из старой таблицы в новую.\nxlsx\tчтение локальных .xlsx: листы, значения, алиасы\n"
     },
     {
       "name": "ki — сообщения корня с ki",
@@ -20,7 +20,7 @@
         "kiten",
         ""
       ],
-      "output": "boards\tДоски всех пространств плоским списком; space: фильтрует.\ncard\tОдна карточка Kaiten целиком: шапка, свойства, описание, файлы, комментарии.\nchecklist\tчек-листы карточки: ls | add | check | uncheck\nclose\tЗакрыть карточку Kaiten: поля, ответ клиенту, перенос в «Готово».\ncolumns\tКолонки досок: одной доски, пространства либо всех сразу.\ncomment\tКомментарий к карточке Kaiten: текст, вложения, адресаты.\nfield\tкастомные поля карточки: set | artefact\nlanes\tДорожки досок: одной доски, пространства либо всех сразу.\nls\tСписок карточек Kaiten, где я участник.\nmove\tПеренести карточку Kaiten по осям доска / дорожка / колонка.\nready\tПеревести карточку Kaiten в колонку «Готово».\nreview\tПеревести карточку Kaiten в колонку «Код-ревью».\nroles\tРоли компании — типы работ учёта времени.\nspaces\tПространства компании; архивные — по --all.\nstatus\tВся моя работа в Kaiten одной таблицей по всем доскам.\ntime\tзаписи учёта времени карточки: ls | add | edit | rm\nwhoami\tВладелец токена Kaiten: id, имя, логин, почта.\n"
+      "output": "boards\tДоски всех пространств плоским списком; space: фильтрует.\ncard\tОдна карточка Kaiten целиком: шапка, свойства, описание, файлы, комментарии.\nchecklist\tчек-листы карточки: ls | add | check | uncheck\nclose\tЗакрыть карточку Kaiten: поля, ответ клиенту, перенос в «Готово».\ncolumns\tКолонки досок: одной доски, пространства либо всех сразу.\ncomment\tКомментарий к карточке Kaiten: текст, вложения, адресаты.\nfield\tкастомные поля карточки: set | artefact\nlanes\tДорожки досок: одной доски, пространства либо всех сразу.\nls\tСписок карточек Kaiten, где я участник.\nmove\tПеренести карточку Kaiten по осям доска / дорожка / колонка.\nready\tПеревести карточку Kaiten в колонку «Готово».\nreview\tПеревести карточку Kaiten в колонку «Код-ревью».\nroles\tРоли компании — типы работ учёта времени.\nspaces\tПространства компании; архивные — по all.\nstatus\tВся моя работа в Kaiten одной таблицей по всем доскам.\ntime\tзаписи учёта времени карточки: ls | add | edit | rm\nwhoami\tВладелец токена Kaiten: id, имя, логин, почта.\n"
     },
     {
       "name": "kiten card — ключевое сообщение первым ключом",
@@ -29,30 +29,28 @@
         "card",
         ""
       ],
-      "output": "id:\tid карточки либо её URL, короткий или глубокий\n"
+      "output": "id:\tid карточки либо её URL, короткий или глубокий\nno-comments\tкомментарии карточки; не читать их — вариантом no-comments\nno-images\tвложения-картинки в наглядном виде; выключить — вариантом no-images\n"
     },
     {
       "name": "за значением — ещё не набранные ключи",
       "words": [
         "kiten",
-        "card",
+        "comment",
         "id:",
         "1",
         ""
       ],
-      "output": "--no-comments\tкомментарии карточки; не читать их — флагом --no-comments\n--no-images\tвложения-картинки в наглядном виде; выключить — флагом --no-images\n"
+      "output": "body-file:\tфайл с текстом комментария; '-' — stdin\nfile:\tвложение: путь к файлу; флаг повторяется\ntext:\tтекст комментария (GFM markdown)\nto:\tадресаты первой строкой: '@ivan @petr' либо '@all'; флаг повторяется\n"
     },
     {
-      "name": "ключ-флаг набран — дальше без него",
+      "name": "вариант набран — дальше без него, до ключей",
       "words": [
         "kiten",
         "card",
-        "id:",
-        "1",
-        "--no-images",
+        "no-images",
         ""
       ],
-      "output": "--no-comments\tкомментарии карточки; не читать их — флагом --no-comments\n"
+      "output": "id:\tid карточки либо её URL, короткий или глубокий\nno-comments\tкомментарии карточки; не читать их — вариантом no-comments\n"
     },
     {
       "name": "значение ключа — снимок не знает значений",
@@ -119,19 +117,27 @@
         "sql-ro",
         "target:",
         "54",
-        "--d"
+        "s"
       ],
-      "output": "--dry\tтолько мета-блок и SQL, без подключения\n"
+      "output": "sql:\tSQL; не задан — читается из stdin\n"
     },
     {
-      "name": "sql-ro после target — sql: и флаги",
+      "name": "sql-ro после target — sql:",
       "words": [
         "sql-ro",
         "target:",
         "54",
         ""
       ],
-      "output": "--dry\tтолько мета-блок и SQL, без подключения\n--verbose\tпечатать мета-блок\nsql:\tSQL; не задан — читается из stdin\n"
+      "output": "sql:\tSQL; не задан — читается из stdin\n"
+    },
+    {
+      "name": "варианты — вместе с сообщениями",
+      "words": [
+        "sql-ro",
+        ""
+      ],
+      "output": "dry\tтолько мета-блок и SQL, без подключения\ntarget:\tclient_id / spreadsheet_id / заголовок (подстрока), sl-N или dev:<client_id>\nverbose\tпечатать мета-блок\n"
     }
   ]
 }

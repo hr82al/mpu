@@ -24,6 +24,7 @@ import {
   type Trace,
 } from "../objects/mod.ts";
 import type { Order } from "./order.ts";
+import { type Chosen, Variant } from "./variants.ts";
 
 /**
  * Словарь ключей: ключ → как назвать его значение в отказе. Ключ вне
@@ -41,6 +42,15 @@ const DICTIONARY: ReadonlyMap<string, string> = new Map([
 
 /** Причина имени ключа, оставшегося прежним именем входа. */
 const KEPT = "прежнее имя входа";
+
+/**
+ * Вариант, названный не именем флага (`platform/variants.md`, таблица):
+ * вход → имя варианта.
+ */
+const VARIANT_NAMES: ReadonlyMap<string, string> = new Map([[
+  "dry-run",
+  "dry",
+]]);
 
 /** Позиционный селектор без объявления — `target:`. */
 const SELECTOR = "selector";
@@ -124,12 +134,16 @@ interface Spelling {
   refusal(value: KeyValue, pairs: readonly string[]): Refusal;
 }
 
-/** Вход команды в новой записи: его адрес, ключи и снятые написания. */
+/** Вход команды в новой записи: его адрес, ключи, варианты и написания. */
 interface Entry {
   readonly input: string;
-  /** Как вход пишется теперь: ключ, формат результата или снятый вход. */
+  /**
+   * Как вход пишется теперь: ключ, вариант, формат результата или снятый
+   * вход.
+   */
   readonly address: string;
   readonly specs: readonly KeySpec[];
+  readonly variants: readonly Variant[];
   readonly spellings: readonly Spelling[];
 }
 
@@ -178,6 +192,53 @@ class Renamed implements Spelling {
       : `${label} — ключом`;
     return hinted(reason, [...pairs, ...written(this.#spec, value)]);
   }
+}
+
+/**
+ * Прежний флаг поведения (`--dry-run`): теперь вариант — словом до ключей.
+ * Прежние ключи строки остаются за ним.
+ */
+class AsVariant implements Spelling {
+  readonly old: string;
+  readonly kind: KeyKind = "flag";
+  readonly #name: string;
+
+  constructor(old: string, name: string) {
+    this.old = old;
+    this.#name = name;
+  }
+
+  refusal(_value: KeyValue, pairs: readonly string[]): Refusal {
+    return beforeKeys(this.#name, pairs);
+  }
+}
+
+/**
+ * Прежний выбор значением (`--via portainer`): значение — имя варианта.
+ * Значения, которого нет среди вариантов, — отказ со списком.
+ */
+class AsChoice implements Spelling {
+  readonly old: string;
+  readonly kind: KeyKind = "value";
+  readonly #names: readonly string[];
+
+  constructor(old: string, names: readonly string[]) {
+    this.old = old;
+    this.#names = names;
+  }
+
+  refusal(value: KeyValue, pairs: readonly string[]): Refusal {
+    const name = String(value);
+    if (this.#names.includes(name)) return beforeKeys(name, pairs);
+    return new Refusal(
+      `варианта ${name} нет; есть: ${this.#names.join(", ")}`,
+    );
+  }
+}
+
+/** Отказ: вариант набран флагом — словом до ключей, ключи за ним. */
+function beforeKeys(name: string, pairs: readonly string[]): Refusal {
+  return hinted("вариант — словом до ключей", [name, ...pairs]);
 }
 
 /** Написание через подчёркивание: только через дефис. */
@@ -308,6 +369,8 @@ export interface Accepted {
   readonly args: Args;
   /** Текст понятой части — звено адреса. */
   readonly text: string;
+  /** Понятая часть словами, как её набрали. */
+  readonly pairs: readonly string[];
   readonly rest: Rest;
 }
 
@@ -332,6 +395,7 @@ function renameOf(declared: string | KeyRename): KeyRename {
 export class Keys {
   readonly #path: readonly string[];
   readonly #specs: readonly KeySpec[];
+  readonly #variants: readonly Variant[];
   readonly #entries: readonly Entry[];
   readonly #spellings: ReadonlyMap<string, Spelling>;
   /** Ключи, которые ложатся позиционно, — по порядку входов. */
@@ -341,6 +405,8 @@ export class Keys {
   readonly #formatNames: ReadonlySet<string>;
   readonly #retired: Readonly<Record<string, string>>;
   readonly #shorts: ReadonlyMap<string, KeySpec>;
+  /** Короткие флаги вариантов (`-n` → `dry`). */
+  readonly #variantShorts: ReadonlyMap<string, Variant>;
   /** Режимы команды: прежняя запись каждого — отказ с новой. */
   readonly #modes: ReadonlyMap<string, CommandMode>;
   /** Входы, значения которых задаёт режим; вне режима — нет. */
@@ -387,6 +453,7 @@ export class Keys {
       this.#entryOf(command, input, declared.get(input.name), names)
     );
     this.#specs = this.#entries.flatMap((entry) => entry.specs);
+    this.#variants = this.#entries.flatMap((entry) => entry.variants);
     // Прежнее имя, ставшее ключом другого входа (`move-client --target`
     // при `target:`), — ключ: написанием его не прочесть.
     const current = new Set(this.#specs.map((spec) => spec.name));
@@ -407,6 +474,15 @@ export class Keys {
           : [[`-${short}`, spec] as const];
       }),
     );
+    this.#variantShorts = new Map(
+      command.inputs.flatMap((input) => {
+        const variant = this.#variants.find((one) => one.input === input.name);
+        const short = input.form.short;
+        return short === undefined || variant === undefined
+          ? []
+          : [[`-${short}`, variant] as const];
+      }),
+    );
   }
 
   /** Где вход в новой записи — решается здесь, один раз на вход. */
@@ -417,7 +493,7 @@ export class Keys {
     names: ReadonlySet<string>,
   ): Entry {
     const name = input.name;
-    const none = { specs: [], spellings: [] };
+    const none = { specs: [], variants: [], spellings: [] };
     if (this.#formats.has(name)) {
       return { input: name, address: `формат ${name}`, ...none };
     }
@@ -433,9 +509,13 @@ export class Keys {
         input: name,
         address: `написание → --${dashed}`,
         specs: [],
+        variants: [],
         spellings: [spelling],
       };
     }
+    const choices = choicesOf(command, name);
+    if (choices.length > 0) return choiceEntry(command, input, choices);
+    if (switches(command, input)) return switchEntry(command, input, names);
     const owner = modeOwning(command, input, declared);
     if (owner !== undefined) {
       return { input: name, address: owner, ...none };
@@ -454,7 +534,13 @@ export class Keys {
       spec.name !== dashed &&
       !spec.name.startsWith("no-");
     if (renamed) spellings.push(new Renamed(dashed, spec));
-    return { input: name, address: spec.address, specs: [spec], spellings };
+    return {
+      input: name,
+      address: spec.address,
+      specs: [spec],
+      variants: [],
+      spellings,
+    };
   }
 
   #specOf(
@@ -494,6 +580,11 @@ export class Keys {
    */
   addresses(): ReadonlyMap<string, string> {
     return new Map(this.#entries.map((entry) => [entry.input, entry.address]));
+  }
+
+  /** Варианты команды по порядку входов. */
+  variants(): readonly Variant[] {
+    return [...this.#variants];
   }
 
   /** Ключи с причинами имён: ключ из словаря — с пустой причиной. */
@@ -594,14 +685,21 @@ export class Keys {
     }
     // Недостающий обязательный ключ называет раньше разбор: этот набор
     // ключей ему известен целиком.
-    return { args: named.args(), text: this.#text(entries), rest: NO_REST };
+    return {
+      args: named.args(),
+      text: this.#text(entries),
+      pairs: this.#words(entries),
+      rest: NO_REST,
+    };
   }
 
   /** Ключи строкой, как их пишут: флаг — `--имя`, список — ключ на значение. */
   #text(entries: readonly (readonly [string, KeyValue])[]): string {
-    return entries
-      .flatMap(([key, value]) => written(this.#spec(key), value))
-      .join(" ");
+    return this.#words(entries).join(" ");
+  }
+
+  #words(entries: readonly (readonly [string, KeyValue])[]): string[] {
+    return entries.flatMap(([key, value]) => written(this.#spec(key), value));
   }
 
   #known(key: string): boolean {
@@ -631,7 +729,9 @@ export class Keys {
         throw new Refusal(`не хватает ключа ${absent}`);
       }
       const text = this.#text(understood);
-      return { args, text, rest: new ToResult(Object.fromEntries(rest)) };
+      const pairs = this.#words(understood);
+      const tail = new ToResult(Object.fromEntries(rest));
+      return { args, text, pairs, rest: tail };
     }
     if (this.missing(args) !== undefined) {
       throw new Refusal(`не понимает ${named.selector()}`);
@@ -662,6 +762,7 @@ export class Keys {
     return {
       args,
       text,
+      pairs: this.#words(understood),
       rest: new Leftover(selector(understood), selector(rest)),
     };
   }
@@ -670,7 +771,7 @@ export class Keys {
   bare(words: readonly string[]): Refusal {
     // Короткий флаг первым словом — не значение: хвост ловит его голым.
     const short = this.short(words[0], words.slice(1));
-    if (short !== undefined) return hinted(short.reason, short.words);
+    if (short !== undefined) return hinted(short.reason, short.spelled([]));
     const positionals = this.#inputs
       .filter((input) => input.form.positional !== undefined)
       .map((input) => input.name);
@@ -714,20 +815,37 @@ export class Keys {
    * «ключом», прочий — «полным именем»; флаг чужой — нет подсказки.
    */
   short(word: string, after: readonly string[]): ShortHint | undefined {
+    const variant = this.#variantShorts.get(word);
+    if (variant !== undefined) {
+      return {
+        reason: "вариант — словом до ключей",
+        spelled: (taken) => [variant.name, ...taken],
+      };
+    }
     const spec = this.#shorts.get(word);
     if (spec === undefined) return undefined;
     const value = spec.kind === "flag" ? true : after[0] ?? "";
     if (DICTIONARY.has(spec.name) && spec.placement !== POSITIONAL) {
       const label = DICTIONARY.get(spec.name);
-      return { reason: `${label} — ключом`, words: written(spec, value) };
+      const words = written(spec, value);
+      return {
+        reason: `${label} — ключом`,
+        spelled: (taken) => [...taken, ...words],
+      };
     }
     const flag = `--${spec.name}`;
     const words = spec.kind === "flag" ? [flag] : [flag, String(value)];
-    return { reason: "флаг — полным именем", words };
+    return {
+      reason: "флаг — полным именем",
+      spelled: (taken) => [...taken, ...words],
+    };
   }
 
-  /** Строка прежней диспетчеризации: опции, затем `--` и позиционные. */
-  order(args: Args): Order {
+  /**
+   * Строка прежней диспетчеризации: опции — ключи и выбранные варианты,
+   * затем `--` и позиционные.
+   */
+  order(args: Args, chosen: Chosen): Order {
     const into: Argv = { options: [], positional: [] };
     for (const input of this.#inputs) {
       const fixed = this.#fixed[input.name];
@@ -738,6 +856,7 @@ export class Keys {
         spec.placement.place(value, into);
       }
     }
+    chosen.place(into.options);
     const argv = this.#layout.argv(this.#path, into);
     return { argv: () => argv };
   }
@@ -842,7 +961,78 @@ function placementOf(input: InputSpec): Placement {
 /** Подсказка к короткому флагу: причина и слова нового написания. */
 export interface ShortHint {
   readonly reason: string;
-  readonly words: readonly string[];
+  /** Новое написание вокруг слов `taken`, набранных до флага. */
+  spelled(taken: readonly string[]): readonly string[];
+}
+
+/** Выборы-варианты входа `input`: имена по порядку объявления. */
+function choicesOf(command: Command, input: string): string[] {
+  return Object.entries(command.choices)
+    .filter(([, choice]) => choice.input === input)
+    .map(([name]) => name);
+}
+
+/** Вход-выбор: вариант на каждое объявленное значение. */
+function choiceEntry(
+  command: Command,
+  input: InputSpec,
+  names: readonly string[],
+): Entry {
+  const variants = names.map((name) =>
+    new Variant(name, command.choices[name].purpose, input.name, [
+      `--${input.name}`,
+      name,
+    ])
+  );
+  return {
+    input: input.name,
+    address: `варианты ${names.join(", ")}`,
+    specs: [],
+    variants,
+    spellings: [new AsChoice(input.name.replaceAll("_", "-"), names)],
+  };
+}
+
+/**
+ * Булев вход с умолчанием меняет поведение — это вариант
+ * (`platform/variants.md`); без умолчания у него три состояния, и он
+ * передаёт значение (`is-active`) — ключ.
+ */
+function switches(command: Command, input: InputSpec): boolean {
+  if (input.kind !== "boolean" || input.form.positional !== undefined) {
+    return false;
+  }
+  return command.argsJsonSchema.properties[input.name].default !== undefined;
+}
+
+/**
+ * Вариант булева входа: имя — флаг без `--` (`--no-<вход>` у входа с
+ * умолчанием `true`), кроме названных таблицей спеки (`dry-run` → `dry`).
+ * Прежний флаг и его написание через подчёркивание — отказы.
+ */
+function switchEntry(
+  command: Command,
+  input: InputSpec,
+  names: ReadonlySet<string>,
+): Entry {
+  const field = command.argsJsonSchema.properties[input.name];
+  const dashed = input.name.replaceAll("_", "-");
+  const flag = field.default === true ? `no-${dashed}` : dashed;
+  const name = VARIANT_NAMES.get(flag) ?? flag;
+  const variant = new Variant(name, field.description ?? "", input.name, [
+    `--${flag}`,
+  ]);
+  const olds = new Set([flag, flag.replaceAll("-", "_"), input.name]);
+  const spellings = [...olds]
+    .filter((old) => old === flag || !names.has(old))
+    .map((old) => new AsVariant(old, name));
+  return {
+    input: input.name,
+    address: `вариант ${name}`,
+    specs: [],
+    variants: [variant],
+    spellings,
+  };
 }
 
 /** Вид ключа по виду входа. */

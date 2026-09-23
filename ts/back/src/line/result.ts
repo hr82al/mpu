@@ -31,6 +31,7 @@ import {
 } from "../objects/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { formatted, type Order } from "./order.ts";
+import { type Misplaced, NOT_MISPLACED } from "./variants.ts";
 
 /** Как исполнить строку в конце: взгляд и правила знает дерево. */
 export type Settle = (
@@ -57,15 +58,31 @@ export interface Execution {
 export class Pending {
   readonly #line: Line;
   readonly #order: Order;
+  readonly #misplaced: Misplaced;
 
-  constructor(line: Line, order: Order) {
+  /**
+   * @param line строка
+   * @param order как её собрать для диспетчеризации
+   * @param misplaced что делать со словом-вариантом за ключами
+   */
+  constructor(line: Line, order: Order, misplaced = NOT_MISPLACED) {
     this.#line = line;
     this.#order = order;
+    this.#misplaced = misplaced;
   }
 
   /** Та же строка с форматом, выбранным словами прежнего флага. */
   as(words: readonly string[]): Pending {
-    return new Pending(this.#line, formatted(this.#order, words));
+    return new Pending(
+      this.#line,
+      formatted(this.#order, words),
+      this.#misplaced,
+    );
+  }
+
+  /** Слово, которого результат не понял: вариант — отказ с готовой строкой. */
+  misplaced(word: string) {
+    this.#misplaced.check(word);
   }
 
   settle(report: Report, settle: Settle): Promise<Outcome> {
@@ -135,7 +152,8 @@ class CommandResult implements Receiver {
  */
 function refusing(names: readonly string[]): Fallback<Pending> {
   return {
-    understand(sent): never {
+    understand(sent, pending): never {
+      pending.misplaced(sent.selector());
       const known = [
         ...names,
         ...selectionMessages().map((line) => line.selector).sort(),

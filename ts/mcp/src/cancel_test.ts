@@ -14,7 +14,7 @@ import { within } from "../../back/src/backend/testback.ts";
 import { connect, type Stack, withStack } from "./testkit.ts";
 
 /** Слежение за логами: строка, которая сама не кончается. */
-const FOLLOW = ["logs", "--follow"];
+const FOLLOW = ["logs", "follow"];
 
 /** Ответ Loki с одной записью, время которой двигается вперёд. */
 function entry(index: number): string {

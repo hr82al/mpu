@@ -82,7 +82,7 @@ CLI-only: тулом MCP-сервера команда не публикуетс
 вне хука команда бессмысленна.
 
 stdout — одна строка JSON: {"id": …}. Claude вывод и код выхода хука
-игнорирует; отказ виден в журнале вызовов: mpu log --failed --since 1h.
+игнорирует; отказ виден в журнале вызовов: mpu log failed since: 1h.
 
 Ключи env-файла: TELEGRAM_BOT_TOKEN и TELEGRAM_BOT_ID (обязательны),
 TELEGRAM_BOT_NAME (необязателен). Прокси — как у mpu telegram log.

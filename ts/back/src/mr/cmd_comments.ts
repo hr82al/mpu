@@ -93,7 +93,7 @@ export const mrCommentsCommand = defineCommand({
   errorName: "mr comments",
   summary: "Треды ревью merge request'а: таблица, JSON или markdown.",
   usage:
-    "mpu mr comments [id: REF] [--unresolved] [file: S] [author: S] [end json|md]",
+    "mpu mr comments [unresolved] [id: REF] [file: S] [author: S] [end json|md]",
   help: `Звать, когда надо увидеть, что сказано на ревью MR и что ещё не
 закрыто. Печатает треды таблицей: первые 8 символов id, признак
 резолва (✓ закрыт, · открыт, пусто — общий тред), позиция в диффе,
@@ -104,7 +104,7 @@ export const mrCommentsCommand = defineCommand({
 показываются ни в одной форме.
 
 Фильтры складываются:
---unresolved — только незакрытые треды;
+unresolved — только незакрытые треды;
 file: SUBSTR — только треды, чья позиция указывает на файл с такой
 подстрокой в пути; тред без позиции при этом фильтре отпадает;
 author: SUBSTR — подстрока в имени или username автора первой ноты,
@@ -124,7 +124,7 @@ Exit: 0 — успех, в том числе когда после фильтр�
 2 — нераспознанный id:, end json вместе с end md; 1 — отказ GitLab,
 ненайденный MR.`,
   examples: [
-    "mpu mr comments --unresolved",
+    "mpu mr comments unresolved",
     "mpu mr comments id: 456 end md",
   ],
   policy: "ro",

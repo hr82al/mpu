@@ -106,7 +106,7 @@ const whoamiResultSchema = z.object({
 
 const spacesResultSchema = z.object({
   spaces: z.array(spaceViewSchema).describe(
-    "пространства в порядке ответа API; без --all архивные отфильтрованы",
+    "пространства в порядке ответа API; без all архивные отфильтрованы",
   ),
 });
 
@@ -130,7 +130,7 @@ const columnsResultSchema = z.object({
 
 const rolesResultSchema = z.object({
   roles: z.array(roleViewSchema).describe(
-    "роли компании в порядке ответа API; без --all системные отфильтрованы",
+    "роли компании в порядке ответа API; без all системные отфильтрованы",
   ),
 });
 
@@ -454,15 +454,15 @@ export const kitenSpacesCommand = defineCommand({
   path: ["kiten", "spaces"],
   keys: {},
   errorName: "kiten spaces",
-  summary: "Пространства компании; архивные — по --all.",
-  usage: "mpu kiten spaces [--all] [end json]",
+  summary: "Пространства компании; архивные — по all.",
+  usage: "mpu kiten spaces [all] [end json]",
   help: `Звать, когда нужен id или точное имя пространства Kaiten, или кэш
 справочников устарел.
 
 Живой список пространств; он же обновляет кэш справочников, на
 котором резолвятся space: и board: у соседних команд.
 
---all показывает архивные пространства. Фильтр действует только на
+all показывает архивные пространства. Фильтр действует только на
 вывод: в кэш всегда попадает полный ответ.
 
 Колонки таблицы: ID, TITLE, ARCHIVED (yes у архивного). Итог —
@@ -470,7 +470,7 @@ export const kitenSpacesCommand = defineCommand({
 
 ${COMMON_HELP}`,
   examples: [
-    "mpu kiten spaces --all",
+    "mpu kiten spaces all",
   ],
   policy: "ro",
   argsSchema: spacesArgsSchema,
@@ -579,13 +579,13 @@ export const kitenRolesCommand = defineCommand({
   keys: {},
   errorName: "kiten roles",
   summary: "Роли компании — типы работ учёта времени.",
-  usage: "mpu kiten roles [--all] [end json]",
+  usage: "mpu kiten roles [all] [end json]",
   help: `Звать, когда для учёта времени нужен id роли.
 
 Роли — «типы работ» записей времени: их id принимает role: у
 mpu kiten time.
 
-Роли с неположительным id (системная Employee) скрыты; --all показывает
+Роли с неположительным id (системная Employee) скрыты; all показывает
 их. Фильтр действует только на вывод: в кэш всегда попадает полный
 ответ.
 

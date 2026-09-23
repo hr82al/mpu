@@ -883,7 +883,7 @@ Deno.test("--reset: удаляет старые записи перед запи
       assertEquals(
         second.stderr,
         `# bootstrap: схема в ${dbPath} готова\n` +
-          "# --reset: удалено 2 старых записей\n" +
+          "# reset: удалено 2 старых записей\n" +
           `# записано 1 контейнеров в ${dbPath}\n` + WARMUP_SKIPPED,
       );
 

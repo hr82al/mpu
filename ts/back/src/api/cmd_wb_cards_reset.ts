@@ -175,7 +175,7 @@ export const wbCardsResetCommand = defineCommand({
   errorName: "api wb-cards-reset",
   summary: "Форсировать полный проход загрузчика карточек WB-кабинета.",
   usage:
-    "mpu api wb-cards-reset target: СЕЛЕКТОР [sid: SID] [client-id: ID] [--print]",
+    "mpu api wb-cards-reset [print] target: СЕЛЕКТОР [sid: SID] [client-id: ID]",
   help: `Звать после переклейки карточек WB, когда система её не видит:
 курсор загрузчика wbCards сбрасывается в пустое значение, и ближайший
 прогон делает полный перечит карточек. Причина — при
@@ -190,7 +190,7 @@ export const wbCardsResetCommand = defineCommand({
 sid:, а не выбор первого: сброс ушёл бы чужому кабинету. client-id:
 сужает неоднозначный селектор до одного клиента.
 
---print печатает эквивалентный вызов и выходит, ничего не отправляя;
+print печатает эквивалентный вызов и выходит, ничего не отправляя;
 токен в строке не подставляется, вместо него $TOKEN.
 
 Тело запроса фиксировано ({"state": {"cursor": null}}), своего body: у
@@ -198,7 +198,7 @@ sid:, а не выбор первого: сброс ушёл бы чужому �
 
 Exit: 0 — успех; 1 — отказ sl-back; 2 — селектор не резолвится либо
 кабинетов несколько.`,
-  examples: ["mpu api wb-cards-reset target: 777 --print"],
+  examples: ["mpu api wb-cards-reset print target: 777"],
   policy: "rw",
   argsSchema,
   forms: { selector: { positional: "one" }, print: { short: "p" } },

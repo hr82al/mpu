@@ -145,7 +145,7 @@ export const searchCommand = defineCommand({
   keys: { query: "value" },
   summary: "Найти клиента или таблицу по селектору; вход в 10X по email.",
   usage:
-    "mpu search query: ЗНАЧЕНИЕ [--client-id|--title|…] [--no-update] [reason: TEXT] [--refresh-cache] [scope: auto|user|access]",
+    "mpu search [client-id|title|…] [no-update] [refresh-cache] query: ЗНАЧЕНИЕ [reason: TEXT] [scope: auto|user|access]",
   help: `Звать, когда по любому следу клиента — номеру, таблице, куску
 заголовка, кабинету, email — надо найти его client_id, таблицу и
 сервер. Ищет по локальному кэшу (\`mpu init\`/\`mpu update\`) и печатает
@@ -158,20 +158,20 @@ query: — client_id, spreadsheet_id, кусок заголовка, WB-каби
 адрес, кабинет, spreadsheet_id, заголовок.
 
 Проекция печатает голое значение одного поля по строке результата:
---client-id, --spreadsheet-id, --title, --server, --server-number,
---sl-ip, --pg-ip, --sids (кабинеты через запятую). Больше одной
+client-id, spreadsheet-id, title, server, server-number,
+sl-ip, pg-ip, sids (кабинеты через запятую). Больше одной
 проекции — ошибка ввода до всякого чтения БД.
 
 Пустой результат сам обновляет кэш (полный синк, тихо) и повторяет поиск
-ровно один раз; --no-update это снимает. Для селектора-адреса синк не
+ровно один раз; no-update это снимает. Для селектора-адреса синк не
 запускается: адреса живут в env-файле, а не в кэше.
 
 Exit: 0 — успех, включая пустой результат; 1 — сбой обновления кэша;
 2 — ошибки ввода.`,
   examples: [
     "mpu search query: 777",
-    "mpu search query: Отчёт --client-id",
-    "mpu search query: 10.9.9.9 --no-update",
+    "mpu search client-id query: Отчёт",
+    "mpu search no-update query: 10.9.9.9",
   ],
   // Локальный режим только читает, но дефолтный `--update` пишет кэш, а
   // 10X-ветка создаёт audit-запись impersonation на проде.

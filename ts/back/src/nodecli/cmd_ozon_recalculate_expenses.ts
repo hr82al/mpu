@@ -53,7 +53,7 @@ export const ozonRecalculateExpensesCommand = defineCommand({
   keys: {},
   summary: "Пересчитать расходы Ozon UNIT клиента за период.",
   usage:
-    "mpu ozon-recalculate-expenses target: СЕЛЕКТОР [server: sl-N] [--print [--local]] [client-id: N] [date-from: F] [date-to: T] [ref-date: D] [ref-fields: F]… [skus: SKU]… [logs-level: L] [--verbose]",
+    "mpu ozon-recalculate-expenses [print [local]] [verbose] target: СЕЛЕКТОР [server: sl-N] [client-id: N] [date-from: F] [date-to: T] [ref-date: D] [ref-fields: F]… [skus: SKU]… [logs-level: L]",
   help: `Звать, когда расходы Ozon UNIT клиента за период неверны или
 устарели и их надо пересчитать.
 
@@ -66,9 +66,9 @@ sl-N задаёт сервер, client-id: берётся из кандидат�
 вывод, код выхода наследует 1:1 и перезаписывает расчётные данные UNIT
 клиента за период.
 
---print не выполняет: печатает ssh-команду и копирует в буфер обмена;
---local вместе с --print даёт форму локального стенда, сам по себе — ошибка
-ввода. --verbose печатает команду строкой \`# inner: …\` в stderr во всех трёх
+print не выполняет: печатает ssh-команду и копирует в буфер обмена;
+local вместе с print даёт форму локального стенда, сам по себе — ошибка
+ввода. verbose печатает команду строкой \`# inner: …\` в stderr во всех трёх
 режимах, обычный вывод не подменяя.
 
 Период: date-from: по умолчанию 2025-01-01, date-to: — сегодняшняя
@@ -81,7 +81,7 @@ ref-fields: копирует значения этих полей из той д
 
 Exit: код inner-команды; 0 при печати; 2 — ввод, резолв, конфигурация.`,
   examples: [
-    "mpu ozon-recalculate-expenses target: 777 --print --verbose skus: 123 ref-date: 2026-01-05 ref-fields: sebes_rub",
+    "mpu ozon-recalculate-expenses print verbose target: 777 skus: 123 ref-date: 2026-01-05 ref-fields: sebes_rub",
   ],
   policy: "rw",
   helpWhenBare: true,

@@ -165,7 +165,11 @@ const PROTOCOL: readonly Method<Reflection>[] = [
     "variants",
     about("варианты команды"),
     LISTED,
-    () => new Listing([], ""),
+    (self) => {
+      const variants = self.variants();
+      const rows = variants.map((line) => `${line.selector}\t${line.purpose}`);
+      return new Listing(variants, lines(rows));
+    },
   ),
   keyword(
     { candidates: "value", like: "value" },

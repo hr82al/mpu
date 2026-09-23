@@ -12,7 +12,7 @@ export const healthCommand = defineCommand({
   keys: {},
   // Однострока — из слепка дерева: её видит режим дополнения.
   summary: "Health-check сервера: контейнеры + tail логов виновников.",
-  usage: "mpu health target: СЕЛЕКТОР [tail: N] [since: S] [--all]",
+  usage: "mpu health [all] target: СЕЛЕКТОР [tail: N] [since: S]",
   help: `Звать первым при жалобе «сервер не работает»: какие контейнеры
 лежат и что они пишут перед падением.
 
@@ -28,7 +28,7 @@ stderr-логов демонов, похожих на лоадеры. \`mp\`-с�
 target: обязателен: sl-N либо client_id/spreadsheet/title.
 tail: — строк лога на контейнер (30). since: — окно логов:
 <число>{s|m|h|d} назад либо строка из одних цифр как unix-ts; иной
-формат — ошибка ввода, и она проверяется до похода в сеть. --all —
+формат — ошибка ввода, и она проверяется до похода в сеть. all —
 tail у всех демонов, не только лоадер-подобных.
 
 В tail печатается только stderr: сервисы стека пишут ошибки в него, а
@@ -41,7 +41,7 @@ Exit: 0 — все mp-контейнеры running (или штатно заве
   examples: [
     "mpu health target: sl-1",
     "mpu health target: sl-1 tail: 100 since: 2h",
-    "mpu health target: 42 --all",
+    "mpu health all target: 42",
   ],
   policy: "ro",
   argsSchema,

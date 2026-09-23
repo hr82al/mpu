@@ -25,7 +25,7 @@ export const wbUnitProtoNewCommand = defineCommand({
   keys: {},
   summary: "Перелить данные WB UNIT из старой таблицы в новую.",
   usage:
-    "mpu wb-unit-proto-new target: СЕЛЕКТОР [server: sl-N] [--print [--local]] [client-id: N]",
+    "mpu wb-unit-proto-new [print [local]] target: СЕЛЕКТОР [server: sl-N] [client-id: N]",
   help: `Звать, когда клиент переходит на новую таблицу WB UNIT и данные
 старой надо перелить.
 
@@ -34,9 +34,9 @@ export const wbUnitProtoNewCommand = defineCommand({
 стримит его вывод, код выхода наследуется 1:1. Это перелив данных
 клиента, а не отчёт о нём.
 
---print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального стенда
-(без ssh); сам по себе --local — ошибка ввода.
+print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального стенда
+(без ssh); сам по себе local — ошибка ввода.
 
 target: — client_id, spreadsheet_id или заголовок таблицы;
 client-id: берётся из кандидатов селектора, если у всех кандидатов он
@@ -49,7 +49,7 @@ Exit: код inner-команды при выполнении; 0 при печа
 резолва и конфигурации.`,
   examples: [
     "mpu wb-unit-proto-new target: 777",
-    "mpu wb-unit-proto-new target: 777 --print",
+    "mpu wb-unit-proto-new print target: 777",
   ],
   policy: "rw",
   helpWhenBare: true,

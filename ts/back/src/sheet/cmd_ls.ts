@@ -76,18 +76,18 @@ export const sheetLsCommand = defineCommand({
   keys: {},
   errorName: "sheet",
   summary: "Показать листы таблицы.",
-  usage: "mpu sheet ls [spreadsheet: SS] [--long] [end json] [--refresh]",
+  usage: "mpu sheet ls [long] [refresh] [spreadsheet: SS] [end json]",
   help: `Звать, когда надо узнать, какие вкладки есть в Google-таблице
 клиента, прежде чем читать ячейки.
 
 По умолчанию печатает по строке на лист — только заголовки, в
 порядке самой таблицы.
 
---long даёт строку вида «Лист\\t1000×26\\tsheetId=0\\tindex=0».
+long даёт строку вида «Лист\\t1000×26\\tsheetId=0\\tindex=0».
 end json печатает массив объектов {title, sheet_id, rows, cols, index}.
-Вместе --long и end json не конфликтуют: побеждает end json.
+Вместе long и end json не конфликтуют: побеждает end json.
 
---refresh не читает кэш метаданных и перезаписывает его свежим
+refresh не читает кэш метаданных и перезаписывает его свежим
 ответом; без флага список живёт в кэше два часа.
 
 Цель — spreadsheet:, иначе ключ конфигурации sheet.default

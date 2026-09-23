@@ -417,8 +417,7 @@ Deno.test("разбор аргументов: отказы до сети", async
       );
       assertEquals(
         err.message,
-        "--grep/--grep-regex/--level/--client поддерживаются только" +
-          " с --via loki",
+        "grep:/grep-regex:/level:/client: поддерживаются только с loki",
       );
     });
   });
@@ -441,7 +440,7 @@ Deno.test("MCP-форма входа: слежение — только CLI", as
         () => logsCommand.invokeInput({ follow: true }, io),
         UsageError,
       );
-      assertEquals(err.message, "--follow доступен только в CLI");
+      assertEquals(err.message, "follow доступен только в CLI");
     });
   });
 

@@ -81,9 +81,9 @@ function delivery(group: string, service: string, method: string): string {
 \`node cli service:${service} ${method}\` и стримит его вывод, код выхода
 наследуется 1:1. Это мутация прод-схемы, а не отчёт о ней.
 
---print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального
-стенда (без ssh); сам по себе --local — ошибка ввода.
+print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального
+стенда (без ssh); сам по себе local — ошибка ввода.
 
 Значения ключей проверяются до сети и до печати: допустимы только
 A-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка это ошибка ввода.
@@ -101,7 +101,7 @@ function appMigrations(sub: string): Command {
     keys: {},
     summary: `Миграции схемы приложения: ${sub}.`,
     usage:
-      `mpu app-migrations ${sub} target: СЕЛЕКТОР [name: N] [--print [--local]]`,
+      `mpu app-migrations ${sub} [print [local]] target: СЕЛЕКТОР [name: N]`,
     help: `Звать, когда схеме приложения sl-back на сервере нужен шаг
 миграций ${sub}.
 
@@ -109,7 +109,7 @@ ${delivery("app-migrations", "appMigrations", method)}
 
 target: — сам сервер (sl-N) либо клиент, по которому он находится.
 client-id: у этой команды нет: схема приложения одна на сервер.`,
-    examples: [`mpu app-migrations ${sub} target: sl-1 --print`],
+    examples: [`mpu app-migrations ${sub} print target: sl-1`],
     policy: "rw",
     helpWhenBare: true,
     errorName: "app-migrations",
@@ -140,16 +140,16 @@ function clientsMigrations(sub: string): Command {
     keys: {},
     summary: `Миграции клиентской схемы: ${sub}.`,
     usage:
-      `mpu clients-migrations ${sub} target: СЕЛЕКТОР type: T [name: N] [--forced] [--print [--local]]`,
+      `mpu clients-migrations ${sub} [forced] [print [local]] target: СЕЛЕКТОР type: T [name: N]`,
     help: `Звать, когда схеме одного клиента нужен шаг миграций ${sub}.
 
 ${delivery("clients-migrations", "clientsMigrations", method)}
 
-type: обязателен. name: и --forced необязательны: незаданные в
-inner-команде не появляются, а --forced уходит голым флагом без
+type: обязателен. name: и forced необязательны: незаданные в
+inner-команде не появляются, а forced уходит голым флагом без
 значения. client-id: берётся из кандидатов цели, если у всех
 кандидатов он один.`,
-    examples: [`mpu clients-migrations ${sub} target: 777 type: wb --print`],
+    examples: [`mpu clients-migrations ${sub} print target: 777 type: wb`],
     policy: "rw",
     helpWhenBare: true,
     errorName: "clients-migrations",
@@ -183,7 +183,7 @@ function clientsMigrationsAll(): Command {
     keys: {},
     summary: "Миграции клиентских схем: latest по всем клиентам сервера.",
     usage:
-      "mpu clients-migrations latest-all target: СЕЛЕКТОР type: T [--print [--local]]",
+      "mpu clients-migrations latest-all [print [local]] target: СЕЛЕКТОР type: T",
     help: `Звать, когда схемы всех клиентов сервера надо довести до
 последней миграции одним вызовом. target: здесь означает сервер: метод
 сам разъезжается по всем клиентам, и client-id: у него нет — ни в
@@ -193,7 +193,7 @@ ${delivery("clients-migrations", "clientsMigrations", "latestAll")}
 
 type: обязателен.`,
     examples: [
-      "mpu clients-migrations latest-all target: sl-8 type: wb --print",
+      "mpu clients-migrations latest-all print target: sl-8 type: wb",
     ],
     policy: "rw",
     helpWhenBare: true,
@@ -224,7 +224,7 @@ function datasetsMigrations(sub: string): Command {
     keys: {},
     summary: `Миграции датасетов клиента: ${sub}.`,
     usage:
-      `mpu datasets-migrations ${sub} target: СЕЛЕКТОР dataset: D [name: N] [--print [--local]]`,
+      `mpu datasets-migrations ${sub} [print [local]] target: СЕЛЕКТОР dataset: D [name: N]`,
     help: `Звать, когда датасету клиента нужен шаг миграций ${sub}.
 
 ${delivery("datasets-migrations", "datasetsMigrations", method)}
@@ -232,7 +232,7 @@ ${delivery("datasets-migrations", "datasetsMigrations", method)}
 dataset: обязателен, name: необязателен. client-id: берётся из
 кандидатов цели, если у всех кандидатов он один.`,
     examples: [
-      `mpu datasets-migrations ${sub} target: 777 dataset: wb_unit --print`,
+      `mpu datasets-migrations ${sub} print target: 777 dataset: wb_unit`,
     ],
     policy: "rw",
     helpWhenBare: true,

@@ -1,1 +1,1 @@
-mpu logs: --follow не поддерживается с --via portainer
+mpu logs: follow не поддерживается с portainer

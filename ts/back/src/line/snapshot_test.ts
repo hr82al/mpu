@@ -1,6 +1,6 @@
 /**
  * Снимок дерева — вывод протокола отражения (`platform/reflection.md`,
- * «mpu-complete»): у узла `messages`, `keys`, `formats` вида узла; ключи
+ * «mpu-complete»): у узла `messages`, `keys`, `formats`, `variants` вида узла; ключи
  * команды — из каталога ключей, как у справки.
  */
 
@@ -35,11 +35,11 @@ Deno.test("keys каждой команды — её ключи из катал�
 Deno.test("образцы: ключи kiten card, форматы sql-ro, сообщения корня", () => {
   assertEquals(
     node("kiten card").keys.map((key) => [key.name, key.kind, key.required]),
-    [["id", "value", true], ["no-images", "flag", false], [
-      "no-comments",
-      "flag",
-      false,
-    ]],
+    [["id", "value", true]],
+  );
+  assertEquals(
+    node("kiten card").variants.map((line) => [line.selector, line.input]),
+    [["no-comments", "comments"], ["no-images", "images"]],
   );
   assertEquals(node("sql-ro").formats, ["json", "md"]);
   assertEquals(node("kiten").formats, []);

@@ -26,7 +26,7 @@ export const sqlRoCommand = defineCommand({
   // видит режим дополнения, и расходиться с эталоном им незачем.
   summary:
     "Выполнить SQL в enforced read-only сессии (безопасный дефолт для чтения).",
-  usage: `mpu sql-ro target: ЦЕЛЬ [sql: ЗАПРОС] [--dry] [--verbose] ` +
+  usage: `mpu sql-ro [dry] [verbose] target: ЦЕЛЬ [sql: ЗАПРОС] ` +
     `[${GRAMMAR.close} md|json]`,
   help: `Звать для любого чтения из БД клиента или сервера: запрос идёт в
 read-only сессии, запись отклоняет сам сервер (SQLSTATE 25006), а не
@@ -43,7 +43,7 @@ sql: — запрос; sql: stdin или без sql: — ввод (с терми
 всего вызова.
 
 Форматы после ${GRAMMAR.close}: без формата — таблица; md; json — массив объектов.
---dry: мета-блок и SQL без подключения; --verbose — тот же блок при
+dry: мета-блок и SQL без подключения; verbose — тот же блок при
 обычном прогоне.
 
 Ключи env-файла (окружение процесса не читается): pg_<N>, PG_PORT
@@ -52,12 +52,12 @@ PG_MY_USER_PASSWORD/PG_MAIN_USER_PASSWORD; для dev — DEV_PG_HOST,
 DEV_PG_PORT (5434), DEV_PG_DB (mp_sl_1_dev), DEV_PG_USER,
 DEV_PG_PASSWORD.
 
-Exit: 0 — успех, включая --dry и запрос без набора строк; 1 — отказ
+Exit: 0 — успех, включая dry и запрос без набора строк; 1 — отказ
 записи и ошибка БД; 2 — ошибка ввода, резолва и конфигурации.`,
   examples: [
     'mpu sql-ro target: 42 sql: "SELECT count(*) FROM orders"',
     `mpu sql-ro target: sl-1 sql: "select 1" ${GRAMMAR.close} json`,
-    'echo "select 1" | mpu sql-ro target: dev:54 sql: stdin --dry',
+    'echo "select 1" | mpu sql-ro dry target: dev:54 sql: stdin',
   ],
   keys: { target: "selector", sql: "sql" },
   retired: { server: "target" },

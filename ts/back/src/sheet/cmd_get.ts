@@ -134,13 +134,13 @@ export const sheetGetCommand = defineCommand({
   errorName: "sheet",
   summary: "Прочитать диапазоны Google-таблицы.",
   usage:
-    "mpu sheet get [range: ДИАПАЗОН]... [spreadsheet: SS] [sheet: TAB] [from: FILE] [render: R] [--refresh] [end raw|tsv|json]",
+    "mpu sheet get [refresh] [range: ДИАПАЗОН]... [spreadsheet: SS] [sheet: TAB] [from: FILE] [render: R] [end raw|tsv|json]",
   help: `Звать, когда нужны значения или формулы ячеек Google-таблицы
 клиента — из самой таблицы, а не из БД, куда она грузится.
 
 Цель — spreadsheet:, иначе sheet.default. Чтение — через Apps Script
 webapp с кэшом целых листов: повтор диапазона отвечает из кэша с полем
-"fromCache": true; --refresh не читает кэш, но перезаписывает его.
+"fromCache": true; refresh не читает кэш, но перезаписывает его.
 
 Диапазоны берутся из range: (повторяется) и из from: (файл построчно, '-' —
 stdin; пустые строки и строки с # пропускаются) — источники

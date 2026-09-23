@@ -446,7 +446,7 @@ function writeContainerCache(
   const outcome = runContainerTransaction(params);
   const write = { written: params.rows.length, cacheDbPath: params.db.path };
   if (outcome.reset !== null) {
-    progress(`# --reset: удалено ${outcome.reset.deleted} старых записей`);
+    progress(`# reset: удалено ${outcome.reset.deleted} старых записей`);
   }
   if (outcome.reconciled > 0) {
     progress(`# удалено устаревших записей: ${outcome.reconciled}`);
@@ -500,7 +500,7 @@ export const initCommand = defineCommand({
   path: ["init"],
   keys: {},
   summary: "первичная инициализация локальной кэш-БД: пять шагов",
-  usage: "mpu init [portainer: TEXT] [--dry-run] [--reset]",
+  usage: "mpu init [dry] [reset] [portainer: TEXT]",
   help: `Звать на новой машине или когда mpu жалуется на пустой кэш.
 
 Пять шагов: 1) схема кэш-БД; 2) discovery контейнеров через
@@ -522,7 +522,7 @@ Kaiten ${KAITEN_TIMEOUTS.headersTimeoutMs}/${KAITEN_TIMEOUTS.totalTimeoutMs} ms;
 (<причина>)» и кода выхода не меняет. Контейнеры пишутся upsert'ом по
 (portainer_url, endpoint_id, container_id); запись реконсилирует кэш
 (down-endpoint'ы, пропавшие endpoint'ы/контейнеры удаляются, кроме
-сорвавшегося обхода); --reset чистит весь кэш заранее. --dry-run:
+сорвавшегося обхода); reset чистит весь кэш заранее. dry:
 только сводка шага 2, кэш не тронут (схема шага 1 создаётся всегда),
 шаги 3-5 не идут.
 

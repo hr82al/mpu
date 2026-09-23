@@ -67,7 +67,7 @@ const resultSchema = z.object({
     "текст отчёта целиком, без усечения; собран из журнала и живого опроса",
   ),
   sent: sentSchema.nullable().describe(
-    "результат отправки; при --dry-run — null, отправки не было",
+    "результат отправки; при dry — null, отправки не было",
   ),
 });
 
@@ -224,7 +224,7 @@ export const telegramStatusCommand = defineCommand({
   keys: {},
   errorName: "telegram status",
   summary: "Отправить отчёт о сегодняшних перемещениях карточек.",
-  usage: "mpu telegram status [chat: X] [--no-live] [--dry-run]",
+  usage: "mpu telegram status [no-live] [dry] [chat: X]",
   help: `Звать в конце дня, когда нужна сводка о движении карточек
 Kaiten для отправки в Telegram. Отчёт за сегодня (день МСК): какие карточки Kaiten я двигал и
 куда. Источники — журнал перемещений (его пишут команды mpu kiten) и
@@ -232,8 +232,8 @@ Kaiten для отправки в Telegram. Отчёт за сегодня (де
 
 chat: X — адресат: me («Избранное»), id, @username, ссылка t.me,
 телефон или название чата. Не задан — берётся TELEGRAM_DEFAULT_CHAT.
---no-live — не опрашивать Kaiten: отчёт на одном журнале.
---dry-run — напечатать отчёт в stdout и выйти: ни адресат, ни Telegram
+no-live — не опрашивать Kaiten: отчёт на одном журнале.
+dry — напечатать отчёт в stdout и выйти: ни адресат, ни Telegram
 не нужны; Kaiten опрашивается и здесь.
 
 Отказ Kaiten, ненастроенный KITEN_API_KEY или недоступная история
@@ -241,9 +241,9 @@ chat: X — адресат: me («Избранное»), id, @username, ссыл
 
 Отправка необратима и уходит от твоего имени; для проверок бери me.
 Текст длиннее 4096 кодовых единиц UTF-16 усекается по границе целых
-строк, --dry-run печатает его целиком.
+строк, dry печатает его целиком.
 
-stdout — текст отчёта при --dry-run, иначе строка JSON отправки.
+stdout — текст отчёта при dry, иначе строка JSON отправки.
 
 Ключи env-файла: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION
 (обязательны), TELEGRAM_DEFAULT_CHAT, TELEGRAM_PROXY, KITEN_API_KEY,
@@ -251,7 +251,7 @@ KITEN_BASE_URL, KITEN_COLUMN_MAP, KITEN_STATUS_EMOJI.
 
 Exit: 1 — конфигурация или отказ Telegram; 2 — адресат не задан.`,
   examples: [
-    "mpu telegram status --dry-run --no-live",
+    "mpu telegram status dry no-live",
   ],
   policy: "rw",
   argsSchema,

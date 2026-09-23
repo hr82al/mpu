@@ -135,7 +135,7 @@ const resultSchema = z.object({
   ),
   reply: z.object({
     commentId: z.number().int().nullable().describe(
-      "id созданного комментария; при --dry-run — null",
+      "id созданного комментария; при dry — null",
     ),
     expandedTo: z.string().nullable().describe(
       "во что раскрыт '@all'; раскрытия не было — null",
@@ -147,9 +147,9 @@ const resultSchema = z.object({
     relog: z.boolean().describe("перенос сводится к релог-bump"),
     from: z.string().describe("положение «до»"),
     to: z.string().nullable().describe(
-      "положение «после» по свежему чтению; при --dry-run — null",
+      "положение «после» по свежему чтению; при dry — null",
     ),
-  }).nullable().describe("перенос карточки; при --no-move — null"),
+  }).nullable().describe("перенос карточки; при no-move — null"),
 });
 
 /** Разобранные аргументы вызова. */
@@ -548,7 +548,7 @@ function timerRunningBody(
   timer: RunningTimer,
 ): string {
   return `на карточке запущен таймер (${since(timer)}); он НЕ остановлен — ` +
-    `\`mpu kiten time stop id: ${cardId}\` (или --stop-timer)`;
+    `\`mpu kiten time stop id: ${cardId}\` (или stop-timer)`;
 }
 
 /** «с 14.08 19:50 МСК, 1 мин»; метки старта нет — «с ?», без длительности. */
@@ -585,7 +585,7 @@ function renderPlan(result: KitenCloseResult, args: KitenCloseArgs): string {
     }`,
   ];
   const move = result.move === null
-    ? "  перенос: пропущен (--no-move)\n"
+    ? "  перенос: пропущен (no-move)\n"
     : moveDryRunLine(result.move);
   return `${lines.join("\n")}\n${move}`;
 }
@@ -640,9 +640,9 @@ export const kitenCloseCommand = defineCommand({
   errorName: "kiten close",
   summary: "Закрыть карточку Kaiten: поля, ответ клиенту, перенос в «Готово».",
   usage:
-    "mpu kiten close id: КАРТОЧКА [hypothesis: TEXT] [done: TEXT] [result: TEXT] [mr: URL] [reply: TEXT | reply-file: PATH] [column: REF] [--force-fields] [--no-move] [--stop-timer] [--dry-run]",
+    "mpu kiten close [force-fields] [no-move] [stop-timer] [dry] id: КАРТОЧКА [hypothesis: TEXT] [done: TEXT] [result: TEXT] [mr: URL] [reply: TEXT | reply-file: PATH] [column: REF]",
   help: `Звать, когда задача по карточке Kaiten сделана: таймер, поля
-разбора, ответ и перенос — одним вызовом; --dry-run — план без
+разбора, ответ и перенос — одним вызовом; dry — план без
 мутаций.
 
 id: — id карточки либо её URL. Шаги: таймер → поля → ответ → перенос.
@@ -651,7 +651,7 @@ id: — id карточки либо её URL. Шаги: таймер → пол
 
 hypothesis:/done:/result:/mr: — значения полей. Пишутся только
 переданные и только в пустое поле; заполненное пропускается,
---force-fields перезаписывает. Порядок: hypothesis, done, result, mr.
+force-fields перезаписывает. Порядок: hypothesis, done, result, mr.
 
 Ответ — один источник: reply: TEXT (reply: stdin — весь ввод) либо
 reply-file: PATH ('-' — ввод, прежняя запись), пустой текст отвергается. Самостоятельный '@all' раскрывается в
@@ -659,9 +659,9 @@ reply-file: PATH ('-' — ввод, прежняя запись), пустой �
 
 column: REF — колонка переноса (id либо название), иначе ключ
 ${COLUMN_ENV_KEY}, иначе «${DEFAULT_COLUMN}»; резолвится на доске карточки
-до первой мутации. --no-move — не переносить.
+до первой мутации. no-move — не переносить.
 
---stop-timer — остановить идущий таймер и записать время (роль: ключ
+stop-timer — остановить идущий таймер и записать время (роль: ключ
 ${ROLE_ENV_KEY} → 12058). Без флага таймер не трогается никогда, о
 запущенном команда предупреждает.
 
@@ -671,7 +671,7 @@ ${COLUMN_ENV_KEY}, ${ROLE_ENV_KEY}.
 Exit: 0 — успех; 1 — ошибка API (назван упавший шаг); 2 — ошибка ввода
 (id:, источники ответа, колонка, ключ доступа).`,
   examples: [
-    "mpu kiten close id: 10000001 done: Починили reply-file: - --stop-timer",
+    "mpu kiten close stop-timer id: 10000001 done: Починили reply-file: -",
   ],
   policy: "rw",
   argsSchema,

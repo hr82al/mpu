@@ -286,7 +286,7 @@ Deno.test("голый вызов обёртки печатает справку,
   const cli = makeCli();
   assertEquals(await cli.run("ss-update"), 2);
   assertStringIncludes(cli.stdout(), "mpu ss-update");
-  assertStringIncludes(cli.stdout(), "--print");
+  assertStringIncludes(cli.stdout(), "[print [local]]");
   assertEquals(cli.stderr(), "");
 });
 
@@ -323,7 +323,10 @@ Deno.test("раскладка selector-first: селектор до имени �
   await t.step("голая подкоманда — справка листа, exit 2", async () => {
     const cli = makeCli();
     assertEquals(await cli.run("ozon-jobs", "show"), 2);
-    assertStringIncludes(cli.stdout(), "mpu ozon-jobs show target: СЕЛЕКТОР");
+    assertStringIncludes(
+      cli.stdout(),
+      "mpu ozon-jobs show [print [local]] target: СЕЛЕКТОР",
+    );
   });
 
   await t.step("справка подкоманды доступна за её именем", async () => {

@@ -81,21 +81,21 @@ Deno.test("протокол отражения: граничные случаи 
   const cases: readonly (readonly [readonly string[], string])[] = [
     [
       ["kiten", "card", "keys"],
-      "id\tvalue\tобязателен\tid карточки либо её URL, короткий или глубокий\n" +
-      "no-images\tflag\t-\tвложения-картинки в наглядном виде; выключить — " +
-      "флагом --no-images\n" +
-      "no-comments\tflag\t-\tкомментарии карточки; не читать их — флагом " +
-      "--no-comments\n",
+      "id\tvalue\tобязателен\tid карточки либо её URL, короткий или глубокий\n",
     ],
     [["sql-ro", "formats"], "json\nmd\n"],
     [["kiten", "understands:", "ls"], "true\n"],
     [["kiten", "understands:", "nope"], "false\n"],
     [["kiten", "card", "understands:", GRAMMAR.literal, "id:"], "true\n"],
+    [["kiten", "card", "understands:", "no-images"], "true\n"],
     [
-      ["kiten", "card", "understands:", GRAMMAR.literal, "--no-images"],
-      "true\n",
+      ["kiten", "card", "variants"],
+      "no-comments\tкомментарии карточки; не читать их — вариантом " +
+      "no-comments\n" +
+      "no-images\tвложения-картинки в наглядном виде; выключить — " +
+      "вариантом no-images\n",
     ],
-    [["kiten", "card", "variants"], ""],
+    [["kiten", "variants"], ""],
   ];
   await withPolicyFile(async (file) => {
     for (const [argv, stdout] of cases) {
@@ -113,15 +113,12 @@ Deno.test("протокол отражения: граничные случаи 
 
 Deno.test("keys end json — массив ключей с причинами", () =>
   withPolicyFile(async (file) => {
-    const { stdout } = await run(file, ["kiten", "card", "keys", END, "json"]);
+    const { stdout } = await run(file, ["sql-ro", "keys", END, "json"]);
     assertEquals(
       JSON.parse(stdout).map((
         key: { name: string; reason: string | null },
       ) => [key.name, key.reason]),
-      [["id", null], ["no-images", "прежнее имя входа"], [
-        "no-comments",
-        "прежнее имя входа",
-      ]],
+      [["target", null], ["sql", "прежнее имя входа"]],
     );
   }));
 
@@ -196,7 +193,8 @@ Deno.test("complete: — слова следующего шага", async (t) =>
       const io = { openCacheDb: () => openCacheDb(cache) };
       const cases: readonly (readonly [string, readonly string[]])[] = [
         ["kiten ca", ["card"]],
-        ["sql-ro target: 54 ", ["sql:", "--dry", "--verbose"]],
+        ["sql-ro target: 54 ", ["sql:"]],
+        ["sql-ro ", ["dry", "target:", "verbose"]],
         ["sql-ro target: ром", ["54"]],
         [`kiten card id: 1 ${END} `, [
           "first",
@@ -210,7 +208,8 @@ Deno.test("complete: — слова следующего шага", async (t) =>
           "sortBy:",
           "where:",
         ]],
-        ["kiten card ", ["id:"]],
+        ["kiten card ", ["id:", "no-comments", "no-images"]],
+        ["kiten card no-images ", ["id:", "no-comments"]],
         [`kiten card id: 1 ${GRAMMAR.literal} `, []],
         ["kitn ", []],
       ];
@@ -239,14 +238,14 @@ Deno.test("complete: через дверь — ключи; ни вопроса, 
   withPolicyFile(async (file) => {
     const { code, stdout, stderr, called } = await run(file, [
       "complete:",
-      "ask sql target: 1 sql: x ",
+      "ask sql dry ",
     ]);
     assertEquals(code, 0);
     assertEquals(
       stdout.split("\n").filter((row) => row !== "").map((row) =>
         row.split("\t")[0]
       ),
-      ["--dry", "--verbose"],
+      ["target:", "verbose"],
     );
     assertFalse(stderr.includes("выполнить"), stderr);
     assertEquals(called, []);

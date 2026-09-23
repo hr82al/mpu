@@ -20,9 +20,10 @@ export type {
   Trace,
   ValueEvaluation,
   ValueLine,
+  VariantLine,
   Yields,
 } from "./protocol.ts";
-export type { Fallback, Method } from "./method.ts";
+export type { Description, Fallback, Method, VariantMethod } from "./method.ts";
 export {
   AsideCall,
   foreignTail,
@@ -39,6 +40,7 @@ export {
   EVERYONE,
   NO_VALUES,
   origin,
+  ROOT_TEXT,
   type Roster,
   Shape,
   type ShapeOptions,

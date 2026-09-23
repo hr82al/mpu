@@ -26,7 +26,7 @@ export const ozonSaveExpensesCommand = defineCommand({
   keys: {},
   summary: "Сохранить расходы Ozon UNIT клиента за период.",
   usage:
-    "mpu ozon-save-expenses target: СЕЛЕКТОР [server: sl-N] [--print [--local]] [client-id: N] [date-from: F] [date-to: T]",
+    "mpu ozon-save-expenses [print [local]] target: СЕЛЕКТОР [server: sl-N] [client-id: N] [date-from: F] [date-to: T]",
   help: `Звать, когда рассчитанные расходы Ozon UNIT клиента за период надо
 сохранить в БД.
 
@@ -35,9 +35,9 @@ export const ozonSaveExpensesCommand = defineCommand({
 стримит его вывод, код выхода наследуется 1:1. Сохранение перезаписывает
 расчётные данные UNIT клиента за указанный период.
 
---print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального стенда
-(без ssh); сам по себе --local — ошибка ввода.
+print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального стенда
+(без ssh); сам по себе local — ошибка ввода.
 
 Период: date-from: по умолчанию 2025-01-01, date-to: — сегодняшняя
 дата машины (вычисляется в момент вызова и всегда уходит в команду явно).
@@ -53,7 +53,7 @@ Exit: код inner-команды при выполнении; 0 при печа
 резолва и конфигурации.`,
   examples: [
     "mpu ozon-save-expenses target: 777 date-from: 2026-01-01",
-    "mpu ozon-save-expenses target: 777 --print date-to: 2026-01-31",
+    "mpu ozon-save-expenses print target: 777 date-to: 2026-01-31",
   ],
   policy: "rw",
   helpWhenBare: true,

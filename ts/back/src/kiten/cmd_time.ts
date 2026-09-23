@@ -346,7 +346,7 @@ async function requireOwnLog(
   if (log.userId !== owner) {
     throw new DomainError(
       `запись ${logId} принадлежит другому пользователю ` +
-        `(user_id=${log.userId}, я ${owner}); повтори с --force`,
+        `(user_id=${log.userId}, я ${owner}); повтори с force`,
     );
   }
   return log;
@@ -423,7 +423,7 @@ export const kitenTimeLsCommand = defineCommand({
   errorName: "kiten time ls",
   summary: "Показать записи учёта времени карточки Kaiten.",
   usage:
-    "mpu kiten time ls id: КАРТОЧКА [--all] [date-from: D] [date-to: D] [role: REF] [end json]",
+    "mpu kiten time ls [all] id: КАРТОЧКА [date-from: D] [date-to: D] [role: REF] [end json]",
   help: `Звать, когда нужны записи учёта времени по карточке Kaiten — свои
 или всех.
 
@@ -431,7 +431,7 @@ id: — id карточки либо её URL.
 
 По умолчанию показаны только записи владельца токена: внешняя система
 отдаёт записи всей компании, и фильтр делается на стороне команды —
-поэтому без --all идёт второй запрос, за текущим пользователем. С --all
+поэтому без all идёт второй запрос, за текущим пользователем. С all
 записи всех пользователей и появляется колонка ПОЛЬЗОВАТЕЛЬ.
 
 date-from:/date-to: — границы даты записи YYYY-MM-DD, обе включительно.
@@ -519,7 +519,7 @@ export const kitenTimeEditCommand = defineCommand({
   errorName: "kiten time edit",
   summary: "Изменить запись учёта времени на карточке Kaiten.",
   usage:
-    "mpu kiten time edit id: КАРТОЧКА log: ЗАПИСЬ [time: DURATION] [date: D] [role: REF] [text: TEXT] [--force]",
+    "mpu kiten time edit [force] id: КАРТОЧКА log: ЗАПИСЬ [time: DURATION] [date: D] [role: REF] [text: TEXT]",
   help: `Звать, когда запись учёта времени надо поправить: длительность, дату,
 роль или комментарий.
 
@@ -536,12 +536,12 @@ role: — id либо название роли; нечисловое значе
 справочником. Цепочки «env → умолчание» здесь нет: без флага ось роли не
 задана, и роль записи остаётся прежней.
 
-Запись другого пользователя не меняется без --force. Запись без владельца
+Запись другого пользователя не меняется без force. Запись без владельца
 меняется без ограничений.
 
 ${ENV_KEYS}
 
-Exit: 0 — успех; 1 — записи нет на карточке, чужая запись без --force,
+Exit: 0 — успех; 1 — записи нет на карточке, чужая запись без force,
 ошибка API Kaiten; 2 — ошибка ввода (пустое обновление, длительность,
 дата, роль, селектор, ненастроенный KITEN_API_KEY).`,
   examples: [
@@ -570,7 +570,7 @@ export const kitenTimeRmCommand = defineCommand({
   },
   errorName: "kiten time rm",
   summary: "Удалить запись учёта времени с карточки Kaiten.",
-  usage: "mpu kiten time rm id: КАРТОЧКА log: ЗАПИСЬ [--force]",
+  usage: "mpu kiten time rm [force] id: КАРТОЧКА log: ЗАПИСЬ",
   help: `Звать, когда запись учёта времени ошибочна и её надо удалить.
 
 id: — id карточки либо её URL. log: — id записи с этой же
@@ -580,12 +580,12 @@ id: — id карточки либо её URL. log: — id записи с эт�
 комментарий: это страховка от опечатки в id, увидеть исчезнувшее после
 удаления уже негде.
 
-Запись другого пользователя не удаляется без --force. Запись без
+Запись другого пользователя не удаляется без force. Запись без
 владельца удаляется без ограничений.
 
 ${ENV_KEYS}
 
-Exit: 0 — успех; 1 — записи нет на карточке, чужая запись без --force,
+Exit: 0 — успех; 1 — записи нет на карточке, чужая запись без force,
 ошибка API Kaiten; 2 — ошибка ввода (селектор, LOG_ID, ненастроенный
 KITEN_API_KEY).`,
   examples: [

@@ -51,7 +51,7 @@ async function golden(name: string, body: unknown) {
 Deno.test("ввод: поле кадра доходит до команды, без поля — пусто", () =>
   withBack(async (back) => {
     const first = {
-      words: ["confirm", "--yes"],
+      words: ["confirm", "yes"],
       cwd: Deno.cwd(),
       human: true,
       stdin: "текст\n",
@@ -67,7 +67,7 @@ Deno.test("ввод: поле кадра доходит до команды, б�
       frames,
     });
     // Поля нет — ввод пуст, как до порции 11.
-    assertEquals(await line(back, "/line", ["confirm", "--yes"]), [
+    assertEquals(await line(back, "/line", ["confirm", "yes"]), [
       { err: "\n" },
       { out: "" },
       { exit: 0 },
@@ -76,7 +76,7 @@ Deno.test("ввод: поле кадра доходит до команды, б�
 
 Deno.test("ввод: пустая строка — это ввод", () =>
   withBack(async (back) => {
-    assertEquals(await lineWith(back, ["confirm", "--yes"], { stdin: "" }), [
+    assertEquals(await lineWith(back, ["confirm", "yes"], { stdin: "" }), [
       { err: "\n" },
       { out: "" },
       { exit: 0 },
@@ -91,7 +91,7 @@ Deno.test("ввод больше предела: отказ до исполне�
   ];
   await t.step("WebSocket", () =>
     withBack(async (back) => {
-      assertEquals(await lineWith(back, ["confirm", "--yes"], { stdin: big }), [
+      assertEquals(await lineWith(back, ["confirm", "yes"], { stdin: big }), [
         ...refusal,
       ]);
       // Строка не исполнялась: команда не вызвана.
@@ -102,7 +102,7 @@ Deno.test("ввод больше предела: отказ до исполне�
       const frames = await ndjson(
         back,
         await post(back, "/line", {
-          words: ["confirm", "--yes"],
+          words: ["confirm", "yes"],
           cwd: Deno.cwd(),
           stdin: big,
         }),
@@ -228,14 +228,14 @@ Deno.test("вопрос по номеру: исполнение видит то�
       { exit: 0 },
     );
     const responses = await httpLine(back, "/line", {
-      words: ["ask", "confirm", "--yes"],
+      words: ["ask", "confirm", "yes"],
       cwd: Deno.cwd(),
       human: true,
       stdin: "через номер\n",
     }, ["y"]);
     const [asked, resumed] = responses;
     assertEquals(asked.length, 1);
-    assertEquals(asked[0].ask, "выполнить mpu confirm --yes? [y/N] ");
+    assertEquals(asked[0].ask, "выполнить mpu confirm yes? [y/N] ");
     assertEquals(resumed, [
       { err: "через номер\n" },
       { out: "через номер\n" },
@@ -249,7 +249,7 @@ Deno.test("контекст в теле ответа по номеру — 400, 
     const asked = await ndjson(
       back,
       await post(back, "/line", {
-        words: ["ask", "confirm", "--yes"],
+        words: ["ask", "confirm", "yes"],
         cwd: Deno.cwd(),
         human: true,
         stdin: "первый\n",

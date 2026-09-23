@@ -342,7 +342,11 @@ Deno.test("конфликты режимов отбиваются до сети"
           args({ mr: ["group/repo!1"], repos: ["wb/x"] }),
           "repo:",
         ],
-        ["--branches без адреса", args({ branches: true }), "--branches"],
+        [
+          "--branches без адреса",
+          args({ branches: true }),
+          "branches применяется",
+        ],
       ] as const
     ) {
       await t.step(name, async () => {
@@ -545,7 +549,7 @@ Deno.test("подвал: (нет), полный список и форма на 
         );
         assertStringIncludes(
           renderGlabStatus(result, args()),
-          "прочие ветки: 2 (показать: --branches)\n",
+          "прочие ветки: 2 (показать: branches)\n",
         );
         assertStringIncludes(
           renderGlabStatus(result, args({ branches: true })),

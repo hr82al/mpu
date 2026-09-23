@@ -795,7 +795,7 @@ function checks(subject: Subject): readonly Check[] {
           "PORTAINER_API_KEY=proba-kluch\n" +
             `PORTAINER_URL=http://127.0.0.1:${server.addr.port}\n`,
         );
-        const outcome = await runOk(subject, ["init", "--dry-run"]);
+        const outcome = await runOk(subject, ["init", "dry"]);
         assert(
           outcome.stdout.includes("sl-1: sl-1-cli [running]"),
           `сводка не та: ${JSON.stringify(outcome.stdout)}`,
@@ -911,9 +911,9 @@ function checks(subject: Subject): readonly Check[] {
       );
       const outcome = await runOk(subject, [
         "d2-miro",
+        "dry",
         "file:",
         `${base}.d2`,
-        "--dry-run",
       ]);
       assert(
         outcome.stdout.includes("[dry-run] would create:") &&
@@ -1053,12 +1053,12 @@ function checks(subject: Subject): readonly Check[] {
       try {
         const dry = await runOk(subject, [
           "sql-ro",
+          "dry",
+          "verbose",
           "target:",
           "sl-1",
           "sql:",
           "SELECT 1",
-          "--dry",
-          "--verbose",
         ]);
         assertEquals(dry.stdout, "", "у --dry stdout обязан быть пуст");
         assertEquals(

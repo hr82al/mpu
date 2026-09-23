@@ -103,7 +103,15 @@ Deno.test("отказы с готовой строкой — раздел 3", as
       ["ps", "--tsv"],
       `mpu ps: формат — сообщение результату: mpu ps ${END} tsv`,
     ],
-    [["confirm", "-y"], "mpu confirm: флаг — полным именем: mpu confirm --yes"],
+    [
+      ["confirm", "-y"],
+      "mpu confirm: вариант — словом до ключей: mpu confirm yes",
+    ],
+    [
+      ["confirm", "text:", "да?", "-y"],
+      "mpu confirm text: да?: значение да? не понимает -y; вариант — словом " +
+      "до ключей: mpu confirm yes text: да?",
+    ],
     [
       ["confirm", "-m", "да?"],
       "mpu confirm: текст — ключом: mpu confirm text: да?",

@@ -32,7 +32,7 @@ const SQL_IO: Partial<CommandIo> = {
   },
 };
 
-const SQL = ["sql-ro", "target:", "sl-1", "sql:", "select 1 as n", "--dry"];
+const SQL = ["sql-ro", "dry", "target:", "sl-1", "sql:", "select 1 as n"];
 
 /** Строка вызывающего с памятью `memory`: вывод, код и исполненные. */
 async function run(file: string, argv: readonly string[], memory: Memory) {

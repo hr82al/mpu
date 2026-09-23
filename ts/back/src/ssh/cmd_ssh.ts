@@ -8,6 +8,13 @@ import { defineCommand } from "../command/mod.ts";
 import { argsSchema, resultSchema, runSsh, type SshIo } from "./run.ts";
 
 export const sshCommand = defineCommand({
+  choices: {
+    ssh: { input: "via", purpose: "транспорт серверного таргета — ssh" },
+    portainer: {
+      input: "via",
+      purpose: "транспорт серверного таргета — Portainer",
+    },
+  },
   path: ["ssh"],
   keys: {
     cmd: {
@@ -20,7 +27,7 @@ export const sshCommand = defineCommand({
   summary:
     "Выполнить команду в `sl-N-cli` ИЛИ в произвольном контейнере по точному имени.",
   usage:
-    "mpu ssh [target: СЕЛЕКТОР | all-containers: ПОДСТРОКА] cmd: КОМАНДА [via: ssh|portainer] [stdin-text: T | stdin-file: P | --stdin-tty]",
+    "mpu ssh [ssh|portainer] [stdin-tty] [target: СЕЛЕКТОР | all-containers: ПОДСТРОКА] cmd: КОМАНДА [stdin-text: T | stdin-file: P]",
   help: `Звать, когда нужна shell-команда внутри контейнера сервера или
 клиента — посмотреть файлы, env, процессы. Вывод стримится, код выхода
 наследуется 1:1.
@@ -38,7 +45,7 @@ all-containers: SUBSTR — последовательно во всех конт
 имя содержит подстроку; target: при этом не задаётся. Первый ненулевой
 код прерывает остальные.
 
-stdin: stdin-text: (строка), stdin-file: (байты файла), --stdin-tty
+stdin: stdin-text: (строка), stdin-file: (байты файла), stdin-tty
 (с терминала до Ctrl+D) — взаимоисключимы. Без них читается пайп; с
 терминала stdin пустой.
 

@@ -417,6 +417,12 @@ interface CommandDeclaration<A, R> {
    */
   readonly modes?: Readonly<Record<string, CommandMode>>;
   /**
+   * Варианты, выбирающие значение входа (`--via portainer` → вариант
+   * `portainer`, `platform/variants.md`): имя варианта — это значение.
+   * Булевы входы становятся вариантами правилом, без объявления.
+   */
+  readonly choices?: Readonly<Record<string, Choice>>;
+  /**
    * Вход, который команда при терминале читает сама, если значения нет
    * (`sql`: чтение до Ctrl+D): `stdin` на его месте при терминале
    * оставляет его без значения (`platform/value-expression.md`).
@@ -466,6 +472,12 @@ export interface CommandMode {
   readonly fixed: Readonly<Record<string, string>>;
   /** Ключи режима: ключ → вход команды. */
   readonly keys: Readonly<Record<string, string>>;
+}
+
+/** Вариант-выбор: какой вход он задаёт своим именем и зачем. */
+export interface Choice {
+  readonly input: string;
+  readonly purpose: string;
 }
 
 /** Команда в реестре: типы аргументов и результата скрыты внутри. */
@@ -531,6 +543,8 @@ export interface Command {
   readonly examples: readonly string[];
   /** Режимы команды: имя унарного сообщения → режим. */
   readonly modes: Readonly<Record<string, CommandMode>>;
+  /** Варианты-выборы: имя варианта (значение входа) → выбор. */
+  readonly choices: Readonly<Record<string, Choice>>;
   /** Вход, который команда при терминале читает сама; нет — `undefined`. */
   readonly terminalInput: string | undefined;
   /** Проверяет образец результата объявленной схемой. */
@@ -622,6 +636,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     retired: { ...spec.retired },
     examples: [...(spec.examples ?? [])],
     modes: { ...spec.modes },
+    choices: { ...spec.choices },
     terminalInput: spec.terminalInput,
     textExitCode: (result) =>
       spec.textExitCode === undefined

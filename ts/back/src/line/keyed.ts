@@ -26,6 +26,13 @@ import type { Line } from "./dispatch.ts";
 import { formatAsFlag, Keys, type Layout, NO_REST, type Rest } from "./keys.ts";
 import type { Order } from "./order.ts";
 import { Pending as PendingOf, type ResultOf, type Settle } from "./result.ts";
+import {
+  type Chosen,
+  type Misplaced,
+  MisplacedVariants,
+  NONE_CHOSEN,
+  VariantMethod,
+} from "./variants.ts";
 
 /** Звено хвоста и пути правил ключевой команды — прежнее. */
 const ARGS = "<args>";
@@ -56,6 +63,7 @@ class Keyed {
   readonly #stripped: Stripped;
   readonly #rest: Rest;
   readonly #formats: readonly string[];
+  readonly #misplaced: Misplaced;
 
   constructor(
     line: Line,
@@ -63,19 +71,21 @@ class Keyed {
     stripped: Stripped,
     rest: Rest,
     formats: readonly string[],
+    misplaced: Misplaced,
   ) {
     this.#line = line;
     this.#order = order;
     this.#stripped = stripped;
     this.#rest = rest;
     this.#formats = formats;
+    this.#misplaced = misplaced;
   }
 
   /** Строка к исполнению — после проверок, до исполнения. */
   pending(): PendingOf {
     this.#stripped.check();
     this.#rest.check(this.#formats);
-    return new PendingOf(this.#line, this.#order);
+    return new PendingOf(this.#line, this.#order, this.#misplaced);
   }
 }
 
@@ -126,7 +136,7 @@ class KeyStrays implements Strays {
     if (hint === undefined) return NO_REMEDY;
     return {
       spell: (address, taken) =>
-        `; ${hint.reason}: ${callLine(address, [...taken, ...hint.words])}`,
+        `; ${hint.reason}: ${callLine(address, hint.spelled(taken))}`,
     };
   }
 }
@@ -144,6 +154,8 @@ export interface KeyedParts {
   readonly stripped: Stripped;
   /** Значения ключа `target:` для дополнения. */
   readonly targets: Targets;
+  /** Варианты, набранные до ключей; нет — лист без вариантов. */
+  readonly chosen?: Chosen;
 }
 
 /** Значения ключа `target:`, начинающиеся с набранного. */
@@ -179,6 +191,10 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
     parts.mode,
     parts.layout,
   );
+  const chosen = parts.chosen ?? NONE_CHOSEN;
+  const names = keys.variants().map((variant) => variant.name);
+  const misplaced = (pairs: readonly string[]) =>
+    new MisplacedVariants(parts.command.path, names, chosen, pairs);
   const keyed = new Shape<Keyed>([], {
     ending: {
       finish: (report, self) => self.pending().settle(report, parts.settle),
@@ -189,10 +205,11 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
   const bare = (line: Line) =>
     new Keyed(
       line,
-      keys.order(keys.none()),
+      keys.order(keys.none(), chosen),
       parts.stripped,
       NO_REST,
       parts.results.names(),
+      misplaced([]),
     );
   const fallback: Fallback<Line> = {
     understand(sent: Sent, line: Line, refuse: () => Call): Call {
@@ -208,10 +225,11 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
           const accepted = keys.accept(named, result);
           const state = new Keyed(
             line,
-            keys.order(accepted.args),
+            keys.order(accepted.args, chosen),
             parts.stripped,
             accepted.rest,
             parts.results.names(),
+            misplaced(accepted.pairs),
           );
           return accepted.rest.after(
             new KeyCall(accepted.text, parts.doc, keyed, state),
@@ -239,7 +257,17 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
     },
   };
   const target = keys.describe().keys.target !== undefined;
+  const variants = keys.variants()
+    .filter((variant) => chosen.offers(variant))
+    .map((variant) =>
+      new VariantMethod(
+        variant,
+        parts.doc,
+        () => keyedLeaf({ ...parts, chosen: chosen.with(variant) }),
+      )
+    );
   return new Shape<Line>(modesOf(parts), {
+    variants,
     fallback,
     values: {
       // Значения объявлены только у `target:` (спека, «Известные

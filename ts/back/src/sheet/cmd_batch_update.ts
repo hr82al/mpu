@@ -127,13 +127,13 @@ export const sheetBatchUpdateCommand = defineCommand({
   errorName: "sheet batch-update",
   summary: "Пакетная правка Google-таблицы мини-языком.",
   usage:
-    "mpu sheet batch-update [expression: ВЫРАЖЕНИЕ]… [from: FILE|-] [spreadsheet: SS] [sheet: TAB] [--dry-run] [--literal]",
+    "mpu sheet batch-update [dry] [literal] [expression: ВЫРАЖЕНИЕ]… [from: FILE|-] [spreadsheet: SS] [sheet: TAB]",
   help: `Звать, когда в Google-таблице надо поменять больше одного места
 (значения, формат, структуру) и правки должны лечь вместе или никак:
 скрипт уходит одним spreadsheets/batchUpdate.
 
-Цель — spreadsheet:, иначе sheet.default. --dry-run печатает
-{"requests": […]} без записи; --literal делает все значения строками.
+Цель — spreadsheet:, иначе sheet.default. dry печатает
+{"requests": […]} без записи; literal делает все значения строками.
 
 Скрипт — все expression: плюс содержимое from: (файл, '-' — весь stdin);
 источники складываются. Нет ни expression:, ни from: и stdin не терминал —
@@ -149,7 +149,7 @@ group/ungroup, append, sheet (add delete rename dup tab), cond
 
 Лист, создаваемый этим же скриптом, на компиляции не существует.
 
-При --dry-run метаданные всё равно читаются: без них не собрать
+При dry метаданные всё равно читаются: без них не собрать
 sheetId. Скрипт из одних комментариев печатает «нет операций».
 
 Exit: 0 — успех; 2 — ошибки скрипта, ввода и резолва цели; 1 — отказ

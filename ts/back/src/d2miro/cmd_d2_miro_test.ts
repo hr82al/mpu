@@ -188,7 +188,7 @@ Deno.test("выбор SVG: правила спеки по порядку", async
       DomainError,
     );
     assertStringIncludes(err.message, "d2 CLI is not in PATH");
-    assertStringIncludes(err.message, "--skip-render");
+    assertStringIncludes(err.message, "skip-render");
   });
 
   await t.step("сбой d2 — отказ внешней системы, а не молчание", async () => {

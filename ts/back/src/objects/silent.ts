@@ -11,6 +11,7 @@ export const SILENT: Reflection = {
   messages: () => [],
   keys: () => [],
   formats: () => [],
+  variants: () => [],
   candidates: () => Promise.resolve([]),
   understands: () => false,
   prompts: () => false,

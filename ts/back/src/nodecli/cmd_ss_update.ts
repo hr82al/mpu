@@ -35,7 +35,7 @@ export const ssUpdateCommand = defineCommand({
   // дефолт у обёртки — выполнение, а не печать.
   summary: "Запустить обновление Google-таблицы клиента в контейнере sl-back.",
   usage:
-    "mpu ss-update target: СЕЛЕКТОР [server: sl-N] [--print [--local]] [client-id: N] [spreadsheet-id: S] [update-type: T] [logs: L]",
+    "mpu ss-update [print [local]] target: СЕЛЕКТОР [server: sl-N] [client-id: N] [spreadsheet-id: S] [update-type: T] [logs: L]",
   help: `Звать, когда Google-таблица клиента не обновилась и её надо
 перестроить из БД сейчас, не дожидаясь расписания.
 
@@ -43,9 +43,9 @@ export const ssUpdateCommand = defineCommand({
 запускает \`node cli service:ssUpdater update\` и стримит его вывод, код
 выхода наследуется 1:1.
 
---print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального стенда
-(без ssh); сам по себе --local — ошибка ввода.
+print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального стенда
+(без ssh); сам по себе local — ошибка ввода.
 
 target: — client_id, spreadsheet_id или заголовок таблицы;
 server: sl-N задаёт сервер напрямую. client-id: и spreadsheet-id:
@@ -60,8 +60,8 @@ Exit: код inner-команды при выполнении; 0 при печа
 резолва и конфигурации.`,
   examples: [
     "mpu ss-update target: 777",
-    "mpu ss-update target: 777 --print",
-    "mpu ss-update target: 777 --print --local update-type: manual",
+    "mpu ss-update print target: 777",
+    "mpu ss-update print local target: 777 update-type: manual",
   ],
   policy: "rw",
   // Голый вызов печатает справку, а не сообщение схемы (спека

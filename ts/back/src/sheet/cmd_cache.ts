@@ -155,7 +155,7 @@ export const sheetCacheClearCommand = defineCommand({
   errorName: "sheet cache clear",
   summary: "Очистить локальный кэш вкладок.",
   usage: "mpu sheet cache clear [spreadsheet: SS]",
-  help: `Звать, когда sheet отвечает устаревшим и --refresh не помогает
+  help: `Звать, когда sheet отвечает устаревшим и refresh не помогает
 или кэш надо освободить: удаляет две вещи — тела вкладок и метаданные
 таблицы. С spreadsheet: — по одной таблице, без spreadsheet: — весь
 кэш.

@@ -142,7 +142,7 @@ Deno.test("allow-строка через дверь — исполнение, к
     for (
       const line of [
         [...READING],
-        ["ozon-jobs", "show", "target:", "sl-2", "--print", "--local"],
+        ["ozon-jobs", "show", "print", "local", "target:", "sl-2"],
       ]
     ) {
       const plain = await run(file, line, ["y"]);
@@ -359,10 +359,10 @@ Deno.test("группа с селектором впереди: правило �
     const local = await run(file, [
       "ozon-jobs",
       "show",
+      "print",
+      "local",
       "target:",
       "sl-2",
-      "--print",
-      "--local",
     ]);
     assertEquals(local.code, 0, local.stderr);
   }));

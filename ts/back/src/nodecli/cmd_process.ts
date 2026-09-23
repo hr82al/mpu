@@ -77,7 +77,7 @@ export const processCommand = defineCommand({
   keys: {},
   summary: "Пересчитать витрины клиента (dataProcessor.process).",
   usage:
-    "mpu process target: СЕЛЕКТОР [server: sl-N] [--print [--local]] [client-id: N] [dataset: D] [datasets: D…] [modules: M…] [with-tags: T…] [--forced] [--dry-run] [skus: SKU]… [logs: L] [--verbose]",
+    "mpu process [print [local]] [forced] [dry] [verbose] target: СЕЛЕКТОР [server: sl-N] [client-id: N] [dataset: D] [datasets: D…] [modules: M…] [with-tags: T…] [skus: SKU]… [logs: L]",
   help: `Звать, когда витрины клиента надо пересчитать сейчас: после
 догрузки, правки себестоимости или сбоя.
 
@@ -85,8 +85,8 @@ export const processCommand = defineCommand({
 \`node cli service:dataProcessor process\`, стримит вывод, код выхода
 наследуется 1:1.
 
---print печатает команду и копирует её в буфер, не выполняя;
---local вместе с --print — форма локального стенда. --dry-run к печати
+print печатает команду и копирует её в буфер, не выполняя;
+local вместе с print — форма локального стенда. dry к печати
 отношения не имеет: это флаг метода.
 
 target: — client_id, spreadsheet_id, заголовок либо dev:N; server:
@@ -101,12 +101,12 @@ with-tags:, without-tags: уходят одним флагом со значен
 wb_unit wb_unit); skus: повторяется и уходит токеном [1,2]; nm-ids:
 строкой [7,8] как есть. dataset: — обычная строка.
 
---verbose печатает # inner: <команда> в stderr во всех режимах. Значения
+verbose печатает # inner: <команда> в stderr во всех режимах. Значения
 проверяются до сети: допустимы A-Za-z0-9 и _ . / : - , @ [ ].
 
 Exit: код inner-команды; 0 при печати; 2 — ошибки ввода и резолва.`,
   examples: [
-    "mpu process target: 777 dataset: wb_unit --print",
+    "mpu process print target: 777 dataset: wb_unit",
   ],
   policy: "rw",
   helpWhenBare: true,

@@ -162,10 +162,10 @@ Deno.test("сценарий 4: sql: stdin — как прежде без sql:", 
     const stdin = "select 1\n";
     const keyed = await run(
       file,
-      ["sql-ro", "target:", "sl-1", "sql:", STDIN, "--dry"],
+      ["sql-ro", "dry", "target:", "sl-1", "sql:", STDIN],
       { stdin, io: SQL_IO },
     );
-    const before = await run(file, ["sql-ro", "target:", "sl-1", "--dry"], {
+    const before = await run(file, ["sql-ro", "dry", "target:", "sl-1"], {
       stdin,
       io: SQL_IO,
     });
@@ -195,7 +195,7 @@ Deno.test("stdin взят ключом — команда сама его не �
     allowEverything(file);
     const got = await run(
       file,
-      ["sql-ro", "target:", STDIN, "--dry"],
+      ["sql-ro", "dry", "target:", STDIN],
       { stdin: "sl-1\n", io: SQL_IO },
     );
     assertEquals(got.code, 2, got.stderr);
@@ -208,7 +208,7 @@ Deno.test("сценарий 6: -- stdin — слово stdin", () =>
     allowEverything(file);
     const got = await run(
       file,
-      ["sql-ro", "target:", "sl-1", "sql:", LITERAL, STDIN, "--dry"],
+      ["sql-ro", "dry", "target:", "sl-1", "sql:", LITERAL, STDIN],
       { io: SQL_IO },
     );
     assertEquals(got.code, 0, got.stderr);
@@ -233,10 +233,10 @@ Deno.test("stdin — терминал: sql оставлен команде, пр
     assertEquals(comment.called, []);
     const keyed = await run(
       file,
-      ["sql-ro", "target:", "sl-1", "sql:", STDIN, "--dry"],
+      ["sql-ro", "dry", "target:", "sl-1", "sql:", STDIN],
       { io: SQL_IO },
     );
-    const before = await run(file, ["sql-ro", "target:", "sl-1", "--dry"], {
+    const before = await run(file, ["sql-ro", "dry", "target:", "sl-1"], {
       io: SQL_IO,
     });
     assertEquals([keyed.code, keyed.stdout], [before.code, before.stdout]);
@@ -294,13 +294,13 @@ Deno.test("группа значения, затем формат внешнег
       file,
       [
         "sql-ro",
+        "dry",
         "target:",
         "sl-1",
         "sql:",
         DO,
         "jsdate",
         END,
-        "--dry",
         END,
         "json",
       ],
@@ -384,14 +384,14 @@ Deno.test("ключ-список: stdin и группа — элементами
 Deno.test("деление: остаток отбору — ключ ввода с терминала не хватает, из пайпа — есть", () =>
   withPolicyFile(async (file) => {
     allowEverything(file);
-    const line = ["sql-ro", "target:", "sl-1", "--dry", "where:", "n", "is:"];
+    const line = ["sql-ro", "dry", "target:", "sl-1", "where:", "n", "is:"];
     const asked = await run(file, [...line, "1", END, "size"], {
       io: SQL_IO,
     });
     assertEquals(asked.code, 2);
     assertEquals(
       asked.stderr,
-      "mpu sql-ro: не хватает ключа sql\n",
+      "mpu sql-ro dry: не хватает ключа sql\n",
     );
     assertEquals(asked.called, []);
     for (
@@ -400,11 +400,12 @@ Deno.test("деление: остаток отбору — ключ ввода �
         {
           argv: [
             "sql-ro",
+            "dry",
             "target:",
             "sl-1",
             "sql:",
             "select 1",
-            ...line.slice(3),
+            ...line.slice(4),
             "1",
             END,
             "size",

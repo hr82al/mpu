@@ -152,7 +152,7 @@ export function otherCell(row: StatusRow, full: boolean): string {
   if (row.other_branches.length === 0) return "(нет)";
   return full
     ? row.other_branches.join(", ")
-    : `${row.other_branches.length} (показать: --branches)`;
+    : `${row.other_branches.length} (показать: branches)`;
 }
 
 /** Подвал: одна строка на один MR, список — на несколько. */

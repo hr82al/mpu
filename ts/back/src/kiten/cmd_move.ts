@@ -84,7 +84,7 @@ const resultSchema = z.object({
   cardUrl: z.string().describe("web-URL карточки"),
   from: z.string().describe("положение «до»: доска · колонка · дорожка"),
   to: z.string().nullable().describe(
-    "положение «после» по свежему чтению; при --dry-run — null",
+    "положение «после» по свежему чтению; при dry — null",
   ),
   relog: z.boolean().describe("перенос сводится к релог-bump"),
   column: z.object({
@@ -368,7 +368,7 @@ export const kitenReadyCommand = defineCommand({
   keys: { id: "selector" },
   errorName: "kiten ready",
   summary: "Перевести карточку Kaiten в колонку «Готово».",
-  usage: "mpu kiten ready id: КАРТОЧКА [column: REF] [note: TEXT] [--dry-run]",
+  usage: "mpu kiten ready [dry] id: КАРТОЧКА [column: REF] [note: TEXT]",
   help: fixedHelp(READY),
   examples: ['mpu kiten ready id: 10000001 note: "MR !999"'],
   policy: "rw",
@@ -384,7 +384,7 @@ export const kitenReviewCommand = defineCommand({
   keys: { id: "selector" },
   errorName: "kiten review",
   summary: "Перевести карточку Kaiten в колонку «Код-ревью».",
-  usage: "mpu kiten review id: КАРТОЧКА [column: REF] [note: TEXT] [--dry-run]",
+  usage: "mpu kiten review [dry] id: КАРТОЧКА [column: REF] [note: TEXT]",
   help: fixedHelp(REVIEW),
   examples: ['mpu kiten review id: 10000001 note: "MR !999"'],
   policy: "rw",
@@ -418,7 +418,7 @@ ${fixed.envKey}, иначе «${fixed.title}»; REF это id или подст�
 
 note: TEXT — заметка; она уходит в строку локального журнала
 перемещений, по которому mpu telegram status строит дневную сводку.
---dry-run — печать намерения: только чтения, PATCH не отправляется и
+dry — печать намерения: только чтения, PATCH не отправляется и
 журнал не пополняется.
 
 stdout: ok: {до} → {после}[ (релог)] · {url карточки}.

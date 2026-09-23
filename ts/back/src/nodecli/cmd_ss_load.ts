@@ -33,7 +33,7 @@ export const ssLoadCommand = defineCommand({
   keys: {},
   summary: "Загрузить лист Google-таблицы клиента в БД.",
   usage:
-    "mpu ss-load target: СЕЛЕКТОР dataset: D [server: sl-N] [--print [--local]] [client-id: N] [spreadsheet-id: S] [sheet-name: N] [--forced] [logs: L]",
+    "mpu ss-load [print [local]] [forced] target: СЕЛЕКТОР dataset: D [server: sl-N] [client-id: N] [spreadsheet-id: S] [sheet-name: N] [logs: L]",
   help: `Звать, когда правки клиента в листе Google-таблицы надо перенести в
 БД сейчас, не дожидаясь расписания.
 
@@ -41,9 +41,9 @@ export const ssLoadCommand = defineCommand({
 запускает \`node cli service:ssLoader load\` и стримит его вывод, код
 выхода наследуется 1:1. Это запись в БД клиента, а не отчёт о ней.
 
---print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального стенда
-(без ssh); сам по себе --local — ошибка ввода.
+print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального стенда
+(без ssh); сам по себе local — ошибка ввода.
 
 target: — client_id, spreadsheet_id или заголовок таблицы;
 server: sl-N задаёт сервер напрямую. client-id: и spreadsheet-id:
@@ -51,8 +51,8 @@ server: sl-N задаёт сервер напрямую. client-id: и spreadshe
 иначе задайте их ключом.
 
 dataset: обязателен. logs: эмитится всегда, по умолчанию info.
---forced уходит голым флагом без значения; незаданные sheet-name: и
---forced следа в inner-команде не оставляют.
+forced уходит голым флагом без значения; незаданные sheet-name: и
+forced следа в inner-команде не оставляют.
 
 Значения ключей проверяются до сети и до печати: допустимы только
 A-Za-z0-9 и _ . / : - , @ [ ] — пробел или кавычка это ошибка ввода.
@@ -61,7 +61,7 @@ Exit: код inner-команды при выполнении; 0 при печа
 резолва и конфигурации.`,
   examples: [
     "mpu ss-load target: 777 dataset: wb_unit sheet-name: UNIT",
-    "mpu ss-load target: 777 dataset: wb_unit --print",
+    "mpu ss-load print target: 777 dataset: wb_unit",
   ],
   policy: "rw",
   helpWhenBare: true,

@@ -30,7 +30,7 @@ export const wbSaveExpensesCommand = defineCommand({
   keys: {},
   summary: "Сохранить расходы WB UNIT клиента за период.",
   usage:
-    "mpu wb-save-expenses target: СЕЛЕКТОР [server: sl-N] [--print [--local]] [client-id: N] [date-from: F] [date-to: T] [nm-ids: [..]]",
+    "mpu wb-save-expenses [print [local]] target: СЕЛЕКТОР [server: sl-N] [client-id: N] [date-from: F] [date-to: T] [nm-ids: [..]]",
   help: `Звать, когда рассчитанные расходы WB UNIT клиента за период надо
 сохранить в БД.
 
@@ -39,9 +39,9 @@ export const wbSaveExpensesCommand = defineCommand({
 стримит его вывод, код выхода наследуется 1:1. Сохранение перезаписывает
 расчётные данные UNIT клиента за указанный период.
 
---print ничего не выполняет: печатает готовую ssh-команду и копирует
-её в буфер обмена. --local вместе с --print печатает форму локального стенда
-(без ssh); сам по себе --local — ошибка ввода.
+print ничего не выполняет: печатает готовую ssh-команду и копирует
+её в буфер обмена. local вместе с print печатает форму локального стенда
+(без ssh); сам по себе local — ошибка ввода.
 
 Период: date-from: по умолчанию 2025-01-01, date-to: — сегодняшняя
 дата машины (вычисляется в момент вызова и всегда уходит в команду явно).
@@ -58,7 +58,7 @@ Exit: код inner-команды при выполнении; 0 при печа
 резолва и конфигурации.`,
   examples: [
     "mpu wb-save-expenses target: 777 date-from: 2026-01-01",
-    "mpu wb-save-expenses target: 777 --print nm-ids: [1,2,3]",
+    "mpu wb-save-expenses print target: 777 nm-ids: [1,2,3]",
   ],
   policy: "rw",
   helpWhenBare: true,

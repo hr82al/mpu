@@ -287,7 +287,7 @@ export const cleanLocalClientsCommand = defineCommand({
   keys: {},
   errorName: "clean-local-clients",
   summary: "Снести данные локальных клиентов, кроме keep-листа.",
-  usage: "mpu clean-local-clients [keep: IDS] [--yes]",
+  usage: "mpu clean-local-clients [yes] [keep: IDS]",
   help: `Звать, когда локальный стенд забит копиями клиентов и их надо убрать,
 оставив нужных.
 
@@ -297,7 +297,7 @@ sw-front. Только локальные адреса — прод команд
 
 По умолчанию это сухой прогон: команда печатает найденных клиентов,
 keep-лист и список под удаление, но ничего не трогает. Удаляет только с
---yes.
+yes.
 
 keep: — client_id через запятую, которых ОСТАВИТЬ (список инверсный);
 по умолчанию 54,776. Схема shared номера клиента не имеет и под
@@ -320,7 +320,7 @@ Exit: 0 — успех, в том числе когда удалять нече�
 keep:, неполная конфигурация подключений.`,
   examples: [
     "mpu clean-local-clients",
-    "mpu clean-local-clients keep: 54,776,1234 --yes",
+    "mpu clean-local-clients yes keep: 54,776,1234",
   ],
   policy: "rw",
   argsSchema,

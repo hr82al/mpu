@@ -35,7 +35,7 @@ type ConfirmResult = z.infer<typeof resultSchema>;
 
 /** Отказ, когда спрашивать некому: терминала у процесса нет. */
 const NO_TERMINAL =
-  "терминал недоступен для подтверждения. Используй `--yes` или " +
+  "терминал недоступен для подтверждения. Используй `yes` или " +
   "two-step (`<команда> > /tmp/x.json` → проверить → " +
   "`mpu sheet set <ssid> < /tmp/x.json`).";
 
@@ -81,7 +81,7 @@ export const confirmCommand = defineCommand({
   path: ["confirm"],
   keys: { text: "message" },
   summary: "y/N-ворота в пайпе: показать буфер и спросить у терминала.",
-  usage: "mpu confirm [text: ТЕКСТ] [--yes]",
+  usage: "mpu confirm [yes] [text: ТЕКСТ]",
   help: `Звать в пайпе перед пишущим шагом, когда человек должен увидеть, что
 уйдёт дальше, и сказать «да».
 
@@ -92,7 +92,7 @@ export const confirmCommand = defineCommand({
 Ставится между командами: mpu sheet get … | mpu confirm | mpu sheet set …
 
 text: ТЕКСТ — текст вопроса; по умолчанию «Применить?».
---yes — не спрашивать вовсе: ворота пропускают буфер дальше без
+yes — не спрашивать вовсе: ворота пропускают буфер дальше без
 вопроса. Эхо в stderr при этом остаётся: оно и есть смысл ворот. Это
 форма для скриптов.
 
@@ -109,13 +109,13 @@ text: ТЕКСТ — текст вопроса; по умолчанию «При
 
 Exit: 0 — «да», буфер в stdout; 1 — «нет», stdout пуст; 2 — терминала
 нет (пайп без tty, cron, вызов тула) — тогда печатается диагностика по
-трём std-fd, и выход из положения два: --yes либо two-step через файл.
+трём std-fd, и выход из положения два: yes либо two-step через файл.
 
 Тулом MCP-сервера команда не публикуется: у вызова тула нет ни stdin, ни
 терминала, а без них у ворот нет ни данных, ни собеседника.`,
   examples: [
     'mpu run-js target: sl-1 text: "…" | mpu confirm text: "Записать в прод?" | mpu sql target: sl-1',
-    'mpu run-js target: sl-1 text: "…" | mpu confirm --yes | mpu sql target: sl-1',
+    'mpu run-js target: sl-1 text: "…" | mpu confirm yes | mpu sql target: sl-1',
   ],
   // Читающая: сама команда ничего не меняет — она пропускает или
   // отбивает чужие данные.

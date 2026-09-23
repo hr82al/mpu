@@ -91,7 +91,16 @@ Deno.test("справка end json — объект-справка", () =>
     assertEquals(data.path, "mpu kiten");
     assertEquals(
       Object.keys(data).sort(),
-      ["examples", "formats", "keys", "messages", "path", "purpose", "text"],
+      [
+        "examples",
+        "formats",
+        "keys",
+        "messages",
+        "path",
+        "purpose",
+        "text",
+        "variants",
+      ],
     );
     assert(help.stdout.endsWith("}\n"));
     assertStringIncludes(

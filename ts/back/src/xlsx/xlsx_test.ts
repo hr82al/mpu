@@ -609,7 +609,7 @@ Deno.test("open: --print и отсутствие открывателя", async 
       assertEquals(code, 1);
       assertEquals(
         cli.stderr(),
-        "mpu xlsx: no opener found (xdg-open, open); попробуй: --print\n",
+        "mpu xlsx: no opener found (xdg-open, open); попробуй: print\n",
       );
     });
   });

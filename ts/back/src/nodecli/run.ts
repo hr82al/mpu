@@ -61,7 +61,7 @@ export const targetArgs = {
     "напечатать команду и скопировать её в буфер обмена, не выполняя",
   ),
   local: z.boolean().default(false).describe(
-    "печатать форму локального стенда; только вместе с --print",
+    "печатать форму локального стенда; только вместе с print",
   ),
 };
 
@@ -217,7 +217,7 @@ export async function runWrap(
   // `--local` без `--print` — ошибка ввода, а не молчаливое выполнение
   // в проде (отклонение `fix` спеки семейства).
   if (args.local && !args.print) {
-    throw new UsageError("--local имеет смысл только вместе с --print");
+    throw new UsageError("local имеет смысл только вместе с print");
   }
   let db: CacheDb | undefined;
   // Кэш открывается первым же запросом резолва: ветке `dev:N` он не

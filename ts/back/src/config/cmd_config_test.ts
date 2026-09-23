@@ -371,7 +371,7 @@ Deno.test("пустое значение не оседает невидимой 
     const err = await assertRejects(
       () => runConfig(args({ key: "sheet.default", value: "" }), io),
       UsageError,
-      "пустое значение не задаётся; сбросить ключ — --unset",
+      "пустое значение не задаётся; сбросить ключ — unset",
     );
     assertEquals(err instanceof UsageError, true);
     assertEquals(configValue(db, "sheet.default"), undefined);
@@ -396,7 +396,7 @@ Deno.test("--unset вместе со значением — отказ, а не 
           io,
         ),
       UsageError,
-      "--unset не сочетается со значением",
+      "unset не сочетается с value:",
     );
     // Ни удаления, ни записи: два действия сразу — это ошибка ввода.
     assertEquals(configValue(db, "sheet.default"), "4326");

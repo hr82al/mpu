@@ -165,7 +165,7 @@ export const sheetBatchGetCommand = defineCommand({
   errorName: "sheet batch-get",
   summary: "Прочитать значения и структуру Google-таблицы одним планом.",
   usage:
-    "mpu sheet batch-get [expression: ВЫРАЖЕНИЕ]… [from: FILE|-] [spreadsheet: SS] [sheet: TAB] [--dry-run]",
+    "mpu sheet batch-get [dry] [expression: ВЫРАЖЕНИЕ]… [from: FILE|-] [spreadsheet: SS] [sheet: TAB]",
   help: `Звать, когда из Google-таблицы нужно прочитать много
 диапазонов или её структуру (слияния, форматы условий, свойства) одним
 заходом, а не серией sheet get.
@@ -188,7 +188,7 @@ gridData.
 webapp. Кэш листов не читается и не пишется: повторный вызов всегда
 идёт в сеть.
 
---dry-run печатает {"values": …|null, "meta": …|null} и не делает ни
+dry печатает {"values": …|null, "meta": …|null} и не делает ни
 одного вызова.
 
 Exit: 0 — успех; 2 — ошибки скрипта, ввода и резолва цели; 1 — отказ

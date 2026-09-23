@@ -185,7 +185,7 @@ export async function runGlabStatus(
   }
   if (!selectors && args.branches) {
     throw new UsageError(
-      "--branches применяется только с адресом MR",
+      "branches применяется только с адресом MR",
       { hint: "указать mr: либо убрать флаг" },
     );
   }
@@ -299,7 +299,7 @@ export const glabStatusCommand = defineCommand({
   errorName: "glab-status",
   summary: "Прохождение merge request'ов по веткам деплой-пайплайна.",
   usage:
-    "mpu glab-status [mr: MR]... [since: S] [repo: R] [--branches] [end json]",
+    "mpu glab-status [branches] [mr: MR]... [since: S] [repo: R] [end json]",
   help: `Звать, когда надо понять, докуда доехал MR: влит ли он в trunk,
 main, dev, qa, predprod, prod. Показывает таблицей, до каких веток пайплайна доехал каждый MR:
 колонка на ветку (trunk, main, dev, qa, predprod, prod), галочка — ветка
@@ -316,7 +316,7 @@ repo: — репозитории через запятую или повторо
 проект берётся из git remote текущего каталога.
 
 У каждого MR печатается шапка и подвал «прочие ветки» — ветки с
-landing-коммитом вне пайплайна. --branches раскрывает их списком.
+landing-коммитом вне пайплайна. branches раскрывает их списком.
 «(MR не смержен)» и «(нет данных)» — разные вещи: во втором случае
 ветки спрашивали, но GitLab не ответил.
 
@@ -334,7 +334,7 @@ Exit: 0 — успех, включая пустой список; 1 — отка
   examples: [
     "mpu glab-status",
     "mpu glab-status since: 2d",
-    "mpu glab-status mr: group/repo!456 --branches",
+    "mpu glab-status branches mr: group/repo!456",
   ],
   policy: "ro",
   argsSchema,

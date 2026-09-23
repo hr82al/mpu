@@ -68,9 +68,9 @@ const SUBCOMMANDS: readonly (readonly [string, string, string])[] = [
 ];
 
 /** Общая часть справки: доставка, режимы и проверка значений. */
-const DELIVERY = `--print ничего не выполняет: печатает готовую
-ssh-команду и копирует её в буфер обмена. --local вместе с --print
-печатает форму локального стенда (без ssh); сам по себе --local —
+const DELIVERY = `print ничего не выполняет: печатает готовую
+ssh-команду и копирует её в буфер обмена. local вместе с print
+печатает форму локального стенда (без ssh); сам по себе local —
 ошибка ввода.
 
 target: — client_id, spreadsheet_id или заголовок таблицы; server: sl-N
@@ -96,7 +96,7 @@ function loader(sub: string, method: string, what: string): Command {
     keys: {},
     summary: `Загрузить в БД клиента: ${what} (Ozon-кабинет).`,
     usage:
-      `mpu ozon-loader ${sub} target: СЕЛЕКТОР seller-client-id: S [--print [--local]]`,
+      `mpu ozon-loader ${sub} [print [local]] target: СЕЛЕКТОР seller-client-id: S`,
     help: `Звать, когда в БД клиента надо догрузить ${what} одного
 Ozon-кабинета, не дожидаясь расписания загрузчика.
 
@@ -110,7 +110,7 @@ ${DELIVERY}
 грузит mpu ozon-loader load-data.`,
     examples: [
       `mpu ozon-loader ${sub} target: 777 seller-client-id: 999001`,
-      `mpu ozon-loader ${sub} target: 777 seller-client-id: 999001 --print`,
+      `mpu ozon-loader ${sub} print target: 777 seller-client-id: 999001`,
     ],
     policy: "rw",
     helpWhenBare: true,
@@ -142,7 +142,7 @@ function loadData(): Command {
     keys: {},
     summary: "Загрузить в БД клиента все данные Ozon-кабинетов по порядку.",
     usage:
-      "mpu ozon-loader load-data target: СЕЛЕКТОР seller-client-id: S… [--print [--local]]",
+      "mpu ozon-loader load-data [print [local]] target: СЕЛЕКТОР seller-client-id: S…",
     help: `Звать, когда Ozon-кабинеты клиента надо загрузить целиком, всеми
 шагами подряд, а не одним загрузчиком.
 
@@ -162,7 +162,7 @@ seller-client-id: повторяется (seller-client-id: 1 seller-client-id: 
 токенов --sequence в порядке рабочей версии.`,
     examples: [
       "mpu ozon-loader load-data target: 777 seller-client-id: 999001",
-      "mpu ozon-loader load-data target: 777 seller-client-id: 1 seller-client-id: 2 --print",
+      "mpu ozon-loader load-data print target: 777 seller-client-id: 1 seller-client-id: 2",
     ],
     policy: "rw",
     helpWhenBare: true,

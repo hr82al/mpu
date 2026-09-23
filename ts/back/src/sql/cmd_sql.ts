@@ -26,7 +26,7 @@ export const sqlCommand = defineCommand({
   // Однострока — из слепка дерева: имя и описание переехавшей команды
   // видит режим дополнения, и расходиться с эталоном им незачем.
   summary: "Выполнить SQL (write-capable) на PG, выбранном по селектору.",
-  usage: `mpu sql target: ЦЕЛЬ [sql: ЗАПРОС] [--dry] [--verbose] ` +
+  usage: `mpu sql [dry] [verbose] target: ЦЕЛЬ [sql: ЗАПРОС] ` +
     `[${GRAMMAR.close} md|json]`,
   help: `Звать, когда запрос пишет: INSERT/UPDATE/DELETE/DDL исполняются и
 фиксируются в БД клиента, поэтому строка спрашивает подтверждение
@@ -43,8 +43,8 @@ sql: — запрос; sql: stdin или без sql: — ввод (с терми
 откат всего вызова, частичной записи не бывает.
 
 Форматы после ${GRAMMAR.close}: без формата — таблица; md; json — массив объектов.
-Запись без набора строк — OK (rowcount=<N>). --dry: мета-блок и SQL без
-подключения; --verbose — тот же блок при прогоне.
+Запись без набора строк — OK (rowcount=<N>). dry: мета-блок и SQL без
+подключения; verbose — тот же блок при прогоне.
 
 Ключи env-файла (окружение процесса не читается): pg_<N>, PG_PORT
 (5432), PG_DB_NAME (wb), PG_MY_USER_NAME/PG_MAIN_USER_NAME и пароли
@@ -52,11 +52,11 @@ PG_MY_USER_PASSWORD/PG_MAIN_USER_PASSWORD; для dev — DEV_PG_HOST,
 DEV_PG_PORT (5434), DEV_PG_DB (mp_sl_1_dev), DEV_PG_USER,
 DEV_PG_PASSWORD.
 
-Exit: 0 — успех, включая --dry и запрос без набора строк; 1 — ошибка
+Exit: 0 — успех, включая dry и запрос без набора строк; 1 — ошибка
 БД; 2 — ошибка ввода, резолва и конфигурации.`,
   examples: [
     `mpu ask sql target: 42 sql: "UPDATE orders SET status = 'done' WHERE id = 7"`,
-    "mpu ask sql target: sl-1 --dry",
+    "mpu ask sql dry target: sl-1",
   ],
   keys: { target: "selector", sql: "sql" },
   retired: { server: "target" },

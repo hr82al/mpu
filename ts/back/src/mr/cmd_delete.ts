@@ -62,7 +62,7 @@ export async function runDelete(
         // Отказ состояния, а не ввода: команда набрана верно, спросить
         // некого. И DELETE при этом не выполняется — в этом весь смысл.
         absent: () => {
-          throw new DomainError("нет TTY для подтверждения — добавь --yes");
+          throw new DomainError("нет TTY для подтверждения — добавь yes");
         },
       },
     );
@@ -84,7 +84,7 @@ export const mrDeleteCommand = defineCommand({
   keys: { id: "note" },
   errorName: "mr delete",
   summary: "Удалить свою заметку в merge request'е.",
-  usage: "mpu mr delete id: ЗАМЕТКА [mr: REF] [--yes]",
+  usage: "mpu mr delete [yes] id: ЗАМЕТКА [mr: REF]",
   help: `Звать, когда свою заметку в MR надо убрать. Удаляет её; действие
 необратимо: GitLab удалённую заметку
 не возвращает.
@@ -92,9 +92,9 @@ export const mrDeleteCommand = defineCommand({
 id: — номер заметки, тот самый id из mpu mr comments end json и из
 ссылки #note_<id>.
 
-Без --yes команда спрашивает подтверждение в терминале. Если терминала
+Без yes команда спрашивает подтверждение в терминале. Если терминала
 нет (запуск из скрипта, cron, вызов тула), она отказывается и ничего не
-удаляет: молча считать «да» здесь нельзя. Для скриптов есть --yes — он
+удаляет: молча считать «да» здесь нельзя. Для скриптов есть yes — он
 пропускает вопрос.
 
 Чужую заметку удалить не получится: откажет сам GitLab.
@@ -106,11 +106,11 @@ mr: REF — адрес MR: URL, 'group/repo!iid' или голый iid; без �
 (необязателен).
 
 Exit: 0 — успех; 2 — id: не передан или не число, нераспознанный
-mr:; 1 — нет терминала без --yes, отказ человека, отказ GitLab,
+mr:; 1 — нет терминала без yes, отказ человека, отказ GitLab,
 несуществующая заметка.`,
   examples: [
     "mpu mr delete id: 42",
-    "mpu mr delete id: 42 --yes mr: 456",
+    "mpu mr delete yes id: 42 mr: 456",
   ],
   policy: "rw",
   argsSchema,

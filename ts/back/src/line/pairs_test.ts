@@ -65,15 +65,47 @@ function many(input: InputSpec): boolean {
     input.form.positional === "rest";
 }
 
-/** Прежняя строка и новая для всех входов, у которых есть ключ. */
+/**
+ * Прежний флаг варианта и его слово: у булева входа с умолчанием `true`
+ * флаг — `--no-<вход>`, у выбора — `--<вход> <первое значение>`
+ * (`platform/variants.md`).
+ */
+function variantPair(
+  command: Command,
+  input: InputSpec,
+  address: string,
+): { readonly before: readonly string[]; readonly word: string } | undefined {
+  const [kind, ...names] = address.split(" ");
+  const first = names[0]?.replace(",", "");
+  if (kind === "варианты") {
+    return { before: [`--${input.name}`, first], word: first };
+  }
+  if (kind !== "вариант") return undefined;
+  const field = command.argsJsonSchema.properties[input.name];
+  const flag = field.default === true ? `no-${input.name}` : input.name;
+  return { before: [`--${flag}`], word: first };
+}
+
+/**
+ * Прежняя строка и новая для всех входов, у которых есть ключ или
+ * вариант: слова вариантов — до ключей.
+ */
 function lines(command: Command, addresses: ReadonlyMap<string, string>) {
   const before: string[] = [];
   const positional: string[] = [];
+  const variants: string[] = [];
   const after: string[] = [];
   for (const input of command.inputs) {
-    // Ключ пишется одним словом: `id:` или `--флаг`; прочие адреса —
-    // формат, снятый вход, прежнее написание — в строках не участвуют.
+    // Ключ пишется одним словом: `id:` или `--флаг`; вариант — словом до
+    // ключей; прочие адреса — формат, снятый вход, прежнее написание — в
+    // строках не участвуют.
     const address = addresses.get(input.name) ?? " ";
+    const variant = variantPair(command, input, address);
+    if (variant !== undefined) {
+      before.push(...variant.before);
+      variants.push(variant.word);
+      continue;
+    }
     if (address.includes(" ")) continue;
     if (address.startsWith("--")) {
       // Флаг: прежняя строка и новая пишут одно и то же слово.
@@ -88,7 +120,10 @@ function lines(command: Command, addresses: ReadonlyMap<string, string>) {
     if (input.form.positional !== undefined) positional.push(...values);
     else for (const value of values) before.push(`--${input.name}`, value);
   }
-  return { before: [...before, "--", ...positional], after };
+  return {
+    before: [...before, "--", ...positional],
+    after: [...variants, ...after],
+  };
 }
 
 /**
@@ -169,14 +204,28 @@ const NAMED: readonly (readonly [readonly string[], readonly string[]])[] = [
   [["ssh", "sl-1", "ls -la"], ["ssh", "target:", "sl-1", "cmd:", "ls -la"]],
   [["run-js", "sl-1", "1+1", "-d"], [
     "run-js",
+    "detach",
     "target:",
     "sl-1",
     "text:",
     "1+1",
-    "--detach",
+  ]],
+  [["process", "54", "--dry-run"], ["process", "dry", "target:", "54"]],
+  [["logs", "--via", "portainer", "sl-1"], [
+    "logs",
+    "portainer",
+    "target:",
+    "sl-1",
+  ]],
+  [["kiten", "card", "1", "--no-comments"], [
+    "kiten",
+    "card",
+    "no-comments",
+    "id:",
+    "1",
   ]],
   [["ps", "--tsv"], ["ps", GRAMMAR.close, "tsv"]],
-  [["confirm", "-y", "-m", "да?"], ["confirm", "--yes", "text:", "да?"]],
+  [["confirm", "-y", "-m", "да?"], ["confirm", "yes", "text:", "да?"]],
 ];
 
 Deno.test("поимённые пары спеки дают один вход команды", (t) =>
@@ -267,7 +316,7 @@ Deno.test("подсказки run-js --detach вставляются: тот ж�
     // той же строки.
     const cases = [
       [
-        `# собрать логи: mpu run-js --all text: '${reader}'`,
+        `# собрать логи: mpu run-js all text: '${reader}'`,
         ["run-js", "--all", reader],
       ],
       [

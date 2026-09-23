@@ -28,6 +28,7 @@ import {
   type ShapeOptions,
   tail,
   unary,
+  type VariantLine,
   wordListing,
 } from "../objects/mod.ts";
 import { PolicyError, type RuleBook } from "../policy/mod.ts";
@@ -359,6 +360,8 @@ export interface TreeNode {
   readonly keys: readonly KeyLine[];
   /** Ответ на `formats`. */
   readonly formats: readonly string[];
+  /** Ответ на `variants`. */
+  readonly variants: readonly VariantLine[];
 }
 
 /** Узел снимка — со слов самого вида: его отражение и его хвост. */
@@ -376,6 +379,7 @@ function nodeOf(
     messages: reflection.messages(),
     keys: reflection.keys(),
     formats: reflection.formats(),
+    variants: reflection.variants(),
   };
 }
 

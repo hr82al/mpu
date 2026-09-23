@@ -60,7 +60,7 @@ export type RunJsIo = Pick<
 export const argsSchema = z.object({
   selector: z.string().optional().describe(
     "sl-N, dev:N, точное имя контейнера, client_id/spreadsheet/title;" +
-      " с --all и --all-containers селектора нет",
+      " с all и all-containers: селектора нет",
   ),
   code: z.string().optional().describe("ESM-код; иначе --file или stdin"),
   file: z.string().optional().describe("файл с ESM-кодом"),
@@ -80,7 +80,7 @@ export const argsSchema = z.object({
     "все таргеты одновременно; вывод по каждому — по его завершении",
   ),
   jobs: z.number().default(0).describe(
-    "предел одновременных таргетов при --parallel; 0 — все",
+    "предел одновременных таргетов при parallel; 0 — все",
   ),
   detach: z.boolean().default(false).describe(
     "фоновый запуск: скрипт заливается в контейнер, лог остаётся в /tmp",
@@ -338,7 +338,7 @@ function hints(
   const servers = targets.filter((target) => target.place.kind !== "container");
   if (servers.length === 0) return;
   // Строки — в записи ключами: их вставляют и исполняют как есть.
-  const scope = servers.length > 1 ? "--all" : `target: ${servers[0].label}`;
+  const scope = servers.length > 1 ? "all" : `target: ${servers[0].label}`;
   call.io.progress(
     `# собрать логи: mpu run-js ${scope} text: '${reader(log)}'`,
   );
@@ -514,21 +514,20 @@ function scopeOf(args: RunJsArgs): Scope {
   const fanOut = args.all || args["all-containers"] !== undefined;
   if (args.all && args["all-containers"] !== undefined) {
     throw new UsageError(
-      "укажите ровно один из <selector> / --all / --all-containers",
+      "укажите ровно один из target: / all / all-containers:",
     );
   }
   if (!fanOut) {
     if (args.selector === undefined) {
       throw new UsageError(
-        "укажите ровно один из <selector> / --all / --all-containers",
+        "укажите ровно один из target: / all / all-containers:",
       );
     }
     return { kind: "one", selector: args.selector };
   }
   if (args.code !== undefined) {
     throw new UsageError(
-      "с --all / --all-containers допустим максимум один позиционный" +
-        " (<code>); <selector> избыточен",
+      "с all / all-containers: цель одна — target: избыточен",
     );
   }
   const filter = args["all-containers"];
