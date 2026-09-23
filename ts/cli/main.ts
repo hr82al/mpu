@@ -70,6 +70,9 @@ if (import.meta.main) {
     mainToken: () => tokenAt(`${config}/token`),
     agentToken: () => tokenAt(`${config}/agent-token`),
     caller,
+    // Родитель — оболочка терминала: у человека он стоит, пока открыт
+    // терминал; права не нужны (`platform/it.md`).
+    name: `ppid:${Deno.ppid}`,
     openTerminal: openControllingTerminal,
     copy: (text) => copyToClipboard(text),
     stdout: (text) => writeAll(Deno.stdout, text),

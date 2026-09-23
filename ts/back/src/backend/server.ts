@@ -9,6 +9,7 @@ import { hasBearer, LOOPBACK, LOOPBACK_ORIGINS } from "../access/mod.ts";
 import type { CommandIo, RemoteOutput } from "../command/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 import {
+  LastResults,
   lineEntry,
   policyTree,
   registryNodes,
@@ -22,6 +23,7 @@ import {
   BROWSER,
   type Caller,
   cookieOf,
+  type Naming,
   OWNER,
   SESSION_COOKIE,
 } from "./caller.ts";
@@ -74,6 +76,8 @@ export interface BackOptions {
   readonly fs?: SnapshotFs;
   /** Генератор номера подтверждения; по умолчанию — случайный. */
   readonly newTicket?: () => string;
+  /** Текущее время, мс, для памяти результатов; по умолчанию — часы. */
+  readonly now?: () => number;
   /** Ключи и сессии входа в браузере. */
   readonly web: WebAccess;
   /** Каталог собранного фронта (`$HOME/.local/share/mpu/web`). */
@@ -332,6 +336,8 @@ class Back {
   readonly #lines: Lines;
   readonly #tickets: Tickets;
   readonly #open = new Map<Line, Promise<void>>();
+  /** Последние результаты вызывающих (`platform/it.md`). */
+  readonly #results: LastResults;
   readonly #methods: Methods;
   /** `http://mpu.localhost:<порт>` — известен, когда сокет слушает. */
   #origin = "";
@@ -340,6 +346,7 @@ class Back {
     this.#options = options;
     this.#lines = new Lines(options.lines ?? DEFAULT_LINES);
     this.#tickets = new Tickets(options.newTicket);
+    this.#results = new LastResults(options.now ?? Date.now);
     this.#methods = new Map<string, () => unknown>([
       ["tree.snapshot", () => snapshot],
       ["policy.list", () => rulesOf(options.policyFile)],
@@ -457,6 +464,8 @@ class Back {
 
   /** WebSocket строки. Подпротокол `bearer.*` в ответ не выбирается. */
   #upgrade(request: Request, door: Door, caller: Caller): Response {
+    // После апгрейда запрос закрыт: имя вызывающего — до него.
+    const naming = caller.naming(request);
     const chosen = offeredProtocols(request).find((one) =>
       !one.startsWith(BEARER_PROTOCOL)
     );
@@ -472,7 +481,7 @@ class Back {
       return empty(400);
     }
     const { line, first } = socketLine(upgraded.socket);
-    this.#track(line, first, door, caller);
+    this.#track(line, first, door, caller, naming);
     return upgraded.response;
   }
 
@@ -487,7 +496,13 @@ class Back {
     const opened = form.open(line);
     line.attach(opened.delivery);
     leaving(request, opened);
-    this.#track(line, Promise.resolve(first), door, caller);
+    this.#track(
+      line,
+      Promise.resolve(first),
+      door,
+      caller,
+      caller.naming(request),
+    );
     return await opened.response;
   }
 
@@ -516,8 +531,14 @@ class Back {
   }
 
   /** Строка в работе: её сбой — отказ строки, конец — забыть её. */
-  #track(line: Line, first: Promise<unknown>, door: Door, caller: Caller) {
-    const task = this.#serveLine(line, first, door, caller)
+  #track(
+    line: Line,
+    first: Promise<unknown>,
+    door: Door,
+    caller: Caller,
+    naming: Naming,
+  ) {
+    const task = this.#serveLine(line, first, door, caller, naming)
       .catch((err) => {
         const reason = err instanceof Error ? err.message : String(err);
         this.#options.diagnose(`mpu-back: сбой строки: ${reason}`);
@@ -535,6 +556,7 @@ class Back {
     first: Promise<unknown>,
     door: Door,
     caller: Caller,
+    naming: Naming,
   ) {
     let request: LineRequest;
     try {
@@ -559,6 +581,7 @@ class Back {
       file: this.#options.policyFile,
       channel: () => channel,
       execute: (run) => line.execute(run, this.#lines),
+      memory: this.#results.of(await naming.of(request.caller)),
     });
     const io = lineIo(
       this.#options.io,

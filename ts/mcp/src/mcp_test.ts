@@ -77,7 +77,7 @@ Deno.test("mpu: version и kitn — итог равен POST /agent/line", () =>
         { type: "text", text: "" },
         {
           type: "text",
-          text: "stderr:\nmpu: не понимает kitn; ближайшие: kiten\n",
+          text: "stderr:\nmpu: не понимает kitn; ближайшие: kiten, it\n",
         },
       ]);
       assertEquals(kitn.isError, true);
@@ -299,3 +299,24 @@ Deno.test("GET /health — жив, pid, без токена", () =>
     await post.body?.cancel();
     assertEquals(post.status, 405);
   }));
+
+Deno.test("it: прошлый результат — только своей сессии агента", () =>
+  withStack((stack) =>
+    withClient(stack, (first) =>
+      withClient(stack, async (second) => {
+        const stamp = await call(stack, first, "mpu", { words: ["jsdate"] });
+        assertEquals(stamp.isError, false);
+        const other = await call(stack, second, "mpu", { words: ["it"] });
+        assertEquals(other.isError, true);
+        assertEquals(other.content, [
+          { type: "text", text: "" },
+          {
+            type: "text",
+            text:
+              "stderr:\nmpu it: нет прошлого результата у этого вызывающего\n",
+          },
+        ]);
+        const own = await call(stack, first, "mpu", { words: ["it"] });
+        assertEquals(own.content, stamp.content);
+      }))
+  ));

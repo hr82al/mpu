@@ -6,7 +6,13 @@
  */
 
 import type { CommandIo } from "../command/mod.ts";
-import { JSON_FLAG, type Output, runLine, streams } from "../entrypoint/mod.ts";
+import {
+  JSON_FLAG,
+  type Output,
+  PRINT,
+  runLine,
+  streams,
+} from "../entrypoint/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import { runChain } from "../objects/mod.ts";
 import {
@@ -21,6 +27,7 @@ import type { CliEntry } from "../process/mod.ts";
 import { JSON_STRIPPED, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
 import { registrySeeds } from "./seeds.ts";
 import { targetValues } from "../selector/mod.ts";
+import { itMethod, type Memory, NO_CALLER, remembering } from "./it.ts";
 import { printed } from "./printed.ts";
 import { Session } from "./session.ts";
 import { LineValues, StdinOnce } from "./value.ts";
@@ -29,6 +36,7 @@ import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 
 export type { RootMethod } from "./rules.ts";
+export { LastResults, type Memory, NO_CALLER } from "./it.ts";
 
 export { registryNodes, type TreeNode } from "./tree.ts";
 export { selectionMessages } from "../objects/mod.ts";
@@ -102,6 +110,8 @@ export interface LinePorts {
   readonly execute: (run: () => Promise<number>) => Promise<number>;
   /** Методы корня, которые даёт дверь строки (у прямого — нет). */
   readonly rootMethods: readonly RootMethod[];
+  /** Память вызывающего строки: её результат и ответ на `it`. */
+  readonly memory: Memory;
 }
 
 /**
@@ -167,14 +177,24 @@ export function lineEntry(ports: LinePorts): CliEntry {
     const lineIo: CommandIo = { ...io, readStdin: () => stdin.forCommand() };
     const channel = ports.channel(io, output);
     const parts = {
-      own: ports.rootMethods.map(rootMethod),
+      own: [
+        ...ports.rootMethods.map(rootMethod),
+        itMethod(ports.memory, output.stderr),
+      ],
       targets: (like: string) => {
         using db = io.openCacheDb();
         return Promise.resolve(targetValues(db, like));
       },
     };
-    /** Строка `words` с выводом `out`: её собственная сессия. */
-    const sessionOf = (words: readonly string[], out: Output) =>
+    /**
+     * Строка `words` с выводом `out`: её собственная сессия; результат
+     * команды запоминает `memory`.
+     */
+    const sessionOf = (
+      words: readonly string[],
+      out: Output,
+      memory: Memory,
+    ) =>
       new Session({
         book,
         channel,
@@ -186,7 +206,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
               lineIo,
               out,
               journal,
-              delivery,
+              remembering(delivery ?? PRINT, memory),
             )
           ),
         streams: (view, order) => streams(order.argv(view.executed(words))),
@@ -203,11 +223,16 @@ export function lineEntry(ports: LinePorts): CliEntry {
         stderr: output.stderr,
       };
       const group = [...door, ...words];
-      const root = registryRoot(sessionOf(group, captured), book, parts);
+      // Результат группы — значение ключа, а не результат строки.
+      const root = registryRoot(
+        sessionOf(group, captured, NO_CALLER),
+        book,
+        parts,
+      );
       const outcome = await runChain(group, root, values);
       return { outcome, printed: texts.join("") };
     }, stdin);
-    const root = registryRoot(sessionOf(argv, output), book, {
+    const root = registryRoot(sessionOf(argv, output, ports.memory), book, {
       ...parts,
       stripped: strippedOf(argv),
     });

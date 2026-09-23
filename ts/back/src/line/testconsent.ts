@@ -4,7 +4,13 @@
  */
 
 import { ALLOW, RuleBook, RulePath } from "../policy/mod.ts";
-import { immediately, type LinePorts, terminalChannel } from "./mod.ts";
+import {
+  immediately,
+  type LinePorts,
+  type Memory,
+  NO_CALLER,
+  terminalChannel,
+} from "./mod.ts";
 import { registrySeeds } from "./seeds.ts";
 
 /** Файл правил во временном каталоге на время `body`. */
@@ -21,11 +27,13 @@ export async function withPolicyFile(
 
 /**
  * Порты строки с файлом `file`: канал терминала (человек — если в
- * подменах окружения stdin и stderr терминалы), ответы — по очереди.
+ * подменах окружения stdin и stderr терминалы), ответы — по очереди;
+ * память вызывающего — `memory` (по умолчанию вызывающего нет).
  */
 export function consentOf(
   file: string,
   answers: readonly string[] = [],
+  memory: Memory = NO_CALLER,
 ): LinePorts {
   const queue = [...answers];
   return {
@@ -33,6 +41,7 @@ export function consentOf(
     channel: terminalChannel(() => Promise.resolve(queue.shift())),
     execute: immediately,
     rootMethods: [],
+    memory,
   };
 }
 

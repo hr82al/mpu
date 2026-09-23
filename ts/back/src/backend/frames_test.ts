@@ -9,7 +9,7 @@
 import { GRAMMAR } from "../messages/mod.ts";
 import { assertEquals } from "@std/assert";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { immediately, lineEntry, rulesOf } from "../line/mod.ts";
+import { immediately, lineEntry, NO_CALLER, rulesOf } from "../line/mod.ts";
 import { withPolicyFile } from "../line/testconsent.ts";
 import { Agent, type Channel, Human, NOBODY } from "../policy/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
@@ -84,6 +84,7 @@ async function directFrames(one: Case, file: string) {
     channel: () => channel,
     execute: immediately,
     rootMethods: [],
+    memory: NO_CALLER,
   })(one.words, makeFakeIo(), {
     stdout: (text) => void frames.push({ out: text }),
     stderr: (text) => void frames.push({ err: text }),

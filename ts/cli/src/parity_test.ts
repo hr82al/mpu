@@ -9,7 +9,12 @@
 import { assertEquals } from "@std/assert";
 import type { CommandIo } from "../../back/src/command/mod.ts";
 import type { InvokeJournal } from "../../back/src/entrypoint/mod.ts";
-import { immediately, lineEntry, rulesOf } from "../../back/src/line/mod.ts";
+import {
+  immediately,
+  lineEntry,
+  NO_CALLER,
+  rulesOf,
+} from "../../back/src/line/mod.ts";
 import { withPolicyFile } from "../../back/src/line/testconsent.ts";
 import {
   Agent,
@@ -121,6 +126,7 @@ async function viaLine(line: Line, file: string): Promise<Seen> {
     channel: () => channel,
     execute: immediately,
     rootMethods: [],
+    memory: NO_CALLER,
   })(
     line.words,
     makeFakeIo(line.io ?? {}),

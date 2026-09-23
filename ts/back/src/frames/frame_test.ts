@@ -3,6 +3,7 @@ import {
   BadFrame,
   type Collected,
   collectedOf,
+  lineRequest,
   type ServerFrame,
   serverFrameOf,
   ticketAnswerOf,
@@ -91,4 +92,18 @@ Deno.test("собранный ответ: итог кодом или вопро�
       assertThrows(() => collectedOf(bad), BadFrame);
     });
   }
+});
+
+Deno.test("первый кадр: caller — строка или нет поля", () => {
+  const base = { words: ["it"], cwd: "/" };
+  assertEquals(lineRequest(JSON.stringify(base)).caller, undefined);
+  assertEquals(
+    lineRequest(JSON.stringify({ ...base, caller: "ppid:7" })).caller,
+    "ppid:7",
+  );
+  const err = assertThrows(
+    () => lineRequest(JSON.stringify({ ...base, caller: 7 })),
+    BadFrame,
+  );
+  assertEquals(err.message, "caller — не строка");
 });

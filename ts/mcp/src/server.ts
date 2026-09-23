@@ -75,6 +75,14 @@ interface Session {
   readonly transport: WebStandardStreamableHTTPServerTransport;
 }
 
+/**
+ * Как агентская сессия называет себя `back` (`platform/it.md`): его
+ * прошлый результат — только ей. Сессии нет — вызывающего нет.
+ */
+function callerOf(session: string | undefined): string | undefined {
+  return session === undefined ? undefined : `mcp:${session}`;
+}
+
 /** Сервер SDK одной сессии: два тула, спрашивающий — по `initialize`. */
 function sessionServer(options: McpOptions): Server {
   const server = new Server(
@@ -97,14 +105,18 @@ function sessionServer(options: McpOptions): Server {
       // `signal` SDK взводит у идущего запроса, когда клиент отменил
       // вызов или порвал транспорт (`platform/mcp-cancel.md`): без него
       // отмену некому увидеть.
-      extra: { readonly requestId: RequestId; readonly signal: AbortSignal },
+      extra: {
+        readonly requestId: RequestId;
+        readonly signal: AbortSignal;
+        readonly sessionId?: string;
+      },
     ) =>
       runLine(
         lineOf(request.params.name, request.params.arguments),
         options.back,
         asker,
         extra.requestId,
-        { signal: extra.signal },
+        { signal: extra.signal, caller: callerOf(extra.sessionId) },
       ),
   );
   return server;

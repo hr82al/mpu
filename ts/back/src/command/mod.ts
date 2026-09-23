@@ -542,6 +542,21 @@ export interface Command {
   readonly dataOf: (result: unknown, argv: readonly string[]) => Data;
   /** Результат строки `argv` — поток: отбору не подлежит. */
   readonly streams: (argv: readonly string[]) => boolean;
+  /**
+   * Результат — в память вызывающего (`platform/it.md`): значение
+   * запоминается, поток — нет.
+   */
+  readonly remember: (
+    result: unknown,
+    argv: readonly string[],
+    memory: Keeper,
+  ) => void;
+}
+
+/** Память вызывающего глазами команды: куда кладётся её результат. */
+export interface Keeper {
+  /** Результат `result` команды `command`, вызванной с `argv`. */
+  keep(command: Command, result: unknown, argv: readonly string[]): void;
 }
 
 /**
@@ -579,7 +594,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
   const parseInput = (input: unknown): A =>
     parseInputObject(spec.argsSchema, onlyKnownInputs(input, specs));
 
-  return {
+  const command: Command = {
     path: spec.path,
     summary: spec.summary,
     usage: spec.usage,
@@ -627,7 +642,13 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
       });
     },
     streams: (argv) => spec.streams?.(parse(argv)) ?? false,
+    remember(result, argv, memory) {
+      // Поток не повторить из памяти: его записи ушли, пока он шёл.
+      if (spec.streams?.(parse(argv)) === true) return;
+      memory.keep(command, result, argv);
+    },
   };
+  return command;
 }
 
 /**

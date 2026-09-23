@@ -67,6 +67,8 @@ Deno.test("канал и токен: три строки таблицы", async 
               stderr: row.terminals,
             },
             ...(row.terminals ? {} : { stdin: "" }),
+            // Клиент называет себя родителем (`platform/it.md`).
+            caller: "ppid:1",
           });
         }),
     );

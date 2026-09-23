@@ -90,3 +90,18 @@ Deno.test("отмена в ожидании подъёма: ждать пере�
   await new Promise((resolve) => setTimeout(resolve, QUICK.everyMs * 3));
   assertEquals(attempts(), after, `попытки после отмены: ${before} → ${after}`);
 });
+
+Deno.test("строка несёт caller сессии агента; сессии нет — поля нет", async () => {
+  const bodies: unknown[] = [];
+  const fetcher = ((_url: string, init?: RequestInit) => {
+    bodies.push(JSON.parse(String(init?.body)));
+    return Promise.resolve(json({ exit: 0, stdout: "", stderr: "" }));
+  }) as typeof fetch;
+  const line = new BackLine(TARGET, QUICK, fetcher);
+  await line.start(["it"], false, { caller: "mcp:s1" });
+  await line.start(["it"], false);
+  assertEquals(
+    bodies.map((body) => (body as { caller?: string }).caller),
+    ["mcp:s1", undefined],
+  );
+});

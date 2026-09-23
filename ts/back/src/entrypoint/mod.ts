@@ -21,6 +21,7 @@ import {
   findSurface,
   surfaces,
 } from "../registry/mod.ts";
+import { flagged } from "../messages/mod.ts";
 import { helpEntries, runHelpCommand } from "./help_command.ts";
 import { VERSION } from "../version.ts";
 import { renderCommandHelp, renderIndex, renderSurfaceHelp } from "./help.ts";
@@ -107,6 +108,22 @@ export interface Delivery {
     json: boolean,
     output: Output,
   ): number;
+}
+
+/**
+ * Результат команды в формате `json`, как его печатает `… end json`:
+ * команда со своим `--json` (`sql-ro`) рисует его сама, прочим — JSON
+ * результата.
+ *
+ * @param argv аргументы команды без `--json`
+ */
+export function jsonOf(
+  command: Command,
+  result: unknown,
+  argv: readonly string[],
+): string {
+  if (!keepsJson(command)) return JSON.stringify(result, null, 2);
+  return command.renderResult(result, flagged(argv, [JSON_FLAG]));
 }
 
 /** Печать результата: JSON или текст команды, код — от результата. */

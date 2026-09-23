@@ -139,7 +139,7 @@ export async function runLine(
   back: BackLine,
   asker: Asker,
   requestId: string | number,
-  options: { readonly signal?: AbortSignal } = {},
+  options: { readonly signal?: AbortSignal; readonly caller?: string } = {},
 ): Promise<ToolResult> {
   let reply = await back.start(line, asker.human, options);
   let stdout = "";

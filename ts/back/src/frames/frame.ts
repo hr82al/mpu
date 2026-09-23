@@ -20,6 +20,11 @@ export interface FirstFrame extends ContextFields {
   readonly cwd: string;
   /** Есть ли у клиента, кого спросить; не сказано — нет. */
   readonly human: boolean;
+  /**
+   * Как клиент называет себя (`platform/it.md`): `ppid:…`, `mcp:…`. Нет —
+   * у строки нет вызывающего, её результат не запоминается.
+   */
+  readonly caller?: string;
 }
 
 /** Разобранный первый кадр: строка, место и что принёс вызывающий. */
@@ -29,6 +34,8 @@ export interface LineRequest {
   readonly human: boolean;
   /** Ввод, терминальность и переменные клиента. */
   readonly context: CallContext;
+  /** Как клиент назвал себя; не назвал — `undefined`. */
+  readonly caller: string | undefined;
 }
 
 /** Вид вопроса: видимый ответ или скрытый (`platform/line-prompt.md`). */
@@ -82,7 +89,8 @@ export type ServerFrame =
  *
  * @param data данные кадра как их отдал сокет
  * @throws BadFrame — не JSON-объект, нет `words` или `cwd`, `cwd` не
- *   абсолютный, `human` не булево, либо контекст вызова непринимаем
+ *   абсолютный, `human` не булево, `caller` не строка, либо контекст
+ *   вызова непринимаем
  *   (`callContextOf`)
  */
 export function lineRequest(data: unknown): LineRequest {
@@ -98,7 +106,17 @@ export function lineRequest(data: unknown): LineRequest {
     throw new BadFrame("cwd — не абсолютный путь");
   }
   if (typeof human !== "boolean") throw new BadFrame("human — не булево");
-  return { words: [...words], cwd, human, context: callContextOf(frame) };
+  const { caller } = frame;
+  if (caller !== undefined && typeof caller !== "string") {
+    throw new BadFrame("caller — не строка");
+  }
+  return {
+    words: [...words],
+    cwd,
+    human,
+    context: callContextOf(frame),
+    caller,
+  };
 }
 
 /** Ответ на вопрос из кадра клиента; кадр не ответ — `undefined`. */

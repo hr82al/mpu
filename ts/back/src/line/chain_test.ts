@@ -61,7 +61,7 @@ Deno.test("группа без подкоманды — справка и код
 Deno.test("непонятое слово: ближайшие и путь приёмника", (t) =>
   withPolicyFile(async (file) => {
     const cases: readonly (readonly [readonly string[], string])[] = [
-      [["kitn"], "mpu: не понимает kitn; ближайшие: kiten\n"],
+      [["kitn"], "mpu: не понимает kitn; ближайшие: kiten, it\n"],
       // Ребёнок `move` — две правки от `nope`, но при посеве он `ask`:
       // обычный взгляд его не называет, и в «ближайших» его нет
       // (`platform/ask-door.md`).
@@ -130,7 +130,7 @@ Deno.test("messages группы — ровно её дети, когда раз
     }
   }));
 
-Deno.test("messages корня — дети, правила, вход ask и дополнение", () =>
+Deno.test("messages корня — дети, правила, вход ask, дополнение и it", () =>
   withPolicyFile(async (file) => {
     allowEverything(file);
     const { code, stdout } = await run(file, [
@@ -150,6 +150,7 @@ Deno.test("messages корня — дети, правила, вход ask и д�
         "complete:",
         "deny:",
         "forget:",
+        "it",
       ].sort(),
     );
   }));

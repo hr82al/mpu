@@ -34,6 +34,7 @@ Deno.test("из пайпа: ввод, терминальность и имена
       // Имена вне закрытого списка клиент не берёт: сервер забраковал
       // бы кадр целиком.
       env: { NO_COLOR: "1" },
+      caller: "ppid:1",
     });
   }));
 
@@ -52,6 +53,7 @@ Deno.test("с терминала: ввода нет и ширина при св�
       cwd: Deno.cwd(),
       human: true,
       tty: { stdin: true, stdout: true, stderr: true, columns: 80 },
+      caller: "ppid:1",
     });
   }));
 

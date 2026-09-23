@@ -31,6 +31,8 @@ export interface EnvSetup {
   /** Терминал ли stdout и какая у него ширина. */
   readonly stdout?: boolean;
   readonly columns?: number;
+  /** Как клиент называет себя; по умолчанию — `ppid:1`. */
+  readonly name?: string;
   /** Удаётся ли копирование в буфер обмена. */
   readonly clipboard?: boolean;
   /** Копирование ждёт этого промиса: проверка, что клиент его дождётся. */
@@ -94,6 +96,7 @@ export function testEnv(setup: EnvSetup): TestEnv {
         columns: () => setup.columns,
         value: (name) => setup.values?.[name],
       },
+      name: setup.name ?? "ppid:1",
       openTerminal: () =>
         Promise.resolve(terminals ? fakeTerminal(answers, asked) : undefined),
       copy: async (text) => {

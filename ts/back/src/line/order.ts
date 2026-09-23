@@ -4,7 +4,7 @@
  * и без закрытия с тем, что за ним.
  */
 
-import { GRAMMAR } from "../messages/mod.ts";
+import { flagged, GRAMMAR } from "../messages/mod.ts";
 
 /** Как лист отдаёт строку нынешней диспетчеризации. */
 export interface Order {
@@ -46,11 +46,6 @@ export const FOREIGN: Order = { argv: unopened };
  */
 export function formatted(order: Order, words: readonly string[]): Order {
   return {
-    argv(line) {
-      const argv = order.argv(line);
-      const at = argv.indexOf(GRAMMAR.literal);
-      const cut = at < 0 ? argv.length : at;
-      return [...argv.slice(0, cut), ...words, ...argv.slice(cut)];
-    },
+    argv: (line) => flagged(order.argv(line), words),
   };
 }

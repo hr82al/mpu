@@ -50,13 +50,16 @@ export class Door {
    * (`platform/call-context.md`). Есть ли кого спросить — отдельный
    * факт, из терминальности кадра он не выводится: на `/agent/line`
    * спросить некого при любом терминале.
+   *
+   * @param caller как клиент называет себя (`platform/it.md`)
    */
   first(
     words: readonly string[],
     cwd: string,
     context: ContextFields,
+    caller: string,
   ): FirstFrame {
-    return { words, cwd, human: this.#asker.present, ...context };
+    return { words, cwd, human: this.#asker.present, ...context, caller };
   }
 
   answer(question: string, kind: AskKind): Promise<string> {

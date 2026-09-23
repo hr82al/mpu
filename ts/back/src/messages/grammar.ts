@@ -10,3 +10,16 @@ export const GRAMMAR = {
   literal: "--",
   stdin: "stdin",
 } as const;
+
+/**
+ * Строка команды со словами флага `words` (`--md`, `--json`): они встают
+ * перед первым `--` — за ним стали бы позиционными словами команды.
+ */
+export function flagged(
+  argv: readonly string[],
+  words: readonly string[],
+): string[] {
+  const at = argv.indexOf(GRAMMAR.literal);
+  const cut = at < 0 ? argv.length : at;
+  return [...argv.slice(0, cut), ...words, ...argv.slice(cut)];
+}

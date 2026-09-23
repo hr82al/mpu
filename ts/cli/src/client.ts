@@ -52,6 +52,11 @@ export interface ClientEnv {
   readonly agentToken: () => Promise<string | undefined>;
   /** Что клиент снимает у себя: ввод, терминальность, переменные. */
   readonly caller: CallerFacts;
+  /**
+   * Как клиент называет себя в кадре (`caller`, `platform/it.md`): по
+   * этому имени `back` помнит его прошлый результат.
+   */
+  readonly name: string;
   /** Открыть управляющий терминал; его нет — спросить некого. */
   readonly openTerminal: () => Promise<TerminalIo | undefined>;
   /** Положить текст в буфер обмена; удалось ли. */
@@ -117,7 +122,7 @@ class LineSocket {
     this.#socket = new WebSocket(door.socket(env.base), door.protocols());
     this.#socket.onopen = () =>
       this.#socket.send(
-        JSON.stringify(door.first(words, env.cwd(), context)),
+        JSON.stringify(door.first(words, env.cwd(), context, env.name)),
       );
     this.#socket.onmessage = (event) => this.#received(event.data);
     this.#socket.onerror = () => {

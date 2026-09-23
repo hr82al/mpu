@@ -85,12 +85,13 @@ export class BackLine {
    * Строка `words` в канале агента.
    *
    * @param options отмена вызова: обрыв чтения ответа и есть отмена
-   *   строки у `POST`-двери (`platform/back-http-line.md`)
+   *   строки у `POST`-двери (`platform/back-http-line.md`); `caller` —
+   *   как агентская сессия называет себя (`platform/it.md`)
    */
   start(
     words: readonly string[],
     human: boolean,
-    options: { readonly signal?: AbortSignal } = {},
+    options: { readonly signal?: AbortSignal; readonly caller?: string } = {},
   ): Promise<Reply> {
     return this.#post(
       "/agent/line",
@@ -98,6 +99,7 @@ export class BackLine {
         words,
         cwd: this.#target.cwd,
         human,
+        caller: options.caller,
       },
       offContract(404),
       options.signal,
