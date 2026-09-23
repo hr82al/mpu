@@ -59,7 +59,7 @@ async function visit(
     root,
   );
   if ("error" in own) {
-    // Данные сообщений не понимают, а закрытые — понимают только форматы.
+    // Данные сообщений не понимают, а закрытые ответы — только форматы.
     assert(
       own.error.endsWith("цепочка окончена, messages отправить некому") ||
         own.error.endsWith("не понимает messages; есть: json"),
@@ -77,6 +77,8 @@ async function visit(
     listed.filter((s) => !s.startsWith("<")),
     words.join(" "),
   );
+  // Закрытые данные — форматы и отбор: сверены, отбор вглубь не обходится.
+  if (listed.includes("json")) return;
   for (const selector of listed) {
     await visit(root, sending(words, ...wordsFor(selector)), visited);
   }
@@ -91,7 +93,9 @@ Deno.test("messages каждого объекта совпадает с его �
     "kiten card",
     "kiten card 123",
     "kiten card 123 comment",
+    "kiten card 123 comment: 123",
     "kiten card: 123",
     `kiten card: 123 ${GRAMMAR.close} comment`,
+    `kiten card: 123 ${GRAMMAR.close} comment: 123`,
   ]);
 });

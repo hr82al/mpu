@@ -81,8 +81,13 @@ function kindName(data: unknown): string {
 /**
  * Данные группы значением ключа (граница JSON): скаляр — текстом; запись
  * ровно с одним полем-скаляром — это поле; прочее — отказ «не скаляр».
+ * Список записей с `id` — с готовым значением через `first id`.
  */
-function valueOf(data: unknown, key: string): string {
+function valueOf(
+  data: unknown,
+  key: string,
+  ready: (field: string) => string,
+): string {
   if (["string", "number", "boolean"].includes(typeof data)) {
     return String(data);
   }
@@ -97,8 +102,23 @@ function valueOf(data: unknown, key: string): string {
     return String(fields[0]);
   }
   throw new Refusal(
-    `значение ключа ${key} — не скаляр (${kindName(data)})`,
+    `значение ключа ${key} — не скаляр (${kindName(data)})` +
+      identified(data, key, ready),
   );
+}
+
+/** Поле-идентификатор записей, которым из списка берут скаляр. */
+const ID = "id";
+
+/** Подсказка к списку записей с `id`: готовое значение; иначе — пусто. */
+function identified(
+  data: unknown,
+  key: string,
+  ready: (field: string) => string,
+): string {
+  const first: unknown = Array.isArray(data) ? data[0] : undefined;
+  const records = typeof first === "object" && first !== null && ID in first;
+  return records ? `; скаляром: ${key}: ${ready(ID)}` : "";
 }
 
 /**
@@ -138,14 +158,18 @@ export class LineValues implements ValueEvaluation {
     this.#stdin = stdin;
   }
 
-  async group(words: readonly string[], key: string): Promise<string> {
+  async group(
+    words: readonly string[],
+    key: string,
+    ready: (field: string) => string,
+  ): Promise<string> {
     // Формат группы — json: значение — данные результата, не их текст.
     const { outcome, printed } = await this.#run([
       ...words,
       GRAMMAR.close,
       "json",
     ]);
-    return valueOf(dataOf(outcome, printed, key), key);
+    return valueOf(dataOf(outcome, printed, key), key, ready);
   }
 
   stdin(key: string, prompts: boolean): Promise<string | undefined> {

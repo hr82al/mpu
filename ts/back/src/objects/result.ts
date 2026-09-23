@@ -12,6 +12,7 @@ import {
   type Call,
   type Doc,
   HELP_SELECTOR,
+  type Named,
   type Outcome,
   type Receiver,
   type Reflection,
@@ -37,14 +38,14 @@ const AS_IS: Printer = {
 };
 
 /** JSON с отступом 2 и переводом строки в конце. */
-function json(data: unknown): string {
+export function jsonText(data: unknown): string {
   return `${JSON.stringify(data, null, 2)}\n`;
 }
 
 /** `json`: данные объектом; у данных со своим видом — их данные. */
 const JSON_PRINTER: Printer = {
-  present: (data, report) => report.value(json(data)),
-  show: (item, report) => report.value(json(item.data())),
+  present: (data, report) => report.value(jsonText(data)),
+  show: (item, report) => report.value(jsonText(item.data())),
 };
 
 /** Итог, у которого данные проходят через печать. */
@@ -69,7 +70,7 @@ const FORMATS: ReadonlyMap<string, readonly [Doc, Printer]> = new Map([
 ]);
 
 /** Имена форматов, которые понимает результат данных. */
-const DATA_FORMATS: readonly string[] = [...FORMATS.keys()];
+export const DATA_FORMATS: readonly string[] = [...FORMATS.keys()];
 
 /** Отражение данных: сообщений нет, результат понимает форматы данных. */
 export const DATA_REFLECTION: Reflection = {
@@ -95,29 +96,42 @@ export function dataHelp(path: string, doc: Doc): Help {
   }, DATA_VIEW);
 }
 
+/** Что результат после закрытия делает со словом, которое не формат. */
+export interface ResultEnd {
+  /** Вид результата: разбор следующего слова, справка, отражение. */
+  readonly kind: ResultKind;
+  /** Сообщение данным `inner`, не формат. */
+  selects(inner: Receiver, named: Named): Call;
+}
+
+/** Слово, которое не формат, — отказ со списком форматов. */
+function formatsOnly(selector: string): never {
+  const names = DATA_FORMATS.join(", ");
+  throw new Refusal(`не понимает ${selector}; есть: ${names}`);
+}
+
 /**
  * Закрытое выражение с выбранной печатью: формат — сообщение ему,
- * непонятое слово — отказ со списком форматов, второе закрытие —
- * результат этого результата.
+ * прочее слово решает конец результата, второе закрытие — результат
+ * этого результата.
  */
 class Printed implements Receiver {
   readonly #inner: Receiver;
   readonly #printer: Printer;
+  readonly #end: ResultEnd;
 
-  constructor(inner: Receiver, printer: Printer) {
+  constructor(inner: Receiver, printer: Printer, end: ResultEnd) {
     this.#inner = inner;
     this.#printer = printer;
+    this.#end = end;
   }
 
   lookup(sent: Sent): Call {
-    const refuse = (): never => {
-      const names = DATA_FORMATS.join(", ");
-      throw new Refusal(`не понимает ${sent.selector()}; есть: ${names}`);
-    };
     return sent.route({
       named: (named) =>
-        this.#format(named.selector(), named.text()) ?? refuse(),
-      tail: refuse,
+        this.#format(named.selector(), named.text()) ??
+          this.#end.selects(this.#inner, named),
+      tail: () => formatsOnly(sent.selector()),
       close: () => endOf(this),
     });
   }
@@ -126,17 +140,18 @@ class Printed implements Receiver {
     return this.#inner.final(printing(report, this.#printer));
   }
 
+  /** Формат выбран: дальше — только закрытие. */
   #format(selector: string, text: string): Call | undefined {
     const format = FORMATS.get(selector);
     if (format === undefined) return undefined;
     const [doc, printer] = format;
-    const next = new Printed(this.#inner, printer);
+    const next = new Printed(this.#inner, printer, FORMATS_ONLY);
     return new AsideCall(text, doc, PRINTED, () => next);
   }
 }
 
 /** Вид результата данных: разбор, справка, подсказки. */
-const PRINTED: ResultKind = {
+export const PRINTED: ResultKind = {
   parsing: () => ({ unary: [...DATA_FORMATS], keyword: [] }),
   about: (path, doc) =>
     new Help({
@@ -164,28 +179,44 @@ const PRINTED: ResultKind = {
   }),
 };
 
-/** Закрытие выражения, которое кончается данными: результат с форматами. */
-export function endOf(receiver: Receiver): Call {
+/** Результат с одними форматами: прочее слово — отказ. */
+const FORMATS_ONLY: ResultEnd = {
+  kind: PRINTED,
+  selects: (_inner, named) => formatsOnly(named.selector()),
+};
+
+/**
+ * Закрытие выражения, которое кончается данными: результат с форматами.
+ *
+ * @param end что результат делает со словом, которое не формат
+ */
+export function endOf(receiver: Receiver, end = FORMATS_ONLY): Call {
   return new AsideCall(
     GRAMMAR.close,
     RESULT_DOC,
-    PRINTED,
-    () => new Printed(receiver, AS_IS),
+    end.kind,
+    () => new Printed(receiver, AS_IS, end),
   );
 }
 
 /**
  * Сообщение приёмнику-данным: сообщений он не понимает, закрытие делает
  * из него результат с форматами.
+ *
+ * @param end что результат делает со словом, которое не формат
  */
-export function ended(receiver: Receiver, sent: Sent): Call {
+export function ended(
+  receiver: Receiver,
+  sent: Sent,
+  end = FORMATS_ONLY,
+): Call {
   const refuse = (): never => {
     throw new Refusal(`цепочка окончена, ${sent.selector()} отправить некому`);
   };
   return sent.route({
     named: refuse,
     tail: refuse,
-    close: () => endOf(receiver),
+    close: () => endOf(receiver, end),
   });
 }
 

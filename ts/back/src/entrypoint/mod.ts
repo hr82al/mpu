@@ -167,6 +167,24 @@ export async function runLine(
 }
 
 /**
+ * Результат строки — поток (`logs --follow`): спрашивается до исполнения,
+ * отбору он не подлежит. Строка, которую не разобрать, — не поток:
+ * ошибку разбора покажет само исполнение.
+ */
+export function streams(argv: readonly string[]): boolean {
+  const { args: rest } = takeJsonFlag(argv);
+  const { path, rest: args } = matchPath(rest);
+  const command = findCommand(path);
+  if (command === undefined) return false;
+  try {
+    return command.streams(args);
+  } catch (err) {
+    if (err instanceof UsageError) return false;
+    throw err;
+  }
+}
+
+/**
  * Оборачивает переданный io печатью строк хода в stderr. Служебные строки
  * хода исполнения печатает точка входа, а не команда
  * (`platform/command-contract.md`, инвариант 1): команда отдаёт их

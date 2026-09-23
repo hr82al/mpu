@@ -473,6 +473,19 @@ export class Keys {
   }
 
   /**
+   * Ключевое, которого команда не понимает вовсе, уходит результату
+   * (`platform/collection-protocol.md`): если обязательных ключей у
+   * команды нет, а результат его понимает (`kiten ls where: … is: …`).
+   *
+   * @param understood понимает ли результат селектор
+   */
+  toResult(named: Named, understood: (selector: string) => boolean): boolean {
+    const keys = Object.keys(named.args());
+    return !keys.some((key) => this.#known(key)) &&
+      this.missing({}) === undefined && understood(named.selector());
+  }
+
+  /**
    * Ключи сообщения проверены до исполнения: формат флагом, снятый вход,
    * прежнее написание — отказ с готовой строкой. Чужой ключ за целым
    * сообщением этой команды начинает остаток — его получает результат.

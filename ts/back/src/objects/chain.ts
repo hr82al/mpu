@@ -114,7 +114,7 @@ class Walk implements Walker {
     const kind = this.#pending.result().reflect();
     try {
       return await resolvedMessage(message, {
-        group: (words, key) => evaluation.group(words, key),
+        group: (words, key, ready) => evaluation.group(words, key, ready),
         stdin: (key) => evaluation.stdin(key, kind.prompts(key)),
       });
     } catch (err) {

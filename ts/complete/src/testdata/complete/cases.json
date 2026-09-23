@@ -65,7 +65,7 @@
       "output": ""
     },
     {
-      "name": "после end — форматы",
+      "name": "после end — форматы и отбор",
       "words": [
         "kiten",
         "card",
@@ -74,7 +74,7 @@
         "end",
         ""
       ],
-      "output": "json\t\nmd\t\n"
+      "output": "first\tпервый элемент; пустая — nil\nfirst:\tколлекция первых n элементов\nisEmpty\tпуста ли коллекция\njson\t\nlast\tпоследний элемент; пустая — nil\nmd\t\npick:\tзначения поля у каждой записи\nsize\tчисло элементов\nsortBy:\tпо возрастанию поля; nil — в конце\nwhere:\tзаписи по полю: is:, less:, greater: или includes:\n"
     },
     {
       "name": "за -- — ничего",

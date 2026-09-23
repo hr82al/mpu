@@ -10,8 +10,15 @@ import { type KeyValue, type Message, MessageParseError } from "./message.ts";
 
 /** Где вычисляются значения: у исполнителя строки. */
 export interface Evaluation {
-  /** Результат группы — значением ключа `key`. */
-  group(words: readonly string[], key: string): Promise<string>;
+  /**
+   * Результат группы — значением ключа `key`; `ready` — та же группа,
+   * записанная с `first <поле>` (для подсказки к списку).
+   */
+  group(
+    words: readonly string[],
+    key: string,
+    ready: (field: string) => string,
+  ): Promise<string>;
   /** stdin строки — значением ключа `key`; не задаётся — `undefined`. */
   stdin(key: string): Promise<string | undefined>;
 }
@@ -86,16 +93,32 @@ function notFlag(key: string): never {
   throw new MessageParseError(`ключ ${key} ждёт true или false`);
 }
 
-/** Группа `do … end` на месте значения: её результат. */
+/**
+ * Группа `do … end` на месте значения: её результат. Унарные за ней —
+ * сообщения этому результату (`do kiten ls end first id`).
+ */
 export class GroupValue implements Written {
   readonly #words: readonly string[];
+  readonly #messages: readonly string[];
 
-  constructor(words: readonly string[]) {
+  /**
+   * @param words слова группы без открытия и закрытия
+   * @param messages унарные за группой; нет — пусто
+   */
+  constructor(words: readonly string[], messages: readonly string[] = []) {
     this.#words = [...words];
+    this.#messages = [...messages];
   }
 
   settle(evaluation: Evaluation, key: string): Promise<string> {
-    return evaluation.group(this.#words, key);
+    const words = this.#messages.length === 0
+      ? this.#words
+      : [...this.#words, GRAMMAR.close, ...this.#messages];
+    return evaluation.group(
+      words,
+      key,
+      (field) => `${this.text()} first ${field}`,
+    );
   }
 
   asFlag(key: string): Spelled {
@@ -103,7 +126,8 @@ export class GroupValue implements Written {
   }
 
   text(): string {
-    return [GRAMMAR.open, ...this.#words, GRAMMAR.close].join(" ");
+    return [GRAMMAR.open, ...this.#words, GRAMMAR.close, ...this.#messages]
+      .join(" ");
   }
 }
 

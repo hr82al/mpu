@@ -9,6 +9,7 @@
 
 import { defineCommand } from "../command/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
+import { SQL_ITEMS } from "./items.ts";
 import { renderOutcome } from "./render.ts";
 import {
   argsSchema,
@@ -70,6 +71,7 @@ Exit: 0 — успех, включая --dry и запрос без набора
   },
   resultSchema,
   run: (args, io: SqlIo) => runSql(args, io, { mode: "read-only" }),
+  items: SQL_ITEMS,
   render: (result, args) =>
     result.outcome === null
       ? ""

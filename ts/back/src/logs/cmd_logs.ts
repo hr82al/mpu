@@ -214,6 +214,7 @@ Exit: 0 — успех, в том числе пустой вывод; 1 — от
   resultSchema,
   run: (args, io) => runLogs(args, io),
   render: (result, args) => renderLogs(result, args),
+  streams: (args) => args.follow,
 });
 
 /**

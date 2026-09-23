@@ -15,6 +15,7 @@ export type {
   Reflection,
   Remedy,
   Report,
+  ResultKind,
   Sent,
   Trace,
   ValueEvaluation,
@@ -57,4 +58,17 @@ export { line as callLine, NO_REMEDY, spoken } from "./remedy.ts";
 export { type Loader, Replaceable } from "./replaceable.ts";
 export { GroupExit, runChain } from "./chain.ts";
 export { ended } from "./result.ts";
+export {
+  collectionOf,
+  type Data,
+  isSelection,
+  type ListView,
+  resultData,
+  SELECTABLE,
+  selectable,
+  selecting,
+  selectionMessages,
+  selectionOf,
+  type Source,
+} from "./data.ts";
 export { Help, type HelpData } from "./help.ts";

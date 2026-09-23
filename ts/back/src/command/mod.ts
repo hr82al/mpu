@@ -14,6 +14,7 @@ import { z } from "@zod/zod";
 import { type InputForm, type InputSpec, parseArgv } from "./args.ts";
 import { type ObjectSchema, readObjectSchema } from "./schema.ts";
 import { UsageError } from "./errors.ts";
+import { collectionOf, type Data, resultData } from "../objects/mod.ts";
 
 export {
   DomainError,
@@ -421,6 +422,26 @@ interface CommandDeclaration<A, R> {
    * оставляет его без значения (`platform/value-expression.md`).
    */
   readonly terminalInput?: string;
+  /**
+   * Где в результате коллекция (`platform/collection-protocol.md`): без
+   * объявления результат для отбора — запись.
+   */
+  readonly items?: Items<R>;
+  /**
+   * Результат — поток записей (`logs --follow`): отбору не подлежит,
+   * только форматы. Без объявления — значение.
+   */
+  readonly streams?: (args: A) => boolean;
+}
+
+/**
+ * Коллекция в результате команды: записи и тот же результат с другими
+ * записями — по нему отобранное печатает вид команды.
+ */
+export interface Items<R> {
+  records(result: R): readonly unknown[];
+  /** Результат с записями `records`; проверяет его схема результата. */
+  with(result: R, records: readonly unknown[]): unknown;
 }
 
 /**
@@ -514,6 +535,13 @@ export interface Command {
   readonly terminalInput: string | undefined;
   /** Проверяет образец результата объявленной схемой. */
   readonly assertResult: (value: unknown) => void;
+  /**
+   * Результат для отбора: коллекция с видом команды, если команда её
+   * объявила, иначе — как данные JSON.
+   */
+  readonly dataOf: (result: unknown, argv: readonly string[]) => Data;
+  /** Результат строки `argv` — поток: отбору не подлежит. */
+  readonly streams: (argv: readonly string[]) => boolean;
 }
 
 /**
@@ -585,6 +613,20 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
         ? 0
         : spec.textExitCode(spec.resultSchema.parse(result)),
     assertResult: (value) => void spec.resultSchema.parse(value),
+    dataOf: (result, argv) => {
+      const items = spec.items;
+      if (items === undefined) return resultData(result);
+      const whole = spec.resultSchema.parse(result);
+      const render = (records: readonly unknown[]) =>
+        spec.render(
+          spec.resultSchema.parse(items.with(whole, records)),
+          parse(argv),
+        );
+      return collectionOf(items.records(whole), {
+        text: (selected) => render(selected.map((item) => item.data())),
+      });
+    },
+    streams: (argv) => spec.streams?.(parse(argv)) ?? false,
   };
 }
 

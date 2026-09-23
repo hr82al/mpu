@@ -45,20 +45,21 @@ function spelled(key: Key): string {
   return key.kind === "flag" ? `--${key.name}` : `${key.name}:`;
 }
 
-/** Узел снимка: его сообщения, ключи, форматы и дети. */
+/** Узел снимка: его сообщения, ключи, слова результата и дети. */
 interface Known {
   readonly messages: readonly Choice[];
   readonly keys: readonly Key[];
-  readonly formats: readonly Choice[];
+  /** Слова после закрытия: форматы узла и сообщения отбора. */
+  readonly results: readonly Choice[];
   child(selector: string): Place | undefined;
 }
 
-/** Результат после закрытия: варианты — форматы, дальше — нигде. */
+/** Результат после закрытия: варианты — форматы и отбор, дальше — нигде. */
 class Result implements Place {
-  readonly #formats: readonly Choice[];
+  readonly #words: readonly Choice[];
 
-  constructor(formats: readonly Choice[]) {
-    this.#formats = formats;
+  constructor(words: readonly Choice[]) {
+    this.#words = words;
   }
 
   step(): Place {
@@ -66,7 +67,7 @@ class Result implements Place {
   }
 
   choices(): readonly Choice[] {
-    return this.#formats;
+    return this.#words;
   }
 }
 
@@ -101,7 +102,7 @@ class Keyword implements Place {
 
   step(word: string): Place {
     if (this.#waiting) return new Keyword(this.#node, this.#typed, false);
-    if (word === CLOSE) return new Result(this.#node.formats);
+    if (word === CLOSE) return new Result(this.#node.results);
     if (word === LITERAL) return new Literal(this);
     const key = this.#node.keys.find((one) => spelled(one) === word);
     if (key === undefined) return NOWHERE;
@@ -130,7 +131,7 @@ class Node implements Place {
 
   step(word: string): Place {
     if (SKIPPED.has(word)) return this;
-    if (word === CLOSE) return new Result(this.#node.formats);
+    if (word === CLOSE) return new Result(this.#node.results);
     if (word === LITERAL) return new Literal(NOWHERE);
     const child = this.#node.child(word);
     if (child !== undefined) return child;
@@ -206,6 +207,9 @@ export function treeOf(text: string): Place {
     return NOWHERE;
   }
   if (!isRecord(body) || !Array.isArray(body.nodes)) return NOWHERE;
+  // Отбор понимает результат любого узла: список в снимке один.
+  const selection = records(body.selection, ["selector", "kind", "purpose"])
+    .map((line) => ({ value: line.selector, summary: line.purpose }));
   const raws = new Map<string, RawNode>();
   for (const value of body.nodes) {
     const raw = rawNode(value);
@@ -227,7 +231,10 @@ export function treeOf(text: string): Place {
         summary: line.purpose,
       })),
       keys: raw.keys,
-      formats: raw.formats.map((format) => ({ value: format, summary: "" })),
+      results: [
+        ...raw.formats.map((format) => ({ value: format, summary: "" })),
+        ...selection,
+      ].sort((a, b) => a.value < b.value ? -1 : a.value > b.value ? 1 : 0),
       child: (selector) =>
         unary.has(selector) ? placeAt([...path, selector]) : undefined,
     });

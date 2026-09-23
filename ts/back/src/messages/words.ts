@@ -33,6 +33,12 @@ interface Word {
   literal(): string;
   /** Слово стоит за ключевым сообщением: закрывает его или лишнее. */
   afterPair(draft: Draft, words: Words): void;
+  /**
+   * Слово стоит за группой-значением: унарное — сообщение её результату,
+   * кладёт себя в `into` (`platform/value-expression.md`); `false` —
+   * слово внешнему сообщению.
+   */
+  toGroup(words: Words, into: string[]): boolean;
   /** Слово в хвосте: кладёт себя в `into`; `false` — хвост кончился. */
   intoTail(words: Words, into: string[]): boolean;
   /**
@@ -128,14 +134,18 @@ export class Words implements ValueSource {
   }
 }
 
-/** Что голое слово делает за литеральным значением ключа. */
+/** Что голое слово делает за значением ключа. */
 interface AfterValue {
+  /** За литералом. */
   follow(text: string, draft: Draft, words: Words): void;
+  /** За группой: входит ли унарным в её выражение. */
+  joinsGroup(): boolean;
 }
 
-/** Унарное — результату всего ключевого сообщения: неявное закрытие. */
+/** Унарное — результату: литерала — всего ключевого, группы — её. */
 const TO_RESULT: AfterValue = {
   follow: (_text, _draft, words) => words.closeHere(),
+  joinsGroup: () => true,
 };
 
 /** Слово вида короткого флага (`-v`): не унарное, значению лишнее. */
@@ -143,6 +153,7 @@ const STRAY: AfterValue = {
   follow(text, draft, words) {
     throw new StrayWord(draft.last(), text, words.consumed(), words.beyond());
   },
+  joinsGroup: () => false,
 };
 
 /** Слово без особого смысла: унарное сообщение или значение. */
@@ -173,6 +184,13 @@ class Bare implements Word {
 
   afterPair(draft: Draft, words: Words) {
     this.#after.follow(this.#text, draft, words);
+  }
+
+  toGroup(words: Words, into: string[]): boolean {
+    if (!this.#after.joinsGroup()) return false;
+    into.push(this.#text);
+    words.skip();
+    return true;
   }
 
   intoTail(words: Words, into: string[]): boolean {
@@ -256,6 +274,10 @@ class Key implements Word {
   // стоять за законченным ключевым сообщением он не может.
   afterPair() {}
 
+  toGroup(): boolean {
+    return false;
+  }
+
   intoTail(words: Words, into: string[]): boolean {
     into.push(this.#text);
     words.skip();
@@ -281,6 +303,7 @@ const HELP_WORD: Word = {
   literal: () => HELP_FLAG,
   // `--help` за значением — справка результата ключевого сообщения.
   afterPair: (_draft, words) => words.closeHere(),
+  toGroup: () => false,
   intoTail(words, into) {
     into.push(HELP_FLAG);
     words.skip();
@@ -299,6 +322,7 @@ const ESCAPE: Word = {
   literal: () => GRAMMAR.literal,
   // Литерал за значением — унарное результату, как голое слово.
   afterPair: (_draft, words) => words.closeHere(),
+  toGroup: () => false,
   // Перед словом грамматики знак снимается, слово остаётся словом
   // хвоста; перед прочими словами знак — сам слово хвоста.
   intoTail(words, into) {
@@ -342,6 +366,13 @@ function groupWords(key: string, words: Words): string[] {
   }
 }
 
+/** Унарные за группой-значением — сообщения её результату, по порядку. */
+function groupMessages(words: Words): string[] {
+  const into: string[] = [];
+  while (words.peek().toGroup(words, into)) continue;
+  return into;
+}
+
 /**
  * `do` — открытие группы: первым словом строки его снимает исполнитель,
  * на месте значения группа — выражение значения.
@@ -351,11 +382,13 @@ const OPEN: Word = {
     throw openElsewhere();
   },
   joinTo: () => false,
-  valueFor: (key, words) => new GroupValue(groupWords(key, words)),
+  valueFor: (key, words) =>
+    new GroupValue(groupWords(key, words), groupMessages(words)),
   literal: () => GRAMMAR.open,
   afterPair() {
     throw openElsewhere();
   },
+  toGroup: () => false,
   intoTail(words, into) {
     into.push(GRAMMAR.open);
     words.skip();
@@ -373,6 +406,7 @@ const CLOSE: Word = {
   },
   literal: () => GRAMMAR.close,
   afterPair() {},
+  toGroup: () => false,
   intoTail: () => false,
   opensTail: () => false,
 };
@@ -388,6 +422,7 @@ const END: Word = {
     throw new MessageParseError(`после ${GRAMMAR.literal} нет слова`);
   },
   afterPair() {},
+  toGroup: () => false,
   intoTail: () => false,
   opensTail: () => false,
 };
@@ -407,6 +442,7 @@ function stdinWord(): Word {
     valueFor: () => new StdinValue(),
     literal: () => bare.literal(),
     afterPair: (draft, words) => bare.afterPair(draft, words),
+    toGroup: (words, into) => bare.toGroup(words, into),
     intoTail: (words, into) => bare.intoTail(words, into),
     opensTail: (own) => bare.opensTail(own),
   };

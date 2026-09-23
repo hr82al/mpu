@@ -185,10 +185,23 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
     },
     closing: parts.results.closing((self: Keyed) => self.pending()),
   });
+  // Ключевого сообщения нет: строка без ключей, если требовать нечего.
+  const bare = (line: Line) =>
+    new Keyed(
+      line,
+      keys.order(keys.none()),
+      parts.stripped,
+      NO_REST,
+      parts.results.names(),
+    );
   const fallback: Fallback<Line> = {
     understand(sent: Sent, line: Line, refuse: () => Call): Call {
       return sent.route({
         named(named) {
+          const selects = (selector: string) => parts.results.selects(selector);
+          if (keys.toResult(named, selects)) {
+            return parts.results.select(bare(line).pending(), named);
+          }
           const accepted = keys.accept(named);
           const state = new Keyed(
             line,
@@ -219,15 +232,6 @@ export function keyedLeaf(parts: KeyedParts): Shape<Line> {
       into.valueTail(ARGS);
     },
   };
-  // Ключевого сообщения нет: строка без ключей, если требовать нечего.
-  const bare = (line: Line) =>
-    new Keyed(
-      line,
-      keys.order(keys.none()),
-      parts.stripped,
-      NO_REST,
-      parts.results.names(),
-    );
   const target = keys.describe().keys.target !== undefined;
   return new Shape<Line>(modesOf(parts), {
     fallback,

@@ -3,6 +3,7 @@
  * протокол отражения и закрытие: цепочка на них окончена.
  */
 
+import { SELECTABLE } from "./data.ts";
 import { Description } from "./method.ts";
 import { DATA_REFLECTION, dataHelp, ended } from "./result.ts";
 import { withProtocol } from "./reflection.ts";
@@ -16,7 +17,7 @@ import type {
   Yields,
 } from "./protocol.ts";
 
-/** Данные в конце цепочки: любое сообщение к ним — отказ. */
+/** Данные в конце цепочки: сообщения — после закрытия, отбором. */
 class Value implements Receiver {
   readonly #data: unknown;
 
@@ -25,7 +26,7 @@ class Value implements Receiver {
   }
 
   lookup(sent: Sent): Call {
-    return ended(this, sent);
+    return ended(this, sent, SELECTABLE);
   }
 
   final(report: Report): Promise<Outcome> {

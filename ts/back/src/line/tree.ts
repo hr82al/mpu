@@ -8,6 +8,7 @@ import { JSON_FLAG, ROOT_SUMMARY, ROOT_USAGE } from "../entrypoint/mod.ts";
 import {
   type Call,
   completeLine,
+  type Data,
   type Doc,
   EVERYONE,
   type Fallback,
@@ -48,17 +49,18 @@ import {
   type Stripped,
   type Targets,
 } from "./keyed.ts";
-import { Pending, ResultOf } from "./result.ts";
+import { type Execution, Pending, ResultOf } from "./result.ts";
 import { ruleMethods } from "./rules.ts";
 import { ASK_DOC, ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";
 
 /** Вид звена хвоста: оно же звено пути строки у правил. */
 export const ARGS = "<args>";
 
-/** Как строится дерево для взгляда: чем кончать строку, кого называть. */
-interface Sight {
-  /** Исполнение строки в конце: её собирает для диспетчеризации `order`. */
-  settle(report: Report, line: Line, order: Order): Promise<Outcome>;
+/**
+ * Как строится дерево для взгляда: чем кончать строку (печатью или
+ * отбором — её собирает для диспетчеризации `order`), кого называть.
+ */
+interface Sight extends Execution {
   /** Формат, снятый со строки до обхода: у ключевой команды — отказ. */
   readonly stripped: Stripped;
   /** Роспись детей узла `path`. */
@@ -70,6 +72,9 @@ interface Sight {
 /** Снимок дерева: структура без решений правил — все узлы, обычный конец. */
 const WHOLE: Sight = {
   settle: (report, line, order) => line.dispatch(report, NORMAL, order),
+  streams: (line, order) => line.streams(NORMAL, order),
+  select: (report, line, order, replay) =>
+    line.select(report, NORMAL, order, replay),
   stripped: NOTHING_STRIPPED,
   roster: () => EVERYONE,
   targets: NO_TARGETS,
@@ -95,6 +100,19 @@ class Seen implements Sight {
 
   settle(report: Report, line: Line, order: Order): Promise<Outcome> {
     return line.dispatch(report, this.#view, order);
+  }
+
+  streams(line: Line, order: Order): boolean {
+    return line.streams(this.#view, order);
+  }
+
+  select(
+    report: Report,
+    line: Line,
+    order: Order,
+    replay: (data: Data) => Promise<Outcome>,
+  ): Promise<Outcome> {
+    return line.select(report, this.#view, order, replay);
   }
 
   roster(path: readonly string[]): Roster {
@@ -176,7 +194,7 @@ function dispatching(
   kind: TailKind = OWN_TAIL,
 ): Shape<Line> {
   const settle = sight.settle.bind(sight);
-  const results = new ResultOf(formatsOf(path), settle);
+  const results = new ResultOf(formatsOf(path), sight);
   const shape: Shape<Line> = new Shape<Line>([], {
     fallback: kind.fallback(doc, () => shape),
     ending: { finish: (report, line) => settle(report, line, kind.order) },
@@ -204,7 +222,7 @@ function leafShape(
     command,
     layout: ahead ? SELECTOR_AHEAD : BY_PATH,
     doc,
-    results: new ResultOf(formatsOf(path), settle),
+    results: new ResultOf(formatsOf(path), sight),
     settle,
     stripped: sight.stripped,
     targets: sight.targets,

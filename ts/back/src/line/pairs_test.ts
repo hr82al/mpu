@@ -36,6 +36,14 @@ class Captured implements Line {
   change(report: Report): Promise<Outcome> {
     return Promise.resolve(report.exit(0));
   }
+
+  streams(): boolean {
+    return false;
+  }
+
+  select(report: Report): Promise<Outcome> {
+    return Promise.resolve(report.exit(0));
+  }
 }
 
 /** Пробное значение входа: то, что схема примет. */

@@ -4,7 +4,12 @@
  * Исполнялась ли команда — по отметке журнала.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+  assertStringIncludes,
+} from "@std/assert";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import { commands, groups, surfaces } from "../registry/mod.ts";
@@ -43,7 +48,7 @@ Deno.test("do … end у хвостовой команды — та же стр�
     }
   }));
 
-Deno.test("данные после end понимают json", () =>
+Deno.test("данные после end понимают json и отбор", () =>
   withPolicyFile(async (file) => {
     const listed = JSON.parse((await run(file, ["policy"])).stdout);
     const json = await run(file, ["policy", END, "json"]);
@@ -52,9 +57,11 @@ Deno.test("данные после end понимают json", () =>
     assertEquals(await run(file, ["policy", END, "xml"]), {
       code: 2,
       stdout: "",
-      stderr: `mpu policy ${END}: не понимает xml; есть: json\n`,
+      stderr: `mpu policy ${END} xml: коллекция не понимает xml\n`,
       called: [],
     });
+    const size = await run(file, ["policy", END, "size"]);
+    assertEquals([size.code, size.stdout], [0, `${listed.length}\n`]);
   }));
 
 Deno.test("help — последним словом, ничего не исполняет", () =>
@@ -117,7 +124,8 @@ Deno.test("справка результата, справка справки, �
       result.stdout.startsWith(`Использование: mpu policy ${END} <сообщение>`),
       result.stdout,
     );
-    assertStringIncludes(result.stdout, "  json  результат как JSON\n");
+    assertMatch(result.stdout, /\n {2}json +результат как JSON\n/);
+    assertMatch(result.stdout, /\n {2}size +число элементов\n/);
     const again = await run(file, ["kiten", "help", "help"]);
     assertEquals(again.code, 0, again.stderr);
     assert(again.stdout.startsWith("mpu kiten help\n\nсправка объекта\n"));

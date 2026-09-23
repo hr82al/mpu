@@ -92,8 +92,15 @@ export interface Reflection {
  * (`platform/value-expression.md`): у строки, а не у дерева объектов.
  */
 export interface ValueEvaluation {
-  /** Результат группы `words` — значением ключа `key`. */
-  group(words: readonly string[], key: string): Promise<string>;
+  /**
+   * Результат группы `words` — значением ключа `key`; `ready` — та же
+   * группа с `first <поле>`, для подсказки к списку.
+   */
+  group(
+    words: readonly string[],
+    key: string,
+    ready: (field: string) => string,
+  ): Promise<string>;
   /**
    * stdin строки — значением ключа `key`; `prompts` — ключ команда при
    * терминале читает сама. `undefined` — ключ остаётся без значения.

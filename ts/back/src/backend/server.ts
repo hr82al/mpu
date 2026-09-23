@@ -8,7 +8,13 @@ import { Hono } from "@hono/hono";
 import { hasBearer, LOOPBACK, LOOPBACK_ORIGINS } from "../access/mod.ts";
 import type { CommandIo, RemoteOutput } from "../command/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
-import { lineEntry, policyTree, registryNodes, rulesOf } from "../line/mod.ts";
+import {
+  lineEntry,
+  policyTree,
+  registryNodes,
+  rulesOf,
+  selectionMessages,
+} from "../line/mod.ts";
 import { runJournaled } from "../process/mod.ts";
 import { VERSION } from "../version.ts";
 import { AGENT, BROWSER, type Caller, OWNER } from "./caller.ts";
@@ -575,7 +581,11 @@ class Back {
  * @throws Deno.errors.AddrInUse — порт занят
  */
 export async function serveBack(options: BackOptions): Promise<RunningBack> {
-  const snapshot = { version: VERSION, nodes: registryNodes() };
+  const snapshot = {
+    version: VERSION,
+    nodes: registryNodes(),
+    selection: selectionMessages(),
+  };
   const back = new Back(options, snapshot);
   const address = Promise.withResolvers<Deno.NetAddr>();
   const server = Deno.serve({

@@ -16,6 +16,7 @@ import {
   type Receiver,
   Refusal,
   type Report,
+  SELECTABLE,
   type Sent,
   unary,
   type Yields,
@@ -46,9 +47,9 @@ class Deferred implements Receiver {
     this.#pending = pending;
   }
 
-  /** Как у данных в конце цепочки: отказ всему, кроме закрытия. */
+  /** Как у данных в конце цепочки: сообщения — после закрытия, отбором. */
   lookup(sent: Sent): Call {
-    return ended(this, sent);
+    return ended(this, sent, SELECTABLE);
   }
 
   final(report: Report): Promise<Outcome> {

@@ -489,6 +489,10 @@ Exit: 0 — успех, в т.ч. пустая выдача; 1 — ошибка 
   argsSchema,
   resultSchema,
   run: runKitenLs,
+  items: {
+    records: (result) => result.rows,
+    with: (result, rows) => ({ ...result, rows }),
+  },
   render: (result, args) => {
     switch (result.view) {
       case "json":

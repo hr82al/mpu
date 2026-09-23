@@ -6,9 +6,9 @@
  */
 
 import type { CommandIo } from "../command/mod.ts";
-import { JSON_FLAG, type Output, runLine } from "../entrypoint/mod.ts";
+import { JSON_FLAG, type Output, runLine, streams } from "../entrypoint/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
-import { type Outcome, runChain } from "../objects/mod.ts";
+import { runChain } from "../objects/mod.ts";
 import {
   type Channel,
   Human,
@@ -21,6 +21,7 @@ import type { CliEntry } from "../process/mod.ts";
 import { JSON_STRIPPED, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
 import { registrySeeds } from "./seeds.ts";
 import { targetValues } from "../selector/mod.ts";
+import { printed } from "./printed.ts";
 import { Session } from "./session.ts";
 import { LineValues, StdinOnce } from "./value.ts";
 import { ASK_WORD } from "./view.ts";
@@ -30,6 +31,7 @@ import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 export type { RootMethod } from "./rules.ts";
 
 export { registryNodes, type TreeNode } from "./tree.ts";
+export { selectionMessages } from "../objects/mod.ts";
 
 /** Действующее решение узла дерева (`specs/web.md`, «Действующие решения»). */
 export interface NodeRuling {
@@ -82,30 +84,6 @@ function walkedWords(argv: readonly string[]): string[] {
 function strippedOf(argv: readonly string[]): Stripped {
   const asked = argv.slice(0, jsonEnd(argv)).includes(JSON_FLAG);
   return asked ? JSON_STRIPPED : NOTHING_STRIPPED;
-}
-
-/** Итог цепочки в поток и код (данные границы). */
-function printed(outcome: Outcome, output: Output): number {
-  if ("error" in outcome) {
-    output.stderr(`${outcome.error}\n`);
-    return 2;
-  }
-  if ("exit" in outcome) return outcome.exit;
-  if ("object" in outcome) {
-    output.stdout(outcome.object);
-    return 2;
-  }
-  output.stdout(textOf(outcome.value));
-  return 0;
-}
-
-/**
- * Данные итога текстом: справка — строка как есть; ответы `selectors` и
- * `respondsTo:` — JSON (формы их печати спека не задаёт).
- */
-function textOf(value: unknown): string {
-  if (typeof value === "string") return value;
-  return `${JSON.stringify(value)}\n`;
 }
 
 /** Кто спрашивает подтверждение у строки. */
@@ -201,25 +179,32 @@ export function lineEntry(ports: LinePorts): CliEntry {
         book,
         channel,
         output: out,
-        dispatch: (view, order) =>
+        dispatch: (view, order, delivery) =>
           ports.execute(() =>
-            runLine(order.argv(view.executed(words)), lineIo, out, journal)
+            runLine(
+              order.argv(view.executed(words)),
+              lineIo,
+              out,
+              journal,
+              delivery,
+            )
           ),
+        streams: (view, order) => streams(order.argv(view.executed(words))),
       });
     const walked = walkedWords(argv);
     // Строка через дверь объявляет запись для всей строки: группы
     // значений идут той же дверью (`platform/value-expression.md`).
     const door = walked[0] === ASK_WORD ? [ASK_WORD] : [];
     const values: LineValues = new LineValues(async (words) => {
-      const printed: string[] = [];
+      const texts: string[] = [];
       const captured: Output = {
-        stdout: (text) => void printed.push(text),
+        stdout: (text) => void texts.push(text),
         stderr: output.stderr,
       };
       const group = [...door, ...words];
       const root = registryRoot(sessionOf(group, captured), book, parts);
       const outcome = await runChain(group, root, values);
-      return { outcome, printed: printed.join("") };
+      return { outcome, printed: texts.join("") };
     }, stdin);
     const root = registryRoot(sessionOf(argv, output), book, {
       ...parts,
