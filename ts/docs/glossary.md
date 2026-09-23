@@ -400,3 +400,5 @@
 | вызов метода | `MethodCall`, `MethodBody`, `MethodSource`, `parseMethodBody`, `nameParts`, `callWord`, `Line.consent`, `Consent` (168) | согласие ядра, затем тело в исполнителе |
 | посев по надобности | `RuleBook.sow` (168) | правило пути ставится при первом касании |
 | автор метода | `Door.author`, `Caller.author` (168) | human / agent / web |
+| ключ-текст | `texts`, `TEXT_KEYS`, `textKeysOf`, `TEXT_KINDS`, `textual`, `textFor` (167b) | ключ, чьё слово берётся как есть |
+| закрытие текста `^…^` | `lateCloser`, `closedEarly`, `unclosed`, `doubled` (167b) | счёт `^` на краю слова и отказы с готовой строкой |
