@@ -97,9 +97,8 @@ COLUMNS NO_COLOR TERM TERM_PROGRAM COLORTERM TMUX WT_SESSION OS
 
 `mpu-next` (`cli-client.md`) заполняет поля сам:
 
-- `stdin` — читает свой stdin **целиком, только если это не терминал**; stdin
-  терминал — поле не отправляется (иначе клиент повис бы, ожидая ввод, которого
-  никто не даёт);
+- `stdin` — поле клиент не шлёт: при не-терминальном stdin — `stdinOnRequest`,
+  ввод — по запросу строки (`stdin-on-request.md`);
 - `tty` — `Deno.stdin.isTerminal()` и то же для двух других потоков;
   `columns` — из `Deno.consoleSize()`, когда stdout терминал;
 - `env` — имена из списка выше, которые есть у клиента. Задачи `cli` и

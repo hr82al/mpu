@@ -363,3 +363,7 @@
 | вариант-выбор | `Choice` | варианты одного входа, исключающие друг друга (`ssh`/`portainer`) |
 | вариант не на месте | `Misplaced` | вариант после ключей — отказ с готовой строкой |
 | отказ-объект | кадр `refusal` (`reason`, `hint`, `candidates`, `text`), `back/src/objects/refusal.ts` | отказ данными: MCP кладёт в `structuredContent`, агент берёт `hint`; stderr — из того же объекта |
+| ввод по запросу | `stdinOnRequest`, `stdinRequest`, `RequestedInput` (165c) |
+| источник ввода строки | `InputSource`, `FRAME_INPUT`, `inputOnRequest` (165c) |
+| ввод клиента | `ClientInput` (165c) |
+| ввод потерян (клиент ушёл) | `InputLost` (165c) |
