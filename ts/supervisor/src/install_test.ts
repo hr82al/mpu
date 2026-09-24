@@ -4,7 +4,7 @@
  * оболочек — во временном `HOME`. Оснастка — `testkit.ts`.
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import {
   type Place,
   ROOT,
@@ -492,3 +492,144 @@ Deno.test("дополнение: файл без перевода строки �
       }));
   }
 });
+
+/** Заголовки MCP-клиента: токен читается при подключении, в конфиг не пишется. */
+const HEADERS_HELPER =
+  `printf '{"Authorization":"Bearer %s"}' "$(cat ~/.config/mpu/mcp-token)"`;
+
+/** Запись сервера `mpu`, которую ставит установщик. */
+function mpuServer(place: Place): Record<string, string> {
+  return {
+    type: "http",
+    url: `${place.mcp.url}/mcp`,
+    headersHelper: HEADERS_HELPER,
+  };
+}
+
+/** Строки шага Claude Code. */
+function claudeLines(run: Run): string[] {
+  return run.lines.filter((line) => line.startsWith("install: claude"));
+}
+
+async function readJson(path: string): Promise<unknown> {
+  return JSON.parse(await Deno.readTextFile(path));
+}
+
+Deno.test("claude: первая установка — сервер mpu пользователя и правила разрешений", () =>
+  withPlace(async (place) => {
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(claudeLines(run), [
+      "install: claude mcp: подключено",
+      "install: claude права: вписано",
+    ]);
+    assertEquals(run.claude, [
+      `mcp add-json --scope user mpu ${JSON.stringify(mpuServer(place))}`,
+    ]);
+    assertEquals(await readJson(`${place.dir}/.claude/settings.json`), {
+      permissions: {
+        allow: ["mcp__mpu__*", "Bash(mpu *)"],
+        ask: ["Bash(mpu ask *)"],
+      },
+    });
+  }));
+
+Deno.test("claude: второй запуск — ни вызова claude, settings.json не переписан", () =>
+  withPlace(async (place) => {
+    await install(place);
+    const settings = `${place.dir}/.claude/settings.json`;
+    const before = await Deno.stat(settings);
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(claudeLines(run), [
+      "install: claude mcp: без изменений",
+      "install: claude права: без изменений",
+    ]);
+    assertEquals(run.claude, []);
+    assertEquals((await Deno.stat(settings)).ino, before.ino);
+  }));
+
+Deno.test("claude: чужие правила и ключи на месте, прежний сервер mpu заменён", () =>
+  withPlace(async (place) => {
+    await Deno.mkdir(`${place.dir}/.claude`);
+    const settings = `${place.dir}/.claude/settings.json`;
+    await Deno.writeTextFile(
+      settings,
+      JSON.stringify({
+        model: "opus",
+        permissions: {
+          allow: ["Bash(git *)", "Bash(mpu *)"],
+          deny: ["Read(//home/user/.config/mpu/**)"],
+        },
+      }),
+    );
+    await Deno.writeTextFile(
+      `${place.dir}/.claude.json`,
+      JSON.stringify({
+        mcpServers: { mpu: { type: "http", url: "http://127.0.0.1:7337/rw" } },
+      }),
+    );
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(run.claude, [
+      "mcp remove --scope user mpu",
+      `mcp add-json --scope user mpu ${JSON.stringify(mpuServer(place))}`,
+    ]);
+    assertEquals(await readJson(settings), {
+      model: "opus",
+      permissions: {
+        allow: ["Bash(git *)", "Bash(mpu *)", "mcp__mpu__*"],
+        deny: ["Read(//home/user/.config/mpu/**)"],
+        ask: ["Bash(mpu ask *)"],
+      },
+    });
+  }));
+
+Deno.test("claude: settings.json — ссылка, ссылка остаётся ссылкой", () =>
+  withPlace(async (place) => {
+    const real = `${place.dir}/dotfiles/settings.json`;
+    await Deno.mkdir(`${place.dir}/dotfiles`);
+    await Deno.mkdir(`${place.dir}/.claude`);
+    await Deno.writeTextFile(real, "{}");
+    await Deno.symlink(real, `${place.dir}/.claude/settings.json`);
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(
+      (await Deno.lstat(`${place.dir}/.claude/settings.json`)).isSymlink,
+      true,
+      "ссылка заменена обычным файлом",
+    );
+    assertEquals(
+      ((await readJson(real)) as { permissions: { ask: string[] } })
+        .permissions.ask,
+      ["Bash(mpu ask *)"],
+    );
+  }));
+
+Deno.test("claude: не установлен — пропуск, ~/.claude не заводится", () =>
+  withPlace(async (place) => {
+    const run = await install(place, [], {
+      MPU_CLAUDE: `${place.dir}/нет-claude`,
+    });
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(claudeLines(run), ["install: claude: не установлен"]);
+    assertEquals(run.lines.at(-1), "install: готово");
+    await assertRejects(
+      () => Deno.stat(`${place.dir}/.claude`),
+      Deno.errors.NotFound,
+    );
+  }));
+
+Deno.test("claude: settings.json не JSON — отказ, файл не тронут", () =>
+  withPlace(async (place) => {
+    await Deno.mkdir(`${place.dir}/.claude`);
+    const settings = `${place.dir}/.claude/settings.json`;
+    await Deno.writeTextFile(settings, "{oops");
+    const run = await install(place);
+    assertEquals(run.code, 1);
+    assertEquals(
+      run.lines.at(-1),
+      `install: claude права: ошибка: ${settings} не JSON`,
+    );
+    assertEquals(await Deno.readTextFile(settings), "{oops");
+  }));

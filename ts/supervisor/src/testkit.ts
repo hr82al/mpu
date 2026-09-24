@@ -59,6 +59,23 @@ case $2 in
 esac
 `;
 
+const FAKE_CLAUDE = `#!/bin/bash
+# Поддельный claude: вызовы — в журнал; серверы пользователя — в
+# $HOME/.claude.json, как у настоящего. Имя занято — отказ, как у него.
+echo "$*" >>"$FAKE_CLAUDE_LOG"
+file=$HOME/.claude.json
+[[ -f $file ]] || echo '{}' >"$file"
+case "$1 $2" in
+  "mcp add-json")
+    jq -e --arg n "$5" '.mcpServers[$n]' "$file" >/dev/null && exit 1
+    jq --arg n "$5" --argjson s "$6" '.mcpServers[$n] = $s' "$file" >"$file.new"
+    ;;
+  "mcp remove") jq --arg n "$5" 'del(.mcpServers[$n])' "$file" >"$file.new" ;;
+  *) exit 3 ;;
+esac
+mv "$file.new" "$file"
+`;
+
 /** Сколько ответов после перезапуска ещё отвечает старый процесс. */
 const OLD_ANSWERS = 3;
 
@@ -112,6 +129,7 @@ export async function withPlace(body: (place: Place) => Promise<void>) {
     await Deno.writeTextFile(`${dir}/systemctl`, FAKE_SYSTEMCTL, {
       mode: 0o755,
     });
+    await Deno.writeTextFile(`${dir}/claude`, FAKE_CLAUDE, { mode: 0o755 });
     await body({
       dir,
       back,
@@ -132,6 +150,8 @@ export interface Run {
   readonly lines: string[];
   /** Вызовы `systemctl`, кроме опроса активности. */
   readonly calls: string[];
+  /** Вызовы `claude`. */
+  readonly claude: string[];
 }
 
 export async function runScript(
@@ -144,6 +164,8 @@ export async function runScript(
 ): Promise<Run> {
   const tree = where.tree ?? ROOT;
   await Deno.writeTextFile(place.calls, "");
+  const claudeLog = `${place.dir}/claude-calls`;
+  await Deno.writeTextFile(claudeLog, "");
   const output = await new Deno.Command("/bin/bash", {
     args: [`${tree}${script}`, ...args],
     cwd: where.from ?? ROOT,
@@ -156,6 +178,8 @@ export async function runScript(
       MPU_UNIT_DIR: place.unit,
       MPU_SYSTEMCTL: `${place.dir}/systemctl`,
       MPU_DENO: `${place.dir}/deno`,
+      MPU_CLAUDE: `${place.dir}/claude`,
+      FAKE_CLAUDE_LOG: claudeLog,
       MPU_WEB_DIR: `${place.dir}/web`,
       MPU_BACK_URL: place.back.url,
       MPU_MCP_URL: place.mcp.url,
@@ -171,10 +195,13 @@ export async function runScript(
     new TextDecoder().decode(output.stderr);
   const calls = (await Deno.readTextFile(place.calls)).split("\n")
     .filter((call) => call !== "" && !call.includes("is-active"));
+  const claude = (await Deno.readTextFile(claudeLog)).split("\n")
+    .filter((call) => call !== "");
   return {
     code: output.code,
     lines: text.split("\n").filter((line) => line !== ""),
     calls,
+    claude,
   };
 }
 

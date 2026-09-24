@@ -6,14 +6,15 @@
 # (mpu-complete и фронт — без службы: первого зовёт оболочка, второй
 # читает mpu-back через ссылку current). Старых служб на машине быть не
 # должно: если они есть, установка не начинается — иначе машина
-# осталась бы наполовину переключённой.
+# осталась бы наполовину переключённой. Последними шагами — дополнение
+# в оболочках и подключение к Claude Code пользователя.
 #
 #   ./install.sh [--only back,worker,mcp,cli,supervisor,complete,web] [--check]
 #
 # Права и состав сборки — только в задачах compile:* корневого deno.jsonc;
 # здесь их нет. Переопределения окружением — для тестов: MPU_BIN_DIR,
 # MPU_UNIT_DIR, MPU_SYSTEMCTL, MPU_DENO, MPU_BACK_URL, MPU_MCP_URL,
-# MPU_WEB_DIR.
+# MPU_WEB_DIR, MPU_CLAUDE.
 set -uo pipefail
 
 # Дерево исходников — каталог самого скрипта, а не текущий: скрипт зовут
@@ -345,6 +346,64 @@ else
     fi
     hook_shell "$shell" "$file"
   done
+fi
+
+# 9. Claude Code: сервер mpu пользователя и правила разрешений. Сервер
+# ставит сам claude (файл ~/.claude.json — его, с состоянием сессий),
+# правила вписываются в ~/.claude/settings.json дописыванием недостающих:
+# чужие правила и ключи не трогаются. Совпало — ни вызова, ни записи.
+claude=${MPU_CLAUDE:-claude}
+claude_allow='["mcp__mpu__*","Bash(mpu *)"]'
+claude_ask='["Bash(mpu ask *)"]'
+# Токен читается при подключении и в конфиг клиента не попадает.
+read -r claude_helper <<'HELPER'
+printf '{"Authorization":"Bearer %s"}' "$(cat ~/.config/mpu/mcp-token)"
+HELPER
+
+hook_claude_mcp() {
+  local want file=$HOME/.claude.json
+  want=$(jq -cn --arg url "$mcp_url/mcp" --arg helper "$claude_helper" \
+    '{type: "http", url: $url, headersHelper: $helper}') || fail "claude mcp" "запись не собрана"
+  if jq -e --argjson want "$want" '.mcpServers.mpu == $want' "$file" >/dev/null 2>&1; then
+    say "claude mcp: без изменений"
+    return
+  fi
+  if jq -e '.mcpServers.mpu' "$file" >/dev/null 2>&1; then
+    "$claude" mcp remove --scope user mpu >/dev/null || fail "claude mcp" "прежний сервер mpu не снят"
+  fi
+  "$claude" mcp add-json --scope user mpu "$want" >/dev/null || fail "claude mcp" "сервер mpu не добавлен"
+  say "claude mcp: подключено"
+}
+
+# Файла нет — как пустой объект. Ссылка — пишется то, на что она
+# смотрит, как у файлов оболочек.
+hook_claude_rules() {
+  local file=$HOME/.claude/settings.json target current merged
+  mkdir -p "$HOME/.claude" || fail "claude права" "нет каталога $HOME/.claude"
+  target=$(readlink -f "$file") || fail "claude права" "путь $file не разрешён"
+  current='{}'
+  if [[ -s $target ]]; then
+    current=$(cat "$target") || fail "claude права" "$file не прочитан"
+  fi
+  merged=$(jq --argjson allow "$claude_allow" --argjson ask "$claude_ask" '
+    .permissions.allow = ((.permissions.allow // []) + ($allow - (.permissions.allow // [])))
+    | .permissions.ask = ((.permissions.ask // []) + ($ask - (.permissions.ask // [])))' \
+    <<<"$current" 2>/dev/null) || fail "claude права" "$file не JSON"
+  if [[ $(jq -S . <<<"$current") == "$(jq -S . <<<"$merged")" ]]; then
+    say "claude права: без изменений"
+    return
+  fi
+  printf '%s\n' "$merged" >"$target.mpu-install" &&
+    mv -f "$target.mpu-install" "$target" || fail "claude права" "$file не записан"
+  say "claude права: вписано"
+}
+
+if ! command -v "$claude" >/dev/null; then
+  say "claude: не установлен"
+else
+  command -v jq >/dev/null || fail "claude" "нет jq"
+  hook_claude_mcp
+  hook_claude_rules
 fi
 
 say "готово"
