@@ -1,9 +1,10 @@
 # mpu mp-init
 
-Статус: реализовано — сверено 2026-09-10 по `mpu mp-init --help` (команда в справке; поверхность флагов построчно не сверялась). Ранее: к реализации (заморожена 2026-08-27; сухой прогон снят голденом на
-живом стенде. 2026-08-28: отсутствующий env-файл проверен — compose отвечает
-`couldn't find env file: <путь>` и кодом 1, то есть базовый env пропущенным
-быть не может)
+Статус: к реализации (2026-09-24) — раздел «Подъём с нуля — требования 2026-09-24». Ранее: реализовано
+— сверено 2026-09-10 по `mpu mp-init --help` (команда в справке; поверхность флагов построчно не
+сверялась); к реализации (заморожена 2026-08-27; сухой прогон снят голденом на живом стенде.
+2026-08-28: отсутствующий env-файл проверен — compose отвечает `couldn't find env file: <путь>` и
+кодом 1, то есть базовый env пропущенным быть не может)
 
 ## Назначение
 
@@ -88,6 +89,112 @@ fail-fast (сообщение + exit rc), последующие шаги не �
    - `docker compose -f <local-stack>/docker-compose.yml up -d
      --force-recreate` (cwd = local-stack).
 
+## Подъём с нуля — требования 2026-09-24
+
+Сняты живым подъёмом на чистой машине 2026-09-24 (docker пуст, область только что развёрнута —
+`mp-clone.md`). Прежний контракт падал на пяти местах подряд, и каждое место стенд проходил только
+ручной правкой. Общее правило для всех пунктов: **каждый шаг идемпотентен** — сначала probe
+«уже как надо?», мутация только при «нет»; повторный `mpu mp-init` на поднятом стенде пересоздаёт
+стеки (`--force-recreate`, как раньше), но не собирает, не логинится, не мигрирует повторно то, что
+уже на месте. Вариант `dry` печатает и эти шаги.
+
+Изменения против разделов выше — по номерам шагов «Побочных эффектов».
+
+**Шаг 3, образы — собирать недостающие, а не останавливаться.** Нет образа → собрать той же
+командой, что build-алиас (`20-build.sh`), с `--load`; есть → пропуск. Набор: `mp-back:local`
+(`Dockerfile.mp-back`, контекст — корень `mp`), `mp-pg:local` (`pg/Dockerfile`), `mp-dt:local`
+(`Dockerfile.mp-data-transfer`), `sl-front-dev:local` (`Dockerfile.front --target dev`, контекст
+`sl-front`). Сборка на чистой машине — ~10 минут; строка `собираю <образ>` до начала. Падение
+сборки → exit rc сборки. Образ-ключ идемпотентности — наличие тега, без сравнения с исходниками
+(пересборку по изменению зависимостей делает владелец явно).
+
+**Шаг 4, overrides — сверка с compose до `up`.** Override на сервис, которого в compose уже нет,
+роняет весь стек: `service "m-nats-listeners" has neither an image nor a build context specified`
+(2026-09-24: слушатели sl-back слиты в `internal-api` / `i-internal-api`, override их ещё
+перечислял). Перед `up` стека — `docker compose <те же -f без overrides> config --services` и
+список сервисов override-файла; сервис override без пары в compose → отказ exit 1 с именем файла
+и лишними сервисами (`override <файл>: нет в compose: m-nats-listeners`). Не фильтровать молча:
+расхождение значит, что local-stack отстал, и чинить его надо в файле.
+
+**Шаг 4, миграции — проверять, а не считать пройденными.** Контейнер `migrations` (compose sl-base)
+завершается сам; `up -d` возвращает 0, даже если миграции упали. 2026-09-24 оба `sl-N-migrations`
+вышли с кодом 1 (регрессия sl-back, MR sl-back!3410), а стенд работал на схеме из 74 миграций из
+183 — и ничто этого не показало. После `up` стека sl-N: дождаться завершения
+`docker wait <SERVER_NAME>-migrations` (таймаут 10 мин), код ≠ 0 → exit 1 с хвостом лога
+(`docker logs --tail 30`) и строкой `миграции sl-N упали`. Код 0 → строка `sl-N: миграции ок,
+<count(*)> в public.migrations`.
+
+**Шаг 4, после core — сводка контейнеров.** Контейнер в `Restarting` или `Exited(≠0)` (кроме
+`migrations`, проверенного выше) — предупреждение с именем и последней строкой лога; exit не
+меняется. Живой случай: `sl-0-currencies-rates-parser` и `sl-1-currency-rates-sync` в петле
+`ERR_MODULE_NOT_FOUND src/currenciesRatesParser.js` — точки входа удалены из sl-back (98af83ebc),
+compose mp-config-local их ещё запускает. Команда не чинит чужой compose, но молчать о петле не
+должна.
+
+**Шаг 5, web — инфра SW из local-stack, а не из mp-config-local.** Web-стек (`local-stack/
+docker-compose.yml`) держит `sw-back`/`sw-front` в внешней сети `local-stack-sw-db-net`, которую
+создаёт `local-stack/infra/compose.sw-infra.yaml`. Прежний шаг поднимал `pg redis` из
+`mp-config-local/compose.sw-back.yaml` (сеть `mp-config-local_ws_default`), и web падал
+`network local-stack-sw-db-net declared as external, but could not be found`. Имена контейнеров у
+обоих (`mp-sw-pg`, `redis-dev`) одинаковые, том `mp-sw-pg-vol` общий. Новый шаг:
+- probe: `mp-sw-pg` / `redis-dev` существуют и подключены к `local-stack-sw-db-net` → пропуск;
+- иначе существующие с этими именами — `docker rm -f` (данные в именованном томе, не теряются) и
+  `docker compose` c env-файлами local-stack (`local-stack/stack`, функция `env_file_args`) `-f
+  local-stack/infra/compose.sw-infra.yaml up -d`; без env-файлов compose падает `no port specified:
+  5451:<empty>`.
+
+**Шаг 5, web — не через зависимости `stack`.** `local-stack/stack up sw-back` тянет транзитивно
+свои `mp-nats`, sl-0 и т.д. и падает `Conflict. The container name "/mp-nats" is already in use`:
+у стенда mp-init эти роли уже заняты флотом mp-config-local. Web поднимать `docker compose -f
+local-stack/docker-compose.yml up -d --no-deps --force-recreate sw-back sw-front sl-front` с
+окружением процесса:
+- `SW_BACK_SRC`, `SW_FRONT_SRC`, `SL_FRONT_SRC` — абсолютные пути к чекаутам;
+- `SW_BACK_DEPS_TAG` = `sha256(Dockerfile.deps + package.json + package-lock.json + .npmrc)[:16]`
+  по чекауту sw-back (формула `sw-back/.ci/build.yml`, в local-stack — `stack`, функция
+  `sw_back_deps_tag`): sw-back собирается поверх `nexus.btlz-api.ru/base-images/sw-back-deps:<тег>`,
+  потому что у общей учётки Nexus нет роли на npm (`npm-mcp-gateway` → 403), а на Docker-реестр
+  есть. Нет такого тега в реестре (probe `docker manifest inspect`) → предупреждение `sw-back: нет
+  образа зависимостей под этот lock (<тег>)`, sw-back не поднимается, sw-front/sl-front — да;
+- `SW_BACK_INTERNAL_API_URL=http://internal-api:5100`: internal-api у флота mp-config-local —
+  контейнер `sl-0-internal-api` с алиасом `internal-api`, а дефолт local-stack — `mp-internal-api`
+  (свой флот). Значение берётся из `local-stack/.env`, если там задано.
+
+**Шаг 5, Nexus — вход в Docker-реестр.** Pull `sw-back-deps` требует `docker login
+nexus.btlz-api.ru`. Probe: в `~/.docker/config.json` есть `auths["nexus.btlz-api.ru"]` → пропуск.
+Нет, но в `local-stack/.env` есть `NPM_AUTH` (base64 `логин:пароль`, README local-stack, раздел
+«Nexus») → `docker login nexus.btlz-api.ru -u <логин> --password-stdin`; пароль — только stdin,
+не печатать ни в dry, ни в логе. Нет ни того, ни другого → предупреждение с путём к README, sw-back
+не поднимается.
+
+**Шаг 6 (новый), стенд вертикали ozon.** `local-stack/ozon` — отдельный compose-проект (`ozon-*`,
+порты вне коллизий). Есть чекаут `<корень>/ozon` → поднять идемпотентно:
+1. `docker compose -f local-stack/ozon/docker-compose.yml up -d pg redis clickhouse verdaccio dev`.
+2. `@sw-back/workspace-access` в Verdaccio стенда — ровно той версии, что в `ozon/pnpm-lock.yaml`
+   (2026-09-24: lock 0.4.0, чекаут sw-back уже 0.6.1). Probe: `npm view @sw-back/workspace-access@<v>
+   --registry http://verdaccio:4873` в `ozon-dev`. Нет → исходники пакета из коммита sw-back, где
+   `packages/workspace-access/package.json` имеет эту версию (`git log -S'"version": "<v>"'`),
+   `git archive` → `docker cp` в `ozon-dev` → `npx -y -p typescript@5 tsc -p tsconfig.json`
+   (ошибки `Cannot find module '@nestjs/common'` ожидаемы, на эмит не влияют; проверить, что
+   `dist/` не пуст) → `npm publish --registry http://verdaccio:4873
+   --//verdaccio:4873/:_authToken=local-stand`. Хеш в lock совпал с собранным (проверено: frozen
+   install прошёл).
+3. `node_modules` нет → в `ozon-dev`: `corepack enable --install-directory /tmp/bin`, `pnpm install
+   --config.@sw-back:registry=http://verdaccio:4873` (CI=1 → frozen), `pnpm --filter "./packages/*"
+   run build`, `pnpm --filter @ozon/datacore build`, `pnpm --filter @ozon/ingest build`.
+4. `--profile migrate run --rm migrate` (dbmate сам идемпотентен).
+5. `up -d datacore datacore-worker ingest front`.
+Проверка: `curl localhost:5200/health` → 200, `localhost:3100/ozon/app/...` → 200 (фронт собран с
+`basePath=/ozon/app`, корень отдаёт 404 — это не ошибка).
+
+**Финал — сквозная проверка ответом, а не живостью контейнера.** `curl` c таймаутом: `http://sw.
+localhost` → 200, `http://sw.localhost/api/metrics` → 200, `http://sl-dev.localhost` → 200, ozon — как
+выше. Не 200 → предупреждение с адресом и кодом. `sl-0` `/api/health` сразу после старта отвечает
+503 при `database: ok` из-за эвристики памяти (heap 96 % на старте) — не считать отказом, смотреть
+`checks.database`.
+
+**Не делать.** Не накатывать миграции sl-back из стороннего кода, не править compose
+mp-config-local и не задавать `known_hosts` / личность git — это решения владельца (см. `mp-clone.md`).
+
 ## Конфигурация
 
 Каталог mp-config-local: `~/mr/mp/mp-config-local`, override —
@@ -135,7 +242,9 @@ sw-back, `docker stop` конфликтующих контейнеров с ко
 
 ## Известные отклонения
 
-нет
+До реализации раздела «Подъём с нуля — требования 2026-09-24» команда на чистой машине не
+поднимает стенд: стоп на отсутствующих образах, падение sl-0 на устаревшем override, web без сети
+`local-stack-sw-db-net`, недомигрированная схема без сигнала.
 
 ## Открытые вопросы
 
