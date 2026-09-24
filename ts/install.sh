@@ -355,6 +355,8 @@ fi
 claude=${MPU_CLAUDE:-claude}
 claude_allow='["mcp__mpu__*","Bash(mpu *)"]'
 claude_ask='["Bash(mpu ask *)"]'
+# Токены на диске агенту не читать (platform/mcp-objects.md).
+claude_deny='["Read(~/.config/mpu/**)"]'
 # Токен читается при подключении и в конфиг клиента не попадает.
 read -r claude_helper <<'HELPER'
 printf '{"Authorization":"Bearer %s"}' "$(cat ~/.config/mpu/mcp-token)"
@@ -385,9 +387,11 @@ hook_claude_rules() {
   if [[ -s $target ]]; then
     current=$(cat "$target") || fail "claude права" "$file не прочитан"
   fi
-  merged=$(jq --argjson allow "$claude_allow" --argjson ask "$claude_ask" '
+  merged=$(jq --argjson allow "$claude_allow" --argjson ask "$claude_ask" \
+    --argjson deny "$claude_deny" '
     .permissions.allow = ((.permissions.allow // []) + ($allow - (.permissions.allow // [])))
-    | .permissions.ask = ((.permissions.ask // []) + ($ask - (.permissions.ask // [])))' \
+    | .permissions.ask = ((.permissions.ask // []) + ($ask - (.permissions.ask // [])))
+    | .permissions.deny = ((.permissions.deny // []) + ($deny - (.permissions.deny // [])))' \
     <<<"$current" 2>/dev/null) || fail "claude права" "$file не JSON"
   if [[ $(jq -S . <<<"$current") == "$(jq -S . <<<"$merged")" ]]; then
     say "claude права: без изменений"

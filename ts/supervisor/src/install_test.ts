@@ -530,6 +530,7 @@ Deno.test("claude: первая установка — сервер mpu поль
       permissions: {
         allow: ["mcp__mpu__*", "Bash(mpu *)"],
         ask: ["Bash(mpu ask *)"],
+        deny: ["Read(~/.config/mpu/**)"],
       },
     });
   }));
@@ -559,7 +560,7 @@ Deno.test("claude: чужие правила и ключи на месте, пр
         model: "opus",
         permissions: {
           allow: ["Bash(git *)", "Bash(mpu *)"],
-          deny: ["Read(//home/user/.config/mpu/**)"],
+          deny: ["Read(./.env)"],
         },
       }),
     );
@@ -579,7 +580,7 @@ Deno.test("claude: чужие правила и ключи на месте, пр
       model: "opus",
       permissions: {
         allow: ["Bash(git *)", "Bash(mpu *)", "mcp__mpu__*"],
-        deny: ["Read(//home/user/.config/mpu/**)"],
+        deny: ["Read(./.env)", "Read(~/.config/mpu/**)"],
         ask: ["Bash(mpu ask *)"],
       },
     });

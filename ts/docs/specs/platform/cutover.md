@@ -242,7 +242,8 @@ bash /home/user/mr/mp/mpu/ts/cutover.sh --check
   изменений»; другая — `claude mcp remove --scope user mpu`, затем добавление.
 - Правила: в `~/.claude/settings.json` дописываются недостающие —
   `permissions.allow`: `mcp__mpu__*`, `Bash(mpu *)`; `permissions.ask`:
-  `Bash(mpu ask *)` (у Claude Code `ask` сильнее `allow`). Чужие правила и
+  `Bash(mpu ask *)` (у Claude Code `ask` сильнее `allow`); `permissions.deny`:
+  `Read(~/.config/mpu/**)` — токены агенту не читать. Чужие правила и
   ключи не трогаются, порядок сохраняется; всё уже есть — файл не
   переписывается. Файл — ссылка: пишется то, на что она смотрит.
 - `claude` нет — `install: claude: не установлен`, код 0, `~/.claude` не
@@ -315,7 +316,7 @@ install` уже вернувшегося монолита. Проверяетс�
 | файл настроек пуст | блок без ведущей пустой строки |
 | первый `install.sh` с `claude` | `install: claude mcp: подключено`, `install: claude права: вписано` |
 | `install.sh` второй раз с `claude` | обе строки «без изменений», вызовов `claude` нет, `settings.json` не переписан |
-| в `settings.json` есть `Bash(mpu *)` и чужие правила | дописаны только `mcp__mpu__*` и `ask`-правило, остальное на месте |
+| в `settings.json` есть `Bash(mpu *)` и чужие правила | дописаны только `mcp__mpu__*`, `ask`- и `deny`-правило, остальное на месте |
 | сервер `mpu` пользователя смотрит на другой адрес | снят и поставлен заново |
 | `settings.json` не JSON | `install: claude права: ошибка: <путь> не JSON`, код 1, файл не тронут |
 | `deno task compile:monolith` | собирает монолит в `$MPU_OUT`; `~/.local/bin/mpu` не меняется |
