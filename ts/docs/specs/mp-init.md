@@ -126,10 +126,19 @@ fail-fast (сообщение + exit rc), последующие шаги не �
 
 **Шаг 4, после core — сводка контейнеров.** Контейнер в `Restarting` или `Exited(≠0)` (кроме
 `migrations`, проверенного выше) — предупреждение с именем и последней строкой лога; exit не
-меняется. Живой случай: `sl-0-currencies-rates-parser` и `sl-1-currency-rates-sync` в петле
+меняется. Живой случай: `sl-0-currencies-rates-parser` и `sl-1-currency-rates-sync` были в петле
 `ERR_MODULE_NOT_FOUND src/currenciesRatesParser.js` — точки входа удалены из sl-back (98af83ebc),
-compose mp-config-local их ещё запускает. Команда не чинит чужой compose, но молчать о петле не
-должна.
+compose mp-config-local их ещё запускает. Починено оверрайдами local-stack (`mp` ed4cea7): тем же
+сервисам команда `node ./src/jobs.js`, контейнеры `sl-0-main-jobs` / `sl-1-instance-jobs`. Команда
+чужой compose не чинит, но о петле молчать не должна.
+
+**После core — курсы валют на свежем стенде.** `shared.currency_rates` пуста до расписания парсера.
+Probe: `select count(*) from shared.currency_rates` на sl-0 = 0 → `node cli service:currenciesRatesParser
+backfill` в `sl-0-cli` (~10 мин, публичный XML ЦБ; дни с `ECONNRESET` пропускаются — их догнать
+`loadData --date-from D --date-to D`, список — по строкам `backfill: <дата> error` лога), затем
+`node cli service:currencyRatesSync syncFullHistory` в `sl-N-cli` каждого инстанса (`syncFromMain`
+берёт только последнюю неделю). Не пусто → пропуск. Живой замер 2026-09-24: 8178 строк, 1363 дня,
+2023-01-01…2026-09-24, на sl-0 и sl-1 одинаково.
 
 **Шаг 5, web — инфра SW из local-stack, а не из mp-config-local.** Web-стек (`local-stack/
 docker-compose.yml`) держит `sw-back`/`sw-front` в внешней сети `local-stack-sw-db-net`, которую
