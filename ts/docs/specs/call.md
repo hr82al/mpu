@@ -144,9 +144,16 @@ content-type: application/json
 - Чтение ключа: read-only сессия к PG сервера клиента (как `sql-ro`,
   `platform/readonly-default.md`). Источники: Ozon — `schema_<client>.ozon_api_keys`
   (`seller_client_id`, `seller_api_key`, `performance_client_id`,
-  `performance_client_secret`); WB — `public.wb_tokens` по `client_id` и `sid`,
-  отбор как у загрузчика (`wbTokens.model.js:67-77`): `is_valid`, не истёк,
-  нужная категория, `acc` не 2 и не 3.
+  `performance_client_secret`); WB — `public.wb_tokens` сервера клиента (поля
+  сняты 2026-09-25: `client_id`, `sid`, `token`, `exp`, `is_valid`, категории
+  `content`, `analytics`, `prices`, `marketplace`, `statistics`, `adverts`,
+  `questions`, `recommendations`, `returns`, `finance`, `supplies`,
+  `documents`, `read_only`, `test_environment`, `acc`, `for`), отбор как у
+  загрузчика: `client_id` и `sid`; `is_valid = true`; `exp` пуст или в
+  будущем; `acc` пуст, или не 2, 3, 4, или `acc = 4` при `"for" =
+  'asid:932c176a-5085-5c6f-bc33-4e84cdf58d7e'` (идентификатор сервиса
+  загрузчика; снято 2026-09-25 — на клиенте 54 у 26 токенов `acc = 4` с этим
+  `for`, у 11 — `acc = 1`); нужная категория — `true`.
 - Журнал вызовов: строка вызова и статус, размер тела, заголовки квоты; **тело
   ответа в журнал не пишется** [D.3].
 - `call`, запись: изменение данных кабинета у маркетплейса — то, что делает
@@ -162,12 +169,46 @@ content-type: application/json
   (`wbFetchNew.base.service.js:75-76`). Не заданы — запрос без них.
 - Реестр чтения — данные модуля `call` (`reads.ts`), не файл конфигурации:
   новая ручка чтения — строка в реестре и ревью, как у `wbGateway.registry.js`.
-  Посев: Ozon — 23 ручки, которые читают загрузчики вертикали `ozon`
-  (`consumes: ozon-api:*`, включая `report/postings/create` — это заказ отчёта,
-  данных кабинета он не меняет) и ручки `ai-tools/bin/ozon-api paths`; WB — две
-  строки `wbGateway.registry.js` и GET-ручки загрузчиков `sl-back`. Строка
-  реестра — `<МЕТОД> <хост><путь>`, сегмент пути может быть `{}` (любой
-  идентификатор).
+  Посев (снят хостом 2026-09-25 из кода загрузчиков вертикали `ozon` и
+  `sl-back`), строка — `<МЕТОД> <хост><путь>`, `{}` — один сегмент пути:
+
+  ```
+  GET  api-seller.ozon.ru/v1/actions
+  POST api-seller.ozon.ru/v1/actions/products
+  POST api-seller.ozon.ru/v1/actions/candidates
+  POST api-seller.ozon.ru/v1/analytics/data
+  POST api-seller.ozon.ru/v1/analytics/product-queries/details
+  POST api-seller.ozon.ru/v1/analytics/stocks
+  POST api-seller.ozon.ru/v1/finance/accrual/by-day
+  POST api-seller.ozon.ru/v1/finance/accrual/types
+  POST api-seller.ozon.ru/v1/finance/cash-flow-statement/list
+  POST api-seller.ozon.ru/v1/finance/products/buyout
+  POST api-seller.ozon.ru/v3/posting/fbo/list
+  POST api-seller.ozon.ru/v3/posting/fbs/list
+  POST api-seller.ozon.ru/v1/product/action/timer/status
+  POST api-seller.ozon.ru/v4/product/info/attributes
+  POST api-seller.ozon.ru/v4/product/info/stocks
+  POST api-seller.ozon.ru/v3/product/list
+  POST api-seller.ozon.ru/v3/product/info/list
+  POST api-seller.ozon.ru/v1/report/postings/create
+  POST api-seller.ozon.ru/v1/report/info
+  POST api-seller.ozon.ru/v1/returns/list
+  POST api-seller.ozon.ru/v1/roles
+  POST api-seller.ozon.ru/v1/seller/info
+  GET  api-performance.ozon.ru/api/client/campaign
+  GET  api-performance.ozon.ru/api/client/statistics/daily/json
+  GET  api-performance.ozon.ru/api/client/statistics/report
+  GET  api-performance.ozon.ru/api/client/statistics/{}
+  GET  api-performance.ozon.ru/api/client/statistics/all_sku_promo/orders/generate/json
+  POST api-performance.ozon.ru/api/client/statistic/products/generate/json
+  POST api-performance.ozon.ru/api/client/statistics/json
+  GET  common-api.wildberries.ru/api/v1/seller-info
+  GET  statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod
+  ```
+
+  `report/postings/create`, `statistic(s)/…/generate/json` и
+  `statistics/json` — заказ отчёта: данных кабинета не меняют. GET-ручки WB
+  сверх двух строк прокси `wbGateway` добавляются по одной с ревью.
 
 ## Инварианты
 

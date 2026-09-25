@@ -38,8 +38,8 @@
 - [ ] 171 — web: экран «Образ» (`web-image.md`, постановку написать)
 - [ ] call — `ts/docs/specs/call.md` (маркетплейс — получатель: `ozon call-ro`,
       `ozon perf call`, `wb call`). До постановки: реестр ручек чтения и отбор
-      токенов WB — литералами в спеку (сбор начат 2026-09-25, см. ниже);
-      разрезать спеку на порции.
+      токенов WB — литералами в спеку (СДЕЛАНО 2026-09-25, `call.md`);
+      осталось: разрезать спеку на порции.
 - [ ] task — оркестратор `mpu task` (серия T1–T5, `docs/2026-09-23-task-orchestrator-design.md`,
       спека `ts/docs/specs/task.md`); план порций — при старте.
 - [ ] mp-init — `ts/docs/specs/mp-init.md` (к реализации, 2026-09-24)
@@ -49,27 +49,8 @@
 слепая приёмка языка (sonnet, 9/10) и 172+ справки — требуют агентов →
 спросить владельца (записано в `owner-questions.md`, если не отвечено).
 
-## Заметки по call (сбор реестра, 2026-09-25)
+## Заметки по call
 
-- Ozon Seller (`api-seller.ozon.ru`), чтение загрузчиков `ozon`: все `POST`,
-  кроме `GET /v1/actions`: `/v1/actions/products`, `/v1/actions/candidates`,
-  `/v1/analytics/data`, `/v1/analytics/product-queries/details`,
-  `/v1/analytics/stocks`, `/v1/finance/accrual/by-day`,
-  `/v1/finance/accrual/types`, `/v1/finance/cash-flow-statement/list`,
-  `/v1/finance/products/buyout`, `/v3/posting/fbo/list`,
-  `/v3/posting/fbs/list`, `/v1/product/action/timer/status`,
-  `/v4/product/info/attributes`, `/v4/product/info/stocks`,
-  `/v3/product/list`, `/v3/product/info/list`, `/v1/report/postings/create`,
-  `/v1/report/info`, `/v1/returns/list`, `/v1/roles`, `/v1/seller/info`.
-- Ozon Performance (`api-performance.ozon.ru`): `GET /api/client/campaign`,
-  `GET /api/client/statistics/daily/json`, `GET /api/client/statistics/report`,
-  `GET /api/client/statistics/{}`, `GET /api/client/statistics/all_sku_promo/orders/generate/json`,
-  `POST /api/client/statistic/products/generate/json`, `POST /api/client/statistics/json`.
-- WB `wbGateway.registry.js`: `GET common-api.wildberries.ru/api/v1/seller-info`,
-  `GET statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod`.
-- Отбор токена WB (`sl-back` `wbTokens.model.js` `findBySid`): таблица
-  `wb_tokens`, по `sid`; `exp` null или в будущем; `acc` null, или не в {2,3}
-  и не 4, или 4 при `for = 'asid:<WB_API_SERVICE_ID>'`; плюс `is_valid`
-  (стр. 122) и поле категории. Добрать: где таблица (sl-main public или
-  инстанс), значение `WB_API_SERVICE_ID`, поля категорий (`PERMISSION_FIELDS`),
-  GET-ручки загрузчиков `sl-back`.
+Реестр чтения и отбор токенов WB перенесены в `ts/docs/specs/call.md`
+(«Конфигурация», «Побочные эффекты»). Токены WB — `public.wb_tokens` сервера
+клиента (есть и в БД инстанса загрузчика — не нужна).
