@@ -259,6 +259,47 @@ content-type: application/json
 | тело ответа содержит строку ключа | ключ заменён на `***` |
 | `body:` задан у `GET` | код 2: тело у `GET` не отправляется |
 
+## Сценарии 173a (`ozon call-ro` / `ozon call`)
+
+Стенд: транспорт HTTP подменён заглушкой (записывает запросы, отвечает по
+таблице «Дано»); БД клиента — стенд `sql-ro` с таблицей
+`schema_<client>.ozon_api_keys`: у клиента 54 одна строка
+`(seller_client_id 2129958, seller_api_key 'k-54-seller', name 'cool_flaps')`,
+у клиента 55 три — `2129958`, `1539401`, `870282` с ключами `k-55-a`, `k-55-b`,
+`k-55-c`. Ответ заглушки по умолчанию — `200`, заголовок
+`ratelimit-remaining: 7`, тело `{"name":"cool_flaps","id":2129958}`. Ключи
+нигде не печатаются — проверка во всех сценариях (stdout, stderr, `refusal`,
+журнал).
+
+| # | Дано | Строка | stdout | stderr | код |
+|---|---|---|---|---|---|
+| A1 | — | `mpu ozon call-ro target: 54 path: /v1/seller/info` | `HTTP 200 POST api-seller.ozon.ru/v1/seller/info\nratelimit-remaining: 7\n\n{\n  "name": "cool_flaps",\n  "id": 2129958\n}\n` | | 0 |
+| A2 | — | то же, `end json` | `{"status":200,"method":"POST","url":"https://api-seller.ozon.ru/v1/seller/info","ms":<мс>,"headers":{"ratelimit-remaining":"7"},"body":{"name":"cool_flaps","id":2129958}}\n` | | 0 |
+| A3 | заглушка видит запрос | A1 | запрос: `POST https://api-seller.ozon.ru/v1/seller/info`, заголовки `client-id: 2129958`, `api-key: k-54-seller`, `content-type: application/json`, тело `{}` | | |
+| A4 | — | `mpu ozon call-ro target: 55 path: /v1/seller/info` | | `mpu ozon call-ro: у клиента 55 кабинетов Ozon 3 — укажи cabinet: 2129958 \| 1539401 \| 870282\n`; запроса нет | 2 |
+| A5 | — | `mpu ozon call-ro target: 55 cabinet: 1539401 path: /v1/seller/info` | как A1 | | 0; ключ запроса `k-55-b` |
+| A6 | — | `mpu ozon call-ro target: 55 cabinet: 999 path: /v1/seller/info` | | `mpu ozon call-ro: у клиента 55 нет кабинета Ozon 999\n` | 2 |
+| A7 | — | `mpu ozon call-ro target: 54 path: /v1/product/import` | | `mpu ozon call-ro: ручки POST /v1/product/import нет в списке чтения — запись: mpu ask ozon call target: 54 path: /v1/product/import\n`, `refusal.hint` `["ask","ozon","call","target:","54","path:","/v1/product/import"]`; ключ не читался, запроса нет | 2 |
+| A8 | — | `mpu ozon call target: 54 path: /v1/product/import` | | отказ двери `ask` (`platform/ask-door.md`): `mpu ozon call: требует подтверждения — вызывай mpu ask ozon call target: 54 path: /v1/product/import\n` | 2 |
+| A9 | — | `mpu ask ozon call target: 54 path: /v1/product/import body: {"items":[]}`, ответ `y` | `HTTP 200 POST api-seller.ozon.ru/v1/product/import\nratelimit-remaining: 7\n\n{…тело заглушки…}\n` | `выполнить mpu ozon call target: 54 path: /v1/product/import body: {"items":[]}? [y/N] ` | 0 |
+| A10 | заглушка: `429`, `ratelimit-remaining: 0`, `retry-after: 1`, тело `{"code":8,"message":"You have reached request rate limit per second"}` | A1 | `HTTP 429 POST api-seller.ozon.ru/v1/seller/info\nratelimit-remaining: 0\nretry-after: 1\n\n{\n  "code": 8,\n  "message": "You have reached request rate limit per second"\n}\n` | | 1; запрос один |
+| A11 | заглушка: `200`, тело `ok` (`text/plain`) | A1 | `HTTP 200 POST api-seller.ozon.ru/v1/seller/info\nratelimit-remaining: 7\n\nok\n` | | 0 |
+| A12 | заглушка молчит | `mpu ozon call-ro target: 54 path: /v1/seller/info timeout: 1` | | `mpu ozon call-ro: нет ответа за 1 с\n` | 1 |
+| A13 | — | `mpu ozon call-ro dry target: 54 path: /v1/seller/info` | `POST https://api-seller.ozon.ru/v1/seller/info\nclient-id: 2129958\napi-key: ***\ncontent-type: application/json\n\n{}\n` | | 0; запроса нет |
+| A14 | заглушка отвечает телом `{"message":"bad key k-54-seller"}` | A1 | тело с `"bad key ***"` | | 0 |
+| A15 | — | `mpu ozon call-ro target: 54 path: /v1/seller/info body: {"a":}` | | `mpu ozon call-ro: body: не JSON — <сообщение разборщика>\n` | 2 |
+| A16 | — | `mpu ozon call-ro target: 54 path: /v1/actions body: {}` (`GET` по реестру) | | `mpu ozon call-ro: тело у GET не отправляется — убери body:\n` | 2 |
+| A17 | после A1 | `mpu log limit: 1` | запись со строкой `$ mpu ozon call-ro target: 54 path: /v1/seller/info`, без секции `out`, `--- end … exit=0 …` | | 0 |
+| A18 | — | `mpu ozon call-ro target: 54 path: /v1/seller/info timeout: 301` | | `mpu ozon call-ro: timeout: 1…300, получено 301\n` | 2 |
+| A19 | — | `mpu policy` | среди правил `{"path":"ozon call-ro","verdict":"allow"}` и `{"path":"ozon call","verdict":"ask"}` | | 0 |
+| A20 | — | `mpu ozon messages`; `mpu ask ozon messages` | первая: `call-ro\t<однострока>\n` (и `perf`, когда будет 173b); вторая: `call\t<однострока>\n` | | 0 |
+
+Тексты отказов A4, A6, A7, A12, A15, A16, A18 — литералы спецификатора по
+форме живых отказов; однострока и справка — по `platform/registry.md`
+(«Что говорит справка»), голден снимает исполнитель, замораживает хост. Живой
+ответ Ozon (форма тела A1) снимает хост при приёмке первым вызовом на
+тестовом кабинете 2129958.
+
 ## Golden-примеры
 
 Сняты живой пробой 25.09.2026 на тестовом кабинете 2129958 с хоста
