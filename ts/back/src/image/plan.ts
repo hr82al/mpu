@@ -17,8 +17,11 @@ import {
 export class Entry {
   /** 0 — строка метода, 1 — `файл не разобран`: порядок отчёта. */
   readonly group: number;
-  /** Ключ порядка внутри группы: метод или путь. */
-  readonly order: string;
+  /**
+   * Порядок внутри группы (`image-sync.md`, «Отчёт»): у метода —
+   * получатель, затем имя; у файла — путь.
+   */
+  readonly order: readonly string[];
   readonly text: string;
   /** Строка действия, кроме `конфликт`: входит в «изменено». */
   readonly changed: boolean;
@@ -28,14 +31,14 @@ export class Entry {
 
   constructor(fields: {
     readonly group: number;
-    readonly order: string;
+    readonly order: readonly string[];
     readonly text: string;
     readonly changed?: boolean;
     readonly conflict?: boolean;
     readonly failed?: boolean;
   }) {
     this.group = fields.group;
-    this.order = fields.order;
+    this.order = [...fields.order];
     this.text = fields.text;
     this.changed = fields.changed ?? false;
     this.conflict = fields.conflict ?? false;
@@ -43,11 +46,20 @@ export class Entry {
   }
 }
 
+/**
+ * Порядок строки метода: получатель, затем имя. Ключ — «получатель имя»,
+ * а в имени пробела не бывает: имя — после последнего пробела.
+ */
+function methodOrder(key: string): readonly string[] {
+  const cut = key.lastIndexOf(" ");
+  return [key.slice(0, cut), key.slice(cut + 1)];
+}
+
 /** Строка действия по методу. */
 function actionEntry(word: string, key: string): Entry {
   return new Entry({
     group: 0,
-    order: key,
+    order: methodOrder(key),
     text: `${word}\t${key}`,
     changed: true,
   });
@@ -57,7 +69,7 @@ function actionEntry(word: string, key: string): Entry {
 function failureEntry(key: string, reason: string): Entry {
   return new Entry({
     group: 0,
-    order: key,
+    order: methodOrder(key),
     text: `сбой\t${key}\t${reason}`,
     failed: true,
   });
@@ -67,7 +79,7 @@ function failureEntry(key: string, reason: string): Entry {
 function unreadEntry(path: string, reason: string): Entry {
   return new Entry({
     group: 1,
-    order: path,
+    order: [path],
     text: `файл не разобран\t${path}\t${reason}`,
     failed: true,
   });
@@ -368,7 +380,7 @@ class Conflict implements Action {
     return Promise.resolve([
       new Entry({
         group: 0,
-        order: this.key,
+        order: methodOrder(this.key),
         text: `конфликт\t${this.key}\t${this.#address}`,
         conflict: true,
         failed: true,
@@ -540,7 +552,12 @@ function byCodePoints(left: string, right: string): number {
 }
 
 function byGroupAndOrder(left: Entry, right: Entry): number {
-  return left.group - right.group || byCodePoints(left.order, right.order);
+  if (left.group !== right.group) return left.group - right.group;
+  for (let i = 0; i < Math.min(left.order.length, right.order.length); i++) {
+    const delta = byCodePoints(left.order[i], right.order[i]);
+    if (delta !== 0) return delta;
+  }
+  return left.order.length - right.order.length;
 }
 
 /** Стороны и архив до запуска. */

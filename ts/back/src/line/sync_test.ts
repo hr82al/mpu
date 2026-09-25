@@ -256,6 +256,11 @@ Deno.test("7: image.db удалена — новый метод из каждо�
       "совпало 0, изменено 3, конфликтов 0\n",
     ]);
     assertEquals(ruleOf(sync.policy, "kiten cardsIn:"), "allow");
+    // Повтор после записи файл → база: хэш архива — хэш метода базы.
+    assertEquals(outcome(await sync.run(SYNC)), [
+      0,
+      "совпало 3, изменено 0, конфликтов 0\n",
+    ]);
   }));
 
 Deno.test("8–9: каталог очищен — отказ массового удаления; deletes: allow — удалён метод", () =>
@@ -414,6 +419,10 @@ Deno.test("14: метод зовёт метод этого же запуска �
         ]);
         assertEquals(ruleOf(sync.policy, "kiten a"), "allow");
         assertEquals(ruleOf(sync.policy, "kiten b"), "allow");
+        assertEquals(outcome(await sync.run(SYNC)), [
+          0,
+          "совпало 2, изменено 0, конфликтов 0\n",
+        ]);
       }));
   }
 });
@@ -558,6 +567,8 @@ Deno.test("31, 33, 53: справка, messages группы и корня че�
       help.stdout,
     );
     assert(help.stdout.includes("Варианты:\n  dry "), help.stdout);
+    // Обычный взгляд: `sync` посеян `ask` — перечислять нечего.
+    assertEquals(outcome(await sync.run("image messages")), [0, ""]);
     const messages = await sync.run("ask image messages");
     assertEquals(outcome(messages), [
       0,
@@ -1065,3 +1076,20 @@ Deno.test("команда реестра image sync вне ядра не исп�
     "строку image sync исполняет ядро",
   );
 });
+
+Deno.test("отчёт: по получателю, затем по имени — не по склейке", () =>
+  withSync(async (sync) => {
+    for (
+      const line of [
+        "ask kiten define: mine purpose: ^мои^ do kiten ls done",
+        "ask kiten ls define: inColumn purpose: ^к^ do :c kiten ls where: column is: @c done",
+      ]
+    ) {
+      assertEquals((await sync.run(line)).exit, 0);
+    }
+    assertEquals(outcome(await sync.run(SYNC)), [
+      0,
+      "новый файл\tkiten mine\nновый файл\tkiten ls inColumn:\n" +
+      "совпало 0, изменено 2, конфликтов 0\n",
+    ]);
+  }));
