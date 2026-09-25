@@ -412,6 +412,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
       author: imaging.author,
       now: imaging.now,
       changed: imaging.changed,
+      journaled: () => journal.nativeCall(programPolicy(said)),
     };
     return await imageLineOf(said).settle(context, async () => {
       if (!isProgram(said, commands) && !callsImage(said, methods)) {

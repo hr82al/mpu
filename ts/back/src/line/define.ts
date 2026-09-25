@@ -72,6 +72,11 @@ export interface ImageContext {
   readonly now: () => Date;
   /** Образ изменился: снимок дерева переписывается. */
   readonly changed: () => Promise<void>;
+  /**
+   * Строка исполнилась — её отказ или запись; ей быть в журнале вызовов,
+   * как любой команде (`platform/image.md`, «Журнал вызовов»).
+   */
+  readonly journaled: () => void;
 }
 
 /** Строка образа: определение, удаление или ни то ни другое. */
@@ -174,7 +179,12 @@ function ruled(
   return ruling.settle<number>(
     {
       text: lineText(ROOT_TEXT, context.said),
-      run,
+      // Отметка после «да»: вопрос двери в запись не попадает, а отказ
+      // правил и двери записи не оставляет, как у любой команды.
+      run: () => {
+        context.journaled();
+        return run();
+      },
       refuse: (reason, text) => {
         plainRefusal(reason, text).tell(speech);
         return Promise.resolve(FAILED);
@@ -240,6 +250,7 @@ class Definition implements ImageLine {
       checked = this.#checked(context);
     } catch (err) {
       if (!(err instanceof Misdefined)) throw err;
+      context.journaled();
       err.refused.tell(context.speech);
       return MISWRITTEN;
     }
@@ -450,6 +461,7 @@ class Forgetting implements ImageLine {
         ? this.#written
         : `${this.#written}:`;
       const address = lineText(ROOT_TEXT, [...this.#receiver, FORGET]);
+      context.journaled();
       plainRefusal("нет метода", `${address} у ${at} нет метода ${name}`)
         .tell(context.speech);
       return Promise.resolve(FAILED);

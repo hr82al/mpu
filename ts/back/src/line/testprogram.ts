@@ -9,7 +9,11 @@
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import type { RefusalData } from "../frames/mod.ts";
-import type { InvokeCommand, InvokeLog } from "../invokelog/mod.ts";
+import {
+  type InvokeCommand,
+  type InvokeLog,
+  NO_INVOKE_LOG,
+} from "../invokelog/mod.ts";
 import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
@@ -203,6 +207,8 @@ export interface StandLine {
   readonly io?: Partial<CommandIo>;
   /** Образ строки (`platform/image.md`); нет — пуст. */
   readonly image?: ImagePorts;
+  /** Журнал вызовов, в который строка пишет свою запись; нет — не пишет. */
+  readonly log?: InvokeLog;
 }
 
 /**
@@ -221,8 +227,16 @@ export async function runOnStand(
   const refusals: RefusalData[] = [];
   const native: string[] = [];
   const records: JournalRecord[] = [];
+  const record = (line.log ?? NO_INVOKE_LOG).begin({
+    kind: "argv",
+    argv: words,
+    cwd: "/stand",
+  });
   const journal: InvokeJournal = {
-    nativeCall: (policy) => void native.push(policy.path.join(" ")),
+    nativeCall: (policy) => {
+      native.push(policy.path.join(" "));
+      record.nativeCall(policy);
+    },
     note: () => {},
     executedBy: () => {},
     log: recordingLog(records),
@@ -240,7 +254,7 @@ export async function runOnStand(
       stderrIsTerminal: () => true,
       ...line.io,
     }),
-    {
+    record.capture({
       stdout: (text: string) => {
         stdout += text;
         frames.push({ out: text });
@@ -249,9 +263,10 @@ export async function runOnStand(
         stderr += text;
         frames.push({ err: text });
       },
-    },
+    }),
     journal,
   );
+  await record.finish(exit);
   return { exit, stdout, stderr, frames, refusals, native, records };
 }
 

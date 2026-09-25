@@ -7,6 +7,9 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { Image } from "../image/mod.ts";
+import { makeInvokeLog } from "../invokelog/mod.ts";
+import { runLog } from "../log/mod.ts";
+import { makeFakeIo } from "../testing/mod.ts";
 import { ALLOW, DENY, RuleBook, RulePath } from "../policy/mod.ts";
 import { type ImagePorts, registryNodes } from "./mod.ts";
 import { registrySeeds } from "./seeds.ts";
@@ -379,5 +382,120 @@ Deno.test("forget: с лишним словом — не строка образ
         ran.stderr.startsWith("mpu ask kiten: не понимает forget:"),
         ran.stderr,
       );
+    })
+  ));
+
+/** Запись журнала без времени, pid и run_id: их тест не сверяет. */
+function stable(record: string): string {
+  return record
+    .replace(/^### .*$/m, "### <шапка>")
+    .replaceAll(/run=\S+/g, "run=<id>")
+    .replace(/dur=\S+s/, "dur=<сек>s");
+}
+
+/** Последняя запись журнала `file`, отобранная `cmd:`, как её печатает `mpu log`. */
+async function lastRecord(file: string, cmd?: string): Promise<string> {
+  const io = makeFakeIo({ readTextFile: (path) => Deno.readTextFile(path) });
+  const result = await runLog({
+    tail: 1,
+    failed: false,
+    cmd,
+    since: undefined,
+    run: undefined,
+    file,
+  }, io);
+  return stable(result.records.join(""));
+}
+
+/** Ожидаемая запись J1–J2 (`platform/image.md`, «Журнал вызовов»). */
+function journaled(line: string, out: string): string {
+  return `### <шапка>\n$ mpu ${line}\n--- out run=<id> ---\n${out}` +
+    "--- end run=<id> exit=0 dur=<сек>s ---\n\n";
+}
+
+/** Ожидаемая запись отказа J3–J3b: секция `err` и код. */
+function refusedRecord(line: string, err: string, exit: number): string {
+  return `### <шапка>\n$ mpu ${line}\n--- err run=<id> ---\n${err}` +
+    `--- end run=<id> exit=${exit} dur=<сек>s ---\n\n`;
+}
+
+/** Журнал вызовов во временном каталоге рядом с образом. */
+function journalBeside(image: string) {
+  const file = image.replace(/image\.db$/, "mpu.log");
+  const log = makeInvokeLog({
+    env: { get: () => undefined },
+    defaultFile: file,
+    pid: 1,
+    now: () => new Date(),
+  });
+  return { file, log };
+}
+
+Deno.test("журнал: define: и forget: — по записи со строкой, out и кодом (J1, J2, J4)", () =>
+  withState(({ policy, image: file }) =>
+    withStand(async (stand) => {
+      using image = Image.at(file);
+      const ports = imaging(image);
+      const { file: journal, log } = journalBeside(file);
+      const run = (line: string) =>
+        runOnStand(policy, words(line), stand, {
+          image: ports,
+          answers: ["y"],
+          log,
+        });
+      const defined = await run(
+        "ask kiten define: probe purpose: ^проба^ do kiten whoami done",
+      );
+      assertEquals(defined.exit, 0);
+      const j1 = journaled(
+        "ask kiten define: probe purpose: '^проба^' do kiten whoami done",
+        '{"path":"kiten probe","verdict":"allow"}\n',
+      );
+      assertEquals(await lastRecord(journal), j1, "J1");
+      assertEquals(await lastRecord(journal, "kiten"), j1, "J4");
+      const forgot = await run("ask kiten forget: probe");
+      assertEquals(forgot.exit, 0);
+      assertEquals(
+        await lastRecord(journal),
+        journaled("ask kiten forget: probe", forgot.stdout),
+        "J2",
+      );
+    })
+  ));
+
+Deno.test("журнал: отказ самой строки define:/forget: — запись с err и кодом (J3, J3b)", () =>
+  withState(({ policy, image: file }) =>
+    withStand(async (stand) => {
+      using image = Image.at(file);
+      const ports = imaging(image);
+      const { file: journal, log } = journalBeside(file);
+      const cases = [
+        {
+          name: "J3",
+          line: "ask kiten define: cardsIn do :c kiten ls done",
+          said: "mpu kiten define: метод без назначения: purpose: ^…^",
+          exit: 2,
+        },
+        {
+          name: "J3b",
+          line: "ask kiten forget: cardsIn",
+          said: "mpu kiten forget: у kiten нет метода cardsIn:",
+          exit: 1,
+        },
+      ];
+      for (const { name, line, said, exit } of cases) {
+        const ran = await runOnStand(policy, words(line), stand, {
+          image: ports,
+          answers: ["y"],
+          log,
+        });
+        assertEquals(ran.exit, exit, name);
+        assert(ran.stderr.startsWith(said), `${name}: ${ran.stderr}`);
+        assertEquals(
+          await lastRecord(journal),
+          refusedRecord(line, ran.stderr, exit),
+          name,
+        );
+      }
     })
   ));
