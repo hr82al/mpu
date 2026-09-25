@@ -1,7 +1,9 @@
 # Handoff: mpu мини-Smalltalk — состояние на 2026-09-25
 
+**Очередь и инструкции владельца — `docs/work-queue.md` (читать первым).**
+
 Хост — tmux `w:@7.%7` (сессия «mpu-s»). Исполнитель `mpu-167c` — `w:@8.%8`,
-каталог `~/mr/mp/mpu/ts`, стоит на `wait task` (в ячейке `# ОТЧЁТ` 167d).
+каталог `~/mr/mp/mpu/ts`, состояние — `deno task handoff status`.
 Постановки — `~/mr/mp/tmp/mpu-smalltalk/prompt-*.txt`, отчёты — `report-*.md` там же.
 Workflow больше не запускать (владелец); веер — только с его разрешения.
 
