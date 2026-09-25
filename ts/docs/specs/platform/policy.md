@@ -141,6 +141,8 @@ stderr — терминалы: вопрос печатается в stderr бе�
 | `task rule`, `task owner-answer` | посева нет: жёсткий запрет вне правил, как у `allow:` (`task.md`, «Правила») |
 | `task roles`, `task busy`, `task idle` (порция T2, `task-roles.md`) | `allow` |
 | `task role`, `task role forget` | посева нет: жёсткий запрет вне правил (`task-roles.md`) |
+| `task stop` (порция T3, `task-orchestrator.md`) | `allow` |
+| `task resume` | `ask` (по признаку `rw`) |
 
 Следствие посева: правило на корне или на группе не перекрывает посеянные
 правила команд под ними — `deny: "*"` запрещает только пути без своего
