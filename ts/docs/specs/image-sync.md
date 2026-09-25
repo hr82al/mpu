@@ -302,7 +302,7 @@ dir>\t<причина>`. Порядок: строки методов по пол
 | 46 | синхронизировано; `cardsIn` удалён и в базе (`forget:`), и в файлах | `mpu ask image sync dry`, затем `mpu ask image sync` | оба: stdout `совпало 2, изменено 0, конфликтов 0\n`, код 0; после `dry` строка архива `kiten cardsIn:` на месте, после второй строки её нет |
 | 48 | после 18: `mpu ask config unset key: image.dir` | `mpu ask image sync` | stdout `файл не разобран\tother/kiten/cardsIn:.mpu\tmpu other kiten define: метод — только у команды или группы\nфайл не разобран\tother/kiten/mine.mpu\tmpu other kiten define: метод — только у команды или группы\nфайл не разобран\tother/kiten/ready.mpu\tmpu other kiten define: метод — только у команды или группы\nсовпало 3, изменено 0, конфликтов 0\n`, код 1 — другой каталог образа внутри `$D` не пропускается |
 | 49 | пустой `policy.db`, первый старт | `mpu policy` | stdout — массив правил, в нём ровно один раз `{"path":"image sync","verdict":"ask"}`, пути `image` нет; код 0 |
-| 53 | — | `mpu messages` | среди строк, между `help\t…` и `init\t…`, — `image\tметоды образа и файлы каталога: сводка, выгрузка\n`; код 0 |
+| 53 | — | `mpu messages` | среди строк, между `help\t…` и `init\t…`, — `image\tметоды образа и файлы каталога\n`; код 0 |
 
 Справки целиком — голдены `fixtures/image-sync/`: пересобирает исполнитель,
 замораживает хост. Формы отказов двери, «не понимает», «у ключа … нет
