@@ -17,9 +17,9 @@ import {
   REDIRECT,
   type Treatment,
 } from "../policy/mod.ts";
+import { ASK_WORD } from "../messages/mod.ts";
 
-/** Слово входа двери. */
-export const ASK_WORD = "ask";
+export { ASK_WORD };
 
 /** Назначение и справка двери. */
 export const ASK_DOC: Doc = {
