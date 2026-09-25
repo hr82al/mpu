@@ -141,6 +141,6 @@ v2: п.2 — реализация с тем же протоколом, union + `
   тестах падает у `tsc` → `--module esnext --moduleResolution bundler`.
 - Анонимизатор режет разделы «Пункты чек-листа» и «Что изменено по рецензии» и заменяет метки
   `[D.n]`/`[R.n]` на `[П]`; порядок букв — по хешу от имени ячейки.
-- Материалы — `~/tmp/ts-checklists-research/` (не в репозитории): `samples/`, `originals/`,
+- Материалы — `/home/user/mr/mp/tmp/ts-checklists-research/` (не в репозитории): `samples/`, `originals/`,
   `problems/`, `checklists/`, `results/`, скрипты `wf-*.js`, `anon.py`, `ablate.py`, `check.sh`,
   `decode.py`, заметки `results/notes.md`.
