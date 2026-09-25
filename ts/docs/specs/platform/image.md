@@ -96,9 +96,32 @@ ls where: column is: @col done`
   with:`, код 2. Повтор `purpose:`/`keys:` — побеждает последний.
 - Справка метода — текст: `kiten cardsIn: help end json` — отказ «не понимает
   json».
-- Строка `define:`/`forget:` пишется в журнал вызовов, как любая строка
-  (живьём не писалась; сценарий записи — `image-sync.md`, «Журнал
-  вызовов», порция 169).
+- Строка `define:`/`forget:` пишется в журнал вызовов, как любая строка —
+  раздел «Журнал вызовов» (порция 169a).
+
+## Журнал вызовов (порция 169a)
+
+Найдено приёмкой 168: строка `define:` записи в журнале вызовов
+(`platform/invoke-log.md`) не оставила, хотя любая другая строка `ask`
+оставляет — и из терминала, и через MCP (снято 2026-09-25: `mpu ask
+telegram status dry no-live`, исполненная после Accept в MCP, — запись с
+`cwd=/home/user`, секцией `out` и `--- end … exit=0 …`). Строки `define:` и
+`forget:` оставляют по одной записи тем же порядком: строка вызова как
+набрана, с `ask`; `out` — stdout; `err` — stderr строки (вопрос двери идёт
+клиенту кадром и в запись не попадает, как у любой строки `ask`); код.
+
+| # | Дано | Строка | `mpu log limit: 1` печатает (код 0) |
+|---|---|---|---|
+| J1 | метода `kiten probe` нет | `mpu ask kiten define: probe purpose: ^проба^ do kiten whoami done`, ответ `y` | `### <дата> <время> <пояс> run=<id> pid=<pid> cwd=<каталог>\n$ mpu ask kiten define: probe purpose: '^проба^' do kiten whoami done\n--- out run=<id> ---\n{"path":"kiten probe","verdict":"allow"}\n--- end run=<id> exit=0 dur=<сек>s ---\n\n` |
+| J2 | после J1 | `mpu ask kiten forget: probe`, ответ `y` | то же со строкой `$ mpu ask kiten forget: probe` и `out` — stdout этой строки дословно |
+| J4 | после J1 | `mpu log cmd: kiten limit: 1` | запись J1 (см. «`cmd:` видит строки `ask`» в `log.md`) |
+
+`^` не входит в безопасные символы кавычения журнала
+(`invokelog`: буквы, цифры, `_@%+=:,./-`), отсюда `'^проба^'`. Поля в
+угловых скобках — как в `platform/invoke-log.md`; тест сверяет строку
+вызова, секции и код, а не время и `pid`.
+
+Мутация: запись строки `define:` снята → J1 краснеет; `forget:` — J2.
 
 ## Инварианты
 

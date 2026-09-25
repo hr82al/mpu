@@ -293,50 +293,14 @@ false` (`cli-client.md`, «Канал и токен»); на `allow` строк�
 
 ## Журнал вызовов
 
-Строки `define:`, `forget:` (досыл 168, `platform/image.md`), `image sync`,
-`image export` оставляют по одной записи (`platform/invoke-log.md`):
-строка вызова как набрана, с `ask`; `out` — stdout; `err` — stderr строки
-(вопрос двери идёт клиенту кадром и в запись не попадает, как у любой
-строки `ask`: снято 2026-09-25 — запись `$ mpu ask telegram status dry
-no-live`, исполненной после Accept в MCP, секции `err` не имеет); код.
+Строки `image sync` и `image export` оставляют по одной записи, как любая
+строка (`platform/invoke-log.md`); запись `define:`/`forget:` — порция 169a,
+`platform/image.md`, «Журнал вызовов».
 
-После `mpu ask kiten define: probe purpose: ^проба^ do kiten whoami done`
-(ответ `y`) строка `mpu log limit: 1` печатает, код 0:
+## Ключ `image.dir`
 
-```
-### <дата> <время> <пояс> run=<id> pid=<pid> cwd=<каталог>
-$ mpu ask kiten define: probe purpose: '^проба^' do kiten whoami done
---- out run=<id> ---
-{"path":"kiten probe","verdict":"allow"}
---- end run=<id> exit=0 dur=<сек>s ---
-
-```
-
-После `mpu ask kiten forget: probe` (ответ `y`) — то же со строкой
-`$ mpu ask kiten forget: probe` и `out` `{"path":"kiten probe","verdict":null}`.
-`^` не входит в безопасные символы кавычения журнала — отсюда `'^проба^'`.
-
-## Ключ `image.dir` в `mpu config`
-
-Ключ — шестой, последним в порядке реестра (`platform/config.md`); ширина
-колонки ключей не меняется (по `sheet.cache.max_tab_bytes`). Умолчание в
-выводе — раскрытый путь от `HOME` порта команды, не литерал `$HOME/…`;
-`HOME` нет — умолчания нет, значение `(unset)`. Описание ключа — в стиле
-соседних, с обратными кавычками: ``Каталог файлов методов образа для `mpu
-image sync` и `mpu image export` ``. Список ключей
-в справке `mpu config` берётся из реестра, а не вторым списком (сценарии
-50–52).
-
-Голдены `fixtures/config/` сняты с оригинала на пяти ключах и не меняются.
-Исполнитель меняет тесты `config/cmd_config_test.ts`: «список» — первые пять
-строк равны `list-default.stdout`, шестая — строка сценария 50; «список
---json» — первые пять записей равны `list-json.stdout`, шестая — запись
-сценария 51; «подсказка перечисляет ключи» — список голдена и `, image.dir`;
-«реестр: пять ключей» → «шесть ключей», `image.dir` последним; «умолчания
-реестра совпадают с теми, что применяют потребители» — и для `image.dir`
-(`image sync` берёт умолчание из реестра). Снапшоты `tools/list`
-(`deno task tools:snapshot`) исполнитель пересобирает: в них справка
-`config` и новые команды.
+Ключ, его умолчание и вывод `mpu config` — порция 169a,
+`platform/config.md`, «Ключ `image.dir`». Эта порция его только читает.
 
 ## Инварианты
 
@@ -424,9 +388,6 @@ image sync` и `mpu image export` ``. Список ключей
 | 47 | как 8 | `mpu image export` | stdout `ждёт человека\tудалён метод\tkiten cardsIn:\nждёт человека\tудалён метод\tkiten mine\nждёт человека\tудалён метод\tkiten ready\nсовпало 0, изменено 0, конфликтов 0\n`, stderr пуст, код 0; база цела (удаления базы export не применяет и в счёт массового удаления файлов не берёт) |
 | 48 | после 18: `mpu ask config unset key: image.dir` | `mpu ask image sync` | stdout `файл не разобран\tother/kiten/cardsIn:.mpu\tmpu other kiten define: метод — только у команды или группы\nфайл не разобран\tother/kiten/mine.mpu\tmpu other kiten define: метод — только у команды или группы\nфайл не разобран\tother/kiten/ready.mpu\tmpu other kiten define: метод — только у команды или группы\nсовпало 3, изменено 0, конфликтов 0\n`, код 1 — другой каталог образа внутри `$D` не пропускается |
 | 49 | пустой `policy.db`, первый старт | `mpu policy` | stdout — массив правил, в нём ровно по одному разу `{"path":"image export","verdict":"allow"}` и `{"path":"image sync","verdict":"ask"}`, пути `image` нет; код 0 |
-| 50 | конфиг пуст | `mpu ask config` (ответ `y`) | stderr `выполнить mpu config? [y/N] `; stdout `sheet.default              (unset)  (default)\nxlsx.default               (unset)  (default)\nsheet.cache.tab_ttl        7200  (default)\nsheet.cache.max_tab_bytes  10485760  (default)\nsheet.cache.max_total_mb   500  (default)\nimage.dir                  $H/mr/mp/mpu/image  (default)\n`, код 0 |
-| 51 | конфиг пуст | `mpu ask config end json` (ответ `y`) | stdout — массив из шести записей (отступ 2, `\n` в конце): первые пять — `fixtures/config/list-json.stdout`, шестая — запись той же формы (многострочная, отступ 2) с полями `key` = `image.dir`, `value` = `default` = `$H/mr/mp/mpu/image`, `source` = `default`, `description` — описание ключа из «Ключ `image.dir` в `mpu config`» побайтово; код 0 |
-| 52 | после 17 | `mpu ask config unset key: image.dir` (ответ `y`) | stdout `image.dir сброшен к дефолту: $H/mr/mp/mpu/image\n`, код 0 |
 | 53 | — | `mpu messages` | среди строк, между `help\t…` и `init\t…`, — `image\tметоды образа и файлы каталога: сводка, выгрузка\n`; код 0 |
 
 Справки целиком — голдены `fixtures/image-sync/`: пересобирает исполнитель,
