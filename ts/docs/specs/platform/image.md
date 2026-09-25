@@ -114,6 +114,8 @@ telegram status dry no-live`, исполненная после Accept в MCP, �
 |---|---|---|---|
 | J1 | метода `kiten probe` нет | `mpu ask kiten define: probe purpose: ^проба^ do kiten whoami done`, ответ `y` | `### <дата> <время> <пояс> run=<id> pid=<pid> cwd=<каталог>\n$ mpu ask kiten define: probe purpose: '^проба^' do kiten whoami done\n--- out run=<id> ---\n{"path":"kiten probe","verdict":"allow"}\n--- end run=<id> exit=0 dur=<сек>s ---\n\n` |
 | J2 | после J1 | `mpu ask kiten forget: probe`, ответ `y` | то же со строкой `$ mpu ask kiten forget: probe` и `out` — stdout этой строки дословно |
+| J3 | метода `kiten cardsIn` нет | `mpu ask kiten define: cardsIn do :c kiten ls done` (отказ до вопроса) | запись со строкой `$ mpu ask kiten define: cardsIn do :c kiten ls done`, секцией `err` `mpu kiten define: метод без назначения: purpose: ^…^` и `exit=2` |
+| J3b | метода `kiten cardsIn` нет | `mpu ask kiten forget: cardsIn`, ответ `y` | запись с `err` `mpu kiten forget: у kiten нет метода cardsIn:` и `exit=1` |
 | J4 | после J1 | `mpu log cmd: kiten limit: 1` | запись J1 (см. «`cmd:` видит строки `ask`» в `log.md`) |
 
 `^` не входит в безопасные символы кавычения журнала
@@ -121,7 +123,14 @@ telegram status dry no-live`, исполненная после Accept в MCP, �
 угловых скобках — как в `platform/invoke-log.md`; тест сверяет строку
 вызова, секции и код, а не время и `pid`.
 
-Мутация: запись строки `define:` снята → J1 краснеет; `forget:` — J2.
+Отказ самой строки `define:`/`forget:` (нет назначения, имя занято, нет
+метода) пишется, как у любой команды, завершившейся ошибкой (`invoke-log.md`:
+«каждое исполнение — включая завершившееся ошибкой»); записи не оставляют
+только поверхности, которых нет у команд (справка, опечатка маршрута).
+Решение хоста 2026-09-25 по вопросу исполнителя 169a.
+
+Мутация: запись строки `define:` снята → J1 краснеет; `forget:` — J2; запись
+только после «да» → J3 и J3b краснеют.
 
 ## Инварианты
 
