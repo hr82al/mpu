@@ -1,6 +1,6 @@
 # Образ: методы пользователя в `image.db`
 
-Статус: реализовано — порция 168 (`535dc95`); принято 2026-09-23 хостом: гейты зелёные (тестов 2459, smoke 19/1), мутации M1–M13 красные, голдены `image/messages.txt`, `help.txt` заморожены. Живьём: через MCP `ask kiten define: cardsIn purpose: ^…^ do :col kiten ls date-from: 2026-09-01 where: column is: @col done` → `{"path":"kiten cardsIn:","verdict":"allow"}`; `kiten cardsIn: Готово end size` → 36 (= прямой `kiten ls … where: column is: Готово end size`); `kiten messages` — `cardsIn:` с меткой «образ:»; `kiten cardsIn: help` — назначение, автор, исходник. Найдено: строка `define:` не попала в журнал вызовов — в 169.
+Статус: реализовано — порция 168 (`535dc95`); принято 2026-09-23 хостом: гейты зелёные (тестов 2459, smoke 19/1), мутации M1–M13 красные, голдены `image/messages.txt`, `help.txt` заморожены. Живьём: через MCP `ask kiten define: cardsIn purpose: ^…^ do :col kiten ls date-from: 2026-09-01 where: column is: @col done` → `{"path":"kiten cardsIn:","verdict":"allow"}`; `kiten cardsIn: Готово end size` → 36 (= прямой `kiten ls … where: column is: Готово end size`); `kiten messages` — `cardsIn:` с меткой «образ:»; `kiten cardsIn: help` — назначение, автор, исходник. Найдено: строка `define:` не попала в журнал вызовов — чинит 169, сценарий — `image-sync.md`, «Журнал вызовов».
 
 ## Назначение
 
@@ -97,7 +97,8 @@ ls where: column is: @col done`
 - Справка метода — текст: `kiten cardsIn: help end json` — отказ «не понимает
   json».
 - Строка `define:`/`forget:` пишется в журнал вызовов, как любая строка
-  (живьём не писалась — порция 169).
+  (живьём не писалась; сценарий записи — `image-sync.md`, «Журнал
+  вызовов», порция 169).
 
 ## Инварианты
 
