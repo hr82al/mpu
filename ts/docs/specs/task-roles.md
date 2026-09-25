@@ -1,0 +1,131 @@
+# mpu task role · roles · busy · idle — профили ролей и отметки (порция T2)
+
+Статус: к реализации — порция T2 серии оркестратора (после T1, `task.md`).
+Написана хостом 2026-09-25 по дизайну оркестратора; полная проверка — автором
+по списку.
+
+## Назначение
+
+Оркестратору (T3) нужно знать, как запускать каждую роль проекта и занята ли
+она сейчас. Профиль роли — как её запустить; отметка — что она сама говорит о
+себе. Профиль меняет только человек: он решает, с какими полномочиями и
+моделью работает сессия. Отметку ставит сама роль: по ней тик понимает, можно
+ли её очистить, не читая экран.
+
+## Профиль
+
+Роль проекта — `host` или `exec` (диалог оркестратор не трогает, профиля у
+него нет). Поля профиля:
+
+| Ключ | Что | Умолчание |
+|---|---|---|
+| `session:` | сессия tmux | `w` |
+| `window:` | окно | `<проект>-<роль>` |
+| `dir:` | каталог запуска, абсолютный | обязателен |
+| `model:` | модель Claude Code | `opus` |
+| `mode:` | режим разрешений | `auto` |
+| `add-dir:` | каталог вне каталога запуска; вход-список | нет |
+| `powers:` | полномочия текстом (`^…^`) — вкладываются в первое сообщение дословно | обязателен |
+| `read:` | файл, который роль читает первым; вход-список | нет |
+
+## CLI-контракт
+
+```
+mpu task role project: <имя> role: host|exec dir: … powers: ^…^ [прочие ключи профиля]
+mpu task role forget project: <имя> role: host|exec
+mpu task roles project: <имя>
+mpu task busy project: <имя> role: host|exec
+mpu task idle project: <имя> role: host|exec
+```
+
+- `role` записывает профиль целиком (заменяет прежний; ключи, не названные в
+  строке, — умолчания, а не прежние значения).
+- `role forget` — удалить профиль роли.
+- `roles` — профили проекта и отметки ролей; `end json` — массив записей.
+- `busy`/`idle` — отметка роли со временем.
+
+**Правила.** `role` и `role forget` — жёсткий запрет вне правил, как у
+`allow:` (`platform/policy.md`) и у `task rule`: всегда вопрос каналу, текст
+`изменить профиль роли: <проект> <роль>? [y/N] `; канал без человека — отказ
+`менять профиль роли может только человек`, код 1. `roles` — посев `allow`.
+`busy`/`idle` — посев `allow` (их пишет сама роль, человека рядом нет).
+
+## Вывод
+
+- `roles` — по блоку на роль, блоки через пустую строку:
+  ```
+  host  busy  12m
+    session: w  window: mpu-host  model: opus  mode: auto
+    dir: /home/u/mr/mp/mpu
+    add-dir: /home/u/mr/mp/tmp
+    read: /home/u/mr/mp/mpu/docs/work-queue.md
+    powers: субагенты — нельзя; прод — только чтение
+  ```
+  Первая строка — роль, отметка (`busy`, `idle` или `-` — отметки не было),
+  её возраст (`<N>s|m|h|d`, у `-` — `-`). Строки `add-dir:`/`read:` — по
+  одной на значение, нет значений — строки нет. Роль без профиля — не
+  печатается. `end json`: `{"role","mark","mark_age_s","session","window",
+  "dir","model","mode","add_dir":[…],"read":[…],"powers"}`.
+- `role`, `role forget`, `busy`, `idle` — stdout пуст.
+
+## Побочные эффекты
+
+Кэш-БД: профили и отметки по ключу `(проект, роль)`. Проект должен быть
+заведён (`task setup`); иначе — тот же отказ, что у `task post` (`task.md`,
+T1).
+
+## Инварианты
+
+- Профиль не пишется каналом без человека ни при каком правиле.
+- Отметка хранит только последнее значение и его время.
+- `roles` не читает экран и не трогает tmux.
+- Каталоги ролей разных проектов не совпадают: `role` с `dir:`, занятым ролью
+  другого проекта, — отказ.
+
+## Сценарии
+
+Стенд: временный `HOME`, проект `demo` заведён (`task.md`, T2), строки — из
+терминала с человеком (`y`), если не сказано «агент».
+
+| # | Дано | Строка | stdout | stderr | код |
+|---|---|---|---|---|---|
+| R1 | — | `mpu task role project: demo role: exec dir: /tmp/demo/ts powers: ^прод — только чтение^` | | `изменить профиль роли: demo exec? [y/N] ` | 0 |
+| R2 | после R1 | `mpu task roles project: demo` | `exec  -  -\n  session: w  window: demo-exec  model: opus  mode: auto\n  dir: /tmp/demo/ts\n  powers: прод — только чтение\n` | | 0 |
+| R3 | после R1, агент | `mpu task role project: demo role: exec dir: /tmp/x powers: ^всё можно^` | | `менять профиль роли может только человек\n` | 1; профиль прежний |
+| R4 | после R1, агент | `mpu task busy project: demo role: exec`; `mpu task roles project: demo` | вторая: первая строка `exec  busy  0s` | | 0 |
+| R5 | после R4 | `mpu task idle project: demo role: exec`; `roles` | `exec  idle  0s` | | 0 |
+| R6 | после R1 | `mpu task role project: demo role: exec dir: /tmp/demo/ts powers: ^x^ model: sonnet add-dir: /tmp/a add-dir: /tmp/b` | | вопрос как R1 | 0; `roles` — `model: sonnet`, две строки `add-dir:` |
+| R7 | после R6 | то же без `model:` | | | 0; `roles` — `model: opus` (замена целиком) |
+| R8 | проект `other` заведён | `mpu task role project: other role: exec dir: /tmp/demo/ts powers: ^x^` | | `mpu task role: каталог /tmp/demo/ts уже у роли demo exec\n` | 2 |
+| R9 | — | `mpu task role project: demo role: dialog dir: /tmp powers: ^x^` | | `mpu task role: роль dialog — допустимо: host, exec\n` | 2 |
+| R10 | — | `mpu task role project: demo role: exec powers: ^x^` | | `mpu task role: нет dir: — каталог запуска обязателен\n` | 2 |
+| R11 | — | `mpu task role project: demo role: exec dir: rel/ts powers: ^x^` | | `mpu task role: dir: — абсолютный путь, получено rel/ts\n` | 2 |
+| R12 | — | `mpu task busy project: nope role: exec` | | `mpu task busy: нет проекта nope — заведи: mpu ask task setup project: nope\n` | 2 |
+| R13 | после R1, человек | `mpu task role forget project: demo role: exec`; `roles` | вторая: пусто | вопрос как R1 | 0 |
+| R14 | — | `mpu task roles project: demo end json` после R4 | `[{"role":"exec","mark":"busy","mark_age_s":0,"session":"w","window":"demo-exec","dir":"/tmp/demo/ts","model":"opus","mode":"auto","add_dir":[],"read":[],"powers":"прод — только чтение"}]\n` | | 0 |
+| R15 | — | `mpu policy` | `task roles`, `task busy`, `task idle` — `allow`; путей `task role`, `task role forget` нет | | 0 |
+
+## Известные отклонения
+
+Нет — команды новые.
+
+## Открытые вопросы
+
+Нет. Имена ролей `host`/`exec`, ключи профиля — решения хоста без замера
+(`mpu/docs/owner-questions.md`).
+
+## Пункты чек-листа
+
+`design.md`: 1 — изменил: роль проекта — объект с профилем и отметкой, а не
+две таблицы. 2 — изменил: `host`/`exec` — данные границы (union разбора), у
+ролей одно поведение. 3 — изменил: нет отметки — вид «отметки не было» (`-`),
+не `null` в логике. 4 — изменил: кто меняет профиль — владелец политики. 5 —
+ничего. 6 — изменил: полномочия — текст, который роль получает дословно;
+профиль — тип. 7 — изменил: агент не меняет свой профиль → держится на:
+запрет вне правил → R3 (мутация «`role` по правилу пути» краснеет); профиль
+заменяется целиком → R7.
+
+`design-mpu.md`: 1 — изменил: сообщения группы `task`. 3 — изменил: `role` —
+жёсткий запрет; `busy`/`idle` — посев `allow`. 4 — изменил: умолчания профиля
+— одна таблица. 5 — изменил: возраст отметки — из её времени. 8 — изменил:
+часы — параметр. Прочие — ничего.

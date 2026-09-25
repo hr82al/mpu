@@ -139,6 +139,8 @@ stderr — терминалы: вопрос печатается в stderr бе�
 | `image export` (порция 169b, `image-export.md`) | `allow` — вместо посева по признаку `rw`, одной строкой: пишет только файлы каталога образа |
 | `task post`, `task report`, `task question`, `task answer`, `task decision`, `task owner` (порция T1, `task.md`) | `allow` — вместо посева по признаку `rw`: роли пишут в локальный журнал без человека |
 | `task rule`, `task owner-answer` | посева нет: жёсткий запрет вне правил, как у `allow:` (`task.md`, «Правила») |
+| `task roles`, `task busy`, `task idle` (порция T2, `task-roles.md`) | `allow` |
+| `task role`, `task role forget` | посева нет: жёсткий запрет вне правил (`task-roles.md`) |
 
 Следствие посева: правило на корне или на группе не перекрывает посеянные
 правила команд под ними — `deny: "*"` запрещает только пути без своего

@@ -38,7 +38,7 @@
 - [ ] 171 — web: экран «Образ» (`web-image.md`, `prompt-171.txt` готов)
 - [ ] task — оркестратор `mpu task` (серия T1–T5, `docs/2026-09-23-task-orchestrator-design.md`,
       спека `ts/docs/specs/task.md`). T1 — спека переписана под грамматику
-      (2026-09-25), `prompt-T1.txt` готов; T2–T5 — спеки писать по дизайну.
+      (2026-09-25), `prompt-T1.txt` готов; T2 — спека `task-roles.md` готова; T3–T5 — писать по дизайну.
 - [ ] call — `ts/docs/specs/call.md` (маркетплейс — получатель: `ozon call-ro`,
       `ozon perf call`, `wb call`); три порции 173a/b/c, реестр и токены WB в
       спеке, сценарии 173a A1–A20 написаны; 173b/173c — сценарии литералами
