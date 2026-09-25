@@ -1402,6 +1402,12 @@ const CASES: readonly CommandCase[] = [
     sampleResult: { report: "совпало 0, изменено 0, конфликтов 0\n" },
   },
   {
+    // Строку исполняет ядро, как `image sync`.
+    path: "image export",
+    argv: [],
+    sampleResult: { report: "совпало 0, изменено 0, конфликтов 0\n" },
+  },
+  {
     // Локальный стенд: у обхода нет ни каталога mp-config-local, ни
     // ключей подключений, поэтому обе отбиваются до docker и до PG.
     path: "mp-init",

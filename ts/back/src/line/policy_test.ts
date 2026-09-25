@@ -102,14 +102,18 @@ Deno.test("посев первого старта и ничего заново �
     assertEquals(await rules(file), first);
   }));
 
-Deno.test("посев: у каждой команды правило по ro/rw", () =>
+/** Посев не по признаку (`platform/policy.md`, «Посев»). */
+const OWN_SEEDS: Readonly<Record<string, string>> = { "image export": "allow" };
+
+Deno.test("посев: у каждой команды правило по ro/rw, кроме своего посева", () =>
   withPolicyFile(async (file) => {
     const listed = await rules(file);
     for (const command of commands) {
+      const path = command.path.join(" ");
       assertEquals(
-        verdictOf(listed, command.path.join(" ")),
-        command.policy === "ro" ? "allow" : "ask",
-        command.path.join(" "),
+        verdictOf(listed, path),
+        OWN_SEEDS[path] ?? (command.policy === "ro" ? "allow" : "ask"),
+        path,
       );
     }
   }));

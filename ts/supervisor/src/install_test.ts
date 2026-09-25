@@ -24,6 +24,27 @@ function install(
   return runScript(place, "install.sh", args, env, where);
 }
 
+/** Файлы суточного таймера образа (`image-export.md`, «Суточный таймер»). */
+const TIMER_UNITS = ["mpu-image-export.service", "mpu-image-export.timer"];
+
+/** Юнит в каталоге служб побайтово как эталон `testdata/supervisor-install/`. */
+async function assertUnit(place: Place, name: string) {
+  assertEquals(
+    await Deno.readTextFile(`${place.unit}/${name}`),
+    await Deno.readTextFile(
+      new URL(`testdata/supervisor-install/${name}`, import.meta.url),
+    ),
+    name,
+  );
+}
+
+/** Строки шагов службы, таймера и перезапуска. */
+function unitLines(run: Run): string[] {
+  return run.lines.filter((line) =>
+    /^install: (служба|таймер образа|перезапуск):/.test(line)
+  );
+}
+
 const PROGRAMS = [
   "mpu",
   "mpu-back",
@@ -47,10 +68,18 @@ Deno.test("первая установка: всё собрано и поста�
         ),
       ),
     );
+    for (const name of TIMER_UNITS) await assertUnit(place, name);
+    // Юниты службы и таймера записаны до одной daemon-reload.
     assertEquals(run.calls, [
       "--user daemon-reload",
       "--user enable mpu",
+      "--user enable --now mpu-image-export.timer",
       "--user start mpu",
+    ]);
+    assertEquals(unitLines(run), [
+      "install: служба: записана",
+      "install: таймер образа: записан",
+      "install: перезапуск: служба запущена",
     ]);
     assertEquals(run.lines.every((line) => line.startsWith("install: ")), true);
     assertEquals(run.lines.at(-1), "install: готово");
@@ -69,8 +98,49 @@ Deno.test("второй запуск без изменений: ничего н�
       ) => `install: сравнение ${part}: без изменений`),
     );
     assertEquals(run.calls, []);
+    assertEquals(unitLines(run), [
+      "install: служба: без изменений",
+      "install: таймер образа: без изменений",
+      "install: перезапуск: не нужен",
+    ]);
     assertEquals(await snapshot(place.bin), before);
     assertEquals(run.lines.at(-1), "install: готово");
+  }));
+
+Deno.test("таймера нет, служба без изменений: таймер поставлен, mpu не перезапущен", () =>
+  withPlace(async (place) => {
+    await install(place);
+    for (const name of TIMER_UNITS) await Deno.remove(`${place.unit}/${name}`);
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    for (const name of TIMER_UNITS) await assertUnit(place, name);
+    assertEquals(run.calls, [
+      "--user daemon-reload",
+      "--user enable --now mpu-image-export.timer",
+    ]);
+    assertEquals(unitLines(run), [
+      "install: служба: без изменений",
+      "install: таймер образа: записан",
+      "install: перезапуск: не нужен",
+    ]);
+  }));
+
+Deno.test("служба изменена, таймер без изменений: служба перезапущена, таймер не тронут", () =>
+  withPlace(async (place) => {
+    await install(place);
+    await Deno.writeTextFile(`${place.unit}/mpu.service`, "[Unit]\n");
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(run.calls, [
+      "--user daemon-reload",
+      "--user enable mpu",
+      "--user restart mpu",
+    ]);
+    assertEquals(unitLines(run), [
+      "install: служба: записана",
+      "install: таймер образа: без изменений",
+      "install: перезапуск: служба перезапущена",
+    ]);
   }));
 
 Deno.test("--only mcp после правки: только mpu-mcp и USR2 главному процессу", () =>
@@ -413,10 +483,12 @@ async function fakeTree(at: string): Promise<string> {
   await Deno.mkdir(`${at}/supervisor`, { recursive: true });
   await Deno.copyFile(`${ROOT}install.sh`, `${at}/install.sh`);
   await Deno.chmod(`${at}/install.sh`, 0o755);
-  await Deno.copyFile(
-    `${ROOT}supervisor/mpu.service`,
-    `${at}/supervisor/mpu.service`,
-  );
+  for (const name of ["mpu.service", ...TIMER_UNITS]) {
+    await Deno.copyFile(
+      `${ROOT}supervisor/${name}`,
+      `${at}/supervisor/${name}`,
+    );
+  }
   return `${at}/`;
 }
 

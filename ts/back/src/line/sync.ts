@@ -1,12 +1,15 @@
 /**
- * Строка `image sync` (`image-sync.md`): ведёт её ядро — у него образ,
- * правила и снимок дерева. Разбирает строку обычная цепочка (справка,
- * `messages`, отказы грамматики — деревом), исполнение листа подменено:
- * проверки до вопроса, вопрос двери, предохранитель, применение плана.
+ * Строки `image sync` (`image-sync.md`) и `image export`
+ * (`image-export.md`): ведёт их ядро — у него образ, правила и снимок
+ * дерева. Разбирает строку обычная цепочка (справка, `messages`, отказы
+ * грамматики — деревом), исполнение листа подменено: проверки до вопроса,
+ * вопрос двери, предохранитель, применение плана. Чем строки отличаются —
+ * решает объект команды (`ImageCommand`).
  */
 
 import { resolve } from "node:path";
 import {
+  type Command,
   type CommandIo,
   formatCommandError,
   UsageError,
@@ -18,26 +21,31 @@ import {
   conflictEntry,
   type Done,
   type Entry,
+  EXPORT_PATH,
+  exportArgsSchema,
   Failed,
   type FilesRead,
   type Image,
   ImageError,
+  imageExportCommand,
   type ImageMethod,
   imageSyncCommand,
   keyOf,
   MethodAddress,
   type MethodFile,
   Misaddressed,
+  type Overflow,
   Plan,
   type Preference,
   readFiles,
   type Receivers,
   SUCCEEDED,
   SYNC_PATH,
-  type SyncArgs,
   syncArgsSchema,
   Unparsed,
   UnreadableDir,
+  WAITING,
+  waitingEntry,
 } from "../image/mod.ts";
 import {
   line as lineText,
@@ -81,16 +89,100 @@ const MISWRITTEN = 2;
 /** Код сбоя: файл образа, правил или каталог не читается. */
 const FAILED = 1;
 
-/** Строка `image sync`: исполнение листа — у ядра. */
-const SYNCING: ImageLine = {
-  settle: (context) =>
-    context.walk((session, words) => new SyncLine(session, words, context)),
+/** Применитель строки: после плана — снимок дерева, если база изменилась. */
+interface Settling extends Applier {
+  settled(): Promise<void>;
+}
+
+/** Что выбрала набранная строка команды образа. */
+interface Chosen {
+  /** Набранный `dir:`; не набран — `undefined`. */
+  readonly dir: string | undefined;
+  /** Адреса `base:`: в конфликте права база. */
+  readonly base: readonly string[];
+  /** Адреса `files:`: в конфликте права файл. */
+  readonly files: readonly string[];
+  /** Удаления сверх половины стороны, которые запуск не пропускает. */
+  overflows(plan: Plan): readonly Overflow[];
+  /**
+   * Слова строки, снимающей предохранитель.
+   *
+   * @param said слова набранной строки без входа двери
+   */
+  hint(said: readonly string[]): readonly string[];
+  /** Кто применяет план запуска — выбирается здесь один раз. */
+  applier(dir: string, context: ImageContext): Settling;
+}
+
+/** Команда образа, строку которой исполняет ядро. */
+interface ImageCommand {
+  /** Путь строки и правила. */
+  readonly path: readonly string[];
+  /**
+   * Выбор набранной строки разбором команды реестра.
+   *
+   * @throws Refused — значение вне схемы (`deletes: yes`)
+   */
+  chosen(argv: readonly string[]): Chosen;
+}
+
+/** Слова, дописываемые в совет: снять предохранитель. */
+const DELETES_ALLOW = ["deletes:", "allow"];
+
+/** `image sync`: обе стороны, `dry` — только печать. */
+const SYNC: ImageCommand = {
+  path: SYNC_PATH,
+  chosen: (argv) => {
+    const args = parsed(imageSyncCommand, syncArgsSchema, argv);
+    return {
+      dir: args.dir,
+      base: args.base,
+      files: args.files,
+      overflows: (plan) => args.deletes === undefined ? plan.overflows() : [],
+      hint: (said) => [ASK_WORD, ...said, ...DELETES_ALLOW],
+      applier: (dir, context) =>
+        args["dry-run"] ? new Printing(context) : new Applying(dir, context),
+    };
+  },
 };
 
-/** Строка синхронизации по словам без входа двери; иначе — не образ. */
+/**
+ * `image export`: только база → файлы; базу не удаляет, поэтому её
+ * удаления предохранитель не считает. Ключа `deletes:` у неё нет — совет
+ * ведёт в `image sync` с набранными ключами.
+ */
+const EXPORT: ImageCommand = {
+  path: EXPORT_PATH,
+  chosen: (argv) => {
+    const args = parsed(imageExportCommand, exportArgsSchema, argv);
+    return {
+      dir: args.dir,
+      base: [],
+      files: [],
+      overflows: (plan) => plan.fileOverflows(),
+      hint: (said) => [
+        ASK_WORD,
+        ...SYNC_PATH,
+        ...said.slice(EXPORT_PATH.length),
+        ...DELETES_ALLOW,
+      ],
+      applier: (dir, context) => new Exporting(dir, context),
+    };
+  },
+};
+
+/** Строка команды образа по словам без входа двери; иначе — не образ. */
 export function syncLineOf(said: readonly string[]): ImageLine {
-  const own = SYNC_PATH.every((word, i) => said[i] === word);
-  return own ? SYNCING : NOT_IMAGE;
+  const command = [SYNC, EXPORT].find((one) =>
+    one.path.every((word, i) => said[i] === word)
+  );
+  if (command === undefined) return NOT_IMAGE;
+  return {
+    settle: (context) =>
+      context.walk((session, words) =>
+        new SyncLine(command, session, words, context)
+      ),
+  };
 }
 
 /** Получатели метода — команды и группы дерева реестра. */
@@ -115,13 +207,20 @@ class Refused extends Error {
   }
 }
 
-/** Сессия строки, у которой исполнение листа — синхронизация. */
+/** Сессия строки, у которой исполнение листа — команда образа. */
 class SyncLine implements Line {
+  readonly #command: ImageCommand;
   readonly #session: Line;
   readonly #words: readonly string[];
   readonly #context: ImageContext;
 
-  constructor(session: Line, words: readonly string[], context: ImageContext) {
+  constructor(
+    command: ImageCommand,
+    session: Line,
+    words: readonly string[],
+    context: ImageContext,
+  ) {
+    this.#command = command;
     this.#session = session;
     this.#words = words;
     this.#context = context;
@@ -129,7 +228,8 @@ class SyncLine implements Line {
 
   async dispatch(report: Report, view: View, order: Order): Promise<Outcome> {
     const argv = order.argv(view.executed(this.#words));
-    return report.exit(await this.#sync(argv.slice(SYNC_PATH.length)));
+    const path = this.#command.path;
+    return report.exit(await this.#sync(argv.slice(path.length)));
   }
 
   terminal(): boolean {
@@ -166,20 +266,24 @@ class SyncLine implements Line {
     const context = this.#context;
     let run: Run;
     try {
-      run = prepared(argv, context);
+      run = prepared(this.#command, argv, context);
     } catch (err) {
       if (!(err instanceof Refused)) throw err;
       context.journaled();
       plainRefusal(UNNAMED_REFUSAL, err.message).tell(context.speech);
       return err.code;
     }
-    return await ruled(context, SYNC_PATH, () => executed(run, context));
+    return await ruled(
+      context,
+      this.#command.path,
+      () => executed(run, context),
+    );
   }
 }
 
 /** Запуск, прошедший проверки до вопроса. */
 interface Run {
-  readonly args: SyncArgs;
+  readonly chosen: Chosen;
   readonly dir: string;
   readonly plan: Plan;
 }
@@ -189,10 +293,14 @@ interface Run {
  *
  * @throws Refused — строка набрана не так или каталог вне права
  */
-function prepared(argv: readonly string[], context: ImageContext): Run {
+function prepared(
+  command: ImageCommand,
+  argv: readonly string[],
+  context: ImageContext,
+): Run {
   const said = lineText(ROOT_TEXT, context.said);
-  const args = parsed(argv);
-  const dir = allowedDir(args, context.io, said);
+  const chosen = command.chosen(argv);
+  const dir = allowedDir(chosen, context.io, said);
   let files: FilesRead;
   let archive: Map<string, string>;
   try {
@@ -205,20 +313,24 @@ function prepared(argv: readonly string[], context: ImageContext): Run {
     throw new Refused(`${said}: ${err.message}`, FAILED);
   }
   const base = context.methods.map((method) => new BaseMethod(method));
-  const prefer = preference(args, base, files, said);
-  return { args, dir, plan: new Plan({ base, files, archive }, prefer) };
+  const prefer = preference(chosen, base, files, said);
+  return { chosen, dir, plan: new Plan({ base, files, archive }, prefer) };
 }
 
 /**
  * Аргументы строки разбором команды реестра: значение вне схемы
  * (`deletes: yes`) — отказ его формой.
  */
-function parsed(argv: readonly string[]): SyncArgs {
+function parsed<T>(
+  command: Pick<Command, "parseArgs" | "errorName">,
+  schema: { parse(input: unknown): T },
+  argv: readonly string[],
+): T {
   try {
-    return syncArgsSchema.parse(imageSyncCommand.parseArgs(argv));
+    return schema.parse(command.parseArgs(argv));
   } catch (err) {
     if (!(err instanceof UsageError)) throw err;
-    const text = formatCommandError(imageSyncCommand.errorName, err);
+    const text = formatCommandError(command.errorName, err);
     throw new Refused(text, MISWRITTEN);
   }
 }
@@ -228,13 +340,13 @@ function parsed(argv: readonly string[]): SyncArgs {
  * умолчание ключа или под ним (`image-sync.md`, «CLI-контракт»).
  */
 function allowedDir(
-  args: SyncArgs,
+  chosen: Pick<Chosen, "dir">,
   io: ImageContext["io"],
   said: string,
 ): string {
   const home = io.env("HOME");
   const root = IMAGE_DIR.fallback(home);
-  const set = args.dir ?? configuredDir(io) ?? root;
+  const set = chosen.dir ?? configuredDir(io) ?? root;
   if (set === undefined || root === undefined) {
     throw new Refused(
       `${said}: каталог образа не задан — нет HOME`,
@@ -264,7 +376,7 @@ function configuredDir(
  * @throws Refused — адрес не адрес, назван дважды или не называет метода
  */
 function preference(
-  args: SyncArgs,
+  chosen: Pick<Chosen, "base" | "files">,
   base: readonly BaseMethod[],
   files: FilesRead,
   said: string,
@@ -272,8 +384,8 @@ function preference(
   let prefer: Preference;
   try {
     prefer = {
-      base: args.base.map((word) => MethodAddress.parse(word)),
-      files: args.files.map((word) => MethodAddress.parse(word)),
+      base: chosen.base.map((word) => MethodAddress.parse(word)),
+      files: chosen.files.map((word) => MethodAddress.parse(word)),
     };
   } catch (err) {
     if (!(err instanceof Misaddressed)) throw err;
@@ -309,12 +421,12 @@ const WOULD_DELETE = "удалилось бы";
 
 /**
  * После «да»: предохранитель массового удаления, затем применение плана
- * применителем варианта.
+ * применителем, которого выбрала строка.
  */
 async function executed(run: Run, context: ImageContext): Promise<number> {
-  const [overflow] = run.plan.overflows();
-  if (overflow !== undefined && run.args.deletes === undefined) {
-    const hint = [ASK_WORD, ...context.said, "deletes:", "allow"];
+  const [overflow] = run.chosen.overflows(run.plan);
+  if (overflow !== undefined) {
+    const hint = run.chosen.hint(context.said);
     const said = `${lineText(ROOT_TEXT, context.said)}: ${WOULD_DELETE} ` +
       `${overflow.deleted} из ${overflow.of} методов (${overflow.side})`;
     new RefusalNotice({
@@ -329,9 +441,7 @@ async function executed(run: Run, context: ImageContext): Promise<number> {
     }).tell(context.speech);
     return MISWRITTEN;
   }
-  const applier = run.args["dry-run"]
-    ? new Printing(context)
-    : new Applying(run.dir, context);
+  const applier = run.chosen.applier(run.dir, context);
   let report;
   try {
     report = await run.plan.apply(applier);
@@ -500,7 +610,7 @@ function filePath(dir: string, method: BaseMethod): string {
 }
 
 /** Применитель, который пишет базу, файлы и архив. */
-class Applying implements Applier {
+class Applying implements Settling {
   readonly #dir: string;
   readonly #context: ImageContext;
   readonly #image: Image;
@@ -584,7 +694,7 @@ class Applying implements Applier {
  * Применитель `dry`: те же проверки и решения правил, ничего не пишет —
  * отчёт тот же, что у запуска без `dry`.
  */
-class Printing implements Applier {
+class Printing implements Settling {
   readonly #context: ImageContext;
 
   constructor(context: ImageContext) {
@@ -621,6 +731,52 @@ class Printing implements Applier {
 
   unarchive() {}
 
+  settled(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
+/**
+ * Применитель `image export`: пишет файлы и архив по ним, как `Applying`;
+ * всё, что меняет базу, — строка `ждёт человека`, без проверок `define:` и
+ * без решения правил: ни база, ни правила не меняются.
+ */
+class Exporting implements Settling {
+  readonly #files: Applying;
+
+  constructor(dir: string, context: ImageContext) {
+    this.#files = new Applying(dir, context);
+  }
+
+  writeFile(method: BaseMethod): Promise<Done> {
+    return this.#files.writeFile(method);
+  }
+
+  removeFile(file: MethodFile): Promise<Done> {
+    return this.#files.removeFile(file);
+  }
+
+  define(files: readonly MethodFile[]): Promise<ReadonlyMap<string, Done>> {
+    return Promise.resolve(new Map(files.map((file) => [file.key, WAITING])));
+  }
+
+  forget(): Promise<Done> {
+    return Promise.resolve(WAITING);
+  }
+
+  conflict(key: string, address: string): Entry {
+    return waitingEntry("конфликт", key, address);
+  }
+
+  archive(key: string, hash: string) {
+    this.#files.archive(key, hash);
+  }
+
+  unarchive(key: string) {
+    this.#files.unarchive(key);
+  }
+
+  /** База не пишется — снимок дерева прежний. */
   settled(): Promise<void> {
     return Promise.resolve();
   }

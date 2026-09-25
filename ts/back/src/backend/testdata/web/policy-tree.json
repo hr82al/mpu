@@ -1277,6 +1277,15 @@
   {
     "path": [
       "image",
+      "export"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "image",
       "sync"
     ],
     "verdict": "deny",

@@ -99,6 +99,23 @@ export function conflictEntry(key: string, address: string): Entry {
   });
 }
 
+/**
+ * Строка `ждёт человека` (`image-export.md`, «Решение и отчёт»): действие
+ * не применено, его сделает `image sync`. Ни в одно число не входит, кода
+ * 1 не даёт — суточный юнит не падает, пока строка ждёт.
+ */
+export function waitingEntry(
+  word: string,
+  key: string,
+  ...rest: readonly string[]
+): Entry {
+  return new Entry({
+    group: 0,
+    order: methodOrder(key),
+    text: ["ждёт человека", word, key, ...rest].join("\t"),
+  });
+}
+
 /** Исход записи одной стороны по методу. */
 export interface Done {
   /**
@@ -113,6 +130,13 @@ export const SUCCEEDED: Done = {
   entry(word, key, kept) {
     kept();
     return actionEntry(word, key);
+  },
+};
+
+/** Сторона не тронута — действие ждёт человека; архив прежний. */
+export const WAITING: Done = {
+  entry(word, key) {
+    return waitingEntry(word, key);
   },
 };
 

@@ -111,6 +111,7 @@ import {
 } from "../copy/mod.ts";
 import { configCommand } from "../config/cmd_config.ts";
 import { imageSyncCommand } from "../image/cmd_sync.ts";
+import { imageExportCommand } from "../image/cmd_export.ts";
 import { glabStatusCommand } from "../glab/mod.ts";
 import { apiCommands } from "../api/mod.ts";
 import { d2MiroCommand } from "../d2miro/mod.ts";
@@ -300,6 +301,7 @@ export const commands: readonly Command[] = [
   // только прежней реализацией.
   configCommand,
   imageSyncCommand,
+  imageExportCommand,
   // Локальный стенд: поднять его целиком и убрать данные клиентов.
   // Обе не ходят ни в прод, ни в сеть — только docker и локальные PG.
   mpInitCommand,

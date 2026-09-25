@@ -12,15 +12,24 @@ export {
   syncArgsSchema,
 } from "./cmd_sync.ts";
 export {
+  EXPORT_PATH,
+  type ExportArgs,
+  exportArgsSchema,
+  imageExportCommand,
+} from "./cmd_export.ts";
+export {
   type Applier,
   conflictEntry,
   type Done,
   type Entry,
   Failed,
+  type Overflow,
   Plan,
   type Preference,
   SUCCEEDED,
   Unparsed,
+  WAITING,
+  waitingEntry,
 } from "./plan.ts";
 export {
   BaseMethod,

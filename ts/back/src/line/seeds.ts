@@ -5,6 +5,7 @@
  */
 
 import type { Command, Policy } from "../command/mod.ts";
+import { EXPORT_PATH } from "../image/mod.ts";
 import { ALLOW, ASK, Rule, RulePath, type Verdict } from "../policy/mod.ts";
 import { type CommandGroup, commands, groups } from "../registry/mod.ts";
 
@@ -18,6 +19,22 @@ export const POLICY_SELECTOR = "policy";
 const READ_ONLY_SURFACES: readonly string[] = ["version", "help"];
 
 const SEED_OF: Readonly<Record<Policy, Verdict>> = { ro: ALLOW, rw: ASK };
+
+/**
+ * Команды, чей посев — не по признаку `ro`/`rw` (`platform/policy.md`,
+ * «Посев»): решение отсюда заменяет посев по признаку, а не встаёт рядом —
+ * второе правило того же пути уронило бы посев целиком. `image export`
+ * пишет только файлы каталога образа (`image-export.md`).
+ */
+const OWN_SEEDS: ReadonlyMap<string, Verdict> = new Map([
+  [EXPORT_PATH.join(" "), ALLOW],
+]);
+
+/** Посев команды: своё решение из `OWN_SEEDS` или по признаку. */
+function commandSeed(command: Command): Rule {
+  const own = OWN_SEEDS.get(command.path.join(" "));
+  return ruleAt(command.path, own ?? SEED_OF[command.policy]);
+}
 
 function under(group: CommandGroup): readonly Command[] {
   return commands.filter((command) =>
@@ -44,7 +61,7 @@ function groupSeeds(group: CommandGroup): Rule[] {
 /** Посевные правила всего реестра. */
 export function registrySeeds(): Rule[] {
   return [
-    ...commands.map((command) => ruleAt(command.path, SEED_OF[command.policy])),
+    ...commands.map(commandSeed),
     ...groups.flatMap(groupSeeds),
     ...READ_ONLY_SURFACES.map((name) => ruleAt([name], ALLOW)),
     ruleAt([POLICY_SELECTOR], ALLOW),

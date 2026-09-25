@@ -94,6 +94,17 @@ Deno.test("5: изменено с обеих сторон — конфликт �
     assertEquals(await snapshot(sync), before);
   }));
 
+Deno.test("5, 20: dry на конфликте — та же строка конфликт, ничего не тронуто", () =>
+  withSync(async (sync) => {
+    await conflicted(sync);
+    const before = await snapshot(sync);
+    assertEquals(outcome(await sync.run("ask image sync dry")), [
+      1,
+      "конфликт\tkiten cardsIn:\tkiten.cardsIn\nсовпало 2, изменено 0, конфликтов 1\n",
+    ]);
+    assertEquals(await snapshot(sync), before);
+  }));
+
 Deno.test("6: files: решает конфликт — база из файла", () =>
   withSync(async (sync) => {
     await conflicted(sync);
@@ -412,7 +423,7 @@ Deno.test("23: ответ n — не подтверждено, ничего не
     assertEquals(await snapshot(sync), before);
   }));
 
-Deno.test("31, 33, 53: справка, messages группы и корня через дверь", () =>
+Deno.test("31, 53: справка, messages корня (группы — E10, export_test.ts)", () =>
   withSync(async (sync) => {
     const help = await sync.run("image sync help");
     assertEquals(help.exit, 0);
@@ -429,21 +440,15 @@ Deno.test("31, 33, 53: справка, messages группы и корня че�
       help.stdout,
     );
     assert(help.stdout.includes("Варианты:\n  dry "), help.stdout);
-    // Обычный взгляд: `sync` посеян `ask` — перечислять нечего.
-    assertEquals(outcome(await sync.run("image messages")), [0, ""]);
-    const messages = await sync.run("ask image messages");
-    assertEquals(outcome(messages), [
-      0,
-      "sync\tСводит методы образа с файлами каталога в обе стороны.\n",
-    ]);
     const root = (await sync.run("ask messages")).stdout.split("\n");
     const at = root.indexOf("image\tметоды образа и файлы каталога");
     assert(at > 0, root.join("\n"));
     assert(root[at - 1] < "image", root[at - 1]);
     assert(root[at + 1].startsWith("init\t"), root[at + 1]);
-    // Обычный взгляд группы без исполнимых без `ask` детей не называет.
+    // Обычный взгляд: у группы есть исполнимый без `ask` ребёнок —
+    // `export` (`image-export.md`, E10).
     const plain = (await sync.run("messages")).stdout;
-    assert(!plain.includes("image\t"), plain);
+    assert(plain.includes("image\tметоды образа и файлы каталога\n"), plain);
   }));
 
 Deno.test("34–35: мусор вместо файла не удаляет метод и не входит в счёт удалений", () =>
