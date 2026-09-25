@@ -151,7 +151,7 @@ stderr `у ключа cmd нет значения`, код 2), поэтому `k
 | изменён в базе, удалён в файле; `files: kiten.cardsIn` | `удалён метод\tkiten cardsIn:` — входит в счёт |
 | изменён в базе, удалён в файле; `base: kiten.cardsIn` | `файл из базы\tkiten cardsIn:` |
 | `base: kiten.mine`, у `mine` конфликта нет | как без ключа |
-| `files: kiten.mine files: kiten.ready`, оба в конфликте | оба — `база из файла` |
+| `files: kiten.mine files: kiten.shipped`, оба в конфликте | оба — `база из файла` |
 | в базе `kiten mine` и `kiten mine:`, оба в конфликте; `files: kiten.mine` | `база из файла\tkiten mine` и `база из файла\tkiten mine:` |
 | `base: kiten.nope` — метода нет ни в базе, ни в файлах | stderr `mpu image sync base: kiten.nope: нет метода kiten.nope ни в базе, ни в файлах\n`, код 2, до вопроса |
 | `base: kiten.cardsIn files: kiten.cardsIn` | stderr `mpu image sync base: kiten.cardsIn files: kiten.cardsIn: kiten.cardsIn — и в base:, и в files:\n`, код 2, до вопроса |
@@ -271,28 +271,30 @@ dir>\t<причина>`. Порядок: строки методов по пол
 ответом `y`:
 `mpu ask kiten define: cardsIn purpose: ^мои в колонке^ keys: ^id колонки^ do :col kiten ls where: column is: @col done`,
 `mpu ask kiten define: mine purpose: ^мои^ do kiten ls done`,
-`mpu ask kiten define: ready purpose: ^готово^ do kiten ls where: column is: Готово done`.
+`mpu ask kiten define: shipped purpose: ^готово^ do kiten ls where: column is: Готово done`.
+Третий метод — `shipped`, не `ready`: `kiten ready` — команда реестра
+(найдено исполнителем 169); имя после `mine` сохраняет порядок строк.
 Запуск без оговорок — `mpu ask image sync`, ответ `y`; stderr — вопрос
 `выполнить mpu image sync? [y/N] ` и ничего больше. «Синхронизировано» —
 после одного такого запуска.
 
 | # | Дано | Строка | Ожидается |
 |---|---|---|---|
-| 1 | три метода, каталога `$D` нет | `mpu ask image sync` | stdout `новый файл\tkiten cardsIn:\nновый файл\tkiten mine\nновый файл\tkiten ready\nсовпало 0, изменено 3, конфликтов 0\n`, код 0; `$D/kiten/cardsIn:.mpu` — как в «Файл метода» |
+| 1 | три метода, каталога `$D` нет | `mpu ask image sync` | stdout `новый файл\tkiten cardsIn:\nновый файл\tkiten mine\nновый файл\tkiten shipped\nсовпало 0, изменено 3, конфликтов 0\n`, код 0; `$D/kiten/cardsIn:.mpu` — как в «Файл метода» |
 | 2 | сразу после 1 | та же | stdout `совпало 3, изменено 0, конфликтов 0\n`, код 0; файлы, база, архив побайтово прежние |
 | 3 | синхронизировано; в `$D/kiten/cardsIn:.mpu` `^мои в колонке^` → `^мои карточки^` | та же | stdout `база из файла\tkiten cardsIn:\nсовпало 2, изменено 1, конфликтов 0\n`, код 0; `mpu kiten cardsIn: help` — назначение `образ: мои карточки`, автор `human` |
 | 4 | синхронизировано; `mpu ask kiten define: mine purpose: ^x^ do kiten ls done` | та же | stdout `файл из базы\tkiten mine\nсовпало 2, изменено 1, конфликтов 0\n`, код 0; в файле `purpose: ^x^` |
 | 5 | синхронизировано; в файле `cardsIn` `^мои карточки^`, в базе `cardsIn` переопределён с `purpose: ^x^` | та же | stdout `конфликт\tkiten cardsIn:\tkiten.cardsIn\nсовпало 2, изменено 0, конфликтов 1\n`, код 1; база и файл как были |
 | 6 | как 5 | `mpu ask image sync files: kiten.cardsIn` | stderr `выполнить mpu image sync files: kiten.cardsIn? [y/N] `; stdout `база из файла\tkiten cardsIn:\nсовпало 2, изменено 1, конфликтов 0\n`, код 0 |
-| 7 | синхронизировано; `image.db` удалена, в `$D` три файла | `mpu ask image sync` | stdout `новый метод\tkiten cardsIn:\nновый метод\tkiten mine\nновый метод\tkiten ready\nсовпало 0, изменено 3, конфликтов 0\n`, код 0; правило `kiten cardsIn:` — `allow` (посев) |
+| 7 | синхронизировано; `image.db` удалена, в `$D` три файла | `mpu ask image sync` | stdout `новый метод\tkiten cardsIn:\nновый метод\tkiten mine\nновый метод\tkiten shipped\nсовпало 0, изменено 3, конфликтов 0\n`, код 0; правило `kiten cardsIn:` — `allow` (посев) |
 | 8 | синхронизировано; `$D` очищен | та же | stderr `выполнить mpu image sync? [y/N] mpu image sync: удалилось бы 3 из 3 методов (база) — вызывай mpu ask image sync deletes: allow\n`, `refusal` `{"reason":"удалилось бы","hint":["ask","image","sync","deletes:","allow"],…}`, stdout пуст, код 2; база цела |
-| 9 | как 8 | `mpu ask image sync deletes: allow` | stdout `удалён метод\tkiten cardsIn:\nудалён метод\tkiten mine\nудалён метод\tkiten ready\nсовпало 0, изменено 3, конфликтов 0\n`, код 0; в `mpu policy` путей `kiten cardsIn:`, `kiten mine`, `kiten ready` нет |
+| 9 | как 8 | `mpu ask image sync deletes: allow` | stdout `удалён метод\tkiten cardsIn:\nудалён метод\tkiten mine\nудалён метод\tkiten shipped\nсовпало 0, изменено 3, конфликтов 0\n`, код 0; в `mpu policy` путей `kiten cardsIn:`, `kiten mine`, `kiten shipped` нет |
 | 10 | синхронизировано; `cardsIn` удалён и в базе (`forget:`), и в файлах | `mpu ask image sync` | stdout `совпало 2, изменено 0, конфликтов 0\n`, код 0; повтор — то же |
 | 11 | синхронизировано; `$D/kiten/x:.mpu` = `мусор` | та же | stdout `файл не разобран\tkiten/x:.mpu\tв файле нет строки определения\nсовпало 3, изменено 0, конфликтов 0\n`, код 1 |
 | 12 | синхронизировано; `$D/kiten/ls.mpu` = `kiten define: ls purpose: ^x^ do kiten ls done` | та же | stdout `файл не разобран\tkiten/ls.mpu\tmpu kiten define: ls у kiten уже есть\nсовпало 3, изменено 0, конфликтов 0\n`, код 1 |
 | 13 | база пуста; `$D/kiten/pingAll.mpu` = `kiten define: pingAll purpose: ^пинг^ do kiten ls each: do :c kiten comment id: @c id text: ping done done` | та же | stdout `новый метод\tkiten pingAll\nсовпало 0, изменено 1, конфликтов 0\n`, код 0; правило `kiten pingAll` — `ask`, автор `human` |
 | 14 | база пуста; `$D/kiten/a.mpu` = `kiten define: a purpose: ^a^ do kiten b done`, `$D/kiten/b.mpu` = `kiten define: b purpose: ^b^ do kiten ls done` | та же | stdout `новый метод\tkiten a\nновый метод\tkiten b\nсовпало 0, изменено 2, конфликтов 0\n`, код 0; правила `kiten a` и `kiten b` — `allow`; те же файлы, созданные в обратном порядке, — тот же итог |
-| 15 | три метода, архив пуст, `$D/kiten` есть и без права записи (`chmod 0555`) | та же | stdout `сбой\tkiten cardsIn:\t<сообщение ОС>\nсбой\tkiten mine\t<сообщение ОС>\nсбой\tkiten ready\t<сообщение ОС>\nсовпало 0, изменено 0, конфликтов 0\n`, код 1; после `chmod u+w` повтор — сценарий 1 |
+| 15 | три метода, архив пуст, `$D/kiten` есть и без права записи (`chmod 0555`) | та же | stdout `сбой\tkiten cardsIn:\t<сообщение ОС>\nсбой\tkiten mine\t<сообщение ОС>\nсбой\tkiten shipped\t<сообщение ОС>\nсовпало 0, изменено 0, конфликтов 0\n`, код 1; после `chmod u+w` повтор — сценарий 1 |
 | 16 | — | `mpu ask image sync dir: /tmp/x` | stderr `mpu image sync dir: /tmp/x: нет права записи в /tmp/x — каталог образа только под $H/mr/mp/mpu/image\n`, stdout пуст, код 2, вопроса нет |
 | 17 | `mpu ask config key: image.dir value: /tmp/x` | `mpu ask image sync` | stderr `mpu image sync: нет права записи в /tmp/x — каталог образа только под $H/mr/mp/mpu/image\n`, код 2, вопроса нет |
 | 18 | синхронизировано с `$D`; `mpu ask config key: image.dir value: $D/other` (каталога нет) | `mpu ask image sync` | как 1, файлы в `$D/other`, ни одного удаления: архив `$D` не участвует |
@@ -307,16 +309,16 @@ dir>\t<причина>`. Порядок: строки методов по пол
 | 31 | — | `mpu image sync help` | однострока `Сводит методы образа с файлами каталога в обе стороны.`; абзац «Звать после правки файлов методов или перед коммитом каталога образа: в отличие от ручного копирования видит, какая сторона изменилась с прошлого раза, и ничего не теряет — метод, изменённый с обеих сторон, не трогает.»; раздел «Варианты» — `dry`; код 0 |
 | 33 | — | `mpu image messages` | stdout `sync\tСводит методы образа с файлами каталога в обе стороны.\n`, код 0 |
 | 34 | синхронизировано; `$D/kiten/cardsIn:.mpu` = `мусор` | `mpu ask image sync` | stdout `файл не разобран\tkiten/cardsIn:.mpu\tв файле нет строки определения\nсовпало 2, изменено 0, конфликтов 0\n`, код 1; `kiten cardsIn:` в базе, его правило и строка архива прежние |
-| 35 | как 34, и `$D/kiten/mine.mpu`, `$D/kiten/ready.mpu` удалены | та же | stderr `выполнить mpu image sync? [y/N] mpu image sync: удалилось бы 2 из 3 методов (база) — вызывай mpu ask image sync deletes: allow\n`, stdout пуст, код 2 (неразобранный `cardsIn:` в счёт не вошёл, иначе было бы «3 из 3») |
+| 35 | как 34, и `$D/kiten/mine.mpu`, `$D/kiten/shipped.mpu` удалены | та же | stderr `выполнить mpu image sync? [y/N] mpu image sync: удалилось бы 2 из 3 методов (база) — вызывай mpu ask image sync deletes: allow\n`, stdout пуст, код 2 (неразобранный `cardsIn:` в счёт не вошёл, иначе было бы «3 из 3») |
 | 36 | база пуста; `mpu ask deny: "kiten define:"` (ответ `y`); `$D/kiten/pingAll.mpu` как в 13 | та же | stdout `сбой\tkiten pingAll\tзапрещено правилом «kiten define:»\nсовпало 0, изменено 0, конфликтов 0\n`, код 1; база и архив пусты, правила `kiten pingAll` нет |
 | 37 | синхронизировано; `mpu ask deny: "kiten forget:"` (ответ `y`); `$D/kiten/mine.mpu` удалён | та же | stdout `сбой\tkiten mine\tзапрещено правилом «kiten forget:»\nсовпало 2, изменено 0, конфликтов 0\n`, код 1; `kiten mine` в базе, его правило прежнее |
 | 41 | синхронизировано; `$D/kiten/mine.mpu` = байты `EF BB BF`, затем `kiten define: mine purpose: ^мои^ do kiten ls done\r\n` | `mpu ask image sync` | stdout `совпало 3, изменено 0, конфликтов 0\n`, код 0; файл не переписан |
-| 42 | три метода и `mpu ask kiten define: nb purpose: ^a<U+00A0>b^ do kiten ls done` (`<U+00A0>` — сам символ; `^a<U+00A0>b^` — одно слово) | `mpu ask image sync`, затем она же | первый: stdout `новый файл\tkiten cardsIn:\nновый файл\tkiten mine\nновый файл\tkiten nb\nновый файл\tkiten ready\nсовпало 0, изменено 4, конфликтов 0\n`; второй: `совпало 4, изменено 0, конфликтов 0\n`; оба код 0; в `$D/kiten/nb.mpu` U+00A0 на месте |
+| 42 | три метода и `mpu ask kiten define: nb purpose: ^a<U+00A0>b^ do kiten ls done` (`<U+00A0>` — сам символ; `^a<U+00A0>b^` — одно слово) | `mpu ask image sync`, затем она же | первый: stdout `новый файл\tkiten cardsIn:\nновый файл\tkiten mine\nновый файл\tkiten nb\nновый файл\tkiten shipped\nсовпало 0, изменено 4, конфликтов 0\n`; второй: `совпало 4, изменено 0, конфликтов 0\n`; оба код 0; в `$D/kiten/nb.mpu` U+00A0 на месте |
 | 43 | синхронизировано; `$D/kiten/x.mpu` = байты `6B 69 74 65 6E 20 C3 20` | `mpu ask image sync` | stdout `файл не разобран\tkiten/x.mpu\tфайл не в UTF-8: байт 0xC3 на смещении 6\nсовпало 3, изменено 0, конфликтов 0\n`, код 1 |
 | 44 | синхронизировано; `$D/kiten/cardsIn.mpu` — копия `$D/kiten/cardsIn:.mpu` | та же | stdout `файл не разобран\tkiten/cardsIn.mpu\tв файле kiten cardsIn:, ждали kiten cardsIn\nсовпало 3, изменено 0, конфликтов 0\n`, код 1 |
 | 45 | синхронизировано; `mpu ask kiten forget: mine` (ответ `y`) | та же | stdout `удалён файл\tkiten mine\nсовпало 2, изменено 1, конфликтов 0\n`, код 0; `$D/kiten/mine.mpu` нет |
 | 46 | синхронизировано; `cardsIn` удалён и в базе (`forget:`), и в файлах | `mpu ask image sync dry`, затем `mpu ask image sync` | оба: stdout `совпало 2, изменено 0, конфликтов 0\n`, код 0; после `dry` строка архива `kiten cardsIn:` на месте, после второй строки её нет |
-| 48 | после 18: `mpu ask config unset key: image.dir` | `mpu ask image sync` | stdout `файл не разобран\tother/kiten/cardsIn:.mpu\tmpu other kiten define: метод — только у команды или группы\nфайл не разобран\tother/kiten/mine.mpu\tmpu other kiten define: метод — только у команды или группы\nфайл не разобран\tother/kiten/ready.mpu\tmpu other kiten define: метод — только у команды или группы\nсовпало 3, изменено 0, конфликтов 0\n`, код 1 — другой каталог образа внутри `$D` не пропускается |
+| 48 | после 18: `mpu ask config unset key: image.dir` | `mpu ask image sync` | stdout `файл не разобран\tother/kiten/cardsIn:.mpu\tmpu other kiten define: метод — только у команды или группы\nфайл не разобран\tother/kiten/mine.mpu\tmpu other kiten define: метод — только у команды или группы\nфайл не разобран\tother/kiten/shipped.mpu\tmpu other kiten define: метод — только у команды или группы\nсовпало 3, изменено 0, конфликтов 0\n`, код 1 — другой каталог образа внутри `$D` не пропускается |
 | 49 | пустой `policy.db`, первый старт | `mpu policy` | stdout — массив правил, в нём ровно один раз `{"path":"image sync","verdict":"ask"}`, пути `image` нет; код 0 |
 | 53 | — | `mpu messages` | среди строк, между `help\t…` и `init\t…`, — `image\tметоды образа и файлы каталога\n`; код 0 |
 

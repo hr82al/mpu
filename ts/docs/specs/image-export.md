@@ -126,7 +126,7 @@ false` (`cli-client.md`, «Канал и токен»); на `allow` строк�
 | E6 | как 5 в `image-sync.md` | `mpu image export` | stdout `ждёт человека\tконфликт\tkiten cardsIn:\tkiten.cardsIn\nсовпало 2, изменено 0, конфликтов 0\n`, stderr пуст, код 0; база, файл, архив прежние |
 | E7 | как 12 в `image-sync.md` | `mpu image export` | stdout `ждёт человека\tновый метод\tkiten ls\nсовпало 3, изменено 0, конфликтов 0\n`, stderr пуст, код 0 |
 | E8 | как 34 в `image-sync.md` | `mpu image export` | stdout как в 34 (`image-sync.md`), stderr пуст, код 1 |
-| E9 | как 8 в `image-sync.md` | `mpu image export` | stdout `ждёт человека\tудалён метод\tkiten cardsIn:\nждёт человека\tудалён метод\tkiten mine\nждёт человека\tудалён метод\tkiten ready\nсовпало 0, изменено 0, конфликтов 0\n`, stderr пуст, код 0; база цела (удаления базы export не применяет и в счёт массового удаления файлов не берёт) |
+| E9 | как 8 в `image-sync.md` | `mpu image export` | stdout `ждёт человека\tудалён метод\tkiten cardsIn:\nждёт человека\tудалён метод\tkiten mine\nждёт человека\tудалён метод\tkiten shipped\nсовпало 0, изменено 0, конфликтов 0\n`, stderr пуст, код 0; база цела (удаления базы export не применяет и в счёт массового удаления файлов не берёт) |
 | E10 | — | `mpu image messages` | stdout `export\tПишет в файлы каталога образа то, что изменилось в базе.\nsync\tСводит методы образа с файлами каталога в обе стороны.\n`, код 0 |
 | E11 | пустой `policy.db`, первый старт | `mpu policy` | stdout — массив правил, в нём ровно по одному разу `{"path":"image export","verdict":"allow"}` и `{"path":"image sync","verdict":"ask"}`, пути `image` нет; код 0 |
 
