@@ -21,8 +21,8 @@ export { GRAMMAR };
 /** Слово строки, которое разбор читает как сообщение `help`. */
 export const HELP_FLAG = "--help";
 
-/** Слово входа двери (`platform/ask-door.md`): первое слово строки, не команда. */
-export const ASK_WORD = "ask";
+// Слово двери знает и тонкий клиент (строка без слов): источник — кадры.
+export { ASK_WORD } from "../frames/mod.ts";
 
 /** Слово строки вызова. */
 interface Word {

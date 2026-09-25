@@ -14,7 +14,7 @@ import {
   storedName,
 } from "./definition.ts";
 import type { ImageMethod } from "./method.ts";
-import { fileWords, NotUtf8 } from "../frames/mod.ts";
+import { NotUtf8, utf8Of, wordsOf } from "../frames/mod.ts";
 
 /** Хэш отсутствующей стороны — null-объект решения: sha256 пустым не бывает. */
 export const NONE = "";
@@ -183,9 +183,11 @@ function readFile(
   }
   let words: string[];
   try {
-    words = fileWords(bytes);
+    words = wordsOf(utf8Of(bytes));
   } catch (err) {
-    if (err instanceof NotUtf8) return new UnreadFile(key, path, err.message);
+    if (err instanceof NotUtf8) {
+      return new UnreadFile(key, path, `файл ${err.message}`);
+    }
     throw err;
   }
   return parsed(words, { key, path, receiver, name });

@@ -52,6 +52,13 @@ export {
   tooLargeInput,
 } from "./context.ts";
 
-export { fileWords, NotUtf8 } from "./words.ts";
+export {
+  ASK_WORD,
+  hasSeparator,
+  isBareLine,
+  NotUtf8,
+  utf8Of,
+  wordsOf,
+} from "./words.ts";
 
 export { VERSION } from "../version.ts";

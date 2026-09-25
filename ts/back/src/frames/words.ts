@@ -9,13 +9,23 @@
  * проверяет тонкий клиент.
  */
 
-/** Байт BOM в начале файла. */
-const BOM = [0xef, 0xbb, 0xbf];
+/** BOM, прочитанный как текст. */
+const BOM_CHAR = "\ufeff";
 
 /** Разделители слов — ровно четыре, не `\s`. */
 const SEPARATORS = /[ \t\n\r]+/;
 
-/** Файл не в UTF-8: причина строкой с первым плохим байтом. */
+/** Есть ли в слове хоть один разделитель. */
+const SEPARATOR = /[ \t\n\r]/;
+
+/** Слово входа двери (`platform/ask-door.md`): первое слово строки, не команда. */
+export const ASK_WORD = "ask";
+
+/**
+ * Байты не в UTF-8: первый байт неверной последовательности и его
+ * смещение. Текст — без существительного: «файл» или «ввод» добавляет тот,
+ * кто читал.
+ */
 export class NotUtf8 extends Error {
   override name = "NotUtf8";
 }
@@ -66,18 +76,40 @@ function hex(byte: number): string {
 }
 
 /**
- * Слова текста файла метода.
+ * Текст байтов UTF-8; BOM в начале остаётся — его снимает `wordsOf`, одна
+ * на всех читающих.
  *
- * @throws NotUtf8 — байты не в UTF-8
+ * @throws NotUtf8 — байты не в UTF-8; смещение — от первого байта, BOM
+ *   включён
  */
-export function fileWords(bytes: Uint8Array): string[] {
+export function utf8Of(bytes: Uint8Array): string {
   const bad = firstBadByte(bytes);
   if (bad >= 0) {
-    throw new NotUtf8(
-      `файл не в UTF-8: байт ${hex(bytes[bad])} на смещении ${bad}`,
-    );
+    throw new NotUtf8(`не в UTF-8: байт ${hex(bytes[bad])} на смещении ${bad}`);
   }
-  const start = BOM.every((byte, i) => bytes[i] === byte) ? BOM.length : 0;
-  const text = new TextDecoder().decode(bytes.subarray(start));
-  return text.split(SEPARATORS).filter((word) => word !== "");
+  return new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes);
+}
+
+/** Слова текста: BOM в начале снят, пустых слов нет. */
+export function wordsOf(text: string): string[] {
+  const start = text.startsWith(BOM_CHAR) ? BOM_CHAR.length : 0;
+  return text.slice(start).split(SEPARATORS).filter((word) => word !== "");
+}
+
+/**
+ * Есть ли в слове разделитель: такое слово пришло целым (элемент MCP,
+ * кавычки оболочки), его `^` текст не открывает (`at-word-literal.md`,
+ * правило 1).
+ */
+export function hasSeparator(word: string): boolean {
+  return SEPARATOR.test(word);
+}
+
+/**
+ * Строка без слов — пусто или одно `ask`: при вводе из пайпа программа —
+ * сам ввод (`stdin-on-request.md`, «Строка без слов»).
+ */
+export function isBareLine(words: readonly string[]): boolean {
+  if (words.length === 0) return true;
+  return words.length === 1 && words[0] === ASK_WORD;
 }

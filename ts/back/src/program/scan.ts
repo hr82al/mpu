@@ -4,6 +4,7 @@
  * вид решает первый непарный закрыватель.
  */
 
+import { hasSeparator } from "../frames/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import { Refusal, substituted } from "../objects/mod.ts";
 import { isKey, isParameter } from "./lexis.ts";
@@ -181,7 +182,7 @@ export function textAt(
   at: number,
   to: number,
 ): TextAt {
-  if (/\s/.test(words[at])) return { text: whole(words[at]), next: at + 1 };
+  if (hasSeparator(words[at])) return { text: whole(words[at]), next: at + 1 };
   const pieces: string[] = [];
   for (let i = at; i < to; i++) {
     const piece = i === at ? openerOf(words[i]) : tailOf(words[i]);

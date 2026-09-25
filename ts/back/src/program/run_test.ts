@@ -481,6 +481,31 @@ Deno.test("текст ^…^: отказы до исполнения с гото�
   }
 });
 
+Deno.test("слово без разделителей открывает текст: U+00A0 и прочие — часть слова", async (t) => {
+  await t.step("незакрытый — отказ с готовой строкой", async () => {
+    const ran = await run([
+      "telegram",
+      "send",
+      "chat:",
+      "me",
+      "text:",
+      "^a\u00a0b",
+    ]);
+    assertEquals(ran.end.exit, 2);
+    assertEquals(
+      ran.end.refusal?.text,
+      "выражение 1: текст не закрыт: добавь ^ к последнему слову — " +
+        "mpu telegram send chat: me text: ^a\u00a0b^",
+    );
+    assertEquals(ran.lines, []);
+  });
+  await t.step("закрытый — текст без крайних ^", async () => {
+    const ran = await run(["^a\u2003b^"]);
+    assertEquals(ran.end, { exit: 0, refusal: null });
+    assertEquals(ran.out, "a\u2003b\n");
+  });
+});
+
 Deno.test("значение ключа команды — текст выражения, словом-литералом", async () => {
   const ran = await run(`x := ^${END}^ . kiten card id: @x`);
   assertEquals(ran.lines, [["kiten", "card", "id:", "--", END]]);
