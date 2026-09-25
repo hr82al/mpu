@@ -9,6 +9,7 @@
  * двадцати последних.
  */
 
+import { ASK_WORD } from "../messages/mod.ts";
 import type { LogRecord } from "./parse.ts";
 
 /** Чем отбирают записи; не заданное поле ступень не создаёт. */
@@ -58,11 +59,20 @@ function matches(record: LogRecord, filters: Filters): boolean {
   return true;
 }
 
+/** Начало строки вызова, прошедшей дверь `ask`, — с границей слова. */
+const ASK_DOOR = `mpu ${ASK_WORD} `;
+
 /**
- * Строка вызова начинается с `mpu <префикс>`. Границу токена правило не
- * проверяет намеренно (отклонение `preserve`): тем же префиксом
- * отбираются подкоманды, и `--cmd sql` заодно ловит `sql-ro`.
+ * Строка вызова начинается с `mpu <префикс>` или `mpu ask <префикс>`.
+ * Границу токена правило не проверяет намеренно (отклонение
+ * `preserve`): тем же префиксом отбираются подкоманды, и `--cmd sql`
+ * заодно ловит `sql-ro`. Дверь `ask` — первое слово строки, а не
+ * команда (порция 169a), поэтому снимается только словом целиком.
  */
 function hasPrefix(record: LogRecord, cmd: string): boolean {
-  return record.commandLine.startsWith(`mpu ${cmd}`);
+  const line = record.commandLine;
+  const doorless = line.startsWith(ASK_DOOR)
+    ? "mpu " + line.slice(ASK_DOOR.length)
+    : line;
+  return line.startsWith(`mpu ${cmd}`) || doorless.startsWith(`mpu ${cmd}`);
 }

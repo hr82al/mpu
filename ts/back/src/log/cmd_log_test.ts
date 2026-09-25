@@ -163,6 +163,43 @@ Deno.test("--tail применяется после отборов: --tail 1 --f
   assertEquals(result.records[0].includes("run=run-2"), true);
 });
 
+Deno.test("cmd: видит строки ask — снимается только слово ask целиком (порция 169a)", async () => {
+  // Таблица «`cmd:` видит строки `ask`» спеки log.md: дверь `ask` —
+  // первое слово строки, а не команда.
+  const cases: ReadonlyArray<{
+    readonly journal: readonly string[];
+    readonly cmd: string;
+    readonly picked: readonly string[];
+  }> = [
+    {
+      journal: ["mpu telegram ls --limit 3", "mpu ask telegram status"],
+      cmd: "telegram",
+      picked: ["run-1", "run-2"],
+    },
+    {
+      journal: ["mpu ask sql --target 54", "mpu sql-ro --target 54"],
+      cmd: "sql",
+      picked: ["run-1", "run-2"],
+    },
+    { journal: ["mpu ask telegram status"], cmd: "ask", picked: ["run-1"] },
+    {
+      journal: ["mpu ask telegram status"],
+      cmd: "ask telegram",
+      picked: ["run-1"],
+    },
+    { journal: ["mpu asksomething"], cmd: "something", picked: [] },
+  ];
+  for (const { journal, cmd, picked } of cases) {
+    const text = journal.map((line, i) =>
+      record(`run-${i + 1}`, "2026-08-01", `1${i}:00:00.000`, line, 0)
+    ).join("");
+    const { io } = ioWithFile(text);
+    const result = await runLog(logArgs({ file: "journal", cmd }), io);
+    const runs = result.records.map((r) => r.match(/run=(\S+)/)?.[1]);
+    assertEquals(runs, [...picked], `cmd: ${cmd} по ${journal.join(" | ")}`);
+  }
+});
+
 Deno.test("--tail 0 и --tail -5 печатают все записи (отклонение preserve)", async () => {
   const journal = await golden("journal.log");
   const all = await golden("tail-default.stdout.txt");
