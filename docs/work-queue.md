@@ -35,7 +35,7 @@
 - [x] 169b — `image export` + суточный таймер
 - [ ] 170a — программа из stdin (в работе у исполнителя)
 - [ ] 170b — `run:` из файла (`prompt-170b.txt` готов в `~/mr/mp/tmp/mpu-smalltalk/`)
-- [ ] 171 — web: экран «Образ» (`web-image.md`, постановку написать)
+- [ ] 171 — web: экран «Образ» (`web-image.md`, `prompt-171.txt` готов)
 - [ ] call — `ts/docs/specs/call.md` (маркетплейс — получатель: `ozon call-ro`,
       `ozon perf call`, `wb call`). До постановки: реестр ручек чтения и отбор
       токенов WB — литералами в спеку (СДЕЛАНО 2026-09-25, `call.md`);
