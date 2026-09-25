@@ -6,7 +6,16 @@
  */
 
 import { GRAMMAR, UNNAMED_REFUSAL } from "../messages/mod.ts";
-import { type Image, ImageError, ImageMethod } from "../image/mod.ts";
+import {
+  DEFINE,
+  type Image,
+  ImageError,
+  ImageMethod,
+  isPlain,
+  PURPOSE,
+  saidOf,
+  storedName,
+} from "../image/mod.ts";
 import {
   isProtocol,
   line as lineText,
@@ -37,14 +46,8 @@ import { printed, type Speech } from "./printed.ts";
 import { registryNodes, type TreeNode } from "./tree.ts";
 import { ASK_WORD, NEEDS_DOOR, NORMAL, type View } from "./view.ts";
 
-/** Сообщение определения метода. */
-const DEFINE = "define:";
 /** Сообщение удаления метода. */
 const FORGET = "forget:";
-/** Ключ назначения — обязателен. */
-const PURPOSE = "purpose:";
-/** Ключ описания ключей для справки. */
-const KEYS = "keys:";
 
 /** Код отказа до записи: строку набрали не так. */
 const MISWRITTEN = 2;
@@ -110,15 +113,6 @@ function misdefined(
 ): Misdefined {
   const address = lineText(ROOT_TEXT, [...receiver, DEFINE]);
   return new Misdefined(plainRefusal(reason, `${address} ${text}`));
-}
-
-/** Слова грамматики: получателем они не бывают. */
-const GRAMMAR_WORDS: ReadonlySet<string> = new Set(Object.values(GRAMMAR));
-
-/** Голое слово: начало строки до сообщения образа. */
-function isPlain(word: string): boolean {
-  return !word.endsWith(":") && !/^[-^@:]/.test(word) &&
-    !GRAMMAR_WORDS.has(word);
 }
 
 /**
@@ -199,33 +193,6 @@ function ruled(
   );
 }
 
-/** Значение ключа определения: `^текст^` или одно слово; позиция за ним. */
-function valueAt(
-  words: readonly string[],
-  at: number,
-): { readonly text: string; readonly next: number } | undefined {
-  const word = words[at];
-  if (word === undefined) return undefined;
-  if (!word.startsWith(GRAMMAR.quote)) return { text: word, next: at + 1 };
-  const end = words.findIndex((one, i) =>
-    i >= at && (i > at || one.length > 1) && one.endsWith(GRAMMAR.quote)
-  );
-  if (end < 0) return undefined;
-  const text = words.slice(at, end + 1).join(" ");
-  return {
-    text: text.slice(GRAMMAR.quote.length, -GRAMMAR.quote.length),
-    next: end + 1,
-  };
-}
-
-/** Что сказано в строке определения до тела. */
-interface Said {
-  readonly purpose: string;
-  readonly keys: string;
-  /** Начало тела в словах после имени. */
-  readonly body: number;
-}
-
 /** Определение метода. */
 class Definition implements ImageLine {
   readonly #receiver: readonly string[];
@@ -285,33 +252,23 @@ class Definition implements ImageLine {
   }
 
   /** Назначение и описание ключей до тела; назначения нет — отказ. */
-  #said(): Said {
-    let purpose: string | undefined;
-    let keys = "";
-    let at = 1;
-    for (;;) {
-      const key = this.#rest[at];
-      if (key !== PURPOSE && key !== KEYS) break;
-      const value = valueAt(this.#rest, at + 1);
-      if (value === undefined) {
-        throw misdefined(
-          this.#receiver,
-          "текст не закрыт",
-          `${key} текст не закрыт`,
-        );
-      }
-      if (key === PURPOSE) purpose = value.text;
-      else keys = value.text;
-      at = value.next;
+  #said() {
+    const said = saidOf(this.#rest);
+    if (said.unclosed !== undefined) {
+      throw misdefined(
+        this.#receiver,
+        "текст не закрыт",
+        `${said.unclosed} текст не закрыт`,
+      );
     }
-    if (purpose === undefined) {
+    if (said.purpose === undefined) {
       throw misdefined(
         this.#receiver,
         "метод без назначения",
         `метод без назначения: ${PURPOSE} ${GRAMMAR.quote}…${GRAMMAR.quote}`,
       );
     }
-    return { purpose, keys, body: at };
+    return { purpose: said.purpose, keys: said.keys, body: said.body };
   }
 
   /** Тело — блок `do … done`, разобранный как программа. */
@@ -356,8 +313,8 @@ function methodName(
       `имя метода — слово: ${word}`,
     );
   }
-  if (!word.includes(":") && params === 0) return word;
-  const name = parts.map((part) => `${part}:`).join("");
+  const name = storedName(word, params);
+  if (!word.includes(":") && params === 0) return name;
   if (parts.length !== params) {
     throw misdefined(
       receiver,
@@ -422,19 +379,39 @@ function seedOf(
   return quiet ? ALLOW : ASK;
 }
 
+/** Достижимые команды тела метода — обходом, как у программы. */
+export type Reach = Parameters<typeof seedOf>[0];
+
+/** Что нужно записи метода: образ и правила. */
+export type Keeping = Pick<ImageContext, "image" | "book">;
+
+/**
+ * Записывает метод и правило его пути, посеянное обходом тела; итог —
+ * запись правила.
+ *
+ * @throws ImageError, PolicyError — файл образа или правил не пишется
+ */
+export function keep(
+  keeping: Keeping,
+  method: ImageMethod,
+  reach: Reach,
+): { readonly path: string; readonly verdict: string } {
+  const verdict = seedOf(reach, keeping.book);
+  const path = RulePath.parse(method.links().join(" "));
+  keeping.image.define(method);
+  keeping.book.set(path, verdict);
+  return { path: path.text(), verdict: verdict.word };
+}
+
 /** Запись метода и его правила; итог — видом изменения правила. */
 async function written(
   context: ImageContext,
   method: ImageMethod,
-  reach: Parameters<typeof seedOf>[0],
+  reach: Reach,
 ): Promise<number> {
   try {
-    const verdict = seedOf(reach, context.book);
-    const path = RulePath.parse(method.links().join(" "));
-    context.image.define(method);
-    context.book.set(path, verdict);
+    const entry = keep(context, method, reach);
     await context.changed();
-    const entry = { path: path.text(), verdict: verdict.word };
     return printed({ path: [], value: entry }, context.speech);
   } catch (err) {
     return broken(err, context.speech);
@@ -474,18 +451,28 @@ class Forgetting implements ImageLine {
   }
 }
 
+/**
+ * Удаляет метод и правило его пути; итог — путь снятого правила.
+ *
+ * @throws ImageError, PolicyError — файл образа или правил не пишется
+ */
+export function drop(keeping: Keeping, method: ImageMethod): string {
+  const path = RulePath.parse(method.links().join(" "));
+  const { receiver, name } = method.record();
+  keeping.image.forget(receiver, name);
+  keeping.book.forget(path);
+  return path.text();
+}
+
 /** Удаление метода и правила его пути; итог — видом снятия правила. */
 async function forgotten(
   context: ImageContext,
   method: ImageMethod,
 ): Promise<number> {
   try {
-    const path = RulePath.parse(method.links().join(" "));
-    const { receiver, name } = method.record();
-    context.image.forget(receiver, name);
-    context.book.forget(path);
+    const path = drop(context, method);
     await context.changed();
-    const entry = { path: path.text(), verdict: null };
+    const entry = { path, verdict: null };
     return printed({ path: [], value: entry }, context.speech);
   } catch (err) {
     return broken(err, context.speech);

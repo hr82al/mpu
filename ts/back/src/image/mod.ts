@@ -5,6 +5,14 @@
 
 export { Image, ImageError } from "./image.ts";
 export {
+  DEFINE,
+  isPlain,
+  PURPOSE,
+  type Said,
+  saidOf,
+  storedName,
+} from "./definition.ts";
+export {
   ImageMethod,
   type MethodRecord,
   type MethodSnapshot,
