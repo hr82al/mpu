@@ -36,23 +36,21 @@ export interface Asker {
 }
 
 /**
- * Ответ формы — «да» только при `accept` с отмеченным `confirm`; снятый
- * флажок, отказ, отмена — «нет» (голден: Accept со снятым флажком — это
- * `accept` с `confirm: false`).
+ * Ответ формы — «да» тогда и только тогда, когда человек нажал Accept
+ * (`action: "accept"`); содержимое не читается — у формы нет полей, а
+ * старый клиент может прислать лишнее. Отказ и отмена — «нет».
  */
 export function verdictOf(result: ElicitResult): Verdict {
-  return result.action === "accept" && result.content?.confirm === true
-    ? "y"
-    : "n";
+  return result.action === "accept" ? "y" : "n";
 }
 
-/** Форма подтверждения (голден `elicitation.json`). */
+/**
+ * Форма подтверждения без полей (голден `elicitation.json`): у человека
+ * только Accept / Decline.
+ */
 const CONFIRM_SCHEMA = {
   type: "object" as const,
-  properties: {
-    confirm: { type: "boolean" as const, title: "Выполнить?" },
-  },
-  required: ["confirm"],
+  properties: {},
 };
 
 /** Клиент с elicitation: вопрос — форма в той же сессии. */

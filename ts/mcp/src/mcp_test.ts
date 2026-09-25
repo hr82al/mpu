@@ -7,7 +7,13 @@
 import { assertEquals } from "@std/assert";
 import type { ElicitRequest } from "@modelcontextprotocol/sdk/types.js";
 import { collected, post } from "../../back/src/backend/testback.ts";
-import { ASK, DENY, RuleBook, RulePath } from "../../back/src/policy/mod.ts";
+import {
+  ALLOW,
+  ASK,
+  DENY,
+  RuleBook,
+  RulePath,
+} from "../../back/src/policy/mod.ts";
 import { TOOLS } from "./mod.ts";
 import {
   call,
@@ -194,7 +200,7 @@ Deno.test("правило через mcp не меняется, вопроса �
       assertEquals(await Deno.readFile(stack.back.policyFile), before);
     }, (request) => {
       asked.push(request);
-      return { action: "accept", content: { confirm: true } };
+      return { action: "accept", content: {} };
     });
     assertEquals(asked, []);
   }));
@@ -204,28 +210,40 @@ function askOnAliases(stack: Stack) {
   book.set(RulePath.parse("xlsx alias ls"), ASK);
 }
 
+/** Та же строка без вопроса — для сверки итога с `POST /agent/line`. */
+function allowAliases(stack: Stack) {
+  using book = RuleBook.open(stack.back.policyFile, []);
+  book.set(RulePath.parse("xlsx alias ls"), ALLOW);
+}
+
 const QUESTION = "выполнить mpu xlsx alias ls? [y/N] ";
 
-Deno.test("вопрос формой: accept+true — исполнено, иначе — не подтверждено", async (t) => {
-  const cases: readonly (readonly [string, Elicit, boolean])[] = [
-    [
-      "accept+true",
-      () => ({ action: "accept", content: { confirm: true } }),
-      true,
-    ],
-    [
-      "accept+false",
-      () => ({ action: "accept", content: { confirm: false } }),
-      false,
-    ],
-    ["decline", () => ({ action: "decline" }), false],
-    ["cancel", () => ({ action: "cancel" }), false],
-  ];
+Deno.test("вопрос формой: accept — исполнено, иначе — не подтверждено", async (t) => {
   const golden = JSON.parse(
     await Deno.readTextFile(
       new URL("testdata/mcp-objects/elicitation.json", import.meta.url),
     ),
   );
+  const replies = golden.client_responses;
+  const cases: readonly (readonly [string, Elicit, boolean])[] = [
+    ["accept", () => replies.accept.result, true],
+    ["accept без content", () => ({ action: "accept" }), true],
+    // Старый клиент с флажком: содержимое не читается.
+    [
+      "accept+confirm:false",
+      () => ({ action: "accept", content: { confirm: false } }),
+      true,
+    ],
+    ["decline", () => replies.decline.result, false],
+    ["cancel", () => replies.escape.result, false],
+    [
+      "ошибка запроса",
+      () => {
+        throw new Error("форма не показана");
+      },
+      false,
+    ],
+  ];
   for (const [name, answer, runs] of cases) {
     await t.step(name, () =>
       withStack(async (stack) => {
@@ -236,17 +254,24 @@ Deno.test("вопрос формой: accept+true — исполнено, ина
             words: ["ask", "xlsx", "alias", "ls"],
           });
           assertEquals(result.isError, !runs);
-          if (!runs) {
+          if (runs) {
+            assertEquals(stack.back.called, ["xlsx alias ls"]);
+            allowAliases(stack);
             assertEquals(
-              (result.content as { text: string }[])[1].text,
-              "stderr:\nmpu xlsx alias ls: не подтверждено\n",
+              result.structuredContent,
+              await direct(stack, ["xlsx", "alias", "ls"]),
             );
+            return;
           }
+          assertEquals(
+            (result.content as { text: string }[])[1].text,
+            "stderr:\nmpu xlsx alias ls: не подтверждено\n",
+          );
+          assertEquals(stack.back.called, []);
         }, (request) => {
           asked.push(request);
           return answer(request);
         });
-        assertEquals(stack.back.called, runs ? ["xlsx alias ls"] : []);
         assertEquals(asked.length, 1);
         const form = golden.server_request.params;
         assertEquals(asked[0].params, {
@@ -291,7 +316,7 @@ Deno.test("ask-строка без двери — ошибка с подсказ
       );
     }, (request) => {
       asked.push(request);
-      return { action: "accept", content: { confirm: true } };
+      return { action: "accept", content: {} };
     });
     assertEquals(asked, []);
     assertEquals(stack.back.called, []);
