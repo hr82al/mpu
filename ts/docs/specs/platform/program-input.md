@@ -27,7 +27,7 @@
 | `mpu` без слов, stdin не терминал, ввод не пуст | программа — stdin целиком |
 | `mpu` без слов, stdin не терминал, ввод пуст или только из разделителей и BOM | справка корня, код 0, как прежде (решение владельца) |
 | `mpu` без слов, stdin терминал | справка корня, как прежде |
-| `mpu ask` без слов, stdin не терминал | программа из stdin с начальным `ask`; ввод пуст — справка `ask`, как прежде |
+| `mpu ask` без слов, stdin не терминал | программа из stdin с начальным `ask`; ввод пуст — справка `ask`, код 2, как прежде |
 | `mpu run: <путь.mpu> [<ключ>: <значение>]…` | программа из файла; ключи — параметры |
 | `mpu ask run: <путь.mpu> …` | то же с начальным `ask` |
 | MCP `["run:", "<путь.mpu>", …]` | то же; путь абсолютный или от cwd строки — у MCP это домашний каталог (`mcp-objects.md`); `~` не раскрывается |
@@ -47,13 +47,15 @@
   писателя ждёт ввода: `sleep 999 | mpu` висит до Ctrl+C. Строки со словами —
   как прежде (`sleep 999 | mpu version` отвечает сразу).
 - **Ввод у stdin-программы занят программой.** Команда, читающая ввод
-  (значение `stdin`, `-` прежних подстановок), получает отказ при исполнении,
-  код 2, в форме «stdin уже прочитан» (`value-expression.md`):
-  `mpu <путь команды>: ввод занят программой — программу передай файлом:
-  mpu run: <файл.mpu>`.
-  Команды до неё исполнены; вопрос двери к ней задаётся до отказа (ввод
-  запрашивается после ответа, `stdin-on-request.md`). У `run:` и набранной
-  строки ввод свободен.
+  (значение `stdin`, `-` прежних подстановок), получает отказ тем же путём,
+  что «stdin уже прочитан» (`value-expression.md`): значение вычисляется при
+  обходе цепочки, до вопроса двери, поэтому вопроса о такой записи нет. Под
+  дверью префикс — с `ask`, как у сегодняшнего отказа значения:
+  `mpu ask <путь команды>: ввод занят программой — программу передай файлом:
+  mpu run: <файл.mpu>`, код 2. Команды до неё исполнены. У `run:` и
+  набранной строки ввод свободен. (Снято исполнителем 170a 2026-09-25: отказ
+  значения под дверью сегодня — `mpu ask kiten comment: stdin уже прочитан
+  ключом id`, без вопроса.)
 - **`run:`** — только первым словом строки (после необязательного `ask`).
   Строка, начатая `run:`, — вызов источника, а не программа, даже если в
   значении параметра есть `^` (`col: ^готово к ревью^` идёт тем же путём,
@@ -168,7 +170,8 @@
 
 ## Граничные случаи
 
-Стенд: Kaiten и Telegram подменённые, реестр — как в `ask-composite.md`:
+Стенд: Kaiten и Telegram подменённые, реестр — как в `ask-composite.md`
+(запись — в карточку 11: подменённый Kaiten знает только 11–13):
 `kiten ls` — `allow`, три карточки с `id` 11, 12, 13; `kiten comment` —
 `ask`, stdout пуст, запоминает «<id> <текст>»; `telegram send` — `allow`,
 stdout пуст, запоминает «<chat> <текст>»; `telegram log message: <текст>` —
@@ -185,15 +188,15 @@ stdout пуст, запоминает «<chat> <текст>»; `telegram log mes
 | `printf '2 plus: 1 . 2 plus: 2' \| mpu` | `4\n` | | 0 |
 | `mpu </dev/null` | справка корня, побайтно как `mpu help` | | 0 |
 | `printf '\xEF\xBB\xBF \r\n\t' \| mpu` | то же | | 0 |
-| `mpu ask </dev/null` | справка `ask`, побайтно как `mpu ask help` | | 0 |
+| `mpu ask </dev/null` | справка `ask`, побайтно как `mpu ask help` | | 2 (как прежде у голого `mpu ask`; `mpu ask help` — 0) |
 | `mpu` в терминале | справка корня | | 0 |
 | `sleep 999 \| mpu`, через 1 с Ctrl+C (канал закрывается вместе со `sleep`) | | `mpu: прервано\n`; 130 даже при закрывшемся канале — пустое чтение после прерывания справку не даёт | 130 |
 | `POST /line` `{"words": [], "stdin": "2 plus: 2"}` | `4\n` | | 0 |
 | `POST /line` `{"words": []}` | справка корня | | 0 |
 | `printf 'kitn ls' \| mpu` | | `stdin: выражение 1: mpu: не понимает kitn; ближайшие: kiten\n`; `refusal` `{"reason": "не понимает", "hint": null, "candidates": ["kiten"], …}` | 2 |
 | `printf '@col print' \| mpu` | | `stdin: выражение 1: col не связана; связанных нет\n` | 2 |
-| `printf '2 print . kiten comment id: 5 text: stdin' \| mpu ask`, `y` (вопрос — в терминал) | `2\n` | `выполнить mpu kiten comment id: 5 text: stdin? [y/N] ` и `mpu kiten comment: ввод занят программой — программу передай файлом: mpu run: <файл.mpu>\n`; Kaiten не вызван | 2 |
-| `printf 'kiten comment id: 5 text: -- stdin' \| mpu ask`, `y` | | `выполнить mpu kiten comment id: 5 text: stdin? [y/N] ` (вопрос печатает значение без `--`, как у набранной строки) | 0; записано «5 stdin» |
+| `printf '2 print . kiten comment id: 11 text: stdin' \| mpu ask` | `2\n` | `mpu ask kiten comment: ввод занят программой — программу передай файлом: mpu run: <файл.mpu>\n`; вопроса нет, Kaiten не вызван | 2 |
+| `printf 'kiten comment id: 11 text: -- stdin' \| mpu ask`, `y` | | `выполнить mpu kiten comment id: 11 text: stdin? [y/N] ` (вопрос печатает значение без `--`, как у набранной строки) | 0; записано «11 stdin» |
 | stdin — 17 100 раз `1 plus: 1 . ` (205 200 байт) | `2\n` | | 0 |
 | stdin — 699 051 раз `1 plus: 1 . ` (8 388 612 байт > 8 МиБ) | | `mpu: ввод больше 8 МиБ\n`; ничего не исполнено | 2 |
 | тот же текст файлом `big.mpu`, `mpu run: big.mpu` | `2\n` | | 0 |
@@ -260,14 +263,14 @@ stdout пуст, запоминает «<chat> <текст>»; `telegram log mes
 
 | Дано | stdout | stderr | код |
 |---|---|---|---|
-| `x.mpu` = `kiten comment id: 5 text: a`; `mpu run: x.mpu` | | `mpu run: x.mpu: строка может записать (kiten comment) — начни с ask: mpu ask run: x.mpu\n`, `hint` `["ask","run:","x.mpu"]`; Kaiten не вызван | 2 |
-| то же, `mpu ask run: x.mpu`, человек отвечает `y` | | `выполнить mpu kiten comment id: 5 text: a? [y/N] ` | 0; записано «5 a» |
-| то же, человек отвечает `n` | | `выполнить mpu kiten comment id: 5 text: a? [y/N] ` и `mpu kiten comment id: 5 text: a: не подтверждено\n` | 1; ничего не записано |
-| `x.mpu` = `ask kiten comment id: 5 text: a`; `mpu run: x.mpu`, `y` | | `выполнить mpu kiten comment id: 5 text: a? [y/N] ` | 0; записано «5 a» |
-| то же, MCP `["run:", "/home/u/w/x.mpu"]` без elicitation (человека нет) | | `mpu kiten comment id: 5 text: a: нужно подтверждение, а спросить некого\n`; Kaiten не вызван | 1 |
-| то же, `mpu ask run: x.mpu` (`ask` и снаружи, и в файле), `y` | | один вопрос, как выше | 0; записано «5 a» |
-| `printf 'kiten comment id: 5 text: a' \| mpu` | | `stdin: строка может записать (kiten comment) — начни с ask: mpu ask\n`, `hint` `["ask"]` | 2 |
-| `printf 'kiten comment id: 5 text: a' \| mpu ask`, `y` (вопрос — в терминал) | | `выполнить mpu kiten comment id: 5 text: a? [y/N] ` | 0; записано «5 a» |
+| `x.mpu` = `kiten comment id: 11 text: a`; `mpu run: x.mpu` | | `mpu run: x.mpu: строка может записать (kiten comment) — начни с ask: mpu ask run: x.mpu\n`, `hint` `["ask","run:","x.mpu"]`; Kaiten не вызван | 2 |
+| то же, `mpu ask run: x.mpu`, человек отвечает `y` | | `выполнить mpu kiten comment id: 11 text: a? [y/N] ` | 0; записано «11 a» |
+| то же, человек отвечает `n` | | `выполнить mpu kiten comment id: 11 text: a? [y/N] ` и `mpu kiten comment id: 11 text: a: не подтверждено\n` | 1; ничего не записано |
+| `x.mpu` = `ask kiten comment id: 11 text: a`; `mpu run: x.mpu`, `y` | | `выполнить mpu kiten comment id: 11 text: a? [y/N] ` | 0; записано «11 a» |
+| то же, MCP `["run:", "/home/u/w/x.mpu"]` без elicitation (человека нет) | | `mpu kiten comment id: 11 text: a: нужно подтверждение, а спросить некого\n`; Kaiten не вызван | 1 |
+| то же, `mpu ask run: x.mpu` (`ask` и снаружи, и в файле), `y` | | один вопрос, как выше | 0; записано «11 a» |
+| `printf 'kiten comment id: 11 text: a' \| mpu` | | `stdin: строка может записать (kiten comment) — начни с ask: mpu ask\n`, `hint` `["ask"]` | 2 |
+| `printf 'kiten comment id: 11 text: a' \| mpu ask`, `y` (вопрос — в терминал) | | `выполнить mpu kiten comment id: 11 text: a? [y/N] ` | 0; записано «11 a» |
 | `x.mpu` = `sql target: 1 sql: x`; `mpu ask run: x.mpu` | | `mpu sql: запрещено правилом «sql»\n` | 1 |
 | `mpu policy` | список без пути `run:` | | 0 |
 | `mpu deny: run:` | | `у ключа deny нет значения\n`; правило не создано | 2 |
