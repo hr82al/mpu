@@ -1,6 +1,6 @@
 # mpu image sync
 
-Статус: к реализации — порция 169 (после 169a). `image export` и суточный таймер — 169b, `image-export.md`.
+Статус: реализовано — порция 169 (`21c77acd`, `55931ea6`, `1e00e213`); принято 2026-09-25 хостом: тестов 2527, smoke 20/1 (новая — право записи каталога образа), мутации M1–M10 красные на своих сценариях (перепроверена хостом M5 — снят предохранитель), голдены `fixtures/image-sync/{help,messages}.txt` заморожены. Платформа (снято исполнителем): обычный `mpu messages` группу, все дети которой посеяны `ask`, не показывает вовсе. Пример `kiten ls column:` заменён на `inColumn:` — `column` ключ `kiten ls`. `image export` и таймер — 169b, `image-export.md`.
 
 ## Назначение
 
@@ -57,7 +57,7 @@
 |---|---|
 | метод `kiten cardsIn:`, ключи `^id колонки^` | `$D/kiten/cardsIn:.mpu` = `kiten define: cardsIn: purpose: ^мои в колонке^ keys: ^id колонки^ do :col kiten ls where: column is: @col done\n` |
 | метод `kiten mine`, описания ключей нет | `$D/kiten/mine.mpu` = `kiten define: mine purpose: ^мои^ do kiten ls done\n` — `keys:` не пишется |
-| получатель из двух звеньев, `kiten ls column:` | `$D/kiten/ls/column:.mpu` |
+| получатель из двух звеньев, `kiten ls inColumn:` | `$D/kiten/ls/inColumn:.mpu` |
 | в `$D/kiten/foo:.mpu` строка `kiten define: bar purpose: ^x^ do kiten ls done` | строка отчёта `файл не разобран\tkiten/foo:.mpu\tв файле kiten bar, ждали kiten foo:`, код 1; метод `kiten foo:`, если он есть в базе, не тронут («Неразобранный файл») |
 | `$D/kiten/cardsIn.mpu` (без `:`), в нём строка определения из первой строки таблицы | `файл не разобран\tkiten/cardsIn.mpu\tв файле kiten cardsIn:, ждали kiten cardsIn`, код 1 — имя файла равно имени метода, как оно хранится, побуквенно (сценарий 44) |
 | `$D/nope/x.mpu` (`nope` — не команда и не группа) | `файл не разобран\tnope/x.mpu\tmpu nope define: метод — только у команды или группы`, код 1 |
@@ -105,7 +105,7 @@ stderr `у ключа cmd нет значения`, код 2), поэтому `k
 | `kiten cardsIn:` | `kiten.cardsIn` |
 | `kiten mine` | `kiten.mine` |
 | `sheet sum:with:` | `sheet.sum:with` |
-| `kiten ls column:` | `kiten.ls.column` |
+| `kiten ls inColumn:` | `kiten.ls.inColumn` |
 
 `base:` и `files:` — вход-списки: повторяются, значения копятся
 (`platform/keys-translation.md`). Адрес называет все методы получателя с
