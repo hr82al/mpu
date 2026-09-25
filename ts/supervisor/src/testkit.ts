@@ -2,7 +2,8 @@
  * Оснастка прогонов `ts/install.sh`
  * (`platform/supervisor-install.md`, `platform/cutover.md`): всё во
  * временных каталогах, сборка — поддельным `deno` (`MPU_DENO`), служба —
- * поддельным `systemctl`, проверки против серверов, поднятых тестом.
+ * поддельным `systemctl`, каталог настроек nu — поддельным `nu`
+ * (`MPU_NU`), проверки против серверов, поднятых тестом.
  * Настоящие `~/.local/bin`, служба пользователя, `systemctl` и файлы
  * настроек оболочек не трогаются.
  */
@@ -76,6 +77,13 @@ esac
 mv "$file.new" "$file"
 `;
 
+const FAKE_NU = `#!/bin/bash
+# Поддельный nu: каталог настроек — во временном XDG_CONFIG_HOME,
+# как у настоящего; прочие вызовы установщику не нужны.
+[[ $* == *default-config-dir* ]] || exit 3
+echo "\${XDG_CONFIG_HOME:-$HOME/.config}/nushell"
+`;
+
 /** Сколько ответов после перезапуска ещё отвечает старый процесс. */
 const OLD_ANSWERS = 3;
 
@@ -130,6 +138,7 @@ export async function withPlace(body: (place: Place) => Promise<void>) {
       mode: 0o755,
     });
     await Deno.writeTextFile(`${dir}/claude`, FAKE_CLAUDE, { mode: 0o755 });
+    await Deno.writeTextFile(`${dir}/nu`, FAKE_NU, { mode: 0o755 });
     await body({
       dir,
       back,
@@ -179,6 +188,9 @@ export async function runScript(
       MPU_SYSTEMCTL: `${place.dir}/systemctl`,
       MPU_DENO: `${place.dir}/deno`,
       MPU_CLAUDE: `${place.dir}/claude`,
+      // Настоящий nu запускающего тестам не виден: без подмены исход
+      // зависел бы от того, стоит ли nu на машине.
+      MPU_NU: `${place.dir}/nu`,
       FAKE_CLAUDE_LOG: claudeLog,
       MPU_WEB_DIR: `${place.dir}/web`,
       MPU_BACK_URL: place.back.url,

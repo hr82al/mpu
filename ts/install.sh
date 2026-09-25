@@ -14,7 +14,7 @@
 # Права и состав сборки — только в задачах compile:* корневого deno.jsonc;
 # здесь их нет. Переопределения окружением — для тестов: MPU_BIN_DIR,
 # MPU_UNIT_DIR, MPU_SYSTEMCTL, MPU_DENO, MPU_BACK_URL, MPU_MCP_URL,
-# MPU_WEB_DIR, MPU_CLAUDE.
+# MPU_WEB_DIR, MPU_CLAUDE, MPU_NU.
 set -uo pipefail
 
 # Дерево исходников — каталог самого скрипта, а не текущий: скрипт зовут
@@ -26,6 +26,7 @@ unit_dir=${MPU_UNIT_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user}
 web_dir=${MPU_WEB_DIR:-$HOME/.local/share/mpu/web}
 systemctl=${MPU_SYSTEMCTL:-systemctl}
 deno=${MPU_DENO:-deno}
+nu=${MPU_NU:-nu}
 back_url=${MPU_BACK_URL:-http://127.0.0.1:7338}
 mcp_url=${MPU_MCP_URL:-http://127.0.0.1:7339}
 unit=mpu.service
@@ -274,7 +275,7 @@ config_fish() {
 }
 config_nu() {
   local dir
-  dir=$(nu --no-config-file -c '$nu.default-config-dir' 2>/dev/null) || return 0
+  dir=$("$nu" --no-config-file -c '$nu.default-config-dir' 2>/dev/null) || return 0
   [[ -f $dir/config.nu ]] && echo "$dir/config.nu"
 }
 

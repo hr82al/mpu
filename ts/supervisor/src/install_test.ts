@@ -315,8 +315,12 @@ Deno.test("дополнение: три прогона — один блок, ч
     const before = "export PS1='$ '\n# хвост человека\n";
     const bashrc = await shellConfig(place, "bash", before);
     await shellConfig(place, "fish", "# fish\n");
-    await shellConfig(place, "nu", "# nu\n");
-    await install(place);
+    const nuConfig = await shellConfig(place, "nu", "# nu\n");
+    const first = await install(place);
+    assertEquals(
+      first.lines.filter((line) => line.startsWith("install: дополнение nu")),
+      ["install: дополнение nu: подключено"],
+    );
     const second = await install(place);
     const third = await install(place);
     for (const run of [second, third]) {
@@ -329,6 +333,7 @@ Deno.test("дополнение: три прогона — один блок, ч
         ],
       );
     }
+    assertEquals(blocks(await Deno.readTextFile(nuConfig)), [fakeBody("nu")]);
     const text = await Deno.readTextFile(bashrc);
     assertEquals(blocks(text).length, 1);
     assertEquals(text.startsWith(before), true);
@@ -341,6 +346,41 @@ Deno.test("дополнение: три прогона — один блок, ч
         ),
       ),
     );
+  }));
+
+Deno.test("дополнение: nu запускающего тестам не виден", () =>
+  withPlace(async (place) => {
+    await shellConfig(place, "nu", "# nu\n");
+    // Приманка в начале PATH отвечает чужим каталогом: установщик,
+    // спросивший её, а не подмену, не нашёл бы config.nu.
+    await Deno.mkdir(`${place.dir}/path`);
+    await Deno.writeTextFile(
+      `${place.dir}/path/nu`,
+      `#!/bin/bash\necho ${place.dir}/чужой\n`,
+      { mode: 0o755 },
+    );
+    const run = await install(place, [], {
+      PATH: `${place.dir}/path:${Deno.env.get("PATH")}`,
+    });
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(
+      run.lines.filter((line) => line.startsWith("install: дополнение nu")),
+      ["install: дополнение nu: подключено"],
+    );
+  }));
+
+Deno.test("дополнение: nu не установлен — не настроена, установка идёт дальше", () =>
+  withPlace(async (place) => {
+    // config.nu на месте: «не настроена» здесь говорит об отсутствии nu,
+    // а не файла.
+    const nuConfig = await shellConfig(place, "nu", "# nu\n");
+    const run = await install(place, [], { MPU_NU: `${place.dir}/нет-nu` });
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(
+      run.lines.filter((line) => line.startsWith("install: дополнение nu")),
+      ["install: дополнение nu: не настроена"],
+    );
+    assertEquals(await Deno.readTextFile(nuConfig), "# nu\n");
   }));
 
 Deno.test("дополнение: правка внутри блока затирается, соседний текст — нет", () =>
