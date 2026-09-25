@@ -52,4 +52,6 @@ export {
   tooLargeInput,
 } from "./context.ts";
 
+export { fileWords, NotUtf8 } from "./words.ts";
+
 export { VERSION } from "../version.ts";

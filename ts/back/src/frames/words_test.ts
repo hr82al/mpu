@@ -4,7 +4,7 @@
  */
 
 import { assertEquals, assertThrows } from "@std/assert";
-import { fileWords, NotUtf8 } from "./text.ts";
+import { fileWords, NotUtf8 } from "./words.ts";
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 

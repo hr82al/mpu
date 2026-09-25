@@ -14,7 +14,7 @@ import {
   storedName,
 } from "./definition.ts";
 import type { ImageMethod } from "./method.ts";
-import { fileWords, NotUtf8 } from "./text.ts";
+import { fileWords, NotUtf8 } from "../frames/mod.ts";
 
 /** Хэш отсутствующей стороны — null-объект решения: sha256 пустым не бывает. */
 export const NONE = "";
