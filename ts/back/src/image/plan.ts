@@ -85,6 +85,20 @@ function unreadEntry(path: string, reason: string): Entry {
   });
 }
 
+/**
+ * Строка `конфликт`: третьим полем — адрес для `base:`/`files:`
+ * (`image-sync.md`, «Отчёт»).
+ */
+export function conflictEntry(key: string, address: string): Entry {
+  return new Entry({
+    group: 0,
+    order: methodOrder(key),
+    text: `конфликт\t${key}\t${address}`,
+    conflict: true,
+    failed: true,
+  });
+}
+
 /** Исход записи одной стороны по методу. */
 export interface Done {
   /**
@@ -144,6 +158,8 @@ export interface Applier {
    */
   define(files: readonly MethodFile[]): Promise<ReadonlyMap<string, Done>>;
   forget(method: BaseMethod): Promise<Done>;
+  /** Строка отчёта метода, изменённого с обеих сторон. */
+  conflict(key: string, address: string): Entry;
   archive(key: string, hash: string): void;
   unarchive(key: string): void;
 }
@@ -376,16 +392,8 @@ class Conflict implements Action {
     return false;
   }
 
-  apply() {
-    return Promise.resolve([
-      new Entry({
-        group: 0,
-        order: methodOrder(this.key),
-        text: `конфликт\t${this.key}\t${this.#address}`,
-        conflict: true,
-        failed: true,
-      }),
-    ]);
+  apply(applier: Applier) {
+    return Promise.resolve([applier.conflict(this.key, this.#address)]);
   }
 }
 
@@ -513,6 +521,11 @@ export interface Overflow {
   readonly side: string;
 }
 
+/** Сторона в списке, если удалений на ней больше половины. */
+function overflowing(side: Overflow): readonly Overflow[] {
+  return side.deleted * 2 > side.of ? [side] : [];
+}
+
 /** Итог запуска: строки и числа. */
 export class Report {
   readonly #entries: Entry[];
@@ -607,12 +620,19 @@ export class Plan {
    * (`image-sync.md`, «Предохранители»): база, затем файлы.
    */
   overflows(): readonly Overflow[] {
+    return [...this.#baseOverflows(), ...this.fileOverflows()];
+  }
+
+  /** База, если на ней удалилось бы больше половины методов; иначе пусто. */
+  #baseOverflows(): readonly Overflow[] {
     const base = this.#actions.reduce((n, one) => n + one.deletes().base, 0);
+    return overflowing({ deleted: base, of: this.#baseCount, side: "база" });
+  }
+
+  /** Файлы, если удалилось бы больше половины; иначе пусто. */
+  fileOverflows(): readonly Overflow[] {
     const files = this.#actions.reduce((n, one) => n + one.deletes().files, 0);
-    return [
-      { deleted: base, of: this.#baseCount, side: "база" },
-      { deleted: files, of: this.#fileCount, side: "файлы" },
-    ].filter((one) => one.deleted * 2 > one.of);
+    return overflowing({ deleted: files, of: this.#fileCount, side: "файлы" });
   }
 
   /** Применяет план применителем `applier`; итог — отчёт. */

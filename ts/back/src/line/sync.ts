@@ -15,7 +15,9 @@ import { configValue, IMAGE_DIR, readPreferences } from "../config/mod.ts";
 import {
   type Applier,
   BaseMethod,
+  conflictEntry,
   type Done,
+  type Entry,
   Failed,
   type FilesRead,
   type Image,
@@ -560,6 +562,10 @@ class Applying implements Applier {
     );
   }
 
+  conflict(key: string, address: string): Entry {
+    return conflictEntry(key, address);
+  }
+
   archive(key: string, hash: string) {
     this.#image.archived(this.#dir, key, hash);
   }
@@ -605,6 +611,10 @@ class Printing implements Applier {
       [...receiver, "forget:"],
       () => SUCCEEDED,
     );
+  }
+
+  conflict(key: string, address: string): Entry {
+    return conflictEntry(key, address);
   }
 
   archive() {}

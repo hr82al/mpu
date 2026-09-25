@@ -13,7 +13,9 @@ export {
 } from "./cmd_sync.ts";
 export {
   type Applier,
+  conflictEntry,
   type Done,
+  type Entry,
   Failed,
   Plan,
   type Preference,
