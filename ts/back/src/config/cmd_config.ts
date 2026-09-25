@@ -67,8 +67,11 @@ type ConfigArgs = z.infer<typeof argsSchema>;
 type ConfigResult = z.infer<typeof resultSchema>;
 type ConfigEntry = z.infer<typeof entrySchema>;
 
-/** Срез порта: всё состояние команды — таблица кэш-БД. */
-export type ConfigIo = Pick<CommandIo, "openCacheDb">;
+/**
+ * Срез порта: состояние команды — таблица кэш-БД; `HOME` — для
+ * умолчаний, выведенных из него (`image.dir`).
+ */
+export type ConfigIo = Pick<CommandIo, "openCacheDb" | "env">;
 
 /** Отказ на имя вне реестра: закрытый список — часть контракта. */
 function unknownKey(name: string): UsageError {
@@ -78,15 +81,20 @@ function unknownKey(name: string): UsageError {
 }
 
 /** Действующее значение ключа: запись хранилища, иначе умолчание. */
-function entryOf(entry: ConfigKey, stored: string | undefined): ConfigEntry {
+function entryOf(
+  entry: ConfigKey,
+  stored: string | undefined,
+  home: string | undefined,
+): ConfigEntry {
   const set = stored !== undefined;
+  const fallback = entry.fallback(home) ?? null;
   return {
     key: entry.key,
-    value: set ? stored : entry.fallback ?? null,
+    value: set ? stored : fallback,
     // Источника `env` не существует, поэтому и третьего значения здесь
     // нет: либо запись, либо умолчание.
     source: set ? "config" : "default",
-    default: entry.fallback ?? null,
+    default: fallback,
     description: entry.description,
   };
 }
@@ -155,6 +163,7 @@ export function runConfig(
  * машине без HOME, подменялся бы отказом инфраструктуры (exit 1).
  */
 function configResult(args: ConfigArgs, io: ConfigIo): ConfigResult {
+  const home = io.env("HOME");
   if (args.unset && args.key === undefined) {
     throw new UsageError("unset требует ключ key:");
   }
@@ -176,8 +185,8 @@ function configResult(args: ConfigArgs, io: ConfigIo): ConfigResult {
     return {
       entries: readPreferences(
         io,
-        (db) => CONFIG_KEYS.map(readWith(db)),
-        noStore(),
+        (db) => CONFIG_KEYS.map(readWith(db, home)),
+        noStore(home),
       ),
       action: "list",
     };
@@ -185,8 +194,8 @@ function configResult(args: ConfigArgs, io: ConfigIo): ConfigResult {
   if (args.value === undefined && !args.unset) {
     const [only] = readPreferences(
       io,
-      (db) => [readWith(db)(entry)],
-      [entryOf(entry, undefined)],
+      (db) => [readWith(db, home)(entry)],
+      [entryOf(entry, undefined, home)],
     );
     return { entries: [only], action: "get" };
   }
@@ -196,22 +205,25 @@ function configResult(args: ConfigArgs, io: ConfigIo): ConfigResult {
   if (args.unset) {
     // Идемпотентно: записи могло не быть вовсе, и это тоже успех.
     unsetConfigValue(db, entry.key);
-    return { entries: [readWith(db)(entry)], action: "unset" };
+    return { entries: [readWith(db, home)(entry)], action: "unset" };
   }
   // Значение кладётся буквально: «007» остаётся «007». Нормализация
   // развела бы наше хранилище с рабочим на ровном месте.
   setConfigValue(db, entry.key, args.value as string);
-  return { entries: [readWith(db)(entry)], action: "set" };
+  return { entries: [readWith(db, home)(entry)], action: "set" };
 }
 
 /** Чтение ключа поверх открытой БД. */
-function readWith(db: CacheDb): (entry: ConfigKey) => ConfigEntry {
-  return (entry) => entryOf(entry, configValue(db, entry.key));
+function readWith(
+  db: CacheDb,
+  home: string | undefined,
+): (entry: ConfigKey) => ConfigEntry {
+  return (entry) => entryOf(entry, configValue(db, entry.key), home);
 }
 
 /** Все ключи по умолчаниям — вид реестра, когда хранилища нет вовсе. */
-function noStore(): ConfigEntry[] {
-  return CONFIG_KEYS.map((entry) => entryOf(entry, undefined));
+function noStore(home: string | undefined): ConfigEntry[] {
+  return CONFIG_KEYS.map((entry) => entryOf(entry, undefined, home));
 }
 
 /** Ширина колонки ключа в списке: по самому длинному имени реестра. */
@@ -258,7 +270,7 @@ export const configCommand = defineCommand({
   summary: "Локальные предпочтения CLI: показать и задать ключи.",
   usage: "mpu config [unset] [key: КЛЮЧ] [value: ЗНАЧЕНИЕ] [end json]",
   help: `Звать, когда надо посмотреть или поменять настройку mpu — цель
-sheet и xlsx по умолчанию, пределы кэша таблиц.
+sheet и xlsx по умолчанию, пределы кэша таблиц, каталог образа.
 
 Без ключей печатает все ключи реестра с действующими
 значениями; у взятого из умолчания стоит пометка (default), у
@@ -269,10 +281,10 @@ mpu config key: K печатает значение: у строкового к�
 умолчание. key: K value: V задаёт значение, unset key: K удаляет
 запись. Повторный unset — тоже успех: команда идемпотентна.
 
-Ключи (закрытый список): sheet.default, xlsx.default, sheet.cache.tab_ttl, sheet.cache.max_tab_bytes,
-sheet.cache.max_total_mb. Имя вне списка — ошибка; записей «на лету» не
-появляется. Числовому ключу нечисловое значение задать нельзя — отказ
-до записи. Значения хранятся буквально: «007» останется «007».
+Ключи (закрытый список): ${configKeyNames()}.
+Имя вне списка — ошибка; записей «на лету» не появляется. Числовому
+ключу нечисловое значение задать нельзя — отказ до записи. Значения
+хранятся буквально: «007» останется «007».
 
 Переменные окружения на выдачу не влияют: источников два — запись в
 хранилище и умолчание.

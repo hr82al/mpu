@@ -21,7 +21,7 @@ import {
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { configValue, setConfigValue } from "./mod.ts";
-import { renderConfig, runConfig } from "./cmd_config.ts";
+import { configCommand, renderConfig, runConfig } from "./cmd_config.ts";
 import { CONFIG_KEYS } from "./registry.ts";
 import { DEFAULTS } from "../sheet/settings.ts";
 
@@ -41,14 +41,26 @@ async function golden(name: string): Promise<string> {
   );
 }
 
-/** Прогон с настоящей БД во временном каталоге. */
+/** `HOME` порта команды на стенде (`platform/config.md`, «Стенд»). */
+const H = "/home/стенд";
+
+/** Описание ключа `image.dir` — побайтово из спеки. */
+const IMAGE_DIR_DESCRIPTION =
+  "Каталог файлов методов образа для `mpu image sync` и `mpu image export`";
+
+/** Прогон с настоящей БД во временном каталоге; `HOME` порта — `stand.home`. */
 async function withIo(
-  body: (io: { openCacheDb: () => CacheDb }, db: CacheDb) => Promise<void>,
+  body: (
+    io: Parameters<typeof runConfig>[1],
+    db: CacheDb,
+  ) => Promise<void>,
+  stand: { readonly home: string | undefined } = { home: H },
 ): Promise<void> {
   const dir = await Deno.makeTempDir();
   try {
     using db = openCacheDb(`${dir}/mpu.db`);
     const io = makeFakeIo({
+      env: (name) => name === "HOME" ? stand.home : undefined,
       openCacheDb: () => ({ ...db, [Symbol.dispose]: () => {} }),
     });
     await body(io, db);
@@ -57,20 +69,32 @@ async function withIo(
   }
 }
 
-Deno.test("список: форма строки — эталон канала", async () => {
-  await withIo(async (io) => {
-    const result = await runConfig(args(), io);
-    const text = renderConfig(result, false);
-    // Голден снят на реестре оригинала — пять ключей; у нас их семь,
-    // поэтому сверяется хвост: форма строки, ширина колонки и то, что
-    // суффикс (default) стоит у каждого незаданного значения.
-    assertEquals(
-      text.endsWith(await golden("list-default.stdout")),
-      true,
-      text,
-    );
-    assertEquals(text.split("\n").length - 1, CONFIG_KEYS.length);
-  });
+/** Первые `n` строк текста — с переводом строки у каждой. */
+function firstLines(text: string, n: number): string {
+  return text.split("\n").slice(0, n).map((line) => `${line}\n`).join("");
+}
+
+Deno.test("список: пять строк эталона канала и шестая — image.dir (C1)", async (t) => {
+  // Голден снят на реестре оригинала — пять ключей; image.dir в него не
+  // дописывается (`platform/config.md`, «Ключ image.dir»).
+  const cases = [
+    {
+      home: H,
+      line: `image.dir                  ${H}/mr/mp/mpu/image  (default)`,
+    },
+    { home: undefined, line: "image.dir                  (unset)  (default)" },
+  ];
+  for (const { home, line } of cases) {
+    await t.step(`HOME=${home}`, () =>
+      withIo(async (io) => {
+        const text = renderConfig(await runConfig(args(), io), false);
+        assertEquals(
+          firstLines(text, 5),
+          await golden("list-default.stdout"),
+        );
+        assertEquals(text.split("\n").slice(5), [line, ""]);
+      }, { home }));
+  }
 });
 
 Deno.test("список --json: форма записи — эталон канала", async () => {
@@ -78,12 +102,16 @@ Deno.test("список --json: форма записи — эталон кан�
     const result = await runConfig(args({ json: true }), io);
     const entries = JSON.parse(renderConfig(result, true));
     const original = JSON.parse(await golden("list-json.stdout"));
-    assertEquals(entries.length, CONFIG_KEYS.length);
-    // Записи обязаны совпасть с голденом дословно — вместе с
-    // описаниями: их читает человек. Своей записи сверх голдена
-    // больше нет: `mcp.port` ушёл вместе с сервером 7337
-    // (`platform/monolith-removal.md`).
-    assertEquals(entries, original);
+    // Первые пять записей — голден дословно, вместе с описаниями: их
+    // читает человек. Шестая — image.dir (C2).
+    assertEquals(entries.slice(0, 5), original);
+    assertEquals(entries.slice(5), [{
+      key: "image.dir",
+      value: `${H}/mr/mp/mpu/image`,
+      source: "default",
+      default: `${H}/mr/mp/mpu/image`,
+      description: IMAGE_DIR_DESCRIPTION,
+    }]);
   });
 });
 
@@ -260,9 +288,8 @@ Deno.test("реестр закрыт: имя вне списка не созда
       const text = formatCommandError("config", err);
       const tail = (await golden("err-unknown-key.stderr")).trim()
         .split("допустимые ключи: ")[1];
-      // Состав совпал с голденом целиком: своих ключей сверх него у
-      // нас не осталось (`platform/monolith-removal.md`).
-      assertEquals(text.endsWith(tail), true, text);
+      // Состав — голден и image.dir (`platform/config.md`).
+      assertEquals(text.endsWith(`${tail}, image.dir`), true, text);
     });
   });
 });
@@ -333,22 +360,43 @@ Deno.test("переменные окружения на выдачу не вли
   }
 });
 
-Deno.test("реестр: пять ключей по порядку спеки", () => {
+Deno.test("реестр: шесть ключей по порядку спеки, image.dir последним", () => {
   assertEquals(CONFIG_KEYS.map((entry) => entry.key), [
     "sheet.default",
     "xlsx.default",
     "sheet.cache.tab_ttl",
     "sheet.cache.max_tab_bytes",
     "sheet.cache.max_total_mb",
+    "image.dir",
   ]);
+});
+
+Deno.test("справка config перечисляет ключи из реестра", () => {
+  const listed = CONFIG_KEYS.map((entry) => entry.key).join(", ");
+  assertEquals(configCommand.help.includes(listed), true, configCommand.help);
+});
+
+Deno.test("unset image.dir печатает умолчание от HOME (C3)", async () => {
+  await withIo(async (io) => {
+    await runConfig(args({ key: "image.dir", value: "/tmp/x" }), io);
+    const result = await runConfig(
+      args({ key: "image.dir", unset: true }),
+      io,
+    );
+    assertEquals(
+      renderConfig(result, false),
+      `image.dir сброшен к дефолту: ${H}/mr/mp/mpu/image\n`,
+    );
+  });
 });
 
 Deno.test("умолчания реестра совпадают с теми, что применяют потребители", () => {
   // Реестр показывает оператору, что действует без записи, а
   // применяют значения другие модули. Разойдясь, они сделали бы
   // `mpu config` красивой ложью: печатает одно, работает другое.
+  // image.dir появится здесь с первым потребителем (`image sync`).
   const fallback = (key: string) =>
-    CONFIG_KEYS.find((entry) => entry.key === key)?.fallback;
+    CONFIG_KEYS.find((entry) => entry.key === key)?.fallback(H);
   assertEquals(fallback("sheet.cache.tab_ttl"), String(DEFAULTS.tabTtlSeconds));
   assertEquals(
     fallback("sheet.cache.max_tab_bytes"),
