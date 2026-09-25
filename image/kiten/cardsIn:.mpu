@@ -1,0 +1,1 @@
+kiten define: cardsIn: purpose: ^мои карточки в колонке с начала сентября^ do :col kiten ls date-from: 2026-09-01 where: column is: @col done
