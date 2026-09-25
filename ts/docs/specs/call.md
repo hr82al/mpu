@@ -1,6 +1,6 @@
-# mpu call · mpu call-ro
+# mpu ozon call · mpu wb call (и `call-ro`)
 
-Статус: черновик
+Статус: к реализации — порция 173 (после серии языка 170b–171), решения хоста 2026-09-25 ниже
 
 ## Назначение
 
@@ -25,18 +25,29 @@
 ## CLI-контракт
 
 ```
-mpu call-ro ozon      target: <клиент> [cabinet: <Client-Id>] path: <путь> [body: <json>] [method: GET|POST] [timeout: <сек>] [end json]
-mpu call-ro ozon perf target: <клиент> [cabinet: <Client-Id>] path: <путь> [body: <json>] [method: …] [timeout: …]
-mpu call-ro wb        target: <клиент|sid> [cabinet: <sid>] url: <https://…> [body: <json>] [method: …] [timeout: …]
-mpu ask call ozon …   (те же ключи; запись — через дверь `ask`)
-mpu call-ro ozon dry  … (печать запроса без секретов, без выхода в сеть)
+mpu ozon call-ro      target: <клиент> [cabinet: <Client-Id>] path: <путь> [body: <json>] [method: GET|POST] [timeout: <сек>] [end json]
+mpu ozon perf call-ro target: <клиент> [cabinet: <Client-Id>] path: <путь> [body: <json>] [method: …] [timeout: …]
+mpu wb call-ro        target: <клиент|sid> [cabinet: <sid>] url: <https://…> [body: <json>] [method: …] [timeout: …]
+mpu ask ozon call …   (те же ключи; запись — через дверь `ask`; так же `ozon perf call`, `wb call`)
+mpu ozon call-ro dry  … (печать запроса без секретов, без выхода в сеть)
 ```
 
-Порядок слов — по грамматике строки: команда → маркетплейс (`ozon` | `wb`) →
-варианты (`perf`, `dry`) → ключи → `end` → формат. `ozon` и `wb` — сообщения
-объекту команды, выбирающие получателя-маркетплейс, а не ключ `marketplace:`:
-у получателей разные ключи адреса (`path:` против `url:`) и разные справки
-[D.1].
+Порядок слов — по грамматике строки: получатель-маркетплейс (`ozon`,
+`ozon perf`, `wb`) → сообщение (`call-ro` | `call`) → варианты (`dry`) →
+ключи → `end` → формат. Маркетплейс — объект, `call` — его сообщение
+(решение владельца 2026-09-25, «решает получатель»): хост, авторизацию,
+источник ключа, ключ адреса (`path:` против `url:`), заголовки квоты и
+реестр чтения знает сам маркетплейс; следующие его сообщения (`ozon quota`,
+`ozon endpoints`, `wb tokens`) — новые сообщения того же объекта, а не
+команды-глаголы с развилкой по маркетплейсу внутри [D.1]. Ozon Performance —
+отдельный получатель `ozon perf` (другой хост и OAuth `client_credentials`), а
+не вариант `perf`: вариант, меняющий хост и авторизацию, — флаг поведения.
+Путь правила — `ozon call-ro`, `ozon call`, `ozon perf call-ro`, `ozon perf
+call`, `wb call-ro`, `wb call`: вариант путь правила не меняет
+(`platform/variants.md`), поэтому чтение и запись — два сообщения, а не
+вариант. Имена `ozon` и `wb` на корне свободны (снято 2026-09-25: `mpu ozon`
+→ `mpu: не понимает ozon`); группы `ozon-loader`, `ozon-jobs`, `wb-loader`,
+`wb-jobs` порция не трогает.
 
 Ключи:
 
@@ -44,14 +55,13 @@ mpu call-ro ozon dry  … (печать запроса без секретов, 
 |---|---|---|---|
 | `target:` | все | да | селектор клиента по `platform/selector.md`; у WB допустим sid кабинета — он и так резолвится в клиента |
 | `cabinet:` | все | если у клиента больше одного кабинета | Ozon — `seller_client_id`; WB — sid. Один кабинет у клиента — ключ можно опустить |
-| `path:` | `ozon` | да | путь ручки, начинается с `/`; хост задан получателем: Seller — `api-seller.ozon.ru`, `perf` — `api-performance.ozon.ru` |
+| `path:` | `ozon`, `ozon perf` | да | путь ручки, начинается с `/`; хост задан получателем: `ozon` — `api-seller.ozon.ru`, `ozon perf` — `api-performance.ozon.ru` |
 | `url:` | `wb` | да | полный адрес с запросом; хост обязан быть в таблице хостов WB (ниже) |
 | `body:` | все | нет | JSON-текст тела. Ozon Seller без `body:` шлёт `{}` |
-| `method:` | все | нет | `GET` или `POST`. По умолчанию: Ozon Seller — `POST`; `perf` и `wb` — `POST` при заданном `body:`, иначе `GET` |
+| `method:` | все | нет | `GET` или `POST`. По умолчанию: `ozon` — `POST`; `ozon perf` и `wb` — `POST` при заданном `body:`, иначе `GET` |
 | `timeout:` | все | нет | секунды, по умолчанию 60, не больше 300 |
 
-Варианты: `perf` (только `ozon`: Performance API, OAuth `client_credentials`);
-`dry` (печать запроса со скрытыми секретами, без сети и без чтения ключа сверх
+Вариант: `dry` (печать запроса со скрытыми секретами, без сети и без чтения ключа сверх
 проверки, что он есть).
 
 Таблица хостов WB → категория токена (по `sl-back/src/wb/wbFetchNew/wbFetchNew.constants.js`):
@@ -99,13 +109,13 @@ mpu call-ro ozon dry  … (печать запроса без секретов, 
 Отказы (stderr, код 2), полный набор:
 
 ```
-mpu call-ro ozon: у клиента 54 кабинетов Ozon 3 — укажи cabinet: 2129958 | 1539401 | 870282
-mpu call-ro ozon: у клиента 54 нет кабинета Ozon 999
-mpu call-ro ozon: ручки POST /v1/product/import нет в списке чтения — запись: mpu ask call ozon …
-mpu call-ro wb: хост example.com не из API Wildberries
-mpu call-ro wb: у кабинета 5f1c… нет действующего токена категории statistics
-mpu call-ro ozon perf: у кабинета 2129958 нет ключей Performance API
-mpu call-ro ozon: body: не JSON — Unexpected token } at position 11
+mpu ozon call-ro: у клиента 54 кабинетов Ozon 3 — укажи cabinet: 2129958 | 1539401 | 870282
+mpu ozon call-ro: у клиента 54 нет кабинета Ozon 999
+mpu ozon call-ro: ручки POST /v1/product/import нет в списке чтения — запись: mpu ask ozon call …
+mpu wb call-ro: хост example.com не из API Wildberries
+mpu wb call-ro: у кабинета 5f1c… нет действующего токена категории statistics
+mpu ozon perf call-ro: у кабинета 2129958 нет ключей Performance API
+mpu ozon call-ro: body: не JSON — Unexpected token } at position 11
 ```
 
 Список кабинетов в отказе — только идентификаторы и имена, никогда не ключи.
@@ -128,7 +138,7 @@ content-type: application/json
 - **Расход квоты кабинета клиента.** Каждый вызов тратит ту же квоту, что и
   загрузчики клиента (у `/v1/finance/products/buyout` — порядка единиц вызовов в
   час на кабинет). Это внешний эффект и у `call-ro`.
-- `perf`: обмен `client_credentials` на токен (`POST
+- `ozon perf`: обмен `client_credentials` на токен (`POST
   https://api-performance.ozon.ru/api/client/token`) — ещё один вызов;
   полученный токен держится в памяти сервера до истечения и в БД не пишется.
 - Чтение ключа: read-only сессия к PG сервера клиента (как `sql-ro`,
@@ -167,10 +177,10 @@ content-type: application/json
   `***` до печати.
 - `call-ro` не отправляет запрос, которого нет в реестре чтения: отказ
   случается до чтения ключа.
-- `call-ro wb` берёт токен с `read_only = true`, если такой есть у кабинета в
+- `wb call-ro` берёт токен с `read_only = true`, если такой есть у кабинета в
   нужной категории: тогда запись запрещает сам WB. Иначе — обычный токен
   категории.
-- Один вызов строки — ровно один запрос к маркетплейсу (у `perf` — плюс обмен
+- Один вызов строки — ровно один запрос к маркетплейсу (у `ozon perf` — плюс обмен
   токена, если токена в памяти нет или он истёк).
 - Хост запроса — только из таблицы хостов получателя; `url:` с другим хостом
   отказывается до чтения ключа.
@@ -182,15 +192,15 @@ content-type: application/json
 | `target: 54`, у клиента один кабинет Ozon | вызов под ним, `cabinet:` не нужен |
 | `target: 54`, кабинетов три, `cabinet:` нет | код 2, отказ со списком Client-Id |
 | `target: 54 cabinet: 999`, такого нет | код 2, «нет кабинета Ozon 999» |
-| `call-ro ozon path: /v1/product/import` | код 2 до чтения ключа, подсказка `mpu ask call ozon …` |
-| `call ozon` без `ask` | отказ двери `ask` с готовой строкой (`platform/ask-door.md`) |
-| `call-ro wb url: https://statistics-api.wildberries.ru/…`, у кабинета нет токена `statistics` | код 2 |
+| `ozon call-ro path: /v1/product/import` | код 2 до чтения ключа, подсказка `mpu ask ozon call …` |
+| `ozon call` без `ask` | отказ двери `ask` с готовой строкой (`platform/ask-door.md`) |
+| `wb call-ro url: https://statistics-api.wildberries.ru/…`, у кабинета нет токена `statistics` | код 2 |
 | у кабинета есть токены `statistics` с `read_only` и без | `call-ro` — с `read_only`; `call` — без |
 | маркетплейс ответил 429 с `retry-after: 1` | код 1, заголовки и тело напечатаны, повтора нет |
 | маркетплейс ответил 200 не-JSON | код 0, тело как есть; `end json` — `"body"` строкой |
-| таймаут | код 1, `mpu call-ro ozon: нет ответа за 60 с` |
-| `perf`, ключей Performance у кабинета нет | код 2 |
-| `perf`, обмен токена вернул 401 | код 1, статус и тело обмена, секрет замаскирован |
+| таймаут | код 1, `mpu ozon call-ro: нет ответа за 60 с` |
+| `ozon perf`, ключей Performance у кабинета нет | код 2 |
+| `ozon perf`, обмен токена вернул 401 | код 1, статус и тело обмена, секрет замаскирован |
 | `dry` | код 0, запрос напечатан, ключ `***`, в сеть ничего не ушло |
 | тело ответа содержит строку ключа | ключ заменён на `***` |
 | `body:` задан у `GET` | код 2: тело у `GET` не отправляется |
@@ -202,7 +212,7 @@ content-type: application/json
 этой спеки:
 
 ```
-$ mpu call-ro ozon target: 54 cabinet: 2129958 path: /v1/finance/products/buyout body: {"date_from":"2026-09-10","date_to":"2026-09-10"}
+$ mpu ozon call-ro target: 54 cabinet: 2129958 path: /v1/finance/products/buyout body: {"date_from":"2026-09-10","date_to":"2026-09-10"}
 HTTP 200 POST api-seller.ozon.ru/v1/finance/products/buyout
 ratelimit-remaining: 0
 
@@ -210,7 +220,7 @@ ratelimit-remaining: 0
 ```
 
 ```
-$ mpu call-ro ozon target: 54 cabinet: 2129958 path: /v1/finance/products/buyout body: {"date_from":"2026-09-10","date_to":"2026-09-10"}
+$ mpu ozon call-ro target: 54 cabinet: 2129958 path: /v1/finance/products/buyout body: {"date_from":"2026-09-10","date_to":"2026-09-10"}
 HTTP 429 POST api-seller.ozon.ru/v1/finance/products/buyout
 ratelimit-remaining: 0
 retry-after: 1
@@ -221,7 +231,7 @@ retry-after: 1
 }
 ```
 
-Для WB и `perf` — **догадка** по коду `sl-back` (`wbFetchNew.base.service.js:105-108`,
+Для WB и `ozon perf` — **догадка** по коду `sl-back` (`wbFetchNew.base.service.js:105-108`,
 `ozonFetchService.js:399-425`); снимает реализующая сессия первым живым
 вызовом на тестовом кабинете, хост сверяет.
 
@@ -235,24 +245,19 @@ retry-after: 1
   **fix**: здесь токен подставляет сервер `mpu`. Реестр чтения переиспользует
   его строки.
 
-## Открытые вопросы
+## Решено хостом 2026-09-25 (владелец может пересмотреть — `mpu/docs/owner-questions.md`)
 
-1. **Посев политики `call-ro`: `allow` или `ask`.** Чтение не меняет данных, но
-   тратит квоту клиента и конкурирует с загрузчиками. Рекомендация — `allow`
-   (правило «`ro` → `allow`»), с возможностью владельца сузить по цели:
-   `ask: call-ro ozon target: <клиент>` или `deny:` для боевых кабинетов.
-2. **Кабинеты вертикали `ozon` на стендах** (`ozon_tokens`,
-   `ozon_performance_tokens` в БД контура, доступ через `ssh ozon-dev`).
-   Рекомендация — вторым шагом: селектор `dev-ozon:<контур>`, тот же получатель
-   `ozon`, другой источник ключа.
-3. **Журнал без тела ответа** требует от `platform/invoke-log.md` режима «не
-   писать stdout» на уровне команды (сейчас есть только `logsArguments`).
-   Рекомендация — расширить журнал этим признаком в той же порции.
-4. **Выход в сеть с хоста `mpu`.** Сервер в Германии; Ozon отвечает оттуда (проба
-   25.09: 200 и 429 с заголовками), но учёт квоты по IP не исключён. Если
-   владелец хочет, чтобы вызовы шли с адреса загрузчиков, нужен транспорт через
-   `ssh` к `ozon-dev` (`platform/exec-transport.md`). Рекомендация — прямой
-   выход, транспорт вариантом позже, если замер покажет разницу.
+1. **Посев `call-ro` — `allow`** по правилу «`ro` → `allow`» (`platform/policy.md`,
+   «Посев»); сужение по цели — правилом владельца (`ask:`/`deny:` на путь).
+2. **Кабинеты вертикали `ozon` на стендах** — не в этой порции; следующим шагом
+   селектор `dev-ozon:<контур>`, тот же получатель `ozon`.
+3. **Журнал без тела ответа** — в этой порции: признак команды «stdout в журнал
+   не писать» рядом с `logsArguments` (`platform/invoke-log.md` дополняется
+   этой порцией; сценарий: после `mpu ozon call-ro …` запись `mpu log limit: 1`
+   без секции `out`, с `--- end … exit=…`).
+4. **Выход в сеть** — прямой с машины `mpu` (проба 25.09 с этого хоста: 200 и
+   429 с заголовками квоты); транспорт через `ssh` — вариантом позже, если
+   замер покажет разницу по IP.
 
 ## Пункты чек-листа
 
@@ -285,8 +290,10 @@ retry-after: 1
 
 Специфика `checklists/design-mpu.md`:
 
-1. Команда — сообщение объекту — изменил: `ozon`/`wb` — сообщения объекту
-   команды, возвращающие получателя со своей справкой и ключами.
+1. Команда — сообщение объекту — изменил: `ozon`, `ozon perf`, `wb` —
+   получатели-маркетплейсы (группы дерева), `call-ro`/`call` — их сообщения
+   со своей справкой и ключами; прежний черновик (`call ozon`) держал
+   развилку по маркетплейсу внутри команды-глагола.
 2. Вид метода — реализация — изменил: `call` и `call-ro` — два объекта с разными
    объектами допуска и политикой `rw`/`ro`, не флаг `readOnly`.
 3. Решение политики у владельца — ничего: команда только объявляет `ro`/`rw`,
@@ -305,6 +312,6 @@ retry-after: 1
 8. Внешнее — переданной ссылкой — изменил: `fetch`, часы (истечение bearer) и
    сессия PG приходят параметрами получателя.
 9. Голден — снятый — изменил: примеры Ozon Seller сняты живой пробой 25.09;
-   WB и `perf` — помечены «догадка», снимает реализующая сессия.
+   WB и `ozon perf` — помечены «догадка», снимает реализующая сессия.
 10. Пропускаемая проверка — ничего: живые вызовы в тестах не используются,
     пропускаемых наборов нет.
