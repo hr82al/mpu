@@ -65,6 +65,8 @@ import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 import { Image, ImageError, type ImageMethod } from "../image/mod.ts";
 import type { Commands, MethodSource } from "../program/mod.ts";
 import { imageLineOf } from "./define.ts";
+import type { Line } from "./dispatch.ts";
+import { syncLineOf } from "./sync.ts";
 import { callsImage } from "./methods.ts";
 
 export type { RootMethod } from "./rules.ts";
@@ -354,10 +356,13 @@ export function lineEntry(ports: LinePorts): CliEntry {
       const outcome = await runChain(group, root, values);
       return { outcome, printed: texts.join("") };
     }, stdin);
-    const root = registryRoot(sessionOf(argv, speech, ports.memory), book, {
-      ...parts,
-      stripped: strippedOf(argv),
-    });
+    /** Корень строки, чью сессию `wrap` может подменить. */
+    const rootOf = (wrap: (session: Line) => Line) =>
+      registryRoot(wrap(sessionOf(argv, speech, ports.memory)), book, {
+        ...parts,
+        stripped: strippedOf(argv),
+      });
+    const root = rootOf((session) => session);
     const said = walked.slice(door.length);
     /**
      * Команда программы — отдельной строкой той же дверью: правила в
@@ -413,8 +418,19 @@ export function lineEntry(ports: LinePorts): CliEntry {
       now: imaging.now,
       changed: imaging.changed,
       journaled: () => journal.nativeCall(programPolicy(said)),
+      io: lineIo,
+      walk: async (wrap: (session: Line, words: readonly string[]) => Line) =>
+        printed(
+          await runChain(
+            walked,
+            rootOf((session) => wrap(session, argv)),
+            values,
+          ),
+          speech,
+        ),
     };
-    return await imageLineOf(said).settle(context, async () => {
+    const line = imageLineOf(said, syncLineOf(said));
+    return await line.settle(context, async () => {
       if (!isProgram(said, commands) && !callsImage(said, methods)) {
         return printed(await runChain(walked, root, values), speech);
       }

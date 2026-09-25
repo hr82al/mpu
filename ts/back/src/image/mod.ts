@@ -4,9 +4,37 @@
  */
 
 export { Image, ImageError } from "./image.ts";
+export { MethodAddress, Misaddressed, type Named } from "./address.ts";
 export {
+  imageSyncCommand,
+  SYNC_PATH,
+  type SyncArgs,
+  syncArgsSchema,
+} from "./cmd_sync.ts";
+export {
+  type Applier,
+  type Done,
+  Failed,
+  Plan,
+  type Preference,
+  SUCCEEDED,
+  Unparsed,
+} from "./plan.ts";
+export {
+  BaseMethod,
+  type FilesRead,
+  keyOf,
+  type MethodFile,
+  readFiles,
+  type Receivers,
+  UnreadableDir,
+} from "./sides.ts";
+export {
+  blockParams,
+  canonicalLine,
   DEFINE,
   isPlain,
+  KEYS,
   PURPOSE,
   type Said,
   saidOf,

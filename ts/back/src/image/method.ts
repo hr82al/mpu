@@ -6,6 +6,7 @@
 
 import { createHash } from "node:crypto";
 import { type MethodSource, nameParts } from "../program/mod.ts";
+import { canonicalLine } from "./definition.ts";
 
 /** Поля метода, как их пишет и читает файл образа. */
 export interface MethodRecord {
@@ -59,6 +60,15 @@ export class ImageMethod {
   /** sha256 исходника текстом, hex. */
   hash(): string {
     return createHash("sha256").update(this.text()).digest("hex");
+  }
+
+  /**
+   * Строка определения метода — как её пишет файл метода каталога образа
+   * (`image-sync.md`, «Файл метода»): назначение и ключи входят в неё.
+   */
+  definition(): string {
+    const { receiver, name, purpose, keys, words } = this.#record;
+    return canonicalLine({ receiver, name, purpose, keys, body: words });
   }
 
   /** Части имени ключами (`cardsIn:`, `since:`); у унарного — нет. */

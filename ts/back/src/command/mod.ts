@@ -463,6 +463,12 @@ interface CommandDeclaration<A, R> {
    * только форматы. Без объявления — значение.
    */
   readonly streams?: (args: A) => boolean;
+  /**
+   * Результат — текст, как справка метода (`image-sync.md`,
+   * «CLI-контракт»): форматов и отбора нет, слово после `end` — отказ
+   * до исполнения. Без объявления — данные.
+   */
+  readonly text?: true;
 }
 
 /**
@@ -621,6 +627,8 @@ export interface Command {
   readonly textExitCode: (result: unknown) => number;
   /** Голый вызов печатает справку и завершается кодом 2. */
   readonly helpWhenBare: boolean;
+  /** Результат — текст: сообщений результату не понимает. */
+  readonly text: boolean;
   /** Форматы результата сверх `json`: имя → слова прежнего флага. */
   readonly formats: Readonly<Record<string, readonly string[]>>;
   /** Ключи команды: имя ключа → вход; команда с хвостом — нет. */
@@ -735,6 +743,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     renderResult: (result, argv) =>
       spec.render(spec.resultSchema.parse(result), parse(argv)),
     helpWhenBare: spec.helpWhenBare ?? false,
+    text: spec.text === true,
     formats: { ...spec.formats },
     ...(spec.keys === undefined ? {} : { keys: { ...spec.keys } }),
     retired: { ...spec.retired },

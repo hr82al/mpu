@@ -200,11 +200,52 @@ function formatDoc(name: string): Doc {
   };
 }
 
+/** Результат глазами листа ключевой команды: форматы, отбор, закрытие. */
+export interface Results {
+  /** Имена форматов по алфавиту. */
+  names(): readonly string[];
+  /** Понимает ли результат ключевое сообщение `selector` отбором. */
+  selects(selector: string): boolean;
+  /** Сообщение отбора `named` результату строки `pending`. */
+  select(pending: Pending, named: Named): Call;
+  /** Закрытие вида с состоянием `S`: строку к исполнению даёт `pending`. */
+  closing<S>(pending: (self: S) => Pending): Closing<S>;
+}
+
+const TEXT_DOC: Doc = {
+  purpose: "текст",
+  help: `Результат — текст: слово после ${GRAMMAR.close} он не понимает.`,
+};
+
+/**
+ * Результат — текст, как справка метода (`image-sync.md`, «CLI-контракт»):
+ * форматов и отбора нет, слово после закрытия — отказ до исполнения.
+ */
+export const TEXT_RESULT: Results = {
+  names: () => [],
+  selects: () => false,
+  select: () => {
+    throw new Error("отбор у текста не вызывается: selects — false");
+  },
+  closing: <S>(): Closing<S> => ({
+    close: (self: S) => {
+      const text = new Shape<S>([]);
+      return new AsideCall(
+        GRAMMAR.close,
+        TEXT_DOC,
+        text,
+        () => text.receive(self),
+      );
+    },
+    formats: () => [],
+  }),
+};
+
 /**
  * Результат команды: форматы (имя → слова прежнего флага), отбор и
  * исполнение в конце строки.
  */
-export class ResultOf {
+export class ResultOf implements Results {
   readonly #names: readonly string[];
   readonly #shape: Shape<Pending>;
   readonly #kind: ResultKind;

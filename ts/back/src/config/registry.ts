@@ -56,6 +56,19 @@ export interface ConfigKey {
   readonly description: string;
 }
 
+/**
+ * Каталог файлов образа (`platform/config.md`, «Ключ `image.dir`»). Его
+ * умолчание — и граница права записи строки `image sync`
+ * (`image-sync.md`): каталог — оно или под ним.
+ */
+export const IMAGE_DIR: ConfigKey = {
+  key: "image.dir",
+  type: "str",
+  fallback: underHome("mr/mp/mpu/image"),
+  description:
+    "Каталог файлов методов образа для `mpu image sync` и `mpu image export`",
+};
+
 /** Ключи по порядку объявления — в этом же порядке их печатает вывод. */
 export const CONFIG_KEYS: readonly ConfigKey[] = [
   {
@@ -89,13 +102,7 @@ export const CONFIG_KEYS: readonly ConfigKey[] = [
     fallback: fixed("500"),
     description: "Общий потолок кэша листов, МБ",
   },
-  {
-    key: "image.dir",
-    type: "str",
-    fallback: underHome("mr/mp/mpu/image"),
-    description:
-      "Каталог файлов методов образа для `mpu image sync` и `mpu image export`",
-  },
+  IMAGE_DIR,
 ];
 
 /** Ключ реестра по имени; имени нет в списке — `undefined`. */

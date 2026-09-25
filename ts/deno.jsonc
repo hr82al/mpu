@@ -449,16 +449,23 @@
     //     исполнителе. `Deno.env.get` без права бросает `NotCapable`, и
     //     `mpu-back` не стартует — снятие роняет весь `deno task smoke`
     //     (замер 166a: «mpu-back не сообщил адрес»).
+    //   — `--allow-write=…,$HOME/mr/mp/mpu/image`: каталог образа
+    //     (`image-sync.md`, «CLI-контракт») — файлы методов пишет ядро
+    //     строкой `image sync`. У `worker`, `compile:back` и
+    //     `compile:worker` путь тот же: их права обязаны совпадать с
+    //     правами `back` (`supervisor/src/tasks_test.ts`). Снятие у всех
+    //     четырёх роняет `deno task smoke` (вместо `новый файл` —
+    //     `сбой`), у одной — `supervisor/src/tasks_test.ts`.
     //   — `--worker back/scripts/worker.sh`: из исходников рядом с
     //     `deno` программы `mpu-worker` нет, исполнитель — задача
     //     `worker` тех же исходников.
-    "back": "deno run --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/back.ts --worker back/scripts/worker.sh",
+    "back": "deno run --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/back.ts --worker back/scripts/worker.sh",
     // Исполнитель строк `mpu-worker` (`platform/line-executor.md`): та же
     // программа команд, что и ядро, поэтому права — ровно права `back`
     // (спека: «права `compile:worker` = права `compile:back`»). Своего
     // права на `/proc/self/oom_score_adj` нет: Deno к `/proc` не пускает
     // ни при каком списке, значение ставит `/bin/sh`-обёртка запуска.
-    "worker": "deno run --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/worker.ts",
+    "worker": "deno run --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/worker.ts",
     // Тонкий клиент `mpu` (`docs/specs/cli-client.md`): сам ничего
     // не исполняет, поэтому прав — ровно на разговор с сервером строк:
     //   — `--allow-net=127.0.0.1`: сервер слушает только петлю
@@ -533,8 +540,8 @@
     // (он нужен фронту) `deno compile` вшивал его целиком — Vite, jsdom,
     // React, +61 МБ к каждому бинарю (замер порции 148); так вшиваются
     // только пакеты графа программы.
-    "compile:back": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
-    "compile:worker": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/worker.ts",
+    "compile:back": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
+    "compile:worker": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/worker.ts",
     "compile:mcp": "deno compile --node-modules-dir=none --exclude-unused-npm --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT mcp/main.ts",
     "compile:cli": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=/usr/bin/wl-copy,/usr/bin/xclip,/usr/bin/xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,WT_SESSION,OS -o $MPU_OUT cli/main.ts",
     "compile:complete": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.cache/mpu/tree.json,$HOME/.config/mpu/token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT complete/main.ts",

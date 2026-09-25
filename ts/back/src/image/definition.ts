@@ -12,7 +12,7 @@ export const DEFINE = "define:";
 /** Ключ назначения — обязателен. */
 export const PURPOSE = "purpose:";
 /** Ключ описания ключей для справки. */
-const KEYS = "keys:";
+export const KEYS = "keys:";
 
 /** Слова грамматики: получателем они не бывают. */
 const GRAMMAR_WORDS: ReadonlySet<string> = new Set(Object.values(GRAMMAR));
@@ -74,6 +74,19 @@ export function saidOf(rest: readonly string[]): Said {
   return { purpose, keys, body: at, unclosed: undefined };
 }
 
+/** Число параметров блока `do :a :b … done` — слов `:x` за его открытием. */
+export function blockParams(body: readonly string[]): number {
+  if (body[0] !== GRAMMAR.open) return 0;
+  let count = 0;
+  while (isParameter(body[count + 1])) count++;
+  return count;
+}
+
+function isParameter(word: string | undefined): boolean {
+  return word !== undefined && word.length > GRAMMAR.parameter.length &&
+    word.startsWith(GRAMMAR.parameter);
+}
+
 /**
  * Имя, как оно хранится: `cardsIn` ≡ `cardsIn:`; с двоеточием или с
  * параметрами — каждая часть с двоеточием, иначе унарное как написано.
@@ -83,4 +96,29 @@ export function storedName(written: string, params: number): string {
   if (!written.includes(":") && params === 0) return written;
   return written.split(":").filter((part) => part !== "")
     .map((part) => `${part}:`).join("");
+}
+
+/**
+ * Каноническая строка определения — то, что хэшируется решением
+ * синхронизации и пишется в файл метода (`image-sync.md`, «Решение по
+ * методу»): слова через один пробел, `keys:` при пустом описании нет.
+ */
+export function canonicalLine(parts: {
+  readonly receiver: readonly string[];
+  readonly name: string;
+  readonly purpose: string;
+  readonly keys: string;
+  readonly body: readonly string[];
+}): string {
+  const q = GRAMMAR.quote;
+  const keys = parts.keys === "" ? [] : [KEYS, `${q}${parts.keys}${q}`];
+  return [
+    ...parts.receiver,
+    DEFINE,
+    parts.name,
+    PURPOSE,
+    `${q}${parts.purpose}${q}`,
+    ...keys,
+    ...parts.body,
+  ].join(" ");
 }

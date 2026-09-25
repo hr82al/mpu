@@ -32,6 +32,7 @@ import {
 import { envFilePath, makeEnvFile } from "../src/env/mod.ts";
 import { ALLOW, RuleBook, RulePath } from "../src/policy/mod.ts";
 import { policyFile } from "../src/line/mod.ts";
+import { Image, imageFile, ImageMethod } from "../src/image/mod.ts";
 import { makeEnvFileStore } from "../src/runtime/mod.ts";
 import { denoSession } from "../src/sql/mod.ts";
 import {
@@ -190,6 +191,7 @@ const ALLOWED: readonly string[] = [
   "config",
   "copy-dev",
   "d2-miro",
+  "image sync",
   "init",
   "ssh",
   "telegram send",
@@ -213,6 +215,25 @@ function allowLines(home: string): void {
   if (file === undefined) throw new Error("каталога состояния нет");
   using book = RuleBook.open(file, []);
   for (const path of ALLOWED) book.set(RulePath.parse(path), ALLOW);
+}
+
+/**
+ * Метод образа прогона — прямой записью в `image.db` каталога состояния:
+ * строка `define:` спросила бы человека, а спросить в прогоне некого.
+ */
+function seedImageMethod(home: string): void {
+  using image = Image.at(imageFile(`${home}/.config/mpu`));
+  image.define(
+    new ImageMethod({
+      receiver: ["kiten"],
+      name: "probe",
+      words: ["do", "kiten", "whoami", "done"],
+      purpose: "проба",
+      keys: "",
+      author: "human",
+      time: "2026-09-25T00:00:00.000Z",
+    }),
+  );
 }
 
 /** Отсутствие файла как утверждение: есть — проверка красная. */
@@ -1203,6 +1224,23 @@ function checks(subject: Subject): readonly Check[] {
         );
       },
     ],
+    // Право на каталог образа (`image-sync.md`, `design-mpu.md` п. 6):
+    // файлы методов пишет ядро строкой `image sync`, и без права записи
+    // `$HOME/mr/mp/mpu/image` строка отвечает `сбой`, код 1. Тесты этого
+    // не видят — они идут с широкими правами. Метод посеян записью в
+    // `image.db`, правило `image sync` — `allow` (`ALLOWED`): вопроса
+    // в прогоне задать некому.
+    ["каталог образа: право записи зашито в бинарь", async () => {
+      seedImageMethod(subject.home);
+      await Deno.mkdir(`${subject.home}/mr/mp/mpu`, { recursive: true });
+      const outcome = await run(subject, ["image", "sync"]);
+      assertEquals(
+        [outcome.code, outcome.stdout],
+        [0, "новый файл\tkiten probe\nсовпало 0, изменено 1, конфликтов 0\n"],
+        `stderr: ${outcome.stderr}`,
+      );
+      await Deno.stat(`${subject.home}/mr/mp/mpu/image/kiten/probe.mpu`);
+    }],
     ["sql-ro: выброшенный sw-маршрут отказывает, а не резолвит", async () => {
       // Отказ печатает собранный бинарь: маршрута воркспейсов больше
       // нет, а алиас остаётся распознанным ради причины по делу.

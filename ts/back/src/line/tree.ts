@@ -57,6 +57,7 @@ import {
   NO_FIELD,
   Pending,
   ResultOf,
+  TEXT_RESULT,
 } from "./result.ts";
 import { ruleMethods } from "./rules.ts";
 import { imageEntries, imageKeys } from "./methods.ts";
@@ -210,7 +211,10 @@ function tailKind(path: readonly string[]): TailKind {
 export function formatsOf(
   path: readonly string[],
 ): Record<string, readonly string[]> {
-  return { json: [JSON_FLAG], ...findCommand(path)?.formats };
+  const command = findCommand(path);
+  // Результат-текст форматов не понимает, `json` в их числе.
+  if (command?.text === true) return {};
+  return { json: [JSON_FLAG], ...command?.formats };
 }
 
 /**
@@ -260,7 +264,9 @@ function leafShape(
     command,
     layout: ahead ? SELECTOR_AHEAD : BY_PATH,
     doc,
-    results: new ResultOf(formatsOf(path), sight, fieldOf(path)),
+    results: command.text
+      ? TEXT_RESULT
+      : new ResultOf(formatsOf(path), sight, fieldOf(path)),
     settle,
     stripped: sight.stripped,
     targets: sight.targets,

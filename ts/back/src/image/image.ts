@@ -25,12 +25,20 @@ CREATE TABLE IF NOT EXISTS methods (
   time TEXT NOT NULL,
   hash TEXT NOT NULL,
   PRIMARY KEY (receiver, name)
+);
+CREATE TABLE IF NOT EXISTS archive (
+  dir TEXT NOT NULL,
+  method TEXT NOT NULL,
+  hash TEXT NOT NULL,
+  PRIMARY KEY (dir, method)
 );`;
 
 /** Файл ещё не открыт: его нет или его ещё не спрашивали. */
 interface Shelf {
   /** Методы файла, каким он стал к этому моменту. */
   methods(): readonly ImageMethod[];
+  /** Архив синхронизации каталога `dir`: метод → хэш. */
+  archive(dir: string): Map<string, string>;
   /** Соединение для записи; файла нет — создать. */
   writable(): Opened;
   close(): void;
@@ -39,6 +47,7 @@ interface Shelf {
 /** Каталога состояния нет: образ пуст, записать некуда. */
 const HOMELESS: Shelf = {
   methods: () => [],
+  archive: () => new Map(),
   writable: () => {
     throw new ImageError("образ: каталог состояния не задан (нет HOME)");
   },
@@ -77,6 +86,26 @@ class Opened implements Shelf {
 
   writable(): Opened {
     return this;
+  }
+
+  archive(dir: string): Map<string, string> {
+    const rows = this.#db.prepare(
+      "SELECT method, hash FROM archive WHERE dir = ?",
+    ).all(dir);
+    return new Map(rows.map((row) => [String(row.method), String(row.hash)]));
+  }
+
+  /** Строка архива каталога `dir` по методу `method`. */
+  archived(dir: string, method: string, hash: string) {
+    this.#db.prepare(
+      "INSERT OR REPLACE INTO archive (dir, method, hash) VALUES (?, ?, ?)",
+    ).run(dir, method, hash);
+  }
+
+  /** Снимает строку архива каталога `dir` по методу `method`. */
+  unarchived(dir: string, method: string) {
+    this.#db.prepare("DELETE FROM archive WHERE dir = ? AND method = ?")
+      .run(dir, method);
   }
 
   /** Записывает метод (заменяет прежний того же имени у того же получателя). */
@@ -166,6 +195,11 @@ class Closed implements Shelf {
     return this.#open().methods();
   }
 
+  archive(dir: string): Map<string, string> {
+    if (!exists(this.#file)) return new Map();
+    return this.#open().archive(dir);
+  }
+
   writable(): Opened {
     const cut = this.#file.lastIndexOf("/");
     if (cut > 0) Deno.mkdirSync(this.#file.slice(0, cut), { recursive: true });
@@ -237,6 +271,34 @@ export class Image implements Disposable {
    */
   forget(receiver: readonly string[], name: string): boolean {
     return guarded(() => this.#shelf.writable().forget(receiver, name));
+  }
+
+  /**
+   * Архив синхронизации каталога `dir` (`image-sync.md`): метод → хэш
+   * строки определения на прошлой синхронизации. Нет файла — пуст.
+   *
+   * @throws ImageError — файл не открылся или не читается
+   */
+  archive(dir: string): Map<string, string> {
+    return guarded(() => this.#shelf.archive(dir));
+  }
+
+  /**
+   * Записывает строку архива каталога `dir` по методу `method`.
+   *
+   * @throws ImageError — записать некуда или нельзя
+   */
+  archived(dir: string, method: string, hash: string) {
+    guarded(() => this.#shelf.writable().archived(dir, method, hash));
+  }
+
+  /**
+   * Снимает строку архива каталога `dir` по методу `method`.
+   *
+   * @throws ImageError — файл нельзя изменить
+   */
+  unarchived(dir: string, method: string) {
+    guarded(() => this.#shelf.writable().unarchived(dir, method));
   }
 
   [Symbol.dispose]() {

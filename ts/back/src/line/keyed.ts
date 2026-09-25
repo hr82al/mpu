@@ -25,7 +25,7 @@ import {
 import type { Line } from "./dispatch.ts";
 import { formatAsFlag, Keys, type Layout, NO_REST, type Rest } from "./keys.ts";
 import type { Order } from "./order.ts";
-import { Pending as PendingOf, type ResultOf, type Settle } from "./result.ts";
+import { Pending as PendingOf, type Results, type Settle } from "./result.ts";
 import {
   type Chosen,
   type Misplaced,
@@ -150,7 +150,7 @@ export interface KeyedParts {
   /** Раскладка строки прежней диспетчеризации. */
   readonly layout: Layout;
   readonly doc: Doc;
-  readonly results: ResultOf;
+  readonly results: Results;
   readonly settle: Settle;
   readonly stripped: Stripped;
   /** Значения ключа `target:` для дополнения. */

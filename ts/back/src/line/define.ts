@@ -42,6 +42,8 @@ import {
   refusalOf,
   type Root,
 } from "../program/mod.ts";
+import type { CommandIo } from "../command/mod.ts";
+import type { Line } from "./dispatch.ts";
 import { printed, type Speech } from "./printed.ts";
 import { registryNodes, type TreeNode } from "./tree.ts";
 import { ASK_WORD, NEEDS_DOOR, NORMAL, type View } from "./view.ts";
@@ -80,7 +82,22 @@ export interface ImageContext {
    * как любой команде (`platform/image.md`, «Журнал вызовов»).
    */
   readonly journaled: () => void;
+  /** Окружение строки: `HOME`, `cwd`, кэш-БД с ключом `image.dir`. */
+  readonly io: Pick<CommandIo, "env" | "cwd" | "openCacheDb">;
+  /**
+   * Строка обычной цепочкой, где исполнение листа — у `wrap`: сессию
+   * строки и её слова он получает, строку, которой исполнять, отдаёт.
+   */
+  readonly walk: (
+    wrap: (session: Line, words: readonly string[]) => Line,
+  ) => Promise<number>;
 }
+
+/** Что нужно проверкам определения: дерево, корень, автор и часы. */
+export type Checking = Pick<
+  ImageContext,
+  "said" | "commands" | "root" | "author" | "now"
+>;
 
 /** Строка образа: определение, удаление или ни то ни другое. */
 export interface ImageLine {
@@ -92,10 +109,12 @@ export interface ImageLine {
 }
 
 /** Не строка образа: исполняется, как прежде. Null-объект модуля. */
-const NOT_IMAGE: ImageLine = { settle: (_context, otherwise) => otherwise() };
+export const NOT_IMAGE: ImageLine = {
+  settle: (_context, otherwise) => otherwise(),
+};
 
 /** Строку набрали не так: отказ до записи. */
-class Misdefined extends Error {
+export class Misdefined extends Error {
   override name = "Misdefined";
   readonly refused: Refused;
 
@@ -117,17 +136,30 @@ function misdefined(
 
 /**
  * Строка образа по словам без входа двери: получатель — голые слова до
- * первого `define:` или `forget:`.
+ * первого `define:` или `forget:`; иначе — `otherwise`.
  */
-export function imageLineOf(said: readonly string[]): ImageLine {
+export function imageLineOf(
+  said: readonly string[],
+  otherwise: ImageLine = NOT_IMAGE,
+): ImageLine {
   const at = said.findIndex((word) => word === DEFINE || word === FORGET);
-  if (at < 1 || !said.slice(0, at).every(isPlain)) return NOT_IMAGE;
+  if (at < 1 || !said.slice(0, at).every(isPlain)) return otherwise;
   const receiver = said.slice(0, at);
   if (said[at] === FORGET) {
-    if (said.length !== at + 2) return NOT_IMAGE;
+    if (said.length !== at + 2) return otherwise;
     return new Forgetting(receiver, said[at + 1]);
   }
   return new Definition(receiver, said.slice(at + 1), at + 1);
+}
+
+/**
+ * Определение по словам строки определения, уже найденной разбором файла
+ * метода (`image-sync.md`, «Запись стороны базы»): получатель — до
+ * `define:`.
+ */
+export function definitionOf(words: readonly string[]): Definition {
+  const at = words.indexOf(DEFINE);
+  return new Definition(words.slice(0, at), words.slice(at + 1), at + 1);
 }
 
 /** Адресный отказ строке, набранной без двери. */
@@ -157,7 +189,7 @@ function broken(err: unknown, speech: Speech): number {
  * Решение правил пути `links` (посев `ask` на первом касании) у взгляда
  * строки; «да» — `run`.
  */
-function ruled(
+export function ruled(
   context: ImageContext,
   links: readonly string[],
   run: () => Promise<number>,
@@ -194,7 +226,7 @@ function ruled(
 }
 
 /** Определение метода. */
-class Definition implements ImageLine {
+export class Definition implements ImageLine {
   readonly #receiver: readonly string[];
   /** Слова после `define:`: имя, ключи, тело. */
   readonly #rest: readonly string[];
@@ -214,7 +246,7 @@ class Definition implements ImageLine {
   async settle(context: ImageContext): Promise<number> {
     let checked;
     try {
-      checked = this.#checked(context);
+      checked = this.checked(context);
     } catch (err) {
       if (!(err instanceof Misdefined)) throw err;
       context.journaled();
@@ -229,8 +261,14 @@ class Definition implements ImageLine {
     );
   }
 
-  /** Проверки по порядку таблицы спеки: получатель, назначение, тело, имя. */
-  #checked(context: ImageContext) {
+  /**
+   * Метод строки, прошедший проверки по порядку таблицы спеки
+   * (получатель, назначение, тело, имя), и обход его тела; правил и
+   * вопроса нет.
+   *
+   * @throws Misdefined — строку набрали не так
+   */
+  checked(context: Checking) {
     const node = receiverNode(this.#receiver);
     if (node === undefined) {
       throw misdefined(this.#receiver, "метод — только у команды или группы");
@@ -272,7 +310,7 @@ class Definition implements ImageLine {
   }
 
   /** Тело — блок `do … done`, разобранный как программа. */
-  #body(context: ImageContext, at: number) {
+  #body(context: Checking, at: number) {
     const words = this.#rest.slice(at);
     try {
       return parseMethodBody(words, context.commands, context.root);
