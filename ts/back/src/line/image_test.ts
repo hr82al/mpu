@@ -125,6 +125,8 @@ Deno.test("метод отвечает протоколу: messages, understands
         author: "human",
         time: "2026-09-23T10:00:00.000Z",
         source: "do :col kiten ls where: column is: @col done",
+        definition:
+          "kiten define: cardsIn: purpose: ^мои в колонке^ keys: ^id колонки^ do :col kiten ls where: column is: @col done",
       });
     })
   ));

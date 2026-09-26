@@ -377,11 +377,13 @@
       "additionalProperties": false
     },
     "rpc.tree.snapshot": {
-      "description": "Результат tree.snapshot: узлы дерева команд в глубину, дети по алфавиту.",
+      "description": "Результат tree.snapshot: узлы дерева команд в глубину, дети по алфавиту; сообщения отбора (selection) и протокол, который понимает любой объект (protocol), — по алфавиту.",
       "type": "object",
       "required": [
         "version",
-        "nodes"
+        "nodes",
+        "selection",
+        "protocol"
       ],
       "properties": {
         "version": {
@@ -391,6 +393,18 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/treeNode"
+          }
+        },
+        "selection": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/messageLine"
+          }
+        },
+        "protocol": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/messageLine"
           }
         }
       },
@@ -408,14 +422,16 @@
       "type": "object"
     },
     "treeNode": {
+      "description": "Узел снимка — вывод протокола отражения вида (platform/reflection.md); у метода образа — поле image.",
       "type": "object",
       "required": [
         "path",
         "summary",
-        "selectors",
         "tail",
-        "flags",
-        "summaries"
+        "messages",
+        "keys",
+        "formats",
+        "variants"
       ],
       "properties": {
         "path": {
@@ -427,45 +443,141 @@
         "summary": {
           "type": "string"
         },
-        "selectors": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
         "tail": {
           "type": [
             "string",
             "null"
           ]
         },
-        "flags": {
-          "description": "Флаги команды: длинная форма и короткая отдельной записью; --help не входит; у групп — пусто.",
+        "messages": {
           "type": "array",
           "items": {
-            "type": "object",
-            "required": [
-              "name",
-              "summary"
-            ],
-            "properties": {
-              "name": {
-                "type": "string",
-                "pattern": "^--?[^-]"
-              },
-              "summary": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
+            "$ref": "#/$defs/messageLine"
           }
         },
-        "summaries": {
-          "description": "Назначения собственных селекторов без своего узла (allow:, ask:, deny:, forget:, policy у корня).",
-          "type": "object",
-          "additionalProperties": {
+        "keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/keyLine"
+          }
+        },
+        "formats": {
+          "type": "array",
+          "items": {
             "type": "string"
           }
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/variantLine"
+          }
+        },
+        "image": {
+          "description": "Метод образа (web-image.md): кто и когда определил, исходник, строка определения — текст правки.",
+          "type": "object",
+          "required": [
+            "author",
+            "time",
+            "source",
+            "definition"
+          ],
+          "properties": {
+            "author": {
+              "type": "string"
+            },
+            "time": {
+              "type": "string"
+            },
+            "source": {
+              "type": "string"
+            },
+            "definition": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "messageLine": {
+      "description": "Сообщение, которое понимает объект: ключевое — первым ключом.",
+      "type": "object",
+      "required": [
+        "selector",
+        "kind",
+        "purpose"
+      ],
+      "properties": {
+        "selector": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "unary",
+            "keyword"
+          ]
+        },
+        "purpose": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "keyLine": {
+      "description": "Ключ ключевого сообщения команды.",
+      "type": "object",
+      "required": [
+        "name",
+        "kind",
+        "required",
+        "purpose",
+        "reason"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "value",
+            "flag",
+            "list"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "variantLine": {
+      "description": "Вариант команды: слово, назначение и вход, который он задаёт.",
+      "type": "object",
+      "required": [
+        "selector",
+        "purpose",
+        "input"
+      ],
+      "properties": {
+        "selector": {
+          "type": "string"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "input": {
+          "type": "string"
         }
       },
       "additionalProperties": false

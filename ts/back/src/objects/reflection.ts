@@ -10,7 +10,7 @@ import type {
   KeywordMethod,
   ReceiverDescription,
 } from "../messages/mod.ts";
-import { dataHelp, ended } from "./result.ts";
+import { dataHelp, ended, HELP_DOC } from "./result.ts";
 import { Description, keyword, type Method, unary } from "./method.ts";
 import { order } from "./nearest.ts";
 import { atAddress, NO_REMEDY } from "./remedy.ts";
@@ -276,6 +276,31 @@ export function keyLines(method: KeywordMethod): KeyLine[] {
     purpose: method.purposes?.[name] ?? "",
     reason: method.reasons?.[name] || null,
   }));
+}
+
+/**
+ * Метод сообщением: унарный — словом, ключевой — первым ключом; назначение
+ * — его собственное.
+ */
+export function messageOf<S>(method: Method<S>): MessageLine {
+  const into = new Description();
+  method.describe(into);
+  const signature = into.build().keyword[0];
+  const line = method.line();
+  return signature === undefined
+    ? { selector: line.selector, kind: "unary", purpose: line.purpose }
+    : keywordLine(signature, line.purpose);
+}
+
+/**
+ * Протокол, который понимает любой объект, сообщениями по алфавиту — для
+ * снимка дерева (`web-image.md`, «протокол корня»).
+ */
+export function protocolMessages(): MessageLine[] {
+  return sorted([
+    ...PROTOCOL.map(messageOf),
+    { selector: HELP_SELECTOR, kind: "unary", purpose: HELP_DOC.purpose },
+  ]);
 }
 
 /** Сообщения по алфавиту селектора. */

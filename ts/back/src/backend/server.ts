@@ -17,6 +17,7 @@ import {
   lineEntry,
   policyTree,
   programFiles,
+  protocolMessages,
   registryNodes,
   rulesOf,
   selectionMessages,
@@ -93,7 +94,10 @@ export interface BackOptions {
   readonly fs?: SnapshotFs;
   /** Генератор номера подтверждения; по умолчанию — случайный. */
   readonly newTicket?: () => string;
-  /** Текущее время, мс, для памяти результатов; по умолчанию — часы. */
+  /**
+   * Текущее время, мс: память результатов, имена файлов вывода и время
+   * определения метода образа; по умолчанию — часы.
+   */
   readonly now?: () => number;
   /** Ключи и сессии входа в браузере. */
   readonly web: WebAccess;
@@ -363,15 +367,18 @@ class Back {
   readonly #image: Image;
   /** Снимок дерева: пересобирается, когда меняется образ. */
   #snapshot: unknown;
+  /** Часы сервера: память результатов и время образа. */
+  readonly #now: () => number;
 
   constructor(options: BackOptions) {
     this.#options = options;
+    this.#now = options.now ?? Date.now;
     this.#image = Image.at(options.imageFile);
     this.#snapshot = snapshotOf(this.#imageMethods());
     this.#spill = {
       dir: options.spill?.dir ?? SPILL_DIR,
       threshold: options.spill?.threshold ?? SPILL_THRESHOLD,
-      now: options.now ?? Date.now,
+      now: this.#now,
       diagnose: options.diagnose,
     };
     const lines = options.lines ?? DEFAULT_LINES;
@@ -384,7 +391,7 @@ class Back {
       diagnose: options.diagnose,
     });
     this.#tickets = new Tickets(options.newTicket);
-    this.#results = new LastResults(options.now ?? Date.now);
+    this.#results = new LastResults(this.#now);
     this.#methods = new Map<string, () => unknown>([
       ["tree.snapshot", () => this.#snapshot],
       ["policy.list", () => rulesOf(options.policyFile)],
@@ -673,7 +680,7 @@ class Back {
       image: {
         image: this.#image,
         author: caller.author(door.author),
-        now: () => new Date(),
+        now: () => new Date(this.#now()),
         changed: () => this.writeSnapshot(),
       },
     });
@@ -710,6 +717,7 @@ function snapshotOf(image: readonly ImageMethod[]) {
     version: VERSION,
     nodes: registryNodes(image),
     selection: selectionMessages(),
+    protocol: protocolMessages(),
   };
 }
 

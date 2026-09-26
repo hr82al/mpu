@@ -58,6 +58,8 @@ Deno.test("define: — запись сразу видна, файл создан
       author: "human",
       time: "2026-09-23T10:00:00.000Z",
       source: "do :column kiten ls where: column is: @column done",
+      definition:
+        "kiten define: cardsIn: purpose: ^мои в колонке^ do :column kiten ls where: column is: @column done",
     });
     assertEquals(method.source().source, CARDS_IN.source().source);
   }));

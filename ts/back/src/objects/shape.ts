@@ -9,6 +9,7 @@ import { GRAMMAR } from "../messages/mod.ts";
 import {
   keyLines,
   keywordLine,
+  messageOf,
   reflected,
   sorted,
   spelled,
@@ -200,15 +201,7 @@ export class Shape<S> implements Yields<S> {
    * тоже первым ключом.
    */
   #messages(): MessageLine[] {
-    const own = this.#listed().map((method): MessageLine => {
-      const into = new Description();
-      method.describe(into);
-      const signature = into.build().keyword[0];
-      const line = method.line();
-      return signature === undefined
-        ? { selector: line.selector, kind: "unary", purpose: line.purpose }
-        : keywordLine(signature, line.purpose);
-    });
+    const own = this.#listed().map(messageOf);
     const fallback = this.#fallbackKeyword().map((one) => keywordLine(one));
     return sorted([...own, ...fallback]);
   }

@@ -81,7 +81,7 @@ export {
 export { LastResults, type Memory, NO_CALLER } from "./it.ts";
 
 export { registryNodes, type TreeNode } from "./tree.ts";
-export { selectionMessages } from "../objects/mod.ts";
+export { protocolMessages, selectionMessages } from "../objects/mod.ts";
 
 /** Действующее решение узла дерева (`specs/web.md`, «Действующие решения»). */
 export interface NodeRuling {

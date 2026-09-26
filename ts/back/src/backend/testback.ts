@@ -72,6 +72,8 @@ export interface BackSetup {
   readonly webRoot?: (dir: string) => string;
   /** Порог вывода двери агента в байтах; по умолчанию — сервера. */
   readonly spillThreshold?: number;
+  /** Часы сервера, мс; по умолчанию — настоящие. */
+  readonly now?: () => number;
 }
 
 const TOKEN = "t0ken-" + "s3cret-" + "value";
@@ -172,6 +174,7 @@ export async function withBack(
     diagnose: (line) => void diagnosed.push(line),
     fs: setup.fs,
     newTicket: setup.newTicket,
+    now: setup.now,
     web: await WebAccess.open({
       file: secretText(`${dir}/web-sessions`),
       now: () => Date.now(),

@@ -54,6 +54,7 @@ export {
   isProtocol,
   LISTED,
   messageListing,
+  protocolMessages,
   valueListing,
   wordListing,
 } from "./reflection.ts";

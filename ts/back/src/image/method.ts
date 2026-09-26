@@ -30,6 +30,8 @@ export interface MethodSnapshot {
   readonly author: string;
   readonly time: string;
   readonly source: string;
+  /** Строка определения — текст правки метода (`web-image.md`). */
+  readonly definition: string;
 }
 
 /** Метка метода образа в назначении (`messages`, справка). */
@@ -116,7 +118,12 @@ export class ImageMethod {
   /** Поле `image` узла метода в снимке дерева. */
   snapshot(): MethodSnapshot {
     const { author, time } = this.#record;
-    return { author, time, source: this.text() };
+    return {
+      author,
+      time,
+      source: this.text(),
+      definition: this.definition(),
+    };
   }
 
   /** Метод глазами программы: где, как зовётся, из чего. */
