@@ -6,8 +6,10 @@
  */
 
 import {
+  BY_RULES,
   type Command,
   type CommandIo,
+  type Consent,
   DomainError,
   formatCommandError,
   UsageError,
@@ -230,6 +232,16 @@ export function streams(argv: readonly string[]): boolean {
     if (err instanceof UsageError) return false;
     throw err;
   }
+}
+
+/**
+ * Кто решает строку `argv` (`platform/policy.md`): её команда — правила
+ * или только человек. Строка без команды — правила.
+ */
+export function consentAt(argv: readonly string[]): Consent {
+  const { args: rest } = takeJsonFlag(argv);
+  const { path, rest: args } = matchPath(rest);
+  return findCommand(path)?.consent(args) ?? BY_RULES;
 }
 
 /**

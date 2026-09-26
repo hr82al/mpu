@@ -48,6 +48,12 @@ const H = "/home/стенд";
 const IMAGE_DIR_DESCRIPTION =
   "Каталог файлов методов образа для `mpu image sync` и `mpu image export`";
 
+const TASK_HISTORY_DESCRIPTION =
+  "Глубина журнала `mpu task` в порциях: 0 — только текущая, -1 — не чистить";
+
+/** Седьмая строка списка — task.history (`task.md`, «Конфигурация»). */
+const TASK_HISTORY_LINE = "task.history               3  (default)";
+
 /** Прогон с настоящей БД во временном каталоге; `HOME` порта — `stand.home`. */
 async function withIo(
   body: (
@@ -74,7 +80,7 @@ function firstLines(text: string, n: number): string {
   return text.split("\n").slice(0, n).map((line) => `${line}\n`).join("");
 }
 
-Deno.test("список: пять строк эталона канала и шестая — image.dir (C1)", async (t) => {
+Deno.test("список: пять строк эталона канала, шестая — image.dir (C1), седьмая — task.history", async (t) => {
   // Голден снят на реестре оригинала — пять ключей; image.dir в него не
   // дописывается (`platform/config.md`, «Ключ image.dir»).
   const cases = [
@@ -92,7 +98,7 @@ Deno.test("список: пять строк эталона канала и ше
           firstLines(text, 5),
           await golden("list-default.stdout"),
         );
-        assertEquals(text.split("\n").slice(5), [line, ""]);
+        assertEquals(text.split("\n").slice(5), [line, TASK_HISTORY_LINE, ""]);
       }, { home }));
   }
 });
@@ -103,7 +109,7 @@ Deno.test("список --json: форма записи — эталон кан�
     const entries = JSON.parse(renderConfig(result, true));
     const original = JSON.parse(await golden("list-json.stdout"));
     // Первые пять записей — голден дословно, вместе с описаниями: их
-    // читает человек. Шестая — image.dir (C2).
+    // читает человек. Шестая — image.dir (C2), седьмая — task.history.
     assertEquals(entries.slice(0, 5), original);
     assertEquals(entries.slice(5), [{
       key: "image.dir",
@@ -111,6 +117,12 @@ Deno.test("список --json: форма записи — эталон кан�
       source: "default",
       default: `${H}/mr/mp/mpu/image`,
       description: IMAGE_DIR_DESCRIPTION,
+    }, {
+      key: "task.history",
+      value: "3",
+      source: "default",
+      default: "3",
+      description: TASK_HISTORY_DESCRIPTION,
     }]);
   });
 });
@@ -288,8 +300,12 @@ Deno.test("реестр закрыт: имя вне списка не созда
       const text = formatCommandError("config", err);
       const tail = (await golden("err-unknown-key.stderr")).trim()
         .split("допустимые ключи: ")[1];
-      // Состав — голден и image.dir (`platform/config.md`).
-      assertEquals(text.endsWith(`${tail}, image.dir`), true, text);
+      // Состав — голден, image.dir и task.history (`platform/config.md`).
+      assertEquals(
+        text.endsWith(`${tail}, image.dir, task.history`),
+        true,
+        text,
+      );
     });
   });
 });
@@ -360,7 +376,7 @@ Deno.test("переменные окружения на выдачу не вли
   }
 });
 
-Deno.test("реестр: шесть ключей по порядку спеки, image.dir последним", () => {
+Deno.test("реестр: семь ключей по порядку спеки, task.history последним", () => {
   assertEquals(CONFIG_KEYS.map((entry) => entry.key), [
     "sheet.default",
     "xlsx.default",
@@ -368,6 +384,7 @@ Deno.test("реестр: шесть ключей по порядку спеки,
     "sheet.cache.max_tab_bytes",
     "sheet.cache.max_total_mb",
     "image.dir",
+    "task.history",
   ]);
 });
 

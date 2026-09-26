@@ -57,6 +57,54 @@ export const NEVER_STOPPED: AbortSignal = new AbortController().signal;
 /** Объявленный класс команды: читающая или мутирующая. */
 export type Policy = "ro" | "rw";
 
+/** Чем владелец политики решает строку команды (`platform/policy.md`). */
+export interface ConsentWays<T> {
+  /** Решением правил пути строки. */
+  rules(): Promise<T>;
+  /**
+   * Только ответом человека, мимо правил («Жёсткий запрет»).
+   *
+   * @param question вопрос каналу целиком
+   * @param refusal отказ, когда спросить некого
+   */
+  human(question: string, refusal: string): Promise<T>;
+}
+
+/** Кто решает, исполнять ли строку: выбирает объявление команды. */
+export interface Consent {
+  settle<T>(ways: ConsentWays<T>): Promise<T>;
+}
+
+/** Строку решают правила: так у всех команд без `ownerOnly`. */
+export const BY_RULES: Consent = { settle: (ways) => ways.rules() };
+
+/** Что делать с путём команды, пока аргументов нет (посев, обход). */
+export interface GateWays<T> {
+  rules(): T;
+  /** Строку решит человек при исполнении. */
+  owner(): T;
+}
+
+/** Кто решает строки пути команды — без их аргументов. */
+export interface Gate {
+  pick<T>(ways: GateWays<T>): T;
+}
+
+/** Путь решают правила. */
+export const RULES_GATE: Gate = { pick: (ways) => ways.rules() };
+
+/** Путь пишет только человек. */
+export const OWNER_GATE: Gate = { pick: (ways) => ways.owner() };
+
+/**
+ * Строку пишет только человек (`task.md`, «Правила»): правилами не
+ * решается и не сеется, вопрос и отказ — по аргументам строки.
+ */
+export interface OwnerOnly<A> {
+  question(args: A): string;
+  refusal(args: A): string;
+}
+
 /**
  * Значение, которое можно связать в SQL-запросе к кэш-БД. Байты —
  * ради BLOB-столбцов схемы: сжатый лист таблицы (`sheet_tabs.payload`,
@@ -464,6 +512,11 @@ interface CommandDeclaration<A, R> {
    */
   readonly streams?: (args: A) => boolean;
   /**
+   * Пишет только человек: владелец политики спрашивает канал мимо
+   * правил, посева у пути нет. Без объявления строку решают правила.
+   */
+  readonly ownerOnly?: OwnerOnly<A>;
+  /**
    * Результат — текст, как справка метода (`image-sync.md`,
    * «CLI-контракт»): форматов и отбора нет, слово после `end` — отказ
    * до исполнения. Без объявления — данные.
@@ -663,6 +716,13 @@ export interface Command {
     source: () => Source,
     refuse: () => Call,
   ) => Call;
+  /**
+   * Кто решает строку с аргументами `argv`: правила или только человек.
+   * Аргументы не разобрались — правила: исполнение откажет разбором.
+   */
+  readonly consent: (argv: readonly string[]) => Consent;
+  /** Кто решает строки пути без аргументов: посев, обход программы. */
+  readonly gate: Gate;
   /** Результат строки `argv` — поток: отбору не подлежит. */
   readonly streams: (argv: readonly string[]) => boolean;
   /**
@@ -765,6 +825,8 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
         (other) => spec.render(spec.resultSchema.parse(other), parse(argv)),
       ),
     field: (named, source, refuse) => data.field(named, source, refuse),
+    consent: (argv) => consentOf(spec.ownerOnly, () => parse(argv)),
+    gate: spec.ownerOnly === undefined ? RULES_GATE : OWNER_GATE,
     streams: (argv) => spec.streams?.(parse(argv)) ?? false,
     remember(result, argv, memory) {
       // Поток не повторить из памяти: его записи ушли, пока он шёл.
@@ -773,6 +835,24 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     },
   };
   return command;
+}
+
+/** Согласие строки: у `ownerOnly` — вопрос человеку по её аргументам. */
+function consentOf<A>(
+  owner: OwnerOnly<A> | undefined,
+  parse: () => A,
+): Consent {
+  if (owner === undefined) return BY_RULES;
+  let args: A;
+  try {
+    args = parse();
+  } catch (err) {
+    if (err instanceof UsageError) return BY_RULES;
+    throw err;
+  }
+  return {
+    settle: (ways) => ways.human(owner.question(args), owner.refusal(args)),
+  };
 }
 
 /**

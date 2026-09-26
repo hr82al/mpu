@@ -141,6 +141,7 @@ import {
 } from "../mr/mod.ts";
 import { confirmCommand } from "../confirm/mod.ts";
 import { sunCommand } from "../sun/mod.ts";
+import { taskCommands } from "../task/mod.ts";
 
 /**
  * Поверхность точки входа: запись реестра со строкой использования.
@@ -325,6 +326,8 @@ export const commands: readonly Command[] = [
   ...apiCommands,
   // Рендер D2-диаграммы на доску Miro (`docs/specs/d2-miro.md`).
   d2MiroCommand,
+  // Канал работы между ролями проекта (`docs/specs/task.md`).
+  ...taskCommands,
   // Первая поверхность семейства `code` (`docs/specs/code-refs.md`):
   // связи кода поверх общего слоя `platform/code-analyzer.md`.
   codeRefsCommand,
@@ -363,6 +366,11 @@ export function findSurface(
 
 /** Все промежуточные уровни; каждый префикс пути команды описан здесь. */
 export const groups: readonly CommandGroup[] = [
+  {
+    path: ["task"],
+    summary: "канал работы между ролями проекта: постановки, отчёты, решения",
+    usage: "mpu task <подкоманда> [аргументы]",
+  },
   {
     path: ["image"],
     summary: "методы образа и файлы каталога",

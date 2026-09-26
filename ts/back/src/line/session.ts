@@ -4,7 +4,7 @@
  * правил, изменение правила — только ответ человека.
  */
 
-import type { Command } from "../command/mod.ts";
+import type { Command, Consent } from "../command/mod.ts";
 import type { Delivery } from "../entrypoint/mod.ts";
 import { UNNAMED_REFUSAL } from "../messages/mod.ts";
 import {
@@ -34,6 +34,9 @@ const REFUSED = 1;
 /** Вид отказа: правило меняет только человек (канал агента). */
 export const HUMAN_ONLY = "изменить правила может только человек";
 
+/** Вид отказа: строку от имени владельца пишет только человек. */
+export const OWNER_ONLY = "пишет только человек";
+
 /** Из чего собрана строка. */
 export interface SessionParts {
   readonly book: RuleBook;
@@ -51,6 +54,8 @@ export interface SessionParts {
   ) => Promise<number>;
   /** Результат строки — поток. */
   readonly streams: (view: View, order: Order) => boolean;
+  /** Кто решает строку, какой её видит `view` и собирает `order`. */
+  readonly consent: (view: View, order: Order) => Consent;
   /** stdin строки — терминал. */
   readonly terminal: boolean;
   /**
@@ -122,6 +127,7 @@ export class Session implements Line {
   readonly #output: Speech;
   readonly #dispatch: SessionParts["dispatch"];
   readonly #streams: SessionParts["streams"];
+  readonly #consent: SessionParts["consent"];
   readonly #terminal: boolean;
   readonly #redirect: SessionParts["redirect"];
 
@@ -131,6 +137,7 @@ export class Session implements Line {
     this.#output = parts.output;
     this.#dispatch = parts.dispatch;
     this.#streams = parts.streams;
+    this.#consent = parts.consent;
     this.#terminal = parts.terminal;
     this.#redirect = parts.redirect;
   }
@@ -140,9 +147,10 @@ export class Session implements Line {
   }
 
   dispatch(report: Report, view: View, order: Order): Promise<Outcome> {
-    return this.#ruled(
+    return this.#consented(
       report,
       view,
+      order,
       async () => report.exit(await this.#dispatch(view, order)),
     );
   }
@@ -157,7 +165,7 @@ export class Session implements Line {
     order: Order,
     replay: (data: Data) => Promise<Outcome>,
   ): Promise<Outcome> {
-    return this.#ruled(report, view, async () => {
+    return this.#consented(report, view, order, async () => {
       const taking = new Taking();
       const code = await this.#dispatch(view, order, taking);
       return await taking.finish(code, replay, report, this.#output);
@@ -192,6 +200,32 @@ export class Session implements Line {
           `${report.text()}: ${NOT_CONFIRMED}`,
         ),
       absent: () => this.#refuse(report, HUMAN_ONLY, HUMAN_ONLY),
+    });
+  }
+
+  /**
+   * Строку решает её команда: правила пути или только человек — вопрос
+   * каналу мимо правил, как у изменения правила.
+   */
+  #consented(
+    report: Report,
+    view: View,
+    order: Order,
+    run: () => Promise<Outcome>,
+  ): Promise<Outcome> {
+    return this.#consent(view, order).settle({
+      rules: () => this.#ruled(report, view, run),
+      human: (question, refusal) =>
+        this.#channel.amend(question, {
+          yes: run,
+          no: () =>
+            this.#refuse(
+              report,
+              NOT_CONFIRMED,
+              `${report.text()}: ${NOT_CONFIRMED}`,
+            ),
+          absent: () => this.#refuse(report, OWNER_ONLY, refusal),
+        }),
     });
   }
 

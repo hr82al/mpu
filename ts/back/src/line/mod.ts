@@ -7,6 +7,7 @@
 
 import type { CommandIo } from "../command/mod.ts";
 import {
+  consentAt,
   type Delivery,
   type InvokeJournal,
   type Invoker,
@@ -55,6 +56,7 @@ import { registrySeeds } from "./seeds.ts";
 import { targetValues } from "../selector/mod.ts";
 import { itMethod, type Memory, NO_CALLER, remembering } from "./it.ts";
 import { printed, type Speech } from "./printed.ts";
+import { aheadRuling } from "./owner.ts";
 import { Session } from "./session.ts";
 export { HUMAN_ONLY } from "./session.ts";
 import { LineValues } from "./value.ts";
@@ -354,6 +356,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
             )
           ),
         streams: (view, order) => streams(order.argv(view.executed(words))),
+        consent: (view, order) => consentAt(order.argv(view.executed(words))),
         terminal: io.stdinIsTerminal(),
         redirect: running.redirect,
       });
@@ -453,7 +456,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
         io: lineIo,
         journal,
         core,
-        decide: (links) => book.decide(links),
+        decide: (links) => aheadRuling(book, links),
         ahead: entry.ahead,
         commands,
         sources,

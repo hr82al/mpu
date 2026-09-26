@@ -5,6 +5,7 @@
  */
 
 import { assertEquals, assertNotEquals } from "@std/assert";
+import { BY_RULES } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import type { RefusalData } from "../frames/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
@@ -53,6 +54,7 @@ async function parsedReason(file: string, words: readonly string[]) {
     },
     dispatch: () => Promise.resolve(0),
     streams: () => false,
+    consent: () => BY_RULES,
     terminal: false,
     redirect: () => toDoor(),
   });

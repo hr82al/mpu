@@ -17,7 +17,7 @@ import {
 } from "../command/mod.ts";
 import { isMissingTable } from "../store/mod.ts";
 
-export { IMAGE_DIR } from "./registry.ts";
+export { IMAGE_DIR, TASK_HISTORY } from "./registry.ts";
 
 /** Алиас файла: имя и путь, как его ввели. */
 export interface Alias {

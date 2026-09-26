@@ -8,6 +8,7 @@ import type { Command, Policy } from "../command/mod.ts";
 import { EXPORT_PATH } from "../image/mod.ts";
 import { ALLOW, ASK, Rule, RulePath, type Verdict } from "../policy/mod.ts";
 import { type CommandGroup, commands, groups } from "../registry/mod.ts";
+import { HISTORY_CLEAR_PATH } from "../task/mod.ts";
 
 /** Путь сообщения корня `policy` — его посев `allow`. */
 export const POLICY_SELECTOR = "policy";
@@ -24,16 +25,32 @@ const SEED_OF: Readonly<Record<Policy, Verdict>> = { ro: ALLOW, rw: ASK };
  * Команды, чей посев — не по признаку `ro`/`rw` (`platform/policy.md`,
  * «Посев»): решение отсюда заменяет посев по признаку, а не встаёт рядом —
  * второе правило того же пути уронило бы посев целиком. `image export`
- * пишет только файлы каталога образа (`image-export.md`).
+ * пишет только файлы каталога образа (`image-export.md`); записи ролей
+ * канала `task` и его журнал — только локальный журнал (`task.md`).
  */
 const OWN_SEEDS: ReadonlyMap<string, Verdict> = new Map([
   [EXPORT_PATH.join(" "), ALLOW],
+  ...[
+    "post",
+    "report",
+    "question",
+    "answer",
+    "decision",
+    "owner",
+    "history",
+  ].map((name): [string, Verdict] => [`task ${name}`, ALLOW]),
 ]);
 
-/** Посев команды: своё решение из `OWN_SEEDS` или по признаку. */
-function commandSeed(command: Command): Rule {
+/**
+ * Посев команды: своё решение из `OWN_SEEDS` или по признаку; у команды,
+ * которую пишет только человек, посева нет.
+ */
+function commandSeeds(command: Command): readonly Rule[] {
   const own = OWN_SEEDS.get(command.path.join(" "));
-  return ruleAt(command.path, own ?? SEED_OF[command.policy]);
+  return command.gate.pick({
+    rules: () => [ruleAt(command.path, own ?? SEED_OF[command.policy])],
+    owner: () => [],
+  });
 }
 
 function under(group: CommandGroup): readonly Command[] {
@@ -61,7 +78,10 @@ function groupSeeds(group: CommandGroup): Rule[] {
 /** Посевные правила всего реестра. */
 export function registrySeeds(): Rule[] {
   return [
-    ...commands.map(commandSeed),
+    ...commands.flatMap(commandSeeds),
+    // Режим — звено пути правила, а посев команд знает только их пути:
+    // чистка журнала канала спрашивает (`task.md`, «Правила»).
+    ruleAt(HISTORY_CLEAR_PATH, ASK),
     ...groups.flatMap(groupSeeds),
     ...READ_ONLY_SURFACES.map((name) => ruleAt([name], ALLOW)),
     ruleAt([POLICY_SELECTOR], ALLOW),

@@ -102,8 +102,22 @@ Deno.test("посев первого старта и ничего заново �
     assertEquals(await rules(file), first);
   }));
 
-/** Посев не по признаку (`platform/policy.md`, «Посев»). */
-const OWN_SEEDS: Readonly<Record<string, string>> = { "image export": "allow" };
+/**
+ * Посев не по признаку (`platform/policy.md`, «Посев»); `task rule` и
+ * `task owner-answer` пишет только человек — правила у пути нет вовсе.
+ */
+const OWN_SEEDS: Readonly<Record<string, string | undefined>> = {
+  "image export": "allow",
+  "task post": "allow",
+  "task report": "allow",
+  "task question": "allow",
+  "task answer": "allow",
+  "task decision": "allow",
+  "task owner": "allow",
+  "task history": "allow",
+  "task rule": undefined,
+  "task owner-answer": undefined,
+};
 
 Deno.test("посев: у каждой команды правило по ro/rw, кроме своего посева", () =>
   withPolicyFile(async (file) => {
@@ -112,7 +126,9 @@ Deno.test("посев: у каждой команды правило по ro/rw,
       const path = command.path.join(" ");
       assertEquals(
         verdictOf(listed, path),
-        OWN_SEEDS[path] ?? (command.policy === "ro" ? "allow" : "ask"),
+        path in OWN_SEEDS
+          ? OWN_SEEDS[path]
+          : (command.policy === "ro" ? "allow" : "ask"),
         path,
       );
     }

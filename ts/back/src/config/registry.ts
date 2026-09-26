@@ -70,6 +70,15 @@ export const IMAGE_DIR: ConfigKey = {
 };
 
 /** Ключи по порядку объявления — в этом же порядке их печатает вывод. */
+/** Глубина журнала канала `mpu task` в порциях (`task.md`, «Конфигурация»). */
+export const TASK_HISTORY: ConfigKey = {
+  key: "task.history",
+  type: "int",
+  fallback: fixed("3"),
+  description:
+    "Глубина журнала `mpu task` в порциях: 0 — только текущая, -1 — не чистить",
+};
+
 export const CONFIG_KEYS: readonly ConfigKey[] = [
   {
     key: "sheet.default",
@@ -103,6 +112,7 @@ export const CONFIG_KEYS: readonly ConfigKey[] = [
     description: "Общий потолок кэша листов, МБ",
   },
   IMAGE_DIR,
+  TASK_HISTORY,
 ];
 
 /** Ключ реестра по имени; имени нет в списке — `undefined`. */

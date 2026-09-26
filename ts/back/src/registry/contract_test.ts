@@ -2030,6 +2030,71 @@ const CASES: readonly CommandCase[] = [
       }],
     },
   },
+  // Канал `task` (`task.md`): кэш-БД обхода общая, записи ложатся в неё
+  // же; проекта `demo` в ней нет — пишущие отбиваются отказом до записи.
+  { path: "task setup", argv: [], sampleResult: { text: "инструкция\n" } },
+  { path: "task rules", argv: [], sampleResult: { text: "правила\n" } },
+  {
+    path: "task post",
+    argv: ["--project", "demo", "--text", "x"],
+    sampleResult: {},
+  },
+  ...[
+    "report",
+    "question",
+    "answer",
+    "decision",
+    "owner",
+    "owner-answer",
+    "rule",
+  ].map((kind) => ({
+    path: `task ${kind}`,
+    argv: ["--project", "demo", "--text", "x"],
+    sampleResult: {},
+  })),
+  {
+    path: "task read",
+    argv: ["--project", "demo"],
+    sampleResult: { text: "тело\n" },
+  },
+  {
+    path: "task wait",
+    argv: ["--project", "demo", "--kind", "report", "--timeout", "0"],
+    sampleResult: { text: "тело\n" },
+  },
+  {
+    path: "task status",
+    argv: [],
+    sampleResult: {
+      rows: [{
+        project: "demo",
+        portion: 1,
+        turn: "ждёт исполнителя",
+        last: "task",
+        age_s: 5,
+        unread: true,
+        note: "",
+      }],
+    },
+  },
+  {
+    path: "task history",
+    argv: [],
+    sampleResult: {
+      rows: [{
+        project: "demo",
+        portion: 1,
+        kind: "task",
+        at: "2026-09-26T00:00:00.000Z",
+        first_line: "x",
+      }],
+    },
+  },
+  {
+    path: "task decisions",
+    argv: ["--project", "demo"],
+    sampleResult: { rules: null, portions: [] },
+  },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {

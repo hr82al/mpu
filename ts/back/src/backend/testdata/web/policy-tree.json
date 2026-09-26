@@ -2155,6 +2155,149 @@
   },
   {
     "path": [
+      "task"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "answer"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "decision"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "decisions"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "history"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "owner"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "owner-answer"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "post"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "question"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "read"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "report"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "rule"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "rules"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "setup"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "status"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "wait"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
       "telegram"
     ],
     "verdict": "deny",
