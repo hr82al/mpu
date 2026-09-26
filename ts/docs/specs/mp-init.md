@@ -386,6 +386,33 @@ M3-7 (тег стенда голдена — литерал в фикстуре)
 | M4-8 | финал в `dry` | `mpu ask mp-init dry` | строк `проверка:` нет | 0 |
 | M4-9 | `up` ozon → rc 4 | `mpu ask mp-init` | `mpu mp-init: стенд ozon упал (rc=4)\n`; финал не выполняется | 4 |
 
+Решения хоста по вопросам исполнителя M4 (2026-09-26; снято: в `ozon-dev` есть
+`git`, sw-back смонтирован в `/work/sw-back`, рабочий каталог — `/work/ozon`):
+
+- Версия пакета — из `$P/ozon/pnpm-lock.yaml`, ключ `  '@sw-back/workspace-access@<v>':`
+  (снято: `0.4.0`); нет lock или ключа — `warning: стенд ozon: в pnpm-lock нет
+  @sw-back/workspace-access — публикацию пропускаю`, код 0.
+- Коммит — проба в контейнере (без `$`, идёт и в `dry`): `docker exec ozon-dev
+  git -C /work/sw-back log --format=%H -S'"version": "<v>"' --
+  packages/workspace-access/package.json`, затем `git show
+  <c>:packages/workspace-access/package.json` по порядку — первый, где версия
+  есть; не нашлось — `mpu mp-init: стенд ozon: нет коммита sw-back с
+  @sw-back/workspace-access@<v>`, код 1.
+- Строки публикации (M4-2), все — в контейнере, файла на хосте нет:
+  `стенд ozon: публикую @sw-back/workspace-access@<v> в Verdaccio`;
+  `$ docker exec ozon-dev sh -c 'rm -rf /tmp/wa && mkdir /tmp/wa && git -C /work/sw-back archive <c> packages/workspace-access | tar -x -C /tmp/wa'`;
+  `$ docker exec -w /tmp/wa/packages/workspace-access ozon-dev npx -y -p typescript@5 tsc -p tsconfig.json` (rc не проверяется — ожидаемые `Cannot find module`);
+  проба `docker exec ozon-dev ls /tmp/wa/packages/workspace-access/dist` пуста/≠0 → `mpu mp-init: стенд ozon: dist пакета пуст — не публикую`, код 1 (в `dry` не идёт);
+  `$ docker exec -w /tmp/wa/packages/workspace-access ozon-dev npm publish --registry http://verdaccio:4873 --//verdaccio:4873/:_authToken=local-stand`.
+- Установка (M4-3): `$ docker exec ozon-dev sh -c 'mkdir -p /tmp/bin && corepack enable --install-directory /tmp/bin'`,
+  далее `$ docker exec ozon-dev sh -c 'PATH=/tmp/bin:$PATH pnpm install --config.@sw-back:registry=http://verdaccio:4873'` и так же три строки сборки.
+- Финал: адреса по порядку — `http://sw.localhost`, `http://sw.localhost/api/metrics`,
+  `http://sl-dev.localhost`, `http://localhost:5000/api/health`,
+  `http://localhost:5200/health`, `http://localhost:3100/ozon/app/`; адреса
+  пропущенных частей (нет web / без sw-back / нет чекаута ozon) не
+  проверяются. Проба — `curl -sS -L --max-time 10 -w '\n%{http_code}' <url>`;
+  нет ответа — `warning: проверка: 000 <url>`.
+
 Адрес здоровья sl-0 — `http://localhost:5000/api/health` (снято хостом:
 `sl-dev.localhost/api/health` — 404, `docker port sl-0-api` → `5000`); отказом
 считается только `checks.database.status ≠ "ok"`. Строки сборки/публикации пакета (M4-2) —
