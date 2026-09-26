@@ -35,8 +35,8 @@
 - [x] 169a — журнал `define:`/`forget:`, `log cmd:` видит `ask`, ключ `image.dir`
 - [x] 169 — `image sync`
 - [x] 169b — `image export` + суточный таймер
-- [ ] 170a — программа из stdin (в работе у исполнителя)
-- [ ] 170b — `run:` из файла (`prompt-170b.txt` готов в `~/mr/mp/tmp/mpu-smalltalk/`)
+- [x] 170a — программа из stdin (принята 2026-09-26)
+- [ ] 170b — `run:` из файла (в работе у исполнителя)
 - [ ] 171 — web: экран «Образ» (`web-image.md`, `prompt-171.txt` готов)
 - [ ] task — оркестратор `mpu task` (серия T1–T5, `docs/2026-09-23-task-orchestrator-design.md`,
       спека `ts/docs/specs/task.md`). T1 — спека переписана под грамматику
