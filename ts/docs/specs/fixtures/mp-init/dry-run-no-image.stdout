@@ -7,4 +7,7 @@ $ docker compose --env-file /home/operator/mr/mp/mp-config-local/.shared.env --e
 $ docker compose --env-file /home/operator/mr/mp/mp-config-local/.sl-base.env --env-file /home/operator/mr/mp/mp-config-local/.env --env-file /home/operator/mr/mp/mp-config-local/.sl-dt.base.env -f /home/operator/mr/mp/mp-config-local/compose.sl-dt-host.yaml up -d --force-recreate
 $ docker stop mp-sw-api nextjs-dev mp-sl-front-dev  # только запущенные
 $ SW_BACK_SRC=/home/operator/mr/mp/sw-back SW_FRONT_SRC=/home/operator/mr/mp/sw-front SL_FRONT_SRC=/home/operator/mr/mp/sl-front SW_BACK_DEPS_TAG=a936a86f871f592b SW_BACK_INTERNAL_API_URL=http://internal-api:5100 docker compose -f /home/operator/mr/mp/local-stack/docker-compose.yml up -d --no-deps --force-recreate sw-back sw-front sl-front
+$ docker compose -f /home/operator/mr/mp/local-stack/ozon/docker-compose.yml up -d pg redis clickhouse verdaccio dev
+$ docker compose -f /home/operator/mr/mp/local-stack/ozon/docker-compose.yml --profile migrate run --rm migrate
+$ docker compose -f /home/operator/mr/mp/local-stack/ozon/docker-compose.yml up -d datacore datacore-worker ingest front
 dry-run: ничего не выполнено
