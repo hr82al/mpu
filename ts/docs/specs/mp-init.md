@@ -273,6 +273,25 @@ mp-config-local и не задавать `known_hosts` / личность git �
 | M1-8 | после core `sl-0-currencies-rates-parser` в `Restarting`, последняя строка лога `ERR_MODULE_NOT_FOUND` | `mpu ask mp-init` | `warning: sl-0-currencies-rates-parser: Restarting — ERR_MODULE_NOT_FOUND\n` | 0 |
 | M1-9 | `docker wait` не отвечает 10 мин (часы — порт) | `mpu ask mp-init` | `миграции sl-0: нет завершения за 10 мин\n` | 1 |
 
+Решения хоста по вопросам исполнителя M1 (2026-09-26): (1) M1 собирает
+только три core-образа, `sl-front-dev:local` до M3 — предупреждение; (2)
+команды сборки — литералы build-алиасов (`mp-pg` — `-f $M/pg/Dockerfile
+$M/pg`, `mp-dt` — `-f $M/Dockerfile.mp-data-transfer $P`), перед каждой —
+`собираю <образ>`, в `dry` — обе строки; (3) `count(*)` — проба без печати
+`$`: `docker exec sl-N-pg sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+-tAc "select count(*) from public.migrations"'`, rc ≠ 0 → `sl-N: миграции ок,
+? в public.migrations`, код не меняется; (4) сводка — только контейнеры
+compose-проектов каталога mp-config-local (`docker ps -a --filter
+label=com.docker.compose.project.working_dir=$M --format
+'{{.Names}}\t{{.Status}}'`), `Exited (0)` и `*-migrations` отбрасываются;
+после dt-host, до web; (5) в `dry` `wait`, `count` и сводка не выполняются,
+`config --services` — проба, выполняется; (6) сервисы override-файла — узкий
+разбор строк (ключи с отступом 2 под `services:`, комментарии и пустые
+строки пропускаются), без новой зависимости; живые файлы — фикстура
+`fixtures/mp-init/overrides/*.yaml`; (7) голден M1-1 —
+`fixtures/mp-init/dry-run-no-image.stdout` (положил хост). Отказы — с
+префиксом `mpu mp-init: ` (M1-6, M1-9 тоже).
+
 Литералы строк `собираю`, `миграции … упали`, `warning:` — спецификатора
 по форме живых сообщений команды; голден `dry-run.stdout` дополняется
 исполнителем при M1-1 (фикстура другой машины — строка сборки только в
