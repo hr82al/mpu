@@ -280,8 +280,8 @@ content-type: application/json
 | A4 | — | `mpu ozon call-ro target: 55 path: /v1/seller/info` | | `mpu ozon call-ro: у клиента 55 кабинетов Ozon 3 — укажи cabinet: 2129958 \| 1539401 \| 870282\n`; запроса нет | 2 |
 | A5 | — | `mpu ozon call-ro target: 55 cabinet: 1539401 path: /v1/seller/info` | как A1 | | 0; ключ запроса `k-55-b` |
 | A6 | — | `mpu ozon call-ro target: 55 cabinet: 999 path: /v1/seller/info` | | `mpu ozon call-ro: у клиента 55 нет кабинета Ozon 999\n` | 2 |
-| A7 | — | `mpu ozon call-ro target: 54 path: /v1/product/import` | | `mpu ozon call-ro: ручки POST /v1/product/import нет в списке чтения — запись: mpu ask ozon call target: 54 path: /v1/product/import\n`, `refusal.hint` `["ask","ozon","call","target:","54","path:","/v1/product/import"]`; ключ не читался, запроса нет | 2 |
-| A8 | — | `mpu ozon call target: 54 path: /v1/product/import` | | отказ двери `ask` (`platform/ask-door.md`): `mpu ozon call: требует подтверждения — вызывай mpu ask ozon call target: 54 path: /v1/product/import\n` | 2 |
+| A7 | — | `mpu ozon call-ro target: 54 path: /v1/product/import` | | `mpu ozon call-ro: ручки POST /v1/product/import нет в списке чтения — запись: mpu ask ozon call target: 54 path: /v1/product/import\n`; ключ не читался, запроса нет (`refusal.hint` у отказа команды — платформенная порция, долг из T1) | 2 |
+| A8 | — | `mpu ozon call target: 54 path: /v1/product/import` | | отказ двери `ask` живой формы (префикс — строка целиком, `platform/ask-door.md`): `mpu ozon call target: 54 path: /v1/product/import: требует подтверждения — вызывай mpu ask ozon call target: 54 path: /v1/product/import\n` | 2 |
 | A9 | — | `mpu ask ozon call target: 54 path: /v1/product/import body: {"items":[]}`, ответ `y` | `HTTP 200 POST api-seller.ozon.ru/v1/product/import\nratelimit-remaining: 7\n\n{…тело заглушки…}\n` | `выполнить mpu ozon call target: 54 path: /v1/product/import body: {"items":[]}? [y/N] ` | 0 |
 | A10 | заглушка: `429`, `ratelimit-remaining: 0`, `retry-after: 1`, тело `{"code":8,"message":"You have reached request rate limit per second"}` | A1 | `HTTP 429 POST api-seller.ozon.ru/v1/seller/info\nratelimit-remaining: 0\nretry-after: 1\n\n{\n  "code": 8,\n  "message": "You have reached request rate limit per second"\n}\n` | | 1; запрос один |
 | A11 | заглушка: `200`, тело `ok` (`text/plain`) | A1 | `HTTP 200 POST api-seller.ozon.ru/v1/seller/info\nratelimit-remaining: 7\n\nok\n` | | 0 |
@@ -290,7 +290,7 @@ content-type: application/json
 | A14 | заглушка отвечает телом `{"message":"bad key k-54-seller"}` | A1 | тело с `"bad key ***"` | | 0 |
 | A15 | — | `mpu ozon call-ro target: 54 path: /v1/seller/info body: {"a":}` | | `mpu ozon call-ro: body: не JSON — <сообщение разборщика>\n` | 2 |
 | A16 | — | `mpu ozon call-ro target: 54 path: /v1/actions body: {}` (`GET` по реестру) | | `mpu ozon call-ro: тело у GET не отправляется — убери body:\n` | 2 |
-| A17 | после A1 | `mpu log limit: 1` | запись со строкой `$ mpu ozon call-ro target: 54 path: /v1/seller/info`, без секции `out`, `--- end … exit=0 …` | | 0 |
+| A17 | после A1 | `mpu log limit: 1` | запись со строкой `$ mpu ozon call-ro target: 54 path: /v1/seller/info`, без секции `out`; статус, размер тела и заголовки квоты — строкой `note`; `err` пишется (отказы видны); `--- end … exit=0 …` | | 0 |
 | A18 | — | `mpu ozon call-ro target: 54 path: /v1/seller/info timeout: 301` | | `mpu ozon call-ro: timeout: 1…300, получено 301\n` | 2 |
 | A19 | — | `mpu policy` | среди правил `{"path":"ozon call-ro","verdict":"allow"}` и `{"path":"ozon call","verdict":"ask"}` | | 0 |
 | A20 | — | `mpu ozon messages`; `mpu ask ozon messages` | первая: `call-ro\t<однострока>\n` (и `perf`, когда будет 173b); вторая: `call\t<однострока>\n` | | 0 |
@@ -447,9 +447,10 @@ retry-after: 1
 5. Величина — из результата работы — изменил: `ms` — время запроса к
    маркетплейсу, без обмена токена; размер тела в журнале — байты полученного
    ответа.
-6. Права Deno — изменил: новое право сети на хосты Ozon и WB из таблиц
-   получателей; тест, который краснеет от его снятия, — вызов через
-   настоящий `fetch` на локальную заглушку под именем разрешённого хоста.
+6. Права Deno — ничего нового: `--allow-net` задач `back`, `worker`,
+   `compile:*` уже без списка хостов (снято исполнителем 173a); хосты Ozon и
+   WB дописываются строкой в обоснование `--allow-net` в `deno.jsonc`, флаги
+   не меняются, теста на снятие нет (снимать нечего).
 7. Границы модулей — изменил: модуль `call/` с поверхностью `mod.ts`, получатели
    `ozon.ts`, `ozonPerf.ts`, `wb.ts`, реестр `reads.ts`.
 8. Внешнее — переданной ссылкой — изменил: `fetch`, часы (истечение bearer) и
