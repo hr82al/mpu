@@ -12924,6 +12924,11 @@
           "purpose": "Кладёт ответ хоста на вопрос исполнителя."
         },
         {
+          "selector": "busy",
+          "kind": "unary",
+          "purpose": "Отмечает роль проекта: busy."
+        },
+        {
           "selector": "decision",
           "kind": "unary",
           "purpose": "Записывает решение хоста и правило, по которому решено."
@@ -12937,6 +12942,11 @@
           "selector": "history",
           "kind": "unary",
           "purpose": "Журнал сообщений от свежего к старому; clear — чистка."
+        },
+        {
+          "selector": "idle",
+          "kind": "unary",
+          "purpose": "Отмечает роль проекта: idle."
         },
         {
           "selector": "owner",
@@ -12967,6 +12977,16 @@
           "selector": "report",
           "kind": "unary",
           "purpose": "Кладёт отчёт исполнителя о текущей порции."
+        },
+        {
+          "selector": "role",
+          "kind": "unary",
+          "purpose": "Записывает профиль роли проекта; forget — удаляет."
+        },
+        {
+          "selector": "roles",
+          "kind": "unary",
+          "purpose": "Профили ролей проекта и их отметки busy/idle."
         },
         {
           "selector": "rule",
@@ -13032,6 +13052,39 @@
           "kind": "value",
           "required": false,
           "purpose": "файл с телом сообщения",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "busy"
+      ],
+      "summary": "Отмечает роль проекта: busy.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "role",
+          "kind": "value",
+          "required": true,
+          "purpose": "роль проекта: host или exec",
           "reason": "прежнее имя входа"
         }
       ],
@@ -13158,6 +13211,39 @@
       "formats": [
         "json"
       ],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "idle"
+      ],
+      "summary": "Отмечает роль проекта: idle.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "role",
+          "kind": "value",
+          "required": true,
+          "purpose": "роль проекта: host или exec",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
       "variants": []
     },
     {
@@ -13403,6 +13489,129 @@
         }
       ],
       "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "role"
+      ],
+      "summary": "Записывает профиль роли проекта; forget — удаляет.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "role",
+          "kind": "value",
+          "required": true,
+          "purpose": "роль проекта: host или exec",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "dir",
+          "kind": "value",
+          "required": false,
+          "purpose": "каталог запуска, абсолютный",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "powers",
+          "kind": "value",
+          "required": false,
+          "purpose": "полномочия текстом — в первое сообщение роли дословно",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "session",
+          "kind": "value",
+          "required": false,
+          "purpose": "сессия tmux",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "window",
+          "kind": "value",
+          "required": false,
+          "purpose": "окно tmux",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "model",
+          "kind": "value",
+          "required": false,
+          "purpose": "модель Claude Code",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "mode",
+          "kind": "value",
+          "required": false,
+          "purpose": "режим разрешений",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "add-dir",
+          "kind": "list",
+          "required": false,
+          "purpose": "каталог вне каталога запуска; повторяемый",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "read",
+          "kind": "list",
+          "required": false,
+          "purpose": "файл, который роль читает первым; повторяемый",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": [
+        {
+          "selector": "forget",
+          "purpose": "удалить профиль роли",
+          "input": "forget"
+        }
+      ]
+    },
+    {
+      "path": [
+        "task",
+        "roles"
+      ],
+      "summary": "Профили ролей проекта и их отметки busy/idle.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [
+        "json"
+      ],
       "variants": []
     },
     {

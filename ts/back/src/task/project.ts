@@ -18,6 +18,7 @@ import {
   type Turn,
 } from "./kind.ts";
 import { TaskRefusal, TaskUsage } from "./refusal.ts";
+import { Roles, ROLES_SCHEMA } from "./roles.ts";
 
 const SCHEMA: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS task_projects (
@@ -179,7 +180,7 @@ export class Projects {
    */
   static open(db: CacheDb): Projects {
     db.bootstrap();
-    for (const statement of SCHEMA) db.execute(statement);
+    for (const statement of [...SCHEMA, ...ROLES_SCHEMA]) db.execute(statement);
     return new Projects(db);
   }
 
@@ -337,6 +338,11 @@ export class Project {
       at: one.iso(),
       first_line: one.firstLine(),
     }));
+  }
+
+  /** Профили и отметки ролей проекта. */
+  roles(): Roles {
+    return new Roles(this.#db, this.#name);
   }
 
   /** Удаляет всё, кроме текущей порции. */

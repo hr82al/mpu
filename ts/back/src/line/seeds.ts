@@ -26,7 +26,8 @@ const SEED_OF: Readonly<Record<Policy, Verdict>> = { ro: ALLOW, rw: ASK };
  * «Посев»): решение отсюда заменяет посев по признаку, а не встаёт рядом —
  * второе правило того же пути уронило бы посев целиком. `image export`
  * пишет только файлы каталога образа (`image-export.md`); записи ролей
- * канала `task` и его журнал — только локальный журнал (`task.md`).
+ * канала `task` и его журнал — только локальный журнал (`task.md`);
+ * отметки ролей ставит сама роль без человека (`task-roles.md`).
  */
 const OWN_SEEDS: ReadonlyMap<string, Verdict> = new Map([
   [EXPORT_PATH.join(" "), ALLOW],
@@ -38,6 +39,8 @@ const OWN_SEEDS: ReadonlyMap<string, Verdict> = new Map([
     "decision",
     "owner",
     "history",
+    "busy",
+    "idle",
   ].map((name): [string, Verdict] => [`task ${name}`, ALLOW]),
 ]);
 

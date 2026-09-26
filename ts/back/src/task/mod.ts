@@ -15,6 +15,11 @@ import {
   waitCommand,
 } from "./cmd_read.ts";
 import {
+  taskMarkCommands,
+  taskRoleCommand,
+  taskRolesCommand,
+} from "./cmd_roles.ts";
+import {
   taskKindCommands,
   taskPostCommand,
   taskSetupCommand,
@@ -37,4 +42,7 @@ export const taskCommands: readonly Command[] = [
   taskStatusCommand,
   taskHistoryCommand,
   taskDecisionsCommand,
+  taskRoleCommand,
+  taskRolesCommand,
+  ...taskMarkCommands,
 ];

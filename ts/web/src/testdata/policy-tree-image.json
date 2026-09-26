@@ -2200,6 +2200,15 @@
   {
     "path": [
       "task",
+      "busy"
+    ],
+    "verdict": "allow",
+    "rule": "task busy",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
       "decision"
     ],
     "verdict": "allow",
@@ -2222,6 +2231,15 @@
     ],
     "verdict": "allow",
     "rule": "task history",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "idle"
+    ],
+    "verdict": "allow",
+    "rule": "task idle",
     "own": true
   },
   {
@@ -2276,6 +2294,24 @@
     ],
     "verdict": "allow",
     "rule": "task report",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "role"
+    ],
+    "verdict": "ask",
+    "rule": null,
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "roles"
+    ],
+    "verdict": "allow",
+    "rule": "task roles",
     "own": true
   },
   {

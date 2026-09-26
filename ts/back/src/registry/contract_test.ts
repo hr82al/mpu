@@ -2095,6 +2095,44 @@ const CASES: readonly CommandCase[] = [
     argv: ["--project", "demo"],
     sampleResult: { rules: null, portions: [] },
   },
+  {
+    path: "task role",
+    argv: [
+      "--project",
+      "demo",
+      "--role",
+      "exec",
+      "--dir",
+      "/d",
+      "--powers",
+      "x",
+    ],
+    sampleResult: {},
+  },
+  {
+    path: "task roles",
+    argv: ["--project", "demo"],
+    sampleResult: {
+      rows: [{
+        role: "exec",
+        mark: null,
+        mark_age_s: null,
+        session: "w",
+        window: "demo-exec",
+        dir: "/d",
+        model: "opus",
+        mode: "auto",
+        add_dir: [],
+        read: [],
+        powers: "x",
+      }],
+    },
+  },
+  ...["busy", "idle"].map((mark) => ({
+    path: `task ${mark}`,
+    argv: ["--project", "demo", "--role", "exec"],
+    sampleResult: {},
+  })),
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {
