@@ -348,6 +348,17 @@ export class Project {
     }));
   }
 
+  /** Имя проекта. */
+  name(): string {
+    return this.#name;
+  }
+
+  /** Журнал в порядке записи и ход по нему — для оркестратора. */
+  journal(): { readonly messages: readonly Message[]; readonly turn: Turn } {
+    const messages = this.#messages();
+    return { messages, turn: turnOf(messages) };
+  }
+
   /** Профили и отметки ролей проекта. */
   roles(): Roles {
     return new Roles(this.#db, this.#name);

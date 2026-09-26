@@ -384,10 +384,13 @@ function historyLine(row: HistoryRow): string {
     .join("  ") + "\n";
 }
 
+/** Сколько последних порций показывает `decisions` по умолчанию. */
+export const DECISIONS_LIMIT = 5;
+
 const decisionsArgs = z.object({
   project: PROJECT,
   query: z.string().optional().describe("слово в сообщениях порций"),
-  limit: z.number().int().min(1).default(5).describe(
+  limit: z.number().int().min(1).default(DECISIONS_LIMIT).describe(
     "сколько последних порций показать",
   ),
 });
@@ -439,7 +442,8 @@ Exit: 0; 2 — нет проекта.`,
   render: (result) => decisionsText(result),
 });
 
-function decisionsText(decisions: Decisions): string {
+/** Markdown документа `decisions`: его же несёт первое сообщение роли. */
+export function decisionsText(decisions: Decisions): string {
   const rules = `## Правила\n\n${decisions.rules ?? "(нет)"}\n`;
   const portions = decisions.portions.map((one) =>
     `\n## Порция ${one.portion}\n\n` +

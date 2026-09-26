@@ -101,12 +101,21 @@ interface Mark {
   ageAt(now: number): number | null;
   /** Слово JSON-записи; отметки не было — `null`. */
   word(): string | null;
+  /** Отметка `idle`: роль свободна, её можно чистить. */
+  isIdle(): boolean;
+  /** Отметка `busy`, поставленная не раньше `at`. */
+  busyFrom(at: number): boolean;
+  /** С какого момента роль занята; не занята — `Infinity`. */
+  busySince(): number;
 }
 
 /** Отметки не было. */
 const NO_MARK: Mark = {
   ageAt: () => null,
   word: () => null,
+  isIdle: () => false,
+  busyFrom: () => false,
+  busySince: () => Infinity,
 };
 
 class Marked implements Mark {
@@ -124,6 +133,18 @@ class Marked implements Mark {
 
   word(): string {
     return this.#word;
+  }
+
+  isIdle(): boolean {
+    return this.#word === "idle";
+  }
+
+  busyFrom(at: number): boolean {
+    return this.#word === "busy" && this.#at >= at;
+  }
+
+  busySince(): number {
+    return this.#word === "busy" ? this.#at : Infinity;
   }
 }
 
@@ -144,6 +165,36 @@ export class Role {
     this.#name = name;
     this.#profile = profile;
     this.#mark = mark;
+  }
+
+  /** Роль проекта: `host` или `exec`. */
+  name(): string {
+    return this.#name;
+  }
+
+  /** Профиль: как запускать роль. */
+  profile(): ProfileRecord {
+    return this.#profile;
+  }
+
+  /** Свободна ли роль по своей отметке (`idle`). */
+  isIdle(): boolean {
+    return this.#mark.isIdle();
+  }
+
+  /** Отметила ли роль `busy` не раньше `at`. */
+  busyFrom(at: number): boolean {
+    return this.#mark.busyFrom(at);
+  }
+
+  /** С какого момента роль занята по отметке; не занята — `Infinity`. */
+  busySince(): number {
+    return this.#mark.busySince();
+  }
+
+  /** Занята ли роль по своей отметке (`busy`). */
+  isBusy(): boolean {
+    return this.#mark.busySince() !== Infinity;
   }
 
   /** Запись на момент `now`. */

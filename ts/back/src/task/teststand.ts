@@ -5,7 +5,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import type { CommandIo } from "../command/mod.ts";
+import type { CacheDb, CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
 import { lineEntry } from "../line/mod.ts";
@@ -45,6 +45,11 @@ export class Stand {
         history,
       );
     }
+  }
+
+  /** Кэш-БД стенда: её же открывает оркестратор. */
+  openDb(): CacheDb {
+    return this.#db();
   }
 
   /** Человек, отвечающий `y` на каждый вопрос. */
