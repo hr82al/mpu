@@ -1662,6 +1662,18 @@ Deno.test("финал: проверка ответом (M4)", async (t) => {
     );
   });
 
+  await t.step("sl-0: 200 с телом не JSON — не предупреждение", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker(
+      answering("http://localhost:5000/api/health", "200", "OK"),
+    );
+    await mpInit(false, lines, docker);
+    assertEquals(
+      checks(lines)[3],
+      "проверка: 200 http://localhost:5000/api/health",
+    );
+  });
+
   await t.step("M4-8: в dry проверки нет", async () => {
     const lines: string[] = [];
     const docker = new FakeDocker();

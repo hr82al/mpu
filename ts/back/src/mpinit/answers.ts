@@ -55,15 +55,15 @@ export class Health implements Address {
   readonly url = "http://localhost:5000/api/health";
 
   report(reply: Reply, progress: (line: string) => void): void {
-    if (!databaseOk(reply.body)) {
-      progress(`warning: проверка: ${reply.status} ${this.url}`);
+    if (reply.status === "200") {
+      progress(`проверка: 200 ${this.url}`);
       return;
     }
     progress(
-      reply.status === "200"
-        ? `проверка: 200 ${this.url}`
-        : `проверка: sl-0 — ${reply.status} при database: ok ` +
-          "(память на старте), не отказ",
+      databaseOk(reply.body)
+        ? `проверка: sl-0 — ${reply.status} при database: ok ` +
+          "(память на старте), не отказ"
+        : `warning: проверка: ${reply.status} ${this.url}`,
     );
   }
 }
