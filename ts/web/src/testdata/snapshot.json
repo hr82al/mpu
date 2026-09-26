@@ -12979,6 +12979,11 @@
           "purpose": "Кладёт отчёт исполнителя о текущей порции."
         },
         {
+          "selector": "resume",
+          "kind": "unary",
+          "purpose": "Возобновляет шаги оркестратора по остановленному проекту."
+        },
+        {
           "selector": "role",
           "kind": "unary",
           "purpose": "Записывает профиль роли проекта; forget — удаляет."
@@ -13007,6 +13012,11 @@
           "selector": "status",
           "kind": "unary",
           "purpose": "Строка на проект: порция, чей ход, последнее сообщение."
+        },
+        {
+          "selector": "stop",
+          "kind": "unary",
+          "purpose": "Останавливает шаги оркестратора по проекту."
         },
         {
           "selector": "wait",
@@ -13494,6 +13504,32 @@
     {
       "path": [
         "task",
+        "resume"
+      ],
+      "summary": "Возобновляет шаги оркестратора по остановленному проекту.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
         "role"
       ],
       "summary": "Записывает профиль роли проекта; forget — удаляет.",
@@ -13731,6 +13767,39 @@
       "formats": [
         "json"
       ],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "stop"
+      ],
+      "summary": "Останавливает шаги оркестратора по проекту.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "text",
+          "kind": "value",
+          "required": false,
+          "purpose": "причина остановки; умолчание — стоп",
+          "reason": null
+        }
+      ],
+      "formats": [],
       "variants": []
     },
     {

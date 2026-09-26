@@ -286,6 +286,14 @@ export class Project {
   }
 
   /**
+   * `stop`/`resume` к текущей порции; порций нет — к порции 0, без
+   * отказа: остановить можно и проект, где работа ещё не начата.
+   */
+  steer(kind: Kind, body: string, at: number, depth: Depth) {
+    this.#write(currentOf(this.#messages()), kind, body, at, depth);
+  }
+
+  /**
    * Тело последнего сообщения отбора; `keep` — не помечать прочитанным.
    *
    * @throws TaskRefusal — таких сообщений нет

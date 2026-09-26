@@ -429,7 +429,7 @@ Deno.test("T17: неизвестный вид — отказ со списком
       await stand.agent("task", "read", "project:", "demo", "kind:", "ask"),
       2,
       "",
-      "mpu task read: неизвестный вид ask — допустимо: task, report, question, answer, decision, owner, owner-answer, rule\n",
+      "mpu task read: неизвестный вид ask — допустимо: task, report, question, answer, decision, owner, owner-answer, rule, stop, resume\n",
     );
   }));
 
@@ -610,6 +610,8 @@ Deno.test("T24: посев правил канала", () =>
         ["task history", "allow"],
         ["task setup", "ask"],
         ["task history clear", "ask"],
+        ["task stop", "allow"],
+        ["task resume", "ask"],
       ]
     ) {
       assertEquals(rules.get(path), verdict, path);

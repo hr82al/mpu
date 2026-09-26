@@ -79,6 +79,14 @@ export const TASK_HISTORY: ConfigKey = {
     "Глубина журнала `mpu task` в порциях: 0 — только текущая, -1 — не чистить",
 };
 
+export const TASK_MAX_BUSY: ConfigKey = {
+  key: "task.max_busy",
+  type: "int",
+  fallback: fixed("4"),
+  description:
+    "Предел одновременно занятых ролей оркестратора `mpu-task` по всем проектам",
+};
+
 export const CONFIG_KEYS: readonly ConfigKey[] = [
   {
     key: "sheet.default",
@@ -113,6 +121,7 @@ export const CONFIG_KEYS: readonly ConfigKey[] = [
   },
   IMAGE_DIR,
   TASK_HISTORY,
+  TASK_MAX_BUSY,
 ];
 
 /** Ключ реестра по имени; имени нет в списке — `undefined`. */

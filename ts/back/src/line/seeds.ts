@@ -27,7 +27,8 @@ const SEED_OF: Readonly<Record<Policy, Verdict>> = { ro: ALLOW, rw: ASK };
  * второе правило того же пути уронило бы посев целиком. `image export`
  * пишет только файлы каталога образа (`image-export.md`); записи ролей
  * канала `task` и его журнал — только локальный журнал (`task.md`);
- * отметки ролей ставит сама роль без человека (`task-roles.md`).
+ * отметки ролей ставит сама роль без человека (`task-roles.md`); стоп
+ * проекта ставит хост на блокере (`task-orchestrator.md`).
  */
 const OWN_SEEDS: ReadonlyMap<string, Verdict> = new Map([
   [EXPORT_PATH.join(" "), ALLOW],
@@ -41,6 +42,7 @@ const OWN_SEEDS: ReadonlyMap<string, Verdict> = new Map([
     "history",
     "busy",
     "idle",
+    "stop",
   ].map((name): [string, Verdict] => [`task ${name}`, ALLOW]),
 ]);
 

@@ -2133,6 +2133,12 @@ const CASES: readonly CommandCase[] = [
     argv: ["--project", "demo", "--role", "exec"],
     sampleResult: {},
   })),
+  {
+    path: "task stop",
+    argv: ["--project", "demo", "--text", "x"],
+    sampleResult: {},
+  },
+  { path: "task resume", argv: ["--project", "demo"], sampleResult: {} },
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {

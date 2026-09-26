@@ -19,7 +19,9 @@ import {
   OWNER_ANSWER,
   QUESTION,
   REPORT,
+  RESUME,
   RULE,
+  STOP,
 } from "./kind.ts";
 import { bodyOf, PROJECT, type TaskIo, withJournal } from "./glue.ts";
 import { SETUP_TEXT } from "./texts.ts";
@@ -236,3 +238,69 @@ export const taskKindCommands: readonly Command[] = [
     ownerOnly: ownedBy(RULE),
   },
 ].map(kindCommand);
+
+const stopArgs = z.object({
+  project: PROJECT,
+  text: z.string().optional().describe("причина остановки; умолчание — стоп"),
+});
+
+/** Причина остановки, когда её не назвали (`task-orchestrator.md`). */
+const STOP_BODY = "стоп";
+
+export const taskStopCommand: Command = defineCommand({
+  path: ["task", "stop"],
+  keys: {},
+  errorName: "task stop",
+  summary: "Останавливает шаги оркестратора по проекту.",
+  usage: "mpu task stop project: ИМЯ [text: ПРИЧИНА]",
+  help: `Звать хосту на блокере, который правила проекта не решают: оркестратор
+перестаёт будить роли проекта (окна не трогает, не чистит), status
+показывает ход «остановлен». Снимает стоп только mpu task resume.
+
+text: — причина (умолчание — стоп); ложится в журнал видом stop, к
+текущей порции (порций нет — к порции 0).
+
+Exit: 0; 2 — нет проекта.`,
+  examples: ["mpu task stop project: demo text: ^нужен ключ API^"],
+  policy: "rw",
+  text: true,
+  argsSchema: stopArgs,
+  resultSchema: NOTHING,
+  run: (args, io: TaskIo) => {
+    steer(io, args.project, STOP, args.text ?? STOP_BODY);
+    return Promise.resolve({});
+  },
+  render: () => "",
+});
+
+export const taskResumeCommand: Command = defineCommand({
+  path: ["task", "resume"],
+  keys: {},
+  errorName: "task resume",
+  summary: "Возобновляет шаги оркестратора по остановленному проекту.",
+  usage: "mpu task resume project: ИМЯ",
+  help: `Звать человеку, когда блокер остановленного проекта снят: оркестратор
+снова будит роли, status показывает прежний ход. Решает человек — строка
+по умолчанию спрашивает подтверждение.
+
+Ложится в журнал видом resume к текущей порции (порций нет — к порции 0).
+
+Exit: 0; 2 — нет проекта.`,
+  examples: ["mpu ask task resume project: demo"],
+  policy: "rw",
+  text: true,
+  argsSchema: z.object({ project: PROJECT }),
+  resultSchema: NOTHING,
+  run: (args, io: TaskIo) => {
+    steer(io, args.project, RESUME, RESUME.word);
+    return Promise.resolve({});
+  },
+  render: () => "",
+});
+
+function steer(io: TaskIo, name: string, kind: Kind, body: string) {
+  withJournal(
+    io,
+    (projects, depth) => projects.at(name).steer(kind, body, Date.now(), depth),
+  );
+}

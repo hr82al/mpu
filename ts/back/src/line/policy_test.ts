@@ -118,6 +118,7 @@ const OWN_SEEDS: Readonly<Record<string, string | undefined>> = {
   "task history": "allow",
   "task busy": "allow",
   "task idle": "allow",
+  "task stop": "allow",
   "task rule": undefined,
   "task owner-answer": undefined,
   "task role": undefined,

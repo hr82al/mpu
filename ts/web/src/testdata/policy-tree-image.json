@@ -2299,6 +2299,15 @@
   {
     "path": [
       "task",
+      "resume"
+    ],
+    "verdict": "ask",
+    "rule": "task resume",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
       "role"
     ],
     "verdict": "ask",
@@ -2348,6 +2357,15 @@
     ],
     "verdict": "allow",
     "rule": "task status",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "stop"
+    ],
+    "verdict": "allow",
+    "rule": "task stop",
     "own": true
   },
   {

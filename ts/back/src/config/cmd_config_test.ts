@@ -54,6 +54,12 @@ const TASK_HISTORY_DESCRIPTION =
 /** Седьмая строка списка — task.history (`task.md`, «Конфигурация»). */
 const TASK_HISTORY_LINE = "task.history               3  (default)";
 
+const TASK_MAX_BUSY_DESCRIPTION =
+  "Предел одновременно занятых ролей оркестратора `mpu-task` по всем проектам";
+
+/** Восьмая — task.max_busy (`task-orchestrator.md`, «Параллельные проекты»). */
+const TASK_MAX_BUSY_LINE = "task.max_busy              4  (default)";
+
 /** Прогон с настоящей БД во временном каталоге; `HOME` порта — `stand.home`. */
 async function withIo(
   body: (
@@ -80,7 +86,7 @@ function firstLines(text: string, n: number): string {
   return text.split("\n").slice(0, n).map((line) => `${line}\n`).join("");
 }
 
-Deno.test("список: пять строк эталона канала, шестая — image.dir (C1), седьмая — task.history", async (t) => {
+Deno.test("список: пять строк эталона канала, шестая — image.dir (C1), седьмая — task.history, восьмая — task.max_busy", async (t) => {
   // Голден снят на реестре оригинала — пять ключей; image.dir в него не
   // дописывается (`platform/config.md`, «Ключ image.dir»).
   const cases = [
@@ -98,7 +104,12 @@ Deno.test("список: пять строк эталона канала, шес
           firstLines(text, 5),
           await golden("list-default.stdout"),
         );
-        assertEquals(text.split("\n").slice(5), [line, TASK_HISTORY_LINE, ""]);
+        assertEquals(text.split("\n").slice(5), [
+          line,
+          TASK_HISTORY_LINE,
+          TASK_MAX_BUSY_LINE,
+          "",
+        ]);
       }, { home }));
   }
 });
@@ -109,7 +120,8 @@ Deno.test("список --json: форма записи — эталон кан�
     const entries = JSON.parse(renderConfig(result, true));
     const original = JSON.parse(await golden("list-json.stdout"));
     // Первые пять записей — голден дословно, вместе с описаниями: их
-    // читает человек. Шестая — image.dir (C2), седьмая — task.history.
+    // читает человек. Шестая — image.dir (C2), седьмая — task.history,
+    // восьмая — task.max_busy.
     assertEquals(entries.slice(0, 5), original);
     assertEquals(entries.slice(5), [{
       key: "image.dir",
@@ -123,6 +135,12 @@ Deno.test("список --json: форма записи — эталон кан�
       source: "default",
       default: "3",
       description: TASK_HISTORY_DESCRIPTION,
+    }, {
+      key: "task.max_busy",
+      value: "4",
+      source: "default",
+      default: "4",
+      description: TASK_MAX_BUSY_DESCRIPTION,
     }]);
   });
 });
@@ -300,9 +318,10 @@ Deno.test("реестр закрыт: имя вне списка не созда
       const text = formatCommandError("config", err);
       const tail = (await golden("err-unknown-key.stderr")).trim()
         .split("допустимые ключи: ")[1];
-      // Состав — голден, image.dir и task.history (`platform/config.md`).
+      // Состав — голден, image.dir, task.history и task.max_busy
+      // (`platform/config.md`).
       assertEquals(
-        text.endsWith(`${tail}, image.dir, task.history`),
+        text.endsWith(`${tail}, image.dir, task.history, task.max_busy`),
         true,
         text,
       );
@@ -376,7 +395,7 @@ Deno.test("переменные окружения на выдачу не вли
   }
 });
 
-Deno.test("реестр: семь ключей по порядку спеки, task.history последним", () => {
+Deno.test("реестр: восемь ключей по порядку спеки, task.max_busy последним", () => {
   assertEquals(CONFIG_KEYS.map((entry) => entry.key), [
     "sheet.default",
     "xlsx.default",
@@ -385,6 +404,7 @@ Deno.test("реестр: семь ключей по порядку спеки, t
     "sheet.cache.max_total_mb",
     "image.dir",
     "task.history",
+    "task.max_busy",
   ]);
 });
 

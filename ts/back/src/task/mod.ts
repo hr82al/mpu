@@ -22,7 +22,9 @@ import {
 import {
   taskKindCommands,
   taskPostCommand,
+  taskResumeCommand,
   taskSetupCommand,
+  taskStopCommand,
 } from "./cmd_write.ts";
 
 /** Путь режима чистки журнала: у него свой посев (`ask`). */
@@ -45,4 +47,6 @@ export const taskCommands: readonly Command[] = [
   taskRoleCommand,
   taskRolesCommand,
   ...taskMarkCommands,
+  taskStopCommand,
+  taskResumeCommand,
 ];
