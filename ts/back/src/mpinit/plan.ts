@@ -10,7 +10,8 @@
  * docker.
  */
 
-import { shellCommand } from "../exec/mod.ts";
+import { quoteArg, shellCommand } from "../exec/mod.ts";
+import type { RunInput } from "./docker.ts";
 import {
   type Migrations,
   NO_MIGRATIONS,
@@ -23,8 +24,11 @@ import {
   NO_RATES,
 } from "./rates.ts";
 
-/** Шаг плана: что запустить и в каком каталоге. */
-export interface Step {
+/**
+ * Шаг плана: что запустить и в каком каталоге. `env` печатается
+ * префиксом строки, `stdin` — никогда: это путь секрета.
+ */
+export interface Step extends RunInput {
   /** Имя шага для сообщений об отказе (`стек '<name>' упал`). */
   readonly name: string;
   readonly argv: readonly [string, ...string[]];
@@ -41,22 +45,10 @@ export interface PlanFacts {
   readonly localStackDir: string | undefined;
   /** Существует ли файл по абсолютному пути. */
   readonly exists: (path: string) => boolean;
-  /**
-   * Контейнеры, которые надо погасить перед web. В dry-run сюда идёт
-   * весь список конфликтующих, в реальном прогоне — только реально
-   * запущенные (`mp-init.md`, «Граничные случаи»).
-   */
-  readonly conflicting: readonly string[];
 }
 
 /** Конфликтующие с web-стеком контейнеры; порядок — из спеки. */
 export const CONFLICTING = ["mp-sw-api", "nextjs-dev", "mp-sl-front-dev"];
-
-/** Образ web-стека: его отсутствие — предупреждение, а не отказ. */
-export const WEB_IMAGE: readonly [string, string] = [
-  "sl-front-dev:local",
-  "sl-front-build-dev-image",
-];
 
 /** Имя docker-сети и её подсеть. */
 export const NETWORK = "mp-shared-net";
@@ -235,62 +227,14 @@ export function coreStacks(facts: PlanFacts): readonly CoreStack[] {
 }
 
 /**
- * План web-части: БД-зависимости sw-back, гашение конфликтующих
- * контейнеров, затем сам web-стек. Пустой список, если каталога нет.
+ * Печатаемая строка шага: `$ [K=V …] <команда>` плюс комментарий, если
+ * есть. Значение квотируется отдельно от имени: `'K=v w'` шелл принял
+ * бы за имя команды.
  */
-export function webPlan(facts: PlanFacts): readonly Step[] {
-  if (facts.localStackDir === undefined) return [];
-  const steps: Step[] = [{
-    name: "sw-back-deps",
-    argv: [
-      "docker",
-      "compose",
-      "--env-file",
-      `${facts.configDir}/.sw-back.base.env`,
-      "-f",
-      `${facts.configDir}/compose.sw-back.yaml`,
-      "up",
-      "-d",
-      "--force-recreate",
-      "pg",
-      "redis",
-    ],
-    cwd: facts.configDir,
-  }];
-  if (facts.conflicting.length > 0) {
-    steps.push({
-      name: "stop-conflicting",
-      argv: ["docker", "stop", ...facts.conflicting] as [string, ...string[]],
-      cwd: facts.configDir,
-      comment: "# только запущенные",
-    });
-  }
-  steps.push({
-    name: "web",
-    argv: [
-      "docker",
-      "compose",
-      "-f",
-      `${facts.localStackDir}/docker-compose.yml`,
-      "up",
-      "-d",
-      "--force-recreate",
-    ],
-    cwd: facts.localStackDir,
-  });
-  return steps;
-}
-
-/**
- * Весь план: core, затем web. Склейка отдельной функцией — чтобы
- * порядок двух частей был виден одной строкой и проверялся тестом.
- */
-export function fullPlan(facts: PlanFacts): readonly Step[] {
-  return [...coreStacks(facts).map((stack) => stack.step), ...webPlan(facts)];
-}
-
-/** Печатаемая строка шага: `$ <команда>` плюс комментарий, если есть. */
 export function stepLine(step: Step): string {
-  const command = `$ ${shellCommand(step.argv)}`;
+  const env = Object.entries(step.env ?? {}).map(([name, value]) =>
+    `${name}=${quoteArg(value)} `
+  ).join("");
+  const command = `$ ${env}${shellCommand(step.argv)}`;
   return step.comment === undefined ? command : `${command}  ${step.comment}`;
 }

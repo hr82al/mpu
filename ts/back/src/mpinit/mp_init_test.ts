@@ -16,12 +16,23 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { configDirOf, localStackDirOf, runMpInit } from "./cmd_mp_init.ts";
-import type { Clock, Docker, ProcessOutcome } from "./docker.ts";
-import { CONFLICTING, fullPlan, stepLine } from "./plan.ts";
+import type { Clock, Docker, ProcessOutcome, RunInput } from "./docker.ts";
+import { CONFLICTING, coreStacks, type PlanFacts, stepLine } from "./plan.ts";
 
 const HOME = "/home/operator";
 const CONFIG = `${HOME}/mr/mp/mp-config-local`;
 const LOCAL_STACK = `${HOME}/mr/mp/local-stack`;
+const ROOT = `${HOME}/mr/mp`;
+const DOCKER_CONFIG = `${HOME}/.docker/config.json`;
+const DOT_ENV = `${LOCAL_STACK}/.env`;
+/** Синтетический пароль Nexus: его не должно быть ни в одном выводе. */
+const PASSWORD = "Zz9-secret-pw";
+const NPM_AUTH = btoa(`robot:${PASSWORD}`);
+/**
+ * Тег зависимостей sw-back синтетических файлов стенда — снят
+ * `cat Dockerfile.deps package.json package-lock.json .npmrc | sha256sum`.
+ */
+const DEPS_TAG = "a936a86f871f592b";
 const ok: ProcessOutcome = { code: 0, stdout: "", stderr: "" };
 
 /** Ответ подменного docker'а; `undefined` — ответ стенда по умолчанию. */
@@ -63,6 +74,9 @@ function isRatesProbe(argv: readonly string[]): boolean {
 function standAnswer(argv: readonly string[]): ProcessOutcome {
   const out = (stdout: string) => ({ code: 0, stdout, stderr: "" });
   if (argv.includes("{{.State.Running}}")) return out("true\n");
+  if (argv.includes("{{json .NetworkSettings.Networks}}")) {
+    return out('{"local-stack-sw-db-net":{"IPAddress":"172.30.0.2"}}\n');
+  }
   if (argv.includes("--services")) return out(COMPOSE_SERVICES.join("\n"));
   if (argv[1] === "wait") return out("0\n");
   if (isRatesProbe(argv)) return out("8178\n");
@@ -74,6 +88,8 @@ function standAnswer(argv: readonly string[]): ProcessOutcome {
 class FakeDocker implements Docker {
   readonly probes: string[][] = [];
   readonly runs: string[][] = [];
+  /** Окружение и stdin каждого `run` — по индексу `runs`. */
+  readonly inputs: (RunInput | undefined)[] = [];
   readonly watches: string[][] = [];
 
   constructor(private readonly answer: Answer = () => undefined) {}
@@ -83,8 +99,9 @@ class FakeDocker implements Docker {
     return await this.answer(argv, signal) ?? standAnswer(argv);
   }
 
-  async run(argv: readonly string[]) {
+  async run(argv: readonly string[], _cwd: string, input?: RunInput) {
     this.runs.push([...argv]);
+    this.inputs.push(input);
     return (await this.answer(argv) ?? standAnswer(argv)).code;
   }
 
@@ -110,6 +127,47 @@ function readFixture(path: string): string {
   );
 }
 
+/**
+ * Файлы стенда, которые команда читает сама: вход в Nexus, чекаут
+ * sw-back (тег зависимостей), env-файлы local-stack. `$L/.env` нет.
+ * Env-файлы — не по порядку имён: порядок наводит команда.
+ */
+const STAND_FILES: Readonly<Record<string, string>> = {
+  [DOCKER_CONFIG]: '{"auths":{"nexus.btlz-api.ru":{"auth":"eDp5"}}}\n',
+  [`${ROOT}/sw-back/Dockerfile.deps`]: "FROM node:22-alpine\n",
+  [`${ROOT}/sw-back/package.json`]: '{"name":"sw-back"}\n',
+  [`${ROOT}/sw-back/package-lock.json`]: '{"lockfileVersion":3}\n',
+  [`${ROOT}/sw-back/.npmrc`]: "registry=https://registry.npmjs.org/\n",
+  [`${LOCAL_STACK}/env/sw-back.env`]: "",
+  [`${LOCAL_STACK}/env/sl-base.env`]: "",
+  [`${LOCAL_STACK}/env/shared.env`]: "",
+  [`${LOCAL_STACK}/env/README.md`]: "",
+  [`${LOCAL_STACK}/env/sl-1.env`]: "",
+  [`${LOCAL_STACK}/env/sl-0.env`]: "",
+};
+
+/** Правки файлов стенда: `null` — файла нет. */
+type FileEdits = Readonly<Record<string, string | null>>;
+
+/** Чтение файлов стенда; чего нет — `NotFound`, как у диска. */
+function standReader(edits: FileEdits = {}) {
+  const files: Record<string, string | null> = { ...STAND_FILES, ...edits };
+  const readText = (path: string): string => {
+    const text = files[path];
+    if (text === null) throw new Deno.errors.NotFound(path);
+    return text ?? readFixture(path);
+  };
+  return {
+    readText,
+    readBytes: (path: string) => new TextEncoder().encode(readText(path)),
+    listDir: (dir: string) =>
+      Object.keys(files).filter((path) =>
+        files[path] !== null && path.startsWith(`${dir}/`) &&
+        !path.slice(dir.length + 1).includes("/")
+      ).map((path) => path.slice(dir.length + 1)),
+  };
+}
+
 /** Существуют все пути, кроме опционального `.sl-dt.env` стенда. */
 const existsExceptDtEnv = (path: string) => !path.endsWith(".sl-dt.env");
 
@@ -130,13 +188,14 @@ async function mpInit(
     exists?: (path: string) => boolean;
     clock?: Clock;
     env?: Record<string, string>;
+    files?: FileEdits;
   } = {},
 ) {
   return await runMpInit({ "dry-run": dryRun }, ioWith(lines, more.env), {
     docker,
     clock: more.clock ?? neverClock,
     exists: more.exists ?? existsExceptDtEnv,
-    readText: readFixture,
+    ...standReader(more.files),
   });
 }
 
@@ -145,6 +204,12 @@ async function golden(name: string): Promise<string> {
     new URL(`./testdata/mp-init/${name}`, import.meta.url),
   );
 }
+
+/** Инфры SW нет: `mp-sw-pg` и `redis-dev` не существуют. */
+const noInfra: Answer = (argv) =>
+  argv.includes("{{json .NetworkSettings.Networks}}")
+    ? { code: 1, stdout: "", stderr: "Error: No such object" }
+    : undefined;
 
 /** Ответ «образа нет» на inspect одного тега. */
 const noImage = (tag: string): Answer => (argv) =>
@@ -173,15 +238,19 @@ Deno.test("сухой прогон печатает последовательн
 
 Deno.test("порядок шагов: web поднимается после core", async () => {
   const lines: string[] = [];
-  await mpInit(true, lines);
+  // Инфра не в сети и входа нет — видны все шаги web-части (M3).
+  await mpInit(true, lines, new FakeDocker(noInfra), {
+    files: { [DOCKER_CONFIG]: null, [DOT_ENV]: `NPM_AUTH=${NPM_AUTH}\n` },
+  });
   const names = lines.filter((line) => line.startsWith("$ ")).map((line) => {
     if (line.includes("compose.mp-nats")) return "nats";
     if (line.includes("compose.sl-main")) return "sl-0";
     if (line.includes("compose.sl-instance")) return "sl-1";
     if (line.includes("compose.mp-nginx")) return "nginx";
     if (line.includes("compose.sl-dt-host")) return "dt-host";
-    if (line.includes("compose.sw-back")) return "sw-back-deps";
     if (line.startsWith("$ docker stop")) return "stop";
+    if (line.includes("compose.sw-infra")) return "sw-infra";
+    if (line.includes("docker login")) return "login";
     if (line.includes("local-stack/docker-compose.yml")) return "web";
     return "прочее";
   });
@@ -193,8 +262,9 @@ Deno.test("порядок шагов: web поднимается после core
     "sl-1",
     "nginx",
     "dt-host",
-    "sw-back-deps",
     "stop",
+    "sw-infra",
+    "login",
     "web",
   ]);
 });
@@ -269,27 +339,37 @@ Deno.test("образы: недостающий core собирается, web �
     );
   });
 
-  await t.step(
-    "нет web-образа — предупреждение, core поднимается",
-    async () => {
-      const lines: string[] = [];
-      const result = await mpInit(
-        false,
-        lines,
-        new FakeDocker(noImage("sl-front-dev:local")),
-      );
-      assertEquals(result.exitCode, 0);
-      assertEquals(
-        lines.includes(
-          "warning: нет web-образов: sl-front-dev:local → " +
-            "sl-front-build-dev-image",
-        ),
-        true,
-        lines.join("\n"),
-      );
-      assertEquals(lines.some((line) => line.startsWith("собираю")), false);
-    },
-  );
+  await t.step("M3-12: нет web-образа — собирается до web", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker(noImage("sl-front-dev:local"));
+    const result = await mpInit(true, lines, docker);
+    assertEquals(result.exitCode, 0);
+    const at = lines.indexOf("собираю sl-front-dev:local");
+    assertEquals(
+      lines[at + 1],
+      `$ docker build --load --target dev -t sl-front-dev:local ` +
+        `-f ${CONFIG}/Dockerfile.front ${ROOT}/sl-front`,
+    );
+    const web = lines.findIndex((line) =>
+      line.includes("local-stack/docker-compose.yml")
+    );
+    assertEquals(0 <= at && at < web, true, lines.join("\n"));
+    assertEquals(lines.some((line) => line.startsWith("warning:")), false);
+    assertEquals(docker.runs, []);
+  });
+
+  await t.step("нет local-stack — web-образ не смотрится", async () => {
+    const docker = new FakeDocker(noImage("sl-front-dev:local"));
+    const lines: string[] = [];
+    await mpInit(true, lines, docker, {
+      exists: (path) => !path.includes("local-stack"),
+    });
+    assertEquals(lines.some((line) => line.includes("sl-front-dev")), false);
+    assertEquals(
+      docker.probes.some((argv) => argv.includes("sl-front-dev:local")),
+      false,
+    );
+  });
 });
 
 Deno.test("overrides сверяются с compose до up", async (t) => {
@@ -301,6 +381,7 @@ Deno.test("overrides сверяются с compose до up", async (t) => {
       docker: new FakeDocker(),
       clock: neverClock,
       exists: existsExceptDtEnv,
+      ...standReader(),
       readText: (path) =>
         path === SL_MAIN
           ? `${readFixture(path)}  m-nats-listeners:\n    image: x\n`
@@ -509,7 +590,9 @@ Deno.test("сводка контейнеров после core", async (t) => {
       line.includes("compose.sl-dt-host")
     );
     const warning = lines.findIndex((line) => line.startsWith("warning: sl-0"));
-    const web = lines.findIndex((line) => line.includes("compose.sw-back"));
+    const web = lines.findIndex((line) =>
+      line.includes("local-stack/docker-compose.yml")
+    );
     assertEquals(dtHost < warning && warning < web, true, lines.join("\n"));
   });
 
@@ -643,7 +726,10 @@ Deno.test("web-часть: нет каталога — пропуск, а не �
     false,
   );
   // БД-зависимости sw-back тоже не поднимаются: их шаг — часть web.
-  assertEquals(lines.some((line) => line.includes("compose.sw-back")), false);
+  assertEquals(
+    lines.some((line) => line.includes("local-stack/docker-compose.yml")),
+    false,
+  );
   assertEquals(
     lines.at(-1),
     "mp-init: core поднят — nats, sl-0, sl-1, nginx, dt-host",
@@ -685,19 +771,22 @@ Deno.test("каталог стенда: env старше HOME, отсутств�
   });
 });
 
+/** Строки всех core-стеков — по фактам диска. */
+function coreLines(facts: PlanFacts): string {
+  return coreStacks(facts).map((stack) => stepLine(stack.step)).join("\n");
+}
+
 Deno.test("опциональные env-файлы включаются только существующие", () => {
-  const withAll = fullPlan({
+  const withAll = coreLines({
     configDir: CONFIG,
     localStackDir: LOCAL_STACK,
     exists: () => true,
-    conflicting: [],
-  }).map(stepLine).join("\n");
-  const withoutDt = fullPlan({
+  });
+  const withoutDt = coreLines({
     configDir: CONFIG,
     localStackDir: LOCAL_STACK,
     exists: existsExceptDtEnv,
-    conflicting: [],
-  }).map(stepLine).join("\n");
+  });
   // Несуществующий env-файл в argv — отказ compose'а целиком.
   assertEquals(withAll.includes("/.sl-dt.env"), true);
   assertEquals(withoutDt.includes("/.sl-dt.env"), false);
@@ -705,12 +794,11 @@ Deno.test("опциональные env-файлы включаются толь
   // спека относит к опциональным только `.env` и `.sl-*.env` без
   // `base`. Пропустив базовый, мы подняли бы стек на неполном наборе
   // переменных — молча и «не тем».
-  const nothingExists = fullPlan({
+  const nothingExists = coreLines({
     configDir: CONFIG,
     localStackDir: LOCAL_STACK,
     exists: () => false,
-    conflicting: [],
-  }).map(stepLine).join("\n");
+  });
   for (const base of [".sl-0.base.env", ".sl-1.base.env", ".sl-dt.base.env"]) {
     assertEquals(nothingExists.includes(`/${base}`), true, base);
   }
@@ -767,7 +855,9 @@ Deno.test("курсы валют на свежем стенде", async (t) => {
     const summary = docker.probes.findIndex((argv) => argv[1] === "ps");
     const probe = docker.probes.findIndex(isRatesProbe);
     assertEquals(summary < probe, true, "проба — после сводки");
-    const web = lines.findIndex((line) => line.includes("compose.sw-back"));
+    const web = lines.findIndex((line) =>
+      line.includes("local-stack/docker-compose.yml")
+    );
     assertEquals(at + 2 < web, true, "курсы — до web");
   });
 
@@ -811,7 +901,10 @@ Deno.test("курсы валют на свежем стенде", async (t) => {
       "mpu mp-init: курсы валют — backfill упал (rc=1); web не поднимаю",
     );
     assertEquals(lines.includes(SYNC), false);
-    assertEquals(lines.some((line) => line.includes("compose.sw-back")), false);
+    assertEquals(
+      lines.some((line) => line.includes("local-stack/docker-compose.yml")),
+      false,
+    );
   });
 
   await t.step("M2-5: пропущенные дни — одна строка на все", async () => {
@@ -911,5 +1004,306 @@ Deno.test("курсы валют на свежем стенде", async (t) => {
       "mpu mp-init: курсы валют — syncFullHistory sl-1 упал (rc=5); " +
         "web не поднимаю",
     );
+  });
+});
+
+/** Строка web формы M3-7: окружение процесса и услуги по порядку. */
+function webLine(services: string, api = "http://internal-api:5100"): string {
+  return `$ SW_BACK_SRC=${ROOT}/sw-back SW_FRONT_SRC=${ROOT}/sw-front ` +
+    `SL_FRONT_SRC=${ROOT}/sl-front SW_BACK_DEPS_TAG=${DEPS_TAG} ` +
+    `SW_BACK_INTERNAL_API_URL=${api} docker compose ` +
+    `-f ${LOCAL_STACK}/docker-compose.yml up -d --no-deps --force-recreate ` +
+    services;
+}
+
+const INFRA_LINE =
+  `$ docker compose --env-file ${LOCAL_STACK}/env/shared.env ` +
+  `--env-file ${LOCAL_STACK}/env/sl-0.env ` +
+  `--env-file ${LOCAL_STACK}/env/sl-1.env ` +
+  `--env-file ${LOCAL_STACK}/env/sl-base.env ` +
+  `--env-file ${LOCAL_STACK}/env/sw-back.env ` +
+  `-f ${LOCAL_STACK}/infra/compose.sw-infra.yaml up -d`;
+
+const NO_ACCESS_WARNING =
+  `warning: нет входа в nexus.btlz-api.ru и NPM_AUTH в ${LOCAL_STACK}/.env ` +
+  `— см. ${LOCAL_STACK}/README.md, «Nexus»; sw-back не поднимаю`;
+
+/** Ни входа в Nexus, ни `NPM_AUTH`. */
+const NO_NEXUS: FileEdits = { [DOCKER_CONFIG]: null };
+
+/** Входа нет, `NPM_AUTH` в `$L/.env` есть. */
+const WITH_NPM_AUTH: FileEdits = {
+  [DOCKER_CONFIG]: null,
+  [DOT_ENV]: `# Nexus\nNPM_AUTH=${NPM_AUTH}\n`,
+};
+
+Deno.test("web поверх core: инфра SW из local-stack (M3)", async (t) => {
+  await t.step("M3-1: инфра в сети — строк нет, проба была", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    await mpInit(true, lines, docker);
+    assertEquals(lines.some((line) => line.includes("sw-infra")), false);
+    assertEquals(lines.some((line) => line.includes("rm -f")), false);
+    assertEquals(
+      docker.probes.filter((argv) =>
+        argv.includes("{{json .NetworkSettings.Networks}}")
+      ).map((argv) => argv.at(-1)),
+      ["mp-sw-pg", "redis-dev"],
+    );
+  });
+
+  await t.step("M3-2: не в той сети — rm -f и compose инфры", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      argv.includes("{{json .NetworkSettings.Networks}}") &&
+        argv.at(-1) === "mp-sw-pg"
+        ? { code: 0, stdout: '{"mp-config-local_ws_default":{}}\n', stderr: "" }
+        : undefined
+    );
+    await mpInit(true, lines, docker);
+    const at = lines.indexOf("$ docker rm -f mp-sw-pg redis-dev");
+    assertEquals(at >= 0, true, lines.join("\n"));
+    assertEquals(lines[at + 1], INFRA_LINE);
+  });
+
+  await t.step("M3-3: контейнеров нет — только compose", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker(noInfra);
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0);
+    assertEquals(lines.some((line) => line.includes("rm -f")), false);
+    assertEquals(lines.includes(INFRA_LINE), true, lines.join("\n"));
+    assertEquals(docker.runs.some((argv) => argv[1] === "rm"), false);
+  });
+
+  await t.step("инфра упала — её rc, web стоит", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      argv.some((arg) => arg.endsWith("compose.sw-infra.yaml"))
+        ? { code: 4, stdout: "", stderr: "" }
+        : noInfra(argv)
+    );
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 4);
+    assertEquals(result.web, false);
+    assertEquals(
+      lines.at(-1),
+      "mpu mp-init: стек 'sw-infra' упал (rc=4); остальные не поднимаю",
+    );
+  });
+});
+
+Deno.test("web поверх core: вход в Nexus (M3)", async (t) => {
+  await t.step("M3-4: вход есть — строк входа нет", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    await mpInit(false, lines, docker);
+    assertEquals(lines.some((line) => line.includes("docker login")), false);
+    assertEquals(lines.includes(webLine("sw-back sw-front sl-front")), true);
+  });
+
+  await t.step("M3-5: NPM_AUTH — логин, пароль только в stdin", async () => {
+    for (const dryRun of [true, false]) {
+      const lines: string[] = [];
+      const docker = new FakeDocker();
+      const result = await mpInit(dryRun, lines, docker, {
+        files: WITH_NPM_AUTH,
+      });
+      assertEquals(
+        lines.includes(
+          "$ docker login nexus.btlz-api.ru -u robot --password-stdin",
+        ),
+        true,
+        lines.join("\n"),
+      );
+      const everything = JSON.stringify([
+        lines,
+        result,
+        docker.probes,
+        docker.runs,
+        docker.watches,
+      ]);
+      for (const secret of [PASSWORD, NPM_AUTH]) {
+        assertEquals(everything.includes(secret), false, secret);
+      }
+      const login = docker.runs.findIndex((argv) => argv[1] === "login");
+      if (dryRun) {
+        assertEquals(login, -1);
+        continue;
+      }
+      assertEquals(docker.inputs[login]?.stdin, PASSWORD);
+    }
+  });
+
+  await t.step("M3-6: ни входа, ни NPM_AUTH — web без sw-back", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    const result = await mpInit(false, lines, docker, { files: NO_NEXUS });
+    assertEquals(result.exitCode, 0);
+    assertEquals(lines.includes(NO_ACCESS_WARNING), true, lines.join("\n"));
+    assertEquals(lines.includes(webLine("sw-front sl-front")), true);
+    assertEquals(
+      lines.at(-1),
+      "mp-init: поднят core (nats/sl-0/sl-1/nginx/dt-host) + " +
+        "web (sw-front/sl-front)",
+    );
+  });
+
+  await t.step("M3-13: вход упал — его rc, web стоит", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      argv[1] === "login" ? { code: 5, stdout: "", stderr: "" } : undefined
+    );
+    const result = await mpInit(false, lines, docker, {
+      files: WITH_NPM_AUTH,
+    });
+    assertEquals(result.exitCode, 5);
+    assertEquals(result.web, false);
+    assertEquals(
+      lines.at(-1),
+      "mpu mp-init: вход в nexus.btlz-api.ru упал (rc=5)",
+    );
+    assertEquals(
+      docker.runs.some((argv) => argv.includes("--no-deps")),
+      false,
+    );
+  });
+
+  await t.step("M3-14: NPM_AUTH без `:` — как M3-6", async () => {
+    for (const auth of [btoa("robot"), "не base64"]) {
+      const lines: string[] = [];
+      await mpInit(false, lines, new FakeDocker(), {
+        files: { [DOCKER_CONFIG]: null, [DOT_ENV]: `NPM_AUTH=${auth}\n` },
+      });
+      assertEquals(lines.includes(NO_ACCESS_WARNING), true, auth);
+      assertEquals(lines.includes(webLine("sw-front sl-front")), true, auth);
+    }
+  });
+
+  await t.step("NPM_AUTH в кавычках — вход по нему", async () => {
+    for (const quote of ['"', "'"]) {
+      const lines: string[] = [];
+      await mpInit(true, lines, new FakeDocker(), {
+        files: {
+          [DOCKER_CONFIG]: null,
+          [DOT_ENV]: `export NPM_AUTH=${quote}${NPM_AUTH}${quote}\n`,
+        },
+      });
+      assertEquals(
+        lines.includes(
+          "$ docker login nexus.btlz-api.ru -u robot --password-stdin",
+        ),
+        true,
+        quote,
+      );
+    }
+  });
+
+  await t.step("битый config.json — входа нет", async () => {
+    const lines: string[] = [];
+    await mpInit(false, lines, new FakeDocker(), {
+      files: { [DOCKER_CONFIG]: "{", [DOT_ENV]: null },
+    });
+    assertEquals(lines.includes(NO_ACCESS_WARNING), true);
+  });
+});
+
+Deno.test("web поверх core: тег зависимостей и web (M3)", async (t) => {
+  await t.step("M3-7: dry — строка web с окружением и --no-deps", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    await mpInit(true, lines, docker);
+    assertEquals(lines.at(-2), webLine("sw-back sw-front sl-front"));
+    assertEquals(
+      docker.probes.some((argv) =>
+        argv.join(" ") ===
+          "docker manifest inspect " +
+            `nexus.btlz-api.ru/base-images/sw-back-deps:${DEPS_TAG}`
+      ),
+      true,
+    );
+  });
+
+  await t.step("M3-7: прогон — окружение уходит процессу", async () => {
+    const docker = new FakeDocker();
+    await mpInit(false, [], docker);
+    const web = docker.runs.findIndex((argv) => argv.includes("--no-deps"));
+    assertEquals(docker.runs[web].slice(0, 4), [
+      "docker",
+      "compose",
+      "-f",
+      `${LOCAL_STACK}/docker-compose.yml`,
+    ]);
+    assertEquals(docker.inputs[web]?.env, {
+      SW_BACK_SRC: `${ROOT}/sw-back`,
+      SW_FRONT_SRC: `${ROOT}/sw-front`,
+      SL_FRONT_SRC: `${ROOT}/sl-front`,
+      SW_BACK_DEPS_TAG: DEPS_TAG,
+      SW_BACK_INTERNAL_API_URL: "http://internal-api:5100",
+    });
+  });
+
+  await t.step("M3-8: образа зависимостей нет — web без sw-back", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      argv[1] === "manifest" ? { code: 1, stdout: "", stderr: "" } : undefined
+    );
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0);
+    assertEquals(
+      lines.includes(
+        `warning: sw-back: нет образа зависимостей под этот lock (${DEPS_TAG})`,
+      ),
+      true,
+      lines.join("\n"),
+    );
+    assertEquals(lines.includes(webLine("sw-front sl-front")), true);
+  });
+
+  await t.step("M3-9: SW_BACK_INTERNAL_API_URL из $L/.env", async () => {
+    const lines: string[] = [];
+    await mpInit(true, lines, new FakeDocker(), {
+      files: {
+        [DOT_ENV]: "SW_BACK_INTERNAL_API_URL=http://x:1 # флот\nOTHER=1\n",
+      },
+    });
+    assertEquals(
+      lines.includes(webLine("sw-back sw-front sl-front", "http://x:1")),
+      true,
+      lines.join("\n"),
+    );
+  });
+
+  await t.step("M3-11: web упал — его rc", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      argv.includes("--no-deps")
+        ? { code: 3, stdout: "", stderr: "" }
+        : undefined
+    );
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 3);
+    assertEquals(result.web, false);
+    assertEquals(lines.at(-1), "mpu mp-init: web упал (rc=3)");
+  });
+
+  await t.step("M3-15: нет файла для тега — web без sw-back", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    const result = await mpInit(false, lines, docker, {
+      files: { [`${ROOT}/sw-back/.npmrc`]: null },
+    });
+    assertEquals(result.exitCode, 0);
+    assertEquals(
+      lines.includes(
+        `warning: sw-back: тег зависимостей не снят — нет ${ROOT}/sw-back/` +
+          ".npmrc; sw-back не поднимаю",
+      ),
+      true,
+      lines.join("\n"),
+    );
+    const web = lines.find((line) => line.includes("--no-deps")) ?? "";
+    assertEquals(web.endsWith("--force-recreate sw-front sl-front"), true, web);
+    assertEquals(docker.probes.some((argv) => argv[1] === "manifest"), false);
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Core-образы стенда: недостающий собирается той же командой, что
+ * Образы стенда: недостающий собирается той же командой, что
  * build-алиас mp-config-local (`mp-init.md`, «Подъём с нуля», шаг 3).
  *
  * Ключ идемпотентности — наличие тега: есть тег — сборки нет, без
@@ -10,17 +10,19 @@ import type { Docker } from "./docker.ts";
 import type { Step } from "./plan.ts";
 
 /** Образ, который команда умеет собрать сама. */
-export class CoreImage {
+export class StandImage {
   /**
    * @param tag тег образа
    * @param dockerfile путь Dockerfile от каталога mp-config-local
    * @param context каталог контекста сборки: от корня `mp` либо от
    *   mp-config-local
+   * @param [stage=[]] аргументы стадии сборки (`--target dev`)
    */
   constructor(
     readonly tag: string,
     private readonly dockerfile: string,
     private readonly context: (dirs: StandDirs) => string,
+    private readonly stage: readonly string[] = [],
   ) {}
 
   /** Шаг сборки: argv — литерал build-алиаса, cwd — mp-config-local. */
@@ -32,6 +34,7 @@ export class CoreImage {
         "docker",
         "build",
         "--load",
+        ...this.stage,
         "-t",
         this.tag,
         "-f",
@@ -50,24 +53,33 @@ export interface StandDirs {
   readonly rootDir: string;
 }
 
-/** Три core-образа в порядке проверки; `sl-front-dev` — до M3 не здесь. */
-export const CORE_IMAGES: readonly CoreImage[] = [
-  new CoreImage("mp-back:local", "Dockerfile.mp-back", (d) => d.rootDir),
-  new CoreImage("mp-pg:local", "pg/Dockerfile", (d) => `${d.configDir}/pg`),
-  new CoreImage(
+/** Три core-образа в порядке проверки. */
+export const CORE_IMAGES: readonly StandImage[] = [
+  new StandImage("mp-back:local", "Dockerfile.mp-back", (d) => d.rootDir),
+  new StandImage("mp-pg:local", "pg/Dockerfile", (d) => `${d.configDir}/pg`),
+  new StandImage(
     "mp-dt:local",
     "Dockerfile.mp-data-transfer",
     (d) => d.rootDir,
   ),
 ];
 
-/** Core-образы, которых нет в локальном сторе; inspect — проба. */
+/** Образ web-стека: нужен, только когда есть каталог local-stack. */
+export const WEB_IMAGE = new StandImage(
+  "sl-front-dev:local",
+  "Dockerfile.front",
+  (d) => `${d.rootDir}/sl-front`,
+  ["--target", "dev"],
+);
+
+/** Образы из `images`, которых нет в локальном сторе; inspect — проба. */
 export async function missingImages(
   docker: Docker,
   cwd: string,
-): Promise<readonly CoreImage[]> {
-  const missing: CoreImage[] = [];
-  for (const image of CORE_IMAGES) {
+  images: readonly StandImage[],
+): Promise<readonly StandImage[]> {
+  const missing: StandImage[] = [];
+  for (const image of images) {
     const probe = await docker.probe(
       ["docker", "image", "inspect", image.tag],
       cwd,

@@ -16,6 +16,14 @@ export interface ProcessOutcome {
   readonly stderr: string;
 }
 
+/** Что мутация получает кроме argv: окружение и stdin. */
+export interface RunInput {
+  /** Переменные поверх окружения процесса `mpu`. */
+  readonly env?: Readonly<Record<string, string>>;
+  /** Текст в stdin — единственный путь секрета (пароль входа). */
+  readonly stdin?: string;
+}
+
 /** Запуск docker-процессов команды. */
 export interface Docker {
   /**
@@ -28,7 +36,7 @@ export interface Docker {
     signal?: AbortSignal,
   ): Promise<ProcessOutcome>;
   /** Мутация: вывод идёт в терминал как есть, наружу — только код. */
-  run(argv: readonly string[], cwd: string): Promise<number>;
+  run(argv: readonly string[], cwd: string, input?: RunInput): Promise<number>;
   /**
    * Мутация, чей вывод и идёт оператору по ходу, и собирается: оба
    * потока — в stderr процесса (stdout команды пуст), итог — значением.
@@ -76,16 +84,18 @@ export const systemDocker: Docker = {
       stderr: decoder.decode(output.stderr),
     };
   },
-  async run(argv, cwd) {
+  async run(argv, cwd, input = {}) {
     const [bin, ...rest] = argv;
-    const output = await new Deno.Command(bin, {
+    const child = new Deno.Command(bin, {
       args: rest,
       cwd,
-      stdin: "null",
+      env: input.env,
+      stdin: input.stdin === undefined ? "null" : "piped",
       stdout: "inherit",
       stderr: "inherit",
-    }).output();
-    return output.code;
+    }).spawn();
+    if (input.stdin !== undefined) await feed(child.stdin, input.stdin);
+    return (await child.status).code;
   },
   async watch(argv, cwd) {
     const [bin, ...rest] = argv;
@@ -104,6 +114,24 @@ export const systemDocker: Docker = {
     return { code: status.code, stdout, stderr };
   },
 };
+
+/**
+ * Текст в stdin процесса. Процесс, вышедший не дочитав, — не наш
+ * отказ: его код скажет, что случилось, а оборванный канал ничего не
+ * добавит.
+ */
+async function feed(
+  stdin: WritableStream<Uint8Array>,
+  text: string,
+): Promise<void> {
+  const writer = stdin.getWriter();
+  try {
+    await writer.write(new TextEncoder().encode(text));
+    await writer.close();
+  } catch (err) {
+    if (!(err instanceof Deno.errors.BrokenPipe)) throw err;
+  }
+}
 
 /** Поток процесса — в stderr по мере прихода; наружу — весь текст. */
 async function echoed(stream: ReadableStream<Uint8Array>): Promise<string> {
