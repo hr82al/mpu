@@ -66,8 +66,8 @@ fail-fast (сообщение + exit rc), последующие шаги не �
    `mp-pg:local`, `mp-dt:local`. Отсутствующие → сообщение с парами
    «образ → build-алиас» (`mp-back:local → sl-build-image`,
    `mp-pg:local → mp-pg-build-image`, `mp-dt:local →
-   mp-dt-build-image`) и подсказкой собрать их в mp-config-local;
-   обычный прогон — exit 1, dry-run — префикс `warning:` и продолжение.
+   mp-dt-build-image`) — **заменено порцией M1**: недостающий образ
+   собирается («Подъём с нуля», шаг 3; сценарии M1-1…M1-4).
 4. **Core-стеки**, строго в порядке кортежа, каждый —
    `docker compose <env-файлы> <compose-файлы> up -d --force-recreate`
    (cwd = каталог mp-config-local, все пути абсолютные):
@@ -86,7 +86,8 @@ fail-fast (сообщение + exit rc), последующие шаги не �
    существуют. `--remove-orphans` не передаётся никогда (снёс бы
    контейнеры соседних стеков того же compose-проекта). Ошибка стека →
    `mpu mp-init: стек '<name>' упал (rc=<N>); остальные не поднимаю`.
-5. **Web-стек поверх core** (каталог local-stack = sibling
+5. **Web-стек поверх core** — действует до порции M3, она заменяет его
+   разделами «Шаг 5, web…» и «Шаг 5, Nexus». (каталог local-stack = sibling
    mp-config-local: `<родитель>/local-stack`; отсутствует → строка
    `каталог local-stack не найден: <путь>; web-стек пропущен`, шаг
    пропускается целиком, exit 0):
