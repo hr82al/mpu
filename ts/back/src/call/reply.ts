@@ -29,7 +29,8 @@ const drySchema = z.object({
   method: z.string(),
   url: z.string(),
   headers: z.record(z.string(), z.string()),
-  body: z.string(),
+  /** Тело запроса; у запроса без тела — `null`. */
+  body: z.string().nullable(),
 });
 
 const callSchema = z.discriminatedUnion("kind", [replySchema, drySchema]);
@@ -62,7 +63,8 @@ export function renderCall(result: CallResult): string {
   if (result.kind === "dry") {
     const headers = Object.entries(result.headers)
       .map(([name, value]) => `${name}: ${value}\n`).join("");
-    return `${result.method} ${result.url}\n${headers}\n${result.body}\n`;
+    const body = result.body === null ? "" : `\n${result.body}\n`;
+    return `${result.method} ${result.url}\n${headers}${body}`;
   }
   const url = new URL(result.url);
   const headers = Object.entries(result.headers)
@@ -71,10 +73,15 @@ export function renderCall(result: CallResult): string {
     `${headers}\n${bodyText(result.body)}`;
 }
 
+/** Ответил ли маркетплейс успехом: статус 2xx. */
+export function succeeded(status: number): boolean {
+  return status >= 200 && status < 300;
+}
+
 /** Код выхода: маркетплейс ответил не 2xx — 1. */
 export function callExitCode(result: CallResult): number {
   if (result.kind === "dry") return 0;
-  return result.status >= 200 && result.status < 300 ? 0 : 1;
+  return succeeded(result.status) ? 0 : 1;
 }
 
 /** Строка note журнала: статус, размер тела, заголовки квоты — без тела. */

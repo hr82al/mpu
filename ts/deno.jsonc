@@ -314,8 +314,10 @@
     //     init` (Portainer, Loki, Kaiten — `docs/specs/init.md`) и `mpu
     //     update` (PostgreSQL main и инстансов, Loki —
     //     `docs/specs/update.md`), `mpu ozon call-ro`/`call` — Ozon
-    //     Seller API `api-seller.ozon.ru` (`docs/specs/call.md`; право
-    //     уже покрыто списком без адресов, флаг не менялся). Списком
+    //     Seller API `api-seller.ozon.ru`, `mpu ozon perf call-ro`/`call`
+    //     — Ozon Performance API `api-performance.ozon.ru`
+    //     (`docs/specs/call.md`; право уже покрыто списком без адресов,
+    //     флаг не менялся). Списком
     //     адресов это не выражается — их задаёт пользователь ключами
     //     env-файла (`PORTAINER_URL`, `LOKI_URL`, `KITEN_BASE_URL`,
     //     `pg_<N>`), а

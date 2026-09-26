@@ -1868,6 +1868,35 @@
   },
   {
     "path": [
+      "ozon",
+      "perf"
+    ],
+    "verdict": "ask",
+    "rule": null,
+    "own": false
+  },
+  {
+    "path": [
+      "ozon",
+      "perf",
+      "call"
+    ],
+    "verdict": "ask",
+    "rule": "ozon perf call",
+    "own": true
+  },
+  {
+    "path": [
+      "ozon",
+      "perf",
+      "call-ro"
+    ],
+    "verdict": "allow",
+    "rule": "ozon perf call-ro",
+    "own": true
+  },
+  {
+    "path": [
       "ozon-jobs"
     ],
     "verdict": "ask",

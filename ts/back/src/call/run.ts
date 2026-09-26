@@ -81,10 +81,14 @@ export interface Marketplace {
   /** Путь получателя в дереве: `ozon`. */
   readonly path: readonly string[];
   readonly host: string;
-  /** Метод, когда его не задали ни вызывающий, ни допуск. */
-  readonly usualMethod: Method;
-  /** Тело POST, когда `body:` не задан. */
-  readonly emptyBody: string;
+  /**
+   * Метод, когда его не задали ни вызывающий, ни допуск.
+   *
+   * @param body `body:` вызова
+   */
+  usualMethod(body: string | undefined): Method;
+  /** Тело POST, когда `body:` не задан; `null` — POST уходит без тела. */
+  readonly emptyBody: string | null;
   /** Заголовки квоты — имена в нижнем регистре, в порядке печати. */
   readonly quotaHeaders: readonly string[];
   /** Ключи кабинетов клиента из его схемы. */
@@ -106,7 +110,7 @@ export async function runCall(
     marketplace.host,
     path,
     args.method,
-    marketplace.usualMethod,
+    marketplace.usualMethod(args.body),
   );
   if (method === "GET" && args.body !== undefined) {
     throw new UsageError("тело у GET не отправляется — убери body:");
@@ -122,14 +126,17 @@ export async function runCall(
   const key = cabinetOf(keys, args.cabinet, args.selector);
   const url = `https://${marketplace.host}${path}`;
   const body = method === "POST" ? args.body ?? marketplace.emptyBody : null;
-  const kind = { "content-type": "application/json" };
+  // Тип тела — только у запроса с телом: у GET описывать нечего.
+  const kind: Record<string, string> = body === null
+    ? {}
+    : { "content-type": "application/json" };
   if (args.dry) {
     return {
       kind: "dry",
       method,
       url,
       headers: { ...key.shown(), ...kind },
-      body: body ?? "",
+      body,
     };
   }
   const reply = await key.call(

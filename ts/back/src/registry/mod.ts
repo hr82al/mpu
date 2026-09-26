@@ -142,7 +142,7 @@ import {
 import { confirmCommand } from "../confirm/mod.ts";
 import { sunCommand } from "../sun/mod.ts";
 import { taskCommands } from "../task/mod.ts";
-import { ozonCommands } from "../call/mod.ts";
+import { ozonCommands, ozonPerfCommands } from "../call/mod.ts";
 
 /**
  * Поверхность точки входа: запись реестра со строкой использования.
@@ -336,8 +336,9 @@ export const commands: readonly Command[] = [
   codeNameCommand,
   codeMentionsCommand,
   // Вызов API маркетплейса под ключом кабинета (`docs/specs/call.md`):
-  // получатель `ozon`, сообщения `call-ro` и `call`.
+  // получатели `ozon` и `ozon perf`, сообщения `call-ro` и `call`.
   ...ozonCommands,
+  ...ozonPerfCommands,
 ];
 
 /**
@@ -539,10 +540,19 @@ export const groups: readonly CommandGroup[] = [
   },
   {
     // Получатель-маркетплейс (`docs/specs/call.md`): его сообщения —
-    // `call-ro` и `call`; `perf` и следующие — новыми сообщениями.
+    // `call-ro` и `call`; Performance — отдельный получатель `ozon perf`.
     path: ["ozon"],
-    summary: "Ozon Seller API под ключом кабинета клиента: чтение и запись",
+    summary:
+      "Ozon API под ключом кабинета клиента: Seller — call-ro | call, реклама — perf",
     usage: "mpu ozon <сообщение> target: КЛИЕНТ [ключи]",
+  },
+  {
+    // Другой хост и авторизация OAuth — отдельный получатель, а не
+    // вариант `ozon call` (`docs/specs/call.md`, «CLI-контракт»).
+    path: ["ozon", "perf"],
+    summary:
+      "Ozon Performance API (реклама) под ключами кабинета клиента: call-ro | call",
+    usage: "mpu ozon perf <сообщение> target: КЛИЕНТ [ключи]",
   },
   {
     // Группа с единственным листом: следующий хук Claude Code

@@ -11,14 +11,7 @@
  */
 
 import { assert, assertEquals, assertRejects } from "@std/assert";
-import {
-  type CacheDb,
-  DomainError,
-  type EnvFile,
-  formatCommandError,
-  UsageError,
-} from "../command/mod.ts";
-import { openCacheDb } from "../store/mod.ts";
+import { DomainError, formatCommandError, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { OpenSession } from "../sql/mod.ts";
 import { ANY_REQUEST, ReadList } from "./access.ts";
@@ -31,6 +24,7 @@ import {
   renderCall,
 } from "./reply.ts";
 import { type CallArgs, type CallDeps, runCall } from "./run.ts";
+import { ENV, envFileOf, withCache } from "./teststand.ts";
 
 /** Ключи стенда по клиентам: строки таблицы в её порядке. */
 const KEYS: Readonly<Record<number, readonly (readonly [string, string])[]>> = {
@@ -39,12 +33,6 @@ const KEYS: Readonly<Record<number, readonly (readonly [string, string])[]>> = {
 };
 
 const ALL_KEYS = Object.values(KEYS).flat().map(([, key]) => key);
-
-const ENV: Readonly<Record<string, string>> = {
-  pg_1: "10.0.0.1",
-  PG_MY_USER_NAME: "u",
-  PG_MY_USER_PASSWORD: "p",
-};
 
 /** Ответ заглушки по умолчанию. */
 function defaultReply(): Response {
@@ -71,41 +59,6 @@ interface Given {
   readonly writing?: boolean;
   /** Сетевой сбой заглушки: запрос отклоняется этой ошибкой. */
   readonly failure?: Error;
-}
-
-function envFileOf(values: Readonly<Record<string, string>>): EnvFile {
-  return {
-    get: (name) => values[name],
-    values: () => ({ ...values }),
-    require: (name) => {
-      const value = values[name];
-      if (value !== undefined) return value;
-      throw new DomainError(`environment variable ${name} is not set`);
-    },
-    set: () => Promise.reject(new Error("запись env-файла не ожидается")),
-  };
-}
-
-/** Кэш-БД с клиентами 54, 55 и 56 (без кабинетов Ozon) на sl-1. */
-async function withCache(body: (open: () => CacheDb) => Promise<void>) {
-  const dir = await Deno.makeTempDir();
-  const path = `${dir}/mpu.db`;
-  try {
-    {
-      using seed = openCacheDb(path);
-      seed.bootstrap();
-      for (const id of [54, 55, 56]) {
-        seed.execute(
-          "INSERT INTO sl_clients (client_id, server, is_active, is_locked," +
-            " is_deleted, synced_at) VALUES (?, 'sl-1', 1, 0, 0, 0)",
-          id,
-        );
-      }
-    }
-    await body(() => openCacheDb(path));
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
 }
 
 /** Сессия стенда: строки ключей клиента по имени его схемы. */
@@ -412,6 +365,7 @@ Deno.test("GET по реестру без body: — метод правила, �
   const { seen } = await onStand({ path: "/v1/actions" });
   assertEquals(seen.requests[0].method, "GET");
   assertEquals(seen.requests[0].body, null);
+  assertEquals(seen.requests[0].headers.get("content-type"), null);
 });
 
 Deno.test("A17: заметка журнала — статус, размер тела, квота; тела нет", async () => {

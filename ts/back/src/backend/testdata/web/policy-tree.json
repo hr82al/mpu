@@ -1841,6 +1841,35 @@
   },
   {
     "path": [
+      "ozon",
+      "perf"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "ozon",
+      "perf",
+      "call"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "ozon",
+      "perf",
+      "call-ro"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
       "ozon-jobs"
     ],
     "verdict": "deny",

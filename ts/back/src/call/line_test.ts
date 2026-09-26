@@ -51,6 +51,10 @@ async function run(
 
 const IMPORT = ["target:", "54", "path:", "/v1/product/import"];
 
+/** Строка подгруппы `perf` в сообщениях получателя `ozon` (B9). */
+const PERF_LINE = "perf\tOzon Performance API (реклама) под ключами " +
+  "кабинета клиента: call-ro | call\n";
+
 Deno.test("A7: call-ro вне реестра — отказ с готовой строкой записи", () =>
   withPolicyFile(async (file) => {
     const ran = await run(file, ["ozon", "call-ro", ...IMPORT]);
@@ -84,11 +88,11 @@ Deno.test("A9: call через дверь — вопрос человеку ст
     assertEquals(ran.called, []);
   }));
 
-Deno.test("A19: посев — call-ro allow, call ask", () =>
+Deno.test("A19, посев 173b: call-ro allow, call ask — у обоих получателей", () =>
   withPolicyFile(async (file) => {
     const ran = await run(file, ["policy", GRAMMAR.close, "json"]);
     const rules = JSON.parse(ran.stdout) as { path: string; verdict: string }[];
-    const ozon = rules.filter((rule) => rule.path.startsWith("ozon call"));
+    const ozon = rules.filter((rule) => /^ozon (perf )?call/.test(rule.path));
     assertEquals(
       ozon.map(({ path, verdict }) => ({ path, verdict })).sort((a, b) =>
         a.path.localeCompare(b.path)
@@ -96,11 +100,13 @@ Deno.test("A19: посев — call-ro allow, call ask", () =>
       [
         { path: "ozon call", verdict: "ask" },
         { path: "ozon call-ro", verdict: "allow" },
+        { path: "ozon perf call", verdict: "ask" },
+        { path: "ozon perf call-ro", verdict: "allow" },
       ],
     );
   }));
 
-Deno.test("A20: сообщения получателя ozon по взглядам двери", () =>
+Deno.test("A20, B9: сообщения получателя ozon по взглядам двери", () =>
   withPolicyFile(async (file) => {
     const reading = await run(file, ["ozon", "messages"]);
     const writing = await run(file, ["ask", "ozon", "messages"]);
@@ -109,7 +115,7 @@ Deno.test("A20: сообщения получателя ozon по взгляда
       [
         0,
         "call-ro\tчто сейчас отвечает ручка чтения Ozon Seller API под " +
-        "ключом кабинета клиента\n",
+        "ключом кабинета клиента\n" + PERF_LINE,
       ],
     );
     assertEquals(
@@ -117,7 +123,7 @@ Deno.test("A20: сообщения получателя ozon по взгляда
       [
         0,
         "call\tвызвать любую ручку Ozon Seller API под ключом кабинета " +
-        "клиента (запись)\n",
+        "клиента (запись)\n" + PERF_LINE,
       ],
     );
   }));
@@ -128,6 +134,9 @@ Deno.test("справки получателя и сообщений — гол�
       [["ozon", "--help"], "help-ozon.txt"],
       [["ozon", "call-ro", "--help"], "help-ozon-call-ro.txt"],
       [["ask", "ozon", "call", "--help"], "help-ozon-call.txt"],
+      [["ozon", "perf", "--help"], "help-ozon-perf.txt"],
+      [["ozon", "perf", "call-ro", "--help"], "help-ozon-perf-call-ro.txt"],
+      [["ask", "ozon", "perf", "call", "--help"], "help-ozon-perf-call.txt"],
     ];
     for (const [words, name] of cases) {
       const golden = await Deno.readTextFile(
@@ -136,4 +145,36 @@ Deno.test("справки получателя и сообщений — гол�
       const ran = await run(file, words);
       assertEquals([ran.code, ran.stdout], [0, golden], name);
     }
+  }));
+
+Deno.test("B7: perf call-ro вне реестра — отказ с готовой строкой записи", () =>
+  withPolicyFile(async (file) => {
+    const path = ["path:", "/api/client/campaign/1/activate"];
+    const ran = await run(file, [
+      "ozon",
+      "perf",
+      "call-ro",
+      "target:",
+      "54",
+      ...path,
+    ]);
+    assertEquals([ran.code, ran.stdout, ran.stderr], [
+      2,
+      "",
+      "mpu ozon perf call-ro: ручки GET /api/client/campaign/1/activate нет " +
+      "в списке чтения — запись: mpu ask ozon perf call target: 54 path: " +
+      "/api/client/campaign/1/activate\n",
+    ]);
+  }));
+
+Deno.test("perf call без двери — отказ двери, команда не исполнялась", () =>
+  withPolicyFile(async (file) => {
+    const line = ["ozon", "perf", "call", "target:", "54", "path:", "/x"];
+    const ran = await run(file, line, ["y"]);
+    assertEquals([ran.code, ran.called], [2, []]);
+    assertEquals(
+      ran.stderr,
+      "mpu ozon perf call target: 54 path: /x: требует подтверждения — " +
+        "вызывай mpu ask ozon perf call target: 54 path: /x\n",
+    );
   }));

@@ -2157,6 +2157,26 @@ const CASES: readonly CommandCase[] = [
       },
     },
   })),
+  ...["call-ro", "call"].map((name) => ({
+    path: `ozon perf ${name}`,
+    argv: [
+      "--selector",
+      "54",
+      "--path",
+      "/api/client/campaign",
+      "--timeout",
+      "301",
+    ],
+    sampleResult: {
+      call: {
+        kind: "dry",
+        method: "GET",
+        url: "https://api-performance.ozon.ru/api/client/campaign",
+        headers: { authorization: "Bearer ***" },
+        body: null,
+      },
+    },
+  })),
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {
