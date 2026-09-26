@@ -9,7 +9,7 @@ import { defineCommand, record } from "../command/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
 import { denoSession, type SqlSession } from "../sql/mod.ts";
 import { type Access, ANY_REQUEST, ReadList } from "./access.ts";
-import type { KeyRow } from "./key.ts";
+import { type CabinetKey, SellerKey } from "./key.ts";
 import { READS } from "./reads.ts";
 import {
   callExitCode,
@@ -49,10 +49,9 @@ export const OZON_SELLER: Marketplace = {
   keys: async (session: SqlSession, clientId: number) => {
     const outcome = await session.query(keysQuery(clientId));
     if (outcome.kind !== "rows") return [];
-    return outcome.rows.map(([cabinet, key]): KeyRow => ({
-      cabinet: String(cabinet),
-      key: String(key),
-    }));
+    return outcome.rows.map(([cabinet, key]): CabinetKey =>
+      new SellerKey(String(cabinet), String(key))
+    );
   },
 };
 

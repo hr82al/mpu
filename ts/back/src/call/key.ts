@@ -1,73 +1,83 @@
 /**
  * Ключ кабинета (`docs/specs/call.md`, «Пункты чек-листа» 5): значение
- * ключа — приватная память объекта. Наружу он отвечает только «подписать
- * запрос» и «замаскировать текст»; ни в одном возвращаемом результате
- * значения нет.
+ * ключа — приватная память объекта. Наружу он отвечает только «покажи
+ * авторизацию скрытой», «подпиши и отправь» и «замаскируй текст»; ни в
+ * одном возвращаемом результате значения нет. Как подписать запрос,
+ * решает ключ своего получателя.
  */
 
 import { UsageError } from "../command/mod.ts";
+import type { Received, Signed, Wire } from "./transport.ts";
 
 /** Замена ключа в любом выводе. */
 export const MASK = "***";
 
-/** Строка ключей кабинета, как её отдала БД клиента. */
-export interface KeyRow {
+/** Ключ одного кабинета — протокол, реализация у получателя. */
+export interface CabinetKey {
+  /** Идентификатор кабинета: у Ozon — Client-Id Seller. */
   readonly cabinet: string;
-  readonly key: string;
+  /** Заголовки авторизации для печати `dry`: секреты скрыты. */
+  shown(): Record<string, string>;
+  /**
+   * Подписать запрос и отправить.
+   *
+   * @param request запрос без авторизации
+   * @param wire отправка подписанного запроса
+   */
+  call(request: Signed, wire: Wire): Promise<Received>;
+  /** Текст с каждым вхождением секрета, заменённым на `***`. */
+  mask(text: string): string;
 }
 
-/** Ключ одного кабинета. */
-export class CabinetKey {
-  /** Идентификатор кабинета: у Ozon Seller — Client-Id. */
+/** Ключ кабинета Ozon Seller: заголовки `client-id` и `api-key`. */
+export class SellerKey implements CabinetKey {
   readonly cabinet: string;
   readonly #key: string;
 
-  constructor(row: KeyRow) {
-    this.cabinet = row.cabinet;
-    this.#key = row.key;
+  constructor(cabinet: string, key: string) {
+    this.cabinet = cabinet;
+    this.#key = key;
   }
 
-  /** Заголовки авторизации запроса Ozon Seller. */
-  sign(): Record<string, string> {
-    return { "client-id": this.cabinet, "api-key": this.#key };
-  }
-
-  /** Те же заголовки для печати: ключ скрыт. */
   shown(): Record<string, string> {
     return { "client-id": this.cabinet, "api-key": MASK };
   }
 
-  /** Текст с каждым вхождением ключа, заменённым на `***`. */
+  call(request: Signed, wire: Wire): Promise<Received> {
+    const sign = { "client-id": this.cabinet, "api-key": this.#key };
+    return wire({ ...request, headers: { ...sign, ...request.headers } });
+  }
+
   mask(text: string): string {
     return this.#key === "" ? text : text.replaceAll(this.#key, MASK);
   }
 }
 
 /**
- * Ключ кабинета из строк клиента: названный `cabinet:`, иначе
+ * Ключ кабинета среди ключей клиента: названный `cabinet:`, иначе
  * единственный. Список кабинетов в отказе — только идентификаторы.
  *
  * @param cabinet `cabinet:` вызова; не задан — кабинет должен быть один
  * @param client селектор клиента, как его назвал вызывающий
  */
 export function cabinetOf(
-  rows: readonly KeyRow[],
+  keys: readonly CabinetKey[],
   cabinet: string | undefined,
   client: string,
 ): CabinetKey {
   if (cabinet !== undefined) {
-    const row = rows.find((one) => one.cabinet === cabinet);
-    if (row === undefined) {
+    const key = keys.find((one) => one.cabinet === cabinet);
+    if (key === undefined) {
       throw new UsageError(`у клиента ${client} нет кабинета Ozon ${cabinet}`);
     }
-    return new CabinetKey(row);
+    return key;
   }
-  if (rows.length === 1) return new CabinetKey(rows[0]);
-  if (rows.length === 0) {
+  if (keys.length === 1) return keys[0];
+  if (keys.length === 0) {
     throw new UsageError(`у клиента ${client} нет кабинетов Ozon`);
   }
-  const ids = rows.map((row) => row.cabinet).join(" | ");
+  const ids = keys.map((key) => key.cabinet).join(" | ");
   throw new UsageError(
-    `у клиента ${client} кабинетов Ozon ${rows.length} — укажи cabinet: ${ids}`,
+    `у клиента ${client} кабинетов Ozon ${keys.length} — укажи cabinet: ${ids}`,
   );
 }

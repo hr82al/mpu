@@ -27,7 +27,7 @@ import {
   type SqlSession,
 } from "../sql/mod.ts";
 import type { Access } from "./access.ts";
-import { cabinetOf, type KeyRow } from "./key.ts";
+import { type CabinetKey, cabinetOf } from "./key.ts";
 import type { Method } from "./reads.ts";
 import {
   type CallResult,
@@ -35,6 +35,7 @@ import {
   parsedBody,
   type Reply,
 } from "./reply.ts";
+import { type Net, send } from "./transport.ts";
 
 /** Предел ожидания по умолчанию и наибольший, секунды. */
 export const DEFAULT_TIMEOUT_S = 60;
@@ -70,12 +71,7 @@ export type CallIo = Pick<
 >;
 
 /** Внешнее вызова — переданной ссылкой: сеть, часы, сессия БД клиента. */
-export interface CallDeps {
-  readonly fetch: (request: Request) => Promise<Response>;
-  /** Сигнал, срабатывающий через `ms` миллисекунд. */
-  readonly deadline: (ms: number) => AbortSignal;
-  /** Монотонные миллисекунды — для `ms` результата. */
-  readonly now: () => number;
+export interface CallDeps extends Net {
   /** Сессия PG сервера клиента; открывается только для чтения. */
   readonly openSession: OpenSession;
 }
@@ -91,8 +87,8 @@ export interface Marketplace {
   readonly emptyBody: string;
   /** Заголовки квоты — имена в нижнем регистре, в порядке печати. */
   readonly quotaHeaders: readonly string[];
-  /** Строки ключей кабинетов клиента из его схемы. */
-  keys(session: SqlSession, clientId: number): Promise<readonly KeyRow[]>;
+  /** Ключи кабинетов клиента из его схемы. */
+  keys(session: SqlSession, clientId: number): Promise<readonly CabinetKey[]>;
 }
 
 /** Прогон одного вызова. */
@@ -122,8 +118,8 @@ export async function runCall(
     writingLine(marketplace, args),
   );
   const client = placeOf(args.selector, io);
-  const rows = await keyRows(deps.openSession, client, marketplace);
-  const key = cabinetOf(rows, args.cabinet, args.selector);
+  const keys = await keysOf(deps.openSession, client, marketplace);
+  const key = cabinetOf(keys, args.cabinet, args.selector);
   const url = `https://${marketplace.host}${path}`;
   const body = method === "POST" ? args.body ?? marketplace.emptyBody : null;
   const kind = { "content-type": "application/json" };
@@ -136,14 +132,17 @@ export async function runCall(
       body: body ?? "",
     };
   }
-  const request = { method, url, headers: { ...key.sign(), ...kind }, body };
-  const reply = await send(request, {
-    seconds,
-    stop: io.signal,
-    deps,
-    quotaHeaders: marketplace.quotaHeaders,
-    mask: (text) => key.mask(text),
-  });
+  const reply = await key.call(
+    { method, url, headers: kind, body },
+    (signed) =>
+      send(signed, {
+        seconds,
+        stop: io.signal,
+        net: deps,
+        quotaHeaders: marketplace.quotaHeaders,
+        mask: (text) => key.mask(text),
+      }),
+  );
   // Эхо ключа в теле (ошибка авторизации) скрывается до разбора: в
   // результат, печать и журнал уходит уже замаскированное.
   const { text, ...answer } = reply;
@@ -234,12 +233,12 @@ function placeOf(selector: string, io: CallIo): Client {
   }
 }
 
-/** Строки ключей: одна read-only сессия, закрытая при любом исходе. */
-async function keyRows(
+/** Ключи клиента: одна read-only сессия, закрытая при любом исходе. */
+async function keysOf(
   open: OpenSession,
   client: Client,
   marketplace: Marketplace,
-): Promise<readonly KeyRow[]> {
+): Promise<readonly CabinetKey[]> {
   let session: SqlSession | undefined;
   try {
     session = await open(client.target);
@@ -254,77 +253,4 @@ async function keyRows(
     // уже брошена.
     await session?.close().catch(() => {});
   }
-}
-
-/** Запрос, как он уходит: с ключом — поэтому наружу не отдаётся. */
-interface Signed {
-  readonly method: Method;
-  readonly url: string;
-  readonly headers: Readonly<Record<string, string>>;
-  readonly body: string | null;
-}
-
-/** Ответ до маскирования: `text` — тело как пришло. */
-type Received = Omit<Reply, "body"> & { readonly text: string };
-
-/** Как отправлять: пределы, внешнее и что прятать в тексте сбоя. */
-interface Sending {
-  readonly seconds: number;
-  /** Просьба остановиться от вызывающего строку. */
-  readonly stop: AbortSignal;
-  readonly deps: CallDeps;
-  readonly quotaHeaders: readonly string[];
-  /** Маска ключа: текст сбоя сети может повторить заголовки запроса. */
-  readonly mask: (text: string) => string;
-}
-
-/**
- * Ровно один запрос, без повторов ни на 429, ни на 5xx (спека,
- * «Побочные эффекты»): ответ маркетплейса и есть результат.
- */
-async function send(request: Signed, sending: Sending): Promise<Received> {
-  const { seconds, stop, deps } = sending;
-  const deadline = deps.deadline(seconds * 1000);
-  const started = deps.now();
-  try {
-    const response = await deps.fetch(
-      new Request(request.url, {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-        signal: AbortSignal.any([deadline, stop]),
-      }),
-    );
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    return {
-      kind: "reply",
-      status: response.status,
-      method: request.method,
-      url: request.url,
-      ms: Math.round(deps.now() - started),
-      headers: quotaOf(response.headers, sending.quotaHeaders),
-      text: new TextDecoder().decode(bytes),
-      bytes: bytes.byteLength,
-    };
-  } catch (err) {
-    if (deadline.aborted) throw new DomainError(`нет ответа за ${seconds} с`);
-    if (stop.aborted) throw err;
-    // Причина — только замаскированным текстом, без `cause`: исходная
-    // ошибка может нести ключ, и дальше по цепочке её не сторожит никто.
-    const reason = err instanceof Error ? err.message : String(err);
-    throw new DomainError(`запрос не выполнен — ${sending.mask(reason)}`);
-  }
-}
-
-/** Присланные заголовки квоты — в порядке списка получателя. */
-function quotaOf(
-  headers: Headers,
-  names: readonly string[],
-): Record<string, string> {
-  const quota: Record<string, string> = {};
-  for (const name of names) {
-    const value = headers.get(name);
-    if (value !== null) quota[name] = value;
-  }
-  return quota;
 }
