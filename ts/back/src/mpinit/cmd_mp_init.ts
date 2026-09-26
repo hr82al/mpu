@@ -15,6 +15,7 @@
 
 import { z } from "@zod/zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { checkAnswers, Health } from "./answers.ts";
 import { reportContainers } from "./containers.ts";
 import {
   type Clock,
@@ -32,6 +33,7 @@ import {
 } from "./images.ts";
 import type { MigrationsContext } from "./migrations.ts";
 import { composeServicesOf, servicesOf, strangersOf } from "./overrides.ts";
+import { NoOzon, Ozon, type OzonStand } from "./ozon.ts";
 import { fillRates, type RatesContext } from "./rates.ts";
 import {
   type CoreStack,
@@ -54,6 +56,7 @@ import {
   type StandFiles,
   textOr,
   type WebContext,
+  webPages,
 } from "./web.ts";
 
 const argsSchema = z.object({
@@ -205,8 +208,47 @@ export async function runMpInit(
     };
   }
   const web = up.services.length > 0;
+  const ozon = ozonStandOf(place, exists, run.files);
+  const code = await ozon.up({ ...webContext(run), dryRun: run.dryRun });
+  if (code !== 0) {
+    return { steps: run.done, web, dryRun: run.dryRun, exitCode: code };
+  }
+  // Проверка ответом — после всех шагов и до итоговой строки: та
+  // закрывает прогон. В `dry` отвечать некому — стенд не поднимался.
+  if (!run.dryRun) {
+    await checkAnswers(webContext(run), [
+      ...webPages(up.services),
+      new Health(),
+      ...ozon.addresses,
+    ]);
+  }
   io.progress(finalLine(up.services, run.dryRun));
   return { steps: run.done, web, dryRun: run.dryRun, exitCode: 0 };
+}
+
+/**
+ * Стенд ozon (шаг 6): его compose — в local-stack, поэтому без
+ * local-stack его нет, как и без чекаута `ozon`.
+ */
+function ozonStandOf(
+  place: StandPlace,
+  exists: (path: string) => boolean,
+  files: StandFiles,
+): OzonStand {
+  if (place.localStackDir === undefined) {
+    return new NoOzon(
+      `стенд ozon: каталога ${place.localStackPath} нет — пропуск`,
+    );
+  }
+  const checkout = `${place.rootDir}/ozon`;
+  if (!exists(checkout)) {
+    return new NoOzon(`стенд ozon: чекаута ${checkout} нет — пропуск`);
+  }
+  return new Ozon(
+    place.localStackDir,
+    textOr(files, `${checkout}/pnpm-lock.yaml`),
+    exists(`${checkout}/node_modules`),
+  );
 }
 
 /** Шаги 1–5 по порядку: отказ — его код, иначе поднятые услуги web. */
@@ -583,6 +625,12 @@ local-stack/.env (пароль — только stdin); web — compose local-st
 --no-deps. Нет входа или образа зависимостей sw-back под тег lock —
 предупреждение, web без sw-back.
 
+Есть чекаут ozon — стенд вертикали из local-stack/ozon: пакет
+@sw-back/workspace-access версии pnpm-lock публикуется в Verdaccio, если
+его там нет; без node_modules — установка и сборка. Затем проверка
+ответом по адресам (curl -L): не 200 — warning, код не меняется; в dry
+проверки нет.
+
 Каталог mp-config-local берётся из переменной окружения
 MPU_MP_CONFIG_LOCAL, иначе ~/mr/mp/mp-config-local. Каталог web-стека —
 соседний local-stack; нет его — web пропускается, и это не ошибка.
@@ -594,7 +642,8 @@ MPU_MP_CONFIG_LOCAL, иначе ~/mr/mp/mp-config-local. Каталог web-ст
 
 Exit: 0 — успех, в том числе без web-стека; 2 — каталог mp-config-local
 не найден; 1 — override расходится с compose, миграции упали или не
-завершились; иначе код упавшего docker (курсы, вход в Nexus, web).`,
+завершились, dist пакета ozon пуст или нет коммита с его версией; иначе
+код упавшего docker (курсы, вход в Nexus, web, стенд ozon).`,
   examples: [
     "mpu mp-init dry",
     "mpu mp-init",

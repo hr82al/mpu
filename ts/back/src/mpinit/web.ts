@@ -10,6 +10,7 @@
  */
 
 import { z } from "@zod/zod";
+import { type Address, Page } from "./answers.ts";
 import type { Docker } from "./docker.ts";
 import type { Step } from "./plan.ts";
 
@@ -37,6 +38,20 @@ const INTERNAL_API = "http://internal-api:5100";
 const WEB_SERVICES = ["sw-back", "sw-front", "sl-front"];
 /** Web без sw-back: вход или образ зависимостей не позволили. */
 const WITHOUT_SW_BACK = ["sw-front", "sl-front"];
+
+/** Адрес финальной проверки каждой услуги web — в порядке проверки. */
+const PAGES: ReadonlyMap<string, Address> = new Map([
+  ["sw-front", new Page("http://sw.localhost")],
+  ["sw-back", new Page("http://sw.localhost/api/metrics")],
+  ["sl-front", new Page("http://sl-dev.localhost")],
+]);
+
+/** Адреса поднятых услуг web; неподнятая не проверяется. */
+export function webPages(services: readonly string[]): readonly Address[] {
+  return [...PAGES].filter(([name]) => services.includes(name)).map((
+    [, page],
+  ) => page);
+}
 
 /** Файлы стенда, которые команда читает сама; нет файла — исключение. */
 export interface StandFiles {

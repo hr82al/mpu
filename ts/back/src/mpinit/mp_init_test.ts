@@ -34,6 +34,22 @@ const NPM_AUTH = btoa(`robot:${PASSWORD}`);
  */
 const DEPS_TAG = "a936a86f871f592b";
 const ok: ProcessOutcome = { code: 0, stdout: "", stderr: "" };
+const OZON_LOCK = `${ROOT}/ozon/pnpm-lock.yaml`;
+/**
+ * Выдержка `ozon/pnpm-lock.yaml`, снятая 2026-09-26 дословно: ключ
+ * секции `packages` и ключ секции `snapshots` с пирами — второй
+ * версию не даёт.
+ */
+const LOCK_EXCERPT = `packages:
+  '@sw-back/workspace-access@0.4.0':
+    resolution: {integrity: sha512-5nxLCKc5nvb9bqmzqYKQoRf4907ADSdcIpbLsjDZvwLeelCEHKmCXmZls5/0Ghk+AB6gOIQ4t3bnZmom1qQzkA==}
+    engines: {node: '>=18'}
+
+snapshots:
+  '@sw-back/workspace-access@0.4.0(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))':
+    optionalDependencies:
+      '@nestjs/common': 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
+`;
 
 /** Ответ подменного docker'а; `undefined` — ответ стенда по умолчанию. */
 type Answer = (
@@ -62,6 +78,10 @@ const COMPOSE_SERVICES = [
   "i-wb-unit-calc-worker",
 ];
 
+/** Тело здоровья sl-0 со здоровой базой — форма снята 2026-09-26. */
+const HEALTHY = '{"status":"healthy","checks":{"database":{"status":"ok",' +
+  '"message":"Database connected"}}}';
+
 /** Проба курсов валют: счёт `shared.currency_rates` на sl-0. */
 function isRatesProbe(argv: readonly string[]): boolean {
   return argv.at(-1)?.includes("shared.currency_rates") ?? false;
@@ -81,6 +101,7 @@ function standAnswer(argv: readonly string[]): ProcessOutcome {
   if (argv[1] === "wait") return out("0\n");
   if (isRatesProbe(argv)) return out("8178\n");
   if (argv[1] === "exec") return out("183\n");
+  if (argv[0] === "curl") return out(`${HEALTHY}\n200`);
   return ok;
 }
 
@@ -144,6 +165,7 @@ const STAND_FILES: Readonly<Record<string, string>> = {
   [`${LOCAL_STACK}/env/README.md`]: "",
   [`${LOCAL_STACK}/env/sl-1.env`]: "",
   [`${LOCAL_STACK}/env/sl-0.env`]: "",
+  [OZON_LOCK]: LOCK_EXCERPT,
 };
 
 /** Правки файлов стенда: `null` — файла нет. */
@@ -228,15 +250,19 @@ Deno.test("сухой прогон печатает последовательн
   assertEquals(docker.runs, []);
   // Контейнеров в dry нет: ни wait миграций, ни счёта, ни сводки.
   // Проба курсов — исключение спеки (M2-3): она идёт и в dry.
+  // Пробы стенда ozon (`npm view`) — тоже исключение: они в ozon-dev.
   assertEquals(
     docker.probes.filter((argv) =>
-      ["wait", "exec", "ps"].includes(argv[1]) && !isRatesProbe(argv)
+      ["wait", "exec", "ps"].includes(argv[1]) && !isRatesProbe(argv) &&
+      argv[2] !== "ozon-dev"
     ),
     [],
   );
+  // Проверки ответом в dry нет (M4-8).
+  assertEquals(docker.probes.filter((argv) => argv[0] === "curl"), []);
 });
 
-Deno.test("порядок шагов: web поднимается после core", async () => {
+Deno.test("порядок шагов: web после core, стенд ozon после web", async () => {
   const lines: string[] = [];
   // Инфра не в сети и входа нет — видны все шаги web-части (M3).
   await mpInit(true, lines, new FakeDocker(noInfra), {
@@ -252,6 +278,11 @@ Deno.test("порядок шагов: web поднимается после core
     if (line.includes("compose.sw-infra")) return "sw-infra";
     if (line.includes("docker login")) return "login";
     if (line.includes("local-stack/docker-compose.yml")) return "web";
+    if (line.includes("ozon/docker-compose.yml up -d pg")) return "ozon-infra";
+    if (line.includes("migrate run")) return "ozon-migrate";
+    if (line.includes("ozon/docker-compose.yml up -d datacore")) {
+      return "ozon-services";
+    }
     return "прочее";
   });
   // Compose-зависимостей между стеками нет: корректность стенда
@@ -266,6 +297,9 @@ Deno.test("порядок шагов: web поднимается после core
     "sw-infra",
     "login",
     "web",
+    "ozon-infra",
+    "ozon-migrate",
+    "ozon-services",
   ]);
 });
 
@@ -479,7 +513,9 @@ Deno.test("миграции sl-N проверяются по коду конте
   await t.step("счёт не снят — «?», код не меняется", async () => {
     const lines: string[] = [];
     const docker = new FakeDocker((argv) =>
-      argv[1] === "exec" ? { code: 2, stdout: "", stderr: "x" } : undefined
+      argv[1] === "exec" && argv[2].endsWith("-pg")
+        ? { code: 2, stdout: "", stderr: "x" }
+        : undefined
     );
     const result = await mpInit(false, lines, docker);
     assertEquals(result.exitCode, 0);
@@ -716,9 +752,14 @@ Deno.test("web-часть: нет каталога — пропуск, а не �
   // Строка про пропуск печатается на своём шаге — после core, а не в
   // начале: «пропущено» до единой поднятой строки читалось бы как
   // «ничего не делаю».
-  assertEquals(
-    lines.at(-2),
+  const skipped = lines.indexOf(
     `каталог local-stack не найден: ${LOCAL_STACK}; web-стек пропущен`,
+  );
+  assertEquals(skipped > 0, true, lines.join("\n"));
+  // Compose стенда ozon живёт в local-stack: без него нет и стенда.
+  assertEquals(
+    lines[skipped + 1],
+    `стенд ozon: каталога ${LOCAL_STACK} нет — пропуск`,
   );
   assertEquals(lines[0].includes("compose.mp-nats"), true, lines[0]);
   assertEquals(
@@ -1213,7 +1254,10 @@ Deno.test("web поверх core: тег зависимостей и web (M3)", 
     const lines: string[] = [];
     const docker = new FakeDocker();
     await mpInit(true, lines, docker);
-    assertEquals(lines.at(-2), webLine("sw-back sw-front sl-front"));
+    assertEquals(
+      lines.find((line) => line.includes("--no-deps")),
+      webLine("sw-back sw-front sl-front"),
+    );
     assertEquals(
       docker.probes.some((argv) =>
         argv.join(" ") ===
@@ -1305,5 +1349,337 @@ Deno.test("web поверх core: тег зависимостей и web (M3)", 
     const web = lines.find((line) => line.includes("--no-deps")) ?? "";
     assertEquals(web.endsWith("--force-recreate sw-front sl-front"), true, web);
     assertEquals(docker.probes.some((argv) => argv[1] === "manifest"), false);
+  });
+});
+
+const OZON_COMPOSE = `${LOCAL_STACK}/ozon/docker-compose.yml`;
+const WA = "/tmp/wa/packages/workspace-access";
+/** Коммит sw-back, где версия пакета — 0.4.0, и следующий, где её сняли. */
+const ADDED = "c0ffee04";
+const BUMPED = "c0ffee05";
+
+/** Строки шага 6 стенда голдена (M4-1): без публикации и установки. */
+const OZON_LINES = [
+  `$ docker compose -f ${OZON_COMPOSE} up -d pg redis clickhouse verdaccio dev`,
+  `$ docker compose -f ${OZON_COMPOSE} --profile migrate run --rm migrate`,
+  `$ docker compose -f ${OZON_COMPOSE} up -d datacore datacore-worker ingest front`,
+];
+
+/** Проба в ozon-dev: `docker exec ozon-dev <word> …`. */
+const inDev = (argv: readonly string[], word: string) =>
+  argv[1] === "exec" && argv[2] === "ozon-dev" && argv.includes(word);
+
+/**
+ * Пакета версии lock в Verdaccio нет; `git log -S` отдаёт оба коммита
+ * (новый первым), версия есть только в `ADDED`; `dist` — `distList`.
+ */
+const unpublished = (distList = "index.js\n"): Answer => (argv) => {
+  const out = (stdout: string, code = 0) => ({ code, stdout, stderr: "" });
+  if (inDev(argv, "view")) return out("", 1);
+  if (inDev(argv, "log")) return out(`${BUMPED}\n${ADDED}\n`);
+  if (inDev(argv, "show")) {
+    return out(
+      `{"version": "${argv.at(-1)?.startsWith(ADDED) ? "0.4.0" : "0.5.0"}"}`,
+    );
+  }
+  if (argv[1] === "exec" && argv.includes("ls")) return out(distList);
+  if (argv.includes("tsc")) return out("", 2);
+  return undefined;
+};
+
+/** Строки публикации пакета 0.4.0 из коммита `ADDED` (M4-2). */
+const PUBLISH_LINES = [
+  "стенд ozon: публикую @sw-back/workspace-access@0.4.0 в Verdaccio",
+  "$ docker exec ozon-dev sh -c 'rm -rf /tmp/wa && mkdir /tmp/wa && " +
+  `git -C /work/sw-back archive ${ADDED} packages/workspace-access | ` +
+  "tar -x -C /tmp/wa'",
+  `$ docker exec -w ${WA} ozon-dev npx -y -p typescript@5 tsc -p tsconfig.json`,
+  `$ docker exec -w ${WA} ozon-dev npm publish --registry ` +
+  "http://verdaccio:4873 --//verdaccio:4873/:_authToken=local-stand",
+];
+
+/** Ответ curl по адресу: `status` и тело; прочие — как у стенда. */
+const answering = (url: string, status: string, body = ""): Answer => (argv) =>
+  argv[0] === "curl" && argv.at(-1) === url
+    ? { code: 0, stdout: `${body}\n${status}`, stderr: "" }
+    : undefined;
+
+Deno.test("стенд ozon (M4)", async (t) => {
+  await t.step("M4-1: всё на месте — три строки compose", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    const result = await mpInit(true, lines, docker);
+    assertEquals(result.exitCode, 0);
+    assertEquals(lines.slice(-4, -1), OZON_LINES);
+    // Версия из lock сверена с Verdaccio — публикации нет.
+    assertEquals(
+      docker.probes.some((argv) =>
+        argv.join(" ") ===
+          "docker exec ozon-dev npm view @sw-back/workspace-access@0.4.0 " +
+            "--registry http://verdaccio:4873"
+      ),
+      true,
+    );
+    assertEquals(lines.some((line) => line.includes("публикую")), false);
+    assertEquals(lines.some((line) => line.includes("pnpm")), false);
+  });
+
+  await t.step("M4-1: прогон — compose выполняется", async () => {
+    const docker = new FakeDocker();
+    await mpInit(false, [], docker);
+    const ozon = docker.runs.filter((argv) => argv.includes(OZON_COMPOSE));
+    assertEquals(ozon.map((argv) => `$ ${argv.join(" ")}`), OZON_LINES);
+  });
+
+  await t.step("M4-2: пакета нет — строки публикации после infra", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker(unpublished());
+    const result = await mpInit(true, lines, docker);
+    assertEquals(result.exitCode, 0);
+    const infra = lines.indexOf(OZON_LINES[0]);
+    assertEquals(
+      lines.slice(infra + 1, infra + 1 + PUBLISH_LINES.length),
+      PUBLISH_LINES,
+      lines.join("\n"),
+    );
+    // Проба `dist` в dry не идёт: пакет не распакован.
+    assertEquals(docker.probes.some((argv) => argv.includes("ls")), false);
+  });
+
+  await t.step("M4-2: коммит ищется в контейнере, форма пробы", async () => {
+    const docker = new FakeDocker(unpublished());
+    await mpInit(true, [], docker);
+    assertEquals(docker.probes.find((argv) => inDev(argv, "log")), [
+      "docker",
+      "exec",
+      "ozon-dev",
+      "git",
+      "-C",
+      "/work/sw-back",
+      "log",
+      "--format=%H",
+      '-S"version": "0.4.0"',
+      "--",
+      "packages/workspace-access/package.json",
+    ]);
+  });
+
+  await t.step("M4-2: прогон — код tsc не смотрится, dist есть", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker(unpublished());
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0, lines.join("\n"));
+    assertEquals(docker.runs.some((argv) => argv.includes("publish")), true);
+  });
+
+  await t.step("M4-2: dist пуст — отказ 1, публикации нет", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker(unpublished(""));
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 1);
+    assertEquals(
+      lines.at(-1),
+      "mpu mp-init: стенд ozon: dist пакета пуст — не публикую",
+    );
+    assertEquals(docker.runs.some((argv) => argv.includes("publish")), false);
+  });
+
+  await t.step("M4-2: коммита с версией нет — отказ 1", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      inDev(argv, "show")
+        ? { code: 0, stdout: '{"version": "0.5.0"}', stderr: "" }
+        : unpublished()(argv)
+    );
+    const result = await mpInit(true, lines, docker);
+    assertEquals(result.exitCode, 1);
+    assertEquals(
+      lines.at(-1),
+      "mpu mp-init: стенд ozon: нет коммита sw-back с " +
+        "@sw-back/workspace-access@0.4.0",
+    );
+  });
+
+  await t.step("в lock нет пакета — предупреждение, стенд дальше", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    const result = await mpInit(true, lines, docker, {
+      files: { [OZON_LOCK]: null },
+    });
+    assertEquals(result.exitCode, 0);
+    assertEquals(
+      lines.includes(
+        "warning: стенд ozon: в pnpm-lock нет @sw-back/workspace-access — " +
+          "публикацию пропускаю",
+      ),
+      true,
+    );
+    assertEquals(lines.slice(-3, -1), OZON_LINES.slice(1));
+    assertEquals(docker.probes.some((argv) => inDev(argv, "view")), false);
+  });
+
+  await t.step("M4-3: нет node_modules — установка и сборка", async () => {
+    const lines: string[] = [];
+    await mpInit(true, lines, new FakeDocker(), {
+      exists: (path) =>
+        existsExceptDtEnv(path) && !path.endsWith("/ozon/node_modules"),
+    });
+    const dev = "$ docker exec ozon-dev sh -c ";
+    const pnpm = "PATH=/tmp/bin:$PATH pnpm";
+    assertEquals(lines.slice(-8, -3), [
+      `${dev}'mkdir -p /tmp/bin && corepack enable --install-directory /tmp/bin'`,
+      `${dev}'${pnpm} install --config.@sw-back:registry=http://verdaccio:4873'`,
+      `${dev}'${pnpm} --filter "./packages/*" run build'`,
+      `${dev}'${pnpm} --filter @ozon/datacore build'`,
+      `${dev}'${pnpm} --filter @ozon/ingest build'`,
+    ]);
+    // Установка — после пакета, до миграций.
+    assertEquals(lines.at(-3), OZON_LINES[1]);
+  });
+
+  await t.step("M4-4: чекаута ozon нет — пропуск, код 0", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    const result = await mpInit(false, lines, docker, {
+      exists: (path) =>
+        existsExceptDtEnv(path) && !path.startsWith(`${ROOT}/ozon`),
+    });
+    assertEquals(result.exitCode, 0);
+    assertEquals(
+      lines.includes(`стенд ozon: чекаута ${ROOT}/ozon нет — пропуск`),
+      true,
+    );
+    assertEquals(
+      docker.runs.some((argv) => argv.includes(OZON_COMPOSE)),
+      false,
+    );
+    // Адреса стенда ozon не проверяются.
+    assertEquals(
+      docker.probes.some((argv) =>
+        argv[0] === "curl" && argv.at(-1)!.includes(":5200")
+      ),
+      false,
+    );
+  });
+
+  await t.step("M4-9: up ozon упал — его rc, финала нет", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      argv.includes(OZON_COMPOSE) && argv.includes("pg")
+        ? { code: 4, stdout: "", stderr: "" }
+        : undefined
+    );
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 4);
+    assertEquals(lines.at(-1), "mpu mp-init: стенд ozon упал (rc=4)");
+    assertEquals(docker.probes.some((argv) => argv[0] === "curl"), false);
+  });
+});
+
+Deno.test("финал: проверка ответом (M4)", async (t) => {
+  const checks = (lines: readonly string[]) =>
+    lines.filter((line) => line.includes("проверка"));
+
+  await t.step("M4-5: все 200 — строка на адрес, по порядку", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0);
+    assertEquals(checks(lines), [
+      "проверка: 200 http://sw.localhost",
+      "проверка: 200 http://sw.localhost/api/metrics",
+      "проверка: 200 http://sl-dev.localhost",
+      "проверка: 200 http://localhost:5000/api/health",
+      "проверка: 200 http://localhost:5200/health",
+      "проверка: 200 http://localhost:3100/ozon/app/",
+    ]);
+    // Проверка — до итоговой строки: та закрывает прогон.
+    assertEquals(lines.at(-2), "проверка: 200 http://localhost:3100/ozon/app/");
+    // По переадресациям: `/ozon/app/` отвечает 308.
+    assertEquals(docker.probes.find((argv) => argv[0] === "curl"), [
+      "curl",
+      "-sS",
+      "-L",
+      "--max-time",
+      "10",
+      "-w",
+      "\\n%{http_code}",
+      "http://sw.localhost",
+    ]);
+  });
+
+  await t.step("M4-6: 502 — предупреждение, код не меняется", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker(answering("http://sw.localhost", "502"));
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0);
+    assertEquals(
+      checks(lines)[0],
+      "warning: проверка: 502 http://sw.localhost",
+    );
+  });
+
+  await t.step("нет ответа — 000", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      argv.at(-1) === "http://sl-dev.localhost"
+        ? { code: 7, stdout: "", stderr: "curl: (7) Failed to connect" }
+        : undefined
+    );
+    await mpInit(false, lines, docker);
+    assertEquals(
+      checks(lines)[2],
+      "warning: проверка: 000 http://sl-dev.localhost",
+    );
+  });
+
+  await t.step("M4-7: sl-0 503 при database: ok — не отказ", async () => {
+    const lines: string[] = [];
+    const body = '{"status":"unhealthy","checks":{"database":{"status":"ok",' +
+      '"message":"Database connected"},"memory":{"status":"warning",' +
+      '"usagePercent":"96%"}}}';
+    const docker = new FakeDocker(
+      answering("http://localhost:5000/api/health", "503", body),
+    );
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0);
+    assertEquals(
+      checks(lines)[3],
+      "проверка: sl-0 — 503 при database: ok (память на старте), не отказ",
+    );
+  });
+
+  await t.step("sl-0: база не ok — предупреждение", async () => {
+    const lines: string[] = [];
+    const body = '{"checks":{"database":{"status":"error"}}}';
+    const docker = new FakeDocker(
+      answering("http://localhost:5000/api/health", "503", body),
+    );
+    await mpInit(false, lines, docker);
+    assertEquals(
+      checks(lines)[3],
+      "warning: проверка: 503 http://localhost:5000/api/health",
+    );
+  });
+
+  await t.step("M4-8: в dry проверки нет", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    await mpInit(true, lines, docker);
+    assertEquals(checks(lines), []);
+    assertEquals(docker.probes.some((argv) => argv[0] === "curl"), false);
+  });
+
+  await t.step("без sw-back — его адрес не проверяется", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      argv[1] === "manifest" ? { code: 1, stdout: "", stderr: "" } : undefined
+    );
+    await mpInit(false, lines, docker);
+    assertEquals(
+      checks(lines).some((line) => line.includes("/api/metrics")),
+      false,
+    );
+    assertEquals(checks(lines).length, 5);
   });
 });
