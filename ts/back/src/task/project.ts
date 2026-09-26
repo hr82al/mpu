@@ -13,7 +13,9 @@ import {
   NO_TURN,
   OWNER,
   OWNER_ANSWER,
+  RESUME,
   RULE,
+  STOP,
   TASK,
   type Turn,
 } from "./kind.ts";
@@ -50,9 +52,10 @@ export const KEEP_ALL: Depth = { prune: () => {} };
 
 /**
  * Хранит `portions` последних порций; `0` — то же, что `1`: только
- * текущая. Чистку переживают последняя редакция правила и последний
- * `owner` без ответа после него: иначе действующее правило и открытый
- * вопрос владельца молча пропали бы (`task.md`, «Инварианты»).
+ * текущая. Чистку переживают последняя редакция правила, последний
+ * `owner` без ответа после него и действующий `stop` (последнее из
+ * `stop`/`resume`): иначе действующее правило, открытый вопрос владельца
+ * и остановка проекта молча пропали бы (`task.md`, «Инварианты»).
  */
 export class Keeping implements Depth {
   readonly #portions: number;
@@ -69,7 +72,11 @@ export class Keeping implements Depth {
         AND id IS NOT (SELECT max(id) FROM task_messages AS asked
                        WHERE project = ? AND kind = ?
                          AND NOT EXISTS (SELECT 1 FROM task_messages
-                           WHERE project = ? AND kind = ? AND id > asked.id))`,
+                           WHERE project = ? AND kind = ? AND id > asked.id))
+        AND id IS NOT (SELECT id FROM (SELECT id, kind FROM task_messages
+                         WHERE project = ? AND kind IN (?, ?)
+                         ORDER BY id DESC LIMIT 1)
+                       WHERE kind = ?)`,
       project,
       current - this.#portions,
       project,
@@ -78,6 +85,10 @@ export class Keeping implements Depth {
       OWNER.word,
       project,
       OWNER_ANSWER.word,
+      project,
+      STOP.word,
+      RESUME.word,
+      STOP.word,
     );
   }
 }

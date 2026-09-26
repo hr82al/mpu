@@ -87,6 +87,33 @@ Deno.test("stop в проекте без порций — порция 0, без
     assertEquals(await turnOf(stand), "1 остановлен");
   }));
 
+Deno.test("чистка при task.history не удаляет действующий stop, отменённый — удаляет", () =>
+  withStand(async (stand) => {
+    await setUp(stand);
+    const say = (kind: string, text: string) =>
+      stand.agent("task", kind, "project:", "demo", "text:", text);
+    await say("post", "p1");
+    expect(await stand.agent("task", "stop", "project:", "demo"), 0, "", "");
+    await say("report", "r1");
+    await say("post", "p2");
+    assertEquals(await turnOf(stand), "2 остановлен");
+    await stand.human("ask", "task", "resume", "project:", "demo");
+    await say("report", "r2");
+    await say("post", "p3");
+    const run = await stand.agent(
+      "task",
+      "history",
+      "project:",
+      "demo",
+      "end",
+      "json",
+    );
+    assertEquals(run.code, 0, run.stderr);
+    const kinds = (JSON.parse(run.stdout) as { kind: string }[])
+      .map((row) => row.kind);
+    assertEquals(kinds, ["task"]);
+  }, "0"));
+
 Deno.test("resume без двери — отказ: посев ask", () =>
   withStand(async (stand) => {
     await setUp(stand);
