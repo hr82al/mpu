@@ -144,7 +144,13 @@ stdout — данные; stderr — `mpu task <сообщение>: <причи�
 - `read`/`wait` помечают прочитанным ровно напечатанное.
 - Проект создаёт только `setup`.
 - `rule`/`owner-answer` не пишутся каналом без человека ни при каком правиле.
-- Тело возвращается побайтово равным поданному.
+- Тело возвращается побайтово равным поданному через `text:` и `file:`;
+  через `text: stdin` — как его раскрыла строка (без хвостового перевода
+  строки, `value-expression.md` [D.2]).
+- Чистка не удаляет последнюю редакцию `rule` и последний `owner` без
+  `owner-answer` после него: иначе действующее правило и открытый вопрос
+  владельца молча пропадают через N порций (решение исполнителя T1 и хоста
+  2026-09-26).
 
 ## Сценарии
 
@@ -154,7 +160,7 @@ stdout — данные; stderr — `mpu task <сообщение>: <причи�
 | # | Дано | Строка | stdout | stderr | код |
 |---|---|---|---|---|---|
 | T1 | — | `mpu task post project: demo text: x` | | `mpu task post: нет проекта demo — заведи: mpu ask task setup project: demo\n` (объекта `refusal` у отказа команды пока нет — платформа, отдельная порция) | 2 |
-| T2 | — | `mpu ask task setup project: demo note: ^игрушечный проект^` | инструкция (голден `setup.txt`) | `выполнить mpu task setup project: demo note: ^игрушечный проект^? [y/N] ` | 0 |
+| T2 | — | `mpu ask task setup project: demo note: ^игрушечный проект^` | инструкция (голден `setup.txt`) | `выполнить mpu task setup project: demo note: игрушечный проект? [y/N] ` (вопрос печатает группу раскрытой) | 0 |
 | T3 | после T2 | `mpu task report project: demo text: готово` | | `mpu task report: порций ещё нет — начни с mpu task post project: demo …\n` | 2 |
 | T4 | после T2 | `mpu task post project: demo text: ^сделай x^` | | | 0 |
 | T5 | после T4 | `mpu task status` | `demo  порция 1  ждёт исполнителя  task  <возраст>  непрочитано  игрушечный проект\n` | | 0 |
@@ -172,7 +178,7 @@ stdout — данные; stderr — `mpu task <сообщение>: <причи�
 | T17 | — | `mpu task read project: demo kind: ask` | | `mpu task read: неизвестный вид ask — допустимо: task, report, question, answer, decision, owner, owner-answer, rule\n` | 2 |
 | T18 | — | `mpu task post project: demo text: ^   ^` | | `mpu task post: пустое тело сообщения\n` | 2 |
 | T19 | — | `mpu task post project: demo text: x file: a.md` | | `mpu task post: тело — text: или file:, не оба\n` | 2 |
-| T20 | `printf 'a\n\n' \| …` | `mpu task post project: demo text: stdin`, затем `read` | `a\n\n` | | 0 |
+| T20 | `printf 'a\n\n' \| …` | `mpu task post project: demo text: stdin`, затем `read` | `a\n` (значение `stdin` строка раскрывает без хвостового перевода строки — `value-expression.md` [D.2]) | | 0 |
 | T21 | пять порций, `task.history` = 3 | `mpu task history project: demo end json` | массив записей только порций 3–5 | | 0 |
 | T22 | — | `mpu task history clear project: demo` без `ask` | | отказ двери живой формы (путь с ключами, как у всех команд): `mpu task history clear project: demo: требует подтверждения — вызывай mpu ask task history clear project: demo\n` | 2 |
 | T23 | агент | `mpu task post project: demo text: z` | | | 0 (посев `allow`) |
