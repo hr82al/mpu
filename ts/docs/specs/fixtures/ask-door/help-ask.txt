@@ -36,7 +36,7 @@
   move-client-back            Вернуть клиента обратно и управлять журналом переносов.
   mp-init                     Поднять локальный стенд целиком: core-стеки и web поверх.
   mr                          merge request'ы GitLab: чтение, комментарии ревью, резолв
-  ozon                        Ozon Seller API под ключом кабинета клиента: чтение и запись
+  ozon                        Ozon API под ключом кабинета клиента: Seller — call-ro | call, реклама — perf
   ozon-jobs                   очередь задач Ozon-загрузчика на сервере: show | prune
   ozon-loader                 загрузка данных Ozon-кабинета в БД клиента: campaigns | …
   ozon-recalculate-expenses   Пересчитать расходы Ozon UNIT клиента за период.

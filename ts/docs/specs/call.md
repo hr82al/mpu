@@ -1,6 +1,6 @@
 # mpu ozon call · mpu wb call (и `call-ro`)
 
-Статус: 173a реализовано (`ec9f3585`, `4fb964dd`); принято 2026-09-26 хостом: тестов 2744, smoke 23/1, мутации 7 красных (перепроверена хостом: реестр не сверяет метод — красный тест реестра), голдены деревьев и `ask-door/help-ask.txt` заморожены; установлено, живьём на тестовом кабинете 2129958 (клиент 54): `dry` → `POST https://api-seller.ozon.ru/v1/seller/info`, `api-key: ***`; вызов → `HTTP 200 POST api-seller.ozon.ru/v1/seller/info`, `ratelimit-remaining: 49`, тело JSON `{"company": {…}}` (данные кабинета в спеку не переносятся); журнал — строка вызова и `note` `HTTP 200, тело 2493 байт, ratelimit-remaining: 49`, без `out` и ключа. 173b/173c — к реализации. Прежде: к реализации — три порции по получателям (после серии task), решения хоста
+Статус: 173a реализовано (`ec9f3585`, `4fb964dd`); принято 2026-09-26 хостом: тестов 2744, smoke 23/1, мутации 7 красных (перепроверена хостом: реестр не сверяет метод — красный тест реестра), голдены деревьев и `ask-door/help-ask.txt` заморожены; установлено, живьём на тестовом кабинете 2129958 (клиент 54): `dry` → `POST https://api-seller.ozon.ru/v1/seller/info`, `api-key: ***`; вызов → `HTTP 200 POST api-seller.ozon.ru/v1/seller/info`, `ratelimit-remaining: 49`, тело JSON `{"company": {…}}` (данные кабинета в спеку не переносятся); журнал — строка вызова и `note` `HTTP 200, тело 2493 байт, ratelimit-remaining: 49`, без `out` и ключа. 173b реализовано (`ff430f09`, `f0cc8c7a`); принято 2026-09-26 хостом: тестов 2758, мутации 8 красных (перепроверена хостом: секрет Performance без маски — красные B5 и сбой обмена), голдены справок `fixtures/call/help-*.txt` заморожены; живьём на 2129958: `dry` → `GET https://api-performance.ozon.ru/api/client/campaign`, `authorization: Bearer ***`; вызов → `HTTP 200 GET api-performance.ozon.ru/api/client/campaign`, тело `{"list": [...]}` — форма обмена токена (JSON `client_id`, `client_secret`, `grant_type`) подтверждена живьём; журнал — `note` `HTTP 200, тело 25971 байт`. 173c — к реализации. Прежде: к реализации — три порции по получателям (после серии task), решения хоста
 2026-09-25 ниже:
 
 - **173a — `ozon call-ro` / `ozon call`** (Seller) и всё общее: реестр
@@ -378,7 +378,7 @@ retry-after: 1
 }
 ```
 
-Для WB и `ozon perf` — **догадка** по коду `sl-back` (`wbFetchNew.base.service.js:105-108`,
+Для WB — **догадка** по коду `sl-back` (`ozon perf` снят живьём 2026-09-26, см. статус) (`wbFetchNew.base.service.js:105-108`,
 `ozonFetchService.js:399-425`); снимает реализующая сессия первым живым
 вызовом на тестовом кабинете, хост сверяет.
 
