@@ -121,7 +121,7 @@ Vite, React 19, TanStack Router, TanStack Query; TanStack Table/Virtual — ес
 
 | Дано | Ожидается |
 |---|---|
-| `mpu-next web` без основного токена (агент) | `mpu: не понимает web`, код 2 |
+| `mpu-next web` без основного токена (агент) | `mpu: не понимает web; ближайшие: wb`, код 2 (с порции 173c — корень `wb` на расстоянии 1; `refusal.hint` `["wb"]` ведёт в справку группы — безвредно) |
 | ключ второй раз | 404 |
 | ключ через 61 секунду | 404 |
 | `POST /web/session` с `Origin: http://evil.localhost` | 403 |
