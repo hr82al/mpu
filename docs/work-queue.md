@@ -37,8 +37,8 @@
 - [x] 169b — `image export` + суточный таймер
 - [x] 170a — программа из stdin (принята 2026-09-26)
 - [x] 170b — `run:` из файла (принята 2026-09-26)
-- [ ] 171 — web: экран «Образ» (в работе у исполнителя)
-- [ ] task — оркестратор `mpu task` (серия T1–T5, `docs/2026-09-23-task-orchestrator-design.md`,
+- [x] 171 — web: экран «Образ» (принята 2026-09-26)
+- [ ] task — оркестратор (T1 в работе) `mpu task` (серия T1–T5, `docs/2026-09-23-task-orchestrator-design.md`,
       спека `ts/docs/specs/task.md`). T1 — спека переписана под грамматику
       (2026-09-25), `prompt-T1.txt` готов; T2 — `task-roles.md`, T3 — `task-orchestrator.md` готовы; T4 (перевод mpu), T5 (хуки) — писать по дизайну.
 - [ ] call — `ts/docs/specs/call.md` (маркетплейс — получатель: `ozon call-ro`,
