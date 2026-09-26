@@ -253,6 +253,9 @@ async function upCore(
   return await fillRates(stacks.map((stack) => stack.rates), ratesContext(run));
 }
 
+/** Итог невыполненного в `dry` шага. */
+const IDLE: ProcessOutcome = { code: 0, stdout: "", stderr: "" };
+
 /** Исполнение шагов курсов: печать, как у всех, и вывод — значением. */
 function ratesContext(run: Run): RatesContext {
   return {
@@ -268,9 +271,6 @@ function ratesContext(run: Run): RatesContext {
     },
   };
 }
-
-/** Итог невыполненного в `dry` шага. */
-const IDLE: ProcessOutcome = { code: 0, stdout: "", stderr: "" };
 
 /**
  * Один core-стек: сверка overrides, `up`, проверка миграций (вне `dry`).
@@ -486,13 +486,13 @@ compose-зависимостей между стеками нет, и стенд
 ждёт контейнер миграций (до 10 мин) и отказывает, если он вышел не с 0;
 после core — предупреждения о контейнерах в петле или вышедших с ошибкой.
 
-Затем курсы валют: shared.currency_rates на sl-0 пуста — backfill в
+dry печатает команды, не выполняя ни одной мутации; inspect, сверка
+overrides и проба курсов при этом выполняются, миграции и сводка — нет.
+
+После core — курсы валют: shared.currency_rates на sl-0 пуста — backfill в
 sl-0-cli (~10 мин), затем syncFullHistory в cli каждого инстанса; не
 пуста — пропуск. Пропущенные backfill'ом дни — одной строкой warning с
 командой догона.
-
-dry печатает команды, не выполняя ни одной мутации; inspect, сверка
-overrides и проба курсов при этом выполняются, миграции и сводка — нет.
 
 Каталог mp-config-local берётся из переменной окружения
 MPU_MP_CONFIG_LOCAL, иначе ~/mr/mp/mp-config-local. Каталог web-стека —
