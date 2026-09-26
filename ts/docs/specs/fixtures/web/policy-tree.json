@@ -1815,6 +1815,32 @@
   },
   {
     "path": [
+      "ozon"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "ozon",
+      "call"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "ozon",
+      "call-ro"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
       "ozon-jobs"
     ],
     "verdict": "deny",
@@ -2272,6 +2298,15 @@
   {
     "path": [
       "task",
+      "resume"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
       "role"
     ],
     "verdict": "deny",
@@ -2318,6 +2353,15 @@
     "path": [
       "task",
       "status"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "stop"
     ],
     "verdict": "deny",
     "rule": "*",
