@@ -4,6 +4,8 @@
  */
 
 import { assertEquals } from "@std/assert";
+import { taskReadCommand } from "./cmd_read.ts";
+import { KINDS } from "./kind.ts";
 import { expect, setUp, type Stand, withStand } from "./teststand.ts";
 
 async function turnOf(stand: Stand): Promise<string> {
@@ -101,3 +103,13 @@ Deno.test("stop в незаведённом проекте — отказ с п�
       "mpu task stop: нет проекта nope — заведи: mpu ask task setup project: nope\n",
     );
   }));
+
+Deno.test("справка read перечисляет виды из списка видов, stop и resume в их числе", () => {
+  const listed = `Виды: ${KINDS.map((kind) => kind.word).join(", ")}.`;
+  assertEquals(
+    taskReadCommand.help.includes(listed),
+    true,
+    taskReadCommand.help,
+  );
+  assertEquals(listed.endsWith("rule, stop, resume."), true, listed);
+});

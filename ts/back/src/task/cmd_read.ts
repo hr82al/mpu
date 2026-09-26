@@ -13,7 +13,7 @@ import {
   record,
   UsageError,
 } from "../command/mod.ts";
-import { kindNamed } from "./kind.ts";
+import { kindNamed, KINDS } from "./kind.ts";
 import { contractError, PROJECT, type TaskIo, withJournal } from "./glue.ts";
 import {
   ANY_KIND,
@@ -78,7 +78,7 @@ export const taskReadCommand: Command = defineCommand({
 печатает последнее сообщение (или последнее вида kind:) и помечает его
 прочитанным; вариант keep — не помечать.
 
-Виды: task, report, question, answer, decision, owner, owner-answer, rule.
+Виды: ${KINDS.map((kind) => kind.word).join(", ")}.
 
 stdout — тело побайтово, как подано. Exit: 0; 1 — таких сообщений нет;
 2 — нет проекта или неизвестный вид.`,
