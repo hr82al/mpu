@@ -1500,6 +1500,28 @@ Deno.test("стенд ozon (M4)", async (t) => {
     );
   });
 
+  await t.step("dry, ozon-dev не запущен — план пакета пропущен", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) => {
+      if (argv.includes("{{.State.Running}}") && argv.at(-1) === "ozon-dev") {
+        return { code: 1, stdout: "", stderr: "Error: No such object" };
+      }
+      return argv[2] === "ozon-dev"
+        ? { code: 1, stdout: "", stderr: "Error: No such container" }
+        : undefined;
+    });
+    const result = await mpInit(true, lines, docker);
+    assertEquals(result.exitCode, 0, lines.join("\n"));
+    const infra = lines.indexOf(OZON_LINES[0]);
+    assertEquals(
+      lines[infra + 1],
+      "стенд ozon: ozon-dev не запущен — план публикации пакета не " +
+        "построить (в реальном прогоне он поднимется первым)",
+    );
+    assertEquals(lines.slice(-3, -1), OZON_LINES.slice(1));
+    assertEquals(docker.probes.some((argv) => inDev(argv, "log")), false);
+  });
+
   await t.step("в lock нет пакета — предупреждение, стенд дальше", async () => {
     const lines: string[] = [];
     const docker = new FakeDocker();

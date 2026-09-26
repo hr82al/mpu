@@ -188,6 +188,15 @@ class VersionedPackage implements LockedPackage {
       VERDACCIO,
     ]);
     if (view.code === 0) return 0;
+    // В `dry` на чистой машине ozon-dev ещё не поднят — пробы в нём не
+    // проходят, и «нет коммита» назвало бы не ту причину.
+    if (context.dryRun && !await devRunning(context)) {
+      context.progress(
+        "стенд ozon: ozon-dev не запущен — план публикации пакета не " +
+          "построить (в реальном прогоне он поднимется первым)",
+      );
+      return 0;
+    }
     const commit = await this.#commit(context);
     if (commit === undefined) {
       context.progress(
@@ -289,6 +298,15 @@ function inPackage(context: OzonContext, command: readonly string[]): Step {
 async function builtIn(context: OzonContext): Promise<boolean> {
   const list = await probe(context, ["ls", `${UNPACKED}/dist`]);
   return list.code === 0 && list.stdout.trim() !== "";
+}
+
+/** Запущен ли контейнер разработки. */
+async function devRunning(context: OzonContext): Promise<boolean> {
+  const inspect = await context.docker.probe(
+    ["docker", "inspect", "-f", "{{.State.Running}}", DEV],
+    context.cwd,
+  );
+  return inspect.code === 0 && inspect.stdout.trim() === "true";
 }
 
 /** Проба в контейнере разработки — без печати. */
