@@ -17,6 +17,8 @@ export interface LetterParts {
   readonly profile: ProfileRecord;
   /** Строки раздела «Что делать сейчас». */
   readonly now: readonly string[];
+  /** Кого роль спрашивает: строка раздела «Канал». */
+  readonly ask: string;
   /** Вывод `mpu task decisions project: <п>`. */
   readonly decisions: string;
 }
@@ -53,7 +55,7 @@ ${profile.powers}
 
 Команды канала — mpu task … project: ${project}.
 Сразу после начала работы — mpu task busy project: ${project} role: ${role}, по окончании — mpu task idle project: ${project} role: ${role}.
-${askLine(project, role)}
+${parts.ask}
 
 ## Что делать сейчас
 
@@ -64,11 +66,4 @@ ${reads}
 ## Правила и решения
 
 ${parts.decisions}`;
-}
-
-/** Кого роль спрашивает: исполнитель — хоста, хост — владельца. */
-function askLine(project: string, role: string): string {
-  return role === "host"
-    ? `Вопрос владельцу — mpu task owner project: ${project}.`
-    : `Вопрос хосту — mpu task question project: ${project}.`;
 }

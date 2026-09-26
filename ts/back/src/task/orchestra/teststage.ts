@@ -10,7 +10,7 @@
 import type { FakeTime } from "@std/testing/time";
 import { expect, setUp, type Stand } from "../teststand.ts";
 import type { Hands, Place, Windows } from "./ports.ts";
-import { Orchestra } from "./stage.ts";
+import { Orchestra } from "./orchestra.ts";
 
 /** Как ведёт себя поддельная роль в окне. */
 export interface Script {

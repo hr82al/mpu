@@ -131,6 +131,11 @@ Deno.test("O6: task положен, exec idle — /clear, Enter, сообщен�
       "прочитай mpu task read project: demo и выполняй\n",
     );
     assertEquals(rig.tmux.keys("demo-host"), []);
+    assert(
+      rig.letter("exec").includes(
+        "\nВопрос хосту — mpu task question project: demo.\n",
+      ),
+    );
   }));
 
 Deno.test("роль не ставит busy — три очистки, уведомление, роль остановлена", () =>
@@ -232,6 +237,11 @@ Deno.test("O8: report не прочитан, host idle — очистка хос
       nowOf(rig.letter("host")),
       "прими порцию 1 по отчёту; спека и постановка 2 по плану; " +
         "положи mpu task post project: demo\n",
+    );
+    assert(
+      rig.letter("host").includes(
+        "\nВопрос владельцу — mpu task owner project: demo.\n",
+      ),
     );
   }));
 

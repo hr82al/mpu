@@ -7,8 +7,9 @@
  */
 
 import type { ProfileRecord, Role } from "../roles.ts";
-import { HOUR_MS, type Move } from "./course.ts";
+import { type Course, HOUR_MS, type Move } from "./course.ts";
 import { Letter, RESUME_LINE } from "./letter.ts";
+import type { Part } from "./part.ts";
 import type { Hands, Place } from "./ports.ts";
 import { CLAUDE_COMMAND, Screen } from "./signs.ts";
 
@@ -47,9 +48,8 @@ export class Capacity {
 export interface Cue {
   /** Профиль и отметка на момент снимка. */
   readonly role: Role;
-  readonly move: Move;
-  /** Время последнего сообщения журнала. */
-  readonly lastAt: number;
+  /** Ход проекта по журналу на момент снимка. */
+  readonly course: Course;
   /** Вывод `decisions` проекта. */
   readonly decisions: string;
   readonly capacity: Capacity;
@@ -79,15 +79,15 @@ const HALTED: Phase = {
 /** Роль проекта: окно, отметка, запуск и очистка. */
 export class Actor {
   readonly #project: string;
-  readonly #role: string;
+  readonly #part: Part;
   readonly #hands: Hands;
   #phase: Phase = RESTING;
   #failures = 0;
   readonly #told = new Set<string>();
 
-  constructor(project: string, role: string, hands: Hands) {
+  constructor(project: string, part: Part, hands: Hands) {
     this.#project = project;
-    this.#role = role;
+    this.#part = part;
     this.#hands = hands;
   }
 
@@ -117,7 +117,7 @@ export class Actor {
     if (screen.differsFrom(profile.model)) {
       return this.#switchModel(place, profile.model);
     }
-    if (cue.move.due) await this.#clear(cue, place);
+    if (this.#move(cue).due) await this.#clear(cue, place);
   }
 
   /** Проверка запуска: признаки на экране, диалог доверия, срок. */
@@ -163,7 +163,7 @@ export class Actor {
     if (screen.differsFrom(profile.model)) {
       return this.#switchModel(place, profile.model);
     }
-    const letter = await this.#write(cue, [cue.move.line()]);
+    const letter = await this.#write(cue, [this.#move(cue).line()]);
     await this.#say(place, letter.message());
     const since = this.#hands.clock.now();
     this.#phase = new Waking(since + WAIT_MS, since);
@@ -198,7 +198,10 @@ export class Actor {
     } else {
       await windows.newSession(place, profile.dir);
     }
-    const letter = await this.#write(cue, nowLines(cue));
+    const letter = await this.#write(
+      cue,
+      nowLines(this.#move(cue), cue.role.isBusy()),
+    );
     await this.#say(place, launchLine(letter.message(), profile));
     const deadline = this.#hands.clock.now() + WAIT_MS;
     this.#phase = new Launching(deadline, letter.message());
@@ -219,7 +222,8 @@ export class Actor {
 
   #watchBusy(cue: Cue): Promise<void> {
     const since = cue.role.busySince();
-    const quiet = this.#hands.clock.now() - Math.max(since, cue.lastAt);
+    const quiet = this.#hands.clock.now() -
+      Math.max(since, cue.course.lastAt());
     if (quiet <= HOUR_MS) return Promise.resolve();
     return this.#tell(
       `busy@${since}`,
@@ -249,12 +253,18 @@ export class Actor {
     await this.#hands.notices.notify(text);
   }
 
+  /** Ход этой роли по журналу снимка. */
+  #move(cue: Cue): Move {
+    return this.#part.move(cue.course);
+  }
+
   async #write(cue: Cue, now: readonly string[]): Promise<Letter> {
     const letter = new Letter(this.#hands.letterDir, {
       project: this.#project,
-      role: this.#role,
+      role: this.#part.name,
       profile: cue.role.profile(),
       now,
+      ask: this.#part.ask(this.#project),
       decisions: cue.decisions,
     });
     await this.#hands.letters.write(letter.path, letter.text);
@@ -274,7 +284,7 @@ export class Actor {
   }
 
   #who(): string {
-    return `${this.#project} ${this.#role}`;
+    return `${this.#project} ${this.#part.name}`;
   }
 }
 
@@ -359,12 +369,12 @@ function launched(
 }
 
 /**
- * «Что делать сейчас» при запуске: упавшая роль (занята, а окна нет)
- * продолжает начатое; ход, если есть, — первым.
+ * «Что делать сейчас» при запуске: упавшая роль (занята по отметке, а
+ * окна нет) продолжает начатое; ход, если есть, — первым.
  */
-function nowLines(cue: Cue): string[] {
-  if (!cue.role.isBusy()) return [cue.move.line()];
-  return cue.move.due ? [cue.move.line(), RESUME_LINE] : [RESUME_LINE];
+function nowLines(move: Move, crashed: boolean): string[] {
+  if (!crashed) return [move.line()];
+  return move.due ? [move.line(), RESUME_LINE] : [RESUME_LINE];
 }
 
 /**

@@ -2,7 +2,7 @@
  * Шаг оркестратора по всем проектам (`task-orchestrator.md`, «Шаг
  * проекта», «Параллельные проекты»). Снимок журналов и отметок — одной
  * транзакцией кэш-БД; нажатия — вне её: иначе роль, ставящая `busy`,
- * ждала бы шага. Стадия — проект в оркестраторе: помнит свои
+ * ждала бы шага. Труппа — проект в оркестраторе: помнит свои
  * уведомления и своих актёров между шагами.
  */
 
@@ -12,7 +12,8 @@ import { DECISIONS_LIMIT, decisionsText } from "../cmd_read.ts";
 import { type Project, Projects } from "../project.ts";
 import type { Role } from "../roles.ts";
 import { Actor, Capacity, type Cue } from "./actor.ts";
-import { Course, type Event, type Move } from "./course.ts";
+import { Course, type Event } from "./course.ts";
+import { partOf } from "./part.ts";
 import type { Hands } from "./ports.ts";
 
 /** Проект на момент снимка. */
@@ -32,7 +33,7 @@ interface Board {
 }
 
 /** Проект в оркестраторе. */
-class Stage {
+class Troupe {
   readonly #project: string;
   readonly #hands: Hands;
   readonly #actors = new Map<string, Actor>();
@@ -61,8 +62,7 @@ class Stage {
     for (const role of snapshot.roles) {
       const cue: Cue = {
         role,
-        move: moveOf(course, role.name()),
-        lastAt: course.lastAt(),
+        course,
         decisions: snapshot.decisions,
         capacity,
         reread: () => reread(role.name()),
@@ -74,7 +74,7 @@ class Stage {
   #actor(role: string): Actor {
     const known = this.#actors.get(role);
     if (known !== undefined) return known;
-    const actor = new Actor(this.#project, role, this.#hands);
+    const actor = new Actor(this.#project, partOf(role), this.#hands);
     this.#actors.set(role, actor);
     return actor;
   }
@@ -86,16 +86,11 @@ class Stage {
   }
 }
 
-/** Ход роли: у хоста — отчёт и вопрос, у исполнителя — постановка. */
-function moveOf(course: Course, role: string): Move {
-  return role === "host" ? course.host() : course.exec();
-}
-
-/** Оркестратор: стадии всех проектов и шаг по ним. */
+/** Оркестратор: труппы всех проектов и шаг по ним. */
 export class Orchestra {
   readonly #hands: Hands;
   readonly #openDb: () => CacheDb;
-  readonly #stages = new Map<string, Stage>();
+  readonly #troupes = new Map<string, Troupe>();
 
   constructor(hands: Hands, openDb: () => CacheDb) {
     this.#hands = hands;
@@ -108,13 +103,13 @@ export class Orchestra {
    */
   async step(): Promise<void> {
     const board = this.#board();
-    const pending = [...this.#stages.values()]
-      .reduce((sum, stage) => sum + stage.pending(), 0);
+    const pending = [...this.#troupes.values()]
+      .reduce((sum, troupe) => sum + troupe.pending(), 0);
     const capacity = new Capacity(board.maxBusy, board.busy + pending);
     for (const snapshot of board.snapshots) {
       const reread = (role: string) => this.#reread(snapshot.project, role);
       try {
-        await this.#stage(snapshot.project).step(snapshot, capacity, reread);
+        await this.#troupe(snapshot.project).step(snapshot, capacity, reread);
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         await this.#hands.notices.log(`${snapshot.project}: шаг: ${reason}`);
@@ -122,12 +117,12 @@ export class Orchestra {
     }
   }
 
-  #stage(project: string): Stage {
-    const known = this.#stages.get(project);
+  #troupe(project: string): Troupe {
+    const known = this.#troupes.get(project);
     if (known !== undefined) return known;
-    const stage = new Stage(project, this.#hands);
-    this.#stages.set(project, stage);
-    return stage;
+    const troupe = new Troupe(project, this.#hands);
+    this.#troupes.set(project, troupe);
+    return troupe;
   }
 
   #board(): Board {
