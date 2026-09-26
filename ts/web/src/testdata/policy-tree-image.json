@@ -1842,6 +1842,32 @@
   },
   {
     "path": [
+      "ozon"
+    ],
+    "verdict": "ask",
+    "rule": null,
+    "own": false
+  },
+  {
+    "path": [
+      "ozon",
+      "call"
+    ],
+    "verdict": "ask",
+    "rule": "ozon call",
+    "own": true
+  },
+  {
+    "path": [
+      "ozon",
+      "call-ro"
+    ],
+    "verdict": "allow",
+    "rule": "ozon call-ro",
+    "own": true
+  },
+  {
+    "path": [
       "ozon-jobs"
     ],
     "verdict": "ask",

@@ -2139,6 +2139,24 @@ const CASES: readonly CommandCase[] = [
     sampleResult: {},
   },
   { path: "task resume", argv: ["--project", "demo"], sampleResult: {} },
+  // Обход в сеть не ходит: `timeout:` вне предела отказывает раньше
+  // резолва, чтения ключа и запроса (`docs/specs/call.md`, A18).
+  ...["call-ro", "call"].map((name) => ({
+    path: `ozon ${name}`,
+    argv: ["--selector", "54", "--path", "/v1/seller/info", "--timeout", "301"],
+    sampleResult: {
+      call: {
+        kind: "reply",
+        status: 200,
+        method: "POST",
+        url: "https://api-seller.ozon.ru/v1/seller/info",
+        ms: 402,
+        headers: { "ratelimit-remaining": "7" },
+        body: { name: "cool_flaps", id: 2129958 },
+        bytes: 34,
+      },
+    },
+  })),
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {

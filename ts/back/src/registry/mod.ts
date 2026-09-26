@@ -142,6 +142,7 @@ import {
 import { confirmCommand } from "../confirm/mod.ts";
 import { sunCommand } from "../sun/mod.ts";
 import { taskCommands } from "../task/mod.ts";
+import { ozonCommands } from "../call/mod.ts";
 
 /**
  * Поверхность точки входа: запись реестра со строкой использования.
@@ -334,6 +335,9 @@ export const commands: readonly Command[] = [
   codeTwinsCommand,
   codeNameCommand,
   codeMentionsCommand,
+  // Вызов API маркетплейса под ключом кабинета (`docs/specs/call.md`):
+  // получатель `ozon`, сообщения `call-ro` и `call`.
+  ...ozonCommands,
 ];
 
 /**
@@ -532,6 +536,13 @@ export const groups: readonly CommandGroup[] = [
     path: ["ozon-loader"],
     summary: "загрузка данных Ozon-кабинета в БД клиента: campaigns | …",
     usage: "mpu ozon-loader <подкоманда> target: СЕЛЕКТОР seller-client-id: S",
+  },
+  {
+    // Получатель-маркетплейс (`docs/specs/call.md`): его сообщения —
+    // `call-ro` и `call`; `perf` и следующие — новыми сообщениями.
+    path: ["ozon"],
+    summary: "Ozon Seller API под ключом кабинета клиента: чтение и запись",
+    usage: "mpu ozon <сообщение> target: КЛИЕНТ [ключи]",
   },
   {
     // Группа с единственным листом: следующий хук Claude Code

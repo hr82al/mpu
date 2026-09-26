@@ -187,6 +187,11 @@
           "purpose": "merge request'ы GitLab: чтение, комментарии ревью, резолв"
         },
         {
+          "selector": "ozon",
+          "kind": "unary",
+          "purpose": "Ozon Seller API под ключом кабинета клиента: чтение и запись"
+        },
+        {
           "selector": "ozon-jobs",
           "kind": "unary",
           "purpose": "очередь задач Ozon-загрузчика на сервере: show | prune"
@@ -10740,6 +10745,166 @@
         "json"
       ],
       "variants": []
+    },
+    {
+      "path": [
+        "ozon"
+      ],
+      "summary": "Ozon Seller API под ключом кабинета клиента: чтение и запись",
+      "tail": null,
+      "messages": [
+        {
+          "selector": "call",
+          "kind": "unary",
+          "purpose": "вызвать любую ручку Ozon Seller API под ключом кабинета клиента (запись)"
+        },
+        {
+          "selector": "call-ro",
+          "kind": "unary",
+          "purpose": "что сейчас отвечает ручка чтения Ozon Seller API под ключом кабинета клиента"
+        }
+      ],
+      "keys": [],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "ozon",
+        "call"
+      ],
+      "summary": "вызвать любую ручку Ozon Seller API под ключом кабинета клиента (запись)",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "target:",
+          "kind": "keyword",
+          "purpose": "клиент: client_id, имя или часть, dev:<client_id>"
+        }
+      ],
+      "keys": [
+        {
+          "name": "target",
+          "kind": "value",
+          "required": true,
+          "purpose": "клиент: client_id, имя или часть, dev:<client_id>",
+          "reason": null
+        },
+        {
+          "name": "cabinet",
+          "kind": "value",
+          "required": false,
+          "purpose": "кабинет: у Ozon — Client-Id; один кабинет у клиента — можно опустить",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "path",
+          "kind": "value",
+          "required": true,
+          "purpose": "путь ручки, начинается с /",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "body",
+          "kind": "value",
+          "required": false,
+          "purpose": "JSON-текст тела",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "method",
+          "kind": "value",
+          "required": false,
+          "purpose": "метод запроса",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "timeout",
+          "kind": "value",
+          "required": false,
+          "purpose": "предел ожидания ответа, секунды: 1…300, по умолчанию 60",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [
+        "json"
+      ],
+      "variants": [
+        {
+          "selector": "dry",
+          "purpose": "напечатать запрос с ключом *** — без сети",
+          "input": "dry"
+        }
+      ]
+    },
+    {
+      "path": [
+        "ozon",
+        "call-ro"
+      ],
+      "summary": "что сейчас отвечает ручка чтения Ozon Seller API под ключом кабинета клиента",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "target:",
+          "kind": "keyword",
+          "purpose": "клиент: client_id, имя или часть, dev:<client_id>"
+        }
+      ],
+      "keys": [
+        {
+          "name": "target",
+          "kind": "value",
+          "required": true,
+          "purpose": "клиент: client_id, имя или часть, dev:<client_id>",
+          "reason": null
+        },
+        {
+          "name": "cabinet",
+          "kind": "value",
+          "required": false,
+          "purpose": "кабинет: у Ozon — Client-Id; один кабинет у клиента — можно опустить",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "path",
+          "kind": "value",
+          "required": true,
+          "purpose": "путь ручки, начинается с /",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "body",
+          "kind": "value",
+          "required": false,
+          "purpose": "JSON-текст тела",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "method",
+          "kind": "value",
+          "required": false,
+          "purpose": "метод запроса",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "timeout",
+          "kind": "value",
+          "required": false,
+          "purpose": "предел ожидания ответа, секунды: 1…300, по умолчанию 60",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [
+        "json"
+      ],
+      "variants": [
+        {
+          "selector": "dry",
+          "purpose": "напечатать запрос с ключом *** — без сети",
+          "input": "dry"
+        }
+      ]
     },
     {
       "path": [

@@ -7,9 +7,16 @@
 // Наружу выведены и части подключения: ими пользуется `mpu backup-*`
 // (`docs/specs/backup.md`) — команда не из семейства обёрток, но с тем
 // же адресом сервера и теми же кредами. Второй копии правил
-// подключения быть не должно.
-export { DbError, type OpenSession, type SqlMode } from "./session.ts";
-export { type PgTarget, serverTarget } from "./target.ts";
+// подключения быть не должно. Маршрут селектора и сессия — у
+// `mpu ozon call` (`docs/specs/call.md`): ключ кабинета читается из
+// схемы клиента тем же путём, что запрос `sql-ro`.
+export {
+  DbError,
+  type OpenSession,
+  type SqlMode,
+  type SqlSession,
+} from "./session.ts";
+export { devTarget, type PgTarget, routeOf, serverTarget } from "./target.ts";
 
 export { sqlCommand } from "./cmd_sql.ts";
 export { sqlRoCommand } from "./cmd_sql_ro.ts";

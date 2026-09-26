@@ -8,6 +8,7 @@ import { assertEquals } from "@std/assert";
 import { GRAMMAR } from "../messages/mod.ts";
 import { DENY, RuleBook, RulePath } from "../policy/mod.ts";
 import golden from "./testdata/evaluator/cases.json" with { type: "json" };
+import { programPolicy } from "./program.ts";
 import { registrySeeds } from "./seeds.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
 import {
@@ -190,3 +191,12 @@ Deno.test("корневое help выражением — справка кор�
       assertEquals(ran.stdout.startsWith("2\nИспользование: mpu"), true);
     })
   ));
+
+Deno.test("запись программы: out не пишется, если в ней команда без stdout", () => {
+  const call = ["ozon", "call-ro", "target:", "54", "path:", "/v1/seller/info"];
+  assertEquals(programPolicy(["1", ".", ...call]).logsStdout, false);
+  assertEquals(
+    programPolicy(["1", ".", "xlsx", "alias", "ls"]).logsStdout,
+    true,
+  );
+});
