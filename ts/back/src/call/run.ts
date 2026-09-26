@@ -5,7 +5,6 @@
  * отдаёт получатель `Marketplace`; чтение это или запись — допуск `Access`.
  */
 
-import { z } from "@zod/zod";
 import {
   type CacheDb,
   type CommandIo,
@@ -27,6 +26,8 @@ import {
   type SqlSession,
 } from "../sql/mod.ts";
 import type { Access } from "./access.ts";
+import type { Address, Aim } from "./address.ts";
+import { type CallArgs, DEFAULT_TIMEOUT_S, MAX_TIMEOUT_S } from "./args.ts";
 import { type CabinetKey, cabinetOf } from "./key.ts";
 import type { Method } from "./reads.ts";
 import {
@@ -36,33 +37,6 @@ import {
   type Reply,
 } from "./reply.ts";
 import { type Net, send } from "./transport.ts";
-
-/** Предел ожидания по умолчанию и наибольший, секунды. */
-export const DEFAULT_TIMEOUT_S = 60;
-export const MAX_TIMEOUT_S = 300;
-
-export const argsSchema = z.object({
-  selector: z.string({ error: "нужен target: клиент" }).describe(
-    "клиент: client_id, имя или часть, dev:<client_id>",
-  ),
-  cabinet: z.string().optional().describe(
-    "кабинет: у Ozon — Client-Id; один кабинет у клиента — можно опустить",
-  ),
-  path: z.string({ error: "нужен path: путь ручки, начинается с /" })
-    .describe("путь ручки, начинается с /"),
-  body: z.string().optional().describe("JSON-текст тела"),
-  method: z.enum(["GET", "POST"]).optional().describe("метод запроса"),
-  timeout: z.number().int().optional().describe(
-    `предел ожидания ответа, секунды: 1…${MAX_TIMEOUT_S}, по умолчанию ` +
-      DEFAULT_TIMEOUT_S,
-  ),
-  dry: z.boolean().default(false).describe(
-    "напечатать запрос с ключом *** — без сети",
-  ),
-});
-
-/** Разобранные аргументы вызова. */
-export type CallArgs = z.infer<typeof argsSchema>;
 
 /** Срез порта исполнения, который потребляет вызов. */
 export type CallIo = Pick<
@@ -80,7 +54,10 @@ export interface CallDeps extends Net {
 export interface Marketplace {
   /** Путь получателя в дереве: `ozon`. */
   readonly path: readonly string[];
-  readonly host: string;
+  /** Имя в текстах отказов: `Ozon`. */
+  readonly name: string;
+  /** Ключ адреса запроса и его разбор. */
+  readonly address: Address;
   /**
    * Метод, когда его не задали ни вызывающий, ни допуск.
    *
@@ -91,8 +68,16 @@ export interface Marketplace {
   readonly emptyBody: string | null;
   /** Заголовки квоты — имена в нижнем регистре, в порядке печати. */
   readonly quotaHeaders: readonly string[];
-  /** Ключи кабинетов клиента из его схемы. */
-  keys(session: SqlSession, clientId: number): Promise<readonly CabinetKey[]>;
+  /** Ключи кабинетов клиента для запроса по этой цели. */
+  keys(session: SqlSession, wanted: Wanted): Promise<readonly CabinetKey[]>;
+}
+
+/** Чей ключ и для чего: клиент, цель запроса, env-файл. */
+export interface Wanted {
+  readonly clientId: number;
+  readonly aim: Aim;
+  /** Необязательные заголовки получателя (`WB_USER_AGENT`) — из env. */
+  readonly env: Pick<CommandIo["envFile"], "get">;
 }
 
 /** Прогон одного вызова. */
@@ -105,10 +90,10 @@ export async function runCall(
   const { marketplace, access } = receiver;
   const seconds = timeoutOf(args);
   requireJson(args.body);
-  const path = pathOf(args.path);
+  const aim = marketplace.address.aim(args);
   const method = access.method(
-    marketplace.host,
-    path,
+    aim.host,
+    aim.path,
     args.method,
     marketplace.usualMethod(args.body),
   );
@@ -117,14 +102,19 @@ export async function runCall(
   }
   // Допуск — до резолва и до чтения ключа: `call-ro` вне реестра не
   // узнаёт о ключе ничего (спека, «Инварианты»).
-  access.admit(
-    { method, host: marketplace.host, path },
-    writingLine(marketplace, args),
-  );
+  access.admit({ method, ...aim }, writingLine(marketplace, args));
   const client = placeOf(args.selector, io);
-  const keys = await keysOf(deps.openSession, client, marketplace);
-  const key = cabinetOf(keys, args.cabinet, args.selector);
-  const url = `https://${marketplace.host}${path}`;
+  const keys = await keysOf(deps.openSession, client.target, marketplace, {
+    clientId: client.clientId,
+    aim,
+    env: io.envFile,
+  });
+  const key = cabinetOf(keys, {
+    cabinet: args.cabinet,
+    client: args.selector,
+    marketplace: marketplace.name,
+  });
+  const { url } = aim;
   const body = method === "POST" ? args.body ?? marketplace.emptyBody : null;
   // Тип тела — только у запроса с телом: у GET описывать нечего.
   const kind: Record<string, string> = body === null
@@ -176,17 +166,12 @@ function requireJson(body: string | undefined): void {
   }
 }
 
-function pathOf(path: string): string {
-  if (path.startsWith("/")) return path;
-  throw new UsageError(`path: начинается с /, получено ${path}`);
-}
-
 /** Та же строка записью: `mpu ask <получатель> call <ключи вызова>`. */
 function writingLine(marketplace: Marketplace, args: CallArgs): string {
   const given: readonly [string, string | number | undefined][] = [
     ["target", args.selector],
     ["cabinet", args.cabinet],
-    ["path", args.path],
+    [marketplace.address.key, args[marketplace.address.key]],
     ["body", args.body],
     ["method", args.method],
     ["timeout", args.timeout],
@@ -243,13 +228,14 @@ function placeOf(selector: string, io: CallIo): Client {
 /** Ключи клиента: одна read-only сессия, закрытая при любом исходе. */
 async function keysOf(
   open: OpenSession,
-  client: Client,
+  target: PgTarget,
   marketplace: Marketplace,
+  wanted: Wanted,
 ): Promise<readonly CabinetKey[]> {
   let session: SqlSession | undefined;
   try {
-    session = await open(client.target);
-    return await marketplace.keys(session, client.clientId);
+    session = await open(target);
+    return await marketplace.keys(session, wanted);
   } catch (err) {
     if (err instanceof DbError) {
       throw new DomainError(`db error: ${err.message}`, { cause: err });

@@ -5,13 +5,12 @@
  */
 
 import { UsageError } from "../command/mod.ts";
+import type { Aim } from "./address.ts";
 import { type Method, type ReadRule } from "./reads.ts";
 
 /** Запрос глазами допуска: куда и каким методом. */
-export interface Aimed {
+export interface Aimed extends Aim {
   readonly method: Method;
-  readonly host: string;
-  readonly path: string;
 }
 
 /** Допуск запроса команды. */
@@ -66,10 +65,10 @@ export class ReadList implements Access {
   }
 
   admit(request: Aimed, writing: string): void {
-    const { method, host, path } = request;
+    const { method, host, path, named } = request;
     if (this.#rules.some((rule) => rule.matches(method, host, path))) return;
     throw new UsageError(
-      `ручки ${method} ${path} нет в списке чтения — запись: ${writing}`,
+      `ручки ${method} ${named} нет в списке чтения — запись: ${writing}`,
     );
   }
 }

@@ -10,11 +10,12 @@
 import { DomainError, UsageError } from "../command/mod.ts";
 import type { SqlSession } from "../sql/mod.ts";
 import { ANY_REQUEST, ReadList } from "./access.ts";
+import { FixedHost } from "./address.ts";
 import { type CabinetKey, MASK } from "./key.ts";
 import { callMessage, type Receiver } from "./message.ts";
 import { READS } from "./reads.ts";
 import { succeeded } from "./reply.ts";
-import type { Marketplace } from "./run.ts";
+import type { Marketplace, Wanted } from "./run.ts";
 import type { Received, Signed, Wire } from "./transport.ts";
 
 const HOST = "api-performance.ozon.ru";
@@ -198,11 +199,12 @@ function keyOf(row: readonly unknown[], tokens: Tokens): CabinetKey {
 export function ozonPerf(tokens: Tokens): Marketplace {
   return {
     path: ["ozon", "perf"],
-    host: HOST,
+    name: "Ozon",
+    address: new FixedHost(HOST),
     usualMethod: (body) => body === undefined ? "GET" : "POST",
     emptyBody: null,
     quotaHeaders: ["ratelimit-remaining", "retry-after"],
-    keys: async (session: SqlSession, clientId: number) => {
+    keys: async (session: SqlSession, { clientId }: Wanted) => {
       const outcome = await session.query(keysQuery(clientId));
       if (outcome.kind !== "rows") return [];
       return outcome.rows.map((row) => keyOf(row, tokens));
@@ -213,6 +215,7 @@ export function ozonPerf(tokens: Tokens): Marketplace {
 const PERF: Receiver = {
   marketplace: ozonPerf(EXCHANGE_EACH_CALL),
   help: {
+    cabinetId: "Client-Id",
     key:
       `Ключи Performance кабинета берутся из БД клиента read-only сессией и на
 каждый вызов меняются на bearer (POST ${TOKEN_URL} —

@@ -16,15 +16,8 @@ import {
   renderCall,
   resultSchema,
 } from "./reply.ts";
-import {
-  argsSchema,
-  type CallArgs,
-  type CallDeps,
-  DEFAULT_TIMEOUT_S,
-  type Marketplace,
-  MAX_TIMEOUT_S,
-  runCall,
-} from "./run.ts";
+import { type CallArgs, DEFAULT_TIMEOUT_S, MAX_TIMEOUT_S } from "./args.ts";
+import { type CallDeps, type Marketplace, runCall } from "./run.ts";
 
 /** Живое внешнее: сеть, часы, read-only сессия PG. */
 const LIVE: CallDeps = {
@@ -36,6 +29,8 @@ const LIVE: CallDeps = {
 
 /** Части справки, которые знает только получатель. */
 export interface ReceiverHelp {
+  /** Чем назван кабинет в `cabinet:` и в отказе: `Client-Id`. */
+  readonly cabinetId: string;
   /** Абзац о том, откуда ключ и куда он не выходит. */
   readonly key: string;
   /** Строка ключа `body:`: тело по умолчанию и метод. */
@@ -62,9 +57,9 @@ function keysHelp(receiver: Receiver): string {
   const { marketplace, help } = receiver;
   return `target: — клиент: client_id, имя или часть (поиск по кэшу), dev:<client_id>.
 ${help.key}
-cabinet: — Client-Id кабинета; у клиента один кабинет — можно опустить,
-несколько — обязателен (отказ перечисляет Client-Id).
-path: — путь ручки с /; хост — ${marketplace.host}.
+cabinet: — ${help.cabinetId} кабинета; у клиента один кабинет — можно опустить,
+несколько — обязателен (отказ перечисляет ${help.cabinetId}).
+${marketplace.address.help}
 ${help.body}
 method: — GET или POST. timeout: — секунды ожидания, 1…${MAX_TIMEOUT_S}, умолчание ${DEFAULT_TIMEOUT_S}.
 
@@ -81,8 +76,13 @@ Exit: 0 — ответ 2xx и dry; 1 — ответ не 2xx, нет ответ�
 кабинетов без cabinet:, ${help.refusals}body: не JSON, тело у GET, timeout: вне 1…${MAX_TIMEOUT_S}`;
 }
 
-const USAGE_KEYS = "target: КЛИЕНТ [cabinet: CLIENT-ID] path: ПУТЬ " +
-  `[body: JSON] [method: GET|POST] [timeout: СЕК] [${GRAMMAR.close} json]`;
+/** Ключи строки использования. */
+function usageKeys(receiver: Receiver): string {
+  const cabinet = receiver.help.cabinetId.toUpperCase();
+  return `target: КЛИЕНТ [cabinet: ${cabinet}] ` +
+    `${receiver.marketplace.address.usage} [body: JSON] [method: GET|POST] ` +
+    `[timeout: СЕК] [${GRAMMAR.close} json]`;
+}
 
 /** Одно сообщение получателя: объявление над общим ходом вызова. */
 export function callMessage(receiver: Receiver, declared: {
@@ -99,16 +99,16 @@ export function callMessage(receiver: Receiver, declared: {
     path,
     errorName: path.join(" "),
     summary: declared.summary,
-    usage: `mpu ${path.join(" ")} [dry] ${USAGE_KEYS}`,
+    usage: `mpu ${path.join(" ")} [dry] ${usageKeys(receiver)}`,
     help: `${declared.help}\n\n${keysHelp(receiver)}`,
     examples: declared.examples,
     keys: { target: "selector" },
-    texts: ["path", "body"],
+    texts: [marketplace.address.key, "body"],
     policy: declared.policy,
     // Тело ответа — данные кабинета клиента: журнал хранит вызов,
     // статус и квоту (строкой note), но не сам ответ (спека [D.3]).
     logsStdout: false,
-    argsSchema,
+    argsSchema: marketplace.address.argsSchema,
     resultSchema,
     run: async (args: CallArgs, io) => ({
       call: await runCall(args, io, LIVE, {

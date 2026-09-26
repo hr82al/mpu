@@ -53,31 +53,40 @@ export class SellerKey implements CabinetKey {
   }
 }
 
+/** Какой кабинет ищется и как назвать его в отказе. */
+export interface Sought {
+  /** `cabinet:` вызова; не задан — кабинет должен быть один. */
+  readonly cabinet: string | undefined;
+  /** Селектор клиента, как его назвал вызывающий. */
+  readonly client: string;
+  /** Имя маркетплейса в тексте отказа: `Ozon`. */
+  readonly marketplace: string;
+}
+
 /**
  * Ключ кабинета среди ключей клиента: названный `cabinet:`, иначе
  * единственный. Список кабинетов в отказе — только идентификаторы.
- *
- * @param cabinet `cabinet:` вызова; не задан — кабинет должен быть один
- * @param client селектор клиента, как его назвал вызывающий
  */
 export function cabinetOf(
   keys: readonly CabinetKey[],
-  cabinet: string | undefined,
-  client: string,
+  sought: Sought,
 ): CabinetKey {
+  const { cabinet, client, marketplace } = sought;
   if (cabinet !== undefined) {
     const key = keys.find((one) => one.cabinet === cabinet);
     if (key === undefined) {
-      throw new UsageError(`у клиента ${client} нет кабинета Ozon ${cabinet}`);
+      throw new UsageError(
+        `у клиента ${client} нет кабинета ${marketplace} ${cabinet}`,
+      );
     }
     return key;
   }
   if (keys.length === 1) return keys[0];
   if (keys.length === 0) {
-    throw new UsageError(`у клиента ${client} нет кабинетов Ozon`);
+    throw new UsageError(`у клиента ${client} нет кабинетов ${marketplace}`);
   }
   const ids = keys.map((key) => key.cabinet).join(" | ");
   throw new UsageError(
-    `у клиента ${client} кабинетов Ozon ${keys.length} — укажи cabinet: ${ids}`,
+    `у клиента ${client} кабинетов ${marketplace} ${keys.length} — укажи cabinet: ${ids}`,
   );
 }

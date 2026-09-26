@@ -27,7 +27,8 @@ import {
   type CallResult,
   renderCall,
 } from "./reply.ts";
-import { type CallArgs, type CallDeps, runCall } from "./run.ts";
+import type { CallArgs } from "./args.ts";
+import { type CallDeps, runCall } from "./run.ts";
 import { ENV, envFileOf, withCache } from "./teststand.ts";
 
 /** Строки `ozon_api_keys` по клиентам: Client-Id, id и секрет Performance. */

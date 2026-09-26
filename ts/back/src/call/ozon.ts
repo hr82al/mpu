@@ -7,10 +7,11 @@
 
 import type { SqlSession } from "../sql/mod.ts";
 import { ANY_REQUEST, ReadList } from "./access.ts";
+import { FixedHost } from "./address.ts";
 import { type CabinetKey, SellerKey } from "./key.ts";
 import { callMessage, type Receiver } from "./message.ts";
 import { READS } from "./reads.ts";
-import type { Marketplace } from "./run.ts";
+import type { Marketplace, Wanted } from "./run.ts";
 
 /**
  * Строки с обоими полями кабинета. Порядка нет намеренно: список
@@ -26,11 +27,12 @@ function keysQuery(clientId: number): string {
 /** Ozon Seller глазами вызова. */
 export const OZON_SELLER: Marketplace = {
   path: ["ozon"],
-  host: "api-seller.ozon.ru",
+  name: "Ozon",
+  address: new FixedHost("api-seller.ozon.ru"),
   usualMethod: () => "POST",
   emptyBody: "{}",
   quotaHeaders: ["ratelimit-remaining", "retry-after"],
-  keys: async (session: SqlSession, clientId: number) => {
+  keys: async (session: SqlSession, { clientId }: Wanted) => {
     const outcome = await session.query(keysQuery(clientId));
     if (outcome.kind !== "rows") return [];
     return outcome.rows.map(([cabinet, key]): CabinetKey =>
@@ -43,6 +45,7 @@ export const OZON_SELLER: Marketplace = {
 const SELLER: Receiver = {
   marketplace: OZON_SELLER,
   help: {
+    cabinetId: "Client-Id",
     key:
       `Ключ кабинета берётся из БД клиента read-only сессией и наружу не выходит:
 ни в вывод, ни в журнал, ни в текст отказа; эхо ключа в теле ответа
