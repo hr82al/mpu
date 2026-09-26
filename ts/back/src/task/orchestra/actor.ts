@@ -101,9 +101,11 @@ export class Actor {
   }
 
   /**
-   * Шаг без ожидания: нет окна или в нём не Claude — запуск; модель не
-   * та — `/model`; есть ход и роль свободна — очистка; занята без
-   * движения больше часа — уведомление.
+   * Шаг без ожидания: нет окна или в нём не Claude — запуск; баннер
+   * называет не ту модель — окно закрыть, следующий шаг запустит с
+   * `--model`; есть ход и роль свободна — очистка; занята без движения
+   * больше часа — уведомление. `/model` не шлётся: он сохраняет модель
+   * умолчанием всех новых сессий пользователя.
    */
   async decide(cue: Cue): Promise<void> {
     const profile = cue.role.profile();
@@ -115,7 +117,7 @@ export class Actor {
     if (!cue.role.isIdle()) return this.#watchBusy(cue);
     const screen = await this.#screen(place);
     if (screen.differsFrom(profile.model)) {
-      return this.#switchModel(place, profile.model);
+      return this.#hands.windows.close(place);
     }
     if (this.#move(cue).due) await this.#clear(cue, place);
   }
@@ -161,7 +163,8 @@ export class Actor {
       return;
     }
     if (screen.differsFrom(profile.model)) {
-      return this.#switchModel(place, profile.model);
+      this.#phase = RESTING;
+      return this.#hands.windows.close(place);
     }
     const letter = await this.#write(cue, [this.#move(cue).line()]);
     await this.#say(place, letter.message());
@@ -175,17 +178,6 @@ export class Actor {
     if (cue.reread().busyFrom(waking.since)) return this.#succeed();
     if (this.#hands.clock.now() < waking.deadline) return;
     await this.#fail("не будится");
-  }
-
-  /** После `/model`: модель не сменилась — окно закрыть, шаг запустит. */
-  async checkModel(cue: Cue): Promise<void> {
-    const profile = cue.role.profile();
-    const place = placeOf(profile);
-    this.#phase = RESTING;
-    const screen = await this.#screen(place);
-    if (screen.differsFrom(profile.model)) {
-      await this.#hands.windows.close(place);
-    }
   }
 
   async #launch(cue: Cue, place: Place, exists: boolean): Promise<void> {
@@ -213,11 +205,6 @@ export class Actor {
     await this.#say(place, "/clear");
     this.#phase = new Clearing(this.#hands.clock.now() + WAIT_MS);
     await this.#phase.step(this, cue);
-  }
-
-  async #switchModel(place: Place, model: string): Promise<void> {
-    await this.#say(place, `/model ${model}`);
-    this.#phase = SWITCHING;
   }
 
   #watchBusy(cue: Cue): Promise<void> {
@@ -347,12 +334,6 @@ class Waking implements Phase {
     return actor.checkWoken(cue, this);
   }
 }
-
-/** `/model` набран: следующий шаг сверяет модель. */
-const SWITCHING: Phase = {
-  pending: false,
-  step: (actor, cue) => actor.checkModel(cue),
-};
 
 function placeOf(profile: ProfileRecord): Place {
   return { session: profile.session, window: profile.window };

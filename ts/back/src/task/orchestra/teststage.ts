@@ -18,8 +18,6 @@ export interface Script {
   readonly silent?: boolean;
   /** Сообщение получает, но `busy` не ставит. */
   readonly hangs?: boolean;
-  /** Показывает эту модель, что бы ни просили. */
-  readonly model?: string;
   /** Показывает диалог доверия вместо работы. */
   readonly trust?: boolean;
   /** После `/clear` не освобождается: `esc to interrupt` на экране. */
@@ -98,6 +96,11 @@ export class FakeTmux implements Windows {
     this.panes.delete(`w:${window}`);
   }
 
+  /** Роль в окне `window` сессии `w` вывела строки `lines`. */
+  print(window: string, ...lines: string[]) {
+    this.#pane({ session: "w", window }).lines.push(...lines);
+  }
+
   /** Нажатия в окне `window` сессии `w` за всё время. */
   keys(window: string, session = "w"): Key[] {
     return this.history.get(`${session}:${window}`) ?? [];
@@ -133,7 +136,7 @@ export class FakeTmux implements Windows {
     const script = this.scripts.get(place.window) ?? {};
     const flag = (name: string) => words[words.indexOf(name) + 1];
     pane.command = "claude";
-    pane.model = script.model ?? flag("--model");
+    pane.model = flag("--model");
     pane.lines = banner(pane.model, flag("--permission-mode") === "auto");
     if (script.trust) {
       pane.lines.push("Do you trust the files in this folder?");
@@ -150,11 +153,6 @@ export class FakeTmux implements Windows {
       if (script.stuck) pane.lines.push("esc to interrupt");
       return;
     }
-    if (line.startsWith("/model ")) {
-      pane.model = script.model ?? line.slice("/model ".length);
-      pane.lines.push(`model: ${pane.model}`);
-      return;
-    }
     await this.#receive(place, pane, line);
   }
 
@@ -169,8 +167,23 @@ function nameOf(place: Place): string {
   return `${place.session}:${place.window}`;
 }
 
+/** Имена моделей на баннере Claude Code 2.1.283 по имени профиля. */
+const SHOWN_MODELS: Readonly<Record<string, string>> = {
+  opus: "Opus 5.5",
+  sonnet: "Sonnet 5",
+  haiku: "Haiku 4.5",
+};
+
+/**
+ * Строка логотипа с моделью и планом — снятая на Claude Code 2.1.283
+ * (`task-orchestrator.md`, «Шаг проекта», п. 2); прочие строки логотипа
+ * не сняты и не воспроизводятся.
+ */
 function banner(model: string, auto: boolean): string[] {
-  return [`Claude Code · ${model}`, auto ? "auto mode on" : ""];
+  return [
+    `▝▜██████▀  ${SHOWN_MODELS[model] ?? model} · Claude Max`,
+    auto ? "auto mode on" : "",
+  ];
 }
 
 /** Слова строки оболочки: двойные кавычки и `\` внутри них. */

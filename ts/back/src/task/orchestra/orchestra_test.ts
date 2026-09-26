@@ -283,15 +283,13 @@ Deno.test("O10: окно exec умерло при busy — новое окно, 
     assertEquals(nowOf(rig.letter("exec")), `${RESUME_LINE}\n`);
   }));
 
-Deno.test("O11: модель sonnet при профиле opus — /model, закрыть, запуск с --model opus", () =>
+Deno.test("O11: баннер Sonnet при профиле opus — окно закрыто без /model, запуск с --model opus", () =>
   withRig(async (rig) => {
     await demo(rig);
     await settled(rig);
     rig.tmux.alive("demo-exec", "sonnet");
-    rig.tmux.scripts.set("demo-exec", { model: "sonnet" });
     await rig.step();
-    assertEquals(rig.tmux.keys("demo-exec"), ["/model opus", ENTER]);
-    await rig.step();
+    assertEquals(rig.tmux.keys("demo-exec"), []);
     assertEquals(rig.tmux.panes.has("w:demo-exec"), false);
     await rig.step();
     const [line] = launches(rig, "demo-exec");
@@ -301,6 +299,25 @@ Deno.test("O11: модель sonnet при профиле opus — /model, за�
       "--name",
       "demo-exec",
     ]);
+    assertEquals(
+      rig.tmux.keys("demo-exec").filter((key) => key.startsWith("/model")),
+      [],
+    );
+  }));
+
+Deno.test("O11b: баннер Opus, в тексте роли sonnet — ничего", () =>
+  withRig(async (rig) => {
+    await demo(rig);
+    await settled(rig);
+    rig.tmux.print(
+      "demo-exec",
+      "⏺ Роль exec работает на sonnet, хост — на opus.",
+      "  sonnet",
+    );
+    await rig.step();
+    await rig.step();
+    assertEquals(rig.tmux.keys("demo-exec"), []);
+    assertEquals(rig.tmux.panes.has("w:demo-exec"), true);
   }));
 
 Deno.test("O12: exec busy, журнал не менялся 61 мин — одно уведомление, очистки нет", () =>

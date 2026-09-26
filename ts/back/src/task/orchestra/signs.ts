@@ -4,8 +4,12 @@
  * версия — правка здесь, больше нигде.
  */
 
-/** Слова семейств моделей: по ним судится модель на экране. */
-const MODEL_WORDS = /\b(opus|sonnet|haiku|fable)\b/gi;
+/**
+ * Вторая строка логотипа: модель и план (снято на Claude Code 2.1.283:
+ * `▝▜██████▀  Sonnet 5 · Claude Max`). Первое слово имени — семейство.
+ * Признак модели — только она: имя модели в тексте роли не в счёт.
+ */
+const BANNER_MODEL = /^\s*▝▜█+▀\s+(\S+)[^\n]* · /m;
 
 /** Экран окна роли, как его отдал tmux. */
 export class Screen {
@@ -35,25 +39,24 @@ export class Screen {
     return this.#text.includes("Do you trust the files in this folder?");
   }
 
-  /** На экране модель профиля: последнее слово семейства — её. */
+  /** Баннер называет модель профиля. */
   shows(model: string): boolean {
     const shown = this.#shownModel();
     return shown !== "" && model.toLowerCase().includes(shown);
   }
 
   /**
-   * Модель на экране расходится с моделью профиля. Судится по последнему
-   * слову семейства; слова нет — не судится (не расходится).
+   * Баннер называет модель не из профиля; баннера нет — не судится (не
+   * расходится).
    */
   differsFrom(model: string): boolean {
     const shown = this.#shownModel();
     return shown !== "" && !model.toLowerCase().includes(shown);
   }
 
-  /** Последнее слово семейства на экране в нижнем регистре; нет — пусто. */
+  /** Семейство модели с баннера в нижнем регистре; баннера нет — пусто. */
   #shownModel(): string {
-    return [...this.#text.matchAll(MODEL_WORDS)].at(-1)?.[1].toLowerCase() ??
-      "";
+    return BANNER_MODEL.exec(this.#text)?.[1].toLowerCase() ?? "";
   }
 }
 
