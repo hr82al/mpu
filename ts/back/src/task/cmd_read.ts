@@ -180,13 +180,15 @@ function awaited(
 ): Promise<string> {
   const kind = contracted(() => kindNamed(args.kind));
   const deadline = waiting.now() + args.timeout * 1000;
+  // Опрос отдаёт продолжение, а исполняется оно после `withJournal`:
+  // соединение закрыто раньше, чем начнётся сон до следующего опроса.
   const poll = (): Promise<string> =>
     withJournal(io, (projects) =>
       projects.at(args.project).take(
         kind,
-        (body) => Promise.resolve(body),
-        () => later(),
-      ));
+        (body) => () => Promise.resolve(body),
+        () => later,
+      ))();
   const later = async (): Promise<string> => {
     const left = deadline - waiting.now();
     if (left <= 0) {

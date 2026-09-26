@@ -7,13 +7,13 @@
 
 import { assertEquals, assertMatch } from "@std/assert";
 import { FakeTime } from "@std/testing/time";
-import type { CommandIo } from "../command/mod.ts";
+import type { CacheDb, CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
 import { lineEntry } from "../line/mod.ts";
 import { consentOf, withPolicyFile } from "../line/testconsent.ts";
 import { fakeConfigDb, makeFakeIo } from "../testing/mod.ts";
-import { age } from "./cmd_read.ts";
+import { age, waitCommand, type Waiting } from "./cmd_read.ts";
 import { SETUP_TEXT } from "./texts.ts";
 
 interface Run {
@@ -865,3 +865,80 @@ Deno.test("task.history не целое — умолчание 3", () =>
     await fivePortions(stand);
     assertEquals(await portionsLeft(stand), [3, 4, 5]);
   }, "много"));
+
+Deno.test("агент в строке-программе (^…^) не пишет rule — отказ владельца", () =>
+  withStand(async (stand) => {
+    await forced(stand);
+    expect(
+      await stand.agent(
+        "task",
+        "rule",
+        "project:",
+        "demo",
+        "text:",
+        "^мерж",
+        "—",
+        "никогда^",
+      ),
+      1,
+      "",
+      "писать rule может только человек\n",
+    );
+    const run = await stand.agent("task", "decisions", "project:", "demo");
+    assertEquals(run.stdout, "## Правила\n\n(нет)\n");
+  }));
+
+Deno.test("rule через дверь — один вопрос, владельца", () =>
+  withStand(async (stand) => {
+    await forced(stand);
+    expect(
+      await stand.run(
+        ["ask", "task", "rule", "project:", "demo", "text:", "x"],
+        { answers: ["y"] },
+      ),
+      0,
+      "",
+      "записать от имени владельца: rule в demo? [y/N] ",
+    );
+  }));
+
+Deno.test("wait не держит соединение с базой между опросами", async () => {
+  const db = fakeConfigDb();
+  let open = 0;
+  const openedDuringSleep: number[] = [];
+  const io = makeFakeIo({
+    openCacheDb: () => {
+      open++;
+      const handle: CacheDb = db();
+      return { ...handle, [Symbol.dispose]: () => void open-- };
+    },
+  });
+  let now = 0;
+  const waiting: Waiting = {
+    now: () => now,
+    sleep: (ms) => {
+      openedDuringSleep.push(open);
+      now += ms;
+      return Promise.resolve();
+    },
+  };
+  const setup = db();
+  setup.bootstrap();
+  setup.execute(
+    "CREATE TABLE IF NOT EXISTS task_projects (name TEXT PRIMARY KEY, note TEXT NOT NULL, created_at INTEGER NOT NULL)",
+  );
+  setup.execute("INSERT INTO task_projects VALUES ('demo', '', 0)");
+  const command = waitCommand(waiting);
+  let refused = "";
+  try {
+    await command.invoke(
+      ["--project", "demo", "--kind", "report", "--timeout", "5"],
+      io,
+    );
+  } catch (err) {
+    refused = err instanceof Error ? err.message : String(err);
+  }
+  assertEquals(refused, "report в demo не пришёл за 5 с");
+  assertEquals(openedDuringSleep, [0, 0, 0]);
+  assertEquals(open, 0);
+});
