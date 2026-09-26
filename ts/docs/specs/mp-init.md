@@ -404,6 +404,12 @@ M3-7 (тег стенда голдена — литерал в фикстуре)
   `$ docker exec -w /tmp/wa/packages/workspace-access ozon-dev npx -y -p typescript@5 tsc -p tsconfig.json` (rc не проверяется — ожидаемые `Cannot find module`);
   проба `docker exec ozon-dev ls /tmp/wa/packages/workspace-access/dist` пуста/≠0 → `mpu mp-init: стенд ozon: dist пакета пуст — не публикую`, код 1 (в `dry` не идёт);
   `$ docker exec -w /tmp/wa/packages/workspace-access ozon-dev npm publish --registry http://verdaccio:4873 --//verdaccio:4873/:_authToken=local-stand`.
+- В `dry` проба пакета или коммита не прошла потому, что `ozon-dev` не запущен
+  (чистая машина: в реальном прогоне шаг 6.1 его поднимает до проб) —
+  строка `стенд ozon: ozon-dev не запущен — план публикации пакета не
+  построить (в реальном прогоне он поднимется первым)`, шаг пакета
+  пропускается, код 0. Отказ «нет коммита» — только когда проба прошла и
+  коммита действительно нет (решение хоста, вопрос исполнителя M4).
 - Установка (M4-3): `$ docker exec ozon-dev sh -c 'mkdir -p /tmp/bin && corepack enable --install-directory /tmp/bin'`,
   далее `$ docker exec ozon-dev sh -c 'PATH=/tmp/bin:$PATH pnpm install --config.@sw-back:registry=http://verdaccio:4873'` и так же три строки сборки.
 - Финал: адреса по порядку — `http://sw.localhost`, `http://sw.localhost/api/metrics`,
