@@ -10,4 +10,4 @@ export {
   ozonPerfCallRoCommand,
   ozonPerfCommands,
 } from "./ozonPerf.ts";
-export { wbCallCommand, wbCallRoCommand, wbCommands } from "./wb.ts";
+export { wbCommands } from "./wb.ts";

@@ -20,7 +20,7 @@ import { type CallArgs, DEFAULT_TIMEOUT_S, MAX_TIMEOUT_S } from "./args.ts";
 import { type CallDeps, type Marketplace, runCall } from "./run.ts";
 
 /** Живое внешнее: сеть, часы, read-only сессия PG. */
-const LIVE: CallDeps = {
+export const LIVE: CallDeps = {
   fetch: (request) => fetch(request),
   deadline: (ms) => AbortSignal.timeout(ms),
   now: () => performance.now(),
@@ -84,7 +84,11 @@ function usageKeys(receiver: Receiver): string {
     `[timeout: СЕК] [${GRAMMAR.close} json]`;
 }
 
-/** Одно сообщение получателя: объявление над общим ходом вызова. */
+/**
+ * Одно сообщение получателя: объявление над общим ходом вызова.
+ *
+ * @param deps внешнее вызова: в дереве — `LIVE`, на стенде — заглушки
+ */
 export function callMessage(receiver: Receiver, declared: {
   readonly name: string;
   readonly policy: "ro" | "rw";
@@ -92,7 +96,7 @@ export function callMessage(receiver: Receiver, declared: {
   readonly summary: string;
   readonly help: string;
   readonly examples: readonly string[];
-}) {
+}, deps: CallDeps) {
   const { marketplace } = receiver;
   const path = [...marketplace.path, declared.name];
   return defineCommand({
@@ -111,7 +115,7 @@ export function callMessage(receiver: Receiver, declared: {
     argsSchema: marketplace.address.argsSchema,
     resultSchema,
     run: async (args: CallArgs, io) => ({
-      call: await runCall(args, io, LIVE, {
+      call: await runCall(args, io, deps, {
         marketplace,
         access: declared.access,
       }),

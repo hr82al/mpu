@@ -12,7 +12,7 @@ import type { SqlSession } from "../sql/mod.ts";
 import { ANY_REQUEST, ReadList } from "./access.ts";
 import { FixedHost } from "./address.ts";
 import { type CabinetKey, MASK } from "./key.ts";
-import { callMessage, type Receiver } from "./message.ts";
+import { callMessage, LIVE, type Receiver } from "./message.ts";
 import { READS } from "./reads.ts";
 import { succeeded } from "./reply.ts";
 import type { Marketplace, Wanted } from "./run.ts";
@@ -246,7 +246,7 @@ call.`,
     'mpu ozon perf call-ro target: 54 path: /api/client/statistics/json body: {"campaigns":["1"]}',
     "mpu ozon perf call-ro dry target: 54 path: /api/client/campaign",
   ],
-});
+}, LIVE);
 
 export const ozonPerfCallCommand = callMessage(PERF, {
   name: "call",
@@ -261,7 +261,7 @@ Ozon, и отменить его mpu не может.`,
   examples: [
     "mpu ask ozon perf call target: 54 path: /api/client/campaign/1/activate method: POST",
   ],
-});
+}, LIVE);
 
 /** Сообщения получателя `ozon perf`. */
 export const ozonPerfCommands = [ozonPerfCallRoCommand, ozonPerfCallCommand];

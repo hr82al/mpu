@@ -11,9 +11,9 @@ import { ANY_REQUEST, ReadList } from "./access.ts";
 import type { Address, Aim } from "./address.ts";
 import { type CallArgs, urlArgs } from "./args.ts";
 import { type CabinetKey, MASK } from "./key.ts";
-import { callMessage, type Receiver } from "./message.ts";
+import { callMessage, LIVE, type Receiver } from "./message.ts";
 import { READS } from "./reads.ts";
-import type { Marketplace, Wanted } from "./run.ts";
+import type { CallDeps, Marketplace, Wanted } from "./run.ts";
 import type { Received, Signed, Wire } from "./transport.ts";
 
 /** Категория токена WB — колонка `public.wb_tokens`. */
@@ -300,38 +300,47 @@ function receiverOf(preference: Preference): Receiver {
   };
 }
 
-export const wbCallRoCommand = callMessage(receiverOf(READ_ONLY_FIRST), {
-  name: "call-ro",
-  policy: "ro",
-  access: new ReadList(READS),
-  summary:
-    "что сейчас отвечает ручка чтения Wildberries API под токеном кабинета клиента",
-  help: `Звать, когда нужен живой ответ Wildberries API по кабинету клиента:
+/**
+ * Оба сообщения получателя `wb`; предпочтение токена привязано к
+ * сообщению здесь (`call-ro` — `read_only`, `call` — без него).
+ *
+ * @param deps внешнее вызова: в дереве — `LIVE`, на стенде — заглушки
+ */
+export function wbMessages(deps: CallDeps) {
+  return [
+    callMessage(receiverOf(READ_ONLY_FIRST), {
+      name: "call-ro",
+      policy: "ro",
+      access: new ReadList(READS),
+      summary:
+        "что сейчас отвечает ручка чтения Wildberries API под токеном кабинета клиента",
+      help: `Звать, когда нужен живой ответ Wildberries API по кабинету клиента:
 что отдаёт ручка, сколько осталось квоты, какой x-ratelimit-retry. Токен
 нужной категории подставляет mpu из БД клиента — в руки его брать не
 нужно. Только ручки из списка чтения; прочие — отказ до чтения токена с
 готовой строкой mpu ask wb call.`,
-  examples: [
-    "mpu wb call-ro target: 54 url: https://common-api.wildberries.ru/api/v1/seller-info",
-    "mpu wb call-ro target: 54 url: https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=2026-09-01",
-    "mpu wb call-ro dry target: 54 url: https://common-api.wildberries.ru/api/v1/seller-info",
-  ],
-});
-
-export const wbCallCommand = callMessage(receiverOf(WRITABLE_FIRST), {
-  name: "call",
-  policy: "rw",
-  access: ANY_REQUEST,
-  summary:
-    "вызвать любую ручку Wildberries API под токеном кабинета клиента (запись)",
-  help: `Звать, когда ручка меняет данные кабинета у WB (цены, карточки,
+      examples: [
+        "mpu wb call-ro target: 54 url: https://common-api.wildberries.ru/api/v1/seller-info",
+        "mpu wb call-ro target: 54 url: https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=2026-09-01",
+        "mpu wb call-ro dry target: 54 url: https://common-api.wildberries.ru/api/v1/seller-info",
+      ],
+    }, deps),
+    callMessage(receiverOf(WRITABLE_FIRST), {
+      name: "call",
+      policy: "rw",
+      access: ANY_REQUEST,
+      summary:
+        "вызвать любую ручку Wildberries API под токеном кабинета клиента (запись)",
+      help: `Звать, когда ручка меняет данные кабинета у WB (цены, карточки,
 кампании) или её нет в списке чтения mpu wb call-ro. Идёт только через
 дверь ask: вызов с подтверждением человека. Изменение, которое делает
 ручка, — у WB, и отменить его mpu не может.`,
-  examples: [
-    "mpu ask wb call target: 54 url: https://content-api.wildberries.ru/content/v2/get/cards/list body: {}",
-  ],
-});
+      examples: [
+        "mpu ask wb call target: 54 url: https://content-api.wildberries.ru/content/v2/get/cards/list body: {}",
+      ],
+    }, deps),
+  ];
+}
 
 /** Сообщения получателя `wb`. */
-export const wbCommands = [wbCallRoCommand, wbCallCommand];
+export const wbCommands = wbMessages(LIVE);

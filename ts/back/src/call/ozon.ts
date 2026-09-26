@@ -9,7 +9,7 @@ import type { SqlSession } from "../sql/mod.ts";
 import { ANY_REQUEST, ReadList } from "./access.ts";
 import { FixedHost } from "./address.ts";
 import { type CabinetKey, SellerKey } from "./key.ts";
-import { callMessage, type Receiver } from "./message.ts";
+import { callMessage, LIVE, type Receiver } from "./message.ts";
 import { READS } from "./reads.ts";
 import type { Marketplace, Wanted } from "./run.ts";
 
@@ -73,7 +73,7 @@ export const ozonCallRoCommand = callMessage(SELLER, {
     'mpu ozon call-ro target: 54 cabinet: 2129958 path: /v1/finance/products/buyout body: {"date_from":"2026-09-10","date_to":"2026-09-10"}',
     `mpu ozon call-ro dry target: 54 path: /v1/seller/info`,
   ],
-});
+}, LIVE);
 
 export const ozonCallCommand = callMessage(SELLER, {
   name: "call",
@@ -88,7 +88,7 @@ export const ozonCallCommand = callMessage(SELLER, {
   examples: [
     'mpu ask ozon call target: 54 path: /v1/product/import body: {"items":[]}',
   ],
-});
+}, LIVE);
 
 /** Сообщения получателя `ozon`. */
 export const ozonCommands = [ozonCallRoCommand, ozonCallCommand];
