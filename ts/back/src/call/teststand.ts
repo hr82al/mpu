@@ -1,5 +1,5 @@
 /**
- * Стенд сценариев `call` (`docs/specs/call.md`, «Сценарии 173a/173b»):
+ * Стенд сценариев `call` (`docs/specs/call.md`, «Сценарии 173a–173c»):
  * env-файл и настоящая кэш-БД селектора во временном файле. Только для
  * тестов модуля.
  */
@@ -28,7 +28,7 @@ export function envFileOf(values: Readonly<Record<string, string>>): EnvFile {
   };
 }
 
-/** Кэш-БД селектора: клиенты 54, 55 и 56 на sl-1. */
+/** Кэш-БД селектора: клиенты 54–58 на sl-1. */
 export async function withCache(body: (open: () => CacheDb) => Promise<void>) {
   const dir = await Deno.makeTempDir();
   const path = `${dir}/mpu.db`;
@@ -36,7 +36,7 @@ export async function withCache(body: (open: () => CacheDb) => Promise<void>) {
     {
       using seed = openCacheDb(path);
       seed.bootstrap();
-      for (const id of [54, 55, 56]) {
+      for (const id of [54, 55, 56, 57, 58]) {
         seed.execute(
           "INSERT INTO sl_clients (client_id, server, is_active, is_locked," +
             " is_deleted, synced_at) VALUES (?, 'sl-1', 1, 0, 0, 0)",

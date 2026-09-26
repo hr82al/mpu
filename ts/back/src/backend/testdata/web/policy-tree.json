@@ -2511,6 +2511,32 @@
   },
   {
     "path": [
+      "wb"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "wb",
+      "call"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "wb",
+      "call-ro"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
       "wb-jobs"
     ],
     "verdict": "deny",

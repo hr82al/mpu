@@ -315,8 +315,9 @@
     //     update` (PostgreSQL main и инстансов, Loki —
     //     `docs/specs/update.md`), `mpu ozon call-ro`/`call` — Ozon
     //     Seller API `api-seller.ozon.ru`, `mpu ozon perf call-ro`/`call`
-    //     — Ozon Performance API `api-performance.ozon.ru`
-    //     (`docs/specs/call.md`; право уже покрыто списком без адресов,
+    //     — Ozon Performance API `api-performance.ozon.ru`, `mpu wb
+    //     call-ro`/`call` — Wildberries API `*.wildberries.ru` по таблице
+    //     хостов (`docs/specs/call.md`; право уже покрыто списком без адресов,
     //     флаг не менялся). Списком
     //     адресов это не выражается — их задаёт пользователь ключами
     //     env-файла (`PORTAINER_URL`, `LOKI_URL`, `KITEN_BASE_URL`,

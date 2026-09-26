@@ -10,15 +10,10 @@ import { z } from "@zod/zod";
 export const DEFAULT_TIMEOUT_S = 60;
 export const MAX_TIMEOUT_S = 300;
 
-/** Общие ключи; ключ адреса встаёт после `cabinet:` — порядок справки. */
-const common = {
-  selector: z.string({ error: "нужен target: клиент" }).describe(
-    "клиент: client_id, имя или часть, dev:<client_id>",
-  ),
-  cabinet: z.string().optional().describe(
-    "кабинет: у Ozon — Client-Id; один кабинет у клиента — можно опустить",
-  ),
-};
+/** Клиент — первым ключом; за ним кабинет и адрес — порядок справки. */
+const selector = z.string({ error: "нужен target: клиент" }).describe(
+  "клиент: client_id, имя или часть, dev:<client_id>",
+);
 
 const tail = {
   body: z.string().optional().describe("JSON-текст тела"),
@@ -34,7 +29,10 @@ const tail = {
 
 /** Аргументы получателя с заданным хостом: адрес — путь ручки. */
 export const pathArgs = z.object({
-  ...common,
+  selector,
+  cabinet: z.string().optional().describe(
+    "кабинет: у Ozon — Client-Id; один кабинет у клиента — можно опустить",
+  ),
   path: z.string({ error: "нужен path: путь ручки, начинается с /" })
     .describe("путь ручки, начинается с /"),
   ...tail,
@@ -42,7 +40,10 @@ export const pathArgs = z.object({
 
 /** Аргументы получателя без заданного хоста: адрес — полный URL. */
 export const urlArgs = z.object({
-  ...common,
+  selector,
+  cabinet: z.string().optional().describe(
+    "кабинет: sid кабинета WB; один кабинет у клиента — можно опустить",
+  ),
   url: z.string({ error: "нужен url: полный адрес https://…" })
     .describe("полный адрес ручки с запросом: https://<хост><путь>"),
   ...tail,

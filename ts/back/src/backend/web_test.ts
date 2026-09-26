@@ -94,13 +94,15 @@ Deno.test("web — ссылка с ключом только у двери че�
     await key(back);
     assertEquals(await lineOf(back, "/agent/line", ["web"]), {
       stdout: "",
-      stderr: "mpu: не понимает web\n",
+      stderr: "mpu: не понимает web; ближайшие: wb\n",
       exit: 2,
+      // Кандидат — соседнее имя корня (`wb`, 173c), а не сама `web`:
+      // агенту она по-прежнему не видна.
       refusal: {
         reason: "не понимает",
-        hint: null,
-        candidates: [],
-        text: "mpu: не понимает web",
+        hint: ["wb"],
+        candidates: ["wb"],
+        text: "mpu: не понимает web; ближайшие: wb",
       },
     });
     assertEquals((await lineOf(back, "/agent/line", ["web-logout"])).exit, 2);

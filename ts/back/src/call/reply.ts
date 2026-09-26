@@ -69,7 +69,9 @@ export function renderCall(result: CallResult): string {
   const url = new URL(result.url);
   const headers = Object.entries(result.headers)
     .map(([name, value]) => `${name}: ${value}\n`).join("");
-  return `HTTP ${result.status} ${result.method} ${url.host}${url.pathname}\n` +
+  // Запрос адреса — часть ручки: у WB он и называет выборку (W1).
+  const address = `${url.host}${url.pathname}${url.search}`;
+  return `HTTP ${result.status} ${result.method} ${address}\n` +
     `${headers}\n${bodyText(result.body)}`;
 }
 

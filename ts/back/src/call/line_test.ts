@@ -1,5 +1,5 @@
 /**
- * Сценарии 173a на уровне строки (`docs/specs/call.md`): отказ реестра
+ * Сценарии 173a–173c на уровне строки (`docs/specs/call.md`): отказ реестра
  * чтения (A7), дверь `ask` (A8, A9), посев правил (A19), сообщения
  * получателя по взглядам (A20) и справки — голденами. Ни одна строка
  * здесь не доходит до сети: отказы случаются раньше, а на вопрос двери
@@ -137,6 +137,9 @@ Deno.test("справки получателя и сообщений — гол�
       [["ozon", "perf", "--help"], "help-ozon-perf.txt"],
       [["ozon", "perf", "call-ro", "--help"], "help-ozon-perf-call-ro.txt"],
       [["ask", "ozon", "perf", "call", "--help"], "help-ozon-perf-call.txt"],
+      [["wb", "--help"], "help-wb.txt"],
+      [["wb", "call-ro", "--help"], "help-wb-call-ro.txt"],
+      [["ask", "wb", "call", "--help"], "help-wb-call.txt"],
     ];
     for (const [words, name] of cases) {
       const golden = await Deno.readTextFile(
@@ -177,4 +180,99 @@ Deno.test("perf call без двери — отказ двери, команда
       "mpu ozon perf call target: 54 path: /x: требует подтверждения — " +
         "вызывай mpu ask ozon perf call target: 54 path: /x\n",
     );
+  }));
+
+const CARDS = [
+  "target:",
+  "57",
+  "url:",
+  "https://content-api.wildberries.ru/content/v2/get/cards/list",
+];
+
+Deno.test("W3: wb call-ro вне реестра — отказ с хостом и строкой записи", () =>
+  withPolicyFile(async (file) => {
+    const ran = await run(file, ["wb", "call-ro", ...CARDS]);
+    assertEquals([ran.code, ran.stdout, ran.stderr], [
+      2,
+      "",
+      "mpu wb call-ro: ручки GET content-api.wildberries.ru/content/v2/get/" +
+      "cards/list нет в списке чтения — запись: mpu ask wb call target: 57 " +
+      "url: https://content-api.wildberries.ru/content/v2/get/cards/list\n",
+    ]);
+  }));
+
+Deno.test("W5: wb call-ro, хост вне таблицы — отказ до всего", () =>
+  withPolicyFile(async (file) => {
+    const line = [
+      "wb",
+      "call-ro",
+      "target:",
+      "57",
+      "url:",
+      "https://example.com/x",
+    ];
+    const ran = await run(file, line);
+    assertEquals([ran.code, ran.stdout, ran.stderr], [
+      2,
+      "",
+      "mpu wb call-ro: хост example.com не из API Wildberries\n",
+    ]);
+  }));
+
+Deno.test("W2, W4: wb call — только дверью ask, вопрос строкой вызова", () =>
+  withPolicyFile(async (file) => {
+    const refused = await run(file, ["wb", "call", ...CARDS], ["y"]);
+    assertEquals([refused.code, refused.called], [2, []]);
+    assertEquals(
+      refused.stderr,
+      `mpu wb call ${CARDS.join(" ")}: требует подтверждения — вызывай ` +
+        `mpu ask wb call ${CARDS.join(" ")}\n`,
+    );
+    const asked = await run(file, [
+      "ask",
+      "wb",
+      "call",
+      ...CARDS,
+      "body:",
+      "{}",
+    ], [
+      "n",
+    ]);
+    const question = `выполнить mpu wb call ${
+      CARDS.join(" ")
+    } body: {}? [y/N] `;
+    assertEquals(asked.stderr.startsWith(question), true, asked.stderr);
+    assertEquals(asked.called, []);
+  }));
+
+Deno.test("посев 173c: wb call-ro allow, wb call ask", () =>
+  withPolicyFile(async (file) => {
+    const ran = await run(file, ["policy", GRAMMAR.close, "json"]);
+    const rules = JSON.parse(ran.stdout) as { path: string; verdict: string }[];
+    const wb = rules.filter((rule) => /^wb call/.test(rule.path));
+    assertEquals(
+      wb.map(({ path, verdict }) => ({ path, verdict })).sort((a, b) =>
+        a.path.localeCompare(b.path)
+      ),
+      [
+        { path: "wb call", verdict: "ask" },
+        { path: "wb call-ro", verdict: "allow" },
+      ],
+    );
+  }));
+
+Deno.test("сообщения получателя wb по взглядам двери", () =>
+  withPolicyFile(async (file) => {
+    const reading = await run(file, ["wb", "messages"]);
+    const writing = await run(file, ["ask", "wb", "messages"]);
+    assertEquals([reading.code, reading.stdout], [
+      0,
+      "call-ro\tчто сейчас отвечает ручка чтения Wildberries API под токеном " +
+      "кабинета клиента\n",
+    ]);
+    assertEquals([writing.code, writing.stdout], [
+      0,
+      "call\tвызвать любую ручку Wildberries API под токеном кабинета " +
+      "клиента (запись)\n",
+    ]);
   }));

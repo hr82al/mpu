@@ -55,6 +55,7 @@
   telegram                    Telegram от имени личного аккаунта: сообщения, диалоги, вход
   update                      синк снапшота кэш-БД с PG: клиенты, их таблицы, wb-sid'ы
   users                       пользователи sl-back на сервере: add | add-role
+  wb                          Wildberries API под токеном кабинета клиента: call-ro | call
   wb-jobs                     очередь задач WB-загрузчика на сервере: show
   wb-loader                   загрузка данных WB-кабинета в БД клиента: reports | cards | …
   wb-recalculate-expenses     Пересчитать расходы WB UNIT клиента за период.

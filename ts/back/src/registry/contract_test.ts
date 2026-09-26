@@ -2177,6 +2177,26 @@ const CASES: readonly CommandCase[] = [
       },
     },
   })),
+  ...["call-ro", "call"].map((name) => ({
+    path: `wb ${name}`,
+    argv: [
+      "--selector",
+      "57",
+      "--url",
+      "https://common-api.wildberries.ru/api/v1/seller-info",
+      "--timeout",
+      "301",
+    ],
+    sampleResult: {
+      call: {
+        kind: "dry",
+        method: "GET",
+        url: "https://common-api.wildberries.ru/api/v1/seller-info",
+        headers: { authorization: "***" },
+        body: null,
+      },
+    },
+  })),
 ];
 
 Deno.test("реестр непуст и покрыт образцами вызова", () => {
