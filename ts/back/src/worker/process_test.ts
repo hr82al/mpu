@@ -9,6 +9,7 @@
 import { assertEquals, assertNotEquals } from "@std/assert";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
+import { TYPED } from "../program/mod.ts";
 import { findCommand } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { NO_MARKERS, ProcessLauncher, Workers } from "./mod.ts";
@@ -133,6 +134,7 @@ Deno.test("процесс исполнителя: программа — печ�
   try {
     const end = await workers.evaluate(
       ["2", "print", SEP, "x", ASSIGN, "jsdate", SEP, "x", "isNil"],
+      TYPED,
       makeFakeIo({}),
       { stdout: (text) => void printed.push(text), stderr: () => {} },
       (words) => {

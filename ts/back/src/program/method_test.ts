@@ -16,6 +16,7 @@ import {
   parseProgram,
   type ProgramEnd,
   runProgram,
+  TYPED,
 } from "./mod.ts";
 
 const ROWS = [
@@ -120,6 +121,7 @@ async function run(line: string, refuse = 0): Promise<Ran> {
     print: (text) => out += text,
     signal: new AbortController().signal,
     pace: new Every(20, () => performance.now()),
+    naming: TYPED,
   });
   return { out, end, lines };
 }

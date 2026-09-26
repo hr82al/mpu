@@ -12,6 +12,7 @@ import {
   VerbatimUsageError,
 } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
+import { TYPED } from "../program/mod.ts";
 import { findCommand } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { MarkerDir, NO_MARKERS } from "./death.ts";
@@ -326,6 +327,7 @@ Deno.test("исполнитель программы: строка команд�
   const pids: number[] = [];
   const running = worker.evaluate(
     ["x"],
+    TYPED,
     makeFakeIo({}),
     collected(printed),
     (words) => {
@@ -336,7 +338,7 @@ Deno.test("исполнитель программы: строка команд�
     [],
   );
   assertEquals(await script.next(), {
-    evaluate: { words: ["x"], methods: [] },
+    evaluate: { words: ["x"], methods: [], source: null },
   });
   await script.send({ line: ["kiten", "ls"] });
   assertEquals(await script.next(), {
@@ -362,6 +364,7 @@ Deno.test("исполнитель программы умер, пока ядро
   const never = Promise.withResolvers<never>();
   const running = worker.evaluate(
     ["x"],
+    TYPED,
     makeFakeIo({}),
     collected([]),
     () => never.promise,
@@ -385,6 +388,7 @@ Deno.test("исполнитель программы: отмена строки 
   const stop = new AbortController();
   const running = worker.evaluate(
     ["x"],
+    TYPED,
     makeFakeIo({ signal: stop.signal }),
     collected([]),
     () => Promise.resolve({ exit: 1 }),

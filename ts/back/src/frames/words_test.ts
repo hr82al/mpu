@@ -45,10 +45,10 @@ Deno.test("слова: разделители — пробел, табуляци
 Deno.test("BOM снимают слова, а не декодер: у текста строкой — тот же", async (t) => {
   await t.step("utf8Of оставляет BOM", () => {
     const text = utf8Of(new Uint8Array([0xef, 0xbb, 0xbf, ...bytes("a")]));
-    assertEquals(text, "﻿a");
+    assertEquals(text, "\ufeffa");
   });
   await t.step("wordsOf снимает U+FEFF в начале", () => {
-    assertEquals(wordsOf("﻿^готово к ревью^ print\r\n"), [
+    assertEquals(wordsOf("\ufeff^готово к ревью^ print\r\n"), [
       "^готово",
       "к",
       "ревью^",
@@ -56,7 +56,7 @@ Deno.test("BOM снимают слова, а не декодер: у текст�
     ]);
   });
   await t.step("U+FEFF не в начале — часть слова", () => {
-    assertEquals(wordsOf("a ﻿b"), ["a", "﻿b"]);
+    assertEquals(wordsOf("a \ufeffb"), ["a", "\ufeffb"]);
   });
 });
 
@@ -95,8 +95,8 @@ Deno.test("слово с разделителем — ровно четыре з
     ["a\tb", true],
     ["a\nb", true],
     ["a\rb", true],
-    ["a b", false],
-    ["a b", false],
+    ["a\u00a0b", false],
+    ["a\u2003b", false],
     ["ab", false],
   ];
   for (const [word, expected] of cases) {

@@ -35,6 +35,8 @@ export interface EnvSetup {
    * чтение которого не кончается никогда.
    */
   readonly readStdin?: () => Promise<string>;
+  /** Весь stdin байтами — когда он не текст UTF-8. */
+  readonly stdinBytes?: Uint8Array;
   /** Терминал ли stdout и какая у него ширина. */
   readonly stdout?: boolean;
   readonly columns?: number;
@@ -82,8 +84,13 @@ export function testEnv(setup: EnvSetup): TestEnv {
   const answers = [...setup.answers ?? []];
   const terminals = setup.terminals ?? false;
   const interrupted = Promise.withResolvers<void>();
-  const readStdin = setup.readStdin ??
+  const readText = setup.readStdin ??
     (() => Promise.resolve(setup.stdin ?? ""));
+  const encoded = async () => new TextEncoder().encode(await readText());
+  const bytes = setup.stdinBytes;
+  const readStdin = bytes === undefined
+    ? encoded
+    : () => Promise.resolve(bytes.slice());
   let stdinReads = 0;
   return {
     stdout,

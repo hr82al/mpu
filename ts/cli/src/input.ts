@@ -5,14 +5,22 @@
  * без писателя её не держит.
  */
 
-import { boundedInput, type CallerFacts } from "../../back/src/frames/mod.ts";
+import {
+  BadFrame,
+  boundedInput,
+  type CallerFacts,
+  isBareLine,
+  NotUtf8,
+  utf8Of,
+} from "../../back/src/frames/mod.ts";
 
 /** Что клиент отвечает на кадр `stdinRequest`. */
 export interface ClientInput {
   /**
    * Весь ввод текстом для кадра `stdin`; повторный запрос — то же.
    *
-   * @throws BadFrame — ввод больше предела: тот же отказ, что у сервера
+   * @throws BadFrame — ввод больше предела: тот же отказ, что у сервера;
+   *   у строки без слов — ещё ввод не в UTF-8
    */
   supply(): Promise<string>;
 }
@@ -25,9 +33,34 @@ export interface ClientInput {
  */
 const TERMINAL_INPUT: ClientInput = { supply: () => Promise.resolve("") };
 
+/** Как байты ввода становятся текстом кадра `stdin`. */
+interface InputText {
+  /** @throws BadFrame — ввод отвергнут клиентом */
+  of(bytes: Uint8Array): string;
+}
+
+/** Ввод строки со словами — как прежде: без проверки UTF-8. */
+const LINE_TEXT: InputText = { of: (bytes) => new TextDecoder().decode(bytes) };
+
+/**
+ * Ввод строки без слов — программа (`platform/program-input.md`): байты не
+ * в UTF-8 отвергаются до сервера, BOM уходит как есть — его снимают слова.
+ */
+const PROGRAM_TEXT: InputText = {
+  of(bytes) {
+    try {
+      return utf8Of(bytes);
+    } catch (err) {
+      if (!(err instanceof NotUtf8)) throw err;
+      throw new BadFrame(err.message, `ввод ${err.message}`);
+    }
+  },
+};
+
 /** stdin — пайп или файл: читается целиком при первом запросе. */
 class PipedInput implements ClientInput {
-  readonly #read: () => Promise<string>;
+  readonly #read: () => Promise<Uint8Array>;
+  readonly #text: InputText;
   /** Первый запрос читает, следующие берут прочитанное. */
   #supply = (): Promise<string> => {
     const text = this.#bounded();
@@ -35,8 +68,9 @@ class PipedInput implements ClientInput {
     return text;
   };
 
-  constructor(read: () => Promise<string>) {
+  constructor(read: () => Promise<Uint8Array>, text: InputText) {
     this.#read = read;
+    this.#text = text;
   }
 
   supply(): Promise<string> {
@@ -44,7 +78,7 @@ class PipedInput implements ClientInput {
   }
 
   async #bounded(): Promise<string> {
-    const text = await this.#read();
+    const text = this.#text.of(await this.#read());
     boundedInput(text);
     return text;
   }
@@ -54,8 +88,13 @@ class PipedInput implements ClientInput {
  * Ввод клиента по его stdin.
  *
  * @param facts чем клиент снимает свой контекст
+ * @param words слова строки: без слов ввод — программа
  */
-export function clientInput(facts: CallerFacts): ClientInput {
+export function clientInput(
+  facts: CallerFacts,
+  words: readonly string[],
+): ClientInput {
   if (facts.stdinIsTerminal()) return TERMINAL_INPUT;
-  return new PipedInput(() => facts.stdin());
+  const text = isBareLine(words) ? PROGRAM_TEXT : LINE_TEXT;
+  return new PipedInput(() => facts.stdin(), text);
 }

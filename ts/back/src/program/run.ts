@@ -4,7 +4,12 @@
  */
 
 import type { RefusalData } from "../frames/mod.ts";
-import { dataOf, RefusalNotice, type Refused } from "../objects/mod.ts";
+import {
+  dataOf,
+  NO_HINT,
+  RefusalNotice,
+  type Refused,
+} from "../objects/mod.ts";
 import { CommandResult, fromData } from "./data.ts";
 import { Printed } from "./objects.ts";
 import { Cancelled, Machine, type Pace, Place, Placed } from "./machine.ts";
@@ -54,6 +59,8 @@ export interface ProgramPorts {
   /** Отмена программы. */
   readonly signal: AbortSignal;
   readonly pace: Pace;
+  /** Как отказ программы называет её источник. */
+  readonly naming: Naming;
 }
 
 /** Подстрока кончилась кодом ≠ 0: её отказ уже сказан ядром. */
@@ -87,6 +94,49 @@ export function refusalOf(words: readonly string[], placed: Placed): Refused {
     hint,
     candidates: placed.refusal.candidates,
   });
+}
+
+/**
+ * Как отказ программы называет её источник (`platform/program-input.md`,
+ * «Отказ программы и источник»).
+ */
+export interface Naming {
+  /** Имя источника в кадре исполнителю; набранная строка — `null`. */
+  readonly source: string | null;
+  /** Отказ программы `words` по месту `placed`. */
+  refused(words: readonly string[], placed: Placed): Refused;
+}
+
+/** Набранная строка: подсказка — её слова с заменённым словом. */
+export const TYPED: Naming = { source: null, refused: refusalOf };
+
+/**
+ * Источник с именем (ввод, файл): текст — за префиксом имени, подсказки
+ * нет — готовой строки из слов программы нет, и текст её в отказ не идёт.
+ */
+class Named implements Naming {
+  readonly source: string;
+
+  constructor(source: string) {
+    this.source = source;
+  }
+
+  refused(_words: readonly string[], placed: Placed): Refused {
+    return new RefusalNotice({
+      reason: placed.refusal.reason,
+      said: `${this.source}: ${placed.message}`,
+      hint: NO_HINT,
+      candidates: placed.refusal.candidates,
+    });
+  }
+}
+
+/**
+ * Как называть источник по его имени (граница кадра исполнителю): нет
+ * имени — набранная строка.
+ */
+export function namingOf(source: string | null): Naming {
+  return source === null ? TYPED : new Named(source);
 }
 
 /** Строка кончилась кодом ≠ 0: значения у неё нет. */
@@ -139,13 +189,17 @@ function outward(code: number): number {
 }
 
 /** Итог по исключению исполнения; незнакомое — дальше. */
-function ended(err: unknown, words: readonly string[]): ProgramEnd {
+function ended(
+  err: unknown,
+  words: readonly string[],
+  naming: Naming,
+): ProgramEnd {
   if (err instanceof Cancelled) return { exit: CANCELLED, refusal: null };
   if (err instanceof LineExit) {
     return { exit: outward(err.code), refusal: null };
   }
   if (err instanceof Placed) {
-    return { exit: FAILED, refusal: refusalOf(words, err).data() };
+    return { exit: FAILED, refusal: naming.refused(words, err).data() };
   }
   throw err;
 }
@@ -165,7 +219,10 @@ export async function runProgram(
     program = parseProgram(words, ports.commands, LENIENT_ROOT);
   } catch (err) {
     if (!(err instanceof Placed)) throw err;
-    return { exit: REFUSED, refusal: refusalOf(words, err).data() };
+    return {
+      exit: REFUSED,
+      refusal: ports.naming.refused(words, err).data(),
+    };
   }
   const place = new Place();
   const machine = new Machine({
@@ -183,6 +240,6 @@ export async function runProgram(
     ports.print(last.shown());
     return { exit: 0, refusal: null };
   } catch (err) {
-    return ended(err, words);
+    return ended(err, words, ports.naming);
   }
 }

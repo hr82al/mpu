@@ -30,6 +30,8 @@ export interface Order {
 export interface Evaluation {
   readonly words: readonly string[];
   readonly methods: readonly MethodSource[];
+  /** Имя источника для отказа программы; набранная строка — `null`. */
+  readonly source: string | null;
 }
 
 /** Вид вопроса исполнителя; `copy` — просьба в буфер обмена. */
@@ -95,11 +97,15 @@ function stringsOf(value: unknown, name: string): readonly string[] {
 }
 
 function evaluationOf(evaluate: Record<string, unknown>): Evaluation {
-  const { methods } = evaluate;
+  const { methods, source = null } = evaluate;
   if (!Array.isArray(methods)) throw new BadWorkerFrame("methods — не список");
+  if (source !== null && typeof source !== "string") {
+    throw new BadWorkerFrame("source — не строка");
+  }
   return {
     words: stringsOf(evaluate.words, "words"),
     methods: methods.map(methodOf),
+    source,
   };
 }
 

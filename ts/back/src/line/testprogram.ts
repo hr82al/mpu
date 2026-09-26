@@ -19,7 +19,7 @@ import { GRAMMAR } from "../messages/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { Memory } from "./it.ts";
-import { type ImagePorts, lineEntry } from "./mod.ts";
+import { type ChannelOf, type ImagePorts, lineEntry } from "./mod.ts";
 import { consentOf } from "./testconsent.ts";
 
 const CARDS_PATH = "/api/latest/cards";
@@ -209,6 +209,11 @@ export interface StandLine {
   readonly image?: ImagePorts;
   /** Журнал вызовов, в который строка пишет свою запись; нет — не пишет. */
   readonly log?: InvokeLog;
+  /**
+   * Канал вопроса вместо терминального: человек, которого сервер знает
+   * по кадру, а не по stdin (ввод из пайпа, вопрос — в терминал).
+   */
+  readonly channel?: ChannelOf;
 }
 
 /**
@@ -244,6 +249,7 @@ export async function runOnStand(
   const ports = consentOf(file, line.answers, line.memory);
   const exit = await lineEntry({
     ...ports,
+    channel: line.channel ?? ports.channel,
     refusal: (data) => void refusals.push(data),
     image: line.image,
   })(

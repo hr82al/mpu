@@ -164,6 +164,24 @@ export function substituted(words: readonly string[]): Remedy {
   };
 }
 
+/**
+ * То же, что `substituted`, но текст отказа называет готовую строку за
+ * связкой `lead`: у программы, набранной словами, строку видно и в тексте.
+ */
+export function substitutedAloud(
+  lead: string,
+  words: readonly string[],
+): Remedy {
+  return {
+    hint: (scene) =>
+      new Spelled(lead, [
+        ...scene.line.slice(0, scene.start),
+        ...words,
+        ...scene.line.slice(scene.end),
+      ]),
+  };
+}
+
 /** Слова селектора, как их набирают: `id:text:` → `id:`, `text:`. */
 function parts(selector: string): string[] {
   if (!selector.endsWith(":")) return [selector];

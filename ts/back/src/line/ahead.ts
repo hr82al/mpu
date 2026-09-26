@@ -40,42 +40,52 @@ const MISADDRESSED = 2;
 const RULED_OUT = 1;
 
 /**
- * Отказ всей строки `words`: её команда `path` может записать, а строка
- * начата без двери. Один на обход и на отправку.
+ * Отказ всей строки: её команда `path` может записать, а строка начата
+ * без двери. Один на обход и на отправку.
+ *
+ * @param name как строку называет отказ (`mpu kiten comment …`, `stdin`)
+ * @param typed набранные слова строки — подсказка ставит дверь перед ними
  */
 export function needsDoor(
-  words: readonly string[],
+  name: string,
+  typed: readonly string[],
   path: readonly string[],
 ): Refused {
   const hint = throughGate(` — начни с ${ASK_WORD}: `, ASK_WORD).hint({
     address: "",
     taken: [],
-    line: words,
+    line: typed,
     start: 0,
-    end: words.length,
+    end: typed.length,
   });
   return new RefusalNotice({
     reason: MAY_WRITE,
-    said: `${lineText(ROOT_TEXT, words)}: ${MAY_WRITE} (${path.join(" ")})`,
+    said: `${name}: ${MAY_WRITE} (${path.join(" ")})`,
     hint,
     candidates: [],
   });
+}
+
+/** Строка, которая сама называет себя в отказе «может записать». */
+export interface Doorless {
+  /** Отказ всей строки: команда `path` может записать. */
+  needsDoor(path: readonly string[]): Refused;
 }
 
 /**
  * Подстрока программы без двери, решённая `ask` при отправке (правило
  * сменили посреди строки), — тот же отказ всей строки, код 2.
  *
- * @param words слова программы
+ * @param line строка программы
  * @param told куда сказать отказ
  */
 export function redirected(
-  words: readonly string[],
+  line: Doorless,
   told: Speech,
 ): (report: Report) => Promise<Outcome> {
   return (report) => {
     const path = report.links().filter((link) => link !== ARGS);
-    needsDoor(words, path).tell(told);
+    line.needsDoor(path).tell(told);
     return Promise.resolve(report.exit(MISADDRESSED));
   };
 }
@@ -99,11 +109,11 @@ const CLEAR: Finding = {
 
 /** Команда, решённая `ask`, в строке без двери: первая такая. */
 class NeedsDoor implements Finding {
-  readonly #words: readonly string[];
+  readonly #line: Doorless;
   readonly #path: readonly string[];
 
-  constructor(words: readonly string[], path: readonly string[]) {
-    this.#words = words;
+  constructor(line: Doorless, path: readonly string[]) {
+    this.#line = line;
     this.#path = path;
   }
 
@@ -117,7 +127,7 @@ class NeedsDoor implements Finding {
   }
 
   settle(told: Speech): Promise<number> {
-    needsDoor(this.#words, this.#path).tell(told);
+    this.#line.needsDoor(this.#path).tell(told);
     return Promise.resolve(MISADDRESSED);
   }
 }
@@ -178,12 +188,12 @@ export function entryOf(words: readonly string[]): Entry {
  * сразу, когда обход кончился.
  */
 export class Ahead implements Reach {
-  readonly #words: readonly string[];
+  readonly #line: Doorless;
   readonly #found: { path: readonly string[]; links: readonly string[] }[] = [];
 
-  /** @param words слова программы — отказ всей строки называет их */
-  constructor(words: readonly string[]) {
-    this.#words = words;
+  /** @param line строка программы — отказ всей строки называет её сама */
+  constructor(line: Doorless) {
+    this.#line = line;
   }
 
   command(path: readonly string[], links: readonly string[]) {
@@ -229,7 +239,7 @@ export class Ahead implements Reach {
       text: lineText(ROOT_TEXT, path),
       run: () => Promise.resolve(CLEAR),
       refuse: (reason, text) => Promise.resolve(new RuledOut(reason, text)),
-      redirect: () => Promise.resolve(new NeedsDoor(this.#words, path)),
+      redirect: () => Promise.resolve(new NeedsDoor(this.#line, path)),
     };
   }
 }

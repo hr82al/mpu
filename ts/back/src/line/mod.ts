@@ -40,7 +40,6 @@ import {
   type LineReply,
   parseProgram,
   Placed,
-  refusalOf,
   type Root,
 } from "../program/mod.ts";
 import {
@@ -57,7 +56,8 @@ import { itMethod, type Memory, NO_CALLER, remembering } from "./it.ts";
 import { printed, type Speech } from "./printed.ts";
 import { Session } from "./session.ts";
 export { HUMAN_ONLY } from "./session.ts";
-import { LineValues, StdinOnce } from "./value.ts";
+import { LineValues } from "./value.ts";
+import { type Origin, originOf } from "./origin.ts";
 import { toDoor } from "./view.ts";
 import { Ahead, entryOf, redirected } from "./ahead.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
@@ -282,8 +282,15 @@ export function lineEntry(ports: LinePorts): CliEntry {
       return 1;
     }
     const sources = methods.map((method) => method.source());
+    const walked = walkedWords(argv);
+    // Строка через дверь объявляет запись для всей строки: группы
+    // значений идут той же дверью (`platform/value-expression.md`).
+    const entry = entryOf(walked);
+    const door = entry.words;
+    const origin = await originOf(argv, walked.slice(door.length), io);
+    const said = origin.words;
     // stdin строки — один источник: ключом `stdin` и прежней подстановкой.
-    const stdin = new StdinOnce(io);
+    const stdin = origin.stdin(io);
     const lineIo: CommandIo = { ...io, readStdin: () => stdin.forCommand() };
     const channel = ports.channel(io, output);
     const parts = {
@@ -334,11 +341,6 @@ export function lineEntry(ports: LinePorts): CliEntry {
         terminal: io.stdinIsTerminal(),
         redirect: running.redirect,
       });
-    const walked = walkedWords(argv);
-    // Строка через дверь объявляет запись для всей строки: группы
-    // значений идут той же дверью (`platform/value-expression.md`).
-    const entry = entryOf(walked);
-    const door = entry.words;
     const values: LineValues = new LineValues(async (words) => {
       const texts: string[] = [];
       const captured: Speech = {
@@ -363,7 +365,6 @@ export function lineEntry(ports: LinePorts): CliEntry {
         stripped: strippedOf(argv),
       });
     const root = rootOf((session) => session);
-    const said = walked.slice(door.length);
     /**
      * Команда программы — отдельной строкой той же дверью: правила в
      * момент отправки, своя запись журнала, `it`; место в очереди строк
@@ -386,7 +387,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
             journal: subJournal,
             execute: immediately,
             delivery: capture,
-            redirect: redirected(said, heard),
+            redirect: redirected(origin, heard),
           };
           const subRoot = registryRoot(
             sessionOf(sub, heard, ports.memory, running),
@@ -429,12 +430,8 @@ export function lineEntry(ports: LinePorts): CliEntry {
           speech,
         ),
     };
-    const line = imageLineOf(said, syncLineOf(said));
-    return await line.settle(context, async () => {
-      if (!isProgram(said, commands) && !callsImage(said, methods)) {
-        return printed(await runChain(walked, root, values), speech);
-      }
-      return await runProgramLine(said, context.root, {
+    const program = () =>
+      runProgramLine(origin, context.root, {
         ports,
         speech,
         io: lineIo,
@@ -444,6 +441,14 @@ export function lineEntry(ports: LinePorts): CliEntry {
         ahead: entry.ahead,
         commands,
         sources,
+      });
+    return await origin.route(program, () => {
+      const line = imageLineOf(said, syncLineOf(said));
+      return line.settle(context, async () => {
+        if (!isProgram(said, commands) && !callsImage(said, methods)) {
+          return printed(await runChain(walked, root, values), speech);
+        }
+        return await program();
       });
     });
   };
@@ -472,33 +477,35 @@ interface ProgramLine {
  * месту исполнения программ, в очереди строк одним местом.
  */
 async function runProgramLine(
-  words: readonly string[],
+  origin: Origin,
   root: Root,
   line: ProgramLine,
 ): Promise<number> {
+  const words = origin.words;
   let program;
   try {
     program = parseProgram(words, line.commands, root);
   } catch (err) {
     if (!(err instanceof Placed)) throw err;
-    refusalOf(words, err).tell(line.speech);
+    origin.naming.refused(words, err).tell(line.speech);
     return 2;
   }
-  const ahead = new Ahead(words);
+  const ahead = new Ahead(origin);
   program.reach(ahead);
   const finding = await ahead.verdict(line.decide, line.ahead);
-  return await finding.settle(line.speech, () => runEvaluated(words, line));
+  return await finding.settle(line.speech, () => runEvaluated(origin, line));
 }
 
 /** Программа, прошедшая проверки: запись журнала и исполнение. */
 async function runEvaluated(
-  words: readonly string[],
+  origin: Origin,
   line: ProgramLine,
 ): Promise<number> {
-  line.journal.nativeCall(programPolicy(words));
+  line.journal.nativeCall(programPolicy(origin.words));
   return await line.ports.execute(async () => {
     const end = await line.ports.evaluator.evaluate(
-      words,
+      origin.words,
+      origin.naming,
       line.io,
       line.speech,
       line.core,

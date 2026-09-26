@@ -15,7 +15,12 @@ import {
 } from "../command/mod.ts";
 import type { InvokeJournal, Output } from "../entrypoint/mod.ts";
 import { contextFieldsOf } from "../frames/mod.ts";
-import type { LineReply, MethodSource, ProgramEnd } from "../program/mod.ts";
+import type {
+  LineReply,
+  MethodSource,
+  Naming,
+  ProgramEnd,
+} from "../program/mod.ts";
 import { deathOf, type ExitStatus, type Markers } from "./death.ts";
 import {
   BadWorkerFrame,
@@ -68,7 +73,7 @@ function orderOf(
   const context: Record<string, unknown> = {
     ...contextFieldsOf({
       // Ввод здесь не читается: его исполнитель попросит кадром.
-      stdin: () => Promise.resolve(""),
+      stdin: () => Promise.resolve(new Uint8Array()),
       stdinIsTerminal: () => io.stdinIsTerminal(),
       stdoutIsTerminal: () => io.stdoutIsTerminal(),
       stderrIsTerminal: () => io.stderrIsTerminal(),
@@ -170,13 +175,15 @@ export class LineWorker {
   /**
    * Исполняет программу (`platform/evaluator.md`): её печать — в
    * `output`, её команды — `core` отдельными строками; методы образа
-   * уходят исполнителю вместе со словами (`platform/image.md`).
+   * (`platform/image.md`) и имя источника для отказа (`naming`) уходят
+   * исполнителю вместе со словами.
    *
    * @throws смерть исполнителя — `VerbatimError` с её текстом;
    *   остановленный ядром без итога — `WorkerStopped`
    */
   async evaluate(
     words: readonly string[],
+    naming: Naming,
     io: CommandIo,
     output: Output,
     core: Core,
@@ -187,7 +194,9 @@ export class LineWorker {
     const stop = () => this.stop();
     io.signal.addEventListener("abort", stop, { once: true });
     try {
-      await this.#send({ evaluate: { words, methods } });
+      await this.#send({
+        evaluate: { words, methods, source: naming.source },
+      });
       if (io.signal.aborted) this.stop();
       return endOf(await this.#converse(io, lineSink(output), core));
     } finally {

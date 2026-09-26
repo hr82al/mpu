@@ -24,6 +24,7 @@ import {
   DEFAULT_PACE_MS,
   Every,
   type LineReply,
+  namingOf,
   runProgram,
 } from "../program/mod.ts";
 import { findCommand } from "../registry/mod.ts";
@@ -277,6 +278,7 @@ async function evaluated(
       },
       signal: conversation.signal(),
       pace: new Every(DEFAULT_PACE_MS, () => performance.now()),
+      naming: namingOf(evaluation.source),
     });
   } catch (err) {
     return { crash: err instanceof Error ? err.message : String(err) };

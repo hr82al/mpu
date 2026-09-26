@@ -6,7 +6,7 @@
 
 import { hasSeparator } from "../frames/mod.ts";
 import { GRAMMAR } from "../messages/mod.ts";
-import { Refusal, substituted } from "../objects/mod.ts";
+import { Refusal, substitutedAloud } from "../objects/mod.ts";
 import { isKey, isParameter } from "./lexis.ts";
 import { Misstep } from "./machine.ts";
 import type { Names } from "./names.ts";
@@ -108,30 +108,24 @@ function lateCloser(words: readonly string[], from: number, to: number) {
   return found;
 }
 
-/** Строка `words`, где слово `at` заменено на `word`. */
-function replaced(words: readonly string[], at: number, word: string) {
-  return words.map((one, i) => i === at ? word : one);
-}
-
 /** Слово с удвоенным хвостом `^`: закрывающее становится литералом. */
 export function doubled(word: string): string {
   return word + GRAMMAR.quote.repeat(trailing(word));
 }
 
-/** Отказ с готовой строкой: слово `at` заменено на `word`. */
+/**
+ * Отказ с готовой строкой: слово `at` заменено на `word`. Строку в тексте
+ * называет подсказка, а не отказ: источнику с именем (ввод, файл) её
+ * печатать нельзя (`platform/program-input.md`).
+ */
 function fixed(
   said: string,
   reason: string,
-  words: readonly string[],
   at: number,
   word: string,
 ): Misstep {
-  const line = replaced(words, at, word);
   return new Misstep(
-    new Refusal(`${said} — mpu ${line.join(" ")}`, {
-      reason,
-      remedy: substituted([word]),
-    }),
+    new Refusal(said, { reason, remedy: substitutedAloud(" — ", [word]) }),
     { start: at, end: at + 1 },
   );
 }
@@ -148,7 +142,6 @@ function closedEarly(
       `а «${words[late]}» дальше закрывать нечему. Если ^ — часть текста, ` +
       `удвой: ${word}`,
     "текст закрылся раньше",
-    words,
     closer,
     word,
   );
@@ -159,7 +152,6 @@ function unclosed(words: readonly string[], to: number): Misstep {
   return fixed(
     "текст не закрыт: добавь ^ к последнему слову",
     "текст не закрыт",
-    words,
     to - 1,
     words[to - 1] + GRAMMAR.quote,
   );

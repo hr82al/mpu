@@ -17,6 +17,7 @@ import {
   type Ruling,
 } from "../policy/mod.ts";
 import { Ahead, entryOf } from "./ahead.ts";
+import { typedLine } from "./origin.ts";
 
 const RULES = new Rules([
   new Rule(RulePath.parse("*"), ALLOW),
@@ -31,7 +32,7 @@ async function verdict(
   paths: readonly string[],
   decide: (links: readonly string[]) => Ruling = (links) => RULES.decide(links),
 ) {
-  const ahead = new Ahead(words);
+  const ahead = new Ahead(typedLine(words));
   for (const path of paths) {
     const parts = path.split(" ");
     ahead.command(parts, parts);

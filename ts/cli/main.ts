@@ -10,7 +10,6 @@ import { type ClientEnv, runClient } from "./src/mod.ts";
 
 const DEFAULT_URL = "http://127.0.0.1:7338";
 const encoder = new TextEncoder();
-const decoder = new TextDecoder();
 
 function writeAll(file: { writeSync(p: Uint8Array): number }, text: string) {
   const bytes = encoder.encode(text);
@@ -33,12 +32,11 @@ async function tokenAt(path: string): Promise<string | undefined> {
 }
 
 /**
- * Весь stdin текстом. Зовётся только по запросу строки и только когда
+ * Весь stdin байтами. Зовётся только по запросу строки и только когда
  * stdin не терминал (`platform/stdin-on-request.md`).
  */
-async function readStdin(): Promise<string> {
-  const bytes = await new Response(Deno.stdin.readable).arrayBuffer();
-  return decoder.decode(new Uint8Array(bytes));
+async function readStdin(): Promise<Uint8Array> {
+  return new Uint8Array(await new Response(Deno.stdin.readable).arrayBuffer());
 }
 
 /** Ширина консоли клиента; консоли нет — ширины нет. */

@@ -24,11 +24,23 @@ export interface GroupRun {
   }>;
 }
 
+/** Ввод строки глазами её команд: ключом `stdin` и прежней подстановкой. */
+export interface LineStdin {
+  /**
+   * Ввод значением ключа `key`: весь, хвостовой перевод строки снят; при
+   * терминале ключ, который команда читает сама (`prompts`), остаётся без
+   * значения.
+   */
+  take(key: string, prompts: boolean): Promise<string | undefined>;
+  /** Чтение самой командой (прежние подстановки). */
+  forCommand(): Promise<Uint8Array>;
+}
+
 /**
  * stdin строки: читается ровно один раз — ключом `stdin` или прежней
  * подстановкой команды; второе чтение — отказ.
  */
-export class StdinOnce {
+export class StdinOnce implements LineStdin {
   readonly #io: Pick<CommandIo, "readStdin" | "stdinIsTerminal">;
   /** Кто прочитал; ещё никто — `undefined`. */
   #reader: string | undefined;
@@ -72,6 +84,26 @@ export class StdinOnce {
     return `stdin уже прочитан ключом ${this.#reader}`;
   }
 }
+
+/** Вид отказа: ввод строки — её программа (`platform/program-input.md`). */
+const INPUT_BUSY = "ввод занят программой";
+
+// Слово `run:` войдёт в грамматику с порцией 170b; до неё отказ называет
+// его текстом.
+const BUSY_TEXT =
+  `${INPUT_BUSY} — программу передай файлом: mpu run: <файл.mpu>`;
+
+/**
+ * Ввод строки занят её программой (программа из stdin): любое чтение —
+ * отказ значения тем же путём, что «stdin уже прочитан», — при обходе
+ * строки, до вопроса двери; код 2. Своей памяти нет.
+ */
+export const BUSY_INPUT: LineStdin = {
+  take: () => Promise.reject(new Refusal(BUSY_TEXT, { reason: INPUT_BUSY })),
+  forCommand: () => {
+    throw new UsageError(BUSY_TEXT);
+  },
+};
 
 /** Вид данных для отказа «не скаляр»: список или запись (спека). */
 function kindName(data: unknown): string {
@@ -151,9 +183,9 @@ function dataOf(outcome: Outcome, printed: string, key: string): unknown {
 /** Значения строки: группы исполняет `run`, stdin — один на строку. */
 export class LineValues implements ValueEvaluation {
   readonly #run: GroupRun;
-  readonly #stdin: StdinOnce;
+  readonly #stdin: LineStdin;
 
-  constructor(run: GroupRun, stdin: StdinOnce) {
+  constructor(run: GroupRun, stdin: LineStdin) {
     this.#run = run;
     this.#stdin = stdin;
   }

@@ -73,9 +73,11 @@ export {
 export {
   atAddress,
   line,
+  NO_HINT,
   NO_REMEDY,
   ROOT_TEXT,
   substituted,
+  substitutedAloud,
   throughGate,
   wholeLine,
 } from "./remedy.ts";

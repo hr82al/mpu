@@ -226,7 +226,7 @@ Deno.test("контекст в теле ответа по номеру — от�
 Deno.test("клиент снимает контекст: пайп, терминал; stdin не читает", async (t) => {
   const facts = {
     // Снятие контекста stdin не трогает: чтение тут — дефект.
-    stdin: (): Promise<string> => {
+    stdin: (): Promise<Uint8Array> => {
       throw new Error("stdin читался при снятии контекста");
     },
     stdinIsTerminal: () => false,

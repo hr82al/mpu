@@ -22,10 +22,13 @@ export {
 export type { Reach } from "./protocol.ts";
 export {
   type LineReply,
+  type Naming,
+  namingOf,
   type ProgramEnd,
   type ProgramPorts,
   refusalOf,
   runProgram,
+  TYPED,
 } from "./run.ts";
 
 /**

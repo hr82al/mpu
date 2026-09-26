@@ -94,6 +94,19 @@ const REQUESTING: Script = (socket) => {
   return Promise.resolve();
 };
 
+/**
+ * Запрос ввода, и первый же кадр ввода кончает строку: сценарий ничего не
+ * ждёт, поэтому не висит и тогда, когда клиент ввода не шлёт.
+ */
+const REQUESTING_ONCE: Script = (socket) => {
+  socket.addEventListener("message", () => {
+    socket.send(JSON.stringify({ exit: 0 }));
+    socket.close(1000);
+  }, { once: true });
+  socket.send(JSON.stringify({ stdinRequest: true }));
+  return Promise.resolve();
+};
+
 Deno.test("открытый stdin без писателя: строка без ввода не ждёт его", () =>
   withFakeServer(async (base, visits) => {
     // Чтение, которое не кончается никогда: так выглядит открытый
@@ -168,5 +181,78 @@ Deno.test("stdin не прочитался: причина, код 1", () =>
     });
     assertEquals(await runClient(["confirm", "yes"], run.env), 1);
     assertEquals(run.stderr, ["mpu: ввод не прочитан: EIO\n"]);
+    assertEquals(visits[0].inputs, []);
+  }, { script: REQUESTING }));
+
+/** Байты `^Готово^ print` в cp1251: 0xC3 на смещении 1 — не UTF-8. */
+const CP1251 = new Uint8Array([
+  0x5e,
+  0xc3,
+  0xee,
+  0xf2,
+  0xee,
+  0xe2,
+  0xee,
+  0x5e,
+  0x20,
+  0x70,
+  0x72,
+  0x69,
+  0x6e,
+  0x74,
+]);
+
+Deno.test("строка без слов: ввод не в UTF-8 — отказ клиента, код 2", () =>
+  withFakeServer(async (base, visits) => {
+    const run = testEnv({ base, main: MAIN, stdinBytes: CP1251 });
+    // Сторож: клиент, отправивший неверный ввод, ждал бы конца строки
+    // вечно — тест краснеет сообщением, а не висит.
+    const code = within(runClient([], run.env), 5_000, "отказ клиента");
+    assertEquals(await code, 2);
+    assertEquals(run.stderr, [
+      "mpu: ввод не в UTF-8: байт 0xC3 на смещении 1\n",
+    ]);
+    assertEquals(visits[0].inputs, []);
+  }, { script: REQUESTING_ONCE }));
+
+Deno.test("строка без слов: BOM уходит серверу как есть", () =>
+  withFakeServer(async (base, visits) => {
+    const run = testEnv({
+      base,
+      main: MAIN,
+      stdinBytes: new Uint8Array([0xef, 0xbb, 0xbf, 0x61]),
+    });
+    await runClient(["ask"], run.env);
+    assertEquals(visits[0].inputs, ["\ufeffa"]);
+  }, { script: echoing(1) }));
+
+Deno.test("строка со словами: ввод не в UTF-8 не проверяется, как прежде", () =>
+  withFakeServer(async (base, visits) => {
+    const run = testEnv({ base, main: MAIN, stdinBytes: CP1251 });
+    await runClient(["confirm", "yes"], run.env);
+    assertEquals(run.stderr, []);
+    assertEquals(visits[0].inputs.length, 1);
+  }, { script: echoing(1) }));
+
+Deno.test("строка без слов: Ctrl+C, пока ввод открыт, — 130 и после конца канала", () =>
+  withFakeServer(async (base, visits) => {
+    const closed = Promise.withResolvers<string>();
+    const requested = Promise.withResolvers<void>();
+    const run = testEnv({
+      base,
+      main: MAIN,
+      readStdin: () => {
+        requested.resolve();
+        return closed.promise;
+      },
+    });
+    const code = runClient([], run.env);
+    await within(requested.promise, 5_000, "запрос ввода");
+    run.interrupt();
+    // Канал закрывается вместе со `sleep`: чтение кончается пустым.
+    closed.resolve("");
+    assertEquals(await within(code, 5_000, "итог"), 130);
+    assertEquals(run.stderr, ["mpu: прервано\n"]);
+    assertEquals(run.stdout, []);
     assertEquals(visits[0].inputs, []);
   }, { script: REQUESTING }));

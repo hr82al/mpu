@@ -21,6 +21,7 @@ import {
   refusalOf,
   type Root,
   runProgram,
+  TYPED,
 } from "./mod.ts";
 
 const { close: END, open: DO, blockEnd: DONE } = GRAMMAR;
@@ -177,6 +178,7 @@ async function run(
     print: (text) => out += text,
     signal,
     pace: new Every(20, () => performance.now()),
+    naming: TYPED,
   });
   return { out, end, lines };
 }

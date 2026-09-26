@@ -61,6 +61,7 @@ Deno.test("исполнитель программы: печать — out, ко
     evaluate: {
       words: ["2", "print", sep, "x", GRAMMAR.assign, "version", sep, "x"],
       methods: [],
+      source: null,
     },
   }));
   assertEquals(await next(), { out: "2\n" });
@@ -73,6 +74,40 @@ Deno.test("исполнитель программы: печать — out, ко
   assertEquals((await lines.next()).done, true);
   await host.close();
   await served;
+});
+
+Deno.test("исполнитель программы: отказ называет источник из кадра", async (t) => {
+  const cases: readonly (readonly [string | null, string, unknown])[] = [
+    [
+      null,
+      "выражение 1: текст не закрыт: добавь ^ к последнему слову — mpu ^a b^",
+      ["^a", "b^"],
+    ],
+    [
+      "stdin",
+      "stdin: выражение 1: текст не закрыт: добавь ^ к последнему слову",
+      null,
+    ],
+  ];
+  for (const [source, text, hint] of cases) {
+    await t.step(String(source), async () => {
+      const { host, worker } = memoryWires();
+      const served = serveOne(worker, makeFakeIo({}), () => {});
+      const lines = host.lines()[Symbol.asyncIterator]();
+      await host.send(
+        encode({ evaluate: { words: ["^a", "b"], methods: [], source } }),
+      );
+      const frame = workerFrameOf(String((await lines.next()).value));
+      if (!("result" in frame) || !("exit" in frame.result)) {
+        throw new Error(`не итог программы: ${JSON.stringify(frame)}`);
+      }
+      assertEquals(frame.result.exit, 2);
+      assertEquals(frame.result.refusal?.text, text);
+      assertEquals(frame.result.refusal?.hint, hint);
+      await host.close();
+      await served;
+    });
+  }
 });
 
 Deno.test("исполнитель программы: метод образа из кадра — согласие, затем тело", async () => {
@@ -88,6 +123,7 @@ Deno.test("исполнитель программы: метод образа и
         name: "mine",
         source: [GRAMMAR.open, "version", GRAMMAR.blockEnd],
       }],
+      source: null,
     },
   }));
   assertEquals(await next(), { line: ["kiten", "mine"] });
@@ -108,7 +144,11 @@ Deno.test("исполнитель программы: ядро ушло, пок�
   const lines = host.lines()[Symbol.asyncIterator]();
   await host.send(
     encode({
-      evaluate: { words: ["x", GRAMMAR.assign, "version"], methods: [] },
+      evaluate: {
+        words: ["x", GRAMMAR.assign, "version"],
+        methods: [],
+        source: null,
+      },
     }),
   );
   assertEquals(workerFrameOf(String((await lines.next()).value)), {

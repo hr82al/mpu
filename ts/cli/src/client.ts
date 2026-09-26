@@ -314,6 +314,6 @@ export async function runClient(
     env.stderr(refused);
     return FAILED;
   }
-  const input = clientInput(env.caller);
+  const input = clientInput(env.caller, words);
   return await new LineSocket(door, env, clip, input, words, context).run();
 }

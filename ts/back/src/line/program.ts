@@ -24,6 +24,7 @@ import {
   Every,
   type LineReply,
   type MethodSource,
+  type Naming,
   type ProgramEnd,
   type Root,
   runProgram,
@@ -231,12 +232,13 @@ function holds(words: readonly string[], path: readonly string[]): boolean {
  */
 export interface Evaluator {
   /**
-   * Итог программы `words`; команды она отдаёт `core` отдельными
-   * строками, печать — в stdout `output`; методы образа `methods` —
-   * вызовы, которые она исполняет сама.
+   * Итог программы `words`; её отказ называет источник `naming`; команды
+   * она отдаёт `core` отдельными строками, печать — в stdout `output`;
+   * методы образа `methods` — вызовы, которые она исполняет сама.
    */
   evaluate(
     words: readonly string[],
+    naming: Naming,
     io: CommandIo,
     output: Output,
     core: (words: readonly string[]) => Promise<LineReply>,
@@ -247,12 +249,13 @@ export interface Evaluator {
 
 /** Программа исполняется здесь же, в процессе вызывающего. */
 export const IN_PLACE_PROGRAMS: Evaluator = {
-  evaluate: (words, io, output, core, _journal, methods) =>
+  evaluate: (words, naming, io, output, core, _journal, methods) =>
     runProgram(words, {
       commands: programCommands(methods),
       core,
       print: output.stdout,
       signal: io.signal,
       pace: new Every(DEFAULT_PACE_MS, () => performance.now()),
+      naming,
     }),
 };

@@ -46,6 +46,12 @@ interface Run {
 }
 
 /**
+ * Ввода нет — как у кадра без `stdin`: строка без слов (`ask`) его
+ * читает и получает пустое (`platform/program-input.md`).
+ */
+const NO_INPUT = () => Promise.resolve(new Uint8Array());
+
+/**
  * Одна строка — один процесс: книга правил открывается заново.
  *
  * @param answers ответы человека по очереди; есть — канал с человеком
@@ -63,7 +69,10 @@ async function run(
       void called.push(command.path.join(" ")),
     note: () => {},
   } as unknown as InvokeJournal;
-  const io = makeFakeIo(answers === undefined ? {} : HUMAN);
+  const io = makeFakeIo({
+    readStdin: NO_INPUT,
+    ...(answers === undefined ? {} : HUMAN),
+  });
   const code = await lineEntry(consentOf(file, answers))(argv, io, {
     stdout: (text: string) => void out.push(text),
     stderr: (text: string) => void err.push(text),
@@ -410,6 +419,7 @@ Deno.test("файл испорчен до справки: отказ, а не п
     const out: string[] = [];
     const err: string[] = [];
     const io = makeFakeIo({
+      readStdin: NO_INPUT,
       // Другой процесс портит файл между открытием книги и справкой.
       stdinIsTerminal: () => {
         const raw = new DatabaseSync(file);

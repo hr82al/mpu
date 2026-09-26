@@ -353,10 +353,10 @@ export function callContextOf(
 /** Чем клиент снимает свой контекст (`cli-client.md`, «Сторона клиента»). */
 export interface CallerFacts {
   /**
-   * Весь stdin текстом. Зовётся только по запросу строки и только когда
+   * Весь stdin байтами. Зовётся только по запросу строки и только когда
    * stdin не терминал (`platform/stdin-on-request.md`).
    */
-  stdin(): Promise<string>;
+  stdin(): Promise<Uint8Array>;
   stdinIsTerminal(): boolean;
   stdoutIsTerminal(): boolean;
   stderrIsTerminal(): boolean;
