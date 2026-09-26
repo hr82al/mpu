@@ -2538,6 +2538,32 @@
   },
   {
     "path": [
+      "wb"
+    ],
+    "verdict": "ask",
+    "rule": null,
+    "own": false
+  },
+  {
+    "path": [
+      "wb",
+      "call"
+    ],
+    "verdict": "ask",
+    "rule": "wb call",
+    "own": true
+  },
+  {
+    "path": [
+      "wb",
+      "call-ro"
+    ],
+    "verdict": "allow",
+    "rule": "wb call-ro",
+    "own": true
+  },
+  {
+    "path": [
       "wb-jobs"
     ],
     "verdict": "ask",

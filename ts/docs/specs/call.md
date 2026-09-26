@@ -1,6 +1,6 @@
 # mpu ozon call · mpu wb call (и `call-ro`)
 
-Статус: 173a реализовано (`ec9f3585`, `4fb964dd`); принято 2026-09-26 хостом: тестов 2744, smoke 23/1, мутации 7 красных (перепроверена хостом: реестр не сверяет метод — красный тест реестра), голдены деревьев и `ask-door/help-ask.txt` заморожены; установлено, живьём на тестовом кабинете 2129958 (клиент 54): `dry` → `POST https://api-seller.ozon.ru/v1/seller/info`, `api-key: ***`; вызов → `HTTP 200 POST api-seller.ozon.ru/v1/seller/info`, `ratelimit-remaining: 49`, тело JSON `{"company": {…}}` (данные кабинета в спеку не переносятся); журнал — строка вызова и `note` `HTTP 200, тело 2493 байт, ratelimit-remaining: 49`, без `out` и ключа. 173b реализовано (`ff430f09`, `f0cc8c7a`); принято 2026-09-26 хостом: тестов 2758, мутации 8 красных (перепроверена хостом: секрет Performance без маски — красные B5 и сбой обмена), голдены справок `fixtures/call/help-*.txt` заморожены; живьём на 2129958: `dry` → `GET https://api-performance.ozon.ru/api/client/campaign`, `authorization: Bearer ***`; вызов → `HTTP 200 GET api-performance.ozon.ru/api/client/campaign`, тело `{"list": [...]}` — форма обмена токена (JSON `client_id`, `client_secret`, `grant_type`) подтверждена живьём; журнал — `note` `HTTP 200, тело 25971 байт`. 173c — к реализации. Прежде: к реализации — три порции по получателям (после серии task), решения хоста
+Статус: 173a реализовано (`ec9f3585`, `4fb964dd`); принято 2026-09-26 хостом: тестов 2744, smoke 23/1, мутации 7 красных (перепроверена хостом: реестр не сверяет метод — красный тест реестра), голдены деревьев и `ask-door/help-ask.txt` заморожены; установлено, живьём на тестовом кабинете 2129958 (клиент 54): `dry` → `POST https://api-seller.ozon.ru/v1/seller/info`, `api-key: ***`; вызов → `HTTP 200 POST api-seller.ozon.ru/v1/seller/info`, `ratelimit-remaining: 49`, тело JSON `{"company": {…}}` (данные кабинета в спеку не переносятся); журнал — строка вызова и `note` `HTTP 200, тело 2493 байт, ratelimit-remaining: 49`, без `out` и ключа. 173b реализовано (`ff430f09`, `f0cc8c7a`); принято 2026-09-26 хостом: тестов 2758, мутации 8 красных (перепроверена хостом: секрет Performance без маски — красные B5 и сбой обмена), голдены справок `fixtures/call/help-*.txt` заморожены; живьём на 2129958: `dry` → `GET https://api-performance.ozon.ru/api/client/campaign`, `authorization: Bearer ***`; вызов → `HTTP 200 GET api-performance.ozon.ru/api/client/campaign`, тело `{"list": [...]}` — форма обмена токена (JSON `client_id`, `client_secret`, `grant_type`) подтверждена живьём; журнал — `note` `HTTP 200, тело 25971 байт`. 173c реализовано (`02faa35f`, `3f7097bb`); принято 2026-09-26 хостом: тестов 2782, мутации 8 из 9 красных (M7 — предпочтение `read_only` в объявлениях команд — зелёная: дыра в тестах, доводка 173d; хост перепроверил: хост вне таблицы принят — красные W5), голдены `fixtures/call/help-wb*.txt` заморожены; живьём (клиент 54, кабинет `399dd0a3-…`): `dry` → `GET https://common-api.wildberries.ru/api/v1/seller-info`, `authorization: ***`; вызов → `HTTP 403`, тело `{"detail": "X-Client-Secret is required for service token", …}` — у кабинета сервисные токены (`acc = 4`), а `WB_CLIENT_SECRET` в `~/.config/mpu/.env` не задан; журнал — `note` `HTTP 403, тело 219 байт`. Доводка 173d — ниже. Прежде: к реализации — три порции по получателям (после серии task), решения хоста
 2026-09-25 ниже:
 
 - **173a — `ozon call-ro` / `ozon call`** (Seller) и всё общее: реестр
@@ -332,6 +332,28 @@ https://api-performance.ozon.ru/api/client/token` телом
 
 Текст «у кабинета 56… нет ключей» — идентификатор кабинета Seller клиента
 (`seller_client_id`), литерал уточняет исполнитель по стенду.
+
+## Доводка 173d (приёмка 173c, 2026-09-26)
+
+Снято живьём: сервисный токен (`acc = 4`, `for = 'asid:…'`) без заголовка
+`X-Client-Secret` WB отвергает: `403`, `detail: "X-Client-Secret is required
+for service token"`. Правило:
+
+- `WB_CLIENT_SECRET` не задан — из действующих токенов нужной категории
+  берутся только несервисные (`acc` пуст или не 4); остались одни сервисные —
+  отказ до запроса: `mpu wb call-ro: у кабинета <sid> только сервисные
+  токены — нужен WB_CLIENT_SECRET в ~/.config/mpu/.env\n`, код 2.
+- `WB_CLIENT_SECRET` задан — сервисные токены годятся, заголовок
+  `X-Client-Secret` уходит с запросом (в `dry` — `x-client-secret: ***`).
+- Порядок предпочтения внутри допустимых — прежний (`read_only` у
+  `call-ro`, без него у `call`).
+
+| # | Дано | Строка | stdout | stderr | код |
+|---|---|---|---|---|---|
+| W11 | у кабинета `sid-a` только сервисные токены `statistics`, `WB_CLIENT_SECRET` не задан | W1 | | `mpu wb call-ro: у кабинета sid-a только сервисные токены — нужен WB_CLIENT_SECRET в ~/.config/mpu/.env\n`; запроса нет | 2 |
+| W12 | то же, `WB_CLIENT_SECRET=cs-1` | W1 | ответ заглушки | | 0; запрос несёт `x-client-secret: cs-1` |
+| W13 | у кабинета сервисный и несервисный токены `statistics`, секрета нет | W1 | ответ заглушки | | 0; ушёл несервисный |
+| W14 | объявления команд: `wb call-ro` и `wb call` через строку (стенд строки, не получатель напрямую) | W1 и W2 | как W1/W2 | | 0; `call-ro` — `w-ro`, `call` — `w-rw` (сторожит связку предпочтения с командой — M7) |
 
 ## Сценарии 173c (`wb call-ro` / `wb call`)
 
