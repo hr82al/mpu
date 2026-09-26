@@ -167,7 +167,10 @@ content-type: application/json
   сняты 2026-09-25: `client_id`, `sid`, `token`, `exp`, `is_valid`, категории
   `content`, `analytics`, `prices`, `marketplace`, `statistics`, `adverts`,
   `questions`, `recommendations`, `returns`, `finance`, `supplies`,
-  `documents`, `read_only`, `test_environment`, `acc`, `for`), отбор как у
+  `documents`, `read_only`, `test_environment`, `acc`, `for`; типы сняты
+  2026-09-26: `exp` — `timestamp without time zone`, `acc` — `smallint`,
+  `sid` — `uuid` (сравнение `sid::text = $2`), `client_id` — `bigint`,
+  категории и `is_valid`/`read_only` — `boolean`), отбор как у
   загрузчика: `client_id` и `sid`; `is_valid = true`; `exp` пуст или в
   будущем; `acc` пуст, или не 2, 3, 4, или `acc = 4` при `"for" =
   'asid:932c176a-5085-5c6f-bc33-4e84cdf58d7e'` (идентификатор сервиса
@@ -331,6 +334,15 @@ https://api-performance.ozon.ru/api/client/token` телом
 (`seller_client_id`), литерал уточняет исполнитель по стенду.
 
 ## Сценарии 173c (`wb call-ro` / `wb call`)
+
+Решения хоста по вопросам исполнителя 173c (2026-09-26): запрос берёт все
+строки клиента (`WHERE client_id = $1`) и считает `usable` литералом условия
+отбора — кабинет с одними недействительными токенами называется в отказе «нет
+действующего токена», а не «нет кабинета»; `call` предпочитает токен без
+`read_only`, при его отсутствии — `read_only` (у `call-ro` — наоборот); при
+заданных `WB_CLIENT_SECRET`/`WB_USER_AGENT` `dry` печатает `x-client-secret:
+***` и `user-agent: <как есть>`; строка `HTTP … <хост><путь>` у всех
+получателей — с `?query`, как в W1.
 
 Стенд — как у 173a; у клиента 57 в `public.wb_tokens` три строки кабинета
 `sid 'sid-a'`: (1) `statistics = true`, `read_only = true`, токен `w-ro`;
