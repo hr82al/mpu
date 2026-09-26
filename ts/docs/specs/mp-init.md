@@ -311,10 +311,10 @@ label=com.docker.compose.project.working_dir=$M --format
 | # | Дано | Строка | stderr (фрагмент) | код |
 |---|---|---|---|---|
 | M2-1 | проба → `0` | `mpu ask mp-init` | `курсы валют пусты — заполняю (~10 мин)\n$ docker exec sl-0-cli node cli service:currenciesRatesParser backfill\n$ docker exec sl-1-cli node cli service:currencyRatesSync syncFullHistory\n` | 0 |
-| M2-2 | проба → `8178` | `mpu ask mp-init` | `курсы валют: 8178 строк — пропуск\n`; команд заполнения нет | 0 |
+| M2-2 | проба → `8178` | `mpu ask mp-init` | `курсы валют: 8178 строк — пропуск\n`; команд заполнения нет (в `dry` строка пропуска не печатается — голдены `dry-run*.stdout` прежние) | 0 |
 | M2-3 | проба → `0` | `mpu ask mp-init dry` | те же три строки `$ …`, ничего не выполнено; строка `курсы валют пусты — заполняю` печатается | 0 |
 | M2-4 | backfill → rc 1 | `mpu ask mp-init` | `mpu mp-init: курсы валют — backfill упал (rc=1); web не поднимаю\n` | 1 |
-| M2-5 | backfill 0, в его выводе строки `backfill: 2024-03-05 error ECONNRESET`, `backfill: 2024-03-06 error ECONNRESET` | `mpu ask mp-init` | `warning: курсы валют — пропущены дни 2024-03-05, 2024-03-06: догнать mpu … loadData --date-from D --date-to D\n` (одна строка на все дни; команда `node cli service:currenciesRatesParser loadData --date-from D --date-to D` в `sl-0-cli`) | 0 |
+| M2-5 | backfill 0, в его выводе строки `backfill: 2024-03-05 error ECONNRESET`, `backfill: 2024-03-06 error ECONNRESET` | `mpu ask mp-init` | `warning: курсы валют — пропущены дни 2024-03-05, 2024-03-06: догнать docker exec sl-0-cli node cli service:currenciesRatesParser loadData --date-from D --date-to D\n` (одна строка на все дни) | 0 |
 | M2-6 | проба → rc ≠ 0 (`sl-0-pg` недоступен) | `mpu ask mp-init` | `warning: курсы валют — проба не удалась, шаг пропущен\n` | 0 |
 | M2-7 | инстансов sl-N в кортеже core два (sl-0 main, sl-1) | M2-1 | `syncFullHistory` — в `sl-1-cli` (у каждого инстанса, не у main) | 0 |
 | M2-8 | `MPU_MP_CONFIG_LOCAL=/x/mp-config-local/` | `mpu ask mp-init` | сводка M1 отбирает по `working_dir=/x/mp-config-local` (без `/`) | 0 |
