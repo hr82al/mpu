@@ -11,7 +11,8 @@
 - **173c — `wb call-ro` / `wb call`**: таблица хостов и категорий, отбор
   токена из `public.wb_tokens`, `read_only` у `call-ro`.
 
-Перед постановкой каждой — сценарии её получателя литералами (строка
+Сценарии всех трёх — литералами (173a — A1–A20, 173b — B1–B10, 173c —
+W1–W10); перед постановкой каждой — сценарии её получателя литералами (строка
 вызова, stdout, stderr, код), как требует `checklists/statement-mpu.md` 1;
 таблица «Граничные случаи» ниже — перечень, а не литералы.
 
@@ -299,6 +300,53 @@ content-type: application/json
 («Что говорит справка»), голден снимает исполнитель, замораживает хост. Живой
 ответ Ozon (форма тела A1) снимает хост при приёмке первым вызовом на
 тестовом кабинете 2129958.
+
+## Сценарии 173b (`ozon perf call-ro` / `ozon perf call`)
+
+Стенд — как у 173a; у клиента 54 в `ozon_api_keys` заданы
+`performance_client_id 'p-54-id'`, `performance_client_secret 'p-54-secret'`,
+у клиента 56 — пусто. Заглушка отвечает на обмен токена `POST
+https://api-performance.ozon.ru/api/client/token` телом
+`{"access_token":"b-54-token","expires_in":1800,"token_type":"Bearer"}`, на
+прочее — `200`, тело `{"list":[]}`. Часы — порт.
+
+| # | Дано | Строка | stdout | stderr | код |
+|---|---|---|---|---|---|
+| B1 | токена в памяти нет | `mpu ozon perf call-ro target: 54 path: /api/client/campaign` | `HTTP 200 GET api-performance.ozon.ru/api/client/campaign\n\n{\n  "list": []\n}\n` | | 0; заглушка видела два запроса: обмен (`client_id: p-54-id`, `client_secret: p-54-secret`, `grant_type: client_credentials`) и `GET` с `authorization: Bearer b-54-token` |
+| B2 | после B1, часы +10 мин | B1 | как B1 | | 0; обмена нет — один запрос |
+| B3 | после B1, часы +31 мин (токен истёк) | B1 | как B1 | | 0; обмен заново |
+| B4 | — | `mpu ozon perf call-ro target: 56 path: /api/client/campaign` | | `mpu ozon perf call-ro: у кабинета 56… нет ключей Performance API\n`; запроса нет | 2 |
+| B5 | обмен отвечает `401` телом `{"error":"invalid_client","client_secret":"p-54-secret"}` | B1 | `HTTP 401 POST api-performance.ozon.ru/api/client/token\n\n{\n  "error": "invalid_client",\n  "client_secret": "***"\n}\n` | | 1 |
+| B6 | — | `mpu ozon perf call-ro target: 54 path: /api/client/statistics/json body: {"campaigns":["1"]}` | ответ `POST`, код 0 | | 0 (ручка в реестре чтения — заказ отчёта) |
+| B7 | — | `mpu ozon perf call-ro target: 54 path: /api/client/campaign/1/activate` | | `mpu ozon perf call-ro: ручки GET /api/client/campaign/1/activate нет в списке чтения — запись: mpu ask ozon perf call target: 54 path: /api/client/campaign/1/activate\n` | 2 |
+| B8 | — | `mpu ozon perf call-ro dry target: 54 path: /api/client/campaign` | `GET https://api-performance.ozon.ru/api/client/campaign\nauthorization: Bearer ***\n` | | 0; ни обмена, ни запроса |
+| B9 | — | `mpu ozon messages` | среди строк — `perf\t<однострока группы>\n` | | 0 |
+| B10 | после B1 | `mpu log limit: 1` | запись без секции `out`; `p-54-secret` и `b-54-token` нет ни в одной секции | | 0 |
+
+Текст «у кабинета 56… нет ключей» — идентификатор кабинета Seller клиента
+(`seller_client_id`), литерал уточняет исполнитель по стенду.
+
+## Сценарии 173c (`wb call-ro` / `wb call`)
+
+Стенд — как у 173a; у клиента 57 в `public.wb_tokens` три строки кабинета
+`sid 'sid-a'`: (1) `statistics = true`, `read_only = true`, токен `w-ro`;
+(2) `statistics = true`, `read_only = false`, токен `w-rw`; (3) `content =
+true`, `is_valid = false`, токен `w-bad`. У клиента 58 — два кабинета
+`sid-a`, `sid-b`. Заглушка отвечает `200`, заголовки `x-ratelimit-remaining:
+9`, `x-ratelimit-limit: 10`, тело `[]`.
+
+| # | Дано | Строка | stdout | stderr | код |
+|---|---|---|---|---|---|
+| W1 | — | `mpu wb call-ro target: 57 url: https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=2026-09-01` | `HTTP 200 GET statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=2026-09-01\nx-ratelimit-remaining: 9\nx-ratelimit-limit: 10\n\n[]\n` | | 0; `authorization: w-ro` (у `call-ro` — токен `read_only`) |
+| W2 | — | то же, `mpu ask wb call …` (ответ `y`) | как W1 | вопрос двери | 0; `authorization: w-rw` (у `call` — не `read_only`) |
+| W3 | — | `mpu wb call-ro target: 57 url: https://content-api.wildberries.ru/content/v2/get/cards/list` | | `mpu wb call-ro: ручки GET content-api.wildberries.ru/content/v2/get/cards/list нет в списке чтения — запись: mpu ask wb call target: 57 url: https://content-api.wildberries.ru/content/v2/get/cards/list\n` | 2 |
+| W4 | — | `mpu ask wb call target: 57 url: https://content-api.wildberries.ru/content/v2/get/cards/list body: {}` (`y`) | | вопрос двери, затем `mpu wb call: у кабинета sid-a нет действующего токена категории content\n` (единственный `content` — `is_valid = false`) | 2 |
+| W5 | — | `mpu wb call-ro target: 57 url: https://example.com/x` | | `mpu wb call-ro: хост example.com не из API Wildberries\n`; ключ не читался | 2 |
+| W6 | — | `mpu wb call-ro target: 58 url: https://common-api.wildberries.ru/api/v1/seller-info` | | `mpu wb call-ro: у клиента 58 кабинетов WB 2 — укажи cabinet: sid-a \| sid-b\n` | 2 |
+| W7 | — | `mpu wb call-ro target: 58 cabinet: sid-b url: https://common-api.wildberries.ru/api/v1/seller-info` | ответ `200` | | 0 (у `common-api` годится токен любой категории) |
+| W8 | заглушка: `429`, `x-ratelimit-retry: 3` | W1 | `HTTP 429 GET …\nx-ratelimit-retry: 3\n\n…` | | 1; запрос один |
+| W9 | — | `mpu wb call-ro dry target: 57 url: https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod` | `GET https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod\nauthorization: ***\n` | | 0; запроса нет |
+| W10 | после W1 | `mpu log limit: 1` | запись без `out`; `w-ro` нет ни в одной секции | | 0 |
 
 ## Golden-примеры
 
