@@ -5,12 +5,18 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { type NodeRuling, rpc, type SnapshotNode } from "./api.ts";
+import {
+  type MessageLine,
+  type NodeRuling,
+  rpc,
+  type Snapshot,
+} from "./api.ts";
 import { Confirm } from "./Confirm.tsx";
 import { loadExpanded, saveExpanded } from "./expanded.ts";
+import { MethodPanel } from "./MethodPanel.tsx";
 import { useTransport } from "./transport.tsx";
 import { buildTree, filterTree, originOf, type RuleNode } from "./tree.ts";
-import { useChange } from "./useChange.ts";
+import { told, useLine } from "./useLine.ts";
 
 const VERDICTS = ["allow", "ask", "deny"] as const;
 
@@ -34,7 +40,9 @@ export function NoSession() {
   );
 }
 
-function Unreachable({ base, retry }: { base: string; retry: () => void }) {
+export function Unreachable(
+  { base, retry }: { base: string; retry: () => void },
+) {
   return (
     <main>
       <h1>mpu</h1>
@@ -51,9 +59,12 @@ interface RowProps {
   readonly searching: boolean;
   readonly toggle: (key: string) => void;
   readonly change: (words: string[]) => void;
+  /** Итог строки панели метода — перечитать дерево. */
+  readonly reread: () => void;
 }
 
-function Row({ node, depth, expanded, searching, toggle, change }: RowProps) {
+function Row(props: RowProps) {
+  const { node, depth, expanded, searching, toggle, change, reread } = props;
   const open = depth === 0 || searching || expanded.has(node.key);
   const target = node.path.length === 0 ? "*" : node.key;
   return (
@@ -70,6 +81,7 @@ function Row({ node, depth, expanded, searching, toggle, change }: RowProps) {
           </button>
         )}
         <span className="path">{node.key}</span>
+        {node.image !== undefined && <span className="label">образ</span>}
         <span className="summary">{node.summary}</span>
         <span className={`verdict verdict-${node.verdict}`}>
           {node.verdict}
@@ -83,7 +95,7 @@ function Row({ node, depth, expanded, searching, toggle, change }: RowProps) {
               key={verdict}
               type="button"
               aria-label={`${verdict} для ${node.key}`}
-              onClick={() => change([`${verdict}:`, target])}
+              onClick={() => change([`${verdict}:`, "--", target])}
             >
               {verdict}
             </button>
@@ -92,13 +104,21 @@ function Row({ node, depth, expanded, searching, toggle, change }: RowProps) {
             <button
               type="button"
               aria-label={`сбросить ${node.key}`}
-              onClick={() => change(["forget:", target])}
+              onClick={() => change(["forget:", "--", target])}
             >
               сбросить
             </button>
           )}
         </span>
       </div>
+      {node.image !== undefined && (
+        <MethodPanel
+          key={node.image.definition}
+          path={node.path}
+          image={node.image}
+          changed={reread}
+        />
+      )}
       {open && node.children.length > 0 && (
         <ul>
           {node.children.map((child) => (
@@ -110,11 +130,28 @@ function Row({ node, depth, expanded, searching, toggle, change }: RowProps) {
               searching={searching}
               toggle={toggle}
               change={change}
+              reread={reread}
             />
           ))}
         </ul>
       )}
     </li>
+  );
+}
+
+/** Протокол, который понимает любой объект: один блок, у корня. */
+function Protocol({ lines }: { lines: readonly MessageLine[] }) {
+  return (
+    <section aria-label="понимает любой объект">
+      <h2>Понимает любой объект</h2>
+      <ul className="protocol">
+        {lines.map((line) => (
+          <li key={line.selector}>
+            <code>{line.selector}</code> — {line.purpose}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -127,13 +164,15 @@ export function Rules() {
   });
   const snapshot = useQuery({
     queryKey: ["tree.snapshot"],
-    queryFn: () => rpc<{ nodes: SnapshotNode[] }>(transport, "tree.snapshot"),
+    queryFn: () => rpc<Snapshot>(transport, "tree.snapshot"),
   });
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(() => loadExpanded(storage()));
-  const change = useChange(() =>
-    client.invalidateQueries({ queryKey: ["policy.tree"] })
-  );
+  const reread = () => {
+    client.invalidateQueries({ queryKey: ["policy.tree"] });
+    client.invalidateQueries({ queryKey: ["tree.snapshot"] });
+  };
+  const change = useLine(reread);
   const tree = useMemo(() => {
     if (rulings.data?.kind !== "loaded" || snapshot.data?.kind !== "loaded") {
       return undefined;
@@ -166,6 +205,10 @@ export function Rules() {
     saveExpanded(storage(), next);
   };
   const shown = filterTree(tree, search);
+  const said = told(change.last);
+  const protocol = snapshot.data?.kind === "loaded"
+    ? snapshot.data.value.protocol
+    : [];
   return (
     <main>
       <h1>Правила подтверждения</h1>
@@ -177,7 +220,8 @@ export function Rules() {
           onChange={(event) => setSearch(event.target.value)}
         />
       </label>
-      {change.failure !== "" && <p role="alert">{change.failure}</p>}
+      {said !== "" && <p role="alert">{said}</p>}
+      <Protocol lines={protocol} />
       <ul className="tree">
         {shown !== undefined && (
           <Row
@@ -186,7 +230,8 @@ export function Rules() {
             expanded={expanded}
             searching={search.trim() !== ""}
             toggle={toggle}
-            change={(words) => change.start(words)}
+            change={(words) => change.send(words)}
+            reread={reread}
           />
         )}
       </ul>

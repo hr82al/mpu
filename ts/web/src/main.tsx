@@ -1,6 +1,6 @@
 /**
- * Точка входа приложения: вход по ключу, затем роутер с экраном
- * «Правила». Токенов страница не видит — cookie `HttpOnly`.
+ * Точка входа приложения: вход по ключу, затем роутер с экранами
+ * «Правила» и «Образ». Токенов страница не видит — cookie `HttpOnly`.
  */
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,20 +8,42 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  Link,
+  Outlet,
   RouterProvider,
 } from "@tanstack/react-router";
 import { createRoot } from "react-dom/client";
+import { Image } from "./Image.tsx";
 import { Rules } from "./Rules.tsx";
 import { enter } from "./session.ts";
 import "./style.css";
 
-const root = createRootRoute();
+/** Навигация между экранами — у корня: экраны о ней не знают. */
+function Layout() {
+  return (
+    <>
+      <nav>
+        <Link to="/">Правила</Link> <Link to="/image">Образ</Link>
+      </nav>
+      <Outlet />
+    </>
+  );
+}
+
+const root = createRootRoute({ component: Layout });
 const rules = createRoute({
   getParentRoute: () => root,
   path: "/",
   component: Rules,
 });
-const router = createRouter({ routeTree: root.addChildren([rules]) });
+const image = createRoute({
+  getParentRoute: () => root,
+  path: "/image",
+  component: Image,
+});
+const router = createRouter({
+  routeTree: root.addChildren([rules, image]),
+});
 
 async function main() {
   await enter({

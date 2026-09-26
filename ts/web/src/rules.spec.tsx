@@ -201,7 +201,7 @@ describe("изменение правила", () => {
     );
     expect(back.seen.find((one) => one.path === "/line")).toEqual({
       path: "/line",
-      body: { words: ["deny:", "kiten"], cwd: "/", human: true },
+      body: { words: ["deny:", "--", "kiten"], cwd: "/", human: true },
       accept: "application/json",
     });
     fireEvent.click(within(dialog).getByRole("button", { name: "Да" }));
@@ -248,6 +248,7 @@ describe("изменение правила", () => {
     await screen.findByRole("dialog");
     expect(back.seen.find((one) => one.path === "/line")?.body.words).toEqual([
       "forget:",
+      "--",
       "kiten",
     ]);
   });

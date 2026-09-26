@@ -1,10 +1,10 @@
 /**
  * Дерево экрана «Правила» (`specs/web.md`, «Приложение (10b)»): узлы
- * `policy.tree` с назначениями из `tree.snapshot`. Решения — только с
+ * `policy.tree` с назначениями и методами образа из `tree.snapshot`. Решения — только с
  * сервера: фронт их не вычисляет, «смешанно» лишь сводит пришедшие.
  */
 
-import type { NodeRuling, SnapshotNode } from "./api.ts";
+import type { MethodImage, NodeRuling, SnapshotNode } from "./api.ts";
 
 /** Узел экрана. */
 export interface RuleNode {
@@ -12,6 +12,8 @@ export interface RuleNode {
   /** Путь текстом: `kiten card`; корень — `*`. */
   readonly key: string;
   readonly summary: string;
+  /** Метод образа; у команд и групп — нет. */
+  readonly image?: MethodImage;
   readonly verdict: string;
   readonly rule: string | null;
   readonly own: boolean;
@@ -37,9 +39,7 @@ export function buildTree(
   rulings: readonly NodeRuling[],
   snapshot: readonly SnapshotNode[],
 ): RuleNode | undefined {
-  const summaries = new Map(
-    snapshot.map((node) => [keyOf(node.path), node.summary]),
-  );
+  const described = new Map(snapshot.map((node) => [keyOf(node.path), node]));
   const byParent = new Map<string, NodeRuling[]>();
   for (const ruling of rulings) {
     if (ruling.path.length === 0) continue;
@@ -50,10 +50,12 @@ export function buildTree(
     const key = keyOf(ruling.path);
     const children = (byParent.get(key) ?? []).map(build);
     const below = new Set(children.flatMap(verdicts));
+    const node = described.get(key);
     return {
       path: ruling.path,
       key,
-      summary: summaries.get(key) ?? "",
+      summary: node?.summary ?? "",
+      ...(node?.image === undefined ? {} : { image: node.image }),
       verdict: ruling.verdict,
       rule: ruling.rule,
       own: ruling.own,
