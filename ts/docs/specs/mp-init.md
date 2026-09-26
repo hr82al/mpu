@@ -346,6 +346,15 @@ sw-back → web. Пробы — без печати `$`.
 | M3-9 | в `$L/.env` задан `SW_BACK_INTERNAL_API_URL=http://x:1` | M3-7 | в строке web `SW_BACK_INTERNAL_API_URL=http://x:1` | 0 |
 | M3-10 | каталога `$L` нет | `mpu ask mp-init` | `каталог local-stack не найден: $L; web-стек пропущен\n` (как прежде) | 0 |
 | M3-11 | `up` web → rc 3 | `mpu ask mp-init` | `mpu mp-init: web упал (rc=3)\n` | 3 |
+| M3-12 | нет `sl-front-dev:local` | `mpu ask mp-init dry` | до строки web: `собираю sl-front-dev:local\n$ docker build --load --target dev -t sl-front-dev:local -f $M/Dockerfile.front $P/sl-front\n` (предупреждение M1 до M3 снимается) | 0 |
+| M3-13 | `docker login` → rc 5 | `mpu ask mp-init` | `mpu mp-init: вход в nexus.btlz-api.ru упал (rc=5)\n`; web не поднимается | 5 |
+| M3-14 | `NPM_AUTH` не base64 `логин:пароль` (нет `:`) | `mpu ask mp-init` | как M3-6 | 0 |
+| M3-15 | нет файла для тега (`$P/sw-back/.npmrc`) | `mpu ask mp-init` | `warning: sw-back: тег зависимостей не снят — нет $P/sw-back/.npmrc; sw-back не поднимаю\n`; web без `sw-back` | 0 |
+
+Финальная строка — перечень поднятого: без sw-back — `… + web
+(sw-front/sl-front)`. Голдены `dry-run*.stdout` пересобирает исполнитель в
+testdata; тест сверки с каналом красный до заморозки хостом — ожидаемо
+(решения хоста по вопросам исполнителя M3, 2026-09-26).
 
 Голдены `dry-run.stdout` и `dry-run-no-image.stdout` меняются: строка
 `docker compose … compose.sw-back.yaml up -d --force-recreate pg redis`
