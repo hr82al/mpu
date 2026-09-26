@@ -79,7 +79,12 @@ const DEFAULT_CONFIG_TAIL = "mr/mp/mp-config-local";
  */
 export function configDirOf(io: MpInitIo): string {
   const override = io.env("MPU_MP_CONFIG_LOCAL");
-  if (override !== undefined && override !== "") return override;
+  // Хвостовой `/` снимается: путь сравнивается с меткой compose
+  // `working_dir` побайтно (`/a/b/` в ней не найдётся) и режется до
+  // родителя, где `/a/b/` дал бы соседа самому себе.
+  if (override !== undefined && override !== "") {
+    return override.replace(/(.)\/+$/, "$1");
+  }
   const home = io.env("HOME");
   if (home === undefined || home === "") {
     throw new UsageError("каталог mp-config-local не найден: HOME не задан", {
@@ -96,10 +101,7 @@ export function localStackDirOf(configDir: string): string {
 
 /** Корень `mp` — родитель mp-config-local: контекст сборки образов. */
 function rootDirOf(configDir: string): string {
-  // Хвостовой `/` снимается: `MPU_MP_CONFIG_LOCAL=/a/b/` иначе дал бы
-  // соседа самому себе (`/a/b/local-stack` вместо `/a/local-stack`).
-  const trimmed = configDir.replace(/\/+$/, "");
-  return trimmed.slice(0, trimmed.lastIndexOf("/"));
+  return configDir.slice(0, configDir.lastIndexOf("/"));
 }
 
 /** Существует ли путь; ошибка доступа равнозначна отсутствию. */

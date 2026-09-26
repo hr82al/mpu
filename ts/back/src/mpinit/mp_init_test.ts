@@ -114,9 +114,13 @@ async function mpInit(
   dryRun: boolean,
   lines: string[],
   docker: Docker = new FakeDocker(),
-  more: { exists?: (path: string) => boolean; clock?: Clock } = {},
+  more: {
+    exists?: (path: string) => boolean;
+    clock?: Clock;
+    env?: Record<string, string>;
+  } = {},
 ) {
-  return await runMpInit({ "dry-run": dryRun }, ioWith(lines), {
+  return await runMpInit({ "dry-run": dryRun }, ioWith(lines, more.env), {
     docker,
     clock: more.clock ?? neverClock,
     exists: more.exists ?? existsExceptDtEnv,
@@ -637,6 +641,21 @@ Deno.test("каталог стенда: env старше HOME, отсутств�
     assertEquals(configDirOf(io), "/opt/стенд");
     assertEquals(localStackDirOf("/opt/стенд"), "/opt/local-stack");
   });
+
+  await t.step(
+    "M2-8: хвостовой / снимается — сводка находит проект",
+    async () => {
+      const docker = new FakeDocker();
+      await mpInit(false, [], docker, {
+        env: { MPU_MP_CONFIG_LOCAL: "/x/mp-config-local/" },
+      });
+      const ps = docker.probes.find((argv) => argv[1] === "ps");
+      assertEquals(
+        ps?.[4],
+        "label=com.docker.compose.project.working_dir=/x/mp-config-local",
+      );
+    },
+  );
 
   await t.step("без переменной — путь от HOME", () => {
     assertEquals(configDirOf(ioWith([])), CONFIG);
