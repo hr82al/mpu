@@ -52,7 +52,6 @@
 | T1–T3b | канал `mpu task`, профили/отметки, оркестратор `mpu-task` (установлен, вхолостую) | `task.md`, `task-roles.md`, `task-orchestrator.md` |
 | 173a–d | `mpu ozon call-ro/call`, `ozon perf call`, `wb call` (живьём: Ozon 200, WB — нужен секрет) | `call.md` |
 | M1–M4 | `mpu ask mp-init` с нуля: образы, overrides, миграции, курсы, web, ozon, финал (по коду; живой подъём — вопрос 10) | `mp-init.md` |
-| 171 | web: методы образа на «Правилах», экран «Образ» | `web-image.md` |
 
 Каталог образа `~/mr/mp/mpu/image/` отслеживается в git (владелец).
 
