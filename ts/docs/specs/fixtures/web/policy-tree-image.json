@@ -2182,6 +2182,149 @@
   },
   {
     "path": [
+      "task"
+    ],
+    "verdict": "ask",
+    "rule": null,
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "answer"
+    ],
+    "verdict": "allow",
+    "rule": "task answer",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "decision"
+    ],
+    "verdict": "allow",
+    "rule": "task decision",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "decisions"
+    ],
+    "verdict": "allow",
+    "rule": "task decisions",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "history"
+    ],
+    "verdict": "allow",
+    "rule": "task history",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "owner"
+    ],
+    "verdict": "allow",
+    "rule": "task owner",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "owner-answer"
+    ],
+    "verdict": "ask",
+    "rule": null,
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "post"
+    ],
+    "verdict": "allow",
+    "rule": "task post",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "question"
+    ],
+    "verdict": "allow",
+    "rule": "task question",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "read"
+    ],
+    "verdict": "allow",
+    "rule": "task read",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "report"
+    ],
+    "verdict": "allow",
+    "rule": "task report",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "rule"
+    ],
+    "verdict": "ask",
+    "rule": null,
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "rules"
+    ],
+    "verdict": "allow",
+    "rule": "task rules",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "setup"
+    ],
+    "verdict": "ask",
+    "rule": "task setup",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "status"
+    ],
+    "verdict": "allow",
+    "rule": "task status",
+    "own": true
+  },
+  {
+    "path": [
+      "task",
+      "wait"
+    ],
+    "verdict": "allow",
+    "rule": "task wait",
+    "own": true
+  },
+  {
+    "path": [
       "telegram"
     ],
     "verdict": "ask",

@@ -277,6 +277,11 @@
           "purpose": "Восход, полдень, закат и длина дня для точки и даты."
         },
         {
+          "selector": "task",
+          "kind": "unary",
+          "purpose": "канал работы между ролями проекта: постановки, отчёты, решения"
+        },
+        {
           "selector": "telegram",
           "kind": "unary",
           "purpose": "Telegram от имени личного аккаунта: сообщения, диалоги, вход"
@@ -12904,6 +12909,659 @@
       "formats": [
         "json"
       ],
+      "variants": []
+    },
+    {
+      "path": [
+        "task"
+      ],
+      "summary": "канал работы между ролями проекта: постановки, отчёты, решения",
+      "tail": null,
+      "messages": [
+        {
+          "selector": "answer",
+          "kind": "unary",
+          "purpose": "Кладёт ответ хоста на вопрос исполнителя."
+        },
+        {
+          "selector": "decision",
+          "kind": "unary",
+          "purpose": "Записывает решение хоста и правило, по которому решено."
+        },
+        {
+          "selector": "decisions",
+          "kind": "unary",
+          "purpose": "Правила проекта и решения последних порций одним документом."
+        },
+        {
+          "selector": "history",
+          "kind": "unary",
+          "purpose": "Журнал сообщений от свежего к старому; clear — чистка."
+        },
+        {
+          "selector": "owner",
+          "kind": "unary",
+          "purpose": "Кладёт вопрос владельцу, который правила не решают."
+        },
+        {
+          "selector": "owner-answer",
+          "kind": "unary",
+          "purpose": "Ответ владельца: закрывает последний открытый owner."
+        },
+        {
+          "selector": "post",
+          "kind": "unary",
+          "purpose": "Кладёт постановку: открывает следующую порцию проекта."
+        },
+        {
+          "selector": "question",
+          "kind": "unary",
+          "purpose": "Кладёт вопрос исполнителя по текущей порции."
+        },
+        {
+          "selector": "read",
+          "kind": "unary",
+          "purpose": "Печатает тело последнего сообщения проекта."
+        },
+        {
+          "selector": "report",
+          "kind": "unary",
+          "purpose": "Кладёт отчёт исполнителя о текущей порции."
+        },
+        {
+          "selector": "rule",
+          "kind": "unary",
+          "purpose": "Правило проекта; действует последняя редакция."
+        },
+        {
+          "selector": "rules",
+          "kind": "unary",
+          "purpose": "Печатает правила письма спецификаций с причинами."
+        },
+        {
+          "selector": "setup",
+          "kind": "unary",
+          "purpose": "Заводит проект канала и печатает инструкцию по работе в нём."
+        },
+        {
+          "selector": "status",
+          "kind": "unary",
+          "purpose": "Строка на проект: порция, чей ход, последнее сообщение."
+        },
+        {
+          "selector": "wait",
+          "kind": "unary",
+          "purpose": "Ждёт непрочитанного сообщения вида и печатает его тело."
+        }
+      ],
+      "keys": [],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "answer"
+      ],
+      "summary": "Кладёт ответ хоста на вопрос исполнителя.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "text",
+          "kind": "value",
+          "required": false,
+          "purpose": "тело сообщения; stdin — ввод строки",
+          "reason": null
+        },
+        {
+          "name": "file",
+          "kind": "value",
+          "required": false,
+          "purpose": "файл с телом сообщения",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "decision"
+      ],
+      "summary": "Записывает решение хоста и правило, по которому решено.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "text",
+          "kind": "value",
+          "required": false,
+          "purpose": "тело сообщения; stdin — ввод строки",
+          "reason": null
+        },
+        {
+          "name": "file",
+          "kind": "value",
+          "required": false,
+          "purpose": "файл с телом сообщения",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "decisions"
+      ],
+      "summary": "Правила проекта и решения последних порций одним документом.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "query",
+          "kind": "value",
+          "required": false,
+          "purpose": "слово в сообщениях порций",
+          "reason": null
+        },
+        {
+          "name": "limit",
+          "kind": "value",
+          "required": false,
+          "purpose": "сколько последних порций показать",
+          "reason": null
+        }
+      ],
+      "formats": [
+        "json"
+      ],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "history"
+      ],
+      "summary": "Журнал сообщений от свежего к старому; clear — чистка.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "clear",
+          "kind": "unary",
+          "purpose": "удалить журнал, кроме текущей порции"
+        },
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта; без него — все проекты"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": false,
+          "purpose": "имя проекта; без него — все проекты",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "limit",
+          "kind": "value",
+          "required": false,
+          "purpose": "сколько сообщений показать",
+          "reason": null
+        }
+      ],
+      "formats": [
+        "json"
+      ],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "owner"
+      ],
+      "summary": "Кладёт вопрос владельцу, который правила не решают.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "text",
+          "kind": "value",
+          "required": false,
+          "purpose": "тело сообщения; stdin — ввод строки",
+          "reason": null
+        },
+        {
+          "name": "file",
+          "kind": "value",
+          "required": false,
+          "purpose": "файл с телом сообщения",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "owner-answer"
+      ],
+      "summary": "Ответ владельца: закрывает последний открытый owner.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "text",
+          "kind": "value",
+          "required": false,
+          "purpose": "тело сообщения; stdin — ввод строки",
+          "reason": null
+        },
+        {
+          "name": "file",
+          "kind": "value",
+          "required": false,
+          "purpose": "файл с телом сообщения",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "post"
+      ],
+      "summary": "Кладёт постановку: открывает следующую порцию проекта.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "text",
+          "kind": "value",
+          "required": false,
+          "purpose": "тело сообщения; stdin — ввод строки",
+          "reason": null
+        },
+        {
+          "name": "file",
+          "kind": "value",
+          "required": false,
+          "purpose": "файл с телом сообщения",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": [
+        {
+          "selector": "force",
+          "purpose": "заменить неотработанную постановку; номер порции не растёт",
+          "input": "force"
+        }
+      ]
+    },
+    {
+      "path": [
+        "task",
+        "question"
+      ],
+      "summary": "Кладёт вопрос исполнителя по текущей порции.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "text",
+          "kind": "value",
+          "required": false,
+          "purpose": "тело сообщения; stdin — ввод строки",
+          "reason": null
+        },
+        {
+          "name": "file",
+          "kind": "value",
+          "required": false,
+          "purpose": "файл с телом сообщения",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "read"
+      ],
+      "summary": "Печатает тело последнего сообщения проекта.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "kind",
+          "kind": "value",
+          "required": false,
+          "purpose": "вид сообщения; без него — любой",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": [
+        {
+          "selector": "keep",
+          "purpose": "не помечать прочитанным",
+          "input": "keep"
+        }
+      ]
+    },
+    {
+      "path": [
+        "task",
+        "report"
+      ],
+      "summary": "Кладёт отчёт исполнителя о текущей порции.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "text",
+          "kind": "value",
+          "required": false,
+          "purpose": "тело сообщения; stdin — ввод строки",
+          "reason": null
+        },
+        {
+          "name": "file",
+          "kind": "value",
+          "required": false,
+          "purpose": "файл с телом сообщения",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "rule"
+      ],
+      "summary": "Правило проекта; действует последняя редакция.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "text",
+          "kind": "value",
+          "required": false,
+          "purpose": "тело сообщения; stdin — ввод строки",
+          "reason": null
+        },
+        {
+          "name": "file",
+          "kind": "value",
+          "required": false,
+          "purpose": "файл с телом сообщения",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "rules"
+      ],
+      "summary": "Печатает правила письма спецификаций с причинами.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "undefined:",
+          "kind": "keyword",
+          "purpose": ""
+        }
+      ],
+      "keys": [],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "setup"
+      ],
+      "summary": "Заводит проект канала и печатает инструкцию по работе в нём.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта: завести или обновить"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": false,
+          "purpose": "имя проекта: завести или обновить",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "note",
+          "kind": "value",
+          "required": false,
+          "purpose": "заметка проекта для status",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "status"
+      ],
+      "summary": "Строка на проект: порция, чей ход, последнее сообщение.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта; без него — все проекты"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": false,
+          "purpose": "имя проекта; без него — все проекты",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [
+        "json"
+      ],
+      "variants": []
+    },
+    {
+      "path": [
+        "task",
+        "wait"
+      ],
+      "summary": "Ждёт непрочитанного сообщения вида и печатает его тело.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "project:",
+          "kind": "keyword",
+          "purpose": "имя проекта канала"
+        }
+      ],
+      "keys": [
+        {
+          "name": "project",
+          "kind": "value",
+          "required": true,
+          "purpose": "имя проекта канала",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "kind",
+          "kind": "value",
+          "required": true,
+          "purpose": "вид ожидаемого сообщения",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "timeout",
+          "kind": "value",
+          "required": false,
+          "purpose": "сколько ждать, секунды",
+          "reason": "прежнее имя входа"
+        }
+      ],
+      "formats": [],
       "variants": []
     },
     {
