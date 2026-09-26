@@ -16,6 +16,12 @@ import {
   NO_MIGRATIONS,
   ServerMigrations,
 } from "./migrations.ts";
+import {
+  type CurrencyRates,
+  InstanceRates,
+  MainRates,
+  NO_RATES,
+} from "./rates.ts";
 
 /** Шаг плана: что запустить и в каком каталоге. */
 export interface Step {
@@ -84,6 +90,8 @@ interface StackSpec {
   readonly overrides: readonly string[];
   /** Проверка миграций после `up`: у sl-N — контейнер миграций. */
   readonly migrations: Migrations;
+  /** Роль в заполнении курсов валют: main, инстанс или никакой. */
+  readonly rates: CurrencyRates;
 }
 
 /**
@@ -97,6 +105,7 @@ const STACKS: readonly StackSpec[] = [
     files: ["compose.mp-nats.yaml"],
     overrides: [],
     migrations: NO_MIGRATIONS,
+    rates: NO_RATES,
   },
   {
     name: "sl-0",
@@ -116,6 +125,7 @@ const STACKS: readonly StackSpec[] = [
       "sl-main.observability-off.yaml",
     ],
     migrations: new ServerMigrations("sl-0"),
+    rates: new MainRates(),
   },
   {
     name: "sl-1",
@@ -136,6 +146,7 @@ const STACKS: readonly StackSpec[] = [
       "sl-instance.observability-off.yaml",
     ],
     migrations: new ServerMigrations("sl-1"),
+    rates: new InstanceRates("sl-1"),
   },
   {
     name: "mp-nginx",
@@ -143,6 +154,7 @@ const STACKS: readonly StackSpec[] = [
     files: ["compose.mp-nginx.yaml"],
     overrides: [],
     migrations: NO_MIGRATIONS,
+    rates: NO_RATES,
   },
   {
     name: "dt-host",
@@ -155,6 +167,7 @@ const STACKS: readonly StackSpec[] = [
     files: ["compose.sl-dt-host.yaml"],
     overrides: [],
     migrations: NO_MIGRATIONS,
+    rates: NO_RATES,
   },
 ];
 
@@ -195,6 +208,7 @@ export interface CoreStack {
   /** Существующие override-файлы — абсолютные пути. */
   readonly overrides: readonly string[];
   readonly migrations: Migrations;
+  readonly rates: CurrencyRates;
 }
 
 /** Core-стеки строго по порядку запуска. */
@@ -215,6 +229,7 @@ export function coreStacks(facts: PlanFacts): readonly CoreStack[] {
       servicesArgv: [...head, "config", "--services"],
       overrides,
       migrations: stack.migrations,
+      rates: stack.rates,
     };
   });
 }

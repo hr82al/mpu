@@ -5,6 +5,8 @@
  * кому нужен вывод: пробе (inspect, `config --services`, `wait`, `logs`,
  * счёт миграций) вывод нужен нам — он разбирается; мутации (create,
  * build, up, stop) — оператору, и docker пишет его в терминал сам.
+ * Третий вид — мутация, чей вывод нужен обоим (заполнение курсов валют:
+ * оператор смотрит ход, команда ищет пропущенные дни).
  */
 
 /** Итог пробы: код и собранные потоки. */
@@ -27,6 +29,11 @@ export interface Docker {
   ): Promise<ProcessOutcome>;
   /** Мутация: вывод идёт в терминал как есть, наружу — только код. */
   run(argv: readonly string[], cwd: string): Promise<number>;
+  /**
+   * Мутация, чей вывод и идёт оператору по ходу, и собирается: оба
+   * потока — в stderr процесса (stdout команды пуст), итог — значением.
+   */
+  watch(argv: readonly string[], cwd: string): Promise<ProcessOutcome>;
 }
 
 /** Часы: единственное, что нужно команде от времени, — дождаться срока. */
@@ -80,4 +87,35 @@ export const systemDocker: Docker = {
     }).output();
     return output.code;
   },
+  async watch(argv, cwd) {
+    const [bin, ...rest] = argv;
+    const child = new Deno.Command(bin, {
+      args: rest,
+      cwd,
+      stdin: "null",
+      stdout: "piped",
+      stderr: "piped",
+    }).spawn();
+    const [stdout, stderr] = await Promise.all([
+      echoed(child.stdout),
+      echoed(child.stderr),
+    ]);
+    const status = await child.status;
+    return { code: status.code, stdout, stderr };
+  },
 };
+
+/** Поток процесса — в stderr по мере прихода; наружу — весь текст. */
+async function echoed(stream: ReadableStream<Uint8Array>): Promise<string> {
+  const decoder = new TextDecoder();
+  let text = "";
+  for await (const chunk of stream) {
+    // writeSync пишет не обязательно всё: дописывается остаток.
+    let written = 0;
+    while (written < chunk.length) {
+      written += Deno.stderr.writeSync(chunk.subarray(written));
+    }
+    text += decoder.decode(chunk, { stream: true });
+  }
+  return text + decoder.decode();
+}

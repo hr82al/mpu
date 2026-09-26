@@ -51,6 +51,11 @@ const COMPOSE_SERVICES = [
   "i-wb-unit-calc-worker",
 ];
 
+/** Проба курсов валют: счёт `shared.currency_rates` на sl-0. */
+function isRatesProbe(argv: readonly string[]): boolean {
+  return argv.at(-1)?.includes("shared.currency_rates") ?? false;
+}
+
 /**
  * Ответ поднятого стенда: всё есть, всё запущено, миграции прошли (183),
  * сводке жаловаться не на что.
@@ -60,6 +65,7 @@ function standAnswer(argv: readonly string[]): ProcessOutcome {
   if (argv.includes("{{.State.Running}}")) return out("true\n");
   if (argv.includes("--services")) return out(COMPOSE_SERVICES.join("\n"));
   if (argv[1] === "wait") return out("0\n");
+  if (isRatesProbe(argv)) return out("8178\n");
   if (argv[1] === "exec") return out("183\n");
   return ok;
 }
@@ -68,6 +74,7 @@ function standAnswer(argv: readonly string[]): ProcessOutcome {
 class FakeDocker implements Docker {
   readonly probes: string[][] = [];
   readonly runs: string[][] = [];
+  readonly watches: string[][] = [];
 
   constructor(private readonly answer: Answer = () => undefined) {}
 
@@ -79,6 +86,11 @@ class FakeDocker implements Docker {
   async run(argv: readonly string[]) {
     this.runs.push([...argv]);
     return (await this.answer(argv) ?? standAnswer(argv)).code;
+  }
+
+  async watch(argv: readonly string[]) {
+    this.watches.push([...argv]);
+    return await this.answer(argv) ?? standAnswer(argv);
   }
 }
 
@@ -150,8 +162,11 @@ Deno.test("сухой прогон печатает последовательн
   // Ни одной мутации: в dry-run выполняются только probe'ы.
   assertEquals(docker.runs, []);
   // Контейнеров в dry нет: ни wait миграций, ни счёта, ни сводки.
+  // Проба курсов — исключение спеки (M2-3): она идёт и в dry.
   assertEquals(
-    docker.probes.filter((argv) => ["wait", "exec", "ps"].includes(argv[1])),
+    docker.probes.filter((argv) =>
+      ["wait", "exec", "ps"].includes(argv[1]) && !isRatesProbe(argv)
+    ),
     [],
   );
 });
@@ -728,4 +743,173 @@ Deno.test("падение создания сети: rc наружу, стеки
     "$ docker network create --driver=bridge " +
     "mp-shared-net --subnet=178.20.0.0/16",
   ]);
+});
+
+Deno.test("курсы валют на свежем стенде", async (t) => {
+  const BACKFILL =
+    "$ docker exec sl-0-cli node cli service:currenciesRatesParser backfill";
+  const SYNC =
+    "$ docker exec sl-1-cli node cli service:currencyRatesSync syncFullHistory";
+  const FILLING = "курсы валют пусты — заполняю (~10 мин)";
+  const count = (stdout: string): Answer => (argv) =>
+    isRatesProbe(argv) ? { code: 0, stdout, stderr: "" } : undefined;
+  const isFill = (argv: readonly string[]) =>
+    argv.includes("backfill") || argv.includes("syncFullHistory");
+
+  await t.step("M2-1: пусто — backfill на main, затем sync", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker(count("0\n"));
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0);
+    const at = lines.indexOf(FILLING);
+    assertEquals(lines.slice(at, at + 3), [FILLING, BACKFILL, SYNC]);
+    assertEquals(docker.watches.filter(isFill).length, 2);
+    const summary = docker.probes.findIndex((argv) => argv[1] === "ps");
+    const probe = docker.probes.findIndex(isRatesProbe);
+    assertEquals(summary < probe, true, "проба — после сводки");
+    const web = lines.findIndex((line) => line.includes("compose.sw-back"));
+    assertEquals(at + 2 < web, true, "курсы — до web");
+  });
+
+  await t.step("M2-2: не пусто — строка пропуска, заполнения нет", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0);
+    assertEquals(lines.includes("курсы валют: 8178 строк — пропуск"), true);
+    assertEquals([...docker.runs, ...docker.watches].filter(isFill), []);
+    assertEquals(lines.includes(FILLING), false);
+  });
+
+  await t.step(
+    "M2-3: dry, пусто — три строки, ничего не выполнено",
+    async () => {
+      const lines: string[] = [];
+      const docker = new FakeDocker(count("0\n"));
+      const result = await mpInit(true, lines, docker);
+      assertEquals(result.exitCode, 0);
+      const at = lines.indexOf(FILLING);
+      assertEquals(lines.slice(at, at + 3), [FILLING, BACKFILL, SYNC]);
+      assertEquals(docker.runs, []);
+      assertEquals(docker.watches, []);
+      assertEquals(docker.probes.some(isRatesProbe), true, "проба — и в dry");
+    },
+  );
+
+  await t.step("M2-4: backfill упал — его rc, sync и web стоят", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) => {
+      if (isRatesProbe(argv)) return { code: 0, stdout: "0\n", stderr: "" };
+      if (argv.includes("backfill")) return { code: 1, stdout: "", stderr: "" };
+      return undefined;
+    });
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 1);
+    assertEquals(result.web, false);
+    assertEquals(
+      lines.at(-1),
+      "mpu mp-init: курсы валют — backfill упал (rc=1); web не поднимаю",
+    );
+    assertEquals(lines.includes(SYNC), false);
+    assertEquals(lines.some((line) => line.includes("compose.sw-back")), false);
+  });
+
+  await t.step("M2-5: пропущенные дни — одна строка на все", async () => {
+    const lines: string[] = [];
+    const log = [
+      "backfill: 2024-03-04 ok",
+      "backfill: 2024-03-05 error ECONNRESET",
+      "backfill: 2024-03-06 error ECONNRESET",
+      "",
+    ].join("\n");
+    const docker = new FakeDocker((argv) => {
+      if (isRatesProbe(argv)) return { code: 0, stdout: "0\n", stderr: "" };
+      if (argv.includes("backfill")) {
+        return { code: 0, stdout: "", stderr: log };
+      }
+      return undefined;
+    });
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0);
+    assertEquals(
+      lines.filter((line) => line.startsWith("warning: курсы")),
+      [
+        "warning: курсы валют — пропущены дни 2024-03-05, 2024-03-06: " +
+        "догнать docker exec sl-0-cli node cli " +
+        "service:currenciesRatesParser loadData --date-from D --date-to D",
+      ],
+    );
+  });
+
+  await t.step("backfill без ошибок — предупреждения нет", async () => {
+    const lines: string[] = [];
+    await mpInit(false, lines, new FakeDocker(count("0\n")));
+    assertEquals(
+      lines.some((line) => line.startsWith("warning: курсы")),
+      false,
+    );
+  });
+
+  await t.step(
+    "M2-6: проба не удалась — предупреждение, web идёт",
+    async () => {
+      for (
+        const answer of [{ code: 1, stdout: "", stderr: "" }, {
+          code: 0,
+          stdout: "psql: error\n",
+          stderr: "",
+        }]
+      ) {
+        const lines: string[] = [];
+        const docker = new FakeDocker((argv) =>
+          isRatesProbe(argv) ? answer : undefined
+        );
+        const result = await mpInit(false, lines, docker);
+        assertEquals(result.exitCode, 0);
+        assertEquals(
+          lines.includes(
+            "warning: курсы валют — проба не удалась, шаг пропущен",
+          ),
+          true,
+        );
+        assertEquals(docker.watches.filter(isFill), []);
+        assertEquals(result.web, true);
+      }
+    },
+  );
+
+  await t.step("M2-7: sync — у инстанса sl-1, не у main", async () => {
+    const docker = new FakeDocker(count("0\n"));
+    await mpInit(false, [], docker);
+    assertEquals(
+      docker.watches.filter((argv) => argv.includes("syncFullHistory")).map((
+        argv,
+      ) => argv[2]),
+      ["sl-1-cli"],
+    );
+    assertEquals(
+      docker.watches.filter((argv) => argv.includes("backfill")).map((argv) =>
+        argv[2]
+      ),
+      ["sl-0-cli"],
+    );
+  });
+
+  await t.step("sync упал — его rc, web стоит", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) => {
+      if (isRatesProbe(argv)) return { code: 0, stdout: "0\n", stderr: "" };
+      if (argv.includes("syncFullHistory")) {
+        return { code: 5, stdout: "", stderr: "" };
+      }
+      return undefined;
+    });
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 5);
+    assertEquals(
+      lines.at(-1),
+      "mpu mp-init: курсы валют — syncFullHistory sl-1 упал (rc=5); " +
+        "web не поднимаю",
+    );
+  });
 });

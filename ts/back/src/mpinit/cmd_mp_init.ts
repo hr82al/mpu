@@ -19,12 +19,14 @@ import { reportContainers } from "./containers.ts";
 import {
   type Clock,
   type Docker,
+  type ProcessOutcome,
   systemClock,
   systemDocker,
 } from "./docker.ts";
 import { missingImages, type StandDirs } from "./images.ts";
 import type { MigrationsContext } from "./migrations.ts";
 import { composeServicesOf, servicesOf, strangersOf } from "./overrides.ts";
+import { fillRates, type RatesContext } from "./rates.ts";
 import {
   CONFLICTING,
   type CoreStack,
@@ -233,7 +235,8 @@ async function buildImages(run: Run, dirs: StandDirs): Promise<number> {
 
 /**
  * Core-стеки по порядку, затем — вне `dry`, где контейнеров ещё нет, —
- * сводка контейнеров. Возвращает код отказа либо 0.
+ * сводка контейнеров, и курсы валют: их проба идёт и в `dry`.
+ * Возвращает код отказа либо 0.
  */
 async function upCore(
   run: Run,
@@ -247,8 +250,27 @@ async function upCore(
   if (!run.dryRun) {
     await reportContainers(run.docker, run.io.progress, run.configDir);
   }
-  return 0;
+  return await fillRates(stacks.map((stack) => stack.rates), ratesContext(run));
 }
+
+/** Исполнение шагов курсов: печать, как у всех, и вывод — значением. */
+function ratesContext(run: Run): RatesContext {
+  return {
+    docker: run.docker,
+    progress: run.io.progress,
+    cwd: run.configDir,
+    dryRun: run.dryRun,
+    perform: async (argv) => {
+      const step: Step = { name: "rates", argv, cwd: run.configDir };
+      announce(run, step);
+      if (run.dryRun) return IDLE;
+      return await run.docker.watch(step.argv, step.cwd);
+    },
+  };
+}
+
+/** Итог невыполненного в `dry` шага. */
+const IDLE: ProcessOutcome = { code: 0, stdout: "", stderr: "" };
 
 /**
  * Один core-стек: сверка overrides, `up`, проверка миграций (вне `dry`).
@@ -327,15 +349,20 @@ export function finalLine(web: boolean, dryRun: boolean): string {
  * код упавшего вызова либо 0.
  */
 async function execute(run: Run, step: Step): Promise<number> {
-  const line = stepLine(step);
-  run.io.progress(line);
-  run.done.push(line);
+  announce(run, step);
   if (run.dryRun) return 0;
   const code = await run.docker.run(step.argv, step.cwd);
   // Гашение конфликтующих контейнеров кода не проверяет: контейнер мог
   // остановиться сам между probe'ом и вызовом, и это не отказ.
   if (step.name === "stop-conflicting") return 0;
   return code;
+}
+
+/** Строка шага — оператору и в поле результата. */
+function announce(run: Run, step: Step): void {
+  const line = stepLine(step);
+  run.io.progress(line);
+  run.done.push(line);
 }
 
 /** Сеть создаётся только при отсутствии: вызов идемпотентен. */
@@ -459,8 +486,13 @@ compose-зависимостей между стеками нет, и стенд
 ждёт контейнер миграций (до 10 мин) и отказывает, если он вышел не с 0;
 после core — предупреждения о контейнерах в петле или вышедших с ошибкой.
 
-dry печатает команды, не выполняя ни одной мутации; inspect и сверка
-overrides при этом выполняются, миграции и сводка — нет.
+Затем курсы валют: shared.currency_rates на sl-0 пуста — backfill в
+sl-0-cli (~10 мин), затем syncFullHistory в cli каждого инстанса; не
+пуста — пропуск. Пропущенные backfill'ом дни — одной строкой warning с
+командой догона.
+
+dry печатает команды, не выполняя ни одной мутации; inspect, сверка
+overrides и проба курсов при этом выполняются, миграции и сводка — нет.
 
 Каталог mp-config-local берётся из переменной окружения
 MPU_MP_CONFIG_LOCAL, иначе ~/mr/mp/mp-config-local. Каталог web-стека —
@@ -473,7 +505,7 @@ MPU_MP_CONFIG_LOCAL, иначе ~/mr/mp/mp-config-local. Каталог web-ст
 
 Exit: 0 — успех, в том числе без web-стека; 2 — каталог mp-config-local
 не найден; 1 — override расходится с compose, миграции упали или не
-завершились; иначе код упавшего docker.`,
+завершились; иначе код упавшего docker (в том числе заполнения курсов).`,
   examples: [
     "mpu mp-init dry",
     "mpu mp-init",
