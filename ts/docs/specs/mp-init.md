@@ -373,13 +373,13 @@ M3-7 (тег стенда голдена — литерал в фикстуре)
 | M4-4 | чекаута `$P/ozon` нет | `mpu ask mp-init` | `стенд ozon: чекаута $P/ozon нет — пропуск\n` | 0 |
 | M4-5 | финал: все адреса 200 | `mpu ask mp-init` | строки `проверка: 200 http://sw.localhost` … по одной на адрес (`http://sw.localhost`, `http://sw.localhost/api/metrics`, `http://sl-dev.localhost`, `http://localhost:5200/health`, `http://localhost:3100/ozon/app/`) | 0 |
 | M4-6 | `http://sw.localhost` → 502 | то же | `warning: проверка: 502 http://sw.localhost\n`; код не меняется | 0 |
-| M4-7 | `sl-0` `/api/health` → 503, тело `{"checks":{"database":"ok"},…}` | то же | `проверка: sl-0 — 503 при database: ok (память на старте), не отказ\n` | 0 |
+| M4-7 | `http://localhost:5000/api/health` (порт `API_PORT` sl-0) → 503, тело формы снятой 2026-09-26: `{"status":"unhealthy",…,"checks":{"database":{"status":"ok","message":"Database connected"},"memory":{"status":"warning",…,"usagePercent":"96%"}}}` | то же | `проверка: sl-0 — 503 при database: ok (память на старте), не отказ\n` | 0 |
 | M4-8 | финал в `dry` | `mpu ask mp-init dry` | строк `проверка:` нет | 0 |
 | M4-9 | `up` ozon → rc 4 | `mpu ask mp-init` | `mpu mp-init: стенд ozon упал (rc=4)\n`; финал не выполняется | 4 |
 
-Адрес `/api/health` sl-0 — `http://sl-dev.localhost/api/health` или порт
-sl-0 из `.sl-0.env` — уточняет исполнитель пробой на стенде хоста (вопрос в
-канал), литерал фиксирует хост. Строки сборки/публикации пакета (M4-2) —
+Адрес здоровья sl-0 — `http://localhost:5000/api/health` (снято хостом:
+`sl-dev.localhost/api/health` — 404, `docker port sl-0-api` → `5000`); отказом
+считается только `checks.database.status ≠ "ok"`. Строки сборки/публикации пакета (M4-2) —
 литералы раздела «Шаг 6», исполнитель переносит их дословно.
 
 ## Golden-примеры
