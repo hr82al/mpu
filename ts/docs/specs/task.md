@@ -61,7 +61,8 @@ mpu task decisions project: <имя> [query: <слово>] [limit: <порций
   нет, состояния не читает.
 - `post` открывает порцию с номером на единицу больше максимального в
   проекте. Вариант `force` — заменить неотработанную постановку (последнее
-  сообщение — `task`), номер не растёт.
+  сообщение — `task`), номер не растёт; `force`, когда последнее — не
+  `task`, — отказ, код 1 (заменять нечего; текст — исполнителя, голден).
 - Прочие виды прикрепляются к текущей (максимальной) порции.
 - `read` печатает тело последнего сообщения проекта (или последнего вида
   `kind:`) и помечает прочитанным; вариант `keep` — не помечать.
@@ -77,7 +78,8 @@ mpu task decisions project: <имя> [query: <слово>] [limit: <порций
 - `status`, `history`, `decisions` — записи: `end json` печатает массив
   записей (поля — в «Вывод»).
 
-**Правила.** Путь правила — `task <сообщение>`. Посев: чтение (`rules`,
+**Правила.** Путь правила — `task <сообщение>` (`history clear` — режим
+команды `history`, путь правила `task history clear`). Посев: чтение (`rules`,
 `read`, `wait`, `status`, `history`, `decisions`) — `allow`; `post`,
 `report`, `question`, `answer`, `decision`, `owner` — `allow` (роли пишут
 без человека; запись — в локальный журнал, не наружу; строки таблицы посева
@@ -151,7 +153,7 @@ stdout — данные; stderr — `mpu task <сообщение>: <причи�
 
 | # | Дано | Строка | stdout | stderr | код |
 |---|---|---|---|---|---|
-| T1 | — | `mpu task post project: demo text: x` | | `mpu task post: нет проекта demo — заведи: mpu ask task setup project: demo\n`, `refusal.hint` `["ask","task","setup","project:","demo"]` | 2 |
+| T1 | — | `mpu task post project: demo text: x` | | `mpu task post: нет проекта demo — заведи: mpu ask task setup project: demo\n` (объекта `refusal` у отказа команды пока нет — платформа, отдельная порция) | 2 |
 | T2 | — | `mpu ask task setup project: demo note: ^игрушечный проект^` | инструкция (голден `setup.txt`) | `выполнить mpu task setup project: demo note: ^игрушечный проект^? [y/N] ` | 0 |
 | T3 | после T2 | `mpu task report project: demo text: готово` | | `mpu task report: порций ещё нет — начни с mpu task post project: demo …\n` | 2 |
 | T4 | после T2 | `mpu task post project: demo text: ^сделай x^` | | | 0 |
@@ -172,7 +174,7 @@ stdout — данные; stderr — `mpu task <сообщение>: <причи�
 | T19 | — | `mpu task post project: demo text: x file: a.md` | | `mpu task post: тело — text: или file:, не оба\n` | 2 |
 | T20 | `printf 'a\n\n' \| …` | `mpu task post project: demo text: stdin`, затем `read` | `a\n\n` | | 0 |
 | T21 | пять порций, `task.history` = 3 | `mpu task history project: demo end json` | массив записей только порций 3–5 | | 0 |
-| T22 | — | `mpu task history clear project: demo` без `ask` | | отказ двери: `mpu task history clear: требует подтверждения — вызывай mpu ask task history clear project: demo\n` | 2 |
+| T22 | — | `mpu task history clear project: demo` без `ask` | | отказ двери живой формы (путь с ключами, как у всех команд): `mpu task history clear project: demo: требует подтверждения — вызывай mpu ask task history clear project: demo\n` | 2 |
 | T23 | агент | `mpu task post project: demo text: z` | | | 0 (посев `allow`) |
 | T24 | — | `mpu policy` | среди правил: `task post` — `allow`, `task setup` — `ask`, `task history clear` — `ask`; путей `task rule`, `task owner-answer` нет (запрет вне правил) | | 0 |
 
