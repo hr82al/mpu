@@ -8,14 +8,8 @@ import { z } from "@zod/zod";
 import { type CommandIo, DomainError, UsageError } from "../command/mod.ts";
 import { configValue, TASK_HISTORY } from "../config/mod.ts";
 import { UnknownKind } from "./kind.ts";
-import {
-  type Depth,
-  KEEP_ALL,
-  Keeping,
-  Projects,
-  TaskRefusal,
-  TaskUsage,
-} from "./project.ts";
+import { type Depth, KEEP_ALL, Keeping, Projects } from "./project.ts";
+import { TaskRefusal, TaskUsage } from "./refusal.ts";
 
 /** Ключ `project:` команд, которым нужен один проект. */
 export const PROJECT = z.string({ error: "нужен project: <имя>" }).describe(

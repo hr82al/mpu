@@ -17,6 +17,7 @@ import {
   TASK,
   type Turn,
 } from "./kind.ts";
+import { TaskRefusal, TaskUsage } from "./refusal.ts";
 
 const SCHEMA: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS task_projects (
@@ -36,16 +37,6 @@ const SCHEMA: readonly string[] = [
   `CREATE INDEX IF NOT EXISTS task_messages_project
     ON task_messages (project, portion)`,
 ];
-
-/** Отказ ввода канала: код 2, текст — после префикса команды. */
-export class TaskUsage extends Error {
-  override name = "TaskUsage";
-}
-
-/** Отказ состояния канала: код 1. */
-export class TaskRefusal extends Error {
-  override name = "TaskRefusal";
-}
 
 /** Сколько порций журнал хранит (`task.history`). */
 export interface Depth {
