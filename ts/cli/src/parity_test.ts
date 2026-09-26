@@ -15,6 +15,7 @@ import {
   lineEntry,
   NO_CALLER,
   NO_REFUSAL,
+  programFiles,
   rulesOf,
 } from "../../back/src/line/mod.ts";
 import { withPolicyFile } from "../../back/src/line/testconsent.ts";
@@ -125,6 +126,7 @@ async function viaLine(line: Line, file: string): Promise<Seen> {
   // эталона то же окружение (`back-rpc.md`, «Известные отклонения»).
   const code = await lineEntry({
     file,
+    files: programFiles(() => undefined),
     channel: () => channel,
     execute: immediately,
     invoker: IN_PLACE,

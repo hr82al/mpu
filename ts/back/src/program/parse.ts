@@ -18,6 +18,7 @@ import { RESULT } from "./data.ts";
 import { isKey, NUMBER } from "./lexis.ts";
 import { Misstep, placed, type Span } from "./machine.ts";
 import { Names } from "./names.ts";
+import { NO_PARAMS, type Params } from "./params.ts";
 import {
   AS_PRINTED,
   AS_VALUE,
@@ -171,26 +172,31 @@ class Parser {
   readonly #root: Root;
   #at = 0;
   #to: number;
-  #names = new Names();
+  #names: Names;
   #statement = 0;
   #label = "";
   readonly #bodies: Bodies;
+  readonly #params: Params;
 
   /**
    * @param bodies тела методов, уже разобранные этой программой; у
    *   программы — свои, у тела метода — программы
+   * @param params параметры программы: их видит только `@<имя>`
    */
   constructor(
     words: readonly string[],
     commands: Commands,
     root: Root,
     bodies: Bodies = new Bodies(commands),
+    params: Params = NO_PARAMS,
   ) {
     this.#words = words;
     this.#to = words.length;
     this.#commands = commands;
     this.#root = root;
     this.#bodies = bodies;
+    this.#params = params;
+    this.#names = new Names(undefined, params);
   }
 
   /** Место в тексте отказа: номер верхнего выражения и блок. */
@@ -313,6 +319,13 @@ class Parser {
   /** Слова грамматики не на своём месте. */
   #stray(word: string) {
     const span = this.#span(1);
+    if (word === GRAMMAR.run) {
+      throw misplaced(
+        `${GRAMMAR.run} — только первым словом строки`,
+        span,
+        `${GRAMMAR.run} не первым словом`,
+      );
+    }
     if (word === GRAMMAR.open) {
       throw misplaced(
         `${GRAMMAR.open} — в начале выражения или на месте значения`,
@@ -443,8 +456,11 @@ class Parser {
         "поле — унарным",
       );
     }
-    if (!this.#names.has(name)) {
-      throw unbound.refuse(name, word, this.#names.list(), span);
+    if (!this.#names.has(name) && !this.#params.bound(name)) {
+      throw this.#params.missing(
+        name,
+        () => unbound.refuse(name, word, this.#names.list(), span),
+      );
     }
     return this.#literalAt(new Variable(name));
   }
@@ -713,7 +729,9 @@ class Parser {
     const bare = !word.startsWith(GRAMMAR.variable);
     const name = bare ? word : word.slice(GRAMMAR.variable.length);
     const [head, ...fields] = name.split(".");
-    if (!this.#names.has(head)) return;
+    // Параметр виден только как `@имя`: голое слово — текст как есть.
+    const bound = this.#names.has(head) || (!bare && this.#params.bound(head));
+    if (!bound) return;
     const group = [
       GRAMMAR.open,
       `${GRAMMAR.variable}${head}`,
@@ -947,14 +965,17 @@ function notKnown(
  *
  * @param commands дерево команд реестра
  * @param root что понимает корень строки; у исполнителя — `LENIENT_ROOT`
+ * @param params параметры программы из файла; нет — `NO_PARAMS`
  * @throws Placed — отказ до исполнения с местом
+ * @throws ParamRefusal — параметр ждут, а его нет, или имя связано дважды
  */
 export function parseProgram(
   words: readonly string[],
   commands: Commands,
   root: Root,
+  params: Params = NO_PARAMS,
 ): Program {
-  const parser = new Parser(words, commands, root);
+  const parser = new Parser(words, commands, root, undefined, params);
   try {
     return parser.program();
   } catch (err) {

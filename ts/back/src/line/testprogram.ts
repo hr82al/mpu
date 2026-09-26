@@ -19,7 +19,12 @@ import { GRAMMAR } from "../messages/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { Memory } from "./it.ts";
-import { type ChannelOf, type ImagePorts, lineEntry } from "./mod.ts";
+import {
+  type ChannelOf,
+  type ImagePorts,
+  lineEntry,
+  type ProgramFiles,
+} from "./mod.ts";
 import { consentOf } from "./testconsent.ts";
 
 const CARDS_PATH = "/api/latest/cards";
@@ -214,6 +219,8 @@ export interface StandLine {
    * по кадру, а не по stdin (ввод из пайпа, вопрос — в терминал).
    */
   readonly channel?: ChannelOf;
+  /** Файлы программ `run:` и каталоги настроек; нет — без каталогов. */
+  readonly files?: ProgramFiles;
 }
 
 /**
@@ -250,6 +257,7 @@ export async function runOnStand(
   const exit = await lineEntry({
     ...ports,
     channel: line.channel ?? ports.channel,
+    files: line.files ?? ports.files,
     refusal: (data) => void refusals.push(data),
     image: line.image,
   })(

@@ -19,6 +19,7 @@ import type {
   LineReply,
   MethodSource,
   Naming,
+  Params,
   ProgramEnd,
 } from "../program/mod.ts";
 import { deathOf, type ExitStatus, type Markers } from "./death.ts";
@@ -175,8 +176,9 @@ export class LineWorker {
   /**
    * Исполняет программу (`platform/evaluator.md`): её печать — в
    * `output`, её команды — `core` отдельными строками; методы образа
-   * (`platform/image.md`) и имя источника для отказа (`naming`) уходят
-   * исполнителю вместе со словами.
+   * (`platform/image.md`), имя источника для отказа (`naming`) и
+   * параметры программы из файла (`params`) уходят исполнителю вместе со
+   * словами.
    *
    * @throws смерть исполнителя — `VerbatimError` с её текстом;
    *   остановленный ядром без итога — `WorkerStopped`
@@ -184,6 +186,7 @@ export class LineWorker {
   async evaluate(
     words: readonly string[],
     naming: Naming,
+    params: Params,
     io: CommandIo,
     output: Output,
     core: Core,
@@ -195,7 +198,12 @@ export class LineWorker {
     io.signal.addEventListener("abort", stop, { once: true });
     try {
       await this.#send({
-        evaluate: { words, methods, source: naming.source },
+        evaluate: {
+          words,
+          methods,
+          source: naming.source,
+          params: params.frame(),
+        },
       });
       if (io.signal.aborted) this.stop();
       return endOf(await this.#converse(io, lineSink(output), core));

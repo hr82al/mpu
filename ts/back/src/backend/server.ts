@@ -16,6 +16,7 @@ import {
   LastResults,
   lineEntry,
   policyTree,
+  programFiles,
   registryNodes,
   rulesOf,
   selectionMessages,
@@ -657,6 +658,7 @@ class Back {
     const channel = door.channel(line, caller.human(request.human));
     const memory = this.#results.of(await naming.of(request.caller));
     const entry = lineEntry({
+      files: programFiles(this.#options.io.env),
       rootMethods: door.rootMethods({
         web: this.#options.web,
         origin: this.#origin,

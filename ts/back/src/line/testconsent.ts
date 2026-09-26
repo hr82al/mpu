@@ -12,6 +12,7 @@ import {
   type Memory,
   NO_CALLER,
   NO_REFUSAL,
+  programFiles,
   terminalChannel,
 } from "./mod.ts";
 import { registrySeeds } from "./seeds.ts";
@@ -48,6 +49,7 @@ export function consentOf(
     rootMethods: [],
     memory,
     refusal: NO_REFUSAL,
+    files: programFiles(() => undefined),
   };
 }
 

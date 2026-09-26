@@ -1241,6 +1241,19 @@ function checks(subject: Subject): readonly Check[] {
       );
       await Deno.stat(`${subject.home}/mr/mp/mpu/image/kiten/probe.mpu`);
     }],
+    // Файл программы `run:` читает ядро (`program-input.md`, «держится
+    // на»): без права чтения его каталога строка падает, а тесты этого
+    // не видят — они идут с широкими правами. Ключ вызова — параметр.
+    ["run: файл программы читается правом ядра", async () => {
+      const path = `${subject.home}/probe.mpu`;
+      await Deno.writeTextFile(path, "@col print");
+      const outcome = await run(subject, ["run:", path, "col:", "review"]);
+      assertEquals(
+        [outcome.code, outcome.stdout],
+        [0, "review\n"],
+        `stderr: ${outcome.stderr}`,
+      );
+    }],
     ["sql-ro: выброшенный sw-маршрут отказывает, а не резолвит", async () => {
       // Отказ печатает собранный бинарь: маршрута воркспейсов больше
       // нет, а алиас остаётся распознанным ради причины по делу.

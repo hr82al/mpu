@@ -15,6 +15,7 @@ import { Printed } from "./objects.ts";
 import { Cancelled, Machine, type Pace, Place, Placed } from "./machine.ts";
 import { type Commands, LENIENT_ROOT, parseProgram } from "./parse.ts";
 import type { Reply } from "./protocol.ts";
+import { NO_PARAMS, ParamRefusal, type Params } from "./params.ts";
 import { Scope } from "./scope.ts";
 
 /** Код отменённой строки. */
@@ -61,6 +62,8 @@ export interface ProgramPorts {
   readonly pace: Pace;
   /** Как отказ программы называет её источник. */
   readonly naming: Naming;
+  /** Параметры программы из файла; нет — `NO_PARAMS`. */
+  readonly params?: Params;
 }
 
 /** Подстрока кончилась кодом ≠ 0: её отказ уже сказан ядром. */
@@ -214,10 +217,14 @@ export async function runProgram(
   words: readonly string[],
   ports: ProgramPorts,
 ): Promise<ProgramEnd> {
+  const params = ports.params ?? NO_PARAMS;
   let program;
   try {
-    program = parseProgram(words, ports.commands, LENIENT_ROOT);
+    program = parseProgram(words, ports.commands, LENIENT_ROOT, params);
   } catch (err) {
+    if (err instanceof ParamRefusal) {
+      return { exit: REFUSED, refusal: err.refused.data() };
+    }
     if (!(err instanceof Placed)) throw err;
     return {
       exit: REFUSED,
@@ -236,7 +243,7 @@ export async function runProgram(
       ),
   }, place);
   try {
-    const last = await machine.run(program.run(new Scope(), place));
+    const last = await machine.run(program.run(new Scope(params), place));
     ports.print(last.shown());
     return { exit: 0, refusal: null };
   } catch (err) {

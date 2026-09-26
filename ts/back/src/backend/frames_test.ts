@@ -15,6 +15,7 @@ import {
   IN_PLACE_PROGRAMS,
   lineEntry,
   NO_CALLER,
+  programFiles,
   rulesOf,
 } from "../line/mod.ts";
 import { withPolicyFile } from "../line/testconsent.ts";
@@ -94,6 +95,7 @@ async function directFrames(one: Case, file: string) {
   } as unknown as InvokeJournal;
   const code = await lineEntry({
     file,
+    files: programFiles(() => undefined),
     channel: () => channel,
     execute: immediately,
     invoker: IN_PLACE,

@@ -5,6 +5,9 @@
  * сообщение корню.
  */
 
+import { GRAMMAR } from "../messages/mod.ts";
+import { NO_PARAMS, type Params } from "./params.ts";
+
 /** Где искать имя, которого нет среди своих. */
 interface Outer {
   has(name: string): boolean;
@@ -19,19 +22,32 @@ const NONE: Outer = { has: () => false, collect() {} };
 export class Names implements Outer {
   readonly #own = new Set<string>();
   readonly #outer: Outer;
+  readonly #params: Params;
 
-  constructor(outer: Outer = NONE) {
+  /**
+   * @param params параметры программы: связывание их имени — отказ
+   *   (`platform/program-input.md`, «Параметры»)
+   */
+  constructor(outer: Outer = NONE, params: Params = NO_PARAMS) {
     this.#outer = outer;
+    this.#params = params;
   }
 
   /** Имена тела блока с параметрами `params`. */
   inner(params: readonly string[]): Names {
-    const names = new Names(this);
-    for (const param of params) names.#own.add(param);
+    const names = new Names(this, this.#params);
+    for (const param of params) {
+      this.#params.binds(
+        param,
+        `параметром блока ${GRAMMAR.parameter}${param}`,
+      );
+      names.#own.add(param);
+    }
     return names;
   }
 
   bind(name: string) {
+    this.#params.binds(name, `переменной ${name} ${GRAMMAR.assign}`);
     this.#own.add(name);
   }
 

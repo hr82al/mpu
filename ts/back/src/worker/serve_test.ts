@@ -62,6 +62,7 @@ Deno.test("исполнитель программы: печать — out, ко
       words: ["2", "print", sep, "x", GRAMMAR.assign, "version", sep, "x"],
       methods: [],
       source: null,
+      params: null,
     },
   }));
   assertEquals(await next(), { out: "2\n" });
@@ -72,6 +73,25 @@ Deno.test("исполнитель программы: печать — out, ко
   assertEquals(await next(), { out: "0.1.0\n" });
   assertEquals(await next(), { result: { exit: 0, refusal: null } });
   assertEquals((await lines.next()).done, true);
+  await host.close();
+  await served;
+});
+
+Deno.test("исполнитель программы: параметры файла из кадра видит @имя", async () => {
+  const { host, worker } = memoryWires();
+  const served = serveOne(worker, makeFakeIo({}), () => {});
+  const lines = host.lines()[Symbol.asyncIterator]();
+  const next = async () => workerFrameOf(String((await lines.next()).value));
+  await host.send(encode({
+    evaluate: {
+      words: [`${GRAMMAR.variable}col`, "print"],
+      methods: [],
+      source: "mpu run: x.mpu col: review",
+      params: { col: "review" },
+    },
+  }));
+  assertEquals(await next(), { out: "review\n" });
+  assertEquals(await next(), { result: { exit: 0, refusal: null } });
   await host.close();
   await served;
 });
@@ -95,7 +115,9 @@ Deno.test("исполнитель программы: отказ называе�
       const served = serveOne(worker, makeFakeIo({}), () => {});
       const lines = host.lines()[Symbol.asyncIterator]();
       await host.send(
-        encode({ evaluate: { words: ["^a", "b"], methods: [], source } }),
+        encode({
+          evaluate: { words: ["^a", "b"], methods: [], source, params: null },
+        }),
       );
       const frame = workerFrameOf(String((await lines.next()).value));
       if (!("result" in frame) || !("exit" in frame.result)) {
@@ -124,6 +146,7 @@ Deno.test("исполнитель программы: метод образа и
         source: [GRAMMAR.open, "version", GRAMMAR.blockEnd],
       }],
       source: null,
+      params: null,
     },
   }));
   assertEquals(await next(), { line: ["kiten", "mine"] });
@@ -148,6 +171,7 @@ Deno.test("исполнитель программы: ядро ушло, пок�
         words: ["x", GRAMMAR.assign, "version"],
         methods: [],
         source: null,
+        params: null,
       },
     }),
   );

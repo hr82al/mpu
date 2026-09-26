@@ -32,6 +32,8 @@ export interface Evaluation {
   readonly methods: readonly MethodSource[];
   /** Имя источника для отказа программы; набранная строка — `null`. */
   readonly source: string | null;
+  /** Параметры программы из файла (`run:`); нет — `null`. */
+  readonly params: Readonly<Record<string, string>> | null;
 }
 
 /** Вид вопроса исполнителя; `copy` — просьба в буфер обмена. */
@@ -97,7 +99,7 @@ function stringsOf(value: unknown, name: string): readonly string[] {
 }
 
 function evaluationOf(evaluate: Record<string, unknown>): Evaluation {
-  const { methods, source = null } = evaluate;
+  const { methods, source = null, params = null } = evaluate;
   if (!Array.isArray(methods)) throw new BadWorkerFrame("methods — не список");
   if (source !== null && typeof source !== "string") {
     throw new BadWorkerFrame("source — не строка");
@@ -106,7 +108,20 @@ function evaluationOf(evaluate: Record<string, unknown>): Evaluation {
     words: stringsOf(evaluate.words, "words"),
     methods: methods.map(methodOf),
     source,
+    params: params === null ? null : paramsFrameOf(params),
   };
+}
+
+/** Параметры программы из кадра: запись строк. */
+function paramsFrameOf(value: unknown): Readonly<Record<string, string>> {
+  if (
+    !isRecord(value) ||
+    !Object.values(value).every((one) => typeof one === "string")
+  ) {
+    throw new BadWorkerFrame("params — не запись строк");
+  }
+  // Каждое значение проверено строкой строкой выше.
+  return value as Record<string, string>;
 }
 
 /** Метод образа из кадра `evaluate`. */

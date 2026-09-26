@@ -13,8 +13,11 @@ import {
   type Commands,
   type CommandView,
   Every,
+  fileParams,
   isProgram,
   type LineReply,
+  namingOf,
+  type Params,
   parseProgram,
   Placed,
   type ProgramEnd,
@@ -168,6 +171,8 @@ interface Ran {
 async function run(
   line: string | readonly string[],
   signal: AbortSignal = new AbortController().signal,
+  params?: Params,
+  naming = TYPED,
 ): Promise<Ran> {
   const lines: string[][] = [];
   let out = "";
@@ -178,7 +183,8 @@ async function run(
     print: (text) => out += text,
     signal,
     pace: new Every(20, () => performance.now()),
-    naming: TYPED,
+    naming,
+    params,
   });
   return { out, end, lines };
 }
@@ -790,4 +796,135 @@ Deno.test("ключ-текст: ^ закрыл текст раньше, за н�
     "готово^",
   ]);
   assertEquals(ran.lines, []);
+});
+
+Deno.test("run: не первым словом — отказ разбора, ничего не исполнено", async () => {
+  const ran = await run(`2 print . kiten ls . ${GRAMMAR.run} y.mpu`);
+  assertEquals(ran.end.exit, 2);
+  assertEquals(
+    ran.end.refusal?.text,
+    "выражение 3: run: — только первым словом строки",
+  );
+  assertEquals(ran.end.refusal?.reason, "run: не первым словом");
+  assertEquals([ran.out, ran.lines], ["", []]);
+});
+
+/** Программа файла `x.mpu` с ключами вызова `given`. */
+function runFile(line: string, given: Record<string, string>): Promise<Ran> {
+  const typed = Object.entries(given).map(([key, value]) =>
+    ` ${key}: ${value}`
+  );
+  const source = `mpu ${GRAMMAR.run} x.mpu${typed.join("")}`;
+  const params = fileParams(source, new Map(Object.entries(given)));
+  return run(line, undefined, params, namingOf(source));
+}
+
+Deno.test("параметры файла: @имя — ключ вызова, голое имя — как без параметра", async (t) => {
+  const cases: readonly (readonly [string, Record<string, string>, string])[] =
+    [
+      ["@col print", { col: "review" }, "review\n"],
+      ["@col print", { col: "готово к ревью", extra: "1" }, "готово к ревью\n"],
+      ["col := 1 . @col print", {}, "1\n"],
+      [`kiten ls ${END} size`, { kiten: "5" }, "3\n"],
+      ["@n", { n: "5" }, "5\n"],
+    ];
+  for (const [line, given, out] of cases) {
+    await t.step(`${line} ${JSON.stringify(given)}`, async () => {
+      const ran = await runFile(line, given);
+      assertEquals(ran.end, { exit: 0, refusal: null });
+      assertEquals(ran.out, out);
+    });
+  }
+  await t.step(
+    "голое имя в ключе-тексте — текст, параметр не нужен",
+    async () => {
+      const ran = await runFile("telegram send chat: me text: review", {
+        review: "1",
+      });
+      assertEquals(ran.end.exit, 0);
+      assertEquals(ran.lines, [
+        ["telegram", "send", "chat:", "me", "text:", "review"],
+      ]);
+    },
+  );
+  await t.step("@имя группой в ключе-тексте — значение параметра", async () => {
+    const ran = await runFile(
+      `telegram send chat: me text: ${DO} @msg ${END}`,
+      { msg: "hi" },
+    );
+    assertEquals(ran.end.exit, 0);
+    assertEquals(ran.lines, [[
+      "telegram",
+      "send",
+      "chat:",
+      "me",
+      "text:",
+      "hi",
+    ]]);
+  });
+  await t.step("параметр — текст: число не распознаётся", async () => {
+    const ran = await runFile("@n plus: 1", { n: "5" });
+    assertEquals(ran.end.exit, 1);
+    assertEquals(
+      ran.end.refusal?.text,
+      "mpu run: x.mpu n: 5: выражение 1: текст не понимает plus:",
+    );
+  });
+});
+
+Deno.test("параметры файла: отказы до исполнения называют источник", async (t) => {
+  const cases: readonly (readonly [
+    string,
+    Record<string, string>,
+    string,
+    string,
+  ])[] = [
+    [
+      "@col print",
+      {},
+      "mpu run: x.mpu: программа ждёт параметр col: — mpu run: x.mpu col: …",
+      "ждёт параметр",
+    ],
+    [
+      "col := 1 . @col print",
+      { col: "review" },
+      "mpu run: x.mpu col: review: параметр col: совпадает с переменной " +
+      "col := — переименуй одно из них",
+      "совпадает с переменной",
+    ],
+    [
+      `kiten ls each: ${DO} :col @col id print ${DONE}`,
+      { col: "review" },
+      "mpu run: x.mpu col: review: параметр col: совпадает с параметром " +
+      "блока :col — переименуй одно из них",
+      "совпадает с переменной",
+    ],
+    [
+      "telegram send chat: me text: @msg",
+      { msg: "hi" },
+      "mpu run: x.mpu msg: hi: выражение 1: ключ-текст берёт слово как есть; " +
+      `переменную — группой: text: ${DO} @msg ${END}`,
+      "ключ-текст берёт слово как есть",
+    ],
+  ];
+  for (const [line, given, text, reason] of cases) {
+    await t.step(line, async () => {
+      const ran = await runFile(line, given);
+      assertEquals(ran.end.exit, 2);
+      assertEquals(ran.end.refusal?.text, text);
+      assertEquals(ran.end.refusal?.reason, reason);
+      assertEquals(ran.end.refusal?.hint, null);
+      assertEquals([ran.out, ran.lines], ["", []]);
+    });
+  }
+  await t.step(
+    "без параметров файла @x — прежний отказ «не связана»",
+    async () => {
+      const ran = await run("@col print");
+      assertEquals(
+        ran.end.refusal?.text,
+        "выражение 1: col не связана; связанных нет",
+      );
+    },
+  );
 });

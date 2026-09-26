@@ -19,6 +19,7 @@ export const GRAMMAR = {
   quote: "^",
   variable: "@",
   parameter: ":",
+  run: "run:",
 } as const;
 
 /**

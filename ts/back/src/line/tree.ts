@@ -60,6 +60,7 @@ import {
   TEXT_RESULT,
 } from "./result.ts";
 import { ruleMethods } from "./rules.ts";
+import { runMethod } from "./runfile.ts";
 import { imageEntries, imageKeys } from "./methods.ts";
 import type { ImageMethod, MethodSnapshot } from "../image/mod.ts";
 import { ASK_DOC, ASK_WORD, DOOR, NORMAL, type View } from "./view.ts";
@@ -512,7 +513,11 @@ function rootShape(
   sight: Sight,
   own: readonly Method<Line>[] = [],
 ): Shape<Line> {
-  return groupShape([], ROOT_DOC, PLAIN, sight, [...ruleMethods(), ...own]);
+  return groupShape([], ROOT_DOC, PLAIN, sight, [
+    ...ruleMethods(),
+    runMethod(),
+    ...own,
+  ]);
 }
 
 /** Имена поверхностей: у двери их нет, как и прочих сообщений корня. */
@@ -521,13 +526,14 @@ const SURFACES: ReadonlySet<string> = new Set(
 );
 
 /**
- * Корень двери: только команды и группы реестра — сообщений корня
- * (правила, поверхности, методы двери строки) дверь не понимает.
+ * Корень двери: команды и группы реестра и `run:` — источник программы
+ * (`platform/ask-door.md`); прочих сообщений корня (правила, поверхности,
+ * методы двери строки) дверь не понимает.
  */
 function doorShape(book: RuleBook, parts: RootParts): Shape<Line> {
   const children = childrenOf([]).filter((child) => !SURFACES.has(child.name));
   const sight = new Seen(DOOR, book, parts);
-  return groupShape([], ASK_DOC, PLAIN, sight, [], children);
+  return groupShape([], ASK_DOC, PLAIN, sight, [runMethod()], children);
 }
 
 /**

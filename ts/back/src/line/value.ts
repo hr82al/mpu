@@ -88,10 +88,8 @@ export class StdinOnce implements LineStdin {
 /** Вид отказа: ввод строки — её программа (`platform/program-input.md`). */
 const INPUT_BUSY = "ввод занят программой";
 
-// Слово `run:` войдёт в грамматику с порцией 170b; до неё отказ называет
-// его текстом.
 const BUSY_TEXT =
-  `${INPUT_BUSY} — программу передай файлом: mpu run: <файл.mpu>`;
+  `${INPUT_BUSY} — программу передай файлом: mpu ${GRAMMAR.run} <файл.mpu>`;
 
 /**
  * Ввод строки занят её программой (программа из stdin): любое чтение —

@@ -27,7 +27,14 @@ Deno.test("кадры: строка NDJSON разбирается в тот же
     { answer: null },
     { stdin: "ввод\n" },
     { stop: true },
-    { evaluate: { words: ["x", ":=", "5"], methods: [], source: null } },
+    {
+      evaluate: {
+        words: ["x", ":=", "5"],
+        methods: [],
+        source: null,
+        params: null,
+      },
+    },
     {
       evaluate: {
         words: ["kiten", "mine"],
@@ -37,6 +44,7 @@ Deno.test("кадры: строка NDJSON разбирается в тот же
           source: ["do", "kiten", "ls", "done"],
         }],
         source: "stdin",
+        params: null,
       },
     },
     {
@@ -99,7 +107,7 @@ Deno.test("кадры: результат undefined — значение без 
 
 Deno.test("кадр evaluate без source — набранная строка", () => {
   assertEquals(hostFrameOf('{"evaluate": {"words": ["x"], "methods": []}}'), {
-    evaluate: { words: ["x"], methods: [], source: null },
+    evaluate: { words: ["x"], methods: [], source: null, params: null },
   });
 });
 
@@ -120,6 +128,10 @@ Deno.test("кадры: чужое — отказ разбора своей ст�
     ['{"lined": {"data": 1, "command": 5, "shown": ""}}', hostFrameOf],
     ['{"evaluate": {"words": [1]}}', hostFrameOf],
     ['{"evaluate": {"words": [], "methods": [], "source": 1}}', hostFrameOf],
+    [
+      '{"evaluate": {"words": [], "methods": [], "params": {"col": 1}}}',
+      hostFrameOf,
+    ],
     ['{"line": "kiten ls"}', workerFrameOf],
     ['{"result": {"exit": 1, "refusal": {"reason": 1}}}', workerFrameOf],
   ];

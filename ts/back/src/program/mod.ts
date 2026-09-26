@@ -9,7 +9,13 @@ import { GRAMMAR } from "../messages/mod.ts";
 
 export type { CommandView } from "./data.ts";
 export { isProgram } from "./lexis.ts";
-export { DEFAULT_PACE_MS, Every, type Pace, Placed } from "./machine.ts";
+export {
+  DEFAULT_PACE_MS,
+  Every,
+  Misstep,
+  type Pace,
+  Placed,
+} from "./machine.ts";
 export { callWord, type MethodSource, nameParts } from "./method.ts";
 export {
   type CommandNode,
@@ -19,7 +25,15 @@ export {
   parseProgram,
   type Root,
 } from "./parse.ts";
+export {
+  fileParams,
+  NO_PARAMS,
+  ParamRefusal,
+  type Params,
+  paramsOf,
+} from "./params.ts";
 export type { Reach } from "./protocol.ts";
+export { textAt } from "./scan.ts";
 export {
   type LineReply,
   type Naming,

@@ -12,6 +12,7 @@ import type {
   LineReply,
   MethodSource,
   Naming,
+  Params,
   ProgramEnd,
 } from "../program/mod.ts";
 import { unlaunched } from "./death.ts";
@@ -88,6 +89,7 @@ export class Workers implements Invoker, Evaluator {
   async evaluate(
     words: readonly string[],
     naming: Naming,
+    params: Params,
     io: CommandIo,
     output: Output,
     core: (words: readonly string[]) => Promise<LineReply>,
@@ -98,6 +100,7 @@ export class Workers implements Invoker, Evaluator {
     return await worker.evaluate(
       words,
       naming,
+      params,
       io,
       output,
       core,

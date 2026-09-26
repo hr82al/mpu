@@ -42,6 +42,7 @@
   ozon-save-expenses          Сохранить расходы Ozon UNIT клиента за период.
   process                     Пересчитать витрины клиента (dataProcessor.process).
   run-js                      Выполнить JS-код в контейнере sl-back.
+  run:                        исполнить программу из файла .mpu
   search                      Найти клиента или таблицу по селектору; вход в 10X по email.
   sheet                       Google-таблицы: чтение, запись, алиасы, кэш
   sql                         Выполнить SQL (write-capable) на PG, выбранном по селектору.

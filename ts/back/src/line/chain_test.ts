@@ -130,7 +130,7 @@ Deno.test("messages группы — ровно её дети, когда раз
     }
   }));
 
-Deno.test("messages корня — дети, правила, вход ask, дополнение и it", () =>
+Deno.test("messages корня — дети, правила, вход ask, дополнение, it и run:", () =>
   withPolicyFile(async (file) => {
     allowEverything(file);
     const { code, stdout } = await run(file, [
@@ -151,6 +151,7 @@ Deno.test("messages корня — дети, правила, вход ask, до�
         "deny:",
         "forget:",
         "it",
+        GRAMMAR.run,
       ].sort(),
     );
   }));

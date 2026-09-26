@@ -38,6 +38,7 @@ import { type CliEntry, runJournaled } from "../process/mod.ts";
 import {
   isProgram,
   type LineReply,
+  ParamRefusal,
   parseProgram,
   Placed,
   type Root,
@@ -58,6 +59,8 @@ import { Session } from "./session.ts";
 export { HUMAN_ONLY } from "./session.ts";
 import { LineValues } from "./value.ts";
 import { type Origin, originOf } from "./origin.ts";
+import type { ProgramFiles } from "./runfile.ts";
+export { type ProgramFiles, programFiles } from "./runfile.ts";
 import { toDoor } from "./view.ts";
 import { Ahead, entryOf, redirected } from "./ahead.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
@@ -171,6 +174,11 @@ export interface LinePorts {
   readonly evaluator: Evaluator;
   /** Образ строки (`platform/image.md`); нет — образ пуст, писать некуда. */
   readonly image?: ImagePorts;
+  /**
+   * Файлы программ `run:` и каталоги настроек окружения сервера строк
+   * (`platform/program-input.md`, «Файл программы»).
+   */
+  readonly files: ProgramFiles;
 }
 
 /** Образ строки: файл, кто пишет, часы и снимок дерева. */
@@ -285,9 +293,17 @@ export function lineEntry(ports: LinePorts): CliEntry {
     const walked = walkedWords(argv);
     // Строка через дверь объявляет запись для всей строки: группы
     // значений идут той же дверью (`platform/value-expression.md`).
-    const entry = entryOf(walked);
+    const typedEntry = entryOf(walked);
+    const origin = await originOf(
+      argv,
+      walked,
+      typedEntry.words.length,
+      io,
+      ports.files,
+    );
+    // Дверь объявляет строка или текст её файла (`ask` первым словом).
+    const entry = origin.entry(typedEntry);
     const door = entry.words;
-    const origin = await originOf(argv, walked.slice(door.length), io);
     const said = origin.words;
     // stdin строки — один источник: ключом `stdin` и прежней подстановкой.
     const stdin = origin.stdin(io);
@@ -450,7 +466,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
         }
         return await program();
       });
-    });
+    }, speech);
   };
 }
 
@@ -484,8 +500,12 @@ async function runProgramLine(
   const words = origin.words;
   let program;
   try {
-    program = parseProgram(words, line.commands, root);
+    program = parseProgram(words, line.commands, root, origin.params);
   } catch (err) {
+    if (err instanceof ParamRefusal) {
+      err.refused.tell(line.speech);
+      return 2;
+    }
     if (!(err instanceof Placed)) throw err;
     origin.naming.refused(words, err).tell(line.speech);
     return 2;
@@ -506,6 +526,7 @@ async function runEvaluated(
     const end = await line.ports.evaluator.evaluate(
       origin.words,
       origin.naming,
+      origin.params,
       line.io,
       line.speech,
       line.core,
