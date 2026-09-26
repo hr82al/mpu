@@ -11,7 +11,7 @@
 - **173c — `wb call-ro` / `wb call`**: таблица хостов и категорий, отбор
   токена из `public.wb_tokens`, `read_only` у `call-ro`.
 
-Сценарии всех трёх — литералами (173a — A1–A20, 173b — B1–B10, 173c —
+Сценарии всех трёх — литералами (173a — A1–A20, 173b — B1–B10 без B3, 173c —
 W1–W10); перед постановкой каждой — сценарии её получателя литералами (строка
 вызова, stdout, stderr, код), как требует `checklists/statement-mpu.md` 1;
 таблица «Граничные случаи» ниже — перечень, а не литералы.
@@ -154,7 +154,12 @@ content-type: application/json
   час на кабинет). Это внешний эффект и у `call-ro`.
 - `ozon perf`: обмен `client_credentials` на токен (`POST
   https://api-performance.ozon.ru/api/client/token`) — ещё один вызов;
-  полученный токен держится в памяти сервера до истечения и в БД не пишется.
+  токен живёт одну строку (исполнитель строк не держит состояния между
+  строками, `platform/line-executor.md`): обмен — на каждый вызов; в БД и на
+  диск не пишется (решение хоста 2026-09-26 по вопросу исполнителя 173b —
+  `call` ручной и редкий, лишний обмен дешевле кадров «память ядра» и
+  секрета в трубе кадров; память токена — порт получателя, перенос в ядро
+  позже — замена порта).
 - Чтение ключа: read-only сессия к PG сервера клиента (как `sql-ro`,
   `platform/readonly-default.md`). Источники: Ozon — `schema_<client>.ozon_api_keys`
   (`seller_client_id`, `seller_api_key`, `performance_client_id`,
@@ -235,8 +240,8 @@ content-type: application/json
 - `wb call-ro` берёт токен с `read_only = true`, если такой есть у кабинета в
   нужной категории: тогда запись запрещает сам WB. Иначе — обычный токен
   категории.
-- Один вызов строки — ровно один запрос к маркетплейсу (у `ozon perf` — плюс обмен
-  токена, если токена в памяти нет или он истёк).
+- Один вызов строки — ровно один запрос к маркетплейсу (у `ozon perf` — плюс
+  обмен токена на каждый вызов).
 - Хост запроса — только из таблицы хостов получателя; `url:` с другим хостом
   отказывается до чтения ключа.
 
@@ -308,13 +313,12 @@ content-type: application/json
 у клиента 56 — пусто. Заглушка отвечает на обмен токена `POST
 https://api-performance.ozon.ru/api/client/token` телом
 `{"access_token":"b-54-token","expires_in":1800,"token_type":"Bearer"}`, на
-прочее — `200`, тело `{"list":[]}`. Часы — порт.
+прочее — `200`, тело `{"list":[]}`.
 
 | # | Дано | Строка | stdout | stderr | код |
 |---|---|---|---|---|---|
 | B1 | токена в памяти нет | `mpu ozon perf call-ro target: 54 path: /api/client/campaign` | `HTTP 200 GET api-performance.ozon.ru/api/client/campaign\n\n{\n  "list": []\n}\n` | | 0; заглушка видела два запроса: обмен (`client_id: p-54-id`, `client_secret: p-54-secret`, `grant_type: client_credentials`) и `GET` с `authorization: Bearer b-54-token` |
-| B2 | после B1, часы +10 мин | B1 | как B1 | | 0; обмена нет — один запрос |
-| B3 | после B1, часы +31 мин (токен истёк) | B1 | как B1 | | 0; обмен заново |
+| B2 | после B1 | B1 | как B1 | | 0; обмен снова — токен живёт одну строку (два запроса, как в B1) |
 | B4 | — | `mpu ozon perf call-ro target: 56 path: /api/client/campaign` | | `mpu ozon perf call-ro: у кабинета 56… нет ключей Performance API\n`; запроса нет | 2 |
 | B5 | обмен отвечает `401` телом `{"error":"invalid_client","client_secret":"p-54-secret"}` | B1 | `HTTP 401 POST api-performance.ozon.ru/api/client/token\n\n{\n  "error": "invalid_client",\n  "client_secret": "***"\n}\n` | | 1 |
 | B6 | — | `mpu ozon perf call-ro target: 54 path: /api/client/statistics/json body: {"campaigns":["1"]}` | ответ `POST`, код 0 | | 0 (ручка в реестре чтения — заказ отчёта) |
