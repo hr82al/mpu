@@ -199,6 +199,7 @@ const ALLOWED: readonly string[] = [
   "d2-miro",
   "image sync",
   "init",
+  "mp-clone",
   "ssh",
   "telegram send",
   "update",
@@ -221,6 +222,20 @@ function allowLines(home: string): void {
   if (file === undefined) throw new Error("каталога состояния нет");
   using book = RuleBook.open(file, []);
   for (const path of ALLOWED) book.set(RulePath.parse(path), ALLOW);
+}
+
+/** `git` в каталоге прогона; упал — прогон красный. */
+async function gitIn(dir: string, args: readonly string[]): Promise<void> {
+  const output = await new Deno.Command("git", {
+    args: ["-C", dir, ...args],
+    stdout: "null",
+    stderr: "piped",
+  }).output();
+  if (!output.success) {
+    throw new Error(
+      `git ${args[0]}: ${new TextDecoder().decode(output.stderr)}`,
+    );
+  }
 }
 
 /**
@@ -1251,6 +1266,45 @@ function checks(subject: Subject): readonly Check[] {
         `stderr: ${outcome.stderr}`,
       );
       await Deno.stat(`${subject.home}/mr/mp/mpu/image/kiten/probe.mpu`);
+    }],
+    // Два файла корня рабочей области (`mp-clone.md`, «Корень и права»):
+    // `.gitignore` и сентинел пишет сама команда, и без права записи
+    // строка отвечает `сбой`, код 1. Служебные субрепо заведены `git
+    // init` заранее — все «уже есть», поэтому ни ssh, ни сервера прогон
+    // не касается. Правило `mp-clone` — `allow` (`ALLOWED`).
+    ["mp-clone: два файла корня пишутся правом ядра", async () => {
+      const root = `${subject.home}/mr/mp`;
+      await Deno.mkdir(root, { recursive: true });
+      await Deno.writeTextFile(
+        `${root}/mp.code-workspace`,
+        JSON.stringify({ folders: [{ path: "." }] }),
+      );
+      for (const name of ["mp-config-local", "ai-tools", "opiu-service"]) {
+        await Deno.mkdir(`${root}/${name}`);
+        await gitIn(`${root}/${name}`, ["init", "-q"]);
+        await gitIn(`${root}/${name}`, [
+          "-c",
+          "user.name=smoke",
+          "-c",
+          "user.email=smoke@localhost",
+          "commit",
+          "-q",
+          "--allow-empty",
+          "-m",
+          "smoke",
+        ]);
+      }
+      // Сервер прогона стартует с чистым окружением: `git` ищется по
+      // PATH, как у ssh выше.
+      const outcome = await run(subject, ["mp-clone"], {
+        PATH: "/usr/bin:/bin",
+      });
+      assertEquals(outcome.code, 0, `stderr: ${outcome.stderr}`);
+      assertEquals(await Deno.readTextFile(`${root}/.mp-workspace-root`), "");
+      assertEquals(
+        await Deno.readTextFile(`${root}/.gitignore`),
+        "# Detected subrepos:\n/mp-config-local/\n/ai-tools/\n/opiu-service/\n",
+      );
     }],
     // Файл программы `run:` читает ядро (`program-input.md`, «держится
     // на»): без права чтения его каталога строка падает, а тесты этого

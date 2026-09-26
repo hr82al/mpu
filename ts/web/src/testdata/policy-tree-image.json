@@ -1700,6 +1700,14 @@
   },
   {
     "path": [
+      "mp-clone"
+    ],
+    "verdict": "ask",
+    "rule": "mp-clone",
+    "own": true
+  },
+  {
+    "path": [
       "mp-init"
     ],
     "verdict": "ask",

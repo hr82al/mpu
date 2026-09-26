@@ -122,6 +122,7 @@ import {
   codeTwinsCommand,
 } from "../code/mod.ts";
 import { moveClientBackCommand, moveClientCommand } from "../move/mod.ts";
+import { mpCloneCommand } from "../mpclone/mod.ts";
 import { mpInitCommand } from "../mpinit/mod.ts";
 import {
   mrCommentCommand,
@@ -308,6 +309,8 @@ export const commands: readonly Command[] = [
   // Обе не ходят ни в прод, ни в сеть — только docker и локальные PG.
   mpInitCommand,
   cleanLocalClientsCommand,
+  // Рабочая область до стенда: недостающие субрепо из GitLab.
+  mpCloneCommand,
   // Копирования: единственный санкционированный мост прод → локаль и
   // два его соседа (`copy-client.md`, `copy-shared.md`, `copy-dev.md`).
   copyClientCommand,

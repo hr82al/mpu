@@ -114,6 +114,17 @@ Deno.test("ask-строка без двери — адресный отказ, �
     );
   }));
 
+Deno.test("mp-clone без двери — отказ живой формы (C12)", () =>
+  withPolicyFile(async (file) => {
+    assertEquals(await run(file, ["mp-clone"], ["y"]), {
+      code: 2,
+      stdout: "",
+      stderr:
+        "mpu mp-clone: требует подтверждения — вызывай mpu ask mp-clone\n",
+      called: [],
+    });
+  }));
+
 Deno.test("ask-строка через дверь — прежний вопрос каналу", () =>
   withPolicyFile(async (file) => {
     const line = ["ask", "sql", "target:", "sl-1", "sql:", "select 1"];

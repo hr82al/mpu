@@ -1420,6 +1420,17 @@ const CASES: readonly CommandCase[] = [
     },
   },
   {
+    // Рабочая область: у обхода нет HOME, команда отбивается до
+    // git и до диска.
+    path: "mp-clone",
+    argv: ["--dry-run"],
+    sampleResult: {
+      summary: "mp-clone: 0 склонировано, 5 уже было, 1 нет на сервере",
+      dryRun: true,
+      exitCode: 0,
+    },
+  },
+  {
     path: "clean-local-clients",
     argv: [],
     sampleResult: {

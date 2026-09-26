@@ -177,6 +177,11 @@
           "purpose": "Вернуть клиента обратно и управлять журналом переносов."
         },
         {
+          "selector": "mp-clone",
+          "kind": "unary",
+          "purpose": "Развернуть рабочую область mp из GitLab: недостающие субрепо."
+        },
+        {
           "selector": "mp-init",
           "kind": "unary",
           "purpose": "Поднять локальный стенд целиком: core-стеки и web поверх."
@@ -10057,6 +10062,31 @@
         "json"
       ],
       "variants": []
+    },
+    {
+      "path": [
+        "mp-clone"
+      ],
+      "summary": "Развернуть рабочую область mp из GitLab: недостающие субрепо.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "undefined:",
+          "kind": "keyword",
+          "purpose": ""
+        }
+      ],
+      "keys": [],
+      "formats": [
+        "json"
+      ],
+      "variants": [
+        {
+          "selector": "dry",
+          "purpose": "напечатать план, не клонируя и не записывая",
+          "input": "dry-run"
+        }
+      ]
     },
     {
       "path": [
