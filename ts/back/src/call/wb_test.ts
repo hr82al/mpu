@@ -1,5 +1,5 @@
 /**
- * Сценарии 173c (`docs/specs/call.md`, «Сценарии 173c» W1–W10): ход
+ * Сценарии 173c и 173d (`docs/specs/call.md`, W1–W14): ход
  * вызова `wb call-ro` / `wb call` на стенде — заглушка транспорта пишет
  * запросы и отвечает `200` с квотой WB; БД клиента — подставная
  * read-only сессия с `public.wb_tokens`. Колонки `usable` и `fits` стенд
@@ -12,6 +12,9 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { DomainError, formatCommandError, UsageError } from "../command/mod.ts";
+import type { InvokeJournal, Invoker } from "../entrypoint/mod.ts";
+import { lineEntry } from "../line/mod.ts";
+import { consentOf, withPolicyFile } from "../line/testconsent.ts";
 import type { OpenSession } from "../sql/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { ANY_REQUEST, ReadList } from "./access.ts";
@@ -25,7 +28,13 @@ import {
 } from "./reply.ts";
 import { type CallDeps, runCall } from "./run.ts";
 import { ENV, envFileOf, withCache } from "./teststand.ts";
-import { READ_ONLY_FIRST, tokensQuery, wb, WRITABLE_FIRST } from "./wb.ts";
+import {
+  READ_ONLY_FIRST,
+  tokensQuery,
+  wb,
+  wbMessages,
+  WRITABLE_FIRST,
+} from "./wb.ts";
 
 /** Строка `public.wb_tokens` стенда. */
 interface Row {
@@ -34,6 +43,8 @@ interface Row {
   readonly categories: readonly string[];
   readonly readOnly: boolean;
   readonly valid: boolean;
+  /** Сервисный токен (`acc = 4`). */
+  readonly service: boolean;
 }
 
 /** Токены стенда по клиентам. */
@@ -47,16 +58,27 @@ const TOKENS: Readonly<Record<number, readonly Row[]>> = {
     row("sid-a", "w-58-a", ["statistics"]),
     row("sid-b", "w-58-b", ["content"]),
   ],
+  // W11, W12: у кабинета только сервисные токены statistics.
+  56: [row("sid-a", "w-svc", ["statistics"], { service: true })],
+  // W13: сервисный и несервисный токены statistics.
+  55: [
+    row("sid-a", "w-svc-55", ["statistics"], { service: true }),
+    row("sid-a", "w-plain-55", ["statistics"]),
+  ],
 };
 
 function row(
   sid: string,
   token: string,
   categories: readonly string[],
-  given: { readonly readOnly?: boolean; readonly valid?: boolean } = {},
+  given: {
+    readonly readOnly?: boolean;
+    readonly valid?: boolean;
+    readonly service?: boolean;
+  } = {},
 ): Row {
-  const { readOnly = false, valid = true } = given;
-  return { sid, token, categories, readOnly, valid };
+  const { readOnly = false, valid = true, service = false } = given;
+  return { sid, token, categories, readOnly, valid, service };
 }
 
 const SECRET = "wb-client-secret";
@@ -64,6 +86,7 @@ const SECRET = "wb-client-secret";
 const ALL_SECRETS = [
   ...Object.values(TOKENS).flat().map((one) => one.token),
   SECRET,
+  "cs-1",
 ];
 
 const W1_URL = "https://statistics-api.wildberries.ru/api/v5/supplier/" +
@@ -114,13 +137,14 @@ function sessions(
         const rows = TOKENS[Number(params[0])] ?? [];
         return Promise.resolve({
           kind: "rows" as const,
-          columns: ["sid", "token", "read_only", "usable", "fits"],
+          columns: ["sid", "token", "read_only", "usable", "fits", "service"],
           rows: rows.map((one) => [
             one.sid,
             one.token,
             one.readOnly,
             one.valid,
             fits(one),
+            one.service,
           ]),
         });
       },
@@ -237,7 +261,7 @@ Deno.test("предпочтение с откатом: нет своего ви�
 });
 
 function tokenOf(one: Row) {
-  return { value: one.token, readOnly: one.readOnly };
+  return { value: one.token, readOnly: one.readOnly, service: one.service };
 }
 
 Deno.test("W3: ручки нет в реестре — отказ с хостом, до чтения токена", async () => {
@@ -424,7 +448,112 @@ Deno.test("запрос токенов — литерал отбора спек�
     "SELECT sid::text, token, read_only, (is_valid = true AND (exp IS NULL " +
       "OR exp > now()) AND (acc IS NULL OR acc NOT IN (2, 3, 4) OR (acc = 4 " +
       `AND "for" = 'asid:932c176a-5085-5c6f-bc33-4e84cdf58d7e'))) AS usable, ` +
-      '"statistics" AS fits FROM public.wb_tokens WHERE client_id = $1 ' +
-      "ORDER BY sid::text",
+      '"statistics" AS fits, acc = 4 AS service FROM public.wb_tokens ' +
+      "WHERE client_id = $1 ORDER BY sid::text",
   );
+});
+
+const ONLY_SERVICE =
+  "mpu wb call-ro: у кабинета sid-a только сервисные токены — нужен " +
+  "WB_CLIENT_SECRET в ~/.config/mpu/.env\n";
+
+Deno.test("W11: одни сервисные токены, секрета нет — отказ до запроса", async (t) => {
+  await t.step("вызов", async () => {
+    const { outcome, seen } = await onStand({ selector: "56" });
+    assertEquals(refusalOf(outcome), { code: 2, stderr: ONLY_SERVICE });
+    assertEquals(seen.requests.length, 0);
+  });
+  await t.step("dry", async () => {
+    const { outcome } = await onStand({ selector: "56", dry: true });
+    assertEquals(refusalOf(outcome), { code: 2, stderr: ONLY_SERVICE });
+  });
+});
+
+Deno.test("W12: одни сервисные, секрет задан — запрос несёт x-client-secret", async () => {
+  const env = { WB_CLIENT_SECRET: "cs-1" };
+  const { outcome, seen } = await onStand({ selector: "56" }, { env });
+  assertEquals(callExitCode(resultOf(outcome)), 0);
+  assertEquals(seen.requests.length, 1);
+  const { headers } = seen.requests[0];
+  assertEquals(
+    [headers.get("authorization"), headers.get("x-client-secret")],
+    ["w-svc", "cs-1"],
+  );
+});
+
+Deno.test("W13: сервисный и несервисный, секрета нет — ушёл несервисный", async (t) => {
+  for (const writing of [false, true]) {
+    await t.step(writing ? "call" : "call-ro", async () => {
+      const { outcome, seen } = await onStand({ selector: "55" }, { writing });
+      assertEquals(callExitCode(resultOf(outcome)), 0);
+      assertEquals(seen.requests[0].headers.get("authorization"), "w-plain-55");
+    });
+  }
+});
+
+/**
+ * Строка на стенде: разбор, дверь и правила настоящие; объявления
+ * `wb call-ro` / `wb call` — те же `wbMessages`, что в дереве, над
+ * заглушками стенда.
+ */
+async function lineOnStand(words: readonly string[], answers?: string[]) {
+  const requests: Request[] = [];
+  let stdout = "";
+  let stderr = "";
+  let code = -1;
+  const stand = wbMessages({
+    fetch: (request) => {
+      requests.push(request);
+      return Promise.resolve(defaultReply());
+    },
+    deadline: () => new AbortController().signal,
+    now: () => 0,
+    openSession: sessions([]),
+  });
+  const invoker: Invoker = {
+    invoke: (command, args, io) => {
+      const path = command.path.join(" ");
+      const same = stand.find((one) => one.path.join(" ") === path);
+      return (same ?? command).invoke(args, io);
+    },
+  };
+  const human = answers === undefined
+    ? {}
+    : { stdinIsTerminal: () => true, stderrIsTerminal: () => true };
+  const journal = {
+    nativeCall: () => {},
+    note: () => {},
+  } as unknown as InvokeJournal;
+  await withPolicyFile((file) =>
+    withCache(async (open) => {
+      const io = makeFakeIo({
+        envFile: envFileOf(ENV),
+        openCacheDb: open,
+        readStdin: () => Promise.resolve(new Uint8Array()),
+        ...human,
+      });
+      const ports = { ...consentOf(file, answers), invoker };
+      code = await lineEntry(ports)(words, io, {
+        stdout: (text: string) => void (stdout += text),
+        stderr: (text: string) => void (stderr += text),
+      }, journal);
+    })
+  );
+  return { code, stdout, stderr, requests };
+}
+
+Deno.test("W14: объявления через строку — call-ro берёт w-ro, call — w-rw", async (t) => {
+  const keys = ["target:", "57", "url:", W1_URL];
+  await t.step("W1: wb call-ro", async () => {
+    const ran = await lineOnStand(["wb", "call-ro", ...keys]);
+    assertEquals([ran.code, ran.stdout], [0, W1_STDOUT]);
+    assertEquals(ran.requests.length, 1);
+    assertEquals(ran.requests[0].headers.get("authorization"), "w-ro");
+  });
+  await t.step("W2: ask wb call, ответ y", async () => {
+    const ran = await lineOnStand(["ask", "wb", "call", ...keys], ["y"]);
+    assertEquals([ran.code, ran.stdout], [0, W1_STDOUT]);
+    assertEquals(ran.requests.length, 1);
+    assertEquals(ran.requests[0].headers.get("authorization"), "w-rw");
+  });
 });

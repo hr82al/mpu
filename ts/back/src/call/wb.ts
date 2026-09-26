@@ -118,7 +118,7 @@ const USABLE = "is_valid = true AND (exp IS NULL OR exp > now()) AND " +
 export function tokensQuery(host: string): string {
   const need = needOf(host);
   return "SELECT sid::text, token, read_only, " +
-    `(${USABLE}) AS usable, ${need.fits} AS fits ` +
+    `(${USABLE}) AS usable, ${need.fits} AS fits, acc = 4 AS service ` +
     "FROM public.wb_tokens WHERE client_id = $1 ORDER BY sid::text";
 }
 
@@ -126,6 +126,8 @@ export function tokensQuery(host: string): string {
 interface Token {
   readonly value: string;
   readonly readOnly: boolean;
+  /** Сервисный (`acc = 4`): без `X-Client-Secret` WB отвечает `403`. */
+  readonly service: boolean;
 }
 
 /** Какой из годных токенов кабинета взять. */
@@ -142,6 +144,27 @@ export const READ_ONLY_FIRST: Preference = {
 export const WRITABLE_FIRST: Preference = {
   choose: (tokens) => tokens.find((one) => !one.readOnly) ?? tokens[0],
 };
+
+/**
+ * `WB_CLIENT_SECRET` глазами выбора токена (спека, «Доводка 173d»): какие
+ * из годных токенов допустимы и какой заголовок уходит с запросом.
+ */
+interface ClientSecret {
+  admit(tokens: readonly Token[]): readonly Token[];
+  readonly header: Readonly<Record<string, string>>;
+}
+
+/** Секрета нет: сервисные токены не годятся — WB отверг бы их `403`. */
+const NO_SECRET: ClientSecret = {
+  admit: (tokens) => tokens.filter((one) => !one.service),
+  header: {},
+};
+
+/** Секрет из env-файла; не задан или пуст — `NO_SECRET`. */
+function clientSecret(value: string | undefined): ClientSecret {
+  if (value === undefined || value === "") return NO_SECRET;
+  return { admit: (tokens) => tokens, header: { "x-client-secret": value } };
+}
 
 /**
  * Необязательные заголовки `sl-back`, заданные в env-файле: секретные
@@ -185,14 +208,15 @@ class WbKey implements CabinetKey {
   }
 }
 
-/** Кабинет без годного токена нужной категории: отказ до сети и у `dry`. */
+/** Кабинет без допустимого токена: отказ до сети и у `dry`. */
 class MissingToken implements CabinetKey {
   readonly cabinet: string;
-  readonly #wanted: string;
+  /** Что не так с токенами — текст отказа после «у кабинета <sid>». */
+  readonly #complaint: string;
 
-  constructor(cabinet: string, wanted: string) {
+  constructor(cabinet: string, complaint: string) {
     this.cabinet = cabinet;
-    this.#wanted = wanted;
+    this.#complaint = complaint;
   }
 
   shown(): Record<string, string> {
@@ -209,7 +233,7 @@ class MissingToken implements CabinetKey {
 
   #refusal(): UsageError {
     return new UsageError(
-      `у кабинета ${this.cabinet} нет действующего токена${this.#wanted}`,
+      `у кабинета ${this.cabinet} ${this.#complaint}`,
     );
   }
 }
@@ -219,13 +243,27 @@ function tokensBySid(
   rows: readonly (readonly unknown[])[],
 ): Map<string, Token[]> {
   const bySid = new Map<string, Token[]>();
-  for (const [sid, token, readOnly, usable, fits] of rows) {
+  for (const [sid, token, readOnly, usable, fits, service] of rows) {
     const tokens = bySid.get(String(sid)) ?? [];
     bySid.set(String(sid), tokens);
     if (usable !== true || fits !== true) continue;
-    tokens.push({ value: String(token), readOnly: readOnly === true });
+    tokens.push({
+      value: String(token),
+      readOnly: readOnly === true,
+      service: service === true,
+    });
   }
   return bySid;
+}
+
+/**
+ * Почему у кабинета нет допустимого токена: годных нет вовсе — или годные
+ * есть, но секрет их не допустил (одни сервисные).
+ */
+function complaintOf(usable: readonly Token[], need: Need): string {
+  if (usable.length === 0) return `нет действующего токена${need.wanted}`;
+  return "только сервисные токены — нужен WB_CLIENT_SECRET в " +
+    "~/.config/mpu/.env";
 }
 
 /** Заголовок из env-файла: не задан или пуст — заголовка нет. */
@@ -263,14 +301,15 @@ export function wb(preference: Preference): Marketplace {
       ]);
       if (outcome.kind !== "rows") return [];
       const { env } = wanted;
+      const secret = clientSecret(env.get("WB_CLIENT_SECRET"));
       const extras: Extras = {
-        secret: headerOf("x-client-secret", env.get("WB_CLIENT_SECRET")),
+        secret: secret.header,
         open: headerOf("user-agent", env.get("WB_USER_AGENT")),
       };
       return [...tokensBySid(outcome.rows)].map(([sid, tokens]): CabinetKey => {
-        const token = preference.choose(tokens);
+        const token = preference.choose(secret.admit(tokens));
         if (token === undefined) {
-          return new MissingToken(sid, need.wanted);
+          return new MissingToken(sid, complaintOf(tokens, need));
         }
         return new WbKey(sid, token.value, extras);
       });
