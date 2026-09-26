@@ -322,6 +322,37 @@ label=com.docker.compose.project.working_dir=$M --format
 Sync — только у инстансов (`sl-1-cli`): sl-0 (main) заполняет таблицу
 backfill-ом сам, `syncFromMain`/`syncFullHistory` тянут с main.
 
+## Сценарии M3 (web поверх core)
+
+Заменяют шаг 5 «Побочных эффектов» (инфра SW из mp-config-local и web без
+`--no-deps`). Каталоги — как в M1 (`L=/home/operator/mr/mp/local-stack`,
+`P=/home/operator/mr/mp`). Env-файлы local-stack — `$L/env/*.env` в порядке
+имён (функция `env_file_args` скрипта `local-stack/stack`; снято 2026-09-26:
+`shared.env`, `sl-0.env`, `sl-1.env`, `sl-base.env`, `sw-back.env`). Порядок
+шага: стоп конфликтующих (как прежде) → инфра SW → Nexus → тег зависимостей
+sw-back → web. Пробы — без печати `$`.
+
+| # | Дано | Строка | stderr (фрагмент) | код |
+|---|---|---|---|---|
+| M3-1 | `mp-sw-pg`, `redis-dev` в сети `local-stack-sw-db-net` (проба `docker inspect -f '{{json .NetworkSettings.Networks}}' <имя>`) | `mpu ask mp-init dry` | строк инфры нет | 0 |
+| M3-2 | `mp-sw-pg` есть, но в сети `mp-config-local_ws_default` | `mpu ask mp-init dry` | `$ docker rm -f mp-sw-pg redis-dev\n$ docker compose --env-file $L/env/shared.env --env-file $L/env/sl-0.env --env-file $L/env/sl-1.env --env-file $L/env/sl-base.env --env-file $L/env/sw-back.env -f $L/infra/compose.sw-infra.yaml up -d\n` | 0 |
+| M3-3 | контейнеров `mp-sw-pg`, `redis-dev` нет | то же | только строка `docker compose … compose.sw-infra.yaml up -d` (без `rm`) | 0 |
+| M3-4 | в `~/.docker/config.json` есть `auths["nexus.btlz-api.ru"]` | `mpu ask mp-init` | строк входа нет | 0 |
+| M3-5 | входа нет, в `$L/.env` есть `NPM_AUTH=<base64 логин:пароль>` | `mpu ask mp-init dry` | `$ docker login nexus.btlz-api.ru -u <логин> --password-stdin\n` (пароль — только в stdin, в выводе и журнале его нет) | 0 |
+| M3-6 | ни входа, ни `NPM_AUTH` | `mpu ask mp-init` | `warning: нет входа в nexus.btlz-api.ru и NPM_AUTH в $L/.env — см. $L/README.md, «Nexus»; sw-back не поднимаю\n`; web без `sw-back` | 0 |
+| M3-7 | тег = `sha256(Dockerfile.deps + package.json + package-lock.json + .npmrc)[:16]` чекаута sw-back (снято: `faf893c60e04a853`), `docker manifest inspect nexus.btlz-api.ru/base-images/sw-back-deps:<тег>` → 0 | `mpu ask mp-init dry` | `$ SW_BACK_SRC=$P/sw-back SW_FRONT_SRC=$P/sw-front SL_FRONT_SRC=$P/sl-front SW_BACK_DEPS_TAG=<тег> SW_BACK_INTERNAL_API_URL=http://internal-api:5100 docker compose -f $L/docker-compose.yml up -d --no-deps --force-recreate sw-back sw-front sl-front\n` | 0 |
+| M3-8 | `manifest inspect` → ≠ 0 | `mpu ask mp-init` | `warning: sw-back: нет образа зависимостей под этот lock (<тег>)\n`; строка web — с `sw-front sl-front` без `sw-back` | 0 |
+| M3-9 | в `$L/.env` задан `SW_BACK_INTERNAL_API_URL=http://x:1` | M3-7 | в строке web `SW_BACK_INTERNAL_API_URL=http://x:1` | 0 |
+| M3-10 | каталога `$L` нет | `mpu ask mp-init` | `каталог local-stack не найден: $L; web-стек пропущен\n` (как прежде) | 0 |
+| M3-11 | `up` web → rc 3 | `mpu ask mp-init` | `mpu mp-init: web упал (rc=3)\n` | 3 |
+
+Голдены `dry-run.stdout` и `dry-run-no-image.stdout` меняются: строка
+`docker compose … compose.sw-back.yaml up -d --force-recreate pg redis`
+уходит (инфра на стенде голдена уже в сети — M3-1), строка web — формы
+M3-7 (тег стенда голдена — литерал в фикстуре). Пересобирает исполнитель,
+замораживает хост. `NPM_AUTH` и пароль — секреты: не печатаются ни в
+`dry`, ни в журнале, ни в отказах.
+
 ## Golden-примеры
 
 `fixtures/mp-init/dry-run.stdout` — `mpu mp-init --dry-run`, снято 2026-08-27 с
