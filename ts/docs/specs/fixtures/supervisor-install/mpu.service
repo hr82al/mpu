@@ -6,7 +6,7 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/mpu-supervisor --back %h/.local/bin/mpu-back --mcp %h/.local/bin/mpu-mcp
+ExecStart=%h/.local/bin/mpu-supervisor --back %h/.local/bin/mpu-back --mcp %h/.local/bin/mpu-mcp --task %h/.local/bin/mpu-task
 Restart=on-failure
 RestartSec=2
 MemoryMax=80%

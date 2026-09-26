@@ -35,7 +35,7 @@ task` дописывает аргументы в конец, а у `deno compile
 ## Супервизор
 
 ```
-mpu-supervisor --back <путь> --mcp <путь>
+mpu-supervisor --back <путь> --mcp <путь> --task <путь>
 ```
 
 | Событие | Поведение |
@@ -70,7 +70,7 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/mpu-supervisor --back %h/.local/bin/mpu-back --mcp %h/.local/bin/mpu-mcp
+ExecStart=%h/.local/bin/mpu-supervisor --back %h/.local/bin/mpu-back --mcp %h/.local/bin/mpu-mcp --task %h/.local/bin/mpu-task
 Restart=on-failure
 RestartSec=2
 
@@ -130,6 +130,8 @@ WantedBy=default.target
 отдаётся соседям через контракт кадров). Задаче `test` для запуска
 `install.sh` добавляется `--allow-run` на `/bin/bash` (решение хоста, порция
 145).
+Третий ребёнок — `mpu-task` (флаг `--task`, обязательный; порция T3,
+`task-orchestrator.md`), аргументов у него нет.
 Суточный таймер образа (`mpu-image-export.service` и `.timer`) ставится тем же
 шагом, что служба, — контракт и сценарии в `image-export.md`, «Суточный
 таймер» (порция 169b).
