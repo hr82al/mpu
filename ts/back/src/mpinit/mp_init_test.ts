@@ -13,21 +13,93 @@
  */
 
 import { assertEquals, assertRejects } from "@std/assert";
-import { DomainError, UsageError } from "../command/mod.ts";
+import { UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
-import {
-  configDirOf,
-  localStackDirOf,
-  type ProcessOutcome,
-  type RunDocker,
-  runMpInit,
-} from "./cmd_mp_init.ts";
+import { configDirOf, localStackDirOf, runMpInit } from "./cmd_mp_init.ts";
+import type { Clock, Docker, ProcessOutcome } from "./docker.ts";
 import { CONFLICTING, fullPlan, stepLine } from "./plan.ts";
 
 const HOME = "/home/operator";
 const CONFIG = `${HOME}/mr/mp/mp-config-local`;
 const LOCAL_STACK = `${HOME}/mr/mp/local-stack`;
-const ok: ProcessOutcome = { code: 0, stdout: "" };
+const ok: ProcessOutcome = { code: 0, stdout: "", stderr: "" };
+
+/** Ответ подменного docker'а; `undefined` — ответ стенда по умолчанию. */
+type Answer = (
+  argv: readonly string[],
+  signal?: AbortSignal,
+) => ProcessOutcome | Promise<ProcessOutcome> | undefined;
+
+/** Все сервисы override-фикстур: compose стенда их знает. */
+const COMPOSE_SERVICES = [
+  "cli",
+  "migrations",
+  "backups",
+  "internal-api",
+  "api",
+  "ss-jobs",
+  "currencies-rates-parser",
+  "i-clients-migrations",
+  "i-internal-api",
+  "currency-rates-sync",
+  "support-jobs",
+  "data-processor",
+  "ss-loader",
+  "ss-updater",
+  "wb-loader",
+  "ozon-loader",
+  "i-wb-unit-calc-worker",
+];
+
+/**
+ * Ответ поднятого стенда: всё есть, всё запущено, миграции прошли (183),
+ * сводке жаловаться не на что.
+ */
+function standAnswer(argv: readonly string[]): ProcessOutcome {
+  const out = (stdout: string) => ({ code: 0, stdout, stderr: "" });
+  if (argv.includes("{{.State.Running}}")) return out("true\n");
+  if (argv.includes("--services")) return out(COMPOSE_SERVICES.join("\n"));
+  if (argv[1] === "wait") return out("0\n");
+  if (argv[1] === "exec") return out("183\n");
+  return ok;
+}
+
+/** Подменный docker: пишет вызовы и отвечает `answer`, иначе — как стенд. */
+class FakeDocker implements Docker {
+  readonly probes: string[][] = [];
+  readonly runs: string[][] = [];
+
+  constructor(private readonly answer: Answer = () => undefined) {}
+
+  async probe(argv: readonly string[], _cwd: string, signal?: AbortSignal) {
+    this.probes.push([...argv]);
+    return await this.answer(argv, signal) ?? standAnswer(argv);
+  }
+
+  async run(argv: readonly string[]) {
+    this.runs.push([...argv]);
+    return (await this.answer(argv) ?? standAnswer(argv)).code;
+  }
+}
+
+/** Часы, срок которых не наступает: `wait` отвечает раньше. */
+const neverClock: Clock = {
+  delay: (_ms, signal) =>
+    new Promise((resolve) =>
+      signal.addEventListener("abort", () => resolve(), { once: true })
+    ),
+};
+
+/** Override-фикстура по имени файла — вместо чтения диска стенда. */
+function readFixture(path: string): string {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  return Deno.readTextFileSync(
+    new URL(`./testdata/mp-init/overrides/${name}`, import.meta.url),
+  );
+}
+
+/** Существуют все пути, кроме опционального `.sl-dt.env` стенда. */
+const existsExceptDtEnv = (path: string) => !path.endsWith(".sl-dt.env");
 
 /** io с домашним каталогом и накоплением служебных строк. */
 function ioWith(lines: string[], env: Record<string, string> = {}) {
@@ -37,48 +109,52 @@ function ioWith(lines: string[], env: Record<string, string> = {}) {
   });
 }
 
-/** Всё существует, всё запущено, все probe'ы успешны. */
-const allPresent: RunDocker = (argv) =>
-  Promise.resolve(
-    argv.includes("{{.State.Running}}") ? { code: 0, stdout: "true\n" } : ok,
-  );
+/** Прогон на подменном стенде. */
+async function mpInit(
+  dryRun: boolean,
+  lines: string[],
+  docker: Docker = new FakeDocker(),
+  more: { exists?: (path: string) => boolean; clock?: Clock } = {},
+) {
+  return await runMpInit({ "dry-run": dryRun }, ioWith(lines), {
+    docker,
+    clock: more.clock ?? neverClock,
+    exists: more.exists ?? existsExceptDtEnv,
+    readText: readFixture,
+  });
+}
 
-/** Существуют все пути, кроме опционального `.sl-dt.env` стенда. */
-const existsExceptDtEnv = (path: string) => !path.endsWith(".sl-dt.env");
-
-async function golden(): Promise<string> {
+async function golden(name: string): Promise<string> {
   return await Deno.readTextFile(
-    new URL("./testdata/mp-init/dry-run.stdout", import.meta.url),
+    new URL(`./testdata/mp-init/${name}`, import.meta.url),
   );
 }
 
+/** Ответ «образа нет» на inspect одного тега. */
+const noImage = (tag: string): Answer => (argv) =>
+  argv[1] === "image" && argv[3] === tag
+    ? { code: 1, stdout: "", stderr: "" }
+    : undefined;
+
 Deno.test("сухой прогон печатает последовательность — эталон канала", async () => {
   const lines: string[] = [];
-  const calls: string[][] = [];
-  const run: RunDocker = (argv) => {
-    calls.push([...argv]);
-    return Promise.resolve(ok);
-  };
-  const result = await runMpInit({ "dry-run": true }, ioWith(lines), {
-    runDocker: run,
-    exists: existsExceptDtEnv,
-  });
+  const docker = new FakeDocker();
+  const result = await mpInit(true, lines, docker);
 
-  assertEquals(`${lines.join("\n")}\n`, await golden());
+  assertEquals(`${lines.join("\n")}\n`, await golden("dry-run.stdout"));
   assertEquals(result.exitCode, 0);
   // Ни одной мутации: в dry-run выполняются только probe'ы.
-  const mutations = calls.filter((argv) =>
-    argv.includes("up") || argv.includes("create") || argv.includes("stop")
+  assertEquals(docker.runs, []);
+  // Контейнеров в dry нет: ни wait миграций, ни счёта, ни сводки.
+  assertEquals(
+    docker.probes.filter((argv) => ["wait", "exec", "ps"].includes(argv[1])),
+    [],
   );
-  assertEquals(mutations, []);
 });
 
 Deno.test("порядок шагов: web поднимается после core", async () => {
   const lines: string[] = [];
-  await runMpInit({ "dry-run": true }, ioWith(lines), {
-    runDocker: allPresent,
-    exists: existsExceptDtEnv,
-  });
+  await mpInit(true, lines);
   const names = lines.filter((line) => line.startsWith("$ ")).map((line) => {
     if (line.includes("compose.mp-nats")) return "nats";
     if (line.includes("compose.sl-main")) return "sl-0";
@@ -104,92 +180,353 @@ Deno.test("порядок шагов: web поднимается после core
   ]);
 });
 
-Deno.test("образы: core останавливает, web только предупреждает", async (t) => {
-  const missing = (image: string): RunDocker => (argv) =>
-    Promise.resolve(
-      argv[1] === "image" && argv[3] === image ? { code: 1, stdout: "" } : ok,
-    );
-
-  await t.step("нет core-образа — отказ, exit 1", async () => {
+Deno.test("образы: недостающий core собирается, web предупреждает", async (t) => {
+  await t.step("M1-1: dry — строки сборки, сборки нет", async () => {
     const lines: string[] = [];
-    await assertRejects(
-      () =>
-        runMpInit({ "dry-run": false }, ioWith(lines), {
-          runDocker: missing("mp-pg:local"),
-          exists: existsExceptDtEnv,
-        }),
-      DomainError,
-      "нет обязательных образов: mp-pg:local → mp-pg-build-image",
+    const docker = new FakeDocker(noImage("mp-back:local"));
+    const result = await mpInit(true, lines, docker);
+    assertEquals(
+      `${lines.join("\n")}\n`,
+      await golden("dry-run-no-image.stdout"),
     );
-    // Ни один стек не поднимался: отказ до первого `up`.
-    assertEquals(lines.some((line) => line.includes("up -d")), false);
+    assertEquals(result.exitCode, 0);
+    assertEquals(docker.runs, []);
+  });
+
+  await t.step("M1-2: прогон — сборка выполнена, затем стеки", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker(noImage("mp-back:local"));
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0);
+    assertEquals(lines[0], "собираю mp-back:local");
+    // Сборка — выполненный шаг: она и в поле результата.
+    assertEquals(result.steps[0].startsWith("$ docker build"), true);
+    assertEquals(docker.runs[0], [
+      "docker",
+      "build",
+      "--load",
+      "-t",
+      "mp-back:local",
+      "-f",
+      `${CONFIG}/Dockerfile.mp-back`,
+      `${HOME}/mr/mp`,
+    ]);
+    assertEquals(
+      docker.runs[1].includes(`${CONFIG}/compose.mp-nats.yaml`),
+      true,
+    );
+  });
+
+  await t.step("M1-3: сборка падает — её rc наружу, стеки стоят", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) => {
+      if (argv[1] === "build") return { code: 17, stdout: "", stderr: "" };
+      return noImage("mp-pg:local")(argv);
+    });
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 17);
+    assertEquals(lines.slice(0, 3), [
+      "собираю mp-pg:local",
+      `$ docker build --load -t mp-pg:local -f ${CONFIG}/pg/Dockerfile ` +
+      `${CONFIG}/pg`,
+      "mpu mp-init: сборка mp-pg:local упала (rc=17)",
+    ]);
+    assertEquals(docker.runs.some((argv) => argv.includes("up")), false);
+  });
+
+  await t.step("M1-4: все образы есть — строк сборки нет", async () => {
+    const lines: string[] = [];
+    await mpInit(true, lines);
+    assertEquals(lines.some((line) => line.startsWith("собираю")), false);
+  });
+
+  await t.step("mp-dt: контекст — корень mp", async () => {
+    const lines: string[] = [];
+    await mpInit(true, lines, new FakeDocker(noImage("mp-dt:local")));
+    assertEquals(
+      lines[1],
+      `$ docker build --load -t mp-dt:local -f ` +
+        `${CONFIG}/Dockerfile.mp-data-transfer ${HOME}/mr/mp`,
+    );
   });
 
   await t.step(
     "нет web-образа — предупреждение, core поднимается",
     async () => {
       const lines: string[] = [];
-      const result = await runMpInit({ "dry-run": false }, ioWith(lines), {
-        runDocker: missing("sl-front-dev:local"),
-        exists: existsExceptDtEnv,
-      });
+      const result = await mpInit(
+        false,
+        lines,
+        new FakeDocker(noImage("sl-front-dev:local")),
+      );
       assertEquals(result.exitCode, 0);
       assertEquals(
-        lines.some((line) =>
-          line === "warning: нет web-образов: sl-front-dev:local → " +
-              "sl-front-build-dev-image"
+        lines.includes(
+          "warning: нет web-образов: sl-front-dev:local → " +
+            "sl-front-build-dev-image",
         ),
         true,
         lines.join("\n"),
       );
-      assertEquals(
-        lines.some((line) => line.includes("compose.mp-nats")),
-        true,
-      );
+      assertEquals(lines.some((line) => line.startsWith("собираю")), false);
     },
   );
+});
 
-  await t.step("в сухом прогоне нет core-образа — тоже warning", async () => {
+Deno.test("overrides сверяются с compose до up", async (t) => {
+  const SL_MAIN = `${LOCAL_STACK}/overrides/sl-main.observability-off.yaml`;
+
+  await t.step("M1-5: лишний сервис — отказ, печать обрывается", async () => {
     const lines: string[] = [];
     const result = await runMpInit({ "dry-run": true }, ioWith(lines), {
-      runDocker: missing("mp-back:local"),
+      docker: new FakeDocker(),
+      clock: neverClock,
       exists: existsExceptDtEnv,
+      readText: (path) =>
+        path === SL_MAIN
+          ? `${readFixture(path)}  m-nats-listeners:\n    image: x\n`
+          : readFixture(path),
     });
+    assertEquals(result.exitCode, 1);
+    assertEquals(
+      lines.at(-1),
+      `mpu mp-init: override ${SL_MAIN}: нет в compose: m-nats-listeners`,
+    );
+    assertEquals(lines.some((line) => line.includes("compose.mp-nats")), true);
+    assertEquals(lines.some((line) => line.includes("compose.sl-main")), false);
+  });
+
+  await t.step("config --services упал — отказ с его rc", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      argv.includes("--services") &&
+        argv.includes(`${CONFIG}/compose.sl-main.yaml`)
+        ? { code: 15, stdout: "", stderr: "" }
+        : undefined
+    );
+    const result = await mpInit(true, lines, docker);
+    assertEquals(result.exitCode, 15);
+    assertEquals(
+      lines.at(-1),
+      "mpu mp-init: compose config стека 'sl-0' упал (rc=15)",
+    );
+  });
+
+  await t.step("config --services — те же -f без overrides", async () => {
+    const docker = new FakeDocker();
+    await mpInit(true, [], docker);
+    const config = docker.probes.filter((argv) => argv.includes("--services"));
+    // Только стеки с overrides: sl-0 и sl-1.
+    assertEquals(config.length, 2);
+    assertEquals(config[0].slice(-2), ["config", "--services"]);
+    assertEquals(config[0].some((arg) => arg.includes("/overrides/")), false);
+    assertEquals(config[0].includes(`${CONFIG}/.sl-0.base.env`), true);
+  });
+});
+
+Deno.test("миграции sl-N проверяются по коду контейнера", async (t) => {
+  await t.step("M1-6: код 1 — отказ, хвост лога, sl-1 стоит", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) => {
+      if (argv[1] === "wait" && argv[2] === "sl-0-migrations") {
+        return { code: 0, stdout: "1\n", stderr: "" };
+      }
+      if (argv[1] === "logs" && argv.includes("30")) {
+        return { code: 0, stdout: "", stderr: "Error: relation x\n" };
+      }
+      return undefined;
+    });
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 1);
+    assertEquals(lines.slice(-2), [
+      "mpu mp-init: миграции sl-0 упали",
+      "Error: relation x",
+    ]);
+    assertEquals(
+      docker.probes.find((argv) => argv[1] === "logs"),
+      ["docker", "logs", "--tail", "30", "sl-0-migrations"],
+    );
+    assertEquals(
+      lines.some((line) => line.includes("compose.sl-instance")),
+      false,
+    );
+  });
+
+  await t.step("M1-7: код 0 — строка с числом миграций", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker();
+    const result = await mpInit(false, lines, docker);
     assertEquals(result.exitCode, 0);
     assertEquals(
-      lines[0].startsWith("warning: нет обязательных образов"),
+      lines.includes("sl-0: миграции ок, 183 в public.migrations"),
       true,
     );
-    // Смысл сухого прогона — показать всю последовательность целиком.
     assertEquals(
-      lines.some((line) => line.includes("docker-compose.yml")),
+      lines.includes("sl-1: миграции ок, 183 в public.migrations"),
+      true,
+    );
+    assertEquals(docker.probes.find((argv) => argv[1] === "exec"), [
+      "docker",
+      "exec",
+      "sl-0-pg",
+      "sh",
+      "-c",
+      'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc ' +
+      '"select count(*) from public.migrations"',
+    ]);
+  });
+
+  await t.step("счёт не снят — «?», код не меняется", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      argv[1] === "exec" ? { code: 2, stdout: "", stderr: "x" } : undefined
+    );
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0);
+    assertEquals(
+      lines.includes("sl-0: миграции ок, ? в public.migrations"),
+      true,
+    );
+  });
+
+  await t.step("M1-9: нет завершения за срок — отказ", async () => {
+    const lines: string[] = [];
+    let waitAborted = false;
+    const docker = new FakeDocker((argv, signal) => {
+      if (argv[1] !== "wait") return undefined;
+      // `docker wait` не отвечает сам: только снятие сигналом.
+      return new Promise((resolve) =>
+        signal?.addEventListener("abort", () => {
+          waitAborted = true;
+          resolve({ code: 137, stdout: "", stderr: "" });
+        }, { once: true })
+      );
+    });
+    const delays: number[] = [];
+    const clock: Clock = {
+      delay: (ms) => {
+        delays.push(ms);
+        return Promise.resolve();
+      },
+    };
+    const result = await mpInit(false, lines, docker, { clock });
+    assertEquals(result.exitCode, 1);
+    assertEquals(
+      lines.at(-1),
+      "mpu mp-init: миграции sl-0: нет завершения за 10 мин",
+    );
+    assertEquals(delays, [10 * 60 * 1000]);
+    assertEquals(waitAborted, true);
+    assertEquals(
+      lines.some((line) => line.includes("compose.sl-instance")),
+      false,
+    );
+  });
+
+  await t.step("docker wait сам упал — отказ, проверки не было", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker((argv) =>
+      argv[1] === "wait" ? { code: 1, stdout: "", stderr: "" } : undefined
+    );
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 1);
+    assertEquals(
+      lines.at(-1),
+      "mpu mp-init: миграции sl-0: docker wait упал (rc=1)",
+    );
+  });
+});
+
+Deno.test("сводка контейнеров после core", async (t) => {
+  const PS = [
+    "sl-0-currencies-rates-parser\tRestarting (1) 3 seconds ago",
+    "sl-0-migrations\tExited (1) 1 minute ago",
+    "sl-0-backups\tExited (0) 1 minute ago",
+    "sl-1-ss-loader\tExited (137) 5 minutes ago",
+    "sl-0-api\tUp 2 minutes",
+    "",
+  ].join("\n");
+  const troubled: Answer = (argv) => {
+    if (argv[1] === "ps") return { code: 0, stdout: PS, stderr: "" };
+    if (argv[1] === "logs" && argv.includes("1")) {
+      return {
+        code: 0,
+        stdout: "",
+        stderr: `ERR_MODULE_NOT_FOUND ${argv.at(-1)}\n`,
+      };
+    }
+    return undefined;
+  };
+
+  await t.step("M1-8: петля и выход с ошибкой — warning, код 0", async () => {
+    const lines: string[] = [];
+    const docker = new FakeDocker(troubled);
+    const result = await mpInit(false, lines, docker);
+    assertEquals(result.exitCode, 0);
+    assertEquals(
+      lines.filter((line) => line.startsWith("warning:")),
+      [
+        "warning: sl-0-currencies-rates-parser: Restarting — " +
+        "ERR_MODULE_NOT_FOUND sl-0-currencies-rates-parser",
+        "warning: sl-1-ss-loader: Exited (137) — " +
+        "ERR_MODULE_NOT_FOUND sl-1-ss-loader",
+      ],
+    );
+    assertEquals(docker.probes.find((argv) => argv[1] === "ps"), [
+      "docker",
+      "ps",
+      "-a",
+      "--filter",
+      `label=com.docker.compose.project.working_dir=${CONFIG}`,
+      "--format",
+      "{{.Names}}\t{{.Status}}",
+    ]);
+  });
+
+  await t.step("сводка — после dt-host, до web", async () => {
+    const lines: string[] = [];
+    await mpInit(false, lines, new FakeDocker(troubled));
+    const dtHost = lines.findIndex((line) =>
+      line.includes("compose.sl-dt-host")
+    );
+    const warning = lines.findIndex((line) => line.startsWith("warning: sl-0"));
+    const web = lines.findIndex((line) => line.includes("compose.sw-back"));
+    assertEquals(dtHost < warning && warning < web, true, lines.join("\n"));
+  });
+
+  await t.step("ps упал — предупреждение, код 0", async () => {
+    const lines: string[] = [];
+    const result = await mpInit(
+      false,
+      lines,
+      new FakeDocker((argv) =>
+        argv[1] === "ps" ? { code: 1, stdout: "", stderr: "" } : undefined
+      ),
+    );
+    assertEquals(result.exitCode, 0);
+    assertEquals(
+      lines.includes("warning: сводка контейнеров не снята (rc=1)"),
       true,
     );
   });
 });
 
 Deno.test("сеть и том создаются только при отсутствии", async (t) => {
-  const missingProbe = (what: string): RunDocker => (argv) =>
-    Promise.resolve(
-      argv[1] === what && argv[2] === "inspect" ? { code: 1, stdout: "" } : ok,
-    );
+  const missingProbe = (what: string): Answer => (argv) =>
+    argv[1] === what && argv[2] === "inspect"
+      ? { code: 1, stdout: "", stderr: "" }
+      : undefined;
 
   await t.step("есть — команда создания не печатается", async () => {
     const lines: string[] = [];
-    await runMpInit({ "dry-run": false }, ioWith(lines), {
-      runDocker: allPresent,
-      exists: existsExceptDtEnv,
-    });
+    await mpInit(false, lines);
     assertEquals(lines.some((line) => line.includes("network create")), false);
     assertEquals(lines.some((line) => line.includes("volume create")), false);
   });
 
   await t.step("нет сети — создаётся с подсетью спеки", async () => {
     const lines: string[] = [];
-    await runMpInit({ "dry-run": false }, ioWith(lines), {
-      runDocker: missingProbe("network"),
-      exists: existsExceptDtEnv,
-    });
+    await mpInit(false, lines, new FakeDocker(missingProbe("network")));
     // Форма строки — часть контракта вывода: `--subnet=…` одним
     // токеном, как в спеке (шаг 1).
     assertEquals(
@@ -201,10 +538,7 @@ Deno.test("сеть и том создаются только при отсут�
 
   await t.step("нет тома — создаётся", async () => {
     const lines: string[] = [];
-    await runMpInit({ "dry-run": false }, ioWith(lines), {
-      runDocker: missingProbe("volume"),
-      exists: existsExceptDtEnv,
-    });
+    await mpInit(false, lines, new FakeDocker(missingProbe("volume")));
     assertEquals(lines[0], "$ docker volume create mp-back-node-modules");
   });
 });
@@ -212,21 +546,16 @@ Deno.test("сеть и том создаются только при отсут�
 Deno.test("стоп конфликтующих: в прогоне только запущенные", async (t) => {
   await t.step("запущен один из трёх — гасится он один", async () => {
     const lines: string[] = [];
-    const run: RunDocker = (argv) =>
-      Promise.resolve(
-        argv.includes("{{.State.Running}}")
-          ? {
-            code: 0,
-            stdout: argv[argv.length - 1] === "nextjs-dev"
-              ? "true\n"
-              : "false\n",
-          }
-          : ok,
-      );
-    await runMpInit({ "dry-run": false }, ioWith(lines), {
-      runDocker: run,
-      exists: existsExceptDtEnv,
-    });
+    const docker = new FakeDocker((argv) =>
+      argv.includes("{{.State.Running}}")
+        ? {
+          code: 0,
+          stdout: argv.at(-1) === "nextjs-dev" ? "true\n" : "false\n",
+          stderr: "",
+        }
+        : undefined
+    );
+    await mpInit(false, lines, docker);
     assertEquals(
       lines.filter((line) => line.startsWith("$ docker stop")),
       ["$ docker stop nextjs-dev  # только запущенные"],
@@ -235,25 +564,18 @@ Deno.test("стоп конфликтующих: в прогоне только �
 
   await t.step("не запущен никто — шага нет вовсе", async () => {
     const lines: string[] = [];
-    const run: RunDocker = (argv) =>
-      Promise.resolve(
-        argv.includes("{{.State.Running}}")
-          ? { code: 0, stdout: "false\n" }
-          : ok,
-      );
-    await runMpInit({ "dry-run": false }, ioWith(lines), {
-      runDocker: run,
-      exists: existsExceptDtEnv,
-    });
+    const docker = new FakeDocker((argv) =>
+      argv.includes("{{.State.Running}}")
+        ? { code: 0, stdout: "false\n", stderr: "" }
+        : undefined
+    );
+    await mpInit(false, lines, docker);
     assertEquals(lines.some((line) => line.startsWith("$ docker stop")), false);
   });
 
   await t.step("в сухом прогоне печатается весь список", async () => {
     const lines: string[] = [];
-    await runMpInit({ "dry-run": true }, ioWith(lines), {
-      runDocker: allPresent,
-      exists: existsExceptDtEnv,
-    });
+    await mpInit(true, lines);
     assertEquals(
       lines.filter((line) => line.startsWith("$ docker stop")),
       [`$ docker stop ${CONFLICTING.join(" ")}  # только запущенные`],
@@ -263,35 +585,28 @@ Deno.test("стоп конфликтующих: в прогоне только �
 
 Deno.test("упавший стек: fail-fast и код docker наружу", async () => {
   const lines: string[] = [];
-  const run: RunDocker = (argv) =>
-    Promise.resolve(
-      argv.includes("up") && argv.some((a) => a.includes("compose.sl-main"))
-        ? { code: 17, stdout: "" }
-        : ok,
-    );
-  const result = await runMpInit({ "dry-run": false }, ioWith(lines), {
-    runDocker: run,
-    exists: existsExceptDtEnv,
-  });
+  const docker = new FakeDocker((argv) =>
+    argv.includes("up") && argv.some((a) => a.includes("compose.sl-main"))
+      ? { code: 17, stdout: "", stderr: "" }
+      : undefined
+  );
+  const result = await mpInit(false, lines, docker);
   assertEquals(result.exitCode, 17);
   assertEquals(
-    lines.some((line) =>
-      line === "mpu mp-init: стек 'sl-0' упал (rc=17); остальные не поднимаю"
-    ),
-    true,
-    lines.join("\n"),
+    lines.at(-1),
+    "mpu mp-init: стек 'sl-0' упал (rc=17); остальные не поднимаю",
   );
-  // Следующие стеки не поднимались.
+  // Следующие стеки не поднимались, миграций упавшего не ждали.
   assertEquals(
     lines.some((line) => line.includes("compose.sl-instance")),
     false,
   );
+  assertEquals(docker.probes.some((argv) => argv[1] === "wait"), false);
 });
 
 Deno.test("web-часть: нет каталога — пропуск, а не ошибка", async () => {
   const lines: string[] = [];
-  const result = await runMpInit({ "dry-run": false }, ioWith(lines), {
-    runDocker: allPresent,
+  const result = await mpInit(false, lines, new FakeDocker(), {
     exists: (path) => !path.includes("local-stack"),
   });
   assertEquals(result.exitCode, 0);
@@ -300,7 +615,7 @@ Deno.test("web-часть: нет каталога — пропуск, а не �
   // начале: «пропущено» до единой поднятой строки читалось бы как
   // «ничего не делаю».
   assertEquals(
-    lines[lines.length - 2],
+    lines.at(-2),
     `каталог local-stack не найден: ${LOCAL_STACK}; web-стек пропущен`,
   );
   assertEquals(lines[0].includes("compose.mp-nats"), true, lines[0]);
@@ -311,7 +626,7 @@ Deno.test("web-часть: нет каталога — пропуск, а не �
   // БД-зависимости sw-back тоже не поднимаются: их шаг — часть web.
   assertEquals(lines.some((line) => line.includes("compose.sw-back")), false);
   assertEquals(
-    lines[lines.length - 1],
+    lines.at(-1),
     "mp-init: core поднят — nats, sl-0, sl-1, nginx, dt-host",
   );
 });
@@ -329,11 +644,7 @@ Deno.test("каталог стенда: env старше HOME, отсутств�
 
   await t.step("каталога нет — ошибка ввода с подсказкой", async () => {
     await assertRejects(
-      () =>
-        runMpInit({ "dry-run": true }, ioWith([]), {
-          runDocker: allPresent,
-          exists: () => false,
-        }),
+      () => mpInit(true, [], new FakeDocker(), { exists: () => false }),
       UsageError,
       `каталог mp-config-local не найден: ${CONFIG}`,
     );
@@ -384,22 +695,14 @@ Deno.test("опциональные env-файлы включаются толь
 
 Deno.test("падение создания сети: rc наружу, стеки не поднимаются", async () => {
   const lines: string[] = [];
-  const run: RunDocker = (argv) => {
-    if (argv[1] === "network" && argv[2] === "inspect") {
-      return Promise.resolve({ code: 1, stdout: "" });
-    }
-    if (argv[1] === "network" && argv[2] === "create") {
-      // 125 — обычный код конфликта подсети у docker.
-      return Promise.resolve({ code: 125, stdout: "" });
-    }
-    return Promise.resolve(ok);
-  };
-  const result = await runMpInit({ "dry-run": false }, ioWith(lines), {
-    runDocker: run,
-    exists: existsExceptDtEnv,
+  const docker = new FakeDocker((argv) => {
+    if (argv[1] !== "network") return undefined;
+    // 125 — обычный код конфликта подсети у docker.
+    return { code: argv[2] === "inspect" ? 1 : 125, stdout: "", stderr: "" };
   });
+  const result = await mpInit(false, lines, docker);
   // Код docker'а идёт наружу как есть: скрипт-обёртка отличает его от
-  // «нет образов» (1) только по числу.
+  // прочих отказов (1) только по числу.
   assertEquals(result.exitCode, 125);
   assertEquals(lines.some((line) => line.includes("up -d")), false);
   assertEquals(result.steps, [

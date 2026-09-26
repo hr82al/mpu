@@ -5,7 +5,13 @@
 
 import { assertEquals } from "@std/assert";
 
-const NAMES: readonly string[] = ["dry-run.stdout"];
+const NAMES: readonly string[] = [
+  "dry-run.stdout",
+  "dry-run-no-image.stdout",
+  "overrides/sl-base.observability-off.yaml",
+  "overrides/sl-instance.observability-off.yaml",
+  "overrides/sl-main.observability-off.yaml",
+];
 const copyDir = new URL("testdata/mp-init/", import.meta.url);
 
 Deno.test("копии фикстур совпадают с каналом спецификаций", async (t) => {
@@ -26,6 +32,16 @@ Deno.test("копии фикстур совпадают с каналом спе
 
 Deno.test("в testdata нет копий, которых нет в канале", async () => {
   const found: string[] = [];
-  for await (const entry of Deno.readDir(copyDir)) found.push(entry.name);
+  for await (const entry of Deno.readDir(copyDir)) {
+    if (!entry.isDirectory) {
+      found.push(entry.name);
+      continue;
+    }
+    for await (
+      const inner of Deno.readDir(new URL(`${entry.name}/`, copyDir))
+    ) {
+      found.push(`${entry.name}/${inner.name}`);
+    }
+  }
   assertEquals(found.sort(), [...NAMES].sort());
 });

@@ -11,6 +11,11 @@
  */
 
 import { shellCommand } from "../exec/mod.ts";
+import {
+  type Migrations,
+  NO_MIGRATIONS,
+  ServerMigrations,
+} from "./migrations.ts";
 
 /** Шаг плана: что запустить и в каком каталоге. */
 export interface Step {
@@ -40,13 +45,6 @@ export interface PlanFacts {
 
 /** Конфликтующие с web-стеком контейнеры; порядок — из спеки. */
 export const CONFLICTING = ["mp-sw-api", "nextjs-dev", "mp-sl-front-dev"];
-
-/** Обязательные образы core: пара «образ → build-алиас». */
-export const CORE_IMAGES: readonly (readonly [string, string])[] = [
-  ["mp-back:local", "sl-build-image"],
-  ["mp-pg:local", "mp-pg-build-image"],
-  ["mp-dt:local", "mp-dt-build-image"],
-];
 
 /** Образ web-стека: его отсутствие — предупреждение, а не отказ. */
 export const WEB_IMAGE: readonly [string, string] = [
@@ -84,6 +82,8 @@ interface StackSpec {
   readonly files: readonly string[];
   /** Overrides из каталога local-stack; включаются при наличии. */
   readonly overrides: readonly string[];
+  /** Проверка миграций после `up`: у sl-N — контейнер миграций. */
+  readonly migrations: Migrations;
 }
 
 /**
@@ -96,6 +96,7 @@ const STACKS: readonly StackSpec[] = [
     env: [{ name: ".sl-base.env" }, { name: ".env", optional: true }],
     files: ["compose.mp-nats.yaml"],
     overrides: [],
+    migrations: NO_MIGRATIONS,
   },
   {
     name: "sl-0",
@@ -114,6 +115,7 @@ const STACKS: readonly StackSpec[] = [
       "sl-base.observability-off.yaml",
       "sl-main.observability-off.yaml",
     ],
+    migrations: new ServerMigrations("sl-0"),
   },
   {
     name: "sl-1",
@@ -133,12 +135,14 @@ const STACKS: readonly StackSpec[] = [
       "sl-base.observability-off.yaml",
       "sl-instance.observability-off.yaml",
     ],
+    migrations: new ServerMigrations("sl-1"),
   },
   {
     name: "mp-nginx",
     env: [{ name: ".shared.env" }, { name: ".env", optional: true }],
     files: ["compose.mp-nginx.yaml"],
     overrides: [],
+    migrations: NO_MIGRATIONS,
   },
   {
     name: "dt-host",
@@ -150,14 +154,16 @@ const STACKS: readonly StackSpec[] = [
     ],
     files: ["compose.sl-dt-host.yaml"],
     overrides: [],
+    migrations: NO_MIGRATIONS,
   },
 ];
 
-/** Аргументы одного `docker compose … up -d --force-recreate`. */
-function composeUp(
-  facts: PlanFacts,
-  stack: StackSpec,
-): readonly [string, ...string[]] {
+/**
+ * `docker compose` с env-файлами и основными `-f` стека — общая голова
+ * `up` и `config --services`: сверка overrides смотрит на тот же
+ * compose, что поднимается, только без самих overrides.
+ */
+function composeHead(facts: PlanFacts, stack: StackSpec): string[] {
   const argv: string[] = ["docker", "compose"];
   for (const file of stack.env) {
     const path = `${facts.configDir}/${file.name}`;
@@ -169,31 +175,55 @@ function composeUp(
     argv.push("--env-file", path);
   }
   for (const file of stack.files) argv.push("-f", `${facts.configDir}/${file}`);
-  for (const override of stack.overrides) {
-    if (facts.localStackDir === undefined) continue;
-    const path = `${facts.localStackDir}/overrides/${override}`;
-    if (facts.exists(path)) argv.push("-f", path);
-  }
-  // `--remove-orphans` не передаётся никогда: он снёс бы контейнеры
-  // соседних стеков того же compose-проекта (спека).
-  argv.push("up", "-d", "--force-recreate");
-  return argv as [string, ...string[]];
+  return argv;
 }
 
-/** План core-части: пять стеков по порядку. */
-function corePlan(facts: PlanFacts): readonly Step[] {
-  return STACKS.map((stack) => ({
-    name: stack.name,
-    argv: composeUp(facts, stack),
-    cwd: facts.configDir,
-  }));
+/** Существующие override-файлы стека, по порядку. */
+function overridesOf(facts: PlanFacts, stack: StackSpec): readonly string[] {
+  if (facts.localStackDir === undefined) return [];
+  const dir = facts.localStackDir;
+  return stack.overrides.map((name) => `${dir}/overrides/${name}`).filter(
+    facts.exists,
+  );
+}
+
+/** Core-стек, готовый к подъёму: шаг `up` и всё, что проверяется вокруг. */
+export interface CoreStack {
+  readonly step: Step;
+  /** `docker compose … config --services` без overrides. */
+  readonly servicesArgv: readonly string[];
+  /** Существующие override-файлы — абсолютные пути. */
+  readonly overrides: readonly string[];
+  readonly migrations: Migrations;
+}
+
+/** Core-стеки строго по порядку запуска. */
+export function coreStacks(facts: PlanFacts): readonly CoreStack[] {
+  return STACKS.map((stack) => {
+    const head = composeHead(facts, stack);
+    const overrides = overridesOf(facts, stack);
+    const up = [...head, ...overrides.flatMap((path) => ["-f", path])];
+    // `--remove-orphans` не передаётся никогда: он снёс бы контейнеры
+    // соседних стеков того же compose-проекта (спека).
+    up.push("up", "-d", "--force-recreate");
+    return {
+      step: {
+        name: stack.name,
+        argv: up as [string, ...string[]],
+        cwd: facts.configDir,
+      },
+      servicesArgv: [...head, "config", "--services"],
+      overrides,
+      migrations: stack.migrations,
+    };
+  });
 }
 
 /**
  * План web-части: БД-зависимости sw-back, гашение конфликтующих
  * контейнеров, затем сам web-стек. Пустой список, если каталога нет.
  */
-function webPlan(facts: PlanFacts): readonly Step[] {
+export function webPlan(facts: PlanFacts): readonly Step[] {
   if (facts.localStackDir === undefined) return [];
   const steps: Step[] = [{
     name: "sw-back-deps",
@@ -241,7 +271,7 @@ function webPlan(facts: PlanFacts): readonly Step[] {
  * порядок двух частей был виден одной строкой и проверялся тестом.
  */
 export function fullPlan(facts: PlanFacts): readonly Step[] {
-  return [...corePlan(facts), ...webPlan(facts)];
+  return [...coreStacks(facts).map((stack) => stack.step), ...webPlan(facts)];
 }
 
 /** Печатаемая строка шага: `$ <команда>` плюс комментарий, если есть. */

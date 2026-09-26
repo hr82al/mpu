@@ -14,16 +14,21 @@
  */
 
 import { z } from "@zod/zod";
+import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
+import { reportContainers } from "./containers.ts";
 import {
-  type CommandIo,
-  defineCommand,
-  DomainError,
-  UsageError,
-} from "../command/mod.ts";
+  type Clock,
+  type Docker,
+  systemClock,
+  systemDocker,
+} from "./docker.ts";
+import { missingImages, type StandDirs } from "./images.ts";
+import type { MigrationsContext } from "./migrations.ts";
+import { composeServicesOf, servicesOf, strangersOf } from "./overrides.ts";
 import {
   CONFLICTING,
-  CORE_IMAGES,
-  fullPlan,
+  type CoreStack,
+  coreStacks,
   NETWORK,
   type PlanFacts,
   type Step,
@@ -31,6 +36,7 @@ import {
   SUBNET,
   VOLUME,
   WEB_IMAGE,
+  webPlan,
 } from "./plan.ts";
 
 const argsSchema = z.object({
@@ -54,26 +60,12 @@ type MpInitResult = z.infer<typeof resultSchema>;
 /** Срез порта: окружение (каталог стенда) и печать служебных строк. */
 export type MpInitIo = Pick<CommandIo, "env" | "progress">;
 
-/** Итог запуска процесса: код и собранный stdout. */
-export interface ProcessOutcome {
-  readonly code: number;
-  readonly stdout: string;
-}
-
-/**
- * Запуск docker-процесса. Свой узкий порт, а не общий `RunProcess`:
- * здесь нужны и рабочий каталог (compose ищет относительные пути от
- * него), и stdout probe'ов, которого у общего порта нет.
- */
-export type RunDocker = (
-  argv: readonly string[],
-  cwd: string,
-) => Promise<ProcessOutcome>;
-
-/** Подстановки для тестов: живого docker и стенда у них нет. */
+/** Подстановки для тестов: живого docker, часов и стенда у них нет. */
 export interface MpInitOptions {
-  readonly runDocker?: RunDocker;
+  readonly docker?: Docker;
+  readonly clock?: Clock;
   readonly exists?: (path: string) => boolean;
+  readonly readText?: (path: string) => string;
 }
 
 /** Каталог стенда по умолчанию, относительно HOME. */
@@ -99,10 +91,15 @@ export function configDirOf(io: MpInitIo): string {
 
 /** Каталог web-стека — сосед mp-config-local. */
 export function localStackDirOf(configDir: string): string {
+  return `${rootDirOf(configDir)}/local-stack`;
+}
+
+/** Корень `mp` — родитель mp-config-local: контекст сборки образов. */
+function rootDirOf(configDir: string): string {
   // Хвостовой `/` снимается: `MPU_MP_CONFIG_LOCAL=/a/b/` иначе дал бы
   // соседа самому себе (`/a/b/local-stack` вместо `/a/local-stack`).
   const trimmed = configDir.replace(/\/+$/, "");
-  return `${trimmed.slice(0, trimmed.lastIndexOf("/"))}/local-stack`;
+  return trimmed.slice(0, trimmed.lastIndexOf("/"));
 }
 
 /** Существует ли путь; ошибка доступа равнозначна отсутствию. */
@@ -115,15 +112,29 @@ function existsOnDisk(path: string): boolean {
   }
 }
 
-/** Ход вызова: probe'ы, план, исполнение по порядку. */
-export async function runMpInit(
-  args: MpInitArgs,
+/** Всё, что нужно шагам прогона, — одно на вызов. */
+interface Run {
+  readonly io: MpInitIo;
+  readonly docker: Docker;
+  readonly readText: (path: string) => string;
+  readonly dryRun: boolean;
+  readonly configDir: string;
+  /** Напечатанные (в `dry`) или выполненные шаги — поле результата. */
+  readonly done: string[];
+}
+
+/** Где стенд: каталог mp-config-local и соседний local-stack. */
+interface StandPlace extends StandDirs {
+  readonly localStackPath: string;
+  /** `undefined` — каталога нет, web пропускается. */
+  readonly localStackDir: string | undefined;
+}
+
+/** Найти каталоги стенда; нет mp-config-local — ошибка ввода (exit 2). */
+function placeOf(
   io: MpInitIo,
-  options: MpInitOptions = {},
-): Promise<MpInitResult> {
-  const dryRun = args["dry-run"];
-  const run = options.runDocker ?? spawnDocker;
-  const exists = options.exists ?? existsOnDisk;
+  exists: (path: string) => boolean,
+): StandPlace {
   const configDir = configDirOf(io);
   if (!exists(configDir)) {
     throw new UsageError(`каталог mp-config-local не найден: ${configDir}`, {
@@ -131,56 +142,173 @@ export async function runMpInit(
     });
   }
   const localStackPath = localStackDirOf(configDir);
-  const localStackDir = exists(localStackPath) ? localStackPath : undefined;
-
-  const done: string[] = [];
-  const prepared = await prepare(io, run, configDir, dryRun, done);
-  if (prepared !== 0) {
-    return { steps: done, web: false, dryRun, exitCode: prepared };
-  }
-  await checkImages(io, run, configDir, dryRun, localStackDir !== undefined);
-
-  const facts: PlanFacts = {
+  return {
     configDir,
-    localStackDir,
+    rootDir: rootDirOf(configDir),
+    localStackPath,
+    localStackDir: exists(localStackPath) ? localStackPath : undefined,
+  };
+}
+
+/** Ход вызова: probe'ы, образы, core, сводка, web. */
+export async function runMpInit(
+  args: MpInitArgs,
+  io: MpInitIo,
+  options: MpInitOptions = {},
+): Promise<MpInitResult> {
+  const exists = options.exists ?? existsOnDisk;
+  const place = placeOf(io, exists);
+  const run: Run = {
+    io,
+    docker: options.docker ?? systemDocker,
+    readText: options.readText ?? Deno.readTextFileSync,
+    dryRun: args["dry-run"],
+    configDir: place.configDir,
+    done: [],
+  };
+  const code = await upStand(run, place, exists, options.clock ?? systemClock);
+  // `web: false` при отказе — не «каталог есть», а «поднимался ли он»:
+  // до web дело не дошло, и обещать обратное схема не должна.
+  if (code !== 0) {
+    return { steps: run.done, web: false, dryRun: run.dryRun, exitCode: code };
+  }
+  const web = place.localStackDir !== undefined;
+  if (!web) {
+    io.progress(
+      `каталог local-stack не найден: ${place.localStackPath}; ` +
+        "web-стек пропущен",
+    );
+  }
+  io.progress(finalLine(web, run.dryRun));
+  return { steps: run.done, web, dryRun: run.dryRun, exitCode: 0 };
+}
+
+/** Шаги 1–5 по порядку; код первого отказа либо 0. */
+async function upStand(
+  run: Run,
+  place: StandPlace,
+  exists: (path: string) => boolean,
+  clock: Clock,
+): Promise<number> {
+  const prepared = await prepare(run);
+  if (prepared !== 0) return prepared;
+  const built = await buildImages(run, place);
+  if (built !== 0) return built;
+  if (place.localStackDir !== undefined) await warnWebImage(run);
+  const facts: PlanFacts = {
+    configDir: place.configDir,
+    localStackDir: place.localStackDir,
     exists,
     // В dry-run печатается весь список конфликтующих с пометкой; в
     // реальном прогоне гасятся только запущенные (спека).
-    conflicting: dryRun
-      ? CONFLICTING
-      : await runningOf(run, configDir, CONFLICTING),
+    conflicting: run.dryRun ? CONFLICTING : await runningOf(run, CONFLICTING),
   };
-  const steps = fullPlan(facts);
-  for (const step of steps) {
-    // Строка о пропуске web печатается на своём месте — после core, а
-    // не в начале: она про шаг 5, и оператор читает вывод сверху вниз.
-    if (step.name === "sw-back-deps" && localStackDir === undefined) break;
-    done.push(stepLine(step));
-    const failed = await execute(io, run, step, dryRun);
-    if (failed !== 0) {
-      // Fail-fast: следующие стеки не поднимаются, а код упавшего
-      // docker'а идёт наружу как есть (`mp-init.md`).
-      io.progress(
-        `mpu mp-init: стек '${step.name}' упал (rc=${failed}); ` +
-          "остальные не поднимаю",
-      );
-      // `web: false` — не «каталог есть», а «поднимался ли он»: до
-      // web дело не дошло, и обещать обратное схема не должна.
-      return { steps: done, web: false, dryRun, exitCode: failed };
-    }
+  const context: MigrationsContext = {
+    docker: run.docker,
+    clock,
+    progress: run.io.progress,
+    cwd: place.configDir,
+  };
+  const core = await upCore(run, coreStacks(facts), context);
+  if (core !== 0) return core;
+  return await upWeb(run, webPlan(facts));
+}
+
+/**
+ * Недостающие core-образы собираются (шаг 3): строка `собираю`, затем
+ * сам шаг — в `dry` только печать. Падение сборки — её rc наружу.
+ */
+async function buildImages(run: Run, dirs: StandDirs): Promise<number> {
+  for (const image of await missingImages(run.docker, run.configDir)) {
+    run.io.progress(`собираю ${image.tag}`);
+    const code = await execute(run, image.buildStep(dirs));
+    if (code === 0) continue;
+    run.io.progress(`mpu mp-init: сборка ${image.tag} упала (rc=${code})`);
+    return code;
   }
-  if (localStackDir === undefined) {
-    io.progress(
-      `каталог local-stack не найден: ${localStackPath}; web-стек пропущен`,
+  return 0;
+}
+
+/**
+ * Core-стеки по порядку, затем — вне `dry`, где контейнеров ещё нет, —
+ * сводка контейнеров. Возвращает код отказа либо 0.
+ */
+async function upCore(
+  run: Run,
+  stacks: readonly CoreStack[],
+  context: MigrationsContext,
+): Promise<number> {
+  for (const stack of stacks) {
+    const code = await upStack(run, stack, context);
+    if (code !== 0) return code;
+  }
+  if (!run.dryRun) {
+    await reportContainers(run.docker, run.io.progress, run.configDir);
+  }
+  return 0;
+}
+
+/**
+ * Один core-стек: сверка overrides, `up`, проверка миграций (вне `dry`).
+ * Fail-fast: следующие стеки не поднимаются, а код упавшего docker'а
+ * идёт наружу как есть (`mp-init.md`).
+ */
+async function upStack(
+  run: Run,
+  stack: CoreStack,
+  context: MigrationsContext,
+): Promise<number> {
+  const verified = await verifyOverrides(run, stack);
+  if (verified !== 0) return verified;
+  const failed = await execute(run, stack.step);
+  if (failed !== 0) return stackFailed(run, stack.step, failed);
+  if (run.dryRun) return 0;
+  return await stack.migrations.verify(context);
+}
+
+/**
+ * Каждый сервис override-файла обязан быть в compose стека: иначе `up`
+ * падает целиком. Сверка — проба, выполняется и в `dry`.
+ */
+async function verifyOverrides(run: Run, stack: CoreStack): Promise<number> {
+  if (stack.overrides.length === 0) return 0;
+  const probe = await run.docker.probe(stack.servicesArgv, run.configDir);
+  if (probe.code !== 0) {
+    // Не снятый список — не повод пропустить сверку молча.
+    run.io.progress(
+      `mpu mp-init: compose config стека '${stack.step.name}' упал ` +
+        `(rc=${probe.code})`,
     );
+    return probe.code;
   }
-  io.progress(finalLine(localStackDir !== undefined, dryRun));
-  return {
-    steps: done,
-    web: localStackDir !== undefined,
-    dryRun,
-    exitCode: 0,
-  };
+  const known = composeServicesOf(probe.stdout);
+  for (const path of stack.overrides) {
+    const strangers = strangersOf(servicesOf(run.readText(path)), known);
+    if (strangers.length === 0) continue;
+    run.io.progress(
+      `mpu mp-init: override ${path}: нет в compose: ${strangers.join(", ")}`,
+    );
+    return 1;
+  }
+  return 0;
+}
+
+/** Web-шаги по порядку; fail-fast, как у core. */
+async function upWeb(run: Run, steps: readonly Step[]): Promise<number> {
+  for (const step of steps) {
+    const failed = await execute(run, step);
+    if (failed !== 0) return stackFailed(run, step, failed);
+  }
+  return 0;
+}
+
+/** Отказ стека: строка оператору, код упавшего docker'а — наружу. */
+function stackFailed(run: Run, step: Step, code: number): number {
+  run.io.progress(
+    `mpu mp-init: стек '${step.name}' упал (rc=${code}); ` +
+      "остальные не поднимаю",
+  );
+  return code;
 }
 
 /** Финальная строка прогона; печатается в stderr, как и всё прочее. */
@@ -196,81 +324,52 @@ export function finalLine(web: boolean, dryRun: boolean): string {
  * Печать шага и его исполнение; в dry-run — только печать. Возвращает
  * код упавшего вызова либо 0.
  */
-async function execute(
-  io: MpInitIo,
-  run: RunDocker,
-  step: Step,
-  dryRun: boolean,
-): Promise<number> {
-  io.progress(stepLine(step));
-  if (dryRun) return 0;
-  const outcome = await run(step.argv, step.cwd);
+async function execute(run: Run, step: Step): Promise<number> {
+  const line = stepLine(step);
+  run.io.progress(line);
+  run.done.push(line);
+  if (run.dryRun) return 0;
+  const code = await run.docker.run(step.argv, step.cwd);
   // Гашение конфликтующих контейнеров кода не проверяет: контейнер мог
   // остановиться сам между probe'ом и вызовом, и это не отказ.
   if (step.name === "stop-conflicting") return 0;
-  return outcome.code;
+  return code;
 }
 
 /** Сеть создаётся только при отсутствии: вызов идемпотентен. */
-async function ensureNetwork(
-  io: MpInitIo,
-  run: RunDocker,
-  cwd: string,
-  dryRun: boolean,
-  done: string[],
-): Promise<number> {
-  const probe = await run(["docker", "network", "inspect", NETWORK], cwd);
-  if (probe.code === 0) return 0;
-  return await mutate(
-    io,
-    run,
-    // `--subnet=…` одним токеном: форма строки — часть контракта
-    // вывода (`mp-init.md`, шаг 1), а не вкус docker'а.
-    [
-      "docker",
-      "network",
-      "create",
-      "--driver=bridge",
-      NETWORK,
-      `--subnet=${SUBNET}`,
-    ],
-    cwd,
-    dryRun,
-    done,
+async function ensureNetwork(run: Run): Promise<number> {
+  const probe = await run.docker.probe(
+    ["docker", "network", "inspect", NETWORK],
+    run.configDir,
   );
+  if (probe.code === 0) return 0;
+  // `--subnet=…` одним токеном: форма строки — часть контракта
+  // вывода (`mp-init.md`, шаг 1), а не вкус docker'а.
+  return await mutate(run, [
+    "docker",
+    "network",
+    "create",
+    "--driver=bridge",
+    NETWORK,
+    `--subnet=${SUBNET}`,
+  ]);
 }
 
 /** Том создаётся только при отсутствии; он external у compose'а. */
-async function ensureVolume(
-  io: MpInitIo,
-  run: RunDocker,
-  cwd: string,
-  dryRun: boolean,
-  done: string[],
-): Promise<number> {
-  const probe = await run(["docker", "volume", "inspect", VOLUME], cwd);
-  if (probe.code === 0) return 0;
-  return await mutate(
-    io,
-    run,
-    ["docker", "volume", "create", VOLUME],
-    cwd,
-    dryRun,
-    done,
+async function ensureVolume(run: Run): Promise<number> {
+  const probe = await run.docker.probe(
+    ["docker", "volume", "inspect", VOLUME],
+    run.configDir,
   );
+  if (probe.code === 0) return 0;
+  return await mutate(run, ["docker", "volume", "create", VOLUME]);
 }
 
 /** Сеть и том: оба создаются только при отсутствии. */
-async function prepare(
-  io: MpInitIo,
-  run: RunDocker,
-  cwd: string,
-  dryRun: boolean,
-  done: string[],
-): Promise<number> {
-  const network = await ensureNetwork(io, run, cwd, dryRun, done);
+async function prepare(run: Run): Promise<number> {
+  const network = await ensureNetwork(run);
   if (network !== 0) return network;
-  return await ensureVolume(io, run, cwd, dryRun, done);
+  return await ensureVolume(run);
 }
 
 /**
@@ -280,98 +379,52 @@ async function prepare(
  * входа отвечает на доменную ошибку единицей.
  */
 async function mutate(
-  io: MpInitIo,
-  run: RunDocker,
-  argv: readonly string[],
-  cwd: string,
-  dryRun: boolean,
-  done: string[],
+  run: Run,
+  argv: readonly [string, ...string[]],
 ): Promise<number> {
-  const line = stepLine({
+  const code = await execute(run, {
     name: "prepare",
-    argv: argv as [string, ...string[]],
-    cwd,
+    argv,
+    cwd: run.configDir,
   });
-  io.progress(line);
-  done.push(line);
-  if (dryRun) return 0;
-  const outcome = await run(argv, cwd);
-  if (outcome.code !== 0) {
-    io.progress(
-      `mpu mp-init: ${argv.slice(0, 3).join(" ")} упал (rc=${outcome.code})`,
+  if (code !== 0) {
+    run.io.progress(
+      `mpu mp-init: ${argv.slice(0, 3).join(" ")} упал (rc=${code})`,
     );
   }
-  return outcome.code;
+  return code;
 }
 
 /**
- * Проверка образов. Отсутствие core-образа — отказ (стенд без них не
- * поднимется), отсутствие web-образа — предупреждение: web
- * необязателен, и ронять из-за него core незачем. В dry-run отказа нет
- * вовсе: смысл сухого прогона — показать всю последовательность.
+ * Web-образ не собирается до M3: его отсутствие — предупреждение, core
+ * поднимается (решение хоста 1).
  */
-async function checkImages(
-  io: MpInitIo,
-  run: RunDocker,
-  cwd: string,
-  dryRun: boolean,
-  withWeb: boolean,
-): Promise<void> {
-  const missing: string[] = [];
-  for (const [image, alias] of CORE_IMAGES) {
-    const probe = await run(["docker", "image", "inspect", image], cwd);
-    if (probe.code !== 0) missing.push(`${image} → ${alias}`);
-  }
-  if (missing.length > 0) {
-    const text = `нет обязательных образов: ${missing.join(", ")}; ` +
-      "собери их в mp-config-local";
-    // Отказ обычной доменной ошибкой: её код выхода и так 1 (спека).
-    if (!dryRun) throw new DomainError(text);
-    io.progress(`warning: ${text}`);
-  }
-  if (!withWeb) return;
+async function warnWebImage(run: Run): Promise<void> {
   const [image, alias] = WEB_IMAGE;
-  const probe = await run(["docker", "image", "inspect", image], cwd);
+  const probe = await run.docker.probe(
+    ["docker", "image", "inspect", image],
+    run.configDir,
+  );
   if (probe.code !== 0) {
-    io.progress(`warning: нет web-образов: ${image} → ${alias}`);
+    run.io.progress(`warning: нет web-образов: ${image} → ${alias}`);
   }
 }
 
 /** Какие из конфликтующих контейнеров сейчас запущены. */
 async function runningOf(
-  run: RunDocker,
-  cwd: string,
+  run: Run,
   names: readonly string[],
 ): Promise<readonly string[]> {
   const running: string[] = [];
   for (const name of names) {
-    const probe = await run(
+    const probe = await run.docker.probe(
       ["docker", "inspect", "-f", "{{.State.Running}}", name],
-      cwd,
+      run.configDir,
     );
     if (probe.code === 0 && probe.stdout.trim() === "true") running.push(name);
   }
   return running;
 }
-
-/** Настоящий запуск docker: вывод идёт в терминал как есть. */
-const spawnDocker: RunDocker = async (argv, cwd) => {
-  const [bin, ...rest] = argv;
-  const probe = rest[0] === "inspect" || rest[1] === "inspect";
-  const output = await new Deno.Command(bin, {
-    args: rest,
-    cwd,
-    stdin: "null",
-    // У probe'ов stdout нужен нам, у мутаций — оператору: docker пишет
-    // ход дела сам, и перехватывать его незачем.
-    stdout: probe ? "piped" : "inherit",
-    stderr: probe ? "piped" : "inherit",
-  }).output();
-  return {
-    code: output.code,
-    stdout: probe ? new TextDecoder().decode(output.stdout) : "",
-  };
-};
 
 /**
  * stdout команды пуст: весь её вывод — служебные строки в stderr
@@ -389,29 +442,36 @@ export const mpInitCommand = defineCommand({
   usage: "mpu mp-init [dry]",
   help: `Звать, когда локальный стенд надо поднять с нуля или после остановки.
 
-Поднимает локальный стенд: docker-сеть и общий том, затем
-core-стеки в фиксированном порядке (nats, sl-0, sl-1, nginx, dt-host),
-затем web поверх них. Порядок — часть контракта: compose-зависимостей
-между стеками нет, и стенд собирается правильно только так.
+Поднимает локальный стенд: docker-сеть и общий том, недостающие
+core-образы, затем core-стеки в фиксированном порядке (nats, sl-0, sl-1,
+nginx, dt-host), затем web поверх них. Порядок — часть контракта:
+compose-зависимостей между стеками нет, и стенд собирается правильно
+только так.
 
-Образы команда не собирает. Нет core-образа (mp-back:local, mp-pg:local,
-mp-dt:local) — останов с подсказкой, каким build-алиасом его собрать;
-нет web-образа — предупреждение, core поднимается.
+Нет core-образа (mp-back:local, mp-pg:local, mp-dt:local) — собирается
+командой build-алиаса (строка «собираю <образ>»); есть тег — сборки нет.
+Нет web-образа — предупреждение, core поднимается.
 
-dry печатает все команды, не выполняя ни одной мутации;
-inspect-проверки при этом выполняются — без них план не построить.
+До up стека его override-файлы сверяются с compose: сервис override без
+пары в compose — отказ с именем файла. После up sl-0 и sl-1 команда
+ждёт контейнер миграций (до 10 мин) и отказывает, если он вышел не с 0;
+после core — предупреждения о контейнерах в петле или вышедших с ошибкой.
+
+dry печатает команды, не выполняя ни одной мутации; inspect и сверка
+overrides при этом выполняются, миграции и сводка — нет.
 
 Каталог mp-config-local берётся из переменной окружения
 MPU_MP_CONFIG_LOCAL, иначе ~/mr/mp/mp-config-local. Каталог web-стека —
 соседний local-stack; нет его — web пропускается, и это не ошибка.
 
 Сеть и том создаются только при отсутствии; стеки пересоздаются всегда.
-Упавший стек останавливает всё: следующие не поднимаются.
+Упавший шаг останавливает всё: следующие не выполняются.
 
 Весь вывод идёт в stderr, stdout пуст.
 
 Exit: 0 — успех, в том числе без web-стека; 2 — каталог mp-config-local
-не найден; 1 — нет обязательных образов; иначе код упавшего docker.`,
+не найден; 1 — override расходится с compose, миграции упали или не
+завершились; иначе код упавшего docker.`,
   examples: [
     "mpu mp-init dry",
     "mpu mp-init",
