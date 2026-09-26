@@ -213,13 +213,16 @@ export class Capture implements Delivery {
 
 /**
  * Запись журнала о программе целиком: аргументы маскируются, если в ней
- * есть команда, которая свои не журналирует.
+ * есть команда, которая свои не журналирует; секция out — так же.
  */
 export function programPolicy(words: readonly string[]) {
-  const masked = commands.some((command) =>
-    !command.logsArguments && holds(words, command.path)
-  );
-  return { logsOutput: true, logsArguments: !masked, path: [] };
+  const held = commands.filter((command) => holds(words, command.path));
+  return {
+    logsOutput: true,
+    logsArguments: held.every((command) => command.logsArguments),
+    logsStdout: held.every((command) => command.logsStdout),
+    path: [],
+  };
 }
 
 /** Есть ли в словах путь подряд. */

@@ -58,6 +58,11 @@ export interface OutputPolicy {
   /** Пишутся ли аргументы; `false` — они заменяются маской. */
   readonly logsArguments: boolean;
   /**
+   * Пишется ли секция out при `logsOutput`; `false` — только она
+   * пропадает, err остаётся (`docs/specs/call.md` [D.3]).
+   */
+  readonly logsStdout: boolean;
+  /**
    * Путь команды: маска сопоставляет с ним argv и оставляет нетронутыми
    * только сегменты пути — не длину префикса, потому что путь в argv не
    * обязан идти сплошным блоком (`mask.ts`, `maskAfterPath`).
@@ -219,7 +224,7 @@ function recording(
             note: [...settings.notes, ...notes]
               .map((note) => `${note}\n`)
               .join(""),
-            out: logsOutput ? out.join("") : "",
+            out: logsOutput && policy.logsStdout ? out.join("") : "",
             err: logsOutput ? errSection(err.join(""), policy, exitCode) : "",
             exitCode,
             durationMs: Math.max(0, deps.now().getTime() - startedMs),

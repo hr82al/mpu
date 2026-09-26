@@ -17,6 +17,7 @@ export function nativeEntry(command: Command): ToolEntry {
     journal: {
       logsOutput: command.logsOutput,
       logsArguments: command.logsArguments,
+      logsStdout: command.logsStdout,
       path: command.path,
     },
     invoke: async (args, io) => {

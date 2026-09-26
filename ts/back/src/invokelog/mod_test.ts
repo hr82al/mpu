@@ -8,7 +8,12 @@ import {
 
 // Путь — заглушка: тесты этого файла маскирование не проверяют, поэтому
 // им годится любое значение, лишь бы совпадало по смыслу с `argv`.
-const LOGGED = { logsOutput: true, logsArguments: true, path: [] } as const;
+const LOGGED = {
+  logsOutput: true,
+  logsArguments: true,
+  logsStdout: true,
+  path: [],
+} as const;
 
 /** Журнал поверх временного каталога; тело получает журнал и путь файла. */
 async function withLog(
@@ -150,6 +155,7 @@ Deno.test("перехват вывода: копия в запись, печат
 const MASKED_ARGS = {
   logsOutput: true,
   logsArguments: false,
+  logsStdout: true,
   path: ["telegram", "log"],
 } as const;
 
@@ -202,6 +208,7 @@ Deno.test("команда без записи вывода: запись ест�
     record.nativeCall({
       logsOutput: false,
       logsArguments: true,
+      logsStdout: true,
       path: [
         "mcp",
         "token",
@@ -216,6 +223,37 @@ Deno.test("команда без записи вывода: запись ест�
     assertEquals(text.includes("s3cret"), false);
     assertEquals(text.includes("--- out "), false);
     assertEquals(text.includes("--- err "), false);
+  });
+});
+
+Deno.test("команда без записи stdout: out нет, err и note есть", async () => {
+  await withLog(async (log, path) => {
+    const record = log.begin({
+      kind: "argv",
+      argv: ["ozon", "call-ro", "target:", "54", "path:", "/v1/seller/info"],
+      cwd: "/work",
+    });
+    record.nativeCall({
+      logsOutput: true,
+      logsArguments: true,
+      logsStdout: false,
+      path: ["ozon", "call-ro"],
+    });
+    const output = record.capture({ stdout: () => {}, stderr: () => {} });
+    output.stdout('{"name":"cool_flaps"}\n');
+    output.stderr("отказ\n");
+    record.note("HTTP 200, тело 21 байт");
+    await record.finish(0);
+    const text = await logText(path);
+    assertMatch(
+      text,
+      /^\$ mpu ozon call-ro target: 54 path: \/v1\/seller\/info$/mu,
+    );
+    assertEquals(text.includes("cool_flaps"), false);
+    assertEquals(text.includes("--- out "), false);
+    assertMatch(text, /^--- err run=\S+ ---\nотказ\n/mu);
+    assertMatch(text, /^--- note run=\S+ ---\nHTTP 200, тело 21 байт\n/mu);
+    assertMatch(text, /^--- end run=\S+ exit=0 /mu);
   });
 });
 
@@ -300,6 +338,7 @@ Deno.test("помеченная команда: аргументы под мас
     record.nativeCall({
       logsOutput: true,
       logsArguments: false,
+      logsStdout: true,
       path: ["telegram", "log"],
     });
     await record.finish(0);
@@ -324,6 +363,7 @@ Deno.test("помеченная команда: общий --json между с�
     record.nativeCall({
       logsOutput: true,
       logsArguments: false,
+      logsStdout: true,
       path: ["telegram", "log"],
     });
     await record.finish(0);

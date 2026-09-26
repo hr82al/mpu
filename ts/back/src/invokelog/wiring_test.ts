@@ -221,11 +221,13 @@ Deno.test("пометка «без записи вывода» — часть о
     assertEquals(nativeEntry(marked).journal, {
       logsOutput: false,
       logsArguments: true,
+      logsStdout: true,
       path: ["фейк"],
     });
     assertEquals(nativeEntry(defineCommand(declaration)).journal, {
       logsOutput: true,
       logsArguments: true,
+      logsStdout: true,
       path: ["фейк"],
     });
   });

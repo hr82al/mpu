@@ -517,6 +517,12 @@ interface CommandDeclaration<A, R> {
    */
   readonly ownerOnly?: OwnerOnly<A>;
   /**
+   * Секция out не пишется в журнал вызовов, err — пишется
+   * (`docs/specs/call.md` [D.3]): вывод — данные чужой системы, а
+   * отказы в журнале нужны. Без объявления — пишется.
+   */
+  readonly logsStdout?: false;
+  /**
    * Результат — текст, как справка метода (`image-sync.md`,
    * «CLI-контракт»): форматов и отбора нет, слово после `end` — отказ
    * до исполнения. Без объявления — данные.
@@ -640,6 +646,8 @@ export interface Command {
   readonly logsOutput: boolean;
   /** Пишутся ли аргументы в журнал вызовов (см. объявление). */
   readonly logsArguments: boolean;
+  /** Пишется ли секция out при `logsOutput` (см. объявление). */
+  readonly logsStdout: boolean;
   /** Схема входа как JSON Schema: разбор argv и схема входа тула. */
   readonly argsJsonSchema: ObjectSchema;
   /** Схема выхода как JSON Schema: схема результата тула. */
@@ -789,6 +797,7 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
     errorName: spec.errorName ?? spec.path[0],
     logsOutput: spec.logsOutput ?? true,
     logsArguments: spec.logsArguments ?? true,
+    logsStdout: spec.logsStdout ?? true,
     argsJsonSchema,
     resultJsonSchema,
     inputs: specs,
