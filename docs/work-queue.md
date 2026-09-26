@@ -41,8 +41,8 @@
 - [ ] task — оркестратор (владелец 2026-09-26: «продолжай по task», ход — здесь,
       handoff — после каждого этапа)
   - [x] T1 канал `mpu task` — принята 2026-09-26
-  - [ ] T2 профили и `busy`/`idle` (`task-roles.md`) — в работе у исполнителя
-  - [ ] T3 оркестратор (`task-orchestrator.md`) — спека и `prompt-T3.txt` готовы
+  - [x] T2 профили и `busy`/`idle` (`task-roles.md`) — принята 2026-09-26
+  - [ ] T3 оркестратор (`task-orchestrator.md`) — в работе у исполнителя
   - [ ] T4 перевод mpu на оркестратор — план `docs/plans/2026-09-26-task-T4-plan.md` (шаги 1–3 — человек)
   - [ ] T5 хуки Claude Code — дизайн при старте
   Дизайн серии — `docs/2026-09-23-task-orchestrator-design.md`.

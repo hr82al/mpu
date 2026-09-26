@@ -2173,6 +2173,15 @@
   {
     "path": [
       "task",
+      "busy"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
       "decision"
     ],
     "verdict": "deny",
@@ -2192,6 +2201,15 @@
     "path": [
       "task",
       "history"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "idle"
     ],
     "verdict": "deny",
     "rule": "*",
@@ -2246,6 +2264,24 @@
     "path": [
       "task",
       "report"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "role"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "task",
+      "roles"
     ],
     "verdict": "deny",
     "rule": "*",
