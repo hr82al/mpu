@@ -27,8 +27,19 @@ Deno.test("права супервизора — дочерние, сторож 
   assertEquals(permissions(await task("supervisor")), [
     "--allow-env=HOME,XDG_RUNTIME_DIR",
     "--allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp," +
-    "/usr/bin/ps,/usr/bin/cat,/usr/bin/kill",
+    "$HOME/.local/bin/mpu-task,/usr/bin/ps,/usr/bin/cat,/usr/bin/kill",
     "--allow-write=$XDG_RUNTIME_DIR/mpu/killed",
+  ]);
+});
+
+Deno.test("права оркестратора — кэш-БД, первые сообщения, tmux, notify-send", async () => {
+  // `task-orchestrator.md`, «Порты и права»: каждое — строкой с
+  // обоснованием в `deno.jsonc`; `claude` процессом не запускается.
+  assertEquals(permissions(await task("task")), [
+    "--allow-env=HOME,XDG_RUNTIME_DIR",
+    "--allow-read=$HOME/.config/mpu",
+    "--allow-run=/usr/bin/tmux,/usr/bin/notify-send",
+    "--allow-write=$HOME/.config/mpu,$XDG_RUNTIME_DIR/mpu-task",
   ]);
 });
 
@@ -39,6 +50,7 @@ Deno.test("compile:* — права задач запуска, путь — MPU_
     ["compile:mcp", "mcp", "mcp/main.ts"],
     ["compile:cli", "cli", "cli/main.ts"],
     ["compile:supervisor", "supervisor", "supervisor/main.ts"],
+    ["compile:task", "task", "back/task.ts"],
     ["compile:complete", "complete", "complete/main.ts"],
   ] as const;
   for (const [compile, run, script] of pairs) {

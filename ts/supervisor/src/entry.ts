@@ -13,8 +13,8 @@ import type { WatchSetup } from "./watchdog.ts";
  */
 export const VERSION = "0.1.0";
 
-const USAGE =
-  "mpu-supervisor: использование: mpu-supervisor --back <путь> --mcp <путь>\n";
+const USAGE = "mpu-supervisor: использование: mpu-supervisor --back <путь> " +
+  "--mcp <путь> --task <путь>\n";
 
 /** Сигналы, на которые отвечает супервизор. */
 export type SupervisorSignal = "SIGUSR1" | "SIGUSR2" | "SIGTERM" | "SIGINT";
@@ -37,15 +37,19 @@ export interface SupervisorProcess {
 /** Пути дочерних из флагов; не разобрались — `undefined`. */
 function pathsOf(
   args: readonly string[],
-): { back: string; mcp: string } | undefined {
+): { back: string; mcp: string; task: string } | undefined {
   const flags = new Map<string, string>();
   for (let i = 0; i + 1 < args.length; i += 2) flags.set(args[i], args[i + 1]);
   const back = flags.get("--back");
   const mcp = flags.get("--mcp");
-  if (args.length !== 4 || back === undefined || mcp === undefined) {
+  const task = flags.get("--task");
+  if (
+    args.length !== 6 || back === undefined || mcp === undefined ||
+    task === undefined
+  ) {
     return undefined;
   }
-  return { back, mcp };
+  return { back, mcp, task };
 }
 
 /**

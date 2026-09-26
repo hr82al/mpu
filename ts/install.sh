@@ -2,7 +2,8 @@
 # Установка mpu (docs/specs/platform/supervisor-install.md, «ts/install.sh»;
 # переключение имён — platform/cutover.md): mpu-back, mpu-worker
 # (исполнитель строк — platform/line-executor.md), mpu-mcp, mpu,
-# mpu-supervisor, mpu-complete, каталог фронта, служба mpu.service
+# mpu-supervisor, mpu-task (оркестратор ролей — task-orchestrator.md),
+# mpu-complete, каталог фронта, служба mpu.service
 # (mpu-complete и фронт — без службы: первого зовёт оболочка, второй
 # читает mpu-back через ссылку current) и суточный таймер образа
 # mpu-image-export (docs/specs/image-export.md, «Суточный таймер»). Старых служб на машине быть не
@@ -10,7 +11,7 @@
 # осталась бы наполовину переключённой. Последними шагами — дополнение
 # в оболочках и подключение к Claude Code пользователя.
 #
-#   ./install.sh [--only back,worker,mcp,cli,supervisor,complete,web] [--check]
+#   ./install.sh [--only back,worker,mcp,cli,supervisor,task,complete,web] [--check]
 #
 # Права и состав сборки — только в задачах compile:* корневого deno.jsonc;
 # здесь их нет. Переопределения окружением — для тестов: MPU_BIN_DIR,
@@ -50,13 +51,14 @@ program_of() {
     mcp) echo mpu-mcp ;;
     cli) echo mpu ;;
     supervisor) echo mpu-supervisor ;;
+    task) echo mpu-task ;;
     complete) echo mpu-complete ;;
     web) echo web ;;
     *) return 1 ;;
   esac
 }
 
-parts=(back worker mcp cli supervisor complete web)
+parts=(back worker mcp cli supervisor task complete web)
 check=0
 while (($# > 0)); do
   case $1 in
@@ -205,8 +207,9 @@ else
   say "таймер образа: без изменений"
 fi
 
-# 6. Перезапуск: не активна — start; изменились супервизор или служба —
-# restart; иначе сигнал только главному процессу службы (супервизору):
+# 6. Перезапуск: не активна — start; изменились супервизор, mpu-task или
+# служба — restart (сигнала третьему ребёнку нет — решение хоста T3);
+# иначе сигнал только главному процессу службы (супервизору):
 # без --kill-whom=main systemd разослал бы его и дочерним, а для них
 # USR1/USR2 — завершение.
 has() { [[ " ${changed[*]} " == *" $1 "* ]]; }
@@ -224,7 +227,7 @@ if ! "$systemctl" --user is-active --quiet mpu; then
   "$systemctl" --user start mpu || fail "перезапуск" "start"
   restarted=1
   say "перезапуск: служба запущена"
-elif has supervisor || ((unit_changed)); then
+elif has supervisor || has task || ((unit_changed)); then
   old_back=$(pid_of "$back_url")
   old_mcp=$(pid_of "$mcp_url")
   "$systemctl" --user restart mpu || fail "перезапуск" "restart"

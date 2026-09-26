@@ -513,8 +513,8 @@
     "complete": "deno run --allow-net=127.0.0.1 --allow-read=$HOME/.cache/mpu/tree.json,$HOME/.config/mpu/token --allow-env=HOME,MPU_BACK_URL complete/main.ts",
     // Супервизор `mpu-supervisor` (`platform/supervisor-install.md`):
     // единственное, что запускает служба `mpu.service`. Права:
-    //   — `--allow-run` двух программ из `$HOME/.local/bin`: запуск и
-    //     сигналы дочерним (`mpu-back`, `mpu-mcp`), и только им;
+    //   — `--allow-run` трёх программ из `$HOME/.local/bin`: запуск и
+    //     сигналы дочерним (`mpu-back`, `mpu-mcp`, `mpu-task`), и только им;
     //   — `--allow-env=HOME`: окружение процесса;
     //   — сторож памяти (`platform/line-executor.md`): `--allow-run` на
     //     `/usr/bin/ps` (память и родство исполнителей), `/usr/bin/cat`
@@ -527,7 +527,26 @@
     //     программы и отметку живьём проверяет
     //     `supervisor/src/watchdog_live_test.ts` на правах задачи `test`
     //     — собранный супервизор smoke не запускает. Сети нет.
-    "supervisor": "deno run --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp,/usr/bin/ps,/usr/bin/cat,/usr/bin/kill --allow-write=$XDG_RUNTIME_DIR/mpu/killed --allow-env=HOME,XDG_RUNTIME_DIR supervisor/main.ts",
+    "supervisor": "deno run --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp,$HOME/.local/bin/mpu-task,/usr/bin/ps,/usr/bin/cat,/usr/bin/kill --allow-write=$XDG_RUNTIME_DIR/mpu/killed --allow-env=HOME,XDG_RUNTIME_DIR supervisor/main.ts",
+    // Оркестратор ролей `mpu-task` (`task-orchestrator.md`, «Порты и
+    // права»): третий ребёнок супервизора. Права:
+    //   — `--allow-read`/`--allow-write=$HOME/.config/mpu`: кэш-БД
+    //     `mpu.db` (журнал канала, профили, отметки) и её спутники
+    //     `-wal`/`-shm`; каталог создаётся, если его нет. Снятие роняет
+    //     smoke «mpu-task: кэш-БД» — таблиц канала нет;
+    //   — `--allow-write=…,$XDG_RUNTIME_DIR/mpu-task`: файлы первых
+    //     сообщений ролей;
+    //   — `--allow-run=/usr/bin/tmux,/usr/bin/notify-send` абсолютными
+    //     путями: окна ролей и уведомления; `claude` процессом не
+    //     запускается — строка набирается в оболочке окна (решение хоста
+    //     T3);
+    //   — `--allow-env=HOME,XDG_RUNTIME_DIR`: где кэш-БД и каталог
+    //     первых сообщений.
+    // Запись первых сообщений и запуск `tmux`/`notify-send` smoke не
+    // проверяет: оба исполняются только после вызова настоящего `tmux`, а
+    // его в проверках не запускают (постановка T3) — их держит литерал
+    // прав `supervisor/src/tasks_test.ts`, живьём — приёмка хостом.
+    "task": "deno run --allow-read=$HOME/.config/mpu --allow-write=$HOME/.config/mpu,$XDG_RUNTIME_DIR/mpu-task --allow-run=/usr/bin/tmux,/usr/bin/notify-send --allow-env=HOME,XDG_RUNTIME_DIR back/task.ts",
     // Сборка частей рядом со старым `mpu` (`platform/supervisor-install.md`,
     // «Части»): права каждой — ровно права её задачи запуска, у `back` —
     // свои `--include` (воркер разбора кода и два `.wasm` Telegram: без
@@ -545,7 +564,8 @@
     "compile:mcp": "deno compile --node-modules-dir=none --exclude-unused-npm --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT mcp/main.ts",
     "compile:cli": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=/usr/bin/wl-copy,/usr/bin/xclip,/usr/bin/xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,WT_SESSION,OS -o $MPU_OUT cli/main.ts",
     "compile:complete": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.cache/mpu/tree.json,$HOME/.config/mpu/token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT complete/main.ts",
-    "compile:supervisor": "deno compile --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp,/usr/bin/ps,/usr/bin/cat,/usr/bin/kill --allow-write=$XDG_RUNTIME_DIR/mpu/killed --allow-env=HOME,XDG_RUNTIME_DIR -o $MPU_OUT supervisor/main.ts",
+    "compile:task": "deno compile --node-modules-dir=none --exclude-unused-npm --allow-read=$HOME/.config/mpu --allow-write=$HOME/.config/mpu,$XDG_RUNTIME_DIR/mpu-task --allow-run=/usr/bin/tmux,/usr/bin/notify-send --allow-env=HOME,XDG_RUNTIME_DIR -o $MPU_OUT back/task.ts",
+    "compile:supervisor": "deno compile --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp,$HOME/.local/bin/mpu-task,/usr/bin/ps,/usr/bin/cat,/usr/bin/kill --allow-write=$XDG_RUNTIME_DIR/mpu/killed --allow-env=HOME,XDG_RUNTIME_DIR -o $MPU_OUT supervisor/main.ts",
     // Фронт (`docs/specs/web.md`, 10b): dev-сервер Vite с прокси на
     // `mpu-back` и сборка в каталог `$MPU_OUT`. Права — `-A`, как в спеке:
     // Vite — инструмент сборки, в браузере у приложения прав Deno нет.

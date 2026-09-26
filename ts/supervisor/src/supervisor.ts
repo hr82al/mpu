@@ -1,6 +1,7 @@
 /**
- * Супервизор (`platform/supervisor-install.md`): держит `mpu-back` и
- * `mpu-mcp`, перезапускает каждого отдельно, гасит обоих по сигналу.
+ * Супервизор (`platform/supervisor-install.md`): держит `mpu-back`,
+ * `mpu-mcp` и `mpu-task`, перезапускает каждого отдельно, гасит всех по
+ * сигналу.
  */
 
 import { Child, type Clock, type Launcher, type Log } from "./child.ts";
@@ -16,6 +17,8 @@ export interface SupervisorParts {
   readonly back: string;
   /** Путь программы `mpu-mcp`. */
   readonly mcp: string;
+  /** Путь программы `mpu-task` (`task-orchestrator.md`); аргументов нет. */
+  readonly task: string;
   readonly launcher: Launcher;
   readonly clock: Clock;
   readonly log: Log;
@@ -23,10 +26,11 @@ export interface SupervisorParts {
   readonly watch: WatchSetup;
 }
 
-/** Два дочерних под одной службой и сторож исполнителей `back`. */
+/** Три дочерних под одной службой и сторож исполнителей `back`. */
 export class Supervisor {
   readonly back: Child;
   readonly mcp: Child;
+  readonly task: Child;
   readonly #log: Log;
   readonly #watchdog: Watchdog;
   readonly #stopping = new AbortController();
@@ -50,6 +54,12 @@ export class Supervisor {
       command: parts.mcp,
       args: ["--port", String(MCP_PORT)],
     });
+    this.task = new Child({
+      ...common,
+      name: "task",
+      command: parts.task,
+      args: [],
+    });
     this.#log = parts.log;
     this.#watchdog = new Watchdog({
       ...parts.watch,
@@ -64,13 +74,19 @@ export class Supervisor {
     this.#log.out("[supervisor] старт");
     this.back.start();
     this.mcp.start();
+    this.task.start();
     this.#watching = this.#watchdog.run(this.#stopping.signal);
   }
 
-  /** Остановка обоих: `SIGTERM`, через 10 с — `SIGKILL`. */
+  /** Остановка всех: `SIGTERM`, через 10 с — `SIGKILL`. */
   async stop() {
     this.#log.out("[supervisor] остановка");
     this.#stopping.abort();
-    await Promise.all([this.back.stop(), this.mcp.stop(), this.#watching]);
+    await Promise.all([
+      this.back.stop(),
+      this.mcp.stop(),
+      this.task.stop(),
+      this.#watching,
+    ]);
   }
 }

@@ -134,12 +134,13 @@ function alive(pid: number): boolean {
   }
 }
 
-Deno.test("back падает трижды: паузы 1, 2, 4 с, mcp жив с прежним PID", async () => {
+Deno.test("back падает трижды: паузы 1, 2, 4 с, mcp и task живы с прежним PID", async () => {
   const time = clock(3);
   const out = log();
   const supervisor = new Supervisor({
     back: "crash",
     mcp: "live",
+    task: "live",
     launcher: LAUNCHER,
     clock: time.fake,
     log: out.sink,
@@ -150,6 +151,10 @@ Deno.test("back падает трижды: паузы 1, 2, 4 с, mcp жив с 
   assertEquals(time.pauses, [1_000, 2_000, 4_000, 8_000]);
   assertEquals(pids(out.lines, "back").length, 4);
   assertEquals(pids(out.lines, "mcp"), [supervisor.mcp.pid()]);
+  assertEquals(pids(out.lines, "task"), [supervisor.task.pid()]);
+  await out.until((lines) =>
+    lines.some((line) => line.startsWith("[task] live pid"))
+  );
   await supervisor.stop();
   // Вывод дочерних — с префиксами, свои строки — со своим.
   assertEquals(out.lines.includes("[back] упал"), true);
@@ -161,14 +166,26 @@ Deno.test("back падает трижды: паузы 1, 2, 4 с, mcp жив с 
     out.lines.some((line) => /^\[back\] crash pid \d+ --port 7338$/.test(line)),
     true,
   );
+  // У `mpu-task` аргументов нет (`platform/supervisor-install.md`).
+  assertEquals(
+    out.lines.some((line) => /^\[task\] live pid \d+ $/.test(line)),
+    true,
+  );
   assertEquals(out.lines.includes("[supervisor] старт"), true);
 });
 
-Deno.test("SIGUSR1 — новый back, mcp прежний; SIGUSR2 — наоборот; SIGTERM — оба погашены", async () => {
+Deno.test("SIGUSR1 — новый back, mcp прежний; SIGUSR2 — наоборот; task не трогается; SIGTERM — все погашены", async () => {
   const time = clock(0);
   const out = log();
   const handlers = new Map<SupervisorSignal, () => void>();
-  const running = runSupervisor(["--back", "live", "--mcp", "stubborn"], {
+  const running = runSupervisor([
+    "--back",
+    "live",
+    "--mcp",
+    "stubborn",
+    "--task",
+    "live",
+  ], {
     launcher: LAUNCHER,
     clock: time.fake,
     log: out.sink,
@@ -191,6 +208,7 @@ Deno.test("SIGUSR1 — новый back, mcp прежний; SIGUSR2 — наоб
     );
   await ready("[back] live pid", 1);
   await ready("[mcp] stubborn pid", 1);
+  await ready("[task] live pid", 1);
   handlers.get("SIGUSR1")?.();
   await started("back", 2);
   assertEquals(pids(out.lines, "mcp").length, 1);
@@ -203,6 +221,8 @@ Deno.test("SIGUSR1 — новый back, mcp прежний; SIGUSR2 — наоб
   const [back1, back2] = pids(out.lines, "back");
   const [mcp1, mcp2] = pids(out.lines, "mcp");
   assertEquals(back1 !== back2 && mcp1 !== mcp2, true);
+  const [task1, ...more] = pids(out.lines, "task");
+  assertEquals(more, []);
   await ready("[mcp] stubborn pid", 2);
   handlers.get("SIGTERM")?.();
   await time.expire();
@@ -213,7 +233,7 @@ Deno.test("SIGUSR1 — новый back, mcp прежний; SIGUSR2 — наоб
     ).length,
     2,
   );
-  for (const pid of [back1, back2, mcp1, mcp2]) {
+  for (const pid of [back1, back2, mcp1, mcp2, task1]) {
     assertEquals(alive(pid), false, `pid ${pid} жив`);
   }
 });
@@ -237,12 +257,26 @@ Deno.test("--version — версия и код 0, ничего не запус�
 
 Deno.test("неверные флаги — строка использования, код 2, ничего не запускается", async (t) => {
   for (
-    const args of [[], ["--back", "a"], ["--back", "a", "--mcp"], [
-      "--back",
-      "a",
-      "--port",
-      "b",
-    ]]
+    const args of [
+      [],
+      ["--back", "a"],
+      ["--back", "a", "--mcp"],
+      [
+        "--back",
+        "a",
+        "--port",
+        "b",
+      ],
+      ["--back", "a", "--mcp", "b"],
+      [
+        "--back",
+        "a",
+        "--mcp",
+        "b",
+        "--port",
+        "c",
+      ],
+    ]
   ) {
     await t.step(args.join(" ") || "(пусто)", async () => {
       const errors: string[] = [];

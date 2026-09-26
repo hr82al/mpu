@@ -12,6 +12,8 @@ export const BACK_TASK = "compile:back";
 /** Исполнитель строк: ядро ищет его рядом с собой (`platform/line-executor.md`). */
 export const WORKER_TASK = "compile:worker";
 export const CLI_TASK = "compile:cli";
+/** Оркестратор ролей `mpu-task` (`task-orchestrator.md`). */
+export const TASK_TASK = "compile:task";
 
 /** Задачи сборки в `deno.jsonc` нет либо она не той формы. */
 export class CompileTaskError extends Error {
@@ -28,6 +30,8 @@ export interface CompileTarget {
   readonly home: string;
   /** Значение `$XDG_CONFIG_HOME` там же. */
   readonly configHome: string;
+  /** Значение `$XDG_RUNTIME_DIR` там же; не задано — не раскрывается. */
+  readonly runtimeDir?: string;
   /** Путь готового бинаря: подменяет значение `-o` задачи. */
   readonly out: string;
 }
@@ -55,10 +59,9 @@ export function compileArgs(
     throw new CompileTaskError(`в deno.jsonc нет задачи ${name}`);
   }
   const args = task.split(/\s+/).slice(1).map((arg) =>
-    arg.replaceAll("$HOME", target.home).replaceAll(
-      "$XDG_CONFIG_HOME",
-      target.configHome,
-    )
+    arg.replaceAll("$HOME", target.home)
+      .replaceAll("$XDG_CONFIG_HOME", target.configHome)
+      .replaceAll("$XDG_RUNTIME_DIR", target.runtimeDir ?? "$XDG_RUNTIME_DIR")
   );
   const out = args.indexOf("-o");
   if (out < 0) throw new CompileTaskError(`в задаче ${name} нет -o`);

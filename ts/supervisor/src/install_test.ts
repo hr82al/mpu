@@ -51,6 +51,7 @@ const PROGRAMS = [
   "mpu-complete",
   "mpu-mcp",
   "mpu-supervisor",
+  "mpu-task",
   "mpu-worker",
 ];
 
@@ -93,7 +94,16 @@ Deno.test("второй запуск без изменений: ничего н�
     assertEquals(run.code, 0, run.lines.join("\n"));
     assertEquals(
       run.lines.filter((line) => line.includes("сравнение")),
-      ["back", "worker", "mcp", "cli", "supervisor", "complete", "web"].map((
+      [
+        "back",
+        "worker",
+        "mcp",
+        "cli",
+        "supervisor",
+        "task",
+        "complete",
+        "web",
+      ].map((
         part,
       ) => `install: сравнение ${part}: без изменений`),
     );
@@ -166,6 +176,31 @@ Deno.test("--only mcp после правки: только mpu-mcp и USR2 гл
       "--user kill --kill-whom=main -s USR1 mpu",
       "--user kill --kill-whom=main -s USR2 mpu",
     ]);
+  }));
+
+Deno.test("--only task после правки: только mpu-task, служба перезапущена целиком", () =>
+  withPlace(async (place) => {
+    await install(place);
+    const before = await snapshot(place.bin);
+    const run = await install(place, ["--only", "task"], {
+      FAKE_TAG_task: "2",
+    });
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    const after = await snapshot(place.bin);
+    for (const program of PROGRAMS) {
+      assertEquals(
+        after[program] === before[program],
+        program !== "mpu-task",
+        program,
+      );
+    }
+    // Сигнала третьему ребёнку нет — перезапуск службы, как у
+    // супервизора (решение хоста T3).
+    assertEquals(run.calls, ["--user restart mpu"]);
+    assertEquals(
+      unitLines(run).at(-1),
+      "install: перезапуск: служба перезапущена",
+    );
   }));
 
 Deno.test("--only worker после правки: только mpu-worker и USR1 — исполнителей берёт новое ядро", () =>

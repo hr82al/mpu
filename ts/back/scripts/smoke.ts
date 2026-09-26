@@ -17,6 +17,7 @@
  * его от нас».
  */
 
+import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals } from "@std/assert";
 import { VERSION } from "../src/version.ts";
 import { GRAMMAR } from "../src/messages/mod.ts";
@@ -27,6 +28,7 @@ import {
   CLI_TASK,
   compileArgs,
   CompileTaskError,
+  TASK_TASK,
   WORKER_TASK,
 } from "./compile_task.ts";
 import { envFilePath, makeEnvFile } from "../src/env/mod.ts";
@@ -68,6 +70,10 @@ interface Subject {
   readonly cli: string;
   readonly home: string;
   readonly configHome: string;
+  /** `mpu-task`: оркестратор ролей (`task-orchestrator.md`). */
+  readonly task: string;
+  /** `XDG_RUNTIME_DIR` оркестратора: запекается в его права. */
+  readonly runtimeDir: string;
 }
 
 /** Поднятый сервер строк: адрес и остановка. */
@@ -343,11 +349,16 @@ function requireOutsideTempPermission(...paths: readonly string[]): void {
 async function compile(
   task: string,
   out: string,
-  where: { readonly home: string; readonly configHome: string },
+  where: {
+    readonly home: string;
+    readonly configHome: string;
+    readonly runtimeDir: string;
+  },
 ): Promise<void> {
   const args = compileArgs(await Deno.readTextFile("deno.jsonc"), task, {
     home: where.home,
     configHome: where.configHome,
+    runtimeDir: where.runtimeDir,
     out,
   });
   const compiled = await new Deno.Command("deno", {
@@ -1313,7 +1324,65 @@ function checks(subject: Subject): readonly Check[] {
         await session.close();
       }
     }],
+    ["mpu-task: версия, ничего не поднимая", async () => {
+      const out = await new Deno.Command(subject.task, {
+        args: ["--version"],
+        clearEnv: true,
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+      assertEquals(decoder.decode(out.stdout).trim(), VERSION);
+    }],
+    // Права оркестратора на кэш-БД (`deno.jsonc`, задача `task`): первый
+    // шаг идёт сразу при старте и открывает журнал канала — таблицы
+    // появляются в `mpu.db`. Без права записи шаг падает строкой лога
+    // `шаг: …`, и таблиц нет. Проектов с ролями нет — tmux не зовётся.
+    ["mpu-task: кэш-БД — право записи зашито в бинарь", async () => {
+      const child = new Deno.Command(subject.task, {
+        clearEnv: true,
+        env: { HOME: subject.home, XDG_RUNTIME_DIR: subject.runtimeDir },
+        stdout: "piped",
+        stderr: "piped",
+      }).spawn();
+      const tables = await taskTablesWithin(subject.home, 10_000);
+      child.kill("SIGTERM");
+      const out = await child.output();
+      const stdout = decoder.decode(out.stdout);
+      assertEquals(
+        { code: out.code, tables, stdout },
+        { code: 0, tables: true, stdout: "старт\nостановка\n" },
+        decoder.decode(out.stderr),
+      );
+    }],
   ];
+}
+
+/** Появились ли таблицы канала в кэш-БД `home` за `ms`. */
+async function taskTablesWithin(home: string, ms: number): Promise<boolean> {
+  const path = `${home}/.config/mpu/mpu.db`;
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    if (await hasTaskTables(path)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return false;
+}
+
+async function hasTaskTables(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) return false;
+    throw err;
+  }
+  const db = new DatabaseSync(path, { readOnly: true });
+  try {
+    return db.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'task_projects'",
+    ).all().length === 1;
+  } finally {
+    db.close();
+  }
 }
 
 /**
@@ -1401,6 +1470,8 @@ async function main(): Promise<number> {
       cli: `${home}/mpu`,
       home,
       configHome: `${home}/xdg`,
+      task: `${home}/mpu-task`,
+      runtimeDir: `${home}/run`,
     };
     console.log("== сборка ==");
     try {
@@ -1409,6 +1480,7 @@ async function main(): Promise<number> {
       // и каждая проверка ниже идёт через исполнителя с его правами.
       await compile(WORKER_TASK, `${home}/mpu-worker`, subject);
       await compile(CLI_TASK, subject.cli, subject);
+      await compile(TASK_TASK, subject.task, subject);
     } catch (err) {
       // Задачи нет — прогон говорит, какой именно, и уходит: падать
       // разбором незачем, а молча пропускать сборку нельзя
