@@ -354,6 +354,34 @@ M3-7 (тег стенда голдена — литерал в фикстуре)
 замораживает хост. `NPM_AUTH` и пароль — секреты: не печатаются ни в
 `dry`, ни в журнале, ни в отказах.
 
+## Сценарии M4 (стенд ozon и финальная проверка ответом)
+
+Шаг 6 — после web, если есть чекаут `$P/ozon` (нет — строка `стенд ozon:
+чекаута $P/ozon нет — пропуск`, код не меняется). Компоуз —
+`$L/ozon/docker-compose.yml` (проект `ozon-*`; сервисы сняты 2026-09-26: `pg`,
+`redis`, `clickhouse`, `migrate`, `verdaccio`, `datacore`,
+`datacore-worker`, `ingest`, `front`, `dev`). Финал — `curl` с таймаутом 10 с
+**по переадресациям** (`-L`): снято 2026-09-26, `http://localhost:3100/ozon/app/`
+→ `308` → `/ozon/app` → `200` на `/ozon/app/unit`; без `-L` проверка врала бы
+`308`. Пробы — без печати `$`.
+
+| # | Дано | Строка | stderr (фрагмент) | код |
+|---|---|---|---|---|
+| M4-1 | чекаут `$P/ozon` есть, контейнеры ozon живы, `node_modules` есть, версия `@sw-back/workspace-access` из lock есть в Verdaccio | `mpu ask mp-init dry` | `$ docker compose -f $L/ozon/docker-compose.yml up -d pg redis clickhouse verdaccio dev\n$ docker compose -f $L/ozon/docker-compose.yml --profile migrate run --rm migrate\n$ docker compose -f $L/ozon/docker-compose.yml up -d datacore datacore-worker ingest front\n` — без публикации пакета и без `pnpm install` | 0 |
+| M4-2 | пакета версии lock в Verdaccio нет (проба `docker exec ozon-dev npm view @sw-back/workspace-access@<v> --registry http://verdaccio:4873` → ≠ 0) | `mpu ask mp-init dry` | после первой строки `up -d pg …`: `стенд ozon: публикую @sw-back/workspace-access@<v> в Verdaccio\n` и строки сборки и публикации (`git archive` коммита sw-back с этой версией, `docker cp`, `tsc`, `npm publish --registry http://verdaccio:4873 --//verdaccio:4873/:_authToken=local-stand`) | 0 |
+| M4-3 | `node_modules` в `$P/ozon` нет | то же | строки `docker exec ozon-dev …`: `corepack enable --install-directory /tmp/bin`, `pnpm install --config.@sw-back:registry=http://verdaccio:4873`, `pnpm --filter "./packages/*" run build`, `pnpm --filter @ozon/datacore build`, `pnpm --filter @ozon/ingest build` | 0 |
+| M4-4 | чекаута `$P/ozon` нет | `mpu ask mp-init` | `стенд ozon: чекаута $P/ozon нет — пропуск\n` | 0 |
+| M4-5 | финал: все адреса 200 | `mpu ask mp-init` | строки `проверка: 200 http://sw.localhost` … по одной на адрес (`http://sw.localhost`, `http://sw.localhost/api/metrics`, `http://sl-dev.localhost`, `http://localhost:5200/health`, `http://localhost:3100/ozon/app/`) | 0 |
+| M4-6 | `http://sw.localhost` → 502 | то же | `warning: проверка: 502 http://sw.localhost\n`; код не меняется | 0 |
+| M4-7 | `sl-0` `/api/health` → 503, тело `{"checks":{"database":"ok"},…}` | то же | `проверка: sl-0 — 503 при database: ok (память на старте), не отказ\n` | 0 |
+| M4-8 | финал в `dry` | `mpu ask mp-init dry` | строк `проверка:` нет | 0 |
+| M4-9 | `up` ozon → rc 4 | `mpu ask mp-init` | `mpu mp-init: стенд ozon упал (rc=4)\n`; финал не выполняется | 4 |
+
+Адрес `/api/health` sl-0 — `http://sl-dev.localhost/api/health` или порт
+sl-0 из `.sl-0.env` — уточняет исполнитель пробой на стенде хоста (вопрос в
+канал), литерал фиксирует хост. Строки сборки/публикации пакета (M4-2) —
+литералы раздела «Шаг 6», исполнитель переносит их дословно.
+
 ## Golden-примеры
 
 `fixtures/mp-init/dry-run.stdout` — `mpu mp-init --dry-run`, снято 2026-08-27 с
