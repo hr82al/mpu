@@ -1,6 +1,6 @@
 # mpu mp-clone
 
-Статус: к реализации (2026-09-24). Требования сняты живым подъёмом рабочей области с нуля на чистой
+Статус: к реализации — одна порция C1 (дополнено хостом 2026-09-26: корень, права Deno, сценарии литералами). Требования сняты живым подъёмом рабочей области с нуля на чистой
 машине 2026-09-24: каталоги субрепо были пустышками с одними env-файлами, ключа GitLab не было в
 `known_hosts`, личности git не было. Порядок ниже — тот, что сработал руками.
 
@@ -21,6 +21,17 @@
 Коды выхода: 0 — область готова (в том числе когда какого-то субрепо нет на сервере, см. ниже);
 2 — не найден корень `mp` или `mp.code-workspace`; 1 — упал `git clone` субрепо, который на сервере
 есть; 3 — ключ хоста GitLab не в `known_hosts` (см. «Граничные случаи»).
+
+## Корень и права
+
+Корень рабочей области — `$HOME/mr/mp` (от `HOME` порта команды); нет
+каталога или `mp.code-workspace` в нём — exit 2. Права Deno задач `back`,
+`worker`, `compile:*`: `--allow-write` дополняется ровно двумя файлами —
+`$HOME/mr/mp/.gitignore` и `$HOME/mr/mp/.mp-workspace-root` (строкой с
+обоснованием в `deno.jsonc`); всё остальное на диске пишут подпроцессы
+(`git clone`, `git checkout`, `cp -a` для копии пустышки и возврата
+локальных файлов) — `--allow-run` у задач без списка. Каталог копий —
+`$HOME/tmp/mp-clone-backup/<ГГГГММДД-ччммсс>/<имя>` (пишет `cp -a`).
 
 ## Что клонируется
 
@@ -99,6 +110,35 @@ N склонировано, M уже было, K нет на сервере`. st
 - Упал `git clone` посреди пустышки после переноса `.git` → каталог восстанавливается из копии,
   exit 1.
 - `mp-support-scripts-old` в workspace есть, на сервере нет (2026-09-24) — ожидаемое предупреждение.
+
+
+## Сценарии C1
+
+Стенд: временный `HOME=$H`, корень `R=$H/mr/mp` с `mp.code-workspace`
+(`folders`: `.`, `sl-back`, `sw-front`, `mp-support-scripts-old`); порты
+`git`, `ssh-keygen`, `ssh-keyscan`, `cp` подменены (записывают вызовы,
+отвечают по «Дано»); часы — порт (`20260926-120000`). Служебные субрепо —
+`mp-config-local`, `ai-tools`, `opiu-service`. Весь вывод — stderr.
+
+| # | Дано | Строка | stderr (фрагмент) | код |
+|---|---|---|---|---|
+| C1 | ключ хоста есть, каталогов субрепо нет, все на сервере | `mpu ask mp-clone` | `склонирован: sl-back (main <sha>)\n` … по строке на субрепо в порядке `sl-back`, `sw-front`, `mp-config-local`, `ai-tools`, `opiu-service`; `нет на сервере: mp-support-scripts-old\n`; итог `mp-clone: 5 склонировано, 0 уже было, 1 нет на сервере\n` | 0 |
+| C2 | сразу после C1 | то же | `уже есть: sl-back (main <sha>)` … итог `mp-clone: 0 склонировано, 5 уже было, 1 нет на сервере`; ни одного `git clone`, записей на диск нет | 0 |
+| C3 | `ssh-keygen -F '[gitlab.btlz-api.ru]:2222'` → 1, `ssh-keyscan` отдаёт ключ | `mpu ask mp-clone` | `mpu mp-clone: ключа gitlab.btlz-api.ru:2222 нет в known_hosts — отпечаток <SHA256:…>; принять: ssh-keyscan -p 2222 gitlab.btlz-api.ru >> ~/.ssh/known_hosts\n`; `~/.ssh` не тронут | 3 |
+| C4 | `$R/sw-front` — пустышка (`.env`, `.env.example` с локальной правкой), своего `.git` нет | `mpu ask mp-clone` | `поверх пустышки: sw-front, копия $H/tmp/mp-clone-backup/20260926-120000/sw-front\n`, `восстановлен локальный: sw-front/.env.example\n`; `.env` на месте | 0 |
+| C5 | `ls-remote` sl-back → ошибка сети (`ssh: connect … Connection refused`) | `mpu ask mp-clone` | `mpu mp-clone: sl-back — git ls-remote: ssh: connect … Connection refused\n` (не «нет на сервере») | 1 |
+| C6 | `git clone` sw-front поверх пустышки падает после переноса `.git` | `mpu ask mp-clone` | `mpu mp-clone: sw-front — clone упал, каталог восстановлен из копии <путь>\n`; каталог побайтно как до запуска | 1 |
+| C7 | нет `$R/.mp-workspace-root` | C1 | файл создан пустым | 0 |
+| C8 | в `$R/.gitignore` нет `/sl-back/` | C1 | строка дописана в блок «Detected subrepos»; `в mp не закоммичено: .gitignore\n` | 0 |
+| C9 | нет `user.name`/`user.email` | C1 | `warning: нет личности git — git config --global user.name … && git config --global user.email …\n`; глобальный конфиг не тронут | 0 |
+| C10 | — | `mpu ask mp-clone dry` | те же строки с префиксом `план: `, финал `dry-run: ничего не выполнено\n`; `ls-remote` выполнялся, клонов и записей нет | 0 |
+| C11 | нет `$R/mp.code-workspace` | `mpu ask mp-clone` | `mpu mp-clone: нет $R/mp.code-workspace\n` | 2 |
+| C12 | — | `mpu mp-clone` без `ask` | отказ двери живой формы | 2 |
+| C13 | `$R/mpu` с собственным `.git` в workspace | C1 | `уже есть: mpu (…)`; ни fetch, ни checkout | 0 |
+
+Отпечаток и `<sha>` — от поддельного порта; литералы отказов —
+спецификатора по форме живых отказов. Голден `dry` на чистой машине
+снимает хост после реализации.
 
 ## Golden-примеры
 
