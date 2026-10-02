@@ -44,6 +44,7 @@ const FOUND: readonly RawMessage[] = [
     },
     date: new Date("2026-08-16T07:54:28.000Z"),
     text: "выгрузка за июль готова",
+    entities: [],
   },
 ];
 
@@ -175,6 +176,7 @@ Deno.test("оборванный потолком скан уезжает в ре
             : chat,
           date: new Date("2026-08-16T07:54:28.000Z"),
           text: "текст",
+          entities: [],
         });
       }
     };

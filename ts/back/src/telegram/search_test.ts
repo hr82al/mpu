@@ -32,6 +32,7 @@ function message(id: number, sender: RawChat | null): RawMessage {
     sender,
     date: new Date("2026-08-16T07:54:28.000Z"),
     text: `сообщение ${id}`,
+    entities: [],
   };
 }
 

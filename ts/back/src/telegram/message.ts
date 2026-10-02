@@ -8,7 +8,9 @@
  * команда, а не протокол.
  */
 
+import type { tl } from "@mtcute/deno";
 import { markedId, type RawChat } from "./chat.ts";
+import { markdown } from "./markdown.ts";
 
 /** Сообщение, как о нём отчитался клиент: идентификаторы ещё сырые. */
 export interface RawMessage {
@@ -21,6 +23,8 @@ export interface RawMessage {
   readonly date: Date | null;
   /** Текст сообщения либо подпись вложения; ни того ни другого — пусто. */
   readonly text: string;
+  /** Разметка текста протокола; без разметки — пустой список. */
+  readonly entities: readonly tl.TypeMessageEntity[];
 }
 
 /** Строка выдачи `telegram search` (`FoundMessage` глоссария). */
@@ -34,6 +38,7 @@ export interface FoundMessage {
   readonly sender: string | null;
   /** Время отправки в UTC, ISO-8601 без долей секунды; нет — `null`. */
   readonly date: string | null;
+  /** Текст в Markdown диалекта `send --md` (там же, «Разметка текста»). */
   readonly text: string;
   /** Ссылка на сообщение; у чата без публикаций — `null`. */
   readonly link: string | null;
@@ -47,7 +52,7 @@ export function foundMessage(raw: RawMessage): FoundMessage {
     chat_title: raw.chat.title,
     sender: raw.sender === null ? null : raw.sender.title,
     date: raw.date === null ? null : isoUtc(raw.date),
-    text: raw.text,
+    text: markdown(raw.text, raw.entities),
     link: link(raw.chat, raw.id),
   };
 }

@@ -25,6 +25,7 @@ const FOUND: readonly RawMessage[] = [
     },
     date: new Date("2026-08-16T07:54:28.000Z"),
     text: "выгрузка за июль готова",
+    entities: [],
   },
   {
     id: 77,
@@ -37,6 +38,7 @@ const FOUND: readonly RawMessage[] = [
     sender: null,
     date: new Date("2026-08-15T18:03:00.000Z"),
     text: "выгрузка отчётов включена в релиз",
+    entities: [],
   },
   {
     id: 1503,
@@ -54,6 +56,35 @@ const FOUND: readonly RawMessage[] = [
     },
     date: new Date("2026-08-14T09:12:41.000Z"),
     text: "",
+    entities: [],
+  },
+  {
+    id: 17694,
+    chat: {
+      peerType: "supergroup",
+      rawId: 303,
+      title: "Разработка",
+      username: null,
+    },
+    sender: {
+      peerType: "user",
+      rawId: 500002,
+      title: "Пётр Сидоров",
+      username: "psidorov",
+    },
+    date: new Date("2026-10-02T06:11:14.000Z"),
+    text:
+      "@ivan_p Привет, сможешь сделать ревью?\n1. Ozon: сверка выкупа - готово к код-ревью",
+    entities: [
+      { _: "messageEntityMention", offset: 0, length: 7 },
+      {
+        _: "messageEntityTextUrl",
+        offset: 42,
+        length: 19,
+        url: "https://btlz.kaiten.ru/71300001",
+      },
+      { _: "messageEntityBold", offset: 64, length: 18 },
+    ],
   },
 ];
 
@@ -76,7 +107,10 @@ Deno.test("ничего не найдено в таблице: без счётч
 });
 
 Deno.test("таблица: порядок колонок, строк и итог", () => {
-  const lines = renderMessagesTable(FOUND.map(foundMessage)).split("\n");
+  // Три сообщения голдена в одну строку каждое: перевод строки внутри
+  // текста четвёртого переносит клетку, а это оформление, не контракт.
+  const lines = renderMessagesTable(FOUND.slice(0, 3).map(foundMessage))
+    .split("\n");
   assertEquals(lines.at(-1), "", "вывод оканчивается одним переводом строки");
   assertEquals(lines.at(-2), "(3 messages)");
   assertEquals(
@@ -104,4 +138,26 @@ Deno.test("таблица: порядок колонок, строк и итог
     "Мария Кузнецова",
   ]);
   assertEquals(lines.length, 6);
+});
+
+Deno.test("TM12: в колонке TEXT та же Markdown-строка, что в JSON", () => {
+  const message = foundMessage({
+    ...FOUND[0],
+    text: "1. Ozon: сверка выкупа - готово к код-ревью",
+    entities: [{
+      _: "messageEntityTextUrl",
+      offset: 3,
+      length: 19,
+      url: "https://btlz.kaiten.ru/71300001",
+    }],
+  });
+  const row = renderMessagesTable([message]).split("\n")[1];
+  assertEquals(
+    row.split(/\s{2,}/).at(-1),
+    "1. [Ozon: сверка выкупа](https://btlz.kaiten.ru/71300001) - готово к код-ревью",
+  );
+  assertEquals(
+    JSON.parse(renderMessagesJson([message]))[0].text,
+    row.split(/\s{2,}/).at(-1),
+  );
 });

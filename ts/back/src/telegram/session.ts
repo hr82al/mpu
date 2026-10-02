@@ -291,6 +291,7 @@ function rawMessage(found: Message): RawMessage {
     sender: sender(found),
     date: found.date,
     text: found.text,
+    entities: found.entities.map((entity) => entity.raw),
   };
 }
 

@@ -17,6 +17,7 @@ const SUPERGROUP: RawMessage = {
   },
   date: new Date("2026-08-16T07:54:28.000Z"),
   text: "выгрузка за июль готова",
+  entities: [],
 };
 
 Deno.test("сообщение супергруппы: маркированный id и ссылка по имени", () => {
@@ -44,6 +45,7 @@ Deno.test("сообщение канала без имени: ссылка на 
       sender: null,
       date: new Date("2026-08-15T18:03:00.000Z"),
       text: "выгрузка отчётов включена в релиз",
+      entities: [],
     }),
     {
       id: 77,
@@ -71,6 +73,7 @@ Deno.test("у личной переписки и базовой группы с�
         sender: null,
         date: null,
         text: "",
+        entities: [],
       },
       id: 100000001,
     },
@@ -86,6 +89,7 @@ Deno.test("у личной переписки и базовой группы с�
         sender: null,
         date: null,
         text: "",
+        entities: [],
       },
       id: -3003,
     },
@@ -99,6 +103,22 @@ Deno.test("у личной переписки и базовой группы с�
   }
 });
 
+Deno.test("text — Markdown разметки сообщения (TM2)", () => {
+  assertEquals(
+    foundMessage({
+      ...SUPERGROUP,
+      text: "1. Ozon: сверка выкупа - готово к код-ревью",
+      entities: [{
+        _: "messageEntityTextUrl",
+        offset: 3,
+        length: 19,
+        url: "https://btlz.kaiten.ru/71300001",
+      }],
+    }).text,
+    "1. [Ozon: сверка выкупа](https://btlz.kaiten.ru/71300001) - готово к код-ревью",
+  );
+});
+
 Deno.test("отсутствующее значение — null или пустая строка, не пропуск", () => {
   assertEquals(
     foundMessage({
@@ -107,6 +127,7 @@ Deno.test("отсутствующее значение — null или пуст�
       sender: null,
       date: null,
       text: "",
+      entities: [],
     }),
     {
       id: 9,
