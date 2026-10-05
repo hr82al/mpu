@@ -131,3 +131,46 @@ Deno.test("нет файла и нет сообщения — отказ сло�
     });
   }
 });
+
+Deno.test("длинное имя на диске — не длиннее 255 байт (F23–F33)", async (t) => {
+  const a = "а"; // кириллица, 2 байта
+  const cases = [
+    { id: 60, name: `${a.repeat(117)}.md`, disk: `${a.repeat(117)}.md` },
+    { id: 61, name: `${a.repeat(118)}.md`, disk: `${a.repeat(117)}.md` },
+    { id: 62, name: "a".repeat(237), disk: "a".repeat(237) },
+    { id: 63, name: "a".repeat(238), disk: "a".repeat(237) },
+    { id: 64, name: a.repeat(200), disk: a.repeat(118) },
+    { id: 65, name: `${"😀".repeat(60)}.png`, disk: `${"😀".repeat(58)}.png` },
+    { id: 66, name: `x.${"y".repeat(300)}`, disk: `x.${"y".repeat(235)}` },
+    { id: 67, name: `.${"b".repeat(300)}`, disk: `.${"b".repeat(236)}` },
+    {
+      id: 68,
+      name: `../${a.repeat(118)}.md`,
+      disk: `.._${a.repeat(115)}.md`,
+    },
+    {
+      id: 69,
+      name: `отчёт.v2.final.${"я".repeat(120)}.xlsx`,
+      disk: `отчёт.v2.final.${"я".repeat(106)}.xlsx`,
+    },
+    { id: 42, name: "разбор.md", disk: "разбор.md" },
+  ];
+  const root = await Deno.makeTempDir();
+  try {
+    for (const { id, name, disk } of cases) {
+      await t.step(`${id}: ${name.slice(0, 12)}…`, async () => {
+        const file = documentFile(id, {
+          name,
+          size: 10,
+          mime: "text/markdown",
+        }, bytesOf("0123456789"));
+        const saved = await file.saveTo(new Inbox(root), CHAT);
+        assertEquals(saved.path, `${root}/-1000000000101-${id}-${disk}`);
+        assertEquals(saved.name, name);
+        assertEquals((await Deno.stat(saved.path)).size, 10);
+      });
+    }
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});

@@ -60,7 +60,7 @@ class AttachedFile implements MessageFile {
   async saveTo(inbox: Inbox, chatId: number): Promise<SavedFile> {
     const { name, mime } = this.#listed;
     const kept = await inbox.keep(
-      `${chatId}-${this.#messageId}-${onDisk(name)}`,
+      onDisk(`${chatId}-${this.#messageId}-`, name),
       this.#bytes(),
     );
     return { path: kept.path, name, size: kept.size, mime };
@@ -133,10 +133,44 @@ export function noMessage(messageId: number): MessageFile {
   return new Absent(`сообщение ${messageId} не найдено`);
 }
 
+/** Предел имени файла в Linux, байт UTF-8. */
+const NAME_LIMIT = 255;
+
+/** Длиннее — уже не расширение, а точка внутри длинного имени ([D.7]). */
+const EXTENSION_LIMIT = 16;
+
+const utf8 = new TextEncoder();
+
+function bytesIn(text: string): number {
+  return utf8.encode(text).byteLength;
+}
+
 /**
- * Имя на диске ([D.2]): `/` и NUL — на `_`, иначе имя вложения уводит
- * запись из каталога; прочее остаётся как есть.
+ * Имя на диске: `prefix` и имя вложения, в котором `/` и NUL — на `_`
+ * ([D.2]), иначе имя уводит запись из каталога. Не помещается в предел —
+ * имя режется с конца по кодовым точкам, а расширение остаётся: по нему
+ * файл открывают ([D.7]).
  */
-function onDisk(name: string): string {
-  return name.replaceAll(/[/\0]/g, "_");
+function onDisk(prefix: string, name: string): string {
+  const safe = name.replaceAll(/[/\0]/g, "_");
+  const room = NAME_LIMIT - bytesIn(prefix);
+  if (bytesIn(safe) <= room) return prefix + safe;
+  const dot = safe.lastIndexOf(".");
+  const extension = dot > 0 && bytesIn(safe.slice(dot)) <= EXTENSION_LIMIT
+    ? safe.slice(dot)
+    : "";
+  const stem = safe.slice(0, safe.length - extension.length);
+  return prefix + cut(stem, room - bytesIn(extension)) + extension;
+}
+
+/** Начало `text` по кодовым точкам, не длиннее `limit` байт. */
+function cut(text: string, limit: number): string {
+  let kept = "";
+  let size = 0;
+  for (const point of text) {
+    size += bytesIn(point);
+    if (size > limit) break;
+    kept += point;
+  }
+  return kept;
 }
