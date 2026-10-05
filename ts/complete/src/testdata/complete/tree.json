@@ -44,7 +44,7 @@
         {
           "selector": "claude-hook",
           "kind": "unary",
-          "purpose": "адаптеры хуков Claude Code: уведомление себе в бота"
+          "purpose": "Что делать с событием хука Claude Code: уведомление себе или решение правил на вызов инструмента?"
         },
         {
           "selector": "clean-local-clients",

@@ -570,11 +570,12 @@ export const groups: readonly CommandGroup[] = [
     usage: "mpu wb <сообщение> target: КЛИЕНТ [ключи]",
   },
   {
-    // Группа с единственным листом: следующий хук Claude Code
-    // (`Stop`, `SessionEnd`) станет её соседом, а без записи здесь
-    // `mpu claude-hook` не опознавался бы вовсе.
+    // Группа хуков Claude Code: следующий хук (`Stop`, `SessionEnd`)
+    // станет соседом листьев, а без записи здесь `mpu claude-hook` не
+    // опознавался бы вовсе.
     path: ["claude-hook"],
-    summary: "адаптеры хуков Claude Code: уведомление себе в бота",
+    summary:
+      "Что делать с событием хука Claude Code: уведомление себе или решение правил на вызов инструмента?",
     usage: "mpu claude-hook <подкоманда>",
   },
 ];
