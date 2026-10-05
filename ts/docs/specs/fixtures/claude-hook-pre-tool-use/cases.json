@@ -855,6 +855,36 @@
    },
    "stdout": "",
    "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "E12",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten define: x"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+  },
+  {
+   "id": "E13",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls forget: x"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+  },
+  {
+   "id": "E14",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu ask kiten forget: ls"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
   }
  ],
  "environment": [

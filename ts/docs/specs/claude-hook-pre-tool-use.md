@@ -298,7 +298,7 @@ Code — раздел «Фрагмент настроек».
 
 ## Сценарии
 
-Эталон — `fixtures/claude-hook-pre-tool-use/cases.json` (78 случаев, коды
+Эталон — `fixtures/claude-hook-pre-tool-use/cases.json` (81 случай, коды
 выхода у всех 0): вход — живой Bash-payload с подменёнными `tool_name` /
 `tool_input` (или `stdin` целиком), правила — «посев» (пустой `policy.db`;
 живые решения 2026-10-05 по путям сценариев совпали с посевом: `sql-ro`,
@@ -345,6 +345,7 @@ Code — раздел «Фрагмент настроек».
 | E9 | `mpu policy` | `allow`, `mpu policy: разрешено правилом «policy»` |
 | E10 | MCP `["ask","allow:","kiten"]` | `строка не разобрана: не понимает` (дверь не понимает сообщений корня) |
 | E11 | `mpu kiten ls \|` (оператор в хвосте) | `оболочка: не одна простая команда` |
+| E12–E14 | `mpu kiten define: x`, `mpu kiten ls forget: x`, `mpu ask kiten forget: ls` | `решается при исполнении` (строка образа: `define:` / `forget:`) |
 
 Живая проверка формы ответа Claude Code (JSON и смысл пустого stdout) —
 приёмка хоста (постановка, §9): форма взята по документации, не снята.
@@ -384,7 +385,7 @@ Code — раздел «Фрагмент настроек».
 
 - `live-bash-mpu-version.json`, `live-mcp-mpu-version.json` — payload'ы,
   снятые живьём 2026-10-05 (обезличены); вход всех сценариев;
-- `cases.json` — сценарии S1–S25, E1–E11 (`cases`) и окружения S20
+- `cases.json` — сценарии S1–S25, E1–E14 (`cases`) и окружения S20
   (`environment`): вход, правила, stdout и stderr побайтово (`stderr_prefix` —
   начало строки, хвост — причина источника дословно), код 0;
 - `settings-fragment.json` — фрагмент настроек.
