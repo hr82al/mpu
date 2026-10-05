@@ -6479,6 +6479,11 @@
           "selector": "notification",
           "kind": "unary",
           "purpose": "Отправить уведомление хука Claude Code в личного бота."
+        },
+        {
+          "selector": "pre-tool-use",
+          "kind": "unary",
+          "purpose": "Какое решение правил mpu у вызова инструмента Claude Code?"
         }
       ],
       "keys": [],
@@ -6491,6 +6496,26 @@
         "notification"
       ],
       "summary": "Отправить уведомление хука Claude Code в личного бота.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "undefined:",
+          "kind": "keyword",
+          "purpose": ""
+        }
+      ],
+      "keys": [],
+      "formats": [
+        "json"
+      ],
+      "variants": []
+    },
+    {
+      "path": [
+        "claude-hook",
+        "pre-tool-use"
+      ],
+      "summary": "Какое решение правил mpu у вызова инструмента Claude Code?",
       "tail": "args",
       "messages": [
         {

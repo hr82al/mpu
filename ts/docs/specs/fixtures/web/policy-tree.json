@@ -1004,6 +1004,15 @@
   },
   {
     "path": [
+      "claude-hook",
+      "pre-tool-use"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
       "clean-local-clients"
     ],
     "verdict": "deny",
