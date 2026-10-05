@@ -195,6 +195,7 @@
 | поле `file` выдачи | `ListedFile` | имя, размер, MIME-тип вложения в выдаче `telegram search` |
 | скачанный файл | `SavedFile` | вывод `telegram file`: путь, имя, записанный размер, MIME-тип |
 | каталог-получатель | `Inbox` | каталог, куда `telegram file` атомарно пишет вложения (`/tmp/mpu-telegram/`) |
+| картинка | `Picture` | растровое изображение (JPEG, PNG, GIF, WebP) в ответе строки: кадр `picture`, блок `image` MCP; не путать с «образом» (`platform/image.md`) (`platform/picture-frame.md`) |
 | сообщение клиента | `ClientMessage` | сообщение, как о нём отчитался клиент, до проверок: идентификатор чата и время могут отсутствовать |
 | опознанный адресат | `PeerRef` | адресат, уже опознанный клиентом Telegram |
 | вид туннеля | `ProxyTunnel` | http-CONNECT либо SOCKS после приведения синонимов схем |
