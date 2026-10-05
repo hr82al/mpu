@@ -1,0 +1,19 @@
+{
+  "session_id": "00000000-0000-0000-0000-000000000001",
+  "transcript_path": "/home/user/.claude/projects/…/00000000-0000-0000-0000-000000000001.jsonl",
+  "cwd": "/home/user/mr/mp/tmp/mpu-pretool-hook",
+  "prompt_id": "00000000-0000-0000-0000-000000000002",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "mcp__mpu__mpu",
+  "tool_input": {
+    "words": [
+      "version"
+    ]
+  },
+  "tool_use_id": "toolu_01F6twsneiwmC71EfkrPXx9c",
+  "mcp_server": {
+    "name": "mpu",
+    "source": "user"
+  }
+}
