@@ -285,6 +285,46 @@
    "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: подстановка\n"
   },
   {
+   "id": "S12k",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro target: 54 sql: <(x)"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "S12l",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro target: 54 sql: >(x)"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "S12m",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu a)"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "S12n",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "(mpu kiten ls)"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
    "id": "S13a",
    "rules": "посев",
    "tool_name": "Bash",
@@ -400,6 +440,16 @@
    "tool_name": "Bash",
    "tool_input": {
     "command": "mpu kiten card id: 1?"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: раскрытие\n"
+  },
+  {
+   "id": "S14e",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro target: 54 sql: x[1]"
    },
    "stdout": "",
    "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: раскрытие\n"
