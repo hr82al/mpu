@@ -5,18 +5,11 @@
  */
 
 import { type HookReply, NOT_MPU, Undecided, unparsedInput } from "./reply.ts";
-import { ShellEvent, shellWords } from "./shell.ts";
+import { shellCall } from "./shell.ts";
+import type { Consult, ToolCall } from "./tool.ts";
 
 /** Имя MCP-тула `mpu`: другое имя сервера — «не вызов mpu». */
 const MCP_TOOL = "mcp__mpu__mpu";
-
-/** Решение по словам строки `mpu` (без самого `mpu`). */
-export type Consult = (words: readonly string[]) => Promise<HookReply>;
-
-/** Вызов инструмента: слова строки — решающему, прочее — свой ответ. */
-export interface ToolCall {
-  reply(consult: Consult): Promise<HookReply>;
-}
 
 /** Bash: слова — разбором оболочки, без первого `mpu`. */
 export class BashCall implements ToolCall {
@@ -27,14 +20,7 @@ export class BashCall implements ToolCall {
   }
 
   reply(consult: Consult): Promise<HookReply> {
-    let words: readonly string[];
-    try {
-      words = shellWords(this.#command);
-    } catch (err) {
-      if (!(err instanceof ShellEvent)) throw err;
-      return Promise.resolve(new Undecided(err.reason));
-    }
-    return consult(words.slice(1));
+    return shellCall(this.#command).reply(consult);
   }
 }
 

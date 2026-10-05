@@ -13,15 +13,8 @@
 
 export { claudeHookNotificationCommand } from "./cmd_notification.ts";
 export { claudeHookPreToolUseCommand } from "./cmd_pre_tool_use.ts";
-export {
-  BashCall,
-  type Consult,
-  McpCall,
-  NotMpu,
-  type ToolCall,
-  toolCallOf,
-  Unparsed,
-} from "./call.ts";
+export { BashCall, McpCall, NotMpu, toolCallOf, Unparsed } from "./call.ts";
+export type { Consult, ToolCall } from "./tool.ts";
 export {
   Allowed,
   askedBy,

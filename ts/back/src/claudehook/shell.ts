@@ -6,7 +6,8 @@
  * класс символа выбирается `switch`.
  */
 
-import { NOT_MPU } from "./reply.ts";
+import { type HookReply, NOT_MPU, Undecided } from "./reply.ts";
+import type { Consult, ToolCall } from "./tool.ts";
 
 /** Причина: подстановка оболочки — что исполнится, не видно. */
 export const SUBSTITUTION = "оболочка: подстановка";
@@ -20,14 +21,37 @@ export const UNCLOSED = "оболочка: незакрытая кавычка";
 /** Первое слово строки, которое хук принимает. */
 const MPU = "mpu";
 
-/** Строка — не одна простая команда `mpu`: причина события. */
-export class ShellEvent extends Error {
+/**
+ * Событие прохода: строка — не одна простая команда `mpu`, текст —
+ * причина. Прерывает проход изнутри и наружу `shellCall` не выходит.
+ */
+class ShellEvent extends Error {
   override name = "ShellEvent";
-  readonly reason: string;
+}
+
+/** Слова одной простой команды `mpu` — решающему, без самого `mpu`. */
+class ShellWords implements ToolCall {
+  readonly #words: readonly string[];
+
+  constructor(words: readonly string[]) {
+    this.#words = words;
+  }
+
+  reply(consult: Consult): Promise<HookReply> {
+    return consult(this.#words.slice(1));
+  }
+}
+
+/** Событие разбора: ответ без решения с его причиной. */
+class Eventful implements ToolCall {
+  readonly #reason: string;
 
   constructor(reason: string) {
-    super(reason);
-    this.reason = reason;
+    this.#reason = reason;
+  }
+
+  reply(): Promise<HookReply> {
+    return Promise.resolve(new Undecided(this.#reason));
   }
 }
 
@@ -174,13 +198,17 @@ class Scan {
 }
 
 /**
- * Слова строки — одной простой команды `mpu`.
+ * Вызов из Bash-строки: слова одной простой команды `mpu` либо, если
+ * строка не такая (оператор, подстановка, раскрытие, незакрытая кавычка,
+ * первого слова нет или оно не `mpu`), — ответ без решения с причиной.
  *
  * @param command текст `tool_input.command`
- * @returns слова, первое — `mpu`
- * @throws ShellEvent — строка не такая: оператор, подстановка, раскрытие,
- *   незакрытая кавычка, первого слова нет или оно не `mpu`
  */
-export function shellWords(command: string): readonly string[] {
-  return new Scan(command).words();
+export function shellCall(command: string): ToolCall {
+  try {
+    return new ShellWords(new Scan(command).words());
+  } catch (err) {
+    if (!(err instanceof ShellEvent)) throw err;
+    return new Eventful(err.message);
+  }
 }

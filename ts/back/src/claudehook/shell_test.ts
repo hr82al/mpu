@@ -4,44 +4,64 @@
  * здесь, а причины событий — сценариями `cases.json` (`line/hook_test.ts`).
  */
 
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals } from "@std/assert";
+import { undecidedLine } from "../frames/mod.ts";
 import {
   COMPOUND,
   EXPANSION,
-  ShellEvent,
-  shellWords,
+  shellCall,
   SUBSTITUTION,
   UNCLOSED,
 } from "./shell.ts";
-import { NOT_MPU } from "./reply.ts";
+import { type HookReply, NOT_MPU, Undecided } from "./reply.ts";
+
+/** Ответ, которым решающий отвечает на слова: тесту важны сами слова. */
+const HEARD: HookReply = new Undecided("слова услышаны");
+
+/** Что разбор строки отдал решающему и что ответил сам. */
+async function parsed(command: string) {
+  const heard: (readonly string[])[] = [];
+  const reply = await shellCall(command).reply((words) => {
+    heard.push(words);
+    return Promise.resolve(HEARD);
+  });
+  let stderr = "";
+  reply.tell({ stdout: () => {}, stderr: (text) => void (stderr += text) });
+  return { heard, stderr };
+}
 
 Deno.test("слова: кавычки и экранирование снимаются, как у bash", async (t) => {
   const cases: readonly (readonly [string, readonly string[]])[] = [
-    ["mpu a 'b c'", ["mpu", "a", "b c"]],
-    ['mpu a "b\\"c"', ["mpu", "a", 'b"c']],
-    ['mpu a "b\\c"', ["mpu", "a", "b\\c"]],
-    ['mpu a "b\\$c\\\\"', ["mpu", "a", "b$c\\"]],
-    ["mpu a 'b\\c $d'", ["mpu", "a", "b\\c $d"]],
-    ["mpu a b\\;c", ["mpu", "a", "b;c"]],
-    ["mpu a b#c", ["mpu", "a", "b#c"]],
-    ["mpu a ''", ["mpu", "a", ""]],
-    ["mpu a \\\nb", ["mpu", "a", "b"]],
-    ['mpu "a\nb"', ["mpu", "a\nb"]],
-    ["mpu a\n\n  ", ["mpu", "a"]],
-    ["mpu a!", ["mpu", "a!"]],
-    ["mpu a\\", ["mpu", "a\\"]],
-    ['mpu "a\\\nb"', ["mpu", "ab"]],
+    ["mpu a 'b c'", ["a", "b c"]],
+    ['mpu a "b\\"c"', ["a", 'b"c']],
+    ['mpu a "b\\c"', ["a", "b\\c"]],
+    ['mpu a "b\\$c\\\\"', ["a", "b$c\\"]],
+    ["mpu a 'b\\c $d'", ["a", "b\\c $d"]],
+    ["mpu a b\\;c", ["a", "b;c"]],
+    ["mpu a b#c", ["a", "b#c"]],
+    ["mpu a ''", ["a", ""]],
+    ["mpu a \\\nb", ["a", "b"]],
+    ['mpu "a\nb"', ["a\nb"]],
+    ["mpu a\n\n  ", ["a"]],
+    ["mpu a!", ["a!"]],
+    ["mpu a\\", ["a\\"]],
+    ['mpu "a\\\nb"', ["ab"]],
+    ["mpu", []],
   ];
   for (const [command, words] of cases) {
-    await t.step(JSON.stringify(command), () => {
-      assertEquals(shellWords(command), words);
+    await t.step(JSON.stringify(command), async () => {
+      assertEquals(await parsed(command), {
+        heard: [words],
+        stderr: undecidedLine("слова услышаны"),
+      });
     });
   }
 });
 
-Deno.test("события: первое решает", async (t) => {
+Deno.test("события: первое решает, ответ — значением", async (t) => {
   const cases: readonly (readonly [string, string])[] = [
     ["", NOT_MPU],
+    ["   ", NOT_MPU],
     ["mpux a", NOT_MPU],
     ["cd x; mpu", NOT_MPU],
     ["mpu a; cd x", COMPOUND],
@@ -54,9 +74,11 @@ Deno.test("события: первое решает", async (t) => {
     ['mpu "a\\"', UNCLOSED],
   ];
   for (const [command, reason] of cases) {
-    await t.step(JSON.stringify(command), () => {
-      const event = assertThrows(() => shellWords(command), ShellEvent);
-      assertEquals(event.reason, reason);
+    await t.step(JSON.stringify(command), async () => {
+      assertEquals(await parsed(command), {
+        heard: [],
+        stderr: undecidedLine(reason),
+      });
     });
   }
 });
