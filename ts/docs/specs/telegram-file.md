@@ -1,6 +1,6 @@
 # mpu telegram file
 
-Статус: к реализации (порция TF1)
+Статус: реализовано (`219b8dc0`); принято 2026-10-05 хостом: тестов 2872, smoke 24/1, мутация хоста (`listed()` → `null`) — красные таблица вложения и голден выдачи поиска; голдены `fixtures/telegram-file/`, `telegram-search/search-json-stdout.txt` заморожены; установлено, живьём: `telegram search query: "" chat: 939261524 limit: 5` → у 40363 `"file": {"name": "auth-onboarding-spec-review-mr1453.md", "size": 18885, "mime": "text/markdown"}`; `telegram file chat: 939261524 id: 40363` → файл 18885 байт, exit 0 — форма ответа клиента для документа подтверждена; фото и отсутствующее сообщение живьём не сняты. Открыто: имя длиннее 255 байт на диске → ENAMETOOLONG (вопрос хоста)
 
 ## Назначение
 

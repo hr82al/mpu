@@ -6,6 +6,7 @@
     "sender": "Иван Петров",
     "date": "2026-08-16T07:54:28+00:00",
     "text": "выгрузка за июль готова",
+    "file": null,
     "link": "https://t.me/team_uploads/4821"
   },
   {
@@ -15,6 +16,7 @@
     "sender": null,
     "date": "2026-08-15T18:03:00+00:00",
     "text": "выгрузка отчётов включена в релиз",
+    "file": null,
     "link": "https://t.me/c/202/77"
   },
   {
@@ -24,6 +26,11 @@
     "sender": "Мария Кузнецова",
     "date": "2026-08-14T09:12:41+00:00",
     "text": "",
+    "file": {
+      "name": "выгрузка-июль.xlsx",
+      "size": 48213,
+      "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    },
     "link": null
   },
   {
@@ -33,6 +40,7 @@
     "sender": "Пётр Сидоров",
     "date": "2026-10-02T06:11:14+00:00",
     "text": "@ivan_p Привет, сможешь сделать ревью?\n1. [Ozon: сверка выкупа](https://btlz.kaiten.ru/71300001) - **готово к код-ревью**",
+    "file": null,
     "link": "https://t.me/c/303/17694"
   }
 ]
