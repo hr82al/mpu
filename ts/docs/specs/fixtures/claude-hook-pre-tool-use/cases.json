@@ -1,5 +1,5 @@
 {
- "comment": "Сценарии mpu claude-hook pre-tool-use. Вход — живой payload live-bash-mpu-version.json, у которого заменены tool_name и tool_input (поле stdin — вход целиком, как есть). rules: «посев» — пустой policy.db, посев при открытии; объект — файл, где все посевные пути помечены виденными, а правила — ровно rules. Код выхода у всех — 0. environment — сценарии окружения: вход — payload сценария input; stderr_prefix — начало строки, хвост — причина источника дословно.",
+ "comment": "Сценарии mpu claude-hook pre-tool-use. Вход — живой payload live-bash-mpu-version.json, у которого заменены tool_name и tool_input (поле stdin — вход целиком, как есть). rules: «посев» — пустой policy.db, посев при открытии; объект — файл, где все посевные пути помечены виденными, а правила — ровно rules (путь самого хука «claude-hook pre-tool-use allow» в rules указан явно: без него строка хука не дойдёт до пробы). Код выхода у всех — 0. environment — сценарии окружения: вход — payload сценария input; stderr_prefix — начало строки, хвост — причина источника дословно.",
  "cases": [
   {
    "id": "S1",
@@ -98,6 +98,10 @@
     "seeded": "все",
     "rules": [
      {
+      "path": "claude-hook pre-tool-use",
+      "verdict": "allow"
+     },
+     {
       "path": "kiten card",
       "verdict": "deny"
      }
@@ -115,6 +119,10 @@
    "rules": {
     "seeded": "все",
     "rules": [
+     {
+      "path": "claude-hook pre-tool-use",
+      "verdict": "allow"
+     },
      {
       "path": "*",
       "verdict": "deny"
@@ -140,6 +148,10 @@
    "rules": {
     "seeded": "все",
     "rules": [
+     {
+      "path": "claude-hook pre-tool-use",
+      "verdict": "allow"
+     },
      {
       "path": "*",
       "verdict": "deny"
@@ -746,7 +758,12 @@
    "id": "E3",
    "rules": {
     "seeded": "все",
-    "rules": []
+    "rules": [
+     {
+      "path": "claude-hook pre-tool-use",
+      "verdict": "allow"
+     }
+    ]
    },
    "tool_name": "Bash",
    "tool_input": {
