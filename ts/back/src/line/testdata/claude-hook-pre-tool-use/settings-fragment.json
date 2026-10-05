@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|mcp__mpu__mpu",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mpu claude-hook pre-tool-use",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

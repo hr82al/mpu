@@ -1,12 +1,40 @@
 /**
- * Адаптеры хуков Claude Code (`docs/specs/claude-hook-notification.md`):
- * событие приходит JSON-объектом на stdin, а наружу уходит уведомление
- * в личного бота.
+ * Адаптеры хуков Claude Code (`docs/specs/claude-hook-notification.md`,
+ * `docs/specs/claude-hook-pre-tool-use.md`): событие приходит
+ * JSON-объектом на stdin.
  *
- * Наружу модуль отдаёт только команды реестра; разбор конверта и сборка
- * текста остаются внутренностями. Следующий хук Claude Code (`Stop`,
- * `SessionEnd`) — соседний файл рядом, без переукладки.
+ * `notification` — команда реестра целиком: разбор конверта и сборка
+ * текста остаются внутренностями. `pre-tool-use` исполняет ядро
+ * (`line/hook.ts`), поэтому наружу отданы и граница её ввода — вызов
+ * инструмента из payload'а, — и ответ хука с причинами. Следующий хук
+ * Claude Code (`Stop`, `SessionEnd`) — соседний файл рядом, без
+ * переукладки.
  */
 
 export { claudeHookNotificationCommand } from "./cmd_notification.ts";
 export { claudeHookPreToolUseCommand } from "./cmd_pre_tool_use.ts";
+export {
+  BashCall,
+  type Consult,
+  McpCall,
+  NotMpu,
+  type ToolCall,
+  toolCallOf,
+  Unparsed,
+} from "./call.ts";
+export {
+  Allowed,
+  askedBy,
+  AT_EXECUTION,
+  Denied,
+  type HookReply,
+  type HookSpeech,
+  HUMAN_DECIDES,
+  NOT_MPU,
+  NOT_RULED,
+  PROGRAM_UNSEEN,
+  RULE_CHANGE,
+  Undecided,
+  unparsedInput,
+  unparsedLine,
+} from "./reply.ts";

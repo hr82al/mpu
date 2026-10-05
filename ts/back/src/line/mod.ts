@@ -72,6 +72,7 @@ import type { Commands, MethodSource } from "../program/mod.ts";
 import { imageLineOf } from "./define.ts";
 import type { Line } from "./dispatch.ts";
 import { syncLineOf } from "./sync.ts";
+import { type Consulting, hookLineOf, standingMethods } from "./hook.ts";
 import { callsImage } from "./methods.ts";
 
 export type { RootMethod } from "./rules.ts";
@@ -424,6 +425,23 @@ export function lineEntry(ports: LinePorts): CliEntry {
       return reply;
     };
     const commands = programCommands(sources);
+    /** Обход слов вызова хука: то же дерево, на месте сессии — проба. */
+    const consulting: Consulting = {
+      book,
+      commands,
+      methods,
+      walk: (words, probe, probeValues) =>
+        runChain(
+          walkedWords(words),
+          registryRoot(probe, book, {
+            own: standingMethods(ports.rootMethods),
+            targets: parts.targets,
+            image: methods,
+            stripped: strippedOf(words),
+          }),
+          probeValues,
+        ),
+    };
     const context = {
       said,
       view: entry.view,
@@ -462,7 +480,11 @@ export function lineEntry(ports: LinePorts): CliEntry {
         sources,
       });
     return await origin.route(program, () => {
-      const line = imageLineOf(said, syncLineOf(said));
+      const line = hookLineOf(
+        said,
+        { readStdin: lineIo.readStdin, consulting },
+        imageLineOf(said, syncLineOf(said)),
+      );
       return line.settle(context, async () => {
         if (!isProgram(said, commands) && !callsImage(said, methods)) {
           return printed(await runChain(walked, root, values), speech);

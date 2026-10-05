@@ -31,7 +31,8 @@
       "src/messages/testdata",
       "src/objects/testdata",
       "src/policy/testdata",
-      "src/backend/testdata"
+      "src/backend/testdata",
+      "src/line/testdata/claude-hook-pre-tool-use"
     ]
   }
 }

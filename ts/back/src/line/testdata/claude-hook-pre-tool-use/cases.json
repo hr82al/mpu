@@ -1,0 +1,910 @@
+{
+ "comment": "Сценарии mpu claude-hook pre-tool-use. Вход — живой payload live-bash-mpu-version.json, у которого заменены tool_name и tool_input (поле stdin — вход целиком, как есть). rules: «посев» — пустой policy.db, посев при открытии; объект — файл, где все посевные пути помечены виденными, а правила — ровно rules (путь самого хука «claude-hook pre-tool-use allow» в rules указан явно: без него строка хука не дойдёт до пробы). Код выхода у всех — 0. environment — сценарии окружения: вход — payload сценария input; stderr_prefix — начало строки, хвост — причина источника дословно.",
+ "cases": [
+  {
+   "id": "S1",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro target: 54 sql: \"select 1\""
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu sql-ro: разрешено правилом «sql-ro»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S2",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten card id: 123"
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu kiten card: разрешено правилом «kiten card»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S3",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls end json"
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu kiten ls: разрешено правилом «kiten ls»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S4",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu ask sql-ro target: 54 sql: \"select 1\""
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu sql-ro: разрешено правилом «sql-ro»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S5",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu ask sql target: sl-1 sql: \"update t set a = 1\""
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — правило «sql» — ask\n"
+  },
+  {
+   "id": "S6",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql target: sl-1 sql: \"select 1\""
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — правило «sql» — ask\n"
+  },
+  {
+   "id": "S7",
+   "rules": "посев",
+   "tool_name": "mcp__mpu__mpu",
+   "tool_input": {
+    "words": [
+     "kiten",
+     "ls"
+    ]
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu kiten ls: разрешено правилом «kiten ls»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S8",
+   "rules": "посев",
+   "tool_name": "mcp__mpu__mpu",
+   "tool_input": {
+    "words": [
+     "ask",
+     "kiten",
+     "comment",
+     "id:",
+     "55",
+     "text:",
+     "ok"
+    ]
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — правило «kiten comment» — ask\n"
+  },
+  {
+   "id": "S9",
+   "rules": {
+    "seeded": "все",
+    "rules": [
+     {
+      "path": "claude-hook pre-tool-use",
+      "verdict": "allow"
+     },
+     {
+      "path": "kiten card",
+      "verdict": "deny"
+     }
+    ]
+   },
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten card id: 1"
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"mpu kiten card: запрещено правилом «kiten card»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S10a",
+   "rules": {
+    "seeded": "все",
+    "rules": [
+     {
+      "path": "claude-hook pre-tool-use",
+      "verdict": "allow"
+     },
+     {
+      "path": "*",
+      "verdict": "deny"
+     },
+     {
+      "path": "kiten ls",
+      "verdict": "allow"
+     }
+    ]
+   },
+   "tool_name": "mcp__mpu__mpu",
+   "tool_input": {
+    "words": [
+     "kiten",
+     "ls"
+    ]
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu kiten ls: разрешено правилом «kiten ls»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S10b",
+   "rules": {
+    "seeded": "все",
+    "rules": [
+     {
+      "path": "claude-hook pre-tool-use",
+      "verdict": "allow"
+     },
+     {
+      "path": "*",
+      "verdict": "deny"
+     },
+     {
+      "path": "kiten ls",
+      "verdict": "allow"
+     }
+    ]
+   },
+   "tool_name": "mcp__mpu__mpu",
+   "tool_input": {
+    "words": [
+     "kiten",
+     "card",
+     "id:",
+     "1"
+    ]
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"mpu kiten card: запрещено правилом «*»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S11",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro target: 54 sql: \"$(rm -rf ~)\""
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: подстановка\n"
+  },
+  {
+   "id": "S12a",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls && rm -rf /tmp/x"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "S12b",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls; echo ok"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "S12c",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls | head"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "S12d",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls > out.txt"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "S12e",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls &"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "S12f",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls\nrm x"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "S12g",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls 2>&1"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "S12h",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls # note"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  },
+  {
+   "id": "S12i",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten card id: `id -u`"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: подстановка\n"
+  },
+  {
+   "id": "S12j",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten card id: $UID"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: подстановка\n"
+  },
+  {
+   "id": "S13a",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "cd /tmp && mpu kiten ls"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — не вызов mpu\n"
+  },
+  {
+   "id": "S13b",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "FOO=1 mpu kiten ls"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — не вызов mpu\n"
+  },
+  {
+   "id": "S13c",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "sudo mpu kiten ls"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — не вызов mpu\n"
+  },
+  {
+   "id": "S13d",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "/home/user/.local/bin/mpu kiten ls"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — не вызов mpu\n"
+  },
+  {
+   "id": "S13e",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "echo mpu kiten ls"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — не вызов mpu\n"
+  },
+  {
+   "id": "S13f",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "git status"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — не вызов mpu\n"
+  },
+  {
+   "id": "S13g",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": ""
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — не вызов mpu\n"
+  },
+  {
+   "id": "S13h",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "   "
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — не вызов mpu\n"
+  },
+  {
+   "id": "S14a",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls *"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: раскрытие\n"
+  },
+  {
+   "id": "S14b",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sheet get id: ~/x"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: раскрытие\n"
+  },
+  {
+   "id": "S14c",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten card id: {1,2}"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: раскрытие\n"
+  },
+  {
+   "id": "S14d",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten card id: 1?"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: раскрытие\n"
+  },
+  {
+   "id": "S15a",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu nosuchcmd"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: не понимает\n"
+  },
+  {
+   "id": "S15b",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro 54 \"select 1\""
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: значение — ключом\n"
+  },
+  {
+   "id": "S15c",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro target: 54 sql: \"select 1"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: незакрытая кавычка\n"
+  },
+  {
+   "id": "S15d",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten card id: 'x"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: незакрытая кавычка\n"
+  },
+  {
+   "id": "S16a",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu allow: \"kiten card\""
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — изменение правил\n"
+  },
+  {
+   "id": "S16b",
+   "rules": "посев",
+   "tool_name": "mcp__mpu__mpu",
+   "tool_input": {
+    "words": [
+     "forget:",
+     "sql"
+    ]
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — изменение правил\n"
+  },
+  {
+   "id": "S17a",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu run: x.mpu"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — программа: содержимое не видно\n"
+  },
+  {
+   "id": "S17b",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "cat p.mpu | mpu"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — не вызов mpu\n"
+  },
+  {
+   "id": "S17c",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — программа: содержимое не видно\n"
+  },
+  {
+   "id": "S17d",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu ask"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — программа: содержимое не видно\n"
+  },
+  {
+   "id": "S17e",
+   "rules": "посев",
+   "tool_name": "mcp__mpu__mpu",
+   "tool_input": {
+    "words": [
+     "ask",
+     "run:",
+     "x.mpu"
+    ]
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — программа: содержимое не видно\n"
+  },
+  {
+   "id": "S18a",
+   "rules": "посев",
+   "tool_name": "Read",
+   "tool_input": {
+    "file_path": "/etc/passwd"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — не вызов mpu\n"
+  },
+  {
+   "id": "S18b",
+   "rules": "посев",
+   "tool_name": "mcp__mpu__help",
+   "tool_input": {
+    "path": [
+     "kiten"
+    ]
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — не вызов mpu\n"
+  },
+  {
+   "id": "S19a",
+   "rules": "посев",
+   "stdin": "не json",
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — вход не разобран: stdin — не JSON-объект\n"
+  },
+  {
+   "id": "S19b",
+   "rules": "посев",
+   "stdin": "[]",
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — вход не разобран: stdin — не JSON-объект\n"
+  },
+  {
+   "id": "S19c",
+   "rules": "посев",
+   "stdin": "",
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — вход не разобран: stdin — не JSON-объект\n"
+  },
+  {
+   "id": "S19d",
+   "rules": "посев",
+   "stdin": "{}",
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — вход не разобран: нет tool_name\n"
+  },
+  {
+   "id": "S19e",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "description": "x"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — вход не разобран: tool_input.command — не строка\n"
+  },
+  {
+   "id": "S19f",
+   "rules": "посев",
+   "tool_name": "mcp__mpu__mpu",
+   "tool_input": {
+    "words": "kiten ls"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — вход не разобран: tool_input.words — не список строк\n"
+  },
+  {
+   "id": "S19g",
+   "rules": "посев",
+   "tool_name": "mcp__mpu__mpu",
+   "tool_input": {
+    "words": []
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — вход не разобран: tool_input.words пуст\n"
+  },
+  {
+   "id": "S19h",
+   "rules": "посев",
+   "tool_name": "mcp__mpu__mpu",
+   "tool_input": {
+    "words": [
+     "kiten",
+     1
+    ]
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — вход не разобран: tool_input.words — не список строк\n"
+  },
+  {
+   "id": "S19i",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": "mpu kiten ls",
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — вход не разобран: tool_input — не объект\n"
+  },
+  {
+   "id": "S24a",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "  mpu   kiten  ls  "
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu kiten ls: разрешено правилом «kiten ls»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S24b",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu 'kiten' \"ls\""
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu kiten ls: разрешено правилом «kiten ls»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S24c",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "'mpu' kiten ls"
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu kiten ls: разрешено правилом «kiten ls»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S24d",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten \\\n ls"
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu kiten ls: разрешено правилом «kiten ls»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S24e",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls\n"
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu kiten ls: разрешено правилом «kiten ls»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S24f",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "\tmpu\tkiten\tls"
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu kiten ls: разрешено правилом «kiten ls»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S25a",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro target: 54 sql: 'select \"$x\"'"
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu sql-ro: разрешено правилом «sql-ro»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S25b",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro target: 54 sql: \"select \\\"x\\\"\""
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu sql-ro: разрешено правилом «sql-ro»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S25c",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro target: 54 sql: 'a; b | c > d & * ~ # `x`'"
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu sql-ro: разрешено правилом «sql-ro»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S25d",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro target: 54 sql: \"a\nb\""
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu sql-ro: разрешено правилом «sql-ro»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "S25e",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu sql-ro target: 54 sql: select\\;"
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu sql-ro: разрешено правилом «sql-ro»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "E1",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten --help"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — правила строку не решают\n"
+  },
+  {
+   "id": "E2",
+   "rules": "посев",
+   "tool_name": "mcp__mpu__mpu",
+   "tool_input": {
+    "words": [
+     "it"
+    ]
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — правила строку не решают\n"
+  },
+  {
+   "id": "E3",
+   "rules": {
+    "seeded": "все",
+    "rules": [
+     {
+      "path": "claude-hook pre-tool-use",
+      "verdict": "allow"
+     }
+    ]
+   },
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — правило «*» — ask\n"
+  },
+  {
+   "id": "E4",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu task owner-answer project: demo text: ok"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — решает только человек\n"
+  },
+  {
+   "id": "E5",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu 2 plus: 2 . kiten ls"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+  },
+  {
+   "id": "E6",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten comment id: 1 text: do kiten ls end"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+  },
+  {
+   "id": "E7",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu telegram log message: stdin"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+  },
+  {
+   "id": "E8",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu image sync dry"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+  },
+  {
+   "id": "E9",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu policy"
+   },
+   "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"mpu policy: разрешено правилом «policy»\"}}\n",
+   "stderr": ""
+  },
+  {
+   "id": "E10",
+   "rules": "посев",
+   "tool_name": "mcp__mpu__mpu",
+   "tool_input": {
+    "words": [
+     "ask",
+     "allow:",
+     "kiten"
+    ]
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: не понимает\n"
+  },
+  {
+   "id": "E11",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu kiten ls |"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — оболочка: не одна простая команда\n"
+  }
+ ],
+ "environment": [
+  {
+   "id": "S20a",
+   "given": "сервер строк не отвечает (клиент: соединения нет)",
+   "input": "S1",
+   "stdout": "",
+   "exit": 0,
+   "stderr_prefix": "mpu claude-hook pre-tool-use: без решения — правила недоступны: сервер строк не отвечает на "
+  },
+  {
+   "id": "S20b",
+   "given": "policy.db — мусор (не SQLite)",
+   "input": "S1",
+   "stdout": "",
+   "stderr_prefix": "mpu claude-hook pre-tool-use: без решения — правила недоступны: правила подтверждения: ",
+   "exit": 0
+  },
+  {
+   "id": "S20c",
+   "given": "policy.db без права чтения",
+   "input": "S1",
+   "stdout": "",
+   "stderr_prefix": "mpu claude-hook pre-tool-use: без решения — правила недоступны: правила подтверждения: ",
+   "exit": 0
+  },
+  {
+   "id": "S20d",
+   "given": "нет файла токена клиента",
+   "input": "S1",
+   "stdout": "",
+   "stderr_prefix": "mpu claude-hook pre-tool-use: без решения — правила недоступны: нет токена доступа (",
+   "exit": 0
+  },
+  {
+   "id": "S20e",
+   "given": "правило deny на пути claude-hook pre-tool-use",
+   "input": "S1",
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — правила недоступны: mpu claude-hook pre-tool-use: запрещено правилом «claude-hook pre-tool-use»\n",
+   "exit": 0
+  },
+  {
+   "id": "S20f",
+   "given": "правило ask на пути claude-hook pre-tool-use, канал без человека",
+   "input": "S1",
+   "stdout": "",
+   "stderr_prefix": "mpu claude-hook pre-tool-use: без решения — правила недоступны: mpu claude-hook pre-tool-use: требует подтверждения",
+   "exit": 0
+  }
+ ]
+}
