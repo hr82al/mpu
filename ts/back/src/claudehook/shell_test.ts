@@ -69,7 +69,13 @@ Deno.test("события: первое решает, ответ — значе�
     ["mpu a\nb", COMPOUND],
     ["mpu $(x) ;", SUBSTITUTION],
     ['mpu "a `b`"', SUBSTITUTION],
+    ["mpu a <x", COMPOUND],
+    ["mpu a <(x)", COMPOUND],
+    ["mpu a >(x)", COMPOUND],
+    ["mpu a)", COMPOUND],
+    ["mpu (a)", COMPOUND],
     ["mpu a*", EXPANSION],
+    ["mpu a[1]", EXPANSION],
     ["mpu 'a", UNCLOSED],
     ['mpu "a\\"', UNCLOSED],
   ];
