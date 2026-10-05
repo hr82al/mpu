@@ -67,7 +67,7 @@ export interface Consulting {
   /** Дерево команд с методами образа — для «программа ли». */
   readonly commands: Commands;
   readonly methods: readonly ImageMethod[];
-  /** Слова строки без `--json` — как их видит ядро (`originOf`). */
+  /** Слова строки без `--json` — как их видит ядро (`sourceOf`). */
   readonly walked: (words: readonly string[]) => readonly string[];
   /**
    * Обход слов `words` той же цепочкой, что у строки: то же дерево, та же

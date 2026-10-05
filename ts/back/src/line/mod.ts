@@ -37,7 +37,6 @@ import {
 } from "../policy/mod.ts";
 import { type CliEntry, runJournaled } from "../process/mod.ts";
 import {
-  isProgram,
   type LineReply,
   ParamRefusal,
   parseProgram,
@@ -60,7 +59,7 @@ import { aheadRuling } from "./owner.ts";
 import { Session } from "./session.ts";
 export { HUMAN_ONLY } from "./session.ts";
 import { LineValues } from "./value.ts";
-import { type Origin, originOf } from "./origin.ts";
+import { type Origin, sourceOf } from "./origin.ts";
 import type { ProgramFiles } from "./runfile.ts";
 export { type ProgramFiles, programFiles } from "./runfile.ts";
 import { toDoor } from "./view.ts";
@@ -69,11 +68,9 @@ import { type RootMethod, rootMethod } from "./rules.ts";
 import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 import { Image, ImageError, type ImageMethod } from "../image/mod.ts";
 import type { Commands, MethodSource } from "../program/mod.ts";
-import { imageLineOf } from "./define.ts";
 import type { Line } from "./dispatch.ts";
-import { syncLineOf } from "./sync.ts";
-import { type Consulting, hookLineOf, standingMethods } from "./hook.ts";
-import { callsImage } from "./methods.ts";
+import { type Consulting, standingMethods } from "./hook.ts";
+import { routeOf } from "./route.ts";
 
 export type { RootMethod } from "./rules.ts";
 export {
@@ -297,13 +294,8 @@ export function lineEntry(ports: LinePorts): CliEntry {
     // Строка через дверь объявляет запись для всей строки: группы
     // значений идут той же дверью (`platform/value-expression.md`).
     const typedEntry = entryOf(walked);
-    const origin = await originOf(
-      argv,
-      walked,
-      typedEntry.words.length,
-      io,
-      ports.files,
-    );
+    const origin = await sourceOf(argv, walked, typedEntry.words.length)
+      .origin(io, ports.files);
     // Дверь объявляет строка или текст её файла (`ask` первым словом).
     const entry = origin.entry(typedEntry);
     const door = entry.words;
@@ -480,19 +472,17 @@ export function lineEntry(ports: LinePorts): CliEntry {
         commands,
         sources,
       });
-    return await origin.route(program, () => {
-      const line = hookLineOf(
-        said,
-        { readStdin: lineIo.readStdin, consulting },
-        imageLineOf(said, syncLineOf(said)),
-      );
-      return line.settle(context, async () => {
-        if (!isProgram(said, commands) && !callsImage(said, methods)) {
-          return printed(await runChain(walked, root, values), speech);
-        }
-        return await program();
-      });
-    }, speech);
+    const hook = { readStdin: lineIo.readStdin, consulting };
+    return await origin.route(
+      program,
+      () =>
+        routeOf(said, { commands, methods, hook }).settle(context, {
+          chain: async () =>
+            printed(await runChain(walked, root, values), speech),
+          program,
+        }),
+      speech,
+    );
   };
 }
 

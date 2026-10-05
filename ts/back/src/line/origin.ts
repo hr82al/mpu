@@ -244,35 +244,92 @@ export function typedLine(words: readonly string[]): Origin {
 }
 
 /**
- * Источник строки: `run:` первым словом со значением — файл; без слов
- * (или только `ask`) при вводе из пайпа — программа из ввода, ввод
- * читается сразу; пустой ввод — набранная строка без слов, то есть
- * справка, как прежде.
+ * Откуда строка возьмёт слова — решено по словам вызова, ещё ничего не
+ * читая; сам источник строится `origin`.
+ */
+export interface Source {
+  /** Источник строки: файл `run:` и ввод читаются здесь. */
+  origin(
+    io: Pick<CommandIo, "readStdin" | "stdinIsTerminal" | "cwd">,
+    files: ProgramFiles,
+  ): Promise<Origin>;
+}
+
+/** `run:` первым словом со значением: файл программы. */
+class RunSource implements Source {
+  readonly #walked: readonly string[];
+  readonly #said: readonly string[];
+
+  constructor(walked: readonly string[], said: readonly string[]) {
+    this.#walked = walked;
+    this.#said = said;
+  }
+
+  origin(
+    io: Pick<CommandIo, "readStdin" | "stdinIsTerminal" | "cwd">,
+    files: ProgramFiles,
+  ): Promise<Origin> {
+    return runOrigin(this.#walked, this.#said, io, files);
+  }
+}
+
+/**
+ * Строка без слов (или только `ask`): при вводе из пайпа программа —
+ * ввод, он читается сразу; пустой ввод или терминал — набранная строка
+ * без слов, то есть справка, как прежде.
+ */
+class BareSource implements Source {
+  readonly #said: readonly string[];
+
+  constructor(said: readonly string[]) {
+    this.#said = said;
+  }
+
+  async origin(
+    io: Pick<CommandIo, "readStdin" | "stdinIsTerminal">,
+  ): Promise<Origin> {
+    if (io.stdinIsTerminal()) return new TypedLine(this.#said);
+    // Ввод пришёл строкой кадра — UTF-8 верен по построению (неверный
+    // отвергает клиент); BOM снимают слова, а не декодер.
+    const text = new TextDecoder("utf-8", { ignoreBOM: true })
+      .decode(await io.readStdin());
+    const words = wordsOf(text);
+    if (words.length === 0) return new TypedLine(this.#said);
+    return new StdinProgram(words);
+  }
+}
+
+/** Набранная строка: слова — те, что набраны. */
+class TypedSource implements Source {
+  readonly #said: readonly string[];
+
+  constructor(said: readonly string[]) {
+    this.#said = said;
+  }
+
+  origin(): Promise<Origin> {
+    return Promise.resolve(new TypedLine(this.#said));
+  }
+}
+
+/**
+ * Источник строки по словам: `run:` первым словом со значением — файл;
+ * без слов (или только `ask`) — ввод из пайпа; иначе — набранная строка.
  *
  * @param argv слова вызова
  * @param walked слова строки без `--json` — с дверью
  * @param door сколько слов двери в начале `walked`
- * @param io ввод вызова, терминал ли он и каталог строки
- * @param files файлы программ и каталоги, которых программа не читает
  */
-export async function originOf(
+export function sourceOf(
   argv: readonly string[],
   walked: readonly string[],
   door: number,
-  io: Pick<CommandIo, "readStdin" | "stdinIsTerminal" | "cwd">,
-  files: ProgramFiles,
-): Promise<Origin> {
+): Source {
   const said = walked.slice(door);
   // `mpu run:` без значения — набранная строка: отказ ключа скажет корень.
   if (said[0] === GRAMMAR.run && said.length > 1) {
-    return await runOrigin(walked, said, io, files);
+    return new RunSource(walked, said);
   }
-  if (!isBareLine(argv) || io.stdinIsTerminal()) return new TypedLine(said);
-  // Ввод пришёл строкой кадра — UTF-8 верен по построению (неверный
-  // отвергает клиент); BOM снимают слова, а не декодер.
-  const text = new TextDecoder("utf-8", { ignoreBOM: true })
-    .decode(await io.readStdin());
-  const words = wordsOf(text);
-  if (words.length === 0) return new TypedLine(said);
-  return new StdinProgram(words);
+  if (isBareLine(argv)) return new BareSource(said);
+  return new TypedSource(said);
 }
