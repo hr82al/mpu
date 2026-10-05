@@ -11,14 +11,13 @@ import {
   type Delivery,
   type InvokeJournal,
   type Invoker,
-  JSON_FLAG,
   type Output,
   PRINT,
   runLine,
   streams,
 } from "../entrypoint/mod.ts";
 import type { RefusalData } from "../frames/mod.ts";
-import { GRAMMAR, UNNAMED_REFUSAL } from "../messages/mod.ts";
+import { UNNAMED_REFUSAL } from "../messages/mod.ts";
 import {
   type Outcome,
   plainRefusal,
@@ -50,7 +49,7 @@ import {
   programPolicy,
   programRoot,
 } from "./program.ts";
-import { JSON_STRIPPED, NOTHING_STRIPPED, type Stripped } from "./keyed.ts";
+import { strippedOf, walkedWords } from "./walked.ts";
 import { registrySeeds } from "./seeds.ts";
 import { targetValues } from "../selector/mod.ts";
 import { itMethod, type Memory, NO_CALLER, remembering } from "./it.ts";
@@ -110,33 +109,6 @@ export function policyTree(
     const own = owned.has(node.path.length === 0 ? "*" : node.path.join(" "));
     return { path: node.path, verdict, rule: won, own };
   });
-}
-
-/** Граница, до которой ищется общий `--json`: первый `--`. */
-function jsonEnd(argv: readonly string[]): number {
-  const cut = argv.indexOf(GRAMMAR.literal);
-  return cut < 0 ? argv.length : cut;
-}
-
-/**
- * Слова для обхода цепочки: без `--json` до первого `--` — иначе корень
- * получил бы непонятое сообщение. Исполнение получает исходный argv.
- */
-function walkedWords(argv: readonly string[]): string[] {
-  const end = jsonEnd(argv);
-  return [
-    ...argv.slice(0, end).filter((word) => word !== JSON_FLAG),
-    ...argv.slice(end),
-  ];
-}
-
-/**
- * Снятый `--json`: хвостовой команде он достаётся в исходной строке,
- * ключевой — отказ «формат — сообщение результату».
- */
-function strippedOf(argv: readonly string[]): Stripped {
-  const asked = argv.slice(0, jsonEnd(argv)).includes(JSON_FLAG);
-  return asked ? JSON_STRIPPED : NOTHING_STRIPPED;
 }
 
 /** Кто спрашивает подтверждение у строки. */
