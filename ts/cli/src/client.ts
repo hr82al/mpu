@@ -309,21 +309,23 @@ class PlainFate implements LineFate {
 
 /**
  * Строка хука `PreToolUse` (`claude-hook-pre-tool-use.md`, «Клиент»):
- * код всегда 0 — иначе Claude Code блокировал бы вызов. stderr
- * держится до кода: 0 — печатается как есть, иначе вместо него одна
+ * код всегда 0 — иначе Claude Code блокировал бы вызов. Вывод держится
+ * до кода: 0 — stdout и stderr печатаются как есть, иначе вместо них одна
  * строка «без решения — правила недоступны» с первой причиной — текстом
  * клиента или первой строкой кадров `err` ядра.
  */
 class HookFate implements LineFate {
   readonly env: ClientEnv;
   readonly #outer: ClientEnv;
-  #held = "";
+  #heldOut = "";
+  #heldErr = "";
   #cause: string | undefined;
 
   constructor(env: ClientEnv) {
     this.#outer = env;
     this.env = {
       ...env,
+      stdout: (text) => void (this.#heldOut += text),
       stderr: (text) => this.#heard(text, text.split("\n")[0]),
     };
   }
@@ -334,7 +336,8 @@ class HookFate implements LineFate {
 
   closed(code: number): number {
     if (code === 0) {
-      if (this.#held !== "") this.#outer.stderr(this.#held);
+      if (this.#heldOut !== "") this.#outer.stdout(this.#heldOut);
+      if (this.#heldErr !== "") this.#outer.stderr(this.#heldErr);
       return 0;
     }
     this.#outer.stderr(undecidedLine(unavailable(this.#cause ?? "")));
@@ -343,7 +346,7 @@ class HookFate implements LineFate {
 
   /** Печать удержана; причина исхода — первая услышанная. */
   #heard(text: string, cause: string) {
-    this.#held += text;
+    this.#heldErr += text;
     this.#cause ??= cause;
   }
 }

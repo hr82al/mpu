@@ -238,3 +238,15 @@ Deno.test("код ядра не 0: причина — первая строка 
       ),
     },
   ));
+
+Deno.test("обрыв после кадра out: stdout пуст, одна строка без решения, код 0", () =>
+  withFakeServer(
+    async (base) => {
+      assertEquals(await viaClient(HOOK_WORDS, { base, main: "t" }), {
+        code: 0,
+        stdout: "",
+        stderr: undecidedLine(unavailable("сервер оборвал строку")),
+      });
+    },
+    { script: framed({ out: '{"hookSpecificOutput":{}}\n' }) },
+  ));
