@@ -885,6 +885,26 @@
    },
    "stdout": "",
    "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+  },
+  {
+   "id": "E15",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu claude-hook pre-tool-use"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n"
+  },
+  {
+   "id": "E16",
+   "rules": "посев",
+   "tool_name": "Bash",
+   "tool_input": {
+    "command": "mpu run:"
+   },
+   "stdout": "",
+   "stderr": "mpu claude-hook pre-tool-use: без решения — строка не разобрана: отказ\n"
   }
  ],
  "environment": [
