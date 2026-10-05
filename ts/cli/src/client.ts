@@ -74,24 +74,24 @@ export interface ClientEnv {
 
 /** Чем кончилась строка, пока сокет не закрыт. */
 interface Ending {
-  /** Печать и код клиента. */
-  close(env: ClientEnv): number;
+  /** Диагностика исходу строки и код клиента. */
+  close(fate: LineFate): number;
   /** Ctrl+C до конца строки. */
   interrupt(): Ending;
 }
 
 /** Кадра `exit` не было: сервер оборвал строку. */
 const BROKEN: Ending = {
-  close(env) {
-    env.stderr(mine("сервер оборвал строку"));
+  close(fate) {
+    fate.complain("сервер оборвал строку");
     return FAILED;
   },
   interrupt: () => INTERRUPTED,
 };
 
 const INTERRUPTED: Ending = {
-  close(env) {
-    env.stderr(mine("прервано"));
+  close(fate) {
+    fate.complain("прервано");
     return INTERRUPTED_CODE;
   },
   interrupt: () => INTERRUPTED,
@@ -107,6 +107,7 @@ function exited(code: number): Ending {
 class LineSocket {
   readonly #socket: WebSocket;
   readonly #door: Door;
+  readonly #fate: LineFate;
   readonly #env: ClientEnv;
   readonly #closed = Promise.withResolvers<void>();
   readonly #clip: Clip;
@@ -116,13 +117,15 @@ class LineSocket {
 
   constructor(
     door: Door,
-    env: ClientEnv,
+    fate: LineFate,
     clip: Clip,
     input: ClientInput,
     words: readonly string[],
     context: ContextFields,
   ) {
+    const env = fate.env;
     this.#door = door;
+    this.#fate = fate;
     this.#env = env;
     this.#clip = clip;
     this.#input = input;
@@ -149,7 +152,7 @@ class LineSocket {
     // `Deno.exit`, и незаконченная просьба пропала бы вместе с
     // процессом, не дождавшись программы копирования.
     await this.#copying;
-    return this.#ending.close(this.#env);
+    return this.#ending.close(this.#fate);
   }
 
   /** Ctrl+C: сокет закрывается, сервер отвечает на вопрос «нет». */
@@ -229,7 +232,7 @@ class LineSocket {
 
   /** Конец строки со стороны клиента: причина, код, закрыть сокет. */
   #end(text: string, code: number) {
-    this.#env.stderr(mine(text));
+    this.#fate.complain(text);
     this.#ending = exited(code);
     this.#socket.close();
   }
@@ -242,7 +245,7 @@ class LineSocket {
       // Не прочитался ответ — это «нет»: вопрос без ответа сервер так и
       // толкует; причина — в stderr, строку решит сервер.
       const reason = err instanceof Error ? err.message : String(err);
-      this.#env.stderr(mine(`ответ не прочитан: ${reason}`));
+      this.#fate.complain(`ответ не прочитан: ${reason}`);
       answer = "";
     }
     if (this.#socket.readyState !== WebSocket.OPEN) return;
@@ -250,7 +253,7 @@ class LineSocket {
   }
 }
 
-/** Отказ до сокета: доступа нет или сервер не отвечает. */
+/** Отказ до сокета, причина без имени: доступа нет или сервер не отвечает. */
 async function refusal(
   door: Door,
   env: ClientEnv,
@@ -264,64 +267,92 @@ async function refusal(
     // Подсказка ведёт к службе, а не к дереву исходников: у человека,
     // у которого сломалась установка, дерева под рукой может не быть
     // (`platform/cutover.md`).
-    return mine(
-      `сервер строк не отвечает на ${env.base} ` +
-        `(запуск: systemctl --user start ${ME})`,
-    );
+    return `сервер строк не отвечает на ${env.base} ` +
+      `(запуск: systemctl --user start ${ME})`;
   }
   await response.body?.cancel();
   if (response.status === 401 || response.status === 403) {
-    return mine(`сервер отказал в доступе (${response.status})`);
+    return `сервер отказал в доступе (${response.status})`;
   }
   return undefined;
 }
 
-/** Исход строки: куда её stderr, пока код не известен, и код клиента. */
+/**
+ * Исход строки: какие потоки она получает, куда идёт диагностика
+ * клиента и какой у клиента код.
+ */
 interface LineFate {
   /** Окружение, которое получает строка. */
-  watched(env: ClientEnv): ClientEnv;
+  readonly env: ClientEnv;
+  /** Диагностика клиента: причина — без имени `mpu: `. */
+  complain(cause: string): void;
   /** Код клиента по коду строки; печать отложенного — здесь. */
-  closed(code: number, env: ClientEnv): number;
+  closed(code: number): number;
 }
 
 /** Обычная строка: потоки как пришли, код — её. */
-const PLAIN: LineFate = {
-  watched: (env) => env,
-  closed: (code) => code,
-};
+class PlainFate implements LineFate {
+  readonly env: ClientEnv;
+
+  constructor(env: ClientEnv) {
+    this.env = env;
+  }
+
+  complain(cause: string) {
+    this.env.stderr(mine(cause));
+  }
+
+  closed(code: number): number {
+    return code;
+  }
+}
 
 /**
  * Строка хука `PreToolUse` (`claude-hook-pre-tool-use.md`, «Клиент»):
  * код всегда 0 — иначе Claude Code блокировал бы вызов. stderr
  * держится до кода: 0 — печатается как есть, иначе вместо него одна
- * строка «без решения — правила недоступны» с первой его строкой.
+ * строка «без решения — правила недоступны» с первой причиной — текстом
+ * клиента или первой строкой кадров `err` ядра.
  */
 class HookFate implements LineFate {
+  readonly env: ClientEnv;
+  readonly #outer: ClientEnv;
   #held = "";
+  #cause: string | undefined;
 
-  watched(env: ClientEnv): ClientEnv {
-    return { ...env, stderr: (text) => void (this.#held += text) };
+  constructor(env: ClientEnv) {
+    this.#outer = env;
+    this.env = {
+      ...env,
+      stderr: (text) => this.#heard(text, text.split("\n")[0]),
+    };
   }
 
-  closed(code: number, env: ClientEnv): number {
+  complain(cause: string) {
+    this.#heard(mine(cause), cause);
+  }
+
+  closed(code: number): number {
     if (code === 0) {
-      if (this.#held !== "") env.stderr(this.#held);
+      if (this.#held !== "") this.#outer.stderr(this.#held);
       return 0;
     }
-    // Диагностика клиента начинается «mpu: », текст ядра — нет.
-    const first = this.#held.split("\n")[0];
-    const mark = `${ME}: `;
-    const cause = first.startsWith(mark) ? first.slice(mark.length) : first;
-    env.stderr(undecidedLine(unavailable(cause)));
+    this.#outer.stderr(undecidedLine(unavailable(this.#cause ?? "")));
     return 0;
+  }
+
+  /** Печать удержана; причина исхода — первая услышанная. */
+  #heard(text: string, cause: string) {
+    this.#held += text;
+    this.#cause ??= cause;
   }
 }
 
 /** Исход по словам: хук — ровно его слова, без справки и прочего. */
-function fateOf(words: readonly string[]): LineFate {
+function fateOf(words: readonly string[], env: ClientEnv): LineFate {
   const hook = words.length === HOOK_WORDS.length &&
     HOOK_WORDS.every((word, i) => words[i] === word);
-  return hook ? new HookFate() : PLAIN;
+  return hook ? new HookFate(env) : new PlainFate(env);
 }
 
 /**
@@ -334,15 +365,16 @@ export async function runClient(
   words: readonly string[],
   env: ClientEnv,
 ): Promise<number> {
-  const fate = fateOf(words);
-  return fate.closed(await lineCode(words, fate.watched(env)), env);
+  const fate = fateOf(words, env);
+  return fate.closed(await lineCode(words, fate));
 }
 
 /** Строка на сервере: код строки или клиентского отказа. */
 async function lineCode(
   words: readonly string[],
-  env: ClientEnv,
+  fate: LineFate,
 ): Promise<number> {
+  const env = fate.env;
   if (words.length === 1 && words[0] === "--version") {
     env.stdout(`${VERSION}\n`);
     return 0;
@@ -364,16 +396,16 @@ async function lineCode(
     : clipboard(env.copy, env.stderr);
   const door = chooseDoor(await env.mainToken(), await env.agentToken(), asker);
   if (door === undefined) {
-    env.stderr(mine(`нет токена доступа (${env.mainTokenPath})`));
+    fate.complain(`нет токена доступа (${env.mainTokenPath})`);
     return FAILED;
   }
   // Проверка доступа обычным запросом к той же двери: у сокета отказ
   // соединения и 401/403 различаются только текстом ошибки.
   const refused = await refusal(door, env);
   if (refused !== undefined) {
-    env.stderr(refused);
+    fate.complain(refused);
     return FAILED;
   }
   const input = clientInput(env.caller, words);
-  return await new LineSocket(door, env, clip, input, words, context).run();
+  return await new LineSocket(door, fate, clip, input, words, context).run();
 }

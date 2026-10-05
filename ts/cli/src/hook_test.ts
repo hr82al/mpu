@@ -5,7 +5,11 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { HOOK_WORDS } from "../../back/src/frames/mod.ts";
+import {
+  HOOK_WORDS,
+  unavailable,
+  undecidedLine,
+} from "../../back/src/frames/mod.ts";
 import {
   ALLOW,
   ASK,
@@ -17,7 +21,7 @@ import {
 import { registrySeeds } from "../../back/src/line/seeds.ts";
 import { type TestBack, withBack } from "../../back/src/backend/testback.ts";
 import { runClient } from "./client.ts";
-import { testEnv } from "./testkit.ts";
+import { type Script, testEnv, withFakeServer } from "./testkit.ts";
 
 interface HookCase {
   readonly id: string;
@@ -207,3 +211,30 @@ Deno.test("слова сверх хука — обычная судьба: от�
     assertEquals([seen.code, seen.stdout], [2, ""]);
     assert(!seen.stderr.includes("без решения"), seen.stderr);
   }));
+
+/** Сервер отвечает кадрами `frames` и закрывает сокет. */
+function framed(...frames: readonly object[]): Script {
+  return (socket) => {
+    for (const frame of frames) socket.send(JSON.stringify(frame));
+    socket.close(1000);
+    return Promise.resolve();
+  };
+}
+
+Deno.test("код ядра не 0: причина — первая строка кадров err как есть", () =>
+  withFakeServer(
+    async (base) => {
+      assertEquals(await viaClient(HOOK_WORDS, { base, main: "t" }), {
+        code: 0,
+        stdout: "",
+        stderr: undecidedLine(unavailable("mpu: текст ядра")),
+      });
+    },
+    {
+      script: framed(
+        { err: "mpu: текст ядра\nвторая\n" },
+        { err: "другой кадр\n" },
+        { exit: 1 },
+      ),
+    },
+  ));
