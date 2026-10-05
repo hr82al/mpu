@@ -18,7 +18,7 @@ import {
   RulePath,
   type Verdict,
 } from "../../back/src/policy/mod.ts";
-import { registrySeeds } from "../../back/src/line/seeds.ts";
+import { rulesOf } from "../../back/src/line/mod.ts";
 import { type TestBack, withBack } from "../../back/src/backend/testback.ts";
 import { runClient } from "./client.ts";
 import { type Script, testEnv, withFakeServer } from "./testkit.ts";
@@ -107,7 +107,9 @@ function assertEnv(seen: Seen, one: EnvCase) {
 
 /** Посев снят, `*` — allow; путь хука — `verdict`. */
 function hookPathRuled(file: string, verdict: Verdict) {
-  using book = RuleBook.open(file, registrySeeds());
+  // Посев — открытием файла строкой; дальше книга без своего посева.
+  rulesOf(file);
+  using book = RuleBook.open(file, []);
   for (const { path } of book.list()) book.forget(RulePath.parse(path));
   book.set(RulePath.parse("*"), ALLOW);
   book.set(RulePath.parse(HOOK_WORDS.join(" ")), verdict);
@@ -162,7 +164,7 @@ Deno.test("S20b, S20c: файл правил не читается", async (t) =
     }));
   await t.step("S20c: без права чтения", () =>
     withBack(async (back) => {
-      RuleBook.open(back.policyFile, registrySeeds())[Symbol.dispose]();
+      rulesOf(back.policyFile);
       await Deno.chmod(back.policyFile, 0o000);
       try {
         assertEnv(await hookVia(back, stdin), await envCase("S20c"));
