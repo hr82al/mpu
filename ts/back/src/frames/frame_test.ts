@@ -4,6 +4,7 @@ import {
   type Collected,
   collectedOf,
   lineRequest,
+  type PictureMime,
   type ServerFrame,
   serverFrameOf,
   stdinOf,
@@ -182,4 +183,48 @@ Deno.test("первый кадр: caller — строка или нет поля
     BadFrame,
   );
   assertEquals(err.message, "caller — не строка");
+});
+
+Deno.test("кадр картинки: четыре вида доезжают, прочее — отказ", async (t) => {
+  const mimes: readonly PictureMime[] = [
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+  ];
+  for (const mime of mimes) {
+    const picture = { mime, data: "AAAA" };
+    await t.step(mime, () => {
+      assertEquals(serverFrameOf(JSON.stringify({ picture })), { picture });
+    });
+  }
+  const whole: Collected = {
+    stdout: "",
+    stderr: "",
+    exit: 0,
+    pictures: [{ mime: "image/jpeg", data: "/9j/4AAQSkZJRg==" }],
+  };
+  assertEquals(collectedOf(JSON.stringify(whole)), whole);
+  for (
+    const bad of [
+      '{"picture":"x"}',
+      '{"picture":{"mime":"image/svg+xml","data":"AAAA"}}',
+      '{"picture":{"mime":"image/jpeg","data":1}}',
+      '{"picture":{"mime":"image/jpeg"}}',
+    ]
+  ) {
+    await t.step(bad, () => {
+      assertThrows(() => serverFrameOf(bad), BadFrame);
+    });
+  }
+  for (
+    const bad of [
+      '{"stdout":"","stderr":"","exit":0,"pictures":{}}',
+      '{"stdout":"","stderr":"","exit":0,"pictures":[{"mime":"image/bmp","data":""}]}',
+    ]
+  ) {
+    await t.step(bad, () => {
+      assertThrows(() => collectedOf(bad), BadFrame);
+    });
+  }
 });

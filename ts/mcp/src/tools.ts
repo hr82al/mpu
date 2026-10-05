@@ -6,7 +6,11 @@
  */
 
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
-import type { OutputFile, RefusalData } from "../../back/src/frames/mod.ts";
+import type {
+  OutputFile,
+  PictureData,
+  RefusalData,
+} from "../../back/src/frames/mod.ts";
 import { GRAMMAR } from "../../back/src/messages/mod.ts";
 import type { Asker } from "./asker.ts";
 import type { BackLine } from "./back.ts";
@@ -73,10 +77,19 @@ export const TOOLS = [
   },
 ] as const;
 
-/** Ответ тула: блоки текста, итог строки и признак ошибки. */
+/** Блок ответа тула: текст или картинка (`platform/picture-frame.md`). */
+type Block =
+  | { readonly type: "text"; readonly text: string }
+  | {
+    readonly type: "image";
+    readonly data: string;
+    readonly mimeType: string;
+  };
+
+/** Ответ тула: блоки, итог строки и признак ошибки. */
 export interface ToolResult {
   [key: string]: unknown;
-  readonly content: { readonly type: "text"; readonly text: string }[];
+  readonly content: Block[];
   readonly structuredContent?: {
     /** Вывод целиком; отдан файлом — поля нет, а место его — `file`. */
     readonly stdout?: string;
@@ -127,8 +140,9 @@ function failed(text: string): ToolResult {
 }
 
 /**
- * Итог строки: потоки всех ответов и последний ответ `back` — его код и
- * отказ-объект, если строка отказана.
+ * Итог строки: потоки всех ответов и последний ответ `back` — его код,
+ * отказ-объект, если строка отказана, и картинки — блоками после текста,
+ * мимо `structuredContent`: данные не дублируются.
  */
 function finished(
   stdout: string,
@@ -137,9 +151,10 @@ function finished(
     readonly exit: number;
     readonly refusal?: RefusalData;
     readonly file?: OutputFile;
+    readonly pictures?: readonly PictureData[];
   },
 ): ToolResult {
-  const { exit, refusal, file } = last;
+  const { exit, refusal, file, pictures = [] } = last;
   // Поля границы: у строки без отказа или без файла их нет вовсе.
   const refused = refusal === undefined ? {} : { refusal };
   const output = file === undefined ? { text: stdout, fields: { stdout } } : {
@@ -149,8 +164,11 @@ function finished(
       file: { path: file.path, bytes: file.bytes, lines: file.lines },
     },
   };
-  const content = [{ type: "text" as const, text: output.text }];
+  const content: Block[] = [{ type: "text", text: output.text }];
   if (stderr !== "") content.push({ type: "text", text: `stderr:\n${stderr}` });
+  for (const { mime, data } of pictures) {
+    content.push({ type: "image", data, mimeType: mime });
+  }
   return {
     content,
     structuredContent: { ...output.fields, stderr, exit, ...refused },

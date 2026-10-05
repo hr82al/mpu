@@ -7,8 +7,8 @@
  */
 
 import type { CommandIo } from "../command/mod.ts";
-import type { InvokeJournal } from "../entrypoint/mod.ts";
-import type { RefusalData } from "../frames/mod.ts";
+import type { InvokeJournal, Invoker } from "../entrypoint/mod.ts";
+import type { PictureData, RefusalData } from "../frames/mod.ts";
 import {
   type InvokeCommand,
   type InvokeLog,
@@ -16,6 +16,7 @@ import {
 } from "../invokelog/mod.ts";
 import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
 import { GRAMMAR } from "../messages/mod.ts";
+import { Gallery, PICTURE_LIMIT } from "../picture/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { Memory } from "./it.ts";
@@ -170,6 +171,8 @@ export interface Ran {
   readonly frames: readonly Frame[];
   /** Отказ-объекты строки (`platform/refusal-object.md`). */
   readonly refusals: readonly RefusalData[];
+  /** Кадры картинок строки, как их отдала бы дверь перед `exit`. */
+  readonly pictures: readonly PictureData[];
   /** Отметки `native` записи самой строки. */
   readonly native: readonly string[];
   /** Записи, начатые строкой в журнале (подстроки программы). */
@@ -221,6 +224,8 @@ export interface StandLine {
   readonly channel?: ChannelOf;
   /** Файлы программ `run:` и каталоги настроек; нет — без каталогов. */
   readonly files?: ProgramFiles;
+  /** Где исполняется команда; нет — здесь же. */
+  readonly invoker?: Invoker;
 }
 
 /**
@@ -254,11 +259,14 @@ export async function runOnStand(
     log: recordingLog(records),
   };
   const ports = consentOf(file, line.answers, line.memory);
+  const gallery = new Gallery(PICTURE_LIMIT);
   const exit = await lineEntry({
     ...ports,
     channel: line.channel ?? ports.channel,
     files: line.files ?? ports.files,
+    invoker: line.invoker ?? ports.invoker,
     refusal: (data) => void refusals.push(data),
+    pictures: gallery,
     image: line.image,
   })(
     words,
@@ -281,7 +289,8 @@ export async function runOnStand(
     journal,
   );
   await record.finish(exit);
-  return { exit, stdout, stderr, frames, refusals, native, records };
+  const pictures = await gallery.frames(exit);
+  return { exit, stdout, stderr, frames, refusals, pictures, native, records };
 }
 
 /** Метка адреса подменённого Kaiten в эталоне. */

@@ -59,6 +59,7 @@ import {
   type Markers,
   Workers,
 } from "../worker/mod.ts";
+import { Gallery, PICTURE_LIMIT } from "../picture/mod.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
 import { DENO_FS, type SnapshotFs, writeSnapshot } from "./snapshot.ts";
@@ -108,6 +109,11 @@ export interface BackOptions {
    * каталог и порог; не сказано — `SPILL_DIR` и `SPILL_THRESHOLD`.
    */
   readonly spill?: { readonly dir: string; readonly threshold: number };
+  /**
+   * Предел суммы байтов картинок одного ответа строки
+   * (`platform/picture-frame.md`, «Предел»); не сказано — `PICTURE_LIMIT`.
+   */
+  readonly pictureLimit?: number;
   /**
    * Исполнители строк (`platform/line-executor.md`): как запускать,
    * где отметки сторожа, сколько держать тёплыми (не сказано —
@@ -664,6 +670,7 @@ class Back {
     }
     const channel = door.channel(line, caller.human(request.human));
     const memory = this.#results.of(await naming.of(request.caller));
+    const gallery = new Gallery(this.#options.pictureLimit ?? PICTURE_LIMIT);
     const entry = lineEntry({
       files: programFiles(this.#options.io.env),
       rootMethods: door.rootMethods({
@@ -677,6 +684,7 @@ class Back {
       evaluator: this.#workers,
       memory,
       refusal: (data) => line.deliver({ refusal: data }),
+      pictures: gallery,
       image: {
         image: this.#image,
         author: caller.author(door.author),
@@ -707,6 +715,9 @@ class Back {
         sliced: memory.sliced(),
       }),
     );
+    // Кадры картинок — перед `exit`, а не по ходу: строка с итогом ≠ 0 не
+    // выпускает ни одной, даже от своей успешной команды ([D.3]).
+    for (const picture of await gallery.frames(code)) line.deliver({ picture });
     line.finish(code);
   }
 }

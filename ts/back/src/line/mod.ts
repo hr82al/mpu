@@ -53,6 +53,7 @@ import { strippedOf, walkedWords } from "./walked.ts";
 import { registrySeeds } from "./seeds.ts";
 import { targetValues } from "../selector/mod.ts";
 import { itMethod, type Memory, NO_CALLER, remembering } from "./it.ts";
+import { type Pictures, picturing } from "./pictured.ts";
 import { printed, type Speech } from "./printed.ts";
 import { aheadRuling } from "./owner.ts";
 import { Session } from "./session.ts";
@@ -147,6 +148,11 @@ export interface LinePorts {
   /** Образ строки (`platform/image.md`); нет — образ пуст, писать некуда. */
   readonly image?: ImagePorts;
   /**
+   * Картинки результатов строки (`platform/picture-frame.md`): их кадры
+   * отдаёт дверь перед `exit`. Нет — картинки читать некому.
+   */
+  readonly pictures?: Pictures;
+  /**
    * Файлы программ `run:` и каталоги настроек окружения сервера строк
    * (`platform/program-input.md`, «Файл программы»).
    */
@@ -185,6 +191,9 @@ interface Running {
   /** Строка `ask` без двери: куда её отослать. */
   readonly redirect: (report: Report) => Promise<Outcome>;
 }
+
+/** Картинки строки читать некому: у двери нет кадра для них. */
+const UNSEEN: Pictures = { offer() {} };
 
 /** Отказ-объект никому не нужен: достаточно текста. */
 export const NO_REFUSAL = (_data: RefusalData) => {};
@@ -253,6 +262,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
     }
     using _book = book;
     const imaging = ports.image ?? noImage();
+    const pictures = ports.pictures ?? UNSEEN;
     let methods: readonly ImageMethod[];
     try {
       methods = imaging.image.methods();
@@ -316,7 +326,10 @@ export function lineEntry(ports: LinePorts): CliEntry {
               lineIo,
               out,
               running.journal,
-              remembering(delivery ?? running.delivery, memory),
+              picturing(
+                remembering(delivery ?? running.delivery, memory),
+                pictures,
+              ),
               ports.invoker,
             )
           ),

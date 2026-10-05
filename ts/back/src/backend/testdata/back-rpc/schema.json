@@ -182,6 +182,19 @@
           "additionalProperties": false
         },
         {
+          "description": "Картинка строки — после всего вывода, непосредственно перед exit, в порядке команд; только у строки с exit 0; клиент-человек её не показывает (platform/picture-frame.md).",
+          "type": "object",
+          "required": [
+            "picture"
+          ],
+          "properties": {
+            "picture": {
+              "$ref": "#/$defs/picture"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
           "description": "Строке нужен ввод клиента, объявленного stdinOnRequest; не чаще одного раза за строку, ответ — кадр stdin (platform/stdin-on-request.md).",
           "type": "object",
           "required": [
@@ -246,6 +259,28 @@
       },
       "additionalProperties": false
     },
+    "picture": {
+      "description": "Картинка ответа строки (platform/picture-frame.md): вид — по байтам файла, один из четырёх форматов Claude; data — base64 байтов файла без переносов строк.",
+      "type": "object",
+      "required": [
+        "mime",
+        "data"
+      ],
+      "properties": {
+        "mime": {
+          "enum": [
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/webp"
+          ]
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
     "http.line.collected": {
       "description": "Собранный ответ строки простым HTTP (Accept: application/json): склейка кадров потока. Дверь агента отдаёт итоговый вывод больше порога файлом: поле file вместо stdout (platform/long-output.md, §4).",
       "type": "object",
@@ -269,6 +304,13 @@
         "refusal": {
           "description": "Отказ строки объектом; строка не отказана — поля нет.",
           "$ref": "#/$defs/refusal"
+        },
+        "pictures": {
+          "description": "Картинки строки по порядку кадров; только с exit 0; нет ни одной — поля нет.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/picture"
+          }
         },
         "ask": {
           "type": "string"

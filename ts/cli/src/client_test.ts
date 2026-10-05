@@ -325,3 +325,24 @@ Deno.test("копирование дожидается программы: кл�
     assertEquals(atExit, { code: 0, copied: ["docker exec mp-sl-1-cli"] });
   }, { script });
 });
+
+Deno.test("кадр picture: печать прежняя, побайтово; код из exit (P2)", () =>
+  withFakeServer(async (base) => {
+    const run = testEnv({ base, main: MAIN });
+    assertEquals(await runClient(["x"], run.env), 0);
+    assertEquals(run.stdout, ["до\n", "после\n"]);
+    assertEquals(run.stderr, []);
+  }, {
+    // Кадр картинки посреди вывода: строку он не кончает, вывод после
+    // него печатается.
+    script: async (socket) => {
+      socket.send(JSON.stringify({ out: "до\n" }));
+      socket.send(JSON.stringify({
+        picture: { mime: "image/jpeg", data: "/9j/4AAQSkZJRg==" },
+      }));
+      await Promise.resolve();
+      socket.send(JSON.stringify({ out: "после\n" }));
+      socket.send(JSON.stringify({ exit: 0 }));
+      socket.close(1000);
+    },
+  }));

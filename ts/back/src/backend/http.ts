@@ -8,6 +8,7 @@
 import {
   askFrame,
   type AskKind,
+  type PictureData,
   type RefusalData,
   type ServerFrame,
 } from "../frames/mod.ts";
@@ -129,6 +130,16 @@ const NDJSON: Form = {
   },
 };
 
+/** Что собранный ответ накопил к концу строки. */
+interface Gathered {
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly refused: { readonly refusal?: RefusalData };
+  readonly tail: Tail;
+  /** Картинки по порядку кадров (`platform/picture-frame.md`). */
+  readonly pictures: readonly PictureData[];
+}
+
 /** Итог собранного ответа: `exit` или вопрос с номером. */
 type Tail =
   | { readonly exit: number }
@@ -155,6 +166,7 @@ const COLLECTED: Form = {
     // Отказ строки объектом (`platform/refusal-object.md`): у строки без
     // отказа поля нет вовсе.
     let refused: { readonly refusal?: RefusalData } = {};
+    const pictures: PictureData[] = [];
     const body = Promise.withResolvers<Response>();
     // Кадр — данные границы контракта: его вид — его ключ.
     const take = (frame: ServerFrame) => {
@@ -165,6 +177,7 @@ const COLLECTED: Form = {
       // (`platform/line-prompt.md`).
       else if ("clip" in frame) stderr += frame.clip;
       else if ("refusal" in frame) refused = frame;
+      else if ("picture" in frame) pictures.push(frame.picture);
       // Простым HTTP ввод не запрашивается: он приходит полем тела
       // (`platform/stdin-on-request.md`).
       else if ("stdinRequest" in frame) return;
@@ -178,7 +191,9 @@ const COLLECTED: Form = {
         ready: () => Promise.resolve(),
         end: () => {
           answered = true;
-          body.resolve(assembled(client, stdout, stderr, refused, tail));
+          body.resolve(
+            assembled(client, { stdout, stderr, refused, tail, pictures }),
+          );
         },
       },
       response: body.promise,
@@ -205,16 +220,15 @@ const COLLECTED: Form = {
  */
 async function assembled(
   client: Client,
-  stdout: string,
-  stderr: string,
-  refused: { readonly refusal?: RefusalData },
-  tail: Tail,
+  { stdout, stderr, refused, tail, pictures }: Gathered,
 ): Promise<Response> {
   const output = "exit" in tail
     ? await client.outlet().settle(stdout)
     : { stdout };
+  // Поле границы: у строки без картинок его нет вовсе.
+  const pictured = pictures.length === 0 ? {} : { pictures };
   return new Response(
-    JSON.stringify({ ...output, stderr, ...refused, ...tail }),
+    JSON.stringify({ ...output, stderr, ...refused, ...tail, ...pictured }),
     { headers: { "Content-Type": JSON_TYPE } },
   );
 }

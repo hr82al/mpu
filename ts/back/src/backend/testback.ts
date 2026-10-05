@@ -12,7 +12,7 @@ import { makeFakeIo } from "../testing/mod.ts";
 import { secretText } from "../runtime/mod.ts";
 import { type RunningBack, serveBack, type SnapshotFs } from "./mod.ts";
 import { WebAccess } from "./web.ts";
-import { MarkerDir, MemoryLauncher } from "../worker/mod.ts";
+import { type Launcher, MarkerDir, MemoryLauncher } from "../worker/mod.ts";
 
 /** Кадр сервера как его получил клиент. */
 export type Frame = Readonly<Record<string, unknown>>;
@@ -74,6 +74,13 @@ export interface BackSetup {
   readonly spillThreshold?: number;
   /** Часы сервера, мс; по умолчанию — настоящие. */
   readonly now?: () => number;
+  /**
+   * Исполнители строк вместо исполнителей в памяти (стенд картинок,
+   * `testpicture.ts`); `launcher` теста остаётся прежним.
+   */
+  readonly launcher?: (io: CommandIo) => Launcher;
+  /** Предел картинок ответа, байт; не сказано — умолчание сервера. */
+  readonly pictureLimit?: number;
 }
 
 const TOKEN = "t0ken-" + "s3cret-" + "value";
@@ -185,7 +192,8 @@ export async function withBack(
       dir: `${dir}/mpu-out`,
       threshold: setup.spillThreshold ?? 64 * 1024,
     },
-    workers: { launcher, markers },
+    workers: { launcher: setup.launcher?.(io) ?? launcher, markers },
+    pictureLimit: setup.pictureLimit,
   });
   const back: TestBack = {
     url: `http://127.0.0.1:${running.port}`,

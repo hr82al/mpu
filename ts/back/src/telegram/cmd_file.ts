@@ -14,6 +14,7 @@ import { telegramConfig } from "./config.ts";
 import { Inbox, INBOX_DIR } from "./inbox.ts";
 import type { MessageFile, SavedFile } from "./message_file.ts";
 import { parsePeer } from "./peer.ts";
+import { filePicture } from "../picture/mod.ts";
 import { type PeerResolver, resolveTarget } from "./resolve.ts";
 
 const argsSchema = z.object({
@@ -110,6 +111,10 @@ export const telegramFileCommand = defineCommand({
 поиск отдаёт только описание. Файл ложится в
 /tmp/mpu-telegram/<chat_id>-<id>-<имя>; повторный вызов его заменяет.
 
+Агенту по MCP картинка (JPEG, PNG, GIF, WebP до 3 750 000 байт) приходит
+в ответе блоком изображения — файл читать не нужно; вид решают байты
+файла, а не mime. Прочие вложения — только файлом.
+
 chat: X — чат сообщения: chat_id из выдачи поиска, @username, ссылка
 t.me, название или me. TELEGRAM_DEFAULT_CHAT не читается.
 id: N — id сообщения из той же выдачи, целое больше 0.
@@ -130,4 +135,7 @@ Exit: 0 — файл записан; 1 — в сообщении нет файл
   resultSchema,
   run: runTelegramFile,
   render: renderSaved,
+  // Записанный файл — картинка агенту, если его байты ею окажутся
+  // (`platform/picture-frame.md`).
+  picture: (saved) => filePicture(saved.path),
 });

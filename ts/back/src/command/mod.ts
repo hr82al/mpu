@@ -24,6 +24,7 @@ import {
   selecting,
   type Source,
 } from "../objects/mod.ts";
+import { NO_PICTURE, type Picture } from "../picture/mod.ts";
 
 export {
   DomainError,
@@ -436,6 +437,12 @@ interface CommandDeclaration<A, R> {
   /** Рендер результата в текст для человека. Чист. */
   readonly render: (result: R, args: A) => string;
   /**
+   * Картинка результата (`platform/picture-frame.md` [D.5]): файл,
+   * который станет блоком изображения агенту. Без объявления — картинки
+   * нет.
+   */
+  readonly picture?: (result: R) => Picture;
+  /**
    * Код завершения, когда результат сам сообщает о неуспехе (`mpu xlsx
    * resolve` без пути). Его отдаёт результат, а не форма вывода: с
    * форматом и без — один код (`platform/line-grammar.md` [D.6]).
@@ -686,6 +693,8 @@ export interface Command {
   ) => string;
   /** Код завершения текстовой формы для этого результата. */
   readonly textExitCode: (result: unknown) => number;
+  /** Картинка результата; команда её не объявила — `NO_PICTURE`. */
+  readonly picture: (result: unknown) => Picture;
   /** Голый вызов печатает справку и завершается кодом 2. */
   readonly helpWhenBare: boolean;
   /** Результат — текст: сообщений результату не понимает. */
@@ -826,6 +835,10 @@ export function defineCommand<A, R>(spec: CommandSpec<A, R>): Command {
       spec.textExitCode === undefined
         ? 0
         : spec.textExitCode(spec.resultSchema.parse(result)),
+    picture: (result) =>
+      spec.picture === undefined
+        ? NO_PICTURE
+        : spec.picture(spec.resultSchema.parse(result)),
     assertResult: (value) => void spec.resultSchema.parse(value),
     dataOf: (result, argv) =>
       data.data(

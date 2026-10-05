@@ -363,6 +363,22 @@ Deno.test("F14: справка — вопрос, повод звать, путь
   assertEquals(bytes < 2048, true, `описание не влезло: ${bytes} байт`);
 });
 
+Deno.test("F22: справка — картинка агенту блоком, абзац после первого", () => {
+  const paragraphs = command.help.split("\n\n");
+  const picture = paragraphs[1].replaceAll("\n", " ");
+  for (
+    const part of [
+      "Агенту по MCP картинка",
+      "JPEG, PNG, GIF, WebP до 3 750 000 байт",
+      "блоком изображения",
+      "файл читать не нужно",
+      "Прочие вложения — только файлом",
+    ]
+  ) {
+    assertStringIncludes(picture, part);
+  }
+});
+
 Deno.test("объявление команды: путь, читающая (F15)", () => {
   assertEquals(command.path, ["telegram", "file"]);
   assertEquals(command.policy, "ro");

@@ -86,11 +86,33 @@ export interface RefusalData {
   readonly text: string;
 }
 
+/**
+ * Виды картинки — форматы, которые принимает Claude
+ * (`platform/picture-frame.md`, «Контракт»); тип выводится отсюда.
+ */
+const PICTURE_MIMES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+
+/** Вид картинки. */
+export type PictureMime = typeof PICTURE_MIMES[number];
+
+/** Картинка ответа строки: вид и base64 байтов файла без переносов. */
+export interface PictureData {
+  readonly mime: PictureMime;
+  readonly data: string;
+}
+
 /** Кадр сервера. */
 export type ServerFrame =
   | { readonly out: string }
   | { readonly err: string }
   | { readonly refusal: RefusalData }
+  /** Картинка строки — после вывода, перед `exit` (`platform/picture-frame.md`). */
+  | { readonly picture: PictureData }
   | {
     readonly ask: string;
     readonly kind?: AskKind;
@@ -179,6 +201,7 @@ export function serverFrameOf(data: unknown): ServerFrame {
   const [key] = keys;
   const value = frame[key];
   if (key === "refusal") return { refusal: refusalOf(value) };
+  if (key === "picture") return { picture: pictureOf(value) };
   if (key === "exit" && typeof value === "number" && Number.isInteger(value)) {
     return { exit: value };
   }
@@ -243,6 +266,31 @@ function outputFileOf(value: unknown): OutputFile {
     throw new BadFrame("у file поле не своего вида");
   }
   return { path, bytes, lines, slice };
+}
+
+/**
+ * Картинка из кадра или собранного ответа.
+ *
+ * @throws BadFrame — не объект, вид не из четырёх или данные не строка
+ */
+export function pictureOf(value: unknown): PictureData {
+  if (!isRecord(value)) throw new BadFrame("картинка не объект JSON");
+  const { mime, data } = value;
+  if (typeof data !== "string" || !isPictureMime(mime)) {
+    throw new BadFrame("у картинки поле не своего вида");
+  }
+  return { mime, data };
+}
+
+function isPictureMime(value: unknown): value is PictureMime {
+  return PICTURE_MIMES.some((mime) => mime === value);
+}
+
+/** Картинки собранного ответа; поля нет — пусто. */
+function picturesOf(value: unknown): { pictures?: PictureData[] } {
+  if (value === undefined) return {};
+  if (!Array.isArray(value)) throw new BadFrame("pictures не список");
+  return { pictures: value.map(pictureOf) };
 }
 
 /**
@@ -314,6 +362,8 @@ export type Collected =
     readonly refusal?: RefusalData;
     /** Вывод файлом; отдан целиком — поля нет. */
     readonly file?: OutputFile;
+    /** Картинки строки по порядку; нет ни одной — поля нет. */
+    readonly pictures?: readonly PictureData[];
   }
   | {
     readonly stdout: string;
@@ -332,13 +382,15 @@ export type Collected =
 export function collectedOf(data: unknown): Collected {
   const body = parsedJson(data);
   if (!isRecord(body)) throw new BadFrame("собранный ответ не объект JSON");
-  const { stdout, stderr, exit, ask, kind, ticket, refusal, file } = body;
+  const { stdout, stderr, exit, ask, kind, ticket, refusal, file, pictures } =
+    body;
   if (typeof exit === "number" && Number.isInteger(exit)) {
-    // Поля границы: у строки без отказа и без файла их нет вовсе.
+    // Поля границы: у строки без отказа, файла и картинок их нет вовсе.
     return {
       ...outputOf(stdout, stderr, file),
       exit,
       ...(refusal === undefined ? {} : { refusal: refusalOf(refusal) }),
+      ...picturesOf(pictures),
     };
   }
   if (typeof stdout !== "string" || typeof stderr !== "string") {
