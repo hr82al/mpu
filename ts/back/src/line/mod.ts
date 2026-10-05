@@ -68,7 +68,7 @@ import { registryNodes, registryRoot, ruleLinks } from "./tree.ts";
 import { Image, ImageError, type ImageMethod } from "../image/mod.ts";
 import type { Commands, MethodSource } from "../program/mod.ts";
 import type { Line } from "./dispatch.ts";
-import { type Consulting, standingMethods } from "./hook.ts";
+import { LineConsulting } from "./consulting.ts";
 import { routeOf } from "./route.ts";
 
 export type { RootMethod } from "./rules.ts";
@@ -389,34 +389,18 @@ export function lineEntry(ports: LinePorts): CliEntry {
       return reply;
     };
     const commands = programCommands(sources);
-    /**
-     * Слова вызова хука глазами ядра: тот же выбор источника и маршрута,
-     * та же цепочка, на месте сессии — проба.
-     */
-    const consulting: Consulting = {
-      book,
-      consult: (words, probe) => {
-        const walkedCall = walkedWords(words);
-        const doorCall = entryOf(walkedCall).words.length;
-        return sourceOf(words, walkedCall, doorCall).consult(() =>
-          routeOf(walkedCall.slice(doorCall), { commands, methods, hook })
-            .consult(probe)
-        );
-      },
-      walk: (words, probe, probeValues) =>
-        runChain(
-          walkedWords(words),
-          registryRoot(probe, book, {
-            own: standingMethods(ports.rootMethods),
-            targets: parts.targets,
-            image: methods,
-            stripped: strippedOf(words),
-          }),
-          probeValues,
-        ),
-    };
     /** Порты строки хука: её stdin и проба той же строки. */
-    const hook = { readStdin: lineIo.readStdin, consulting };
+    const hook = {
+      readStdin: lineIo.readStdin,
+      consulting: new LineConsulting({
+        book,
+        commands,
+        methods,
+        rootMethods: ports.rootMethods,
+        targets: parts.targets,
+        readStdin: lineIo.readStdin,
+      }),
+    };
     const context = {
       said,
       view: entry.view,

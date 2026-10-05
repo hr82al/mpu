@@ -50,27 +50,20 @@ import type { View } from "./view.ts";
 /** Путь корня в причине: наследуемое правило пути не имеет. */
 const ROOT_RULE = "*";
 
-/** Что пробе нужно от строки ядра, чтобы обойти слова вызова. */
+/** Кто отвечает хуку на слова строки `mpu` глазами ядра. */
 export interface Consulting {
-  readonly book: RuleBook;
-  /**
-   * Ответ по источнику и маршруту, которые ядро выбрало бы для строки
-   * `words` (`sourceOf`, `routeOf`); обычную цепочку решает `probe`.
-   */
-  readonly consult: (
-    words: readonly string[],
-    probe: () => Promise<HookReply>,
-  ) => Promise<HookReply>;
-  /**
-   * Обход слов `words` той же цепочкой, что у строки: то же дерево, та же
-   * книга, тот же разбор двери и `--json`; на месте сессии — `probe`.
-   */
-  readonly walk: (
-    words: readonly string[],
-    probe: Line,
-    values: ValueEvaluation,
-  ) => Promise<Outcome>;
+  /** Ответ хука на слова строки `mpu` (без самого `mpu`). */
+  reply(words: readonly string[]): Promise<HookReply>;
 }
+
+/**
+ * Обход слов строки той же цепочкой, что у ядра: на месте сессии —
+ * `probe`, значения — `values`.
+ */
+export type ProbeWalk = (
+  probe: Line,
+  values: ValueEvaluation,
+) => Promise<Outcome>;
 
 /** Что строке хука нужно сверх контекста строки: stdin и проба. */
 export interface HookPorts {
@@ -119,7 +112,7 @@ class HookLine implements Line {
     const text = new TextDecoder().decode(await this.#ports.readStdin());
     const consulting = this.#ports.consulting;
     const reply = await toolCallOf(text).reply((words) =>
-      consulted(words, consulting)
+      consulting.reply(words)
     );
     reply.tell(this.#speech);
     return report.exit(0);
@@ -156,24 +149,17 @@ class HookLine implements Line {
 }
 
 /**
- * Ответ хука для слов строки `mpu` (без самого `mpu`): источник и маршрут
- * — те, что выбрало бы ядро; обычную цепочку решает обход с пробой.
+ * Ответ хука на обычную цепочку: обход `walk` слов `words`, где на месте
+ * сессии — проба по правилам `book`.
  */
-function consulted(
+export async function probedReply(
+  book: RuleBook,
   words: readonly string[],
-  consulting: Consulting,
+  walk: ProbeWalk,
 ): Promise<HookReply> {
-  return consulting.consult(words, () => probed(words, consulting));
-}
-
-/** Обход слов цепочкой, где на месте сессии — проба. */
-async function probed(
-  words: readonly string[],
-  consulting: Consulting,
-): Promise<HookReply> {
-  const probe = new Consultation(consulting.book, words);
+  const probe = new Consultation(book, words);
   try {
-    printed(await consulting.walk(words, probe, AT_EXECUTION_VALUES), probe);
+    printed(await walk(probe, AT_EXECUTION_VALUES), probe);
   } catch (err) {
     if (!(err instanceof ValueAtExecution)) throw err;
     return atExecution();
