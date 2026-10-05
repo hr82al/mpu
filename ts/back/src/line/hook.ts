@@ -67,6 +67,8 @@ export interface Consulting {
   /** Дерево команд с методами образа — для «программа ли». */
   readonly commands: Commands;
   readonly methods: readonly ImageMethod[];
+  /** Слова строки без `--json` — как их видит ядро (`originOf`). */
+  readonly walked: (words: readonly string[]) => readonly string[];
   /**
    * Обход слов `words` той же цепочкой, что у строки: то же дерево, та же
    * книга, тот же разбор двери и `--json`; на месте сессии — `probe`.
@@ -166,7 +168,8 @@ export async function consulted(
   words: readonly string[],
   consulting: Consulting,
 ): Promise<HookReply> {
-  const said = words.slice(entryOf(words).words.length);
+  const walked = consulting.walked(words);
+  const said = walked.slice(entryOf(walked).words.length);
   if (said.length === 0 || said[0] === GRAMMAR.run) {
     return new Undecided(PROGRAM_UNSEEN);
   }

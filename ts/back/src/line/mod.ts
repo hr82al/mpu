@@ -430,6 +430,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
       book,
       commands,
       methods,
+      walked: walkedWords,
       walk: (words, probe, probeValues) =>
         runChain(
           walkedWords(words),

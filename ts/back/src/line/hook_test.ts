@@ -390,3 +390,27 @@ Deno.test("сбой книги при решении пробы — правил
     })
   );
 });
+
+Deno.test("--json до программы: шаг «программа ли» видит слова, как ядро", async () => {
+  const live = await livePayload();
+  await withStand((stand) =>
+    withPolicyFile(async (file) => {
+      for (const words of [["--json", "run:", "x.mpu"], ["--json"]]) {
+        const ran = await hook(
+          file,
+          stand,
+          JSON.stringify({
+            ...live,
+            tool_name: "mcp__mpu__mpu",
+            tool_input: { words },
+          }),
+        );
+        assertEquals(
+          ran.stderr,
+          "mpu claude-hook pre-tool-use: без решения — программа: содержимое не видно\n",
+          words.join(" "),
+        );
+      }
+    })
+  );
+});
