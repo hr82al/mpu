@@ -5,10 +5,10 @@
  * (`claude-hook-pre-tool-use.md`, «Как находится решение»).
  */
 
-import type { HookReply } from "../claudehook/mod.ts";
+import { atExecution, type HookReply } from "../claudehook/mod.ts";
 import type { ImageMethod } from "../image/mod.ts";
 import { type Commands, isProgram } from "../program/mod.ts";
-import { atExecution, type ImageContext, imageLineOf } from "./define.ts";
+import { type ImageContext, imageLineOf } from "./define.ts";
 import { hookLineOf, type HookPorts } from "./hook.ts";
 import { callsImage } from "./methods.ts";
 import { syncLineOf } from "./sync.ts";

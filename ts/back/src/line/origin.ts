@@ -5,11 +5,7 @@
  * её командам и какие у программы параметры.
  */
 
-import {
-  type HookReply,
-  PROGRAM_UNSEEN,
-  Undecided,
-} from "../claudehook/mod.ts";
+import { type HookReply, programUnseen } from "../claudehook/mod.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { isBareLine, wordsOf } from "../frames/mod.ts";
 import { ASK_WORD, GRAMMAR } from "../messages/mod.ts";
@@ -263,11 +259,6 @@ export interface Source {
    * и ввода хуку не видны; набранную строку решает маршрут — `typed`.
    */
   consult(typed: () => Promise<HookReply>): Promise<HookReply>;
-}
-
-/** Программа, чьих слов хук не видит. */
-function programUnseen(): Promise<HookReply> {
-  return Promise.resolve(new Undecided(PROGRAM_UNSEEN));
 }
 
 /** `run:` первым словом со значением: файл программы. */

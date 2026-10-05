@@ -88,6 +88,23 @@ export const PROGRAM_UNSEEN = "программа: содержимое не в�
 /** Причина: что исполнится, выяснится только при исполнении. */
 export const AT_EXECUTION = "решается при исполнении";
 
+const AT_EXECUTION_REPLY = new Undecided(AT_EXECUTION);
+const PROGRAM_UNSEEN_REPLY = new Undecided(PROGRAM_UNSEEN);
+
+/**
+ * Ответ строке, чей исход виден только при исполнении: запись образа,
+ * синхронизация, программа, строка хука, значение-выражение. Ответ без
+ * памяти — один на модуль.
+ */
+export function atExecution(): Promise<HookReply> {
+  return Promise.resolve(AT_EXECUTION_REPLY);
+}
+
+/** Ответ программе, чьих слов хук не видит; один на модуль. */
+export function programUnseen(): Promise<HookReply> {
+  return Promise.resolve(PROGRAM_UNSEEN_REPLY);
+}
+
 /** Причина: строка кончилась, правил не спросив (справка, `it`). */
 export const NOT_RULED = "правила строку не решают";
 

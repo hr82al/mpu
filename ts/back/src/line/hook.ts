@@ -12,7 +12,7 @@ import { HOOK_WORDS, unavailable } from "../frames/mod.ts";
 import {
   Allowed,
   askedBy,
-  AT_EXECUTION,
+  atExecution,
   Denied,
   type HookReply,
   HUMAN_DECIDES,
@@ -38,7 +38,7 @@ import {
   type Ruling,
 } from "../policy/mod.ts";
 import { entryOf } from "./ahead.ts";
-import { atExecution, type ImageContext, type ImageLine } from "./define.ts";
+import type { ImageContext, ImageLine } from "./define.ts";
 import type { Line } from "./dispatch.ts";
 import { itMethod, NO_CALLER } from "./it.ts";
 import type { Order } from "./order.ts";
@@ -176,7 +176,7 @@ async function probed(
     printed(await consulting.walk(words, probe, AT_EXECUTION_VALUES), probe);
   } catch (err) {
     if (!(err instanceof ValueAtExecution)) throw err;
-    return new Undecided(AT_EXECUTION);
+    return atExecution();
   }
   return probe.reply();
 }

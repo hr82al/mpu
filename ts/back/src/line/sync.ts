@@ -65,10 +65,10 @@ import {
   type RuleBook,
   RulePath,
 } from "../policy/mod.ts";
+import { atExecution } from "../claudehook/mod.ts";
 import { UNNAMED_REFUSAL } from "../messages/mod.ts";
 import { programCommands } from "./program.ts";
 import {
-  atExecution,
   type Checking,
   definitionOf,
   drop,
