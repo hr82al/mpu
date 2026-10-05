@@ -81,12 +81,17 @@ Claude Code считает картинки в предел вывода тул�
 (`iVBORw0KGgoAAA==`), GIF `GIF89a` `01 00 01 00` (`R0lGODlhAQABAA==`), WebP
 `RIFF` `0C 00 00 00` `WEBPVP8 ` (16 байт, `UklGRgwAAABXRUJQVlA4IA==`).
 
+`S43` — stdout `telegram file` для сообщения 43 (фото из 10 байт JPEG; форма
+F4, `size` — записанные байты, [D.3] `telegram-file.md`):
+`{"path": "/tmp/mpu-telegram/-1000000000101-43-photo-43.jpg", "name": "photo-43.jpg", "size": 10, "mime": "image/jpeg"}`
+и `\n`.
+
 | # | Дано | Строка, дверь | Итог |
 |---|---|---|---|
-| P1 | сообщение 43 — фото, байты JPEG | MCP `["telegram","file","chat:","-1000000000101","id:","43"]` | `content`: блок `text` — stdout F4 (`telegram-file.md`); блок `{"type": "image", "data": "/9j/4AAQSkZJRg==", "mimeType": "image/jpeg"}`; `structuredContent` — `stdout`, `stderr`, `exit` 0, без картинки; `isError: false` |
-| P2 | как P1 | та же строка в CLI | stdout побайтово как F4, stderr пуст, код 0 — ничего сверх TF1 |
-| P3 | как P1 | `POST /agent/line`, `Accept: application/json` | `{"stdout": "<F4>", "stderr": "", "exit": 0, "pictures": [{"mime": "image/jpeg", "data": "/9j/4AAQSkZJRg=="}]}` |
-| P4 | как P1 | `POST /agent/line`, `Accept: application/x-ndjson` | кадры: `{"out": "<F4>"}`, `{"picture": {"mime": "image/jpeg", "data": "/9j/4AAQSkZJRg=="}}`, `{"exit": 0}` |
+| P1 | сообщение 43 — фото, байты JPEG | MCP `["telegram","file","chat:","-1000000000101","id:","43"]` | `content`: блок `text` — `S43`; блок `{"type": "image", "data": "/9j/4AAQSkZJRg==", "mimeType": "image/jpeg"}`; `structuredContent` — `stdout`, `stderr`, `exit` 0, без картинки; `isError: false` |
+| P2 | как P1 | та же строка в CLI | stdout побайтово `S43`, stderr пуст, код 0 — ничего сверх TF1 |
+| P3 | как P1 | `POST /agent/line`, `Accept: application/json` | `{"stdout": "<S43>", "stderr": "", "exit": 0, "pictures": [{"mime": "image/jpeg", "data": "/9j/4AAQSkZJRg=="}]}` |
+| P4 | как P1 | `POST /agent/line`, `Accept: application/x-ndjson` | кадры: `{"out": "<S43>"}`, `{"picture": {"mime": "image/jpeg", "data": "/9j/4AAQSkZJRg=="}}`, `{"exit": 0}` |
 | P5 | сообщение 50 — документ `схема.png`, `image/png`, байты PNG | MCP, `id: 50` | блок `image` с `iVBORw0KGgoAAA==`, `image/png` |
 | P6 | сообщение 51 — документ `a.gif`, `image/gif`, байты GIF; сообщение 52 — `b.webp`, `image/webp`, байты WebP | MCP, `id: 51`; затем `id: 52` | блоки `image/gif` и `image/webp` с данными из литералов |
 | P7 | сообщение 53 — документ `logo.svg`, `image/svg+xml`, байты `<svg xmlns="http://www.w3.org/2000/svg"/>` | MCP, `id: 53` | только текстовый блок (stdout с `"mime": "image/svg+xml"`); блока `image` нет; `isError: false` |
@@ -98,8 +103,8 @@ Claude Code считает картинки в предел вывода тул�
 | P13 | сообщения 43 (10 байт) и 56 (3 750 000 байт) | MCP, программа `telegram file chat: -1000000000101 id: 43 . telegram file chat: -1000000000101 id: 56` | один блок `image` — от 43; у 56 блока нет (сумма перешла бы предел); оба файла записаны |
 | P14 | сообщения 56 и 43 | та же программа, сначала `id: 56`, затем `id: 43` | один блок — от 56; у 43 блока нет |
 | P15 | сообщения 45 (текст, F6) | MCP, `id: 45` | как F6: `isError`, кадра картинки нет |
-| P16 | после P1 | MCP `["it","end","json"]` | тот же JSON F4; блока `image` нет |
-| P17 | после P1 | журнал вызовов (`platform/invoke-log.md`) | запись строки P1: секция `out` — stdout F4; строки `/9j/4AAQSkZJRg==` в записи нет |
+| P16 | после P1 | MCP `["it","end","json"]` | тот же JSON, что `S43`; блока `image` нет |
+| P17 | после P1 | журнал вызовов (`platform/invoke-log.md`) | запись строки P1: секция `out` — `S43`; строки `/9j/4AAQSkZJRg==` в записи нет |
 | P18 | как P1 | web-приложение, та же строка | на странице — вывод как у CLI; картинка не показывается |
 | P19 | как P1; сообщения 46 нет (F8) | MCP, программа `telegram file chat: -1000000000101 id: 43 . telegram file chat: -1000000000101 id: 46` | `isError`, stderr F8; блока `image` нет; файл от 43 записан |
 | P20 | сообщения 43 и 50 | NDJSON, программа `telegram file chat: -1000000000101 id: 43 . telegram file chat: -1000000000101 id: 50` | кадры: `out` от 43, `out` от 50, `picture` JPEG, `picture` PNG, `exit` 0 |
