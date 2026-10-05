@@ -216,7 +216,7 @@ export function standingMethods(
  * обходе, запоминает ответ хука. Ответ, пока обход её не спросил, —
  * «правила строку не решают»; отказ обхода — «строка не разобрана».
  */
-export class Consultation implements Line, Speech {
+class Consultation implements Line, Speech {
   readonly #book: RuleBook;
   /** Слова строки — её согласие спрашивается у команды по ним. */
   readonly #words: readonly string[];
