@@ -43,6 +43,7 @@ import {
   type Root,
 } from "../program/mod.ts";
 import type { CommandIo } from "../command/mod.ts";
+import { AT_EXECUTION, type HookReply, Undecided } from "../claudehook/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { printed, type Speech } from "./printed.ts";
 import { registryNodes, type TreeNode } from "./tree.ts";
@@ -106,12 +107,26 @@ export interface ImageLine {
     context: ImageContext,
     otherwise: () => Promise<number>,
   ): Promise<number>;
+  /**
+   * Ответ хука `PreToolUse` на эту строку, ничего не исполняя; не
+   * строка образа — `otherwise`.
+   */
+  consult(otherwise: () => Promise<HookReply>): Promise<HookReply>;
 }
 
 /** Не строка образа: исполняется, как прежде. Null-объект модуля. */
 export const NOT_IMAGE: ImageLine = {
   settle: (_context, otherwise) => otherwise(),
+  consult: (otherwise) => otherwise(),
 };
+
+/**
+ * Ответ хука строке, чей исход виден только при исполнении: запись
+ * образа, синхронизация, программа, строка хука.
+ */
+export function atExecution(): Promise<HookReply> {
+  return Promise.resolve(new Undecided(AT_EXECUTION));
+}
 
 /** Строку набрали не так: отказ до записи. */
 export class Misdefined extends Error {
@@ -241,6 +256,10 @@ export class Definition implements ImageLine {
     this.#receiver = receiver;
     this.#rest = rest;
     this.#offset = offset;
+  }
+
+  consult(): Promise<HookReply> {
+    return atExecution();
   }
 
   async settle(context: ImageContext): Promise<number> {
@@ -464,6 +483,10 @@ class Forgetting implements ImageLine {
   constructor(receiver: readonly string[], written: string) {
     this.#receiver = receiver;
     this.#written = written;
+  }
+
+  consult(): Promise<HookReply> {
+    return atExecution();
   }
 
   settle(context: ImageContext): Promise<number> {

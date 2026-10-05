@@ -5,9 +5,10 @@
  * (`claude-hook-pre-tool-use.md`, «Как находится решение»).
  */
 
+import type { HookReply } from "../claudehook/mod.ts";
 import type { ImageMethod } from "../image/mod.ts";
 import { type Commands, isProgram } from "../program/mod.ts";
-import { type ImageContext, imageLineOf } from "./define.ts";
+import { atExecution, type ImageContext, imageLineOf } from "./define.ts";
 import { hookLineOf, type HookPorts } from "./hook.ts";
 import { callsImage } from "./methods.ts";
 import { syncLineOf } from "./sync.ts";
@@ -24,6 +25,11 @@ export interface LineWays {
 export interface Route {
   /** Исполнить строку этим маршрутом. */
   settle(context: ImageContext, ways: LineWays): Promise<number>;
+  /**
+   * Ответ хука `PreToolUse` на строку этого маршрута, ничего не
+   * исполняя; обычную цепочку решает проба `probe`.
+   */
+  consult(probe: () => Promise<HookReply>): Promise<HookReply>;
 }
 
 /** Что нужно выбору маршрута: дерево, методы образа, порты хука. */
@@ -35,10 +41,16 @@ export interface RouteParts {
 }
 
 /** Программа: слова — выражение или вызов метода образа. */
-const PROGRAM: Route = { settle: (_context, ways) => ways.program() };
+const PROGRAM: Route = {
+  settle: (_context, ways) => ways.program(),
+  consult: atExecution,
+};
 
 /** Обычная цепочка. */
-const CHAIN: Route = { settle: (_context, ways) => ways.chain() };
+const CHAIN: Route = {
+  settle: (_context, ways) => ways.chain(),
+  consult: (probe) => probe(),
+};
 
 /**
  * Маршрут по словам строки без входа двери: особые строки — хука и
@@ -58,5 +70,6 @@ export function routeOf(said: readonly string[], parts: RouteParts): Route {
   return {
     settle: (context, ways) =>
       special.settle(context, () => plain().settle(context, ways)),
+    consult: (probe) => special.consult(() => plain().consult(probe)),
   };
 }

@@ -391,24 +391,63 @@ Deno.test("сбой книги при решении пробы — правил
   );
 });
 
-Deno.test("--json до программы: шаг «программа ли» видит слова, как ядро", async () => {
+Deno.test("--json: источник строки — как у ядра", async (t) => {
   const live = await livePayload();
+  // `--json run: x` — программа из файла; одно `--json` — не строка без
+  // слов (`isBareLine`), ядро ведёт её цепочкой к справке.
+  const cases = [
+    [["--json", "run:", "x.mpu"], "программа: содержимое не видно"],
+    [["--json"], "правила строку не решают"],
+  ] as const;
   await withStand((stand) =>
     withPolicyFile(async (file) => {
-      for (const words of [["--json", "run:", "x.mpu"], ["--json"]]) {
+      for (const [words, reason] of cases) {
+        await t.step(words.join(" "), async () => {
+          const ran = await hook(
+            file,
+            stand,
+            JSON.stringify({
+              ...live,
+              tool_name: "mcp__mpu__mpu",
+              tool_input: { words },
+            }),
+          );
+          assertEquals(
+            ran.stderr,
+            `mpu claude-hook pre-tool-use: без решения — ${reason}\n`,
+          );
+        });
+      }
+    })
+  );
+});
+
+Deno.test("строка хука в вызове — маршрут строки хука, а не обход цепочкой", async () => {
+  const live = await livePayload();
+  const calls = [
+    {
+      tool_name: "Bash",
+      tool_input: { command: "mpu claude-hook pre-tool-use" },
+    },
+    { tool_name: "mcp__mpu__mpu", tool_input: { words: [...HOOK_WORDS] } },
+  ];
+  await withStand((stand) =>
+    withPolicyFile(async (file) => {
+      for (const call of calls) {
         const ran = await hook(
           file,
           stand,
-          JSON.stringify({
-            ...live,
-            tool_name: "mcp__mpu__mpu",
-            tool_input: { words },
-          }),
+          JSON.stringify({ ...live, ...call }),
         );
         assertEquals(
-          ran.stderr,
-          "mpu claude-hook pre-tool-use: без решения — программа: содержимое не видно\n",
-          words.join(" "),
+          { exit: ran.exit, stdout: ran.stdout, stderr: ran.stderr },
+          {
+            exit: 0,
+            stdout: "",
+            stderr:
+              "mpu claude-hook pre-tool-use: без решения — решается при исполнении\n",
+          },
+          call.tool_name,
         );
       }
     })

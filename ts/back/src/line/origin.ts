@@ -5,6 +5,11 @@
  * её командам и какие у программы параметры.
  */
 
+import {
+  type HookReply,
+  PROGRAM_UNSEEN,
+  Undecided,
+} from "../claudehook/mod.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { isBareLine, wordsOf } from "../frames/mod.ts";
 import { ASK_WORD, GRAMMAR } from "../messages/mod.ts";
@@ -253,6 +258,16 @@ export interface Source {
     io: Pick<CommandIo, "readStdin" | "stdinIsTerminal" | "cwd">,
     files: ProgramFiles,
   ): Promise<Origin>;
+  /**
+   * Ответ хука `PreToolUse`, ничего не читая: слова программы из файла
+   * и ввода хуку не видны; набранную строку решает маршрут — `typed`.
+   */
+  consult(typed: () => Promise<HookReply>): Promise<HookReply>;
+}
+
+/** Программа, чьих слов хук не видит. */
+function programUnseen(): Promise<HookReply> {
+  return Promise.resolve(new Undecided(PROGRAM_UNSEEN));
 }
 
 /** `run:` первым словом со значением: файл программы. */
@@ -270,6 +285,10 @@ class RunSource implements Source {
     files: ProgramFiles,
   ): Promise<Origin> {
     return runOrigin(this.#walked, this.#said, io, files);
+  }
+
+  consult(): Promise<HookReply> {
+    return programUnseen();
   }
 }
 
@@ -297,6 +316,11 @@ class BareSource implements Source {
     if (words.length === 0) return new TypedLine(this.#said);
     return new StdinProgram(words);
   }
+
+  /** Ввода хук не видит: считается, что программа придёт им. */
+  consult(): Promise<HookReply> {
+    return programUnseen();
+  }
 }
 
 /** Набранная строка: слова — те, что набраны. */
@@ -309,6 +333,10 @@ class TypedSource implements Source {
 
   origin(): Promise<Origin> {
     return Promise.resolve(new TypedLine(this.#said));
+  }
+
+  consult(typed: () => Promise<HookReply>): Promise<HookReply> {
+    return typed();
   }
 }
 

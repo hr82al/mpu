@@ -68,6 +68,7 @@ import {
 import { UNNAMED_REFUSAL } from "../messages/mod.ts";
 import { programCommands } from "./program.ts";
 import {
+  atExecution,
   type Checking,
   definitionOf,
   drop,
@@ -182,6 +183,7 @@ export function syncLineOf(said: readonly string[]): ImageLine {
       context.walk((session, words) =>
         new SyncLine(command, session, words, context)
       ),
+    consult: atExecution,
   };
 }
 

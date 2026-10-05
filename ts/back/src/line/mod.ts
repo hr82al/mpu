@@ -417,12 +417,20 @@ export function lineEntry(ports: LinePorts): CliEntry {
       return reply;
     };
     const commands = programCommands(sources);
-    /** Обход слов вызова хука: то же дерево, на месте сессии — проба. */
+    /**
+     * Слова вызова хука глазами ядра: тот же выбор источника и маршрута,
+     * та же цепочка, на месте сессии — проба.
+     */
     const consulting: Consulting = {
       book,
-      commands,
-      methods,
-      walked: walkedWords,
+      consult: (words, probe) => {
+        const walkedCall = walkedWords(words);
+        const doorCall = entryOf(walkedCall).words.length;
+        return sourceOf(words, walkedCall, doorCall).consult(() =>
+          routeOf(walkedCall.slice(doorCall), { commands, methods, hook })
+            .consult(probe)
+        );
+      },
       walk: (words, probe, probeValues) =>
         runChain(
           walkedWords(words),
@@ -435,6 +443,8 @@ export function lineEntry(ports: LinePorts): CliEntry {
           probeValues,
         ),
     };
+    /** Порты строки хука: её stdin и проба той же строки. */
+    const hook = { readStdin: lineIo.readStdin, consulting };
     const context = {
       said,
       view: entry.view,
@@ -472,7 +482,6 @@ export function lineEntry(ports: LinePorts): CliEntry {
         commands,
         sources,
       });
-    const hook = { readStdin: lineIo.readStdin, consulting };
     return await origin.route(
       program,
       () =>

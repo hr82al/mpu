@@ -17,14 +17,11 @@ import {
   type HookReply,
   HUMAN_DECIDES,
   NOT_RULED,
-  PROGRAM_UNSEEN,
   RULE_CHANGE,
   toolCallOf,
   Undecided,
   unparsedLine,
 } from "../claudehook/mod.ts";
-import type { ImageMethod } from "../image/mod.ts";
-import { GRAMMAR } from "../messages/mod.ts";
 import {
   line as lineText,
   type Method,
@@ -40,21 +37,13 @@ import {
   type RuleBook,
   type Ruling,
 } from "../policy/mod.ts";
-import { type Commands, isProgram } from "../program/mod.ts";
 import { entryOf } from "./ahead.ts";
-import {
-  type ImageContext,
-  type ImageLine,
-  imageLineOf,
-  NOT_IMAGE,
-} from "./define.ts";
+import { atExecution, type ImageContext, type ImageLine } from "./define.ts";
 import type { Line } from "./dispatch.ts";
 import { itMethod, NO_CALLER } from "./it.ts";
-import { callsImage } from "./methods.ts";
 import type { Order } from "./order.ts";
 import { printed, type Speech } from "./printed.ts";
 import { type RootMethod, rootMethod } from "./rules.ts";
-import { syncLineOf } from "./sync.ts";
 import { ARGS } from "./tree.ts";
 import type { View } from "./view.ts";
 
@@ -64,11 +53,14 @@ const ROOT_RULE = "*";
 /** Что пробе нужно от строки ядра, чтобы обойти слова вызова. */
 export interface Consulting {
   readonly book: RuleBook;
-  /** Дерево команд с методами образа — для «программа ли». */
-  readonly commands: Commands;
-  readonly methods: readonly ImageMethod[];
-  /** Слова строки без `--json` — как их видит ядро (`sourceOf`). */
-  readonly walked: (words: readonly string[]) => readonly string[];
+  /**
+   * Ответ по источнику и маршруту, которые ядро выбрало бы для строки
+   * `words` (`sourceOf`, `routeOf`); обычную цепочку решает `probe`.
+   */
+  readonly consult: (
+    words: readonly string[],
+    probe: () => Promise<HookReply>,
+  ) => Promise<HookReply>;
   /**
    * Обход слов `words` той же цепочкой, что у строки: то же дерево, та же
    * книга, тот же разбор двери и `--json`; на месте сессии — `probe`.
@@ -88,7 +80,9 @@ export interface HookPorts {
 
 /**
  * Строка хука по словам без входа двери; иначе — `otherwise`. Справка и
- * отказы идут обычной цепочкой: подменено только исполнение листа.
+ * отказы идут обычной цепочкой: подменено только исполнение листа. Хуку
+ * она отвечает «решается при исполнении»: её исход — ответ на stdin,
+ * которого хук не видит.
  */
 export function hookLineOf(
   said: readonly string[],
@@ -99,6 +93,7 @@ export function hookLineOf(
   return {
     settle: (context: ImageContext) =>
       context.walk((session) => new HookLine(session, context.speech, ports)),
+    consult: atExecution,
   };
 }
 
@@ -161,25 +156,21 @@ class HookLine implements Line {
 }
 
 /**
- * Ответ хука для слов строки `mpu` (без самого `mpu`): программа и
- * строка образа отсеиваются функциями ядра, прочее решает обход с пробой.
+ * Ответ хука для слов строки `mpu` (без самого `mpu`): источник и маршрут
+ * — те, что выбрало бы ядро; обычную цепочку решает обход с пробой.
  */
-export async function consulted(
+function consulted(
   words: readonly string[],
   consulting: Consulting,
 ): Promise<HookReply> {
-  const walked = consulting.walked(words);
-  const said = walked.slice(entryOf(walked).words.length);
-  if (said.length === 0 || said[0] === GRAMMAR.run) {
-    return new Undecided(PROGRAM_UNSEEN);
-  }
-  if (
-    isProgram(said, consulting.commands) ||
-    callsImage(said, consulting.methods) ||
-    imageLineOf(said, syncLineOf(said)) !== NOT_IMAGE
-  ) {
-    return new Undecided(AT_EXECUTION);
-  }
+  return consulting.consult(words, () => probed(words, consulting));
+}
+
+/** Обход слов цепочкой, где на месте сессии — проба. */
+async function probed(
+  words: readonly string[],
+  consulting: Consulting,
+): Promise<HookReply> {
   const probe = new Consultation(consulting.book, words);
   try {
     printed(await consulting.walk(words, probe, AT_EXECUTION_VALUES), probe);
