@@ -89,8 +89,8 @@ stderr при успехе пуст.
 | F7 | сообщение 47 — текст с превью ссылки | `mpu telegram file chat: -1000000000101 id: 47` | как F6 с `47` |
 | F8 | сообщения 46 в чате нет (не было или удалено) | `mpu telegram file chat: -1000000000101 id: 46` | stdout пуст; stderr `telegram: сообщение 46 не найдено` и `\n`; exit 1 |
 | F9 | сообщение 48: голосовое без имени, 300 байт, `audio/ogg` | `mpu telegram file chat: -1000000000101 id: 48` | stdout `{"path": "/tmp/mpu-telegram/-1000000000101-48-file-48", "name": "file-48", "size": 300, "mime": "audio/ogg"}` и `\n`; exit 0 |
-| F10 | — | `mpu telegram file id: 42` | до сети; stdout пуст; stderr `mpu telegram file: не хватает ключа chat`; exit 2 |
-| F11 | — | `mpu telegram file chat: me` | до сети; stderr `mpu telegram file: не хватает ключа id`; exit 2 |
+| F10 | — | `mpu telegram file id: 42` | до сети; stdout пуст; stderr `не хватает ключа chat` (текст платформы, `platform/messages.md`); exit 2 |
+| F11 | — | `mpu telegram file chat: me` | до сети; stderr `не хватает ключа id`; exit 2 |
 | F12 | — | `mpu telegram file chat: me id: 0`; то же с `id: abc` | до сети; stderr `mpu telegram file: id — целое больше 0: 0` (`… : abc`); exit 2 |
 | F13 | адресат не резолвится | `mpu telegram file chat: нет-такого id: 1` | по правилам слоя и `telegram-ls.md`: отказ говорит «чат», exit 1; файла нет |
 | F14 | — | `mpu telegram file help` | однострока «Скачать вложение сообщения Telegram в локальный файл.»; первый абзац — когда звать (у сообщения в выдаче `telegram search` есть `file`; поиск файл не отдаёт) и куда ляжет файл (`/tmp/mpu-telegram/<chat_id>-<id>-<имя>`); дальше ключи `chat:`, `id:`, пример, коды выхода 0/1/2 |
