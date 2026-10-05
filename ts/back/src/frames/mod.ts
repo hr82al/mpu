@@ -61,4 +61,6 @@ export {
   wordsOf,
 } from "./words.ts";
 
+export { HOOK_WORDS, unavailable, undecidedLine } from "./hook.ts";
+
 export { VERSION } from "../version.ts";

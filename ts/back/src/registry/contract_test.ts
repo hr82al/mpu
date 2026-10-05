@@ -1220,6 +1220,13 @@ const CASES: readonly CommandCase[] = [
     argv: [],
     sampleResult: { id: 5000001 },
   },
+  {
+    // Строку исполняет ядро (`line/hook.ts`), как `image sync`: у самой
+    // команды реестра исполнения нет, обход получает отказ.
+    path: "claude-hook pre-tool-use",
+    argv: [],
+    sampleResult: {},
+  },
   // Семейство `mr`: ключа GLAB_TOKEN в env-файле обхода нет, поэтому
   // каждый вызов обязан отбиться на конфигурации — до git и до сети.
   {

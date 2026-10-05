@@ -86,7 +86,10 @@ import {
   telegramSendCommand,
   telegramStatusCommand,
 } from "../telegram/mod.ts";
-import { claudeHookNotificationCommand } from "../claudehook/mod.ts";
+import {
+  claudeHookNotificationCommand,
+  claudeHookPreToolUseCommand,
+} from "../claudehook/mod.ts";
 import { backupCommands } from "../backup/mod.ts";
 import { makeSchemaCommand } from "../makeschema/mod.ts";
 import {
@@ -242,6 +245,7 @@ export const commands: readonly Command[] = [
   telegramSearchCommand,
   telegramStatusCommand,
   claudeHookNotificationCommand,
+  claudeHookPreToolUseCommand,
   // Семейство обёрток доезжает: очереди задач, миграции и загрузчик
   // Ozon (`specs/portainer-wrappers.md`).
   ...jobsCommands,

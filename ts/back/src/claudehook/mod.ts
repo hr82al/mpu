@@ -9,3 +9,4 @@
  */
 
 export { claudeHookNotificationCommand } from "./cmd_notification.ts";
+export { claudeHookPreToolUseCommand } from "./cmd_pre_tool_use.ts";

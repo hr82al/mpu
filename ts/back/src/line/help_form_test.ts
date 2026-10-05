@@ -70,11 +70,14 @@ function shellWords(example: string): string[] {
   return words;
 }
 
-/** Слова строки `mpu` в примере: после `mpu`, до конца или до `|`. */
+/** Слова строки `mpu` в примере: после `mpu`, до конца, `|` или `<`. */
 function lineOf(example: string): string[] {
   const words = shellWords(example);
   const start = words.indexOf("mpu") + 1;
-  const end = words.indexOf("|", start);
+  // Конец строки mpu — оператор оболочки: конвейер или ввод из файла.
+  const end = words.findIndex((word, at) =>
+    at >= start && (word === "|" || word === "<")
+  );
   return words.slice(start, end < 0 ? undefined : end);
 }
 
