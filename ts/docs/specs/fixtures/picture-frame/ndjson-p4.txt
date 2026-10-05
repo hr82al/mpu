@@ -1,0 +1,3 @@
+{"out":"{\"path\": \"/tmp/mpu-telegram/-1000000000101-43-photo-43.jpg\", \"name\": \"photo-43.jpg\", \"size\": 10, \"mime\": \"image/jpeg\"}\n"}
+{"picture":{"mime":"image/jpeg","data":"/9j/4AAQSkZJRg=="}}
+{"exit":0}
