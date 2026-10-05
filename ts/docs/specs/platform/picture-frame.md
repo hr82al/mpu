@@ -107,7 +107,7 @@ F4, `size` — записанные байты, [D.3] `telegram-file.md`):
 | P17 | после P1 | журнал вызовов (`platform/invoke-log.md`) | запись строки P1: секция `out` — `S43`; строки `/9j/4AAQSkZJRg==` в записи нет |
 | P18 | как P1 | web-приложение, та же строка | на странице — вывод как у CLI; картинка не показывается |
 | P19 | как P1; сообщения 46 нет (F8) | MCP, программа `telegram file chat: -1000000000101 id: 43 . telegram file chat: -1000000000101 id: 46` | `isError`, stderr F8; блока `image` нет; файл от 43 записан |
-| P20 | сообщения 43 и 50 | NDJSON, программа `telegram file chat: -1000000000101 id: 43 . telegram file chat: -1000000000101 id: 50` | кадры: `out` от 43, `out` от 50, `picture` JPEG, `picture` PNG, `exit` 0 |
+| P20 | сообщения 43 и 50 | NDJSON, программа `telegram file chat: -1000000000101 id: 43 . telegram file chat: -1000000000101 id: 50` | кадры: `out` от 50 (программа печатает только последнее выражение, `platform/evaluator.md`), `picture` JPEG, `picture` PNG, `exit` 0 — картинки обеих команд, в их порядке, перед `exit` |
 
 ## Вид картинки — по байтам
 
