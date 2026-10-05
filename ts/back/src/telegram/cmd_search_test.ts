@@ -14,6 +14,7 @@ import {
 } from "./cmd_search.ts";
 import { SCAN_CAP } from "./search.ts";
 import { foundMessage, type RawMessage } from "./message.ts";
+import { noFile } from "./message_file.ts";
 
 const command: Command = telegramSearchCommand;
 
@@ -44,6 +45,7 @@ const FOUND: readonly RawMessage[] = [
     },
     date: new Date("2026-08-16T07:54:28.000Z"),
     text: "выгрузка за июль готова",
+    file: noFile(4821),
     entities: [],
   },
 ];
@@ -176,6 +178,7 @@ Deno.test("оборванный потолком скан уезжает в ре
             : chat,
           date: new Date("2026-08-16T07:54:28.000Z"),
           text: "текст",
+          file: noFile(0),
           entities: [],
         });
       }

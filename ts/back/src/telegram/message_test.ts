@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { foundMessage, type RawMessage, senderId } from "./message.ts";
+import { noFile } from "./message_file.ts";
 
 const SUPERGROUP: RawMessage = {
   id: 4821,
@@ -17,6 +18,7 @@ const SUPERGROUP: RawMessage = {
   },
   date: new Date("2026-08-16T07:54:28.000Z"),
   text: "выгрузка за июль готова",
+  file: noFile(4821),
   entities: [],
 };
 
@@ -28,6 +30,7 @@ Deno.test("сообщение супергруппы: маркированный
     sender: "Иван Петров",
     date: "2026-08-16T07:54:28+00:00",
     text: "выгрузка за июль готова",
+    file: null,
     link: "https://t.me/team_uploads/4821",
   });
 });
@@ -45,6 +48,7 @@ Deno.test("сообщение канала без имени: ссылка на 
       sender: null,
       date: new Date("2026-08-15T18:03:00.000Z"),
       text: "выгрузка отчётов включена в релиз",
+      file: noFile(77),
       entities: [],
     }),
     {
@@ -54,6 +58,7 @@ Deno.test("сообщение канала без имени: ссылка на 
       sender: null,
       date: "2026-08-15T18:03:00+00:00",
       text: "выгрузка отчётов включена в релиз",
+      file: null,
       link: "https://t.me/c/202/77",
     },
   );
@@ -73,6 +78,7 @@ Deno.test("у личной переписки и базовой группы с�
         sender: null,
         date: null,
         text: "",
+        file: noFile(1503),
         entities: [],
       },
       id: 100000001,
@@ -89,6 +95,7 @@ Deno.test("у личной переписки и базовой группы с�
         sender: null,
         date: null,
         text: "",
+        file: noFile(12),
         entities: [],
       },
       id: -3003,
@@ -127,6 +134,7 @@ Deno.test("отсутствующее значение — null или пуст�
       sender: null,
       date: null,
       text: "",
+      file: noFile(9),
       entities: [],
     }),
     {
@@ -136,6 +144,7 @@ Deno.test("отсутствующее значение — null или пуст�
       sender: null,
       date: null,
       text: "",
+      file: null,
       link: null,
     },
   );

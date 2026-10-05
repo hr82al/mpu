@@ -111,6 +111,8 @@ Deno.test("отказы с подсказкой по таблице спеки",
       "mpu kiten card: не понимает id:nope:",
     ],
     [["sql-ro", "sql:", "select 1"], "не хватает ключа target"],
+    // F11: отказ платформы, без префикса команды — как у `sql-ro` выше.
+    [["telegram", "file", "chat:", "me"], "не хватает ключа id"],
     [
       ["sql-ro", "target:", "54", "sql:", "select 1", "limit:", "5"],
       "mpu sql-ro target: 54 sql: select 1: понимаю target:sql:; limit: " +
@@ -222,4 +224,41 @@ Deno.test("унарное за литералом — результату, ка
       ),
       help.stdout,
     );
+  }));
+
+Deno.test("telegram file без chat: — отказ до сети, голден (F10)", async () => {
+  const golden = await Deno.readTextFile(
+    new URL(
+      "../telegram/testdata/telegram-file/err-no-chat-stderr.txt",
+      import.meta.url,
+    ),
+  );
+  await withPolicyFile(async (file) => {
+    assertEquals(await run(file, ["telegram", "file", "id:", "42"]), {
+      code: 2,
+      stdout: "",
+      stderr: golden,
+      called: [],
+    });
+  });
+});
+
+Deno.test("telegram file id: не целое больше 0 — код 2 (F12)", () =>
+  withPolicyFile(async (file) => {
+    for (const raw of ["0", "abc"]) {
+      const got = await run(file, [
+        "telegram",
+        "file",
+        "chat:",
+        "me",
+        "id:",
+        raw,
+      ]);
+      assertEquals(got.code, 2);
+      assertEquals(got.stdout, "");
+      assertEquals(
+        got.stderr,
+        `mpu telegram file: id — целое больше 0: ${raw}\n`,
+      );
+    }
   }));

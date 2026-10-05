@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { foundMessage, type RawMessage } from "./message.ts";
 import { renderMessagesJson, renderMessagesTable } from "./search_view.ts";
+import { documentFile, noFile } from "./message_file.ts";
 
 async function golden(name: string): Promise<string> {
   return await Deno.readTextFile(
@@ -25,6 +26,7 @@ const FOUND: readonly RawMessage[] = [
     },
     date: new Date("2026-08-16T07:54:28.000Z"),
     text: "выгрузка за июль готова",
+    file: noFile(4821),
     entities: [],
   },
   {
@@ -38,6 +40,7 @@ const FOUND: readonly RawMessage[] = [
     sender: null,
     date: new Date("2026-08-15T18:03:00.000Z"),
     text: "выгрузка отчётов включена в релиз",
+    file: noFile(77),
     entities: [],
   },
   {
@@ -56,6 +59,15 @@ const FOUND: readonly RawMessage[] = [
     },
     date: new Date("2026-08-14T09:12:41.000Z"),
     text: "",
+    // Форма — догадка по исходникам клиента: живьём не снята
+    // (`telegram-file.md`, «Golden-примеры»).
+    file: documentFile(1503, {
+      name: "выгрузка-июль.xlsx",
+      size: 48213,
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }, () => {
+      throw new Error("скачивание в выдаче поиска не ожидается");
+    }),
     entities: [],
   },
   {
@@ -75,6 +87,7 @@ const FOUND: readonly RawMessage[] = [
     date: new Date("2026-10-02T06:11:14.000Z"),
     text:
       "@ivan_p Привет, сможешь сделать ревью?\n1. Ozon: сверка выкупа - готово к код-ревью",
+    file: noFile(17694),
     entities: [
       { _: "messageEntityMention", offset: 0, length: 7 },
       {
@@ -144,6 +157,7 @@ Deno.test("TM12: в колонке TEXT та же Markdown-строка, что 
   const message = foundMessage({
     ...FOUND[0],
     text: "1. Ozon: сверка выкупа - готово к код-ревью",
+    file: noFile(17694),
     entities: [{
       _: "messageEntityTextUrl",
       offset: 3,

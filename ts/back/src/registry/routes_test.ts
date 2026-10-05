@@ -43,7 +43,7 @@ Deno.test("справка группы telegram собирается из рее
       .map((command) => command.path[1])
       .sort(),
   );
-  assertEquals(names.length, 6, `в группе не шесть листьев: ${names}`);
+  assertEquals(names.length, 7, `в группе не семь листьев: ${names}`);
 });
 
 Deno.test("инварианты записей реестра", async (t) => {

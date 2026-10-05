@@ -14243,6 +14243,11 @@
       "tail": null,
       "messages": [
         {
+          "selector": "file",
+          "kind": "unary",
+          "purpose": "Скачать вложение сообщения Telegram в локальный файл."
+        },
+        {
           "selector": "log",
           "kind": "unary",
           "purpose": "Отправить заметку себе в личного бота."
@@ -14275,6 +14280,41 @@
       ],
       "keys": [],
       "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "telegram",
+        "file"
+      ],
+      "summary": "Скачать вложение сообщения Telegram в локальный файл.",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "chat:",
+          "kind": "keyword",
+          "purpose": "чат сообщения: chat_id из выдачи telegram search, @username, ссылка t.me, название или me"
+        }
+      ],
+      "keys": [
+        {
+          "name": "chat",
+          "kind": "value",
+          "required": true,
+          "purpose": "чат сообщения: chat_id из выдачи telegram search, @username, ссылка t.me, название или me",
+          "reason": "прежнее имя входа"
+        },
+        {
+          "name": "id",
+          "kind": "value",
+          "required": true,
+          "purpose": "id сообщения внутри чата, целое > 0",
+          "reason": null
+        }
+      ],
+      "formats": [
+        "json"
+      ],
       "variants": []
     },
     {

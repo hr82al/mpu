@@ -29,6 +29,7 @@
     "sheet ls",
     "sheet resolve",
     "sql-ro",
+    "telegram file",
     "telegram ls",
     "telegram search",
     "xlsx alias ls",

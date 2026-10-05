@@ -11,6 +11,7 @@
 import type { tl } from "@mtcute/deno";
 import { markedId, type RawChat } from "./chat.ts";
 import { markdown } from "./markdown.ts";
+import type { ListedFile, MessageFile } from "./message_file.ts";
 
 /** Сообщение, как о нём отчитался клиент: идентификаторы ещё сырые. */
 export interface RawMessage {
@@ -25,6 +26,8 @@ export interface RawMessage {
   readonly text: string;
   /** Разметка текста протокола; без разметки — пустой список. */
   readonly entities: readonly tl.TypeMessageEntity[];
+  /** Вложение; его нет — объект, отвечающий `null` и отказом. */
+  readonly file: MessageFile;
 }
 
 /** Строка выдачи `telegram search` (`FoundMessage` глоссария). */
@@ -40,6 +43,8 @@ export interface FoundMessage {
   readonly date: string | null;
   /** Текст в Markdown диалекта `send --md` (там же, «Разметка текста»). */
   readonly text: string;
+  /** Вложение с заявленным размером; его нет — `null`. */
+  readonly file: ListedFile | null;
   /** Ссылка на сообщение; у чата без публикаций — `null`. */
   readonly link: string | null;
 }
@@ -53,6 +58,7 @@ export function foundMessage(raw: RawMessage): FoundMessage {
     sender: raw.sender === null ? null : raw.sender.title,
     date: raw.date === null ? null : isoUtc(raw.date),
     text: markdown(raw.text, raw.entities),
+    file: raw.file.listed(),
     link: link(raw.chat, raw.id),
   };
 }

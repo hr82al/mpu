@@ -16,12 +16,13 @@ import {
   assertStrictEquals,
   assertStringIncludes,
 } from "@std/assert";
-import { TelegramClient, tl } from "@mtcute/deno";
+import { Long, Message, PeersIndex, TelegramClient, tl } from "@mtcute/deno";
 import { VerbatimError } from "../command/mod.ts";
 import type { EnvFile } from "../command/mod.ts";
 import { runCli } from "../entrypoint/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { PeerRef } from "./client.ts";
+import { Inbox } from "./inbox.ts";
 import { openSession, type TelegramSession } from "./session.ts";
 
 /**
@@ -76,6 +77,29 @@ const CONFIG = { apiId: 1, apiHash: "проба", session: acceptedSession() };
 
 const PEER: PeerRef = { ref: { _: "inputPeerSelf" }, id: 42 };
 
+/** Сообщение с документом — тем, что клиент собирает из ответа Telegram. */
+const DOCUMENT = new Message({
+  _: "message",
+  id: 42,
+  peerId: { _: "peerUser", userId: 42 },
+  date: 1_790_000_000,
+  message: "",
+  media: {
+    _: "messageMediaDocument",
+    document: {
+      _: "document",
+      id: Long.fromNumber(1),
+      accessHash: Long.fromNumber(2),
+      fileReference: new Uint8Array(),
+      date: 1_790_000_000,
+      mimeType: "text/markdown",
+      size: 4,
+      dcId: 2,
+      attributes: [{ _: "documentAttributeFilename", fileName: "a.md" }],
+    },
+  },
+}, new PeersIndex());
+
 /** Метод порта, метод клиента под ним и то, как метод клиента отказывает. */
 interface PortMethod {
   readonly name: string;
@@ -126,6 +150,29 @@ const METHODS: readonly PortMethod[] = [
     iterates: true,
     call: (session) =>
       session.searchInChat({ chat: PEER, query: "q", from: null, limit: 5 }),
+  },
+  {
+    name: "messageFile",
+    client: "getMessages",
+    iterates: false,
+    call: (session) => session.messageFile(PEER, 42),
+  },
+  {
+    // Скачивание идёт итерацией по ходу записи: отказ обязан прийти
+    // строкой слоя и посреди потока, а не только при запросе сообщения.
+    name: "messageFile → saveTo",
+    client: "downloadAsIterable",
+    iterates: true,
+    call: async (session) => {
+      using _found = stub("getMessages", () => Promise.resolve([DOCUMENT]));
+      const dir = await Deno.makeTempDir();
+      try {
+        const file = await session.messageFile(PEER, 42);
+        return await file.saveTo(new Inbox(dir), 42);
+      } finally {
+        await Deno.remove(dir, { recursive: true });
+      }
+    },
   },
   {
     name: "searchGlobal",

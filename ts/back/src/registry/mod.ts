@@ -79,6 +79,7 @@ import {
   kitenWhoamiCommand,
 } from "../kiten/mod.ts";
 import {
+  telegramFileCommand,
   telegramLogCommand,
   telegramLoginCommand,
   telegramLsCommand,
@@ -243,6 +244,7 @@ export const commands: readonly Command[] = [
   telegramLoginCommand,
   telegramLsCommand,
   telegramSearchCommand,
+  telegramFileCommand,
   telegramStatusCommand,
   claudeHookNotificationCommand,
   claudeHookPreToolUseCommand,

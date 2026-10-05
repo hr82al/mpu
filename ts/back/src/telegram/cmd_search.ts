@@ -55,6 +55,16 @@ const messageSchema = z.object({
   text: z.string().describe(
     "текст сообщения либо подпись вложения; ни того ни другого — пустая строка",
   ),
+  file: z.object({
+    name: z.string().describe(
+      "имя вложения; у фото photo-<id>.jpg, у документа без имени file-<id>",
+    ),
+    size: z.number().describe("размер в байтах, заявленный Telegram"),
+    mime: z.string().nullable().describe("MIME-тип; не задан — null"),
+  }).nullable().describe(
+    "вложение сообщения; скачать — telegram file chat: <chat_id> id: <id>; " +
+      "вложения нет — null",
+  ),
   link: z.string().nullable().describe(
     "ссылка на сообщение у супергруппы и канала; у прочих чатов — null",
   ),
@@ -173,8 +183,9 @@ limit: N — сколько сообщений в выдаче, ${LIMIT_MIN}..${
 end table — таблица колонками DATE, CHAT, SENDER, TEXT вместо JSON.
 
 Вывод по умолчанию — массив JSON: id, chat_id, chat_title, sender, date,
-text, link; от новых к старым. chat_id маркированный: его можно без
-правки передать в chat:. Пустая выдача — [] и код 0.
+text, file, link; от новых к старым. file — вложение или null
+(скачать — telegram file). chat_id маркированный: годится в chat:.
+Пусто — [] и код 0.
 TELEGRAM_DEFAULT_CHAT не читается.
 
 Ключи env-файла: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION

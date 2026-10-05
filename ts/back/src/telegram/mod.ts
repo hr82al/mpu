@@ -13,6 +13,7 @@ export { sendBotMessage } from "./bot.ts";
 export { botConfig } from "./bot_config.ts";
 
 export { telegramLogCommand } from "./cmd_log.ts";
+export { telegramFileCommand } from "./cmd_file.ts";
 export { telegramLsCommand } from "./cmd_ls.ts";
 export { telegramSearchCommand } from "./cmd_search.ts";
 export { telegramSendCommand } from "./cmd_send.ts";

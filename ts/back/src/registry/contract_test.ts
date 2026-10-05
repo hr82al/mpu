@@ -936,11 +936,28 @@ const CASES: readonly CommandCase[] = [
         sender: "Иван Петров",
         date: "2026-08-16T07:54:28+00:00",
         text: "выгрузка за июль готова",
+        file: {
+          name: "разбор.md",
+          size: 1234,
+          mime: "text/markdown",
+        },
         link: "https://t.me/team_uploads/4821",
       }],
       more: false,
       scanCapped: false,
       table: false,
+    },
+  },
+  {
+    path: "telegram file",
+    // Сеанса Telegram у обхода нет: вызов обязан отбиться до сети —
+    // здесь на id, не являющемся целым больше 0.
+    argv: ["--chat", "me", "--id", "0"],
+    sampleResult: {
+      path: "/tmp/mpu-telegram/-1000000000101-42-разбор.md",
+      name: "разбор.md",
+      size: 1234,
+      mime: "text/markdown",
     },
   },
   {

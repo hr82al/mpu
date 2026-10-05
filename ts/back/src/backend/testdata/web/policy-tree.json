@@ -2433,6 +2433,15 @@
   {
     "path": [
       "telegram",
+      "file"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "telegram",
       "log"
     ],
     "verdict": "deny",

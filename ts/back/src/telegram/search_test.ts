@@ -9,6 +9,7 @@ import { parsePeer } from "./peer.ts";
 import { findMessages, SCAN_CAP, SCAN_CAP_WARNING } from "./search.ts";
 import type { SearchClient, SearchInChat } from "./search.ts";
 import type { SearchPlan } from "./search_plan.ts";
+import { noFile } from "./message_file.ts";
 
 const IVAN: RawChat = {
   peerType: "user",
@@ -32,6 +33,7 @@ function message(id: number, sender: RawChat | null): RawMessage {
     sender,
     date: new Date("2026-08-16T07:54:28.000Z"),
     text: `сообщение ${id}`,
+    file: noFile(0),
     entities: [],
   };
 }

@@ -32,7 +32,10 @@ import { configError, cryptoFailure, CryptoInitError } from "./errors.ts";
 import type { ResolvablePeer } from "./peer.ts";
 import { telegramPlatform } from "./platform.ts";
 import { proxyUrl } from "./proxy.ts";
+import type { FileClient } from "./cmd_file.ts";
+import { type Download, mediaFile } from "./media_file.ts";
 import type { RawMessage } from "./message.ts";
+import { noMessage } from "./message_file.ts";
 import { chatPeerType, chatsFromSearch } from "./search_reply.ts";
 import type { SearchClient } from "./search.ts";
 import type {
@@ -41,8 +44,9 @@ import type {
   TelegramClient as CommandClient,
 } from "./client.ts";
 
-/** Открытый сеанс: клиент отправки и поиска и его закрытие. */
-export interface TelegramSession extends CommandClient, SearchClient {
+/** Открытый сеанс: клиент отправки, поиска и скачивания и его закрытие. */
+export interface TelegramSession
+  extends CommandClient, SearchClient, FileClient {
   /** Закрывает соединение; зовётся в любом исходе вызова. */
   readonly close: () => Promise<void>;
 }
@@ -73,6 +77,15 @@ export async function openSession(
     disableUpdates: true,
   });
   const self = await enter(client, config.session);
+  // Отказ оформляется по ходу итерации, как у глобального поиска: части
+  // файла приходят по мере чтения, и обрыв случается посреди потока.
+  const download: Download = async function* (location) {
+    try {
+      yield* client.downloadAsIterable(location);
+    } catch (err) {
+      throw clientRefusal(err);
+    }
+  };
   // Граница порта: каждый метод, зовущий клиента, отдаёт отказ клиента
   // строкой слоя, а прочее — тем же объектом. Команды поверх порта ошибок
   // не переоформляют (спека, «Что считается отказом Telegram / слоя
@@ -130,7 +143,7 @@ export async function openSession(
             ...(from === null ? {} : { fromUser: inputPeer(from) }),
           })
         ) {
-          found.push(rawMessage(message));
+          found.push(rawMessage(message, download));
         }
         return found;
       }),
@@ -139,12 +152,20 @@ export async function openSession(
     searchGlobal: async function* (query: string) {
       try {
         for await (const found of client.iterSearchGlobal({ query })) {
-          yield rawMessage(found);
+          yield rawMessage(found, download);
         }
       } catch (err) {
         throw clientRefusal(err);
       }
     },
+    // Нет сообщения — `null` в ответе клиента (не было или удалено).
+    messageFile: (chat, id) =>
+      refusing(async () => {
+        const [found] = await client.getMessages(inputPeer(chat), [id]);
+        return found === null
+          ? noMessage(id)
+          : mediaFile(id, found.media, download);
+      }),
     close: () => client.destroy(),
   };
 }
@@ -284,7 +305,7 @@ function refId(ref: { readonly _: string }, self: number): number {
  * (`message.ts`): у клиента она бросает исключение на чатах без
  * публичных ссылок — на первой же личной переписке в выдаче.
  */
-function rawMessage(found: Message): RawMessage {
+function rawMessage(found: Message, download: Download): RawMessage {
   return {
     id: found.id,
     chat: peerChat(found.chat),
@@ -292,6 +313,7 @@ function rawMessage(found: Message): RawMessage {
     date: found.date,
     text: found.text,
     entities: found.entities.map((entity) => entity.raw),
+    file: mediaFile(found.id, found.media, download),
   };
 }
 

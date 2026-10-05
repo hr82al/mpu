@@ -2309,7 +2309,7 @@
   {
     "name": "telegram_search",
     "title": "mpu telegram search",
-    "description": "Найти сообщения по содержимому: везде или в одном чате.\n\nЗвать, когда в Telegram надо найти сообщение: по тексту, чату,\nотправителю.\n\nquery: — что искать в тексте сообщений. Пустой запрос допустим\nтолько с chat:: это история чата. Пробелы — значимый запрос.\n\nchat: X — искать в одном чате: id, @username, ссылка t.me, название\nили me (Избранное). Без него — по всем диалогам.\nfrom: Y — только сообщения этого отправителя, тем же видом адресата.\nБез chat: фильтр идёт на стороне команды (своего у глобального поиска\nнет): просмотр обрывается на 1000 сообщениях, и тогда в stderr\nуходит предупреждение.\nlimit: N — сколько сообщений в выдаче, 1..500, по\nумолчанию 50. Ограничивает выдачу, а не число просмотренных.\nend table — таблица колонками DATE, CHAT, SENDER, TEXT вместо JSON.\n\nВывод по умолчанию — массив JSON: id, chat_id, chat_title, sender, date,\ntext, link; от новых к старым. chat_id маркированный: его можно без\nправки передать в chat:. Пустая выдача — [] и код 0.\nTELEGRAM_DEFAULT_CHAT не читается.\n\nКлючи env-файла: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION\n(обязательны), TELEGRAM_PROXY.\n\nExit: 1 — конфигурация, отказ Telegram, ненайденный адресат; 2 — ошибка\nввода (limit: вне диапазона, пустой глобальный поиск, from: без chat:\nи без запроса).",
+    "description": "Найти сообщения по содержимому: везде или в одном чате.\n\nЗвать, когда в Telegram надо найти сообщение: по тексту, чату,\nотправителю.\n\nquery: — что искать в тексте сообщений. Пустой запрос допустим\nтолько с chat:: это история чата. Пробелы — значимый запрос.\n\nchat: X — искать в одном чате: id, @username, ссылка t.me, название\nили me (Избранное). Без него — по всем диалогам.\nfrom: Y — только сообщения этого отправителя, тем же видом адресата.\nБез chat: фильтр идёт на стороне команды (своего у глобального поиска\nнет): просмотр обрывается на 1000 сообщениях, и тогда в stderr\nуходит предупреждение.\nlimit: N — сколько сообщений в выдаче, 1..500, по\nумолчанию 50. Ограничивает выдачу, а не число просмотренных.\nend table — таблица колонками DATE, CHAT, SENDER, TEXT вместо JSON.\n\nВывод по умолчанию — массив JSON: id, chat_id, chat_title, sender, date,\ntext, file, link; от новых к старым. file — вложение или null\n(скачать — telegram file). chat_id маркированный: годится в chat:.\nПусто — [] и код 0.\nTELEGRAM_DEFAULT_CHAT не читается.\n\nКлючи env-файла: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION\n(обязательны), TELEGRAM_PROXY.\n\nExit: 1 — конфигурация, отказ Telegram, ненайденный адресат; 2 — ошибка\nввода (limit: вне диапазона, пустой глобальный поиск, from: без chat:\nи без запроса).",
     "annotations": {
       "readOnlyHint": true
     },
@@ -2390,6 +2390,44 @@
                 "type": "string",
                 "description": "текст сообщения либо подпись вложения; ни того ни другого — пустая строка"
               },
+              "file": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "имя вложения; у фото photo-<id>.jpg, у документа без имени file-<id>"
+                      },
+                      "size": {
+                        "type": "number",
+                        "description": "размер в байтах, заявленный Telegram"
+                      },
+                      "mime": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "MIME-тип; не задан — null"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "size",
+                      "mime"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "вложение сообщения; скачать — telegram file chat: <chat_id> id: <id>; вложения нет — null"
+              },
               "link": {
                 "anyOf": [
                   {
@@ -2409,6 +2447,7 @@
               "sender",
               "date",
               "text",
+              "file",
               "link"
             ],
             "additionalProperties": false
@@ -2433,6 +2472,67 @@
         "more",
         "scanCapped",
         "table"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "telegram_file",
+    "title": "mpu telegram file",
+    "description": "Скачать вложение сообщения Telegram в локальный файл.\n\nЗвать, когда у сообщения в выдаче mpu telegram search есть file\n(коллега прислал md, xlsx, скриншот), а прочитать нужно сам файл:\nпоиск отдаёт только описание. Файл ложится в\n/tmp/mpu-telegram/<chat_id>-<id>-<имя>; повторный вызов его заменяет.\n\nchat: X — чат сообщения: chat_id из выдачи поиска, @username, ссылка\nt.me, название или me. TELEGRAM_DEFAULT_CHAT не читается.\nid: N — id сообщения из той же выдачи, целое больше 0.\n\nstdout — одна строка JSON: {\"path\": …, \"name\": …, \"size\": …, \"mime\": …};\nsize — записанные байты, mime — строка или null. Фото — photo-<id>.jpg\n(наибольший размер), документ без имени — file-<id>; / и NUL в имени на\nдиске заменяются на _.\n\nКлючи env-файла: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION\n(обязательны), TELEGRAM_PROXY.\n\nExit: 0 — файл записан; 1 — в сообщении нет файла, сообщения нет, чат\nне найден, отказ Telegram, файл не записан; 2 — ошибка ввода.",
+    "annotations": {
+      "readOnlyHint": true
+    },
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "chat": {
+          "type": "string",
+          "description": "чат сообщения: chat_id из выдачи telegram search, @username, ссылка t.me, название или me"
+        },
+        "id": {
+          "type": "string",
+          "description": "id сообщения внутри чата, целое > 0"
+        }
+      },
+      "required": [
+        "chat",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "абсолютный путь записанного файла"
+        },
+        "name": {
+          "type": "string",
+          "description": "имя вложения до замены / и NUL"
+        },
+        "size": {
+          "type": "number",
+          "description": "число байт, записанных в файл"
+        },
+        "mime": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "MIME-тип; не задан — null"
+        }
+      },
+      "required": [
+        "path",
+        "name",
+        "size",
+        "mime"
       ],
       "additionalProperties": false
     }
