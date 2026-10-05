@@ -29,6 +29,8 @@ Deno.test("слова: кавычки и экранирование снимаю
     ['mpu "a\nb"', ["mpu", "a\nb"]],
     ["mpu a\n\n  ", ["mpu", "a"]],
     ["mpu a!", ["mpu", "a!"]],
+    ["mpu a\\", ["mpu", "a\\"]],
+    ['mpu "a\\\nb"', ["mpu", "ab"]],
   ];
   for (const [command, words] of cases) {
     await t.step(JSON.stringify(command), () => {

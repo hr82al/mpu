@@ -366,3 +366,27 @@ Deno.test("S23: посев на пустом файле — путь хука al
     );
     return Promise.resolve();
   }));
+
+Deno.test("сбой книги при решении пробы — правила недоступны, код 0", async () => {
+  const { cases } = await golden();
+  const live = await livePayload();
+  await withStand((stand) =>
+    withPolicyFile(async (file) => {
+      const ran = await hook(
+        file,
+        stand,
+        stdinOf(caseOf(cases, "S1"), live),
+        () => Deno.writeTextFileSync(file, "не SQLite\n".repeat(4096)),
+      );
+      assertEquals([ran.exit, ran.stdout], [0, ""]);
+      assert(
+        ran.stderr.startsWith(
+          "mpu claude-hook pre-tool-use: без решения — правила недоступны: " +
+            "правила подтверждения: ",
+        ),
+        ran.stderr,
+      );
+      assertEquals(ran.stderr.split("\n").length, 2, ran.stderr);
+    })
+  );
+});
