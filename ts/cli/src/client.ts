@@ -10,8 +10,11 @@ import {
   type CallerFacts,
   type ContextFields,
   contextFieldsOf,
+  HOOK_WORDS,
   type ServerFrame,
   serverFrameOf,
+  unavailable,
+  undecidedLine,
   VERSION,
 } from "../../back/src/frames/mod.ts";
 import type { TerminalIo } from "./terminal/mod.ts";
@@ -273,6 +276,54 @@ async function refusal(
   return undefined;
 }
 
+/** Исход строки: куда её stderr, пока код не известен, и код клиента. */
+interface LineFate {
+  /** Окружение, которое получает строка. */
+  watched(env: ClientEnv): ClientEnv;
+  /** Код клиента по коду строки; печать отложенного — здесь. */
+  closed(code: number, env: ClientEnv): number;
+}
+
+/** Обычная строка: потоки как пришли, код — её. */
+const PLAIN: LineFate = {
+  watched: (env) => env,
+  closed: (code) => code,
+};
+
+/**
+ * Строка хука `PreToolUse` (`claude-hook-pre-tool-use.md`, «Клиент»):
+ * код всегда 0 — иначе Claude Code блокировал бы вызов. stderr
+ * держится до кода: 0 — печатается как есть, иначе вместо него одна
+ * строка «без решения — правила недоступны» с первой его строкой.
+ */
+class HookFate implements LineFate {
+  #held = "";
+
+  watched(env: ClientEnv): ClientEnv {
+    return { ...env, stderr: (text) => void (this.#held += text) };
+  }
+
+  closed(code: number, env: ClientEnv): number {
+    if (code === 0) {
+      if (this.#held !== "") env.stderr(this.#held);
+      return 0;
+    }
+    // Диагностика клиента начинается «mpu: », текст ядра — нет.
+    const first = this.#held.split("\n")[0];
+    const mark = `${ME}: `;
+    const cause = first.startsWith(mark) ? first.slice(mark.length) : first;
+    env.stderr(undecidedLine(unavailable(cause)));
+    return 0;
+  }
+}
+
+/** Исход по словам: хук — ровно его слова, без справки и прочего. */
+function fateOf(words: readonly string[]): LineFate {
+  const hook = words.length === HOOK_WORDS.length &&
+    HOOK_WORDS.every((word, i) => words[i] === word);
+  return hook ? new HookFate() : PLAIN;
+}
+
 /**
  * Исполняет строку на сервере и возвращает код клиента.
  *
@@ -280,6 +331,15 @@ async function refusal(
  * @param env окружение клиента
  */
 export async function runClient(
+  words: readonly string[],
+  env: ClientEnv,
+): Promise<number> {
+  const fate = fateOf(words);
+  return fate.closed(await lineCode(words, fate.watched(env)), env);
+}
+
+/** Строка на сервере: код строки или клиентского отказа. */
+async function lineCode(
   words: readonly string[],
   env: ClientEnv,
 ): Promise<number> {
