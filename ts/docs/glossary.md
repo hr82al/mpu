@@ -402,3 +402,6 @@
 | автор метода | `Door.author`, `Caller.author` (168) | human / agent / web |
 | ключ-текст | `texts`, `TEXT_KEYS`, `textKeysOf`, `TEXT_KINDS`, `textual`, `textFor` (167b) | ключ, чьё слово берётся как есть |
 | закрытие текста `^…^` | `lateCloser`, `closedEarly`, `unclosed`, `doubled` (167b) | счёт `^` на краю слова и отказы с готовой строкой |
+| ответ хука PreToolUse | `HookReply`: `Allowed`, `Denied`, `Undecided` (P1) | `allow`/`deny` — JSON в stdout, без решения — строка в stderr; код всегда 0 |
+| вызов инструмента из payload | `ToolCall`: `BashCall`, `McpCall`, `NotMpu`, `Unparsed`, `toolCallOf` (P1) | слова строки `mpu` или готовый ответ хука |
+| проба строки без исполнения | `Consultation` (реализация `Line`), `consulted`, `hookLineOf` (P1) | обход той же цепочкой на месте сессии: слушает исход решения правил |
