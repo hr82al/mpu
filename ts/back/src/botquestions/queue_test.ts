@@ -669,7 +669,7 @@ Deno.test("отложенный и снятый — правится его пр
   );
 });
 
-Deno.test("текст на «ждёт ввода» без своего текста — подсказка шага; на отложенный — не доходит", async () => {
+Deno.test("текст на «ждёт ввода» без своего текста — подсказка шага", async () => {
   const { bot, queue } = setup();
   const a = queue.ask(waits("A"));
   await queue.idle();
@@ -720,5 +720,33 @@ Deno.test("уступил и тут же снят — последней пра�
     closed(1546, "💬 A\nA ждёт", "✅ решено в терминале"),
   );
   b.expire();
+  await queue.idle();
+});
+
+Deno.test("срочный снят раньше показа — показанный «ждёт» не тронут, дубля нет", async () => {
+  const { bot, queue } = setup();
+  const a = queue.ask(waits("A"));
+  await queue.idle();
+  const b = queue.ask(f1());
+  b.expire();
+  await queue.idle();
+  assertEquals(bot.calls, [waitsSent("A", 1)]);
+  a.expire();
+  await queue.idle();
+});
+
+Deno.test("кнопки-действия, которых форма не предлагала, — «вопрос уже решён»", async () => {
+  const { bot, queue } = setup();
+  const asked = queue.ask(f1());
+  queue.ask(f2());
+  await queue.idle();
+  await queue.press("cb1", "r1:1:0:skip");
+  await queue.press("cb2", "r1:1:0:later");
+  await queue.idle();
+  assertEquals(
+    since(bot, 1).map((call) => [call.method, call.text]),
+    [["ack", "вопрос уже решён"], ["ack", "вопрос уже решён"]],
+  );
+  asked.expire();
   await queue.idle();
 });

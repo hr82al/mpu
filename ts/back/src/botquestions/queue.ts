@@ -4,8 +4,10 @@
  *
  * Активен голова ряда (порядок — `row.ts`); кто активен, сколько ждут и
  * показать ли голову новым сообщением — выводится здесь, в `#redraw`, и
- * больше нигде. Голова, сменившаяся без исхода (её обогнал срочный или
- * владелец её отложил), уступает место — `#aside`.
+ * больше нигде. Показанная голова, сменившаяся без исхода (её обогнал
+ * срочный или владелец её отложил), уступает место — решает `#redraw`
+ * по тому, что в чате нарисовано, а не по смене головы в ряду: срочный,
+ * снятый раньше показа, показанного не трогает.
  * Правки чата идут цепочкой по одной: две одновременные правки одного
  * сообщения разошлись бы с тем, что в нём на самом деле.
  */
@@ -43,11 +45,13 @@ export class Queue {
   readonly #chat: Chat;
   readonly #run: string;
   readonly #diagnose: (line: string) => void;
-  readonly #row = new Row<Question>();
+  readonly #row = new Row<Waiting>();
   /** Решённые, чьё сообщение ещё не поправлено строкой исхода. */
   readonly #closing: { question: Question; outcome: Outcome }[] = [];
-  /** Уступившие место, чьё сообщение ещё не поправлено. */
-  readonly #aside: { waiting: Waiting; line: string }[] = [];
+  /** Последняя нарисованная голова. */
+  #shown: Waiting = NOBODY;
+  /** Строка, которой нарисованная голова уступит место. */
+  #yieldLine = AFTER_URGENT;
   #numbers = 0;
   /** Хвост цепочки правок чата. */
   #work: Promise<void> = Promise.resolve();
@@ -72,9 +76,7 @@ export class Queue {
       form,
       listener: this.#listenerOf(),
     });
-    const before = this.#head();
     this.#row.add(question, form.kind);
-    this.#yielded(before, AFTER_URGENT);
     const placed = this.#then(() => this.#redraw());
     return {
       outcome: question.outcome,
@@ -139,35 +141,32 @@ export class Queue {
    * подсказка, вопрос активен.
    */
   #postpone(question: Question): string {
-    if (this.#row.size() < 2) return NOTHING_ELSE;
-    const before = this.#head();
-    this.#row.toEnd(question);
-    this.#yielded(before, POSTPONED);
+    if (!this.#row.toEnd(question)) return NOTHING_ELSE;
+    this.#yieldLine = POSTPONED;
     this.#then(() => this.#redraw());
     return ACCEPTED;
   }
 
-  /** Голова `before` сменилась без исхода — уступает место строкой `line`. */
-  #yielded(before: Waiting, line: string): void {
-    if (this.#head() !== before) this.#aside.push({ waiting: before, line });
-  }
-
   /**
-   * Сначала уступившие место снимают кнопки, затем закрываются решённые,
-   * затем голова — активное сообщение со строкой `ещё ждут`; не показана
-   * — новым сообщением (`Question.draw`). Всё — в одной работе:
-   * перерисовка, стоявшая в цепочке раньше, иначе показала бы новую
-   * голову, пока у прежней ещё есть кнопки. Уступивший — раньше закрытия:
-   * решённый после того, как уступил, правится строкой исхода последним.
+   * Сначала нарисованная голова, сменившаяся без исхода, уступает место,
+   * затем закрываются решённые, затем голова — активное сообщение со
+   * строкой `ещё ждут`; не показана — новым сообщением (`Question.draw`).
+   * Всё — в одной работе: перерисовка, стоявшая в цепочке раньше, иначе
+   * показала бы новую голову, пока у прежней ещё есть кнопки.
    */
   async #redraw(): Promise<void> {
-    for (const { waiting, line } of this.#aside.splice(0)) {
-      await waiting.putAside(this.#chat, line);
+    if (this.#head() !== this.#shown && this.#row.has(this.#shown)) {
+      await this.#shown.putAside(this.#chat, this.#yieldLine);
     }
     for (const { question, outcome } of this.#closing.splice(0)) {
       await question.close(this.#chat, outcome);
     }
-    await this.#head().draw(this.#chat, this.#row.size() - 1);
+    // Голова — после правок: ряд мог смениться, пока они шли; новая смена
+    // уступит место следующей перерисовкой.
+    const head = this.#head();
+    await head.draw(this.#chat, this.#row.size() - 1);
+    this.#shown = head;
+    this.#yieldLine = AFTER_URGENT;
   }
 
   /** Ставит работу в цепочку правок; ответ — её конец. */

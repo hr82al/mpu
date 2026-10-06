@@ -18,10 +18,10 @@ import type { Chat } from "./chat.ts";
 import { BotFailure, type Keyboard } from "./bot_api.ts";
 import {
   type Form,
-  type FormStep,
   type Notice,
   notice,
   type Selection,
+  type Step,
   type StepEvents,
 } from "./form.ts";
 import {
@@ -254,19 +254,25 @@ export class Question implements Waiting {
     );
   }
 
-  /** Кнопки шага и кнопки-действия вопроса. */
+  /** Кнопки шага и кнопки-действия, которые предлагает форма. */
   #pressable(): Pressable {
-    return {
-      ...this.#selection.press(this.#events),
+    const step = this.#selection.press(this.#events);
+    const actions = this.#form.actionPress({
       later: () => this.#listener.postponed(this),
       skip: () => {
         this.#listener.decided(this, SKIPPED);
         return ACCEPTED;
       },
+    });
+    return {
+      pick: (index) => step.pick(index),
+      done: () => step.done(),
+      later: () => actions.later(),
+      skip: () => actions.skip(),
     };
   }
 
-  #current(): FormStep {
+  #current(): Step {
     return this.#form.steps[this.#step];
   }
 

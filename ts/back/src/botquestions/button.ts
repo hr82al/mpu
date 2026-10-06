@@ -86,9 +86,6 @@ export const SKIP_KEY: Key = {
   pressOn: (question) => question.skip(),
 };
 
-/** Ключи кнопок, кроме вариантов, — по записи в данных. */
-const NAMED_KEYS: readonly Key[] = [DONE, LATER_KEY, SKIP_KEY];
-
 /** Кнопка шага: подпись и ключ. */
 export interface Button {
   readonly label: string;
@@ -111,11 +108,18 @@ export interface Press {
   ): string;
 }
 
+/** Ключи кнопок, кроме вариантов, — по записи в данных. */
+const NAMED_KEYS: readonly Key[] = [DONE, LATER_KEY, SKIP_KEY];
+
 /**
  * Разбор — `<запуск>:<номер>:<шаг>:<ключ>`; метка запуска — `[a-z0-9]+`,
- * шаг — с нуля.
+ * шаг — с нуля, ключ — запись ключа из `NAMED_KEYS` или номер варианта.
  */
-const DATA = /^([a-z0-9]+):(\d{1,16}):(\d):(ok|later|skip|\d{1,3})$/;
+const DATA = new RegExp(
+  `^([a-z0-9]+):(\\d{1,16}):(\\d):(${
+    NAMED_KEYS.map((key) => key.code).join("|")
+  }|\\d{1,3})$`,
+);
 
 /** Данные кнопки этого ядра. */
 export class ButtonData implements Press {

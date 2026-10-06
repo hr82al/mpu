@@ -77,3 +77,16 @@ Deno.test("R2a-3: запись тела хранит, с какого конца
   const parsed = Card.parse(JSON.stringify(card));
   assertEquals(parsed.text(["⌛"]), card.text(["⌛"]));
 });
+
+Deno.test("запись тела до R2 (без поля clip) — остаётся начало, как прежде", () => {
+  const old = JSON.stringify({
+    title: "T",
+    text: "я".repeat(MESSAGE_LIMIT),
+    lines: [],
+  });
+  assertEquals(
+    Card.parse(old).text([]),
+    new Card("T", "я".repeat(MESSAGE_LIMIT), []).text([]),
+  );
+  assertEquals(Card.parse(old).text([]).endsWith("я…"), true);
+});

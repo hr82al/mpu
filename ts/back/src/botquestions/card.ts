@@ -61,6 +61,9 @@ export const KEEP_TAIL: Clip = {
   },
 };
 
+/** Все виды усечения — для разбора записи тела по коду. */
+const CLIPS: readonly Clip[] = [KEEP_HEAD, KEEP_TAIL];
+
 /** Тело сообщения, к которому приставляется хвост. */
 export interface Body {
   /** Текст сообщения с хвостом `tail`, не длиннее предела. */
@@ -141,12 +144,8 @@ export class Card implements Body {
       return EMPTY;
     }
     // Записи до R2 поля нет: у них остаётся начало текста.
-    return new Card(
-      title,
-      text,
-      lines,
-      clip === KEEP_TAIL.code ? KEEP_TAIL : KEEP_HEAD,
-    );
+    const kept = CLIPS.find((one) => one.code === clip) ?? KEEP_HEAD;
+    return new Card(title, text, lines, kept);
   }
 }
 

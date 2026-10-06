@@ -21,9 +21,20 @@ class Lane<T> {
     return true;
   }
 
-  /** Переносит `item` в конец полосы, если он в ней. */
-  toEnd(item: T): void {
-    if (this.remove(item)) this.#items.push(item);
+  /**
+   * Переносит `item` в конец полосы, если он в ней; ответ — встал ли он
+   * за кем-то (в полосе есть другие).
+   */
+  toEnd(item: T): boolean {
+    if (!this.#items.includes(item) || this.#items.length < 2) return false;
+    this.remove(item);
+    this.#items.push(item);
+    return true;
+  }
+
+  /** Есть ли `item` в полосе. */
+  has(item: T): boolean {
+    return this.#items.includes(item);
   }
 
   /** Свои по порядку — копией. */
@@ -63,10 +74,14 @@ export class Row<T> {
     if (!this.#lanes.urgent.remove(item)) this.#lanes.waiting.remove(item);
   }
 
-  /** Переносит `item` в конец его полосы. */
-  toEnd(item: T): void {
-    this.#lanes.urgent.toEnd(item);
-    this.#lanes.waiting.toEnd(item);
+  /** Переносит `item` в конец его полосы; ответ — встал ли за кем-то. */
+  toEnd(item: T): boolean {
+    return this.#lanes.urgent.toEnd(item) || this.#lanes.waiting.toEnd(item);
+  }
+
+  /** Стоит ли `item` в ряду. */
+  has(item: T): boolean {
+    return this.#lanes.urgent.has(item) || this.#lanes.waiting.has(item);
   }
 
   /** Первый в ряду; ряд пуст — `none`. */

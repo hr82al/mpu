@@ -13,11 +13,12 @@ import {
   LATER_KEY,
   NONE_MARKED,
   OptionKey,
+  type Pressable,
   SKIP_KEY,
   STALE,
   type StepPressable,
 } from "./button.ts";
-import { type Clip, KEEP_HEAD } from "./card.ts";
+import type { Clip } from "./card.ts";
 import {
   type AnswerLine,
   CHECKED,
@@ -203,12 +204,15 @@ export interface Step {
   readonly options: readonly Option[];
   readonly choice: Choice;
   readonly reply: TextRule;
-  /** Какой конец текста остаётся при усечении; не сказано — начало. */
+  /**
+   * Какой конец текста остаётся при усечении; не сказано — умолчание
+   * тела (`Card`): начало.
+   */
   readonly clip?: Clip;
 }
 
-/** Шаг формы с решённым усечением. */
-export type FormStep = Step & { readonly clip: Clip };
+/** Что делают кнопки-действия вопроса. */
+export type ActionPress = Pick<Pressable, "later" | "skip">;
 
 /** Кнопка вида «отложить» — вопрос в конец своего вида. */
 export const LATER: Button = { label: "Позже", key: LATER_KEY };
@@ -222,7 +226,7 @@ const MAX_STEPS = 4;
 /** Форма вопроса. */
 export class Form {
   readonly title: Title;
-  readonly steps: readonly FormStep[];
+  readonly steps: readonly Step[];
   readonly answerLine: AnswerLine;
   /** Вид вопроса: его место в ряду. */
   readonly kind: Kind;
@@ -246,7 +250,7 @@ export class Form {
       );
     }
     this.title = new Title(options.places);
-    this.steps = options.steps.map((step) => ({ clip: KEEP_HEAD, ...step }));
+    this.steps = [...options.steps];
     this.answerLine = options.answerLine ?? CHECKED;
     this.kind = options.kind ?? URGENT;
     this.#actions = [...(options.actions ?? [])];
@@ -255,5 +259,19 @@ export class Form {
   /** Ряды кнопок-действий: по две в ряд. */
   actionRows(): readonly (readonly Button[])[] {
     return pairs(this.#actions);
+  }
+
+  /**
+   * Нажатия кнопок-действий: то, что форма предлагает, делает `act`;
+   * не предложенное (данные кнопки, которой у вопроса нет) — `вопрос уже
+   * решён`.
+   */
+  actionPress(act: ActionPress): ActionPress {
+    const offered = (button: Button, press: () => string) =>
+      this.#actions.includes(button) ? press : () => STALE;
+    return {
+      later: offered(LATER, () => act.later()),
+      skip: offered(SKIP, () => act.skip()),
+    };
   }
 }
