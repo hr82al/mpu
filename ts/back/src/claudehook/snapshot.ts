@@ -25,7 +25,7 @@ import {
 } from "../botquestions/mod.ts";
 import { TERMINAL } from "./decision.ts";
 import { type Dialog, dialogOf } from "./screen.ts";
-import type { Pane, ScreenReader } from "./window.ts";
+import type { KeysReader, Pane, PaneGuard, ScreenReader } from "./window.ts";
 
 /** Как часто смотреть окно: ответили в терминале — снимок снят. */
 export const LOOK_MS = 2000;
@@ -35,6 +35,12 @@ export const SETTLE_MS = 1000;
 
 /** Исход: окно закрыто или tmux не отвечает. */
 export const WINDOW_GONE = "⌛ окно недоступно";
+
+/** Исход: в окне уже не Claude Code («Охрана окна»). */
+export const CLAUDE_LEFT = "✅ окно сменилось — Claude Code закрыт";
+
+/** Ответ владельцу на текст, когда в окне уже не Claude Code. */
+export const NOTHING_SENT = "окно уже не Claude Code — ничего не отправлено";
 
 /** Клавиши ряда под пунктами: подпись — клавиша tmux. */
 const KEYS: readonly { readonly label: string; readonly key: string }[] = [
@@ -241,27 +247,59 @@ export class Snapshot {
         if (dialogOf(screen).same(this.#dialog)) return;
         asked.withdraw(TERMINAL);
       },
-      gone: () => asked.withdrawAs(WINDOW_GONE),
+      ...this.#ended(asked),
     });
+  }
+
+  /** Окно недоступно или в нём уже не Claude Code — исход снимка. */
+  #ended(asked: Asked): PaneGuard<void> {
+    return {
+      gone: () => asked.withdrawAs(WINDOW_GONE),
+      left: () => asked.withdrawAs(CLAUDE_LEFT),
+    };
   }
 
   async #pressed(asked: Asked, stop: AbortSignal, key: string): Promise<void> {
     // Исход пришёл, пока работа ждала очереди: окно уже не то.
     if (stop.aborted) return;
-    if (!await this.#parts.pane.press(key)) {
-      asked.withdrawAs(WINDOW_GONE);
-      return;
-    }
-    await this.#settled(asked, stop);
+    const next = await this.#parts.pane.press(
+      key,
+      this.#afterKeys(asked, stop, () => Promise.resolve()),
+    );
+    await next();
   }
 
   async #typed(asked: Asked, stop: AbortSignal, text: string): Promise<void> {
     if (stop.aborted) return;
-    if (!await this.#parts.pane.type(text)) {
-      asked.withdrawAs(WINDOW_GONE);
-      return;
-    }
-    await this.#settled(asked, stop);
+    const next = await this.#parts.pane.type(
+      text,
+      this.#afterKeys(
+        asked,
+        stop,
+        () => this.#post({ text: NOTHING_SENT, entities: [] }, "ответ"),
+      ),
+    );
+    await next();
+  }
+
+  /**
+   * После клавиш: ушли — экран заново; окно недоступно или в нём уже не
+   * Claude Code — исход, а владельцу ещё и `answer`.
+   */
+  #afterKeys(
+    asked: Asked,
+    stop: AbortSignal,
+    answer: () => Promise<void>,
+  ): KeysReader<() => Promise<void>> {
+    const ended = this.#ended(asked);
+    return {
+      sent: () => () => this.#settled(asked, stop),
+      gone: () => () => Promise.resolve(ended.gone()),
+      left: () => () => {
+        ended.left();
+        return answer();
+      },
+    };
   }
 
   /**
@@ -286,31 +324,35 @@ export class Snapshot {
         this.#dialog = dialog;
         this.#events.changed();
       },
-      gone: () => asked.withdrawAs(WINDOW_GONE),
+      ...this.#ended(asked),
     };
     await this.#parts.pane.look(reader);
   }
 
   /** `весь экран` — отдельным сообщением, моноширинным, без кнопок. */
   async #wholeScreen(asked: Asked): Promise<void> {
+    const ended = this.#ended(asked);
     const post = await this.#parts.pane.look<() => Promise<void>>({
-      seen: (screen) => () => this.#post(screen.trimEnd()),
-      gone: () => () => {
-        asked.withdrawAs(WINDOW_GONE);
-        return Promise.resolve();
-      },
+      seen: (screen) => () => this.#postScreen(screen.trimEnd()),
+      gone: () => () => Promise.resolve(ended.gone()),
+      left: () => () => Promise.resolve(ended.left()),
     });
     await post();
   }
 
   /** Экран целиком; пустой — сообщения нет (Telegram пустое отвергает). */
-  async #post(screen: string): Promise<void> {
+  async #postScreen(screen: string): Promise<void> {
     if (screen === "") return;
-    const posted = await this.#parts.post(preformatted(screen));
+    await this.#post(preformatted(screen), "весь экран");
+  }
+
+  /** Отдельное сообщение владельцу; отказ — в журнал службы под `what`. */
+  async #post(message: Rendered, what: string): Promise<void> {
+    const posted = await this.#parts.post(message);
     posted.read({
       sent: () => {},
       refused: (reason) =>
-        this.#parts.diagnose(`claude-hook notification: весь экран: ${reason}`),
+        this.#parts.diagnose(`claude-hook notification: ${what}: ${reason}`),
     });
   }
 }

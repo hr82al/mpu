@@ -187,6 +187,7 @@ export class NotifyDesk {
           ? this.#snapshot(pane, screen, payload, env)
           : this.#lateLine(line),
       gone: () => () => this.#lateLine(line),
+      left: () => () => this.#lateLine(line),
     });
     await next();
   }

@@ -16,15 +16,18 @@ import {
 import { NO_BOT } from "../botquestions/mod.ts";
 import { NotifyDesk, SETTLE_QUESTION_MS } from "./notify_desk.ts";
 import { Sessions } from "./sessions.ts";
-import { LOOK_MS, SETTLE_MS } from "./snapshot.ts";
+import { LOOK_MS, NOTHING_SENT, SETTLE_MS } from "./snapshot.ts";
 import { TestClock } from "./testclock.ts";
-import { DISK_FILES, Transcripts } from "./transcript.ts";
+import { DISK_FILES, type TranscriptFiles, Transcripts } from "./transcript.ts";
 import { NO_WINDOWS, Windows } from "./window.ts";
 
 const testdata = (name: string) => new URL(`testdata/${name}`, import.meta.url);
 
 const screen = (name: string) =>
   Deno.readTextFile(testdata(`snapshot/${name}`));
+
+/** Формат вопроса tmux «что идёт в окне». */
+const PANE_COMMAND = "#{pane_current_command}";
 
 const SOCKET = "/run/user/1000/cc-socks/9.sock";
 const ENV = {
@@ -42,6 +45,8 @@ class FakeTmux {
   captures = 0;
   /** Сбой самого tmux (не «окно закрыто»): бросает. */
   broken = false;
+  /** Что идёт в окне (`#{pane_current_command}`): Claude Code — `claude`. */
+  command = "claude";
   /** Подписи окна по порядку: за подписью сразу — постановка снимка. */
   captions = 0;
   readonly #captioned: { count: number; done: () => void }[] = [];
@@ -58,6 +63,9 @@ class FakeTmux {
     if (!this.alive) return Promise.resolve(undefined);
     if (this.broken) return Promise.reject(new Error("tmux упал"));
     const command = args[2];
+    if (command === "display-message" && args.at(-1) === PANE_COMMAND) {
+      return Promise.resolve(`${this.command}\n`);
+    }
     if (command === "display-message") {
       this.captions += 1;
       for (const one of this.#captioned) {
@@ -73,6 +81,19 @@ class FakeTmux {
     return Promise.resolve("");
   };
 }
+
+/**
+ * Файлы транскриптов под правами ядра: пустой путь — отказ
+ * `Empty path is not allowed` (снято на узком `--allow-read`; под
+ * широкими правами теста Deno ответил бы `NotFound`).
+ */
+const KERNEL_FILES: TranscriptFiles = {
+  read: (path) =>
+    path === ""
+      ? Promise.reject(new Error("Empty path is not allowed"))
+      : DISK_FILES.read(path),
+  readFrom: DISK_FILES.readFrom,
+};
 
 /** Что напечатал ответ хука. */
 interface Told {
@@ -92,6 +113,7 @@ async function withNotify(
     readonly notify: (
       type: string,
       env?: Readonly<Record<string, string>>,
+      over?: Readonly<Record<string, unknown>>,
     ) => Promise<Told>;
     readonly desk: NotifyDesk;
   }) => Promise<void>,
@@ -114,7 +136,7 @@ async function withNotify(
   const sessions = new Sessions(clock);
   const desk = new NotifyDesk({
     questions,
-    transcripts: new Transcripts({ files: DISK_FILES, clock }),
+    transcripts: new Transcripts({ files: KERNEL_FILES, clock }),
     windows: new Windows(tmux.run),
     sessions,
     clock,
@@ -129,7 +151,7 @@ async function withNotify(
       sessions,
       questions,
       desk,
-      notify: async (type, env = ENV) => {
+      notify: async (type, env = ENV, over = {}) => {
         let stdout = "";
         let stderr = "";
         const reply = await desk.reply(
@@ -137,6 +159,7 @@ async function withNotify(
             ...live,
             notification_type: type,
             transcript_path: transcript,
+            ...over,
           }),
           (name) => env[name as keyof typeof env],
         );
@@ -635,4 +658,111 @@ Deno.test("idle_prompt (живой payload) и elicitation_response — в ча�
         assertEquals(bot.calls, []);
       }));
   }
+});
+
+const CLAUDE_LEFT = "✅ окно сменилось — Claude Code закрыт";
+
+Deno.test("охрана окна 1: в окне bash — текст владельца в окно не уходит, исход и ответ владельцу", async () => {
+  await withNotify(async ({ bot, clock, tmux, notify }) => {
+    tmux.screen = await screen("screen-ask-user-question.txt");
+    await notify("permission_prompt");
+    await placed(clock, bot);
+    tmux.command = "bash";
+    bot.deliver([textUpdate(1, 111, "q", 1)]);
+    await bot.called(3);
+    assertEquals(tmux.sent, []);
+    const said = bot.calls.slice(1).map((call) => call.text.split("\n").at(-1));
+    assertEquals(
+      said.toSorted(),
+      [
+        CLAUDE_LEFT,
+        "окно уже не Claude Code — ничего не отправлено",
+      ].toSorted(),
+    );
+  });
+});
+
+Deno.test("охрана окна 2: в окне bash — кнопка-клавиша не нажимается, исход «Claude Code закрыт»", async () => {
+  await withNotify(async ({ bot, clock, tmux, notify }) => {
+    tmux.screen = await screen("screen-permission-bash.txt");
+    await notify("permission_prompt");
+    await placed(clock, bot);
+    tmux.command = "bash";
+    bot.deliver([pressUpdate(1, 111, "r1:1:0:1")]);
+    await bot.called(3);
+    assertEquals(tmux.sent, []);
+    assertEquals(bot.calls[2].text.split("\n").at(-1), CLAUDE_LEFT);
+    assertEquals(bot.calls[2].buttons, []);
+  });
+});
+
+Deno.test("охрана окна 3: проверка раз в 2 с видит bash при прежнем экране — исход без действий владельца", async () => {
+  await withNotify(async ({ bot, clock, tmux, notify }) => {
+    tmux.screen = await screen("screen-permission-bash.txt");
+    await notify("permission_prompt");
+    await placed(clock, bot);
+    await clock.paused(LOOK_MS);
+    tmux.command = "bash";
+    clock.fire(LOOK_MS);
+    await bot.called(2);
+    assertEquals(bot.calls[1].text.split("\n").at(-1), CLAUDE_LEFT);
+    assertEquals(tmux.sent, []);
+  });
+});
+
+Deno.test("охрана окна 4: перед показом в окне bash — снимка нет, строка-уведомление", async () => {
+  await withNotify(async ({ bot, clock, tmux, notify }) => {
+    tmux.screen = await screen("screen-permission-bash.txt");
+    tmux.command = "bash";
+    await notify("trust_prompt");
+    await placed(clock, bot);
+    assertEquals(
+      bot.calls[0].text,
+      "Claude · ozon · trust_prompt\nClaude is waiting for your input",
+    );
+    assertEquals(bot.calls[0].buttons, []);
+  });
+});
+
+Deno.test("охрана окна 6: transcript_path пуст или нет — снимок без названия сессии, код 0", async (t) => {
+  for (
+    const [name, over] of [
+      ["пуст", { transcript_path: "" }],
+      ["нет", { transcript_path: undefined }],
+    ] as const
+  ) {
+    await t.step(
+      name,
+      () =>
+        withNotify(async ({ bot, clock, tmux, notify }) => {
+          tmux.screen = await screen("screen-permission-bash.txt");
+          assertEquals(await notify("permission_prompt", ENV, over), SILENT);
+          await placed(clock, bot);
+          assertEquals(
+            bot.calls[0].text.split("\n")[0],
+            "🖥 ozon — w:9 probe",
+          );
+        }),
+    );
+  }
+});
+
+Deno.test("охрана окна: «q» ушёл, Claude Code закрылся, кадр остался — через 1 с исход «Claude Code закрыт»", async () => {
+  await withNotify(async ({ bot, clock, tmux, notify }) => {
+    tmux.screen = await screen("screen-ask-user-question.txt");
+    await notify("permission_prompt");
+    await placed(clock, bot);
+    bot.deliver([textUpdate(1, 111, "q", 1)]);
+    await clock.paused(SETTLE_MS);
+    assertEquals(tmux.sent.length, 2);
+    // Живьём: последний кадр Claude Code остаётся на экране.
+    tmux.command = "bash";
+    clock.fire(SETTLE_MS);
+    await bot.called(2);
+    assertEquals(bot.calls[1].text.split("\n").at(-1), CLAUDE_LEFT);
+    assertEquals(
+      bot.calls.some((call) => call.text === NOTHING_SENT),
+      false,
+    );
+  });
 });

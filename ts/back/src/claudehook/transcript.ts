@@ -342,9 +342,13 @@ export class Transcripts {
 
   /**
    * Транскрипт `path`, наблюдаемый до признака `sign`: читается целиком
-   * один раз. Нечитаемый — без названия и без признака ответа.
+   * один раз. Нечитаемый или не названный (путь пуст) — без названия и
+   * без признака ответа.
    */
   async read(path: string, sign: Sign): Promise<Transcript> {
+    // Пустой путь под правами ядра — отказ `Empty path is not allowed`
+    // (снято), а не «файла нет»: не читается вовсе.
+    if (path === "") return UNREAD;
     let bytes: Uint8Array;
     try {
       bytes = await this.#files.read(path);

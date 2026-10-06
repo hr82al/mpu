@@ -47,12 +47,24 @@ export interface PaneChoice<T> {
   none(): T;
 }
 
-/** Чтение снятого экрана. */
-export interface ScreenReader<T> {
-  /** Экран — вывод `capture-pane -p`. */
-  seen(screen: string): T;
+/** Окно, в котором уже не Claude Code: в него ничего не уходит. */
+export interface PaneGuard<T> {
   /** Окно закрыто или tmux не ответил. */
   gone(): T;
+  /** В окне идёт не Claude Code (оболочка после его выхода). */
+  left(): T;
+}
+
+/** Чтение снятого экрана. */
+export interface ScreenReader<T> extends PaneGuard<T> {
+  /** Экран — вывод `capture-pane -p`. */
+  seen(screen: string): T;
+}
+
+/** Исход нажатия или вписывания. */
+export interface KeysReader<T> extends PaneGuard<T> {
+  /** Клавиши ушли в окно. */
+  sent(): T;
 }
 
 /** Окно tmux клиента хука: сокет и панель — с его окружения. */
@@ -60,12 +72,15 @@ export interface Pane {
   offer<T>(choice: PaneChoice<T>): T;
   /** Место «окно» заголовка: подпись окна или пусто — tmux не ответил. */
   caption(): Promise<readonly string[]>;
-  /** Снимает экран. */
+  /** Снимает экран, пока в окне Claude Code. */
   look<T>(reader: ScreenReader<T>): Promise<T>;
-  /** Нажимает клавишу (`1`…`9`, `Enter`, `Escape`, `Up`, `Down`); ответ — нажата ли. */
-  press(key: string): Promise<boolean>;
-  /** Вписывает текст как есть и нажимает `Enter`; ответ — вписан ли. */
-  type(text: string): Promise<boolean>;
+  /**
+   * Нажимает клавишу (`1`…`9`, `Enter`, `Escape`, `Up`, `Down`), пока в
+   * окне Claude Code.
+   */
+  press<T>(key: string, reader: KeysReader<T>): Promise<T>;
+  /** Вписывает текст как есть и нажимает `Enter`, пока в окне Claude Code. */
+  type<T>(text: string, reader: KeysReader<T>): Promise<T>;
 }
 
 /** Окна клиента нет (нет `TMUX` или `TMUX_PANE`). */
@@ -73,9 +88,15 @@ export const NO_PANE: Pane = {
   offer: (choice) => choice.none(),
   caption: () => Promise.resolve([]),
   look: (reader) => Promise.resolve(reader.gone()),
-  press: () => Promise.resolve(false),
-  type: () => Promise.resolve(false),
+  press: (_key, reader) => Promise.resolve(reader.gone()),
+  type: (_text, reader) => Promise.resolve(reader.gone()),
 };
+
+/**
+ * Что идёт в окне с Claude Code (`#{pane_current_command}`; снято
+ * 2026-10-06: оболочка — `bash`).
+ */
+const CLAUDE_COMMAND = "claude";
 
 /** Окно tmux по сокету и панели. */
 class TmuxPane implements Pane {
@@ -105,27 +126,59 @@ class TmuxPane implements Pane {
     return caption === "" ? [] : [caption];
   }
 
-  async look<T>(reader: ScreenReader<T>): Promise<T> {
-    const screen = await this.#tmux(["capture-pane", "-p", "-t", this.#pane]);
-    return screen === undefined ? reader.gone() : reader.seen(screen);
+  look<T>(reader: ScreenReader<T>): Promise<T> {
+    return this.#guarded(reader, async () => {
+      const screen = await this.#tmux(["capture-pane", "-p", "-t", this.#pane]);
+      return screen === undefined ? reader.gone() : reader.seen(screen);
+    });
   }
 
-  async press(key: string): Promise<boolean> {
-    return await this.#tmux(["send-keys", "-t", this.#pane, key]) !==
-      undefined;
+  press<T>(key: string, reader: KeysReader<T>): Promise<T> {
+    return this.#guarded(
+      reader,
+      async () => await this.#key(key) ? reader.sent() : reader.gone(),
+    );
   }
 
-  async type(text: string): Promise<boolean> {
-    // `--`: текст владельца, начатый с `-`, — текст, а не ключи tmux.
-    const typed = await this.#tmux([
-      "send-keys",
+  type<T>(text: string, reader: KeysReader<T>): Promise<T> {
+    return this.#guarded(reader, async () => {
+      // `--`: текст владельца, начатый с `-`, — текст, а не ключи tmux.
+      const typed = await this.#tmux([
+        "send-keys",
+        "-t",
+        this.#pane,
+        "-l",
+        "--",
+        text,
+      ]);
+      return typed !== undefined && await this.#key("Enter")
+        ? reader.sent()
+        : reader.gone();
+    });
+  }
+
+  /**
+   * Работа над окном — только пока в нём Claude Code: после его выхода
+   * последний кадр остаётся на экране, и по экрану смену не отличить, а
+   * клавиши ушли бы в оболочку командой.
+   */
+  async #guarded<T>(guard: PaneGuard<T>, work: () => Promise<T>): Promise<T> {
+    const command = await this.#tmux([
+      "display-message",
+      "-p",
       "-t",
       this.#pane,
-      "-l",
-      "--",
-      text,
+      "#{pane_current_command}",
     ]);
-    return typed !== undefined && await this.press("Enter");
+    if (command === undefined) return guard.gone();
+    if (command.trim() !== CLAUDE_COMMAND) return guard.left();
+    return await work();
+  }
+
+  /** Одна клавиша без охраны: её делают `press` и `type`. */
+  async #key(key: string): Promise<boolean> {
+    return await this.#tmux(["send-keys", "-t", this.#pane, key]) !==
+      undefined;
   }
 
   #tmux(args: readonly string[]): Promise<string | undefined> {
