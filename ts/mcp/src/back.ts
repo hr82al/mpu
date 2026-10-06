@@ -35,6 +35,28 @@ export type Reply =
 
 const EXPIRED: Reply = { failed: "подтверждение истекло" };
 
+/** Решён ли вопрос в другом месте: текст решения или его отсутствие. */
+export type Settled =
+  | { readonly settled: string }
+  | { readonly failed: string };
+
+/** Решения в другом месте нет: номер отозван или ответ не по контракту. */
+const UNDECIDED: Settled = { failed: "решения в другом месте нет" };
+
+/** Тело ответа `…/settled`: `{"settled": "<текст>"}`; иное — решения нет. */
+function settledOf(text: string): Settled {
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch (err) {
+    if (!(err instanceof SyntaxError)) throw err;
+    return UNDECIDED;
+  }
+  if (typeof body !== "object" || body === null) return UNDECIDED;
+  const said = Reflect.get(body, "settled");
+  return typeof said === "string" ? { settled: said } : UNDECIDED;
+}
+
 function offContract(status: number): Reply {
   return { failed: `mpu-back ответил не по контракту (${status})` };
 }
@@ -119,6 +141,29 @@ export class BackLine {
       EXPIRED,
       options.signal,
     );
+  }
+
+  /**
+   * Ждёт решения вопроса по номеру в другом месте — владельцем в Telegram
+   * (`platform/ask-telegram.md` [D.3]): решено — текст решения, строка ждёт
+   * ответа по номеру; номер отозван (ответ пришёл, срок вышел) или ответ не
+   * по контракту — решения нет.
+   *
+   * @param options `signal` — ждать перестали: форма ответила раньше или
+   *   вызов отменён; тогда наружу уходит отказ сигнала
+   */
+  async settled(
+    ticket: string,
+    options: { readonly signal?: AbortSignal } = {},
+  ): Promise<Settled> {
+    const response = await this.#reach(
+      "/agent/line/settled",
+      JSON.stringify({ ticket }),
+      options.signal,
+    );
+    if (response === undefined) return UNDECIDED;
+    const text = await response.text();
+    return response.status === 200 ? settledOf(text) : UNDECIDED;
   }
 
   /**

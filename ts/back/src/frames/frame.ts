@@ -119,6 +119,12 @@ export type ServerFrame =
     readonly ticket?: string;
   }
   | { readonly clip: string }
+  /**
+   * Вопрос строки решён в другом месте — владельцем в Telegram
+   * (`platform/ask-telegram.md` [D.2]): клиент перестаёт ждать ответа и
+   * печатает `mpu: <текст>` в stderr.
+   */
+  | { readonly settled: string }
   /** Строке нужен ввод клиента (`platform/stdin-on-request.md`). */
   | { readonly stdinRequest: true }
   | { readonly exit: number };
@@ -213,6 +219,7 @@ export function serverFrameOf(data: unknown): ServerFrame {
   if (key === "out") return { out: value };
   if (key === "err") return { err: value };
   if (key === "clip") return { clip: value };
+  if (key === "settled") return { settled: value };
   throw new BadFrame(`неизвестный кадр ${key}`);
 }
 

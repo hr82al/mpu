@@ -268,9 +268,9 @@ Deno.test("вопрос формой: accept — исполнено, иначе 
             "stderr:\nmpu xlsx alias ls: не подтверждено\n",
           );
           assertEquals(stack.back.called, []);
-        }, (request) => {
+        }, (request, extra) => {
           asked.push(request);
-          return answer(request);
+          return answer(request, extra);
         });
         assertEquals(asked.length, 1);
         const form = golden.server_request.params;

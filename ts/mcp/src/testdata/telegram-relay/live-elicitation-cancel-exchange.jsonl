@@ -1,0 +1,4 @@
+{"in":{"method":"tools/call","params":{"name":"ask_me","arguments":{},"_meta":{"claudecode/toolUseId":"toolu_00000000000000000000000001","progressToken":2}},"jsonrpc":"2.0","id":2},"out":null}
+{"in":null,"out":{"id":"e1","method":"elicitation/create","params":{"message":"ПРОБА-ФОРМА: применить?","requestedSchema":{"type":"object","properties":{}}}}}
+{"in":null,"out":{"method":"notifications/cancelled","params":{"requestId":"e1","reason":"answered elsewhere"}}}
+{"in":null,"out":{"id":2,"result":{"content":[{"type":"text","text":"server cancelled the form after 5s"}]}}}

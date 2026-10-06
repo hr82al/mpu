@@ -181,6 +181,9 @@ const COLLECTED: Form = {
       // Простым HTTP ввод не запрашивается: он приходит полем тела
       // (`platform/stdin-on-request.md`).
       else if ("stdinRequest" in frame) return;
+      // Решение снаружи строка с номером не получает кадром: её
+      // продолжение забирает запрос с номером (`ticketAsking`).
+      else if ("settled" in frame) return;
       else tail = frame;
     };
     let answered = false;

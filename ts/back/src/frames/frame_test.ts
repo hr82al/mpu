@@ -11,11 +11,12 @@ import {
   ticketAnswerOf,
 } from "./mod.ts";
 
-Deno.test("кадр сервера: пять видов и отказ прочему", async (t) => {
+Deno.test("кадр сервера: шесть видов и отказ прочему", async (t) => {
   const frames: readonly ServerFrame[] = [
     { out: "a" },
     { err: "b" },
     { ask: "c? " },
+    { settled: "решено в Telegram — да" },
     { stdinRequest: true },
     { exit: 2 },
   ];
@@ -35,6 +36,7 @@ Deno.test("кадр сервера: пять видов и отказ проче
       '{"what":"x"}',
       '{"stdinRequest":false}',
       '{"stdinRequest":"yes"}',
+      '{"settled":true}',
     ]
   ) {
     await t.step(bad, () => {

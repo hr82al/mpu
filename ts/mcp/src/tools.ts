@@ -7,13 +7,14 @@
 
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import type {
+  Collected,
   OutputFile,
   PictureData,
   RefusalData,
 } from "../../back/src/frames/mod.ts";
 import { GRAMMAR } from "../../back/src/messages/mod.ts";
-import type { Asker } from "./asker.ts";
-import type { BackLine } from "./back.ts";
+import type { Asker, Verdict } from "./asker.ts";
+import type { BackLine, Reply } from "./back.ts";
 
 /**
  * Описание тула `mpu` (`fixtures/mcp-objects/tool-desc.txt`): слова
@@ -214,7 +215,61 @@ export async function runLine(
     stdout += collected.stdout;
     stderr += collected.stderr;
     if ("exit" in collected) return finished(stdout, stderr, collected);
-    const verdict = await asker.ask(collected.ask, requestId, options);
-    reply = await back.answer(collected.ticket, verdict, options);
+    reply = await answered(collected, back, asker, requestId, options);
   }
+}
+
+/** Собранный ответ, кончившийся вопросом с номером. */
+type Question = Extract<Collected, { readonly ticket: string }>;
+
+/**
+ * Причина отмены формы, когда вопрос решён владельцем в Telegram: SDK шлёт
+ * её клиенту в `notifications/cancelled` (`platform/ask-telegram.md` [D.3]).
+ */
+export const SETTLED_ELSEWHERE = "решено в Telegram";
+
+/** Сигнал `own`, а с ним — отмена вызова, если она есть. */
+function joined(own: AbortSignal, call?: AbortSignal): AbortSignal {
+  return call === undefined ? own : AbortSignal.any([own, call]);
+}
+
+/**
+ * Ответ на вопрос строки: форма человеку и одновременно ожидание решения
+ * в другом месте (`platform/ask-telegram.md` [D.3]). Решено там первым —
+ * форма снимается отменой с причиной `SETTLED_ELSEWHERE`; форма первой —
+ * ожидание прерывается. Продолжение строки в обоих случаях — ответом по
+ * номеру: решённый в другом месте ответ `back` подставит сам, присланный
+ * тогда не читается.
+ */
+async function answered(
+  question: Question,
+  back: BackLine,
+  asker: Asker,
+  requestId: string | number,
+  options: { readonly signal?: AbortSignal },
+): Promise<Reply> {
+  const formAnswered = new AbortController();
+  const decided = new AbortController();
+  // Обработчики — сразу и тотальные: ожидание решения — побочный канал,
+  // его сбой или прерывание вызову не важны — ответ даст форма.
+  const elsewhere = back.settled(question.ticket, {
+    signal: joined(formAnswered.signal, options.signal),
+  }).then((result) => {
+    if ("settled" in result) decided.abort(SETTLED_ELSEWHERE);
+  }, () => {});
+  let verdict: Verdict = "n";
+  try {
+    verdict = await asker.ask(question.ask, requestId, {
+      signal: joined(decided.signal, options.signal),
+    });
+  } catch (err) {
+    if (!decided.signal.aborted) {
+      formAnswered.abort();
+      await elsewhere;
+      throw err;
+    }
+  }
+  formAnswered.abort();
+  await elsewhere;
+  return await back.answer(question.ticket, verdict, options);
 }

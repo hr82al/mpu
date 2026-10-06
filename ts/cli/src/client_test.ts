@@ -193,6 +193,62 @@ Deno.test("кадр clip: буфер у терминала, stderr у пайпа
   }
 });
 
+/**
+ * Вопрос решён в Telegram: кадр `settled`, затем исполнение и `exit`
+ * (`platform/ask-telegram.md` [D.2]).
+ */
+const SETTLED_IN_CHAT: Script = (socket) => {
+  for (
+    const frame of [
+      { ask: "выполнить mpu x? [y/N] " },
+      { settled: "решено в Telegram — да" },
+      { out: "исполнено\n" },
+      { exit: 0 },
+    ]
+  ) {
+    socket.send(JSON.stringify(frame));
+  }
+  socket.close(1000);
+  return Promise.resolve();
+};
+
+Deno.test("кадр settled: ввод не ждётся, ответ не уходит, причина в stderr", () =>
+  withFakeServer(async (base, visits) => {
+    const run = testEnv({ base, main: MAIN, terminals: true, untyped: 1 });
+    assertEquals(await runClient(["x"], run.env), 0);
+    assertEquals(run.stderr, ["mpu: решено в Telegram — да\n"]);
+    assertEquals(run.stdout, ["исполнено\n"]);
+    assertEquals(visits[0].answers, []);
+    // Оба открытия терминала закрыты — проверка при старте и вопрос:
+    // чтение, которое уже не нужно, не держит его.
+    assertEquals(run.disposed(), 2);
+  }, { script: SETTLED_IN_CHAT }));
+
+/** Первый вопрос решён в Telegram, второй ждёт ответа клиента. */
+const SETTLED_THEN_ASKED: Script = async (socket, _first, answers) => {
+  socket.send(JSON.stringify({ ask: "выполнить mpu x? [y/N] " }));
+  socket.send(JSON.stringify({ settled: "решено в Telegram — да" }));
+  socket.send(JSON.stringify({ ask: "Ещё? [y/N] " }));
+  for await (const answer of answers) {
+    socket.send(JSON.stringify({ exit: answer === "y" ? 0 : 1 }));
+    socket.close(1000);
+    return;
+  }
+};
+
+Deno.test("кадр settled: снятый вопрос не отвечает следующему", () =>
+  withFakeServer(async (base, visits) => {
+    const run = testEnv({
+      base,
+      main: MAIN,
+      terminals: true,
+      untyped: 1,
+      answers: ["y"],
+    });
+    assertEquals(await runClient(["x"], run.env), 0);
+    assertEquals(visits[0].answers, ["y"]);
+  }, { script: SETTLED_THEN_ASKED }));
+
 Deno.test("без человека вопрос не задаётся: ответ «нет» сразу", () =>
   withFakeServer(async (base, visits) => {
     const run = testEnv({ base, main: MAIN, terminals: false, answers: ["y"] });

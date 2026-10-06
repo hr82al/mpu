@@ -16,7 +16,7 @@ import {
   STDIN_REQUEST,
   stdinOf,
 } from "../frames/mod.ts";
-import { type Asking, type Delivery, Line } from "./line.ts";
+import { type Asking, type Delivery, Line, type Posed } from "./line.ts";
 
 /** Код закрытия сокета после кадра `exit`. */
 const NORMAL_CLOSURE = 1000;
@@ -36,11 +36,24 @@ function socketDelivery(socket: WebSocket): Delivery {
   };
 }
 
-/** Вопрос — кадром `ask` в тот же сокет; отзывать нечего. */
+/**
+ * Вопрос в том же сокете: отзывать нечего, решение в другом месте —
+ * кадром `settled` в тот же сокет (`platform/ask-telegram.md` [D.2]).
+ */
+const FRAMED: Posed = {
+  revoke() {},
+  settle(line, answer, said) {
+    line.deliver({ settled: said });
+    line.answered(answer);
+  },
+  admits: (rival) => rival,
+};
+
+/** Вопрос — кадром `ask` в тот же сокет. */
 const SOCKET_ASKING: Asking = {
   pose(line, question, kind) {
     line.deliver(askFrame(question, kind));
-    return { revoke() {} };
+    return FRAMED;
   },
 };
 

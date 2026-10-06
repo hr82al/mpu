@@ -38,7 +38,7 @@ Deno.test("номер: один раз, только своя дверь и св
   assertEquals(frames, [{ ask: "выполнить? [y/N] ", ticket: "n1" }]);
   assertEquals(tickets.take("n1", AGENT_DOOR, OWNER), undefined);
   assertEquals(tickets.take("n1", HUMAN_DOOR, AGENT), undefined);
-  assertEquals(tickets.take("n1", HUMAN_DOOR, OWNER), line);
+  assertEquals(tickets.take("n1", HUMAN_DOOR, OWNER)?.line, line);
   line.resume(DETACHED, "y");
   assertEquals(await answer, "y");
   assertEquals(tickets.take("n1", HUMAN_DOOR, OWNER), undefined);

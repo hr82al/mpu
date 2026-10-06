@@ -62,8 +62,13 @@ export class Door {
     return { words, cwd, human: this.#asker.present, ...context, caller };
   }
 
-  answer(question: string, kind: AskKind): Promise<string> {
-    return this.#asker.answer(question, kind);
+  /** @param signal вопрос снят — чтение ответа бросается */
+  answer(
+    question: string,
+    kind: AskKind,
+    signal: AbortSignal,
+  ): Promise<string> {
+    return this.#asker.answer(question, kind, signal);
   }
 }
 

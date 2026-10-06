@@ -69,8 +69,14 @@ export function withStack(
   }, setup);
 }
 
-/** Как клиент отвечает на форму подтверждения; нет — клиент без elicitation. */
-export type Elicit = (request: ElicitRequest) => ElicitResult;
+/**
+ * Как клиент отвечает на форму подтверждения; нет — клиент без
+ * elicitation. `signal` — форму отменил сервер.
+ */
+export type Elicit = (
+  request: ElicitRequest,
+  extra: { readonly signal: AbortSignal },
+) => ElicitResult | Promise<ElicitResult>;
 
 /** Клиент SDK, подключённый к переводчику. */
 export async function connect(
@@ -87,7 +93,8 @@ export async function connect(
   if (elicit !== undefined) {
     client.setRequestHandler(
       ElicitRequestSchema,
-      (request: ElicitRequest) => elicit(request),
+      (request: ElicitRequest, extra: { signal: AbortSignal }) =>
+        elicit(request, extra),
     );
   }
   const transport = new StreamableHTTPClientTransport(new URL(url), {

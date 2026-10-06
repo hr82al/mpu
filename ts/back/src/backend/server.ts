@@ -45,7 +45,8 @@ import {
   ticketAnswerOf,
 } from "../frames/mod.ts";
 import { formFor, type Opened, ticketAsking } from "./http.ts";
-import { linePrompt, type PromptDoor } from "./prompt.ts";
+import { type Asking, linePrompt, type PromptDoor } from "./prompt.ts";
+import { ChatConfirms, ConfirmingLine } from "./confirm.ts";
 import { DETACHED, Line } from "./line.ts";
 import { type Spill, SPILL_DIR, SPILL_THRESHOLD } from "./outlet.ts";
 import { socketLine } from "./socket.ts";
@@ -310,6 +311,12 @@ function empty(status: number, headers?: HeadersInit): Response {
   return new Response(null, { status, headers });
 }
 
+/** Номер и ответ из тела запроса с номером. */
+type TicketReply = ReturnType<typeof ticketAnswerOf>;
+
+/** Ответ на номер, которого нет (истёк, израсходован, чужой). */
+const INVALID_TICKET = { error: "номер подтверждения недействителен" };
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -340,6 +347,7 @@ function keyOf(text: string): string {
 function lineIo(
   io: CommandIo,
   line: Line,
+  asked: Asking,
   door: PromptDoor,
   request: LineRequest,
 ): CommandIo {
@@ -350,7 +358,7 @@ function lineIo(
     signal: line.stopping(),
     // Спрашивает и копирует тот, кто позвал: сервер только просит
     // кадрами (`platform/line-prompt.md`).
-    prompt: linePrompt(line, door),
+    prompt: linePrompt(asked, door),
     openRemoteOutput: () => remoteFrames(line),
   };
 }
@@ -438,6 +446,8 @@ class Back {
   readonly #channels = new Set<WebSocket>();
   /** Сессии Claude Code по ключу: вопрос «ждёт ввода» каждой. */
   readonly #sessions = new Sessions(REAL_CLOCK);
+  /** Окна tmux: подпись вопросов в чате владельца. */
+  readonly #windows: Windows;
 
   constructor(options: BackOptions) {
     this.#options = options;
@@ -465,6 +475,7 @@ class Back {
       clock: REAL_CLOCK,
     });
     const windows = options.windows ?? new Windows(RUN_TMUX);
+    this.#windows = windows;
     this.#desk = new PermissionDesk({
       questions: options.questions,
       transcripts,
@@ -580,6 +591,12 @@ class Back {
         POST: {
           gate: entry(HEADER),
           handle: (request, caller) => this.#answer(request, door, caller),
+        },
+      });
+      this.#route(app, `${path}/settled`, {
+        POST: {
+          gate: entry(HEADER),
+          handle: (request, caller) => this.#settled(request, door, caller),
         },
       });
     }
@@ -728,10 +745,44 @@ class Back {
   }
 
   /** Ответ на вопрос по номеру: продолжение строки в этом ответе. */
-  async #answer(request: Request, door: Door, caller: Caller) {
+  #answer(request: Request, door: Door, caller: Caller) {
     const form = formFor(request.headers.get("Accept"));
     if (form === undefined) return empty(406);
-    let reply: { readonly ticket: string; readonly answer: string };
+    return this.#byTicket(request, async (reply) => {
+      const claim = this.#tickets.take(reply.ticket, door, caller);
+      if (claim === undefined) return json(INVALID_TICKET, 404);
+      const opened = form.open(claim.line);
+      claim.line.resume(opened.delivery, claim.answer(reply.answer));
+      leaving(request, opened);
+      return await opened.response;
+    });
+  }
+
+  /**
+   * Ожидание решения в другом месте по номеру (`platform/ask-telegram.md`
+   * [D.3]): решено — сразу `{"settled": "<текст>"}`, строка ждёт ответа по
+   * номеру и продолжится с решённым ответом; номер отозван (ответ пришёл,
+   * срок вышел) или клиент ушёл раньше — 404. Строку запрос не трогает:
+   * его обрыв — не уход клиента строки.
+   */
+  #settled(request: Request, door: Door, caller: Caller) {
+    return this.#byTicket(request, async (reply) => {
+      const claim = this.#tickets.take(reply.ticket, door, caller);
+      if (claim === undefined) return json(INVALID_TICKET, 404);
+      const settlement = await claim.settled(request.signal);
+      return settlement.read({
+        decided: (said) => json({ settled: said }),
+        gone: () => json(INVALID_TICKET, 404),
+      });
+    });
+  }
+
+  /** Запрос с номером: тело — номер и ответ. */
+  async #byTicket(
+    request: Request,
+    then: (reply: TicketReply) => Promise<Response>,
+  ): Promise<Response> {
+    let reply: TicketReply;
     try {
       reply = ticketAnswerOf(await request.text());
     } catch (err) {
@@ -741,14 +792,7 @@ class Back {
       if (!(err instanceof BadFrame)) throw err;
       return json({ error: err.report }, 400);
     }
-    const line = this.#tickets.take(reply.ticket, door, caller);
-    if (line === undefined) {
-      return json({ error: "номер подтверждения недействителен" }, 404);
-    }
-    const opened = form.open(line);
-    line.resume(opened.delivery, reply.answer);
-    leaving(request, opened);
-    return await opened.response;
+    return await then(reply);
   }
 
   /** Строка в работе: её сбой — отказ строки, конец — забыть её. */
@@ -795,14 +839,23 @@ class Back {
       line.finish(2);
       return;
     }
-    const channel = door.channel(line, caller.human(request.human));
-    const memory = this.#results.of(await naming.of(request.caller));
-    const gallery = new Gallery(this.#options.pictureLimit ?? PICTURE_LIMIT);
     // Окно tmux и ключ сессии — только из окружения, принесённого
     // клиентом: имя, не принесённое им, у службы своё и подписало бы
     // вопрос чужим окном.
     const callerEnv = (name: string) =>
       request.context.env.over(NOT_SERVER).value(name);
+    const asked = new ConfirmingLine(
+      line,
+      new ChatConfirms({
+        questions: this.#options.questions,
+        windows: this.#windows,
+        env: callerEnv,
+        head: door.confirmHead,
+      }),
+    );
+    const channel = door.channel(asked, caller.human(request.human));
+    const memory = this.#results.of(await naming.of(request.caller));
+    const gallery = new Gallery(this.#options.pictureLimit ?? PICTURE_LIMIT);
     const entry = lineEntry({
       files: programFiles(this.#options.io.env),
       rootMethods: door.rootMethods({
@@ -832,6 +885,7 @@ class Back {
     const io = lineIo(
       this.#options.io,
       line,
+      asked,
       door.prompting(caller.human(request.human)),
       request,
     );

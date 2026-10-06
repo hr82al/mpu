@@ -13,8 +13,36 @@ export interface Asker {
   /**
    * Ответ на вопрос; ответа не будет — пустая строка (для сервера
    * «нет»). Вид вопроса выбирает, как читать: видимо или без эха.
+   *
+   * @param signal вопрос решён в другом месте: чтение бросается
    */
-  answer(question: string, kind: AskKind): Promise<string>;
+  answer(
+    question: string,
+    kind: AskKind,
+    signal: AbortSignal,
+  ): Promise<string>;
+}
+
+/**
+ * Чтение до ответа или до снятия вопроса. Начатое чтение терминала Deno
+ * прервать не умеет: снятый вопрос его просто больше не ждёт, а терминал
+ * закрывает вызывающий. Исход брошенного чтения — и строка, и отказ
+ * закрытого файла — уже никому не нужен: ответ решён в другом месте.
+ */
+function unlessSettled(
+  reading: Promise<string | undefined>,
+  signal: AbortSignal,
+): Promise<string | undefined> {
+  const settled = Promise.withResolvers<undefined>();
+  const stop = () => settled.resolve(undefined);
+  signal.addEventListener("abort", stop, { once: true });
+  if (signal.aborted) stop();
+  const read = reading.finally(() => signal.removeEventListener("abort", stop));
+  read.catch(() => {
+    // Отказ чтения, которого никто не ждёт (см. выше), — не сбой:
+    // дождавшийся получит его сам из `Promise.race`.
+  });
+  return Promise.race([read, settled.promise]);
 }
 
 /**
@@ -31,7 +59,7 @@ export function humanAsker(
 ): Asker {
   return {
     present: true,
-    answer: async (question, kind) => {
+    answer: async (question, kind, signal) => {
       using terminal = await open();
       // Терминал исчез между стартом и вопросом: для сервера это
       // пустой ответ, то есть «нет».
@@ -43,7 +71,7 @@ export function humanAsker(
         line: () => terminal.readLine(),
         secret: () => terminal.readSecret(),
       };
-      return (await reading[kind]()) ?? "";
+      return (await unlessSettled(reading[kind](), signal)) ?? "";
     },
   };
 }

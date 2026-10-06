@@ -50,20 +50,92 @@ export interface Revocable {
   revoke(): void;
 }
 
-const NOTHING: Revocable = { revoke() {} };
+/**
+ * Заданный вопрос глазами строки: отзыв, когда ждать перестали, и снятие
+ * канала, когда решено в другом месте (`platform/ask-telegram.md` [D.1]).
+ */
+export interface Posed extends Revocable {
+  /**
+   * Решено в другом месте: канал вопроса снимается своим способом, строка
+   * получает `answer`, как только канал может принять её продолжение.
+   *
+   * @param said что сказать каналу: `решено в Telegram — да`
+   */
+  settle(line: Line, answer: string, said: string): void;
+  /**
+   * Второй адресат, которого этот канал умеет снять
+   * (`platform/ask-telegram.md` [D.1]): канал, которому о решении в
+   * другом месте сказать нечем, второго адресата не получает.
+   */
+  admits(rival: Rival): Rival;
+}
 
 /** Как строка задаёт вопрос: кадром в тот же поток или номером. */
 export interface Asking {
-  pose(line: Line, question: string, kind: AskKind): Revocable;
+  pose(line: Line, question: string, kind: AskKind): Posed;
 }
 
-/** Ожидание ответа на заданный вопрос. */
+/**
+ * Второй адресат вопроса строки — владелец в чате
+ * (`platform/ask-telegram.md`): спрашивается, когда ожидание ответа уже
+ * взведено, — ответ раньше ожидания по устройству невозможен.
+ */
+export interface Rival {
+  /** Спросить; ответ второго — `decide`. */
+  start(decide: (answer: string, said: string) => void): Rivalry;
+}
+
+/** Идущий вопрос второго адресата. */
+export interface Rivalry {
+  /**
+   * Строка получила ответ из своего канала — в том числе решённый вторым
+   * адресатом: вопрос, у которого исход уже есть, это не меняет.
+   */
+  answered(): void;
+  /** Ответа не будет: срок, закрытие строки. */
+  lapsed(): void;
+  /** Вопрос второго закрыт: исход и правка сообщения позади. */
+  closed(): Promise<void>;
+}
+
+const CLOSED_RIVALRY: Promise<void> = Promise.resolve();
+
+const NO_RIVALRY: Rivalry = {
+  answered() {},
+  lapsed() {},
+  closed: () => CLOSED_RIVALRY,
+};
+
+/** Второго адресата нет: секрет, не подтверждение, строка без человека. */
+export const NO_RIVAL: Rival = { start: () => NO_RIVALRY };
+
+const NOTHING: Posed = {
+  revoke() {},
+  settle() {},
+  admits: () => NO_RIVAL,
+};
+
+/** Заданный вопрос: как его задали и кто второй адресат. */
+interface Question {
+  readonly posed: Posed;
+  readonly rival: Rival;
+}
+
+/** Вопроса нет. */
+const NOT_POSED: Question = { posed: NOTHING, rival: NO_RIVAL };
+
+/** Ожидание ответа на заданный вопрос: первое сообщение решает. */
 interface Waiting {
-  settle(answer: string | undefined): void;
+  /** Ответ канала строки. */
+  answered(text: string): void;
+  /** Ответа не будет: срок или строка закрыта. */
+  lapse(): void;
+  /** Ответил второй адресат. */
+  elsewhere(answer: string, said: string): void;
 }
 
 /** Вопроса нет: ответ, пришедший без него, игнорируется. */
-const NOT_ASKED: Waiting = { settle() {} };
+const NOT_ASKED: Waiting = { answered() {}, lapse() {}, elsewhere() {} };
 
 /**
  * Что со строкой: ещё не исполняется, исполняется или закрыта. От этого
@@ -73,7 +145,7 @@ const NOT_ASKED: Waiting = { settle() {} };
 interface State {
   deliver(delivery: Delivery, frame: ServerFrame): void;
   ready(delivery: Delivery): Promise<void>;
-  wait(line: Line, posed: Revocable): Promise<string | undefined>;
+  wait(line: Line, question: Question): Promise<string | undefined>;
   execute(
     line: Line,
     slot: Slot,
@@ -87,7 +159,7 @@ interface State {
 const OPEN: State = {
   deliver: (delivery, frame) => delivery.frame(frame),
   ready: (delivery) => delivery.ready(),
-  wait: (line, posed) => line.armed(posed),
+  wait: (line, question) => line.armed(question),
   execute(line, slot, run) {
     line.hold(slot);
     // Каталог процесса не трогаем: он у строки свой и доезжает до
@@ -104,7 +176,7 @@ const OPEN: State = {
 const CLOSED: State = {
   deliver() {},
   ready: () => READY,
-  wait(_line, posed) {
+  wait(_line, { posed }) {
     posed.revoke();
     return Promise.resolve(undefined);
   },
@@ -123,7 +195,7 @@ export class Line implements Output {
   #delivery: Delivery;
   #state: State = OPEN;
   #waiting: Waiting = NOT_ASKED;
-  #posed: Revocable = NOTHING;
+  #question: Question = NOT_POSED;
   #slot: Slot = NO_SLOT;
   /** Как собранный ответ отдаст вывод; до конца прогона — целиком. */
   #outlet: Outlet = WHOLE;
@@ -175,21 +247,23 @@ export class Line implements Output {
    *
    * @param text текст вопроса как его увидит человек
    * @param kind вид ответа: видимый или скрытый
+   * @param rival второй адресат того же вопроса
    */
-  question(text: string, kind: AskKind = "line") {
-    this.#posed = this.#asking.pose(this, text, kind);
+  question(text: string, kind: AskKind = "line", rival: Rival = NO_RIVAL) {
+    const posed = this.#asking.pose(this, text, kind);
+    this.#question = { posed, rival: posed.admits(rival) };
   }
 
   /** Ответ на заданный вопрос; тишина, закрытие, остановка — `undefined`. */
   answer(): Promise<string | undefined> {
-    const posed = this.#posed;
-    this.#posed = NOTHING;
-    return this.#state.wait(this, posed);
+    const question = this.#question;
+    this.#question = NOT_POSED;
+    return this.#state.wait(this, question);
   }
 
-  /** Ответ пришёл. */
+  /** Ответ канала строки пришёл. */
   answered(text: string) {
-    this.#waiting.settle(text);
+    this.#waiting.answered(text);
   }
 
   /** Кадры дальше — в эту доставку. */
@@ -275,7 +349,7 @@ export class Line implements Output {
   shut() {
     this.#state = CLOSED;
     this.#delivery = DETACHED;
-    this.#waiting.settle(undefined);
+    this.#waiting.lapse();
   }
 
   /**
@@ -287,21 +361,37 @@ export class Line implements Output {
     this.#stopping.ask();
   }
 
-  /** Ожидание ответа открытой строки: до ответа, закрытия или срока. */
-  armed(posed: Revocable): Promise<string | undefined> {
+  /**
+   * Ожидание ответа открытой строки: до ответа канала, ответа второго
+   * адресата, закрытия или срока — что раньше. Ответ отдаётся, когда у
+   * вопроса второго адресата есть исход: его промис не остаётся висеть за
+   * строкой.
+   */
+  async armed({ posed, rival }: Question): Promise<string | undefined> {
     const answer = Promise.withResolvers<string | undefined>();
-    const timer = setTimeout(
-      () => this.#waiting.settle(undefined),
-      ANSWER_TIMEOUT_MS,
-    );
-    this.#waiting = {
-      settle: (text) => {
-        clearTimeout(timer);
-        posed.revoke();
-        this.#waiting = NOT_ASKED;
-        answer.resolve(text);
-      },
+    const timer = setTimeout(() => this.#waiting.lapse(), ANSWER_TIMEOUT_MS);
+    const end = (text: string | undefined) => {
+      clearTimeout(timer);
+      posed.revoke();
+      this.#waiting = NOT_ASKED;
+      answer.resolve(text);
     };
-    return answer.promise;
+    let rivalry = NO_RIVALRY;
+    this.#waiting = {
+      answered: (text) => {
+        end(text);
+        rivalry.answered();
+      },
+      lapse: () => {
+        end(undefined);
+        rivalry.lapsed();
+      },
+      elsewhere: (text, said) => posed.settle(this, text, said),
+    };
+    rivalry = rival.start((text, said) => this.#waiting.elsewhere(text, said));
+    // Обработчики обоих — сразу: отказ вопроса второго адресата, пришедший
+    // раньше ответа, иначе остался бы необработанным.
+    const [text] = await Promise.all([answer.promise, rivalry.closed()]);
+    return text;
   }
 }

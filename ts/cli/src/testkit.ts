@@ -17,6 +17,8 @@ export interface TestEnv {
   readonly asked: { kind: "line" | "secret"; question: string }[];
   /** Сколько раз клиент читал свой stdin. */
   readonly stdinReads: () => number;
+  /** Сколько раз терминал закрыт. */
+  readonly disposed: () => number;
   readonly interrupt: () => void;
 }
 
@@ -28,6 +30,11 @@ export interface EnvSetup {
   readonly terminals?: boolean;
   /** Строки stdin по очереди; кончились — конец ввода. */
   readonly answers?: readonly string[];
+  /**
+   * Сколько первых ответов не набирается: такое чтение ждёт, пока
+   * терминал не закроют, и кончается концом ввода.
+   */
+  readonly untyped?: number;
   /** Весь stdin клиента; из терминала ввода нет (`cli-client.md`). */
   readonly stdin?: string;
   /**
@@ -54,8 +61,16 @@ export interface EnvSetup {
 function fakeTerminal(
   answers: string[],
   asked: { kind: "line" | "secret"; question: string }[],
+  untyped: { left: number },
+  dispose: () => void,
 ): TerminalIo {
   let kind: "line" | "secret" = "line";
+  const closed = Promise.withResolvers<undefined>();
+  const typed = () => {
+    if (untyped.left === 0) return Promise.resolve(answers.shift());
+    untyped.left -= 1;
+    return closed.promise;
+  };
   return {
     name: undefined,
     write: (text) => {
@@ -65,14 +80,17 @@ function fakeTerminal(
     readLine: () => {
       kind = "line";
       asked[asked.length - 1] = { ...asked[asked.length - 1], kind };
-      return Promise.resolve(answers.shift());
+      return typed();
     },
     readSecret: () => {
       kind = "secret";
       asked[asked.length - 1] = { ...asked[asked.length - 1], kind };
-      return Promise.resolve(answers.shift());
+      return typed();
     },
-    [Symbol.dispose]: () => {},
+    [Symbol.dispose]: () => {
+      closed.resolve(undefined);
+      dispose();
+    },
   };
 }
 
@@ -92,12 +110,15 @@ export function testEnv(setup: EnvSetup): TestEnv {
     ? encoded
     : () => Promise.resolve(bytes.slice());
   let stdinReads = 0;
+  let disposed = 0;
+  const untyped = { left: setup.untyped ?? 0 };
   return {
     stdout,
     stderr,
     copied,
     asked,
     stdinReads: () => stdinReads,
+    disposed: () => disposed,
     interrupt: () => interrupted.resolve(),
     env: {
       base: setup.base,
@@ -117,7 +138,16 @@ export function testEnv(setup: EnvSetup): TestEnv {
       },
       name: setup.name ?? "ppid:1",
       openTerminal: () =>
-        Promise.resolve(terminals ? fakeTerminal(answers, asked) : undefined),
+        Promise.resolve(
+          terminals
+            ? fakeTerminal(
+              answers,
+              asked,
+              untyped,
+              () => disposed++,
+            )
+            : undefined,
+        ),
       copy: async (text) => {
         await setup.copying;
         copied.push(text);

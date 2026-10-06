@@ -113,6 +113,8 @@ class LineSocket {
   readonly #input: ClientInput;
   #ending: Ending = BROKEN;
   #copying: Promise<void> = Promise.resolve();
+  /** Снятие идущего вопроса: решён в другом месте (кадр `settled`). */
+  #asked = new AbortController();
 
   constructor(
     door: Door,
@@ -188,7 +190,16 @@ class LineSocket {
       // без него (таймаут 120 с, остановка), и клиент, ждущий строку
       // stdin, повис бы после конца строки. Отвергнуться `#reply` не
       // может — сбой чтения ответа он сам превращает в «нет».
-      this.#reply(frame.ask, frame.kind ?? "line");
+      this.#asked = new AbortController();
+      this.#reply(frame.ask, frame.kind ?? "line", this.#asked.signal);
+      return;
+    }
+    // Вопрос решён владельцем в Telegram: ввод больше не ждётся, ответ
+    // не уходит, строка идёт дальше своими кадрами
+    // (`platform/ask-telegram.md` [D.2]).
+    if ("settled" in frame) {
+      this.#asked.abort();
+      this.#fate.complain(frame.settled);
       return;
     }
     // Просьба положить текст в буфер обмена: куда он ляжет — в буфер
@@ -239,10 +250,11 @@ class LineSocket {
     this.#socket.close();
   }
 
-  async #reply(question: string, kind: AskKind) {
+  /** @param signal вопрос снят: ответа не отправлять */
+  async #reply(question: string, kind: AskKind, signal: AbortSignal) {
     let answer: string;
     try {
-      answer = await this.#door.answer(question, kind);
+      answer = await this.#door.answer(question, kind, signal);
     } catch (err) {
       // Не прочитался ответ — это «нет»: вопрос без ответа сервер так и
       // толкует; причина — в stderr, строку решит сервер.
@@ -250,6 +262,7 @@ class LineSocket {
       this.#fate.complain(`ответ не прочитан: ${reason}`);
       answer = "";
     }
+    if (signal.aborted) return;
     if (this.#socket.readyState !== WebSocket.OPEN) return;
     this.#socket.send(JSON.stringify({ answer }));
   }

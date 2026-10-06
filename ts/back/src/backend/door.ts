@@ -6,7 +6,6 @@
 
 import { Agent, type Channel, Human, NOBODY } from "../policy/mod.ts";
 import type { RootMethod } from "../line/mod.ts";
-import type { Line } from "./line.ts";
 import {
   FileOutlet,
   type Outlet,
@@ -14,16 +13,17 @@ import {
   type Spill,
   WHOLE,
 } from "./outlet.ts";
-import type { PromptDoor } from "./prompt.ts";
+import { NO_RIVAL, type Rival } from "./line.ts";
+import type { Asking, PromptDoor } from "./prompt.ts";
 import type { WebAccess } from "./web.ts";
 
 /** Путь подключения: строит канал строки. */
 export interface Door {
   /**
-   * @param line строка по сокету: вопрос кадром, ответ кадром
+   * @param line вопрос строки и ответ на него
    * @param human есть ли у клиента, кого спросить (поле первого кадра)
    */
-  channel(line: Line, human: boolean): Channel;
+  channel(line: Questions, human: boolean): Channel;
   /**
    * Что проходит по двери, когда спрашивает сама команда
    * (`platform/line-prompt.md`): какие виды вопроса и предлагается ли
@@ -37,11 +37,25 @@ export interface Door {
   /** Канал автора определения метода образа (`platform/image.md`). */
   readonly author: string;
   /**
+   * Голова вопроса-подтверждения в чате владельца
+   * (`platform/ask-telegram.md`, «Вопрос в чате»).
+   */
+  readonly confirmHead: string;
+  /**
+   * Второй адресат вопроса, заданного номером (`platform/ask-telegram.md`
+   * [D.1]): есть, только если клиент двери забирает решение в другом месте
+   * сам (`POST …/settled`).
+   */
+  ticketRival(rival: Rival): Rival;
+  /**
    * Как собранный ответ отдаст вывод прогона `run`
    * (`platform/long-output.md`, §4).
    */
   outlet(spill: Spill, run: Run): Outlet;
 }
+
+/** Чем канал правил спрашивает строку. */
+export type Questions = Pick<Asking, "question" | "answer">;
 
 /** Что сервер даёт методам двери. */
 export interface DoorServices {
@@ -76,9 +90,12 @@ function webMethods(services: DoorServices): readonly RootMethod[] {
   ];
 }
 
-function clientChannel(line: Line, human: boolean): Channel {
+function clientChannel(line: Questions, human: boolean): Channel {
   if (!human) return NOBODY;
-  return new Human((question) => line.question(question), () => line.answer());
+  return new Human(
+    (question) => line.question(question, "line"),
+    () => line.answer(),
+  );
 }
 
 /** Дверь человека: спрашивает оба вида и предлагает копирование. */
@@ -110,6 +127,10 @@ export const HUMAN_DOOR: Door = {
   prompting: (human) => human ? HUMAN_PROMPTS : NO_PROMPTS,
   rootMethods: webMethods,
   author: "human",
+  confirmHead: "❓ mpu ask",
+  // Номером на этой двери спрашивают страница `web/` и `curl`: о решении в
+  // чате они не узнают, и снять их вопрос нечем — чат его не получает.
+  ticketRival: () => NO_RIVAL,
   // У человека терминал: большой вывод он направит сам.
   outlet: () => WHOLE,
 };
@@ -120,6 +141,9 @@ export const AGENT_DOOR: Door = {
   prompting: (human) => human ? AGENT_PROMPTS : NO_PROMPTS,
   rootMethods: () => [],
   author: "agent",
+  confirmHead: "❓ mpu ask (MCP)",
+  // Переводчик MCP ждёт решения запросом `…/settled` и снимает форму сам.
+  ticketRival: (rival) => rival,
   // Ответ агенту целиком — в его контекст: большой уходит файлом.
   outlet: (spill, run) => new FileOutlet(spill, run),
 };

@@ -42,6 +42,7 @@ export {
   Windows,
 } from "./window.ts";
 export { toolCallOf } from "./call.ts";
+export { TERMINAL } from "./decision.ts";
 export {
   Allowed,
   askedBy,
