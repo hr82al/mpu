@@ -23,6 +23,12 @@ export const DELIVERY_MS = 2000;
 /** Исход вопроса «ждёт ввода», когда регистрация канала оборвалась [S9]. */
 export const SESSION_CLOSED = "⌛ сессия закрыта";
 
+/**
+ * Исход снимка окна, когда у сессии появился структурный вопрос
+ * (`claude-hook-notification-snapshot.md`, «Исходы»).
+ */
+export const QUESTION_IN_CHAT = "↷ вопрос в чате";
+
 /** Канал сессии глазами ядра. */
 export interface Link {
   /** Текст в сессию; ответ — доставлен ли. */
@@ -46,10 +52,16 @@ type SessionAsked = Pick<Asked, "withdraw" | "withdrawAs">;
 /** Вопроса у сессии нет: снимать нечего. */
 const NOT_ASKED: SessionAsked = { withdraw: () => {}, withdrawAs: () => {} };
 
-/** Одна сессия: текущий вопрос «ждёт ввода» и текущий канал. */
+/**
+ * Одна сессия: её вопросы в ряду — «ждёт ввода», срочные (право,
+ * AskUserQuestion), снимок окна — и текущий канал.
+ */
 export class Session {
   readonly #clock: Clock;
+  /** Все вопросы сессии в ряду. */
+  readonly #all = new Set<SessionAsked>();
   #asked: SessionAsked = NOT_ASKED;
+  #snapshot: SessionAsked = NOT_ASKED;
   #link: Link = NO_LINK;
 
   constructor(clock: Clock) {
@@ -62,14 +74,40 @@ export class Session {
    */
   replace(ask: () => Asked): Asked {
     this.#asked.withdraw(TERMINAL);
-    const asked = ask();
+    const asked = this.urgent(ask);
     this.#asked = asked;
     return asked;
   }
 
-  /** Вопрос `asked` решён: забыть, если он ещё её. */
+  /**
+   * Структурный вопрос сессии (право, AskUserQuestion, «ждёт ввода»):
+   * снимок окна той же сессии снимается — ожидание теперь в чате.
+   */
+  urgent(ask: () => Asked): Asked {
+    this.#snapshot.withdrawAs(QUESTION_IN_CHAT);
+    const asked = ask();
+    this.#all.add(asked);
+    return asked;
+  }
+
+  /** Снимок окна сессии. */
+  snapshot(ask: () => Asked): Asked {
+    const asked = ask();
+    this.#snapshot = asked;
+    this.#all.add(asked);
+    return asked;
+  }
+
+  /** Вопрос `asked` решён: забыть. */
   leave(asked: Asked): void {
+    this.#all.delete(asked);
     if (this.#asked === asked) this.#asked = NOT_ASKED;
+    if (this.#snapshot === asked) this.#snapshot = NOT_ASKED;
+  }
+
+  /** Есть ли у сессии вопрос в ряду — ожидание уже в чате. */
+  hasQuestion(): boolean {
+    return this.#all.size > 0;
   }
 
   /** Канал сессии; прежний вытеснен — его закрытие ничего не снимает. */
@@ -139,6 +177,12 @@ export class Sessions {
 export interface SessionKey {
   /** Задаёт вопрос сессии; прежний вопрос той же сессии снят. */
   seat(sessions: Sessions, ask: () => Asked): Asked;
+  /** Задаёт структурный вопрос сессии (право, AskUserQuestion). */
+  seatUrgent(sessions: Sessions, ask: () => Asked): Asked;
+  /** Задаёт снимок окна сессии. */
+  seatSnapshot(sessions: Sessions, ask: () => Asked): Asked;
+  /** Есть ли у сессии вопрос в ряду. */
+  asking(sessions: Sessions): boolean;
   /** Вопрос `asked` решён. */
   leave(sessions: Sessions, asked: Asked): void;
   /** Достижимость сессии: есть ли у неё канал. */
@@ -157,6 +201,18 @@ class SocketKey implements SessionKey {
     return sessions.of(this.#socket).replace(ask);
   }
 
+  seatUrgent(sessions: Sessions, ask: () => Asked): Asked {
+    return sessions.of(this.#socket).urgent(ask);
+  }
+
+  seatSnapshot(sessions: Sessions, ask: () => Asked): Asked {
+    return sessions.of(this.#socket).snapshot(ask);
+  }
+
+  asking(sessions: Sessions): boolean {
+    return sessions.of(this.#socket).hasQuestion();
+  }
+
   leave(sessions: Sessions, asked: Asked): void {
     sessions.of(this.#socket).leave(asked);
   }
@@ -172,6 +228,9 @@ class SocketKey implements SessionKey {
  */
 const NO_KEY: SessionKey = {
   seat: (_, ask) => ask(),
+  seatUrgent: (_, ask) => ask(),
+  seatSnapshot: (_, ask) => ask(),
+  asking: () => false,
   leave: () => {},
   reach: () => NO_CHANNEL,
 };

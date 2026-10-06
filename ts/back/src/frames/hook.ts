@@ -81,6 +81,18 @@ export const STOP = new HookWords({
   missing: "без вопроса",
 });
 
+/**
+ * Хук `Notification` (`claude-hook-notification-snapshot.md`): строку
+ * ведёт ядро, но в список строк-хуков клиента она не входит — у
+ * строки-уведомления свои коды выхода (`claude-hook-notification.md`), их
+ * видит журнал вызовов, и клиент их не подменяет.
+ */
+export const NOTIFICATION = new HookWords({
+  words: ["claude-hook", "notification"],
+  unavailable: "сервер mpu не отвечает",
+  missing: "без уведомления",
+});
+
 /** Строки-хуки — один список на клиента и ядро. */
 export const HOOK_LINES: readonly HookWords[] = [
   PRE_TOOL_USE,

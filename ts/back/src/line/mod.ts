@@ -6,7 +6,12 @@
  */
 
 import type { CommandIo } from "../command/mod.ts";
-import { type HookReply, NO_DESK, NO_STOP_DESK } from "../claudehook/mod.ts";
+import {
+  type HookReply,
+  NO_DESK,
+  NO_NOTIFY_DESK,
+  NO_STOP_DESK,
+} from "../claudehook/mod.ts";
 import {
   consentAt,
   type Delivery,
@@ -126,12 +131,15 @@ export interface OwnerAsking {
    * её не касается.
    */
   stop(text: string): Promise<HookReply>;
+  /** Хук `Notification` (`claude-hook-notification-snapshot.md`). */
+  notification(text: string): Promise<HookReply>;
 }
 
 /** Вопроса задать некому: окружения клиента нет, бот не настроен. */
 const UNASKED: OwnerAsking = {
   permission: (text, signal) => NO_DESK.reply(text, () => undefined, signal),
   stop: (text) => NO_STOP_DESK.reply(text, () => undefined),
+  notification: (text) => NO_NOTIFY_DESK.reply(text, () => undefined),
 };
 
 /** Кто спрашивает подтверждение у строки. */
@@ -434,6 +442,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
     const owner: OwnerHooks = {
       permission: (text) => asking.permission(text, lineIo.signal),
       stop: (text) => asking.stop(text),
+      notification: (text) => asking.notification(text),
     };
     const hook = {
       readStdin: lineIo.readStdin,

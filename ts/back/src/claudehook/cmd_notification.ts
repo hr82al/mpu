@@ -1,101 +1,55 @@
 /**
- * Команда `mpu claude-hook notification`
- * (`docs/specs/claude-hook-notification.md`): уведомление из хука
- * Claude Code уходит в личного бота.
- *
- * Здесь только склейка: разбор payload'а и текст — `payload.ts`,
- * конфигурация и отправка — модуль `telegram`. Своей копии правил Bot
- * API у команды нет.
+ * Команда `mpu claude-hook notification` в дереве
+ * (`docs/specs/claude-hook-notification.md`,
+ * `docs/specs/claude-hook-notification-snapshot.md`): справка, место и
+ * посев. Исполняет строку ядро (`notify_desk.ts`): решению «есть ли у
+ * сессии вопрос в ряду» и снимку окна нужен его ряд вопросов.
  */
 
 import { z } from "@zod/zod";
-import {
-  type CommandIo,
-  defineCommand,
-  readTextStdin,
-} from "../command/mod.ts";
-import { botConfig, sendBotMessage } from "../telegram/mod.ts";
-import { notificationText, parseHookPayload } from "./payload.ts";
+import { defineCommand } from "../command/mod.ts";
+import { NOTIFICATION } from "../frames/mod.ts";
 
 const argsSchema = z.object({});
 
-const resultSchema = z.object({
-  id: z.number().describe("номер отправленного сообщения"),
-});
-
-type NotificationResult = z.infer<typeof resultSchema>;
-
-/** Срез порта: весь вход команды — stdin, вся настройка — env-файл. */
-type NotificationIo = Pick<CommandIo, "readStdin" | "envFile">;
-
-/**
- * Разбор stdin, текст и одна отправка. `apiBase` пробрасывается как
- * есть: не задан — работает умолчание `sendBotMessage`, задан — тест
- * отправки ходит на петлевой сервер, а не наружу.
- *
- * Порядок фиксирован: разбор ввода раньше конфигурации, а обе — раньше
- * сети.
- */
-export async function runNotification(
-  io: NotificationIo,
-  apiBase?: string,
-): Promise<NotificationResult> {
-  const payload = parseHookPayload(await readTextStdin(io));
-  const text = notificationText(payload);
-  const sent = await sendBotMessage(
-    botConfig(io.envFile),
-    { kind: "text", text },
-    apiBase,
-  );
-  return { id: sent.id };
-}
+const resultSchema = z.object({});
 
 export const claudeHookNotificationCommand = defineCommand({
-  path: ["claude-hook", "notification"],
+  path: NOTIFICATION.words,
   keys: {},
   errorName: "claude-hook notification",
   summary: "Отправить уведомление хука Claude Code в личного бота.",
   usage: "mpu claude-hook notification",
-  help: `Звать не руками: команду вызывает хук Notification Claude Code,
-чтобы уведомление пришло в личного бота Telegram.
+  help: `Звать не руками: команду вызывает хук Notification Claude Code.
+Вход — stdin, JSON-объект payload'а события; аргументов нет.
 
-Адаптер хука Notification: весь stdin — JSON-объект payload'а
-события, наружу уходит одно сообщение личному боту (тот же канал, что
-у mpu telegram log). Аргументов и опций нет.
+Ожидание (notification_type оканчивается на _prompt или _dialog) из окна
+tmux: через 3 с, если у сессии нет вопроса в ряду (право,
+AskUserQuestion, «ждёт ввода»), — вопрос-снимок окна в чате: блок
+диалога с экрана, кнопки-пункты, ⏎ ⎋ ↑ ↓ и «весь экран»; кнопка нажимает
+клавишу в окне, текст владельца вписывается и Enter. Хук выходит сразу.
 
-Сообщение — две строки, вторая только при непустом тексте события:
+Прочее (не ожидание или окна нет) — строка в бота:
 
   Claude · <проект> · <notification_type>
   <message, иначе notification_message>
 
-<проект> — базовое имя каталога cwd; нет cwd — часть опускается. Нет
-типа — слово notification. Текст события живой хук кладёт в message,
-дока Claude Code называет то же поле notification_message — читаются
-оба, первым message. Текст длиннее 4096 символов усекается, а не
-отбивается: отказ здесь не видит никто.
+stdout — одна строка JSON {"id": …}; отказ — строка в stderr
+(mpu claude-hook notification: <причина>). Exit: 0 — ушло или снимок
+поставлен; 1 — бот не настроен или недоступен; 2 — stdin не JSON-объект.
 
-Типы событий команда не фильтрует — отбор делает matcher в настройке
-хука, второго места отбора быть не должно. Незнакомый тип доезжает.
-
-CLI-only: тулом MCP-сервера команда не публикуется (закрытый список
-публикации её не содержит) — у вызова тула stdin нет по построению, а
-вне хука команда бессмысленна.
-
-stdout — одна строка JSON: {"id": …}. Claude вывод и код выхода хука
-игнорирует; отказ виден в журнале вызовов: mpu log failed since: 1h.
-
-Ключи env-файла: TELEGRAM_BOT_TOKEN и TELEGRAM_BOT_ID (обязательны),
-TELEGRAM_BOT_NAME (необязателен). Прокси — как у mpu telegram log.
-
-Exit: 0 — успех; 1 — конфигурация или отказ Bot API; 2 — stdin не
-разбирается как JSON-объект.
-
-Включение — в ~/.claude/settings.json, секция hooks.Notification:
-{"type": "command", "command": "mpu claude-hook notification"}`,
-  examples: ["mpu claude-hook notification"],
+Включение — ставит install.sh, в ~/.claude/settings.json:
+{"hooks":{"Notification":[{"matcher":"","hooks":[{"type":"command",
+  "command":"mpu claude-hook notification","timeout":30}]}]}}`,
+  examples: ["mpu claude-hook notification < payload.json"],
   policy: "rw",
   argsSchema,
   resultSchema,
-  run: (_args, io) => runNotification(io),
-  render: (result: NotificationResult) => `{"id": ${result.id}}\n`,
+  run: () =>
+    Promise.reject(
+      new Error(
+        "строку claude-hook notification исполняет ядро, не исполнитель",
+      ),
+    ),
+  render: () => "",
 });

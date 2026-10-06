@@ -21,6 +21,7 @@ import {
   type PermissionRequest,
 } from "./permission.ts";
 import { placesOf } from "./places.ts";
+import { sessionKeyOf, Sessions } from "./sessions.ts";
 import { type HookReply, unparsedInput } from "./reply.ts";
 import {
   CallAnswered,
@@ -44,6 +45,8 @@ export interface DeskParts {
   readonly questions: Pick<OwnerQuestions, "ask">;
   readonly transcripts: Transcripts;
   readonly windows: Windows;
+  /** Сессии по ключу: вопрос о праве — вопрос своей сессии в ряду. */
+  readonly sessions: Sessions;
   /** Срок и опрос транскрипта. */
   readonly clock: Clock;
 }
@@ -112,11 +115,17 @@ export class PermissionDesk {
     );
     const window = await windows.captionOf(env);
     const places = placesOf(transcript.title(), request.project, window);
-    const asked = questions.ask(request.asking.form(places));
+    const key = sessionKeyOf(env);
+    const sessions = this.#parts.sessions;
+    const asked = key.seatUrgent(
+      sessions,
+      () => questions.ask(request.asking.form(places)),
+    );
     // Строка, оборванная раньше постановки, истекает тут же: ряд убирает
     // непоказанный вопрос молча, в чат ничего не уходит.
     const gone = AbortSignal.any([signal, this.#closing.signal]);
     const outcome = await this.#settled(asked, transcript, gone);
+    key.leave(sessions, asked);
     return outcome.read(replyOf(request.asking));
   }
 
@@ -159,5 +168,6 @@ export const NO_DESK = new PermissionDesk({
   questions: NO_BOT,
   transcripts: NO_TRANSCRIPTS,
   windows: NO_WINDOWS,
+  sessions: new Sessions(REAL_CLOCK),
   clock: REAL_CLOCK,
 });

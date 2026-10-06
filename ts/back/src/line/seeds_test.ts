@@ -29,7 +29,7 @@ Deno.test("claude-hook permission-request, stop — allow вместо посе�
     .filter((entry) => entry.path.startsWith("claude-hook"))
     .sort((a, b) => a.path.localeCompare(b.path));
   assertEquals(hooks, [
-    { path: "claude-hook notification", verdict: "ask" },
+    { path: "claude-hook notification", verdict: "allow" },
     { path: "claude-hook permission-request", verdict: "allow" },
     { path: "claude-hook pre-tool-use", verdict: "allow" },
     { path: "claude-hook stop", verdict: "allow" },

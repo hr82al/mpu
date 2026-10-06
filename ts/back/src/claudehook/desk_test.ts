@@ -17,6 +17,7 @@ import {
 import { DEADLINE_MS, HOOK_TIMEOUT_S, PermissionDesk } from "./desk.ts";
 import { DISK_FILES, Transcripts, WATCH_MS } from "./transcript.ts";
 import { NO_WINDOWS, type TmuxRun, Windows } from "./window.ts";
+import { Sessions } from "./sessions.ts";
 import { TestClock } from "./testclock.ts";
 
 const testdata = (name: string) =>
@@ -64,6 +65,7 @@ async function withDesk(
   body: (stand: {
     readonly bot: FakeBot;
     readonly clock: TestClock;
+    readonly sessions: Sessions;
     readonly transcript: string;
     readonly append: (line: string) => Promise<void>;
     /** Живой payload: транскрипт — файл стенда, если не подменён. */
@@ -88,12 +90,14 @@ async function withDesk(
   const bot = new FakeBot();
   const questions = fakeQuestions(bot);
   const clock = new TestClock();
+  const sessions = new Sessions(clock);
   const desk = new PermissionDesk({
     questions,
     transcripts: new Transcripts({ files: DISK_FILES, clock }),
     windows: options.tmux === undefined
       ? NO_WINDOWS
       : new Windows(options.tmux),
+    sessions,
     clock,
   });
   questions.start();
@@ -101,6 +105,7 @@ async function withDesk(
     await body({
       bot,
       clock,
+      sessions,
       transcript,
       append: (line) =>
         Deno.writeTextFile(transcript, `${line}\n`, { append: true }),
@@ -556,6 +561,7 @@ Deno.test("10 (S16): бот не настроен — без решения, ф�
     questions: NO_BOT,
     transcripts: new Transcripts({ files: DISK_FILES, clock: new TestClock() }),
     windows: NO_WINDOWS,
+    sessions: new Sessions(new TestClock()),
     clock: new TestClock(),
   });
   let stderr = "";
@@ -628,6 +634,7 @@ Deno.test("строка оборвана до вопроса и остановк
       questions: fakeQuestions(bot),
       transcripts: new Transcripts({ files: DISK_FILES, clock: REAL_CLOCK }),
       windows: NO_WINDOWS,
+      sessions: new Sessions(REAL_CLOCK),
       clock: REAL_CLOCK,
     });
   const stdin = await livePayload("live-permission-bash.json", {
@@ -682,4 +689,18 @@ Deno.test("транскрипт перестал читаться во врем�
     });
     await Deno.chmod(transcript, 0o600);
   }, { lines: await bashLines("toolu_A") });
+});
+
+Deno.test("R4-7: вопрос о праве — вопрос своей сессии в ряду, пока не решён", async () => {
+  await withDesk(async ({ bot, ask, payload, sessions }) => {
+    const socket = "/run/user/1000/cc-socks/9.sock";
+    const told = ask(await payload("live-permission-bash.json"), {
+      CLAUDE_CODE_MESSAGING_SOCKET: socket,
+    });
+    await bot.called(1);
+    assertEquals(sessions.of(socket).hasQuestion(), true);
+    bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
+    await told;
+    assertEquals(sessions.of(socket).hasQuestion(), false);
+  });
 });

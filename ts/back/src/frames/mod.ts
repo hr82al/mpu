@@ -82,6 +82,7 @@ export {
 export {
   HOOK_LINES,
   HookWords,
+  NOTIFICATION,
   PERMISSION_REQUEST,
   PRE_TOOL_USE,
   STOP,

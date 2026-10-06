@@ -13,7 +13,14 @@ export type {
   StepAnswer,
   StepAnswerReader,
 } from "./outcome.ts";
-export { type Button, clipLabel } from "./button.ts";
+export {
+  ACCEPTED,
+  type Button,
+  clipLabel,
+  OptionKey,
+  STALE,
+  type StepPressable,
+} from "./button.ts";
 export {
   BOLD_FIRST_LINE,
   type Entity,
@@ -31,13 +38,15 @@ export {
   notice,
   ONE,
   type Option,
+  type Selection,
   SKIP,
   type Step,
+  type StepEvents,
   TAKES_TEXT,
   type TextRule,
   Title,
 } from "./form.ts";
-export { WAITS_INPUT } from "./row.ts";
+export { URGENT, WAITS_INPUT } from "./row.ts";
 export { type Clock, REAL_CLOCK } from "./poller.ts";
 export type { Asked } from "./queue.ts";
 export {

@@ -12,6 +12,7 @@
 import { consentAt } from "../entrypoint/mod.ts";
 import {
   type HookWords,
+  NOTIFICATION,
   PERMISSION_REQUEST,
   PRE_TOOL_USE,
   STOP,
@@ -85,6 +86,8 @@ export interface OwnerHooks {
   permission(text: string): Promise<HookReply>;
   /** `stop` (`claudehook/stop_desk.ts`). */
   stop(text: string): Promise<HookReply>;
+  /** `notification` (`claudehook/notify_desk.ts`). */
+  notification(text: string): Promise<HookReply>;
 }
 
 /** Что строкам-хукам нужно сверх контекста строки. */
@@ -118,7 +121,19 @@ export function hookLineOf(
       said,
       ports,
       (text) => owner.permission(text),
-      hooked(STOP, said, ports, (text) => owner.stop(text), otherwise),
+      hooked(
+        STOP,
+        said,
+        ports,
+        (text) => owner.stop(text),
+        hooked(
+          NOTIFICATION,
+          said,
+          ports,
+          (text) => owner.notification(text),
+          otherwise,
+        ),
+      ),
     ),
   );
 }

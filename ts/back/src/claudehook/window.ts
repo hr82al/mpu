@@ -41,6 +41,75 @@ export const RUN_TMUX: TmuxRun = async (args) => {
 /** Переменная окружения клиента; не принесена — `undefined`. */
 export type CallerEnv = (name: string) => string | undefined;
 
+/** Что сделать с окном клиента: оно есть или его нет. */
+export interface PaneChoice<T> {
+  window(pane: Pane): T;
+  none(): T;
+}
+
+/** Чтение снятого экрана. */
+export interface ScreenReader<T> {
+  /** Экран — вывод `capture-pane -p`. */
+  seen(screen: string): T;
+  /** Окно закрыто или tmux не ответил. */
+  gone(): T;
+}
+
+/** Окно tmux клиента хука: сокет и панель — с его окружения. */
+export interface Pane {
+  offer<T>(choice: PaneChoice<T>): T;
+  /** Снимает экран. */
+  look<T>(reader: ScreenReader<T>): Promise<T>;
+  /** Нажимает клавишу (`1`…`9`, `Enter`, `Escape`, `Up`, `Down`); ответ — нажата ли. */
+  press(key: string): Promise<boolean>;
+  /** Вписывает текст как есть и нажимает `Enter`; ответ — вписан ли. */
+  type(text: string): Promise<boolean>;
+}
+
+/** Окна клиента нет (нет `TMUX` или `TMUX_PANE`). */
+export const NO_PANE: Pane = {
+  offer: (choice) => choice.none(),
+  look: (reader) => Promise.resolve(reader.gone()),
+  press: () => Promise.resolve(false),
+  type: () => Promise.resolve(false),
+};
+
+/** Окно tmux по сокету и панели. */
+class TmuxPane implements Pane {
+  readonly #run: TmuxRun;
+  readonly #socket: string;
+  readonly #pane: string;
+
+  constructor(run: TmuxRun, socket: string, pane: string) {
+    this.#run = run;
+    this.#socket = socket;
+    this.#pane = pane;
+  }
+
+  offer<T>(choice: PaneChoice<T>): T {
+    return choice.window(this);
+  }
+
+  async look<T>(reader: ScreenReader<T>): Promise<T> {
+    const screen = await this.#tmux(["capture-pane", "-p", "-t", this.#pane]);
+    return screen === undefined ? reader.gone() : reader.seen(screen);
+  }
+
+  async press(key: string): Promise<boolean> {
+    return await this.#tmux(["send-keys", "-t", this.#pane, key]) !==
+      undefined;
+  }
+
+  async type(text: string): Promise<boolean> {
+    const typed = await this.#tmux(["send-keys", "-t", this.#pane, "-l", text]);
+    return typed !== undefined && await this.press("Enter");
+  }
+
+  #tmux(args: readonly string[]): Promise<string | undefined> {
+    return this.#run(["-S", this.#socket, ...args]);
+  }
+}
+
 /** Окна tmux. */
 export class Windows {
   readonly #run: TmuxRun;
@@ -53,6 +122,15 @@ export class Windows {
    * Место «окно» заголовка: подпись окна клиента или пусто — нет `TMUX`
    * или `TMUX_PANE`, tmux не ответил.
    */
+  /** Окно клиента; нет `TMUX` или `TMUX_PANE` — `NO_PANE`. */
+  paneOf(env: CallerEnv): Pane {
+    const tmux = env("TMUX");
+    const pane = env("TMUX_PANE");
+    if (tmux === undefined || pane === undefined) return NO_PANE;
+    // Сокет — часть `TMUX` до первой запятой: дальше pid и номер сессии.
+    return new TmuxPane(this.#run, tmux.split(",")[0], pane);
+  }
+
   async captionOf(env: CallerEnv): Promise<readonly string[]> {
     const tmux = env("TMUX");
     const pane = env("TMUX_PANE");

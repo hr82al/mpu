@@ -1006,7 +1006,7 @@
       "claude-hook",
       "notification"
     ],
-    "verdict": "ask",
+    "verdict": "allow",
     "rule": "claude-hook notification",
     "own": true
   },

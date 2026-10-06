@@ -64,6 +64,7 @@ import { Gallery, PICTURE_LIMIT } from "../picture/mod.ts";
 import { type OwnerQuestions, REAL_CLOCK } from "../botquestions/mod.ts";
 import {
   DISK_FILES,
+  NotifyDesk,
   PermissionDesk,
   RUN_TMUX,
   Sessions,
@@ -431,6 +432,8 @@ class Back {
   readonly #desk: PermissionDesk;
   /** Вопросы «ждёт ввода» хука `Stop`: живут дольше своих строк. */
   readonly #stopDesk: StopDesk;
+  /** Снимки окон хука `Notification`: живут дольше своих строк. */
+  readonly #notifyDesk: NotifyDesk;
   /** Открытые соединения каналов: их закрывает остановка ядра. */
   readonly #channels = new Set<WebSocket>();
   /** Сессии Claude Code по ключу: вопрос «ждёт ввода» каждой. */
@@ -466,7 +469,16 @@ class Back {
       questions: options.questions,
       transcripts,
       windows,
+      sessions: this.#sessions,
       clock: REAL_CLOCK,
+    });
+    this.#notifyDesk = new NotifyDesk({
+      questions: options.questions,
+      transcripts,
+      windows,
+      sessions: this.#sessions,
+      clock: REAL_CLOCK,
+      diagnose: options.diagnose,
     });
     this.#stopDesk = new StopDesk({
       questions: options.questions,
@@ -593,6 +605,7 @@ class Back {
     // Вопросы «ждёт ввода» строк не держат: их снимает в «истёк» стол,
     // дождавшись своих наблюдателей.
     await this.#stopDesk.stop();
+    await this.#notifyDesk.stop();
     // Каналы — после стола: их вопросы уже «истёк», и закрытие соединения
     // («сессия закрыта») решённое не перерешит.
     for (const socket of this.#channels) socket.close();
@@ -807,6 +820,7 @@ class Back {
       owner: {
         permission: (text, signal) => this.#desk.reply(text, callerEnv, signal),
         stop: (text) => this.#stopDesk.reply(text, callerEnv),
+        notification: (text) => this.#notifyDesk.reply(text, callerEnv),
       },
       image: {
         image: this.#image,
