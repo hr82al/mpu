@@ -124,8 +124,13 @@ export class PermissionDesk {
     // Строка, оборванная раньше постановки, истекает тут же: ряд убирает
     // непоказанный вопрос молча, в чат ничего не уходит.
     const gone = AbortSignal.any([signal, this.#closing.signal]);
-    const outcome = await this.#settled(asked, transcript, gone);
-    key.leave(sessions, asked);
+    let outcome: Outcome;
+    try {
+      outcome = await this.#settled(asked, transcript, gone);
+    } finally {
+      // Сбой наблюдателя не оставляет сессию навсегда «с вопросом».
+      key.leave(sessions, asked);
+    }
     return outcome.read(replyOf(request.asking));
   }
 

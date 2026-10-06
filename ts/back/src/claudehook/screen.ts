@@ -49,9 +49,13 @@ function rowOf(raw: string): Row {
   if (/^[─╌═]{3,} .+ [─╌═]+$/.test(bare)) return { kind: "line" };
   let indent = line.length - line.trimStart().length;
   let body = line.trimStart();
-  if (body.startsWith(CURSOR)) {
-    body = body.slice(CURSOR.length);
+  // Маркер выбора — `❯` с пробелом или один (пустое поле ввода после
+  // обрезки хвостовых пробелов).
+  if (body.startsWith(CURSOR.trim())) {
+    const marker = body.startsWith(CURSOR) ? CURSOR : CURSOR.trim();
+    body = body.slice(marker.length);
     indent += CURSOR.length;
+    if (body === "") return { kind: "blank" };
   }
   if (body.startsWith("Tip:") || HINTS.some((hint) => body.startsWith(hint))) {
     return { kind: "hint" };

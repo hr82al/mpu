@@ -7,6 +7,7 @@
 
 import { assertEquals } from "@std/assert";
 import { BotFailure } from "./bot_api.ts";
+import { OptionKey, STALE } from "./button.ts";
 import {
   BUTTONS_ONLY,
   Form,
@@ -14,6 +15,7 @@ import {
   MANY,
   ONE,
   SKIP,
+  type StepEvents,
   TAKES_TEXT,
   type TextRule,
 } from "./form.ts";
@@ -810,6 +812,43 @@ function delivering(next: () => number): TextRule {
   };
 }
 
+/**
+ * Живой вопрос (как снимок окна): текст — свойством, перерисовка — по
+ * `changed()` слушателя, полученного нажатием; `redraw` зовёт её в любой
+ * момент, в том числе после исхода.
+ */
+function live(name: string) {
+  let text = `${name}: 1`;
+  let events: StepEvents = { answered: () => {}, changed: () => {} };
+  const form = new Form({
+    places: [],
+    steps: [{
+      head: `🖥 ${name}`,
+      get text() {
+        return text;
+      },
+      options: [{ label: "1" }],
+      choice: {
+        start: () => ({
+          press: (given) => {
+            events = given;
+            return { pick: () => "", done: () => STALE };
+          },
+          buttons: () => [[{ label: "1", key: new OptionKey(0) }]],
+        }),
+      },
+      reply: BUTTONS_ONLY,
+    }],
+  });
+  return {
+    form,
+    redraw: (turn: number) => {
+      text = `${name}: ${turn}`;
+      events.changed();
+    },
+  };
+}
+
 /** «Ждёт ввода» сессии с каналом: свой текст — доставка. */
 function waitsWithChannel(name: string, reply: TextRule): Form {
   return new Form({
@@ -833,6 +872,7 @@ Deno.test("свойство: при любых приходах, исходах,
     const asked: Asked[] = [];
     const steps: string[] = [];
     const writes: Promise<void>[] = [];
+    const lives: ReturnType<typeof live>[] = [];
     let release = () => {};
     for (let step = 0; step < 18; step++) {
       const roll = next();
@@ -848,7 +888,15 @@ Deno.test("свойство: при любых приходах, исходах,
           queue.ask(waitsWithChannel(`C${asked.length + 1}`, delivering(next))),
         );
         steps.push(`ждёт с каналом ${asked.length}`);
-      } else if (roll < 0.45) {
+      } else if (roll < 0.43) {
+        const one = live(`L${asked.length + 1}`);
+        lives.push(one);
+        asked.push(queue.ask(one.form));
+        steps.push(`живой ${asked.length}`);
+      } else if (roll < 0.45 && lives.length > 0) {
+        lives[Math.floor(next() * lives.length)].redraw(step);
+        steps.push("живой перерисован");
+      } else if (roll < 0.47) {
         writes.push(queue.write("Синий"));
         steps.push("текст");
       } else if (roll < 0.49 && asked.length > 0) {

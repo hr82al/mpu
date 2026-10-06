@@ -90,12 +90,17 @@ export class Session {
     return asked;
   }
 
-  /** Снимок окна сессии. */
-  snapshot(ask: () => Asked): Asked {
+  /**
+   * Снимок окна сессии — только если у неё нет вопроса в ряду: решение и
+   * постановка — в одном синхронном шаге, без ожидания между ними, чтобы
+   * структурный вопрос или второй снимок не встали в зазор.
+   */
+  snapshot<T>(ask: () => Asked, seat: SnapshotSeat<T>): T {
+    if (this.#all.size > 0) return seat.busy();
     const asked = ask();
     this.#snapshot = asked;
     this.#all.add(asked);
-    return asked;
+    return seat.seated(asked);
   }
 
   /** Вопрос `asked` решён: забыть. */
@@ -103,11 +108,6 @@ export class Session {
     this.#all.delete(asked);
     if (this.#asked === asked) this.#asked = NOT_ASKED;
     if (this.#snapshot === asked) this.#snapshot = NOT_ASKED;
-  }
-
-  /** Есть ли у сессии вопрос в ряду — ожидание уже в чате. */
-  hasQuestion(): boolean {
-    return this.#all.size > 0;
   }
 
   /** Канал сессии; прежний вытеснен — его закрытие ничего не снимает. */
@@ -173,16 +173,26 @@ export class Sessions {
   }
 }
 
+/** Чем кончилась попытка поставить снимок. */
+export interface SnapshotSeat<T> {
+  /** Поставлен. */
+  seated(asked: Asked): T;
+  /** У сессии уже есть вопрос в ряду — ожидание в чате. */
+  busy(): T;
+}
+
 /** Ключ сессии глазами стола. */
 export interface SessionKey {
   /** Задаёт вопрос сессии; прежний вопрос той же сессии снят. */
   seat(sessions: Sessions, ask: () => Asked): Asked;
   /** Задаёт структурный вопрос сессии (право, AskUserQuestion). */
   seatUrgent(sessions: Sessions, ask: () => Asked): Asked;
-  /** Задаёт снимок окна сессии. */
-  seatSnapshot(sessions: Sessions, ask: () => Asked): Asked;
-  /** Есть ли у сессии вопрос в ряду. */
-  asking(sessions: Sessions): boolean;
+  /** Задаёт снимок окна сессии, если у неё нет вопроса в ряду. */
+  seatSnapshot<T>(
+    sessions: Sessions,
+    ask: () => Asked,
+    seat: SnapshotSeat<T>,
+  ): T;
   /** Вопрос `asked` решён. */
   leave(sessions: Sessions, asked: Asked): void;
   /** Достижимость сессии: есть ли у неё канал. */
@@ -205,12 +215,12 @@ class SocketKey implements SessionKey {
     return sessions.of(this.#socket).urgent(ask);
   }
 
-  seatSnapshot(sessions: Sessions, ask: () => Asked): Asked {
-    return sessions.of(this.#socket).snapshot(ask);
-  }
-
-  asking(sessions: Sessions): boolean {
-    return sessions.of(this.#socket).hasQuestion();
+  seatSnapshot<T>(
+    sessions: Sessions,
+    ask: () => Asked,
+    seat: SnapshotSeat<T>,
+  ): T {
+    return sessions.of(this.#socket).snapshot(ask, seat);
   }
 
   leave(sessions: Sessions, asked: Asked): void {
@@ -229,8 +239,7 @@ class SocketKey implements SessionKey {
 const NO_KEY: SessionKey = {
   seat: (_, ask) => ask(),
   seatUrgent: (_, ask) => ask(),
-  seatSnapshot: (_, ask) => ask(),
-  asking: () => false,
+  seatSnapshot: (_, ask, seat) => seat.seated(ask()),
   leave: () => {},
   reach: () => NO_CHANNEL,
 };

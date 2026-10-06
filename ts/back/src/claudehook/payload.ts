@@ -103,8 +103,21 @@ function projectName(payload: HookPayload): string {
   return cwd.slice(cwd.lastIndexOf("/") + 1);
 }
 
+/**
+ * Ожидание (`claude-hook-notification-snapshot.md`, «Когда приходит
+ * снимок»): тип уведомления оканчивается на `_prompt` или `_dialog`.
+ */
+export function notificationWaits(payload: HookPayload): boolean {
+  return /_(prompt|dialog)$/.test(stringField(payload, "notification_type"));
+}
+
+/** Путь транскрипта сессии; нет — пустой. */
+export function transcriptPathOf(payload: HookPayload): string {
+  return stringField(payload, "transcript_path");
+}
+
 /** Строковое поле payload'а; поля нет либо оно не строка — пустая. */
-function stringField(payload: HookPayload, name: string): string {
+export function stringField(payload: HookPayload, name: string): string {
   const value = payload.fields[name];
   return typeof value === "string" ? value : "";
 }

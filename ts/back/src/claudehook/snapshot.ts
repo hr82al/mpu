@@ -23,6 +23,7 @@ import {
   type StepEvents,
   URGENT,
 } from "../botquestions/mod.ts";
+import { TERMINAL } from "./decision.ts";
 import { type Dialog, dialogOf } from "./screen.ts";
 import type { Pane, ScreenReader } from "./window.ts";
 
@@ -43,9 +44,17 @@ const KEYS: readonly { readonly label: string; readonly key: string }[] = [
   { label: "↓", key: "Down" },
 ];
 
-/** Номера кнопок: пункты — с нуля, клавиши — с `KEY_BASE`, экран — свой. */
-const KEY_BASE = 100;
-const WHOLE_SCREEN = 200;
+/**
+ * Номер кнопки — поколение блока и место: пункты — места 0–8, клавиши — с
+ * `KEY_SLOT`, экран — `SCREEN_SLOT`. Поколение растёт с каждым новым
+ * блоком: кнопка прежнего блока (сообщение ещё не поправлено) не нажмёт
+ * пункт нового, которого владелец не видел.
+ */
+const SLOTS = 20;
+const KEY_SLOT = 10;
+const SCREEN_SLOT = 15;
+/** Поколений — сколько влезает в три цифры номера кнопки. */
+const GENERATIONS = 49;
 
 /** Что нужно снимку. */
 export interface SnapshotParts {
@@ -62,12 +71,20 @@ const NO_EVENTS: StepEvents = { answered: () => {}, changed: () => {} };
 /** Работа снимка над окном: исполняется по одной, по очереди. */
 type Work = (asked: Asked, stop: AbortSignal) => Promise<void>;
 
+/** Работа в очереди и блок, по которому её заказали. */
+interface Queued {
+  readonly generation: number;
+  readonly work: Work;
+}
+
 /** Снимок окна сессии. */
 export class Snapshot {
   readonly #parts: SnapshotParts;
   #dialog: Dialog;
+  /** Поколение нынешнего блока. */
+  #generation = 0;
   #events: StepEvents = NO_EVENTS;
-  readonly #queued: Work[] = [];
+  readonly #queued: Queued[] = [];
   /** Разбудить наблюдение: пришла работа. */
   #wake: () => void = () => {};
 
@@ -116,9 +133,11 @@ export class Snapshot {
     const stop = AbortSignal.any([signal, done.signal]);
     const ended = asked.outcome.then(() => done.abort());
     while (!stop.aborted) {
-      const work = this.#queued.shift();
-      if (work !== undefined) {
-        await work(asked, stop);
+      const next = this.#queued.shift();
+      if (next !== undefined) {
+        // Заказана по прежнему блоку (второе касание, пока шёл снимок) —
+        // в новый блок вслепую не жмётся.
+        if (next.generation === this.#generation) await next.work(asked, stop);
         continue;
       }
       if (await this.#rested(stop)) await this.#looked(asked);
@@ -140,19 +159,24 @@ export class Snapshot {
       buttons: () => {
         const items = this.#dialog.items().map((item, index): Button[] => [{
           label: item.label,
-          key: new OptionKey(index),
+          key: new OptionKey(this.#numbered(index)),
         }]);
         const keys = KEYS.map((one, index): Button => ({
           label: one.label,
-          key: new OptionKey(KEY_BASE + index),
+          key: new OptionKey(this.#numbered(KEY_SLOT + index)),
         }));
         const screen: Button = {
           label: "весь экран",
-          key: new OptionKey(WHOLE_SCREEN),
+          key: new OptionKey(this.#numbered(SCREEN_SLOT)),
         };
         return [...items, keys, [screen]];
       },
     };
+  }
+
+  /** Номер кнопки места `slot` нынешнего блока. */
+  #numbered(slot: number): number {
+    return (this.#generation % GENERATIONS) * SLOTS + slot;
   }
 
   /** Работа каждой кнопки нынешнего блока — по номеру кнопки. */
@@ -161,14 +185,14 @@ export class Snapshot {
       this.#pressed(asked, stop, key);
     return new Map<number, Work>([
       ...this.#dialog.items().map((item, index): [number, Work] => [
-        index,
+        this.#numbered(index),
         press(String(item.number)),
       ]),
       ...KEYS.map((one, index): [number, Work] => [
-        KEY_BASE + index,
+        this.#numbered(KEY_SLOT + index),
         press(one.key),
       ]),
-      [WHOLE_SCREEN, (asked) => this.#wholeScreen(asked)],
+      [this.#numbered(SCREEN_SLOT), (asked) => this.#wholeScreen(asked)],
     ]);
   }
 
@@ -185,7 +209,7 @@ export class Snapshot {
   }
 
   #queue(work: Work): void {
-    this.#queued.push(work);
+    this.#queued.push({ generation: this.#generation, work });
     this.#wake();
   }
 
@@ -211,13 +235,15 @@ export class Snapshot {
     await this.#parts.pane.look({
       seen: (screen) => {
         if (dialogOf(screen).same(this.#dialog)) return;
-        asked.withdraw("решено в терминале");
+        asked.withdraw(TERMINAL);
       },
       gone: () => asked.withdrawAs(WINDOW_GONE),
     });
   }
 
   async #pressed(asked: Asked, stop: AbortSignal, key: string): Promise<void> {
+    // Исход пришёл, пока работа ждала очереди: окно уже не то.
+    if (stop.aborted) return;
     if (!await this.#parts.pane.press(key)) {
       asked.withdrawAs(WINDOW_GONE);
       return;
@@ -226,6 +252,7 @@ export class Snapshot {
   }
 
   async #typed(asked: Asked, stop: AbortSignal, text: string): Promise<void> {
+    if (stop.aborted) return;
     if (!await this.#parts.pane.type(text)) {
       asked.withdrawAs(WINDOW_GONE);
       return;
@@ -251,6 +278,7 @@ export class Snapshot {
           asked.withdrawAs(`✅ окно сменилось — ${dialog.firstLine()}`);
           return;
         }
+        if (!dialog.same(this.#dialog)) this.#generation += 1;
         this.#dialog = dialog;
         this.#events.changed();
       },
@@ -261,15 +289,20 @@ export class Snapshot {
 
   /** `весь экран` — отдельным сообщением, моноширинным, без кнопок. */
   async #wholeScreen(asked: Asked): Promise<void> {
-    const screen = await this.#parts.pane.look({
-      seen: (screen) => screen,
-      gone: () => {
+    const post = await this.#parts.pane.look<() => Promise<void>>({
+      seen: (screen) => () => this.#post(screen.trimEnd()),
+      gone: () => () => {
         asked.withdrawAs(WINDOW_GONE);
-        return "";
+        return Promise.resolve();
       },
     });
+    await post();
+  }
+
+  /** Экран целиком; пустой — сообщения нет (Telegram пустое отвергает). */
+  async #post(screen: string): Promise<void> {
     if (screen === "") return;
-    const posted = await this.#parts.post(preformatted(screen.trimEnd()));
+    const posted = await this.#parts.post(preformatted(screen));
     posted.read({
       sent: () => {},
       refused: (reason) =>

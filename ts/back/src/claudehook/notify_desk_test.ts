@@ -40,11 +40,31 @@ class FakeTmux {
   readonly sent: string[][] = [];
   /** Сколько раз снимали экран. */
   captures = 0;
+  /** Сбой самого tmux (не «окно закрыто»): бросает. */
+  broken = false;
+  /** Подписи окна по порядку: за подписью сразу — постановка снимка. */
+  captions = 0;
+  readonly #captioned: { count: number; done: () => void }[] = [];
+
+  /** Ждёт `count`-ю подпись окна. */
+  captioned(count: number): Promise<void> {
+    if (this.captions >= count) return Promise.resolve();
+    const reached = Promise.withResolvers<void>();
+    this.#captioned.push({ count, done: reached.resolve });
+    return reached.promise;
+  }
 
   run = (args: readonly string[]): Promise<string | undefined> => {
     if (!this.alive) return Promise.resolve(undefined);
+    if (this.broken) return Promise.reject(new Error("tmux упал"));
     const command = args[2];
-    if (command === "display-message") return Promise.resolve("w:9 probe\n");
+    if (command === "display-message") {
+      this.captions += 1;
+      for (const one of this.#captioned) {
+        if (this.captions >= one.count) one.done();
+      }
+      return Promise.resolve("w:9 probe\n");
+    }
     if (command === "capture-pane") {
       this.captures += 1;
       return Promise.resolve(this.screen);
@@ -301,16 +321,22 @@ Deno.test("R4-7, R4-8: у сессии есть вопрос в ряду — с�
       name,
       () =>
         withNotify(
-          async ({ bot, clock, tmux, notify, sessions, questions, desk }) => {
+          async ({ bot, clock, tmux, notify, sessions, questions }) => {
             tmux.screen = await screen("screen-permission-bash.txt");
             assertEquals(await notify(type), SILENT);
             seat(sessions, () => questions.ask(f1()));
             await bot.called(1);
             await clock.paused(SETTLE_QUESTION_MS);
             clock.fire(SETTLE_QUESTION_MS);
-            // Стол довёл решение до конца: снимка нет — окно не снималось.
-            await desk.stop();
-            assertEquals(tmux.captures, 0);
+            // Снимок, вставший в ряд за вопросом сессии, проявился бы
+            // правкой «ещё ждут» у её вопроса: подпись окна — и сразу
+            // решение; правки ряда дописаны остановкой службы вопросов.
+            await tmux.captioned(1);
+            await questions.stop();
+            assertEquals(
+              bot.calls.some((call) => call.text.includes("ещё ждут")),
+              false,
+            );
           },
         ),
     );
@@ -366,6 +392,7 @@ Deno.test("R4-12: текст владельца — send-keys -l <текст> и
         "-t",
         "%9",
         "-l",
+        "--",
         "Зелёный",
       ],
       ["-S", "/tmp/tmux-1000/default", "send-keys", "-t", "%9", "Enter"],
@@ -378,7 +405,7 @@ Deno.test("R4-13: «весь экран» — отдельное сообщен�
     tmux.screen = await screen("screen-elicitation-fields.txt");
     await notify("elicitation_dialog");
     await placed(clock, bot);
-    bot.deliver([pressUpdate(1, 111, "r1:1:0:200")]);
+    bot.deliver([pressUpdate(1, 111, "r1:1:0:15")]);
     await bot.called(3);
     const whole = bot.calls[2];
     assertEquals(whole.method, "send");
@@ -445,5 +472,105 @@ Deno.test("остановка ядра — снимок «истёк», набл
       bot.calls[1].text.split("\n").at(-1),
       "⌛ истёк — ответьте в терминале",
     );
+  });
+});
+
+Deno.test("кнопка прежнего блока и второе касание — в новый блок вслепую не жмут", async () => {
+  await withNotify(async ({ bot, clock, tmux, notify }) => {
+    tmux.screen = await screen("screen-ask-user-question.txt");
+    await notify("elicitation_dialog");
+    await placed(clock, bot);
+    // Два касания «1» подряд: второе заказано по тому же блоку.
+    bot.deliver([
+      pressUpdate(1, 111, "r1:1:0:0"),
+      pressUpdate(2, 111, "r1:1:0:0"),
+    ]);
+    await clock.paused(SETTLE_MS);
+    tmux.screen = await screen("screen-permission-bash.txt");
+    clock.fire(SETTLE_MS);
+    await bot.called(4);
+    // Блок сменился: сообщение — новым блоком, клавиша ушла одна.
+    assertEquals(bot.calls[3].text.split("\n")[1], "Bash command");
+    await clock.paused(LOOK_MS);
+    assertEquals(tmux.sent.length, 1);
+    // Кнопка прежнего блока (поколение 0) — «вопрос уже решён».
+    bot.deliver([pressUpdate(3, 111, "r1:1:0:1")]);
+    await bot.called(5);
+    assertEquals(bot.calls[4], {
+      method: "ack",
+      message: 0,
+      text: "вопрос уже решён",
+      buttons: [],
+      data: [],
+    });
+    assertEquals(tmux.sent.length, 1);
+  });
+});
+
+Deno.test("второе уведомление той же сессии — снимок один", async () => {
+  await withNotify(async ({ bot, clock, tmux, notify, questions }) => {
+    tmux.screen = await screen("screen-permission-bash.txt");
+    await notify("permission_prompt");
+    await placed(clock, bot);
+    await notify("elicitation_dialog");
+    await clock.paused(SETTLE_QUESTION_MS);
+    clock.fire(SETTLE_QUESTION_MS);
+    // Подпись окна второго решения; сразу за ней — постановка или отказ,
+    // без ожидания. Правки ряда дописаны остановкой службы вопросов.
+    await tmux.captioned(2);
+    await questions.stop();
+    assertEquals(
+      bot.calls.filter((call) => call.method === "send").length,
+      1,
+    );
+    assertEquals(
+      bot.calls.some((call) => call.text.includes("ещё ждут")),
+      false,
+    );
+  });
+});
+
+Deno.test("на экране нет диалога — строка-уведомление вместо снимка", async () => {
+  await withNotify(async ({ bot, clock, tmux, notify }) => {
+    tmux.screen = "● Готово.\n";
+    await notify("idle_prompt");
+    await placed(clock, bot);
+    assertEquals(
+      bot.calls[0].text,
+      "Claude · ozon · idle_prompt\nClaude is waiting for your input",
+    );
+    assertEquals(bot.calls[0].buttons, []);
+  });
+});
+
+Deno.test("незнакомый тип и тип не задан — строка-уведомление, как прежде", async (t) => {
+  for (
+    const [name, type, head] of [
+      ["незнакомый", "brand_new_event", "Claude · ozon · brand_new_event"],
+      ["не задан", "", "Claude · ozon · notification"],
+    ] as const
+  ) {
+    await t.step(name, () =>
+      withNotify(async ({ bot, notify }) => {
+        assertEquals((await notify(type)).code, 0);
+        assertEquals(bot.calls[0].text.split("\n")[0], head);
+      }));
+  }
+});
+
+Deno.test("сбой tmux во время наблюдения — у снимка исход «истёк», ряд не держит", async () => {
+  await withNotify(async ({ bot, clock, tmux, notify }) => {
+    tmux.screen = await screen("screen-permission-bash.txt");
+    await notify("permission_prompt");
+    await placed(clock, bot);
+    await clock.paused(LOOK_MS);
+    tmux.broken = true;
+    clock.fire(LOOK_MS);
+    await bot.called(2);
+    assertEquals(
+      bot.calls[1].text.split("\n").at(-1),
+      "⌛ истёк — ответьте в терминале",
+    );
+    assertEquals(bot.calls[1].buttons, []);
   });
 });

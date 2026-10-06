@@ -14,7 +14,14 @@ import {
   REAL_CLOCK,
 } from "../botquestions/mod.ts";
 import { UsageError } from "../command/mod.ts";
-import { notificationText, parseHookPayload } from "./payload.ts";
+import {
+  type HookPayload,
+  notificationText,
+  notificationWaits,
+  parseHookPayload,
+  transcriptPathOf,
+} from "./payload.ts";
+import { dialogOf } from "./screen.ts";
 import { placesOf, projectOf } from "./places.ts";
 import { DECIDED, type HookReply, type HookSpeech } from "./reply.ts";
 import { type SessionKey, sessionKeyOf, Sessions } from "./sessions.ts";
@@ -73,11 +80,6 @@ class Refused implements HookReply {
 /** stdin не JSON-объект: код 2, как у прежней команды. */
 const BAD_INPUT = new Refused("stdin хука разбирается как JSON-объект", 2);
 
-/** Ожидание: тип уведомления кончается на `_prompt` или `_dialog`. */
-function waits(type: unknown): boolean {
-  return typeof type === "string" && /_(prompt|dialog)$/.test(type);
-}
-
 /** Что нужно столу. */
 export interface NotifyDeskParts {
   readonly questions: Pick<OwnerQuestions, "ask" | "post">;
@@ -103,19 +105,19 @@ export class NotifyDesk {
 
   /** Ответ хука на stdin `text`; окружение клиента — `env`. */
   async reply(text: string, env: CallerEnv): Promise<HookReply> {
-    let fields: Readonly<Record<string, unknown>>;
+    let payload: HookPayload;
     try {
-      fields = parseHookPayload(text).fields;
+      payload = parseHookPayload(text);
     } catch (err) {
       if (!(err instanceof UsageError)) throw err;
       return BAD_INPUT;
     }
-    const line = () => this.#line(text);
-    if (!waits(fields.notification_type)) return await line();
+    const line = () => this.#line(payload);
+    if (!notificationWaits(payload)) return await line();
     return await this.#parts.windows.paneOf(env).offer({
       none: line,
       window: (pane) => {
-        this.#own(this.#later(pane, fields, env, line));
+        this.#own(this.#later(pane, payload, env, line));
         return Promise.resolve(QUIET);
       },
     });
@@ -128,14 +130,23 @@ export class NotifyDesk {
   }
 
   /** Строка-уведомление в бота. */
-  async #line(text: string): Promise<HookReply> {
+  async #line(payload: HookPayload): Promise<HookReply> {
     const posted = await this.#parts.questions.post({
-      text: notificationText(parseHookPayload(text)),
+      text: notificationText(payload),
       entities: [],
     });
     return posted.read<HookReply>({
       sent: (id) => new Sent(id),
       refused: (reason) => new Refused(reason, 1),
+    });
+  }
+
+  /** Строка-уведомление после выхода хука: отказ — в журнал службы. */
+  async #lateLine(line: () => Promise<HookReply>): Promise<void> {
+    const reply = await line();
+    reply.tell({
+      stdout: () => {},
+      stderr: (said) => this.#parts.diagnose(said.trimEnd()),
     });
   }
 
@@ -147,12 +158,13 @@ export class NotifyDesk {
   }
 
   /**
-   * Через `SETTLE_QUESTION_MS`: у сессии есть вопрос — ожидание уже в
-   * чате; нет — снимок окна; окно не снимается — строка-уведомление.
+   * Через `SETTLE_QUESTION_MS` экран окна: снять нельзя или диалога на нём
+   * нет — строка-уведомление; есть — снимок, если у сессии нет вопроса в
+   * ряду (ожидание уже в чате).
    */
   async #later(
     pane: Pane,
-    fields: Readonly<Record<string, unknown>>,
+    payload: HookPayload,
     env: CallerEnv,
     line: () => Promise<HookReply>,
   ): Promise<void> {
@@ -163,36 +175,33 @@ export class NotifyDesk {
       if (!closing.aborted) throw err;
       return;
     }
-    const key = sessionKeyOf(env);
-    if (key.asking(this.#parts.sessions)) return;
-    const screen = await pane.look({ seen: (one) => one, gone: () => "" });
-    if (screen === "") {
-      const reply = await line();
-      reply.tell({
-        stdout: () => {},
-        stderr: (said) => this.#parts.diagnose(said.trimEnd()),
-      });
-      return;
-    }
-    await this.#snapshot(pane, screen, fields, env, key);
+    const next = await pane.look<() => Promise<void>>({
+      seen: (screen) => () =>
+        dialogOf(screen).waiting()
+          ? this.#snapshot(pane, screen, payload, env)
+          : this.#lateLine(line),
+      gone: () => () => this.#lateLine(line),
+    });
+    await next();
   }
 
   async #snapshot(
     pane: Pane,
     screen: string,
-    fields: Readonly<Record<string, unknown>>,
+    payload: HookPayload,
     env: CallerEnv,
-    key: SessionKey,
   ): Promise<void> {
     const { questions, transcripts, windows, sessions, clock, diagnose } =
       this.#parts;
-    const path = typeof fields.transcript_path === "string"
-      ? fields.transcript_path
-      : "";
-    const transcript = await transcripts.read(path, TYPED_INPUT);
+    // Всё, что ждёт, — до постановки: решение «есть ли у сессии вопрос» и
+    // постановка снимка идут одним шагом сессии.
+    const transcript = await transcripts.read(
+      transcriptPathOf(payload),
+      TYPED_INPUT,
+    );
     const places = placesOf(
       transcript.title(),
-      projectOf(fields.cwd),
+      projectOf(payload.fields.cwd),
       await windows.captionOf(env),
     );
     const snapshot = new Snapshot({
@@ -201,10 +210,22 @@ export class NotifyDesk {
       post: (message) => questions.post(message),
       diagnose,
     }, screen);
-    const asked: Asked = key.seatSnapshot(
+    const key = sessionKeyOf(env);
+    await key.seatSnapshot(
       sessions,
       () => questions.ask(snapshot.form(places)),
+      {
+        seated: (asked) => this.#watch(snapshot, asked, key),
+        busy: () => Promise.resolve(),
+      },
     );
+  }
+
+  /**
+   * Снимок до исхода; остановка ядра — «истёк». Исход у снимка есть всегда,
+   * и после сбоя: иначе срочный вопрос без исхода держал бы голову ряда.
+   */
+  async #watch(snapshot: Snapshot, asked: Asked, key: SessionKey) {
     const closing = this.#closing.signal;
     const expire = () => asked.expire();
     closing.addEventListener("abort", expire, { once: true });
@@ -213,8 +234,18 @@ export class NotifyDesk {
       await snapshot.watch(asked, closing);
     } finally {
       closing.removeEventListener("abort", expire);
-      key.leave(sessions, asked);
+      asked.expire();
+      key.leave(this.#parts.sessions, asked);
     }
+    (await asked.outcome).read({
+      answered: () => {},
+      withdrawn: () => {},
+      expired: () => {},
+      refused: (reason) =>
+        this.#parts.diagnose(
+          `claude-hook notification: снимок не показан: ${reason}`,
+        ),
+    });
   }
 }
 

@@ -6,7 +6,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { NO_BOT, REAL_CLOCK } from "../botquestions/mod.ts";
+import { type Asked, NO_BOT, REAL_CLOCK } from "../botquestions/mod.ts";
 import type { HookReply } from "./reply.ts";
 import {
   FakeBot,
@@ -691,6 +691,28 @@ Deno.test("транскрипт перестал читаться во врем�
   }, { lines: await bashLines("toolu_A") });
 });
 
+/**
+ * Занята ли сессия `socket` вопросом: снимок не ставится. Пробный снимок,
+ * если встал, тут же уходит.
+ */
+function busy(sessions: Sessions, socket: string): boolean {
+  const session = sessions.of(socket);
+  const probe: Asked = {
+    outcome: new Promise(() => {}),
+    placed: Promise.resolve(),
+    withdraw: () => {},
+    withdrawAs: () => {},
+    expire: () => {},
+  };
+  return session.snapshot(() => probe, {
+    seated: (asked) => {
+      session.leave(asked);
+      return false;
+    },
+    busy: () => true,
+  });
+}
+
 Deno.test("R4-7: вопрос о праве — вопрос своей сессии в ряду, пока не решён", async () => {
   await withDesk(async ({ bot, ask, payload, sessions }) => {
     const socket = "/run/user/1000/cc-socks/9.sock";
@@ -698,9 +720,9 @@ Deno.test("R4-7: вопрос о праве — вопрос своей сесс
       CLAUDE_CODE_MESSAGING_SOCKET: socket,
     });
     await bot.called(1);
-    assertEquals(sessions.of(socket).hasQuestion(), true);
+    assertEquals(busy(sessions, socket), true);
     bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
     await told;
-    assertEquals(sessions.of(socket).hasQuestion(), false);
+    assertEquals(busy(sessions, socket), false);
   });
 });

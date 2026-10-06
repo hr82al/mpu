@@ -35,8 +35,9 @@ AskUserQuestion, «ждёт ввода»), — вопрос-снимок окн�
   <message, иначе notification_message>
 
 stdout — одна строка JSON {"id": …}; отказ — строка в stderr
-(mpu claude-hook notification: <причина>). Exit: 0 — ушло или снимок
-поставлен; 1 — бот не настроен или недоступен; 2 — stdin не JSON-объект.
+(mpu claude-hook notification: <причина>). Exit: 0 — строка ушла или
+ожидание отложено до решения о снимке; 1 — бот не настроен или
+недоступен; 2 — stdin не JSON-объект.
 
 Включение — ставит install.sh, в ~/.claude/settings.json:
 {"hooks":{"Notification":[{"matcher":"","hooks":[{"type":"command",
