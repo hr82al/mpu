@@ -135,37 +135,54 @@ export class PermissionDesk {
   }
 
   /**
-   * Исход вопроса; после него наблюдатель транскрипта и срок гаснут, и их
-   * конец дожидается — висящих таймеров и чтений не остаётся. `signal` —
-   * обрыв строки или остановка ядра: исход «истёк».
+   * Исход вопроса; наблюдатель транскрипта снимает его ответом в
+   * терминале. `signal` — обрыв строки или остановка ядра: исход «истёк».
    */
-  async #settled(
+  #settled(
     asked: Asked,
     transcript: Transcript,
     signal: AbortSignal,
   ): Promise<Outcome> {
-    const done = new AbortController();
-    const stop = AbortSignal.any([signal, done.signal]);
-    const expire = () => asked.expire();
-    signal.addEventListener("abort", expire, {
-      once: true,
-      signal: done.signal,
-    });
-    if (signal.aborted) expire();
-    // Обработчики — сразу: отказ, пришедший до конца ожидания, иначе
-    // успел бы стать необработанным.
-    const watching = Promise.allSettled([
+    return settledWithin(asked, signal, this.#parts.clock, (stop) => [
       until(stop, transcript.answered(stop), () => asked.withdraw(TERMINAL)),
-      until(stop, this.#parts.clock.pause(DEADLINE_MS, stop), expire),
     ]);
-    // Исход у вопроса бывает всегда: промис исхода не отвергается.
-    const outcome = await asked.outcome;
-    done.abort();
-    for (const result of await watching) {
-      if (result.status === "rejected") throw result.reason;
-    }
-    return outcome;
   }
+}
+
+/**
+ * Исход вопроса до срока ядра; после него наблюдатели и срок гаснут, и их
+ * конец дожидается — висящих таймеров и чтений не остаётся.
+ *
+ * @param signal обрыв строки или остановка ядра — исход «истёк»
+ * @param watch наблюдатели, снимающие вопрос по-своему; `stop` — конец
+ */
+export async function settledWithin(
+  asked: Asked,
+  signal: AbortSignal,
+  clock: Clock,
+  watch: (stop: AbortSignal) => readonly Promise<void>[],
+): Promise<Outcome> {
+  const done = new AbortController();
+  const stop = AbortSignal.any([signal, done.signal]);
+  const expire = () => asked.expire();
+  signal.addEventListener("abort", expire, {
+    once: true,
+    signal: done.signal,
+  });
+  if (signal.aborted) expire();
+  // Обработчики — сразу: отказ, пришедший до конца ожидания, иначе
+  // успел бы стать необработанным.
+  const watching = Promise.allSettled([
+    ...watch(stop),
+    until(stop, clock.pause(DEADLINE_MS, stop), expire),
+  ]);
+  // Исход у вопроса бывает всегда: промис исхода не отвергается.
+  const outcome = await asked.outcome;
+  done.abort();
+  for (const result of await watching) {
+    if (result.status === "rejected") throw result.reason;
+  }
+  return outcome;
 }
 
 /** Стол без бота: вопрос — отказ «бот не настроен», файлов не читает. */
