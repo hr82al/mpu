@@ -111,27 +111,103 @@ function recordsOf(bytes: Uint8Array): {
   return { records, used };
 }
 
-/** Ответ на вызов `id` среди записей: `user` с его `tool_result`. */
-function answers(records: readonly Fields[], id: string): boolean {
-  return records.some((record) =>
-    record.type === "user" &&
-    blocksOf(record).some((block) =>
-      block.type === "tool_result" && block.tool_use_id === id
-    )
+/** `id` блоков `tool_use` записи `assistant`, равных вызову `call`. */
+function callIds(record: Fields, call: ToolUse): readonly string[] {
+  if (record.type !== "assistant") return [];
+  return blocksOf(record).flatMap((block) =>
+    block.type === "tool_use" && typeof block.id === "string" &&
+      block.name === call.name && same(block.input, call.input)
+      ? [block.id]
+      : []
   );
 }
 
-/** Что дал первый, полный, разбор транскрипта. */
-interface Scan {
-  readonly custom?: string;
-  readonly ai?: string;
-  /** `id` последнего `tool_use` вызова. */
-  readonly id?: string;
+/** `tool_use_id` ответов `tool_result` записи `user`. */
+function resultIds(record: Fields): readonly string[] {
+  if (record.type !== "user") return [];
+  return blocksOf(record).flatMap((block) =>
+    block.type === "tool_result" && typeof block.tool_use_id === "string"
+      ? [block.tool_use_id]
+      : []
+  );
 }
 
-/** Последние название и `tool_use` вызова `call` по записям. */
-function scan(records: readonly Fields[], call: ToolUse): Scan {
-  let found: { custom?: string; ai?: string; id?: string } = {};
+/**
+ * Где наблюдатель: ищет вызов вопроса, ждёт ответа на него или дождался
+ * (спека, «Решено в другом месте» [D.5]). Запись транскрипта переводит
+ * состояние дальше — решает само состояние.
+ */
+interface Watch {
+  /** Состояние после записи `record`. */
+  take(record: Fields): Watch;
+  /** Ответ на вызов вопроса уже в транскрипте. */
+  done(): boolean;
+}
+
+/** Ответ на вызов вопроса записан; памяти нет — один экземпляр. */
+const ANSWERED: Watch = { take: () => ANSWERED, done: () => true };
+
+/** Вызов вопроса известен: ждём `tool_result` с его `id`. */
+class Bound implements Watch {
+  readonly #id: string;
+
+  constructor(id: string) {
+    this.#id = id;
+  }
+
+  take(record: Fields): Watch {
+    return resultIds(record).includes(this.#id) ? ANSWERED : this;
+  }
+
+  done(): boolean {
+    return false;
+  }
+}
+
+/**
+ * Вызова вопроса ещё нет: Claude Code зовёт хук раньше, чем пишет
+ * `tool_use` (снято 2026-10-06). Первый равный вызову — его.
+ */
+class Seeking implements Watch {
+  readonly #call: ToolUse;
+
+  constructor(call: ToolUse) {
+    this.#call = call;
+  }
+
+  take(record: Fields): Watch {
+    const [id] = callIds(record, this.#call);
+    return id === undefined ? this : new Bound(id);
+  }
+
+  done(): boolean {
+    return false;
+  }
+}
+
+/**
+ * Состояние на момент постановки: самый ранний равный вызову `tool_use`
+ * без `tool_result` — вызов вопроса; вызов, уже получивший ответ, — чужой
+ * (старый). Открытых нет — вызов ищется в дописанном.
+ */
+function watchOf(records: readonly Fields[], call: ToolUse): Watch {
+  let open: readonly string[] = [];
+  for (const record of records) {
+    const answered = resultIds(record);
+    // Ответ снимает все вхождения id: повтор id в файле не воскрешает
+    // отвеченный вызов.
+    open = [...open, ...callIds(record, call)].filter((id) =>
+      !answered.includes(id)
+    );
+  }
+  return open.length === 0 ? new Seeking(call) : new Bound(open[0]);
+}
+
+/** Последние `custom-title` и `ai-title` по записям. */
+function titlesOf(
+  records: readonly Fields[],
+): { readonly custom?: string; readonly ai?: string } {
+  let found: { custom?: string; ai?: string } = {};
   for (const record of records) {
     if (
       record.type === "custom-title" && typeof record.customTitle === "string"
@@ -140,15 +216,6 @@ function scan(records: readonly Fields[], call: ToolUse): Scan {
     }
     if (record.type === "ai-title" && typeof record.aiTitle === "string") {
       found = { ...found, ai: record.aiTitle };
-    }
-    if (record.type !== "assistant") continue;
-    for (const block of blocksOf(record)) {
-      if (
-        block.type === "tool_use" && typeof block.id === "string" &&
-        block.name === call.name && same(block.input, call.input)
-      ) {
-        found = { ...found, id: block.id };
-      }
     }
   }
   return found;
@@ -161,31 +228,28 @@ function unreadable(err: unknown): boolean {
     err instanceof Deno.errors.IsADirectory;
 }
 
-/** Транскрипт с найденным `tool_use`: хвост смотрится до ответа. */
+/** Читаемый транскрипт: хвост смотрится до ответа на вызов вопроса. */
 class Watched implements Transcript {
   readonly #title: readonly string[];
   readonly #path: string;
-  readonly #id: string;
   readonly #files: TranscriptFiles;
   readonly #clock: Clock;
   #offset: number;
-  #seen: boolean;
+  #watch: Watch;
 
   constructor(options: {
     readonly title: readonly string[];
     readonly path: string;
-    readonly id: string;
     readonly offset: number;
-    /** Ответ уже был в первом чтении. */
-    readonly seen: boolean;
+    /** Состояние на момент постановки. */
+    readonly watch: Watch;
     readonly files: TranscriptFiles;
     readonly clock: Clock;
   }) {
     this.#title = options.title;
     this.#path = options.path;
-    this.#id = options.id;
     this.#offset = options.offset;
-    this.#seen = options.seen;
+    this.#watch = options.watch;
     this.#files = options.files;
     this.#clock = options.clock;
   }
@@ -195,7 +259,7 @@ class Watched implements Transcript {
   }
 
   async answered(signal: AbortSignal): Promise<void> {
-    while (!this.#seen) {
+    while (!this.#watch.done()) {
       await this.#clock.pause(WATCH_MS, signal);
       await this.#look();
     }
@@ -214,29 +278,12 @@ class Watched implements Transcript {
     }
     const { records, used } = recordsOf(bytes);
     this.#offset += used;
-    this.#seen = answers(records, this.#id);
-  }
-}
-
-/** Транскрипт без `tool_use` вызова: снятия по нему нет. */
-class Titled implements Transcript {
-  readonly #title: readonly string[];
-
-  constructor(title: readonly string[]) {
-    this.#title = title;
-  }
-
-  title(): readonly string[] {
-    return this.#title;
-  }
-
-  answered(signal: AbortSignal): Promise<void> {
-    return untilAborted(signal);
+    for (const record of records) this.#watch = this.#watch.take(record);
   }
 }
 
 /** Файл не читается: ни названия, ни признака ответа. */
-const UNREAD: Transcript = new Titled([]);
+const UNREAD: Transcript = { title: () => [], answered: untilAborted };
 
 /** Транскрипты сессий. */
 export class Transcripts {
@@ -264,16 +311,13 @@ export class Transcripts {
       return UNREAD;
     }
     const { records, used } = recordsOf(bytes);
-    const found = scan(records, call);
-    const name = found.custom ?? found.ai;
-    const title = name === undefined ? [] : [clipped(name)];
-    if (found.id === undefined) return new Titled(title);
+    const titles = titlesOf(records);
+    const name = titles.custom ?? titles.ai;
     return new Watched({
-      title,
+      title: name === undefined ? [] : [clipped(name)],
       path,
-      id: found.id,
       offset: used,
-      seen: answers(records, found.id),
+      watch: watchOf(records, call),
       files: this.#files,
       clock: this.#clock,
     });

@@ -320,22 +320,109 @@ Deno.test("D.5: соседний tool_result и недописанная стр�
     await Deno.writeTextFile(transcript, toolResult("toolu_A"), {
       append: true,
     });
-    clock.fire(WATCH_MS);
-    await clock.paused(WATCH_MS);
+    await turn(clock, told);
     assertEquals(bot.calls.length, 1);
     await Deno.writeTextFile(transcript, "\n", { append: true });
-    clock.fire(WATCH_MS);
-    assertEquals((await told).stderr, `${UNDECIDED}решено в терминале\n`);
+    await withdrawnBy(clock, told);
   }, { lines: await bashLines("toolu_A") });
 });
 
-Deno.test("6: ответ уже в транскрипте при постановке — снят сразу", async () => {
+/**
+ * Один оборот наблюдателя после дописанного: пауза кончается, хвост
+ * прочитан, наблюдатель встал на следующую паузу (или вопрос снят).
+ */
+async function turn(clock: TestClock, told: Promise<Told>): Promise<void> {
+  clock.fire(WATCH_MS);
+  const first = await Promise.race([
+    told.then(() => "снят"),
+    clock.paused(WATCH_MS).then(() => "ждёт"),
+  ]);
+  assertEquals(first, "ждёт", "вопрос снят раньше ответа на свой вызов");
+}
+
+/**
+ * Оборот после записи ответа: вопрос обязан сняться за него. Не снялся —
+ * наблюдатель встаёт на следующую паузу, и тест краснеет, а не висит.
+ */
+async function withdrawnBy(clock: TestClock, told: Promise<Told>) {
+  clock.fire(WATCH_MS);
+  const first = await Promise.race([told, clock.paused(WATCH_MS)]);
+  assertEquals(first, {
+    stdout: "",
+    stderr: `${UNDECIDED}решено в терминале\n`,
+  });
+}
+
+Deno.test("R1c-1: tool_use дописан после постановки — снятие по его tool_result", async () => {
+  const [use] = (await bashLines("toolu_A")).slice(-1);
+  await withDesk(async ({ bot, clock, append, payload, ask }) => {
+    const told = ask(await payload("live-permission-bash.json"));
+    await bot.called(1);
+    await clock.paused(WATCH_MS);
+    await append(use);
+    await turn(clock, told);
+    assertEquals(bot.calls.length, 1);
+    await append(toolResult("toolu_A"));
+    // Снятие — одним оборотом после записи ответа: не позже 2 с.
+    await withdrawnBy(clock, told);
+  });
+});
+
+Deno.test("R1c-2: старый вызов с ответом — чужой; новый, дописанный, — вызов вопроса", async () => {
+  const old = await bashLines("toolu_A");
+  const [use] = (await bashLines("toolu_B")).slice(-1);
+  await withDesk(async ({ bot, clock, append, payload, ask }) => {
+    const told = ask(await payload("live-permission-bash.json"));
+    await bot.called(1);
+    await clock.paused(WATCH_MS);
+    await append(use);
+    await turn(clock, told);
+    assertEquals(bot.calls.length, 1);
+    await append(toolResult("toolu_B"));
+    await withdrawnBy(clock, told);
+  }, { lines: [...old, toolResult("toolu_A")] });
+});
+
+Deno.test("R1c-3: старый вызов с ответом, нового нет — вопрос не снимается", async () => {
   const lines = [...await bashLines("toolu_A"), toolResult("toolu_A")];
-  await withDesk(async ({ ask, payload }) => {
-    assertEquals(
-      (await ask(await payload("live-permission-bash.json"))).stderr,
-      `${UNDECIDED}решено в терминале\n`,
-    );
+  await withDesk(async ({ bot, clock, append, payload, ask }) => {
+    const told = ask(await payload("live-permission-bash.json"));
+    await bot.called(1);
+    await clock.paused(WATCH_MS);
+    await append(toolResult("toolu_A"));
+    await turn(clock, told);
+    assertEquals(bot.calls.length, 1);
+    bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
+    assertEquals((await told).stdout, decision({ behavior: "allow" }));
+  }, { lines });
+});
+
+Deno.test("R1c: id вызова повторён в файле — ответ закрывает все вхождения", async () => {
+  const old = await bashLines("toolu_A");
+  const lines = [...old, old.at(-1) ?? "", toolResult("toolu_A")];
+  await withDesk(async ({ bot, clock, append, payload, ask }) => {
+    const told = ask(await payload("live-permission-bash.json"));
+    await bot.called(1);
+    await clock.paused(WATCH_MS);
+    await append(toolResult("toolu_A"));
+    await turn(clock, told);
+    bot.deliver([pressUpdate(1, 111, "r1:1:0:0")]);
+    assertEquals((await told).stdout, decision({ behavior: "allow" }));
+  }, { lines });
+});
+
+Deno.test("R1c-5: два открытых одинаковых вызова — вопрос у самого раннего", async () => {
+  const [useD] = (await bashLines("toolu_D")).slice(-1);
+  const lines = [...await bashLines("toolu_C"), useD];
+  await withDesk(async ({ bot, clock, append, payload, ask }) => {
+    const told = ask(await payload("live-permission-bash.json"));
+    await bot.called(1);
+    await clock.paused(WATCH_MS);
+    await append(toolResult("toolu_D"));
+    await turn(clock, told);
+    assertEquals(bot.calls.length, 1);
+    await append(toolResult("toolu_C"));
+    await withdrawnBy(clock, told);
   }, { lines });
 });
 
@@ -533,8 +620,9 @@ Deno.test("голден транскрипта: название — после�
   const lines = (await Deno.readTextFile(
     testdata("transcript-titles-and-ask-answered.jsonl"),
   )).trimEnd().split("\n");
-  // До вопроса — названия и `tool_use`; `tool_result` из терминала
-  // дописывается во время ожидания (проба 10).
+  // Порядок пробы 10: `tool_use` записан до вопроса, `tool_result` из
+  // терминала дописывается во время ожидания. Живая проба 2026-10-06
+  // показала и обратный: `tool_use` после постановки (тесты R1c).
   const asked = lines.slice(0, 4);
   const answered = lines[4];
   const input = JSON.parse(asked[3]).message.content[0].input;
@@ -558,8 +646,7 @@ Deno.test("голден транскрипта: название — после�
     assertEquals(bot.calls[0].text.split("\n")[0], "❓ День — mpu-bot · ozon");
     await clock.paused(WATCH_MS);
     await append(answered);
-    clock.fire(WATCH_MS);
-    assertEquals((await told).stderr, `${UNDECIDED}решено в терминале\n`);
+    await withdrawnBy(clock, told);
   }, { lines: asked });
 });
 
