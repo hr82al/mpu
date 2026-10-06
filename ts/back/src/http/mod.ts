@@ -142,6 +142,13 @@ export interface SendOptions {
    * имя ключа, которым его настроили, и отказ он назовёт точнее.
    */
   readonly proxy?: string;
+  /**
+   * Отмена вызова снаружи, сверх двух пределов: долгий опрос Bot API
+   * держит соединение до 35 с, и остановка ядра его не ждёт
+   * (`docs/specs/platform/telegram-questions.md`). Отменённый вызов —
+   * тот же `HttpCallError`.
+   */
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -188,6 +195,7 @@ export function httpGetBytes(
   const insecure = options.insecure === true;
   return withTimeouts(
     options.timeouts ?? DEFAULT_TIMEOUTS,
+    undefined,
     (signal, onHeaders) =>
       isDirect(url, insecure, undefined)
         ? sendDirect(url, headers, signal, onHeaders, { insecure })
@@ -232,6 +240,7 @@ export async function httpSend(
   try {
     const response = await withTimeouts(
       options.timeouts ?? DEFAULT_TIMEOUTS,
+      options.signal,
       (signal, onHeaders) =>
         isDirect(url, insecure, client)
           ? sendDirect(url, headers, signal, onHeaders, {
@@ -264,6 +273,7 @@ export async function httpSend(
  */
 async function withTimeouts(
   timeouts: RequestTimeouts,
+  outside: AbortSignal | undefined,
   run: (
     signal: AbortSignal,
     onHeaders: () => void,
@@ -291,8 +301,13 @@ async function withTimeouts(
     timeoutMessage = `no response within ${total}ms`;
     controller.abort();
   }, total);
+  // Отмена снаружи — тот же контроллер: причина отказа тогда — текст
+  // рантайма об отмене, а таймеры снимаются в `finally` как обычно.
+  const signal = outside === undefined
+    ? controller.signal
+    : AbortSignal.any([controller.signal, outside]);
   try {
-    return await run(controller.signal, () => clearTimeout(headersTimer));
+    return await run(signal, () => clearTimeout(headersTimer));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new HttpCallError(timeoutMessage ?? firstLine(message), {
