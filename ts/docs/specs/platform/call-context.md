@@ -71,11 +71,13 @@
 права задачи `back`):
 
 ```
-COLUMNS NO_COLOR TERM TERM_PROGRAM COLORTERM TMUX TMUX_PANE WT_SESSION OS
+COLUMNS NO_COLOR TERM TERM_PROGRAM COLORTERM TMUX TMUX_PANE CLAUDE_CODE_MESSAGING_SOCKET WT_SESSION OS
 ```
 
 Список — только про **вид вывода** (и подпись: `TMUX_PANE` называет окно
-вопроса в Telegram, порция R1, `claude-hook-permission-request.md`).
+вопроса в Telegram, порция R1, `claude-hook-permission-request.md`;
+`CLAUDE_CODE_MESSAGING_SOCKET` — ключ сессии Claude Code, порция R2,
+`claude-channel.md`: значение — только ключ, путь не открывается).
 Правом `--allow-env` на каждое имя списка обладают и клиент, и ядро, и
 исполнитель: ядро пересылает контекст по списку, и непринесённое имя читается у
 службы. Всё, что меняет, куда строка пойдёт и
