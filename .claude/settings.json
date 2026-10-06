@@ -160,12 +160,10 @@
         "/home/user/.deno",
         "/home/user/.local/share/mise/installs/deno",
         "/home/user/.gitconfig",
-        "/home/user/.config/git",
-        "/home/user/mr/mp/wt/mpu"
+        "/home/user/.config/git"
       ],
       "allowWrite": [
-        "/home/user/mr/mp/wt/mpu/.deno",
-        "/home/user/mr/mp/wt/mpu/.tmp"
+        "/home/user/mr/mp/wt/mpu"
       ]
     }
   }
