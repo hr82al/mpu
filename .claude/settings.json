@@ -8,11 +8,15 @@
     "/home/user/mr/mp/mpu/CLAUDE.md",
     "/home/user/mr/mp/mpu/CLAUDE.local.md",
     "/home/user/mr/mp/mpu/.claude/CLAUDE.md",
-    "/home/user/mr/mp/mpu/.claude/rules/**"
+    "/home/user/mr/mp/mpu/.claude/rules/**",
+    "/home/user/mr/mp/wt/mpu/*/CLAUDE.md",
+    "/home/user/mr/mp/wt/mpu/*/CLAUDE.local.md",
+    "/home/user/mr/mp/wt/mpu/*/.claude/CLAUDE.md",
+    "/home/user/mr/mp/wt/mpu/*/.claude/rules/**"
   ],
   "env": {
-    "DENO_DIR": "/home/user/mr/mp/mpu/ts/.deno",
-    "TMPDIR": "/home/user/mr/mp/mpu/ts/.tmp",
+    "DENO_DIR": "/home/user/mr/mp/wt/mpu/.deno",
+    "TMPDIR": "/home/user/mr/mp/wt/mpu/.tmp",
     "DENO_NO_UPDATE_CHECK": "1"
   },
   "hooks": {
@@ -120,7 +124,15 @@
       "Edit(//home/user/.local/**)",
       "Edit(//home/user/.ssh/**)",
       "Edit(//home/user/.gnupg/**)",
-      "Edit(//home/user/.cache/**)"
+      "Edit(//home/user/.cache/**)",
+      "Read(//home/user/mr/mp/wt/mpu/*/CLAUDE.md)",
+      "Read(//home/user/mr/mp/wt/mpu/*/.claude/**)",
+      "Read(//home/user/mr/mp/wt/mpu/*/docs/**)",
+      "Read(//home/user/mr/mp/wt/mpu/*/py/**)",
+      "Edit(//home/user/mr/mp/wt/mpu/*/CLAUDE.md)",
+      "Edit(//home/user/mr/mp/wt/mpu/*/.claude/**)",
+      "Edit(//home/user/mr/mp/wt/mpu/*/docs/**)",
+      "Edit(//home/user/mr/mp/wt/mpu/*/py/**)"
     ],
     "additionalDirectories": []
   },
@@ -139,14 +151,22 @@
       "denyRead": [
         "/home/user",
         "/home/user/mr/mp/mpu/py",
-        "/home/user/mr/mp/mpu/docs"
+        "/home/user/mr/mp/mpu/docs",
+        "/home/user/mr/mp/wt/mpu/*/docs",
+        "/home/user/mr/mp/wt/mpu/*/py"
       ],
       "allowRead": [
         "/home/user/mr/mp/mpu",
         "/home/user/.deno",
         "/home/user/.local/share/mise/installs/deno",
         "/home/user/.gitconfig",
-        "/home/user/.config/git"
+        "/home/user/.config/git",
+        "/home/user/mr/mp/wt/mpu"
+      ],
+      "allowWrite": [
+        "/home/user/mr/mp/mpu/.git",
+        "/home/user/mr/mp/wt/mpu/.deno",
+        "/home/user/mr/mp/wt/mpu/.tmp"
       ]
     }
   }
