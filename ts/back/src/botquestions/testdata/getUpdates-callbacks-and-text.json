@@ -1,0 +1,286 @@
+{
+  "ok": true,
+  "result": [
+    {
+      "update_id": 913156012,
+      "callback_query": {
+        "id": "141887918370673903",
+        "from": {
+          "id": 111,
+          "is_bot": false,
+          "first_name": "Owner",
+          "username": "owner",
+          "language_code": "ru"
+        },
+        "message": {
+          "message_id": 1546,
+          "from": {
+            "id": 999,
+            "is_bot": true,
+            "first_name": "test_bot",
+            "username": "TestBot"
+          },
+          "chat": {
+            "id": 111,
+            "first_name": "Owner",
+            "username": "owner",
+            "type": "private"
+          },
+          "date": 1791270226,
+          "text": "Проба: нажми любую кнопку, затем ответь на это сообщение текстом (reply)",
+          "reply_markup": {
+            "inline_keyboard": [
+              [
+                {
+                  "text": "Yes",
+                  "callback_data": "q1:0"
+                },
+                {
+                  "text": "Yes, always: touch *",
+                  "callback_data": "q1:1"
+                }
+              ],
+              [
+                {
+                  "text": "No",
+                  "callback_data": "q1:2"
+                }
+              ]
+            ]
+          }
+        },
+        "chat_instance": "3664723981068365393",
+        "data": "q1:0"
+      }
+    },
+    {
+      "update_id": 913156013,
+      "callback_query": {
+        "id": "141887919433068132",
+        "from": {
+          "id": 111,
+          "is_bot": false,
+          "first_name": "Owner",
+          "username": "owner",
+          "language_code": "ru"
+        },
+        "message": {
+          "message_id": 1546,
+          "from": {
+            "id": 999,
+            "is_bot": true,
+            "first_name": "test_bot",
+            "username": "TestBot"
+          },
+          "chat": {
+            "id": 111,
+            "first_name": "Owner",
+            "username": "owner",
+            "type": "private"
+          },
+          "date": 1791270226,
+          "text": "Проба: нажми любую кнопку, затем ответь на это сообщение текстом (reply)",
+          "reply_markup": {
+            "inline_keyboard": [
+              [
+                {
+                  "text": "Yes",
+                  "callback_data": "q1:0"
+                },
+                {
+                  "text": "Yes, always: touch *",
+                  "callback_data": "q1:1"
+                }
+              ],
+              [
+                {
+                  "text": "No",
+                  "callback_data": "q1:2"
+                }
+              ]
+            ]
+          }
+        },
+        "chat_instance": "3664723981068365393",
+        "data": "q1:0"
+      }
+    },
+    {
+      "update_id": 913156014,
+      "callback_query": {
+        "id": "141887920662361059",
+        "from": {
+          "id": 111,
+          "is_bot": false,
+          "first_name": "Owner",
+          "username": "owner",
+          "language_code": "ru"
+        },
+        "message": {
+          "message_id": 1546,
+          "from": {
+            "id": 999,
+            "is_bot": true,
+            "first_name": "test_bot",
+            "username": "TestBot"
+          },
+          "chat": {
+            "id": 111,
+            "first_name": "Owner",
+            "username": "owner",
+            "type": "private"
+          },
+          "date": 1791270226,
+          "text": "Проба: нажми любую кнопку, затем ответь на это сообщение текстом (reply)",
+          "reply_markup": {
+            "inline_keyboard": [
+              [
+                {
+                  "text": "Yes",
+                  "callback_data": "q1:0"
+                },
+                {
+                  "text": "Yes, always: touch *",
+                  "callback_data": "q1:1"
+                }
+              ],
+              [
+                {
+                  "text": "No",
+                  "callback_data": "q1:2"
+                }
+              ]
+            ]
+          }
+        },
+        "chat_instance": "3664723981068365393",
+        "data": "q1:0"
+      }
+    },
+    {
+      "update_id": 913156015,
+      "callback_query": {
+        "id": "141887919632697407",
+        "from": {
+          "id": 111,
+          "is_bot": false,
+          "first_name": "Owner",
+          "username": "owner",
+          "language_code": "ru"
+        },
+        "message": {
+          "message_id": 1546,
+          "from": {
+            "id": 999,
+            "is_bot": true,
+            "first_name": "test_bot",
+            "username": "TestBot"
+          },
+          "chat": {
+            "id": 111,
+            "first_name": "Owner",
+            "username": "owner",
+            "type": "private"
+          },
+          "date": 1791270226,
+          "text": "Проба: нажми любую кнопку, затем ответь на это сообщение текстом (reply)",
+          "reply_markup": {
+            "inline_keyboard": [
+              [
+                {
+                  "text": "Yes",
+                  "callback_data": "q1:0"
+                },
+                {
+                  "text": "Yes, always: touch *",
+                  "callback_data": "q1:1"
+                }
+              ],
+              [
+                {
+                  "text": "No",
+                  "callback_data": "q1:2"
+                }
+              ]
+            ]
+          }
+        },
+        "chat_instance": "3664723981068365393",
+        "data": "q1:1"
+      }
+    },
+    {
+      "update_id": 913156016,
+      "callback_query": {
+        "id": "141887918003313641",
+        "from": {
+          "id": 111,
+          "is_bot": false,
+          "first_name": "Owner",
+          "username": "owner",
+          "language_code": "ru"
+        },
+        "message": {
+          "message_id": 1546,
+          "from": {
+            "id": 999,
+            "is_bot": true,
+            "first_name": "test_bot",
+            "username": "TestBot"
+          },
+          "chat": {
+            "id": 111,
+            "first_name": "Owner",
+            "username": "owner",
+            "type": "private"
+          },
+          "date": 1791270226,
+          "text": "Проба: нажми любую кнопку, затем ответь на это сообщение текстом (reply)",
+          "reply_markup": {
+            "inline_keyboard": [
+              [
+                {
+                  "text": "Yes",
+                  "callback_data": "q1:0"
+                },
+                {
+                  "text": "Yes, always: touch *",
+                  "callback_data": "q1:1"
+                }
+              ],
+              [
+                {
+                  "text": "No",
+                  "callback_data": "q1:2"
+                }
+              ]
+            ]
+          }
+        },
+        "chat_instance": "3664723981068365393",
+        "data": "q1:2"
+      }
+    },
+    {
+      "update_id": 913156017,
+      "message": {
+        "message_id": 1547,
+        "from": {
+          "id": 111,
+          "is_bot": false,
+          "first_name": "Owner",
+          "username": "owner",
+          "language_code": "ru"
+        },
+        "chat": {
+          "id": 111,
+          "first_name": "Owner",
+          "username": "owner",
+          "type": "private"
+        },
+        "date": 1791270265,
+        "text": "Готово. Но не вижу реакций на кнопки"
+      }
+    }
+  ]
+}

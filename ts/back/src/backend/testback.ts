@@ -10,6 +10,7 @@ import type { CommandIo } from "../command/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { secretText } from "../runtime/mod.ts";
+import { NO_BOT, type OwnerQuestions } from "../botquestions/mod.ts";
 import { type RunningBack, serveBack, type SnapshotFs } from "./mod.ts";
 import { WebAccess } from "./web.ts";
 import { type Launcher, MarkerDir, MemoryLauncher } from "../worker/mod.ts";
@@ -81,6 +82,10 @@ export interface BackSetup {
   readonly launcher?: (io: CommandIo) => Launcher;
   /** Предел картинок ответа, байт; не сказано — умолчание сервера. */
   readonly pictureLimit?: number;
+  /** Порт сервера; не сказано — выдаёт ОС. */
+  readonly port?: number;
+  /** Вопросы владельцу; не сказано — бот без ключей. */
+  readonly questions?: OwnerQuestions;
 }
 
 const TOKEN = "t0ken-" + "s3cret-" + "value";
@@ -160,7 +165,7 @@ export async function withBack(
   const launcher = new MemoryLauncher(io, FIRST_WORKER_PID, () => Date.now());
   const markers = new MarkerDir(`${dir}/killed`);
   const running = await serveBack({
-    port: 0,
+    port: setup.port ?? 0,
     lines: setup.lines,
     tokens: { main: TOKEN, agent: AGENT_TOKEN },
     policyFile: `${dir}/policy.db`,
@@ -194,6 +199,7 @@ export async function withBack(
     },
     workers: { launcher: setup.launcher?.(io) ?? launcher, markers },
     pictureLimit: setup.pictureLimit,
+    questions: setup.questions ?? NO_BOT,
   });
   const back: TestBack = {
     url: `http://127.0.0.1:${running.port}`,

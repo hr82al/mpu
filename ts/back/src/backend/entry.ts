@@ -8,6 +8,7 @@ import type { CommandIo } from "../command/mod.ts";
 import type { Output } from "../entrypoint/mod.ts";
 import type { InvokeLog } from "../invokelog/mod.ts";
 import { ensureAccessToken } from "../mcp/mod.ts";
+import { ownerQuestions } from "../botquestions/mod.ts";
 import { VERSION } from "../version.ts";
 import type { SecretText } from "../runtime/mod.ts";
 import { DEFAULT_LINES } from "./limit.ts";
@@ -147,6 +148,10 @@ export async function runBack(
       }),
       webRoot: proc.webRoot,
       diagnose: (line) => proc.output.stderr(`${line}\n`),
+      questions: ownerQuestions(proc.io.envFile, {
+        openCacheDb: proc.io.openCacheDb,
+        diagnose: (line) => proc.output.stderr(`${line}\n`),
+      }),
       workers: {
         launcher: workers.launcher(startup.worker ?? workers.program),
         markers: workers.markers,

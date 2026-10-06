@@ -60,6 +60,7 @@ import {
   Workers,
 } from "../worker/mod.ts";
 import { Gallery, PICTURE_LIMIT } from "../picture/mod.ts";
+import type { OwnerQuestions } from "../botquestions/mod.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
 import { DENO_FS, type SnapshotFs, writeSnapshot } from "./snapshot.ts";
@@ -114,6 +115,12 @@ export interface BackOptions {
    * (`platform/picture-frame.md`, «Предел»); не сказано — `PICTURE_LIMIT`.
    */
   readonly pictureLimit?: number;
+  /**
+   * Вопросы владельцу в Telegram (`platform/telegram-questions.md`):
+   * живут весь процесс — старт правит сообщения прошлого запуска и
+   * начинает опрос, остановка его прерывает. Ключей бота нет — `NO_BOT`.
+   */
+  readonly questions: OwnerQuestions;
   /**
    * Исполнители строк (`platform/line-executor.md`): как запускать,
    * где отметки сторожа, сколько держать тёплыми (не сказано —
@@ -436,9 +443,15 @@ class Back {
     }
   }
 
-  /** Сокет слушает порт `port`: адрес страницы фронта известен. */
+  /**
+   * Сокет слушает порт `port`: адрес страницы фронта известен. Вопросы
+   * владельцу стартуют только здесь: процесс, не занявший порт, не
+   * должен ни опрашивать бота, ни править в «истёк» сообщения живого
+   * соседа по общей кэш-БД.
+   */
   listening(port: number) {
     this.#origin = `http://mpu.localhost:${port}`;
+    this.#options.questions.start();
   }
 
   app(): Hono {
@@ -495,6 +508,9 @@ class Back {
     const workers = this.#workers.stop();
     await Promise.allSettled(this.#open.values());
     await workers;
+    // После строк: строка, ждавшая вопрос, при остановке снимает его,
+    // и правка сообщения в «истёк» должна успеть уйти.
+    await this.#options.questions.stop();
     this.#image[Symbol.dispose]();
   }
 
