@@ -164,6 +164,7 @@ export async function withBack(
   // (`platform/line-executor.md`), без порождения процессов.
   const launcher = new MemoryLauncher(io, FIRST_WORKER_PID, () => Date.now());
   const markers = new MarkerDir(`${dir}/killed`);
+  // Порт занят — `serveBack` бросает раньше `try`: каталог убирается здесь.
   const running = await serveBack({
     port: setup.port ?? 0,
     lines: setup.lines,
@@ -200,6 +201,9 @@ export async function withBack(
     workers: { launcher: setup.launcher?.(io) ?? launcher, markers },
     pictureLimit: setup.pictureLimit,
     questions: setup.questions ?? NO_BOT,
+  }).catch(async (err) => {
+    await Deno.remove(dir, { recursive: true });
+    throw err;
   });
   const back: TestBack = {
     url: `http://127.0.0.1:${running.port}`,

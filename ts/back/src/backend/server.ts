@@ -755,13 +755,17 @@ function snapshotOf(image: readonly ImageMethod[]) {
  */
 export async function serveBack(options: BackOptions): Promise<RunningBack> {
   const back = new Back(options);
-  back.start();
   const address = Promise.withResolvers<Deno.NetAddr>();
   const server = Deno.serve({
     hostname: LOOPBACK,
     port: options.port,
     onListen: address.resolve,
   }, back.app().fetch);
+  // Исполнители — после привязки порта: занятый порт бросает из
+  // `Deno.serve`, и процесс, не ставший сервером, не должен оставить
+  // за собой запущенных исполнителей. Строк до этой точки нет — их
+  // обработчик зовётся не раньше следующего оборота цикла событий.
+  back.start();
   const bound = await address.promise;
   back.listening(bound.port);
   await back.writeSnapshot();
