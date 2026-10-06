@@ -7,7 +7,8 @@
 import { type CacheDb, DomainError } from "../command/mod.ts";
 import { botConfig, type EnvKeys, TELEGRAM_API_BASE } from "../telegram/mod.ts";
 import { type BotApi, HttpBotApi } from "./bot_api.ts";
-import { Chat } from "./chat.ts";
+import { Chat, type Posted } from "./chat.ts";
+import type { Rendered } from "./card.ts";
 import type { Form } from "./form.ts";
 import { Refused } from "./outcome.ts";
 import { type Clock, Poller, REAL_CLOCK } from "./poller.ts";
@@ -19,6 +20,8 @@ import type { Inbox, Sender } from "./updates.ts";
 export interface OwnerQuestions {
   /** Задаёт вопрос; исход — `Asked.outcome`. */
   ask(form: Form): Asked;
+  /** Отдельное сообщение без кнопок; ответ — номер или причина отказа. */
+  post(message: Rendered): Promise<Posted>;
   /** Старт ядра: прошлые сообщения — в «истёк», опрос — в путь. */
   start(): void;
   /** Остановка ядра: опрос прерван, начатые правки дописаны. */
@@ -34,9 +37,15 @@ const UNCONFIGURED: Asked = {
   expire: () => {},
 };
 
+/** Сообщения без бота — отказ «бот не настроен»; памяти нет. */
+const NOT_POSTED: Posted = {
+  read: (reader) => reader.refused("бот не настроен"),
+};
+
 /** Ключей бота нет: вопросы — отказ, опроса нет. */
 export const NO_BOT: OwnerQuestions = {
   ask: () => UNCONFIGURED,
+  post: () => Promise.resolve(NOT_POSTED),
   start: () => {},
   stop: () => Promise.resolve(),
 };
@@ -82,6 +91,7 @@ export interface BotParts {
 /** Вопросы через настроенного бота. */
 export class BotQuestions implements OwnerQuestions {
   readonly #queue: Queue;
+  readonly #chat: Chat;
   readonly #poller: Poller;
   readonly #stop = new AbortController();
   readonly #diagnose: (line: string) => void;
@@ -90,6 +100,7 @@ export class BotQuestions implements OwnerQuestions {
   constructor(parts: BotParts) {
     this.#diagnose = parts.diagnose;
     const chat = new Chat(parts);
+    this.#chat = chat;
     this.#queue = new Queue({ chat, run: parts.run, diagnose: parts.diagnose });
     this.#poller = new Poller({
       bot: parts.bot,
@@ -101,6 +112,10 @@ export class BotQuestions implements OwnerQuestions {
 
   ask(form: Form): Asked {
     return this.#queue.ask(form);
+  }
+
+  post(message: Rendered): Promise<Posted> {
+    return this.#chat.post(message);
   }
 
   start(): void {

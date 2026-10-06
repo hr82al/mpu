@@ -939,3 +939,37 @@ Deno.test("withdrawAs — последняя строка целиком, для
   );
   assertEquals((await a.outcome).read(OUTCOME), "снят");
 });
+
+Deno.test("R4: живой текст шага перечитывается при перерисовке — правка того же сообщения", async () => {
+  const { bot, queue } = setup();
+  let screen = "Экран 1";
+  let events: { changed(): void } = { changed: () => {} };
+  const live = {
+    head: "🖥 probe",
+    get text() {
+      return screen;
+    },
+    options: [{ label: "1. Yes" }],
+    choice: {
+      start: () => ({
+        press: (stepEvents: { changed(): void }) => {
+          events = stepEvents;
+          return { pick: () => "", done: () => "" };
+        },
+        buttons: () => [],
+      }),
+    },
+    reply: BUTTONS_ONLY,
+  };
+  const asked = queue.ask(new Form({ places: [], steps: [live] }));
+  await queue.idle();
+  await queue.press("cb", "r1:1:0:0");
+  screen = "Экран 2";
+  events.changed();
+  await queue.idle();
+  assertEquals(bot.calls.at(-1)?.method, "edit");
+  assertEquals(bot.calls.at(-1)?.message, 1546);
+  assertEquals(bot.calls.at(-1)?.text, "🖥 probe\nЭкран 2");
+  asked.expire();
+  await queue.idle();
+});

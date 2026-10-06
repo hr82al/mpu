@@ -52,7 +52,7 @@ async function withBot(
 
 Deno.test("sendMessage — кнопки в reply_markup, номер из ответа голдена", async () => {
   await withBot(golden("sendMessage.json"), async (bot, seen) => {
-    const id = await bot.send("вопрос", [
+    const id = await bot.send({ text: "вопрос", entities: [] }, [
       [{ text: "Yes", data: "r1:1:0" }, { text: "No", data: "r1:1:1" }],
     ]);
     assertEquals(id, 1546);
@@ -72,9 +72,24 @@ Deno.test("sendMessage — кнопки в reply_markup, номер из отв�
 
 Deno.test("editMessageText без кнопок — поля reply_markup нет", async () => {
   await withBot(golden("editMessageText.json"), async (bot, seen) => {
-    await bot.edit(1546, "итог", []);
+    await bot.edit(1546, { text: "итог", entities: [] }, []);
     assertEquals(seen.path, `/bot${TOKEN}/editMessageText`);
     assertEquals(seen.body, { chat_id: 111, message_id: 1546, text: "итог" });
+  });
+});
+
+Deno.test("выделения — полем entities (UTF-16), нет выделений — поля нет", async () => {
+  await withBot(golden("editMessageText.json"), async (bot, seen) => {
+    await bot.edit(1546, {
+      text: "🖥 probe\nBash command",
+      entities: [{ type: "bold", offset: 9, length: 12 }],
+    }, []);
+    assertEquals(seen.body, {
+      chat_id: 111,
+      message_id: 1546,
+      text: "🖥 probe\nBash command",
+      entities: [{ type: "bold", offset: 9, length: 12 }],
+    });
   });
 });
 
@@ -168,7 +183,10 @@ Deno.test("ok:false 401 — «бот недоступен: 401 Unauthorized»", 
   await withBot(
     '{"ok":false,"error_code":401,"description":"Unauthorized"}',
     async (bot) => {
-      const err = await assertRejects(() => bot.send("x", []), BotFailure);
+      const err = await assertRejects(
+        () => bot.send({ text: "x", entities: [] }, []),
+        BotFailure,
+      );
       assertEquals(err.message, "бот недоступен: 401 Unauthorized");
       assertEquals(err.isConflict(), false);
     },
@@ -192,12 +210,18 @@ Deno.test("токена нет в причине, даже если его по�
   await withBot(
     `{"ok":false,"error_code":404,"description":"Not Found: /bot${TOKEN}/x"}`,
     async (bot) => {
-      const err = await assertRejects(() => bot.send("x", []), BotFailure);
+      const err = await assertRejects(
+        () => bot.send({ text: "x", entities: [] }, []),
+        BotFailure,
+      );
       assertEquals(err.message.includes(TOKEN), false, err.message);
     },
   );
   await withBot(`<html>/bot${TOKEN}</html>`, async (bot) => {
-    const err = await assertRejects(() => bot.send("x", []), BotFailure);
+    const err = await assertRejects(
+      () => bot.send({ text: "x", entities: [] }, []),
+      BotFailure,
+    );
     assertEquals(err.message.startsWith("бот недоступен: ответ не JSON"), true);
     assertEquals(err.message.includes(TOKEN), false, err.message);
   });
@@ -215,7 +239,10 @@ Deno.test("сеть недоступна — причина одной стро�
     chatId: 111,
     apiBase: `http://127.0.0.1:${port}`,
   });
-  const err = await assertRejects(() => bot.send("x", []), BotFailure);
+  const err = await assertRejects(
+    () => bot.send({ text: "x", entities: [] }, []),
+    BotFailure,
+  );
   assertEquals(err.message.startsWith("бот недоступен: "), true);
   assertEquals(err.message.includes("\n"), false);
   assertEquals(err.message.includes(TOKEN), false, err.message);

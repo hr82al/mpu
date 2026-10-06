@@ -64,10 +64,61 @@ export const KEEP_TAIL: Clip = {
 /** Все виды усечения — для разбора записи тела по коду. */
 const CLIPS: readonly Clip[] = [KEEP_HEAD, KEEP_TAIL];
 
+/**
+ * Выделение в тексте сообщения — сущность Telegram; смещения и длина — в
+ * кодовых единицах UTF-16 (`string.length`), как считает Telegram.
+ */
+export interface Entity {
+  readonly type: "bold" | "pre";
+  readonly offset: number;
+  readonly length: number;
+}
+
+/** Текст сообщения с выделениями. */
+export interface Rendered {
+  readonly text: string;
+  readonly entities: readonly Entity[];
+}
+
+/** Как выделить текст шага в сообщении. */
+export interface Markup {
+  /** Выделения текста шага `step`, стоящего со смещения `offset`. */
+  entities(step: string, offset: number): readonly Entity[];
+}
+
+/** Без выделений. */
+export const PLAIN: Markup = { entities: () => [] };
+
+/**
+ * Первая строка текста шага — жирным. Текст усечён с начала (первой
+ * строкой `…`) — первой строки нет, выделять нечего.
+ */
+export const BOLD_FIRST_LINE: Markup = {
+  entities: (step, offset) => {
+    const first = step.split("\n")[0];
+    if (first === "" || first === CUT) return [];
+    return [{ type: "bold", offset, length: first.length }];
+  },
+};
+
+/**
+ * Текст моноширинным блоком целиком; длиннее предела — остаётся конец
+ * (диалог Claude Code внизу экрана).
+ */
+export function preformatted(text: string): Rendered {
+  const fitted = KEEP_TAIL.fit(text, MESSAGE_LIMIT);
+  return {
+    text: fitted,
+    entities: [{ type: "pre", offset: 0, length: fitted.length }],
+  };
+}
+
 /** Тело сообщения, к которому приставляется хвост. */
 export interface Body {
   /** Текст сообщения с хвостом `tail`, не длиннее предела. */
   text(tail: readonly string[]): string;
+  /** То же с выделениями. */
+  render(tail: readonly string[]): Rendered;
 }
 
 /** Тело сообщения одного шага. */
@@ -76,23 +127,27 @@ export class Card implements Body {
   readonly #text: string;
   readonly #lines: readonly string[];
   readonly #clip: Clip;
+  readonly #markup: Markup;
 
   /**
    * @param title строка заголовка
    * @param text текст шага — единственное, что усекается
    * @param lines строки вариантов
    * @param clip какой конец текста шага остаётся
+   * @param markup как выделить текст шага
    */
   constructor(
     title: string,
     text: string,
     lines: readonly string[],
     clip: Clip = KEEP_HEAD,
+    markup: Markup = PLAIN,
   ) {
     this.#title = title;
     this.#text = text;
     this.#lines = [...lines];
     this.#clip = clip;
+    this.#markup = markup;
   }
 
   /**
@@ -100,6 +155,10 @@ export class Card implements Body {
    * текст шага, заголовок, строки вариантов и хвост целы.
    */
   text(tail: readonly string[]): string {
+    return this.render(tail).text;
+  }
+
+  render(tail: readonly string[]): Rendered {
     const fixed = [this.#title, ...this.#lines, ...tail];
     // Перевод строки на каждую из строк, кроме первой, плюс одна —
     // перед текстом шага.
@@ -109,7 +168,10 @@ export class Card implements Body {
     const lines = [this.#title, step, ...this.#lines, ...tail];
     // Одни неусекаемые части длиннее предела — режется хвост целого:
     // выход за предел Telegram отвергает, а не обрезает.
-    return cut(lines.join("\n"), MESSAGE_LIMIT);
+    const text = cut(lines.join("\n"), MESSAGE_LIMIT);
+    const entities = this.#markup.entities(step, this.#title.length + 1)
+      .filter((entity) => entity.offset + entity.length <= text.length);
+    return { text, entities };
   }
 
   /** Запись для хранения до перезапуска (`shown.ts`). */
@@ -150,4 +212,10 @@ export class Card implements Body {
 }
 
 /** Тело без заголовка и шага: сообщение — один хвост. */
-const EMPTY: Body = { text: (tail) => cut(tail.join("\n"), MESSAGE_LIMIT) };
+const EMPTY: Body = {
+  text: (tail) => cut(tail.join("\n"), MESSAGE_LIMIT),
+  render: (tail) => ({
+    text: cut(tail.join("\n"), MESSAGE_LIMIT),
+    entities: [],
+  }),
+};

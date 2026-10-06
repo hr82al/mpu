@@ -13,7 +13,7 @@ import {
   type Pressable,
   STALE,
 } from "./button.ts";
-import { Card } from "./card.ts";
+import { Card, type Rendered } from "./card.ts";
 import type { Chat } from "./chat.ts";
 import { BotFailure, type Keyboard } from "./bot_api.ts";
 import {
@@ -77,13 +77,13 @@ interface Message {
   show(
     chat: Chat,
     card: Card,
-    text: string,
+    text: Rendered,
     keyboard: Keyboard,
   ): Promise<Message>;
   /** Последняя правка строкой исхода. */
-  close(chat: Chat, text: string): Promise<void>;
+  close(chat: Chat, text: Rendered): Promise<void>;
   /** Правка без кнопок строкой `text`; ответ — сообщение после неё. */
-  setAside(chat: Chat, text: string): Promise<Message>;
+  setAside(chat: Chat, text: Rendered): Promise<Message>;
   /**
    * Текст владельца: доходит до шага, только если вопрос виден в чате, —
    * иначе владелец отвечал бы на то, чего не видел.
@@ -112,11 +112,11 @@ class SetAside implements Message {
     this.#id = id;
   }
 
-  show(chat: Chat, card: Card, text: string, keyboard: Keyboard) {
+  show(chat: Chat, card: Card, text: Rendered, keyboard: Keyboard) {
     return NOT_SENT.show(chat, card, text, keyboard);
   }
 
-  async close(chat: Chat, text: string): Promise<void> {
+  async close(chat: Chat, text: Rendered): Promise<void> {
     await chat.close(this.#id, text);
   }
 
@@ -134,7 +134,7 @@ class Sent implements Message {
   readonly #id: number;
   readonly #seen: string;
 
-  constructor(id: number, text: string, keyboard: Keyboard) {
+  constructor(id: number, text: Rendered, keyboard: Keyboard) {
     this.#id = id;
     this.#seen = JSON.stringify([text, keyboard]);
   }
@@ -143,13 +143,13 @@ class Sent implements Message {
    * Правка, только если что-то изменилось: на правку без перемен Bot API
    * отвечает отказом «message is not modified».
    */
-  async show(chat: Chat, card: Card, text: string, keyboard: Keyboard) {
+  async show(chat: Chat, card: Card, text: Rendered, keyboard: Keyboard) {
     if (JSON.stringify([text, keyboard]) === this.#seen) return this;
     const edited = await chat.edit(this.#id, card, text, keyboard);
     return edited ? new Sent(this.#id, text, keyboard) : this;
   }
 
-  async close(chat: Chat, text: string): Promise<void> {
+  async close(chat: Chat, text: Rendered): Promise<void> {
     await chat.close(this.#id, text);
   }
 
@@ -158,7 +158,7 @@ class Sent implements Message {
    * снова активным вопрос правит его, а не шлёт второе с теми же данными
    * кнопок.
    */
-  async setAside(chat: Chat, text: string): Promise<Message> {
+  async setAside(chat: Chat, text: Rendered): Promise<Message> {
     return await chat.close(this.#id, text) ? new SetAside(this.#id) : this;
   }
 
@@ -236,7 +236,7 @@ export class Question implements Waiting {
       this.#message = await this.#message.show(
         chat,
         card,
-        card.text(tail),
+        card.render(tail),
         this.#keyboard(),
       );
     } catch (err) {
@@ -248,13 +248,13 @@ export class Question implements Waiting {
 
   /** Последняя правка сообщения строкой исхода, без кнопок. */
   close(chat: Chat, outcome: Outcome): Promise<void> {
-    return this.#message.close(chat, this.#card().text([outcome.line()]));
+    return this.#message.close(chat, this.#card().render([outcome.line()]));
   }
 
   async putAside(chat: Chat, line: string): Promise<void> {
     this.#message = await this.#message.setAside(
       chat,
-      this.#card().text([line]),
+      this.#card().render([line]),
     );
   }
 
@@ -311,7 +311,7 @@ export class Question implements Waiting {
       this.#step + 1,
       this.#form.steps.length,
     );
-    return new Card(title, step.text, lines, step.clip);
+    return new Card(title, step.text, lines, step.clip, step.markup);
   }
 
   #keyboard(): Keyboard {

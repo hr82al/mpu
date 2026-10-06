@@ -14,6 +14,7 @@ Deno.test("сервер запускает вопросы при старте и
   const events: string[] = [];
   const questions: OwnerQuestions = {
     ask: NO_BOT.ask,
+    post: NO_BOT.post,
     start: () => void events.push("start"),
     stop: () => {
       events.push("stop");
@@ -40,6 +41,7 @@ Deno.test("порт занят — ни вопросов, ни исполнит�
   const events: string[] = [];
   const questions: OwnerQuestions = {
     ask: NO_BOT.ask,
+    post: NO_BOT.post,
     start: () => void events.push("start"),
     stop: () => Promise.resolve(),
   };

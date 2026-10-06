@@ -18,7 +18,7 @@ import {
   STALE,
   type StepPressable,
 } from "./button.ts";
-import type { Clip } from "./card.ts";
+import type { Clip, Markup } from "./card.ts";
 import {
   type AnswerLine,
   CHECKED,
@@ -199,7 +199,11 @@ export const BUTTONS_ONLY: TextRule = {
 export interface Step {
   /** Голова заголовка шага: значок и имя (`❓ Размер`). */
   readonly head: string;
-  /** Строки тела под заголовком. */
+  /**
+   * Строки тела под заголовком. Перечитываются при каждой перерисовке:
+   * потребитель с живым текстом (снимок окна) отдаёт его свойством и зовёт
+   * `StepEvents.changed`.
+   */
   readonly text: string;
   readonly options: readonly Option[];
   readonly choice: Choice;
@@ -209,6 +213,8 @@ export interface Step {
    * тела (`Card`): начало.
    */
   readonly clip?: Clip;
+  /** Как выделить текст в сообщении; не сказано — без выделений. */
+  readonly markup?: Markup;
 }
 
 /** Что делают кнопки-действия вопроса. */

@@ -14,7 +14,15 @@ export type {
   StepAnswerReader,
 } from "./outcome.ts";
 export { type Button, clipLabel } from "./button.ts";
-export { KEEP_TAIL } from "./card.ts";
+export {
+  BOLD_FIRST_LINE,
+  type Entity,
+  KEEP_TAIL,
+  type Markup,
+  preformatted,
+  type Rendered,
+} from "./card.ts";
+export type { Posted, PostedReader } from "./chat.ts";
 export {
   BUTTONS_ONLY,
   Form,

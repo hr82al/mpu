@@ -4,7 +4,13 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { Card, KEEP_TAIL, MESSAGE_LIMIT } from "./card.ts";
+import {
+  BOLD_FIRST_LINE,
+  Card,
+  KEEP_TAIL,
+  MESSAGE_LIMIT,
+  preformatted,
+} from "./card.ts";
 
 Deno.test("короткое тело — строки как есть, хвост последним", () => {
   const card = new Card("❓ Цвет — ozon", "Какой цвет?", ["• Синий — цвет"]);
@@ -89,4 +95,46 @@ Deno.test("запись тела до R2 (без поля clip) — остаёт
     new Card("T", "я".repeat(MESSAGE_LIMIT), []).text([]),
   );
   assertEquals(Card.parse(old).text([]).endsWith("я…"), true);
+});
+
+Deno.test("R4: первая строка шага — жирным; смещение — в UTF-16 после заголовка", () => {
+  const card = new Card(
+    "🖥 probe — ozon",
+    "Bash command\nDo you want to proceed?",
+    [],
+    KEEP_TAIL,
+    BOLD_FIRST_LINE,
+  );
+  const shown = card.render(["ещё ждут: 1"]);
+  assertEquals(shown.entities, [{ type: "bold", offset: 16, length: 12 }]);
+  assertEquals(
+    shown.text.slice(16, 28),
+    "Bash command",
+  );
+  // Хвост исхода — тоже с выделением: правка без него его сняла бы.
+  assertEquals(card.render(["✅ готово"]).entities.length, 1);
+});
+
+Deno.test("R4: блок усечён с начала — первой строки нет, выделения нет", () => {
+  const card = new Card(
+    "T",
+    `первая\n${"я".repeat(MESSAGE_LIMIT)}`,
+    [],
+    KEEP_TAIL,
+    BOLD_FIRST_LINE,
+  );
+  const shown = card.render([]);
+  assertEquals(shown.text.split("\n")[1], "…");
+  assertEquals(shown.entities, []);
+});
+
+Deno.test("R4: весь экран — моноширинным блоком целиком; длиннее предела — конец", () => {
+  assertEquals(preformatted("a\nb"), {
+    text: "a\nb",
+    entities: [{ type: "pre", offset: 0, length: 3 }],
+  });
+  const long = preformatted(`${"x".repeat(MESSAGE_LIMIT)}\nдиалог`);
+  assertEquals(long.text.length <= MESSAGE_LIMIT, true);
+  assertEquals(long.text.endsWith("\nдиалог"), true);
+  assertEquals(long.entities[0].length, long.text.length);
 });

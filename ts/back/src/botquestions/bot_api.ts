@@ -17,6 +17,8 @@ import {
 } from "../telegram/mod.ts";
 import { parseUpdates, type Update } from "./updates.ts";
 
+import type { Rendered } from "./card.ts";
+
 /** Кнопка в разметке сообщения. */
 export interface KeyButton {
   readonly text: string;
@@ -33,9 +35,9 @@ export const NO_KEYBOARD: Keyboard = [];
 /** Чат с владельцем через бота. */
 export interface BotApi {
   /** Отправляет сообщение; ответ — его номер. */
-  send(text: string, keyboard: Keyboard): Promise<number>;
+  send(message: Rendered, keyboard: Keyboard): Promise<number>;
   /** Правит текст и кнопки; пустые кнопки — сняты. */
-  edit(message: number, text: string, keyboard: Keyboard): Promise<void>;
+  edit(id: number, message: Rendered, keyboard: Keyboard): Promise<void>;
   /** Подтверждает нажатие с подсказкой (пустая — без подсказки). */
   ack(callback: string, hint: string): Promise<void>;
   /** Долгий опрос с `offset`; отменяется сигналом. */
@@ -104,10 +106,10 @@ export class HttpBotApi implements BotApi {
     this.#access = access;
   }
 
-  async send(text: string, keyboard: Keyboard): Promise<number> {
+  async send(message: Rendered, keyboard: Keyboard): Promise<number> {
     const result = await this.#call("sendMessage", {
       chat_id: this.#access.chatId,
-      text,
+      ...rendered(message),
       ...markup(keyboard),
     });
     const id = record(result)?.message_id;
@@ -117,11 +119,11 @@ export class HttpBotApi implements BotApi {
     return id;
   }
 
-  async edit(message: number, text: string, keyboard: Keyboard) {
+  async edit(id: number, message: Rendered, keyboard: Keyboard) {
     await this.#call("editMessageText", {
       chat_id: this.#access.chatId,
-      message_id: message,
-      text,
+      message_id: id,
+      ...rendered(message),
       ...markup(keyboard),
     });
   }
@@ -177,6 +179,16 @@ function failureWords(cause: BotCallError): BotFailureWords<BotFailure> {
     refused: (code, description) =>
       new BotFailure(`${code} ${description}`, code, { cause }),
   };
+}
+
+/**
+ * Текст и выделения; выделений нет — поля `entities` нет (запрос как до
+ * выделений, голдены Bot API те же).
+ */
+function rendered(message: Rendered): Record<string, unknown> {
+  return message.entities.length === 0
+    ? { text: message.text }
+    : { text: message.text, entities: message.entities };
 }
 
 /** Поле `reply_markup`; кнопок нет — поля нет (правка снимает кнопки). */

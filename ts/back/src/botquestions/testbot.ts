@@ -5,6 +5,7 @@
  */
 
 import { type BotApi, BotFailure, type Keyboard } from "./bot_api.ts";
+import type { Entity, Rendered } from "./card.ts";
 import { Chat } from "./chat.ts";
 import { Form, ONE, type Step, TAKES_TEXT } from "./form.ts";
 import { BotQuestions } from "./questions.ts";
@@ -22,6 +23,8 @@ export interface Call {
   readonly buttons: readonly (readonly string[])[];
   /** Данные кнопок по рядам. */
   readonly data: readonly (readonly string[])[];
+  /** Выделения текста; нет — поля нет. */
+  readonly entities?: readonly Entity[];
 }
 
 /** Фейк-бот. */
@@ -80,8 +83,8 @@ export class FakeBot implements BotApi {
     this.#waiter.resolve();
   }
 
-  send(text: string, keyboard: Keyboard): Promise<number> {
-    this.#record(call("send", 0, text, keyboard));
+  send(message: Rendered, keyboard: Keyboard): Promise<number> {
+    this.#record(call("send", 0, message, keyboard));
     const failure = this.#failing.get("send");
     if (failure !== undefined) return Promise.reject(failure);
     const id = this.#nextId;
@@ -90,12 +93,12 @@ export class FakeBot implements BotApi {
     return Promise.resolve(id);
   }
 
-  async edit(message: number, text: string, keyboard: Keyboard): Promise<void> {
-    this.#record(call("edit", message, text, keyboard));
+  async edit(id: number, message: Rendered, keyboard: Keyboard): Promise<void> {
+    this.#record(call("edit", id, message, keyboard));
     await this.#editGate;
     const failure = this.#failing.get("edit");
     if (failure !== undefined) throw failure;
-    this.#buttons(message, keyboard);
+    this.#buttons(id, keyboard);
   }
 
   /** Сообщения, у которых в чате сейчас есть кнопки. */
@@ -148,7 +151,7 @@ export class FakeBot implements BotApi {
   }
 
   ack(_callback: string, hint: string): Promise<void> {
-    this.#record(call("ack", 0, hint, []));
+    this.#record(call("ack", 0, { text: hint, entities: [] }, []));
     const failure = this.#failing.get("ack");
     return failure === undefined ? Promise.resolve() : Promise.reject(failure);
   }
@@ -181,15 +184,17 @@ export class FakeBot implements BotApi {
 function call(
   method: Call["method"],
   message: number,
-  text: string,
+  shown: Rendered,
   keyboard: Keyboard,
 ): Call {
   return {
     method,
     message,
-    text,
+    text: shown.text,
     buttons: keyboard.map((row) => row.map((button) => button.text)),
     data: keyboard.map((row) => row.map((button) => button.data)),
+    // Выделения — только когда есть: прежние сверки вызовов их не знают.
+    ...(shown.entities.length === 0 ? {} : { entities: shown.entities }),
   };
 }
 

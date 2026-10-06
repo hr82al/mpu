@@ -12,9 +12,21 @@ import {
   type Keyboard,
   NO_KEYBOARD,
 } from "./bot_api.ts";
-import type { Card } from "./card.ts";
+import type { Card, Rendered } from "./card.ts";
 import { EXPIRED_LINE } from "./outcome.ts";
 import type { ShownMessages } from "./shown.ts";
+
+/** Чтение исхода отдельного сообщения. */
+export interface PostedReader<T> {
+  sent(id: number): T;
+  /** Не ушло; причина — для человека, без токена. */
+  refused(reason: string): T;
+}
+
+/** Исход отдельного сообщения. */
+export interface Posted {
+  read<T>(reader: PostedReader<T>): T;
+}
 
 /** Что нужно чату. */
 export interface ChatParts {
@@ -41,7 +53,7 @@ export class Chat {
    *
    * @throws BotFailure — сообщение не показано
    */
-  async show(card: Card, text: string, keyboard: Keyboard): Promise<number> {
+  async show(card: Card, text: Rendered, keyboard: Keyboard): Promise<number> {
     const id = await this.#bot.send(text, keyboard);
     this.#shown.remember(id, card);
     return id;
@@ -51,7 +63,7 @@ export class Chat {
   async edit(
     id: number,
     card: Card,
-    text: string,
+    text: Rendered,
     keyboard: Keyboard,
   ): Promise<boolean> {
     if (
@@ -68,7 +80,7 @@ export class Chat {
    * сообщение помнится: перезапуск ядра снимет его кнопки «истёк». Ответ —
    * сняты ли кнопки.
    */
-  close(id: number, text: string): Promise<boolean> {
+  close(id: number, text: Rendered): Promise<boolean> {
     return this.#finish(id, text);
   }
 
@@ -79,7 +91,24 @@ export class Chat {
 
   /** Сообщение владельцу без кнопок. */
   async say(text: string): Promise<void> {
-    await this.#tried("ответ владельцу", this.#bot.send(text, NO_KEYBOARD));
+    await this.#tried(
+      "ответ владельцу",
+      this.#bot.send({ text, entities: [] }, NO_KEYBOARD),
+    );
+  }
+
+  /**
+   * Отдельное сообщение без кнопок (`весь экран`, строка-уведомление).
+   * Ответ — исход: номер сообщения или причина отказа.
+   */
+  async post(message: Rendered): Promise<Posted> {
+    try {
+      const id = await this.#bot.send(message, NO_KEYBOARD);
+      return { read: (reader) => reader.sent(id) };
+    } catch (err) {
+      if (!(err instanceof BotFailure)) throw err;
+      return { read: (reader) => reader.refused(err.message) };
+    }
   }
 
   /**
@@ -89,7 +118,7 @@ export class Chat {
    */
   async expireShown(): Promise<void> {
     for (const { id, body } of this.#shown.all()) {
-      await this.#finish(id, body.text([EXPIRED_LINE]));
+      await this.#finish(id, body.render([EXPIRED_LINE]));
     }
   }
 
@@ -99,7 +128,7 @@ export class Chat {
    * запись повторялась бы на каждом старте. Сбой сети запись хранит и
    * отвечает «кнопки не сняты».
    */
-  async #finish(id: number, text: string): Promise<boolean> {
+  async #finish(id: number, text: Rendered): Promise<boolean> {
     try {
       await this.#bot.edit(id, text, NO_KEYBOARD);
     } catch (err) {

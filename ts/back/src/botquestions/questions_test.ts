@@ -12,7 +12,13 @@ import { Card } from "./card.ts";
 import type { Clock } from "./poller.ts";
 import { BotQuestions, NO_BOT, ownerQuestions } from "./questions.ts";
 import { NO_MEMORY, type ShownMessages, StoredMessages } from "./shown.ts";
-import { f1, FakeBot, pressUpdate, textUpdate } from "./testbot.ts";
+import {
+  f1,
+  FakeBot,
+  fakeQuestions,
+  pressUpdate,
+  textUpdate,
+} from "./testbot.ts";
 import type { OutcomeReader } from "./outcome.ts";
 
 /** Старт ядра в тестах: 2026-10-06, мс. */
@@ -273,4 +279,22 @@ Deno.test("сообщение поправить нельзя (400) — запи
   questions.start();
   await questions.stop();
   assertEquals(shown.all(), []);
+});
+
+Deno.test("R4: отдельное сообщение — номер; без бота — «бот не настроен»", async () => {
+  const bot = new FakeBot();
+  const questions = fakeQuestions(bot);
+  const reader = {
+    sent: (id: number) => `ушло ${id}`,
+    refused: (why: string) => `отказ: ${why}`,
+  };
+  assertEquals(
+    (await questions.post({ text: "экран", entities: [] })).read(reader),
+    "ушло 1546",
+  );
+  assertEquals(bot.calls[0].buttons, []);
+  assertEquals(
+    (await NO_BOT.post({ text: "экран", entities: [] })).read(reader),
+    "отказ: бот не настроен",
+  );
 });
