@@ -1005,6 +1005,15 @@
   {
     "path": [
       "claude-hook",
+      "permission-request"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "claude-hook",
       "pre-tool-use"
     ],
     "verdict": "deny",
@@ -2425,6 +2434,15 @@
   {
     "path": [
       "telegram"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "telegram",
+      "file"
     ],
     "verdict": "deny",
     "rule": "*",

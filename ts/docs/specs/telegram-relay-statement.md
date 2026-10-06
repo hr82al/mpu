@@ -187,7 +187,7 @@ AskUserQuestion:
 | без названия сессии, `cwd=/a/ozon/`, вне tmux | `🔐 Bash — ozon` |
 | названия, `cwd` и tmux нет | `🔐 Bash` |
 | только автоназвание `Починка логина` | `🔐 Bash — Починка логина · ozon` |
-| название `очень-длинное-имя-сессии-claude` | `🔐 Bash — очень-длинное-имя-сессии… · ozon` |
+| название `очень-длинное-имя-сессии-claude` | `🔐 Bash — очень-длинное-имя-сесси… · ozon` (23 символа и `…`) |
 | MCP-тул `mcp__mpu__mpu` | `🔐 mpu (MCP) — mpu-bot · ozon` |
 | AskUserQuestion, `header: Цвет` | `❓ Цвет — mpu-bot · ozon` |
 | AskUserQuestion без `header` | `❓ Вопрос — mpu-bot · ozon` |
