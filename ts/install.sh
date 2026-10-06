@@ -478,6 +478,46 @@ hook_claude() {
   say "$name: вписано"
 }
 
+# Канал Claude Code (docs/specs/claude-channel.md, «Установка»): сервер
+# mpu-channel пользовательского уровня — его ставит сам claude, как сервер
+# mpu; уже такой — ни вызова. Сервер запускает клиент mpu командой
+# claude-channel.
+hook_claude_channel_server() {
+  local want file=$HOME/.claude.json name="claude канал сервер"
+  want=$(jq -cn --arg command "$bin_dir/mpu" \
+    '{type: "stdio", command: $command, args: ["claude-channel"]}') || fail "$name" "запись не собрана"
+  if jq -e --argjson want "$want" '.mcpServers["mpu-channel"] == $want' "$file" >/dev/null 2>&1; then
+    say "$name: без изменений"
+    return
+  fi
+  if jq -e '.mcpServers["mpu-channel"]' "$file" >/dev/null 2>&1; then
+    "$claude" mcp remove --scope user mpu-channel >/dev/null || fail "$name" "прежний сервер mpu-channel не снят"
+  fi
+  "$claude" mcp add-json --scope user mpu-channel "$want" >/dev/null || fail "$name" "сервер mpu-channel не добавлен"
+  say "$name: подключено"
+}
+
+# Алиас claude с флагом канала — в каждой настроенной оболочке своим
+# блоком, отдельным от блока дополнения; блок установщика заменяется
+# целиком. command claude — без канала (claude-channel.md, «Установка»).
+claude_begin='# >>> mpu claude >>>'
+claude_end='# <<< mpu claude <<<'
+claude_flag='--dangerously-load-development-channels server:mpu-channel'
+claude_body_bash="claude() { command claude $claude_flag \"\$@\"; }"
+claude_body_fish="function claude --wraps claude; command claude $claude_flag \$argv; end"
+claude_body_nu="def --wrapped claude [...rest] { ^claude $claude_flag ...\$rest }"
+
+hook_claude_alias() {
+  local shell=$1 file=$2 name="claude канал $1" body_of=claude_body_$1
+  local body=${!body_of}
+  if [[ $(block_in "$file" "$claude_begin" "$claude_end") == "$body" ]]; then
+    say "$name: без изменений"
+    return
+  fi
+  write_block "$file" "$body" "$claude_begin" "$claude_end" || fail "$name" "файл не записан"
+  say "$name: подключено"
+}
+
 if ! command -v "$claude" >/dev/null; then
   say "claude: не установлен"
 else
@@ -486,6 +526,15 @@ else
   hook_claude_rules
   hook_claude PermissionRequest 'mpu claude-hook permission-request' 3600
   hook_claude Stop 'mpu claude-hook stop' 30
+  hook_claude_channel_server
+  for shell in bash fish nu; do
+    file=$("config_$shell")
+    if [[ -z $file ]]; then
+      say "claude канал $shell: не настроена"
+      continue
+    fi
+    hook_claude_alias "$shell" "$file"
+  done
 fi
 
 say "готово"

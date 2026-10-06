@@ -5,3 +5,6 @@ export PS1='$ '
 local IFS=$'\n'
 split column "\t"
 # <<< mpu completion <<<
+# >>> mpu claude >>>
+claude() { command claude --dangerously-load-development-channels server:mpu-channel "$@"; }
+# <<< mpu claude <<<

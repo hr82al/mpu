@@ -658,6 +658,30 @@ function claudeLines(run: Run): string[] {
   return run.lines.filter((line) => line.startsWith("install: claude"));
 }
 
+/** Строка шага `step` («claude хук stop», «claude канал bash»). */
+function stepLine(run: Run, step: string): string | undefined {
+  return run.lines.find((line) => line.startsWith(`install: ${step}:`));
+}
+
+/** Строки канала Claude Code на машине без настроенных оболочек. */
+function channelLines(server: string): string[] {
+  return [
+    `install: claude канал сервер: ${server}`,
+    "install: claude канал bash: не настроена",
+    "install: claude канал fish: не настроена",
+    "install: claude канал nu: не настроена",
+  ];
+}
+
+/** Сервер канала пользовательского уровня (`claude-channel.md`, «Установка»). */
+function channelServer(place: Place): Record<string, unknown> {
+  return {
+    type: "stdio",
+    command: `${place.dir}/bin/mpu`,
+    args: ["claude-channel"],
+  };
+}
+
 async function readJson(path: string): Promise<unknown> {
   return JSON.parse(await Deno.readTextFile(path));
 }
@@ -696,9 +720,13 @@ Deno.test("claude: первая установка — сервер mpu поль
       "install: claude права: вписано",
       "install: claude хук permission-request: вписано",
       "install: claude хук stop: вписано",
+      ...channelLines("подключено"),
     ]);
     assertEquals(run.claude, [
       `mcp add-json --scope user mpu ${JSON.stringify(mpuServer(place))}`,
+      `mcp add-json --scope user mpu-channel ${
+        JSON.stringify(channelServer(place))
+      }`,
     ]);
     assertEquals(await readJson(`${place.dir}/.claude/settings.json`), {
       permissions: {
@@ -726,6 +754,7 @@ Deno.test("claude: второй запуск — ни вызова claude, setti
       "install: claude права: без изменений",
       "install: claude хук permission-request: без изменений",
       "install: claude хук stop: без изменений",
+      ...channelLines("без изменений"),
     ]);
     assertEquals(run.claude, []);
     const after = await Deno.stat(settings);
@@ -758,6 +787,9 @@ Deno.test("claude: чужие правила и ключи на месте, пр
     assertEquals(run.claude, [
       "mcp remove --scope user mpu",
       `mcp add-json --scope user mpu ${JSON.stringify(mpuServer(place))}`,
+      `mcp add-json --scope user mpu-channel ${
+        JSON.stringify(channelServer(place))
+      }`,
     ]);
     assertEquals(await readJson(settings), {
       model: "opus",
@@ -809,7 +841,7 @@ Deno.test("claude хук: правленая запись заменена св�
     const run = await install(place);
     assertEquals(run.code, 0, run.lines.join("\n"));
     assertEquals(
-      claudeLines(run).at(-2),
+      stepLine(run, "claude хук permission-request"),
       "install: claude хук permission-request: вписано",
     );
     assertEquals(
@@ -836,7 +868,7 @@ Deno.test("R2a-11: хук stop — вписан рядом с чужими за�
     const run = await install(place);
     assertEquals(run.code, 0, run.lines.join("\n"));
     assertEquals(
-      claudeLines(run).at(-1),
+      stepLine(run, "claude хук stop"),
       "install: claude хук stop: вписано",
     );
     assertEquals(
@@ -846,7 +878,7 @@ Deno.test("R2a-11: хук stop — вписан рядом с чужими за�
     const bytes = await Deno.readFile(settings);
     const again = await install(place);
     assertEquals(
-      claudeLines(again).at(-1),
+      stepLine(again, "claude хук stop"),
       "install: claude хук stop: без изменений",
     );
     assertEquals(await Deno.readFile(settings), bytes);
@@ -934,3 +966,97 @@ Deno.test("копия фрагмента хука stop совпадает с к�
     ),
   );
 });
+
+const CLAUDE_BEGIN = "# >>> mpu claude >>>";
+const CLAUDE_END = "# <<< mpu claude <<<";
+
+/** Тело блока `claude` в файле; блока нет — `undefined`. */
+function claudeBlock(text: string): string | undefined {
+  const begin = text.indexOf(`${CLAUDE_BEGIN}\n`);
+  const end = text.indexOf(`\n${CLAUDE_END}`);
+  if (begin < 0 || end < 0) return undefined;
+  return text.slice(begin + CLAUDE_BEGIN.length + 1, end);
+}
+
+Deno.test("R2b-10: канал — сервер и алиас claude в каждой оболочке; повторно — без изменений, те же байты", () =>
+  withPlace(async (place) => {
+    const bashrc = await shellConfig(place, "bash", "export PS1='$ '\n");
+    const fish = await shellConfig(place, "fish", "# fish\n");
+    const nu = await shellConfig(place, "nu", "# nu\n");
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(
+      run.lines.filter((line) => line.startsWith("install: claude канал")),
+      [
+        "install: claude канал сервер: подключено",
+        "install: claude канал bash: подключено",
+        "install: claude канал fish: подключено",
+        "install: claude канал nu: подключено",
+      ],
+    );
+    const flag = "--dangerously-load-development-channels server:mpu-channel";
+    assertEquals(
+      claudeBlock(await Deno.readTextFile(bashrc)),
+      `claude() { command claude ${flag} "$@"; }`,
+    );
+    assertEquals(
+      claudeBlock(await Deno.readTextFile(fish)),
+      `function claude --wraps claude; command claude ${flag} $argv; end`,
+    );
+    assertEquals(
+      claudeBlock(await Deno.readTextFile(nu)),
+      `def --wrapped claude [...rest] { ^claude ${flag} ...$rest }`,
+    );
+    // Блок дополнения — свой, отдельный.
+    assertEquals(blocks(await Deno.readTextFile(bashrc)), [fakeBody("bash")]);
+    const bytes = await Promise.all(
+      [bashrc, fish, nu].map((path) => Deno.readFile(path)),
+    );
+    const again = await install(place);
+    assertEquals(
+      again.lines.filter((line) => line.startsWith("install: claude канал")),
+      [
+        "install: claude канал сервер: без изменений",
+        "install: claude канал bash: без изменений",
+        "install: claude канал fish: без изменений",
+        "install: claude канал nu: без изменений",
+      ],
+    );
+    assertEquals(again.claude, []);
+    assertEquals(
+      await Promise.all([bashrc, fish, nu].map((path) => Deno.readFile(path))),
+      bytes,
+    );
+  }));
+
+Deno.test("R2b-10: правка внутри блока claude затирается целиком; иной сервер канала заменён", () =>
+  withPlace(async (place) => {
+    const bashrc = await shellConfig(place, "bash", "# сверху\n");
+    await install(place);
+    const edited = (await Deno.readTextFile(bashrc))
+      .replace("command claude", "command my-claude") + "# снизу\n";
+    await Deno.writeTextFile(bashrc, edited);
+    const claudeJson = `${place.dir}/.claude.json`;
+    const config = JSON.parse(await Deno.readTextFile(claudeJson));
+    config.mcpServers["mpu-channel"] = { type: "stdio", command: "старый" };
+    await Deno.writeTextFile(claudeJson, JSON.stringify(config));
+    const run = await install(place);
+    assertEquals(
+      stepLine(run, "claude канал bash"),
+      "install: claude канал bash: подключено",
+    );
+    assertEquals(
+      stepLine(run, "claude канал сервер"),
+      "install: claude канал сервер: подключено",
+    );
+    assertEquals(run.claude, [
+      "mcp remove --scope user mpu-channel",
+      `mcp add-json --scope user mpu-channel ${
+        JSON.stringify(channelServer(place))
+      }`,
+    ]);
+    const text = await Deno.readTextFile(bashrc);
+    assertEquals(text.includes("my-claude"), false);
+    assertEquals(text.startsWith("# сверху\n"), true);
+    assertEquals(text.endsWith("# снизу\n"), true);
+  }));
