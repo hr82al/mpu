@@ -24,8 +24,8 @@ Bot API); **R1b** — хук, клиент, посев, установка
 
 ## 2. Сценарии
 
-Общие данные. Бот @MpuLogBot, чат владельца — `TELEGRAM_BOT_ID=111`. Сессия A:
-`cwd=/home/user/mr/mp/ozon`, запущена в окне tmux `w:2` с именем `claude`.
+Общие данные. Бот @MpuLogBot, чат владельца — `TELEGRAM_BOT_ID=111`. Сессия A (название
+`mpu-bot`): `cwd=/home/user/mr/mp/ozon`, запущена в окне tmux `w:2` с именем `claude`.
 Сессия B: `cwd=/home/user/mr/mp/sl-back`, вне tmux. Режим разрешений сессий —
 `default`. Хук настроен фрагментом из §2.У.
 
@@ -37,7 +37,7 @@ Bot API); **R1b** — хук, клиент, посев, установка
    → В терминале A показан обычный диалог. Одновременно в чат приходит
    сообщение:
    ```
-   🔐 Bash · ozon · w:2 claude
+   🔐 Bash — mpu-bot · ozon · w:2 claude
    Create probe file
    touch /tmp/x1.txt
    ```
@@ -65,7 +65,7 @@ Bot API); **R1b** — хук, клиент, посев, установка
    сообщении. → Ничего не меняется; во всплывающей подсказке Telegram —
    «вопрос уже решён».
 8. **Вне tmux.** Сессия B просит то же право. → Заголовок —
-   `🔐 Bash · sl-back`, без окна.
+   `🔐 Bash — sl-back` (без названия и окна).
 
 AskUserQuestion:
 
@@ -74,7 +74,7 @@ AskUserQuestion:
    цвет"},{"label":"Синий","description":"Синий цвет"}],"multiSelect":false}`.
    → В терминале обычный диалог; в чат:
    ```
-   ❓ Цвет · ozon · w:2 claude
+   ❓ Цвет — mpu-bot · ozon · w:2 claude
    Какой цвет?
    • Красный — Красный цвет
    • Синий — Синий цвет
@@ -183,13 +183,15 @@ AskUserQuestion:
 
 | Сессия | Заголовок |
 |---|---|
-| `cwd=/a/ozon`, tmux `w:2`, окно `claude` | `🔐 Bash · ozon · w:2 claude` |
-| `cwd=/a/ozon/`, вне tmux | `🔐 Bash · ozon` |
-| `cwd` нет | `🔐 Bash` |
-| MCP-тул `mcp__mpu__mpu` | `🔐 mpu (MCP) · ozon` |
-| AskUserQuestion, `header: Цвет` | `❓ Цвет · ozon` |
-| AskUserQuestion без `header` | `❓ Вопрос · ozon` |
-| 2-й из 3 вопросов | `❓ Цвет 2/3 · ozon` |
+| сессия `mpu-bot`, `cwd=/a/ozon`, tmux `w:2`, окно `claude` | `🔐 Bash — mpu-bot · ozon · w:2 claude` |
+| без названия сессии, `cwd=/a/ozon/`, вне tmux | `🔐 Bash — ozon` |
+| названия, `cwd` и tmux нет | `🔐 Bash` |
+| только автоназвание `Починка логина` | `🔐 Bash — Починка логина · ozon` |
+| название `очень-длинное-имя-сессии-claude` | `🔐 Bash — очень-длинное-имя-сессии… · ozon` |
+| MCP-тул `mcp__mpu__mpu` | `🔐 mpu (MCP) — mpu-bot · ozon` |
+| AskUserQuestion, `header: Цвет` | `❓ Цвет — mpu-bot · ozon` |
+| AskUserQuestion без `header` | `❓ Вопрос — mpu-bot · ozon` |
+| 2-й из 3 вопросов | `❓ Цвет 2/3 — mpu-bot · ozon` |
 
 Исход сообщения:
 
