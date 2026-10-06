@@ -1093,6 +1093,62 @@ function checks(subject: Subject): readonly Check[] {
     // `mpu-back`; без права подпроцесс не стартует, и отметки нет.
     // Клиент несёт `TMUX` и `TMUX_PANE` — заодно проверено его право на
     // `TMUX_PANE`.
+    // Канал Claude Code (`claude-channel.md`): собранный клиент держит
+    // stdio сессии на `node:*` и регистрируется в ядре — заодно проверено
+    // его право на `CLAUDE_CODE_MESSAGING_SOCKET`; значение
+    // `CLAUDE_CODE_MESSAGING_TOKEN` не появляется ни в одном выводе.
+    [
+      "канал: собранный клиент отвечает Claude Code и регистрируется в ядре",
+      async () => {
+        await using server = await serve(subject);
+        const secret = "секрет-канала-7f3a";
+        const child = new Deno.Command(subject.cli, {
+          args: ["claude-channel"],
+          env: {
+            HOME: subject.home,
+            MPU_BACK_URL: server.url,
+            CLAUDE_CODE_MESSAGING_SOCKET: `${subject.home}/cc-1.sock`,
+            CLAUDE_CODE_MESSAGING_TOKEN: secret,
+          },
+          clearEnv: true,
+          stdin: "piped",
+          stdout: "piped",
+          stderr: "piped",
+        }).spawn();
+        const stdout = new Response(child.stdout).text();
+        const writer = child.stdin.getWriter();
+        await writer.write(new TextEncoder().encode(
+          '{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}\n' +
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}\n',
+        ));
+        // Регистрация — след в stderr канала; дождаться его, затем EOF.
+        const errors = child.stderr.pipeThrough(new TextDecoderStream())
+          .getReader();
+        let said = "";
+        while (!said.includes("зарегистрирован в ядре")) {
+          const next = await errors.read();
+          if (next.done) break;
+          said += next.value;
+        }
+        await writer.close();
+        for (
+          let next = await errors.read();
+          !next.done;
+          next = await errors.read()
+        ) {
+          said += next.value;
+        }
+        const status = await child.status;
+        const out = await stdout;
+        assertEquals(status.code, 0, said);
+        assert(said.includes("зарегистрирован в ядре"), said);
+        assert(out.includes('"experimental":{"claude/channel":{}}'), out);
+        assert(
+          !out.includes(secret) && !said.includes(secret),
+          "токен в выводе",
+        );
+      },
+    ],
     ["tmux: подпись окна вопроса запускает /usr/bin/tmux", async () => {
       const socket = `${subject.home}/tmux.sock`;
       const tmux = (...args: string[]) => tmuxAt(socket, args);

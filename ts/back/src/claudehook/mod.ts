@@ -16,6 +16,7 @@ export { claudeHookNotificationCommand } from "./cmd_notification.ts";
 export { claudeHookPreToolUseCommand } from "./cmd_pre_tool_use.ts";
 export { claudeHookPermissionRequestCommand } from "./cmd_permission_request.ts";
 export { claudeHookStopCommand } from "./cmd_stop.ts";
+export { claudeChannelCommand } from "./cmd_claude_channel.ts";
 export {
   DEADLINE_MS,
   type DeskParts,

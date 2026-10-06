@@ -1258,6 +1258,13 @@ const CASES: readonly CommandCase[] = [
     argv: [],
     sampleResult: {},
   },
+  {
+    // Исполняет клиент (`cli/src/channel/`): у команды реестра исполнения
+    // нет, обход получает отказ.
+    path: "claude-channel",
+    argv: [],
+    sampleResult: {},
+  },
   // Семейство `mr`: ключа GLAB_TOKEN в env-файле обхода нет, поэтому
   // каждый вызов обязан отбиться на конфигурации — до git и до сети.
   {

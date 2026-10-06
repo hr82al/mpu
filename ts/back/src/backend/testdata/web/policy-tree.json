@@ -987,6 +987,14 @@
   },
   {
     "path": [
+      "claude-channel"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
       "claude-hook"
     ],
     "verdict": "deny",

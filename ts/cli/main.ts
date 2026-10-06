@@ -6,6 +6,11 @@
 import { copyToClipboard } from "./src/clipboard/mod.ts";
 import type { CallerFacts } from "../back/src/frames/mod.ts";
 import { openControllingTerminal } from "./src/terminal/mod.ts";
+import { createInterface } from "node:readline";
+import process from "node:process";
+import { setTimeout as sleep } from "node:timers/promises";
+import { SESSION_ENV } from "../back/src/frames/mod.ts";
+import { CHANNEL_WORDS, runChannel } from "./src/channel/mod.ts";
 import { type ClientEnv, runClient } from "./src/mod.ts";
 
 const DEFAULT_URL = "http://127.0.0.1:7338";
@@ -80,5 +85,26 @@ if (import.meta.main) {
     cwd: () => Deno.cwd(),
     interrupted: interrupted.promise,
   };
+  // Канал Claude Code — не строка ядра: живёт, пока открыт stdin
+  // (`claude-channel.md`). Склейка — на `node:*` (`ts/CLAUDE.md`,
+  // «Библиотеки и приёмы»).
+  const channel = Deno.args.length === CHANNEL_WORDS.length &&
+    Deno.args.every((word, i) => word === CHANNEL_WORDS[i]);
+  if (channel) {
+    process.exit(
+      await runChannel({
+        base: env.base,
+        mainToken: env.mainToken,
+        key: process.env[SESSION_ENV],
+        lines: createInterface({ input: process.stdin, crlfDelay: Infinity }),
+        write: (text) =>
+          new Promise((resolve, reject) =>
+            process.stdout.write(text, (err) => err ? reject(err) : resolve())
+          ),
+        stderr: (text) => void process.stderr.write(text),
+        pause: (ms, signal) => sleep(ms, undefined, { signal }),
+      }),
+    );
+  }
   Deno.exit(await runClient(Deno.args, env));
 }

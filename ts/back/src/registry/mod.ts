@@ -88,6 +88,7 @@ import {
   telegramStatusCommand,
 } from "../telegram/mod.ts";
 import {
+  claudeChannelCommand,
   claudeHookNotificationCommand,
   claudeHookPermissionRequestCommand,
   claudeHookPreToolUseCommand,
@@ -252,6 +253,7 @@ export const commands: readonly Command[] = [
   claudeHookPreToolUseCommand,
   claudeHookPermissionRequestCommand,
   claudeHookStopCommand,
+  claudeChannelCommand,
   // Семейство обёрток доезжает: очереди задач, миграции и загрузчик
   // Ozon (`specs/portainer-wrappers.md`).
   ...jobsCommands,
