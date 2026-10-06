@@ -1,0 +1,13 @@
+{"in":{"jsonrpc":"2.0","id":"server-discover-probe-1","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"claude-code","title":"Claude Code","version":"2.1.292","description":"Anthropic's agentic coding tool","websiteUrl":"https://claude.com/claude-code"},"io.modelcontextprotocol/clientCapabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}}}}}},"out":null}
+{"in":null,"out":{"id":"server-discover-probe-1","result":{}}}
+{"in":{"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{"roots":{"listChanged":true},"elicitation":{"form":{},"url":{}}},"clientInfo":{"name":"claude-code","title":"Claude Code","version":"2.1.292","description":"Anthropic's agentic coding tool","websiteUrl":"https://claude.com/claude-code"}},"jsonrpc":"2.0","id":0},"out":null}
+{"in":null,"out":{"id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{}},"serverInfo":{"name":"elicitprobe","version":"0.0.1"}}}}
+{"in":{"jsonrpc":"2.0","method":"notifications/initialized"},"out":null}
+{"in":{"method":"tools/list","jsonrpc":"2.0","id":1},"out":null}
+{"in":null,"out":{"id":1,"result":{"tools":[{"name":"ask_me","description":"Ask the human a yes/no question via a form","inputSchema":{"type":"object","properties":{}}}]}}}
+{"in":{"method":"tools/call","params":{"name":"ask_me","arguments":{},"_meta":{"claudecode/toolUseId":"toolu_01Nmh4ogK29PbjrVYacXCAfc","progressToken":2}},"jsonrpc":"2.0","id":2},"out":null}
+{"in":null,"out":{"id":0,"method":"ping"}}
+{"in":{"result":{},"jsonrpc":"2.0","id":0},"out":null}
+{"in":null,"out":{"id":1,"method":"elicitation/create","params":{"message":"ПРОБА-ФОРМА: применить?","requestedSchema":{"type":"object","properties":{}}}}}
+{"in":null,"out":{"method":"notifications/cancelled","params":{"requestId":1,"reason":"answered elsewhere"}}}
+{"in":null,"out":{"id":2,"result":{"content":[{"type":"text","text":"server cancelled the form after 5s"}]}}}
