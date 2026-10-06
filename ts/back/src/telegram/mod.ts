@@ -6,11 +6,22 @@
  * остаются внутренностями. Сверх них наружу выведена отправка в личного
  * бота: ею пользуется `mpu claude-hook notification`
  * (`docs/specs/claude-hook-notification.md`), и второй копии правил
- * конфигурации и вызова Bot API быть не должно.
+ * конфигурации и вызова Bot API быть не должно. Конфигурацией бота и
+ * вызовом метода Bot API (`./bot_call.ts`) пользуются и вопросы
+ * владельцу (`../botquestions/`).
  */
 
 export { sendBotMessage } from "./bot.ts";
+export {
+  BOT_TIMEOUTS,
+  BotCallError,
+  type BotEndpoint,
+  type BotFailureWords,
+  callBot,
+  TELEGRAM_API_BASE,
+} from "./bot_call.ts";
 export { botConfig } from "./bot_config.ts";
+export type { EnvKeys } from "./config.ts";
 
 export { telegramLogCommand } from "./cmd_log.ts";
 export { telegramFileCommand } from "./cmd_file.ts";

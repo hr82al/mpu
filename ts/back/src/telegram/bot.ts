@@ -12,32 +12,19 @@
  * написавшему боту (спека, «CLI-контракт»).
  */
 
-import {
-  buildMultipartBody,
-  firstLine,
-  HttpCallError,
-  httpSend,
-  type MultipartPart,
-  type RequestTimeouts,
-} from "../http/mod.ts";
+import { buildMultipartBody, type MultipartPart } from "../http/mod.ts";
 import type { Attachment } from "./attachment.ts";
 import type { BotConfig } from "./bot_config.ts";
+import {
+  BOT_TIMEOUTS,
+  BotCallError,
+  type BotFailureWords,
+  callBot,
+  TELEGRAM_API_BASE,
+} from "./bot_call.ts";
 import { configError } from "./errors.ts";
 
-/** Адрес Bot API; параметром — чтобы тест ходил на петлю, а не наружу. */
-export const TELEGRAM_API_BASE = "https://api.telegram.org";
-
-/**
- * Пределы времени этого вызова — шире умолчания транспорта (3s/10s).
- * Умолчание отмерено на стенд в локальной сети; здесь путь другой:
- * внешний узел, а у большинства операторов ещё и прокси, добавляющий
- * рукопожатие. На умолчании первый же живой вызов упирался в
- * «no response headers within 3000ms», не дойдя до Telegram.
- */
-const BOT_TIMEOUTS: RequestTimeouts = {
-  headersTimeoutMs: 15_000,
-  totalTimeoutMs: 30_000,
-};
+export { TELEGRAM_API_BASE };
 
 /** Ответ об отправке: наружу уходит только номер сообщения. */
 export interface BotSent {
@@ -69,28 +56,27 @@ export async function sendBotMessage(
   apiBase: string = TELEGRAM_API_BASE,
 ): Promise<BotSent> {
   const call = botCall(config.chatId, message);
-  const url = new URL(`${apiBase}/bot${config.token}/${call.method}`);
-  let response;
+  let result;
   try {
-    response = await httpSend(url, {
-      method: "POST",
-      headers: { "content-type": call.contentType },
-      body: call.body,
-      timeouts: BOT_TIMEOUTS,
-      // Прокси адресный: он нужен пути наружу, а обращения к стенду
-      // ходят напрямую (`docs/specs/telegram-log.md`, «Конфигурация»).
-      ...(config.proxy === undefined ? {} : { proxy: config.proxy }),
-    });
+    result = await callBot(
+      {
+        token: config.token,
+        apiBase,
+        ...(config.proxy === undefined ? {} : { proxy: config.proxy }),
+      },
+      { ...call, timeouts: BOT_TIMEOUTS },
+    );
   } catch (err) {
-    if (err instanceof HttpCallError) {
-      throw configError(
-        `bot API недоступен: ${firstLine(err.message)}`,
-        { cause: err },
-      );
-    }
-    throw err;
+    if (!(err instanceof BotCallError)) throw err;
+    throw configError(err.explain(failureWords(config)), { cause: err });
   }
-  return parseReply(response.text, config);
+  const id = typeof result === "object" && result !== null
+    ? (result as { message_id?: unknown }).message_id
+    : undefined;
+  if (typeof id !== "number") {
+    throw configError("bot API не сообщил номер сообщения");
+  }
+  return { id };
 }
 
 /** Вызов Bot API: метод пути и готовое тело с объявленным типом. */
@@ -158,40 +144,20 @@ function documentParts(
   ];
 }
 
-/** Разбор ответа: успех — номер сообщения, отказ — код и описание. */
-function parseReply(text: string, config: BotConfig): BotSent {
-  let reply: {
-    ok?: boolean;
-    error_code?: number;
-    description?: string;
-    result?: { message_id?: number };
+/** Слова отказа `telegram log`; у «диалог не начат» — подсказка. */
+function failureWords(config: BotConfig): BotFailureWords<string> {
+  return {
+    unreachable: (reason) => `bot API недоступен: ${reason}`,
+    unreadable: (line) => `bot API вернул не JSON: ${line}`,
+    refused: (code, description) => {
+      const base = `bot API ${code} ${description}`;
+      if (!NEEDS_START.some((marker) => description.includes(marker))) {
+        return base;
+      }
+      // Единственная реальная причина на старте — боту ещё не написали:
+      // первым он писать не вправе.
+      const name = config.botName === undefined ? "" : ` @${config.botName}`;
+      return `${base}; напиши боту${name} /start`;
+    },
   };
-  try {
-    reply = JSON.parse(text);
-  } catch {
-    // Не JSON — это не Bot API на том конце: шлюз, прокси или
-    // заглушка. Молча считать успехом нельзя.
-    throw configError(`bot API вернул не JSON: ${firstLine(text)}`);
-  }
-  if (reply.ok !== true) throw configError(failureText(reply, config));
-  const id = reply.result?.message_id;
-  if (typeof id !== "number") {
-    throw configError("bot API не сообщил номер сообщения");
-  }
-  return { id };
-}
-
-/** Текст отказа; у «диалог не начат» — подсказка, что делать. */
-function failureText(
-  reply: { error_code?: number; description?: string },
-  config: BotConfig,
-): string {
-  const code = reply.error_code ?? 0;
-  const description = reply.description ?? "без описания";
-  const base = `bot API ${code} ${description}`;
-  if (!NEEDS_START.some((marker) => description.includes(marker))) return base;
-  // Единственная реальная причина на старте — боту ещё не написали:
-  // первым он писать не вправе.
-  const name = config.botName === undefined ? "" : ` @${config.botName}`;
-  return `${base}; напиши боту${name} /start`;
 }
