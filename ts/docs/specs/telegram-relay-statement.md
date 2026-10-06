@@ -1,6 +1,6 @@
 # Ретранслятор вопросов Claude Code в Telegram — постановка порции R1
 
-Статус: черновик постановки (сценарии; спеки `platform/telegram-questions.md` и
+Статус: согласовано владельцем 2026-10-06 (сценарии; спеки `platform/telegram-questions.md` и
 `claude-hook-permission-request.md` пишутся по ней после согласования)
 
 Серия R — «любое ожидание человека в любой сессии Claude Code приходит в

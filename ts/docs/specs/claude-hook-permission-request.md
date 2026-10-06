@@ -1,6 +1,6 @@
 # mpu claude-hook permission-request
 
-Статус: черновик (серия R, порция R1; постановка —
+Статус: к реализации (серия R, порция R1b; постановка —
 `telegram-relay-statement.md`, сценарии `[S.n]`; вопросы в чате —
 `platform/telegram-questions.md`)
 
