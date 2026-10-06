@@ -65,6 +65,7 @@ import {
   DISK_FILES,
   PermissionDesk,
   RUN_TMUX,
+  Sessions,
   StopDesk,
   Transcripts,
   Windows,
@@ -276,6 +277,32 @@ function offeredProtocols(request: Request): string[] {
   return header.split(",").map((one) => one.trim()).filter((one) => one !== "");
 }
 
+/**
+ * Апгрейд запроса до WebSocket; сокет получает `use`. Не запрос
+ * подключения — 400: отвечать по сокету нечему. Подпротокол `bearer.*` в
+ * ответ не выбирается.
+ */
+function webSocketOf(
+  request: Request,
+  use: (socket: WebSocket) => void,
+): Response {
+  const chosen = offeredProtocols(request).find((one) =>
+    !one.startsWith(BEARER_PROTOCOL)
+  );
+  let upgraded: { socket: WebSocket; response: Response };
+  try {
+    upgraded = Deno.upgradeWebSocket(
+      request,
+      chosen === undefined ? {} : { protocol: chosen },
+    );
+  } catch (err) {
+    if (!(err instanceof TypeError)) throw err;
+    return empty(400);
+  }
+  use(upgraded.socket);
+  return upgraded.response;
+}
+
 function empty(status: number, headers?: HeadersInit): Response {
   return new Response(null, { status, headers });
 }
@@ -402,6 +429,8 @@ class Back {
   readonly #desk: PermissionDesk;
   /** Вопросы «ждёт ввода» хука `Stop`: живут дольше своих строк. */
   readonly #stopDesk: StopDesk;
+  /** Сессии Claude Code по ключу: вопрос «ждёт ввода» каждой. */
+  readonly #sessions = new Sessions();
 
   constructor(options: BackOptions) {
     this.#options = options;
@@ -439,6 +468,7 @@ class Back {
       questions: options.questions,
       transcripts,
       windows,
+      sessions: this.#sessions,
       diagnose: options.diagnose,
     });
     this.#results = new LastResults(this.#now);
@@ -613,27 +643,14 @@ class Back {
     return json(body);
   }
 
-  /** WebSocket строки. Подпротокол `bearer.*` в ответ не выбирается. */
+  /** WebSocket строки. */
   #upgrade(request: Request, door: Door, caller: Caller): Response {
     // После апгрейда запрос закрыт: имя вызывающего — до него.
     const naming = caller.naming(request);
-    const chosen = offeredProtocols(request).find((one) =>
-      !one.startsWith(BEARER_PROTOCOL)
-    );
-    let upgraded: { socket: WebSocket; response: Response };
-    try {
-      upgraded = Deno.upgradeWebSocket(
-        request,
-        chosen === undefined ? {} : { protocol: chosen },
-      );
-    } catch (err) {
-      // Не запрос подключения WebSocket: отвечать строкой нечему.
-      if (!(err instanceof TypeError)) throw err;
-      return empty(400);
-    }
-    const { line, first, input } = socketLine(upgraded.socket);
-    this.#track(line, first, input, door, caller, naming);
-    return upgraded.response;
+    return webSocketOf(request, (socket) => {
+      const { line, first, input } = socketLine(socket);
+      this.#track(line, first, input, door, caller, naming);
+    });
   }
 
   /** Строка простым HTTP: тело — первый кадр, ответ — по `Accept`. */

@@ -295,8 +295,8 @@ say "проверка cli: отвечает"
 # заменяется на месте, нет — дописывается в конец; совпало — файл не
 # переписывается вовсе. Поэтому сколько ни запускай, строк не
 # прибавляется (`platform/cutover.md`).
-begin_mark='# >>> mpu completion >>>'
-end_mark='# <<< mpu completion <<<'
+completion_begin='# >>> mpu completion >>>'
+completion_end='# <<< mpu completion <<<'
 
 # Файл настроек оболочки; его нет — пусто, и оболочка пропускается.
 # Каталог nu спрашивается у самого nu: другого источника у него нет.
@@ -311,9 +311,10 @@ config_nu() {
   [[ -f $dir/config.nu ]] && echo "$dir/config.nu"
 }
 
-# Содержимое блока, как оно лежит сейчас; блока нет — пусто.
+# Содержимое блока между маркерами $2 и $3, как оно лежит сейчас; блока
+# нет — пусто.
 block_in() {
-  awk -v b="$begin_mark" -v e="$end_mark" \
+  awk -v b="$2" -v e="$3" \
     '$0==b{inside=1;next} $0==e{inside=0;next} inside' "$1"
 }
 
@@ -325,8 +326,9 @@ block_in() {
 # есть дословно (`local IFS=$'\n'` у bash, `split column "\t"` у nu) —
 # замер 2026-09-22: `-v` превращает их в настоящие перевод строки и
 # табуляцию, то есть кладёт в файл испорченный скрипт.
+#   $1 — файл, $2 — тело, $3 и $4 — открывающий и закрывающий маркеры.
 write_block() {
-  local file=$1 body=$2 target tmp
+  local file=$1 body=$2 begin_mark=$3 end_mark=$4 target tmp
   # Файл настроек бывает символической ссылкой в чужой каталог с
   # точечными файлами: подменять надо то, на что она смотрит, иначе
   # установка снесла бы саму ссылку.
@@ -357,11 +359,12 @@ hook_shell() {
   local shell=$1 file=$2 body
   body=$("$bin_dir/mpu-complete" init "$shell" 2>/dev/null) ||
     fail "дополнение $shell" "mpu-complete init $shell не отработал"
-  if [[ $(block_in "$file") == "$body" ]]; then
+  if [[ $(block_in "$file" "$completion_begin" "$completion_end") == "$body" ]]; then
     say "дополнение $shell: без изменений"
     return
   fi
-  write_block "$file" "$body" || fail "дополнение $shell" "файл не записан"
+  write_block "$file" "$body" "$completion_begin" "$completion_end" ||
+    fail "дополнение $shell" "файл не записан"
   say "дополнение $shell: подключено"
 }
 

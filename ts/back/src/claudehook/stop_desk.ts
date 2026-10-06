@@ -38,6 +38,8 @@ export interface StopDeskParts {
   readonly questions: Pick<OwnerQuestions, "ask">;
   readonly transcripts: Transcripts;
   readonly windows: Windows;
+  /** Сессии по ключу: общие с каналами ядра. */
+  readonly sessions: Sessions;
   /** Строка в журнал службы: сбой наблюдателя, которому некого винить. */
   readonly diagnose: (line: string) => void;
 }
@@ -70,7 +72,6 @@ function until(
 /** Вопросы «ждёт ввода». */
 export class StopDesk {
   readonly #parts: StopDeskParts;
-  readonly #sessions = new Sessions();
   /** Остановка ядра: ждущие вопросы и пришедшие после — «истёк». */
   readonly #closing = new AbortController();
   /** Наблюдения вопросов до исхода. */
@@ -107,7 +108,7 @@ export class StopDesk {
     const places = placesOf(transcript.title(), request.project, window);
     const form = waitingForm(places, request.message, NO_CHANNEL);
     const key = sessionKeyOf(env);
-    const asked = key.seat(this.#sessions, () => questions.ask(form));
+    const asked = key.seat(this.#parts.sessions, () => questions.ask(form));
     this.#watch(asked, transcript, key);
     // Хук не ждёт владельца: только постановки. Отказ показа решается
     // внутри той же перерисовки, что и постановка, — раньше неё; у бота
@@ -121,7 +122,7 @@ export class StopDesk {
   /** Наблюдение вопроса до исхода — во владении стола. */
   #watch(asked: Asked, transcript: Transcript, key: SessionKey): void {
     const watching = this.#watched(asked, transcript).finally(() => {
-      key.leave(this.#sessions, asked);
+      key.leave(this.#parts.sessions, asked);
       this.#watching.delete(watching);
     });
     this.#watching.add(watching);
@@ -163,5 +164,6 @@ export const NO_STOP_DESK = new StopDesk({
   questions: NO_BOT,
   transcripts: NO_TRANSCRIPTS,
   windows: NO_WINDOWS,
+  sessions: new Sessions(),
   diagnose: () => {},
 });
