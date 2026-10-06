@@ -164,7 +164,6 @@
         "/home/user/mr/mp/wt/mpu"
       ],
       "allowWrite": [
-        "/home/user/mr/mp/mpu/.git",
         "/home/user/mr/mp/wt/mpu/.deno",
         "/home/user/mr/mp/wt/mpu/.tmp"
       ]

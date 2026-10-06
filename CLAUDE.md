@@ -15,10 +15,16 @@ Overview дерева `mpu` целиком. Корневой CLAUDE.md моно�
 - **Любая работа — в своей ветке** от свежего `main`. Имя —
   `<type>/<область>-<кратко>` латиницей, `<type>` как у Conventional Commits:
   `feat/telegram-r2`, `fix/claudehook-transcript`, `docs/checklists`.
-- **Параллельно — в worktree.** Каждая ветка в работе — свой worktree
-  `/home/user/mr/mp/wt/mpu/<slug>` (корневое правило worktree): изолированная
-  сессия-исполнитель запускается в worktree своей ветки, у каждого worktree
-  своя ячейка `ts/.tmp/buf.txt`. В основном чекауте `mp/mpu` — `main`.
+- **Параллельно — в клоне, не в worktree.** Каждая ветка в работе — свой
+  клон в `/home/user/mr/mp/wt/mpu/<slug>`: `git clone -b main
+  /home/user/mr/mp/mpu <путь>`, `origin` перенаправить на GitHub
+  (`git remote set-url origin git@github.com-work:hr82al/mpu.git`), ветку
+  пушить туда. Причина: worktree держит историю в чужом `mp/mpu/.git`, а
+  песочница исполнителя не даёт его писать (bwrap: `Can't create file
+  …/mpu/.git/config.lock: Read-only file system`, 2026-10-06); у клона свой
+  `.git` внутри каталога. Исполнитель запускается в клоне своей ветки, у
+  каждого клона своя ячейка `ts/.tmp/buf.txt` (каталог `ts/.tmp` создать —
+  он в `.gitignore`). В основном чекауте `mp/mpu` — `main`.
 - **Исполнитель** коммитит только в свою ветку; в `main` не коммитит, не
   сливает, не пушит.
 - **Ветку в работе** можно пушить в `origin` для сохранности
@@ -28,8 +34,10 @@ Overview дерева `mpu` целиком. Корневой CLAUDE.md моно�
      заново;
   2. `git switch main && git merge --ff-only <ветка> && git push origin main`;
   3. ветка удаляется локально и на remote: `git branch -d <ветка>`,
-     `git push origin --delete <ветка>` (если пушилась), worktree снимается:
-     `git worktree remove --force <путь> && git worktree prune`.
+     `git push origin --delete <ветка>`; клон удаляется целиком (`rm -rf
+     <путь>` — после проверки, что в нём нет незапушенного).
+  Слияние идёт в основном чекауте: `git fetch origin <ветка>`, затем
+  `git rebase`/`merge --ff-only` по `origin/<ветка>`.
 - Спеки порции (`ts/docs/`) живут в той же ветке, что и её код; правка
   правил и чек-листов без кода — своей короткой веткой `docs/…`.
 
