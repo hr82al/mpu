@@ -12,7 +12,7 @@ import type { Commands } from "../program/mod.ts";
 import { entryOf } from "./ahead.ts";
 import {
   type Consulting,
-  type HookAnswer,
+  type OwnerHooks,
   probedReply,
   standingMethods,
 } from "./hook.ts";
@@ -37,8 +37,8 @@ export interface ConsultingParts {
   readonly targets: Targets;
   /** stdin строки — порт строки хука в маршруте. */
   readonly readStdin: () => Promise<Uint8Array>;
-  /** Ответ хука `permission-request` — порт его строки в маршруте. */
-  readonly permission: HookAnswer;
+  /** Вопросы владельцу строк-хуков — порт их строк в маршруте. */
+  readonly owner: OwnerHooks;
 }
 
 /** Ответ хука по источнику, маршруту и цепочке строки ядра. */
@@ -50,10 +50,10 @@ export class LineConsulting implements Consulting {
   }
 
   reply(words: readonly string[]): Promise<HookReply> {
-    const { commands, methods, readStdin, permission } = this.#parts;
+    const { commands, methods, readStdin, owner } = this.#parts;
     const walked = walkedWords(words);
     const door = entryOf(walked).words.length;
-    const hook = { readStdin, consulting: this, permission };
+    const hook = { readStdin, consulting: this, owner };
     return sourceOf(words, walked, door).consult(() =>
       routeOf(walked.slice(door), { commands, methods, hook })
         .consult(() => this.#probed(words, walked))

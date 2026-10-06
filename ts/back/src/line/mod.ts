@@ -71,6 +71,7 @@ import { Image, ImageError, type ImageMethod } from "../image/mod.ts";
 import type { Commands, MethodSource } from "../program/mod.ts";
 import type { Line } from "./dispatch.ts";
 import { LineConsulting } from "./consulting.ts";
+import type { OwnerHooks } from "./hook.ts";
 import { routeOf } from "./route.ts";
 
 export type { RootMethod } from "./rules.ts";
@@ -113,15 +114,19 @@ export function policyTree(
   });
 }
 
-/** Вопрос хука `PermissionRequest`: stdin и сигнал обрыва строки. */
-export type PermissionAsking = (
-  text: string,
-  signal: AbortSignal,
-) => Promise<HookReply>;
+/**
+ * Вопросы владельцу строк-хуков: stdin и сигнал обрыва строки; окружение
+ * клиента привязывает дверь строки.
+ */
+export interface OwnerAsking {
+  /** Хук `PermissionRequest` (`claude-hook-permission-request.md`). */
+  permission(text: string, signal: AbortSignal): Promise<HookReply>;
+}
 
 /** Вопроса задать некому: окружения клиента нет, бот не настроен. */
-const UNASKED: PermissionAsking = (text, signal) =>
-  NO_DESK.reply(text, () => undefined, signal);
+const UNASKED: OwnerAsking = {
+  permission: (text, signal) => NO_DESK.reply(text, () => undefined, signal),
+};
 
 /** Кто спрашивает подтверждение у строки. */
 export type ChannelOf = (io: CommandIo, output: Output) => Channel;
@@ -168,12 +173,8 @@ export interface LinePorts {
    * (`platform/program-input.md`, «Файл программы»).
    */
   readonly files: ProgramFiles;
-  /**
-   * Вопрос хука `PermissionRequest` владельцу на stdin `text`
-   * (`claude-hook-permission-request.md`); окружение клиента привязывает
-   * дверь строки. Нет — бот не настроен.
-   */
-  readonly permission?: PermissionAsking;
+  /** Вопросы владельцу строк-хуков. Нет — бот не настроен. */
+  readonly owner?: OwnerAsking;
 }
 
 /** Образ строки: файл, кто пишет, часы и снимок дерева. */
@@ -423,11 +424,13 @@ export function lineEntry(ports: LinePorts): CliEntry {
      * Порты строк-хуков: их stdin, проба той же строки и вопрос владельцу
      * — с окружением клиента и сигналом обрыва строки.
      */
-    const asking = ports.permission ?? UNASKED;
-    const permission = (text: string) => asking(text, lineIo.signal);
+    const asking = ports.owner ?? UNASKED;
+    const owner: OwnerHooks = {
+      permission: (text) => asking.permission(text, lineIo.signal),
+    };
     const hook = {
       readStdin: lineIo.readStdin,
-      permission,
+      owner,
       consulting: new LineConsulting({
         book,
         commands,
@@ -435,7 +438,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
         rootMethods: ports.rootMethods,
         targets: parts.targets,
         readStdin: lineIo.readStdin,
-        permission,
+        owner,
       }),
     };
     const context = {

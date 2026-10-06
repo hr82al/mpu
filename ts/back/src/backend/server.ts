@@ -729,12 +729,14 @@ class Back {
       pictures: gallery,
       // Окно tmux — только из окружения, принесённого клиентом: имя, не
       // принесённое им, у службы своё и подписало бы вопрос чужим окном.
-      permission: (text, signal) =>
-        this.#desk.reply(
-          text,
-          (name) => request.context.env.over(NOT_SERVER).value(name),
-          signal,
-        ),
+      owner: {
+        permission: (text, signal) =>
+          this.#desk.reply(
+            text,
+            (name) => request.context.env.over(NOT_SERVER).value(name),
+            signal,
+          ),
+      },
       image: {
         image: this.#image,
         author: caller.author(door.author),

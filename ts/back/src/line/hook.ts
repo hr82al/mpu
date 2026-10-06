@@ -74,13 +74,23 @@ export type ProbeWalk = (
 /** Ответ хука на текст своего stdin. */
 export type HookAnswer = (text: string) => Promise<HookReply>;
 
+/**
+ * Строки-хуки, чей ответ — вопрос владельцу: ответ на stdin `text`.
+ * Один порт на все такие хуки — новый хук добавляет метод, а не поле в
+ * каждом звене от сервера до маршрута.
+ */
+export interface OwnerHooks {
+  /** `permission-request` (`claudehook/desk.ts`). */
+  permission(text: string): Promise<HookReply>;
+}
+
 /** Что строкам-хукам нужно сверх контекста строки. */
 export interface HookPorts {
   readonly readStdin: () => Promise<Uint8Array>;
   /** Проба строки `mpu` для `pre-tool-use`. */
   readonly consulting: Consulting;
-  /** Вопрос владельцу для `permission-request` (`claudehook/desk.ts`). */
-  readonly permission: HookAnswer;
+  /** Вопросы владельцу строк-хуков. */
+  readonly owner: OwnerHooks;
 }
 
 /**
@@ -94,13 +104,19 @@ export function hookLineOf(
   ports: HookPorts,
   otherwise: ImageLine,
 ): ImageLine {
-  const consulting = ports.consulting;
+  const { consulting, owner } = ports;
   return hooked(
     PRE_TOOL_USE,
     said,
     ports,
     (text) => toolCallOf(text).reply((words) => consulting.reply(words)),
-    hooked(PERMISSION_REQUEST, said, ports, ports.permission, otherwise),
+    hooked(
+      PERMISSION_REQUEST,
+      said,
+      ports,
+      (text) => owner.permission(text),
+      otherwise,
+    ),
   );
 }
 

@@ -137,7 +137,7 @@ function resultIds(record: Fields): readonly string[] {
  * (спека, «Решено в другом месте» [D.5]). Запись транскрипта переводит
  * состояние дальше — решает само состояние.
  */
-interface Watch {
+export interface Watch {
   /** Состояние после записи `record`. */
   take(record: Fields): Watch;
   /** Ответ на вызов вопроса уже в транскрипте. */
@@ -185,22 +185,37 @@ class Seeking implements Watch {
   }
 }
 
-/**
- * Состояние на момент постановки: самый ранний равный вызову `tool_use`
- * без `tool_result` — вызов вопроса; вызов, уже получивший ответ, — чужой
- * (старый). Открытых нет — вызов ищется в дописанном.
- */
-function watchOf(records: readonly Fields[], call: ToolUse): Watch {
-  let open: readonly string[] = [];
-  for (const record of records) {
-    const answered = resultIds(record);
-    // Ответ снимает все вхождения id: повтор id в файле не воскрешает
-    // отвеченный вызов.
-    open = [...open, ...callIds(record, call)].filter((id) =>
-      !answered.includes(id)
-    );
+/** Признак того, что вопрос решён в терминале: с чего начать наблюдение. */
+export interface Sign {
+  /** Состояние наблюдателя по записям на момент постановки. */
+  watchOf(records: readonly Fields[]): Watch;
+}
+
+/** На вызов вопроса пришёл ответ (`tool_result`). */
+export class CallAnswered implements Sign {
+  readonly #call: ToolUse;
+
+  constructor(call: ToolUse) {
+    this.#call = call;
   }
-  return open.length === 0 ? new Seeking(call) : new Bound(open[0]);
+
+  /**
+   * Самый ранний равный вызову `tool_use` без `tool_result` — вызов
+   * вопроса; вызов, уже получивший ответ, — чужой (старый). Открытых нет
+   * — вызов ищется в дописанном.
+   */
+  watchOf(records: readonly Fields[]): Watch {
+    let open: readonly string[] = [];
+    for (const record of records) {
+      const answered = resultIds(record);
+      // Ответ снимает все вхождения id: повтор id в файле не воскрешает
+      // отвеченный вызов.
+      open = [...open, ...callIds(record, this.#call)].filter((id) =>
+        !answered.includes(id)
+      );
+    }
+    return open.length === 0 ? new Seeking(this.#call) : new Bound(open[0]);
+  }
 }
 
 /** Последние `custom-title` и `ai-title` по записям. */
@@ -299,10 +314,10 @@ export class Transcripts {
   }
 
   /**
-   * Транскрипт `path` для вызова `call`: читается целиком один раз.
-   * Нечитаемый — без названия и без признака ответа.
+   * Транскрипт `path`, наблюдаемый до признака `sign`: читается целиком
+   * один раз. Нечитаемый — без названия и без признака ответа.
    */
-  async read(path: string, call: ToolUse): Promise<Transcript> {
+  async read(path: string, sign: Sign): Promise<Transcript> {
     let bytes: Uint8Array;
     try {
       bytes = await this.#files.read(path);
@@ -317,7 +332,7 @@ export class Transcripts {
       title: name === undefined ? [] : [clipped(name)],
       path,
       offset: used,
-      watch: watchOf(records, call),
+      watch: sign.watchOf(records),
       files: this.#files,
       clock: this.#clock,
     });

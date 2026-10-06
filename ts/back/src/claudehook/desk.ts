@@ -21,7 +21,7 @@ import {
   type PermissionRequest,
 } from "./permission.ts";
 import { type HookReply, unparsedInput } from "./reply.ts";
-import { type Transcript, Transcripts } from "./transcript.ts";
+import { CallAnswered, type Transcript, Transcripts } from "./transcript.ts";
 import { type CallerEnv, NO_WINDOWS, type Windows } from "./window.ts";
 
 /** Срок хука во фрагменте настроек, секунды [D.6]. */
@@ -102,7 +102,7 @@ export class PermissionDesk {
     const { questions, transcripts, windows } = this.#parts;
     const transcript = await transcripts.read(
       request.transcriptPath,
-      request.call,
+      new CallAnswered(request.call),
     );
     const window = await windows.captionOf(env);
     const places = [...transcript.title(), ...request.project, ...window];
