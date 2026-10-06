@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-10-06T14:42:45.183Z","message":{"role":"user","content":"Ответь одним словом: привет"}}
+{"type":"assistant","timestamp":"2026-10-06T14:42:50.533Z","message":{"role":"assistant","content":[{"type":"text","text":"Привет"}]}}
