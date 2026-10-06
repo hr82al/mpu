@@ -88,6 +88,7 @@ Deno.test("копии эталонов хука PermissionRequest совпада
 const STOP_COPIES: readonly (readonly [string, string])[] = [
   ["r2/live-stop.json", "stop/live-stop.json"],
   ["r2/settings-fragment-stop.json", "stop/settings-fragment-stop.json"],
+  ["r2/transcript-around-stop.jsonl", "stop/transcript-around-stop.jsonl"],
 ];
 
 Deno.test("копии эталонов хука Stop совпадают с каналом", async (t) => {

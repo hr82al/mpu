@@ -134,11 +134,11 @@ async function turn(clock: TestClock, bot: FakeBot, calls: number) {
     bot.called(calls + 1).then(() => "снят"),
     clock.paused(WATCH_MS).then(() => "ждёт"),
   ]);
-  assertEquals(first, "ждёт", "вопрос снят записью, которая не новый ход");
+  assertEquals(first, "ждёт", "вопрос снят записью, которая не набранный ввод");
 }
 
 /**
- * Оборот после записи нового хода: вопрос обязан сняться за него. Не
+ * Оборот после записи набранного ввода: вопрос обязан сняться за него. Не
  * снялся — наблюдатель встаёт на следующую паузу, и тест краснеет, а не
  * висит.
  */
@@ -148,7 +148,7 @@ async function withdrawnBy(clock: TestClock, bot: FakeBot, calls: number) {
     bot.called(calls + 1).then(() => "снят"),
     clock.paused(WATCH_MS).then(() => "ждёт"),
   ]);
-  assertEquals(first, "снят", "новый ход не снял вопрос за один оборот");
+  assertEquals(first, "снят", "набранный ввод не снял вопрос за один оборот");
 }
 
 Deno.test("R2a-1: конец хода — сообщение «ждёт ввода», хук вышел до ответа: stdout пуст", async () => {
@@ -239,20 +239,23 @@ Deno.test("заголовок: без названия — проект перв
     }));
 });
 
-Deno.test("R2a-8: запись user с текстом после постановки — «✅ решено в терминале»; tool_result — не снимает", async (t) => {
+/** Живой порядок вокруг `Stop`: ввод, затем ответ, записанный после хука. */
+async function aroundStop(): Promise<readonly string[]> {
+  const text = await Deno.readTextFile(
+    testdata("transcript-around-stop.jsonl"),
+  );
+  return text.split("\n").filter((line) => line !== "");
+}
+
+Deno.test("R2a-8, R2a2-1–4: снимает только набранный ввод; assistant после хука и tool_result — нет", async (t) => {
+  const [typed, answer] = await aroundStop();
   for (
     const [name, record] of [
+      // Живой ввод из голдена: снимает, будучи дописанным после постановки.
+      ["2: user строкой", typed],
       [
-        "user строкой",
-        '{"type":"user","message":{"role":"user","content":"Синий"}}',
-      ],
-      [
-        "user блоком text",
+        "3: user блоком text",
         '{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Синий"}]}}',
-      ],
-      [
-        "assistant",
-        '{"type":"assistant","message":{"content":[{"type":"text","text":"Запомнил"}]}}',
       ],
     ] as const
   ) {
@@ -262,6 +265,10 @@ Deno.test("R2a-8: запись user с текстом после постано�
         withStopDesk(async ({ bot, clock, append, payload, stop }) => {
           await stop(payload());
           await clock.paused(WATCH_MS);
+          // 1: ответ хода дописан после вызова хука — не ввод.
+          await append(answer);
+          await turn(clock, bot, 1);
+          // 4: ответ инструмента — не ввод.
           await append(
             '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_X"}]}}',
           );
@@ -278,7 +285,7 @@ Deno.test("R2a-8: запись user с текстом после постано�
             buttons: [],
             data: [],
           });
-        }),
+        }, { lines: [TITLED[0], typed] }),
     );
   }
 });

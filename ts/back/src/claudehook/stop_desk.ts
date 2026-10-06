@@ -2,7 +2,7 @@
  * Вопросы «ждёт ввода» хука `Stop` в ядре (`claude-hook-stop.md`):
  * payload → сообщение в чате → хук выходит сразу. Вопрос живёт дольше
  * строки хука: его держит стол — вместе с наблюдателем транскрипта и
- * ключом сессии, — пока не придёт исход: новый ход в терминале, новый
+ * ключом сессии, — пока не придёт исход: ввод в терминале, новый
  * конец хода той же сессии, `Пропустить` или остановка ядра.
  */
 
@@ -29,7 +29,7 @@ import {
   NO_TRANSCRIPTS,
   type Transcript,
   type Transcripts,
-  TURN_STARTED,
+  TYPED_INPUT,
 } from "./transcript.ts";
 import { type CallerEnv, NO_WINDOWS, type Windows } from "./window.ts";
 
@@ -102,7 +102,7 @@ export class StopDesk {
 
   async #ask(request: StopRequest, env: CallerEnv): Promise<HookReply> {
     const { questions, transcripts, windows } = this.#parts;
-    const transcript = await request.transcript.read(transcripts, TURN_STARTED);
+    const transcript = await request.transcript.read(transcripts, TYPED_INPUT);
     const window = await windows.captionOf(env);
     const places = placesOf(transcript.title(), request.project, window);
     const form = waitingForm(places, request.message, NO_CHANNEL);

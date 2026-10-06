@@ -219,31 +219,31 @@ export class CallAnswered implements Sign {
 }
 
 /**
- * Запись начинает новый ход сессии: `assistant` или `user` с текстом
- * человека — не одни `tool_result` (`claude-hook-stop.md`, «Исходы»).
- * Текст `user` — строка `message.content` или блок `text` в нём: живого
- * образца набранного в терминале текста нет — форма по записям Claude
- * Code, догадка.
+ * Запись — ввод, набранный в терминале: `user` с текстом — строкой
+ * `message.content` (форма по голдену `transcript-around-stop.jsonl`) или
+ * блоком `text` (живого образца нет — догадка), не одни `tool_result`
+ * (`claude-hook-stop.md`, «Исходы»).
+ * `assistant` не годится: последний ответ хода Claude Code дописывает уже
+ * после вызова хука `Stop` (снято 2026-10-06, проба R2-3).
  */
-function startsTurn(record: Fields): boolean {
-  if (record.type === "assistant") return true;
+function typedInput(record: Fields): boolean {
   if (record.type !== "user" || !isFields(record.message)) return false;
   const content = record.message.content;
   if (typeof content === "string") return content !== "";
   return blocksOf(record).some((block) => block.type === "text");
 }
 
-/** Ждём нового хода; памяти нет — один экземпляр. */
-const AWAITING_TURN: Watch = {
-  take: (record) => startsTurn(record) ? ANSWERED : AWAITING_TURN,
+/** Ждём набранного ввода; памяти нет — один экземпляр. */
+const AWAITING_INPUT: Watch = {
+  take: (record) => typedInput(record) ? ANSWERED : AWAITING_INPUT,
   done: () => false,
 };
 
 /**
- * После конца хода в сессии начат новый — владелец ответил в терминале
- * (вопрос «ждёт ввода»). Записанное до постановки — прошлые ходы.
+ * После конца хода владелец набрал ввод в терминале (вопрос «ждёт
+ * ввода»). Записанное до постановки — прошлые ходы.
  */
-export const TURN_STARTED: Sign = { watchOf: () => AWAITING_TURN };
+export const TYPED_INPUT: Sign = { watchOf: () => AWAITING_INPUT };
 
 /** Последние `custom-title` и `ai-title` по записям. */
 function titlesOf(
