@@ -235,6 +235,12 @@ Deno.test("R3c-4: idle_prompt сессии K снимает право, permissi
             PERMISSION_REQUEST.undecided("решено в терминале"),
           );
           assert(edited(bot, 1546, TERMINAL_LINE), JSON.stringify(bot.calls));
+          // Больше ничего: ни строки-уведомления, ни снимка — одно сообщение
+          // права.
+          assertEquals(
+            bot.calls.filter((call) => call.method === "send").length,
+            1,
+          );
         } else {
           await stillPending(bot, asked);
         }

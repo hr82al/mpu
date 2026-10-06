@@ -123,12 +123,21 @@ export function notificationMovesOn(payload: HookPayload): boolean {
 }
 
 /**
- * Форма MCP на экране (`claude-hook-notification-snapshot.md`, «Когда
- * приходит снимок»): её закрывают хуки R3 — чужую вопросом формы, форму mpu
- * подтверждением `ask`; ни снимка, ни строки-уведомления.
+ * Уведомления, на которые в чат не уходит ничего — ни снимка, ни строки
+ * (`claude-hook-notification-snapshot.md`, «Когда приходит снимок»):
+ * `idle_prompt` — конец хода закрывает хук `Stop`; `elicitation_dialog` —
+ * форму MCP закрывают хуки R3; `elicitation_response` — эхо уже решённой
+ * формы.
  */
-export function notificationClosedByHooks(payload: HookPayload): boolean {
-  return stringField(payload, "notification_type") === "elicitation_dialog";
+const SILENT_TYPES: readonly string[] = [
+  "idle_prompt",
+  "elicitation_dialog",
+  "elicitation_response",
+];
+
+/** Уведомление, на которое в чат не уходит ничего. */
+export function notificationSilent(payload: HookPayload): boolean {
+  return SILENT_TYPES.includes(stringField(payload, "notification_type"));
 }
 
 /** Путь транскрипта сессии; нет — пустой. */

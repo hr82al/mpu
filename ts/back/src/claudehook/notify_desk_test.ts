@@ -309,7 +309,7 @@ Deno.test("R4-7, R4-8: у сессии есть вопрос в ряду — с�
       ],
       [
         "«ждёт ввода» (R2)",
-        "idle_prompt",
+        "trust_prompt",
         (
           sessions: Sessions,
           ask: () => ReturnType<ReturnType<typeof fakeQuestions>["ask"]>,
@@ -355,7 +355,7 @@ Deno.test("R4-9: trust_prompt без вопроса, окно известно �
 Deno.test("R4-10, R4-11: без окна и не ожидание — строка-уведомление сразу, stdout — номер", async (t) => {
   for (
     const [name, type, env] of [
-      ["ожидание без TMUX_PANE", "idle_prompt", {
+      ["ожидание без TMUX_PANE", "trust_prompt", {
         CLAUDE_CODE_MESSAGING_SOCKET: SOCKET,
       }],
       ["auth_success", "auth_success", ENV],
@@ -533,11 +533,11 @@ Deno.test("второе уведомление той же сессии — сн
 Deno.test("на экране нет диалога — строка-уведомление вместо снимка", async () => {
   await withNotify(async ({ bot, clock, tmux, notify }) => {
     tmux.screen = "● Готово.\n";
-    await notify("idle_prompt");
+    await notify("trust_prompt");
     await placed(clock, bot);
     assertEquals(
       bot.calls[0].text,
-      "Claude · ozon · idle_prompt\nClaude is waiting for your input",
+      "Claude · ozon · trust_prompt\nClaude is waiting for your input",
     );
     assertEquals(bot.calls[0].buttons, []);
   });
@@ -599,4 +599,40 @@ Deno.test("R3d-1: elicitation_dialog (живой payload) — ни снимка,
     assertEquals(tmux.captures, 0);
     assertEquals(bot.calls, []);
   });
+});
+
+Deno.test("idle_prompt (живой payload) и elicitation_response — в чат ничего, код 0", async (t) => {
+  for (
+    const [name, over] of [
+      ["idle_prompt", {}],
+      ["elicitation_response", {
+        message: 'Elicitation response for server "elicitprobe": cancel',
+        notification_type: "elicitation_response",
+      }],
+    ] as const
+  ) {
+    await t.step(name, () =>
+      withNotify(async ({ bot, clock, tmux, desk }) => {
+        tmux.screen = await screen("screen-permission-bash.txt");
+        const live = JSON.parse(
+          await Deno.readTextFile(
+            testdata("claude-hook-notification/live-payload-idle-prompt.json"),
+          ),
+        );
+        const reply = await desk.reply(
+          JSON.stringify({ ...live, ...over }),
+          (name) => ENV[name as keyof typeof ENV],
+        );
+        let said = "";
+        reply.tell({
+          stdout: (text) => void (said += text),
+          stderr: (text) => void (said += text),
+        });
+        assertEquals([reply.code(), said], [0, ""]);
+        // Ни строки сразу, ни снимка потом: паузы 3 с нет, окно не снято.
+        assertEquals(clock.asked, []);
+        assertEquals(tmux.captures, 0);
+        assertEquals(bot.calls, []);
+      }));
+  }
 });
