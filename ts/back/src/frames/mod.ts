@@ -66,6 +66,19 @@ export {
 } from "./words.ts";
 
 export {
+  CHANNEL_PATH,
+  type ChannelAnswerReader,
+  type CoreFrameReader,
+  deliveredFrame,
+  deliverFrame,
+  failedFrame,
+  helloFrame,
+  helloKeyOf,
+  readChannelAnswer,
+  readCoreFrame,
+} from "./channel.ts";
+
+export {
   HOOK_LINES,
   HookWords,
   PERMISSION_REQUEST,

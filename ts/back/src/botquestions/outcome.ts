@@ -133,6 +133,26 @@ export class Withdrawn implements Outcome {
 }
 
 /**
+ * Снят потребителем с последней строкой целиком (`⌛ сессия закрыта`):
+ * для потребителя — то же снятие, значок строки — его.
+ */
+export class WithdrawnAs implements Outcome {
+  readonly #line: string;
+
+  constructor(line: string) {
+    this.#line = line;
+  }
+
+  read<T>(reader: OutcomeReader<T>): T {
+    return reader.withdrawn();
+  }
+
+  line(): string {
+    return this.#line;
+  }
+}
+
+/**
  * Снят владельцем кнопкой «Пропустить»: для потребителя — то же снятие,
  * строка своя. Памяти нет — один экземпляр.
  */

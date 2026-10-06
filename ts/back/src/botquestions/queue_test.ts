@@ -15,9 +15,14 @@ import {
   ONE,
   SKIP,
   TAKES_TEXT,
+  type TextRule,
 } from "./form.ts";
 import { WAITS_INPUT } from "./row.ts";
-import type { OutcomeReader, StepAnswerReader } from "./outcome.ts";
+import {
+  type OutcomeReader,
+  type StepAnswerReader,
+  Written,
+} from "./outcome.ts";
 import { type Asked, Queue } from "./queue.ts";
 import {
   ArrayMemory,
@@ -784,22 +789,72 @@ function seeded(seed: number): () => number {
   };
 }
 
-Deno.test("свойство: при любых приходах, исходах, медленных правках и очерёдности микрозадач кнопки — у одного сообщения", async () => {
+/**
+ * Правило текста с доставкой (как у сессии с каналом): ответ приходит
+ * через несколько микрозадач — доставлено (шаг отвечен) или отказ
+ * (подсказка владельцу, вопрос активен).
+ */
+function delivering(next: () => number): TextRule {
+  return {
+    write: (text, events) => ({
+      deliver: async (say) => {
+        const turns = Math.floor(next() * 4);
+        for (let turn = 0; turn < turns; turn++) await Promise.resolve();
+        if (next() < 0.5) {
+          events.answered(new Written(text));
+          return;
+        }
+        await say("не доставлено: сессия без канала");
+      },
+    }),
+  };
+}
+
+/** «Ждёт ввода» сессии с каналом: свой текст — доставка. */
+function waitsWithChannel(name: string, reply: TextRule): Form {
+  return new Form({
+    places: [],
+    kind: WAITS_INPUT,
+    steps: [{
+      head: `💬 ${name}`,
+      text: name,
+      options: [],
+      choice: ONE,
+      reply,
+    }],
+    actions: [LATER, SKIP],
+  });
+}
+
+Deno.test("свойство: при любых приходах, исходах, доставках, медленных правках и очерёдности микрозадач кнопки — у одного сообщения", async () => {
   for (let seed = 1; seed <= 400; seed++) {
     const next = seeded(seed);
     const { bot, queue } = setup();
     const asked: Asked[] = [];
     const steps: string[] = [];
+    const writes: Promise<void>[] = [];
     let release = () => {};
-    for (let step = 0; step < 16; step++) {
+    for (let step = 0; step < 18; step++) {
       const roll = next();
       const pick = () => Math.floor(next() * asked.length);
-      if (roll < 0.22) {
+      if (roll < 0.18) {
         asked.push(queue.ask(f1()));
         steps.push(`срочный ${asked.length}`);
-      } else if (roll < 0.44) {
+      } else if (roll < 0.32) {
         asked.push(queue.ask(waits(`W${asked.length + 1}`)));
         steps.push(`ждёт ${asked.length}`);
+      } else if (roll < 0.4) {
+        asked.push(
+          queue.ask(waitsWithChannel(`C${asked.length + 1}`, delivering(next))),
+        );
+        steps.push(`ждёт с каналом ${asked.length}`);
+      } else if (roll < 0.45) {
+        writes.push(queue.write("Синий"));
+        steps.push("текст");
+      } else if (roll < 0.49 && asked.length > 0) {
+        const k = pick();
+        asked[k].withdrawAs("⌛ сессия закрыта");
+        steps.push(`закрыта ${k + 1}`);
       } else if (roll < 0.56 && asked.length > 0) {
         const k = pick();
         asked[k].withdraw("решено в терминале");
@@ -831,6 +886,7 @@ Deno.test("свойство: при любых приходах, исходах,
       }
     }
     release();
+    await Promise.all(writes);
     for (const one of asked) one.expire();
     await queue.idle();
     const trace = `семя ${seed}: ${steps.join(", ")}`;
@@ -869,4 +925,17 @@ Deno.test("сбой сети при уступлении — прежнее со
   ]);
   w1.expire();
   await queue.idle();
+});
+
+Deno.test("withdrawAs — последняя строка целиком, для потребителя — снят", async () => {
+  const { bot, queue } = setup();
+  const a = queue.ask(waits("A"));
+  await queue.idle();
+  a.withdrawAs("⌛ сессия закрыта");
+  await queue.idle();
+  assertEquals(
+    bot.calls.at(-1),
+    closed(1546, "💬 A\nA ждёт", "⌛ сессия закрыта"),
+  );
+  assertEquals((await a.outcome).read(OUTCOME), "снят");
 });

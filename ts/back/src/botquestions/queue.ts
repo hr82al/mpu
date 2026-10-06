@@ -16,7 +16,7 @@
 import { ACCEPTED, ButtonData, NOTHING_ELSE } from "./button.ts";
 import type { Chat } from "./chat.ts";
 import type { Form } from "./form.ts";
-import { EXPIRED, type Outcome, Withdrawn } from "./outcome.ts";
+import { EXPIRED, type Outcome, Withdrawn, WithdrawnAs } from "./outcome.ts";
 import { type Listener, NOBODY, Question, type Waiting } from "./question.ts";
 import { Row } from "./row.ts";
 
@@ -37,6 +37,11 @@ export interface Asked {
   readonly placed: Promise<void>;
   /** Решено в другом месте; `text` — строка снятия (`решено в терминале`). */
   withdraw(text: string): void;
+  /**
+   * Снят; `line` — последняя строка сообщения целиком, со своим значком
+   * (`⌛ сессия закрыта`).
+   */
+  withdrawAs(line: string): void;
   /** Потребитель отключился или вышел его срок. */
   expire(): void;
 }
@@ -83,6 +88,7 @@ export class Queue {
       outcome: question.outcome,
       placed,
       withdraw: (text) => this.#decide(question, new Withdrawn(text)),
+      withdrawAs: (line) => this.#decide(question, new WithdrawnAs(line)),
       expire: () => this.#decide(question, EXPIRED),
     };
   }

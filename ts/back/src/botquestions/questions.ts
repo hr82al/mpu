@@ -30,6 +30,7 @@ const UNCONFIGURED: Asked = {
   outcome: Promise.resolve(new Refused("бот не настроен")),
   placed: Promise.resolve(),
   withdraw: () => {},
+  withdrawAs: () => {},
   expire: () => {},
 };
 
