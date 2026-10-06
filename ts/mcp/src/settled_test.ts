@@ -6,7 +6,7 @@
  * (снят живьём 2026-10-06).
  */
 
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertNotEquals } from "@std/assert";
 import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import type { MessageExtraInfo } from "@modelcontextprotocol/sdk/types.js";
 import {
@@ -37,29 +37,29 @@ function askOnAliases(stack: Stack) {
   book.set(RulePath.parse("xlsx alias ls"), ASK);
 }
 
-Deno.test("S5: «Да» в чате — форма отменена с её requestId, вызов исполнен", async () => {
+Deno.test("S5, R3b-1: «Да» в чате — первая форма сессии с номером ≠ 0 отменена, вызов исполнен", async () => {
   const bot = new FakeBot();
   const golden = await exchange();
   const [, created, cancelled] = golden.map((row) => row.out);
   await withStack(async (stack) => {
     askOnAliases(stack);
-    // Форма ждёт, пока её не снимут. Отмену видно на проводе, а не в
-    // обработчике: клиент SDK отмену запроса с номером 0 пропускает
-    // (`_oncancel` проверяет номер на ложность), и форма тестового
-    // клиента снимается только его закрытием.
+    // Форма ждёт, пока её не снимут; клиент SDK, как и Claude Code, отмену
+    // запроса с номером 0 пропускает (`_oncancel` проверяет номер на
+    // ложность) — снятие с причиной и есть проверка, что номер не 0.
+    const reasons: unknown[] = [];
     const client = await connect(
       stack.url,
       (_request, extra) =>
         new Promise((_, reject) => {
-          extra.signal.addEventListener(
-            "abort",
-            () => reject(extra.signal.reason),
-            { once: true },
-          );
+          extra.signal.addEventListener("abort", () => {
+            reasons.push(extra.signal.reason);
+            reject(extra.signal.reason);
+          }, { once: true });
         }),
     );
     // Что сервер шлёт клиенту — глазами транспорта, до разбора SDK.
     const received: JSONRPCMessage[] = [];
+    const shown = Promise.withResolvers<void>();
     const transport = client.transport;
     if (transport === undefined) throw new Error("клиент не подключён");
     const onmessage = transport.onmessage;
@@ -68,6 +68,9 @@ Deno.test("S5: «Да» в чате — форма отменена с её requ
       extra?: MessageExtraInfo,
     ) => {
       received.push(message);
+      if ("method" in message && message.method === "elicitation/create") {
+        shown.resolve();
+      }
       onmessage?.(message, extra);
     };
     try {
@@ -75,6 +78,7 @@ Deno.test("S5: «Да» в чате — форма отменена с её requ
         words: ["ask", "xlsx", "alias", "ls"],
       });
       await within(bot.called(1), 5000, "вопрос в чате");
+      await within(shown.promise, 5000, "форма у клиента");
       const sent = bot.calls[0];
       bot.deliver([pressUpdate(1, 111, sent.data[0][0])]);
       assertEquals(
@@ -88,10 +92,13 @@ Deno.test("S5: «Да» в чате — форма отменена с её requ
     const form = received.find((message) =>
       "method" in message && message.method === "elicitation/create"
     );
-    const cancel = received.find((message) =>
+    const cancels = received.filter((message) =>
       "method" in message && message.method === "notifications/cancelled"
     );
     if (form === undefined || !("id" in form)) throw new Error("формы нет");
+    // Первая форма новой сессии — с ненулевым номером (проба R3-2).
+    assertNotEquals(form.id, 0);
+    assertEquals(reasons, [SETTLED_ELSEWHERE]);
     // Поля — как у снятого обмена; причина и номер — свои.
     assertEquals(
       Object.keys(form).sort(),
@@ -100,7 +107,9 @@ Deno.test("S5: «Да» в чате — форма отменена с её requ
         "jsonrpc",
       ].sort(),
     );
-    assertEquals(cancel, {
+    // Отмена одна — у формы; отвеченный ping не отменяется.
+    assertEquals(cancels.length, 1);
+    assertEquals(cancels[0], {
       ...cancelled,
       jsonrpc: "2.0",
       params: { requestId: form.id, reason: SETTLED_ELSEWHERE },
