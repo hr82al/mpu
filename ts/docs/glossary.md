@@ -442,3 +442,5 @@
 | усечение текста шага | `Clip`: `KEEP_HEAD`, `KEEP_TAIL` (R2a) | «ждёт ввода» — с конца |
 | стол «ждёт ввода» | `StopDesk`; реестр сессий `Sessions`, ключ `SessionKey`/`SESSION_ENV` (R2a) | вопрос конца хода живёт после выхода хука |
 | признак снятия | `Sign`: `CallAnswered`, `TYPED_INPUT` (R2a) | ответ на вызов / набранный ввод |
+| канал сессии (код) | `Link`, `WireLink`, `NO_LINK`; достижимость `Reach`: `ChannelReach`, `NO_CHANNEL` (R2b) | доставка текста владельца в сессию; срок `DELIVERY_MS` 2 с |
+| кадры канала | `/channel`: `key`, `ready`, `deliver`, `delivered`, `failed` (R2b) | канал ↔ ядро |
