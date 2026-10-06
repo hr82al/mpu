@@ -703,6 +703,17 @@ async function hookEntry(): Promise<unknown> {
   return fragment.hooks.PermissionRequest[0];
 }
 
+/** Запись хука `Notification` из эталона фрагмента (порция R4). */
+async function notificationEntry(): Promise<unknown> {
+  const fragment = await readJson(
+    new URL(
+      "testdata/claude-hook-notification/settings-fragment-notification.json",
+      import.meta.url,
+    ).pathname,
+  ) as { hooks: { Notification: unknown[] } };
+  return fragment.hooks.Notification[0];
+}
+
 /** Запись хука `Stop` из эталона фрагмента (`claude-hook-stop.md`, «Установка»). */
 async function stopEntry(): Promise<unknown> {
   const fragment = await readJson(
@@ -723,6 +734,7 @@ Deno.test("claude: первая установка — сервер mpu поль
       "install: claude права: вписано",
       "install: claude хук permission-request: вписано",
       "install: claude хук stop: вписано",
+      "install: claude хук notification: вписано",
       ...channelLines("подключено"),
     ]);
     assertEquals(run.claude, [
@@ -740,6 +752,7 @@ Deno.test("claude: первая установка — сервер mpu поль
       hooks: {
         PermissionRequest: [await hookEntry()],
         Stop: [await stopEntry()],
+        Notification: [await notificationEntry()],
       },
     });
   }));
@@ -757,6 +770,7 @@ Deno.test("claude: второй запуск — ни вызова claude, setti
       "install: claude права: без изменений",
       "install: claude хук permission-request: без изменений",
       "install: claude хук stop: без изменений",
+      "install: claude хук notification: без изменений",
       ...channelLines("без изменений"),
     ]);
     assertEquals(run.claude, []);
@@ -804,6 +818,7 @@ Deno.test("claude: чужие правила и ключи на месте, пр
       hooks: {
         PermissionRequest: [await hookEntry()],
         Stop: [await stopEntry()],
+        Notification: [await notificationEntry()],
       },
     });
   }));
@@ -853,6 +868,7 @@ Deno.test("claude хук: правленая запись заменена св�
         PreToolUse: [entry("mpu claude-hook pre-tool-use", 10)],
         PermissionRequest: [other, await hookEntry(), entry("later")],
         Stop: [await stopEntry()],
+        Notification: [await notificationEntry()],
       },
     );
   }));
@@ -1063,3 +1079,32 @@ Deno.test("R2b-10: правка внутри блока claude затирает�
     assertEquals(text.startsWith("# сверху\n"), true);
     assertEquals(text.endsWith("# снизу\n"), true);
   }));
+
+Deno.test("R4-14: хук notification — вписан, повторно — без изменений; копия фрагмента — как в канале", async () => {
+  await withPlace(async (place) => {
+    const run = await install(place);
+    assertEquals(
+      stepLine(run, "claude хук notification"),
+      "install: claude хук notification: вписано",
+    );
+    const again = await install(place);
+    assertEquals(
+      stepLine(again, "claude хук notification"),
+      "install: claude хук notification: без изменений",
+    );
+  });
+  assertEquals(
+    await Deno.readTextFile(
+      new URL(
+        "testdata/claude-hook-notification/settings-fragment-notification.json",
+        import.meta.url,
+      ),
+    ),
+    await Deno.readTextFile(
+      new URL(
+        "../../docs/specs/fixtures/telegram-relay/r4/settings-fragment-notification.json",
+        import.meta.url,
+      ),
+    ),
+  );
+});

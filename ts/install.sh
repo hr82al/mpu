@@ -533,6 +533,7 @@ else
   hook_claude_rules
   hook_claude PermissionRequest 'mpu claude-hook permission-request' 3600
   hook_claude Stop 'mpu claude-hook stop' 30
+  hook_claude Notification 'mpu claude-hook notification' 30
   hook_claude_channel_server
   for shell in bash fish nu; do
     file=$("config_$shell")
