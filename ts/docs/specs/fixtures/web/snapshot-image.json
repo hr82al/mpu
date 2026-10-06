@@ -42,6 +42,11 @@
           "purpose": "Снять копию wb_unit_proto клиента в схему backups."
         },
         {
+          "selector": "claude-channel",
+          "kind": "unary",
+          "purpose": "Как доставить ответ владельца из Telegram прямо в сессию Claude Code?"
+        },
+        {
           "selector": "claude-hook",
           "kind": "unary",
           "purpose": "Что делать с событием хука Claude Code: уведомление себе или решение правил на вызов инструмента?"
@@ -6467,6 +6472,25 @@
           "input": "dry"
         }
       ]
+    },
+    {
+      "path": [
+        "claude-channel"
+      ],
+      "summary": "Как доставить ответ владельца из Telegram прямо в сессию Claude Code?",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "undefined:",
+          "kind": "keyword",
+          "purpose": ""
+        }
+      ],
+      "keys": [],
+      "formats": [
+        "json"
+      ],
+      "variants": []
     },
     {
       "path": [

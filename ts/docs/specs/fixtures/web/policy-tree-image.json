@@ -987,6 +987,14 @@
   },
   {
     "path": [
+      "claude-channel"
+    ],
+    "verdict": "allow",
+    "rule": "claude-channel",
+    "own": true
+  },
+  {
+    "path": [
       "claude-hook"
     ],
     "verdict": "ask",
@@ -996,10 +1004,28 @@
   {
     "path": [
       "claude-hook",
+      "elicitation"
+    ],
+    "verdict": "allow",
+    "rule": "claude-hook elicitation",
+    "own": true
+  },
+  {
+    "path": [
+      "claude-hook",
       "notification"
     ],
-    "verdict": "ask",
+    "verdict": "allow",
     "rule": "claude-hook notification",
+    "own": true
+  },
+  {
+    "path": [
+      "claude-hook",
+      "permission-request"
+    ],
+    "verdict": "allow",
+    "rule": "claude-hook permission-request",
     "own": true
   },
   {
@@ -1009,6 +1035,15 @@
     ],
     "verdict": "allow",
     "rule": "claude-hook pre-tool-use",
+    "own": true
+  },
+  {
+    "path": [
+      "claude-hook",
+      "stop"
+    ],
+    "verdict": "allow",
+    "rule": "claude-hook stop",
     "own": true
   },
   {
@@ -2456,6 +2491,15 @@
     "verdict": "ask",
     "rule": null,
     "own": false
+  },
+  {
+    "path": [
+      "telegram",
+      "file"
+    ],
+    "verdict": "allow",
+    "rule": "telegram file",
+    "own": true
   },
   {
     "path": [
