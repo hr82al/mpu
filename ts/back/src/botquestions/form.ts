@@ -32,8 +32,8 @@ export interface Option {
 
 /**
  * Заголовок: голова (значок и имя, `🔐 Bash`) и места (`ozon`,
- * `w:2 claude`). Части — отдельно, потому что номер шага встаёт после
- * головы, до мест.
+ * `w:2 claude`) — `🔐 Bash — mpu-bot · ozon`. Части — отдельно, потому
+ * что номер шага встаёт после головы, до мест.
  */
 export class Title {
   readonly #head: string;
@@ -44,10 +44,14 @@ export class Title {
     this.#places = [...places];
   }
 
-  /** Строка заголовка шага `step` (с 1) из `steps`. */
+  /**
+   * Строка заголовка шага `step` (с 1) из `steps`: мест нет — нет и
+   * разделителя ` — `.
+   */
   line(step: number, steps: number): string {
     const head = steps > 1 ? `${this.#head} ${step}/${steps}` : this.#head;
-    return [head, ...this.#places].join(" · ");
+    return [head, this.#places.join(" · ")].filter((part) => part !== "")
+      .join(" — ");
   }
 }
 

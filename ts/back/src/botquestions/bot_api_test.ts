@@ -7,7 +7,7 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { BotFailure, HttpBotApi } from "./bot_api.ts";
-import { ANY_AGE, type Inbox } from "./updates.ts";
+import { type Inbox, type Sender, SinceStart } from "./updates.ts";
 
 const TOKEN = "8123:AAH";
 
@@ -103,17 +103,22 @@ Deno.test("опоздавшее подтверждение — отказ с к�
   });
 });
 
+/** Кто прислал словами: владелец `111` в личном чате или нет. */
+function who(sender: Sender): string {
+  return sender.is(111) ? "владелец" : "чужой";
+}
+
 /** Ящик, записывающий доставленное. */
 function recorder(): Inbox & { readonly seen: string[] } {
   const seen: string[] = [];
   return {
     seen,
-    press: (from, callback, data) => {
-      seen.push(`нажатие ${from} ${callback} ${data}`);
+    press: (sender, callback, data) => {
+      seen.push(`нажатие ${who(sender)} ${callback} ${data}`);
       return Promise.resolve();
     },
-    write: (from, text) => {
-      seen.push(`текст ${from} ${text}`);
+    write: (sender, text) => {
+      seen.push(`текст ${who(sender)} ${text}`);
       return Promise.resolve();
     },
   };
@@ -142,14 +147,16 @@ Deno.test("getUpdates — тело опроса и разбор живого г�
         913156017,
       ]);
       const inbox = recorder();
-      for (const update of updates) await update.deliver(inbox, ANY_AGE);
+      for (const update of updates) {
+        await update.deliver(inbox, new SinceStart(0));
+      }
       assertEquals(inbox.seen, [
-        "нажатие 111 141887918370673903 q1:0",
-        "нажатие 111 141887919433068132 q1:0",
-        "нажатие 111 141887920662361059 q1:0",
+        "нажатие владелец 141887918370673903 q1:0",
+        "нажатие владелец 141887919433068132 q1:0",
+        "нажатие владелец 141887920662361059 q1:0",
         inbox.seen[3],
         inbox.seen[4],
-        "текст 111 Готово. Но не вижу реакций на кнопки",
+        "текст владелец Готово. Но не вижу реакций на кнопки",
       ]);
       assertEquals(inbox.seen[3].endsWith(" q1:1"), true);
       assertEquals(inbox.seen[4].endsWith(" q1:2"), true);

@@ -53,7 +53,7 @@ function since(bot: FakeBot, from: number): readonly Call[] {
   return bot.calls.slice(from);
 }
 
-const F1_TEXT = "🔐 Bash · ozon\nCreate probe file\ntouch /tmp/x1.txt";
+const F1_TEXT = "🔐 Bash — ozon\nCreate probe file\ntouch /tmp/x1.txt";
 const F1_BUTTONS = [["Yes", "Yes, always: Bash(touch /tmp/x1.txt)"], ["No"]];
 
 Deno.test("1: вопрос в пустом ряду — одно сообщение с кнопками по две", async () => {
@@ -155,7 +155,7 @@ Deno.test("6: второй вопрос — «ещё ждут: 1» правко�
     ["send", 0],
   ]);
   assertEquals(bot.calls[3].text, `${F1_TEXT}\n✅ Yes — из чата`);
-  assertEquals(bot.calls[4].text, "🔐 Bash · sl-back\nls");
+  assertEquals(bot.calls[4].text, "🔐 Bash — sl-back\nls");
   assertEquals(bot.calls[4].data, [["r1:2:0:0", "r1:2:0:1"]]);
 });
 
@@ -233,7 +233,7 @@ Deno.test("8: несколько — отметки правкой, «Готов
   assertEquals((await asked.outcome).read(OUTCOME), "ответ: вариант 0,1");
   assertEquals(
     bot.calls.at(-1)?.text,
-    "❓ Размер · ozon\nКакой размер?\n✅ S, M — из чата",
+    "❓ Размер — ozon\nКакой размер?\n✅ S, M — из чата",
   );
 });
 
@@ -263,7 +263,7 @@ Deno.test("9: два шага — то же сообщение правится 
   await queue.idle();
   assertEquals(
     bot.calls[0].text,
-    "❓ Цвет 1/2 · ozon\nКакой цвет?\n• Красный — Красный цвет\n• Синий — Синий цвет",
+    "❓ Цвет 1/2 — ozon\nКакой цвет?\n• Красный — Красный цвет\n• Синий — Синий цвет",
   );
   await queue.press("a", "r1:1:0:1");
   await queue.idle();
@@ -271,7 +271,7 @@ Deno.test("9: два шага — то же сообщение правится 
   assertEquals(bot.calls.at(-1), {
     method: "edit",
     message: 1546,
-    text: "❓ Цвет 2/2 · ozon\nКакой размер?",
+    text: "❓ Цвет 2/2 — ozon\nКакой размер?",
     buttons: [["S", "M"]],
     data: [["r1:1:1:0", "r1:1:1:1"]],
   });
@@ -286,7 +286,36 @@ Deno.test("9: два шага — то же сообщение правится 
     (await asked.outcome).read(OUTCOME),
     "ответ: вариант 1; вариант 0",
   );
+  await queue.idle();
+  // Строка ответа многошагового — ответы шагов через `; ` («Уточнения R1a»).
+  assertEquals(
+    bot.calls.at(-1)?.text,
+    "❓ Цвет 2/2 — ozon\nКакой размер?\n✅ Синий; S — из чата",
+  );
   assertEquals(bot.calls.filter((call) => call.method === "send").length, 1);
+});
+
+Deno.test("подпись в 60 символов с отметкой — без обрезки: предел без префикса", async () => {
+  const { bot, queue } = setup();
+  const label = "я".repeat(60);
+  const asked = queue.ask(
+    new Form({
+      title: new Title("❓ Q", []),
+      steps: [{
+        text: "?",
+        options: [{ label }, { label: `${label}ы` }],
+        choice: MANY,
+        reply: TAKES_TEXT,
+      }],
+    }),
+  );
+  await queue.idle();
+  assertEquals(bot.calls[0].buttons, [
+    [`☐ ${label}`, `☐ ${"я".repeat(59)}…`],
+    ["Готово"],
+  ]);
+  asked.expire();
+  await queue.idle();
 });
 
 Deno.test("10: текст при пустом ряду и на шаг без своего текста", async () => {
@@ -328,7 +357,7 @@ Deno.test("11: показ отказал — исход «отказ» с при
     "отказ: бот недоступен: 401 Unauthorized",
   );
   assertEquals(bot.calls.map((call) => call.method), ["send", "send"]);
-  assertEquals(bot.calls[1].text, "🔐 Bash · sl-back\nls");
+  assertEquals(bot.calls[1].text, "🔐 Bash — sl-back\nls");
   second.expire();
   await queue.idle();
 });
@@ -401,7 +430,7 @@ Deno.test("14: длинный текст шага усечён, строки в�
   await queue.idle();
   const text = bot.calls.at(-1)?.text ?? "";
   assertEquals(text.length, 4096);
-  assertEquals(text.startsWith("❓ Q · ozon\nxxx"), true);
+  assertEquals(text.startsWith("❓ Q — ozon\nxxx"), true);
   assertEquals(text.endsWith("…\n• A — первый\nещё ждут: 1"), true);
 });
 

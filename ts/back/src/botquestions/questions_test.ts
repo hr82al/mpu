@@ -73,17 +73,41 @@ Deno.test("4: нажатие чужого — «не ваш вопрос», те
   asked.expire();
   await questions.stop();
   assertEquals(bot.calls.map((call) => [call.method, call.text]), [
-    ["send", "🔐 Bash · ozon\nCreate probe file\ntouch /tmp/x1.txt"],
+    ["send", "🔐 Bash — ozon\nCreate probe file\ntouch /tmp/x1.txt"],
     ["ack", "не ваш вопрос"],
     [
       "edit",
-      "🔐 Bash · ozon\nCreate probe file\ntouch /tmp/x1.txt\n⌛ истёк — ответьте в терминале",
+      "🔐 Bash — ozon\nCreate probe file\ntouch /tmp/x1.txt\n⌛ истёк — ответьте в терминале",
     ],
   ]);
   assertEquals((await asked.outcome).read(KIND), "истёк");
 });
 
-Deno.test("12: текст первого опроса, датированный до старта, — отброшен; второго — нет", async () => {
+Deno.test("владелец в группе с ботом: текст — молчание, нажатие — «не ваш вопрос»", async () => {
+  const bot = new FakeBot();
+  const { questions } = service(bot);
+  questions.start();
+  const asked = questions.ask(f1());
+  await bot.called(1);
+  bot.deliver([
+    textUpdate(1, 111, "нет", STARTED + 5, -100500),
+    pressUpdate(2, 111, "r1:1:0:0", -100500),
+  ]);
+  await bot.polled(2);
+  asked.expire();
+  await questions.stop();
+  assertEquals(bot.calls.map((call) => [call.method, call.text]), [
+    ["send", "🔐 Bash — ozon\nCreate probe file\ntouch /tmp/x1.txt"],
+    ["ack", "не ваш вопрос"],
+    [
+      "edit",
+      "🔐 Bash — ozon\nCreate probe file\ntouch /tmp/x1.txt\n⌛ истёк — ответьте в терминале",
+    ],
+  ]);
+  assertEquals((await asked.outcome).read(KIND), "истёк");
+});
+
+Deno.test("12: текст, датированный до старта, — отброшен в любой пачке", async () => {
   const bot = new FakeBot();
   const { questions } = service(bot);
   questions.start();
@@ -93,7 +117,7 @@ Deno.test("12: текст первого опроса, датированный 
   bot.deliver([textUpdate(2, 111, "тоже старое", STARTED - 1)]);
   await bot.polled(3);
   await questions.stop();
-  assertEquals(bot.calls.map((call) => call.text), ["сейчас вопросов нет"]);
+  assertEquals(bot.calls, []);
   assertEquals(bot.offsets, [0, 2, 3]);
 });
 
@@ -113,7 +137,7 @@ Deno.test("13: сообщение прошлого запуска — при с�
   const shown = new StoredMessages(open, (line) => log.push(line));
   shown.remember(
     1546,
-    new Card("🔐 Bash · ozon", "touch /tmp/x1.txt", []),
+    new Card("🔐 Bash — ozon", "touch /tmp/x1.txt", []),
   );
   const bot = new FakeBot();
   const { questions } = service(bot, shown);
@@ -126,7 +150,7 @@ Deno.test("13: сообщение прошлого запуска — при с�
   assertEquals(bot.calls[0], {
     method: "edit",
     message: 1546,
-    text: "🔐 Bash · ozon\ntouch /tmp/x1.txt\n⌛ истёк — ответьте в терминале",
+    text: "🔐 Bash — ozon\ntouch /tmp/x1.txt\n⌛ истёк — ответьте в терминале",
     buttons: [],
     data: [],
   });

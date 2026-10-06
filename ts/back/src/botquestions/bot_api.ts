@@ -51,10 +51,13 @@ export class BotFailure extends Error {
   override name = "BotFailure";
   /** `error_code` ответа; у сбоя транспорта — `0`. */
   readonly code: number;
+  /** Причина без слов «бот недоступен»: `401 Unauthorized`. */
+  readonly reason: string;
 
   constructor(reason: string, code: number, options?: ErrorOptions) {
     super(`бот недоступен: ${reason}`, options);
     this.code = code;
+    this.reason = reason;
   }
 
   /** Второй читатель того же бота (`409`). */

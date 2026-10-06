@@ -181,7 +181,7 @@ export function step(text: string, labels: readonly string[]): Step {
   };
 }
 
-/** F1 постановки: `🔐 Bash · ozon`, один шаг права. */
+/** F1 постановки: `🔐 Bash — ozon`, один шаг права. */
 export function f1(): Form {
   return new Form({
     title: new Title("🔐 Bash", ["ozon"]),
@@ -203,23 +203,46 @@ export function f2(): Form {
   });
 }
 
-/** Нажатие кнопки `data` пользователем `from` — апдейт `id`. */
-export function pressUpdate(id: number, from: number, data: string): Update {
+/**
+ * Нажатие кнопки `data` пользователем `from` в чате `chat` (по умолчанию
+ * — его личном) — апдейт `id`.
+ */
+export function pressUpdate(
+  id: number,
+  from: number,
+  data: string,
+  chat: number = from,
+): Update {
   return parseUpdates([{
     update_id: id,
-    callback_query: { id: `cb${id}`, from: { id: from }, data },
+    callback_query: {
+      id: `cb${id}`,
+      from: { id: from },
+      message: { chat: { id: chat } },
+      data,
+    },
   }])[0];
 }
 
-/** Текст `text` пользователя `from` с датой `date` (секунды). */
+/**
+ * Текст `text` пользователя `from` с датой `date` (секунды) в чате
+ * `chat` (по умолчанию — его личном).
+ */
 export function textUpdate(
   id: number,
   from: number,
   text: string,
   date: number,
+  chat: number = from,
 ): Update {
   return parseUpdates([{
     update_id: id,
-    message: { message_id: id, from: { id: from }, date, text },
+    message: {
+      message_id: id,
+      from: { id: from },
+      chat: { id: chat },
+      date,
+      text,
+    },
   }])[0];
 }

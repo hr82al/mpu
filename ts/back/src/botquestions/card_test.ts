@@ -7,10 +7,10 @@ import { assertEquals } from "@std/assert";
 import { Card, MESSAGE_LIMIT } from "./card.ts";
 
 Deno.test("короткое тело — строки как есть, хвост последним", () => {
-  const card = new Card("❓ Цвет · ozon", "Какой цвет?", ["• Синий — цвет"]);
+  const card = new Card("❓ Цвет — ozon", "Какой цвет?", ["• Синий — цвет"]);
   assertEquals(
     card.text(["ещё ждут: 2"]),
-    "❓ Цвет · ozon\nКакой цвет?\n• Синий — цвет\nещё ждут: 2",
+    "❓ Цвет — ozon\nКакой цвет?\n• Синий — цвет\nещё ждут: 2",
   );
 });
 

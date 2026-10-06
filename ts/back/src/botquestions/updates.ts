@@ -6,12 +6,32 @@
  * апдейта.
  */
 
+/** Кто прислал апдейт: пользователь и чат, где он это сделал. */
+export class Sender {
+  readonly #from: number;
+  /** Чата нет у нажатия без сообщения (инлайн-режим). */
+  readonly #chat: number | undefined;
+
+  constructor(from: number, chat: number | undefined) {
+    this.#from = from;
+    this.#chat = chat;
+  }
+
+  /**
+   * Владелец в своём личном чате с ботом («Уточнения R1a»): у личного
+   * чата номер — номер собеседника; в группе с ботом он другой.
+   */
+  is(owner: number): boolean {
+    return this.#from === owner && this.#chat === owner;
+  }
+}
+
 /** Кому апдейт доставляется: чат вопросов. */
 export interface Inbox {
-  /** Нажатие кнопки `data` пользователем `from`. */
-  press(from: number, callback: string, data: string): Promise<void>;
-  /** Текстовое сообщение `text` пользователя `from`. */
-  write(from: number, text: string): Promise<void>;
+  /** Нажатие кнопки `data`. */
+  press(sender: Sender, callback: string, data: string): Promise<void>;
+  /** Текстовое сообщение `text`. */
+  write(sender: Sender, text: string): Promise<void>;
 }
 
 /** Свежесть апдейта по его дате (секунды Unix). */
@@ -19,12 +39,9 @@ export interface Freshness {
   admits(date: number): boolean;
 }
 
-/** Все апдейты свежие: опрос после первого. */
-export const ANY_AGE: Freshness = { admits: () => true };
-
 /**
- * Первый опрос после старта: датированное раньше старта накоплено до
- * запуска и ответом не считается.
+ * Датированное раньше старта ядра накоплено до запуска и ответом не
+ * считается — в любой пачке опроса.
  */
 export class SinceStart implements Freshness {
   readonly #startedAt: number;
@@ -54,13 +71,13 @@ export interface Update {
 class PressUpdate implements Update {
   constructor(
     readonly id: number,
-    readonly from: number,
+    readonly sender: Sender,
     readonly callback: string,
     readonly data: string,
   ) {}
 
   deliver(inbox: Inbox): Promise<void> {
-    return inbox.press(this.from, this.callback, this.data);
+    return inbox.press(this.sender, this.callback, this.data);
   }
 }
 
@@ -68,14 +85,14 @@ class PressUpdate implements Update {
 class TextUpdate implements Update {
   constructor(
     readonly id: number,
-    readonly from: number,
+    readonly sender: Sender,
     readonly date: number,
     readonly text: string,
   ) {}
 
   deliver(inbox: Inbox, fresh: Freshness): Promise<void> {
     if (!fresh.admits(this.date)) return Promise.resolve();
-    return inbox.write(this.from, this.text);
+    return inbox.write(this.sender, this.text);
   }
 }
 
@@ -132,7 +149,8 @@ function pressOf(id: number, query: Fields | undefined): Update | undefined {
   if (from === undefined || callback === undefined || data === undefined) {
     return undefined;
   }
-  return new PressUpdate(id, from, callback, data);
+  const chat = numberOf(record(record(query?.message)?.chat)?.id);
+  return new PressUpdate(id, new Sender(from, chat), callback, data);
 }
 
 function messageOf(
@@ -145,5 +163,6 @@ function messageOf(
   if (from === undefined || date === undefined || text === undefined) {
     return undefined;
   }
-  return new TextUpdate(id, from, date, text);
+  const chat = numberOf(record(message?.chat)?.id);
+  return new TextUpdate(id, new Sender(from, chat), date, text);
 }

@@ -13,7 +13,7 @@ import { Refused } from "./outcome.ts";
 import { type Clock, Poller, REAL_CLOCK } from "./poller.ts";
 import { type Asked, Queue } from "./queue.ts";
 import { type ShownMessages, StoredMessages } from "./shown.ts";
-import type { Inbox } from "./updates.ts";
+import type { Inbox, Sender } from "./updates.ts";
 
 /** Вопросы владельцу в его чате с ботом. */
 export interface OwnerQuestions {
@@ -39,7 +39,7 @@ export const NO_BOT: OwnerQuestions = {
   stop: () => Promise.resolve(),
 };
 
-/** Решить вопрос может только владелец. */
+/** Решить вопрос может только владелец — в своём личном чате с ботом. */
 class OwnerOnly implements Inbox {
   readonly #owner: number;
   readonly #queue: Queue;
@@ -51,14 +51,16 @@ class OwnerOnly implements Inbox {
     this.#chat = chat;
   }
 
-  press(from: number, callback: string, data: string): Promise<void> {
-    if (from !== this.#owner) return this.#chat.ack(callback, "не ваш вопрос");
+  press(sender: Sender, callback: string, data: string): Promise<void> {
+    if (!sender.is(this.#owner)) {
+      return this.#chat.ack(callback, "не ваш вопрос");
+    }
     return this.#queue.press(callback, data);
   }
 
   /** Текст постороннего — молчание: боту пишет кто угодно. */
-  write(from: number, text: string): Promise<void> {
-    if (from !== this.#owner) return Promise.resolve();
+  write(sender: Sender, text: string): Promise<void> {
+    if (!sender.is(this.#owner)) return Promise.resolve();
     return this.#queue.write(text);
   }
 }
