@@ -9,7 +9,9 @@
  * исполняет ядро (`line/hook.ts`), поэтому наружу отданы разбор
  * payload'а (`toolCallOf`), стол вопроса владельцу (`PermissionDesk`) и
  * ответы хуков с причинами. `stop` — тоже ядро: стол вопросов «ждёт
- * ввода» (`StopDesk`) держит их дольше строки хука.
+ * ввода» (`StopDesk`) держит их дольше строки хука. `elicitation` — ядро:
+ * форма MCP-сервера владельцу (`ElicitationDesk`,
+ * `docs/specs/claude-hook-elicitation.md`).
  */
 
 export { claudeHookNotificationCommand } from "./cmd_notification.ts";
@@ -17,6 +19,7 @@ export { claudeHookPreToolUseCommand } from "./cmd_pre_tool_use.ts";
 export { claudeHookPermissionRequestCommand } from "./cmd_permission_request.ts";
 export { claudeHookStopCommand } from "./cmd_stop.ts";
 export { claudeChannelCommand } from "./cmd_claude_channel.ts";
+export { claudeHookElicitationCommand } from "./cmd_elicitation.ts";
 export {
   DEADLINE_MS,
   type DeskParts,
@@ -28,6 +31,11 @@ export { type ChannelWire, WireLink } from "./channel.ts";
 export { type Session, Sessions } from "./sessions.ts";
 export { NO_NOTIFY_DESK, NotifyDesk } from "./notify_desk.ts";
 export { NO_STOP_DESK, StopDesk, type StopDeskParts } from "./stop_desk.ts";
+export {
+  ElicitationDesk,
+  type ElicitationParts,
+  NO_ELICITATION_DESK,
+} from "./elicitation_desk.ts";
 export {
   DISK_FILES,
   type TranscriptFiles,

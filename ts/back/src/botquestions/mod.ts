@@ -28,6 +28,7 @@ export {
   type Markup,
   preformatted,
   type Rendered,
+  titled,
 } from "./card.ts";
 export type { Posted, PostedReader } from "./chat.ts";
 export {
@@ -35,8 +36,10 @@ export {
   Form,
   LATER,
   MANY,
+  MAX_STEPS,
   notice,
   ONE,
+  oneClosing,
   type Option,
   type Selection,
   SKIP,

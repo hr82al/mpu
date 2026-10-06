@@ -23,12 +23,13 @@ Deno.test("image export — allow вместо посева по признак�
   ]);
 });
 
-Deno.test("claude-hook permission-request, stop — allow вместо посева по признаку rw", () => {
+Deno.test("claude-hook permission-request, stop, elicitation — allow вместо посева по признаку rw", () => {
   const hooks = registrySeeds()
     .map((rule) => rule.entry())
     .filter((entry) => entry.path.startsWith("claude-hook"))
     .sort((a, b) => a.path.localeCompare(b.path));
   assertEquals(hooks, [
+    { path: "claude-hook elicitation", verdict: "allow" },
     { path: "claude-hook notification", verdict: "allow" },
     { path: "claude-hook permission-request", verdict: "allow" },
     { path: "claude-hook pre-tool-use", verdict: "allow" },

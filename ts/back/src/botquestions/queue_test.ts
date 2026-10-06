@@ -14,6 +14,7 @@ import {
   LATER,
   MANY,
   ONE,
+  oneClosing,
   SKIP,
   type StepEvents,
   TAKES_TEXT,
@@ -311,6 +312,54 @@ Deno.test("9: два шага — то же сообщение правится 
     "❓ Цвет 2/2 — ozon\nКакой размер?\n✅ Синий; S — из чата",
   );
   assertEquals(bot.calls.filter((call) => call.method === "send").length, 1);
+});
+
+/** Два шага; последний вариант каждого отвечает всю форму. */
+function closingForm(): Form {
+  const closing = (head: string, labels: readonly string[]) => ({
+    head,
+    text: "?",
+    options: labels.map((label) => ({ label })),
+    choice: oneClosing(1),
+    reply: BUTTONS_ONLY,
+  });
+  return new Form({
+    places: [],
+    steps: [
+      closing("📝 a", ["x", "y", "Decline"]),
+      closing("📝 a", ["z", "Decline"]),
+    ],
+  });
+}
+
+Deno.test("вид «один, последние кончают форму»: следующих шагов нет", async (t) => {
+  for (
+    const [name, presses, outcome] of [
+      ["кончающий на первом шаге", ["r1:1:0:2"], "ответ: вариант 2"],
+      [
+        "обычный, затем кончающий",
+        ["r1:1:0:0", "r1:1:1:1"],
+        "ответ: вариант 0; вариант 1",
+      ],
+      [
+        "обычные до конца",
+        ["r1:1:0:1", "r1:1:1:0"],
+        "ответ: вариант 1; вариант 0",
+      ],
+    ] as const
+  ) {
+    await t.step(name, async () => {
+      const { bot, queue } = setup();
+      const asked = queue.ask(closingForm());
+      await queue.idle();
+      for (const data of presses) {
+        await queue.press("c", data);
+        await queue.idle();
+      }
+      assertEquals((await asked.outcome).read(OUTCOME), outcome);
+      assertEquals(bot.buttonedNow(), 0);
+    });
+  }
 });
 
 Deno.test("подпись в 60 символов с отметкой — без обрезки: предел без префикса", async () => {
@@ -819,7 +868,11 @@ function delivering(next: () => number): TextRule {
  */
 function live(name: string) {
   let text = `${name}: 1`;
-  let events: StepEvents = { answered: () => {}, changed: () => {} };
+  let events: StepEvents = {
+    answered: () => {},
+    closed: () => {},
+    changed: () => {},
+  };
   const form = new Form({
     places: [],
     steps: [{
@@ -877,9 +930,13 @@ Deno.test("свойство: при любых приходах, исходах,
     for (let step = 0; step < 18; step++) {
       const roll = next();
       const pick = () => Math.floor(next() * asked.length);
-      if (roll < 0.18) {
+      if (roll < 0.12) {
         asked.push(queue.ask(f1()));
         steps.push(`срочный ${asked.length}`);
+      } else if (roll < 0.18) {
+        // Форма, которую вариант кончает досрочно (`oneClosing`).
+        asked.push(queue.ask(closingForm()));
+        steps.push(`кончающий ${asked.length}`);
       } else if (roll < 0.32) {
         asked.push(queue.ask(waits(`W${asked.length + 1}`)));
         steps.push(`ждёт ${asked.length}`);
@@ -913,7 +970,8 @@ Deno.test("свойство: при любых приходах, исходах,
         steps.push(`истёк ${k + 1}`);
       } else if (roll < 0.72 && asked.length > 0) {
         const k = pick() + 1;
-        await queue.press("c", `r1:${k}:0:${next() < 0.5 ? "later" : "0"}`);
+        const key = ["later", "0", "2"][Math.floor(next() * 3)];
+        await queue.press("c", `r1:${k}:0:${key}`);
         steps.push(`нажат ${k}`);
       } else if (roll < 0.8) {
         release = bot.holdEdits();

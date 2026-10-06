@@ -113,6 +113,14 @@ export function preformatted(text: string): Rendered {
   };
 }
 
+/**
+ * Сообщение без кнопок: заголовок и текст; длинный текст усекается с
+ * конца, заголовок цел.
+ */
+export function titled(title: string, text: string): Rendered {
+  return new Card(title, text, []).render([]);
+}
+
 /** Тело сообщения, к которому приставляется хвост. */
 export interface Body {
   /** Текст сообщения с хвостом `tail`, не длиннее предела. */

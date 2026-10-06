@@ -66,7 +66,11 @@ export interface SnapshotParts {
 }
 
 /** Слушатель шага до первого нажатия: перерисовывать нечего. */
-const NO_EVENTS: StepEvents = { answered: () => {}, changed: () => {} };
+const NO_EVENTS: StepEvents = {
+  answered: () => {},
+  closed: () => {},
+  changed: () => {},
+};
 
 /** Работа снимка над окном: исполняется по одной, по очереди. */
 type Work = (asked: Asked, stop: AbortSignal) => Promise<void>;

@@ -1004,6 +1004,15 @@
   {
     "path": [
       "claude-hook",
+      "elicitation"
+    ],
+    "verdict": "allow",
+    "rule": "claude-hook elicitation",
+    "own": true
+  },
+  {
+    "path": [
+      "claude-hook",
       "notification"
     ],
     "verdict": "allow",

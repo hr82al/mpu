@@ -1004,6 +1004,15 @@
   {
     "path": [
       "claude-hook",
+      "elicitation"
+    ],
+    "verdict": "deny",
+    "rule": "*",
+    "own": false
+  },
+  {
+    "path": [
+      "claude-hook",
       "notification"
     ],
     "verdict": "deny",

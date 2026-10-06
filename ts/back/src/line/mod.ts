@@ -9,6 +9,7 @@ import type { CommandIo } from "../command/mod.ts";
 import {
   type HookReply,
   NO_DESK,
+  NO_ELICITATION_DESK,
   NO_NOTIFY_DESK,
   NO_STOP_DESK,
 } from "../claudehook/mod.ts";
@@ -133,6 +134,8 @@ export interface OwnerAsking {
   stop(text: string): Promise<HookReply>;
   /** Хук `Notification` (`claude-hook-notification-snapshot.md`). */
   notification(text: string): Promise<HookReply>;
+  /** Хук `Elicitation` (`claude-hook-elicitation.md`). */
+  elicitation(text: string, signal: AbortSignal): Promise<HookReply>;
 }
 
 /** Вопроса задать некому: окружения клиента нет, бот не настроен. */
@@ -140,6 +143,8 @@ const UNASKED: OwnerAsking = {
   permission: (text, signal) => NO_DESK.reply(text, () => undefined, signal),
   stop: (text) => NO_STOP_DESK.reply(text, () => undefined),
   notification: (text) => NO_NOTIFY_DESK.reply(text, () => undefined),
+  elicitation: (text, signal) =>
+    NO_ELICITATION_DESK.reply(text, () => undefined, signal),
 };
 
 /** Кто спрашивает подтверждение у строки. */
@@ -443,6 +448,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
       permission: (text) => asking.permission(text, lineIo.signal),
       stop: (text) => asking.stop(text),
       notification: (text) => asking.notification(text),
+      elicitation: (text) => asking.elicitation(text, lineIo.signal),
     };
     const hook = {
       readStdin: lineIo.readStdin,

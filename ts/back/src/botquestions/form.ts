@@ -63,6 +63,8 @@ export class Title {
 export interface StepEvents {
   /** Шаг отвечен. */
   answered(answer: StepAnswer): void;
+  /** Шаг отвечен ответом на всю форму: следующие шаги не задаются. */
+  closed(answer: StepAnswer): void;
   /** Ответа нет, но кнопки шага изменились. */
   changed(): void;
 }
@@ -96,16 +98,21 @@ function within(options: readonly Option[], index: number): boolean {
 
 class OneSelection implements Selection {
   readonly #options: readonly Option[];
+  /** С какого номера вариант отвечает всю форму. */
+  readonly #closingFrom: number;
 
-  constructor(options: readonly Option[]) {
+  constructor(options: readonly Option[], closingFrom: number) {
     this.#options = options;
+    this.#closingFrom = closingFrom;
   }
 
   press(events: StepEvents): StepPressable {
     return {
       pick: (index) => {
         if (!within(this.#options, index)) return STALE;
-        events.answered(new Picked([index], [this.#options[index].label]));
+        const answer = new Picked([index], [this.#options[index].label]);
+        if (index >= this.#closingFrom) events.closed(answer);
+        else events.answered(answer);
         return ACCEPTED;
       },
       // `Готово` у одного выбора не показывается: такое нажатие — чужое.
@@ -159,7 +166,20 @@ class ManySelection implements Selection {
 }
 
 /** Один вариант: нажатие отвечает шаг. */
-export const ONE: Choice = { start: (options) => new OneSelection(options) };
+export const ONE: Choice = {
+  start: (options) => new OneSelection(options, options.length),
+};
+
+/**
+ * Один вариант; последние `closing` вариантов отвечают всю форму —
+ * следующие шаги не задаются (`Decline` и `В терминале` у формы MCP,
+ * `claude-hook-elicitation.md`).
+ */
+export function oneClosing(closing: number): Choice {
+  return {
+    start: (options) => new OneSelection(options, options.length - closing),
+  };
+}
 
 /** Несколько: нажатие отмечает, `Готово` отвечает. */
 export const MANY: Choice = { start: (options) => new ManySelection(options) };
@@ -227,7 +247,7 @@ export const LATER: Button = { label: "Позже", key: LATER_KEY };
 export const SKIP: Button = { label: "Пропустить", key: SKIP_KEY };
 
 /** Сколько шагов бывает у формы. */
-const MAX_STEPS = 4;
+export const MAX_STEPS = 4;
 
 /** Форма вопроса. */
 export class Form {

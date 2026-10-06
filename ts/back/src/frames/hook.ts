@@ -93,9 +93,20 @@ export const NOTIFICATION = new HookWords({
   missing: "без уведомления",
 });
 
+/**
+ * Хук `Elicitation`: форма MCP-сервера владельцу в Telegram
+ * (`claude-hook-elicitation.md`, «CLI-контракт»).
+ */
+export const ELICITATION = new HookWords({
+  words: ["claude-hook", "elicitation"],
+  unavailable: "сервер mpu не отвечает",
+  missing: "без решения",
+});
+
 /** Строки-хуки — один список на клиента и ядро. */
 export const HOOK_LINES: readonly HookWords[] = [
   PRE_TOOL_USE,
   PERMISSION_REQUEST,
   STOP,
+  ELICITATION,
 ];

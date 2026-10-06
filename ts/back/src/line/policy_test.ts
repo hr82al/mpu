@@ -112,6 +112,7 @@ const OWN_SEEDS: Readonly<Record<string, string | undefined>> = {
   "claude-hook permission-request": "allow",
   "claude-hook stop": "allow",
   "claude-hook notification": "allow",
+  "claude-hook elicitation": "allow",
   "task post": "allow",
   "task report": "allow",
   "task question": "allow",

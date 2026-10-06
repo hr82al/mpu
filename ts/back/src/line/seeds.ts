@@ -5,7 +5,12 @@
  */
 
 import type { Command, Policy } from "../command/mod.ts";
-import { NOTIFICATION, PERMISSION_REQUEST, STOP } from "../frames/mod.ts";
+import {
+  ELICITATION,
+  NOTIFICATION,
+  PERMISSION_REQUEST,
+  STOP,
+} from "../frames/mod.ts";
 import { EXPORT_PATH } from "../image/mod.ts";
 import {
   ALLOW,
@@ -40,7 +45,7 @@ const SEED_OF: Readonly<Record<Policy, Verdict>> = { ro: ALLOW, rw: ASK };
  * проекта ставит хост на блокере (`task-orchestrator.md`); хук
  * `PermissionRequest` зовёт Claude Code без человека, и `ask` значил бы
  * «спросить некого» на каждом вызове (`claude-hook-permission-request.md`
- * [D.2]); хуки `Stop` и `Notification` — то же (`platform/policy.md`,
+ * [D.2]); хуки `Stop`, `Notification` и `Elicitation` — то же (`platform/policy.md`,
  * «Посев»).
  */
 const OWN_SEEDS: ReadonlyMap<string, Verdict> = new Map([
@@ -48,6 +53,7 @@ const OWN_SEEDS: ReadonlyMap<string, Verdict> = new Map([
   [PERMISSION_REQUEST.words.join(" "), ALLOW],
   [STOP.words.join(" "), ALLOW],
   [NOTIFICATION.words.join(" "), ALLOW],
+  [ELICITATION.words.join(" "), ALLOW],
   ...[
     "post",
     "report",

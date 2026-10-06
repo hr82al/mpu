@@ -80,6 +80,7 @@ export {
 } from "./channel.ts";
 
 export {
+  ELICITATION,
   HOOK_LINES,
   HookWords,
   NOTIFICATION,

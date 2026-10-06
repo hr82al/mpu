@@ -106,3 +106,39 @@ Deno.test("копии эталонов хука Stop совпадают с ка�
   }
   assertEquals(found.sort(), STOP_COPIES.map(([, copy]) => copy).sort());
 });
+
+/** Копии эталонов хука `Elicitation` (`fixtures/telegram-relay/r3/`). */
+const ELICITATION_COPIES: readonly (readonly [string, string])[] = [
+  [
+    "r3/live-elicitation-accept-delivered.json",
+    "elicitation/live-elicitation-accept-delivered.json",
+  ],
+  [
+    "r3/live-elicitation-fields.json",
+    "elicitation/live-elicitation-fields.json",
+  ],
+  ["r3/live-elicitation-mpu.json", "elicitation/live-elicitation-mpu.json"],
+  [
+    "r3/settings-fragment-elicitation.json",
+    "elicitation/settings-fragment-elicitation.json",
+  ],
+];
+
+Deno.test("копии эталонов хука Elicitation совпадают с каналом", async (t) => {
+  for (const [channel, copy] of ELICITATION_COPIES) {
+    await t.step(copy, async () => {
+      assertEquals(
+        await Deno.readTextFile(new URL(copy, copyRoot)),
+        await Deno.readTextFile(new URL(`${RELAY}/${channel}`, channelRoot)),
+      );
+    });
+  }
+  const found: string[] = [];
+  for await (const entry of Deno.readDir(new URL("elicitation/", copyRoot))) {
+    found.push(`elicitation/${entry.name}`);
+  }
+  assertEquals(
+    found.sort(),
+    ELICITATION_COPIES.map(([, copy]) => copy).sort(),
+  );
+});

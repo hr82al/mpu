@@ -65,6 +65,7 @@ import { Gallery, PICTURE_LIMIT } from "../picture/mod.ts";
 import { type OwnerQuestions, REAL_CLOCK } from "../botquestions/mod.ts";
 import {
   DISK_FILES,
+  ElicitationDesk,
   NotifyDesk,
   PermissionDesk,
   RUN_TMUX,
@@ -448,6 +449,8 @@ class Back {
   readonly #sessions = new Sessions(REAL_CLOCK);
   /** Окна tmux: подпись вопросов в чате владельца. */
   readonly #windows: Windows;
+  /** Формы MCP-серверов хука `Elicitation`. */
+  readonly #elicitationDesk: ElicitationDesk;
 
   constructor(options: BackOptions) {
     this.#options = options;
@@ -490,6 +493,12 @@ class Back {
       sessions: this.#sessions,
       clock: REAL_CLOCK,
       diagnose: options.diagnose,
+    });
+    this.#elicitationDesk = new ElicitationDesk({
+      questions: options.questions,
+      transcripts,
+      windows,
+      clock: REAL_CLOCK,
     });
     this.#stopDesk = new StopDesk({
       questions: options.questions,
@@ -610,9 +619,11 @@ class Back {
 
   async stop() {
     for (const line of this.#open.keys()) line.stop();
-    // Строка, ждущая владельца (хук `PermissionRequest`), иначе держала
-    // бы остановку до своего срока: её вопрос — в исход «истёк».
+    // Строка, ждущая владельца (хуки `PermissionRequest`, `Elicitation`),
+    // иначе держала бы остановку до своего срока: её вопрос — в исход
+    // «истёк».
     this.#desk.stop();
+    this.#elicitationDesk.stop();
     // Исполнители — до ожидания строк: строка ждёт итога своего
     // исполнителя, и без `stop` ему остановка сервера дождалась бы
     // конца команды.
@@ -874,6 +885,8 @@ class Back {
         permission: (text, signal) => this.#desk.reply(text, callerEnv, signal),
         stop: (text) => this.#stopDesk.reply(text, callerEnv),
         notification: (text) => this.#notifyDesk.reply(text, callerEnv),
+        elicitation: (text, signal) =>
+          this.#elicitationDesk.reply(text, callerEnv, signal),
       },
       image: {
         image: this.#image,

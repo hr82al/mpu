@@ -205,6 +205,7 @@ export class Question implements Waiting {
     };
     this.#events = {
       answered: (answer) => this.#answered(answer),
+      closed: (answer) => this.#closed(answer),
       changed: () => this.#listener.changed(),
     };
   }
@@ -281,13 +282,16 @@ export class Question implements Waiting {
   }
 
   #answered(answer: StepAnswer): void {
+    if (this.#step + 1 >= this.#form.steps.length) return this.#closed(answer);
     this.#answers.push(answer);
-    if (this.#step + 1 < this.#form.steps.length) {
-      this.#step += 1;
-      this.#selection = this.#current().choice.start(this.#current().options);
-      this.#listener.changed();
-      return;
-    }
+    this.#step += 1;
+    this.#selection = this.#current().choice.start(this.#current().options);
+    this.#listener.changed();
+  }
+
+  /** Ответ последнего шага или ответ на всю форму: исход. */
+  #closed(answer: StepAnswer): void {
+    this.#answers.push(answer);
     this.#listener.decided(
       this,
       new Answered(this.#answers, this.#form.answerLine),

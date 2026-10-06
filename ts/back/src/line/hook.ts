@@ -11,6 +11,7 @@
 
 import { consentAt } from "../entrypoint/mod.ts";
 import {
+  ELICITATION,
   type HookWords,
   NOTIFICATION,
   PERMISSION_REQUEST,
@@ -88,6 +89,8 @@ export interface OwnerHooks {
   stop(text: string): Promise<HookReply>;
   /** `notification` (`claudehook/notify_desk.ts`). */
   notification(text: string): Promise<HookReply>;
+  /** `elicitation` (`claudehook/elicitation_desk.ts`). */
+  elicitation(text: string): Promise<HookReply>;
 }
 
 /** Что строкам-хукам нужно сверх контекста строки. */
@@ -111,30 +114,20 @@ export function hookLineOf(
   otherwise: ImageLine,
 ): ImageLine {
   const { consulting, owner } = ports;
-  return hooked(
-    PRE_TOOL_USE,
-    said,
-    ports,
-    (text) => toolCallOf(text).reply((words) => consulting.reply(words)),
-    hooked(
-      PERMISSION_REQUEST,
-      said,
-      ports,
-      (text) => owner.permission(text),
-      hooked(
-        STOP,
-        said,
-        ports,
-        (text) => owner.stop(text),
-        hooked(
-          NOTIFICATION,
-          said,
-          ports,
-          (text) => owner.notification(text),
-          otherwise,
-        ),
-      ),
-    ),
+  const hooks: readonly { hook: HookWords; answer: HookAnswer }[] = [
+    {
+      hook: PRE_TOOL_USE,
+      answer: (text) =>
+        toolCallOf(text).reply((words) => consulting.reply(words)),
+    },
+    { hook: PERMISSION_REQUEST, answer: (text) => owner.permission(text) },
+    { hook: STOP, answer: (text) => owner.stop(text) },
+    { hook: NOTIFICATION, answer: (text) => owner.notification(text) },
+    { hook: ELICITATION, answer: (text) => owner.elicitation(text) },
+  ];
+  return hooks.reduceRight(
+    (rest, { hook, answer }) => hooked(hook, said, ports, answer, rest),
+    otherwise,
   );
 }
 
