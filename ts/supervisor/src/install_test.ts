@@ -714,6 +714,20 @@ async function notificationEntry(): Promise<unknown> {
   return fragment.hooks.Notification[0];
 }
 
+/**
+ * Запись хука `Elicitation` из эталона фрагмента
+ * (`claude-hook-elicitation.md`, «Установка»).
+ */
+async function elicitationEntry(): Promise<unknown> {
+  const fragment = await readJson(
+    new URL(
+      "testdata/claude-hook-elicitation/settings-fragment-elicitation.json",
+      import.meta.url,
+    ).pathname,
+  ) as { hooks: { Elicitation: unknown[] } };
+  return fragment.hooks.Elicitation[0];
+}
+
 /** Запись хука `Stop` из эталона фрагмента (`claude-hook-stop.md`, «Установка»). */
 async function stopEntry(): Promise<unknown> {
   const fragment = await readJson(
@@ -735,6 +749,7 @@ Deno.test("claude: первая установка — сервер mpu поль
       "install: claude хук permission-request: вписано",
       "install: claude хук stop: вписано",
       "install: claude хук notification: вписано",
+      "install: claude хук elicitation: вписано",
       ...channelLines("подключено"),
     ]);
     assertEquals(run.claude, [
@@ -753,6 +768,7 @@ Deno.test("claude: первая установка — сервер mpu поль
         PermissionRequest: [await hookEntry()],
         Stop: [await stopEntry()],
         Notification: [await notificationEntry()],
+        Elicitation: [await elicitationEntry()],
       },
     });
   }));
@@ -771,6 +787,7 @@ Deno.test("claude: второй запуск — ни вызова claude, setti
       "install: claude хук permission-request: без изменений",
       "install: claude хук stop: без изменений",
       "install: claude хук notification: без изменений",
+      "install: claude хук elicitation: без изменений",
       ...channelLines("без изменений"),
     ]);
     assertEquals(run.claude, []);
@@ -819,6 +836,7 @@ Deno.test("claude: чужие правила и ключи на месте, пр
         PermissionRequest: [await hookEntry()],
         Stop: [await stopEntry()],
         Notification: [await notificationEntry()],
+        Elicitation: [await elicitationEntry()],
       },
     });
   }));
@@ -869,6 +887,7 @@ Deno.test("claude хук: правленая запись заменена св�
         PermissionRequest: [other, await hookEntry(), entry("later")],
         Stop: [await stopEntry()],
         Notification: [await notificationEntry()],
+        Elicitation: [await elicitationEntry()],
       },
     );
   }));
@@ -1079,6 +1098,54 @@ Deno.test("R2b-10: правка внутри блока claude затирает�
     assertEquals(text.startsWith("# сверху\n"), true);
     assertEquals(text.endsWith("# снизу\n"), true);
   }));
+
+Deno.test("R3-15: хук elicitation — вписан рядом с чужими записями, повторно — без изменений; копия фрагмента — как в канале", async () => {
+  await withPlace(async (place) => {
+    await Deno.mkdir(`${place.dir}/.claude`);
+    const settings = `${place.dir}/.claude/settings.json`;
+    const other = entry("notify-form", 5);
+    await Deno.writeTextFile(
+      settings,
+      JSON.stringify({
+        hooks: {
+          Elicitation: [other, entry("mpu claude-hook elicitation", 600)],
+        },
+      }),
+    );
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(
+      stepLine(run, "claude хук elicitation"),
+      "install: claude хук elicitation: вписано",
+    );
+    assertEquals(
+      ((await readJson(settings)) as { hooks: { Elicitation: unknown } }).hooks
+        .Elicitation,
+      [other, await elicitationEntry()],
+    );
+    const bytes = await Deno.readFile(settings);
+    const again = await install(place);
+    assertEquals(
+      stepLine(again, "claude хук elicitation"),
+      "install: claude хук elicitation: без изменений",
+    );
+    assertEquals(await Deno.readFile(settings), bytes);
+  });
+  assertEquals(
+    await Deno.readTextFile(
+      new URL(
+        "testdata/claude-hook-elicitation/settings-fragment-elicitation.json",
+        import.meta.url,
+      ),
+    ),
+    await Deno.readTextFile(
+      new URL(
+        "../../docs/specs/fixtures/telegram-relay/r3/settings-fragment-elicitation.json",
+        import.meta.url,
+      ),
+    ),
+  );
+});
 
 Deno.test("R4-14: хук notification — вписан, повторно — без изменений; копия фрагмента — как в канале", async () => {
   await withPlace(async (place) => {

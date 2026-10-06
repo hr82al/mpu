@@ -1,0 +1,1 @@
+{"hooks":{"Elicitation":[{"matcher":"","hooks":[{"type":"command","command":"mpu claude-hook elicitation","timeout":3600}]}]}}
