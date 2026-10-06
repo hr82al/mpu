@@ -169,7 +169,10 @@ Deno.test("AskUserQuestion без header — «Вопрос»; описания 
     unparsed: () => undefined,
     parsed: (request) => request.asking.form(["ozon"]),
   });
-  assertEquals(form?.title.line(1, 1), "❓ Вопрос — ozon");
+  assertEquals(
+    form?.title.line(form.steps[0].head, 1, 1),
+    "❓ Вопрос — ozon",
+  );
   assertEquals(form?.steps[0].options, [
     { label: "A", description: "буква" },
     { label: "B" },

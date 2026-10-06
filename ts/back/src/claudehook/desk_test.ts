@@ -454,7 +454,7 @@ Deno.test("7 (S10): несколько вариантов — галочки, «
   });
 });
 
-Deno.test("8 (S12): два вопроса — два шага, answers обоих одним решением", async () => {
+Deno.test("8 (S12), R2a-10: два вопроса — два шага, заголовок шага — свой header, answers обоих одним решением", async () => {
   await withDesk(async ({ bot, ask, payload }) => {
     const questions = [
       {
@@ -484,7 +484,7 @@ Deno.test("8 (S12): два вопроса — два шага, answers обои�
     await bot.called(3);
     assertEquals(
       bot.calls[2].text.split("\n")[0],
-      "❓ Цвет 2/2 — mpu-bot · ozon",
+      "❓ Размер 2/2 — mpu-bot · ozon",
     );
     bot.deliver([textUpdate(2, 111, "XL", 1)]);
     assertEquals(

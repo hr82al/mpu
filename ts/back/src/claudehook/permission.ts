@@ -16,7 +16,6 @@ import {
   type Step,
   type StepAnswer,
   TAKES_TEXT,
-  Title,
 } from "../botquestions/mod.ts";
 import { ALLOW, DENY, PermissionDecision } from "./decision.ts";
 import type { HookReply } from "./reply.ts";
@@ -131,8 +130,9 @@ class ToolPermission implements Asking {
         }),
     };
     return new Form({
-      title: new Title(`🔐 ${this.#head}`, places),
+      places,
       steps: [{
+        head: `🔐 ${this.#head}`,
         text: this.#text,
         options: choices.map((choice) => ({ label: choice.label })),
         choice: ONE,
@@ -152,6 +152,8 @@ class ToolPermission implements Asking {
 
 /** Вопрос AskUserQuestion: шаг на каждый вопрос. */
 interface UserQuestion {
+  /** Голова заголовка шага: `header` вопроса. */
+  readonly header: string;
   readonly question: string;
   readonly options: readonly Option[];
   readonly many: boolean;
@@ -159,21 +161,20 @@ interface UserQuestion {
 
 /** AskUserQuestion: ответы уходят в `updatedInput` одним решением. */
 class UserQuestions implements Asking {
-  readonly #head: string;
   readonly #questions: readonly UserQuestion[];
   /** `questions` как пришли: Claude Code ждёт их обратно. */
   readonly #raw: unknown;
 
-  constructor(head: string, questions: readonly UserQuestion[], raw: unknown) {
-    this.#head = head;
+  constructor(questions: readonly UserQuestion[], raw: unknown) {
     this.#questions = questions;
     this.#raw = raw;
   }
 
   form(places: readonly string[]): Form {
     return new Form({
-      title: new Title(`❓ ${this.#head}`, places),
+      places,
       steps: this.#questions.map((one): Step => ({
+        head: `❓ ${one.header}`,
         text: one.question,
         options: one.options,
         choice: one.many ? MANY : ONE,
@@ -255,6 +256,9 @@ function userQuestionOf(value: unknown): UserQuestion | undefined {
   const options = raw.map(optionOf);
   if (options.some((option) => option === undefined)) return undefined;
   return {
+    // Голова шага — `header` своего вопроса (`platform/telegram-questions.md`,
+    // «R2»); нет его — общее слово.
+    header: typeof value.header === "string" ? value.header : "Вопрос",
     question: value.question,
     options: options.filter((option) => option !== undefined),
     many: value.multiSelect === true,
@@ -269,12 +273,7 @@ function userQuestions(input: Fields): UserQuestions | undefined {
   }
   const questions = raw.map(userQuestionOf);
   if (questions.some((one) => one === undefined)) return undefined;
-  // Голова формы — одна на все шаги: `header` первого вопроса.
-  const header = isFields(raw[0]) && typeof raw[0].header === "string"
-    ? raw[0].header
-    : "Вопрос";
   return new UserQuestions(
-    header,
     questions.filter((one) => one !== undefined),
     raw,
   );

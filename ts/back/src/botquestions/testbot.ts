@@ -6,7 +6,7 @@
 
 import { type BotApi, BotFailure, type Keyboard } from "./bot_api.ts";
 import { Chat } from "./chat.ts";
-import { Form, ONE, type Step, TAKES_TEXT, Title } from "./form.ts";
+import { Form, ONE, type Step, TAKES_TEXT } from "./form.ts";
 import { BotQuestions } from "./questions.ts";
 import { NO_MEMORY, type ShownMessages } from "./shown.ts";
 import { parseUpdates, type Update } from "./updates.ts";
@@ -172,9 +172,14 @@ export function fakeChat(
   return new Chat({ bot, shown, diagnose: (line) => log.push(line) });
 }
 
-/** Шаг: один выбор, свой текст — да. */
-export function step(text: string, labels: readonly string[]): Step {
+/** Шаг с головой `head`: один выбор, свой текст — да. */
+export function step(
+  head: string,
+  text: string,
+  labels: readonly string[],
+): Step {
   return {
+    head,
     text,
     options: labels.map((label) => ({ label })),
     choice: ONE,
@@ -185,9 +190,9 @@ export function step(text: string, labels: readonly string[]): Step {
 /** F1 постановки: `🔐 Bash — ozon`, один шаг права. */
 export function f1(): Form {
   return new Form({
-    title: new Title("🔐 Bash", ["ozon"]),
+    places: ["ozon"],
     steps: [
-      step("Create probe file\ntouch /tmp/x1.txt", [
+      step("🔐 Bash", "Create probe file\ntouch /tmp/x1.txt", [
         "Yes",
         "Yes, always: Bash(touch /tmp/x1.txt)",
         "No",
@@ -199,8 +204,8 @@ export function f1(): Form {
 /** F2: второй вопрос другой сессии. */
 export function f2(): Form {
   return new Form({
-    title: new Title("🔐 Bash", ["sl-back"]),
-    steps: [step("ls", ["Yes", "No"])],
+    places: ["sl-back"],
+    steps: [step("🔐 Bash", "ls", ["Yes", "No"])],
   });
 }
 

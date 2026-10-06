@@ -7,7 +7,7 @@
 
 import { assertEquals } from "@std/assert";
 import { BotFailure } from "./bot_api.ts";
-import { BUTTONS_ONLY, Form, MANY, ONE, TAKES_TEXT, Title } from "./form.ts";
+import { BUTTONS_ONLY, Form, MANY, ONE, TAKES_TEXT } from "./form.ts";
 import type { OutcomeReader, StepAnswerReader } from "./outcome.ts";
 import { Queue } from "./queue.ts";
 import {
@@ -93,7 +93,7 @@ Deno.test("2: нажатие — подтверждение первым, исх
 Deno.test("3: текст владельца — ответ шага, строка исхода — потребителя", async () => {
   const { bot, queue } = setup();
   const permission = new Form({
-    title: new Title("🔐 Bash", ["ozon"]),
+    places: ["ozon"],
     steps: f1().steps,
     answerLine: {
       line: (answers) =>
@@ -206,8 +206,9 @@ Deno.test("снят показанный — правка строкой сня�
 /** Форма с шагом «несколько» `S`, `M`. */
 function sizes(): Form {
   return new Form({
-    title: new Title("❓ Размер", ["ozon"]),
+    places: ["ozon"],
     steps: [{
+      head: "❓ Размер",
       text: "Какой размер?",
       options: [{ label: "S" }, { label: "M" }],
       choice: MANY,
@@ -241,9 +242,10 @@ Deno.test("9: два шага — то же сообщение правится 
   const { bot, queue } = setup();
   const asked = queue.ask(
     new Form({
-      title: new Title("❓ Цвет", ["ozon"]),
+      places: ["ozon"],
       steps: [
         {
+          head: "❓ Цвет",
           text: "Какой цвет?",
           options: [
             { label: "Красный", description: "Красный цвет" },
@@ -252,7 +254,7 @@ Deno.test("9: два шага — то же сообщение правится 
           choice: ONE,
           reply: TAKES_TEXT,
         },
-        step("Какой размер?", ["S", "M"]),
+        step("❓ Цвет", "Какой размер?", ["S", "M"]),
       ],
     }),
   );
@@ -300,8 +302,9 @@ Deno.test("подпись в 60 символов с отметкой — без 
   const label = "я".repeat(60);
   const asked = queue.ask(
     new Form({
-      title: new Title("❓ Q", []),
+      places: [],
       steps: [{
+        head: "❓ Q",
         text: "?",
         options: [{ label }, { label: `${label}ы` }],
         choice: MANY,
@@ -332,8 +335,8 @@ Deno.test("10: текст при пустом ряду и на шаг без с�
   ]);
   const asked = queue.ask(
     new Form({
-      title: new Title("🔐 Bash", []),
-      steps: [{ ...step("ls", ["Yes", "No"]), reply: BUTTONS_ONLY }],
+      places: [],
+      steps: [{ ...step("🔐 Bash", "ls", ["Yes", "No"]), reply: BUTTONS_ONLY }],
     }),
   );
   await queue.idle();
@@ -401,8 +404,8 @@ Deno.test("14: длинная подпись — 59 символов и «…»,
   const label = "я".repeat(70);
   const asked = queue.ask(
     new Form({
-      title: new Title("❓ Q", []),
-      steps: [step("?", ["a", label])],
+      places: [],
+      steps: [step("❓ Q", "?", ["a", label])],
     }),
   );
   await queue.idle();
@@ -417,8 +420,9 @@ Deno.test("14: длинный текст шага усечён, строки в�
   const { bot, queue } = setup();
   queue.ask(
     new Form({
-      title: new Title("❓ Q", ["ozon"]),
+      places: ["ozon"],
       steps: [{
+        head: "❓ Q",
         text: "x".repeat(5000),
         options: [{ label: "A", description: "первый" }],
         choice: ONE,

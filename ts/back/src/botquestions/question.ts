@@ -225,6 +225,7 @@ export class Question implements Waiting {
       )
       : [];
     const title = this.#form.title.line(
+      step.head,
       this.#step + 1,
       this.#form.steps.length,
     );

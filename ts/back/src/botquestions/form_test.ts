@@ -9,24 +9,26 @@ import { Title } from "./form.ts";
 
 Deno.test("заголовок: голова — места через «·»; мест нет — нет и «—»", async (t) => {
   for (
-    const [title, step, steps, line] of [
+    const [head, title, step, steps, line] of [
       [
-        new Title("🔐 Bash", ["mpu-bot", "ozon", "w:2 claude"]),
+        "🔐 Bash",
+        new Title(["mpu-bot", "ozon", "w:2 claude"]),
         1,
         1,
         "🔐 Bash — mpu-bot · ozon · w:2 claude",
       ],
-      [new Title("🔐 Bash", ["sl-back"]), 1, 1, "🔐 Bash — sl-back"],
-      [new Title("🔐 Bash", []), 1, 1, "🔐 Bash"],
+      ["🔐 Bash", new Title(["sl-back"]), 1, 1, "🔐 Bash — sl-back"],
+      ["🔐 Bash", new Title([]), 1, 1, "🔐 Bash"],
       [
-        new Title("❓ Цвет", ["mpu-bot", "ozon"]),
+        "❓ Цвет",
+        new Title(["mpu-bot", "ozon"]),
         2,
         3,
         "❓ Цвет 2/3 — mpu-bot · ozon",
       ],
-      [new Title("❓ Цвет", []), 2, 3, "❓ Цвет 2/3"],
+      ["❓ Цвет", new Title([]), 2, 3, "❓ Цвет 2/3"],
     ] as const
   ) {
-    await t.step(line, () => assertEquals(title.line(step, steps), line));
+    await t.step(line, () => assertEquals(title.line(head, step, steps), line));
   }
 });

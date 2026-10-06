@@ -31,26 +31,25 @@ export interface Option {
 }
 
 /**
- * Заголовок: голова (значок и имя, `🔐 Bash`) и места (`ozon`,
- * `w:2 claude`) — `🔐 Bash — mpu-bot · ozon`. Части — отдельно, потому
- * что номер шага встаёт после головы, до мест.
+ * Заголовок: голова шага (значок и имя, `🔐 Bash`) и места формы
+ * (`ozon`, `w:2 claude`) — `🔐 Bash — mpu-bot · ozon`. Голова — у шага:
+ * у AskUserQuestion из нескольких вопросов у каждого свой `header`; номер
+ * шага встаёт после головы, до мест.
  */
 export class Title {
-  readonly #head: string;
   readonly #places: readonly string[];
 
-  constructor(head: string, places: readonly string[]) {
-    this.#head = head;
+  constructor(places: readonly string[]) {
     this.#places = [...places];
   }
 
   /**
-   * Строка заголовка шага `step` (с 1) из `steps`: мест нет — нет и
-   * разделителя ` — `.
+   * Строка заголовка шага `step` (с 1) из `steps` с головой `head`: мест
+   * нет — нет и разделителя ` — `.
    */
-  line(step: number, steps: number): string {
-    const head = steps > 1 ? `${this.#head} ${step}/${steps}` : this.#head;
-    return [head, this.#places.join(" · ")].filter((part) => part !== "")
+  line(head: string, step: number, steps: number): string {
+    const numbered = steps > 1 ? `${head} ${step}/${steps}` : head;
+    return [numbered, this.#places.join(" · ")].filter((part) => part !== "")
       .join(" — ");
   }
 }
@@ -193,6 +192,8 @@ export const BUTTONS_ONLY: TextRule = {
 
 /** Шаг формы. */
 export interface Step {
+  /** Голова заголовка шага: значок и имя (`❓ Размер`). */
+  readonly head: string;
   /** Строки тела под заголовком. */
   readonly text: string;
   readonly options: readonly Option[];
@@ -211,7 +212,8 @@ export class Form {
 
   /** @throws RangeError — шагов нет или больше четырёх */
   constructor(options: {
-    readonly title: Title;
+    /** Места заголовка по порядку: сессия, проект, окно. */
+    readonly places: readonly string[];
     readonly steps: readonly Step[];
     /** Строка ответа; не сказано — `CHECKED`. */
     readonly answerLine?: AnswerLine;
@@ -221,7 +223,7 @@ export class Form {
         `у формы 1–${MAX_STEPS} шага, передано ${options.steps.length}`,
       );
     }
-    this.title = options.title;
+    this.title = new Title(options.places);
     this.steps = [...options.steps];
     this.answerLine = options.answerLine ?? CHECKED;
   }
