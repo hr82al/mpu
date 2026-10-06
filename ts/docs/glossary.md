@@ -449,3 +449,6 @@
 | разовая миграция правила | `Migration`, таблица `migrated`, `openRegistryBook` (R4) | посеянное `ask` → `allow` один раз |
 | снятие вопроса в терминале | кадр `settled` (R3) | ядро → клиент: вопрос решён в Telegram, ввод не ждать |
 | форма MCP в чате | хук `claude-hook elicitation` (R3) | шаг на поле схемы; `В терминале` — без решения |
+| второй адресат вопроса `ask` | `Rival`/`Rivalry`, `ChatConfirms`, `ConfirmingLine`; запрос `POST …/settled` (`Claim`, `Settlement`) (R3) | Telegram параллельно с каналом строки |
+| стол формы MCP | `ElicitationDesk`, `ElicitQuestion`, вид выбора `oneClosing` (R3) | шаг на поле; `В терминале` — без решения |
+| следующее событие сессии | `SessionKey.movedOn`, `seatPermission`, `heldWhile` (R3) | снимает висящее право сессии |
