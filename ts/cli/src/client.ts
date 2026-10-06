@@ -10,11 +10,10 @@ import {
   type CallerFacts,
   type ContextFields,
   contextFieldsOf,
-  HOOK_WORDS,
+  HOOK_LINES,
+  type HookWords,
   type ServerFrame,
   serverFrameOf,
-  unavailable,
-  undecidedLine,
   VERSION,
 } from "../../back/src/frames/mod.ts";
 import type { TerminalIo } from "./terminal/mod.ts";
@@ -311,21 +310,23 @@ class PlainFate implements LineFate {
 }
 
 /**
- * Строка хука `PreToolUse` (`claude-hook-pre-tool-use.md`, «Клиент»):
- * код всегда 0 — иначе Claude Code блокировал бы вызов. Вывод держится
- * до кода: 0 — stdout и stderr печатаются как есть, иначе вместо них одна
- * строка «без решения — правила недоступны» с первой причиной — текстом
- * клиента или первой строкой кадров `err` ядра.
+ * Строка-хук (`claude-hook-pre-tool-use.md`, «Клиент»): код всегда 0 —
+ * иначе Claude Code блокировал бы вызов. Вывод держится до кода: 0 —
+ * stdout и stderr печатаются как есть, иначе вместо них одна строка «без
+ * решения» хука с первой причиной — текстом клиента или первой строкой
+ * кадров `err` ядра.
  */
 class HookFate implements LineFate {
   readonly env: ClientEnv;
   readonly #outer: ClientEnv;
+  readonly #hook: HookWords;
   #heldOut = "";
   #heldErr = "";
   #cause: string | undefined;
 
-  constructor(env: ClientEnv) {
+  constructor(env: ClientEnv, hook: HookWords) {
     this.#outer = env;
+    this.#hook = hook;
     this.env = {
       ...env,
       stdout: (text) => void (this.#heldOut += text),
@@ -343,7 +344,8 @@ class HookFate implements LineFate {
       if (this.#heldErr !== "") this.#outer.stderr(this.#heldErr);
       return 0;
     }
-    this.#outer.stderr(undecidedLine(unavailable(this.#cause ?? "")));
+    const hook = this.#hook;
+    this.#outer.stderr(hook.undecided(hook.unavailable(this.#cause ?? "")));
     return 0;
   }
 
@@ -356,9 +358,8 @@ class HookFate implements LineFate {
 
 /** Исход по словам: хук — ровно его слова, без справки и прочего. */
 function fateOf(words: readonly string[], env: ClientEnv): LineFate {
-  const hook = words.length === HOOK_WORDS.length &&
-    HOOK_WORDS.every((word, i) => words[i] === word);
-  return hook ? new HookFate(env) : new PlainFate(env);
+  const hook = HOOK_LINES.find((line) => line.is(words));
+  return hook === undefined ? new PlainFate(env) : new HookFate(env, hook);
 }
 
 /**

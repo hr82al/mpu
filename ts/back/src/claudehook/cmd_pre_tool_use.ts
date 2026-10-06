@@ -7,14 +7,14 @@
 
 import { z } from "@zod/zod";
 import { defineCommand } from "../command/mod.ts";
-import { HOOK_WORDS } from "../frames/mod.ts";
+import { PRE_TOOL_USE } from "../frames/mod.ts";
 
 const argsSchema = z.object({});
 
 const resultSchema = z.object({});
 
 export const claudeHookPreToolUseCommand = defineCommand({
-  path: HOOK_WORDS,
+  path: PRE_TOOL_USE.words,
   keys: {},
   errorName: "claude-hook pre-tool-use",
   summary: "Какое решение правил mpu у вызова инструмента Claude Code?",

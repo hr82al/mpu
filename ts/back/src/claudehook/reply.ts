@@ -4,7 +4,7 @@
  * ответу не принадлежит: у строки хука он всегда 0.
  */
 
-import { undecidedLine } from "../frames/mod.ts";
+import { PRE_TOOL_USE } from "../frames/mod.ts";
 
 /** Куда ответ печатает себя: stdout — решение, stderr — его отсутствие. */
 export interface HookSpeech {
@@ -67,7 +67,7 @@ export class Undecided implements HookReply {
   }
 
   tell(speech: HookSpeech) {
-    speech.stderr(undecidedLine(this.#reason));
+    speech.stderr(PRE_TOOL_USE.undecided(this.#reason));
   }
 }
 

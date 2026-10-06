@@ -5,7 +5,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { undecidedLine } from "../frames/mod.ts";
+import { PRE_TOOL_USE } from "../frames/mod.ts";
 import {
   COMPOUND,
   EXPANSION,
@@ -52,7 +52,7 @@ Deno.test("слова: кавычки и экранирование снимаю
     await t.step(JSON.stringify(command), async () => {
       assertEquals(await parsed(command), {
         heard: [words],
-        stderr: undecidedLine("слова услышаны"),
+        stderr: PRE_TOOL_USE.undecided("слова услышаны"),
       });
     });
   }
@@ -83,7 +83,7 @@ Deno.test("события: первое решает, ответ — значе�
     await t.step(JSON.stringify(command), async () => {
       assertEquals(await parsed(command), {
         heard: [],
-        stderr: undecidedLine(reason),
+        stderr: PRE_TOOL_USE.undecided(reason),
       });
     });
   }

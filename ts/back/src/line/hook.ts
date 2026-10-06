@@ -8,7 +8,7 @@
  */
 
 import { consentAt } from "../entrypoint/mod.ts";
-import { HOOK_WORDS, unavailable } from "../frames/mod.ts";
+import { PRE_TOOL_USE } from "../frames/mod.ts";
 import {
   Allowed,
   askedBy,
@@ -82,7 +82,7 @@ export function hookLineOf(
   ports: HookPorts,
   otherwise: ImageLine,
 ): ImageLine {
-  if (!HOOK_WORDS.every((word, i) => said[i] === word)) return otherwise;
+  if (!PRE_TOOL_USE.opens(said)) return otherwise;
   return {
     settle: (context: ImageContext) =>
       context.walk((session) => new HookLine(session, context.speech, ports)),
@@ -272,7 +272,10 @@ class Consultation implements Line, Speech {
       ruling = this.#book.decide(report.links());
     } catch (err) {
       if (!(err instanceof PolicyError)) throw err;
-      return this.#settled(report, new Undecided(unavailable(err.message)));
+      return this.#settled(
+        report,
+        new Undecided(PRE_TOOL_USE.unavailable(err.message)),
+      );
     }
     const reply = await ruling.settle(
       execution(report, ruling),

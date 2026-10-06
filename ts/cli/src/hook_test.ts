@@ -5,11 +5,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import {
-  HOOK_WORDS,
-  unavailable,
-  undecidedLine,
-} from "../../back/src/frames/mod.ts";
+import { PRE_TOOL_USE } from "../../back/src/frames/mod.ts";
 import {
   ALLOW,
   ASK,
@@ -91,7 +87,11 @@ async function viaClient(
 }
 
 function hookVia(back: TestBack, stdin: string): Promise<Seen> {
-  return viaClient(HOOK_WORDS, { base: back.url, main: back.token, stdin });
+  return viaClient(PRE_TOOL_USE.words, {
+    base: back.url,
+    main: back.token,
+    stdin,
+  });
 }
 
 /** Исход сценария окружения: код, stdout и одна строка stderr. */
@@ -112,7 +112,7 @@ function hookPathRuled(file: string, verdict: Verdict) {
   using book = RuleBook.open(file, []);
   for (const { path } of book.list()) book.forget(RulePath.parse(path));
   book.set(RulePath.parse("*"), ALLOW);
-  book.set(RulePath.parse(HOOK_WORDS.join(" ")), verdict);
+  book.set(RulePath.parse(PRE_TOOL_USE.words.join(" ")), verdict);
 }
 
 Deno.test("S1, S5 через клиент: ответ ядра как есть, код 0", async (t) => {
@@ -139,7 +139,7 @@ Deno.test("S20a: сервер строк не отвечает", async () => {
   const closed = Deno.listen({ hostname: "127.0.0.1", port: 0 });
   const base = `http://127.0.0.1:${(closed.addr as Deno.NetAddr).port}`;
   closed.close();
-  const seen = await viaClient(HOOK_WORDS, {
+  const seen = await viaClient(PRE_TOOL_USE.words, {
     base,
     main: "t",
     stdin: await payloadOf("S1"),
@@ -148,7 +148,7 @@ Deno.test("S20a: сервер строк не отвечает", async () => {
 });
 
 Deno.test("S20d: нет файла токена", async () => {
-  const seen = await viaClient(HOOK_WORDS, {
+  const seen = await viaClient(PRE_TOOL_USE.words, {
     base: "http://127.0.0.1:1",
     stdin: await payloadOf("S1"),
   });
@@ -189,7 +189,7 @@ Deno.test("S21: справка хука — обычная строка, код 
   for (const tail of ["--help", "help"]) {
     await t.step(tail, () =>
       withBack(async (back) => {
-        const seen = await viaClient([...HOOK_WORDS, tail], {
+        const seen = await viaClient([...PRE_TOOL_USE.words, tail], {
           base: back.url,
           main: back.token,
         });
@@ -206,7 +206,7 @@ Deno.test("S21: справка хука — обычная строка, код 
 
 Deno.test("слова сверх хука — обычная судьба: отказ строки и его код", () =>
   withBack(async (back) => {
-    const seen = await viaClient([...HOOK_WORDS, "лишнее"], {
+    const seen = await viaClient([...PRE_TOOL_USE.words, "лишнее"], {
       base: back.url,
       main: back.token,
     });
@@ -226,10 +226,12 @@ function framed(...frames: readonly object[]): Script {
 Deno.test("код ядра не 0: причина — первая строка кадров err как есть", () =>
   withFakeServer(
     async (base) => {
-      assertEquals(await viaClient(HOOK_WORDS, { base, main: "t" }), {
+      assertEquals(await viaClient(PRE_TOOL_USE.words, { base, main: "t" }), {
         code: 0,
         stdout: "",
-        stderr: undecidedLine(unavailable("mpu: текст ядра")),
+        stderr: PRE_TOOL_USE.undecided(
+          PRE_TOOL_USE.unavailable("mpu: текст ядра"),
+        ),
       });
     },
     {
@@ -244,10 +246,12 @@ Deno.test("код ядра не 0: причина — первая строка 
 Deno.test("обрыв после кадра out: stdout пуст, одна строка без решения, код 0", () =>
   withFakeServer(
     async (base) => {
-      assertEquals(await viaClient(HOOK_WORDS, { base, main: "t" }), {
+      assertEquals(await viaClient(PRE_TOOL_USE.words, { base, main: "t" }), {
         code: 0,
         stdout: "",
-        stderr: undecidedLine(unavailable("сервер оборвал строку")),
+        stderr: PRE_TOOL_USE.undecided(
+          PRE_TOOL_USE.unavailable("сервер оборвал строку"),
+        ),
       });
     },
     { script: framed({ out: '{"hookSpecificOutput":{}}\n' }) },

@@ -6,7 +6,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { HOOK_WORDS } from "../frames/mod.ts";
+import { PRE_TOOL_USE } from "../frames/mod.ts";
 import { findCommand } from "../registry/mod.ts";
 import {
   ALLOW,
@@ -107,7 +107,9 @@ function hook(
   stdin: string,
   read?: () => void,
 ): Promise<Ran> {
-  return runOnStand(file, HOOK_WORDS, stand, { io: hookIo(stdin, read) });
+  return runOnStand(file, PRE_TOOL_USE.words, stand, {
+    io: hookIo(stdin, read),
+  });
 }
 
 Deno.test("сценарии cases.json: stdout, stderr, код 0", async (t) => {
@@ -204,7 +206,7 @@ function allowAllBut(file: string, verdict: Verdict) {
   using book = RuleBook.open(file, registrySeeds());
   for (const { path } of book.list()) book.forget(RulePath.parse(path));
   book.set(RulePath.parse("*"), ALLOW);
-  book.set(RulePath.parse(HOOK_WORDS.join(" ")), verdict);
+  book.set(RulePath.parse(PRE_TOOL_USE.words.join(" ")), verdict);
 }
 
 /** Правило `kiten card` в файле, как его записал бы другой процесс. */
@@ -274,7 +276,7 @@ Deno.test("хук не пишет: журнал, policy.db и кэш-БД не �
         RuleBook.open(file, registrySeeds())[Symbol.dispose]();
         const before = [await bytesOf(file), await bytesOf(cache)];
         for (const id of ["S1", "S5", "S9", "S16a", "E2", "E4", "E9"]) {
-          const ran = await runOnStand(file, HOOK_WORDS, stand, {
+          const ran = await runOnStand(file, PRE_TOOL_USE.words, stand, {
             io: {
               ...hookIo(stdinOf(caseOf(cases, id), live)),
               openCacheDb: () => openCacheDb(cache),
@@ -321,7 +323,7 @@ Deno.test("методы корня двери и it в пробе не испо�
           },
         }],
       })(
-        HOOK_WORDS,
+        PRE_TOOL_USE.words,
         makeFakeIo(hookIo(stdin)),
         { stdout: () => {}, stderr: (text) => void (stderr += text) },
         {
@@ -344,7 +346,7 @@ Deno.test("методы корня двери и it в пробе не испо�
 });
 
 Deno.test("справка: однострока, фрагмент настроек — как в эталоне", async () => {
-  const command = findCommand(HOOK_WORDS);
+  const command = findCommand(PRE_TOOL_USE.words);
   assert(command !== undefined);
   assertEquals(
     command.summary,
@@ -429,7 +431,10 @@ Deno.test("строка хука в вызове — маршрут строки
       tool_name: "Bash",
       tool_input: { command: "mpu claude-hook pre-tool-use" },
     },
-    { tool_name: "mcp__mpu__mpu", tool_input: { words: [...HOOK_WORDS] } },
+    {
+      tool_name: "mcp__mpu__mpu",
+      tool_input: { words: [...PRE_TOOL_USE.words] },
+    },
   ];
   await withStand((stand) =>
     withPolicyFile(async (file) => {

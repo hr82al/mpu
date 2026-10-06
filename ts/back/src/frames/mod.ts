@@ -64,6 +64,6 @@ export {
   wordsOf,
 } from "./words.ts";
 
-export { HOOK_WORDS, unavailable, undecidedLine } from "./hook.ts";
+export { HOOK_LINES, HookWords, PRE_TOOL_USE } from "./hook.ts";
 
 export { VERSION } from "../version.ts";
