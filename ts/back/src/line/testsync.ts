@@ -6,8 +6,7 @@
 
 import { assertEquals } from "@std/assert";
 import { Image } from "../image/mod.ts";
-import { RuleBook } from "../policy/mod.ts";
-import { registrySeeds } from "./seeds.ts";
+import { openRegistryBook } from "./seeds.ts";
 import { imaging, withState } from "./testimage.ts";
 import { type Ran, runOnStand, withStand } from "./testprogram.ts";
 /** «Три метода» стенда — определены строками с ответом `y`. */
@@ -129,7 +128,7 @@ export function ruleOf(
   policy: string,
   path: string,
 ): string | null | undefined {
-  using book = RuleBook.open(policy, registrySeeds());
+  using book = openRegistryBook(policy);
   return book.list().find((rule) => rule.path === path)?.verdict;
 }
 

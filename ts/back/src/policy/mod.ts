@@ -6,6 +6,7 @@
 
 export { PolicyError, RuleBook } from "./book.ts";
 export { Agent, type Channel, Human, NOBODY, type Reply } from "./channel.ts";
+export { Migration } from "./migration.ts";
 export { EmptyRulePath, RulePath } from "./path.ts";
 export { INHERITED, Rule, Rules, type Ruling } from "./rules.ts";
 export {

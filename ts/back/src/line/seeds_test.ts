@@ -4,7 +4,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { registrySeeds } from "./seeds.ts";
+import { registryMigrations, registrySeeds } from "./seeds.ts";
 
 Deno.test("пути посева попарно различны", () => {
   const paths = registrySeeds().map((rule) => rule.entry().path);
@@ -34,4 +34,10 @@ Deno.test("claude-hook permission-request, stop — allow вместо посе�
     { path: "claude-hook pre-tool-use", verdict: "allow" },
     { path: "claude-hook stop", verdict: "allow" },
   ]);
+});
+
+Deno.test("имена миграций попарно различны", () => {
+  const names = registryMigrations().map((one) => one.entry().name);
+  const repeated = names.filter((name, i) => names.indexOf(name) !== i);
+  assertEquals(repeated, []);
 });

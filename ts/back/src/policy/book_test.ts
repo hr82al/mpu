@@ -10,10 +10,12 @@ import {
   ALLOW,
   ASK,
   DENY,
+  Migration,
   PolicyError,
   Rule,
   RuleBook,
   RulePath,
+  type Verdict,
 } from "./mod.ts";
 
 const SEEDS: readonly Rule[] = [
@@ -139,3 +141,60 @@ Deno.test("каталога состояния нет — отказ прави�
     "правила подтверждения: каталог состояния не задан (нет HOME)",
   );
 });
+
+/** Прежняя версия посеяла хук по признаку `rw`; новая — `allow`. */
+const HOOK = RulePath.parse("claude-hook notification");
+const HOOK_SEEDS: readonly Rule[] = [new Rule(HOOK, ALLOW)];
+const HOOK_ASK_TO_ALLOW: readonly Migration[] = [
+  new Migration("R4 claude-hook notification", HOOK, ASK, ALLOW),
+];
+
+/** Книга прежней версии: путь хука посеян `verdict`. */
+function oldBook(file: string, verdict: Verdict) {
+  using _book = RuleBook.open(file, [new Rule(HOOK, verdict)]);
+}
+
+function hookRule(file: string): string | null | undefined {
+  using book = RuleBook.open(file, HOOK_SEEDS, HOOK_ASK_TO_ALLOW);
+  return book.list().find((rule) => rule.path === HOOK.text())?.verdict;
+}
+
+Deno.test("миграция: книга без пути — посев allow", () =>
+  withDir((file) => {
+    assertEquals(hookRule(file), "allow");
+  }));
+
+Deno.test("миграция: ask прежней версии — allow один раз; ask человека потом остаётся", () =>
+  withDir((file) => {
+    oldBook(file, ASK);
+    assertEquals(hookRule(file), "allow");
+    assertEquals(hookRule(file), "allow");
+    {
+      using book = RuleBook.open(file, HOOK_SEEDS, HOOK_ASK_TO_ALLOW);
+      book.set(HOOK, ASK);
+    }
+    assertEquals(hookRule(file), "ask");
+  }));
+
+Deno.test("миграция: свежая книга помечает миграцию — ask человека остаётся", () =>
+  withDir((file) => {
+    {
+      using book = RuleBook.open(file, HOOK_SEEDS, HOOK_ASK_TO_ALLOW);
+      book.set(HOOK, ASK);
+    }
+    assertEquals(hookRule(file), "ask");
+  }));
+
+Deno.test("миграция: deny прежней книги не трогается", () =>
+  withDir((file) => {
+    oldBook(file, DENY);
+    assertEquals(hookRule(file), "deny");
+  }));
+
+Deno.test("миграция идёт на открытии, sow — без неё", () =>
+  withDir((file) => {
+    oldBook(file, ASK);
+    using book = RuleBook.open(file, []);
+    book.sow(HOOK_SEEDS);
+    assertEquals(book.list(), [{ path: HOOK.text(), verdict: "ask" }]);
+  }));

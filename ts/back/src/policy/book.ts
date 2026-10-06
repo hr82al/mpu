@@ -6,6 +6,7 @@
 
 import { DatabaseSync } from "node:sqlite";
 import { BUSY_TIMEOUT_MS } from "../store/mod.ts";
+import type { Migration } from "./migration.ts";
 import { RulePath } from "./path.ts";
 import { Rule, Rules, type Ruling } from "./rules.ts";
 import { type RuleEntry, type Verdict, verdictNamed } from "./verdict.ts";
@@ -25,6 +26,9 @@ CREATE TABLE IF NOT EXISTS rules (
 );
 CREATE TABLE IF NOT EXISTS seeded (
   path TEXT PRIMARY KEY
+);
+CREATE TABLE IF NOT EXISTS migrated (
+  name TEXT PRIMARY KEY
 );`;
 
 /** Набор правил в файле: сам читает, сверяет и пишет. */
@@ -39,13 +43,19 @@ export class RuleBook implements Disposable {
   }
 
   /**
-   * Открывает файл правил: схема, посев невиданных путей, чтение.
+   * Открывает файл правил: схема, посев невиданных путей, невыполненные
+   * миграции, чтение.
    *
    * @param file путь `policy.db`; `undefined` — каталога состояния нет
    * @param seeds посевные правила
+   * @param migrations разовые миграции посеянных правил
    * @throws PolicyError — файл не открылся или не читается
    */
-  static open(file: string | undefined, seeds: readonly Rule[]): RuleBook {
+  static open(
+    file: string | undefined,
+    seeds: readonly Rule[],
+    migrations: readonly Migration[] = [],
+  ): RuleBook {
     if (file === undefined) {
       throw new PolicyError(
         "правила подтверждения: каталог состояния не задан (нет HOME)",
@@ -58,7 +68,7 @@ export class RuleBook implements Disposable {
       const db = new DatabaseSync(file);
       const book = new RuleBook(db);
       try {
-        book.#prepare(seeds);
+        book.#prepare(seeds, migrations);
       } catch (err) {
         db.close();
         throw err;
@@ -116,13 +126,14 @@ export class RuleBook implements Disposable {
     this.#db.close();
   }
 
-  #prepare(seeds: readonly Rule[]) {
+  #prepare(seeds: readonly Rule[], migrations: readonly Migration[]) {
     // Ожидание занятого файла — внутри SQLite, а не сон в коде: два
     // одновременных старта с посевом иначе получили бы «database is
     // locked» вместо правил. Значение общее с кэш-БД.
     this.#db.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
     this.#db.exec(SCHEMA);
     this.#seed(seeds);
+    this.#migrate(migrations);
     this.#load();
   }
 
@@ -149,6 +160,41 @@ export class RuleBook implements Disposable {
       this.#db.exec("ROLLBACK");
       throw err;
     }
+  }
+
+  /**
+   * Миграции, которых файл ещё не видел: правило пути меняется, только
+   * если равно «было»; отметка ставится всегда — иначе на файле без
+   * такого правила миграция осталась бы невыполненной и перевернула бы
+   * правило, поставленное потом человеком.
+   */
+  #migrate(migrations: readonly Migration[]) {
+    if (this.#pending(migrations).length === 0) return;
+    this.#db.exec("BEGIN IMMEDIATE");
+    try {
+      // Перепроверка под блокировкой: другой процесс мог выполнить
+      // миграцию, а человек — поставить правило после неё.
+      for (const migration of this.#pending(migrations)) {
+        const { name, path, from, to } = migration.entry();
+        this.#db.prepare(
+          "UPDATE rules SET verdict = ? WHERE path = ? AND verdict = ?",
+        ).run(to, path, from);
+        this.#db.prepare("INSERT INTO migrated (name) VALUES (?)").run(name);
+      }
+      this.#db.exec("COMMIT");
+    } catch (err) {
+      this.#db.exec("ROLLBACK");
+      throw err;
+    }
+  }
+
+  #pending(migrations: readonly Migration[]): Migration[] {
+    const done = new Set(
+      this.#db.prepare("SELECT name FROM migrated").all().map((row) =>
+        String(row.name)
+      ),
+    );
+    return migrations.filter((one) => !done.has(one.entry().name));
   }
 
   #unseen(seeds: readonly Rule[]): Rule[] {

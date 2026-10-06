@@ -56,7 +56,7 @@ import {
   programRoot,
 } from "./program.ts";
 import { strippedOf, walkedWords } from "./walked.ts";
-import { registrySeeds } from "./seeds.ts";
+import { openRegistryBook } from "./seeds.ts";
 import { targetValues } from "../selector/mod.ts";
 import { itMethod, type Memory, NO_CALLER, remembering } from "./it.ts";
 import { type Pictures, picturing } from "./pictured.ts";
@@ -110,7 +110,7 @@ export function policyTree(
   file: string | undefined,
   image: readonly ImageMethod[] = [],
 ): NodeRuling[] {
-  using book = RuleBook.open(file, registrySeeds());
+  using book = openRegistryBook(file);
   const owned = new Set(book.list().map((rule) => rule.path));
   return registryNodes(image).map((node) => {
     const { verdict, won } = book.decide(ruleLinks(node)).record();
@@ -261,7 +261,7 @@ export function terminalChannel(
  * @throws PolicyError — файл нельзя открыть или прочитать
  */
 export function rulesOf(file: string | undefined): RuleEntry[] {
-  using book = RuleBook.open(file, registrySeeds());
+  using book = openRegistryBook(file);
   return book.list();
 }
 
@@ -286,7 +286,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
     };
     let book: RuleBook;
     try {
-      book = RuleBook.open(ports.file, registrySeeds());
+      book = openRegistryBook(ports.file);
     } catch (err) {
       if (!(err instanceof PolicyError)) throw err;
       plainRefusal(UNNAMED_REFUSAL, err.message).tell(speech);

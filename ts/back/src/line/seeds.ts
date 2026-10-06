@@ -7,7 +7,15 @@
 import type { Command, Policy } from "../command/mod.ts";
 import { NOTIFICATION, PERMISSION_REQUEST, STOP } from "../frames/mod.ts";
 import { EXPORT_PATH } from "../image/mod.ts";
-import { ALLOW, ASK, Rule, RulePath, type Verdict } from "../policy/mod.ts";
+import {
+  ALLOW,
+  ASK,
+  Migration,
+  Rule,
+  RuleBook,
+  RulePath,
+  type Verdict,
+} from "../policy/mod.ts";
 import { type CommandGroup, commands, groups } from "../registry/mod.ts";
 import { HISTORY_CLEAR_PATH } from "../task/mod.ts";
 
@@ -33,7 +41,7 @@ const SEED_OF: Readonly<Record<Policy, Verdict>> = { ro: ALLOW, rw: ASK };
  * `PermissionRequest` зовёт Claude Code без человека, и `ask` значил бы
  * «спросить некого» на каждом вызове (`claude-hook-permission-request.md`
  * [D.2]); хуки `Stop` и `Notification` — то же (`platform/policy.md`,
- * «Посев»; для `Notification` строки в таблице нет — вопрос к спеке R4).
+ * «Посев»).
  */
 const OWN_SEEDS: ReadonlyMap<string, Verdict> = new Map([
   [EXPORT_PATH.join(" "), ALLOW],
@@ -99,6 +107,34 @@ export function registrySeeds(): Rule[] {
     ...READ_ONLY_SURFACES.map((name) => ruleAt([name], ALLOW)),
     ruleAt([POLICY_SELECTOR], ALLOW),
   ];
+}
+
+/**
+ * Разовые миграции посеянных правил (`platform/policy.md`, «Посев»):
+ * хук `Notification` прежние версии сеяли по признаку `rw` — `ask`, и
+ * строка хука отбивалась «спросить некого». Имя — отметка выполненной
+ * миграции в файле правил: не менять (новое имя — миграция заново,
+ * поверх правила, поставленного человеком) и не повторять.
+ */
+export function registryMigrations(): Migration[] {
+  return [
+    new Migration(
+      "R4: claude-hook notification ask → allow",
+      RulePath.parse(NOTIFICATION.words.join(" ")),
+      ASK,
+      ALLOW,
+    ),
+  ];
+}
+
+/**
+ * Книга правил реестра: посев и миграции реестра — одним местом, чтобы
+ * ни одно рабочее открытие не забыло миграции.
+ *
+ * @throws PolicyError — файл нельзя открыть или прочитать
+ */
+export function openRegistryBook(file: string | undefined): RuleBook {
+  return RuleBook.open(file, registrySeeds(), registryMigrations());
 }
 
 /**

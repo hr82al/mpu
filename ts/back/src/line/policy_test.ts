@@ -10,7 +10,7 @@ import { assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
-import { DENY, RuleBook, RulePath } from "../policy/mod.ts";
+import { ASK, DENY, RuleBook, RulePath } from "../policy/mod.ts";
 import { commands } from "../registry/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { lineEntry } from "./mod.ts";
@@ -394,3 +394,18 @@ Deno.test("имена сообщений корня не совпадают с �
     assertEquals(top.has(name.replace(/:$/, "")), false, name);
   }
 });
+
+Deno.test("книга прежней версии: claude-hook notification ask → allow при открытии строкой", () =>
+  withPolicyFile(async (file) => {
+    {
+      using _old = RuleBook.open(file, []);
+      _old.set(RulePath.parse("claude-hook notification"), ASK);
+    }
+    const listed = await run(file, ["version"]);
+    assertEquals(listed.code, 0, listed.stderr);
+    using book = RuleBook.open(file, []);
+    const hook = book.list().find((rule) =>
+      rule.path === "claude-hook notification"
+    );
+    assertEquals(hook?.verdict, "allow");
+  }));

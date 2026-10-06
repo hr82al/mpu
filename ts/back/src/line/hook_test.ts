@@ -21,7 +21,7 @@ import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { Memory } from "./it.ts";
 import { lineEntry, rulesOf } from "./mod.ts";
-import { registrySeeds } from "./seeds.ts";
+import { openRegistryBook, registrySeeds } from "./seeds.ts";
 import { consentOf, withPolicyFile } from "./testconsent.ts";
 import { type Ran, runOnStand, type Stand, withStand } from "./testprogram.ts";
 
@@ -272,8 +272,9 @@ Deno.test("хук не пишет: журнал, policy.db и кэш-БД не �
       const cacheDir = await Deno.makeTempDir();
       const cache = `${cacheDir}/cache.db`;
       try {
-        // Первое открытие сеет: это свойство любой строки, мерим после.
-        RuleBook.open(file, registrySeeds())[Symbol.dispose]();
+        // Первое открытие сеет и мигрирует: это свойство любой строки,
+        // мерим после.
+        openRegistryBook(file)[Symbol.dispose]();
         const before = [await bytesOf(file), await bytesOf(cache)];
         for (const id of ["S1", "S5", "S9", "S16a", "E2", "E4", "E9"]) {
           const ran = await runOnStand(file, PRE_TOOL_USE.words, stand, {

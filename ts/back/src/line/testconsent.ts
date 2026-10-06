@@ -4,7 +4,7 @@
  */
 
 import { IN_PLACE } from "../entrypoint/mod.ts";
-import { ALLOW, RuleBook, RulePath } from "../policy/mod.ts";
+import { ALLOW, RulePath } from "../policy/mod.ts";
 import {
   immediately,
   IN_PLACE_PROGRAMS,
@@ -15,7 +15,7 @@ import {
   programFiles,
   terminalChannel,
 } from "./mod.ts";
-import { registrySeeds } from "./seeds.ts";
+import { openRegistryBook } from "./seeds.ts";
 
 /** Файл правил во временном каталоге на время `body`. */
 export async function withPolicyFile(
@@ -58,7 +58,7 @@ export function consentOf(
  * Посев виден, поэтому следующие старты его не вернут.
  */
 export function allowEverything(file: string) {
-  using book = RuleBook.open(file, registrySeeds());
+  using book = openRegistryBook(file);
   for (const { path } of book.list()) book.forget(RulePath.parse(path));
   book.set(RulePath.parse("*"), ALLOW);
 }
