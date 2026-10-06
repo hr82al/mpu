@@ -13,7 +13,7 @@ export type {
   StepAnswer,
   StepAnswerReader,
 } from "./outcome.ts";
-export type { Button } from "./button.ts";
+export { type Button, clipLabel } from "./button.ts";
 export { KEEP_TAIL } from "./card.ts";
 export {
   BUTTONS_ONLY,
