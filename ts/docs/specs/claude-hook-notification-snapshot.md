@@ -20,6 +20,8 @@
 |---|---|
 | `auth_success` и прочие без ожидания (`notification_type` не оканчивается на `_prompt`/`_dialog`) | как сегодня: строка-уведомление в бота |
 | ожидание (`*_prompt`, `*_dialog`), у сессии через 3 с есть вопрос в ряду (R1–R3: право, AskUserQuestion, «ждёт ввода», `ask`, форма) | ничего: ожидание уже в чате |
+| `idle_prompt` | ничего: конец хода закрывает хук `Stop` («ждёт ввода», `claude-hook-stop.md`); снятый владельцем «ждёт ввода» строкой не повторяется (живьём 2026-10-06: `Claude · ts · idle_prompt` приходил строкой при пропущенном «ждёт ввода») |
+| `elicitation_response` | ничего: эхо уже решённой формы (живьём 2026-10-06: `Elicitation response for server "elicitprobe": cancel` строкой после отмены формы) |
 | `elicitation_dialog` | ничего: каждую форму MCP закрывают хуки R3 — чужую вопросом формы (`claude-hook-elicitation.md`), форму mpu подтверждением `ask` (`platform/ask-telegram.md`); снимок продублировал бы вопрос (живой payload — `fixtures/telegram-relay/r4/live-notification-elicitation-dialog.json`, снят 2026-10-06) |
 | ожидание, вопроса нет, окно tmux известно | вопрос-снимок (ниже) |
 | ожидание, вопроса нет, окна нет | строка-уведомление `Claude · <проект> · <тип>` / `<message>` (как сегодня) |
