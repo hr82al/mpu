@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "result": {
+    "message_id": 1546,
+    "from": {
+      "id": 999,
+      "is_bot": true,
+      "first_name": "test_bot",
+      "username": "TestBot"
+    },
+    "chat": {
+      "id": 111,
+      "first_name": "Owner",
+      "username": "owner",
+      "type": "private"
+    },
+    "date": 1791270226,
+    "edit_date": 1791270266,
+    "text": "Проба: решено — Yes (чат)"
+  }
+}

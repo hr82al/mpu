@@ -71,10 +71,11 @@
 права задачи `back`):
 
 ```
-COLUMNS NO_COLOR TERM TERM_PROGRAM COLORTERM TMUX WT_SESSION OS
+COLUMNS NO_COLOR TERM TERM_PROGRAM COLORTERM TMUX TMUX_PANE WT_SESSION OS
 ```
 
-Список — только про **вид вывода**. Всё, что меняет, куда строка пойдёт и
+Список — только про **вид вывода** (и подпись: `TMUX_PANE` называет окно
+вопроса в Telegram, порция R1, `claude-hook-permission-request.md`). Всё, что меняет, куда строка пойдёт и
 откуда возьмёт состояние, не принимается:
 
 - `HOME`, `XDG_CONFIG_HOME` — каталоги токенов, кэш-БД и журнала вызовов;

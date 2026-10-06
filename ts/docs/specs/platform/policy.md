@@ -143,6 +143,7 @@ stderr — терминалы: вопрос печатается в stderr бе�
 | `task role`, `task role forget` | посева нет: жёсткий запрет вне правил (`task-roles.md`) |
 | `task stop` (порция T3, `task-orchestrator.md`) | `allow` |
 | `task resume` | `ask` (по признаку `rw`) |
+| `claude-hook permission-request` (порция R1, `claude-hook-permission-request.md`) | `allow` — вместо посева по признаку `rw`: хук зовёт Claude Code без человека |
 
 Следствие посева: правило на корне или на группе не перекрывает посеянные
 правила команд под ними — `deny: "*"` запрещает только пути без своего
