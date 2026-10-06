@@ -13,6 +13,11 @@ hot) — обсудить позже».
   `ask`/`allow`, журнал вызовов, аналог `doesNotUnderstand`. Справку, схему
   MCP и дополнение собирает отражение вместе с самоописанием получателя
   (`describe`; формулировка владельца оборвалась — уточнить).
+- **Ничего специфичного для Bun или Deno**: `node:*` и популярные широко
+  используемые библиотеки npm; на `bun:test` не переходим (правило записано в
+  `CLAUDE.md` mpu и `ts/CLAUDE.md`). Этап 1 — перевод тестов на широко
+  используемый раннер, не привязанный к рантайму (кандидат — Vitest: уже
+  стоит у `web/`; выбор — владельцу).
 - **XState — только для долгоживущего**: очередь вопросов бота и подобные
   части с памятью между вызовами. Обычные команды «запрос → ответ» — без
   XState.
@@ -46,15 +51,15 @@ null-объекты; рефлексия сообщениями (`selectors`, `re
 | `Deno.*` всего | 494 | — | слой платформы одним модулем, домены его не видят |
 | файлы: `readTextFile` 59, `writeTextFile` 57, `stat` 24, `remove` 37, `rename` 9, `chmod` 8, `makeTempDir` 11, `open` 5 | 210 | `node:fs/promises` (Bun — нативно) | механическая замена |
 | `Deno.env` | 21 | `process.env` | через тот же слой |
-| `Deno.Command` | 37 | `Bun.spawn` / `node:child_process` | слой; ловушки — сигналы, коды выхода |
-| `Deno.serve` 11, `upgradeWebSocket` 2 | 13 | `Bun.serve` (WebSocket встроен) | переписать сервер строк и web |
+| `Deno.Command` | 37 | `node:child_process` (не `Bun.spawn`) | слой; ловушки — сигналы, коды выхода |
+| `Deno.serve` 11, `upgradeWebSocket` 2 | 13 | Hono на `node:http` + популярная библиотека WebSocket (не `Bun.serve`) | переписать сервер строк и web |
 | `consoleSize` 3, `isTerminal` 8 | 11 | `process.stdout.columns`, `isTTY` | слой |
 | `addSignalListener` 7, `exit` 15 | 22 | `process.on`, `process.exit` | слой |
-| `node:sqlite` (кэш-БД, правила, логи) | 9 | `bun:sqlite` или `node:sqlite` в Bun | **проба**: что поддерживает Bun, совпадение WAL и `busy_timeout` |
+| `node:sqlite` (кэш-БД, правила, логи) | 9 | `node:sqlite` или популярный npm-драйвер (не `bun:sqlite`) | **проба**: работает ли в Bun, WAL и `busy_timeout` |
 | `jsr:@mtcute/deno` (MTProto) 19 мест + `convert`, `markdown-parser`, `wasm` | 26 | `@mtcute/bun` | **проба**: вход по сессии, `telegram send/ls/search` живьём |
 | `jsr:@hono/hono`, `jsr:@zod/zod`, `npm:pg`, `npm:@modelcontextprotocol/sdk` | — | те же пакеты из npm | `package.json`; `pg` под Bun — проба на `sql-ro` (расширенный протокол — основа гарантии read-only) |
-| `@std/assert` 417 импортов, `@std/testing/time` (`FakeTime`) 14 файлов, `@std/text` 1 | 432 | `bun:test` (`expect`), часы — свой тестовый порт или `jest`-таймеры `bun:test` | этап 1 |
-| `Deno.test` | 412 файлов | `bun:test` | этап 1 |
+| `@std/assert` 417 импортов, `@std/testing/time` (`FakeTime`) 14 файлов, `@std/text` 1 | 432 | раннер вне рантайма (кандидат Vitest: `expect`, `vi.useFakeTimers`), `@std/text` → npm-пакет | этап 1 |
+| `Deno.test` | 412 файлов | тот же раннер | этап 1 |
 | `deno.jsonc` imports, задачи | — | `package.json`, workspaces, скрипты | этап 3 |
 | `deno compile` (+ права в задачах `compile:*`) | 7 бинарей | `bun build --compile` | прав нет — см. ниже |
 | `deno fmt`/`lint`/`check` | гейт | Biome + `tsc --noEmit` | новая зависимость — решение владельца |
@@ -68,7 +73,7 @@ null-объекты; рефлексия сообщениями (`selectors`, `re
 
 ### 1. Тесты, не зависящие от рантайма
 
-- 412 файлов с `Deno.test` и `@std/assert` → `bun:test`; временный слой
+- 412 файлов с `Deno.test` и `@std/assert` → широко используемый раннер вне рантайма (кандидат Vitest, решение владельца; `bun:test` — нет); временный слой
   совместимости (`test`/`assertEquals` поверх обоих раннеров) — если перевод
   идёт не одним шагом.
 - Санитайзеры: свой учёт ресурсов в тестах (обёртка, считающая открытые
