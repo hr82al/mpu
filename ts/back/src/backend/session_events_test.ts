@@ -65,6 +65,26 @@ async function permission(
   });
 }
 
+/**
+ * Payload уведомления вида `type`: `elicitation_dialog` — живой
+ * (`fixtures/telegram-relay/r4/`), прочие — живой `idle_prompt` с
+ * подменой вида.
+ */
+async function notification(type: string): Promise<string> {
+  if (type === "elicitation_dialog") {
+    return await Deno.readTextFile(
+      new URL(
+        "../../../docs/specs/fixtures/telegram-relay/r4/live-notification-elicitation-dialog.json",
+        import.meta.url,
+      ),
+    );
+  }
+  return JSON.stringify({
+    ...await testdata("claude-hook-notification/live-payload-idle-prompt.json"),
+    notification_type: type,
+  });
+}
+
 /** Строка-хук `words` сессии `session` с payload'ом `stdin`. */
 async function hook(
   back: TestBack,
@@ -205,12 +225,7 @@ Deno.test("R3c-4: idle_prompt сессии K снимает право, permissi
         const note = await hook(
           back,
           NOTIFICATION.words,
-          JSON.stringify({
-            ...await testdata(
-              "claude-hook-notification/live-payload-idle-prompt.json",
-            ),
-            notification_type: type,
-          }),
+          await notification(type),
           SESSION_K,
         );
         await within(note.finished(), 5000, "строка уведомления");

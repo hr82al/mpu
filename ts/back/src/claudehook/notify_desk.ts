@@ -16,6 +16,7 @@ import {
 import { UsageError } from "../command/mod.ts";
 import {
   type HookPayload,
+  notificationClosedByHooks,
   notificationMovesOn,
   notificationText,
   notificationWaits,
@@ -116,6 +117,7 @@ export class NotifyDesk {
     if (notificationMovesOn(payload)) {
       sessionKeyOf(env).movedOn(this.#parts.sessions);
     }
+    if (notificationClosedByHooks(payload)) return QUIET;
     const line = () => this.#line(payload);
     if (!notificationWaits(payload)) return await line();
     return await this.#parts.windows.paneOf(env).offer({

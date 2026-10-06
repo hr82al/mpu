@@ -122,6 +122,15 @@ export function notificationMovesOn(payload: HookPayload): boolean {
   );
 }
 
+/**
+ * Форма MCP на экране (`claude-hook-notification-snapshot.md`, «Когда
+ * приходит снимок»): её закрывают хуки R3 — чужую вопросом формы, форму mpu
+ * подтверждением `ask`; ни снимка, ни строки-уведомления.
+ */
+export function notificationClosedByHooks(payload: HookPayload): boolean {
+  return stringField(payload, "notification_type") === "elicitation_dialog";
+}
+
 /** Путь транскрипта сессии; нет — пустой. */
 export function transcriptPathOf(payload: HookPayload): string {
   return stringField(payload, "transcript_path");

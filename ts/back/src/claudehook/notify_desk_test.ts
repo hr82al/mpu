@@ -202,7 +202,7 @@ Deno.test("R4-2, R4-3: AskUserQuestion — пункты с описанием; �
     () =>
       withNotify(async ({ bot, clock, tmux, notify }) => {
         tmux.screen = await screen("screen-ask-user-question.txt");
-        await notify("elicitation_dialog");
+        await notify("permission_prompt");
         await placed(clock, bot);
         assertEquals(
           bot.calls[0].text.split("\n").slice(1),
@@ -228,7 +228,7 @@ Deno.test("R4-2, R4-3: AskUserQuestion — пункты с описанием; �
     () =>
       withNotify(async ({ bot, clock, tmux, notify }) => {
         tmux.screen = await screen("screen-elicitation-fields.txt");
-        await notify("elicitation_dialog");
+        await notify("permission_prompt");
         await placed(clock, bot);
         assertEquals(bot.calls[0].buttons, [["⏎", "⎋", "↑", "↓"], [
           "весь экран",
@@ -380,7 +380,7 @@ Deno.test("R4-10, R4-11: без окна и не ожидание — строк
 Deno.test("R4-12: текст владельца — send-keys -l <текст> и Enter", async () => {
   await withNotify(async ({ bot, clock, tmux, notify }) => {
     tmux.screen = await screen("screen-ask-user-question.txt");
-    await notify("elicitation_dialog");
+    await notify("permission_prompt");
     await placed(clock, bot);
     bot.deliver([textUpdate(1, 111, "Зелёный", 1)]);
     await clock.paused(SETTLE_MS);
@@ -403,7 +403,7 @@ Deno.test("R4-12: текст владельца — send-keys -l <текст> и
 Deno.test("R4-13: «весь экран» — отдельное сообщение моноширинным блоком, без кнопок", async () => {
   await withNotify(async ({ bot, clock, tmux, notify }) => {
     tmux.screen = await screen("screen-elicitation-fields.txt");
-    await notify("elicitation_dialog");
+    await notify("permission_prompt");
     await placed(clock, bot);
     bot.deliver([pressUpdate(1, 111, "r1:1:0:15")]);
     await bot.called(3);
@@ -478,7 +478,7 @@ Deno.test("остановка ядра — снимок «истёк», набл
 Deno.test("кнопка прежнего блока и второе касание — в новый блок вслепую не жмут", async () => {
   await withNotify(async ({ bot, clock, tmux, notify }) => {
     tmux.screen = await screen("screen-ask-user-question.txt");
-    await notify("elicitation_dialog");
+    await notify("permission_prompt");
     await placed(clock, bot);
     // Два касания «1» подряд: второе заказано по тому же блоку.
     bot.deliver([
@@ -512,7 +512,7 @@ Deno.test("второе уведомление той же сессии — сн
     tmux.screen = await screen("screen-permission-bash.txt");
     await notify("permission_prompt");
     await placed(clock, bot);
-    await notify("elicitation_dialog");
+    await notify("permission_prompt");
     await clock.paused(SETTLE_QUESTION_MS);
     clock.fire(SETTLE_QUESTION_MS);
     // Подпись окна второго решения; сразу за ней — постановка или отказ,
@@ -572,5 +572,31 @@ Deno.test("сбой tmux во время наблюдения — у снимк�
       "⌛ истёк — ответьте в терминале",
     );
     assertEquals(bot.calls[1].buttons, []);
+  });
+});
+
+Deno.test("R3d-1: elicitation_dialog (живой payload) — ни снимка, ни строки: форму закрывают хуки R3", async () => {
+  await withNotify(async ({ bot, clock, tmux, desk }) => {
+    tmux.screen = await screen("screen-elicitation-fields.txt");
+    const live = await Deno.readTextFile(
+      new URL(
+        "../../../docs/specs/fixtures/telegram-relay/r4/live-notification-elicitation-dialog.json",
+        import.meta.url,
+      ),
+    );
+    let said = "";
+    const reply = await desk.reply(
+      live,
+      (name) => ENV[name as keyof typeof ENV],
+    );
+    reply.tell({
+      stdout: (text) => void (said += text),
+      stderr: (text) => void (said += text),
+    });
+    assertEquals([reply.code(), said], [0, ""]);
+    // Снимок не ждётся вовсе: паузы 3 с нет, окно не снимается.
+    assertEquals(clock.asked, []);
+    assertEquals(tmux.captures, 0);
+    assertEquals(bot.calls, []);
   });
 });
