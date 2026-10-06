@@ -5,7 +5,10 @@
  */
 
 import { assertEquals } from "@std/assert";
+import { NO_BOT } from "../botquestions/mod.ts";
+import { BotFailure } from "../botquestions/bot_api.ts";
 import {
+  f1,
   FakeBot,
   fakeQuestions,
   pressUpdate,
@@ -13,7 +16,9 @@ import {
 } from "../botquestions/testbot.ts";
 import { ElicitationDesk, NO_ELICITATION_DESK } from "./elicitation_desk.ts";
 import { DISK_FILES, Transcripts } from "./transcript.ts";
-import { NO_WINDOWS } from "./window.ts";
+import { type CallerEnv, NO_WINDOWS } from "./window.ts";
+import { sessionKeyOf, Sessions } from "./sessions.ts";
+import { SESSION_ENV } from "../frames/mod.ts";
 import { TestClock } from "./testclock.ts";
 
 const OWNER = 111;
@@ -39,26 +44,43 @@ interface Told {
 async function withDesk(
   body: (stand: {
     readonly bot: FakeBot;
-    readonly ask: (stdin: string, signal?: AbortSignal) => Promise<Told>;
+    readonly ask: (
+      stdin: string,
+      signal?: AbortSignal,
+      env?: CallerEnv,
+    ) => Promise<Told>;
+    readonly sessions: Sessions;
+    /** Журнал службы. */
+    readonly log: readonly string[];
   }) => Promise<void>,
 ): Promise<void> {
   const bot = new FakeBot();
   const questions = fakeQuestions(bot);
   const clock = new TestClock();
+  const sessions = new Sessions(clock);
+  const log: string[] = [];
   const desk = new ElicitationDesk({
     questions,
     transcripts: new Transcripts({ files: DISK_FILES, clock }),
     windows: NO_WINDOWS,
+    sessions,
     clock,
+    diagnose: (line) => void log.push(line),
   });
   questions.start();
   try {
     await body({
       bot,
-      ask: async (stdin, signal = new AbortController().signal) => {
+      sessions,
+      log,
+      ask: async (
+        stdin,
+        signal = new AbortController().signal,
+        env = () => undefined,
+      ) => {
         let stdout = "";
         let stderr = "";
-        const reply = await desk.reply(stdin, () => undefined, signal);
+        const reply = await desk.reply(stdin, env, signal);
         reply.tell({
           stdout: (text) => void (stdout += text),
           stderr: (text) => void (stderr += text),
@@ -363,3 +385,45 @@ Deno.test("вход не разобран, бот не настроен, обр�
       assertEquals((await told).stderr, `${UNDECIDED}истёк срок ожидания\n`);
     }));
 });
+
+Deno.test("R3c-6: форма в ряду — срочный вопрос сессии: снимка окна нет, решена — отпущена", () =>
+  withDesk(async ({ bot, ask, sessions }) => {
+    const env = (name: string) =>
+      ({ [SESSION_ENV]: "/run/user/1000/cc-socks/k.sock" })[name];
+    // Снимок, которому дали бы сесть, — вопрос без бота: исход у него
+    // решён сразу, ряд он не трогает.
+    const snapshot = () =>
+      sessionKeyOf(env).seatSnapshot(sessions, () => NO_BOT.ask(f1()), {
+        seated: () => "снимок",
+        busy: () => "вопрос уже в чате",
+      });
+    const told = ask(
+      await live("live-elicitation-mpu.json", {
+        mcp_server_name: "gitlab",
+        message: "Удалить ветку?",
+      }),
+      undefined,
+      env,
+    );
+    await bot.called(1);
+    assertEquals(snapshot(), "вопрос уже в чате");
+    await press(bot, "Decline", 1);
+    await told;
+    assertEquals(snapshot(), "снимок");
+  }));
+
+Deno.test("14: уведомление url не ушло — без решения, причина в журнале службы", () =>
+  withDesk(async ({ bot, ask, log }) => {
+    bot.fail("send", new BotFailure("403 Forbidden", 403));
+    const told = await ask(
+      await live("live-elicitation-mpu.json", {
+        mcp_server_name: "gitlab",
+        message: "Войдите в GitLab",
+        mode: "url",
+      }),
+    );
+    assertEquals(told.stderr, `${UNDECIDED}режим url — ответ по ссылке\n`);
+    assertEquals(log, [
+      "claude-hook elicitation: бот недоступен: 403 Forbidden",
+    ]);
+  }));

@@ -88,6 +88,10 @@ export class StopDesk {
    *   `CLAUDE_CODE_MESSAGING_SOCKET`
    */
   reply(text: string, env: CallerEnv): Promise<HookReply> {
+    // Конец хода — следующее событие сессии: её висящий вопрос о праве
+    // решён в терминале (`claude-hook-permission-request.md`, «Решено в
+    // другом месте»).
+    sessionKeyOf(env).movedOn(this.#parts.sessions);
     return stopPayloadOf(text).read({
       unparsed: (what) => Promise.resolve(new NoQuestion(unparsedInput(what))),
       continuing: () => Promise.resolve(new NoQuestion(CONTINUING)),

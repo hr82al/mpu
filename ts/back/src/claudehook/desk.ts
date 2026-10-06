@@ -21,7 +21,7 @@ import {
   type PermissionRequest,
 } from "./permission.ts";
 import { placesOf } from "./places.ts";
-import { sessionKeyOf, Sessions } from "./sessions.ts";
+import { heldWhile, sessionKeyOf, Sessions } from "./sessions.ts";
 import { type HookReply, unparsedInput } from "./reply.ts";
 import {
   CallAnswered,
@@ -97,6 +97,10 @@ export class PermissionDesk {
    * @param signal обрыв строки — исход «истёк»
    */
   reply(text: string, env: CallerEnv, signal: AbortSignal): Promise<HookReply> {
+    // Новый вопрос о праве — следующее событие сессии: Claude Code
+    // спрашивает по очереди, прежний вопрос о праве решён в терминале
+    // (`claude-hook-permission-request.md`, «Решено в другом месте»).
+    sessionKeyOf(env).movedOn(this.#parts.sessions);
     return permissionPayloadOf(text).read({
       unparsed: (what) => Promise.resolve(new NoDecision(unparsedInput(what))),
       parsed: (request) => this.#ask(request, env, signal),
@@ -117,20 +121,20 @@ export class PermissionDesk {
     const places = placesOf(transcript.title(), request.project, window);
     const key = sessionKeyOf(env);
     const sessions = this.#parts.sessions;
-    const asked = key.seatUrgent(
+    const asked = key.seatPermission(
       sessions,
       () => questions.ask(request.asking.form(places)),
     );
     // Строка, оборванная раньше постановки, истекает тут же: ряд убирает
     // непоказанный вопрос молча, в чат ничего не уходит.
     const gone = AbortSignal.any([signal, this.#closing.signal]);
-    let outcome: Outcome;
-    try {
-      outcome = await this.#settled(asked, transcript, gone);
-    } finally {
-      // Сбой наблюдателя не оставляет сессию навсегда «с вопросом».
-      key.leave(sessions, asked);
-    }
+    // Сбой наблюдателя не оставляет сессию навсегда «с вопросом».
+    const outcome = await heldWhile(
+      key,
+      sessions,
+      asked,
+      () => this.#settled(asked, transcript, gone),
+    );
     return outcome.read(replyOf(request.asking));
   }
 

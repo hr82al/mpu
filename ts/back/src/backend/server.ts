@@ -498,7 +498,9 @@ class Back {
       questions: options.questions,
       transcripts,
       windows,
+      sessions: this.#sessions,
       clock: REAL_CLOCK,
+      diagnose: options.diagnose,
     });
     this.#stopDesk = new StopDesk({
       questions: options.questions,
@@ -861,6 +863,7 @@ class Back {
         questions: this.#options.questions,
         windows: this.#windows,
         env: callerEnv,
+        sessions: this.#sessions,
         head: door.confirmHead,
       }),
     );

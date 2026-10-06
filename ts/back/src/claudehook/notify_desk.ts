@@ -16,6 +16,7 @@ import {
 import { UsageError } from "../command/mod.ts";
 import {
   type HookPayload,
+  notificationMovesOn,
   notificationText,
   notificationWaits,
   parseHookPayload,
@@ -111,6 +112,9 @@ export class NotifyDesk {
     } catch (err) {
       if (!(err instanceof UsageError)) throw err;
       return BAD_INPUT;
+    }
+    if (notificationMovesOn(payload)) {
+      sessionKeyOf(env).movedOn(this.#parts.sessions);
     }
     const line = () => this.#line(payload);
     if (!notificationWaits(payload)) return await line();

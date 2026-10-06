@@ -111,6 +111,17 @@ export function notificationWaits(payload: HookPayload): boolean {
   return /_(prompt|dialog)$/.test(stringField(payload, "notification_type"));
 }
 
+/**
+ * Уведомление — следующее событие сессии (`claude-hook-permission-request.md`,
+ * «Решено в другом месте»): форма MCP или ожидание ввода. Вопрос о праве
+ * (`permission_prompt`) — про сам вопрос о праве, не событие после него.
+ */
+export function notificationMovesOn(payload: HookPayload): boolean {
+  return ["elicitation_dialog", "idle_prompt"].includes(
+    stringField(payload, "notification_type"),
+  );
+}
+
 /** Путь транскрипта сессии; нет — пустой. */
 export function transcriptPathOf(payload: HookPayload): string {
   return stringField(payload, "transcript_path");

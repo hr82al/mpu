@@ -217,13 +217,20 @@ function toolHead(name: string): string {
   return mcp === null ? name : `${mcp[1]} (MCP)`;
 }
 
+/** Вход одной строкой JSON; пустой — `(без аргументов)`. */
+function inputLine(input: Fields): string {
+  return Object.keys(input).length === 0
+    ? "(без аргументов)"
+    : JSON.stringify(input);
+}
+
 /** Текст шага права: описание, затем команда, иначе вход одной строкой. */
 function permissionText(input: Fields): string {
   const lines = typeof input.description === "string"
     ? [input.description]
     : [];
   lines.push(
-    typeof input.command === "string" ? input.command : JSON.stringify(input),
+    typeof input.command === "string" ? input.command : inputLine(input),
   );
   return lines.join("\n");
 }

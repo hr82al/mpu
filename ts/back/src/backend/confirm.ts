@@ -14,7 +14,13 @@ import {
   ONE,
   type OwnerQuestions,
 } from "../botquestions/mod.ts";
-import { type CallerEnv, TERMINAL, type Windows } from "../claudehook/mod.ts";
+import {
+  type CallerEnv,
+  sessionKeyOf,
+  type Sessions,
+  TERMINAL,
+  type Windows,
+} from "../claudehook/mod.ts";
 import type { AskKind, ServerFrame } from "../frames/mod.ts";
 import { type Line, NO_RIVAL, type Rival, type Rivalry } from "./line.ts";
 import type { Asking } from "./prompt.ts";
@@ -61,8 +67,13 @@ const ANSWER_LINE: AnswerLine = {
 export interface ConfirmParts {
   readonly questions: Pick<OwnerQuestions, "ask">;
   readonly windows: Windows;
-  /** Окружение клиента строки: `TMUX`, `TMUX_PANE`. */
+  /**
+   * Окружение клиента строки: `TMUX`, `TMUX_PANE`,
+   * `CLAUDE_CODE_MESSAGING_SOCKET`.
+   */
   readonly env: CallerEnv;
+  /** Сессии Claude Code: вопрос — срочный вопрос сессии клиента. */
+  readonly sessions: Sessions;
   /** Голова заголовка: `❓ mpu ask`, у двери агента — с `(MCP)`. */
   readonly head: string;
 }
@@ -81,6 +92,8 @@ interface Stage {
   end(end: End): Stage;
   /** Исход вопроса — ответом строке, если ответил владелец. */
   decided(decide: Decide): Promise<void>;
+  /** Вопрос решён: отпустить его сессии `leave`. */
+  release(leave: End): void;
 }
 
 /** Ожидание кончилось раньше постановки: в чат ничего не уходит. */
@@ -88,6 +101,7 @@ const ENDED: Stage = {
   ask: () => ENDED,
   end: () => ENDED,
   decided: () => Promise.resolve(),
+  release: () => {},
 };
 
 /** Вопрос ещё не задан: подпись окна в пути. */
@@ -95,6 +109,7 @@ const UNASKED: Stage = {
   ask: (make) => posedIn(make()),
   end: () => ENDED,
   decided: () => Promise.resolve(),
+  release: () => {},
 };
 
 /** Вопрос в чате. */
@@ -121,6 +136,7 @@ function posedIn(asked: Asked): Stage {
         refused: () => {},
       });
     },
+    release: (leave) => leave(asked),
   };
   return stage;
 }
@@ -188,8 +204,18 @@ class ChatRivalry implements Rivalry {
     decide: Decide,
   ): Promise<void> {
     const window = await captionOf(parts);
-    this.#stage = this.#stage.ask(() => parts.questions.ask(form(window)));
-    await this.#stage.decided(decide);
+    const { questions, sessions, env } = parts;
+    // Вопрос в чате — срочный вопрос сессии клиента: снимок окна R4 её не
+    // дублирует, пока вопрос в ряду.
+    const key = sessionKeyOf(env);
+    this.#stage = this.#stage.ask(() =>
+      key.seatUrgent(sessions, () => questions.ask(form(window)))
+    );
+    try {
+      await this.#stage.decided(decide);
+    } finally {
+      this.#stage.release((asked) => key.leave(sessions, asked));
+    }
   }
 }
 

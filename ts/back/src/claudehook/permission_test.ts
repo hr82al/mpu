@@ -178,3 +178,22 @@ Deno.test("AskUserQuestion без header — «Вопрос»; описания 
     { label: "B" },
   ]);
 });
+
+Deno.test("R3c-7: право с пустым tool_input — текст шага «(без аргументов)»", async (t) => {
+  for (
+    const [input, text] of [
+      [{}, "(без аргументов)"],
+      [{ path: "/x" }, '{"path":"/x"}'],
+    ] as const
+  ) {
+    await t.step(text, () => {
+      const steps = permissionPayloadOf(
+        JSON.stringify(bash({ tool_name: "mcp__s__probe", tool_input: input })),
+      ).read({
+        unparsed: (what) => what,
+        parsed: (request) => request.asking.form([]).steps[0].text,
+      });
+      assertEquals(steps, text);
+    });
+  }
+});

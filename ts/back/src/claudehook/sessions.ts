@@ -54,7 +54,8 @@ const NOT_ASKED: SessionAsked = { withdraw: () => {}, withdrawAs: () => {} };
 
 /**
  * Одна сессия: её вопросы в ряду — «ждёт ввода», срочные (право,
- * AskUserQuestion), снимок окна — и текущий канал.
+ * AskUserQuestion, подтверждение `ask`, форма MCP), снимок окна — и
+ * текущий канал.
  */
 export class Session {
   readonly #clock: Clock;
@@ -62,6 +63,12 @@ export class Session {
   readonly #all = new Set<SessionAsked>();
   #asked: SessionAsked = NOT_ASKED;
   #snapshot: SessionAsked = NOT_ASKED;
+  /**
+   * Висящие вопросы о праве и AskUserQuestion: их снимает следующее
+   * событие сессии (`claude-hook-permission-request.md`, «Решено в другом
+   * месте»).
+   */
+  readonly #permissions = new Set<SessionAsked>();
   #link: Link = NO_LINK;
 
   constructor(clock: Clock) {
@@ -80,14 +87,34 @@ export class Session {
   }
 
   /**
-   * Структурный вопрос сессии (право, AskUserQuestion, «ждёт ввода»):
-   * снимок окна той же сессии снимается — ожидание теперь в чате.
+   * Срочный вопрос сессии (подтверждение `ask`, форма MCP; основа права и
+   * «ждёт ввода»): снимок окна той же сессии снимается — ожидание теперь в
+   * чате.
    */
   urgent(ask: () => Asked): Asked {
     this.#snapshot.withdrawAs(QUESTION_IN_CHAT);
     const asked = ask();
     this.#all.add(asked);
     return asked;
+  }
+
+  /**
+   * Вопрос о праве (или AskUserQuestion): его снимет следующее событие
+   * сессии (`movedOn`).
+   */
+  permission(ask: () => Asked): Asked {
+    const asked = this.urgent(ask);
+    this.#permissions.add(asked);
+    return asked;
+  }
+
+  /**
+   * Следующее событие сессии (форма MCP, ожидание ввода, конец хода):
+   * висящие вопросы о праве решены в терминале.
+   */
+  movedOn(): void {
+    for (const asked of this.#permissions) asked.withdraw(TERMINAL);
+    this.#permissions.clear();
   }
 
   /**
@@ -106,6 +133,7 @@ export class Session {
   /** Вопрос `asked` решён: забыть. */
   leave(asked: Asked): void {
     this.#all.delete(asked);
+    this.#permissions.delete(asked);
     if (this.#asked === asked) this.#asked = NOT_ASKED;
     if (this.#snapshot === asked) this.#snapshot = NOT_ASKED;
   }
@@ -185,8 +213,12 @@ export interface SnapshotSeat<T> {
 export interface SessionKey {
   /** Задаёт вопрос сессии; прежний вопрос той же сессии снят. */
   seat(sessions: Sessions, ask: () => Asked): Asked;
-  /** Задаёт структурный вопрос сессии (право, AskUserQuestion). */
+  /** Задаёт срочный вопрос сессии (подтверждение `ask`, форма MCP). */
   seatUrgent(sessions: Sessions, ask: () => Asked): Asked;
+  /** Задаёт вопрос о праве (или AskUserQuestion) сессии. */
+  seatPermission(sessions: Sessions, ask: () => Asked): Asked;
+  /** Следующее событие сессии: её вопросы о праве сняты. */
+  movedOn(sessions: Sessions): void;
   /** Задаёт снимок окна сессии, если у неё нет вопроса в ряду. */
   seatSnapshot<T>(
     sessions: Sessions,
@@ -215,6 +247,14 @@ class SocketKey implements SessionKey {
     return sessions.of(this.#socket).urgent(ask);
   }
 
+  seatPermission(sessions: Sessions, ask: () => Asked): Asked {
+    return sessions.of(this.#socket).permission(ask);
+  }
+
+  movedOn(sessions: Sessions): void {
+    sessions.of(this.#socket).movedOn();
+  }
+
   seatSnapshot<T>(
     sessions: Sessions,
     ask: () => Asked,
@@ -239,10 +279,29 @@ class SocketKey implements SessionKey {
 const NO_KEY: SessionKey = {
   seat: (_, ask) => ask(),
   seatUrgent: (_, ask) => ask(),
+  seatPermission: (_, ask) => ask(),
+  movedOn: () => {},
   seatSnapshot: (_, ask, seat) => seat.seated(ask()),
   leave: () => {},
   reach: () => NO_CHANNEL,
 };
+
+/**
+ * Вопрос сессии `asked`, пока идёт ожидание `wait`: после исхода — и после
+ * сбоя ожидания — сессия его отпускает и снимок окна снова может сесть.
+ */
+export async function heldWhile<T>(
+  key: SessionKey,
+  sessions: Sessions,
+  asked: Asked,
+  wait: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await wait();
+  } finally {
+    key.leave(sessions, asked);
+  }
+}
 
 /** Ключ сессии по окружению клиента; нет или пусто — `NO_KEY`. */
 export function sessionKeyOf(env: CallerEnv): SessionKey {

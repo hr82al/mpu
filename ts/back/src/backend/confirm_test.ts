@@ -5,9 +5,14 @@
 
 import { assertEquals } from "@std/assert";
 import type { Form, OwnerQuestions } from "../botquestions/mod.ts";
-import { NO_BOT } from "../botquestions/mod.ts";
-import { NO_WINDOWS, Windows } from "../claudehook/mod.ts";
-import type { AskKind } from "../frames/mod.ts";
+import { NO_BOT, REAL_CLOCK } from "../botquestions/mod.ts";
+import {
+  NO_WINDOWS,
+  sessionKeyOf,
+  Sessions,
+  Windows,
+} from "../claudehook/mod.ts";
+import { type AskKind, SESSION_ENV } from "../frames/mod.ts";
 import { ChatConfirms } from "./confirm.ts";
 
 /**
@@ -43,6 +48,7 @@ Deno.test("S6: в чат — только подтверждение вида li
         windows: NO_WINDOWS,
         env: () => undefined,
         head: "❓ mpu ask",
+        sessions: new Sessions(REAL_CLOCK),
       });
       const rivalry = confirms.rival(text, kind).start(() => {});
       if (asked > 0) await posed;
@@ -63,6 +69,7 @@ Deno.test("ответ канала раньше подписи окна — в �
       env: (name) =>
         ({ TMUX: "/tmp/tmux-1000/default,1,0", TMUX_PANE: "%1" })[name],
       head: "❓ mpu ask",
+      sessions: new Sessions(REAL_CLOCK),
     });
     const rivalry = confirms.rival("выполнить mpu x? [y/N] ", "line").start(
       () => {},
@@ -81,6 +88,7 @@ Deno.test("ответ канала раньше подписи окна — в �
       env: (name) =>
         ({ TMUX: "/tmp/tmux-1000/default,1,0", TMUX_PANE: "%1" })[name],
       head: "❓ mpu ask",
+      sessions: new Sessions(REAL_CLOCK),
     });
     const rivalry = confirms.rival("выполнить mpu x? [y/N] ", "line").start(
       () => {},
@@ -90,4 +98,33 @@ Deno.test("ответ канала раньше подписи окна — в �
     await rivalry.closed();
     assertEquals(forms[0].title.line("❓ mpu ask", 1, 1), "❓ mpu ask");
   });
+});
+
+Deno.test("R3c-6: подтверждение в ряду — срочный вопрос сессии: снимка окна нет", async () => {
+  const forms: Form[] = [];
+  const { questions, asked } = recording(forms);
+  const sessions = new Sessions(REAL_CLOCK);
+  const env = (name: string) =>
+    ({ [SESSION_ENV]: "/run/user/1000/cc-socks/k.sock" })[name];
+  const confirms = new ChatConfirms({
+    questions,
+    windows: NO_WINDOWS,
+    env,
+    head: "❓ mpu ask",
+    sessions,
+  });
+  const snapshot = () =>
+    sessionKeyOf(env).seatSnapshot(sessions, () => NO_BOT.ask(forms[0]), {
+      seated: () => "снимок",
+      busy: () => "вопрос уже в чате",
+    });
+  const rivalry = confirms.rival("выполнить mpu x? [y/N] ", "line").start(
+    () => {},
+  );
+  await asked;
+  assertEquals(snapshot(), "вопрос уже в чате");
+  rivalry.lapsed();
+  await rivalry.closed();
+  // Вопрос решён — сессия отпущена.
+  assertEquals(snapshot(), "снимок");
 });
