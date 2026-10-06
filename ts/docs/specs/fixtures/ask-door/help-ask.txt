@@ -17,7 +17,6 @@
   backup-ozon-unit-proto      Снять копию ozon_unit_proto клиента в схему backups.
   backup-wb-unit-manual-data  Снять копию wb_unit_manual_data клиента в схему backups.
   backup-wb-unit-proto        Снять копию wb_unit_proto клиента в схему backups.
-  claude-hook                 Что делать с событием хука Claude Code: уведомление себе или решение правил на вызов инструмента?
   clean-local-clients         Снести данные локальных клиентов, кроме keep-листа.
   clients-migrations          миграции клиентских схем: latest | up | rollback | latest-all | …
   config                      Локальные предпочтения CLI: показать и задать ключи.
