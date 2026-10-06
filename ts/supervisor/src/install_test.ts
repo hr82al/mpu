@@ -662,6 +662,20 @@ async function readJson(path: string): Promise<unknown> {
   return JSON.parse(await Deno.readTextFile(path));
 }
 
+/**
+ * Запись хука `PermissionRequest` из эталона фрагмента
+ * (`claude-hook-permission-request.md`, «Фрагмент настроек и установка»).
+ */
+async function hookEntry(): Promise<unknown> {
+  const fragment = await readJson(
+    new URL(
+      "testdata/claude-hook-permission-request/settings-fragment.json",
+      import.meta.url,
+    ).pathname,
+  ) as { hooks: { PermissionRequest: unknown[] } };
+  return fragment.hooks.PermissionRequest[0];
+}
+
 Deno.test("claude: первая установка — сервер mpu пользователя и правила разрешений", () =>
   withPlace(async (place) => {
     const run = await install(place);
@@ -669,6 +683,7 @@ Deno.test("claude: первая установка — сервер mpu поль
     assertEquals(claudeLines(run), [
       "install: claude mcp: подключено",
       "install: claude права: вписано",
+      "install: claude хук permission-request: вписано",
     ]);
     assertEquals(run.claude, [
       `mcp add-json --scope user mpu ${JSON.stringify(mpuServer(place))}`,
@@ -679,6 +694,7 @@ Deno.test("claude: первая установка — сервер mpu поль
         ask: ["Bash(mpu ask *)"],
         deny: ["Read(~/.config/mpu/**)"],
       },
+      hooks: { PermissionRequest: [await hookEntry()] },
     });
   }));
 
@@ -687,14 +703,18 @@ Deno.test("claude: второй запуск — ни вызова claude, setti
     await install(place);
     const settings = `${place.dir}/.claude/settings.json`;
     const before = await Deno.stat(settings);
+    const bytes = await Deno.readFile(settings);
     const run = await install(place);
     assertEquals(run.code, 0, run.lines.join("\n"));
     assertEquals(claudeLines(run), [
       "install: claude mcp: без изменений",
       "install: claude права: без изменений",
+      "install: claude хук permission-request: без изменений",
     ]);
     assertEquals(run.claude, []);
-    assertEquals((await Deno.stat(settings)).ino, before.ino);
+    const after = await Deno.stat(settings);
+    assertEquals([after.ino, after.mtime], [before.ino, before.mtime]);
+    assertEquals(await Deno.readFile(settings), bytes);
   }));
 
 Deno.test("claude: чужие правила и ключи на месте, прежний сервер mpu заменён", () =>
@@ -730,7 +750,56 @@ Deno.test("claude: чужие правила и ключи на месте, пр
         deny: ["Read(./.env)", "Read(~/.config/mpu/**)"],
         ask: ["Bash(mpu ask *)"],
       },
+      hooks: { PermissionRequest: [await hookEntry()] },
     });
+  }));
+
+/** Запись хука с командой `command` и сроком `timeout`. */
+function entry(command: string, timeout?: number, matcher = "") {
+  return {
+    matcher,
+    hooks: [{
+      type: "command",
+      command,
+      ...(timeout === undefined ? {} : { timeout }),
+    }],
+  };
+}
+
+const HOOK = "mpu claude-hook permission-request";
+
+Deno.test("claude хук: правленая запись заменена своей на месте первой, чужие целы", () =>
+  withPlace(async (place) => {
+    await Deno.mkdir(`${place.dir}/.claude`);
+    const settings = `${place.dir}/.claude/settings.json`;
+    const other = entry("notify-me", 5, "Bash");
+    await Deno.writeTextFile(
+      settings,
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [entry("mpu claude-hook pre-tool-use", 10)],
+          PermissionRequest: [
+            other,
+            entry(HOOK, 600),
+            entry("later"),
+            entry(HOOK, 3600, "Bash"),
+          ],
+        },
+      }),
+    );
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(
+      claudeLines(run).at(-1),
+      "install: claude хук permission-request: вписано",
+    );
+    assertEquals(
+      ((await readJson(settings)) as { hooks: unknown }).hooks,
+      {
+        PreToolUse: [entry("mpu claude-hook pre-tool-use", 10)],
+        PermissionRequest: [other, await hookEntry(), entry("later")],
+      },
+    );
   }));
 
 Deno.test("claude: settings.json — ссылка, ссылка остаётся ссылкой", () =>
@@ -781,3 +850,20 @@ Deno.test("claude: settings.json не JSON — отказ, файл не тро�
     );
     assertEquals(await Deno.readTextFile(settings), "{oops");
   }));
+
+Deno.test("копия фрагмента настроек совпадает с каналом спецификаций", async () => {
+  assertEquals(
+    await Deno.readTextFile(
+      new URL(
+        "testdata/claude-hook-permission-request/settings-fragment.json",
+        import.meta.url,
+      ),
+    ),
+    await Deno.readTextFile(
+      new URL(
+        "../../docs/specs/fixtures/telegram-relay/settings-fragment.json",
+        import.meta.url,
+      ),
+    ),
+  );
+});
