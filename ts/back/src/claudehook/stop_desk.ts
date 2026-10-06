@@ -11,6 +11,7 @@ import {
   NO_BOT,
   type OutcomeReader,
   type OwnerQuestions,
+  REAL_CLOCK,
 } from "../botquestions/mod.ts";
 import { TERMINAL } from "./decision.ts";
 import { placesOf } from "./places.ts";
@@ -18,7 +19,6 @@ import { type HookReply, unparsedInput } from "./reply.ts";
 import { type SessionKey, sessionKeyOf, Sessions } from "./sessions.ts";
 import {
   CONTINUING,
-  NO_CHANNEL,
   NoQuestion,
   QUIET,
   stopPayloadOf,
@@ -106,8 +106,12 @@ export class StopDesk {
     const transcript = await request.transcript.read(transcripts, TYPED_INPUT);
     const window = await windows.captionOf(env);
     const places = placesOf(transcript.title(), request.project, window);
-    const form = waitingForm(places, request.message, NO_CHANNEL);
     const key = sessionKeyOf(env);
+    const form = waitingForm(
+      places,
+      request.message,
+      key.reach(this.#parts.sessions),
+    );
     const asked = key.seat(this.#parts.sessions, () => questions.ask(form));
     this.#watch(asked, transcript, key);
     // Хук не ждёт владельца: только постановки. Отказ показа решается
@@ -164,6 +168,6 @@ export const NO_STOP_DESK = new StopDesk({
   questions: NO_BOT,
   transcripts: NO_TRANSCRIPTS,
   windows: NO_WINDOWS,
-  sessions: new Sessions(),
+  sessions: new Sessions(REAL_CLOCK),
   diagnose: () => {},
 });

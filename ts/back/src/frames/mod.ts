@@ -76,6 +76,7 @@ export {
   helloKeyOf,
   readChannelAnswer,
   readCoreFrame,
+  READY_FRAME,
 } from "./channel.ts";
 
 export {

@@ -89,7 +89,7 @@ async function withStopDesk(
     questions,
     transcripts: new Transcripts({ files: DISK_FILES, clock }),
     windows: new Windows(TMUX_A),
-    sessions: new Sessions(),
+    sessions: new Sessions(clock),
     diagnose: (line) => log.push(line),
   });
   const stop = async (
@@ -351,7 +351,7 @@ Deno.test("R2a-13: бот не настроен — причина в stderr, к
     questions: NO_BOT,
     transcripts: new Transcripts({ files: DISK_FILES, clock: new TestClock() }),
     windows: NO_WINDOWS,
-    sessions: new Sessions(),
+    sessions: new Sessions(new TestClock()),
     diagnose: () => {},
   });
   const reply = await desk.reply(
@@ -449,7 +449,7 @@ Deno.test("сбой наблюдателя — строка в журнал сл
       clock,
     }),
     windows: NO_WINDOWS,
-    sessions: new Sessions(),
+    sessions: new Sessions(clock),
     diagnose: (line) => log.push(line),
   });
   questions.start();

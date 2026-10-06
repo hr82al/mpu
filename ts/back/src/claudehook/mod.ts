@@ -23,7 +23,8 @@ export {
   NO_DESK,
   PermissionDesk,
 } from "./desk.ts";
-export { Sessions } from "./sessions.ts";
+export { type ChannelWire, WireLink } from "./channel.ts";
+export { type Session, Sessions } from "./sessions.ts";
 export { NO_STOP_DESK, StopDesk, type StopDeskParts } from "./stop_desk.ts";
 export {
   DISK_FILES,

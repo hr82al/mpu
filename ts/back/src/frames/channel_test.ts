@@ -14,9 +14,11 @@ import {
   helloKeyOf,
   readChannelAnswer,
   readCoreFrame,
+  READY_FRAME,
 } from "./channel.ts";
 
 const CORE: CoreFrameReader<string> = {
+  ready: () => "готов",
   deliver: (id, text) => `доставить ${id}: ${text}`,
   unknown: () => "чужой",
 };
@@ -40,6 +42,8 @@ Deno.test("кадр ядра «доставить» — туда и обратн
     readCoreFrame(deliverFrame(7, "Синий"), CORE),
     "доставить 7: Синий",
   );
+  assertEquals(readCoreFrame(READY_FRAME, CORE), "готов");
+  assertEquals(readCoreFrame('{"ready":false}', CORE), "чужой");
   assertEquals(deliverFrame(7, "Синий"), '{"deliver":"Синий","id":7}');
   for (
     const junk of [

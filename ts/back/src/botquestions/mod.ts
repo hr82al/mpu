@@ -5,7 +5,7 @@
  * держит службу на весь процесс (`../backend/`).
  */
 
-export { CHECKED, EXPIRED_LINE } from "./outcome.ts";
+export { CHECKED, EXPIRED_LINE, Written } from "./outcome.ts";
 export type {
   AnswerLine,
   Outcome,
@@ -18,6 +18,7 @@ export { KEEP_TAIL } from "./card.ts";
 export {
   BUTTONS_ONLY,
   Form,
+  LATER,
   MANY,
   notice,
   ONE,

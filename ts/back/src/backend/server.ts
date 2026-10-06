@@ -37,6 +37,7 @@ import {
 import { AGENT_DOOR, type Door, HUMAN_DOOR } from "./door.ts";
 import {
   BadFrame,
+  CHANNEL_PATH,
   FRAME_INPUT,
   type InputSource,
   type LineRequest,
@@ -70,6 +71,7 @@ import {
   Transcripts,
   Windows,
 } from "../claudehook/mod.ts";
+import { ChannelConnection } from "./channel.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
 import { DENO_FS, type SnapshotFs, writeSnapshot } from "./snapshot.ts";
@@ -429,8 +431,10 @@ class Back {
   readonly #desk: PermissionDesk;
   /** Вопросы «ждёт ввода» хука `Stop`: живут дольше своих строк. */
   readonly #stopDesk: StopDesk;
+  /** Открытые соединения каналов: их закрывает остановка ядра. */
+  readonly #channels = new Set<WebSocket>();
   /** Сессии Claude Code по ключу: вопрос «ждёт ввода» каждой. */
-  readonly #sessions = new Sessions();
+  readonly #sessions = new Sessions(REAL_CLOCK);
 
   constructor(options: BackOptions) {
     this.#options = options;
@@ -541,6 +545,14 @@ class Back {
     this.#route(app, "/web/session", {
       POST: { gate: OPEN_GATE, handle: (request) => this.#session(request) },
     });
+    this.#route(app, CHANNEL_PATH, {
+      GET: {
+        // Канал запускает Claude Code от имени владельца: дверь — его.
+        gate: keyed(HEADER_OR_PROTOCOL, [MAIN_KEY]),
+        handle: (request) =>
+          webSocketOf(request, (socket) => this.#channel(socket)),
+      },
+    });
     for (const { path, door, entry } of DOORS) {
       this.#route(app, path, {
         GET: {
@@ -581,6 +593,9 @@ class Back {
     // Вопросы «ждёт ввода» строк не держат: их снимает в «истёк» стол,
     // дождавшись своих наблюдателей.
     await this.#stopDesk.stop();
+    // Каналы — после стола: их вопросы уже «истёк», и закрытие соединения
+    // («сессия закрыта») решённое не перерешит.
+    for (const socket of this.#channels) socket.close();
     // После строк: строка, ждавшая вопрос, при остановке снимает его,
     // и правка сообщения в «истёк» должна успеть уйти.
     await this.#options.questions.stop();
@@ -641,6 +656,29 @@ class Back {
     const body = answerRpc(await request.text(), this.#methods);
     if (body === undefined) return empty(204);
     return json(body);
+  }
+
+  /**
+   * Соединение канала Claude Code (`claude-channel.md`, «Регистрация в
+   * ядре»): кадры и закрытие — соединению; открытые закрывает остановка.
+   */
+  #channel(socket: WebSocket): void {
+    const connection = new ChannelConnection(this.#sessions, {
+      send: (frame) => {
+        if (socket.readyState !== WebSocket.OPEN) return false;
+        socket.send(frame);
+        return true;
+      },
+      close: () => socket.close(),
+    });
+    this.#channels.add(socket);
+    socket.addEventListener("message", (event) => {
+      connection.heard(String(event.data));
+    });
+    socket.addEventListener("close", () => {
+      this.#channels.delete(socket);
+      connection.closed();
+    }, { once: true });
   }
 
   /** WebSocket строки. */

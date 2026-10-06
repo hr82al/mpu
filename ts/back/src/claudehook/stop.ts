@@ -4,19 +4,11 @@
  * формата: поля payload'а читаются здесь и только здесь.
  */
 
-import {
-  type Button,
-  Form,
-  KEEP_TAIL,
-  notice,
-  ONE,
-  SKIP,
-  type TextRule,
-  WAITS_INPUT,
-} from "../botquestions/mod.ts";
+import { Form, KEEP_TAIL, ONE, WAITS_INPUT } from "../botquestions/mod.ts";
 import { STOP } from "../frames/mod.ts";
 import { type Fields, isFields } from "./fields.ts";
 import { projectOf } from "./places.ts";
+import type { Reach } from "./reach.ts";
 import type { HookReply, HookSpeech } from "./reply.ts";
 import {
   type Sign,
@@ -44,25 +36,6 @@ export class NoQuestion implements HookReply {
 
 /** Причина: хук сработал на продолжении хода, которое сам вызвал [S8]. */
 export const CONTINUING = "продолжение хода";
-
-/**
- * Чем сессия отвечает на текст владельца. Канала у сессий R2a нет —
- * `NO_CHANNEL`; канал (R2b) — вторая реализация с доставкой текста.
- */
-export interface Reach {
-  /** Последние строки тела. */
-  readonly tail: readonly string[];
-  readonly reply: TextRule;
-  /** Кнопки-действия сообщения. */
-  readonly actions: readonly Button[];
-}
-
-/** Сессия без канала: ответ — только в терминале [S7]. */
-export const NO_CHANNEL: Reach = {
-  tail: ["ответ — в терминале (сессия без канала)"],
-  reply: { write: () => notice("ответьте в терминале") },
-  actions: [SKIP],
-};
 
 /**
  * Форма «ждёт ввода»: голова — `💬` и первое место (название сессии,

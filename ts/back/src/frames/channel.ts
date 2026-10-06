@@ -44,6 +44,9 @@ export function helloKeyOf(text: string): string | undefined {
   return typeof key === "string" && key !== "" ? key : undefined;
 }
 
+/** Кадр ядра: канал зарегистрирован — тексты владельца пойдут сюда. */
+export const READY_FRAME = JSON.stringify({ ready: true });
+
 /** Кадр ядра: доставить текст `text` под номером `id`. */
 export function deliverFrame(id: number, text: string): string {
   return JSON.stringify({ deliver: text, id });
@@ -51,6 +54,8 @@ export function deliverFrame(id: number, text: string): string {
 
 /** Чтение кадра ядра каналом. */
 export interface CoreFrameReader<T> {
+  /** Регистрация принята. */
+  ready(): T;
   deliver(id: number, text: string): T;
   /** Кадр не той формы: канал его не понимает. */
   unknown(): T;
@@ -59,6 +64,7 @@ export interface CoreFrameReader<T> {
 /** Разбор кадра ядра. */
 export function readCoreFrame<T>(text: string, reader: CoreFrameReader<T>): T {
   const fields = fieldsOf(text);
+  if (fields?.ready === true) return reader.ready();
   const id = idOf(fields?.id);
   const deliver = fields?.deliver;
   if (id === undefined || typeof deliver !== "string") return reader.unknown();
