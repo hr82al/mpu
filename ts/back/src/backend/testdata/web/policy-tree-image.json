@@ -1005,6 +1005,15 @@
   {
     "path": [
       "claude-hook",
+      "permission-request"
+    ],
+    "verdict": "allow",
+    "rule": "claude-hook permission-request",
+    "own": true
+  },
+  {
+    "path": [
+      "claude-hook",
       "pre-tool-use"
     ],
     "verdict": "allow",

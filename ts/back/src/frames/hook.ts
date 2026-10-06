@@ -54,5 +54,17 @@ export const PRE_TOOL_USE = new HookWords(
   "правила недоступны",
 );
 
+/**
+ * Хук `PermissionRequest`: вопрос владельцу в Telegram
+ * (`claude-hook-permission-request.md`, «CLI-контракт» [D.3]).
+ */
+export const PERMISSION_REQUEST = new HookWords(
+  ["claude-hook", "permission-request"],
+  "сервер mpu не отвечает",
+);
+
 /** Строки-хуки — один список на клиента и ядро. */
-export const HOOK_LINES: readonly HookWords[] = [PRE_TOOL_USE];
+export const HOOK_LINES: readonly HookWords[] = [
+  PRE_TOOL_USE,
+  PERMISSION_REQUEST,
+];

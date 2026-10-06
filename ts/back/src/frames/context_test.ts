@@ -270,6 +270,7 @@ Deno.test("список имён — только про вид вывода", a
     "TERM_PROGRAM",
     "COLORTERM",
     "TMUX",
+    "TMUX_PANE",
     "WT_SESSION",
     "OS",
   ]);

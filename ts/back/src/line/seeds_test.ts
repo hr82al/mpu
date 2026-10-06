@@ -22,3 +22,15 @@ Deno.test("image export — allow вместо посева по признак�
     { path: "image sync", verdict: "ask" },
   ]);
 });
+
+Deno.test("claude-hook permission-request — allow вместо посева по признаку rw", () => {
+  const hooks = registrySeeds()
+    .map((rule) => rule.entry())
+    .filter((entry) => entry.path.startsWith("claude-hook"))
+    .sort((a, b) => a.path.localeCompare(b.path));
+  assertEquals(hooks, [
+    { path: "claude-hook notification", verdict: "ask" },
+    { path: "claude-hook permission-request", verdict: "allow" },
+    { path: "claude-hook pre-tool-use", verdict: "allow" },
+  ]);
+});

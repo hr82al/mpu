@@ -330,7 +330,10 @@
     //   --allow-run                      открыватель файла (xdg-open,
     //     open), внешние утилиты буфера обмена, `ssh`, `pg_dump`/
     //     `pg_restore`, `git`, `d2` и `docker` — всё, что команды
-    //     зовут подпроцессом. Python-реализации в этом списке больше
+    //     зовут подпроцессом, и `/usr/bin/tmux` — подпись окна вопроса
+    //     хука `PermissionRequest` (порция R1b,
+    //     `claude-hook-permission-request.md` [D.7]; smoke «tmux: подпись
+    //     окна вопроса…»). Python-реализации в этом списке больше
     //     нет: маршрут `legacy` снят целиком (порция 97), как и шага 5
     //     `mpu init` (порция 95 — вход в Telegram наш же). Списком имён
     //     это не выражается: имя бинаря у части команд приходит ключом
@@ -361,7 +364,13 @@
     //     Это тот случай, когда право открывает возможность, а не
     //     описывает мёртвую; smoke его не закрывает — отсутствие
     //     `TMUX` даёт ровно тот же наблюдаемый исход, что и запуск не
-    //     под мультиплексором.
+    //     под мультиплексором. `TMUX_PANE` — имя закрытого списка
+    //     клиента (`CLIENT_ENV_NAMES`, порция R1b,
+    //     `claude-hook-permission-request.md` [D.4]): не принесённое
+    //     клиентом имя ядро читает у себя, пересылая контекст строки
+    //     исполнителю, и без права каждая строка падала с «Requires env
+    //     access to TMUX_PANE» (замер smoke 2026-10-06 — 17 проверок
+    //     красные); smoke краснеет, если право убрать.
     //   TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,
     //   NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS
     //     Окружение читает компилятор TypeScript, запечённый в бинарь
@@ -472,13 +481,13 @@
     //   — `--worker back/scripts/worker.sh`: из исходников рядом с
     //     `deno` программы `mpu-worker` нет, исполнитель — задача
     //     `worker` тех же исходников.
-    "back": "deno run --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image,$HOME/mr/mp/.gitignore,$HOME/mr/mp/.mp-workspace-root --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/back.ts --worker back/scripts/worker.sh",
+    "back": "deno run --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image,$HOME/mr/mp/.gitignore,$HOME/mr/mp/.mp-workspace-root --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TMUX_PANE,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/back.ts --worker back/scripts/worker.sh",
     // Исполнитель строк `mpu-worker` (`platform/line-executor.md`): та же
     // программа команд, что и ядро, поэтому права — ровно права `back`
     // (спека: «права `compile:worker` = права `compile:back`»). Своего
     // права на `/proc/self/oom_score_adj` нет: Deno к `/proc` не пускает
     // ни при каком списке, значение ставит `/bin/sh`-обёртка запуска.
-    "worker": "deno run --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image,$HOME/mr/mp/.gitignore,$HOME/mr/mp/.mp-workspace-root --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/worker.ts",
+    "worker": "deno run --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image,$HOME/mr/mp/.gitignore,$HOME/mr/mp/.mp-workspace-root --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TMUX_PANE,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net back/worker.ts",
     // Тонкий клиент `mpu` (`docs/specs/cli-client.md`): сам ничего
     // не исполняет, поэтому прав — ровно на разговор с сервером строк:
     //   — `--allow-net=127.0.0.1`: сервер слушает только петлю
@@ -501,7 +510,7 @@
     //     решается — он оттуда, и `cli/src/tasks_test.ts` сверяет строку
     //     с кодом.
     // Шире не стали — `next/tasks_test.ts`.
-    "cli": "deno run --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=/usr/bin/wl-copy,/usr/bin/xclip,/usr/bin/xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,WT_SESSION,OS cli/main.ts",
+    "cli": "deno run --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=/usr/bin/wl-copy,/usr/bin/xclip,/usr/bin/xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,TMUX_PANE,WT_SESSION,OS cli/main.ts",
     // Переводчик MCP `mpu-mcp` (`docs/specs/platform/mcp-objects.md`):
     // сам ничего не исполняет, прав — ровно на перевод:
     //   — `--allow-net=127.0.0.1`: слушать на петле и ходить к `mpu-back`;
@@ -572,10 +581,10 @@
     // (он нужен фронту) `deno compile` вшивал его целиком — Vite, jsdom,
     // React, +61 МБ к каждому бинарю (замер порции 148); так вшиваются
     // только пакеты графа программы.
-    "compile:back": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image,$HOME/mr/mp/.gitignore,$HOME/mr/mp/.mp-workspace-root --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
-    "compile:worker": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image,$HOME/mr/mp/.gitignore,$HOME/mr/mp/.mp-workspace-root --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/worker.ts",
+    "compile:back": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image,$HOME/mr/mp/.gitignore,$HOME/mr/mp/.mp-workspace-root --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TMUX_PANE,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/back.ts",
+    "compile:worker": "deno compile --node-modules-dir=none --exclude-unused-npm --include back/src/code/repo_worker.ts --include back/src/telegram/mtcute.wasm --include back/src/telegram/mtcute-simd.wasm --allow-read --allow-write=$HOME/.cache/mpu,$HOME/.config/mpu,$XDG_CONFIG_HOME/mpu,/tmp,/var/tmp,$HOME/mr/mp/mpu/image,$HOME/mr/mp/.gitignore,$HOME/mr/mp/.mp-workspace-root --allow-env=HOME,XDG_CONFIG_HOME,MPU_MP_CONFIG_LOCAL,COLUMNS,PG*,MTCUTE_LOG_LEVEL,TMUX,TMUX_PANE,TSC_*,NODE_INSPECTOR_IPC,VSCODE_INSPECTOR_OPTIONS,NODE_ENV,NO_COLOR,COLORTERM,TERM,TERM_PROGRAM,WT_SESSION,OS,XDG_RUNTIME_DIR --deny-env=USER,NODE_PG_FORCE_NATIVE --allow-run --allow-net -o $MPU_OUT back/worker.ts",
     "compile:mcp": "deno compile --node-modules-dir=none --exclude-unused-npm --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/mcp-token --allow-write=$HOME/.config/mpu/mcp-token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT mcp/main.ts",
-    "compile:cli": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=/usr/bin/wl-copy,/usr/bin/xclip,/usr/bin/xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,WT_SESSION,OS -o $MPU_OUT cli/main.ts",
+    "compile:cli": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.config/mpu/token,$HOME/.config/mpu/agent-token,/dev/tty --allow-run=/usr/bin/wl-copy,/usr/bin/xclip,/usr/bin/xsel --allow-env=HOME,MPU_BACK_URL,COLUMNS,NO_COLOR,TERM,TERM_PROGRAM,COLORTERM,TMUX,TMUX_PANE,WT_SESSION,OS -o $MPU_OUT cli/main.ts",
     "compile:complete": "deno compile --allow-net=127.0.0.1 --allow-read=$HOME/.cache/mpu/tree.json,$HOME/.config/mpu/token --allow-env=HOME,MPU_BACK_URL -o $MPU_OUT complete/main.ts",
     "compile:task": "deno compile --node-modules-dir=none --exclude-unused-npm --allow-read=$HOME/.config/mpu --allow-write=$HOME/.config/mpu,$XDG_RUNTIME_DIR/mpu-task --allow-run=/usr/bin/tmux,/usr/bin/notify-send --allow-env=HOME,XDG_RUNTIME_DIR -o $MPU_OUT back/task.ts",
     "compile:supervisor": "deno compile --allow-run=$HOME/.local/bin/mpu-back,$HOME/.local/bin/mpu-mcp,$HOME/.local/bin/mpu-task,/usr/bin/ps,/usr/bin/cat,/usr/bin/kill --allow-write=$XDG_RUNTIME_DIR/mpu/killed --allow-env=HOME,XDG_RUNTIME_DIR -o $MPU_OUT supervisor/main.ts",

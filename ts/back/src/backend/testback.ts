@@ -11,6 +11,7 @@ import type { InvokeLog } from "../invokelog/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { secretText } from "../runtime/mod.ts";
 import { NO_BOT, type OwnerQuestions } from "../botquestions/mod.ts";
+import { NO_WINDOWS, type Windows } from "../claudehook/mod.ts";
 import { type RunningBack, serveBack, type SnapshotFs } from "./mod.ts";
 import { WebAccess } from "./web.ts";
 import { type Launcher, MarkerDir, MemoryLauncher } from "../worker/mod.ts";
@@ -86,6 +87,8 @@ export interface BackSetup {
   readonly port?: number;
   /** Вопросы владельцу; не сказано — бот без ключей. */
   readonly questions?: OwnerQuestions;
+  /** Окна tmux вопроса хука; не сказано — окон нет. */
+  readonly windows?: Windows;
 }
 
 const TOKEN = "t0ken-" + "s3cret-" + "value";
@@ -201,6 +204,7 @@ export async function withBack(
     workers: { launcher: setup.launcher?.(io) ?? launcher, markers },
     pictureLimit: setup.pictureLimit,
     questions: setup.questions ?? NO_BOT,
+    windows: setup.windows ?? NO_WINDOWS,
   }).catch(async (err) => {
     await Deno.remove(dir, { recursive: true });
     throw err;

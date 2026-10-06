@@ -134,8 +134,10 @@ export function tooLargeInput(): string {
 
 /** Закрытый список имён окружения, принимаемых от клиента.
  *
- * Только про вид вывода. Всё, что меняет, куда строка пойдёт и откуда
- * возьмёт состояние (`HOME`, `XDG_CONFIG_HOME`, `PG*`), не принимается:
+ * Только про вид вывода и подпись: `TMUX_PANE` называет окно вопроса в
+ * Telegram (`claude-hook-permission-request.md` [D.4]). Всё, что меняет,
+ * куда строка пойдёт и откуда возьмёт состояние (`HOME`,
+ * `XDG_CONFIG_HOME`, `PG*`), не принимается:
  * принятая `PGHOST` увела бы разрешённую строку в другую базу, не изменив
  * ни одного её слова (`platform/call-context.md`).
  *
@@ -149,6 +151,7 @@ export const CLIENT_ENV_NAMES: readonly string[] = [
   "TERM_PROGRAM",
   "COLORTERM",
   "TMUX",
+  "TMUX_PANE",
   "WT_SESSION",
   "OS",
 ];

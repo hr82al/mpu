@@ -5,6 +5,7 @@
  */
 
 import type { Command, Policy } from "../command/mod.ts";
+import { PERMISSION_REQUEST } from "../frames/mod.ts";
 import { EXPORT_PATH } from "../image/mod.ts";
 import { ALLOW, ASK, Rule, RulePath, type Verdict } from "../policy/mod.ts";
 import { type CommandGroup, commands, groups } from "../registry/mod.ts";
@@ -28,10 +29,14 @@ const SEED_OF: Readonly<Record<Policy, Verdict>> = { ro: ALLOW, rw: ASK };
  * пишет только файлы каталога образа (`image-export.md`); записи ролей
  * канала `task` и его журнал — только локальный журнал (`task.md`);
  * отметки ролей ставит сама роль без человека (`task-roles.md`); стоп
- * проекта ставит хост на блокере (`task-orchestrator.md`).
+ * проекта ставит хост на блокере (`task-orchestrator.md`); хук
+ * `PermissionRequest` зовёт Claude Code без человека, и `ask` значил бы
+ * «спросить некого» на каждом вызове (`claude-hook-permission-request.md`
+ * [D.2]).
  */
 const OWN_SEEDS: ReadonlyMap<string, Verdict> = new Map([
   [EXPORT_PATH.join(" "), ALLOW],
+  [PERMISSION_REQUEST.words.join(" "), ALLOW],
   ...[
     "post",
     "report",

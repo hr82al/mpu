@@ -7,7 +7,8 @@
 import { type BotApi, BotFailure, type Keyboard } from "./bot_api.ts";
 import { Chat } from "./chat.ts";
 import { Form, ONE, type Step, TAKES_TEXT, Title } from "./form.ts";
-import type { ShownMessages } from "./shown.ts";
+import { BotQuestions } from "./questions.ts";
+import { NO_MEMORY, type ShownMessages } from "./shown.ts";
 import { parseUpdates, type Update } from "./updates.ts";
 
 /** Вызов фейка: метод и то, что в нём видно глазами. */
@@ -245,4 +246,22 @@ export function textUpdate(
       text,
     },
   }])[0];
+}
+
+/**
+ * Служба вопросов на фейке для потребителей (хук `PermissionRequest`):
+ * владелец `111`, метка запуска `r1`, опрос без пауз; журнал — `log`.
+ */
+export function fakeQuestions(
+  bot: FakeBot,
+  log: string[] = [],
+): BotQuestions {
+  return new BotQuestions({
+    bot,
+    owner: 111,
+    shown: NO_MEMORY,
+    clock: { now: () => 0, pause: () => Promise.resolve() },
+    run: "r1",
+    diagnose: (line) => log.push(line),
+  });
 }

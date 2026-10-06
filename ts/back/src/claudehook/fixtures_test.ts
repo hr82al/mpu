@@ -38,3 +38,48 @@ Deno.test("в testdata нет копий, которых нет в канале"
   }
   assertEquals(found.sort(), [...NAMES].sort());
 });
+
+/** Копии эталонов хука `PermissionRequest` (`fixtures/telegram-relay/`). */
+const RELAY = "telegram-relay";
+
+const RELAY_COPIES: readonly (readonly [string, string])[] = [
+  [
+    "hook/live-permission-ask-user-question-multi.json",
+    "permission-request/live-permission-ask-user-question-multi.json",
+  ],
+  [
+    "hook/live-permission-ask-user-question-single.json",
+    "permission-request/live-permission-ask-user-question-single.json",
+  ],
+  [
+    "hook/live-permission-bash-dev-suggestion.json",
+    "permission-request/live-permission-bash-dev-suggestion.json",
+  ],
+  [
+    "hook/live-permission-bash.json",
+    "permission-request/live-permission-bash.json",
+  ],
+  [
+    "hook/transcript-titles-and-ask-answered.jsonl",
+    "permission-request/transcript-titles-and-ask-answered.jsonl",
+  ],
+  ["settings-fragment.json", "permission-request/settings-fragment.json"],
+];
+
+Deno.test("копии эталонов хука PermissionRequest совпадают с каналом", async (t) => {
+  for (const [channel, copy] of RELAY_COPIES) {
+    await t.step(copy, async () => {
+      assertEquals(
+        await Deno.readTextFile(new URL(copy, copyRoot)),
+        await Deno.readTextFile(new URL(`${RELAY}/${channel}`, channelRoot)),
+      );
+    });
+  }
+  const found: string[] = [];
+  for await (
+    const entry of Deno.readDir(new URL("permission-request/", copyRoot))
+  ) {
+    found.push(`permission-request/${entry.name}`);
+  }
+  assertEquals(found.sort(), RELAY_COPIES.map(([, copy]) => copy).sort());
+});

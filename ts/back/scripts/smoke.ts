@@ -129,6 +129,66 @@ async function serve(
   return { url: found[0], [Symbol.asyncDispose]: stop };
 }
 
+/** Программа tmux ядра: путь — как в его праве и в коде (`claudehook`). */
+const TMUX_BIN = "/usr/bin/tmux";
+
+/**
+ * tmux прогона на сокете `socket`: удался ли вызов и что он сказал —
+ * stdout при успехе, первая строка stderr или причина запуска иначе.
+ */
+async function tmuxAt(
+  socket: string,
+  args: readonly string[],
+): Promise<{ readonly success: boolean; readonly said: string }> {
+  let output: Deno.CommandOutput;
+  try {
+    output = await new Deno.Command(TMUX_BIN, {
+      args: ["-S", socket, ...args],
+      stdin: "null",
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+  } catch (err) {
+    if (!(err instanceof Deno.errors.NotFound)) throw err;
+    return { success: false, said: reasonLine(err) };
+  }
+  const said = decoder.decode(output.success ? output.stdout : output.stderr);
+  return { success: output.success, said: said.trim().split("\n")[0] };
+}
+
+/**
+ * Строка хука `PermissionRequest` через клиента с окружением `env`:
+ * payload права на stdin, транскрипта нет.
+ */
+async function hookCall(
+  subject: Subject,
+  url: string,
+  env: Readonly<Record<string, string>>,
+): Promise<Outcome> {
+  const child = new Deno.Command(subject.cli, {
+    args: ["claude-hook", "permission-request"],
+    env: { HOME: subject.home, MPU_BACK_URL: url, ...env },
+    clearEnv: true,
+    stdin: "piped",
+    stdout: "piped",
+    stderr: "piped",
+  }).spawn();
+  const writer = child.stdin.getWriter();
+  await writer.write(new TextEncoder().encode(JSON.stringify({
+    tool_name: "Bash",
+    tool_input: { command: "true" },
+    transcript_path: `${subject.home}/нет-транскрипта.jsonl`,
+    cwd: subject.home,
+  })));
+  await writer.close();
+  const output = await child.output();
+  return {
+    code: output.code,
+    stdout: decoder.decode(output.stdout),
+    stderr: decoder.decode(output.stderr),
+  };
+}
+
 /** Результат запуска бинаря. */
 interface Outcome {
   readonly code: number;
@@ -1023,6 +1083,54 @@ function checks(subject: Subject): readonly Check[] {
         assertEquals(outcome.code, 255, "код ssh не донесён");
       } finally {
         await Deno.remove(`${envDir}/.env`);
+      }
+    }],
+    // Право ядра на `/usr/bin/tmux` (`claude-hook-permission-request.md`
+    // [D.7]): строка хука `PermissionRequest` подписывает вопрос окном
+    // tmux клиента — ядро зовёт `tmux -S <сокет из TMUX> display-message`.
+    // Сервер tmux прогона отмечает каждый такой вызов хуком
+    // `after-display-message`: отметка и есть след запуска tmux собранным
+    // `mpu-back`; без права подпроцесс не стартует, и отметки нет.
+    // Клиент несёт `TMUX` и `TMUX_PANE` — заодно проверено его право на
+    // `TMUX_PANE`.
+    ["tmux: подпись окна вопроса запускает /usr/bin/tmux", async () => {
+      const socket = `${subject.home}/tmux.sock`;
+      const tmux = (...args: string[]) => tmuxAt(socket, args);
+      const started = await tmux(
+        "-f",
+        "/dev/null",
+        "new-session",
+        "-d",
+        "-s",
+        "w",
+        "-n",
+        "probe",
+        "sleep 600",
+      );
+      // Сервер tmux не поднялся (нет программы, сокеты запрещены
+      // окружением) — проверять нечем; причина — его словами.
+      if (!started.success) throw new Skipped(started.said);
+      try {
+        const pane = (await tmux("list-panes", "-F", "#{pane_id}")).said;
+        await tmux(
+          "set-hook",
+          "-g",
+          "after-display-message",
+          "set-option -g @shown yes",
+        );
+        await using server = await serve(subject);
+        const outcome = await hookCall(subject, server.url, {
+          TMUX: `${socket},1,0`,
+          TMUX_PANE: pane,
+        });
+        assertEquals([outcome.code, outcome.stdout], [0, ""], outcome.stderr);
+        assertEquals(
+          (await tmux("show-options", "-gv", "@shown")).said,
+          "yes",
+          "mpu-back не запускал tmux",
+        );
+      } finally {
+        await tmux("kill-server");
       }
     }],
     // Журнал вызовов: одна запись на вызов и ни одной лишней. Права на

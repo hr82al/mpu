@@ -6,6 +6,7 @@
  */
 
 import type { CommandIo } from "../command/mod.ts";
+import { type HookReply, NO_DESK } from "../claudehook/mod.ts";
 import {
   consentAt,
   type Delivery,
@@ -112,6 +113,16 @@ export function policyTree(
   });
 }
 
+/** Вопрос хука `PermissionRequest`: stdin и сигнал обрыва строки. */
+export type PermissionAsking = (
+  text: string,
+  signal: AbortSignal,
+) => Promise<HookReply>;
+
+/** Вопроса задать некому: окружения клиента нет, бот не настроен. */
+const UNASKED: PermissionAsking = (text, signal) =>
+  NO_DESK.reply(text, () => undefined, signal);
+
 /** Кто спрашивает подтверждение у строки. */
 export type ChannelOf = (io: CommandIo, output: Output) => Channel;
 
@@ -157,6 +168,12 @@ export interface LinePorts {
    * (`platform/program-input.md`, «Файл программы»).
    */
   readonly files: ProgramFiles;
+  /**
+   * Вопрос хука `PermissionRequest` владельцу на stdin `text`
+   * (`claude-hook-permission-request.md`); окружение клиента привязывает
+   * дверь строки. Нет — бот не настроен.
+   */
+  readonly permission?: PermissionAsking;
 }
 
 /** Образ строки: файл, кто пишет, часы и снимок дерева. */
@@ -402,9 +419,15 @@ export function lineEntry(ports: LinePorts): CliEntry {
       return reply;
     };
     const commands = programCommands(sources);
-    /** Порты строки хука: её stdin и проба той же строки. */
+    /**
+     * Порты строк-хуков: их stdin, проба той же строки и вопрос владельцу
+     * — с окружением клиента и сигналом обрыва строки.
+     */
+    const asking = ports.permission ?? UNASKED;
+    const permission = (text: string) => asking(text, lineIo.signal);
     const hook = {
       readStdin: lineIo.readStdin,
+      permission,
       consulting: new LineConsulting({
         book,
         commands,
@@ -412,6 +435,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
         rootMethods: ports.rootMethods,
         targets: parts.targets,
         readStdin: lineIo.readStdin,
+        permission,
       }),
     };
     const context = {

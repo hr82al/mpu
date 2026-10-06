@@ -23,6 +23,7 @@ export {
   TAKES_TEXT,
   Title,
 } from "./form.ts";
+export { type Clock, REAL_CLOCK } from "./poller.ts";
 export type { Asked } from "./queue.ts";
 export {
   NO_BOT,

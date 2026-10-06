@@ -1,0 +1,24 @@
+Звать не руками: её зовёт Claude Code хуком PermissionRequest
+перед каждым вопросом о праве и перед каждым AskUserQuestion. Терминальный
+диалог при этом открыт: решает первый ответ — кнопкой или текстом
+владельца в его чате с ботом, либо в терминале.
+
+Вход — stdin, JSON-объект payload'а хука; аргументов нет. Вопрос уходит
+в чат TELEGRAM_BOT_ID с вариантами терминала; заголовок — инструмент,
+название сессии, проект, окно tmux.
+
+  ответ из чата — stdout {"hookSpecificOutput":{"hookEventName":
+    "PermissionRequest","decision":{"behavior":"allow"|"deny",…}}}
+  без решения — stdout пуст, в stderr одна строка
+    mpu claude-hook permission-request: без решения — <причина>
+    (решено в терминале, истёк срок ожидания, бот не настроен,
+    бот недоступен: …, сервер mpu не отвечает: …, вход не разобран: …)
+
+Ждёт до 3540 с, места исполнителей строк не занимает.
+Exit: всегда 0.
+
+Включение — ставит install.sh, в ~/.claude/settings.json:
+{"hooks":{"PermissionRequest":[{"matcher":"",
+  "hooks":[{"type":"command",
+  "command":"mpu claude-hook permission-request",
+  "timeout":3600}]}]}}

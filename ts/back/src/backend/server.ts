@@ -60,10 +60,20 @@ import {
   Workers,
 } from "../worker/mod.ts";
 import { Gallery, PICTURE_LIMIT } from "../picture/mod.ts";
-import type { OwnerQuestions } from "../botquestions/mod.ts";
+import { type OwnerQuestions, REAL_CLOCK } from "../botquestions/mod.ts";
+import {
+  DISK_FILES,
+  PermissionDesk,
+  RUN_TMUX,
+  Transcripts,
+  Windows,
+} from "../claudehook/mod.ts";
 import { answerRpc, type Methods } from "./rpc.ts";
 import SCHEMA from "./schema.json" with { type: "json" };
 import { DENO_FS, type SnapshotFs, writeSnapshot } from "./snapshot.ts";
+
+/** Окружение службы не читается: строка видит только принесённое. */
+const NOT_SERVER = () => undefined;
 
 /** Порт по умолчанию: рядом с MCP-сервером (7337). */
 export const DEFAULT_BACK_PORT = 7338;
@@ -121,6 +131,11 @@ export interface BackOptions {
    * начинает опрос, остановка его прерывает. Ключей бота нет — `NO_BOT`.
    */
   readonly questions: OwnerQuestions;
+  /**
+   * Окна tmux для подписи вопроса хука `PermissionRequest`; не сказано —
+   * настоящий `/usr/bin/tmux`.
+   */
+  readonly windows?: Windows;
   /**
    * Исполнители строк (`platform/line-executor.md`): как запускать,
    * где отметки сторожа, сколько держать тёплыми (не сказано —
@@ -382,6 +397,8 @@ class Back {
   #snapshot: unknown;
   /** Часы сервера: память результатов и время образа. */
   readonly #now: () => number;
+  /** Вопросы хука `PermissionRequest`: ряд у них общий с ядром. */
+  readonly #desk: PermissionDesk;
 
   constructor(options: BackOptions) {
     this.#options = options;
@@ -404,6 +421,12 @@ class Back {
       diagnose: options.diagnose,
     });
     this.#tickets = new Tickets(options.newTicket);
+    this.#desk = new PermissionDesk({
+      questions: options.questions,
+      transcripts: new Transcripts({ files: DISK_FILES, clock: REAL_CLOCK }),
+      windows: options.windows ?? new Windows(RUN_TMUX),
+      clock: REAL_CLOCK,
+    });
     this.#results = new LastResults(this.#now);
     this.#methods = new Map<string, () => unknown>([
       ["tree.snapshot", () => this.#snapshot],
@@ -502,6 +525,9 @@ class Back {
 
   async stop() {
     for (const line of this.#open.keys()) line.stop();
+    // Строка, ждущая владельца (хук `PermissionRequest`), иначе держала
+    // бы остановку до своего срока: её вопрос — в исход «истёк».
+    this.#desk.stop();
     // Исполнители — до ожидания строк: строка ждёт итога своего
     // исполнителя, и без `stop` ему остановка сервера дождалась бы
     // конца команды.
@@ -701,6 +727,14 @@ class Back {
       memory,
       refusal: (data) => line.deliver({ refusal: data }),
       pictures: gallery,
+      // Окно tmux — только из окружения, принесённого клиентом: имя, не
+      // принесённое им, у службы своё и подписало бы вопрос чужим окном.
+      permission: (text, signal) =>
+        this.#desk.reply(
+          text,
+          (name) => request.context.env.over(NOT_SERVER).value(name),
+          signal,
+        ),
       image: {
         image: this.#image,
         author: caller.author(door.author),

@@ -1,14 +1,20 @@
 /**
- * Строка `claude-hook pre-tool-use` (`claude-hook-pre-tool-use.md`, «Как
- * находится решение» [D.1–D.5]): ведёт её ядро — у него правила, дверь и
- * образ. Внешний путь решает сессия строки, как у любой команды; после
- * её согласия слова вызова из stdin обходятся той же цепочкой, где на
- * месте сессии — проба `Consultation`: она ничего не исполняет, а
- * слушает исход решения правил.
+ * Строки-хуки (`claude-hook-pre-tool-use.md`, «Как находится решение»
+ * [D.1–D.5]; `claude-hook-permission-request.md` [D.1]): ведёт их ядро.
+ * Внешний путь решает сессия строки, как у любой команды; после её
+ * согласия ответ на stdin даёт сам хук. У `pre-tool-use` слова вызова из
+ * stdin обходятся той же цепочкой, где на месте сессии — проба
+ * `Consultation`: она ничего не исполняет, а слушает исход решения
+ * правил. У `permission-request` ответ — вопрос владельцу, и строка ждёт
+ * его, не занимая места исполнителей.
  */
 
 import { consentAt } from "../entrypoint/mod.ts";
-import { PRE_TOOL_USE } from "../frames/mod.ts";
+import {
+  type HookWords,
+  PERMISSION_REQUEST,
+  PRE_TOOL_USE,
+} from "../frames/mod.ts";
 import {
   Allowed,
   askedBy,
@@ -65,55 +71,89 @@ export type ProbeWalk = (
   values: ValueEvaluation,
 ) => Promise<Outcome>;
 
-/** Что строке хука нужно сверх контекста строки: stdin и проба. */
+/** Ответ хука на текст своего stdin. */
+export type HookAnswer = (text: string) => Promise<HookReply>;
+
+/** Что строкам-хукам нужно сверх контекста строки. */
 export interface HookPorts {
   readonly readStdin: () => Promise<Uint8Array>;
+  /** Проба строки `mpu` для `pre-tool-use`. */
   readonly consulting: Consulting;
+  /** Вопрос владельцу для `permission-request` (`claudehook/desk.ts`). */
+  readonly permission: HookAnswer;
 }
 
 /**
- * Строка хука по словам без входа двери; иначе — `otherwise`. Справка и
+ * Строка-хук по словам без входа двери; иначе — `otherwise`. Справка и
  * отказы идут обычной цепочкой: подменено только исполнение листа. Хуку
- * она отвечает «решается при исполнении»: её исход — ответ на stdin,
- * которого хук не видит.
+ * `PreToolUse` она отвечает «решается при исполнении»: её исход — ответ
+ * на stdin, которого он не видит.
  */
 export function hookLineOf(
   said: readonly string[],
   ports: HookPorts,
   otherwise: ImageLine,
 ): ImageLine {
-  if (!PRE_TOOL_USE.opens(said)) return otherwise;
+  const consulting = ports.consulting;
+  return hooked(
+    PRE_TOOL_USE,
+    said,
+    ports,
+    (text) => toolCallOf(text).reply((words) => consulting.reply(words)),
+    hooked(PERMISSION_REQUEST, said, ports, ports.permission, otherwise),
+  );
+}
+
+/** Строка хука `hook` с ответом `answer`; не его слова — `otherwise`. */
+function hooked(
+  hook: HookWords,
+  said: readonly string[],
+  ports: HookPorts,
+  answer: HookAnswer,
+  otherwise: ImageLine,
+): ImageLine {
+  if (!hook.opens(said)) return otherwise;
   return {
     settle: (context: ImageContext) =>
-      context.walk((session) => new HookLine(session, context.speech, ports)),
+      context.walk((session) =>
+        new HookLine(session, context.speech, ports.readStdin, answer)
+      ),
     consult: atExecution,
   };
 }
 
-/** Строка хука: решение внешнего пути — у сессии, дальше — проба. */
+/** Строка хука: решение внешнего пути — у сессии, дальше — ответ хука. */
 class HookLine implements Line {
   readonly #session: Line;
   readonly #speech: Speech;
-  readonly #ports: HookPorts;
+  readonly #readStdin: () => Promise<Uint8Array>;
+  readonly #answer: HookAnswer;
 
-  constructor(session: Line, speech: Speech, ports: HookPorts) {
+  constructor(
+    session: Line,
+    speech: Speech,
+    readStdin: () => Promise<Uint8Array>,
+    answer: HookAnswer,
+  ) {
     this.#session = session;
     this.#speech = speech;
-    this.#ports = ports;
+    this.#readStdin = readStdin;
+    this.#answer = answer;
   }
 
-  /** stdin читается только после согласия правил на путь хука. */
+  /**
+   * stdin читается только после согласия правил на путь хука. Места в
+   * пределе строк строка не берёт: исполнения у неё нет, а ответ хука
+   * может ждать владельца час (`claude-hook-permission-request.md` [D.8]).
+   */
   async dispatch(report: Report, view: View): Promise<Outcome> {
     const code = printed(
       await this.#session.consent(report, view),
       this.#speech,
     );
     if (code !== 0) return report.exit(code);
-    const text = new TextDecoder().decode(await this.#ports.readStdin());
-    const consulting = this.#ports.consulting;
-    const reply = await toolCallOf(text).reply((words) =>
-      consulting.reply(words)
-    );
+    const text = new TextDecoder().decode(await this.#readStdin());
+    const reply = await this.#answer(text);
     reply.tell(this.#speech);
     return report.exit(0);
   }
