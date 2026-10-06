@@ -12,10 +12,15 @@ export interface HookSpeech {
   stderr(text: string): void;
 }
 
-/** Ответ хука: печатает себя сам. */
+/** Ответ хука: печатает себя сам и называет код выхода строки. */
 export interface HookReply {
   tell(speech: HookSpeech): void;
+  /** Код выхода строки хука: решение и «без решения» — 0. */
+  code(): number;
 }
+
+/** Код ответов, у которых отказа не бывает: Claude Code решает сам. */
+export const DECIDED = (): number => 0;
 
 /** Решение Claude Code одной строкой JSON; порядок ключей — как в спеке. */
 function decision(word: string, reason: string): string {
@@ -38,6 +43,8 @@ export class Allowed implements HookReply {
     this.#reason = reason;
   }
 
+  code = DECIDED;
+
   tell(speech: HookSpeech) {
     speech.stdout(decision("allow", this.#reason));
   }
@@ -52,6 +59,8 @@ export class Denied implements HookReply {
     this.#reason = reason;
   }
 
+  code = DECIDED;
+
   tell(speech: HookSpeech) {
     speech.stdout(decision("deny", this.#reason));
   }
@@ -65,6 +74,8 @@ export class Undecided implements HookReply {
   constructor(reason: string) {
     this.#reason = reason;
   }
+
+  code = DECIDED;
 
   tell(speech: HookSpeech) {
     speech.stderr(PRE_TOOL_USE.undecided(this.#reason));

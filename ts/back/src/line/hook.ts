@@ -174,7 +174,7 @@ class HookLine implements Line {
     const text = new TextDecoder().decode(await this.#readStdin());
     const reply = await this.#answer(text);
     reply.tell(this.#speech);
-    return report.exit(0);
+    return report.exit(reply.code());
   }
 
   terminal(): boolean {

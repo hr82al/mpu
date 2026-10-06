@@ -6,7 +6,7 @@
  */
 
 import { PERMISSION_REQUEST } from "../frames/mod.ts";
-import type { HookReply, HookSpeech } from "./reply.ts";
+import { DECIDED, type HookReply, type HookSpeech } from "./reply.ts";
 
 /** Решение Claude Code о вызове. */
 export type Behavior = "allow" | "deny";
@@ -24,6 +24,8 @@ export class PermissionDecision implements HookReply {
     this.#behavior = behavior;
     this.#extra = extra;
   }
+
+  code = DECIDED;
 
   tell(speech: HookSpeech) {
     const output = {
@@ -50,6 +52,8 @@ export class NoDecision implements HookReply {
   constructor(reason: string) {
     this.#reason = reason;
   }
+
+  code = DECIDED;
 
   tell(speech: HookSpeech) {
     speech.stderr(PERMISSION_REQUEST.undecided(this.#reason));

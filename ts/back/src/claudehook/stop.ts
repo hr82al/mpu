@@ -9,7 +9,7 @@ import { STOP } from "../frames/mod.ts";
 import { type Fields, isFields } from "./fields.ts";
 import { projectOf } from "./places.ts";
 import type { Reach } from "./reach.ts";
-import type { HookReply, HookSpeech } from "./reply.ts";
+import { DECIDED, type HookReply, type HookSpeech } from "./reply.ts";
 import {
   type Sign,
   type Transcript,
@@ -18,7 +18,7 @@ import {
 } from "./transcript.ts";
 
 /** Вопрос поставлен: хуку сказать нечего — stdout и stderr пусты. */
-export const QUIET: HookReply = { tell: () => {} };
+export const QUIET: HookReply = { tell: () => {}, code: DECIDED };
 
 /** Вопрос не поставлен: одна строка в stderr. */
 export class NoQuestion implements HookReply {
@@ -28,6 +28,8 @@ export class NoQuestion implements HookReply {
   constructor(reason: string) {
     this.#reason = reason;
   }
+
+  code = DECIDED;
 
   tell(speech: HookSpeech) {
     speech.stderr(STOP.undecided(this.#reason));
