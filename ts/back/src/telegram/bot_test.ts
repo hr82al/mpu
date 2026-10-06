@@ -311,3 +311,28 @@ Deno.test("прокси не принят клиентом — отказ наз
     },
   );
 });
+
+Deno.test("прокси не принят клиентом — без учётных данных в отказе", async () => {
+  await withServer(
+    () => new Response(JSON.stringify({ ok: true, result: { message_id: 1 } })),
+    async (base) => {
+      const err = await assertRejects(
+        () =>
+          sendBotMessage(
+            { ...CONFIG, proxy: "socks4://u:p'a ss@h:1" },
+            text("x"),
+            base,
+          ),
+        DomainError,
+      );
+      assertEquals(
+        err.message.startsWith(
+          "telegram: bot API недоступен: прокси не принят клиентом — " +
+            "'socks4://h:1': ",
+        ),
+        true,
+        err.message,
+      );
+    },
+  );
+});

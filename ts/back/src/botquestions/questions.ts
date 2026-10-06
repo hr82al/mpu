@@ -116,14 +116,6 @@ export class BotQuestions implements OwnerQuestions {
   }
 }
 
-/**
- * Текст отказа конфигурации без учётных данных прокси: отказ приводит
- * значение ключа целиком, а журнал службы секретов не держит.
- */
-function withoutPassword(text: string): string {
-  return text.replace(/\/\/[^/@\s']+@/g, "//<учётные данные>@");
-}
-
 /** Метка запуска: восемь знаков `[a-z0-9]`. */
 function runMark(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -157,7 +149,7 @@ export function ownerQuestions(
     // Ключ есть, но непригоден (id не число, прокси не той схемы):
     // для вопросов это то же «бот не настроен», причина — в журнал.
     deps.diagnose(
-      `${withoutPassword(err.message)}; вопросы в Telegram отключены`,
+      `${err.message}; вопросы в Telegram отключены`,
     );
     return NO_BOT;
   }

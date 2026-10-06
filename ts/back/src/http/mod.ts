@@ -19,11 +19,13 @@
 import { Buffer } from "node:buffer";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
+import { withoutCredentials } from "./credentials.ts";
 import { isStandHost } from "./stand.ts";
 
 // Сборщик тела `multipart/form-data` — часть поверхности транспорта:
 // потребителей у него двое (вызовы Kaiten с файлами и `sendDocument`
 // Bot API), а внутренности модуля мимо `mod.ts` не импортируются.
+export { withoutCredentials } from "./credentials.ts";
 export {
   buildMultipartBody,
   type MultipartBody,
@@ -458,7 +460,7 @@ function proxyClient(proxy: string | undefined): Deno.HttpClient | undefined {
     return Deno.createHttpClient({ proxy: { url: proxy } });
   } catch (err) {
     throw new HttpCallError(
-      `прокси не принят клиентом — '${proxy}': ${
+      `прокси не принят клиентом — '${withoutCredentials(proxy)}': ${
         firstLine(err instanceof Error ? err.message : String(err))
       }`,
       { cause: err },

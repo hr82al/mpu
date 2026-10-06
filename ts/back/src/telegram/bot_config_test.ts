@@ -166,3 +166,25 @@ Deno.test("прокси без host:port — отказ до сети", () => {
     "telegram: в прокси-URL нужен host:port — 'socks5://'",
   );
 });
+
+Deno.test("учётные данные прокси не попадают в текст отказа", async (t) => {
+  for (
+    const [proxy, shown] of [
+      ["http://u:p'a ss@[h:1", "прокси-URL неразбираем — '[h:1'"],
+      ["http://u:p'a ss@h", "в прокси-URL нужен host:port — 'http://h/'"],
+    ]
+  ) {
+    await t.step(proxy, () => {
+      const err = assertThrows(
+        () =>
+          botConfig(fakeEnv({
+            TELEGRAM_BOT_TOKEN: "t",
+            TELEGRAM_BOT_ID: "1",
+            TELEGRAM_PROXY: proxy,
+          })),
+        DomainError,
+      );
+      assertEquals(err.message, `telegram: ${shown}`);
+    });
+  }
+});

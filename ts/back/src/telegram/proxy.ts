@@ -6,6 +6,7 @@
  * в env-файлах операторов (там же, «Известные отклонения»).
  */
 
+import { withoutCredentials } from "../http/mod.ts";
 import { configError } from "./errors.ts";
 
 /** Вид туннеля: схема URL после приведения синонимов. */
@@ -45,7 +46,7 @@ export function parseProxy(raw: string): ProxySettings {
         "попробуй: http/https/socks5/socks4",
     );
   }
-  if (url.hostname === "" || url.port === "") throw needsHostPort(raw, url);
+  if (url.hostname === "" || url.port === "") throw needsHostPort(raw);
   return {
     tunnel,
     host: url.hostname,
@@ -75,7 +76,7 @@ function parseUrl(raw: string): URL {
   } catch (err) {
     // Без схемы «10.0.0.1:1080» URL не разбирается вовсе, и сказать про
     // него можно ровно то же: нужен host:port со схемой.
-    throw needsHostPort(raw, undefined, err);
+    throw needsHostPort(raw, err);
   }
 }
 
@@ -83,25 +84,11 @@ function parseUrl(raw: string): URL {
  * Отказ разбора. В тексте — URL без учётных данных: пароль прокси не
  * попадает в вывод ни при каком отказе (там же, «Инварианты»).
  */
-function needsHostPort(raw: string, url?: URL, cause?: unknown): Error {
+function needsHostPort(raw: string, cause?: unknown): Error {
   return configError(
-    `в прокси-URL нужен host:port — '${hideCredentials(raw, url)}'`,
+    `в прокси-URL нужен host:port — '${withoutCredentials(raw)}'`,
     { cause },
   );
-}
-
-/**
- * URL без учётных данных. Разобранный URL пересобирается из частей, и
- * `username`/`password` в них не попадают вовсе; хвост режется по
- * ПОСЛЕДНЕМУ «@» — по первому отрезался бы пароль с литеральным «@»
- * внутри, ради которого и делается percent-декод, а нестандартная форма
- * («socks5:/user:pass@host») кладёт учётные данные в путь.
- */
-function hideCredentials(raw: string, url?: URL): string {
-  const scheme = url === undefined ? "" : `${url.protocol}//`;
-  const rest = url === undefined ? raw : `${url.host}${url.pathname}`;
-  const at = rest.lastIndexOf("@");
-  return `${scheme}${at < 0 ? rest : rest.slice(at + 1)}`;
 }
 
 function decode(value: string): string {

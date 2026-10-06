@@ -9,6 +9,7 @@
 
 import { DomainError } from "../command/mod.ts";
 import type { EnvKeys } from "./config.ts";
+import { withoutCredentials } from "../http/mod.ts";
 import { configError } from "./errors.ts";
 
 /** Разобранная конфигурация бота. */
@@ -96,7 +97,9 @@ function checkedProxy(value: string): string {
   try {
     url = new URL(value);
   } catch {
-    throw configError(`прокси-URL неразбираем — '${value}'`);
+    throw configError(
+      `прокси-URL неразбираем — '${withoutCredentials(value)}'`,
+    );
   }
   if (!PROXY_SCHEMES.includes(url.protocol as typeof PROXY_SCHEMES[number])) {
     const scheme = url.protocol.replace(":", "");
@@ -107,7 +110,9 @@ function checkedProxy(value: string): string {
     );
   }
   if (url.hostname === "" || url.port === "") {
-    throw configError(`в прокси-URL нужен host:port — '${value}'`);
+    throw configError(
+      `в прокси-URL нужен host:port — '${withoutCredentials(value)}'`,
+    );
   }
   return value;
 }
