@@ -452,3 +452,4 @@
 | второй адресат вопроса `ask` | `Rival`/`Rivalry`, `ChatConfirms`, `ConfirmingLine`; запрос `POST …/settled` (`Claim`, `Settlement`) (R3) | Telegram параллельно с каналом строки |
 | стол формы MCP | `ElicitationDesk`, `ElicitQuestion`, вид выбора `oneClosing` (R3) | шаг на поле; `В терминале` — без решения |
 | следующее событие сессии | `SessionKey.movedOn`, `seatPermission`, `heldWhile` (R3) | снимает висящее право сессии |
+| охрана окна | `PaneGuard` (`gone`/`left`), `KeysReader`, `ScreenReader` | клавиши и текст в окно — только пока там `claude`; иначе «Claude Code закрыт» |
