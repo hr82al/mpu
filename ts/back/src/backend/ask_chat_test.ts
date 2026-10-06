@@ -13,6 +13,8 @@ import {
 import { Windows } from "../claudehook/mod.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { ALLOW, ASK, RuleBook, RulePath } from "../policy/mod.ts";
+import { violations } from "./testschema.ts";
+import SCHEMA from "./schema.json" with { type: "json" };
 import {
   Client,
   collected,
@@ -86,6 +88,14 @@ Deno.test("S1–S2: вопрос и в чат; «Да» в чате — кадр
       ],
     );
     assertEquals(frames.at(-1), { exit: 0 });
+    // Каждый кадр, кадр settled тоже, — по схеме контракта кадров.
+    for (const frame of frames) {
+      assertEquals(
+        violations(SCHEMA, SCHEMA.$defs["line.server"], frame),
+        [],
+        JSON.stringify(frame),
+      );
+    }
     assertEquals(back.called, ["xlsx alias ls"]);
     assertEquals(await lastLine(bot, 3), "✅ Да — из чата");
   }, { questions: fakeQuestions(bot), windows: WINDOWS });
@@ -175,10 +185,19 @@ Deno.test("S5: дверь агента номером — «(MCP)»; settled —
       bot.calls[0].text,
       "❓ mpu ask (MCP)\nвыполнить mpu xlsx alias ls?",
     );
-    const waiting = post(back, "/agent/line/settled", { ticket: first.ticket });
+    const body = { ticket: first.ticket };
+    assertEquals(
+      violations(SCHEMA, SCHEMA.$defs["http.line.settled.request"], body),
+      [],
+    );
+    const waiting = post(back, "/agent/line/settled", body);
     press(bot, "Да");
-    const settled = await waiting;
-    assertEquals(await settled.json(), { settled: "решено в Telegram — да" });
+    const settled = await (await waiting).json();
+    assertEquals(settled, { settled: "решено в Telegram — да" });
+    assertEquals(
+      violations(SCHEMA, SCHEMA.$defs["http.line.settled"], settled),
+      [],
+    );
     // Строка ждёт, пока продолжение не заберут, — и исполняется с
     // решённым ответом: присланный «нет» — второй ответ.
     assertEquals(back.called, []);

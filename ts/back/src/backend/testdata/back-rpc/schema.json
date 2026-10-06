@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "mpu-back: кадры строки и методы /rpc",
-  "description": "platform/back-rpc.md. Строка — GET /line и GET /agent/line (WebSocket), кадры — текстовые, каждый — один JSON-объект. Запросы — POST /rpc, JSON-RPC 2.0. Та же строка простым HTTP — POST /line и POST /agent/line (platform/back-http-line.md): кадры потоком NDJSON или один собранный объект; вопрос — кадром ask с номером ticket, ответ — POST …/answer.",
+  "description": "platform/back-rpc.md. Строка — GET /line и GET /agent/line (WebSocket), кадры — текстовые, каждый — один JSON-объект. Запросы — POST /rpc, JSON-RPC 2.0. Та же строка простым HTTP — POST /line и POST /agent/line (platform/back-http-line.md): кадры потоком NDJSON или один собранный объект; вопрос — кадром ask с номером ticket, ответ — POST …/answer; решение в другом месте (Telegram) — POST /agent/line/settled, ответ сразу текстом решения (platform/back-http-line.md).",
   "$defs": {
     "line.client.first": {
       "description": "Первый кадр клиента: строка, каталог клиента, есть ли кого спросить и контекст вызова (platform/call-context.md): ввод, терминальность и переменные клиента. Любое из трёх полей приходит без остальных; поля нет — как до порции 11 (пустой ввод, потоки не терминалы, окружение сервера).",
@@ -163,6 +163,19 @@
           ],
           "properties": {
             "clip": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Вопрос строки решён владельцем в Telegram (platform/ask-telegram.md): клиент перестаёт ждать ответа, печатает mpu: <текст> в stderr и ответа не шлёт. Только у сокета; у строки простым HTTP решение забирает POST …/settled.",
+          "type": "object",
+          "required": [
+            "settled"
+          ],
+          "properties": {
+            "settled": {
               "type": "string"
             }
           },
@@ -400,6 +413,32 @@
           "type": "string"
         },
         "answer": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "http.line.settled.request": {
+      "description": "Тело POST /agent/line/settled: номер вопроса. Контекст вызова тут не принимается, как у ответа по номеру — 400.",
+      "type": "object",
+      "required": [
+        "ticket"
+      ],
+      "properties": {
+        "ticket": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "http.line.settled": {
+      "description": "Ответ 200 на POST /agent/line/settled (тело — http.line.settled.request): вопрос решён владельцем в Telegram; строка ждёт ответа по номеру и продолжится с решённым ответом (platform/back-http-line.md, «Решение в другом месте»). Номер отозван или клиент ушёл раньше — 404 http.line.invalid.",
+      "type": "object",
+      "required": [
+        "settled"
+      ],
+      "properties": {
+        "settled": {
           "type": "string"
         }
       },
