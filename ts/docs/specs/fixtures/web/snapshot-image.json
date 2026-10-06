@@ -6476,6 +6476,11 @@
       "tail": null,
       "messages": [
         {
+          "selector": "elicitation",
+          "kind": "unary",
+          "purpose": "Как ответить на форму MCP-сервера из Telegram?"
+        },
+        {
           "selector": "notification",
           "kind": "unary",
           "purpose": "Отправить уведомление хука Claude Code в личного бота."
@@ -6498,6 +6503,26 @@
       ],
       "keys": [],
       "formats": [],
+      "variants": []
+    },
+    {
+      "path": [
+        "claude-hook",
+        "elicitation"
+      ],
+      "summary": "Как ответить на форму MCP-сервера из Telegram?",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "undefined:",
+          "kind": "keyword",
+          "purpose": ""
+        }
+      ],
+      "keys": [],
+      "formats": [
+        "json"
+      ],
       "variants": []
     },
     {
