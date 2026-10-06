@@ -65,10 +65,11 @@ export class Chat {
 
   /**
    * Последняя правка: кнопки сняты, сообщение забыто. Не удалась —
-   * сообщение помнится: перезапуск ядра снимет его кнопки «истёк».
+   * сообщение помнится: перезапуск ядра снимет его кнопки «истёк». Ответ —
+   * сняты ли кнопки.
    */
-  async close(id: number, text: string): Promise<void> {
-    await this.#finish(id, text);
+  close(id: number, text: string): Promise<boolean> {
+    return this.#finish(id, text);
   }
 
   /** Подтверждает нажатие; подсказка пуста — нажатие принято. */
@@ -95,17 +96,19 @@ export class Chat {
   /**
    * Правка без кнопок; забывается поправленное и то, что поправить
    * нельзя вовсе (`400`: удалено владельцем, уже поправлено), — иначе
-   * запись повторялась бы на каждом старте. Сбой сети запись хранит.
+   * запись повторялась бы на каждом старте. Сбой сети запись хранит и
+   * отвечает «кнопки не сняты».
    */
-  async #finish(id: number, text: string): Promise<void> {
+  async #finish(id: number, text: string): Promise<boolean> {
     try {
       await this.#bot.edit(id, text, NO_KEYBOARD);
     } catch (err) {
       if (!(err instanceof BotFailure)) throw err;
       this.#diagnose(`telegram: правка сообщения: ${err.message}`);
-      if (!err.isFinal()) return;
+      if (!err.isFinal()) return false;
     }
     this.#shown.forget(id);
+    return true;
   }
 
   /** Ждёт вызов; отказ Bot API — строка журнала, ответ — удался ли. */

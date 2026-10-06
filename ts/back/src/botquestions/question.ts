@@ -116,8 +116,8 @@ class SetAside implements Message {
     return NOT_SENT.show(chat, card, text, keyboard);
   }
 
-  close(chat: Chat, text: string): Promise<void> {
-    return chat.close(this.#id, text);
+  async close(chat: Chat, text: string): Promise<void> {
+    await chat.close(this.#id, text);
   }
 
   setAside(): Promise<Message> {
@@ -149,13 +149,17 @@ class Sent implements Message {
     return edited ? new Sent(this.#id, text, keyboard) : this;
   }
 
-  close(chat: Chat, text: string): Promise<void> {
-    return chat.close(this.#id, text);
+  async close(chat: Chat, text: string): Promise<void> {
+    await chat.close(this.#id, text);
   }
 
+  /**
+   * Кнопки не сняты (сбой сети) — сообщение остаётся своим, с кнопками:
+   * снова активным вопрос правит его, а не шлёт второе с теми же данными
+   * кнопок.
+   */
   async setAside(chat: Chat, text: string): Promise<Message> {
-    await chat.close(this.#id, text);
-    return new SetAside(this.#id);
+    return await chat.close(this.#id, text) ? new SetAside(this.#id) : this;
   }
 
   write(answer: () => Notice): Notice {

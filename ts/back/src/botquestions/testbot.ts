@@ -86,13 +86,65 @@ export class FakeBot implements BotApi {
     if (failure !== undefined) return Promise.reject(failure);
     const id = this.#nextId;
     this.#nextId += 1;
+    this.#buttons(id, keyboard);
     return Promise.resolve(id);
   }
 
-  edit(message: number, text: string, keyboard: Keyboard): Promise<void> {
+  async edit(message: number, text: string, keyboard: Keyboard): Promise<void> {
     this.#record(call("edit", message, text, keyboard));
+    await this.#editGate;
     const failure = this.#failing.get("edit");
-    return failure === undefined ? Promise.resolve() : Promise.reject(failure);
+    if (failure !== undefined) throw failure;
+    this.#buttons(message, keyboard);
+  }
+
+  /** Сообщения, у которых в чате сейчас есть кнопки. */
+  readonly #withButtons = new Set<number>();
+  /** Первый миг, когда кнопки были у двух сообщений сразу. */
+  #twice = "";
+
+  /** Удавшийся вызов `message` с клавиатурой `keyboard`. */
+  #buttons(message: number, keyboard: Keyboard): void {
+    if (keyboard.length > 0) this.#withButtons.add(message);
+    else this.#withButtons.delete(message);
+    if (this.#withButtons.size > 1 && this.#twice === "") {
+      this.#twice = `вызов ${this.calls.length - 1}: кнопки у ${
+        [...this.#withButtons].join(", ")
+      }`;
+    }
+  }
+
+  /**
+   * Инвариант «в чате не больше одного сообщения с кнопками» по удавшимся
+   * вызовам: первое нарушение или пусто.
+   */
+  twoWithButtons(): string {
+    return this.#twice;
+  }
+
+  /** Сколько сообщений с кнопками в чате сейчас. */
+  buttonedNow(): number {
+    return this.#withButtons.size;
+  }
+
+  /** Правки, начатые до отпуска, отвечают только после него. */
+  #editGate: Promise<void> = Promise.resolve();
+  /** Отпуски всех придержаний: любой отпуск открывает все. */
+  readonly #holds: (() => void)[] = [];
+
+  /**
+   * Придерживает ответы на правки — как медленная сеть: вызов записан,
+   * ответа ещё нет. Ответ — отпустить; отпуск отпускает и придержанное
+   * раньше, чтобы ни одна правка не осталась без ответа.
+   */
+  holdEdits(): () => void {
+    const gate = Promise.withResolvers<void>();
+    this.#editGate = gate.promise;
+    this.#holds.push(gate.resolve);
+    return () => {
+      this.#editGate = Promise.resolve();
+      for (const open of this.#holds.splice(0)) open();
+    };
   }
 
   ack(_callback: string, hint: string): Promise<void> {

@@ -18,7 +18,7 @@ import {
 } from "./form.ts";
 import { WAITS_INPUT } from "./row.ts";
 import type { OutcomeReader, StepAnswerReader } from "./outcome.ts";
-import { Queue } from "./queue.ts";
+import { type Asked, Queue } from "./queue.ts";
 import {
   ArrayMemory,
   type Call,
@@ -748,5 +748,125 @@ Deno.test("кнопки-действия, которых форма не пре�
     [["ack", "вопрос уже решён"], ["ack", "вопрос уже решён"]],
   );
   asked.expire();
+  await queue.idle();
+});
+
+Deno.test("голова решена, пока шла правка, — её кнопки сняты раньше показа следующей", async () => {
+  const { bot, queue } = setup();
+  const w1 = queue.ask(waits("W1"));
+  await queue.idle();
+  const u2 = queue.ask(f1());
+  await queue.idle();
+  // Сеть медленная: снятие отложенного W1 — правка без ответа.
+  const release = bot.holdEdits();
+  const from = bot.calls.length;
+  w1.withdraw("решено в терминале");
+  await bot.called(from + 1);
+  // Пока правка идёт, активный U2 решён и пришёл W3.
+  u2.expire();
+  const w3 = queue.ask(waits("W3"));
+  release();
+  await queue.idle();
+  assertEquals(bot.twoWithButtons(), "");
+  // Показ шёл: W3 — новым сообщением с кнопками, единственным в чате.
+  assertEquals(bot.calls.at(-1)?.text, "💬 W3\nW3 ждёт");
+  assertEquals(bot.buttonedNow(), 1);
+  w3.expire();
+  await queue.idle();
+});
+
+/** Ход-генератор с семенем: последовательность воспроизводима. */
+function seeded(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state * 1103515245 + 12345) % 2147483648;
+    return state / 2147483648;
+  };
+}
+
+Deno.test("свойство: при любых приходах, исходах, медленных правках и очерёдности микрозадач кнопки — у одного сообщения", async () => {
+  for (let seed = 1; seed <= 400; seed++) {
+    const next = seeded(seed);
+    const { bot, queue } = setup();
+    const asked: Asked[] = [];
+    const steps: string[] = [];
+    let release = () => {};
+    for (let step = 0; step < 16; step++) {
+      const roll = next();
+      const pick = () => Math.floor(next() * asked.length);
+      if (roll < 0.22) {
+        asked.push(queue.ask(f1()));
+        steps.push(`срочный ${asked.length}`);
+      } else if (roll < 0.44) {
+        asked.push(queue.ask(waits(`W${asked.length + 1}`)));
+        steps.push(`ждёт ${asked.length}`);
+      } else if (roll < 0.56 && asked.length > 0) {
+        const k = pick();
+        asked[k].withdraw("решено в терминале");
+        steps.push(`снят ${k + 1}`);
+      } else if (roll < 0.62 && asked.length > 0) {
+        const k = pick();
+        asked[k].expire();
+        steps.push(`истёк ${k + 1}`);
+      } else if (roll < 0.72 && asked.length > 0) {
+        const k = pick() + 1;
+        await queue.press("c", `r1:${k}:0:${next() < 0.5 ? "later" : "0"}`);
+        steps.push(`нажат ${k}`);
+      } else if (roll < 0.8) {
+        release = bot.holdEdits();
+        steps.push("правки ждут");
+      } else if (roll < 0.85) {
+        release();
+        steps.push("правки идут");
+      } else if (roll < 0.93) {
+        // Цепочка правок идёт между микрозадачами: исход, пришедший в
+        // любую из них, — свой порядок событий.
+        const turns = Math.floor(next() * 6);
+        for (let turn = 0; turn < turns; turn++) await Promise.resolve();
+        steps.push(`уступить ${turns}`);
+      } else {
+        release();
+        await queue.idle();
+        steps.push("тишина");
+      }
+    }
+    release();
+    for (const one of asked) one.expire();
+    await queue.idle();
+    const trace = `семя ${seed}: ${steps.join(", ")}`;
+    assertEquals(bot.twoWithButtons(), "", trace);
+    // Все исходы пришли — кнопок не осталось ни у кого.
+    assertEquals(bot.buttonedNow(), 0, trace);
+  }
+});
+
+Deno.test("сбой сети при уступлении — прежнее сообщение остаётся своим: снова активный правит его, второго нет", async () => {
+  const { bot, log, queue } = setup();
+  const w1 = queue.ask(waits("W1"));
+  await queue.idle();
+  bot.fail("edit", new BotFailure("сеть недоступна", 0));
+  const u2 = queue.ask(f1());
+  await queue.idle();
+  bot.heal("edit");
+  u2.expire();
+  await queue.idle();
+  // W1 снова активен своим первым сообщением (1546): кнопки на нём так и
+  // не снимались, второго сообщения W1 нет.
+  assertEquals(
+    bot.calls.filter((call) => call.method === "send").length,
+    2,
+  );
+  assertEquals(bot.calls.at(-1), {
+    method: "edit",
+    message: 1547,
+    text: `${F1_TEXT}\n⌛ истёк — ответьте в терминале`,
+    buttons: [],
+    data: [],
+  });
+  assertEquals(bot.buttonedNow(), 1);
+  assertEquals(log, [
+    "telegram: правка сообщения: бот недоступен: сеть недоступна",
+  ]);
+  w1.expire();
   await queue.idle();
 });

@@ -465,3 +465,61 @@ Deno.test("сбой наблюдателя — строка в журнал сл
     await questions.stop();
   }
 });
+
+/** Сессия B: свой сокет, транскрипта нет — снимается только Stop или чатом. */
+const ENV_B = {
+  CLAUDE_CODE_MESSAGING_SOCKET: "/run/user/1000/cc-socks/9.sock",
+};
+
+Deno.test("дубль-1: пришёл «ждёт» другой сессии — у показанного правка «ещё ждут: 1», нового сообщения нет", async () => {
+  await withStopDesk(async ({ bot, payload, stop }) => {
+    await stop(payload());
+    await stop(
+      payload({ last_assistant_message: "B ждёт", transcript_path: "/нет" }),
+      ENV_B,
+    );
+    await bot.called(2);
+    assertEquals(bot.calls.map((call) => [call.method, call.message]), [
+      ["send", 0],
+      ["edit", 1546],
+    ]);
+    assertEquals(bot.calls[1].text.endsWith("ещё ждут: 1"), true);
+    assertEquals(bot.twoWithButtons(), "");
+  });
+});
+
+Deno.test("дубль-2: показанный снят набранным вводом, новый Stop той же сессии — у прежнего одно сообщение, новый — одним новым", async () => {
+  const [typed] = await aroundStop();
+  await withStopDesk(async ({ bot, clock, append, payload, stop }) => {
+    await stop(payload());
+    const b = payload({
+      last_assistant_message: "B ждёт",
+      transcript_path: "/нет",
+    });
+    await stop(b, ENV_B);
+    await bot.called(2);
+    await clock.paused(WATCH_MS);
+    await append(typed);
+    await withdrawnBy(clock, bot, 2);
+    await stop(payload({ last_assistant_message: "Принято: синий." }));
+    // Второй Stop сессии B снимает B — новый A становится активным.
+    await stop(b, ENV_B);
+    await bot.called(7);
+    const A = `${HEAD_A}\nВы выбрали: Пн.\n${NO_CHANNEL_LINE}`;
+    const B = `💬 ozon\nB ждёт\n${NO_CHANNEL_LINE}`;
+    const A2 = `${HEAD_A}\nПринято: синий.\n${NO_CHANNEL_LINE}`;
+    assertEquals(
+      bot.calls.map((call) => [call.method, call.message, call.text]),
+      [
+        ["send", 0, A],
+        ["edit", 1546, `${A}\nещё ждут: 1`],
+        ["edit", 1546, `${A}\n✅ решено в терминале`],
+        ["send", 0, B],
+        ["edit", 1547, `${B}\nещё ждут: 1`],
+        ["edit", 1547, `${B}\n✅ решено в терминале`],
+        ["send", 0, `${A2}\nещё ждут: 1`],
+      ],
+    );
+    assertEquals(bot.twoWithButtons(), "");
+  });
+});
