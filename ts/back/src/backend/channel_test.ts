@@ -194,3 +194,20 @@ Deno.test("без токена — 401, канал не регистрирует
     await response.body?.cancel();
     assertEquals(response.status, 401);
   }));
+
+Deno.test("текст — только в канал сессии активного «ждёт ввода»: канал другой сессии его не получает", () =>
+  withChannelBack(async (back, bot) => {
+    const mine = new Channel(back, KEY);
+    const other = new Channel(back, "/run/user/1000/cc-socks/43.sock");
+    await mine.ready();
+    await other.ready();
+    await (await stopLine(back, "Какой цвет?")).closed();
+    await within(bot.called(1), 5000, "сообщение «ждёт ввода»");
+    bot.deliver([textUpdate(1, 111, "Синий", 1)]);
+    await mine.heard(1);
+    mine.send(deliveredFrame(1));
+    await within(bot.called(2), 5000, "исход");
+    assertEquals(other.frames, []);
+    await mine.close();
+    await other.close();
+  }));

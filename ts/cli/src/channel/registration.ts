@@ -61,7 +61,7 @@ export class Registration {
       // а повтор каждые 5 с засыпал бы журнал.
       if (failures === 1) {
         this.#parts.stderr(
-          `mpu claude-channel: ядро недоступно — повтор через ${
+          `mpu claude-channel: ядро недоступно или нет токена — повтор через ${
             RETRY_MS / 1000
           } с\n`,
         );
@@ -78,11 +78,22 @@ export class Registration {
    */
   async #connection(signal: AbortSignal): Promise<boolean> {
     const token = await this.#parts.token();
-    if (token === undefined) return false;
-    const socket = new WebSocket(channelUrl(this.#parts.base), [
-      "mpu",
-      `bearer.${token}`,
-    ]);
+    // Сессия кончилась, пока читался токен: соединяться незачем.
+    if (token === undefined || signal.aborted) return false;
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(channelUrl(this.#parts.base), [
+        "mpu",
+        `bearer.${token}`,
+      ]);
+    } catch (err) {
+      // Адрес ядра не разбирается (`MPU_BACK_URL`): это отказ попытки, а
+      // не падение канала — сессия работает дальше без текста из чата.
+      if (!(err instanceof TypeError || err instanceof DOMException)) {
+        throw err;
+      }
+      return false;
+    }
     const closed = Promise.withResolvers<void>();
     /** Доставки этого соединения: их дожидается его конец. */
     const delivering = new Set<Promise<void>>();
@@ -107,6 +118,7 @@ export class Registration {
         unknown: () => {},
       });
     };
+    // Ошибка соединения всегда кончается `close` — там и итог попытки.
     socket.onerror = () => {};
     socket.onclose = () => closed.resolve();
     await closed.promise;

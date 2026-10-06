@@ -8,9 +8,6 @@
 import { readMcpLine } from "./mcp.ts";
 import { Registration } from "./registration.ts";
 
-export { CHANNEL_NAME, INSTRUCTIONS } from "./mcp.ts";
-export { RETRY_MS } from "./registration.ts";
-
 /** Слова команды канала: их узнаёт точка входа клиента. */
 export const CHANNEL_WORDS: readonly string[] = ["claude-channel"];
 

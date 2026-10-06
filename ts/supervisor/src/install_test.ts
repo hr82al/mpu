@@ -421,13 +421,16 @@ Deno.test("дополнение: три прогона — один блок, ч
     const bashrc = await shellConfig(place, "bash", before);
     await shellConfig(place, "fish", "# fish\n");
     const nuConfig = await shellConfig(place, "nu", "# nu\n");
-    const first = await install(place);
+    // Без claude: эталон файла — только блок дополнения
+    // (`platform/cutover.md`), блок канала у него свой тест.
+    const noClaude = { MPU_CLAUDE: `${place.dir}/нет-claude` };
+    const first = await install(place, [], noClaude);
     assertEquals(
       first.lines.filter((line) => line.startsWith("install: дополнение nu")),
       ["install: дополнение nu: подключено"],
     );
-    const second = await install(place);
-    const third = await install(place);
+    const second = await install(place, [], noClaude);
+    const third = await install(place, [], noClaude);
     for (const run of [second, third]) {
       assertEquals(
         run.lines.filter((line) => line.startsWith("install: дополнение")),
@@ -997,7 +1000,7 @@ Deno.test("R2b-10: канал — сервер и алиас claude в кажд�
     const flag = "--dangerously-load-development-channels server:mpu-channel";
     assertEquals(
       claudeBlock(await Deno.readTextFile(bashrc)),
-      `claude() { command claude ${flag} "$@"; }`,
+      `unalias claude 2>/dev/null; function claude { command claude ${flag} "$@"; }`,
     );
     assertEquals(
       claudeBlock(await Deno.readTextFile(fish)),

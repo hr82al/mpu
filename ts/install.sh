@@ -503,13 +503,20 @@ hook_claude_channel_server() {
 claude_begin='# >>> mpu claude >>>'
 claude_end='# <<< mpu claude <<<'
 claude_flag='--dangerously-load-development-channels server:mpu-channel'
-claude_body_bash="claude() { command claude $claude_flag \"\$@\"; }"
+# bash: прежний alias claude (его ставит установщик Claude Code) снимается,
+# а `function` не даёт алиасу раскрыться в имени при разборе — иначе
+# алиас перекрыл бы функцию или сломал её определение.
+claude_body_bash="unalias claude 2>/dev/null; function claude { command claude $claude_flag \"\$@\"; }"
 claude_body_fish="function claude --wraps claude; command claude $claude_flag \$argv; end"
 claude_body_nu="def --wrapped claude [...rest] { ^claude $claude_flag ...\$rest }"
 
 hook_claude_alias() {
-  local shell=$1 file=$2 name="claude канал $1" body_of=claude_body_$1
-  local body=${!body_of}
+  local shell=$1 file=$2 name="claude канал $1" body
+  case $shell in
+    bash) body=$claude_body_bash ;;
+    fish) body=$claude_body_fish ;;
+    nu) body=$claude_body_nu ;;
+  esac
   if [[ $(block_in "$file" "$claude_begin" "$claude_end") == "$body" ]]; then
     say "$name: без изменений"
     return

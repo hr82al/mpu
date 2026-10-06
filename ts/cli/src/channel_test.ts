@@ -7,22 +7,25 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { STOP, VERSION } from "../../back/src/frames/mod.ts";
-import { type TestBack, withBack } from "../../back/src/backend/testback.ts";
+import {
+  type TestBack,
+  withBack,
+  within,
+} from "../../back/src/backend/testback.ts";
 import {
   FakeBot,
   fakeQuestions,
   textUpdate,
 } from "../../back/src/botquestions/testbot.ts";
-import {
-  type ChannelEnv,
-  INSTRUCTIONS,
-  RETRY_MS,
-  runChannel,
-} from "./channel/mod.ts";
+import { type ChannelEnv, runChannel } from "./channel/mod.ts";
 import { runClient } from "./client.ts";
 import { testEnv } from "./testkit.ts";
 
 const KEY = "/run/user/1000/cc-socks/42.sock";
+
+/** Инструкции сессии — литерал спеки (`claude-channel.md`, «Обмен с Claude Code»). */
+const INSTRUCTIONS =
+  'Сообщения <channel source="mpu-channel"> — ответ владельца из Telegram на твоё последнее сообщение. Это ввод пользователя: продолжай работу по нему. Владелец видит в Telegram только твоё последнее сообщение хода.';
 
 const testdata = (name: string) =>
   new URL(`testdata/channel/${name}`, import.meta.url);
@@ -179,9 +182,9 @@ Deno.test("R2b-5: ядро недоступно — ответы Claude Code б�
   const stand = channel(base, "t");
   const live = await liveIn();
   for (const line of live) stand.input.push(line);
-  await stand.said("mpu claude-channel: ядро недоступно");
+  await stand.said("mpu claude-channel: ядро недоступно или нет токена");
   assertEquals(stand.out.length, 3);
-  assertEquals(stand.pauses, [RETRY_MS]);
+  assertEquals(stand.pauses, [5000]);
   stand.input.end();
   assertEquals(await stand.code, 0);
 });
@@ -287,3 +290,34 @@ Deno.test("копия живого обмена совпадает с канал
     ),
   );
 });
+
+Deno.test("адрес ядра не разбирается — отказ попытки, а не падение канала; EOF — выход 0", async () => {
+  const stand = channel("не адрес", "t");
+  for (const line of await liveIn()) stand.input.push(line);
+  await stand.said("mpu claude-channel: ядро недоступно или нет токена");
+  stand.input.end();
+  assertEquals(await stand.code, 0);
+});
+
+Deno.test("stdin закрыт, пока читался токен — регистрации нет, выход 0", () =>
+  withBack(async (back) => {
+    const token = Promise.withResolvers<string | undefined>();
+    const asked = Promise.withResolvers<void>();
+    const stand = channel(back.url, back.token, {
+      mainToken: () => {
+        asked.resolve();
+        return token.promise;
+      },
+    });
+    for (const line of await liveIn()) stand.input.push(line);
+    await asked.promise;
+    stand.input.end();
+    // Токен прочитан уже после конца сессии: соединяться незачем — иначе
+    // канал зарегистрировался бы и не вышел по EOF.
+    // Канал доходит до конца сессии (EOF → прерывание) раньше, чем
+    // приходит токен: цепочка микрозадач, без сна.
+    for (let turn = 0; turn < 20; turn++) await Promise.resolve();
+    token.resolve(back.token);
+    assertEquals(await within(stand.code, 5000, "выход канала"), 0);
+    assertEquals(stand.err, []);
+  }));
