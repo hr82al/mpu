@@ -444,3 +444,6 @@
 | признак снятия | `Sign`: `CallAnswered`, `TYPED_INPUT` (R2a) | ответ на вызов / набранный ввод |
 | канал сессии (код) | `Link`, `WireLink`, `NO_LINK`; достижимость `Reach`: `ChannelReach`, `NO_CHANNEL` (R2b) | доставка текста владельца в сессию; срок `DELIVERY_MS` 2 с |
 | кадры канала | `/channel`: `key`, `ready`, `deliver`, `delivered`, `failed` (R2b) | канал ↔ ядро |
+| вопрос-снимок | `Dialog` (блок диалога), окно `Pane`/`NO_PANE`, поколение блока (R4) | снимок окна tmux с кнопками-клавишами |
+| выделения сообщения | `Rendered`, `Markup`, `BOLD_FIRST_LINE`, `preformatted`; отдельное сообщение `post`/`Posted` (R4) | жирная первая строка, «весь экран» |
+| разовая миграция правила | `Migration`, таблица `migrated`, `openRegistryBook` (R4) | посеянное `ask` → `allow` один раз |
