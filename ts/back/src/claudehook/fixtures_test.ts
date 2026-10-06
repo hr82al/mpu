@@ -83,3 +83,25 @@ Deno.test("копии эталонов хука PermissionRequest совпада
   }
   assertEquals(found.sort(), RELAY_COPIES.map(([, copy]) => copy).sort());
 });
+
+/** Копии эталонов хука `Stop` (`fixtures/telegram-relay/r2/`). */
+const STOP_COPIES: readonly (readonly [string, string])[] = [
+  ["r2/live-stop.json", "stop/live-stop.json"],
+  ["r2/settings-fragment-stop.json", "stop/settings-fragment-stop.json"],
+];
+
+Deno.test("копии эталонов хука Stop совпадают с каналом", async (t) => {
+  for (const [channel, copy] of STOP_COPIES) {
+    await t.step(copy, async () => {
+      assertEquals(
+        await Deno.readTextFile(new URL(copy, copyRoot)),
+        await Deno.readTextFile(new URL(`${RELAY}/${channel}`, channelRoot)),
+      );
+    });
+  }
+  const found: string[] = [];
+  for await (const entry of Deno.readDir(new URL("stop/", copyRoot))) {
+    found.push(`stop/${entry.name}`);
+  }
+  assertEquals(found.sort(), STOP_COPIES.map(([, copy]) => copy).sort());
+});

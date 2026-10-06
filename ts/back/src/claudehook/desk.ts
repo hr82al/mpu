@@ -20,8 +20,14 @@ import {
   permissionPayloadOf,
   type PermissionRequest,
 } from "./permission.ts";
+import { placesOf } from "./places.ts";
 import { type HookReply, unparsedInput } from "./reply.ts";
-import { CallAnswered, type Transcript, Transcripts } from "./transcript.ts";
+import {
+  CallAnswered,
+  NO_TRANSCRIPTS,
+  type Transcript,
+  type Transcripts,
+} from "./transcript.ts";
 import { type CallerEnv, NO_WINDOWS, type Windows } from "./window.ts";
 
 /** Срок хука во фрагменте настроек, секунды [D.6]. */
@@ -105,7 +111,7 @@ export class PermissionDesk {
       new CallAnswered(request.call),
     );
     const window = await windows.captionOf(env);
-    const places = [...transcript.title(), ...request.project, ...window];
+    const places = placesOf(transcript.title(), request.project, window);
     const asked = questions.ask(request.asking.form(places));
     // Строка, оборванная раньше постановки, истекает тут же: ряд убирает
     // непоказанный вопрос молча, в чат ничего не уходит.
@@ -151,14 +157,7 @@ export class PermissionDesk {
 /** Стол без бота: вопрос — отказ «бот не настроен», файлов не читает. */
 export const NO_DESK = new PermissionDesk({
   questions: NO_BOT,
-  transcripts: new Transcripts({
-    files: {
-      read: () => Promise.reject(new Deno.errors.NotFound("транскриптов нет")),
-      readFrom: () =>
-        Promise.reject(new Deno.errors.NotFound("транскриптов нет")),
-    },
-    clock: REAL_CLOCK,
-  }),
+  transcripts: NO_TRANSCRIPTS,
   windows: NO_WINDOWS,
   clock: REAL_CLOCK,
 });

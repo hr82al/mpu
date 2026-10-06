@@ -1251,6 +1251,13 @@ const CASES: readonly CommandCase[] = [
     argv: [],
     sampleResult: {},
   },
+  {
+    // Строку исполняет ядро (`line/hook.ts`, `claudehook/stop_desk.ts`):
+    // у самой команды реестра исполнения нет, обход получает отказ.
+    path: "claude-hook stop",
+    argv: [],
+    sampleResult: {},
+  },
   // Семейство `mr`: ключа GLAB_TOKEN в env-файле обхода нет, поэтому
   // каждый вызов обязан отбиться на конфигурации — до git и до сети.
   {

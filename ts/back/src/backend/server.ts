@@ -65,6 +65,7 @@ import {
   DISK_FILES,
   PermissionDesk,
   RUN_TMUX,
+  StopDesk,
   Transcripts,
   Windows,
 } from "../claudehook/mod.ts";
@@ -399,6 +400,8 @@ class Back {
   readonly #now: () => number;
   /** Вопросы хука `PermissionRequest`: ряд у них общий с ядром. */
   readonly #desk: PermissionDesk;
+  /** Вопросы «ждёт ввода» хука `Stop`: живут дольше своих строк. */
+  readonly #stopDesk: StopDesk;
 
   constructor(options: BackOptions) {
     this.#options = options;
@@ -421,11 +424,22 @@ class Back {
       diagnose: options.diagnose,
     });
     this.#tickets = new Tickets(options.newTicket);
+    const transcripts = new Transcripts({
+      files: DISK_FILES,
+      clock: REAL_CLOCK,
+    });
+    const windows = options.windows ?? new Windows(RUN_TMUX);
     this.#desk = new PermissionDesk({
       questions: options.questions,
-      transcripts: new Transcripts({ files: DISK_FILES, clock: REAL_CLOCK }),
-      windows: options.windows ?? new Windows(RUN_TMUX),
+      transcripts,
+      windows,
       clock: REAL_CLOCK,
+    });
+    this.#stopDesk = new StopDesk({
+      questions: options.questions,
+      transcripts,
+      windows,
+      diagnose: options.diagnose,
     });
     this.#results = new LastResults(this.#now);
     this.#methods = new Map<string, () => unknown>([
@@ -534,6 +548,9 @@ class Back {
     const workers = this.#workers.stop();
     await Promise.allSettled(this.#open.values());
     await workers;
+    // Вопросы «ждёт ввода» строк не держат: их снимает в «истёк» стол,
+    // дождавшись своих наблюдателей.
+    await this.#stopDesk.stop();
     // После строк: строка, ждавшая вопрос, при остановке снимает его,
     // и правка сообщения в «истёк» должна успеть уйти.
     await this.#options.questions.stop();
@@ -713,6 +730,11 @@ class Back {
     const channel = door.channel(line, caller.human(request.human));
     const memory = this.#results.of(await naming.of(request.caller));
     const gallery = new Gallery(this.#options.pictureLimit ?? PICTURE_LIMIT);
+    // Окно tmux и ключ сессии — только из окружения, принесённого
+    // клиентом: имя, не принесённое им, у службы своё и подписало бы
+    // вопрос чужим окном.
+    const callerEnv = (name: string) =>
+      request.context.env.over(NOT_SERVER).value(name);
     const entry = lineEntry({
       files: programFiles(this.#options.io.env),
       rootMethods: door.rootMethods({
@@ -727,15 +749,9 @@ class Back {
       memory,
       refusal: (data) => line.deliver({ refusal: data }),
       pictures: gallery,
-      // Окно tmux — только из окружения, принесённого клиентом: имя, не
-      // принесённое им, у службы своё и подписало бы вопрос чужим окном.
       owner: {
-        permission: (text, signal) =>
-          this.#desk.reply(
-            text,
-            (name) => request.context.env.over(NOT_SERVER).value(name),
-            signal,
-          ),
+        permission: (text, signal) => this.#desk.reply(text, callerEnv, signal),
+        stop: (text) => this.#stopDesk.reply(text, callerEnv),
       },
       image: {
         image: this.#image,

@@ -14,6 +14,7 @@ import {
   type HookWords,
   PERMISSION_REQUEST,
   PRE_TOOL_USE,
+  STOP,
 } from "../frames/mod.ts";
 import {
   Allowed,
@@ -82,6 +83,8 @@ export type HookAnswer = (text: string) => Promise<HookReply>;
 export interface OwnerHooks {
   /** `permission-request` (`claudehook/desk.ts`). */
   permission(text: string): Promise<HookReply>;
+  /** `stop` (`claudehook/stop_desk.ts`). */
+  stop(text: string): Promise<HookReply>;
 }
 
 /** Что строкам-хукам нужно сверх контекста строки. */
@@ -115,7 +118,7 @@ export function hookLineOf(
       said,
       ports,
       (text) => owner.permission(text),
-      otherwise,
+      hooked(STOP, said, ports, (text) => owner.stop(text), otherwise),
     ),
   );
 }

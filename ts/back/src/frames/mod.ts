@@ -51,6 +51,7 @@ export {
   NO_INPUT,
   NOT_TERMINALS,
   SERVER_RULE,
+  SESSION_ENV,
   type Terminals,
   tooLargeInput,
 } from "./context.ts";
@@ -69,6 +70,7 @@ export {
   HookWords,
   PERMISSION_REQUEST,
   PRE_TOOL_USE,
+  STOP,
 } from "./hook.ts";
 
 export { VERSION } from "../version.ts";

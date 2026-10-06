@@ -436,41 +436,43 @@ hook_claude_rules() {
   say "claude права: вписано"
 }
 
-# Хук PermissionRequest (docs/specs/claude-hook-permission-request.md,
-# «Фрагмент настроек и установка»): запись с командой mpu одна и равна
-# фрагменту — эталон fixtures/telegram-relay/settings-fragment.json;
-# timeout — срок хука, из которого ядро выводит свой. Записи с этой
+# Хуки Claude Code: PermissionRequest (docs/specs/claude-hook-permission-request.md,
+# «Фрагмент настроек и установка») и Stop (docs/specs/claude-hook-stop.md,
+# «Установка»). Запись с командой mpu одна на событие и равна фрагменту —
+# эталоны fixtures/telegram-relay/settings-fragment.json и
+# fixtures/telegram-relay/r2/settings-fragment-stop.json; timeout — срок
+# хука (у PermissionRequest ядро выводит из него свой). Записи с этой
 # командой заменяются одной на месте первой, чужие не трогаются.
-claude_hook_command='mpu claude-hook permission-request'
-claude_hook_timeout=3600
-
-hook_claude_permission() {
+#   $1 — событие (ключ hooks), $2 — команда, $3 — срок, с; имя шага —
+#   команда без «mpu claude-hook ».
+hook_claude() {
+  local event=$1 command=$2 timeout=$3 name="claude хук ${2#mpu claude-hook }"
   local file=$HOME/.claude/settings.json target current merged want
-  target=$(readlink -f "$file") || fail "claude хук permission-request" "путь $file не разрешён"
+  target=$(readlink -f "$file") || fail "$name" "путь $file не разрешён"
   current='{}'
   if [[ -s $target ]]; then
-    current=$(cat "$target") || fail "claude хук permission-request" "$file не прочитан"
+    current=$(cat "$target") || fail "$name" "$file не прочитан"
   fi
-  want=$(jq -cn --arg command "$claude_hook_command" --argjson timeout "$claude_hook_timeout" \
+  want=$(jq -cn --arg command "$command" --argjson timeout "$timeout" \
     '{matcher: "", hooks: [{type: "command", command: $command, timeout: $timeout}]}') ||
-    fail "claude хук permission-request" "запись не собрана"
-  merged=$(jq --arg command "$claude_hook_command" --argjson want "$want" '
+    fail "$name" "запись не собрана"
+  merged=$(jq --arg event "$event" --arg command "$command" --argjson want "$want" '
     def ours: (.hooks // []) | any(.command == $command);
-    (.hooks.PermissionRequest // []) as $list
+    (.hooks[$event] // []) as $list
     | ([$list | to_entries[] | select(.value | ours) | .key]) as $at
-    | .hooks.PermissionRequest = if ($at | length) == 0 then $list + [$want]
+    | .hooks[$event] = if ($at | length) == 0 then $list + [$want]
       else [$list | to_entries[]
         | if (.value | ours | not) then .value
           elif .key == $at[0] then $want
           else empty end]
-      end' <<<"$current" 2>/dev/null) || fail "claude хук permission-request" "$file не JSON"
+      end' <<<"$current" 2>/dev/null) || fail "$name" "$file не JSON"
   if [[ $(jq -S . <<<"$current") == "$(jq -S . <<<"$merged")" ]]; then
-    say "claude хук permission-request: без изменений"
+    say "$name: без изменений"
     return
   fi
   printf '%s\n' "$merged" >"$target.mpu-install" &&
-    mv -f "$target.mpu-install" "$target" || fail "claude хук permission-request" "$file не записан"
-  say "claude хук permission-request: вписано"
+    mv -f "$target.mpu-install" "$target" || fail "$name" "$file не записан"
+  say "$name: вписано"
 }
 
 if ! command -v "$claude" >/dev/null; then
@@ -479,7 +481,8 @@ else
   command -v jq >/dev/null || fail "claude" "нет jq"
   hook_claude_mcp
   hook_claude_rules
-  hook_claude_permission
+  hook_claude PermissionRequest 'mpu claude-hook permission-request' 3600
+  hook_claude Stop 'mpu claude-hook stop' 30
 fi
 
 say "готово"

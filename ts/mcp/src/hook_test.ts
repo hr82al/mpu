@@ -1,12 +1,17 @@
 /**
  * Строки-хуки тулом `mpu` (`claude-hook-pre-tool-use.md`, S22;
- * `claude-hook-permission-request.md`, S24): stdin у MCP нет — ответ
+ * `claude-hook-permission-request.md`, S24; `claude-hook-stop.md`, R2a-12):
+ * stdin у MCP нет — ответ
  * «вход не разобран», код 0; своего тула у команд нет (список тулов —
  * `mcp_test.ts`).
  */
 
 import { assertEquals } from "@std/assert";
-import { PERMISSION_REQUEST, PRE_TOOL_USE } from "../../back/src/frames/mod.ts";
+import {
+  PERMISSION_REQUEST,
+  PRE_TOOL_USE,
+  STOP,
+} from "../../back/src/frames/mod.ts";
 import { call, withClient, withStack } from "./testkit.ts";
 
 Deno.test("S22: тул mpu со словами хука — вход не разобран, код 0", () =>
@@ -43,6 +48,23 @@ Deno.test("S24: тул mpu со словами permission-request — вход �
             PERMISSION_REQUEST.undecided(
               "вход не разобран: stdin — не JSON-объект",
             )
+          }`,
+        },
+      ]);
+    })
+  ));
+
+Deno.test("R2a-12: тул mpu со словами stop — вход не разобран, код 0", () =>
+  withStack((stack) =>
+    withClient(stack, async (client) => {
+      const hook = await call(stack, client, "mpu", { words: STOP.words });
+      assertEquals(hook.isError, false);
+      assertEquals(hook.content, [
+        { type: "text", text: "" },
+        {
+          type: "text",
+          text: `stderr:\n${
+            STOP.undecided("вход не разобран: stdin — не JSON-объект")
           }`,
         },
       ]);

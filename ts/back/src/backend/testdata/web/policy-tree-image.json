@@ -1022,6 +1022,15 @@
   },
   {
     "path": [
+      "claude-hook",
+      "stop"
+    ],
+    "verdict": "allow",
+    "rule": "claude-hook stop",
+    "own": true
+  },
+  {
+    "path": [
       "clean-local-clients"
     ],
     "verdict": "ask",

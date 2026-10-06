@@ -271,10 +271,19 @@ Deno.test("список имён — только про вид вывода", a
     "COLORTERM",
     "TMUX",
     "TMUX_PANE",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
     "WT_SESSION",
     "OS",
   ]);
-  for (const name of ["HOME", "XDG_CONFIG_HOME", "PGHOST", "PGPASSWORD"]) {
+  for (
+    const name of [
+      "HOME",
+      "XDG_CONFIG_HOME",
+      "PGHOST",
+      "PGPASSWORD",
+      "CLAUDE_CODE_MESSAGING_TOKEN",
+    ]
+  ) {
     assertEquals(CLIENT_ENV_NAMES.includes(name), false);
   }
   assertEquals(await NO_INPUT.bytes(), new Uint8Array());

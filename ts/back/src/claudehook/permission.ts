@@ -20,6 +20,7 @@ import {
 import { ALLOW, DENY, PermissionDecision } from "./decision.ts";
 import type { HookReply } from "./reply.ts";
 import { type Fields, isFields } from "./fields.ts";
+import { projectOf } from "./places.ts";
 import { type Suggestion, suggestionsOf } from "./suggestion.ts";
 
 /** Вид вопроса: что спросить и как ответы становятся решением. */
@@ -277,13 +278,6 @@ function userQuestions(input: Fields): UserQuestions | undefined {
     questions.filter((one) => one !== undefined),
     raw,
   );
-}
-
-/** Базовое имя `cwd` без завершающих слэшей; нет имени — пусто. */
-function projectOf(cwd: unknown): readonly string[] {
-  if (typeof cwd !== "string") return [];
-  const name = cwd.replace(/\/+$/, "").split("/").at(-1) ?? "";
-  return name === "" ? [] : [name];
 }
 
 /**

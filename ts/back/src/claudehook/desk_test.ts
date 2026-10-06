@@ -6,7 +6,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { type Clock, NO_BOT, REAL_CLOCK } from "../botquestions/mod.ts";
+import { NO_BOT, REAL_CLOCK } from "../botquestions/mod.ts";
 import type { HookReply } from "./reply.ts";
 import {
   FakeBot,
@@ -17,6 +17,7 @@ import {
 import { DEADLINE_MS, HOOK_TIMEOUT_S, PermissionDesk } from "./desk.ts";
 import { DISK_FILES, Transcripts, WATCH_MS } from "./transcript.ts";
 import { NO_WINDOWS, type TmuxRun, Windows } from "./window.ts";
+import { TestClock } from "./testclock.ts";
 
 const testdata = (name: string) =>
   new URL(`testdata/permission-request/${name}`, import.meta.url);
@@ -28,55 +29,6 @@ async function livePayload(
 ): Promise<string> {
   const live = JSON.parse(await Deno.readTextFile(testdata(name)));
   return JSON.stringify({ ...live, ...over });
-}
-
-/** Часы, которые ведёт тест: пауза кончается его `fire`. */
-class TestClock implements Clock {
-  readonly #pending: { ms: number; resolve: () => void }[] = [];
-  readonly #waiters: { ms: number; resolve: () => void }[] = [];
-  /** Длительности всех пауз по порядку. */
-  readonly asked: number[] = [];
-
-  now(): number {
-    return 0;
-  }
-
-  pause(ms: number, signal: AbortSignal): Promise<void> {
-    this.asked.push(ms);
-    return new Promise((resolve, reject) => {
-      if (signal.aborted) {
-        reject(signal.reason);
-        return;
-      }
-      const entry = { ms, resolve };
-      this.#pending.push(entry);
-      signal.addEventListener("abort", () => {
-        this.#pending.splice(this.#pending.indexOf(entry), 1);
-        reject(signal.reason);
-      }, { once: true });
-      for (const waiter of this.#waiters.filter((w) => w.ms === ms)) {
-        waiter.resolve();
-      }
-    });
-  }
-
-  /** Ждёт, пока кто-то встанет на паузу `ms`. */
-  paused(ms: number): Promise<void> {
-    if (this.#pending.some((entry) => entry.ms === ms)) {
-      return Promise.resolve();
-    }
-    const waiter = Promise.withResolvers<void>();
-    this.#waiters.push({ ms, resolve: waiter.resolve });
-    return waiter.promise;
-  }
-
-  /** Кончает паузы `ms`. */
-  fire(ms: number): void {
-    for (const entry of this.#pending.filter((e) => e.ms === ms)) {
-      this.#pending.splice(this.#pending.indexOf(entry), 1);
-      entry.resolve();
-    }
-  }
 }
 
 /** Что напечатал ответ хука. */

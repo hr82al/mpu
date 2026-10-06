@@ -676,6 +676,17 @@ async function hookEntry(): Promise<unknown> {
   return fragment.hooks.PermissionRequest[0];
 }
 
+/** Запись хука `Stop` из эталона фрагмента (`claude-hook-stop.md`, «Установка»). */
+async function stopEntry(): Promise<unknown> {
+  const fragment = await readJson(
+    new URL(
+      "testdata/claude-hook-stop/settings-fragment-stop.json",
+      import.meta.url,
+    ).pathname,
+  ) as { hooks: { Stop: unknown[] } };
+  return fragment.hooks.Stop[0];
+}
+
 Deno.test("claude: первая установка — сервер mpu пользователя и правила разрешений", () =>
   withPlace(async (place) => {
     const run = await install(place);
@@ -684,6 +695,7 @@ Deno.test("claude: первая установка — сервер mpu поль
       "install: claude mcp: подключено",
       "install: claude права: вписано",
       "install: claude хук permission-request: вписано",
+      "install: claude хук stop: вписано",
     ]);
     assertEquals(run.claude, [
       `mcp add-json --scope user mpu ${JSON.stringify(mpuServer(place))}`,
@@ -694,7 +706,10 @@ Deno.test("claude: первая установка — сервер mpu поль
         ask: ["Bash(mpu ask *)"],
         deny: ["Read(~/.config/mpu/**)"],
       },
-      hooks: { PermissionRequest: [await hookEntry()] },
+      hooks: {
+        PermissionRequest: [await hookEntry()],
+        Stop: [await stopEntry()],
+      },
     });
   }));
 
@@ -710,6 +725,7 @@ Deno.test("claude: второй запуск — ни вызова claude, setti
       "install: claude mcp: без изменений",
       "install: claude права: без изменений",
       "install: claude хук permission-request: без изменений",
+      "install: claude хук stop: без изменений",
     ]);
     assertEquals(run.claude, []);
     const after = await Deno.stat(settings);
@@ -750,7 +766,10 @@ Deno.test("claude: чужие правила и ключи на месте, пр
         deny: ["Read(./.env)", "Read(~/.config/mpu/**)"],
         ask: ["Bash(mpu ask *)"],
       },
-      hooks: { PermissionRequest: [await hookEntry()] },
+      hooks: {
+        PermissionRequest: [await hookEntry()],
+        Stop: [await stopEntry()],
+      },
     });
   }));
 
@@ -790,7 +809,7 @@ Deno.test("claude хук: правленая запись заменена св�
     const run = await install(place);
     assertEquals(run.code, 0, run.lines.join("\n"));
     assertEquals(
-      claudeLines(run).at(-1),
+      claudeLines(run).at(-2),
       "install: claude хук permission-request: вписано",
     );
     assertEquals(
@@ -798,8 +817,39 @@ Deno.test("claude хук: правленая запись заменена св�
       {
         PreToolUse: [entry("mpu claude-hook pre-tool-use", 10)],
         PermissionRequest: [other, await hookEntry(), entry("later")],
+        Stop: [await stopEntry()],
       },
     );
+  }));
+
+Deno.test("R2a-11: хук stop — вписан рядом с чужими записями Stop, повторно — те же байты", () =>
+  withPlace(async (place) => {
+    await Deno.mkdir(`${place.dir}/.claude`);
+    const settings = `${place.dir}/.claude/settings.json`;
+    const other = entry("notify-done", 5);
+    await Deno.writeTextFile(
+      settings,
+      JSON.stringify({
+        hooks: { Stop: [other, entry("mpu claude-hook stop", 600)] },
+      }),
+    );
+    const run = await install(place);
+    assertEquals(run.code, 0, run.lines.join("\n"));
+    assertEquals(
+      claudeLines(run).at(-1),
+      "install: claude хук stop: вписано",
+    );
+    assertEquals(
+      ((await readJson(settings)) as { hooks: { Stop: unknown } }).hooks.Stop,
+      [other, await stopEntry()],
+    );
+    const bytes = await Deno.readFile(settings);
+    const again = await install(place);
+    assertEquals(
+      claudeLines(again).at(-1),
+      "install: claude хук stop: без изменений",
+    );
+    assertEquals(await Deno.readFile(settings), bytes);
   }));
 
 Deno.test("claude: settings.json — ссылка, ссылка остаётся ссылкой", () =>
@@ -862,6 +912,23 @@ Deno.test("копия фрагмента настроек совпадает с 
     await Deno.readTextFile(
       new URL(
         "../../docs/specs/fixtures/telegram-relay/settings-fragment.json",
+        import.meta.url,
+      ),
+    ),
+  );
+});
+
+Deno.test("копия фрагмента хука stop совпадает с каналом спецификаций", async () => {
+  assertEquals(
+    await Deno.readTextFile(
+      new URL(
+        "testdata/claude-hook-stop/settings-fragment-stop.json",
+        import.meta.url,
+      ),
+    ),
+    await Deno.readTextFile(
+      new URL(
+        "../../docs/specs/fixtures/telegram-relay/r2/settings-fragment-stop.json",
         import.meta.url,
       ),
     ),

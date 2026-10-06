@@ -1,0 +1,1 @@
+{"hooks":{"Stop":[{"matcher":"","hooks":[{"type":"command","command":"mpu claude-hook stop","timeout":30}]}]}}

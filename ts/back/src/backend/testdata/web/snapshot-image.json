@@ -6489,6 +6489,11 @@
           "selector": "pre-tool-use",
           "kind": "unary",
           "purpose": "Какое решение правил mpu у вызова инструмента Claude Code?"
+        },
+        {
+          "selector": "stop",
+          "kind": "unary",
+          "purpose": "Как сообщить владельцу в Telegram, что сессия Claude Code ждёт ввода?"
         }
       ],
       "keys": [],
@@ -6541,6 +6546,26 @@
         "pre-tool-use"
       ],
       "summary": "Какое решение правил mpu у вызова инструмента Claude Code?",
+      "tail": "args",
+      "messages": [
+        {
+          "selector": "undefined:",
+          "kind": "keyword",
+          "purpose": ""
+        }
+      ],
+      "keys": [],
+      "formats": [
+        "json"
+      ],
+      "variants": []
+    },
+    {
+      "path": [
+        "claude-hook",
+        "stop"
+      ],
+      "summary": "Как сообщить владельцу в Telegram, что сессия Claude Code ждёт ввода?",
       "tail": "args",
       "messages": [
         {

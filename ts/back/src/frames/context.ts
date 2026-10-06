@@ -132,10 +132,19 @@ export function tooLargeInput(): string {
   return `ввод больше ${MAX_STDIN_BYTES / 1024 / 1024} МиБ`;
 }
 
+/**
+ * Ключ сессии Claude Code (`claude-channel.md` [D.1]): по нему ядро узнаёт
+ * сессию хука `Stop`.
+ */
+export const SESSION_ENV = "CLAUDE_CODE_MESSAGING_SOCKET";
+
 /** Закрытый список имён окружения, принимаемых от клиента.
  *
  * Только про вид вывода и подпись: `TMUX_PANE` называет окно вопроса в
- * Telegram (`claude-hook-permission-request.md` [D.4]). Всё, что меняет,
+ * Telegram (`claude-hook-permission-request.md` [D.4]),
+ * `CLAUDE_CODE_MESSAGING_SOCKET` — ключ сессии Claude Code (`claude-channel.md`
+ * [D.1]; путь к сокету ни для чего не открывается, значение не печатается;
+ * `CLAUDE_CODE_MESSAGING_TOKEN` рядом — секрет, не принимается). Всё, что меняет,
  * куда строка пойдёт и откуда возьмёт состояние (`HOME`,
  * `XDG_CONFIG_HOME`, `PG*`), не принимается:
  * принятая `PGHOST` увела бы разрешённую строку в другую базу, не изменив
@@ -152,6 +161,7 @@ export const CLIENT_ENV_NAMES: readonly string[] = [
   "COLORTERM",
   "TMUX",
   "TMUX_PANE",
+  SESSION_ENV,
   "WT_SESSION",
   "OS",
 ];

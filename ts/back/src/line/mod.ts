@@ -6,7 +6,7 @@
  */
 
 import type { CommandIo } from "../command/mod.ts";
-import { type HookReply, NO_DESK } from "../claudehook/mod.ts";
+import { type HookReply, NO_DESK, NO_STOP_DESK } from "../claudehook/mod.ts";
 import {
   consentAt,
   type Delivery,
@@ -121,11 +121,17 @@ export function policyTree(
 export interface OwnerAsking {
   /** Хук `PermissionRequest` (`claude-hook-permission-request.md`). */
   permission(text: string, signal: AbortSignal): Promise<HookReply>;
+  /**
+   * Хук `Stop` (`claude-hook-stop.md`): вопрос переживает строку, обрыв
+   * её не касается.
+   */
+  stop(text: string): Promise<HookReply>;
 }
 
 /** Вопроса задать некому: окружения клиента нет, бот не настроен. */
 const UNASKED: OwnerAsking = {
   permission: (text, signal) => NO_DESK.reply(text, () => undefined, signal),
+  stop: (text) => NO_STOP_DESK.reply(text, () => undefined),
 };
 
 /** Кто спрашивает подтверждение у строки. */
@@ -427,6 +433,7 @@ export function lineEntry(ports: LinePorts): CliEntry {
     const asking = ports.owner ?? UNASKED;
     const owner: OwnerHooks = {
       permission: (text) => asking.permission(text, lineIo.signal),
+      stop: (text) => asking.stop(text),
     };
     const hook = {
       readStdin: lineIo.readStdin,

@@ -91,6 +91,7 @@ import {
   claudeHookNotificationCommand,
   claudeHookPermissionRequestCommand,
   claudeHookPreToolUseCommand,
+  claudeHookStopCommand,
 } from "../claudehook/mod.ts";
 import { backupCommands } from "../backup/mod.ts";
 import { makeSchemaCommand } from "../makeschema/mod.ts";
@@ -250,6 +251,7 @@ export const commands: readonly Command[] = [
   claudeHookNotificationCommand,
   claudeHookPreToolUseCommand,
   claudeHookPermissionRequestCommand,
+  claudeHookStopCommand,
   // Семейство обёрток доезжает: очереди задач, миграции и загрузчик
   // Ozon (`specs/portainer-wrappers.md`).
   ...jobsCommands,

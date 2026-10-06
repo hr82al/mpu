@@ -8,13 +8,14 @@
  * текста остаются внутренностями. `pre-tool-use` и `permission-request`
  * исполняет ядро (`line/hook.ts`), поэтому наружу отданы разбор
  * payload'а (`toolCallOf`), стол вопроса владельцу (`PermissionDesk`) и
- * ответы хуков с причинами. Следующий хук Claude Code (`Stop`,
- * `SessionEnd`) — соседний файл рядом, без переукладки.
+ * ответы хуков с причинами. `stop` — тоже ядро: стол вопросов «ждёт
+ * ввода» (`StopDesk`) держит их дольше строки хука.
  */
 
 export { claudeHookNotificationCommand } from "./cmd_notification.ts";
 export { claudeHookPreToolUseCommand } from "./cmd_pre_tool_use.ts";
 export { claudeHookPermissionRequestCommand } from "./cmd_permission_request.ts";
+export { claudeHookStopCommand } from "./cmd_stop.ts";
 export {
   DEADLINE_MS,
   type DeskParts,
@@ -22,6 +23,7 @@ export {
   NO_DESK,
   PermissionDesk,
 } from "./desk.ts";
+export { NO_STOP_DESK, StopDesk, type StopDeskParts } from "./stop_desk.ts";
 export {
   DISK_FILES,
   type TranscriptFiles,

@@ -110,6 +110,7 @@ Deno.test("посев первого старта и ничего заново �
 const OWN_SEEDS: Readonly<Record<string, string | undefined>> = {
   "image export": "allow",
   "claude-hook permission-request": "allow",
+  "claude-hook stop": "allow",
   "task post": "allow",
   "task report": "allow",
   "task question": "allow",

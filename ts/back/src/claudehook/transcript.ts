@@ -6,7 +6,7 @@
  * — только дописанный хвост.
  */
 
-import type { Clock } from "../botquestions/mod.ts";
+import { type Clock, REAL_CLOCK } from "../botquestions/mod.ts";
 import type { ToolUse } from "./permission.ts";
 import { type Fields, isFields } from "./fields.ts";
 
@@ -218,6 +218,33 @@ export class CallAnswered implements Sign {
   }
 }
 
+/**
+ * Запись начинает новый ход сессии: `assistant` или `user` с текстом
+ * человека — не одни `tool_result` (`claude-hook-stop.md`, «Исходы»).
+ * Текст `user` — строка `message.content` или блок `text` в нём: живого
+ * образца набранного в терминале текста нет — форма по записям Claude
+ * Code, догадка.
+ */
+function startsTurn(record: Fields): boolean {
+  if (record.type === "assistant") return true;
+  if (record.type !== "user" || !isFields(record.message)) return false;
+  const content = record.message.content;
+  if (typeof content === "string") return content !== "";
+  return blocksOf(record).some((block) => block.type === "text");
+}
+
+/** Ждём нового хода; памяти нет — один экземпляр. */
+const AWAITING_TURN: Watch = {
+  take: (record) => startsTurn(record) ? ANSWERED : AWAITING_TURN,
+  done: () => false,
+};
+
+/**
+ * После конца хода в сессии начат новый — владелец ответил в терминале
+ * (вопрос «ждёт ввода»). Записанное до постановки — прошлые ходы.
+ */
+export const TURN_STARTED: Sign = { watchOf: () => AWAITING_TURN };
+
 /** Последние `custom-title` и `ai-title` по записям. */
 function titlesOf(
   records: readonly Fields[],
@@ -297,8 +324,8 @@ class Watched implements Transcript {
   }
 }
 
-/** Файл не читается: ни названия, ни признака ответа. */
-const UNREAD: Transcript = { title: () => [], answered: untilAborted };
+/** Файл не читается или не назван: ни названия, ни признака ответа. */
+export const UNREAD: Transcript = { title: () => [], answered: untilAborted };
 
 /** Транскрипты сессий. */
 export class Transcripts {
@@ -338,3 +365,13 @@ export class Transcripts {
     });
   }
 }
+
+/** Файлов нет: любой транскрипт — без названия и без признака ответа. */
+export const NO_TRANSCRIPTS = new Transcripts({
+  files: {
+    read: () => Promise.reject(new Deno.errors.NotFound("транскриптов нет")),
+    readFrom: () =>
+      Promise.reject(new Deno.errors.NotFound("транскриптов нет")),
+  },
+  clock: REAL_CLOCK,
+});
