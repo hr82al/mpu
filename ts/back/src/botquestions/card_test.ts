@@ -4,7 +4,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { Card, MESSAGE_LIMIT } from "./card.ts";
+import { Card, KEEP_TAIL, MESSAGE_LIMIT } from "./card.ts";
 
 Deno.test("короткое тело — строки как есть, хвост последним", () => {
   const card = new Card("❓ Цвет — ozon", "Какой цвет?", ["• Синий — цвет"]);
@@ -46,4 +46,34 @@ Deno.test("запись тела переживает разбор; битая �
   ) {
     assertEquals(Card.parse(junk).text(["⌛ истёк"]), "⌛ истёк", junk);
   }
+});
+
+Deno.test("R2a-3: усечение с конца — первой строкой шага «…», конец текста цел", () => {
+  const text = `${"а".repeat(8990)}Какой цвет?`;
+  const card = new Card("💬 mpu-bot — ozon", text, [], KEEP_TAIL);
+  const tail = "ответ — в терминале (сессия без канала)";
+  const shown = card.text([tail]);
+  assertEquals(shown.length, MESSAGE_LIMIT);
+  const lines = shown.split("\n");
+  assertEquals(lines[0], "💬 mpu-bot — ozon");
+  assertEquals(lines[1], "…");
+  assertEquals(lines.at(-2)?.endsWith("аКакой цвет?"), true);
+  assertEquals(lines.at(-1), tail);
+  assertEquals(
+    new Card("T", "коротко", [], KEEP_TAIL).text([]),
+    "T\nкоротко",
+  );
+});
+
+Deno.test("R2a-3: усечение с конца не рвёт суррогатную пару", () => {
+  const card = new Card("T", "😀".repeat(MESSAGE_LIMIT), [], KEEP_TAIL);
+  const text = card.text([]);
+  assertEquals(text.length <= MESSAGE_LIMIT, true);
+  assertEquals(text.startsWith("T\n…\n😀"), true);
+});
+
+Deno.test("R2a-3: запись тела хранит, с какого конца усекать", () => {
+  const card = new Card("T", "я".repeat(MESSAGE_LIMIT), [], KEEP_TAIL);
+  const parsed = Card.parse(JSON.stringify(card));
+  assertEquals(parsed.text(["⌛"]), card.text(["⌛"]));
 });

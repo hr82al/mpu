@@ -5,19 +5,32 @@
  * ряда (`queue.ts`); вопрос отвечает за себя.
  */
 
-import { type Button, ButtonData, type Press, STALE } from "./button.ts";
+import {
+  ACCEPTED,
+  type Button,
+  ButtonData,
+  type Press,
+  type Pressable,
+  STALE,
+} from "./button.ts";
 import { Card } from "./card.ts";
 import type { Chat } from "./chat.ts";
 import { BotFailure, type Keyboard } from "./bot_api.ts";
 import {
   type Form,
+  type FormStep,
   type Notice,
   notice,
   type Selection,
-  type Step,
   type StepEvents,
 } from "./form.ts";
-import { Answered, type Outcome, Refused, type StepAnswer } from "./outcome.ts";
+import {
+  Answered,
+  type Outcome,
+  Refused,
+  SKIPPED,
+  type StepAnswer,
+} from "./outcome.ts";
 
 /** Ожидающий в ряду — вопрос или его отсутствие. */
 export interface Waiting {
@@ -30,6 +43,11 @@ export interface Waiting {
    * показался — исход «отказ» с причиной сбоя.
    */
   draw(chat: Chat, others: number): Promise<void>;
+  /**
+   * Уступает место в чате: кнопки сняты, последняя строка `line`; снова
+   * активным — новым сообщением.
+   */
+  putAside(chat: Chat, line: string): Promise<void>;
 }
 
 /** Ответ на текст, когда отвечать не на что. */
@@ -40,6 +58,7 @@ export const NOBODY: Waiting = {
   press: () => STALE,
   write: () => NOTHING_ASKED,
   draw: () => Promise.resolve(),
+  putAside: () => Promise.resolve(),
 };
 
 /** Кому вопрос сообщает о переменах. */
@@ -48,6 +67,8 @@ export interface Listener {
   changed(): void;
   /** Исход решён самим вопросом: ответ владельца или отказ показа. */
   decided(question: Question, outcome: Outcome): void;
+  /** Владелец отложил вопрос; ответ — подсказка подтверждения. */
+  postponed(question: Question): string;
 }
 
 /** Сообщение вопроса в чате. */
@@ -61,6 +82,8 @@ interface Message {
   ): Promise<Message>;
   /** Последняя правка строкой исхода. */
   close(chat: Chat, text: string): Promise<void>;
+  /** Правка без кнопок строкой `text`; ответ — сообщение после неё. */
+  setAside(chat: Chat, text: string): Promise<Message>;
   /**
    * Текст владельца: доходит до шага, только если вопрос виден в чате, —
    * иначе владелец отвечал бы на то, чего не видел.
@@ -73,8 +96,38 @@ const NOT_SENT: Message = {
   show: async (chat, card, text, keyboard) =>
     new Sent(await chat.show(card, text, keyboard), text, keyboard),
   close: () => Promise.resolve(),
+  setAside: () => Promise.resolve(NOT_SENT),
   write: () => NOTHING_ASKED,
 };
+
+/**
+ * Сообщение, уступившее место срочному или отложенное: кнопок нет. Показ
+ * — новым сообщением (старое не оживает), исход — правкой старого: в
+ * чате не остаётся сообщения, обещающего, что вопрос ещё ждёт.
+ */
+class SetAside implements Message {
+  readonly #id: number;
+
+  constructor(id: number) {
+    this.#id = id;
+  }
+
+  show(chat: Chat, card: Card, text: string, keyboard: Keyboard) {
+    return NOT_SENT.show(chat, card, text, keyboard);
+  }
+
+  close(chat: Chat, text: string): Promise<void> {
+    return chat.close(this.#id, text);
+  }
+
+  setAside(): Promise<Message> {
+    return Promise.resolve(this);
+  }
+
+  write(): Notice {
+    return NOTHING_ASKED;
+  }
+}
 
 /** Отправленное сообщение и то, что в нём сейчас. */
 class Sent implements Message {
@@ -98,6 +151,11 @@ class Sent implements Message {
 
   close(chat: Chat, text: string): Promise<void> {
     return chat.close(this.#id, text);
+  }
+
+  async setAside(chat: Chat, text: string): Promise<Message> {
+    await chat.close(this.#id, text);
+    return new SetAside(this.#id);
   }
 
   write(answer: () => Notice): Notice {
@@ -158,12 +216,7 @@ export class Question implements Waiting {
   }
 
   press(data: Press): string {
-    return data.pressOn(
-      this.#run,
-      this.#number,
-      this.#step,
-      this.#selection.press(this.#events),
-    );
+    return data.pressOn(this.#run, this.#number, this.#step, this.#pressable());
   }
 
   write(text: string): Notice {
@@ -194,7 +247,26 @@ export class Question implements Waiting {
     return this.#message.close(chat, this.#card().text([outcome.line()]));
   }
 
-  #current(): Step {
+  async putAside(chat: Chat, line: string): Promise<void> {
+    this.#message = await this.#message.setAside(
+      chat,
+      this.#card().text([line]),
+    );
+  }
+
+  /** Кнопки шага и кнопки-действия вопроса. */
+  #pressable(): Pressable {
+    return {
+      ...this.#selection.press(this.#events),
+      later: () => this.#listener.postponed(this),
+      skip: () => {
+        this.#listener.decided(this, SKIPPED);
+        return ACCEPTED;
+      },
+    };
+  }
+
+  #current(): FormStep {
     return this.#form.steps[this.#step];
   }
 
@@ -229,11 +301,12 @@ export class Question implements Waiting {
       this.#step + 1,
       this.#form.steps.length,
     );
-    return new Card(title, step.text, lines);
+    return new Card(title, step.text, lines, step.clip);
   }
 
   #keyboard(): Keyboard {
-    return this.#selection.buttons().map((row) =>
+    const rows = [...this.#selection.buttons(), ...this.#form.actionRows()];
+    return rows.map((row) =>
       row.map((button: Button) => ({
         text: button.label,
         data: String(

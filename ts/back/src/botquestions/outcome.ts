@@ -132,6 +132,15 @@ export class Withdrawn implements Outcome {
   }
 }
 
+/**
+ * Снят владельцем кнопкой «Пропустить»: для потребителя — то же снятие,
+ * строка своя. Памяти нет — один экземпляр.
+ */
+export const SKIPPED: Outcome = {
+  read: (reader) => reader.withdrawn(),
+  line: () => "⏭ пропущено",
+};
+
 /** Истёк; памяти нет — один экземпляр. */
 export const EXPIRED: Outcome = {
   read: (reader) => reader.expired(),

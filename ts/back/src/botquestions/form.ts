@@ -10,11 +10,14 @@ import {
   type Button,
   clipLabel,
   DONE,
+  LATER_KEY,
   NONE_MARKED,
   OptionKey,
-  type Pressable,
+  SKIP_KEY,
   STALE,
+  type StepPressable,
 } from "./button.ts";
+import { type Clip, KEEP_HEAD } from "./card.ts";
 import {
   type AnswerLine,
   CHECKED,
@@ -22,6 +25,7 @@ import {
   type StepAnswer,
   Written,
 } from "./outcome.ts";
+import { type Kind, URGENT } from "./row.ts";
 
 /** Вариант ответа. */
 export interface Option {
@@ -65,7 +69,7 @@ export interface StepEvents {
 /** Идущий шаг: память отметок и кнопки. */
 export interface Selection {
   /** Нажатие кнопки; ответ — подсказка подтверждения. */
-  press(events: StepEvents): Pressable;
+  press(events: StepEvents): StepPressable;
   /** Кнопки по рядам. */
   buttons(): readonly (readonly Button[])[];
 }
@@ -96,7 +100,7 @@ class OneSelection implements Selection {
     this.#options = options;
   }
 
-  press(events: StepEvents): Pressable {
+  press(events: StepEvents): StepPressable {
     return {
       pick: (index) => {
         if (!within(this.#options, index)) return STALE;
@@ -124,7 +128,7 @@ class ManySelection implements Selection {
     this.#options = options;
   }
 
-  press(events: StepEvents): Pressable {
+  press(events: StepEvents): StepPressable {
     return {
       pick: (index) => {
         if (!within(this.#options, index)) return STALE;
@@ -199,7 +203,18 @@ export interface Step {
   readonly options: readonly Option[];
   readonly choice: Choice;
   readonly reply: TextRule;
+  /** Какой конец текста остаётся при усечении; не сказано — начало. */
+  readonly clip?: Clip;
 }
+
+/** Шаг формы с решённым усечением. */
+export type FormStep = Step & { readonly clip: Clip };
+
+/** Кнопка вида «отложить» — вопрос в конец своего вида. */
+export const LATER: Button = { label: "Позже", key: LATER_KEY };
+
+/** Кнопка вида «снять» — исход «снят», `⏭ пропущено`. */
+export const SKIP: Button = { label: "Пропустить", key: SKIP_KEY };
 
 /** Сколько шагов бывает у формы. */
 const MAX_STEPS = 4;
@@ -207,8 +222,11 @@ const MAX_STEPS = 4;
 /** Форма вопроса. */
 export class Form {
   readonly title: Title;
-  readonly steps: readonly Step[];
+  readonly steps: readonly FormStep[];
   readonly answerLine: AnswerLine;
+  /** Вид вопроса: его место в ряду. */
+  readonly kind: Kind;
+  readonly #actions: readonly Button[];
 
   /** @throws RangeError — шагов нет или больше четырёх */
   constructor(options: {
@@ -217,6 +235,10 @@ export class Form {
     readonly steps: readonly Step[];
     /** Строка ответа; не сказано — `CHECKED`. */
     readonly answerLine?: AnswerLine;
+    /** Вид вопроса; не сказано — `URGENT`. */
+    readonly kind?: Kind;
+    /** Кнопки-действия под кнопками шага (`LATER`, `SKIP`). */
+    readonly actions?: readonly Button[];
   }) {
     if (options.steps.length === 0 || options.steps.length > MAX_STEPS) {
       throw new RangeError(
@@ -224,7 +246,14 @@ export class Form {
       );
     }
     this.title = new Title(options.places);
-    this.steps = [...options.steps];
+    this.steps = options.steps.map((step) => ({ clip: KEEP_HEAD, ...step }));
     this.answerLine = options.answerLine ?? CHECKED;
+    this.kind = options.kind ?? URGENT;
+    this.#actions = [...(options.actions ?? [])];
+  }
+
+  /** Ряды кнопок-действий: по две в ряд. */
+  actionRows(): readonly (readonly Button[])[] {
+    return pairs(this.#actions);
   }
 }

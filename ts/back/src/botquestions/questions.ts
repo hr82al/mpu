@@ -28,6 +28,7 @@ export interface OwnerQuestions {
 /** Ответ на вопрос без бота — один на все вопросы. */
 const UNCONFIGURED: Asked = {
   outcome: Promise.resolve(new Refused("бот не настроен")),
+  placed: Promise.resolve(),
   withdraw: () => {},
   expire: () => {},
 };

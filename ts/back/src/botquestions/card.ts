@@ -25,6 +25,42 @@ function cut(text: string, room: number): string {
   return `${text.slice(0, end)}${CUT}`;
 }
 
+/** Младшая половина суррогатной пары. */
+function isLow(code: number): boolean {
+  return code >= 0xdc00 && code <= 0xdfff;
+}
+
+/**
+ * Какой конец текста шага остаётся при усечении. Код — для записи тела
+ * до перезапуска (`toJSON`).
+ */
+export interface Clip {
+  readonly code: string;
+  /** `text` не длиннее `room` единиц UTF-16. */
+  fit(text: string, room: number): string;
+}
+
+/** Остаётся начало, `…` в конце — текст права, вопроса. */
+export const KEEP_HEAD: Clip = { code: "head", fit: cut };
+
+const TAIL_CUT = `${CUT}\n`;
+
+/**
+ * Остаётся конец, первой строкой `…` — последнее сообщение сессии: вопрос
+ * в его конце (`claude-hook-stop.md` [S6]).
+ */
+export const KEEP_TAIL: Clip = {
+  code: "tail",
+  fit: (text, room) => {
+    if (text.length <= room) return text;
+    if (room < TAIL_CUT.length) return "";
+    let start = text.length - (room - TAIL_CUT.length);
+    // Начало на младшей половине суррогатной пары оставило бы непарную.
+    if (isLow(text.charCodeAt(start))) start += 1;
+    return `${TAIL_CUT}${text.slice(start)}`;
+  },
+};
+
 /** Тело сообщения, к которому приставляется хвост. */
 export interface Body {
   /** Текст сообщения с хвостом `tail`, не длиннее предела. */
@@ -36,16 +72,24 @@ export class Card implements Body {
   readonly #title: string;
   readonly #text: string;
   readonly #lines: readonly string[];
+  readonly #clip: Clip;
 
   /**
    * @param title строка заголовка
    * @param text текст шага — единственное, что усекается
    * @param lines строки вариантов
+   * @param clip какой конец текста шага остаётся
    */
-  constructor(title: string, text: string, lines: readonly string[]) {
+  constructor(
+    title: string,
+    text: string,
+    lines: readonly string[],
+    clip: Clip = KEEP_HEAD,
+  ) {
     this.#title = title;
     this.#text = text;
     this.#lines = [...lines];
+    this.#clip = clip;
   }
 
   /**
@@ -58,7 +102,7 @@ export class Card implements Body {
     // перед текстом шага.
     const used = fixed.reduce((sum, line) => sum + line.length, 0) +
       fixed.length;
-    const step = cut(this.#text, MESSAGE_LIMIT - used);
+    const step = this.#clip.fit(this.#text, MESSAGE_LIMIT - used);
     const lines = [this.#title, step, ...this.#lines, ...tail];
     // Одни неусекаемые части длиннее предела — режется хвост целого:
     // выход за предел Telegram отвергает, а не обрезает.
@@ -66,8 +110,18 @@ export class Card implements Body {
   }
 
   /** Запись для хранения до перезапуска (`shown.ts`). */
-  toJSON(): { title: string; text: string; lines: readonly string[] } {
-    return { title: this.#title, text: this.#text, lines: this.#lines };
+  toJSON(): {
+    title: string;
+    text: string;
+    lines: readonly string[];
+    clip: string;
+  } {
+    return {
+      title: this.#title,
+      text: this.#text,
+      lines: this.#lines,
+      clip: this.#clip.code,
+    };
   }
 
   /** Разбор записи; непригодная — тело из одного хвоста. */
@@ -81,12 +135,18 @@ export class Card implements Body {
       return EMPTY;
     }
     if (typeof value !== "object" || value === null) return EMPTY;
-    const { title, text, lines } = value as Record<string, unknown>;
+    const { title, text, lines, clip } = value as Record<string, unknown>;
     if (typeof title !== "string" || typeof text !== "string") return EMPTY;
     if (!Array.isArray(lines) || !lines.every((l) => typeof l === "string")) {
       return EMPTY;
     }
-    return new Card(title, text, lines);
+    // Записи до R2 поля нет: у них остаётся начало текста.
+    return new Card(
+      title,
+      text,
+      lines,
+      clip === KEEP_TAIL.code ? KEEP_TAIL : KEEP_HEAD,
+    );
   }
 }
 

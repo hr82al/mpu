@@ -10,6 +10,7 @@
 export const ACCEPTED = "";
 export const STALE = "вопрос уже решён";
 export const NONE_MARKED = "отметьте хотя бы один вариант";
+export const NOTHING_ELSE = "больше ничего не ждёт";
 
 /** Предел подписи варианта, символов. */
 const LABEL_LIMIT = 60;
@@ -25,11 +26,22 @@ export function clipLabel(label: string): string {
 }
 
 /** Что делает шаг с нажатием (см. `form.ts`). */
-export interface Pressable {
+export interface StepPressable {
   /** Нажат вариант `index`; ответ — подсказка подтверждения. */
   pick(index: number): string;
   /** Нажато `Готово`. */
   done(): string;
+}
+
+/**
+ * Что делает вопрос с нажатием: кнопки шага и кнопки-действия вопроса
+ * (`platform/telegram-questions.md`, «R2»).
+ */
+export interface Pressable extends StepPressable {
+  /** Нажато «отложить» (`Позже`). */
+  later(): string;
+  /** Нажато «снять» (`Пропустить`). */
+  skip(): string;
 }
 
 /** Ключ кнопки: вариант или `Готово`. */
@@ -62,6 +74,21 @@ export const DONE: Key = {
   pressOn: (step) => step.done(),
 };
 
+/** Кнопка вида «отложить»: вопрос — в конец своего вида. */
+export const LATER_KEY: Key = {
+  code: "later",
+  pressOn: (question) => question.later(),
+};
+
+/** Кнопка вида «снять»: исход «снят». */
+export const SKIP_KEY: Key = {
+  code: "skip",
+  pressOn: (question) => question.skip(),
+};
+
+/** Ключи кнопок, кроме вариантов, — по записи в данных. */
+const NAMED_KEYS: readonly Key[] = [DONE, LATER_KEY, SKIP_KEY];
+
 /** Кнопка шага: подпись и ключ. */
 export interface Button {
   readonly label: string;
@@ -88,7 +115,7 @@ export interface Press {
  * Разбор — `<запуск>:<номер>:<шаг>:<ключ>`; метка запуска — `[a-z0-9]+`,
  * шаг — с нуля.
  */
-const DATA = /^([a-z0-9]+):(\d{1,16}):(\d):(ok|\d{1,3})$/;
+const DATA = /^([a-z0-9]+):(\d{1,16}):(\d):(ok|later|skip|\d{1,3})$/;
 
 /** Данные кнопки этого ядра. */
 export class ButtonData implements Press {
@@ -109,7 +136,8 @@ export class ButtonData implements Press {
     const match = DATA.exec(data);
     if (match === null) return NOT_OURS;
     const [, run, number, step, code] = match;
-    const key = code === DONE.code ? DONE : new OptionKey(Number(code));
+    const key = NAMED_KEYS.find((named) => named.code === code) ??
+      new OptionKey(Number(code));
     return new ButtonData(run, Number(number), Number(step), key);
   }
 

@@ -8,15 +8,19 @@ import {
   ButtonData,
   clipLabel,
   DONE,
+  LATER_KEY,
   OptionKey,
   type Pressable,
+  SKIP_KEY,
   STALE,
 } from "./button.ts";
 
-/** Шаг, называющий нажатое. */
+/** Вопрос, называющий нажатое. */
 const STEP: Pressable = {
   pick: (index) => `вариант ${index}`,
   done: () => "готово",
+  later: () => "позже",
+  skip: () => "пропустить",
 };
 
 Deno.test("подпись: 60 символов — как есть, 61 — 59 и «…»", () => {
@@ -38,6 +42,16 @@ Deno.test("данные кнопки: сборка и разбор туда и �
     ButtonData.parse("r1:7:0:ok").pressOn("r1", 7, 0, STEP),
     "готово",
   );
+  assertEquals(String(new ButtonData("r1", 7, 0, LATER_KEY)), "r1:7:0:later");
+  assertEquals(
+    ButtonData.parse("r1:7:0:later").pressOn("r1", 7, 0, STEP),
+    "позже",
+  );
+  assertEquals(String(new ButtonData("r1", 7, 0, SKIP_KEY)), "r1:7:0:skip");
+  assertEquals(
+    ButtonData.parse("r1:7:0:skip").pressOn("r1", 7, 0, STEP),
+    "пропустить",
+  );
 });
 
 Deno.test("нажатие другого запуска, другого вопроса, другого шага или чужие данные — «вопрос уже решён»", () => {
@@ -51,6 +65,7 @@ Deno.test("нажатие другого запуска, другого вопр
       "",
       "R1:7:0:2",
       "r1:7:0:-1",
+      "r1:7:0:Later",
     ]
   ) {
     assertEquals(ButtonData.parse(data).pressOn("r1", 7, 0, STEP), STALE, data);
@@ -75,4 +90,11 @@ Deno.test("данные кнопки не длиннее 64 байт на худ
     ),
     "вариант 999",
   );
+  const later = new ButtonData(
+    "zzzzzzzz",
+    Number.MAX_SAFE_INTEGER,
+    3,
+    LATER_KEY,
+  );
+  assertEquals(new TextEncoder().encode(String(later)).length <= 64, true);
 });

@@ -7,7 +7,16 @@
 
 import { assertEquals } from "@std/assert";
 import { BotFailure } from "./bot_api.ts";
-import { BUTTONS_ONLY, Form, MANY, ONE, TAKES_TEXT } from "./form.ts";
+import {
+  BUTTONS_ONLY,
+  Form,
+  LATER,
+  MANY,
+  ONE,
+  SKIP,
+  TAKES_TEXT,
+} from "./form.ts";
+import { WAITS_INPUT } from "./row.ts";
 import type { OutcomeReader, StepAnswerReader } from "./outcome.ts";
 import { Queue } from "./queue.ts";
 import {
@@ -487,4 +496,229 @@ Deno.test("исход в обход очереди правок — старое
     ["send", 0],
   ]);
   assertEquals(bot.calls[1].buttons, []);
+});
+
+/**
+ * Форма «ждёт ввода» сессии `name` (`platform/telegram-questions.md`,
+ * «R2»): шаг без вариантов, кнопки `Позже` и `Пропустить`.
+ */
+function waits(name: string): Form {
+  return new Form({
+    places: [],
+    kind: WAITS_INPUT,
+    steps: [{
+      head: `💬 ${name}`,
+      text: `${name} ждёт`,
+      options: [],
+      choice: ONE,
+      reply: BUTTONS_ONLY,
+    }],
+    actions: [LATER, SKIP],
+  });
+}
+
+/** Сообщение «ждёт ввода» сессии `name` вопроса `number` с кнопками. */
+function waitsSent(name: string, number: number, tail: string[] = []): Call {
+  return {
+    method: "send",
+    message: 0,
+    text: [`💬 ${name}`, `${name} ждёт`, ...tail].join("\n"),
+    buttons: [["Позже", "Пропустить"]],
+    data: [[`r1:${number}:0:later`, `r1:${number}:0:skip`]],
+  };
+}
+
+/** Правка без кнопок: последняя строка `line`. */
+function closed(message: number, text: string, line: string): Call {
+  return {
+    method: "edit",
+    message,
+    text: `${text}\n${line}`,
+    buttons: [],
+    data: [],
+  };
+}
+
+const ACK: Call = {
+  method: "ack",
+  message: 0,
+  text: "",
+  buttons: [],
+  data: [],
+};
+
+Deno.test("R2a-4: срочный вытесняет «ждёт ввода»: кнопки сняты, срочный — новым, затем «ждёт» — снова новым", async () => {
+  const { bot, memory, queue } = setup();
+  const a = queue.ask(waits("A"));
+  await queue.idle();
+  assertEquals(bot.calls, [waitsSent("A", 1)]);
+  queue.ask(f1());
+  await queue.idle();
+  assertEquals(since(bot, 1), [
+    closed(1546, "💬 A\nA ждёт", "↷ ждёт после срочного"),
+    {
+      method: "send",
+      message: 0,
+      text: `${F1_TEXT}\nещё ждут: 1`,
+      buttons: F1_BUTTONS,
+      data: [["r1:2:0:0", "r1:2:0:1"], ["r1:2:0:2"]],
+    },
+  ]);
+  // Ровно одно сообщение с кнопками помнится до перезапуска.
+  assertEquals(memory.ids(), [1547]);
+  await queue.press("cb", "r1:2:0:0");
+  await queue.idle();
+  assertEquals(since(bot, 3), [
+    ACK,
+    closed(1547, F1_TEXT, "✅ Yes — из чата"),
+    waitsSent("A", 1),
+  ]);
+  // У нового сообщения A данные кнопок прежние: номер и шаг те же.
+  await queue.press("cb2", "r1:1:0:skip");
+  await queue.idle();
+  assertEquals((await a.outcome).read(OUTCOME), "снят");
+});
+
+Deno.test("R2a-5: срочные по времени, затем «ждёт ввода» по времени", async () => {
+  const { bot, queue } = setup();
+  const b = queue.ask(f1());
+  const a = queue.ask(waits("A"));
+  const e = queue.ask(f2());
+  const d = queue.ask(waits("D"));
+  await queue.idle();
+  assertEquals(bot.calls.at(-1)?.text, `${F1_TEXT}\nещё ждут: 3`);
+  b.expire();
+  await queue.idle();
+  assertEquals(bot.calls.at(-1)?.text.split("\n")[0], "🔐 Bash — sl-back");
+  e.expire();
+  await queue.idle();
+  assertEquals(bot.calls.at(-1), waitsSent("A", 2, ["ещё ждут: 1"]));
+  a.withdraw("решено в терминале");
+  await queue.idle();
+  assertEquals(bot.calls.at(-1), waitsSent("D", 4));
+  d.expire();
+  await queue.idle();
+});
+
+Deno.test("R2a-6: «Позже» — в конец своего вида, следующий — новым; один — подсказка", async () => {
+  const { bot, queue } = setup();
+  const a = queue.ask(waits("A"));
+  await queue.idle();
+  await queue.press("cb1", "r1:1:0:later");
+  await queue.idle();
+  assertEquals(since(bot, 1), [{
+    method: "ack",
+    message: 0,
+    text: "больше ничего не ждёт",
+    buttons: [],
+    data: [],
+  }]);
+  const d = queue.ask(waits("D"));
+  await queue.idle();
+  const from = bot.calls.length;
+  await queue.press("cb2", "r1:1:0:later");
+  await queue.idle();
+  assertEquals(since(bot, from), [
+    ACK,
+    closed(1546, "💬 A\nA ждёт", "↷ отложено"),
+    waitsSent("D", 2, ["ещё ждут: 1"]),
+  ]);
+  d.withdraw("решено в терминале");
+  await queue.idle();
+  assertEquals(
+    bot.calls.at(-2),
+    closed(1547, "💬 D\nD ждёт", "✅ решено в терминале"),
+  );
+  assertEquals(bot.calls.at(-1), waitsSent("A", 1));
+  a.expire();
+  await queue.idle();
+});
+
+Deno.test("R2a-7: «Пропустить» — исход «снят», строка «⏭ пропущено», кнопок нет", async () => {
+  const { bot, memory, queue } = setup();
+  const a = queue.ask(waits("A"));
+  await queue.idle();
+  await queue.press("cb", "r1:1:0:skip");
+  await queue.idle();
+  assertEquals(since(bot, 1), [
+    ACK,
+    closed(1546, "💬 A\nA ждёт", "⏭ пропущено"),
+  ]);
+  assertEquals((await a.outcome).read(OUTCOME), "снят");
+  assertEquals(memory.ids(), []);
+});
+
+Deno.test("отложенный и снятый — правится его прежнее сообщение, нового нет", async () => {
+  const { bot, queue } = setup();
+  const a = queue.ask(waits("A"));
+  await queue.idle();
+  const b = queue.ask(f1());
+  await queue.idle();
+  a.withdraw("решено в терминале");
+  await queue.idle();
+  assertEquals(
+    bot.calls.at(-2),
+    closed(1546, "💬 A\nA ждёт", "✅ решено в терминале"),
+  );
+  assertEquals(bot.calls.at(-1)?.text, F1_TEXT);
+  b.expire();
+  await queue.idle();
+  assertEquals(
+    bot.calls.filter((call) => call.method === "send").length,
+    2,
+  );
+});
+
+Deno.test("текст на «ждёт ввода» без своего текста — подсказка шага; на отложенный — не доходит", async () => {
+  const { bot, queue } = setup();
+  const a = queue.ask(waits("A"));
+  await queue.idle();
+  await queue.write("синий");
+  await queue.idle();
+  assertEquals(bot.calls.at(-1)?.text, "ответьте кнопкой");
+  a.expire();
+  await queue.idle();
+});
+
+Deno.test("placed: решается после первой перерисовки; отказ показа — раньше", async () => {
+  const { bot, queue } = setup();
+  const order: string[] = [];
+  bot.fail("send", new BotFailure("403 Forbidden", 403));
+  const refused = queue.ask(waits("A"));
+  await Promise.all([
+    refused.outcome.then((outcome) => order.push(outcome.read(OUTCOME))),
+    refused.placed.then(() => order.push("поставлен")),
+  ]);
+  assertEquals(order, ["отказ: бот недоступен: 403 Forbidden", "поставлен"]);
+  bot.heal("send");
+  const from = bot.calls.length;
+  const b = queue.ask(f1());
+  const behind = queue.ask(waits("D"));
+  await behind.placed;
+  // Стоит за срочным: показан не был, но поставлен.
+  assertEquals(
+    since(bot, from).filter((call) => call.method === "send").length,
+    1,
+  );
+  b.expire();
+  behind.expire();
+  await queue.idle();
+});
+
+Deno.test("уступил и тут же снят — последней правкой остаётся строка исхода", async () => {
+  const { bot, queue } = setup();
+  const a = queue.ask(waits("A"));
+  await queue.idle();
+  const b = queue.ask(f1());
+  a.withdraw("решено в терминале");
+  await queue.idle();
+  const edits = bot.calls.filter((call) =>
+    call.method === "edit" && call.message === 1546
+  );
+  assertEquals(
+    edits.at(-1),
+    closed(1546, "💬 A\nA ждёт", "✅ решено в терминале"),
+  );
+  b.expire();
+  await queue.idle();
 });
