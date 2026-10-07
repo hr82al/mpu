@@ -20,7 +20,11 @@ if (import.meta.main) {
     process.exit(0);
   }
   await serveOne(
-    streamWire(Readable.toWeb(process.stdin), Writable.toWeb(process.stdout)),
+    streamWire(
+      // stdin без кодировки отдаёт байты: тип `toWeb` их не знает.
+      Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>,
+      Writable.toWeb(process.stdout),
+    ),
     processIo(),
     // stderr исполнителя ядро пишет в журнал службы с его pid.
     (line) => console.error(line),

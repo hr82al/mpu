@@ -4,9 +4,10 @@
  * строка берётся из эталона, итог — прогоном на стенде. Новый случай —
  * имя и строка с метками, остальное снимет прогон.
  *
- *   deno run --allow-all back/scripts/gen-evaluator-cases.ts
+ *   bun back/scripts/gen-evaluator-cases.ts
  */
 
+import { readFile, writeFile } from "node:fs/promises";
 import { allowEverything, withPolicyFile } from "../src/line/testconsent.ts";
 import {
   type EvaluatorCase,
@@ -21,7 +22,7 @@ const FILE = new URL(
   import.meta.url,
 );
 
-const golden = JSON.parse(await Deno.readTextFile(FILE)) as {
+const golden = JSON.parse(await readFile(FILE, "utf8")) as {
   cases: Pick<EvaluatorCase, "name" | "line">[];
 };
 const cases: EvaluatorCase[] = [];
@@ -42,5 +43,5 @@ await withPolicyFile((file) =>
     }
   })
 );
-await Deno.writeTextFile(FILE, `${JSON.stringify({ cases }, null, 2)}\n`);
+await writeFile(FILE, `${JSON.stringify({ cases }, null, 2)}\n`);
 console.log(`случаев: ${cases.length}`);

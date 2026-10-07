@@ -1,0 +1,112 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  // Формат и линт (`docs/specs/platform/node-runtime.md`, [S.10]) вместо
+  // `deno fmt` и `deno lint`.
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "**",
+      // Служебные каталоги сессии и покрытие.
+      "!.claude",
+      "!.tmp",
+      "!cov",
+      // Канал спецификаций пишет сессия-спецификатор; реализующая его не
+      // форматирует.
+      "!docs",
+      "!web/dist",
+      // Голдены сверяются байт-в-байт с каналом: отформатировать копию —
+      // молча развести её с источником.
+      "!**/testdata"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      // Выключены правила, которые расходятся со стилем, принятым в дереве
+      // при `deno lint`, — или дублируют проверку `tsc`. Число — мест в
+      // дереве на 2026-10-07; новое правило включается вместе с правкой мест.
+      "complexity": {
+        // 102: доступ `env["PG_HOST"]` — имя ключа как данные, а не поле.
+        "useLiteralKeys": "off",
+        // 5: `function` в тестах — у подменных классов свой `this`.
+        "useArrowFunction": "off",
+        // 5: явная проверка на `undefined` читается рядом с соседними.
+        "useOptionalChain": "off",
+        // 3: `continue` в конце ветки держит форму соседних ветвей разбора.
+        "noUselessContinue": "off"
+      },
+      "correctness": {
+        // 6: генераторы-подделки потоков, которые кончаются сразу.
+        "useYield": "off",
+        // 1: `usePositions` в анализаторе кода — не хук React.
+        "useHookAtTopLevel": "off",
+        // 1: `return this.#closed(…)` в методе `void` — ранний выход.
+        "noVoidTypeReturn": "off",
+        // 1: тест читает поле приведённого `frame?.body` — падение и есть
+        // красный тест.
+        "noUnsafeOptionalChaining": "off",
+        // 1: `parseInt` строки из цифр по регулярному выражению.
+        "useParseIntRadix": "off"
+      },
+      "performance": {
+        // 1: тест собирает маленький объект.
+        "noAccumulatingSpread": "off"
+      },
+      "style": {
+        // 31: `!` — по правилу `CLAUDE.md`: только при доказанном рядом
+        // инварианте; запрет целиком правилу шире принятого.
+        "noNonNullAssertion": "off",
+        // 34: склейка строк там, где она читается лучше шаблона.
+        "useTemplate": "off",
+        // 10: импорт значения, используемого и как тип, — одной строкой.
+        "useImportType": "off",
+        // 1: сигнатура вызова в интерфейсе с JSDoc.
+        "useShorthandFunctionType": "off"
+      },
+      "suspicious": {
+        // 43: `while ((m = re.exec(s)) !== null)` и счётчики в тестах.
+        "noAssignInExpressions": "off",
+        // 17: `let x;` с типом от присваивания ниже — `any` ловит `tsc`
+        // (`noImplicitAny` строгого режима).
+        "noImplicitAnyLet": "off",
+        // 5: метод `valueOf`/`escape` предметной области.
+        "noShadowRestrictedNames": "off",
+        // 4: `forEach((x) => set.add(x))`.
+        "useIterableCallbackReturn": "off",
+        // 7: `${…}` в тексте справки — пример для человека, не шаблон.
+        "noTemplateCurlyInString": "off",
+        // 1: `randomTicket() === randomTicket()` — два вызова, не одно
+        // выражение.
+        "noSelfCompare": "off",
+        // 1: экранирование в строке рядом с теми, где оно нужно.
+        "noUselessEscapeInString": "off",
+        // 1: ключ строки отчёта — её номер: строки не переставляются.
+        "noArrayIndexKey": "off",
+        // `any` запрещён правилом `CLAUDE.md` («Типы и API»).
+        "noExplicitAny": "error"
+      }
+    }
+  },
+  "assist": {
+    "enabled": false
+  }
+}

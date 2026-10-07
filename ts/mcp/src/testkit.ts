@@ -9,6 +9,8 @@ import process from "node:process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
+  type CallToolResult,
+  CallToolResultSchema,
   type ElicitRequest,
   ElicitRequestSchema,
   type ElicitResult,
@@ -124,14 +126,18 @@ export async function withClient(
   }
 }
 
-/** Вызов тула; ответ — в `seen`. */
+/**
+ * Вызов тула; ответ — в `seen`. Ответ разбирается схемой нынешнего
+ * протокола: тип `callTool` допускает и устаревшую форму `toolResult`,
+ * которой переводчик не отдаёт.
+ */
 export async function call(
   stack: Stack,
   client: Client,
   name: string,
   args: Record<string, unknown>,
-) {
+): Promise<CallToolResult> {
   const result = await client.callTool({ name, arguments: args });
   stack.seen.push(JSON.stringify(result));
-  return result;
+  return CallToolResultSchema.parse(result);
 }

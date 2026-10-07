@@ -295,8 +295,19 @@ export async function listenLoopback(options: {
       // процесс под Deno не выходит (проба этапа 2).
       server.closeAllConnections();
       return new Promise((resolve, reject) =>
-        server.close((err) => err === undefined ? resolve() : reject(err))
+        server.close((err) => {
+          // Под Bun `closeAllConnections` гасит и сам сервер, и `close`
+          // отвечает «не запущен» (проба 2026-10-07; Node и Deno — нет):
+          // цель остановки уже достигнута.
+          if (err === undefined || isNotRunning(err)) resolve();
+          else reject(err);
+        })
       );
     },
   };
+}
+
+/** Отказ `close` у уже остановленного сервера. */
+function isNotRunning(err: Error): boolean {
+  return "code" in err && err.code === "ERR_SERVER_NOT_RUNNING";
 }

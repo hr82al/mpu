@@ -6,7 +6,10 @@
 
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import type { ElicitRequest } from "@modelcontextprotocol/sdk/types.js";
+import {
+  type ElicitRequest,
+  ElicitResultSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { collected, post } from "../../back/src/backend/testback.ts";
 import {
   ALLOW,
@@ -234,9 +237,17 @@ function allowAliases(stack: Stack) {
 const QUESTION = "выполнить mpu xlsx alias ls? [y/N] ";
 
 describe("вопрос формой: accept — исполнено, иначе — не подтверждено", () => {
-  const replies = elicitation.client_responses;
+  // Ответы клиента из голдена — схемой протокола: импорт JSON знает у
+  // `action` только `string`.
+  const replies = {
+    accept: ElicitResultSchema.parse(elicitation.client_responses.accept.result),
+    decline: ElicitResultSchema.parse(
+      elicitation.client_responses.decline.result,
+    ),
+    escape: ElicitResultSchema.parse(elicitation.client_responses.escape.result),
+  };
   const cases: readonly (readonly [string, Elicit, boolean])[] = [
-    ["accept", () => replies.accept.result, true],
+    ["accept", () => replies.accept, true],
     ["accept без content", () => ({ action: "accept" }), true],
     // Старый клиент с флажком: содержимое не читается.
     [
@@ -244,8 +255,8 @@ describe("вопрос формой: accept — исполнено, иначе �
       () => ({ action: "accept", content: { confirm: false } }),
       true,
     ],
-    ["decline", () => replies.decline.result, false],
-    ["cancel", () => replies.escape.result, false],
+    ["decline", () => replies.decline, false],
+    ["cancel", () => replies.escape, false],
     [
       "ошибка запроса",
       () => {

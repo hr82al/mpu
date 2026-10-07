@@ -1,0 +1,26 @@
+{
+  // Проверка типов `tsc --noEmit` (`docs/specs/platform/node-runtime.md`,
+  // [S.10]) вместо `deno check`: строгий режим, как был у Deno.
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "ES2024",
+    "lib": ["ES2024", "ESNext.Disposable", "DOM", "DOM.Iterable", "DOM.AsyncIterable"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"],
+  "exclude": [
+    "node_modules",
+    ".tmp",
+    "cov",
+    "docs",
+    "web",
+    "**/testdata"
+  ]
+}

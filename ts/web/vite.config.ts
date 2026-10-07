@@ -4,9 +4,10 @@
  * прокси (адрес — `MPU_BACK_URL`, по умолчанию 7338).
  */
 
+import process from "node:process";
 import { defineConfig } from "vitest/config";
 
-const back = Deno.env.get("MPU_BACK_URL") ?? "http://127.0.0.1:7338";
+const back = process.env.MPU_BACK_URL ?? "http://127.0.0.1:7338";
 
 export default defineConfig({
   esbuild: { jsx: "automatic" },
@@ -19,5 +20,15 @@ export default defineConfig({
       "/web": back,
     },
   },
-  test: { environment: "jsdom" },
+  test: {
+    environment: "jsdom",
+    // Каждый файл — в своём контексте `vm`: под Bun у общего контекста
+    // разбор CSS в jsdom (`cssstyle` → `splitValue("inset")`) после
+    // нескольких случаев уходит в «Out of memory» (проба 2026-10-07:
+    // поодиночке случаи зелёные, файлом — четыре красных за 170 с; в
+    // `vmForks` — зелёные за 4 с). Под Node — тоже зелёные; Deno
+    // `vm.SourceTextModule` не умеет, но фронт и гоняется под Bun
+    // (`platform/node-runtime.md`, [S.14]).
+    pool: "vmForks",
+  },
 });

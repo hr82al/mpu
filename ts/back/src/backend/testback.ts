@@ -245,6 +245,25 @@ export async function withBack(
   }
 }
 
+/** Протоколы и заголовки рукопожатия сокета. */
+export interface SocketInit {
+  readonly protocols: readonly string[];
+  readonly headers?: HeadersInit;
+}
+
+/**
+ * Сокет к серверу с протоколами и заголовками рукопожатия. Второй
+ * аргумент `WebSocket` объектом понимают все три рантайма (у Node —
+ * `undici`), а типы `lib.dom` знают там только список протоколов.
+ */
+export function openSocket(url: string, init: SocketInit): WebSocket {
+  const Socket = WebSocket as unknown as new (
+    url: string,
+    init: SocketInit,
+  ) => WebSocket;
+  return new Socket(url, init);
+}
+
 /** Запрос HTTP к серверу; тело и заголовки ответа — в `seen`. */
 export async function request(
   back: TestBack,
@@ -286,7 +305,7 @@ export class Client {
     const protocols = options.bearer === false
       ? ["mpu"]
       : ["mpu", `bearer.${options.agent ? back.agentToken : back.token}`];
-    this.#socket = new WebSocket(`${back.url.replace("http", "ws")}${path}`, {
+    this.#socket = openSocket(`${back.url.replace("http", "ws")}${path}`, {
       protocols,
       headers: options.headers,
     });

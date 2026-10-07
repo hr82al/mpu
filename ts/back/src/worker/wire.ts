@@ -22,12 +22,18 @@ export interface Wire {
 async function* linesOf(
   stream: ReadableStream<Uint8Array>,
 ): AsyncIterable<string> {
+  // Декодер с `stream: true`, а не `TextDecoderStream`: в типах
+  // `lib.dom` его вход — `BufferSource`, и байты потока процесса
+  // (`Uint8Array<ArrayBufferLike>`) с ним не сходятся.
+  const decoder = new TextDecoder();
   let rest = "";
-  for await (const chunk of stream.pipeThrough(new TextDecoderStream())) {
+  for await (const bytes of stream) {
+    const chunk = decoder.decode(bytes, { stream: true });
     const parts = (rest + chunk).split("\n");
     rest = parts.pop() ?? "";
     yield* parts;
   }
+  rest += decoder.decode();
   if (rest !== "") yield rest;
 }
 

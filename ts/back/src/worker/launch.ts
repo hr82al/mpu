@@ -43,12 +43,16 @@ async function eachLine(
   stream: ReadableStream<Uint8Array>,
   line: (text: string) => void,
 ): Promise<void> {
+  // Декодер с `stream: true`, а не `TextDecoderStream` — как у провода
+  // (`wire.ts`, `linesOf`).
+  const decoder = new TextDecoder();
   let rest = "";
-  for await (const chunk of stream.pipeThrough(new TextDecoderStream())) {
-    const parts = (rest + chunk).split("\n");
+  for await (const bytes of stream) {
+    const parts = (rest + decoder.decode(bytes, { stream: true })).split("\n");
     rest = parts.pop() ?? "";
     for (const part of parts) line(part);
   }
+  rest += decoder.decode();
   if (rest !== "") line(rest);
 }
 

@@ -4,27 +4,28 @@
  * `back` и в testdata фронта (`web/src/testdata/snapshot.json`,
  * `policy-tree-image.json`).
  *
- *   deno run --allow-all back/scripts/gen-web-image.ts
+ *   bun back/scripts/gen-web-image.ts
  */
 
+import { writeFile } from "node:fs/promises";
 import { webImageGoldens } from "../src/backend/testwebimage.ts";
 
 const taken = await webImageGoldens();
 const text = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 const at = (path: string) => new URL(path, import.meta.url);
-await Deno.writeTextFile(
+await writeFile(
   at("../src/backend/testdata/web/snapshot-image.json"),
   text(taken.snapshot),
 );
-await Deno.writeTextFile(
+await writeFile(
   at("../src/backend/testdata/web/policy-tree-image.json"),
   text(taken.policyTree),
 );
-await Deno.writeTextFile(
+await writeFile(
   at("../../web/src/testdata/snapshot.json"),
   text(taken.snapshot),
 );
-await Deno.writeTextFile(
+await writeFile(
   at("../../web/src/testdata/policy-tree-image.json"),
   text(taken.policyTree),
 );

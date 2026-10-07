@@ -9,6 +9,7 @@ import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RemoteOutput } from "../command/mod.ts";
+import { runTs } from "../testing/runts.ts";
 import {
   detachOverSsh,
   runOverSsh,
@@ -194,13 +195,7 @@ describe("настоящий подпроцесс: потоки и код вых
     // отменяет умолчание. У `bash` тот же приём не годится — `trap ""`
     // в этом окружении подпроцесс всё равно снимает (замер).
     const done = spawnProcess(
-      "deno",
-      [
-        "eval",
-        "--no-lock",
-        'process.on("SIGTERM", () => {});' +
-        ' console.log("готов"); await new Promise(() => {});',
-      ],
+      ...runTs(new URL("./testterm.ts", import.meta.url).pathname),
       {
         stdin: new Uint8Array(),
         output,

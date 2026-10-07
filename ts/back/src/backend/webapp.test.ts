@@ -14,7 +14,9 @@ import { collected, withBack } from "./testback.ts";
 
 async function build(out: string) {
   // Окружение — родителя плюс своё: `env` у `spawn` заменяет его целиком.
-  const child = spawn("deno", ["task", "compile:web"], {
+  // Сборка — скриптом `package.json` через `bun`: он и есть инструмент
+  // сборки дерева при любом рантайме тестов.
+  const child = spawn("bun", ["run", "compile:web"], {
     env: { ...process.env, MPU_OUT: out },
     stdio: ["ignore", "ignore", "pipe"],
   });

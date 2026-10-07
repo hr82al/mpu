@@ -2,12 +2,13 @@
  * Супервизор с настоящими процессами (`platform/supervisor-install.md`):
  * перезапуск одного не трогает другого, сигналы адресуются дочернему,
  * остановка гасит обоих (упрямого — `SIGKILL`), вывод — с префиксами.
- * Дочерние — поддельные (`testdata/fake_child.ts` через `deno`), часы —
+ * Дочерние — поддельные (`testdata/fake_child.ts` тем же рантаймом), часы —
  * поддельные: паузы и ожидание `SIGKILL` отпускает тест.
  */
 
 import { describe, expect, it } from "vitest";
 import { statSync } from "node:fs";
+import { runTs } from "../../back/src/testing/runts.ts";
 import {
   type Clock,
   KILL_AFTER_MS,
@@ -24,11 +25,7 @@ const FAKE = new URL("testdata/fake_child.ts", import.meta.url).pathname;
 /** Путь программы — поведение поддельного дочернего. */
 const LAUNCHER: Launcher = {
   spawn: (mode, args, line) =>
-    SYSTEM_LAUNCHER.spawn(
-      "deno",
-      ["run", "--no-lock", FAKE, mode, ...args],
-      line,
-    ),
+    SYSTEM_LAUNCHER.spawn(...runTs(FAKE, [mode, ...args]), line),
 };
 
 /**

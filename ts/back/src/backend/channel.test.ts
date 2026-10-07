@@ -15,7 +15,13 @@ import {
   STOP,
 } from "../frames/mod.ts";
 import { FakeBot, fakeQuestions, textUpdate } from "../botquestions/testbot.ts";
-import { Client, type TestBack, withBack, within } from "./testback.ts";
+import {
+  Client,
+  openSocket,
+  type TestBack,
+  withBack,
+  within,
+} from "./testback.ts";
 
 const KEY = "/run/user/1000/cc-socks/42.sock";
 
@@ -28,7 +34,7 @@ class Channel {
   #waiters: { count: number; done: () => void }[] = [];
 
   constructor(back: TestBack, key: string) {
-    this.#socket = new WebSocket(`${back.url.replace("http", "ws")}/channel`, {
+    this.#socket = openSocket(`${back.url.replace("http", "ws")}/channel`, {
       protocols: ["mpu", `bearer.${back.token}`],
     });
     this.#socket.onopen = () => this.#socket.send(helloFrame(key));
@@ -180,7 +186,7 @@ it("R2b-7: канал не записал — «не доставлено: се�
 
 it("первый кадр не ключ — соединение закрыто ядром", () =>
   withChannelBack(async (back) => {
-    const socket = new WebSocket(`${back.url.replace("http", "ws")}/channel`, {
+    const socket = openSocket(`${back.url.replace("http", "ws")}/channel`, {
       protocols: ["mpu", `bearer.${back.token}`],
     });
     const closed = Promise.withResolvers<void>();

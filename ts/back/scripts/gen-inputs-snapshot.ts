@@ -8,9 +8,10 @@
  * Снимается один раз, до перевода, и дальше не пересобирается: это
  * эталон того, что было, — по нему тест полноты ищет каждому входу адрес
  * в новой схеме. Запуск из `ts/`:
- * `deno run --allow-read --allow-write=back/src/registry/testdata/inputs-before-159.json back/scripts/gen-inputs-snapshot.ts`.
+ * `bun back/scripts/gen-inputs-snapshot.ts`.
  */
 
+import { writeFile } from "node:fs/promises";
 import { commands } from "../src/registry/mod.ts";
 
 const snapshot = commands.map((command) => ({
@@ -36,7 +37,7 @@ const target = new URL(
   "../src/registry/testdata/inputs-before-159.json",
   import.meta.url,
 );
-await Deno.writeTextFile(target, `${JSON.stringify(snapshot, null, 2)}\n`);
+await writeFile(target, `${JSON.stringify(snapshot, null, 2)}\n`);
 console.log(
   `${snapshot.length} команд, ${
     snapshot.reduce((sum, command) => sum + command.inputs.length, 0)
