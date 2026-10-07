@@ -283,6 +283,7 @@ export class Client {
   readonly #answers: string[];
   readonly #opened = Promise.withResolvers<void>();
   readonly #closed = Promise.withResolvers<number>();
+  readonly #health: string;
   #listeners: (() => void)[] = [];
   #isClosed = false;
 
@@ -301,6 +302,7 @@ export class Client {
     } = {},
   ) {
     this.#answers = [...(options.answers ?? [])];
+    this.#health = `${back.url}/health`;
     const stdin = options.stdin;
     const protocols =
       options.bearer === false
@@ -364,9 +366,20 @@ export class Client {
     this.#socket.close();
   }
 
-  /** Код закрытия сокета. */
-  closed(): Promise<number> {
-    return this.#closed.promise;
+  /**
+   * Код закрытия сокета — когда о закрытии знает и сервер. Клиент Bun
+   * объявляет закрытие, не дождавшись ответного кадра сервера (замер
+   * 2026-10-07: событие `close` через 0 мс после `close()`, сервер узнаёт
+   * на 0,3 мс позже него), клиенты Node и Deno — после ответа, когда
+   * сервер уже знает. Обход `/health` новым соединением выравнивает их:
+   * сервер и тест живут в одном цикле событий, и ответ на новое
+   * соединение приходит позже, чем разобран кадр закрытия, уже лежащий в
+   * сокете.
+   */
+  async closed(): Promise<number> {
+    const code = await this.#closed.promise;
+    await (await fetch(this.#health)).text();
+    return code;
   }
 
   /** Ждёт кадр, удовлетворяющий условию. */
