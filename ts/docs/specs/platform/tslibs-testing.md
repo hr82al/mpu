@@ -16,10 +16,10 @@ HTTP-сервер и `rejected` после H1 живут в двух копия�
 Ровно то, что сегодня экспортируют обе копии (объединение; поведение — как у
 `ts/back/src/testing/`, у которого больше возможностей):
 
-- `serveFetch(handler, options?)` — сервер на петле, `options.tls` — TLS
-  (тип `Tls`); `FetchHandler`, `FakeHttp`;
+- `serveFetch(handler, tls?)` — сервер на петле, `tls` — TLS (тип `Tls`);
+  `FetchHandler`, `FakeHttp` (сигнатура копии `ts/` сохранена);
 - `listenLoopback(server)`, `closedPort()`;
-- `rejected(promise, ErrorClass)`.
+- `rejected(promise, ErrorClass)` — точка входа `@mpu/testing/thrown`.
 
 Прочие помощники `ts/back/src/testing/` в пакет не идут: они знают о домене
 `ts/` (стенд `back`, журнал, клиент строк).
