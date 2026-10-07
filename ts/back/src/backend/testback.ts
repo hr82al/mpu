@@ -380,7 +380,13 @@ export class Client {
    */
   async closed(): Promise<number> {
     const code = await this.#closed.promise;
-    await (await fetch(this.#health)).text();
+    try {
+      await (await fetch(this.#health)).text();
+    } catch (err) {
+      // Сервер уже остановлен (сокет закрыла его остановка) — знать о
+      // закрытии некому, ждать нечего. Отказ сети у `fetch` — `TypeError`.
+      if (!(err instanceof TypeError)) throw err;
+    }
     return code;
   }
 
