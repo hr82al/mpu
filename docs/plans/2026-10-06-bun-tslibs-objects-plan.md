@@ -76,7 +76,7 @@ null-объекты; рефлексия сообщениями (`selectors`, `re
 | `consoleSize` 3, `isTerminal` 8 | 11 | `process.stdout.columns`, `isTTY` | слой |
 | `addSignalListener` 7, `exit` 15 | 22 | `process.on`, `process.exit` | слой |
 | `node:sqlite` (кэш-БД, правила, логи) | 9 | `node:sqlite` или популярный npm-драйвер (не `bun:sqlite`) | **проба**: работает ли в Bun, WAL и `busy_timeout` |
-| `jsr:@mtcute/deno` (MTProto) 19 мест + `convert`, `markdown-parser`, `wasm` | 26 | `@mtcute/bun` | **проба**: вход по сессии, `telegram send/ls/search` живьём |
+| `jsr:@mtcute/deno` (MTProto) 19 мест + `convert`, `markdown-parser`, `wasm` | 26 | `@mtcute/node` 0.31.0 (проба 2026-10-07: одинаково под тремя) | wasm — модулем при сборке; вход по сессии живьём — на бинаре этапа 3 |
 | `jsr:@hono/hono`, `jsr:@zod/zod`, `npm:pg`, `npm:@modelcontextprotocol/sdk` | — | те же пакеты из npm | `package.json`; `pg` под Bun — проба на `sql-ro` (расширенный протокол — основа гарантии read-only) |
 | `@std/assert` 417 импортов, `@std/testing/time` (`FakeTime`) 14 файлов, `@std/text` 1 | 432 | Vitest (`expect`, `vi.useFakeTimers`), `@std/text` → npm-пакет | этап 1 |
 | `Deno.test` | 412 файлов | тот же раннер | этап 1 |
@@ -113,13 +113,31 @@ null-объекты; рефлексия сообщениями (`selectors`, `re
 - Критерий этапа: 100 % тестов перенесены и зелёные под Vitest на Deno; под
   Bun и Node — после этапа 3 (код без `Deno.*`); время прогона «до/после».
 
-### 2. Опись замен — таблица выше, уточнить до пробы
+### 2. Пробы замен — сделаны 2026-10-07
 
-Пробы (одноразовые, `mp/tmp`): `@mtcute/bun`; `bun:sqlite`/`node:sqlite` на
-текущих файлах `mpu.db`, `policy.db`; `npm:pg` под Bun (`sql-ro`);
-`Bun.serve` + WebSocket на кадрах сервера строк; `bun build --compile` —
-размер и старт `mpu --version` (старт — доказанная ценность, замер
-обязателен).
+Лог и скрипты — `mp/tmp/stage2-probes/log.md`. Под Node 24.21, Bun 1.4.2 и
+Deno 2.9.7 одинаково:
+
+- `node:sqlite`: WAL, `busy_timeout`, `readOnly`, `:memory:` — как в коде;
+- `pg@8.22.0`: опция `default_transaction_read_only=on` (запись — `25006`),
+  два оператора в расширенном протоколе — `42601`; гарантия `sql-ro` держится;
+- `@mtcute/node@0.31.0` с хранилищем в памяти, `convert`, `markdown-parser` —
+  соединение с Telegram без авторизации;
+- Hono на `@hono/node-server`, `ws` вместо `Deno.upgradeWebSocket`, MCP SDK
+  с тем же транспортом.
+
+Находки, которые этап 3 обязан учесть:
+
+- остановка HTTP-сервера — `closeAllConnections()` перед `close()`: без него
+  процесс под Deno не выходит (MCP);
+- wasm криптографии mtcute в бинарь Bun сам не попадает («Cannot find module
+  '@mtcute/wasm/mtcute-simd.wasm'»); решение без API рантайма — байты
+  модулем, сгенерированным при сборке, и `initSync` (проверено под тремя и в
+  бинаре);
+- `bun build --compile`: hello — 81 МБ и 12 мс до `--version`; нынешний
+  `mpu` (`deno compile`) — 105 МБ и 24.7 мс;
+- вход по настоящей сессии и `telegram send/ls/search` — живьём на бинаре
+  этапа 3 (сессия хосту закрыта).
 
 ### 3. Порядок перевода
 
