@@ -5,7 +5,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { notificationText, parseHookPayload, TEXT_LIMIT } from "./payload.ts";
 
@@ -212,13 +213,9 @@ describe("stdin, не разбираемый в объект, — ошибка �
   ];
   for (const [title, stdin] of cases) {
     it(title, () => {
-      let err: unknown;
-      try {
+      const err = thrown(() => {
         parseHookPayload(stdin);
-      } catch (thrown) {
-        err = thrown;
-      }
-      assert(err instanceof UsageError);
+      }, UsageError);
       expect(err.message).toContain("stdin хука разбирается как JSON-объект");
       // Ввод в текст отказа не попадает ни куском, ни первой строкой:
       // иначе он вернулся бы в секцию `err` журнала вызовов.

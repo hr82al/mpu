@@ -1,4 +1,5 @@
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import type { Column, Lane } from "../kaiten/mod.ts";
 import { resolveRef } from "./ref.ts";
@@ -50,13 +51,9 @@ describe("resolveColumn: id, точное имя, подстрока", () => {
   });
 
   it("несколько совпадений — кандидаты в подробностях", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       resolveRef("column", COLUMNS, "о");
-    } catch (e) {
-      err = e;
-    }
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
+    }, UsageError);
     expect(err.message).toBe("column 'о' неоднозначен (3 совпадений):");
     expect(err.details).toBe(
       "5000001 (Готово)\n5000002 (Бэклог)\n5000003 (В работе)",
@@ -72,16 +69,12 @@ describe("вид справочника стоит в отказе", () => {
     );
   });
   it("доска неоднозначна", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       resolveRef("board", [
         { id: 1, title: "Поддержка" },
         { id: 2, title: "Поддержка клиентов" },
       ], "поддержк");
-    } catch (e) {
-      err = e;
-    }
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
+    }, UsageError);
     expect(err.message).toBe("board 'поддержк' неоднозначен (2 совпадений):");
     expect(err.details).toBe("1 (Поддержка)\n2 (Поддержка клиентов)");
   });

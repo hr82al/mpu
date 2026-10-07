@@ -1,4 +1,5 @@
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { parseProxy, type ProxySettings, proxyUrl } from "./proxy.ts";
 import { VerbatimError } from "../command/mod.ts";
 
@@ -57,39 +58,27 @@ describe("разбор прокси-URL", () => {
 });
 
 it("прокси-URL без порта отвергается", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     parseProxy("socks5://10.0.0.1");
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
+  }, VerbatimError);
   expect(err.message).toBe(
     "telegram: в прокси-URL нужен host:port — 'socks5://10.0.0.1'",
   );
 });
 
 it("прокси-URL без схемы отвергается", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     parseProxy("10.0.0.1:1080");
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
+  }, VerbatimError);
   expect(err.message).toBe(
     "telegram: в прокси-URL нужен host:port — '10.0.0.1:1080'",
   );
 });
 
 it("неподдерживаемая схема прокси", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     parseProxy("ftp://10.0.0.1:21");
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
+  }, VerbatimError);
   expect(err.message).toStrictEqual(
     "telegram: неподдерживаемая схема прокси 'ftp'; " +
       "попробуй: http/https/socks5/socks4",
@@ -109,13 +98,9 @@ describe("учётные данные не попадают в текст оши
     ]
   ) {
     it(input, () => {
-      let err: unknown;
-      try {
+      const err = thrown(() => {
         parseProxy(input);
-      } catch (e) {
-        err = e;
-      }
-      assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
+      }, VerbatimError);
       expect(err.message.includes("s3cret"), err.message).toBe(false);
       expect(err.message.includes("user"), err.message).toBe(false);
     });

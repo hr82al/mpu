@@ -3,7 +3,8 @@
  * команды»): подстановка пути, сборка тела и типизация полей.
  */
 
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import {
   bodyFromFields,
@@ -56,13 +57,9 @@ it("ни одного заданного поля — запрос без тел
 });
 
 it("обязательное поле без значения — ошибка ввода", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     bodyFromFields([RANGE], {});
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   expect(err.message).toBe("--range обязателен");
 });
 
@@ -87,13 +84,9 @@ it("дробная запись целого значения уходит це�
 it("число: префикс из цифр числом не считается", () => {
   const field: FieldSpec = { name: "n", type: "number", help: "" };
   for (const value of ["12abc", "", "нет", "1.2.3", "0x10"]) {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       typedValue(field, value);
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(err.message).toStrictEqual(
       `--n: ожидается число, получено '${value}'`,
     );
@@ -108,13 +101,9 @@ it("boolean: восемь слов истины и лжи без учёта ре
   for (const value of ["false", "No", "0", "OFF"]) {
     expect(typedValue(field, value)).toBe(false);
   }
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     typedValue(field, "ага");
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   expect(err.message).toBe(
     "--flag: ожидается boolean (true/false/yes/no/1/0), получено 'ага'",
   );
@@ -123,13 +112,9 @@ it("boolean: восемь слов истины и лжи без учёта ре
 it("json: литерал разбирается, негодный называет начало значения", () => {
   const field: FieldSpec = { name: "filter", type: "json", help: "" };
   expect(typedValue(field, '{"a":[1,2]}')).toStrictEqual({ a: [1, 2] });
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     typedValue(field, "{нет");
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   expect(
     err.message.startsWith("--filter: ожидается JSON, получено '{нет...': "),
     err.message,

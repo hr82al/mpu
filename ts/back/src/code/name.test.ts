@@ -10,7 +10,8 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { codeNameCommand, renderName, runName } from "./cmd_name.ts";
 import { openBrokenFixture, openFixture } from "./testing.ts";
@@ -82,10 +83,10 @@ describe("окно уровня каталога сужает ответ", () =>
   });
 
   it("каталога нет — ошибка ввода, а не пустой ответ", async () => {
-    const err = await name(repo, "spanDays", "fixture:nowhere").catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => name(repo, "spanDays", "fixture:nowhere"),
+      UsageError,
+    );
     expect(err.message).toBe("каталога 'nowhere' нет в fixture на вне git");
   });
 
@@ -95,10 +96,7 @@ describe("окно уровня каталога сужает ответ", () =>
     // становилось честное на вид «имя свободно» там, где имя занято
     // дважды.
     for (const raw of ["fixture:..", "fixture:src/../.."]) {
-      const err = await name(repo, "spanDays", raw).catch((thrown: unknown) =>
-        thrown
-      );
-      assert(err instanceof UsageError);
+      const err = await rejected(() => name(repo, "spanDays", raw), UsageError);
       expect(err.message).toStrictEqual(
         `каталог окна выходит за корень репозитория: '${raw}'`,
       );
@@ -111,10 +109,10 @@ describe("окно уровня каталога сужает ответ", () =>
   });
 
   it("неизвестный репозиторий окна", async () => {
-    const err = await name(repo, "spanDays", "nope").catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => name(repo, "spanDays", "nope"),
+      UsageError,
+    );
     expect(err.message).toBe("неизвестный репозиторий 'nope'");
     expect(err.details).toBe("  fixture");
   });
@@ -577,12 +575,12 @@ it("ошибка ввода в окне решается раньше отказ
       mark: () =>
         Promise.resolve({ repo: "plain", state: { kind: "out-of-git" } }),
     };
-    const err = await runName(
-      { name: "alpha", in: "plain:нет-такого", limit: 200 },
-      { cwd: () => root },
-      [repo],
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(() =>
+      runName(
+        { name: "alpha", in: "plain:нет-такого", limit: 200 },
+        { cwd: () => root },
+        [repo],
+      ), UsageError);
     expect(err.message).toBe("каталога 'нет-такого' нет в plain на вне git");
   } finally {
     await rm(temp, { recursive: true });
@@ -597,12 +595,12 @@ it("окно проверяется и там, где программа не с
     // проверка каталога внутри сборки раздела, этот вход давал бы exit
     // 1 — «спроси в другом месте» вместо «такого каталога нет».
     const repo = await openBrokenFixture(temp);
-    const err = await runName(
-      { name: "alpha", in: "broken-fixture:нет-такого", limit: 200 },
-      { cwd: () => repo.root },
-      [repo],
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(() =>
+      runName(
+        { name: "alpha", in: "broken-fixture:нет-такого", limit: 200 },
+        { cwd: () => repo.root },
+        [repo],
+      ), UsageError);
     expect(err.message).toBe(
       "каталога 'нет-такого' нет в broken-fixture на вне git",
     );

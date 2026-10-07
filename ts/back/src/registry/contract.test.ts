@@ -10,6 +10,7 @@ import { appendFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { commands, findCommand, findGroup } from "./mod.ts";
 import { openCacheDb as openStoreDb } from "../store/mod.ts";
 import {
@@ -2284,11 +2285,11 @@ it("инвариант 1: исполнение не печатает", async () 
       const captured = await withCapturedOutput(async () => {
         try {
           await command.invoke(testCase.argv, makeIo(dir));
-        } catch (thrown) {
+        } catch (error) {
           // Инвариант — про печать, а не про успех: команда, которой в
           // тестовом окружении не хватает внешней системы (`init` без
           // конфигурации Portainer), обязана молчать и в отказе.
-          refused = thrown;
+          refused = error;
         }
       });
       if (testCase.path === "copy-client") {
@@ -2396,13 +2397,9 @@ it("инвариант 4: имена входа совпадают со схем
     // помеченную: прячется значение после «=», а не имя — оператор
     // набрал его руками и без него не увидит своей опечатки
     // (`command/args.ts`, `shownOption`).
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       command.parseArgs([...requiredArgv(command), "--нет-такого-входа"]);
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(err.message).toContain(`unknown option "--нет-такого-входа"`);
     expect(err.hint).toStrictEqual(`mpu ${name} --help`);
   }

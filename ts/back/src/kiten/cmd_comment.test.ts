@@ -9,7 +9,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import {
   type Command,
   type CommandIo,
@@ -351,11 +352,7 @@ describe("ошибки ввода: ни одного запроса", () => {
     it(name, async () => {
       const { io, seen, stop } = stand({}, overrides);
       try {
-        const err = await output(argv, io).then(
-          () => null,
-          (e: unknown) => e,
-        );
-        assert(err instanceof UsageError, "ожидался отказ UsageError");
+        const err = await rejected(() => output(argv, io), UsageError);
         expect(err.message).toStrictEqual((await golden(file)).trim());
         expect(calls(seen)).toStrictEqual([]);
       } finally {
@@ -371,11 +368,10 @@ describe("ошибки ввода: ни одного запроса", () => {
       readRegularFile: () => Promise.resolve(new Uint8Array()),
     });
     try {
-      const err = await output([SELECTOR, "-f", "probe.txt"], io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => output([SELECTOR, "-f", "probe.txt"], io),
+        UsageError,
       );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
       expect(err.message).toBe(
         "нужен текст комментария: вложения без текста Kaiten не принимает",
       );
@@ -391,11 +387,10 @@ describe("ошибки ввода: ни одного запроса", () => {
       readRegularFile: () => Promise.reject(new NotFoundIoError("нет")),
     });
     try {
-      const err = await output([SELECTOR, "-m", "текст", "-f", path], io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => output([SELECTOR, "-m", "текст", "-f", path], io),
+        UsageError,
       );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
       expect(err.message).toStrictEqual(
         (await golden("err-file-not-found-message.txt")).trim(),
       );
@@ -410,12 +405,10 @@ describe("ошибки ввода: ни одного запроса", () => {
       readRegularFile: () => Promise.reject(new Error("permission denied")),
     });
     try {
-      const err = await output([SELECTOR, "-m", "текст", "-f", "probe.txt"], io)
-        .then(
-          () => null,
-          (e: unknown) => e,
-        );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(
+        () => output([SELECTOR, "-m", "текст", "-f", "probe.txt"], io),
+        UsageError,
+      );
       expect(err.message).toBe(
         "не удалось прочитать вложение probe.txt: permission denied",
       );
@@ -429,11 +422,10 @@ describe("ошибки ввода: ни одного запроса", () => {
       readTextFile: () => Promise.reject(new NotFoundIoError("file not found")),
     });
     try {
-      const err = await output([SELECTOR, "-F", "/tmp/нет.md"], io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => output([SELECTOR, "-F", "/tmp/нет.md"], io),
+        UsageError,
       );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
       expect(err.message).toBe(
         "не удалось прочитать /tmp/нет.md: file not found",
       );
@@ -446,12 +438,10 @@ describe("ошибки ввода: ни одного запроса", () => {
   it("текст из одних пробелов", async () => {
     const { io, seen, stop } = stand({});
     try {
-      const err = await output([SELECTOR, "-m", "   ", "--to", "@teststub"], io)
-        .then(
-          () => null,
-          (e: unknown) => e,
-        );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(
+        () => output([SELECTOR, "-m", "   ", "--to", "@teststub"], io),
+        UsageError,
+      );
       expect(err.message).toBe("пустой текст комментария");
       expect(calls(seen)).toStrictEqual([]);
     } finally {
@@ -464,11 +454,10 @@ describe("ошибки ввода: ни одного запроса", () => {
     // Kaiten не принимает — отбиваем до сети, как и голые вложения.
     const { io, seen, stop } = stand({});
     try {
-      const err = await output([SELECTOR, "--to", "   "], io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => output([SELECTOR, "--to", "   "], io),
+        UsageError,
       );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
       expect(err.message).toStrictEqual(
         (await golden("err-no-text-message.txt")).trim(),
       );
@@ -535,11 +524,10 @@ it("отказ API — exit 1 с полным путём команды", async 
     [POST_COMMENT]: () => new Response("", { status: 403 }),
   });
   try {
-    const err = await output([SELECTOR, "-m", "текст"], io).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await rejected(
+      () => output([SELECTOR, "-m", "текст"], io),
+      DomainError,
     );
-    assert(err instanceof DomainError, "ожидался отказ DomainError");
     expect(
       formatCommandError("kiten comment", err).startsWith(
         "mpu kiten comment: kaiten error: ",

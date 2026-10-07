@@ -11,7 +11,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { DomainError, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
@@ -188,17 +189,17 @@ describe("config: три флага правки взаимоисключающ�
   ) {
     it(pair.join(" + "), async () => {
       const { session, sent } = sessionOf();
-      const err = await runConfig(
-        args({
-          selector: SID,
-          loader: "cards",
-          [pair[0]]: true,
-          [pair[1]]: true,
-        }),
-        ioDirect(),
-        { session },
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runConfig(
+          args({
+            selector: SID,
+            loader: "cards",
+            [pair[0]]: true,
+            [pair[1]]: true,
+          }),
+          ioDirect(),
+          { session },
+        ), UsageError);
       expect(err.message).toContain("взаимоисключающи");
       // Ни одного вызова: «последний выигрывает» включил бы загрузчик
       // там, где просили выключить.
@@ -259,17 +260,17 @@ describe("config: три флага правки взаимоисключающ�
 
 it("reset: --state и --from взаимоисключающи, до сети", async () => {
   const { session, sent } = sessionOf();
-  const err = await runReset(
-    args({
-      selector: SID,
-      loader: "orders",
-      state: "{}",
-      from: "2026-08-01",
-    }),
-    ioDirect(),
-    { session },
-  ).catch((thrown: unknown) => thrown);
-  assert(err instanceof UsageError);
+  const err = await rejected(() =>
+    runReset(
+      args({
+        selector: SID,
+        loader: "orders",
+        state: "{}",
+        from: "2026-08-01",
+      }),
+      ioDirect(),
+      { session },
+    ), UsageError);
   expect(err.message).toContain("взаимоисключающи");
   expect(sent).toStrictEqual([]);
 });
@@ -315,12 +316,12 @@ describe("--from собирает состояние на день раньше 
 it("--and-load: отказ прогона не отменяет сброса", async () => {
   // Первый вызов проходит, второй падает.
   const { session, sent } = sessionOf((at) => at === 1);
-  const err = await runReset(
-    args({ selector: SID, loader: "orders", "and-load": true }),
-    ioDirect(),
-    { session },
-  ).catch((thrown: unknown) => thrown);
-  assert(err instanceof DomainError);
+  const err = await rejected(() =>
+    runReset(
+      args({ selector: SID, loader: "orders", "and-load": true }),
+      ioDirect(),
+      { session },
+    ), DomainError);
   // Сообщение обязано сказать, что сброс уже произошёл: иначе оператор
   // решит, что состояние прежнее, и повторит сброс.
   expect(err.message).toContain("сброс состояния прошёл");
@@ -406,12 +407,12 @@ describe("resume: показ не мутирует, --all с именем — о
 
   it("--all вместе с именем — отказ до сети", async () => {
     const { session, sent } = sessionOf();
-    const err = await runResume(
-      args({ selector: SID, loader: "wbCards", all: true }),
-      ioDirect(),
-      { session },
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(() =>
+      runResume(
+        args({ selector: SID, loader: "wbCards", all: true }),
+        ioDirect(),
+        { session },
+      ), UsageError);
     expect(err.message).toContain("взаимоисключающи");
     expect(sent).toStrictEqual([]);
   });
@@ -473,14 +474,14 @@ describe("резолв по кэшу: показ обходит все каби�
   it("мутация при нескольких — отказ с требованием --sid", async () => {
     await withCache([SID, OTHER_SID], async (io) => {
       const { session, sent } = sessionOf();
-      const err = await runResume(
-        args({ selector: "777", loader: "wbCards" }),
-        io,
-        {
-          session,
-        },
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runResume(
+          args({ selector: "777", loader: "wbCards" }),
+          io,
+          {
+            session,
+          },
+        ), UsageError);
       expect(err.message).toContain("несколько WB sid");
       expect(String(err.details)).toContain(SID);
       expect(String(err.details)).toContain(OTHER_SID);

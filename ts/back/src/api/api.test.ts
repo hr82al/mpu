@@ -5,7 +5,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { type Command, DomainError, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import {
@@ -166,11 +167,11 @@ it("HTTP ≥ 400 — отказ команды, тело отдельной ст
     new Response('{"message":"client not found"}', { status: 404 })
   );
   try {
-    const err = await commandOf("get-client").invoke(
-      ["404"],
-      ioTo(stand.baseUrl),
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(() =>
+      commandOf("get-client").invoke(
+        ["404"],
+        ioTo(stand.baseUrl),
+      ), DomainError);
     expect(err.message).toBe("GET /admin/client/404 failed: HTTP 404");
     expect(err.details).toBe('{"message":"client not found"}');
   } finally {
@@ -181,9 +182,10 @@ it("HTTP ≥ 400 — отказ команды, тело отдельной ст
 it("500 не превращается в успех", async () => {
   const stand = standWith(() => new Response("", { status: 500 }));
   try {
-    const err = await commandOf("list-clients").invoke([], ioTo(stand.baseUrl))
-      .catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () => commandOf("list-clients").invoke([], ioTo(stand.baseUrl)),
+      DomainError,
+    );
     expect(err.message).toBe("GET /admin/client failed: HTTP 500");
     // Тела нет — лишней пустой строки под ошибкой тоже нет.
     expect(err.details).toStrictEqual(undefined);
@@ -195,9 +197,10 @@ it("500 не превращается в успех", async () => {
 it("токена нет в тексте отказа, хотя он ушёл заголовком", async () => {
   const stand = standWith(() => new Response("нет доступа", { status: 403 }));
   try {
-    const err = await commandOf("list-users").invoke([], ioTo(stand.baseUrl))
-      .catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () => commandOf("list-users").invoke([], ioTo(stand.baseUrl)),
+      DomainError,
+    );
     // Токен ушёл на сервер — и это единственное место, где он бывает.
     expect(stand.seen[1].authorization).toStrictEqual(`Bearer ${TOKEN}`);
     expect(`${err.message}\n${err.details ?? ""}`).not.toMatch(
@@ -233,11 +236,11 @@ it("сегмент пути '..' отбивается до сети", async () =
   const stand = standWith(() => new Response("не ожидается", { status: 500 }));
   try {
     for (const value of [".", ".."]) {
-      const err = await commandOf("get-client").invoke(
-        [value],
-        ioTo(stand.baseUrl),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        commandOf("get-client").invoke(
+          [value],
+          ioTo(stand.baseUrl),
+        ), UsageError);
       expect(err.message).toStrictEqual(
         `userId: '${value}' — не идентификатор, а сегмент пути`,
       );
@@ -309,10 +312,10 @@ describe("нехватка обязательного поля печатает�
   for (const [name, argv, message] of cases) {
     it(name, async () => {
       const command = commandOf(name);
-      const err = await command.invoke(argv, makeFakeIo()).catch((
-        thrown: unknown,
-      ) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(
+        () => command.invoke(argv, makeFakeIo()),
+        UsageError,
+      );
       expect(err.message).toContain(message);
       expect((err as UsageError).hint, `${name}: подсказка отличается`)
         .toStrictEqual(`mpu api ${name} --help`);
@@ -371,28 +374,29 @@ it("ошибки ввода отбиваются до сети", async () => {
   try {
     const command = commandOf("get-ss-values");
     const io = ioTo(stand.baseUrl);
-    const missing = await command.invoke(["ss1"], io).catch((thrown: unknown) =>
-      thrown
+    const missing = await rejected(
+      () => command.invoke(["ss1"], io),
+      UsageError,
     );
-    assert(missing instanceof UsageError);
     expect(missing.message).toBe("--range обязателен");
-    const badBody = await command.invoke(["ss1", "-b", "{нет"], io).catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(badBody instanceof UsageError);
+    const badBody = await rejected(
+      () => command.invoke(["ss1", "-b", "{нет"], io),
+      UsageError,
+    );
     expect(badBody.message).toContain("--body: невалидный JSON: ");
-    const noFile = await command.invoke(["ss1", "--body-file", "/нет.json"], io)
-      .catch((thrown: unknown) => thrown);
-    assert(noFile instanceof UsageError);
+    const noFile = await rejected(
+      () => command.invoke(["ss1", "--body-file", "/нет.json"], io),
+      UsageError,
+    );
     expect(noFile.message).toBe("body-file: /нет.json: file not found");
-    const both = await command.invoke([
-      "ss1",
-      "-b",
-      "{}",
-      "--body-file",
-      "/нет.json",
-    ], io).catch((thrown: unknown) => thrown);
-    assert(both instanceof UsageError);
+    const both = await rejected(() =>
+      command.invoke([
+        "ss1",
+        "-b",
+        "{}",
+        "--body-file",
+        "/нет.json",
+      ], io), UsageError);
     expect(both.message).toBe("body: и body-file: вместе нельзя — тело одно");
     // Ни один из отказов не стоил обращения наружу.
     expect(stand.seen.length).toBe(0);
@@ -468,9 +472,10 @@ it("get-token: один флаг — кэш по-прежнему старше �
 it("get-token: ответ логина без accessToken — свой текст отказа", async () => {
   const stand = startFakeSlback(() => Response.json({ user: { id: 1 } }));
   try {
-    const err = await commandOf("get-token").invoke([], ioTo(stand.baseUrl))
-      .catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () => commandOf("get-token").invoke([], ioTo(stand.baseUrl)),
+      DomainError,
+    );
     expect(err.message).toBe("нет accessToken в ответе sl-back");
   } finally {
     await stand.stop();

@@ -10,7 +10,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { renderTwins, runTwins } from "./cmd_twins.ts";
 import type { Repo } from "./workspace.ts";
@@ -169,10 +170,7 @@ it("объявление без тела — свой отказ, а не «не
         "",
       ].join("\n"),
     );
-    const err = await twins(repo, "r:src/a.ts:1").catch((thrown: unknown) =>
-      thrown
-    );
-    assert(err instanceof UsageError);
+    const err = await rejected(() => twins(repo, "r:src/a.ts:1"), UsageError);
     expect(err.message).toBe("у объявления в строке 1 нет тела");
   } finally {
     await rm(temp, { recursive: true });
@@ -253,10 +251,7 @@ it("строка с объявлением-не-функцией даёт пер
         "",
       ].join("\n"),
     );
-    const err = await twins(repo, "r:src/a.ts:1").catch((thrown: unknown) =>
-      thrown
-    );
-    assert(err instanceof UsageError);
+    const err = await rejected(() => twins(repo, "r:src/a.ts:1"), UsageError);
     expect(err.message).toBe("в строке 1 нет объявления-функции");
     expect(err.details).toBe("  src/a.ts:1  LIMIT\n  src/a.ts:3  only");
   } finally {

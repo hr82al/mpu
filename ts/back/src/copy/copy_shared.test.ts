@@ -7,7 +7,8 @@
  * порядок env-файлов, целевой порт и список таблиц.
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -157,11 +158,11 @@ describe("отказы конфигурации — до запуска docker",
 
   it("нет каталога mp-config-local", async () => {
     await withIo(async (io) => {
-      const err = await runCopyShared({ selector: "sl-1" }, io, {
-        runLocal: () => Promise.reject(new Error("docker не ожидается")),
-        exists: () => false,
-      }).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runCopyShared({ selector: "sl-1" }, io, {
+          runLocal: () => Promise.reject(new Error("docker не ожидается")),
+          exists: () => false,
+        }), UsageError);
       expect(err.message).toContain(`mp-config-local dir not found: ${CONFIG}`);
       expect(String(err.hint)).toContain("MPU_MP_CONFIG_LOCAL");
     });

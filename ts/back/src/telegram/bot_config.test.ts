@@ -3,7 +3,8 @@
  * свои ключи, не пересекающиеся с сеансом MTProto.
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { DomainError } from "../command/mod.ts";
 import { botConfig } from "./bot_config.ts";
 import type { EnvKeys } from "./config.ts";
@@ -52,35 +53,23 @@ it("пустое имя бота равнозначно незаданному",
 });
 
 it("нет токена — ошибка конфигурации с именем ключа", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     botConfig(fakeEnv({ TELEGRAM_BOT_ID: "1" }));
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof DomainError, "ожидался отказ DomainError");
+  }, DomainError);
   expect(err.message.includes("TELEGRAM_BOT_TOKEN")).toBe(true);
 });
 
 it("нет id — ошибка конфигурации с именем ключа", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     botConfig(fakeEnv({ TELEGRAM_BOT_TOKEN: "t" }));
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof DomainError, "ожидался отказ DomainError");
+  }, DomainError);
   expect(err.message.includes("TELEGRAM_BOT_ID")).toBe(true);
 });
 
 it("нечисловой id — свой текст отказа", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     botConfig(fakeEnv({ TELEGRAM_BOT_TOKEN: "t", TELEGRAM_BOT_ID: "меня" }));
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof DomainError, "ожидался отказ DomainError");
+  }, DomainError);
   expect(err.message).toBe(
     "telegram: TELEGRAM_BOT_ID должен быть числом, получено 'меня'",
   );
@@ -139,17 +128,13 @@ it("без TELEGRAM_PROXY берётся HTTPS_PROXY, затем https_proxy", (
 });
 
 it("socks4 — отказ, названный своей причиной", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     botConfig(fakeEnv({
       TELEGRAM_BOT_TOKEN: "t",
       TELEGRAM_BOT_ID: "1",
       TELEGRAM_PROXY: "socks4://host:1080",
     }));
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof DomainError, "ожидался отказ DomainError");
+  }, DomainError);
   expect(err.message).toStrictEqual(
     "telegram: Bot API не умеет прокси socks4; поддерживаются" +
       " http/https/socks5/socks5h (у mpu telegram send прокси свой," +
@@ -158,17 +143,13 @@ it("socks4 — отказ, названный своей причиной", () =
 });
 
 it("прокси без host:port — отказ до сети", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     botConfig(fakeEnv({
       TELEGRAM_BOT_TOKEN: "t",
       TELEGRAM_BOT_ID: "1",
       TELEGRAM_PROXY: "socks5://",
     }));
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof DomainError, "ожидался отказ DomainError");
+  }, DomainError);
   expect(err.message).toBe(
     "telegram: в прокси-URL нужен host:port — 'socks5://'",
   );
@@ -182,17 +163,13 @@ describe("учётные данные прокси не попадают в те
     ]
   ) {
     it(proxy, () => {
-      let err: unknown;
-      try {
+      const err = thrown(() => {
         botConfig(fakeEnv({
           TELEGRAM_BOT_TOKEN: "t",
           TELEGRAM_BOT_ID: "1",
           TELEGRAM_PROXY: proxy,
         }));
-      } catch (e) {
-        err = e;
-      }
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
+      }, DomainError);
       expect(err.message).toStrictEqual(`telegram: ${shown}`);
     });
   }

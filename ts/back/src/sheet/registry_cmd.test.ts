@@ -10,7 +10,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { plainRows } from "../testing/cache.ts";
 import {
   type CacheDb,
@@ -163,9 +164,10 @@ it("alias add поверх существующего имени обновля�
 describe("alias add: что отвергается до записи", () => {
   it("недопустимое имя", async () => {
     await withDb(async (db) => {
-      const err = await sheetAliasAddCommand.invoke(["от чёт", SS], ioOf(db))
-        .catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(
+        () => sheetAliasAddCommand.invoke(["от чёт", SS], ioOf(db)),
+        UsageError,
+      );
       // Отказ называет допустимый набор: иначе оператор перебирает.
       expect(err.message).toContain("буквы, цифры");
       expect(aliasRowsOf(db).length).toBe(0);
@@ -239,10 +241,10 @@ it("alias rm различает исходы", async () => {
     expect(aliasRowsOf(db).length).toBe(0);
     // Второй прогон — не молчаливый успех: опечатка в имени иначе
     // читалась бы как «снято» (спека, инвариант 5).
-    const err = await sheetAliasRmCommand.invoke(["otchet"], ioOf(db)).catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () => sheetAliasRmCommand.invoke(["otchet"], ioOf(db)),
+      DomainError,
+    );
     expect(err.message).toContain("otchet");
   });
 });
@@ -312,9 +314,10 @@ it("open ЛИСТ пользуется кэшем, а не чистит его",
 it("open ЛИСТ: листа нет — код 2 и перечень доступных", async () => {
   await withDb(async (db) => {
     const { io, options } = harness(db);
-    const err = await runOpen({ tab: "Нетакого", spreadsheet: SS }, io, options)
-      .catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => runOpen({ tab: "Нетакого", spreadsheet: SS }, io, options),
+      UsageError,
+    );
     expect(err.message).toContain("Сводка");
     expect(err.message).toContain("Данные");
   });

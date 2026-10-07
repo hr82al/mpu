@@ -11,7 +11,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import {
   type CommandIo,
   DomainError,
@@ -239,12 +240,10 @@ it("field set: отказ API — exit 1 с полным путём команд
     [`PATCH ${CARD_PATH}`]: () => new Response("", { status: 403 }),
   });
   try {
-    const err = await output(kitenFieldSetCommand, [SELECTOR, "mr", "x"], io)
-      .then(
-        () => null,
-        (e: unknown) => e,
-      );
-    assert(err instanceof DomainError, "ожидался отказ DomainError");
+    const err = await rejected(
+      () => output(kitenFieldSetCommand, [SELECTOR, "mr", "x"], io),
+      DomainError,
+    );
     expect(
       formatCommandError("kiten field set", err).startsWith(
         "mpu kiten field set: kaiten error: ",
@@ -316,15 +315,12 @@ describe("artefact set: ошибки ввода — до сети и до чте
     // случиться раньше чтения файла.
     const { io, seen, stop } = stand({});
     try {
-      const err = await output(
-        kitenArtefactSetCommand,
-        [SELECTOR, "probe.txt"],
-        io,
-      ).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(() =>
+        output(
+          kitenArtefactSetCommand,
+          [SELECTOR, "probe.txt"],
+          io,
+        ), UsageError);
       expect(err.message).toStrictEqual(
         (await golden("err-not-md-message.txt")).trim(),
       );
@@ -350,14 +346,11 @@ describe("artefact set: ошибки ввода — до сети и до чте
       readRegularFile: () => Promise.reject(new NotFoundIoError("нет")),
     });
     try {
-      const err = await output(kitenArtefactSetCommand, [
-        SELECTOR,
-        "/nowhere/x.md",
-      ], io).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(() =>
+        output(kitenArtefactSetCommand, [
+          SELECTOR,
+          "/nowhere/x.md",
+        ], io), UsageError);
       expect(err.message).toBe("артефакт не найден: /nowhere/x.md");
       expect(calls(seen)).toStrictEqual([]);
     } finally {
@@ -384,15 +377,12 @@ it("artefact set: прочий отказ чтения — тоже ошибка
     readRegularFile: () => Promise.reject(new Error("permission denied")),
   });
   try {
-    const err = await output(
-      kitenArtefactSetCommand,
-      [SELECTOR, "razbor.md"],
-      io,
-    ).then(
-      () => null,
-      (e: unknown) => e,
-    );
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
+    const err = await rejected(() =>
+      output(
+        kitenArtefactSetCommand,
+        [SELECTOR, "razbor.md"],
+        io,
+      ), UsageError);
     expect(err.message).toBe(
       "не удалось прочитать артефакт razbor.md: permission denied",
     );

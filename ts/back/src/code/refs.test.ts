@@ -11,7 +11,8 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { renderRefs, runRefs } from "./cmd_refs.ts";
 import { openFixture } from "./testing.ts";
@@ -111,25 +112,25 @@ describe("ошибки ввода: репозиторий, файл, строк�
     await rm(temp, { recursive: true });
   });
   it("неизвестный репозиторий", async () => {
-    const err = await refs(repo, "nope:src/days.ts:2").catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => refs(repo, "nope:src/days.ts:2"),
+      UsageError,
+    );
     expect(err.message).toBe("неизвестный репозиторий 'nope'");
     expect(err.details).toBe("  fixture");
   });
   it("файла нет", async () => {
-    const err = await refs(repo, "fixture:src/gone.ts").catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => refs(repo, "fixture:src/gone.ts"),
+      UsageError,
+    );
     expect(err.message).toBe("файла src/gone.ts нет в fixture на вне git");
   });
   it("в строке нет объявления", async () => {
-    const err = await refs(repo, "fixture:src/days.ts:1").catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => refs(repo, "fixture:src/days.ts:1"),
+      UsageError,
+    );
     expect(err.message).toBe("в строке 1 нет объявления");
     expect(err.details).toBe(
       "  src/days.ts:2  addDays\n  src/days.ts:9  spanDays",

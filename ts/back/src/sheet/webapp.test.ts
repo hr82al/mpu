@@ -3,7 +3,8 @@
  * ветки повторов и тексты отказов. Сеть подставная, пауз нет.
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { DomainError } from "../command/mod.ts";
 import { backoffMs, callWebapp, type WebappDeps } from "./webapp.ts";
 
@@ -74,10 +75,7 @@ it("5xx повторяется с backoff и заметками в журнал"
 
 it("шесть транспортных отказов — ошибка с их причиной", async () => {
   const { deps, calls } = channel([new Error("connection reset")]);
-  const err = await callWebapp(deps, "act", {}).catch((thrown: unknown) =>
-    thrown
-  );
-  assert(err instanceof DomainError);
+  const err = await rejected(() => callWebapp(deps, "act", {}), DomainError);
   expect(err.message).toBe(
     "act failed after 6 attempts: transport: connection reset",
   );
@@ -115,20 +113,14 @@ describe("429 и квота в теле ждут минуту и повторя�
 
 it("шесть подряд квот — исчерпанный бюджет с пустым хвостом", async () => {
   const { deps, pauses } = channel([{ status: 429, text: "" }]);
-  const err = await callWebapp(deps, "act", {}).catch((thrown: unknown) =>
-    thrown
-  );
-  assert(err instanceof DomainError);
+  const err = await rejected(() => callWebapp(deps, "act", {}), DomainError);
   expect(err.message).toBe("act: исчерпан лимит попыток (6). Last error: ");
   expect(pauses.length).toBe(6);
 });
 
 it("404 терпится трижды, четвёртый — ошибка", async () => {
   const { deps, pauses, calls } = channel([{ status: 404, text: "<html>" }]);
-  const err = await callWebapp(deps, "act", {}).catch((thrown: unknown) =>
-    thrown
-  );
-  assert(err instanceof DomainError);
+  const err = await rejected(() => callWebapp(deps, "act", {}), DomainError);
   expect(err.message).toBe("act: HTTP 404: <html>");
   expect(calls.length).toBe(4);
   expect(pauses).toStrictEqual([10_000, 10_000, 10_000]);
@@ -151,10 +143,7 @@ it("404 считаются подряд идущими, а не всего за 
 
 it("прочий 4xx — немедленный отказ без повторов", async () => {
   const { deps, calls } = channel([{ status: 403, text: "forbidden" }]);
-  const err = await callWebapp(deps, "act", {}).catch((thrown: unknown) =>
-    thrown
-  );
-  assert(err instanceof DomainError);
+  const err = await rejected(() => callWebapp(deps, "act", {}), DomainError);
   expect(err.message).toBe("act: HTTP 403: forbidden");
   expect(calls.length).toBe(1);
 });
@@ -162,19 +151,13 @@ it("прочий 4xx — немедленный отказ без повторо
 describe("тело не JSON и не объект — свои тексты", () => {
   it("не JSON", async () => {
     const { deps } = channel([{ status: 200, text: "<html>вход</html>" }]);
-    const err = await callWebapp(deps, "act", {}).catch((thrown: unknown) =>
-      thrown
-    );
-    assert(err instanceof DomainError);
+    const err = await rejected(() => callWebapp(deps, "act", {}), DomainError);
     expect(err.message).toBe("act: non-JSON response: <html>вход</html>");
   });
 
   it("JSON, но не объект", async () => {
     const { deps } = channel([{ status: 200, text: "[1,2]" }]);
-    const err = await callWebapp(deps, "act", {}).catch((thrown: unknown) =>
-      thrown
-    );
-    assert(err instanceof DomainError);
+    const err = await rejected(() => callWebapp(deps, "act", {}), DomainError);
     expect(err.message).toBe("act: response is not an object: [1,2]");
   });
 });
@@ -187,10 +170,7 @@ describe("ложный success без квоты завершает вызов �
         text: JSON.stringify({ success: false, error: "нет доступа" }),
       },
     ]);
-    const err = await callWebapp(deps, "act", {}).catch((thrown: unknown) =>
-      thrown
-    );
-    assert(err instanceof DomainError);
+    const err = await rejected(() => callWebapp(deps, "act", {}), DomainError);
     expect(err.message).toBe("act: нет доступа");
     expect(calls.length).toBe(1);
   });
@@ -199,20 +179,14 @@ describe("ложный success без квоты завершает вызов �
     const { deps } = channel([
       { status: 200, text: JSON.stringify({ success: false }) },
     ]);
-    const err = await callWebapp(deps, "act", {}).catch((thrown: unknown) =>
-      thrown
-    );
-    assert(err instanceof DomainError);
+    const err = await rejected(() => callWebapp(deps, "act", {}), DomainError);
     expect(err.message).toBe("act: unknown error");
   });
 });
 
 it("URL не появляется ни в одном тексте отказа", async () => {
   const { deps } = channel([{ status: 403, text: "forbidden" }]);
-  const err = await callWebapp(deps, "act", {}).catch((thrown: unknown) =>
-    thrown
-  );
-  assert(err instanceof DomainError);
+  const err = await rejected(() => callWebapp(deps, "act", {}), DomainError);
   // Публичный deployment: знание адреса равносильно доступу к таблицам.
   expect(err.message.includes("script.google.com")).toBe(false);
   expect(err.message.includes("секрет")).toBe(false);

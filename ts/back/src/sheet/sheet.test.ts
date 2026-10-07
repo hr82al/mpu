@@ -9,7 +9,8 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import {
   type CacheDb,
   type CommandIo,
@@ -381,10 +382,10 @@ describe("get: отказы ввода — до сети", () => {
   });
 
   it("нет диапазонов", async () => {
-    const err = await runGet(getArgs({ ranges: [] }), io, options).catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => runGet(getArgs({ ranges: [] }), io, options),
+      UsageError,
+    );
     // Голден сверяется как есть: форма использования печатается без
     // префикса команды, и дописывать его к эталону значило бы
     // подгонять эталон под код.
@@ -394,19 +395,20 @@ describe("get: отказы ввода — до сети", () => {
   });
 
   it("незнакомый --render", async () => {
-    const err = await runGet(getArgs({ render: "raw" }), io, options).catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => runGet(getArgs({ render: "raw" }), io, options),
+      UsageError,
+    );
     expect(err.message).toBe(
       "--render must be one of: both, values, formulas, formatted",
     );
   });
 
   it("диапазон без листа", async () => {
-    const err = await runGet(getArgs({ ranges: ["A1:B2"] }), io, options)
-      .catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => runGet(getArgs({ ranges: ["A1:B2"] }), io, options),
+      UsageError,
+    );
     expect(err.message).toContain("диапазон 'A1:B2' без имени листа");
   });
 
@@ -470,9 +472,10 @@ it("get: имя листа кавычится и в адресе всего ли
 it("get: лист не найден — отказ с перечнем доступных", async () => {
   await withDb(async (db) => {
     const { io, options } = harness(db);
-    const err = await runGet(getArgs({ ranges: ["Нет!A1"] }), io, options)
-      .catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () => runGet(getArgs({ ranges: ["Нет!A1"] }), io, options),
+      DomainError,
+    );
     expect(err.message).toStrictEqual(
       `лист 'Нет' не найден в spreadsheet ${SS_ID}; доступные: Sheet1`,
     );
@@ -510,10 +513,10 @@ it("WB_PLUS_WEB_APP_URL не задан — доменный отказ", async 
       openCacheDb: () => ({ ...db, [Symbol.dispose]: () => {} }),
       note: () => {},
     });
-    const err = await runLs(lsArgs() as Parameters<typeof runLs>[0], io).catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () => runLs(lsArgs() as Parameters<typeof runLs>[0], io),
+      DomainError,
+    );
     expect(err.message).toContain("WB_PLUS_WEB_APP_URL");
   });
 });

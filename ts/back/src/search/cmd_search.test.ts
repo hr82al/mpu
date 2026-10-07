@@ -12,7 +12,8 @@
  * клиента; клиент 11 — таблица `SS_BETA_0001`, третий кабинет.
  */
 
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -270,11 +271,11 @@ it("две проекции сразу — отказ до всякого обр
       throw new Error("кэш-БД не должна открываться");
     },
   });
-  const err = await searchCommand.invokeInput(
-    { value: "10", "client-id": true, sids: true },
-    io,
-  ).catch((thrown: unknown) => thrown);
-  assert(err instanceof UsageError);
+  const err = await rejected(() =>
+    searchCommand.invokeInput(
+      { value: "10", "client-id": true, sids: true },
+      io,
+    ), UsageError);
   expect(`${formatCommandError("search", err)}\n`).toStrictEqual(
     await golden("err-two-projections.stderr.txt"),
   );

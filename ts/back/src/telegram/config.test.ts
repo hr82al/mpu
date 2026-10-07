@@ -1,4 +1,5 @@
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { DomainError, VerbatimError } from "../command/mod.ts";
 import { type EnvKeys, telegramConfig } from "./config.ts";
 
@@ -47,13 +48,9 @@ describe("отсутствующий обязательный ключ назы�
   for (const name of ["TELEGRAM_API_ID", "TELEGRAM_API_HASH"]) {
     it(name, () => {
       const values = { ...FULL, [name]: "" };
-      let err: unknown;
-      try {
+      const err = thrown(() => {
         telegramConfig(env(values));
-      } catch (e) {
-        err = e;
-      }
-      assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
+      }, VerbatimError);
       expect(err.message).toStrictEqual(
         `telegram: environment variable ${name} is not set. ` +
           "Add it to /nowhere/.env or export in shell.",
@@ -63,26 +60,18 @@ describe("отсутствующий обязательный ключ назы�
 });
 
 it("нечисловой TELEGRAM_API_ID", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     telegramConfig(env({ ...FULL, TELEGRAM_API_ID: "abc" }));
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
+  }, VerbatimError);
   expect(err.message).toBe(
     "telegram: TELEGRAM_API_ID должен быть числом, получено 'abc'",
   );
 });
 
 it("пустая строка сессии — не авторизован", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     telegramConfig(env({ ...FULL, TELEGRAM_SESSION: "" }));
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
+  }, VerbatimError);
   expect(err.message).toBe("telegram: не авторизован; запусти `mpu init`");
 });
 
@@ -113,17 +102,13 @@ describe("прокси берётся по порядку источников",
 });
 
 it("секреты не попадают в текст ошибки конфигурации", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     telegramConfig(env({
       ...FULL,
       TELEGRAM_API_ID: "abc",
       TELEGRAM_API_HASH: "s3cret-hash",
     }));
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
+  }, VerbatimError);
   expect(err.message.includes("s3cret-hash")).toBe(false);
   expect(err.message.includes("session-string")).toBe(false);
 });

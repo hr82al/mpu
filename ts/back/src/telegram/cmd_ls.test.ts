@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import type { Command, CommandIo } from "../command/mod.ts";
 import { formatCommandError, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
@@ -62,11 +63,10 @@ it("--table печатает таблицу тех же данных", async () 
 describe("--limit вне диапазона — отказ до сети", () => {
   for (const value of ["0", "501", "-1"]) {
     it(value, async () => {
-      const err = await command.invoke(["--limit", value], io()).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => command.invoke(["--limit", value], io()),
+        UsageError,
       );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
       expect(err.message).toStrictEqual(
         `--limit вне диапазона 1..500: ${value}`,
       );
@@ -75,22 +75,20 @@ describe("--limit вне диапазона — отказ до сети", () =>
 });
 
 it("строка отказа по --limit совпадает с голденом", async () => {
-  const err = await command.invoke(["--limit", "0"], io()).then(
-    () => null,
-    (e: unknown) => e,
+  const err = await rejected(
+    () => command.invoke(["--limit", "0"], io()),
+    UsageError,
   );
-  assert(err instanceof UsageError, "ожидался отказ UsageError");
   expect(`${formatCommandError(command.errorName, err)}\n`).toStrictEqual(
     await golden("err-limit-stderr.txt"),
   );
 });
 
 it("нечисловой --limit тоже отбивается", async () => {
-  const err = await command.invoke(["--limit", "много"], io()).then(
-    () => null,
-    (e: unknown) => e,
+  const err = await rejected(
+    () => command.invoke(["--limit", "много"], io()),
+    UsageError,
   );
-  assert(err instanceof UsageError, "ожидался отказ UsageError");
   expect(err.message).toBe("--limit вне диапазона 1..500: много");
 });
 

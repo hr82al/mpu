@@ -3,7 +3,8 @@
  * инструкций, опции «последнее слово побеждает» и границы аспектов.
  */
 
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { planRead } from "./readplan.ts";
 
@@ -37,13 +38,9 @@ it("токен, не бывший аспектом, — имя листа-фил
 });
 
 it("per-cell аспект отбивается с перечнем доступных", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     planRead("read note");
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   expect(err.message).toStrictEqual(
     "аспект 'note' (per-cell) недоступен: webApp не отдаёт gridData. " +
       "Доступны: banding, charts, cond, dims, filters, merges, meta, " +
@@ -52,13 +49,9 @@ it("per-cell аспект отбивается с перечнем доступ�
 });
 
 it("глагол не get и не read — своя ошибка", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     planRead("trim A1");
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   expect(err.message).toBe("read-глагол должен быть get|read, получено 'trim'");
 });
 

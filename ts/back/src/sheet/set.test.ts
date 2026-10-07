@@ -10,7 +10,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import {
   type CacheDb,
   DomainError,
@@ -242,10 +243,10 @@ it("отказ второго запроса называет записанно
       json,
       false,
     );
-    const err = await runSet(args({ range: SS }), io, options).catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () => runSet(args({ range: SS }), io, options),
+      DomainError,
+    );
     // Молчаливый код 1 после частичной записи запрещён: сообщение
     // называет и что записано, и что нет (инвариант 1).
     expect(err.message).toContain("записано частично");
@@ -300,12 +301,12 @@ describe("пакет из файла: комментарии, пустые и с
         ...io,
         readTextFile: () => Promise.resolve("Лист!A1\t1\nбез табуляции\n"),
       });
-      const err = await runSet(
-        args({ from: "пакет.tsv", spreadsheet: SS }),
-        withFile,
-        options,
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runSet(
+          args({ from: "пакет.tsv", spreadsheet: SS }),
+          withFile,
+          options,
+        ), UsageError);
       expect(err.message).toContain("строка 2");
       expect(sent).toStrictEqual([]);
     });
@@ -402,9 +403,10 @@ it("цель, названная дважды, — ошибка ввода", asy
   await withDb(async (db) => {
     const json = JSON.stringify([{ range: "Лист!A1", value: "x" }]);
     const { io, sent, options } = harness(db, () => updated(1), json, false);
-    const err = await runSet(args({ range: SS, spreadsheet: SS }), io, options)
-      .catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => runSet(args({ range: SS, spreadsheet: SS }), io, options),
+      UsageError,
+    );
     expect(err.message).toContain("дважды");
     expect(sent).toStrictEqual([]);
   });
@@ -413,10 +415,10 @@ it("цель, названная дважды, — ошибка ввода", asy
 it("ни одного режима — отказ с образцом употребления", async () => {
   await withDb(async (db) => {
     const { io, sent, options } = harness(db);
-    const err = await runSet(args({ spreadsheet: SS }), io, options).catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => runSet(args({ spreadsheet: SS }), io, options),
+      UsageError,
+    );
     expect(err.message).toContain("mpu sheet set --from");
     expect(sent).toStrictEqual([]);
   });
@@ -485,10 +487,10 @@ describe("сервер величин не сообщил — их нет ни �
         json,
         false,
       );
-      const err = await runSet(args({ range: SS }), io, options).catch((
-        thrown: unknown,
-      ) => thrown);
-      assert(err instanceof DomainError);
+      const err = await rejected(
+        () => runSet(args({ range: SS }), io, options),
+        DomainError,
+      );
       // В самый неудачный момент оператор обязан прочесть «записаны»,
       // а не «ноль»: первое — правда, второе — противоположность.
       expect(err.message).toContain(

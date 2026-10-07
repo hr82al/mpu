@@ -17,7 +17,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { plainRows } from "../testing/cache.ts";
 import {
   type Command,
@@ -644,11 +645,10 @@ describe("нет KITEN_API_KEY — ошибка ввода (exit 2) до вся�
   ];
   for (const command of commands) {
     it(command.errorName, async () => {
-      const err = await command.invoke([], ioWithoutKey()).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => command.invoke([], ioWithoutKey()),
+        UsageError,
       );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
       expect(err.message).toBe("KITEN_API_KEY не задан");
     });
   }
@@ -662,11 +662,10 @@ describe("ошибка API — exit 1 и одинарный префикс в st
       }),
     );
     try {
-      const err = await kitenSpacesCommand.invoke([], st.io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => kitenSpacesCommand.invoke([], st.io),
+        DomainError,
       );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
       const line = formatCommandError(kitenSpacesCommand.errorName, err);
       expect(line).toBe(
         "mpu kiten spaces: kaiten error: kaiten GET /spaces -> 500: сервер прилёг",
@@ -683,11 +682,10 @@ describe("ошибка API — exit 1 и одинарный префикс в st
       [USER_PATH]: () => new Response("нет доступа", { status: 403 }),
     });
     try {
-      const err = await kitenWhoamiCommand.invoke([], st.io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => kitenWhoamiCommand.invoke([], st.io),
+        DomainError,
       );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(formatCommandError(kitenWhoamiCommand.errorName, err)).toContain(
         "mpu kiten whoami: kaiten error: kaiten GET /users/current -> 403:",
       );
@@ -703,11 +701,10 @@ describe("ошибка API — exit 1 и одинарный префикс в st
       }),
     );
     try {
-      const err = await kitenRolesCommand.invoke([], st.io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => kitenRolesCommand.invoke([], st.io),
+        DomainError,
       );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(formatCommandError(kitenRolesCommand.errorName, err)).toBe(
         "mpu kiten roles: kaiten error: kaiten GET /user-roles -> 500: сервер прилёг",
       );
@@ -721,14 +718,11 @@ describe("нерезолвящийся REF — ошибка ввода (exit 2)"
   it("--space", async () => {
     const st = stand(fullRoutes());
     try {
-      const err = await kitenBoardsCommand.invoke(
-        ["--space", "Нет такого"],
-        st.io,
-      ).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(() =>
+        kitenBoardsCommand.invoke(
+          ["--space", "Нет такого"],
+          st.io,
+        ), UsageError);
       expect(err.message).toContain("space 'Нет такого' не найден");
     } finally {
       await st.stop();
@@ -738,12 +732,10 @@ describe("нерезолвящийся REF — ошибка ввода (exit 2)"
   it("--board", async () => {
     const st = stand(fullRoutes());
     try {
-      const err = await kitenLanesCommand.invoke(["--board", "9999"], st.io)
-        .then(
-          () => null,
-          (e: unknown) => e,
-        );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(
+        () => kitenLanesCommand.invoke(["--board", "9999"], st.io),
+        UsageError,
+      );
       expect(err.message).toContain("board '9999' не найден");
       // Кэш уже обновлён ответом: резолв идёт по нему, а не наоборот.
       expect(rows(st, "SELECT id FROM kaiten_boards ORDER BY id").length).toBe(

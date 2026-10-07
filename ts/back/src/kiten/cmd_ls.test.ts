@@ -12,7 +12,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import {
   type Command,
   type CommandIo,
@@ -172,11 +173,7 @@ async function errorText(
   io: CommandIo,
   kind: typeof UsageError | typeof DomainError = UsageError,
 ): Promise<string> {
-  const err = await kitenLsCommand.invoke(argv, io).then(
-    () => null,
-    (e: unknown) => e,
-  );
-  assert(err instanceof kind, `ожидался отказ ${kind.name}`);
+  const err = await rejected(() => kitenLsCommand.invoke(argv, io), kind);
   return `${formatCommandError(kitenLsCommand.errorName, err)}\n`;
 }
 
@@ -779,11 +776,10 @@ describe("ls: отказы ввода — точные тексты спеки",
   it("неизвестное значение --state", async () => {
     const st = stand();
     try {
-      const err = await kitenLsCommand.invoke(["--state", "wat"], st.io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => kitenLsCommand.invoke(["--state", "wat"], st.io),
+        UsageError,
       );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
       expect(err.message).toContain("state:");
     } finally {
       await st.stop();
@@ -793,12 +789,10 @@ describe("ls: отказы ввода — точные тексты спеки",
   it("нерезолвящийся REF", async () => {
     const st = stand();
     try {
-      const err = await kitenLsCommand.invoke(["--board", "нет такой"], st.io)
-        .then(
-          () => null,
-          (e: unknown) => e,
-        );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(
+        () => kitenLsCommand.invoke(["--board", "нет такой"], st.io),
+        UsageError,
+      );
       expect(err.message).toContain("board 'нет такой' не найден");
     } finally {
       await st.stop();

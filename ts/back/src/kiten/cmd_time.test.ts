@@ -14,7 +14,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import {
   type Command,
   type CommandIo,
@@ -218,11 +219,7 @@ async function errorText(
   io: CommandIo,
   kind: typeof UsageError | typeof DomainError,
 ): Promise<string> {
-  const err = await command.invoke(argv, io).then(
-    () => null,
-    (e: unknown) => e,
-  );
-  assert(err instanceof kind, `ожидался отказ ${kind.name}`);
+  const err = await rejected(() => command.invoke(argv, io), kind);
   return `${formatCommandError(command.errorName, err)}\n`;
 }
 

@@ -5,7 +5,8 @@
  * ответ (как договорено с сессией-заказчиком тестов).
  */
 
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { DomainError } from "../command/mod.ts";
 import {
   type EnvKeys,
@@ -146,60 +147,60 @@ it("x10Call: путь и URL склеены из базы и path", async () => 
  * --------------------------------------------------------------- */
 
 it("x10Call: non-2xx — HTTP <код> с методом и путём", async () => {
-  const err = await x10Call(
-    "https://x10.example/api",
-    { method: "GET", path: "/workspaces", token: "tok" },
-    () => Promise.resolve({ status: 404, text: "not found" }),
-  ).catch((thrown: unknown) => thrown);
-  assert(err instanceof X10StatusError);
+  const err = await rejected(() =>
+    x10Call(
+      "https://x10.example/api",
+      { method: "GET", path: "/workspaces", token: "tok" },
+      () => Promise.resolve({ status: 404, text: "not found" }),
+    ), X10StatusError);
   expect(err.message).toBe("GET /workspaces: HTTP 404");
   expect(err.status).toBe(404);
 });
 
 it("x10Call: сетевой сбой — transport error с деталями", async () => {
-  const err = await x10Call(
-    "https://x10.example/api",
-    { method: "POST", path: "/auth/login", body: {} },
-    () => {
-      throw new Error("connection refused");
-    },
-  ).catch((thrown: unknown) => thrown);
-  assert(err instanceof DomainError);
+  const err = await rejected(() =>
+    x10Call(
+      "https://x10.example/api",
+      { method: "POST", path: "/auth/login", body: {} },
+      () => {
+        throw new Error("connection refused");
+      },
+    ), DomainError);
   expect(err.message).toBe(
     "POST /auth/login: transport error: connection refused",
   );
 });
 
 it("x10Call: тело не JSON — внятный отказ", async () => {
-  const err = await x10Call(
-    "https://x10.example/api",
-    { method: "GET", path: "/workspaces" },
-    () => Promise.resolve({ status: 200, text: "не json вовсе" }),
-  ).catch((thrown: unknown) => thrown);
-  assert(err instanceof DomainError);
+  const err = await rejected(() =>
+    x10Call(
+      "https://x10.example/api",
+      { method: "GET", path: "/workspaces" },
+      () => Promise.resolve({ status: 200, text: "не json вовсе" }),
+    ), DomainError);
   expect(err.message).toBe("GET /workspaces: ответ не JSON");
 });
 
 it("x10Call: JSON без data — внятный отказ", async () => {
-  const err = await x10Call(
-    "https://x10.example/api",
-    { method: "GET", path: "/workspaces" },
-    () =>
-      Promise.resolve({
-        status: 200,
-        text: JSON.stringify({ success: true, message: "OK" }),
-      }),
-  ).catch((thrown: unknown) => thrown);
-  assert(err instanceof DomainError);
+  const err = await rejected(() =>
+    x10Call(
+      "https://x10.example/api",
+      { method: "GET", path: "/workspaces" },
+      () =>
+        Promise.resolve({
+          status: 200,
+          text: JSON.stringify({ success: true, message: "OK" }),
+        }),
+    ), DomainError);
   expect(err.message).toBe("GET /workspaces: в ответе нет data");
 });
 
 it("x10Call: JSON-массив (не объект) — внятный отказ", async () => {
-  const err = await x10Call(
-    "https://x10.example/api",
-    { method: "GET", path: "/workspaces" },
-    () => Promise.resolve({ status: 200, text: "[]" }),
-  ).catch((thrown: unknown) => thrown);
-  assert(err instanceof DomainError);
+  const err = await rejected(() =>
+    x10Call(
+      "https://x10.example/api",
+      { method: "GET", path: "/workspaces" },
+      () => Promise.resolve({ status: 200, text: "[]" }),
+    ), DomainError);
   expect(err.message).toBe("GET /workspaces: ответ не объект");
 });

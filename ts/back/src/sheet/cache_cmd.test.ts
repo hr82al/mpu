@@ -10,7 +10,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { type CacheDb, UsageError } from "../command/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
@@ -209,11 +210,11 @@ it("таблиц кэша нет — обе команды успешны и г�
 it("цель не резолвится — код 2 и ни одного удаления", async () => {
   await withDb(async (db) => {
     await tab(db, SS, "Лист1", 3);
-    const err = await sheetCacheClearCommand.invoke(
-      ["-s", "нет-такой"],
-      ioOf(db),
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(() =>
+      sheetCacheClearCommand.invoke(
+        ["-s", "нет-такой"],
+        ioOf(db),
+      ), UsageError);
     expect(err.message).toContain("нет-такой");
     // Резолв идёт до всякого удаления: неразобранная цель не стоит кэша.
     expect(tabsOf(db, SS)).toBe(1);

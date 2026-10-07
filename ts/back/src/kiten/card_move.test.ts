@@ -9,7 +9,8 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { type CacheDb, UsageError } from "../command/mod.ts";
 import type { Column, KaitenAccess } from "../kaiten/mod.ts";
 import { startFakeKaiten } from "../kaiten/testing.ts";
@@ -71,13 +72,9 @@ describe("resolveColumn: id, точное имя, подстрока", () => {
   });
 
   it("несколько совпадений — кандидаты в подробностях", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       resolveRef("column", COLUMNS, "о");
-    } catch (e) {
-      err = e;
-    }
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
+    }, UsageError);
     expect(err.message).toBe("column 'о' неоднозначен (3 совпадений):");
     expect(err.details).toBe(
       "5000001 (Готово)\n5000002 (Бэклог)\n5000003 (В работе)",

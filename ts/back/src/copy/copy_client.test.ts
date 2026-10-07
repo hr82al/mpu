@@ -9,7 +9,8 @@
  * структура: что запустили, в каком порядке и куда писали.
  */
 
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -221,15 +222,18 @@ it("упавший дамп не сносит цель и не восстана�
   await withIo(async (io) => {
     const seen: Tool[] = [];
     const sent: Sent[] = [];
-    const err = await copyClient({ selector: String(CLIENT) }, io, {
-      runTool: tools([1], seen, ["pg_dump: error: connection failed"]),
-      openSession: sessions(sent),
-      tempFile: () => "/tmp/проба.dump",
-      removeFile: () => {},
-      nowMs: () => 0,
-      runRedis: noRedis,
-    }).catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () =>
+        copyClient({ selector: String(CLIENT) }, io, {
+          runTool: tools([1], seen, ["pg_dump: error: connection failed"]),
+          openSession: sessions(sent),
+          tempFile: () => "/tmp/проба.dump",
+          removeFile: () => {},
+          nowMs: () => 0,
+          runRedis: noRedis,
+        }),
+      DomainError,
+    );
     // `DROP SCHEMA … CASCADE` необратим: упавший дамп не должен стоить
     // оператору прежней копии.
     expect(seen.map((tool) => tool.argv[0])).toStrictEqual(["pg_dump"]);
@@ -241,22 +245,25 @@ it("упавший дамп не сносит цель и не восстана�
 it("ненулевой pg_restore — отказ с последней ошибкой инструмента", async () => {
   await withIo(async (io) => {
     const seen: Tool[] = [];
-    const err = await copyClient({ selector: String(CLIENT) }, io, {
-      // Ровно тот случай, ради которого спека завела раздел про
-      // ловушки: схема восстановлена целиком, а код ненулевой.
-      runTool: tools([0, 1], seen, [
-        "pg_restore: creating TABLE schema_5175.orders",
-        "pg_restore: error: could not execute query: ERROR:  " +
-        'unrecognized configuration parameter "transaction_timeout"',
-        "pg_restore: warning: errors ignored on restore: 1",
-      ]),
-      openSession: sessions([]),
-      tempFile: () => "/tmp/проба.dump",
-      removeFile: () => {},
-      nowMs: () => 0,
-      runRedis: noRedis,
-    }).catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () =>
+        copyClient({ selector: String(CLIENT) }, io, {
+          // Ровно тот случай, ради которого спека завела раздел про
+          // ловушки: схема восстановлена целиком, а код ненулевой.
+          runTool: tools([0, 1], seen, [
+            "pg_restore: creating TABLE schema_5175.orders",
+            "pg_restore: error: could not execute query: ERROR:  " +
+            'unrecognized configuration parameter "transaction_timeout"',
+            "pg_restore: warning: errors ignored on restore: 1",
+          ]),
+          openSession: sessions([]),
+          tempFile: () => "/tmp/проба.dump",
+          removeFile: () => {},
+          nowMs: () => 0,
+          runRedis: noRedis,
+        }),
+      DomainError,
+    );
     expect(err.message).toContain("pg_restore schema_5175 failed (exit 1");
     // Без последней ошибки оператор видит «failed» и не знает, что
     // 162 таблицы на месте.
@@ -322,18 +329,21 @@ it("счётчики строк печатаются по каждой табл�
 
 it("неподнятый локальный контейнер назван в отказе", async () => {
   await withIo(async (io) => {
-    const err = await copyClient({ selector: String(CLIENT) }, io, {
-      runTool: tools([0, 0], []),
-      openSession: (target, mode) =>
-        target.host === "127.0.0.1"
-          ? Promise.reject(new Error("connection refused"))
-          : sessions([])(target, mode),
-      tempFile: () => "/tmp/проба.dump",
-      removeFile: () => {},
-      nowMs: () => 0,
-      runRedis: noRedis,
-    }).catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () =>
+        copyClient({ selector: String(CLIENT) }, io, {
+          runTool: tools([0, 0], []),
+          openSession: (target, mode) =>
+            target.host === "127.0.0.1"
+              ? Promise.reject(new Error("connection refused"))
+              : sessions([])(target, mode),
+          tempFile: () => "/tmp/проба.dump",
+          removeFile: () => {},
+          nowMs: () => 0,
+          runRedis: noRedis,
+        }),
+      UsageError,
+    );
     // Сырой `connection refused` оставлял бы гадать, какой из трёх
     // контейнеров стенда не поднят.
     expect(err.message).toContain(LOCAL_CONTAINERS[5441]);
@@ -477,35 +487,38 @@ it("дети таблиц удаляются по объединению мно�
 it("отказ посева называет таблицу и говорит про откат", async () => {
   await withIo(async (io) => {
     const sent: Sent[] = [];
-    const err = await copyClient({ selector: String(CLIENT) }, io, {
-      runTool: tools([0, 0], []),
-      openSession: (target, mode) => {
-        const base = sessions(sent)(target, mode);
-        if (target.port !== 5441) return base;
-        return base.then((session) => ({
-          ...session,
-          // Сервер отверг одну вставку: так и падал перенос на
-          // jsonb-колонке, пока значения шли текстом.
-          runMany: (statements: readonly Statement[]) => {
-            const at = statements.findIndex((statement) =>
-              statement.label === "spreadsheets_sheets_values"
-            );
-            return Promise.reject(
-              new StatementError(
-                at,
-                statements[at]?.label,
-                new Error("invalid input syntax for type json"),
-              ),
-            );
+    const err = await rejected(
+      () =>
+        copyClient({ selector: String(CLIENT) }, io, {
+          runTool: tools([0, 0], []),
+          openSession: (target, mode) => {
+            const base = sessions(sent)(target, mode);
+            if (target.port !== 5441) return base;
+            return base.then((session) => ({
+              ...session,
+              // Сервер отверг одну вставку: так и падал перенос на
+              // jsonb-колонке, пока значения шли текстом.
+              runMany: (statements: readonly Statement[]) => {
+                const at = statements.findIndex((statement) =>
+                  statement.label === "spreadsheets_sheets_values"
+                );
+                return Promise.reject(
+                  new StatementError(
+                    at,
+                    statements[at]?.label,
+                    new Error("invalid input syntax for type json"),
+                  ),
+                );
+              },
+            }));
           },
-        }));
-      },
-      tempFile: () => "/tmp/проба.dump",
-      removeFile: () => {},
-      nowMs: () => 0,
-      runRedis: noRedis,
-    }).catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+          tempFile: () => "/tmp/проба.dump",
+          removeFile: () => {},
+          nowMs: () => 0,
+          runRedis: noRedis,
+        }),
+      DomainError,
+    );
     // Не `unexpected error`: оператору нужны таблица и состояние
     // приёмника — по ним он решает, чинить данные или повторять.
     expect(err.message).toContain("таблица spreadsheets_sheets_values");
@@ -520,32 +533,35 @@ it("отказ посева называет таблицу и говорит п
 it("отказ на служебном операторе не выдумывает таблицу", async () => {
   await withIo(async (io) => {
     const sent: Sent[] = [];
-    const err = await copyClient({ selector: String(CLIENT) }, io, {
-      runTool: tools([0, 0], []),
-      openSession: (target, mode) => {
-        const base = sessions(sent)(target, mode);
-        if (target.port !== 5441) return base;
-        return base.then((session) => ({
-          ...session,
-          // Падает самый первый оператор — `SET
-          // session_replication_role`, он требует суперпользователя.
-          // Таблицей он не является, и называть её нечем.
-          runMany: (statements: readonly Statement[]) =>
-            Promise.reject(
-              new StatementError(
-                0,
-                statements[0]?.label,
-                new Error("permission denied to set parameter"),
-              ),
-            ),
-        }));
-      },
-      tempFile: () => "/tmp/проба.dump",
-      removeFile: () => {},
-      nowMs: () => 0,
-      runRedis: noRedis,
-    }).catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () =>
+        copyClient({ selector: String(CLIENT) }, io, {
+          runTool: tools([0, 0], []),
+          openSession: (target, mode) => {
+            const base = sessions(sent)(target, mode);
+            if (target.port !== 5441) return base;
+            return base.then((session) => ({
+              ...session,
+              // Падает самый первый оператор — `SET
+              // session_replication_role`, он требует суперпользователя.
+              // Таблицей он не является, и называть её нечем.
+              runMany: (statements: readonly Statement[]) =>
+                Promise.reject(
+                  new StatementError(
+                    0,
+                    statements[0]?.label,
+                    new Error("permission denied to set parameter"),
+                  ),
+                ),
+            }));
+          },
+          tempFile: () => "/tmp/проба.dump",
+          removeFile: () => {},
+          nowMs: () => 0,
+          runRedis: noRedis,
+        }),
+      DomainError,
+    );
     expect(err.message).toContain("оператор 1 (session_replication_role)");
     // Прежняя форма подставляла сюда сумму строк всех таблиц: метки в
     // счётчиках нет, и поиск по ней давал -1, то есть «весь список».
@@ -556,25 +572,28 @@ it("отказ на служебном операторе не выдумыва�
 it("отказ фиксации — тоже доменная ошибка, а не трейсбек", async () => {
   await withIo(async (io) => {
     const sent: Sent[] = [];
-    const err = await copyClient({ selector: String(CLIENT) }, io, {
-      runTool: tools([0, 0], []),
-      openSession: (target, mode) => {
-        const base = sessions(sent)(target, mode);
-        if (target.port !== 5441) return base;
-        return base.then((session) => ({
-          ...session,
-          // Отказ `COMMIT` (отложенный констрейнт) не относится ни к
-          // одному оператору списка: `StatementError` его не несёт.
-          runMany: () =>
-            Promise.reject(new Error("deferred constraint violated")),
-        }));
-      },
-      tempFile: () => "/tmp/проба.dump",
-      removeFile: () => {},
-      nowMs: () => 0,
-      runRedis: noRedis,
-    }).catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () =>
+        copyClient({ selector: String(CLIENT) }, io, {
+          runTool: tools([0, 0], []),
+          openSession: (target, mode) => {
+            const base = sessions(sent)(target, mode);
+            if (target.port !== 5441) return base;
+            return base.then((session) => ({
+              ...session,
+              // Отказ `COMMIT` (отложенный констрейнт) не относится ни к
+              // одному оператору списка: `StatementError` его не несёт.
+              runMany: () =>
+                Promise.reject(new Error("deferred constraint violated")),
+            }));
+          },
+          tempFile: () => "/tmp/проба.dump",
+          removeFile: () => {},
+          nowMs: () => 0,
+          runRedis: noRedis,
+        }),
+      DomainError,
+    );
     expect(err.message).toContain("перенос строк: ");
     expect(err.message).toContain("deferred constraint violated");
   });

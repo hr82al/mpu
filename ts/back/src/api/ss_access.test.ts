@@ -7,7 +7,8 @@
  * пары отсюда не бывает — она за напарником, и только на стенде.
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { DomainError, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import type { SlbackSession } from "../slback/mod.ts";
@@ -168,12 +169,12 @@ describe("--body отменяет точечные опции, а не смеш�
 
   it("вместе с точечной опцией — отказ до сети", async () => {
     const { session, sent } = sessionOf();
-    const err = await runRequest(
-      { spreadsheet: SS, body: "{}", reason: "текст" },
-      ioOf(),
-      { session },
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(() =>
+      runRequest(
+        { spreadsheet: SS, body: "{}", reason: "текст" },
+        ioOf(),
+        { session },
+      ), UsageError);
     expect(err.message).toContain("оставь что-то одно");
     expect(sent.length).toBe(0);
   });
@@ -186,14 +187,14 @@ describe("--body отменяет точечные опции, а не смеш�
       { session },
     );
     expect(sent[0].body).toStrictEqual({ "из": "файла" });
-    const err = await runRequest(
-      { spreadsheet: SS, "body-file": "/нет.json" },
-      ioOf(),
-      {
-        session,
-      },
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(() =>
+      runRequest(
+        { spreadsheet: SS, "body-file": "/нет.json" },
+        ioOf(),
+        {
+          session,
+        },
+      ), UsageError);
     expect(err.message).toContain("/нет.json");
   });
 });
@@ -293,11 +294,11 @@ it("--grant-id обходит резолв, а main-БД не открывает
 it("отказ main-БД отличается от отказа sl-back", async () => {
   const { session, sent } = sessionOf();
   const db = dbOf([[]], new Error("connection refused"));
-  const err = await runRevoke({ spreadsheet: SS }, ioOf(), {
-    session,
-    openSession: db.open,
-  }).catch((thrown: unknown) => thrown);
-  assert(err instanceof GrantResolveError);
+  const err = await rejected(() =>
+    runRevoke({ spreadsheet: SS }, ioOf(), {
+      session,
+      openSession: db.open,
+    }), GrantResolveError);
   // Сообщение называет резолв и указывает на базу: иначе оператор
   // пойдёт чинить sl-back, который в этот момент цел.
   expect(err.message).toContain("резолв выдачи в main-БД");
@@ -356,14 +357,14 @@ it("reset: предел ожидания истёк — код 1, а не мол
   // Выдача из индекса не уходит никогда.
   const db = dbOf([[["grant-1", "applied"]]]);
   const clock = clockOf();
-  const err = await runReset({ spreadsheet: SS }, ioOf(), {
-    session,
-    openSession: db.open,
-    now: clock.now,
-    sleep: clock.sleep,
-    limitMs: 9_000,
-  }).catch((thrown: unknown) => thrown);
-  assert(err instanceof DomainError);
+  const err = await rejected(() =>
+    runReset({ spreadsheet: SS }, ioOf(), {
+      session,
+      openSession: db.open,
+      now: clock.now,
+      sleep: clock.sleep,
+      limitMs: 9_000,
+    }), DomainError);
   // Текст называет предел в секундах и оставшуюся выдачу.
   expect(err.message).toContain("9 с");
   expect(err.message).toContain("grant-1 (applied)");
@@ -399,11 +400,11 @@ it("две активные выдачи — отказ: индекс обеща
   // снимком: уникальность держит частичный индекс, и две активные по
   // одной паре означают, что индекса больше нет.
   const db = dbOf([[["grant-1", "applied"], ["grant-2", "created"]]]);
-  const err = await runRevoke({ spreadsheet: SS }, ioOf(), {
-    session,
-    openSession: db.open,
-  }).catch((thrown: unknown) => thrown);
-  assert(err instanceof GrantResolveError);
+  const err = await rejected(() =>
+    runRevoke({ spreadsheet: SS }, ioOf(), {
+      session,
+      openSession: db.open,
+    }), GrantResolveError);
   expect(err.message).toContain("индекс");
   expect(err.message).toContain("не больше одной");
   expect(sent.length).toBe(0);

@@ -16,6 +16,7 @@
  */
 
 import { assert, describe, expect, it, vi } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { type KaitenAccess, KaitenError } from "./mod.ts";
 import {
   KAITEN_TIMEOUTS,
@@ -157,11 +158,11 @@ it("не-2xx с пустым телом: сообщение кончается �
     new Response(null, { status: 403 })
   );
   try {
-    const err = await kaitenCall(accessTo(baseUrl), {
-      method: "GET",
-      path: "/cards/99999999",
-    }).catch((thrown: unknown) => thrown);
-    assert(err instanceof KaitenError);
+    const err = await rejected(() =>
+      kaitenCall(accessTo(baseUrl), {
+        method: "GET",
+        path: "/cards/99999999",
+      }), KaitenError);
 
     expect(err.message).toBe("kaiten GET /cards/99999999 -> 403: ");
   } finally {

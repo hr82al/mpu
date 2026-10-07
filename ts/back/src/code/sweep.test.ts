@@ -12,7 +12,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { DomainError, UsageError } from "../command/mod.ts";
 import { runName } from "./cmd_name.ts";
 import { collectName } from "./name.ts";
@@ -69,16 +70,16 @@ it("отказ РАЗДЕЛА выбирается по порядку пере�
     // из обоих воркеров, и лёгкий отвечает раньше по времени. Назвать
     // надо первый по перечню — иначе текст ошибки зависел бы от того,
     // какой репозиторий больше.
-    const err = await collectName(
-      "f0",
-      { repo: undefined, dir: "нет-каталога" },
-      200,
-      [
-        heavy,
-        light,
-      ],
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(() =>
+      collectName(
+        "f0",
+        { repo: undefined, dir: "нет-каталога" },
+        200,
+        [
+          heavy,
+          light,
+        ],
+      ), UsageError);
     expect(err.message).toBe(
       "каталога 'нет-каталога' нет в a-heavy на вне git",
     );
@@ -114,12 +115,12 @@ it("отказ ОТМЕТКИ выбирается по порядку пере�
         return Promise.reject(new DomainError("отметка b-early"));
       },
     };
-    const err = await runName(
-      { name: "f0", in: undefined, limit: 200 },
-      { cwd: () => light.root },
-      [first, second],
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(() =>
+      runName(
+        { name: "f0", in: undefined, limit: 200 },
+        { cwd: () => light.root },
+        [first, second],
+      ), DomainError);
     expect(err.message).toBe("отметка a-late");
   } finally {
     await rm(temp, { recursive: true });

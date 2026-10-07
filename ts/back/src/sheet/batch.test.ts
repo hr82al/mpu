@@ -9,7 +9,8 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import {
   type CacheDb,
   DomainError,
@@ -234,9 +235,10 @@ it("скрипт из одних комментариев — «нет опер�
 it("пустой ввод — ошибка ввода до всякой сети", async () => {
   await withDb(async (db) => {
     const stand = harness(db);
-    const err = await runBatchUpdate(updateArgs(), stand.io, stand.options)
-      .catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => runBatchUpdate(updateArgs(), stand.io, stand.options),
+      UsageError,
+    );
     expect(err.message).toBe("пустой скрипт (-e / --from / stdin)");
     expect(stand.actions).toStrictEqual([]);
   });
@@ -245,15 +247,15 @@ it("пустой ввод — ошибка ввода до всякой сети
 it("лист этого же скрипта: отказ дословно как в канале", async () => {
   await withDb(async (db) => {
     const stand = harness(db);
-    const err = await runBatchUpdate(
-      updateArgs({
-        expression: ["sheet add Врем\nsheet rename Врем Врем2"],
-        sheet: undefined,
-      }),
-      stand.io,
-      stand.options,
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(() =>
+      runBatchUpdate(
+        updateArgs({
+          expression: ["sheet add Врем\nsheet rename Врем Врем2"],
+          sheet: undefined,
+        }),
+        stand.io,
+        stand.options,
+      ), UsageError);
     expect(`${formatCommandError(sheetBatchUpdateCommand.errorName, err)}\n`)
       .toStrictEqual(await golden("err-sheet-created-in-same-script.stderr"));
     expect(stand.actions).toStrictEqual(["spreadsheets/get"]);

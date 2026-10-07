@@ -8,7 +8,8 @@
  * порядок шагов и то, что запись уходит только в локальные адреса.
  */
 
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { DomainError, UsageError } from "../command/mod.ts";
 import type { SqlOutcome } from "../sql/render.ts";
 import type { SqlSession } from "../sql/session.ts";
@@ -130,16 +131,16 @@ it("режим клиента: та же машинерия, источник �
 });
 
 it("отказ инструмента: код и последняя ошибка в сообщении", async () => {
-  const err = await runCopyDev({ client: undefined }, ioWith(), {
-    runTool: (_argv, _env, onLine) => {
-      onLine("pg_dump: error: connection to server failed");
-      return Promise.resolve({ code: 2 });
-    },
-    tempFile: () => "/tmp/проба.dump",
-    removeFile: () => {},
-    nowMs: () => 0,
-  }).catch((thrown: unknown) => thrown);
-  assert(err instanceof DomainError);
+  const err = await rejected(() =>
+    runCopyDev({ client: undefined }, ioWith(), {
+      runTool: (_argv, _env, onLine) => {
+        onLine("pg_dump: error: connection to server failed");
+        return Promise.resolve({ code: 2 });
+      },
+      tempFile: () => "/tmp/проба.dump",
+      removeFile: () => {},
+      nowMs: () => 0,
+    }), DomainError);
   expect(err.message).toContain("pg_dump workspaces failed (exit 2");
   expect(err.message).toContain("connection to server failed");
 });

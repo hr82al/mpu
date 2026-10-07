@@ -8,7 +8,8 @@
  * запроса.
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected, thrown } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import type { KaitenAccess } from "../kaiten/mod.ts";
 import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
@@ -86,11 +87,10 @@ describe("resolveRoleId: нечисловое — живой справочни�
   it("нет совпадений — ошибка ввода", async () => {
     const { access, stop } = stand();
     try {
-      const err = await resolveRoleId(access, "инженер").then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => resolveRoleId(access, "инженер"),
+        UsageError,
       );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
       expect(err.message).toBe(
         "role 'инженер' не найден — см. `mpu kiten roles`",
       );
@@ -102,11 +102,10 @@ describe("resolveRoleId: нечисловое — живой справочни�
   it("несколько подстрочных — кандидаты списком", async () => {
     const { access, stop } = stand();
     try {
-      const err = await resolveRoleId(access, "тест").then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => resolveRoleId(access, "тест"),
+        UsageError,
       );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
       expect(err.message).toBe("role 'тест' неоднозначен (2 совпадений):");
       expect(err.details).toBe(
         "12132 (Тестирование)\n12200 (Тестирование нагрузки)",
@@ -141,13 +140,9 @@ describe("chooseRoleId: цепочка флаг → env → дефолт", () =>
   });
 
   it("нерезолвимая настройка падает, а не откатывается", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       chooseRoleId(ROLES, undefined, "инженер");
-    } catch (e) {
-      err = e;
-    }
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
+    }, UsageError);
     expect(err.message).toBe(
       "KITEN_TIME_ROLE: role 'инженер' не найден — см. `mpu kiten roles`",
     );

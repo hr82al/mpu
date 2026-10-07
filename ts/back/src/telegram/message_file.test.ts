@@ -1,7 +1,8 @@
 import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { VerbatimError } from "../command/mod.ts";
 import { Inbox } from "./inbox.ts";
 import {
@@ -124,11 +125,10 @@ describe("нет файла и нет сообщения — отказ слоя
     it(text, async () => {
       const root = await mkdtemp(join(tmpdir(), "mpu-"));
       try {
-        const err = await file.saveTo(new Inbox(`${root}/inbox`), CHAT).then(
-          () => null,
-          (e: unknown) => e,
+        const err = await rejected(
+          () => file.saveTo(new Inbox(`${root}/inbox`), CHAT),
+          VerbatimError,
         );
-        assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
         expect(err.message).toStrictEqual(text);
         expect(await listing(root)).toStrictEqual([]);
       } finally {

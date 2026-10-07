@@ -10,7 +10,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
@@ -169,9 +170,10 @@ it("через кэш: один кабинет — резолв до него", 
 it("несколько кабинетов — отказ с перечнем, а не выбор", async () => {
   await withCache([[777, "Клиент", [SID, OTHER_SID]]], async (io) => {
     const { session, sent } = sessionOf();
-    const err = await runCardsReset(args({ selector: "777" }), io, { session })
-      .catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => runCardsReset(args({ selector: "777" }), io, { session }),
+      UsageError,
+    );
     // Оба sid'а названы, и сказано, чем выбрать: молчаливый первый
     // отправил бы сброс чужому кабинету.
     expect(err.message).toContain(SID);
@@ -204,9 +206,10 @@ it("--client-id сужает неоднозначный селектор", async
 it("селектор без кабинетов — отказ, а не пустой запрос", async () => {
   await withCache([[777, "Клиент", []]], async (io) => {
     const { session, sent } = sessionOf();
-    const err = await runCardsReset(args({ selector: "777" }), io, { session })
-      .catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => runCardsReset(args({ selector: "777" }), io, { session }),
+      UsageError,
+    );
     expect(err.message).toContain("нет WB-кабинетов");
     expect(sent).toStrictEqual([]);
   });

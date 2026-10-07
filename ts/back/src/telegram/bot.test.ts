@@ -4,7 +4,8 @@
  * тесты не ходят (`ts/CLAUDE.md`).
  */
 
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { closedPort, serveFetch } from "../testing/http.ts";
 import { DomainError } from "../command/mod.ts";
 import type { BotConfig } from "./bot_config.ts";
@@ -155,11 +156,10 @@ it("ok:true без номера сообщения — явный отказ, а
   await withServer(
     () => new Response(JSON.stringify({ ok: true, result: {} })),
     async (base) => {
-      const err = await sendBotMessage(CONFIG, text("x"), base).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => sendBotMessage(CONFIG, text("x"), base),
+        DomainError,
       );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message).toBe("telegram: bot API не сообщил номер сообщения");
     },
   );
@@ -177,11 +177,10 @@ it("ok:false — код и описание в сообщении отказа",
         { status: 400 },
       ),
     async (base) => {
-      const err = await sendBotMessage(CONFIG, text("x"), base).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => sendBotMessage(CONFIG, text("x"), base),
+        DomainError,
       );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message).toBe(
         "telegram: bot API 400 Bad Request: message is too long",
       );
@@ -201,15 +200,12 @@ it("403 — подсказка написать боту, с именем из �
         { status: 403 },
       ),
     async (base) => {
-      const err = await sendBotMessage(
-        { ...CONFIG, botName: "my_notes_bot" },
-        text("x"),
-        base,
-      ).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
+      const err = await rejected(() =>
+        sendBotMessage(
+          { ...CONFIG, botName: "my_notes_bot" },
+          text("x"),
+          base,
+        ), DomainError);
       expect(err.message).toBe(
         "telegram: bot API 403 Forbidden: bot was blocked by the user; напиши боту @my_notes_bot /start",
       );
@@ -229,11 +225,10 @@ it("chat not found — та же подсказка без имени, если 
         { status: 400 },
       ),
     async (base) => {
-      const err = await sendBotMessage(CONFIG, text("x"), base).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => sendBotMessage(CONFIG, text("x"), base),
+        DomainError,
       );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message).toBe(
         "telegram: bot API 400 Bad Request: chat not found; напиши боту /start",
       );
@@ -245,11 +240,10 @@ it("тело не разбирается как JSON — отказ, а не м�
   await withServer(
     () => new Response("<html>502</html>", { status: 502 }),
     async (base) => {
-      const err = await sendBotMessage(CONFIG, text("x"), base).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => sendBotMessage(CONFIG, text("x"), base),
+        DomainError,
       );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message.startsWith("telegram: bot API вернул не JSON")).toBe(
         true,
       );
@@ -263,11 +257,10 @@ it("тело не разбирается как JSON — отказ, а не м�
 
 it("сервер недоступен — причина одной строкой", async () => {
   const base = `http://127.0.0.1:${await closedPort()}`;
-  const err = await sendBotMessage(CONFIG, text("x"), base).then(
-    () => null,
-    (e: unknown) => e,
+  const err = await rejected(
+    () => sendBotMessage(CONFIG, text("x"), base),
+    DomainError,
   );
-  assert(err instanceof DomainError, "ожидался отказ DomainError");
   expect(err.message.startsWith("telegram: bot API недоступен: ")).toBe(true);
   expect(err.message.includes("\n")).toBe(false);
   // Причина отказа приходит от рантайма, и исторически в ней бывал
@@ -283,15 +276,12 @@ it("прокси не принят клиентом — отказ называ�
   await withServer(
     () => new Response(JSON.stringify({ ok: true, result: { message_id: 1 } })),
     async (base) => {
-      const err = await sendBotMessage(
-        { ...CONFIG, proxy: "socks4://127.0.0.1:1080" },
-        text("x"),
-        base,
-      ).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
+      const err = await rejected(() =>
+        sendBotMessage(
+          { ...CONFIG, proxy: "socks4://127.0.0.1:1080" },
+          text("x"),
+          base,
+        ), DomainError);
       expect(err.message.startsWith(
         "telegram: bot API недоступен: прокси не принят клиентом",
       )).toBe(true);
@@ -303,15 +293,12 @@ it("прокси не принят клиентом — без учётных д
   await withServer(
     () => new Response(JSON.stringify({ ok: true, result: { message_id: 1 } })),
     async (base) => {
-      const err = await sendBotMessage(
-        { ...CONFIG, proxy: "socks4://u:p'a ss@h:1" },
-        text("x"),
-        base,
-      ).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
+      const err = await rejected(() =>
+        sendBotMessage(
+          { ...CONFIG, proxy: "socks4://u:p'a ss@h:1" },
+          text("x"),
+          base,
+        ), DomainError);
       expect(
         err.message.startsWith(
           "telegram: bot API недоступен: прокси не принят клиентом — " +

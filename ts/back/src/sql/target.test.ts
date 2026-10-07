@@ -3,7 +3,8 @@
  * (`specs/sql-ro.md`, «CLI-контракт» и «Конфигурация»).
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { DomainError, UsageError } from "../command/mod.ts";
 import { devTarget, type PgTarget, routeOf, serverTarget } from "./target.ts";
 
@@ -90,26 +91,18 @@ describe("адрес сервера стенда: ключи и умолчани
     expect(target.username).toBe("u");
   });
   it("нет адреса сервера — ошибка ввода текстом слоя", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       serverTarget(env({}), 7);
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(err.message).toStrictEqual(
       "environment variable pg_7 is not set. " +
         "Add it to /tmp/.env or export in shell.",
     );
   });
   it("нет кредов — ошибка ввода про общий ключ", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       serverTarget(env({ pg_1: "10.0.0.2" }), 1);
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(
       err.message.startsWith("environment variable PG_MAIN_USER_NAME"),
       err.message,

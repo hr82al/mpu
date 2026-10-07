@@ -3,7 +3,8 @@
  * разбор значения и тексты отказов. Сети здесь нет по построению.
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { resolveTarget, type TargetSources } from "./target.ts";
 
@@ -41,13 +42,9 @@ describe("источники не смешиваются: побеждает п�
     // Решение пользователя: «только явно через параметры». Источника
     // `env` у резолва нет, и значение `"env"` в выводе не появляется
     // никогда (`sheet.md`, отклонение `fix`).
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       resolveTarget({}, sources());
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(err.message.includes("MPU_SS")).toBe(false);
     expect(err.message.includes("export")).toBe(false);
   });
@@ -91,13 +88,9 @@ describe("разбор значения по видам", () => {
 
 describe("отказы резолва — тексты атома дословно", () => {
   it("цель не задана", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       resolveTarget({}, sources());
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(err.message).toStrictEqual(
       "Spreadsheet не указан. Используй --spreadsheet/-s или установи " +
         "`sheet.default`: mpu config key: sheet.default value: <id-or-name>.",
@@ -105,13 +98,9 @@ describe("отказы резолва — тексты атома дословн
   });
 
   it("client_id без совпадений", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       resolveTarget({ flag: "4326" }, sources());
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(err.message).toStrictEqual(
       "client_id=4326 не найден в sl_spreadsheets. Запусти `mpu sheet " +
         "sync` чтобы обновить кэш.",
@@ -119,13 +108,9 @@ describe("отказы резолва — тексты атома дословн
   });
 
   it("заголовок без совпадений", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       resolveTarget({ flag: "нет такого" }, sources());
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(err.message).toStrictEqual(
       "Spreadsheet 'нет такого' не найден ни как ID/URL/alias/client_id/" +
         "title. Запусти `mpu sheet sync` чтобы обновить кэш.",
@@ -133,8 +118,7 @@ describe("отказы резолва — тексты атома дословн
   });
 
   it("несколько совпадений — многострочный список", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       resolveTarget(
         { flag: "отч" },
         sources({
@@ -144,10 +128,7 @@ describe("отказы резолва — тексты атома дословн
           ],
         }),
       );
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(err.message.split("\n")).toStrictEqual([
       "Несколько spreadsheet'ов матчат 'отч':",
       "  id-1  Отчёт WB",
@@ -161,13 +142,9 @@ describe("отказы резолва — тексты атома дословн
       ssId: `id-${index}`,
       title: `Отчёт ${index}`,
     }));
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       resolveTarget({ flag: "отч" }, sources({ byTitle: () => many }));
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     const lines = err.message.split("\n");
     expect(lines.length).toBe(13);
     expect(lines[11]).toBe("  …(+3 more)");

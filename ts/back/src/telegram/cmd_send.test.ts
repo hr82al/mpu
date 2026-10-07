@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { assert, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import type { Command, CommandIo } from "../command/mod.ts";
 import {
   formatCommandError,
@@ -133,14 +134,11 @@ it("адресат не задан — отказ до сети", async () => {
 });
 
 it("вложения нет — отказ до сети, ключевой текст в сообщении", async () => {
-  const err = await command.invoke(
-    ["привет", "-f", "/no/such/file"],
-    io({ TELEGRAM_DEFAULT_CHAT: "me" }),
-  ).then(
-    () => null,
-    (e: unknown) => e,
-  );
-  assert(err instanceof UsageError, "ожидался отказ UsageError");
+  const err = await rejected(() =>
+    command.invoke(
+      ["привет", "-f", "/no/such/file"],
+      io({ TELEGRAM_DEFAULT_CHAT: "me" }),
+    ), UsageError);
   expect(err.message).toBe("файл-вложение не найден: /no/such/file");
   // Рамка здесь общая для всего CLI (`mpu <команда>: …`), а не своя,
   // как у отказов слоя: вложение отбивает разбор аргументов.

@@ -8,7 +8,8 @@
  * эталоном стыка не является и не притворяется им.
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { NO_ONE, type Prompt } from "../command/mod.ts";
 import { configError } from "./errors.ts";
 import {
@@ -272,11 +273,7 @@ it("отказ записи сессии не выносит её в текст 
       }
     },
   });
-  const err = await runLogin(stand.io).then(
-    () => null,
-    (e: unknown) => e,
-  );
-  assert(err instanceof Error, "ожидался отказ Error");
+  const err = await rejected(() => runLogin(stand.io), Error);
   expect(err.message.includes(SESSION), err.message).toBe(false);
 });
 

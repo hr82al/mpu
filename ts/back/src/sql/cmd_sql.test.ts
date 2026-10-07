@@ -9,7 +9,8 @@
  * драйверу, — `pg_test.ts`.
  */
 
-import { assert, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { readFile } from "node:fs/promises";
 import {
   DomainError,
@@ -184,11 +185,14 @@ it("ошибка БД: текст сервера как есть, без сво�
     "        ^";
   const sessions = fakeSessions(() => new DbError(server));
   const { io } = harness();
-  const err = await runSql(args({ selector: "sl-3", sql: "SELEC 1" }), io, {
-    mode: "write",
-    openSession: sessions.open,
-  }).catch((thrown: unknown) => thrown);
-  assert(err instanceof VerbatimError);
+  const err = await rejected(
+    () =>
+      runSql(args({ selector: "sl-3", sql: "SELEC 1" }), io, {
+        mode: "write",
+        openSession: sessions.open,
+      }),
+    VerbatimError,
+  );
   expect(`${formatCommandError("sql", err)}\n`).toStrictEqual(
     await golden("db-error-stderr.txt"),
   );
@@ -199,14 +203,14 @@ it("sw-селектор: отказ и у пишущей половины", asyn
   // ошибки у половин разный: без этой проверки свидетелем текста была
   // бы только `sql-ro`.
   const { io } = harness();
-  const err = await runSql(
-    args({ selector: "workspaces", sql: "UPDATE t SET a = 1" }),
-    io,
-    {
-      mode: "write",
-    },
-  ).catch((thrown: unknown) => thrown);
-  assert(err instanceof UsageError);
+  const err = await rejected(() =>
+    runSql(
+      args({ selector: "workspaces", sql: "UPDATE t SET a = 1" }),
+      io,
+      {
+        mode: "write",
+      },
+    ), UsageError);
   expect(formatCommandError("sql", err)).toBe(
     "mpu sql: маршрут sw выброшен: доступа к контуру воркспейсов нет",
   );

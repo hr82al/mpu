@@ -13,7 +13,8 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import type { Command } from "../command/mod.ts";
 import {
   formatCommandError,
@@ -267,11 +268,10 @@ describe("нет файла и нет сообщения — код 1, файл�
   for (const { name, id, text } of cases) {
     it(name, async () => {
       await inTempDir(async (dir) => {
-        const err = await file({ chat: `${CHAT}`, id }, dir).then(
-          () => null,
-          (e: unknown) => e,
+        const err = await rejected(
+          () => file({ chat: `${CHAT}`, id }, dir),
+          VerbatimError,
         );
-        assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
         expect(err.message).toStrictEqual(text);
         expect(await listing(dir)).toStrictEqual([]);
       });
@@ -281,11 +281,10 @@ describe("нет файла и нет сообщения — код 1, файл�
 
 it("F6: строка отказа совпадает с голденом", async () => {
   await inTempDir(async (dir) => {
-    const err = await file({ chat: `${CHAT}`, id: "45" }, dir).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await rejected(
+      () => file({ chat: `${CHAT}`, id: "45" }, dir),
+      VerbatimError,
     );
-    assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
     expect(`${formatCommandError(command.errorName, err)}\n`).toStrictEqual(
       await golden("err-no-file-stderr.txt"),
     );
@@ -296,12 +295,10 @@ describe("F12: id не целое больше 0 — код 2 до сети", ()
   for (const raw of ["0", "abc", "-5", "1.5", ""]) {
     it(raw, async () => {
       const session = new FakeSession();
-      const err = await file({ chat: "me", id: raw }, "/nonexistent", session)
-        .then(
-          () => null,
-          (e: unknown) => e,
-        );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(
+        () => file({ chat: "me", id: raw }, "/nonexistent", session),
+        UsageError,
+      );
       expect(formatCommandError(command.errorName, err)).toStrictEqual(
         `mpu telegram file: id — целое больше 0: ${raw}`,
       );
@@ -312,11 +309,10 @@ describe("F12: id не целое больше 0 — код 2 до сети", ()
 
 it("F13: чат не найден — отказ про чат, код 1, файла нет", async () => {
   await inTempDir(async (dir) => {
-    const err = await file({ chat: "@nobody_here", id: "1" }, dir).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await rejected(
+      () => file({ chat: "@nobody_here", id: "1" }, dir),
+      VerbatimError,
     );
-    assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
     expect(err.message).toContain("не удалось найти чат '@nobody_here'");
     expect(await listing(dir)).toStrictEqual([]);
   });
@@ -334,11 +330,10 @@ it("F16: обрыв — по пути нет файла, других файло
         }, () => brokenAfter(F1_BODY.slice(0, 600))),
       ]]),
     );
-    const err = await file({ chat: `${CHAT}`, id: "42" }, dir, session).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await rejected(
+      () => file({ chat: `${CHAT}`, id: "42" }, dir, session),
+      VerbatimError,
     );
-    assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
     expect(err.message).toBe("telegram: RPC error: CONNECTION_LOST");
     expect(await listing(dir)).toStrictEqual([]);
     expect(session.closed).toBe(1);

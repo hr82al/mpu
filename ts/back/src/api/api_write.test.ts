@@ -8,7 +8,8 @@
  * запрос уходить не должен, проверяется, что стенд не увидел ничего.
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { type Command, UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import {
@@ -151,11 +152,11 @@ describe("path-параметр со слэшем не меняет адрес �
   it("«..» отбивается как ввод, а не экранируется", async () => {
     const stand = standWith();
     try {
-      const err = await commandOf("delete-client").invoke(
-        [".."],
-        ioTo(stand.baseUrl),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        commandOf("delete-client").invoke(
+          [".."],
+          ioTo(stand.baseUrl),
+        ), UsageError);
       expect(err.message).toContain("сегмент пути");
       expect(stand.seen.length).toBe(0);
     } finally {
@@ -205,11 +206,11 @@ describe("произвольное тело остаётся объектом", 
     it(title, async () => {
       const stand = standWith();
       try {
-        const err = await commandOf("create-client").invoke(
-          ["--body", raw],
-          ioTo(stand.baseUrl),
-        ).catch((thrown: unknown) => thrown);
-        assert(err instanceof UsageError);
+        const err = await rejected(() =>
+          commandOf("create-client").invoke(
+            ["--body", raw],
+            ioTo(stand.baseUrl),
+          ), UsageError);
         // Отказ здесь, а не от сервера: иначе причина пришла бы чужим
         // текстом и после запроса.
         expect(err.message).toContain("ожидается объект JSON");

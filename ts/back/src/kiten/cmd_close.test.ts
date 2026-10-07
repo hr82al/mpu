@@ -14,7 +14,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import {
   type Command,
   type CommandIo,
@@ -721,11 +722,10 @@ describe("close: перенос — PATCH, свежее чтение и стро
       [`GET ${COLUMNS_PATH}`]: () => Response.json([COLUMNS[0]]),
     });
     try {
-      const err = await kitenCloseCommand.invoke([SELECTOR], st.io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => kitenCloseCommand.invoke([SELECTOR], st.io),
+        UsageError,
       );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
       expect(err.message).toBe("на доске одна колонка — релог невозможен");
       expect(calls(st.seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
@@ -766,14 +766,11 @@ describe("close: ошибки ввода — до первой мутации", 
   it("оба источника ответа — голден текста", async () => {
     const st = stand({});
     try {
-      const err = await kitenCloseCommand.invoke(
-        [SELECTOR, "--reply", "текст", "--reply-file", "x.md"],
-        st.io,
-      ).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(() =>
+        kitenCloseCommand.invoke(
+          [SELECTOR, "--reply", "текст", "--reply-file", "x.md"],
+          st.io,
+        ), UsageError);
       expect(`${err.message}\n`).toStrictEqual(
         await golden("err-reply-both-message.txt"),
       );
@@ -786,14 +783,11 @@ describe("close: ошибки ввода — до первой мутации", 
   it("пустой текст ответа — голден текста", async () => {
     const st = stand({});
     try {
-      const err = await kitenCloseCommand.invoke(
-        [SELECTOR, "--reply", "   "],
-        st.io,
-      ).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(() =>
+        kitenCloseCommand.invoke(
+          [SELECTOR, "--reply", "   "],
+          st.io,
+        ), UsageError);
       expect(`${err.message}\n`).toStrictEqual(
         await golden("err-reply-empty-message.txt"),
       );
@@ -806,14 +800,11 @@ describe("close: ошибки ввода — до первой мутации", 
   it("нечитаемый --reply-file — префикс причины", async () => {
     const st = stand({});
     try {
-      const err = await kitenCloseCommand.invoke(
-        [SELECTOR, "--reply-file", "/нет/такого.md"],
-        st.io,
-      ).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(() =>
+        kitenCloseCommand.invoke(
+          [SELECTOR, "--reply-file", "/нет/такого.md"],
+          st.io,
+        ), UsageError);
       expect(err.message).toContain("не удалось прочитать /нет/такого.md: ");
       expect(calls(st.seen)).toStrictEqual([]);
     } finally {
@@ -825,20 +816,17 @@ describe("close: ошибки ввода — до первой мутации", 
     const startedAtMs = startedHalfMinuteAgo();
     const st = cardStand(rawCard({ timer: rawTimer(startedAtMs) }));
     try {
-      const err = await kitenCloseCommand.invoke([
-        SELECTOR,
-        "--column",
-        "Такой колонки нет",
-        "--done",
-        "Починили",
-        "--reply",
-        "готово",
-        "--stop-timer",
-      ], st.io).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(() =>
+        kitenCloseCommand.invoke([
+          SELECTOR,
+          "--column",
+          "Такой колонки нет",
+          "--done",
+          "Починили",
+          "--reply",
+          "готово",
+          "--stop-timer",
+        ], st.io), UsageError);
       expect(`${err.message}\n`).toStrictEqual(
         await golden("err-column-unresolved-message.txt"),
       );
@@ -856,14 +844,11 @@ describe("close: ошибки ввода — до первой мутации", 
   it("числовая колонка чужой доски — тот же отказ", async () => {
     const st = cardStand(rawCard());
     try {
-      const err = await kitenCloseCommand.invoke(
-        [SELECTOR, "--column", "999"],
-        st.io,
-      ).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(() =>
+        kitenCloseCommand.invoke(
+          [SELECTOR, "--column", "999"],
+          st.io,
+        ), UsageError);
       expect(err.message).toBe(
         "column '999' не найден — см. `mpu kiten columns`",
       );
@@ -875,14 +860,11 @@ describe("close: ошибки ввода — до первой мутации", 
   it("неоднозначная колонка — кандидаты списком", async () => {
     const st = cardStand(rawCard());
     try {
-      const err = await kitenCloseCommand.invoke(
-        [SELECTOR, "--column", "о"],
-        st.io,
-      ).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      const err = await rejected(() =>
+        kitenCloseCommand.invoke(
+          [SELECTOR, "--column", "о"],
+          st.io,
+        ), UsageError);
       expect(err.message).toContain("column 'о' неоднозначен (3 совпадений):");
     } finally {
       await st.stop();
@@ -903,11 +885,10 @@ describe("close: ошибки ввода — до первой мутации", 
   it("у карточки нет доски — переносить некуда", async () => {
     const st = cardStand(rawCard({ board: null }));
     try {
-      const err = await kitenCloseCommand.invoke([SELECTOR], st.io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => kitenCloseCommand.invoke([SELECTOR], st.io),
+        DomainError,
       );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message).toBe("у карточки нет доски — переносить некуда");
       expect(calls(st.seen)).toStrictEqual([`GET ${CARD_PATH}`]);
     } finally {
@@ -921,11 +902,10 @@ describe("close: ошибки ввода — до первой мутации", 
       [`GET ${COLUMNS_PATH}`]: () => new Response("boom", { status: 500 }),
     });
     try {
-      const err = await kitenCloseCommand.invoke([SELECTOR], st.io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => kitenCloseCommand.invoke([SELECTOR], st.io),
+        DomainError,
       );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message).toContain("kaiten error: ");
     } finally {
       await st.stop();
@@ -951,12 +931,10 @@ describe("close: отказ шага назван в тексте ошибки",
   it("стартовое чтение — без маркера шага", async () => {
     const st = stand({ [`GET ${CARD_PATH}`]: failure });
     try {
-      const err = await kitenCloseCommand.invoke([SELECTOR, "--no-move"], st.io)
-        .then(
-          () => null,
-          (e: unknown) => e,
-        );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
+      const err = await rejected(
+        () => kitenCloseCommand.invoke([SELECTOR, "--no-move"], st.io),
+        DomainError,
+      );
       expect(err.message).toContain("kaiten error: ");
       expect(err.message.includes("(")).toBe(false);
     } finally {
@@ -971,14 +949,11 @@ describe("close: отказ шага назван в тексте ошибки",
       [`PATCH ${TIMER_PATH}`]: failure,
     });
     try {
-      const err = await kitenCloseCommand.invoke(
-        [SELECTOR, "--no-move", "--stop-timer"],
-        st.io,
-      ).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
+      const err = await rejected(() =>
+        kitenCloseCommand.invoke(
+          [SELECTOR, "--no-move", "--stop-timer"],
+          st.io,
+        ), DomainError);
       expect(err.message).toContain("kaiten error (таймер): ");
     } finally {
       await st.stop();
@@ -996,17 +971,14 @@ describe("close: отказ шага назван в тексте ошибки",
       [`PATCH ${CARD_PATH}`]: failure,
     });
     try {
-      const err = await kitenCloseCommand.invoke([
-        SELECTOR,
-        "--no-move",
-        "--stop-timer",
-        "--done",
-        "Починили",
-      ], st.io).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
+      const err = await rejected(() =>
+        kitenCloseCommand.invoke([
+          SELECTOR,
+          "--no-move",
+          "--stop-timer",
+          "--done",
+          "Починили",
+        ], st.io), DomainError);
       expect(err.message).toContain("kaiten error (поля): ");
       // Ранние шаги остаются применёнными: сквозного отката нет.
       expect(calls(st.seen).includes(`PATCH ${TIMER_PATH}`)).toBe(true);
@@ -1021,18 +993,15 @@ describe("close: отказ шага назван в тексте ошибки",
       [`POST ${COMMENTS_PATH}`]: failure,
     });
     try {
-      const err = await kitenCloseCommand.invoke([
-        SELECTOR,
-        "--no-move",
-        "--done",
-        "Починили",
-        "--reply",
-        "готово",
-      ], st.io).then(
-        () => null,
-        (e: unknown) => e,
-      );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
+      const err = await rejected(() =>
+        kitenCloseCommand.invoke([
+          SELECTOR,
+          "--no-move",
+          "--done",
+          "Починили",
+          "--reply",
+          "готово",
+        ], st.io), DomainError);
       expect(err.message).toContain("kaiten error (ответ): ");
       expect(calls(st.seen)).toStrictEqual([
         `GET ${CARD_PATH}`,
@@ -1047,11 +1016,10 @@ describe("close: отказ шага назван в тексте ошибки",
   it("перенос — формат move, без маркера и без журнала", async () => {
     const st = cardStand(rawCard(), { [`PATCH ${CARD_PATH}`]: failure });
     try {
-      const err = await kitenCloseCommand.invoke([SELECTOR], st.io).then(
-        () => null,
-        (e: unknown) => e,
+      const err = await rejected(
+        () => kitenCloseCommand.invoke([SELECTOR], st.io),
+        DomainError,
       );
-      assert(err instanceof DomainError, "ожидался отказ DomainError");
       expect(err.message).toContain("kaiten error: ");
       expect(moveRows(st).length).toBe(0);
     } finally {

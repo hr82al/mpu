@@ -7,6 +7,7 @@ import { mkdtemp, readFile, rmdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import type { Command, CommandIo } from "../command/mod.ts";
 import {
   formatCommandError,
@@ -203,14 +204,11 @@ it("текст сообщения предел подписи не задева�
 });
 
 it("отсутствующий файл — отказ до сети, с путём на экране", async () => {
-  const err = await logMessage(
-    { message: "текст", file: "/no/such/file" },
-    ioWithFile("/tmp/a.md", "x"),
-  ).then(
-    () => null,
-    (e: unknown) => e,
-  );
-  assert(err instanceof UsageError, "ожидался отказ UsageError");
+  const err = await rejected(() =>
+    logMessage(
+      { message: "текст", file: "/no/such/file" },
+      ioWithFile("/tmp/a.md", "x"),
+    ), UsageError);
   expect(err.message).toBe("файл-вложение не найден: /no/such/file");
   expect(`${formatCommandError(command.errorName, err)}\n`).toStrictEqual(
     await golden("err-file-missing-stderr.txt"),
@@ -223,11 +221,10 @@ it("каталог вместо файла — тот же отказ, не па
   const real = makeDenoIo("/nowhere");
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
-    const err = await logMessage({ message: "текст", file: dir }, real).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await rejected(
+      () => logMessage({ message: "текст", file: dir }, real),
+      UsageError,
     );
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
     expect(err.message).toStrictEqual(`файл-вложение не найден: ${dir}`);
   } finally {
     await rmdir(dir);
@@ -235,14 +232,11 @@ it("каталог вместо файла — тот же отказ, не па
 });
 
 it("повтор -f — ошибка ввода, а не молчаливое схлопывание", async () => {
-  const err = await command.invoke(
-    ["текст", "-f", "a.md", "-f", "b.md"],
-    makeFakeIo(),
-  ).then(
-    () => null,
-    (e: unknown) => e,
-  );
-  assert(err instanceof UsageError, "ожидался отказ UsageError");
+  const err = await rejected(() =>
+    command.invoke(
+      ["текст", "-f", "a.md", "-f", "b.md"],
+      makeFakeIo(),
+    ), UsageError);
   expect(err.message).toBe("option --file may be given only once");
   // Путь в тексте не эхо-печатается: он ушёл бы в секцию err журнала.
   expect(err.message.includes("a.md")).toBe(false);

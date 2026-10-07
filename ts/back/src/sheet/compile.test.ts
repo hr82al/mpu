@@ -6,6 +6,7 @@
 
 import { readFile } from "node:fs/promises";
 import { assert, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { compileScript } from "./compile.ts";
 import { printJson } from "./emit.ts";
@@ -45,26 +46,18 @@ it("порядок запросов равен порядку инструкци
 });
 
 it("лист, создаваемый этим же скриптом, на компиляции не существует", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     compileScript("sheet add Врем\nsheet rename Врем Врем2", {
       sheets: SHEETS,
     });
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   expect(err.message).toBe("строка 2: лист 'Врем' не найден в таблице");
 });
 
 it("py{…} не поддерживается и отбивается до всякой работы", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     compileScript("py{ emit('trim A1') }", { sheets: SHEETS });
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   expect(err.message).toStrictEqual(
     "строка 1: py{…} не поддерживается; собери инструкции сами и передай " +
       "готовым скриптом",
@@ -222,13 +215,9 @@ it("find-replace: searchByRegex ложен без слова regex", () => {
 });
 
 it("find-replace без области и без -n — ошибка, а не вся таблица", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     compileScript("find-replace а б", { sheets: SHEETS });
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   expect(err.message).toBe(
     "строка 1: нет области — задай -n, allsheets или 'Лист'!span",
   );
@@ -245,25 +234,17 @@ it("неопознанное слово-опция — ошибка, а не м�
       ["clear A1 частично", "строка 1: неизвестная опция 'частично'"],
     ]
   ) {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       compileScript(script, { sheets: SHEETS, defaultSheet: "Sheet1" });
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(err.message).toStrictEqual(message);
   }
 });
 
 it("опечатка во втором слове называет пару целиком", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     compileScript("cols insrt A", { sheets: SHEETS, defaultSheet: "Sheet1" });
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   expect(err.message).toBe("строка 1: неизвестный глагол 'cols insrt'");
 });
 
@@ -316,16 +297,12 @@ it("открытая граница в запрос не попадает", () =
 });
 
 it("буква как индекс строки — ошибка с названной размерностью", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     compileScript("rows delete H", {
       sheets: SHEETS,
       defaultSheet: "Sheet1",
     });
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   expect(err.message).toBe("строка 1: плохой индекс 'H' для ROWS");
 });
 
@@ -359,11 +336,12 @@ it("лишнее слово отбивается у каждого глагол�
       "sheet add Новый мусор",
     ]
   ) {
+    // Ручная поимка, а не `thrown`: падение называет скрипт цикла.
     let err: unknown;
     try {
       compileScript(script, { sheets: SHEETS, defaultSheet: "Sheet1" });
-    } catch (thrown) {
-      err = thrown;
+    } catch (error) {
+      err = error;
     }
     assert(err instanceof UsageError, script);
     expect(err.message, script).toContain("неизвестная опция 'мусор'");
@@ -372,32 +350,24 @@ it("лишнее слово отбивается у каждого глагол�
 });
 
 it("сторона рамки, названная дважды, — ошибка, а не тихая потеря", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     compileScript("border A1:B2 top bottom", {
       sheets: SHEETS,
       defaultSheet: "Sheet1",
     });
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   expect(err.message).toBe(
     "строка 1: сторона названа дважды: 'top' и 'bottom'",
   );
 });
 
 it("freeze: лист — только первый токен", () => {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     compileScript("freeze Лишний Sheet1 rows=1", {
       sheets: SHEETS,
       defaultSheet: "Sheet1",
     });
-  } catch (thrown) {
-    err = thrown;
-  }
-  assert(err instanceof UsageError);
+  }, UsageError);
   // Раньше `Лишний` молча затирался вторым бесключевым токеном.
   expect(err.message).toBe("строка 1: неизвестная опция 'Sheet1'");
 });
@@ -435,13 +405,9 @@ it("опечатка во втором слове называет пару у �
       ["sheet ad Новый", "строка 1: неизвестный глагол 'sheet ad'"],
     ]
   ) {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       compileScript(script, { sheets: SHEETS, defaultSheet: "Sheet1" });
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(err.message).toStrictEqual(message);
   }
 });

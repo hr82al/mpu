@@ -6,6 +6,7 @@
  */
 
 import { assert, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import driver from "pg";
 import {
   clientOptions,
@@ -373,8 +374,7 @@ describe("пользовательский текст исполняется в�
     );
     const failure = openPgSession(TARGET, "read-only", client.open);
     await expect(failure).rejects.toThrow();
-    const err: unknown = await failure.catch((thrown) => thrown);
-    assert(err instanceof DbError);
+    const err = await rejected(() => failure, DbError);
     expect(err.message).toBe("connect ECONNREFUSED 10.0.0.1:5432");
     expect(client.ended()).toBe(1);
   });
@@ -387,28 +387,37 @@ describe("отказы обёртки различаются по SQLSTATE", () 
     try {
       const failure = session.run("SELECT * FROM nonexistent_table_xyz");
       await expect(failure).rejects.toThrow();
-      return await failure.catch((thrown: unknown) => thrown);
+      return await failure;
     } finally {
       await session.close();
     }
   };
 
   it("25006 — отказ записи своим классом", async () => {
-    const err = await run(() =>
-      serverError("cannot execute UPDATE in a read-only transaction", "25006")
+    await rejected(
+      () =>
+        run(() =>
+          serverError(
+            "cannot execute UPDATE in a read-only transaction",
+            "25006",
+          )
+        ),
+      WriteRefusedError,
     );
-    assert(err instanceof WriteRefusedError);
   });
 
   it("25P01 на снятии метки — транзакция вызова завершена", async () => {
     // Метку снимает замыкающий оператор обёртки: без него сервер
     // потерянной транзакции не заметит.
-    const err = await run((text) =>
-      text.includes("ROLLBACK TO SAVEPOINT mpu_sql_ro")
-        ? serverError("no such savepoint", "25P01")
-        : wrapped(ROWS)
+    await rejected(
+      () =>
+        run((text) =>
+          text.includes("ROLLBACK TO SAVEPOINT mpu_sql_ro")
+            ? serverError("no such savepoint", "25P01")
+            : wrapped(ROWS)
+        ),
+      TransactionEndedError,
     );
-    assert(err instanceof TransactionEndedError);
   });
 
   it(
@@ -417,32 +426,36 @@ describe("отказы обёртки различаются по SQLSTATE", () 
       // Второй путь того же обхода: `COMMIT; BEGIN …` не закрывает
       // транзакцию, а подменяет её, и метки в новой нет. Смысл тот же,
       // класс тот же — различение по коду, текст сервера тут другой.
-      const err = await run(() =>
-        serverError('savepoint "mpu_sql_ro" does not exist', "3B001")
+      await rejected(
+        () =>
+          run(() =>
+            serverError('savepoint "mpu_sql_ro" does not exist', "3B001")
+          ),
+        TransactionEndedError,
       );
-      assert(err instanceof TransactionEndedError);
     },
   );
 
   it("чужой код с тем же словом — не класс метки", async () => {
     // Слово «savepoint» в сообщении сервера ничего не решает: класс
     // отказа задаёт SQLSTATE, здесь — обычная синтаксическая ошибка.
-    const err = await run(() =>
-      serverError('syntax error at or near "SAVEPOINT"', "42601")
+    await rejected(
+      () =>
+        run(() => serverError('syntax error at or near "SAVEPOINT"', "42601")),
+      DbError,
     );
-    assert(err instanceof DbError);
   });
 
   it("25001 — текстом сервера, как прочие коды", async () => {
     // Одним кодом приходит и попытка снять режим, и `VACUUM` в блоке
     // транзакции: различать их не требуется.
-    const err = await run(() =>
-      serverError(
-        "cannot set transaction read-write mode inside a read-only transaction",
-        "25001",
-      )
-    );
-    assert(err instanceof DbError);
+    const err = await rejected(() =>
+      run(() =>
+        serverError(
+          "cannot set transaction read-write mode inside a read-only transaction",
+          "25001",
+        )
+      ), DbError);
     expect(err.message).toBe(
       "cannot set transaction read-write mode inside a read-only transaction",
     );
@@ -451,14 +464,14 @@ describe("отказы обёртки различаются по SQLSTATE", () 
   it("позиция ошибки считается по тексту пользователя", async () => {
     // Сервер считает позицию по всему отправленному тексту; в выводе
     // обёртки быть не должно — указатель встаёт под местом ошибки.
-    const err = await run((text) =>
-      serverError(
-        'relation "nonexistent_table_xyz" does not exist',
-        "42P01",
-        String(text.indexOf("nonexistent_table_xyz") + 1),
-      )
-    );
-    assert(err instanceof DbError);
+    const err = await rejected(() =>
+      run((text) =>
+        serverError(
+          'relation "nonexistent_table_xyz" does not exist',
+          "42P01",
+          String(text.indexOf("nonexistent_table_xyz") + 1),
+        )
+      ), DbError);
     expect(err.message).toStrictEqual(
       'relation "nonexistent_table_xyz" does not exist\n' +
         "LINE 1: SELECT * FROM nonexistent_table_xyz\n" +
@@ -630,11 +643,11 @@ describe("runMany: одна транзакция на список, значен
       text.startsWith("INSERT") ? boom : done
     );
     const session = await openPgSession(TARGET, "write", client.open);
-    const err = await session.runMany([
-      { sql: "DELETE FROM t", label: "t" },
-      { sql: "INSERT INTO t VALUES ($1)", params: [1], label: "t" },
-    ]).catch((thrown: unknown) => thrown);
-    assert(err instanceof StatementError);
+    const err = await rejected(() =>
+      session.runMany([
+        { sql: "DELETE FROM t", label: "t" },
+        { sql: "INSERT INTO t VALUES ($1)", params: [1], label: "t" },
+      ]), StatementError);
     expect(err.index).toBe(1);
     expect(err.label).toBe("t");
     // Откат обязателен: без него соединение осталось бы в прерванной

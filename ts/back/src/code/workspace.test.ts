@@ -6,7 +6,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { VerbatimError } from "../command/mod.ts";
 import {
   findWorkspaceRoot,
@@ -39,13 +40,9 @@ describe("корень рабочей области ищется по сент�
   });
 
   it("сентинела нет ни у одного предка — отказ слоя", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       findWorkspaceRoot("/nowhere/deep");
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof VerbatimError);
+    }, VerbatimError);
     expect(err.message).toStrictEqual(
       `mpu code: рабочая область не найдена: сентинела ${SENTINEL} нет ни у одного предка /nowhere/deep`,
     );
@@ -86,13 +83,9 @@ describe("репозитории — подкаталоги первого ур�
   it("ни одного репозитория — отказ слоя", async () => {
     const empty = `${temp}/empty`;
     await mkdir(empty, { recursive: true });
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       readRepos(empty, NO_GIT);
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof VerbatimError);
+    }, VerbatimError);
     expect(err.message).toBe("mpu code: в рабочей области нет репозиториев");
   });
 });

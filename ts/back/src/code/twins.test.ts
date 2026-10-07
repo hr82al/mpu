@@ -9,7 +9,8 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { codeTwinsCommand, renderTwins, runTwins } from "./cmd_twins.ts";
 import { openFixture } from "./testing.ts";
@@ -75,19 +76,19 @@ describe("тело берётся у объявления, охватывающ�
   });
 
   it("строка вне всякого объявления — ошибка ввода", async () => {
-    const err = await twins(repo, "fixture:src/window.ts:1").catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => twins(repo, "fixture:src/window.ts:1"),
+      UsageError,
+    );
     expect(err.message).toBe("в строке 1 нет объявления-функции");
     expect(err.details).toBe("  src/window.ts:4  windowDays");
   });
 
   it("адрес без строки — ошибка ввода", async () => {
-    const err = await twins(repo, "fixture:src/window.ts").catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(
+      () => twins(repo, "fixture:src/window.ts"),
+      UsageError,
+    );
     expect(err.message).toBe(
       "нужна строка: тело берётся у объявления, охватывающего её",
     );

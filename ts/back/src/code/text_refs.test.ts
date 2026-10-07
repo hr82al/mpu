@@ -12,7 +12,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { rejected, thrown } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { codeRefsCommand, renderRefs, runRefs } from "./cmd_refs.ts";
 import { parseAddress } from "./address.ts";
@@ -103,10 +104,7 @@ it("адрес-каталог — ошибка ввода, а не сбой чт
     const repo = await plainRepo(temp);
     // `readTextFileSync` на каталоге бросает `IsADirectory`; без
     // проверки вида файла команда падала бы внутренней ошибкой.
-    const err = await refs(repo, "plain:src").catch((thrown: unknown) =>
-      thrown
-    );
-    assert(err instanceof UsageError);
+    const err = await rejected(() => refs(repo, "plain:src"), UsageError);
     expect(err.message).toBe("файла src нет в plain на вне git");
   } finally {
     await rm(temp, { recursive: true });
@@ -160,13 +158,9 @@ describe("адрес, который ничего не адресует, — о�
   ];
   for (const [title, raw, message] of cases) {
     it(title, () => {
-      let err: unknown;
-      try {
+      const err = thrown(() => {
         parseAddress(raw);
-      } catch (thrown) {
-        err = thrown;
-      }
-      assert(err instanceof UsageError);
+      }, UsageError);
       expect(err.message).toStrictEqual(message);
     });
   }

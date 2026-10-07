@@ -3,7 +3,8 @@
  * и «Валидация значений»).
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { formatCommandError, UsageError } from "../command/mod.ts";
 import { type Flag, innerText, innerTokens } from "./inner.ts";
 
@@ -95,13 +96,9 @@ describe("SafeToken: whitelist символов значения", () => {
     // Значение подставляется в двойные кавычки внутри одинарных, и
     // whitelist — то, что делает подстановку безопасной без
     // квотирования (спека, «Валидация значений»).
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       tokens([{ name: "spreadsheet_id", value: "a b" }]);
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(formatCommandError("ss-update", err)).toStrictEqual(
       "mpu ss-update: value contains shell-unsafe chars for" +
         " --spreadsheet-id: 'a b'",

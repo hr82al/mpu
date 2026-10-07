@@ -6,6 +6,7 @@
  */
 
 import { assert, beforeAll, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -317,9 +318,10 @@ describe("отказы ввода — эталоны канала", () => {
   it("ssh-печать без PG_MY_USER_NAME", async () => {
     await withCache([], async (db) => {
       const { io } = harness(db, { sl_9: "10.9.9.9" });
-      const err = await ssUpdateCommand.invokeInput(ssArgs({ print: true }), io)
-        .catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(
+        () => ssUpdateCommand.invokeInput(ssArgs({ print: true }), io),
+        UsageError,
+      );
       expect(`${formatCommandError("ss-update", err)}\n`).toStrictEqual(
         await golden("err-no-pg-user.stderr.txt"),
       );
@@ -329,11 +331,11 @@ describe("отказы ввода — эталоны канала", () => {
   it("значение с пробелом", async () => {
     await withCache([], async (db) => {
       const { io } = harness(db);
-      const err = await ssUpdateCommand.invokeInput(
-        ssArgs({ print: true, "spreadsheet-id": "a b" }),
-        io,
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        ssUpdateCommand.invokeInput(
+          ssArgs({ print: true, "spreadsheet-id": "a b" }),
+          io,
+        ), UsageError);
       expect(`${formatCommandError("ss-update", err)}\n`).toStrictEqual(
         await golden("err-unsafe-token.stderr.txt"),
       );
@@ -344,9 +346,10 @@ describe("отказы ввода — эталоны канала", () => {
     await withCache([], async (db) => {
       const { io } = harness(db);
       // Отклонение `fix`: оригинал молча выполнял команду в проде.
-      const err = await ssUpdateCommand.invokeInput(ssArgs({ local: true }), io)
-        .catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(
+        () => ssUpdateCommand.invokeInput(ssArgs({ local: true }), io),
+        UsageError,
+      );
       expect(err.message).toBe("local имеет смысл только вместе с print");
     });
   });
@@ -354,9 +357,10 @@ describe("отказы ввода — эталоны канала", () => {
   it("ssh-печать без адреса сервера", async () => {
     await withCache([], async (db) => {
       const { io } = harness(db, { PG_MY_USER_NAME: "probeuser" });
-      const err = await ssUpdateCommand.invokeInput(ssArgs({ print: true }), io)
-        .catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(
+        () => ssUpdateCommand.invokeInput(ssArgs({ print: true }), io),
+        UsageError,
+      );
       expect(err.message).toBe("no sl_9 in ~/.config/mpu/.env");
     });
   });
@@ -525,18 +529,18 @@ describe("auto-pick: явный флаг, единственное значен�
 
   it("разные значения у кандидатов — отказ со списком", async () => {
     await withTwoSheets(async (db) => {
-      const err = await runWrap(
-        SS_UPDATE,
-        {
-          selector: String(CLIENT.id),
-          print: true,
-          local: true,
-          clientId: CLIENT.id,
-        },
-        harness(db).io,
-        options(),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runWrap(
+          SS_UPDATE,
+          {
+            selector: String(CLIENT.id),
+            print: true,
+            local: true,
+            clientId: CLIENT.id,
+          },
+          harness(db).io,
+          options(),
+        ), UsageError);
       expect(err.message).toBe(
         "cannot resolve --spreadsheet-id from selector; pass --spreadsheet-id",
       );
@@ -551,13 +555,13 @@ describe("auto-pick: явный флаг, единственное значен�
     await withCache([], async (db) => {
       // `--server` резолвит сервер сам, кандидатов не остаётся: пустой
       // список не должен превращаться в пустую строку после отказа.
-      const err = await runWrap(
-        SS_UPDATE,
-        { selector: "sl-9", server: "sl-9", print: true, local: true },
-        harness(db).io,
-        options(),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runWrap(
+          SS_UPDATE,
+          { selector: "sl-9", server: "sl-9", print: true, local: true },
+          harness(db).io,
+          options(),
+        ), UsageError);
       expect(err.details).toStrictEqual(undefined);
     });
   });
@@ -1567,11 +1571,11 @@ it("auto-pick --spreadsheet-id: две таблицы — отказ с канд
       1_700_000_000,
     );
     const { io } = harness(db);
-    const err = await ssLoadCommand.invokeInput(
-      clientArgs({ dataset: "wb_unit", forced: false, logs: "info" }),
-      io,
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof UsageError);
+    const err = await rejected(() =>
+      ssLoadCommand.invokeInput(
+        clientArgs({ dataset: "wb_unit", forced: false, logs: "info" }),
+        io,
+      ), UsageError);
     expect(`${formatCommandError("ss-load", err)}\n`).toStrictEqual(
       await golden("err-ambiguous-spreadsheet.stderr.txt"),
     );

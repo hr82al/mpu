@@ -24,6 +24,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assert, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
 import { runMpClone } from "./cmd_mp_clone.ts";
@@ -463,11 +464,7 @@ it("C11: нет mp.code-workspace — ошибка ввода с путём", ()
   withStand(async (stand) => {
     await rm(`${stand.root}/mp.code-workspace`);
     const shell = new FakeShell(stand.root);
-    const err = await run(stand, shell).then(
-      () => undefined,
-      (caught: unknown) => caught,
-    );
-    assert(err instanceof UsageError);
+    const err = await rejected(() => run(stand, shell), UsageError);
     expect(err.message).toStrictEqual(`нет ${stand.root}/mp.code-workspace`);
     expect(shell.calls).toStrictEqual([]);
   }));
@@ -531,22 +528,21 @@ describe("workspace без folders и без HOME — ошибка ввода", 
   it("мусор в mp.code-workspace", () =>
     withStand(async (stand) => {
       await writeFile(`${stand.root}/mp.code-workspace`, "{oops");
-      const err = await run(stand, new FakeShell(stand.root)).then(
-        () => undefined,
-        (caught: unknown) => caught,
+      const err = await rejected(
+        () => run(stand, new FakeShell(stand.root)),
+        UsageError,
       );
-      assert(err instanceof UsageError);
       expect(err.message).toStrictEqual(
         `${stand.root}/mp.code-workspace: нет списка folders[].path`,
       );
     }));
   it("HOME не задан", async () => {
-    const err = await runMpClone(
-      { "dry-run": false },
-      makeFakeIo({ env: () => undefined }),
-      { shell: new FakeShell("/nowhere"), disk: systemDisk, clock },
-    ).then(() => undefined, (caught: unknown) => caught);
-    assert(err instanceof UsageError);
+    const err = await rejected(() =>
+      runMpClone(
+        { "dry-run": false },
+        makeFakeIo({ env: () => undefined }),
+        { shell: new FakeShell("/nowhere"), disk: systemDisk, clock },
+      ), UsageError);
     expect(err.message).toBe("корень mp не найден: HOME не задан");
   });
 });

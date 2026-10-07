@@ -6,7 +6,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import { parseCalendarDate, parseDuration } from "./time_input.ts";
 
@@ -19,13 +20,9 @@ function golden(name: string): Promise<string> {
 
 /** Текст ошибки одной строкой: голдены сообщений хранятся с `\n`. */
 function messageOf(call: () => unknown): string {
-  let err: unknown;
-  try {
+  const err = thrown(() => {
     call();
-  } catch (e) {
-    err = e;
-  }
-  assert(err instanceof UsageError, "ожидался отказ UsageError");
+  }, UsageError);
   return `${err.message}\n`;
 }
 

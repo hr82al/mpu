@@ -22,7 +22,8 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected, thrown } from "../testing/thrown.ts";
 import { plainRows } from "../testing/cache.ts";
 import { serveFetch } from "../testing/http.ts";
 import { openCacheDb } from "../store/mod.ts";
@@ -209,9 +210,10 @@ it("ошибка части 1 (/spaces): collectKaitenWarmup бросает Kait
     return new Response("[]");
   });
   try {
-    const err = await collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS)
-      .catch((thrown: unknown) => thrown);
-    assert(err instanceof KaitenError);
+    const err = await rejected(
+      () => collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS),
+      KaitenError,
+    );
     expect(err.message).toContain("kaiten GET /spaces -> 500: upstream boom");
     expect(err.message).toBe("kaiten GET /spaces -> 500: upstream boom");
   } finally {
@@ -238,9 +240,10 @@ describe("тело успешного ответа не той формы — о
       it(name, async () => {
         const { baseUrl, stop } = await serveFetch(() => new Response(body));
         try {
-          const err = await collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS)
-            .catch((thrown: unknown) => thrown);
-          assert(err instanceof KaitenError);
+          const err = await rejected(
+            () => collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS),
+            KaitenError,
+          );
           expect(err.message).toStrictEqual(`kaiten GET /spaces: ${reason}`);
         } finally {
           await stop();
@@ -574,9 +577,10 @@ describe("API-ключ не появляется в текстах ошибок"
       new Response("nope", { status: 500 })
     );
     try {
-      const err = await collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS)
-        .catch((thrown: unknown) => thrown);
-      assert(err instanceof KaitenError);
+      const err = await rejected(
+        () => collectKaitenWarmup(accessTo(baseUrl), AMPLE_LIMITS),
+        KaitenError,
+      );
       expect(err.message.includes(API_KEY)).toBe(false);
       const causeText = err.cause instanceof Error
         ? err.cause.message
@@ -625,11 +629,11 @@ describe("API-ключ не появляется в текстах ошибок"
       return new Response("[]");
     });
     try {
-      const err = await collectKaitenWarmup(accessTo(baseUrl), {
-        timeouts: { headersTimeoutMs: 20, totalTimeoutMs: 200 },
-        budgetMs: AMPLE_LIMITS.budgetMs,
-      }).catch((thrown: unknown) => thrown);
-      assert(err instanceof KaitenError);
+      const err = await rejected(() =>
+        collectKaitenWarmup(accessTo(baseUrl), {
+          timeouts: { headersTimeoutMs: 20, totalTimeoutMs: 200 },
+          budgetMs: AMPLE_LIMITS.budgetMs,
+        }), KaitenError);
       expect(err.message.includes(API_KEY)).toBe(false);
     } finally {
       gate.resolve();
@@ -678,13 +682,9 @@ describe("requireKaitenAccess: ключ есть/пуст/отсутствует
         },
       };
       if (c.expected === "ошибка") {
-        let err: unknown;
-        try {
+        const err = thrown(() => {
           requireKaitenAccess(envFile);
-        } catch (thrown) {
-          err = thrown;
-        }
-        assert(err instanceof KaitenError);
+        }, KaitenError);
         expect(err.message).toContain("KITEN_API_KEY не задан");
         expect(err.message).toBe("KITEN_API_KEY не задан");
       } else {

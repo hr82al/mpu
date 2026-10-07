@@ -4,7 +4,8 @@
  * отсчёта передаётся параметром.
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { UsageError } from "../command/mod.ts";
 import {
   buildLogQl,
@@ -49,13 +50,9 @@ describe("--since: unix-ts, относительные единицы и отк�
   });
 
   it("прочее — ошибка ввода с текстом спеки", () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       parseSince("5x");
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(err.message).toBe(
       "--since: ожидается <число>{s|m|h|d} или unix-ts, получено '5x'",
     );

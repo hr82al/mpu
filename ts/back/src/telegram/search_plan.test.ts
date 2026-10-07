@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { assert, describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { UsageError, VerbatimUsageError } from "../command/mod.ts";
 import { searchPlan } from "./search_plan.ts";
 
@@ -78,13 +79,9 @@ it("--from без --chat требует текст запроса", async () => 
 describe("--limit вне диапазона отбивается до сети", () => {
   for (const value of ["0", "501", "-1", "много", "1.5"]) {
     it(value, () => {
-      let err: unknown;
-      try {
+      const err = thrown(() => {
         searchPlan({ ...ARGS, query: "выгрузка", limit: value });
-      } catch (e) {
-        err = e;
-      }
-      assert(err instanceof UsageError, "ожидался отказ UsageError");
+      }, UsageError);
       expect(err.message).toStrictEqual(
         `--limit вне диапазона 1..500: ${value}`,
       );

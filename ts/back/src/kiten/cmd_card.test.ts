@@ -16,7 +16,8 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import {
   type CommandIo,
   DomainError,
@@ -470,11 +471,7 @@ it("недоступная карточка: 403 с пустым телом, exi
     "/api/latest/cards/99999999": () => new Response(null, { status: 403 }),
   });
   try {
-    const err = await run(["99999999"], io).then(
-      () => null,
-      (e: unknown) => e,
-    );
-    assert(err instanceof DomainError, "ожидался отказ DomainError");
+    const err = await rejected(() => run(["99999999"], io), DomainError);
 
     expect(`${formatCommandError(kitenCardCommand.errorName, err)}\n`)
       .toStrictEqual(await golden("err-not-found-stderr.txt"));
@@ -488,11 +485,7 @@ it("недоступная карточка: 403 с пустым телом, exi
 it("невалидный селектор: exit 2, без единого запроса", async () => {
   const { io, seen, stop } = stand({});
   try {
-    const err = await run(["abc"], io).then(
-      () => null,
-      (e: unknown) => e,
-    );
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
+    const err = await rejected(() => run(["abc"], io), UsageError);
 
     expect(`${err.message}\n`).toStrictEqual(
       await golden("err-selector-message.txt"),

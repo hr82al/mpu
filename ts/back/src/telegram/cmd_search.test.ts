@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { assert, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import type { Command, CommandIo } from "../command/mod.ts";
 import {
   formatCommandError,
@@ -112,11 +113,10 @@ describe("отказы ввода отбиваются до сети", () => {
 });
 
 it("строка отказа по --limit совпадает с голденом", async () => {
-  const err = await command.invoke(["выгрузка", "--limit", "0"], io()).then(
-    () => null,
-    (e: unknown) => e,
+  const err = await rejected(
+    () => command.invoke(["выгрузка", "--limit", "0"], io()),
+    UsageError,
   );
-  assert(err instanceof UsageError, "ожидался отказ UsageError");
   expect(`${formatCommandError(command.errorName, err)}\n`).toStrictEqual(
     await golden("err-limit-stderr.txt"),
   );

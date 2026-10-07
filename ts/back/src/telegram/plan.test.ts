@@ -1,4 +1,5 @@
 import { assert, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { NotFoundIoError, UsageError } from "../command/mod.ts";
 import { VerbatimUsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
@@ -119,25 +120,20 @@ it("порядок вложений равен порядку флагов", asy
 });
 
 it("вложение не найдено — отказ до сети", async () => {
-  const err = await sendPlan(args({ file: ["/no/such/file"] }), io(), "me")
-    .then(
-      () => null,
-      (e: unknown) => e,
-    );
-  assert(err instanceof UsageError, "ожидался отказ UsageError");
+  const err = await rejected(
+    () => sendPlan(args({ file: ["/no/such/file"] }), io(), "me"),
+    UsageError,
+  );
   expect(err.message).toBe("файл-вложение не найден: /no/such/file");
 });
 
 it("вложения проверяются раньше адресата и текста", async () => {
-  const err = await sendPlan(
-    args({ message: "", file: ["/no/such/file"] }),
-    io(),
-    undefined,
-  ).then(
-    () => null,
-    (e: unknown) => e,
-  );
-  assert(err instanceof UsageError, "ожидался отказ UsageError");
+  const err = await rejected(() =>
+    sendPlan(
+      args({ message: "", file: ["/no/such/file"] }),
+      io(),
+      undefined,
+    ), UsageError);
   expect(err.message).toBe("файл-вложение не найден: /no/such/file");
 });
 
@@ -145,12 +141,10 @@ it("вложение не читается по иной причине — то
   const failing = makeFakeIo({
     readRegularFile: () => Promise.reject(new Error("permission denied")),
   });
-  const err = await sendPlan(args({ file: ["/tmp/a.txt"] }), failing, "me")
-    .then(
-      () => null,
-      (e: unknown) => e,
-    );
-  assert(err instanceof UsageError, "ожидался отказ UsageError");
+  const err = await rejected(
+    () => sendPlan(args({ file: ["/tmp/a.txt"] }), failing, "me"),
+    UsageError,
+  );
   expect(err.message).toBe(
     "не удалось прочитать вложение /tmp/a.txt: permission denied",
   );

@@ -8,7 +8,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import type { CacheDb, Command, CommandIo } from "../command/mod.ts";
 import { formatCommandError, UsageError } from "../command/mod.ts";
 import { type CapturedRequest, startFakeKaiten } from "../kaiten/testing.ts";
@@ -165,21 +166,18 @@ function patches(st: Stand): readonly unknown[] {
 
 describe("move без осей — отказ до сети, раньше селектора", () => {
   it("голая команда", async () => {
-    const err = await kitenMoveCommand.invoke([String(CARD_ID)], makeFakeIo({}))
-      .then(
-        () => null,
-        (e: unknown) => e,
-      );
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
+    const err = await rejected(
+      () => kitenMoveCommand.invoke([String(CARD_ID)], makeFakeIo({})),
+      UsageError,
+    );
     expect(`${formatCommandError(kitenMoveCommand.errorName, err)}\n`)
       .toStrictEqual(await golden("err-no-axis-stderr.txt"));
   });
   it("негодный селектор без осей — отказ про оси", async () => {
-    const err = await kitenMoveCommand.invoke(["abc"], makeFakeIo({})).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await rejected(
+      () => kitenMoveCommand.invoke(["abc"], makeFakeIo({})),
+      UsageError,
     );
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
     expect(err.message).toBe(
       "нужно хотя бы одно из --lane / --column / --board",
     );
@@ -187,14 +185,11 @@ describe("move без осей — отказ до сети, раньше сел
 });
 
 it("move с осью, но негодным селектором — отказ про селектор", async () => {
-  const err = await kitenMoveCommand.invoke(
-    ["abc", "--column", "Готово"],
-    makeFakeIo({}),
-  ).then(
-    () => null,
-    (e: unknown) => e,
-  );
-  assert(err instanceof UsageError, "ожидался отказ UsageError");
+  const err = await rejected(() =>
+    kitenMoveCommand.invoke(
+      ["abc", "--column", "Готово"],
+      makeFakeIo({}),
+    ), UsageError);
   expect(`${formatCommandError(kitenMoveCommand.errorName, err)}\n`)
     .toStrictEqual(await golden("err-selector-stderr.txt"));
 });
@@ -350,14 +345,11 @@ it("move --column с текущей колонкой — релог", async () =
 it("нерезолвящийся REF — отказ ввода без мутаций", async () => {
   const st = stand([card(BACKLOG_ID, "Бэклог")]);
   try {
-    const err = await kitenMoveCommand.invoke(
-      [String(CARD_ID), "--column", "Архив"],
-      st.io,
-    ).then(
-      () => null,
-      (e: unknown) => e,
-    );
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
+    const err = await rejected(() =>
+      kitenMoveCommand.invoke(
+        [String(CARD_ID), "--column", "Архив"],
+        st.io,
+      ), UsageError);
     expect(err.message).toBe(
       "column 'Архив' не найден — см. `mpu kiten columns`",
     );

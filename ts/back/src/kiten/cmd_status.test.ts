@@ -18,7 +18,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import type { CommandIo } from "../command/mod.ts";
 import { UsageError } from "../command/mod.ts";
 import { makeFakeIo } from "../testing/mod.ts";
@@ -748,39 +749,39 @@ describe("ошибки ввода: --since/--time-since/--stage — UsageError �
   const io = makeFakeIo();
 
   it("--since невалиден", async () => {
-    const err = await runKitenStatus(argsOf({ since: "abc" }), io, {
-      nowSeconds: () => NOW,
-    }).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await rejected(
+      () =>
+        runKitenStatus(argsOf({ since: "abc" }), io, {
+          nowSeconds: () => NOW,
+        }),
+      UsageError,
     );
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
     expect((err as UsageError).message).toBe(
       "--since: ожидается <число>{s|m|h|d} или unix-ts, получено 'abc'",
     );
   });
 
   it("--time-since невалиден", async () => {
-    const err = await runKitenStatus(argsOf({ "time-since": "??" }), io, {
-      nowSeconds: () => NOW,
-    }).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await rejected(
+      () =>
+        runKitenStatus(argsOf({ "time-since": "??" }), io, {
+          nowSeconds: () => NOW,
+        }),
+      UsageError,
     );
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
     expect((err as UsageError).message).toBe(
       "--time-since: ожидается <число>{s|m|h|d} или unix-ts, получено '??'",
     );
   });
 
   it("--stage неизвестен", async () => {
-    const err = await runKitenStatus(argsOf({ stage: "bogus" }), io, {
-      nowSeconds: () => NOW,
-    }).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await rejected(
+      () =>
+        runKitenStatus(argsOf({ stage: "bogus" }), io, {
+          nowSeconds: () => NOW,
+        }),
+      UsageError,
     );
-    assert(err instanceof UsageError, "ожидался отказ UsageError");
     expect((err as UsageError).message).toStrictEqual(
       "неизвестный этап 'bogus'; допустимо: queue, estimate, work, review, " +
         "test, dev, preprod, done",

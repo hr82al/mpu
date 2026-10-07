@@ -10,7 +10,8 @@
  * проверяется на синтетических записях.
  */
 
-import { assert, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -277,10 +278,10 @@ describe("ls-режимы: списки из кэша, без сети", () => {
 
   it("пустой кэш хостов — exit 2 с текстом спеки", async () => {
     await withStand({}, {}, async (io) => {
-      const err = await runLogs(args({ selector: "ls" }), io, options()).catch((
-        thrown: unknown,
-      ) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(
+        () => runLogs(args({ selector: "ls" }), io, options()),
+        UsageError,
+      );
       expect(err.message).toBe(
         "кэш hosts пуст. Запусти `mpu init` или `mpu update`.",
       );
@@ -289,22 +290,22 @@ describe("ls-режимы: списки из кэша, без сети", () => {
 
   it("нет сервисов хоста — эталон канала", async () => {
     await withStand({ hosts: ["sl-1"] }, {}, async (io) => {
-      const err = await runLogs(
-        args({ selector: "sl-99", service: "ls" }),
-        io,
-        options(),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runLogs(
+          args({ selector: "sl-99", service: "ls" }),
+          io,
+          options(),
+        ), UsageError);
       expect(shown(err)).toStrictEqual(await golden("err-services-empty.txt"));
     });
   });
 
   it("нет схемы в БД — это пустой кэш, а не сырой отказ", async () => {
     await withStand(undefined, {}, async (io) => {
-      const err = await runLogs(args({ selector: "ls" }), io, options()).catch((
-        thrown: unknown,
-      ) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(
+        () => runLogs(args({ selector: "ls" }), io, options()),
+        UsageError,
+      );
       expect(err.message).toContain("кэш hosts пуст");
     });
   });
@@ -335,12 +336,12 @@ describe("разбор аргументов: отказы до сети", () => 
     it(title, async () => {
       await withStand({ hosts: ["sl-1"] }, { LOKI_URL }, async (io) => {
         const loki = fakeLoki(() => []);
-        const err = await runLogs(
-          args(overrides),
-          io,
-          options({ readLoki: loki.read }),
-        ).catch((thrown: unknown) => thrown);
-        assert(err instanceof UsageError);
+        const err = await rejected(() =>
+          runLogs(
+            args(overrides),
+            io,
+            options({ readLoki: loki.read }),
+          ), UsageError);
         expect(shown(err)).toStrictEqual(await golden(fixture));
         expect(loki.asked, "запрос ушёл несмотря на отказ ввода").toStrictEqual(
           [],
@@ -352,10 +353,10 @@ describe("разбор аргументов: отказы до сети", () => 
   it("limit: 0 и отрицательный отвергаются", async () => {
     await withStand({}, { LOKI_URL }, async (io) => {
       for (const tail of [0, -5]) {
-        const err = await runLogs(args({ tail }), io, options()).catch((
-          thrown: unknown,
-        ) => thrown);
-        assert(err instanceof UsageError);
+        const err = await rejected(
+          () => runLogs(args({ tail }), io, options()),
+          UsageError,
+        );
         expect(err.message).toContain("limit:");
       }
     });
@@ -392,27 +393,27 @@ describe("разбор аргументов: отказы до сети", () => 
 
   it("дробный limit: — уже смысл, и текст команды", async () => {
     await withStand({}, { LOKI_URL }, async (io) => {
-      const err = await runLogs(args({ tail: 2.5 }), io, options()).catch((
-        thrown: unknown,
-      ) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(
+        () => runLogs(args({ tail: 2.5 }), io, options()),
+        UsageError,
+      );
       expect(err.message).toContain("limit: ожидается целое");
     });
   });
 
   it("фильтры Loki с --via portainer — ошибка ввода", async () => {
     await withStand({}, {}, async (io) => {
-      const err = await runLogs(
-        args({
-          via: "portainer",
-          selector: "sl-1",
-          service: "api",
-          level: "error",
-        }),
-        io,
-        options(),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runLogs(
+          args({
+            via: "portainer",
+            selector: "sl-1",
+            service: "api",
+            level: "error",
+          }),
+          io,
+          options(),
+        ), UsageError);
       expect(err.message).toBe(
         "grep:/grep-regex:/level:/client: поддерживаются только с loki",
       );
@@ -421,9 +422,10 @@ describe("разбор аргументов: отказы до сети", () => 
 
   it("LOKI_URL не задан — exit 2 до всякой сети", async () => {
     await withStand({}, {}, async (io) => {
-      const err = await runLogs(args({ selector: "sl-1" }), io, options())
-        .catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(
+        () => runLogs(args({ selector: "sl-1" }), io, options()),
+        UsageError,
+      );
       expect(err.message).toBe("LOKI_URL не задан в ~/.config/mpu/.env");
     });
   });
@@ -432,10 +434,10 @@ describe("разбор аргументов: отказы до сети", () => 
 describe("MCP-форма входа: слежение — только CLI", () => {
   it("follow: true — ошибка ввода с текстом спеки", async () => {
     await withStand({ hosts: ["sl-1"] }, { LOKI_URL }, async (io) => {
-      const err = await logsCommand.invokeInput({ follow: true }, io).catch((
-        thrown: unknown,
-      ) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(
+        () => logsCommand.invokeInput({ follow: true }, io),
+        UsageError,
+      );
       expect(err.message).toBe("follow доступен только в CLI");
     });
   });
@@ -588,14 +590,14 @@ describe("разовый запрос в Loki", () => {
   it("ответ вне 2xx — exit 1, текст и строка запроса", async () => {
     await withStand({}, { LOKI_URL }, async (io) => {
       const body = "end timestamp must not be before or equal to start time";
-      const err = await runLogs(
-        args({ selector: "sl-1" }),
-        io,
-        options({
-          readLoki: fakeLoki(() => new LokiHttpError(400, ` ${body} `)).read,
-        }),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof DomainError);
+      const err = await rejected(() =>
+        runLogs(
+          args({ selector: "sl-1" }),
+          io,
+          options({
+            readLoki: fakeLoki(() => new LokiHttpError(400, ` ${body} `)).read,
+          }),
+        ), DomainError);
       expect(shown(err)).toStrictEqual(
         `mpu logs: loki HTTP 400: ${body}\n  query: {host="sl-1"}\n`,
       );
@@ -604,16 +606,16 @@ describe("разовый запрос в Loki", () => {
 
   it("прочий сбой источника — loki error без запроса", async () => {
     await withStand({}, { LOKI_URL }, async (io) => {
-      const err = await runLogs(
-        args({ selector: "sl-1" }),
-        io,
-        options({
-          readLoki: fakeLoki(() =>
-            new LokiError("no response within 10000ms")
-          ).read,
-        }),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof DomainError);
+      const err = await rejected(() =>
+        runLogs(
+          args({ selector: "sl-1" }),
+          io,
+          options({
+            readLoki: fakeLoki(() =>
+              new LokiError("no response within 10000ms")
+            ).read,
+          }),
+        ), DomainError);
       expect(shown(err)).toBe(
         "mpu logs: loki error: no response within 10000ms\n",
       );
@@ -624,12 +626,12 @@ describe("разовый запрос в Loki", () => {
 it("чужая ошибка источника не подменяется своим текстом", async () => {
   await withStand({}, { LOKI_URL }, async (io) => {
     const boom = new Error("совсем не про Loki");
-    const err = await runLogs(
-      args({ selector: "sl-1" }),
-      io,
-      options({ readLoki: fakeLoki(() => boom).read }),
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof Error);
+    const err = await rejected(() =>
+      runLogs(
+        args({ selector: "sl-1" }),
+        io,
+        options({ readLoki: fakeLoki(() => boom).read }),
+      ), Error);
     expect(err).toStrictEqual(boom);
   });
 });
@@ -884,15 +886,15 @@ describe("legacy-снимок через Portainer", () => {
   it("подстрока без совпадений — отказ с подсказкой", async () => {
     await withStand(PORTAINER_SEED, { PORTAINER_API_KEY: "k" }, async (io) => {
       const portainer = fakePortainer(["api"]);
-      const err = await runLogs(
-        args({ via: "portainer", selector: "sl-1", service: "нет" }),
-        io,
-        options({
-          listAllContainerNames: portainer.listAllContainerNames,
-          readContainerLogs: portainer.readContainerLogs,
-        }),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runLogs(
+          args({ via: "portainer", selector: "sl-1", service: "нет" }),
+          io,
+          options({
+            listAllContainerNames: portainer.listAllContainerNames,
+            readContainerLogs: portainer.readContainerLogs,
+          }),
+        ), UsageError);
       expect(shown(err)).toStrictEqual(
         "mpu logs: контейнер 'нет' не найден на sl-1\n" +
           "  подсказка: mpu ps sl-1\n",
@@ -903,15 +905,15 @@ describe("legacy-снимок через Portainer", () => {
   it("неоднозначная подстрока — список кандидатов", async () => {
     await withStand(PORTAINER_SEED, { PORTAINER_API_KEY: "k" }, async (io) => {
       const portainer = fakePortainer(["mp-api-2", "mp-api-1", "mp-api-1"]);
-      const err = await runLogs(
-        args({ via: "portainer", selector: "sl-1", service: "api" }),
-        io,
-        options({
-          listAllContainerNames: portainer.listAllContainerNames,
-          readContainerLogs: portainer.readContainerLogs,
-        }),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runLogs(
+          args({ via: "portainer", selector: "sl-1", service: "api" }),
+          io,
+          options({
+            listAllContainerNames: portainer.listAllContainerNames,
+            readContainerLogs: portainer.readContainerLogs,
+          }),
+        ), UsageError);
       expect(shown(err)).toStrictEqual(
         "mpu logs: подстрока 'api' даёт несколько контейнеров на sl-1:\n" +
           "  mp-api-1\n  mp-api-2\n",
@@ -922,15 +924,15 @@ describe("legacy-снимок через Portainer", () => {
   it("нет ключа доступа — exit 2 до сети", async () => {
     await withStand(PORTAINER_SEED, {}, async (io) => {
       const portainer = fakePortainer(["api"]);
-      const err = await runLogs(
-        args({ via: "portainer", selector: "sl-1", service: "api" }),
-        io,
-        options({
-          listAllContainerNames: portainer.listAllContainerNames,
-          readContainerLogs: portainer.readContainerLogs,
-        }),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runLogs(
+          args({ via: "portainer", selector: "sl-1", service: "api" }),
+          io,
+          options({
+            listAllContainerNames: portainer.listAllContainerNames,
+            readContainerLogs: portainer.readContainerLogs,
+          }),
+        ), UsageError);
       expect(err.message).toBe(
         "PORTAINER_API_KEY не задан в ~/.config/mpu/.env",
       );
@@ -940,14 +942,14 @@ describe("legacy-снимок через Portainer", () => {
 
   it("нет цели ни в кэше, ни в env — exit 2", async () => {
     await withStand({}, { PORTAINER_API_KEY: "k" }, async (io) => {
-      const err = await runLogs(
-        args({ via: "portainer", selector: "sl-1", service: "api" }),
-        io,
-        options({
-          listAllContainerNames: fakePortainer([]).listAllContainerNames,
-        }),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof UsageError);
+      const err = await rejected(() =>
+        runLogs(
+          args({ via: "portainer", selector: "sl-1", service: "api" }),
+          io,
+          options({
+            listAllContainerNames: fakePortainer([]).listAllContainerNames,
+          }),
+        ), UsageError);
       expect(err.message).toStrictEqual(
         "для sl-1 не найден portainer-target (SQLite после `mpu init` или" +
           " sl_1_portainer в ~/.config/mpu/.env)",
@@ -988,15 +990,15 @@ describe("legacy-снимок через Portainer", () => {
 
   it("отказ Portainer — exit 1 с его причиной", async () => {
     await withStand(PORTAINER_SEED, { PORTAINER_API_KEY: "k" }, async (io) => {
-      const err = await runLogs(
-        args({ via: "portainer", selector: "sl-1", service: "api" }),
-        io,
-        options({
-          listAllContainerNames: () =>
-            Promise.reject(new PortainerError("HTTP 502")),
-        }),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof DomainError);
+      const err = await rejected(() =>
+        runLogs(
+          args({ via: "portainer", selector: "sl-1", service: "api" }),
+          io,
+          options({
+            listAllContainerNames: () =>
+              Promise.reject(new PortainerError("HTTP 502")),
+          }),
+        ), DomainError);
       expect(shown(err)).toBe("mpu logs: portainer error: HTTP 502\n");
     });
   });
@@ -1099,12 +1101,12 @@ describe("логи любой длины: страницы по пределу �
       const loki = fakeLoki((query) =>
         ++call === 2 ? new LokiHttpError(500, "boom") : window(query)
       );
-      const err = await runLogs(
-        args({ selector: "sl-1", tail: 12000 }),
-        io,
-        options({ readLoki: loki.read, pageSize: 5000 }),
-      ).catch((thrown: unknown) => thrown);
-      assert(err instanceof DomainError);
+      const err = await rejected(() =>
+        runLogs(
+          args({ selector: "sl-1", tail: 12000 }),
+          io,
+          options({ readLoki: loki.read, pageSize: 5000 }),
+        ), DomainError);
       expect(shown(err)).toBe(
         'mpu logs: loki HTTP 500: boom\n  query: {host="sl-1"}\n',
       );

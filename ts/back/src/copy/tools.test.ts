@@ -6,7 +6,8 @@
  * тест здесь.
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -74,10 +75,7 @@ describe("настоящий запуск redis: подача, код возвр
   });
 
   it("ненулевой код без stderr — причиной становится код", async () => {
-    const err = await spawnRedis(["/bin/false"], "").catch((thrown: unknown) =>
-      thrown
-    );
-    assert(err instanceof Error);
+    const err = await rejected(() => spawnRedis(["/bin/false"], ""), Error);
     expect(err.message).toBe("код 1");
   });
 
@@ -87,10 +85,10 @@ describe("настоящий запуск redis: подача, код возвр
     // первого чтения — запись отвергло бы BrokenPipe, и наверх ушла бы
     // жалоба на трубу вместо настоящей причины отказа. Подача и чтение
     // идут одновременно, поэтому причиной остаётся код возврата.
-    const err = await spawnRedis(["/bin/false"], "п".repeat(200_000)).catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof Error);
+    const err = await rejected(
+      () => spawnRedis(["/bin/false"], "п".repeat(200_000)),
+      Error,
+    );
     expect(err.message).toBe("код 1");
   });
 
@@ -106,11 +104,11 @@ describe("отказ самого redis приходит в stdout при нул
   // и строку `ERR …` в stdout (stderr пуст). Не разбери мы её — шаг
   // молча не сделал бы ничего.
   it("строка ERR — отказ, хотя код нулевой", async () => {
-    const err = await spawnRedis(
-      ["/bin/echo", "ERR wrong number of arguments"],
-      "",
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof Error);
+    const err = await rejected(() =>
+      spawnRedis(
+        ["/bin/echo", "ERR wrong number of arguments"],
+        "",
+      ), Error);
     expect(err.message).toBe("ERR wrong number of arguments");
   });
 

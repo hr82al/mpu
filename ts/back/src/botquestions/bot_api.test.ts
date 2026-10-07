@@ -5,7 +5,8 @@
  * петле, наружу тесты не ходят.
  */
 
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { readFileSync } from "node:fs";
 import { BotFailure, HttpBotApi } from "./bot_api.ts";
 import { type Inbox, type Sender, SinceStart } from "./updates.ts";
@@ -115,8 +116,7 @@ it("answerCallbackQuery — подсказка полем text, пустая —
 
 it("опоздавшее подтверждение — отказ с кодом и описанием голдена", async () => {
   await withBot(golden("answerCallbackQuery-too-old.json"), async (bot) => {
-    const err = await bot.ack("1", "").catch((thrown: unknown) => thrown);
-    assert(err instanceof BotFailure);
+    const err = await rejected(() => bot.ack("1", ""), BotFailure);
     expect(err.message).toBe(
       "бот недоступен: 400 Bad Request: query is too old and response timeout expired or query ID is invalid",
     );
@@ -188,10 +188,10 @@ it("ok:false 401 — «бот недоступен: 401 Unauthorized»", async (
   await withBot(
     '{"ok":false,"error_code":401,"description":"Unauthorized"}',
     async (bot) => {
-      const err = await bot.send({ text: "x", entities: [] }, []).catch((
-        thrown: unknown,
-      ) => thrown);
-      assert(err instanceof BotFailure);
+      const err = await rejected(
+        () => bot.send({ text: "x", entities: [] }, []),
+        BotFailure,
+      );
       expect(err.message).toBe("бот недоступен: 401 Unauthorized");
       expect(err.isConflict()).toBe(false);
     },
@@ -202,10 +202,10 @@ it("409 — второй читатель", async () => {
   await withBot(
     '{"ok":false,"error_code":409,"description":"Conflict: terminated by other getUpdates request"}',
     async (bot) => {
-      const err = await bot.updates(0, new AbortController().signal).catch((
-        thrown: unknown,
-      ) => thrown);
-      assert(err instanceof BotFailure);
+      const err = await rejected(
+        () => bot.updates(0, new AbortController().signal),
+        BotFailure,
+      );
       expect(err.isConflict()).toBe(true);
     },
   );
@@ -215,18 +215,18 @@ it("токена нет в причине, даже если его повтор
   await withBot(
     `{"ok":false,"error_code":404,"description":"Not Found: /bot${TOKEN}/x"}`,
     async (bot) => {
-      const err = await bot.send({ text: "x", entities: [] }, []).catch((
-        thrown: unknown,
-      ) => thrown);
-      assert(err instanceof BotFailure);
+      const err = await rejected(
+        () => bot.send({ text: "x", entities: [] }, []),
+        BotFailure,
+      );
       expect(err.message.includes(TOKEN), err.message).toBe(false);
     },
   );
   await withBot(`<html>/bot${TOKEN}</html>`, async (bot) => {
-    const err = await bot.send({ text: "x", entities: [] }, []).catch((
-      thrown: unknown,
-    ) => thrown);
-    assert(err instanceof BotFailure);
+    const err = await rejected(
+      () => bot.send({ text: "x", entities: [] }, []),
+      BotFailure,
+    );
     expect(err.message.startsWith("бот недоступен: ответ не JSON")).toBe(true);
     expect(err.message.includes(TOKEN), err.message).toBe(false);
   });
@@ -239,10 +239,10 @@ it("сеть недоступна — причина одной строкой, 
     chatId: 111,
     apiBase: `http://127.0.0.1:${port}`,
   });
-  const err = await bot.send({ text: "x", entities: [] }, []).catch((
-    thrown: unknown,
-  ) => thrown);
-  assert(err instanceof BotFailure);
+  const err = await rejected(
+    () => bot.send({ text: "x", entities: [] }, []),
+    BotFailure,
+  );
   expect(err.message.startsWith("бот недоступен: ")).toBe(true);
   expect(err.message.includes("\n")).toBe(false);
   expect(err.message.includes(TOKEN), err.message).toBe(false);

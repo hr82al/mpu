@@ -11,7 +11,8 @@
  * неожиданном вызове.
  */
 
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -534,11 +535,14 @@ it("точного email нет — отказ с числом substring-сов�
         ],
       },
     ]);
-    const err = await runSearch(searchArgs({ value: email }), io, {
-      send,
-      nowSeconds: () => 1_700_000_000,
-    }).catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () =>
+        runSearch(searchArgs({ value: email }), io, {
+          send,
+          nowSeconds: () => 1_700_000_000,
+        }),
+      DomainError,
+    );
     expect(err.message).toStrictEqual(
       "10X staff search: нет пользователя с точным email 'ghost@example.com'" +
         " (по substring найдено 2); проверь адрес или что это не staff-аккаунт",
@@ -567,11 +571,14 @@ it("больше одного email — отказ со списком id", asyn
         ],
       },
     ]);
-    const err = await runSearch(searchArgs({ value: email }), io, {
-      send,
-      nowSeconds: () => 1_700_000_000,
-    }).catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(
+      () =>
+        runSearch(searchArgs({ value: email }), io, {
+          send,
+          nowSeconds: () => 1_700_000_000,
+        }),
+      DomainError,
+    );
     expect(err.message).toBe(
       "10X staff search: несколько юзеров с email 'dup@example.com': ids=[11, 12]",
     );
@@ -664,15 +671,15 @@ it("--reason задан — уходит в тело impersonate и в выво�
 it("нет X10_LOGIN/X10_PASSWORD — отказ и ни одного запроса", async () => {
   await withCache([], async (db) => {
     const { io } = harness(db, { X10_LOGIN: "", X10_PASSWORD: "" });
-    const err = await runSearch(
-      searchArgs({ value: "target@example.com" }),
-      io,
-      {
-        send: failSend,
-        nowSeconds: () => 1_700_000_000,
-      },
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(() =>
+      runSearch(
+        searchArgs({ value: "target@example.com" }),
+        io,
+        {
+          send: failSend,
+          nowSeconds: () => 1_700_000_000,
+        },
+      ), DomainError);
     expect(err.message).toBe(
       "10X credentials missing: X10_LOGIN. Add to /home/test/.config/mpu/.env or export in shell.",
     );
@@ -690,15 +697,15 @@ it("401 под staff-токеном — суффикс про 10X staff-кред
         status: 401,
       },
     ]);
-    const err = await runSearch(
-      searchArgs({ value: "target@example.com" }),
-      io,
-      {
-        send,
-        nowSeconds: () => 1_700_000_000,
-      },
-    ).catch((thrown: unknown) => thrown);
-    assert(err instanceof DomainError);
+    const err = await rejected(() =>
+      runSearch(
+        searchArgs({ value: "target@example.com" }),
+        io,
+        {
+          send,
+          nowSeconds: () => 1_700_000_000,
+        },
+      ), DomainError);
     expect(err.message).toStrictEqual(
       "POST /auth/login: HTTP 401 (нужны 10X staff-креды X10_LOGIN/X10_PASSWORD," +
         " не sl-back TOKEN_*)",

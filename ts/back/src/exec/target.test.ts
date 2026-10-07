@@ -5,7 +5,8 @@
  * транспорт имени команды не знает (спека, «Известные отклонения»).
  */
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { thrown } from "../testing/thrown.ts";
 import { readFile } from "node:fs/promises";
 import { formatCommandError, UsageError } from "../command/mod.ts";
 import type { CacheReader } from "../selector/mod.ts";
@@ -71,13 +72,9 @@ async function golden(name: string): Promise<string> {
 
 describe("--via: только ssh и portainer", () => {
   it("значение вне списка — ошибка ввода эталона канала", async () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       viaOf("portainerr");
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(`${formatCommandError("ssh", err)}\n`).toStrictEqual(
       await golden("err-via-stderr.txt"),
     );
@@ -134,17 +131,13 @@ describe("сервер: доступность транспортов решае
   });
 
   it("ни одного — отказ эталона канала", async () => {
-    let err: unknown;
-    try {
+    const err = thrown(() => {
       chooseTransport({
         place: { kind: "server", serverNumber: 99 },
         env: envOf({}),
         cache: EMPTY_CACHE,
       });
-    } catch (thrown) {
-      err = thrown;
-    }
-    assert(err instanceof UsageError);
+    }, UsageError);
     expect(`${formatCommandError("ssh", err)}\n`).toStrictEqual(
       await golden("err-no-transport-stderr.txt"),
     );
@@ -274,18 +267,14 @@ describe("--via без соответствующего доступа — те�
   ];
   for (const [title, via, env, message] of cases) {
     it(title, () => {
-      let err: unknown;
-      try {
+      const err = thrown(() => {
         chooseTransport({
           place: SERVER,
           env: envOf(env),
           cache: cacheOfServer(1),
           via,
         });
-      } catch (thrown) {
-        err = thrown;
-      }
-      assert(err instanceof UsageError);
+      }, UsageError);
       // Общий текст «не задано ни … ни …» тут врал бы: второй транспорт
       // как раз задан (спека, «CLI-контракт»).
       expect(err.message).toStrictEqual(message);

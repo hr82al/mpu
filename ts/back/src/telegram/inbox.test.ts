@@ -8,7 +8,8 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, expect, it } from "vitest";
+import { expect, it } from "vitest";
+import { rejected } from "../testing/thrown.ts";
 import { VerbatimError } from "../command/mod.ts";
 import { Inbox } from "./inbox.ts";
 
@@ -67,11 +68,10 @@ it("keep — повтор заменяет файл", async () => {
 it("keep — обрыв: файла нет, временного тоже (F16)", async () => {
   const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
-    const err = await new Inbox(dir).keep("a.md", broken("половина")).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await rejected(
+      () => new Inbox(dir).keep("a.md", broken("половина")),
+      VerbatimError,
     );
-    assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
     // Отказ сети уходит как есть, без обёртки «не удалось записать».
     expect(err.message).toBe("telegram: RPC error: CONNECTION_LOST");
     expect(await listing(dir)).toStrictEqual([]);
@@ -98,11 +98,10 @@ it("keep — каталог не создать: строка слоя с пут
   try {
     // На месте каталога — обычный файл: mkdir отказывает.
     await writeFile(`${root}/inbox`, "");
-    const err = await new Inbox(`${root}/inbox`).keep("a.md", chunks("x")).then(
-      () => null,
-      (e: unknown) => e,
+    const err = await rejected(
+      () => new Inbox(`${root}/inbox`).keep("a.md", chunks("x")),
+      VerbatimError,
     );
-    assert(err instanceof VerbatimError, "ожидался отказ VerbatimError");
     expect(
       err.message.startsWith(
         `telegram: не удалось записать ${root}/inbox/a.md: `,
