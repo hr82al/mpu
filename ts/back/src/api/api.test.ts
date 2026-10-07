@@ -89,7 +89,7 @@ async function run(
 
 it("get-client печатает ответ сервера побайтно как голден", async () => {
   const compact = JSON.stringify(JSON.parse(await golden("get-client.json")));
-  const stand = standWith(() =>
+  const stand = await standWith(() =>
     new Response(compact, { headers: { "content-type": "application/json" } })
   );
   try {
@@ -110,7 +110,7 @@ it("list-client-modules печатает массив как есть", async ()
   const compact = JSON.stringify(
     JSON.parse(await golden("list-client-modules.json")),
   );
-  const stand = standWith(() => new Response(compact));
+  const stand = await standWith(() => new Response(compact));
   try {
     const text = await run(
       commandOf("list-client-modules"),
@@ -126,7 +126,7 @@ it("list-client-modules печатает массив как есть", async ()
 
 it("порядок ключей ответа не меняется", async () => {
   // Ключи нарочно не по алфавиту: сортировка вылезла бы здесь.
-  const stand = standWith(() => new Response('{"я":1,"a":2,"b":3}'));
+  const stand = await standWith(() => new Response('{"я":1,"a":2,"b":3}'));
   try {
     const text = await run(commandOf("list-roles"), [], ioTo(stand.baseUrl));
     expect(text).toBe('{\n  "я": 1,\n  "a": 2,\n  "b": 3\n}\n');
@@ -136,7 +136,7 @@ it("порядок ключей ответа не меняется", async () =>
 });
 
 it("пустой ответ — пустой stdout", async () => {
-  const stand = standWith(() => new Response(null, { status: 204 }));
+  const stand = await standWith(() => new Response(null, { status: 204 }));
   try {
     expect(await run(commandOf("list-roles"), [], ioTo(stand.baseUrl))).toBe(
       "",
@@ -147,7 +147,7 @@ it("пустой ответ — пустой stdout", async () => {
 });
 
 it("идентификатор в пути экранируется, а не склеивается", async () => {
-  const stand = standWith(() => new Response("{}"));
+  const stand = await standWith(() => new Response("{}"));
   try {
     await run(
       commandOf("get-client-ss-dataset"),
@@ -163,7 +163,7 @@ it("идентификатор в пути экранируется, а не с�
 });
 
 it("HTTP ≥ 400 — отказ команды, тело отдельной строкой", async () => {
-  const stand = standWith(() =>
+  const stand = await standWith(() =>
     new Response('{"message":"client not found"}', { status: 404 })
   );
   try {
@@ -180,7 +180,7 @@ it("HTTP ≥ 400 — отказ команды, тело отдельной ст
 });
 
 it("500 не превращается в успех", async () => {
-  const stand = standWith(() => new Response("", { status: 500 }));
+  const stand = await standWith(() => new Response("", { status: 500 }));
   try {
     const err = await rejected(
       () => commandOf("list-clients").invoke([], ioTo(stand.baseUrl)),
@@ -195,7 +195,9 @@ it("500 не превращается в успех", async () => {
 });
 
 it("токена нет в тексте отказа, хотя он ушёл заголовком", async () => {
-  const stand = standWith(() => new Response("нет доступа", { status: 403 }));
+  const stand = await standWith(() =>
+    new Response("нет доступа", { status: 403 })
+  );
   try {
     const err = await rejected(
       () => commandOf("list-users").invoke([], ioTo(stand.baseUrl)),
@@ -216,7 +218,7 @@ it("токена нет в выводе, даже когда сервер вер
   // есть и не добавить к нему своего токена. Тело нарочно содержит
   // токен: проверка, что печать не «примерно та же», а именно ответ.
   const body = JSON.stringify([{ token: `${TOKEN}-чужой` }]);
-  const stand = standWith(() => new Response(body));
+  const stand = await standWith(() => new Response(body));
   try {
     const text = await run(
       commandOf("list-client-wb-tokens"),
@@ -233,7 +235,9 @@ it("токена нет в выводе, даже когда сервер вер
 });
 
 it("сегмент пути '..' отбивается до сети", async () => {
-  const stand = standWith(() => new Response("не ожидается", { status: 500 }));
+  const stand = await standWith(() =>
+    new Response("не ожидается", { status: 500 })
+  );
   try {
     for (const value of [".", ".."]) {
       const err = await rejected(() =>
@@ -338,7 +342,7 @@ it("у каждого path-параметра таблицы есть поясн
 });
 
 it("поля тела собираются в JSON, --body замещает их целиком", async () => {
-  const stand = standWith(() => new Response("[]"));
+  const stand = await standWith(() => new Response("[]"));
   try {
     const command = commandOf("get-ss-values");
     const io = ioTo(stand.baseUrl, {
@@ -370,7 +374,9 @@ it("поля тела собираются в JSON, --body замещает их
 });
 
 it("ошибки ввода отбиваются до сети", async () => {
-  const stand = standWith(() => new Response("не ожидается", { status: 500 }));
+  const stand = await standWith(() =>
+    new Response("не ожидается", { status: 500 })
+  );
   try {
     const command = commandOf("get-ss-values");
     const io = ioTo(stand.baseUrl);
@@ -406,7 +412,9 @@ it("ошибки ввода отбиваются до сети", async () => {
 });
 
 it("get-token: живой кэш печатается без сети", async () => {
-  const stand = standWith(() => new Response("не ожидается", { status: 500 }));
+  const stand = await standWith(() =>
+    new Response("не ожидается", { status: 500 })
+  );
   try {
     const cache = JSON.stringify({
       token: "из-кэша",
@@ -425,7 +433,7 @@ it("get-token: живой кэш печатается без сети", async ()
 });
 
 it("get-token: оба флага — свежий логин мимо живого кэша", async () => {
-  const stand = startFakeSlback(() => loginReply("новый"));
+  const stand = await startFakeSlback(() => loginReply("новый"));
   const written: string[] = [];
   try {
     const cache = JSON.stringify({
@@ -449,7 +457,7 @@ it("get-token: оба флага — свежий логин мимо живог
 });
 
 it("get-token: один флаг — кэш по-прежнему старше сети", async () => {
-  const stand = startFakeSlback(() =>
+  const stand = await startFakeSlback(() =>
     new Response("не ожидается", { status: 500 })
   );
   try {
@@ -470,7 +478,7 @@ it("get-token: один флаг — кэш по-прежнему старше �
 });
 
 it("get-token: ответ логина без accessToken — свой текст отказа", async () => {
-  const stand = startFakeSlback(() => Response.json({ user: { id: 1 } }));
+  const stand = await startFakeSlback(() => Response.json({ user: { id: 1 } }));
   try {
     const err = await rejected(
       () => commandOf("get-token").invoke([], ioTo(stand.baseUrl)),

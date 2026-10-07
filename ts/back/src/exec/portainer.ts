@@ -9,6 +9,7 @@
  * уборка идёт всегда, включая ошибочный путь.
  */
 
+import process from "node:process";
 import { type HttpResponse, httpSend, type SendOptions } from "../http/mod.ts";
 import type { RemoteOutput } from "../command/mod.ts";
 import { DomainError } from "../command/mod.ts";
@@ -127,7 +128,7 @@ async function streamAndWait(
 ): Promise<number> {
   const controller = new AbortController();
   let interrupted = false;
-  const off = (run.onInterrupt ?? denoInterrupt)(() => {
+  const off = (run.onInterrupt ?? processInterrupt)(() => {
     interrupted = true;
     run.warn("mpu: Ctrl+C → killing remote process...");
     controller.abort();
@@ -336,7 +337,7 @@ function parsed(text: string): Record<string, unknown> | null {
 }
 
 /** Подписка на Ctrl+C поверх сигналов процесса. */
-const denoInterrupt: OnInterrupt = (handler) => {
-  Deno.addSignalListener("SIGINT", handler);
-  return () => Deno.removeSignalListener("SIGINT", handler);
+const processInterrupt: OnInterrupt = (handler) => {
+  process.on("SIGINT", handler);
+  return () => process.off("SIGINT", handler);
 };

@@ -96,7 +96,7 @@ it("вызов 1: записи времени карточки", async () => {
     for_date: "2026-07-21",
     comment: "",
   };
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     Response.json([TIME_LOG, minimal, "мусор", { card_id: 65634936 }])
   );
   try {
@@ -185,8 +185,8 @@ describe("вызов 1: имя пользователя — только из о
   // Один стенд на все случаи: они идут последовательно, поэтому ответ
   // выбирается по номеру уже принятого запроса.
   let stand: FakeKaiten;
-  beforeAll(() => {
-    stand = startFakeKaiten((seen) =>
+  beforeAll(async () => {
+    stand = await startFakeKaiten((seen) =>
       Response.json([{
         id: 9001,
         card_id: 65634936,
@@ -207,7 +207,7 @@ describe("вызов 1: имя пользователя — только из о
 });
 
 it("вызов 2: создание записи — все четыре поля тела", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     // На POST сервер отдаёт `for_date` полной ISO-меткой, а не датой;
     // значим только календарный день.
     Response.json({ ...TIME_LOG, for_date: "2026-07-20T00:00:00.000Z" }, {
@@ -238,7 +238,7 @@ it("вызов 2: создание записи — все четыре поля
 
 describe("вызов 3: обновление — только заданные поля", () => {
   it("подмножество полей", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json({ ...TIME_LOG, time_spent: 120 })
     );
     try {
@@ -262,7 +262,7 @@ describe("вызов 3: обновление — только заданные �
   });
 
   it("все четыре поля разом", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json(TIME_LOG)
     );
     try {
@@ -285,7 +285,7 @@ describe("вызов 3: обновление — только заданные �
   });
 
   it("ответ не той формы — ошибка запроса", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() =>
+    const { baseUrl, stop } = await startFakeKaiten(() =>
       Response.json({ message: "nope" })
     );
     try {
@@ -302,7 +302,7 @@ describe("вызов 3: обновление — только заданные �
   });
 
   it("пустая строка комментария очищает комментарий", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       // Сервер нормализует пустую строку в `null`, а читателю снова
       // отдаёт `""`.
       Response.json({ ...TIME_LOG, comment: "" })
@@ -324,7 +324,7 @@ describe("вызов 3: обновление — только заданные �
 });
 
 it("вызов 4: удаление записи — успех с пустым телом", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     new Response(null, { status: 204 })
   );
   try {
@@ -379,7 +379,7 @@ describe("вызов 5: записи пользователя за окно", ()
   };
 
   it("обе границы окна уходят всегда", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json([{ ...TIME_LOG, card }])
     );
     try {
@@ -399,7 +399,7 @@ describe("вызов 5: записи пользователя за окно", ()
   });
 
   it("карточки нет — card: null", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() =>
+    const { baseUrl, stop } = await startFakeKaiten(() =>
       Response.json([{ ...TIME_LOG, card: null }])
     );
     try {
@@ -417,7 +417,7 @@ describe("вызов 5: записи пользователя за окно", ()
 
 describe("вызов 6: запуск таймера", () => {
   it("успех: тело с id — таймер запущен", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json(RUNNING_TIMER)
     );
     try {
@@ -452,7 +452,7 @@ describe("вызов 6: запуск таймера", () => {
   });
 
   it("успех: форму решает только id, прочие поля пусты", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() =>
+    const { baseUrl, stop } = await startFakeKaiten(() =>
       Response.json({ id: 555, card_id: null, started_at: null })
     );
     try {
@@ -478,7 +478,7 @@ describe("вызов 6: запуск таймера", () => {
   });
 
   it("без комментария ключа comment в теле нет", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json(RUNNING_TIMER)
     );
     try {
@@ -491,7 +491,7 @@ describe("вызов 6: запуск таймера", () => {
   });
 
   it("конфликт: тело без id при статусе 2xx", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() =>
+    const { baseUrl, stop } = await startFakeKaiten(() =>
       // Статус успеха: формы различаются составом тела, а не кодом.
       Response.json({ message: "User timer already created" }, { status: 200 })
     );
@@ -522,7 +522,7 @@ describe("вызов 6: запуск таймера", () => {
 
   for (const { title, body } of NOT_CONFLICT_2XX) {
     it(`2xx ${title} — разбор формы, а не конфликт`, async () => {
-      const { baseUrl, stop } = startFakeKaiten(() =>
+      const { baseUrl, stop } = await startFakeKaiten(() =>
         Response.json(body, { status: 200 })
       );
       try {
@@ -538,7 +538,7 @@ describe("вызов 6: запуск таймера", () => {
   }
 
   it("конфликт: статус 400 и тело без id", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() =>
+    const { baseUrl, stop } = await startFakeKaiten(() =>
       Response.json({ message: "User timer already created" }, { status: 400 })
     );
     try {
@@ -590,7 +590,7 @@ describe("вызов 6: запуск таймера", () => {
 
   for (const testCase of NOT_CONFLICT) {
     it(`${testCase.title} — отказ, а не конфликт`, async () => {
-      const { baseUrl, stop } = startFakeKaiten(testCase.response);
+      const { baseUrl, stop } = await startFakeKaiten(testCase.response);
       try {
         await expect(startUserTimer(accessTo(baseUrl), { cardId: 65634936 }))
           .rejects.toThrow(KaitenError);
@@ -609,7 +609,7 @@ describe("вызов 7: остановка таймера", () => {
   };
 
   it("метки времени, роль и комментарий в теле", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json(stopped)
     );
     try {
@@ -646,7 +646,7 @@ describe("вызов 7: остановка таймера", () => {
   });
 
   it("без необязательных полей — только метка конца", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json(stopped)
     );
     try {
@@ -663,7 +663,7 @@ describe("вызов 7: остановка таймера", () => {
   });
 
   it("ответ не таймер — ошибка запроса", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() =>
+    const { baseUrl, stop } = await startFakeKaiten(() =>
       Response.json({ message: "no timer" })
     );
     try {
@@ -681,7 +681,7 @@ describe("вызов 7: остановка таймера", () => {
 });
 
 it("вызов 8: сброс таймера без записи времени", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     new Response(null, { status: 204 })
   );
   try {
@@ -696,7 +696,7 @@ it("вызов 8: сброс таймера без записи времени",
 });
 
 it("вызов 9: справочник ролей", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     Response.json([
       { id: 3, name: "Разработка" },
       { id: 4, name: "Аналитика" },
@@ -719,7 +719,7 @@ it("вызов 9: справочник ролей", async () => {
 });
 
 it("ответ на создание записи не той формы — ошибка запроса", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     Response.json({ message: "nope" }, { status: 201 })
   );
   try {

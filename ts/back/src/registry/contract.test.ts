@@ -9,7 +9,8 @@
 import { appendFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { assert, expect, it } from "vitest";
+import { assert, expect, it, vi } from "vitest";
+import process from "node:process";
 import { thrown } from "../testing/thrown.ts";
 import { commands, findCommand, findGroup } from "./mod.ts";
 import { openCacheDb as openStoreDb } from "../store/mod.ts";
@@ -2528,40 +2529,33 @@ function mustFind(path: string): Command {
 
 /**
  * Приёмник вывода процесса на время вызова: инвариант 1 требует, чтобы
- * исполнение не печатало, а печать в Deno идёт мимо io команды — через
- * console и потоки процесса.
+ * исполнение не печатало, а печать идёт мимо io команды — через console
+ * и потоки процесса.
  */
 async function withCapturedOutput(fn: () => Promise<void>): Promise<string> {
   const chunks: string[] = [];
   const decoder = new TextDecoder();
   // Перехватываются все пути печати процесса, а не только привычные:
-  // проверка обязана ловить и console.warn, и синхронную запись в
-  // поток, иначе «ничего не напечатано» доказывает слишком мало.
+  // проверка обязана ловить и console.warn, и прямую запись в поток
+  // процесса, иначе «ничего не напечатано» доказывает слишком мало.
   const levels = ["log", "error", "warn", "info", "debug"] as const;
   const origConsole = levels.map((level) => console[level]);
-  const origWrite = [Deno.stdout.write, Deno.stderr.write];
-  const origWriteSync = [Deno.stdout.writeSync, Deno.stderr.writeSync];
   for (const level of levels) {
     console[level] = (...args: unknown[]) => void chunks.push(args.join(" "));
   }
-  for (const stream of [Deno.stdout, Deno.stderr]) {
-    stream.write = (bytes: Uint8Array) => {
-      chunks.push(decoder.decode(bytes));
-      return Promise.resolve(bytes.length);
-    };
-    stream.writeSync = (bytes: Uint8Array) => {
-      chunks.push(decoder.decode(bytes));
-      return bytes.length;
-    };
-  }
+  const writes = [process.stdout, process.stderr].map((stream) =>
+    vi.spyOn(stream, "write").mockImplementation(
+      (chunk: string | Uint8Array) => {
+        chunks.push(typeof chunk === "string" ? chunk : decoder.decode(chunk));
+        return true;
+      },
+    )
+  );
   try {
     await fn();
   } finally {
     levels.forEach((level, i) => void (console[level] = origConsole[i]));
-    Deno.stdout.write = origWrite[0];
-    Deno.stderr.write = origWrite[1];
-    Deno.stdout.writeSync = origWriteSync[0];
-    Deno.stderr.writeSync = origWriteSync[1];
+    for (const write of writes) write.mockRestore();
   }
   return chunks.join("");
 }

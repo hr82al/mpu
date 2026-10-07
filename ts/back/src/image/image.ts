@@ -5,7 +5,9 @@
  */
 
 import { DatabaseSync } from "node:sqlite";
+import { mkdirSync, statSync } from "node:fs";
 import { BUSY_TIMEOUT_MS } from "../store/mod.ts";
+import { hasErrorCode } from "../oserror/mod.ts";
 import { ImageMethod } from "./method.ts";
 
 /** Файл образа нельзя открыть, прочитать или записать: готовый отказ строки. */
@@ -202,7 +204,7 @@ class Closed implements Shelf {
 
   writable(): Opened {
     const cut = this.#file.lastIndexOf("/");
-    if (cut > 0) Deno.mkdirSync(this.#file.slice(0, cut), { recursive: true });
+    if (cut > 0) mkdirSync(this.#file.slice(0, cut), { recursive: true });
     return this.#open();
   }
 
@@ -217,10 +219,10 @@ class Closed implements Shelf {
 
 function exists(file: string): boolean {
   try {
-    Deno.statSync(file);
+    statSync(file);
     return true;
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) return false;
+    if (hasErrorCode(err, "ENOENT")) return false;
     throw err;
   }
 }

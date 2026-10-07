@@ -45,7 +45,7 @@ const NOTE = {
 };
 
 it("создание треда: form-urlencoded и скобочные ключи позиции", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     Response.json({ id: THREAD_ID, notes: [NOTE] })
   );
   try {
@@ -76,7 +76,7 @@ it("создание треда: form-urlencoded и скобочные ключ�
 });
 
 it("тело уходит дословно, вместе с хвостовым переводом строки", async () => {
-  const stand = startFakeGitlab(() => Response.json(NOTE));
+  const stand = await startFakeGitlab(() => Response.json(NOTE));
   try {
     await replyToDiscussion(
       access(stand.baseUrl),
@@ -100,7 +100,7 @@ describe("резолв: признак идёт query-параметром, те
   let stand: FakeGitlab;
 
   beforeAll(async () => {
-    stand = startFakeGitlab(() => Response.json({ id: THREAD_ID }));
+    stand = await startFakeGitlab(() => Response.json({ id: THREAD_ID }));
     await setDiscussionResolved(
       access(stand.baseUrl),
       ADDRESS,
@@ -134,7 +134,7 @@ describe("резолв: признак идёт query-параметром, те
 });
 
 it("правка ноты идёт на тот номер, который набрал оператор", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     Response.json({ ...NOTE, body: "новое" })
   );
   try {
@@ -150,7 +150,7 @@ it("правка ноты идёт на тот номер, который наб
 });
 
 it("чужая нота: 403 GitLab — отказ, а не успех", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     new Response(`{"message":"403 Forbidden"}`, { status: 403 })
   );
   try {
@@ -165,7 +165,9 @@ it("чужая нота: 403 GitLab — отказ, а не успех", async (
 });
 
 it("удаление: пустое тело ответа — успех, а не отказ разбора", async () => {
-  const stand = startFakeGitlab(() => new Response(null, { status: 204 }));
+  const stand = await startFakeGitlab(() =>
+    new Response(null, { status: 204 })
+  );
   try {
     await deleteNote(access(stand.baseUrl), ADDRESS, 6);
     expect(stand.seen[0].method).toBe("DELETE");
@@ -178,7 +180,7 @@ it("удаление: пустое тело ответа — успех, а не
 });
 
 it("описание заменяется целиком; ответ — сам MR", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     Response.json({ iid: 456, web_url: "https://gitlab.example.test/x" })
   );
   try {
@@ -197,7 +199,7 @@ describe("создание MR: пустое описание не отправл
   let stand: FakeGitlab;
 
   beforeAll(async () => {
-    stand = startFakeGitlab(() => Response.json({ iid: 7 }));
+    stand = await startFakeGitlab(() => Response.json({ iid: 7 }));
     await createMergeRequest(access(stand.baseUrl), "group/repo", {
       source_branch: "feat/x",
       target_branch: "main",
@@ -233,7 +235,7 @@ describe("создание MR: пустое описание не отправл
 });
 
 it("ответ POST без нот — отказ: пустой успех неотличим от промаха", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     Response.json({ id: THREAD_ID, notes: [] })
   );
   try {

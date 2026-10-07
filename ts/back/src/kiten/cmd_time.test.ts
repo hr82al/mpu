@@ -131,12 +131,12 @@ interface Stand {
   readonly stop: () => Promise<void>;
 }
 
-function stand(
+async function stand(
   routes: Routes,
   overrides: Partial<CommandIo> = {},
   extraEnv: Readonly<Record<string, string>> = {},
-): Stand {
-  const fake = startFakeKaiten((seen) => {
+): Promise<Stand> {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     const route = routes[`${last.method} ${last.pathname}`];
     return route === undefined
@@ -225,7 +225,7 @@ async function errorText(
 
 describe("time ls: таблица, фильтры и состав вызовов", () => {
   it("без --all — фильтр по владельцу токена", async () => {
-    const { io, baseUrl, seen, stop } = readStand();
+    const { io, baseUrl, seen, stop } = await readStand();
     try {
       const table = await output(kitenTimeLsCommand, [SELECTOR], io);
       const want = await expected("ls-stdout.txt", baseUrl);
@@ -243,7 +243,7 @@ describe("time ls: таблица, фильтры и состав вызовов
   });
 
   it("--all: колонка пользователя и один вызов", async () => {
-    const { io, baseUrl, seen, stop } = readStand();
+    const { io, baseUrl, seen, stop } = await readStand();
     try {
       const table = await output(kitenTimeLsCommand, [SELECTOR, "--all"], io);
       const want = await expected("ls-all-stdout.txt", baseUrl);
@@ -257,7 +257,7 @@ describe("time ls: таблица, фильтры и состав вызовов
   });
 
   it("--json: голден побайтово", async () => {
-    const { io, stop } = readStand();
+    const { io, stop } = await readStand();
     try {
       expect(await output(kitenTimeLsCommand, [SELECTOR, "--json"], io))
         .toStrictEqual(await golden("ls-json-stdout.txt"));
@@ -267,7 +267,7 @@ describe("time ls: таблица, фильтры и состав вызовов
   });
 
   it("чужие записи отфильтрованы без --all", async () => {
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${LOGS_PATH}`]: () =>
         Response.json([
           rawLog({ id: 7000009, user_id: 900002, user: { full_name: "Пётр" } }),
@@ -284,7 +284,7 @@ describe("time ls: таблица, фильтры и состав вызовов
   });
 
   it("границы дат включительны", async () => {
-    const { io, stop } = readStand();
+    const { io, stop } = await readStand();
     try {
       const text = await output(
         kitenTimeLsCommand,
@@ -299,7 +299,7 @@ describe("time ls: таблица, фильтры и состав вызовов
   });
 
   it("--role фильтрует и не подставляет умолчание", async () => {
-    const { io, seen, stop } = readStand({
+    const { io, seen, stop } = await readStand({
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
     });
     try {
@@ -320,7 +320,7 @@ describe("time ls: таблица, фильтры и состав вызовов
   });
 
   it("без --role записи всех ролей остаются", async () => {
-    const { io, seen, stop } = readStand();
+    const { io, seen, stop } = await readStand();
     try {
       const text = await output(kitenTimeLsCommand, [SELECTOR], io);
       expect(idColumn(text).length).toBe(3);
@@ -332,7 +332,7 @@ describe("time ls: таблица, фильтры и состав вызовов
 
   it("роль без названия: таблица печатает id, JSON — null", async () => {
     const noName = [rawLog({ role: null })];
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${LOGS_PATH}`]: () => Response.json(noName),
       [`GET ${CURRENT_USER_PATH}`]: () => Response.json({ id: OWNER_ID }),
     });
@@ -342,7 +342,7 @@ describe("time ls: таблица, фильтры и состав вызовов
     } finally {
       await stop();
     }
-    const second = stand({
+    const second = await stand({
       [`GET ${LOGS_PATH}`]: () => Response.json(noName),
       [`GET ${CURRENT_USER_PATH}`]: () => Response.json({ id: OWNER_ID }),
     });
@@ -360,7 +360,7 @@ describe("time ls: таблица, фильтры и состав вызовов
   });
 
   it("нераспарсенная дата — ошибка ввода до сети", async () => {
-    const { io, seen, stop } = readStand();
+    const { io, seen, stop } = await readStand();
     try {
       expect(
         await errorText(
@@ -381,7 +381,7 @@ describe("time ls: таблица, фильтры и состав вызовов
 
 describe("time add: создание записи", () => {
   it("голден строки успеха и тело запроса", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`POST ${LOGS_PATH}`]: () => Response.json(rawMutationLog()),
     });
@@ -411,7 +411,7 @@ describe("time add: создание записи", () => {
   });
 
   it("без --comment уходит пустая строка", async () => {
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`POST ${LOGS_PATH}`]: () =>
         Response.json(rawMutationLog({ comment: "" })),
@@ -430,7 +430,7 @@ describe("time add: создание записи", () => {
   });
 
   it("нечисловая роль резолвится одним запросом", async () => {
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`POST ${LOGS_PATH}`]: () => Response.json(rawMutationLog()),
     });
@@ -455,7 +455,7 @@ describe("time add: создание записи", () => {
   it("дата в будущем: предупреждение и запись", async () => {
     const notes: string[] = [];
     const future = futureDate();
-    const { io, seen, stop } = stand(
+    const { io, seen, stop } = await stand(
       {
         [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
         [`POST ${LOGS_PATH}`]: () => Response.json(rawMutationLog()),
@@ -475,7 +475,7 @@ describe("time add: создание записи", () => {
   });
 
   it("длительность разбирается до сети", async () => {
-    const { io, seen, stop } = stand({});
+    const { io, seen, stop } = await stand({});
     try {
       expect(
         await errorText(kitenTimeAddCommand, [SELECTOR, "0"], io, UsageError),
@@ -491,7 +491,7 @@ describe("time add: создание записи", () => {
 
 describe("time edit: частичное обновление", () => {
   it("две оси разом — голден и тело запроса", async () => {
-    const { io, baseUrl, seen, stop } = readStand({
+    const { io, baseUrl, seen, stop } = await readStand({
       [`PATCH ${logPath(7000001)}`]: () =>
         Response.json(
           rawMutationLog({ time_spent: 120, comment: "разбор жалобы и фикс" }),
@@ -521,7 +521,7 @@ describe("time edit: частичное обновление", () => {
   });
 
   it("--comment '' очищает комментарий", async () => {
-    const { io, baseUrl, seen, stop } = readStand({
+    const { io, baseUrl, seen, stop } = await readStand({
       [`PATCH ${logPath(7000002)}`]: () =>
         Response.json(
           rawMutationLog({
@@ -548,7 +548,7 @@ describe("time edit: частичное обновление", () => {
   it("ось роли печатает название, а не id", async () => {
     // Возврат приёмки: ответ правки записи названия роли не несёт —
     // только `role_id`. Без справочника ось печаталась бы числом.
-    const { io, seen, stop } = readStand({
+    const { io, seen, stop } = await readStand({
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${logPath(7000001)}`]: () =>
         Response.json(rawMutationLog({ role_id: 12132 })),
@@ -567,7 +567,7 @@ describe("time edit: частичное обновление", () => {
   });
 
   it("настроенная роль не становится осью сама", async () => {
-    const { io, seen, stop } = readStand(
+    const { io, seen, stop } = await readStand(
       {
         [`PATCH ${logPath(7000001)}`]: () =>
           Response.json(rawMutationLog({ time_spent: 120 })),
@@ -591,7 +591,7 @@ describe("time edit: частичное обновление", () => {
   });
 
   it("без единой оси — ошибка ввода до сети", async () => {
-    const { io, seen, stop } = readStand();
+    const { io, seen, stop } = await readStand();
     try {
       expect(
         await errorText(
@@ -610,7 +610,7 @@ describe("time edit: частичное обновление", () => {
   });
 
   it("--time называет флаг, а не DURATION", async () => {
-    const { io, stop } = readStand();
+    const { io, stop } = await readStand();
     try {
       expect(
         await errorText(
@@ -628,7 +628,7 @@ describe("time edit: частичное обновление", () => {
   });
 
   it("чужая запись без --force не меняется", async () => {
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [`GET ${LOGS_PATH}`]: () => Response.json([rawLog({ user_id: 900002 })]),
       [`GET ${CURRENT_USER_PATH}`]: () => Response.json({ id: OWNER_ID }),
     });
@@ -654,7 +654,7 @@ describe("time edit: частичное обновление", () => {
   });
 
   it("--force снимает и проверку, и её запрос", async () => {
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [`GET ${LOGS_PATH}`]: () => Response.json([rawLog({ user_id: 900002 })]),
       [`PATCH ${logPath(7000001)}`]: () =>
         Response.json(rawMutationLog({ user_id: 900002, time_spent: 120 })),
@@ -675,7 +675,7 @@ describe("time edit: частичное обновление", () => {
   });
 
   it("запись без владельца меняется без --force", async () => {
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [`GET ${LOGS_PATH}`]: () => Response.json([rawLog({ user_id: null })]),
       [`PATCH ${logPath(7000001)}`]: () =>
         Response.json(rawMutationLog({ user_id: null, time_spent: 120 })),
@@ -698,7 +698,7 @@ describe("time edit: частичное обновление", () => {
 
 describe("time rm: удаление записи", () => {
   it("голден удалённой записи без комментария", async () => {
-    const { io, baseUrl, seen, stop } = readStand({
+    const { io, baseUrl, seen, stop } = await readStand({
       [`DELETE ${logPath(7000003)}`]: () => new Response(null, { status: 204 }),
     });
     try {
@@ -715,7 +715,7 @@ describe("time rm: удаление записи", () => {
   });
 
   it("голден удалённой записи с комментарием", async () => {
-    const { io, baseUrl, stop } = stand({
+    const { io, baseUrl, stop } = await stand({
       [`GET ${LOGS_PATH}`]: () =>
         Response.json([
           rawLog({ time_spent: 120, comment: "разбор жалобы и фикс" }),
@@ -732,7 +732,7 @@ describe("time rm: удаление записи", () => {
   });
 
   it("записи нет на карточке — голден ошибки", async () => {
-    const { io, seen, stop } = readStand();
+    const { io, seen, stop } = await readStand();
     try {
       expect(
         await errorText(
@@ -750,7 +750,7 @@ describe("time rm: удаление записи", () => {
   });
 
   it("чужая запись без --force не удаляется", async () => {
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [`GET ${LOGS_PATH}`]: () => Response.json([rawLog({ user_id: 900002 })]),
       [`GET ${CURRENT_USER_PATH}`]: () => Response.json({ id: OWNER_ID }),
     });
@@ -773,7 +773,7 @@ describe("time rm: удаление записи", () => {
   });
 
   it("нецелой LOG_ID — ошибка ввода до сети", async () => {
-    const { io, seen, stop } = readStand();
+    const { io, seen, stop } = await readStand();
     try {
       expect(
         await errorText(kitenTimeRmCommand, [SELECTOR, "abc"], io, UsageError),

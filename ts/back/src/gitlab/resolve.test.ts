@@ -94,7 +94,7 @@ it("git remote: формы ssh, scp и https", () => {
 });
 
 it("iid берётся у единственного открытого MR ветки", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     Response.json([{ iid: 77, title: "заголовок" }])
   );
   try {
@@ -124,7 +124,7 @@ describe("ноль и несколько открытых MR — отказ со
     );
 
   it("ноль", async () => {
-    const stand = startFakeGitlab(() => Response.json([]));
+    const stand = await startFakeGitlab(() => Response.json([]));
     try {
       const err = await rejected(
         () => resolveMr(context(runGit, stand.baseUrl), undefined),
@@ -138,7 +138,7 @@ describe("ноль и несколько открытых MR — отказ со
   });
 
   it("несколько — перечислены с заголовками", async () => {
-    const stand = startFakeGitlab(() =>
+    const stand = await startFakeGitlab(() =>
       Response.json([{ iid: 1, title: "первый" }, { iid: 2, title: "второй" }])
     );
     try {

@@ -8,6 +8,9 @@
  * правки.
  */
 
+import { type Dirent, readdirSync } from "node:fs";
+import { hasErrorCode } from "../oserror/mod.ts";
+
 /**
  * Каталоги, внутрь которых обход не идёт: зависимости и артефакты
  * сборки. `dist` здесь ради поиска проектов — спека определяет проект
@@ -55,7 +58,7 @@ function collect(
   for (const entry of readDirSorted(dir)) {
     const relative = `${prefix}${entry.name}`;
     if (skip(relative)) continue;
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       if (skipDir(entry.name)) continue;
       collect(
         `${dir}/${entry.name}`,
@@ -74,13 +77,13 @@ function collect(
 }
 
 /** Записи каталога в стабильном порядке; каталога нет — пусто. */
-function readDirSorted(dir: string): readonly Deno.DirEntry[] {
+function readDirSorted(dir: string): readonly Dirent[] {
   try {
-    return [...Deno.readDirSync(dir)].sort((a, b) =>
+    return readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
       a.name < b.name ? -1 : a.name > b.name ? 1 : 0
     );
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) return [];
+    if (hasErrorCode(err, "ENOENT")) return [];
     throw err;
   }
 }

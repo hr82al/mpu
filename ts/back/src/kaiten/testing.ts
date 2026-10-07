@@ -9,6 +9,8 @@
  * `main.ts` недостижим (тот же приём, что у `../testing/mod.ts`).
  */
 
+import { serveFetch } from "../testing/http.ts";
+
 /** Запрос, как его увидел сервер: форма отправленного проверяется по ней. */
 export interface CapturedRequest {
   readonly method: string;
@@ -30,14 +32,13 @@ export interface FakeKaiten {
 /**
  * Поднимает стенд на 127.0.0.1; ответ выбирает `reply`, получая уже
  * накопленные запросы (номер попытки — их количество). Гасить
- * `await stop()` в `finally`: незакрытый сервер — красный санитайзер.
+ * `await stop()` в `finally`: незакрытый сервер держит процесс.
  */
-export function startFakeKaiten(
+export async function startFakeKaiten(
   reply: (seen: readonly CapturedRequest[]) => Response | Promise<Response>,
-): FakeKaiten {
+): Promise<FakeKaiten> {
   const seen: CapturedRequest[] = [];
-  const server = Deno.serve(
-    { port: 0, hostname: "127.0.0.1", onListen: () => {} },
+  const server = await serveFetch(
     async (req) => {
       const url = new URL(req.url);
       seen.push({
@@ -53,8 +54,8 @@ export function startFakeKaiten(
     },
   );
   return {
-    baseUrl: `http://127.0.0.1:${server.addr.port}`,
+    baseUrl: server.baseUrl,
     seen,
-    stop: () => server.shutdown(),
+    stop: () => server.stop(),
   };
 }

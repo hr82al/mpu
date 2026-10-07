@@ -128,9 +128,9 @@ describe("причины пропуска различимы и лечатся �
   it("нехватка права не выдаётся за погашенный стенд", () => {
     // Мёртвый шаг иначе выглядит живым: проверка печатает пропуск и не
     // исполняется ни разу (замер напарника 2026-08-28).
-    expect(skipCause(
-      new Deno.errors.NotCapable('Requires env access to "PGBINARY"'),
-    )).toBe("permission");
+    const refused = new Error('Requires env access to "PGBINARY"');
+    refused.name = "NotCapable";
+    expect(skipCause(refused)).toBe("permission");
     expect(skipCause(new Error("connect ECONNREFUSED"))).toBe("unreachable");
   });
 

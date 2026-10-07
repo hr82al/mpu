@@ -5,6 +5,7 @@
  * если его байты ею окажутся.
  */
 
+import { readFile, stat } from "node:fs/promises";
 import { kindOf, type Taker } from "./kind.ts";
 
 /** Куда картинка кладёт себя: место под предел и приём байтов. */
@@ -34,8 +35,8 @@ class FilePicture implements Picture {
     try {
       // Размер — до чтения: вложение не ограничено, и файл за пределом
       // читать целиком незачем.
-      if (!shelf.fits((await Deno.stat(this.#path)).size)) return;
-      bytes = await Deno.readFile(this.#path);
+      if (!shelf.fits((await stat(this.#path)).size)) return;
+      bytes = new Uint8Array(await readFile(this.#path));
     } catch {
       // Картинка — дополнение к ответу: файл, который к концу строки не
       // прочитать (удалён, нет прав, не файл), её не даёт, а итог строки

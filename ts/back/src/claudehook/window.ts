@@ -5,6 +5,8 @@
  * клиента хука, принесённого строкой.
  */
 
+import { hasErrorCode, isPermissionRefusal } from "../oserror/mod.ts";
+
 /** Программа tmux: путём, как в праве `--allow-run` ядра [D.7]. */
 export const TMUX = "/usr/bin/tmux";
 
@@ -31,8 +33,8 @@ export const RUN_TMUX: TmuxRun = async (args) => {
   } catch (err) {
     // Нет tmux или права его звать — подписи нет: окно лишь подписывает
     // вопрос и не меняет, куда он идёт.
-    if (err instanceof Deno.errors.NotFound) return undefined;
-    if (err instanceof Deno.errors.NotCapable) return undefined;
+    if (hasErrorCode(err, "ENOENT")) return undefined;
+    if (isPermissionRefusal(err)) return undefined;
     throw err;
   }
   return output.success ? new TextDecoder().decode(output.stdout) : undefined;

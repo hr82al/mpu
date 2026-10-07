@@ -44,7 +44,7 @@ async function readFixture(name: string): Promise<string> {
 
 describe("вызов 1: владелец токена", () => {
   it("запрос без query и тела, все четыре поля", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json({
         id: 77,
         full_name: "Иванов Иван",
@@ -71,7 +71,9 @@ describe("вызов 1: владелец токена", () => {
   });
 
   it("отсутствующее поле — пустая строка, не `null`", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() => Response.json({ id: 77 }));
+    const { baseUrl, stop } = await startFakeKaiten(() =>
+      Response.json({ id: 77 })
+    );
     try {
       expect(await getCurrentUser(accessTo(baseUrl))).toStrictEqual({
         id: 77,
@@ -89,7 +91,9 @@ describe("вызов 1: владелец токена", () => {
     // и тело другой формы — отказ, а не «пользователя нет».
     for (const body of [{ full_name: "Иванов Иван" }, [], "нет"]) {
       it(JSON.stringify(body), async () => {
-        const { baseUrl, stop } = startFakeKaiten(() => Response.json(body));
+        const { baseUrl, stop } = await startFakeKaiten(() =>
+          Response.json(body)
+        );
         try {
           const failure = getCurrentUser(accessTo(baseUrl));
           await expect(failure).rejects.toThrow(KaitenError);
@@ -147,7 +151,7 @@ const PARSED_ACTIVITY_CARD = {
 };
 
 it("вызов 2: лента действий — запрос и разбор", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     Response.json([
       {
         id: "a-1",
@@ -201,7 +205,9 @@ it("вызов 2: лента действий — запрос и разбор",
 });
 
 it("вызов 2: нижняя граница даты не уходит в запрос", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json([]));
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
+    Response.json([])
+  );
   try {
     await listUserActivities(accessTo(baseUrl), {
       actions: ["card_move"],
@@ -218,7 +224,7 @@ it("вызов 2: нижняя граница даты не уходит в за
 });
 
 it("вызов 2: элементы без строкового `id` в выдачу не попадают", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     Response.json([
       "мусор",
       { created: "2026-07-20T10:00:00.000Z", action: "card_move" },
@@ -246,7 +252,7 @@ it("вызов 2: элементы без строкового `id` в выда�
 });
 
 it("вызов 2: не-2xx — ошибка общего формата без query", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     new Response("limit is too large", { status: 400 })
   );
   try {
@@ -266,7 +272,7 @@ it("вызов 2: не-2xx — ошибка общего формата без q
 // --- 3. пространства --------------------------------------------------------
 
 it("вызов 3: пространства с вложенными досками (golden)", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(async () =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(async () =>
     new Response(await readFixture("spaces-ok.json"))
   );
   try {
@@ -298,7 +304,7 @@ it("вызов 3: пространства с вложенными доскам�
 });
 
 it("вызов 3: доска без `space_id` принадлежит родителю", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     Response.json([
       {
         id: 101,
@@ -329,7 +335,7 @@ it("вызов 3: доска без `space_id` принадлежит родит
 // --- 4. дорожки -------------------------------------------------------------
 
 it("вызов 4: дорожки одной доски (golden)", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(async () =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(async () =>
     new Response(await readFixture("lanes-ok.json"))
   );
   try {
@@ -350,7 +356,7 @@ it("вызов 4: дорожки одной доски (golden)", async () => {
 });
 
 it("вызов 4: элементы без числовых `id` и `board_id` отбрасываются", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     Response.json([
       "мусор",
       { id: 9001, title: "Без доски" },
@@ -369,7 +375,7 @@ it("вызов 4: элементы без числовых `id` и `board_id` о
 });
 
 it("вызов 4: несуществующая доска — ошибка не-2xx", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     new Response("board not found", { status: 404 })
   );
   try {
@@ -386,7 +392,7 @@ it("вызов 4: несуществующая доска — ошибка не-
 // --- 5. колонки -------------------------------------------------------------
 
 it("вызов 5: колонки одной доски (golden)", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(async () =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(async () =>
     new Response(await readFixture("columns-ok.json"))
   );
   try {
@@ -407,7 +413,7 @@ it("вызов 5: колонки одной доски (golden)", async () => {
 });
 
 it("вызов 5: дробный вес и его отсутствие", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     Response.json([
       { id: 7001, board_id: BOARD_ID, title: "Очередь", sort_order: 1.5 },
       { id: 7002, board_id: BOARD_ID, title: "Готово", sort_order: null },
@@ -429,7 +435,7 @@ it("вызов 5: дробный вес и его отсутствие", async (
 // --- 6. кастомные поля ------------------------------------------------------
 
 it("вызов 6: определения кастомных полей", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     Response.json([
       { id: 610303, name: "9. AI-артефакт", type: "file" },
       { id: 610304, name: "Гипотеза", type: null },
@@ -453,7 +459,7 @@ it("вызов 6: определения кастомных полей", async (
 });
 
 it("вызов 6: компания без кастомных полей — пустой список", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() => Response.json([]));
+  const { baseUrl, stop } = await startFakeKaiten(() => Response.json([]));
   try {
     expect(await listCustomProperties(accessTo(baseUrl))).toStrictEqual([]);
   } finally {

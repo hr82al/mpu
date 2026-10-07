@@ -32,8 +32,8 @@ interface Stand {
   readonly stop: () => Promise<void>;
 }
 
-function stand(): Stand {
-  const fake = startFakeKaiten(() => Response.json(ROLES));
+async function stand(): Promise<Stand> {
+  const fake = await startFakeKaiten(() => Response.json(ROLES));
   return {
     access: { baseUrl: fake.baseUrl, apiKey: "proba-key" },
     seen: fake.seen,
@@ -46,7 +46,7 @@ function paths(seen: readonly CapturedRequest[]): readonly string[] {
 }
 
 it("resolveRoleId: числовое значение — id без запроса", async () => {
-  const { access, seen, stop } = stand();
+  const { access, seen, stop } = await stand();
   try {
     expect(await resolveRoleId(access, "12058")).toBe(12058);
     expect(paths(seen)).toStrictEqual([]);
@@ -57,7 +57,7 @@ it("resolveRoleId: числовое значение — id без запрос�
 
 describe("resolveRoleId: нечисловое — живой справочник", () => {
   it("точное название без учёта регистра", async () => {
-    const { access, seen, stop } = stand();
+    const { access, seen, stop } = await stand();
     try {
       expect(await resolveRoleId(access, "техподдержка")).toBe(12058);
       expect(paths(seen)).toStrictEqual(["/api/latest/user-roles"]);
@@ -67,7 +67,7 @@ describe("resolveRoleId: нечисловое — живой справочни�
   });
 
   it("точное совпадение старше подстроки", async () => {
-    const { access, stop } = stand();
+    const { access, stop } = await stand();
     try {
       expect(await resolveRoleId(access, "Тестирование")).toBe(12132);
     } finally {
@@ -76,7 +76,7 @@ describe("resolveRoleId: нечисловое — живой справочни�
   });
 
   it("подстрока, когда точного нет", async () => {
-    const { access, stop } = stand();
+    const { access, stop } = await stand();
     try {
       expect(await resolveRoleId(access, "нагрузки")).toBe(12200);
     } finally {
@@ -85,7 +85,7 @@ describe("resolveRoleId: нечисловое — живой справочни�
   });
 
   it("нет совпадений — ошибка ввода", async () => {
-    const { access, stop } = stand();
+    const { access, stop } = await stand();
     try {
       const err = await rejected(
         () => resolveRoleId(access, "инженер"),
@@ -100,7 +100,7 @@ describe("resolveRoleId: нечисловое — живой справочни�
   });
 
   it("несколько подстрочных — кандидаты списком", async () => {
-    const { access, stop } = stand();
+    const { access, stop } = await stand();
     try {
       const err = await rejected(
         () => resolveRoleId(access, "тест"),

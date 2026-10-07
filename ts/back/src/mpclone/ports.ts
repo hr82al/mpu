@@ -4,6 +4,15 @@
  * берут настоящий, во временном `HOME`.
  */
 
+import {
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs";
+import { hasErrorCode } from "../oserror/mod.ts";
+
 /** Итог подпроцесса: код и собранные потоки. */
 export interface ProcessOutcome {
   readonly code: number;
@@ -57,7 +66,7 @@ export const systemShell: Shell = {
         stderr: decoder.decode(output.stderr),
       };
     } catch (err) {
-      if (!(err instanceof Deno.errors.NotFound)) throw err;
+      if (!hasErrorCode(err, "ENOENT")) throw err;
       return { code: 127, stdout: "", stderr: `${bin}: не найден` };
     }
   },
@@ -73,7 +82,7 @@ async function feed(
     await writer.write(new TextEncoder().encode(text));
     await writer.close();
   } catch (err) {
-    if (!(err instanceof Deno.errors.BrokenPipe)) throw err;
+    if (!hasErrorCode(err, "EPIPE")) throw err;
   }
 }
 
@@ -81,27 +90,27 @@ async function feed(
 export const systemDisk: Disk = {
   exists(path) {
     try {
-      Deno.lstatSync(path);
+      lstatSync(path);
       return true;
     } catch (err) {
-      if (err instanceof Deno.errors.NotFound) return false;
+      if (hasErrorCode(err, "ENOENT")) return false;
       throw err;
     }
   },
-  realPath: (path) => Deno.realPathSync(path),
-  readText: (path) => Deno.readTextFileSync(path),
-  readBytes: (path) => Deno.readFileSync(path),
+  realPath: (path) => realpathSync(path),
+  readText: (path) => readFileSync(path, "utf8"),
+  readBytes: (path) => new Uint8Array(readFileSync(path)),
   filesUnder: (dir) => walk(dir, ""),
-  writeText: (path, text) => Deno.writeTextFileSync(path, text),
+  writeText: (path, text) => writeFileSync(path, text),
 };
 
 /** Обход без перехода по ссылкам: ссылка — не файл пустышки. */
 function walk(dir: string, prefix: string): string[] {
   const found: string[] = [];
-  for (const entry of Deno.readDirSync(dir)) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const rel = prefix + entry.name;
-    if (entry.isFile) found.push(rel);
-    if (entry.isDirectory) {
+    if (entry.isFile()) found.push(rel);
+    if (entry.isDirectory()) {
       found.push(...walk(`${dir}/${entry.name}`, `${rel}/`));
     }
   }

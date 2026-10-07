@@ -357,7 +357,7 @@ async function withGitlab(
   body: (back: TestBack) => Promise<void>,
   io: Partial<CommandIo> = {},
 ): Promise<void> {
-  const stand = startFakeGitlab(() => Response.json(MR));
+  const stand = await startFakeGitlab(() => Response.json(MR));
   try {
     await withBack(body, {
       io: {

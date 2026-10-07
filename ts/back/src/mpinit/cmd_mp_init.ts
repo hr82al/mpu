@@ -13,6 +13,7 @@
  * не выполняются ни одной.
  */
 
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { z } from "zod";
 import { type CommandIo, defineCommand, UsageError } from "../command/mod.ts";
 import { checkAnswers, Health } from "./answers.ts";
@@ -126,7 +127,7 @@ function rootDirOf(configDir: string): string {
 /** Существует ли путь; ошибка доступа равнозначна отсутствию. */
 function existsOnDisk(path: string): boolean {
   try {
-    Deno.statSync(path);
+    statSync(path);
     return true;
   } catch {
     return false;
@@ -135,7 +136,7 @@ function existsOnDisk(path: string): boolean {
 
 /** Имена в каталоге диска. */
 function namesIn(dir: string): readonly string[] {
-  return [...Deno.readDirSync(dir)].map((entry) => entry.name);
+  return readdirSync(dir);
 }
 
 /** Всё, что нужно шагам прогона, — одно на вызов. */
@@ -188,8 +189,9 @@ export async function runMpInit(
     io,
     docker: options.docker ?? systemDocker,
     files: {
-      readText: options.readText ?? Deno.readTextFileSync,
-      readBytes: options.readBytes ?? Deno.readFileSync,
+      readText: options.readText ?? ((path) => readFileSync(path, "utf8")),
+      readBytes: options.readBytes ??
+        ((path) => new Uint8Array(readFileSync(path))),
       listDir: options.listDir ?? namesIn,
     },
     dryRun: args["dry-run"],

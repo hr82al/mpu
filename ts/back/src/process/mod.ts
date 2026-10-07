@@ -5,6 +5,7 @@
  * поэтому склейка живёт здесь одна.
  */
 
+import process from "node:process";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal, Output } from "../entrypoint/mod.ts";
 import {
@@ -43,7 +44,7 @@ export function processLog(io: CommandIo): InvokeLog {
     // процесса слой не читает (`platform/env-file.md`).
     env: io.envFile,
     defaultFile: defaultInvokeLogPath(),
-    pid: Deno.pid,
+    pid: process.pid,
     now: () => new Date(),
   });
 }

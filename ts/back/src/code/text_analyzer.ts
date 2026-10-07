@@ -14,6 +14,8 @@
  * честно, с пониженной гарантией.
  */
 
+import { readFileSync, statSync } from "node:fs";
+import { hasErrorCode } from "../oserror/mod.ts";
 import type { Analyzer, Place, Target } from "./analyzer.ts";
 import { byPathAndLine } from "./analyzer.ts";
 import type { MarkSource } from "./mark.ts";
@@ -45,9 +47,9 @@ export function createTextAnalyzer(deps: TextAnalyzerDeps): Analyzer {
   const files = codeFiles(deps.repoRoot);
   const textOf = (path: string): string | undefined => {
     try {
-      return Deno.readTextFileSync(`${deps.repoRoot}/${path}`);
+      return readFileSync(`${deps.repoRoot}/${path}`, "utf8");
     } catch (err) {
-      if (err instanceof Deno.errors.NotFound) return undefined;
+      if (hasErrorCode(err, "ENOENT")) return undefined;
       throw err;
     }
   };
@@ -79,9 +81,9 @@ export function createTextAnalyzer(deps: TextAnalyzerDeps): Analyzer {
  */
 function isFile(path: string): boolean {
   try {
-    return Deno.statSync(path).isFile;
+    return statSync(path).isFile();
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) return false;
+    if (hasErrorCode(err, "ENOENT")) return false;
     throw err;
   }
 }

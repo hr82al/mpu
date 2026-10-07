@@ -7,6 +7,7 @@
  * решает объект команды (`ImageCommand`).
  */
 
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   type Command,
@@ -627,8 +628,8 @@ class Applying implements Settling {
   writeFile(method: BaseMethod): Promise<Done> {
     const path = filePath(this.#dir, method);
     try {
-      Deno.mkdirSync(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-      Deno.writeTextFileSync(path, `${method.method.definition()}\n`);
+      mkdirSync(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+      writeFileSync(path, `${method.method.definition()}\n`);
       return Promise.resolve(SUCCEEDED);
     } catch (err) {
       return Promise.resolve(failed(err));
@@ -637,7 +638,7 @@ class Applying implements Settling {
 
   removeFile(file: MethodFile): Promise<Done> {
     try {
-      Deno.removeSync(`${this.#dir}/${file.path}`);
+      rmSync(`${this.#dir}/${file.path}`);
       return Promise.resolve(SUCCEEDED);
     } catch (err) {
       return Promise.resolve(failed(err));

@@ -243,7 +243,7 @@ function envOf(env: Record<string, string>): CommandIo["envFile"] {
 
 it("живой опрос: запросы Kaiten и запись в отчёте", async () => {
   fakeTimers({ now: NOW_MS, toFake: FAKED });
-  const fake = startFakeKaiten((seen) => {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     const body: unknown = {
       "/api/latest/users/current": { id: 900001, full_name: "Я" },
@@ -301,7 +301,7 @@ it("живой опрос: запросы Kaiten и запись в отчёте
 
 it("отказ Kaiten: предупреждение и отчёт на журнале", async () => {
   fakeTimers({ now: NOW_MS, toFake: FAKED });
-  const fake = startFakeKaiten(() =>
+  const fake = await startFakeKaiten(() =>
     new Response("нет доступа", { status: 401 })
   );
   const st = await stand({
@@ -327,7 +327,7 @@ it("отказ Kaiten: предупреждение и отчёт на журн�
 
 it("история карточки недоступна: карточка не в отчёте", async () => {
   fakeTimers({ now: NOW_MS, toFake: FAKED });
-  const fake = startFakeKaiten((seen) => {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     if (last.pathname === "/api/latest/users/current") {
       return Response.json({ id: 900001 });

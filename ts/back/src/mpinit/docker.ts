@@ -9,6 +9,12 @@
  * оператор смотрит ход, команда ищет пропущенные дни).
  */
 
+import { writeSync } from "node:fs";
+import { hasErrorCode } from "../oserror/mod.ts";
+
+/** Дескриптор stderr процесса: эхо пишется в него синхронно. */
+const STDERR = 2;
+
 /** Итог пробы: код и собранные потоки. */
 export interface ProcessOutcome {
   readonly code: number;
@@ -129,7 +135,7 @@ async function feed(
     await writer.write(new TextEncoder().encode(text));
     await writer.close();
   } catch (err) {
-    if (!(err instanceof Deno.errors.BrokenPipe)) throw err;
+    if (!hasErrorCode(err, "EPIPE")) throw err;
   }
 }
 
@@ -141,7 +147,7 @@ async function echoed(stream: ReadableStream<Uint8Array>): Promise<string> {
     // writeSync пишет не обязательно всё: дописывается остаток.
     let written = 0;
     while (written < chunk.length) {
-      written += Deno.stderr.writeSync(chunk.subarray(written));
+      written += writeSync(STDERR, chunk.subarray(written));
     }
     text += decoder.decode(chunk, { stream: true });
   }

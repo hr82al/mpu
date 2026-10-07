@@ -231,7 +231,7 @@ it("вызов 1: список карточек с фильтрами", async ()
     lane: { title: "Основная" },
     type: { name: "Задача" },
   };
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     Response.json([summary])
   );
   try {
@@ -283,7 +283,9 @@ it("вызов 1: список карточек с фильтрами", async ()
 });
 
 it("вызов 1: без фильтров уходят только лимит и смещение", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json([]));
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
+    Response.json([])
+  );
   try {
     expect(await listCards(accessTo(baseUrl))).toStrictEqual([]);
 
@@ -294,7 +296,7 @@ it("вызов 1: без фильтров уходят только лимит �
 });
 
 it("вызов 1: элементы не той формы в выдачу не попадают", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     Response.json(["мусор", { title: "без id" }, { id: 7 }])
   );
   try {
@@ -314,7 +316,9 @@ it("вызов 1: элементы не той формы в выдачу не �
 });
 
 it("вызов 2: карточка целиком", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json(CARD));
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
+    Response.json(CARD)
+  );
   try {
     const card = await getCard(accessTo(baseUrl), CARD_ID);
 
@@ -328,7 +332,7 @@ it("вызов 2: карточка целиком", async () => {
 });
 
 it("вызов 2: карточка без вложенных объектов", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     Response.json({ id: CARD_ID })
   );
   try {
@@ -367,7 +371,7 @@ it("вызов 2: карточка без вложенных объектов", 
 });
 
 it("вызов 2: мусор во вложенных списках отбрасывается", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     Response.json({
       ...CARD,
       // Ни один из этих элементов формой каталога не является.
@@ -419,7 +423,7 @@ it("вызов 2: значение файлового поля — массив 
   // Замер 2026-08-14: поле, привязанное к одному файлу, несёт массив из
   // одного uid (`kaiten-api-cards.md`, «Инварианты»). Разбор значения
   // строкой терял бы этот ключ молча — потеря без ошибки, а не отказ.
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     Response.json({
       ...CARD,
       properties: {
@@ -458,7 +462,7 @@ it("вызов 2: форма «Файл» — url и mimeType как пришл�
     card_cover: false,
     custom_property_id: 610303,
   };
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     Response.json({ ...CARD, files: [attached] })
   );
   try {
@@ -483,7 +487,7 @@ describe("вызов 3: комментарии карточки", () => {
       created: "2026-07-20T10:30:00.000Z",
       author: { id: 78, full_name: "Петров Пётр", username: "petrov" },
     };
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json([COMMENT, second])
     );
     try {
@@ -513,7 +517,7 @@ describe("вызов 3: комментарии карточки", () => {
   });
 
   it("карточка без комментариев — пустой массив", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() => Response.json([]));
+    const { baseUrl, stop } = await startFakeKaiten(() => Response.json([]));
     try {
       expect(await listCardComments(accessTo(baseUrl), CARD_ID)).toStrictEqual(
         [],
@@ -524,7 +528,7 @@ describe("вызов 3: комментарии карточки", () => {
   });
 
   it("элементы не той формы пропускаются", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() =>
+    const { baseUrl, stop } = await startFakeKaiten(() =>
       Response.json(["мусор", { text: "без id" }, { id: 3003, author: 7 }])
     );
     try {
@@ -544,7 +548,7 @@ describe("вызов 3: комментарии карточки", () => {
 });
 
 it("вызов 4: комментарий без вложений — JSON-тело", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     Response.json(COMMENT, { status: 201 })
   );
   try {
@@ -569,7 +573,7 @@ it("вызов 4: комментарий без вложений — JSON-тел
 });
 
 it("вызов 5: комментарий с файлами — multipart-тело", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     Response.json(COMMENT, { status: 201 })
   );
   try {
@@ -620,7 +624,9 @@ it("вызов 5: комментарий с файлами — multipart-тел�
 
 describe("вызов 6: перемещение — только заданные оси", () => {
   it("колонка и дорожка без доски", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json(CARD));
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
+      Response.json(CARD)
+    );
     try {
       const card = await moveCard(accessTo(baseUrl), CARD_ID, {
         columnId: 602,
@@ -641,7 +647,9 @@ describe("вызов 6: перемещение — только заданные
   });
 
   it("все три оси разом", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json(CARD));
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
+      Response.json(CARD)
+    );
     try {
       await moveCard(accessTo(baseUrl), CARD_ID, {
         boardId: 502,
@@ -661,7 +669,9 @@ describe("вызов 6: перемещение — только заданные
 });
 
 it("вызов 7: описание заменяется целиком", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json(CARD));
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
+    Response.json(CARD)
+  );
   try {
     await updateCardDescription(
       accessTo(baseUrl),
@@ -682,7 +692,9 @@ it("вызов 7: описание заменяется целиком", async (
 });
 
 it("вызов 8: очистка кастомного поля значением null", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() => Response.json(CARD));
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
+    Response.json(CARD)
+  );
   try {
     await updateCardProperties(accessTo(baseUrl), CARD_ID, {
       id_610303: null,
@@ -702,7 +714,7 @@ it("вызов 8: очистка кастомного поля значение�
 
 describe("вызов 9: история перемещений", () => {
   it("записи разных авторов", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json([
         {
           card_id: CARD_ID,
@@ -753,7 +765,7 @@ describe("вызов 9: история перемещений", () => {
   });
 
   it("карточка без перемещений — пустой массив", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() => Response.json([]));
+    const { baseUrl, stop } = await startFakeKaiten(() => Response.json([]));
     try {
       expect(await listCardLocationHistory(accessTo(baseUrl), CARD_ID))
         .toStrictEqual([]);
@@ -763,7 +775,7 @@ describe("вызов 9: история перемещений", () => {
   });
 
   it("элементы без карточки записью не считаются", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() =>
+    const { baseUrl, stop } = await startFakeKaiten(() =>
       Response.json(["мусор", { column_id: 601 }, { card_id: CARD_ID }])
     );
     try {
@@ -783,7 +795,7 @@ describe("вызов 9: история перемещений", () => {
 });
 
 it("вызов 10: чек-лист сразу после создания пуст", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     Response.json({ id: 2001, name: "Проверки", items: [] }, { status: 201 })
   );
   try {
@@ -807,7 +819,7 @@ it("вызов 10: чек-лист сразу после создания пус
 
 describe("вызов 11: пункт чек-листа", () => {
   it("без sort_order — сервер ставит пункт в конец", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json(CHECKLIST_ITEM, { status: 201 })
     );
     try {
@@ -835,7 +847,7 @@ describe("вызов 11: пункт чек-листа", () => {
   });
 
   it("явный sort_order фиксирует позицию", async () => {
-    const { baseUrl, seen, stop } = startFakeKaiten(() =>
+    const { baseUrl, seen, stop } = await startFakeKaiten(() =>
       Response.json({ ...CHECKLIST_ITEM, sort_order: 0.5 }, { status: 201 })
     );
     try {
@@ -859,7 +871,7 @@ describe("вызов 11: пункт чек-листа", () => {
 });
 
 it("вызов 12: отметка пункта — ответ несёт обновлённый пункт", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     Response.json({ ...CHECKLIST_ITEM, checked: true })
   );
   try {
@@ -893,7 +905,7 @@ it("вызов 13: файл в кастомное поле — multipart-тел�
     card_cover: false,
     custom_property_id: 610303,
   };
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     Response.json(uploaded, { status: 201 })
   );
   try {
@@ -952,7 +964,7 @@ it("вызов 13: url и mimeType ответа порт не чинит", async
     card_cover: false,
     custom_property_id: 610303,
   };
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     Response.json(uploaded, { status: 201 })
   );
   try {
@@ -971,7 +983,7 @@ it("вызов 13: url и mimeType ответа порт не чинит", async
 });
 
 it("вызов 14: удаление файла — пустое тело ответа", async () => {
-  const { baseUrl, seen, stop } = startFakeKaiten(() =>
+  const { baseUrl, seen, stop } = await startFakeKaiten(() =>
     new Response(null, { status: 204 })
   );
   try {
@@ -988,7 +1000,7 @@ it("вызов 14: удаление файла — пустое тело отв�
 });
 
 it("несуществующая карточка — 404 в общем формате транспорта", async () => {
-  const { baseUrl, stop } = startFakeKaiten(() =>
+  const { baseUrl, stop } = await startFakeKaiten(() =>
     new Response('{"message":"Card not found"}', { status: 404 })
   );
   try {
@@ -1004,7 +1016,7 @@ it("несуществующая карточка — 404 в общем форм
 
 describe("ответ одиночного вызова не той формы — ошибка запроса", () => {
   it("карточка: ответ не объект", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() => Response.json([]));
+    const { baseUrl, stop } = await startFakeKaiten(() => Response.json([]));
     try {
       const failure = getCard(accessTo(baseUrl), CARD_ID);
       await expect(failure).rejects.toThrow(KaitenError);
@@ -1017,7 +1029,7 @@ describe("ответ одиночного вызова не той формы �
   });
 
   it("карточка: объект без id", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() =>
+    const { baseUrl, stop } = await startFakeKaiten(() =>
       Response.json({ title: "без id" })
     );
     try {
@@ -1032,7 +1044,7 @@ describe("ответ одиночного вызова не той формы �
   });
 
   it("комментарий", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() =>
+    const { baseUrl, stop } = await startFakeKaiten(() =>
       Response.json({ message: "nope" })
     );
     try {
@@ -1047,7 +1059,7 @@ describe("ответ одиночного вызова не той формы �
   });
 
   it("пункт чек-листа", async () => {
-    const { baseUrl, stop } = startFakeKaiten(() =>
+    const { baseUrl, stop } = await startFakeKaiten(() =>
       Response.json({ message: "nope" })
     );
     try {

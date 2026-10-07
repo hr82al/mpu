@@ -15,6 +15,8 @@
  * что данные на месте (`copy-client.md`, «Известные ловушки»).
  */
 
+import { rmSync } from "node:fs";
+import { isPermissionRefusal } from "../oserror/mod.ts";
 import { DomainError } from "../command/mod.ts";
 import type { PgTarget } from "../sql/mod.ts";
 
@@ -236,7 +238,7 @@ export function makeDumpFile(prefix: string): string {
   try {
     return Deno.makeTempFileSync({ prefix, suffix: ".dump" });
   } catch (err) {
-    if (!(err instanceof Deno.errors.NotCapable)) throw err;
+    if (!isPermissionRefusal(err)) throw err;
     throw new DomainError(
       "нет права записи в каталог временных файлов: собранный mpu пишет " +
         `дамп в ${DUMP_DIRS.join(" или ")}`,
@@ -253,7 +255,7 @@ export function makeDumpFile(prefix: string): string {
 /** Удаление временного файла; его отсутствие — не отказ. */
 export function removeDumpFile(path: string): void {
   try {
-    Deno.removeSync(path);
+    rmSync(path);
   } catch {
     // Файл мог не создаться вовсе — упавший дамп это штатный исход.
   }

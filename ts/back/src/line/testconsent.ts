@@ -3,6 +3,9 @@
  * каталоге, настоящий `~/.config/mpu/policy.db` не трогается.
  */
 
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { IN_PLACE } from "../entrypoint/mod.ts";
 import { ALLOW, RulePath } from "../policy/mod.ts";
 import {
@@ -30,10 +33,10 @@ export interface PolicyFile {
  * (`beforeAll` открывает, `afterAll` закрывает).
  */
 export async function openPolicyFile(): Promise<PolicyFile> {
-  const dir = await Deno.makeTempDir();
+  const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   return {
     path: `${dir}/policy.db`,
-    close: () => Deno.remove(dir, { recursive: true }),
+    close: () => rm(dir, { recursive: true }),
   };
 }
 

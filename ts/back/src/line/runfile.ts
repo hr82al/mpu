@@ -5,9 +5,11 @@
  * чтения — в названном спекой порядке, чтение и слова текста.
  */
 
+import { readFile, realpath, stat } from "node:fs/promises";
 import { configHomeDir } from "../env/mod.ts";
 import { NotUtf8, utf8Of, wordsOf } from "../frames/mod.ts";
 import { ASK_WORD, GRAMMAR, MessageParseError } from "../messages/mod.ts";
+import { hasErrorCode } from "../oserror/mod.ts";
 import {
   type Doc,
   keyword,
@@ -59,7 +61,7 @@ export function runMethod(): Method<Line> {
 export interface ProgramFiles {
   /** Каталоги настроек mpu окружения сервера строк, как набраны. */
   readonly settings: readonly string[];
-  /** Реальный путь: ссылки раскрыты; нет пути — `Deno.errors.NotFound`. */
+  /** Реальный путь: ссылки раскрыты; нет пути — ошибка `ENOENT`. */
   realPath(path: string): Promise<string>;
   /** Файл ли это и сколько у него жёстких ссылок. */
   stat(path: string): Promise<{ isFile: boolean; nlink: number | null }>;
@@ -80,9 +82,12 @@ export function programFiles(
   ];
   return {
     settings: [...new Set(dirs)],
-    realPath: (path) => Deno.realPath(path),
-    stat: (path) => Deno.stat(path),
-    read: (path) => Deno.readFile(path),
+    realPath: (path) => realpath(path),
+    stat: async (path) => {
+      const found = await stat(path);
+      return { isFile: found.isFile(), nlink: found.nlink };
+    },
+    read: async (path) => new Uint8Array(await readFile(path)),
   };
 }
 
@@ -139,13 +144,10 @@ async function realOf(files: ProgramFiles, full: string): Promise<string> {
   try {
     return await files.realPath(full);
   } catch (err) {
-    if (err instanceof Deno.errors.PermissionDenied) {
+    if (hasErrorCode(err, "EACCES")) {
       throw new SourceError(NO_READ, `${NO_READ} ${full}`);
     }
-    if (
-      err instanceof Deno.errors.NotFound ||
-      err instanceof Deno.errors.NotADirectory
-    ) {
+    if (hasErrorCode(err, "ENOENT", "ENOTDIR")) {
       throw new SourceError(NO_FILE, `${NO_FILE} ${full}`);
     }
     throw err;
@@ -162,11 +164,7 @@ async function settingsOf(files: ProgramFiles): Promise<string[]> {
       return [await files.realPath(dir)];
     } catch (err) {
       // Каталога нет или его не пройти — остаётся проверка по набранному.
-      if (
-        err instanceof Deno.errors.NotFound ||
-        err instanceof Deno.errors.NotADirectory ||
-        err instanceof Deno.errors.PermissionDenied
-      ) return [];
+      if (hasErrorCode(err, "ENOENT", "ENOTDIR", "EACCES")) return [];
       throw err;
     }
   }));
@@ -211,7 +209,7 @@ async function programBytes(
   try {
     return await files.read(real);
   } catch (err) {
-    if (!(err instanceof Deno.errors.PermissionDenied)) throw err;
+    if (!hasErrorCode(err, "EACCES")) throw err;
     throw new SourceError(NO_READ, `${NO_READ} ${full}`);
   }
 }

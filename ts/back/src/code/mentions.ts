@@ -9,6 +9,7 @@
  * одинаково выглядит и для живого адреса, и для протухшего.
  */
 
+import { readFileSync, statSync } from "node:fs";
 import { z } from "zod";
 import type { Place } from "./analyzer.ts";
 import { byPathAndLine } from "./analyzer.ts";
@@ -19,6 +20,7 @@ import {
   unresolvedSchema,
 } from "./answer.ts";
 import { UsageError } from "../command/mod.ts";
+import { hasErrorCode } from "../oserror/mod.ts";
 import { markLabel } from "./mark.ts";
 import type { Repo } from "./workspace.ts";
 import { jobsOf, type MentionsJob, sectionsOf } from "./sweep.ts";
@@ -155,7 +157,7 @@ function isDependencyDir(name: string): boolean {
 
 function readText(path: string): string | undefined {
   try {
-    return Deno.readTextFileSync(path);
+    return readFileSync(path, "utf8");
   } catch (err) {
     if (isMissing(err)) return undefined;
     throw err;
@@ -165,7 +167,7 @@ function readText(path: string): string | undefined {
 /** Есть ли такой каталог на диске. */
 function isDirectory(path: string): boolean {
   try {
-    return Deno.statSync(path).isDirectory;
+    return statSync(path).isDirectory();
   } catch (err) {
     if (isMissing(err)) return false;
     throw err;
@@ -174,7 +176,7 @@ function isDirectory(path: string): boolean {
 
 function exists(path: string): boolean {
   try {
-    return Deno.statSync(path).isFile;
+    return statSync(path).isFile();
   } catch (err) {
     if (isMissing(err)) return false;
     throw err;
@@ -187,7 +189,5 @@ function exists(path: string): boolean {
  * «в коде нет», а не падение команды.
  */
 function isMissing(err: unknown): boolean {
-  return err instanceof Deno.errors.NotFound ||
-    err instanceof Deno.errors.NotADirectory ||
-    err instanceof Deno.errors.IsADirectory;
+  return hasErrorCode(err, "ENOENT", "ENOTDIR", "EISDIR");
 }

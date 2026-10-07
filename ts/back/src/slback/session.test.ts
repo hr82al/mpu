@@ -52,7 +52,7 @@ function ioTo(
 }
 
 it("живой кэш отдаёт токен без единого запроса", async () => {
-  const stand = startFakeSlback(() =>
+  const stand = await startFakeSlback(() =>
     new Response("не ожидается", { status: 500 })
   );
   try {
@@ -67,7 +67,7 @@ it("живой кэш отдаёт токен без единого запрос
 
 it("холодный кэш: логин без авторизации, запрос — под Bearer", async () => {
   const written: string[] = [];
-  const stand = startFakeSlback((seen) =>
+  const stand = await startFakeSlback((seen) =>
     seen.length === 1 ? loginReply("svezhiy") : Response.json({ id: 777 })
   );
   try {
@@ -106,7 +106,7 @@ it("холодный кэш: логин без авторизации, запр�
 });
 
 it("сбой записи кэша не роняет вызов: токен уже получен", async () => {
-  const stand = startFakeSlback((seen) =>
+  const stand = await startFakeSlback((seen) =>
     seen.length === 1 ? loginReply() : Response.json({ ok: true })
   );
   try {
@@ -123,7 +123,7 @@ it("сбой записи кэша не роняет вызов: токен уж
 });
 
 it("логин без accessToken — свой класс отказа и тело в тексте", async () => {
-  const stand = startFakeSlback(() => Response.json({ user: { id: 1 } }));
+  const stand = await startFakeSlback(() => Response.json({ user: { id: 1 } }));
   try {
     const err = await rejected(
       () => openSlback(ioTo(stand.baseUrl)).token(),
@@ -138,7 +138,7 @@ it("логин без accessToken — свой класс отказа и тел
 });
 
 it("HTTP ≥ 400 — отказ с кодом и сохранённым телом", async () => {
-  const stand = startFakeSlback((seen) =>
+  const stand = await startFakeSlback((seen) =>
     seen.length === 1
       ? loginReply()
       : new Response("client not found", { status: 404 })
@@ -157,7 +157,7 @@ it("HTTP ≥ 400 — отказ с кодом и сохранённым тело
 });
 
 it("2xx с HTML-телом — non-JSON, несмотря на успешный статус", async () => {
-  const stand = startFakeSlback((seen) =>
+  const stand = await startFakeSlback((seen) =>
     seen.length === 1 ? loginReply() : new Response("<html>вход</html>")
   );
   try {
@@ -174,7 +174,7 @@ it("2xx с HTML-телом — non-JSON, несмотря на успешный 
 });
 
 it("2xx с пустым телом — нет данных, а не ошибка", async () => {
-  const stand = startFakeSlback((seen) =>
+  const stand = await startFakeSlback((seen) =>
     seen.length === 1 ? loginReply() : new Response(null, { status: 204 })
   );
   try {
@@ -201,7 +201,7 @@ it("разрез не приходится на середину символа"
 });
 
 it("числа ответа печатаются как пришли, без потери точности", async () => {
-  const stand = startFakeSlback((seen) =>
+  const stand = await startFakeSlback((seen) =>
     seen.length === 1
       ? loginReply()
       : new Response('{"id":123456789012345678901,"ratio":1.0}', {
@@ -246,7 +246,7 @@ it("живой кэш адреса не спрашивает: за токено�
 
 it("тело отказа режется на 500 символов, не-JSON — на 200", async () => {
   const long = "я".repeat(700);
-  const stand = startFakeSlback((seen) =>
+  const stand = await startFakeSlback((seen) =>
     seen.length === 1
       ? loginReply()
       : seen.length === 2
@@ -276,7 +276,7 @@ it("тело отказа режется на 500 символов, не-JSON �
 });
 
 it("транспортный сбой называет метод, путь и причину одной строкой", async () => {
-  const stand = startFakeSlback(() => loginReply());
+  const stand = await startFakeSlback(() => loginReply());
   const baseUrl = stand.baseUrl;
   await stand.stop();
   const err = await rejected(

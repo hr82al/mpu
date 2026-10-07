@@ -6,17 +6,22 @@
  * отказ: текст дословно, код 1.
  */
 
+import { readFile, rm, stat } from "node:fs/promises";
 import { VerbatimError } from "../command/mod.ts";
+import { hasErrorCode } from "../oserror/mod.ts";
 
 /** Как кончился процесс исполнителя. */
 export interface ExitStatus {
   readonly code: number;
-  /** Сигнал, которым он убит; кончился сам — `null`. */
-  readonly signal: Deno.Signal | null;
+  /** Сигнал, которым он убит (имя, `SIGSEGV`); кончился сам — `null`. */
+  readonly signal: string | null;
 }
 
+/** Сигналы, которыми гасят исполнителя. */
+export type StopSignal = "SIGTERM" | "SIGKILL";
+
 /** Номера сигналов, которыми гасят исполнителя. */
-const SIGNAL_NUMBERS: Partial<Record<Deno.Signal, number>> = {
+const SIGNAL_NUMBERS: Record<StopSignal, number> = {
   SIGTERM: 15,
   SIGKILL: 9,
 };
@@ -25,8 +30,8 @@ const SIGNAL_NUMBERS: Partial<Record<Deno.Signal, number>> = {
  * Статус процесса, убитого сигналом: код — 128 + номер сигнала, как его
  * отдаёт ОС. Нужен тем, кто «убивает» без настоящего процесса.
  */
-export function killedStatus(signal: Deno.Signal): ExitStatus {
-  return { code: 128 + (SIGNAL_NUMBERS[signal] ?? 0), signal };
+export function killedStatus(signal: StopSignal): ExitStatus {
+  return { code: 128 + SIGNAL_NUMBERS[signal], signal };
 }
 
 /** Отметка сторожа об убитом исполнителе — или её отсутствие. */
@@ -87,13 +92,11 @@ export class MarkerDir implements Markers {
     let text: string;
     let written: number;
     try {
-      // Времени записи файловая система не дала — чужой отметку не
-      // доказать, и она читается как своя: строка узнаёт правду о памяти.
-      written = (await Deno.stat(path)).mtime?.getTime() ?? Infinity;
-      text = await Deno.readTextFile(path);
-      await Deno.remove(path);
+      written = (await stat(path)).mtimeMs;
+      text = await readFile(path, "utf8");
+      await rm(path);
     } catch (err) {
-      if (err instanceof Deno.errors.NotFound) return NO_MARK;
+      if (hasErrorCode(err, "ENOENT")) return NO_MARK;
       throw err;
     }
     const mib = mibOf(text);

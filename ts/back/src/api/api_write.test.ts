@@ -77,7 +77,7 @@ function standBare() {
 }
 
 it("POST с объявленными полями: метод, адрес и тело", async () => {
-  const stand = standWith();
+  const stand = await standWith();
   try {
     await commandOf("create-client").invoke(
       ["--title", "Клиент", "--is_active", "true", "--id", "777"],
@@ -101,7 +101,7 @@ it("POST с объявленными полями: метод, адрес и т�
 });
 
 it("поле, которого нет в объявлении, — отказ до сети", async () => {
-  const stand = standWith();
+  const stand = await standWith();
   try {
     await expect(
       commandOf("create-client").invoke(
@@ -117,7 +117,7 @@ it("поле, которого нет в объявлении, — отказ д
 });
 
 it("нет обязательного path-параметра — отказ до сети", async () => {
-  const stand = standWith();
+  const stand = await standWith();
   try {
     await expect(commandOf("delete-client").invoke([], ioTo(stand.baseUrl)))
       .rejects.toThrow(UsageError);
@@ -131,7 +131,7 @@ it("нет обязательного path-параметра — отказ д�
 
 describe("path-параметр со слэшем не меняет адрес запроса", () => {
   it("слэш экранируется", async () => {
-    const stand = standWith();
+    const stand = await standWith();
     try {
       await commandOf("delete-client-ss-dataset").invoke(
         ["777", "1BxiMVs0", "Лист/1"],
@@ -150,7 +150,7 @@ describe("path-параметр со слэшем не меняет адрес �
   });
 
   it("«..» отбивается как ввод, а не экранируется", async () => {
-    const stand = standWith();
+    const stand = await standWith();
     try {
       const err = await rejected(() =>
         commandOf("delete-client").invoke(
@@ -174,7 +174,7 @@ describe("произвольное тело: объект уходит как е
   ];
   for (const [name, args, path] of cases) {
     it(name, async () => {
-      const stand = standWith();
+      const stand = await standWith();
       try {
         await commandOf(name).invoke(
           [...args, "--body", '{"title":"из тела","extra":{"вложенное":1}}'],
@@ -204,7 +204,7 @@ describe("произвольное тело остаётся объектом", 
   ];
   for (const [title, raw] of cases) {
     it(title, async () => {
-      const stand = standWith();
+      const stand = await standWith();
       try {
         const err = await rejected(() =>
           commandOf("create-client").invoke(
@@ -225,7 +225,7 @@ describe("произвольное тело остаётся объектом", 
 describe("no_auth: без заголовка и без единого касания кэша", () => {
   for (const name of ["auth-login", "ss-datasets-update"]) {
     it(name, async () => {
-      const stand = standBare();
+      const stand = await standBare();
       try {
         const argv = name === "auth-login"
           ? ["--email", "kto@test", "--password", "parol"]
@@ -251,7 +251,7 @@ describe("no_auth: без заголовка и без единого касан
 it("обычная команда авторизуется и кэш токена трогает", async () => {
   // Обратная сторона предыдущего: без неё «не трогает кэш» прошло бы
   // и у команды, которая не работает вовсе.
-  const stand = standWith();
+  const stand = await standWith();
   try {
     await commandOf("delete-client").invoke(["777"], ioTo(stand.baseUrl));
     expect(stand.seen.length).toBe(2);

@@ -168,7 +168,7 @@ describe("comment: привязка к строке уходит и возвра
   let result: Awaited<ReturnType<typeof runComment>>;
 
   beforeAll(async () => {
-    stand = standWith();
+    stand = await standWith();
     const io = ioTo(stand.baseUrl);
     result = await runComment(
       {
@@ -213,7 +213,7 @@ it("исход comment + reply: тред приходит с позицией", 
   // голден канала не сошёлся бы: именно так выглядит комментарий,
   // повисший в MR без привязки к строке.
   const notes: unknown[] = [];
-  const recording = startFakeGitlab((seen) => {
+  const recording = await startFakeGitlab((seen) => {
     const last = seen[seen.length - 1];
     if (last.method === "POST" && last.pathname.endsWith("/discussions")) {
       const form = new URLSearchParams(last.body);
@@ -306,8 +306,8 @@ describe("comment: строка вне диффа — отказ до POST, эт
     old: false,
   };
 
-  beforeAll(() => {
-    stand = standWith();
+  beforeAll(async () => {
+    stand = await standWith();
     io = ioTo(stand.baseUrl);
   });
 
@@ -341,7 +341,7 @@ describe("comment: строка вне диффа — отказ до POST, эт
   });
 
   it("форма FILE:LINE проверяется до сети", async () => {
-    const quiet = startFakeGitlab(() => {
+    const quiet = await startFakeGitlab(() => {
       throw new Error("сети быть не должно");
     });
     try {
@@ -369,7 +369,7 @@ describe("comment: строка вне диффа — отказ до POST, эт
 });
 
 it("comment --old: позиция несёт только old_line", async () => {
-  const stand = standWith();
+  const stand = await standWith();
   try {
     await runComment(
       {
@@ -397,8 +397,8 @@ describe("note и reply: вывод — эталоны канала", () => {
   let stand: FakeGitlab;
   let io: CommandIo;
 
-  beforeAll(() => {
-    stand = standWith();
+  beforeAll(async () => {
+    stand = await standWith();
     io = ioTo(stand.baseUrl);
   });
 
@@ -441,8 +441,8 @@ describe("note и reply: вывод — эталоны канала", () => {
 describe("тело уходит дословно, из -m и из stdin", () => {
   let stand: FakeGitlab;
 
-  beforeAll(() => {
-    stand = standWith();
+  beforeAll(async () => {
+    stand = await standWith();
   });
 
   afterAll(async () => {
@@ -477,8 +477,8 @@ describe("источник тела: оба флага и ни одного — 
   let quiet: FakeGitlab;
   let io: CommandIo;
 
-  beforeAll(() => {
-    quiet = startFakeGitlab(() => {
+  beforeAll(async () => {
+    quiet = await startFakeGitlab(() => {
       throw new Error("сети быть не должно");
     });
     io = ioTo(quiet.baseUrl);
@@ -530,8 +530,8 @@ describe("resolve и unresolve: вывод, query и нерезолвабель�
   let stand: FakeGitlab;
   let io: CommandIo;
 
-  beforeAll(() => {
-    stand = standWith();
+  beforeAll(async () => {
+    stand = await standWith();
     io = ioTo(stand.baseUrl);
   });
 
@@ -575,7 +575,7 @@ it("resolve нерезолвабельного треда не шлёт PUT", as
       position: undefined,
     }],
   };
-  const stand = standWith({ discussions: [general] });
+  const stand = await standWith({ discussions: [general] });
   try {
     await rejected(
       () =>
@@ -598,8 +598,8 @@ describe("edit и describe: вывод — эталоны канала", () => {
   let stand: FakeGitlab;
   let io: CommandIo;
 
-  beforeAll(() => {
-    stand = standWith();
+  beforeAll(async () => {
+    stand = await standWith();
     io = ioTo(stand.baseUrl);
   });
 
@@ -642,7 +642,7 @@ describe("edit и describe: вывод — эталоны канала", () => {
 });
 
 it("edit чужой ноты: 403 — отказ, а не успех", async () => {
-  const stand = startFakeGitlab((seen) =>
+  const stand = await startFakeGitlab((seen) =>
     seen[seen.length - 1].method === "PUT"
       ? new Response(`{"message":"403 Forbidden"}`, { status: 403 })
       : Response.json(MR_BODY)
@@ -666,8 +666,8 @@ it("edit чужой ноты: 403 — отказ, а не успех", async () 
 describe("delete: без TTY отказ и ни одного DELETE", () => {
   let stand: FakeGitlab;
 
-  beforeAll(() => {
-    stand = standWith();
+  beforeAll(async () => {
+    stand = await standWith();
   });
 
   afterAll(async () => {
@@ -714,7 +714,7 @@ describe("delete: без TTY отказ и ни одного DELETE", () => {
 });
 
 it("create: 409 GitLab — эталон канала", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     new Response(
       `{"message":["Another open merge request already exists for this source branch: !1"]}`,
       { status: 409 },
@@ -747,7 +747,9 @@ it("create: 409 GitLab — эталон канала", async () => {
 
 describe("create: ветка из git, detached HEAD — свой текст", () => {
   it("исходная ветка — текущая", async () => {
-    const stand = startFakeGitlab(() => Response.json({ ...MR_BODY, iid: 7 }));
+    const stand = await startFakeGitlab(() =>
+      Response.json({ ...MR_BODY, iid: 7 })
+    );
     try {
       const runGit: RunGit = () =>
         Promise.resolve({ code: 0, stdout: "feat/change\n", stderr: "" });
@@ -773,7 +775,7 @@ describe("create: ветка из git, detached HEAD — свой текст", (
   });
 
   it("detached HEAD просит --source, а не --mr", async () => {
-    const stand = startFakeGitlab(() => Response.json(MR_BODY));
+    const stand = await startFakeGitlab(() => Response.json(MR_BODY));
     try {
       const runGit: RunGit = () =>
         Promise.resolve({ code: 0, stdout: "HEAD\n", stderr: "" });
@@ -804,7 +806,7 @@ it("comment: ответ без привязки — отказ, а не «соз
   // Тот же вызов, тот же 201 — и комментарий висит в MR без строки.
   // Промах обязан быть громким: оператор иначе уйдёт, считая, что
   // замечание встало на место.
-  const stand = standWith({
+  const stand = await standWith({
     created: {
       id: THREAD_ID,
       notes: [{ ...DIFF_NOTE, type: "DiscussionNote", position: undefined }],
@@ -845,7 +847,7 @@ it("comment на переименованный файл подтверждае�
       }],
     },
   };
-  const stand = standWith({
+  const stand = await standWith({
     ...renamed,
     created: {
       id: THREAD_ID,
@@ -894,7 +896,7 @@ it("comment: перечень изменённых включает оба им�
       }],
     },
   };
-  const stand = standWith(renamed);
+  const stand = await standWith(renamed);
   try {
     await rejected(
       () =>
@@ -921,8 +923,8 @@ describe("ответ без номера заметки — отказ у reply 
   let nameless: FakeGitlab;
   let io: CommandIo;
 
-  beforeAll(() => {
-    nameless = startFakeGitlab((seen) => {
+  beforeAll(async () => {
+    nameless = await startFakeGitlab((seen) => {
       const last = seen[seen.length - 1];
       if (last.method === "POST" && last.pathname.endsWith("/notes")) {
         return Response.json({ ok: true });

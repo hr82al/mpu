@@ -4,6 +4,7 @@
  * подставляют постоянную отметку и настоящий git не запускают вовсе.
  */
 
+import { isPermissionRefusal } from "../oserror/mod.ts";
 import type { RunGit } from "./mark.ts";
 
 /**
@@ -12,7 +13,7 @@ import type { RunGit } from "./mark.ts";
  * отметку `вне git`, а не отказ (`platform/code-analyzer.md`).
  *
  * Причин у неудачи больше одной, и типом они не различаются: бинаря нет
- * в `PATH` (`Deno.errors.NotFound`) и самого `PATH` нет в окружении
+ * в `PATH` (`ENOENT`) и самого `PATH` нет в окружении
  * (обычный `Error` с текстом «no path to search» — замер 2026-09-08).
  * Обе означают одно и то же и обе дают ответ. Единственная, которая
  * обязана прорваться наружу, — нехватка права `--allow-run`: она
@@ -31,7 +32,7 @@ export const spawnGit: RunGit = async (args, cwd) => {
     }).output();
     return { code: output.code, stdout: decoder.decode(output.stdout) };
   } catch (err) {
-    if (err instanceof Deno.errors.NotCapable) throw err;
+    if (isPermissionRefusal(err)) throw err;
     return null;
   }
 };

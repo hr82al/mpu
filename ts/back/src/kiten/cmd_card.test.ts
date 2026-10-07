@@ -131,8 +131,8 @@ interface Stand {
   readonly stop: () => Promise<void>;
 }
 
-function stand(routes: Routes, terminal = false): Stand {
-  const fake = startFakeKaiten((seen) => {
+async function stand(routes: Routes, terminal = false): Promise<Stand> {
+  const fake = await startFakeKaiten((seen) => {
     const route = routes[seen[seen.length - 1].pathname];
     return route === undefined
       ? new Response("путь, которого тест не ждал", { status: 500 })
@@ -183,7 +183,7 @@ describe("живая карточка: три вида вывода сходят
   };
 
   it("--json: сырой JSON, справочник не запрашивается", async () => {
-    const { io, baseUrl, seen, stop } = stand(live);
+    const { io, baseUrl, seen, stop } = await stand(live);
     try {
       expect(await output([SELECTOR, "--json"], io)).toStrictEqual(
         await expected("live-json-stdout.json", baseUrl),
@@ -197,7 +197,7 @@ describe("живая карточка: три вида вывода сходят
   });
 
   it("--json не зависит от --images", async () => {
-    const { io, baseUrl, stop } = stand(live);
+    const { io, baseUrl, stop } = await stand(live);
     try {
       expect(await output([SELECTOR, "--json", "--no-images"], io))
         .toStrictEqual(await expected("live-json-stdout.json", baseUrl));
@@ -207,7 +207,7 @@ describe("живая карточка: три вида вывода сходят
   });
 
   it("--md: комментарии отсортированы по created", async () => {
-    const { io, baseUrl, seen, stop } = stand(live);
+    const { io, baseUrl, seen, stop } = await stand(live);
     try {
       // Вход неупорядочен — седьмой по времени комментарий приходит
       // шестым; вывод по возрастанию `created`. Пара «этот вход → этот
@@ -222,7 +222,7 @@ describe("живая карточка: три вида вывода сходят
   });
 
   it("--no-comments: раздела нет и запроса нет", async () => {
-    const { io, baseUrl, seen, stop } = stand(live);
+    const { io, baseUrl, seen, stop } = await stand(live);
     try {
       const argv = [SELECTOR, "--md", "--no-comments"];
       const result = await run(argv, io);
@@ -246,7 +246,7 @@ describe("синтетическая карточка: key, участники, 
   };
 
   it("--json", async () => {
-    const { io, baseUrl, stop } = stand(synthetic);
+    const { io, baseUrl, stop } = await stand(synthetic);
     try {
       expect(await output([SELECTOR, "--json"], io)).toStrictEqual(
         await expected("synthetic-json-stdout.json", baseUrl),
@@ -257,7 +257,7 @@ describe("синтетическая карточка: key, участники, 
   });
 
   it("--md: неизвестное поле печатается сырым ключом", async () => {
-    const { io, baseUrl, stop } = stand(synthetic);
+    const { io, baseUrl, stop } = await stand(synthetic);
     try {
       expect(await output([SELECTOR, "--md"], io)).toStrictEqual(
         await expected("synthetic-md-stdout.md", baseUrl),
@@ -268,7 +268,7 @@ describe("синтетическая карточка: key, участники, 
   });
 
   it("--md --no-comments", async () => {
-    const { io, baseUrl, stop } = stand(synthetic);
+    const { io, baseUrl, stop } = await stand(synthetic);
     try {
       expect(await output([SELECTOR, "--md", "--no-comments"], io))
         .toStrictEqual(
@@ -288,7 +288,7 @@ describe("пустая карточка: строки шапки без знач
   };
 
   it("--json: properties {}, comments [], ключи на месте", async () => {
-    const { io, baseUrl, stop } = stand(empty);
+    const { io, baseUrl, stop } = await stand(empty);
     try {
       expect(await output([SELECTOR, "--json"], io)).toStrictEqual(
         await expected("live-empty-json-stdout.json", baseUrl),
@@ -299,7 +299,7 @@ describe("пустая карточка: строки шапки без знач
   });
 
   it("--md: «нет описания», URL и Этап остаются", async () => {
-    const { io, baseUrl, stop } = stand(empty);
+    const { io, baseUrl, stop } = await stand(empty);
     try {
       expect(await output([SELECTOR, "--md"], io)).toStrictEqual(
         await expected("live-empty-md-stdout.md", baseUrl),
@@ -323,7 +323,7 @@ describe("файловое поле: массив в JSON, элементы че
   };
 
   it("JSON: массив остаётся массивом", async () => {
-    const { io, stop } = stand(withFile);
+    const { io, stop } = await stand(withFile);
     try {
       const result = await run([SELECTOR, "--json"], io);
 
@@ -338,7 +338,7 @@ describe("файловое поле: массив в JSON, элементы че
   it("markdown: два элемента — через `, `", async () => {
     // У живого входа в поле один uid, и разделитель на нём недоказуем:
     // склейка пустой строкой дала бы тот же текст.
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [CARD_PATH]: () =>
         Response.json({
           ...EMPTY_CARD,
@@ -358,7 +358,7 @@ describe("файловое поле: массив в JSON, элементы че
   });
 
   it("markdown: элементы через `, `, без скобок и кавычек", async () => {
-    const { io, stop } = stand(withFile);
+    const { io, stop } = await stand(withFile);
     try {
       const text = await output([SELECTOR, "--md"], io);
 
@@ -375,7 +375,7 @@ describe("файловое поле: массив в JSON, элементы че
 });
 
 it("справочник имён не ответил: сырые ключи, команда не падает", async () => {
-  const { io, stop } = stand({
+  const { io, stop } = await stand({
     [CARD_PATH]: () => body("live-raw-card.json"),
     [COMMENTS_PATH]: () => Response.json([]),
     [PROPERTIES_PATH]: () => new Response("boom", { status: 500 }),
@@ -398,7 +398,7 @@ describe("выбор вида: терминал — наглядный, пайп
   };
 
   it("stdout не терминал — markdown", async () => {
-    const { io, stop } = stand(routes);
+    const { io, stop } = await stand(routes);
     try {
       expect((await run([SELECTOR], io)).view).toBe("md");
     } finally {
@@ -407,7 +407,7 @@ describe("выбор вида: терминал — наглядный, пайп
   });
 
   it("stdout терминал — наглядный вид", async () => {
-    const { io, stop } = stand(routes, true);
+    const { io, stop } = await stand(routes, true);
     try {
       const result = await run([SELECTOR], io);
       const text = kitenCardCommand.renderResult(result, [SELECTOR]);
@@ -422,7 +422,7 @@ describe("выбор вида: терминал — наглядный, пайп
   });
 
   it("--md побеждает терминальность stdout", async () => {
-    const { io, stop } = stand(routes, true);
+    const { io, stop } = await stand(routes, true);
     try {
       expect((await run([SELECTOR, "--md"], io)).view).toBe("md");
     } finally {
@@ -431,7 +431,7 @@ describe("выбор вида: терминал — наглядный, пайп
   });
 
   it("--json побеждает --md", async () => {
-    const { io, stop } = stand(routes, true);
+    const { io, stop } = await stand(routes, true);
     try {
       expect((await run([SELECTOR, "--md", "--json"], io)).view).toBe("json");
     } finally {
@@ -441,7 +441,7 @@ describe("выбор вида: терминал — наглядный, пайп
 });
 
 it("--no-images: картинки-вложения уходят из наглядного вида", async () => {
-  const { io, stop } = stand({
+  const { io, stop } = await stand({
     [CARD_PATH]: () =>
       Response.json({
         ...EMPTY_CARD,
@@ -467,7 +467,7 @@ it("--no-images: картинки-вложения уходят из нагля�
 });
 
 it("недоступная карточка: 403 с пустым телом, exit 1", async () => {
-  const { io, seen, stop } = stand({
+  const { io, seen, stop } = await stand({
     "/api/latest/cards/99999999": () => new Response(null, { status: 403 }),
   });
   try {
@@ -483,7 +483,7 @@ it("недоступная карточка: 403 с пустым телом, exi
 });
 
 it("невалидный селектор: exit 2, без единого запроса", async () => {
-  const { io, seen, stop } = stand({});
+  const { io, seen, stop } = await stand({});
   try {
     const err = await rejected(() => run(["abc"], io), UsageError);
 
@@ -505,7 +505,7 @@ describe("метка этапа: закрытый список и число в�
   ];
   for (const [state, label] of cases) {
     it(`${state} → ${label}`, async () => {
-      const { io, stop } = stand({
+      const { io, stop } = await stand({
         [CARD_PATH]: () => Response.json({ ...EMPTY_CARD, state }),
         [COMMENTS_PATH]: () => Response.json([]),
         [PROPERTIES_PATH]: () => Response.json([]),
@@ -522,7 +522,7 @@ describe("метка этапа: закрытый список и число в�
 });
 
 it("наглядный вид: свойства и комментарии без markdown-разметки", async () => {
-  const { io, stop } = stand({
+  const { io, stop } = await stand({
     [CARD_PATH]: () =>
       Response.json({
         ...EMPTY_CARD,
@@ -555,7 +555,7 @@ it("наглядный вид: свойства и комментарии без
 });
 
 it("границы markdown: нет автора, нет момента, файл без имени", async () => {
-  const { io, stop } = stand({
+  const { io, stop } = await stand({
     [CARD_PATH]: () =>
       Response.json({
         ...EMPTY_CARD,
@@ -593,7 +593,7 @@ it("границы markdown: нет автора, нет момента, фай�
 });
 
 it("порядок комментариев: по created, при равных — по id", async () => {
-  const { io, stop } = stand({
+  const { io, stop } = await stand({
     [CARD_PATH]: () => Response.json(EMPTY_CARD),
     [COMMENTS_PATH]: () =>
       Response.json([

@@ -13,7 +13,7 @@ const ADDRESS = { project: "group/repo", iid: 456 };
 const access = (baseUrl: string): GitlabAccess => ({ baseUrl, token: "t" });
 
 it("шапка MR: путь с URL-encoded project", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     Response.json({ iid: 456, title: "заголовок", author: { username: "u" } })
   );
   try {
@@ -29,7 +29,7 @@ it("шапка MR: путь с URL-encoded project", async () => {
 });
 
 it("файлы: только /changes и только с access_raw_diffs", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     Response.json({
       changes: [
         { new_path: "b.ts", old_path: "b.ts", diff: "@@ -1,1 +1,1 @@\n+a\n" },
@@ -60,7 +60,7 @@ it("треды: пагинировано и в порядке ответа", asy
       id,
       notes: [{ id: 1, body: "тело", author: { username: "u" } }],
     }));
-  const stand = startFakeGitlab((seen) =>
+  const stand = await startFakeGitlab((seen) =>
     Response.json(
       seen.length === 1
         ? page(Array.from({ length: 100 }, (_, i) => `id${i}`))
@@ -83,7 +83,7 @@ it("треды: пагинировано и в порядке ответа", asy
 it("/changes без ключа changes — отказ, а не «MR без файлов»", async () => {
   // 200-ответ не той формы (обрезан прокси, сменилось API) молча
   // означал бы «ревьюить нечего» — худший из возможных ответов.
-  const stand = startFakeGitlab(() => Response.json({ message: "ok" }));
+  const stand = await startFakeGitlab(() => Response.json({ message: "ok" }));
   try {
     await rejected(
       () => changedFiles(access(stand.baseUrl), ADDRESS),
@@ -96,7 +96,7 @@ it("/changes без ключа changes — отказ, а не «MR без фа�
 });
 
 it("changes: [] — пустой MR, это не отказ", async () => {
-  const stand = startFakeGitlab(() => Response.json({ changes: [] }));
+  const stand = await startFakeGitlab(() => Response.json({ changes: [] }));
   try {
     expect(await changedFiles(access(stand.baseUrl), ADDRESS)).toStrictEqual(
       [],

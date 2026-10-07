@@ -7,6 +7,7 @@
  * Модуль запускают только тесты.
  */
 
+import process from "node:process";
 import { appendRecord } from "./file.ts";
 
 /** Архивов с запасом: ни одна запись теста не вытесняется. */

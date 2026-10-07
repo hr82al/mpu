@@ -4,6 +4,8 @@
  * исполнителя в памяти — кодек кадров у обоих вариантов общий.
  */
 
+import { hasErrorCode } from "../oserror/mod.ts";
+
 /** Один конец провода. */
 export interface Wire {
   /** Входящие строки без перевода строки; конец — провод закрыт той стороной. */
@@ -38,7 +40,7 @@ async function gone(written: Promise<void>): Promise<void> {
   try {
     await written;
   } catch (err) {
-    if (err instanceof TypeError || err instanceof Deno.errors.BrokenPipe) {
+    if (err instanceof TypeError || hasErrorCode(err, "EPIPE")) {
       return;
     }
     throw err;

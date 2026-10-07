@@ -5,6 +5,7 @@
  * (в прогоне тестов `--allow-run` ограничен списком путей).
  */
 
+import { hasErrorCode } from "../oserror/mod.ts";
 import type { GitOutcome, RunGit } from "./resolve.ts";
 
 /**
@@ -31,7 +32,7 @@ export const spawnGit: RunGit = async (
       stderr: decoder.decode(output.stderr),
     };
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) return null;
+    if (hasErrorCode(err, "ENOENT")) return null;
     throw err;
   }
 };

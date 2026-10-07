@@ -5,6 +5,8 @@
  * абсолютными путями: права Deno перечисляют их литералами.
  */
 
+import { mkdir, writeFile } from "node:fs/promises";
+import { hasErrorCode } from "../../oserror/mod.ts";
 import type { Letters, Notices, Place, Windows } from "./ports.ts";
 
 export const TMUX = "/usr/bin/tmux";
@@ -20,7 +22,7 @@ export interface Ran {
 /** Запуск программы с аргументами до её конца. */
 export type Run = (program: string, args: readonly string[]) => Promise<Ran>;
 
-/** Запуск через `Deno.Command`. */
+/** Запуск подпроцессом. */
 export const SYSTEM_RUN: Run = async (program, args) => {
   const out = await new Deno.Command(program, {
     args: [...args],
@@ -141,7 +143,7 @@ export class SystemNotices implements Notices {
     try {
       await this.#run(NOTIFY_SEND, ["mpu task", text]);
     } catch (err) {
-      if (err instanceof Deno.errors.NotFound) return;
+      if (hasErrorCode(err, "ENOENT")) return;
       const reason = err instanceof Error ? err.message : String(err);
       this.#line(`notify-send: ${reason}`);
     }
@@ -156,7 +158,7 @@ export class SystemNotices implements Notices {
 /** Файлы первых сообщений: каталог создаётся, файл перезаписывается. */
 export const SYSTEM_LETTERS: Letters = {
   write: async (path, text) => {
-    await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-    await Deno.writeTextFile(path, text);
+    await mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+    await writeFile(path, text);
   },
 };

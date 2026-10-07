@@ -10,7 +10,8 @@
  * что отказ приходит сетевой ошибкой.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import process from "node:process";
 import { rejected } from "../testing/thrown.ts";
 import driver from "pg";
 import {
@@ -218,29 +219,22 @@ function withCapturedOutput(fn: () => void): string {
   const decoder = new TextDecoder();
   const levels = ["log", "error", "warn", "info", "debug"] as const;
   const origConsole = levels.map((level) => console[level]);
-  const origWrite = [Deno.stdout.write, Deno.stderr.write];
-  const origWriteSync = [Deno.stdout.writeSync, Deno.stderr.writeSync];
   for (const level of levels) {
     console[level] = (...args: unknown[]) => void chunks.push(args.join(" "));
   }
-  for (const stream of [Deno.stdout, Deno.stderr]) {
-    stream.write = (bytes: Uint8Array) => {
-      chunks.push(decoder.decode(bytes));
-      return Promise.resolve(bytes.length);
-    };
-    stream.writeSync = (bytes: Uint8Array) => {
-      chunks.push(decoder.decode(bytes));
-      return bytes.length;
-    };
-  }
+  const writes = [process.stdout, process.stderr].map((stream) =>
+    vi.spyOn(stream, "write").mockImplementation(
+      (chunk: string | Uint8Array) => {
+        chunks.push(typeof chunk === "string" ? chunk : decoder.decode(chunk));
+        return true;
+      },
+    )
+  );
   try {
     fn();
   } finally {
     levels.forEach((level, i) => void (console[level] = origConsole[i]));
-    Deno.stdout.write = origWrite[0];
-    Deno.stderr.write = origWrite[1];
-    Deno.stdout.writeSync = origWriteSync[0];
-    Deno.stderr.writeSync = origWriteSync[1];
+    for (const write of writes) write.mockRestore();
   }
   return chunks.join("");
 }

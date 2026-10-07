@@ -6,9 +6,11 @@
  * `CommandIo`: он нужен одной команде, и расширять им интерфейс,
  * который реализуют все фейки, значило бы платить за него везде.
  * Приём тот же, что у запуска ssh (`src/exec/ssh.ts`): подменяется
- * функция, а не `Deno.Command`.
+ * функция, а не запуск процесса.
  */
 
+import { stat } from "node:fs/promises";
+import { hasErrorCode } from "../oserror/mod.ts";
 import { Workdir } from "../workdir/mod.ts";
 import type { FetchLike } from "./miro.ts";
 
@@ -28,7 +30,7 @@ export interface D2MiroEnv {
 }
 
 /**
- * Реальные зависимости поверх API Deno.
+ * Реальные зависимости: диск и подпроцессы.
  *
  * @param cwd каталог вызова: файлы `.d2`/`.svg` приходят относительными
  *   путями, а каталог процесса больше не переезжает в каталог строки
@@ -39,7 +41,7 @@ export function denoD2MiroEnv(cwd: string): D2MiroEnv {
   return {
     mtime: async (path) => {
       try {
-        return (await Deno.stat(dir.resolve(path))).mtime?.getTime();
+        return (await stat(dir.resolve(path))).mtimeMs;
       } catch {
         // Отсутствие файла и любая другая причина «времени нет» для
         // правил выбора SVG — одно и то же: рендерить заново.
@@ -75,7 +77,7 @@ async function run(
       stderr: new TextDecoder().decode(output.stderr),
     };
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) return undefined;
+    if (hasErrorCode(err, "ENOENT")) return undefined;
     throw err;
   }
 }

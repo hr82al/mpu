@@ -121,8 +121,8 @@ interface Stand {
 }
 
 /** Стенд: фейковый Kaiten со справочниками и настоящая кэш-БД. */
-function stand(routes: Routes): Stand {
-  const fake = startFakeKaiten((seen) => {
+async function stand(routes: Routes): Promise<Stand> {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     const route = routes[last.pathname];
     return route === undefined
@@ -227,7 +227,7 @@ function ioWithoutKey(): CommandIo {
 }
 
 it("whoami: --json — те же ключи в том же порядке, что в голдене", async () => {
-  const st = stand({ [USER_PATH]: () => Response.json(USER) });
+  const st = await stand({ [USER_PATH]: () => Response.json(USER) });
   try {
     const text = await output(kitenWhoamiCommand, ["--json"], st.io);
 
@@ -245,7 +245,7 @@ it("whoami: --json — те же ключи в том же порядке, чт�
 
 it("whoami: текстовая форма — четыре строки и ни одного обращения к кэшу", async () => {
   // Кэш в порту не разрешён: тронет его команда — тест покраснеет.
-  const fake = startFakeKaiten(() => Response.json(USER));
+  const fake = await startFakeKaiten(() => Response.json(USER));
   const values = {
     KITEN_API_KEY: "probe-key",
     KITEN_BASE_URL: fake.baseUrl,
@@ -271,7 +271,7 @@ it("whoami: текстовая форма — четыре строки и ни 
 });
 
 it("spaces: --json совпадает с голденом байт-в-байт", async () => {
-  const st = stand(fullRoutes());
+  const st = await stand(fullRoutes());
   try {
     expect(await output(kitenSpacesCommand, ["--json"], st.io)).toStrictEqual(
       await golden("spaces.json"),
@@ -282,7 +282,7 @@ it("spaces: --json совпадает с голденом байт-в-байт",
 });
 
 it("boards: --json совпадает с голденом байт-в-байт", async () => {
-  const st = stand(fullRoutes());
+  const st = await stand(fullRoutes());
   try {
     expect(await output(kitenBoardsCommand, ["--json"], st.io)).toStrictEqual(
       await golden("boards.json"),
@@ -295,7 +295,7 @@ it("boards: --json совпадает с голденом байт-в-байт",
 });
 
 it("lanes: --json совпадает с голденом байт-в-байт", async () => {
-  const st = stand(fullRoutes());
+  const st = await stand(fullRoutes());
   try {
     expect(await output(kitenLanesCommand, ["--json"], st.io)).toStrictEqual(
       await golden("lanes.json"),
@@ -308,7 +308,7 @@ it("lanes: --json совпадает с голденом байт-в-байт", 
 });
 
 it("columns: --json совпадает с голденом байт-в-байт", async () => {
-  const st = stand(fullRoutes());
+  const st = await stand(fullRoutes());
   try {
     expect(await output(kitenColumnsCommand, ["--json"], st.io)).toStrictEqual(
       await golden("columns.json"),
@@ -320,7 +320,7 @@ it("columns: --json совпадает с голденом байт-в-байт"
 
 describe("roles: без --all системная роль скрыта, с --all — видна", () => {
   it("без --all — голден roles.json", async () => {
-    const st = stand(fullRoutes());
+    const st = await stand(fullRoutes());
     try {
       expect(await output(kitenRolesCommand, ["--json"], st.io)).toStrictEqual(
         await golden("roles.json"),
@@ -333,7 +333,7 @@ describe("roles: без --all системная роль скрыта, с --all
   it("--all — голден roles-all.json", async () => {
     // Вход другой: в голдене канала id системной роли нормализован в
     // положительный, и одним ответом обе формы не снимаются.
-    const st = stand(
+    const st = await stand(
       fullRoutes({ [ROLES_PATH]: () => Response.json(ROLES_ALL) }),
     );
     try {
@@ -345,7 +345,7 @@ describe("roles: без --all системная роль скрыта, с --all
   });
 
   it("--all показывает роль с неположительным id", async () => {
-    const st = stand(fullRoutes());
+    const st = await stand(fullRoutes());
     try {
       const text = await output(kitenRolesCommand, ["--json", "--all"], st.io);
       expect(JSON.parse(text)).toStrictEqual(ROLES_WITH_SYSTEM);
@@ -361,7 +361,7 @@ describe("скрытые из вывода строки всё равно поп
       ...SPACES,
       { id: 3009, title: "Архивное", archived: true, boards: [] },
     ];
-    const st = stand(
+    const st = await stand(
       fullRoutes({ [SPACES_PATH]: () => Response.json(archived) }),
     );
     try {
@@ -381,7 +381,7 @@ describe("скрытые из вывода строки всё равно поп
   });
 
   it("системная роль: нет в выводе, есть в кэше", async () => {
-    const st = stand(fullRoutes());
+    const st = await stand(fullRoutes());
     try {
       const text = await output(kitenRolesCommand, ["--json"], st.io);
       expect((JSON.parse(text) as { id: number }[]).map((role) => role.id))
@@ -399,7 +399,7 @@ describe("скрытые из вывода строки всё равно поп
   });
 
   it("--space не сужает запись досок в кэш", async () => {
-    const st = stand(fullRoutes());
+    const st = await stand(fullRoutes());
     try {
       const text = await output(
         kitenBoardsCommand,
@@ -416,7 +416,7 @@ describe("скрытые из вывода строки всё равно поп
 });
 
 it("roles: своя запись не стирает кэш пространств и досок", async () => {
-  const st = stand(fullRoutes());
+  const st = await stand(fullRoutes());
   try {
     await kitenSpacesCommand.invoke([], st.io);
     await kitenRolesCommand.invoke([], st.io);
@@ -429,7 +429,7 @@ it("roles: своя запись не стирает кэш пространст
 });
 
 it("lanes: доска с ошибкой пропущена, обход продолжается", async () => {
-  const st = stand(fullRoutes({
+  const st = await stand(fullRoutes({
     [lanesPath(4002)]: () => new Response("нет доступа", { status: 403 }),
     [lanesPath(4003)]: () =>
       Response.json([
@@ -465,7 +465,7 @@ it("lanes: доска с ошибкой пропущена, обход прод�
 
 it("lanes: отказ ВСЕХ досок скоупа — пустая выдача, а не ошибка", async () => {
   const denied = () => new Response("нет доступа", { status: 403 });
-  const st = stand(fullRoutes({
+  const st = await stand(fullRoutes({
     [lanesPath(4001)]: denied,
     [lanesPath(4002)]: denied,
     [lanesPath(4003)]: denied,
@@ -480,7 +480,7 @@ it("lanes: отказ ВСЕХ досок скоупа — пустая выда
 
 it("columns: отказ ВСЕХ досок скоупа — пустая выдача, а не ошибка", async () => {
   const denied = () => new Response("нет доступа", { status: 403 });
-  const st = stand(fullRoutes({
+  const st = await stand(fullRoutes({
     [columnsPath(4001)]: denied,
     [columnsPath(4002)]: denied,
     [columnsPath(4003)]: denied,
@@ -497,7 +497,7 @@ it("columns: отказ ВСЕХ досок скоупа — пустая выд
 
 describe("скоуп дорожек и колонок: --board, --space, без фильтров", () => {
   it("--board — запрос только на эту доску", async () => {
-    const st = stand(fullRoutes());
+    const st = await stand(fullRoutes());
     try {
       expect(
         await output(
@@ -513,7 +513,7 @@ describe("скоуп дорожек и колонок: --board, --space, без 
   });
 
   it("--space — доски пространства", async () => {
-    const st = stand(fullRoutes());
+    const st = await stand(fullRoutes());
     try {
       await kitenColumnsCommand.invoke(["--space", "3001"], st.io);
       expect(st.paths()).toStrictEqual([
@@ -528,7 +528,7 @@ describe("скоуп дорожек и колонок: --board, --space, без 
   });
 
   it("--space без досок — пустая выдача", async () => {
-    const st = stand(fullRoutes());
+    const st = await stand(fullRoutes());
     try {
       expect(
         await output(kitenLanesCommand, ["--space", "Пространство 3"], st.io),
@@ -587,7 +587,7 @@ describe("текстовые формы: колонки и итог", () => {
 
   for (const item of cases) {
     it(item.name, async () => {
-      const st = stand(fullRoutes());
+      const st = await stand(fullRoutes());
       try {
         const text = await output(item.command, item.argv, st.io);
         const lines = text.split("\n");
@@ -606,7 +606,7 @@ describe("текстовые формы: колонки и итог", () => {
     const archived = [
       { id: 3009, title: "Архивное", archived: true, boards: [] },
     ];
-    const st = stand(
+    const st = await stand(
       fullRoutes({ [SPACES_PATH]: () => Response.json(archived) }),
     );
     try {
@@ -620,7 +620,9 @@ describe("текстовые формы: колонки и итог", () => {
 });
 
 it("пустой ответ /spaces: пустые выдачи и пустые таблицы кэша", async () => {
-  const st = stand(fullRoutes({ [SPACES_PATH]: () => Response.json([]) }));
+  const st = await stand(
+    fullRoutes({ [SPACES_PATH]: () => Response.json([]) }),
+  );
   try {
     expect(await output(kitenSpacesCommand, [], st.io)).toBe(
       "(нет пространств)\n",
@@ -656,7 +658,7 @@ describe("нет KITEN_API_KEY — ошибка ввода (exit 2) до вся�
 
 describe("ошибка API — exit 1 и одинарный префикс в stderr", () => {
   it("spaces", async () => {
-    const st = stand(
+    const st = await stand(
       fullRoutes({
         [SPACES_PATH]: () => new Response("сервер прилёг", { status: 500 }),
       }),
@@ -678,7 +680,7 @@ describe("ошибка API — exit 1 и одинарный префикс в st
   });
 
   it("whoami", async () => {
-    const st = stand({
+    const st = await stand({
       [USER_PATH]: () => new Response("нет доступа", { status: 403 }),
     });
     try {
@@ -695,7 +697,7 @@ describe("ошибка API — exit 1 и одинарный префикс в st
   });
 
   it("roles", async () => {
-    const st = stand(
+    const st = await stand(
       fullRoutes({
         [ROLES_PATH]: () => new Response("сервер прилёг", { status: 500 }),
       }),
@@ -716,7 +718,7 @@ describe("ошибка API — exit 1 и одинарный префикс в st
 
 describe("нерезолвящийся REF — ошибка ввода (exit 2)", () => {
   it("--space", async () => {
-    const st = stand(fullRoutes());
+    const st = await stand(fullRoutes());
     try {
       const err = await rejected(() =>
         kitenBoardsCommand.invoke(
@@ -730,7 +732,7 @@ describe("нерезолвящийся REF — ошибка ввода (exit 2)"
   });
 
   it("--board", async () => {
-    const st = stand(fullRoutes());
+    const st = await stand(fullRoutes());
     try {
       const err = await rejected(
         () => kitenLanesCommand.invoke(["--board", "9999"], st.io),

@@ -89,8 +89,11 @@ interface Stand {
   readonly stop: () => Promise<void>;
 }
 
-function stand(routes: Routes, overrides: Partial<CommandIo> = {}): Stand {
-  const fake = startFakeKaiten((seen) => {
+async function stand(
+  routes: Routes,
+  overrides: Partial<CommandIo> = {},
+): Promise<Stand> {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     const route = routes[`${last.method} ${last.pathname}`];
     return route === undefined
@@ -132,7 +135,7 @@ function sentText(request: CapturedRequest): string {
 
 describe("текст: один источник — один запрос", () => {
   it("-m: карточка не читается вовсе", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [POST_COMMENT]: () => comment(88017902),
     });
     try {
@@ -146,7 +149,7 @@ describe("текст: один источник — один запрос", () =
   });
 
   it("-F -: текст из stdin", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [POST_COMMENT]: () => comment(88017904),
     }, {
       readStdin: () => Promise.resolve(new TextEncoder().encode("из потока\n")),
@@ -163,7 +166,7 @@ describe("текст: один источник — один запрос", () =
   });
 
   it("-F PATH: текст из файла", async () => {
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [POST_COMMENT]: () => comment(88017904),
     }, { readTextFile: () => Promise.resolve("из файла") });
     try {
@@ -177,7 +180,7 @@ describe("текст: один источник — один запрос", () =
 
 describe("адресаты: раскрытие @all и дедуп", () => {
   it("--to '@all @teststub' и @all внутри текста", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [GET_CARD]: () => card(),
       [POST_COMMENT]: () => comment(88017903),
     });
@@ -199,7 +202,7 @@ describe("адресаты: раскрытие @all и дедуп", () => {
   });
 
   it("--to без текста: комментарий из одной строки", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [GET_CARD]: () => card(),
       [POST_COMMENT]: () => comment(88017938),
     });
@@ -214,7 +217,7 @@ describe("адресаты: раскрытие @all и дедуп", () => {
   });
 
   it("дубли без учёта регистра: первое вхождение", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [GET_CARD]: () => card(),
       [POST_COMMENT]: () => comment(88018160),
     });
@@ -230,7 +233,7 @@ describe("адресаты: раскрытие @all и дедуп", () => {
   });
 
   it("@all только в тексте: карточка читается", async () => {
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [GET_CARD]: () => card(),
       [POST_COMMENT]: () => comment(88017902),
     });
@@ -247,7 +250,7 @@ describe("адресаты: раскрытие @all и дедуп", () => {
 
   it("владельца нет: предупреждение, @all как есть", async () => {
     const warnings: string[] = [];
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [GET_CARD]: () => card((raw) => raw.owner = null),
       [POST_COMMENT]: () => comment(88017938),
     }, { progress: (line) => warnings.push(line) });
@@ -269,7 +272,7 @@ describe("вложения: файлы уходят вместе с тексто
   const bytes = () => Promise.resolve(new Uint8Array([112, 114]));
 
   it("одно вложение с текстом", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [POST_COMMENT]: () => comment(88017935),
     }, { readRegularFile: bytes });
     try {
@@ -294,7 +297,7 @@ describe("вложения: файлы уходят вместе с тексто
   });
 
   it("два вложения — разделитель и порядок флагов", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [POST_COMMENT]: () => comment(88018158),
     }, { readRegularFile: bytes });
     try {
@@ -311,7 +314,7 @@ describe("вложения: файлы уходят вместе с тексто
   });
 
   it("вложение с адресатами вместо своего текста", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [GET_CARD]: () => card(),
       [POST_COMMENT]: () => comment(88017942),
     }, { readRegularFile: bytes });
@@ -350,7 +353,7 @@ describe("ошибки ввода: ни одного запроса", () => {
   ];
   for (const [name, argv, file, overrides] of cases) {
     it(name, async () => {
-      const { io, seen, stop } = stand({}, overrides);
+      const { io, seen, stop } = await stand({}, overrides);
       try {
         const err = await rejected(() => output(argv, io), UsageError);
         expect(err.message).toStrictEqual((await golden(file)).trim());
@@ -364,7 +367,7 @@ describe("ошибки ввода: ни одного запроса", () => {
   it("вложение без текста и без адресатов", async () => {
     // Отклонение с вердиктом fix: прежняя реализация отправляла запрос и
     // получала 400. Здесь запроса нет вовсе.
-    const { io, seen, stop } = stand({}, {
+    const { io, seen, stop } = await stand({}, {
       readRegularFile: () => Promise.resolve(new Uint8Array()),
     });
     try {
@@ -383,7 +386,7 @@ describe("ошибки ввода: ни одного запроса", () => {
 
   it("вложения нет на диске", async () => {
     const path = "/home/user/tmp/нет-такого.txt";
-    const { io, seen, stop } = stand({}, {
+    const { io, seen, stop } = await stand({}, {
       readRegularFile: () => Promise.reject(new NotFoundIoError("нет")),
     });
     try {
@@ -401,7 +404,7 @@ describe("ошибки ввода: ни одного запроса", () => {
   });
 
   it("вложение не читается", async () => {
-    const { io, stop } = stand({}, {
+    const { io, stop } = await stand({}, {
       readRegularFile: () => Promise.reject(new Error("permission denied")),
     });
     try {
@@ -418,7 +421,7 @@ describe("ошибки ввода: ни одного запроса", () => {
   });
 
   it("файл текста не читается", async () => {
-    const { io, seen, stop } = stand({}, {
+    const { io, seen, stop } = await stand({}, {
       readTextFile: () => Promise.reject(new NotFoundIoError("file not found")),
     });
     try {
@@ -436,7 +439,7 @@ describe("ошибки ввода: ни одного запроса", () => {
   });
 
   it("текст из одних пробелов", async () => {
-    const { io, seen, stop } = stand({});
+    const { io, seen, stop } = await stand({});
     try {
       const err = await rejected(
         () => output([SELECTOR, "-m", "   ", "--to", "@teststub"], io),
@@ -452,7 +455,7 @@ describe("ошибки ввода: ни одного запроса", () => {
   it("--to без единого токена текста не даёт", async () => {
     // Флаг есть, адресата нет: комментарий остался бы без текста, а его
     // Kaiten не принимает — отбиваем до сети, как и голые вложения.
-    const { io, seen, stop } = stand({});
+    const { io, seen, stop } = await stand({});
     try {
       const err = await rejected(
         () => output([SELECTOR, "--to", "   "], io),
@@ -468,7 +471,7 @@ describe("ошибки ввода: ни одного запроса", () => {
   });
 
   it("селектор без числового сегмента", async () => {
-    const { io, seen, stop } = stand({});
+    const { io, seen, stop } = await stand({});
     try {
       await expect(output(["board/abc", "-m", "текст"], io)).rejects.toThrow(
         UsageError,
@@ -481,7 +484,9 @@ describe("ошибки ввода: ни одного запроса", () => {
 });
 
 it("--to '' с текстом: карточка не читается", async () => {
-  const { io, seen, stop } = stand({ [POST_COMMENT]: () => comment(88017902) });
+  const { io, seen, stop } = await stand({
+    [POST_COMMENT]: () => comment(88017902),
+  });
   try {
     await output([SELECTOR, "--to", "", "-m", "текст"], io);
     expect(calls(seen)).toStrictEqual([POST_COMMENT]);
@@ -493,7 +498,7 @@ it("--to '' с текстом: карточка не читается", async ()
 
 it("@all в тексте без владельца остаётся как есть", async () => {
   const warnings: string[] = [];
-  const { io, seen, stop } = stand({
+  const { io, seen, stop } = await stand({
     [GET_CARD]: () => card((raw) => raw.owner = null),
     [POST_COMMENT]: () => comment(88017902),
   }, { progress: (line) => warnings.push(line) });
@@ -507,7 +512,7 @@ it("@all в тексте без владельца остаётся как ес�
 });
 
 it("отказ API на ветви с вложениями — exit 1", async () => {
-  const { io, seen, stop } = stand({
+  const { io, seen, stop } = await stand({
     [POST_COMMENT]: () => new Response("", { status: 403 }),
   }, { readRegularFile: () => Promise.resolve(new Uint8Array([1])) });
   try {
@@ -520,7 +525,7 @@ it("отказ API на ветви с вложениями — exit 1", async ()
 });
 
 it("отказ API — exit 1 с полным путём команды", async () => {
-  const { io, seen, stop } = stand({
+  const { io, seen, stop } = await stand({
     [POST_COMMENT]: () => new Response("", { status: 403 }),
   });
   try {

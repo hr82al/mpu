@@ -8,8 +8,10 @@
  * совпадении имён.
  */
 
+import { statSync } from "node:fs";
 import { z } from "zod";
 import { DomainError, UsageError } from "../command/mod.ts";
+import { hasErrorCode } from "../oserror/mod.ts";
 import type { Analyzer } from "./analyzer.ts";
 import {
   asMark,
@@ -239,16 +241,11 @@ function filesIn(
 /** Есть ли такой каталог на диске. */
 function isDirectory(path: string): boolean {
   try {
-    return Deno.statSync(path).isDirectory;
+    return statSync(path).isDirectory();
   } catch (err) {
-    // Отсутствие бывает не только `NotFound`: `src/a.ts/x` даёт
-    // `NotADirectory`, и это тот же ответ «такого каталога нет».
-    if (
-      err instanceof Deno.errors.NotFound ||
-      err instanceof Deno.errors.NotADirectory
-    ) {
-      return false;
-    }
+    // Отсутствие бывает не только `ENOENT`: `src/a.ts/x` даёт
+    // `ENOTDIR`, и это тот же ответ «такого каталога нет».
+    if (hasErrorCode(err, "ENOENT", "ENOTDIR")) return false;
     throw err;
   }
 }

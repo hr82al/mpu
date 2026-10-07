@@ -161,7 +161,7 @@ interface Stand {
  * забутстрапленная — `columnTitlesFor` читает её схему безусловно, даже
  * когда недостающих названий нет.
  */
-function stand(
+async function stand(
   options: {
     readonly userId?: number;
     readonly env?: Record<string, string>;
@@ -171,9 +171,9 @@ function stand(
       readonly title: string;
     }[];
   } = {},
-): Stand {
+): Promise<Stand> {
   const userId = options.userId ?? 9001;
-  const fake = startFakeKaiten((seen) => {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     if (last.pathname === USER_PATH) {
       return Response.json({
@@ -264,7 +264,7 @@ it("json: совпадает с голденом за вычетом фикст�
   // кода (см. итоговый отчёт). Карточки 1–2 воспроизводятся точно через
   // `KITEN_STAGE_MAP`; карточка 3 получает то же самое различие в
   // единственном месте, где оно физически возможно, — тексте `column`.
-  const st = stand({
+  const st = await stand({
     env: { KITEN_STAGE_MAP: '{"Колонка 1":"review"}' },
   });
   try {
@@ -333,7 +333,7 @@ it("json: совпадает с голденом за вычетом фикст�
 // ---------------------------------------------------------------------
 
 it("md: совпадает с голденом status.md байт-в-байт", async () => {
-  const st = stand();
+  const st = await stand();
   try {
     const common = {
       state: 2,
@@ -380,7 +380,7 @@ it("md: совпадает с голденом status.md байт-в-байт", 
 // ---------------------------------------------------------------------
 
 it("url: скобки в title экранируются", async () => {
-  const st = stand();
+  const st = await stand();
   try {
     const card = cardSummary({
       id: 81001,
@@ -398,7 +398,7 @@ it("url: скобки в title экранируются", async () => {
 });
 
 it("format: нумерация с 1, {src} через запятую, неизвестный плейсхолдер как есть", async () => {
-  const st = stand();
+  const st = await stand();
   try {
     const card1 = cardSummary({
       id: 71001,
@@ -434,8 +434,8 @@ it("format: нумерация с 1, {src} через запятую, неизв
 describe("matrix/group: непусто содержит id карточек, пусто — ровно «(нет карточек)»", () => {
   // Один стенд на все шаги, как и до перевода.
   let st: Stand;
-  beforeAll(() => {
-    st = stand();
+  beforeAll(async () => {
+    st = await stand();
   });
   afterAll(() => st.stop());
   const card1 = cardSummary({
@@ -483,8 +483,8 @@ describe("matrix/group: непусто содержит id карточек, п�
 describe("json/md/url/format: без подвала и рамок", () => {
   // Один стенд на все шаги, как и до перевода.
   let st: Stand;
-  beforeAll(() => {
-    st = stand();
+  beforeAll(async () => {
+    st = await stand();
   });
   afterAll(() => st.stop());
   const card1 = cardSummary({ id: 61001, title: "Раз" });
@@ -519,8 +519,8 @@ describe("фильтры: stage/board/source/only сужают выдачу не
   // Доска в кэше справочника: по нему резолвится `--board` (REF).
   // Один стенд на все шаги, как и до перевода.
   let st: Stand;
-  beforeAll(() => {
-    st = stand({ boards: [{ id: 701, title: "Alpha" }] });
+  beforeAll(async () => {
+    st = await stand({ boards: [{ id: 701, title: "Alpha" }] });
   });
   afterAll(() => st.stop());
   const common = {
@@ -656,7 +656,7 @@ describe("фильтры: stage/board/source/only сужают выдачу не
 // ---------------------------------------------------------------------
 
 it("окна независимы: минуты за --time-since, источник time — за --since", async () => {
-  const st = stand();
+  const st = await stand();
   try {
     // Живая карточка — попадает в выдачу независимо от окон (alive).
     const card = cardSummary({
@@ -697,8 +697,8 @@ it("окна независимы: минуты за --time-since, источн�
 describe("неполная лента: предупреждение в progress при любой форме вывода", () => {
   // Один стенд на все шаги, как и до перевода.
   let st: Stand;
-  beforeAll(() => {
-    st = stand();
+  beforeAll(async () => {
+    st = await stand();
   });
   afterAll(() => st.stop());
   // Единственное прочитанное событие новее начала окна `--since» —
@@ -795,7 +795,7 @@ describe("ошибки ввода: --since/--time-since/--stage — UsageError �
 // ---------------------------------------------------------------------
 
 it("KITEN_STAGE_MAP: битый JSON — предупреждение, команда работает", async () => {
-  const st = stand({ env: { KITEN_STAGE_MAP: "{not json" } });
+  const st = await stand({ env: { KITEN_STAGE_MAP: "{not json" } });
   try {
     const text = await run(st, { out: "json" }, { api: api() });
     expect(text).toBe("[]\n");
@@ -809,7 +809,7 @@ it("KITEN_STAGE_MAP: битый JSON — предупреждение, кома�
 });
 
 it("KITEN_STAGE_MAP: не объект — предупреждение, команда работает", async () => {
-  const st = stand({ env: { KITEN_STAGE_MAP: "[1,2,3]" } });
+  const st = await stand({ env: { KITEN_STAGE_MAP: "[1,2,3]" } });
   try {
     const text = await run(st, { out: "json" }, { api: api() });
     expect(text).toBe("[]\n");
@@ -822,7 +822,7 @@ it("KITEN_STAGE_MAP: не объект — предупреждение, ком�
 });
 
 it("KITEN_STAGE_MAP: корректная карта перекрывает правило этапа своей колонки", async () => {
-  const st = stand({
+  const st = await stand({
     env: { KITEN_STAGE_MAP: '{"Особая колонка":"review"}' },
   });
   try {

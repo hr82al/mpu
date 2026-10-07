@@ -5,6 +5,7 @@
  * `src/testing/mod.ts` для общих помощников.
  */
 
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import type { TreeMark } from "./mark.ts";
 import type { Repo } from "./workspace.ts";
 
@@ -63,13 +64,10 @@ async function materialize(
   const source = new URL(from, import.meta.url);
   for (const path of await treeFiles(source, "")) {
     const target = `${root}/${path.replace(/\.txt$/, "")}`;
-    await Deno.mkdir(target.slice(0, target.lastIndexOf("/")), {
+    await mkdir(target.slice(0, target.lastIndexOf("/")), {
       recursive: true,
     });
-    await Deno.writeTextFile(
-      target,
-      await Deno.readTextFile(new URL(path, source)),
-    );
+    await writeFile(target, await readFile(new URL(path, source), "utf8"));
   }
   return { name, root, mark: () => Promise.resolve(mark) };
 }
@@ -77,8 +75,8 @@ async function materialize(
 /** Пути файлов поддерева относительно его корня. */
 async function treeFiles(dir: URL, prefix: string): Promise<readonly string[]> {
   const found: string[] = [];
-  for await (const entry of Deno.readDir(dir)) {
-    if (entry.isDirectory) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
       found.push(
         ...await treeFiles(
           new URL(`${entry.name}/`, dir),

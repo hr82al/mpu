@@ -6,7 +6,11 @@
  * — только дописанный хвост.
  */
 
+import { Buffer } from "node:buffer";
+import { createReadStream } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { type Clock, REAL_CLOCK } from "../botquestions/mod.ts";
+import { hasErrorCode, osError } from "../oserror/mod.ts";
 import type { ToolUse } from "./permission.ts";
 import { type Fields, isFields } from "./fields.ts";
 
@@ -26,11 +30,13 @@ export interface TranscriptFiles {
 
 /** Файлы диска. */
 export const DISK_FILES: TranscriptFiles = {
-  read: (path) => Deno.readFile(path),
+  read: async (path) => new Uint8Array(await readFile(path)),
   async readFrom(path, offset) {
-    using file = await Deno.open(path);
-    await file.seek(offset, Deno.SeekMode.Start);
-    return new Uint8Array(await new Response(file.readable).arrayBuffer());
+    const chunks: Buffer[] = [];
+    for await (const chunk of createReadStream(path, { start: offset })) {
+      chunks.push(chunk);
+    }
+    return new Uint8Array(Buffer.concat(chunks));
   },
 };
 
@@ -265,9 +271,7 @@ function titlesOf(
 
 /** Отказ чтения файла: нет его, нет права, это каталог. */
 function unreadable(err: unknown): boolean {
-  return err instanceof Deno.errors.NotFound ||
-    err instanceof Deno.errors.PermissionDenied ||
-    err instanceof Deno.errors.IsADirectory;
+  return hasErrorCode(err, "ENOENT", "EACCES", "EISDIR");
 }
 
 /** Читаемый транскрипт: хвост смотрится до ответа на вызов вопроса. */
@@ -373,9 +377,8 @@ export class Transcripts {
 /** Файлов нет: любой транскрипт — без названия и без признака ответа. */
 export const NO_TRANSCRIPTS = new Transcripts({
   files: {
-    read: () => Promise.reject(new Deno.errors.NotFound("транскриптов нет")),
-    readFrom: () =>
-      Promise.reject(new Deno.errors.NotFound("транскриптов нет")),
+    read: () => Promise.reject(osError("ENOENT", "транскриптов нет")),
+    readFrom: () => Promise.reject(osError("ENOENT", "транскриптов нет")),
   },
   clock: REAL_CLOCK,
 });

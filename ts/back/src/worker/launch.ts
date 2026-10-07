@@ -5,7 +5,7 @@
  */
 
 import type { CommandIo } from "../command/mod.ts";
-import { type ExitStatus, killedStatus } from "./death.ts";
+import { type ExitStatus, killedStatus, type StopSignal } from "./death.ts";
 import { serveOne } from "./serve.ts";
 import { memoryWires, streamWire, type Wire } from "./wire.ts";
 
@@ -18,7 +18,7 @@ export interface Spawned {
   readonly wire: Wire;
   /** Как кончился процесс. */
   readonly status: Promise<ExitStatus>;
-  kill(signal: Deno.Signal): void;
+  kill(signal: StopSignal): void;
 }
 
 /** Как запускается исполнитель. */

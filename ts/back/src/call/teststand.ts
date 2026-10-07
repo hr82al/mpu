@@ -4,6 +4,9 @@
  * тестов модуля.
  */
 
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { type CacheDb, DomainError, type EnvFile } from "../command/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
 
@@ -30,7 +33,7 @@ export function envFileOf(values: Readonly<Record<string, string>>): EnvFile {
 
 /** Кэш-БД селектора: клиенты 54–58 на sl-1. */
 export async function withCache(body: (open: () => CacheDb) => Promise<void>) {
-  const dir = await Deno.makeTempDir();
+  const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   const path = `${dir}/mpu.db`;
   try {
     {
@@ -46,6 +49,6 @@ export async function withCache(body: (open: () => CacheDb) => Promise<void>) {
     }
     await body(() => openCacheDb(path));
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true });
   }
 }

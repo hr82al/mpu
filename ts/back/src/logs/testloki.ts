@@ -3,9 +3,13 @@
  * временном каталоге — io, которой хватает команде без сети наружу.
  */
 
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { CommandIo } from "../command/mod.ts";
 import { writeLokiCache } from "../loki/mod.ts";
 import { openCacheDb } from "../store/mod.ts";
+import { serveFetch } from "../testing/http.ts";
 
 /** Ответ `query_range`: потоки с метками и парами `[ts, строка]`. */
 export function lokiBody(
@@ -34,16 +38,13 @@ export async function withFakeLoki(
   hosts: readonly string[] = ["sl-1"],
 ): Promise<void> {
   let asked = 0;
-  const server = Deno.serve(
-    { hostname: "127.0.0.1", port: 0, onListen() {} },
-    () => {
-      asked++;
-      return new Response(body);
-    },
-  );
-  const dir = await Deno.makeTempDir();
+  const server = await serveFetch(() => {
+    asked++;
+    return new Response(body);
+  });
+  const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   const values: Readonly<Record<string, string>> = {
-    LOKI_URL: `http://127.0.0.1:${server.addr.port}`,
+    LOKI_URL: server.baseUrl,
   };
   try {
     {
@@ -61,7 +62,7 @@ export async function withFakeLoki(
       openCacheDb: () => openCacheDb(`${dir}/cache.db`),
     }, () => asked);
   } finally {
-    await server.shutdown();
-    await Deno.remove(dir, { recursive: true });
+    await server.stop();
+    await rm(dir, { recursive: true });
   }
 }

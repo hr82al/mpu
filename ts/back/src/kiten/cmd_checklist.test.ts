@@ -101,8 +101,8 @@ interface Stand {
   readonly stop: () => Promise<void>;
 }
 
-function stand(routes: Routes): Stand {
-  const fake = startFakeKaiten((seen) => {
+async function stand(routes: Routes): Promise<Stand> {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     const route = routes[`${last.method} ${last.pathname}`];
     return route === undefined
@@ -128,7 +128,7 @@ function stand(routes: Routes): Stand {
 function cardStand(
   checklists: readonly Record<string, unknown>[],
   extra: Routes = {},
-): Stand {
+): Promise<Stand> {
   return stand({
     [`GET ${CARD_PATH}`]: () => Response.json(rawCard(checklists)),
     ...extra,
@@ -169,7 +169,7 @@ async function errorText(
 
 describe("checklist ls: сортировка, обе формы вывода и один вызов", () => {
   it("таблица — голден побайтово", async () => {
-    const { io, seen, stop } = cardStand([goldenChecklist()]);
+    const { io, seen, stop } = await cardStand([goldenChecklist()]);
     try {
       expect(await output(kitenChecklistLsCommand, [SELECTOR], io))
         .toStrictEqual(await golden("ls-stdout.txt"));
@@ -180,7 +180,7 @@ describe("checklist ls: сортировка, обе формы вывода и 
   });
 
   it("--json — голден побайтово", async () => {
-    const { io, stop } = cardStand([goldenChecklist()]);
+    const { io, stop } = await cardStand([goldenChecklist()]);
     try {
       expect(await output(kitenChecklistLsCommand, [SELECTOR, "--json"], io))
         .toStrictEqual(await golden("ls-json-stdout.txt"));
@@ -190,7 +190,7 @@ describe("checklist ls: сортировка, обе формы вывода и 
   });
 
   it("чек-листов нет — голден и пустой массив", async () => {
-    const { io, stop } = cardStand([]);
+    const { io, stop } = await cardStand([]);
     try {
       expect(await output(kitenChecklistLsCommand, [SELECTOR], io))
         .toStrictEqual(await golden("ls-empty-stdout.txt"));
@@ -202,7 +202,11 @@ describe("checklist ls: сортировка, обе формы вывода и 
   });
 
   it("чек-лист без пунктов — заголовок и одна шапка", async () => {
-    const { io, stop } = cardStand([{ id: LIST_ID, name: "Пусто", items: [] }]);
+    const { io, stop } = await cardStand([{
+      id: LIST_ID,
+      name: "Пусто",
+      items: [],
+    }]);
     try {
       expect(await output(kitenChecklistLsCommand, [SELECTOR], io))
         .toStrictEqual(
@@ -214,7 +218,7 @@ describe("checklist ls: сортировка, обе формы вывода и 
   });
 
   it("два чек-листа — два блока через пустую строку", async () => {
-    const { io, stop } = cardStand([
+    const { io, stop } = await cardStand([
       { id: LIST_ID, name: "Первый", items: [rawItem(1, "раз")] },
       { id: SECOND_LIST_ID, name: "Второй", items: [] },
     ]);
@@ -231,7 +235,7 @@ describe("checklist ls: сортировка, обе формы вывода и 
   it("чек-листы в убывающем id — блоки по возрастанию", async () => {
     // Фейк отдаёт их в обратном порядке нарочно: на живой карточке они
     // шли по возрастанию сами собой, и такой прогон ничего не проверял бы.
-    const { io, stop } = cardStand([
+    const { io, stop } = await cardStand([
       { id: SECOND_LIST_ID, name: "Второй", items: [rawItem(2, "два")] },
       { id: LIST_ID, name: "Первый", items: [rawItem(1, "раз")] },
     ]);
@@ -248,7 +252,7 @@ describe("checklist ls: сортировка, обе формы вывода и 
   });
 
   it("отметка пункта видна как [x]", async () => {
-    const { io, stop } = cardStand([
+    const { io, stop } = await cardStand([
       {
         id: LIST_ID,
         name: "Проверки",
@@ -265,7 +269,7 @@ describe("checklist ls: сортировка, обе формы вывода и 
   });
 
   it("отказ чтения карточки — доменная ошибка", async () => {
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => new Response("boom", { status: 500 }),
     });
     try {
@@ -278,7 +282,7 @@ describe("checklist ls: сортировка, обе формы вывода и 
   });
 
   it("пункт без sort_order идёт как с нулевым", async () => {
-    const { io, stop } = cardStand([{
+    const { io, stop } = await cardStand([{
       id: LIST_ID,
       name: "Проверки",
       items: [
@@ -300,7 +304,7 @@ describe("checklist ls: сортировка, обе формы вывода и 
 
 describe("checklist add: создание, идемпотентность и sort_order", () => {
   it("чек-листа нет — создан, два пункта", async () => {
-    const { io, baseUrl, seen, stop } = cardStand([], {
+    const { io, baseUrl, seen, stop } = await cardStand([], {
       [`POST ${CHECKLISTS_PATH}`]: () =>
         Response.json({ id: LIST_ID, name: "Проверки", items: [] }),
       [`POST ${itemsPath(LIST_ID)}`]: (body) =>
@@ -339,7 +343,7 @@ describe("checklist add: создание, идемпотентность и sor
       rawItem(66835645, "Тест написан", { sort_order: 1 }),
       rawItem(66835646, "Гейты зелёные", { sort_order: 2 }),
     ]);
-    const { io, baseUrl, seen, stop } = cardStand([existing], {
+    const { io, baseUrl, seen, stop } = await cardStand([existing], {
       [`POST ${itemsPath(LIST_ID)}`]: (body) =>
         Response.json({ id: 66835647, ...JSON.parse(body) }),
     });
@@ -370,7 +374,7 @@ describe("checklist add: создание, идемпотентность и sor
   });
 
   it("без -i — чек-лист создан, добавлено 0", async () => {
-    const { io, baseUrl, seen, stop } = cardStand([], {
+    const { io, baseUrl, seen, stop } = await cardStand([], {
       [`POST ${CHECKLISTS_PATH}`]: () =>
         Response.json({ id: SECOND_LIST_ID, name: "Второй список", items: [] }),
     });
@@ -392,7 +396,7 @@ describe("checklist add: создание, идемпотентность и sor
   });
 
   it("все тексты уже есть — ни одного POST пункта", async () => {
-    const { io, seen, stop } = cardStand([goldenChecklist()]);
+    const { io, seen, stop } = await cardStand([goldenChecklist()]);
     try {
       const text = await output(kitenChecklistAddCommand, [
         SELECTOR,
@@ -412,7 +416,7 @@ describe("checklist add: создание, идемпотентность и sor
   });
 
   it("повтор текста внутри вызова — один пункт", async () => {
-    const { io, seen, stop } = cardStand([], {
+    const { io, seen, stop } = await cardStand([], {
       [`POST ${CHECKLISTS_PATH}`]: () =>
         Response.json({ id: LIST_ID, name: "Проверки", items: [] }),
       [`POST ${itemsPath(LIST_ID)}`]: (body) =>
@@ -440,7 +444,7 @@ describe("checklist add: создание, идемпотентность и sor
 
   it("отказ на середине списка называет число", async () => {
     let posted = 0;
-    const { io, stop } = cardStand([], {
+    const { io, stop } = await cardStand([], {
       [`POST ${CHECKLISTS_PATH}`]: () =>
         Response.json({ id: LIST_ID, name: "Проверки", items: [] }),
       [`POST ${itemsPath(LIST_ID)}`]: (body) => {
@@ -467,7 +471,7 @@ describe("checklist add: создание, идемпотентность и sor
   it("одноимённые чек-листы — берётся меньший id", async () => {
     // Фейк отдаёт их по убыванию id: выбор «первый в ответе сервера»
     // взял бы больший и упёрся бы в незаданный маршрут его пунктов.
-    const { io, seen, stop } = cardStand([
+    const { io, seen, stop } = await cardStand([
       { id: SECOND_LIST_ID, name: "Проверки", items: [] },
       { id: LIST_ID, name: "Проверки", items: [] },
     ], {
@@ -493,7 +497,7 @@ describe("checklist add: создание, идемпотентность и sor
   });
 
   it("без --name — ошибка ввода до сети", async () => {
-    const { io, seen, stop } = cardStand([]);
+    const { io, seen, stop } = await cardStand([]);
     try {
       await expect(kitenChecklistAddCommand.invoke([SELECTOR], io)).rejects
         .toThrow(UsageError);
@@ -504,7 +508,7 @@ describe("checklist add: создание, идемпотентность и sor
   });
 
   it("отказ чтения карточки — доменная ошибка", async () => {
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => new Response("boom", { status: 500 }),
     });
     try {
@@ -525,7 +529,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   /** Стенд карточки голденов с ответом отметки. */
   function markStand(
     checklists: readonly Record<string, unknown>[] = [goldenChecklist()],
-  ): Stand {
+  ): Promise<Stand> {
     const routes: Record<string, (body: string) => Response> = {};
     for (const checklist of checklists) {
       const items = checklist.items as readonly Record<string, unknown>[];
@@ -539,7 +543,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   }
 
   it("по подстроке — голден и состав вызовов", async () => {
-    const { io, baseUrl, seen, stop } = markStand();
+    const { io, baseUrl, seen, stop } = await markStand();
     try {
       expect(await output(kitenChecklistCheckCommand, [SELECTOR, "Тест"], io))
         .toStrictEqual(await expected("check-stdout.txt", baseUrl));
@@ -554,7 +558,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("по id — голден", async () => {
-    const { io, baseUrl, seen, stop } = markStand();
+    const { io, baseUrl, seen, stop } = await markStand();
     try {
       expect(
         await output(kitenChecklistCheckCommand, [SELECTOR, "66835647"], io),
@@ -569,7 +573,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("uncheck — голден и тело запроса", async () => {
-    const { io, baseUrl, seen, stop } = markStand([
+    const { io, baseUrl, seen, stop } = await markStand([
       goldenChecklist([
         rawItem(66835645, "Тест написан", { checked: true }),
       ]),
@@ -584,7 +588,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("повторный check печатает ту же строку", async () => {
-    const { io, baseUrl, stop } = markStand();
+    const { io, baseUrl, stop } = await markStand();
     try {
       const first = await output(
         kitenChecklistCheckCommand,
@@ -604,7 +608,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("id побеждает подстроку", async () => {
-    const { io, seen, stop } = markStand([
+    const { io, seen, stop } = await markStand([
       goldenChecklist([
         rawItem(66835645, "Тест написан", { sort_order: 1 }),
         rawItem(66835646, "про пункт 66835645", { sort_order: 2 }),
@@ -622,7 +626,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("число без совпадения по id ищется подстрокой", async () => {
-    const { io, seen, stop } = markStand([
+    const { io, seen, stop } = await markStand([
       goldenChecklist([rawItem(66835645, "отчёт 12345 за июль")]),
     ]);
     try {
@@ -637,7 +641,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("поиск сквозной: PATCH уходит в свой чек-лист", async () => {
-    const { io, seen, stop } = markStand([
+    const { io, seen, stop } = await markStand([
       goldenChecklist([rawItem(66835645, "Тест написан")]),
       {
         id: SECOND_LIST_ID,
@@ -657,7 +661,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("неоднозначная ссылка: голден и ни одной мутации", async () => {
-    const { io, seen, stop } = markStand();
+    const { io, seen, stop } = await markStand();
     try {
       expect(
         await errorText(
@@ -674,7 +678,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("ненайденная ссылка: голден и ни одной мутации", async () => {
-    const { io, seen, stop } = markStand();
+    const { io, seen, stop } = await markStand();
     try {
       expect(
         await errorText(
@@ -694,7 +698,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
     // Веса пунктов пересекаются, а фейк отдаёт чек-листы по убыванию id:
     // сквозная сортировка по карточке поставила бы «Альфа» первой, и
     // перечень разошёлся бы с блоками ls, по которым его и сверяют.
-    const { io, stop } = markStand([
+    const { io, stop } = await markStand([
       {
         id: SECOND_LIST_ID,
         name: "Второй список",
@@ -724,7 +728,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("пунктов на карточке нет — «(пунктов нет)»", async () => {
-    const { io, stop } = cardStand([]);
+    const { io, stop } = await cardStand([]);
     try {
       expect(
         await errorText(
@@ -744,7 +748,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
 
   it("текст кандидата обрезан до 60 символов", async () => {
     const long = "я".repeat(70);
-    const { io, stop } = cardStand([
+    const { io, stop } = await cardStand([
       goldenChecklist([rawItem(66835645, long)]),
     ]);
     try {
@@ -765,7 +769,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("отказ чтения карточки — доменная ошибка", async () => {
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => new Response("boom", { status: 500 }),
     });
     try {
@@ -783,7 +787,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("отказ отметки — доменная ошибка", async () => {
-    const { io, stop } = cardStand([goldenChecklist()], {
+    const { io, stop } = await cardStand([goldenChecklist()], {
       [`PATCH ${itemPath(LIST_ID, 66835645)}`]: () =>
         new Response("boom", { status: 500 }),
     });
@@ -805,7 +809,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
     // пунктом это ровно одно совпадение, то есть мутация по мусорному
     // входу (`kiten-checklist.md`, «Граничные случаи»).
     for (const ref of ["", "   "]) {
-      const { io, seen, stop } = markStand();
+      const { io, seen, stop } = await markStand();
       try {
         expect(
           await errorText(
@@ -826,7 +830,7 @@ describe("checklist check/uncheck: резолв пункта и один PATCH",
   });
 
   it("невалидный селектор — ошибка ввода до сети", async () => {
-    const { io, seen, stop } = cardStand([]);
+    const { io, seen, stop } = await cardStand([]);
     try {
       await expect(
         kitenChecklistCheckCommand.invoke(["не-селектор", "Тест"], io),

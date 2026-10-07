@@ -40,7 +40,7 @@ interface Stand {
 }
 
 async function withStand(fn: (stand: Stand) => Promise<void>) {
-  const fake = startFakeKaiten((seen) => {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     if (last.pathname === "/api/latest/users/current") {
       return Response.json({ id: 9001, full_name: "Тест", username: "t" });

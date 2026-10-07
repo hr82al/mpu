@@ -84,8 +84,11 @@ interface Stand {
   readonly stop: () => Promise<void>;
 }
 
-function stand(routes: Routes, overrides: Partial<CommandIo> = {}): Stand {
-  const fake = startFakeKaiten((seen) => {
+async function stand(
+  routes: Routes,
+  overrides: Partial<CommandIo> = {},
+): Promise<Stand> {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     const route = routes[`${last.method} ${last.pathname}`];
     return route === undefined
@@ -124,7 +127,7 @@ function calls(seen: readonly CapturedRequest[]): readonly string[] {
 
 describe("field set: значение уходит в поле по таблице видов", () => {
   it("mr — url без нормализации", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`PATCH ${CARD_PATH}`]: () => cardWithFiles(),
     });
     try {
@@ -142,7 +145,7 @@ describe("field set: значение уходит в поле по таблиц
   });
 
   it("hypothesis — текст с двоеточием внутри", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`PATCH ${CARD_PATH}`]: () => cardWithFiles(),
     });
     try {
@@ -163,7 +166,7 @@ describe("field set: значение уходит в поле по таблиц
   });
 
   it("пустое значение — очистка полем null", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`PATCH ${CARD_PATH}`]: () => cardWithFiles(),
     });
     try {
@@ -178,7 +181,7 @@ describe("field set: значение уходит в поле по таблиц
   });
 
   it("значение из одних пробелов — не очистка", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`PATCH ${CARD_PATH}`]: () => cardWithFiles(),
     });
     try {
@@ -194,7 +197,7 @@ describe("field set: значение уходит в поле по таблиц
 
   it("done и result — свои id полей", async () => {
     for (const [kind, id] of [["done", 291985], ["result", 291990]] as const) {
-      const { io, seen, stop } = stand({
+      const { io, seen, stop } = await stand({
         [`PATCH ${CARD_PATH}`]: () => cardWithFiles(),
       });
       try {
@@ -211,7 +214,7 @@ describe("field set: значение уходит в поле по таблиц
 
 describe("field set: ошибки ввода — до сети", () => {
   it("KIND вне закрытого списка", async () => {
-    const { seen, stop } = stand({});
+    const { seen, stop } = await stand({});
     try {
       const err = assertThrowsUsage(() =>
         kitenFieldSetCommand.parseArgs([SELECTOR, "badkind", "x"])
@@ -224,7 +227,7 @@ describe("field set: ошибки ввода — до сети", () => {
   });
 
   it("селектор без числового сегмента", async () => {
-    const { io, seen, stop } = stand({});
+    const { io, seen, stop } = await stand({});
     try {
       await expect(output(kitenFieldSetCommand, ["board/abc", "mr", "x"], io))
         .rejects.toThrow(UsageError);
@@ -236,7 +239,7 @@ describe("field set: ошибки ввода — до сети", () => {
 });
 
 it("field set: отказ API — exit 1 с полным путём команды", async () => {
-  const { io, seen, stop } = stand({
+  const { io, seen, stop } = await stand({
     [`PATCH ${CARD_PATH}`]: () => new Response("", { status: 403 }),
   });
   try {
@@ -267,7 +270,7 @@ describe("artefact set: файл уходит в поле 610303", () => {
   });
 
   it("razbor.md — имя и url файла из ответа", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`PUT ${ARTEFACT_FILES_PATH}`]: () =>
         Response.json(uploaded(
           "razbor.md",
@@ -291,7 +294,7 @@ describe("artefact set: файл уходит в поле 610303", () => {
   });
 
   it("RAZBOR.MD — регистр расширения не значим", async () => {
-    const { io, baseUrl, stop } = stand({
+    const { io, baseUrl, stop } = await stand({
       [`PUT ${ARTEFACT_FILES_PATH}`]: () =>
         Response.json(uploaded(
           "RAZBOR.MD",
@@ -313,7 +316,7 @@ describe("artefact set: ошибки ввода — до сети и до чте
   it("имя не оканчивается на .md", async () => {
     // `readRegularFile` фейка падает на касании: проверка имени обязана
     // случиться раньше чтения файла.
-    const { io, seen, stop } = stand({});
+    const { io, seen, stop } = await stand({});
     try {
       const err = await rejected(() =>
         output(
@@ -331,7 +334,7 @@ describe("artefact set: ошибки ввода — до сети и до чте
   });
 
   it("селектор без числового сегмента — общий разбор", async () => {
-    const { io, seen, stop } = stand({});
+    const { io, seen, stop } = await stand({});
     try {
       await expect(output(kitenArtefactRmCommand, ["board/abc"], io)).rejects
         .toThrow(UsageError);
@@ -342,7 +345,7 @@ describe("artefact set: ошибки ввода — до сети и до чте
   });
 
   it("пути нет либо он не обычный файл", async () => {
-    const { io, seen, stop } = stand({}, {
+    const { io, seen, stop } = await stand({}, {
       readRegularFile: () => Promise.reject(new NotFoundIoError("нет")),
     });
     try {
@@ -360,7 +363,7 @@ describe("artefact set: ошибки ввода — до сети и до чте
 });
 
 it("artefact set: отказ загрузки — exit 1", async () => {
-  const { io, seen, stop } = stand({
+  const { io, seen, stop } = await stand({
     [`PUT ${ARTEFACT_FILES_PATH}`]: () => new Response("", { status: 403 }),
   }, { readRegularFile: () => Promise.resolve(new Uint8Array([35])) });
   try {
@@ -373,7 +376,7 @@ it("artefact set: отказ загрузки — exit 1", async () => {
 });
 
 it("artefact set: прочий отказ чтения — тоже ошибка ввода", async () => {
-  const { io, seen, stop } = stand({}, {
+  const { io, seen, stop } = await stand({}, {
     readRegularFile: () => Promise.reject(new Error("permission denied")),
   });
   try {
@@ -394,7 +397,7 @@ it("artefact set: прочий отказ чтения — тоже ошибка
 
 describe("artefact rm: удаляются только файлы поля", () => {
   it("один файл — имя в выводе, чужие не тронуты", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => cardWithFiles(),
       [`DELETE ${filePath(62289609)}`]: () => new Response("", { status: 200 }),
     });
@@ -413,7 +416,7 @@ describe("artefact rm: удаляются только файлы поля", () 
 
   it("два файла — разделитель и порядок files[]", async () => {
     const second = 62289610;
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         cardWithFiles((raw) => {
           const files = raw.files as Record<string, unknown>[];
@@ -443,7 +446,7 @@ describe("artefact rm: удаляются только файлы поля", () 
   });
 
   it("поле пусто — успех без единого удаления", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         cardWithFiles((raw) => {
           const files = raw.files as Record<string, unknown>[];
@@ -466,7 +469,7 @@ describe("artefact rm: удаляются только файлы поля", () 
   it("сбой в середине: следующий файл не трогается", async () => {
     // Три файла поля, отказ на втором: третьего удаления не будет вовсе —
     // файлы удаляются по одному, а не разом (`kiten-field.md`).
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => cardWithFiles(withArtefacts(3)),
       [`DELETE ${filePath(62289701)}`]: () => new Response("", { status: 200 }),
       [`DELETE ${filePath(62289702)}`]: () => new Response("", { status: 403 }),

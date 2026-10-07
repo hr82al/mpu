@@ -83,10 +83,10 @@ interface Stand {
 }
 
 /** Стенд: фейковый Kaiten со справочниками доски и настоящая кэш-БД. */
-function stand(
+async function stand(
   cards: readonly Record<string, unknown>[],
   env: Record<string, string> = {},
-): Stand {
+): Promise<Stand> {
   let read = 0;
   const routes: Record<string, Reply> = {
     [`GET ${CARD_PATH}`]: () =>
@@ -96,7 +96,7 @@ function stand(
     "GET /api/latest/spaces": () => Response.json(SPACES),
     [`PATCH ${CARD_PATH}`]: () => Response.json({ id: CARD_ID }),
   };
-  const fake = startFakeKaiten((seen) => {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     const route = routes[`${last.method} ${last.pathname}`];
     return route === undefined
@@ -196,7 +196,7 @@ it("move с осью, но негодным селектором — отказ 
 
 describe("ready --dry-run: намерение без единой мутации", () => {
   it("карточка не в целевой колонке", async () => {
-    const st = stand([card(BACKLOG_ID, "Бэклог")]);
+    const st = await stand([card(BACKLOG_ID, "Бэклог")]);
     try {
       expect(
         await output(kitenReadyCommand, [String(CARD_ID), "--dry-run"], st.io),
@@ -208,7 +208,7 @@ describe("ready --dry-run: намерение без единой мутации
     }
   });
   it("карточка уже в целевой колонке — релог", async () => {
-    const st = stand([card(READY_ID, "Готово")]);
+    const st = await stand([card(READY_ID, "Готово")]);
     try {
       expect(
         await output(kitenReadyCommand, [String(CARD_ID), "--dry-run"], st.io),
@@ -219,7 +219,7 @@ describe("ready --dry-run: намерение без единой мутации
     }
   });
   it("подстрока в --column: печатается полное название", async () => {
-    const st = stand([card(BACKLOG_ID, "Бэклог")]);
+    const st = await stand([card(BACKLOG_ID, "Бэклог")]);
     try {
       expect(
         await output(
@@ -236,7 +236,10 @@ describe("ready --dry-run: намерение без единой мутации
 });
 
 it("ready: PATCH, свежее чтение и строка журнала", async () => {
-  const st = stand([card(BACKLOG_ID, "Бэклог"), card(READY_ID, "Готово")], {});
+  const st = await stand(
+    [card(BACKLOG_ID, "Бэклог"), card(READY_ID, "Готово")],
+    {},
+  );
   try {
     const text = await output(
       kitenReadyCommand,
@@ -262,7 +265,7 @@ it("ready: PATCH, свежее чтение и строка журнала", asy
 });
 
 it("ready на текущей колонке — релог двумя PATCH", async () => {
-  const st = stand([card(READY_ID, "Готово")]);
+  const st = await stand([card(READY_ID, "Готово")]);
   try {
     const text = await output(kitenReadyCommand, [String(CARD_ID)], st.io);
     expect(
@@ -280,7 +283,10 @@ it("ready на текущей колонке — релог двумя PATCH", a
 });
 
 it("review берёт свою колонку из ключа env-файла", async () => {
-  const st = stand([card(BACKLOG_ID, "Бэклог"), card(5620662, "В работе")], {
+  const st = await stand([
+    card(BACKLOG_ID, "Бэклог"),
+    card(5620662, "В работе"),
+  ], {
     KITEN_REVIEW_COLUMN: "В работе",
   });
   try {
@@ -293,7 +299,10 @@ it("review берёт свою колонку из ключа env-файла", a
 
 describe("move: в PATCH идут только заданные оси", () => {
   it("дорожка и колонка на текущей доске", async () => {
-    const st = stand([card(BACKLOG_ID, "Бэклог"), card(READY_ID, "Готово")]);
+    const st = await stand([
+      card(BACKLOG_ID, "Бэклог"),
+      card(READY_ID, "Готово"),
+    ]);
     try {
       await output(
         kitenMoveCommand,
@@ -308,7 +317,7 @@ describe("move: в PATCH идут только заданные оси", () => {
     }
   });
   it("доска резолвится по названию среди всех пространств", async () => {
-    const st = stand([
+    const st = await stand([
       card(BACKLOG_ID, "Бэклог"),
       card(BACKLOG_ID, "Бэклог"),
     ]);
@@ -326,7 +335,7 @@ describe("move: в PATCH идут только заданные оси", () => {
 });
 
 it("move --column с текущей колонкой — релог", async () => {
-  const st = stand([card(READY_ID, "Готово")]);
+  const st = await stand([card(READY_ID, "Готово")]);
   try {
     const text = await output(
       kitenMoveCommand,
@@ -343,7 +352,7 @@ it("move --column с текущей колонкой — релог", async () =
 });
 
 it("нерезолвящийся REF — отказ ввода без мутаций", async () => {
-  const st = stand([card(BACKLOG_ID, "Бэклог")]);
+  const st = await stand([card(BACKLOG_ID, "Бэклог")]);
   try {
     const err = await rejected(() =>
       kitenMoveCommand.invoke(
@@ -360,7 +369,7 @@ it("нерезолвящийся REF — отказ ввода без мутац
 });
 
 it("релог не запрашивает колонки доски второй раз", async () => {
-  const st = stand([card(READY_ID, "Готово")]);
+  const st = await stand([card(READY_ID, "Готово")]);
   try {
     await output(kitenReadyCommand, [String(CARD_ID)], st.io);
     expect(st.seen.filter((req) => req.pathname === COLUMNS_PATH).length).toBe(
@@ -372,7 +381,7 @@ it("релог не запрашивает колонки доски второ�
 });
 
 it("релог возвращает карточку одной колонкой, без прочих осей", async () => {
-  const st = stand([card(READY_ID, "Готово")]);
+  const st = await stand([card(READY_ID, "Готово")]);
   try {
     await output(
       kitenMoveCommand,

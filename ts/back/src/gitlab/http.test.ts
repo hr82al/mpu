@@ -21,7 +21,7 @@ const TOKEN = "glpat-proba-Q3z8NwToken";
 const accessTo = (baseUrl: string): GitlabAccess => ({ baseUrl, token: TOKEN });
 
 it("GET: путь от /api/v4, PRIVATE-TOKEN и Accept", async () => {
-  const stand = startFakeGitlab(() => Response.json({ iid: 456 }));
+  const stand = await startFakeGitlab(() => Response.json({ iid: 456 }));
   try {
     const body = await gitlabGet(
       accessTo(stand.baseUrl),
@@ -41,7 +41,9 @@ it("GET: путь от /api/v4, PRIVATE-TOKEN и Accept", async () => {
 
 it("не-2xx: метод, путь, код и тело до 300 символов", async () => {
   const long = "x".repeat(400);
-  const stand = startFakeGitlab(() => new Response(long, { status: 404 }));
+  const stand = await startFakeGitlab(() =>
+    new Response(long, { status: 404 })
+  );
   try {
     const err = await rejected(
       () => gitlabGet(accessTo(stand.baseUrl), "/projects/p/merge_requests/9"),
@@ -57,7 +59,7 @@ it("не-2xx: метод, путь, код и тело до 300 символов
 });
 
 it("сетевой сбой: статус 0 и текст сбоя вместо тела", async () => {
-  const stand = startFakeGitlab(() => new Response("", { status: 200 }));
+  const stand = await startFakeGitlab(() => new Response("", { status: 200 }));
   const baseUrl = stand.baseUrl;
   // Сервер погашен до вызова: соединение не устанавливается вовсе.
   await stand.stop();
@@ -72,7 +74,7 @@ it("сетевой сбой: статус 0 и текст сбоя вместо 
 it("пагинация идёт дальше страницы ровно в сто элементов", async () => {
   const page = (from: number, count: number) =>
     Array.from({ length: count }, (_, index) => ({ id: from + index }));
-  const stand = startFakeGitlab((seen) =>
+  const stand = await startFakeGitlab((seen) =>
     Response.json(seen.length === 1 ? page(1, 100) : page(101, 7))
   );
   try {
@@ -99,7 +101,7 @@ it("длина страницы считается по ответу, а не п
     ...Array.from({ length: 99 }, (_, index) => ({ id: index })),
     "мусор",
   ];
-  const stand = startFakeGitlab((seen) =>
+  const stand = await startFakeGitlab((seen) =>
     Response.json(seen.length === 1 ? dirty : [{ id: 100 }])
   );
   try {
@@ -112,7 +114,7 @@ it("длина страницы считается по ответу, а не п
 });
 
 it("токен не появляется ни в одном тексте отказа", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     new Response(`{"message":"401 Unauthorized"}`, { status: 401 })
   );
   try {
@@ -130,7 +132,9 @@ it("токен не появляется ни в одном тексте отк�
 });
 
 it("ответ не JSON и не той формы — отказ разбора, не молчание", async () => {
-  const stand = startFakeGitlab(() => new Response("<html>", { status: 200 }));
+  const stand = await startFakeGitlab(() =>
+    new Response("<html>", { status: 200 })
+  );
   try {
     await rejected(
       () => gitlabGet(accessTo(stand.baseUrl), "/projects/p"),
@@ -150,7 +154,7 @@ it("предел не отбивает ответ, над которым сер�
   expect(TIMEOUTS.headersTimeoutMs).toStrictEqual(TIMEOUTS.totalTimeoutMs);
   expect(TIMEOUTS.totalTimeoutMs).toBe(30_000);
 
-  const slow = startFakeGitlab(async () => {
+  const slow = await startFakeGitlab(async () => {
     // Задержка заголовков, а не тела: столько сервер «думает».
     await new Promise((resolve) => setTimeout(resolve, 120));
     return Response.json({ iid: 1 });

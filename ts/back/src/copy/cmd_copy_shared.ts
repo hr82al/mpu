@@ -12,6 +12,7 @@
  * preserve).
  */
 
+import { statSync } from "node:fs";
 import { z } from "zod";
 import {
   type CacheDb,
@@ -198,7 +199,7 @@ export async function runCopyShared(
 /** Существует ли путь; ошибка доступа равнозначна отсутствию. */
 function existsOnDisk(path: string): boolean {
   try {
-    Deno.statSync(path);
+    statSync(path);
     return true;
   } catch {
     return false;

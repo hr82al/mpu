@@ -5,6 +5,7 @@
  */
 
 import { DatabaseSync } from "node:sqlite";
+import { mkdirSync } from "node:fs";
 import { BUSY_TIMEOUT_MS } from "../store/mod.ts";
 import type { Migration } from "./migration.ts";
 import { RulePath } from "./path.ts";
@@ -64,7 +65,7 @@ export class RuleBook implements Disposable {
     return guarded(() => {
       // Путь без каталога — файл в текущем, создавать нечего.
       const cut = file.lastIndexOf("/");
-      if (cut > 0) Deno.mkdirSync(file.slice(0, cut), { recursive: true });
+      if (cut > 0) mkdirSync(file.slice(0, cut), { recursive: true });
       const db = new DatabaseSync(file);
       const book = new RuleBook(db);
       try {

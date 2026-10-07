@@ -93,7 +93,7 @@ const args = (overrides: Record<string, unknown> = {}) =>
   }) as Parameters<typeof runGlabStatus>[0];
 
 it("режим адреса: json — эталон канала", async () => {
-  const stand = startFakeGitlab(() => Response.json(OPEN_MR));
+  const stand = await startFakeGitlab(() => Response.json(OPEN_MR));
   try {
     const result = await runGlabStatus(
       args({ mr: ["group/repo!456"], json: true }),
@@ -112,7 +112,7 @@ it("режим адреса: json — эталон канала", async () => {
 });
 
 it("режим адреса: шапка, колонки и подвал", async () => {
-  const stand = startFakeGitlab(() => Response.json(OPEN_MR));
+  const stand = await startFakeGitlab(() => Response.json(OPEN_MR));
   try {
     const result = await runGlabStatus(
       args({ mr: ["group/repo!456"] }),
@@ -137,7 +137,7 @@ it("режим адреса: шапка, колонки и подвал", async 
 
 describe("landed заполняется только у смерженного MR", () => {
   it("несмерженный: ветки не спрашиваются", async () => {
-    const stand = startFakeGitlab(() => Response.json(OPEN_MR));
+    const stand = await startFakeGitlab(() => Response.json(OPEN_MR));
     try {
       const result = await runGlabStatus(
         args({ mr: ["group/repo!456"] }),
@@ -155,7 +155,7 @@ describe("landed заполняется только у смерженного M
   });
 
   it("смерженный: ветки в порядке колонок", async () => {
-    const stand = startFakeGitlab((seen) =>
+    const stand = await startFakeGitlab((seen) =>
       seen[seen.length - 1].pathname.includes("/refs")
         // Ответ нарочно в обратном порядке: колонки не должны от него
         // зависеть.
@@ -187,7 +187,7 @@ describe("landed заполняется только у смерженного M
 });
 
 it("голый iid берёт проект из git remote", async () => {
-  const stand = startFakeGitlab(() => Response.json(OPEN_MR));
+  const stand = await startFakeGitlab(() => Response.json(OPEN_MR));
   try {
     const runGit: RunGit = () =>
       Promise.resolve({
@@ -210,7 +210,7 @@ it("голый iid берёт проект из git remote", async () => {
 });
 
 it("голый iid без git: отказ с подсказкой про формы адреса", async () => {
-  const stand = startFakeGitlab(() => Response.json(OPEN_MR));
+  const stand = await startFakeGitlab(() => Response.json(OPEN_MR));
   try {
     const err = await rejected(
       () =>
@@ -231,7 +231,7 @@ it("голый iid без git: отказ с подсказкой про фор�
 describe("мои MR: окно уходит в запрос и фильтрует выдачу", () => {
   let stand: FakeGitlab;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     const mine = [
       { ...OPEN_MR, iid: 1, web_url: MR_URL.replace("456", "1") },
       {
@@ -246,7 +246,7 @@ describe("мои MR: окно уходит в запрос и фильтрует
         web_url: "https://gitlab.example.test/wb/sw-front/-/merge_requests/3",
       },
     ];
-    stand = startFakeGitlab(() => Response.json(mine));
+    stand = await startFakeGitlab(() => Response.json(mine));
   });
 
   afterAll(async () => {
@@ -289,7 +289,7 @@ describe("мои MR: окно уходит в запрос и фильтрует
 });
 
 it("пустой результат — строка-объяснение, не пустая таблица", async () => {
-  const stand = startFakeGitlab(() => Response.json([]));
+  const stand = await startFakeGitlab(() => Response.json([]));
   try {
     const lines: string[] = [];
     const io = {
@@ -331,8 +331,8 @@ it("пустой результат — строка-объяснение, не 
 describe("конфликты режимов отбиваются до сети", () => {
   let quiet: FakeGitlab;
   let io: StatusIo;
-  beforeAll(() => {
-    quiet = startFakeGitlab(() => {
+  beforeAll(async () => {
+    quiet = await startFakeGitlab(() => {
       throw new Error("сети быть не должно");
     });
     io = ioTo(quiet.baseUrl);
@@ -377,7 +377,7 @@ describe("конфликты режимов отбиваются до сети",
 });
 
 it("токен не появляется ни в выводе, ни в отказе", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     new Response(`{"message":"401 Unauthorized"}`, { status: 401 })
   );
   try {
@@ -396,7 +396,7 @@ it("токен не появляется ни в выводе, ни в отка�
 });
 
 it("--since не разбирается — отказ ввода до сети", async () => {
-  const quiet = startFakeGitlab(() => {
+  const quiet = await startFakeGitlab(() => {
     throw new Error("сети быть не должно");
   });
   try {
@@ -416,7 +416,7 @@ it("--since не разбирается — отказ ввода до сети"
 });
 
 it("повтор одного MR разными формами схлопывается", async () => {
-  const stand = startFakeGitlab(() => Response.json(OPEN_MR));
+  const stand = await startFakeGitlab(() => Response.json(OPEN_MR));
   try {
     // URL строится от адреса стенда: проверка хоста в атоме отбивает
     // ссылку на чужой инстанс, и это правильно — здесь проверяется
@@ -452,7 +452,7 @@ it("колонок веток всегда шесть, в объявленном
 });
 
 it("узкий терминал: заголовок усечён, колонки веток на месте", async () => {
-  const stand = startFakeGitlab(() => Response.json(OPEN_MR));
+  const stand = await startFakeGitlab(() => Response.json(OPEN_MR));
   try {
     const result = await runGlabStatus(
       args({ mr: ["group/repo!456"] }),
@@ -473,7 +473,7 @@ it("узкий терминал: заголовок усечён, колонки
 });
 
 it("галочка считается за две ячейки — колонки не разъезжаются", async () => {
-  const stand = startFakeGitlab((seen) =>
+  const stand = await startFakeGitlab((seen) =>
     seen[seen.length - 1].pathname.includes("/refs")
       ? Response.json([
         { type: "branch", name: "trunk" },
@@ -504,7 +504,7 @@ it("галочка считается за две ячейки — колонк�
 });
 
 it("404 от refs — «нет данных», а не пустой список веток", async () => {
-  const stand = startFakeGitlab((seen) =>
+  const stand = await startFakeGitlab((seen) =>
     seen[seen.length - 1].pathname.includes("/refs")
       // Коммита на хосте нет — например, после переписывания истории.
       ? new Response(`{"message":"404 Commit Not Found"}`, { status: 404 })
@@ -535,7 +535,7 @@ describe("подвал: (нет), полный список и форма на �
         : Response.json(MERGED_MR);
 
   it("веток вне пайплайна нет — (нет)", async () => {
-    const stand = startFakeGitlab(branchesFor(["trunk"]));
+    const stand = await startFakeGitlab(branchesFor(["trunk"]));
     try {
       const result = await runGlabStatus(
         args({ mr: ["group/repo!457"] }),
@@ -552,7 +552,9 @@ describe("подвал: (нет), полный список и форма на �
   });
 
   it("без --branches — счёт и подсказка, с ним — список", async () => {
-    const stand = startFakeGitlab(branchesFor(["trunk", "хотфикс", "релиз"]));
+    const stand = await startFakeGitlab(
+      branchesFor(["trunk", "хотфикс", "релиз"]),
+    );
     try {
       const result = await runGlabStatus(
         args({ mr: ["group/repo!457"] }),
@@ -571,7 +573,7 @@ describe("подвал: (нет), полный список и форма на �
   });
 
   it("несколько MR — строка на каждый с отступом", async () => {
-    const stand = startFakeGitlab((seen) => {
+    const stand = await startFakeGitlab((seen) => {
       const last = seen[seen.length - 1];
       if (last.pathname.includes("/refs")) return Response.json([]);
       const iid = Number(last.pathname.split("/").pop());
@@ -603,7 +605,7 @@ it("мои MR: порядок строк (repo, iid) и отсев без projec
     // Без маркера `/-/` project не определяется — строка отпадает.
     { ...OPEN_MR, iid: 7, web_url: "https://gitlab.example.test/wb/sw-back" },
   ];
-  const stand = startFakeGitlab(() => Response.json(mine));
+  const stand = await startFakeGitlab(() => Response.json(mine));
   try {
     const result = await runGlabStatus(args(), ioTo(stand.baseUrl), {
       runGit: noGit,

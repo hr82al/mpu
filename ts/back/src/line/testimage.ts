@@ -4,6 +4,9 @@
  * каталоге, часы постоянные, Kaiten подменён.
  */
 
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Image } from "../image/mod.ts";
 import type { ImagePorts } from "./mod.ts";
 import { runOnStand, withStand } from "./testprogram.ts";
@@ -23,11 +26,11 @@ export const DEFINED_AT = "2026-09-23T10:00:00.000Z";
 export async function withState(
   body: (state: { policy: string; image: string }) => Promise<void>,
 ): Promise<void> {
-  const dir = await Deno.makeTempDir();
+  const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   try {
     await body({ policy: `${dir}/policy.db`, image: `${dir}/image.db` });
   } finally {
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true });
   }
 }
 

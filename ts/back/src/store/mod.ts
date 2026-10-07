@@ -11,8 +11,10 @@
  * «Библиотеки и приёмы» — предпочтение встроенным API Deno).
  */
 
+import { chmodSync, closeSync, mkdirSync, openSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { CacheDb, SqlRow } from "../command/mod.ts";
+import { hasErrorCode } from "../oserror/mod.ts";
 import { SCHEMA_STATEMENTS } from "./schema.ts";
 
 /**
@@ -42,7 +44,7 @@ export const BUSY_TIMEOUT_MS = 5000;
 
 export function openCacheDb(path: string): CacheDb {
   const dir = path.slice(0, path.lastIndexOf("/"));
-  if (dir !== "") Deno.mkdirSync(dir, { recursive: true });
+  if (dir !== "") mkdirSync(dir, { recursive: true });
 
   // Недостающий файл создаётся сразу с 0600 (в БД лежат токены доступа) —
   // ДО открытия SQLite: движок копирует права главного файла на служебные
@@ -50,10 +52,9 @@ export function openCacheDb(path: string): CacheDb {
   // не возникает (`platform/store.md`, «Ввод/вывод»). Уже существующий файл
   // не трогаем — его права приводит `bootstrap()`.
   try {
-    Deno.openSync(path, { createNew: true, write: true, mode: 0o600 })
-      .close();
+    closeSync(openSync(path, "wx", 0o600));
   } catch (err) {
-    if (!(err instanceof Deno.errors.AlreadyExists)) throw err;
+    if (!hasErrorCode(err, "EEXIST")) throw err;
   }
 
   const db = new DatabaseSync(path);
@@ -89,7 +90,7 @@ export function openCacheDb(path: string): CacheDb {
       // (например, от версии до этого вердикта, или созданный
       // Python-оригиналом, который прав не выставляет) — bootstrap
       // приводит его к 0600.
-      Deno.chmodSync(path, 0o600);
+      chmodSync(path, 0o600);
     },
     execute: (sql, ...params) => Number(db.prepare(sql).run(...params).changes),
     query: (sql, ...params) =>

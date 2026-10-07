@@ -5,6 +5,7 @@
  * `kiten ls` allow, `kiten comment` ask, `sql` deny.
  */
 
+import { readdir } from "node:fs/promises";
 import type { RefusalData } from "../frames/mod.ts";
 import { ASK, DENY, RuleBook, RulePath } from "../policy/mod.ts";
 import { allowEverything, withPolicyFile } from "./testconsent.ts";
@@ -94,8 +95,8 @@ export const COMPOSITE_DIR = new URL("testdata/ask-door/", import.meta.url);
 /** Имена файлов случаев по алфавиту. */
 export async function compositeFiles(): Promise<string[]> {
   const names: string[] = [];
-  for await (const entry of Deno.readDir(COMPOSITE_DIR)) {
-    if (entry.name.startsWith("composite-")) names.push(entry.name);
+  for (const name of await readdir(COMPOSITE_DIR)) {
+    if (name.startsWith("composite-")) names.push(name);
   }
   return names.sort();
 }

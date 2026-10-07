@@ -9,7 +9,9 @@
  * `information_schema`, и она идёт из smoke при поднятом стенде.
  */
 
+import { readdir, readFile } from "node:fs/promises";
 import type { EnvFile } from "../command/mod.ts";
+import { isPermissionRefusal } from "../oserror/mod.ts";
 import { type PgTarget, serverTarget } from "../sql/mod.ts";
 
 /** Каталог голденов; единица — файл, а не список имён в коде. */
@@ -32,9 +34,9 @@ export async function schemaGoldens(
   dir: URL = new URL(SCHEMA_DIR, import.meta.url),
 ): Promise<readonly SchemaGolden[]> {
   const out: SchemaGolden[] = [];
-  for await (const entry of Deno.readDir(dir)) {
-    if (!entry.isFile || !entry.name.endsWith(SUFFIX)) continue;
-    const text = await Deno.readTextFile(new URL(entry.name, dir));
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(SUFFIX)) continue;
+    const text = await readFile(new URL(entry.name, dir), "utf8");
     out.push({
       table: entry.name.slice(0, -SUFFIX.length),
       columns: columnsOf(text),
@@ -118,7 +120,7 @@ export type SkipCause = "permission" | "unreachable" | "credentials";
 export function skipCause(err: unknown): SkipCause {
   // Нехватка права у процесса — не свойство стенда: база может быть
   // поднята и доступна, а проверка всё равно не дойдёт до неё.
-  return err instanceof Deno.errors.NotCapable ? "permission" : "unreachable";
+  return isPermissionRefusal(err) ? "permission" : "unreachable";
 }
 
 /** Текст пропуска: причина названа своим словом и с своим лечением. */

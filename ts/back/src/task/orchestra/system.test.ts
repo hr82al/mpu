@@ -8,6 +8,7 @@ import { expect, it, vi } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { osError } from "../../oserror/mod.ts";
 import { fakeTimers } from "../../testing/scope.ts";
 import { pause, runSteps, STEP_MS } from "./run.ts";
 import {
@@ -81,7 +82,7 @@ it("уведомление: строка лога и notify-send; програм
   const { calls, run } = recording();
   await new SystemNotices((text) => lines.push(text), run).notify("demo: x");
   expect(calls).toStrictEqual([[NOTIFY_SEND, "mpu task", "demo: x"]]);
-  const missing: Run = () => Promise.reject(new Deno.errors.NotFound("нет"));
+  const missing: Run = () => Promise.reject(osError("ENOENT", "нет"));
   await new SystemNotices((text) => lines.push(text), missing).notify("y");
   const broken: Run = () => Promise.reject(new Error("отказано"));
   await new SystemNotices((text) => lines.push(text), broken).notify("z");

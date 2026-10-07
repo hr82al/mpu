@@ -30,7 +30,7 @@ export function callIo(
     ...io,
     env: (name) => environment.value(name),
     cwd: () => dir.path(),
-    // Пути файлов — от каталога строки: `Deno.*` разрешает
+    // Пути файлов — от каталога строки: файловый API разрешает
     // относительный путь от процесса, а он больше не переезжает в
     // каталог строки.
     readFile: (path) => io.readFile(dir.resolve(path)),

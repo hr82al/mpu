@@ -5,6 +5,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { type Dirent, readdirSync, readFileSync } from "node:fs";
 import {
   blockParams,
   canonicalLine,
@@ -15,6 +16,7 @@ import {
 } from "./definition.ts";
 import type { ImageMethod } from "./method.ts";
 import { NotUtf8, utf8Of, wordsOf } from "../frames/mod.ts";
+import { hasErrorCode } from "../oserror/mod.ts";
 
 /** Хэш отсутствующей стороны — null-объект решения: sha256 пустым не бывает. */
 export const NONE = "";
@@ -148,17 +150,17 @@ export function readFiles(dir: string, receivers: Receivers): FilesRead {
 /** Пути файлов методов под `dir/sub` от `dir`. */
 function methodPaths(dir: string, sub: string): string[] {
   const at = sub === "" ? dir : `${dir}/${sub}`;
-  let entries: Deno.DirEntry[];
+  let entries: Dirent[];
   try {
-    entries = [...Deno.readDirSync(at)];
+    entries = readdirSync(at, { withFileTypes: true });
   } catch (err) {
-    if (sub === "" && err instanceof Deno.errors.NotFound) return [];
+    if (sub === "" && hasErrorCode(err, "ENOENT")) return [];
     throw unreadable(err);
   }
   return entries.flatMap((entry) => {
     const path = sub === "" ? entry.name : `${sub}/${entry.name}`;
-    if (entry.isDirectory) return methodPaths(dir, path);
-    return entry.isFile && entry.name.endsWith(EXTENSION) ? [path] : [];
+    if (entry.isDirectory()) return methodPaths(dir, path);
+    return entry.isFile() && entry.name.endsWith(EXTENSION) ? [path] : [];
   });
 }
 
@@ -177,7 +179,7 @@ function readFile(
   }
   let bytes: Uint8Array;
   try {
-    bytes = Deno.readFileSync(`${dir}/${path}`);
+    bytes = new Uint8Array(readFileSync(`${dir}/${path}`));
   } catch (err) {
     throw unreadable(err);
   }

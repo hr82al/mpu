@@ -74,16 +74,16 @@ interface Stand {
 }
 
 /** Стенд: фейковый Kaiten, отвечающий `/users/current` и `/cards`. */
-function stand(
+async function stand(
   options: {
     readonly cards?: readonly Record<string, unknown>[];
     readonly user?: Record<string, unknown>;
     readonly env?: Record<string, string>;
   } = {},
-): Stand {
+): Promise<Stand> {
   const cards = options.cards ?? [];
   const user = options.user ?? USER;
-  const fake = startFakeKaiten((seen) => {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     if (last.pathname === USER_PATH) return Response.json(user);
     if (last.pathname === CARDS_PATH) {
@@ -245,7 +245,7 @@ function cardsQueryOf(st: Stand): URLSearchParams {
 }
 
 it("ls: --json совпадает с голденом байт-в-байт (глобальный режим)", async () => {
-  const st = stand({ cards: GOLDEN_CARDS });
+  const st = await stand({ cards: GOLDEN_CARDS });
   try {
     const text = await output(kitenLsCommand, [
       "--date-from",
@@ -261,7 +261,7 @@ it("ls: --json совпадает с голденом байт-в-байт (гл
 });
 
 it("ls: --md совпадает с голденом байт-в-байт (глобальный режим)", async () => {
-  const st = stand({ cards: GOLDEN_CARDS });
+  const st = await stand({ cards: GOLDEN_CARDS });
   try {
     seedColumn(st, { id: 9101, boardId: 4001, title: "Колонка 1" });
     seedColumn(st, { id: 9102, boardId: 4001, title: "Колонка 2" });
@@ -279,7 +279,7 @@ it("ls: --md совпадает с голденом байт-в-байт (гло
 });
 
 it("ls: --json не несёт колонку, доску и дорожку — ровно шесть ключей", async () => {
-  const st = stand({ cards: GOLDEN_CARDS });
+  const st = await stand({ cards: GOLDEN_CARDS });
   try {
     seedColumn(st, { id: 9101, boardId: 4001, title: "Колонка 1" });
     const text = await output(kitenLsCommand, ["--json"], st.io);
@@ -301,7 +301,7 @@ it("ls: --json не несёт колонку, доску и дорожку — 
 });
 
 it("ls: --json не трогает кэш вовсе, если REF не задан", async () => {
-  const fake = startFakeKaiten((seen) => {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     if (last.pathname === USER_PATH) return Response.json(USER);
     if (last.pathname === CARDS_PATH) return Response.json(GOLDEN_CARDS);
@@ -318,7 +318,7 @@ it("ls: --json не трогает кэш вовсе, если REF не зада
 
 describe("ls: приоритет видов вывода — json > format > only-url > md", () => {
   it("--json побеждает остальные флаги вида", async () => {
-    const st = stand({ cards: [GOLDEN_CARDS[0]] });
+    const st = await stand({ cards: [GOLDEN_CARDS[0]] });
     try {
       const text = await output(kitenLsCommand, [
         "--json",
@@ -334,7 +334,7 @@ describe("ls: приоритет видов вывода — json > format > onl
   });
 
   it("--format побеждает --only-url и --md", async () => {
-    const st = stand({ cards: [GOLDEN_CARDS[0]] });
+    const st = await stand({ cards: [GOLDEN_CARDS[0]] });
     try {
       const text = await output(kitenLsCommand, [
         "--format",
@@ -349,7 +349,7 @@ describe("ls: приоритет видов вывода — json > format > onl
   });
 
   it("--only-url побеждает --md", async () => {
-    const st = stand({ cards: [GOLDEN_CARDS[0]] });
+    const st = await stand({ cards: [GOLDEN_CARDS[0]] });
     try {
       const text = await output(kitenLsCommand, ["--only-url", "--md"], st.io);
       expect(text).toContain("](");
@@ -362,7 +362,7 @@ describe("ls: приоритет видов вывода — json > format > onl
 
 describe("ls: свод оси condition — CLI > env > дефолт, --archived побеждает всегда", () => {
   it("дефолт condition=1 без флагов и env", async () => {
-    const st = stand();
+    const st = await stand();
     try {
       await output(kitenLsCommand, [], st.io);
       expect(cardsQueryOf(st).get("condition")).toBe("1");
@@ -372,7 +372,7 @@ describe("ls: свод оси condition — CLI > env > дефолт, --archived
   });
 
   it("env KITEN_LS_CONDITION побеждает дефолт", async () => {
-    const st = stand({ env: { KITEN_LS_CONDITION: "2" } });
+    const st = await stand({ env: { KITEN_LS_CONDITION: "2" } });
     try {
       await output(kitenLsCommand, [], st.io);
       expect(cardsQueryOf(st).get("condition")).toBe("2");
@@ -382,7 +382,7 @@ describe("ls: свод оси condition — CLI > env > дефолт, --archived
   });
 
   it("--archived побеждает env", async () => {
-    const st = stand({ env: { KITEN_LS_CONDITION: "1" } });
+    const st = await stand({ env: { KITEN_LS_CONDITION: "1" } });
     try {
       await output(kitenLsCommand, ["--archived"], st.io);
       expect(cardsQueryOf(st).get("condition")).toBe("2");
@@ -394,7 +394,7 @@ describe("ls: свод оси condition — CLI > env > дефолт, --archived
 
 describe("ls: свод оси states — --state мапится, env уходит как есть, CLI побеждает", () => {
   it("--state мапится в код сервера", async () => {
-    const st = stand();
+    const st = await stand();
     try {
       await output(kitenLsCommand, ["--state", "in-progress"], st.io);
       expect(cardsQueryOf(st).get("states")).toBe("2");
@@ -404,7 +404,7 @@ describe("ls: свод оси states — --state мапится, env уходи�
   });
 
   it("env KITEN_LS_STATES уходит дословно", async () => {
-    const st = stand({ env: { KITEN_LS_STATES: "1,3" } });
+    const st = await stand({ env: { KITEN_LS_STATES: "1,3" } });
     try {
       await output(kitenLsCommand, [], st.io);
       expect(cardsQueryOf(st).get("states")).toBe("1,3");
@@ -414,7 +414,7 @@ describe("ls: свод оси states — --state мапится, env уходи�
   });
 
   it("--state побеждает env", async () => {
-    const st = stand({ env: { KITEN_LS_STATES: "1,3" } });
+    const st = await stand({ env: { KITEN_LS_STATES: "1,3" } });
     try {
       await output(kitenLsCommand, ["--state", "done"], st.io);
       expect(cardsQueryOf(st).get("states")).toBe("3");
@@ -426,7 +426,7 @@ describe("ls: свод оси states — --state мапится, env уходи�
 
 describe("ls: свод осей space/board/lane/column — env целым, CLI резолвом REF по кэшу", () => {
   it("env-целые уходят как id без REF-резолва", async () => {
-    const st = stand({
+    const st = await stand({
       env: {
         KITEN_LS_SPACE_ID: "3001",
         KITEN_LS_BOARD_ID: "4001",
@@ -447,7 +447,7 @@ describe("ls: свод осей space/board/lane/column — env целым, CLI 
   });
 
   it("--board резолвится по кэшу и задаёт скоуп --lane", async () => {
-    const st = stand();
+    const st = await stand();
     try {
       seedBoard(st, { id: 4002, spaceId: 3001, title: "Доска поддержки" });
       seedLane(st, { id: 5010, boardId: 4002, title: "Дорожка А" });
@@ -469,7 +469,7 @@ describe("ls: свод осей space/board/lane/column — env целым, CLI 
   });
 
   it("--board побеждает KITEN_LS_BOARD_ID", async () => {
-    const st = stand({ env: { KITEN_LS_BOARD_ID: "4099" } });
+    const st = await stand({ env: { KITEN_LS_BOARD_ID: "4099" } });
     try {
       seedBoard(st, { id: 4002, spaceId: 3001, title: "Доска" });
       await output(kitenLsCommand, ["--board", "4002"], st.io);
@@ -481,7 +481,7 @@ describe("ls: свод осей space/board/lane/column — env целым, CLI 
 });
 
 it("ls: глобальный режим отключает env-оси целиком, включая доску по умолчанию", async () => {
-  const st = stand({
+  const st = await stand({
     env: {
       KITEN_LS_CONDITION: "2",
       KITEN_LS_STATES: "1",
@@ -507,7 +507,7 @@ it("ls: глобальный режим отключает env-оси целик
 });
 
 it("ls: --archived в глобальном режиме всё равно даёт condition=2", async () => {
-  const st = stand();
+  const st = await stand();
   try {
     await output(kitenLsCommand, [
       "--date-from",
@@ -521,7 +521,7 @@ it("ls: --archived в глобальном режиме всё равно даё
 });
 
 it("ls: без дат env-оси применяются как обычно", async () => {
-  const st = stand({ env: { KITEN_LS_SPACE_ID: "3001" } });
+  const st = await stand({ env: { KITEN_LS_SPACE_ID: "3001" } });
   try {
     await output(kitenLsCommand, [], st.io);
     expect(cardsQueryOf(st).get("space_id")).toBe("3001");
@@ -532,7 +532,7 @@ it("ls: без дат env-оси применяются как обычно", as
 
 describe("ls: границы дат инклюзивны — T00:00:00Z / T23:59:59Z", () => {
   it("--date-from → updated_after", async () => {
-    const st = stand();
+    const st = await stand();
     try {
       await output(kitenLsCommand, ["--date-from", "2026-07-01"], st.io);
       expect(cardsQueryOf(st).get("updated_after")).toBe(
@@ -544,7 +544,7 @@ describe("ls: границы дат инклюзивны — T00:00:00Z / T23:59
   });
 
   it("--date-to → updated_before", async () => {
-    const st = stand();
+    const st = await stand();
     try {
       await output(kitenLsCommand, ["--date-to", "2026-07-15"], st.io);
       expect(cardsQueryOf(st).get("updated_before")).toBe(
@@ -558,7 +558,7 @@ describe("ls: границы дат инклюзивны — T00:00:00Z / T23:59
   it(
     "--date_from/--date_to — принятые написания с подчёркиванием",
     async () => {
-      const st = stand();
+      const st = await stand();
       try {
         await output(kitenLsCommand, [
           "--date_from",
@@ -577,7 +577,7 @@ describe("ls: границы дат инклюзивны — T00:00:00Z / T23:59
 });
 
 it("ls: --format — нумерация с 1, неизвестный плейсхолдер остаётся, скобки в данных не интерпретируются", async () => {
-  const st = stand({
+  const st = await stand({
     cards: [
       {
         id: 1,
@@ -613,7 +613,7 @@ it("ls: --format — нумерация с 1, неизвестный плейс�
 
 describe("ls: {column}/{column_mapped} — кэш, промах кэша, KITEN_COLUMN_MAP по id и по названию", () => {
   it("название по кэшу, метка карты по названию", async () => {
-    const st = stand({
+    const st = await stand({
       cards: [{
         id: 1,
         title: "T",
@@ -637,7 +637,7 @@ describe("ls: {column}/{column_mapped} — кэш, промах кэша, KITEN_
   });
 
   it("ключ-id проверяется раньше ключа-названия", async () => {
-    const st = stand({
+    const st = await stand({
       cards: [{
         id: 1,
         title: "T",
@@ -668,7 +668,7 @@ describe("ls: {column}/{column_mapped} — кэш, промах кэша, KITEN_
   it(
     "промах кэша — id числом; колонки нет — пусто; нет в карте — {column}",
     async () => {
-      const st = stand({
+      const st = await stand({
         cards: [
           {
             id: 1,
@@ -702,7 +702,7 @@ describe("ls: {column}/{column_mapped} — кэш, промах кэша, KITEN_
 });
 
 it("ls: --only-url экранирует [ и ] в title", async () => {
-  const st = stand({
+  const st = await stand({
     cards: [{
       id: 1,
       title: "Баг [важно] в [модуле]",
@@ -721,7 +721,7 @@ it("ls: --only-url экранирует [ и ] в title", async () => {
 });
 
 it("ls: --md экранирует | и заменяет переводы строк пробелом", async () => {
-  const st = stand({
+  const st = await stand({
     cards: [{
       id: 1,
       title: "Заголовок | с чертой\nи переводом строки",
@@ -741,7 +741,7 @@ it("ls: --md экранирует | и заменяет переводы стр�
 
 describe("ls: отказы ввода — точные тексты спеки", () => {
   it("невалидная дата --date-from", async () => {
-    const st = stand();
+    const st = await stand();
     try {
       expect(await errorText(["--date-from", "2026-13-01"], st.io)).toBe(
         "mpu kiten ls: --date-from='2026-13-01': ожидается YYYY-MM-DD\n",
@@ -752,7 +752,7 @@ describe("ls: отказы ввода — точные тексты спеки",
   });
 
   it("невалидная дата --date-to", async () => {
-    const st = stand();
+    const st = await stand();
     try {
       expect(await errorText(["--date-to", "не дата"], st.io)).toBe(
         "mpu kiten ls: --date-to='не дата': ожидается YYYY-MM-DD\n",
@@ -763,7 +763,7 @@ describe("ls: отказы ввода — точные тексты спеки",
   });
 
   it("нечисловая env-ось — с именем переменной", async () => {
-    const st = stand({ env: { KITEN_LS_CONDITION: "x" } });
+    const st = await stand({ env: { KITEN_LS_CONDITION: "x" } });
     try {
       expect(await errorText([], st.io)).toBe(
         "mpu kiten ls: KITEN_LS_CONDITION='x': ожидалось целое число\n",
@@ -774,7 +774,7 @@ describe("ls: отказы ввода — точные тексты спеки",
   });
 
   it("неизвестное значение --state", async () => {
-    const st = stand();
+    const st = await stand();
     try {
       const err = await rejected(
         () => kitenLsCommand.invoke(["--state", "wat"], st.io),
@@ -787,7 +787,7 @@ describe("ls: отказы ввода — точные тексты спеки",
   });
 
   it("нерезолвящийся REF", async () => {
-    const st = stand();
+    const st = await stand();
     try {
       const err = await rejected(
         () => kitenLsCommand.invoke(["--board", "нет такой"], st.io),
@@ -802,7 +802,7 @@ describe("ls: отказы ввода — точные тексты спеки",
 
 describe("ls: битый KITEN_COLUMN_MAP не роняет команду — предупреждение, карта пустая", () => {
   it("невалидный JSON", async () => {
-    const st = stand({
+    const st = await stand({
       cards: [{
         id: 1,
         title: "T",
@@ -830,7 +830,7 @@ describe("ls: битый KITEN_COLUMN_MAP не роняет команду — �
   });
 
   it("не объект", async () => {
-    const st = stand({
+    const st = await stand({
       cards: [{
         id: 1,
         title: "T",
@@ -857,7 +857,9 @@ describe("ls: битый KITEN_COLUMN_MAP не роняет команду — �
 });
 
 it("ls: ошибка API — exit 1, mpu kiten ls: kaiten error: <текст>", async () => {
-  const fake = startFakeKaiten(() => new Response("boom", { status: 500 }));
+  const fake = await startFakeKaiten(() =>
+    new Response("boom", { status: 500 })
+  );
   const io = ioWithoutCache({}, fake.baseUrl);
   try {
     const text = await errorText([], io, DomainError);
@@ -869,7 +871,7 @@ it("ls: ошибка API — exit 1, mpu kiten ls: kaiten error: <текст>", 
 
 describe("ls: таблица по умолчанию — состав колонок, итог, пустая выдача", () => {
   it("непустая выдача — шапка, строки, итог (N cards)", async () => {
-    const st = stand({ cards: [GOLDEN_CARDS[0]] });
+    const st = await stand({ cards: [GOLDEN_CARDS[0]] });
     try {
       seedColumn(st, { id: 9101, boardId: 4001, title: "Колонка 1" });
       const text = await output(kitenLsCommand, [], st.io);
@@ -886,7 +888,7 @@ describe("ls: таблица по умолчанию — состав колон
   });
 
   it("пустая выдача — (нет карточек)", async () => {
-    const st = stand({ cards: [] });
+    const st = await stand({ cards: [] });
     try {
       const text = await output(kitenLsCommand, [], st.io);
       expect(text).toBe("(нет карточек)\n");
@@ -898,7 +900,7 @@ describe("ls: таблица по умолчанию — состав колон
 
 describe("ls: пустая выдача --format/--only-url — пустая строка, --md — только шапка", () => {
   it("--format", async () => {
-    const st = stand({ cards: [] });
+    const st = await stand({ cards: [] });
     try {
       const text = await output(kitenLsCommand, ["--format", "{id}"], st.io);
       expect(text).toBe("");
@@ -908,7 +910,7 @@ describe("ls: пустая выдача --format/--only-url — пустая с�
   });
 
   it("--only-url", async () => {
-    const st = stand({ cards: [] });
+    const st = await stand({ cards: [] });
     try {
       const text = await output(kitenLsCommand, ["--only-url"], st.io);
       expect(text).toBe("");
@@ -918,7 +920,7 @@ describe("ls: пустая выдача --format/--only-url — пустая с�
   });
 
   it("--md", async () => {
-    const st = stand({ cards: [] });
+    const st = await stand({ cards: [] });
     try {
       const text = await output(kitenLsCommand, ["--md"], st.io);
       expect(text).toStrictEqual(
@@ -932,7 +934,7 @@ describe("ls: пустая выдача --format/--only-url — пустая с�
 });
 
 it("ls: --format {url} подставляет web-адрес карточки", async () => {
-  const st = stand({ cards: [GOLDEN_CARDS[0]] });
+  const st = await stand({ cards: [GOLDEN_CARDS[0]] });
   try {
     const text = await output(kitenLsCommand, ["--format", "{url}"], st.io);
     expect(text).toStrictEqual(`${st.baseUrl}/68000001\n`);

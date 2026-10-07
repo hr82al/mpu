@@ -194,7 +194,7 @@ describe("view: JSON — эталон канала, текстовая форм�
   let mr: Awaited<ReturnType<typeof runView>>;
 
   beforeAll(async () => {
-    stand = standWith();
+    stand = await standWith();
     const io = ioTo(stand.baseUrl);
     mr = await runView({ mr: REF, json: true }, io, { runGit: noGit });
   });
@@ -228,7 +228,7 @@ describe("files: JSON — эталон канала, таблица — сумм
   let result: Awaited<ReturnType<typeof runFiles>>;
 
   beforeAll(async () => {
-    stand = standWith();
+    stand = await standWith();
     result = await runFiles(
       { mr: REF, json: true },
       ioTo(stand.baseUrl),
@@ -294,7 +294,7 @@ describe("diff: блоки, пометки статуса и фильтр по �
         ],
       },
     };
-    stand = standWith(renamed);
+    stand = await standWith(renamed);
     io = ioTo(stand.baseUrl);
     all = await runDiff({ mr: REF, file: undefined, json: false }, io, {
       runGit: noGit,
@@ -342,7 +342,7 @@ describe("diff: блоки, пометки статуса и фильтр по �
 });
 
 it("diff: MR без изменённых файлов — не отказ", async () => {
-  const stand = standWith({ changes: { changes: [] } });
+  const stand = await standWith({ changes: { changes: [] } });
   try {
     const result = await runDiff(
       { mr: REF, file: undefined, json: false },
@@ -371,7 +371,7 @@ describe("comments: JSON — эталон канала, таблица и markdo
   let result: Awaited<ReturnType<typeof runComments>>;
 
   beforeAll(async () => {
-    stand = standWith();
+    stand = await standWith();
     io = ioTo(stand.baseUrl);
     result = await runComments(args, io, { runGit: noGit });
   });
@@ -447,7 +447,7 @@ describe("comments: общий тред отличается от инлайно
         type: null,
       }],
     };
-    stand = standWith({ discussions: [general, ...DISCUSSIONS] });
+    stand = await standWith({ discussions: [general, ...DISCUSSIONS] });
     io = ioTo(stand.baseUrl);
     result = await runComments(args, io, { runGit: noGit });
   });
@@ -511,7 +511,7 @@ describe("comments: общий тред отличается от инлайно
         },
       }],
     };
-    const renamedStand = standWith({ discussions: [renamedThread] });
+    const renamedStand = await standWith({ discussions: [renamedThread] });
     try {
       const found = await runComments(
         { ...args, file: "старый" },
@@ -564,7 +564,7 @@ it("comments: системные ноты не видны ни в одной ф�
     },
     ...DISCUSSIONS,
   ];
-  const stand = standWith({ discussions: withSystem });
+  const stand = await standWith({ discussions: withSystem });
   try {
     const result = await runComments(
       {
@@ -596,7 +596,7 @@ describe("show: тред по префиксу, полный id в заголо�
   let thread: Awaited<ReturnType<typeof runShow>>;
 
   beforeAll(async () => {
-    stand = standWith();
+    stand = await standWith();
     io = ioTo(stand.baseUrl);
     thread = await runShow(
       { discussion: "953d39", mr: REF, json: false },
@@ -636,7 +636,7 @@ describe("show: тред по префиксу, полный id в заголо�
 });
 
 it("отказ GitLab: эталон канала с подсказкой по --mr", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     new Response(`{"message":"404 Not found"}`, { status: 404 })
   );
   try {
@@ -656,7 +656,7 @@ it("отказ GitLab: эталон канала с подсказкой по --
 });
 
 it("401: подсказка называет ключ и путь, но не значение токена", async () => {
-  const stand = startFakeGitlab(() =>
+  const stand = await startFakeGitlab(() =>
     new Response(`{"message":"401 Unauthorized"}`, { status: 401 })
   );
   try {
@@ -677,7 +677,7 @@ it("401: подсказка называет ключ и путь, но не з�
 });
 
 it("нераспознанный --mr — ошибка ввода, exit 2, до сети", async () => {
-  const stand = startFakeGitlab(() => {
+  const stand = await startFakeGitlab(() => {
     throw new Error("сети быть не должно");
   });
   try {
@@ -697,7 +697,7 @@ it("нераспознанный --mr — ошибка ввода, exit 2, до 
 
 describe("files: пустой MR и binary-файл — нули, а не отказ", () => {
   it("MR без изменённых файлов", async () => {
-    const stand = standWith({ changes: { changes: [] } });
+    const stand = await standWith({ changes: { changes: [] } });
     try {
       const result = await runFiles(
         { mr: REF, json: false },
@@ -725,7 +725,7 @@ describe("files: пустой MR и binary-файл — нули, а не отк
         }],
       },
     };
-    const stand = standWith(binary);
+    const stand = await standWith(binary);
     try {
       const result = await runFiles(
         { mr: REF, json: false },
@@ -744,7 +744,7 @@ describe("files: пустой MR и binary-файл — нули, а не отк
 it("ни одна подкоманда не делает пишущего запроса", async () => {
   // Первый инвариант спеки: read-семейство ходит только GET'ом, чем бы
   // ни кончился вызов.
-  const stand = standWith();
+  const stand = await standWith();
   try {
     const io = ioTo(stand.baseUrl);
     const options = { runGit: noGit };
@@ -784,7 +784,7 @@ describe("отказ состояния — код 1, отказ ввода — 
     );
 
   it("detached HEAD — DomainError", async () => {
-    const stand = standWith();
+    const stand = await standWith();
     try {
       await rejected(
         () =>
@@ -800,7 +800,7 @@ describe("отказ состояния — код 1, отказ ввода — 
   });
 
   it("пустой --mr — UsageError, а не резолв по ветке", async () => {
-    const stand = standWith();
+    const stand = await standWith();
     try {
       await expect(runView({ mr: "", json: false }, ioTo(stand.baseUrl), {
         runGit: noGit,

@@ -6,6 +6,9 @@
  * программа — здесь же.
  */
 
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { CommandIo } from "../command/mod.ts";
 import type { InvokeJournal, Invoker } from "../entrypoint/mod.ts";
 import type { PictureData, RefusalData } from "../frames/mod.ts";
@@ -50,7 +53,7 @@ const PROPERTIES_PATH = "/api/latest/company/custom-properties";
 const LIVE = new URL("../kiten/testdata/kiten-card/", import.meta.url);
 
 async function liveJson(name: string): Promise<unknown> {
-  return JSON.parse(await Deno.readTextFile(new URL(name, LIVE)));
+  return JSON.parse(await readFile(new URL(name, LIVE), "utf8"));
 }
 
 /**
@@ -107,7 +110,7 @@ export async function withStand(
   fn: (stand: Stand) => Promise<void>,
   listed: () => void = () => {},
 ) {
-  const fake = startFakeKaiten((seen) => {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     if (last.pathname === "/api/latest/users/current") {
       return Response.json({ id: 9001, full_name: "Тест", username: "t" });
@@ -129,7 +132,7 @@ export async function withStand(
       postedOf(seen).length,
     );
   });
-  const dir = await Deno.makeTempDir();
+  const dir = await mkdtemp(join(tmpdir(), "mpu-"));
   const values: Readonly<Record<string, string>> = {
     KITEN_API_KEY: "probe-key",
     KITEN_BASE_URL: fake.baseUrl,
@@ -152,7 +155,7 @@ export async function withStand(
     });
   } finally {
     await fake.stop();
-    await Deno.remove(dir, { recursive: true });
+    await rm(dir, { recursive: true });
   }
 }
 

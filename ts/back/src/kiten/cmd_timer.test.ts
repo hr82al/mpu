@@ -155,12 +155,12 @@ interface Stand {
   readonly stop: () => Promise<void>;
 }
 
-function stand(
+async function stand(
   routes: Routes,
   extraEnv: Readonly<Record<string, string>> = {},
-): Stand {
+): Promise<Stand> {
   const notes: string[] = [];
-  const fake = startFakeKaiten((seen) => {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     const route = routes[`${last.method} ${last.pathname}`];
     return route === undefined
@@ -225,7 +225,7 @@ function conflictResponse(): Response {
 describe("time start: запуск таймера", () => {
   it("голден строки успеха и состав вызовов", async () => {
     const startedAt = "2026-08-14T19:50:33.000+03:00";
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard()),
       [`POST ${TIMERS_PATH}`]: () =>
         Response.json(rawTimer({ started_at: startedAt })),
@@ -249,7 +249,7 @@ describe("time start: запуск таймера", () => {
   });
 
   it("без --comment ключа комментария в теле нет", async () => {
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard()),
       [`POST ${TIMERS_PATH}`]: () => Response.json(rawTimer()),
     });
@@ -262,7 +262,7 @@ describe("time start: запуск таймера", () => {
   });
 
   it("роли у старта нет: --role не принимается", async () => {
-    const { io, seen, stop } = stand({});
+    const { io, seen, stop } = await stand({});
     try {
       await expect(
         kitenTimeStartCommand.invoke([SELECTOR, "--role", "12058"], io),
@@ -276,7 +276,7 @@ describe("time start: запуск таймера", () => {
   it("конфликт на той же карточке: два действия", async () => {
     const startedAtMs = startedHalfMinuteAgo();
     const started = new Date(startedAtMs).toISOString();
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         Response.json(rawCard({ timer: rawTimer({ started_at: started }) })),
       [`POST ${TIMERS_PATH}`]: conflictResponse,
@@ -303,7 +303,7 @@ describe("time start: запуск таймера", () => {
   });
 
   it("конфликт, а таймера на карточке нет: без подсказки", async () => {
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       // Таймер идёт на другой карточке, и своя отдаёт `timer: null` —
       // назвать чужую нечем, поэтому готовой команды в отказе нет.
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard()),
@@ -324,7 +324,7 @@ describe("time start: запуск таймера", () => {
   });
 
   it("таймер без метки старта: карточка есть, часов нет", async () => {
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         Response.json(rawCard({ timer: rawTimer({ started_at: null }) })),
       [`POST ${TIMERS_PATH}`]: conflictResponse,
@@ -344,7 +344,7 @@ describe("time start: запуск таймера", () => {
 
   it("перечитать карточку не удалось: отказ транспорта", async () => {
     let asked = 0;
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         ++asked === 1
           ? Response.json(rawCard())
@@ -368,7 +368,7 @@ describe("time start: запуск таймера", () => {
 
 describe("time status: чтение без мутаций", () => {
   it("голден: таймер не запущен", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard()),
     });
     try {
@@ -382,7 +382,7 @@ describe("time status: чтение без мутаций", () => {
 
   it("голден: таймер идёт", async () => {
     const startedAtMs = startedHalfMinuteAgo();
-    const { io, baseUrl, stop } = stand({
+    const { io, baseUrl, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         Response.json(rawCard({
           timer: rawTimer({
@@ -402,7 +402,7 @@ describe("time status: чтение без мутаций", () => {
 
   it("голден: таймер с комментарием и ненулевой итог", async () => {
     const startedAtMs = startedHalfMinuteAgo();
-    const { io, baseUrl, stop } = stand({
+    const { io, baseUrl, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         Response.json(rawCard({
           // Итог по карточке считает записи: идущий таймер в него не входит.
@@ -428,7 +428,7 @@ describe("time status: чтение без мутаций", () => {
   });
 
   it("сервер не назвал сумму — итог ноль", async () => {
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       // Поля `time_spent_sum` в ответе нет вовсе: «нет суммы» и «ноль» для
       // вывода одно и то же.
       [`GET ${CARD_PATH}`]: () =>
@@ -443,7 +443,7 @@ describe("time status: чтение без мутаций", () => {
   });
 
   it("отказ Kaiten — доменная ошибка, не паника", async () => {
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => new Response("прилегло", { status: 503 }),
     });
     try {
@@ -462,7 +462,7 @@ describe("time status: чтение без мутаций", () => {
   });
 
   it("голден --json: таймера нет", async () => {
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         Response.json(rawCard({ time_spent_sum: 240 })),
     });
@@ -479,7 +479,7 @@ describe("time stop: остановка с созданием записи", () 
   it("четыре вызова, тело запроса и источники полей", async () => {
     const startedAtMs = startedHalfMinuteAgo();
     const started = new Date(startedAtMs).toISOString();
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         Response.json(rawCard({
           timer: rawTimer({ started_at: started, comment: "разбор жалобы" }),
@@ -518,7 +518,7 @@ describe("time stop: остановка с созданием записи", () 
   });
 
   it("роль печатается названием из справочника", async () => {
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
@@ -541,7 +541,7 @@ describe("time stop: остановка с созданием записи", () 
     // зависит от того, сколько прогон провёл между вызовами.
     const startedAtMs = Date.now() - 19.5 * 60_000;
     const started = new Date(startedAtMs).toISOString();
-    const { io, seen, notes, stop } = stand({
+    const { io, seen, notes, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         Response.json(rawCard({ timer: rawTimer({ started_at: started }) })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
@@ -582,7 +582,7 @@ describe("time stop: остановка с созданием записи", () 
     // оказаться на секунды впереди «сейчас», и это не повод двигать начало
     // и печатать «больше фактических столько же».
     const startedAtMs = startedHalfMinuteAgo();
-    const { io, seen, notes, stop } = stand({
+    const { io, seen, notes, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         Response.json(rawCard({
           timer: rawTimer({
@@ -617,7 +617,7 @@ describe("time stop: остановка с созданием записи", () 
     const startedAtMs = startedHalfMinuteAgo();
     const started = new Date(startedAtMs).toISOString();
     const beforeMs = Date.now();
-    const { io, seen, notes, stop } = stand({
+    const { io, seen, notes, stop } = await stand({
       [`GET ${CARD_PATH}`]: () =>
         Response.json(rawCard({ timer: rawTimer({ started_at: started }) })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
@@ -643,7 +643,7 @@ describe("time stop: остановка с созданием записи", () 
   });
 
   it("день записи разошёлся с московским", async () => {
-    const { io, notes, stop } = stand({
+    const { io, notes, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
@@ -667,7 +667,7 @@ describe("time stop: остановка с созданием записи", () 
   });
 
   it("записи нет в списке — строка с одним id", async () => {
-    const { io, baseUrl, stop } = stand({
+    const { io, baseUrl, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
@@ -686,7 +686,7 @@ describe("time stop: остановка с созданием записи", () 
   });
 
   it("роли нет в справочнике — печатается её id", async () => {
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () =>
@@ -703,7 +703,7 @@ describe("time stop: остановка с созданием записи", () 
   });
 
   it("сервер не назвал id записи — короткая строка", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`GET ${ROLES_PATH}`]: () => Response.json(ROLES),
       [`PATCH ${TIMER_PATH}`]: () => Response.json(stoppedTimer()),
@@ -720,7 +720,7 @@ describe("time stop: остановка с созданием записи", () 
   });
 
   it("таймер не запущен — отказ с готовой командой", async () => {
-    const { io, seen, stop } = stand({
+    const { io, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard()),
     });
     try {
@@ -736,7 +736,7 @@ describe("time stop: остановка с созданием записи", () 
   });
 
   it("длительность разбирается до сети", async () => {
-    const { io, seen, stop } = stand({});
+    const { io, seen, stop } = await stand({});
     try {
       expect(
         await errorText(
@@ -757,7 +757,7 @@ describe("time stop: остановка с созданием записи", () 
 
 describe("time discard: сброс без записи", () => {
   it("голден сброса идущего таймера", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`DELETE ${TIMER_PATH}`]: () => new Response(null, { status: 204 }),
     });
@@ -774,7 +774,7 @@ describe("time discard: сброс без записи", () => {
   });
 
   it("отказ сброса — доменная ошибка, не паника", async () => {
-    const { io, stop } = stand({
+    const { io, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard({ timer: rawTimer() })),
       [`DELETE ${TIMER_PATH}`]: () => new Response("нельзя", { status: 403 }),
     });
@@ -794,7 +794,7 @@ describe("time discard: сброс без записи", () => {
   });
 
   it("идемпотентность: сбрасывать нечего — успех", async () => {
-    const { io, baseUrl, seen, stop } = stand({
+    const { io, baseUrl, seen, stop } = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard()),
     });
     try {

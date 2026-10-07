@@ -127,8 +127,11 @@ interface Stand {
 }
 
 /** Стенд: фейковый Kaiten, env-файл под него и кэш-БД во временном каталоге. */
-function stand(routes: Routes, env: Record<string, string> = {}): Stand {
-  const fake = startFakeKaiten((seen) => {
+async function stand(
+  routes: Routes,
+  env: Record<string, string> = {},
+): Promise<Stand> {
+  const fake = await startFakeKaiten((seen) => {
     const last = seen[seen.length - 1];
     const route = routes[`${last.method} ${last.pathname}`];
     return route === undefined
@@ -172,7 +175,7 @@ function cardStand(
   card: Record<string, unknown>,
   extra: Routes = {},
   env: Record<string, string> = {},
-): Stand {
+): Promise<Stand> {
   return stand({
     [`GET ${CARD_PATH}`]: () => Response.json(card),
     [`GET ${COLUMNS_PATH}`]: () => Response.json(COLUMNS),
@@ -205,7 +208,7 @@ function movingStand(
   after: Record<string, unknown>,
   columnId: number,
   env: Record<string, string> = {},
-): Stand {
+): Promise<Stand> {
   let moved = false;
   return stand({
     [`GET ${CARD_PATH}`]: () => Response.json(moved ? after : before),
@@ -251,7 +254,7 @@ function moveRows(stand: Stand): readonly Record<string, unknown>[] {
 
 describe("close --dry-run: план целиком, без единой мутации", () => {
   it("полный план — голден побайтово", async () => {
-    const st = cardStand(rawCard());
+    const st = await cardStand(rawCard());
     try {
       expect(
         await output([
@@ -278,7 +281,7 @@ describe("close --dry-run: план целиком, без единой мута
   });
 
   it("--no-move — голден и одно чтение", async () => {
-    const st = cardStand(rawCard());
+    const st = await cardStand(rawCard());
     try {
       expect(await output([SELECTOR, "--no-move", "--dry-run"], st.io))
         .toStrictEqual(
@@ -292,7 +295,7 @@ describe("close --dry-run: план целиком, без единой мута
   });
 
   it("карточка уже в целевой колонке — план релога", async () => {
-    const st = cardStand(
+    const st = await cardStand(
       rawCard({ column: { id: READY_COLUMN_ID, title: "Готово" } }),
     );
     try {
@@ -307,7 +310,7 @@ describe("close --dry-run: план целиком, без единой мута
 
   it("идущий таймер без флага — строка предупреждения", async () => {
     const startedAtMs = startedHalfMinuteAgo();
-    const st = cardStand(rawCard({ timer: rawTimer(startedAtMs) }));
+    const st = await cardStand(rawCard({ timer: rawTimer(startedAtMs) }));
     try {
       expect(await output([SELECTOR, "--no-move", "--dry-run"], st.io))
         .toContain(
@@ -325,7 +328,7 @@ describe("close --dry-run: план целиком, без единой мута
 
   it("--stop-timer — план остановки с длительностью", async () => {
     const startedAtMs = startedHalfMinuteAgo();
-    const st = cardStand(rawCard({ timer: rawTimer(startedAtMs) }));
+    const st = await cardStand(rawCard({ timer: rawTimer(startedAtMs) }));
     try {
       expect(
         await output(
@@ -344,7 +347,7 @@ describe("close --dry-run: план целиком, без единой мута
   });
 
   it("таймер без метки старта — «с ?» и без длительности", async () => {
-    const st = cardStand(
+    const st = await cardStand(
       rawCard({
         timer: { id: TIMER_ID, card_id: CARD_ID, started_at: null },
       }),
@@ -364,7 +367,7 @@ describe("close --dry-run: план целиком, без единой мута
 
 describe("close: поля пишутся по одному и только в пустые", () => {
   it("три поля — голден и три PATCH", async () => {
-    const st = cardStand(rawCard(), {
+    const st = await cardStand(rawCard(), {
       [`PATCH ${CARD_PATH}`]: () => Response.json(rawCard()),
     });
     try {
@@ -398,7 +401,7 @@ describe("close: поля пишутся по одному и только в п
   });
 
   it("заполненное поле пропускается — голден", async () => {
-    const st = cardStand(
+    const st = await cardStand(
       rawCard({ properties: { [HYPOTHESIS]: "уже написано" } }),
     );
     try {
@@ -414,7 +417,7 @@ describe("close: поля пишутся по одному и только в п
   });
 
   it("значение из пробелов — поле считается пустым", async () => {
-    const st = cardStand(rawCard({ properties: { [DONE]: "   " } }), {
+    const st = await cardStand(rawCard({ properties: { [DONE]: "   " } }), {
       [`PATCH ${CARD_PATH}`]: () => Response.json(rawCard()),
     });
     try {
@@ -426,7 +429,7 @@ describe("close: поля пишутся по одному и только в п
   });
 
   it("--force-fields пишет поверх заполненного", async () => {
-    const st = cardStand(rawCard({ properties: { [DONE]: "старое" } }), {
+    const st = await cardStand(rawCard({ properties: { [DONE]: "старое" } }), {
       [`PATCH ${CARD_PATH}`]: () => Response.json(rawCard()),
     });
     try {
@@ -471,7 +474,7 @@ describe("close --stop-timer: запись создаётся и перечит�
 
   it("голден строки таймера и состав вызовов", async () => {
     const startedAtMs = startedHalfMinuteAgo();
-    const st = cardStand(
+    const st = await cardStand(
       rawCard({ timer: rawTimer(startedAtMs) }),
       routes(startedAtMs),
     );
@@ -502,7 +505,7 @@ describe("close --stop-timer: запись создаётся и перечит�
 
   it("роль берётся из env-файла, а не из подсказки", async () => {
     const startedAtMs = startedHalfMinuteAgo();
-    const st = cardStand(
+    const st = await cardStand(
       rawCard({ timer: rawTimer(startedAtMs) }),
       {
         ...routes(startedAtMs),
@@ -525,7 +528,7 @@ describe("close --stop-timer: запись создаётся и перечит�
 
   it("сервер не назвал id записи — факт остановки виден", async () => {
     const startedAtMs = startedHalfMinuteAgo();
-    const st = cardStand(rawCard({ timer: rawTimer(startedAtMs) }), {
+    const st = await cardStand(rawCard({ timer: rawTimer(startedAtMs) }), {
       [`GET ${ROLES_PATH}`]: () =>
         Response.json([{ id: ROLE_ID, name: "Техподдержка" }]),
       [`PATCH ${TIMER_PATH}`]: () => Response.json(rawTimer(startedAtMs)),
@@ -542,7 +545,7 @@ describe("close --stop-timer: запись создаётся и перечит�
   });
 
   it("таймера нет — шаг молча пропущен", async () => {
-    const st = cardStand(rawCard());
+    const st = await cardStand(rawCard());
     try {
       expect(await output([SELECTOR, "--no-move", "--stop-timer"], st.io)).toBe(
         "ok close: поля [—]\n",
@@ -555,7 +558,7 @@ describe("close --stop-timer: запись создаётся и перечит�
 
   it("без флага таймер не трогается — предупреждение", async () => {
     const startedAtMs = startedHalfMinuteAgo();
-    const st = cardStand(rawCard({ timer: rawTimer(startedAtMs) }));
+    const st = await cardStand(rawCard({ timer: rawTimer(startedAtMs) }));
     try {
       expect(await output([SELECTOR, "--no-move"], st.io)).toBe(
         "ok close: поля [—]\n",
@@ -582,7 +585,7 @@ describe("close: ответ клиенту — комментарий без в�
   };
 
   it("@all раскрыт во владельца; текст уходит раскрытым", async () => {
-    const st = cardStand(rawCard(), commentRoute);
+    const st = await cardStand(rawCard(), commentRoute);
     try {
       expect(
         await output([
@@ -603,7 +606,7 @@ describe("close: ответ клиенту — комментарий без в�
   });
 
   it("владельца нет — предупреждение, @all остаётся", async () => {
-    const st = cardStand(rawCard({ owner: null }), commentRoute);
+    const st = await cardStand(rawCard({ owner: null }), commentRoute);
     try {
       expect(
         await output([SELECTOR, "--reply", "@all готово", "--no-move"], st.io),
@@ -618,7 +621,7 @@ describe("close: ответ клиенту — комментарий без в�
   });
 
   it("предупреждение о владельце печатается и в плане", async () => {
-    const st = cardStand(rawCard({ owner: null }));
+    const st = await cardStand(rawCard({ owner: null }));
     try {
       expect(
         await output([
@@ -636,7 +639,7 @@ describe("close: ответ клиенту — комментарий без в�
   });
 
   it("текст из stdin", async () => {
-    const st = cardStand(rawCard(), commentRoute);
+    const st = await cardStand(rawCard(), commentRoute);
     const io = {
       ...st.io,
       readStdin: () => Promise.resolve(new TextEncoder().encode("из пайпа")),
@@ -653,7 +656,7 @@ describe("close: ответ клиенту — комментарий без в�
 describe("close: перенос — PATCH, свежее чтение и строка журнала", () => {
   it("обычное перемещение: один PATCH и ok-строка", async () => {
     const after = rawCard({ column: { id: READY_COLUMN_ID, title: "Готово" } });
-    const st = movingStand(rawCard(), after, READY_COLUMN_ID);
+    const st = await movingStand(rawCard(), after, READY_COLUMN_ID);
     try {
       expect(await output([SELECTOR], st.io)).toStrictEqual(
         `ok close: поля [—]\nok: Проекты · Бэклог · Разработка → ` +
@@ -684,7 +687,7 @@ describe("close: перенос — PATCH, свежее чтение и стро
     const card = rawCard({
       column: { id: READY_COLUMN_ID, title: "Готово" },
     });
-    const st = movingStand(card, card, READY_COLUMN_ID);
+    const st = await movingStand(card, card, READY_COLUMN_ID);
     try {
       expect(await output([SELECTOR], st.io)).toContain(
         `Проекты · Готово · Разработка (релог) · ${st.baseUrl}/${CARD_ID}\n`,
@@ -703,7 +706,7 @@ describe("close: перенос — PATCH, свежее чтение и стро
     const card = rawCard({
       column: { id: CURRENT_COLUMN_ID, title: "Бэклог" },
     });
-    const st = movingStand(card, card, CURRENT_COLUMN_ID);
+    const st = await movingStand(card, card, CURRENT_COLUMN_ID);
     try {
       await output([SELECTOR, "--column", "Бэклог"], st.io);
       expect(bodies(st.seen)).toStrictEqual([
@@ -717,7 +720,7 @@ describe("close: перенос — PATCH, свежее чтение и стро
 
   it("релог на доске с одной колонкой — exit 2", async () => {
     const card = rawCard({ column: { id: READY_COLUMN_ID, title: "Готово" } });
-    const st = stand({
+    const st = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(card),
       [`GET ${COLUMNS_PATH}`]: () => Response.json([COLUMNS[0]]),
     });
@@ -738,7 +741,7 @@ describe("close: перенос — PATCH, свежее чтение и стро
 
   it("колонка из env-файла", async () => {
     const after = rawCard({ column: { id: 5000003, title: "В работе" } });
-    const st = movingStand(rawCard(), after, 5000003, {
+    const st = await movingStand(rawCard(), after, 5000003, {
       KITEN_READY_COLUMN: "В работе",
     });
     try {
@@ -750,7 +753,7 @@ describe("close: перенос — PATCH, свежее чтение и стро
   });
 
   it("--no-move: ни PATCH, ни строки журнала", async () => {
-    const st = cardStand(rawCard());
+    const st = await cardStand(rawCard());
     try {
       await output([SELECTOR, "--no-move"], st.io);
       expect(calls(st.seen)).toStrictEqual([`GET ${CARD_PATH}`]);
@@ -764,7 +767,7 @@ describe("close: перенос — PATCH, свежее чтение и стро
 
 describe("close: ошибки ввода — до первой мутации", () => {
   it("оба источника ответа — голден текста", async () => {
-    const st = stand({});
+    const st = await stand({});
     try {
       const err = await rejected(() =>
         kitenCloseCommand.invoke(
@@ -781,7 +784,7 @@ describe("close: ошибки ввода — до первой мутации", 
   });
 
   it("пустой текст ответа — голден текста", async () => {
-    const st = stand({});
+    const st = await stand({});
     try {
       const err = await rejected(() =>
         kitenCloseCommand.invoke(
@@ -798,7 +801,7 @@ describe("close: ошибки ввода — до первой мутации", 
   });
 
   it("нечитаемый --reply-file — префикс причины", async () => {
-    const st = stand({});
+    const st = await stand({});
     try {
       const err = await rejected(() =>
         kitenCloseCommand.invoke(
@@ -814,7 +817,7 @@ describe("close: ошибки ввода — до первой мутации", 
 
   it("колонка не резолвится — голден и ни одной мутации", async () => {
     const startedAtMs = startedHalfMinuteAgo();
-    const st = cardStand(rawCard({ timer: rawTimer(startedAtMs) }));
+    const st = await cardStand(rawCard({ timer: rawTimer(startedAtMs) }));
     try {
       const err = await rejected(() =>
         kitenCloseCommand.invoke([
@@ -842,7 +845,7 @@ describe("close: ошибки ввода — до первой мутации", 
   });
 
   it("числовая колонка чужой доски — тот же отказ", async () => {
-    const st = cardStand(rawCard());
+    const st = await cardStand(rawCard());
     try {
       const err = await rejected(() =>
         kitenCloseCommand.invoke(
@@ -858,7 +861,7 @@ describe("close: ошибки ввода — до первой мутации", 
   });
 
   it("неоднозначная колонка — кандидаты списком", async () => {
-    const st = cardStand(rawCard());
+    const st = await cardStand(rawCard());
     try {
       const err = await rejected(() =>
         kitenCloseCommand.invoke(
@@ -873,7 +876,7 @@ describe("close: ошибки ввода — до первой мутации", 
 
   it("числовая колонка своей доски — резолв без поиска", async () => {
     const after = rawCard({ column: { id: 5000003, title: "В работе" } });
-    const st = movingStand(rawCard(), after, 5000003);
+    const st = await movingStand(rawCard(), after, 5000003);
     try {
       await output([SELECTOR, "--column", "5000003"], st.io);
       expect(bodies(st.seen)).toStrictEqual([{ column_id: 5000003 }]);
@@ -883,7 +886,7 @@ describe("close: ошибки ввода — до первой мутации", 
   });
 
   it("у карточки нет доски — переносить некуда", async () => {
-    const st = cardStand(rawCard({ board: null }));
+    const st = await cardStand(rawCard({ board: null }));
     try {
       const err = await rejected(
         () => kitenCloseCommand.invoke([SELECTOR], st.io),
@@ -897,7 +900,7 @@ describe("close: ошибки ввода — до первой мутации", 
   });
 
   it("колонки доски не прочитались — отказ API", async () => {
-    const st = stand({
+    const st = await stand({
       [`GET ${CARD_PATH}`]: () => Response.json(rawCard()),
       [`GET ${COLUMNS_PATH}`]: () => new Response("boom", { status: 500 }),
     });
@@ -913,7 +916,7 @@ describe("close: ошибки ввода — до первой мутации", 
   });
 
   it("селектор без числового сегмента", async () => {
-    const st = stand({});
+    const st = await stand({});
     try {
       await expect(kitenCloseCommand.invoke(["abc"], st.io)).rejects.toThrow(
         UsageError,
@@ -929,7 +932,7 @@ describe("close: отказ шага назван в тексте ошибки",
   const failure = () => new Response("boom", { status: 500 });
 
   it("стартовое чтение — без маркера шага", async () => {
-    const st = stand({ [`GET ${CARD_PATH}`]: failure });
+    const st = await stand({ [`GET ${CARD_PATH}`]: failure });
     try {
       const err = await rejected(
         () => kitenCloseCommand.invoke([SELECTOR, "--no-move"], st.io),
@@ -944,7 +947,7 @@ describe("close: отказ шага назван в тексте ошибки",
 
   it("таймер — маркер (таймер)", async () => {
     const startedAtMs = startedHalfMinuteAgo();
-    const st = cardStand(rawCard({ timer: rawTimer(startedAtMs) }), {
+    const st = await cardStand(rawCard({ timer: rawTimer(startedAtMs) }), {
       [`GET ${ROLES_PATH}`]: () => Response.json([]),
       [`PATCH ${TIMER_PATH}`]: failure,
     });
@@ -962,7 +965,7 @@ describe("close: отказ шага назван в тексте ошибки",
 
   it("поля — маркер (поля), таймер уже остановлен", async () => {
     const startedAtMs = startedHalfMinuteAgo();
-    const st = cardStand(rawCard({ timer: rawTimer(startedAtMs) }), {
+    const st = await cardStand(rawCard({ timer: rawTimer(startedAtMs) }), {
       [`GET ${ROLES_PATH}`]: () =>
         Response.json([{ id: ROLE_ID, name: "Техподдержка" }]),
       [`PATCH ${TIMER_PATH}`]: () =>
@@ -988,7 +991,7 @@ describe("close: отказ шага назван в тексте ошибки",
   });
 
   it("ответ — маркер (ответ), поля уже записаны", async () => {
-    const st = cardStand(rawCard(), {
+    const st = await cardStand(rawCard(), {
       [`PATCH ${CARD_PATH}`]: () => Response.json(rawCard()),
       [`POST ${COMMENTS_PATH}`]: failure,
     });
@@ -1014,7 +1017,7 @@ describe("close: отказ шага назван в тексте ошибки",
   });
 
   it("перенос — формат move, без маркера и без журнала", async () => {
-    const st = cardStand(rawCard(), { [`PATCH ${CARD_PATH}`]: failure });
+    const st = await cardStand(rawCard(), { [`PATCH ${CARD_PATH}`]: failure });
     try {
       const err = await rejected(
         () => kitenCloseCommand.invoke([SELECTOR], st.io),

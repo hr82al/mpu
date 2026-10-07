@@ -8,6 +8,8 @@
  * `main.ts` недостижим (тот же приём, что у `../gitlab/testing.ts`).
  */
 
+import { serveFetch } from "../testing/http.ts";
+
 /** Запрос, как его увидел сервер. */
 export interface CapturedRequest {
   readonly method: string;
@@ -28,14 +30,13 @@ export interface FakeSlback {
 /**
  * Поднимает стенд на 127.0.0.1; ответ выбирает `reply`, получая уже
  * накопленные запросы (номер вызова — их количество). Гасить
- * `await stop()` в `finally`: незакрытый сервер — красный санитайзер.
+ * `await stop()` в `finally`: незакрытый сервер держит процесс.
  */
-export function startFakeSlback(
+export async function startFakeSlback(
   reply: (seen: readonly CapturedRequest[]) => Response | Promise<Response>,
-): FakeSlback {
+): Promise<FakeSlback> {
   const seen: CapturedRequest[] = [];
-  const server = Deno.serve(
-    { port: 0, hostname: "127.0.0.1", onListen: () => {} },
+  const server = await serveFetch(
     async (req) => {
       const url = new URL(req.url);
       seen.push({
@@ -50,9 +51,9 @@ export function startFakeSlback(
     },
   );
   return {
-    baseUrl: `http://127.0.0.1:${server.addr.port}`,
+    baseUrl: server.baseUrl,
     seen,
-    stop: () => server.shutdown(),
+    stop: () => server.stop(),
   };
 }
 

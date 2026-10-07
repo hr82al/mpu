@@ -192,7 +192,7 @@ function planTo(relog: boolean): MovePlan {
 
 describe("applyMove: положение «после» — по свежему GET", () => {
   it("перемещение: PATCH, затем чтение карточки", async () => {
-    const fake = startFakeKaiten((seen) =>
+    const fake = await startFakeKaiten((seen) =>
       Response.json(
         seen[seen.length - 1].method === "PATCH"
           ? rawPatched()
@@ -223,7 +223,7 @@ describe("applyMove: положение «после» — по свежему G
   });
 
   it("релог: два PATCH и одно чтение — в конце", async () => {
-    const fake = startFakeKaiten((seen) =>
+    const fake = await startFakeKaiten((seen) =>
       Response.json(
         seen[seen.length - 1].method === "PATCH"
           ? rawPatched()

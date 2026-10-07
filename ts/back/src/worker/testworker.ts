@@ -5,7 +5,7 @@
  * команды и без процесса.
  */
 
-import { type ExitStatus, killedStatus } from "./death.ts";
+import { type ExitStatus, killedStatus, type StopSignal } from "./death.ts";
 import {
   encode,
   type HostFrame,
@@ -19,7 +19,7 @@ import { memoryWires } from "./wire.ts";
 export class ScriptedWorker {
   readonly spawned: Spawned;
   /** Сигналы, которые прислало ядро, по порядку. */
-  readonly signals: Deno.Signal[] = [];
+  readonly signals: StopSignal[] = [];
   readonly #lines: AsyncIterator<string>;
   readonly #send: (text: string) => Promise<void>;
   readonly #close: () => Promise<void>;
