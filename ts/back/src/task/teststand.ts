@@ -4,7 +4,7 @@
  * временном каталоге; «агент» — канал без человека.
  */
 
-import { assertEquals } from "@std/assert";
+import { deepStrictEqual } from "node:assert/strict";
 import type { CacheDb, CommandIo } from "../command/mod.ts";
 import type { InvokeJournal } from "../entrypoint/mod.ts";
 import { NO_INVOKE_LOG } from "../invokelog/mod.ts";
@@ -108,7 +108,7 @@ export function withStand(
 }
 
 export function expect(run: Run, code: number, stdout: string, stderr: string) {
-  assertEquals(
+  deepStrictEqual(
     { code: run.code, stdout: run.stdout, stderr: run.stderr },
     { code, stdout, stderr },
   );
