@@ -16,8 +16,8 @@ Vitest — 411 файлов, 7504 случая; под `deno test` — 15 фай
 
 1. Один модуль тестовых помощников `back/src/testing/`: стенд HTTP на петле
    (сегодня — `serveLoopback`/`listenLoopback` в `back/src/exec/testserve.ts`
-   и `serveFetch` в `back/src/testing/http.ts`), пойманная ошибка
-   (`thrown`/`rejected` в `back/src/testing/thrown.ts` и ручные
+   и `serveFetch` в `back/src/testing/http.ts`; с H2 — `@mpu/testing`), пойманная ошибка
+   (`thrown`/`rejected` в `back/src/testing/thrown.ts`, с H2 `rejected` — в `@mpu/testing` и ручные
    `try/catch` + `assert(err instanceof …)` порций V2–V4), строки SQLite без
    прототипа (`plainRows` в `back/src/testing/cache.ts`, `plainRows` в
    `kaiten/kaiten.test.ts`, `aliasRowsOf` в `sheet/registry_cmd.test.ts`,

@@ -90,7 +90,7 @@ E4:
     — в `back/scripts` вместе со сборкой (до E4 модуль закоммичен, сверку с
     пакетом держит `crypto.test.ts`); `--include *.wasm` и сами `.wasm` у
     `compile:*` снимаются; `telegram/bot.test.ts` — локальный сервер на петле →
-    `serveFetch` из `back/src/testing/http.ts` (дубль остался после слияния с
+    `serveFetch` из `back/src/testing/http.ts` (с H2 — `@mpu/testing`) (дубль остался после слияния с
     V6). Известные отклонения пути HTTP от прежнего `fetch` (вердикт
     preserve — голденов нет, поведение команд то же): нет `User-Agent` и
     `accept-encoding`; текст сетевого отказа `connect ECONNREFUSED …` вместо

@@ -29,7 +29,8 @@ HTTP-сервер и `rejected` после H1 живут в двух копия�
 1. `cd tslibs/testing && bun install && bun run gate` → зелёно (договор пакета
    [S.1]–[S.4], [S.10]).
 2. `rg -n "serveFetch|listenLoopback|closedPort|export async function rejected" ts/back/src tslibs/http/src`
-   → определений нет, только импорты из `@mpu/testing`.
+   → определений помощников нет, только импорты из `@mpu/testing`
+   (`serveFetch` рабочего сервера в `backend/loopback.ts` — не помощник, остаётся).
 3. `ts/back/src/testing/http.ts`, `ts/back/src/testing/thrown.ts`,
    `tslibs/http/src/testing/` удалены; `tslibs/http/package.json` без
    точки входа `./testing`, если ничего, кроме этих помощников, в ней не было.
