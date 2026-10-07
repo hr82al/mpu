@@ -1,6 +1,6 @@
 # Порция T1 — Telegram (MTProto и Bot API) библиотекой `tslibs/telegram`
 
-Статус: к реализации после H1 (2026-10-07). Клиент уже на `@mtcute/node`, криптография — модулем `wasm_modules.ts`, тесты на Vitest (порция E3) — T1 выносит домен в пакет `tslibs/telegram`, зависящий от `@mpu/http`. Гибрид владельца 2026-10-07: TS-домены — пакеты в монолите.
+Статус: к реализации после H1 и H2 (2026-10-07). Клиент уже на `@mtcute/node`, криптография — модулем `wasm_modules.ts`, тесты на Vitest (порция E3) — T1 выносит домен в пакет `tslibs/telegram`, зависящий от `@mpu/http`. Гибрид владельца 2026-10-07: TS-домены — пакеты в монолите.
 H1 (`@mpu/http`). Договор пакета — `platform/tslibs-package.md`; поведение
 команд — `platform/telegram-mtproto.md` и спеки `telegram-*` (не меняется).
 План — этапы 3 и 4 одной порцией: домен уходит с `Deno.*` и выносится.
@@ -33,7 +33,7 @@ H1 (`@mpu/http`). Договор пакета — `platform/tslibs-package.md`; 
 `cmd_file.ts`, а `errors.ts` — слой команд) проектирует исполнитель —
 `.tmp/design-T1.md` до кода.
 
-Факты распутывания (снято с `main` до E3, 2026-10-07; пересверить на `main` перед порцией): без зависимостей от слоя
+Факты распутывания (снято с `main` до E3, 2026-10-07; исполнитель пересверяет на `main` в design-T1): без зависимостей от слоя
 команд — `chat`, `client`, `crypto`, `inbox`, `lookup`, `markdown`,
 `media_file`, `message`, `message_file`, `peer`, `platform`, `search_reply`,
 `send`, `search` (через `resolve`, `search_plan`); с зависимостью —
@@ -49,9 +49,11 @@ H1 (`@mpu/http`). Договор пакета — `platform/tslibs-package.md`; 
    листовых случаев `back/src/telegram` до = объединение списков после
    (библиотека + `ts/`), строка в строку.
 3. `rg -n 'Deno\.|Bun\.' tslibs/telegram/src` → пусто; в `ts/` — ни одного
-   импорта `@mtcute/*`, `deno.jsonc` без записей `@mtcute/*`.
+   импорта `@mtcute/*`, `ts/package.json` без `@mtcute/*`.
 4. `ts/package.json` → `"@mpu/telegram": "file:../tslibs/telegram/release/mpu-telegram-0.1.0.tgz"`;
-   гейты `ts/` зелёные, `deno task smoke` зелёный.
+   гейты `ts/` зелёные, `bun run smoke` зелёный. Тестовые помощники
+   (`serveFetch`, `rejected`) — из `@mpu/testing` (`devDependency` архивом), своих
+   копий нет.
 5. Голдены команд `telegram send|ls|search|status|log|file|login` в `ts/` —
    без изменений и зелёные.
 6. Бинарь `bun build --compile` пробного входа библиотеки (в её тестах или
@@ -61,7 +63,11 @@ H1 (`@mpu/http`). Договор пакета — `platform/tslibs-package.md`; 
    — прежний текст отказа команды дословно (существующие голдены).
 8. Секреты (строка сессии, `apiHash`, токен бота) не появляются ни в выводе,
    ни в тексте ошибки, ни в журнале — существующие тесты зелёные.
-9. Живьём (хост после установки): `mpu telegram ls limit: 3`,
+9. `bun run check:release` на свежем клоне (без `dist/`) сам собирает архив и
+   сверяет его — в `tslibs/http`, `tslibs/testing` и `tslibs/telegram`
+   (договор [S.10]: «собрать архив»; сегодня без предварительной сборки он
+   ложно красный).
+10. Живьём (хост после установки): `mpu telegram ls limit: 3`,
    `mpu telegram send chat: me text: проба-T1`, `mpu telegram search
    query: проба-T1` — вывод той же формы, что до порции; бот вопросов
    (`claude-hook`) шлёт сообщение в чат.
